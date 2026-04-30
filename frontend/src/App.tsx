@@ -40,7 +40,6 @@ function App() {
   const [uploadCategory, setUploadCategory] = useState('');
   const [isUploading, setIsUploading] = useState(false);
 
-  // ÚJ ÁLLAPOTOK A KÉP CÍMÉNEK SZERKESZTÉSÉHEZ
   const [editingEntryId, setEditingEntryId] = useState<number | null>(null);
   const [editEntryTitle, setEditEntryTitle] = useState('');
 
@@ -159,7 +158,6 @@ function App() {
     } catch (error) { alert("Hiba"); } finally { setIsUploading(false); }
   };
 
-  // ÚJ: KÉP CÍMÉNEK MENTÉSE
   const handleUpdateEntryTitle = async (entryId: number) => {
     if (!editEntryTitle) return alert('A cím nem lehet üres!');
     const res = await fetch(`${BACKEND_URL}/api/entries/${entryId}`, {
@@ -345,6 +343,7 @@ function App() {
                           <ul style={{ padding: 0, listStyle: 'none' }}>{contestJury.map(jury => <li key={jury.user_email} style={{ display: 'flex', justifyContent: 'space-between', background: '#1e293b', padding: '10px', borderRadius: '6px', marginBottom: '5px' }}><span>{allUsers.find(u => u.email === jury.user_email)?.name || jury.user_email}</span><button onClick={() => handleRemoveJury(contest.id, jury.user_email)} style={{ background: 'transparent', color: '#ef4444', border: 'none', cursor: 'pointer' }}>Töröl</button></li>)}</ul>
                           <button onClick={() => setManageJuryContestId(null)} style={{ marginTop: '10px', background: 'transparent', color: '#94a3b8', border: '1px solid #475569', padding: '5px 15px', borderRadius: '6px', cursor: 'pointer' }}>Vissza</button>
                        </div>
+
                     ) : viewStatsContestId === contest.id ? (
                       <div style={{ background: '#0f172a', padding: '20px', borderRadius: '8px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #334155', paddingBottom: '15px', marginBottom: '20px' }}>
@@ -373,6 +372,7 @@ function App() {
                           </div>
                         )}
                       </div>
+
                     ) : editContestId === contest.id ? (
                       <div style={{ background: '#0f172a', padding: '15px', borderRadius: '8px' }}>
                         <h4 style={{marginTop: 0, color: '#f59e0b'}}>Pályázat Szerkesztése</h4>
@@ -398,6 +398,7 @@ function App() {
                            <h3 style={{ color: '#f59e0b', margin: 0, fontSize: '1.4rem' }}>🏅 Zsűrizés folyamatban</h3>
                            <span style={{ background: '#1e293b', padding: '6px 15px', borderRadius: '100px', fontSize: '0.9rem', color: '#94a3b8' }}>Hátralévő: {unvotedEntries.length} db</span>
                         </div>
+                        
                         {unvotedEntries.length > 0 ? (
                           <div>
                             {(() => {
@@ -421,6 +422,7 @@ function App() {
                           </div>
                         ) : (
                           <div style={{ padding: '40px 0' }}>
+                            <div style={{ fontSize: '4rem', marginBottom: '10px' }}>🎉</div>
                             <h2 style={{ color: '#10b981', margin: '0 0 10px 0' }}>Minden képet értékeltél!</h2>
                             <button onClick={() => setJudgingContestId(null)} style={{ background: 'transparent', color: '#38bdf8', border: '1px solid #38bdf8', padding: '10px 20px', borderRadius: '6px', cursor: 'pointer', marginTop: '25px' }}>Vissza a pályázatokhoz</button>
                           </div>
@@ -473,13 +475,21 @@ function App() {
                                 </>
                               )}
                             </h3>
-                            <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: '0 0 15px 0', lineHeight: '1.5' }}>{contest.description}</p>
+                            {/* JAVÍTÁS ITT: whiteSpace: 'pre-wrap' a sortörések megtartásához */}
+                            <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: '0 0 15px 0', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>{contest.description}</p>
                           </div>
                           <span style={{ padding: '6px 12px', borderRadius: '100px', fontSize: '0.8rem', background: isActive ? '#10b98120' : isEnded ? '#ef444420' : '#f59e0b20', color: isActive ? '#10b981' : isEnded ? '#ef4444' : '#f59e0b', fontWeight: 'bold' }}>
                             {isActive ? 'Aktív Pályázat' : isEnded ? 'Lezárult' : 'Hamarosan indul'}
                           </span>
                         </div>
                         <p style={{fontSize: '0.85rem', color: '#94a3b8', margin: '0 0 15px 0'}}>📅 {start.getFullYear() > 1970 ? `${start.toLocaleDateString()} - ${end.toLocaleDateString()}` : 'Nincs dátum megadva'}</p>
+
+                        {/* ÚJ: ZSŰRI NEVEK KIÍRÁSA MINDENKINEK LÁTHATÓAN */}
+                        {contestJury.length > 0 && (
+                          <div style={{ fontSize: '0.85rem', color: '#a78bfa', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            <span>⚖️ <strong>Zsűri:</strong> {contestJury.map(j => allUsers.find(u => u.email === j.user_email)?.name || j.user_email).join(', ')}</span>
+                          </div>
+                        )}
 
                         {isUserJury && (
                           <div style={{ background: 'linear-gradient(to right, #f59e0b20, #0f172a)', borderLeft: '4px solid #f59e0b', color: '#f8fafc', padding: '15px 20px', borderRadius: '0 8px 8px 0', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -524,7 +534,6 @@ function App() {
                                         <div key={entry.id} style={{ background: '#0f172a', borderRadius: '12px', overflow: 'hidden', border: '1px solid #334155', transition: 'transform 0.2s' }} onMouseOver={e => e.currentTarget.style.transform = 'translateY(-3px)'} onMouseOut={e => e.currentTarget.style.transform = 'none'}>
                                           <img src={imageUrl} alt={entry.title} onClick={() => setFullscreenImage(imageUrl)} style={{ width: '100%', height: '140px', objectFit: 'cover', backgroundColor: '#1e293b', cursor: 'zoom-in' }} />
                                           
-                                          {/* KÉP SZERKESZTŐ / NÉZET MÓD */}
                                           {editingEntryId === entry.id ? (
                                             <div style={{ padding: '12px' }}>
                                               <input 
