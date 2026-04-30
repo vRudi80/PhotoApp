@@ -12,9 +12,8 @@ function App() {
   const [myEntries, setMyEntries] = useState<any[]>([]);
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [juryList, setJuryList] = useState<any[]>([]);
-  const [clubs, setClubs] = useState<any[]>([]); // ÚJ: Klubok listája
+  const [clubs, setClubs] = useState<any[]>([]);
   
-  // ADMIN NÉZET VÁLTÓ
   const [adminView, setAdminView] = useState<'contests' | 'users' | 'clubs'>('contests');
   const [userClubEdits, setUserClubEdits] = useState<Record<string, string>>({});
   const [newClubName, setNewClubName] = useState('');
@@ -40,6 +39,10 @@ function App() {
   const [uploadTitle, setUploadTitle] = useState('');
   const [uploadCategory, setUploadCategory] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+
+  // ÚJ ÁLLAPOTOK A KÉP CÍMÉNEK SZERKESZTÉSÉHEZ
+  const [editingEntryId, setEditingEntryId] = useState<number | null>(null);
+  const [editEntryTitle, setEditEntryTitle] = useState('');
 
   const [manageJuryContestId, setManageJuryContestId] = useState<number | null>(null);
   const [selectedJuryEmail, setSelectedJuryEmail] = useState('');
@@ -84,7 +87,6 @@ function App() {
     fetchData(); fetchMyEntries(decoded.email);
   };
 
-  // KLUB FUNKCIÓK
   const handleAddClub = async () => {
     if (!newClubName) return;
     const res = await fetch(`${BACKEND_URL}/api/clubs`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: newClubName }) });
@@ -155,6 +157,17 @@ function App() {
       if (res.ok) { alert("Feltöltve!"); setActiveUploadContest(null); setUploadFile(null); setUploadPreview(null); setUploadTitle(''); setUploadCategory(''); fetchMyEntries(user.email); } 
       else { const err = await res.json(); alert(`Hiba: ${err.error}`); }
     } catch (error) { alert("Hiba"); } finally { setIsUploading(false); }
+  };
+
+  // ÚJ: KÉP CÍMÉNEK MENTÉSE
+  const handleUpdateEntryTitle = async (entryId: number) => {
+    if (!editEntryTitle) return alert('A cím nem lehet üres!');
+    const res = await fetch(`${BACKEND_URL}/api/entries/${entryId}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: editEntryTitle, userEmail: user.email })
+    });
+    if (res.ok) { setEditingEntryId(null); fetchMyEntries(user.email); }
+    else alert('Hiba a cím frissítésekor!');
   };
 
   const handleDeleteEntry = async (entryId: number) => {
@@ -232,14 +245,12 @@ function App() {
               </div>
             </div>
           ) : adminView === 'clubs' && user.email === ADMIN_EMAIL ? (
-             /* KLUBOK KEZELÉSE */
              <div>
                <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', color: '#38bdf8' }}>🏷️ Fotóklubok Kezelése</h2>
                <div style={{ background: '#1e293b', padding: '20px', borderRadius: '12px', marginBottom: '20px', border: '1px solid #334155', display: 'flex', gap: '10px' }}>
                   <input placeholder="Új fotóklub neve..." value={newClubName} onChange={e => setNewClubName(e.target.value)} style={{...inputStyle, marginBottom: 0}} />
                   <button onClick={handleAddClub} style={{ background: '#38bdf8', color: '#0f172a', border: 'none', padding: '10px 20px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Hozzáadás</button>
                </div>
-               
                <div style={{ background: '#1e293b', borderRadius: '12px', overflow: 'hidden', border: '1px solid #334155' }}>
                  {clubs.length === 0 ? <div style={{padding: '20px', color: '#94a3b8', textAlign: 'center'}}>Még nincs egyetlen klub sem rögzítve.</div> : null}
                  {clubs.map((c, index) => (
@@ -251,7 +262,6 @@ function App() {
                </div>
              </div>
           ) : adminView === 'users' && user.email === ADMIN_EMAIL ? (
-            /* FELHASZNÁLÓK KEZELÉSE NÉZET (DROP-DOWN LISTÁVAL) */
             <div>
                <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', color: '#38bdf8' }}>👥 Felhasználók és Klubtagságok</h2>
                <div style={{ background: '#1e293b', borderRadius: '12px', overflow: 'hidden', border: '1px solid #334155' }}>
@@ -277,7 +287,6 @@ function App() {
                </div>
             </div>
           ) : (
-            /* PÁLYÁZATOK NÉZET (DEFAULT) */
             <>
               {user.email === ADMIN_EMAIL && (
                 <div style={{ backgroundColor: '#1e293b', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', border: '1px solid #38bdf8' }}>
@@ -336,7 +345,6 @@ function App() {
                           <ul style={{ padding: 0, listStyle: 'none' }}>{contestJury.map(jury => <li key={jury.user_email} style={{ display: 'flex', justifyContent: 'space-between', background: '#1e293b', padding: '10px', borderRadius: '6px', marginBottom: '5px' }}><span>{allUsers.find(u => u.email === jury.user_email)?.name || jury.user_email}</span><button onClick={() => handleRemoveJury(contest.id, jury.user_email)} style={{ background: 'transparent', color: '#ef4444', border: 'none', cursor: 'pointer' }}>Töröl</button></li>)}</ul>
                           <button onClick={() => setManageJuryContestId(null)} style={{ marginTop: '10px', background: 'transparent', color: '#94a3b8', border: '1px solid #475569', padding: '5px 15px', borderRadius: '6px', cursor: 'pointer' }}>Vissza</button>
                        </div>
-
                     ) : viewStatsContestId === contest.id ? (
                       <div style={{ background: '#0f172a', padding: '20px', borderRadius: '8px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #334155', paddingBottom: '15px', marginBottom: '20px' }}>
@@ -365,7 +373,6 @@ function App() {
                           </div>
                         )}
                       </div>
-
                     ) : editContestId === contest.id ? (
                       <div style={{ background: '#0f172a', padding: '15px', borderRadius: '8px' }}>
                         <h4 style={{marginTop: 0, color: '#f59e0b'}}>Pályázat Szerkesztése</h4>
@@ -376,12 +383,10 @@ function App() {
                           <div style={{flex: 1}}><label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Befejezés</label><input type="datetime-local" value={editEnd} onChange={e => setEditEnd(e.target.value)} style={inputStyle} /></div>
                         </div>
                         <input value={editCats} onChange={e => setEditCats(e.target.value)} style={inputStyle} />
-                        
                         <select value={editRestrictedClub} onChange={e => setEditRestrictedClub(e.target.value)} style={{...inputStyle, border: '1px solid #f59e0b'}}>
                           <option value="">🔓 Nyilvános pályázat (Bárki nevezhet)</option>
                           {clubs.map(c => <option key={c.id} value={c.name}>🔒 Zártkörű: {c.name}</option>)}
                         </select>
-                        
                         <div style={{display: 'flex', gap: '10px'}}>
                           <button onClick={handleUpdateContest} style={{ flex: 1, background: '#10b981', color: 'white', border: 'none', padding: '10px', borderRadius: '6px', cursor: 'pointer' }}>Mentés</button>
                           <button onClick={() => setEditContestId(null)} style={{ background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', padding: '10px', borderRadius: '6px', cursor: 'pointer' }}>Mégse</button>
@@ -393,7 +398,6 @@ function App() {
                            <h3 style={{ color: '#f59e0b', margin: 0, fontSize: '1.4rem' }}>🏅 Zsűrizés folyamatban</h3>
                            <span style={{ background: '#1e293b', padding: '6px 15px', borderRadius: '100px', fontSize: '0.9rem', color: '#94a3b8' }}>Hátralévő: {unvotedEntries.length} db</span>
                         </div>
-                        
                         {unvotedEntries.length > 0 ? (
                           <div>
                             {(() => {
@@ -519,10 +523,32 @@ function App() {
                                       return (
                                         <div key={entry.id} style={{ background: '#0f172a', borderRadius: '12px', overflow: 'hidden', border: '1px solid #334155', transition: 'transform 0.2s' }} onMouseOver={e => e.currentTarget.style.transform = 'translateY(-3px)'} onMouseOut={e => e.currentTarget.style.transform = 'none'}>
                                           <img src={imageUrl} alt={entry.title} onClick={() => setFullscreenImage(imageUrl)} style={{ width: '100%', height: '140px', objectFit: 'cover', backgroundColor: '#1e293b', cursor: 'zoom-in' }} />
-                                          <div style={{ padding: '12px' }}>
-                                            <div style={{ fontSize: '1rem', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#f8fafc' }}>{entry.title}</div>
-                                            {!isEnded && <button onClick={() => handleDeleteEntry(entry.id)} style={{ width: '100%', background: '#ef444420', color: '#ef4444', border: 'none', padding: '6px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', marginTop: '12px' }}>Törlés</button>}
-                                          </div>
+                                          
+                                          {/* KÉP SZERKESZTŐ / NÉZET MÓD */}
+                                          {editingEntryId === entry.id ? (
+                                            <div style={{ padding: '12px' }}>
+                                              <input 
+                                                value={editEntryTitle} 
+                                                onChange={e => setEditEntryTitle(e.target.value)} 
+                                                style={{ width: '100%', padding: '6px', marginBottom: '10px', backgroundColor: '#1e293b', border: '1px solid #38bdf8', color: 'white', borderRadius: '4px', boxSizing: 'border-box' }} 
+                                              />
+                                              <div style={{ display: 'flex', gap: '5px' }}>
+                                                <button onClick={() => handleUpdateEntryTitle(entry.id)} style={{ flex: 1, background: '#10b981', color: 'white', border: 'none', padding: '6px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>Mentés</button>
+                                                <button onClick={() => setEditingEntryId(null)} style={{ flex: 1, background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', padding: '6px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>Mégse</button>
+                                              </div>
+                                            </div>
+                                          ) : (
+                                            <div style={{ padding: '12px' }}>
+                                              <div style={{ fontSize: '1rem', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#f8fafc' }}>{entry.title}</div>
+                                              {!isEnded && (
+                                                <div style={{ display: 'flex', gap: '5px', marginTop: '12px' }}>
+                                                  <button onClick={() => { setEditingEntryId(entry.id); setEditEntryTitle(entry.title); }} style={{ flex: 1, background: '#38bdf820', color: '#38bdf8', border: 'none', padding: '6px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>Szerkeszt</button>
+                                                  <button onClick={() => handleDeleteEntry(entry.id)} style={{ flex: 1, background: '#ef444420', color: '#ef4444', border: 'none', padding: '6px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>Törlés</button>
+                                                </div>
+                                              )}
+                                            </div>
+                                          )}
+
                                         </div>
                                       )
                                     })}
