@@ -79,11 +79,7 @@ function App() {
   };
 
   const startEdit = (contest: any) => {
-    setEditContestId(contest.id); 
-    setEditTitle(contest.title); 
-    setEditDesc(contest.description); 
-    setEditCats(contest.categories || '');
-    
+    setEditContestId(contest.id); setEditTitle(contest.title); setEditDesc(contest.description); setEditCats(contest.categories || '');
     const formatDate = (dateStr: string | null) => {
       if (!dateStr) return '';
       try {
@@ -92,9 +88,7 @@ function App() {
         return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0,16);
       } catch (e) { return ''; }
     };
-
-    setEditStart(formatDate(contest.start_date));
-    setEditEnd(formatDate(contest.end_date));
+    setEditStart(formatDate(contest.start_date)); setEditEnd(formatDate(contest.end_date));
   };
 
   const handleUpdateContest = async () => {
@@ -169,22 +163,47 @@ function App() {
       )}
 
       <div style={{ minHeight: '100vh', backgroundColor: '#0f172a', color: '#f8fafc', fontFamily: 'Inter, sans-serif' }}>
-        <header style={{ padding: '1.5rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#1e293b', borderBottom: '1px solid #334155' }}>
+        
+        {/* FEJLÉC */}
+        <header style={{ padding: '1.5rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#1e293b', borderBottom: '1px solid #334155', position: 'sticky', top: 0, zIndex: 10 }}>
           <h1 style={{ margin: 0, fontSize: '1.5rem', color: '#38bdf8' }}>📸 PhotoContest</h1>
-          {user ? (
+          {user && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-              <span>{user.name}</span>
-              <button onClick={() => { googleLogout(); setUser(null); }} style={{ background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer' }}>Kijelentkezés</button>
+              <span style={{ fontWeight: 500 }}>{user.name}</span>
+              <button onClick={() => { googleLogout(); setUser(null); }} style={{ background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.9rem', transition: 'background 0.2s' }} onMouseOver={e => e.currentTarget.style.backgroundColor = '#ef444420'} onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}>Kijelentkezés</button>
             </div>
-          ) : <GoogleLogin onSuccess={(res) => handleLoginSuccess(res.credential!)} />}
+          )}
         </header>
 
-        <main style={{ padding: '2rem', maxWidth: '800px', margin: '0 auto' }}>
-          {!user ? <h2 style={{textAlign: 'center', marginTop: '3rem'}}>Lépj be a pályázatokhoz!</h2> : (
+        {/* FŐTARTALOM */}
+        <main style={{ padding: '2rem', maxWidth: '900px', margin: '0 auto' }}>
+          {!user ? (
+            
+            /* MODERN ÜDVÖZLŐ KÉPERNYŐ */
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '70vh', textAlign: 'center' }}>
+              <div style={{ background: 'linear-gradient(145deg, #1e293b, #0f172a)', padding: '4rem 2rem', borderRadius: '24px', border: '1px solid #334155', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)', maxWidth: '600px', width: '100%' }}>
+                <h1 style={{ fontSize: '3rem', margin: '0 0 1rem 0', background: 'linear-gradient(to right, #38bdf8, #8b5cf6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                  Mutasd meg a világnak!
+                </h1>
+                <p style={{ fontSize: '1.2rem', color: '#94a3b8', marginBottom: '2.5rem', lineHeight: '1.6' }}>
+                  Lépj be, töltsd fel a legjobb fotóidat, nevezz exkluzív pályázatokra, vagy vegyél részt az anonim zsűrizésben.
+                </p>
+                <div style={{ display: 'flex', justifyContent: 'center' }}>
+                  <GoogleLogin onSuccess={(res) => handleLoginSuccess(res.credential!)} shape="pill" size="large" />
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '20px', marginTop: '3rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+                <span style={{ background: '#1e293b', padding: '10px 20px', borderRadius: '100px', fontSize: '0.9rem', border: '1px solid #334155', color: '#38bdf8' }}>🌟 Színvonalas Pályázatok</span>
+                <span style={{ background: '#1e293b', padding: '10px 20px', borderRadius: '100px', fontSize: '0.9rem', border: '1px solid #334155', color: '#8b5cf6' }}>⚖️ Anonim Zsűrizés</span>
+                <span style={{ background: '#1e293b', padding: '10px 20px', borderRadius: '100px', fontSize: '0.9rem', border: '1px solid #334155', color: '#10b981' }}>🏆 Részletes Eredmények</span>
+              </div>
+            </div>
+
+          ) : (
             <>
               {user.email === ADMIN_EMAIL && (
                 <div style={{ backgroundColor: '#1e293b', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', border: '1px solid #38bdf8' }}>
-                  <h3 style={{ marginTop: 0, color: '#38bdf8' }}>⚙️ Új Pályázat</h3>
+                  <h3 style={{ marginTop: 0, color: '#38bdf8' }}>⚙️ Új Pályázat Létrehozása</h3>
                   <input placeholder="Pályázat címe" value={newTitle} onChange={e => setNewTitle(e.target.value)} style={inputStyle} />
                   <textarea placeholder="Leírás" value={newDesc} onChange={e => setNewDesc(e.target.value)} style={{...inputStyle, minHeight: '60px'}} />
                   <div style={{display: 'flex', gap: '10px'}}><div style={{flex: 1}}><label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Kezdés</label><input type="datetime-local" value={newStart} onChange={e => setNewStart(e.target.value)} style={inputStyle} /></div><div style={{flex: 1}}><label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Befejezés</label><input type="datetime-local" value={newEnd} onChange={e => setNewEnd(e.target.value)} style={inputStyle} /></div></div>
@@ -193,7 +212,8 @@ function App() {
                 </div>
               )}
 
-              <h2>Fotópályázatok</h2>
+              <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem' }}>Aktuális Fotópályázatok</h2>
+              
               {contests.map(contest => {
                 const now = new Date();
                 const start = contest.start_date ? new Date(contest.start_date) : new Date(0);
@@ -212,7 +232,7 @@ function App() {
                 myContestEntries.forEach(entry => { if (categoryCounts[entry.category] !== undefined) categoryCounts[entry.category]++; });
 
                 return (
-                  <div key={contest.id} style={{ backgroundColor: '#1e293b', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', border: isActive ? '1px solid #10b981' : isEnded ? '1px solid #ef4444' : '1px solid #475569' }}>
+                  <div key={contest.id} style={{ backgroundColor: '#1e293b', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', border: isActive ? '1px solid #10b981' : isEnded ? '1px solid #ef4444' : '1px solid #475569', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
                     
                     {manageJuryContestId === contest.id ? (
                        <div style={{ background: '#0f172a', padding: '15px', borderRadius: '8px' }}>
@@ -222,7 +242,6 @@ function App() {
                           <button onClick={() => setManageJuryContestId(null)} style={{ marginTop: '10px', background: 'transparent', color: '#94a3b8', border: '1px solid #475569', padding: '5px 15px', borderRadius: '6px', cursor: 'pointer' }}>Vissza</button>
                        </div>
                     ) : editContestId === contest.id ? (
-                      /* EZ VOLT A HIÁNYZÓ RÉSZ: SZERKESZTŐ ŰRLAP MEGJELENÍTÉSE */
                       <div style={{ background: '#0f172a', padding: '15px', borderRadius: '8px' }}>
                         <h4 style={{marginTop: 0, color: '#f59e0b'}}>Pályázat Szerkesztése</h4>
                         <input value={editTitle} onChange={e => setEditTitle(e.target.value)} style={inputStyle} />
@@ -238,39 +257,70 @@ function App() {
                         </div>
                       </div>
                     ) : judgingContestId === contest.id ? (
-                      <div style={{ background: '#0f172a', padding: '20px', borderRadius: '8px', textAlign: 'center' }}>
-                        <h3 style={{ color: '#f59e0b', marginTop: 0 }}>🏅 Zsűrizés folyamatban</h3>
+
+                      /* JAVÍTOTT ÉS ÚJRAGONDOLT ZSŰRI FELÜLET */
+                      <div style={{ background: '#0f172a', padding: '30px', borderRadius: '12px', textAlign: 'center', border: '1px solid #334155' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid #1e293b', paddingBottom: '15px' }}>
+                           <h3 style={{ color: '#f59e0b', margin: 0, fontSize: '1.4rem' }}>🏅 Zsűrizés folyamatban</h3>
+                           <span style={{ background: '#1e293b', padding: '6px 15px', borderRadius: '100px', fontSize: '0.9rem', color: '#94a3b8' }}>Hátralévő: {unvotedEntries.length} db</span>
+                        </div>
+                        
                         {unvotedEntries.length > 0 ? (
                           <div>
-                            <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: '20px' }}>Hátralévő képek: {unvotedEntries.length} db</p>
                             {(() => {
                               const currentEntry = unvotedEntries[0];
-                              const imageUrl = currentEntry.drive_file_id ? `https://drive.google.com/thumbnail?id=${currentEntry.drive_file_id}&sz=w800` : currentEntry.file_url;
+                              // Megnövelt felbontás kérése a Google Drive-tól (w1000)
+                              const imageUrl = currentEntry.drive_file_id ? `https://drive.google.com/thumbnail?id=${currentEntry.drive_file_id}&sz=w1000` : currentEntry.file_url;
+                              
                               return (
-                                <>
-                                  <div style={{ position: 'relative', display: 'inline-block' }}>
-                                    <img src={imageUrl} alt="Értékelendő" onClick={() => setFullscreenImage(imageUrl)} style={{ maxHeight: '400px', maxWidth: '100%', borderRadius: '8px', border: '2px solid #334155', cursor: 'zoom-in', objectFit: 'contain' }} />
-                                    <div style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(0,0,0,0.7)', padding: '5px 10px', borderRadius: '6px', fontSize: '0.8rem', pointerEvents: 'none' }}>🔍 Kattints a nagyításhoz</div>
+                                <div style={{ background: '#1e293b', padding: '20px', borderRadius: '12px' }}>
+                                  
+                                  {/* Cím és Kategória */}
+                                  <h4 style={{ margin: '0 0 10px 0', fontSize: '1.6rem', color: '#f8fafc' }}>{currentEntry.title}</h4>
+                                  <div style={{ display: 'inline-block', background: '#38bdf820', color: '#38bdf8', padding: '6px 16px', borderRadius: '100px', fontSize: '0.9rem', marginBottom: '25px', fontWeight: 'bold' }}>
+                                    Kategória: {currentEntry.category}
                                   </div>
-                                  <h4 style={{ margin: '15px 0 5px 0', fontSize: '1.2rem' }}>{currentEntry.title}</h4>
-                                  <div style={{ color: '#38bdf8', fontWeight: 'bold', marginBottom: '20px' }}>Kategória: {currentEntry.category}</div>
-                                  <div style={{ background: '#1e293b', padding: '20px', borderRadius: '8px', display: 'inline-block' }}>
-                                    <label style={{ display: 'block', marginBottom: '10px', fontWeight: 'bold' }}>Pontszám (0 - 100)</label>
-                                    <input type="number" min="0" max="100" value={currentScore} onChange={e => setCurrentScore(e.target.value ? Number(e.target.value) : '')} style={{ width: '100px', padding: '10px', fontSize: '1.2rem', textAlign: 'center', backgroundColor: '#0f172a', border: '2px solid #f59e0b', color: 'white', borderRadius: '6px', marginRight: '10px' }} />
-                                    <button onClick={submitVote} style={{ background: '#f59e0b', color: '#0f172a', border: 'none', padding: '12px 25px', fontSize: '1.1rem', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Szavazok</button>
+                                  
+                                  {/* Kép konténer - Ha a kép nem tölt be, akkor is van magassága */}
+                                  <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%', marginBottom: '30px', minHeight: '350px', background: '#0f172a', borderRadius: '8px', overflow: 'hidden', border: '1px solid #334155' }}>
+                                    <img 
+                                      src={imageUrl} 
+                                      alt={currentEntry.title} 
+                                      onClick={() => setFullscreenImage(imageUrl)} 
+                                      style={{ maxHeight: '600px', maxWidth: '100%', objectFit: 'contain', cursor: 'zoom-in', width: '100%' }} 
+                                    />
+                                    <div style={{ position: 'absolute', top: '15px', right: '15px', background: 'rgba(0,0,0,0.75)', padding: '8px 15px', borderRadius: '8px', fontSize: '0.85rem', pointerEvents: 'none', color: '#f8fafc', backdropFilter: 'blur(4px)' }}>
+                                      🔍 Kattints a nagyításhoz
+                                    </div>
                                   </div>
-                                </>
+                                  
+                                  {/* Értékelő sáv */}
+                                  <div style={{ background: '#0f172a', padding: '20px', borderRadius: '12px', display: 'inline-flex', alignItems: 'center', gap: '20px', border: '1px solid #334155', flexWrap: 'wrap', justifyContent: 'center' }}>
+                                    <label style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#94a3b8' }}>Pontszám:</label>
+                                    <input 
+                                      type="number" min="0" max="100" placeholder="0-100" 
+                                      value={currentScore} onChange={e => setCurrentScore(e.target.value ? Number(e.target.value) : '')} 
+                                      style={{ width: '120px', padding: '15px', fontSize: '1.5rem', textAlign: 'center', backgroundColor: '#1e293b', border: '2px solid #f59e0b', color: 'white', borderRadius: '8px', outline: 'none' }} 
+                                    />
+                                    <button onClick={submitVote} style={{ background: '#f59e0b', color: '#0f172a', border: 'none', padding: '15px 30px', fontSize: '1.2rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
+                                      Értékelem
+                                    </button>
+                                  </div>
+
+                                </div>
                               );
                             })()}
                           </div>
                         ) : (
-                          <div style={{ padding: '30px 0' }}>
-                            <h2 style={{ color: '#10b981' }}>🎉 Minden képet értékeltél!</h2>
-                            <p style={{ color: '#94a3b8' }}>Köszönjük a munkádat.</p>
-                            <button onClick={() => setJudgingContestId(null)} style={{ background: 'transparent', color: '#38bdf8', border: '1px solid #38bdf8', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', marginTop: '20px' }}>Vissza a pályázatokhoz</button>
+                          <div style={{ padding: '40px 0' }}>
+                            <div style={{ fontSize: '4rem', marginBottom: '10px' }}>🎉</div>
+                            <h2 style={{ color: '#10b981', margin: '0 0 10px 0' }}>Minden képet értékeltél!</h2>
+                            <p style={{ color: '#94a3b8', fontSize: '1.1rem' }}>Hálásan köszönjük a szakmai munkádat!</p>
+                            <button onClick={() => setJudgingContestId(null)} style={{ background: 'transparent', color: '#38bdf8', border: '1px solid #38bdf8', padding: '10px 20px', borderRadius: '6px', cursor: 'pointer', marginTop: '25px' }}>Vissza a pályázatokhoz</button>
                           </div>
                         )}
                       </div>
+
                     ) : viewResultsContestId === contest.id ? (
                        <div style={{ background: '#0f172a', padding: '20px', borderRadius: '8px' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #334155', paddingBottom: '15px', marginBottom: '20px' }}>
@@ -317,59 +367,59 @@ function App() {
                                 </>
                               )}
                             </h3>
-                            <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: '0 0 15px 0' }}>{contest.description}</p>
+                            <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: '0 0 15px 0', lineHeight: '1.5' }}>{contest.description}</p>
                           </div>
-                          <span style={{ padding: '4px 8px', borderRadius: '4px', fontSize: '0.8rem', background: isActive ? '#10b98120' : isEnded ? '#ef444420' : '#f59e0b20', color: isActive ? '#10b981' : isEnded ? '#ef4444' : '#f59e0b' }}>
+                          <span style={{ padding: '6px 12px', borderRadius: '100px', fontSize: '0.8rem', background: isActive ? '#10b98120' : isEnded ? '#ef444420' : '#f59e0b20', color: isActive ? '#10b981' : isEnded ? '#ef4444' : '#f59e0b', fontWeight: 'bold' }}>
                             {isActive ? 'Aktív Pályázat' : isEnded ? 'Lezárult' : 'Hamarosan indul'}
                           </span>
                         </div>
-                        <p style={{fontSize: '0.8rem', color: '#94a3b8', margin: '0 0 15px 0'}}>📅 {start.getFullYear() > 1970 ? `${start.toLocaleDateString()} - ${end.toLocaleDateString()}` : 'Nincs dátum'}</p>
+                        <p style={{fontSize: '0.85rem', color: '#94a3b8', margin: '0 0 15px 0'}}>📅 {start.getFullYear() > 1970 ? `${start.toLocaleDateString()} - ${end.toLocaleDateString()}` : 'Nincs dátum megadva'}</p>
 
                         {isUserJury && (
-                          <div style={{ background: '#f59e0b20', border: '1px solid #f59e0b', color: '#f59e0b', padding: '15px', borderRadius: '6px', marginBottom: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div style={{ background: 'linear-gradient(to right, #f59e0b20, #0f172a)', borderLeft: '4px solid #f59e0b', color: '#f8fafc', padding: '15px 20px', borderRadius: '0 8px 8px 0', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <div>
-                              <strong>🏅 Zsűritag vagy!</strong>
-                              <div style={{ fontSize: '0.85rem', marginTop: '5px' }}>{isActive ? 'A pontozás a pályázat lezárulta után indul.' : isEnded ? 'A pályázat lezárult, kezdheted a pontozást!' : 'A pályázat még nem indult el.'}</div>
+                              <strong style={{ color: '#f59e0b', fontSize: '1.1rem' }}>🏅 Zsűritag vagy!</strong>
+                              <div style={{ fontSize: '0.9rem', marginTop: '5px', color: '#cbd5e1' }}>{isActive ? 'A pontozás a pályázat lezárulta után indul.' : isEnded ? 'A pályázat lezárult, kezdheted a pontozást!' : 'A pályázat még nem indult el.'}</div>
                             </div>
                             {isEnded && (
-                              <button onClick={() => startJudging(contest.id)} style={{ background: '#f59e0b', color: '#0f172a', border: 'none', padding: '10px 20px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>Értékelés Indítása</button>
+                              <button onClick={() => startJudging(contest.id)} style={{ background: '#f59e0b', color: '#0f172a', border: 'none', padding: '10px 20px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 6px -1px rgba(245, 158, 11, 0.3)' }}>Értékelés Indítása</button>
                             )}
                           </div>
                         )}
 
                         {isActive && !isUserJury && activeUploadContest !== contest.id && (
-                          <button onClick={() => { setActiveUploadContest(contest.id); setUploadCategory(''); }} style={{ background: '#38bdf8', color: '#0f172a', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', marginBottom: '15px' }}>+ Új Kép Nevezése</button>
+                          <button onClick={() => { setActiveUploadContest(contest.id); setUploadCategory(''); }} style={{ background: '#38bdf8', color: '#0f172a', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', marginBottom: '15px' }}>+ Új Kép Nevezése</button>
                         )}
 
                         {activeUploadContest === contest.id && (
-                          <div style={{ background: '#0f172a', padding: '15px', borderRadius: '8px', marginBottom: '20px' }}>
-                            <h4 style={{marginTop: 0, color: '#38bdf8'}}>Kép feltöltése</h4>
+                          <div style={{ background: '#0f172a', padding: '20px', borderRadius: '12px', marginBottom: '20px', border: '1px solid #38bdf840' }}>
+                            <h4 style={{marginTop: 0, color: '#38bdf8', fontSize: '1.2rem'}}>Kép feltöltése</h4>
                             <input placeholder="Kép címe" value={uploadTitle} onChange={e => setUploadTitle(e.target.value)} style={inputStyle} disabled={isUploading} />
                             <select value={uploadCategory} onChange={e => setUploadCategory(e.target.value)} style={inputStyle} disabled={isUploading}><option value="">-- Válassz kategóriát --</option>{categories.map((cat: string) => { const count = categoryCounts[cat] || 0; return <option key={cat} value={cat} disabled={count >= 4}>{cat} ({count}/4 feltöltve)</option>; })}</select>
-                            <input type="file" accept="image/*" onChange={handleFileSelect} style={{ color: '#94a3b8', marginBottom: '10px' }} disabled={isUploading} />
-                            {uploadPreview && <div style={{marginTop: '10px', marginBottom: '15px', textAlign: 'center'}}><img src={uploadPreview} alt="Előnézet" style={{maxHeight: '200px', borderRadius: '8px', border: '2px solid #334155'}} /></div>}
-                            <div style={{display: 'flex', gap: '10px'}}><button onClick={() => handleUpload(contest.id)} disabled={isUploading} style={{ flex: 1, background: isUploading ? '#475569' : '#10b981', color: 'white', border: 'none', padding: '10px', borderRadius: '6px', cursor: isUploading ? 'not-allowed' : 'pointer', transition: 'background 0.3s' }}>{isUploading ? 'Feltöltés ⏳...' : 'Beküldés 🚀'}</button><button onClick={() => { setActiveUploadContest(null); setUploadPreview(null); }} disabled={isUploading} style={{ background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', padding: '10px', borderRadius: '6px', cursor: isUploading ? 'not-allowed' : 'pointer' }}>Mégse</button></div>
+                            <input type="file" accept="image/*" onChange={handleFileSelect} style={{ color: '#94a3b8', marginBottom: '15px', width: '100%' }} disabled={isUploading} />
+                            {uploadPreview && <div style={{marginTop: '10px', marginBottom: '20px', textAlign: 'center'}}><img src={uploadPreview} alt="Előnézet" style={{maxHeight: '300px', borderRadius: '8px', border: '2px solid #334155'}} /></div>}
+                            <div style={{display: 'flex', gap: '10px'}}><button onClick={() => handleUpload(contest.id)} disabled={isUploading} style={{ flex: 1, background: isUploading ? '#475569' : '#10b981', color: 'white', border: 'none', padding: '12px', borderRadius: '8px', cursor: isUploading ? 'not-allowed' : 'pointer', fontWeight: 'bold', transition: 'background 0.3s' }}>{isUploading ? 'Feltöltés ⏳...' : 'Beküldés 🚀'}</button><button onClick={() => { setActiveUploadContest(null); setUploadPreview(null); }} disabled={isUploading} style={{ background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', padding: '12px', borderRadius: '8px', cursor: isUploading ? 'not-allowed' : 'pointer' }}>Mégse</button></div>
                           </div>
                         )}
 
                         {myContestEntries.length > 0 && (
-                          <div style={{ marginTop: '20px', borderTop: '1px solid #334155', paddingTop: '15px' }}>
-                            <h4 style={{margin: '0 0 15px 0'}}>Saját Nevezéseid</h4>
+                          <div style={{ marginTop: '30px', borderTop: '1px solid #334155', paddingTop: '20px' }}>
+                            <h4 style={{margin: '0 0 20px 0', fontSize: '1.2rem'}}>Saját Nevezéseid</h4>
                             {categories.map((cat: string) => {
                               const catEntries = myContestEntries.filter(e => e.category === cat);
                               if (catEntries.length === 0) return null;
                               return (
-                                <div key={cat} style={{ marginBottom: '20px' }}>
-                                  <h5 style={{ color: '#38bdf8', borderBottom: '1px solid #334155', paddingBottom: '5px', marginTop: 0 }}>{cat} ({catEntries.length}/4)</h5>
-                                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '15px' }}>
+                                <div key={cat} style={{ marginBottom: '25px' }}>
+                                  <h5 style={{ color: '#38bdf8', borderBottom: '1px solid #334155', paddingBottom: '8px', marginTop: 0, fontSize: '1.1rem' }}>{cat} <span style={{ color: '#94a3b8', fontSize: '0.9rem' }}>({catEntries.length}/4)</span></h5>
+                                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '20px' }}>
                                     {catEntries.map(entry => {
                                       const imageUrl = entry.drive_file_id ? `https://drive.google.com/thumbnail?id=${entry.drive_file_id}&sz=w800` : entry.file_url;
                                       return (
-                                        <div key={entry.id} style={{ background: '#0f172a', borderRadius: '8px', overflow: 'hidden', border: '1px solid #334155' }}>
-                                          <img src={imageUrl} alt={entry.title} onClick={() => setFullscreenImage(imageUrl)} style={{ width: '100%', height: '120px', objectFit: 'cover', backgroundColor: '#1e293b', cursor: 'zoom-in' }} />
-                                          <div style={{ padding: '10px' }}>
-                                            <div style={{ fontSize: '0.9rem', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{entry.title}</div>
-                                            {!isEnded && <button onClick={() => handleDeleteEntry(entry.id)} style={{ width: '100%', background: '#ef444420', color: '#ef4444', border: 'none', padding: '5px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', marginTop: '10px' }}>Törlés</button>}
+                                        <div key={entry.id} style={{ background: '#0f172a', borderRadius: '12px', overflow: 'hidden', border: '1px solid #334155', transition: 'transform 0.2s' }} onMouseOver={e => e.currentTarget.style.transform = 'translateY(-3px)'} onMouseOut={e => e.currentTarget.style.transform = 'none'}>
+                                          <img src={imageUrl} alt={entry.title} onClick={() => setFullscreenImage(imageUrl)} style={{ width: '100%', height: '140px', objectFit: 'cover', backgroundColor: '#1e293b', cursor: 'zoom-in' }} />
+                                          <div style={{ padding: '12px' }}>
+                                            <div style={{ fontSize: '1rem', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#f8fafc' }}>{entry.title}</div>
+                                            {!isEnded && <button onClick={() => handleDeleteEntry(entry.id)} style={{ width: '100%', background: '#ef444420', color: '#ef4444', border: 'none', padding: '6px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', marginTop: '12px' }}>Törlés</button>}
                                           </div>
                                         </div>
                                       )
