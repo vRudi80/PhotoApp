@@ -166,7 +166,9 @@ function App() {
         
         {/* FEJLÉC */}
         <header style={{ padding: '1.5rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#1e293b', borderBottom: '1px solid #334155', position: 'sticky', top: 0, zIndex: 10 }}>
-          <h1 style={{ margin: 0, fontSize: '1.5rem', color: '#38bdf8' }}>📸 PhotoContest</h1>
+          {/* Eltüntetett felirat, de az elrendezés megtartva */}
+          <div></div> 
+          
           {user && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
               <span style={{ fontWeight: 500 }}>{user.name}</span>
@@ -179,23 +181,23 @@ function App() {
         <main style={{ padding: '2rem', maxWidth: '900px', margin: '0 auto' }}>
           {!user ? (
             
-            /* MODERN ÜDVÖZLŐ KÉPERNYŐ */
+            /* MODERN ÜDVÖZLŐ KÉPERNYŐ JAVÍTOTT SZÖVEGGEL */
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '70vh', textAlign: 'center' }}>
-              <div style={{ background: 'linear-gradient(145deg, #1e293b, #0f172a)', padding: '4rem 2rem', borderRadius: '24px', border: '1px solid #334155', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)', maxWidth: '600px', width: '100%' }}>
-                <h1 style={{ fontSize: '3rem', margin: '0 0 1rem 0', background: 'linear-gradient(to right, #38bdf8, #8b5cf6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                  Mutasd meg a világnak!
+              <div style={{ background: 'linear-gradient(145deg, #1e293b, #0f172a)', padding: '4rem 2rem', borderRadius: '24px', border: '1px solid #334155', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)', maxWidth: '650px', width: '100%' }}>
+                <h1 style={{ fontSize: '2.4rem', margin: '0 0 1rem 0', background: 'linear-gradient(to right, #38bdf8, #8b5cf6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', lineHeight: '1.2' }}>
+                  Professzionális Fotópályázati Platform
                 </h1>
-                <p style={{ fontSize: '1.2rem', color: '#94a3b8', marginBottom: '2.5rem', lineHeight: '1.6' }}>
-                  Lépj be, töltsd fel a legjobb fotóidat, nevezz exkluzív pályázatokra, vagy vegyél részt az anonim zsűrizésben.
+                <p style={{ fontSize: '1.1rem', color: '#94a3b8', marginBottom: '2.5rem', lineHeight: '1.6' }}>
+                  Egy sokoldalú rendszer, amely minden igényt kiszolgál. Legyen szó egy fotóklub zártkörű házi versenyéről, országos megmérettetésről vagy egy nagyszabású nemzetközi eseményről – itt mindent egyetlen felületen kezelhetsz. Lépj be a folytatáshoz!
                 </p>
                 <div style={{ display: 'flex', justifyContent: 'center' }}>
                   <GoogleLogin onSuccess={(res) => handleLoginSuccess(res.credential!)} shape="pill" size="large" />
                 </div>
               </div>
               <div style={{ display: 'flex', gap: '20px', marginTop: '3rem', flexWrap: 'wrap', justifyContent: 'center' }}>
-                <span style={{ background: '#1e293b', padding: '10px 20px', borderRadius: '100px', fontSize: '0.9rem', border: '1px solid #334155', color: '#38bdf8' }}>🌟 Színvonalas Pályázatok</span>
-                <span style={{ background: '#1e293b', padding: '10px 20px', borderRadius: '100px', fontSize: '0.9rem', border: '1px solid #334155', color: '#8b5cf6' }}>⚖️ Anonim Zsűrizés</span>
-                <span style={{ background: '#1e293b', padding: '10px 20px', borderRadius: '100px', fontSize: '0.9rem', border: '1px solid #334155', color: '#10b981' }}>🏆 Részletes Eredmények</span>
+                <span style={{ background: '#1e293b', padding: '10px 20px', borderRadius: '100px', fontSize: '0.9rem', border: '1px solid #334155', color: '#38bdf8' }}>🌟 Bármilyen Szintű Pályázat</span>
+                <span style={{ background: '#1e293b', padding: '10px 20px', borderRadius: '100px', fontSize: '0.9rem', border: '1px solid #334155', color: '#8b5cf6' }}>⚖️ Anonim Szakmai Zsűrizés</span>
+                <span style={{ background: '#1e293b', padding: '10px 20px', borderRadius: '100px', fontSize: '0.9rem', border: '1px solid #334155', color: '#10b981' }}>🏆 Részletes Eredménykezelés</span>
               </div>
             </div>
 
@@ -258,7 +260,6 @@ function App() {
                       </div>
                     ) : judgingContestId === contest.id ? (
 
-                      /* JAVÍTOTT ÉS ÚJRAGONDOLT ZSŰRI FELÜLET */
                       <div style={{ background: '#0f172a', padding: '30px', borderRadius: '12px', textAlign: 'center', border: '1px solid #334155' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid #1e293b', paddingBottom: '15px' }}>
                            <h3 style={{ color: '#f59e0b', margin: 0, fontSize: '1.4rem' }}>🏅 Zsűrizés folyamatban</h3>
@@ -269,19 +270,16 @@ function App() {
                           <div>
                             {(() => {
                               const currentEntry = unvotedEntries[0];
-                              // Megnövelt felbontás kérése a Google Drive-tól (w1000)
                               const imageUrl = currentEntry.drive_file_id ? `https://drive.google.com/thumbnail?id=${currentEntry.drive_file_id}&sz=w1000` : currentEntry.file_url;
                               
                               return (
                                 <div style={{ background: '#1e293b', padding: '20px', borderRadius: '12px' }}>
                                   
-                                  {/* Cím és Kategória */}
-                                  <h4 style={{ margin: '0 0 10px 0', fontSize: '1.6rem', color: '#f8fafc' }}>{currentEntry.title}</h4>
+                                  <h4 style={{ margin: '0 0 10px 0', fontSize: '1.6rem', color: '#f8fafc' }}>{currentEntry.title || "Névtelen kép"}</h4>
                                   <div style={{ display: 'inline-block', background: '#38bdf820', color: '#38bdf8', padding: '6px 16px', borderRadius: '100px', fontSize: '0.9rem', marginBottom: '25px', fontWeight: 'bold' }}>
-                                    Kategória: {currentEntry.category}
+                                    Kategória: {currentEntry.category || "Ismeretlen"}
                                   </div>
                                   
-                                  {/* Kép konténer - Ha a kép nem tölt be, akkor is van magassága */}
                                   <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%', marginBottom: '30px', minHeight: '350px', background: '#0f172a', borderRadius: '8px', overflow: 'hidden', border: '1px solid #334155' }}>
                                     <img 
                                       src={imageUrl} 
@@ -294,7 +292,6 @@ function App() {
                                     </div>
                                   </div>
                                   
-                                  {/* Értékelő sáv */}
                                   <div style={{ background: '#0f172a', padding: '20px', borderRadius: '12px', display: 'inline-flex', alignItems: 'center', gap: '20px', border: '1px solid #334155', flexWrap: 'wrap', justifyContent: 'center' }}>
                                     <label style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#94a3b8' }}>Pontszám:</label>
                                     <input 
