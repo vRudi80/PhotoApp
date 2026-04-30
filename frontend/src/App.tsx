@@ -192,7 +192,7 @@ function App() {
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '70vh', textAlign: 'center' }}>
               <div style={{ background: 'linear-gradient(145deg, #1e293b, #0f172a)', padding: '4rem 2rem', borderRadius: '24px', border: '1px solid #334155', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)', maxWidth: '650px', width: '100%' }}>
                 <h1 style={{ fontSize: '2.4rem', margin: '0 0 1rem 0', background: 'linear-gradient(to right, #38bdf8, #8b5cf6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', lineHeight: '1.2' }}>
-                  Professzionális Fotópályázati Platform
+                  Képolvasók Fotópályázati Platform
                 </h1>
                 <p style={{ fontSize: '1.1rem', color: '#94a3b8', marginBottom: '2.5rem', lineHeight: '1.6' }}>
                   Egy sokoldalú rendszer, amely minden igényt kiszolgál. Legyen szó egy fotóklub zártkörű házi versenyéről, országos megmérettetésről vagy egy nagyszabású nemzetközi eseményről – itt mindent egyetlen felületen kezelhetsz. Lépj be a folytatáshoz!
