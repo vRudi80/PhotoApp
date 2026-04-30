@@ -78,6 +78,17 @@ app.get('/api/my-entries', async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Hiba' }); }
 });
 
+// ÚJ: Nevezési statisztika lekérése (Admin)
+app.get('/api/admin/stats/:contestId', async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      'SELECT user_name, user_email, category, COUNT(*) as image_count FROM photo_entries WHERE contest_id = ? GROUP BY user_email, user_name, category ORDER BY user_name ASC, category ASC',
+      [req.params.contestId]
+    );
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: 'Hiba a statisztika lekérésekor' }); }
+});
+
 app.post('/api/contests', async (req, res) => {
   const { title, description, startDate, endDate, categories } = req.body;
   try {
@@ -122,12 +133,8 @@ app.delete('/api/entries/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Hiba' }); }
 });
 
-// --- ÚJ ZSŰRI FUNKCIÓK ---
-
-// Zsűrizendő (még nem pontozott) képek lekérése anonim módon
 app.get('/api/jury-entries/:contestId', async (req, res) => {
   try {
-    // Csak ID, Cím, Kategória és Kép link megy át, felhasználónév NEM!
     const [rows] = await pool.query(`
       SELECT e.id, e.title, e.category, e.file_url, e.drive_file_id
       FROM photo_entries e
@@ -138,7 +145,6 @@ app.get('/api/jury-entries/:contestId', async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Hiba' }); }
 });
 
-// Pontszám mentése
 app.post('/api/vote', async (req, res) => {
   const { entryId, juryEmail, score } = req.body;
   if (score < 0 || score > 100) return res.status(400).json({ error: 'Érvénytelen pontszám!' });
@@ -148,11 +154,10 @@ app.post('/api/vote', async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Hiba' }); }
 });
 
-// Végeredmények lekérése (Admin)
 app.get('/api/results/:contestId', async (req, res) => {
   try {
     const [rows] = await pool.query(`
-      SELECT e.id, e.title, e.category, e.file_url, e.drive_file_id, e.user_name,
+      SELECT e.id, e.title, e.category, e.file_url, e.drive_file_id, e.user_name, e.user_email,
              COALESCE(SUM(v.score), 0) as total_score,
              COUNT(v.id) as vote_count
       FROM photo_entries e
