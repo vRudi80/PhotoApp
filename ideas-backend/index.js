@@ -9,7 +9,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Fájlfeltöltéshez a memóriát használjuk, mielőtt továbbküldjük a Drive-ra
+// Fájlfeltöltéshez a memóriát használjuk
 const upload = multer({ storage: multer.memoryStorage() });
 
 // Adatbázis kapcsolat
@@ -29,11 +29,10 @@ app.get('/api/status', (req, res) => {
   res.json({ status: 'online', message: 'PhotoApp Backend fut!' });
 });
 
-// ÚJ: Felhasználó szinkronizálása bejelentkezéskor
+// Felhasználó szinkronizálása bejelentkezéskor
 app.post('/api/auth/sync', async (req, res) => {
   const { email, name, sub } = req.body;
   try {
-    // Ha még nincs ilyen user, létrehozza, ha van, frissíti az utolsó belépés idejét
     await pool.query(
       `INSERT INTO photo_users (google_id, email, name, last_login) 
        VALUES (?, ?, ?, NOW()) 
@@ -68,14 +67,13 @@ app.post('/api/contests', async (req, res) => {
     );
     res.status(201).json({ success: true });
   } catch (err) {
-    console.error('Hiba pályázat létrehozásakor:', err); // Ez ki fogja írni a pontos okot a Renderen!
+    console.error('Hiba pályázat létrehozásakor:', err);
     res.status(500).json({ error: 'Hiba mentéskor', details: err.message });
   }
 });
 
 // 3. Kép feltöltése (Később ide jön a Drive logika)
 app.post('/api/upload', upload.single('photo'), async (req, res) => {
-  // ... (Ez a rész marad ugyanaz, ami volt)
   const { contestId, userEmail, userName } = req.body;
   const file = req.file;
   if (!file) return res.status(400).json({ error: 'Nincs fájl kiválasztva!' });
@@ -92,6 +90,7 @@ app.post('/api/upload', upload.single('photo'), async (req, res) => {
   }
 });
 
+// Szerver indítása
 app.listen(PORT, () => {
   console.log(`Szerver fut a ${PORT} porton`);
 });
