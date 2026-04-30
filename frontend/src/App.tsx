@@ -3,7 +3,7 @@ import { GoogleOAuthProvider, GoogleLogin, googleLogout } from '@react-oauth/goo
 import { jwtDecode } from "jwt-decode";
 
 const GOOGLE_CLIENT_ID = "197361744572-ih728hq5jft3fqfd1esvktvrd8i97kcp.apps.googleusercontent.com";
-const BACKEND_URL = "https://IDE-IRD-A-RENDER-LINKEDET.onrender.com"; // <-- NE FELEJTSD EL ÁTÍRNI!
+const BACKEND_URL = "https://photoapp-backend-m4d1.onrender.com"; // <-- NE FELEJTSD EL ÁTÍRNI!
 const ADMIN_EMAIL = "kovari.rudolf@gmail.com"; 
 
 function App() {
@@ -155,6 +155,7 @@ function App() {
     if (res.ok) { setContestResults(await res.json()); setViewResultsContestId(contestId); }
   };
 
+  // ÚJ: STATISZTIKA BETÖLTÉSE
   const loadStats = async (contestId: number) => {
     const res = await fetch(`${BACKEND_URL}/api/admin/stats/${contestId}`);
     if (res.ok) { setContestStats(await res.json()); setViewStatsContestId(contestId); }
@@ -173,6 +174,7 @@ function App() {
 
       <div style={{ minHeight: '100vh', backgroundColor: '#0f172a', color: '#f8fafc', fontFamily: 'Inter, sans-serif' }}>
         
+        {/* FEJLÉC */}
         <header style={{ padding: '1.5rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#1e293b', borderBottom: '1px solid #334155', position: 'sticky', top: 0, zIndex: 10 }}>
           <div></div> 
           {user && (
@@ -183,18 +185,20 @@ function App() {
           )}
         </header>
 
+        {/* FŐTARTALOM */}
         <main style={{ padding: '2rem', maxWidth: '900px', margin: '0 auto' }}>
           {!user ? (
+            
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '70vh', textAlign: 'center' }}>
               <div style={{ background: 'linear-gradient(145deg, #1e293b, #0f172a)', padding: '4rem 2rem', borderRadius: '24px', border: '1px solid #334155', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)', maxWidth: '650px', width: '100%' }}>
                 <h1 style={{ fontSize: '2.4rem', margin: '0 0 1rem 0', background: 'linear-gradient(to right, #38bdf8, #8b5cf6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', lineHeight: '1.2' }}>
-                  Professzionális Fotópályázati Platform
+                  Képolvasók Fotópályázati Platform
                 </h1>
                 <p style={{ fontSize: '1.1rem', color: '#94a3b8', marginBottom: '2.5rem', lineHeight: '1.6' }}>
                   Egy sokoldalú rendszer, amely minden igényt kiszolgál. Legyen szó egy fotóklub zártkörű házi versenyéről, országos megmérettetésről vagy egy nagyszabású nemzetközi eseményről – itt mindent egyetlen felületen kezelhetsz. Lépj be a folytatáshoz!
                 </p>
                 <div style={{ display: 'flex', justifyContent: 'center' }}>
-                  <GoogleLogin onSuccess={(res) => handleLoginSuccess(res.credential!)} shape="pill" size="large" /> {/* Ideiglenes javítás a jelöléshez */}
+                  <GoogleLogin onSuccess={(res) => handleLoginSuccess(res.credential!)} shape="pill" size="large" />
                 </div>
               </div>
               <div style={{ display: 'flex', gap: '20px', marginTop: '3rem', flexWrap: 'wrap', justifyContent: 'center' }}>
@@ -203,9 +207,10 @@ function App() {
                 <span style={{ background: '#1e293b', padding: '10px 20px', borderRadius: '100px', fontSize: '0.9rem', border: '1px solid #334155', color: '#10b981' }}>🏆 Részletes Eredménykezelés</span>
               </div>
             </div>
+
           ) : (
             <>
-              {user.email === ADMIN_EMAIL && (
+             {user.email === ADMIN_EMAIL && (
                 <div style={{ backgroundColor: '#1e293b', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', border: '1px solid #38bdf8' }}>
                   <h3 style={{ marginTop: 0, color: '#38bdf8' }}>⚙️ Új Pályázat Létrehozása</h3>
                   <input placeholder="Pályázat címe" value={newTitle} onChange={e => setNewTitle(e.target.value)} style={inputStyle} />
@@ -238,7 +243,6 @@ function App() {
                 return (
                   <div key={contest.id} style={{ backgroundColor: '#1e293b', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', border: isActive ? '1px solid #10b981' : isEnded ? '1px solid #ef4444' : '1px solid #475569', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
                     
-                    {/* ZSŰRI KEZELÉSE */}
                     {manageJuryContestId === contest.id ? (
                        <div style={{ background: '#0f172a', padding: '15px', borderRadius: '8px' }}>
                           <h4 style={{marginTop: 0, color: '#a78bfa'}}>⚖️ Zsűri kezelése</h4>
@@ -248,7 +252,8 @@ function App() {
                        </div>
 
                     ) : viewStatsContestId === contest.id ? (
-                      /* STATISZTIKA FELÜLET MINDENKINEK (nem csak adminnak) */
+                      
+                      /* ÚJ: STATISZTIKA FELÜLET ADMINNAK */
                       <div style={{ background: '#0f172a', padding: '20px', borderRadius: '8px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #334155', paddingBottom: '15px', marginBottom: '20px' }}>
                           <h3 style={{ margin: 0, color: '#38bdf8' }}>📊 Nevezési Statisztika: {contest.title}</h3>
@@ -259,6 +264,7 @@ function App() {
                           <p style={{ color: '#94a3b8' }}>Még nem érkezett nevezés ehhez a pályázathoz.</p>
                         ) : (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                            {/* A kapott adatokat felhasználók szerint csoportosítjuk a megjelenítéshez */}
                             {Object.entries(contestStats.reduce((acc, curr) => {
                               if (!acc[curr.user_email]) acc[curr.user_email] = { name: curr.user_name, cats: [] };
                               acc[curr.user_email].cats.push({ cat: curr.category, count: curr.image_count });
@@ -296,6 +302,7 @@ function App() {
                         </div>
                       </div>
                     ) : judgingContestId === contest.id ? (
+
                       <div style={{ background: '#0f172a', padding: '30px', borderRadius: '12px', textAlign: 'center', border: '1px solid #334155' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid #1e293b', paddingBottom: '15px' }}>
                            <h3 style={{ color: '#f59e0b', margin: 0, fontSize: '1.4rem' }}>🏅 Zsűrizés folyamatban</h3>
@@ -334,6 +341,7 @@ function App() {
                           </div>
                         )}
                       </div>
+
                     ) : viewResultsContestId === contest.id ? (
                        <div style={{ background: '#0f172a', padding: '20px', borderRadius: '8px' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #334155', paddingBottom: '15px', marginBottom: '20px' }}>
@@ -372,11 +380,11 @@ function App() {
                           <div>
                             <h3 style={{ margin: '0 0 5px 0', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                               {contest.title}
-                              <button onClick={() => loadStats(contest.id)} style={{ background: 'transparent', border: '1px solid #38bdf8', color: '#38bdf8', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', cursor: 'pointer' }}>📊 Nevezők</button>
                               {user.email === ADMIN_EMAIL && (
                                 <>
                                   <button onClick={() => startEdit(contest)} style={{ background: 'transparent', border: '1px solid #f59e0b', color: '#f59e0b', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', cursor: 'pointer' }}>Szerkesztés</button>
                                   <button onClick={() => setManageJuryContestId(contest.id)} style={{ background: 'transparent', border: '1px solid #8b5cf6', color: '#8b5cf6', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', cursor: 'pointer' }}>Zsűri ({contestJury.length})</button>
+                                  <button onClick={() => loadStats(contest.id)} style={{ background: 'transparent', border: '1px solid #38bdf8', color: '#38bdf8', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', cursor: 'pointer' }}>📊 Nevezők</button>
                                   {isEnded && <button onClick={() => loadResults(contest.id)} style={{ background: '#10b981', border: 'none', color: 'white', fontSize: '0.7rem', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer' }}>🏆 Eredmények</button>}
                                 </>
                               )}
