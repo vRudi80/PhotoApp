@@ -29,6 +29,9 @@ function App() {
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
   const [uploadTitle, setUploadTitle] = useState('');
   const [uploadCategory, setUploadCategory] = useState('');
+  
+  // ÚJ: Töltés állapotát jelző változó
+  const [isUploading, setIsUploading] = useState(false);
 
   const fetchContests = async () => {
     try {
@@ -94,17 +97,32 @@ function App() {
 
   const handleUpload = async (contestId: number) => {
     if (!uploadFile || !uploadTitle || !uploadCategory) return alert("Cím, Kategória és Kép kötelező!");
-    const formData = new FormData();
-    formData.append('photo', uploadFile); formData.append('contestId', String(contestId));
-    formData.append('userEmail', user.email); formData.append('userName', user.name);
-    formData.append('title', uploadTitle); formData.append('category', uploadCategory);
+    
+    // BEKAPCSOLJUK A TÖLTÉS JELZŐT
+    setIsUploading(true);
+    
+    try {
+      const formData = new FormData();
+      formData.append('photo', uploadFile); formData.append('contestId', String(contestId));
+      formData.append('userEmail', user.email); formData.append('userName', user.name);
+      formData.append('title', uploadTitle); formData.append('category', uploadCategory);
 
-    const res = await fetch(`${BACKEND_URL}/api/upload`, { method: 'POST', body: formData });
-    if (res.ok) {
-      alert("Kép sikeresen feltöltve!");
-      setActiveUploadContest(null); setUploadFile(null); setUploadPreview(null); setUploadTitle(''); setUploadCategory('');
-      fetchMyEntries(user.email);
-    } else { const err = await res.json(); alert(`Hiba: ${err.error}`); }
+      const res = await fetch(`${BACKEND_URL}/api/upload`, { method: 'POST', body: formData });
+      
+      if (res.ok) {
+        alert("Kép sikeresen feltöltve!");
+        setActiveUploadContest(null); setUploadFile(null); setUploadPreview(null); setUploadTitle(''); setUploadCategory('');
+        fetchMyEntries(user.email);
+      } else { 
+        const err = await res.json(); 
+        alert(`Hiba: ${err.error}`); 
+      }
+    } catch (error) {
+      alert("Hálózati hiba történt a feltöltés során.");
+    } finally {
+      // BÁRMI TÖRTÉNIK, KIKAPCSOLJUK A TÖLTÉS JELZŐT
+      setIsUploading(false);
+    }
   };
 
   const handleDeleteEntry = async (entryId: number) => {
@@ -209,9 +227,9 @@ function App() {
                         {activeUploadContest === contest.id && (
                           <div style={{ background: '#0f172a', padding: '15px', borderRadius: '8px', marginBottom: '20px' }}>
                             <h4 style={{marginTop: 0, color: '#38bdf8'}}>Kép feltöltése</h4>
-                            <input placeholder="Kép címe" value={uploadTitle} onChange={e => setUploadTitle(e.target.value)} style={inputStyle} />
+                            <input placeholder="Kép címe" value={uploadTitle} onChange={e => setUploadTitle(e.target.value)} style={inputStyle} disabled={isUploading} />
                             
-                            <select value={uploadCategory} onChange={e => setUploadCategory(e.target.value)} style={inputStyle}>
+                            <select value={uploadCategory} onChange={e => setUploadCategory(e.target.value)} style={inputStyle} disabled={isUploading}>
                               <option value="">-- Válassz kategóriát --</option>
                               {categories.map((cat: string) => {
                                 const count = categoryCounts[cat] || 0;
@@ -223,15 +241,31 @@ function App() {
                               })}
                             </select>
 
-                            <input type="file" accept="image/*" onChange={handleFileSelect} style={{ color: '#94a3b8', marginBottom: '10px' }} />
+                            <input type="file" accept="image/*" onChange={handleFileSelect} style={{ color: '#94a3b8', marginBottom: '10px' }} disabled={isUploading} />
                             {uploadPreview && (
                               <div style={{marginTop: '10px', marginBottom: '15px', textAlign: 'center'}}>
                                 <img src={uploadPreview} alt="Előnézet" style={{maxHeight: '200px', borderRadius: '8px', border: '2px solid #334155'}} />
                               </div>
                             )}
                             <div style={{display: 'flex', gap: '10px'}}>
-                              <button onClick={() => handleUpload(contest.id)} style={{ flex: 1, background: '#10b981', color: 'white', border: 'none', padding: '10px', borderRadius: '6px', cursor: 'pointer' }}>Beküldés 🚀</button>
-                              <button onClick={() => { setActiveUploadContest(null); setUploadPreview(null); }} style={{ background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', padding: '10px', borderRadius: '6px', cursor: 'pointer' }}>Mégse</button>
+                              {/* ÚJ: OKOS GOMB */}
+                              <button 
+                                onClick={() => handleUpload(contest.id)} 
+                                disabled={isUploading}
+                                style={{ 
+                                  flex: 1, 
+                                  background: isUploading ? '#475569' : '#10b981', 
+                                  color: 'white', 
+                                  border: 'none', 
+                                  padding: '10px', 
+                                  borderRadius: '6px', 
+                                  cursor: isUploading ? 'not-allowed' : 'pointer',
+                                  transition: 'background 0.3s'
+                                }}>
+                                {isUploading ? 'Feltöltés folyamatban ⏳...' : 'Beküldés 🚀'}
+                              </button>
+                              
+                              <button onClick={() => { setActiveUploadContest(null); setUploadPreview(null); }} disabled={isUploading} style={{ background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', padding: '10px', borderRadius: '6px', cursor: isUploading ? 'not-allowed' : 'pointer' }}>Mégse</button>
                             </div>
                           </div>
                         )}
@@ -251,7 +285,6 @@ function App() {
                                   </h5>
                                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '15px' }}>
                                     {catEntries.map(entry => {
-                                      // ÚJ, STABIL KÉP URL GENERÁLÁS:
                                       const imageUrl = entry.drive_file_id ? `https://drive.google.com/thumbnail?id=${entry.drive_file_id}&sz=w800` : entry.file_url;
                                       
                                       return (
