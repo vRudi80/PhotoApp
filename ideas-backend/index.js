@@ -71,6 +71,22 @@ app.post('/api/contests', async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Hiba mentéskor' }); }
 });
 
+// Pályázat módosítása (Admin)
+app.put('/api/contests/:id', async (req, res) => {
+  const { title, description, startDate, endDate, categories } = req.body;
+  const contestId = req.params.id;
+  try {
+    await pool.query(
+      'UPDATE photo_contests SET title = ?, description = ?, start_date = ?, end_date = ?, categories = ? WHERE id = ?',
+      [title, description, startDate, endDate, categories, contestId]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Hiba frissítéskor:', err);
+    res.status(500).json({ error: 'Hiba a frissítéskor' });
+  }
+});
+
 // Kép feltöltése
 app.post('/api/upload', upload.single('photo'), async (req, res) => {
   const { contestId, userEmail, userName, title, category } = req.body;
