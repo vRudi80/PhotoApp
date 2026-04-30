@@ -42,7 +42,40 @@ app.post('/api/auth/sync', async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Adatbázis hiba' }); }
 });
 
-// Pályázatok lekérése (Dátumokkal és kategóriákkal)
+// Összes felhasználó lekérése (Zsűri választáshoz)
+app.get('/api/users', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT email, name FROM photo_users ORDER BY name ASC');
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: 'Hiba lekéréskor' }); }
+});
+
+// Zsűrik lekérése
+app.get('/api/jury', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM photo_jury');
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: 'Hiba' }); }
+});
+
+// Zsűritag hozzáadása
+app.post('/api/jury', async (req, res) => {
+  const { contestId, userEmail } = req.body;
+  try {
+    await pool.query('INSERT IGNORE INTO photo_jury (contest_id, user_email) VALUES (?, ?)', [contestId, userEmail]);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: 'Hiba' }); }
+});
+
+// Zsűritag törlése
+app.delete('/api/jury', async (req, res) => {
+  const { contestId, userEmail } = req.body;
+  try {
+    await pool.query('DELETE FROM photo_jury WHERE contest_id = ? AND user_email = ?', [contestId, userEmail]);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: 'Hiba' }); }
+});
+
 app.get('/api/contests', async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT * FROM photo_contests ORDER BY created_at DESC');
@@ -50,7 +83,6 @@ app.get('/api/contests', async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Hiba lekéréskor' }); }
 });
 
-// Saját nevezések lekérése
 app.get('/api/my-entries', async (req, res) => {
   const { userEmail } = req.query;
   try {
@@ -59,90 +91,61 @@ app.get('/api/my-entries', async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Hiba a képek lekérésekor' }); }
 });
 
-// Új pályázat (Admin)
 app.post('/api/contests', async (req, res) => {
   const { title, description, startDate, endDate, categories } = req.body;
   try {
-    await pool.query(
-      'INSERT INTO photo_contests (title, description, start_date, end_date, categories) VALUES (?, ?, ?, ?, ?)',
-      [title, description, startDate, endDate, categories]
-    );
-    res.status(201).json({ success: true });
+    await pool.query('INSERT INTO photo_contests (title, description, start_date, end_date, categories) VALUES (?, ?, ?, ?, ?)', [title, description, startDate, endDate, categories]);
+    res.json({ success: true });
   } catch (err) { res.status(500).json({ error: 'Hiba mentéskor' }); }
 });
 
-// Pályázat módosítása (Admin)
 app.put('/api/contests/:id', async (req, res) => {
   const { title, description, startDate, endDate, categories } = req.body;
-  const contestId = req.params.id;
   try {
-    await pool.query(
-      'UPDATE photo_contests SET title = ?, description = ?, start_date = ?, end_date = ?, categories = ? WHERE id = ?',
-      [title, description, startDate, endDate, categories, contestId]
-    );
+    await pool.query('UPDATE photo_contests SET title = ?, description = ?, start_date = ?, end_date = ?, categories = ? WHERE id = ?', [title, description, startDate, endDate, categories, req.params.id]);
     res.json({ success: true });
-  } catch (err) {
-    console.error('Hiba frissítéskor:', err);
-    res.status(500).json({ error: 'Hiba a frissítéskor' });
-  }
+  } catch (err) { res.status(500).json({ error: 'Hiba' }); }
 });
 
-// Kép feltöltése
+// Kép feltöltése (Zsűri védelemmel)
 app.post('/api/upload', upload.single('photo'), async (req, res) => {
   const { contestId, userEmail, userName, title, category } = req.body;
   const file = req.file;
-
   if (!file) return res.status(400).json({ error: 'Nincs fájl!' });
 
   try {
-    // Limit ellenőrzése
-    const [countRows] = await pool.query(
-      'SELECT COUNT(*) as count FROM photo_entries WHERE contest_id = ? AND user_email = ? AND category = ?',
-      [contestId, userEmail, category]
-    );
-    if (countRows[0].count >= 4) {
-      return res.status(400).json({ error: 'Elérted a maximum limitet (4 kép) ebben a kategóriában!' });
-    }
+    // 1. Biztonsági ellenőrzés: Zsűri nem tölthet fel!
+    const [juryCheck] = await pool.query('SELECT * FROM photo_jury WHERE contest_id = ? AND user_email = ?', [contestId, userEmail]);
+    if (juryCheck.length > 0) return res.status(403).json({ error: 'Zsűritagként nem nevezhetsz erre a pályázatra!' });
 
-    // Feltöltés Drive-ra
+    // 2. Limit ellenőrzése
+    const [countRows] = await pool.query('SELECT COUNT(*) as count FROM photo_entries WHERE contest_id = ? AND user_email = ? AND category = ?', [contestId, userEmail, category]);
+    if (countRows[0].count >= 4) return res.status(400).json({ error: 'Elérted a 4 képes maximum limitet ebben a kategóriában!' });
+
+    // 3. Feltöltés Drive-ra
     const bufferStream = new Readable();
     bufferStream.push(file.buffer); bufferStream.push(null);
-
     const driveRes = await drive.files.create({
       requestBody: { name: `Nevezes_${contestId}_${userName}_${Date.now()}.jpg`, parents: [process.env.DRIVE_MASTER_FOLDER_ID] },
-      media: { mimeType: file.mimetype, body: bufferStream },
-      fields: 'id, webViewLink'
+      media: { mimeType: file.mimetype, body: bufferStream }, fields: 'id, webViewLink'
     });
 
-    // Mentés Adatbázisba
+    // 4. Mentés Adatbázisba
     await pool.query(
       'INSERT INTO photo_entries (contest_id, user_email, user_name, title, category, file_url, drive_file_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
       [contestId, userEmail, userName, title, category, driveRes.data.webViewLink, driveRes.data.id]
     );
-
-    res.status(200).json({ success: true, message: 'Kép feltöltve!' });
-  } catch (err) { res.status(500).json({ error: 'Feltöltési hiba' }); }
+    res.json({ success: true, message: 'Kép feltöltve!' });
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Feltöltési hiba' }); }
 });
 
-// Kép törlése
 app.delete('/api/entries/:id', async (req, res) => {
-  const entryId = req.params.id;
-  const { userEmail } = req.body;
   try {
-    // Ellenőrizzük, hogy tényleg az övé-e a kép, és lekérjük a Drive ID-t
-    const [rows] = await pool.query('SELECT * FROM photo_entries WHERE id = ? AND user_email = ?', [entryId, userEmail]);
-    if (rows.length === 0) return res.status(403).json({ error: 'Nincs jogosultságod törölni!' });
-    
-    const driveFileId = rows[0].drive_file_id;
-    
-    // Törlés Google Drive-ról
-    if (driveFileId) {
-      await drive.files.delete({ fileId: driveFileId }).catch(e => console.error("Drive törlési hiba (talán már nem létezik):", e.message));
-    }
-
-    // Törlés adatbázisból
-    await pool.query('DELETE FROM photo_entries WHERE id = ?', [entryId]);
-    res.json({ success: true, message: 'Kép sikeresen törölve!' });
+    const [rows] = await pool.query('SELECT * FROM photo_entries WHERE id = ? AND user_email = ?', [req.params.id, req.body.userEmail]);
+    if (rows.length === 0) return res.status(403).json({ error: 'Nincs jogosultságod!' });
+    if (rows[0].drive_file_id) await drive.files.delete({ fileId: rows[0].drive_file_id }).catch(e => console.log(e.message));
+    await pool.query('DELETE FROM photo_entries WHERE id = ?', [req.params.id]);
+    res.json({ success: true });
   } catch (err) { res.status(500).json({ error: 'Törlési hiba' }); }
 });
 
