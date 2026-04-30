@@ -3,22 +3,40 @@ import { GoogleOAuthProvider, GoogleLogin, googleLogout } from '@react-oauth/goo
 import { jwtDecode } from "jwt-decode";
 
 const GOOGLE_CLIENT_ID = "197361744572-ih728hq5jft3fqfd1esvktvrd8i97kcp.apps.googleusercontent.com";
-// IDE ÍRD BE A SAJÁT RENDER BACKEND LINKEDET (ne maradjon perjel a végén!):
-const BACKEND_URL = "https://photoapp-backend-m4d1.onrender.com"; 
+const BACKEND_URL = "https://IDE-IRD-A-RENDER-LINKEDET.onrender.com"; // <-- NE FELEJTSD EL ÁTÍRNI!
 const ADMIN_EMAIL = "kovari.rudolf@gmail.com"; 
 
 function App() {
   const [user, setUser] = useState<any>(null);
   const [contests, setContests] = useState<any[]>([]);
+  const [myEntries, setMyEntries] = useState<any[]>([]);
   
+  // Admin Form State
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
+  const [newStart, setNewStart] = useState('');
+  const [newEnd, setNewEnd] = useState('');
+  const [newCats, setNewCats] = useState(''); // Vesszővel elválasztva
+
+  // Feltöltés Form State (pályázatonként nyitható)
+  const [activeUploadContest, setActiveUploadContest] = useState<number | null>(null);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadPreview, setUploadPreview] = useState<string | null>(null);
+  const [uploadTitle, setUploadTitle] = useState('');
+  const [uploadCategory, setUploadCategory] = useState('');
 
   const fetchContests = async () => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/contests`);
       if (res.ok) setContests(await res.json());
-    } catch (e) { console.error("Hiba a pályázatok lekérésekor", e); }
+    } catch (e) { console.error(e); }
+  };
+
+  const fetchMyEntries = async (email: string) => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/my-entries?userEmail=${email}`);
+      if (res.ok) setMyEntries(await res.json());
+    } catch (e) { console.error(e); }
   };
 
   useEffect(() => {
@@ -26,68 +44,87 @@ function App() {
   }, []);
 
   const handleLoginSuccess = async (credential: string) => {
-    try {
-      const decoded: any = jwtDecode(credential);
-      setUser(decoded);
-      
-      // Elküldjük a backendnek az adatokat, hogy mentse adatbázisba!
-      await fetch(`${BACKEND_URL}/api/auth/sync`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: decoded.email, name: decoded.name, sub: decoded.sub })
-      });
-      
-    } catch (error) { console.error("Hiba", error); }
+    const decoded: any = jwtDecode(credential);
+    setUser(decoded);
+    await fetch(`${BACKEND_URL}/api/auth/sync`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: decoded.email, name: decoded.name, sub: decoded.sub })
+    });
+    fetchMyEntries(decoded.email);
   };
 
+  // PÁLYÁZAT LÉTREHOZÁSA
   const handleCreateContest = async () => {
-    if (!newTitle) return alert("Adj címet a pályázatnak!");
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/contests`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: newTitle, description: newDesc })
-      });
-      
-      if (res.ok) {
-        setNewTitle(''); setNewDesc('');
-        fetchContests();
-        alert("Pályázat sikeresen létrehozva!"); 
-      } else {
-        const errData = await res.json();
-        alert(`Hiba történt: ${errData.details || 'Sikertelen mentés'}`); 
-      }
-    } catch (error) {
-      alert("Nem sikerült kapcsolódni a szerverhez.");
+    if (!newTitle || !newStart || !newEnd || !newCats) return alert("Minden mezőt ki kell tölteni!");
+    const res = await fetch(`${BACKEND_URL}/api/contests`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: newTitle, description: newDesc, startDate: newStart, endDate: newEnd, categories: newCats })
+    });
+    if (res.ok) {
+      setNewTitle(''); setNewDesc(''); setNewStart(''); setNewEnd(''); setNewCats('');
+      fetchContests(); alert("Pályázat létrehozva!");
+    } else alert("Hiba a létrehozáskor!");
+  };
+
+  // KÉP KIVÁLASZTÁSA (Előnézet generálása)
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setUploadFile(file);
+      setUploadPreview(URL.createObjectURL(file)); // Előnézet generálása a böngészőben
     }
   };
 
-  const handleUpload = async (contestId: number, file: File | null) => {
-    if (!file) return;
+  // KÉP FELTÖLTÉSE
+  const handleUpload = async (contestId: number) => {
+    if (!uploadFile || !uploadTitle || !uploadCategory) return alert("Cím, Kategória és Kép kötelező!");
+    
     const formData = new FormData();
-    formData.append('photo', file);
+    formData.append('photo', uploadFile);
     formData.append('contestId', String(contestId));
     formData.append('userEmail', user.email);
     formData.append('userName', user.name);
+    formData.append('title', uploadTitle);
+    formData.append('category', uploadCategory);
 
-    const res = await fetch(`${BACKEND_URL}/api/upload`, {
-      method: 'POST',
-      body: formData
-    });
+    const res = await fetch(`${BACKEND_URL}/api/upload`, { method: 'POST', body: formData });
     
-    if (res.ok) alert("Kép sikeresen feltöltve!");
-    else alert("Hiba történt!");
+    if (res.ok) {
+      alert("Kép sikeresen feltöltve!");
+      setActiveUploadContest(null); setUploadFile(null); setUploadPreview(null); setUploadTitle('');
+      fetchMyEntries(user.email); // Lista frissítése
+    } else {
+      const err = await res.json();
+      alert(`Hiba: ${err.error}`);
+    }
   };
+
+  // KÉP TÖRLÉSE
+  const handleDeleteEntry = async (entryId: number) => {
+    if (!window.confirm("Biztosan törlöd ezt a képet?")) return;
+    const res = await fetch(`${BACKEND_URL}/api/entries/${entryId}`, {
+      method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userEmail: user.email })
+    });
+    if (res.ok) {
+      alert("Kép törölve!");
+      fetchMyEntries(user.email);
+    }
+  };
+
+  // Stílusok (Hogy ne legyen túl hosszú a kód)
+  const inputStyle = { width: '100%', padding: '10px', marginBottom: '10px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '6px', boxSizing: 'border-box' as const };
 
   return (
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
       <div style={{ minHeight: '100vh', backgroundColor: '#0f172a', color: '#f8fafc', fontFamily: 'Inter, sans-serif' }}>
         
+        {/* FEJLÉC */}
         <header style={{ padding: '1.5rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#1e293b', borderBottom: '1px solid #334155' }}>
           <h1 style={{ margin: 0, fontSize: '1.5rem', color: '#38bdf8' }}>📸 PhotoContest</h1>
           {user ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-              <span>{user.name} {user.email === ADMIN_EMAIL && <span style={{background: '#ef4444', padding: '2px 6px', borderRadius: '4px', fontSize: '0.7rem'}}>ADMIN</span>}</span>
+              <span>{user.name}</span>
               <button onClick={() => { googleLogout(); setUser(null); }} style={{ background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer' }}>Kijelentkezés</button>
             </div>
           ) : (
@@ -97,39 +134,114 @@ function App() {
 
         <main style={{ padding: '2rem', maxWidth: '800px', margin: '0 auto' }}>
           {!user ? (
-            <div style={{ textAlign: 'center', padding: '4rem 0' }}>
-              <h2>Jelentkezz be a pályázatok megtekintéséhez és a nevezéshez!</h2>
-            </div>
+            <h2 style={{textAlign: 'center', marginTop: '3rem'}}>Lépj be a pályázatokhoz!</h2>
           ) : (
             <>
+              {/* ADMIN FELÜLET */}
               {user.email === ADMIN_EMAIL && (
                 <div style={{ backgroundColor: '#1e293b', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', border: '1px solid #38bdf8' }}>
-                  <h3 style={{ marginTop: 0, color: '#38bdf8' }}>⚙️ Admin: Új Pályázat Létrehozása</h3>
-                  <input placeholder="Pályázat címe" value={newTitle} onChange={e => setNewTitle(e.target.value)} style={{ width: '100%', padding: '10px', marginBottom: '10px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '6px' }} />
-                  <textarea placeholder="Leírás / Szabályok" value={newDesc} onChange={e => setNewDesc(e.target.value)} style={{ width: '100%', padding: '10px', marginBottom: '10px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '6px', minHeight: '80px' }} />
-                  <button onClick={handleCreateContest} style={{ background: '#38bdf8', color: '#0f172a', border: 'none', padding: '10px 20px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Létrehozás</button>
+                  <h3 style={{ marginTop: 0, color: '#38bdf8' }}>⚙️ Új Pályázat Létrehozása</h3>
+                  <input placeholder="Pályázat címe" value={newTitle} onChange={e => setNewTitle(e.target.value)} style={inputStyle} />
+                  <textarea placeholder="Leírás" value={newDesc} onChange={e => setNewDesc(e.target.value)} style={{...inputStyle, minHeight: '60px'}} />
+                  <div style={{display: 'flex', gap: '10px'}}>
+                    <div style={{flex: 1}}><label>Kezdés</label><input type="datetime-local" value={newStart} onChange={e => setNewStart(e.target.value)} style={inputStyle} /></div>
+                    <div style={{flex: 1}}><label>Befejezés</label><input type="datetime-local" value={newEnd} onChange={e => setNewEnd(e.target.value)} style={inputStyle} /></div>
+                  </div>
+                  <input placeholder="Kategóriák (vesszővel elválasztva, pl: Természet,Portré)" value={newCats} onChange={e => setNewCats(e.target.value)} style={inputStyle} />
+                  <button onClick={handleCreateContest} style={{ background: '#38bdf8', color: '#0f172a', border: 'none', padding: '10px 20px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Mentés</button>
                 </div>
               )}
 
               <h2>Aktuális Fotópályázatok</h2>
-              {contests.length === 0 ? <p style={{ color: '#94a3b8' }}>Jelenleg nincs aktív pályázat.</p> : contests.map(contest => (
-                <div key={contest.id} style={{ backgroundColor: '#1e293b', padding: '1.5rem', borderRadius: '12px', marginBottom: '1rem' }}>
-                  <h3 style={{ margin: '0 0 10px 0' }}>{contest.title}</h3>
-                  <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: '15px' }}>{contest.description}</p>
-                  
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#0f172a', padding: '10px', borderRadius: '8px' }}>
-                    <input type="file" accept="image/*" id={`file-${contest.id}`} style={{ color: '#94a3b8', fontSize: '0.8rem' }} />
-                    <button 
-                      onClick={() => {
-                        const fileInput = document.getElementById(`file-${contest.id}`) as HTMLInputElement;
-                        handleUpload(contest.id, fileInput?.files?.[0] || null);
-                      }}
-                      style={{ background: '#10b981', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', marginLeft: 'auto' }}>
-                      Kép Beküldése 🚀
-                    </button>
+              {contests.map(contest => {
+                const now = new Date();
+                const start = new Date(contest.start_date);
+                const end = new Date(contest.end_date);
+                const isActive = now >= start && now <= end;
+                const categories = contest.categories ? contest.categories.split(',') : [];
+                
+                // Szűrés a saját nevezésekre ehhez a pályázathoz
+                const myContestEntries = myEntries.filter(e => e.contest_id === contest.id);
+
+                return (
+                  <div key={contest.id} style={{ backgroundColor: '#1e293b', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', border: isActive ? '1px solid #10b981' : '1px solid #475569' }}>
+                    
+                    {/* Pályázat fejléce */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div>
+                        <h3 style={{ margin: '0 0 5px 0' }}>{contest.title}</h3>
+                        <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: '0 0 15px 0' }}>{contest.description}</p>
+                      </div>
+                      <span style={{ padding: '4px 8px', borderRadius: '4px', fontSize: '0.8rem', background: isActive ? '#10b98120' : '#ef444420', color: isActive ? '#10b981' : '#ef4444' }}>
+                        {isActive ? 'Aktív Pályázat' : 'Lezárult / Nem kezdődött el'}
+                      </span>
+                    </div>
+
+                    <p style={{fontSize: '0.8rem', color: '#94a3b8', margin: '0 0 15px 0'}}>
+                      📅 {start.toLocaleDateString()} - {end.toLocaleDateString()}
+                    </p>
+
+                    {/* NEVEZÉS GOMB & ŰRLAP */}
+                    {isActive && activeUploadContest !== contest.id && (
+                      <button onClick={() => { setActiveUploadContest(contest.id); setUploadCategory(categories[0] || ''); }} style={{ background: '#38bdf8', color: '#0f172a', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', marginBottom: '15px' }}>
+                        + Új Kép Nevezése
+                      </button>
+                    )}
+
+                    {activeUploadContest === contest.id && (
+                      <div style={{ background: '#0f172a', padding: '15px', borderRadius: '8px', marginBottom: '20px' }}>
+                        <h4 style={{marginTop: 0, color: '#38bdf8'}}>Kép feltöltése</h4>
+                        
+                        <input placeholder="Kép címe" value={uploadTitle} onChange={e => setUploadTitle(e.target.value)} style={inputStyle} />
+                        
+                        <select value={uploadCategory} onChange={e => setUploadCategory(e.target.value)} style={inputStyle}>
+                          {categories.map((cat: string) => <option key={cat} value={cat}>{cat}</option>)}
+                        </select>
+
+                        <input type="file" accept="image/*" onChange={handleFileSelect} style={{ color: '#94a3b8', marginBottom: '10px' }} />
+                        
+                        {/* KÉP ELŐNÉZETE */}
+                        {uploadPreview && (
+                          <div style={{marginTop: '10px', marginBottom: '15px', textAlign: 'center'}}>
+                            <img src={uploadPreview} alt="Előnézet" style={{maxHeight: '200px', borderRadius: '8px', border: '2px solid #334155'}} />
+                          </div>
+                        )}
+
+                        <div style={{display: 'flex', gap: '10px'}}>
+                          <button onClick={() => handleUpload(contest.id)} style={{ flex: 1, background: '#10b981', color: 'white', border: 'none', padding: '10px', borderRadius: '6px', cursor: 'pointer' }}>Beküldés 🚀</button>
+                          <button onClick={() => { setActiveUploadContest(null); setUploadPreview(null); }} style={{ background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', padding: '10px', borderRadius: '6px', cursor: 'pointer' }}>Mégse</button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* SAJÁT NEVEZÉSEK GALÉRIÁJA */}
+                    {myContestEntries.length > 0 && (
+                      <div style={{ marginTop: '20px', borderTop: '1px solid #334155', paddingTop: '15px' }}>
+                        <h4 style={{margin: '0 0 15px 0'}}>Saját Nevezéseid ({myContestEntries.length})</h4>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '15px' }}>
+                          
+                          {myContestEntries.map(entry => (
+                            <div key={entry.id} style={{ background: '#0f172a', borderRadius: '8px', overflow: 'hidden', border: '1px solid #334155' }}>
+                              <a href={entry.file_url} target="_blank" rel="noreferrer">
+                                <img src={entry.file_url} alt={entry.title} style={{ width: '100%', height: '120px', objectFit: 'cover' }} />
+                              </a>
+                              <div style={{ padding: '10px' }}>
+                                <div style={{ fontSize: '0.9rem', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{entry.title}</div>
+                                <div style={{ fontSize: '0.75rem', color: '#38bdf8', marginBottom: '8px' }}>{entry.category}</div>
+                                <button onClick={() => handleDeleteEntry(entry.id)} style={{ width: '100%', background: '#ef444420', color: '#ef4444', border: 'none', padding: '5px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>
+                                  Törlés
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+
+                        </div>
+                      </div>
+                    )}
+
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </>
           )}
         </main>
