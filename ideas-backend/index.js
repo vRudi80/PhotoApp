@@ -44,7 +44,6 @@ app.put('/api/users/:email', async (req, res) => {
   catch (err) { res.status(500).json({ error: 'Hiba' }); }
 });
 
-// --- ÚJ: KLUBOK VÉGPONTOK ---
 app.get('/api/clubs', async (req, res) => {
   try { const [rows] = await pool.query('SELECT * FROM photo_clubs ORDER BY name ASC'); res.json(rows); } 
   catch (err) { res.status(500).json({ error: 'Hiba' }); }
@@ -59,7 +58,6 @@ app.delete('/api/clubs/:id', async (req, res) => {
   try { await pool.query('DELETE FROM photo_clubs WHERE id = ?', [req.params.id]); res.json({ success: true }); } 
   catch (err) { res.status(500).json({ error: 'Hiba' }); }
 });
-// ----------------------------
 
 app.get('/api/jury', async (req, res) => {
   try { const [rows] = await pool.query('SELECT * FROM photo_jury'); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
@@ -121,6 +119,17 @@ app.post('/api/upload', upload.single('photo'), async (req, res) => {
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
+
+// --- ÚJ: KÉP CÍMÉNEK MÓDOSÍTÁSA ---
+app.put('/api/entries/:id', async (req, res) => {
+  const { title, userEmail } = req.body;
+  try {
+    const [result] = await pool.query('UPDATE photo_entries SET title = ? WHERE id = ? AND user_email = ?', [title, req.params.id, userEmail]);
+    if (result.affectedRows === 0) return res.status(403).json({ error: 'Nincs jogosultságod módosítani ezt a képet!' });
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: 'Hiba a cím frissítésekor' }); }
+});
+// ----------------------------------
 
 app.delete('/api/entries/:id', async (req, res) => {
   try {
