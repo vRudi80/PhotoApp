@@ -3,7 +3,7 @@ import { GoogleOAuthProvider, GoogleLogin, googleLogout } from '@react-oauth/goo
 import { jwtDecode } from "jwt-decode";
 
 const GOOGLE_CLIENT_ID = "197361744572-ih728hq5jft3fqfd1esvktvrd8i97kcp.apps.googleusercontent.com";
-const BACKEND_URL = "https://IDE-IRD-A-RENDER-LINKEDET.onrender.com"; // <-- NE FELEJTSD EL ÁTÍRNI!
+const BACKEND_URL = "https://photoapp-backend-m4d1.onrender.com"; // <-- NE FELEJTSD EL ÁTÍRNI!
 const ADMIN_EMAIL = "kovari.rudolf@gmail.com"; 
 
 function App() {
