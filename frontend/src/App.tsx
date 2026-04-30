@@ -78,14 +78,12 @@ function App() {
     if (res.ok) { setNewTitle(''); setNewDesc(''); setNewStart(''); setNewEnd(''); setNewCats(''); fetchData(); }
   };
 
-  // --- JAVÍTOTT SZERKESZTÉS INDÍTÁSA ---
   const startEdit = (contest: any) => {
     setEditContestId(contest.id); 
     setEditTitle(contest.title); 
     setEditDesc(contest.description); 
     setEditCats(contest.categories || '');
     
-    // Biztonságos dátum konvertáló: ha hiba van vagy 1970-es, üresen hagyja a naptárat fagyás helyett!
     const formatDate = (dateStr: string | null) => {
       if (!dateStr) return '';
       try {
@@ -102,7 +100,6 @@ function App() {
   const handleUpdateContest = async () => {
     const res = await fetch(`${BACKEND_URL}/api/contests/${editContestId}`, { 
       method: 'PUT', headers: { 'Content-Type': 'application/json' }, 
-      // Ha a dátum mező üres, null-t küldünk, hogy a MySQL ne akadjon ki az üres stringen
       body: JSON.stringify({ title: editTitle, description: editDesc, startDate: editStart || null, endDate: editEnd || null, categories: editCats }) 
     });
     if (res.ok) { setEditContestId(null); fetchData(); alert("Pályázat sikeresen frissítve!"); }
@@ -224,6 +221,22 @@ function App() {
                           <ul style={{ padding: 0, listStyle: 'none' }}>{contestJury.map(jury => <li key={jury.user_email} style={{ display: 'flex', justifyContent: 'space-between', background: '#1e293b', padding: '10px', borderRadius: '6px', marginBottom: '5px' }}><span>{allUsers.find(u => u.email === jury.user_email)?.name || jury.user_email}</span><button onClick={() => handleRemoveJury(contest.id, jury.user_email)} style={{ background: 'transparent', color: '#ef4444', border: 'none', cursor: 'pointer' }}>Töröl</button></li>)}</ul>
                           <button onClick={() => setManageJuryContestId(null)} style={{ marginTop: '10px', background: 'transparent', color: '#94a3b8', border: '1px solid #475569', padding: '5px 15px', borderRadius: '6px', cursor: 'pointer' }}>Vissza</button>
                        </div>
+                    ) : editContestId === contest.id ? (
+                      /* EZ VOLT A HIÁNYZÓ RÉSZ: SZERKESZTŐ ŰRLAP MEGJELENÍTÉSE */
+                      <div style={{ background: '#0f172a', padding: '15px', borderRadius: '8px' }}>
+                        <h4 style={{marginTop: 0, color: '#f59e0b'}}>Pályázat Szerkesztése</h4>
+                        <input value={editTitle} onChange={e => setEditTitle(e.target.value)} style={inputStyle} />
+                        <textarea value={editDesc} onChange={e => setEditDesc(e.target.value)} style={{...inputStyle, minHeight: '60px'}} />
+                        <div style={{display: 'flex', gap: '10px'}}>
+                          <div style={{flex: 1}}><label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Kezdés</label><input type="datetime-local" value={editStart} onChange={e => setEditStart(e.target.value)} style={inputStyle} /></div>
+                          <div style={{flex: 1}}><label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Befejezés</label><input type="datetime-local" value={editEnd} onChange={e => setEditEnd(e.target.value)} style={inputStyle} /></div>
+                        </div>
+                        <input value={editCats} onChange={e => setEditCats(e.target.value)} style={inputStyle} />
+                        <div style={{display: 'flex', gap: '10px'}}>
+                          <button onClick={handleUpdateContest} style={{ flex: 1, background: '#10b981', color: 'white', border: 'none', padding: '10px', borderRadius: '6px', cursor: 'pointer' }}>Mentés</button>
+                          <button onClick={() => setEditContestId(null)} style={{ background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', padding: '10px', borderRadius: '6px', cursor: 'pointer' }}>Mégse</button>
+                        </div>
+                      </div>
                     ) : judgingContestId === contest.id ? (
                       <div style={{ background: '#0f172a', padding: '20px', borderRadius: '8px', textAlign: 'center' }}>
                         <h3 style={{ color: '#f59e0b', marginTop: 0 }}>🏅 Zsűrizés folyamatban</h3>
@@ -298,7 +311,6 @@ function App() {
                               {contest.title}
                               {user.email === ADMIN_EMAIL && (
                                 <>
-                                  {/* JAVÍTÁS: A Szerkesztés gomb MOST MÁR MINDIG LÁTSZIK! */}
                                   <button onClick={() => startEdit(contest)} style={{ background: 'transparent', border: '1px solid #f59e0b', color: '#f59e0b', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', cursor: 'pointer' }}>Szerkesztés</button>
                                   <button onClick={() => setManageJuryContestId(contest.id)} style={{ background: 'transparent', border: '1px solid #8b5cf6', color: '#8b5cf6', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', cursor: 'pointer' }}>Zsűri ({contestJury.length})</button>
                                   {isEnded && <button onClick={() => loadResults(contest.id)} style={{ background: '#10b981', border: 'none', color: 'white', fontSize: '0.7rem', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer' }}>🏆 Eredmények</button>}
