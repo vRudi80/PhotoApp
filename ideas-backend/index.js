@@ -78,7 +78,6 @@ app.get('/api/my-entries', async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Hiba' }); }
 });
 
-// ÚJ: Nevezési statisztika lekérése (Admin)
 app.get('/api/admin/stats/:contestId', async (req, res) => {
   try {
     const [rows] = await pool.query(
@@ -105,32 +104,64 @@ app.put('/api/contests/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Hiba' }); }
 });
 
+// --- JAVÍTOTT FELTÖLTÉS PONTOS HIBAÜZENETTEL ---
 app.post('/api/upload', upload.single('photo'), async (req, res) => {
   const { contestId, userEmail, userName, title, category } = req.body;
   const file = req.file;
-  if (!file) return res.status(400).json({ error: 'Nincs fájl!' });
+  if (!file) return res.status(400).json({ error: 'Nincs fájl kiválasztva a feltöltésnél!' });
+  
   try {
     const [juryCheck] = await pool.query('SELECT * FROM photo_jury WHERE contest_id = ? AND user_email = ?', [contestId, userEmail]);
     if (juryCheck.length > 0) return res.status(403).json({ error: 'Zsűritagként nem nevezhetsz!' });
+    
     const [countRows] = await pool.query('SELECT COUNT(*) as count FROM photo_entries WHERE contest_id = ? AND user_email = ? AND category = ?', [contestId, userEmail, category]);
     if (countRows[0].count >= 4) return res.status(400).json({ error: 'Elérted a 4 képes limitet!' });
 
-    const bufferStream = new Readable(); bufferStream.push(file.buffer); bufferStream.push(null);
-    const driveRes = await drive.files.create({ requestBody: { name: `Nevezes_${contestId}_${userName}_${Date.now()}.jpg`, parents: [process.env.DRIVE_MASTER_FOLDER_ID] }, media: { mimeType: file.mimetype, body: bufferStream }, fields: 'id, webViewLink' });
+    const bufferStream = new Readable(); 
+    bufferStream.push(file.buffer); 
+    bufferStream.push(null);
+    
+    const driveRes = await drive.files.create({ 
+      requestBody: { name: `Nevezes_${contestId}_${userName}_${Date.now()}.jpg`, parents: [process.env.DRIVE_MASTER_FOLDER_ID] }, 
+      media: { mimeType: file.mimetype, body: bufferStream }, 
+      fields: 'id, webViewLink' 
+    });
 
     await pool.query('INSERT INTO photo_entries (contest_id, user_email, user_name, title, category, file_url, drive_file_id) VALUES (?, ?, ?, ?, ?, ?, ?)', [contestId, userEmail, userName, title, category, driveRes.data.webViewLink, driveRes.data.id]);
     res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: 'Hiba a feltöltésnél' }); }
+    
+  } catch (err) { 
+    console.error('Feltöltési hiba pontos részletei:', err);
+    // Visszaküldjük a Google által adott pontos hibát!
+    res.status(500).json({ error: err.message || 'Ismeretlen hiba történt a Drive feltöltés során.' }); 
+  }
 });
 
+// --- JAVÍTOTT TÖRLÉS PONTOS NAPLÓZÁSSAL ---
 app.delete('/api/entries/:id', async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT * FROM photo_entries WHERE id = ? AND user_email = ?', [req.params.id, req.body.userEmail]);
-    if (rows.length === 0) return res.status(403).json({ error: 'Nincs jogod!' });
-    if (rows[0].drive_file_id) await drive.files.delete({ fileId: rows[0].drive_file_id }).catch(e => console.log(e.message));
+    if (rows.length === 0) return res.status(403).json({ error: 'Nincs jogod ehhez a képhez!' });
+    
+    const driveFileId = rows[0].drive_file_id;
+    
+    if (driveFileId) {
+      try {
+        await drive.files.delete({ fileId: driveFileId });
+        console.log(`Fájl törölve a Drive-ról: ${driveFileId}`);
+      } catch (driveErr) {
+        console.error(`Nem sikerült törölni a Drive-ról (lehet, hogy kézzel már letörölted): ${driveErr.message}`);
+      }
+    } else {
+      console.log('Ennek a képnek nem volt Drive ID-ja, csak az adatbázisból törlöm.');
+    }
+    
     await pool.query('DELETE FROM photo_entries WHERE id = ?', [req.params.id]);
     res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: 'Hiba' }); }
+  } catch (err) { 
+    console.error('Törlési hiba:', err);
+    res.status(500).json({ error: 'Hiba a törlés során' }); 
+  }
 });
 
 app.get('/api/jury-entries/:contestId', async (req, res) => {
