@@ -3,6 +3,7 @@ const cors = require('cors');
 const mysql = require('mysql2/promise');
 const multer = require('multer');
 const { google } = require('googleapis');
+const { Readable } = require('stream');
 require('dotenv').config();
 
 const app = express();
@@ -23,13 +24,26 @@ const pool = mysql.createPool({
 
 const PORT = process.env.PORT || 4000;
 
+// --- GOOGLE DRIVE BEÁLLÍTÁS ---
+const oauth2Client = new google.auth.OAuth2(
+  process.env.DRIVE_CLIENT_ID,
+  process.env.DRIVE_CLIENT_SECRET,
+  "https://developers.google.com/oauthplayground"
+);
+
+oauth2Client.setCredentials({
+  refresh_token: process.env.DRIVE_REFRESH_TOKEN
+});
+
+const drive = google.drive({ version: 'v3', auth: oauth2Client });
+
 // --- API VÉGPONTOK ---
 
 app.get('/api/status', (req, res) => {
   res.json({ status: 'online', message: 'PhotoApp Backend fut!' });
 });
 
-// Felhasználó szinkronizálása bejelentkezéskor
+// Felhasználó szinkronizálása
 app.post('/api/auth/sync', async (req, res) => {
   const { email, name, sub } = req.body;
   try {
@@ -46,7 +60,7 @@ app.post('/api/auth/sync', async (req, res) => {
   }
 });
 
-// 1. Pályázatok lekérése
+// Pályázatok lekérése
 app.get('/api/contests', async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT * FROM photo_contests ORDER BY created_at DESC');
@@ -57,7 +71,7 @@ app.get('/api/contests', async (req, res) => {
   }
 });
 
-// 2. Új pályázat létrehozása (Admin)
+// Új pályázat létrehozása (Admin)
 app.post('/api/contests', async (req, res) => {
   const { title, description } = req.body;
   try {
@@ -72,21 +86,51 @@ app.post('/api/contests', async (req, res) => {
   }
 });
 
-// 3. Kép feltöltése (Később ide jön a Drive logika)
+// Kép feltöltése Google Drive-ra
 app.post('/api/upload', upload.single('photo'), async (req, res) => {
   const { contestId, userEmail, userName } = req.body;
   const file = req.file;
+
   if (!file) return res.status(400).json({ error: 'Nincs fájl kiválasztva!' });
+
   try {
-    const fakeDriveUrl = `https://drive.google.com/fake-link-${Date.now()}`;
+    // 1. Buffer átalakítása Stream-mé (hogy a Google API meg tudja enni)
+    const bufferStream = new Readable();
+    bufferStream.push(file.buffer);
+    bufferStream.push(null);
+
+    // 2. Fájl adatai a Drive számára
+    const fileMetadata = {
+      name: `Nevezes_${contestId}_${userName}_${Date.now()}.jpg`,
+      parents: [process.env.DRIVE_MASTER_FOLDER_ID] // Ide menti
+    };
+
+    const media = {
+      mimeType: file.mimetype,
+      body: bufferStream
+    };
+
+    // 3. Feltöltés indítása
+    console.log("Feltöltés indítása a Drive-ra...");
+    const driveRes = await drive.files.create({
+      requestBody: fileMetadata,
+      media: media,
+      fields: 'id, webViewLink'
+    });
+
+    const fileUrl = driveRes.data.webViewLink;
+    console.log("Sikeres Drive feltöltés! Link:", fileUrl);
+
+    // 4. Mentés az adatbázisba
     await pool.query(
       'INSERT INTO photo_entries (contest_id, user_email, user_name, file_url) VALUES (?, ?, ?, ?)',
-      [contestId, userEmail, userName, fakeDriveUrl]
+      [contestId, userEmail, userName, fileUrl]
     );
-    res.status(200).json({ success: true, message: 'Feltöltve' });
+
+    res.status(200).json({ success: true, message: 'Kép sikeresen feltöltve a Drive-ra!' });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Hiba a feltöltés során' });
+    console.error('Hiba a feltöltés során:', err);
+    res.status(500).json({ error: 'Hiba a feltöltés során', details: err.message });
   }
 });
 
