@@ -27,11 +27,42 @@ function App() {
     fetchContests();
   }, []);
 
-  const handleLoginSuccess = (credential: string) => {
+ const handleLoginSuccess = async (credential: string) => {
     try {
       const decoded: any = jwtDecode(credential);
       setUser(decoded);
+      
+      // ÚJ: Elküldjük a backendnek az adatokat, hogy mentse adatbázisba!
+      await fetch(`${BACKEND_URL}/api/auth/sync`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: decoded.email, name: decoded.name, sub: decoded.sub })
+      });
+      
     } catch (error) { console.error("Hiba", error); }
+  };
+
+  // Pályázat létrehozása javítva (Hozzáadva a hibajelzés a felületen)
+  const handleCreateContest = async () => {
+    if (!newTitle) return alert("Adj címet a pályázatnak!");
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/contests`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: newTitle, description: newDesc })
+      });
+      
+      if (res.ok) {
+        setNewTitle(''); setNewDesc('');
+        fetchContests();
+        alert("Pályázat sikeresen létrehozva!"); // Sikeres üzenet
+      } else {
+        const errData = await res.json();
+        alert(`Hiba történt: ${errData.details || 'Sikertelen mentés'}`); // Megjelenik a hiba oka
+      }
+    } catch (error) {
+      alert("Nem sikerült kapcsolódni a szerverhez.");
+    }
   };
 
   // Pályázat létrehozása
