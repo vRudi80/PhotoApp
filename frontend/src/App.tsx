@@ -4,7 +4,7 @@ import { jwtDecode } from "jwt-decode";
 
 const GOOGLE_CLIENT_ID = "197361744572-ih728hq5jft3fqfd1esvktvrd8i97kcp.apps.googleusercontent.com";
 // Cseréld le a Vercel/Render URL-edre!
-const BACKEND_URL = "https://react-ideas-backend.onrender.com"; 
+const BACKEND_URL = "https://photoapp-backend-m4d1.onrender.com"; 
 const ADMIN_EMAIL = "kovari.rudolf@gmail.com"; // A te e-mail címed
 
 function App() {
