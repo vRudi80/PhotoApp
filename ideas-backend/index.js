@@ -102,6 +102,7 @@ app.put('/api/contests/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Hiba' }); }
 });
 
+// --- JAVÍTOTT KÉPFELTÖLTÉS (Dinamikus kiterjesztéssel) ---
 app.post('/api/upload', upload.single('photo'), async (req, res) => {
   const { contestId, userEmail, userName, title, category } = req.body;
   const file = req.file;
@@ -113,14 +114,22 @@ app.post('/api/upload', upload.single('photo'), async (req, res) => {
     if (countRows[0].count >= 4) return res.status(400).json({ error: 'Elérted a 4 képes limitet!' });
 
     const bufferStream = new Readable(); bufferStream.push(file.buffer); bufferStream.push(null);
-    const driveRes = await drive.files.create({ requestBody: { name: `Nevezes_${contestId}_${userName}_${Date.now()}.jpg`, parents: [process.env.DRIVE_MASTER_FOLDER_ID] }, media: { mimeType: file.mimetype, body: bufferStream }, fields: 'id, webViewLink' });
+    
+    // Kinyerjük a valós kiterjesztést, ha nincs, adunk egy alap .jpg-t
+    const fileExt = file.originalname && file.originalname.includes('.') ? file.originalname.substring(file.originalname.lastIndexOf('.')).toLowerCase() : '.jpg';
+
+    const driveRes = await drive.files.create({ 
+      requestBody: { name: `Nevezes_${contestId}_${userName}_${Date.now()}${fileExt}`, parents: [process.env.DRIVE_MASTER_FOLDER_ID] }, 
+      media: { mimeType: file.mimetype, body: bufferStream }, 
+      fields: 'id, webViewLink' 
+    });
 
     await pool.query('INSERT INTO photo_entries (contest_id, user_email, user_name, title, category, file_url, drive_file_id) VALUES (?, ?, ?, ?, ?, ?, ?)', [contestId, userEmail, userName, title, category, driveRes.data.webViewLink, driveRes.data.id]);
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
+// ---------------------------------------------------------
 
-// --- ÚJ: KÉP CÍMÉNEK MÓDOSÍTÁSA ---
 app.put('/api/entries/:id', async (req, res) => {
   const { title, userEmail } = req.body;
   try {
@@ -129,7 +138,6 @@ app.put('/api/entries/:id', async (req, res) => {
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: 'Hiba a cím frissítésekor' }); }
 });
-// ----------------------------------
 
 app.delete('/api/entries/:id', async (req, res) => {
   try {
