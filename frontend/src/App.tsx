@@ -10,6 +10,8 @@ function App() {
   const [user, setUser] = useState<any>(null);
   const [contests, setContests] = useState<any[]>([]);
   const [myEntries, setMyEntries] = useState<any[]>([]);
+  const [allUsers, setAllUsers] = useState<any[]>([]);
+  const [juryList, setJuryList] = useState<any[]>([]);
   
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
@@ -29,14 +31,22 @@ function App() {
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
   const [uploadTitle, setUploadTitle] = useState('');
   const [uploadCategory, setUploadCategory] = useState('');
-  
-  // ÚJ: Töltés állapotát jelző változó
   const [isUploading, setIsUploading] = useState(false);
 
-  const fetchContests = async () => {
+  // ÚJ: Zsűri kezelő állapota
+  const [manageJuryContestId, setManageJuryContestId] = useState<number | null>(null);
+  const [selectedJuryEmail, setSelectedJuryEmail] = useState('');
+
+  const fetchData = async () => {
     try {
-      const res = await fetch(`${BACKEND_URL}/api/contests`);
-      if (res.ok) setContests(await res.json());
+      const resContests = await fetch(`${BACKEND_URL}/api/contests`);
+      if (resContests.ok) setContests(await resContests.json());
+      
+      const resJury = await fetch(`${BACKEND_URL}/api/jury`);
+      if (resJury.ok) setJuryList(await resJury.json());
+
+      const resUsers = await fetch(`${BACKEND_URL}/api/users`);
+      if (resUsers.ok) setAllUsers(await resUsers.json());
     } catch (e) { console.error(e); }
   };
 
@@ -47,7 +57,7 @@ function App() {
     } catch (e) { console.error(e); }
   };
 
-  useEffect(() => { fetchContests(); }, []);
+  useEffect(() => { fetchData(); }, []);
 
   const handleLoginSuccess = async (credential: string) => {
     const decoded: any = jwtDecode(credential);
@@ -56,6 +66,7 @@ function App() {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: decoded.email, name: decoded.name, sub: decoded.sub })
     });
+    fetchData(); // Újratöltjük a listákat belépés után
     fetchMyEntries(decoded.email);
   };
 
@@ -67,15 +78,12 @@ function App() {
     });
     if (res.ok) {
       setNewTitle(''); setNewDesc(''); setNewStart(''); setNewEnd(''); setNewCats('');
-      fetchContests(); alert("Pályázat létrehozva!");
+      fetchData(); alert("Pályázat létrehozva!");
     }
   };
 
   const startEdit = (contest: any) => {
-    setEditContestId(contest.id);
-    setEditTitle(contest.title);
-    setEditDesc(contest.description);
-    setEditCats(contest.categories || '');
+    setEditContestId(contest.id); setEditTitle(contest.title); setEditDesc(contest.description); setEditCats(contest.categories || '');
     setEditStart(contest.start_date ? new Date(new Date(contest.start_date).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0,16) : '');
     setEditEnd(contest.end_date ? new Date(new Date(contest.end_date).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0,16) : '');
   };
@@ -85,10 +93,27 @@ function App() {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title: editTitle, description: editDesc, startDate: editStart, endDate: editEnd, categories: editCats })
     });
-    if (res.ok) {
-      setEditContestId(null); fetchContests(); alert("Pályázat sikeresen frissítve!");
-    } else alert("Hiba a mentéskor!");
+    if (res.ok) { setEditContestId(null); fetchData(); alert("Sikeres frissítés!"); }
   };
+
+  // --- ZSŰRI FUNKCIÓK ---
+  const handleAddJury = async (contestId: number) => {
+    if (!selectedJuryEmail) return;
+    const res = await fetch(`${BACKEND_URL}/api/jury`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contestId, userEmail: selectedJuryEmail })
+    });
+    if (res.ok) { setSelectedJuryEmail(''); fetchData(); }
+  };
+
+  const handleRemoveJury = async (contestId: number, email: string) => {
+    const res = await fetch(`${BACKEND_URL}/api/jury`, {
+      method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contestId, userEmail: email })
+    });
+    if (res.ok) fetchData();
+  };
+  // -----------------------
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -97,10 +122,7 @@ function App() {
 
   const handleUpload = async (contestId: number) => {
     if (!uploadFile || !uploadTitle || !uploadCategory) return alert("Cím, Kategória és Kép kötelező!");
-    
-    // BEKAPCSOLJUK A TÖLTÉS JELZŐT
     setIsUploading(true);
-    
     try {
       const formData = new FormData();
       formData.append('photo', uploadFile); formData.append('contestId', String(contestId));
@@ -108,28 +130,17 @@ function App() {
       formData.append('title', uploadTitle); formData.append('category', uploadCategory);
 
       const res = await fetch(`${BACKEND_URL}/api/upload`, { method: 'POST', body: formData });
-      
       if (res.ok) {
         alert("Kép sikeresen feltöltve!");
         setActiveUploadContest(null); setUploadFile(null); setUploadPreview(null); setUploadTitle(''); setUploadCategory('');
         fetchMyEntries(user.email);
-      } else { 
-        const err = await res.json(); 
-        alert(`Hiba: ${err.error}`); 
-      }
-    } catch (error) {
-      alert("Hálózati hiba történt a feltöltés során.");
-    } finally {
-      // BÁRMI TÖRTÉNIK, KIKAPCSOLJUK A TÖLTÉS JELZŐT
-      setIsUploading(false);
-    }
+      } else { const err = await res.json(); alert(`Hiba: ${err.error}`); }
+    } catch (error) { alert("Hálózati hiba"); } finally { setIsUploading(false); }
   };
 
   const handleDeleteEntry = async (entryId: number) => {
     if (!window.confirm("Biztosan törlöd ezt a képet?")) return;
-    const res = await fetch(`${BACKEND_URL}/api/entries/${entryId}`, {
-      method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userEmail: user.email })
-    });
+    const res = await fetch(`${BACKEND_URL}/api/entries/${entryId}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userEmail: user.email }) });
     if (res.ok) { alert("Kép törölve!"); fetchMyEntries(user.email); }
   };
 
@@ -171,19 +182,53 @@ function App() {
                 const start = contest.start_date ? new Date(contest.start_date) : new Date(0);
                 const end = contest.end_date ? new Date(contest.end_date) : new Date(0);
                 const isActive = now >= start && now <= end;
-                
                 const categories = contest.categories ? contest.categories.split(',').map((c:string) => c.trim()).filter(Boolean) : [];
-                const myContestEntries = myEntries.filter(e => e.contest_id === contest.id);
+                
+                // Zsűri ellenőrzés
+                const contestJury = juryList.filter(j => j.contest_id === contest.id);
+                const isUserJury = contestJury.some(j => j.user_email === user.email);
 
+                const myContestEntries = myEntries.filter(e => e.contest_id === contest.id);
                 const categoryCounts: Record<string, number> = {};
                 categories.forEach((cat: string) => categoryCounts[cat] = 0);
-                myContestEntries.forEach(entry => {
-                  if (categoryCounts[entry.category] !== undefined) categoryCounts[entry.category]++;
-                });
+                myContestEntries.forEach(entry => { if (categoryCounts[entry.category] !== undefined) categoryCounts[entry.category]++; });
 
                 return (
                   <div key={contest.id} style={{ backgroundColor: '#1e293b', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', border: isActive ? '1px solid #10b981' : '1px solid #475569' }}>
-                    {editContestId === contest.id ? (
+                    
+                    {/* ZSŰRI KEZELÉSE FELÜLET (Csak Admin) */}
+                    {manageJuryContestId === contest.id ? (
+                       <div style={{ background: '#0f172a', padding: '15px', borderRadius: '8px', marginBottom: '15px', border: '1px solid #8b5cf6' }}>
+                          <h4 style={{marginTop: 0, color: '#a78bfa'}}>⚖️ Zsűri kezelése: {contest.title}</h4>
+                          
+                          <div style={{display: 'flex', gap: '10px', marginBottom: '15px'}}>
+                            <select value={selectedJuryEmail} onChange={e => setSelectedJuryEmail(e.target.value)} style={{...inputStyle, marginBottom: 0}}>
+                              <option value="">-- Válassz usert --</option>
+                              {allUsers.filter(u => !contestJury.some(j => j.user_email === u.email)).map(u => (
+                                <option key={u.email} value={u.email}>{u.name} ({u.email})</option>
+                              ))}
+                            </select>
+                            <button onClick={() => handleAddJury(contest.id)} style={{ background: '#8b5cf6', color: 'white', border: 'none', padding: '10px 15px', borderRadius: '6px', cursor: 'pointer' }}>Hozzáadás</button>
+                          </div>
+
+                          {contestJury.length > 0 ? (
+                            <ul style={{ padding: 0, listStyle: 'none' }}>
+                              {contestJury.map(jury => {
+                                const juryUser = allUsers.find(u => u.email === jury.user_email);
+                                return (
+                                  <li key={jury.user_email} style={{ display: 'flex', justifyContent: 'space-between', background: '#1e293b', padding: '10px', borderRadius: '6px', marginBottom: '5px' }}>
+                                    <span>{juryUser?.name || jury.user_email}</span>
+                                    <button onClick={() => handleRemoveJury(contest.id, jury.user_email)} style={{ background: 'transparent', color: '#ef4444', border: 'none', cursor: 'pointer' }}>Eltávolít</button>
+                                  </li>
+                                )
+                              })}
+                            </ul>
+                          ) : <p style={{color: '#94a3b8', fontSize: '0.9rem'}}>Még nincs zsűritag delegálva.</p>}
+
+                          <button onClick={() => setManageJuryContestId(null)} style={{ marginTop: '10px', background: 'transparent', color: '#94a3b8', border: '1px solid #475569', padding: '5px 15px', borderRadius: '6px', cursor: 'pointer' }}>Vissza</button>
+                       </div>
+                    ) : editContestId === contest.id ? (
+                      /* SZERKESZTÉS FELÜLET */
                       <div style={{ background: '#0f172a', padding: '15px', borderRadius: '8px' }}>
                         <h4 style={{marginTop: 0, color: '#f59e0b'}}>Pályázat Szerkesztése</h4>
                         <input value={editTitle} onChange={e => setEditTitle(e.target.value)} style={inputStyle} />
@@ -205,7 +250,10 @@ function App() {
                             <h3 style={{ margin: '0 0 5px 0', display: 'flex', alignItems: 'center', gap: '10px' }}>
                               {contest.title}
                               {user.email === ADMIN_EMAIL && (
-                                <button onClick={() => startEdit(contest)} style={{ background: 'transparent', border: '1px solid #f59e0b', color: '#f59e0b', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', cursor: 'pointer' }}>Szerkesztés</button>
+                                <>
+                                  <button onClick={() => startEdit(contest)} style={{ background: 'transparent', border: '1px solid #f59e0b', color: '#f59e0b', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', cursor: 'pointer' }}>Szerkesztés</button>
+                                  <button onClick={() => setManageJuryContestId(contest.id)} style={{ background: 'transparent', border: '1px solid #8b5cf6', color: '#8b5cf6', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', cursor: 'pointer' }}>Zsűri ({contestJury.length})</button>
+                                </>
                               )}
                             </h3>
                             <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: '0 0 15px 0' }}>{contest.description}</p>
@@ -218,7 +266,15 @@ function App() {
                           📅 {start.getFullYear() > 1970 ? `${start.toLocaleDateString()} - ${end.toLocaleDateString()}` : 'Nincs dátum megadva'}
                         </p>
 
-                        {isActive && activeUploadContest !== contest.id && (
+                        {/* ZSŰRI FIGYELMEZTETÉS */}
+                        {isUserJury && (
+                          <div style={{ background: '#f59e0b20', border: '1px solid #f59e0b', color: '#f59e0b', padding: '10px', borderRadius: '6px', marginBottom: '15px', fontWeight: 'bold' }}>
+                            🏅 Ebben a pályázatban Zsűritag vagy! Képet nem tölthetsz fel, de hamarosan itt tudsz majd pontozni.
+                          </div>
+                        )}
+
+                        {/* FELTÖLTÉS GOMB (Csak ha aktív és NEM zsűri) */}
+                        {isActive && !isUserJury && activeUploadContest !== contest.id && (
                           <button onClick={() => { setActiveUploadContest(contest.id); setUploadCategory(''); }} style={{ background: '#38bdf8', color: '#0f172a', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', marginBottom: '15px' }}>
                             + Új Kép Nevezése
                           </button>
@@ -233,11 +289,7 @@ function App() {
                               <option value="">-- Válassz kategóriát --</option>
                               {categories.map((cat: string) => {
                                 const count = categoryCounts[cat] || 0;
-                                return (
-                                  <option key={cat} value={cat} disabled={count >= 4}>
-                                    {cat} ({count}/4 feltöltve)
-                                  </option>
-                                );
+                                return <option key={cat} value={cat} disabled={count >= 4}>{cat} ({count}/4 feltöltve)</option>;
                               })}
                             </select>
 
@@ -248,55 +300,33 @@ function App() {
                               </div>
                             )}
                             <div style={{display: 'flex', gap: '10px'}}>
-                              {/* ÚJ: OKOS GOMB */}
-                              <button 
-                                onClick={() => handleUpload(contest.id)} 
-                                disabled={isUploading}
-                                style={{ 
-                                  flex: 1, 
-                                  background: isUploading ? '#475569' : '#10b981', 
-                                  color: 'white', 
-                                  border: 'none', 
-                                  padding: '10px', 
-                                  borderRadius: '6px', 
-                                  cursor: isUploading ? 'not-allowed' : 'pointer',
-                                  transition: 'background 0.3s'
-                                }}>
+                              <button onClick={() => handleUpload(contest.id)} disabled={isUploading} style={{ flex: 1, background: isUploading ? '#475569' : '#10b981', color: 'white', border: 'none', padding: '10px', borderRadius: '6px', cursor: isUploading ? 'not-allowed' : 'pointer', transition: 'background 0.3s' }}>
                                 {isUploading ? 'Feltöltés folyamatban ⏳...' : 'Beküldés 🚀'}
                               </button>
-                              
                               <button onClick={() => { setActiveUploadContest(null); setUploadPreview(null); }} disabled={isUploading} style={{ background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', padding: '10px', borderRadius: '6px', cursor: isUploading ? 'not-allowed' : 'pointer' }}>Mégse</button>
                             </div>
                           </div>
                         )}
 
+                        {/* SAJÁT KÉPEK (Ugyanúgy marad) */}
                         {myContestEntries.length > 0 && (
                           <div style={{ marginTop: '20px', borderTop: '1px solid #334155', paddingTop: '15px' }}>
                             <h4 style={{margin: '0 0 15px 0'}}>Saját Nevezéseid</h4>
-                            
                             {categories.map((cat: string) => {
                               const catEntries = myContestEntries.filter(e => e.category === cat);
                               if (catEntries.length === 0) return null;
-                              
                               return (
                                 <div key={cat} style={{ marginBottom: '20px' }}>
-                                  <h5 style={{ color: '#38bdf8', borderBottom: '1px solid #334155', paddingBottom: '5px', marginTop: 0 }}>
-                                    {cat} ({catEntries.length}/4)
-                                  </h5>
+                                  <h5 style={{ color: '#38bdf8', borderBottom: '1px solid #334155', paddingBottom: '5px', marginTop: 0 }}>{cat} ({catEntries.length}/4)</h5>
                                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '15px' }}>
                                     {catEntries.map(entry => {
                                       const imageUrl = entry.drive_file_id ? `https://drive.google.com/thumbnail?id=${entry.drive_file_id}&sz=w800` : entry.file_url;
-                                      
                                       return (
                                         <div key={entry.id} style={{ background: '#0f172a', borderRadius: '8px', overflow: 'hidden', border: '1px solid #334155' }}>
-                                          <a href={entry.file_url} target="_blank" rel="noreferrer">
-                                            <img src={imageUrl} alt={entry.title} style={{ width: '100%', height: '120px', objectFit: 'cover', backgroundColor: '#1e293b' }} />
-                                          </a>
+                                          <a href={entry.file_url} target="_blank" rel="noreferrer"><img src={imageUrl} alt={entry.title} style={{ width: '100%', height: '120px', objectFit: 'cover', backgroundColor: '#1e293b' }} /></a>
                                           <div style={{ padding: '10px' }}>
                                             <div style={{ fontSize: '0.9rem', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{entry.title}</div>
-                                            <button onClick={() => handleDeleteEntry(entry.id)} style={{ width: '100%', background: '#ef444420', color: '#ef4444', border: 'none', padding: '5px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', marginTop: '10px' }}>
-                                              Törlés
-                                            </button>
+                                            <button onClick={() => handleDeleteEntry(entry.id)} style={{ width: '100%', background: '#ef444420', color: '#ef4444', border: 'none', padding: '5px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', marginTop: '10px' }}>Törlés</button>
                                           </div>
                                         </div>
                                       )
