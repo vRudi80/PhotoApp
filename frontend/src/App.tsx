@@ -3,19 +3,17 @@ import { GoogleOAuthProvider, GoogleLogin, googleLogout } from '@react-oauth/goo
 import { jwtDecode } from "jwt-decode";
 
 const GOOGLE_CLIENT_ID = "197361744572-ih728hq5jft3fqfd1esvktvrd8i97kcp.apps.googleusercontent.com";
-// Cseréld le a Vercel/Render URL-edre!
+// IDE ÍRD BE A SAJÁT RENDER BACKEND LINKEDET (ne maradjon perjel a végén!):
 const BACKEND_URL = "https://photoapp-backend-m4d1.onrender.com"; 
-const ADMIN_EMAIL = "kovari.rudolf@gmail.com"; // A te e-mail címed
+const ADMIN_EMAIL = "kovari.rudolf@gmail.com"; 
 
 function App() {
   const [user, setUser] = useState<any>(null);
   const [contests, setContests] = useState<any[]>([]);
   
-  // Admin form state
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
 
-  // Adatok lekérése
   const fetchContests = async () => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/contests`);
@@ -27,12 +25,12 @@ function App() {
     fetchContests();
   }, []);
 
- const handleLoginSuccess = async (credential: string) => {
+  const handleLoginSuccess = async (credential: string) => {
     try {
       const decoded: any = jwtDecode(credential);
       setUser(decoded);
       
-      // ÚJ: Elküldjük a backendnek az adatokat, hogy mentse adatbázisba!
+      // Elküldjük a backendnek az adatokat, hogy mentse adatbázisba!
       await fetch(`${BACKEND_URL}/api/auth/sync`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -42,7 +40,6 @@ function App() {
     } catch (error) { console.error("Hiba", error); }
   };
 
-  // Pályázat létrehozása javítva (Hozzáadva a hibajelzés a felületen)
   const handleCreateContest = async () => {
     if (!newTitle) return alert("Adj címet a pályázatnak!");
     try {
@@ -55,31 +52,16 @@ function App() {
       if (res.ok) {
         setNewTitle(''); setNewDesc('');
         fetchContests();
-        alert("Pályázat sikeresen létrehozva!"); // Sikeres üzenet
+        alert("Pályázat sikeresen létrehozva!"); 
       } else {
         const errData = await res.json();
-        alert(`Hiba történt: ${errData.details || 'Sikertelen mentés'}`); // Megjelenik a hiba oka
+        alert(`Hiba történt: ${errData.details || 'Sikertelen mentés'}`); 
       }
     } catch (error) {
       alert("Nem sikerült kapcsolódni a szerverhez.");
     }
   };
 
-  // Pályázat létrehozása
-  const handleCreateContest = async () => {
-    if (!newTitle) return alert("Adj címet a pályázatnak!");
-    const res = await fetch(`${BACKEND_URL}/api/contests`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: newTitle, description: newDesc })
-    });
-    if (res.ok) {
-      setNewTitle(''); setNewDesc('');
-      fetchContests();
-    }
-  };
-
-  // Kép feltöltése (Szimulált hívás)
   const handleUpload = async (contestId: number, file: File | null) => {
     if (!file) return;
     const formData = new FormData();
@@ -90,7 +72,7 @@ function App() {
 
     const res = await fetch(`${BACKEND_URL}/api/upload`, {
       method: 'POST',
-      body: formData // Itt nem kell Content-Type header, a fetch automatikusan beállítja a FormData miatt!
+      body: formData
     });
     
     if (res.ok) alert("Kép sikeresen feltöltve!");
@@ -120,7 +102,6 @@ function App() {
             </div>
           ) : (
             <>
-              {/* ADMIN SZEKCIÓ */}
               {user.email === ADMIN_EMAIL && (
                 <div style={{ backgroundColor: '#1e293b', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', border: '1px solid #38bdf8' }}>
                   <h3 style={{ marginTop: 0, color: '#38bdf8' }}>⚙️ Admin: Új Pályázat Létrehozása</h3>
@@ -130,7 +111,6 @@ function App() {
                 </div>
               )}
 
-              {/* PÁLYÁZATOK LISTÁJA (Mindenkinek) */}
               <h2>Aktuális Fotópályázatok</h2>
               {contests.length === 0 ? <p style={{ color: '#94a3b8' }}>Jelenleg nincs aktív pályázat.</p> : contests.map(contest => (
                 <div key={contest.id} style={{ backgroundColor: '#1e293b', padding: '1.5rem', borderRadius: '12px', marginBottom: '1rem' }}>
