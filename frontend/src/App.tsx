@@ -154,11 +154,9 @@ function App() {
                 const end = contest.end_date ? new Date(contest.end_date) : new Date(0);
                 const isActive = now >= start && now <= end;
                 
-                // Kategóriák letisztítása (szóközök levágása)
                 const categories = contest.categories ? contest.categories.split(',').map((c:string) => c.trim()).filter(Boolean) : [];
                 const myContestEntries = myEntries.filter(e => e.contest_id === contest.id);
 
-                // Kategóriánkénti darabszám kiszámolása a legördülő menühöz
                 const categoryCounts: Record<string, number> = {};
                 categories.forEach((cat: string) => categoryCounts[cat] = 0);
                 myContestEntries.forEach(entry => {
@@ -213,7 +211,6 @@ function App() {
                             <h4 style={{marginTop: 0, color: '#38bdf8'}}>Kép feltöltése</h4>
                             <input placeholder="Kép címe" value={uploadTitle} onChange={e => setUploadTitle(e.target.value)} style={inputStyle} />
                             
-                            {/* KATEGÓRIA VÁLASZTÓ LÁTHATÓ LIMITTEL */}
                             <select value={uploadCategory} onChange={e => setUploadCategory(e.target.value)} style={inputStyle}>
                               <option value="">-- Válassz kategóriát --</option>
                               {categories.map((cat: string) => {
@@ -239,7 +236,6 @@ function App() {
                           </div>
                         )}
 
-                        {/* GALÉRIA KATEGÓRIÁNKÉNT CSOPORTOSÍTVA */}
                         {myContestEntries.length > 0 && (
                           <div style={{ marginTop: '20px', borderTop: '1px solid #334155', paddingTop: '15px' }}>
                             <h4 style={{margin: '0 0 15px 0'}}>Saját Nevezéseid</h4>
@@ -255,7 +251,9 @@ function App() {
                                   </h5>
                                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '15px' }}>
                                     {catEntries.map(entry => {
-                                      const imageUrl = entry.drive_file_id ? `https://drive.google.com/uc?export=view&id=${entry.drive_file_id}` : entry.file_url;
+                                      // ÚJ, STABIL KÉP URL GENERÁLÁS:
+                                      const imageUrl = entry.drive_file_id ? `https://drive.google.com/thumbnail?id=${entry.drive_file_id}&sz=w800` : entry.file_url;
+                                      
                                       return (
                                         <div key={entry.id} style={{ background: '#0f172a', borderRadius: '8px', overflow: 'hidden', border: '1px solid #334155' }}>
                                           <a href={entry.file_url} target="_blank" rel="noreferrer">
