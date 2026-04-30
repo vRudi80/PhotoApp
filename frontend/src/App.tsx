@@ -11,14 +11,12 @@ function App() {
   const [contests, setContests] = useState<any[]>([]);
   const [myEntries, setMyEntries] = useState<any[]>([]);
   
-  // Új Pályázat Form
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
   const [newStart, setNewStart] = useState('');
   const [newEnd, setNewEnd] = useState('');
   const [newCats, setNewCats] = useState('');
 
-  // Szerkesztés Form (ÚJ)
   const [editContestId, setEditContestId] = useState<number | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [editDesc, setEditDesc] = useState('');
@@ -26,7 +24,6 @@ function App() {
   const [editEnd, setEditEnd] = useState('');
   const [editCats, setEditCats] = useState('');
 
-  // Feltöltés Form
   const [activeUploadContest, setActiveUploadContest] = useState<number | null>(null);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
@@ -59,7 +56,6 @@ function App() {
     fetchMyEntries(decoded.email);
   };
 
-  // PÁLYÁZAT LÉTREHOZÁSA
   const handleCreateContest = async () => {
     if (!newTitle || !newStart || !newEnd || !newCats) return alert("Minden mezőt ki kell tölteni!");
     const res = await fetch(`${BACKEND_URL}/api/contests`, {
@@ -72,13 +68,11 @@ function App() {
     }
   };
 
-  // PÁLYÁZAT SZERKESZTÉSE (ÚJ)
   const startEdit = (contest: any) => {
     setEditContestId(contest.id);
     setEditTitle(contest.title);
     setEditDesc(contest.description);
     setEditCats(contest.categories || '');
-    // Dátumok formázása az input mezőhöz
     setEditStart(contest.start_date ? new Date(new Date(contest.start_date).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0,16) : '');
     setEditEnd(contest.end_date ? new Date(new Date(contest.end_date).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0,16) : '');
   };
@@ -93,7 +87,6 @@ function App() {
     } else alert("Hiba a mentéskor!");
   };
 
-  // KÉP KIVÁLASZTÁSA & FELTÖLTÉSE
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) { setUploadFile(file); setUploadPreview(URL.createObjectURL(file)); }
@@ -109,12 +102,11 @@ function App() {
     const res = await fetch(`${BACKEND_URL}/api/upload`, { method: 'POST', body: formData });
     if (res.ok) {
       alert("Kép sikeresen feltöltve!");
-      setActiveUploadContest(null); setUploadFile(null); setUploadPreview(null); setUploadTitle('');
+      setActiveUploadContest(null); setUploadFile(null); setUploadPreview(null); setUploadTitle(''); setUploadCategory('');
       fetchMyEntries(user.email);
     } else { const err = await res.json(); alert(`Hiba: ${err.error}`); }
   };
 
-  // KÉP TÖRLÉSE
   const handleDeleteEntry = async (entryId: number) => {
     if (!window.confirm("Biztosan törlöd ezt a képet?")) return;
     const res = await fetch(`${BACKEND_URL}/api/entries/${entryId}`, {
@@ -128,7 +120,6 @@ function App() {
   return (
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
       <div style={{ minHeight: '100vh', backgroundColor: '#0f172a', color: '#f8fafc', fontFamily: 'Inter, sans-serif' }}>
-        
         <header style={{ padding: '1.5rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#1e293b', borderBottom: '1px solid #334155' }}>
           <h1 style={{ margin: 0, fontSize: '1.5rem', color: '#38bdf8' }}>📸 PhotoContest</h1>
           {user ? (
@@ -142,7 +133,6 @@ function App() {
         <main style={{ padding: '2rem', maxWidth: '800px', margin: '0 auto' }}>
           {!user ? <h2 style={{textAlign: 'center', marginTop: '3rem'}}>Lépj be a pályázatokhoz!</h2> : (
             <>
-              {/* ADMIN FELÜLET: ÚJ PÁLYÁZAT */}
               {user.email === ADMIN_EMAIL && (
                 <div style={{ backgroundColor: '#1e293b', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', border: '1px solid #38bdf8' }}>
                   <h3 style={{ marginTop: 0, color: '#38bdf8' }}>⚙️ Új Pályázat Létrehozása</h3>
@@ -152,7 +142,7 @@ function App() {
                     <div style={{flex: 1}}><label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Kezdés</label><input type="datetime-local" value={newStart} onChange={e => setNewStart(e.target.value)} style={inputStyle} /></div>
                     <div style={{flex: 1}}><label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Befejezés</label><input type="datetime-local" value={newEnd} onChange={e => setNewEnd(e.target.value)} style={inputStyle} /></div>
                   </div>
-                  <input placeholder="Kategóriák (vesszővel elválasztva, pl: Természet,Portré)" value={newCats} onChange={e => setNewCats(e.target.value)} style={inputStyle} />
+                  <input placeholder="Kategóriák (pl: Természet, Portré)" value={newCats} onChange={e => setNewCats(e.target.value)} style={inputStyle} />
                   <button onClick={handleCreateContest} style={{ background: '#38bdf8', color: '#0f172a', border: 'none', padding: '10px 20px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Létrehozás</button>
                 </div>
               )}
@@ -163,13 +153,20 @@ function App() {
                 const start = contest.start_date ? new Date(contest.start_date) : new Date(0);
                 const end = contest.end_date ? new Date(contest.end_date) : new Date(0);
                 const isActive = now >= start && now <= end;
-                const categories = contest.categories ? contest.categories.split(',') : [];
+                
+                // Kategóriák letisztítása (szóközök levágása)
+                const categories = contest.categories ? contest.categories.split(',').map((c:string) => c.trim()).filter(Boolean) : [];
                 const myContestEntries = myEntries.filter(e => e.contest_id === contest.id);
+
+                // Kategóriánkénti darabszám kiszámolása a legördülő menühöz
+                const categoryCounts: Record<string, number> = {};
+                categories.forEach((cat: string) => categoryCounts[cat] = 0);
+                myContestEntries.forEach(entry => {
+                  if (categoryCounts[entry.category] !== undefined) categoryCounts[entry.category]++;
+                });
 
                 return (
                   <div key={contest.id} style={{ backgroundColor: '#1e293b', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', border: isActive ? '1px solid #10b981' : '1px solid #475569' }}>
-                    
-                    {/* HA SZERKESZTÉS MÓDBAN VAGYUNK */}
                     {editContestId === contest.id ? (
                       <div style={{ background: '#0f172a', padding: '15px', borderRadius: '8px' }}>
                         <h4 style={{marginTop: 0, color: '#f59e0b'}}>Pályázat Szerkesztése</h4>
@@ -186,13 +183,11 @@ function App() {
                         </div>
                       </div>
                     ) : (
-                      /* NORMÁL MEGJELENÍTÉS */
                       <>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                           <div>
                             <h3 style={{ margin: '0 0 5px 0', display: 'flex', alignItems: 'center', gap: '10px' }}>
                               {contest.title}
-                              {/* ADMIN SZERKESZTÉS GOMB */}
                               {user.email === ADMIN_EMAIL && (
                                 <button onClick={() => startEdit(contest)} style={{ background: 'transparent', border: '1px solid #f59e0b', color: '#f59e0b', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', cursor: 'pointer' }}>Szerkesztés</button>
                               )}
@@ -200,7 +195,7 @@ function App() {
                             <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: '0 0 15px 0' }}>{contest.description}</p>
                           </div>
                           <span style={{ padding: '4px 8px', borderRadius: '4px', fontSize: '0.8rem', background: isActive ? '#10b98120' : '#ef444420', color: isActive ? '#10b981' : '#ef4444' }}>
-                            {isActive ? 'Aktív Pályázat' : 'Lezárult / Nem kezdődött el'}
+                            {isActive ? 'Aktív Pályázat' : 'Lezárult'}
                           </span>
                         </div>
                         <p style={{fontSize: '0.8rem', color: '#94a3b8', margin: '0 0 15px 0'}}>
@@ -208,7 +203,7 @@ function App() {
                         </p>
 
                         {isActive && activeUploadContest !== contest.id && (
-                          <button onClick={() => { setActiveUploadContest(contest.id); setUploadCategory(categories[0] || ''); }} style={{ background: '#38bdf8', color: '#0f172a', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', marginBottom: '15px' }}>
+                          <button onClick={() => { setActiveUploadContest(contest.id); setUploadCategory(''); }} style={{ background: '#38bdf8', color: '#0f172a', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', marginBottom: '15px' }}>
                             + Új Kép Nevezése
                           </button>
                         )}
@@ -217,9 +212,20 @@ function App() {
                           <div style={{ background: '#0f172a', padding: '15px', borderRadius: '8px', marginBottom: '20px' }}>
                             <h4 style={{marginTop: 0, color: '#38bdf8'}}>Kép feltöltése</h4>
                             <input placeholder="Kép címe" value={uploadTitle} onChange={e => setUploadTitle(e.target.value)} style={inputStyle} />
+                            
+                            {/* KATEGÓRIA VÁLASZTÓ LÁTHATÓ LIMITTEL */}
                             <select value={uploadCategory} onChange={e => setUploadCategory(e.target.value)} style={inputStyle}>
-                              {categories.map((cat: string) => <option key={cat} value={cat}>{cat}</option>)}
+                              <option value="">-- Válassz kategóriát --</option>
+                              {categories.map((cat: string) => {
+                                const count = categoryCounts[cat] || 0;
+                                return (
+                                  <option key={cat} value={cat} disabled={count >= 4}>
+                                    {cat} ({count}/4 feltöltve)
+                                  </option>
+                                );
+                              })}
                             </select>
+
                             <input type="file" accept="image/*" onChange={handleFileSelect} style={{ color: '#94a3b8', marginBottom: '10px' }} />
                             {uploadPreview && (
                               <div style={{marginTop: '10px', marginBottom: '15px', textAlign: 'center'}}>
@@ -233,35 +239,41 @@ function App() {
                           </div>
                         )}
 
+                        {/* GALÉRIA KATEGÓRIÁNKÉNT CSOPORTOSÍTVA */}
                         {myContestEntries.length > 0 && (
                           <div style={{ marginTop: '20px', borderTop: '1px solid #334155', paddingTop: '15px' }}>
-                            <h4 style={{margin: '0 0 15px 0'}}>Saját Nevezéseid ({myContestEntries.length})</h4>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '15px' }}>
+                            <h4 style={{margin: '0 0 15px 0'}}>Saját Nevezéseid</h4>
+                            
+                            {categories.map((cat: string) => {
+                              const catEntries = myContestEntries.filter(e => e.category === cat);
+                              if (catEntries.length === 0) return null;
                               
-                              {myContestEntries.map(entry => {
-                                // JAVÍTOTT KÉP LINK GENERÁLÁS
-                                const imageUrl = entry.drive_file_id 
-                                  ? `https://drive.google.com/uc?export=view&id=${entry.drive_file_id}` 
-                                  : entry.file_url;
-
-                                return (
-                                  <div key={entry.id} style={{ background: '#0f172a', borderRadius: '8px', overflow: 'hidden', border: '1px solid #334155' }}>
-                                    <a href={entry.file_url} target="_blank" rel="noreferrer">
-                                      {/* ITT HASZNÁLJUK AZ ÚJ LINKET */}
-                                      <img src={imageUrl} alt={entry.title} style={{ width: '100%', height: '120px', objectFit: 'cover', backgroundColor: '#1e293b' }} />
-                                    </a>
-                                    <div style={{ padding: '10px' }}>
-                                      <div style={{ fontSize: '0.9rem', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{entry.title}</div>
-                                      <div style={{ fontSize: '0.75rem', color: '#38bdf8', marginBottom: '8px' }}>{entry.category}</div>
-                                      <button onClick={() => handleDeleteEntry(entry.id)} style={{ width: '100%', background: '#ef444420', color: '#ef4444', border: 'none', padding: '5px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>
-                                        Törlés
-                                      </button>
-                                    </div>
+                              return (
+                                <div key={cat} style={{ marginBottom: '20px' }}>
+                                  <h5 style={{ color: '#38bdf8', borderBottom: '1px solid #334155', paddingBottom: '5px', marginTop: 0 }}>
+                                    {cat} ({catEntries.length}/4)
+                                  </h5>
+                                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '15px' }}>
+                                    {catEntries.map(entry => {
+                                      const imageUrl = entry.drive_file_id ? `https://drive.google.com/uc?export=view&id=${entry.drive_file_id}` : entry.file_url;
+                                      return (
+                                        <div key={entry.id} style={{ background: '#0f172a', borderRadius: '8px', overflow: 'hidden', border: '1px solid #334155' }}>
+                                          <a href={entry.file_url} target="_blank" rel="noreferrer">
+                                            <img src={imageUrl} alt={entry.title} style={{ width: '100%', height: '120px', objectFit: 'cover', backgroundColor: '#1e293b' }} />
+                                          </a>
+                                          <div style={{ padding: '10px' }}>
+                                            <div style={{ fontSize: '0.9rem', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{entry.title}</div>
+                                            <button onClick={() => handleDeleteEntry(entry.id)} style={{ width: '100%', background: '#ef444420', color: '#ef4444', border: 'none', padding: '5px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', marginTop: '10px' }}>
+                                              Törlés
+                                            </button>
+                                          </div>
+                                        </div>
+                                      )
+                                    })}
                                   </div>
-                                )
-                              })}
-
-                            </div>
+                                </div>
+                              );
+                            })}
                           </div>
                         )}
                       </>
