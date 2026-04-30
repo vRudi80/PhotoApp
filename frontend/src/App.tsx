@@ -3,7 +3,7 @@ import { GoogleOAuthProvider, GoogleLogin, googleLogout } from '@react-oauth/goo
 import { jwtDecode } from "jwt-decode";
 
 const GOOGLE_CLIENT_ID = "197361744572-ih728hq5jft3fqfd1esvktvrd8i97kcp.apps.googleusercontent.com";
-const BACKEND_URL = "https://photoapp-backend-m4d1.onrender.com"; // <-- ÁTÍRNI!
+const BACKEND_URL = "https://photoapp-backend-m4d1.onrender.com"; // <-- NE FELEJTSD EL ÁTÍRNI!
 const ADMIN_EMAIL = "kovari.rudolf@gmail.com"; 
 
 function App() {
@@ -36,7 +36,6 @@ function App() {
   const [manageJuryContestId, setManageJuryContestId] = useState<number | null>(null);
   const [selectedJuryEmail, setSelectedJuryEmail] = useState('');
 
-  // --- ÚJ ÁLLAPOTOK A ZSŰRIZÉSHEZ ÉS EREDMÉNYEKHEZ ---
   const [judgingContestId, setJudgingContestId] = useState<number | null>(null);
   const [unvotedEntries, setUnvotedEntries] = useState<any[]>([]);
   const [currentScore, setCurrentScore] = useState<number | ''>('');
@@ -44,7 +43,6 @@ function App() {
   const [viewResultsContestId, setViewResultsContestId] = useState<number | null>(null);
   const [contestResults, setContestResults] = useState<any[]>([]);
 
-  // Teljes képernyős kép állapota
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
 
   const fetchData = async () => {
@@ -74,22 +72,41 @@ function App() {
     fetchData(); fetchMyEntries(decoded.email);
   };
 
-  // --- ALAP FUNKCIÓK ---
   const handleCreateContest = async () => {
     if (!newTitle || !newStart || !newEnd || !newCats) return alert("Minden mezőt ki kell tölteni!");
     const res = await fetch(`${BACKEND_URL}/api/contests`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: newTitle, description: newDesc, startDate: newStart, endDate: newEnd, categories: newCats }) });
     if (res.ok) { setNewTitle(''); setNewDesc(''); setNewStart(''); setNewEnd(''); setNewCats(''); fetchData(); }
   };
 
+  // --- JAVÍTOTT SZERKESZTÉS INDÍTÁSA ---
   const startEdit = (contest: any) => {
-    setEditContestId(contest.id); setEditTitle(contest.title); setEditDesc(contest.description); setEditCats(contest.categories || '');
-    setEditStart(contest.start_date ? new Date(new Date(contest.start_date).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0,16) : '');
-    setEditEnd(contest.end_date ? new Date(new Date(contest.end_date).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0,16) : '');
+    setEditContestId(contest.id); 
+    setEditTitle(contest.title); 
+    setEditDesc(contest.description); 
+    setEditCats(contest.categories || '');
+    
+    // Biztonságos dátum konvertáló: ha hiba van vagy 1970-es, üresen hagyja a naptárat fagyás helyett!
+    const formatDate = (dateStr: string | null) => {
+      if (!dateStr) return '';
+      try {
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime()) || d.getFullYear() <= 1970) return '';
+        return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0,16);
+      } catch (e) { return ''; }
+    };
+
+    setEditStart(formatDate(contest.start_date));
+    setEditEnd(formatDate(contest.end_date));
   };
 
   const handleUpdateContest = async () => {
-    const res = await fetch(`${BACKEND_URL}/api/contests/${editContestId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: editTitle, description: editDesc, startDate: editStart, endDate: editEnd, categories: editCats }) });
-    if (res.ok) { setEditContestId(null); fetchData(); }
+    const res = await fetch(`${BACKEND_URL}/api/contests/${editContestId}`, { 
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, 
+      // Ha a dátum mező üres, null-t küldünk, hogy a MySQL ne akadjon ki az üres stringen
+      body: JSON.stringify({ title: editTitle, description: editDesc, startDate: editStart || null, endDate: editEnd || null, categories: editCats }) 
+    });
+    if (res.ok) { setEditContestId(null); fetchData(); alert("Pályázat sikeresen frissítve!"); }
+    else alert("Hiba a mentéskor!");
   };
 
   const handleAddJury = async (contestId: number) => {
@@ -126,45 +143,27 @@ function App() {
     if (res.ok) fetchMyEntries(user.email);
   };
 
-  // --- ÚJ: ZSŰRI ÉS EREDMÉNY FUNKCIÓK ---
   const startJudging = async (contestId: number) => {
     const res = await fetch(`${BACKEND_URL}/api/jury-entries/${contestId}?userEmail=${user.email}`);
-    if (res.ok) {
-      setUnvotedEntries(await res.json());
-      setJudgingContestId(contestId);
-      setCurrentScore('');
-    }
+    if (res.ok) { setUnvotedEntries(await res.json()); setJudgingContestId(contestId); setCurrentScore(''); }
   };
 
   const submitVote = async () => {
     const score = Number(currentScore);
     if (score < 0 || score > 100 || currentScore === '') return alert("0 és 100 közötti pontszámot adj meg!");
-    const currentEntry = unvotedEntries[0];
-    const res = await fetch(`${BACKEND_URL}/api/vote`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ entryId: currentEntry.id, juryEmail: user.email, score })
-    });
-    if (res.ok) {
-      setUnvotedEntries(prev => prev.slice(1)); // Levesszük a listáról, jöhet a következő
-      setCurrentScore('');
-    }
+    const res = await fetch(`${BACKEND_URL}/api/vote`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ entryId: unvotedEntries[0].id, juryEmail: user.email, score }) });
+    if (res.ok) { setUnvotedEntries(prev => prev.slice(1)); setCurrentScore(''); }
   };
 
   const loadResults = async (contestId: number) => {
     const res = await fetch(`${BACKEND_URL}/api/results/${contestId}`);
-    if (res.ok) {
-      setContestResults(await res.json());
-      setViewResultsContestId(contestId);
-    }
+    if (res.ok) { setContestResults(await res.json()); setViewResultsContestId(contestId); }
   };
-  // ------------------------------------
 
   const inputStyle = { width: '100%', padding: '10px', marginBottom: '10px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '6px', boxSizing: 'border-box' as const };
 
   return (
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
-      
-      {/* TELJES KÉPERNYŐS NÉZET (MODAL) */}
       {fullscreenImage && (
         <div onClick={() => setFullscreenImage(null)} style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.95)', zIndex: 9999, display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'zoom-out' }}>
           <img src={fullscreenImage} alt="Teljes képernyő" style={{ maxHeight: '95vh', maxWidth: '95vw', objectFit: 'contain' }} />
@@ -203,7 +202,7 @@ function App() {
                 const start = contest.start_date ? new Date(contest.start_date) : new Date(0);
                 const end = contest.end_date ? new Date(contest.end_date) : new Date(0);
                 const isStarted = now >= start;
-                const isEnded = now > end && start.getFullYear() > 1970; // Csak akkor lejárt, ha volt érvényes dátuma
+                const isEnded = now > end && start.getFullYear() > 1970;
                 const isActive = isStarted && !isEnded;
                 
                 const categories = contest.categories ? contest.categories.split(',').map((c:string) => c.trim()).filter(Boolean) : [];
@@ -219,7 +218,6 @@ function App() {
                   <div key={contest.id} style={{ backgroundColor: '#1e293b', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', border: isActive ? '1px solid #10b981' : isEnded ? '1px solid #ef4444' : '1px solid #475569' }}>
                     
                     {manageJuryContestId === contest.id ? (
-                      /* ZSŰRI KEZELŐ */
                        <div style={{ background: '#0f172a', padding: '15px', borderRadius: '8px' }}>
                           <h4 style={{marginTop: 0, color: '#a78bfa'}}>⚖️ Zsűri kezelése</h4>
                           <div style={{display: 'flex', gap: '10px', marginBottom: '15px'}}><select value={selectedJuryEmail} onChange={e => setSelectedJuryEmail(e.target.value)} style={{...inputStyle, marginBottom: 0}}><option value="">-- Válassz usert --</option>{allUsers.filter(u => !contestJury.some(j => j.user_email === u.email)).map(u => (<option key={u.email} value={u.email}>{u.name} ({u.email})</option>))}</select><button onClick={() => handleAddJury(contest.id)} style={{ background: '#8b5cf6', color: 'white', border: 'none', padding: '10px 15px', borderRadius: '6px', cursor: 'pointer' }}>Hozzáadás</button></div>
@@ -227,42 +225,25 @@ function App() {
                           <button onClick={() => setManageJuryContestId(null)} style={{ marginTop: '10px', background: 'transparent', color: '#94a3b8', border: '1px solid #475569', padding: '5px 15px', borderRadius: '6px', cursor: 'pointer' }}>Vissza</button>
                        </div>
                     ) : judgingContestId === contest.id ? (
-                      /* ZSŰRIZÉSI FELÜLET */
                       <div style={{ background: '#0f172a', padding: '20px', borderRadius: '8px', textAlign: 'center' }}>
                         <h3 style={{ color: '#f59e0b', marginTop: 0 }}>🏅 Zsűrizés folyamatban</h3>
-                        
                         {unvotedEntries.length > 0 ? (
                           <div>
                             <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: '20px' }}>Hátralévő képek: {unvotedEntries.length} db</p>
-                            
-                            {/* Anonim kép */}
                             {(() => {
                               const currentEntry = unvotedEntries[0];
                               const imageUrl = currentEntry.drive_file_id ? `https://drive.google.com/thumbnail?id=${currentEntry.drive_file_id}&sz=w800` : currentEntry.file_url;
                               return (
                                 <>
                                   <div style={{ position: 'relative', display: 'inline-block' }}>
-                                    <img 
-                                      src={imageUrl} 
-                                      alt="Értékelendő" 
-                                      onClick={() => setFullscreenImage(imageUrl)}
-                                      style={{ maxHeight: '400px', maxWidth: '100%', borderRadius: '8px', border: '2px solid #334155', cursor: 'zoom-in', objectFit: 'contain' }} 
-                                    />
-                                    <div style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(0,0,0,0.7)', padding: '5px 10px', borderRadius: '6px', fontSize: '0.8rem', pointerEvents: 'none' }}>
-                                      🔍 Kattints a nagyításhoz
-                                    </div>
+                                    <img src={imageUrl} alt="Értékelendő" onClick={() => setFullscreenImage(imageUrl)} style={{ maxHeight: '400px', maxWidth: '100%', borderRadius: '8px', border: '2px solid #334155', cursor: 'zoom-in', objectFit: 'contain' }} />
+                                    <div style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(0,0,0,0.7)', padding: '5px 10px', borderRadius: '6px', fontSize: '0.8rem', pointerEvents: 'none' }}>🔍 Kattints a nagyításhoz</div>
                                   </div>
-                                  
                                   <h4 style={{ margin: '15px 0 5px 0', fontSize: '1.2rem' }}>{currentEntry.title}</h4>
                                   <div style={{ color: '#38bdf8', fontWeight: 'bold', marginBottom: '20px' }}>Kategória: {currentEntry.category}</div>
-                                  
                                   <div style={{ background: '#1e293b', padding: '20px', borderRadius: '8px', display: 'inline-block' }}>
                                     <label style={{ display: 'block', marginBottom: '10px', fontWeight: 'bold' }}>Pontszám (0 - 100)</label>
-                                    <input 
-                                      type="number" min="0" max="100" 
-                                      value={currentScore} onChange={e => setCurrentScore(e.target.value ? Number(e.target.value) : '')} 
-                                      style={{ width: '100px', padding: '10px', fontSize: '1.2rem', textAlign: 'center', backgroundColor: '#0f172a', border: '2px solid #f59e0b', color: 'white', borderRadius: '6px', marginRight: '10px' }} 
-                                    />
+                                    <input type="number" min="0" max="100" value={currentScore} onChange={e => setCurrentScore(e.target.value ? Number(e.target.value) : '')} style={{ width: '100px', padding: '10px', fontSize: '1.2rem', textAlign: 'center', backgroundColor: '#0f172a', border: '2px solid #f59e0b', color: 'white', borderRadius: '6px', marginRight: '10px' }} />
                                     <button onClick={submitVote} style={{ background: '#f59e0b', color: '#0f172a', border: 'none', padding: '12px 25px', fontSize: '1.1rem', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Szavazok</button>
                                   </div>
                                 </>
@@ -278,13 +259,11 @@ function App() {
                         )}
                       </div>
                     ) : viewResultsContestId === contest.id ? (
-                       /* EREDMÉNYEK (ADMIN) */
                        <div style={{ background: '#0f172a', padding: '20px', borderRadius: '8px' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #334155', paddingBottom: '15px', marginBottom: '20px' }}>
                             <h3 style={{ margin: 0, color: '#10b981' }}>🏆 Végeredmény: {contest.title}</h3>
                             <button onClick={() => setViewResultsContestId(null)} style={{ background: 'transparent', color: '#94a3b8', border: '1px solid #475569', padding: '5px 15px', borderRadius: '6px', cursor: 'pointer' }}>Bezár</button>
                           </div>
-                          
                           {categories.map((cat: string) => {
                             const catResults = contestResults.filter(r => r.category === cat);
                             if (catResults.length === 0) return null;
@@ -294,9 +273,7 @@ function App() {
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                   {catResults.map((res, index) => (
                                     <div key={res.id} style={{ display: 'flex', alignItems: 'center', background: '#1e293b', padding: '10px', borderRadius: '8px' }}>
-                                      <div style={{ fontSize: '1.5rem', fontWeight: 'bold', width: '40px', color: index === 0 ? '#fbbf24' : index === 1 ? '#94a3b8' : index === 2 ? '#b45309' : '#475569' }}>
-                                        #{index + 1}
-                                      </div>
+                                      <div style={{ fontSize: '1.5rem', fontWeight: 'bold', width: '40px', color: index === 0 ? '#fbbf24' : index === 1 ? '#94a3b8' : index === 2 ? '#b45309' : '#475569' }}>#{index + 1}</div>
                                       <img src={res.drive_file_id ? `https://drive.google.com/thumbnail?id=${res.drive_file_id}&sz=w200` : res.file_url} alt="Kép" style={{ width: '60px', height: '60px', objectFit: 'cover', borderRadius: '4px', marginRight: '15px', cursor: 'pointer' }} onClick={() => setFullscreenImage(res.drive_file_id ? `https://drive.google.com/thumbnail?id=${res.drive_file_id}&sz=w800` : res.file_url)} />
                                       <div style={{ flex: 1 }}>
                                         <div style={{ fontWeight: 'bold' }}>{res.title}</div>
@@ -314,7 +291,6 @@ function App() {
                           })}
                        </div>
                     ) : (
-                      /* NORMÁL NÉZET */
                       <>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                           <div>
@@ -322,7 +298,8 @@ function App() {
                               {contest.title}
                               {user.email === ADMIN_EMAIL && (
                                 <>
-                                  {!isEnded && <button onClick={() => startEdit(contest)} style={{ background: 'transparent', border: '1px solid #f59e0b', color: '#f59e0b', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', cursor: 'pointer' }}>Szerkesztés</button>}
+                                  {/* JAVÍTÁS: A Szerkesztés gomb MOST MÁR MINDIG LÁTSZIK! */}
+                                  <button onClick={() => startEdit(contest)} style={{ background: 'transparent', border: '1px solid #f59e0b', color: '#f59e0b', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', cursor: 'pointer' }}>Szerkesztés</button>
                                   <button onClick={() => setManageJuryContestId(contest.id)} style={{ background: 'transparent', border: '1px solid #8b5cf6', color: '#8b5cf6', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', cursor: 'pointer' }}>Zsűri ({contestJury.length})</button>
                                   {isEnded && <button onClick={() => loadResults(contest.id)} style={{ background: '#10b981', border: 'none', color: 'white', fontSize: '0.7rem', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer' }}>🏆 Eredmények</button>}
                                 </>
@@ -336,19 +313,14 @@ function App() {
                         </div>
                         <p style={{fontSize: '0.8rem', color: '#94a3b8', margin: '0 0 15px 0'}}>📅 {start.getFullYear() > 1970 ? `${start.toLocaleDateString()} - ${end.toLocaleDateString()}` : 'Nincs dátum'}</p>
 
-                        {/* ZSŰRI ÜZENET ÉS GOMB */}
                         {isUserJury && (
                           <div style={{ background: '#f59e0b20', border: '1px solid #f59e0b', color: '#f59e0b', padding: '15px', borderRadius: '6px', marginBottom: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <div>
                               <strong>🏅 Zsűritag vagy!</strong>
-                              <div style={{ fontSize: '0.85rem', marginTop: '5px' }}>
-                                {isActive ? 'A pontozás a pályázat lezárulta után (a befejezés dátumát követően) indul.' : isEnded ? 'A pályázat lezárult, kezdheted a pontozást!' : 'A pályázat még nem indult el.'}
-                              </div>
+                              <div style={{ fontSize: '0.85rem', marginTop: '5px' }}>{isActive ? 'A pontozás a pályázat lezárulta után indul.' : isEnded ? 'A pályázat lezárult, kezdheted a pontozást!' : 'A pályázat még nem indult el.'}</div>
                             </div>
                             {isEnded && (
-                              <button onClick={() => startJudging(contest.id)} style={{ background: '#f59e0b', color: '#0f172a', border: 'none', padding: '10px 20px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>
-                                Értékelés Indítása
-                              </button>
+                              <button onClick={() => startJudging(contest.id)} style={{ background: '#f59e0b', color: '#0f172a', border: 'none', padding: '10px 20px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>Értékelés Indítása</button>
                             )}
                           </div>
                         )}
@@ -364,7 +336,7 @@ function App() {
                             <select value={uploadCategory} onChange={e => setUploadCategory(e.target.value)} style={inputStyle} disabled={isUploading}><option value="">-- Válassz kategóriát --</option>{categories.map((cat: string) => { const count = categoryCounts[cat] || 0; return <option key={cat} value={cat} disabled={count >= 4}>{cat} ({count}/4 feltöltve)</option>; })}</select>
                             <input type="file" accept="image/*" onChange={handleFileSelect} style={{ color: '#94a3b8', marginBottom: '10px' }} disabled={isUploading} />
                             {uploadPreview && <div style={{marginTop: '10px', marginBottom: '15px', textAlign: 'center'}}><img src={uploadPreview} alt="Előnézet" style={{maxHeight: '200px', borderRadius: '8px', border: '2px solid #334155'}} /></div>}
-                            <div style={{display: 'flex', gap: '10px'}}><button onClick={() => handleUpload(contest.id)} disabled={isUploading} style={{ flex: 1, background: isUploading ? '#475569' : '#10b981', color: 'white', border: 'none', padding: '10px', borderRadius: '6px', cursor: isUploading ? 'not-allowed' : 'pointer' }}>{isUploading ? 'Feltöltés ⏳...' : 'Beküldés 🚀'}</button><button onClick={() => { setActiveUploadContest(null); setUploadPreview(null); }} disabled={isUploading} style={{ background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', padding: '10px', borderRadius: '6px', cursor: isUploading ? 'not-allowed' : 'pointer' }}>Mégse</button></div>
+                            <div style={{display: 'flex', gap: '10px'}}><button onClick={() => handleUpload(contest.id)} disabled={isUploading} style={{ flex: 1, background: isUploading ? '#475569' : '#10b981', color: 'white', border: 'none', padding: '10px', borderRadius: '6px', cursor: isUploading ? 'not-allowed' : 'pointer', transition: 'background 0.3s' }}>{isUploading ? 'Feltöltés ⏳...' : 'Beküldés 🚀'}</button><button onClick={() => { setActiveUploadContest(null); setUploadPreview(null); }} disabled={isUploading} style={{ background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', padding: '10px', borderRadius: '6px', cursor: isUploading ? 'not-allowed' : 'pointer' }}>Mégse</button></div>
                           </div>
                         )}
 
