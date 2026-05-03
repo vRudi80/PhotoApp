@@ -4,7 +4,7 @@ import { jwtDecode } from "jwt-decode";
 import logo from './logo.png';
 
 const GOOGLE_CLIENT_ID = "197361744572-ih728hq5jft3fqfd1esvktvrd8i97kcp.apps.googleusercontent.com";
-const BACKEND_URL = "https://photoapp-backend-m4d1.onrender.com"; // <-- NE FELEJTSD EL ÁTÍRNI!
+const BACKEND_URL = "https://photoapp-backend-m4d1.onrender.com"; 
 const ADMIN_EMAIL = "kovari.rudolf@gmail.com"; 
 
 function App() {
@@ -104,115 +104,22 @@ function App() {
     fetchData(); fetchMyEntries(decoded.email);
   };
 
-  const handleAddClub = async () => {
-    if (!newClubName) return;
-    const res = await fetch(`${BACKEND_URL}/api/clubs`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: newClubName }) });
-    if (res.ok) { setNewClubName(''); fetchData(); }
-  };
-
-  const handleDeleteClub = async (id: number) => {
-    if (!window.confirm("Biztosan törlöd ezt a klubot?")) return;
-    const res = await fetch(`${BACKEND_URL}/api/clubs/${id}`, { method: 'DELETE' });
-    if (res.ok) fetchData();
-  };
-
-  const saveUserClub = async (email: string) => {
-    const clubName = userClubEdits[email] !== undefined ? userClubEdits[email] : (allUsers.find(u => u.email === email)?.club_name || '');
-    const res = await fetch(`${BACKEND_URL}/api/users/${email}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clubName }) });
-    if (res.ok) { alert("Sikeres mentés!"); fetchData(); }
-  };
-
-  const handleCreateContest = async () => {
-    if (!newTitle || !newStart || !newEnd || !newCats) return alert("Cím, dátumok és kategóriák kötelezőek!");
-    const res = await fetch(`${BACKEND_URL}/api/contests`, { 
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, 
-      body: JSON.stringify({ title: newTitle, description: newDesc, startDate: newStart, endDate: newEnd, categories: newCats, restrictedClub: newRestrictedClub }) 
-    });
-    if (res.ok) { setNewTitle(''); setNewDesc(''); setNewStart(''); setNewEnd(''); setNewCats(''); setNewRestrictedClub(''); fetchData(); }
-  };
-
-  const startEdit = (contest: any) => {
-    setEditContestId(contest.id); setEditTitle(contest.title); setEditDesc(contest.description); setEditCats(contest.categories || ''); setEditRestrictedClub(contest.restricted_club || '');
-    const formatDate = (dateStr: string | null) => {
-      if (!dateStr) return '';
-      try { const d = new Date(dateStr); if (isNaN(d.getTime()) || d.getFullYear() <= 1970) return ''; return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0,16); } catch (e) { return ''; }
-    };
-    setEditStart(formatDate(contest.start_date)); setEditEnd(formatDate(contest.end_date));
-  };
-
-  const handleUpdateContest = async () => {
-    const res = await fetch(`${BACKEND_URL}/api/contests/${editContestId}`, { 
-      method: 'PUT', headers: { 'Content-Type': 'application/json' }, 
-      body: JSON.stringify({ title: editTitle, description: editDesc, startDate: editStart || null, endDate: editEnd || null, categories: editCats, restrictedClub: editRestrictedClub }) 
-    });
-    if (res.ok) { setEditContestId(null); fetchData(); alert("Pályázat sikeresen frissítve!"); }
-  };
-
-  const handleAddJury = async (contestId: number) => {
-    if (!selectedJuryEmail) return;
-    const res = await fetch(`${BACKEND_URL}/api/jury`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contestId, userEmail: selectedJuryEmail }) });
-    if (res.ok) { setSelectedJuryEmail(''); fetchData(); }
-  };
-
-  const handleRemoveJury = async (contestId: number, email: string) => {
-    const res = await fetch(`${BACKEND_URL}/api/jury`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contestId, userEmail: email }) });
-    if (res.ok) fetchData();
-  };
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) { setUploadFile(file); setUploadPreview(URL.createObjectURL(file)); }
-  };
-
-  const handleUpload = async (contestId: number) => {
-    if (!uploadFile || !uploadTitle || !uploadCategory) return alert("Minden kötelező!");
-    setIsUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append('photo', uploadFile); formData.append('contestId', String(contestId)); formData.append('userEmail', user.email); formData.append('userName', user.name); formData.append('title', uploadTitle); formData.append('category', uploadCategory);
-      const res = await fetch(`${BACKEND_URL}/api/upload`, { method: 'POST', body: formData });
-      if (res.ok) { alert("Feltöltve!"); setActiveUploadContest(null); setUploadFile(null); setUploadPreview(null); setUploadTitle(''); setUploadCategory(''); fetchMyEntries(user.email); } 
-      else { const err = await res.json(); alert(`Hiba: ${err.error}`); }
-    } catch (error) { alert("Hiba"); } finally { setIsUploading(false); }
-  };
-
-  const handleUpdateEntryTitle = async (entryId: number) => {
-    if (!editEntryTitle) return alert('A cím nem lehet üres!');
-    const res = await fetch(`${BACKEND_URL}/api/entries/${entryId}`, {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: editEntryTitle, userEmail: user.email })
-    });
-    if (res.ok) { setEditingEntryId(null); fetchMyEntries(user.email); }
-    else alert('Hiba a cím frissítésekor!');
-  };
-
-  const handleDeleteEntry = async (entryId: number) => {
-    if (!window.confirm("Biztosan törlöd?")) return;
-    const res = await fetch(`${BACKEND_URL}/api/entries/${entryId}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userEmail: user.email }) });
-    if (res.ok) fetchMyEntries(user.email);
-  };
-
-  const startJudging = async (contestId: number) => {
-    const res = await fetch(`${BACKEND_URL}/api/jury-entries/${contestId}?userEmail=${user.email}`);
-    if (res.ok) { setUnvotedEntries(await res.json()); setJudgingContestId(contestId); setCurrentScore(''); }
-  };
-
-  const submitVote = async () => {
-    const score = Number(currentScore);
-    if (score < 0 || score > 100 || currentScore === '') return alert("0 és 100 közötti pontszámot adj meg!");
-    const res = await fetch(`${BACKEND_URL}/api/vote`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ entryId: unvotedEntries[0].id, juryEmail: user.email, score }) });
-    if (res.ok) { setUnvotedEntries(prev => prev.slice(1)); setCurrentScore(''); }
-  };
-
-  const loadResults = async (contestId: number) => {
-    const res = await fetch(`${BACKEND_URL}/api/results/${contestId}`);
-    if (res.ok) { setContestResults(await res.json()); setViewResultsContestId(contestId); }
-  };
-
-  const loadStats = async (contestId: number) => {
-    const res = await fetch(`${BACKEND_URL}/api/admin/stats/${contestId}`);
-    if (res.ok) { setContestStats(await res.json()); setViewStatsContestId(contestId); }
-  };
+  const handleAddClub = async () => { if (!newClubName) return; const res = await fetch(`${BACKEND_URL}/api/clubs`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: newClubName }) }); if (res.ok) { setNewClubName(''); fetchData(); } };
+  const handleDeleteClub = async (id: number) => { if (!window.confirm("Biztosan törlöd ezt a klubot?")) return; const res = await fetch(`${BACKEND_URL}/api/clubs/${id}`, { method: 'DELETE' }); if (res.ok) fetchData(); };
+  const saveUserClub = async (email: string) => { const clubName = userClubEdits[email] !== undefined ? userClubEdits[email] : (allUsers.find(u => u.email === email)?.club_name || ''); const res = await fetch(`${BACKEND_URL}/api/users/${email}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clubName }) }); if (res.ok) { alert("Sikeres mentés!"); fetchData(); } };
+  const handleCreateContest = async () => { if (!newTitle || !newStart || !newEnd || !newCats) return alert("Cím, dátumok és kategóriák kötelezőek!"); const res = await fetch(`${BACKEND_URL}/api/contests`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: newTitle, description: newDesc, startDate: newStart, endDate: newEnd, categories: newCats, restrictedClub: newRestrictedClub }) }); if (res.ok) { setNewTitle(''); setNewDesc(''); setNewStart(''); setNewEnd(''); setNewCats(''); setNewRestrictedClub(''); fetchData(); } };
+  const startEdit = (contest: any) => { setEditContestId(contest.id); setEditTitle(contest.title); setEditDesc(contest.description); setEditCats(contest.categories || ''); setEditRestrictedClub(contest.restricted_club || ''); const formatDate = (dateStr: string | null) => { if (!dateStr) return ''; try { const d = new Date(dateStr); if (isNaN(d.getTime()) || d.getFullYear() <= 1970) return ''; return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0,16); } catch (e) { return ''; } }; setEditStart(formatDate(contest.start_date)); setEditEnd(formatDate(contest.end_date)); };
+  const handleUpdateContest = async () => { const res = await fetch(`${BACKEND_URL}/api/contests/${editContestId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: editTitle, description: editDesc, startDate: editStart || null, endDate: editEnd || null, categories: editCats, restrictedClub: editRestrictedClub }) }); if (res.ok) { setEditContestId(null); fetchData(); alert("Pályázat sikeresen frissítve!"); } };
+  const handleAddJury = async (contestId: number) => { if (!selectedJuryEmail) return; const res = await fetch(`${BACKEND_URL}/api/jury`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contestId, userEmail: selectedJuryEmail }) }); if (res.ok) { setSelectedJuryEmail(''); fetchData(); } };
+  const handleRemoveJury = async (contestId: number, email: string) => { const res = await fetch(`${BACKEND_URL}/api/jury`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contestId, userEmail: email }) }); if (res.ok) fetchData(); };
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (file) { setUploadFile(file); setUploadPreview(URL.createObjectURL(file)); } };
+  const handleUpload = async (contestId: number) => { if (!uploadFile || !uploadTitle || !uploadCategory) return alert("Minden kötelező!"); setIsUploading(true); try { const formData = new FormData(); formData.append('photo', uploadFile); formData.append('contestId', String(contestId)); formData.append('userEmail', user.email); formData.append('userName', user.name); formData.append('title', uploadTitle); formData.append('category', uploadCategory); const res = await fetch(`${BACKEND_URL}/api/upload`, { method: 'POST', body: formData }); if (res.ok) { alert("Feltöltve!"); setActiveUploadContest(null); setUploadFile(null); setUploadPreview(null); setUploadTitle(''); setUploadCategory(''); fetchMyEntries(user.email); } else { const err = await res.json(); alert(`Hiba: ${err.error}`); } } catch (error) { alert("Hiba"); } finally { setIsUploading(false); } };
+  const handleUpdateEntryTitle = async (entryId: number) => { if (!editEntryTitle) return alert('A cím nem lehet üres!'); const res = await fetch(`${BACKEND_URL}/api/entries/${entryId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: editEntryTitle, userEmail: user.email }) }); if (res.ok) { setEditingEntryId(null); fetchMyEntries(user.email); } else alert('Hiba a cím frissítésekor!'); };
+  const handleDeleteEntry = async (entryId: number) => { if (!window.confirm("Biztosan törlöd?")) return; const res = await fetch(`${BACKEND_URL}/api/entries/${entryId}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userEmail: user.email }) }); if (res.ok) fetchMyEntries(user.email); };
+  const startJudging = async (contestId: number) => { const res = await fetch(`${BACKEND_URL}/api/jury-entries/${contestId}?userEmail=${user.email}`); if (res.ok) { setUnvotedEntries(await res.json()); setJudgingContestId(contestId); setCurrentScore(''); } };
+  const submitVote = async () => { const score = Number(currentScore); if (score < 0 || score > 100 || currentScore === '') return alert("0 és 100 közötti pontszámot adj meg!"); const res = await fetch(`${BACKEND_URL}/api/vote`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ entryId: unvotedEntries[0].id, juryEmail: user.email, score }) }); if (res.ok) { setUnvotedEntries(prev => prev.slice(1)); setCurrentScore(''); } };
+  const loadResults = async (contestId: number) => { const res = await fetch(`${BACKEND_URL}/api/results/${contestId}`); if (res.ok) { setContestResults(await res.json()); setViewResultsContestId(contestId); } };
+  const loadStats = async (contestId: number) => { const res = await fetch(`${BACKEND_URL}/api/admin/stats/${contestId}`); if (res.ok) { setContestStats(await res.json()); setViewStatsContestId(contestId); } };
 
   const inputStyle = { width: '100%', padding: '10px', marginBottom: '10px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '6px', boxSizing: 'border-box' as const };
 
@@ -225,50 +132,93 @@ function App() {
         </div>
       )}
 
-      {/* --- KÜLÖNVÁLASZTOTT LOGINKÉPERNYŐ A SAJÁT LOGÓDDAL --- */}
+      {/* --- ÚJ, MARKETING ALAPÚ LOGINKÉPERNYŐ --- */}
       {!user ? (
         <div style={{
           minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', backgroundColor: '#0f172a',
           backgroundImage: 'linear-gradient(rgba(15, 23, 42, 0.85), rgba(15, 23, 42, 0.98)), url("https://images.unsplash.com/photo-1452860606245-08befc0ff44b?q=80&w=2070&auto=format&fit=crop")',
-          backgroundSize: 'cover', backgroundPosition: 'center', fontFamily: 'Inter, sans-serif', overflow: 'hidden'
+          backgroundSize: 'cover', backgroundPosition: 'center', fontFamily: 'Inter, sans-serif', overflow: 'hidden', padding: '2rem 1rem'
         }}>
+          {/* Háttérfények */}
           <div style={{ position: 'absolute', top: '10%', left: '15%', width: '400px', height: '400px', background: '#00a693', filter: 'blur(150px)', opacity: 0.15, borderRadius: '50%' }}></div>
           <div style={{ position: 'absolute', bottom: '10%', right: '15%', width: '400px', height: '400px', background: '#d32f2f', filter: 'blur(150px)', opacity: 0.15, borderRadius: '50%' }}></div>
 
-          <div style={{
-            position: 'relative', zIndex: 10, background: 'rgba(30, 41, 59, 0.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
-            padding: '3rem 2.5rem', borderRadius: '24px', border: '1px solid rgba(255, 255, 255, 0.1)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
-            maxWidth: '500px', width: '90%', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center'
-          }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4rem', maxWidth: '1100px', width: '100%', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}>
             
-            {/* CSS trükk: negatív margók és scale a logó nagyítására és a holttér eltüntetésére */}
-            <div style={{ marginTop: '-30px', marginBottom: '-10px', width: '100%', maxWidth: '350px' }}>
-              <img src={logo} alt="Képolvasók Fotóklub Egyesület" style={{ width: '100%', transform: 'scale(1.3)' }} />
-            </div>
+            {/* BAL OLDAL - Marketing információk */}
+            <div style={{ flex: '1 1 400px', display: 'flex', flexDirection: 'column', gap: '1.5rem', maxWidth: '600px' }}>
+              <img 
+                src={logo} 
+                alt="Képolvasók Fotóklub" 
+                style={{ 
+                  width: '100%', 
+                  maxWidth: '220px', 
+                  marginBottom: '1rem',
+                  // Átmeneti megoldás a fekete betűkre, amíg nem töltesz fel fehéret
+                  filter: 'drop-shadow(0px 0px 10px rgba(255,255,255,0.3))' 
+                }} 
+              />
+              
+              <h1 style={{ fontSize: '2.8rem', margin: 0, color: '#f8fafc', lineHeight: '1.15', fontWeight: 800 }}>
+                Kezeld a <span style={{ background: 'linear-gradient(to right, #38bdf8, #8b5cf6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Fotópályázatokat</span> Profin!
+              </h1>
+              <p style={{ fontSize: '1.1rem', color: '#cbd5e1', marginBottom: '1rem', lineHeight: '1.6' }}>
+                A legkényelmesebb és legprofibb módja a fotópályázatok kezelésének, nevezésének és zsűrizésének.
+              </p>
 
-            {/* A kért platform felirat */}
-            <h2 style={{ 
-              fontSize: '1.6rem', 
-              marginBottom: '2rem', 
-              background: 'linear-gradient(to right, #38bdf8, #8b5cf6)', 
-              WebkitBackgroundClip: 'text', 
-              WebkitTextFillColor: 'transparent', 
-              fontWeight: '800', 
-              letterSpacing: '1px' 
-            }}>
-              FOTÓPÁLYÁZATI PLATFORM
-            </h2>
-            
-            <p style={{ fontSize: '1.05rem', color: '#cbd5e1', marginBottom: '2.5rem', lineHeight: '1.6' }}>
-              Egy sokoldalú rendszer, amely minden igényt kiszolgál. Legyen szó zártkörű házi versenyről vagy nemzetközi eseményről – itt mindent egy felületen kezelhetsz.
-            </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {/* 1. Infó doboz */}
+                <div style={{ background: 'rgba(30, 41, 59, 0.4)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '16px', padding: '1.5rem', display: 'flex', alignItems: 'center', gap: '1.5rem', transition: 'transform 0.2s', cursor: 'default' }} onMouseOver={e => e.currentTarget.style.transform='translateX(10px)'} onMouseOut={e => e.currentTarget.style.transform='none'}>
+                  <div style={{ fontSize: '2.5rem' }}>🏆</div>
+                  <div>
+                    <h3 style={{ margin: '0 0 0.5rem 0', color: '#f8fafc', fontSize: '1.2rem' }}>Profi Pályázatkezelés</h3>
+                    <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.95rem', lineHeight: '1.5' }}>Hozz létre zártkörű vagy nyílt versenyeket, kezeld a nevezéseket és határidőket.</p>
+                  </div>
+                </div>
+                
+                {/* 2. Infó doboz */}
+                <div style={{ background: 'rgba(30, 41, 59, 0.4)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '16px', padding: '1.5rem', display: 'flex', alignItems: 'center', gap: '1.5rem', transition: 'transform 0.2s', cursor: 'default' }} onMouseOver={e => e.currentTarget.style.transform='translateX(10px)'} onMouseOut={e => e.currentTarget.style.transform='none'}>
+                  <div style={{ fontSize: '2.5rem' }}>🖼️</div>
+                  <div>
+                    <h3 style={{ margin: '0 0 0.5rem 0', color: '#f8fafc', fontSize: '1.2rem' }}>Képek Nevezése & Feltöltése</h3>
+                    <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.95rem', lineHeight: '1.5' }}>Töltsd fel alkotásaidat, böngéssz kategóriák között és kövesd a nevezéseidet.</p>
+                  </div>
+                </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
-              <div style={{ padding: '4px', background: 'rgba(255,255,255,0.05)', borderRadius: '50px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                <GoogleLogin onSuccess={(res) => handleLoginSuccess(res.credential!)} shape="pill" size="large" theme="filled_black" />
+                {/* 3. Infó doboz */}
+                <div style={{ background: 'rgba(30, 41, 59, 0.4)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '16px', padding: '1.5rem', display: 'flex', alignItems: 'center', gap: '1.5rem', transition: 'transform 0.2s', cursor: 'default' }} onMouseOver={e => e.currentTarget.style.transform='translateX(10px)'} onMouseOut={e => e.currentTarget.style.transform='none'}>
+                  <div style={{ fontSize: '2.5rem' }}>⚖️</div>
+                  <div>
+                    <h3 style={{ margin: '0 0 0.5rem 0', color: '#f8fafc', fontSize: '1.2rem' }}>Objektív Zsűrizés & Pontozás</h3>
+                    <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.95rem', lineHeight: '1.5' }}>Pontozd az alkotásokat objektív skálán, és fedezd fel az eredményeket.</p>
+                  </div>
+                </div>
               </div>
-              <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Belépés Google azonosítás segítségével</span>
             </div>
+
+            {/* JOBB OLDAL - Login kártya */}
+            <div style={{ flex: '1 1 350px', maxWidth: '450px', width: '100%' }}>
+              <div style={{
+                background: 'rgba(30, 41, 59, 0.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
+                padding: '3rem 2.5rem', borderRadius: '24px', border: '1px solid rgba(255, 255, 255, 0.1)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+                textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center'
+              }}>
+                <h2 style={{ fontSize: '1.8rem', marginBottom: '1rem', color: '#f8fafc', fontWeight: '800' }}>
+                  Lépj be és Kezdj el Nevezni!
+                </h2>
+                <p style={{ fontSize: '1rem', color: '#94a3b8', marginBottom: '2.5rem', lineHeight: '1.6' }}>
+                  A belépéshez nincs szükség külön regisztrációra, csak használd a meglévő Google fiókodat biztonságosan.
+                </p>
+
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', width: '100%' }}>
+                  <div style={{ padding: '4px', background: 'rgba(255,255,255,0.05)', borderRadius: '50px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                    <GoogleLogin onSuccess={(res) => handleLoginSuccess(res.credential!)} shape="pill" size="large" theme="filled_black" text="continue_with" />
+                  </div>
+                  <span style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '0.5rem' }}>Biztonságos belépés Google fiókkal</span>
+                </div>
+              </div>
+            </div>
+
           </div>
         </div>
       ) : (
