@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { GoogleOAuthProvider, GoogleLogin, googleLogout } from '@react-oauth/google';
 import { jwtDecode } from "jwt-decode";
+import logo from './logo.png';
 
 const GOOGLE_CLIENT_ID = "197361744572-ih728hq5jft3fqfd1esvktvrd8i97kcp.apps.googleusercontent.com";
 const BACKEND_URL = "https://photoapp-backend-m4d1.onrender.com"; // <-- NE FELEJTSD EL ÁTÍRNI!
@@ -266,17 +267,15 @@ function App() {
             {/* A SAJÁT LOGÓD BEILLESZTÉSE */}
             {/* Helyezd a logo.png fájlt a React projekted 'public' mappájába! */}
             <img 
-              src="/logo.png" 
-              alt="Képolvasók Fotóklub Egyesület" 
-              style={{
-                width: '100%',
-                maxWidth: '280px', // Állítsd be a kívánt méretre
-                marginBottom: '2.5rem',
-                // Ha mégsem csinálsz átlátszó PNG-t, és fehér marad a logód háttere, 
-                // ideiglenesen kipróbálhatod ezt a sort: 
-                // mixBlendMode: 'screen' 
-              }} 
-            />
+  src={logo} 
+  alt="Képolvasók Fotóklub Egyesület" 
+  style={{
+    width: '100%',
+    maxWidth: '280px',
+    marginBottom: '2.5rem',
+  }} 
+/>
+
             
             <p style={{ fontSize: '1.1rem', color: '#cbd5e1', marginBottom: '3rem', lineHeight: '1.6', fontWeight: '400' }}>
               Egy sokoldalú rendszer, amely minden igényt kiszolgál. Legyen szó egy fotóklub zártkörű házi versenyéről, országos megmérettetésről vagy egy nagyszabású nemzetközi eseményről – itt mindent egyetlen felületen kezelhetsz. Lépj be a folytatáshoz!
