@@ -224,7 +224,7 @@ function App() {
         </div>
       )}
 
-      {/* --- KÜLÖNVÁLASZTOTT LOGINKÉPERNYŐ (HA NINCS BEJELENTKEZVE) --- */}
+      {/* --- KÜLÖNVÁLASZTOTT LOGINKÉPERNYŐ A SAJÁT LOGÓDDAL --- */}
       {!user ? (
         <div style={{
           minHeight: '100vh',
@@ -233,51 +233,53 @@ function App() {
           justifyContent: 'center',
           position: 'relative',
           backgroundColor: '#0f172a',
-          // Prémium fotós háttérkép egy sötét ráhúzással
+          // Sötét, letisztult Unsplash fotós háttérkép
           backgroundImage: 'linear-gradient(rgba(15, 23, 42, 0.8), rgba(15, 23, 42, 0.95)), url("https://images.unsplash.com/photo-1452860606245-08befc0ff44b?q=80&w=2070&auto=format&fit=crop")',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           fontFamily: 'Inter, sans-serif',
           overflow: 'hidden'
         }}>
-          {/* Ambient háttérfények */}
-          <div style={{ position: 'absolute', top: '10%', left: '15%', width: '400px', height: '400px', background: '#38bdf8', filter: 'blur(150px)', opacity: 0.2, borderRadius: '50%' }}></div>
-          <div style={{ position: 'absolute', bottom: '10%', right: '15%', width: '400px', height: '400px', background: '#8b5cf6', filter: 'blur(150px)', opacity: 0.2, borderRadius: '50%' }}></div>
+          {/* Ambient háttérfények, hogy kiemeljék a logó színeit */}
+          <div style={{ position: 'absolute', top: '10%', left: '15%', width: '400px', height: '400px', background: '#00a693', filter: 'blur(150px)', opacity: 0.2, borderRadius: '50%' }}></div>
+          <div style={{ position: 'absolute', bottom: '10%', right: '15%', width: '400px', height: '400px', background: '#d32f2f', filter: 'blur(150px)', opacity: 0.2, borderRadius: '50%' }}></div>
 
           {/* Glassmorphism kártya */}
           <div style={{
             position: 'relative',
             zIndex: 10,
-            background: 'rgba(30, 41, 59, 0.4)',
-            backdropFilter: 'blur(16px)',
-            WebkitBackdropFilter: 'blur(16px)',
+            background: 'rgba(30, 41, 59, 0.45)', // Kicsit sötétebb alap a logó miatt
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
             padding: '4rem 3rem',
             borderRadius: '24px',
             border: '1px solid rgba(255, 255, 255, 0.1)',
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
             maxWidth: '550px',
             width: '90%',
-            textAlign: 'center'
+            textAlign: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center'
           }}>
-            {/* Kamera Ikon/Logo */}
-            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '2rem' }}>
-              <div style={{ background: 'linear-gradient(135deg, #38bdf8, #8b5cf6)', padding: '16px', borderRadius: '50%', boxShadow: '0 10px 25px -5px rgba(56, 189, 248, 0.4)' }}>
-                 <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                   <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
-                   <circle cx="12" cy="13" r="4"></circle>
-                 </svg>
-              </div>
-            </div>
-
-            <h1 style={{ fontSize: '2.5rem', fontWeight: '800', margin: '0 0 0.5rem 0', color: '#f8fafc', lineHeight: '1.2' }}>
-              Képolvasók
-            </h1>
-            <h2 style={{ fontSize: '1.4rem', margin: '0 0 2rem 0', background: 'linear-gradient(to right, #38bdf8, #8b5cf6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontWeight: '600' }}>
-              Fotópályázati Platform
-            </h2>
+            
+            {/* A SAJÁT LOGÓD BEILLESZTÉSE */}
+            {/* Helyezd a logo.png fájlt a React projekted 'public' mappájába! */}
+            <img 
+              src="/logo.png" 
+              alt="Képolvasók Fotóklub Egyesület" 
+              style={{
+                width: '100%',
+                maxWidth: '280px', // Állítsd be a kívánt méretre
+                marginBottom: '2.5rem',
+                // Ha mégsem csinálsz átlátszó PNG-t, és fehér marad a logód háttere, 
+                // ideiglenesen kipróbálhatod ezt a sort: 
+                // mixBlendMode: 'screen' 
+              }} 
+            />
             
             <p style={{ fontSize: '1.1rem', color: '#cbd5e1', marginBottom: '3rem', lineHeight: '1.6', fontWeight: '400' }}>
-              Egy sokoldalú rendszer, amely minden igényt kiszolgál. Legyen szó zártkörű házi versenyről vagy országos megmérettetésről – itt mindent egy helyen kezelhetsz.
+              Egy sokoldalú rendszer, amely minden igényt kiszolgál. Legyen szó egy fotóklub zártkörű házi versenyéről, országos megmérettetésről vagy egy nagyszabású nemzetközi eseményről – itt mindent egyetlen felületen kezelhetsz. Lépj be a folytatáshoz!
             </p>
 
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
