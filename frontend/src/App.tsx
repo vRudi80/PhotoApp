@@ -267,7 +267,7 @@ function App() {
               <div style={{ padding: '4px', background: 'rgba(255,255,255,0.05)', borderRadius: '50px', border: '1px solid rgba(255,255,255,0.1)' }}>
                 <GoogleLogin onSuccess={(res) => handleLoginSuccess(res.credential!)} shape="pill" size="large" theme="filled_black" />
               </div>
-              <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Belépés Google fiókkal</span>
+              <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Belépés Google azonosítás segítségével</span>
             </div>
           </div>
         </div>
