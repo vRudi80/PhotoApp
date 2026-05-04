@@ -34,13 +34,18 @@ app.post('/api/auth/sync', async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Adatbázis hiba' }); }
 });
 
+// FRISSÍTVE: Lekérjük a club_role-t is
 app.get('/api/users', async (req, res) => {
-  try { const [rows] = await pool.query('SELECT email, name, club_name FROM photo_users ORDER BY name ASC'); res.json(rows); } 
+  try { const [rows] = await pool.query('SELECT email, name, club_name, club_role FROM photo_users ORDER BY name ASC'); res.json(rows); } 
   catch (err) { res.status(500).json({ error: 'Hiba' }); }
 });
 
+// FRISSÍTVE: Mentjük a club_role-t is
 app.put('/api/users/:email', async (req, res) => {
-  try { await pool.query('UPDATE photo_users SET club_name = ? WHERE email = ?', [req.body.clubName || null, req.params.email]); res.json({ success: true }); } 
+  try { 
+    await pool.query('UPDATE photo_users SET club_name = ?, club_role = ? WHERE email = ?', [req.body.clubName || null, req.body.clubRole || 'member', req.params.email]); 
+    res.json({ success: true }); 
+  } 
   catch (err) { res.status(500).json({ error: 'Hiba' }); }
 });
 
@@ -102,7 +107,6 @@ app.put('/api/contests/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Hiba' }); }
 });
 
-// --- JAVÍTOTT KÉPFELTÖLTÉS (Dinamikus kiterjesztéssel) ---
 app.post('/api/upload', upload.single('photo'), async (req, res) => {
   const { contestId, userEmail, userName, title, category } = req.body;
   const file = req.file;
@@ -114,8 +118,6 @@ app.post('/api/upload', upload.single('photo'), async (req, res) => {
     if (countRows[0].count >= 4) return res.status(400).json({ error: 'Elérted a 4 képes limitet!' });
 
     const bufferStream = new Readable(); bufferStream.push(file.buffer); bufferStream.push(null);
-    
-    // Kinyerjük a valós kiterjesztést, ha nincs, adunk egy alap .jpg-t
     const fileExt = file.originalname && file.originalname.includes('.') ? file.originalname.substring(file.originalname.lastIndexOf('.')).toLowerCase() : '.jpg';
 
     const driveRes = await drive.files.create({ 
@@ -128,7 +130,6 @@ app.post('/api/upload', upload.single('photo'), async (req, res) => {
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
-// ---------------------------------------------------------
 
 app.put('/api/entries/:id', async (req, res) => {
   const { title, userEmail } = req.body;
@@ -170,9 +171,8 @@ app.get('/api/results/:contestId', async (req, res) => {
     res.json(rows);
   } catch (err) { res.status(500).json({ error: 'Hiba' }); }
 });
-// --- KLUBESTEK (MEETINGS) VÉGPONTOK ---
 
-// Összes klubest lekérése (A frontend majd szűri klub szerint)
+// --- KLUBESTEK (MEETINGS) ---
 app.get('/api/meetings', async (req, res) => {
   try {
     const [rows] = await pool.query(`
@@ -185,28 +185,20 @@ app.get('/api/meetings', async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Hiba a klubestek lekérésekor' }); }
 });
 
-// Új klubest létrehozása (Opcionális borítóképpel)
 app.post('/api/meetings', upload.single('coverPhoto'), async (req, res) => {
   const { clubId, date, time, topic, description, locationType, locationDetails } = req.body;
   const file = req.file;
-  
-  let fileUrl = null;
-  let driveFileId = null;
+  let fileUrl = null; let driveFileId = null;
 
   try {
-    // Ha van feltöltött kép, feltöltjük Drive-ra
     if (file) {
       const bufferStream = new Readable(); bufferStream.push(file.buffer); bufferStream.push(null);
       const fileExt = file.originalname.includes('.') ? file.originalname.substring(file.originalname.lastIndexOf('.')).toLowerCase() : '.jpg';
-      
       const driveRes = await drive.files.create({ 
         requestBody: { name: `Klubest_Cover_${Date.now()}${fileExt}`, parents: [process.env.DRIVE_MASTER_FOLDER_ID] }, 
-        media: { mimeType: file.mimetype, body: bufferStream }, 
-        fields: 'id, webViewLink' 
+        media: { mimeType: file.mimetype, body: bufferStream }, fields: 'id, webViewLink' 
       });
-      
-      fileUrl = driveRes.data.webViewLink;
-      driveFileId = driveRes.data.id;
+      fileUrl = driveRes.data.webViewLink; driveFileId = driveRes.data.id;
     }
 
     await pool.query(
@@ -217,17 +209,70 @@ app.post('/api/meetings', upload.single('coverPhoto'), async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Klubest törlése (Törli a képet is a Drive-ról, ha van)
+// ÚJ: Klubest szerkesztése
+app.put('/api/meetings/:id', upload.single('coverPhoto'), async (req, res) => {
+  const { date, time, topic, description, locationType, locationDetails } = req.body;
+  const file = req.file;
+  try {
+    if (file) {
+      const bufferStream = new Readable(); bufferStream.push(file.buffer); bufferStream.push(null);
+      const fileExt = file.originalname.includes('.') ? file.originalname.substring(file.originalname.lastIndexOf('.')).toLowerCase() : '.jpg';
+      const driveRes = await drive.files.create({ 
+        requestBody: { name: `Klubest_Cover_${Date.now()}${fileExt}`, parents: [process.env.DRIVE_MASTER_FOLDER_ID] }, 
+        media: { mimeType: file.mimetype, body: bufferStream }, fields: 'id, webViewLink' 
+      });
+      await pool.query(
+        'UPDATE photo_club_meetings SET meeting_date=?, meeting_time=?, topic=?, description=?, location_type=?, location_details=?, file_url=?, drive_file_id=? WHERE id=?', 
+        [date, time, topic, description, locationType, locationDetails, driveRes.data.webViewLink, driveRes.data.id, req.params.id]
+      );
+    } else {
+      await pool.query(
+        'UPDATE photo_club_meetings SET meeting_date=?, meeting_time=?, topic=?, description=?, location_type=?, location_details=? WHERE id=?', 
+        [date, time, topic, description, locationType, locationDetails, req.params.id]
+      );
+    }
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 app.delete('/api/meetings/:id', async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT drive_file_id FROM photo_club_meetings WHERE id = ?', [req.params.id]);
     if (rows.length > 0 && rows[0].drive_file_id) {
-      await drive.files.delete({ fileId: rows[0].drive_file_id }).catch(e => console.log('Drive törlési hiba:', e.message));
+      await drive.files.delete({ fileId: rows[0].drive_file_id }).catch(e => console.log('Drive hiba:', e.message));
     }
     await pool.query('DELETE FROM photo_club_meetings WHERE id = ?', [req.params.id]);
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: 'Hiba a törlésnél' }); }
 });
-// ------------------------------------------
+
+// ÚJ: Jelenléti ív lekérése
+app.get('/api/attendance/:meetingId', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT user_email FROM photo_meeting_attendance WHERE meeting_id = ?', [req.params.meetingId]);
+    res.json(rows.map(r => r.user_email));
+  } catch (err) { res.status(500).json({ error: 'Hiba' }); }
+});
+
+// ÚJ: Jelenléti ív mentése
+app.post('/api/attendance/:meetingId', async (req, res) => {
+  const { emails } = req.body;
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    await conn.query('DELETE FROM photo_meeting_attendance WHERE meeting_id = ?', [req.params.meetingId]);
+    if (emails && emails.length > 0) {
+      const values = emails.map(email => [req.params.meetingId, email]);
+      await conn.query('INSERT INTO photo_meeting_attendance (meeting_id, user_email) VALUES ?', [values]);
+    }
+    await conn.commit();
+    res.json({ success: true });
+  } catch (e) {
+    await conn.rollback();
+    res.status(500).json({ error: e.message });
+  } finally {
+    conn.release();
+  }
+});
 
 app.listen(PORT, () => console.log(`Szerver fut a ${PORT} porton`));
