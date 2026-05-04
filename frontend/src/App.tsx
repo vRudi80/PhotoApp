@@ -438,13 +438,19 @@ function App() {
                        <div>
                          <div style={{ fontWeight: 'bold' }}>{u.name}</div>
                          <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>{u.email}</div>
+                         
+                         {/* ÚJ: Utolsó belépés */}
+                         <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px' }}>
+                           🕒 Utolsó belépés: {u.last_login ? new Date(u.last_login).toLocaleString('hu-HU', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Ismeretlen'}
+                         </div>
+
                        </div>
-                       <div style={{ display: 'flex', gap: '10px' }}>
-                         <select value={userClubEdits[u.email] !== undefined ? userClubEdits[u.email] : (u.club_name || '')} onChange={e => setUserClubEdits({...userClubEdits, [u.email]: e.target.value})} style={{ padding: '8px', borderRadius: '6px', background: '#1e293b', border: '1px solid #475569', color: 'white', width: '200px' }}>
+                       <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                         <select value={userClubEdits[u.email] !== undefined ? userClubEdits[u.email] : (u.club_name || '')} onChange={e => setUserClubEdits({...userClubEdits, [u.email]: e.target.value})} style={{ padding: '8px', borderRadius: '6px', background: '#1e293b', border: '1px solid #475569', color: 'white', width: '200px', margin: 0 }}>
                            <option value="">-- Nincs klubja --</option>
                            {clubs.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                          </select>
-                         <select value={userRoleEdits[u.email] !== undefined ? userRoleEdits[u.email] : (u.club_role || 'member')} onChange={e => setUserRoleEdits({...userRoleEdits, [u.email]: e.target.value})} style={{ padding: '8px', borderRadius: '6px', background: '#1e293b', border: '1px solid #475569', color: 'white', width: '150px' }}>
+                         <select value={userRoleEdits[u.email] !== undefined ? userRoleEdits[u.email] : (u.club_role || 'member')} onChange={e => setUserRoleEdits({...userRoleEdits, [u.email]: e.target.value})} style={{ padding: '8px', borderRadius: '6px', background: '#1e293b', border: '1px solid #475569', color: 'white', width: '150px', margin: 0 }}>
                            <option value="member">Klubtag</option>
                            <option value="leader">Klubvezető</option>
                            <option value="deputy">Vezető helyettes</option>
@@ -770,7 +776,6 @@ function App() {
                         const myEntries = myHomeworkEntries.filter(e => e.homework_id === hw.id);
                         const hwEntriesForAll = clubHomeworkEntries.filter(e => e.homework_id === hw.id);
 
-                        // ÚJ: Kiszámoljuk a feltöltési statisztikát a vezetőknek
                         const uploaderStats = hwEntriesForAll.reduce((acc, curr) => {
                            if (!acc[curr.user_name]) acc[curr.user_name] = 0;
                            acc[curr.user_name]++;
@@ -791,7 +796,6 @@ function App() {
                             </div>
                             <p style={{fontSize: '0.85rem', color: '#f59e0b', margin: '0 0 15px 0', fontWeight: 'bold'}}>⏰ Határidő: {new Date(hw.deadline).toLocaleString()}</p>
 
-                            {/* ÚJ: Feltöltési Statisztika a Vezetőknek */}
                             {isLeader && (
                               <div style={{ marginTop: '15px', marginBottom: '20px', padding: '15px', background: '#0f172a', borderRadius: '8px', border: '1px solid #334155' }}>
                                 <h4 style={{ margin: '0 0 10px 0', fontSize: '0.85rem', color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '1px' }}>📊 Feltöltések eddig (Vezetői infó)</h4>
