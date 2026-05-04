@@ -51,7 +51,7 @@ function App() {
   const [meetCover, setMeetCover] = useState<File | null>(null);
   const [meetCoverPreview, setMeetCoverPreview] = useState<string | null>(null);
   const [isMeetingUploading, setIsMeetingUploading] = useState(false);
-  const [meetingSearch, setMeetingSearch] = useState(''); // ÚJ: Kereső állapota
+  const [meetingSearch, setMeetingSearch] = useState(''); 
 
   // --- JELENLÉTI ÍV ÉS VIDEÓ ÁLLAPOTOK ---
   const [attendanceMeetId, setAttendanceMeetId] = useState<number | null>(null);
@@ -258,7 +258,6 @@ function App() {
 
   const myClubMeetings = meetings.filter(m => m.club_name === currentDbUser?.club_name);
   
-  // ÚJ: Keresés alapján szűrt klubestek (Téma vagy Leírás)
   const searchedMeetings = myClubMeetings.filter(m => {
     if (!meetingSearch) return true;
     const q = meetingSearch.toLowerCase();
@@ -269,7 +268,6 @@ function App() {
 
   return (
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
-      {/* SÖTÉT GÖRGETŐSÁV STÍLUSOK (Hogy szép legyen a kártyák belseje és a konténer is) */}
       <style>{`
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.5); border-radius: 8px; }
@@ -589,7 +587,7 @@ function App() {
               </div>
             )}
 
-            {/* --- KLUBESTEK (FELHASZNÁLÓI NÉZET - KERESŐVEL ÉS GÖRGETÉSSEL) --- */}
+            {/* --- KLUBESTEK (FELHASZNÁLÓI NÉZET) --- */}
             {activeTab === 'club_nights' && (
               <div>
                 {!currentDbUser?.club_name ? (
@@ -604,7 +602,6 @@ function App() {
                       <h2 style={{ fontSize: '2rem', margin: 0, display: 'flex', alignItems: 'center', gap: '15px' }}>
                         <span style={{ fontSize: '2.5rem' }}>📅</span> Klubestek: {currentDbUser.club_name}
                       </h2>
-                      {/* ÚJ: Keresőmező */}
                       <input 
                         type="text" 
                         placeholder="🔍 Keresés téma vagy leírás alapján..." 
@@ -617,7 +614,6 @@ function App() {
                     {searchedMeetings.length === 0 ? (
                       <p style={{ color: '#94a3b8', fontSize: '1.1rem' }}>Nincs a keresésnek megfelelő klubest.</p>
                     ) : (
-                      /* ÚJ: Görgethető külső konténer */
                       <div style={{ maxHeight: '70vh', overflowY: 'auto', paddingRight: '10px' }}>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
                           {searchedMeetings.map(meet => {
@@ -625,10 +621,8 @@ function App() {
                             const isPast = meetDateObj < new Date(new Date().setHours(0,0,0,0));
                             
                             return (
-                              /* ÚJ: Fix magasságú (450px) kártya */
                               <div key={meet.id} style={{ height: '450px', background: '#1e293b', borderRadius: '16px', overflow: 'hidden', border: '1px solid #334155', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.3)', display: 'flex', flexDirection: 'column' }}>
                                 
-                                {/* Kártya Fejléc/Borítókép (Fix 180px) */}
                                 <div style={{ height: '180px', flexShrink: 0, background: '#0f172a', position: 'relative' }}>
                                   {meet.drive_file_id || meet.file_url ? (
                                     <img src={meet.drive_file_id ? `https://lh3.googleusercontent.com/d/${meet.drive_file_id}` : meet.file_url} alt={meet.topic} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: isPast ? 0.6 : 1 }} />
@@ -636,9 +630,11 @@ function App() {
                                     <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #1e293b, #0f172a)', color: '#334155', fontSize: '4rem' }}>📷</div>
                                   )}
                                   
-                                  <div style={{ position: 'absolute', top: '15px', right: '15px', background: 'rgba(15, 23, 42, 0.85)', backdropFilter: 'blur(5px)', padding: '8px 12px', borderRadius: '8px', color: isPast ? '#94a3b8' : '#38bdf8', fontWeight: 'bold', border: `1px solid ${isPast ? '#334155' : '#38bdf850'}`, textAlign: 'center', lineHeight: '1.2' }}>
-                                    <div style={{ fontSize: '0.8rem', textTransform: 'uppercase' }}>{meetDateObj.toLocaleDateString('hu-HU', { month: 'short' })}</div>
-                                    <div style={{ fontSize: '1.5rem' }}>{meetDateObj.getDate()}</div>
+                                  {/* --- FRISSÍTETT DÁTUM BADGE --- */}
+                                  <div style={{ position: 'absolute', top: '15px', right: '15px', background: 'rgba(15, 23, 42, 0.85)', backdropFilter: 'blur(5px)', padding: '6px 10px', borderRadius: '8px', color: isPast ? '#94a3b8' : '#38bdf8', fontWeight: 'bold', border: `1px solid ${isPast ? '#334155' : '#38bdf850'}`, textAlign: 'center', lineHeight: '1.1', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                    <span style={{ fontSize: '0.65rem', opacity: 0.7, letterSpacing: '1px' }}>{meetDateObj.getFullYear()}</span>
+                                    <span style={{ fontSize: '0.85rem', textTransform: 'uppercase', marginTop: '2px' }}>{meetDateObj.toLocaleDateString('hu-HU', { month: 'short' }).replace('.', '')}</span>
+                                    <span style={{ fontSize: '1.6rem', marginTop: '2px' }}>{meetDateObj.getDate()}</span>
                                   </div>
 
                                   {meet.video_link && (
@@ -651,7 +647,6 @@ function App() {
                                   )}
                                 </div>
 
-                                {/* Kártya Tartalom */}
                                 <div style={{ padding: '20px', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                                   <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: '8px', display: 'flex', gap: '15px', flexShrink: 0 }}>
                                     <span>⏰ {meet.meeting_time.substring(0,5)}</span>
@@ -662,14 +657,12 @@ function App() {
                                     {meet.topic}
                                   </h3>
                                   
-                                  {/* ÚJ: Görgethető leírás box */}
                                   <div style={{ flex: 1, overflowY: 'auto', marginBottom: '15px', paddingRight: '5px' }}>
                                     <p style={{ color: '#94a3b8', fontSize: '0.95rem', margin: 0, lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>
                                       {meet.description}
                                     </p>
                                   </div>
 
-                                  {/* Alsó sáv */}
                                   <div style={{ background: '#0f172a', padding: '12px', borderRadius: '8px', border: '1px solid #334155', display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
                                     <div style={{ fontSize: '1.5rem' }}>{meet.location_type === 'online' ? '💻' : '📍'}</div>
                                     <div style={{ flex: 1, overflow: 'hidden' }}>
