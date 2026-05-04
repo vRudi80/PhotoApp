@@ -170,5 +170,64 @@ app.get('/api/results/:contestId', async (req, res) => {
     res.json(rows);
   } catch (err) { res.status(500).json({ error: 'Hiba' }); }
 });
+// --- KLUBESTEK (MEETINGS) VÉGPONTOK ---
+
+// Összes klubest lekérése (A frontend majd szűri klub szerint)
+app.get('/api/meetings', async (req, res) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT m.*, c.name as club_name 
+      FROM photo_club_meetings m
+      JOIN photo_clubs c ON m.club_id = c.id
+      ORDER BY m.meeting_date DESC, m.meeting_time DESC
+    `);
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: 'Hiba a klubestek lekérésekor' }); }
+});
+
+// Új klubest létrehozása (Opcionális borítóképpel)
+app.post('/api/meetings', upload.single('coverPhoto'), async (req, res) => {
+  const { clubId, date, time, topic, description, locationType, locationDetails } = req.body;
+  const file = req.file;
+  
+  let fileUrl = null;
+  let driveFileId = null;
+
+  try {
+    // Ha van feltöltött kép, feltöltjük Drive-ra
+    if (file) {
+      const bufferStream = new Readable(); bufferStream.push(file.buffer); bufferStream.push(null);
+      const fileExt = file.originalname.includes('.') ? file.originalname.substring(file.originalname.lastIndexOf('.')).toLowerCase() : '.jpg';
+      
+      const driveRes = await drive.files.create({ 
+        requestBody: { name: `Klubest_Cover_${Date.now()}${fileExt}`, parents: [process.env.DRIVE_MASTER_FOLDER_ID] }, 
+        media: { mimeType: file.mimetype, body: bufferStream }, 
+        fields: 'id, webViewLink' 
+      });
+      
+      fileUrl = driveRes.data.webViewLink;
+      driveFileId = driveRes.data.id;
+    }
+
+    await pool.query(
+      'INSERT INTO photo_club_meetings (club_id, meeting_date, meeting_time, topic, description, location_type, location_details, file_url, drive_file_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', 
+      [clubId, date, time, topic, description, locationType, locationDetails, fileUrl, driveFileId]
+    );
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Klubest törlése (Törli a képet is a Drive-ról, ha van)
+app.delete('/api/meetings/:id', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT drive_file_id FROM photo_club_meetings WHERE id = ?', [req.params.id]);
+    if (rows.length > 0 && rows[0].drive_file_id) {
+      await drive.files.delete({ fileId: rows[0].drive_file_id }).catch(e => console.log('Drive törlési hiba:', e.message));
+    }
+    await pool.query('DELETE FROM photo_club_meetings WHERE id = ?', [req.params.id]);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: 'Hiba a törlésnél' }); }
+});
+// ------------------------------------------
 
 app.listen(PORT, () => console.log(`Szerver fut a ${PORT} porton`));
