@@ -18,10 +18,9 @@ function App() {
   
   const [meetings, setMeetings] = useState<any[]>([]);
   
-  // --- ÚJ: Házi Feladat Állapotok ---
   const [homeworks, setHomeworks] = useState<any[]>([]);
   const [myHomeworkEntries, setMyHomeworkEntries] = useState<any[]>([]);
-  const [clubHomeworkEntries, setClubHomeworkEntries] = useState<any[]>([]); // Vezetőknek
+  const [clubHomeworkEntries, setClubHomeworkEntries] = useState<any[]>([]); 
   
   const [activeTab, setActiveTab] = useState<'contests_open' | 'contests_club' | 'club_nights' | 'club_homeworks' | 'admin_contests' | 'admin_users' | 'admin_clubs' | 'admin_meetings' | 'admin_homeworks'>('contests_open');
   const [dropdownOpen, setDropdownOpen] = useState<'contests' | 'club' | 'admin' | null>(null);
@@ -30,7 +29,6 @@ function App() {
   const [userRoleEdits, setUserRoleEdits] = useState<Record<string, string>>({});
   const [newClubName, setNewClubName] = useState('');
 
-  // Admin states for Contests & Meetings...
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
   const [newStart, setNewStart] = useState('');
@@ -59,14 +57,12 @@ function App() {
   const [isMeetingUploading, setIsMeetingUploading] = useState(false);
   const [meetingSearch, setMeetingSearch] = useState(''); 
 
-  // --- Állapotok ÚJ HÁZI FELADATHOZ ---
   const [editHwId, setEditHwId] = useState<number | null>(null);
   const [hwClubId, setHwClubId] = useState('');
   const [hwTopic, setHwTopic] = useState('');
   const [hwDesc, setHwDesc] = useState('');
   const [hwDeadline, setHwDeadline] = useState('');
   
-  // --- Állapotok Házi Feladat Feltöltéshez ---
   const [activeUploadHw, setActiveUploadHw] = useState<number | null>(null);
   const [hwUploadFile, setHwUploadFile] = useState<File | null>(null);
   const [hwUploadPreview, setHwUploadPreview] = useState<string | null>(null);
@@ -130,7 +126,6 @@ function App() {
     } catch (e) { console.error(e); }
   };
 
-  // ÚJ: Lekéri a klub összes házi feladat képét (ha a user vezető)
   const fetchClubHomeworkEntries = async (clubId: number) => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/homework-entries/club/${clubId}`);
@@ -157,7 +152,6 @@ function App() {
   const currentDbUser = allUsers.find(u => u.email === user?.email);
   const isLeader = currentDbUser?.club_role === 'leader' || currentDbUser?.club_role === 'deputy';
 
-  // Figyeljük, ha a user klubvezető lesz és a házi feladat fülön van, töltsük le az összes képet
   useEffect(() => {
     if (activeTab === 'club_homeworks' && isLeader && currentDbUser) {
       const club = clubs.find(c => c.name === currentDbUser.club_name);
@@ -183,7 +177,6 @@ function App() {
     if (res.ok) { alert("Sikeres mentés!"); fetchData(); } 
   };
   
-  // Contest Logic
   const handleCreateContest = async () => { if (!newTitle || !newStart || !newEnd || !newCats) return alert("Cím, dátumok és kategóriák kötelezőek!"); const res = await fetch(`${BACKEND_URL}/api/contests`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: newTitle, description: newDesc, startDate: newStart, endDate: newEnd, categories: newCats, restrictedClub: newRestrictedClub }) }); if (res.ok) { setNewTitle(''); setNewDesc(''); setNewStart(''); setNewEnd(''); setNewCats(''); setNewRestrictedClub(''); fetchData(); } };
   const startEdit = (contest: any) => { setEditContestId(contest.id); setEditTitle(contest.title); setEditDesc(contest.description); setEditCats(contest.categories || ''); setEditRestrictedClub(contest.restricted_club || ''); const formatDate = (dateStr: string | null) => { if (!dateStr) return ''; try { const d = new Date(dateStr); if (isNaN(d.getTime()) || d.getFullYear() <= 1970) return ''; return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0,16); } catch (e) { return ''; } }; setEditStart(formatDate(contest.start_date)); setEditEnd(formatDate(contest.end_date)); };
   const handleUpdateContest = async () => { const res = await fetch(`${BACKEND_URL}/api/contests/${editContestId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: editTitle, description: editDesc, startDate: editStart || null, endDate: editEnd || null, categories: editCats, restrictedClub: editRestrictedClub }) }); if (res.ok) { setEditContestId(null); fetchData(); alert("Pályázat sikeresen frissítve!"); } };
@@ -198,7 +191,6 @@ function App() {
   const loadResults = async (contestId: number) => { const res = await fetch(`${BACKEND_URL}/api/results/${contestId}`); if (res.ok) { setContestResults(await res.json()); setViewResultsContestId(contestId); } };
   const loadStats = async (contestId: number) => { const res = await fetch(`${BACKEND_URL}/api/admin/stats/${contestId}`); if (res.ok) { setContestStats(await res.json()); setViewStatsContestId(contestId); } };
 
-  // Meeting Logic
   const handleMeetingCoverSelect = (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (file) { setMeetCover(file); setMeetCoverPreview(URL.createObjectURL(file)); } };
   const startEditMeeting = (m: any) => { setEditMeetId(m.id); setMeetClubId(m.club_id.toString()); setMeetDate(m.meeting_date.split('T')[0]); setMeetTime(m.meeting_time.substring(0, 5)); setMeetTopic(m.topic); setMeetDesc(m.description || ''); setMeetLocType(m.location_type); setMeetLocDetails(m.location_details || ''); setMeetVideoLink(m.video_link || ''); setMeetCover(null); setMeetCoverPreview(null); };
   const clearMeetingForm = () => { setEditMeetId(null); setMeetClubId(''); setMeetDate(''); setMeetTime(''); setMeetTopic(''); setMeetDesc(''); setMeetLocDetails(''); setMeetVideoLink(''); setMeetCover(null); setMeetCoverPreview(null); };
@@ -209,7 +201,6 @@ function App() {
   const saveAttendance = async () => { if (!attendanceMeetId) return; const res = await fetch(`${BACKEND_URL}/api/attendance/${attendanceMeetId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ emails: attendanceList }) }); if (res.ok) { alert("Jelenléti ív mentve!"); setAttendanceMeetId(null); } };
   const getYouTubeEmbed = (url: string) => { const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^&?]+)/); return match ? `https://www.youtube.com/embed/${match[1]}` : url; };
 
-  // --- ÚJ: HÁZI FELADAT LOGIKA ---
   const clearHwForm = () => { setEditHwId(null); setHwClubId(''); setHwTopic(''); setHwDesc(''); setHwDeadline(''); };
   const startEditHw = (h: any) => {
     setEditHwId(h.id); setHwClubId(h.club_id.toString()); setHwTopic(h.topic); setHwDesc(h.description || '');
@@ -266,13 +257,11 @@ function App() {
     }
   };
 
-  // --- STÍLUSOK ---
   const inputStyle = { width: '100%', padding: '10px', marginBottom: '10px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '6px', boxSizing: 'border-box' as const };
   const navBtnStyle = { background: 'transparent', color: '#f8fafc', border: 'none', padding: '8px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '5px' };
   const dropdownStyle = { position: 'absolute' as const, top: '100%', left: 0, marginTop: '10px', background: '#1e293b', border: '1px solid #334155', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.5)', minWidth: '220px', display: 'flex', flexDirection: 'column' as const };
   const dropItemStyle = { background: 'transparent', color: '#cbd5e1', border: 'none', padding: '12px 15px', textAlign: 'left' as const, cursor: 'pointer', width: '100%', borderBottom: '1px solid #334155', fontSize: '0.95rem' };
 
-  // --- SZŰRŐK ---
   const filteredContests = contests.filter(contest => {
     const isRestricted = contest.restricted_club && contest.restricted_club.trim() !== '';
     if (activeTab === 'contests_club') return isRestricted && contest.restricted_club === currentDbUser?.club_name;
@@ -316,7 +305,6 @@ function App() {
       )}
 
       {!user ? (
-        // --- MARKETING LOGINKÉPERNYŐ (Változatlan) ---
         <div style={{
           minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', backgroundColor: '#0f172a',
           backgroundImage: 'linear-gradient(rgba(15, 23, 42, 0.85), rgba(15, 23, 42, 0.98)), url("https://images.unsplash.com/photo-1452860606245-08befc0ff44b?q=80&w=2070&auto=format&fit=crop")',
@@ -403,10 +391,7 @@ function App() {
                     <div style={dropdownStyle}>
                       {user?.email === ADMIN_EMAIL && <button onClick={() => { setActiveTab('admin_contests'); setDropdownOpen(null); }} style={{...dropItemStyle, color: activeTab === 'admin_contests' ? '#f59e0b' : '#cbd5e1'}}>Pályázatok kezelése</button>}
                       <button onClick={() => { setActiveTab('admin_meetings'); setDropdownOpen(null); }} style={{...dropItemStyle, color: activeTab === 'admin_meetings' ? '#f59e0b' : '#cbd5e1'}}>Klubestek kezelése</button>
-                      
-                      {/* ÚJ: Házi feladatok admin */}
                       <button onClick={() => { setActiveTab('admin_homeworks'); setDropdownOpen(null); }} style={{...dropItemStyle, color: activeTab === 'admin_homeworks' ? '#f59e0b' : '#cbd5e1'}}>Házi feladatok kezelése</button>
-                      
                       {user?.email === ADMIN_EMAIL && <button onClick={() => { setActiveTab('admin_users'); setDropdownOpen(null); }} style={{...dropItemStyle, color: activeTab === 'admin_users' ? '#f59e0b' : '#cbd5e1'}}>Felhasználók</button>}
                       {user?.email === ADMIN_EMAIL && <button onClick={() => { setActiveTab('admin_clubs'); setDropdownOpen(null); }} style={{...dropItemStyle, borderBottom: 'none', color: activeTab === 'admin_clubs' ? '#f59e0b' : '#cbd5e1'}}>Fotóklubok</button>}
                     </div>
@@ -426,7 +411,6 @@ function App() {
 
           <main style={{ padding: '2rem', maxWidth: '900px', margin: '0 auto' }}>
             
-            {/* --- FOTÓKLUBOK ADMIN --- */}
             {activeTab === 'admin_clubs' && user.email === ADMIN_EMAIL && (
                <div>
                  <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', color: '#f59e0b' }}>🏷️ Fotóklubok Kezelése</h2>
@@ -445,7 +429,6 @@ function App() {
                </div>
             )}
 
-            {/* --- FELHASZNÁLÓK ADMIN --- */}
             {activeTab === 'admin_users' && user.email === ADMIN_EMAIL && (
               <div>
                  <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', color: '#f59e0b' }}>👥 Felhasználók és Szerepkörök</h2>
@@ -474,7 +457,6 @@ function App() {
               </div>
             )}
 
-            {/* --- KLUBESTEK ADMIN --- */}
             {activeTab === 'admin_meetings' && (user.email === ADMIN_EMAIL || isLeader) && (
               <div>
                 <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', color: '#f59e0b' }}>📅 Klubestek Kezelése</h2>
@@ -595,7 +577,7 @@ function App() {
               </div>
             )}
 
-            {/* --- ÚJ: HÁZI FELADATOK ADMIN (Főadmin + Vezetők) --- */}
+            {/* --- HÁZI FELADATOK ADMIN --- */}
             {activeTab === 'admin_homeworks' && (user.email === ADMIN_EMAIL || isLeader) && (
               <div>
                 <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', color: '#f59e0b' }}>📝 Házi Feladatok Kezelése</h2>
@@ -761,7 +743,7 @@ function App() {
               </div>
             )}
 
-            {/* --- ÚJ: HÁZI FELADATOK (FELHASZNÁLÓI ÉS VEZETŐI NÉZET) --- */}
+            {/* --- HÁZI FELADATOK --- */}
             {activeTab === 'club_homeworks' && (
               <div>
                 {!currentDbUser?.club_name ? (
@@ -784,6 +766,13 @@ function App() {
                         const myEntries = myHomeworkEntries.filter(e => e.homework_id === hw.id);
                         const hwEntriesForAll = clubHomeworkEntries.filter(e => e.homework_id === hw.id);
 
+                        // ÚJ: Kiszámoljuk a feltöltési statisztikát a vezetőknek
+                        const uploaderStats = hwEntriesForAll.reduce((acc, curr) => {
+                           if (!acc[curr.user_name]) acc[curr.user_name] = 0;
+                           acc[curr.user_name]++;
+                           return acc;
+                        }, {} as Record<string, number>);
+
                         return (
                           <div key={hw.id} style={{ backgroundColor: '#1e293b', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', border: isPast ? '1px solid #475569' : '1px solid #10b981', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', position: 'relative' }}>
                             
@@ -798,7 +787,24 @@ function App() {
                             </div>
                             <p style={{fontSize: '0.85rem', color: '#f59e0b', margin: '0 0 15px 0', fontWeight: 'bold'}}>⏰ Határidő: {new Date(hw.deadline).toLocaleString()}</p>
 
-                            {/* FELTÖLTÉS (Ha még tart a határidő) */}
+                            {/* ÚJ: Feltöltési Statisztika a Vezetőknek */}
+                            {isLeader && (
+                              <div style={{ marginTop: '15px', marginBottom: '20px', padding: '15px', background: '#0f172a', borderRadius: '8px', border: '1px solid #334155' }}>
+                                <h4 style={{ margin: '0 0 10px 0', fontSize: '0.85rem', color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '1px' }}>📊 Feltöltések eddig (Vezetői infó)</h4>
+                                {Object.keys(uploaderStats).length === 0 ? (
+                                  <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>Még nem érkezett feltöltés a klubtagoktól.</div>
+                                ) : (
+                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                    {Object.entries(uploaderStats).map(([name, count]) => (
+                                      <span key={name} style={{ background: '#1e293b', border: '1px solid #475569', color: '#cbd5e1', padding: '6px 12px', borderRadius: '100px', fontSize: '0.85rem' }}>
+                                        {name}: <strong style={{ color: count >= 4 ? '#10b981' : '#f8fafc' }}>{count}/4</strong>
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
                             {!isPast && activeUploadHw !== hw.id && myEntries.length < 4 && (
                               <button onClick={() => { setActiveUploadHw(hw.id); setHwUploadTitle(''); setHwUploadPreview(null); setHwUploadFile(null); }} style={{ background: '#38bdf8', color: '#0f172a', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', marginBottom: '15px' }}>+ Kép Feltöltése ({myEntries.length}/4)</button>
                             )}
@@ -820,7 +826,6 @@ function App() {
                               </div>
                             )}
 
-                            {/* SAJÁT KÉPEIM (Mindig látja a user a sajátjait) */}
                             {myEntries.length > 0 && (
                               <div style={{ marginTop: '20px', borderTop: '1px solid #334155', paddingTop: '20px' }}>
                                 <h4 style={{margin: '0 0 15px 0', fontSize: '1.1rem', color: '#cbd5e1'}}>Saját beküldött képeid</h4>
@@ -841,7 +846,6 @@ function App() {
                               </div>
                             )}
 
-                            {/* VEZETŐI GALÉRIA (Csak lezárult feladatnál, csak vezetőknek) */}
                             {isPast && isLeader && (
                               <div style={{ marginTop: '30px', borderTop: '2px dashed #f59e0b', paddingTop: '20px' }}>
                                 <h4 style={{margin: '0 0 5px 0', fontSize: '1.2rem', color: '#f59e0b'}}>👑 Vezetői Galéria: Összes beküldött kép</h4>
