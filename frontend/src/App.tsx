@@ -226,35 +226,39 @@ function App() {
             <div style={{ flex: '1 1 400px', display: 'flex', flexDirection: 'column', gap: '1.5rem', maxWidth: '600px' }}>
               <img src={logo} alt="Képolvasók Fotóklub" style={{ width: '100%', maxWidth: '220px', marginBottom: '1rem', filter: 'drop-shadow(0px 0px 10px rgba(255,255,255,0.3))' }} />
               
-              <h1 style={{ fontSize: '2.8rem', margin: 0, color: '#f8fafc', lineHeight: '1.15', fontWeight: 800 }}>
-                Kezeld a <span style={{ background: 'linear-gradient(to right, #38bdf8, #8b5cf6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Fotópályázatokat</span> Profin!
+              {/* --- FRISSÍTETT FŐCÍM ÉS LEÍRÁS --- */}
+              <h1 style={{ fontSize: '2.5rem', margin: 0, color: '#f8fafc', lineHeight: '1.2', fontWeight: 800 }}>
+                Fotóklub és Fotópályázat <br/>
+                <span style={{ background: 'linear-gradient(to right, #38bdf8, #8b5cf6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                  Kezelő Rendszer
+                </span>
               </h1>
               <p style={{ fontSize: '1.1rem', color: '#cbd5e1', marginBottom: '1rem', lineHeight: '1.6' }}>
-                A legkényelmesebb és legprofibb módja a fotópályázatok kezelésének, nevezésének és zsűrizésének.
+                Minden egy helyen: szervezd a fotóklubod eseményeit, indíts házi feladatokat és bonyolíts le profi fotópályázatokat egyszerűen.
               </p>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 <div style={{ background: 'rgba(30, 41, 59, 0.4)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '16px', padding: '1.5rem', display: 'flex', alignItems: 'center', gap: '1.5rem', transition: 'transform 0.2s', cursor: 'default' }} onMouseOver={e => e.currentTarget.style.transform='translateX(10px)'} onMouseOut={e => e.currentTarget.style.transform='none'}>
-                  <div style={{ fontSize: '2.5rem' }}>🏆</div>
+                  <div style={{ fontSize: '2.5rem' }}>📅</div>
                   <div>
-                    <h3 style={{ margin: '0 0 0.5rem 0', color: '#f8fafc', fontSize: '1.2rem' }}>Profi Pályázatkezelés</h3>
-                    <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.95rem', lineHeight: '1.5' }}>Hozz létre zártkörű vagy nyílt versenyeket, kezeld a nevezéseket és határidőket.</p>
+                    <h3 style={{ margin: '0 0 0.5rem 0', color: '#f8fafc', fontSize: '1.2rem' }}>Aktív Klubélet</h3>
+                    <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.95rem', lineHeight: '1.5' }}>Szervezz klubesteket, oszd meg a helyszíneket és írj ki házi feladatokat a tagoknak.</p>
                   </div>
                 </div>
                 
                 <div style={{ background: 'rgba(30, 41, 59, 0.4)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '16px', padding: '1.5rem', display: 'flex', alignItems: 'center', gap: '1.5rem', transition: 'transform 0.2s', cursor: 'default' }} onMouseOver={e => e.currentTarget.style.transform='translateX(10px)'} onMouseOut={e => e.currentTarget.style.transform='none'}>
-                  <div style={{ fontSize: '2.5rem' }}>🖼️</div>
+                  <div style={{ fontSize: '2.5rem' }}>🏆</div>
                   <div>
-                    <h3 style={{ margin: '0 0 0.5rem 0', color: '#f8fafc', fontSize: '1.2rem' }}>Képek Nevezése & Feltöltése</h3>
-                    <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.95rem', lineHeight: '1.5' }}>Töltsd fel alkotásaidat, böngéssz kategóriák között és kövesd a nevezéseidet.</p>
+                    <h3 style={{ margin: '0 0 0.5rem 0', color: '#f8fafc', fontSize: '1.2rem' }}>Profi Pályázatkezelés</h3>
+                    <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.95rem', lineHeight: '1.5' }}>Hozz létre zártkörű vagy nyílt versenyeket, és fogadd a nevezéseket kategóriánként.</p>
                   </div>
                 </div>
 
                 <div style={{ background: 'rgba(30, 41, 59, 0.4)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '16px', padding: '1.5rem', display: 'flex', alignItems: 'center', gap: '1.5rem', transition: 'transform 0.2s', cursor: 'default' }} onMouseOver={e => e.currentTarget.style.transform='translateX(10px)'} onMouseOut={e => e.currentTarget.style.transform='none'}>
                   <div style={{ fontSize: '2.5rem' }}>⚖️</div>
                   <div>
-                    <h3 style={{ margin: '0 0 0.5rem 0', color: '#f8fafc', fontSize: '1.2rem' }}>Objektív Zsűrizés & Pontozás</h3>
-                    <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.95rem', lineHeight: '1.5' }}>Pontozd az alkotásokat objektív skálán, és fedezd fel az eredményeket.</p>
+                    <h3 style={{ margin: '0 0 0.5rem 0', color: '#f8fafc', fontSize: '1.2rem' }}>Objektív Zsűrizés</h3>
+                    <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.95rem', lineHeight: '1.5' }}>Vond be a zsűritagokat a kényelmes pontozási felületen, és fedezd fel a végeredményt.</p>
                   </div>
                 </div>
               </div>
@@ -267,7 +271,7 @@ function App() {
                 textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center'
               }}>
                 <h2 style={{ fontSize: '1.8rem', marginBottom: '1rem', color: '#f8fafc', fontWeight: '800' }}>
-                  Lépj be és Kezdj el Nevezni!
+                  Lépj be és Csatlakozz!
                 </h2>
                 <p style={{ fontSize: '1rem', color: '#94a3b8', marginBottom: '2.5rem', lineHeight: '1.6' }}>
                   A belépéshez nincs szükség külön regisztrációra, csak használd a meglévő Google fiókodat biztonságosan.
