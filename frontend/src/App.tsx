@@ -38,7 +38,7 @@ function App() {
   const [editCats, setEditCats] = useState('');
   const [editRestrictedClub, setEditRestrictedClub] = useState(''); 
 
-  // --- Állapotok KLUBEST KEZELÉSHEZ ---
+  // --- KLUBEST ÁLLAPOTOK ---
   const [editMeetId, setEditMeetId] = useState<number | null>(null);
   const [meetClubId, setMeetClubId] = useState('');
   const [meetDate, setMeetDate] = useState('');
@@ -47,15 +47,16 @@ function App() {
   const [meetDesc, setMeetDesc] = useState('');
   const [meetLocType, setMeetLocType] = useState<'physical' | 'online'>('physical');
   const [meetLocDetails, setMeetLocDetails] = useState('');
-  const [meetVideoLink, setMeetVideoLink] = useState(''); // ÚJ: Videó link
+  const [meetVideoLink, setMeetVideoLink] = useState(''); 
   const [meetCover, setMeetCover] = useState<File | null>(null);
   const [meetCoverPreview, setMeetCoverPreview] = useState<string | null>(null);
   const [isMeetingUploading, setIsMeetingUploading] = useState(false);
+  const [meetingSearch, setMeetingSearch] = useState(''); // ÚJ: Kereső állapota
 
-  // --- Állapotok JELENLÉTI ÍVHEZ ÉS VIDEÓ LEJÁTSZÓHOZ ---
+  // --- JELENLÉTI ÍV ÉS VIDEÓ ÁLLAPOTOK ---
   const [attendanceMeetId, setAttendanceMeetId] = useState<number | null>(null);
   const [attendanceList, setAttendanceList] = useState<string[]>([]);
-  const [activeVideo, setActiveVideo] = useState<string | null>(null); // ÚJ: Aktív videó URL
+  const [activeVideo, setActiveVideo] = useState<string | null>(null);
 
   const [activeUploadContest, setActiveUploadContest] = useState<number | null>(null);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
@@ -159,7 +160,6 @@ function App() {
   const loadResults = async (contestId: number) => { const res = await fetch(`${BACKEND_URL}/api/results/${contestId}`); if (res.ok) { setContestResults(await res.json()); setViewResultsContestId(contestId); } };
   const loadStats = async (contestId: number) => { const res = await fetch(`${BACKEND_URL}/api/admin/stats/${contestId}`); if (res.ok) { setContestStats(await res.json()); setViewStatsContestId(contestId); } };
 
-  // --- ÚJ/FRISSÍTETT KLUBEST FÜGGVÉNYEK ---
   const handleMeetingCoverSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) { setMeetCover(file); setMeetCoverPreview(URL.createObjectURL(file)); }
@@ -238,7 +238,6 @@ function App() {
     if (res.ok) { alert("Jelenléti ív mentve!"); setAttendanceMeetId(null); }
   };
 
-  // --- Segédfüggvény YouTube beágyazáshoz ---
   const getYouTubeEmbed = (url: string) => {
     const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^&?]+)/);
     return match ? `https://www.youtube.com/embed/${match[1]}` : url;
@@ -258,11 +257,26 @@ function App() {
   });
 
   const myClubMeetings = meetings.filter(m => m.club_name === currentDbUser?.club_name);
+  
+  // ÚJ: Keresés alapján szűrt klubestek (Téma vagy Leírás)
+  const searchedMeetings = myClubMeetings.filter(m => {
+    if (!meetingSearch) return true;
+    const q = meetingSearch.toLowerCase();
+    return m.topic.toLowerCase().includes(q) || (m.description && m.description.toLowerCase().includes(q));
+  });
+
   const adminMeetings = user?.email === ADMIN_EMAIL ? meetings : meetings.filter(m => m.club_name === currentDbUser?.club_name);
 
   return (
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
-      {/* TELJES KÉPERNYŐS KÉP */}
+      {/* SÖTÉT GÖRGETŐSÁV STÍLUSOK (Hogy szép legyen a kártyák belseje és a konténer is) */}
+      <style>{`
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.5); border-radius: 8px; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 8px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+      `}</style>
+
       {fullscreenImage && (
         <div onClick={() => setFullscreenImage(null)} style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.95)', zIndex: 9999, display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'zoom-out' }}>
           <img src={fullscreenImage} alt="Teljes képernyő" style={{ maxHeight: '95vh', maxWidth: '95vw', objectFit: 'contain' }} />
@@ -270,7 +284,6 @@ function App() {
         </div>
       )}
 
-      {/* ÚJ: VIDEÓ LEJÁTSZÓ MODAL */}
       {activeVideo && (
         <div onClick={() => setActiveVideo(null)} style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.9)', zIndex: 9999, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
           <div style={{ position: 'absolute', top: '20px', right: '30px', color: 'white', fontSize: '2rem', cursor: 'pointer', fontWeight: 'bold' }}>×</div>
@@ -456,7 +469,6 @@ function App() {
               </div>
             )}
 
-            {/* --- KLUBESTEK ADMIN (Főadmin + Vezetők) --- */}
             {activeTab === 'admin_meetings' && (user.email === ADMIN_EMAIL || isLeader) && (
               <div>
                 <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', color: '#f59e0b' }}>📅 Klubestek Kezelése</h2>
@@ -577,7 +589,7 @@ function App() {
               </div>
             )}
 
-            {/* --- KLUBESTEK (FELHASZNÁLÓI NÉZET) --- */}
+            {/* --- KLUBESTEK (FELHASZNÁLÓI NÉZET - KERESŐVEL ÉS GÖRGETÉSSEL) --- */}
             {activeTab === 'club_nights' && (
               <div>
                 {!currentDbUser?.club_name ? (
@@ -588,69 +600,92 @@ function App() {
                   </div>
                 ) : (
                   <>
-                    <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '15px' }}>
-                      <span style={{ fontSize: '2.5rem' }}>📅</span> Klubestek: {currentDbUser.club_name}
-                    </h2>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '15px' }}>
+                      <h2 style={{ fontSize: '2rem', margin: 0, display: 'flex', alignItems: 'center', gap: '15px' }}>
+                        <span style={{ fontSize: '2.5rem' }}>📅</span> Klubestek: {currentDbUser.club_name}
+                      </h2>
+                      {/* ÚJ: Keresőmező */}
+                      <input 
+                        type="text" 
+                        placeholder="🔍 Keresés téma vagy leírás alapján..." 
+                        value={meetingSearch} 
+                        onChange={e => setMeetingSearch(e.target.value)} 
+                        style={{ padding: '10px 15px', borderRadius: '8px', border: '1px solid #334155', background: '#1e293b', color: 'white', minWidth: '280px', outline: 'none' }} 
+                      />
+                    </div>
                     
-                    {myClubMeetings.length === 0 ? (
-                      <p style={{ color: '#94a3b8', fontSize: '1.1rem' }}>Jelenleg nincsenek meghirdetve klubestek a klubod számára.</p>
+                    {searchedMeetings.length === 0 ? (
+                      <p style={{ color: '#94a3b8', fontSize: '1.1rem' }}>Nincs a keresésnek megfelelő klubest.</p>
                     ) : (
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '20px' }}>
-                        {myClubMeetings.map(meet => {
-                          const meetDateObj = new Date(meet.meeting_date);
-                          const isPast = meetDateObj < new Date(new Date().setHours(0,0,0,0));
-                          
-                          return (
-                            <div key={meet.id} style={{ background: '#1e293b', borderRadius: '16px', overflow: 'hidden', border: '1px solid #334155', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.3)', display: 'flex', flexDirection: 'column' }}>
-                              
-                              <div style={{ height: '180px', background: '#0f172a', position: 'relative' }}>
-                                {meet.drive_file_id || meet.file_url ? (
-                                  <img src={meet.drive_file_id ? `https://lh3.googleusercontent.com/d/${meet.drive_file_id}` : meet.file_url} alt={meet.topic} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: isPast ? 0.6 : 1 }} />
-                                ) : (
-                                  <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #1e293b, #0f172a)', color: '#334155', fontSize: '4rem' }}>📷</div>
-                                )}
+                      /* ÚJ: Görgethető külső konténer */
+                      <div style={{ maxHeight: '70vh', overflowY: 'auto', paddingRight: '10px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
+                          {searchedMeetings.map(meet => {
+                            const meetDateObj = new Date(meet.meeting_date);
+                            const isPast = meetDateObj < new Date(new Date().setHours(0,0,0,0));
+                            
+                            return (
+                              /* ÚJ: Fix magasságú (450px) kártya */
+                              <div key={meet.id} style={{ height: '450px', background: '#1e293b', borderRadius: '16px', overflow: 'hidden', border: '1px solid #334155', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.3)', display: 'flex', flexDirection: 'column' }}>
                                 
-                                <div style={{ position: 'absolute', top: '15px', right: '15px', background: 'rgba(15, 23, 42, 0.85)', backdropFilter: 'blur(5px)', padding: '8px 12px', borderRadius: '8px', color: isPast ? '#94a3b8' : '#38bdf8', fontWeight: 'bold', border: `1px solid ${isPast ? '#334155' : '#38bdf850'}`, textAlign: 'center', lineHeight: '1.2' }}>
-                                  <div style={{ fontSize: '0.8rem', textTransform: 'uppercase' }}>{meetDateObj.toLocaleDateString('hu-HU', { month: 'short' })}</div>
-                                  <div style={{ fontSize: '1.5rem' }}>{meetDateObj.getDate()}</div>
-                                </div>
-
-                                {/* ÚJ: YouTube Play Ikon, ha van videó */}
-                                {meet.video_link && (
-                                  <div 
-                                    onClick={() => setActiveVideo(meet.video_link)}
-                                    style={{ position: 'absolute', bottom: '15px', right: '15px', background: '#ef4444', color: 'white', padding: '8px 15px', borderRadius: '100px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', boxShadow: '0 4px 6px rgba(0,0,0,0.5)' }}
-                                  >
-                                    ▶️ Videó
+                                {/* Kártya Fejléc/Borítókép (Fix 180px) */}
+                                <div style={{ height: '180px', flexShrink: 0, background: '#0f172a', position: 'relative' }}>
+                                  {meet.drive_file_id || meet.file_url ? (
+                                    <img src={meet.drive_file_id ? `https://lh3.googleusercontent.com/d/${meet.drive_file_id}` : meet.file_url} alt={meet.topic} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: isPast ? 0.6 : 1 }} />
+                                  ) : (
+                                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #1e293b, #0f172a)', color: '#334155', fontSize: '4rem' }}>📷</div>
+                                  )}
+                                  
+                                  <div style={{ position: 'absolute', top: '15px', right: '15px', background: 'rgba(15, 23, 42, 0.85)', backdropFilter: 'blur(5px)', padding: '8px 12px', borderRadius: '8px', color: isPast ? '#94a3b8' : '#38bdf8', fontWeight: 'bold', border: `1px solid ${isPast ? '#334155' : '#38bdf850'}`, textAlign: 'center', lineHeight: '1.2' }}>
+                                    <div style={{ fontSize: '0.8rem', textTransform: 'uppercase' }}>{meetDateObj.toLocaleDateString('hu-HU', { month: 'short' })}</div>
+                                    <div style={{ fontSize: '1.5rem' }}>{meetDateObj.getDate()}</div>
                                   </div>
-                                )}
-                              </div>
 
-                              <div style={{ padding: '20px', flex: 1, display: 'flex', flexDirection: 'column' }}>
-                                <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: '8px', display: 'flex', gap: '15px' }}>
-                                  <span>⏰ {meet.meeting_time.substring(0,5)}</span>
-                                  {isPast && <span style={{ color: '#ef4444', fontWeight: 'bold' }}>Lezajlott</span>}
+                                  {meet.video_link && (
+                                    <div 
+                                      onClick={() => setActiveVideo(meet.video_link)}
+                                      style={{ position: 'absolute', bottom: '15px', right: '15px', background: '#ef4444', color: 'white', padding: '8px 15px', borderRadius: '100px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', boxShadow: '0 4px 6px rgba(0,0,0,0.5)' }}
+                                    >
+                                      ▶️ Videó
+                                    </div>
+                                  )}
                                 </div>
-                                <h3 style={{ margin: '0 0 10px 0', color: isPast ? '#cbd5e1' : '#f8fafc', fontSize: '1.4rem' }}>{meet.topic}</h3>
-                                <p style={{ color: '#94a3b8', fontSize: '0.95rem', margin: '0 0 20px 0', lineHeight: '1.6', flex: 1, whiteSpace: 'pre-wrap' }}>
-                                  {meet.description}
-                                </p>
 
-                                <div style={{ marginTop: 'auto', background: '#0f172a', padding: '12px', borderRadius: '8px', border: '1px solid #334155', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                  <div style={{ fontSize: '1.5rem' }}>{meet.location_type === 'online' ? '💻' : '📍'}</div>
-                                  <div style={{ flex: 1, overflow: 'hidden' }}>
-                                    <div style={{ fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 'bold' }}>{meet.location_type === 'online' ? 'Online találkozó' : 'Fizikai helyszín'}</div>
-                                    {meet.location_type === 'online' ? (
-                                      <a href={meet.location_details} target="_blank" rel="noreferrer" style={{ color: '#38bdf8', textDecoration: 'none', fontWeight: 'bold', fontSize: '0.9rem', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Csatlakozás a híváshoz →</a>
-                                    ) : (
-                                      <div style={{ color: '#f8fafc', fontSize: '0.9rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{meet.location_details || 'Helyszín később...'}</div>
-                                    )}
+                                {/* Kártya Tartalom */}
+                                <div style={{ padding: '20px', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                                  <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: '8px', display: 'flex', gap: '15px', flexShrink: 0 }}>
+                                    <span>⏰ {meet.meeting_time.substring(0,5)}</span>
+                                    {isPast && <span style={{ color: '#ef4444', fontWeight: 'bold' }}>Lezajlott</span>}
+                                  </div>
+                                  
+                                  <h3 style={{ margin: '0 0 10px 0', color: isPast ? '#cbd5e1' : '#f8fafc', fontSize: '1.4rem', flexShrink: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                    {meet.topic}
+                                  </h3>
+                                  
+                                  {/* ÚJ: Görgethető leírás box */}
+                                  <div style={{ flex: 1, overflowY: 'auto', marginBottom: '15px', paddingRight: '5px' }}>
+                                    <p style={{ color: '#94a3b8', fontSize: '0.95rem', margin: 0, lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>
+                                      {meet.description}
+                                    </p>
+                                  </div>
+
+                                  {/* Alsó sáv */}
+                                  <div style={{ background: '#0f172a', padding: '12px', borderRadius: '8px', border: '1px solid #334155', display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+                                    <div style={{ fontSize: '1.5rem' }}>{meet.location_type === 'online' ? '💻' : '📍'}</div>
+                                    <div style={{ flex: 1, overflow: 'hidden' }}>
+                                      <div style={{ fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 'bold' }}>{meet.location_type === 'online' ? 'Online találkozó' : 'Fizikai helyszín'}</div>
+                                      {meet.location_type === 'online' ? (
+                                        <a href={meet.location_details} target="_blank" rel="noreferrer" style={{ color: '#38bdf8', textDecoration: 'none', fontWeight: 'bold', fontSize: '0.9rem', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Csatlakozás a híváshoz →</a>
+                                      ) : (
+                                        <div style={{ color: '#f8fafc', fontSize: '0.9rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{meet.location_details || 'Helyszín később...'}</div>
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
                               </div>
-                            </div>
-                          );
-                        })}
+                            );
+                          })}
+                        </div>
                       </div>
                     )}
                   </>
