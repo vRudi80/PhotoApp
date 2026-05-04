@@ -47,13 +47,15 @@ function App() {
   const [meetDesc, setMeetDesc] = useState('');
   const [meetLocType, setMeetLocType] = useState<'physical' | 'online'>('physical');
   const [meetLocDetails, setMeetLocDetails] = useState('');
+  const [meetVideoLink, setMeetVideoLink] = useState(''); // ÚJ: Videó link
   const [meetCover, setMeetCover] = useState<File | null>(null);
   const [meetCoverPreview, setMeetCoverPreview] = useState<string | null>(null);
   const [isMeetingUploading, setIsMeetingUploading] = useState(false);
 
-  // --- Állapotok JELENLÉTI ÍVHEZ ---
+  // --- Állapotok JELENLÉTI ÍVHEZ ÉS VIDEÓ LEJÁTSZÓHOZ ---
   const [attendanceMeetId, setAttendanceMeetId] = useState<number | null>(null);
   const [attendanceList, setAttendanceList] = useState<string[]>([]);
+  const [activeVideo, setActiveVideo] = useState<string | null>(null); // ÚJ: Aktív videó URL
 
   const [activeUploadContest, setActiveUploadContest] = useState<number | null>(null);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
@@ -172,16 +174,16 @@ function App() {
     setMeetDesc(m.description || '');
     setMeetLocType(m.location_type);
     setMeetLocDetails(m.location_details || '');
+    setMeetVideoLink(m.video_link || '');
     setMeetCover(null);
     setMeetCoverPreview(null);
   };
 
   const clearMeetingForm = () => {
-    setEditMeetId(null); setMeetClubId(''); setMeetDate(''); setMeetTime(''); setMeetTopic(''); setMeetDesc(''); setMeetLocDetails(''); setMeetCover(null); setMeetCoverPreview(null);
+    setEditMeetId(null); setMeetClubId(''); setMeetDate(''); setMeetTime(''); setMeetTopic(''); setMeetDesc(''); setMeetLocDetails(''); setMeetVideoLink(''); setMeetCover(null); setMeetCoverPreview(null);
   };
 
   const handleSaveMeeting = async () => {
-    // Ha nem admin, kényszerítjük a saját klubját
     const finalClubId = user.email !== ADMIN_EMAIL ? clubs.find(c => c.name === currentDbUser?.club_name)?.id : meetClubId;
     if (!finalClubId || !meetDate || !meetTime || !meetTopic) return alert("Klub, Dátum, Időpont és Téma kötelező!");
     
@@ -195,6 +197,7 @@ function App() {
       formData.append('description', meetDesc);
       formData.append('locationType', meetLocType);
       formData.append('locationDetails', meetLocDetails);
+      formData.append('videoLink', meetVideoLink);
       if (meetCover) formData.append('coverPhoto', meetCover);
 
       const url = editMeetId ? `${BACKEND_URL}/api/meetings/${editMeetId}` : `${BACKEND_URL}/api/meetings`;
@@ -235,6 +238,12 @@ function App() {
     if (res.ok) { alert("Jelenléti ív mentve!"); setAttendanceMeetId(null); }
   };
 
+  // --- Segédfüggvény YouTube beágyazáshoz ---
+  const getYouTubeEmbed = (url: string) => {
+    const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^&?]+)/);
+    return match ? `https://www.youtube.com/embed/${match[1]}` : url;
+  };
+
   const inputStyle = { width: '100%', padding: '10px', marginBottom: '10px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '6px', boxSizing: 'border-box' as const };
   const navBtnStyle = { background: 'transparent', color: '#f8fafc', border: 'none', padding: '8px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '5px' };
   const dropdownStyle = { position: 'absolute' as const, top: '100%', left: 0, marginTop: '10px', background: '#1e293b', border: '1px solid #334155', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.5)', minWidth: '220px', display: 'flex', flexDirection: 'column' as const };
@@ -253,6 +262,7 @@ function App() {
 
   return (
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+      {/* TELJES KÉPERNYŐS KÉP */}
       {fullscreenImage && (
         <div onClick={() => setFullscreenImage(null)} style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.95)', zIndex: 9999, display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'zoom-out' }}>
           <img src={fullscreenImage} alt="Teljes képernyő" style={{ maxHeight: '95vh', maxWidth: '95vw', objectFit: 'contain' }} />
@@ -260,7 +270,21 @@ function App() {
         </div>
       )}
 
-      {/* --- MARKETING LOGINKÉPERNYŐ --- */}
+      {/* ÚJ: VIDEÓ LEJÁTSZÓ MODAL */}
+      {activeVideo && (
+        <div onClick={() => setActiveVideo(null)} style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.9)', zIndex: 9999, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+          <div style={{ position: 'absolute', top: '20px', right: '30px', color: 'white', fontSize: '2rem', cursor: 'pointer', fontWeight: 'bold' }}>×</div>
+          <iframe 
+            width="900" 
+            height="500" 
+            style={{ maxWidth: '95vw', maxHeight: '90vh', border: 'none', borderRadius: '12px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.8)' }} 
+            src={getYouTubeEmbed(activeVideo)} 
+            allow="autoplay; encrypted-media; picture-in-picture" 
+            allowFullScreen>
+          </iframe>
+        </div>
+      )}
+
       {!user ? (
         <div style={{
           minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', backgroundColor: '#0f172a',
@@ -328,7 +352,6 @@ function App() {
           </div>
         </div>
       ) : (
-        // --- BELSŐ FELÜLET ---
         <div style={{ minHeight: '100vh', backgroundColor: '#0f172a', color: '#f8fafc', fontFamily: 'Inter, sans-serif' }}>
           
           <header style={{ padding: '1.2rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#1e293b', borderBottom: '1px solid #334155', position: 'sticky', top: 0, zIndex: 30 }}>
@@ -359,7 +382,6 @@ function App() {
                 )}
               </div>
 
-              {/* ADMIN / LEADER MENÜ */}
               {(user?.email === ADMIN_EMAIL || isLeader) && (
                 <div style={{ position: 'relative', zIndex: 50 }}>
                   <button onClick={() => setDropdownOpen(dropdownOpen === 'admin' ? null : 'admin')} style={{...navBtnStyle, color: '#f59e0b', background: dropdownOpen === 'admin' || activeTab.startsWith('admin_') ? '#334155' : 'transparent'}}>
@@ -388,7 +410,6 @@ function App() {
 
           <main style={{ padding: '2rem', maxWidth: '900px', margin: '0 auto' }}>
             
-            {/* --- FOTÓKLUBOK ADMIN --- */}
             {activeTab === 'admin_clubs' && user.email === ADMIN_EMAIL && (
                <div>
                  <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', color: '#f59e0b' }}>🏷️ Fotóklubok Kezelése</h2>
@@ -407,7 +428,6 @@ function App() {
                </div>
             )}
 
-            {/* --- FELHASZNÁLÓK ADMIN --- */}
             {activeTab === 'admin_users' && user.email === ADMIN_EMAIL && (
               <div>
                  <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', color: '#f59e0b' }}>👥 Felhasználók és Szerepkörök</h2>
@@ -469,7 +489,6 @@ function App() {
                   </div>
                 ) : (
                   <>
-                    {/* Létrehozó/Szerkesztő űrlap */}
                     <div style={{ backgroundColor: '#1e293b', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', border: '1px solid #f59e0b' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
                         <h3 style={{ margin: 0, color: '#f59e0b' }}>{editMeetId ? '✏️ Klubest Szerkesztése' : '➕ Új Klubest Meghirdetése'}</h3>
@@ -514,12 +533,17 @@ function App() {
                           </select>
                         </div>
                         <div style={{flex: 2}}>
-                          <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Cím vagy Link</label>
+                          <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Cím vagy Csatlakozási Link</label>
                           <input placeholder={meetLocType === 'online' ? "https://meet..." : "1051 Budapest..."} value={meetLocDetails} onChange={e => setMeetLocDetails(e.target.value)} style={inputStyle} />
                         </div>
                       </div>
 
-                      <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Opcionális borítókép (Ha újat töltesz fel, a régi törlődik)</label>
+                      <div style={{ marginBottom: '15px' }}>
+                        <label style={{fontSize:'0.8rem', color:'#ef4444', fontWeight: 'bold'}}>🎥 YouTube Videó Link (Visszanézéshez - Opcionális)</label>
+                        <input placeholder="https://www.youtube.com/watch?v=..." value={meetVideoLink} onChange={e => setMeetVideoLink(e.target.value)} style={{...inputStyle, border: '1px solid #ef444450'}} />
+                      </div>
+
+                      <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Opcionális borítókép</label>
                       <input type="file" accept="image/jpeg, image/png, image/webp" onChange={handleMeetingCoverSelect} style={{ color: '#94a3b8', marginBottom: '15px', width: '100%' }} disabled={isMeetingUploading} />
                       {meetCoverPreview && <div style={{marginTop: '10px', marginBottom: '20px'}}><img src={meetCoverPreview} alt="Előnézet" style={{maxHeight: '150px', borderRadius: '8px', border: '1px solid #334155'}} /></div>}
 
@@ -535,7 +559,10 @@ function App() {
                         <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px', borderBottom: i < adminMeetings.length - 1 ? '1px solid #334155' : 'none', background: i % 2 === 0 ? '#0f172a' : 'transparent' }}>
                           <div>
                             <div style={{ fontWeight: 'bold', color: '#38bdf8' }}>{new Date(m.meeting_date).toLocaleDateString()} {m.meeting_time.substring(0,5)} - {m.topic}</div>
-                            <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>Klub: {m.club_name}</div>
+                            <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>
+                              Klub: {m.club_name} 
+                              {m.video_link && <span style={{ color: '#ef4444', marginLeft: '10px' }}>▶️ Van videó</span>}
+                            </div>
                           </div>
                           <div style={{ display: 'flex', gap: '5px' }}>
                             <button onClick={() => openAttendance(m.id)} style={{ background: '#38bdf820', color: '#38bdf8', border: 'none', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Jelenlét</button>
@@ -587,6 +614,16 @@ function App() {
                                   <div style={{ fontSize: '0.8rem', textTransform: 'uppercase' }}>{meetDateObj.toLocaleDateString('hu-HU', { month: 'short' })}</div>
                                   <div style={{ fontSize: '1.5rem' }}>{meetDateObj.getDate()}</div>
                                 </div>
+
+                                {/* ÚJ: YouTube Play Ikon, ha van videó */}
+                                {meet.video_link && (
+                                  <div 
+                                    onClick={() => setActiveVideo(meet.video_link)}
+                                    style={{ position: 'absolute', bottom: '15px', right: '15px', background: '#ef4444', color: 'white', padding: '8px 15px', borderRadius: '100px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', boxShadow: '0 4px 6px rgba(0,0,0,0.5)' }}
+                                  >
+                                    ▶️ Videó
+                                  </div>
+                                )}
                               </div>
 
                               <div style={{ padding: '20px', flex: 1, display: 'flex', flexDirection: 'column' }}>
@@ -621,7 +658,7 @@ function App() {
               </div>
             )}
 
-            {/* --- HÁZI FELADATOK (Fejlesztés alatt) --- */}
+            {/* --- HÁZI FELADATOK --- */}
             {activeTab === 'club_homeworks' && (
               <div style={{ textAlign: 'center', padding: '4rem 2rem', background: '#1e293b', borderRadius: '16px', border: '1px solid #334155' }}>
                  <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>📝</div>
@@ -630,7 +667,7 @@ function App() {
               </div>
             )}
 
-            {/* --- PÁLYÁZATOK (Klub, Nyílt, Admin) --- */}
+            {/* --- PÁLYÁZATOK --- */}
             {['contests_open', 'contests_club', 'admin_contests'].includes(activeTab) && (
               <>
                 {activeTab === 'contests_club' && !currentDbUser?.club_name && (
