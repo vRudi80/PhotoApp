@@ -34,13 +34,11 @@ app.post('/api/auth/sync', async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Adatbázis hiba' }); }
 });
 
-// FRISSÍTVE: Lekérjük a club_role-t is
 app.get('/api/users', async (req, res) => {
   try { const [rows] = await pool.query('SELECT email, name, club_name, club_role FROM photo_users ORDER BY name ASC'); res.json(rows); } 
   catch (err) { res.status(500).json({ error: 'Hiba' }); }
 });
 
-// FRISSÍTVE: Mentjük a club_role-t is
 app.put('/api/users/:email', async (req, res) => {
   try { 
     await pool.query('UPDATE photo_users SET club_name = ?, club_role = ? WHERE email = ?', [req.body.clubName || null, req.body.clubRole || 'member', req.params.email]); 
@@ -186,7 +184,7 @@ app.get('/api/meetings', async (req, res) => {
 });
 
 app.post('/api/meetings', upload.single('coverPhoto'), async (req, res) => {
-  const { clubId, date, time, topic, description, locationType, locationDetails } = req.body;
+  const { clubId, date, time, topic, description, locationType, locationDetails, videoLink } = req.body;
   const file = req.file;
   let fileUrl = null; let driveFileId = null;
 
@@ -202,16 +200,15 @@ app.post('/api/meetings', upload.single('coverPhoto'), async (req, res) => {
     }
 
     await pool.query(
-      'INSERT INTO photo_club_meetings (club_id, meeting_date, meeting_time, topic, description, location_type, location_details, file_url, drive_file_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', 
-      [clubId, date, time, topic, description, locationType, locationDetails, fileUrl, driveFileId]
+      'INSERT INTO photo_club_meetings (club_id, meeting_date, meeting_time, topic, description, location_type, location_details, file_url, drive_file_id, video_link) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 
+      [clubId, date, time, topic, description, locationType, locationDetails, fileUrl, driveFileId, videoLink || null]
     );
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ÚJ: Klubest szerkesztése
 app.put('/api/meetings/:id', upload.single('coverPhoto'), async (req, res) => {
-  const { date, time, topic, description, locationType, locationDetails } = req.body;
+  const { date, time, topic, description, locationType, locationDetails, videoLink } = req.body;
   const file = req.file;
   try {
     if (file) {
@@ -222,13 +219,13 @@ app.put('/api/meetings/:id', upload.single('coverPhoto'), async (req, res) => {
         media: { mimeType: file.mimetype, body: bufferStream }, fields: 'id, webViewLink' 
       });
       await pool.query(
-        'UPDATE photo_club_meetings SET meeting_date=?, meeting_time=?, topic=?, description=?, location_type=?, location_details=?, file_url=?, drive_file_id=? WHERE id=?', 
-        [date, time, topic, description, locationType, locationDetails, driveRes.data.webViewLink, driveRes.data.id, req.params.id]
+        'UPDATE photo_club_meetings SET meeting_date=?, meeting_time=?, topic=?, description=?, location_type=?, location_details=?, file_url=?, drive_file_id=?, video_link=? WHERE id=?', 
+        [date, time, topic, description, locationType, locationDetails, driveRes.data.webViewLink, driveRes.data.id, videoLink || null, req.params.id]
       );
     } else {
       await pool.query(
-        'UPDATE photo_club_meetings SET meeting_date=?, meeting_time=?, topic=?, description=?, location_type=?, location_details=? WHERE id=?', 
-        [date, time, topic, description, locationType, locationDetails, req.params.id]
+        'UPDATE photo_club_meetings SET meeting_date=?, meeting_time=?, topic=?, description=?, location_type=?, location_details=?, video_link=? WHERE id=?', 
+        [date, time, topic, description, locationType, locationDetails, videoLink || null, req.params.id]
       );
     }
     res.json({ success: true });
@@ -246,7 +243,7 @@ app.delete('/api/meetings/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Hiba a törlésnél' }); }
 });
 
-// ÚJ: Jelenléti ív lekérése
+// --- JELENLÉTI ÍV ---
 app.get('/api/attendance/:meetingId', async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT user_email FROM photo_meeting_attendance WHERE meeting_id = ?', [req.params.meetingId]);
@@ -254,7 +251,6 @@ app.get('/api/attendance/:meetingId', async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Hiba' }); }
 });
 
-// ÚJ: Jelenléti ív mentése
 app.post('/api/attendance/:meetingId', async (req, res) => {
   const { emails } = req.body;
   const conn = await pool.getConnection();
