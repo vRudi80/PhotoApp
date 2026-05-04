@@ -15,19 +15,34 @@ function App() {
   const [juryList, setJuryList] = useState<any[]>([]);
   const [clubs, setClubs] = useState<any[]>([]);
   
-  // --- ÚJ NAVIGÁCIÓS ÁLLAPOTOK ---
-  const [activeTab, setActiveTab] = useState<'contests_open' | 'contests_club' | 'club_nights' | 'club_homeworks' | 'admin_contests' | 'admin_users' | 'admin_clubs'>('contests_open');
+  // Új állapot a klubestekhez
+  const [meetings, setMeetings] = useState<any[]>([]);
+  
+  const [activeTab, setActiveTab] = useState<'contests_open' | 'contests_club' | 'club_nights' | 'club_homeworks' | 'admin_contests' | 'admin_users' | 'admin_clubs' | 'admin_meetings'>('contests_open');
   const [dropdownOpen, setDropdownOpen] = useState<'contests' | 'club' | 'admin' | null>(null);
   
   const [userClubEdits, setUserClubEdits] = useState<Record<string, string>>({});
   const [newClubName, setNewClubName] = useState('');
 
+  // --- Állapotok ÚJ PÁLYÁZATHOZ ---
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
   const [newStart, setNewStart] = useState('');
   const [newEnd, setNewEnd] = useState('');
   const [newCats, setNewCats] = useState('');
   const [newRestrictedClub, setNewRestrictedClub] = useState(''); 
+
+  // --- Állapotok ÚJ KLUBESTHEZ ---
+  const [meetClubId, setMeetClubId] = useState('');
+  const [meetDate, setMeetDate] = useState('');
+  const [meetTime, setMeetTime] = useState('');
+  const [meetTopic, setMeetTopic] = useState('');
+  const [meetDesc, setMeetDesc] = useState('');
+  const [meetLocType, setMeetLocType] = useState<'physical' | 'online'>('physical');
+  const [meetLocDetails, setMeetLocDetails] = useState('');
+  const [meetCover, setMeetCover] = useState<File | null>(null);
+  const [meetCoverPreview, setMeetCoverPreview] = useState<string | null>(null);
+  const [isMeetingUploading, setIsMeetingUploading] = useState(false);
 
   const [editContestId, setEditContestId] = useState<number | null>(null);
   const [editTitle, setEditTitle] = useState('');
@@ -71,6 +86,9 @@ function App() {
       if (resUsers.ok) setAllUsers(await resUsers.json());
       const resClubs = await fetch(`${BACKEND_URL}/api/clubs`);
       if (resClubs.ok) setClubs(await resClubs.json());
+      // ÚJ: Klubestek lekérése
+      const resMeetings = await fetch(`${BACKEND_URL}/api/meetings`);
+      if (resMeetings.ok) setMeetings(await resMeetings.json());
     } catch (e) { console.error(e); }
   };
 
@@ -110,35 +128,79 @@ function App() {
   const handleAddClub = async () => { if (!newClubName) return; const res = await fetch(`${BACKEND_URL}/api/clubs`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: newClubName }) }); if (res.ok) { setNewClubName(''); fetchData(); } };
   const handleDeleteClub = async (id: number) => { if (!window.confirm("Biztosan törlöd ezt a klubot?")) return; const res = await fetch(`${BACKEND_URL}/api/clubs/${id}`, { method: 'DELETE' }); if (res.ok) fetchData(); };
   const saveUserClub = async (email: string) => { const clubName = userClubEdits[email] !== undefined ? userClubEdits[email] : (allUsers.find(u => u.email === email)?.club_name || ''); const res = await fetch(`${BACKEND_URL}/api/users/${email}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clubName }) }); if (res.ok) { alert("Sikeres mentés!"); fetchData(); } };
+  
   const handleCreateContest = async () => { if (!newTitle || !newStart || !newEnd || !newCats) return alert("Cím, dátumok és kategóriák kötelezőek!"); const res = await fetch(`${BACKEND_URL}/api/contests`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: newTitle, description: newDesc, startDate: newStart, endDate: newEnd, categories: newCats, restrictedClub: newRestrictedClub }) }); if (res.ok) { setNewTitle(''); setNewDesc(''); setNewStart(''); setNewEnd(''); setNewCats(''); setNewRestrictedClub(''); fetchData(); } };
   const startEdit = (contest: any) => { setEditContestId(contest.id); setEditTitle(contest.title); setEditDesc(contest.description); setEditCats(contest.categories || ''); setEditRestrictedClub(contest.restricted_club || ''); const formatDate = (dateStr: string | null) => { if (!dateStr) return ''; try { const d = new Date(dateStr); if (isNaN(d.getTime()) || d.getFullYear() <= 1970) return ''; return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0,16); } catch (e) { return ''; } }; setEditStart(formatDate(contest.start_date)); setEditEnd(formatDate(contest.end_date)); };
   const handleUpdateContest = async () => { const res = await fetch(`${BACKEND_URL}/api/contests/${editContestId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: editTitle, description: editDesc, startDate: editStart || null, endDate: editEnd || null, categories: editCats, restrictedClub: editRestrictedClub }) }); if (res.ok) { setEditContestId(null); fetchData(); alert("Pályázat sikeresen frissítve!"); } };
   const handleAddJury = async (contestId: number) => { if (!selectedJuryEmail) return; const res = await fetch(`${BACKEND_URL}/api/jury`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contestId, userEmail: selectedJuryEmail }) }); if (res.ok) { setSelectedJuryEmail(''); fetchData(); } };
   const handleRemoveJury = async (contestId: number, email: string) => { const res = await fetch(`${BACKEND_URL}/api/jury`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contestId, userEmail: email }) }); if (res.ok) fetchData(); };
+  
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (file) { setUploadFile(file); setUploadPreview(URL.createObjectURL(file)); } };
   const handleUpload = async (contestId: number) => { if (!uploadFile || !uploadTitle || !uploadCategory) return alert("Minden kötelező!"); setIsUploading(true); try { const formData = new FormData(); formData.append('photo', uploadFile); formData.append('contestId', String(contestId)); formData.append('userEmail', user.email); formData.append('userName', user.name); formData.append('title', uploadTitle); formData.append('category', uploadCategory); const res = await fetch(`${BACKEND_URL}/api/upload`, { method: 'POST', body: formData }); if (res.ok) { alert("Feltöltve!"); setActiveUploadContest(null); setUploadFile(null); setUploadPreview(null); setUploadTitle(''); setUploadCategory(''); fetchMyEntries(user.email); } else { const err = await res.json(); alert(`Hiba: ${err.error}`); } } catch (error) { alert("Hiba"); } finally { setIsUploading(false); } };
+  
   const handleUpdateEntryTitle = async (entryId: number) => { if (!editEntryTitle) return alert('A cím nem lehet üres!'); const res = await fetch(`${BACKEND_URL}/api/entries/${entryId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: editEntryTitle, userEmail: user.email }) }); if (res.ok) { setEditingEntryId(null); fetchMyEntries(user.email); } else alert('Hiba a cím frissítésekor!'); };
   const handleDeleteEntry = async (entryId: number) => { if (!window.confirm("Biztosan törlöd?")) return; const res = await fetch(`${BACKEND_URL}/api/entries/${entryId}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userEmail: user.email }) }); if (res.ok) fetchMyEntries(user.email); };
+  
   const startJudging = async (contestId: number) => { const res = await fetch(`${BACKEND_URL}/api/jury-entries/${contestId}?userEmail=${user.email}`); if (res.ok) { setUnvotedEntries(await res.json()); setJudgingContestId(contestId); setCurrentScore(''); } };
   const submitVote = async () => { const score = Number(currentScore); if (score < 0 || score > 100 || currentScore === '') return alert("0 és 100 közötti pontszámot adj meg!"); const res = await fetch(`${BACKEND_URL}/api/vote`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ entryId: unvotedEntries[0].id, juryEmail: user.email, score }) }); if (res.ok) { setUnvotedEntries(prev => prev.slice(1)); setCurrentScore(''); } };
   const loadResults = async (contestId: number) => { const res = await fetch(`${BACKEND_URL}/api/results/${contestId}`); if (res.ok) { setContestResults(await res.json()); setViewResultsContestId(contestId); } };
   const loadStats = async (contestId: number) => { const res = await fetch(`${BACKEND_URL}/api/admin/stats/${contestId}`); if (res.ok) { setContestStats(await res.json()); setViewStatsContestId(contestId); } };
 
-  // --- STÍLUSOK A NAVIGÁCIÓHOZ ---
+  // --- ÚJ KLUBEST FÜGGVÉNYEK ---
+  const handleMeetingCoverSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) { setMeetCover(file); setMeetCoverPreview(URL.createObjectURL(file)); }
+  };
+
+  const handleCreateMeeting = async () => {
+    if (!meetClubId || !meetDate || !meetTime || !meetTopic) return alert("Klub, Dátum, Időpont és Téma kötelező!");
+    setIsMeetingUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('clubId', meetClubId);
+      formData.append('date', meetDate);
+      formData.append('time', meetTime);
+      formData.append('topic', meetTopic);
+      formData.append('description', meetDesc);
+      formData.append('locationType', meetLocType);
+      formData.append('locationDetails', meetLocDetails);
+      if (meetCover) formData.append('coverPhoto', meetCover);
+
+      const res = await fetch(`${BACKEND_URL}/api/meetings`, { method: 'POST', body: formData });
+      if (res.ok) { 
+        alert("Klubest sikeresen létrehozva!"); 
+        setMeetClubId(''); setMeetDate(''); setMeetTime(''); setMeetTopic(''); setMeetDesc(''); setMeetLocDetails(''); setMeetCover(null); setMeetCoverPreview(null);
+        fetchData(); 
+      } else { 
+        const err = await res.json(); alert(`Hiba: ${err.error}`); 
+      }
+    } catch (error) { alert("Hálózati hiba!"); } finally { setIsMeetingUploading(false); }
+  };
+
+  const handleDeleteMeeting = async (id: number) => {
+    if (!window.confirm("Biztosan törlöd ezt a klubestet?")) return;
+    const res = await fetch(`${BACKEND_URL}/api/meetings/${id}`, { method: 'DELETE' });
+    if (res.ok) fetchData();
+  };
+
+  // --- STÍLUSOK A NAVIGÁCIÓHOZ ÉS KÁRTYÁKHOZ ---
   const inputStyle = { width: '100%', padding: '10px', marginBottom: '10px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '6px', boxSizing: 'border-box' as const };
   const navBtnStyle = { background: 'transparent', color: '#f8fafc', border: 'none', padding: '8px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '5px' };
   const dropdownStyle = { position: 'absolute' as const, top: '100%', left: 0, marginTop: '10px', background: '#1e293b', border: '1px solid #334155', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.5)', minWidth: '220px', display: 'flex', flexDirection: 'column' as const };
   const dropItemStyle = { background: 'transparent', color: '#cbd5e1', border: 'none', padding: '12px 15px', textAlign: 'left' as const, cursor: 'pointer', width: '100%', borderBottom: '1px solid #334155', fontSize: '0.95rem' };
 
-  // --- SZŰRT PÁLYÁZATOK KISZÁMÍTÁSA ---
+  // --- SZŰRT ADATOK KISZÁMÍTÁSA ---
   const currentDbUser = allUsers.find(u => u.email === user?.email);
+  
   const filteredContests = contests.filter(contest => {
     const isRestricted = contest.restricted_club && contest.restricted_club.trim() !== '';
     if (activeTab === 'contests_club') return isRestricted && contest.restricted_club === currentDbUser?.club_name;
     if (activeTab === 'contests_open') return !isRestricted;
-    if (activeTab === 'admin_contests') return true; // Az admin mindent lát a saját menüjében
+    if (activeTab === 'admin_contests') return true; 
     return false;
   });
+
+  const myClubMeetings = meetings.filter(m => m.club_name === currentDbUser?.club_name);
 
   return (
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
@@ -149,7 +211,7 @@ function App() {
         </div>
       )}
 
-      {/* --- KÜLÖNVÁLASZTOTT LOGINKÉPERNYŐ --- */}
+      {/* --- MARKETING LOGINKÉPERNYŐ --- */}
       {!user ? (
         <div style={{
           minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', backgroundColor: '#0f172a',
@@ -161,15 +223,14 @@ function App() {
 
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4rem', maxWidth: '1100px', width: '100%', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}>
             
-            {/* BAL OLDAL */}
             <div style={{ flex: '1 1 400px', display: 'flex', flexDirection: 'column', gap: '1.5rem', maxWidth: '600px' }}>
               <img src={logo} alt="Képolvasók Fotóklub" style={{ width: '100%', maxWidth: '220px', marginBottom: '1rem', filter: 'drop-shadow(0px 0px 10px rgba(255,255,255,0.3))' }} />
               
               <h1 style={{ fontSize: '2.8rem', margin: 0, color: '#f8fafc', lineHeight: '1.15', fontWeight: 800 }}>
-                Kezeld a <span style={{ background: 'linear-gradient(to right, #38bdf8, #8b5cf6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Fotóklubod</span> Profin!
+                Kezeld a <span style={{ background: 'linear-gradient(to right, #38bdf8, #8b5cf6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Fotópályázatokat</span> Profin!
               </h1>
               <p style={{ fontSize: '1.1rem', color: '#cbd5e1', marginBottom: '1rem', lineHeight: '1.6' }}>
-                A legkényelmesebb és legprofibb módja a fotóklubok kezelésének: klubestek, feladatok, pályázatok. Minden egy helyen!
+                A legkényelmesebb és legprofibb módja a fotópályázatok kezelésének, nevezésének és zsűrizésének.
               </p>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -199,7 +260,6 @@ function App() {
               </div>
             </div>
 
-            {/* JOBB OLDAL */}
             <div style={{ flex: '1 1 350px', maxWidth: '450px', width: '100%' }}>
               <div style={{
                 background: 'rgba(30, 41, 59, 0.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
@@ -225,17 +285,15 @@ function App() {
           </div>
         </div>
       ) : (
-        // --- BELSŐ FELÜLET (BEJELENTKEZÉS UTÁN) ---
+        // --- BELSŐ FELÜLET ---
         <div style={{ minHeight: '100vh', backgroundColor: '#0f172a', color: '#f8fafc', fontFamily: 'Inter, sans-serif' }}>
           
           <header style={{ padding: '1.2rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#1e293b', borderBottom: '1px solid #334155', position: 'sticky', top: 0, zIndex: 30 }}>
             
-            {/* LÁTHATATLAN RÉTEG A LENYÍLÓ MENÜK BEZÁRÁSÁHOZ KATTINTÁSKOR */}
             {dropdownOpen && <div onClick={() => setDropdownOpen(null)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />}
 
             <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
               
-              {/* PÁLYÁZATOK MENÜ (Mindenkinek) */}
               <div style={{ position: 'relative', zIndex: 50 }}>
                 <button onClick={() => setDropdownOpen(dropdownOpen === 'contests' ? null : 'contests')} style={{...navBtnStyle, background: dropdownOpen === 'contests' || activeTab.startsWith('contests_') ? '#334155' : 'transparent'}}>
                   Pályázatok ▾
@@ -248,7 +306,6 @@ function App() {
                 )}
               </div>
 
-              {/* SAJÁT KLUBOM MENÜ (Mindenkinek) */}
               <div style={{ position: 'relative', zIndex: 50 }}>
                 <button onClick={() => setDropdownOpen(dropdownOpen === 'club' ? null : 'club')} style={{...navBtnStyle, background: dropdownOpen === 'club' || activeTab.startsWith('club_') ? '#334155' : 'transparent'}}>
                   Saját klubom ▾
@@ -261,7 +318,6 @@ function App() {
                 )}
               </div>
 
-              {/* ADMIN MENÜ (Csak adminnak) */}
               {user?.email === ADMIN_EMAIL && (
                 <div style={{ position: 'relative', zIndex: 50 }}>
                   <button onClick={() => setDropdownOpen(dropdownOpen === 'admin' ? null : 'admin')} style={{...navBtnStyle, color: '#f59e0b', background: dropdownOpen === 'admin' || activeTab.startsWith('admin_') ? '#334155' : 'transparent'}}>
@@ -270,6 +326,7 @@ function App() {
                   {dropdownOpen === 'admin' && (
                     <div style={dropdownStyle}>
                       <button onClick={() => { setActiveTab('admin_contests'); setDropdownOpen(null); }} style={{...dropItemStyle, color: activeTab === 'admin_contests' ? '#f59e0b' : '#cbd5e1'}}>Pályázatok kezelése</button>
+                      <button onClick={() => { setActiveTab('admin_meetings'); setDropdownOpen(null); }} style={{...dropItemStyle, color: activeTab === 'admin_meetings' ? '#f59e0b' : '#cbd5e1'}}>Klubestek kezelése</button>
                       <button onClick={() => { setActiveTab('admin_users'); setDropdownOpen(null); }} style={{...dropItemStyle, color: activeTab === 'admin_users' ? '#f59e0b' : '#cbd5e1'}}>Felhasználók</button>
                       <button onClick={() => { setActiveTab('admin_clubs'); setDropdownOpen(null); }} style={{...dropItemStyle, borderBottom: 'none', color: activeTab === 'admin_clubs' ? '#f59e0b' : '#cbd5e1'}}>Fotóklubok</button>
                     </div>
@@ -286,7 +343,7 @@ function App() {
 
           <main style={{ padding: '2rem', maxWidth: '900px', margin: '0 auto' }}>
             
-            {/* KLUBOK KEZELÉSE (ADMIN) */}
+            {/* --- FOTÓKLUBOK ADMIN --- */}
             {activeTab === 'admin_clubs' && user.email === ADMIN_EMAIL && (
                <div>
                  <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', color: '#f59e0b' }}>🏷️ Fotóklubok Kezelése</h2>
@@ -306,7 +363,7 @@ function App() {
                </div>
             )}
 
-            {/* FELHASZNÁLÓK KEZELÉSE (ADMIN) */}
+            {/* --- FELHASZNÁLÓK ADMIN --- */}
             {activeTab === 'admin_users' && user.email === ADMIN_EMAIL && (
               <div>
                  <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', color: '#f59e0b' }}>👥 Felhasználók és Klubtagságok</h2>
@@ -318,11 +375,7 @@ function App() {
                          <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>{u.email}</div>
                        </div>
                        <div style={{ display: 'flex', gap: '10px' }}>
-                         <select 
-                           value={userClubEdits[u.email] !== undefined ? userClubEdits[u.email] : (u.club_name || '')} 
-                           onChange={e => setUserClubEdits({...userClubEdits, [u.email]: e.target.value})} 
-                           style={{ padding: '8px', borderRadius: '6px', background: '#1e293b', border: '1px solid #475569', color: 'white', width: '250px' }} 
-                         >
+                         <select value={userClubEdits[u.email] !== undefined ? userClubEdits[u.email] : (u.club_name || '')} onChange={e => setUserClubEdits({...userClubEdits, [u.email]: e.target.value})} style={{ padding: '8px', borderRadius: '6px', background: '#1e293b', border: '1px solid #475569', color: 'white', width: '250px' }}>
                            <option value="">-- Független / Nem klubtag --</option>
                            {clubs.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                          </select>
@@ -334,16 +387,151 @@ function App() {
               </div>
             )}
 
-            {/* KLUBESTEK (Fejlesztés alatt) */}
-            {activeTab === 'club_nights' && (
-              <div style={{ textAlign: 'center', padding: '4rem 2rem', background: '#1e293b', borderRadius: '16px', border: '1px solid #334155' }}>
-                 <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>📅</div>
-                 <h2 style={{ color: '#38bdf8', margin: '0 0 10px 0' }}>Klubestek</h2>
-                 <p style={{ color: '#94a3b8', fontSize: '1.1rem' }}>Ez a modul fejlesztés alatt áll. Itt jelennek majd meg a soron következő klubesemények és programok.</p>
+            {/* --- KLUBESTEK ADMIN --- */}
+            {activeTab === 'admin_meetings' && user.email === ADMIN_EMAIL && (
+              <div>
+                <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', color: '#f59e0b' }}>📅 Klubestek Kezelése</h2>
+                
+                {/* Létrehozó űrlap */}
+                <div style={{ backgroundColor: '#1e293b', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', border: '1px solid #f59e0b' }}>
+                  <h3 style={{ marginTop: 0, color: '#f59e0b' }}>➕ Új Klubest Meghirdetése</h3>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <div style={{flex: 2}}>
+                      <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Melyik klubnak?</label>
+                      <select value={meetClubId} onChange={e => setMeetClubId(e.target.value)} style={inputStyle}>
+                        <option value="">-- Válassz Klubot --</option>
+                        {clubs.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      </select>
+                    </div>
+                    <div style={{flex: 1}}>
+                      <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Dátum</label>
+                      <input type="date" value={meetDate} onChange={e => setMeetDate(e.target.value)} style={inputStyle} />
+                    </div>
+                    <div style={{flex: 1}}>
+                      <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Időpont</label>
+                      <input type="time" value={meetTime} onChange={e => setMeetTime(e.target.value)} style={inputStyle} />
+                    </div>
+                  </div>
+
+                  <input placeholder="Klubest Témája (pl.: Portréfotózás alapjai)" value={meetTopic} onChange={e => setMeetTopic(e.target.value)} style={inputStyle} />
+                  <textarea placeholder="Részletes leírás, program..." value={meetDesc} onChange={e => setMeetDesc(e.target.value)} style={{...inputStyle, minHeight: '80px'}} />
+                  
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <div style={{flex: 1}}>
+                      <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Helyszín típusa</label>
+                      <select value={meetLocType} onChange={e => setMeetLocType(e.target.value as any)} style={inputStyle}>
+                        <option value="physical">Fizikai Helyszín</option>
+                        <option value="online">Online Link (Google Meet, Zoom, stb.)</option>
+                      </select>
+                    </div>
+                    <div style={{flex: 2}}>
+                      <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Cím vagy Link</label>
+                      <input placeholder={meetLocType === 'online' ? "https://meet.google.com/..." : "1051 Budapest, Példa utca 1."} value={meetLocDetails} onChange={e => setMeetLocDetails(e.target.value)} style={inputStyle} />
+                    </div>
+                  </div>
+
+                  <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Opcionális borítókép (Jól mutat a kártyákon!)</label>
+                  <input type="file" accept="image/jpeg, image/png, image/webp" onChange={handleMeetingCoverSelect} style={{ color: '#94a3b8', marginBottom: '15px', width: '100%' }} disabled={isMeetingUploading} />
+                  {meetCoverPreview && <div style={{marginTop: '10px', marginBottom: '20px'}}><img src={meetCoverPreview} alt="Előnézet" style={{maxHeight: '150px', borderRadius: '8px', border: '1px solid #334155'}} /></div>}
+
+                  <button onClick={handleCreateMeeting} disabled={isMeetingUploading} style={{ background: isMeetingUploading ? '#475569' : '#10b981', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '6px', cursor: isMeetingUploading ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>
+                    {isMeetingUploading ? 'Feltöltés és Létrehozás...' : 'Klubest Létrehozása'}
+                  </button>
+                </div>
+
+                {/* Összes klubest listája (Admin nézet - sima táblázat) */}
+                <h3 style={{ color: '#f8fafc' }}>Rögzített Klubestek</h3>
+                <div style={{ background: '#1e293b', borderRadius: '12px', overflow: 'hidden', border: '1px solid #334155' }}>
+                  {meetings.length === 0 ? <div style={{padding: '20px', color: '#94a3b8', textAlign: 'center'}}>Nincs még egyetlen klubest sem rögzítve.</div> : null}
+                  {meetings.map((m, i) => (
+                    <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px', borderBottom: i < meetings.length - 1 ? '1px solid #334155' : 'none', background: i % 2 === 0 ? '#0f172a' : 'transparent' }}>
+                      <div>
+                        <div style={{ fontWeight: 'bold', color: '#38bdf8' }}>{new Date(m.meeting_date).toLocaleDateString()} {m.meeting_time.substring(0,5)} - {m.topic}</div>
+                        <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>Klub: {m.club_name} | Helyszín: {m.location_type === 'online' ? 'Online' : 'Fizikai'}</div>
+                      </div>
+                      <button onClick={() => handleDeleteMeeting(m.id)} style={{ background: '#ef444420', color: '#ef4444', border: 'none', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer' }}>Törlés</button>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
-            {/* HÁZI FELADATOK (Fejlesztés alatt) */}
+            {/* --- KLUBESTEK (FELHASZNÁLÓI NÉZET) --- */}
+            {activeTab === 'club_nights' && (
+              <div>
+                {!currentDbUser?.club_name ? (
+                  <div style={{ textAlign: 'center', padding: '4rem 2rem', background: '#1e293b', borderRadius: '16px', border: '1px solid #334155' }}>
+                    <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🔒</div>
+                    <h2 style={{ color: '#f59e0b', margin: '0 0 10px 0' }}>Nem vagy klubhoz rendelve</h2>
+                    <p style={{ color: '#94a3b8', fontSize: '1.1rem' }}>A klubod eseményeinek megtekintéséhez kérjük, vedd fel a kapcsolatot egy adminisztrátorral.</p>
+                  </div>
+                ) : (
+                  <>
+                    <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '15px' }}>
+                      <span style={{ fontSize: '2.5rem' }}>📅</span> Klubestek: {currentDbUser.club_name}
+                    </h2>
+                    
+                    {myClubMeetings.length === 0 ? (
+                      <p style={{ color: '#94a3b8', fontSize: '1.1rem' }}>Jelenleg nincsenek meghirdetve klubestek a klubod számára.</p>
+                    ) : (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '20px' }}>
+                        {myClubMeetings.map(meet => {
+                          const meetDateObj = new Date(meet.meeting_date);
+                          const isPast = meetDateObj < new Date(new Date().setHours(0,0,0,0));
+                          
+                          return (
+                            <div key={meet.id} style={{ background: '#1e293b', borderRadius: '16px', overflow: 'hidden', border: '1px solid #334155', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.3)', display: 'flex', flexDirection: 'column' }}>
+                              
+                              {/* Kártya Fejléc/Borítókép */}
+                              <div style={{ height: '180px', background: '#0f172a', position: 'relative' }}>
+                                {meet.drive_file_id || meet.file_url ? (
+                                  <img src={meet.drive_file_id ? `https://lh3.googleusercontent.com/d/${meet.drive_file_id}` : meet.file_url} alt={meet.topic} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: isPast ? 0.6 : 1 }} />
+                                ) : (
+                                  <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #1e293b, #0f172a)', color: '#334155', fontSize: '4rem' }}>📷</div>
+                                )}
+                                
+                                {/* Dátum Badge */}
+                                <div style={{ position: 'absolute', top: '15px', right: '15px', background: 'rgba(15, 23, 42, 0.85)', backdropFilter: 'blur(5px)', padding: '8px 12px', borderRadius: '8px', color: isPast ? '#94a3b8' : '#38bdf8', fontWeight: 'bold', border: `1px solid ${isPast ? '#334155' : '#38bdf850'}`, textAlign: 'center', lineHeight: '1.2' }}>
+                                  <div style={{ fontSize: '0.8rem', textTransform: 'uppercase' }}>{meetDateObj.toLocaleDateString('hu-HU', { month: 'short' })}</div>
+                                  <div style={{ fontSize: '1.5rem' }}>{meetDateObj.getDate()}</div>
+                                </div>
+                              </div>
+
+                              {/* Kártya Tartalom */}
+                              <div style={{ padding: '20px', flex: 1, display: 'flex', flexDirection: 'column' }}>
+                                <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: '8px', display: 'flex', gap: '15px' }}>
+                                  <span>⏰ {meet.meeting_time.substring(0,5)}</span>
+                                  {isPast && <span style={{ color: '#ef4444', fontWeight: 'bold' }}>Lezajlott</span>}
+                                </div>
+                                <h3 style={{ margin: '0 0 10px 0', color: isPast ? '#cbd5e1' : '#f8fafc', fontSize: '1.4rem' }}>{meet.topic}</h3>
+                                <p style={{ color: '#94a3b8', fontSize: '0.95rem', margin: '0 0 20px 0', lineHeight: '1.6', flex: 1, whiteSpace: 'pre-wrap' }}>
+                                  {meet.description}
+                                </p>
+
+                                {/* Helyszín / Gomb */}
+                                <div style={{ marginTop: 'auto', background: '#0f172a', padding: '12px', borderRadius: '8px', border: '1px solid #334155', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                  <div style={{ fontSize: '1.5rem' }}>{meet.location_type === 'online' ? '💻' : '📍'}</div>
+                                  <div style={{ flex: 1, overflow: 'hidden' }}>
+                                    <div style={{ fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 'bold' }}>{meet.location_type === 'online' ? 'Online találkozó' : 'Fizikai helyszín'}</div>
+                                    {meet.location_type === 'online' ? (
+                                      <a href={meet.location_details} target="_blank" rel="noreferrer" style={{ color: '#38bdf8', textDecoration: 'none', fontWeight: 'bold', fontSize: '0.9rem', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Csatlakozás a híváshoz →</a>
+                                    ) : (
+                                      <div style={{ color: '#f8fafc', fontSize: '0.9rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{meet.location_details || 'Helyszín később...'}</div>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* --- HÁZI FELADATOK (Fejlesztés alatt) --- */}
             {activeTab === 'club_homeworks' && (
               <div style={{ textAlign: 'center', padding: '4rem 2rem', background: '#1e293b', borderRadius: '16px', border: '1px solid #334155' }}>
                  <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>📝</div>
@@ -352,7 +540,7 @@ function App() {
               </div>
             )}
 
-            {/* PÁLYÁZATOK (Klub, Nyílt, Admin) */}
+            {/* --- PÁLYÁZATOK (Klub, Nyílt, Admin) --- */}
             {['contests_open', 'contests_club', 'admin_contests'].includes(activeTab) && (
               <>
                 {/* HIBAÜZENET: Ha valaki klubos pályázatot keres, de nincs klubja */}
@@ -364,10 +552,9 @@ function App() {
                    </div>
                 )}
 
-                {/* CSAK AKKOR LISTÁZUNK PÁLYÁZATOKAT, HA NEM FUTOTTUNK BELE AZ ELŐZŐ HIBÁBA */}
                 {!(activeTab === 'contests_club' && !currentDbUser?.club_name) && (
                   <>
-                    {/* ÚJ PÁLYÁZAT (CSAK ADMIN LÁTJA AZ ADMIN FÜLÖN) */}
+                    {/* ÚJ PÁLYÁZAT LÉTREHOZÁSA (ADMIN) */}
                     {activeTab === 'admin_contests' && user.email === ADMIN_EMAIL && (
                       <div style={{ backgroundColor: '#1e293b', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', border: '1px solid #f59e0b' }}>
                         <h3 style={{ marginTop: 0, color: '#f59e0b' }}>⚙️ Új Pályázat Létrehozása</h3>
@@ -511,7 +698,7 @@ function App() {
                             ) : viewResultsContestId === contest.id ? (
                                <div style={{ background: '#0f172a', padding: '20px', borderRadius: '8px' }}>
                                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #334155', paddingBottom: '15px', marginBottom: '20px' }}>
-                                    <h3 style={{ margin: 0, color: '#10b981' }}>🏆 Végeredmény: {contest.title}</h3>
+                                    <h3 style={{ margin: '0', color: '#10b981' }}>🏆 Végeredmény: {contest.title}</h3>
                                     <button onClick={() => setViewResultsContestId(null)} style={{ background: 'transparent', color: '#94a3b8', border: '1px solid #475569', padding: '5px 15px', borderRadius: '6px', cursor: 'pointer' }}>Bezár</button>
                                   </div>
                                   {categories.map((cat: string) => {
@@ -547,7 +734,6 @@ function App() {
                                     <h3 style={{ margin: '0 0 5px 0', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', paddingTop: contest.restricted_club ? '10px' : '0' }}>
                                       {contest.title}
                                       
-                                      {/* Gombok amiket csak admin lát */}
                                       {user.email === ADMIN_EMAIL && activeTab === 'admin_contests' && (
                                         <>
                                           <button onClick={() => loadStats(contest.id)} style={{ background: 'transparent', border: '1px solid #38bdf8', color: '#38bdf8', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', cursor: 'pointer' }}>📊 Nevezők</button>
