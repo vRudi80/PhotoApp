@@ -156,6 +156,36 @@ app.get('/api/admin/stats/:contestId', async (req, res) => {
   try { const [rows] = await pool.query('SELECT user_name, user_email, category, COUNT(*) as image_count FROM photo_entries WHERE contest_id = ? GROUP BY user_email, user_name, category ORDER BY user_name ASC, category ASC', [req.params.contestId]); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
 });
 
+// --- ÚJ: Zsűrizés állásának lekérése ---
+app.get('/api/admin/jury-stats/:contestId', async (req, res) => {
+  try {
+    const contestId = req.params.contestId;
+    
+    // 1. Megszámoljuk, összesen hány kép van a pályázatban
+    const [[{ total_entries }]] = await pool.query('SELECT COUNT(*) as total_entries FROM photo_entries WHERE contest_id = ?', [contestId]);
+    
+    // 2. Lekérjük a zsűritagokat és azt, hogy ebből a pályázatból hány képet pontoztak már
+    const [stats] = await pool.query(`
+      SELECT 
+        j.user_email, 
+        COALESCE(v.voted_count, 0) as voted_count
+      FROM photo_jury j
+      LEFT JOIN (
+        SELECT pv.jury_email, COUNT(*) as voted_count
+        FROM photo_votes pv
+        JOIN photo_entries pe ON pv.entry_id = pe.id
+        WHERE pe.contest_id = ?
+        GROUP BY pv.jury_email
+      ) v ON j.user_email = v.jury_email
+      WHERE j.contest_id = ?
+    `, [contestId, contestId]);
+
+    res.json({ total_entries: total_entries || 0, stats });
+  } catch (err) { 
+    res.status(500).json({ error: 'Hiba a statisztika lekérésekor' }); 
+  }
+});
+
 // Szavazás
 app.get('/api/jury-entries/:contestId', async (req, res) => {
   try { const [rows] = await pool.query(`SELECT e.id, e.title, e.category, e.file_url, e.drive_file_id FROM photo_entries e LEFT JOIN photo_votes v ON e.id = v.entry_id AND v.jury_email = ? WHERE e.contest_id = ? AND v.id IS NULL`, [req.query.userEmail, req.params.contestId]); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
