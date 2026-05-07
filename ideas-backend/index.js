@@ -73,8 +73,19 @@ app.delete('/api/jury', async (req, res) => {
 
 // --- PÁLYÁZATOK ---
 app.get('/api/contests', async (req, res) => {
-  try { const [rows] = await pool.query('SELECT * FROM photo_contests ORDER BY created_at DESC'); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
+  try { 
+    const [rows] = await pool.query(`
+      SELECT c.*, 
+        (SELECT COUNT(*) FROM photo_entries WHERE contest_id = c.id) as entry_count,
+        (SELECT COUNT(*) FROM photo_jury WHERE contest_id = c.id) as jury_count,
+        (SELECT COUNT(*) FROM photo_votes v JOIN photo_entries e ON v.entry_id = e.id WHERE e.contest_id = c.id) as vote_count
+      FROM photo_contests c 
+      ORDER BY c.created_at DESC
+    `); 
+    res.json(rows); 
+  } catch (err) { res.status(500).json({ error: 'Hiba' }); }
 });
+
 
 app.post('/api/contests', async (req, res) => {
   const { title, description, startDate, endDate, categories, restrictedClub } = req.body;
