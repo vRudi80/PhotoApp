@@ -22,7 +22,6 @@ function App() {
   const [myHomeworkEntries, setMyHomeworkEntries] = useState<any[]>([]);
   const [clubHomeworkEntries, setClubHomeworkEntries] = useState<any[]>([]); 
   
-  // --- FRISSÍTETT: Tabok ---
   const [activeTab, setActiveTab] = useState<'contests_open_active' | 'contests_club_active' | 'contests_closed' | 'club_nights' | 'club_homeworks' | 'admin_contests' | 'admin_users' | 'admin_clubs' | 'admin_meetings' | 'admin_homeworks'>('contests_open_active');
   const [dropdownOpen, setDropdownOpen] = useState<'contests' | 'club' | 'admin' | null>(null);
   
@@ -95,6 +94,10 @@ function App() {
   const [contestResults, setContestResults] = useState<any[]>([]);
   const [viewStatsContestId, setViewStatsContestId] = useState<number | null>(null);
   const [contestStats, setContestStats] = useState<any[]>([]);
+
+  // --- ÚJ: ZSŰRI PROGRESS ÁLLAPOTOK ---
+  const [viewJuryProgressId, setViewJuryProgressId] = useState<number | null>(null);
+  const [juryProgressData, setJuryProgressData] = useState<{total_entries: number, stats: any[]}>({total_entries: 0, stats: []});
 
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
 
@@ -191,13 +194,21 @@ function App() {
   const submitVote = async () => { const score = Number(currentScore); if (score < 0 || score > 100 || currentScore === '') return alert("0 és 100 közötti pontszámot adj meg!"); const res = await fetch(`${BACKEND_URL}/api/vote`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ entryId: unvotedEntries[0].id, juryEmail: user.email, score }) }); if (res.ok) { setUnvotedEntries(prev => prev.slice(1)); setCurrentScore(''); } };
   const loadResults = async (contestId: number) => { const res = await fetch(`${BACKEND_URL}/api/results/${contestId}`); if (res.ok) { setContestResults(await res.json()); setViewResultsContestId(contestId); } };
   const loadStats = async (contestId: number) => { const res = await fetch(`${BACKEND_URL}/api/admin/stats/${contestId}`); if (res.ok) { setContestStats(await res.json()); setViewStatsContestId(contestId); } };
-
-  // --- ÚJ: Pályázat törlése ---
+  
   const handleDeleteContest = async (id: number) => {
     if (!window.confirm("❗ BIZTOSAN TÖRLÖD ezt a pályázatot?\n\nA hozzá tartozó összes kép, nevezés és szavazat is VÉGLEG törlődik a szerverről és a Google Drive-ról is!")) return;
     const res = await fetch(`${BACKEND_URL}/api/contests/${id}`, { method: 'DELETE' });
     if (res.ok) fetchData();
     else alert("Hiba történt a törlés során!");
+  };
+
+  // --- ÚJ: ZSŰRI PROGRESS LEKÉRÉSE ---
+  const loadJuryProgress = async (contestId: number) => {
+    const res = await fetch(`${BACKEND_URL}/api/admin/jury-stats/${contestId}`);
+    if (res.ok) {
+      setJuryProgressData(await res.json());
+      setViewJuryProgressId(contestId);
+    }
   };
 
   const handleMeetingCoverSelect = (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (file) { setMeetCover(file); setMeetCoverPreview(URL.createObjectURL(file)); } };
@@ -271,7 +282,6 @@ function App() {
   const dropdownStyle = { position: 'absolute' as const, top: '100%', left: 0, marginTop: '10px', background: '#1e293b', border: '1px solid #334155', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.5)', minWidth: '220px', display: 'flex', flexDirection: 'column' as const };
   const dropItemStyle = { background: 'transparent', color: '#cbd5e1', border: 'none', padding: '12px 15px', textAlign: 'left' as const, cursor: 'pointer', width: '100%', borderBottom: '1px solid #334155', fontSize: '0.95rem' };
 
-  // --- FRISSÍTETT: Szűrő logika Pályázatokhoz ---
   const filteredContests = contests.filter(contest => {
     const isRestricted = contest.restricted_club && contest.restricted_club.trim() !== '';
     const now = new Date();
@@ -386,8 +396,6 @@ function App() {
             {dropdownOpen && <div onClick={() => setDropdownOpen(null)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />}
 
             <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
-              
-              {/* FRISSÍTETT: Pályázatok menü */}
               <div style={{ position: 'relative', zIndex: 50 }}>
                 <button onClick={() => setDropdownOpen(dropdownOpen === 'contests' ? null : 'contests')} style={{...navBtnStyle, background: dropdownOpen === 'contests' || activeTab.startsWith('contests_') ? '#334155' : 'transparent'}}>
                   Pályázatok ▾
@@ -677,7 +685,6 @@ function App() {
               </div>
             )}
 
-            {/* --- KLUBESTEK (FELHASZNÁLÓI NÉZET) --- */}
             {activeTab === 'club_nights' && (
               <div>
                 {!currentDbUser?.club_name ? (
@@ -779,7 +786,6 @@ function App() {
               </div>
             )}
 
-            {/* --- HÁZI FELADATOK --- */}
             {activeTab === 'club_homeworks' && (
               <div>
                 {!currentDbUser?.club_name ? (
@@ -918,7 +924,6 @@ function App() {
             {/* --- PÁLYÁZATOK --- */}
             {['contests_open_active', 'contests_club_active', 'contests_closed', 'admin_contests'].includes(activeTab) && (
               <>
-                {/* HIBAÜZENET: Nincs klub */}
                 {activeTab === 'contests_club_active' && !currentDbUser?.club_name && (
                    <div style={{ textAlign: 'center', padding: '4rem 2rem', background: '#1e293b', borderRadius: '16px', border: '1px solid #334155' }}>
                      <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🔒</div>
@@ -929,7 +934,6 @@ function App() {
 
                 {!(activeTab === 'contests_club_active' && !currentDbUser?.club_name) && (
                   <>
-                    {/* ÚJ PÁLYÁZAT (Admin) */}
                     {activeTab === 'admin_contests' && user.email === ADMIN_EMAIL && (
                       <div style={{ backgroundColor: '#1e293b', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', border: '1px solid #f59e0b' }}>
                         <h3 style={{ marginTop: 0, color: '#f59e0b' }}>⚙️ Új Pályázat Létrehozása</h3>
@@ -945,7 +949,6 @@ function App() {
                       </div>
                     )}
 
-                    {/* FŐCÍM */}
                     <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem' }}>
                       {activeTab === 'admin_contests' ? 'Összes Pályázat (Admin)' : activeTab === 'contests_club_active' ? `Klubom Aktív Pályázatai (${currentDbUser?.club_name})` : activeTab === 'contests_closed' ? 'Lezárult Pályázatok' : 'Nyílt Aktív Fotópályázatok'}
                     </h2>
@@ -970,6 +973,8 @@ function App() {
                         categories.forEach((cat: string) => categoryCounts[cat] = 0);
                         myContestEntries.forEach(entry => { if (categoryCounts[entry.category] !== undefined) categoryCounts[entry.category]++; });
 
+                        const canManageContest = user.email === ADMIN_EMAIL || (isLeader && contest.restricted_club === currentDbUser?.club_name);
+
                         return (
                           <div key={contest.id} style={{ backgroundColor: '#1e293b', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', border: isActive ? '1px solid #10b981' : isEnded ? '1px solid #ef4444' : '1px solid #475569', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', position: 'relative' }}>
                             
@@ -979,7 +984,47 @@ function App() {
                               </div>
                             )}
 
-                            {manageJuryContestId === contest.id ? (
+                            {/* --- ÚJ: ZSŰRI PROGRESS PANEL --- */}
+                            {viewJuryProgressId === contest.id ? (
+                              <div style={{ background: '#0f172a', padding: '20px', borderRadius: '8px', marginBottom: '20px', border: '1px solid #a78bfa' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #334155', paddingBottom: '15px', marginBottom: '20px' }}>
+                                  <h3 style={{ margin: 0, color: '#a78bfa' }}>📈 Zsűrizés állása: {contest.title}</h3>
+                                  <button onClick={() => setViewJuryProgressId(null)} style={{ background: 'transparent', color: '#94a3b8', border: '1px solid #475569', padding: '5px 15px', borderRadius: '6px', cursor: 'pointer' }}>Bezár</button>
+                                </div>
+                                <div style={{ marginBottom: '20px', color: '#94a3b8', fontSize: '1.1rem' }}>
+                                  Összes beküldött kép: <strong style={{color: '#f8fafc'}}>{juryProgressData.total_entries} db</strong>
+                                </div>
+                                {juryProgressData.stats.length === 0 ? (
+                                  <p style={{ color: '#94a3b8' }}>Nincs zsűritag kijelölve.</p>
+                                ) : (
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                                    {juryProgressData.stats.map((stat: any) => {
+                                      const userObj = allUsers.find(u => u.email === stat.user_email);
+                                      const name = userObj ? userObj.name : stat.user_email;
+                                      const remaining = juryProgressData.total_entries - stat.voted_count;
+                                      const percent = juryProgressData.total_entries > 0 ? Math.round((stat.voted_count / juryProgressData.total_entries) * 100) : 0;
+                                      
+                                      return (
+                                        <div key={stat.user_email} style={{ background: '#1e293b', padding: '15px', borderRadius: '8px', border: '1px solid #334155' }}>
+                                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                                            <strong style={{ color: '#f8fafc' }}>{name}</strong>
+                                            <span style={{ color: remaining <= 0 ? '#10b981' : '#f59e0b', fontWeight: 'bold' }}>
+                                              {remaining <= 0 ? 'Kész' : `${remaining} kép van hátra`}
+                                            </span>
+                                          </div>
+                                          <div style={{ width: '100%', background: '#0f172a', borderRadius: '100px', height: '10px', overflow: 'hidden' }}>
+                                            <div style={{ width: `${percent}%`, background: remaining <= 0 ? '#10b981' : '#a78bfa', height: '100%', transition: 'width 0.3s' }}></div>
+                                          </div>
+                                          <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '8px', textAlign: 'right' }}>
+                                            {stat.voted_count} / {juryProgressData.total_entries} értékelve
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            ) : manageJuryContestId === contest.id ? (
                                <div style={{ background: '#0f172a', padding: '15px', borderRadius: '8px' }}>
                                   <h4 style={{marginTop: 0, color: '#a78bfa'}}>⚖️ Zsűri kezelése</h4>
                                   <div style={{display: 'flex', gap: '10px', marginBottom: '15px'}}><select value={selectedJuryEmail} onChange={e => setSelectedJuryEmail(e.target.value)} style={{...inputStyle, marginBottom: 0}}><option value="">-- Válassz usert --</option>{allUsers.filter(u => !contestJury.some(j => j.user_email === u.email)).map(u => (<option key={u.email} value={u.email}>{u.name} ({u.email})</option>))}</select><button onClick={() => handleAddJury(contest.id)} style={{ background: '#8b5cf6', color: 'white', border: 'none', padding: '10px 15px', borderRadius: '6px', cursor: 'pointer' }}>Hozzáadás</button></div>
@@ -1110,14 +1155,24 @@ function App() {
                                     <h3 style={{ margin: '0 0 5px 0', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', paddingTop: contest.restricted_club ? '10px' : '0' }}>
                                       {contest.title}
                                       
-                                      {user.email === ADMIN_EMAIL && activeTab === 'admin_contests' && (
+                                      {/* ÚJ: ADMIN/LEADER FUNKCIÓK */}
+                                      {canManageContest && (
                                         <>
                                           <button onClick={() => loadStats(contest.id)} style={{ background: 'transparent', border: '1px solid #38bdf8', color: '#38bdf8', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', cursor: 'pointer' }}>📊 Nevezők</button>
-                                          <button onClick={() => startEdit(contest)} style={{ background: 'transparent', border: '1px solid #f59e0b', color: '#f59e0b', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', cursor: 'pointer' }}>Szerkesztés</button>
-                                          <button onClick={() => setManageJuryContestId(contest.id)} style={{ background: 'transparent', border: '1px solid #8b5cf6', color: '#8b5cf6', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', cursor: 'pointer' }}>Zsűri ({contestJury.length})</button>
                                           
-                                          {/* ÚJ: TÖRLÉS GOMB AZ ADMINNAK */}
-                                          <button onClick={() => handleDeleteContest(contest.id)} style={{ background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', cursor: 'pointer' }}>Törlés</button>
+                                          {/* GOMB A ZSŰRI PROGRESSHEZ */}
+                                          {contestJury.length > 0 && (
+                                            <button onClick={() => loadJuryProgress(contest.id)} style={{ background: 'transparent', border: '1px solid #a78bfa', color: '#a78bfa', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', cursor: 'pointer' }}>📈 Zsűrizés állása</button>
+                                          )}
+
+                                          {/* Csak Főadmin funkciók */}
+                                          {user.email === ADMIN_EMAIL && activeTab === 'admin_contests' && (
+                                            <>
+                                              <button onClick={() => startEdit(contest)} style={{ background: 'transparent', border: '1px solid #f59e0b', color: '#f59e0b', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', cursor: 'pointer' }}>Szerkesztés</button>
+                                              <button onClick={() => setManageJuryContestId(contest.id)} style={{ background: 'transparent', border: '1px solid #8b5cf6', color: '#8b5cf6', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', cursor: 'pointer' }}>Zsűri ({contestJury.length})</button>
+                                              <button onClick={() => handleDeleteContest(contest.id)} style={{ background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', cursor: 'pointer' }}>Törlés</button>
+                                            </>
+                                          )}
                                         </>
                                       )}
                                       {isEnded && <button onClick={() => loadResults(contest.id)} style={{ background: '#10b981', border: 'none', color: 'white', fontSize: '0.7rem', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer' }}>🏆 Eredmények</button>}
