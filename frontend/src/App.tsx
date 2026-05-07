@@ -22,7 +22,8 @@ function App() {
   const [myHomeworkEntries, setMyHomeworkEntries] = useState<any[]>([]);
   const [clubHomeworkEntries, setClubHomeworkEntries] = useState<any[]>([]); 
   
-  const [activeTab, setActiveTab] = useState<'contests_open' | 'contests_club' | 'club_nights' | 'club_homeworks' | 'admin_contests' | 'admin_users' | 'admin_clubs' | 'admin_meetings' | 'admin_homeworks'>('contests_open');
+  // --- FRISSÍTETT: Tabok ---
+  const [activeTab, setActiveTab] = useState<'contests_open_active' | 'contests_club_active' | 'contests_closed' | 'club_nights' | 'club_homeworks' | 'admin_contests' | 'admin_users' | 'admin_clubs' | 'admin_meetings' | 'admin_homeworks'>('contests_open_active');
   const [dropdownOpen, setDropdownOpen] = useState<'contests' | 'club' | 'admin' | null>(null);
   
   const [userClubEdits, setUserClubEdits] = useState<Record<string, string>>({});
@@ -191,6 +192,14 @@ function App() {
   const loadResults = async (contestId: number) => { const res = await fetch(`${BACKEND_URL}/api/results/${contestId}`); if (res.ok) { setContestResults(await res.json()); setViewResultsContestId(contestId); } };
   const loadStats = async (contestId: number) => { const res = await fetch(`${BACKEND_URL}/api/admin/stats/${contestId}`); if (res.ok) { setContestStats(await res.json()); setViewStatsContestId(contestId); } };
 
+  // --- ÚJ: Pályázat törlése ---
+  const handleDeleteContest = async (id: number) => {
+    if (!window.confirm("❗ BIZTOSAN TÖRLÖD ezt a pályázatot?\n\nA hozzá tartozó összes kép, nevezés és szavazat is VÉGLEG törlődik a szerverről és a Google Drive-ról is!")) return;
+    const res = await fetch(`${BACKEND_URL}/api/contests/${id}`, { method: 'DELETE' });
+    if (res.ok) fetchData();
+    else alert("Hiba történt a törlés során!");
+  };
+
   const handleMeetingCoverSelect = (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (file) { setMeetCover(file); setMeetCoverPreview(URL.createObjectURL(file)); } };
   const startEditMeeting = (m: any) => { setEditMeetId(m.id); setMeetClubId(m.club_id.toString()); setMeetDate(m.meeting_date.split('T')[0]); setMeetTime(m.meeting_time.substring(0, 5)); setMeetTopic(m.topic); setMeetDesc(m.description || ''); setMeetLocType(m.location_type); setMeetLocDetails(m.location_details || ''); setMeetVideoLink(m.video_link || ''); setMeetCover(null); setMeetCoverPreview(null); };
   const clearMeetingForm = () => { setEditMeetId(null); setMeetClubId(''); setMeetDate(''); setMeetTime(''); setMeetTopic(''); setMeetDesc(''); setMeetLocDetails(''); setMeetVideoLink(''); setMeetCover(null); setMeetCoverPreview(null); };
@@ -262,11 +271,30 @@ function App() {
   const dropdownStyle = { position: 'absolute' as const, top: '100%', left: 0, marginTop: '10px', background: '#1e293b', border: '1px solid #334155', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.5)', minWidth: '220px', display: 'flex', flexDirection: 'column' as const };
   const dropItemStyle = { background: 'transparent', color: '#cbd5e1', border: 'none', padding: '12px 15px', textAlign: 'left' as const, cursor: 'pointer', width: '100%', borderBottom: '1px solid #334155', fontSize: '0.95rem' };
 
+  // --- FRISSÍTETT: Szűrő logika Pályázatokhoz ---
   const filteredContests = contests.filter(contest => {
     const isRestricted = contest.restricted_club && contest.restricted_club.trim() !== '';
-    if (activeTab === 'contests_club') return isRestricted && contest.restricted_club === currentDbUser?.club_name;
-    if (activeTab === 'contests_open') return !isRestricted;
+    const now = new Date();
+    const start = contest.start_date ? new Date(contest.start_date) : new Date(0);
+    const end = contest.end_date ? new Date(contest.end_date) : new Date(0);
+    const isEnded = now > end && start.getFullYear() > 1970;
+
     if (activeTab === 'admin_contests') return true; 
+
+    if (activeTab === 'contests_closed') {
+       if (!isEnded) return false;
+       if (isRestricted && contest.restricted_club !== currentDbUser?.club_name) return false;
+       return true;
+    }
+
+    if (activeTab === 'contests_club_active') {
+       return isRestricted && contest.restricted_club === currentDbUser?.club_name && !isEnded;
+    }
+
+    if (activeTab === 'contests_open_active') {
+       return !isRestricted && !isEnded;
+    }
+
     return false;
   });
 
@@ -358,14 +386,17 @@ function App() {
             {dropdownOpen && <div onClick={() => setDropdownOpen(null)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />}
 
             <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+              
+              {/* FRISSÍTETT: Pályázatok menü */}
               <div style={{ position: 'relative', zIndex: 50 }}>
                 <button onClick={() => setDropdownOpen(dropdownOpen === 'contests' ? null : 'contests')} style={{...navBtnStyle, background: dropdownOpen === 'contests' || activeTab.startsWith('contests_') ? '#334155' : 'transparent'}}>
                   Pályázatok ▾
                 </button>
                 {dropdownOpen === 'contests' && (
                   <div style={dropdownStyle}>
-                    <button onClick={() => { setActiveTab('contests_club'); setDropdownOpen(null); }} style={{...dropItemStyle, color: activeTab === 'contests_club' ? '#38bdf8' : '#cbd5e1'}}>Klubom pályázatai</button>
-                    <button onClick={() => { setActiveTab('contests_open'); setDropdownOpen(null); }} style={{...dropItemStyle, borderBottom: 'none', color: activeTab === 'contests_open' ? '#38bdf8' : '#cbd5e1'}}>Nyílt pályázatok</button>
+                    <button onClick={() => { setActiveTab('contests_club_active'); setDropdownOpen(null); }} style={{...dropItemStyle, color: activeTab === 'contests_club_active' ? '#38bdf8' : '#cbd5e1'}}>Klubom aktív pályázatai</button>
+                    <button onClick={() => { setActiveTab('contests_open_active'); setDropdownOpen(null); }} style={{...dropItemStyle, color: activeTab === 'contests_open_active' ? '#38bdf8' : '#cbd5e1'}}>Nyílt aktív pályázatok</button>
+                    <button onClick={() => { setActiveTab('contests_closed'); setDropdownOpen(null); }} style={{...dropItemStyle, borderBottom: 'none', color: activeTab === 'contests_closed' ? '#38bdf8' : '#cbd5e1'}}>Lezárult pályázatok</button>
                   </div>
                 )}
               </div>
@@ -438,12 +469,9 @@ function App() {
                        <div>
                          <div style={{ fontWeight: 'bold' }}>{u.name}</div>
                          <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>{u.email}</div>
-                         
-                         {/* ÚJ: Utolsó belépés */}
                          <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px' }}>
                            🕒 Utolsó belépés: {u.last_login ? new Date(u.last_login).toLocaleString('hu-HU', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Ismeretlen'}
                          </div>
-
                        </div>
                        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                          <select value={userClubEdits[u.email] !== undefined ? userClubEdits[u.email] : (u.club_name || '')} onChange={e => setUserClubEdits({...userClubEdits, [u.email]: e.target.value})} style={{ padding: '8px', borderRadius: '6px', background: '#1e293b', border: '1px solid #475569', color: 'white', width: '200px', margin: 0 }}>
@@ -583,7 +611,6 @@ function App() {
               </div>
             )}
 
-            {/* --- HÁZI FELADATOK ADMIN --- */}
             {activeTab === 'admin_homeworks' && (user.email === ADMIN_EMAIL || isLeader) && (
               <div>
                 <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', color: '#f59e0b' }}>📝 Házi Feladatok Kezelése</h2>
@@ -649,7 +676,6 @@ function App() {
                 </div>
               </div>
             )}
-
 
             {/* --- KLUBESTEK (FELHASZNÁLÓI NÉZET) --- */}
             {activeTab === 'club_nights' && (
@@ -890,9 +916,10 @@ function App() {
             )}
 
             {/* --- PÁLYÁZATOK --- */}
-            {['contests_open', 'contests_club', 'admin_contests'].includes(activeTab) && (
+            {['contests_open_active', 'contests_club_active', 'contests_closed', 'admin_contests'].includes(activeTab) && (
               <>
-                {activeTab === 'contests_club' && !currentDbUser?.club_name && (
+                {/* HIBAÜZENET: Nincs klub */}
+                {activeTab === 'contests_club_active' && !currentDbUser?.club_name && (
                    <div style={{ textAlign: 'center', padding: '4rem 2rem', background: '#1e293b', borderRadius: '16px', border: '1px solid #334155' }}>
                      <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🔒</div>
                      <h2 style={{ color: '#f59e0b', margin: '0 0 10px 0' }}>Nem vagy klubhoz rendelve</h2>
@@ -900,8 +927,9 @@ function App() {
                    </div>
                 )}
 
-                {!(activeTab === 'contests_club' && !currentDbUser?.club_name) && (
+                {!(activeTab === 'contests_club_active' && !currentDbUser?.club_name) && (
                   <>
+                    {/* ÚJ PÁLYÁZAT (Admin) */}
                     {activeTab === 'admin_contests' && user.email === ADMIN_EMAIL && (
                       <div style={{ backgroundColor: '#1e293b', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', border: '1px solid #f59e0b' }}>
                         <h3 style={{ marginTop: 0, color: '#f59e0b' }}>⚙️ Új Pályázat Létrehozása</h3>
@@ -917,12 +945,13 @@ function App() {
                       </div>
                     )}
 
+                    {/* FŐCÍM */}
                     <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem' }}>
-                      {activeTab === 'admin_contests' ? 'Összes Pályázat (Admin)' : activeTab === 'contests_club' ? `Klubom Pályázatai (${currentDbUser?.club_name})` : 'Nyílt Fotópályázatok'}
+                      {activeTab === 'admin_contests' ? 'Összes Pályázat (Admin)' : activeTab === 'contests_club_active' ? `Klubom Aktív Pályázatai (${currentDbUser?.club_name})` : activeTab === 'contests_closed' ? 'Lezárult Pályázatok' : 'Nyílt Aktív Fotópályázatok'}
                     </h2>
                     
                     {filteredContests.length === 0 ? (
-                       <p style={{ color: '#94a3b8' }}>Jelenleg nincsenek aktív pályázatok ebben a kategóriában.</p>
+                       <p style={{ color: '#94a3b8' }}>Jelenleg nincsenek pályázatok ebben a kategóriában.</p>
                     ) : (
                       filteredContests.map(contest => {
                         const now = new Date();
@@ -1086,6 +1115,9 @@ function App() {
                                           <button onClick={() => loadStats(contest.id)} style={{ background: 'transparent', border: '1px solid #38bdf8', color: '#38bdf8', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', cursor: 'pointer' }}>📊 Nevezők</button>
                                           <button onClick={() => startEdit(contest)} style={{ background: 'transparent', border: '1px solid #f59e0b', color: '#f59e0b', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', cursor: 'pointer' }}>Szerkesztés</button>
                                           <button onClick={() => setManageJuryContestId(contest.id)} style={{ background: 'transparent', border: '1px solid #8b5cf6', color: '#8b5cf6', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', cursor: 'pointer' }}>Zsűri ({contestJury.length})</button>
+                                          
+                                          {/* ÚJ: TÖRLÉS GOMB AZ ADMINNAK */}
+                                          <button onClick={() => handleDeleteContest(contest.id)} style={{ background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', cursor: 'pointer' }}>Törlés</button>
                                         </>
                                       )}
                                       {isEnded && <button onClick={() => loadResults(contest.id)} style={{ background: '#10b981', border: 'none', color: 'white', fontSize: '0.7rem', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer' }}>🏆 Eredmények</button>}
