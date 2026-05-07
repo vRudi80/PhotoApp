@@ -86,6 +86,30 @@ app.put('/api/contests/:id', async (req, res) => {
   try { await pool.query('UPDATE photo_contests SET title = ?, description = ?, start_date = ?, end_date = ?, categories = ?, restricted_club = ? WHERE id = ?', [title, description, startDate, endDate, categories, restrictedClub, req.params.id]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
 });
 
+// --- Pályázat törlése (Minden képpel, szavazattal együtt) ---
+app.delete('/api/contests/:id', async (req, res) => {
+  try {
+    // 1. Megkeressük a pályázathoz tartozó összes Drive fájlt
+    const [entries] = await pool.query('SELECT drive_file_id FROM photo_entries WHERE contest_id = ? AND drive_file_id IS NOT NULL', [req.params.id]);
+    
+    // 2. Végigmegyünk rajtuk, és töröljük a Drive-ról
+    for (const entry of entries) {
+      await drive.files.delete({ fileId: entry.drive_file_id }).catch(e => console.log('Drive törlési hiba:', e.message));
+    }
+
+    // 3. Töröljük a kapcsolódó adatokat (Szavazatok, Képek, Zsűri, és maga a Pályázat)
+    await pool.query('DELETE FROM photo_votes WHERE entry_id IN (SELECT id FROM photo_entries WHERE contest_id = ?)', [req.params.id]);
+    await pool.query('DELETE FROM photo_entries WHERE contest_id = ?', [req.params.id]);
+    await pool.query('DELETE FROM photo_jury WHERE contest_id = ?', [req.params.id]);
+    await pool.query('DELETE FROM photo_contests WHERE id = ?', [req.params.id]);
+    
+    res.json({ success: true });
+  } catch (err) { 
+    res.status(500).json({ error: 'Hiba a pályázat törlésekor' }); 
+  }
+});
+
+
 // Pályázati feltöltések
 app.get('/api/my-entries', async (req, res) => {
   try { const [rows] = await pool.query('SELECT * FROM photo_entries WHERE user_email = ? ORDER BY created_at DESC', [req.query.userEmail]); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
