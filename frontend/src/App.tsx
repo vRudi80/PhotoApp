@@ -95,7 +95,6 @@ function App() {
   const [viewStatsContestId, setViewStatsContestId] = useState<number | null>(null);
   const [contestStats, setContestStats] = useState<any[]>([]);
 
-  // --- ÚJ: ZSŰRI PROGRESS ÁLLAPOTOK ---
   const [viewJuryProgressId, setViewJuryProgressId] = useState<number | null>(null);
   const [juryProgressData, setJuryProgressData] = useState<{total_entries: number, stats: any[]}>({total_entries: 0, stats: []});
 
@@ -202,7 +201,6 @@ function App() {
     else alert("Hiba történt a törlés során!");
   };
 
-  // --- ÚJ: ZSŰRI PROGRESS LEKÉRÉSE ---
   const loadJuryProgress = async (contestId: number) => {
     const res = await fetch(`${BACKEND_URL}/api/admin/jury-stats/${contestId}`);
     if (res.ok) {
@@ -685,6 +683,7 @@ function App() {
               </div>
             )}
 
+            {/* --- KLUBESTEK (FELHASZNÁLÓI NÉZET) --- */}
             {activeTab === 'club_nights' && (
               <div>
                 {!currentDbUser?.club_name ? (
@@ -786,6 +785,7 @@ function App() {
               </div>
             )}
 
+            {/* --- HÁZI FELADATOK (FELHASZNÁLÓI ÉS VEZETŐI NÉZET) --- */}
             {activeTab === 'club_homeworks' && (
               <div>
                 {!currentDbUser?.club_name ? (
@@ -921,9 +921,10 @@ function App() {
               </div>
             )}
 
-            {/* --- PÁLYÁZATOK --- */}
+            {/* --- PÁLYÁZATOK (Klub, Nyílt, Admin) --- */}
             {['contests_open_active', 'contests_club_active', 'contests_closed', 'admin_contests'].includes(activeTab) && (
               <>
+                {/* HIBAÜZENET: Ha valaki klubos pályázatot keres, de nincs klubja */}
                 {activeTab === 'contests_club_active' && !currentDbUser?.club_name && (
                    <div style={{ textAlign: 'center', padding: '4rem 2rem', background: '#1e293b', borderRadius: '16px', border: '1px solid #334155' }}>
                      <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🔒</div>
@@ -934,6 +935,7 @@ function App() {
 
                 {!(activeTab === 'contests_club_active' && !currentDbUser?.club_name) && (
                   <>
+                    {/* ÚJ PÁLYÁZAT LÉTREHOZÁSA (ADMIN) */}
                     {activeTab === 'admin_contests' && user.email === ADMIN_EMAIL && (
                       <div style={{ backgroundColor: '#1e293b', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', border: '1px solid #f59e0b' }}>
                         <h3 style={{ marginTop: 0, color: '#f59e0b' }}>⚙️ Új Pályázat Létrehozása</h3>
@@ -975,8 +977,17 @@ function App() {
 
                         const canManageContest = user.email === ADMIN_EMAIL || (isLeader && contest.restricted_club === currentDbUser?.club_name);
 
+                        // --- ÚJ: Ellenőrizzük, hogy a zsűrizés befejeződött-e ---
+                        const expectedVotes = (contest.entry_count || 0) * (contest.jury_count || 0);
+                        const isJudgingComplete = contest.entry_count > 0 ? (expectedVotes > 0 && contest.vote_count >= expectedVotes) : true;
+                        
+                        // Badge dinamikus szöveg és szín
+                        const badgeText = isActive ? 'Aktív Pályázat' : isEnded ? (isJudgingComplete ? 'Lezárult' : 'Zsűrizés alatt') : 'Hamarosan indul';
+                        const badgeColor = isActive ? '#10b981' : isEnded ? (isJudgingComplete ? '#ef4444' : '#a78bfa') : '#f59e0b';
+                        const badgeBg = isActive ? '#10b98120' : isEnded ? (isJudgingComplete ? '#ef444420' : '#a78bfa20') : '#f59e0b20';
+
                         return (
-                          <div key={contest.id} style={{ backgroundColor: '#1e293b', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', border: isActive ? '1px solid #10b981' : isEnded ? '1px solid #ef4444' : '1px solid #475569', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', position: 'relative' }}>
+                          <div key={contest.id} style={{ backgroundColor: '#1e293b', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', border: `1px solid ${badgeColor}`, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', position: 'relative' }}>
                             
                             {contest.restricted_club && (
                               <div style={{ position: 'absolute', top: '-12px', left: '20px', background: '#f59e0b', color: '#0f172a', padding: '4px 12px', borderRadius: '100px', fontSize: '0.8rem', fontWeight: 'bold', boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
@@ -984,7 +995,6 @@ function App() {
                               </div>
                             )}
 
-                            {/* --- ÚJ: ZSŰRI PROGRESS PANEL --- */}
                             {viewJuryProgressId === contest.id ? (
                               <div style={{ background: '#0f172a', padding: '20px', borderRadius: '8px', marginBottom: '20px', border: '1px solid #a78bfa' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #334155', paddingBottom: '15px', marginBottom: '20px' }}>
@@ -1155,17 +1165,14 @@ function App() {
                                     <h3 style={{ margin: '0 0 5px 0', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', paddingTop: contest.restricted_club ? '10px' : '0' }}>
                                       {contest.title}
                                       
-                                      {/* ÚJ: ADMIN/LEADER FUNKCIÓK */}
                                       {canManageContest && (
                                         <>
                                           <button onClick={() => loadStats(contest.id)} style={{ background: 'transparent', border: '1px solid #38bdf8', color: '#38bdf8', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', cursor: 'pointer' }}>📊 Nevezők</button>
                                           
-                                          {/* GOMB A ZSŰRI PROGRESSHEZ */}
                                           {contestJury.length > 0 && (
                                             <button onClick={() => loadJuryProgress(contest.id)} style={{ background: 'transparent', border: '1px solid #a78bfa', color: '#a78bfa', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', cursor: 'pointer' }}>📈 Zsűrizés állása</button>
                                           )}
 
-                                          {/* Csak Főadmin funkciók */}
                                           {user.email === ADMIN_EMAIL && activeTab === 'admin_contests' && (
                                             <>
                                               <button onClick={() => startEdit(contest)} style={{ background: 'transparent', border: '1px solid #f59e0b', color: '#f59e0b', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', cursor: 'pointer' }}>Szerkesztés</button>
@@ -1175,12 +1182,18 @@ function App() {
                                           )}
                                         </>
                                       )}
-                                      {isEnded && <button onClick={() => loadResults(contest.id)} style={{ background: '#10b981', border: 'none', color: 'white', fontSize: '0.7rem', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer' }}>🏆 Eredmények</button>}
+                                      
+                                      {/* ÚJ: Eredmények gomb feltételei */}
+                                      {isEnded && contest.entry_count > 0 && (canManageContest || isJudgingComplete) && (
+                                        <button onClick={() => loadResults(contest.id)} style={{ background: '#10b981', border: 'none', color: 'white', fontSize: '0.7rem', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer' }}>🏆 Eredmények</button>
+                                      )}
                                     </h3>
                                     <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: '0 0 15px 0', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>{contest.description}</p>
                                   </div>
-                                  <span style={{ padding: '6px 12px', borderRadius: '100px', fontSize: '0.8rem', background: isActive ? '#10b98120' : isEnded ? '#ef444420' : '#f59e0b20', color: isActive ? '#10b981' : isEnded ? '#ef4444' : '#f59e0b', fontWeight: 'bold' }}>
-                                    {isActive ? 'Aktív Pályázat' : isEnded ? 'Lezárult' : 'Hamarosan indul'}
+                                  
+                                  {/* ÚJ: Frissített Badge */}
+                                  <span style={{ padding: '6px 12px', borderRadius: '100px', fontSize: '0.8rem', background: badgeBg, color: badgeColor, fontWeight: 'bold' }}>
+                                    {badgeText}
                                   </span>
                                 </div>
                                 <p style={{fontSize: '0.85rem', color: '#94a3b8', margin: '0 0 15px 0'}}>📅 {start.getFullYear() > 1970 ? `${start.toLocaleDateString()} - ${end.toLocaleDateString()}` : 'Nincs dátum megadva'}</p>
