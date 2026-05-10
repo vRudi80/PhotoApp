@@ -62,6 +62,7 @@ function App() {
   const [hwTopic, setHwTopic] = useState('');
   const [hwDesc, setHwDesc] = useState('');
   const [hwDeadline, setHwDeadline] = useState('');
+  const [hwMaxImages, setHwMaxImages] = useState<number>(4); // ÚJ ÁLLAPOT
   
   const [activeUploadHw, setActiveUploadHw] = useState<number | null>(null);
   const [hwUploadFile, setHwUploadFile] = useState<File | null>(null);
@@ -219,9 +220,10 @@ function App() {
   const saveAttendance = async () => { if (!attendanceMeetId) return; const res = await fetch(`${BACKEND_URL}/api/attendance/${attendanceMeetId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ emails: attendanceList }) }); if (res.ok) { alert("Jelenléti ív mentve!"); setAttendanceMeetId(null); } };
   const getYouTubeEmbed = (url: string) => { const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^&?]+)/); return match ? `https://www.youtube.com/embed/${match[1]}` : url; };
 
-  const clearHwForm = () => { setEditHwId(null); setHwClubId(''); setHwTopic(''); setHwDesc(''); setHwDeadline(''); };
+  // --- FRISSÍTETT HÁZI FELADAT LOGIKA ---
+  const clearHwForm = () => { setEditHwId(null); setHwClubId(''); setHwTopic(''); setHwDesc(''); setHwDeadline(''); setHwMaxImages(4); };
   const startEditHw = (h: any) => {
-    setEditHwId(h.id); setHwClubId(h.club_id.toString()); setHwTopic(h.topic); setHwDesc(h.description || '');
+    setEditHwId(h.id); setHwClubId(h.club_id.toString()); setHwTopic(h.topic); setHwDesc(h.description || ''); setHwMaxImages(h.max_images || 4);
     const formatDate = (dateStr: string) => { try { const d = new Date(dateStr); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0,16); } catch (e) { return ''; } };
     setHwDeadline(formatDate(h.deadline));
   };
@@ -232,7 +234,7 @@ function App() {
     try {
       const url = editHwId ? `${BACKEND_URL}/api/homeworks/${editHwId}` : `${BACKEND_URL}/api/homeworks`;
       const method = editHwId ? 'PUT' : 'POST';
-      const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clubId: finalClubId, topic: hwTopic, description: hwDesc, deadline: hwDeadline }) });
+      const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clubId: finalClubId, topic: hwTopic, description: hwDesc, deadline: hwDeadline, maxImages: hwMaxImages }) });
       if (res.ok) { alert(editHwId ? "Házi feladat frissítve!" : "Házi feladat létrehozva!"); clearHwForm(); fetchData(); } else alert("Hiba történt!");
     } catch (e) { alert("Hálózati hiba!"); }
   };
@@ -617,6 +619,7 @@ function App() {
               </div>
             )}
 
+            {/* --- HÁZI FELADATOK ADMIN --- */}
             {activeTab === 'admin_homeworks' && (user.email === ADMIN_EMAIL || isLeader) && (
               <div>
                 <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', color: '#f59e0b' }}>📝 Házi Feladatok Kezelése</h2>
@@ -646,6 +649,11 @@ function App() {
                       <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Feltöltési Határidő</label>
                       <input type="datetime-local" value={hwDeadline} onChange={e => setHwDeadline(e.target.value)} style={inputStyle} />
                     </div>
+                    {/* ÚJ: MAX KÉPEK SZÁMA */}
+                    <div style={{flex: 1}}>
+                      <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Max. kép / fő</label>
+                      <input type="number" min="1" value={hwMaxImages} onChange={e => setHwMaxImages(Number(e.target.value))} style={inputStyle} />
+                    </div>
                   </div>
 
                   <input placeholder="Házi feladat Témája (pl.: Őszi színek, Minimál)" value={hwTopic} onChange={e => setHwTopic(e.target.value)} style={inputStyle} />
@@ -666,7 +674,7 @@ function App() {
                         <div>
                           <div style={{ fontWeight: 'bold', color: '#38bdf8' }}>{h.topic}</div>
                           <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>
-                            Klub: {h.club_name} | Határidő: {new Date(h.deadline).toLocaleString()} 
+                            Klub: {h.club_name} | Határidő: {new Date(h.deadline).toLocaleString()} | Max: {h.max_images || 4} kép
                             <span style={{ color: isPast ? '#ef4444' : '#10b981', fontWeight: 'bold', marginLeft: '10px' }}>
                               ({isPast ? 'Lezárult' : 'Aktív'})
                             </span>
@@ -682,6 +690,7 @@ function App() {
                 </div>
               </div>
             )}
+
 
             {/* --- KLUBESTEK (FELHASZNÁLÓI NÉZET) --- */}
             {activeTab === 'club_nights' && (
@@ -785,7 +794,7 @@ function App() {
               </div>
             )}
 
-            {/* --- HÁZI FELADATOK (FELHASZNÁLÓI ÉS VEZETŐI NÉZET) --- */}
+            {/* --- HÁZI FELADATOK (FELHASZNÁLÓI NÉZET) --- */}
             {activeTab === 'club_homeworks' && (
               <div>
                 {!currentDbUser?.club_name ? (
@@ -807,6 +816,9 @@ function App() {
                         const isPast = new Date() > new Date(hw.deadline);
                         const myEntries = myHomeworkEntries.filter(e => e.homework_id === hw.id);
                         const hwEntriesForAll = clubHomeworkEntries.filter(e => e.homework_id === hw.id);
+                        
+                        // Dinamikus max kép limit
+                        const maxImages = hw.max_images || 4;
 
                         const uploaderStats = hwEntriesForAll.reduce((acc, curr) => {
                            if (!acc[curr.user_name]) acc[curr.user_name] = 0;
@@ -826,7 +838,7 @@ function App() {
                                 {isPast ? 'Lezárult' : 'Aktív Feltöltés'}
                               </span>
                             </div>
-                            <p style={{fontSize: '0.85rem', color: '#f59e0b', margin: '0 0 15px 0', fontWeight: 'bold'}}>⏰ Határidő: {new Date(hw.deadline).toLocaleString()}</p>
+                            <p style={{fontSize: '0.85rem', color: '#f59e0b', margin: '0 0 15px 0', fontWeight: 'bold'}}>⏰ Határidő: {new Date(hw.deadline).toLocaleString()} | Maximum {maxImages} kép</p>
 
                             {isLeader && (
                               <div style={{ marginTop: '15px', marginBottom: '20px', padding: '15px', background: '#0f172a', borderRadius: '8px', border: '1px solid #334155' }}>
@@ -837,7 +849,7 @@ function App() {
                                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                                     {Object.entries(uploaderStats).map(([name, count]) => (
                                       <span key={name} style={{ background: '#1e293b', border: '1px solid #475569', color: '#cbd5e1', padding: '6px 12px', borderRadius: '100px', fontSize: '0.85rem' }}>
-                                        {name}: <strong style={{ color: count >= 4 ? '#10b981' : '#f8fafc' }}>{count}/4</strong>
+                                        {name}: <strong style={{ color: count >= maxImages ? '#10b981' : '#f8fafc' }}>{count}/{maxImages}</strong>
                                       </span>
                                     ))}
                                   </div>
@@ -845,12 +857,12 @@ function App() {
                               </div>
                             )}
 
-                            {!isPast && activeUploadHw !== hw.id && myEntries.length < 4 && (
-                              <button onClick={() => { setActiveUploadHw(hw.id); setHwUploadTitle(''); setHwUploadPreview(null); setHwUploadFile(null); }} style={{ background: '#38bdf8', color: '#0f172a', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', marginBottom: '15px' }}>+ Kép Feltöltése ({myEntries.length}/4)</button>
+                            {!isPast && activeUploadHw !== hw.id && myEntries.length < maxImages && (
+                              <button onClick={() => { setActiveUploadHw(hw.id); setHwUploadTitle(''); setHwUploadPreview(null); setHwUploadFile(null); }} style={{ background: '#38bdf8', color: '#0f172a', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', marginBottom: '15px' }}>+ Kép Feltöltése ({myEntries.length}/{maxImages})</button>
                             )}
                             
-                            {!isPast && myEntries.length >= 4 && (
-                              <div style={{ padding: '10px', background: '#10b98120', color: '#10b981', borderRadius: '8px', marginBottom: '15px', fontWeight: 'bold' }}>🎉 Elérted a maximális 4 feltöltést!</div>
+                            {!isPast && myEntries.length >= maxImages && (
+                              <div style={{ padding: '10px', background: '#10b98120', color: '#10b981', borderRadius: '8px', marginBottom: '15px', fontWeight: 'bold' }}>🎉 Elérted a maximális {maxImages} feltöltést!</div>
                             )}
 
                             {activeUploadHw === hw.id && (
@@ -924,7 +936,6 @@ function App() {
             {/* --- PÁLYÁZATOK (Klub, Nyílt, Admin) --- */}
             {['contests_open_active', 'contests_club_active', 'contests_closed', 'admin_contests'].includes(activeTab) && (
               <>
-                {/* HIBAÜZENET: Ha valaki klubos pályázatot keres, de nincs klubja */}
                 {activeTab === 'contests_club_active' && !currentDbUser?.club_name && (
                    <div style={{ textAlign: 'center', padding: '4rem 2rem', background: '#1e293b', borderRadius: '16px', border: '1px solid #334155' }}>
                      <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🔒</div>
@@ -935,7 +946,6 @@ function App() {
 
                 {!(activeTab === 'contests_club_active' && !currentDbUser?.club_name) && (
                   <>
-                    {/* ÚJ PÁLYÁZAT LÉTREHOZÁSA (ADMIN) */}
                     {activeTab === 'admin_contests' && user.email === ADMIN_EMAIL && (
                       <div style={{ backgroundColor: '#1e293b', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', border: '1px solid #f59e0b' }}>
                         <h3 style={{ marginTop: 0, color: '#f59e0b' }}>⚙️ Új Pályázat Létrehozása</h3>
@@ -977,11 +987,9 @@ function App() {
 
                         const canManageContest = user.email === ADMIN_EMAIL || (isLeader && contest.restricted_club === currentDbUser?.club_name);
 
-                        // --- ÚJ: Ellenőrizzük, hogy a zsűrizés befejeződött-e ---
                         const expectedVotes = (contest.entry_count || 0) * (contest.jury_count || 0);
                         const isJudgingComplete = contest.entry_count > 0 ? (expectedVotes > 0 && contest.vote_count >= expectedVotes) : true;
                         
-                        // Badge dinamikus szöveg és szín
                         const badgeText = isActive ? 'Aktív Pályázat' : isEnded ? (isJudgingComplete ? 'Lezárult' : 'Zsűrizés alatt') : 'Hamarosan indul';
                         const badgeColor = isActive ? '#10b981' : isEnded ? (isJudgingComplete ? '#ef4444' : '#a78bfa') : '#f59e0b';
                         const badgeBg = isActive ? '#10b98120' : isEnded ? (isJudgingComplete ? '#ef444420' : '#a78bfa20') : '#f59e0b20';
@@ -1183,7 +1191,6 @@ function App() {
                                         </>
                                       )}
                                       
-                                      {/* ÚJ: Eredmények gomb feltételei */}
                                       {isEnded && contest.entry_count > 0 && (canManageContest || isJudgingComplete) && (
                                         <button onClick={() => loadResults(contest.id)} style={{ background: '#10b981', border: 'none', color: 'white', fontSize: '0.7rem', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer' }}>🏆 Eredmények</button>
                                       )}
@@ -1191,7 +1198,6 @@ function App() {
                                     <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: '0 0 15px 0', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>{contest.description}</p>
                                   </div>
                                   
-                                  {/* ÚJ: Frissített Badge */}
                                   <span style={{ padding: '6px 12px', borderRadius: '100px', fontSize: '0.8rem', background: badgeBg, color: badgeColor, fontWeight: 'bold' }}>
                                     {badgeText}
                                   </span>
