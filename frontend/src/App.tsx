@@ -62,7 +62,7 @@ function App() {
   const [hwTopic, setHwTopic] = useState('');
   const [hwDesc, setHwDesc] = useState('');
   const [hwDeadline, setHwDeadline] = useState('');
-  const [hwMaxImages, setHwMaxImages] = useState<number>(4); // ÚJ ÁLLAPOT
+  const [hwMaxImages, setHwMaxImages] = useState<number>(4);
   
   const [activeUploadHw, setActiveUploadHw] = useState<number | null>(null);
   const [hwUploadFile, setHwUploadFile] = useState<File | null>(null);
@@ -220,7 +220,6 @@ function App() {
   const saveAttendance = async () => { if (!attendanceMeetId) return; const res = await fetch(`${BACKEND_URL}/api/attendance/${attendanceMeetId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ emails: attendanceList }) }); if (res.ok) { alert("Jelenléti ív mentve!"); setAttendanceMeetId(null); } };
   const getYouTubeEmbed = (url: string) => { const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^&?]+)/); return match ? `https://www.youtube.com/embed/${match[1]}` : url; };
 
-  // --- FRISSÍTETT HÁZI FELADAT LOGIKA ---
   const clearHwForm = () => { setEditHwId(null); setHwClubId(''); setHwTopic(''); setHwDesc(''); setHwDeadline(''); setHwMaxImages(4); };
   const startEditHw = (h: any) => {
     setEditHwId(h.id); setHwClubId(h.club_id.toString()); setHwTopic(h.topic); setHwDesc(h.description || ''); setHwMaxImages(h.max_images || 4);
@@ -321,11 +320,28 @@ function App() {
 
   return (
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+      {/* CSS A MOBILOS RESZPONSZIVITÁSHOZ ÉS A GÖRGETŐSÁVHOZ */}
       <style>{`
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.5); border-radius: 8px; }
         ::-webkit-scrollbar-thumb { background: #334155; border-radius: 8px; }
         ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+        .app-header { display: flex; justify-content: space-between; align-items: center; padding: 1.2rem 2rem; background-color: #1e293b; border-bottom: 1px solid #334155; position: sticky; top: 0; z-index: 30; }
+        .nav-group { display: flex; gap: 20px; align-items: center; }
+        .user-group { display: flex; align-items: center; gap: 15px; }
+        .main-container { padding: 2rem; max-width: 900px; margin: 0 auto; }
+        .contest-header { display: flex; justify-content: space-between; align-items: flex-start; }
+        .contest-badge { padding: 6px 12px; border-radius: 100px; font-size: 0.8rem; font-weight: bold; white-space: nowrap; }
+
+        @media (max-width: 768px) {
+          .app-header { flex-direction: column; align-items: flex-start; gap: 15px; padding: 1rem; }
+          .nav-group { flex-wrap: wrap; gap: 10px; width: 100%; }
+          .user-group { width: 100%; justify-content: space-between; border-top: 1px solid #334155; padding-top: 12px; }
+          .main-container { padding: 1rem; }
+          .contest-header { flex-direction: column; gap: 15px; }
+          .contest-badge { align-self: flex-start; }
+        }
       `}</style>
 
       {fullscreenImage && (
@@ -392,10 +408,10 @@ function App() {
       ) : (
         <div style={{ minHeight: '100vh', backgroundColor: '#0f172a', color: '#f8fafc', fontFamily: 'Inter, sans-serif' }}>
           
-          <header style={{ padding: '1.2rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#1e293b', borderBottom: '1px solid #334155', position: 'sticky', top: 0, zIndex: 30 }}>
+          <header className="app-header">
             {dropdownOpen && <div onClick={() => setDropdownOpen(null)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />}
 
-            <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+            <div className="nav-group">
               <div style={{ position: 'relative', zIndex: 50 }}>
                 <button onClick={() => setDropdownOpen(dropdownOpen === 'contests' ? null : 'contests')} style={{...navBtnStyle, background: dropdownOpen === 'contests' || activeTab.startsWith('contests_') ? '#334155' : 'transparent'}}>
                   Pályázatok ▾
@@ -439,8 +455,8 @@ function App() {
               )}
             </div> 
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-              <span style={{ fontWeight: 500, color: '#94a3b8' }}>
+            <div className="user-group">
+              <span style={{ fontWeight: 500, color: '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '200px' }}>
                 {user.name} 
                 {isLeader && <span style={{fontSize:'0.7rem', background:'#f59e0b20', color:'#f59e0b', padding:'2px 6px', borderRadius:'4px', marginLeft:'8px'}}>Vezetőség</span>}
               </span>
@@ -448,13 +464,13 @@ function App() {
             </div>
           </header>
 
-          <main style={{ padding: '2rem', maxWidth: '900px', margin: '0 auto' }}>
+          <main className="main-container">
             
             {activeTab === 'admin_clubs' && user.email === ADMIN_EMAIL && (
                <div>
                  <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', color: '#f59e0b' }}>🏷️ Fotóklubok Kezelése</h2>
-                 <div style={{ background: '#1e293b', padding: '20px', borderRadius: '12px', marginBottom: '20px', border: '1px solid #334155', display: 'flex', gap: '10px' }}>
-                    <input placeholder="Új fotóklub neve..." value={newClubName} onChange={e => setNewClubName(e.target.value)} style={{...inputStyle, marginBottom: 0}} />
+                 <div style={{ background: '#1e293b', padding: '20px', borderRadius: '12px', marginBottom: '20px', border: '1px solid #334155', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                    <input placeholder="Új fotóklub neve..." value={newClubName} onChange={e => setNewClubName(e.target.value)} style={{...inputStyle, marginBottom: 0, flex: 1, minWidth: '200px'}} />
                     <button onClick={handleAddClub} style={{ background: '#10b981', color: '#0f172a', border: 'none', padding: '10px 20px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Hozzáadás</button>
                  </div>
                  <div style={{ background: '#1e293b', borderRadius: '12px', overflow: 'hidden', border: '1px solid #334155' }}>
@@ -473,7 +489,7 @@ function App() {
                  <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', color: '#f59e0b' }}>👥 Felhasználók és Szerepkörök</h2>
                  <div style={{ background: '#1e293b', borderRadius: '12px', overflow: 'hidden', border: '1px solid #334155' }}>
                    {allUsers.map((u, index) => (
-                     <div key={u.email} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px', borderBottom: index < allUsers.length - 1 ? '1px solid #334155' : 'none', background: index % 2 === 0 ? '#0f172a' : 'transparent' }}>
+                     <div key={u.email} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px', borderBottom: index < allUsers.length - 1 ? '1px solid #334155' : 'none', background: index % 2 === 0 ? '#0f172a' : 'transparent', flexWrap: 'wrap', gap: '15px' }}>
                        <div>
                          <div style={{ fontWeight: 'bold' }}>{u.name}</div>
                          <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>{u.email}</div>
@@ -481,7 +497,7 @@ function App() {
                            🕒 Utolsó belépés: {u.last_login ? new Date(u.last_login).toLocaleString('hu-HU', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Ismeretlen'}
                          </div>
                        </div>
-                       <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                       <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
                          <select value={userClubEdits[u.email] !== undefined ? userClubEdits[u.email] : (u.club_name || '')} onChange={e => setUserClubEdits({...userClubEdits, [u.email]: e.target.value})} style={{ padding: '8px', borderRadius: '6px', background: '#1e293b', border: '1px solid #475569', color: 'white', width: '200px', margin: 0 }}>
                            <option value="">-- Nincs klubja --</option>
                            {clubs.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
@@ -532,14 +548,14 @@ function App() {
                 ) : (
                   <>
                     <div style={{ backgroundColor: '#1e293b', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', border: '1px solid #f59e0b' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', flexWrap: 'wrap', gap: '10px' }}>
                         <h3 style={{ margin: 0, color: '#f59e0b' }}>{editMeetId ? '✏️ Klubest Szerkesztése' : '➕ Új Klubest Meghirdetése'}</h3>
                         {editMeetId && <button onClick={clearMeetingForm} style={{ background: 'transparent', color: '#ef4444', border: 'none', cursor: 'pointer' }}>Mégse / Új létrehozása</button>}
                       </div>
                       
-                      <div style={{ display: 'flex', gap: '10px' }}>
+                      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                         {user.email === ADMIN_EMAIL ? (
-                          <div style={{flex: 2}}>
+                          <div style={{flex: '1 1 200px'}}>
                             <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Melyik klubnak?</label>
                             <select value={meetClubId} onChange={e => setMeetClubId(e.target.value)} style={inputStyle}>
                               <option value="">-- Válassz Klubot --</option>
@@ -547,17 +563,17 @@ function App() {
                             </select>
                           </div>
                         ) : (
-                          <div style={{flex: 2}}>
+                          <div style={{flex: '1 1 200px'}}>
                             <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Klub</label>
                             <div style={{...inputStyle, background: '#334155', color: '#94a3b8'}}>{currentDbUser?.club_name}</div>
                           </div>
                         )}
                         
-                        <div style={{flex: 1}}>
+                        <div style={{flex: '1 1 120px'}}>
                           <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Dátum</label>
                           <input type="date" value={meetDate} onChange={e => setMeetDate(e.target.value)} style={inputStyle} />
                         </div>
-                        <div style={{flex: 1}}>
+                        <div style={{flex: '1 1 120px'}}>
                           <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Időpont</label>
                           <input type="time" value={meetTime} onChange={e => setMeetTime(e.target.value)} style={inputStyle} />
                         </div>
@@ -566,15 +582,15 @@ function App() {
                       <input placeholder="Klubest Témája (pl.: Portréfotózás alapjai)" value={meetTopic} onChange={e => setMeetTopic(e.target.value)} style={inputStyle} />
                       <textarea placeholder="Részletes leírás, program..." value={meetDesc} onChange={e => setMeetDesc(e.target.value)} style={{...inputStyle, minHeight: '80px'}} />
                       
-                      <div style={{ display: 'flex', gap: '10px' }}>
-                        <div style={{flex: 1}}>
+                      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                        <div style={{flex: '1 1 150px'}}>
                           <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Helyszín típusa</label>
                           <select value={meetLocType} onChange={e => setMeetLocType(e.target.value as any)} style={inputStyle}>
                             <option value="physical">Fizikai Helyszín</option>
                             <option value="online">Online Link</option>
                           </select>
                         </div>
-                        <div style={{flex: 2}}>
+                        <div style={{flex: '2 1 200px'}}>
                           <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Cím vagy Csatlakozási Link</label>
                           <input placeholder={meetLocType === 'online' ? "https://meet..." : "1051 Budapest..."} value={meetLocDetails} onChange={e => setMeetLocDetails(e.target.value)} style={inputStyle} />
                         </div>
@@ -598,7 +614,7 @@ function App() {
                     <div style={{ background: '#1e293b', borderRadius: '12px', overflow: 'hidden', border: '1px solid #334155' }}>
                       {adminMeetings.length === 0 ? <div style={{padding: '20px', color: '#94a3b8', textAlign: 'center'}}>Nincs megjeleníthető klubest.</div> : null}
                       {adminMeetings.map((m, i) => (
-                        <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px', borderBottom: i < adminMeetings.length - 1 ? '1px solid #334155' : 'none', background: i % 2 === 0 ? '#0f172a' : 'transparent' }}>
+                        <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px', borderBottom: i < adminMeetings.length - 1 ? '1px solid #334155' : 'none', background: i % 2 === 0 ? '#0f172a' : 'transparent', flexWrap: 'wrap', gap: '10px' }}>
                           <div>
                             <div style={{ fontWeight: 'bold', color: '#38bdf8' }}>{new Date(m.meeting_date).toLocaleDateString()} {m.meeting_time.substring(0,5)} - {m.topic}</div>
                             <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>
@@ -619,7 +635,6 @@ function App() {
               </div>
             )}
 
-            {/* --- HÁZI FELADATOK ADMIN --- */}
             {activeTab === 'admin_homeworks' && (user.email === ADMIN_EMAIL || isLeader) && (
               <div>
                 <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', color: '#f59e0b' }}>📝 Házi Feladatok Kezelése</h2>
@@ -630,9 +645,9 @@ function App() {
                     {editHwId && <button onClick={clearHwForm} style={{ background: 'transparent', color: '#ef4444', border: 'none', cursor: 'pointer' }}>Mégse / Új létrehozása</button>}
                   </div>
                   
-                  <div style={{ display: 'flex', gap: '10px' }}>
+                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                     {user.email === ADMIN_EMAIL ? (
-                      <div style={{flex: 1}}>
+                      <div style={{flex: '1 1 200px'}}>
                         <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Melyik klubnak?</label>
                         <select value={hwClubId} onChange={e => setHwClubId(e.target.value)} style={inputStyle}>
                           <option value="">-- Válassz Klubot --</option>
@@ -640,17 +655,16 @@ function App() {
                         </select>
                       </div>
                     ) : (
-                      <div style={{flex: 1}}>
+                      <div style={{flex: '1 1 200px'}}>
                         <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Klub</label>
                         <div style={{...inputStyle, background: '#334155', color: '#94a3b8'}}>{currentDbUser?.club_name}</div>
                       </div>
                     )}
-                    <div style={{flex: 1}}>
+                    <div style={{flex: '1 1 200px'}}>
                       <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Feltöltési Határidő</label>
                       <input type="datetime-local" value={hwDeadline} onChange={e => setHwDeadline(e.target.value)} style={inputStyle} />
                     </div>
-                    {/* ÚJ: MAX KÉPEK SZÁMA */}
-                    <div style={{flex: 1}}>
+                    <div style={{flex: '1 1 100px'}}>
                       <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Max. kép / fő</label>
                       <input type="number" min="1" value={hwMaxImages} onChange={e => setHwMaxImages(Number(e.target.value))} style={inputStyle} />
                     </div>
@@ -670,7 +684,7 @@ function App() {
                   {adminHomeworks.map((h, i) => {
                     const isPast = new Date() > new Date(h.deadline);
                     return (
-                      <div key={h.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px', borderBottom: i < adminHomeworks.length - 1 ? '1px solid #334155' : 'none', background: i % 2 === 0 ? '#0f172a' : 'transparent' }}>
+                      <div key={h.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px', borderBottom: i < adminHomeworks.length - 1 ? '1px solid #334155' : 'none', background: i % 2 === 0 ? '#0f172a' : 'transparent', flexWrap: 'wrap', gap: '10px' }}>
                         <div>
                           <div style={{ fontWeight: 'bold', color: '#38bdf8' }}>{h.topic}</div>
                           <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>
@@ -692,7 +706,6 @@ function App() {
             )}
 
 
-            {/* --- KLUBESTEK (FELHASZNÁLÓI NÉZET) --- */}
             {activeTab === 'club_nights' && (
               <div>
                 {!currentDbUser?.club_name ? (
@@ -720,7 +733,7 @@ function App() {
                       <p style={{ color: '#94a3b8', fontSize: '1.1rem' }}>Nincs a keresésnek megfelelő klubest.</p>
                     ) : (
                       <div style={{ maxHeight: '70vh', overflowY: 'auto', paddingRight: '10px' }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
                           {searchedMeetings.map(meet => {
                             const meetDateObj = new Date(meet.meeting_date);
                             const isPast = meetDateObj < new Date(new Date().setHours(0,0,0,0));
@@ -735,7 +748,7 @@ function App() {
                                     <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #1e293b, #0f172a)', color: '#334155', fontSize: '4rem' }}>📷</div>
                                   )}
                                   
-                                  <div style={{ position: 'absolute', top: '15px', right: '15px', background: 'rgba(15, 23, 42, 0.85)', backdropFilter: 'blur(5px)', padding: '6px 10px', borderRadius: '8px', color: isPast ? '#94a3b8' : '#38bdf8', fontWeight: 'bold', border: `1px solid ${isPast ? '#334155' : '#38bdf850'}`, textAlign: 'center', lineHeight: '1.1', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                  <div className="contest-badge" style={{ position: 'absolute', top: '15px', right: '15px', background: 'rgba(15, 23, 42, 0.85)', backdropFilter: 'blur(5px)', padding: '6px 10px', color: isPast ? '#94a3b8' : '#38bdf8', border: `1px solid ${isPast ? '#334155' : '#38bdf850'}`, textAlign: 'center', lineHeight: '1.1', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                                     <span style={{ fontSize: '0.65rem', opacity: 0.7, letterSpacing: '1px' }}>{meetDateObj.getFullYear()}</span>
                                     <span style={{ fontSize: '0.85rem', textTransform: 'uppercase', marginTop: '2px' }}>{meetDateObj.toLocaleDateString('hu-HU', { month: 'short' }).replace('.', '')}</span>
                                     <span style={{ fontSize: '1.6rem', marginTop: '2px' }}>{meetDateObj.getDate()}</span>
@@ -794,7 +807,6 @@ function App() {
               </div>
             )}
 
-            {/* --- HÁZI FELADATOK (FELHASZNÁLÓI NÉZET) --- */}
             {activeTab === 'club_homeworks' && (
               <div>
                 {!currentDbUser?.club_name ? (
@@ -817,7 +829,6 @@ function App() {
                         const myEntries = myHomeworkEntries.filter(e => e.homework_id === hw.id);
                         const hwEntriesForAll = clubHomeworkEntries.filter(e => e.homework_id === hw.id);
                         
-                        // Dinamikus max kép limit
                         const maxImages = hw.max_images || 4;
 
                         const uploaderStats = hwEntriesForAll.reduce((acc, curr) => {
@@ -829,12 +840,12 @@ function App() {
                         return (
                           <div key={hw.id} style={{ backgroundColor: '#1e293b', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', border: isPast ? '1px solid #475569' : '1px solid #10b981', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', position: 'relative' }}>
                             
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                            <div className="contest-header">
                               <div>
                                 <h3 style={{ margin: '0 0 5px 0', fontSize: '1.5rem', color: isPast ? '#cbd5e1' : '#f8fafc' }}>{hw.topic}</h3>
                                 <p style={{ color: '#94a3b8', fontSize: '0.95rem', margin: '0 0 15px 0', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>{hw.description}</p>
                               </div>
-                              <span style={{ padding: '6px 12px', borderRadius: '100px', fontSize: '0.8rem', background: isPast ? '#ef444420' : '#10b98120', color: isPast ? '#ef4444' : '#10b981', fontWeight: 'bold' }}>
+                              <span className="contest-badge" style={{ background: isPast ? '#ef444420' : '#10b98120', color: isPast ? '#ef4444' : '#10b981' }}>
                                 {isPast ? 'Lezárult' : 'Aktív Feltöltés'}
                               </span>
                             </div>
@@ -881,7 +892,7 @@ function App() {
                             {myEntries.length > 0 && (
                               <div style={{ marginTop: '20px', borderTop: '1px solid #334155', paddingTop: '20px' }}>
                                 <h4 style={{margin: '0 0 15px 0', fontSize: '1.1rem', color: '#cbd5e1'}}>Saját beküldött képeid</h4>
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '15px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '15px' }}>
                                   {myEntries.map(entry => {
                                     const imageUrl = entry.drive_file_id ? `https://lh3.googleusercontent.com/d/${entry.drive_file_id}` : entry.file_url;
                                     return (
@@ -906,7 +917,7 @@ function App() {
                                 {hwEntriesForAll.length === 0 ? (
                                   <p style={{ color: '#94a3b8' }}>Még senki nem töltött fel képet ehhez a feladathoz.</p>
                                 ) : (
-                                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '15px' }}>
+                                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '15px' }}>
                                     {hwEntriesForAll.map(entry => {
                                       const imageUrl = entry.drive_file_id ? `https://lh3.googleusercontent.com/d/${entry.drive_file_id}` : entry.file_url;
                                       return (
@@ -933,7 +944,7 @@ function App() {
               </div>
             )}
 
-            {/* --- PÁLYÁZATOK (Klub, Nyílt, Admin) --- */}
+            {/* --- PÁLYÁZATOK --- */}
             {['contests_open_active', 'contests_club_active', 'contests_closed', 'admin_contests'].includes(activeTab) && (
               <>
                 {activeTab === 'contests_club_active' && !currentDbUser?.club_name && (
@@ -951,7 +962,10 @@ function App() {
                         <h3 style={{ marginTop: 0, color: '#f59e0b' }}>⚙️ Új Pályázat Létrehozása</h3>
                         <input placeholder="Pályázat címe" value={newTitle} onChange={e => setNewTitle(e.target.value)} style={inputStyle} />
                         <textarea placeholder="Leírás" value={newDesc} onChange={e => setNewDesc(e.target.value)} style={{...inputStyle, minHeight: '60px'}} />
-                        <div style={{display: 'flex', gap: '10px'}}><div style={{flex: 1}}><label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Kezdés</label><input type="datetime-local" value={newStart} onChange={e => setNewStart(e.target.value)} style={inputStyle} /></div><div style={{flex: 1}}><label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Befejezés</label><input type="datetime-local" value={newEnd} onChange={e => setNewEnd(e.target.value)} style={inputStyle} /></div></div>
+                        <div style={{display: 'flex', gap: '10px', flexWrap: 'wrap'}}>
+                          <div style={{flex: '1 1 200px'}}><label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Kezdés</label><input type="datetime-local" value={newStart} onChange={e => setNewStart(e.target.value)} style={inputStyle} /></div>
+                          <div style={{flex: '1 1 200px'}}><label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Befejezés</label><input type="datetime-local" value={newEnd} onChange={e => setNewEnd(e.target.value)} style={inputStyle} /></div>
+                        </div>
                         <input placeholder="Kategóriák (pl: Természet, Portré) - vesszővel elválasztva" value={newCats} onChange={e => setNewCats(e.target.value)} style={inputStyle} />
                         <select value={newRestrictedClub} onChange={e => setNewRestrictedClub(e.target.value)} style={{...inputStyle, border: '1px solid #f59e0b'}}>
                           <option value="">🔓 Nyilvános pályázat (Bárki nevezhet)</option>
@@ -986,7 +1000,6 @@ function App() {
                         myContestEntries.forEach(entry => { if (categoryCounts[entry.category] !== undefined) categoryCounts[entry.category]++; });
 
                         const canManageContest = user.email === ADMIN_EMAIL || (isLeader && contest.restricted_club === currentDbUser?.club_name);
-
                         const expectedVotes = (contest.entry_count || 0) * (contest.jury_count || 0);
                         const isJudgingComplete = contest.entry_count > 0 ? (expectedVotes > 0 && contest.vote_count >= expectedVotes) : true;
                         
@@ -998,7 +1011,7 @@ function App() {
                           <div key={contest.id} style={{ backgroundColor: '#1e293b', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', border: `1px solid ${badgeColor}`, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', position: 'relative' }}>
                             
                             {contest.restricted_club && (
-                              <div style={{ position: 'absolute', top: '-12px', left: '20px', background: '#f59e0b', color: '#0f172a', padding: '4px 12px', borderRadius: '100px', fontSize: '0.8rem', fontWeight: 'bold', boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
+                              <div className="contest-badge" style={{ position: 'absolute', top: '-12px', left: '20px', background: '#f59e0b', color: '#0f172a', boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
                                 🔒 Zártkörű: {contest.restricted_club}
                               </div>
                             )}
@@ -1045,7 +1058,7 @@ function App() {
                             ) : manageJuryContestId === contest.id ? (
                                <div style={{ background: '#0f172a', padding: '15px', borderRadius: '8px' }}>
                                   <h4 style={{marginTop: 0, color: '#a78bfa'}}>⚖️ Zsűri kezelése</h4>
-                                  <div style={{display: 'flex', gap: '10px', marginBottom: '15px'}}><select value={selectedJuryEmail} onChange={e => setSelectedJuryEmail(e.target.value)} style={{...inputStyle, marginBottom: 0}}><option value="">-- Válassz usert --</option>{allUsers.filter(u => !contestJury.some(j => j.user_email === u.email)).map(u => (<option key={u.email} value={u.email}>{u.name} ({u.email})</option>))}</select><button onClick={() => handleAddJury(contest.id)} style={{ background: '#8b5cf6', color: 'white', border: 'none', padding: '10px 15px', borderRadius: '6px', cursor: 'pointer' }}>Hozzáadás</button></div>
+                                  <div style={{display: 'flex', gap: '10px', marginBottom: '15px', flexWrap: 'wrap'}}><select value={selectedJuryEmail} onChange={e => setSelectedJuryEmail(e.target.value)} style={{...inputStyle, marginBottom: 0, flex: '1 1 200px'}}><option value="">-- Válassz usert --</option>{allUsers.filter(u => !contestJury.some(j => j.user_email === u.email)).map(u => (<option key={u.email} value={u.email}>{u.name} ({u.email})</option>))}</select><button onClick={() => handleAddJury(contest.id)} style={{ background: '#8b5cf6', color: 'white', border: 'none', padding: '10px 15px', borderRadius: '6px', cursor: 'pointer' }}>Hozzáadás</button></div>
                                   <ul style={{ padding: 0, listStyle: 'none' }}>{contestJury.map(jury => <li key={jury.user_email} style={{ display: 'flex', justifyContent: 'space-between', background: '#1e293b', padding: '10px', borderRadius: '6px', marginBottom: '5px' }}><span>{allUsers.find(u => u.email === jury.user_email)?.name || jury.user_email}</span><button onClick={() => handleRemoveJury(contest.id, jury.user_email)} style={{ background: 'transparent', color: '#ef4444', border: 'none', cursor: 'pointer' }}>Töröl</button></li>)}</ul>
                                   <button onClick={() => setManageJuryContestId(null)} style={{ marginTop: '10px', background: 'transparent', color: '#94a3b8', border: '1px solid #475569', padding: '5px 15px', borderRadius: '6px', cursor: 'pointer' }}>Vissza</button>
                                </div>
@@ -1084,9 +1097,9 @@ function App() {
                                 <h4 style={{marginTop: 0, color: '#f59e0b'}}>Pályázat Szerkesztése</h4>
                                 <input value={editTitle} onChange={e => setEditTitle(e.target.value)} style={inputStyle} />
                                 <textarea value={editDesc} onChange={e => setEditDesc(e.target.value)} style={{...inputStyle, minHeight: '60px'}} />
-                                <div style={{display: 'flex', gap: '10px'}}>
-                                  <div style={{flex: 1}}><label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Kezdés</label><input type="datetime-local" value={editStart} onChange={e => setEditStart(e.target.value)} style={inputStyle} /></div>
-                                  <div style={{flex: 1}}><label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Befejezés</label><input type="datetime-local" value={editEnd} onChange={e => setEditEnd(e.target.value)} style={inputStyle} /></div>
+                                <div style={{display: 'flex', gap: '10px', flexWrap: 'wrap'}}>
+                                  <div style={{flex: '1 1 200px'}}><label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Kezdés</label><input type="datetime-local" value={editStart} onChange={e => setEditStart(e.target.value)} style={inputStyle} /></div>
+                                  <div style={{flex: '1 1 200px'}}><label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Befejezés</label><input type="datetime-local" value={editEnd} onChange={e => setEditEnd(e.target.value)} style={inputStyle} /></div>
                                 </div>
                                 <input value={editCats} onChange={e => setEditCats(e.target.value)} style={inputStyle} />
                                 <select value={editRestrictedClub} onChange={e => setEditRestrictedClub(e.target.value)} style={{...inputStyle, border: '1px solid #f59e0b'}}>
@@ -1102,7 +1115,7 @@ function App() {
                               <div style={{ background: '#0f172a', padding: '30px', borderRadius: '12px', textAlign: 'center', border: '1px solid #334155' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid #1e293b', paddingBottom: '15px' }}>
                                    <h3 style={{ color: '#f59e0b', margin: 0, fontSize: '1.4rem' }}>🏅 Zsűrizés folyamatban</h3>
-                                   <span style={{ background: '#1e293b', padding: '6px 15px', borderRadius: '100px', fontSize: '0.9rem', color: '#94a3b8' }}>Hátralévő: {unvotedEntries.length} db</span>
+                                   <span className="contest-badge" style={{ background: '#1e293b', color: '#94a3b8' }}>Hátralévő: {unvotedEntries.length} db</span>
                                 </div>
                                 
                                 {unvotedEntries.length > 0 ? (
@@ -1168,19 +1181,25 @@ function App() {
                                </div>
                             ) : (
                               <>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                <div className="contest-header">
                                   <div>
-                                    <h3 style={{ margin: '0 0 5px 0', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', paddingTop: contest.restricted_club ? '10px' : '0' }}>
-                                      {contest.title}
+                                    <div className="contest-title-group">
+                                      <h3 style={{ margin: '0', display: 'flex', alignItems: 'center', flexWrap: 'wrap', paddingTop: contest.restricted_club ? '10px' : '0' }}>
+                                        {contest.title}
+                                      </h3>
                                       
+                                      <span className="contest-badge" style={{ background: badgeBg, color: badgeColor, marginLeft: '10px' }}>
+                                        {badgeText}
+                                      </span>
+                                    </div>
+
+                                    <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', marginTop: '10px' }}>
                                       {canManageContest && (
                                         <>
                                           <button onClick={() => loadStats(contest.id)} style={{ background: 'transparent', border: '1px solid #38bdf8', color: '#38bdf8', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', cursor: 'pointer' }}>📊 Nevezők</button>
-                                          
                                           {contestJury.length > 0 && (
                                             <button onClick={() => loadJuryProgress(contest.id)} style={{ background: 'transparent', border: '1px solid #a78bfa', color: '#a78bfa', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', cursor: 'pointer' }}>📈 Zsűrizés állása</button>
                                           )}
-
                                           {user.email === ADMIN_EMAIL && activeTab === 'admin_contests' && (
                                             <>
                                               <button onClick={() => startEdit(contest)} style={{ background: 'transparent', border: '1px solid #f59e0b', color: '#f59e0b', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', cursor: 'pointer' }}>Szerkesztés</button>
@@ -1190,17 +1209,13 @@ function App() {
                                           )}
                                         </>
                                       )}
-                                      
                                       {isEnded && contest.entry_count > 0 && (canManageContest || isJudgingComplete) && (
                                         <button onClick={() => loadResults(contest.id)} style={{ background: '#10b981', border: 'none', color: 'white', fontSize: '0.7rem', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer' }}>🏆 Eredmények</button>
                                       )}
-                                    </h3>
-                                    <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: '0 0 15px 0', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>{contest.description}</p>
+                                    </div>
+
+                                    <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: '10px 0 15px 0', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>{contest.description}</p>
                                   </div>
-                                  
-                                  <span style={{ padding: '6px 12px', borderRadius: '100px', fontSize: '0.8rem', background: badgeBg, color: badgeColor, fontWeight: 'bold' }}>
-                                    {badgeText}
-                                  </span>
                                 </div>
                                 <p style={{fontSize: '0.85rem', color: '#94a3b8', margin: '0 0 15px 0'}}>📅 {start.getFullYear() > 1970 ? `${start.toLocaleDateString()} - ${end.toLocaleDateString()}` : 'Nincs dátum megadva'}</p>
 
@@ -1211,7 +1226,7 @@ function App() {
                                 )}
 
                                 {isUserJury && (
-                                  <div style={{ background: 'linear-gradient(to right, #f59e0b20, #0f172a)', borderLeft: '4px solid #f59e0b', color: '#f8fafc', padding: '15px 20px', borderRadius: '0 8px 8px 0', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                  <div style={{ background: 'linear-gradient(to right, #f59e0b20, #0f172a)', borderLeft: '4px solid #f59e0b', color: '#f8fafc', padding: '15px 20px', borderRadius: '0 8px 8px 0', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
                                     <div>
                                       <strong style={{ color: '#f59e0b', fontSize: '1.1rem' }}>🏅 Zsűritag vagy!</strong>
                                       <div style={{ fontSize: '0.9rem', marginTop: '5px', color: '#cbd5e1' }}>{isActive ? 'A pontozás a pályázat lezárulta után indul.' : isEnded ? 'A pályázat lezárult, kezdheted a pontozást!' : 'A pályázat még nem indult el.'}</div>
@@ -1233,7 +1248,7 @@ function App() {
                                     <select value={uploadCategory} onChange={e => setUploadCategory(e.target.value)} style={inputStyle} disabled={isUploading}><option value="">-- Válassz kategóriát --</option>{categories.map((cat: string) => { const count = categoryCounts[cat] || 0; return <option key={cat} value={cat} disabled={count >= 4}>{cat} ({count}/4 feltöltve)</option>; })}</select>
                                     <input type="file" accept="image/jpeg, image/png, image/webp" onChange={handleFileSelect} style={{ color: '#94a3b8', marginBottom: '15px', width: '100%' }} disabled={isUploading} />
                                     {uploadPreview && <div style={{marginTop: '10px', marginBottom: '20px', textAlign: 'center'}}><img src={uploadPreview} alt="Előnézet" style={{maxHeight: '300px', borderRadius: '8px', border: '2px solid #334155'}} /></div>}
-                                    <div style={{display: 'flex', gap: '10px'}}><button onClick={() => handleUpload(contest.id)} disabled={isUploading} style={{ flex: 1, background: isUploading ? '#475569' : '#10b981', color: 'white', border: 'none', padding: '12px', borderRadius: '8px', cursor: isUploading ? 'not-allowed' : 'pointer', fontWeight: 'bold', transition: 'background 0.3s' }}>{isUploading ? 'Feltöltés ⏳...' : 'Beküldés 🚀'}</button><button onClick={() => { setActiveUploadContest(null); setUploadPreview(null); }} disabled={isUploading} style={{ background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', padding: '12px', borderRadius: '8px', cursor: isUploading ? 'not-allowed' : 'pointer' }}>Mégse</button></div>
+                                    <div style={{display: 'flex', gap: '10px', flexWrap: 'wrap'}}><button onClick={() => handleUpload(contest.id)} disabled={isUploading} style={{ flex: '1 1 150px', background: isUploading ? '#475569' : '#10b981', color: 'white', border: 'none', padding: '12px', borderRadius: '8px', cursor: isUploading ? 'not-allowed' : 'pointer', fontWeight: 'bold', transition: 'background 0.3s' }}>{isUploading ? 'Feltöltés ⏳...' : 'Beküldés 🚀'}</button><button onClick={() => { setActiveUploadContest(null); setUploadPreview(null); }} disabled={isUploading} style={{ flex: '1 1 100px', background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', padding: '12px', borderRadius: '8px', cursor: isUploading ? 'not-allowed' : 'pointer' }}>Mégse</button></div>
                                   </div>
                                 )}
 
@@ -1246,7 +1261,7 @@ function App() {
                                       return (
                                         <div key={cat} style={{ marginBottom: '25px' }}>
                                           <h5 style={{ color: '#38bdf8', borderBottom: '1px solid #334155', paddingBottom: '8px', marginTop: 0, fontSize: '1.1rem' }}>{cat} <span style={{ color: '#94a3b8', fontSize: '0.9rem' }}>({catEntries.length}/4)</span></h5>
-                                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '20px' }}>
+                                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '20px' }}>
                                             {catEntries.map(entry => {
                                               const imageUrl = entry.drive_file_id ? `https://lh3.googleusercontent.com/d/${entry.drive_file_id}` : entry.file_url;
                                               return (
@@ -1260,18 +1275,18 @@ function App() {
                                                         onChange={e => setEditEntryTitle(e.target.value)} 
                                                         style={{ width: '100%', padding: '6px', marginBottom: '10px', backgroundColor: '#1e293b', border: '1px solid #38bdf8', color: 'white', borderRadius: '4px', boxSizing: 'border-box' }} 
                                                       />
-                                                      <div style={{ display: 'flex', gap: '5px' }}>
-                                                        <button onClick={() => handleUpdateEntryTitle(entry.id)} style={{ flex: 1, background: '#10b981', color: 'white', border: 'none', padding: '6px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>Mentés</button>
-                                                        <button onClick={() => setEditingEntryId(null)} style={{ flex: 1, background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', padding: '6px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>Mégse</button>
+                                                      <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+                                                        <button onClick={() => handleUpdateEntryTitle(entry.id)} style={{ flex: '1 1 100%', background: '#10b981', color: 'white', border: 'none', padding: '6px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>Mentés</button>
+                                                        <button onClick={() => setEditingEntryId(null)} style={{ flex: '1 1 100%', background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', padding: '6px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>Mégse</button>
                                                       </div>
                                                     </div>
                                                   ) : (
                                                     <div style={{ padding: '12px' }}>
                                                       <div style={{ fontSize: '1rem', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#f8fafc' }}>{entry.title}</div>
                                                       {!isEnded && (
-                                                        <div style={{ display: 'flex', gap: '5px', marginTop: '12px' }}>
-                                                          <button onClick={() => { setEditingEntryId(entry.id); setEditEntryTitle(entry.title); }} style={{ flex: 1, background: '#38bdf820', color: '#38bdf8', border: 'none', padding: '6px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>Szerkeszt</button>
-                                                          <button onClick={() => handleDeleteEntry(entry.id)} style={{ flex: 1, background: '#ef444420', color: '#ef4444', border: 'none', padding: '6px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>Törlés</button>
+                                                        <div style={{ display: 'flex', gap: '5px', marginTop: '12px', flexWrap: 'wrap' }}>
+                                                          <button onClick={() => { setEditingEntryId(entry.id); setEditEntryTitle(entry.title); }} style={{ flex: '1 1 45%', background: '#38bdf820', color: '#38bdf8', border: 'none', padding: '6px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>Szerkeszt</button>
+                                                          <button onClick={() => handleDeleteEntry(entry.id)} style={{ flex: '1 1 45%', background: '#ef444420', color: '#ef4444', border: 'none', padding: '6px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>Törlés</button>
                                                         </div>
                                                       )}
                                                     </div>
