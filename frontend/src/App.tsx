@@ -277,9 +277,6 @@ function App() {
   };
 
   const inputStyle = { width: '100%', padding: '10px', marginBottom: '10px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '6px', boxSizing: 'border-box' as const };
-  const navBtnStyle = { background: 'transparent', color: '#f8fafc', border: 'none', padding: '8px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '5px' };
-  const dropdownStyle = { position: 'absolute' as const, top: '100%', left: 0, marginTop: '10px', background: '#1e293b', border: '1px solid #334155', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.5)', minWidth: '220px', display: 'flex', flexDirection: 'column' as const };
-  const dropItemStyle = { background: 'transparent', color: '#cbd5e1', border: 'none', padding: '12px 15px', textAlign: 'left' as const, cursor: 'pointer', width: '100%', borderBottom: '1px solid #334155', fontSize: '0.95rem' };
 
   const filteredContests = contests.filter(contest => {
     const isRestricted = contest.restricted_club && contest.restricted_club.trim() !== '';
@@ -320,27 +317,36 @@ function App() {
 
   return (
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
-      {/* CSS A MOBILOS RESZPONSZIVITÁSHOZ ÉS A GÖRGETŐSÁVHOZ */}
+      {/* KÖZÖS CSS OSZTÁLYOK ÉS RESZPONSZÍV MEDIA QUERY-K */}
       <style>{`
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.5); border-radius: 8px; }
         ::-webkit-scrollbar-thumb { background: #334155; border-radius: 8px; }
         ::-webkit-scrollbar-thumb:hover { background: #475569; }
 
-        .app-header { display: flex; justify-content: space-between; align-items: center; padding: 1.2rem 2rem; background-color: #1e293b; border-bottom: 1px solid #334155; position: sticky; top: 0; z-index: 30; }
-        .nav-group { display: flex; gap: 20px; align-items: center; }
+        .app-header { display: flex; justify-content: space-between; align-items: center; padding: 1.2rem 2rem; background-color: #1e293b; border-bottom: 1px solid #334155; position: sticky; top: 0; z-index: 50; }
+        .nav-group { display: flex; gap: 15px; align-items: center; }
         .user-group { display: flex; align-items: center; gap: 15px; }
-        .main-container { padding: 2rem; max-width: 900px; margin: 0 auto; }
-        .contest-header { display: flex; justify-content: space-between; align-items: flex-start; }
-        .contest-badge { padding: 6px 12px; border-radius: 100px; font-size: 0.8rem; font-weight: bold; white-space: nowrap; }
+        
+        .nav-item-container { position: relative; }
+        .nav-btn { background: transparent; color: #f8fafc; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.95rem; display: flex; align-items: center; justify-content: space-between; gap: 5px; transition: background 0.2s; }
+        .nav-btn.active { background: #334155; }
+        
+        .dropdown-menu { position: absolute; top: 100%; left: 0; margin-top: 10px; background: #1e293b; border: 1px solid #334155; border-radius: 8px; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.5); min-width: 240px; display: flex; flex-direction: column; z-index: 100; }
+        .drop-item { background: transparent; color: #cbd5e1; border: none; padding: 12px 15px; text-align: left; cursor: pointer; width: 100%; border-bottom: 1px solid #334155; font-size: 0.95rem; transition: background 0.2s; }
+        .drop-item:hover { background: #334155; color: white !important; }
+        .drop-item:last-child { border-bottom: none; }
+        .drop-item.active { color: #38bdf8; font-weight: bold; }
 
         @media (max-width: 768px) {
-          .app-header { flex-direction: column; align-items: flex-start; gap: 15px; padding: 1rem; }
-          .nav-group { flex-wrap: wrap; gap: 10px; width: 100%; }
-          .user-group { width: 100%; justify-content: space-between; border-top: 1px solid #334155; padding-top: 12px; }
-          .main-container { padding: 1rem; }
-          .contest-header { flex-direction: column; gap: 15px; }
-          .contest-badge { align-self: flex-start; }
+          .app-header { flex-direction: column; align-items: stretch !important; padding: 1rem; }
+          .nav-group { flex-direction: column; align-items: stretch !important; width: 100%; gap: 10px; }
+          .user-group { width: 100%; justify-content: space-between; padding-top: 15px; margin-top: 10px; border-top: 1px solid #334155; }
+          
+          /* Mobilos Harmonika menü */
+          .nav-item-container { width: 100%; }
+          .nav-btn { width: 100%; padding: 12px 15px !important; background-color: rgba(30, 41, 59, 0.8); border: 1px solid #334155; }
+          .dropdown-menu { position: relative !important; width: 100% !important; margin-top: 5px !important; box-shadow: none !important; border: 1px solid #38bdf850 !important; }
         }
       `}</style>
 
@@ -409,46 +415,48 @@ function App() {
         <div style={{ minHeight: '100vh', backgroundColor: '#0f172a', color: '#f8fafc', fontFamily: 'Inter, sans-serif' }}>
           
           <header className="app-header">
-            {dropdownOpen && <div onClick={() => setDropdownOpen(null)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />}
-
             <div className="nav-group">
-              <div style={{ position: 'relative', zIndex: 50 }}>
-                <button onClick={() => setDropdownOpen(dropdownOpen === 'contests' ? null : 'contests')} style={{...navBtnStyle, background: dropdownOpen === 'contests' || activeTab.startsWith('contests_') ? '#334155' : 'transparent'}}>
-                  Pályázatok ▾
+              
+              {/* PÁLYÁZATOK MENÜ */}
+              <div className="nav-item-container" style={{ zIndex: dropdownOpen === 'contests' ? 60 : 50 }}>
+                <button className={`nav-btn ${dropdownOpen === 'contests' || activeTab.startsWith('contests_') ? 'active' : ''}`} onClick={() => setDropdownOpen(dropdownOpen === 'contests' ? null : 'contests')}>
+                  <span>Pályázatok</span> <span>▾</span>
                 </button>
                 {dropdownOpen === 'contests' && (
-                  <div style={dropdownStyle}>
-                    <button onClick={() => { setActiveTab('contests_club_active'); setDropdownOpen(null); }} style={{...dropItemStyle, color: activeTab === 'contests_club_active' ? '#38bdf8' : '#cbd5e1'}}>Klubom aktív pályázatai</button>
-                    <button onClick={() => { setActiveTab('contests_open_active'); setDropdownOpen(null); }} style={{...dropItemStyle, color: activeTab === 'contests_open_active' ? '#38bdf8' : '#cbd5e1'}}>Nyílt aktív pályázatok</button>
-                    <button onClick={() => { setActiveTab('contests_closed'); setDropdownOpen(null); }} style={{...dropItemStyle, borderBottom: 'none', color: activeTab === 'contests_closed' ? '#38bdf8' : '#cbd5e1'}}>Lezárult pályázatok</button>
+                  <div className="dropdown-menu">
+                    <button className={`drop-item ${activeTab === 'contests_club_active' ? 'active' : ''}`} onClick={() => { setActiveTab('contests_club_active'); setDropdownOpen(null); }}>Klubom aktív pályázatai</button>
+                    <button className={`drop-item ${activeTab === 'contests_open_active' ? 'active' : ''}`} onClick={() => { setActiveTab('contests_open_active'); setDropdownOpen(null); }}>Nyílt aktív pályázatok</button>
+                    <button className={`drop-item ${activeTab === 'contests_closed' ? 'active' : ''}`} onClick={() => { setActiveTab('contests_closed'); setDropdownOpen(null); }}>Lezárult pályázatok</button>
                   </div>
                 )}
               </div>
 
-              <div style={{ position: 'relative', zIndex: 50 }}>
-                <button onClick={() => setDropdownOpen(dropdownOpen === 'club' ? null : 'club')} style={{...navBtnStyle, background: dropdownOpen === 'club' || activeTab.startsWith('club_') ? '#334155' : 'transparent'}}>
-                  Saját klubom ▾
+              {/* SAJÁT KLUBOM MENÜ */}
+              <div className="nav-item-container" style={{ zIndex: dropdownOpen === 'club' ? 60 : 50 }}>
+                <button className={`nav-btn ${dropdownOpen === 'club' || activeTab.startsWith('club_') ? 'active' : ''}`} onClick={() => setDropdownOpen(dropdownOpen === 'club' ? null : 'club')}>
+                  <span>Saját klubom</span> <span>▾</span>
                 </button>
                 {dropdownOpen === 'club' && (
-                  <div style={dropdownStyle}>
-                    <button onClick={() => { setActiveTab('club_nights'); setDropdownOpen(null); }} style={{...dropItemStyle, color: activeTab === 'club_nights' ? '#38bdf8' : '#cbd5e1'}}>Klubestek</button>
-                    <button onClick={() => { setActiveTab('club_homeworks'); setDropdownOpen(null); }} style={{...dropItemStyle, borderBottom: 'none', color: activeTab === 'club_homeworks' ? '#38bdf8' : '#cbd5e1'}}>Házi feladatok</button>
+                  <div className="dropdown-menu">
+                    <button className={`drop-item ${activeTab === 'club_nights' ? 'active' : ''}`} onClick={() => { setActiveTab('club_nights'); setDropdownOpen(null); }}>Klubestek</button>
+                    <button className={`drop-item ${activeTab === 'club_homeworks' ? 'active' : ''}`} onClick={() => { setActiveTab('club_homeworks'); setDropdownOpen(null); }}>Házi feladatok</button>
                   </div>
                 )}
               </div>
 
+              {/* ADMINISZTRÁCIÓ MENÜ */}
               {(user?.email === ADMIN_EMAIL || isLeader) && (
-                <div style={{ position: 'relative', zIndex: 50 }}>
-                  <button onClick={() => setDropdownOpen(dropdownOpen === 'admin' ? null : 'admin')} style={{...navBtnStyle, color: '#f59e0b', background: dropdownOpen === 'admin' || activeTab.startsWith('admin_') ? '#334155' : 'transparent'}}>
-                    ⚙️ Adminisztráció ▾
+                <div className="nav-item-container" style={{ zIndex: dropdownOpen === 'admin' ? 60 : 50 }}>
+                  <button className={`nav-btn ${dropdownOpen === 'admin' || activeTab.startsWith('admin_') ? 'active' : ''}`} style={{ color: '#f59e0b' }} onClick={() => setDropdownOpen(dropdownOpen === 'admin' ? null : 'admin')}>
+                    <span>⚙️ Adminisztráció</span> <span>▾</span>
                   </button>
                   {dropdownOpen === 'admin' && (
-                    <div style={dropdownStyle}>
-                      {user?.email === ADMIN_EMAIL && <button onClick={() => { setActiveTab('admin_contests'); setDropdownOpen(null); }} style={{...dropItemStyle, color: activeTab === 'admin_contests' ? '#f59e0b' : '#cbd5e1'}}>Pályázatok kezelése</button>}
-                      <button onClick={() => { setActiveTab('admin_meetings'); setDropdownOpen(null); }} style={{...dropItemStyle, color: activeTab === 'admin_meetings' ? '#f59e0b' : '#cbd5e1'}}>Klubestek kezelése</button>
-                      <button onClick={() => { setActiveTab('admin_homeworks'); setDropdownOpen(null); }} style={{...dropItemStyle, color: activeTab === 'admin_homeworks' ? '#f59e0b' : '#cbd5e1'}}>Házi feladatok kezelése</button>
-                      {user?.email === ADMIN_EMAIL && <button onClick={() => { setActiveTab('admin_users'); setDropdownOpen(null); }} style={{...dropItemStyle, color: activeTab === 'admin_users' ? '#f59e0b' : '#cbd5e1'}}>Felhasználók</button>}
-                      {user?.email === ADMIN_EMAIL && <button onClick={() => { setActiveTab('admin_clubs'); setDropdownOpen(null); }} style={{...dropItemStyle, borderBottom: 'none', color: activeTab === 'admin_clubs' ? '#f59e0b' : '#cbd5e1'}}>Fotóklubok</button>}
+                    <div className="dropdown-menu">
+                      {user?.email === ADMIN_EMAIL && <button className={`drop-item ${activeTab === 'admin_contests' ? 'active' : ''}`} style={{ color: activeTab === 'admin_contests' ? '#f59e0b' : ''}} onClick={() => { setActiveTab('admin_contests'); setDropdownOpen(null); }}>Pályázatok kezelése</button>}
+                      <button className={`drop-item ${activeTab === 'admin_meetings' ? 'active' : ''}`} style={{ color: activeTab === 'admin_meetings' ? '#f59e0b' : ''}} onClick={() => { setActiveTab('admin_meetings'); setDropdownOpen(null); }}>Klubestek kezelése</button>
+                      <button className={`drop-item ${activeTab === 'admin_homeworks' ? 'active' : ''}`} style={{ color: activeTab === 'admin_homeworks' ? '#f59e0b' : ''}} onClick={() => { setActiveTab('admin_homeworks'); setDropdownOpen(null); }}>Házi feladatok kezelése</button>
+                      {user?.email === ADMIN_EMAIL && <button className={`drop-item ${activeTab === 'admin_users' ? 'active' : ''}`} style={{ color: activeTab === 'admin_users' ? '#f59e0b' : ''}} onClick={() => { setActiveTab('admin_users'); setDropdownOpen(null); }}>Felhasználók</button>}
+                      {user?.email === ADMIN_EMAIL && <button className={`drop-item ${activeTab === 'admin_clubs' ? 'active' : ''}`} style={{ color: activeTab === 'admin_clubs' ? '#f59e0b' : ''}} onClick={() => { setActiveTab('admin_clubs'); setDropdownOpen(null); }}>Fotóklubok</button>}
                     </div>
                   )}
                 </div>
@@ -464,7 +472,7 @@ function App() {
             </div>
           </header>
 
-          <main className="main-container">
+          <main style={{ padding: '2rem', maxWidth: '900px', margin: '0 auto' }}>
             
             {activeTab === 'admin_clubs' && user.email === ADMIN_EMAIL && (
                <div>
@@ -748,7 +756,7 @@ function App() {
                                     <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #1e293b, #0f172a)', color: '#334155', fontSize: '4rem' }}>📷</div>
                                   )}
                                   
-                                  <div className="contest-badge" style={{ position: 'absolute', top: '15px', right: '15px', background: 'rgba(15, 23, 42, 0.85)', backdropFilter: 'blur(5px)', padding: '6px 10px', color: isPast ? '#94a3b8' : '#38bdf8', border: `1px solid ${isPast ? '#334155' : '#38bdf850'}`, textAlign: 'center', lineHeight: '1.1', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                  <div style={{ position: 'absolute', top: '15px', right: '15px', background: 'rgba(15, 23, 42, 0.85)', backdropFilter: 'blur(5px)', padding: '6px 10px', borderRadius: '8px', color: isPast ? '#94a3b8' : '#38bdf8', fontWeight: 'bold', border: `1px solid ${isPast ? '#334155' : '#38bdf850'}`, textAlign: 'center', lineHeight: '1.1', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                                     <span style={{ fontSize: '0.65rem', opacity: 0.7, letterSpacing: '1px' }}>{meetDateObj.getFullYear()}</span>
                                     <span style={{ fontSize: '0.85rem', textTransform: 'uppercase', marginTop: '2px' }}>{meetDateObj.toLocaleDateString('hu-HU', { month: 'short' }).replace('.', '')}</span>
                                     <span style={{ fontSize: '1.6rem', marginTop: '2px' }}>{meetDateObj.getDate()}</span>
@@ -840,12 +848,12 @@ function App() {
                         return (
                           <div key={hw.id} style={{ backgroundColor: '#1e293b', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', border: isPast ? '1px solid #475569' : '1px solid #10b981', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', position: 'relative' }}>
                             
-                            <div className="contest-header">
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px' }}>
                               <div>
                                 <h3 style={{ margin: '0 0 5px 0', fontSize: '1.5rem', color: isPast ? '#cbd5e1' : '#f8fafc' }}>{hw.topic}</h3>
                                 <p style={{ color: '#94a3b8', fontSize: '0.95rem', margin: '0 0 15px 0', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>{hw.description}</p>
                               </div>
-                              <span className="contest-badge" style={{ background: isPast ? '#ef444420' : '#10b98120', color: isPast ? '#ef4444' : '#10b981' }}>
+                              <span style={{ padding: '6px 12px', borderRadius: '100px', fontSize: '0.8rem', background: isPast ? '#ef444420' : '#10b98120', color: isPast ? '#ef4444' : '#10b981', fontWeight: 'bold' }}>
                                 {isPast ? 'Lezárult' : 'Aktív Feltöltés'}
                               </span>
                             </div>
@@ -882,9 +890,9 @@ function App() {
                                 <input placeholder="Kép címe" value={hwUploadTitle} onChange={e => setHwUploadTitle(e.target.value)} style={inputStyle} disabled={isHwUploading} />
                                 <input type="file" accept="image/jpeg, image/png, image/webp" onChange={handleHwFileSelect} style={{ color: '#94a3b8', marginBottom: '15px', width: '100%' }} disabled={isHwUploading} />
                                 {hwUploadPreview && <div style={{marginTop: '10px', marginBottom: '20px', textAlign: 'center'}}><img src={hwUploadPreview} alt="Előnézet" style={{maxHeight: '300px', borderRadius: '8px', border: '2px solid #334155'}} /></div>}
-                                <div style={{display: 'flex', gap: '10px'}}>
-                                  <button onClick={() => handleUploadHw(hw.id)} disabled={isHwUploading} style={{ flex: 1, background: isHwUploading ? '#475569' : '#10b981', color: 'white', border: 'none', padding: '12px', borderRadius: '8px', cursor: isHwUploading ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>{isHwUploading ? 'Feltöltés ⏳...' : 'Beküldés 🚀'}</button>
-                                  <button onClick={() => { setActiveUploadHw(null); setHwUploadPreview(null); }} disabled={isHwUploading} style={{ background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', padding: '12px', borderRadius: '8px', cursor: isHwUploading ? 'not-allowed' : 'pointer' }}>Mégse</button>
+                                <div style={{display: 'flex', gap: '10px', flexWrap: 'wrap'}}>
+                                  <button onClick={() => handleUploadHw(hw.id)} disabled={isHwUploading} style={{ flex: '1 1 150px', background: isHwUploading ? '#475569' : '#10b981', color: 'white', border: 'none', padding: '12px', borderRadius: '8px', cursor: isHwUploading ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>{isHwUploading ? 'Feltöltés ⏳...' : 'Beküldés 🚀'}</button>
+                                  <button onClick={() => { setActiveUploadHw(null); setHwUploadPreview(null); }} disabled={isHwUploading} style={{ flex: '1 1 100px', background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', padding: '12px', borderRadius: '8px', cursor: isHwUploading ? 'not-allowed' : 'pointer' }}>Mégse</button>
                                 </div>
                               </div>
                             )}
@@ -925,7 +933,7 @@ function App() {
                                           <img src={imageUrl} alt={entry.title} onClick={() => setFullscreenImage(imageUrl)} style={{ width: '100%', height: '140px', objectFit: 'cover', cursor: 'zoom-in' }} />
                                           <div style={{ padding: '8px' }}>
                                             <div style={{ fontSize: '0.9rem', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#f8fafc' }}>{entry.title}</div>
-                                            <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Készítő: {entry.user_name}</div>
+                                            <div style={{ fontSize: '0.75rem', color: '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Készítő: {entry.user_name}</div>
                                           </div>
                                         </div>
                                       )
@@ -944,7 +952,6 @@ function App() {
               </div>
             )}
 
-            {/* --- PÁLYÁZATOK --- */}
             {['contests_open_active', 'contests_club_active', 'contests_closed', 'admin_contests'].includes(activeTab) && (
               <>
                 {activeTab === 'contests_club_active' && !currentDbUser?.club_name && (
@@ -1183,8 +1190,8 @@ function App() {
                               <>
                                 <div className="contest-header">
                                   <div>
-                                    <div className="contest-title-group">
-                                      <h3 style={{ margin: '0', display: 'flex', alignItems: 'center', flexWrap: 'wrap', paddingTop: contest.restricted_club ? '10px' : '0' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', paddingTop: contest.restricted_club ? '10px' : '0' }}>
+                                      <h3 style={{ margin: '0' }}>
                                         {contest.title}
                                       </h3>
                                       
