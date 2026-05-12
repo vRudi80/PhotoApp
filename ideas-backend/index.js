@@ -362,22 +362,44 @@ app.get('/api/patrons', async (req, res) => {
 // Összes Szalon lekérése (hozzáfűzve a patronokat és kategóriákat)
 app.get('/api/salons', async (req, res) => {
   try {
+    // 1. Lekérjük az alap szalon adatokat
     const [salons] = await pool.query(`
       SELECT s.*, c.country_hun, c.country_code 
       FROM photo_salons s 
       LEFT JOIN photo_countries c ON s.host_country_id = c.id 
-      ORDER BY s.end_date ASC
+      ORDER BY s.end_date DESC
     `);
-    const [patrons] = await pool.query('SELECT sp.salon_id, p.name FROM photo_salon_patrons sp JOIN photo_patrons p ON sp.patron_id = p.id');
-    const [categories] = await pool.query('SELECT sc.salon_id, cat.hun_name, cat.name FROM photo_salon_categories sc JOIN photo_categories cat ON sc.category_id = cat.id');
+
+    // 2. Lekérjük a patronokat az azonosítókkal együtt
+    const [patrons] = await pool.query(`
+      SELECT sp.salon_id, p.name, sp.patron_number 
+      FROM photo_salon_patrons sp 
+      JOIN photo_patrons p ON sp.patron_id = p.id
+    `);
+
+    // 3. Lekérjük a kategóriákat
+    const [categories] = await pool.query(`
+      SELECT sc.salon_id, cat.hun_name, cat.name 
+      FROM photo_salon_categories sc 
+      JOIN photo_categories cat ON sc.category_id = cat.id
+    `);
     
+    // 4. Összefűzés (Map) - Ez így sokkal gyorsabb
     const formattedSalons = salons.map(salon => ({
       ...salon,
-      patrons: patrons.filter(p => p.salon_id === salon.id).map(p => p.name),
-      categories: categories.filter(c => c.salon_id === salon.id).map(c => c.hun_name || c.name)
+      patron_details: patrons
+        .filter(p => p.salon_id === salon.id)
+        .map(p => ({ name: p.name, number: p.patron_number })),
+      categories: categories
+        .filter(c => c.salon_id === salon.id)
+        .map(c => c.hun_name || c.name)
     }));
+
     res.json(formattedSalons);
-  } catch(err) { res.status(500).json({error: err.message}); }
+  } catch(err) { 
+    console.error(err);
+    res.status(500).json({error: err.message}); 
+  }
 });
 
 app.post('/api/salons', async (req, res) => {
