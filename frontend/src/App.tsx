@@ -69,6 +69,10 @@ function App() {
   const [hwUploadPreview, setHwUploadPreview] = useState<string | null>(null);
   const [hwUploadTitle, setHwUploadTitle] = useState('');
   const [isHwUploading, setIsHwUploading] = useState(false);
+  
+  // --- ÚJ: Házi Feladat szerkesztése ---
+  const [editingHwEntryId, setEditingHwEntryId] = useState<number | null>(null);
+  const [editHwEntryTitle, setEditHwEntryTitle] = useState('');
 
   const [attendanceMeetId, setAttendanceMeetId] = useState<number | null>(null);
   const [attendanceList, setAttendanceList] = useState<string[]>([]);
@@ -99,7 +103,8 @@ function App() {
   const [viewJuryProgressId, setViewJuryProgressId] = useState<number | null>(null);
   const [juryProgressData, setJuryProgressData] = useState<{total_entries: number, stats: any[]}>({total_entries: 0, stats: []});
 
-  const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
+  // --- FRISSÍTETT: Fullscreen adat (Url + Cím) ---
+  const [fullscreenData, setFullscreenData] = useState<{url: string, title?: string} | null>(null);
 
   const fetchData = async () => {
     try {
@@ -130,9 +135,9 @@ function App() {
     } catch (e) { console.error(e); }
   };
 
-  const fetchClubHomeworkEntries = async (clubId: number) => {
+  const fetchClubHomeworkEntries = async (clubId: number, email: string) => {
     try {
-      const res = await fetch(`${BACKEND_URL}/api/homework-entries/club/${clubId}`);
+      const res = await fetch(`${BACKEND_URL}/api/homework-entries/club/${clubId}?userEmail=${email}`);
       if (res.ok) setClubHomeworkEntries(await res.json());
     } catch (e) { console.error(e); }
   };
@@ -157,11 +162,12 @@ function App() {
   const isLeader = currentDbUser?.club_role === 'leader' || currentDbUser?.club_role === 'deputy';
 
   useEffect(() => {
-    if (activeTab === 'club_homeworks' && isLeader && currentDbUser) {
+    // Ha a klubtag rákattint a házi feladatokra, le kell kérnünk a klubhoz tartozó összes képet is (a lájkok és a galéria miatt)
+    if (activeTab === 'club_homeworks' && currentDbUser) {
       const club = clubs.find(c => c.name === currentDbUser.club_name);
-      if (club) fetchClubHomeworkEntries(club.id);
+      if (club) fetchClubHomeworkEntries(club.id, user.email);
     }
-  }, [activeTab, isLeader, currentDbUser, clubs]);
+  }, [activeTab, currentDbUser, clubs, user]);
 
   const handleLoginSuccess = async (credential: string) => {
     localStorage.setItem('photoAppToken', credential);
@@ -260,11 +266,24 @@ function App() {
       const res = await fetch(`${BACKEND_URL}/api/upload-homework`, { method: 'POST', body: formData });
       if (res.ok) { 
         alert("Feltöltve!"); setActiveUploadHw(null); setHwUploadFile(null); setHwUploadPreview(null); setHwUploadTitle(''); fetchMyEntries(user.email); 
-        if (isLeader) { const club = clubs.find(c => c.name === currentDbUser?.club_name); if (club) fetchClubHomeworkEntries(club.id); }
+        const club = clubs.find(c => c.name === currentDbUser?.club_name); if (club) fetchClubHomeworkEntries(club.id, user.email);
       } else { 
         const err = await res.json(); alert(`Hiba: ${err.error}`); 
       }
     } catch (error) { alert("Hiba a feltöltésnél"); } finally { setIsHwUploading(false); }
+  };
+
+  // --- ÚJ: Házi Feladat kép címének szerkesztése ---
+  const handleUpdateHwEntryTitle = async (entryId: number) => {
+    if (!editHwEntryTitle) return alert('A cím nem lehet üres!');
+    const res = await fetch(`${BACKEND_URL}/api/homework-entries/${entryId}`, { 
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: editHwEntryTitle, userEmail: user.email }) 
+    });
+    if (res.ok) { 
+      setEditingHwEntryId(null); 
+      fetchMyEntries(user.email); 
+      const club = clubs.find(c => c.name === currentDbUser?.club_name); if (club) fetchClubHomeworkEntries(club.id, user.email);
+    } else alert('Hiba a cím frissítésekor!');
   };
 
   const handleDeleteHwEntry = async (entryId: number) => {
@@ -272,11 +291,25 @@ function App() {
     const res = await fetch(`${BACKEND_URL}/api/homework-entries/${entryId}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userEmail: user.email }) });
     if (res.ok) {
       fetchMyEntries(user.email);
-      if (isLeader) { const club = clubs.find(c => c.name === currentDbUser?.club_name); if (club) fetchClubHomeworkEntries(club.id); }
+      const club = clubs.find(c => c.name === currentDbUser?.club_name); if (club) fetchClubHomeworkEntries(club.id, user.email);
+    }
+  };
+
+  // --- ÚJ: Like Toggle Logic ---
+  const handleToggleLike = async (entryId: number) => {
+    const res = await fetch(`${BACKEND_URL}/api/homework-entries/${entryId}/like`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userEmail: user.email })
+    });
+    if (res.ok) {
+      const club = clubs.find(c => c.name === currentDbUser?.club_name); 
+      if (club) fetchClubHomeworkEntries(club.id, user.email);
     }
   };
 
   const inputStyle = { width: '100%', padding: '10px', marginBottom: '10px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '6px', boxSizing: 'border-box' as const };
+  const navBtnStyle = { background: 'transparent', color: '#f8fafc', border: 'none', padding: '8px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '5px' };
+  const dropdownStyle = { position: 'absolute' as const, top: '100%', left: 0, marginTop: '10px', background: '#1e293b', border: '1px solid #334155', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.5)', minWidth: '220px', display: 'flex', flexDirection: 'column' as const };
+  const dropItemStyle = { background: 'transparent', color: '#cbd5e1', border: 'none', padding: '12px 15px', textAlign: 'left' as const, cursor: 'pointer', width: '100%', borderBottom: '1px solid #334155', fontSize: '0.95rem' };
 
   const filteredContests = contests.filter(contest => {
     const isRestricted = contest.restricted_club && contest.restricted_club.trim() !== '';
@@ -317,7 +350,6 @@ function App() {
 
   return (
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
-      {/* KÖZÖS CSS OSZTÁLYOK ÉS RESZPONSZÍV MEDIA QUERY-K */}
       <style>{`
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.5); border-radius: 8px; }
@@ -343,17 +375,22 @@ function App() {
           .nav-group { flex-direction: column; align-items: stretch !important; width: 100%; gap: 10px; }
           .user-group { width: 100%; justify-content: space-between; padding-top: 15px; margin-top: 10px; border-top: 1px solid #334155; }
           
-          /* Mobilos Harmonika menü */
           .nav-item-container { width: 100%; }
           .nav-btn { width: 100%; padding: 12px 15px !important; background-color: rgba(30, 41, 59, 0.8); border: 1px solid #334155; }
           .dropdown-menu { position: relative !important; width: 100% !important; margin-top: 5px !important; box-shadow: none !important; border: 1px solid #38bdf850 !important; }
         }
       `}</style>
 
-      {fullscreenImage && (
-        <div onClick={() => setFullscreenImage(null)} style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.95)', zIndex: 9999, display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'zoom-out' }}>
-          <img src={fullscreenImage} alt="Teljes képernyő" style={{ maxHeight: '95vh', maxWidth: '95vw', objectFit: 'contain' }} />
+      {/* --- FRISSÍTETT: Teljes képernyős nézet CÍMMEL --- */}
+      {fullscreenData && (
+        <div onClick={() => setFullscreenData(null)} style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.95)', zIndex: 9999, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', cursor: 'zoom-out' }}>
           <div style={{ position: 'absolute', top: '20px', right: '30px', color: 'white', fontSize: '2rem', fontWeight: 'bold' }}>×</div>
+          <img src={fullscreenData.url} alt="Teljes képernyő" style={{ maxHeight: '85vh', maxWidth: '95vw', objectFit: 'contain' }} />
+          {fullscreenData.title && (
+            <div style={{ marginTop: '15px', color: 'white', fontSize: '1.2rem', textAlign: 'center', maxWidth: '90vw', background: 'rgba(0,0,0,0.5)', padding: '10px 20px', borderRadius: '8px' }}>
+              {fullscreenData.title}
+            </div>
+          )}
         </div>
       )}
 
@@ -417,7 +454,6 @@ function App() {
           <header className="app-header">
             <div className="nav-group">
               
-              {/* PÁLYÁZATOK MENÜ */}
               <div className="nav-item-container" style={{ zIndex: dropdownOpen === 'contests' ? 60 : 50 }}>
                 <button className={`nav-btn ${dropdownOpen === 'contests' || activeTab.startsWith('contests_') ? 'active' : ''}`} onClick={() => setDropdownOpen(dropdownOpen === 'contests' ? null : 'contests')}>
                   <span>Pályázatok</span> <span>▾</span>
@@ -431,7 +467,6 @@ function App() {
                 )}
               </div>
 
-              {/* SAJÁT KLUBOM MENÜ */}
               <div className="nav-item-container" style={{ zIndex: dropdownOpen === 'club' ? 60 : 50 }}>
                 <button className={`nav-btn ${dropdownOpen === 'club' || activeTab.startsWith('club_') ? 'active' : ''}`} onClick={() => setDropdownOpen(dropdownOpen === 'club' ? null : 'club')}>
                   <span>Saját klubom</span> <span>▾</span>
@@ -444,7 +479,6 @@ function App() {
                 )}
               </div>
 
-              {/* ADMINISZTRÁCIÓ MENÜ */}
               {(user?.email === ADMIN_EMAIL || isLeader) && (
                 <div className="nav-item-container" style={{ zIndex: dropdownOpen === 'admin' ? 60 : 50 }}>
                   <button className={`nav-btn ${dropdownOpen === 'admin' || activeTab.startsWith('admin_') ? 'active' : ''}`} style={{ color: '#f59e0b' }} onClick={() => setDropdownOpen(dropdownOpen === 'admin' ? null : 'admin')}>
@@ -472,7 +506,7 @@ function App() {
             </div>
           </header>
 
-          <main style={{ padding: '2rem', maxWidth: '900px', margin: '0 auto' }}>
+          <main className="main-container">
             
             {activeTab === 'admin_clubs' && user.email === ADMIN_EMAIL && (
                <div>
@@ -756,7 +790,7 @@ function App() {
                                     <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #1e293b, #0f172a)', color: '#334155', fontSize: '4rem' }}>📷</div>
                                   )}
                                   
-                                  <div style={{ position: 'absolute', top: '15px', right: '15px', background: 'rgba(15, 23, 42, 0.85)', backdropFilter: 'blur(5px)', padding: '6px 10px', borderRadius: '8px', color: isPast ? '#94a3b8' : '#38bdf8', fontWeight: 'bold', border: `1px solid ${isPast ? '#334155' : '#38bdf850'}`, textAlign: 'center', lineHeight: '1.1', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                  <div className="contest-badge" style={{ position: 'absolute', top: '15px', right: '15px', background: 'rgba(15, 23, 42, 0.85)', backdropFilter: 'blur(5px)', padding: '6px 10px', color: isPast ? '#94a3b8' : '#38bdf8', border: `1px solid ${isPast ? '#334155' : '#38bdf850'}`, textAlign: 'center', lineHeight: '1.1', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                                     <span style={{ fontSize: '0.65rem', opacity: 0.7, letterSpacing: '1px' }}>{meetDateObj.getFullYear()}</span>
                                     <span style={{ fontSize: '0.85rem', textTransform: 'uppercase', marginTop: '2px' }}>{meetDateObj.toLocaleDateString('hu-HU', { month: 'short' }).replace('.', '')}</span>
                                     <span style={{ fontSize: '1.6rem', marginTop: '2px' }}>{meetDateObj.getDate()}</span>
@@ -815,6 +849,7 @@ function App() {
               </div>
             )}
 
+            {/* --- ÚJ: HÁZI FELADATOK --- */}
             {activeTab === 'club_homeworks' && (
               <div>
                 {!currentDbUser?.club_name ? (
@@ -848,12 +883,12 @@ function App() {
                         return (
                           <div key={hw.id} style={{ backgroundColor: '#1e293b', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', border: isPast ? '1px solid #475569' : '1px solid #10b981', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', position: 'relative' }}>
                             
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px' }}>
+                            <div className="contest-header">
                               <div>
                                 <h3 style={{ margin: '0 0 5px 0', fontSize: '1.5rem', color: isPast ? '#cbd5e1' : '#f8fafc' }}>{hw.topic}</h3>
                                 <p style={{ color: '#94a3b8', fontSize: '0.95rem', margin: '0 0 15px 0', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>{hw.description}</p>
                               </div>
-                              <span style={{ padding: '6px 12px', borderRadius: '100px', fontSize: '0.8rem', background: isPast ? '#ef444420' : '#10b98120', color: isPast ? '#ef4444' : '#10b981', fontWeight: 'bold' }}>
+                              <span className="contest-badge" style={{ background: isPast ? '#ef444420' : '#10b98120', color: isPast ? '#ef4444' : '#10b981' }}>
                                 {isPast ? 'Lezárult' : 'Aktív Feltöltés'}
                               </span>
                             </div>
@@ -900,16 +935,38 @@ function App() {
                             {myEntries.length > 0 && (
                               <div style={{ marginTop: '20px', borderTop: '1px solid #334155', paddingTop: '20px' }}>
                                 <h4 style={{margin: '0 0 15px 0', fontSize: '1.1rem', color: '#cbd5e1'}}>Saját beküldött képeid</h4>
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '15px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '15px' }}>
                                   {myEntries.map(entry => {
                                     const imageUrl = entry.drive_file_id ? `https://lh3.googleusercontent.com/d/${entry.drive_file_id}` : entry.file_url;
                                     return (
                                       <div key={entry.id} style={{ background: '#0f172a', borderRadius: '8px', overflow: 'hidden', border: '1px solid #334155' }}>
-                                        <img src={imageUrl} alt={entry.title} onClick={() => setFullscreenImage(imageUrl)} style={{ width: '100%', height: '100px', objectFit: 'cover', cursor: 'zoom-in' }} />
-                                        <div style={{ padding: '8px' }}>
-                                          <div style={{ fontSize: '0.85rem', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{entry.title}</div>
-                                          {!isPast && <button onClick={() => handleDeleteHwEntry(entry.id)} style={{ width: '100%', marginTop: '5px', background: '#ef444420', color: '#ef4444', border: 'none', padding: '4px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }}>Törlés</button>}
-                                        </div>
+                                        <img src={imageUrl} alt={entry.title} onClick={() => setFullscreenData({url: imageUrl, title: entry.title})} style={{ width: '100%', height: '140px', objectFit: 'cover', cursor: 'zoom-in' }} />
+                                        
+                                        {/* FRISSÍTETT: Házi feladat cím szerkesztése */}
+                                        {editingHwEntryId === entry.id ? (
+                                          <div style={{ padding: '12px' }}>
+                                            <input 
+                                              value={editHwEntryTitle} 
+                                              onChange={e => setEditHwEntryTitle(e.target.value)} 
+                                              style={{ width: '100%', padding: '6px', marginBottom: '10px', backgroundColor: '#1e293b', border: '1px solid #38bdf8', color: 'white', borderRadius: '4px', boxSizing: 'border-box' }} 
+                                            />
+                                            <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+                                              <button onClick={() => handleUpdateHwEntryTitle(entry.id)} style={{ flex: '1 1 100%', background: '#10b981', color: 'white', border: 'none', padding: '6px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>Mentés</button>
+                                              <button onClick={() => setEditingHwEntryId(null)} style={{ flex: '1 1 100%', background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', padding: '6px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>Mégse</button>
+                                            </div>
+                                          </div>
+                                        ) : (
+                                          <div style={{ padding: '12px' }}>
+                                            <div style={{ fontSize: '0.9rem', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#f8fafc' }}>{entry.title}</div>
+                                            {!isPast && (
+                                              <div style={{ display: 'flex', gap: '5px', marginTop: '12px', flexWrap: 'wrap' }}>
+                                                <button onClick={() => { setEditingHwEntryId(entry.id); setEditHwEntryTitle(entry.title); }} style={{ flex: '1 1 45%', background: '#38bdf820', color: '#38bdf8', border: 'none', padding: '6px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>Szerkeszt</button>
+                                                <button onClick={() => handleDeleteHwEntry(entry.id)} style={{ flex: '1 1 45%', background: '#ef444420', color: '#ef4444', border: 'none', padding: '6px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>Törlés</button>
+                                              </div>
+                                            )}
+                                          </div>
+                                        )}
+
                                       </div>
                                     )
                                   })}
@@ -917,23 +974,36 @@ function App() {
                               </div>
                             )}
 
-                            {isPast && isLeader && (
-                              <div style={{ marginTop: '30px', borderTop: '2px dashed #f59e0b', paddingTop: '20px' }}>
-                                <h4 style={{margin: '0 0 5px 0', fontSize: '1.2rem', color: '#f59e0b'}}>👑 Vezetői Galéria: Összes beküldött kép</h4>
-                                <p style={{ color: '#94a3b8', fontSize: '0.85rem', marginBottom: '15px' }}>Ezt a galériát csak a klubvezetők és a helyettesek látják. Kattints a képre a kivetítéshez!</p>
+                            {/* --- ÚJ: KLUB GALÉRIA (Minden klubtag látja, de csak isPast esetén) --- */}
+                            {isPast && (
+                              <div style={{ marginTop: '30px', borderTop: isLeader ? '2px dashed #f59e0b' : '1px solid #334155', paddingTop: '20px' }}>
+                                <h4 style={{margin: '0 0 5px 0', fontSize: '1.2rem', color: isLeader ? '#f59e0b' : '#38bdf8'}}>
+                                  {isLeader ? '👑 Vezetői Galéria: Összes beküldött kép' : '📸 Klub Galéria: Beküldött képek'}
+                                </h4>
+                                <p style={{ color: '#94a3b8', fontSize: '0.85rem', marginBottom: '15px' }}>Kattints a képre a teljes méretű megtekintéshez és a cím elolvasásához.</p>
                                 
                                 {hwEntriesForAll.length === 0 ? (
                                   <p style={{ color: '#94a3b8' }}>Még senki nem töltött fel képet ehhez a feladathoz.</p>
                                 ) : (
-                                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '15px' }}>
+                                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '15px' }}>
                                     {hwEntriesForAll.map(entry => {
                                       const imageUrl = entry.drive_file_id ? `https://lh3.googleusercontent.com/d/${entry.drive_file_id}` : entry.file_url;
                                       return (
-                                        <div key={entry.id} style={{ background: '#0f172a', borderRadius: '8px', overflow: 'hidden', border: '1px solid #f59e0b50' }}>
-                                          <img src={imageUrl} alt={entry.title} onClick={() => setFullscreenImage(imageUrl)} style={{ width: '100%', height: '140px', objectFit: 'cover', cursor: 'zoom-in' }} />
-                                          <div style={{ padding: '8px' }}>
+                                        <div key={entry.id} style={{ background: '#0f172a', borderRadius: '8px', overflow: 'hidden', border: isLeader ? '1px solid #f59e0b50' : '1px solid #334155' }}>
+                                          <img src={imageUrl} alt={entry.title} onClick={() => setFullscreenData({url: imageUrl, title: entry.title})} style={{ width: '100%', height: '140px', objectFit: 'cover', cursor: 'zoom-in' }} />
+                                          <div style={{ padding: '12px' }}>
                                             <div style={{ fontSize: '0.9rem', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#f8fafc' }}>{entry.title}</div>
-                                            <div style={{ fontSize: '0.75rem', color: '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Készítő: {entry.user_name}</div>
+                                            
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px' }}>
+                                              <div style={{ fontSize: '0.75rem', color: '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>Készítő: {entry.user_name}</div>
+                                              
+                                              {/* ÚJ: Like Gomb */}
+                                              <button onClick={(e) => { e.stopPropagation(); handleToggleLike(entry.id); }} style={{ background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 8px', borderRadius: '50px', backgroundColor: entry.user_liked ? '#ef444420' : 'transparent', transition: 'background 0.2s' }}>
+                                                <span style={{ fontSize: '1rem', color: entry.user_liked ? '#ef4444' : '#cbd5e1' }}>{entry.user_liked ? '❤️' : '🤍'}</span>
+                                                <span style={{ color: entry.user_liked ? '#ef4444' : '#94a3b8', fontSize: '0.85rem', fontWeight: 'bold' }}>{entry.like_count || 0}</span>
+                                              </button>
+                                            </div>
+
                                           </div>
                                         </div>
                                       )
@@ -952,6 +1022,7 @@ function App() {
               </div>
             )}
 
+            {/* --- PÁLYÁZATOK (Klub, Nyílt, Admin) --- */}
             {['contests_open_active', 'contests_club_active', 'contests_closed', 'admin_contests'].includes(activeTab) && (
               <>
                 {activeTab === 'contests_club_active' && !currentDbUser?.club_name && (
@@ -1135,7 +1206,7 @@ function App() {
                                           <h4 style={{ margin: '0 0 10px 0', fontSize: '1.6rem', color: '#f8fafc' }}>{currentEntry.title || "Névtelen kép"}</h4>
                                           <div style={{ display: 'inline-block', background: '#38bdf820', color: '#38bdf8', padding: '6px 16px', borderRadius: '100px', fontSize: '0.9rem', marginBottom: '25px', fontWeight: 'bold' }}>Kategória: {currentEntry.category || "Ismeretlen"}</div>
                                           <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%', marginBottom: '30px', minHeight: '350px', background: '#0f172a', borderRadius: '8px', overflow: 'hidden', border: '1px solid #334155' }}>
-                                            <img src={imageUrl} alt={currentEntry.title} onClick={() => setFullscreenImage(imageUrl)} style={{ maxHeight: '600px', maxWidth: '100%', objectFit: 'contain', cursor: 'zoom-in', width: '100%' }} />
+                                            <img src={imageUrl} alt={currentEntry.title} onClick={() => setFullscreenData({url: imageUrl, title: currentEntry.title})} style={{ maxHeight: '600px', maxWidth: '100%', objectFit: 'contain', cursor: 'zoom-in', width: '100%' }} />
                                           </div>
                                           <div style={{ background: '#0f172a', padding: '20px', borderRadius: '12px', display: 'inline-flex', alignItems: 'center', gap: '20px', border: '1px solid #334155', flexWrap: 'wrap', justifyContent: 'center' }}>
                                             <label style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#94a3b8' }}>Pontszám:</label>
@@ -1170,7 +1241,7 @@ function App() {
                                           {catResults.map((res, index) => (
                                             <div key={res.id} style={{ display: 'flex', alignItems: 'center', background: '#1e293b', padding: '10px', borderRadius: '8px' }}>
                                               <div style={{ fontSize: '1.5rem', fontWeight: 'bold', width: '40px', color: index === 0 ? '#fbbf24' : index === 1 ? '#94a3b8' : index === 2 ? '#b45309' : '#475569' }}>#{index + 1}</div>
-                                              <img src={res.drive_file_id ? `https://lh3.googleusercontent.com/d/${res.drive_file_id}` : res.file_url} alt="Kép" style={{ width: '60px', height: '60px', objectFit: 'cover', borderRadius: '4px', marginRight: '15px', cursor: 'pointer' }} onClick={() => setFullscreenImage(res.drive_file_id ? `https://lh3.googleusercontent.com/d/${res.drive_file_id}` : res.file_url)} />
+                                              <img src={res.drive_file_id ? `https://lh3.googleusercontent.com/d/${res.drive_file_id}` : res.file_url} alt="Kép" style={{ width: '60px', height: '60px', objectFit: 'cover', borderRadius: '4px', marginRight: '15px', cursor: 'pointer' }} onClick={() => setFullscreenData({url: res.drive_file_id ? `https://lh3.googleusercontent.com/d/${res.drive_file_id}` : res.file_url, title: res.title})} />
                                               <div style={{ flex: 1 }}>
                                                 <div style={{ fontWeight: 'bold' }}>{res.title}</div>
                                                 <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Készítő: {res.user_name} ({res.user_email})</div>
@@ -1273,7 +1344,7 @@ function App() {
                                               const imageUrl = entry.drive_file_id ? `https://lh3.googleusercontent.com/d/${entry.drive_file_id}` : entry.file_url;
                                               return (
                                                 <div key={entry.id} style={{ background: '#0f172a', borderRadius: '12px', overflow: 'hidden', border: '1px solid #334155', transition: 'transform 0.2s' }} onMouseOver={e => e.currentTarget.style.transform = 'translateY(-3px)'} onMouseOut={e => e.currentTarget.style.transform = 'none'}>
-                                                  <img src={imageUrl} alt={entry.title} onClick={() => setFullscreenImage(imageUrl)} style={{ width: '100%', height: '140px', objectFit: 'cover', backgroundColor: '#1e293b', cursor: 'zoom-in' }} />
+                                                  <img src={imageUrl} alt={entry.title} onClick={() => setFullscreenData({url: imageUrl, title: entry.title})} style={{ width: '100%', height: '140px', objectFit: 'cover', backgroundColor: '#1e293b', cursor: 'zoom-in' }} />
                                                   
                                                   {editingEntryId === entry.id ? (
                                                     <div style={{ padding: '12px' }}>
