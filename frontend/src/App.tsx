@@ -1652,6 +1652,7 @@ function App() {
                 )}
               </>
             )}
+                </>
           </main>
         </div>
       )}
