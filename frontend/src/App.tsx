@@ -983,7 +983,14 @@ function App() {
                       const isEnded = new Date(s.end_date) < new Date(new Date().setHours(0,0,0,0));
                       
                       return (
-                        <div key={s.id} style={{ background: '#1e293b', borderRadius: '12px', border: '1px solid #334155', display: 'flex', flexDirection: 'column', overflow: 'hidden', opacity: isEnded ? 0.7 : 1, transition: 'transform 0.2s', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.3)' }} onMouseOver={e => e.currentTarget.style.transform = 'translateY(-3px)'} onMouseOut={e => e.currentTarget.style.transform = 'none'}>
+                        // 1. JAVÍTÁS: onClick és cursor: 'pointer' hozzáadva a fő kártyához
+                        <div 
+                          key={s.id} 
+                          onClick={() => setSelectedSalon(s)}
+                          style={{ cursor: 'pointer', background: '#1e293b', borderRadius: '12px', border: '1px solid #334155', display: 'flex', flexDirection: 'column', overflow: 'hidden', opacity: isEnded ? 0.7 : 1, transition: 'transform 0.2s', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.3)' }} 
+                          onMouseOver={e => e.currentTarget.style.transform = 'translateY(-3px)'} 
+                          onMouseOut={e => e.currentTarget.style.transform = 'none'}
+                        >
                           
                           {/* Belső paddingos rész */}
                           <div style={{ padding: '20px', flex: 1, display: 'flex', flexDirection: 'column' }}>
@@ -1005,8 +1012,9 @@ function App() {
                               
                               <div style={{ textAlign: 'right', marginLeft: '10px' }}>
                                 <div style={{ fontSize: '0.7rem', color: isEnded ? '#94a3b8' : '#ef4444', textTransform: 'uppercase', fontWeight: 'bold' }}>Határidő</div>
-                                <div style={{ fontSize: '1.1rem', color: isEnded ? '#94a3b8' : '#f8fafc', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
-                                  {new Date(s.end_date).toLocaleDateString('hu-HU', { month: 'short', day: 'numeric' }).replace('.', '')}.
+                                {/* 2. JAVÍTÁS: Dátumba bekerült a year: 'numeric' és picit kisebb lett a betűméret (1rem), hogy kiférjen */}
+                                <div style={{ fontSize: '1rem', color: isEnded ? '#94a3b8' : '#f8fafc', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                                  {new Date(s.end_date).toLocaleDateString('hu-HU', { year: 'numeric', month: 'short', day: 'numeric' })}
                                 </div>
                               </div>
                             </div>
@@ -1023,7 +1031,7 @@ function App() {
                               <span>{s.submission_type === 'online' ? '💻 Online leadás' : '🖼️ Papírkép'}</span>
                             </div>
 
-                            {/* ÚJ: Kategóriák listázása */}
+                            {/* Kategóriák listázása */}
                             {s.categories && s.categories.length > 0 && (
                               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginBottom: '15px' }}>
                                 {s.categories.map((c: string) => (
@@ -1063,9 +1071,8 @@ function App() {
                             )}
                           </div>
 
-                          {/* Gomb alul */}
+                          {/* Gomb alul (ez megmaradt, és szintén kiváltja a felugró ablakot az eseménybuborékolás miatt) */}
                           <button 
-                            onClick={() => setSelectedSalon(s)} 
                             style={{ background: '#334155', color: '#f8fafc', border: 'none', padding: '12px', width: '100%', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem', borderTop: '1px solid #475569', transition: 'background 0.2s' }}
                             onMouseOver={e => e.currentTarget.style.background = '#475569'}
                             onMouseOut={e => e.currentTarget.style.background = '#334155'}
