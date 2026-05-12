@@ -362,9 +362,10 @@ function App() {
             <button onClick={() => setSelectedSalon(null)} style={{ position: 'absolute', top: '15px', right: '15px', background: 'transparent', border: 'none', color: '#94a3b8', fontSize: '1.5rem', cursor: 'pointer', fontWeight: 'bold' }}>×</button>
             
             <div style={{ padding: '30px' }}>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '15px' }}>
-                {selectedSalon.patrons && selectedSalon.patrons.length > 0 ? (
-                  selectedSalon.patrons.map((p: string) => <span key={p} style={{ background: '#a78bfa20', color: '#a78bfa', padding: '4px 10px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 'bold', border: '1px solid #a78bfa50' }}>{p}</span>)
+             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '15px' }}>
+                {/* JAVÍTVA: patrons helyett patron_details és objektum map-elés */}
+                {selectedSalon.patron_details && selectedSalon.patron_details.length > 0 ? (
+                  selectedSalon.patron_details.map((p: any) => <span key={p.name} style={{ background: '#a78bfa20', color: '#a78bfa', padding: '4px 10px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 'bold', border: '1px solid #a78bfa50' }}>{p.name}</span>)
                 ) : (
                   <span style={{ background: '#334155', color: '#94a3b8', padding: '4px 10px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 'bold' }}>Független Pályázat</span>
                 )}
@@ -921,13 +922,16 @@ function App() {
 
                 <h3 style={{ color: '#f8fafc' }}>Adatbázisban lévő Szalonok</h3>
                 <div style={{ background: '#1e293b', borderRadius: '12px', overflow: 'hidden', border: '1px solid #334155' }}>
-                  {salons.length === 0 ? <div style={{padding: '20px', color: '#94a3b8', textAlign: 'center'}}>Még nincs egyetlen szalon sem felvéve.</div> : null}
-                  {salons.map((s, i) => (
-                    <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px', borderBottom: i < salons.length - 1 ? '1px solid #334155' : 'none', background: i % 2 === 0 ? '#0f172a' : 'transparent', flexWrap: 'wrap', gap: '10px' }}>
-                      <div>
+                  {sortedSalons.length === 0 ? <div style={{padding: '20px', color: '#94a3b8', textAlign: 'center'}}>Még nincs egyetlen szalon sem felvéve.</div> : null}
+                  {sortedSalons.map((s, i) => (
+                    <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px', borderBottom: i < sortedSalons.length - 1 ? '1px solid #334155' : 'none', background: i % 2 === 0 ? '#0f172a' : 'transparent', flexWrap: 'wrap', gap: '10px' }}>
+                      
+                      {/* Ide került a kattinthatóság a modal megnyitásához */}
+                      <div style={{ cursor: 'pointer' }} onClick={() => setSelectedSalon(s)}>
                         <div style={{ fontWeight: 'bold', color: '#60a5fa', fontSize: '1.1rem' }}>{s.name}</div>
                         <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: '5px' }}>
-                          Zárás: {new Date(s.end_date).toLocaleDateString()} | {s.country_code && getFlagEmoji(s.country_code) ? `${getFlagEmoji(s.country_code)} ` : ''}{s.country_hun}
+                          {/* Itt javítva a dátum formátuma, hogy mindig mutassa az évet */}
+                          Zárás: {new Date(s.end_date).toLocaleDateString('hu-HU', { year: 'numeric', month: 'short', day: 'numeric' })} | {s.country_code && getFlagEmoji(s.country_code) ? `${getFlagEmoji(s.country_code)} ` : ''}{s.country_hun}
                         </div>
                       </div>
                       <div>
