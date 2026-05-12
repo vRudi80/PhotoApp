@@ -273,7 +273,6 @@ app.get('/api/my-homework-entries', async (req, res) => {
   try { const [rows] = await pool.query('SELECT * FROM photo_homework_entries WHERE user_email = ? ORDER BY created_at DESC', [req.query.userEmail]); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
 });
 
-// FRISSÍTETT: Visszaadja a képeket, a like számot és azt, hogy a bejelentkezett user like-olta-e
 app.get('/api/homework-entries/club/:clubId', async (req, res) => {
   const userEmail = req.query.userEmail || '';
   try { 
@@ -311,7 +310,6 @@ app.post('/api/upload-homework', upload.single('photo'), async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ÚJ: Házi feladat képének címe frissíthető
 app.put('/api/homework-entries/:id', async (req, res) => {
   try {
     const [result] = await pool.query('UPDATE photo_homework_entries SET title = ? WHERE id = ? AND user_email = ?', [req.body.title, req.params.id, req.body.userEmail]);
@@ -330,7 +328,6 @@ app.delete('/api/homework-entries/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Hiba' }); }
 });
 
-// ÚJ: Like Toggle végpont
 app.post('/api/homework-entries/:id/like', async (req, res) => {
   const { userEmail } = req.body;
   const entryId = req.params.id;
@@ -344,6 +341,72 @@ app.post('/api/homework-entries/:id/like', async (req, res) => {
       res.json({ liked: true });
     }
   } catch (err) { res.status(500).json({ error: 'Hiba a like-olásnál' }); }
+});
+
+// --- ÚJ: NEMZETKÖZI SZALONOK ---
+
+// Segédtáblák lekérése
+app.get('/api/countries', async (req, res) => {
+  try { const [rows] = await pool.query('SELECT id, country, country_hun, country_code FROM photo_countries WHERE is_active = 1 ORDER BY country_hun ASC'); res.json(rows); } 
+  catch (err) { res.status(500).json({ error: 'Hiba' }); }
+});
+app.get('/api/categories', async (req, res) => {
+  try { const [rows] = await pool.query('SELECT * FROM photo_categories ORDER BY hun_name ASC'); res.json(rows); } 
+  catch (err) { res.status(500).json({ error: 'Hiba' }); }
+});
+app.get('/api/patrons', async (req, res) => {
+  try { const [rows] = await pool.query('SELECT * FROM photo_patrons ORDER BY name ASC'); res.json(rows); } 
+  catch (err) { res.status(500).json({ error: 'Hiba' }); }
+});
+
+// Összes Szalon lekérése (hozzáfűzve a patronokat és kategóriákat)
+app.get('/api/salons', async (req, res) => {
+  try {
+    const [salons] = await pool.query(`
+      SELECT s.*, c.country_hun, c.country_code 
+      FROM photo_salons s 
+      LEFT JOIN photo_countries c ON s.host_country_id = c.id 
+      ORDER BY s.end_date ASC
+    `);
+    const [patrons] = await pool.query('SELECT sp.salon_id, p.name FROM photo_salon_patrons sp JOIN photo_patrons p ON sp.patron_id = p.id');
+    const [categories] = await pool.query('SELECT sc.salon_id, cat.hun_name, cat.name FROM photo_salon_categories sc JOIN photo_categories cat ON sc.category_id = cat.id');
+    
+    const formattedSalons = salons.map(salon => ({
+      ...salon,
+      patrons: patrons.filter(p => p.salon_id === salon.id).map(p => p.name),
+      categories: categories.filter(c => c.salon_id === salon.id).map(c => c.hun_name || c.name)
+    }));
+    res.json(formattedSalons);
+  } catch(err) { res.status(500).json({error: err.message}); }
+});
+
+app.post('/api/salons', async (req, res) => {
+  const { name, feeAmount, feeCurrency, startDate, endDate, website, resultsDate, isCircuit, awardsCount, cashPrize, circuitNumber, submissionType, hostCountryId, patronIds, categoryIds } = req.body;
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    const [result] = await conn.query(
+      'INSERT INTO photo_salons (name, fee_amount, fee_currency, start_date, end_date, website, results_date, is_circuit, awards_count, cash_prize, circuit_number, submission_type, host_country_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [name, feeAmount || null, feeCurrency || 'EUR', startDate || null, endDate, website || null, resultsDate || null, isCircuit ? 1 : 0, awardsCount || 0, cashPrize || null, circuitNumber || null, submissionType || 'online', hostCountryId || null]
+    );
+    const salonId = result.insertId;
+
+    if (patronIds && patronIds.length > 0) {
+      const pValues = patronIds.map(id => [salonId, id]);
+      await conn.query('INSERT INTO photo_salon_patrons (salon_id, patron_id) VALUES ?', [pValues]);
+    }
+    if (categoryIds && categoryIds.length > 0) {
+      const cValues = categoryIds.map(id => [salonId, id]);
+      await conn.query('INSERT INTO photo_salon_categories (salon_id, category_id) VALUES ?', [cValues]);
+    }
+    await conn.commit();
+    res.json({ success: true });
+  } catch (e) { await conn.rollback(); res.status(500).json({ error: e.message }); } finally { conn.release(); }
+});
+
+app.delete('/api/salons/:id', async (req, res) => {
+  try { await pool.query('DELETE FROM photo_salons WHERE id = ?', [req.params.id]); res.json({ success: true }); } 
+  catch (err) { res.status(500).json({ error: 'Hiba' }); }
 });
 
 app.listen(PORT, () => console.log(`Szerver fut a ${PORT} porton`));
