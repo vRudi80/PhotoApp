@@ -9,9 +9,17 @@ const ADMIN_EMAIL = "kovari.rudolf@gmail.com";
 
 // --- Okosított zászló generáló ---
 function getFlagEmoji(countryCode: string) {
-  if (!countryCode || countryCode.length !== 2) return null; // Ha nincs valid ISO kód, ne mutasson fehér zászlót
+  if (!countryCode || countryCode.length !== 2) return null;
   const codePoints = countryCode.toUpperCase().split('').map(char =>  127397 + char.charCodeAt(0));
   return String.fromCodePoint(...codePoints);
+}
+
+// --- JAVÍTÁS: Központi kép URL generáló Google Drive-hoz ---
+function getImageUrl(driveFileId?: string | null, fileUrl?: string) {
+  if (driveFileId) {
+    return `https://drive.google.com/uc?id=${driveFileId}`;
+  }
+  return fileUrl || '';
 }
 
 function App() {
@@ -52,7 +60,6 @@ function App() {
   const [salonSelectedPatrons, setSalonSelectedPatrons] = useState<number[]>([]);
   const [salonSelectedCats, setSalonSelectedCats] = useState<number[]>([]);
 
-  // --- Modal állapot a szalon részleteihez ---
   const [selectedSalon, setSelectedSalon] = useState<any>(null);
 
   const [activeTab, setActiveTab] = useState<'contests_open_active' | 'contests_club_active' | 'contests_closed' | 'club_nights' | 'club_homeworks' | 'salons' | 'admin_contests' | 'admin_users' | 'admin_clubs' | 'admin_meetings' | 'admin_homeworks' | 'admin_salons'>('contests_open_active');
@@ -140,7 +147,6 @@ function App() {
   const fetchData = async () => {
     setIsInitialLoading(true);
     try {
-      // Párhuzamosan indítjuk el az összes hálózati kérést
       const [
         resUsers, resClubs, resContests, resJury, resMeetings, 
         resHw, resCountries, resCats, resPatrons, resSalons
@@ -167,11 +173,10 @@ function App() {
       if (resCats.ok) setAllCategories(await resCats.json());
       if (resPatrons.ok) setPatrons(await resPatrons.json());
       if (resSalons.ok) setSalons(await resSalons.json());
-
     } catch (e) { 
       console.error("Hiba az adatok lekérésekor:", e); 
     } finally {
-      setIsInitialLoading(false); // Bármi történik, levesszük a töltőképernyőt
+      setIsInitialLoading(false);
     }
   };
   
@@ -317,23 +322,16 @@ function App() {
   const myClubHomeworks = homeworks.filter(h => h.club_name === currentDbUser?.club_name);
   const adminHomeworks = user?.email === ADMIN_EMAIL ? homeworks : homeworks.filter(h => h.club_name === currentDbUser?.club_name);
 
-  // --- Szalonok rendezése frontend oldalon (Legkésőbbi határidő legelöl) ---
   const sortedSalons = [...salons].sort((a, b) => new Date(b.end_date).getTime() - new Date(a.end_date).getTime());
 
-  // --- Szalonok szűrése keresés alapján ---
   const searchedSalons = sortedSalons.filter(s => {
     if (!salonSearch) return true;
     const q = salonSearch.toLowerCase();
-    
-    // Keresés a szalon nevében
     const matchName = s.name.toLowerCase().includes(q);
-    
-    // Keresés a patronáló szervezetek azonosítóiban vagy nevében
     const matchPatron = s.patron_details && s.patron_details.some((p: any) => 
       (p.name && p.name.toLowerCase().includes(q)) || 
       (p.number && p.number.toLowerCase().includes(q))
     );
-    
     return matchName || matchPatron;
   });
 
@@ -382,7 +380,6 @@ function App() {
         </div>
       )}
 
-      {/* --- SZALON RÉSZLETEK MODAL --- */}
       {selectedSalon && (
         <div onClick={(e) => { if(e.target === e.currentTarget) setSelectedSalon(null); }} style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
           <div style={{ background: '#1e293b', border: '1px solid #60a5fa', borderRadius: '16px', maxWidth: '600px', width: '100%', maxHeight: '90vh', overflowY: 'auto', position: 'relative', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.8)' }}>
@@ -586,7 +583,6 @@ function App() {
 
          <main className="main-container">
             
-            {/* Töltőképernyő megjelenítése */}
             {isInitialLoading ? (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '50vh', color: '#60a5fa' }}>
                 <div style={{ fontSize: '3rem', marginBottom: '20px', animation: 'spin 2s linear infinite' }}>⏳</div>
@@ -873,7 +869,7 @@ function App() {
                     </div>
                     <div style={{flex: '1 1 100px'}}>
                       <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Pénznem</label>
-                      <select value={salonCurrency} onChange={e => setSalonCurrency(e.target.value)} style={inputStyle}>
+                      <select value={salonCurrency} onChange={e => setSalonCurrency(e.target.value)} style={inputStyle} />
                         <option value="EUR">EUR</option>
                         <option value="USD">USD</option>
                         <option value="HUF">HUF</option>
@@ -1137,7 +1133,7 @@ function App() {
                                 
                                 <div style={{ height: '180px', flexShrink: 0, background: '#0f172a', position: 'relative' }}>
                                   {meet.drive_file_id || meet.file_url ? (
-                                    <img src={meet.drive_file_id ? `https://drive.google.com/uc?id=${meet.drive_file_id}` : meet.file_url} alt={meet.topic} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: isPast ? 0.6 : 1 }} />
+                                    <img src={getImageUrl(meet.drive_file_id, meet.file_url)} alt={meet.topic} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: isPast ? 0.6 : 1 }} />
                                   ) : (
                                     <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #1e293b, #0f172a)', color: '#334155', fontSize: '4rem' }}>📷</div>
                                   )}
@@ -1289,7 +1285,7 @@ function App() {
                                 <h4 style={{margin: '0 0 15px 0', fontSize: '1.1rem', color: '#cbd5e1'}}>Saját beküldött képeid</h4>
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '15px' }}>
                                   {myEntries.map(entry => {
-                                    const imageUrl = entry.drive_file_id ? \`https://drive.google.com/uc?id=${entry.drive_file_id}` : entry.file_url;
+                                    const imageUrl = getImageUrl(entry.drive_file_id, entry.file_url);
                                     return (
                                       <div key={entry.id} style={{ background: '#0f172a', borderRadius: '8px', overflow: 'hidden', border: '1px solid #334155' }}>
                                         <img src={imageUrl} alt={entry.title} onClick={() => setFullscreenData({url: imageUrl, title: entry.title})} style={{ width: '100%', height: '100px', objectFit: 'cover', cursor: 'zoom-in' }} />
@@ -1337,7 +1333,7 @@ function App() {
                                 ) : (
                                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '15px' }}>
                                     {hwEntriesForAll.map(entry => {
-                                      const imageUrl = entry.drive_file_id ? \ ? `https://drive.google.com/uc?id=${entry.drive_file_id}` : entry.file_url;
+                                      const imageUrl = getImageUrl(entry.drive_file_id, entry.file_url);
                                       return (
                                         <div key={entry.id} style={{ background: '#0f172a', borderRadius: '8px', overflow: 'hidden', border: isLeader ? '1px solid #f59e0b50' : '1px solid #334155' }}>
                                           <img src={imageUrl} alt={entry.title} onClick={() => setFullscreenData({url: imageUrl, title: entry.title})} style={{ width: '100%', height: '140px', objectFit: 'cover', cursor: 'zoom-in' }} />
@@ -1551,7 +1547,7 @@ function App() {
                                   <div>
                                     {(() => {
                                       const currentEntry = unvotedEntries[0];
-                                      const imageUrl = currentEntry.drive_file_id ? `https://drive.google.com/uc?id=${currentEntry.drive_file_id}` : currentEntry.file_url;
+                                      const imageUrl = getImageUrl(currentEntry.drive_file_id, currentEntry.file_url);
                                       return (
                                         <div style={{ background: '#1e293b', padding: '20px', borderRadius: '12px' }}>
                                           <h4 style={{ margin: '0 0 10px 0', fontSize: '1.6rem', color: '#f8fafc' }}>{currentEntry.title || "Névtelen kép"}</h4>
@@ -1592,7 +1588,7 @@ function App() {
                                           {catResults.map((res, index) => (
                                             <div key={res.id} style={{ display: 'flex', alignItems: 'center', background: '#1e293b', padding: '10px', borderRadius: '8px' }}>
                                               <div style={{ fontSize: '1.5rem', fontWeight: 'bold', width: '40px', color: index === 0 ? '#fbbf24' : index === 1 ? '#94a3b8' : index === 2 ? '#b45309' : '#475569' }}>#{index + 1}</div>
-                                              <img src={res.drive_file_id ? `https://drive.google.com/uc?id=${res.drive_file_id}` : res.file_url} alt="Kép" style={{ width: '60px', height: '60px', objectFit: 'cover', borderRadius: '4px', marginRight: '15px', cursor: 'pointer' }} onClick={() => setFullscreenData({url: res.drive_file_id ? `https://drive.google.com/uc?id=${res.drive_file_id}` : res.file_url, title: res.title})} />
+                                              <img src={getImageUrl(res.drive_file_id, res.file_url)} alt="Kép" style={{ width: '60px', height: '60px', objectFit: 'cover', borderRadius: '4px', marginRight: '15px', cursor: 'pointer' }} onClick={() => setFullscreenData({url: getImageUrl(res.drive_file_id, res.file_url), title: res.title})} />
                                               <div style={{ flex: 1 }}>
                                                 <div style={{ fontWeight: 'bold' }}>{res.title}</div>
                                                 <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Készítő: {res.user_name} ({res.user_email})</div>
@@ -1692,7 +1688,7 @@ function App() {
                                           <h5 style={{ color: '#38bdf8', borderBottom: '1px solid #334155', paddingBottom: '8px', marginTop: 0, fontSize: '1.1rem' }}>{cat} <span style={{ color: '#94a3b8', fontSize: '0.9rem' }}>({catEntries.length}/4)</span></h5>
                                           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '20px' }}>
                                             {catEntries.map(entry => {
-                                              const imageUrl = entry.drive_file_id ? \ ? `https://drive.google.com/uc?id=${entry.drive_file_id}` : entry.file_url;
+                                              const imageUrl = getImageUrl(entry.drive_file_id, entry.file_url);
                                               return (
                                                 <div key={entry.id} style={{ background: '#0f172a', borderRadius: '12px', overflow: 'hidden', border: '1px solid #334155', transition: 'transform 0.2s' }} onMouseOver={e => e.currentTarget.style.transform = 'translateY(-3px)'} onMouseOut={e => e.currentTarget.style.transform = 'none'}>
                                                   <img src={imageUrl} alt={entry.title} onClick={() => setFullscreenData({url: imageUrl, title: entry.title})} style={{ width: '100%', height: '140px', objectFit: 'cover', backgroundColor: '#1e293b', cursor: 'zoom-in' }} />
