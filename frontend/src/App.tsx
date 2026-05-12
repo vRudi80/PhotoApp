@@ -1652,7 +1652,7 @@ function App() {
                 )}
               </>
             )}
-                </>
+</> {/* <--- EZ A TAG HIÁNYZOTT! Ezt pótold be! */}
           </main>
         </div>
       )}
