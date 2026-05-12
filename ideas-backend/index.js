@@ -221,10 +221,10 @@ app.put('/api/meetings/:id', upload.single('coverPhoto'), async (req, res) => {
 app.delete('/api/meetings/:id', async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT drive_file_id FROM photo_club_meetings WHERE id = ?', [req.params.id]);
-    if (rows.length > 0 && rows[0].drive_file_id) await drive.files.delete({ fileId: rows[0].drive_file_id }).catch(e => console.log(e.message));
+    if (rows.length > 0 && rows[0].drive_file_id) await drive.files.delete({ fileId: rows[0].drive_file_id }).catch(e => console.log('Drive hiba:', e.message));
     await pool.query('DELETE FROM photo_club_meetings WHERE id = ?', [req.params.id]);
     res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: 'Hiba' }); }
+  } catch (err) { res.status(500).json({ error: 'Hiba a törlésnél' }); }
 });
 
 app.get('/api/attendance/:meetingId', async (req, res) => {
@@ -241,7 +241,7 @@ app.post('/api/attendance/:meetingId', async (req, res) => {
   } catch (e) { await conn.rollback(); res.status(500).json({ error: e.message }); } finally { conn.release(); }
 });
 
-// --- ÚJ / FRISSÍTETT: HÁZI FELADATOK ---
+// --- HÁZI FELADATOK ---
 app.get('/api/homeworks', async (req, res) => {
   try {
     const [rows] = await pool.query(`SELECT h.*, c.name as club_name FROM photo_homeworks h JOIN photo_clubs c ON h.club_id = c.id ORDER BY h.deadline DESC`);
@@ -273,8 +273,21 @@ app.get('/api/my-homework-entries', async (req, res) => {
   try { const [rows] = await pool.query('SELECT * FROM photo_homework_entries WHERE user_email = ? ORDER BY created_at DESC', [req.query.userEmail]); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
 });
 
+// FRISSÍTETT: Visszaadja a képeket, a like számot és azt, hogy a bejelentkezett user like-olta-e
 app.get('/api/homework-entries/club/:clubId', async (req, res) => {
-  try { const [rows] = await pool.query('SELECT e.* FROM photo_homework_entries e JOIN photo_homeworks h ON e.homework_id = h.id WHERE h.club_id = ? ORDER BY e.created_at DESC', [req.params.clubId]); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
+  const userEmail = req.query.userEmail || '';
+  try { 
+    const [rows] = await pool.query(`
+      SELECT e.*, 
+        (SELECT COUNT(*) FROM photo_homework_likes WHERE entry_id = e.id) as like_count,
+        (SELECT COUNT(*) FROM photo_homework_likes WHERE entry_id = e.id AND user_email = ?) as user_liked
+      FROM photo_homework_entries e 
+      JOIN photo_homeworks h ON e.homework_id = h.id 
+      WHERE h.club_id = ? 
+      ORDER BY e.created_at DESC
+    `, [userEmail, req.params.clubId]); 
+    res.json(rows); 
+  } catch (err) { res.status(500).json({ error: 'Hiba' }); }
 });
 
 app.post('/api/upload-homework', upload.single('photo'), async (req, res) => {
@@ -282,7 +295,6 @@ app.post('/api/upload-homework', upload.single('photo'), async (req, res) => {
   const file = req.file;
   if (!file) return res.status(400).json({ error: 'Nincs fájl kiválasztva!' });
   try {
-    // Lekérjük a dinamikus limitet
     const [hwRows] = await pool.query('SELECT max_images FROM photo_homeworks WHERE id = ?', [homeworkId]);
     if (hwRows.length === 0) return res.status(404).json({ error: 'A házi feladat nem található!' });
     const maxImages = hwRows[0].max_images;
@@ -299,6 +311,15 @@ app.post('/api/upload-homework', upload.single('photo'), async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ÚJ: Házi feladat képének címe frissíthető
+app.put('/api/homework-entries/:id', async (req, res) => {
+  try {
+    const [result] = await pool.query('UPDATE photo_homework_entries SET title = ? WHERE id = ? AND user_email = ?', [req.body.title, req.params.id, req.body.userEmail]);
+    if (result.affectedRows === 0) return res.status(403).json({ error: 'Nincs jogosultságod módosítani ezt a képet!' });
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: 'Hiba a cím frissítésekor' }); }
+});
+
 app.delete('/api/homework-entries/:id', async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT * FROM photo_homework_entries WHERE id = ? AND user_email = ?', [req.params.id, req.body.userEmail]);
@@ -307,6 +328,22 @@ app.delete('/api/homework-entries/:id', async (req, res) => {
     await pool.query('DELETE FROM photo_homework_entries WHERE id = ?', [req.params.id]);
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: 'Hiba' }); }
+});
+
+// ÚJ: Like Toggle végpont
+app.post('/api/homework-entries/:id/like', async (req, res) => {
+  const { userEmail } = req.body;
+  const entryId = req.params.id;
+  try {
+    const [existing] = await pool.query('SELECT * FROM photo_homework_likes WHERE entry_id = ? AND user_email = ?', [entryId, userEmail]);
+    if (existing.length > 0) {
+      await pool.query('DELETE FROM photo_homework_likes WHERE entry_id = ? AND user_email = ?', [entryId, userEmail]);
+      res.json({ liked: false });
+    } else {
+      await pool.query('INSERT INTO photo_homework_likes (entry_id, user_email) VALUES (?, ?)', [entryId, userEmail]);
+      res.json({ liked: true });
+    }
+  } catch (err) { res.status(500).json({ error: 'Hiba a like-olásnál' }); }
 });
 
 app.listen(PORT, () => console.log(`Szerver fut a ${PORT} porton`));
