@@ -1137,7 +1137,7 @@ function App() {
                                 
                                 <div style={{ height: '180px', flexShrink: 0, background: '#0f172a', position: 'relative' }}>
                                   {meet.drive_file_id || meet.file_url ? (
-                                    <img src={meet.drive_file_id ? `https://lh3.googleusercontent.com/d/$${meet.drive_file_id}` : meet.file_url} alt={meet.topic} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: isPast ? 0.6 : 1 }} />
+                                    <img src={meet.drive_file_id ? `https://drive.google.com/uc?id=${meet.drive_file_id}` : meet.file_url} alt={meet.topic} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: isPast ? 0.6 : 1 }} />
                                   ) : (
                                     <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #1e293b, #0f172a)', color: '#334155', fontSize: '4rem' }}>📷</div>
                                   )}
@@ -1289,7 +1289,7 @@ function App() {
                                 <h4 style={{margin: '0 0 15px 0', fontSize: '1.1rem', color: '#cbd5e1'}}>Saját beküldött képeid</h4>
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '15px' }}>
                                   {myEntries.map(entry => {
-                                    const imageUrl = entry.drive_file_id ? `https://lh3.googleusercontent.com/d/$${entry.drive_file_id}` : entry.file_url;
+                                    const imageUrl = entry.drive_file_id ? `https://drive.google.com/uc?id=${entry.drive_file_id}` : entry.file_url;
                                     return (
                                       <div key={entry.id} style={{ background: '#0f172a', borderRadius: '8px', overflow: 'hidden', border: '1px solid #334155' }}>
                                         <img src={imageUrl} alt={entry.title} onClick={() => setFullscreenData({url: imageUrl, title: entry.title})} style={{ width: '100%', height: '100px', objectFit: 'cover', cursor: 'zoom-in' }} />
@@ -1337,7 +1337,7 @@ function App() {
                                 ) : (
                                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '15px' }}>
                                     {hwEntriesForAll.map(entry => {
-                                      const imageUrl = entry.drive_file_id ? `https://lh3.googleusercontent.com/d/$${entry.drive_file_id}` : entry.file_url;
+                                      const imageUrl = entry.drive_file_id ? `https://drive.google.com/uc?id=${entry.drive_file_id}` : entry.file_url;
                                       return (
                                         <div key={entry.id} style={{ background: '#0f172a', borderRadius: '8px', overflow: 'hidden', border: isLeader ? '1px solid #f59e0b50' : '1px solid #334155' }}>
                                           <img src={imageUrl} alt={entry.title} onClick={() => setFullscreenData({url: imageUrl, title: entry.title})} style={{ width: '100%', height: '140px', objectFit: 'cover', cursor: 'zoom-in' }} />
@@ -1551,7 +1551,7 @@ function App() {
                                   <div>
                                     {(() => {
                                       const currentEntry = unvotedEntries[0];
-                                      const imageUrl = currentEntry.drive_file_id ? `https://lh3.googleusercontent.com/d/$${currentEntry.drive_file_id}` : currentEntry.file_url;
+                                      const imageUrl = currentEntry.drive_file_id ? `https://drive.google.com/uc?id=${currentEntry.drive_file_id}` : currentEntry.file_url;
                                       return (
                                         <div style={{ background: '#1e293b', padding: '20px', borderRadius: '12px' }}>
                                           <h4 style={{ margin: '0 0 10px 0', fontSize: '1.6rem', color: '#f8fafc' }}>{currentEntry.title || "Névtelen kép"}</h4>
@@ -1592,7 +1592,7 @@ function App() {
                                           {catResults.map((res, index) => (
                                             <div key={res.id} style={{ display: 'flex', alignItems: 'center', background: '#1e293b', padding: '10px', borderRadius: '8px' }}>
                                               <div style={{ fontSize: '1.5rem', fontWeight: 'bold', width: '40px', color: index === 0 ? '#fbbf24' : index === 1 ? '#94a3b8' : index === 2 ? '#b45309' : '#475569' }}>#{index + 1}</div>
-                                              <img src={res.drive_file_id ? `https://lh3.googleusercontent.com/d/$${res.drive_file_id}` : res.file_url} alt="Kép" style={{ width: '60px', height: '60px', objectFit: 'cover', borderRadius: '4px', marginRight: '15px', cursor: 'pointer' }} onClick={() => setFullscreenData({url: res.drive_file_id ? `https://lh3.googleusercontent.com/d/$${res.drive_file_id}` : res.file_url, title: res.title})} />
+                                              <img src={res.drive_file_id ? `https://drive.google.com/uc?id=${res.drive_file_id}` : res.file_url} alt="Kép" style={{ width: '60px', height: '60px', objectFit: 'cover', borderRadius: '4px', marginRight: '15px', cursor: 'pointer' }} onClick={() => setFullscreenData({url: res.drive_file_id ? `https://drive.google.com/uc?id=${res.drive_file_id}` : res.file_url, title: res.title})} />
                                               <div style={{ flex: 1 }}>
                                                 <div style={{ fontWeight: 'bold' }}>{res.title}</div>
                                                 <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Készítő: {res.user_name} ({res.user_email})</div>
@@ -1692,7 +1692,7 @@ function App() {
                                           <h5 style={{ color: '#38bdf8', borderBottom: '1px solid #334155', paddingBottom: '8px', marginTop: 0, fontSize: '1.1rem' }}>{cat} <span style={{ color: '#94a3b8', fontSize: '0.9rem' }}>({catEntries.length}/4)</span></h5>
                                           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '20px' }}>
                                             {catEntries.map(entry => {
-                                              const imageUrl = entry.drive_file_id ? `https://lh3.googleusercontent.com/d/$${entry.drive_file_id}` : entry.file_url;
+                                              const imageUrl = entry.drive_file_id ? `https://drive.google.com/uc?id=${entry.drive_file_id}` : entry.file_url;
                                               return (
                                                 <div key={entry.id} style={{ background: '#0f172a', borderRadius: '12px', overflow: 'hidden', border: '1px solid #334155', transition: 'transform 0.2s' }} onMouseOver={e => e.currentTarget.style.transform = 'translateY(-3px)'} onMouseOut={e => e.currentTarget.style.transform = 'none'}>
                                                   <img src={imageUrl} alt={entry.title} onClick={() => setFullscreenData({url: imageUrl, title: entry.title})} style={{ width: '100%', height: '140px', objectFit: 'cover', backgroundColor: '#1e293b', cursor: 'zoom-in' }} />
