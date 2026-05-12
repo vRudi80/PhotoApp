@@ -30,6 +30,7 @@ function App() {
   const [clubHomeworkEntries, setClubHomeworkEntries] = useState<any[]>([]); 
   
   const [salons, setSalons] = useState<any[]>([]);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [countries, setCountries] = useState<any[]>([]);
   const [allCategories, setAllCategories] = useState<any[]>([]);
   const [patrons, setPatrons] = useState<any[]>([]);
@@ -136,35 +137,42 @@ function App() {
   const [fullscreenData, setFullscreenData] = useState<{url: string, title?: string} | null>(null);
 
   const fetchData = async () => {
+    setIsInitialLoading(true);
     try {
-      const resUsers = await fetch(`${BACKEND_URL}/api/users`);
+      // Párhuzamosan indítjuk el az összes hálózati kérést
+      const [
+        resUsers, resClubs, resContests, resJury, resMeetings, 
+        resHw, resCountries, resCats, resPatrons, resSalons
+      ] = await Promise.all([
+        fetch(`${BACKEND_URL}/api/users`),
+        fetch(`${BACKEND_URL}/api/clubs`),
+        fetch(`${BACKEND_URL}/api/contests`),
+        fetch(`${BACKEND_URL}/api/jury`),
+        fetch(`${BACKEND_URL}/api/meetings`),
+        fetch(`${BACKEND_URL}/api/homeworks`),
+        fetch(`${BACKEND_URL}/api/countries`),
+        fetch(`${BACKEND_URL}/api/categories`),
+        fetch(`${BACKEND_URL}/api/patrons`),
+        fetch(`${BACKEND_URL}/api/salons`)
+      ]);
+
       if (resUsers.ok) setAllUsers(await resUsers.json());
-      const resClubs = await fetch(`${BACKEND_URL}/api/clubs`);
       if (resClubs.ok) setClubs(await resClubs.json());
-      
-      const resContests = await fetch(`${BACKEND_URL}/api/contests`);
       if (resContests.ok) setContests(await resContests.json());
-      const resJury = await fetch(`${BACKEND_URL}/api/jury`);
       if (resJury.ok) setJuryList(await resJury.json());
-      
-      const resMeetings = await fetch(`${BACKEND_URL}/api/meetings`);
       if (resMeetings.ok) setMeetings(await resMeetings.json());
-
-      const resHw = await fetch(`${BACKEND_URL}/api/homeworks`);
       if (resHw.ok) setHomeworks(await resHw.json());
-
-      const resCountries = await fetch(`${BACKEND_URL}/api/countries`);
       if (resCountries.ok) setCountries(await resCountries.json());
-      const resCats = await fetch(`${BACKEND_URL}/api/categories`);
       if (resCats.ok) setAllCategories(await resCats.json());
-      const resPatrons = await fetch(`${BACKEND_URL}/api/patrons`);
       if (resPatrons.ok) setPatrons(await resPatrons.json());
-      const resSalons = await fetch(`${BACKEND_URL}/api/salons`);
       if (resSalons.ok) setSalons(await resSalons.json());
 
-    } catch (e) { console.error(e); }
+    } catch (e) { 
+      console.error("Hiba az adatok lekérésekor:", e); 
+    } finally {
+      setIsInitialLoading(false); // Bármi történik, levesszük a töltőképernyőt
+    }
   };
-
   const fetchMyEntries = async (email: string) => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/my-entries?userEmail=${email}`);
@@ -558,7 +566,17 @@ function App() {
             </div>
           </header>
 
-          <main className="main-container">
+         <main className="main-container">
+            
+            {/* Töltőképernyő megjelenítése */}
+            {isInitialLoading ? (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '50vh', color: '#60a5fa' }}>
+                <div style={{ fontSize: '3rem', marginBottom: '20px', animation: 'spin 2s linear infinite' }}>⏳</div>
+                <h2>Adatok szinkronizálása a szerverrel...</h2>
+                <style>{`@keyframes spin { 100% { transform: rotate(360deg); } }`}</style>
+              </div>
+            ) : (
+              <>
             
             {activeTab === 'admin_clubs' && user.email === ADMIN_EMAIL && (
                <div>
