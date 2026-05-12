@@ -7,9 +7,9 @@ const GOOGLE_CLIENT_ID = "197361744572-ih728hq5jft3fqfd1esvktvrd8i97kcp.apps.goo
 const BACKEND_URL = "https://photoapp-backend-m4d1.onrender.com"; 
 const ADMIN_EMAIL = "kovari.rudolf@gmail.com"; 
 
-// --- Segédfüggvény országkódból emojit generálni (pl. HU -> 🇭🇺) ---
+// --- Okosított zászló generáló ---
 function getFlagEmoji(countryCode: string) {
-  if (!countryCode || countryCode.length !== 2) return '🏳️';
+  if (!countryCode || countryCode.length !== 2) return null; // Ha nincs valid ISO kód, ne mutasson fehér zászlót
   const codePoints = countryCode.toUpperCase().split('').map(char =>  127397 + char.charCodeAt(0));
   return String.fromCodePoint(...codePoints);
 }
@@ -29,13 +29,11 @@ function App() {
   const [myHomeworkEntries, setMyHomeworkEntries] = useState<any[]>([]);
   const [clubHomeworkEntries, setClubHomeworkEntries] = useState<any[]>([]); 
   
-  // --- ÚJ ÁLLAPOTOK A SZALONOKHOZ ---
   const [salons, setSalons] = useState<any[]>([]);
   const [countries, setCountries] = useState<any[]>([]);
   const [allCategories, setAllCategories] = useState<any[]>([]);
   const [patrons, setPatrons] = useState<any[]>([]);
   
-  // Szalon Űrlap állapota
   const [salonName, setSalonName] = useState('');
   const [salonFee, setSalonFee] = useState('');
   const [salonCurrency, setSalonCurrency] = useState('EUR');
@@ -52,7 +50,9 @@ function App() {
   const [salonSelectedPatrons, setSalonSelectedPatrons] = useState<number[]>([]);
   const [salonSelectedCats, setSalonSelectedCats] = useState<number[]>([]);
 
-  // Bővítettük a tabokat
+  // --- ÚJ: Modal állapot a szalon részleteihez ---
+  const [selectedSalon, setSelectedSalon] = useState<any>(null);
+
   const [activeTab, setActiveTab] = useState<'contests_open_active' | 'contests_club_active' | 'contests_closed' | 'club_nights' | 'club_homeworks' | 'salons' | 'admin_contests' | 'admin_users' | 'admin_clubs' | 'admin_meetings' | 'admin_homeworks' | 'admin_salons'>('contests_open_active');
   const [dropdownOpen, setDropdownOpen] = useState<'contests' | 'club' | 'admin' | null>(null);
   
@@ -153,7 +153,6 @@ function App() {
       const resHw = await fetch(`${BACKEND_URL}/api/homeworks`);
       if (resHw.ok) setHomeworks(await resHw.json());
 
-      // --- ÚJ Lekerdezések a szalonokhoz ---
       const resCountries = await fetch(`${BACKEND_URL}/api/countries`);
       if (resCountries.ok) setCountries(await resCountries.json());
       const resCats = await fetch(`${BACKEND_URL}/api/categories`);
@@ -216,10 +215,16 @@ function App() {
     fetchData(); fetchMyEntries(decoded.email);
   };
 
-  // ... (A korábbi handle függvények, handleAddClub, handleCreateContest, handleSaveMeeting, handleSaveHw maradnak változatlanok...)
   const handleAddClub = async () => { if (!newClubName) return; const res = await fetch(`${BACKEND_URL}/api/clubs`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: newClubName }) }); if (res.ok) { setNewClubName(''); fetchData(); } };
   const handleDeleteClub = async (id: number) => { if (!window.confirm("Biztosan törlöd ezt a klubot?")) return; const res = await fetch(`${BACKEND_URL}/api/clubs/${id}`, { method: 'DELETE' }); if (res.ok) fetchData(); };
-  const saveUserClub = async (email: string) => { const clubName = userClubEdits[email] !== undefined ? userClubEdits[email] : (allUsers.find(u => u.email === email)?.club_name || ''); const clubRole = userRoleEdits[email] !== undefined ? userRoleEdits[email] : (allUsers.find(u => u.email === email)?.club_role || 'member'); const res = await fetch(`${BACKEND_URL}/api/users/${email}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clubName, clubRole }) }); if (res.ok) { alert("Sikeres mentés!"); fetchData(); } };
+  
+  const saveUserClub = async (email: string) => { 
+    const clubName = userClubEdits[email] !== undefined ? userClubEdits[email] : (allUsers.find(u => u.email === email)?.club_name || ''); 
+    const clubRole = userRoleEdits[email] !== undefined ? userRoleEdits[email] : (allUsers.find(u => u.email === email)?.club_role || 'member');
+    const res = await fetch(`${BACKEND_URL}/api/users/${email}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clubName, clubRole }) }); 
+    if (res.ok) { alert("Sikeres mentés!"); fetchData(); } 
+  };
+  
   const handleCreateContest = async () => { if (!newTitle || !newStart || !newEnd || !newCats) return alert("Cím, dátumok és kategóriák kötelezőek!"); const res = await fetch(`${BACKEND_URL}/api/contests`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: newTitle, description: newDesc, startDate: newStart, endDate: newEnd, categories: newCats, restrictedClub: newRestrictedClub }) }); if (res.ok) { setNewTitle(''); setNewDesc(''); setNewStart(''); setNewEnd(''); setNewCats(''); setNewRestrictedClub(''); fetchData(); } };
   const startEdit = (contest: any) => { setEditContestId(contest.id); setEditTitle(contest.title); setEditDesc(contest.description); setEditCats(contest.categories || ''); setEditRestrictedClub(contest.restricted_club || ''); const formatDate = (dateStr: string | null) => { if (!dateStr) return ''; try { const d = new Date(dateStr); if (isNaN(d.getTime()) || d.getFullYear() <= 1970) return ''; return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0,16); } catch (e) { return ''; } }; setEditStart(formatDate(contest.start_date)); setEditEnd(formatDate(contest.end_date)); };
   const handleUpdateContest = async () => { const res = await fetch(`${BACKEND_URL}/api/contests/${editContestId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: editTitle, description: editDesc, startDate: editStart || null, endDate: editEnd || null, categories: editCats, restrictedClub: editRestrictedClub }) }); if (res.ok) { setEditContestId(null); fetchData(); alert("Pályázat sikeresen frissítve!"); } };
@@ -244,6 +249,7 @@ function App() {
   const toggleAttendance = (email: string) => { setAttendanceList(prev => prev.includes(email) ? prev.filter(e => e !== email) : [...prev, email]); };
   const saveAttendance = async () => { if (!attendanceMeetId) return; const res = await fetch(`${BACKEND_URL}/api/attendance/${attendanceMeetId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ emails: attendanceList }) }); if (res.ok) { alert("Jelenléti ív mentve!"); setAttendanceMeetId(null); } };
   const getYouTubeEmbed = (url: string) => { const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^&?]+)/); return match ? `https://www.youtube.com/embed/${match[1]}` : url; };
+
   const clearHwForm = () => { setEditHwId(null); setHwClubId(''); setHwTopic(''); setHwDesc(''); setHwDeadline(''); setHwMaxImages(4); };
   const startEditHw = (h: any) => { setEditHwId(h.id); setHwClubId(h.club_id.toString()); setHwTopic(h.topic); setHwDesc(h.description || ''); setHwMaxImages(h.max_images || 4); const formatDate = (dateStr: string) => { try { const d = new Date(dateStr); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0,16); } catch (e) { return ''; } }; setHwDeadline(formatDate(h.deadline)); };
   const handleSaveHw = async () => { const finalClubId = user.email !== ADMIN_EMAIL ? clubs.find(c => c.name === currentDbUser?.club_name)?.id : hwClubId; if (!finalClubId || !hwTopic || !hwDeadline) return alert("Klub, Téma és Határidő kötelező!"); try { const url = editHwId ? `${BACKEND_URL}/api/homeworks/${editHwId}` : `${BACKEND_URL}/api/homeworks`; const method = editHwId ? 'PUT' : 'POST'; const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clubId: finalClubId, topic: hwTopic, description: hwDesc, deadline: hwDeadline, maxImages: hwMaxImages }) }); if (res.ok) { alert(editHwId ? "Házi feladat frissítve!" : "Házi feladat létrehozva!"); clearHwForm(); fetchData(); } else alert("Hiba történt!"); } catch (e) { alert("Hálózati hiba!"); } };
@@ -254,33 +260,10 @@ function App() {
   const handleDeleteHwEntry = async (entryId: number) => { if (!window.confirm("Biztosan törlöd ezt a feltöltést?")) return; const res = await fetch(`${BACKEND_URL}/api/homework-entries/${entryId}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userEmail: user.email }) }); if (res.ok) { fetchMyEntries(user.email); const club = clubs.find(c => c.name === currentDbUser?.club_name); if (club) fetchClubHomeworkEntries(club.id, user.email); } };
   const handleToggleLike = async (entryId: number) => { const res = await fetch(`${BACKEND_URL}/api/homework-entries/${entryId}/like`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userEmail: user.email }) }); if (res.ok) { const club = clubs.find(c => c.name === currentDbUser?.club_name); if (club) fetchClubHomeworkEntries(club.id, user.email); } };
 
-  // --- ÚJ: SZALON FUNKCIÓK ---
-  const clearSalonForm = () => {
-    setSalonName(''); setSalonFee(''); setSalonCurrency('EUR'); setSalonStart(''); setSalonEnd(''); setSalonWeb(''); setSalonResults(''); setSalonIsCircuit(false); setSalonAwards(''); setSalonCash(''); setSalonCircuitNum(''); setSalonType('online'); setSalonCountry(''); setSalonSelectedPatrons([]); setSalonSelectedCats([]);
-  };
-
-  const handleSaveSalon = async () => {
-    if (!salonName || !salonEnd) return alert("A Szalon neve és a záródátum megadása kötelező!");
-    try {
-      const payload = {
-        name: salonName, feeAmount: salonFee, feeCurrency: salonCurrency, startDate: salonStart, endDate: salonEnd, website: salonWeb, resultsDate: salonResults, isCircuit: salonIsCircuit, awardsCount: salonAwards, cashPrize: salonCash, circuitNumber: salonCircuitNum, submissionType: salonType, hostCountryId: salonCountry, patronIds: salonSelectedPatrons, categoryIds: salonSelectedCats
-      };
-      const res = await fetch(`${BACKEND_URL}/api/salons`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-      if (res.ok) { alert("Szalon sikeresen hozzáadva!"); clearSalonForm(); fetchData(); } else alert("Hiba a mentés során.");
-    } catch (e) { alert("Hálózati hiba!"); }
-  };
-
-  const handleDeleteSalon = async (id: number) => {
-    if(!window.confirm("Biztosan törlöd ezt a Szalont?")) return;
-    const res = await fetch(`${BACKEND_URL}/api/salons/${id}`, { method: 'DELETE' });
-    if(res.ok) fetchData();
-  };
-
-  const toggleArrayItem = (arr: number[], setArr: Function, id: number) => {
-    if (arr.includes(id)) setArr(arr.filter(item => item !== id));
-    else setArr([...arr, id]);
-  };
-
+  const clearSalonForm = () => { setSalonName(''); setSalonFee(''); setSalonCurrency('EUR'); setSalonStart(''); setSalonEnd(''); setSalonWeb(''); setSalonResults(''); setSalonIsCircuit(false); setSalonAwards(''); setSalonCash(''); setSalonCircuitNum(''); setSalonType('online'); setSalonCountry(''); setSalonSelectedPatrons([]); setSalonSelectedCats([]); };
+  const handleSaveSalon = async () => { if (!salonName || !salonEnd) return alert("A Szalon neve és a záródátum megadása kötelező!"); try { const payload = { name: salonName, feeAmount: salonFee, feeCurrency: salonCurrency, startDate: salonStart, endDate: salonEnd, website: salonWeb, resultsDate: salonResults, isCircuit: salonIsCircuit, awardsCount: salonAwards, cashPrize: salonCash, circuitNumber: salonCircuitNum, submissionType: salonType, hostCountryId: salonCountry, patronIds: salonSelectedPatrons, categoryIds: salonSelectedCats }; const res = await fetch(`${BACKEND_URL}/api/salons`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); if (res.ok) { alert("Szalon sikeresen hozzáadva!"); clearSalonForm(); fetchData(); } else alert("Hiba a mentés során."); } catch (e) { alert("Hálózati hiba!"); } };
+  const handleDeleteSalon = async (id: number) => { if(!window.confirm("Biztosan törlöd ezt a Szalont?")) return; const res = await fetch(`${BACKEND_URL}/api/salons/${id}`, { method: 'DELETE' }); if(res.ok) fetchData(); };
+  const toggleArrayItem = (arr: number[], setArr: Function, id: number) => { if (arr.includes(id)) setArr(arr.filter(item => item !== id)); else setArr([...arr, id]); };
 
   const inputStyle = { width: '100%', padding: '10px', marginBottom: '10px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '6px', boxSizing: 'border-box' as const };
   const navBtnStyle = { background: 'transparent', color: '#f8fafc', border: 'none', padding: '8px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '5px' };
@@ -324,6 +307,9 @@ function App() {
   const myClubHomeworks = homeworks.filter(h => h.club_name === currentDbUser?.club_name);
   const adminHomeworks = user?.email === ADMIN_EMAIL ? homeworks : homeworks.filter(h => h.club_name === currentDbUser?.club_name);
 
+  // --- ÚJ: Szalonok rendezése frontend oldalon (Legkésőbbi határidő legelöl) ---
+  const sortedSalons = [...salons].sort((a, b) => new Date(b.end_date).getTime() - new Date(a.end_date).getTime());
+
   return (
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
       <style>{`
@@ -366,6 +352,87 @@ function App() {
               {fullscreenData.title}
             </div>
           )}
+        </div>
+      )}
+
+      {/* --- ÚJ: SZALON RÉSZLETEK MODAL --- */}
+      {selectedSalon && (
+        <div onClick={(e) => { if(e.target === e.currentTarget) setSelectedSalon(null); }} style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
+          <div style={{ background: '#1e293b', border: '1px solid #60a5fa', borderRadius: '16px', maxWidth: '600px', width: '100%', maxHeight: '90vh', overflowY: 'auto', position: 'relative', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.8)' }}>
+            <button onClick={() => setSelectedSalon(null)} style={{ position: 'absolute', top: '15px', right: '15px', background: 'transparent', border: 'none', color: '#94a3b8', fontSize: '1.5rem', cursor: 'pointer', fontWeight: 'bold' }}>×</button>
+            
+            <div style={{ padding: '30px' }}>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '15px' }}>
+                {selectedSalon.patrons && selectedSalon.patrons.length > 0 ? (
+                  selectedSalon.patrons.map((p: string) => <span key={p} style={{ background: '#a78bfa20', color: '#a78bfa', padding: '4px 10px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 'bold', border: '1px solid #a78bfa50' }}>{p}</span>)
+                ) : (
+                  <span style={{ background: '#334155', color: '#94a3b8', padding: '4px 10px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 'bold' }}>Független Pályázat</span>
+                )}
+                {selectedSalon.is_circuit === 1 && <span style={{ background: '#f59e0b20', color: '#f59e0b', padding: '4px 10px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 'bold', border: '1px solid #f59e0b50' }}>Körverseny</span>}
+              </div>
+              
+              <h2 style={{ color: '#f8fafc', fontSize: '1.8rem', margin: '0 0 15px 0', lineHeight: '1.3' }}>{selectedSalon.name}</h2>
+              
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '1rem', color: '#94a3b8', marginBottom: '25px', paddingBottom: '20px', borderBottom: '1px solid #334155' }}>
+                <span>{selectedSalon.country_code ? getFlagEmoji(selectedSalon.country_code) : '🏳️'}</span>
+                <span style={{ fontWeight: 'bold', color: '#cbd5e1' }}>{selectedSalon.country_hun}</span>
+                <span>•</span>
+                <span>{selectedSalon.submission_type === 'online' ? '💻 Online leadás' : '🖼️ Papírkép'}</span>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '30px' }}>
+                <div>
+                  <div style={{ fontSize: '0.8rem', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '5px' }}>Feltöltési Határidő</div>
+                  <div style={{ fontSize: '1.2rem', color: '#ef4444', fontWeight: 'bold' }}>{new Date(selectedSalon.end_date).toLocaleDateString('hu-HU', {year: 'numeric', month: 'long', day: 'numeric'})}</div>
+                </div>
+                {selectedSalon.results_date && (
+                  <div>
+                    <div style={{ fontSize: '0.8rem', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '5px' }}>Eredményhirdetés</div>
+                    <div style={{ fontSize: '1.2rem', color: '#f8fafc', fontWeight: 'bold' }}>{new Date(selectedSalon.results_date).toLocaleDateString('hu-HU', {year: 'numeric', month: 'long', day: 'numeric'})}</div>
+                  </div>
+                )}
+                <div>
+                  <div style={{ fontSize: '0.8rem', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '5px' }}>Nevezési díj</div>
+                  <div style={{ fontSize: '1.2rem', color: '#10b981', fontWeight: 'bold' }}>{selectedSalon.fee_amount && selectedSalon.fee_amount > 0 ? `${selectedSalon.fee_amount} ${selectedSalon.fee_currency}` : 'Ingyenes'}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.8rem', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '5px' }}>Díjak száma</div>
+                  <div style={{ fontSize: '1.2rem', color: '#f59e0b', fontWeight: 'bold' }}>{selectedSalon.awards_count || 0} db</div>
+                </div>
+              </div>
+
+              {selectedSalon.cash_prize && (
+                <div style={{ background: '#0f172a', padding: '15px', borderRadius: '8px', border: '1px solid #10b98150', marginBottom: '30px' }}>
+                  <div style={{ fontSize: '0.8rem', color: '#10b981', textTransform: 'uppercase', fontWeight: 'bold', marginBottom: '5px' }}>💰 Pénznyeremény</div>
+                  <div style={{ color: '#f8fafc' }}>{selectedSalon.cash_prize}</div>
+                </div>
+              )}
+
+              {selectedSalon.circuit_number && (
+                <div style={{ marginBottom: '30px' }}>
+                  <div style={{ fontSize: '0.8rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 'bold', marginBottom: '5px' }}>Körverseny azonosító(k)</div>
+                  <div style={{ color: '#cbd5e1' }}>{selectedSalon.circuit_number}</div>
+                </div>
+              )}
+
+              {selectedSalon.categories && selectedSalon.categories.length > 0 && (
+                <div style={{ marginBottom: '30px' }}>
+                  <div style={{ fontSize: '0.8rem', color: '#38bdf8', textTransform: 'uppercase', fontWeight: 'bold', marginBottom: '10px' }}>Kategóriák</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                    {selectedSalon.categories.map((c: string) => (
+                      <span key={c} style={{ background: '#38bdf815', color: '#38bdf8', padding: '6px 12px', borderRadius: '100px', fontSize: '0.9rem', border: '1px solid #38bdf830' }}>{c}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {selectedSalon.website && (
+                <a href={selectedSalon.website} target="_blank" rel="noreferrer" style={{ display: 'block', textAlign: 'center', background: '#60a5fa', color: '#0f172a', textDecoration: 'none', padding: '15px', borderRadius: '8px', fontWeight: 'bold', fontSize: '1.1rem', transition: 'background 0.2s', marginTop: '20px' }}>
+                  Ugrás a hivatalos weboldalra 🚀
+                </a>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
@@ -454,7 +521,6 @@ function App() {
                 )}
               </div>
 
-              {/* ÚJ MENÜPONT: NEMZETKÖZI SZALONOK */}
               <div className="nav-item-container" style={{ zIndex: 50 }}>
                 <button className={`nav-btn ${activeTab === 'salons' ? 'active' : ''}`} style={{ color: '#60a5fa' }} onClick={() => { setActiveTab('salons'); setDropdownOpen(null); }}>
                   <span>🌐 Nemzetközi Szalonok</span>
@@ -472,7 +538,6 @@ function App() {
                       <button className={`drop-item ${activeTab === 'admin_meetings' ? 'active' : ''}`} style={{ color: activeTab === 'admin_meetings' ? '#f59e0b' : ''}} onClick={() => { setActiveTab('admin_meetings'); setDropdownOpen(null); }}>Klubestek kezelése</button>
                       <button className={`drop-item ${activeTab === 'admin_homeworks' ? 'active' : ''}`} style={{ color: activeTab === 'admin_homeworks' ? '#f59e0b' : ''}} onClick={() => { setActiveTab('admin_homeworks'); setDropdownOpen(null); }}>Házi feladatok kezelése</button>
                       
-                      {/* ÚJ: Szalonok kezelése admin */}
                       {user?.email === ADMIN_EMAIL && <button className={`drop-item ${activeTab === 'admin_salons' ? 'active' : ''}`} style={{ color: activeTab === 'admin_salons' ? '#f59e0b' : ''}} onClick={() => { setActiveTab('admin_salons'); setDropdownOpen(null); }}>Szalonok kezelése</button>}
                       
                       {user?.email === ADMIN_EMAIL && <button className={`drop-item ${activeTab === 'admin_users' ? 'active' : ''}`} style={{ color: activeTab === 'admin_users' ? '#f59e0b' : ''}} onClick={() => { setActiveTab('admin_users'); setDropdownOpen(null); }}>Felhasználók</button>}
@@ -733,7 +798,6 @@ function App() {
               </div>
             )}
 
-            {/* --- ÚJ: ADMIN SZALONOK KEZELÉSE --- */}
             {activeTab === 'admin_salons' && user.email === ADMIN_EMAIL && (
               <div>
                 <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', color: '#f59e0b' }}>🌐 Nemzetközi Szalonok Kezelése</h2>
@@ -755,7 +819,12 @@ function App() {
                       <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Házigazda ország</label>
                       <select value={salonCountry} onChange={e => setSalonCountry(e.target.value)} style={inputStyle}>
                         <option value="">-- Válassz országot --</option>
-                        {countries.map(c => <option key={c.id} value={c.id}>{getFlagEmoji(c.country_code)} {c.country_hun}</option>)}
+                        {countries.map(c => {
+                          const flag = getFlagEmoji(c.country_code);
+                          return (
+                            <option key={c.id} value={c.id}>{flag ? `${flag} ` : ''}{c.country_hun}</option>
+                          );
+                        })}
                       </select>
                     </div>
                   </div>
@@ -821,7 +890,6 @@ function App() {
                     </div>
                   </div>
 
-                  {/* Kategóriák többes választó */}
                   <div style={{ marginBottom: '15px', padding: '15px', background: '#0f172a', borderRadius: '8px', border: '1px solid #334155' }}>
                     <label style={{fontSize:'0.9rem', color:'#38bdf8', fontWeight: 'bold', display: 'block', marginBottom: '10px'}}>Kategóriák (Válassz ki többet is)</label>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
@@ -834,7 +902,6 @@ function App() {
                     </div>
                   </div>
 
-                  {/* Szervezetek többes választó */}
                   <div style={{ marginBottom: '20px', padding: '15px', background: '#0f172a', borderRadius: '8px', border: '1px solid #334155' }}>
                     <label style={{fontSize:'0.9rem', color:'#a78bfa', fontWeight: 'bold', display: 'block', marginBottom: '10px'}}>Patronáló Szervezetek (FIAP, PSA, stb.)</label>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
@@ -860,7 +927,7 @@ function App() {
                       <div>
                         <div style={{ fontWeight: 'bold', color: '#60a5fa', fontSize: '1.1rem' }}>{s.name}</div>
                         <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: '5px' }}>
-                          Zárás: {new Date(s.end_date).toLocaleDateString()} | {s.country_code ? getFlagEmoji(s.country_code) : ''} {s.country_hun}
+                          Zárás: {new Date(s.end_date).toLocaleDateString()} | {s.country_code && getFlagEmoji(s.country_code) ? `${getFlagEmoji(s.country_code)} ` : ''}{s.country_hun}
                         </div>
                       </div>
                       <div>
@@ -872,7 +939,7 @@ function App() {
               </div>
             )}
 
-
+            {/* --- KLUBESTEK (FELHASZNÁLÓI NÉZET) --- */}
             {activeTab === 'club_nights' && (
               <div>
                 {!currentDbUser?.club_name ? (
@@ -974,107 +1041,7 @@ function App() {
               </div>
             )}
 
-            {/* --- ÚJ: PUBLIKUS SZALONOK NÉZET --- */}
-            {activeTab === 'salons' && (
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '15px' }}>
-                  <h2 style={{ fontSize: '2rem', margin: 0, display: 'flex', alignItems: 'center', gap: '15px' }}>
-                    <span style={{ fontSize: '2.5rem' }}>🌐</span> Nemzetközi Szalonok (Pályázatok)
-                  </h2>
-                </div>
-
-                {salons.length === 0 ? (
-                  <p style={{ color: '#94a3b8', fontSize: '1.1rem' }}>Jelenleg nincsenek feltöltve nemzetközi pályázatok.</p>
-                ) : (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '20px' }}>
-                    {salons.map(s => {
-                      const endObj = new Date(s.end_date);
-                      const isPast = endObj < new Date(new Date().setHours(0,0,0,0));
-
-                      return (
-                        <div key={s.id} style={{ background: '#1e293b', borderRadius: '16px', overflow: 'hidden', border: `1px solid ${isPast ? '#475569' : '#60a5fa'}`, boxShadow: '0 10px 15px -3px rgba(0,0,0,0.3)', display: 'flex', flexDirection: 'column' }}>
-                          
-                          {/* Szalon Fejléc (Szervezetek badge-ekkel) */}
-                          <div style={{ background: '#0f172a', padding: '20px', borderBottom: '1px solid #334155', position: 'relative' }}>
-                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '10px' }}>
-                              {s.patrons && s.patrons.length > 0 ? (
-                                s.patrons.map((p: string) => (
-                                  <span key={p} style={{ background: '#a78bfa20', color: '#a78bfa', padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold', border: '1px solid #a78bfa50' }}>{p}</span>
-                                ))
-                              ) : (
-                                <span style={{ background: '#334155', color: '#94a3b8', padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' }}>Független</span>
-                              )}
-                              
-                              {s.is_circuit === 1 && (
-                                <span style={{ background: '#f59e0b20', color: '#f59e0b', padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold', border: '1px solid #f59e0b50' }}>Körverseny</span>
-                              )}
-                            </div>
-                            
-                            <h3 style={{ margin: '0 0 10px 0', color: isPast ? '#cbd5e1' : '#f8fafc', fontSize: '1.3rem', lineHeight: '1.4' }}>{s.name}</h3>
-                            
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem', color: '#94a3b8' }}>
-                              <span>{s.country_code ? getFlagEmoji(s.country_code) : '🏳️'}</span>
-                              <span style={{ fontWeight: 'bold', color: '#cbd5e1' }}>{s.country_hun}</span>
-                              <span>•</span>
-                              <span>{s.submission_type === 'online' ? '💻 Online leadás' : '🖼️ Papírkép'}</span>
-                            </div>
-
-                            {/* Dátum Badge jobb felülre pozicionálva */}
-                            <div style={{ position: 'absolute', top: '20px', right: '20px', textAlign: 'right' }}>
-                              <div style={{ fontSize: '0.75rem', color: isPast ? '#ef4444' : '#ef4444', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '2px' }}>Határidő</div>
-                              <div style={{ fontSize: '1.2rem', color: isPast ? '#94a3b8' : '#f8fafc', fontWeight: 'bold' }}>{endObj.toLocaleDateString('hu-HU', {month: 'short', day: 'numeric'})}</div>
-                            </div>
-                          </div>
-
-                          <div style={{ padding: '20px', flex: 1, display: 'flex', flexDirection: 'column' }}>
-                            
-                            {/* Kategóriák */}
-                            {s.categories && s.categories.length > 0 && (
-                              <div style={{ marginBottom: '15px' }}>
-                                <div style={{ fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 'bold', marginBottom: '8px' }}>Kategóriák</div>
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                                  {s.categories.map((c: string) => (
-                                    <span key={c} style={{ background: '#38bdf815', color: '#38bdf8', padding: '4px 10px', borderRadius: '100px', fontSize: '0.8rem', border: '1px solid #38bdf830' }}>{c}</span>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Infó Grid */}
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '20px', flex: 1 }}>
-                              <div style={{ background: '#0f172a', padding: '10px', borderRadius: '8px', border: '1px solid #334155' }}>
-                                <div style={{ fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase' }}>Nevezési díj</div>
-                                <div style={{ fontSize: '1.1rem', color: '#10b981', fontWeight: 'bold' }}>
-                                  {s.fee_amount && s.fee_amount > 0 ? `${s.fee_amount} ${s.fee_currency}` : 'Ingyenes'}
-                                </div>
-                              </div>
-                              <div style={{ background: '#0f172a', padding: '10px', borderRadius: '8px', border: '1px solid #334155' }}>
-                                <div style={{ fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase' }}>Díjak száma</div>
-                                <div style={{ fontSize: '1.1rem', color: '#f59e0b', fontWeight: 'bold' }}>{s.awards_count || 0} db</div>
-                              </div>
-                              {s.results_date && (
-                                <div style={{ background: '#0f172a', padding: '10px', borderRadius: '8px', border: '1px solid #334155', gridColumn: 'span 2' }}>
-                                  <div style={{ fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase' }}>Eredményhirdetés</div>
-                                  <div style={{ fontSize: '0.95rem', color: '#f8fafc' }}>{new Date(s.results_date).toLocaleDateString('hu-HU')}</div>
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Weboldal Gomb */}
-                            <a href={s.website} target="_blank" rel="noreferrer" style={{ display: 'block', textAlign: 'center', background: isPast ? '#334155' : '#60a5fa', color: isPast ? '#94a3b8' : '#0f172a', textDecoration: 'none', padding: '12px', borderRadius: '8px', fontWeight: 'bold', transition: 'background 0.2s', marginTop: 'auto' }}>
-                              {isPast ? 'Weboldal megtekintése (Lezárult)' : 'Ugrás a nevezési oldalra 🚀'}
-                            </a>
-                          </div>
-
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
-
-
+            {/* --- HÁZI FELADATOK --- */}
             {activeTab === 'club_homeworks' && (
               <div>
                 {!currentDbUser?.club_name ? (
@@ -1244,8 +1211,10 @@ function App() {
               </div>
             )}
 
+            {/* --- PÁLYÁZATOK (Klub, Nyílt, Admin) --- */}
             {['contests_open_active', 'contests_club_active', 'contests_closed', 'admin_contests'].includes(activeTab) && (
               <>
+                {/* HIBAÜZENET: Ha valaki klubos pályázatot keres, de nincs klubja */}
                 {activeTab === 'contests_club_active' && !currentDbUser?.club_name && (
                    <div style={{ textAlign: 'center', padding: '4rem 2rem', background: '#1e293b', borderRadius: '16px', border: '1px solid #334155' }}>
                      <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🔒</div>
@@ -1256,6 +1225,7 @@ function App() {
 
                 {!(activeTab === 'contests_club_active' && !currentDbUser?.club_name) && (
                   <>
+                    {/* ÚJ PÁLYÁZAT LÉTREHOZÁSA (ADMIN) */}
                     {activeTab === 'admin_contests' && user.email === ADMIN_EMAIL && (
                       <div style={{ backgroundColor: '#1e293b', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', border: '1px solid #f59e0b' }}>
                         <h3 style={{ marginTop: 0, color: '#f59e0b' }}>⚙️ Új Pályázat Létrehozása</h3>
