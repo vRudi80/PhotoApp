@@ -1652,7 +1652,11 @@ function App() {
                 )}
               </>
             )}
-</> {/* <--- EZ A TAG HIÁNYZOTT! Ezt pótold be! */}
+
+            {/* JAVÍTÁS: Itt zárjuk le a töltőképernyő hamis ágát és a feltételt! */}
+              </>
+            )}
+
           </main>
         </div>
       )}
