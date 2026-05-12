@@ -17,7 +17,7 @@ function getFlagEmoji(countryCode: string) {
 // --- JAVÍTÁS: Központi kép URL generáló Google Drive-hoz ---
 function getImageUrl(driveFileId?: string | null, fileUrl?: string) {
   if (driveFileId) {
-    return `https://drive.google.com/uc?id=${driveFileId}`;
+    return `https://lh3.googleusercontent.com/d/${driveFileId}`;
   }
   return fileUrl || '';
 }
@@ -268,29 +268,9 @@ function App() {
   const getYouTubeEmbed = (url: string) => { const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^&?]+)/); return match ? `https://www.youtube.com/embed/${match[1]}` : url; };
 
   const clearHwForm = () => { setEditHwId(null); setHwClubId(''); setHwTopic(''); setHwDesc(''); setHwDeadline(''); setHwMaxImages(4); };
-  const startEditHw = (h: any) => {
-    setEditHwId(h.id); setHwClubId(h.club_id.toString()); setHwTopic(h.topic); setHwDesc(h.description || ''); setHwMaxImages(h.max_images || 4);
-    const formatDate = (dateStr: string) => { try { const d = new Date(dateStr); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0,16); } catch (e) { return ''; } };
-    setHwDeadline(formatDate(h.deadline));
-  };
-
-  const handleSaveHw = async () => {
-    const finalClubId = user.email !== ADMIN_EMAIL ? clubs.find(c => c.name === currentDbUser?.club_name)?.id : hwClubId;
-    if (!finalClubId || !hwTopic || !hwDeadline) return alert("Klub, Téma és Határidő kötelező!");
-    try {
-      const url = editHwId ? `${BACKEND_URL}/api/homeworks/${editHwId}` : `${BACKEND_URL}/api/homeworks`;
-      const method = editHwId ? 'PUT' : 'POST';
-      const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clubId: finalClubId, topic: hwTopic, description: hwDesc, deadline: hwDeadline, maxImages: hwMaxImages }) });
-      if (res.ok) { alert(editHwId ? "Házi feladat frissítve!" : "Házi feladat létrehozva!"); clearHwForm(); fetchData(); } else alert("Hiba történt!");
-    } catch (e) { alert("Hálózati hiba!"); }
-  };
-
-  const handleDeleteHw = async (id: number) => {
-    if (!window.confirm("Biztosan törlöd ezt a házi feladatot? A hozzá tartozó összes kép is törlődik!")) return;
-    const res = await fetch(`${BACKEND_URL}/api/homeworks/${id}`, { method: 'DELETE' });
-    if (res.ok) fetchData();
-  };
-
+  const startEditHw = (h: any) => { setEditHwId(h.id); setHwClubId(h.club_id.toString()); setHwTopic(h.topic); setHwDesc(h.description || ''); setHwMaxImages(h.max_images || 4); const formatDate = (dateStr: string) => { try { const d = new Date(dateStr); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0,16); } catch (e) { return ''; } }; setHwDeadline(formatDate(h.deadline)); };
+  const handleSaveHw = async () => { const finalClubId = user.email !== ADMIN_EMAIL ? clubs.find(c => c.name === currentDbUser?.club_name)?.id : hwClubId; if (!finalClubId || !hwTopic || !hwDeadline) return alert("Klub, Téma és Határidő kötelező!"); try { const url = editHwId ? `${BACKEND_URL}/api/homeworks/${editHwId}` : `${BACKEND_URL}/api/homeworks`; const method = editHwId ? 'PUT' : 'POST'; const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clubId: finalClubId, topic: hwTopic, description: hwDesc, deadline: hwDeadline, maxImages: hwMaxImages }) }); if (res.ok) { alert(editHwId ? "Házi feladat frissítve!" : "Házi feladat létrehozva!"); clearHwForm(); fetchData(); } else alert("Hiba történt!"); } catch (e) { alert("Hálózati hiba!"); } };
+  const handleDeleteHw = async (id: number) => { if (!window.confirm("Biztosan törlöd ezt a házi feladatot? A hozzá tartozó összes kép is törlődik!")) return; const res = await fetch(`${BACKEND_URL}/api/homeworks/${id}`, { method: 'DELETE' }); if (res.ok) fetchData(); };
   const handleHwFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (file) { setHwUploadFile(file); setHwUploadPreview(URL.createObjectURL(file)); } };
   
   const handleUploadHw = async (homeworkId: number) => {
@@ -1042,7 +1022,6 @@ function App() {
                   </div>
                 )}
 
-                {/* --- FELHASZNÁLÓI: NEMZETKÖZI SZALONOK NÉZET --- */}
                 {activeTab === 'salons' && (
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '15px' }}>
@@ -1164,7 +1143,6 @@ function App() {
                   </div>
                 )}
 
-                {/* --- KLUBESTEK (FELHASZNÁLÓI NÉZET) --- */}
                 {activeTab === 'club_nights' && (
                   <div>
                     {!currentDbUser?.club_name ? (
@@ -1266,7 +1244,6 @@ function App() {
                   </div>
                 )}
 
-                {/* --- HÁZI FELADATOK --- */}
                 {activeTab === 'club_homeworks' && (
                   <div>
                     {!currentDbUser?.club_name ? (
@@ -1436,10 +1413,8 @@ function App() {
                   </div>
                 )}
 
-                {/* --- PÁLYÁZATOK (Klub, Nyílt, Admin) --- */}
                 {['contests_open_active', 'contests_club_active', 'contests_closed', 'admin_contests'].includes(activeTab) && (
                   <>
-                    {/* HIBAÜZENET: Ha valaki klubos pályázatot keres, de nincs klubja */}
                     {activeTab === 'contests_club_active' && !currentDbUser?.club_name && (
                        <div style={{ textAlign: 'center', padding: '4rem 2rem', background: '#1e293b', borderRadius: '16px', border: '1px solid #334155' }}>
                          <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🔒</div>
@@ -1450,7 +1425,6 @@ function App() {
 
                     {!(activeTab === 'contests_club_active' && !currentDbUser?.club_name) && (
                       <>
-                        {/* ÚJ PÁLYÁZAT LÉTREHOZÁSA (ADMIN) */}
                         {activeTab === 'admin_contests' && user.email === ADMIN_EMAIL && (
                           <div style={{ backgroundColor: '#1e293b', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', border: '1px solid #f59e0b' }}>
                             <h3 style={{ marginTop: 0, color: '#f59e0b' }}>⚙️ Új Pályázat Létrehozása</h3>
@@ -1803,7 +1777,7 @@ function App() {
                         )}
                       </>
                     )}
-                  </div>
+                  </>
                 )}
               </>
             )}
