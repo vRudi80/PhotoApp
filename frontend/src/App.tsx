@@ -973,41 +973,111 @@ function App() {
                   Böngéssz a hazai és nemzetközi fotópályázatok között. Kattints a szalon nevére vagy a "Részletek" gombra a pontos kiírás, kategóriák és díjazás megtekintéséhez!
                 </p>
 
-                <div style={{ background: '#1e293b', borderRadius: '12px', overflow: 'hidden', border: '1px solid #334155' }}>
-                  {sortedSalons.length === 0 ? (
-                    <div style={{padding: '20px', color: '#94a3b8', textAlign: 'center'}}>Jelenleg nincs megjeleníthető szalon az adatbázisban.</div>
-                  ) : null}
-                  
-                  {sortedSalons.map((s, i) => {
-                    const isEnded = new Date(s.end_date) < new Date(new Date().setHours(0,0,0,0));
-                    
-                    return (
-                      <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px', borderBottom: i < sortedSalons.length - 1 ? '1px solid #334155' : 'none', background: i % 2 === 0 ? '#0f172a' : 'transparent', flexWrap: 'wrap', gap: '10px', opacity: isEnded ? 0.6 : 1 }}>
-                        
-                        <div style={{ cursor: 'pointer', flex: 1 }} onClick={() => setSelectedSalon(s)}>
-                          <div style={{ fontWeight: 'bold', color: '#60a5fa', fontSize: '1.2rem', marginBottom: '5px' }}>
-                            {s.name} 
-                            {isEnded && <span style={{fontSize:'0.8rem', color:'#ef4444', border:'1px solid #ef4444', padding:'2px 6px', borderRadius:'4px', marginLeft:'10px', textTransform: 'uppercase', fontWeight: 'bold'}}>Lezárult</span>}
-                            {s.is_circuit === 1 && <span style={{fontSize:'0.8rem', color:'#f59e0b', background:'#f59e0b20', padding:'2px 6px', borderRadius:'4px', marginLeft:'10px'}}>Körverseny</span>}
-                          </div>
+                {sortedSalons.length === 0 ? (
+                  <div style={{padding: '20px', color: '#94a3b8', textAlign: 'center', background: '#1e293b', borderRadius: '12px', border: '1px solid #334155'}}>
+                    Jelenleg nincs megjeleníthető szalon az adatbázisban.
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
+                    {sortedSalons.map((s) => {
+                      const isEnded = new Date(s.end_date) < new Date(new Date().setHours(0,0,0,0));
+                      
+                      return (
+                        <div key={s.id} style={{ background: '#1e293b', borderRadius: '12px', border: '1px solid #334155', display: 'flex', flexDirection: 'column', overflow: 'hidden', opacity: isEnded ? 0.7 : 1, transition: 'transform 0.2s', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.3)' }} onMouseOver={e => e.currentTarget.style.transform = 'translateY(-3px)'} onMouseOut={e => e.currentTarget.style.transform = 'none'}>
                           
-                          <div style={{ display: 'flex', gap: '15px', fontSize: '0.9rem', color: '#94a3b8', flexWrap: 'wrap', alignItems: 'center' }}>
-                            <span>📅 Zárás: <strong style={{color: isEnded ? '#ef4444' : '#f8fafc'}}>{new Date(s.end_date).toLocaleDateString('hu-HU', { year: 'numeric', month: 'short', day: 'numeric' })}</strong></span>
-                            <span>🌍 {s.country_code && getFlagEmoji(s.country_code) ? `${getFlagEmoji(s.country_code)} ` : ''}{s.country_hun}</span>
-                            <span>{s.submission_type === 'online' ? '💻 Online leadás' : '🖼️ Papírkép'}</span>
+                          {/* Belső paddingos rész */}
+                          <div style={{ padding: '20px', flex: 1, display: 'flex', flexDirection: 'column' }}>
+                            
+                            {/* Felső sor: Patronok és Határidő */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '15px' }}>
+                              <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', flex: 1 }}>
+                                {s.patron_details && s.patron_details.length > 0 ? (
+                                  s.patron_details.map((p: any) => (
+                                    <span key={p.name} style={{ background: '#8b5cf620', color: '#a78bfa', padding: '3px 8px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 'bold', border: '1px solid #8b5cf650', whiteSpace: 'nowrap' }}>
+                                      {p.name} {p.number ? `(${p.number})` : ''}
+                                    </span>
+                                  ))
+                                ) : (
+                                  <span style={{ background: '#334155', color: '#cbd5e1', padding: '3px 8px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 'bold' }}>Független</span>
+                                )}
+                                {s.is_circuit === 1 && <span style={{ background: '#f59e0b20', color: '#f59e0b', padding: '3px 8px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 'bold', border: '1px solid #f59e0b50' }}>Körverseny</span>}
+                              </div>
+                              
+                              <div style={{ textAlign: 'right', marginLeft: '10px' }}>
+                                <div style={{ fontSize: '0.7rem', color: isEnded ? '#94a3b8' : '#ef4444', textTransform: 'uppercase', fontWeight: 'bold' }}>Határidő</div>
+                                <div style={{ fontSize: '1.1rem', color: isEnded ? '#94a3b8' : '#f8fafc', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                                  {new Date(s.end_date).toLocaleDateString('hu-HU', { month: 'short', day: 'numeric' }).replace('.', '')}.
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Cím */}
+                            <h3 style={{ margin: '0 0 10px 0', fontSize: '1.3rem', color: '#f8fafc', lineHeight: '1.3' }}>
+                              {s.name}
+                            </h3>
+
+                            {/* Ország és Típus */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', color: '#94a3b8', marginBottom: '15px' }}>
+                              <span style={{fontWeight: 'bold', color: '#cbd5e1'}}>{s.country_code ? getFlagEmoji(s.country_code) : '🏳️'} {s.country_hun}</span>
+                              <span>•</span>
+                              <span>{s.submission_type === 'online' ? '💻 Online leadás' : '🖼️ Papírkép'}</span>
+                            </div>
+
+                            {/* ÚJ: Kategóriák listázása */}
+                            {s.categories && s.categories.length > 0 && (
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginBottom: '15px' }}>
+                                {s.categories.map((c: string) => (
+                                  <span key={c} style={{ background: '#38bdf815', color: '#38bdf8', padding: '3px 8px', borderRadius: '100px', fontSize: '0.75rem', border: '1px solid #38bdf830' }}>
+                                    {c}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+
+                            <div style={{ flex: 1 }}></div>
+
+                            {/* Díj és Díjak száma doboz */}
+                            <div style={{ display: 'flex', background: '#0f172a', borderRadius: '8px', border: '1px solid #334155', padding: '12px', marginBottom: '12px' }}>
+                              <div style={{ flex: 1, borderRight: '1px solid #334155' }}>
+                                <div style={{ fontSize: '0.65rem', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '2px' }}>Nevezési díj</div>
+                                <div style={{ fontSize: '1rem', color: '#10b981', fontWeight: 'bold' }}>
+                                  {s.fee_amount && s.fee_amount > 0 ? `${s.fee_amount} ${s.fee_currency}` : 'Ingyenes'}
+                                </div>
+                              </div>
+                              <div style={{ flex: 1, paddingLeft: '12px' }}>
+                                <div style={{ fontSize: '0.65rem', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '2px' }}>Díjak száma</div>
+                                <div style={{ fontSize: '1rem', color: '#f59e0b', fontWeight: 'bold' }}>
+                                  {s.awards_count || 0} db
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Eredményhirdetés */}
+                            {s.results_date && (
+                              <div style={{ marginBottom: '5px', padding: '0 5px' }}>
+                                <div style={{ fontSize: '0.65rem', color: '#94a3b8', textTransform: 'uppercase' }}>Eredményhirdetés</div>
+                                <div style={{ fontSize: '0.85rem', color: '#cbd5e1' }}>
+                                  {new Date(s.results_date).toLocaleDateString('hu-HU', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\s/g, '')}
+                                </div>
+                              </div>
+                            )}
                           </div>
-                        </div>
-                        
-                        <div>
-                          <button onClick={() => setSelectedSalon(s)} style={{ background: '#38bdf820', color: '#38bdf8', border: '1px solid #38bdf850', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', transition: 'background 0.2s' }}>
-                            Részletek
+
+                          {/* Gomb alul */}
+                          <button 
+                            onClick={() => setSelectedSalon(s)} 
+                            style={{ background: '#334155', color: '#f8fafc', border: 'none', padding: '12px', width: '100%', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem', borderTop: '1px solid #475569', transition: 'background 0.2s' }}
+                            onMouseOver={e => e.currentTarget.style.background = '#475569'}
+                            onMouseOut={e => e.currentTarget.style.background = '#334155'}
+                          >
+                            Részletek megtekintése {isEnded ? '(Lezárult)' : ''}
                           </button>
+                          
                         </div>
-                        
-                      </div>
-                    );
-                  })}
-                </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
 
