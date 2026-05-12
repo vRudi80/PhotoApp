@@ -173,6 +173,7 @@ function App() {
       setIsInitialLoading(false); // Bármi történik, levesszük a töltőképernyőt
     }
   };
+  
   const fetchMyEntries = async (email: string) => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/my-entries?userEmail=${email}`);
@@ -371,7 +372,6 @@ function App() {
             
             <div style={{ padding: '30px' }}>
              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '15px' }}>
-                {/* JAVÍTVA: patrons helyett patron_details és objektum map-elés */}
                 {selectedSalon.patron_details && selectedSalon.patron_details.length > 0 ? (
                   selectedSalon.patron_details.map((p: any) => <span key={p.name} style={{ background: '#a78bfa20', color: '#a78bfa', padding: '4px 10px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 'bold', border: '1px solid #a78bfa50' }}>{p.name}</span>)
                 ) : (
@@ -847,56 +847,7 @@ function App() {
                       </select>
                     </div>
                   </div>
-{/* --- FELHASZNÁLÓI: NEMZETKÖZI SZALONOK NÉZET --- */}
-            {activeTab === 'salons' && (
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '15px' }}>
-                  <h2 style={{ fontSize: '2rem', margin: 0, display: 'flex', alignItems: 'center', gap: '15px', color: '#60a5fa' }}>
-                    <span style={{ fontSize: '2.5rem' }}>🌐</span> Nemzetközi Fotóművészeti Szalonok
-                  </h2>
-                </div>
-                
-                <p style={{ color: '#94a3b8', fontSize: '1.1rem', marginBottom: '20px' }}>
-                  Böngéssz a hazai és nemzetközi fotópályázatok között. Kattints a szalon nevére vagy a "Részletek" gombra a pontos kiírás, kategóriák és díjazás megtekintéséhez!
-                </p>
 
-                <div style={{ background: '#1e293b', borderRadius: '12px', overflow: 'hidden', border: '1px solid #334155' }}>
-                  {sortedSalons.length === 0 ? (
-                    <div style={{padding: '20px', color: '#94a3b8', textAlign: 'center'}}>Jelenleg nincs megjeleníthető szalon az adatbázisban.</div>
-                  ) : null}
-                  
-                  {sortedSalons.map((s, i) => {
-                    const isEnded = new Date(s.end_date) < new Date(new Date().setHours(0,0,0,0));
-                    
-                    return (
-                      <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px', borderBottom: i < sortedSalons.length - 1 ? '1px solid #334155' : 'none', background: i % 2 === 0 ? '#0f172a' : 'transparent', flexWrap: 'wrap', gap: '10px', opacity: isEnded ? 0.6 : 1 }}>
-                        
-                        <div style={{ cursor: 'pointer', flex: 1 }} onClick={() => setSelectedSalon(s)}>
-                          <div style={{ fontWeight: 'bold', color: '#60a5fa', fontSize: '1.2rem', marginBottom: '5px' }}>
-                            {s.name} 
-                            {isEnded && <span style={{fontSize:'0.8rem', color:'#ef4444', border:'1px solid #ef4444', padding:'2px 6px', borderRadius:'4px', marginLeft:'10px', textTransform: 'uppercase', fontWeight: 'bold'}}>Lezárult</span>}
-                            {s.is_circuit === 1 && <span style={{fontSize:'0.8rem', color:'#f59e0b', background:'#f59e0b20', padding:'2px 6px', borderRadius:'4px', marginLeft:'10px'}}>Körverseny</span>}
-                          </div>
-                          
-                          <div style={{ display: 'flex', gap: '15px', fontSize: '0.9rem', color: '#94a3b8', flexWrap: 'wrap', alignItems: 'center' }}>
-                            <span>📅 Zárás: <strong style={{color: isEnded ? '#ef4444' : '#f8fafc'}}>{new Date(s.end_date).toLocaleDateString('hu-HU', { year: 'numeric', month: 'short', day: 'numeric' })}</strong></span>
-                            <span>🌍 {s.country_code && getFlagEmoji(s.country_code) ? `${getFlagEmoji(s.country_code)} ` : ''}{s.country_hun}</span>
-                            <span>{s.submission_type === 'online' ? '💻 Online leadás' : '🖼️ Papírkép'}</span>
-                          </div>
-                        </div>
-                        
-                        <div>
-                          <button onClick={() => setSelectedSalon(s)} style={{ background: '#38bdf820', color: '#38bdf8', border: '1px solid #38bdf850', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', transition: 'background 0.2s' }}>
-                            Részletek
-                          </button>
-                        </div>
-                        
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
                   <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                     <div style={{flex: '1 1 150px'}}>
                       <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Nevezési díj (Pl: 20)</label>
@@ -997,7 +948,6 @@ function App() {
                       <div style={{ cursor: 'pointer' }} onClick={() => setSelectedSalon(s)}>
                         <div style={{ fontWeight: 'bold', color: '#60a5fa', fontSize: '1.1rem' }}>{s.name}</div>
                         <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: '5px' }}>
-                          {/* Itt javítva a dátum formátuma, hogy mindig mutassa az évet */}
                           Zárás: {new Date(s.end_date).toLocaleDateString('hu-HU', { year: 'numeric', month: 'short', day: 'numeric' })} | {s.country_code && getFlagEmoji(s.country_code) ? `${getFlagEmoji(s.country_code)} ` : ''}{s.country_hun}
                         </div>
                       </div>
@@ -1006,6 +956,57 @@ function App() {
                       </div>
                     </div>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {/* --- FELHASZNÁLÓI: NEMZETKÖZI SZALONOK NÉZET --- */}
+            {activeTab === 'salons' && (
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '15px' }}>
+                  <h2 style={{ fontSize: '2rem', margin: 0, display: 'flex', alignItems: 'center', gap: '15px', color: '#60a5fa' }}>
+                    <span style={{ fontSize: '2.5rem' }}>🌐</span> Nemzetközi Fotóművészeti Szalonok
+                  </h2>
+                </div>
+                
+                <p style={{ color: '#94a3b8', fontSize: '1.1rem', marginBottom: '20px' }}>
+                  Böngéssz a hazai és nemzetközi fotópályázatok között. Kattints a szalon nevére vagy a "Részletek" gombra a pontos kiírás, kategóriák és díjazás megtekintéséhez!
+                </p>
+
+                <div style={{ background: '#1e293b', borderRadius: '12px', overflow: 'hidden', border: '1px solid #334155' }}>
+                  {sortedSalons.length === 0 ? (
+                    <div style={{padding: '20px', color: '#94a3b8', textAlign: 'center'}}>Jelenleg nincs megjeleníthető szalon az adatbázisban.</div>
+                  ) : null}
+                  
+                  {sortedSalons.map((s, i) => {
+                    const isEnded = new Date(s.end_date) < new Date(new Date().setHours(0,0,0,0));
+                    
+                    return (
+                      <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px', borderBottom: i < sortedSalons.length - 1 ? '1px solid #334155' : 'none', background: i % 2 === 0 ? '#0f172a' : 'transparent', flexWrap: 'wrap', gap: '10px', opacity: isEnded ? 0.6 : 1 }}>
+                        
+                        <div style={{ cursor: 'pointer', flex: 1 }} onClick={() => setSelectedSalon(s)}>
+                          <div style={{ fontWeight: 'bold', color: '#60a5fa', fontSize: '1.2rem', marginBottom: '5px' }}>
+                            {s.name} 
+                            {isEnded && <span style={{fontSize:'0.8rem', color:'#ef4444', border:'1px solid #ef4444', padding:'2px 6px', borderRadius:'4px', marginLeft:'10px', textTransform: 'uppercase', fontWeight: 'bold'}}>Lezárult</span>}
+                            {s.is_circuit === 1 && <span style={{fontSize:'0.8rem', color:'#f59e0b', background:'#f59e0b20', padding:'2px 6px', borderRadius:'4px', marginLeft:'10px'}}>Körverseny</span>}
+                          </div>
+                          
+                          <div style={{ display: 'flex', gap: '15px', fontSize: '0.9rem', color: '#94a3b8', flexWrap: 'wrap', alignItems: 'center' }}>
+                            <span>📅 Zárás: <strong style={{color: isEnded ? '#ef4444' : '#f8fafc'}}>{new Date(s.end_date).toLocaleDateString('hu-HU', { year: 'numeric', month: 'short', day: 'numeric' })}</strong></span>
+                            <span>🌍 {s.country_code && getFlagEmoji(s.country_code) ? `${getFlagEmoji(s.country_code)} ` : ''}{s.country_hun}</span>
+                            <span>{s.submission_type === 'online' ? '💻 Online leadás' : '🖼️ Papírkép'}</span>
+                          </div>
+                        </div>
+                        
+                        <div>
+                          <button onClick={() => setSelectedSalon(s)} style={{ background: '#38bdf820', color: '#38bdf8', border: '1px solid #38bdf850', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', transition: 'background 0.2s' }}>
+                            Részletek
+                          </button>
+                        </div>
+                        
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
