@@ -867,9 +867,9 @@ function App() {
                       <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Nevezési díj (Pl: 20)</label>
                       <input type="number" value={salonFee} onChange={e => setSalonFee(e.target.value)} style={inputStyle} />
                     </div>
-                    <div style={{flex: '1 1 100px'}}>
+                   <div style={{flex: '1 1 100px'}}>
                       <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Pénznem</label>
-                      <select value={salonCurrency} onChange={e => setSalonCurrency(e.target.value)} style={inputStyle} />
+                      <select value={salonCurrency} onChange={e => setSalonCurrency(e.target.value)} style={inputStyle}>
                         <option value="EUR">EUR</option>
                         <option value="USD">USD</option>
                         <option value="HUF">HUF</option>
