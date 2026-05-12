@@ -37,6 +37,7 @@ function App() {
   
   const [salonName, setSalonName] = useState('');
   const [salonFee, setSalonFee] = useState('');
+  const [salonSearch, setSalonSearch] = useState('');
   const [salonCurrency, setSalonCurrency] = useState('EUR');
   const [salonStart, setSalonStart] = useState('');
   const [salonEnd, setSalonEnd] = useState('');
@@ -318,7 +319,25 @@ function App() {
 
   // --- ÚJ: Szalonok rendezése frontend oldalon (Legkésőbbi határidő legelöl) ---
   const sortedSalons = [...salons].sort((a, b) => new Date(b.end_date).getTime() - new Date(a.end_date).getTime());
+// --- ÚJ: Szalonok rendezése frontend oldalon (Legkésőbbi határidő legelöl) ---
+  const sortedSalons = [...salons].sort((a, b) => new Date(b.end_date).getTime() - new Date(a.end_date).getTime());
 
+  // --- ÚJ: Szalonok szűrése keresés alapján ---
+  const searchedSalons = sortedSalons.filter(s => {
+    if (!salonSearch) return true;
+    const q = salonSearch.toLowerCase();
+    
+    // Keresés a szalon nevében
+    const matchName = s.name.toLowerCase().includes(q);
+    
+    // Keresés a patronáló szervezetek azonosítóiban (pl. 2026/081) vagy nevében (pl. FIAP)
+    const matchPatron = s.patron_details && s.patron_details.some((p: any) => 
+      (p.name && p.name.toLowerCase().includes(q)) || 
+      (p.number && p.number.toLowerCase().includes(q))
+    );
+    
+    return matchName || matchPatron;
+  });
   return (
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
       <style>{`
@@ -960,29 +979,39 @@ function App() {
               </div>
             )}
 
-            {/* --- FELHASZNÁLÓI: NEMZETKÖZI SZALONOK NÉZET --- */}
+           {/* --- FELHASZNÁLÓI: NEMZETKÖZI SZALONOK NÉZET --- */}
             {activeTab === 'salons' && (
               <div>
+                {/* JAVÍTOTT FEJLÉC A KERESŐMEZŐVEL */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '15px' }}>
                   <h2 style={{ fontSize: '2rem', margin: 0, display: 'flex', alignItems: 'center', gap: '15px', color: '#60a5fa' }}>
                     <span style={{ fontSize: '2.5rem' }}>🌐</span> Nemzetközi Fotóművészeti Szalonok
                   </h2>
+                  <input 
+                    type="text" 
+                    placeholder="🔍 Keresés név vagy azonosító (pl. 2026/081) alapján..." 
+                    value={salonSearch} 
+                    onChange={e => setSalonSearch(e.target.value)} 
+                    style={{ padding: '10px 15px', borderRadius: '8px', border: '1px solid #334155', background: '#1e293b', color: 'white', minWidth: '300px', outline: 'none' }} 
+                  />
                 </div>
                 
                 <p style={{ color: '#94a3b8', fontSize: '1.1rem', marginBottom: '20px' }}>
                   Böngéssz a hazai és nemzetközi fotópályázatok között. Kattints a szalon nevére vagy a "Részletek" gombra a pontos kiírás, kategóriák és díjazás megtekintéséhez!
                 </p>
 
-                {sortedSalons.length === 0 ? (
+                {/* JAVÍTOTT LISTA: sortedSalons helyett searchedSalons */}
+                {searchedSalons.length === 0 ? (
                   <div style={{padding: '20px', color: '#94a3b8', textAlign: 'center', background: '#1e293b', borderRadius: '12px', border: '1px solid #334155'}}>
-                    Jelenleg nincs megjeleníthető szalon az adatbázisban.
+                    {salonSearch ? 'Nincs a keresésnek megfelelő szalon.' : 'Jelenleg nincs megjeleníthető szalon az adatbázisban.'}
                   </div>
                 ) : (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
-                    {sortedSalons.map((s) => {
+                    {searchedSalons.map((s) => {
                       const isEnded = new Date(s.end_date) < new Date(new Date().setHours(0,0,0,0));
                       
                       return (
+                        <div key={s.id} onClick={() => setSelectedSalon(s)} style={{ cursor: 'pointer', background: '#1e293b', borderRadius: '12px', border: '1px solid #334155', display: 'flex', flexDirection: 'column', overflow: 'hidden', opacity: isEnded ? 0.7 : 1, transition: 'transform 0.2s', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.3)' }} onMouseOver={e => e.currentTarget.style.transform = 'translateY(-3px)'} onMouseOut={e => e.currentTarget.style.transform = 'none'}>
                         // 1. JAVÍTÁS: onClick és cursor: 'pointer' hozzáadva a fő kártyához
                         <div 
                           key={s.id} 
