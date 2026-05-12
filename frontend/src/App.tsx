@@ -272,10 +272,58 @@ function App() {
   const handleSaveHw = async () => { const finalClubId = user.email !== ADMIN_EMAIL ? clubs.find(c => c.name === currentDbUser?.club_name)?.id : hwClubId; if (!finalClubId || !hwTopic || !hwDeadline) return alert("Klub, Téma és Határidő kötelező!"); try { const url = editHwId ? `${BACKEND_URL}/api/homeworks/${editHwId}` : `${BACKEND_URL}/api/homeworks`; const method = editHwId ? 'PUT' : 'POST'; const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clubId: finalClubId, topic: hwTopic, description: hwDesc, deadline: hwDeadline, maxImages: hwMaxImages }) }); if (res.ok) { alert(editHwId ? "Házi feladat frissítve!" : "Házi feladat létrehozva!"); clearHwForm(); fetchData(); } else alert("Hiba történt!"); } catch (e) { alert("Hálózati hiba!"); } };
   const handleDeleteHw = async (id: number) => { if (!window.confirm("Biztosan törlöd ezt a házi feladatot? A hozzá tartozó összes kép is törlődik!")) return; const res = await fetch(`${BACKEND_URL}/api/homeworks/${id}`, { method: 'DELETE' }); if (res.ok) fetchData(); };
   const handleHwFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (file) { setHwUploadFile(file); setHwUploadPreview(URL.createObjectURL(file)); } };
-  const handleUploadHw = async (homeworkId: number) => { if (!hwUploadFile || !hwUploadTitle) return alert("Kép és cím megadása kötelező!"); setIsHwUploading(true); try { const formData = new FormData(); formData.append('photo', hwUploadFile); formData.append('homeworkId', String(homeworkId)); formData.append('userEmail', user.email); formData.append('userName', user.name); formData.append('title', hwUploadTitle); const res = await fetch(`${BACKEND_URL}/api/upload-homework`, { method: 'POST', body: formData }); if (res.ok) { alert("Feltöltve!"); setActiveUploadHw(null); setHwUploadFile(null); setHwUploadPreview(null); setHwUploadTitle(''); fetchMyEntries(user.email); const club = clubs.find(c => c.name === currentDbUser?.club_name); if (club) fetchClubHomeworkEntries(club.id, user.email); } else { const err = await res.json(); alert(`Hiba: ${err.error}`); } } catch (error) { alert("Hiba a feltöltésnél"); } finally { setIsHwUploading(false); } };
-  const handleUpdateHwEntryTitle = async (entryId: number) => { if (!editHwEntryTitle) return alert('A cím nem lehet üres!'); const res = await fetch(`${BACKEND_URL}/api/homework-entries/${entryId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: editHwEntryTitle, userEmail: user.email }) }); if (res.ok) { setEditingHwEntryId(null); fetchMyEntries(user.email); const club = clubs.find(c => c.name === currentDbUser?.club_name); if (club) fetchClubHomeworkEntries(club.id, user.email); } else alert('Hiba a cím frissítésekor!'); };
-  const handleDeleteHwEntry = async (entryId: number) => { if (!window.confirm("Biztosan törlöd ezt a feltöltést?")) return; const res = await fetch(`${BACKEND_URL}/api/homework-entries/${entryId}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userEmail: user.email }) }); if (res.ok) { fetchMyEntries(user.email); const club = clubs.find(c => c.name === currentDbUser?.club_name); if (club) fetchClubHomeworkEntries(club.id, user.email); } };
-  const handleToggleLike = async (entryId: number) => { const res = await fetch(`${BACKEND_URL}/api/homework-entries/${entryId}/like`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userEmail: user.email }) }); if (res.ok) { const club = clubs.find(c => c.name === currentDbUser?.club_name); if (club) fetchClubHomeworkEntries(club.id, user.email); } };
+  
+  const handleUploadHw = async (homeworkId: number) => {
+    if (!hwUploadFile || !hwUploadTitle) return alert("Kép és cím megadása kötelező!");
+    setIsHwUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('photo', hwUploadFile);
+      formData.append('homeworkId', String(homeworkId));
+      formData.append('userEmail', user.email);
+      formData.append('userName', user.name);
+      formData.append('title', hwUploadTitle);
+
+      const res = await fetch(`${BACKEND_URL}/api/upload-homework`, { method: 'POST', body: formData });
+      if (res.ok) { 
+        alert("Feltöltve!"); setActiveUploadHw(null); setHwUploadFile(null); setHwUploadPreview(null); setHwUploadTitle(''); fetchMyEntries(user.email); 
+        const club = clubs.find(c => c.name === currentDbUser?.club_name); if (club) fetchClubHomeworkEntries(club.id, user.email);
+      } else { 
+        const err = await res.json(); alert(`Hiba: ${err.error}`); 
+      }
+    } catch (error) { alert("Hiba a feltöltésnél"); } finally { setIsHwUploading(false); }
+  };
+
+  const handleUpdateHwEntryTitle = async (entryId: number) => {
+    if (!editHwEntryTitle) return alert('A cím nem lehet üres!');
+    const res = await fetch(`${BACKEND_URL}/api/homework-entries/${entryId}`, { 
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: editHwEntryTitle, userEmail: user.email }) 
+    });
+    if (res.ok) { 
+      setEditingHwEntryId(null); 
+      fetchMyEntries(user.email); 
+      const club = clubs.find(c => c.name === currentDbUser?.club_name); if (club) fetchClubHomeworkEntries(club.id, user.email);
+    } else alert('Hiba a cím frissítésekor!');
+  };
+
+  const handleDeleteHwEntry = async (entryId: number) => {
+    if (!window.confirm("Biztosan törlöd ezt a feltöltést?")) return;
+    const res = await fetch(`${BACKEND_URL}/api/homework-entries/${entryId}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userEmail: user.email }) });
+    if (res.ok) {
+      fetchMyEntries(user.email);
+      const club = clubs.find(c => c.name === currentDbUser?.club_name); if (club) fetchClubHomeworkEntries(club.id, user.email);
+    }
+  };
+
+  const handleToggleLike = async (entryId: number) => {
+    const res = await fetch(`${BACKEND_URL}/api/homework-entries/${entryId}/like`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userEmail: user.email })
+    });
+    if (res.ok) {
+      const club = clubs.find(c => c.name === currentDbUser?.club_name); 
+      if (club) fetchClubHomeworkEntries(club.id, user.email);
+    }
+  };
 
   const clearSalonForm = () => { setSalonName(''); setSalonFee(''); setSalonCurrency('EUR'); setSalonStart(''); setSalonEnd(''); setSalonWeb(''); setSalonResults(''); setSalonIsCircuit(false); setSalonAwards(''); setSalonCash(''); setSalonCircuitNum(''); setSalonType('online'); setSalonCountry(''); setSalonSelectedPatrons([]); setSalonSelectedCats([]); };
   const handleSaveSalon = async () => { if (!salonName || !salonEnd) return alert("A Szalon neve és a záródátum megadása kötelező!"); try { const payload = { name: salonName, feeAmount: salonFee, feeCurrency: salonCurrency, startDate: salonStart, endDate: salonEnd, website: salonWeb, resultsDate: salonResults, isCircuit: salonIsCircuit, awardsCount: salonAwards, cashPrize: salonCash, circuitNumber: salonCircuitNum, submissionType: salonType, hostCountryId: salonCountry, patronIds: salonSelectedPatrons, categoryIds: salonSelectedCats }; const res = await fetch(`${BACKEND_URL}/api/salons`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); if (res.ok) { alert("Szalon sikeresen hozzáadva!"); clearSalonForm(); fetchData(); } else alert("Hiba a mentés során."); } catch (e) { alert("Hálózati hiba!"); } };
@@ -590,7 +638,6 @@ function App() {
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '50vh', color: '#60a5fa' }}>
                 <div style={{ fontSize: '3rem', marginBottom: '20px', animation: 'spin 2s linear infinite' }}>⏳</div>
                 <h2>Adatok szinkronizálása a szerverrel...</h2>
-                <style>{`@keyframes spin { 100% { transform: rotate(360deg); } }`}</style>
               </div>
             ) : (
               <>
@@ -975,7 +1022,6 @@ function App() {
                   </div>
                 )}
 
-                {/* --- FELHASZNÁLÓI: NEMZETKÖZI SZALONOK NÉZET --- */}
                 {activeTab === 'salons' && (
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '15px' }}>
@@ -1097,7 +1143,6 @@ function App() {
                   </div>
                 )}
 
-                {/* --- KLUBESTEK (FELHASZNÁLÓI NÉZET) --- */}
                 {activeTab === 'club_nights' && (
                   <div>
                     {!currentDbUser?.club_name ? (
@@ -1199,7 +1244,6 @@ function App() {
                   </div>
                 )}
 
-                {/* --- HÁZI FELADATOK --- */}
                 {activeTab === 'club_homeworks' && (
                   <div>
                     {!currentDbUser?.club_name ? (
@@ -1369,10 +1413,8 @@ function App() {
                   </div>
                 )}
 
-                {/* --- PÁLYÁZATOK (Klub, Nyílt, Admin) --- */}
                 {['contests_open_active', 'contests_club_active', 'contests_closed', 'admin_contests'].includes(activeTab) && (
                   <>
-                    {/* HIBAÜZENET: Ha valaki klubos pályázatot keres, de nincs klubja */}
                     {activeTab === 'contests_club_active' && !currentDbUser?.club_name && (
                        <div style={{ textAlign: 'center', padding: '4rem 2rem', background: '#1e293b', borderRadius: '16px', border: '1px solid #334155' }}>
                          <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🔒</div>
@@ -1383,7 +1425,6 @@ function App() {
 
                     {!(activeTab === 'contests_club_active' && !currentDbUser?.club_name) && (
                       <>
-                        {/* ÚJ PÁLYÁZAT LÉTREHOZÁSA (ADMIN) */}
                         {activeTab === 'admin_contests' && user.email === ADMIN_EMAIL && (
                           <div style={{ backgroundColor: '#1e293b', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', border: '1px solid #f59e0b' }}>
                             <h3 style={{ marginTop: 0, color: '#f59e0b' }}>⚙️ Új Pályázat Létrehozása</h3>
@@ -1736,7 +1777,7 @@ function App() {
                         )}
                       </>
                     )}
-                  </div>
+                  </>
                 )}
               </>
             )}
