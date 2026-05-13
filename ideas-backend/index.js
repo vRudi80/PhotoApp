@@ -543,4 +543,47 @@ app.delete('/api/my-album/:id', async (req, res) => {
   }
 });
 
+// ==========================================
+// --- SZALON NEVEZÉSEK (PORTFÓLIÓBÓL) ---
+// ==========================================
+
+// Lekéri, hogy a user miket nevezett eddig az adott szalonba
+app.get('/api/salon-entries/:salonId', async (req, res) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT e.id as entry_id, e.category, p.* FROM photo_salon_entries e 
+      JOIN photo_portfolio p ON e.portfolio_id = p.id 
+      WHERE e.salon_id = ? AND e.user_email = ?
+    `, [req.params.salonId, req.query.userEmail]);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Hiba a nevezések lekérésekor' });
+  }
+});
+
+// Új nevezés leadása az albumból
+app.post('/api/salon-entries', async (req, res) => {
+  const { salonId, userEmail, portfolioId, category } = req.body;
+  try {
+    // Ellenőrizzük, hogy nevezte-e már ezt a képet ebbe a szalonba (bármelyik kategóriába)
+    const [existing] = await pool.query('SELECT * FROM photo_salon_entries WHERE salon_id = ? AND portfolio_id = ? AND user_email = ?', [salonId, portfolioId, userEmail]);
+    if (existing.length > 0) return res.status(400).json({ error: 'Ezt a képet már nevezted erre a szalonra!' });
+    
+    await pool.query('INSERT INTO photo_salon_entries (salon_id, user_email, portfolio_id, category) VALUES (?, ?, ?, ?)', [salonId, userEmail, portfolioId, category]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Hiba a nevezésnél' });
+  }
+});
+
+// Nevezés visszavonása
+app.delete('/api/salon-entries/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM photo_salon_entries WHERE id = ? AND user_email = ?', [req.params.id, req.body.userEmail]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Hiba a nevezés visszavonásakor' });
+  }
+});
+
 app.listen(PORT, () => console.log(`Szerver fut a ${PORT} porton`));
