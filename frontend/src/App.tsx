@@ -187,9 +187,13 @@ function App() {
       if (res.ok) setMyEntries(await res.json());
       const resHw = await fetch(`${BACKEND_URL}/api/my-homework-entries?userEmail=${email}`);
       if (resHw.ok) setMyHomeworkEntries(await resHw.json());
+      
+      // ÚJ: Lekérjük a szalon nevezések azonosítóit
+      const resSalons = await fetch(`${BACKEND_URL}/api/my-salon-entries-status?userEmail=${email}`);
+      if (resSalons.ok) setUserEntrySalonIds(await resSalons.json());
     } catch (e) { console.error(e); }
   };
-
+  
   const fetchClubHomeworkEntries = async (clubId: number, email: string) => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/homework-entries/club/${clubId}?userEmail=${email}`);
@@ -326,14 +330,14 @@ function App() {
   };
 
   const clearSalonForm = () => { 
-    setEditSalonId(null); // ÚJ
+    setEditSalonId(null); 
     setSalonName(''); setSalonFee(''); setSalonCurrency('EUR'); setSalonStart(''); 
     setSalonEnd(''); setSalonWeb(''); setSalonResults(''); setSalonIsCircuit(false); 
     setSalonAwards(''); setSalonCash(''); setSalonCircuitNum(''); setSalonType('online'); 
     setSalonCountry(''); setSalonSelectedPatrons([]); setSalonSelectedCats([]); 
+    setSalonPatronNumbers({}); // ÚJ: Ürítjük az azonosítókat
   };
 
-  // ÚJ FÜGGVÉNY: Form feltöltése szerkesztéshez
   const startEditSalon = (salon: any) => {
     setEditSalonId(salon.id);
     setSalonName(salon.name || '');
@@ -342,6 +346,43 @@ function App() {
     setSalonFee(salon.fee_amount?.toString() || '');
     setSalonCurrency(salon.fee_currency || 'EUR');
     setSalonWeb(salon.website || '');
+    
+    const formatDate = (dateStr: string | null) => {
+      if (!dateStr) return '';
+      try { return new Date(dateStr).toISOString().slice(0, 10); } catch(e) { return ''; }
+    };
+    
+    setSalonStart(formatDate(salon.start_date));
+    setSalonEnd(formatDate(salon.end_date));
+    setSalonResults(formatDate(salon.results_date));
+    setSalonIsCircuit(salon.is_circuit === 1);
+    setSalonCircuitNum(salon.circuit_number || '');
+    setSalonAwards(salon.awards_count?.toString() || '');
+    setSalonCash(salon.cash_prize || '');
+
+    if (salon.categories && allCategories.length > 0) {
+      const catIds = allCategories.filter(c => salon.categories.includes(c.name) || salon.categories.includes(c.hun_name)).map(c => c.id);
+      setSalonSelectedCats(catIds);
+    } else setSalonSelectedCats([]);
+
+    // ÚJ: Patronok ÉS a hozzájuk tartozó azonosítók visszatöltése
+    if (salon.patron_details && patrons.length > 0) {
+      const pIds: number[] = [];
+      const pNumbers: Record<number, string> = {};
+      salon.patron_details.forEach((p: any) => {
+        const patronObj = patrons.find(pat => pat.name === p.name);
+        if (patronObj) {
+          pIds.push(patronObj.id);
+          pNumbers[patronObj.id] = p.number || '';
+        }
+      });
+      setSalonSelectedPatrons(pIds);
+      setSalonPatronNumbers(pNumbers);
+    } else {
+      setSalonSelectedPatrons([]);
+      setSalonPatronNumbers({});
+    }
+  };
     
     // Dátumok formázása (input type="date" formátumra: YYYY-MM-DD)
     const formatDate = (dateStr: string | null) => {
@@ -373,15 +414,21 @@ function App() {
   const handleSaveSalon = async () => { 
     if (!salonName || !salonEnd) return alert("A Szalon neve és a záródátum megadása kötelező!"); 
     try { 
+      // ÚJ: Összeállítjuk az objektumot, ami a patron ID-t és a hozzátartozó számot is tartalmazza
+      const patronsData = salonSelectedPatrons.map(id => ({
+        id: id,
+        number: salonPatronNumbers[id] || ''
+      }));
+
       const payload = { 
         name: salonName, feeAmount: salonFee, feeCurrency: salonCurrency, startDate: salonStart, 
         endDate: salonEnd, website: salonWeb, resultsDate: salonResults, isCircuit: salonIsCircuit, 
         awardsCount: salonAwards, cashPrize: salonCash, circuitNumber: salonCircuitNum, 
-        submissionType: salonType, hostCountryId: salonCountry, patronIds: salonSelectedPatrons, 
+        submissionType: salonType, hostCountryId: salonCountry, 
+        patronsData: patronsData, // Ezt a tömböt küldjük a szervernek!
         categoryIds: salonSelectedCats 
       }; 
       
-      // Döntés: Létrehozás (POST) vagy Frissítés (PUT)
       const url = editSalonId ? `${BACKEND_URL}/api/salons/${editSalonId}` : `${BACKEND_URL}/api/salons`;
       const method = editSalonId ? 'PUT' : 'POST';
 
@@ -398,6 +445,7 @@ function App() {
       } else alert("Hiba a mentés során."); 
     } catch (e) { alert("Hálózati hiba!"); } 
   };
+
   const handleDeleteSalon = async (id: number) => { if(!window.confirm("Biztosan törlöd ezt a Szalont?")) return; const res = await fetch(`${BACKEND_URL}/api/salons/${id}`, { method: 'DELETE' }); if(res.ok) fetchData(); };
   const toggleArrayItem = (arr: number[], setArr: Function, id: number) => { if (arr.includes(id)) setArr(arr.filter(item => item !== id)); else setArr([...arr, id]); };
 
@@ -539,7 +587,7 @@ function App() {
                       />
                     )}
                 
-                {activeTab === 'admin_salons' && user.email === ADMIN_EMAIL && (
+               {activeTab === 'admin_salons' && user.email === ADMIN_EMAIL && (
                   <AdminSalonsView 
                     salonName={salonName} setSalonName={setSalonName}
                     salonType={salonType} setSalonType={setSalonType}
@@ -562,10 +610,19 @@ function App() {
                     handleDeleteSalon={handleDeleteSalon}
                     sortedSalons={sortedSalons} setSelectedSalon={setSelectedSalon}
                     handleDeleteSalon={handleDeleteSalon}
-                    // Ezt a hármat add hozzá a végére:
                     editSalonId={editSalonId}
                     startEditSalon={startEditSalon}
                     clearSalonForm={clearSalonForm}
+                    salonSelectedPatrons={salonSelectedPatrons} setSalonSelectedPatrons={setSalonSelectedPatrons}
+                    salonPatronNumbers={salonPatronNumbers} 
+                    setSalonPatronNumbers={setSalonPatronNumbers}
+                    
+                    toggleArrayItem={toggleArrayItem} handleSaveSalon={handleSaveSalon}
+                    sortedSalons={sortedSalons} setSelectedSalon={setSelectedSalon}
+                    handleDeleteSalon={handleDeleteSalon}
+                    editSalonId={editSalonId} startEditSalon={startEditSalon} clearSalonForm={clearSalonForm}
+                  />
+                )}
                   />
                 )}
                 
@@ -573,6 +630,7 @@ function App() {
                   <SalonsView 
                     salonSearch={salonSearch} setSalonSearch={setSalonSearch} 
                     searchedSalons={searchedSalons} setSelectedSalon={setSelectedSalon} 
+                    userEntrySalonIds={userEntrySalonIds}
                   />
                 )}
 
