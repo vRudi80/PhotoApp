@@ -20,7 +20,10 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
   // Szerkesztés state
   const [editingPhotoId, setEditingPhotoId] = useState<number | null>(null);
   const [editTitle, setEditTitle] = useState('');
-  const [editFile, setEditFile] = useState<File | null>(null); // ÚJ: Itt tároljuk a csereképet
+  const [editFile, setEditFile] = useState<File | null>(null);
+  
+  // ÚJ: Külön state a szerkesztés mentésének idejére, hogy látszódjon a töltés!
+  const [updatingPhotoId, setUpdatingPhotoId] = useState<number | null>(null);
 
   const fetchMyPhotos = async () => {
     try {
@@ -72,28 +75,29 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
     }
   };
 
-  // ÚJ LOGIKA: JSON helyett FormData-t küldünk, hogy fájlt is lehessen csatolni
   const handleUpdatePhoto = async (photoId: number) => {
     if (!editTitle) return alert('A cím nem lehet üres!');
+    
+    // BEKAPCSOLJUK A TÖLTÉS JELZŐT
+    setUpdatingPhotoId(photoId); 
+    
     try {
       const formData = new FormData();
       formData.append('title', editTitle);
       formData.append('userEmail', user.email);
       
-      // Ha kiválasztottak új képet a cseréhez, azt is hozzácsapjuk
       if (editFile) {
         formData.append('photo', editFile);
       }
 
       const res = await fetch(`${BACKEND_URL}/api/my-album/${photoId}`, {
         method: 'PUT',
-        // FONTOS: A böngésző automatikusan kezeli a multipart/form-data fejléceket!
         body: formData
       });
 
       if (res.ok) {
         setEditingPhotoId(null);
-        setEditFile(null); // Töröljük a cserefájl state-et
+        setEditFile(null);
         fetchMyPhotos();
       } else {
         const err = await res.json();
@@ -101,6 +105,9 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
       }
     } catch (e) {
       alert('Hálózati hiba!');
+    } finally {
+      // KIKAPCSOLJUK A TÖLTÉS JELZŐT (sikeres és sikertelen ágon is)
+      setUpdatingPhotoId(null);
     }
   };
 
@@ -157,28 +164,48 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '20px' }}>
           {photos.map(photo => {
             const imageUrl = getImageUrl(photo.drive_file_id, photo.file_url);
+            const isUpdatingThis = updatingPhotoId === photo.id; // Éppen ezt frissítjük-e?
+
             return (
-              <div key={photo.id} style={{ background: '#1e293b', borderRadius: '12px', overflow: 'hidden', border: '1px solid #334155', display: 'flex', flexDirection: 'column' }}>
+              <div key={photo.id} style={{ background: '#1e293b', borderRadius: '12px', overflow: 'hidden', border: '1px solid #334155', display: 'flex', flexDirection: 'column', opacity: isUpdatingThis ? 0.6 : 1, transition: 'opacity 0.3s' }}>
                 <div style={{ height: '200px', width: '100%', background: '#0f172a', cursor: 'zoom-in' }} onClick={() => setFullscreenData({url: imageUrl, title: photo.title})}>
                   <img src={imageUrl} alt={photo.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 </div>
                 
                 {editingPhotoId === photo.id ? (
                   <div style={{ padding: '15px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    <input value={editTitle} onChange={e => setEditTitle(e.target.value)} placeholder="Kép címe" style={{ width: '100%', padding: '8px', backgroundColor: '#0f172a', border: '1px solid #38bdf8', color: 'white', borderRadius: '4px', boxSizing: 'border-box' }} />
+                    <input 
+                      value={editTitle} 
+                      onChange={e => setEditTitle(e.target.value)} 
+                      placeholder="Kép címe" 
+                      disabled={isUpdatingThis}
+                      style={{ width: '100%', padding: '8px', backgroundColor: '#0f172a', border: '1px solid #38bdf8', color: 'white', borderRadius: '4px', boxSizing: 'border-box' }} 
+                    />
                     
-                    {/* ÚJ: Fájl feltöltő gomb szerkesztésnél */}
                     <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Kép cseréje (opcionális):</div>
                     <input 
                       type="file" 
                       accept="image/jpeg, image/png, image/webp" 
                       onChange={e => setEditFile(e.target.files?.[0] || null)} 
+                      disabled={isUpdatingThis}
                       style={{ fontSize: '0.8rem', color: '#cbd5e1' }} 
                     />
 
                     <div style={{ display: 'flex', gap: '5px', marginTop: '5px' }}>
-                      <button onClick={() => handleUpdatePhoto(photo.id)} style={{ flex: 1, background: '#10b981', color: 'white', border: 'none', padding: '6px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>Mentés</button>
-                      <button onClick={() => { setEditingPhotoId(null); setEditFile(null); }} style={{ flex: 1, background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', padding: '6px', borderRadius: '4px', cursor: 'pointer' }}>Mégse</button>
+                      <button 
+                        onClick={() => handleUpdatePhoto(photo.id)} 
+                        disabled={isUpdatingThis}
+                        style={{ flex: 1, background: isUpdatingThis ? '#475569' : '#10b981', color: 'white', border: 'none', padding: '6px', borderRadius: '4px', cursor: isUpdatingThis ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}
+                      >
+                        {isUpdatingThis ? 'Mentés ⏳...' : 'Mentés'}
+                      </button>
+                      <button 
+                        onClick={() => { setEditingPhotoId(null); setEditFile(null); }} 
+                        disabled={isUpdatingThis}
+                        style={{ flex: 1, background: 'transparent', color: isUpdatingThis ? '#94a3b8' : '#ef4444', border: `1px solid ${isUpdatingThis ? '#94a3b8' : '#ef4444'}`, padding: '6px', borderRadius: '4px', cursor: isUpdatingThis ? 'not-allowed' : 'pointer' }}
+                      >
+                        Mégse
+                      </button>
                     </div>
                   </div>
                 ) : (
