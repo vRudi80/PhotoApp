@@ -521,13 +521,51 @@ app.post('/api/my-album/upload', upload.single('photo'), async (req, res) => {
   }
 });
 
-app.put('/api/my-album/:id', async (req, res) => {
+app.put('/api/my-album/:id', upload.single('photo'), async (req, res) => {
   try {
-    const [result] = await pool.query('UPDATE photo_portfolio SET title = ? WHERE id = ? AND user_email = ?', [req.body.title, req.params.id, req.body.userEmail]);
-    if (result.affectedRows === 0) return res.status(403).json({ error: 'Nincs jogosultságod módosítani ezt a képet!' });
+    const { title, userEmail } = req.body;
+    const file = req.file;
+
+    // 1. Ellenőrizzük, hogy a useré-e a kép
+    const [rows] = await pool.query('SELECT * FROM photo_portfolio WHERE id = ? AND user_email = ?', [req.params.id, userEmail]);
+    if (rows.length === 0) return res.status(403).json({ error: 'Nincs jogosultságod módosítani ezt a képet!' });
+
+    if (file) {
+      // 2. Ha küldtek új képet, töröljük a régit a Drive-ról (ha volt neki drive_file_id-ja)
+      if (rows[0].drive_file_id) {
+        await drive.files.delete({ fileId: rows[0].drive_file_id }).catch(e => console.log('Régi kép törlése a Drive-ról sikertelen:', e.message));
+      }
+
+      // 3. Feltöltjük az új képet a Drive-ra
+      const bufferStream = new Readable(); 
+      bufferStream.push(file.buffer); 
+      bufferStream.push(null);
+      
+      const fileExt = file.originalname && file.originalname.includes('.') ? file.originalname.substring(file.originalname.lastIndexOf('.')).toLowerCase() : '.jpg';
+      const userName = rows[0].user_name || 'Ismeretlen';
+      
+      const driveRes = await drive.files.create({ 
+        requestBody: { 
+          name: `Portfolio_${userName}_Frissitett_${Date.now()}${fileExt}`, 
+          parents: [process.env.DRIVE_MASTER_FOLDER_ID] 
+        }, 
+        media: { mimeType: file.mimetype, body: bufferStream }, 
+        fields: 'id, webViewLink' 
+      });
+
+      // 4. Adatbázis frissítése (új cím + új kép URL és ID)
+      await pool.query(
+        'UPDATE photo_portfolio SET title = ?, file_url = ?, drive_file_id = ? WHERE id = ? AND user_email = ?',
+        [title, driveRes.data.webViewLink, driveRes.data.id, req.params.id, userEmail]
+      );
+    } else {
+      // 5. Ha nincs új kép, csak a címet frissítjük a régi logika alapján
+      await pool.query('UPDATE photo_portfolio SET title = ? WHERE id = ? AND user_email = ?', [title, req.params.id, userEmail]);
+    }
+
     res.json({ success: true });
   } catch (err) { 
-    res.status(500).json({ error: 'Hiba a cím frissítésekor' }); 
+    res.status(500).json({ error: 'Hiba a kép frissítésekor: ' + err.message }); 
   }
 });
 
