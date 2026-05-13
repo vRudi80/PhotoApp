@@ -343,23 +343,22 @@ app.post('/api/homework-entries/:id/like', async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Hiba a like-olásnál' }); }
 });
 
-// --- ÚJ: NEMZETKÖZI SZALONOK ---
-
-// Segédtáblák lekérése
+// --- NEMZETKÖZI SZALONOK ---
 app.get('/api/countries', async (req, res) => {
   try { const [rows] = await pool.query('SELECT id, country, country_hun, country_code FROM photo_countries WHERE is_active = 1 ORDER BY country_hun ASC'); res.json(rows); } 
   catch (err) { res.status(500).json({ error: 'Hiba' }); }
 });
+
 app.get('/api/categories', async (req, res) => {
   try { const [rows] = await pool.query('SELECT * FROM photo_categories ORDER BY hun_name ASC'); res.json(rows); } 
   catch (err) { res.status(500).json({ error: 'Hiba' }); }
 });
+
 app.get('/api/patrons', async (req, res) => {
   try { const [rows] = await pool.query('SELECT * FROM photo_patrons ORDER BY name ASC'); res.json(rows); } 
   catch (err) { res.status(500).json({ error: 'Hiba' }); }
 });
 
-// Összes Szalon lekérése (hozzáfűzve a patronokat és kategóriákat)
 app.get('/api/salons', async (req, res) => {
   try {
     const [salons] = await pool.query(`
@@ -380,7 +379,34 @@ app.get('/api/salons', async (req, res) => {
       FROM photo_salon_categories sc 
       JOIN photo_categories cat ON sc.category_id = cat.id
     `);
-    app.put('/api/salons/:id', async (req, res) => {
+
+    const patronMap = {};
+    patrons.forEach(p => {
+      if (!patronMap[p.salon_id]) patronMap[p.salon_id] = [];
+      patronMap[p.salon_id].push({ name: p.name, number: p.patron_number });
+    });
+
+    const categoryMap = {};
+    categories.forEach(c => {
+      if (!categoryMap[c.salon_id]) categoryMap[c.salon_id] = [];
+      categoryMap[c.salon_id].push(c.hun_name || c.name);
+    });
+
+    const formattedSalons = salons.map(salon => ({
+      ...salon,
+      patron_details: patronMap[salon.id] || [],
+      categories: categoryMap[salon.id] || []
+    }));
+
+    res.json(formattedSalons);
+  } catch(err) { 
+    console.error(err);
+    res.status(500).json({error: err.message}); 
+  }
+});
+
+// A JAVÍTOTT PUT (Szalon szerkesztése) VÉGPONT, már a GET-en kívül!
+app.put('/api/salons/:id', async (req, res) => {
   const { name, feeAmount, feeCurrency, startDate, endDate, website, resultsDate, isCircuit, awardsCount, cashPrize, circuitNumber, submissionType, hostCountryId, patronIds, categoryIds } = req.body;
   const conn = await pool.getConnection();
   try {
@@ -416,33 +442,6 @@ app.get('/api/salons', async (req, res) => {
   }
 });
 
-    // OPTIMALIZÁCIÓ: Hash Map (O(1) keresés) kialakítása
-    const patronMap = {};
-    patrons.forEach(p => {
-      if (!patronMap[p.salon_id]) patronMap[p.salon_id] = [];
-      patronMap[p.salon_id].push({ name: p.name, number: p.patron_number });
-    });
-
-    const categoryMap = {};
-    categories.forEach(c => {
-      if (!categoryMap[c.salon_id]) categoryMap[c.salon_id] = [];
-      categoryMap[c.salon_id].push(c.hun_name || c.name);
-    });
-
-    // Gyors összefűzés
-    const formattedSalons = salons.map(salon => ({
-      ...salon,
-      patron_details: patronMap[salon.id] || [],
-      categories: categoryMap[salon.id] || []
-    }));
-
-    res.json(formattedSalons);
-  } catch(err) { 
-    console.error(err);
-    res.status(500).json({error: err.message}); 
-  }
-});
-
 app.post('/api/salons', async (req, res) => {
   const { name, feeAmount, feeCurrency, startDate, endDate, website, resultsDate, isCircuit, awardsCount, cashPrize, circuitNumber, submissionType, hostCountryId, patronIds, categoryIds } = req.body;
   const conn = await pool.getConnection();
@@ -470,6 +469,78 @@ app.post('/api/salons', async (req, res) => {
 app.delete('/api/salons/:id', async (req, res) => {
   try { await pool.query('DELETE FROM photo_salons WHERE id = ?', [req.params.id]); res.json({ success: true }); } 
   catch (err) { res.status(500).json({ error: 'Hiba' }); }
+});
+
+// ==========================================
+// --- SAJÁT KÉPALBUM (PORTFÓLIÓ) KEZELÉSE ---
+// ==========================================
+
+app.get('/api/my-album', async (req, res) => {
+  try { 
+    const [rows] = await pool.query('SELECT * FROM photo_portfolio WHERE user_email = ? ORDER BY created_at DESC', [req.query.userEmail]); 
+    res.json(rows); 
+  } catch (err) { 
+    res.status(500).json({ error: 'Hiba a képek lekérésekor' }); 
+  }
+});
+
+app.post('/api/my-album/upload', upload.single('photo'), async (req, res) => {
+  const { userEmail, userName, title } = req.body;
+  const file = req.file;
+  
+  if (!file) return res.status(400).json({ error: 'Nincs fájl kiválasztva!' });
+  
+  try {
+    const bufferStream = new Readable(); 
+    bufferStream.push(file.buffer); 
+    bufferStream.push(null);
+    
+    const fileExt = file.originalname && file.originalname.includes('.') ? file.originalname.substring(file.originalname.lastIndexOf('.')).toLowerCase() : '.jpg';
+    
+    const driveRes = await drive.files.create({ 
+      requestBody: { 
+        name: `Portfolio_${userName}_${Date.now()}${fileExt}`, 
+        parents: [process.env.DRIVE_MASTER_FOLDER_ID] 
+      }, 
+      media: { mimeType: file.mimetype, body: bufferStream }, 
+      fields: 'id, webViewLink' 
+    });
+
+    await pool.query(
+      'INSERT INTO photo_portfolio (user_email, user_name, title, file_url, drive_file_id) VALUES (?, ?, ?, ?, ?)', 
+      [userEmail, userName, title, driveRes.data.webViewLink, driveRes.data.id]
+    );
+    
+    res.json({ success: true });
+  } catch (err) { 
+    res.status(500).json({ error: err.message }); 
+  }
+});
+
+app.put('/api/my-album/:id', async (req, res) => {
+  try {
+    const [result] = await pool.query('UPDATE photo_portfolio SET title = ? WHERE id = ? AND user_email = ?', [req.body.title, req.params.id, req.body.userEmail]);
+    if (result.affectedRows === 0) return res.status(403).json({ error: 'Nincs jogosultságod módosítani ezt a képet!' });
+    res.json({ success: true });
+  } catch (err) { 
+    res.status(500).json({ error: 'Hiba a cím frissítésekor' }); 
+  }
+});
+
+app.delete('/api/my-album/:id', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM photo_portfolio WHERE id = ? AND user_email = ?', [req.params.id, req.body.userEmail]);
+    if (rows.length === 0) return res.status(403).json({ error: 'Nincs jogod!' });
+    
+    if (rows[0].drive_file_id) {
+      await drive.files.delete({ fileId: rows[0].drive_file_id }).catch(e => console.log(e.message));
+    }
+    
+    await pool.query('DELETE FROM photo_portfolio WHERE id = ?', [req.params.id]);
+    res.json({ success: true });
+  } catch (err) { 
+    res.status(500).json({ error: 'Hiba a törlésnél' }); 
+  }
 });
 
 app.listen(PORT, () => console.log(`Szerver fut a ${PORT} porton`));
