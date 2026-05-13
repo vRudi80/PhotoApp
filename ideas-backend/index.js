@@ -586,4 +586,14 @@ app.delete('/api/salon-entries/:id', async (req, res) => {
   }
 });
 
+app.get('/api/my-salon-entries-status', async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      'SELECT DISTINCT salon_id FROM photo_salon_entries WHERE user_email = ?', 
+      [req.query.userEmail]
+    );
+    res.json(rows.map(r => r.salon_id));
+  } catch (err) { res.status(500).json({ error: 'Hiba' }); }
+});
+
 app.listen(PORT, () => console.log(`Szerver fut a ${PORT} porton`));
