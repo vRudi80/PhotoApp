@@ -1,12 +1,10 @@
 import { getFlagEmoji } from '../../utils/helpers';
 
 interface AdminSalonsViewProps {
-  // Új propok a szerkesztéshez
   editSalonId: number | null;
   startEditSalon: (salon: any) => void;
   clearSalonForm: () => void;
 
-  // Form states
   salonName: string; setSalonName: (val: string) => void;
   salonType: 'online' | 'print'; setSalonType: (val: 'online' | 'print') => void;
   salonCountry: string; setSalonCountry: (val: string) => void;
@@ -21,13 +19,13 @@ interface AdminSalonsViewProps {
   salonCircuitNum: string; setSalonCircuitNum: (val: string) => void;
   salonAwards: string; setSalonAwards: (val: string) => void;
   salonCash: string; setSalonCash: (val: string) => void;
-  // Categories & Patrons
+  
   allCategories: any[];
   salonSelectedCats: number[]; setSalonSelectedCats: (val: number[]) => void;
   patrons: any[];
   salonSelectedPatrons: number[]; setSalonSelectedPatrons: (val: number[]) => void;
   toggleArrayItem: (arr: number[], setArr: Function, id: number) => void;
-  // Handlers & Data
+  
   handleSaveSalon: () => void;
   sortedSalons: any[];
   setSelectedSalon: (salon: any) => void;
@@ -46,6 +44,20 @@ export default function AdminSalonsView({
 }: AdminSalonsViewProps) {
 
   const inputStyle = { width: '100%', padding: '10px', marginBottom: '10px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '6px', boxSizing: 'border-box' as const };
+
+  // JAVÍTÁS: Kategóriák ABC sorrendbe rendezése (magyar név, vagy angol név alapján)
+  const sortedCategories = [...allCategories].sort((a, b) => {
+    const nameA = a.hun_name || a.name || '';
+    const nameB = b.hun_name || b.name || '';
+    return nameA.localeCompare(nameB, 'hu'); // Magyar ábécé szerinti rendezés
+  });
+
+  // JAVÍTÁS: Patronáló szervezetek ABC sorrendbe rendezése
+  const sortedPatrons = [...patrons].sort((a, b) => {
+    const nameA = a.name || '';
+    const nameB = b.name || '';
+    return nameA.localeCompare(nameB);
+  });
 
   return (
     <div>
@@ -120,19 +132,18 @@ export default function AdminSalonsView({
           </div>
         </div>
 
+        {/* JAVÍTÁS: Az azonosító mező most mindig látszik! */}
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'flex-start', background: '#0f172a', padding: '15px', borderRadius: '8px', border: '1px solid #334155', marginBottom: '15px' }}>
+          <div style={{flex: '1 1 100%', marginBottom: '10px'}}>
+            <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Szalon / Körverseny azonosítója (pl. FIAP 2024/001)</label>
+            <input placeholder="Azonosító számok..." value={salonCircuitNum} onChange={e => setSalonCircuitNum(e.target.value)} style={{...inputStyle, marginBottom: 0}} />
+          </div>
           <div style={{flex: '1 1 100%'}}>
             <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', color: '#f8fafc', fontWeight: 'bold' }}>
               <input type="checkbox" checked={salonIsCircuit} onChange={e => setSalonIsCircuit(e.target.checked)} style={{ width: '20px', height: '20px' }} />
-              Körverseny (Circuit)
+              Ez a szalon egy Körverseny (Circuit) része
             </label>
           </div>
-          {salonIsCircuit && (
-            <div style={{flex: '1 1 100%', marginTop: '10px'}}>
-              <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Körverseny azonosító (pl. FIAP 2023/081-084)</label>
-              <input placeholder="Azonosítók..." value={salonCircuitNum} onChange={e => setSalonCircuitNum(e.target.value)} style={{...inputStyle, marginBottom: 0}} />
-            </div>
-          )}
         </div>
 
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '15px' }}>
@@ -146,10 +157,11 @@ export default function AdminSalonsView({
           </div>
         </div>
 
+        {/* JAVÍTÁS: Kategóriák rendezve */}
         <div style={{ marginBottom: '15px', padding: '15px', background: '#0f172a', borderRadius: '8px', border: '1px solid #334155' }}>
           <label style={{fontSize:'0.9rem', color:'#38bdf8', fontWeight: 'bold', display: 'block', marginBottom: '10px'}}>Kategóriák (Válassz ki többet is)</label>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-            {allCategories.map(cat => (
+            {sortedCategories.map(cat => (
               <label key={cat.id} style={{ display: 'flex', alignItems: 'center', gap: '5px', background: salonSelectedCats.includes(cat.id) ? '#38bdf820' : 'transparent', color: salonSelectedCats.includes(cat.id) ? '#38bdf8' : '#cbd5e1', padding: '5px 10px', borderRadius: '100px', cursor: 'pointer', border: `1px solid ${salonSelectedCats.includes(cat.id) ? '#38bdf8' : '#475569'}` }}>
                 <input type="checkbox" checked={salonSelectedCats.includes(cat.id)} onChange={() => toggleArrayItem(salonSelectedCats, setSalonSelectedCats, cat.id)} style={{ display: 'none' }} />
                 {cat.hun_name || cat.name}
@@ -158,10 +170,11 @@ export default function AdminSalonsView({
           </div>
         </div>
 
+        {/* JAVÍTÁS: Patronok rendezve */}
         <div style={{ marginBottom: '20px', padding: '15px', background: '#0f172a', borderRadius: '8px', border: '1px solid #334155' }}>
           <label style={{fontSize:'0.9rem', color:'#a78bfa', fontWeight: 'bold', display: 'block', marginBottom: '10px'}}>Patronáló Szervezetek (FIAP, PSA, stb.)</label>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-            {patrons.map(p => (
+            {sortedPatrons.map(p => (
               <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '5px', background: salonSelectedPatrons.includes(p.id) ? '#a78bfa20' : 'transparent', color: salonSelectedPatrons.includes(p.id) ? '#a78bfa' : '#cbd5e1', padding: '5px 10px', borderRadius: '100px', cursor: 'pointer', border: `1px solid ${salonSelectedPatrons.includes(p.id) ? '#a78bfa' : '#475569'}` }}>
                 <input type="checkbox" checked={salonSelectedPatrons.includes(p.id)} onChange={() => toggleArrayItem(salonSelectedPatrons, setSalonSelectedPatrons, p.id)} style={{ display: 'none' }} />
                 {p.name}
