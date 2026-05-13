@@ -13,6 +13,8 @@ import ClubNightsView from './views/ClubNightsView';
 import ClubHomeworksView from './views/ClubHomeworksView';
 import AdminClubsView from './views/admin/AdminClubsView';
 import AdminUsersView from './views/admin/AdminUsersView';
+import AdminMeetingsView from './views/admin/AdminMeetingsView';
+import AdminHomeworksView from './views/admin/AdminHomeworksView';
 
 function App() {
   const [user, setUser] = useState<any>(null);
@@ -430,195 +432,35 @@ function App() {
 )}
 
                 {activeTab === 'admin_meetings' && (user.email === ADMIN_EMAIL || isLeader) && (
-                  <div>
-                    <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', color: '#f59e0b' }}>📅 Klubestek Kezelése</h2>
-                    
-                    {attendanceMeetId ? (
-                      <div style={{ backgroundColor: '#1e293b', padding: '2rem', borderRadius: '12px', border: '1px solid #38bdf8' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                          <h3 style={{ margin: 0, color: '#38bdf8' }}>✅ Jelenléti ív</h3>
-                          <button onClick={() => setAttendanceMeetId(null)} style={{ background: 'transparent', color: '#94a3b8', border: '1px solid #475569', padding: '5px 15px', borderRadius: '6px', cursor: 'pointer' }}>Bezár</button>
-                        </div>
-                        {(() => {
-                          const meet = meetings.find(m => m.id === attendanceMeetId);
-                          const clubUsers = allUsers.filter(u => u.club_name === meet?.club_name);
-                          return (
-                            <>
-                              {clubUsers.length === 0 ? <p>Nincsenek tagok ebben a klubban.</p> : (
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '15px', marginBottom: '20px' }}>
-                                  {clubUsers.map(u => (
-                                    <label key={u.email} style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#0f172a', padding: '10px', borderRadius: '8px', cursor: 'pointer', border: '1px solid #334155' }}>
-                                      <input type="checkbox" checked={attendanceList.includes(u.email)} onChange={() => toggleAttendance(u.email)} style={{ width: '20px', height: '20px' }} />
-                                      <span>{u.name}</span>
-                                    </label>
-                                  ))}
-                                </div>
-                              )}
-                              <button onClick={saveAttendance} style={{ background: '#10b981', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Jelenlét Mentése</button>
-                            </>
-                          );
-                        })()}
-                      </div>
-                    ) : (
-                      <>
-                        <div style={{ backgroundColor: '#1e293b', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', border: '1px solid #f59e0b' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', flexWrap: 'wrap', gap: '10px' }}>
-                            <h3 style={{ margin: 0, color: '#f59e0b' }}>{editMeetId ? '✏️ Klubest Szerkesztése' : '➕ Új Klubest Meghirdetése'}</h3>
-                            {editMeetId && <button onClick={clearMeetingForm} style={{ background: 'transparent', color: '#ef4444', border: 'none', cursor: 'pointer' }}>Mégse / Új létrehozása</button>}
-                          </div>
-                          
-                          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                            {user.email === ADMIN_EMAIL ? (
-                              <div style={{flex: '1 1 200px'}}>
-                                <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Melyik klubnak?</label>
-                                <select value={meetClubId} onChange={e => setMeetClubId(e.target.value)} style={inputStyle}>
-                                  <option value="">-- Válassz Klubot --</option>
-                                  {clubs.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                </select>
-                              </div>
-                            ) : (
-                              <div style={{flex: '1 1 200px'}}>
-                                <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Klub</label>
-                                <div style={{...inputStyle, background: '#334155', color: '#94a3b8'}}>{currentDbUser?.club_name}</div>
-                              </div>
-                            )}
-                            
-                            <div style={{flex: '1 1 120px'}}>
-                              <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Dátum</label>
-                              <input type="date" value={meetDate} onChange={e => setMeetDate(e.target.value)} style={inputStyle} />
-                            </div>
-                            <div style={{flex: '1 1 120px'}}>
-                              <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Időpont</label>
-                              <input type="time" value={meetTime} onChange={e => setMeetTime(e.target.value)} style={inputStyle} />
-                            </div>
-                          </div>
-
-                          <input placeholder="Klubest Témája (pl.: Portréfotózás alapjai)" value={meetTopic} onChange={e => setMeetTopic(e.target.value)} style={inputStyle} />
-                          <textarea placeholder="Részletes leírás, program..." value={meetDesc} onChange={e => setMeetDesc(e.target.value)} style={{...inputStyle, minHeight: '80px'}} />
-                          
-                          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                            <div style={{flex: '1 1 150px'}}>
-                              <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Helyszín típusa</label>
-                              <select value={meetLocType} onChange={e => setMeetLocType(e.target.value as any)} style={inputStyle}>
-                                <option value="physical">Fizikai Helyszín</option>
-                                <option value="online">Online Link</option>
-                              </select>
-                            </div>
-                            <div style={{flex: '2 1 200px'}}>
-                              <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Cím vagy Csatlakozási Link</label>
-                              <input placeholder={meetLocType === 'online' ? "https://meet..." : "1051 Budapest..."} value={meetLocDetails} onChange={e => setMeetLocDetails(e.target.value)} style={inputStyle} />
-                            </div>
-                          </div>
-
-                          <div style={{ marginBottom: '15px' }}>
-                            <label style={{fontSize:'0.8rem', color:'#ef4444', fontWeight: 'bold'}}>🎥 YouTube Videó Link (Visszanézéshez - Opcionális)</label>
-                            <input placeholder="https://www.youtube.com/watch?v=..." value={meetVideoLink} onChange={e => setMeetVideoLink(e.target.value)} style={{...inputStyle, border: '1px solid #ef444450'}} />
-                          </div>
-
-                          <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Opcionális borítókép</label>
-                          <input type="file" accept="image/jpeg, image/png, image/webp" onChange={handleMeetingCoverSelect} style={{ color: '#94a3b8', marginBottom: '15px', width: '100%' }} disabled={isMeetingUploading} />
-                          {meetCoverPreview && <div style={{marginTop: '10px', marginBottom: '20px'}}><img src={meetCoverPreview} alt="Előnézet" style={{maxHeight: '150px', borderRadius: '8px', border: '1px solid #334155'}} /></div>}
-
-                          <button onClick={handleSaveMeeting} disabled={isMeetingUploading} style={{ background: isMeetingUploading ? '#475569' : '#10b981', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '6px', cursor: isMeetingUploading ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>
-                            {isMeetingUploading ? 'Mentés folyamatban...' : editMeetId ? 'Klubest Frissítése' : 'Klubest Létrehozása'}
-                          </button>
-                        </div>
-
-                        <h3 style={{ color: '#f8fafc' }}>Rögzített Klubestek</h3>
-                        <div style={{ background: '#1e293b', borderRadius: '12px', overflow: 'hidden', border: '1px solid #334155' }}>
-                          {adminMeetings.length === 0 ? <div style={{padding: '20px', color: '#94a3b8', textAlign: 'center'}}>Nincs megjeleníthető klubest.</div> : null}
-                          {adminMeetings.map((m, i) => (
-                            <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px', borderBottom: i < adminMeetings.length - 1 ? '1px solid #334155' : 'none', background: i % 2 === 0 ? '#0f172a' : 'transparent', flexWrap: 'wrap', gap: '10px' }}>
-                              <div>
-                                <div style={{ fontWeight: 'bold', color: '#38bdf8' }}>{new Date(m.meeting_date).toLocaleDateString()} {m.meeting_time.substring(0,5)} - {m.topic}</div>
-                                <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>
-                                  Klub: {m.club_name} 
-                                  {m.video_link && <span style={{ color: '#ef4444', marginLeft: '10px' }}>▶️ Van videó</span>}
-                                </div>
-                              </div>
-                              <div style={{ display: 'flex', gap: '5px' }}>
-                                <button onClick={() => openAttendance(m.id)} style={{ background: '#38bdf820', color: '#38bdf8', border: 'none', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Jelenlét</button>
-                                <button onClick={() => startEditMeeting(m)} style={{ background: 'transparent', color: '#f59e0b', border: '1px solid #f59e0b', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer' }}>Szerkeszt</button>
-                                <button onClick={() => handleDeleteMeeting(m.id)} style={{ background: '#ef444420', color: '#ef4444', border: 'none', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer' }}>Töröl</button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </>
-                    )}
-                  </div>
-                )}
+  <AdminMeetingsView 
+    user={user} currentDbUser={currentDbUser} clubs={clubs} meetings={meetings} 
+    allUsers={allUsers} adminMeetings={adminMeetings} editMeetId={editMeetId} 
+    meetClubId={meetClubId} setMeetClubId={setMeetClubId} meetDate={meetDate} 
+    setMeetDate={setMeetDate} meetTime={meetTime} setMeetTime={setMeetTime} 
+    meetTopic={meetTopic} setMeetTopic={setMeetTopic} meetDesc={meetDesc} 
+    setMeetDesc={setMeetDesc} meetLocType={meetLocType} setMeetLocType={setMeetLocType} 
+    meetLocDetails={meetLocDetails} setMeetLocDetails={setMeetLocDetails} 
+    meetVideoLink={meetVideoLink} setMeetVideoLink={setMeetVideoLink} 
+    meetCoverPreview={meetCoverPreview} isMeetingUploading={isMeetingUploading} 
+    clearMeetingForm={clearMeetingForm} handleMeetingCoverSelect={handleMeetingCoverSelect} 
+    handleSaveMeeting={handleSaveMeeting} startEditMeeting={startEditMeeting} 
+    handleDeleteMeeting={handleDeleteMeeting} attendanceMeetId={attendanceMeetId} 
+    setAttendanceMeetId={setAttendanceMeetId} attendanceList={attendanceList} 
+    openAttendance={openAttendance} toggleAttendance={toggleAttendance} 
+    saveAttendance={saveAttendance}
+  />
+)}
 
                 {activeTab === 'admin_homeworks' && (user.email === ADMIN_EMAIL || isLeader) && (
-                  <div>
-                    <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', color: '#f59e0b' }}>📝 Házi Feladatok Kezelése</h2>
-                    
-                    <div style={{ backgroundColor: '#1e293b', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', border: '1px solid #f59e0b' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-                        <h3 style={{ margin: 0, color: '#f59e0b' }}>{editHwId ? '✏️ Házi Feladat Szerkesztése' : '➕ Új Házi Feladat Kiírása'}</h3>
-                        {editHwId && <button onClick={clearHwForm} style={{ background: 'transparent', color: '#ef4444', border: 'none', cursor: 'pointer' }}>Mégse / Új létrehozása</button>}
-                      </div>
-                      
-                      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                        {user.email === ADMIN_EMAIL ? (
-                          <div style={{flex: '1 1 200px'}}>
-                            <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Melyik klubnak?</label>
-                            <select value={hwClubId} onChange={e => setHwClubId(e.target.value)} style={inputStyle}>
-                              <option value="">-- Válassz Klubot --</option>
-                              {clubs.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                            </select>
-                          </div>
-                        ) : (
-                          <div style={{flex: '1 1 200px'}}>
-                            <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Klub</label>
-                            <div style={{...inputStyle, background: '#334155', color: '#94a3b8'}}>{currentDbUser?.club_name}</div>
-                          </div>
-                        )}
-                        <div style={{flex: '1 1 200px'}}>
-                          <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Feltöltési Határidő</label>
-                          <input type="datetime-local" value={hwDeadline} onChange={e => setHwDeadline(e.target.value)} style={inputStyle} />
-                        </div>
-                        <div style={{flex: '1 1 100px'}}>
-                          <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Max. kép / fő</label>
-                          <input type="number" min="1" value={hwMaxImages} onChange={e => setHwMaxImages(Number(e.target.value))} style={inputStyle} />
-                        </div>
-                      </div>
-
-                      <input placeholder="Házi feladat Témája (pl.: Őszi színek, Minimál)" value={hwTopic} onChange={e => setHwTopic(e.target.value)} style={inputStyle} />
-                      <textarea placeholder="Leírás, instrukciók a klubtagoknak..." value={hwDesc} onChange={e => setHwDesc(e.target.value)} style={{...inputStyle, minHeight: '80px'}} />
-                      
-                      <button onClick={handleSaveHw} style={{ background: '#10b981', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
-                        {editHwId ? 'Frissítés' : 'Mentés és Kiírás'}
-                      </button>
-                    </div>
-
-                    <h3 style={{ color: '#f8fafc' }}>Klubod Házi Feladatai</h3>
-                    <div style={{ background: '#1e293b', borderRadius: '12px', overflow: 'hidden', border: '1px solid #334155' }}>
-                      {adminHomeworks.length === 0 ? <div style={{padding: '20px', color: '#94a3b8', textAlign: 'center'}}>Nincs megjeleníthető feladat.</div> : null}
-                      {adminHomeworks.map((h, i) => {
-                        const isPast = new Date() > new Date(h.deadline);
-                        return (
-                          <div key={h.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px', borderBottom: i < adminHomeworks.length - 1 ? '1px solid #334155' : 'none', background: i % 2 === 0 ? '#0f172a' : 'transparent', flexWrap: 'wrap', gap: '10px' }}>
-                            <div>
-                              <div style={{ fontWeight: 'bold', color: '#38bdf8' }}>{h.topic}</div>
-                              <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>
-                                Klub: {h.club_name} | Határidő: {new Date(h.deadline).toLocaleString()} | Max: {h.max_images || 4} kép
-                                <span style={{ color: isPast ? '#ef4444' : '#10b981', fontWeight: 'bold', marginLeft: '10px' }}>
-                                  ({isPast ? 'Lezárult' : 'Aktív'})
-                               </span>
-                              </div>
-                            </div>
-                            <div style={{ display: 'flex', gap: '5px' }}>
-                              <button onClick={() => startEditHw(h)} style={{ background: 'transparent', color: '#f59e0b', border: '1px solid #f59e0b', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer' }}>Szerkeszt</button>
-                              <button onClick={() => handleDeleteHw(h.id)} style={{ background: '#ef444420', color: '#ef4444', border: 'none', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer' }}>Töröl</button>
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )}
-
+  <AdminHomeworksView 
+    user={user} currentDbUser={currentDbUser} clubs={clubs} adminHomeworks={adminHomeworks}
+    editHwId={editHwId} hwClubId={hwClubId} setHwClubId={setHwClubId}
+    hwTopic={hwTopic} setHwTopic={setHwTopic} hwDesc={hwDesc} setHwDesc={setHwDesc}
+    hwDeadline={hwDeadline} setHwDeadline={setHwDeadline} hwMaxImages={hwMaxImages}
+    setHwMaxImages={setHwMaxImages} clearHwForm={clearHwForm} handleSaveHw={handleSaveHw}
+    startEditHw={startEditHw} handleDeleteHw={handleDeleteHw}
+  />
+)}
                 {activeTab === 'admin_salons' && user.email === ADMIN_EMAIL && (
                   <div>
                     <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', color: '#f59e0b' }}>🌐 Nemzetközi Szalonok Kezelése</h2>
