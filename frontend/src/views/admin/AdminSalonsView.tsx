@@ -171,15 +171,34 @@ export default function AdminSalonsView({
         </div>
 
         {/* JAVÍTÁS: Patronok rendezve */}
+        // Az AdminSalonsView-n belül a patronok listázása:
         <div style={{ marginBottom: '20px', padding: '15px', background: '#0f172a', borderRadius: '8px', border: '1px solid #334155' }}>
-          <label style={{fontSize:'0.9rem', color:'#a78bfa', fontWeight: 'bold', display: 'block', marginBottom: '10px'}}>Patronáló Szervezetek (FIAP, PSA, stb.)</label>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-            {sortedPatrons.map(p => (
-              <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '5px', background: salonSelectedPatrons.includes(p.id) ? '#a78bfa20' : 'transparent', color: salonSelectedPatrons.includes(p.id) ? '#a78bfa' : '#cbd5e1', padding: '5px 10px', borderRadius: '100px', cursor: 'pointer', border: `1px solid ${salonSelectedPatrons.includes(p.id) ? '#a78bfa' : '#475569'}` }}>
-                <input type="checkbox" checked={salonSelectedPatrons.includes(p.id)} onChange={() => toggleArrayItem(salonSelectedPatrons, setSalonSelectedPatrons, p.id)} style={{ display: 'none' }} />
-                {p.name}
-              </label>
-            ))}
+          <label style={{fontSize:'0.9rem', color:'#a78bfa', fontWeight: 'bold', display: 'block', marginBottom: '10px'}}>Patronáló Szervezetek és Egyedi Azonosítók</label>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {sortedPatrons.map(p => {
+              const isSelected = salonSelectedPatrons.includes(p.id);
+              return (
+                <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', minWidth: '120px' }}>
+                    <input 
+                      type="checkbox" 
+                      checked={isSelected} 
+                      onChange={() => toggleArrayItem(salonSelectedPatrons, setSalonSelectedPatrons, p.id)} 
+                    />
+                    <span style={{ color: isSelected ? '#a78bfa' : '#cbd5e1' }}>{p.name}</span>
+                  </label>
+                  
+                  {isSelected && (
+                    <input 
+                      placeholder={`${p.name} azonosító (pl. 2024/123)`}
+                      value={salonPatronNumbers[p.id] || ''} 
+                      onChange={e => setSalonPatronNumbers({...salonPatronNumbers, [p.id]: e.target.value})}
+                      style={{ ...inputStyle, marginBottom: 0, padding: '5px 10px', flex: 1, maxWidth: '300px', fontSize: '0.85rem' }}
+                    />
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
 
