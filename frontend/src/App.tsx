@@ -16,6 +16,7 @@ import AdminUsersView from './views/admin/AdminUsersView';
 import AdminMeetingsView from './views/admin/AdminMeetingsView';
 import AdminHomeworksView from './views/admin/AdminHomeworksView';
 import AdminSalonsView from './views/admin/AdminSalonsView';
+import ContestsView from './views/ContestsView';
 
 function App() {
   const [user, setUser] = useState<any>(null);
