@@ -7,6 +7,7 @@ import LoginScreen from './components/LoginScreen';
 import { FullscreenModal, VideoModal } from './components/Modals';
 import Header from './components/Header';
 import SalonModal from './components/SalonModal';
+import './App.css';
 
 function App() {
   const [user, setUser] = useState<any>(null);
@@ -373,9 +374,6 @@ function App() {
 
   return (
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
-      <style>{`
-        /* ... A CSS stílusok maradnak ... */
-      `}</style>
 
       {fullscreenData && <FullscreenModal data={fullscreenData} onClose={() => setFullscreenData(null)} />}
       {selectedSalon && <SalonModal salon={selectedSalon} onClose={() => setSelectedSalon(null)} />}
