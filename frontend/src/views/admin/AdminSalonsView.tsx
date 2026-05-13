@@ -24,6 +24,11 @@ interface AdminSalonsViewProps {
   salonSelectedCats: number[]; setSalonSelectedCats: (val: number[]) => void;
   patrons: any[];
   salonSelectedPatrons: number[]; setSalonSelectedPatrons: (val: number[]) => void;
+  
+  // JAVÍTÁS: Ezek hiányoztak, emiatt omlott össze a rendszer!
+  salonPatronNumbers: Record<number, string>;
+  setSalonPatronNumbers: (val: Record<number, string>) => void;
+
   toggleArrayItem: (arr: number[], setArr: Function, id: number) => void;
   
   handleSaveSalon: () => void;
@@ -40,19 +45,18 @@ export default function AdminSalonsView({
   salonIsCircuit, setSalonIsCircuit, salonCircuitNum, setSalonCircuitNum,
   salonAwards, setSalonAwards, salonCash, setSalonCash, allCategories, salonSelectedCats,
   setSalonSelectedCats, patrons, salonSelectedPatrons, setSalonSelectedPatrons,
+  salonPatronNumbers, setSalonPatronNumbers, // JAVÍTÁS: Itt is át kell venni őket!
   toggleArrayItem, handleSaveSalon, sortedSalons, setSelectedSalon, handleDeleteSalon
 }: AdminSalonsViewProps) {
 
   const inputStyle = { width: '100%', padding: '10px', marginBottom: '10px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '6px', boxSizing: 'border-box' as const };
 
-  // JAVÍTÁS: Kategóriák ABC sorrendbe rendezése (magyar név, vagy angol név alapján)
   const sortedCategories = [...allCategories].sort((a, b) => {
     const nameA = a.hun_name || a.name || '';
     const nameB = b.hun_name || b.name || '';
-    return nameA.localeCompare(nameB, 'hu'); // Magyar ábécé szerinti rendezés
+    return nameA.localeCompare(nameB, 'hu'); 
   });
 
-  // JAVÍTÁS: Patronáló szervezetek ABC sorrendbe rendezése
   const sortedPatrons = [...patrons].sort((a, b) => {
     const nameA = a.name || '';
     const nameB = b.name || '';
@@ -132,7 +136,6 @@ export default function AdminSalonsView({
           </div>
         </div>
 
-        {/* JAVÍTÁS: Az azonosító mező most mindig látszik! */}
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'flex-start', background: '#0f172a', padding: '15px', borderRadius: '8px', border: '1px solid #334155', marginBottom: '15px' }}>
           <div style={{flex: '1 1 100%', marginBottom: '10px'}}>
             <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Szalon / Körverseny azonosítója (pl. FIAP 2024/001)</label>
@@ -157,7 +160,6 @@ export default function AdminSalonsView({
           </div>
         </div>
 
-        {/* JAVÍTÁS: Kategóriák rendezve */}
         <div style={{ marginBottom: '15px', padding: '15px', background: '#0f172a', borderRadius: '8px', border: '1px solid #334155' }}>
           <label style={{fontSize:'0.9rem', color:'#38bdf8', fontWeight: 'bold', display: 'block', marginBottom: '10px'}}>Kategóriák (Válassz ki többet is)</label>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
@@ -170,8 +172,6 @@ export default function AdminSalonsView({
           </div>
         </div>
 
-        {/* JAVÍTÁS: Patronok rendezve */}
-        // Az AdminSalonsView-n belül a patronok listázása:
         <div style={{ marginBottom: '20px', padding: '15px', background: '#0f172a', borderRadius: '8px', border: '1px solid #334155' }}>
           <label style={{fontSize:'0.9rem', color:'#a78bfa', fontWeight: 'bold', display: 'block', marginBottom: '10px'}}>Patronáló Szervezetek és Egyedi Azonosítók</label>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
