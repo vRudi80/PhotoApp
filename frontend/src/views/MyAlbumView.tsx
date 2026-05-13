@@ -20,10 +20,10 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
   // Szerkesztés state
   const [editingPhotoId, setEditingPhotoId] = useState<number | null>(null);
   const [editTitle, setEditTitle] = useState('');
+  const [editFile, setEditFile] = useState<File | null>(null); // ÚJ: Itt tároljuk a csereképet
 
   const fetchMyPhotos = async () => {
     try {
-      // Backend végpont, ami visszaadja a user_email alapján a feltöltött képeket
       const res = await fetch(`${BACKEND_URL}/api/my-album?userEmail=${user.email}`);
       if (res.ok) setPhotos(await res.json());
     } catch (e) {
@@ -55,7 +55,6 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
       formData.append('userName', user.name);
       formData.append('title', uploadTitle);
 
-      // Új backend végpont az albumba töltéshez
       const res = await fetch(`${BACKEND_URL}/api/my-album/upload`, { method: 'POST', body: formData });
       if (res.ok) {
         setUploadFile(null);
@@ -73,19 +72,32 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
     }
   };
 
-  const handleUpdateTitle = async (photoId: number) => {
+  // ÚJ LOGIKA: JSON helyett FormData-t küldünk, hogy fájlt is lehessen csatolni
+  const handleUpdatePhoto = async (photoId: number) => {
     if (!editTitle) return alert('A cím nem lehet üres!');
     try {
+      const formData = new FormData();
+      formData.append('title', editTitle);
+      formData.append('userEmail', user.email);
+      
+      // Ha kiválasztottak új képet a cseréhez, azt is hozzácsapjuk
+      if (editFile) {
+        formData.append('photo', editFile);
+      }
+
       const res = await fetch(`${BACKEND_URL}/api/my-album/${photoId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: editTitle, userEmail: user.email })
+        // FONTOS: A böngésző automatikusan kezeli a multipart/form-data fejléceket!
+        body: formData
       });
+
       if (res.ok) {
         setEditingPhotoId(null);
+        setEditFile(null); // Töröljük a cserefájl state-et
         fetchMyPhotos();
       } else {
-        alert('Hiba a cím frissítésekor!');
+        const err = await res.json();
+        alert(`Hiba a frissítésekor: ${err.error || 'Ismeretlen hiba'}`);
       }
     } catch (e) {
       alert('Hálózati hiba!');
@@ -153,17 +165,27 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
                 
                 {editingPhotoId === photo.id ? (
                   <div style={{ padding: '15px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    <input value={editTitle} onChange={e => setEditTitle(e.target.value)} style={{ width: '100%', padding: '8px', backgroundColor: '#0f172a', border: '1px solid #38bdf8', color: 'white', borderRadius: '4px', boxSizing: 'border-box' }} />
-                    <div style={{ display: 'flex', gap: '5px' }}>
-                      <button onClick={() => handleUpdateTitle(photo.id)} style={{ flex: 1, background: '#10b981', color: 'white', border: 'none', padding: '6px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>Mentés</button>
-                      <button onClick={() => setEditingPhotoId(null)} style={{ flex: 1, background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', padding: '6px', borderRadius: '4px', cursor: 'pointer' }}>Mégse</button>
+                    <input value={editTitle} onChange={e => setEditTitle(e.target.value)} placeholder="Kép címe" style={{ width: '100%', padding: '8px', backgroundColor: '#0f172a', border: '1px solid #38bdf8', color: 'white', borderRadius: '4px', boxSizing: 'border-box' }} />
+                    
+                    {/* ÚJ: Fájl feltöltő gomb szerkesztésnél */}
+                    <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Kép cseréje (opcionális):</div>
+                    <input 
+                      type="file" 
+                      accept="image/jpeg, image/png, image/webp" 
+                      onChange={e => setEditFile(e.target.files?.[0] || null)} 
+                      style={{ fontSize: '0.8rem', color: '#cbd5e1' }} 
+                    />
+
+                    <div style={{ display: 'flex', gap: '5px', marginTop: '5px' }}>
+                      <button onClick={() => handleUpdatePhoto(photo.id)} style={{ flex: 1, background: '#10b981', color: 'white', border: 'none', padding: '6px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>Mentés</button>
+                      <button onClick={() => { setEditingPhotoId(null); setEditFile(null); }} style={{ flex: 1, background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', padding: '6px', borderRadius: '4px', cursor: 'pointer' }}>Mégse</button>
                     </div>
                   </div>
                 ) : (
                   <div style={{ padding: '15px', display: 'flex', flexDirection: 'column', flex: 1 }}>
                     <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#f8fafc', marginBottom: '15px', wordBreak: 'break-word' }}>{photo.title}</div>
                     <div style={{ marginTop: 'auto', display: 'flex', gap: '10px' }}>
-                      <button onClick={() => { setEditingPhotoId(photo.id); setEditTitle(photo.title); }} style={{ flex: 1, background: '#38bdf820', color: '#38bdf8', border: 'none', padding: '8px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>Szerkeszt</button>
+                      <button onClick={() => { setEditingPhotoId(photo.id); setEditTitle(photo.title); setEditFile(null); }} style={{ flex: 1, background: '#38bdf820', color: '#38bdf8', border: 'none', padding: '8px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>Szerkeszt</button>
                       <button onClick={() => handleDelete(photo.id)} style={{ flex: 1, background: '#ef444420', color: '#ef4444', border: 'none', padding: '8px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>Törlés</button>
                     </div>
                   </div>
