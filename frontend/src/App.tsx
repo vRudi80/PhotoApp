@@ -17,6 +17,7 @@ import AdminMeetingsView from './views/admin/AdminMeetingsView';
 import AdminHomeworksView from './views/admin/AdminHomeworksView';
 import AdminSalonsView from './views/admin/AdminSalonsView';
 import ContestsView from './views/ContestsView';
+import MyAlbumView from './views/MyAlbumView';
 
 function App() {
   const [user, setUser] = useState<any>(null);
@@ -59,7 +60,7 @@ function App() {
   
   const [selectedSalon, setSelectedSalon] = useState<any>(null);
 
-  const [activeTab, setActiveTab] = useState<'contests_open_active' | 'contests_club_active' | 'contests_closed' | 'club_nights' | 'club_homeworks' | 'salons' | 'admin_contests' | 'admin_users' | 'admin_clubs' | 'admin_meetings' | 'admin_homeworks' | 'admin_salons'>('contests_open_active');
+  const [activeTab, setActiveTab] = useState<'contests_open_active' | 'contests_club_active' | 'contests_closed' | 'club_nights' | 'club_homeworks' | 'salons' | 'my_album' | 'admin_contests' | 'admin_users' | 'admin_clubs' | 'admin_meetings' | 'admin_homeworks' | 'admin_salons'>('contests_open_active');
   const [dropdownOpen, setDropdownOpen] = useState<'contests' | 'club' | 'admin' | null>(null);
   
   const [userClubEdits, setUserClubEdits] = useState<Record<string, string>>({});
@@ -529,6 +530,13 @@ function App() {
                   />
                 )}
 
+                {activeTab === 'my_album' && (
+                      <MyAlbumView 
+                        user={user} 
+                        setFullscreenData={setFullscreenData} 
+                      />
+                    )}
+                
                 {activeTab === 'admin_salons' && user.email === ADMIN_EMAIL && (
                   <AdminSalonsView 
                     salonName={salonName} setSalonName={setSalonName}
