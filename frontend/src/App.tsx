@@ -381,7 +381,7 @@ function App() {
     return matchName || matchPatron;
   });
 
-  return (
+ return (
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
 
       {fullscreenData && <FullscreenModal data={fullscreenData} onClose={() => setFullscreenData(null)} />}
@@ -411,129 +411,148 @@ function App() {
               </div>
             ) : (
               <>
-{activeTab === 'admin_clubs' && user.email === ADMIN_EMAIL && (
-  <AdminClubsView 
-    clubs={clubs} 
-    newClubName={newClubName} 
-    setNewClubName={setNewClubName} 
-    handleAddClub={handleAddClub} 
-    handleDeleteClub={handleDeleteClub} 
-  />
-)}
+                {activeTab === 'admin_clubs' && user.email === ADMIN_EMAIL && (
+                  <AdminClubsView 
+                    clubs={clubs} newClubName={newClubName} setNewClubName={setNewClubName} 
+                    handleAddClub={handleAddClub} handleDeleteClub={handleDeleteClub} 
+                  />
+                )}
 
-{activeTab === 'admin_users' && user.email === ADMIN_EMAIL && (
-  <AdminUsersView 
-    allUsers={allUsers} 
-    clubs={clubs} 
-    userClubEdits={userClubEdits} 
-    setUserClubEdits={setUserClubEdits} 
-    userRoleEdits={userRoleEdits} 
-    setUserRoleEdits={setUserRoleEdits} 
-    saveUserClub={saveUserClub} 
-  />
-)}
+                {activeTab === 'admin_users' && user.email === ADMIN_EMAIL && (
+                  <AdminUsersView 
+                    allUsers={allUsers} clubs={clubs} userClubEdits={userClubEdits} 
+                    setUserClubEdits={setUserClubEdits} userRoleEdits={userRoleEdits} 
+                    setUserRoleEdits={setUserRoleEdits} saveUserClub={saveUserClub} 
+                  />
+                )}
 
                 {activeTab === 'admin_meetings' && (user.email === ADMIN_EMAIL || isLeader) && (
-  <AdminMeetingsView 
-    user={user} currentDbUser={currentDbUser} clubs={clubs} meetings={meetings} 
-    allUsers={allUsers} adminMeetings={adminMeetings} editMeetId={editMeetId} 
-    meetClubId={meetClubId} setMeetClubId={setMeetClubId} meetDate={meetDate} 
-    setMeetDate={setMeetDate} meetTime={meetTime} setMeetTime={setMeetTime} 
-    meetTopic={meetTopic} setMeetTopic={setMeetTopic} meetDesc={meetDesc} 
-    setMeetDesc={setMeetDesc} meetLocType={meetLocType} setMeetLocType={setMeetLocType} 
-    meetLocDetails={meetLocDetails} setMeetLocDetails={setMeetLocDetails} 
-    meetVideoLink={meetVideoLink} setMeetVideoLink={setMeetVideoLink} 
-    meetCoverPreview={meetCoverPreview} isMeetingUploading={isMeetingUploading} 
-    clearMeetingForm={clearMeetingForm} handleMeetingCoverSelect={handleMeetingCoverSelect} 
-    handleSaveMeeting={handleSaveMeeting} startEditMeeting={startEditMeeting} 
-    handleDeleteMeeting={handleDeleteMeeting} attendanceMeetId={attendanceMeetId} 
-    setAttendanceMeetId={setAttendanceMeetId} attendanceList={attendanceList} 
-    openAttendance={openAttendance} toggleAttendance={toggleAttendance} 
-    saveAttendance={saveAttendance}
-  />
-)}
+                  <AdminMeetingsView 
+                    user={user} currentDbUser={currentDbUser} clubs={clubs} meetings={meetings} 
+                    allUsers={allUsers} adminMeetings={adminMeetings} editMeetId={editMeetId} 
+                    meetClubId={meetClubId} setMeetClubId={setMeetClubId} meetDate={meetDate} 
+                    setMeetDate={setMeetDate} meetTime={meetTime} setMeetTime={setMeetTime} 
+                    meetTopic={meetTopic} setMeetTopic={setMeetTopic} meetDesc={meetDesc} 
+                    setMeetDesc={setMeetDesc} meetLocType={meetLocType} setMeetLocType={setMeetLocType} 
+                    meetLocDetails={meetLocDetails} setMeetLocDetails={setMeetLocDetails} 
+                    meetVideoLink={meetVideoLink} setMeetVideoLink={setMeetVideoLink} 
+                    meetCoverPreview={meetCoverPreview} isMeetingUploading={isMeetingUploading} 
+                    clearMeetingForm={clearMeetingForm} handleMeetingCoverSelect={handleMeetingCoverSelect} 
+                    handleSaveMeeting={handleSaveMeeting} startEditMeeting={startEditMeeting} 
+                    handleDeleteMeeting={handleDeleteMeeting} attendanceMeetId={attendanceMeetId} 
+                    setAttendanceMeetId={setAttendanceMeetId} attendanceList={attendanceList} 
+                    openAttendance={openAttendance} toggleAttendance={toggleAttendance} 
+                    saveAttendance={saveAttendance}
+                  />
+                )}
 
                 {activeTab === 'admin_homeworks' && (user.email === ADMIN_EMAIL || isLeader) && (
-  <AdminHomeworksView 
-    user={user} currentDbUser={currentDbUser} clubs={clubs} adminHomeworks={adminHomeworks}
-    editHwId={editHwId} hwClubId={hwClubId} setHwClubId={setHwClubId}
-    hwTopic={hwTopic} setHwTopic={setHwTopic} hwDesc={hwDesc} setHwDesc={setHwDesc}
-    hwDeadline={hwDeadline} setHwDeadline={setHwDeadline} hwMaxImages={hwMaxImages}
-    setHwMaxImages={setHwMaxImages} clearHwForm={clearHwForm} handleSaveHw={handleSaveHw}
-    startEditHw={startEditHw} handleDeleteHw={handleDeleteHw}
-  />
-)}
-               {activeTab === 'admin_salons' && user.email === ADMIN_EMAIL && (
-  <AdminSalonsView 
-    salonName={salonName} setSalonName={setSalonName}
-    salonType={salonType} setSalonType={setSalonType}
-    salonCountry={salonCountry} setSalonCountry={setSalonCountry}
-    countries={countries} salonFee={salonFee} setSalonFee={setSalonFee}
-    salonCurrency={salonCurrency} setSalonCurrency={setSalonCurrency}
-    salonWeb={salonWeb} setSalonWeb={setSalonWeb}
-    salonStart={salonStart} setSalonStart={setSalonStart}
-    salonEnd={salonEnd} setSalonEnd={setSalonEnd}
-    salonResults={salonResults} setSalonResults={setSalonResults}
-    salonIsCircuit={salonIsCircuit} setSalonIsCircuit={setSalonIsCircuit}
-    salonCircuitNum={salonCircuitNum} setSalonCircuitNum={setSalonCircuitNum}
-    salonAwards={salonAwards} setSalonAwards={setSalonAwards}
-    salonCash={salonCash} setSalonCash={setSalonCash}
-    allCategories={allCategories} salonSelectedCats={salonSelectedCats}
-    setSalonSelectedCats={setSalonSelectedCats} patrons={patrons}
-    salonSelectedPatrons={salonSelectedPatrons} setSalonSelectedPatrons={setSalonSelectedPatrons}
-    toggleArrayItem={toggleArrayItem} handleSaveSalon={handleSaveSalon}
-    sortedSalons={sortedSalons} setSelectedSalon={setSelectedSalon}
-    handleDeleteSalon={handleDeleteSalon}
-  />
-)}
+                  <AdminHomeworksView 
+                    user={user} currentDbUser={currentDbUser} clubs={clubs} adminHomeworks={adminHomeworks}
+                    editHwId={editHwId} hwClubId={hwClubId} setHwClubId={setHwClubId}
+                    hwTopic={hwTopic} setHwTopic={setHwTopic} hwDesc={hwDesc} setHwDesc={setHwDesc}
+                    hwDeadline={hwDeadline} setHwDeadline={setHwDeadline} hwMaxImages={hwMaxImages}
+                    setHwMaxImages={setHwMaxImages} clearHwForm={clearHwForm} handleSaveHw={handleSaveHw}
+                    startEditHw={startEditHw} handleDeleteHw={handleDeleteHw}
+                  />
+                )}
+
+                {activeTab === 'admin_salons' && user.email === ADMIN_EMAIL && (
+                  <AdminSalonsView 
+                    salonName={salonName} setSalonName={setSalonName}
+                    salonType={salonType} setSalonType={setSalonType}
+                    salonCountry={salonCountry} setSalonCountry={setSalonCountry}
+                    countries={countries} salonFee={salonFee} setSalonFee={setSalonFee}
+                    salonCurrency={salonCurrency} setSalonCurrency={setSalonCurrency}
+                    salonWeb={salonWeb} setSalonWeb={setSalonWeb}
+                    salonStart={salonStart} setSalonStart={setSalonStart}
+                    salonEnd={salonEnd} setSalonEnd={setSalonEnd}
+                    salonResults={salonResults} setSalonResults={setSalonResults}
+                    salonIsCircuit={salonIsCircuit} setSalonIsCircuit={setSalonIsCircuit}
+                    salonCircuitNum={salonCircuitNum} setSalonCircuitNum={setSalonCircuitNum}
+                    salonAwards={salonAwards} setSalonAwards={setSalonAwards}
+                    salonCash={salonCash} setSalonCash={setSalonCash}
+                    allCategories={allCategories} salonSelectedCats={salonSelectedCats}
+                    setSalonSelectedCats={setSalonSelectedCats} patrons={patrons}
+                    salonSelectedPatrons={salonSelectedPatrons} setSalonSelectedPatrons={setSalonSelectedPatrons}
+                    toggleArrayItem={toggleArrayItem} handleSaveSalon={handleSaveSalon}
+                    sortedSalons={sortedSalons} setSelectedSalon={setSelectedSalon}
+                    handleDeleteSalon={handleDeleteSalon}
+                  />
+                )}
 
                 {activeTab === 'salons' && (
-  <SalonsView 
-    salonSearch={salonSearch} 
-    setSalonSearch={setSalonSearch} 
-    searchedSalons={searchedSalons} 
-    setSelectedSalon={setSelectedSalon} 
-  />
-)}
+                  <SalonsView 
+                    salonSearch={salonSearch} setSalonSearch={setSalonSearch} 
+                    searchedSalons={searchedSalons} setSelectedSalon={setSelectedSalon} 
+                  />
+                )}
 
-               {activeTab === 'club_nights' && (
-  <ClubNightsView 
-    currentDbUser={currentDbUser} 
-    meetingSearch={meetingSearch} 
-    setMeetingSearch={setMeetingSearch} 
-    searchedMeetings={searchedMeetings} 
-    setActiveVideo={setActiveVideo} 
-  />
-)}
+                {activeTab === 'club_nights' && (
+                  <ClubNightsView 
+                    currentDbUser={currentDbUser} meetingSearch={meetingSearch} 
+                    setMeetingSearch={setMeetingSearch} searchedMeetings={searchedMeetings} 
+                    setActiveVideo={setActiveVideo} 
+                  />
+                )}
 
-               {activeTab === 'club_homeworks' && (
-  <ClubHomeworksView 
-    currentDbUser={currentDbUser}
-    myClubHomeworks={myClubHomeworks}
-    myHomeworkEntries={myHomeworkEntries}
-    clubHomeworkEntries={clubHomeworkEntries}
-    isLeader={!!isLeader}
-    activeUploadHw={activeUploadHw}
-    setActiveUploadHw={setActiveUploadHw}
-    hwUploadTitle={hwUploadTitle}
-    setHwUploadTitle={setHwUploadTitle}
-    isHwUploading={isHwUploading}
-    hwUploadPreview={hwUploadPreview}
-    setHwUploadPreview={setHwUploadPreview}
-    handleHwFileSelect={handleHwFileSelect}
-    handleUploadHw={handleUploadHw}
-    setFullscreenData={setFullscreenData}
-    editingHwEntryId={editingHwEntryId}
-    setEditingHwEntryId={setEditingHwEntryId}
-    editHwEntryTitle={editHwEntryTitle}
-    setEditHwEntryTitle={setEditHwEntryTitle}
-    handleUpdateHwEntryTitle={handleUpdateHwEntryTitle}
-    handleDeleteHwEntry={handleDeleteHwEntry}
-    handleToggleLike={handleToggleLike}
-  />
-)}
+                {activeTab === 'club_homeworks' && (
+                  <ClubHomeworksView 
+                    currentDbUser={currentDbUser} myClubHomeworks={myClubHomeworks}
+                    myHomeworkEntries={myHomeworkEntries} clubHomeworkEntries={clubHomeworkEntries}
+                    isLeader={!!isLeader} activeUploadHw={activeUploadHw}
+                    setActiveUploadHw={setActiveUploadHw} hwUploadTitle={hwUploadTitle}
+                    setHwUploadTitle={setHwUploadTitle} isHwUploading={isHwUploading}
+                    hwUploadPreview={hwUploadPreview} setHwUploadPreview={setHwUploadPreview}
+                    handleHwFileSelect={handleHwFileSelect} handleUploadHw={handleUploadHw}
+                    setFullscreenData={setFullscreenData} editingHwEntryId={editingHwEntryId}
+                    setEditingHwEntryId={setEditingHwEntryId} editHwEntryTitle={editHwEntryTitle}
+                    setEditHwEntryTitle={setEditHwEntryTitle} handleUpdateHwEntryTitle={handleUpdateHwEntryTitle}
+                    handleDeleteHwEntry={handleDeleteHwEntry} handleToggleLike={handleToggleLike}
+                  />
+                )}
 
-               
+                {['contests_open_active', 'contests_club_active', 'contests_closed', 'admin_contests'].includes(activeTab) && (
+                  <ContestsView
+                    activeTab={activeTab} user={user} currentDbUser={currentDbUser} isLeader={!!isLeader}
+                    clubs={clubs} allUsers={allUsers} filteredContests={filteredContests}
+                    myEntries={myEntries} juryList={juryList} newTitle={newTitle}
+                    setNewTitle={setNewTitle} newDesc={newDesc} setNewDesc={setNewDesc}
+                    newStart={newStart} setNewStart={setNewStart} newEnd={newEnd}
+                    setNewEnd={setNewEnd} newCats={newCats} setNewCats={setNewCats}
+                    newRestrictedClub={newRestrictedClub} setNewRestrictedClub={setNewRestrictedClub}
+                    handleCreateContest={handleCreateContest} editContestId={editContestId}
+                    setEditContestId={setEditContestId} editTitle={editTitle} setEditTitle={setEditTitle}
+                    editDesc={editDesc} setEditDesc={setEditDesc} editStart={editStart}
+                    setEditStart={setEditStart} editEnd={editEnd} setEditEnd={setEditEnd}
+                    editCats={editCats} setEditCats={setEditCats} editRestrictedClub={editRestrictedClub}
+                    setEditRestrictedClub={setEditRestrictedClub} startEdit={startEdit}
+                    handleUpdateContest={handleUpdateContest} handleDeleteContest={handleDeleteContest}
+                    viewStatsContestId={viewStatsContestId} setViewStatsContestId={setViewStatsContestId}
+                    contestStats={contestStats} loadStats={loadStats} viewJuryProgressId={viewJuryProgressId}
+                    setViewJuryProgressId={setViewJuryProgressId} juryProgressData={juryProgressData}
+                    loadJuryProgress={loadJuryProgress} manageJuryContestId={manageJuryContestId}
+                    setManageJuryContestId={setManageJuryContestId} selectedJuryEmail={selectedJuryEmail}
+                    setSelectedJuryEmail={setSelectedJuryEmail} handleAddJury={handleAddJury}
+                    handleRemoveJury={handleRemoveJury} viewResultsContestId={viewResultsContestId}
+                    setViewResultsContestId={setViewResultsContestId} contestResults={contestResults}
+                    loadResults={loadResults} activeUploadContest={activeUploadContest}
+                    setActiveUploadContest={setActiveUploadContest} uploadTitle={uploadTitle}
+                    setUploadTitle={setUploadTitle} uploadCategory={uploadCategory}
+                    setUploadCategory={setUploadCategory} uploadPreview={uploadPreview}
+                    setUploadPreview={setUploadPreview} isUploading={isUploading}
+                    handleFileSelect={handleFileSelect} handleUpload={handleUpload}
+                    judgingContestId={judgingContestId} setJudgingContestId={setJudgingContestId}
+                    unvotedEntries={unvotedEntries} currentScore={currentScore}
+                    setCurrentScore={setCurrentScore} startJudging={startJudging}
+                    submitVote={submitVote} editingEntryId={editingEntryId}
+                    setEditingEntryId={setEditingEntryId} editEntryTitle={editEntryTitle}
+                    setEditEntryTitle={setEditEntryTitle} handleUpdateEntryTitle={handleUpdateEntryTitle}
+                    handleDeleteEntry={handleDeleteEntry} setFullscreenData={setFullscreenData}
+                  />
+                )}
+              </>
+            )}
           </main>
         </div>
       )}
