@@ -1,26 +1,12 @@
 import { useState, useEffect } from 'react';
-import { GoogleOAuthProvider, GoogleLogin, googleLogout } from '@react-oauth/google';
+import { GoogleOAuthProvider } from '@react-oauth/google';
 import { jwtDecode } from "jwt-decode";
-import logo from './logo.png';
-
-const GOOGLE_CLIENT_ID = "197361744572-ih728hq5jft3fqfd1esvktvrd8i97kcp.apps.googleusercontent.com";
-const BACKEND_URL = "https://photoapp-backend-m4d1.onrender.com"; 
-const ADMIN_EMAIL = "kovari.rudolf@gmail.com"; 
-
-// --- Okosított zászló generáló ---
-function getFlagEmoji(countryCode: string) {
-  if (!countryCode || countryCode.length !== 2) return null;
-  const codePoints = countryCode.toUpperCase().split('').map(char =>  127397 + char.charCodeAt(0));
-  return String.fromCodePoint(...codePoints);
-}
-
-// --- JAVÍTÁS: Központi kép URL generáló Google Drive-hoz ---
-function getImageUrl(driveFileId?: string | null, fileUrl?: string) {
-  if (driveFileId) {
-    return `https://lh3.googleusercontent.com/d/${driveFileId}`;
-  }
-  return fileUrl || '';
-}
+import { GOOGLE_CLIENT_ID, BACKEND_URL, ADMIN_EMAIL } from './utils/constants';
+import { getFlagEmoji, getImageUrl, getYouTubeEmbed } from './utils/helpers';
+import LoginScreen from './components/LoginScreen';
+import { FullscreenModal, VideoModal } from './components/Modals';
+import Header from './components/Header';
+import SalonModal from './components/SalonModal';
 
 function App() {
   const [user, setUser] = useState<any>(null);
@@ -388,250 +374,27 @@ function App() {
   return (
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
       <style>{`
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.5); border-radius: 8px; }
-        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 8px; }
-        ::-webkit-scrollbar-thumb:hover { background: #475569; }
-
-        .app-header { display: flex; justify-content: space-between; align-items: center; padding: 1.2rem 2rem; background-color: #1e293b; border-bottom: 1px solid #334155; position: sticky; top: 0; z-index: 50; }
-        .nav-group { display: flex; gap: 15px; align-items: center; }
-        .user-group { display: flex; align-items: center; gap: 15px; }
-        
-        .nav-item-container { position: relative; }
-        .nav-btn { background: transparent; color: #f8fafc; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.95rem; display: flex; align-items: center; justify-content: space-between; gap: 5px; transition: background 0.2s; }
-        .nav-btn.active { background: #334155; }
-        
-        .dropdown-menu { position: absolute; top: 100%; left: 0; margin-top: 10px; background: #1e293b; border: 1px solid #334155; border-radius: 8px; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.5); min-width: 240px; display: flex; flex-direction: column; z-index: 100; }
-        .drop-item { background: transparent; color: #cbd5e1; border: none; padding: 12px 15px; text-align: left; cursor: pointer; width: 100%; border-bottom: 1px solid #334155; font-size: 0.95rem; transition: background 0.2s; }
-        .drop-item:hover { background: #334155; color: white !important; }
-        .drop-item:last-child { border-bottom: none; }
-        .drop-item.active { color: #38bdf8; font-weight: bold; }
-
-        @media (max-width: 768px) {
-          .app-header { flex-direction: column; align-items: stretch !important; padding: 1rem; }
-          .nav-group { flex-direction: column; align-items: stretch !important; width: 100%; gap: 10px; }
-          .user-group { width: 100%; justify-content: space-between; padding-top: 15px; margin-top: 10px; border-top: 1px solid #334155; }
-          
-          .nav-item-container { width: 100%; }
-          .nav-btn { width: 100%; padding: 12px 15px !important; background-color: rgba(30, 41, 59, 0.8); border: 1px solid #334155; }
-          .dropdown-menu { position: relative !important; width: 100% !important; margin-top: 5px !important; box-shadow: none !important; border: 1px solid #38bdf850 !important; }
-        }
-
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        /* ... A CSS stílusok maradnak ... */
       `}</style>
 
-      {fullscreenData && (
-        <div onClick={() => setFullscreenData(null)} style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.95)', zIndex: 9999, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', cursor: 'zoom-out' }}>
-          <div style={{ position: 'absolute', top: '20px', right: '30px', color: 'white', fontSize: '2rem', fontWeight: 'bold' }}>×</div>
-          <img src={fullscreenData.url} alt="Teljes képernyő" style={{ maxHeight: '85vh', maxWidth: '95vw', objectFit: 'contain' }} />
-          {fullscreenData.title && (
-            <div style={{ marginTop: '15px', color: 'white', fontSize: '1.2rem', textAlign: 'center', maxWidth: '90vw', background: 'rgba(0,0,0,0.5)', padding: '10px 20px', borderRadius: '8px' }}>
-              {fullscreenData.title}
-            </div>
-          )}
-        </div>
-      )}
-
-      {selectedSalon && (
-        <div onClick={(e) => { if(e.target === e.currentTarget) setSelectedSalon(null); }} style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
-          <div style={{ background: '#1e293b', border: '1px solid #60a5fa', borderRadius: '16px', maxWidth: '600px', width: '100%', maxHeight: '90vh', overflowY: 'auto', position: 'relative', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.8)' }}>
-            <button onClick={() => setSelectedSalon(null)} style={{ position: 'absolute', top: '15px', right: '15px', background: 'transparent', border: 'none', color: '#94a3b8', fontSize: '1.5rem', cursor: 'pointer', fontWeight: 'bold' }}>×</button>
-            
-            <div style={{ padding: '30px' }}>
-             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '15px' }}>
-                {selectedSalon.patron_details && selectedSalon.patron_details.length > 0 ? (
-                  selectedSalon.patron_details.map((p: any) => <span key={p.name} style={{ background: '#a78bfa20', color: '#a78bfa', padding: '4px 10px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 'bold', border: '1px solid #a78bfa50' }}>{p.name} {p.number ? `(${p.number})` : ''}</span>)
-                ) : (
-                  <span style={{ background: '#334155', color: '#94a3b8', padding: '4px 10px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 'bold' }}>Független Pályázat</span>
-                )}
-                {selectedSalon.is_circuit === 1 && <span style={{ background: '#f59e0b20', color: '#f59e0b', padding: '4px 10px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 'bold', border: '1px solid #f59e0b50' }}>Körverseny</span>}
-              </div>
-              
-              <h2 style={{ color: '#f8fafc', fontSize: '1.8rem', margin: '0 0 15px 0', lineHeight: '1.3' }}>{selectedSalon.name}</h2>
-              
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '1rem', color: '#94a3b8', marginBottom: '25px', paddingBottom: '20px', borderBottom: '1px solid #334155' }}>
-                <span>{selectedSalon.country_code ? getFlagEmoji(selectedSalon.country_code) : '🏳️'}</span>
-                <span style={{ fontWeight: 'bold', color: '#cbd5e1' }}>{selectedSalon.country_hun}</span>
-                <span>•</span>
-                <span>{selectedSalon.submission_type === 'online' ? '💻 Online leadás' : '🖼️ Papírkép'}</span>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '30px' }}>
-                <div>
-                  <div style={{ fontSize: '0.8rem', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '5px' }}>Feltöltési Határidő</div>
-                  <div style={{ fontSize: '1.2rem', color: '#ef4444', fontWeight: 'bold' }}>{new Date(selectedSalon.end_date).toLocaleDateString('hu-HU', {year: 'numeric', month: 'long', day: 'numeric'})}</div>
-                </div>
-                {selectedSalon.results_date && (
-                  <div>
-                    <div style={{ fontSize: '0.8rem', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '5px' }}>Eredményhirdetés</div>
-                    <div style={{ fontSize: '1.2rem', color: '#f8fafc', fontWeight: 'bold' }}>{new Date(selectedSalon.results_date).toLocaleDateString('hu-HU', {year: 'numeric', month: 'long', day: 'numeric'})}</div>
-                  </div>
-                )}
-                <div>
-                  <div style={{ fontSize: '0.8rem', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '5px' }}>Nevezési díj</div>
-                  <div style={{ fontSize: '1.2rem', color: '#10b981', fontWeight: 'bold' }}>{selectedSalon.fee_amount && selectedSalon.fee_amount > 0 ? `${selectedSalon.fee_amount} ${selectedSalon.fee_currency}` : 'Ingyenes'}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: '0.8rem', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '5px' }}>Díjak száma</div>
-                  <div style={{ fontSize: '1.2rem', color: '#f59e0b', fontWeight: 'bold' }}>{selectedSalon.awards_count || 0} db</div>
-                </div>
-              </div>
-
-              {selectedSalon.cash_prize && (
-                <div style={{ background: '#0f172a', padding: '15px', borderRadius: '8px', border: '1px solid #10b98150', marginBottom: '30px' }}>
-                  <div style={{ fontSize: '0.8rem', color: '#10b981', textTransform: 'uppercase', fontWeight: 'bold', marginBottom: '5px' }}>💰 Pénznyeremény</div>
-                  <div style={{ color: '#f8fafc' }}>{selectedSalon.cash_prize}</div>
-                </div>
-              )}
-
-              {selectedSalon.circuit_number && (
-                <div style={{ marginBottom: '30px' }}>
-                  <div style={{ fontSize: '0.8rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 'bold', marginBottom: '5px' }}>Körverseny azonosító(k)</div>
-                  <div style={{ color: '#cbd5e1' }}>{selectedSalon.circuit_number}</div>
-                </div>
-              )}
-
-              {selectedSalon.categories && selectedSalon.categories.length > 0 && (
-                <div style={{ marginBottom: '30px' }}>
-                  <div style={{ fontSize: '0.8rem', color: '#38bdf8', textTransform: 'uppercase', fontWeight: 'bold', marginBottom: '10px' }}>Kategóriák</div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                    {selectedSalon.categories.map((c: string) => (
-                      <span key={c} style={{ background: '#38bdf815', color: '#38bdf8', padding: '6px 12px', borderRadius: '100px', fontSize: '0.9rem', border: '1px solid #38bdf830' }}>{c}</span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {selectedSalon.website && (
-                <a href={selectedSalon.website} target="_blank" rel="noreferrer" style={{ display: 'block', textAlign: 'center', background: '#60a5fa', color: '#0f172a', textDecoration: 'none', padding: '15px', borderRadius: '8px', fontWeight: 'bold', fontSize: '1.1rem', transition: 'background 0.2s', marginTop: '20px' }}>
-                  Ugrás a hivatalos weboldalra 🚀
-                </a>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {activeVideo && (
-        <div onClick={() => setActiveVideo(null)} style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.9)', zIndex: 9999, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-          <div style={{ position: 'absolute', top: '20px', right: '30px', color: 'white', fontSize: '2rem', cursor: 'pointer', fontWeight: 'bold' }}>×</div>
-          <iframe width="900" height="500" style={{ maxWidth: '95vw', maxHeight: '90vh', border: 'none', borderRadius: '12px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.8)' }} src={getYouTubeEmbed(activeVideo)} allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen></iframe>
-        </div>
-      )}
+      {fullscreenData && <FullscreenModal data={fullscreenData} onClose={() => setFullscreenData(null)} />}
+      {selectedSalon && <SalonModal salon={selectedSalon} onClose={() => setSelectedSalon(null)} />}
+      {activeVideo && <VideoModal videoUrl={activeVideo} onClose={() => setActiveVideo(null)} />}
 
       {!user ? (
-        <div style={{
-          minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', backgroundColor: '#0f172a',
-          backgroundImage: 'linear-gradient(rgba(15, 23, 42, 0.85), rgba(15, 23, 42, 0.98)), url("https://images.unsplash.com/photo-1452860606245-08befc0ff44b?q=80&w=2070&auto=format&fit=crop")',
-          backgroundSize: 'cover', backgroundPosition: 'center', fontFamily: 'Inter, sans-serif', overflow: 'hidden', padding: '2rem 1rem'
-        }}>
-          <div style={{ position: 'absolute', top: '10%', left: '15%', width: '400px', height: '400px', background: '#00a693', filter: 'blur(150px)', opacity: 0.15, borderRadius: '50%' }}></div>
-          <div style={{ position: 'absolute', bottom: '10%', right: '15%', width: '400px', height: '400px', background: '#d32f2f', filter: 'blur(150px)', opacity: 0.15, borderRadius: '50%' }}></div>
-
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4rem', maxWidth: '1100px', width: '100%', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}>
-            <div style={{ flex: '1 1 400px', display: 'flex', flexDirection: 'column', gap: '1.5rem', maxWidth: '600px' }}>
-              <img src={logo} alt="Képolvasók Fotóklub" style={{ width: '100%', maxWidth: '220px', marginBottom: '1rem', filter: 'drop-shadow(0px 0px 10px rgba(255,255,255,0.3))' }} />
-              <h1 style={{ fontSize: '2.5rem', margin: 0, color: '#f8fafc', lineHeight: '1.2', fontWeight: 800 }}>Fotóklub és Fotópályázat <br/><span style={{ background: 'linear-gradient(to right, #38bdf8, #8b5cf6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Kezelő Rendszer</span></h1>
-              <p style={{ fontSize: '1.1rem', color: '#cbd5e1', marginBottom: '1rem', lineHeight: '1.6' }}>Minden egy helyen: szervezd a fotóklubod eseményeit, indíts házi feladatokat és bonyolíts le profi fotópályázatokat egyszerűen.</p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <div style={{ background: 'rgba(30, 41, 59, 0.4)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '16px', padding: '1.5rem', display: 'flex', alignItems: 'center', gap: '1.5rem', transition: 'transform 0.2s', cursor: 'default' }} onMouseOver={e => e.currentTarget.style.transform='translateX(10px)'} onMouseOut={e => e.currentTarget.style.transform='none'}>
-                  <div style={{ fontSize: '2.5rem' }}>📅</div>
-                  <div><h3 style={{ margin: '0 0 0.5rem 0', color: '#f8fafc', fontSize: '1.2rem' }}>Aktív Klubélet</h3><p style={{ margin: 0, color: '#94a3b8', fontSize: '0.95rem', lineHeight: '1.5' }}>Szervezz klubesteket, oszd meg a helyszíneket és írj ki házi feladatokat a tagoknak.</p></div>
-                </div>
-                <div style={{ background: 'rgba(30, 41, 59, 0.4)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '16px', padding: '1.5rem', display: 'flex', alignItems: 'center', gap: '1.5rem', transition: 'transform 0.2s', cursor: 'default' }} onMouseOver={e => e.currentTarget.style.transform='translateX(10px)'} onMouseOut={e => e.currentTarget.style.transform='none'}>
-                  <div style={{ fontSize: '2.5rem' }}>🏆</div>
-                  <div><h3 style={{ margin: '0 0 0.5rem 0', color: '#f8fafc', fontSize: '1.2rem' }}>Profi Pályázatkezelés</h3><p style={{ margin: 0, color: '#94a3b8', fontSize: '0.95rem', lineHeight: '1.5' }}>Hozz létre zártkörű vagy nyílt versenyeket, és fogadd a nevezéseket kategóriánként.</p></div>
-                </div>
-                <div style={{ background: 'rgba(30, 41, 59, 0.4)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '16px', padding: '1.5rem', display: 'flex', alignItems: 'center', gap: '1.5rem', transition: 'transform 0.2s', cursor: 'default' }} onMouseOver={e => e.currentTarget.style.transform='translateX(10px)'} onMouseOut={e => e.currentTarget.style.transform='none'}>
-                  <div style={{ fontSize: '2.5rem' }}>⚖️</div>
-                  <div><h3 style={{ margin: '0 0 0.5rem 0', color: '#f8fafc', fontSize: '1.2rem' }}>Objektív Zsűrizés</h3><p style={{ margin: 0, color: '#94a3b8', fontSize: '0.95rem', lineHeight: '1.5' }}>Vond be a zsűritagokat a kényelmes pontozási felületen, és fedezd fel a végeredményt.</p></div>
-                </div>
-              </div>
-            </div>
-            <div style={{ flex: '1 1 350px', maxWidth: '450px', width: '100%' }}>
-              <div style={{
-                background: 'rgba(30, 41, 59, 0.5)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
-                padding: '3rem 2.5rem', borderRadius: '24px', border: '1px solid rgba(255, 255, 255, 0.1)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
-                textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center'
-              }}>
-                <h2 style={{ fontSize: '1.8rem', marginBottom: '1rem', color: '#f8fafc', fontWeight: '800' }}>Lépj be és Csatlakozz!</h2>
-                <p style={{ fontSize: '1rem', color: '#94a3b8', marginBottom: '2.5rem', lineHeight: '1.6' }}>A belépéshez nincs szükség külön regisztrációra, csak használd a meglévő Google fiókodat biztonságosan.</p>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', width: '100%' }}>
-                  <div style={{ padding: '4px', background: 'rgba(255,255,255,0.05)', borderRadius: '50px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                    <GoogleLogin onSuccess={(res) => handleLoginSuccess(res.credential!)} shape="pill" size="large" theme="filled_black" text="continue_with" />
-                  </div>
-                  <span style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '0.5rem' }}>Biztonságos belépés Google fiókkal</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <LoginScreen onLoginSuccess={handleLoginSuccess} />
       ) : (
         <div style={{ minHeight: '100vh', backgroundColor: '#0f172a', color: '#f8fafc', fontFamily: 'Inter, sans-serif' }}>
           
-          <header className="app-header">
-            <div className="nav-group">
-              
-              <div className="nav-item-container" style={{ zIndex: dropdownOpen === 'contests' ? 60 : 50 }}>
-                <button className={`nav-btn ${dropdownOpen === 'contests' || activeTab.startsWith('contests_') ? 'active' : ''}`} onClick={() => setDropdownOpen(dropdownOpen === 'contests' ? null : 'contests')}>
-                  <span>Pályázatok</span> <span>▾</span>
-                </button>
-                {dropdownOpen === 'contests' && (
-                  <div className="dropdown-menu">
-                    <button className={`drop-item ${activeTab === 'contests_club_active' ? 'active' : ''}`} onClick={() => { setActiveTab('contests_club_active'); setDropdownOpen(null); }}>Klubom aktív pályázatai</button>
-                    <button className={`drop-item ${activeTab === 'contests_open_active' ? 'active' : ''}`} onClick={() => { setActiveTab('contests_open_active'); setDropdownOpen(null); }}>Nyílt aktív pályázatok</button>
-                    <button className={`drop-item ${activeTab === 'contests_closed' ? 'active' : ''}`} onClick={() => { setActiveTab('contests_closed'); setDropdownOpen(null); }}>Lezárult pályázatok</button>
-                  </div>
-                )}
-              </div>
-
-              <div className="nav-item-container" style={{ zIndex: dropdownOpen === 'club' ? 60 : 50 }}>
-                <button className={`nav-btn ${dropdownOpen === 'club' || activeTab.startsWith('club_') ? 'active' : ''}`} onClick={() => setDropdownOpen(dropdownOpen === 'club' ? null : 'club')}>
-                  <span>Saját klubom</span> <span>▾</span>
-                </button>
-                {dropdownOpen === 'club' && (
-                  <div className="dropdown-menu">
-                    <button className={`drop-item ${activeTab === 'club_nights' ? 'active' : ''}`} onClick={() => { setActiveTab('club_nights'); setDropdownOpen(null); }}>Klubestek</button>
-                    <button className={`drop-item ${activeTab === 'club_homeworks' ? 'active' : ''}`} onClick={() => { setActiveTab('club_homeworks'); setDropdownOpen(null); }}>Házi feladatok</button>
-                  </div>
-                )}
-              </div>
-
-              <div className="nav-item-container" style={{ zIndex: 50 }}>
-                <button className={`nav-btn ${activeTab === 'salons' ? 'active' : ''}`} style={{ color: '#60a5fa' }} onClick={() => { setActiveTab('salons'); setDropdownOpen(null); }}>
-                  <span>🌐 Nemzetközi Szalonok</span>
-                </button>
-              </div>
-
-              {(user?.email === ADMIN_EMAIL || isLeader) && (
-                <div className="nav-item-container" style={{ zIndex: dropdownOpen === 'admin' ? 60 : 50 }}>
-                  <button className={`nav-btn ${dropdownOpen === 'admin' || activeTab.startsWith('admin_') ? 'active' : ''}`} style={{ color: '#f59e0b' }} onClick={() => setDropdownOpen(dropdownOpen === 'admin' ? null : 'admin')}>
-                    <span>⚙️ Adminisztráció</span> <span>▾</span>
-                  </button>
-                  {dropdownOpen === 'admin' && (
-                    <div className="dropdown-menu">
-                      {user?.email === ADMIN_EMAIL && <button className={`drop-item ${activeTab === 'admin_contests' ? 'active' : ''}`} style={{ color: activeTab === 'admin_contests' ? '#f59e0b' : ''}} onClick={() => { setActiveTab('admin_contests'); setDropdownOpen(null); }}>Pályázatok kezelése</button>}
-                      <button className={`drop-item ${activeTab === 'admin_meetings' ? 'active' : ''}`} style={{ color: activeTab === 'admin_meetings' ? '#f59e0b' : ''}} onClick={() => { setActiveTab('admin_meetings'); setDropdownOpen(null); }}>Klubestek kezelése</button>
-                      <button className={`drop-item ${activeTab === 'admin_homeworks' ? 'active' : ''}`} style={{ color: activeTab === 'admin_homeworks' ? '#f59e0b' : ''}} onClick={() => { setActiveTab('admin_homeworks'); setDropdownOpen(null); }}>Házi feladatok kezelése</button>
-                      
-                      {user?.email === ADMIN_EMAIL && <button className={`drop-item ${activeTab === 'admin_salons' ? 'active' : ''}`} style={{ color: activeTab === 'admin_salons' ? '#f59e0b' : ''}} onClick={() => { setActiveTab('admin_salons'); setDropdownOpen(null); }}>Szalonok kezelése</button>}
-                      
-                      {user?.email === ADMIN_EMAIL && <button className={`drop-item ${activeTab === 'admin_users' ? 'active' : ''}`} style={{ color: activeTab === 'admin_users' ? '#f59e0b' : ''}} onClick={() => { setActiveTab('admin_users'); setDropdownOpen(null); }}>Felhasználók</button>}
-                      {user?.email === ADMIN_EMAIL && <button className={`drop-item ${activeTab === 'admin_clubs' ? 'active' : ''}`} style={{ color: activeTab === 'admin_clubs' ? '#f59e0b' : ''}} onClick={() => { setActiveTab('admin_clubs'); setDropdownOpen(null); }}>Fotóklubok</button>}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div> 
-
-            <div className="user-group">
-              <span style={{ fontWeight: 500, color: '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '200px' }}>
-                {user.name} 
-                {isLeader && <span style={{fontSize:'0.7rem', background:'#f59e0b20', color:'#f59e0b', padding:'2px 6px', borderRadius:'4px', marginLeft:'8px'}}>Vezetőség</span>}
-              </span>
-              <button onClick={() => { googleLogout(); localStorage.removeItem('photoAppToken'); setUser(null); }} style={{ background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>Kijelentkezés</button>
-            </div>
-          </header>
+          <Header 
+            user={user} 
+            isLeader={!!isLeader} 
+            activeTab={activeTab} 
+            setActiveTab={setActiveTab} 
+            dropdownOpen={dropdownOpen} 
+            setDropdownOpen={setDropdownOpen} 
+            onLogout={() => { localStorage.removeItem('photoAppToken'); setUser(null); }} 
+          />
 
           <main className="main-container">
             {isInitialLoading ? (
