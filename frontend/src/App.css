@@ -1,0 +1,32 @@
+/* src/App.css */
+
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.5); border-radius: 8px; }
+::-webkit-scrollbar-thumb { background: #334155; border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+.app-header { display: flex; justify-content: space-between; align-items: center; padding: 1.2rem 2rem; background-color: #1e293b; border-bottom: 1px solid #334155; position: sticky; top: 0; z-index: 50; }
+.nav-group { display: flex; gap: 15px; align-items: center; }
+.user-group { display: flex; align-items: center; gap: 15px; }
+
+.nav-item-container { position: relative; }
+.nav-btn { background: transparent; color: #f8fafc; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.95rem; display: flex; align-items: center; justify-content: space-between; gap: 5px; transition: background 0.2s; }
+.nav-btn.active { background: #334155; }
+
+.dropdown-menu { position: absolute; top: 100%; left: 0; margin-top: 10px; background: #1e293b; border: 1px solid #334155; border-radius: 8px; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.5); min-width: 240px; display: flex; flex-direction: column; z-index: 100; }
+.drop-item { background: transparent; color: #cbd5e1; border: none; padding: 12px 15px; text-align: left; cursor: pointer; width: 100%; border-bottom: 1px solid #334155; font-size: 0.95rem; transition: background 0.2s; }
+.drop-item:hover { background: #334155; color: white !important; }
+.drop-item:last-child { border-bottom: none; }
+.drop-item.active { color: #38bdf8; font-weight: bold; }
+
+@media (max-width: 768px) {
+  .app-header { flex-direction: column; align-items: stretch !important; padding: 1rem; }
+  .nav-group { flex-direction: column; align-items: stretch !important; width: 100%; gap: 10px; }
+  .user-group { width: 100%; justify-content: space-between; padding-top: 15px; margin-top: 10px; border-top: 1px solid #334155; }
+  
+  .nav-item-container { width: 100%; }
+  .nav-btn { width: 100%; padding: 12px 15px !important; background-color: rgba(30, 41, 59, 0.8); border: 1px solid #334155; }
+  .dropdown-menu { position: relative !important; width: 100% !important; margin-top: 5px !important; box-shadow: none !important; border: 1px solid #38bdf850 !important; }
+}
+
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
