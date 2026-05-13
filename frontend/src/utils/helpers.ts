@@ -8,7 +8,9 @@ export function getFlagEmoji(countryCode: string) {
 // Központi kép URL generáló Google Drive-hoz
 export function getImageUrl(driveFileId?: string | null, fileUrl?: string) {
   if (driveFileId) {
-    return `https://lh3.googleusercontent.com/d/$${driveFileId}`;
+    // Kijavítva: dollárjel hozzáadva a változó beillesztéséhez!
+    // Használhatjuk a hivatalos Google Drive thumbnail URL-t is, ami sokkal megbízhatóbb:
+    return `https://drive.google.com/uc?export=view&id=${driveFileId}`;
   }
   return fileUrl || '';
 }
