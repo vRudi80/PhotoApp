@@ -407,25 +407,25 @@ app.get('/api/salons', async (req, res) => {
 
 // A JAVÍTOTT PUT (Szalon szerkesztése) VÉGPONT, már a GET-en kívül!
 app.put('/api/salons/:id', async (req, res) => {
-  const { name, feeAmount, feeCurrency, startDate, endDate, website, resultsDate, isCircuit, awardsCount, cashPrize, circuitNumber, submissionType, hostCountryId, patronIds, categoryIds } = req.body;
+  // FIGYELEM: Itt a patronIds helyett patronsData szerepel
+  const { name, feeAmount, feeCurrency, startDate, endDate, website, resultsDate, isCircuit, awardsCount, cashPrize, circuitNumber, submissionType, hostCountryId, patronsData, categoryIds } = req.body;
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
     
-    // 1. Főtábla frissítése
     await conn.query(
       'UPDATE photo_salons SET name=?, fee_amount=?, fee_currency=?, start_date=?, end_date=?, website=?, results_date=?, is_circuit=?, awards_count=?, cash_prize=?, circuit_number=?, submission_type=?, host_country_id=? WHERE id=?',
       [name, feeAmount || null, feeCurrency || 'EUR', startDate || null, endDate, website || null, resultsDate || null, isCircuit ? 1 : 0, awardsCount || 0, cashPrize || null, circuitNumber || null, submissionType || 'online', hostCountryId || null, req.params.id]
     );
 
-    // 2. Kapcsolatok törlése és újraépítése (Szervezetek)
     await conn.query('DELETE FROM photo_salon_patrons WHERE salon_id = ?', [req.params.id]);
-    if (patronIds && patronIds.length > 0) {
-      const pValues = patronIds.map(id => [req.params.id, id, circuitNumber || null]);
+    
+    // ÚJ LOGIKA: A patronsData alapján mentjük el az egyéni számokat
+    if (patronsData && patronsData.length > 0) {
+      const pValues = patronsData.map(p => [req.params.id, p.id, p.number || null]);
       await conn.query('INSERT INTO photo_salon_patrons (salon_id, patron_id, patron_number) VALUES ?', [pValues]);
     }
 
-    // 3. Kapcsolatok törlése és újraépítése (Kategóriák)
     await conn.query('DELETE FROM photo_salon_categories WHERE salon_id = ?', [req.params.id]);
     if (categoryIds && categoryIds.length > 0) {
       const cValues = categoryIds.map(id => [req.params.id, id]);
@@ -443,7 +443,8 @@ app.put('/api/salons/:id', async (req, res) => {
 });
 
 app.post('/api/salons', async (req, res) => {
-  const { name, feeAmount, feeCurrency, startDate, endDate, website, resultsDate, isCircuit, awardsCount, cashPrize, circuitNumber, submissionType, hostCountryId, patronIds, categoryIds } = req.body;
+  // FIGYELEM: Itt a patronIds helyett patronsData szerepel
+  const { name, feeAmount, feeCurrency, startDate, endDate, website, resultsDate, isCircuit, awardsCount, cashPrize, circuitNumber, submissionType, hostCountryId, patronsData, categoryIds } = req.body;
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
@@ -453,14 +454,17 @@ app.post('/api/salons', async (req, res) => {
     );
     const salonId = result.insertId;
 
-    if (patronIds && patronIds.length > 0) {
-      const pValues = patronIds.map(id => [salonId, id]);
-      await conn.query('INSERT INTO photo_salon_patrons (salon_id, patron_id) VALUES ?', [pValues]);
+    // ÚJ LOGIKA: A patronsData alapján mentjük el az egyéni számokat
+    if (patronsData && patronsData.length > 0) {
+      const pValues = patronsData.map(p => [salonId, p.id, p.number || null]);
+      await conn.query('INSERT INTO photo_salon_patrons (salon_id, patron_id, patron_number) VALUES ?', [pValues]);
     }
+    
     if (categoryIds && categoryIds.length > 0) {
       const cValues = categoryIds.map(id => [salonId, id]);
       await conn.query('INSERT INTO photo_salon_categories (salon_id, category_id) VALUES ?', [cValues]);
     }
+    
     await conn.commit();
     res.json({ success: true });
   } catch (e) { await conn.rollback(); res.status(500).json({ error: e.message }); } finally { conn.release(); }
