@@ -269,7 +269,6 @@ function App() {
   const openAttendance = async (meetId: number) => { setAttendanceMeetId(meetId); const res = await fetch(`${BACKEND_URL}/api/attendance/${meetId}`); if (res.ok) setAttendanceList(await res.json()); };
   const toggleAttendance = (email: string) => { setAttendanceList(prev => prev.includes(email) ? prev.filter(e => e !== email) : [...prev, email]); };
   const saveAttendance = async () => { if (!attendanceMeetId) return; const res = await fetch(`${BACKEND_URL}/api/attendance/${attendanceMeetId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ emails: attendanceList }) }); if (res.ok) { alert("Jelenléti ív mentve!"); setAttendanceMeetId(null); } };
-  const getYouTubeEmbed = (url: string) => { const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^&?]+)/); return match ? `https://www.youtube.com/embed/${match[1]}` : url; };
 
   const clearHwForm = () => { setEditHwId(null); setHwClubId(''); setHwTopic(''); setHwDesc(''); setHwDeadline(''); setHwMaxImages(4); };
   const startEditHw = (h: any) => { setEditHwId(h.id); setHwClubId(h.club_id.toString()); setHwTopic(h.topic); setHwDesc(h.description || ''); setHwMaxImages(h.max_images || 4); const formatDate = (dateStr: string) => { try { const d = new Date(dateStr); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0,16); } catch (e) { return ''; } }; setHwDeadline(formatDate(h.deadline)); };
@@ -335,7 +334,7 @@ function App() {
     setSalonEnd(''); setSalonWeb(''); setSalonResults(''); setSalonIsCircuit(false); 
     setSalonAwards(''); setSalonCash(''); setSalonCircuitNum(''); setSalonType('online'); 
     setSalonCountry(''); setSalonSelectedPatrons([]); setSalonSelectedCats([]); 
-    setSalonPatronNumbers({}); // ÚJ: Ürítjük az azonosítókat
+    setSalonPatronNumbers({});
   };
 
   const startEditSalon = (salon: any) => {
@@ -365,7 +364,6 @@ function App() {
       setSalonSelectedCats(catIds);
     } else setSalonSelectedCats([]);
 
-    // ÚJ: Patronok ÉS a hozzájuk tartozó azonosítók visszatöltése
     if (salon.patron_details && patrons.length > 0) {
       const pIds: number[] = [];
       const pNumbers: Record<number, string> = {};
@@ -383,38 +381,10 @@ function App() {
       setSalonPatronNumbers({});
     }
   };
-    
-    // Dátumok formázása (input type="date" formátumra: YYYY-MM-DD)
-    const formatDate = (dateStr: string | null) => {
-      if (!dateStr) return '';
-      try { return new Date(dateStr).toISOString().slice(0, 10); } catch(e) { return ''; }
-    };
-    
-    setSalonStart(formatDate(salon.start_date));
-    setSalonEnd(formatDate(salon.end_date));
-    setSalonResults(formatDate(salon.results_date));
-    setSalonIsCircuit(salon.is_circuit === 1);
-    setSalonCircuitNum(salon.circuit_number || '');
-    setSalonAwards(salon.awards_count?.toString() || '');
-    setSalonCash(salon.cash_prize || '');
 
-    // Kategóriák és patronálók azonosítóinak visszakeresése
-    if (salon.categories && allCategories.length > 0) {
-      const catIds = allCategories.filter(c => salon.categories.includes(c.name) || salon.categories.includes(c.hun_name)).map(c => c.id);
-      setSalonSelectedCats(catIds);
-    } else setSalonSelectedCats([]);
-
-    if (salon.patron_details && patrons.length > 0) {
-      const pIds = salon.patron_details.map((p: any) => patrons.find(pat => pat.name === p.name)?.id).filter(Boolean);
-      setSalonSelectedPatrons(pIds);
-    } else setSalonSelectedPatrons([]);
-  };
-
-  // MÓDOSÍTOTT MENTÉS (POST helyett PUT, ha van editSalonId)
   const handleSaveSalon = async () => { 
     if (!salonName || !salonEnd) return alert("A Szalon neve és a záródátum megadása kötelező!"); 
     try { 
-      // ÚJ: Összeállítjuk az objektumot, ami a patron ID-t és a hozzátartozó számot is tartalmazza
       const patronsData = salonSelectedPatrons.map(id => ({
         id: id,
         number: salonPatronNumbers[id] || ''
@@ -425,7 +395,7 @@ function App() {
         endDate: salonEnd, website: salonWeb, resultsDate: salonResults, isCircuit: salonIsCircuit, 
         awardsCount: salonAwards, cashPrize: salonCash, circuitNumber: salonCircuitNum, 
         submissionType: salonType, hostCountryId: salonCountry, 
-        patronsData: patronsData, // Ezt a tömböt küldjük a szervernek!
+        patronsData: patronsData,
         categoryIds: salonSelectedCats 
       }; 
       
@@ -448,11 +418,6 @@ function App() {
 
   const handleDeleteSalon = async (id: number) => { if(!window.confirm("Biztosan törlöd ezt a Szalont?")) return; const res = await fetch(`${BACKEND_URL}/api/salons/${id}`, { method: 'DELETE' }); if(res.ok) fetchData(); };
   const toggleArrayItem = (arr: number[], setArr: Function, id: number) => { if (arr.includes(id)) setArr(arr.filter(item => item !== id)); else setArr([...arr, id]); };
-
-  const inputStyle = { width: '100%', padding: '10px', marginBottom: '10px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '6px', boxSizing: 'border-box' as const };
-  const navBtnStyle = { background: 'transparent', color: '#f8fafc', border: 'none', padding: '8px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '5px' };
-  const dropdownStyle = { position: 'absolute' as const, top: '100%', left: 0, marginTop: '10px', background: '#1e293b', border: '1px solid #334155', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.5)', minWidth: '220px', display: 'flex', flexDirection: 'column' as const };
-  const dropItemStyle = { background: 'transparent', color: '#cbd5e1', border: 'none', padding: '12px 15px', textDecoration: 'none', textAlign: 'left' as const, cursor: 'pointer', width: '100%', borderBottom: '1px solid #334155', fontSize: '0.95rem' };
 
   const filteredContests = contests.filter(contest => {
     const isRestricted = contest.restricted_club && contest.restricted_club.trim() !== '';
@@ -504,7 +469,7 @@ function App() {
     return matchName || matchPatron;
   });
 
- return (
+  return (
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
 
       {fullscreenData && <FullscreenModal data={fullscreenData} onClose={() => setFullscreenData(null)} />}
@@ -581,13 +546,13 @@ function App() {
                 )}
 
                 {activeTab === 'my_album' && (
-                      <MyAlbumView 
-                        user={user} 
-                        setFullscreenData={setFullscreenData} 
-                      />
-                    )}
+                  <MyAlbumView 
+                    user={user} 
+                    setFullscreenData={setFullscreenData} 
+                  />
+                )}
                 
-               {activeTab === 'admin_salons' && user.email === ADMIN_EMAIL && (
+                {activeTab === 'admin_salons' && user.email === ADMIN_EMAIL && (
                   <AdminSalonsView 
                     salonName={salonName} setSalonName={setSalonName}
                     salonType={salonType} setSalonType={setSalonType}
@@ -605,24 +570,11 @@ function App() {
                     allCategories={allCategories} salonSelectedCats={salonSelectedCats}
                     setSalonSelectedCats={setSalonSelectedCats} patrons={patrons}
                     salonSelectedPatrons={salonSelectedPatrons} setSalonSelectedPatrons={setSalonSelectedPatrons}
-                    toggleArrayItem={toggleArrayItem} handleSaveSalon={handleSaveSalon}
-                    sortedSalons={sortedSalons} setSelectedSalon={setSelectedSalon}
-                    handleDeleteSalon={handleDeleteSalon}
-                    sortedSalons={sortedSalons} setSelectedSalon={setSelectedSalon}
-                    handleDeleteSalon={handleDeleteSalon}
-                    editSalonId={editSalonId}
-                    startEditSalon={startEditSalon}
-                    clearSalonForm={clearSalonForm}
-                    salonSelectedPatrons={salonSelectedPatrons} setSalonSelectedPatrons={setSalonSelectedPatrons}
-                    salonPatronNumbers={salonPatronNumbers} 
-                    setSalonPatronNumbers={setSalonPatronNumbers}
-                    
+                    salonPatronNumbers={salonPatronNumbers} setSalonPatronNumbers={setSalonPatronNumbers}
                     toggleArrayItem={toggleArrayItem} handleSaveSalon={handleSaveSalon}
                     sortedSalons={sortedSalons} setSelectedSalon={setSelectedSalon}
                     handleDeleteSalon={handleDeleteSalon}
                     editSalonId={editSalonId} startEditSalon={startEditSalon} clearSalonForm={clearSalonForm}
-                  />
-                )}
                   />
                 )}
                 
