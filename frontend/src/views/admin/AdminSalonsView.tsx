@@ -1,6 +1,11 @@
 import { getFlagEmoji } from '../../utils/helpers';
 
 interface AdminSalonsViewProps {
+  // Új propok a szerkesztéshez
+  editSalonId: number | null;
+  startEditSalon: (salon: any) => void;
+  clearSalonForm: () => void;
+
   // Form states
   salonName: string; setSalonName: (val: string) => void;
   salonType: 'online' | 'print'; setSalonType: (val: 'online' | 'print') => void;
@@ -30,6 +35,7 @@ interface AdminSalonsViewProps {
 }
 
 export default function AdminSalonsView({
+  editSalonId, startEditSalon, clearSalonForm,
   salonName, setSalonName, salonType, setSalonType, salonCountry, setSalonCountry, countries,
   salonFee, setSalonFee, salonCurrency, setSalonCurrency, salonWeb, setSalonWeb,
   salonStart, setSalonStart, salonEnd, setSalonEnd, salonResults, setSalonResults,
@@ -46,7 +52,14 @@ export default function AdminSalonsView({
       <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', color: '#f59e0b' }}>🌐 Nemzetközi Szalonok Kezelése</h2>
       
       <div style={{ backgroundColor: '#1e293b', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', border: '1px solid #f59e0b' }}>
-        <h3 style={{ margin: '0 0 15px 0', color: '#f59e0b' }}>➕ Új Szalon Létrehozása</h3>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', flexWrap: 'wrap', gap: '10px' }}>
+          <h3 style={{ margin: 0, color: '#f59e0b' }}>{editSalonId ? '✏️ Szalon Szerkesztése' : '➕ Új Szalon Létrehozása'}</h3>
+          {editSalonId && (
+            <button onClick={clearSalonForm} style={{ background: 'transparent', color: '#ef4444', border: 'none', cursor: 'pointer' }}>
+              Mégse / Új létrehozása
+            </button>
+          )}
+        </div>
         
         <input placeholder="Szalon hivatalos neve" value={salonName} onChange={e => setSalonName(e.target.value)} style={inputStyle} />
         
@@ -158,7 +171,7 @@ export default function AdminSalonsView({
         </div>
 
         <button onClick={handleSaveSalon} style={{ background: '#10b981', color: 'white', border: 'none', padding: '12px 25px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', width: '100%', fontSize: '1.1rem' }}>
-          Szalon Mentése és Kiírása
+          {editSalonId ? 'Szalon Frissítése' : 'Szalon Mentése és Kiírása'}
         </button>
       </div>
 
@@ -168,13 +181,14 @@ export default function AdminSalonsView({
         {sortedSalons.map((s, i) => (
           <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px', borderBottom: i < sortedSalons.length - 1 ? '1px solid #334155' : 'none', background: i % 2 === 0 ? '#0f172a' : 'transparent', flexWrap: 'wrap', gap: '10px' }}>
             
-            <div style={{ cursor: 'pointer' }} onClick={() => setSelectedSalon(s)}>
+            <div style={{ cursor: 'pointer', flex: 1 }} onClick={() => setSelectedSalon(s)}>
               <div style={{ fontWeight: 'bold', color: '#60a5fa', fontSize: '1.1rem' }}>{s.name}</div>
               <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: '5px' }}>
                 Zárás: {new Date(s.end_date).toLocaleDateString('hu-HU', { year: 'numeric', month: 'short', day: 'numeric' })} | {s.country_code && getFlagEmoji(s.country_code) ? `${getFlagEmoji(s.country_code)} ` : ''}{s.country_hun}
               </div>
             </div>
-            <div>
+            <div style={{ display: 'flex', gap: '5px' }}>
+              <button onClick={() => startEditSalon(s)} style={{ background: 'transparent', color: '#f59e0b', border: '1px solid #f59e0b', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Szerkeszt</button>
               <button onClick={() => handleDeleteSalon(s.id)} style={{ background: '#ef444420', color: '#ef4444', border: 'none', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Törlés</button>
             </div>
           </div>
