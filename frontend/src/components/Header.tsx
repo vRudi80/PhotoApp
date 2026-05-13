@@ -55,6 +55,12 @@ export default function Header({
           </button>
         </div>
 
+        <div className="nav-item-container" style={{ zIndex: 50 }}>
+            <button className={`nav-btn ${activeTab === 'my_album' ? 'active' : ''}`} style={{ color: '#10b981' }} onClick={() => { setActiveTab('my_album'); setDropdownOpen(null); }}>
+              <span>🖼️ Saját Képalbum</span>
+            </button>
+          </div>
+        
         {(user?.email === ADMIN_EMAIL || isLeader) && (
           <div className="nav-item-container" style={{ zIndex: dropdownOpen === 'admin' ? 60 : 50 }}>
             <button className={`nav-btn ${dropdownOpen === 'admin' || activeTab.startsWith('admin_') ? 'active' : ''}`} style={{ color: '#f59e0b' }} onClick={() => setDropdownOpen(dropdownOpen === 'admin' ? null : 'admin')}>
