@@ -23,6 +23,7 @@ function App() {
   const [user, setUser] = useState<any>(null);
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [clubs, setClubs] = useState<any[]>([]);
+  const [salonPatronNumbers, setSalonPatronNumbers] = useState<Record<number, string>>({});
   
   const [contests, setContests] = useState<any[]>([]);
   const [myEntries, setMyEntries] = useState<any[]>([]);
