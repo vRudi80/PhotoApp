@@ -22,20 +22,17 @@ export default function Header({
   onLogout 
 }: HeaderProps) {
   
-  // Állapot a mobil menü nyitásához/csukásához
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // Központi navigáció kezelő, ami mindent a helyére tesz kattintáskor
   const handleNavClick = (tab: string) => {
     setActiveTab(tab);
     setDropdownOpen(null);
-    setIsMobileMenuOpen(false); // Mobilon automatikusan becsukja a menüt
+    setIsMobileMenuOpen(false); 
   };
 
   return (
     <header className="app-header">
       
-      {/* Mobilos fejléc rész a Hamburger ikonnal (Asztali nézetben rejtve lesz) */}
       <div className="mobile-header-top">
         <div style={{ fontWeight: 'bold', color: '#f8fafc', fontSize: '1.2rem' }}>Fotóklub Portál</div>
         <button className="hamburger-btn" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
@@ -43,7 +40,6 @@ export default function Header({
         </button>
       </div>
 
-      {/* Ezt a konténert nyitjuk/csukjuk mobilon */}
       <div className={`header-nav-container ${isMobileMenuOpen ? 'mobile-open' : ''}`}>
         <div className="nav-group">
           
@@ -82,7 +78,7 @@ export default function Header({
               <button className={`nav-btn ${activeTab === 'my_album' ? 'active' : ''}`} style={{ color: '#10b981' }} onClick={() => handleNavClick('my_album')}>
                 <span>🖼️ Saját Képalbum</span>
               </button>
-            </div>
+          </div>
           
           {(user?.email === ADMIN_EMAIL || isLeader) && (
             <div className="nav-item-container" style={{ zIndex: dropdownOpen === 'admin' ? 60 : 50 }}>
@@ -95,7 +91,7 @@ export default function Header({
                   <button className={`drop-item ${activeTab === 'admin_meetings' ? 'active' : ''}`} style={{ color: activeTab === 'admin_meetings' ? '#f59e0b' : ''}} onClick={() => handleNavClick('admin_meetings')}>Klubestek kezelése</button>
                   <button className={`drop-item ${activeTab === 'admin_homeworks' ? 'active' : ''}`} style={{ color: activeTab === 'admin_homeworks' ? '#f59e0b' : ''}} onClick={() => handleNavClick('admin_homeworks')}>Házi feladatok kezelése</button>
                   
-                  {/* JAVÍTÁS: A gomb most már helyesen az Adminisztráció dropdown-ban van! */}
+                  {/* Itt van a jó helyén a Kategóriák és Díjak! */}
                   {user?.email === ADMIN_EMAIL && (
                     <button 
                       className={`drop-item ${activeTab === 'admin_settings' ? 'active' : ''}`} 
@@ -107,7 +103,6 @@ export default function Header({
                   )}
                   
                   {user?.email === ADMIN_EMAIL && <button className={`drop-item ${activeTab === 'admin_salons' ? 'active' : ''}`} style={{ color: activeTab === 'admin_salons' ? '#f59e0b' : ''}} onClick={() => handleNavClick('admin_salons')}>Szalonok kezelése</button>}
-                  
                   {user?.email === ADMIN_EMAIL && <button className={`drop-item ${activeTab === 'admin_users' ? 'active' : ''}`} style={{ color: activeTab === 'admin_users' ? '#f59e0b' : ''}} onClick={() => handleNavClick('admin_users')}>Felhasználók</button>}
                   {user?.email === ADMIN_EMAIL && <button className={`drop-item ${activeTab === 'admin_clubs' ? 'active' : ''}`} style={{ color: activeTab === 'admin_clubs' ? '#f59e0b' : ''}} onClick={() => handleNavClick('admin_clubs')}>Fotóklubok</button>}
                 </div>
