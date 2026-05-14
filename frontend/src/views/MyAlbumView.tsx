@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { BACKEND_URL } from '../utils/constants';
 import { getImageUrl } from '../utils/helpers';
 
@@ -9,6 +9,7 @@ interface MyAlbumViewProps {
 
 export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProps) {
   const [photos, setPhotos] = useState<any[]>([]);
+  const [photoResults, setPhotoResults] = useState<any[]>([]); // ÚJ: Eredmények state-je
   const [isLoading, setIsLoading] = useState(true);
   
   // Feltöltés state
@@ -21,14 +22,18 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
   const [editingPhotoId, setEditingPhotoId] = useState<number | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [editFile, setEditFile] = useState<File | null>(null);
-  
-  // ÚJ: Külön state a szerkesztés mentésének idejére, hogy látszódjon a töltés!
   const [updatingPhotoId, setUpdatingPhotoId] = useState<number | null>(null);
 
   const fetchMyPhotos = async () => {
     try {
+      // Képek lekérése
       const res = await fetch(`${BACKEND_URL}/api/my-album?userEmail=${user.email}`);
       if (res.ok) setPhotos(await res.json());
+
+      // ÚJ: Eredmények lekérése
+      const resResults = await fetch(`${BACKEND_URL}/api/my-portfolio-results?userEmail=${user.email}`);
+      if (resResults.ok) setPhotoResults(await resResults.json());
+
     } catch (e) {
       console.error(e);
     } finally {
@@ -39,6 +44,18 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
   useEffect(() => {
     fetchMyPhotos();
   }, [user.email]);
+
+  // ÚJ: Kiszámolja az összesített díjakat a felső statisztikához
+  const awardsSummary = useMemo(() => {
+    const counts: Record<string, number> = {};
+    photoResults.forEach(r => {
+      if (r.award_name) {
+        counts[r.award_name] = (counts[r.award_name] || 0) + 1;
+      }
+    });
+    // Rendezzük csökkenő sorrendbe darabszám alapján
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  }, [photoResults]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -77,18 +94,12 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
 
   const handleUpdatePhoto = async (photoId: number) => {
     if (!editTitle) return alert('A cím nem lehet üres!');
-    
-    // BEKAPCSOLJUK A TÖLTÉS JELZŐT
     setUpdatingPhotoId(photoId); 
-    
     try {
       const formData = new FormData();
       formData.append('title', editTitle);
       formData.append('userEmail', user.email);
-      
-      if (editFile) {
-        formData.append('photo', editFile);
-      }
+      if (editFile) formData.append('photo', editFile);
 
       const res = await fetch(`${BACKEND_URL}/api/my-album/${photoId}`, {
         method: 'PUT',
@@ -106,7 +117,6 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
     } catch (e) {
       alert('Hálózati hiba!');
     } finally {
-      // KIKAPCSOLJUK A TÖLTÉS JELZŐT (sikeres és sikertelen ágon is)
       setUpdatingPhotoId(null);
     }
   };
@@ -136,6 +146,22 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
         Töltsd fel ide a legjobb fotóidat! Később ezekből a képekből tudsz majd válogatni a Nemzetközi Szalonokra történő nevezéseknél.
       </p>
 
+      {/* ÚJ: Eredmények Összesítő Blokkjának Megjelenítése */}
+      {awardsSummary.length > 0 && (
+        <div style={{ background: 'linear-gradient(to right, #0f172a, #1e293b)', padding: '20px', borderRadius: '12px', border: '1px solid #f59e0b50', marginBottom: '30px' }}>
+          <h3 style={{ marginTop: 0, color: '#f59e0b', fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            🏆 Dicsőségfal – Eddig Elért Eredményeid
+          </h3>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+            {awardsSummary.map(([awardName, count]) => (
+              <div key={awardName} style={{ background: '#f59e0b20', border: '1px solid #f59e0b80', color: '#f8fafc', padding: '8px 15px', borderRadius: '100px', fontSize: '0.9rem', fontWeight: 'bold' }}>
+                <span style={{ color: '#f59e0b', marginRight: '5px' }}>{count}x</span> {awardName}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Feltöltő doboz */}
       <div style={{ background: '#1e293b', padding: '20px', borderRadius: '12px', marginBottom: '30px', border: '1px solid #38bdf840' }}>
         <h3 style={{marginTop: 0, color: '#38bdf8', fontSize: '1.2rem'}}>Új kép hozzáadása az albumhoz</h3>
@@ -161,10 +187,13 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
           Még nem töltöttél fel egyetlen képet sem.
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '20px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
           {photos.map(photo => {
             const imageUrl = getImageUrl(photo.drive_file_id, photo.file_url);
-            const isUpdatingThis = updatingPhotoId === photo.id; // Éppen ezt frissítjük-e?
+            const isUpdatingThis = updatingPhotoId === photo.id;
+            
+            // ÚJ: A képhez tartozó eredmények kiválogatása
+            const currentPhotoResults = photoResults.filter(r => r.portfolio_id === photo.id);
 
             return (
               <div key={photo.id} style={{ background: '#1e293b', borderRadius: '12px', overflow: 'hidden', border: '1px solid #334155', display: 'flex', flexDirection: 'column', opacity: isUpdatingThis ? 0.6 : 1, transition: 'opacity 0.3s' }}>
@@ -192,25 +221,37 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
                     />
 
                     <div style={{ display: 'flex', gap: '5px', marginTop: '5px' }}>
-                      <button 
-                        onClick={() => handleUpdatePhoto(photo.id)} 
-                        disabled={isUpdatingThis}
-                        style={{ flex: 1, background: isUpdatingThis ? '#475569' : '#10b981', color: 'white', border: 'none', padding: '6px', borderRadius: '4px', cursor: isUpdatingThis ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}
-                      >
+                      <button onClick={() => handleUpdatePhoto(photo.id)} disabled={isUpdatingThis} style={{ flex: 1, background: isUpdatingThis ? '#475569' : '#10b981', color: 'white', border: 'none', padding: '6px', borderRadius: '4px', cursor: isUpdatingThis ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>
                         {isUpdatingThis ? 'Mentés ⏳...' : 'Mentés'}
                       </button>
-                      <button 
-                        onClick={() => { setEditingPhotoId(null); setEditFile(null); }} 
-                        disabled={isUpdatingThis}
-                        style={{ flex: 1, background: 'transparent', color: isUpdatingThis ? '#94a3b8' : '#ef4444', border: `1px solid ${isUpdatingThis ? '#94a3b8' : '#ef4444'}`, padding: '6px', borderRadius: '4px', cursor: isUpdatingThis ? 'not-allowed' : 'pointer' }}
-                      >
-                        Mégse
-                      </button>
+                      <button onClick={() => { setEditingPhotoId(null); setEditFile(null); }} disabled={isUpdatingThis} style={{ flex: 1, background: 'transparent', color: isUpdatingThis ? '#94a3b8' : '#ef4444', border: `1px solid ${isUpdatingThis ? '#94a3b8' : '#ef4444'}`, padding: '6px', borderRadius: '4px', cursor: isUpdatingThis ? 'not-allowed' : 'pointer' }}>Mégse</button>
                     </div>
                   </div>
                 ) : (
                   <div style={{ padding: '15px', display: 'flex', flexDirection: 'column', flex: 1 }}>
-                    <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#f8fafc', marginBottom: '15px', wordBreak: 'break-word' }}>{photo.title}</div>
+                    <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#f8fafc', marginBottom: '10px', wordBreak: 'break-word' }}>{photo.title}</div>
+                    
+                    {/* ÚJ: Eredmények listázása a kép alatt */}
+                    {currentPhotoResults.length > 0 && (
+                      <div style={{ marginBottom: '15px', padding: '10px', background: '#0f172a', borderRadius: '8px', border: '1px solid #334155' }}>
+                        <div style={{ fontSize: '0.8rem', color: '#60a5fa', marginBottom: '8px', fontWeight: 'bold' }}>🎖️ Eredmények szalonokban:</div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          {currentPhotoResults.map((res, i) => (
+                            <div key={i} style={{ fontSize: '0.8rem', color: '#cbd5e1', lineHeight: '1.3' }}>
+                              <span style={{ color: '#f8fafc', fontWeight: 'bold' }}>{res.salon_name}</span>
+                              <br/>
+                              {res.award_name ? <span style={{ color: '#f59e0b', fontWeight: 'bold' }}>{res.award_name}</span> : null}
+                              {res.achieved_score !== null ? (
+                                <span style={{ color: '#94a3b8', marginLeft: res.award_name ? '5px' : '0' }}>
+                                  ({res.achieved_score} / {res.acceptance_score || '?'})
+                                </span>
+                              ) : null}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     <div style={{ marginTop: 'auto', display: 'flex', gap: '10px' }}>
                       <button onClick={() => { setEditingPhotoId(photo.id); setEditTitle(photo.title); setEditFile(null); }} style={{ flex: 1, background: '#38bdf820', color: '#38bdf8', border: 'none', padding: '8px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>Szerkeszt</button>
                       <button onClick={() => handleDelete(photo.id)} style={{ flex: 1, background: '#ef444420', color: '#ef4444', border: 'none', padding: '8px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>Törlés</button>
