@@ -28,5 +28,83 @@
   .nav-btn { width: 100%; padding: 12px 15px !important; background-color: rgba(30, 41, 59, 0.8); border: 1px solid #334155; }
   .dropdown-menu { position: relative !important; width: 100% !important; margin-top: 5px !important; box-shadow: none !important; border: 1px solid #38bdf850 !important; }
 }
+/* --- MOBILBARÁT MENÜ (HEADER) STÍLUSOK --- */
+
+.mobile-header-top {
+  display: none; /* Asztali nézetben rejtve */
+}
+
+.hamburger-btn {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 1.8rem;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.header-nav-container {
+  display: flex;
+  flex: 1;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* 768px (telefonok és kisebb tabletek) alatti nézet */
+@media (max-width: 768px) {
+  .app-header {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 15px;
+  }
+
+  .mobile-header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+  }
+
+  /* Alapértelmezetten elrejtjük a menügombokat mobilon */
+  .header-nav-container {
+    display: none;
+    flex-direction: column;
+    width: 100%;
+    margin-top: 15px;
+    gap: 15px;
+    align-items: stretch;
+  }
+
+  /* Ha a gombra nyomtak (isMobileMenuOpen = true), akkor megjelenítjük */
+  .header-nav-container.mobile-open {
+    display: flex;
+  }
+
+  .nav-group {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .user-group {
+    justify-content: space-between;
+    padding-top: 15px;
+    border-top: 1px solid #334155;
+    margin-top: 10px;
+  }
+
+  /* Mobilon a legördülő menük ne fedjenek el mindent, hanem tolják le a tartalmat */
+  .dropdown-menu {
+    position: static;
+    box-shadow: none;
+    border-left: 2px solid #38bdf8;
+    padding-left: 10px;
+    margin-top: 5px;
+    background: transparent;
+  }
+}
 
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
