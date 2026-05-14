@@ -19,7 +19,7 @@ import AdminSalonsView from './views/admin/AdminSalonsView';
 import ContestsView from './views/ContestsView';
 import MyAlbumView from './views/MyAlbumView';
 import AdminSettingsView from './views/admin/AdminSettingsView';
-import FiapProgressView from './views/{activeTab === 'fiap_progress' && (
+import FiapProgressView from './views/FiapProgressView';
 
 
 function App() {
@@ -548,18 +548,17 @@ function App() {
                   />
                 )}
 
-                {activeTab === 'my_album' && (
+                              {activeTab === 'my_album' && (
                   <MyAlbumView 
                     user={user} 
                     setFullscreenData={setFullscreenData} 
                   />
                 )}
 
-                
-
-{activeTab === 'fiap_progress' && (
-  <FiapProgressView user={user} />
-)}
+                {/* IDE SZÚRD BE A FIAP NÉZETET! */}
+                {activeTab === 'fiap_progress' && (
+                  <FiapProgressView user={user} />
+                )}
 
                 {activeTab === 'admin_salons' && user.email === ADMIN_EMAIL && (
                   <AdminSalonsView 
