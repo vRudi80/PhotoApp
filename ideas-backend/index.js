@@ -634,4 +634,44 @@ app.get('/api/my-salon-entries-status', async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Hiba' }); }
 });
 
+// --- MÓDOSÍTOTT: Lekéri a nevezéseket a díjakkal és pontokkal együtt ---
+app.get('/api/salon-entries/:salonId', async (req, res) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT e.id as entry_id, e.category, e.award_id, e.achieved_score, e.acceptance_score, 
+             p.*, a.award_name 
+      FROM photo_salon_entries e 
+      JOIN photo_portfolio p ON e.portfolio_id = p.id 
+      LEFT JOIN photo_awards a ON e.award_id = a.id
+      WHERE e.salon_id = ? AND e.user_email = ?
+    `, [req.params.salonId, req.query.userEmail]);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Hiba a nevezések lekérésekor' });
+  }
+});
+
+// --- ÚJ: Lekéri az összes választható díjat ---
+app.get('/api/awards', async (req, res) => {
+  try { 
+    const [rows] = await pool.query('SELECT * FROM photo_awards ORDER BY id ASC'); 
+    res.json(rows); 
+  } catch (err) { 
+    res.status(500).json({ error: 'Hiba' }); 
+  }
+});
+
+// --- ÚJ: Menti a képhez tartozó eredményt (Pontok és Díj) ---
+app.put('/api/salon-entries/:id/results', async (req, res) => {
+  const { awardId, achievedScore, acceptanceScore, userEmail } = req.body;
+  try {
+    await pool.query(
+      'UPDATE photo_salon_entries SET award_id = ?, achieved_score = ?, acceptance_score = ? WHERE id = ? AND user_email = ?',
+      [awardId || null, achievedScore || null, acceptanceScore || null, req.params.id, userEmail]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Hiba az eredmények mentésekor' });
+  }
+});
 app.listen(PORT, () => console.log(`Szerver fut a ${PORT} porton`));
