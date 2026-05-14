@@ -80,6 +80,12 @@ export default function Header({
               </button>
           </div>
           
+          <div className="nav-item-container" style={{ zIndex: 50 }}>
+  <button className={`nav-btn ${activeTab === 'fiap_progress' ? 'active' : ''}`} style={{ color: '#f472b6' }} onClick={() => handleNavClick('fiap_progress')}>
+    <span>🏅 FIAP Minősítések</span>
+  </button>
+</div>
+
           {(user?.email === ADMIN_EMAIL || isLeader) && (
             <div className="nav-item-container" style={{ zIndex: dropdownOpen === 'admin' ? 60 : 50 }}>
               <button className={`nav-btn ${dropdownOpen === 'admin' || activeTab.startsWith('admin_') ? 'active' : ''}`} style={{ color: '#f59e0b' }} onClick={() => setDropdownOpen(dropdownOpen === 'admin' ? null : 'admin')}>
