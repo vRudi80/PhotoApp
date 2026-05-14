@@ -592,8 +592,11 @@ app.delete('/api/my-album/:id', async (req, res) => {
 app.get('/api/salon-entries/:salonId', async (req, res) => {
   try {
     const [rows] = await pool.query(`
-      SELECT e.id as entry_id, e.category, p.* FROM photo_salon_entries e 
+      SELECT e.id as entry_id, e.category, e.award_id, e.achieved_score, e.acceptance_score, 
+             p.*, a.award_name 
+      FROM photo_salon_entries e 
       JOIN photo_portfolio p ON e.portfolio_id = p.id 
+      LEFT JOIN photo_awards a ON e.award_id = a.id
       WHERE e.salon_id = ? AND e.user_email = ?
     `, [req.params.salonId, req.query.userEmail]);
     res.json(rows);
