@@ -694,4 +694,55 @@ app.put('/api/salon-entries/:id/results', async (req, res) => {
     res.status(500).json({ error: 'Hiba az eredmények mentésekor' });
   }
 });
+
+// ==========================================
+// --- KATEGÓRIÁK KEZELÉSE (ADMIN) ---
+// ==========================================
+app.post('/api/categories', async (req, res) => {
+  try {
+    await pool.query('INSERT INTO photo_categories (name, hun_name) VALUES (?, ?)', [req.body.name, req.body.hunName]);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: 'Hiba a kategória létrehozásakor' }); }
+});
+
+app.put('/api/categories/:id', async (req, res) => {
+  try {
+    await pool.query('UPDATE photo_categories SET name = ?, hun_name = ? WHERE id = ?', [req.body.name, req.body.hunName, req.params.id]);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: 'Hiba a kategória frissítésekor' }); }
+});
+
+app.delete('/api/categories/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM photo_categories WHERE id = ?', [req.params.id]);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: 'Hiba a kategória törlésekor. Lehet, hogy már használatban van egy szalonnál!' }); }
+});
+
+// ==========================================
+// --- DÍJAK (AWARDS) KEZELÉSE (ADMIN) ---
+// ==========================================
+app.post('/api/awards', async (req, res) => {
+  try {
+    // Kikeressük a legnagyobb ID-t és hozzáadunk egyet (biztonságos megoldás, ha nincs auto_increment)
+    const [[{ nextId }]] = await pool.query('SELECT COALESCE(MAX(id), 0) + 1 as nextId FROM photo_awards');
+    await pool.query('INSERT INTO photo_awards (id, award_name) VALUES (?, ?)', [nextId, req.body.awardName]);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: 'Hiba a díj létrehozásakor' }); }
+});
+
+app.put('/api/awards/:id', async (req, res) => {
+  try {
+    await pool.query('UPDATE photo_awards SET award_name = ? WHERE id = ?', [req.body.awardName, req.params.id]);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: 'Hiba a díj frissítésekor' }); }
+});
+
+app.delete('/api/awards/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM photo_awards WHERE id = ?', [req.params.id]);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: 'Hiba a díj törlésekor. Lehet, hogy egy kép már megkapta ezt a díjat!' }); }
+});
+
 app.listen(PORT, () => console.log(`Szerver fut a ${PORT} porton`));
