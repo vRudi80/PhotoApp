@@ -36,7 +36,7 @@ app.post('/api/auth/sync', async (req, res) => {
 
 app.get('/api/users', async (req, res) => {
   try { 
-    const [rows] = await pool.query('SELECT email, name, club_name, club_role, last_login FROM photo_users ORDER BY last_login ASC'); 
+    const [rows] = await pool.query('SELECT email, name, club_name, club_role, last_login FROM photo_users ORDER BY last_login DESC'); 
     res.json(rows); 
   } catch (err) { res.status(500).json({ error: 'Hiba' }); }
 });
