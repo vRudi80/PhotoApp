@@ -60,6 +60,16 @@ export default function Header({
             )}
           </div>
 
+          {user?.email === ADMIN_EMAIL && (
+  <button 
+    className={`drop-item ${activeTab === 'admin_settings' ? 'active' : ''}`} 
+    style={{ color: activeTab === 'admin_settings' ? '#f59e0b' : ''}} 
+    onClick={() => handleNavClick('admin_settings')}
+  >
+    Kategóriák és Díjak
+  </button>
+)}
+          
           <div className="nav-item-container" style={{ zIndex: dropdownOpen === 'club' ? 60 : 50 }}>
             <button className={`nav-btn ${dropdownOpen === 'club' || activeTab.startsWith('club_') ? 'active' : ''}`} onClick={() => setDropdownOpen(dropdownOpen === 'club' ? null : 'club')}>
               <span>Saját klubom</span> <span>▾</span>
