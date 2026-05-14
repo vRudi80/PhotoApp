@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { getFlagEmoji } from '../utils/helpers';
 
 interface SalonsViewProps {
@@ -5,7 +6,7 @@ interface SalonsViewProps {
   setSalonSearch: (val: string) => void;
   searchedSalons: any[];
   setSelectedSalon: (salon: any) => void;
-  userEntrySalonIds: number[]; // Szalon ID-k, amikben a usernek van nevezése
+  userEntrySalonIds: number[]; 
 }
 
 export default function SalonsView({
@@ -15,32 +16,53 @@ export default function SalonsView({
   setSelectedSalon,
   userEntrySalonIds
 }: SalonsViewProps) {
+  
+  // ÚJ: Állapot a saját nevezések szűréséhez
+  const [showOnlyMyEntries, setShowOnlyMyEntries] = useState(false);
+
+  // ÚJ: Szűrjük a listát a kapcsoló alapján is
+  const displaySalons = searchedSalons.filter(s => {
+    if (showOnlyMyEntries && !userEntrySalonIds.includes(s.id)) return false;
+    return true;
+  });
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '15px' }}>
         <h2 style={{ fontSize: '2rem', margin: 0, display: 'flex', alignItems: 'center', gap: '15px', color: '#60a5fa' }}>
           <span style={{ fontSize: '2.5rem' }}>🌐</span> Nemzetközi Fotóművészeti Szalonok
         </h2>
-        <input 
-          type="text" 
-          placeholder="🔍 Keresés név vagy azonosító (pl. 2026/081)..." 
-          value={salonSearch} 
-          onChange={e => setSalonSearch(e.target.value)} 
-          style={{ padding: '10px 15px', borderRadius: '8px', border: '1px solid #334155', background: '#1e293b', color: 'white', minWidth: '300px', outline: 'none' }} 
-        />
+        
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+          {/* ÚJ: Szűrőgomb a saját nevezésekhez */}
+          <button 
+            onClick={() => setShowOnlyMyEntries(!showOnlyMyEntries)}
+            style={{ padding: '10px 15px', borderRadius: '8px', border: showOnlyMyEntries ? '1px solid #10b981' : '1px solid #334155', background: showOnlyMyEntries ? '#10b98120' : '#1e293b', color: showOnlyMyEntries ? '#10b981' : '#cbd5e1', cursor: 'pointer', fontWeight: 'bold', transition: 'all 0.2s' }}
+          >
+            {showOnlyMyEntries ? '✅ Csak a saját nevezéseim' : '📌 Saját nevezéseim szűrése'}
+          </button>
+          
+          <input 
+            type="text" 
+            placeholder="🔍 Keresés név vagy azonosító (pl. 2026/081)..." 
+            value={salonSearch} 
+            onChange={e => setSalonSearch(e.target.value)} 
+            style={{ padding: '10px 15px', borderRadius: '8px', border: '1px solid #334155', background: '#1e293b', color: 'white', minWidth: '300px', outline: 'none' }} 
+          />
+        </div>
       </div>
       
       <p style={{ color: '#94a3b8', fontSize: '1.1rem', marginBottom: '20px' }}>
         Böngéssz a hazai és nemzetközi fotópályázatok között. Kattints a szalon nevére vagy a "Részletek" gombra a pontos kiírás, kategóriák és díjazás megtekintéséhez!
       </p>
 
-      {searchedSalons.length === 0 ? (
+      {displaySalons.length === 0 ? (
         <div style={{padding: '20px', color: '#94a3b8', textAlign: 'center', background: '#1e293b', borderRadius: '12px', border: '1px solid #334155'}}>
-          {salonSearch ? 'Nincs a keresésnek megfelelő szalon.' : 'Jelenleg nincs megjeleníthető szalon az adatbázisban.'}
+          {salonSearch || showOnlyMyEntries ? 'Nincs a keresésnek vagy szűrésnek megfelelő szalon.' : 'Jelenleg nincs megjeleníthető szalon az adatbázisban.'}
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
-          {searchedSalons.map((s) => {
+          {displaySalons.map((s) => {
             const isEnded = new Date(s.end_date) < new Date(new Date().setHours(0,0,0,0));
             const hasEntered = userEntrySalonIds.includes(s.id);
             
