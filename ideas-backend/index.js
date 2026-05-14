@@ -601,6 +601,32 @@ app.delete('/api/my-album/:id', async (req, res) => {
     res.status(500).json({ error: 'Hiba a törlésnél' }); 
   }
 });
+// ==========================================
+// --- FIAP MINŐSÍTÉS STATISZTIKA ---
+// ==========================================
+app.get('/api/fiap-progress', async (req, res) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT 
+        COUNT(e.id) as total_acceptances,
+        COUNT(DISTINCT s.host_country_id) as distinct_countries,
+        COUNT(DISTINCT e.portfolio_id) as distinct_works
+      FROM photo_salon_entries e
+      JOIN photo_salons s ON e.salon_id = s.id
+      WHERE e.user_email = ? AND e.award_id IS NOT NULL
+    `, [req.query.userEmail]);
+    
+    // Ha még nincs semmi, 0-kat adunk vissza
+    res.json({
+      acceptances: rows[0].total_acceptances || 0,
+      countries: rows[0].distinct_countries || 0,
+      works: rows[0].distinct_works || 0
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Hiba a FIAP statisztika lekérésekor' });
+  }
+});
+
 
 // ==========================================
 // --- SZALON NEVEZÉSEK (PORTFÓLIÓBÓL) ---
