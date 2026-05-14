@@ -488,6 +488,23 @@ app.get('/api/my-album', async (req, res) => {
   }
 });
 
+// --- ÚJ: A portfólióhoz tartozó elért eredmények lekérése ---
+app.get('/api/my-portfolio-results', async (req, res) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT e.portfolio_id, s.name as salon_name, a.award_name, e.achieved_score, e.acceptance_score 
+      FROM photo_salon_entries e 
+      JOIN photo_salons s ON e.salon_id = s.id 
+      LEFT JOIN photo_awards a ON e.award_id = a.id 
+      WHERE e.user_email = ? AND (e.award_id IS NOT NULL OR e.achieved_score IS NOT NULL)
+      ORDER BY s.end_date DESC
+    `, [req.query.userEmail]);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Hiba az eredmények lekérésekor' });
+  }
+});
+
 app.post('/api/my-album/upload', upload.single('photo'), async (req, res) => {
   const { userEmail, userName, title } = req.body;
   const file = req.file;
