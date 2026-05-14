@@ -19,6 +19,8 @@ import AdminSalonsView from './views/admin/AdminSalonsView';
 import ContestsView from './views/ContestsView';
 import MyAlbumView from './views/MyAlbumView';
 import AdminSettingsView from './views/admin/AdminSettingsView';
+import FiapProgressView from './views/{activeTab === 'fiap_progress' && (
+
 
 function App() {
   const [user, setUser] = useState<any>(null);
@@ -552,7 +554,13 @@ function App() {
                     setFullscreenData={setFullscreenData} 
                   />
                 )}
+
                 
+
+{activeTab === 'fiap_progress' && (
+  <FiapProgressView user={user} />
+)}
+
                 {activeTab === 'admin_salons' && user.email === ADMIN_EMAIL && (
                   <AdminSalonsView 
                     salonName={salonName} setSalonName={setSalonName}
