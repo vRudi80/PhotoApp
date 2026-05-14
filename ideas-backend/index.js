@@ -481,7 +481,7 @@ app.delete('/api/salons/:id', async (req, res) => {
 
 app.get('/api/my-album', async (req, res) => {
   try { 
-    const [rows] = await pool.query('SELECT * FROM photo_portfolio WHERE user_email = ? ORDER BY created_at DESC', [req.query.userEmail]); 
+    const [rows] = await pool.query('SELECT * FROM photo_portfolio WHERE user_email = ? ORDER BY title DESC', [req.query.userEmail]); 
     res.json(rows); 
   } catch (err) { 
     res.status(500).json({ error: 'Hiba a képek lekérésekor' }); 
