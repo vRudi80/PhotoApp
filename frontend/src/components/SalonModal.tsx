@@ -12,21 +12,44 @@ export default function SalonModal({ salon, user, onClose }: SalonModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [portfolio, setPortfolio] = useState<any[]>([]);
   const [myEntries, setMyEntries] = useState<any[]>([]);
+  const [awards, setAwards] = useState<any[]>([]); // ÚJ: Díjak listája
   const [isLoading, setIsLoading] = useState(false);
+
+  // ÚJ: Állapot a képenkénti eredmények szerkesztéséhez
+  const [resultsEdit, setResultsEdit] = useState<Record<number, { awardId: string, achieved: string, acceptance: string }>>({});
 
   const isEnded = new Date(salon.end_date) < new Date(new Date().setHours(0,0,0,0));
 
-  // Adatok betöltése (memoizálva, hogy a useEffect ne hívja meg feleslegesen)
+  // Adatok betöltése
   const loadSubmissionData = useCallback(async () => {
     setIsLoading(true);
     try {
-      // 1. Portfólió lekérése (nevezéshez kell)
+      // 1. Portfólió lekérése
       const portRes = await fetch(`${BACKEND_URL}/api/my-album?userEmail=${user.email}`);
       if (portRes.ok) setPortfolio(await portRes.json());
 
-      // 2. Már leadott nevezések lekérése ehhez a szalonhoz
+      // 2. Már leadott nevezések lekérése
       const entryRes = await fetch(`${BACKEND_URL}/api/salon-entries/${salon.id}?userEmail=${user.email}`);
-      if (entryRes.ok) setMyEntries(await entryRes.json());
+      if (entryRes.ok) {
+        const entries = await entryRes.json();
+        setMyEntries(entries);
+        
+        // Inicializáljuk a szerkesztő állapotot az adatbázisból jövő értékekkel
+        const initialEdits: any = {};
+        entries.forEach((e: any) => {
+          initialEdits[e.entry_id] = {
+            awardId: e.award_id ? String(e.award_id) : '',
+            achieved: e.achieved_score !== null ? String(e.achieved_score) : '',
+            acceptance: e.acceptance_score !== null ? String(e.acceptance_score) : ''
+          };
+        });
+        setResultsEdit(initialEdits);
+      }
+
+      // 3. ÚJ: Választható díjak lekérése
+      const awardsRes = await fetch(`${BACKEND_URL}/api/awards`);
+      if (awardsRes.ok) setAwards(await awardsRes.json());
+
     } catch (e) {
       console.error(e);
     } finally {
@@ -34,7 +57,6 @@ export default function SalonModal({ salon, user, onClose }: SalonModalProps) {
     }
   }, [salon.id, user.email]);
 
-  // Amint megnyílik a modal, azonnal töltsük be az adatokat!
   useEffect(() => {
     loadSubmissionData();
   }, [loadSubmissionData]);
@@ -67,6 +89,31 @@ export default function SalonModal({ salon, user, onClose }: SalonModalProps) {
         body: JSON.stringify({ userEmail: user.email })
       });
       if (res.ok) loadSubmissionData();
+    } catch (e) {
+      alert("Hálózati hiba!");
+    }
+  };
+
+  // ÚJ: Eredmények mentése a backend felé
+  const handleSaveResult = async (entryId: number) => {
+    const edit = resultsEdit[entryId];
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/salon-entries/${entryId}/results`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          awardId: edit.awardId ? Number(edit.awardId) : null,
+          achievedScore: edit.achieved ? Number(edit.achieved) : null,
+          acceptanceScore: edit.acceptance ? Number(edit.acceptance) : null,
+          userEmail: user.email
+        })
+      });
+      if (res.ok) {
+        alert("Eredmény sikeresen elmentve!");
+        loadSubmissionData();
+      } else {
+        alert("Hiba az eredmény mentésekor!");
+      }
     } catch (e) {
       alert("Hálózati hiba!");
     }
@@ -130,23 +177,74 @@ export default function SalonModal({ salon, user, onClose }: SalonModalProps) {
               
               <h2 style={{ color: '#f8fafc', fontSize: '1.8rem', margin: '0 0 15px 0' }}>{salon.name}</h2>
               
-              {/* Saját nevezések szekció - Ez az új rész! */}
+              {/* Saját nevezések szekció (Eredmény rögzítéssel) */}
               {myEntries.length > 0 && (
                 <div style={{ background: '#0f172a', padding: '20px', borderRadius: '12px', border: '1px solid #10b98150', marginBottom: '30px' }}>
                   <h3 style={{ color: '#10b981', fontSize: '1.1rem', marginTop: 0, marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '10px' }}>
                     ✅ Leadott nevezéseid ({myEntries.length} db)
                   </h3>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '15px' }}>
-                    {myEntries.map(entry => (
-                      <div key={entry.entry_id} style={{ position: 'relative' }}>
-                        <img src={getImageUrl(entry.drive_file_id, entry.file_url)} alt={entry.title} style={{ width: '100%', height: '100px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #334155' }} />
-                        <div style={{ fontSize: '0.75rem', color: '#f8fafc', fontWeight: 'bold', marginTop: '5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{entry.title}</div>
-                        <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>{entry.category}</div>
-                        {!isEnded && (
-                          <button onClick={() => handleEntryRemove(entry.entry_id)} style={{ position: 'absolute', top: '-5px', right: '-5px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '50%', width: '20px', height: '20px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>×</button>
-                        )}
-                      </div>
-                    ))}
+                  
+                  {/* A kártyák szélességét picit növeltem, hogy kiférjenek a beviteli mezők */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '15px' }}>
+                    {myEntries.map(entry => {
+                      const editState = resultsEdit[entry.entry_id] || { awardId: '', achieved: '', acceptance: '' };
+                      const hasAward = entry.award_id !== null && entry.award_id !== undefined;
+
+                      return (
+                        <div key={entry.entry_id} style={{ position: 'relative', background: '#1e293b', borderRadius: '8px', overflow: 'hidden', border: hasAward ? '2px solid #f59e0b' : '1px solid #334155' }}>
+                          <img src={getImageUrl(entry.drive_file_id, entry.file_url)} alt={entry.title} style={{ width: '100%', height: '120px', objectFit: 'cover' }} />
+                          
+                          <div style={{ padding: '10px' }}>
+                            <div style={{ fontSize: '0.8rem', color: '#f8fafc', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{entry.title}</div>
+                            <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginBottom: '10px' }}>Kategória: {entry.category}</div>
+                            
+                            {/* --- EREDMÉNY RÖGZÍTŐ BLOKK --- */}
+                            <div style={{ background: '#0f172a', padding: '8px', borderRadius: '6px', border: '1px solid #475569' }}>
+                              <div style={{ fontSize: '0.7rem', color: '#60a5fa', marginBottom: '5px', fontWeight: 'bold' }}>Eredmény rögzítése:</div>
+                              
+                              <div style={{ display: 'flex', gap: '5px', marginBottom: '8px' }}>
+                                <input 
+                                  type="number" 
+                                  placeholder="Elért pont" 
+                                  value={editState.achieved}
+                                  onChange={e => setResultsEdit({...resultsEdit, [entry.entry_id]: {...editState, achieved: e.target.value}})}
+                                  style={{ width: '50%', padding: '4px', fontSize: '0.75rem', background: '#1e293b', border: '1px solid #334155', color: 'white', borderRadius: '4px' }}
+                                />
+                                <input 
+                                  type="number" 
+                                  placeholder="Elfogadási határ" 
+                                  value={editState.acceptance}
+                                  onChange={e => setResultsEdit({...resultsEdit, [entry.entry_id]: {...editState, acceptance: e.target.value}})}
+                                  style={{ width: '50%', padding: '4px', fontSize: '0.75rem', background: '#1e293b', border: '1px solid #334155', color: 'white', borderRadius: '4px' }}
+                                />
+                              </div>
+
+                              <select 
+                                value={editState.awardId}
+                                onChange={e => setResultsEdit({...resultsEdit, [entry.entry_id]: {...editState, awardId: e.target.value}})}
+                                style={{ width: '100%', padding: '5px', fontSize: '0.75rem', background: '#1e293b', border: '1px solid #334155', color: 'white', borderRadius: '4px', marginBottom: '8px' }}
+                              >
+                                <option value="">Nincs díj / Elutasítva</option>
+                                {awards.map(a => (
+                                  <option key={a.id} value={a.id}>{a.award_name}</option>
+                                ))}
+                              </select>
+
+                              <button 
+                                onClick={() => handleSaveResult(entry.entry_id)}
+                                style={{ width: '100%', background: '#10b981', color: 'white', border: 'none', padding: '5px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}
+                              >
+                                Eredmény Mentése
+                              </button>
+                            </div>
+
+                            {!isEnded && (
+                              <button onClick={() => handleEntryRemove(entry.entry_id)} style={{ position: 'absolute', top: '5px', right: '5px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '50%', width: '24px', height: '24px', cursor: 'pointer', fontSize: '14px', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
                   </div>
                 </div>
               )}
