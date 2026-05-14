@@ -613,10 +613,10 @@ app.get('/api/fiap-progress', async (req, res) => {
         COUNT(DISTINCT e.portfolio_id) as distinct_works
       FROM photo_salon_entries e
       JOIN photo_salons s ON e.salon_id = s.id
-      WHERE e.user_email = ? AND e.award_id IS NOT NULL
+      JOIN photo_awards a ON e.award_id = a.id -- ÚJ: Szigorú INNER JOIN a díjakkal!
+      WHERE e.user_email = ?
     `, [req.query.userEmail]);
     
-    // Ha még nincs semmi, 0-kat adunk vissza
     res.json({
       acceptances: rows[0].total_acceptances || 0,
       countries: rows[0].distinct_countries || 0,
