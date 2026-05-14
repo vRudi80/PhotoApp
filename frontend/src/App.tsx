@@ -18,6 +18,7 @@ import AdminHomeworksView from './views/admin/AdminHomeworksView';
 import AdminSalonsView from './views/admin/AdminSalonsView';
 import ContestsView from './views/ContestsView';
 import MyAlbumView from './views/MyAlbumView';
+import AdminSettingsView from './views/admin/AdminSettingsView';
 
 function App() {
   const [user, setUser] = useState<any>(null);
@@ -576,6 +577,10 @@ function App() {
                     handleDeleteSalon={handleDeleteSalon}
                     editSalonId={editSalonId} startEditSalon={startEditSalon} clearSalonForm={clearSalonForm}
                   />
+                )}
+
+                {activeTab === 'admin_settings' && user.email === ADMIN_EMAIL && (
+                  <AdminSettingsView />
                 )}
                 
                 {activeTab === 'salons' && (
