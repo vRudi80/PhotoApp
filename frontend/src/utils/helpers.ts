@@ -50,13 +50,13 @@ export function getFlagEmoji(countryCode: string) {
 }
 
 // --- Központi kép URL generáló Google Drive-hoz ---
-export function getImageUrl(driveFileId?: string | null, fileUrl?: string) {
-  if (driveFileId) {
-    return `https://lh3.googleusercontent.com/d/$$${driveFileId}`;
-  }
-  return fileUrl || '';
-}
 
+export function getImageUrl(driveFileId?: string | null, fileUrl?: string) {
+  if (driveFileId) {
+    return `https://lh3.googleusercontent.com/d/${driveFileId}`;
+  }
+  return fileUrl || '';
+}
 // YouTube URL átalakító
 export function getYouTubeEmbed(url: string) {
   const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^&?]+)/);
