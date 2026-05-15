@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { BACKEND_URL } from '../utils/constants';
-import { getImageUrl, getFlagEmoji } from '../utils/helpers'; // ÚJ: Segédfüggvények a táblázathoz
+import { getImageUrl, getFlagEmoji } from '../utils/helpers';
 
 // A FIAP hivatalos követelményei (NFIAP -> EFIAP/p)
 const FIAP_LEVELS = [
@@ -15,13 +15,15 @@ const FIAP_LEVELS = [
 
 export default function FiapProgressView({ user }: { user: any }) {
   const [stats, setStats] = useState({ acceptances: 0, countries: 0, works: 0 });
-  const [entries, setEntries] = useState<any[]>([]); // ÚJ: Tételes lista a táblázathoz
+  const [entries, setEntries] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // ÚJ: Keresési állapot
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     const fetchProgress = async () => {
       try {
-        // Párhuzamosan lekérjük a statisztikát és a tételes listát is
         const [resStats, resEntries] = await Promise.all([
           fetch(`${BACKEND_URL}/api/fiap-progress?userEmail=${user.email}`),
           fetch(`${BACKEND_URL}/api/fiap-entries?userEmail=${user.email}`)
@@ -37,6 +39,20 @@ export default function FiapProgressView({ user }: { user: any }) {
     };
     fetchProgress();
   }, [user.email]);
+
+  // ÚJ: Dinamikus szűrés (Cím, Szalon, Ország, FIAP szám, Eredmény alapján)
+  const filteredEntries = useMemo(() => {
+    if (!searchTerm) return entries;
+    const lowerTerm = searchTerm.toLowerCase();
+    
+    return entries.filter(entry => 
+      (entry.photo_title && entry.photo_title.toLowerCase().includes(lowerTerm)) ||
+      (entry.salon_name && entry.salon_name.toLowerCase().includes(lowerTerm)) ||
+      (entry.country && entry.country.toLowerCase().includes(lowerTerm)) ||
+      (entry.fiap_number && entry.fiap_number.toLowerCase().includes(lowerTerm)) ||
+      (entry.award && entry.award.toLowerCase().includes(lowerTerm))
+    );
+  }, [entries, searchTerm]);
 
   let currentLevel = null;
   let nextLevel = FIAP_LEVELS[0];
@@ -124,14 +140,33 @@ export default function FiapProgressView({ user }: { user: any }) {
         )}
       </div>
 
-      {/* --- ALSÓ TÁBLÁZAT (Tételes eredmények) --- */}
-      <h3 style={{ fontSize: '1.5rem', color: '#f8fafc', marginBottom: '15px', borderBottom: '1px solid #334155', paddingBottom: '10px' }}>
-        Tételes FIAP Eredmények (Részletes lista)
-      </h3>
+      {/* --- ALSÓ TÁBLÁZAT FEJLÉC ÉS KERESŐ --- */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', borderBottom: '1px solid #334155', paddingBottom: '15px', flexWrap: 'wrap', gap: '15px' }}>
+        <div>
+          <h3 style={{ fontSize: '1.5rem', color: '#f8fafc', margin: '0 0 5px 0' }}>
+            Tételes FIAP Eredmények (Részletes lista)
+          </h3>
+          <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>
+            {searchTerm ? `Keresési találat: ${filteredEntries.length} / ${entries.length} sor` : `Összesen: ${entries.length} sor`}
+          </div>
+        </div>
+        
+        <input 
+          type="text" 
+          placeholder="🔍 Keresés (cím, szalon, ország, FIAP szám, díj)..." 
+          value={searchTerm}
+          onChange={e => setSearchTerm(e.target.value)}
+          style={{ padding: '10px 15px', borderRadius: '8px', border: '1px solid #475569', background: '#0f172a', color: 'white', minWidth: '320px', outline: 'none' }}
+        />
+      </div>
 
       {entries.length === 0 ? (
         <div style={{ padding: '20px', color: '#94a3b8', textAlign: 'center', background: '#1e293b', borderRadius: '12px', border: '1px solid #334155' }}>
           Még nincsenek hitelesített FIAP eredményeid a rendszerben.
+        </div>
+      ) : filteredEntries.length === 0 ? (
+        <div style={{ padding: '40px', color: '#94a3b8', textAlign: 'center', background: '#0f172a', borderRadius: '12px', border: '1px dashed #334155' }}>
+          Nincs a keresésnek megfelelő találat.
         </div>
       ) : (
         <div style={{ overflowX: 'auto', background: '#1e293b', borderRadius: '12px', border: '1px solid #334155' }}>
@@ -149,7 +184,7 @@ export default function FiapProgressView({ user }: { user: any }) {
               </tr>
             </thead>
             <tbody>
-              {entries.map((entry, idx) => {
+              {filteredEntries.map((entry, idx) => {
                 const isAcceptance = entry.award.toLowerCase() === 'acceptance';
                 const isOnline = entry.submission_type === 'online';
                 
@@ -157,10 +192,10 @@ export default function FiapProgressView({ user }: { user: any }) {
                   <tr key={idx} style={{ borderBottom: '1px solid #334155', transition: 'background 0.2s' }} onMouseOver={e => e.currentTarget.style.background = '#0f172a'} onMouseOut={e => e.currentTarget.style.background = 'transparent'}>
                     <td style={{ padding: '12px 15px', color: '#f8fafc', fontWeight: 'bold' }}>{entry.photo_title}</td>
                     <td style={{ padding: '12px 15px', color: '#cbd5e1' }}>{entry.salon_name}</td>
-                    <td style={{ padding: '12px 15px', color: '#cbd5e1' }}>
+                    <td style={{ padding: '12px 15px', color: '#cbd5e1', whiteSpace: 'nowrap' }}>
                       {entry.country_code ? getFlagEmoji(entry.country_code) : '🏳️'} {entry.country}
                     </td>
-                    <td style={{ padding: '12px 15px', color: '#38bdf8', fontWeight: 'bold' }}>{entry.fiap_number}</td>
+                    <td style={{ padding: '12px 15px', color: '#38bdf8', fontWeight: 'bold', whiteSpace: 'nowrap' }}>{entry.fiap_number}</td>
                     <td style={{ padding: '12px 15px', color: isAcceptance ? '#10b981' : '#f59e0b', fontWeight: isAcceptance ? 'normal' : 'bold' }}>
                       {entry.award}
                     </td>
