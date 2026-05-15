@@ -607,11 +607,13 @@ app.delete('/api/my-album/:id', async (req, res) => {
 app.get('/api/fiap-progress', async (req, res) => {
   const userEmail = req.query.userEmail;
   try {
-    // Közös feltétel: A felhasználó e-mailje + Csak érvényes díj + CSAK FIAP VÉDNÖKSÉG (patron_id = 1 a segédtábla alapján)
+    // Közös feltétel: A felhasználó e-mailje + Érvényes díj + DÍJ NEVE NEM ÜRES (kizárja a 15-ös ID-t / elutasítottakat) + CSAK FIAP
     const baseWhere = `
       WHERE e.user_email = ? 
         AND e.award_id IS NOT NULL 
         AND e.award_id > 0
+        AND a.award_name IS NOT NULL 
+        AND TRIM(a.award_name) != '' 
         AND EXISTS (
           SELECT 1 FROM photo_salon_patrons sp 
           WHERE sp.salon_id = s.id AND sp.patron_id = 1
@@ -619,7 +621,6 @@ app.get('/api/fiap-progress', async (req, res) => {
     `;
 
     // 1. Elfogadások kiszámítása a 2026-os és a 10-es szabállyal
-    // Matematika: MAX(regi_darab, MIN(regi_darab + uj_darab, 10))
     const [accRows] = await pool.query(`
       SELECT COALESCE(SUM(
         GREATEST(pre_2026_count, LEAST(pre_2026_count + post_2026_count, 10))
@@ -637,7 +638,7 @@ app.get('/api/fiap-progress', async (req, res) => {
       ) as sub
     `, [userEmail]);
 
-    // 2. Különböző országok száma (CSAK FIAP SZALONOKBÓL)
+    // 2. Különböző országok száma
     const [countryRows] = await pool.query(`
       SELECT COUNT(DISTINCT s.host_country_id) as distinct_countries
       FROM photo_salon_entries e
@@ -646,7 +647,7 @@ app.get('/api/fiap-progress', async (req, res) => {
       ${baseWhere}
     `, [userEmail]);
 
-    // 3. Különböző művek (képek) száma (CSAK FIAP SZALONOKBÓL)
+    // 3. Különböző művek (képek) száma
     const [workRows] = await pool.query(`
       SELECT COUNT(DISTINCT e.portfolio_id) as distinct_works
       FROM photo_salon_entries e
@@ -655,7 +656,6 @@ app.get('/api/fiap-progress', async (req, res) => {
       ${baseWhere}
     `, [userEmail]);
 
-    // Eredmények küldése a frontendnek
     res.json({
       acceptances: Number(accRows[0].total_acceptances) || 0,
       countries: Number(countryRows[0].distinct_countries) || 0,
@@ -676,7 +676,7 @@ app.get('/api/fiap-entries', async (req, res) => {
   try {
     const [rows] = await pool.query(`
       SELECT 
-        p.title as photo_title,
+        COALESCE(p.title, 'Ismeretlen / Törölt kép') as photo_title,
         s.name as salon_name,
         s.country_hun as country,
         s.country_code,
@@ -688,11 +688,13 @@ app.get('/api/fiap-entries', async (req, res) => {
       FROM photo_salon_entries e
       JOIN photo_salons s ON e.salon_id = s.id
       JOIN photo_awards a ON e.award_id = a.id
-      JOIN photo_portfolio p ON e.portfolio_id = p.id
       JOIN photo_salon_patrons sp ON sp.salon_id = s.id AND sp.patron_id = 1
+      LEFT JOIN photo_portfolio p ON e.portfolio_id = p.id
       WHERE e.user_email = ?
         AND e.award_id IS NOT NULL 
         AND e.award_id > 0
+        AND a.award_name IS NOT NULL 
+        AND TRIM(a.award_name) != '' -- ITT IS KIZÁRJUK AZ ELUTASÍTOTT KÉPEKET
       ORDER BY s.name ASC, p.title ASC
     `, [userEmail]);
     
@@ -702,7 +704,6 @@ app.get('/api/fiap-entries', async (req, res) => {
     res.status(500).json({ error: 'Hiba a FIAP tételes lista lekérésekor' });
   }
 });
-
 // ==========================================
 // --- SZALON NEVEZÉSEK (PORTFÓLIÓBÓL) ---
 // ==========================================
