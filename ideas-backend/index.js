@@ -678,8 +678,8 @@ app.get('/api/fiap-entries', async (req, res) => {
       SELECT 
         COALESCE(p.title, 'Ismeretlen / Törölt kép') as photo_title,
         s.name as salon_name,
-        s.country_hun as country,
-        s.country_code,
+        c.country_hun as country,         -- ÚJ: Az ország nevét a countries táblából vesszük
+        c.country_code as country_code,   -- ÚJ: Az ország kódját is innen vesszük
         sp.patron_number as fiap_number,
         a.award_name as award,
         s.submission_type,
@@ -690,12 +690,13 @@ app.get('/api/fiap-entries', async (req, res) => {
       JOIN photo_awards a ON e.award_id = a.id
       JOIN photo_salon_patrons sp ON sp.salon_id = s.id AND sp.patron_id = 1
       LEFT JOIN photo_portfolio p ON e.portfolio_id = p.id
+      LEFT JOIN countries c ON s.host_country_id = c.id -- ÚJ: Összekapcsolás az országok táblájával
       WHERE e.user_email = ?
         AND e.award_id IS NOT NULL 
         AND e.award_id > 0
         AND a.award_name IS NOT NULL 
-        AND TRIM(a.award_name) != '' -- ITT IS KIZÁRJUK AZ ELUTASÍTOTT KÉPEKET
-      ORDER BY s.name ASC, p.title ASC
+        AND TRIM(a.award_name) != '' 
+      ORDER BY s.name ASC, photo_title ASC
     `, [userEmail]);
     
     res.json(rows);
