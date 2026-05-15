@@ -669,6 +669,41 @@ app.get('/api/fiap-progress', async (req, res) => {
 });
 
 // ==========================================
+// --- FIAP TÉTELES EREDMÉNYEK (TÁBLÁZATHOZ) ---
+// ==========================================
+app.get('/api/fiap-entries', async (req, res) => {
+  const userEmail = req.query.userEmail;
+  try {
+    const [rows] = await pool.query(`
+      SELECT 
+        p.title as photo_title,
+        s.name as salon_name,
+        s.country_hun as country,
+        s.country_code,
+        sp.patron_number as fiap_number,
+        a.award_name as award,
+        s.submission_type,
+        p.drive_file_id,
+        p.file_url
+      FROM photo_salon_entries e
+      JOIN photo_salons s ON e.salon_id = s.id
+      JOIN photo_awards a ON e.award_id = a.id
+      JOIN photo_portfolio p ON e.portfolio_id = p.id
+      JOIN photo_salon_patrons sp ON sp.salon_id = s.id AND sp.patron_id = 1
+      WHERE e.user_email = ?
+        AND e.award_id IS NOT NULL 
+        AND e.award_id > 0
+      ORDER BY s.name ASC, p.title ASC
+    `, [userEmail]);
+    
+    res.json(rows);
+  } catch (err) {
+    console.error("FIAP tételes hiba:", err);
+    res.status(500).json({ error: 'Hiba a FIAP tételes lista lekérésekor' });
+  }
+});
+
+// ==========================================
 // --- SZALON NEVEZÉSEK (PORTFÓLIÓBÓL) ---
 // ==========================================
 
