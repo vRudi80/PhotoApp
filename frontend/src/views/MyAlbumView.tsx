@@ -9,17 +9,15 @@ interface MyAlbumViewProps {
 
 export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProps) {
   const [photos, setPhotos] = useState<any[]>([]);
-  const [photoResults, setPhotoResults] = useState<any[]>([]); // ÚJ: Eredmények state-je
+  const [photoResults, setPhotoResults] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState(''); // ÚJ: Keresési állapot
+  const [searchTerm, setSearchTerm] = useState('');
   
-  // Feltöltés state
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadTitle, setUploadTitle] = useState('');
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
-  // Szerkesztés state
   const [editingPhotoId, setEditingPhotoId] = useState<number | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [editFile, setEditFile] = useState<File | null>(null);
@@ -27,14 +25,11 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
 
   const fetchMyPhotos = async () => {
     try {
-      // Képek lekérése
       const res = await fetch(`${BACKEND_URL}/api/my-album?userEmail=${user.email}`);
       if (res.ok) setPhotos(await res.json());
 
-      // ÚJ: Eredmények lekérése
       const resResults = await fetch(`${BACKEND_URL}/api/my-portfolio-results?userEmail=${user.email}`);
       if (resResults.ok) setPhotoResults(await resResults.json());
-
     } catch (e) {
       console.error(e);
     } finally {
@@ -46,12 +41,10 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
     fetchMyPhotos();
   }, [user.email]);
 
-  // ÚJ: Keresés és szűrés logika
   const filteredPhotos = useMemo(() => {
     return photos.filter(p => p.title.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [photos, searchTerm]);
 
-  // ÚJ: Kiszámolja az összesített díjakat a felső statisztikához
   const awardsSummary = useMemo(() => {
     const counts: Record<string, number> = {};
     photoResults.forEach(r => {
@@ -59,7 +52,6 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
         counts[r.award_name] = (counts[r.award_name] || 0) + 1;
       }
     });
-    // Rendezzük csökkenő sorrendbe darabszám alapján
     return Object.entries(counts).sort((a, b) => b[1] - a[1]);
   }, [photoResults]);
 
@@ -149,7 +141,7 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
         <span style={{ fontSize: '2.5rem' }}>🖼️</span> Saját Képalbum (Portfólió)
       </h2>
 
-      {/* ÚJ: STATISZTIKA ÉS KERESŐ SÁV */}
+      {/* STATISZTIKA ÉS KERESŐ SÁV */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#1e293b', padding: '15px 20px', borderRadius: '12px', marginBottom: '20px', border: '1px solid #334155', flexWrap: 'wrap', gap: '15px' }}>
         <div style={{ display: 'flex', gap: '20px' }}>
           <div style={{ textAlign: 'center' }}>
@@ -176,7 +168,7 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
         Töltsd fel ide a legjobb fotóidat! Később ezekből a képekből tudsz majd válogatni a Nemzetközi Szalonokra történő nevezéseknél.
       </p>
 
-      {/* ÚJ: Eredmények Összesítő Blokkjának Megjelenítése */}
+      {/* Dicsőségfal */}
       {awardsSummary.length > 0 && (
         <div style={{ background: 'linear-gradient(to right, #0f172a, #1e293b)', padding: '20px', borderRadius: '12px', border: '1px solid #f59e0b50', marginBottom: '30px' }}>
           <h3 style={{ marginTop: 0, color: '#f59e0b', fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -222,14 +214,12 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
             const imageUrl = getImageUrl(photo.drive_file_id, photo.file_url);
             const isUpdatingThis = updatingPhotoId === photo.id;
             
-            // ÚJ: A képhez tartozó eredmények kiválogatása
             const currentPhotoResults = photoResults.filter(r => r.portfolio_id === photo.id);
 
-            // ÚJ: MEGKÜLÖNBÖZTETÉS: Award vs Acceptance
+            // MEGKÜLÖNBÖZTETÉS: Award vs Acceptance
             const hasAward = currentPhotoResults.some(r => r.award_name && r.award_name.toLowerCase() !== 'acceptance');
             const hasAcceptance = currentPhotoResults.some(r => r.award_name && r.award_name.toLowerCase() === 'acceptance');
 
-            // Keret és stílus dinamikusan
             let borderColor = '#334155';
             let borderWeight = '1px';
             
@@ -256,7 +246,6 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
                 <div style={{ height: '200px', width: '100%', background: '#0f172a', cursor: 'zoom-in', position: 'relative' }} onClick={() => setFullscreenData({url: imageUrl, title: photo.title})}>
                   <img src={imageUrl} alt={photo.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   
-                  {/* ÚJ: Kis badge a kép sarkába a gyors azonosításhoz */}
                   {hasAward && <div style={{ position: 'absolute', top: '10px', right: '10px', background: '#f59e0b', color: '#0f172a', padding: '2px 8px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 'bold', zIndex: 5, boxShadow: '-2px 2px 5px rgba(0,0,0,0.4)' }}>AWARD</div>}
                   {!hasAward && hasAcceptance && <div style={{ position: 'absolute', top: '10px', right: '10px', background: '#10b981', color: 'white', padding: '2px 8px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 'bold', zIndex: 5, boxShadow: '-2px 2px 5px rgba(0,0,0,0.4)' }}>ACC</div>}
                 </div>
@@ -291,27 +280,34 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
                   <div style={{ padding: '15px', display: 'flex', flexDirection: 'column', flex: 1 }}>
                     <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#f8fafc', marginBottom: '10px', wordBreak: 'break-word' }}>{photo.title}</div>
                     
-                    {/* Eredmények listázása a kép alatt - Színezve! */}
+                    {/* MÓDOSÍTOTT: Eredmények listázása a kép alatt - Zöld Acceptance! */}
                     {currentPhotoResults.length > 0 && (
                       <div style={{ marginBottom: '15px', padding: '10px', background: '#0f172a', borderRadius: '8px', border: '1px solid #334155' }}>
                         <div style={{ fontSize: '0.8rem', color: '#60a5fa', marginBottom: '8px', fontWeight: 'bold' }}>🎖️ Eredmények szalonokban:</div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                          {currentPhotoResults.map((res, i) => (
-                            <div key={i} style={{ 
-                              fontSize: '0.8rem', 
-                              color: res.award_name && res.award_name.toLowerCase() !== 'acceptance' ? '#f59e0b' : '#cbd5e1', 
-                              lineHeight: '1.3' 
-                            }}>
-                              <span style={{ color: '#f8fafc', fontWeight: 'bold' }}>{res.salon_name}</span>
-                              <br/>
-                              {res.award_name ? <span style={{ fontWeight: res.award_name.toLowerCase() !== 'acceptance' ? 'bold' : 'normal' }}>{res.award_name}</span> : null}
-                              {res.achieved_score !== null ? (
-                                <span style={{ color: '#94a3b8', marginLeft: res.award_name ? '5px' : '0' }}>
-                                  ({res.achieved_score} / {res.acceptance_score || '?'})
-                                </span>
-                              ) : null}
-                            </div>
-                          ))}
+                          {currentPhotoResults.map((res, i) => {
+                            const isAcceptance = res.award_name && res.award_name.toLowerCase() === 'acceptance';
+                            
+                            return (
+                              <div key={i} style={{ fontSize: '0.8rem', color: '#cbd5e1', lineHeight: '1.3' }}>
+                                <span style={{ color: '#f8fafc', fontWeight: 'bold' }}>{res.salon_name}</span>
+                                <br/>
+                                {res.award_name && (
+                                  <span style={{ 
+                                    color: isAcceptance ? '#10b981' : '#f59e0b', 
+                                    fontWeight: 'bold' 
+                                  }}>
+                                    {res.award_name}
+                                  </span>
+                                )}
+                                {res.achieved_score !== null ? (
+                                  <span style={{ color: '#94a3b8', marginLeft: res.award_name ? '5px' : '0' }}>
+                                    ({res.achieved_score} / {res.acceptance_score || '?'})
+                                  </span>
+                                ) : null}
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     )}
