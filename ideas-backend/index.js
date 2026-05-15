@@ -605,28 +605,68 @@ app.delete('/api/my-album/:id', async (req, res) => {
 // --- FIAP MINŐSÍTÉS STATISZTIKA ---
 // ==========================================
 app.get('/api/fiap-progress', async (req, res) => {
+  const userEmail = req.query.userEmail;
   try {
-    const [rows] = await pool.query(`
-      SELECT 
-        COUNT(e.id) as total_acceptances,
-        COUNT(DISTINCT s.host_country_id) as distinct_countries,
-        COUNT(DISTINCT e.portfolio_id) as distinct_works
+    // Közös feltétel: A felhasználó e-mailje + Csak érvényes díj + CSAK FIAP VÉDNÖKSÉG (patron_id = 1 a segédtábla alapján)
+    const baseWhere = `
+      WHERE e.user_email = ? 
+        AND e.award_id IS NOT NULL 
+        AND e.award_id > 0
+        AND EXISTS (
+          SELECT 1 FROM photo_salon_patrons sp 
+          WHERE sp.salon_id = s.id AND sp.patron_id = 1
+        )
+    `;
+
+    // 1. Elfogadások kiszámítása a 2026-os és a 10-es szabállyal
+    // Matematika: MAX(regi_darab, MIN(regi_darab + uj_darab, 10))
+    const [accRows] = await pool.query(`
+      SELECT COALESCE(SUM(
+        GREATEST(pre_2026_count, LEAST(pre_2026_count + post_2026_count, 10))
+      ), 0) as total_acceptances
+      FROM (
+        SELECT 
+          e.portfolio_id,
+          SUM(CASE WHEN YEAR(s.end_date) < 2026 THEN 1 ELSE 0 END) as pre_2026_count,
+          SUM(CASE WHEN YEAR(s.end_date) >= 2026 THEN 1 ELSE 0 END) as post_2026_count
+        FROM photo_salon_entries e
+        JOIN photo_salons s ON e.salon_id = s.id
+        JOIN photo_awards a ON e.award_id = a.id
+        ${baseWhere}
+        GROUP BY e.portfolio_id
+      ) as sub
+    `, [userEmail]);
+
+    // 2. Különböző országok száma (CSAK FIAP SZALONOKBÓL)
+    const [countryRows] = await pool.query(`
+      SELECT COUNT(DISTINCT s.host_country_id) as distinct_countries
       FROM photo_salon_entries e
       JOIN photo_salons s ON e.salon_id = s.id
-      JOIN photo_awards a ON e.award_id = a.id -- ÚJ: Szigorú INNER JOIN a díjakkal!
-      WHERE e.user_email = ?
-    `, [req.query.userEmail]);
-    
+      JOIN photo_awards a ON e.award_id = a.id
+      ${baseWhere}
+    `, [userEmail]);
+
+    // 3. Különböző művek (képek) száma (CSAK FIAP SZALONOKBÓL)
+    const [workRows] = await pool.query(`
+      SELECT COUNT(DISTINCT e.portfolio_id) as distinct_works
+      FROM photo_salon_entries e
+      JOIN photo_salons s ON e.salon_id = s.id
+      JOIN photo_awards a ON e.award_id = a.id
+      ${baseWhere}
+    `, [userEmail]);
+
+    // Eredmények küldése a frontendnek
     res.json({
-      acceptances: rows[0].total_acceptances || 0,
-      countries: rows[0].distinct_countries || 0,
-      works: rows[0].distinct_works || 0
+      acceptances: Number(accRows[0].total_acceptances) || 0,
+      countries: Number(countryRows[0].distinct_countries) || 0,
+      works: Number(workRows[0].distinct_works) || 0
     });
+
   } catch (err) {
+    console.error("FIAP statisztika hiba:", err);
     res.status(500).json({ error: 'Hiba a FIAP statisztika lekérésekor' });
   }
 });
-
 
 // ==========================================
 // --- SZALON NEVEZÉSEK (PORTFÓLIÓBÓL) ---
