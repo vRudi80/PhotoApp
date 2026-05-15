@@ -690,7 +690,7 @@ app.get('/api/fiap-entries', async (req, res) => {
       JOIN photo_awards a ON e.award_id = a.id
       JOIN photo_salon_patrons sp ON sp.salon_id = s.id AND sp.patron_id = 1
       LEFT JOIN photo_portfolio p ON e.portfolio_id = p.id
-      LEFT JOIN countries c ON s.host_country_id = c.id -- ÚJ: Összekapcsolás az országok táblájával
+      LEFT JOIN photo_countries c ON s.host_country_id = c.id -- ÚJ: Összekapcsolás az országok táblájával
       WHERE e.user_email = ?
         AND e.award_id IS NOT NULL 
         AND e.award_id > 0
