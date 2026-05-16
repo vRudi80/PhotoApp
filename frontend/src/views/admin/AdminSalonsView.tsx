@@ -128,13 +128,13 @@ export default function AdminSalonsView({
     setScrapedSalons(prev => prev.filter((_, i) => i !== index));
   };
 
-    const handleLoadToForm = (item: any, index: number) => {
+  const handleLoadToForm = (item: any, index: number) => {
     // Űrlap kitakarítása
     clearSalonForm();
     
     // MAI DÁTUM MEGHATÁROZÁSA ÉS BEÁLLÍTÁSA A FORM-BAN
     const todayStr = new Date().toISOString().split('T')[0];
-    setSalonStart(todayStr); // Ez azonnal kitölti az aznapi dátummal a kezdő mezőt!
+    setSalonStart(todayStr); 
     
     // Egyéb adatok betöltése
     setSalonName(item.name);
@@ -155,8 +155,8 @@ export default function AdminSalonsView({
     setSalonPatronNumbers({ 1: item.fiap_number });
     setSalonSelectedPatrons([1]);
 
-    // Elem törlése a letapogatott listából
-    handleRemoveScraped(index);
+    // DIREKT KIKAPCSOLVA: Ne törölje a listából az elemet átemelés után
+    // handleRemoveScraped(index);
 
     // Görgetés az űrlaphoz
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -167,7 +167,7 @@ export default function AdminSalonsView({
     <div>
       <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', color: '#f59e0b' }}>🌐 Nemzetközi Szalonok Kezelése</h2>
       
-      {/* --- JAVÍTOTT: FIAP ROBOT DOBOZ --- */}
+      {/* --- FIAP ROBOT DOBOZ --- */}
       <div style={{ background: '#1e293b', padding: '20px', borderRadius: '12px', marginBottom: '20px', border: '1px solid #3b82f650' }}>
         <h3 style={{ marginTop: 0, color: '#60a5fa' }}>🤖 FIAP Robot - Automata betöltés myfiap.net-ről</h3>
         <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: '15px' }}>A gomb megnyomásával a rendszer átnézi a myfiap.net hivatalos listáját.</p>
@@ -194,7 +194,10 @@ export default function AdminSalonsView({
                       <span style={{ color: '#f8fafc', fontWeight: 'bold', margin: '0 5px' }}>{s.name}</span> 
                       ({s.country}) 
                       <div style={{ color: '#94a3b8', fontSize: '0.8rem', marginTop: '4px' }}>
-                        Határidő: {s.end_date_raw} | Web: {s.website || 'Nincs adat'} | Díj: {s.fee ? `${s.fee} EUR` : 'Nincs adat'}
+                        Határidő: {s.end_date_raw} | Web: {s.website || 'Nincs adat'} | Díj: {s.fee ? `${s.fee} EUR` : 'Nincs adat'}<br/>
+                        <span style={{ color: '#a78bfa', fontWeight: 'bold' }}>
+                          Kategóriák info: {s.categories && s.categories.length > 0 ? s.categories.join(', ') : 'Nincs adat'}
+                        </span>
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: '8px' }}>
