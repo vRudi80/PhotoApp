@@ -417,6 +417,21 @@ app.put('/api/salons/:id', async (req, res) => {
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
+
+    // --- ÚJ: DUPLIKÁCIÓ ELLENŐRZÉSE SZERKESZTÉSKOR ---
+    if (patronsData && patronsData.length > 0) {
+      const numbersToCheck = patronsData.map(p => p.number).filter(n => n && n.trim() !== '');
+      if (numbersToCheck.length > 0) {
+        const [existing] = await conn.query(
+          'SELECT patron_number FROM photo_salon_patrons WHERE patron_number IN (?) AND salon_id != ?',
+          [numbersToCheck, req.params.id]
+        );
+        if (existing.length > 0) {
+          await conn.rollback();
+          return res.status(400).json({ error: `Ezzel az azonosítóval (${existing[0].patron_number}) már létezik MÁSIK szalon a rendszerben!` });
+        }
+      }
+    }
     
     await conn.query(
       'UPDATE photo_salons SET name=?, fee_amount=?, fee_currency=?, start_date=?, end_date=?, website=?, results_date=?, is_circuit=?, awards_count=?, cash_prize=?, circuit_number=?, submission_type=?, host_country_id=? WHERE id=?',
@@ -446,11 +461,28 @@ app.put('/api/salons/:id', async (req, res) => {
   }
 });
 
+
 app.post('/api/salons', async (req, res) => {
   const { name, feeAmount, feeCurrency, startDate, endDate, website, resultsDate, isCircuit, awardsCount, cashPrize, circuitNumber, submissionType, hostCountryId, patronsData, categoryIds } = req.body;
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
+
+    // --- ÚJ: DUPLIKÁCIÓ ELLENŐRZÉSE AZONOSÍTÓ ALAPJÁN ---
+    if (patronsData && patronsData.length > 0) {
+      const numbersToCheck = patronsData.map(p => p.number).filter(n => n && n.trim() !== '');
+      if (numbersToCheck.length > 0) {
+        const [existing] = await conn.query(
+          'SELECT patron_number FROM photo_salon_patrons WHERE patron_number IN (?)',
+          [numbersToCheck]
+        );
+        if (existing.length > 0) {
+          await conn.rollback();
+          return res.status(400).json({ error: `Ezzel az azonosítóval (${existing[0].patron_number}) már létezik szalon a rendszerben!` });
+        }
+      }
+    }
+
     const [result] = await conn.query(
       'INSERT INTO photo_salons (name, fee_amount, fee_currency, start_date, end_date, website, results_date, is_circuit, awards_count, cash_prize, circuit_number, submission_type, host_country_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [name, feeAmount || null, feeCurrency || 'EUR', startDate || null, endDate, website || null, resultsDate || null, isCircuit ? 1 : 0, awardsCount || 0, cashPrize || null, circuitNumber || null, submissionType || 'online', hostCountryId || null]
@@ -886,7 +918,7 @@ app.get('/api/admin/scrape-fiap', async (req, res) => {
 });
 
 // ==========================================
-// --- TÖMEGES IMPORTÁLÓ VÉGPONT (MAI KEZDŐDÁTUMMAL) ---
+// --- TÖMEGES IMPORTÁLÓ VÉGPONT (VÉDVE DUPLIKÁCIÓ ELLEN) ---
 // ==========================================
 app.post('/api/admin/import-fiap', async (req, res) => {
   const { salonsToImport } = req.body;
@@ -897,34 +929,35 @@ app.post('/api/admin/import-fiap', async (req, res) => {
     await conn.beginTransaction();
     let importedCount = 0;
 
-    // Lekérjük az országokat az adatbázisból
     const [dbCountries] = await conn.query('SELECT id, country, country_hun FROM photo_countries');
-
-    // KIGENERÁLJUK A MAI DÁTUMOT (YYYY-MM-DD) A KEZDŐDÁTUMHOZ
     const todayStr = new Date().toISOString().split('T')[0];
 
     for (const salon of salonsToImport) {
-      // Ország párosítása
+      // --- ÚJ: BIZTONSÁGI DUPLIKÁCIÓ ELLENŐRZÉS MENTÉS ELŐTT ---
+      if (salon.fiap_number) {
+        const [existing] = await conn.query('SELECT salon_id FROM photo_salon_patrons WHERE patron_number = ?', [salon.fiap_number]);
+        if (existing.length > 0) {
+          continue; // Ha már létezik, átugorjuk ezt a szalont, és megyünk a következőre
+        }
+      }
+
       const matchedCountry = dbCountries.find(c => 
         c.country.toLowerCase() === salon.country.toLowerCase() || 
         c.country_hun.toLowerCase() === salon.country.toLowerCase()
       );
       const hostCountryId = matchedCountry ? matchedCountry.id : null;
 
-      // Zárási dátum konvertálása
       let formattedEndDate = null;
       if (salon.end_date_raw) {
         const d = new Date(salon.end_date_raw);
         if (!isNaN(d.getTime())) formattedEndDate = d.toISOString().split('T')[0];
       }
 
-      // Szalon beszúrása 
       const [insertResult] = await conn.query(
         'INSERT INTO photo_salons (name, start_date, end_date, website, fee_amount, fee_currency, is_circuit, submission_type, host_country_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
         [salon.name, todayStr, formattedEndDate, salon.website, salon.fee, 'EUR', salon.is_circuit, salon.submission_type, hostCountryId]
       );
 
-      // FIAP patron hozzárendelése (ID: 1)
       await conn.query(
         'INSERT INTO photo_salon_patrons (salon_id, patron_id, patron_number) VALUES (?, ?, ?)',
         [insertResult.insertId, 1, salon.fiap_number]
@@ -942,6 +975,7 @@ app.post('/api/admin/import-fiap', async (req, res) => {
     conn.release();
   }
 });
+
 
 
 app.listen(PORT, () => console.log(`Szerver fut a ${PORT} porton`));
