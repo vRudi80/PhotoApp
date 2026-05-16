@@ -8,6 +8,11 @@ require('dotenv').config();
 
 const axios = require('axios');
 const cheerio = require('cheerio');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
+
+// Gemini AI inicializálása
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
 
 const app = express();
 app.use(cors());
@@ -631,33 +636,57 @@ app.delete('/api/my-album/:id', async (req, res) => {
 });
 
 // ==========================================
-// --- ÚJ: AI KÉPELEMZÉS (MANUÁLIS GOMBNYOMÁSRA) ---
+// --- VALÓDI AI KÉPELEMZÉS (GEMINI 1.5 FLASH) ---
 // ==========================================
 app.post('/api/my-album/:id/analyze', async (req, res) => {
   const { userEmail } = req.body;
   try {
-    // 1. Ellenőrizzük, hogy a kép létezik-e és a useré-e
+    // 1. Kép kikeresése az adatbázisból
     const [rows] = await pool.query('SELECT * FROM photo_portfolio WHERE id = ? AND user_email = ?', [req.params.id, userEmail]);
     if (rows.length === 0) return res.status(403).json({ error: 'Nincs jogosultságod vagy a kép nem található!' });
 
     const photo = rows[0];
+    if (!photo.drive_file_id) return res.status(400).json({ error: 'Nem található fizikai fájl a képhöz!' });
 
-    // 2. ITT JÖN MAJD A VALÓDI AI API HÍVÁS (pl. OpenAI, Google Cloud Vision, Gemini)
-    // Elküldenéd a photo.file_url-t az AI-nak.
-    // Most egy 2 másodperces késleltetéssel szimuláljuk a "gondolkodást":
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    // 2. Kép letöltése a Google Drive-ról a szerver memóriájába (Buffer)
+    const driveRes = await drive.files.get(
+      { fileId: photo.drive_file_id, alt: 'media' },
+      { responseType: 'arraybuffer' }
+    );
+    const imageBuffer = Buffer.from(driveRes.data);
+    const base64Image = imageBuffer.toString('base64');
+
+    // 3. Gemini API hívás előkészítése
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     
-    // Generálunk pár "okos" kamu címkét a teszthez
-    const mockTags = "nature, high contrast, dramatic sky, landscape, monochrome";
+    // Profi prompt a fotós kategóriákhoz
+    const prompt = "Te egy szigorú nemzetközi fotós zsűri vagy (FIAP/PSA). Elemezd ezt a fotót vizuálisan, és adj vissza maximum 6 darab, vesszővel elválasztott angol kulcsszót (címkét), amik a legjobban leírják a képet és segítenek fotópályázati kategóriába sorolni. (Például: monochrome, nature, wildlife, portrait, street, architecture, macro, landscape, photojournalism, travel, minimal). KÉRLEK CSAK A KULCSSZAVAKAT ÍRD VESSZŐVEL ELVÁLASZTVA, SEMMI MÁS SZÖVEGET NE ÍRJ!";
 
-    // 3. Eltároljuk az eredményt az adatbázisban
-    await pool.query('UPDATE photo_portfolio SET ai_tags = ? WHERE id = ?', [mockTags, req.params.id]);
+    const imagePart = {
+      inlineData: {
+        data: base64Image,
+        mimeType: "image/jpeg" // Feltételezzük a jpg-t, a Gemini rugalmas
+      }
+    };
 
-    res.json({ success: true, ai_tags: mockTags });
+    // 4. Kép és prompt elküldése az AI-nak
+    const result = await model.generateContent([prompt, imagePart]);
+    const response = await result.response;
+    let text = response.text().trim();
+    
+    // Esetleges felesleges sortörések vagy pontok eltávolítása a végéről
+    text = text.replace(/\.$/, "").toLowerCase();
+
+    // 5. Eltároljuk a kapott címkéket az adatbázisban
+    await pool.query('UPDATE photo_portfolio SET ai_tags = ? WHERE id = ?', [text, req.params.id]);
+
+    res.json({ success: true, ai_tags: text });
   } catch (err) {
+    console.error('Gemini API hiba:', err);
     res.status(500).json({ error: 'Hiba az AI elemzés során: ' + err.message });
   }
 });
+
 
 // ==========================================
 // --- FIAP MINŐSÍTÉS STATISZTIKA ---
