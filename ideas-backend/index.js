@@ -657,7 +657,8 @@ app.post('/api/my-album/:id/analyze', async (req, res) => {
     const base64Image = imageBuffer.toString('base64');
 
     // 3. Gemini API hívás előkészítése
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
 
     
     // Profi prompt a fotós kategóriákhoz
