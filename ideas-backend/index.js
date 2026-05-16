@@ -896,9 +896,8 @@ app.get('/api/admin/scrape-fiap', async (req, res) => {
     res.status(500).json({ error: 'Nem sikerült elérni a myfiap.net oldalt.' });
   }
 });
-
 // ==========================================
-// --- 1. MYFIAP.NET LETAPOGATÓ ROBOT ---
+// --- MYFIAP.NET LETAPOGATÓ ROBOT (JAVÍTOTT) ---
 // ==========================================
 app.get('/api/admin/scrape-fiap', async (req, res) => {
   try {
@@ -912,27 +911,33 @@ app.get('/api/admin/scrape-fiap', async (req, res) => {
     const $ = cheerio.load(response.data);
     const scrapedSalons = [];
 
-    // Végigmegyünk a táblázat sorain a te képeid alapján
+    // A feltöltött képed alapján az oszlopok indexei:
+    // 0: FIAP szám, 1: PI/PR, 2: Szekciók, 4: Szalon neve, 5: Ország, 8: Max fee, 10: Zárás, 11: Weboldal
     $('table tbody tr').each((index, element) => {
       const tds = $(element).find('td');
       
-      // Csak azokat a sorokat nézzük, amikben megvan a megfelelő oszlopszám
-      if (tds.length >= 11) {
-        const fiapNumber = $(tds[0]).text().trim(); // Pl. 2027/001
-        const typeRaw = $(tds[1]).text().trim();    // PI vagy PR
-        const sectionsRaw = $(tds[2]).text().trim();// T1, T2, T3
-        const name = $(tds[4]).text().trim();       // Pl. 34° CONCORSO...
-        const country = $(tds[5]).text().trim();    // Pl. San Marino
-        const deadlineStr = $(tds[10]).text().trim();// Pl. 23 Feb 2027
+      if (tds.length >= 12) {
+        const fiapNumber = $(tds[0]).text().trim(); 
+        const typeRaw = $(tds[1]).text().trim();    
+        const sectionsRaw = $(tds[2]).text().trim();
+        const name = $(tds[4]).text().trim();       
+        const country = $(tds[5]).text().trim();    
+        const feeRaw = $(tds[8]).text().trim(); // Pl: 25,00 €
+        const deadlineStr = $(tds[10]).text().trim();
+        const website = $(tds[11]).text().trim();
         
-        // Ha van érvényes FIAP szám, mentjük
         if (fiapNumber && fiapNumber.includes('/')) {
+          // Kiszedjük a számot a díjból (ha van)
+          const feeMatch = feeRaw.match(/\d+/);
+          const fee = feeMatch ? feeMatch[0] : null;
+
           scrapedSalons.push({
             fiap_number: fiapNumber,
             name: name,
             country: country,
-            end_date: deadlineStr,
-            // Ideiglenesen a T1, T2-t mentjük, mert a robot nem tud kattintani
+            end_date_raw: deadlineStr, // pl. "23 Feb 2027"
+            fee: fee,
+            website: website.startsWith('http') ? website : `https://${website}`,
             categories: sectionsRaw.split(',').map(c => c.trim()).filter(c => c),
             submission_type: typeRaw.includes('PI') ? 'online' : 'print',
             is_circuit: name.toLowerCase().includes('circuit') ? 1 : 0
@@ -944,11 +949,64 @@ app.get('/api/admin/scrape-fiap', async (req, res) => {
     res.json(scrapedSalons);
   } catch (err) {
     console.error('Web Scraping Hiba:', err.message);
-    res.status(500).json({ error: `Hálózati hiba a myfiap.net felé: ${err.message}. Lehet, hogy blokkolják a szerverünket!` });
+    res.status(500).json({ error: `Hálózati hiba a myfiap.net felé: ${err.message}.` });
   }
 });
 
+// ==========================================
+// --- ÚJ: TÖMEGES IMPORTÁLÓ VÉGPONT ---
+// ==========================================
+app.post('/api/admin/import-fiap', async (req, res) => {
+  const { salonsToImport } = req.body;
+  if (!salonsToImport || salonsToImport.length === 0) return res.json({ count: 0 });
 
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    let importedCount = 0;
+
+    // Lekérjük az országokat, hogy az ID-kat párosítani tudjuk
+    const [dbCountries] = await conn.query('SELECT id, country, country_hun FROM photo_countries');
+
+    for (const salon of salonsToImport) {
+      // Megpróbáljuk megtalálni az ország ID-t
+      const matchedCountry = dbCountries.find(c => 
+        c.country.toLowerCase() === salon.country.toLowerCase() || 
+        c.country_hun.toLowerCase() === salon.country.toLowerCase()
+      );
+      const hostCountryId = matchedCountry ? matchedCountry.id : null;
+
+      // Dátum konvertálása (pl "23 Feb 2027" -> "2027-02-23")
+      let formattedDate = null;
+      if (salon.end_date_raw) {
+        const d = new Date(salon.end_date_raw);
+        if (!isNaN(d.getTime())) formattedDate = d.toISOString().split('T')[0];
+      }
+
+      // Szalon beszúrása
+      const [insertResult] = await conn.query(
+        'INSERT INTO photo_salons (name, start_date, end_date, website, fee_amount, fee_currency, is_circuit, submission_type, host_country_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [salon.name, null, formattedDate, salon.website, salon.fee, 'EUR', salon.is_circuit, salon.submission_type, hostCountryId]
+      );
+
+      // FIAP patron hozzárendelése (Feltételezve, hogy a FIAP ID-ja = 1 a photo_patrons táblában)
+      await conn.query(
+        'INSERT INTO photo_salon_patrons (salon_id, patron_id, patron_number) VALUES (?, ?, ?)',
+        [insertResult.insertId, 1, salon.fiap_number]
+      );
+      
+      importedCount++;
+    }
+
+    await conn.commit();
+    res.json({ count: importedCount, success: true });
+  } catch (e) {
+    await conn.rollback();
+    res.status(500).json({ error: e.message });
+  } finally {
+    conn.release();
+  }
+});
 
 
 app.listen(PORT, () => console.log(`Szerver fut a ${PORT} porton`));
