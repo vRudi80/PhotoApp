@@ -412,7 +412,6 @@ app.get('/api/salons', async (req, res) => {
   }
 });
 
-// A JAVÍTOTT PUT (Szalon szerkesztése) VÉGPONT, már a GET-en kívül!
 app.put('/api/salons/:id', async (req, res) => {
   const { name, feeAmount, feeCurrency, startDate, endDate, website, resultsDate, isCircuit, awardsCount, cashPrize, circuitNumber, submissionType, hostCountryId, patronsData, categoryIds } = req.body;
   const conn = await pool.getConnection();
@@ -491,7 +490,6 @@ app.get('/api/my-album', async (req, res) => {
   }
 });
 
-// --- ÚJ: A portfólióhoz tartozó elért eredmények lekérése ---
 app.get('/api/my-portfolio-results', async (req, res) => {
   try {
     const [rows] = await pool.query(`
@@ -546,17 +544,14 @@ app.put('/api/my-album/:id', upload.single('photo'), async (req, res) => {
     const { title, userEmail } = req.body;
     const file = req.file;
 
-    // 1. Ellenőrizzük, hogy a useré-e a kép
     const [rows] = await pool.query('SELECT * FROM photo_portfolio WHERE id = ? AND user_email = ?', [req.params.id, userEmail]);
     if (rows.length === 0) return res.status(403).json({ error: 'Nincs jogosultságod módosítani ezt a képet!' });
 
     if (file) {
-      // 2. Ha küldtek új képet, töröljük a régit a Drive-ról (ha volt neki drive_file_id-ja)
       if (rows[0].drive_file_id) {
         await drive.files.delete({ fileId: rows[0].drive_file_id }).catch(e => console.log('Régi kép törlése a Drive-ról sikertelen:', e.message));
       }
 
-      // 3. Feltöltjük az új képet a Drive-ra
       const bufferStream = new Readable(); 
       bufferStream.push(file.buffer); 
       bufferStream.push(null);
@@ -573,13 +568,11 @@ app.put('/api/my-album/:id', upload.single('photo'), async (req, res) => {
         fields: 'id, webViewLink' 
       });
 
-      // 4. Adatbázis frissítése (új cím + új kép URL és ID)
       await pool.query(
         'UPDATE photo_portfolio SET title = ?, file_url = ?, drive_file_id = ? WHERE id = ? AND user_email = ?',
         [title, driveRes.data.webViewLink, driveRes.data.id, req.params.id, userEmail]
       );
     } else {
-      // 5. Ha nincs új kép, csak a címet frissítjük a régi logika alapján
       await pool.query('UPDATE photo_portfolio SET title = ? WHERE id = ? AND user_email = ?', [title, req.params.id, userEmail]);
     }
 
@@ -610,7 +603,6 @@ app.delete('/api/my-album/:id', async (req, res) => {
 app.get('/api/fiap-progress', async (req, res) => {
   const userEmail = req.query.userEmail;
   try {
-    // Közös feltétel: A felhasználó e-mailje + Érvényes díj + DÍJ NEVE NEM ÜRES (kizárja a 15-ös ID-t / elutasítottakat) + CSAK FIAP
     const baseWhere = `
       WHERE e.user_email = ? 
         AND e.award_id IS NOT NULL 
@@ -623,7 +615,6 @@ app.get('/api/fiap-progress', async (req, res) => {
         )
     `;
 
-    // 1. Elfogadások kiszámítása a 2026-os és a 10-es szabállyal
     const [accRows] = await pool.query(`
       SELECT COALESCE(SUM(
         GREATEST(pre_2026_count, LEAST(pre_2026_count + post_2026_count, 10))
@@ -641,7 +632,6 @@ app.get('/api/fiap-progress', async (req, res) => {
       ) as sub
     `, [userEmail]);
 
-    // 2. Különböző országok száma
     const [countryRows] = await pool.query(`
       SELECT COUNT(DISTINCT s.host_country_id) as distinct_countries
       FROM photo_salon_entries e
@@ -650,7 +640,6 @@ app.get('/api/fiap-progress', async (req, res) => {
       ${baseWhere}
     `, [userEmail]);
 
-    // 3. Különböző művek (képek) száma
     const [workRows] = await pool.query(`
       SELECT COUNT(DISTINCT e.portfolio_id) as distinct_works
       FROM photo_salon_entries e
@@ -681,8 +670,8 @@ app.get('/api/fiap-entries', async (req, res) => {
       SELECT 
         COALESCE(p.title, 'Ismeretlen / Törölt kép') as photo_title,
         s.name as salon_name,
-        c.country_hun as country,         -- ÚJ: Az ország nevét a countries táblából vesszük
-        c.country_code as country_code,   -- ÚJ: Az ország kódját is innen vesszük
+        c.country_hun as country,
+        c.country_code as country_code,
         sp.patron_number as fiap_number,
         a.award_name as award,
         s.submission_type,
@@ -693,7 +682,7 @@ app.get('/api/fiap-entries', async (req, res) => {
       JOIN photo_awards a ON e.award_id = a.id
       JOIN photo_salon_patrons sp ON sp.salon_id = s.id AND sp.patron_id = 1
       LEFT JOIN photo_portfolio p ON e.portfolio_id = p.id
-      LEFT JOIN photo_countries c ON s.host_country_id = c.id -- ÚJ: Összekapcsolás az országok táblájával
+      LEFT JOIN photo_countries c ON s.host_country_id = c.id
       WHERE e.user_email = ?
         AND e.award_id IS NOT NULL 
         AND e.award_id > 0
@@ -708,10 +697,10 @@ app.get('/api/fiap-entries', async (req, res) => {
     res.status(500).json({ error: 'Hiba a FIAP tételes lista lekérésekor' });
   }
 });
+
 // ==========================================
 // --- SZALON NEVEZÉSEK (PORTFÓLIÓBÓL) ---
 // ==========================================
-
 app.get('/api/salon-entries/:salonId', async (req, res) => {
   try {
     const [rows] = await pool.query(`
@@ -760,24 +749,6 @@ app.get('/api/my-salon-entries-status', async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Hiba' }); }
 });
 
-// --- MÓDOSÍTOTT: Lekéri a nevezéseket a díjakkal és pontokkal együtt ---
-app.get('/api/salon-entries/:salonId', async (req, res) => {
-  try {
-    const [rows] = await pool.query(`
-      SELECT e.id as entry_id, e.category, e.award_id, e.achieved_score, e.acceptance_score, 
-             p.*, a.award_name 
-      FROM photo_salon_entries e 
-      JOIN photo_portfolio p ON e.portfolio_id = p.id 
-      LEFT JOIN photo_awards a ON e.award_id = a.id
-      WHERE e.salon_id = ? AND e.user_email = ?
-    `, [req.params.salonId, req.query.userEmail]);
-    res.json(rows);
-  } catch (err) {
-    res.status(500).json({ error: 'Hiba a nevezések lekérésekor' });
-  }
-});
-
-// --- ÚJ: Lekéri az összes választható díjat ---
 app.get('/api/awards', async (req, res) => {
   try { 
     const [rows] = await pool.query('SELECT * FROM photo_awards ORDER BY id ASC'); 
@@ -787,7 +758,6 @@ app.get('/api/awards', async (req, res) => {
   }
 });
 
-// --- ÚJ: Menti a képhez tartozó eredményt (Pontok és Díj) ---
 app.put('/api/salon-entries/:id/results', async (req, res) => {
   const { awardId, achievedScore, acceptanceScore, userEmail } = req.body;
   try {
@@ -830,7 +800,6 @@ app.delete('/api/categories/:id', async (req, res) => {
 // ==========================================
 app.post('/api/awards', async (req, res) => {
   try {
-    // Kikeressük a legnagyobb ID-t és hozzáadunk egyet (biztonságos megoldás, ha nincs auto_increment)
     const [[{ nextId }]] = await pool.query('SELECT COALESCE(MAX(id), 0) + 1 as nextId FROM photo_awards');
     await pool.query('INSERT INTO photo_awards (id, award_name) VALUES (?, ?)', [nextId, req.body.awardName]);
     res.json({ success: true });
@@ -852,7 +821,75 @@ app.delete('/api/awards/:id', async (req, res) => {
 });
 
 // ==========================================
-// --- TÖMEGES IMPORTÁLÓ VÉGPONT (JAVÍTOTT: MAI KEZDŐDÁTUMMAL) ---
+// --- MYFIAP.NET LETAPOGATÓ ROBOT ---
+// ==========================================
+app.get('/api/admin/scrape-fiap', async (req, res) => {
+  try {
+    const response = await axios.get('https://www.myfiap.net/patronages', {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml',
+      }
+    });
+    
+    const $ = cheerio.load(response.data);
+    const scrapedSalons = [];
+
+    // Végigmegyünk a táblázat sorain
+    $('table tbody tr').each((index, element) => {
+      const tds = $(element).find('td');
+      
+      // Csak azokat a sorokat nézzük, amikben megvan a megfelelő oszlopszám (a képeden 15 oszlop van)
+      if (tds.length >= 11) {
+        const fiapNumber = $(tds[0]).text().trim(); // Pl. 2027/001
+        
+        // Ha van érvényes FIAP szám (van benne perjel), akkor dolgozzuk fel
+        if (fiapNumber && fiapNumber.includes('/')) {
+          const typeRaw = $(tds[1]).text().trim();    // PI vagy PR
+          const sectionsRaw = $(tds[2]).text().trim();// T1, T2, T3 stb.
+          
+          // Név: a 4. oszlop (Salon Name), ha üres, a 3. oszlop (Circuit name)
+          let name = $(tds[4]).text().trim();       
+          if (!name) name = $(tds[3]).text().trim();
+
+          const country = $(tds[5]).text().trim();    // Pl. San Marino
+          
+          const feeRaw = $(tds[8]) ? $(tds[8]).text().trim() : ''; // Pl. 25,00 €
+          const feeMatch = feeRaw.match(/\d+/);
+          const fee = feeMatch ? feeMatch[0] : null;
+
+          const deadlineStr = $(tds[10]) ? $(tds[10]).text().trim() : ''; // Pl. 23 Feb 2027
+          
+          let website = $(tds[11]) ? $(tds[11]).text().trim() : '';
+          if (website && !website.startsWith('http')) {
+            website = `https://${website}`;
+          }
+
+          scrapedSalons.push({
+            fiap_number: fiapNumber,
+            name: name || 'Névtelen Szalon',
+            country: country,
+            end_date_raw: deadlineStr,
+            fee: fee,
+            website: website,
+            categories: sectionsRaw.split(',').map(c => c.trim()).filter(c => c),
+            submission_type: typeRaw.includes('PI') ? 'online' : 'print',
+            is_circuit: (name.toLowerCase().includes('circuit') || $(tds[3]).text().toLowerCase().includes('circuit')) ? 1 : 0
+          });
+        }
+      }
+    });
+
+    res.json(scrapedSalons);
+  } catch (err) {
+    console.error('Web Scraping Hiba:', err.message);
+    res.status(500).json({ error: `Hálózati hiba a myfiap.net felé: ${err.message}` });
+  }
+});
+
+
+// ==========================================
+// --- TÖMEGES IMPORTÁLÓ VÉGPONT (MAI KEZDŐDÁTUMMAL) ---
 // ==========================================
 app.post('/api/admin/import-fiap', async (req, res) => {
   const { salonsToImport } = req.body;
@@ -884,7 +921,7 @@ app.post('/api/admin/import-fiap', async (req, res) => {
         if (!isNaN(d.getTime())) formattedEndDate = d.toISOString().split('T')[0];
       }
 
-      // Szalon beszúrása - ITT A NULL HELYETT A todayStr VÁLTOZÓT ADJUK ÁT
+      // Szalon beszúrása 
       const [insertResult] = await conn.query(
         'INSERT INTO photo_salons (name, start_date, end_date, website, fee_amount, fee_currency, is_circuit, submission_type, host_country_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
         [salon.name, todayStr, formattedEndDate, salon.website, salon.fee, 'EUR', salon.is_circuit, salon.submission_type, hostCountryId]
@@ -909,88 +946,5 @@ app.post('/api/admin/import-fiap', async (req, res) => {
   }
 });
 
-// ==========================================
-// --- MYFIAP.NET LETAPOGATÓ ROBOT (JAVÍTOTT - DINAMIKUS OSZLOPKERESÉS) ---
-// ==========================================
-app.get('/api/admin/scrape-fiap', async (req, res) => {
-  try {
-    const response = await axios.get('https://www.myfiap.net/patronages', {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml',
-      }
-    });
-    
-    const $ = cheerio.load(response.data);
-    const scrapedSalons = [];
-    const colMap = {};
-
-    // 1. Megkeressük, melyik adat pontosan melyik oszlopban van a fejléc alapján
-    $('table th').each((i, el) => {
-      const text = $(el).text().trim().toLowerCase();
-      if (text.includes('patronage')) colMap.fiap = i;
-      else if (text.includes('salon cat')) colMap.type = i;
-      else if (text === 'sections') colMap.sections = i;
-      else if (text === 'salon name') colMap.name = i;
-      else if (text === 'salon/circuit name') colMap.circuit = i;
-      else if (text.includes('country')) colMap.country = i;
-      else if (text.includes('fee')) colMap.fee = i;
-      else if (text.includes('closing')) colMap.deadline = i;
-      else if (text.includes('website')) colMap.website = i;
-    });
-
-    // Ha nincs külön "Salon Name" oszlop, akkor a "Salon/Circuit Name"-t használjuk
-    if (colMap.name === undefined && colMap.circuit !== undefined) {
-      colMap.name = colMap.circuit;
-    }
-
-    // 2. Végigmegyünk a sorokon a dinamikus térkép (colMap) alapján
-    $('table tbody tr').each((index, element) => {
-      const tds = $(element).find('td');
-      
-      // Biztonságos érték-kiolvasó segédfüggvény
-      const getCol = (key) => colMap[key] !== undefined && tds[colMap[key]] ? $(tds[colMap[key]]).text().trim() : '';
-
-      const fiapNumber = getCol('fiap');
-      
-      // Csak akkor mentjük, ha tényleg egy érvényes FIAP szám (van benne perjel)
-      if (fiapNumber && fiapNumber.includes('/')) {
-        const typeRaw = getCol('type');
-        const sectionsRaw = getCol('sections');
-        const name = getCol('name') || getCol('circuit'); 
-        const country = getCol('country');
-        const feeRaw = getCol('fee');
-        const deadlineStr = getCol('deadline');
-        let website = getCol('website');
-
-        // Pénznem levágása, csak a szám kell (pl. "25,00 €" -> "25")
-        const feeMatch = feeRaw.match(/\d+/);
-        const fee = feeMatch ? feeMatch[0] : null;
-
-        // URL formázása
-        if (website && !website.startsWith('http')) {
-          website = `https://${website}`;
-        }
-
-        scrapedSalons.push({
-          fiap_number: fiapNumber,
-          name: name,
-          country: country,
-          end_date_raw: deadlineStr,
-          fee: fee,
-          website: website,
-          categories: sectionsRaw.split(',').map(c => c.trim()).filter(c => c),
-          submission_type: typeRaw.includes('PI') ? 'online' : 'print',
-          is_circuit: name.toLowerCase().includes('circuit') ? 1 : 0
-        });
-      }
-    });
-
-    res.json(scrapedSalons);
-  } catch (err) {
-    console.error('Web Scraping Hiba:', err.message);
-    res.status(500).json({ error: `Hálózati hiba a myfiap.net felé: ${err.message}` });
-  }
-});
 
 app.listen(PORT, () => console.log(`Szerver fut a ${PORT} porton`));
