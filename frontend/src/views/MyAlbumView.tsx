@@ -112,7 +112,7 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
     }
   };
 
-  // ÚJ: Fájl kiválasztásának kezelése élő előnézettel
+  // Fájl kiválasztásának kezelése élő előnézettel (Új feltöltésnél)
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
@@ -151,7 +151,7 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
         <span style={{ fontSize: '2.5rem' }}>🖼️</span> Saját Képalbum (Portfólió)
       </h2>
 
-      {/* ÚJ: KÉPFELTÖLTÉS ŰRLAP DOBOZ (VISSZARAKVA) */}
+      {/* KÉPFELTÖLTÉS ŰRLAP DOBOZ */}
       <div style={{ background: '#1e293b', padding: '20px', borderRadius: '12px', marginBottom: '20px', border: '1px solid #38bdf850' }}>
         <h3 style={{ marginTop: 0, color: '#38bdf8', fontSize: '1.2rem' }}>📤 Új fotó hozzáadása a portfólióhoz</h3>
         <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
@@ -286,11 +286,23 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
                 )}
                 
                 {editingPhotoId === photo.id ? (
+                  /* KÉP SZERKESZTÉSE - ÚJRA KIEGÉSZÍTVE A FÁJL MEZŐVEL */
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    <input value={editTitle} onChange={e => setEditTitle(e.target.value)} style={{ width: '100%', padding: '8px', backgroundColor: '#0f172a', border: '1px solid #38bdf8', color: 'white', borderRadius: '4px' }} />
+                    <input 
+                      value={editTitle} 
+                      onChange={e => setEditTitle(e.target.value)} 
+                      style={{ width: '100%', padding: '8px', backgroundColor: '#0f172a', border: '1px solid #38bdf8', color: 'white', borderRadius: '4px' }} 
+                      placeholder="Új cím..."
+                    />
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      onChange={e => setEditFile(e.target.files ? e.target.files[0] : null)} 
+                      style={{ color: '#cbd5e1', fontSize: '0.8rem', padding: '4px 0' }} 
+                    />
                     <div style={{ display: 'flex', gap: '5px' }}>
-                      <button onClick={() => handleUpdatePhoto(photo.id)} style={{ flex: 1, background: '#10b981', color: 'white', border: 'none', padding: '6px', borderRadius: '4px', fontWeight: 'bold' }}>Mentés</button>
-                      <button onClick={() => setEditingPhotoId(null)} style={{ flex: 1, background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', padding: '6px', borderRadius: '4px' }}>Mégse</button>
+                      <button onClick={() => handleUpdatePhoto(photo.id)} style={{ flex: 1, background: '#10b981', color: 'white', border: 'none', padding: '6px', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}>Mentés</button>
+                      <button onClick={() => { setEditingPhotoId(null); setEditFile(null); }} style={{ flex: 1, background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', padding: '6px', borderRadius: '4px', cursor: 'pointer' }}>Mégse</button>
                     </div>
                   </div>
                 ) : (
