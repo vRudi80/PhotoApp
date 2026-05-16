@@ -23,7 +23,7 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
   const [editFile, setEditFile] = useState<File | null>(null);
   const [updatingPhotoId, setUpdatingPhotoId] = useState<number | null>(null);
 
-  // ÚJ: AI Elemzés állapota
+  // AI Elemzés állapota
   const [analyzingPhotoId, setAnalyzingPhotoId] = useState<number | null>(null);
 
   const fetchMyPhotos = async () => {
@@ -88,7 +88,7 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
     }
   };
 
-  // ÚJ: Kép elemzése AI-val (BESZÉDES HIBAÜZENETTEL)
+  // Kép elemzése AI-val
   const handleAnalyzePhoto = async (photoId: number) => {
     setAnalyzingPhotoId(photoId);
     try {
@@ -98,13 +98,11 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
         body: JSON.stringify({ userEmail: user.email })
       });
       
-      const data = await res.json(); // Kiolvassuk a szerver válaszát mindenképp
+      const data = await res.json();
       
       if (res.ok) {
-        // Sikeres elemzés után frissítjük a listát
         fetchMyPhotos();
       } else {
-        // ITT ÍRJUK KI A PONTOS HIBÁT A SZERVERRŐL!
         alert(`Szerver hiba:\n\n${data.error || 'Ismeretlen hiba történt'}`);
       }
     } catch (e: any) {
@@ -114,6 +112,14 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
     }
   };
 
+  // ÚJ: Fájl kiválasztásának kezelése élő előnézettel
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setUploadFile(file);
+      setUploadPreview(URL.createObjectURL(file));
+    }
+  };
 
   const handleUpload = async () => {
     if (!uploadFile || !uploadTitle) return alert("Kép és cím megadása kötelező!");
@@ -144,6 +150,45 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
       <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '15px', color: '#60a5fa' }}>
         <span style={{ fontSize: '2.5rem' }}>🖼️</span> Saját Képalbum (Portfólió)
       </h2>
+
+      {/* ÚJ: KÉPFELTÖLTÉS ŰRLAP DOBOZ (VISSZARAKVA) */}
+      <div style={{ background: '#1e293b', padding: '20px', borderRadius: '12px', marginBottom: '20px', border: '1px solid #38bdf850' }}>
+        <h3 style={{ marginTop: 0, color: '#38bdf8', fontSize: '1.2rem' }}>📤 Új fotó hozzáadása a portfólióhoz</h3>
+        <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+          <div style={{ flex: '1 1 250px' }}>
+            <label style={{ fontSize: '0.8rem', color: '#94a3b8', display: 'block', marginBottom: '5px' }}>Fénykép címe</label>
+            <input 
+              type="text" 
+              placeholder="Pl. Magányos fa a ködben" 
+              value={uploadTitle} 
+              onChange={e => setUploadTitle(e.target.value)} 
+              style={{ width: '100%', padding: '10px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '6px', boxSizing: 'border-box' }}
+            />
+          </div>
+          <div style={{ flex: '1 1 250px' }}>
+            <label style={{ fontSize: '0.8rem', color: '#94a3b8', display: 'block', marginBottom: '5px' }}>Fájl kiválasztása</label>
+            <input 
+              type="file" 
+              accept="image/*"
+              onChange={handleFileChange} 
+              style={{ width: '100%', color: '#cbd5e1', fontSize: '0.9rem' }}
+            />
+          </div>
+          <button 
+            onClick={handleUpload} 
+            disabled={isUploading} 
+            style={{ background: '#10b981', color: 'white', padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: isUploading ? 'not-allowed' : 'pointer', fontWeight: 'bold', height: '42px' }}
+          >
+            {isUploading ? '⏳ Feltöltés...' : '🚀 Kép Feltöltése'}
+          </button>
+        </div>
+        {uploadPreview && (
+          <div style={{ marginTop: '15px' }}>
+            <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '5px' }}>Kiválasztott kép előnézete:</div>
+            <img src={uploadPreview} alt="Preview" style={{ maxHeight: '120px', borderRadius: '6px', border: '1px solid #334155', objectFit: 'contain' }} />
+          </div>
+        )}
+      </div>
 
       {/* Statisztika és kereső sáv */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#1e293b', padding: '15px 20px', borderRadius: '12px', marginBottom: '20px', border: '1px solid #334155', flexWrap: 'wrap', gap: '15px' }}>
@@ -226,7 +271,7 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
                   </div>
                 )}
 
-                {/* ÚJ: AI Címkék megjelenítése */}
+                {/* AI Címkék megjelenítése */}
                 {photo.ai_tags && (
                   <div style={{ marginBottom: '15px', padding: '8px', background: '#38bdf810', borderRadius: '6px', border: '1px solid #38bdf830' }}>
                     <div style={{ fontSize: '0.65rem', color: '#38bdf8', textTransform: 'uppercase', marginBottom: '4px', fontWeight: 'bold' }}>🤖 AI Kulcsszavak:</div>
@@ -278,7 +323,6 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
                     )}
 
                     <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                      {/* ÚJ: AI Elemzés Gomb */}
                       <button 
                         onClick={() => handleAnalyzePhoto(photo.id)} 
                         disabled={isAnalyzingThis}
