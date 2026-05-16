@@ -636,19 +636,17 @@ app.delete('/api/my-album/:id', async (req, res) => {
 });
 
 // ==========================================
-// --- VALÓDI AI KÉPELEMZÉS (GEMINI 1.5 FLASH) ---
+// --- VALÓDI AI KÉPELEMZÉS (SZÖVEGES ÉRTÉKELÉS + KULCSSZAVAK) ---
 // ==========================================
 app.post('/api/my-album/:id/analyze', async (req, res) => {
   const { userEmail } = req.body;
   try {
-    // 1. Kép kikeresése az adatbázisból
     const [rows] = await pool.query('SELECT * FROM photo_portfolio WHERE id = ? AND user_email = ?', [req.params.id, userEmail]);
     if (rows.length === 0) return res.status(403).json({ error: 'Nincs jogosultságod vagy a kép nem található!' });
 
     const photo = rows[0];
     if (!photo.drive_file_id) return res.status(400).json({ error: 'Nem található fizikai fájl a képhöz!' });
 
-    // 2. Kép letöltése a Google Drive-ról a szerver memóriájába (Buffer)
     const driveRes = await drive.files.get(
       { fileId: photo.drive_file_id, alt: 'media' },
       { responseType: 'arraybuffer' }
@@ -656,37 +654,44 @@ app.post('/api/my-album/:id/analyze', async (req, res) => {
     const imageBuffer = Buffer.from(driveRes.data);
     const base64Image = imageBuffer.toString('base64');
 
-    // 3. Gemini API hívás előkészítése
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-
     
-    // Profi prompt a fotós kategóriákhoz
-    const prompt = "Te egy szigorú nemzetközi fotós zsűri vagy (FIAP/PSA). Elemezd ezt a fotót vizuálisan, és adj vissza maximum 6 darab, vesszővel elválasztott angol kulcsszót (címkét), amik a legjobban leírják a képet és segítenek fotópályázati kategóriába sorolni. (Például: monochrome, nature, wildlife, portrait, street, architecture, macro, landscape, photojournalism, travel, minimal). KÉRLEK CSAK A KULCSSZAVAKAT ÍRD VESSZŐVEL ELVÁLASZTVA, SEMMI MÁS SZÖVEGET NE ÍRJ!";
+    // ÚJ PROMPT: JSON formátum kérése (Magyar értékelés + Angol kulcsszavak)
+    const prompt = `Te egy szigorú nemzetközi fotós zsűri vagy (FIAP/PSA szabályrendszer). 
+    Kérlek, elemezd ezt a fotót, és adj vissza KIZÁRÓLAG egy érvényes JSON objektumot az alábbi struktúrával (ne használj markdown jelöléseket, csak a tiszta JSON-t adja vissza):
+    {
+      "evaluation": "Ide írj egy 2-3 mondatos magyar nyelvű, professzionális, őszinte (akár kritikus) zsűri értékelést. Térj ki a kompozícióra, fényekre, és arra, hogy mennyire ajánlod nemzetközi pályázatra, és melyik kategóriába (pl. Open Color, Nature, Monochrome, stb.).",
+      "tags": "ide jöjjön 6-8 angol kulcsszó vesszővel elválasztva a jövőbeli kereséshez és kategória-párosításhoz (pl: monochrome, portrait, high contrast)"
+    }`;
 
     const imagePart = {
-      inlineData: {
-        data: base64Image,
-        mimeType: "image/jpeg" // Feltételezzük a jpg-t, a Gemini rugalmas
-      }
+      inlineData: { data: base64Image, mimeType: "image/jpeg" }
     };
 
-    // 4. Kép és prompt elküldése az AI-nak
     const result = await model.generateContent([prompt, imagePart]);
     const response = await result.response;
     let text = response.text().trim();
     
-    // Esetleges felesleges sortörések vagy pontok eltávolítása a végéről
-    text = text.replace(/\.$/, "").toLowerCase();
+    // Tisztítás, ha a Gemini mégis tenne köré markdown kódot (```json ... ```)
+    if (text.startsWith('```json')) {
+      text = text.replace(/^```json\n/, '').replace(/\n```$/, '');
+    } else if (text.startsWith('```')) {
+      text = text.replace(/^```\n/, '').replace(/\n```$/, '');
+    }
 
-    // 5. Eltároljuk a kapott címkéket az adatbázisban
+    // Biztonsági ellenőrzés: megnézzük, hogy tényleg érvényes JSON-t kaptunk-e
+    JSON.parse(text);
+
+    // Eltároljuk a JSON stringet az adatbázisban
     await pool.query('UPDATE photo_portfolio SET ai_tags = ? WHERE id = ?', [text, req.params.id]);
 
     res.json({ success: true, ai_tags: text });
   } catch (err) {
     console.error('Gemini API hiba:', err);
-    res.status(500).json({ error: 'Hiba az AI elemzés során: ' + err.message });
+    res.status(500).json({ error: 'Hiba az AI elemzés során: Lehet, hogy az AI nem megfelelő formátumban válaszolt. Próbáld újra!' });
   }
 });
+
 
 
 // ==========================================
