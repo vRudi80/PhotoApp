@@ -898,58 +898,54 @@ app.get('/api/admin/scrape-fiap', async (req, res) => {
 });
 
 // ==========================================
-// --- 2. IMPORTÁLT SZALONOK MENTÉSE ---
+// --- 1. MYFIAP.NET LETAPOGATÓ ROBOT ---
 // ==========================================
-app.post('/api/admin/import-fiap', async (req, res) => {
-  const { salonsToImport } = req.body; // Tömb, amit a frontend küld
-  
-  if (!salonsToImport || salonsToImport.length === 0) return res.status(400).json({error: 'Üres adat'});
-
-  const connection = await pool.getConnection();
+app.get('/api/admin/scrape-fiap', async (req, res) => {
   try {
-    await connection.beginTransaction();
-    let importedCount = 0;
-
-    for (const salon of salonsToImport) {
-      // 1. Ellenőrizzük, hogy létezik-e már ez a szalon a nevén vagy a FIAP számán keresztül
-      // (Feltételezzük, hogy a photo_salon_patrons-ban már benne van, ha korábban manuálisan felvitted)
-      const [existing] = await connection.query(`SELECT id FROM photo_salons WHERE name = ?`, [salon.name]);
-      
-      if (existing.length === 0) {
-        // 2. Ha nincs ilyen szalon, létrehozzuk!
-        // Az országot egyelőre üresre vagy alapértelmezettre tesszük, ha nincs egzakt egyezés a countries táblával
-        const [insertRes] = await connection.query(`
-          INSERT INTO photo_salons (name, end_date, is_circuit, submission_type, categories, country_hun) 
-          VALUES (?, ?, ?, 'online', ?, ?)
-        `, [
-          salon.name, 
-          salon.end_date || new Date(), 
-          salon.is_circuit, 
-          JSON.stringify(salon.categories),
-          salon.country
-        ]);
-
-        const newSalonId = insertRes.insertId;
-
-        // 3. Hozzáadjuk a FIAP védnökséget a segédtáblába (patron_id = 1)
-        await connection.query(`
-          INSERT INTO photo_salon_patrons (salon_id, patron_id, patron_number) 
-          VALUES (?, 1, ?)
-        `, [newSalonId, salon.fiap_number]);
-
-        importedCount++;
+    // 1. Letöltjük a hivatalos FIAP listát, BEÁLCÁZVA magunkat igazi böngészőnek!
+    const response = await axios.get('https://www.myfiap.net/patronages', {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+        'Accept-Language': 'hu-HU,hu;q=0.9,en-US;q=0.8,en;q=0.7',
       }
-    }
+    });
+    
+    const $ = cheerio.load(response.data);
+    const scrapedSalons = [];
 
-    await connection.commit();
-    res.json({ success: true, count: importedCount });
+    // Végigmegyünk a táblázat sorain
+    $('table tbody tr').each((index, element) => {
+      const tds = $(element).find('td');
+      if (tds.length >= 5) {
+        const fiapNumber = $(tds[0]).text().trim();
+        const name = $(tds[1]).text().trim();
+        const country = $(tds[2]).text().trim();
+        const deadlineStr = $(tds[3]).text().trim();
+        const categoriesRaw = $(tds[4]).text().trim(); 
+
+        const categories = categoriesRaw.split(',').map(c => c.trim()).filter(c => c);
+
+        if (fiapNumber && fiapNumber.includes('/')) {
+          scrapedSalons.push({
+            fiap_number: fiapNumber,
+            name: name,
+            country: country,
+            end_date: deadlineStr,
+            categories: categories,
+            is_circuit: name.toLowerCase().includes('circuit') ? 1 : 0
+          });
+        }
+      }
+    });
+
+    res.json(scrapedSalons);
   } catch (err) {
-    await connection.rollback();
-    console.error(err);
-    res.status(500).json({ error: 'Hiba a mentés során' });
-  } finally {
-    connection.release();
+    console.error('Web Scraping Hiba:', err.message);
+    // Ha ide jutunk, visszaküldjük a pontos hibaüzenetet a böngészőnek
+    res.status(500).json({ error: `Nem sikerült elérni a myfiap.net oldalt. Részletek: ${err.message}` });
   }
 });
+
 
 app.listen(PORT, () => console.log(`Szerver fut a ${PORT} porton`));
