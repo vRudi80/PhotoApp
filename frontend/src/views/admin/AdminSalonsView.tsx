@@ -128,11 +128,15 @@ export default function AdminSalonsView({
     setScrapedSalons(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handleLoadToForm = (item: any, index: number) => {
-    // Űrlap törlése először
+    const handleLoadToForm = (item: any, index: number) => {
+    // Űrlap kitakarítása
     clearSalonForm();
     
-    // Adatok betöltése
+    // MAI DÁTUM MEGHATÁROZÁSA ÉS BEÁLLÍTÁSA A FORM-BAN
+    const todayStr = new Date().toISOString().split('T')[0];
+    setSalonStart(todayStr); // Ez azonnal kitölti az aznapi dátummal a kezdő mezőt!
+    
+    // Egyéb adatok betöltése
     setSalonName(item.name);
     setSalonType(item.submission_type);
     setSalonWeb(item.website || '');
@@ -147,9 +151,9 @@ export default function AdminSalonsView({
     );
     if (matchedCountry) setSalonCountry(matchedCountry.id.toString());
 
-    // FIAP szám betöltése (Feltételezve, hogy a FIAP patron ID-ja: 1)
+    // FIAP szám betöltése és automatikus bepipálása
     setSalonPatronNumbers({ 1: item.fiap_number });
-    setSalonSelectedPatrons([1]); // Automatikusan be is pipáljuk a FIAP-ot
+    setSalonSelectedPatrons([1]);
 
     // Elem törlése a letapogatott listából
     handleRemoveScraped(index);
@@ -157,6 +161,7 @@ export default function AdminSalonsView({
     // Görgetés az űrlaphoz
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
 
   return (
     <div>
