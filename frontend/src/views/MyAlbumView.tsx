@@ -23,6 +23,9 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
   const [editFile, setEditFile] = useState<File | null>(null);
   const [updatingPhotoId, setUpdatingPhotoId] = useState<number | null>(null);
 
+  // ÚJ: AI Elemzés állapota
+  const [analyzingPhotoId, setAnalyzingPhotoId] = useState<number | null>(null);
+
   const fetchMyPhotos = async () => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/my-album?userEmail=${user.email}`);
@@ -44,16 +47,6 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
   const filteredPhotos = useMemo(() => {
     return photos.filter(p => p.title.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [photos, searchTerm]);
-
-  const awardsSummary = useMemo(() => {
-    const counts: Record<string, number> = {};
-    photoResults.forEach(r => {
-      if (r.award_name) {
-        counts[r.award_name] = (counts[r.award_name] || 0) + 1;
-      }
-    });
-    return Object.entries(counts).sort((a, b) => b[1] - a[1]);
-  }, [photoResults]);
 
   const handleUpdatePhoto = async (photoId: number) => {
     if (!editTitle) return alert('A cím nem lehet üres!');
@@ -92,6 +85,29 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
       if (res.ok) fetchMyPhotos();
     } catch (e) {
       alert('Hálózati hiba!');
+    }
+  };
+
+  // ÚJ: Kép elemzése AI-val
+  const handleAnalyzePhoto = async (photoId: number) => {
+    setAnalyzingPhotoId(photoId);
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/my-album/${photoId}/analyze`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userEmail: user.email })
+      });
+      
+      if (res.ok) {
+        // Sikeres elemzés után frissítjük a listát, hogy látszódjanak az új címkék
+        fetchMyPhotos();
+      } else {
+        alert('Hiba történt az elemzés során.');
+      }
+    } catch (e) {
+      alert('Hálózati hiba!');
+    } finally {
+      setAnalyzingPhotoId(null);
     }
   };
 
@@ -153,15 +169,14 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
         {filteredPhotos.map(photo => {
           const imageUrl = getImageUrl(photo.drive_file_id, photo.file_url);
           const isUpdatingThis = updatingPhotoId === photo.id;
+          const isAnalyzingThis = analyzingPhotoId === photo.id;
           
           const currentPhotoResults = photoResults.filter(r => r.portfolio_id === photo.id);
 
-          // Statisztikák számolása a képhez
           const entryCount = currentPhotoResults.length;
           const awardCount = currentPhotoResults.filter(r => r.award_name && r.award_name.toLowerCase() !== 'acceptance').length;
           const acceptanceCount = currentPhotoResults.filter(r => r.award_name && r.award_name.toLowerCase() === 'acceptance').length;
 
-          // Vizuális kiemelés logikája
           const hasAward = awardCount > 0;
           const hasAcceptance = acceptanceCount > 0;
 
@@ -184,7 +199,7 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
               border: `${borderWeight} solid ${borderColor}`, 
               display: 'flex', 
               flexDirection: 'column', 
-              opacity: isUpdatingThis ? 0.6 : 1, 
+              opacity: isUpdatingThis || isAnalyzingThis ? 0.6 : 1, 
               transition: 'all 0.3s ease',
               boxShadow: hasAward ? '0 0 15px rgba(245, 158, 11, 0.2)' : 'none'
             }}>
@@ -198,7 +213,7 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
               <div style={{ padding: '15px', display: 'flex', flexDirection: 'column', flex: 1 }}>
                 <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#f8fafc', marginBottom: '5px', wordBreak: 'break-word' }}>{photo.title}</div>
                 
-                {/* ÚJ: Piciny statisztikai sor a kép alatt */}
+                {/* Statisztika */}
                 {entryCount > 0 && (
                   <div style={{ display: 'flex', gap: '10px', fontSize: '0.7rem', color: '#94a3b8', marginBottom: '12px', fontWeight: 'bold' }}>
                     <span title="Összes nevezés">📁 {entryCount}</span>
@@ -206,9 +221,22 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
                     {acceptanceCount > 0 && <span style={{ color: '#10b981' }} title="Elfogadások száma">✅ {acceptanceCount} acc</span>}
                   </div>
                 )}
+
+                {/* ÚJ: AI Címkék megjelenítése */}
+                {photo.ai_tags && (
+                  <div style={{ marginBottom: '15px', padding: '8px', background: '#38bdf810', borderRadius: '6px', border: '1px solid #38bdf830' }}>
+                    <div style={{ fontSize: '0.65rem', color: '#38bdf8', textTransform: 'uppercase', marginBottom: '4px', fontWeight: 'bold' }}>🤖 AI Kulcsszavak:</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                      {photo.ai_tags.split(',').map((tag: string, idx: number) => (
+                        <span key={idx} style={{ fontSize: '0.75rem', color: '#cbd5e1', background: '#0f172a', padding: '2px 6px', borderRadius: '4px' }}>
+                          {tag.trim()}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 
                 {editingPhotoId === photo.id ? (
-                  /* Szerkesztő nézet... */
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     <input value={editTitle} onChange={e => setEditTitle(e.target.value)} style={{ width: '100%', padding: '8px', backgroundColor: '#0f172a', border: '1px solid #38bdf8', color: 'white', borderRadius: '4px' }} />
                     <div style={{ display: 'flex', gap: '5px' }}>
@@ -218,7 +246,6 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
                   </div>
                 ) : (
                   <>
-                    {/* Eredmények listája a kép alatt */}
                     {currentPhotoResults.length > 0 && (
                       <div style={{ marginBottom: '15px', padding: '10px', background: '#0f172a', borderRadius: '8px', border: '1px solid #334155' }}>
                         <div style={{ fontSize: '0.75rem', color: '#60a5fa', marginBottom: '8px', fontWeight: 'bold' }}>🎖️ Eredmények szalonokban:</div>
@@ -246,9 +273,20 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
                       </div>
                     )}
 
-                    <div style={{ marginTop: 'auto', display: 'flex', gap: '10px' }}>
-                      <button onClick={() => { setEditingPhotoId(photo.id); setEditTitle(photo.title); }} style={{ flex: 1, background: '#38bdf820', color: '#38bdf8', border: 'none', padding: '8px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>Szerkeszt</button>
-                      <button onClick={() => handleDelete(photo.id)} style={{ flex: 1, background: '#ef444420', color: '#ef4444', border: 'none', padding: '8px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>Törlés</button>
+                    <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                      {/* ÚJ: AI Elemzés Gomb */}
+                      <button 
+                        onClick={() => handleAnalyzePhoto(photo.id)} 
+                        disabled={isAnalyzingThis}
+                        style={{ width: '100%', background: '#8b5cf620', color: '#a78bfa', border: '1px solid #8b5cf6', padding: '8px', borderRadius: '6px', cursor: isAnalyzingThis ? 'not-allowed' : 'pointer', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '5px' }}
+                      >
+                        {isAnalyzingThis ? '⏳ Elemzés folyamatban...' : (photo.ai_tags ? '🤖 AI Újraelemzés' : '🤖 AI Elemzés (Kategória ajánláshoz)')}
+                      </button>
+
+                      <div style={{ display: 'flex', gap: '10px' }}>
+                        <button onClick={() => { setEditingPhotoId(photo.id); setEditTitle(photo.title); }} style={{ flex: 1, background: '#38bdf820', color: '#38bdf8', border: 'none', padding: '8px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>Szerkeszt</button>
+                        <button onClick={() => handleDelete(photo.id)} style={{ flex: 1, background: '#ef444420', color: '#ef4444', border: 'none', padding: '8px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>Törlés</button>
+                      </div>
                     </div>
                   </>
                 )}
