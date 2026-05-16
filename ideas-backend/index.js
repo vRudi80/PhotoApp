@@ -905,58 +905,37 @@ app.get('/api/admin/scrape-fiap', async (req, res) => {
     const response = await axios.get('https://www.myfiap.net/patronages', {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-        'Accept-Language': 'hu-HU,hu;q=0.9,en-US;q=0.8,en;q=0.7',
+        'Accept': 'text/html,application/xhtml+xml,application/xml',
       }
     });
     
     const $ = cheerio.load(response.data);
     const scrapedSalons = [];
 
-    // Végigmegyünk a táblázat sorain
+    // Végigmegyünk a táblázat sorain a te képeid alapján
     $('table tbody tr').each((index, element) => {
       const tds = $(element).find('td');
       
-      // Biztosítjuk, hogy megvan a 7 oszlop
-      if (tds.length >= 7) {
-        const fiapNumber = $(tds[0]).text().trim();      // Oszlop 0: 2026/326
-        const typeStr = $(tds[1]).text().trim();         // Oszlop 1: PI
-        const catsRaw = $(tds[2]).text().trim();         // Oszlop 2: (OpenC, OpenM, NAT, PJ)
-        const eventName = $(tds[3]).text().trim();       // Oszlop 3: Circuit név
-        const salonNameStr = $(tds[4]).text().trim();    // Oszlop 4: Szalon név
-        const countryStr = $(tds[5]).text().trim();      // Oszlop 5: Ország (pl. France)
-        const dateStr = $(tds[6]).text().trim();         // Oszlop 6: 01/03/2026
-
+      // Csak azokat a sorokat nézzük, amikben megvan a megfelelő oszlopszám
+      if (tds.length >= 11) {
+        const fiapNumber = $(tds[0]).text().trim(); // Pl. 2027/001
+        const typeRaw = $(tds[1]).text().trim();    // PI vagy PR
+        const sectionsRaw = $(tds[2]).text().trim();// T1, T2, T3
+        const name = $(tds[4]).text().trim();       // Pl. 34° CONCORSO...
+        const country = $(tds[5]).text().trim();    // Pl. San Marino
+        const deadlineStr = $(tds[10]).text().trim();// Pl. 23 Feb 2027
+        
+        // Ha van érvényes FIAP szám, mentjük
         if (fiapNumber && fiapNumber.includes('/')) {
-          
-          // 1. Dátum konvertálása (DD/MM/YYYY -> YYYY-MM-DD)
-          let formattedDate = dateStr;
-          if (dateStr.includes('/')) {
-            const parts = dateStr.split('/');
-            if (parts.length === 3) {
-              formattedDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
-            }
-          }
-
-          // 2. Kategóriák tisztítása (leszedjük a zárójeleket)
-          const cleanedCats = catsRaw.replace(/[()]/g, '');
-          const categories = cleanedCats.split(',').map(c => c.trim()).filter(c => c);
-
-          // 3. Név okosítása (Ha körverseny, összefűzzük a fő nevet és az al-szalon nevét)
-          let finalName = salonNameStr;
-          const isCircuit = eventName !== salonNameStr; // Ha eltér a 3. és 4. oszlop
-          
-          if (isCircuit && eventName) {
-            finalName = `${eventName} - ${salonNameStr}`;
-          }
-
           scrapedSalons.push({
             fiap_number: fiapNumber,
-            name: finalName,
-            country: countryStr,
-            end_date: formattedDate,
-            categories: categories,
-            is_circuit: isCircuit ? 1 : 0
+            name: name,
+            country: country,
+            end_date: deadlineStr,
+            // Ideiglenesen a T1, T2-t mentjük, mert a robot nem tud kattintani
+            categories: sectionsRaw.split(',').map(c => c.trim()).filter(c => c),
+            submission_type: typeRaw.includes('PI') ? 'online' : 'print',
+            is_circuit: name.toLowerCase().includes('circuit') ? 1 : 0
           });
         }
       }
@@ -965,9 +944,10 @@ app.get('/api/admin/scrape-fiap', async (req, res) => {
     res.json(scrapedSalons);
   } catch (err) {
     console.error('Web Scraping Hiba:', err.message);
-    res.status(500).json({ error: `Nem sikerült elérni a myfiap.net oldalt. Részletek: ${err.message}` });
+    res.status(500).json({ error: `Hálózati hiba a myfiap.net felé: ${err.message}. Lehet, hogy blokkolják a szerverünket!` });
   }
 });
+
 
 
 
