@@ -657,7 +657,8 @@ app.post('/api/my-album/:id/analyze', async (req, res) => {
     const base64Image = imageBuffer.toString('base64');
 
     // 3. Gemini API hívás előkészítése
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+
     
     // Profi prompt a fotós kategóriákhoz
     const prompt = "Te egy szigorú nemzetközi fotós zsűri vagy (FIAP/PSA). Elemezd ezt a fotót vizuálisan, és adj vissza maximum 6 darab, vesszővel elválasztott angol kulcsszót (címkét), amik a legjobban leírják a képet és segítenek fotópályázati kategóriába sorolni. (Például: monochrome, nature, wildlife, portrait, street, architecture, macro, landscape, photojournalism, travel, minimal). KÉRLEK CSAK A KULCSSZAVAKAT ÍRD VESSZŐVEL ELVÁLASZTVA, SEMMI MÁS SZÖVEGET NE ÍRJ!";
