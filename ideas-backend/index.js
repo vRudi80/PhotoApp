@@ -852,86 +852,60 @@ app.delete('/api/awards/:id', async (req, res) => {
 });
 
 // ==========================================
-// --- MYFIAP.NET LETAPOGATÓ ROBOT (JAVÍTOTT - DINAMIKUS OSZLOPKERESÉS) ---
+// --- TÖMEGES IMPORTÁLÓ VÉGPONT (JAVÍTOTT: MAI KEZDŐDÁTUMMAL) ---
 // ==========================================
-app.get('/api/admin/scrape-fiap', async (req, res) => {
+app.post('/api/admin/import-fiap', async (req, res) => {
+  const { salonsToImport } = req.body;
+  if (!salonsToImport || salonsToImport.length === 0) return res.json({ count: 0 });
+
+  const conn = await pool.getConnection();
   try {
-    const response = await axios.get('https://www.myfiap.net/patronages', {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml',
+    await conn.beginTransaction();
+    let importedCount = 0;
+
+    // Lekérjük az országokat az adatbázisból
+    const [dbCountries] = await conn.query('SELECT id, country, country_hun FROM photo_countries');
+
+    // KIGENERÁLJUK A MAI DÁTUMOT (YYYY-MM-DD) A KEZDŐDÁTUMHOZ
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    for (const salon of salonsToImport) {
+      // Ország párosítása
+      const matchedCountry = dbCountries.find(c => 
+        c.country.toLowerCase() === salon.country.toLowerCase() || 
+        c.country_hun.toLowerCase() === salon.country.toLowerCase()
+      );
+      const hostCountryId = matchedCountry ? matchedCountry.id : null;
+
+      // Zárási dátum konvertálása
+      let formattedEndDate = null;
+      if (salon.end_date_raw) {
+        const d = new Date(salon.end_date_raw);
+        if (!isNaN(d.getTime())) formattedEndDate = d.toISOString().split('T')[0];
       }
-    });
-    
-    const $ = cheerio.load(response.data);
-    const scrapedSalons = [];
-    const colMap = {};
 
-    // 1. Megkeressük, melyik adat pontosan melyik oszlopban van a fejléc alapján
-    $('table th').each((i, el) => {
-      const text = $(el).text().trim().toLowerCase();
-      if (text.includes('patronage')) colMap.fiap = i;
-      else if (text.includes('salon cat')) colMap.type = i;
-      else if (text === 'sections') colMap.sections = i;
-      else if (text === 'salon name') colMap.name = i;
-      else if (text === 'salon/circuit name') colMap.circuit = i;
-      else if (text.includes('country')) colMap.country = i;
-      else if (text.includes('fee')) colMap.fee = i;
-      else if (text.includes('closing')) colMap.deadline = i;
-      else if (text.includes('website')) colMap.website = i;
-    });
+      // Szalon beszúrása - ITT A NULL HELYETT A todayStr VÁLTOZÓT ADJUK ÁT
+      const [insertResult] = await conn.query(
+        'INSERT INTO photo_salons (name, start_date, end_date, website, fee_amount, fee_currency, is_circuit, submission_type, host_country_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [salon.name, todayStr, formattedEndDate, salon.website, salon.fee, 'EUR', salon.is_circuit, salon.submission_type, hostCountryId]
+      );
 
-    // Ha nincs külön "Salon Name" oszlop, akkor a "Salon/Circuit Name"-t használjuk
-    if (colMap.name === undefined && colMap.circuit !== undefined) {
-      colMap.name = colMap.circuit;
+      // FIAP patron hozzárendelése (ID: 1)
+      await conn.query(
+        'INSERT INTO photo_salon_patrons (salon_id, patron_id, patron_number) VALUES (?, ?, ?)',
+        [insertResult.insertId, 1, salon.fiap_number]
+      );
+      
+      importedCount++;
     }
 
-    // 2. Végigmegyünk a sorokon a dinamikus térkép (colMap) alapján
-    $('table tbody tr').each((index, element) => {
-      const tds = $(element).find('td');
-      
-      // Biztonságos érték-kiolvasó segédfüggvény
-      const getCol = (key) => colMap[key] !== undefined && tds[colMap[key]] ? $(tds[colMap[key]]).text().trim() : '';
-
-      const fiapNumber = getCol('fiap');
-      
-      // Csak akkor mentjük, ha tényleg egy érvényes FIAP szám (van benne perjel)
-      if (fiapNumber && fiapNumber.includes('/')) {
-        const typeRaw = getCol('type');
-        const sectionsRaw = getCol('sections');
-        const name = getCol('name') || getCol('circuit'); 
-        const country = getCol('country');
-        const feeRaw = getCol('fee');
-        const deadlineStr = getCol('deadline');
-        let website = getCol('website');
-
-        // Pénznem levágása, csak a szám kell (pl. "25,00 €" -> "25")
-        const feeMatch = feeRaw.match(/\d+/);
-        const fee = feeMatch ? feeMatch[0] : null;
-
-        // URL formázása
-        if (website && !website.startsWith('http')) {
-          website = `https://${website}`;
-        }
-
-        scrapedSalons.push({
-          fiap_number: fiapNumber,
-          name: name,
-          country: country,
-          end_date_raw: deadlineStr,
-          fee: fee,
-          website: website,
-          categories: sectionsRaw.split(',').map(c => c.trim()).filter(c => c),
-          submission_type: typeRaw.includes('PI') ? 'online' : 'print',
-          is_circuit: name.toLowerCase().includes('circuit') ? 1 : 0
-        });
-      }
-    });
-
-    res.json(scrapedSalons);
-  } catch (err) {
-    console.error('Web Scraping Hiba:', err.message);
-    res.status(500).json({ error: `Hálózati hiba a myfiap.net felé: ${err.message}` });
+    await conn.commit();
+    res.json({ count: importedCount, success: true });
+  } catch (e) {
+    await conn.rollback();
+    res.status(500).json({ error: e.message });
+  } finally {
+    conn.release();
   }
 });
 
