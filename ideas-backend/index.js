@@ -902,7 +902,6 @@ app.get('/api/admin/scrape-fiap', async (req, res) => {
 // ==========================================
 app.get('/api/admin/scrape-fiap', async (req, res) => {
   try {
-    // 1. Letöltjük a hivatalos FIAP listát, BEÁLCÁZVA magunkat igazi böngészőnek!
     const response = await axios.get('https://www.myfiap.net/patronages', {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -917,23 +916,47 @@ app.get('/api/admin/scrape-fiap', async (req, res) => {
     // Végigmegyünk a táblázat sorain
     $('table tbody tr').each((index, element) => {
       const tds = $(element).find('td');
-      if (tds.length >= 5) {
-        const fiapNumber = $(tds[0]).text().trim();
-        const name = $(tds[1]).text().trim();
-        const country = $(tds[2]).text().trim();
-        const deadlineStr = $(tds[3]).text().trim();
-        const categoriesRaw = $(tds[4]).text().trim(); 
-
-        const categories = categoriesRaw.split(',').map(c => c.trim()).filter(c => c);
+      
+      // Biztosítjuk, hogy megvan a 7 oszlop
+      if (tds.length >= 7) {
+        const fiapNumber = $(tds[0]).text().trim();      // Oszlop 0: 2026/326
+        const typeStr = $(tds[1]).text().trim();         // Oszlop 1: PI
+        const catsRaw = $(tds[2]).text().trim();         // Oszlop 2: (OpenC, OpenM, NAT, PJ)
+        const eventName = $(tds[3]).text().trim();       // Oszlop 3: Circuit név
+        const salonNameStr = $(tds[4]).text().trim();    // Oszlop 4: Szalon név
+        const countryStr = $(tds[5]).text().trim();      // Oszlop 5: Ország (pl. France)
+        const dateStr = $(tds[6]).text().trim();         // Oszlop 6: 01/03/2026
 
         if (fiapNumber && fiapNumber.includes('/')) {
+          
+          // 1. Dátum konvertálása (DD/MM/YYYY -> YYYY-MM-DD)
+          let formattedDate = dateStr;
+          if (dateStr.includes('/')) {
+            const parts = dateStr.split('/');
+            if (parts.length === 3) {
+              formattedDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
+            }
+          }
+
+          // 2. Kategóriák tisztítása (leszedjük a zárójeleket)
+          const cleanedCats = catsRaw.replace(/[()]/g, '');
+          const categories = cleanedCats.split(',').map(c => c.trim()).filter(c => c);
+
+          // 3. Név okosítása (Ha körverseny, összefűzzük a fő nevet és az al-szalon nevét)
+          let finalName = salonNameStr;
+          const isCircuit = eventName !== salonNameStr; // Ha eltér a 3. és 4. oszlop
+          
+          if (isCircuit && eventName) {
+            finalName = `${eventName} - ${salonNameStr}`;
+          }
+
           scrapedSalons.push({
             fiap_number: fiapNumber,
-            name: name,
-            country: country,
-            end_date: deadlineStr,
+            name: finalName,
+            country: countryStr,
+            end_date: formattedDate,
             categories: categories,
-            is_circuit: name.toLowerCase().includes('circuit') ? 1 : 0
+            is_circuit: isCircuit ? 1 : 0
           });
         }
       }
@@ -942,10 +965,10 @@ app.get('/api/admin/scrape-fiap', async (req, res) => {
     res.json(scrapedSalons);
   } catch (err) {
     console.error('Web Scraping Hiba:', err.message);
-    // Ha ide jutunk, visszaküldjük a pontos hibaüzenetet a böngészőnek
     res.status(500).json({ error: `Nem sikerült elérni a myfiap.net oldalt. Részletek: ${err.message}` });
   }
 });
+
 
 
 app.listen(PORT, () => console.log(`Szerver fut a ${PORT} porton`));
