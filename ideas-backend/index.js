@@ -851,4 +851,105 @@ app.delete('/api/awards/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Hiba a díj törlésekor. Lehet, hogy egy kép már megkapta ezt a díjat!' }); }
 });
 
+// ==========================================
+// --- 1. MYFIAP.NET LETAPOGATÓ ROBOT ---
+// ==========================================
+app.get('/api/admin/scrape-fiap', async (req, res) => {
+  try {
+    // 1. Letöltjük a hivatalos FIAP listát
+    const response = await axios.get('https://www.myfiap.net/patronages');
+    const $ = cheerio.load(response.data);
+    const scrapedSalons = [];
+
+    // 2. Végigmegyünk a táblázat sorain
+    // Megjegyzés: a pontos CSS szelektor és az oszlopok indexe (td:nth-child) 
+    // a myfiap.net HTML kódjától függ. Ha az oldal frissül, ezeket a számokat kellhet módosítani.
+    $('table tbody tr').each((index, element) => {
+      const tds = $(element).find('td');
+      if (tds.length >= 5) {
+        const fiapNumber = $(tds[0]).text().trim(); // Pl. 2026/081
+        const name = $(tds[1]).text().trim();       // Pl. 10th Chianti Roads
+        const country = $(tds[2]).text().trim();    // Pl. Italy
+        const deadlineStr = $(tds[3]).text().trim();// Pl. 2026-05-20
+        const categoriesRaw = $(tds[4]).text().trim(); 
+
+        // Kategóriák feldarabolása vesszők mentén
+        const categories = categoriesRaw.split(',').map(c => c.trim()).filter(c => c);
+
+        // Csak az érvényes FIAP számmal rendelkezőket rakjuk be
+        if (fiapNumber && fiapNumber.includes('/')) {
+          scrapedSalons.push({
+            fiap_number: fiapNumber,
+            name: name,
+            country: country,
+            end_date: deadlineStr,
+            categories: categories,
+            is_circuit: name.toLowerCase().includes('circuit') ? 1 : 0
+          });
+        }
+      }
+    });
+
+    res.json(scrapedSalons);
+  } catch (err) {
+    console.error('Web Scraping Hiba:', err.message);
+    res.status(500).json({ error: 'Nem sikerült elérni a myfiap.net oldalt.' });
+  }
+});
+
+// ==========================================
+// --- 2. IMPORTÁLT SZALONOK MENTÉSE ---
+// ==========================================
+app.post('/api/admin/import-fiap', async (req, res) => {
+  const { salonsToImport } = req.body; // Tömb, amit a frontend küld
+  
+  if (!salonsToImport || salonsToImport.length === 0) return res.status(400).json({error: 'Üres adat'});
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    let importedCount = 0;
+
+    for (const salon of salonsToImport) {
+      // 1. Ellenőrizzük, hogy létezik-e már ez a szalon a nevén vagy a FIAP számán keresztül
+      // (Feltételezzük, hogy a photo_salon_patrons-ban már benne van, ha korábban manuálisan felvitted)
+      const [existing] = await connection.query(`SELECT id FROM photo_salons WHERE name = ?`, [salon.name]);
+      
+      if (existing.length === 0) {
+        // 2. Ha nincs ilyen szalon, létrehozzuk!
+        // Az országot egyelőre üresre vagy alapértelmezettre tesszük, ha nincs egzakt egyezés a countries táblával
+        const [insertRes] = await connection.query(`
+          INSERT INTO photo_salons (name, end_date, is_circuit, submission_type, categories, country_hun) 
+          VALUES (?, ?, ?, 'online', ?, ?)
+        `, [
+          salon.name, 
+          salon.end_date || new Date(), 
+          salon.is_circuit, 
+          JSON.stringify(salon.categories),
+          salon.country
+        ]);
+
+        const newSalonId = insertRes.insertId;
+
+        // 3. Hozzáadjuk a FIAP védnökséget a segédtáblába (patron_id = 1)
+        await connection.query(`
+          INSERT INTO photo_salon_patrons (salon_id, patron_id, patron_number) 
+          VALUES (?, 1, ?)
+        `, [newSalonId, salon.fiap_number]);
+
+        importedCount++;
+      }
+    }
+
+    await connection.commit();
+    res.json({ success: true, count: importedCount });
+  } catch (err) {
+    await connection.rollback();
+    console.error(err);
+    res.status(500).json({ error: 'Hiba a mentés során' });
+  } finally {
+    connection.release();
+  }
+});
+
 app.listen(PORT, () => console.log(`Szerver fut a ${PORT} porton`));
