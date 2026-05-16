@@ -9,8 +9,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   return (
     <div style={{
       minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', backgroundColor: '#0f172a',
-      backgroundImage: 'linear-gradient(rgba(15, 23, 42, 0.85), rgba(15, 23, 42, 0.98)), url("https://images.unsplash.com/photo-1516035069371-29a1b244cc32?q=80&w=2070&auto=format&fit=crop
-?q=80&w=2070&auto=format&fit=crop")',
+      backgroundImage: 'linear-gradient(rgba(15, 23, 42, 0.85), rgba(15, 23, 42, 0.98)), url("https://images.unsplash.com/photo-1516035069371-29a1b244cc32?q=80&w=2070&auto=format&fit=crop")',
       backgroundSize: 'cover', backgroundPosition: 'center', fontFamily: 'Inter, sans-serif', overflow: 'hidden', padding: '2rem 1rem'
     }}>
       <div style={{ position: 'absolute', top: '10%', left: '15%', width: '400px', height: '400px', background: '#00a693', filter: 'blur(150px)', opacity: 0.15, borderRadius: '50%' }}></div>
