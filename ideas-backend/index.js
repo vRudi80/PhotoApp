@@ -821,10 +821,14 @@ app.delete('/api/awards/:id', async (req, res) => {
 });
 
 // ==========================================
-// --- MYFIAP.NET LETAPOGATÓ ROBOT ---
+// --- MYFIAP.NET LETAPOGATÓ ROBOT (MÁR LÉTEZŐK KISZŰRÉSÉVEL) ---
 // ==========================================
 app.get('/api/admin/scrape-fiap', async (req, res) => {
   try {
+    // 1. Lekérjük az eddig elmentett FIAP azonosítókat a te adatbázisodból
+    const [existingPatrons] = await pool.query('SELECT patron_number FROM photo_salon_patrons WHERE patron_id = 1 AND patron_number IS NOT NULL');
+    const existingFiapNumbers = existingPatrons.map(p => p.patron_number);
+
     const response = await axios.get('https://www.myfiap.net/patronages', {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -835,30 +839,24 @@ app.get('/api/admin/scrape-fiap', async (req, res) => {
     const $ = cheerio.load(response.data);
     const scrapedSalons = [];
 
-    // Végigmegyünk a táblázat sorain
     $('table tbody tr').each((index, element) => {
       const tds = $(element).find('td');
       
-      // Csak azokat a sorokat nézzük, amikben megvan a megfelelő oszlopszám (a képeden 15 oszlop van)
       if (tds.length >= 11) {
-        const fiapNumber = $(tds[0]).text().trim(); // Pl. 2027/001
+        const fiapNumber = $(tds[0]).text().trim();
         
-        // Ha van érvényes FIAP szám (van benne perjel), akkor dolgozzuk fel
-        if (fiapNumber && fiapNumber.includes('/')) {
-          const typeRaw = $(tds[1]).text().trim();    // PI vagy PR
-          const sectionsRaw = $(tds[2]).text().trim();// T1, T2, T3 stb.
+        // Csak akkor mentjük, ha érvényes a FIAP szám, ÉS MÉG NINCS BENT az adatbázisodban!
+        if (fiapNumber && fiapNumber.includes('/') && !existingFiapNumbers.includes(fiapNumber)) {
           
-          // Név: a 4. oszlop (Salon Name), ha üres, a 3. oszlop (Circuit name)
+          const typeRaw = $(tds[1]).text().trim();
+          const sectionsRaw = $(tds[2]).text().trim();
           let name = $(tds[4]).text().trim();       
           if (!name) name = $(tds[3]).text().trim();
-
-          const country = $(tds[5]).text().trim();    // Pl. San Marino
-          
-          const feeRaw = $(tds[8]) ? $(tds[8]).text().trim() : ''; // Pl. 25,00 €
+          const country = $(tds[5]).text().trim();    
+          const feeRaw = $(tds[8]) ? $(tds[8]).text().trim() : ''; 
           const feeMatch = feeRaw.match(/\d+/);
           const fee = feeMatch ? feeMatch[0] : null;
-
-          const deadlineStr = $(tds[10]) ? $(tds[10]).text().trim() : ''; // Pl. 23 Feb 2027
+          const deadlineStr = $(tds[10]) ? $(tds[10]).text().trim() : '';
           
           let website = $(tds[11]) ? $(tds[11]).text().trim() : '';
           if (website && !website.startsWith('http')) {
@@ -886,7 +884,6 @@ app.get('/api/admin/scrape-fiap', async (req, res) => {
     res.status(500).json({ error: `Hálózati hiba a myfiap.net felé: ${err.message}` });
   }
 });
-
 
 // ==========================================
 // --- TÖMEGES IMPORTÁLÓ VÉGPONT (MAI KEZDŐDÁTUMMAL) ---
