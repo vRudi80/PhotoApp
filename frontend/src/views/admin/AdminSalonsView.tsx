@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { getFlagEmoji } from '../../utils/helpers';
 import { BACKEND_URL } from '../../utils/constants';
 
@@ -69,9 +69,19 @@ export default function AdminSalonsView({
   // ==========================================
   // --- FIAP ROBOT ÁLLAPOTOK ÉS FÜGGVÉNYEK
   // ==========================================
-  const [scrapedSalons, setScrapedSalons] = useState<any[]>([]);
+  
+  // Túlélő memóriába (localStorage) mentjük a listát, így oldalfrissítés után is megmarad
+  const [scrapedSalons, setScrapedSalons] = useState<any[]>(() => {
+    const saved = localStorage.getItem('scrapedSalonsData');
+    return saved ? JSON.parse(saved) : [];
+  });
   const [isScraping, setIsScraping] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+
+  // Ha a lista változik, azonnal lementjük a böngésző memóriájába
+  useEffect(() => {
+    localStorage.setItem('scrapedSalonsData', JSON.stringify(scrapedSalons));
+  }, [scrapedSalons]);
 
   const handleScrapeFiap = async () => {
     setIsScraping(true);
@@ -79,8 +89,8 @@ export default function AdminSalonsView({
       const res = await fetch(`${BACKEND_URL}/api/admin/scrape-fiap`);
       if (res.ok) {
         const data = await res.json();
-        setScrapedSalons(data);
-        if (data.length === 0) alert("Nem találtam új adatokat a myfiap.net-en.");
+        setScrapedSalons(data); // Ez automatikusan felülírja a localStorage-t is
+        if (data.length === 0) alert("Nem találtam új adatokat a myfiap.net-en (vagy mindegyik már az adatbázisodban van).");
       } else {
         const errorData = await res.json();
         alert(`Szerver hiba:\n\n${errorData.error || res.statusText}`);
@@ -105,7 +115,7 @@ export default function AdminSalonsView({
       if (res.ok) {
         const result = await res.json();
         alert(`Sikeresen importálva ${result.count} db új nemzetközi szalon!`);
-        setScrapedSalons([]);
+        setScrapedSalons([]); // Kiüríti a listát és a localStorage-t
         if (fetchAdminSalons) fetchAdminSalons();
       } else {
         alert("Hiba a szerver oldalon az importálás során.");
@@ -117,7 +127,6 @@ export default function AdminSalonsView({
     }
   };
 
-  // Dátum formázó segédfüggvény ("23 Feb 2027" -> "2027-02-23")
   const formatDateForInput = (dateStr: string) => {
     const d = new Date(dateStr);
     if (isNaN(d.getTime())) return '';
@@ -129,14 +138,12 @@ export default function AdminSalonsView({
   };
 
   const handleLoadToForm = (item: any, index: number) => {
-    // Űrlap kitakarítása
     clearSalonForm();
     
-    // MAI DÁTUM MEGHATÁROZÁSA ÉS BEÁLLÍTÁSA A FORM-BAN
+    // MAI DÁTUM
     const todayStr = new Date().toISOString().split('T')[0];
     setSalonStart(todayStr); 
     
-    // Egyéb adatok betöltése
     setSalonName(item.name);
     setSalonType(item.submission_type);
     setSalonWeb(item.website || '');
@@ -144,21 +151,18 @@ export default function AdminSalonsView({
     setSalonEnd(formatDateForInput(item.end_date_raw));
     setSalonIsCircuit(item.is_circuit === 1);
 
-    // Ország azonosítása string alapján
     const matchedCountry = countries.find(c => 
       c.country?.toLowerCase() === item.country?.toLowerCase() || 
       c.country_hun?.toLowerCase() === item.country?.toLowerCase()
     );
     if (matchedCountry) setSalonCountry(matchedCountry.id.toString());
 
-    // FIAP szám betöltése és automatikus bepipálása
     setSalonPatronNumbers({ 1: item.fiap_number });
     setSalonSelectedPatrons([1]);
 
     // DIREKT KIKAPCSOLVA: Ne törölje a listából az elemet átemelés után
     // handleRemoveScraped(index);
 
-    // Görgetés az űrlaphoz
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -167,7 +171,6 @@ export default function AdminSalonsView({
     <div>
       <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', color: '#f59e0b' }}>🌐 Nemzetközi Szalonok Kezelése</h2>
       
-      {/* --- FIAP ROBOT DOBOZ --- */}
       <div style={{ background: '#1e293b', padding: '20px', borderRadius: '12px', marginBottom: '20px', border: '1px solid #3b82f650' }}>
         <h3 style={{ marginTop: 0, color: '#60a5fa' }}>🤖 FIAP Robot - Automata betöltés myfiap.net-ről</h3>
         <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: '15px' }}>A gomb megnyomásával a rendszer átnézi a myfiap.net hivatalos listáját.</p>
