@@ -23,7 +23,6 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
   const [editFile, setEditFile] = useState<File | null>(null);
   const [updatingPhotoId, setUpdatingPhotoId] = useState<number | null>(null);
 
-  // AI Elemzés állapota
   const [analyzingPhotoId, setAnalyzingPhotoId] = useState<number | null>(null);
 
   const fetchMyPhotos = async () => {
@@ -88,7 +87,6 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
     }
   };
 
-  // Kép elemzése AI-val
   const handleAnalyzePhoto = async (photoId: number) => {
     setAnalyzingPhotoId(photoId);
     try {
@@ -112,7 +110,6 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
     }
   };
 
-  // Fájl kiválasztásának kezelése élő előnézettel (Új feltöltésnél)
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
@@ -151,7 +148,6 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
         <span style={{ fontSize: '2.5rem' }}>🖼️</span> Saját Képalbum (Portfólió)
       </h2>
 
-      {/* KÉPFELTÖLTÉS ŰRLAP DOBOZ */}
       <div style={{ background: '#1e293b', padding: '20px', borderRadius: '12px', marginBottom: '20px', border: '1px solid #38bdf850' }}>
         <h3 style={{ marginTop: 0, color: '#38bdf8', fontSize: '1.2rem' }}>📤 Új fotó hozzáadása a portfólióhoz</h3>
         <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
@@ -190,7 +186,6 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
         )}
       </div>
 
-      {/* Statisztika és kereső sáv */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#1e293b', padding: '15px 20px', borderRadius: '12px', marginBottom: '20px', border: '1px solid #334155', flexWrap: 'wrap', gap: '15px' }}>
         <div style={{ display: 'flex', gap: '20px' }}>
           <div style={{ textAlign: 'center' }}>
@@ -213,7 +208,6 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
         />
       </div>
 
-      {/* Képek listája */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
         {filteredPhotos.map(photo => {
           const imageUrl = getImageUrl(photo.drive_file_id, photo.file_url);
@@ -240,6 +234,18 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
             borderWeight = '2px';
           }
 
+          // ÚJ: AI adat feldolgozása (Nézzük meg, hogy JSON-e vagy csak a régi sima string)
+          let aiData = null;
+          let isJson = false;
+          if (photo.ai_tags) {
+            try {
+              aiData = JSON.parse(photo.ai_tags);
+              isJson = true;
+            } catch (e) {
+              isJson = false;
+            }
+          }
+
           return (
             <div key={photo.id} style={{ 
               background: '#1e293b', 
@@ -262,7 +268,6 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
               <div style={{ padding: '15px', display: 'flex', flexDirection: 'column', flex: 1 }}>
                 <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#f8fafc', marginBottom: '5px', wordBreak: 'break-word' }}>{photo.title}</div>
                 
-                {/* Statisztika */}
                 {entryCount > 0 && (
                   <div style={{ display: 'flex', gap: '10px', fontSize: '0.7rem', color: '#94a3b8', marginBottom: '12px', fontWeight: 'bold' }}>
                     <span title="Összes nevezés">📁 {entryCount}</span>
@@ -271,22 +276,38 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
                   </div>
                 )}
 
-                {/* AI Címkék megjelenítése */}
+                {/* ÚJ: AI ÉRTÉKELÉS ÉS CÍMKÉK MEGJELENÍTÉSE */}
                 {photo.ai_tags && (
-                  <div style={{ marginBottom: '15px', padding: '8px', background: '#38bdf810', borderRadius: '6px', border: '1px solid #38bdf830' }}>
-                    <div style={{ fontSize: '0.65rem', color: '#38bdf8', textTransform: 'uppercase', marginBottom: '4px', fontWeight: 'bold' }}>🤖 AI Kulcsszavak:</div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                      {photo.ai_tags.split(',').map((tag: string, idx: number) => (
-                        <span key={idx} style={{ fontSize: '0.75rem', color: '#cbd5e1', background: '#0f172a', padding: '2px 6px', borderRadius: '4px' }}>
-                          {tag.trim()}
-                        </span>
-                      ))}
-                    </div>
+                  <div style={{ marginBottom: '15px', padding: '12px', background: '#38bdf810', borderRadius: '8px', border: '1px solid #38bdf830' }}>
+                    <div style={{ fontSize: '0.75rem', color: '#38bdf8', textTransform: 'uppercase', marginBottom: '8px', fontWeight: 'bold' }}>🤖 AI Zsűri Értékelése:</div>
+                    
+                    {isJson && aiData ? (
+                      <>
+                        <p style={{ fontSize: '0.9rem', color: '#e2e8f0', lineHeight: '1.5', margin: '0 0 12px 0', fontStyle: 'italic' }}>
+                          "{aiData.evaluation}"
+                        </p>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                          {aiData.tags && aiData.tags.split(',').map((tag: string, idx: number) => (
+                            <span key={idx} style={{ fontSize: '0.7rem', color: '#94a3b8', background: '#0f172a', padding: '2px 6px', borderRadius: '4px', border: '1px solid #334155' }}>
+                              {tag.trim()}
+                            </span>
+                          ))}
+                        </div>
+                      </>
+                    ) : (
+                      // Biztonsági fallback, ha még a régi verziós sima kulcsszavas válasz van az adatbázisban
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                        {photo.ai_tags.split(',').map((tag: string, idx: number) => (
+                          <span key={idx} style={{ fontSize: '0.75rem', color: '#cbd5e1', background: '#0f172a', padding: '2px 6px', borderRadius: '4px' }}>
+                            {tag.trim()}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
                 
                 {editingPhotoId === photo.id ? (
-                  /* KÉP SZERKESZTÉSE - ÚJRA KIEGÉSZÍTVE A FÁJL MEZŐVEL */
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     <input 
                       value={editTitle} 
@@ -340,7 +361,7 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
                         disabled={isAnalyzingThis}
                         style={{ width: '100%', background: '#8b5cf620', color: '#a78bfa', border: '1px solid #8b5cf6', padding: '8px', borderRadius: '6px', cursor: isAnalyzingThis ? 'not-allowed' : 'pointer', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '5px' }}
                       >
-                        {isAnalyzingThis ? '⏳ Elemzés folyamatban...' : (photo.ai_tags ? '🤖 AI Újraelemzés' : '🤖 AI Elemzés (Kategória ajánláshoz)')}
+                        {isAnalyzingThis ? '⏳ Elemzés folyamatban...' : (photo.ai_tags ? '🤖 AI Újraelemzés' : '🤖 AI Elemzés (Zsűri értékelés)')}
                       </button>
 
                       <div style={{ display: 'flex', gap: '10px' }}>
