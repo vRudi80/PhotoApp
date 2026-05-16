@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { getFlagEmoji } from '../../utils/helpers';
+import { BACKEND_URL } from '../../utils/constants'; // ÚJ: Backend URL a robotnak
 
 interface AdminSalonsViewProps {
   editSalonId: number | null;
@@ -25,7 +27,6 @@ interface AdminSalonsViewProps {
   patrons: any[];
   salonSelectedPatrons: number[]; setSalonSelectedPatrons: (val: number[]) => void;
   
-  // JAVÍTÁS: Ezek hiányoztak, emiatt omlott össze a rendszer!
   salonPatronNumbers: Record<number, string>;
   setSalonPatronNumbers: (val: Record<number, string>) => void;
 
@@ -35,6 +36,9 @@ interface AdminSalonsViewProps {
   sortedSalons: any[];
   setSelectedSalon: (salon: any) => void;
   handleDeleteSalon: (id: number) => void;
+  
+  // Opcionális: Ha a szülő (App.tsx) tudja frissíteni a listát import után
+  fetchAdminSalons?: () => void; 
 }
 
 export default function AdminSalonsView({
@@ -45,8 +49,8 @@ export default function AdminSalonsView({
   salonIsCircuit, setSalonIsCircuit, salonCircuitNum, setSalonCircuitNum,
   salonAwards, setSalonAwards, salonCash, setSalonCash, allCategories, salonSelectedCats,
   setSalonSelectedCats, patrons, salonSelectedPatrons, setSalonSelectedPatrons,
-  salonPatronNumbers, setSalonPatronNumbers, // JAVÍTÁS: Itt is át kell venni őket!
-  toggleArrayItem, handleSaveSalon, sortedSalons, setSelectedSalon, handleDeleteSalon
+  salonPatronNumbers, setSalonPatronNumbers,
+  toggleArrayItem, handleSaveSalon, sortedSalons, setSelectedSalon, handleDeleteSalon, fetchAdminSalons
 }: AdminSalonsViewProps) {
 
   const inputStyle = { width: '100%', padding: '10px', marginBottom: '10px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '6px', boxSizing: 'border-box' as const };
@@ -63,13 +67,94 @@ export default function AdminSalonsView({
     return nameA.localeCompare(nameB);
   });
 
+  // ==========================================
+  // --- ÚJ: FIAP ROBOT ÁLLAPOTOK ÉS FÜGGVÉNYEK
+  // ==========================================
+  const [scrapedSalons, setScrapedSalons] = useState<any[]>([]);
+  const [isScraping, setIsScraping] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+
+  const handleScrapeFiap = async () => {
+    setIsScraping(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/admin/scrape-fiap`);
+      if (res.ok) {
+        const data = await res.json();
+        setScrapedSalons(data);
+        if (data.length === 0) alert("Nem találtam új adatokat a myfiap.net-en.");
+      } else {
+        alert("Hiba a FIAP oldal letöltésekor.");
+      }
+    } catch (e) {
+      alert("Hálózati hiba a letapogatásnál!");
+    } finally {
+      setIsScraping(false);
+    }
+  };
+
+  const handleImportSalons = async () => {
+    if (scrapedSalons.length === 0) return;
+    setIsImporting(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/admin/import-fiap`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ salonsToImport: scrapedSalons })
+      });
+      
+      if (res.ok) {
+        const result = await res.json();
+        alert(`Sikeresen importálva ${result.count} db új nemzetközi szalon!`);
+        setScrapedSalons([]);
+        if (fetchAdminSalons) fetchAdminSalons(); // Frissíti a táblázatot alul
+      } else {
+        alert("Hiba a szerver oldalon az importálás során.");
+      }
+    } catch (e) {
+      alert("Hálózati hiba importáláskor!");
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
   return (
     <div>
       <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', color: '#f59e0b' }}>🌐 Nemzetközi Szalonok Kezelése</h2>
       
+      {/* --- ÚJ: FIAP ROBOT DOBOZ --- */}
+      <div style={{ background: '#1e293b', padding: '20px', borderRadius: '12px', marginBottom: '20px', border: '1px solid #3b82f650' }}>
+        <h3 style={{ marginTop: 0, color: '#60a5fa' }}>🤖 FIAP Robot - Automata betöltés myfiap.net-ről</h3>
+        <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: '15px' }}>A gomb megnyomásával a rendszer átnézi a myfiap.net hivatalos listáját, és behozza az új nemzetközi szalonokat, kategóriákkal és FIAP számokkal együtt.</p>
+        
+        <button onClick={handleScrapeFiap} disabled={isScraping} style={{ background: '#3b82f6', color: 'white', padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: isScraping ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>
+          {isScraping ? '⏳ Adatok letöltése folyamatban...' : '🌐 Új Pályázatok Keresése (myfiap.net)'}
+        </button>
+
+        {scrapedSalons.length > 0 && (
+          <div style={{ marginTop: '20px', background: '#0f172a', padding: '15px', borderRadius: '8px', border: '1px solid #334155' }}>
+            <h4 style={{ color: '#10b981', margin: '0 0 10px 0' }}>Talált szalonok ({scrapedSalons.length} db):</h4>
+            <div style={{ maxHeight: '300px', overflowY: 'auto', marginBottom: '15px' }}>
+              <ul style={{ color: '#cbd5e1', fontSize: '0.85rem', paddingLeft: '20px', margin: 0 }}>
+                {scrapedSalons.map((s, i) => (
+                  <li key={i} style={{ marginBottom: '8px' }}>
+                    <b style={{ color: '#38bdf8' }}>{s.fiap_number}</b> - 
+                    <span style={{ color: '#f8fafc', fontWeight: 'bold', margin: '0 5px' }}>{s.name}</span> 
+                    ({s.country}) 
+                    <div style={{ color: '#94a3b8', fontSize: '0.75rem' }}><i>Határidő: {s.end_date} | Kategóriák: {s.categories.join(', ')}</i></div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <button onClick={handleImportSalons} disabled={isImporting} style={{ background: '#10b981', color: 'white', padding: '12px 20px', borderRadius: '8px', border: 'none', cursor: isImporting ? 'not-allowed' : 'pointer', fontWeight: 'bold', width: '100%', fontSize: '1rem' }}>
+              {isImporting ? 'Mentés az adatbázisba ⏳...' : `🚀 Mind a(z) ${scrapedSalons.length} szalon Importálása az adatbázisba`}
+            </button>
+          </div>
+        )}
+      </div>
+
       <div style={{ backgroundColor: '#1e293b', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', border: '1px solid #f59e0b' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', flexWrap: 'wrap', gap: '10px' }}>
-          <h3 style={{ margin: 0, color: '#f59e0b' }}>{editSalonId ? '✏️ Szalon Szerkesztése' : '➕ Új Szalon Létrehozása'}</h3>
+          <h3 style={{ margin: 0, color: '#f59e0b' }}>{editSalonId ? '✏️ Szalon Szerkesztése' : '➕ Kézi Szalon Létrehozása'}</h3>
           {editSalonId && (
             <button onClick={clearSalonForm} style={{ background: 'transparent', color: '#ef4444', border: 'none', cursor: 'pointer' }}>
               Mégse / Új létrehozása
