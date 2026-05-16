@@ -629,6 +629,36 @@ app.delete('/api/my-album/:id', async (req, res) => {
     res.status(500).json({ error: 'Hiba a törlésnél' }); 
   }
 });
+
+// ==========================================
+// --- ÚJ: AI KÉPELEMZÉS (MANUÁLIS GOMBNYOMÁSRA) ---
+// ==========================================
+app.post('/api/my-album/:id/analyze', async (req, res) => {
+  const { userEmail } = req.body;
+  try {
+    // 1. Ellenőrizzük, hogy a kép létezik-e és a useré-e
+    const [rows] = await pool.query('SELECT * FROM photo_portfolio WHERE id = ? AND user_email = ?', [req.params.id, userEmail]);
+    if (rows.length === 0) return res.status(403).json({ error: 'Nincs jogosultságod vagy a kép nem található!' });
+
+    const photo = rows[0];
+
+    // 2. ITT JÖN MAJD A VALÓDI AI API HÍVÁS (pl. OpenAI, Google Cloud Vision, Gemini)
+    // Elküldenéd a photo.file_url-t az AI-nak.
+    // Most egy 2 másodperces késleltetéssel szimuláljuk a "gondolkodást":
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Generálunk pár "okos" kamu címkét a teszthez
+    const mockTags = "nature, high contrast, dramatic sky, landscape, monochrome";
+
+    // 3. Eltároljuk az eredményt az adatbázisban
+    await pool.query('UPDATE photo_portfolio SET ai_tags = ? WHERE id = ?', [mockTags, req.params.id]);
+
+    res.json({ success: true, ai_tags: mockTags });
+  } catch (err) {
+    res.status(500).json({ error: 'Hiba az AI elemzés során: ' + err.message });
+  }
+});
+
 // ==========================================
 // --- FIAP MINŐSÍTÉS STATISZTIKA ---
 // ==========================================
