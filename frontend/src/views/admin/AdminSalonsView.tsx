@@ -74,7 +74,7 @@ export default function AdminSalonsView({
   const [isScraping, setIsScraping] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
 
-  const handleScrapeFiap = async () => {
+    const handleScrapeFiap = async () => {
     setIsScraping(true);
     try {
       const res = await fetch(`${BACKEND_URL}/api/admin/scrape-fiap`);
@@ -83,14 +83,21 @@ export default function AdminSalonsView({
         setScrapedSalons(data);
         if (data.length === 0) alert("Nem találtam új adatokat a myfiap.net-en.");
       } else {
-        alert("Hiba a FIAP oldal letöltésekor.");
+        // ÚJ: Megpróbáljuk kiolvasni a backend által küldött pontos hibaüzenetet!
+        try {
+          const errorData = await res.json();
+          alert(`Hiba a FIAP oldal letöltésekor:\n\n${errorData.error || res.statusText}`);
+        } catch (parseErr) {
+          alert(`Szerver hiba (Valószínűleg újraindul vagy hiányzik egy csomag). Kód: ${res.status}`);
+        }
       }
-    } catch (e) {
-      alert("Hálózati hiba a letapogatásnál!");
+    } catch (e: any) {
+      alert(`Hálózati hiba a letapogatásnál: ${e.message}`);
     } finally {
       setIsScraping(false);
     }
   };
+
 
   const handleImportSalons = async () => {
     if (scrapedSalons.length === 0) return;
