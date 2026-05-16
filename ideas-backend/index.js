@@ -6,6 +6,9 @@ const { google } = require('googleapis');
 const { Readable } = require('stream');
 require('dotenv').config();
 
+const axios = require('axios');
+const cheerio = require('cheerio');
+
 const app = express();
 app.use(cors());
 app.use(express.json());
