@@ -88,7 +88,7 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
     }
   };
 
-  // ÚJ: Kép elemzése AI-val
+  // ÚJ: Kép elemzése AI-val (BESZÉDES HIBAÜZENETTEL)
   const handleAnalyzePhoto = async (photoId: number) => {
     setAnalyzingPhotoId(photoId);
     try {
@@ -98,18 +98,22 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
         body: JSON.stringify({ userEmail: user.email })
       });
       
+      const data = await res.json(); // Kiolvassuk a szerver válaszát mindenképp
+      
       if (res.ok) {
-        // Sikeres elemzés után frissítjük a listát, hogy látszódjanak az új címkék
+        // Sikeres elemzés után frissítjük a listát
         fetchMyPhotos();
       } else {
-        alert('Hiba történt az elemzés során.');
+        // ITT ÍRJUK KI A PONTOS HIBÁT A SZERVERRŐL!
+        alert(`Szerver hiba:\n\n${data.error || 'Ismeretlen hiba történt'}`);
       }
-    } catch (e) {
-      alert('Hálózati hiba!');
+    } catch (e: any) {
+      alert(`Hálózati hiba: ${e.message}`);
     } finally {
       setAnalyzingPhotoId(null);
     }
   };
+
 
   const handleUpload = async () => {
     if (!uploadFile || !uploadTitle) return alert("Kép és cím megadása kötelező!");
