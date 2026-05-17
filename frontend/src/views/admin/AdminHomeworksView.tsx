@@ -74,13 +74,19 @@ export default function AdminHomeworksView({
       <div style={{ background: '#1e293b', borderRadius: '12px', overflow: 'hidden', border: '1px solid #334155' }}>
         {adminHomeworks.length === 0 ? <div style={{padding: '20px', color: '#94a3b8', textAlign: 'center'}}>Nincs megjeleníthető feladat.</div> : null}
         {adminHomeworks.map((h, i) => {
-          const isPast = new Date() > new Date(h.deadline);
+          
+          // JAVÍTÁS: Időzóna levágása a listázáshoz is!
+          const safeDeadlineStr = h.deadline.replace('Z', ''); 
+          const deadlineDate = new Date(safeDeadlineStr);
+          const isPast = new Date() > deadlineDate;
+
           return (
             <div key={h.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px', borderBottom: i < adminHomeworks.length - 1 ? '1px solid #334155' : 'none', background: i % 2 === 0 ? '#0f172a' : 'transparent', flexWrap: 'wrap', gap: '10px' }}>
               <div>
                 <div style={{ fontWeight: 'bold', color: '#38bdf8' }}>{h.topic}</div>
                 <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>
-                  Klub: {h.club_name} | Határidő: {new Date(h.deadline).toLocaleString()} | Max: {h.max_images || 4} kép
+                  {/* JAVÍTÁS: Pontos formázás itt is */}
+                  Klub: {h.club_name} | Határidő: {deadlineDate.toLocaleString('hu-HU', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })} | Max: {h.max_images || 4} kép
                   <span style={{ color: isPast ? '#ef4444' : '#10b981', fontWeight: 'bold', marginLeft: '10px' }}>
                     ({isPast ? 'Lezárult' : 'Aktív'})
                   </span>
