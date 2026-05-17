@@ -224,6 +224,7 @@ function App() {
             setUser({
               ...decoded,
               isPremium: data.isPremium,
+              is_premium: data.isPremium, // <--- EZT AZ EGY SORT ADD HOZZÁ!
               premiumUntil: data.premiumUntil
             });
           })
@@ -265,6 +266,7 @@ function App() {
         setUser({
           ...decoded,
           isPremium: data.isPremium,
+          is_premium: data.isPremium, // <--- EZT AZ EGY SORT ADD HOZZÁ!
           premiumUntil: data.premiumUntil
         });
       } else {
