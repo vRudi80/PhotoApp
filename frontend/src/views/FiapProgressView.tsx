@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { BACKEND_URL } from '../utils/constants';
 import { getImageUrl, getFlagEmoji } from '../utils/helpers';
+import PremiumPaywall from './PremiumPaywall'; // ÚJ: Beimportáljuk a fizetőfalat!
 
 // A FIAP hivatalos követelményei (NFIAP -> EFIAP/p)
 const FIAP_LEVELS = [
@@ -18,10 +19,16 @@ export default function FiapProgressView({ user }: { user: any }) {
   const [entries, setEntries] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
-  // ÚJ: Keresési állapot
+  // Keresési állapot
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
+    // ÚJ: Ha nem prémium a felhasználó, feleslegesen ne terheljük az adatbázist!
+    if (!user || !user.is_premium) {
+      setIsLoading(false);
+      return;
+    }
+
     const fetchProgress = async () => {
       try {
         const [resStats, resEntries] = await Promise.all([
@@ -38,9 +45,9 @@ export default function FiapProgressView({ user }: { user: any }) {
       }
     };
     fetchProgress();
-  }, [user.email]);
+  }, [user]);
 
-  // ÚJ: Dinamikus szűrés (Cím, Szalon, Ország, FIAP szám, Eredmény alapján)
+  // Dinamikus szűrés (Cím, Szalon, Ország, FIAP szám, Eredmény alapján)
   const filteredEntries = useMemo(() => {
     if (!searchTerm) return entries;
     const lowerTerm = searchTerm.toLowerCase();
@@ -54,6 +61,19 @@ export default function FiapProgressView({ user }: { user: any }) {
     );
   }, [entries, searchTerm]);
 
+  // --- HA NEM PRÉMIUM, CSAK A KÁRTYÁT MUTATJUK ---
+  if (!user || !user.is_premium) {
+    return (
+      <div>
+        <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '15px', color: '#60a5fa' }}>
+          <span style={{ fontSize: '2.5rem' }}>🏅</span> FIAP Minősítés Követő
+        </h2>
+        <PremiumPaywall user={user} />
+      </div>
+    );
+  }
+
+  // --- INNENTŐL CSAK A PRÉMIUM FELHASZNÁLÓK LÁTJÁK ---
   let currentLevel = null;
   let nextLevel = FIAP_LEVELS[0];
 
