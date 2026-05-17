@@ -152,10 +152,36 @@ app.post('/api/create-checkout-session', async (req, res) => {
 app.post('/api/auth/sync', async (req, res) => {
   const { email, name, sub } = req.body;
   try {
-    await pool.query(`INSERT INTO photo_users (google_id, email, name, last_login) VALUES (?, ?, ?, NOW()) ON DUPLICATE KEY UPDATE name = ?, last_login = NOW()`, [sub, email, name, name]);
-    res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: 'Adatbázis hiba' }); }
+    // 1. Regisztráljuk vagy frissítjük a usert
+    await pool.query(
+      `INSERT INTO photo_users (google_id, email, name, last_login) 
+       VALUES (?, ?, ?, NOW()) 
+       ON DUPLICATE KEY UPDATE name = ?, last_login = NOW()`, 
+      [sub, email, name, name]
+    );
+
+    // 2. ÚJ: Lekérjük a user aktuális prémium státuszát is az adatbázisból
+    const [rows] = await pool.query('SELECT is_premium, premium_until FROM photo_users WHERE email = ?', [email]);
+    
+    const userDb = rows[0];
+    const now = new Date();
+    const premiumUntil = userDb.premium_until ? new Date(userDb.premium_until) : null;
+    
+    // Eldöntjük, hogy ténylegesen aktív-e a prémium tagsága
+    const isPremiumActive = (userDb.is_premium === 1 && premiumUntil && premiumUntil > now);
+
+    // Visszaküldjük a frontendnek a válaszban
+    res.json({ 
+      success: true,
+      isPremium: isPremiumActive,
+      premiumUntil: userDb.premium_until // ISO dátum string, pl: "2026-06-17T10:48:32.000Z"
+    });
+  } catch (err) { 
+    console.error(err);
+    res.status(500).json({ error: 'Adatbázis hiba az auth szinkronizációnál' }); 
+  }
 });
+
 
 app.get('/api/users', async (req, res) => {
   try { 
@@ -750,6 +776,32 @@ app.post('/api/admin/import-fiap', async (req, res) => {
     await conn.commit();
     res.json({ count: importedCount, success: true });
   } catch (e) { await conn.rollback(); res.status(500).json({ error: e.message }); } finally { conn.release(); }
+});
+// ==========================================
+// --- STRIPE: ÜGYFÉLKAPU (CUSTOMER PORTAL) LEMONDÁSHOZ ÉS KÁRTYACSERÉHEZ ---
+// ==========================================
+app.post('/api/create-portal-session', async (req, res) => {
+  const { userEmail } = req.body;
+  try {
+    // Megkeressük a user stripe_customer_id-ját az adatbázisban
+    const [rows] = await pool.query('SELECT stripe_customer_id FROM photo_users WHERE email = ?', [userEmail]);
+    
+    if (rows.length === 0 || !rows[0].stripe_customer_id) {
+      return res.status(400).json({ error: 'Ehhez a felhasználóhoz nem tartozik Stripe előfizetés!' });
+    }
+
+    // Létrehozzuk a Stripe beépített ügyfélkapu munkamenetét
+    const session = await stripe.billingPortal.sessions.create({
+      customer: rows[0].stripe_customer_id,
+      return_url: req.headers.origin, // Ide dobja vissza lemondás után (a főoldalra)
+    });
+
+    // Visszaküldjük a lemondó oldal linkjét
+    res.json({ url: session.url });
+  } catch (e) {
+    console.error('Stripe Portal Hiba:', e);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 const PORT = process.env.PORT || 4000;
