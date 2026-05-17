@@ -185,10 +185,26 @@ app.post('/api/auth/sync', async (req, res) => {
 
 app.get('/api/users', async (req, res) => {
   try { 
-    const [rows] = await pool.query('SELECT email, name, club_name, club_role, last_login FROM photo_users ORDER BY last_login DESC'); 
+    // Bővített lekérdezés: Lekérjük a Prémium adatokat is, ÉS megszámoljuk az AI elemezések számát userenként
+    const [rows] = await pool.query(`
+      SELECT 
+        u.email, 
+        u.name, 
+        u.club_name, 
+        u.club_role, 
+        u.last_login,
+        u.is_premium,
+        u.premium_until,
+        (SELECT COUNT(*) FROM photo_portfolio p WHERE p.user_email = u.email AND p.ai_tags IS NOT NULL) as ai_usage_count
+      FROM photo_users u 
+      ORDER BY u.last_login DESC
+    `); 
     res.json(rows); 
-  } catch (err) { res.status(500).json({ error: 'Hiba' }); }
+  } catch (err) { 
+    res.status(500).json({ error: 'Hiba' }); 
+  }
 });
+
 
 app.put('/api/users/:email', async (req, res) => {
   try { 
