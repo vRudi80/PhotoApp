@@ -120,9 +120,8 @@ const checkPremium = async (req, res, next) => {
 app.post('/api/create-checkout-session', async (req, res) => {
   const { userEmail } = req.body;
   try {
-    const session = await stripe.checkout.sessions.create({
+const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
-      mode: 'subscription',
       line_items: [
         {
           price_data: {
@@ -131,15 +130,22 @@ app.post('/api/create-checkout-session', async (req, res) => {
               name: 'Képolvasók Fotóklub Prémium',
               description: 'AI képelemzés, korlátlan portfólió, és nemzetközi FIAP/PSA statisztikák.',
             },
-            unit_amount: 100000, 
+            unit_amount: 100000, // (Ez marad 1000 Ft, ahogy beállítottad)
             recurring: { interval: 'month' },
           },
           quantity: 1,
         },
       ],
-      customer_email: userEmail,
-      success_url: `${req.headers.origin}?payment=success`,
-      cancel_url: `${req.headers.origin}?payment=cancel`,
+      mode: 'subscription',
+      
+      // --- EZT AZ ÚJ RÉSZT ADD HOZZÁ! ---
+      subscription_data: {
+        trial_period_days: 7, // 7 napos ingyenes próbaidőszak
+      },
+      // ---------------------------------
+
+      success_url: `${req.headers.origin}?success=true`,
+      cancel_url: `${req.headers.origin}?canceled=true`,
     });
     res.json({ url: session.url });
   } catch (e) {
