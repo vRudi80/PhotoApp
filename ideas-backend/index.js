@@ -746,9 +746,37 @@ app.get('/api/admin/scrape-fiap', async (req, res) => {
   try {
     const [existingPatrons] = await pool.query('SELECT patron_number FROM photo_salon_patrons WHERE patron_id = 1 AND patron_number IS NOT NULL');
     const existingFiapNumbers = existingPatrons.map(p => p.patron_number);
-    const response = await axios.get('https://www.myfiap.net/patronages', { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 'Accept': 'text/html,application/xhtml+xml,application/xml' } });
-    const $ = cheerio.load(response.data);
+    
+    // ZSENIÁLIS TRÜKK: Axios helyett a natív Fetch API-t használjuk kőkemény Chrome álruhában
+    const response = await fetch('https://www.myfiap.net/patronages', { 
+      method: 'GET',
+      headers: { 
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36', 
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+        'Accept-Language': 'hu-HU,hu;q=0.9,en-US;q=0.8,en;q=0.7',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'Pragma': 'no-cache',
+        'Sec-Ch-Ua': '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+        'Sec-Ch-Ua-Mobile': '?0',
+        'Sec-Ch-Ua-Platform': '"Windows"',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Sec-Fetch-User': '?1',
+        'Upgrade-Insecure-Requests': '1'
+      } 
+    });
+
+    if (!response.ok) {
+      throw new Error(`A FIAP szerver elutasította a kérést: ${response.status} ${response.statusText}`);
+    }
+
+    // A letöltött HTML szöveg kinyerése
+    const html = await response.text();
+    const $ = cheerio.load(html);
     const scrapedSalons = [];
+    
     $('table tbody tr').each((index, element) => {
       const tds = $(element).find('td');
       if (tds.length >= 11) {
@@ -769,8 +797,11 @@ app.get('/api/admin/scrape-fiap', async (req, res) => {
       }
     });
     res.json(scrapedSalons);
-  } catch (err) { res.status(500).json({ error: `Hálózati hiba: ${err.message}` }); }
+  } catch (err) { 
+    res.status(500).json({ error: `Hálózati hiba: ${err.message}` }); 
+  }
 });
+
 
 app.post('/api/admin/import-fiap', async (req, res) => {
   const { salonsToImport } = req.body;
