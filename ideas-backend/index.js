@@ -52,6 +52,44 @@ const checkPremium = async (req, res, next) => {
     return res.status(500).json({ error: 'Hiba a jogosultság ellenőrzésekor.' });
   }
 };
+// ==========================================
+// --- STRIPE: ELŐFIZETÉSI OLDAL (CHECKOUT) GENERÁLÁSA ---
+// ==========================================
+app.post('/api/create-checkout-session', async (req, res) => {
+  const { userEmail } = req.body;
+  try {
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      mode: 'subscription', // Havidíjas előfizetés
+      line_items: [
+        {
+          price_data: {
+            currency: 'huf', // Lehet 'eur' is, ha nemzetközi
+            product_data: {
+              name: 'Képolvasók Fotóklub Prémium',
+              description: 'AI képelemzés, korlátlan portfólió, és nemzetközi FIAP/PSA statisztikák.',
+            },
+            unit_amount: 199000, // 1990 HUF (a Stripe fillérben/centben számol, ezért kell a +2 nulla)
+            recurring: {
+              interval: 'month', // Havonta ismétlődik
+            },
+          },
+          quantity: 1,
+        },
+      ],
+      customer_email: userEmail,
+      // Ide fog visszadobni fizetés után (a frontended URL-jét állítsd be majd élesben!)
+      success_url: `${req.headers.origin}?payment=success`,
+      cancel_url: `${req.headers.origin}?payment=cancel`,
+    });
+
+    // Visszaküldjük a Stripe oldal URL-jét a frontendnek
+    res.json({ url: session.url });
+  } catch (e) {
+    console.error('Stripe Hiba:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
 
 const upload = multer({ storage: multer.memoryStorage() });
 
