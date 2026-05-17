@@ -110,7 +110,7 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
     }
   };
 
-  const handleDelete = async (photoId: number) => {
+const handleDelete = async (photoId: number) => {
     if (!window.confirm("Biztosan törlöd?")) return;
     try {
       const res = await fetch(`${BACKEND_URL}/api/my-album/${photoId}`, {
@@ -118,9 +118,14 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userEmail: user.email })
       });
-      if (res.ok) fetchMyPhotos();
+      
+      if (res.ok) {
+        fetchMyPhotos();
+      } else {
+        alert("Hálózat túlterhelt vagy hiba a Google Drive-val. Kérlek, próbáld újra pár másodperc múlva!");
+      }
     } catch (e) {
-      alert('Hálózati hiba!');
+      alert("Hálózat túlterhelt vagy hiba a Google Drive-val. Kérlek, próbáld újra pár másodperc múlva!");
     }
   };
 
@@ -155,7 +160,7 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
     }
   };
 
-  const handleUpload = async () => {
+const handleUpload = async () => {
     if (!uploadFile || !uploadTitle) return alert("Kép és cím megadása kötelező!");
     setIsUploading(true);
     try {
@@ -166,14 +171,17 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
       formData.append('title', uploadTitle);
 
       const res = await fetch(`${BACKEND_URL}/api/my-album/upload`, { method: 'POST', body: formData });
+      
       if (res.ok) {
         setUploadFile(null);
         setUploadPreview(null);
         setUploadTitle('');
         fetchMyPhotos();
+      } else {
+        alert("Hálózat túlterhelt vagy hiba a Google Drive-val. Kérlek, próbáld újra pár másodperc múlva!");
       }
     } catch (error) {
-      alert("Hálózati hiba.");
+      alert("Hálózat túlterhelt vagy hiba a Google Drive-val. Kérlek, próbáld újra pár másodperc múlva!");
     } finally {
       setIsUploading(false);
     }
