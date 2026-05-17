@@ -55,7 +55,11 @@ export default function ClubHomeworksView({
         <p style={{ color: '#94a3b8', fontSize: '1.1rem' }}>Jelenleg nincs kiírva házi feladat.</p>
       ) : (
         myClubHomeworks.map(hw => {
-          const isPast = new Date() > new Date(hw.deadline);
+          // JAVÍTÁS: Időzóna levágása a pontos megjelenítéshez és ellenőrzéshez
+          const safeDeadlineStr = hw.deadline.replace('Z', ''); 
+          const deadlineDate = new Date(safeDeadlineStr);
+          const isPast = new Date() > deadlineDate;
+          
           const myEntries = myHomeworkEntries.filter(e => e.homework_id === hw.id);
           const hwEntriesForAll = clubHomeworkEntries.filter(e => e.homework_id === hw.id);
           const maxImages = hw.max_images || 4;
@@ -78,7 +82,10 @@ export default function ClubHomeworksView({
                   {isPast ? 'Lezárult' : 'Aktív Feltöltés'}
                 </span>
               </div>
-              <p style={{fontSize: '0.85rem', color: '#f59e0b', margin: '0 0 15px 0', fontWeight: 'bold'}}>⏰ Határidő: {new Date(hw.deadline).toLocaleString()} | Maximum {maxImages} kép</p>
+              <p style={{fontSize: '0.85rem', color: '#f59e0b', margin: '0 0 15px 0', fontWeight: 'bold'}}>
+                {/* JAVÍTÁS: Szép, magyar dátumformátum */}
+                ⏰ Határidő: {deadlineDate.toLocaleString('hu-HU', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })} | Maximum {maxImages} kép
+              </p>
 
               {isLeader && (
                 <div style={{ marginTop: '15px', marginBottom: '20px', padding: '15px', background: '#0f172a', borderRadius: '8px', border: '1px solid #334155' }}>
