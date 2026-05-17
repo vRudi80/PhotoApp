@@ -17,9 +17,66 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 
+// Express App és Multer (Feltöltés)
 const app = express();
 app.use(cors());
+
+// ==========================================
+// --- ÚJ: STRIPE WEBHOOK (KÖTELEZŐEN AZ express.json ELÉ!) ---
+// ==========================================
+app.post('/api/webhook', express.raw({type: 'application/json'}), async (req, res) => {
+  const sig = req.headers['stripe-signature'];
+  let event;
+
+  try {
+    // Ellenőrizzük, hogy tényleg a Stripe küldte-e (biztonság)
+    event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+  } catch (err) {
+    console.error('Webhook hiba: Érvénytelen aláírás.', err.message);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  // Ha a fizetés SIKERESEN megtörtént
+  if (event.type === 'checkout.session.completed') {
+    const session = event.data.object;
+    const userEmail = session.customer_email;
+    const customerId = session.customer; // Ez a Stripe ID kell a lemondáshoz!
+
+    try {
+      // Kiszámoljuk a jövő havi lejárati dátumot
+      const premiumUntil = new Date();
+      premiumUntil.setMonth(premiumUntil.getMonth() + 1);
+
+      // Frissítjük az adatbázist: Prémium bekapcsolva, Dátum beállítva, Stripe ID elmentve
+      await pool.query(
+        'UPDATE photo_users SET is_premium = 1, premium_until = ?, stripe_customer_id = ? WHERE email = ?',
+        [premiumUntil, customerId, userEmail]
+      );
+      console.log(`✅ Prémium sikeresen aktiválva neki: ${userEmail}`);
+    } catch (err) {
+      console.error('Adatbázis hiba a webhookban:', err);
+    }
+  }
+
+  // Ha a user lemondja az előfizetést az ügyfélkapun (opcionális extra biztonság)
+  if (event.type === 'customer.subscription.deleted') {
+    const customerId = event.data.object.customer;
+    try {
+      await pool.query('UPDATE photo_users SET is_premium = 0 WHERE stripe_customer_id = ?', [customerId]);
+      console.log(`❌ Prémium lemondva/lejárt (Customer ID: ${customerId})`);
+    } catch (err) {
+      console.error('Adatbázis hiba a webhook lemondásnál:', err);
+    }
+  }
+
+  // Válaszolunk a Stripe-nak, hogy megkaptuk
+  res.send();
+});
+
+// A TÖBBI VÉGPONTNAK MARAD A SIMA JSON
 app.use(express.json());
+const upload = multer({ storage: multer.memoryStorage() });
+
 // ÚJ: Prémium státuszt ellenőrző kapuőr (Middleware)
 const checkPremium = async (req, res, next) => {
   // A user emailjét megpróbáljuk kiszedni a query-ből vagy a body-ból
