@@ -692,10 +692,12 @@ A JSON pontos struktúrája ez legyen:
     
     await pool.query('UPDATE photo_portfolio SET ai_tags = ? WHERE id = ?', [text, req.params.id]);
     res.json({ success: true, ai_tags: text });
-  } catch (err) {
-    console.error('Gemini API hiba:', err);
-    res.status(500).json({ error: 'Hiba az AI elemzés során. Lehet, hogy az AI nem megfelelő formátumban válaszolt. Próbáld újra!' });
+    } catch (err) {
+    console.error('Gemini / Rendszer hiba:', err);
+    // MOST MÁR A VALÓDI HIBÁT KÜLDJÜK VISSZA A BÖNGÉSZŐNEK!
+    res.status(500).json({ error: `Rendszerhiba történt: ${err.message}` });
   }
+
 });
 
 
