@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { BACKEND_URL } from '../utils/constants';
 import { getImageUrl } from '../utils/helpers';
+import PremiumPaywall from './PremiumPaywall'; // ÚJ: Beimportáljuk a közös fizetőfalat!
 
 interface MyAlbumViewProps {
   user: any;
@@ -13,10 +14,6 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   
-  // Állapot a prémium jogosultság követésére
-  const [isPremiumAccess, setIsPremiumAccess] = useState<boolean>(true);
-  const [isCheckoutLoading, setIsCheckoutLoading] = useState(false);
-
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadTitle, setUploadTitle] = useState('');
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
@@ -29,22 +26,23 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
 
   const [analyzingPhotoId, setAnalyzingPhotoId] = useState<number | null>(null);
 
+  // ÚJ: Ellenőrizzük a prémium státuszt AZONNAL a propból kapott adatok alapján
+  const hasPremiumAccess = user && (user.isPremium || user.is_premium);
+
   const fetchMyPhotos = async () => {
+    // Ha nincs prémium jogosultság, el sem indítjuk a felesleges hálózati kéréseket
+    if (!hasPremiumAccess) {
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const res = await fetch(`${BACKEND_URL}/api/my-album?userEmail=${user.email}`);
       
-      // HA 403-AS HIBÁT KAPUNK, AKKOR A USER NEM PRÉMIUM
-      if (res.status === 403) {
-        setIsPremiumAccess(false);
-        setIsLoading(false);
-        return;
-      }
-
       if (res.ok) {
         setPhotos(await res.json());
         const resResults = await fetch(`${BACKEND_URL}/api/my-portfolio-results?userEmail=${user.email}`);
         if (resResults.ok) setPhotoResults(await resResults.json());
-        setIsPremiumAccess(true);
       }
     } catch (e) {
       console.error(e);
@@ -55,30 +53,7 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
 
   useEffect(() => {
     fetchMyPhotos();
-  }, [user.email]);
-
-  // Stripe fizetés indítása
-  const handleSubscribe = async () => {
-    setIsCheckoutLoading(true);
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/create-checkout-session`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userEmail: user.email })
-      });
-      const data = await res.json();
-      
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        alert('Hiba a fizetési oldal betöltésekor: ' + data.error);
-      }
-    } catch (e) {
-      alert('Hálózati hiba a fizetés indításakor!');
-    } finally {
-      setIsCheckoutLoading(false);
-    }
-  };
+  }, [user]);
 
   const filteredPhotos = useMemo(() => {
     return photos.filter(p => p.title.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -110,7 +85,7 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
     }
   };
 
-const handleDelete = async (photoId: number) => {
+  const handleDelete = async (photoId: number) => {
     if (!window.confirm("Biztosan törlöd?")) return;
     try {
       const res = await fetch(`${BACKEND_URL}/api/my-album/${photoId}`, {
@@ -160,7 +135,7 @@ const handleDelete = async (photoId: number) => {
     }
   };
 
-const handleUpload = async () => {
+  const handleUpload = async () => {
     if (!uploadFile || !uploadTitle) return alert("Kép és cím megadása kötelező!");
     setIsUploading(true);
     try {
@@ -187,62 +162,23 @@ const handleUpload = async () => {
     }
   };
 
-  // ==========================================
-  // HA NINCS JOGOSULTSÁGA, A FIZETŐFALAT (PAYWALL) MUTATJUK
-  // ==========================================
-  if (!isPremiumAccess && !isLoading) {
+  // --- KORAI KILÉPÉS (EARLY RETURN): HA NEM PRÉMIUM, AZONNAL A FIZETŐFALAT ADJUK VISSZA ---
+  if (!hasPremiumAccess) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', padding: '20px' }}>
-        <div style={{ background: '#1e293b', border: '1px solid #38bdf850', borderRadius: '16px', padding: '40px', maxWidth: '600px', width: '100%', textAlign: 'center', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
-          <div style={{ fontSize: '4rem', marginBottom: '10px' }}>🚀</div>
-          <h2 style={{ fontSize: '2rem', color: '#f8fafc', margin: '0 0 15px 0' }}>Válts Prémiumra!</h2>
-          <p style={{ color: '#94a3b8', fontSize: '1.1rem', lineHeight: '1.6', marginBottom: '30px' }}>
-            A Saját Képalbum, a nemzetközi FIAP statisztikák és a profi <b>AI Képelemző zsűri</b> használata Prémium előfizetéshez kötött.
-          </p>
-          
-          <div style={{ textAlign: 'left', background: '#0f172a', padding: '20px', borderRadius: '12px', marginBottom: '30px', border: '1px solid #334155' }}>
-            <h4 style={{ color: '#38bdf8', marginTop: 0, marginBottom: '15px' }}>Mit tartalmaz a csomag?</h4>
-            <ul style={{ color: '#cbd5e1', lineHeight: '2', margin: 0, paddingLeft: '20px' }}>
-              <li>Korlátlan képfeltöltés a portfóliódba</li>
-              <li>Személyes AI zsűri értékelések (FIAP/PSA kategória ajánlásokkal)</li>
-              <li>Automatikus FIAP minősítés és elfogadás-követés</li>
-              <li>Nevezések és eredmények pontos követése</li>
-            </ul>
-          </div>
-
-          {/* ÁR KIÍRÁSA */}
-        <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-          <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: '#10b981' }}>
-            1.000 Ft <span style={{ fontSize: '1.2rem', color: '#94a3b8', fontWeight: 'normal' }}>/ hónap</span>
-          </div>
-          <div style={{ color: '#f59e0b', fontWeight: 'bold', marginTop: '5px', fontSize: '1.1rem' }}>
-            🎁 Az első 7 nap teljesen ingyenes!
-          </div>
-        </div>
-
-        {/* FIZETÉS GOMB */}
-        <button 
-          onClick={handleSubscribe} 
-          style={{ width: '100%', background: 'linear-gradient(to right, #6366f1, #8b5cf6)', color: 'white', border: 'none', padding: '15px 20px', borderRadius: '12px', fontSize: '1.2rem', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 15px rgba(99, 102, 241, 0.4)', transition: 'transform 0.2s' }}
-          onMouseOver={e => e.currentTarget.style.transform = 'scale(1.02)'}
-          onMouseOut={e => e.currentTarget.style.transform = 'scale(1)'}
-        >
-          🔓 7 Napos Ingyenes Próba Indítása
-        </button>
-        <div style={{ textAlign: 'center', marginTop: '15px', color: '#64748b', fontSize: '0.85rem' }}>
-          A kártyádat most nem terheljük meg. Bármikor lemondható az ingyenes időszak alatt is.
-        </div>
-          <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '15px' }}>
-            A fizetést a Stripe dolgozza fel. Bármikor lemondható.
-          </div>
-        </div>
+      <div>
+        <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '15px', color: '#60a5fa' }}>
+          <span style={{ fontSize: '2.5rem' }}>🖼️</span> Saját Képalbum (Portfólió)
+        </h2>
+        <PremiumPaywall user={user} />
       </div>
     );
   }
 
-  // ==========================================
-  // HA PRÉMIUM, AKKOR A NORMÁL KÉPALBUMOT MUTATJUK
-  // ==========================================
+  if (isLoading) {
+    return <div style={{ color: '#60a5fa', textAlign: 'center', padding: '2rem' }}>Portfólió betöltése...</div>;
+  }
+
+  // --- INNENTŐL CSAK A VALÓDI PRÉMIUM TAGOK LÁTJÁK A KÓDOT ---
   return (
     <div>
       <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '15px', color: '#60a5fa' }}>
