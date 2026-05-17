@@ -13,6 +13,10 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   
+  // Állapot a prémium jogosultság követésére
+  const [isPremiumAccess, setIsPremiumAccess] = useState<boolean>(true);
+  const [isCheckoutLoading, setIsCheckoutLoading] = useState(false);
+
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadTitle, setUploadTitle] = useState('');
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
@@ -28,10 +32,20 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
   const fetchMyPhotos = async () => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/my-album?userEmail=${user.email}`);
-      if (res.ok) setPhotos(await res.json());
+      
+      // HA 403-AS HIBÁT KAPUNK, AKKOR A USER NEM PRÉMIUM
+      if (res.status === 403) {
+        setIsPremiumAccess(false);
+        setIsLoading(false);
+        return;
+      }
 
-      const resResults = await fetch(`${BACKEND_URL}/api/my-portfolio-results?userEmail=${user.email}`);
-      if (resResults.ok) setPhotoResults(await resResults.json());
+      if (res.ok) {
+        setPhotos(await res.json());
+        const resResults = await fetch(`${BACKEND_URL}/api/my-portfolio-results?userEmail=${user.email}`);
+        if (resResults.ok) setPhotoResults(await resResults.json());
+        setIsPremiumAccess(true);
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -42,6 +56,29 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
   useEffect(() => {
     fetchMyPhotos();
   }, [user.email]);
+
+  // Stripe fizetés indítása
+  const handleSubscribe = async () => {
+    setIsCheckoutLoading(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/create-checkout-session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userEmail: user.email })
+      });
+      const data = await res.json();
+      
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        alert('Hiba a fizetési oldal betöltésekor: ' + data.error);
+      }
+    } catch (e) {
+      alert('Hálózati hiba a fizetés indításakor!');
+    } finally {
+      setIsCheckoutLoading(false);
+    }
+  };
 
   const filteredPhotos = useMemo(() => {
     return photos.filter(p => p.title.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -142,12 +179,60 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
     }
   };
 
+  // ==========================================
+  // HA NINCS JOGOSULTSÁGA, A FIZETŐFALAT (PAYWALL) MUTATJUK
+  // ==========================================
+  if (!isPremiumAccess && !isLoading) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', padding: '20px' }}>
+        <div style={{ background: '#1e293b', border: '1px solid #38bdf850', borderRadius: '16px', padding: '40px', maxWidth: '600px', width: '100%', textAlign: 'center', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
+          <div style={{ fontSize: '4rem', marginBottom: '10px' }}>🚀</div>
+          <h2 style={{ fontSize: '2rem', color: '#f8fafc', margin: '0 0 15px 0' }}>Válts Prémiumra!</h2>
+          <p style={{ color: '#94a3b8', fontSize: '1.1rem', lineHeight: '1.6', marginBottom: '30px' }}>
+            A Saját Képalbum, a nemzetközi FIAP statisztikák és a profi <b>AI Képelemző zsűri</b> használata Prémium előfizetéshez kötött.
+          </p>
+          
+          <div style={{ textAlign: 'left', background: '#0f172a', padding: '20px', borderRadius: '12px', marginBottom: '30px', border: '1px solid #334155' }}>
+            <h4 style={{ color: '#38bdf8', marginTop: 0, marginBottom: '15px' }}>Mit tartalmaz a csomag?</h4>
+            <ul style={{ color: '#cbd5e1', lineHeight: '2', margin: 0, paddingLeft: '20px' }}>
+              <li>Korlátlan képfeltöltés a portfóliódba</li>
+              <li>Személyes AI zsűri értékelések (FIAP/PSA kategória ajánlásokkal)</li>
+              <li>Automatikus FIAP minősítés és elfogadás-követés</li>
+              <li>Nevezések egy kattintással a nemzetközi szalonokba</li>
+            </ul>
+          </div>
+
+          <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#10b981', marginBottom: '20px' }}>
+            1.990 Ft <span style={{ fontSize: '1rem', color: '#94a3b8', fontWeight: 'normal' }}>/ hónap</span>
+          </div>
+
+          <button 
+            onClick={handleSubscribe} 
+            disabled={isCheckoutLoading}
+            style={{ background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)', color: 'white', border: 'none', padding: '15px 30px', borderRadius: '50px', fontSize: '1.2rem', fontWeight: 'bold', cursor: isCheckoutLoading ? 'not-allowed' : 'pointer', width: '100%', transition: 'transform 0.2s', boxShadow: '0 4px 15px rgba(59, 130, 246, 0.4)' }}
+            onMouseOver={e => e.currentTarget.style.transform = 'scale(1.02)'}
+            onMouseOut={e => e.currentTarget.style.transform = 'scale(1)'}
+          >
+            {isCheckoutLoading ? '⏳ Átirányítás a biztonságos fizetéshez...' : '🔒 Biztonságos Fizetés Indítása'}
+          </button>
+          <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '15px' }}>
+            A fizetést a Stripe dolgozza fel. Bármikor lemondható.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ==========================================
+  // HA PRÉMIUM, AKKOR A NORMÁL KÉPALBUMOT MUTATJUK
+  // ==========================================
   return (
     <div>
       <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '15px', color: '#60a5fa' }}>
         <span style={{ fontSize: '2.5rem' }}>🖼️</span> Saját Képalbum (Portfólió)
       </h2>
 
+      {/* KÉPFELTÖLTÉS ŰRLAP DOBOZ */}
       <div style={{ background: '#1e293b', padding: '20px', borderRadius: '12px', marginBottom: '20px', border: '1px solid #38bdf850' }}>
         <h3 style={{ marginTop: 0, color: '#38bdf8', fontSize: '1.2rem' }}>📤 Új fotó hozzáadása a portfólióhoz</h3>
         <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
@@ -234,7 +319,6 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
             borderWeight = '2px';
           }
 
-          // ÚJ: AI adat feldolgozása (Nézzük meg, hogy JSON-e vagy csak a régi sima string)
           let aiData = null;
           let isJson = false;
           if (photo.ai_tags) {
@@ -276,7 +360,6 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
                   </div>
                 )}
 
-                {/* ÚJ: AI ÉRTÉKELÉS ÉS CÍMKÉK MEGJELENÍTÉSE */}
                 {photo.ai_tags && (
                   <div style={{ marginBottom: '15px', padding: '12px', background: '#38bdf810', borderRadius: '8px', border: '1px solid #38bdf830' }}>
                     <div style={{ fontSize: '0.75rem', color: '#38bdf8', textTransform: 'uppercase', marginBottom: '8px', fontWeight: 'bold' }}>🤖 AI Zsűri Értékelése:</div>
@@ -295,7 +378,6 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
                         </div>
                       </>
                     ) : (
-                      // Biztonsági fallback, ha még a régi verziós sima kulcsszavas válasz van az adatbázisban
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                         {photo.ai_tags.split(',').map((tag: string, idx: number) => (
                           <span key={idx} style={{ fontSize: '0.75rem', color: '#cbd5e1', background: '#0f172a', padding: '2px 6px', borderRadius: '4px' }}>
