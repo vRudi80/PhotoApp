@@ -22,14 +22,19 @@ const app = express();
 app.use(cors());
 
 // ==========================================
-// --- ÚJ: STRIPE WEBHOOK (KÖTELEZŐEN AZ express.json ELÉ!) ---
+// --- STRIPE WEBHOOK (KÖTELEZŐEN AZ express.json ELÉ!) ---
 // ==========================================
 app.post('/api/webhook', express.raw({type: 'application/json'}), async (req, res) => {
   const sig = req.headers['stripe-signature'];
   let event;
 
+  // BIZTONSÁGI VÉDŐHÁLÓ: Ha még nincs kész a webhook kulcs a Renderen, ne omoljon össze a szerver
+  if (!process.env.STRIPE_WEBHOOK_SECRET) {
+    console.error('❌ Hiba: A STRIPE_WEBHOOK_SECRET környezeti változó hiányzik a Renderen!');
+    return res.status(500).send('Webhook konfigurációs hiba a szerveren.');
+  }
+
   try {
-    // Ellenőrizzük, hogy tényleg a Stripe küldte-e (biztonság)
     event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
   } catch (err) {
     console.error('Webhook hiba: Érvénytelen aláírás.', err.message);
@@ -40,14 +45,12 @@ app.post('/api/webhook', express.raw({type: 'application/json'}), async (req, re
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object;
     const userEmail = session.customer_email;
-    const customerId = session.customer; // Ez a Stripe ID kell a lemondáshoz!
+    const customerId = session.customer; 
 
     try {
-      // Kiszámoljuk a jövő havi lejárati dátumot
       const premiumUntil = new Date();
       premiumUntil.setMonth(premiumUntil.getMonth() + 1);
 
-      // Frissítjük az adatbázist: Prémium bekapcsolva, Dátum beállítva, Stripe ID elmentve
       await pool.query(
         'UPDATE photo_users SET is_premium = 1, premium_until = ?, stripe_customer_id = ? WHERE email = ?',
         [premiumUntil, customerId, userEmail]
@@ -58,7 +61,7 @@ app.post('/api/webhook', express.raw({type: 'application/json'}), async (req, re
     }
   }
 
-  // Ha a user lemondja az előfizetést az ügyfélkapun (opcionális extra biztonság)
+  // Ha a user lemondja az előfizetést
   if (event.type === 'customer.subscription.deleted') {
     const customerId = event.data.object.customer;
     try {
@@ -69,9 +72,9 @@ app.post('/api/webhook', express.raw({type: 'application/json'}), async (req, re
     }
   }
 
-  // Válaszolunk a Stripe-nak, hogy megkaptuk
   res.send();
 });
+
 
 // A TÖBBI VÉGPONTNAK MARAD A SIMA JSON
 app.use(express.json());
