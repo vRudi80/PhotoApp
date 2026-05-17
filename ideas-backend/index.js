@@ -575,7 +575,8 @@ app.get('/api/my-portfolio-results', async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Hiba az eredmények lekérésekor' }); }
 });
 
-app.post('/api/my-album/upload', checkPremium, upload.single('photo'), async (req, res) => {
+app.post('/api/my-album/upload', upload.single('photo'), checkPremium, async (req, res) => {
+
   const { userEmail, userName, title } = req.body;
   const file = req.file;
   if (!file) return res.status(400).json({ error: 'Nincs fájl kiválasztva!' });
@@ -588,7 +589,8 @@ app.post('/api/my-album/upload', checkPremium, upload.single('photo'), async (re
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.put('/api/my-album/:id', checkPremium, upload.single('photo'), async (req, res) => {
+app.put('/api/my-album/:id', upload.single('photo'), checkPremium, async (req, res) => {
+
   try {
     const { title, userEmail } = req.body; const file = req.file;
     const [rows] = await pool.query('SELECT * FROM photo_portfolio WHERE id = ? AND user_email = ?', [req.params.id, userEmail]);
