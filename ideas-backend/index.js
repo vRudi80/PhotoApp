@@ -655,23 +655,49 @@ app.post('/api/my-album/:id/analyze', checkPremium, async (req, res) => {
     const driveRes = await drive.files.get({ fileId: photo.drive_file_id, alt: 'media' }, { responseType: 'arraybuffer' });
     const imageBuffer = Buffer.from(driveRes.data);
     const base64Image = imageBuffer.toString('base64');
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     
-    const prompt = `Te egy szigorú nemzetközi fotós zsűri vagy (FIAP/PSA szabályrendszer). Kérlek, elemezd ezt a fotót, és adj vissza KIZÁRÓLAG egy érvényes JSON objektumot az alábbi struktúrával (ne használj markdown jelöléseket, csak a tiszta JSON-t adja vissza): {"evaluation": "Ide írj egy 2-3 mondatos magyar nyelvű, professzionális, őszinte (akár kritikus) zsűri értékelést. Térj ki a kompozícióra, fényekre, és arra, hogy mennyire ajánlod nemzetközi pályázatra, és melyik kategóriába (pl. Open Color, Nature, Monochrome, stb.).", "tags": "ide jöjjön 6-8 angol kulcsszó vesszővel elválasztva a jövőbeli kereséshez és kategória-párosításhoz (pl: monochrome, portrait, high contrast)"}`;
+    // JAVÍTÁS 1: A legstabilabb Gemini modellt használjuk, és SZIGORÚ JSON MÓDBA kényszerítjük!
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-1.5-flash",
+      generationConfig: { responseMimeType: "application/json" } 
+    });
+    
+    // JAVÍTÁS 2: Bolondbiztos prompt, hogy véletlenül se tegyen idézőjelet a szövegbe
+    const prompt = `Te egy szigorú nemzetközi fotós zsűri vagy (FIAP/PSA szabályrendszer). Kérlek, elemezd ezt a fotót. 
+KIZÁRÓLAG egy érvényes JSON objektumot adj vissza!
+A JSON pontos struktúrája ez legyen:
+{
+  "evaluation": "Ide írj egy 2-3 mondatos magyar nyelvű, professzionális, őszinte zsűri értékelést. Térj ki a kompozícióra, fényekre, és a kategóriára. Ne használj idézőjeleket ezen a szövegen belül!",
+  "tags": "ide jöjjön 6-8 angol kulcsszó vesszővel elválasztva (pl: monochrome, portrait)"
+}`;
+    
     const imagePart = { inlineData: { data: base64Image, mimeType: "image/jpeg" } };
     const result = await model.generateContent([prompt, imagePart]);
     const response = await result.response;
-    let text = response.text().trim();
-    if (text.startsWith('```json')) text = text.replace(/^```json\n/, '').replace(/\n```$/, ''); else if (text.startsWith('```')) text = text.replace(/^```\n/, '').replace(/\n```$/, '');
+    let text = response.text();
     
-    JSON.parse(text); // Érvényesség ellenőrzése
+    // JAVÍTÁS 3: Brutálisan levágunk minden sallangot a JSON körül, bárhova is rejtette az AI
+    const jsonStart = text.indexOf('{');
+    const jsonEnd = text.lastIndexOf('}');
+    
+    if (jsonStart === -1 || jsonEnd === -1) {
+      throw new Error("Az AI nem generált felismerhető JSON objektumot.");
+    }
+    
+    // Csak a tiszta kapcsos zárójelek közötti részt tartjuk meg
+    text = text.substring(jsonStart, jsonEnd + 1);
+    
+    // Érvényesség ellenőrzése
+    JSON.parse(text); 
+    
     await pool.query('UPDATE photo_portfolio SET ai_tags = ? WHERE id = ?', [text, req.params.id]);
     res.json({ success: true, ai_tags: text });
   } catch (err) {
     console.error('Gemini API hiba:', err);
-    res.status(500).json({ error: 'Hiba az AI elemzés során: Lehet, hogy az AI nem megfelelő formátumban válaszolt. Próbáld újra!' });
+    res.status(500).json({ error: 'Hiba az AI elemzés során. Lehet, hogy az AI nem megfelelő formátumban válaszolt. Próbáld újra!' });
   }
 });
+
 
 // ==========================================
 // --- FIAP MINŐSÍTÉS STATISZTIKA VÉDVE! ---
