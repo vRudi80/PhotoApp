@@ -633,12 +633,16 @@ function App() {
                 )}
                 
                 {activeTab === 'salons' && (
-                  <SalonsView 
-                    salonSearch={salonSearch} setSalonSearch={setSalonSearch} 
-                    searchedSalons={searchedSalons} setSelectedSalon={setSelectedSalon} 
-                    userEntrySalonIds={userEntrySalonIds}
-                  />
-                )}
+                    <SalonsView 
+                      salonSearch={salonSearch}
+                      setSalonSearch={setSalonSearch}
+                      searchedSalons={searchedSalons}
+                      setSelectedSalon={setSelectedSalon}
+                      userEntrySalonIds={userEntrySalonIds}
+                      user={user}                // <--- EZ HIÁNYZOTT!
+                      BACKEND_URL={BACKEND_URL}  // <--- EZ HIÁNYZOTT!
+                    />
+                  )}
 
                 {activeTab === 'club_nights' && (
                   <ClubNightsView 
