@@ -28,7 +28,17 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
   const [updatingPhotoId, setUpdatingPhotoId] = useState<number | null>(null);
 
   const [analyzingPhotoId, setAnalyzingPhotoId] = useState<number | null>(null);
-
+// --- KORAI KILÉPÉS: Megakadályozza a tartalom felvillanását! ---
+  if (!user || !user.is_premium) {
+    return (
+      <div>
+        <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', color: '#60a5fa' }}>
+          Saját Képalbum
+        </h2>
+        <PremiumPaywall user={user} />
+      </div>
+    );
+  }
   const fetchMyPhotos = async () => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/my-album?userEmail=${user.email}`);
