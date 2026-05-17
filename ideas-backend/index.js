@@ -28,7 +28,7 @@ app.post('/api/webhook', express.raw({type: 'application/json'}), async (req, re
   const sig = req.headers['stripe-signature'];
   let event;
 
-  // BIZTONSÁGI VÉDŐHÁLÓ: Ha még nincs kész a webhook kulcs a Renderen, ne omoljon össze a szerver
+  // BIZTONSÁGI VÉDŐHÁLÓ
   if (!process.env.STRIPE_WEBHOOK_SECRET) {
     console.error('❌ Hiba: A STRIPE_WEBHOOK_SECRET környezeti változó hiányzik a Renderen!');
     return res.status(500).send('Webhook konfigurációs hiba a szerveren.');
@@ -72,13 +72,16 @@ app.post('/api/webhook', express.raw({type: 'application/json'}), async (req, re
     }
   }
 
+  // --- EZ A KÉT SOR HIÁNYZOTT AZ ELŐBB! EZEK ZÁRJÁK LE A FÜGGVÉNYT ---
   res.send();
 });
 
-
+// ==========================================
 // A TÖBBI VÉGPONTNAK MARAD A SIMA JSON
+// ==========================================
 app.use(express.json());
 const upload = multer({ storage: multer.memoryStorage() });
+
 
 // ÚJ: Prémium státuszt ellenőrző kapuőr (Middleware)
 const checkPremium = async (req, res, next) => {
