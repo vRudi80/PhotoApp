@@ -645,7 +645,8 @@ app.post('/api/my-album/:id/analyze', async (req, res) => {
     if (rows.length === 0) return res.status(403).json({ error: 'Nincs jogosultságod vagy a kép nem található!' });
 
     const photo = rows[0];
-    if (!photo.drive_file_id) return res.status(400).json({ error: 'Nem található fizikai fájl a képhöz!' });
+    if (!photo.drive_file_id) return res.status(400).json({ error: 'Ehhez a képhez nem található fizikai fájl. Valószínűleg egy korábban feltöltött kép. Kérlek, töltsd fel újra a "Szerkesztés" gombra kattintva!' });
+
 
     const driveRes = await drive.files.get(
       { fileId: photo.drive_file_id, alt: 'media' },
