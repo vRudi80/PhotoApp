@@ -203,7 +203,7 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
           </div>
 
           <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#10b981', marginBottom: '20px' }}>
-            1.990 Ft <span style={{ fontSize: '1rem', color: '#94a3b8', fontWeight: 'normal' }}>/ hónap</span>
+            1.000 Ft <span style={{ fontSize: '1rem', color: '#94a3b8', fontWeight: 'normal' }}>/ hónap</span>
           </div>
 
           <button 
