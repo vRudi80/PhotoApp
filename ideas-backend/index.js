@@ -5,30 +5,41 @@ const multer = require('multer');
 const { google } = require('googleapis');
 const { Readable } = require('stream');
 require('dotenv').config();
-
 const axios = require('axios');
 const cheerio = require('cheerio');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
-// Gemini AI inicializálása
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// ==========================================
+// 1. INICIALIZÁLÁSOK ÉS KAPCSOLATOK
+// ==========================================
 
-// ÚJ: Stripe inicializálása
+// Adatbázis (MySQL)
+const pool = mysql.createPool({
+  host: process.env.DB_HOST,
+  port: process.env.DB_PORT,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+});
+
+// Stripe, Gemini és Google Drive
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const oauth2Client = new google.auth.OAuth2(process.env.DRIVE_CLIENT_ID, process.env.DRIVE_CLIENT_SECRET, "https://developers.google.com/oauthplayground");
+oauth2Client.setCredentials({ refresh_token: process.env.DRIVE_REFRESH_TOKEN });
+const drive = google.drive({ version: 'v3', auth: oauth2Client });
 
-
-// Express App és Multer (Feltöltés)
+// Express App
 const app = express();
 app.use(cors());
 
 // ==========================================
-// --- STRIPE WEBHOOK (KÖTELEZŐEN AZ express.json ELÉ!) ---
+// 2. STRIPE WEBHOOK (KÖTELEZŐEN AZ express.json ELÉ!)
 // ==========================================
 app.post('/api/webhook', express.raw({type: 'application/json'}), async (req, res) => {
   const sig = req.headers['stripe-signature'];
   let event;
 
-  // BIZTONSÁGI VÉDŐHÁLÓ
   if (!process.env.STRIPE_WEBHOOK_SECRET) {
     console.error('❌ Hiba: A STRIPE_WEBHOOK_SECRET környezeti változó hiányzik a Renderen!');
     return res.status(500).send('Webhook konfigurációs hiba a szerveren.');
@@ -41,7 +52,6 @@ app.post('/api/webhook', express.raw({type: 'application/json'}), async (req, re
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
-  // Ha a fizetés SIKERESEN megtörtént
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object;
     const userEmail = session.customer_email;
@@ -50,7 +60,6 @@ app.post('/api/webhook', express.raw({type: 'application/json'}), async (req, re
     try {
       const premiumUntil = new Date();
       premiumUntil.setMonth(premiumUntil.getMonth() + 1);
-
       await pool.query(
         'UPDATE photo_users SET is_premium = 1, premium_until = ?, stripe_customer_id = ? WHERE email = ?',
         [premiumUntil, customerId, userEmail]
@@ -61,7 +70,6 @@ app.post('/api/webhook', express.raw({type: 'application/json'}), async (req, re
     }
   }
 
-  // Ha a user lemondja az előfizetést
   if (event.type === 'customer.subscription.deleted') {
     const customerId = event.data.object.customer;
     try {
@@ -72,81 +80,67 @@ app.post('/api/webhook', express.raw({type: 'application/json'}), async (req, re
     }
   }
 
-  // --- EZ A KÉT SOR HIÁNYZOTT AZ ELŐBB! EZEK ZÁRJÁK LE A FÜGGVÉNYT ---
   res.send();
 });
 
+
 // ==========================================
-// A TÖBBI VÉGPONTNAK MARAD A SIMA JSON
+// 3. MIDDLEWARE ÉS ALAP BEÁLLÍTÁSOK
 // ==========================================
-app.use(express.json());
+app.use(express.json()); // Most már bekapcsolhatjuk a JSON-t a többi végpontnak!
 const upload = multer({ storage: multer.memoryStorage() });
 
-
-// ÚJ: Prémium státuszt ellenőrző kapuőr (Middleware)
+// Prémium státuszt ellenőrző kapuőr (Middleware)
 const checkPremium = async (req, res, next) => {
-  // A user emailjét megpróbáljuk kiszedni a query-ből vagy a body-ból
   const userEmail = req.query.userEmail || req.body.userEmail;
-  
-  if (!userEmail) {
-    return res.status(400).json({ error: 'Felhasználói azonosító (email) szükséges!' });
-  }
+  if (!userEmail) return res.status(400).json({ error: 'Felhasználói azonosító (email) szükséges!' });
 
   try {
     const [rows] = await pool.query('SELECT is_premium, premium_until FROM photo_users WHERE email = ?', [userEmail]);
-    
     if (rows.length > 0) {
       const user = rows[0];
       const now = new Date();
       const premiumUntil = user.premium_until ? new Date(user.premium_until) : null;
-
-      // Ha be van kapcsolva a prémium ÉS a lejárati dátum a jövőben van
       if (user.is_premium === 1 && premiumUntil && premiumUntil > now) {
-        return next(); // Minden rendben, mehet tovább a funkcióra!
+        return next(); 
       }
     }
-    
-    // Ha nem prémium, vagy lejárt, itt megállítjuk a folyamatot
-    return res.status(403).json({ 
-      error: 'PREMIUM_REQUIRED', 
-      message: 'Ehhez a funkcióhoz aktív Prémium előfizetés szükséges!' 
-    });
+    return res.status(403).json({ error: 'PREMIUM_REQUIRED', message: 'Ehhez a funkcióhoz aktív Prémium előfizetés szükséges!' });
   } catch (err) {
     return res.status(500).json({ error: 'Hiba a jogosultság ellenőrzésekor.' });
   }
 };
+
+
 // ==========================================
+// 4. API VÉGPONTOK (ROUTES)
+// ==========================================
+
 // --- STRIPE: ELŐFIZETÉSI OLDAL (CHECKOUT) GENERÁLÁSA ---
-// ==========================================
 app.post('/api/create-checkout-session', async (req, res) => {
   const { userEmail } = req.body;
   try {
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
-      mode: 'subscription', // Havidíjas előfizetés
+      mode: 'subscription',
       line_items: [
         {
           price_data: {
-            currency: 'huf', // Lehet 'eur' is, ha nemzetközi
+            currency: 'huf',
             product_data: {
               name: 'Képolvasók Fotóklub Prémium',
               description: 'AI képelemzés, korlátlan portfólió, és nemzetközi FIAP/PSA statisztikák.',
             },
-            unit_amount: 199000, // 1990 HUF (a Stripe fillérben/centben számol, ezért kell a +2 nulla)
-            recurring: {
-              interval: 'month', // Havonta ismétlődik
-            },
+            unit_amount: 199000, 
+            recurring: { interval: 'month' },
           },
           quantity: 1,
         },
       ],
       customer_email: userEmail,
-      // Ide fog visszadobni fizetés után (a frontended URL-jét állítsd be majd élesben!)
       success_url: `${req.headers.origin}?payment=success`,
       cancel_url: `${req.headers.origin}?payment=cancel`,
     });
-
-    // Visszaküldjük a Stripe oldal URL-jét a frontendnek
     res.json({ url: session.url });
   } catch (e) {
     console.error('Stripe Hiba:', e);
@@ -154,22 +148,7 @@ app.post('/api/create-checkout-session', async (req, res) => {
   }
 });
 
-const upload = multer({ storage: multer.memoryStorage() });
-
-const pool = mysql.createPool({
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-});
-
-const PORT = process.env.PORT || 4000;
-
-const oauth2Client = new google.auth.OAuth2(process.env.DRIVE_CLIENT_ID, process.env.DRIVE_CLIENT_SECRET, "https://developers.google.com/oauthplayground");
-oauth2Client.setCredentials({ refresh_token: process.env.DRIVE_REFRESH_TOKEN });
-const drive = google.drive({ version: 'v3', auth: oauth2Client });
-
+// --- AUTH ÉS USEREK ---
 app.post('/api/auth/sync', async (req, res) => {
   const { email, name, sub } = req.body;
   try {
@@ -192,6 +171,7 @@ app.put('/api/users/:email', async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Hiba' }); }
 });
 
+// --- KLUBOK ---
 app.get('/api/clubs', async (req, res) => {
   try { const [rows] = await pool.query('SELECT * FROM photo_clubs ORDER BY name ASC'); res.json(rows); } 
   catch (err) { res.status(500).json({ error: 'Hiba' }); }
@@ -207,6 +187,7 @@ app.delete('/api/clubs/:id', async (req, res) => {
   catch (err) { res.status(500).json({ error: 'Hiba' }); }
 });
 
+// --- ZSŰRI ---
 app.get('/api/jury', async (req, res) => {
   try { const [rows] = await pool.query('SELECT * FROM photo_jury'); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
 });
@@ -222,14 +203,7 @@ app.delete('/api/jury', async (req, res) => {
 // --- PÁLYÁZATOK ---
 app.get('/api/contests', async (req, res) => {
   try { 
-    const [rows] = await pool.query(`
-      SELECT c.*, 
-        (SELECT COUNT(*) FROM photo_entries WHERE contest_id = c.id) as entry_count,
-        (SELECT COUNT(*) FROM photo_jury WHERE contest_id = c.id) as jury_count,
-        (SELECT COUNT(*) FROM photo_votes v JOIN photo_entries e ON v.entry_id = e.id WHERE e.contest_id = c.id) as vote_count
-      FROM photo_contests c 
-      ORDER BY c.created_at DESC
-    `); 
+    const [rows] = await pool.query(`SELECT c.*, (SELECT COUNT(*) FROM photo_entries WHERE contest_id = c.id) as entry_count, (SELECT COUNT(*) FROM photo_jury WHERE contest_id = c.id) as jury_count, (SELECT COUNT(*) FROM photo_votes v JOIN photo_entries e ON v.entry_id = e.id WHERE e.contest_id = c.id) as vote_count FROM photo_contests c ORDER BY c.created_at DESC`); 
     res.json(rows); 
   } catch (err) { res.status(500).json({ error: 'Hiba' }); }
 });
@@ -247,9 +221,7 @@ app.put('/api/contests/:id', async (req, res) => {
 app.delete('/api/contests/:id', async (req, res) => {
   try {
     const [entries] = await pool.query('SELECT drive_file_id FROM photo_entries WHERE contest_id = ? AND drive_file_id IS NOT NULL', [req.params.id]);
-    for (const entry of entries) {
-      await drive.files.delete({ fileId: entry.drive_file_id }).catch(e => console.log('Drive törlési hiba:', e.message));
-    }
+    for (const entry of entries) { await drive.files.delete({ fileId: entry.drive_file_id }).catch(e => console.log('Drive törlési hiba:', e.message)); }
     await pool.query('DELETE FROM photo_votes WHERE entry_id IN (SELECT id FROM photo_entries WHERE contest_id = ?)', [req.params.id]);
     await pool.query('DELETE FROM photo_entries WHERE contest_id = ?', [req.params.id]);
     await pool.query('DELETE FROM photo_jury WHERE contest_id = ?', [req.params.id]);
@@ -307,12 +279,7 @@ app.get('/api/admin/jury-stats/:contestId', async (req, res) => {
   try {
     const contestId = req.params.contestId;
     const [[{ total_entries }]] = await pool.query('SELECT COUNT(*) as total_entries FROM photo_entries WHERE contest_id = ?', [contestId]);
-    const [stats] = await pool.query(`
-      SELECT j.user_email, COALESCE(v.voted_count, 0) as voted_count
-      FROM photo_jury j
-      LEFT JOIN (SELECT pv.jury_email, COUNT(*) as voted_count FROM photo_votes pv JOIN photo_entries pe ON pv.entry_id = pe.id WHERE pe.contest_id = ? GROUP BY pv.jury_email) v ON j.user_email = v.jury_email
-      WHERE j.contest_id = ?
-    `, [contestId, contestId]);
+    const [stats] = await pool.query(`SELECT j.user_email, COALESCE(v.voted_count, 0) as voted_count FROM photo_jury j LEFT JOIN (SELECT pv.jury_email, COUNT(*) as voted_count FROM photo_votes pv JOIN photo_entries pe ON pv.entry_id = pe.id WHERE pe.contest_id = ? GROUP BY pv.jury_email) v ON j.user_email = v.jury_email WHERE j.contest_id = ?`, [contestId, contestId]);
     res.json({ total_entries: total_entries || 0, stats });
   } catch (err) { res.status(500).json({ error: 'Hiba a statisztika lekérésekor' }); }
 });
@@ -424,15 +391,7 @@ app.get('/api/my-homework-entries', async (req, res) => {
 app.get('/api/homework-entries/club/:clubId', async (req, res) => {
   const userEmail = req.query.userEmail || '';
   try { 
-    const [rows] = await pool.query(`
-      SELECT e.*, 
-        (SELECT COUNT(*) FROM photo_homework_likes WHERE entry_id = e.id) as like_count,
-        (SELECT COUNT(*) FROM photo_homework_likes WHERE entry_id = e.id AND user_email = ?) as user_liked
-      FROM photo_homework_entries e 
-      JOIN photo_homeworks h ON e.homework_id = h.id 
-      WHERE h.club_id = ? 
-      ORDER BY e.created_at DESC
-    `, [userEmail, req.params.clubId]); 
+    const [rows] = await pool.query(`SELECT e.*, (SELECT COUNT(*) FROM photo_homework_likes WHERE entry_id = e.id) as like_count, (SELECT COUNT(*) FROM photo_homework_likes WHERE entry_id = e.id AND user_email = ?) as user_liked FROM photo_homework_entries e JOIN photo_homeworks h ON e.homework_id = h.id WHERE h.club_id = ? ORDER BY e.created_at DESC`, [userEmail, req.params.clubId]); 
     res.json(rows); 
   } catch (err) { res.status(500).json({ error: 'Hiba' }); }
 });
@@ -491,66 +450,30 @@ app.post('/api/homework-entries/:id/like', async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Hiba a like-olásnál' }); }
 });
 
-// --- NEMZETKÖZI SZALONOK ---
+// --- NEMZETKÖZI SZALONOK ÉS PÁLYÁZATOK (ADMIN) ---
 app.get('/api/countries', async (req, res) => {
-  try { const [rows] = await pool.query('SELECT id, country, country_hun, country_code FROM photo_countries WHERE is_active = 1 ORDER BY country_hun ASC'); res.json(rows); } 
-  catch (err) { res.status(500).json({ error: 'Hiba' }); }
+  try { const [rows] = await pool.query('SELECT id, country, country_hun, country_code FROM photo_countries WHERE is_active = 1 ORDER BY country_hun ASC'); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
 });
 
 app.get('/api/categories', async (req, res) => {
-  try { const [rows] = await pool.query('SELECT * FROM photo_categories ORDER BY hun_name ASC'); res.json(rows); } 
-  catch (err) { res.status(500).json({ error: 'Hiba' }); }
+  try { const [rows] = await pool.query('SELECT * FROM photo_categories ORDER BY hun_name ASC'); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
 });
 
 app.get('/api/patrons', async (req, res) => {
-  try { const [rows] = await pool.query('SELECT * FROM photo_patrons ORDER BY name ASC'); res.json(rows); } 
-  catch (err) { res.status(500).json({ error: 'Hiba' }); }
+  try { const [rows] = await pool.query('SELECT * FROM photo_patrons ORDER BY name ASC'); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
 });
 
 app.get('/api/salons', async (req, res) => {
   try {
-    const [salons] = await pool.query(`
-      SELECT s.*, c.country_hun, c.country_code 
-      FROM photo_salons s 
-      LEFT JOIN photo_countries c ON s.host_country_id = c.id 
-      ORDER BY s.end_date DESC
-    `);
-
-    const [patrons] = await pool.query(`
-      SELECT sp.salon_id, p.name, sp.patron_number 
-      FROM photo_salon_patrons sp 
-      JOIN photo_patrons p ON sp.patron_id = p.id
-    `);
-
-    const [categories] = await pool.query(`
-      SELECT sc.salon_id, cat.hun_name, cat.name 
-      FROM photo_salon_categories sc 
-      JOIN photo_categories cat ON sc.category_id = cat.id
-    `);
-
-    const patronMap = {};
-    patrons.forEach(p => {
-      if (!patronMap[p.salon_id]) patronMap[p.salon_id] = [];
-      patronMap[p.salon_id].push({ name: p.name, number: p.patron_number });
-    });
-
-    const categoryMap = {};
-    categories.forEach(c => {
-      if (!categoryMap[c.salon_id]) categoryMap[c.salon_id] = [];
-      categoryMap[c.salon_id].push(c.hun_name || c.name);
-    });
-
-    const formattedSalons = salons.map(salon => ({
-      ...salon,
-      patron_details: patronMap[salon.id] || [],
-      categories: categoryMap[salon.id] || []
-    }));
-
+    const [salons] = await pool.query(`SELECT s.*, c.country_hun, c.country_code FROM photo_salons s LEFT JOIN photo_countries c ON s.host_country_id = c.id ORDER BY s.end_date DESC`);
+    const [patrons] = await pool.query(`SELECT sp.salon_id, p.name, sp.patron_number FROM photo_salon_patrons sp JOIN photo_patrons p ON sp.patron_id = p.id`);
+    const [categories] = await pool.query(`SELECT sc.salon_id, cat.hun_name, cat.name FROM photo_salon_categories sc JOIN photo_categories cat ON sc.category_id = cat.id`);
+    
+    const patronMap = {}; patrons.forEach(p => { if (!patronMap[p.salon_id]) patronMap[p.salon_id] = []; patronMap[p.salon_id].push({ name: p.name, number: p.patron_number }); });
+    const categoryMap = {}; categories.forEach(c => { if (!categoryMap[c.salon_id]) categoryMap[c.salon_id] = []; categoryMap[c.salon_id].push(c.hun_name || c.name); });
+    const formattedSalons = salons.map(salon => ({ ...salon, patron_details: patronMap[salon.id] || [], categories: categoryMap[salon.id] || [] }));
     res.json(formattedSalons);
-  } catch(err) { 
-    console.error(err);
-    res.status(500).json({error: err.message}); 
-  }
+  } catch(err) { res.status(500).json({error: err.message}); }
 });
 
 app.put('/api/salons/:id', async (req, res) => {
@@ -558,270 +481,141 @@ app.put('/api/salons/:id', async (req, res) => {
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
-
-    // --- ÚJ: DUPLIKÁCIÓ ELLENŐRZÉSE SZERKESZTÉSKOR ---
     if (patronsData && patronsData.length > 0) {
       const numbersToCheck = patronsData.map(p => p.number).filter(n => n && n.trim() !== '');
       if (numbersToCheck.length > 0) {
-        const [existing] = await conn.query(
-          'SELECT patron_number FROM photo_salon_patrons WHERE patron_number IN (?) AND salon_id != ?',
-          [numbersToCheck, req.params.id]
-        );
-        if (existing.length > 0) {
-          await conn.rollback();
-          return res.status(400).json({ error: `Ezzel az azonosítóval (${existing[0].patron_number}) már létezik MÁSIK szalon a rendszerben!` });
-        }
+        const [existing] = await conn.query('SELECT patron_number FROM photo_salon_patrons WHERE patron_number IN (?) AND salon_id != ?', [numbersToCheck, req.params.id]);
+        if (existing.length > 0) { await conn.rollback(); return res.status(400).json({ error: `Ezzel az azonosítóval (${existing[0].patron_number}) már létezik MÁSIK szalon a rendszerben!` }); }
       }
     }
-    
-    await conn.query(
-      'UPDATE photo_salons SET name=?, fee_amount=?, fee_currency=?, start_date=?, end_date=?, website=?, results_date=?, is_circuit=?, awards_count=?, cash_prize=?, circuit_number=?, submission_type=?, host_country_id=? WHERE id=?',
-      [name, feeAmount || null, feeCurrency || 'EUR', startDate || null, endDate, website || null, resultsDate || null, isCircuit ? 1 : 0, awardsCount || 0, cashPrize || null, circuitNumber || null, submissionType || 'online', hostCountryId || null, req.params.id]
-    );
-
+    await conn.query('UPDATE photo_salons SET name=?, fee_amount=?, fee_currency=?, start_date=?, end_date=?, website=?, results_date=?, is_circuit=?, awards_count=?, cash_prize=?, circuit_number=?, submission_type=?, host_country_id=? WHERE id=?', [name, feeAmount || null, feeCurrency || 'EUR', startDate || null, endDate, website || null, resultsDate || null, isCircuit ? 1 : 0, awardsCount || 0, cashPrize || null, circuitNumber || null, submissionType || 'online', hostCountryId || null, req.params.id]);
     await conn.query('DELETE FROM photo_salon_patrons WHERE salon_id = ?', [req.params.id]);
-    
     if (patronsData && patronsData.length > 0) {
       const pValues = patronsData.map(p => [req.params.id, p.id, p.number || null]);
       await conn.query('INSERT INTO photo_salon_patrons (salon_id, patron_id, patron_number) VALUES ?', [pValues]);
     }
-
     await conn.query('DELETE FROM photo_salon_categories WHERE salon_id = ?', [req.params.id]);
     if (categoryIds && categoryIds.length > 0) {
       const cValues = categoryIds.map(id => [req.params.id, id]);
       await conn.query('INSERT INTO photo_salon_categories (salon_id, category_id) VALUES ?', [cValues]);
     }
-
     await conn.commit();
     res.json({ success: true });
-  } catch (e) { 
-    await conn.rollback(); 
-    res.status(500).json({ error: e.message }); 
-  } finally { 
-    conn.release(); 
-  }
+  } catch (e) { await conn.rollback(); res.status(500).json({ error: e.message }); } finally { conn.release(); }
 });
-
 
 app.post('/api/salons', async (req, res) => {
   const { name, feeAmount, feeCurrency, startDate, endDate, website, resultsDate, isCircuit, awardsCount, cashPrize, circuitNumber, submissionType, hostCountryId, patronsData, categoryIds } = req.body;
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
-
-    // --- ÚJ: DUPLIKÁCIÓ ELLENŐRZÉSE AZONOSÍTÓ ALAPJÁN ---
     if (patronsData && patronsData.length > 0) {
       const numbersToCheck = patronsData.map(p => p.number).filter(n => n && n.trim() !== '');
       if (numbersToCheck.length > 0) {
-        const [existing] = await conn.query(
-          'SELECT patron_number FROM photo_salon_patrons WHERE patron_number IN (?)',
-          [numbersToCheck]
-        );
-        if (existing.length > 0) {
-          await conn.rollback();
-          return res.status(400).json({ error: `Ezzel az azonosítóval (${existing[0].patron_number}) már létezik szalon a rendszerben!` });
-        }
+        const [existing] = await conn.query('SELECT patron_number FROM photo_salon_patrons WHERE patron_number IN (?)', [numbersToCheck]);
+        if (existing.length > 0) { await conn.rollback(); return res.status(400).json({ error: `Ezzel az azonosítóval (${existing[0].patron_number}) már létezik szalon a rendszerben!` }); }
       }
     }
-
-    const [result] = await conn.query(
-      'INSERT INTO photo_salons (name, fee_amount, fee_currency, start_date, end_date, website, results_date, is_circuit, awards_count, cash_prize, circuit_number, submission_type, host_country_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [name, feeAmount || null, feeCurrency || 'EUR', startDate || null, endDate, website || null, resultsDate || null, isCircuit ? 1 : 0, awardsCount || 0, cashPrize || null, circuitNumber || null, submissionType || 'online', hostCountryId || null]
-    );
+    const [result] = await conn.query('INSERT INTO photo_salons (name, fee_amount, fee_currency, start_date, end_date, website, results_date, is_circuit, awards_count, cash_prize, circuit_number, submission_type, host_country_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [name, feeAmount || null, feeCurrency || 'EUR', startDate || null, endDate, website || null, resultsDate || null, isCircuit ? 1 : 0, awardsCount || 0, cashPrize || null, circuitNumber || null, submissionType || 'online', hostCountryId || null]);
     const salonId = result.insertId;
-
     if (patronsData && patronsData.length > 0) {
       const pValues = patronsData.map(p => [salonId, p.id, p.number || null]);
       await conn.query('INSERT INTO photo_salon_patrons (salon_id, patron_id, patron_number) VALUES ?', [pValues]);
     }
-    
     if (categoryIds && categoryIds.length > 0) {
       const cValues = categoryIds.map(id => [salonId, id]);
       await conn.query('INSERT INTO photo_salon_categories (salon_id, category_id) VALUES ?', [cValues]);
     }
-    
     await conn.commit();
     res.json({ success: true });
   } catch (e) { await conn.rollback(); res.status(500).json({ error: e.message }); } finally { conn.release(); }
 });
 
 app.delete('/api/salons/:id', async (req, res) => {
-  try { await pool.query('DELETE FROM photo_salons WHERE id = ?', [req.params.id]); res.json({ success: true }); } 
-  catch (err) { res.status(500).json({ error: 'Hiba' }); }
+  try { await pool.query('DELETE FROM photo_salons WHERE id = ?', [req.params.id]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
 });
 
 // ==========================================
-// --- SAJÁT KÉPALBUM (PORTFÓLIÓ) KEZELÉSE ---
+// --- SAJÁT KÉPALBUM (PORTFÓLIÓ) KEZELÉSE VÉDVE! ---
 // ==========================================
-
 app.get('/api/my-album', checkPremium, async (req, res) => {
-  try { 
-    const [rows] = await pool.query('SELECT * FROM photo_portfolio WHERE user_email = ? ORDER BY title ASC', [req.query.userEmail]); 
-    res.json(rows); 
-  } catch (err) { 
-    res.status(500).json({ error: 'Hiba a képek lekérésekor' }); 
-  }
+  try { const [rows] = await pool.query('SELECT * FROM photo_portfolio WHERE user_email = ? ORDER BY title ASC', [req.query.userEmail]); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba a képek lekérésekor' }); }
 });
 
 app.get('/api/my-portfolio-results', async (req, res) => {
   try {
-    const [rows] = await pool.query(`
-      SELECT e.portfolio_id, s.name as salon_name, a.award_name, e.achieved_score, e.acceptance_score 
-      FROM photo_salon_entries e 
-      JOIN photo_salons s ON e.salon_id = s.id 
-      LEFT JOIN photo_awards a ON e.award_id = a.id 
-      WHERE e.user_email = ? AND (e.award_id IS NOT NULL OR e.achieved_score IS NOT NULL)
-      ORDER BY s.end_date DESC
-    `, [req.query.userEmail]);
+    const [rows] = await pool.query(`SELECT e.portfolio_id, s.name as salon_name, a.award_name, e.achieved_score, e.acceptance_score FROM photo_salon_entries e JOIN photo_salons s ON e.salon_id = s.id LEFT JOIN photo_awards a ON e.award_id = a.id WHERE e.user_email = ? AND (e.award_id IS NOT NULL OR e.achieved_score IS NOT NULL) ORDER BY s.end_date DESC`, [req.query.userEmail]);
     res.json(rows);
-  } catch (err) {
-    res.status(500).json({ error: 'Hiba az eredmények lekérésekor' });
-  }
+  } catch (err) { res.status(500).json({ error: 'Hiba az eredmények lekérésekor' }); }
 });
 
-app.post('/api/my-album/upload', upload.single('photo'), checkPremium, async (req, res) => {
+app.post('/api/my-album/upload', checkPremium, upload.single('photo'), async (req, res) => {
   const { userEmail, userName, title } = req.body;
   const file = req.file;
-  
   if (!file) return res.status(400).json({ error: 'Nincs fájl kiválasztva!' });
-  
   try {
-    const bufferStream = new Readable(); 
-    bufferStream.push(file.buffer); 
-    bufferStream.push(null);
-    
+    const bufferStream = new Readable(); bufferStream.push(file.buffer); bufferStream.push(null);
     const fileExt = file.originalname && file.originalname.includes('.') ? file.originalname.substring(file.originalname.lastIndexOf('.')).toLowerCase() : '.jpg';
-    
-    const driveRes = await drive.files.create({ 
-      requestBody: { 
-        name: `Portfolio_${userName}_${Date.now()}${fileExt}`, 
-        parents: [process.env.DRIVE_MASTER_FOLDER_ID] 
-      }, 
-      media: { mimeType: file.mimetype, body: bufferStream }, 
-      fields: 'id, webViewLink' 
-    });
-
-    await pool.query(
-      'INSERT INTO photo_portfolio (user_email, user_name, title, file_url, drive_file_id) VALUES (?, ?, ?, ?, ?)', 
-      [userEmail, userName, title, driveRes.data.webViewLink, driveRes.data.id]
-    );
-    
+    const driveRes = await drive.files.create({ requestBody: { name: `Portfolio_${userName}_${Date.now()}${fileExt}`, parents: [process.env.DRIVE_MASTER_FOLDER_ID] }, media: { mimeType: file.mimetype, body: bufferStream }, fields: 'id, webViewLink' });
+    await pool.query('INSERT INTO photo_portfolio (user_email, user_name, title, file_url, drive_file_id) VALUES (?, ?, ?, ?, ?)', [userEmail, userName, title, driveRes.data.webViewLink, driveRes.data.id]);
     res.json({ success: true });
-  } catch (err) { 
-    res.status(500).json({ error: err.message }); 
-  }
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.put('/api/my-album/:id', upload.single('photo'), async (req, res) => {
+app.put('/api/my-album/:id', checkPremium, upload.single('photo'), async (req, res) => {
   try {
-    const { title, userEmail } = req.body;
-    const file = req.file;
-
+    const { title, userEmail } = req.body; const file = req.file;
     const [rows] = await pool.query('SELECT * FROM photo_portfolio WHERE id = ? AND user_email = ?', [req.params.id, userEmail]);
     if (rows.length === 0) return res.status(403).json({ error: 'Nincs jogosultságod módosítani ezt a képet!' });
-
     if (file) {
-      if (rows[0].drive_file_id) {
-        await drive.files.delete({ fileId: rows[0].drive_file_id }).catch(e => console.log('Régi kép törlése a Drive-ról sikertelen:', e.message));
-      }
-
-      const bufferStream = new Readable(); 
-      bufferStream.push(file.buffer); 
-      bufferStream.push(null);
-      
+      if (rows[0].drive_file_id) await drive.files.delete({ fileId: rows[0].drive_file_id }).catch(e => console.log('Régi kép törlése a Drive-ról sikertelen:', e.message));
+      const bufferStream = new Readable(); bufferStream.push(file.buffer); bufferStream.push(null);
       const fileExt = file.originalname && file.originalname.includes('.') ? file.originalname.substring(file.originalname.lastIndexOf('.')).toLowerCase() : '.jpg';
       const userName = rows[0].user_name || 'Ismeretlen';
-      
-      const driveRes = await drive.files.create({ 
-        requestBody: { 
-          name: `Portfolio_${userName}_Frissitett_${Date.now()}${fileExt}`, 
-          parents: [process.env.DRIVE_MASTER_FOLDER_ID] 
-        }, 
-        media: { mimeType: file.mimetype, body: bufferStream }, 
-        fields: 'id, webViewLink' 
-      });
-
-      await pool.query(
-        'UPDATE photo_portfolio SET title = ?, file_url = ?, drive_file_id = ? WHERE id = ? AND user_email = ?',
-        [title, driveRes.data.webViewLink, driveRes.data.id, req.params.id, userEmail]
-      );
+      const driveRes = await drive.files.create({ requestBody: { name: `Portfolio_${userName}_Frissitett_${Date.now()}${fileExt}`, parents: [process.env.DRIVE_MASTER_FOLDER_ID] }, media: { mimeType: file.mimetype, body: bufferStream }, fields: 'id, webViewLink' });
+      await pool.query('UPDATE photo_portfolio SET title = ?, file_url = ?, drive_file_id = ? WHERE id = ? AND user_email = ?', [title, driveRes.data.webViewLink, driveRes.data.id, req.params.id, userEmail]);
     } else {
       await pool.query('UPDATE photo_portfolio SET title = ? WHERE id = ? AND user_email = ?', [title, req.params.id, userEmail]);
     }
-
     res.json({ success: true });
-  } catch (err) { 
-    res.status(500).json({ error: 'Hiba a kép frissítésekor: ' + err.message }); 
-  }
+  } catch (err) { res.status(500).json({ error: 'Hiba a kép frissítésekor: ' + err.message }); }
 });
 
-app.delete('/api/my-album/:id', async (req, res) => {
+app.delete('/api/my-album/:id', checkPremium, async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT * FROM photo_portfolio WHERE id = ? AND user_email = ?', [req.params.id, req.body.userEmail]);
     if (rows.length === 0) return res.status(403).json({ error: 'Nincs jogod!' });
-    
-    if (rows[0].drive_file_id) {
-      await drive.files.delete({ fileId: rows[0].drive_file_id }).catch(e => console.log(e.message));
-    }
-    
+    if (rows[0].drive_file_id) await drive.files.delete({ fileId: rows[0].drive_file_id }).catch(e => console.log(e.message));
     await pool.query('DELETE FROM photo_portfolio WHERE id = ?', [req.params.id]);
     res.json({ success: true });
-  } catch (err) { 
-    res.status(500).json({ error: 'Hiba a törlésnél' }); 
-  }
+  } catch (err) { res.status(500).json({ error: 'Hiba a törlésnél' }); }
 });
 
 // ==========================================
-// --- VALÓDI AI KÉPELEMZÉS (SZÖVEGES ÉRTÉKELÉS + KULCSSZAVAK) ---
+// --- VALÓDI AI KÉPELEMZÉS VÉDVE! ---
 // ==========================================
 app.post('/api/my-album/:id/analyze', checkPremium, async (req, res) => {
   const { userEmail } = req.body;
   try {
     const [rows] = await pool.query('SELECT * FROM photo_portfolio WHERE id = ? AND user_email = ?', [req.params.id, userEmail]);
     if (rows.length === 0) return res.status(403).json({ error: 'Nincs jogosultságod vagy a kép nem található!' });
-
     const photo = rows[0];
     if (!photo.drive_file_id) return res.status(400).json({ error: 'Ehhez a képhez nem található fizikai fájl. Valószínűleg egy korábban feltöltött kép. Kérlek, töltsd fel újra a "Szerkesztés" gombra kattintva!' });
 
-
-    const driveRes = await drive.files.get(
-      { fileId: photo.drive_file_id, alt: 'media' },
-      { responseType: 'arraybuffer' }
-    );
+    const driveRes = await drive.files.get({ fileId: photo.drive_file_id, alt: 'media' }, { responseType: 'arraybuffer' });
     const imageBuffer = Buffer.from(driveRes.data);
     const base64Image = imageBuffer.toString('base64');
-
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     
-    // ÚJ PROMPT: JSON formátum kérése (Magyar értékelés + Angol kulcsszavak)
-    const prompt = `Te egy szigorú nemzetközi fotós zsűri vagy (FIAP/PSA szabályrendszer). 
-    Kérlek, elemezd ezt a fotót, és adj vissza KIZÁRÓLAG egy érvényes JSON objektumot az alábbi struktúrával (ne használj markdown jelöléseket, csak a tiszta JSON-t adja vissza):
-    {
-      "evaluation": "Ide írj egy 2-3 mondatos magyar nyelvű, professzionális, őszinte (akár kritikus) zsűri értékelést. Térj ki a kompozícióra, fényekre, és arra, hogy mennyire ajánlod nemzetközi pályázatra, és melyik kategóriába (pl. Open Color, Nature, Monochrome, stb.).",
-      "tags": "ide jöjjön 6-8 angol kulcsszó vesszővel elválasztva a jövőbeli kereséshez és kategória-párosításhoz (pl: monochrome, portrait, high contrast)"
-    }`;
-
-    const imagePart = {
-      inlineData: { data: base64Image, mimeType: "image/jpeg" }
-    };
-
+    const prompt = `Te egy szigorú nemzetközi fotós zsűri vagy (FIAP/PSA szabályrendszer). Kérlek, elemezd ezt a fotót, és adj vissza KIZÁRÓLAG egy érvényes JSON objektumot az alábbi struktúrával (ne használj markdown jelöléseket, csak a tiszta JSON-t adja vissza): {"evaluation": "Ide írj egy 2-3 mondatos magyar nyelvű, professzionális, őszinte (akár kritikus) zsűri értékelést. Térj ki a kompozícióra, fényekre, és arra, hogy mennyire ajánlod nemzetközi pályázatra, és melyik kategóriába (pl. Open Color, Nature, Monochrome, stb.).", "tags": "ide jöjjön 6-8 angol kulcsszó vesszővel elválasztva a jövőbeli kereséshez és kategória-párosításhoz (pl: monochrome, portrait, high contrast)"}`;
+    const imagePart = { inlineData: { data: base64Image, mimeType: "image/jpeg" } };
     const result = await model.generateContent([prompt, imagePart]);
     const response = await result.response;
     let text = response.text().trim();
+    if (text.startsWith('```json')) text = text.replace(/^```json\n/, '').replace(/\n```$/, ''); else if (text.startsWith('```')) text = text.replace(/^```\n/, '').replace(/\n```$/, '');
     
-    // Tisztítás, ha a Gemini mégis tenne köré markdown kódot (```json ... ```)
-    if (text.startsWith('```json')) {
-      text = text.replace(/^```json\n/, '').replace(/\n```$/, '');
-    } else if (text.startsWith('```')) {
-      text = text.replace(/^```\n/, '').replace(/\n```$/, '');
-    }
-
-    // Biztonsági ellenőrzés: megnézzük, hogy tényleg érvényes JSON-t kaptunk-e
-    JSON.parse(text);
-
-    // Eltároljuk a JSON stringet az adatbázisban
+    JSON.parse(text); // Érvényesség ellenőrzése
     await pool.query('UPDATE photo_portfolio SET ai_tags = ? WHERE id = ?', [text, req.params.id]);
-
     res.json({ success: true, ai_tags: text });
   } catch (err) {
     console.error('Gemini API hiba:', err);
@@ -829,355 +623,133 @@ app.post('/api/my-album/:id/analyze', checkPremium, async (req, res) => {
   }
 });
 
-
-
 // ==========================================
-// --- FIAP MINŐSÍTÉS STATISZTIKA ---
+// --- FIAP MINŐSÍTÉS STATISZTIKA VÉDVE! ---
 // ==========================================
 app.get('/api/fiap-progress', checkPremium, async (req, res) => {
   const userEmail = req.query.userEmail;
   try {
-    const baseWhere = `
-      WHERE e.user_email = ? 
-        AND e.award_id IS NOT NULL 
-        AND e.award_id > 0
-        AND a.award_name IS NOT NULL 
-        AND TRIM(a.award_name) != '' 
-        AND EXISTS (
-          SELECT 1 FROM photo_salon_patrons sp 
-          WHERE sp.salon_id = s.id AND sp.patron_id = 1
-        )
-    `;
-
-    const [accRows] = await pool.query(`
-      SELECT COALESCE(SUM(
-        GREATEST(pre_2026_count, LEAST(pre_2026_count + post_2026_count, 10))
-      ), 0) as total_acceptances
-      FROM (
-        SELECT 
-          e.portfolio_id,
-          SUM(CASE WHEN YEAR(s.end_date) < 2026 THEN 1 ELSE 0 END) as pre_2026_count,
-          SUM(CASE WHEN YEAR(s.end_date) >= 2026 THEN 1 ELSE 0 END) as post_2026_count
-        FROM photo_salon_entries e
-        JOIN photo_salons s ON e.salon_id = s.id
-        JOIN photo_awards a ON e.award_id = a.id
-        ${baseWhere}
-        GROUP BY e.portfolio_id
-      ) as sub
-    `, [userEmail]);
-
-    const [countryRows] = await pool.query(`
-      SELECT COUNT(DISTINCT s.host_country_id) as distinct_countries
-      FROM photo_salon_entries e
-      JOIN photo_salons s ON e.salon_id = s.id
-      JOIN photo_awards a ON e.award_id = a.id
-      ${baseWhere}
-    `, [userEmail]);
-
-    const [workRows] = await pool.query(`
-      SELECT COUNT(DISTINCT e.portfolio_id) as distinct_works
-      FROM photo_salon_entries e
-      JOIN photo_salons s ON e.salon_id = s.id
-      JOIN photo_awards a ON e.award_id = a.id
-      ${baseWhere}
-    `, [userEmail]);
-
-    res.json({
-      acceptances: Number(accRows[0].total_acceptances) || 0,
-      countries: Number(countryRows[0].distinct_countries) || 0,
-      works: Number(workRows[0].distinct_works) || 0
-    });
-
-  } catch (err) {
-    console.error("FIAP statisztika hiba:", err);
-    res.status(500).json({ error: 'Hiba a FIAP statisztika lekérésekor' });
-  }
+    const baseWhere = `WHERE e.user_email = ? AND e.award_id IS NOT NULL AND e.award_id > 0 AND a.award_name IS NOT NULL AND TRIM(a.award_name) != '' AND EXISTS (SELECT 1 FROM photo_salon_patrons sp WHERE sp.salon_id = s.id AND sp.patron_id = 1)`;
+    const [accRows] = await pool.query(`SELECT COALESCE(SUM(GREATEST(pre_2026_count, LEAST(pre_2026_count + post_2026_count, 10))), 0) as total_acceptances FROM (SELECT e.portfolio_id, SUM(CASE WHEN YEAR(s.end_date) < 2026 THEN 1 ELSE 0 END) as pre_2026_count, SUM(CASE WHEN YEAR(s.end_date) >= 2026 THEN 1 ELSE 0 END) as post_2026_count FROM photo_salon_entries e JOIN photo_salons s ON e.salon_id = s.id JOIN photo_awards a ON e.award_id = a.id ${baseWhere} GROUP BY e.portfolio_id) as sub`, [userEmail]);
+    const [countryRows] = await pool.query(`SELECT COUNT(DISTINCT s.host_country_id) as distinct_countries FROM photo_salon_entries e JOIN photo_salons s ON e.salon_id = s.id JOIN photo_awards a ON e.award_id = a.id ${baseWhere}`, [userEmail]);
+    const [workRows] = await pool.query(`SELECT COUNT(DISTINCT e.portfolio_id) as distinct_works FROM photo_salon_entries e JOIN photo_salons s ON e.salon_id = s.id JOIN photo_awards a ON e.award_id = a.id ${baseWhere}`, [userEmail]);
+    res.json({ acceptances: Number(accRows[0].total_acceptances) || 0, countries: Number(countryRows[0].distinct_countries) || 0, works: Number(workRows[0].distinct_works) || 0 });
+  } catch (err) { res.status(500).json({ error: 'Hiba a FIAP statisztika lekérésekor' }); }
 });
 
-// ==========================================
-// --- FIAP TÉTELES EREDMÉNYEK (TÁBLÁZATHOZ) ---
-// ==========================================
-app.get('/api/fiap-entries', async (req, res) => {
+app.get('/api/fiap-entries', checkPremium, async (req, res) => {
   const userEmail = req.query.userEmail;
   try {
-    const [rows] = await pool.query(`
-      SELECT 
-        COALESCE(p.title, 'Ismeretlen / Törölt kép') as photo_title,
-        s.name as salon_name,
-        c.country_hun as country,
-        c.country_code as country_code,
-        sp.patron_number as fiap_number,
-        a.award_name as award,
-        s.submission_type,
-        p.drive_file_id,
-        p.file_url
-      FROM photo_salon_entries e
-      JOIN photo_salons s ON e.salon_id = s.id
-      JOIN photo_awards a ON e.award_id = a.id
-      JOIN photo_salon_patrons sp ON sp.salon_id = s.id AND sp.patron_id = 1
-      LEFT JOIN photo_portfolio p ON e.portfolio_id = p.id
-      LEFT JOIN photo_countries c ON s.host_country_id = c.id
-      WHERE e.user_email = ?
-        AND e.award_id IS NOT NULL 
-        AND e.award_id > 0
-        AND a.award_name IS NOT NULL 
-        AND TRIM(a.award_name) != '' 
-      ORDER BY s.name ASC, photo_title ASC
-    `, [userEmail]);
-    
+    const [rows] = await pool.query(`SELECT COALESCE(p.title, 'Ismeretlen / Törölt kép') as photo_title, s.name as salon_name, c.country_hun as country, c.country_code as country_code, sp.patron_number as fiap_number, a.award_name as award, s.submission_type, p.drive_file_id, p.file_url FROM photo_salon_entries e JOIN photo_salons s ON e.salon_id = s.id JOIN photo_awards a ON e.award_id = a.id JOIN photo_salon_patrons sp ON sp.salon_id = s.id AND sp.patron_id = 1 LEFT JOIN photo_portfolio p ON e.portfolio_id = p.id LEFT JOIN photo_countries c ON s.host_country_id = c.id WHERE e.user_email = ? AND e.award_id IS NOT NULL AND e.award_id > 0 AND a.award_name IS NOT NULL AND TRIM(a.award_name) != '' ORDER BY s.name ASC, photo_title ASC`, [userEmail]);
     res.json(rows);
-  } catch (err) {
-    console.error("FIAP tételes hiba:", err);
-    res.status(500).json({ error: 'Hiba a FIAP tételes lista lekérésekor' });
-  }
+  } catch (err) { res.status(500).json({ error: 'Hiba a FIAP tételes lista lekérésekor' }); }
 });
 
-// ==========================================
-// --- SZALON NEVEZÉSEK (PORTFÓLIÓBÓL) ---
-// ==========================================
+// --- SZALON NEVEZÉSEK ÉS EGYÉB (PORTFÓLIÓBÓL) ---
 app.get('/api/salon-entries/:salonId', async (req, res) => {
-  try {
-    const [rows] = await pool.query(`
-      SELECT e.id as entry_id, e.category, e.award_id, e.achieved_score, e.acceptance_score, 
-             p.*, a.award_name 
-      FROM photo_salon_entries e 
-      JOIN photo_portfolio p ON e.portfolio_id = p.id 
-      LEFT JOIN photo_awards a ON e.award_id = a.id
-      WHERE e.salon_id = ? AND e.user_email = ?
-    `, [req.params.salonId, req.query.userEmail]);
-    res.json(rows);
-  } catch (err) {
-    res.status(500).json({ error: 'Hiba a nevezések lekérésekor' });
-  }
+  try { const [rows] = await pool.query(`SELECT e.id as entry_id, e.category, e.award_id, e.achieved_score, e.acceptance_score, p.*, a.award_name FROM photo_salon_entries e JOIN photo_portfolio p ON e.portfolio_id = p.id LEFT JOIN photo_awards a ON e.award_id = a.id WHERE e.salon_id = ? AND e.user_email = ?`, [req.params.salonId, req.query.userEmail]); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba a nevezések lekérésekor' }); }
 });
-
 app.post('/api/salon-entries', async (req, res) => {
   const { salonId, userEmail, portfolioId, category } = req.body;
   try {
     const [existing] = await pool.query('SELECT * FROM photo_salon_entries WHERE salon_id = ? AND portfolio_id = ? AND user_email = ?', [salonId, portfolioId, userEmail]);
     if (existing.length > 0) return res.status(400).json({ error: 'Ezt a képet már nevezted erre a szalonra!' });
-    
     await pool.query('INSERT INTO photo_salon_entries (salon_id, user_email, portfolio_id, category) VALUES (?, ?, ?, ?)', [salonId, userEmail, portfolioId, category]);
     res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: 'Hiba a nevezésnél' });
-  }
+  } catch (err) { res.status(500).json({ error: 'Hiba a nevezésnél' }); }
 });
-
 app.delete('/api/salon-entries/:id', async (req, res) => {
-  try {
-    await pool.query('DELETE FROM photo_salon_entries WHERE id = ? AND user_email = ?', [req.params.id, req.body.userEmail]);
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: 'Hiba a nevezés visszavonásakor' });
-  }
+  try { await pool.query('DELETE FROM photo_salon_entries WHERE id = ? AND user_email = ?', [req.params.id, req.body.userEmail]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: 'Hiba a nevezés visszavonásakor' }); }
 });
-
 app.get('/api/my-salon-entries-status', async (req, res) => {
-  try {
-    const [rows] = await pool.query(
-      'SELECT DISTINCT salon_id FROM photo_salon_entries WHERE user_email = ?', 
-      [req.query.userEmail]
-    );
-    res.json(rows.map(r => r.salon_id));
-  } catch (err) { res.status(500).json({ error: 'Hiba' }); }
+  try { const [rows] = await pool.query('SELECT DISTINCT salon_id FROM photo_salon_entries WHERE user_email = ?', [req.query.userEmail]); res.json(rows.map(r => r.salon_id)); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
 });
-
 app.get('/api/awards', async (req, res) => {
-  try { 
-    const [rows] = await pool.query('SELECT * FROM photo_awards ORDER BY id ASC'); 
-    res.json(rows); 
-  } catch (err) { 
-    res.status(500).json({ error: 'Hiba' }); 
-  }
+  try { const [rows] = await pool.query('SELECT * FROM photo_awards ORDER BY id ASC'); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
 });
-
 app.put('/api/salon-entries/:id/results', async (req, res) => {
   const { awardId, achievedScore, acceptanceScore, userEmail } = req.body;
-  try {
-    await pool.query(
-      'UPDATE photo_salon_entries SET award_id = ?, achieved_score = ?, acceptance_score = ? WHERE id = ? AND user_email = ?',
-      [awardId || null, achievedScore || null, acceptanceScore || null, req.params.id, userEmail]
-    );
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: 'Hiba az eredmények mentésekor' });
-  }
+  try { await pool.query('UPDATE photo_salon_entries SET award_id = ?, achieved_score = ?, acceptance_score = ? WHERE id = ? AND user_email = ?', [awardId || null, achievedScore || null, acceptanceScore || null, req.params.id, userEmail]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: 'Hiba az eredmények mentésekor' }); }
 });
 
-// ==========================================
-// --- KATEGÓRIÁK KEZELÉSE (ADMIN) ---
-// ==========================================
 app.post('/api/categories', async (req, res) => {
-  try {
-    await pool.query('INSERT INTO photo_categories (name, hun_name) VALUES (?, ?)', [req.body.name, req.body.hunName]);
-    res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: 'Hiba a kategória létrehozásakor' }); }
+  try { await pool.query('INSERT INTO photo_categories (name, hun_name) VALUES (?, ?)', [req.body.name, req.body.hunName]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: 'Hiba a kategória létrehozásakor' }); }
 });
-
 app.put('/api/categories/:id', async (req, res) => {
-  try {
-    await pool.query('UPDATE photo_categories SET name = ?, hun_name = ? WHERE id = ?', [req.body.name, req.body.hunName, req.params.id]);
-    res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: 'Hiba a kategória frissítésekor' }); }
+  try { await pool.query('UPDATE photo_categories SET name = ?, hun_name = ? WHERE id = ?', [req.body.name, req.body.hunName, req.params.id]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: 'Hiba a kategória frissítésekor' }); }
 });
-
 app.delete('/api/categories/:id', async (req, res) => {
-  try {
-    await pool.query('DELETE FROM photo_categories WHERE id = ?', [req.params.id]);
-    res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: 'Hiba a kategória törlésekor. Lehet, hogy már használatban van egy szalonnál!' }); }
+  try { await pool.query('DELETE FROM photo_categories WHERE id = ?', [req.params.id]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
 });
-
-// ==========================================
-// --- DÍJAK (AWARDS) KEZELÉSE (ADMIN) ---
-// ==========================================
 app.post('/api/awards', async (req, res) => {
-  try {
-    const [[{ nextId }]] = await pool.query('SELECT COALESCE(MAX(id), 0) + 1 as nextId FROM photo_awards');
-    await pool.query('INSERT INTO photo_awards (id, award_name) VALUES (?, ?)', [nextId, req.body.awardName]);
-    res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: 'Hiba a díj létrehozásakor' }); }
+  try { const [[{ nextId }]] = await pool.query('SELECT COALESCE(MAX(id), 0) + 1 as nextId FROM photo_awards'); await pool.query('INSERT INTO photo_awards (id, award_name) VALUES (?, ?)', [nextId, req.body.awardName]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: 'Hiba a díj létrehozásakor' }); }
 });
-
 app.put('/api/awards/:id', async (req, res) => {
-  try {
-    await pool.query('UPDATE photo_awards SET award_name = ? WHERE id = ?', [req.body.awardName, req.params.id]);
-    res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: 'Hiba a díj frissítésekor' }); }
+  try { await pool.query('UPDATE photo_awards SET award_name = ? WHERE id = ?', [req.body.awardName, req.params.id]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: 'Hiba a díj frissítésekor' }); }
 });
-
 app.delete('/api/awards/:id', async (req, res) => {
-  try {
-    await pool.query('DELETE FROM photo_awards WHERE id = ?', [req.params.id]);
-    res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: 'Hiba a díj törlésekor. Lehet, hogy egy kép már megkapta ezt a díjat!' }); }
+  try { await pool.query('DELETE FROM photo_awards WHERE id = ?', [req.params.id]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: 'Hiba a díj törlésekor' }); }
 });
 
-// ==========================================
-// --- MYFIAP.NET LETAPOGATÓ ROBOT (MÁR LÉTEZŐK KISZŰRÉSÉVEL) ---
-// ==========================================
+// --- FIAP IMPORT ROBOT ---
 app.get('/api/admin/scrape-fiap', async (req, res) => {
   try {
-    // 1. Lekérjük az eddig elmentett FIAP azonosítókat a te adatbázisodból
     const [existingPatrons] = await pool.query('SELECT patron_number FROM photo_salon_patrons WHERE patron_id = 1 AND patron_number IS NOT NULL');
     const existingFiapNumbers = existingPatrons.map(p => p.patron_number);
-
-    const response = await axios.get('https://www.myfiap.net/patronages', {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml',
-      }
-    });
-    
+    const response = await axios.get('https://www.myfiap.net/patronages', { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 'Accept': 'text/html,application/xhtml+xml,application/xml' } });
     const $ = cheerio.load(response.data);
     const scrapedSalons = [];
-
     $('table tbody tr').each((index, element) => {
       const tds = $(element).find('td');
-      
       if (tds.length >= 11) {
         const fiapNumber = $(tds[0]).text().trim();
-        
-        // Csak akkor mentjük, ha érvényes a FIAP szám, ÉS MÉG NINCS BENT az adatbázisodban!
         if (fiapNumber && fiapNumber.includes('/') && !existingFiapNumbers.includes(fiapNumber)) {
-          
           const typeRaw = $(tds[1]).text().trim();
           const sectionsRaw = $(tds[2]).text().trim();
-          let name = $(tds[4]).text().trim();       
-          if (!name) name = $(tds[3]).text().trim();
+          let name = $(tds[4]).text().trim(); if (!name) name = $(tds[3]).text().trim();
           const country = $(tds[5]).text().trim();    
           const feeRaw = $(tds[8]) ? $(tds[8]).text().trim() : ''; 
           const feeMatch = feeRaw.match(/\d+/);
           const fee = feeMatch ? feeMatch[0] : null;
           const deadlineStr = $(tds[10]) ? $(tds[10]).text().trim() : '';
-          
           let website = $(tds[11]) ? $(tds[11]).text().trim() : '';
-          if (website && !website.startsWith('http')) {
-            website = `https://${website}`;
-          }
-
-          scrapedSalons.push({
-            fiap_number: fiapNumber,
-            name: name || 'Névtelen Szalon',
-            country: country,
-            end_date_raw: deadlineStr,
-            fee: fee,
-            website: website,
-            categories: sectionsRaw.split(',').map(c => c.trim()).filter(c => c),
-            submission_type: typeRaw.includes('PI') ? 'online' : 'print',
-            is_circuit: (name.toLowerCase().includes('circuit') || $(tds[3]).text().toLowerCase().includes('circuit')) ? 1 : 0
-          });
+          if (website && !website.startsWith('http')) website = `https://${website}`;
+          scrapedSalons.push({ fiap_number: fiapNumber, name: name || 'Névtelen Szalon', country: country, end_date_raw: deadlineStr, fee: fee, website: website, categories: sectionsRaw.split(',').map(c => c.trim()).filter(c => c), submission_type: typeRaw.includes('PI') ? 'online' : 'print', is_circuit: (name.toLowerCase().includes('circuit') || $(tds[3]).text().toLowerCase().includes('circuit')) ? 1 : 0 });
         }
       }
     });
-
     res.json(scrapedSalons);
-  } catch (err) {
-    console.error('Web Scraping Hiba:', err.message);
-    res.status(500).json({ error: `Hálózati hiba a myfiap.net felé: ${err.message}` });
-  }
+  } catch (err) { res.status(500).json({ error: `Hálózati hiba: ${err.message}` }); }
 });
 
-// ==========================================
-// --- TÖMEGES IMPORTÁLÓ VÉGPONT (VÉDVE DUPLIKÁCIÓ ELLEN) ---
-// ==========================================
 app.post('/api/admin/import-fiap', async (req, res) => {
   const { salonsToImport } = req.body;
   if (!salonsToImport || salonsToImport.length === 0) return res.json({ count: 0 });
-
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
     let importedCount = 0;
-
     const [dbCountries] = await conn.query('SELECT id, country, country_hun FROM photo_countries');
     const todayStr = new Date().toISOString().split('T')[0];
-
     for (const salon of salonsToImport) {
-      // --- ÚJ: BIZTONSÁGI DUPLIKÁCIÓ ELLENŐRZÉS MENTÉS ELŐTT ---
       if (salon.fiap_number) {
         const [existing] = await conn.query('SELECT salon_id FROM photo_salon_patrons WHERE patron_number = ?', [salon.fiap_number]);
-        if (existing.length > 0) {
-          continue; // Ha már létezik, átugorjuk ezt a szalont, és megyünk a következőre
-        }
+        if (existing.length > 0) continue; 
       }
-
-      const matchedCountry = dbCountries.find(c => 
-        c.country.toLowerCase() === salon.country.toLowerCase() || 
-        c.country_hun.toLowerCase() === salon.country.toLowerCase()
-      );
+      const matchedCountry = dbCountries.find(c => c.country.toLowerCase() === salon.country.toLowerCase() || c.country_hun.toLowerCase() === salon.country.toLowerCase());
       const hostCountryId = matchedCountry ? matchedCountry.id : null;
-
       let formattedEndDate = null;
       if (salon.end_date_raw) {
         const d = new Date(salon.end_date_raw);
         if (!isNaN(d.getTime())) formattedEndDate = d.toISOString().split('T')[0];
       }
-
-      const [insertResult] = await conn.query(
-        'INSERT INTO photo_salons (name, start_date, end_date, website, fee_amount, fee_currency, is_circuit, submission_type, host_country_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [salon.name, todayStr, formattedEndDate, salon.website, salon.fee, 'EUR', salon.is_circuit, salon.submission_type, hostCountryId]
-      );
-
-      await conn.query(
-        'INSERT INTO photo_salon_patrons (salon_id, patron_id, patron_number) VALUES (?, ?, ?)',
-        [insertResult.insertId, 1, salon.fiap_number]
-      );
-      
+      const [insertResult] = await conn.query('INSERT INTO photo_salons (name, start_date, end_date, website, fee_amount, fee_currency, is_circuit, submission_type, host_country_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [salon.name, todayStr, formattedEndDate, salon.website, salon.fee, 'EUR', salon.is_circuit, salon.submission_type, hostCountryId]);
+      await conn.query('INSERT INTO photo_salon_patrons (salon_id, patron_id, patron_number) VALUES (?, ?, ?)', [insertResult.insertId, 1, salon.fiap_number]);
       importedCount++;
     }
-
     await conn.commit();
     res.json({ count: importedCount, success: true });
-  } catch (e) {
-    await conn.rollback();
-    res.status(500).json({ error: e.message });
-  } finally {
-    conn.release();
-  }
+  } catch (e) { await conn.rollback(); res.status(500).json({ error: e.message }); } finally { conn.release(); }
 });
-
-
 
 app.listen(PORT, () => console.log(`Szerver fut a ${PORT} porton`));
