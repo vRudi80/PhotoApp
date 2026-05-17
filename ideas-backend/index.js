@@ -591,7 +591,7 @@ app.delete('/api/salons/:id', async (req, res) => {
 // --- SAJÁT KÉPALBUM (PORTFÓLIÓ) KEZELÉSE ---
 // ==========================================
 
-app.get('/api/my-album', async (req, res) => {
+app.get('/api/my-album', checkPremium, async (req, res) => {
   try { 
     const [rows] = await pool.query('SELECT * FROM photo_portfolio WHERE user_email = ? ORDER BY title ASC', [req.query.userEmail]); 
     res.json(rows); 
@@ -616,7 +616,7 @@ app.get('/api/my-portfolio-results', async (req, res) => {
   }
 });
 
-app.post('/api/my-album/upload', upload.single('photo'), async (req, res) => {
+app.post('/api/my-album/upload', upload.single('photo'), checkPremium, async (req, res) => {
   const { userEmail, userName, title } = req.body;
   const file = req.file;
   
@@ -711,7 +711,7 @@ app.delete('/api/my-album/:id', async (req, res) => {
 // ==========================================
 // --- VALÓDI AI KÉPELEMZÉS (SZÖVEGES ÉRTÉKELÉS + KULCSSZAVAK) ---
 // ==========================================
-app.post('/api/my-album/:id/analyze', async (req, res) => {
+app.post('/api/my-album/:id/analyze', checkPremium, async (req, res) => {
   const { userEmail } = req.body;
   try {
     const [rows] = await pool.query('SELECT * FROM photo_portfolio WHERE id = ? AND user_email = ?', [req.params.id, userEmail]);
@@ -771,7 +771,7 @@ app.post('/api/my-album/:id/analyze', async (req, res) => {
 // ==========================================
 // --- FIAP MINŐSÍTÉS STATISZTIKA ---
 // ==========================================
-app.get('/api/fiap-progress', async (req, res) => {
+app.get('/api/fiap-progress', checkPremium, async (req, res) => {
   const userEmail = req.query.userEmail;
   try {
     const baseWhere = `
