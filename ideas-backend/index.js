@@ -13,10 +13,45 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 // Gemini AI inicializálása
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
+// ÚJ: Stripe inicializálása
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+// ÚJ: Prémium státuszt ellenőrző kapuőr (Middleware)
+const checkPremium = async (req, res, next) => {
+  // A user emailjét megpróbáljuk kiszedni a query-ből vagy a body-ból
+  const userEmail = req.query.userEmail || req.body.userEmail;
+  
+  if (!userEmail) {
+    return res.status(400).json({ error: 'Felhasználói azonosító (email) szükséges!' });
+  }
+
+  try {
+    const [rows] = await pool.query('SELECT is_premium, premium_until FROM photo_users WHERE email = ?', [userEmail]);
+    
+    if (rows.length > 0) {
+      const user = rows[0];
+      const now = new Date();
+      const premiumUntil = user.premium_until ? new Date(user.premium_until) : null;
+
+      // Ha be van kapcsolva a prémium ÉS a lejárati dátum a jövőben van
+      if (user.is_premium === 1 && premiumUntil && premiumUntil > now) {
+        return next(); // Minden rendben, mehet tovább a funkcióra!
+      }
+    }
+    
+    // Ha nem prémium, vagy lejárt, itt megállítjuk a folyamatot
+    return res.status(403).json({ 
+      error: 'PREMIUM_REQUIRED', 
+      message: 'Ehhez a funkcióhoz aktív Prémium előfizetés szükséges!' 
+    });
+  } catch (err) {
+    return res.status(500).json({ error: 'Hiba a jogosultság ellenőrzésekor.' });
+  }
+};
 
 const upload = multer({ storage: multer.memoryStorage() });
 
