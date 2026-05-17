@@ -131,7 +131,7 @@ app.post('/api/create-checkout-session', async (req, res) => {
               name: 'Képolvasók Fotóklub Prémium',
               description: 'AI képelemzés, korlátlan portfólió, és nemzetközi FIAP/PSA statisztikák.',
             },
-            unit_amount: 10000, 
+            unit_amount: 100000, 
             recurring: { interval: 'month' },
           },
           quantity: 1,
