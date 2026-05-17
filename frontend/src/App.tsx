@@ -204,7 +204,7 @@ function App() {
     } catch (e) { console.error(e); }
   };
 
-  useEffect(() => {
+    useEffect(() => {
     fetchData();
     const storedToken = localStorage.getItem('photoAppToken');
     if (storedToken) {
@@ -213,12 +213,30 @@ function App() {
         if (decoded.exp * 1000 < Date.now()) {
           localStorage.removeItem('photoAppToken');
         } else {
-          setUser(decoded);
+          // Ha visszatér az oldalra, gyorsan le kell kérnünk a friss prémium státuszát
+          fetch(`${BACKEND_URL}/api/auth/sync`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: decoded.email, name: decoded.name, sub: decoded.sub })
+          })
+          .then(res => res.json())
+          .then(data => {
+            setUser({
+              ...decoded,
+              isPremium: data.isPremium,
+              premiumUntil: data.premiumUntil
+            });
+          })
+          .catch(() => setUser(decoded));
+
           fetchMyEntries(decoded.email);
         }
-      } catch (e) { localStorage.removeItem('photoAppToken'); }
+      } catch (e) { 
+        localStorage.removeItem('photoAppToken'); 
+      }
     }
   }, []);
+
 
   const currentDbUser = allUsers.find(u => u.email === user?.email);
   const isLeader = currentDbUser?.club_role === 'leader' || currentDbUser?.club_role === 'deputy';
@@ -230,13 +248,37 @@ function App() {
     }
   }, [activeTab, currentDbUser, clubs, user]);
 
-  const handleLoginSuccess = async (credential: string) => {
+    const handleLoginSuccess = async (credential: string) => {
     localStorage.setItem('photoAppToken', credential);
     const decoded: any = jwtDecode(credential);
-    setUser(decoded);
-    await fetch(`${BACKEND_URL}/api/auth/sync`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: decoded.email, name: decoded.name, sub: decoded.sub }) });
-    fetchData(); fetchMyEntries(decoded.email);
+    
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/auth/sync`, { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ email: decoded.email, name: decoded.name, sub: decoded.sub }) 
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        // A Google adatokhoz (email, name) hozzácsapjuk a prémium adatokat is!
+        setUser({
+          ...decoded,
+          isPremium: data.isPremium,
+          premiumUntil: data.premiumUntil
+        });
+      } else {
+        setUser(decoded); // Ha hiba van a backenddel, legalább a sima user beáll
+      }
+    } catch (e) {
+      console.error(e);
+      setUser(decoded);
+    }
+    
+    fetchData(); 
+    fetchMyEntries(decoded.email);
   };
+
 
   const handleAddClub = async () => { if (!newClubName) return; const res = await fetch(`${BACKEND_URL}/api/clubs`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: newClubName }) }); if (res.ok) { setNewClubName(''); fetchData(); } };
   const handleDeleteClub = async (id: number) => { if (!window.confirm("Biztosan törlöd ezt a klubot?")) return; const res = await fetch(`${BACKEND_URL}/api/clubs/${id}`, { method: 'DELETE' }); if (res.ok) fetchData(); };
