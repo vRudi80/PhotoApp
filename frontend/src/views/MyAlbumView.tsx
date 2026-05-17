@@ -206,7 +206,7 @@ const handleUpload = async () => {
               <li>Korlátlan képfeltöltés a portfóliódba</li>
               <li>Személyes AI zsűri értékelések (FIAP/PSA kategória ajánlásokkal)</li>
               <li>Automatikus FIAP minősítés és elfogadás-követés</li>
-              <li>Nevezések egy kattintással a nemzetközi szalonokba</li>
+              <li>Nevezések és eredmények pontos követése</li>
             </ul>
           </div>
 
