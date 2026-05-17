@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { googleLogout } from '@react-oauth/google';
-import { ADMIN_EMAIL } from '../utils/constants';
+import { ADMIN_EMAIL, BACKEND_URL } from '../utils/constants';
 
 interface HeaderProps {
   user: any;
@@ -28,6 +28,25 @@ export default function Header({
     setActiveTab(tab);
     setDropdownOpen(null);
     setIsMobileMenuOpen(false); 
+  };
+
+  // ÚJ SEGÉDFÜGGVÉNY: A Stripe Ügyfélkapu indítása
+  const handleManageSubscription = async () => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/create-portal-session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userEmail: user.email })
+      });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        alert(data.error || 'Hiba az ügyfélkapu megnyitásakor.');
+      }
+    } catch (e) {
+      alert('Hálózati hiba!');
+    }
   };
 
   return (
@@ -97,7 +116,6 @@ export default function Header({
                   <button className={`drop-item ${activeTab === 'admin_meetings' ? 'active' : ''}`} style={{ color: activeTab === 'admin_meetings' ? '#f59e0b' : ''}} onClick={() => handleNavClick('admin_meetings')}>Klubestek kezelése</button>
                   <button className={`drop-item ${activeTab === 'admin_homeworks' ? 'active' : ''}`} style={{ color: activeTab === 'admin_homeworks' ? '#f59e0b' : ''}} onClick={() => handleNavClick('admin_homeworks')}>Házi feladatok kezelése</button>
                   
-                  {/* Itt van a jó helyén a Kategóriák és Díjak! */}
                   {user?.email === ADMIN_EMAIL && (
                     <button 
                       className={`drop-item ${activeTab === 'admin_settings' ? 'active' : ''}`} 
@@ -117,12 +135,32 @@ export default function Header({
           )}
         </div> 
 
-        <div className="user-group">
-          <span style={{ fontWeight: 500, color: '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '200px' }}>
-            {user.name} 
-            {isLeader && <span style={{fontSize:'0.7rem', background:'#f59e0b20', color:'#f59e0b', padding:'2px 6px', borderRadius:'4px', marginLeft:'8px'}}>Vezetőség</span>}
-          </span>
-          <button onClick={() => { googleLogout(); onLogout(); }} style={{ background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>Kijelentkezés</button>
+        {/* --- FELHASZNÁLÓI BLOKK --- */}
+        <div className="user-group" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '8px' }}>
+          
+          {/* ÚJ: PRÉMIUM JELZÉS ÉS LEMONDÁS GOMB */}
+          {user?.isPremium && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#10b98115', padding: '4px 10px', borderRadius: '6px', border: '1px solid #10b98140' }}>
+              <span style={{ fontSize: '0.8rem', color: '#10b981', fontWeight: 'bold' }}>👑 Prémium</span>
+              <button 
+                onClick={handleManageSubscription}
+                title="Előfizetés lemondása vagy kártyacsere"
+                style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '0.75rem', textDecoration: 'underline', padding: 0 }}
+              >
+                Kezelés
+              </button>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontWeight: 500, color: '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '200px' }}>
+              {user.name} 
+              {user?.isPremium && <span title="Prémium Tag" style={{ marginLeft: '5px' }}>⭐</span>}
+              {isLeader && <span style={{fontSize:'0.7rem', background:'#f59e0b20', color:'#f59e0b', padding:'2px 6px', borderRadius:'4px', marginLeft:'8px'}}>Vezetőség</span>}
+            </span>
+            <button onClick={() => { googleLogout(); onLogout(); }} style={{ background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>Kijelentkezés</button>
+          </div>
+
         </div>
       </div>
     </header>
