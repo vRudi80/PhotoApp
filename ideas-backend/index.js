@@ -752,4 +752,6 @@ app.post('/api/admin/import-fiap', async (req, res) => {
   } catch (e) { await conn.rollback(); res.status(500).json({ error: e.message }); } finally { conn.release(); }
 });
 
+const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => console.log(`Szerver fut a ${PORT} porton`));
+
