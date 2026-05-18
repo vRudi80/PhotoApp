@@ -27,26 +27,32 @@ const iso3ToIso2: Record<string, string> = {
   "VGB":"VG","VIR":"VI","WLF":"WF","ESH":"EH","YEM":"YE","ZMB":"ZM","ZWE":"ZW"
 };
 
-// Okosított zászló generáló, ami már érti a 3 betűs kódokat is!
+// Megtartjuk a régit is, ha valahol kellene
 export function getFlagEmoji(countryCode: string) {
   if (!countryCode) return '🏳️';
-  
   let cleanCode = countryCode.trim().toUpperCase();
-  
-  // Ha 3 betűs a kód, átfordítjuk 2 betűsre a szótár segítségével
   if (cleanCode.length === 3) {
     cleanCode = iso3ToIso2[cleanCode] || cleanCode;
   }
-  
-  // A zászló emojik csak pontosan 2 betűs kóddal működnek
   if (cleanCode.length !== 2) return '🏳️';
-  
   try {
     const codePoints = cleanCode.split('').map(char => 127397 + char.charCodeAt(0));
     return String.fromCodePoint(...codePoints);
   } catch (e) {
     return '🏳️';
   }
+}
+
+// ÚJ: Golyóálló kép alapú zászló URL generáló (Windows barát!)
+export function getFlagImageUrl(countryCode: string): string {
+  if (!countryCode) return '';
+  let cleanCode = countryCode.trim().toUpperCase();
+  if (cleanCode.length === 3) {
+    cleanCode = iso3ToIso2[cleanCode] || cleanCode;
+  }
+  if (cleanCode.length !== 2) return '';
+  // Visszaadjuk a FlagCDN 40px széles png linkjét kisbetűvel
+  return `https://flagcdn.com/w40/${cleanCode.toLowerCase()}.png`;
 }
 
 // --- Központi kép URL generáló Google Drive-hoz ---
