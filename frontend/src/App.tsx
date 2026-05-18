@@ -148,8 +148,9 @@ function App() {
 
   const [fullscreenData, setFullscreenData] = useState<{url: string, title?: string} | null>(null);
 
-  const fetchData = async () => {
-    setIsInitialLoading(true);
+  // --- 1. ÖNGYÓGYÍTÓ FŐ ADATLEKÉRÉS (Garantálja, hogy a listák nem lesznek üresek) ---
+  const fetchData = async (retryCount = 0) => {
+    if (retryCount === 0) setIsInitialLoading(true);
     try {
       const [
         resUsers, resClubs, resContests, resJury, resMeetings, 
@@ -167,6 +168,11 @@ function App() {
         fetch(`${BACKEND_URL}/api/salons`)
       ]);
 
+      // Ha a MySQL nem válaszol időben, kényszerítsük a kódot a catch ágra!
+      if (!resUsers.ok || !resContests.ok || !resMeetings.ok || !resHw.ok) {
+        throw new Error("Az adatbázis kapcsolat épp helyreáll...");
+      }
+
       if (resUsers.ok) setAllUsers(await resUsers.json());
       if (resClubs.ok) setClubs(await resClubs.json());
       if (resContests.ok) setContests(await resContests.json());
@@ -178,10 +184,16 @@ function App() {
       if (resPatrons.ok) setPatrons(await resPatrons.json());
       if (resSalons.ok) setSalons(await resSalons.json());
 
+      setIsInitialLoading(false); // Csak akkor vesszük le a töltőképernyőt, ha minden megvan!
     } catch (e) { 
-      console.error("Hiba az adatok lekérésekor:", e); 
-    } finally {
-      setIsInitialLoading(false);
+      console.error("Adatlekérési hiba, újrapróbálkozás...", e); 
+      if (retryCount < 3) {
+        // Ha hiba van, várunk 1.5 másodpercet és újra megpróbáljuk a háttérben
+        setTimeout(() => fetchData(retryCount + 1), 1500); 
+      } else {
+        setIsInitialLoading(false);
+        alert("Átmeneti hálózati hiba történt az adatbázisban. Kérlek frissítsd az oldalt (F5)!");
+      }
     }
   };
   
@@ -192,7 +204,6 @@ function App() {
       const resHw = await fetch(`${BACKEND_URL}/api/my-homework-entries?userEmail=${email}`);
       if (resHw.ok) setMyHomeworkEntries(await resHw.json());
       
-      // ÚJ: Lekérjük a szalon nevezések azonosítóit
       const resSalons = await fetch(`${BACKEND_URL}/api/my-salon-entries-status?userEmail=${email}`);
       if (resSalons.ok) setUserEntrySalonIds(await resSalons.json());
     } catch (e) { console.error(e); }
@@ -205,10 +216,10 @@ function App() {
     } catch (e) { console.error(e); }
   };
 
-    useEffect(() => {
-    fetchData();
+  // --- 2. TELJES, HIÁNYTALAN EFFECT BLOKK (Stripe + Automata Google Login és Prémium ellenőrzés) ---
+  useEffect(() => {
+    fetchData(); // Fő adatok letöltése
 
-    // --- ÚJ: STRIPE VISSZATÉRÉS KEZELÉSE ---
     const urlParams = new URLSearchParams(window.location.search);
     const isSuccess = urlParams.get('success');
 
@@ -216,6 +227,60 @@ function App() {
       window.history.replaceState(null, '', window.location.pathname);
       alert('🎉 Sikeres aktiválás! Kérlek várj pár másodpercet, amíg a rendszer frissíti a fiókodat...');
     }
+
+    const storedToken = localStorage.getItem('photoAppToken');
+    if (storedToken) {
+      try {
+        const decoded: any = jwtDecode(storedToken);
+        if (decoded.exp * 1000 < Date.now()) {
+          localStorage.removeItem('photoAppToken');
+          setIsAuthLoading(false);
+        } else {
+          const delay = isSuccess ? 2500 : 0;
+          
+          setTimeout(() => {
+            // Öngyógyító belső függvény a felhasználói adatok szinkronizálásához
+            const attemptSync = async (retry = 0) => {
+              try {
+                const res = await fetch(`${BACKEND_URL}/api/auth/sync`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ email: decoded.email, name: decoded.name, sub: decoded.sub })
+                });
+                
+                if (!res.ok) throw new Error("Szerver hiba az auth szinkronizációnál");
+                
+                const data = await res.json();
+                setUser({
+                  ...decoded,
+                  isPremium: data.isPremium,
+                  is_premium: data.isPremium,
+                  premiumUntil: data.premiumUntil
+                });
+                setIsAuthLoading(false); // Megjött a prémium státusz, leszedhetjük a töltőképernyőt
+              } catch (err) {
+                if (retry < 3) {
+                  setTimeout(() => attemptSync(retry + 1), 1500); 
+                } else {
+                  // Ha a backend végleg nem válaszol, beléptetjük a Google gyorsítótárból, hogy ne ragadjon kint
+                  setUser(decoded); 
+                  setIsAuthLoading(false);
+                }
+              }
+            };
+
+            attemptSync(); 
+            fetchMyEntries(decoded.email);
+          }, delay);
+        }
+      } catch (e) { 
+        localStorage.removeItem('photoAppToken'); 
+        setIsAuthLoading(false);
+      }
+    } else {
+      setIsAuthLoading(false); // Nincs mentett munkamenet, mehet a login képernyőre
+    }
+  }, []);
     // ---------------------------------------
 
     const storedToken = localStorage.getItem('photoAppToken');
