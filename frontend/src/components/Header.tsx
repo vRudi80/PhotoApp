@@ -30,7 +30,7 @@ export default function Header({
     setIsMobileMenuOpen(false); 
   };
 
-  // ÚJ SEGÉDFÜGGVÉNY: A Stripe Ügyfélkapu indítása
+  // SEGÉDFÜGGVÉNY: A Stripe Ügyfélkapu indítása
   const handleManageSubscription = async () => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/create-portal-session`, {
@@ -135,30 +135,48 @@ export default function Header({
           )}
         </div> 
 
-        {/* --- FELHASZNÁLÓI BLOKK --- */}
-        <div className="user-group" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '8px' }}>
+        {/* --- FELHASZNÁLÓI BLOKK (ÚJ, KÉTSOROS ELRENDEZÉS) --- */}
+        <div className="user-group" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '10px' }}>
           
-          {/* ÚJ: PRÉMIUM JELZÉS ÉS LEMONDÁS GOMB */}
-          {user?.isPremium && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#10b98115', padding: '4px 10px', borderRadius: '6px', border: '1px solid #10b98140' }}>
-              <span style={{ fontSize: '0.8rem', color: '#10b981', fontWeight: 'bold' }}>👑 Prémium</span>
+          {/* 1. FELSŐ SOR: Név, Csillag, Vezetőség */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <span style={{ fontWeight: 'bold', color: '#f8fafc', fontSize: '1rem' }}>
+              {user.name}
+            </span>
+            
+            {(user?.isPremium || user?.is_premium) && (
+              <span title="Prémium Tag" style={{ fontSize: '1.1rem' }}>⭐</span>
+            )}
+            
+            {isLeader && (
+              <span style={{ fontSize: '0.75rem', background: '#f59e0b20', color: '#f59e0b', padding: '3px 8px', borderRadius: '6px', border: '1px solid #f59e0b50', fontWeight: 'bold' }}>
+                Vezetőség
+              </span>
+            )}
+          </div>
+
+          {/* 2. ALSÓ SOR: Prémium Kezelés és Kijelentkezés gombok */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            
+            {(user?.isPremium || user?.is_premium) && (
               <button 
                 onClick={handleManageSubscription}
-                title="Előfizetés lemondása vagy kártyacsere"
-                style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '0.75rem', textDecoration: 'underline', padding: 0 }}
+                style={{ background: '#1e293b', color: '#10b981', border: '1px solid #10b98150', padding: '6px 12px', borderRadius: '6px', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', fontWeight: 'bold', transition: 'background 0.2s' }}
+                onMouseOver={e => e.currentTarget.style.background = '#10b98120'}
+                onMouseOut={e => e.currentTarget.style.background = '#1e293b'}
               >
-                Kezelés
+                👑 Prémium Kezelés
               </button>
-            </div>
-          )}
+            )}
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span style={{ fontWeight: 500, color: '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '200px' }}>
-              {user.name} 
-              {user?.isPremium && <span title="Prémium Tag" style={{ marginLeft: '5px' }}>⭐</span>}
-              {isLeader && <span style={{fontSize:'0.7rem', background:'#f59e0b20', color:'#f59e0b', padding:'2px 6px', borderRadius:'4px', marginLeft:'8px'}}>Vezetőség</span>}
-            </span>
-            <button onClick={() => { googleLogout(); onLogout(); }} style={{ background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>Kijelentkezés</button>
+            <button 
+              onClick={() => { googleLogout(); onLogout(); }} 
+              style={{ background: 'transparent', border: '1px solid #ef444450', color: '#ef4444', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', transition: 'background 0.2s' }}
+              onMouseOver={e => e.currentTarget.style.background = '#ef444420'}
+              onMouseOut={e => e.currentTarget.style.background = 'transparent'}
+            >
+              Kijelentkezés
+            </button>
           </div>
 
         </div>
