@@ -368,17 +368,42 @@ app.post('/api/meetings', upload.single('coverPhoto'), async (req, res) => {
 app.put('/api/meetings/:id', upload.single('coverPhoto'), async (req, res) => {
   const { date, time, topic, description, locationType, locationDetails, videoLink } = req.body;
   const file = req.file;
+  
   try {
     if (file) {
-      const bufferStream = new Readable(); bufferStream.push(file.buffer); bufferStream.push(null);
+      // 1. Megnézzük, volt-e régi kép, hogy letöröljük a Drive-ról (ne foglalja a helyet)
+      const [oldRows] = await pool.query('SELECT drive_file_id FROM photo_club_meetings WHERE id = ?', [req.params.id]);
+      if (oldRows.length > 0 && oldRows[0].drive_file_id) {
+        await drive.files.delete({ fileId: oldRows[0].drive_file_id }).catch(e => console.log('Régi borítókép törlése sikertelen:', e.message));
+      }
+
+      // 2. Új kép feltöltése
+      const bufferStream = new Readable(); 
+      bufferStream.push(file.buffer); 
+      bufferStream.push(null);
+      
       const fileExt = file.originalname && file.originalname.includes('.') ? file.originalname.substring(file.originalname.lastIndexOf('.')).toLowerCase() : '.jpg';
-      const driveRes = await drive.files.create({ requestBody: { name: `Klubest_Cover_${Date.now()}${fileExt}`, parents: [process.env.DRIVE_MASTER_FOLDER_ID] }, media: { mimeType: file.mimetype, body: bufferStream }, fields: 'id, webViewLink' });
-      await pool.query('UPDATE photo_club_meetings SET meeting_date=?, meeting_time=?, topic=?, description=?, location_type=?, location_details=?, file_url=?, drive_file_id=?, video_link=? WHERE id=?', [date, time, topic, description, locationType, locationDetails, driveRes.data.webViewLink, driveRes.data.id, videoLink || null, req.params.id]);
+      
+      const driveRes = await drive.files.create({ 
+        requestBody: { name: `Klubest_Cover_${Date.now()}${fileExt}`, parents: [process.env.DRIVE_MASTER_FOLDER_ID] }, 
+        media: { mimeType: file.mimetype, body: bufferStream }, 
+        fields: 'id, webViewLink' 
+      });
+      
+      // 3. Adatbázis frissítése az új képpel
+      await pool.query('UPDATE photo_club_meetings SET meeting_date=?, meeting_time=?, topic=?, description=?, location_type=?, location_details=?, file_url=?, drive_file_id=?, video_link=? WHERE id=?', 
+        [date, time, topic, description, locationType, locationDetails, driveRes.data.webViewLink, driveRes.data.id, videoLink || null, req.params.id]);
     } else {
-      await pool.query('UPDATE photo_club_meetings SET meeting_date=?, meeting_time=?, topic=?, description=?, location_type=?, location_details=?, video_link=? WHERE id=?', [date, time, topic, description, locationType, locationDetails, videoLink || null, req.params.id]);
+      // Ha nem töltöttek fel új képet, csak a szövegeket frissítjük
+      await pool.query('UPDATE photo_club_meetings SET meeting_date=?, meeting_time=?, topic=?, description=?, location_type=?, location_details=?, video_link=? WHERE id=?', 
+        [date, time, topic, description, locationType, locationDetails, videoLink || null, req.params.id]);
     }
     res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { 
+    console.error('Klubest mentési hiba:', err);
+    // Ha a Google megint eldobja a kapcsolatot (ECONNRESET), normális magyar hibaüzenetet adunk
+    res.status(500).json({ error: 'Hálózati hiba a Google Drive feltöltésnél. Kérlek, próbáld újra egy perc múlva!' }); 
+  }
 });
 
 app.delete('/api/meetings/:id', async (req, res) => {
