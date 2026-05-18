@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { BACKEND_URL } from '../utils/constants';
 import { getImageUrl, getFlagEmoji } from '../utils/helpers';
 import PremiumPaywall from './PremiumPaywall'; // ÚJ: Beimportáljuk a fizetőfalat!
+import { getFlagImageUrl } from '../utils/helpers';
 
 // A FIAP hivatalos követelményei (NFIAP -> EFIAP/p)
 const FIAP_LEVELS = [
@@ -208,12 +209,24 @@ export default function FiapProgressView({ user }: { user: any }) {
                 const isAcceptance = entry.award.toLowerCase() === 'acceptance';
                 const isOnline = entry.submission_type === 'online';
                 
-                return (
+               return (
                   <tr key={idx} style={{ borderBottom: '1px solid #334155', transition: 'background 0.2s' }} onMouseOver={e => e.currentTarget.style.background = '#0f172a'} onMouseOut={e => e.currentTarget.style.background = 'transparent'}>
                     <td style={{ padding: '12px 15px', color: '#f8fafc', fontWeight: 'bold' }}>{entry.photo_title}</td>
                     <td style={{ padding: '12px 15px', color: '#cbd5e1' }}>{entry.salon_name}</td>
                     <td style={{ padding: '12px 15px', color: '#cbd5e1', whiteSpace: 'nowrap' }}>
-                      {entry.country_code ? getFlagEmoji(entry.country_code) : '🏳️'} {entry.country}
+                      {/* JAVÍTÁS: Kép alapú nemzetközi zászló a FIAP táblázatban is */}
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                        {getFlagImageUrl(entry.country_code) ? (
+                          <img 
+                            src={getFlagImageUrl(entry.country_code)} 
+                            alt={entry.country || 'Zászló'} 
+                            style={{ width: '20px', height: 'auto', borderRadius: '2px', boxShadow: '0 1px 2px rgba(0,0,0,0.4)' }} 
+                          />
+                        ) : (
+                          '🏳️'
+                        )}
+                        <span>{entry.country}</span>
+                      </span>
                     </td>
                     <td style={{ padding: '12px 15px', color: '#38bdf8', fontWeight: 'bold', whiteSpace: 'nowrap' }}>{entry.fiap_number}</td>
                     <td style={{ padding: '12px 15px', color: isAcceptance ? '#10b981' : '#f59e0b', fontWeight: isAcceptance ? 'normal' : 'bold' }}>
