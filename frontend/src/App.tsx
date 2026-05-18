@@ -41,6 +41,7 @@ function App() {
   
   const [salons, setSalons] = useState<any[]>([]);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [isAuthLoading, setIsAuthLoading] = useState(true); // ÚJ: Prémium/User töltés figyelése
   const [countries, setCountries] = useState<any[]>([]);
   const [allCategories, setAllCategories] = useState<any[]>([]);
   const [patrons, setPatrons] = useState<any[]>([]);
@@ -206,35 +207,59 @@ function App() {
 
     useEffect(() => {
     fetchData();
+
+    // --- ÚJ: STRIPE VISSZATÉRÉS KEZELÉSE ---
+    const urlParams = new URLSearchParams(window.location.search);
+    const isSuccess = urlParams.get('success');
+
+    if (isSuccess) {
+      window.history.replaceState(null, '', window.location.pathname);
+      alert('🎉 Sikeres aktiválás! Kérlek várj pár másodpercet, amíg a rendszer frissíti a fiókodat...');
+    }
+    // ---------------------------------------
+
     const storedToken = localStorage.getItem('photoAppToken');
     if (storedToken) {
       try {
         const decoded: any = jwtDecode(storedToken);
         if (decoded.exp * 1000 < Date.now()) {
           localStorage.removeItem('photoAppToken');
+          setIsAuthLoading(false); // Lejárt token, mehet a loginra
         } else {
-          // Ha visszatér az oldalra, gyorsan le kell kérnünk a friss prémium státuszát
-          fetch(`${BACKEND_URL}/api/auth/sync`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: decoded.email, name: decoded.name, sub: decoded.sub })
-          })
-          .then(res => res.json())
-          .then(data => {
-            setUser({
-              ...decoded,
-              isPremium: data.isPremium,
-              is_premium: data.isPremium, // <--- EZT AZ EGY SORT ADD HOZZÁ!
-              premiumUntil: data.premiumUntil
+          // Ha Stripe fizetésből jön vissza, adunk neki 2.5 mp időt a Webhook lefutására
+          const delay = isSuccess ? 2500 : 0;
+          
+          setTimeout(() => {
+            fetch(`${BACKEND_URL}/api/auth/sync`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email: decoded.email, name: decoded.name, sub: decoded.sub })
+            })
+            .then(res => res.json())
+            .then(data => {
+              setUser({
+                ...decoded,
+                isPremium: data.isPremium,
+                is_premium: data.isPremium,
+                premiumUntil: data.premiumUntil
+              });
+              setIsAuthLoading(false); // SIKERES BETÖLTÉS VÉGE!
+            })
+            .catch(() => {
+              alert("A szerver épp ébredezik a háttérben. Ha nem látod a Prémium funkciókat, kérlek frissítsd az oldalt (F5) 10 másodperc múlva!");
+              setUser(decoded);
+              setIsAuthLoading(false); // Hiba esetén is levesszük a töltőképernyőt
             });
-          })
-          .catch(() => setUser(decoded));
 
-          fetchMyEntries(decoded.email);
+            fetchMyEntries(decoded.email);
+          }, delay);
         }
       } catch (e) { 
         localStorage.removeItem('photoAppToken'); 
+        setIsAuthLoading(false);
       }
+    } else {
+      setIsAuthLoading(false); // Nincs token, mehet a loginra
     }
   }, []);
 
@@ -554,7 +579,14 @@ function App() {
       {selectedSalon && <SalonModal salon={selectedSalon} user={user} onClose={() => setSelectedSalon(null)} />}
       {activeVideo && <VideoModal videoUrl={activeVideo} onClose={() => setActiveVideo(null)} />}
 
-      {!user ? (
+      {/* ÚJ SOROMPÓ: Amíg BÁRMELYIK töltés folyamatban van, csak ezt mutatjuk! */}
+      {(isInitialLoading || isAuthLoading) ? (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', backgroundColor: '#0f172a', color: '#60a5fa', fontFamily: 'Inter, sans-serif' }}>
+          <div style={{ fontSize: '4rem', marginBottom: '20px', animation: 'spin 2s linear infinite' }}>⏳</div>
+          <h2 style={{ color: '#f8fafc', margin: '0 0 10px 0' }}>Rendszer indítása...</h2>
+          <p style={{ color: '#94a3b8' }}>Kérlek várj, amíg az adatok és jogosultságok szinkronizálódnak.</p>
+        </div>
+      ) : !user ? (
         <LoginScreen onLoginSuccess={handleLoginSuccess} />
       ) : (
         <div style={{ minHeight: '100vh', backgroundColor: '#0f172a', color: '#f8fafc', fontFamily: 'Inter, sans-serif' }}>
