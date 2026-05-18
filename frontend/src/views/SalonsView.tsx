@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { getFlagEmoji } from '../utils/helpers';
 import PremiumPaywall from './PremiumPaywall'; // ÚJ: Beimportáljuk a fizetőfalat ide is!
+import { getFlagImageUrl } from '../utils/helpers';
 
 interface SalonsViewProps {
   salonSearch: string;
@@ -151,16 +152,28 @@ export default function SalonsView({
                     </div>
                   </div>
 
-                  <h3 style={{ margin: '0 0 10px 0', fontSize: '1.3rem', color: hasEntered ? '#10b981' : '#f8fafc', lineHeight: '1.3' }}>
-                    {s.name}
-                  </h3>
+                 <h3 style={{ margin: '0 0 10px 0', fontSize: '1.3rem', color: hasEntered ? '#10b981' : '#f8fafc', lineHeight: '1.3' }}>
+  {s.name}
+</h3>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', color: '#94a3b8', marginBottom: '15px' }}>
-                    <span style={{fontWeight: 'bold', color: '#cbd5e1'}}>{s.country_code ? getFlagEmoji(s.country_code) : '🏳️'} {s.country_hun}</span>
-                    <span>•</span>
-                    <span>{s.submission_type === 'online' ? '💻 Online leadás' : '🖼️ Papírkép'}</span>
-                  </div>
-
+<div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', color: '#94a3b8', marginBottom: '15px' }}>
+  {/* JAVÍTOTT RÉSZ: Szép, inline-flex elrendezés a kép alapú zászlóval */}
+  <span style={{ fontWeight: 'bold', color: '#cbd5e1', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+    {getFlagImageUrl(s.country_code) ? (
+      <img 
+        src={getFlagImageUrl(s.country_code)} 
+        alt={s.country_hun || 'Zászló'} 
+        style={{ width: '20px', height: 'auto', borderRadius: '2px', boxShadow: '0 1px 2px rgba(0,0,0,0.4)' }} 
+      />
+    ) : (
+      '🏳️'
+    )}
+    <span>{s.country_hun}</span>
+  </span>
+  
+  <span>•</span>
+  <span>{s.submission_type === 'online' ? '💻 Online leadás' : '🖼️ Papírkép'}</span>
+</div>
                   {s.categories && s.categories.length > 0 && (
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginBottom: '15px' }}>
                       {s.categories.map((c: string) => (
