@@ -55,8 +55,23 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
     fetchMyPhotos();
   }, [user]);
 
-  const filteredPhotos = useMemo(() => {
-    return photos.filter(p => p.title.toLowerCase().includes(searchTerm.toLowerCase()));
+const filteredPhotos = useMemo(() => {
+    if (!searchTerm) return photos; // Ha üres a kereső, adjuk vissza az összeset
+    
+    const lowerTerm = searchTerm.toLowerCase();
+    
+    return photos.filter(p => {
+      // 1. Keresés a címben
+      const matchTitle = p.title && p.title.toLowerCase().includes(lowerTerm);
+      
+      // 2. Keresés az AI tagekben és az értékelés szövegében!
+      // Mivel az ai_tags nyers szövegként (vagy JSON stringként) van a memóriában, 
+      // simán kereshetünk benne, így a kulcsszavakat és a zsűri véleményét is átfésüli.
+      const matchAi = p.ai_tags && p.ai_tags.toLowerCase().includes(lowerTerm);
+      
+      // Ha bármelyikben benne van, akkor a kép megjelenik
+      return matchTitle || matchAi;
+    });
   }, [photos, searchTerm]);
 
   const handleUpdatePhoto = async (photoId: number) => {
