@@ -79,7 +79,11 @@ export default function ClubNightsView({
                           {isPast && <span style={{ color: '#ef4444', fontWeight: 'bold' }}>Lezajlott</span>}
                         </div>
                         
-                        <h3 style={{ margin: '0 0 10px 0', color: isPast ? '#cbd5e1' : '#f8fafc', fontSize: '1.4rem', flexShrink: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {/* JAVÍTÁS: Két soros engedélyezés (Line Clamp), kisebb betű, és tooltip (title attribútum) */}
+                        <h3 
+                          title={meet.topic} 
+                          style={{ margin: '0 0 10px 0', color: isPast ? '#cbd5e1' : '#f8fafc', fontSize: '1.25rem', flexShrink: 0, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: '1.3' }}
+                        >
                           {meet.topic}
                         </h3>
                         
@@ -97,10 +101,10 @@ export default function ClubNightsView({
                               isPast ? (
                                 <div style={{ color: '#64748b', fontSize: '0.9rem', fontStyle: 'italic' }}>A találkozó véget ért</div>
                               ) : (
-                                <a href={meet.location_details} target="_blank" rel="noreferrer" style={{ color: '#38bdf8', textDecoration: 'none', fontWeight: 'bold', fontSize: '0.9rem', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Csatlakozás a híváshoz →</a>
+                                <a title={meet.location_details} href={meet.location_details} target="_blank" rel="noreferrer" style={{ color: '#38bdf8', textDecoration: 'none', fontWeight: 'bold', fontSize: '0.9rem', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Csatlakozás a híváshoz →</a>
                               )
                             ) : (
-                              <div style={{ color: '#f8fafc', fontSize: '0.9rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{meet.location_details || 'Helyszín később...'}</div>
+                              <div title={meet.location_details || 'Helyszín később...'} style={{ color: '#f8fafc', fontSize: '0.9rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{meet.location_details || 'Helyszín később...'}</div>
                             )}
                           </div>
                         </div>
