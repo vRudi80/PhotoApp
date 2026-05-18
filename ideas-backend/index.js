@@ -717,12 +717,22 @@ A JSON pontos struktúrája ez legyen:
     
     await pool.query('UPDATE photo_portfolio SET ai_tags = ? WHERE id = ?', [text, req.params.id]);
     res.json({ success: true, ai_tags: text });
-    } catch (err) {
-    console.error('Gemini / Rendszer hiba:', err);
-    // MOST MÁR A VALÓDI HIBÁT KÜLDJÜK VISSZA A BÖNGÉSZŐNEK!
-    res.status(500).json({ error: `Rendszerhiba történt: ${err.message}` });
-  }
+  } catch (err) {
+    console.error('Gemini / Rendszer hiba:', err.message);
+    
+    // --- JAVÍTOTT, FELHASZNÁLÓBARÁT HIBAKEZELÉS ---
+    // Ha a Google szerverei túlterheltek (503-as hiba)
+    if (err.message.includes('503') || err.message.includes('high demand') || err.message.includes('overloaded')) {
+      return res.status(503).json({ 
+        error: 'Az AI szerverek jelenleg nagyon leterheltek a nagy érdeklődés miatt. Kérlek, próbáld meg az elemzést újra 1-2 perc múlva! 🤖⏳' 
+      });
+    }
 
+    // Bármilyen egyéb AI vagy rendszerhiba esetén
+    return res.status(500).json({ 
+      error: 'Sajnos a mesterséges intelligencia jelenleg nem tudta kielemezni ezt a képet. Kérlek, próbáld újra később!' 
+    });
+  }
 });
 
 
