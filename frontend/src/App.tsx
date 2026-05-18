@@ -148,7 +148,7 @@ function App() {
 
   const [fullscreenData, setFullscreenData] = useState<{url: string, title?: string} | null>(null);
 
-  // --- 1. ÖNGYÓGYÍTÓ FŐ ADATLEKÉRÉS (Garantálja, hogy a listák nem lesznek üresek) ---
+  // --- 1. GOLYÓÁLLÓ FŐ ADATLEKÉRÉS (Automatikus háttér-újrapróbálkozással) ---
   const fetchData = async (retryCount = 0) => {
     if (retryCount === 0) setIsInitialLoading(true);
     try {
@@ -168,7 +168,7 @@ function App() {
         fetch(`${BACKEND_URL}/api/salons`)
       ]);
 
-      // Ha a MySQL nem válaszol időben, kényszerítsük a kódot a catch ágra!
+      // Ha a MySQL épp aludt és hibás választ ad, kényszerítsük a javító catch ágra!
       if (!resUsers.ok || !resContests.ok || !resMeetings.ok || !resHw.ok) {
         throw new Error("Az adatbázis kapcsolat épp helyreáll...");
       }
@@ -184,18 +184,18 @@ function App() {
       if (resPatrons.ok) setPatrons(await resPatrons.json());
       if (resSalons.ok) setSalons(await resSalons.json());
 
-      setIsInitialLoading(false); // Csak akkor vesszük le a töltőképernyőt, ha minden megvan!
+      setIsInitialLoading(false); // Csak akkor engedünk be, ha minden adat sikeresen megvan!
     } catch (e) { 
       console.error("Adatlekérési hiba, újrapróbálkozás...", e); 
       if (retryCount < 3) {
-        // Ha hiba van, várunk 1.5 másodpercet és újra megpróbáljuk a háttérben
+        // Várunk 1.5 másodpercet, amíg a MySQL és a Render magához tér, majd újra megpróbáljuk
         setTimeout(() => fetchData(retryCount + 1), 1500); 
       } else {
         setIsInitialLoading(false);
         alert("Átmeneti hálózati hiba történt az adatbázisban. Kérlek frissítsd az oldalt (F5)!");
       }
     }
-  };
+  }; // Így ni, most már hajszálpontosan záródik a függvény!
   
   const fetchMyEntries = async (email: string) => {
     try {
@@ -216,9 +216,9 @@ function App() {
     } catch (e) { console.error(e); }
   };
 
-  // --- 2. TELJES, HIÁNYTALAN EFFECT BLOKK (Stripe + Automata Google Login és Prémium ellenőrzés) ---
+  // --- 2. TELJES, JAVÍTOTT EFFECT BLOKK (Munkamenet és Prémium szinkronizáció) ---
   useEffect(() => {
-    fetchData(); // Fő adatok letöltése
+    fetchData();
 
     const urlParams = new URLSearchParams(window.location.search);
     const isSuccess = urlParams.get('success');
@@ -239,7 +239,7 @@ function App() {
           const delay = isSuccess ? 2500 : 0;
           
           setTimeout(() => {
-            // Öngyógyító belső függvény a felhasználói adatok szinkronizálásához
+            // Öngyógyító belső szinkronizáció, ha a backend ébredezne
             const attemptSync = async (retry = 0) => {
               try {
                 const res = await fetch(`${BACKEND_URL}/api/auth/sync`, {
@@ -257,12 +257,12 @@ function App() {
                   is_premium: data.isPremium,
                   premiumUntil: data.premiumUntil
                 });
-                setIsAuthLoading(false); // Megjött a prémium státusz, leszedhetjük a töltőképernyőt
+                setIsAuthLoading(false); // Adatok bent vannak, töltőképernyő lekapcsol!
               } catch (err) {
                 if (retry < 3) {
                   setTimeout(() => attemptSync(retry + 1), 1500); 
                 } else {
-                  // Ha a backend végleg nem válaszol, beléptetjük a Google gyorsítótárból, hogy ne ragadjon kint
+                  // Ha végleg nem érhető el a backend, a mentett adatokkal beléptetjük, hogy ne akadjon el
                   setUser(decoded); 
                   setIsAuthLoading(false);
                 }
@@ -278,57 +278,9 @@ function App() {
         setIsAuthLoading(false);
       }
     } else {
-      setIsAuthLoading(false); // Nincs mentett munkamenet, mehet a login képernyőre
+      setIsAuthLoading(false);
     }
   }, []);
-    // ---------------------------------------
-
-    const storedToken = localStorage.getItem('photoAppToken');
-    if (storedToken) {
-      try {
-        const decoded: any = jwtDecode(storedToken);
-        if (decoded.exp * 1000 < Date.now()) {
-          localStorage.removeItem('photoAppToken');
-          setIsAuthLoading(false); // Lejárt token, mehet a loginra
-        } else {
-          // Ha Stripe fizetésből jön vissza, adunk neki 2.5 mp időt a Webhook lefutására
-          const delay = isSuccess ? 2500 : 0;
-          
-          setTimeout(() => {
-            fetch(`${BACKEND_URL}/api/auth/sync`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ email: decoded.email, name: decoded.name, sub: decoded.sub })
-            })
-            .then(res => res.json())
-            .then(data => {
-              setUser({
-                ...decoded,
-                isPremium: data.isPremium,
-                is_premium: data.isPremium,
-                premiumUntil: data.premiumUntil
-              });
-              setIsAuthLoading(false); // SIKERES BETÖLTÉS VÉGE!
-            })
-            .catch(() => {
-              alert("A szerver épp ébredezik a háttérben. Ha nem látod a Prémium funkciókat, kérlek frissítsd az oldalt (F5) 10 másodperc múlva!");
-              setUser(decoded);
-              setIsAuthLoading(false); // Hiba esetén is levesszük a töltőképernyőt
-            });
-
-            fetchMyEntries(decoded.email);
-          }, delay);
-        }
-      } catch (e) { 
-        localStorage.removeItem('photoAppToken'); 
-        setIsAuthLoading(false);
-      }
-    } else {
-      setIsAuthLoading(false); // Nincs token, mehet a loginra
-    }
-  }, []);
-
-
   const currentDbUser = allUsers.find(u => u.email === user?.email);
   const isLeader = currentDbUser?.club_role === 'leader' || currentDbUser?.club_role === 'deputy';
 
