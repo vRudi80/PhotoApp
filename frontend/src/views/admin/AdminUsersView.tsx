@@ -81,9 +81,16 @@ export default function AdminUsersView({
           </thead>
           <tbody>
             {filteredUsers.map((u, index) => {
-              const currentClubValue = userClubEdits[u.email] !== undefined ? userClubEdits[u.email] : (u.club_name || '');
-              const currentRoleValue = userRoleEdits[u.email] !== undefined ? userRoleEdits[u.email] : (u.club_role || 'member');
-              const hasChanges = userClubEdits[u.email] !== undefined || userRoleEdits[u.email] !== undefined;
+              // 1. Mik az eredeti, adatbázisban lévő értékek?
+              const originalClub = u.club_name || '';
+              const originalRole = u.club_role || 'member';
+
+              // 2. Mik a jelenleg kiválasztott értékek (ha van szerkesztés, azt mutatjuk, különben az eredetit)
+              const currentClubValue = userClubEdits[u.email] !== undefined ? userClubEdits[u.email] : originalClub;
+              const currentRoleValue = userRoleEdits[u.email] !== undefined ? userRoleEdits[u.email] : originalRole;
+              
+              // 3. JAVÍTÁS: Csak akkor van változás, ha a kiválasztott érték TÉNYLEG eltér az eredetitől!
+              const hasChanges = currentClubValue !== originalClub || currentRoleValue !== originalRole;
               
               // Prémium státusz vizsgálata
               const isPremium = u.is_premium === 1;
