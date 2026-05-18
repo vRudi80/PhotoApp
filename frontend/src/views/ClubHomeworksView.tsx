@@ -55,13 +55,17 @@ export default function ClubHomeworksView({
         <p style={{ color: '#94a3b8', fontSize: '1.1rem' }}>Jelenleg nincs kiírva házi feladat.</p>
       ) : (
         myClubHomeworks.map(hw => {
-          // JAVÍTÁS: Időzóna levágása a pontos megjelenítéshez és ellenőrzéshez
+          // Időzóna levágása a pontos megjelenítéshez és ellenőrzéshez
           const safeDeadlineStr = hw.deadline.replace('Z', ''); 
           const deadlineDate = new Date(safeDeadlineStr);
           const isPast = new Date() > deadlineDate;
           
           const myEntries = myHomeworkEntries.filter(e => e.homework_id === hw.id);
           const hwEntriesForAll = clubHomeworkEntries.filter(e => e.homework_id === hw.id);
+          
+          // --- JAVÍTÁS 1: Képek sorbarendezése lájkok alapján (legtöbb lájk elöl) ---
+          const sortedHwEntriesForAll = [...hwEntriesForAll].sort((a, b) => (b.like_count || 0) - (a.like_count || 0));
+          
           const maxImages = hw.max_images || 4;
 
           const uploaderStats = hwEntriesForAll.reduce((acc, curr) => {
@@ -83,7 +87,6 @@ export default function ClubHomeworksView({
                 </span>
               </div>
               <p style={{fontSize: '0.85rem', color: '#f59e0b', margin: '0 0 15px 0', fontWeight: 'bold'}}>
-                {/* JAVÍTÁS: Szép, magyar dátumformátum */}
                 ⏰ Határidő: {deadlineDate.toLocaleString('hu-HU', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })} | Maximum {maxImages} kép
               </p>
 
@@ -168,20 +171,22 @@ export default function ClubHomeworksView({
               {isPast && (
                 <div style={{ marginTop: '30px', borderTop: isLeader ? '2px dashed #f59e0b' : '1px solid #334155', paddingTop: '20px' }}>
                   <h4 style={{margin: '0 0 5px 0', fontSize: '1.2rem', color: isLeader ? '#f59e0b' : '#38bdf8'}}>
-                    {isLeader ? '👑 Vezetői Galéria: Összes beküldött kép' : '📸 Klub Galéria: Beküldött képek'}
+                    {isLeader ? '👑 Vezetői Galéria: Eredmények' : '📸 Klub Galéria: Eredmények'}
                   </h4>
-                  <p style={{ color: '#94a3b8', fontSize: '0.85rem', marginBottom: '15px' }}>Kattints a képre a teljes méretű megtekintéshez és a cím elolvasásához.</p>
+                  <p style={{ color: '#94a3b8', fontSize: '0.85rem', marginBottom: '15px' }}>Kattints a képre a teljes méretű megtekintéshez és a cím elolvasásához. A képek népszerűség (lájkok) szerint vannak rendezve!</p>
                   
-                  {hwEntriesForAll.length === 0 ? (
+                  {sortedHwEntriesForAll.length === 0 ? (
                     <p style={{ color: '#94a3b8' }}>Még senki nem töltött fel képet ehhez a feladathoz.</p>
                   ) : (
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '15px' }}>
-                      {hwEntriesForAll.map(entry => {
+                      {/* JAVÍTÁS 2: Rendezzett tömb használata a megjelenítéshez */}
+                      {sortedHwEntriesForAll.map(entry => {
                         const imageUrl = getImageUrl(entry.drive_file_id, entry.file_url);
                         return (
-                          <div key={entry.id} style={{ background: '#0f172a', borderRadius: '8px', overflow: 'hidden', border: isLeader ? '1px solid #f59e0b50' : '1px solid #334155' }}>
+                          <div key={entry.id} style={{ background: '#0f172a', borderRadius: '8px', overflow: 'hidden', border: isLeader ? '1px solid #f59e0b50' : '1px solid #334155', display: 'flex', flexDirection: 'column' }}>
                             <img src={imageUrl} alt={entry.title} onClick={() => setFullscreenData({url: imageUrl, title: entry.title})} style={{ width: '100%', height: '140px', objectFit: 'cover', cursor: 'zoom-in' }} />
-                            <div style={{ padding: '12px' }}>
+                            
+                            <div style={{ padding: '12px', flex: 1, display: 'flex', flexDirection: 'column' }}>
                               <div style={{ fontSize: '0.9rem', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#f8fafc' }}>{entry.title}</div>
                               
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px' }}>
@@ -193,6 +198,21 @@ export default function ClubHomeworksView({
                                 </button>
                               </div>
                             </div>
+                            
+                            {/* JAVÍTÁS 3: Letöltés gomb, kizárólag a vezetőségnek! */}
+                            {isLeader && (
+                              <a 
+                                href={entry.drive_file_id ? `https://docs.google.com/uc?export=download&id=${entry.drive_file_id}` : entry.file_url}
+                                target="_blank"
+                                rel="noreferrer"
+                                title="Eredeti felbontású kép letöltése"
+                                style={{ display: 'block', textAlign: 'center', background: '#f59e0b15', color: '#f59e0b', padding: '8px', fontSize: '0.8rem', textDecoration: 'none', fontWeight: 'bold', borderTop: '1px solid #f59e0b40', transition: 'background 0.2s' }}
+                                onMouseOver={e => e.currentTarget.style.background = '#f59e0b30'}
+                                onMouseOut={e => e.currentTarget.style.background = '#f59e0b15'}
+                              >
+                                ⬇️ Eredeti letöltése
+                              </a>
+                            )}
                           </div>
                         )
                       })}
