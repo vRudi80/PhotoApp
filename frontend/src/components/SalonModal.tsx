@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { BACKEND_URL } from '../utils/constants';
-import { getImageUrl } from '../utils/helpers';
+import { getImageUrl, getFlagImageUrl } from '../utils/helpers'; // <-- JAVÍTÁS: getFlagImageUrl hozzáadva!
 
 interface SalonModalProps {
   salon: any;
@@ -20,7 +20,7 @@ export default function SalonModal({ salon, user, onClose }: SalonModalProps) {
 
   const [resultsEdit, setResultsEdit] = useState<Record<number, { awardId: string, achieved: string, acceptance: string }>>({});
 
-  // Lejárt-e a határidő (de most már NEM blokkol, csak figyelmeztet!)
+  // Lejárt-e a határidő
   const isPastDeadline = new Date(salon.end_date) < new Date(new Date().setHours(0,0,0,0));
 
   const loadSubmissionData = useCallback(async () => {
@@ -127,9 +127,9 @@ export default function SalonModal({ salon, user, onClose }: SalonModalProps) {
 
     if (awardId !== null && awardId !== 15 && awardId !== 0) {
       if (awardId === 1) {
-        score += 1; // Sima elfogadás (Acceptance)
+        score += 1;
       } else {
-        score += 3; // Valódi komoly díj (PSA, FIAP Gold, Silver, stb.)
+        score += 3;
       }
     }
 
@@ -146,11 +146,9 @@ export default function SalonModal({ salon, user, onClose }: SalonModalProps) {
     return score;
   };
 
-  // ÚJ 1: A Portfólió választó listát a KÉPEK EDDIGI (GLOBÁLIS) EREDMÉNYEI alapján rendezzük!
   const filteredPortfolio = useMemo(() => {
     let result = [...portfolio];
     
-    // 1. Keresés
     if (searchQuery) {
       const lowerQuery = searchQuery.toLowerCase();
       result = result.filter(p => {
@@ -160,34 +158,19 @@ export default function SalonModal({ salon, user, onClose }: SalonModalProps) {
       });
     }
 
-    // 2. Sorrendezés az eddigi eredmények (Díjak és Elfogadások) alapján
     return result.sort((a, b) => {
-      // Segédfüggvény a globális pontszám kiszámításához
-      const getGlobalScore = (photo: any) => {
-        // Megpróbáljuk kiolvasni a backend által küldött összesített értékeket.
-        // (Ha nálad a backend pl. "total_awards" néven küldi a darabszámot, a kód azt is felismeri)
-        const awards = Number(photo.award_count || photo.awards || photo.total_awards || 0);
-        const acceptances = Number(photo.acceptance_count || photo.acceptances || photo.total_acceptances || 0);
-        
-        // Súlyozás: Díj = 3 pont, Elfogadás = 1 pont
-        return (awards * 3) + acceptances;
-      };
-
-      const scoreA = getGlobalScore(a);
-      const scoreB = getGlobalScore(b);
-
-      // Ha a két képnek holtversenyben ugyanannyi pontja van (pl. mindkettő még 0 pontos), 
-      // akkor a frissebb feltöltés kerüljön előrébb
-      if (scoreB === scoreA) {
-        return b.id - a.id;
-      }
-
-      // Csökkenő sorrend: a legmagasabb pontszámú "sztárkép" kerül legelőre
-      return scoreB - scoreA;
+      const scoreA = getEntryScore({ 
+        award_id: a.award_count > 0 ? 2 : 0, 
+        achieved_score: a.acceptance_count > 0 ? 10 : 0, 
+        acceptance_score: 5 
+      });
+      
+      const entryA = myEntries.find(e => e.id === a.id);
+      const entryB = myEntries.find(e => e.id === b.id);
+      return getEntryScore(entryB) - getEntryScore(entryA);
     });
-  }, [portfolio, searchQuery]);
+  }, [portfolio, searchQuery, myEntries]);
 
-  // JAVÍTÁS 2: A már leadott képek listáját IS csökkenő sorrendbe tesszük az elért eredmények szerint!
   const sortedEntries = useMemo(() => {
     if (!myEntries || !Array.isArray(myEntries)) return [];
     return [...myEntries].sort((a, b) => getEntryScore(b) - getEntryScore(a));
@@ -203,7 +186,7 @@ export default function SalonModal({ salon, user, onClose }: SalonModalProps) {
         <div style={{ padding: '30px' }}>
           
           {isSubmitting ? (
-            /* --- NEVEZÉSI FELÜLET (Portfólió választó AI Keresővel és Sorrendezéssel) --- */
+            /* --- NEVEZÉSI FELÜLET --- */
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '15px' }}>
                 <button onClick={() => setIsSubmitting(false)} style={{ background: 'transparent', color: '#60a5fa', border: 'none', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '5px' }}>
@@ -252,17 +235,71 @@ export default function SalonModal({ salon, user, onClose }: SalonModalProps) {
               </div>
             </div>
           ) : (
-            /* --- FŐ ADATLAP + NEVEZÉSEK ÖSSZEGZÉSE (Sorrendezett) --- */
+            /* --- FŐ ADATLAP --- */
             <>
+              {/* Fejléc - Jelvények (Most már az azonosítószámmal együtt!) */}
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '15px' }}>
                 {salon.patron_details && salon.patron_details.length > 0 ? (
-                  salon.patron_details.map((p: any) => <span key={p.name} style={{ background: '#a78bfa20', color: '#a78bfa', padding: '4px 10px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 'bold', border: '1px solid #a78bfa50' }}>{p.name}</span>)
+                  salon.patron_details.map((p: any) => (
+                    <span key={p.name} style={{ background: '#a78bfa20', color: '#a78bfa', padding: '4px 10px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 'bold', border: '1px solid #a78bfa50' }}>
+                      {p.name} {p.number ? `[${p.number}]` : ''}
+                    </span>
+                  ))
                 ) : null}
                 {salon.is_circuit === 1 && <span style={{ background: '#f59e0b20', color: '#f59e0b', padding: '4px 10px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 'bold', border: '1px solid #f59e0b50' }}>Körverseny</span>}
                 {isPastDeadline && <span style={{ background: '#ef444420', color: '#ef4444', padding: '4px 10px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 'bold', border: '1px solid #ef444450' }}>Lezárult (Archívum)</span>}
               </div>
               
               <h2 style={{ color: '#f8fafc', fontSize: '1.8rem', margin: '0 0 15px 0' }}>{salon.name}</h2>
+
+              {/* ÚJ: RÉSZLETES INFORMÁCIÓS BLOKK */}
+              <div style={{ background: '#0f172a', padding: '20px', borderRadius: '10px', border: '1px solid #334155', marginBottom: '25px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', justifyContent: 'space-between' }}>
+                  
+                  {/* Ország */}
+                  <div style={{ flex: '1 1 150px' }}>
+                    <div style={{ color: '#94a3b8', fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '4px', fontWeight: 'bold' }}>Rendező Ország</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#f8fafc', fontWeight: 'bold', fontSize: '0.95rem' }}>
+                      {getFlagImageUrl(salon.country_code) ? (
+                        <img src={getFlagImageUrl(salon.country_code)} alt="flag" style={{ width: '22px', borderRadius: '2px', boxShadow: '0 1px 3px rgba(0,0,0,0.5)' }} />
+                      ) : '🌐'}
+                      <span>{salon.country_hun || salon.country || 'Nemzetközi'}</span>
+                    </div>
+                  </div>
+                  
+                  {/* Leadás típusa */}
+                  <div style={{ flex: '1 1 150px' }}>
+                    <div style={{ color: '#94a3b8', fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '4px', fontWeight: 'bold' }}>Leadás Típusa</div>
+                    <div style={{ color: '#f8fafc', fontWeight: 'bold', fontSize: '0.95rem' }}>
+                      {salon.submission_type === 'online' ? '💻 Online feltöltés' : '🖼️ Papírképes leadás'}
+                    </div>
+                  </div>
+                  
+                  {/* Körverseny */}
+                  <div style={{ flex: '1 1 150px' }}>
+                    <div style={{ color: '#94a3b8', fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '4px', fontWeight: 'bold' }}>Körverseny?</div>
+                    <div style={{ color: salon.is_circuit === 1 ? '#f59e0b' : '#f8fafc', fontWeight: 'bold', fontSize: '0.95rem' }}>
+                      {salon.is_circuit === 1 ? '🔄 Igen, több szalon' : '❌ Nem (Szimpla)'}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Kategóriák listája */}
+                <div style={{ marginTop: '5px', paddingTop: '15px', borderTop: '1px solid #1e293b' }}>
+                  <div style={{ color: '#94a3b8', fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '8px', fontWeight: 'bold' }}>Választható Kategóriák ({salon.categories?.length || 0})</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                    {salon.categories && salon.categories.length > 0 ? (
+                      salon.categories.map((cat: string, idx: number) => (
+                        <span key={idx} style={{ background: '#1e293b', border: '1px solid #38bdf850', color: '#38bdf8', padding: '4px 12px', borderRadius: '15px', fontSize: '0.85rem' }}>
+                          {cat}
+                        </span>
+                      ))
+                    ) : (
+                      <span style={{ color: '#cbd5e1', fontSize: '0.85rem' }}>Nincsenek kategóriák megadva</span>
+                    )}
+                  </div>
+                </div>
+              </div>
               
               {/* Saját nevezések szekció (Eredmény rögzítéssel) */}
               {sortedEntries.length > 0 && (
