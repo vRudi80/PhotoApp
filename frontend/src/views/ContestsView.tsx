@@ -219,7 +219,6 @@ export default function ContestsView(props: ContestsViewProps) {
                           }, {} as Record<string, any>)).map(([email, data]: any) => (
                             <div key={email} style={{ background: '#1e293b', padding: '15px', borderRadius: '8px', border: '1px solid #334155' }}>
                               <div style={{ fontWeight: 'bold', fontSize: '1.1rem', color: '#f8fafc', marginBottom: '5px' }}>{data.name}</div>
-                              <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: '15px' }}>{email}</div>
                               <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                                 {data.cats.map((c: any) => (
                                   <span key={c.cat} style={{ background: '#38bdf820', color: '#38bdf8', padding: '6px 12px', borderRadius: '100px', fontSize: '0.85rem' }}>{c.cat}: <strong style={{color: '#f8fafc'}}>{c.count} db</strong></span>
