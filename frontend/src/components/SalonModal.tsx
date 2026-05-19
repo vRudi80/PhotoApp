@@ -127,32 +127,51 @@ export default function SalonModal({ salon, user, onClose }: SalonModalProps) {
     });
   }, [portfolio, searchQuery]);
 
-  // ÚJ 2: Már leadott képek okos sorrendezése (Súlyozott pontozással)
+ // ÚJ 2: Már leadott képek okos sorrendezése (Súlyozott pontozással a valós adatbázis ID-k alapján)
   const sortedEntries = useMemo(() => {
+    // Biztonsági ellenőrzés: ha a lista véletlenül nem tömb, ne omoljon össze
+    if (!myEntries || !Array.isArray(myEntries)) return [];
+
     return [...myEntries].sort((a, b) => {
       
-      // Belső függvény a képek pontértékének kiszámítására
       const calculateScore = (entry: any) => {
         let score = 0;
         
-        // 1. Van-e érvényes díja? (Létezik és nem a 15-ös azonosító)
-        const hasRealAward = entry.award_id && Number(entry.award_id) !== 15;
-        if (hasRealAward) {
-          score += 2; // A díj önmagában 2 pontot ér
+        // 1. Biztonságos számmá alakítás (a NULL, undefined és üres string kezelése)
+        const awardId = (entry.award_id !== null && entry.award_id !== undefined && entry.award_id !== '') 
+          ? Number(entry.award_id) 
+          : null;
+
+        // 2. Díjak és elfogadások pontozása
+        // Ha van értékelés, és az nem 15 (elutasított), és nem 0
+        if (awardId !== null && awardId !== 15 && awardId !== 0) {
+          if (awardId === 1) {
+            score += 1; // Sima elfogadás (Acceptance)
+          } else {
+            score += 3; // Valódi díj (PSA Silver, stb.) - Nagyobb súlyt kap!
+          }
         }
-        
-        // 2. Elérte-e az elfogadási határt?
-        const isAccepted = entry.achieved_score !== null && 
-                           entry.acceptance_score !== null && 
-                           Number(entry.achieved_score) >= Number(entry.acceptance_score);
-                           
-        // Ha elfogadták, és nem kapta meg a 15-ös "elutasítva" pecsétet
-        if (isAccepted && Number(entry.award_id) !== 15) {
-          score += 1; // Az elfogadás plusz 1 pontot ér
+
+        // 3. Ha esetleg nincs award_id megadva, de a pontok be vannak írva (és nem 15-ös)
+        const hasScores = entry.achieved_score !== null && entry.achieved_score !== '' && 
+                          entry.acceptance_score !== null && entry.acceptance_score !== '';
+                          
+        if (hasScores && awardId !== 15) {
+          const achieved = Number(entry.achieved_score);
+          const acceptance = Number(entry.acceptance_score);
+          // Ha elérte a határt, és még nem kapott pontot fentebb
+          if (achieved >= acceptance && score === 0) {
+            score += 1; 
+          }
         }
-        
+
         return score;
       };
+
+      // Csökkenő sorrend (a legtöbb pontot kapott képek kerülnek legelőre)
+      return calculateScore(b) - calculateScore(a);
+    });
+  }, [myEntries]);
 
       // Csökkenő sorrendbe rendezzük a pontszámok alapján (legtöbb pont van legelöl)
       return calculateScore(b) - calculateScore(a);
