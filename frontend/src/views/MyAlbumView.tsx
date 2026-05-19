@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { BACKEND_URL } from '../utils/constants';
 import { getImageUrl } from '../utils/helpers';
-import PremiumPaywall from './PremiumPaywall'; // ÚJ: Beimportáljuk a közös fizetőfalat!
+import PremiumPaywall from './PremiumPaywall';
 
 interface MyAlbumViewProps {
   user: any;
@@ -26,11 +26,9 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
 
   const [analyzingPhotoId, setAnalyzingPhotoId] = useState<number | null>(null);
 
-  // ÚJ: Ellenőrizzük a prémium státuszt AZONNAL a propból kapott adatok alapján
   const hasPremiumAccess = user && (user.isPremium || user.is_premium);
 
   const fetchMyPhotos = async () => {
-    // Ha nincs prémium jogosultság, el sem indítjuk a felesleges hálózati kéréseket
     if (!hasPremiumAccess) {
       setIsLoading(false);
       return;
@@ -55,21 +53,14 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
     fetchMyPhotos();
   }, [user]);
 
-const filteredPhotos = useMemo(() => {
-    if (!searchTerm) return photos; // Ha üres a kereső, adjuk vissza az összeset
+  const filteredPhotos = useMemo(() => {
+    if (!searchTerm) return photos;
     
     const lowerTerm = searchTerm.toLowerCase();
     
     return photos.filter(p => {
-      // 1. Keresés a címben
       const matchTitle = p.title && p.title.toLowerCase().includes(lowerTerm);
-      
-      // 2. Keresés az AI tagekben és az értékelés szövegében!
-      // Mivel az ai_tags nyers szövegként (vagy JSON stringként) van a memóriában, 
-      // simán kereshetünk benne, így a kulcsszavakat és a zsűri véleményét is átfésüli.
       const matchAi = p.ai_tags && p.ai_tags.toLowerCase().includes(lowerTerm);
-      
-      // Ha bármelyikben benne van, akkor a kép megjelenik
       return matchTitle || matchAi;
     });
   }, [photos, searchTerm]);
@@ -177,7 +168,6 @@ const filteredPhotos = useMemo(() => {
     }
   };
 
-  // --- KORAI KILÉPÉS (EARLY RETURN): HA NEM PRÉMIUM, AZONNAL A FIZETŐFALAT ADJUK VISSZA ---
   if (!hasPremiumAccess) {
     return (
       <div>
@@ -193,14 +183,12 @@ const filteredPhotos = useMemo(() => {
     return <div style={{ color: '#60a5fa', textAlign: 'center', padding: '2rem' }}>Portfólió betöltése...</div>;
   }
 
-  // --- INNENTŐL CSAK A VALÓDI PRÉMIUM TAGOK LÁTJÁK A KÓDOT ---
   return (
     <div>
       <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '15px', color: '#60a5fa' }}>
         <span style={{ fontSize: '2.5rem' }}>🖼️</span> Saját Képalbum (Portfólió)
       </h2>
 
-      {/* KÉPFELTÖLTÉS ŰRLAP DOBOZ */}
       <div style={{ background: '#1e293b', padding: '20px', borderRadius: '12px', marginBottom: '20px', border: '1px solid #38bdf850' }}>
         <h3 style={{ marginTop: 0, color: '#38bdf8', fontSize: '1.2rem' }}>📤 Új fotó hozzáadása a portfólióhoz</h3>
         <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
@@ -310,8 +298,10 @@ const filteredPhotos = useMemo(() => {
               transition: 'all 0.3s ease',
               boxShadow: hasAward ? '0 0 15px rgba(245, 158, 11, 0.2)' : 'none'
             }}>
-              <div style={{ height: '200px', width: '100%', background: '#0f172a', cursor: 'zoom-in', position: 'relative' }} onClick={() => setFullscreenData({url: imageUrl, title: photo.title})}>
-                <img src={imageUrl} alt={photo.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              
+              {/* JAVÍTÁS 1: Fekete háttér és contain (így nem vágja le az álló képeket) */}
+              <div style={{ height: '200px', width: '100%', background: '#000000', cursor: 'zoom-in', position: 'relative' }} onClick={() => setFullscreenData({url: imageUrl, title: photo.title})}>
+                <img src={imageUrl} alt={photo.title} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                 
                 {hasAward && <div style={{ position: 'absolute', top: '10px', right: '10px', background: '#f59e0b', color: '#0f172a', padding: '2px 8px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 'bold', zIndex: 5, boxShadow: '-2px 2px 5px rgba(0,0,0,0.4)' }}>AWARD</div>}
                 {!hasAward && hasAcceptance && <div style={{ position: 'absolute', top: '10px', right: '10px', background: '#10b981', color: 'white', padding: '2px 8px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 'bold', zIndex: 5, boxShadow: '-2px 2px 5px rgba(0,0,0,0.4)' }}>ACC</div>}
@@ -328,37 +318,71 @@ const filteredPhotos = useMemo(() => {
                   </div>
                 )}
 
+                {/* JAVÍTÁS 2: Összecsukható HTML elem a Zsűri Értékelésének */}
                 {photo.ai_tags && (
-                  <div style={{ marginBottom: '15px', padding: '12px', background: '#38bdf810', borderRadius: '8px', border: '1px solid #38bdf830' }}>
-                    <div style={{ fontSize: '0.75rem', color: '#38bdf8', textTransform: 'uppercase', marginBottom: '8px', fontWeight: 'bold' }}>🤖 AI Zsűri Értékelése:</div>
-                    
-                    {isJson && aiData ? (
-                      <>
-                        <p style={{ fontSize: '0.9rem', color: '#e2e8f0', lineHeight: '1.5', margin: '0 0 12px 0', fontStyle: 'italic' }}>
-                          "{aiData.evaluation}"
-                        </p>
+                  <details style={{ marginBottom: '15px', background: '#38bdf810', borderRadius: '8px', border: '1px solid #38bdf830' }}>
+                    <summary style={{ padding: '10px 12px', fontSize: '0.75rem', color: '#38bdf8', textTransform: 'uppercase', fontWeight: 'bold', cursor: 'pointer', outline: 'none', userSelect: 'none' }}>
+                      🤖 AI Zsűri Értékelése
+                    </summary>
+                    <div style={{ padding: '0 12px 12px 12px' }}>
+                      {isJson && aiData ? (
+                        <>
+                          <p style={{ fontSize: '0.9rem', color: '#e2e8f0', lineHeight: '1.5', margin: '0 0 12px 0', fontStyle: 'italic' }}>
+                            "{aiData.evaluation}"
+                          </p>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                            {aiData.tags && aiData.tags.split(',').map((tag: string, idx: number) => (
+                              <span key={idx} style={{ fontSize: '0.7rem', color: '#94a3b8', background: '#0f172a', padding: '2px 6px', borderRadius: '4px', border: '1px solid #334155' }}>
+                                {tag.trim()}
+                              </span>
+                            ))}
+                          </div>
+                        </>
+                      ) : (
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                          {aiData.tags && aiData.tags.split(',').map((tag: string, idx: number) => (
-                            <span key={idx} style={{ fontSize: '0.7rem', color: '#94a3b8', background: '#0f172a', padding: '2px 6px', borderRadius: '4px', border: '1px solid #334155' }}>
+                          {photo.ai_tags.split(',').map((tag: string, idx: number) => (
+                            <span key={idx} style={{ fontSize: '0.75rem', color: '#cbd5e1', background: '#0f172a', padding: '2px 6px', borderRadius: '4px' }}>
                               {tag.trim()}
                             </span>
                           ))}
                         </div>
-                      </>
-                    ) : (
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                        {photo.ai_tags.split(',').map((tag: string, idx: number) => (
-                          <span key={idx} style={{ fontSize: '0.75rem', color: '#cbd5e1', background: '#0f172a', padding: '2px 6px', borderRadius: '4px' }}>
-                            {tag.trim()}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                      )}
+                    </div>
+                  </details>
+                )}
+
+                {/* JAVÍTÁS 3: Összecsukható HTML elem az Eredményeknek */}
+                {currentPhotoResults.length > 0 && !editingPhotoId && (
+                  <details style={{ marginBottom: '15px', background: '#0f172a', borderRadius: '8px', border: '1px solid #334155' }}>
+                    <summary style={{ padding: '10px', fontSize: '0.75rem', color: '#60a5fa', fontWeight: 'bold', cursor: 'pointer', outline: 'none', userSelect: 'none' }}>
+                      🎖️ Eredmények szalonokban ({entryCount})
+                    </summary>
+                    <div style={{ padding: '0 10px 10px 10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      {currentPhotoResults.map((res, i) => {
+                        const isAcc = res.award_name && res.award_name.toLowerCase() === 'acceptance';
+                        return (
+                          <div key={i} style={{ fontSize: '0.8rem', color: '#cbd5e1', lineHeight: '1.3', paddingBottom: '6px', borderBottom: i < currentPhotoResults.length - 1 ? '1px solid #1e293b' : 'none' }}>
+                            <span style={{ color: '#f8fafc', fontWeight: 'bold' }}>{res.salon_name}</span>
+                            <br/>
+                            {res.award_name && (
+                              <span style={{ color: isAcc ? '#10b981' : '#f59e0b', fontWeight: 'bold' }}>
+                                {res.award_name}
+                              </span>
+                            )}
+                            {res.achieved_score !== null && (
+                              <span style={{ color: '#94a3b8', marginLeft: '5px' }}>
+                                ({res.achieved_score} / {res.acceptance_score || '?'})
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </details>
                 )}
                 
                 {editingPhotoId === photo.id ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: 'auto' }}>
                     <input 
                       value={editTitle} 
                       onChange={e => setEditTitle(e.target.value)} 
@@ -377,49 +401,20 @@ const filteredPhotos = useMemo(() => {
                     </div>
                   </div>
                 ) : (
-                  <>
-                    {currentPhotoResults.length > 0 && (
-                      <div style={{ marginBottom: '15px', padding: '10px', background: '#0f172a', borderRadius: '8px', border: '1px solid #334155' }}>
-                        <div style={{ fontSize: '0.75rem', color: '#60a5fa', marginBottom: '8px', fontWeight: 'bold' }}>🎖️ Eredmények szalonokban:</div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                          {currentPhotoResults.map((res, i) => {
-                            const isAcc = res.award_name && res.award_name.toLowerCase() === 'acceptance';
-                            return (
-                              <div key={i} style={{ fontSize: '0.8rem', color: '#cbd5e1', lineHeight: '1.3' }}>
-                                <span style={{ color: '#f8fafc', fontWeight: 'bold' }}>{res.salon_name}</span>
-                                <br/>
-                                {res.award_name && (
-                                  <span style={{ color: isAcc ? '#10b981' : '#f59e0b', fontWeight: 'bold' }}>
-                                    {res.award_name}
-                                  </span>
-                                )}
-                                {res.achieved_score !== null && (
-                                  <span style={{ color: '#94a3b8', marginLeft: '5px' }}>
-                                    ({res.achieved_score} / {res.acceptance_score || '?'})
-                                  </span>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
+                  <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                    <button 
+                      onClick={() => handleAnalyzePhoto(photo.id)} 
+                      disabled={isAnalyzingThis}
+                      style={{ width: '100%', background: '#8b5cf620', color: '#a78bfa', border: '1px solid #8b5cf6', padding: '8px', borderRadius: '6px', cursor: isAnalyzingThis ? 'not-allowed' : 'pointer', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '5px' }}
+                    >
+                      {isAnalyzingThis ? '⏳ Elemzés folyamatban...' : (photo.ai_tags ? '🤖 AI Újraelemzés' : '🤖 AI Elemzés (Zsűri értékelés)')}
+                    </button>
 
-                    <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                      <button 
-                        onClick={() => handleAnalyzePhoto(photo.id)} 
-                        disabled={isAnalyzingThis}
-                        style={{ width: '100%', background: '#8b5cf620', color: '#a78bfa', border: '1px solid #8b5cf6', padding: '8px', borderRadius: '6px', cursor: isAnalyzingThis ? 'not-allowed' : 'pointer', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '5px' }}
-                      >
-                        {isAnalyzingThis ? '⏳ Elemzés folyamatban...' : (photo.ai_tags ? '🤖 AI Újraelemzés' : '🤖 AI Elemzés (Zsűri értékelés)')}
-                      </button>
-
-                      <div style={{ display: 'flex', gap: '10px' }}>
-                        <button onClick={() => { setEditingPhotoId(photo.id); setEditTitle(photo.title); }} style={{ flex: 1, background: '#38bdf820', color: '#38bdf8', border: 'none', padding: '8px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>Szerkeszt</button>
-                        <button onClick={() => handleDelete(photo.id)} style={{ flex: 1, background: '#ef444420', color: '#ef4444', border: 'none', padding: '8px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>Törlés</button>
-                      </div>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <button onClick={() => { setEditingPhotoId(photo.id); setEditTitle(photo.title); }} style={{ flex: 1, background: '#38bdf820', color: '#38bdf8', border: 'none', padding: '8px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>Szerkeszt</button>
+                      <button onClick={() => handleDelete(photo.id)} style={{ flex: 1, background: '#ef444420', color: '#ef4444', border: 'none', padding: '8px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>Törlés</button>
                     </div>
-                  </>
+                  </div>
                 )}
               </div>
             </div>
