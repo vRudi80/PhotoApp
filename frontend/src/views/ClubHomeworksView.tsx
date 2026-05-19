@@ -40,7 +40,7 @@ export default function ClubHomeworksView({
   // Állapot az összecsukható kártyákhoz (melyik van nyitva)
   const [expandedHwIds, setExpandedHwIds] = useState<number[]>([]);
 
-  // ÚJ: Keresőmező állapota
+  // Keresőmező állapota
   const [hwSearch, setHwSearch] = useState('');
 
   const inputStyle = { width: '100%', padding: '10px', marginBottom: '10px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '6px', boxSizing: 'border-box' as const };
@@ -85,7 +85,7 @@ export default function ClubHomeworksView({
     setExpandedHwIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   };
 
-  // ÚJ: Házi feladatok szűrése a keresőmező alapján
+  // Házi feladatok szűrése a keresőmező alapján
   const filteredHomeworks = myClubHomeworks.filter(hw => {
     if (!hwSearch) return true;
     const q = hwSearch.toLowerCase();
@@ -98,7 +98,7 @@ export default function ClubHomeworksView({
         <span style={{ fontSize: '2.5rem' }}>📝</span> Házi Feladatok: {currentDbUser.club_name}
       </h2>
 
-      {/* ÚJ: Keresőmező */}
+      {/* Keresőmező */}
       <div style={{ marginBottom: '25px', display: 'flex', gap: '15px', alignItems: 'center', background: '#1e293b', padding: '15px', borderRadius: '12px', border: '1px solid #334155' }}>
         <input 
           type="text" 
@@ -212,6 +212,7 @@ export default function ClubHomeworksView({
                     </div>
                   )}
 
+                  {/* Saját nevezések */}
                   {myEntries.length > 0 && (
                     <div style={{ marginTop: '20px', borderTop: '1px solid #334155', paddingTop: '20px' }}>
                       <h4 style={{margin: '0 0 15px 0', fontSize: '1.1rem', color: '#cbd5e1'}}>Saját beküldött képeid</h4>
@@ -220,12 +221,16 @@ export default function ClubHomeworksView({
                           const imageUrl = getImageUrl(entry.drive_file_id, entry.file_url);
                           return (
                             <div key={entry.id} style={{ background: '#0f172a', borderRadius: '8px', overflow: 'hidden', border: '1px solid #334155' }}>
-                              <img 
-                                src={imageUrl} 
-                                alt={entry.title} 
-                                onClick={() => openGalleryModal(entry, myEntries, index)} 
-                                style={{ width: '100%', height: '100px', objectFit: 'cover', cursor: 'zoom-in' }} 
-                              />
+                              
+                              {/* JAVÍTÁS: Fekete háttér és contain */}
+                              <div style={{ height: '140px', width: '100%', background: '#000000', cursor: 'zoom-in' }} onClick={() => openGalleryModal(entry, myEntries, index)}>
+                                <img 
+                                  src={imageUrl} 
+                                  alt={entry.title} 
+                                  loading="lazy"
+                                  style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
+                                />
+                              </div>
                               
                               {editingHwEntryId === entry.id ? (
                                 <div style={{ padding: '12px' }}>
@@ -257,6 +262,7 @@ export default function ClubHomeworksView({
                     </div>
                   )}
 
+                  {/* Teljes Klub Galéria */}
                   {isPast && (
                     <div style={{ marginTop: '30px', borderTop: isLeader ? '2px dashed #f59e0b' : '1px solid #334155', paddingTop: '20px' }}>
                       
@@ -295,12 +301,16 @@ export default function ClubHomeworksView({
                             const imageUrl = getImageUrl(entry.drive_file_id, entry.file_url);
                             return (
                               <div key={entry.id} style={{ background: '#0f172a', borderRadius: '8px', overflow: 'hidden', border: isLeader ? '1px solid #f59e0b50' : '1px solid #334155', display: 'flex', flexDirection: 'column' }}>
-                                <img 
-                                  src={imageUrl} 
-                                  alt={entry.title} 
-                                  onClick={() => openGalleryModal(entry, finalEntriesForAll, index)} 
-                                  style={{ width: '100%', height: '140px', objectFit: 'cover', cursor: 'zoom-in' }} 
-                                />
+                                
+                                {/* JAVÍTÁS: Fekete háttér és contain */}
+                                <div style={{ height: '160px', width: '100%', background: '#000000', cursor: 'zoom-in' }} onClick={() => openGalleryModal(entry, finalEntriesForAll, index)}>
+                                  <img 
+                                    src={imageUrl} 
+                                    alt={entry.title} 
+                                    loading="lazy"
+                                    style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
+                                  />
+                                </div>
                                 
                                 <div style={{ padding: '12px', flex: 1, display: 'flex', flexDirection: 'column' }}>
                                   <div style={{ fontSize: '0.9rem', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#f8fafc' }}>{entry.title}</div>
