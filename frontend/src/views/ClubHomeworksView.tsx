@@ -97,12 +97,18 @@ export default function ClubHomeworksView({
           const isSortedByLikes = sortedHwIds.includes(hw.id);
 
           // Rendezés: Alapból időrendben (id alapján), de ha a gombot megnyomta, akkor lájk alapján csökkenőbe
+// Rendezés: Alapból NÉVSORBAN (user_name alapján), de ha a gombot megnyomta, akkor lájk alapján csökkenőbe
           const finalEntriesForAll = [...hwEntriesForAllRaw].sort((a, b) => {
             if (isSortedByLikes) {
-              return (b.like_count || 0) - (a.like_count || 0);
+              // Ha lájkok alapján rendezünk, a több lájkkal rendelkező jön előre
+              if ((b.like_count || 0) !== (a.like_count || 0)) {
+                return (b.like_count || 0) - (a.like_count || 0);
+              }
             }
-            // Alapértelmezett időrendi (a legújabb van legelöl)
-            return b.id - a.id; 
+            // Alapértelmezett (vagy lájk-holtverseny esetén): Névsor szerint A-Z
+            const nameA = a.user_name || '';
+            const nameB = b.user_name || '';
+            return nameA.localeCompare(nameB);
           });
           
           const maxImages = hw.max_images || 4;
