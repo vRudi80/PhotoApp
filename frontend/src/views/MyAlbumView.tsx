@@ -299,7 +299,6 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
               boxShadow: hasAward ? '0 0 15px rgba(245, 158, 11, 0.2)' : 'none'
             }}>
               
-              {/* JAVÍTÁS 1: Fekete háttér és contain (így nem vágja le az álló képeket) */}
               <div style={{ height: '200px', width: '100%', background: '#000000', cursor: 'zoom-in', position: 'relative' }} onClick={() => setFullscreenData({url: imageUrl, title: photo.title})}>
                 <img src={imageUrl} alt={photo.title} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                 
@@ -318,54 +317,62 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
                   </div>
                 )}
 
-                {/* JAVÍTÁS 2: Összecsukható HTML elem a Zsűri Értékelésének */}
-                {photo.ai_tags && (
-                  <details style={{ marginBottom: '15px', background: '#38bdf810', borderRadius: '8px', border: '1px solid #38bdf830' }}>
-                    <summary style={{ padding: '10px 12px', fontSize: '0.75rem', color: '#38bdf8', textTransform: 'uppercase', fontWeight: 'bold', cursor: 'pointer', outline: 'none', userSelect: 'none' }}>
-                      🤖 AI Zsűri Értékelése
-                    </summary>
-                    <div style={{ padding: '0 12px 12px 12px' }}>
-                      {isJson && aiData ? (
-                        <>
-                          <p style={{ fontSize: '0.9rem', color: '#e2e8f0', lineHeight: '1.5', margin: '0 0 12px 0', fontStyle: 'italic' }}>
-                            "{aiData.evaluation}"
-                          </p>
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                            {aiData.tags && aiData.tags.split(',').map((tag: string, idx: number) => (
-                              <span key={idx} style={{ fontSize: '0.7rem', color: '#94a3b8', background: '#0f172a', padding: '2px 6px', borderRadius: '4px', border: '1px solid #334155' }}>
+                {/* AI Zsűri Értékelés lenyíló panel (A gombot beletettük!) */}
+                <details style={{ marginBottom: '15px', background: '#38bdf810', borderRadius: '8px', border: '1px solid #38bdf830' }}>
+                  <summary style={{ padding: '10px 12px', fontSize: '0.75rem', color: '#38bdf8', textTransform: 'uppercase', fontWeight: 'bold', cursor: 'pointer', outline: 'none', userSelect: 'none' }}>
+                    🤖 AI Zsűri Értékelése
+                  </summary>
+                  <div style={{ padding: '0 12px 12px 12px' }}>
+                    {photo.ai_tags ? (
+                      <>
+                        {isJson && aiData ? (
+                          <>
+                            <p style={{ fontSize: '0.9rem', color: '#e2e8f0', lineHeight: '1.5', margin: '0 0 12px 0', fontStyle: 'italic' }}>
+                              "{aiData.evaluation}"
+                            </p>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '15px' }}>
+                              {aiData.tags && aiData.tags.split(',').map((tag: string, idx: number) => (
+                                <span key={idx} style={{ fontSize: '0.7rem', color: '#94a3b8', background: '#0f172a', padding: '2px 6px', borderRadius: '4px', border: '1px solid #334155' }}>
+                                  {tag.trim()}
+                                </span>
+                              ))}
+                            </div>
+                          </>
+                        ) : (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '15px' }}>
+                            {photo.ai_tags.split(',').map((tag: string, idx: number) => (
+                              <span key={idx} style={{ fontSize: '0.75rem', color: '#cbd5e1', background: '#0f172a', padding: '2px 6px', borderRadius: '4px' }}>
                                 {tag.trim()}
                               </span>
                             ))}
                           </div>
-                        </>
-                      ) : (
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                          {photo.ai_tags.split(',').map((tag: string, idx: number) => (
-                            <span key={idx} style={{ fontSize: '0.75rem', color: '#cbd5e1', background: '#0f172a', padding: '2px 6px', borderRadius: '4px' }}>
-                              {tag.trim()}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                   <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                    <button 
-                      onClick={() => handleAnalyzePhoto(photo.id)} 
-                      disabled={isAnalyzingThis}
-                      style={{ width: '100%', background: '#8b5cf620', color: '#a78bfa', border: '1px solid #8b5cf6', padding: '8px', borderRadius: '6px', cursor: isAnalyzingThis ? 'not-allowed' : 'pointer', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '5px' }}
-                    >
-                      {isAnalyzingThis ? '⏳ Elemzés folyamatban...' : (photo.ai_tags ? '🤖 AI Újraelemzés' : '🤖 AI Elemzés (Zsűri értékelés)')}
-                    </button>
-
-                    <div style={{ display: 'flex', gap: '10px' }}>
-                      <button onClick={() => { setEditingPhotoId(photo.id); setEditTitle(photo.title); }} style={{ flex: 1, background: '#38bdf820', color: '#38bdf8', border: 'none', padding: '8px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>Szerkeszt</button>
-                      <button onClick={() => handleDelete(photo.id)} style={{ flex: 1, background: '#ef444420', color: '#ef4444', border: 'none', padding: '8px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>Törlés</button>
-                    </div>
+                        )}
+                        
+                        {/* JAVÍTÁS: Az AI gombot beletettük a lenyíló fül aljába! */}
+                        <button 
+                          onClick={() => handleAnalyzePhoto(photo.id)} 
+                          disabled={isAnalyzingThis}
+                          style={{ width: '100%', background: '#8b5cf620', color: '#a78bfa', border: '1px solid #8b5cf6', padding: '8px', borderRadius: '6px', cursor: isAnalyzingThis ? 'not-allowed' : 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}
+                        >
+                          {isAnalyzingThis ? '⏳ Elemzés folyamatban...' : '🤖 AI Újraelemzés Kérése'}
+                        </button>
+                      </>
+                    ) : (
+                      <div style={{ textAlign: 'center', padding: '10px 0' }}>
+                        <p style={{ color: '#94a3b8', fontSize: '0.85rem', marginBottom: '10px' }}>Ezt a képet még nem értékelte a mesterséges intelligencia.</p>
+                        <button 
+                          onClick={() => handleAnalyzePhoto(photo.id)} 
+                          disabled={isAnalyzingThis}
+                          style={{ width: '100%', background: '#8b5cf620', color: '#a78bfa', border: '1px solid #8b5cf6', padding: '8px', borderRadius: '6px', cursor: isAnalyzingThis ? 'not-allowed' : 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}
+                        >
+                          {isAnalyzingThis ? '⏳ Elemzés folyamatban...' : '🤖 AI Elemzés Indítása'}
+                        </button>
+                      </div>
+                    )}
                   </div>
-                  </details>
-                )}
+                </details>
 
-                {/* JAVÍTÁS 3: Összecsukható HTML elem az Eredményeknek */}
+                {/* Eredmények lenyíló panel */}
                 {currentPhotoResults.length > 0 && !editingPhotoId && (
                   <details style={{ marginBottom: '15px', background: '#0f172a', borderRadius: '8px', border: '1px solid #334155' }}>
                     <summary style={{ padding: '10px', fontSize: '0.75rem', color: '#60a5fa', fontWeight: 'bold', cursor: 'pointer', outline: 'none', userSelect: 'none' }}>
@@ -415,7 +422,10 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
                     </div>
                   </div>
                 ) : (
-                 
+                  <div style={{ marginTop: 'auto', display: 'flex', gap: '10px' }}>
+                    <button onClick={() => { setEditingPhotoId(photo.id); setEditTitle(photo.title); }} style={{ flex: 1, background: '#38bdf820', color: '#38bdf8', border: 'none', padding: '8px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>✏️ Szerkeszt</button>
+                    <button onClick={() => handleDelete(photo.id)} style={{ flex: 1, background: '#ef444420', color: '#ef4444', border: 'none', padding: '8px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>🗑️ Törlés</button>
+                  </div>
                 )}
               </div>
             </div>
