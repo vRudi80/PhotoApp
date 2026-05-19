@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { ADMIN_EMAIL } from '../utils/constants';
 import { getImageUrl } from '../utils/helpers';
 
@@ -76,6 +77,14 @@ interface ContestsViewProps {
 
 export default function ContestsView(props: ContestsViewProps) {
   const inputStyle = { width: '100%', padding: '10px', marginBottom: '10px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '6px', boxSizing: 'border-box' as const };
+
+  // ÚJ: Dupla-kattintás gátló a szavazásnál
+  const [isSubmittingVote, setIsSubmittingVote] = useState(false);
+
+  // Ha frissül a szavazandó képek listája (azaz sikeres volt a mentés), feloldjuk a gombot
+  useEffect(() => {
+    setIsSubmittingVote(false);
+  }, [props.unvotedEntries, props.currentScore]);
 
   return (
     <>
@@ -249,10 +258,9 @@ export default function ContestsView(props: ContestsViewProps) {
                       </div>
                     </div>
 
-                  // --- JAVÍTOTT RÉSZ: TELJES KÉPERNYŐS ZSŰRI MÓD (DARK ROOM) ---
+                  // --- TELJES KÉPERNYŐS ZSŰRI MÓD (DARK ROOM) ---
                   ) : props.judgingContestId === contest.id ? (
                     <>
-                      {/* Vizuális placeholder a normál listában, hogy ne tűnjön el a kártya */}
                       <div style={{ background: '#0f172a', padding: '25px', borderRadius: '12px', textAlign: 'center', border: '2px solid #f59e0b' }}>
                         <h4 style={{ color: '#f59e0b', margin: '0 0 10px 0', fontSize: '1.4rem' }}>⚖️ Zsűrizés megnyitva teljes képernyőn!</h4>
                         <p style={{ color: '#94a3b8', margin: '0 0 20px 0' }}>Az értékelő pult egy új felugró ablakban nyílt meg. Ha véletlenül bezártad, de még maradt értékelendő kép, frissítsd az oldalt vagy kattints a gombra.</p>
@@ -261,10 +269,8 @@ export default function ContestsView(props: ContestsViewProps) {
                         </button>
                       </div>
 
-                      {/* MAGA A TELJES KÉPERNYŐS ÉRTÉKELŐ FELÜLET */}
                       <div style={{ position: 'fixed', inset: 0, backgroundColor: '#0f172a', zIndex: 10000, display: 'flex', flexDirection: 'column' }}>
                         
-                        {/* Fejléc */}
                         <div style={{ padding: '15px 30px', background: '#1e293b', borderBottom: '1px solid #334155', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
                             <h3 style={{ margin: 0, color: '#f59e0b', fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -282,26 +288,22 @@ export default function ContestsView(props: ContestsViewProps) {
                         {props.unvotedEntries.length > 0 ? (
                           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                             
-                            {/* A hatalmas kép (Dark Room) */}
+                            {/* JAVÍTÁS 1: onClick={() => setFullscreenData...} KIVÉVE innen, hogy ne nyisson dupla ablakot! */}
                             {(() => {
                               const currentEntry = props.unvotedEntries[0];
                               const imageUrl = getImageUrl(currentEntry.drive_file_id, currentEntry.file_url);
                               return (
-                                <div style={{ flex: 1, background: '#000000', display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px', overflow: 'hidden' }}>
+                                <div key={currentEntry.id} style={{ flex: 1, background: '#000000', display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px', overflow: 'hidden' }}>
                                   <img 
                                     src={imageUrl} 
                                     alt="Nevezett kép" 
-                                    onClick={() => props.setFullscreenData({url: imageUrl, title: currentEntry.title})}
-                                    style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', cursor: 'zoom-in' }} 
+                                    style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} 
                                   />
                                 </div>
                               );
                             })()}
 
-                            {/* Értékelő Pult (Vezérlők) */}
                             <div style={{ background: '#1e293b', padding: '25px 40px', borderTop: '1px solid #334155', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '30px', flexWrap: 'wrap' }}>
-                              
-                              {/* Bal oldal: Adatok */}
                               <div style={{ flex: '1', minWidth: '250px' }}>
                                 <div style={{ fontSize: '1.5rem', color: '#f8fafc', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: '8px' }}>
                                   {props.unvotedEntries[0].title || 'Névtelen kép'}
@@ -311,7 +313,6 @@ export default function ContestsView(props: ContestsViewProps) {
                                 </div>
                               </div>
 
-                              {/* Közép: Csúszka (Slider) */}
                               <div style={{ flex: '2', minWidth: '300px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
                                 <div style={{ display: 'flex', width: '100%', alignItems: 'center', gap: '20px' }}>
                                   <span style={{ color: '#94a3b8', fontWeight: 'bold', fontSize: '1.3rem' }}>0</span>
@@ -327,23 +328,32 @@ export default function ContestsView(props: ContestsViewProps) {
                                 <div style={{ color: '#64748b', fontSize: '0.85rem' }}>Húzd a csúszkát, vagy kattints a mezőbe a gépeléshez!</div>
                               </div>
 
-                              {/* Jobb oldal: Pontszám és Gomb */}
                               <div style={{ flex: '1', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '20px', minWidth: '250px' }}>
+                                {/* JAVÍTÁS 2: Enter megnyomás is védett a dupla kattintás ellen */}
                                 <input 
                                   type="number" 
                                   min="0" max="100" 
                                   placeholder="Pont"
                                   value={props.currentScore}
                                   onChange={e => props.setCurrentScore(e.target.value ? Number(e.target.value) : '')}
-                                  onKeyDown={e => { if(e.key === 'Enter' && props.currentScore !== '') props.submitVote() }}
+                                  onKeyDown={e => { 
+                                    if(e.key === 'Enter' && props.currentScore !== '' && !isSubmittingVote) {
+                                      setIsSubmittingVote(true);
+                                      props.submitVote();
+                                    } 
+                                  }}
                                   style={{ width: '110px', fontSize: '2.5rem', padding: '10px', textAlign: 'center', background: '#0f172a', border: '3px solid #f59e0b', color: '#f59e0b', borderRadius: '12px', fontWeight: 'bold', outline: 'none', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.5)' }}
                                 />
+                                {/* JAVÍTÁS 3: Dupla kattintás védelem és animált homokóra */}
                                 <button 
-                                  onClick={props.submitVote}
-                                  disabled={props.currentScore === ''}
-                                  style={{ background: props.currentScore === '' ? '#475569' : '#10b981', color: props.currentScore === '' ? '#94a3b8' : '#0f172a', border: 'none', padding: '20px 30px', borderRadius: '12px', fontSize: '1.4rem', fontWeight: 'bold', cursor: props.currentScore === '' ? 'not-allowed' : 'pointer', transition: 'all 0.2s', boxShadow: props.currentScore === '' ? 'none' : '0 4px 15px rgba(16, 185, 129, 0.4)' }}
+                                  onClick={() => {
+                                    setIsSubmittingVote(true);
+                                    props.submitVote();
+                                  }}
+                                  disabled={props.currentScore === '' || isSubmittingVote}
+                                  style={{ background: props.currentScore === '' || isSubmittingVote ? '#475569' : '#10b981', color: props.currentScore === '' || isSubmittingVote ? '#94a3b8' : '#0f172a', border: 'none', padding: '20px 30px', borderRadius: '12px', fontSize: '1.4rem', fontWeight: 'bold', cursor: props.currentScore === '' || isSubmittingVote ? 'not-allowed' : 'pointer', transition: 'all 0.2s', boxShadow: props.currentScore === '' || isSubmittingVote ? 'none' : '0 4px 15px rgba(16, 185, 129, 0.4)' }}
                                 >
-                                  Tovább 🚀
+                                  {isSubmittingVote ? '⏳...' : 'Tovább 🚀'}
                                 </button>
                               </div>
 
