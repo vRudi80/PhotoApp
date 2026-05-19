@@ -173,11 +173,6 @@ export default function SalonModal({ salon, user, onClose }: SalonModalProps) {
     });
   }, [myEntries]);
 
-      // Csökkenő sorrendbe rendezzük a pontszámok alapján (legtöbb pont van legelöl)
-      return calculateScore(b) - calculateScore(a);
-    });
-  }, [myEntries]);
-
   if (!salon) return null;
 
   return (
