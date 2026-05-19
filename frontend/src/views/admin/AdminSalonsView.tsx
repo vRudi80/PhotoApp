@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
-import { getFlagEmoji } from '../../utils/helpers';
+import { useState, useEffect, useRef } from 'react';
 import { BACKEND_URL } from '../../utils/constants';
+import { getFlagImageUrl } from '../../utils/helpers'; // JAVÍTÁS: A képi zászlót importáljuk az emojik helyett!
 
 interface AdminSalonsViewProps {
   editSalonId: number | null;
@@ -54,6 +54,30 @@ export default function AdminSalonsView({
 
   const inputStyle = { width: '100%', padding: '10px', marginBottom: '10px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '6px', boxSizing: 'border-box' as const };
 
+  // --- ÚJ: KERESHETŐ ORSZÁGVÁLASZTÓ ÁLLAPOTAI ---
+  const [isCountryDropdownOpen, setIsCountryDropdownOpen] = useState(false);
+  const [countrySearch, setCountrySearch] = useState('');
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Zárjuk be a legördülőt, ha mellékattintanak
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsCountryDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const filteredCountries = countries.filter(c => 
+    c.country_hun.toLowerCase().includes(countrySearch.toLowerCase()) || 
+    c.country.toLowerCase().includes(countrySearch.toLowerCase())
+  );
+
+  const selectedCountryObj = countries.find(c => c.id.toString() === salonCountry);
+  // --------------------------------------------------
+
   const sortedCategories = [...allCategories].sort((a, b) => {
     const nameA = a.hun_name || a.name || '';
     const nameB = b.hun_name || b.name || '';
@@ -66,11 +90,6 @@ export default function AdminSalonsView({
     return nameA.localeCompare(nameB);
   });
 
-  // ==========================================
-  // --- FIAP ROBOT ÁLLAPOTOK ÉS FÜGGVÉNYEK
-  // ==========================================
-  
-  // Túlélő memóriába (localStorage) mentjük a listát, így oldalfrissítés után is megmarad
   const [scrapedSalons, setScrapedSalons] = useState<any[]>(() => {
     const saved = localStorage.getItem('scrapedSalonsData');
     return saved ? JSON.parse(saved) : [];
@@ -78,7 +97,6 @@ export default function AdminSalonsView({
   const [isScraping, setIsScraping] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
 
-  // Ha a lista változik, azonnal lementjük a böngésző memóriájába
   useEffect(() => {
     localStorage.setItem('scrapedSalonsData', JSON.stringify(scrapedSalons));
   }, [scrapedSalons]);
@@ -89,7 +107,7 @@ export default function AdminSalonsView({
       const res = await fetch(`${BACKEND_URL}/api/admin/scrape-fiap`);
       if (res.ok) {
         const data = await res.json();
-        setScrapedSalons(data); // Ez automatikusan felülírja a localStorage-t is
+        setScrapedSalons(data); 
         if (data.length === 0) alert("Nem találtam új adatokat a myfiap.net-en (vagy mindegyik már az adatbázisodban van).");
       } else {
         const errorData = await res.json();
@@ -115,7 +133,7 @@ export default function AdminSalonsView({
       if (res.ok) {
         const result = await res.json();
         alert(`Sikeresen importálva ${result.count} db új nemzetközi szalon!`);
-        setScrapedSalons([]); // Kiüríti a listát és a localStorage-t
+        setScrapedSalons([]); 
         if (fetchAdminSalons) fetchAdminSalons();
       } else {
         alert("Hiba a szerver oldalon az importálás során.");
@@ -140,7 +158,6 @@ export default function AdminSalonsView({
   const handleLoadToForm = (item: any, index: number) => {
     clearSalonForm();
     
-    // MAI DÁTUM
     const todayStr = new Date().toISOString().split('T')[0];
     setSalonStart(todayStr); 
     
@@ -155,13 +172,13 @@ export default function AdminSalonsView({
       c.country?.toLowerCase() === item.country?.toLowerCase() || 
       c.country_hun?.toLowerCase() === item.country?.toLowerCase()
     );
-    if (matchedCountry) setSalonCountry(matchedCountry.id.toString());
+    if (matchedCountry) {
+      setSalonCountry(matchedCountry.id.toString());
+      setCountrySearch(''); // Keresőmező nullázása az átemeléskor
+    }
 
     setSalonPatronNumbers({ 1: item.fiap_number });
     setSalonSelectedPatrons([1]);
-
-    // DIREKT KIKAPCSOLVA: Ne törölje a listából az elemet átemelés után
-    // handleRemoveScraped(index);
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -231,26 +248,72 @@ export default function AdminSalonsView({
         
         <input placeholder="Szalon hivatalos neve" value={salonName} onChange={e => setSalonName(e.target.value)} style={inputStyle} />
         
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div style={{flex: '1 1 200px'}}>
-            <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Feltöltés / Beadási forma</label>
+            <label style={{fontSize:'0.8rem', color:'#94a3b8', display: 'block', marginBottom: '5px'}}>Feltöltés / Beadási forma</label>
             <select value={salonType} onChange={e => setSalonType(e.target.value as any)} style={inputStyle}>
               <option value="online">Online (Digitális)</option>
               <option value="print">Print (Papírkép)</option>
             </select>
           </div>
-          <div style={{flex: '1 1 200px'}}>
-            <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Házigazda ország</label>
-            <select value={salonCountry} onChange={e => setSalonCountry(e.target.value)} style={inputStyle}>
-              <option value="">-- Válassz országot --</option>
-              {countries.map(c => {
-                const flag = getFlagEmoji(c.country_code);
-                return (
-                  <option key={c.id} value={c.id}>{flag ? `${flag} ` : ''}{c.country_hun}</option>
-                );
-              })}
-            </select>
+          
+          {/* --- JAVÍTOTT RÉSZ: KERESHETŐ ORSZÁG LEGÖRDÜLŐ --- */}
+          <div style={{flex: '1 1 200px', position: 'relative'}} ref={dropdownRef}>
+            <label style={{fontSize:'0.8rem', color:'#94a3b8', display: 'block', marginBottom: '5px'}}>Házigazda ország</label>
+            
+            <div 
+              onClick={() => setIsCountryDropdownOpen(!isCountryDropdownOpen)}
+              style={{ ...inputStyle, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px' }}
+            >
+              {selectedCountryObj ? (
+                <>
+                  <img src={getFlagImageUrl(selectedCountryObj.country_code)} alt="Zászló" style={{ width: '20px', height: '15px', objectFit: 'cover', borderRadius: '2px' }} />
+                  <span>{selectedCountryObj.country_hun}</span>
+                </>
+              ) : (
+                <span style={{ color: '#94a3b8' }}>-- Válassz országot --</span>
+              )}
+            </div>
+
+            {isCountryDropdownOpen && (
+              <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#0f172a', border: '1px solid #334155', borderRadius: '8px', zIndex: 50, boxShadow: '0 10px 25px rgba(0,0,0,0.5)', overflow: 'hidden' }}>
+                <div style={{ padding: '10px', borderBottom: '1px solid #334155' }}>
+                  <input 
+                    type="text" 
+                    placeholder="🔍 Keresés országra..." 
+                    value={countrySearch}
+                    onChange={(e) => setCountrySearch(e.target.value)}
+                    onClick={(e) => e.stopPropagation()}
+                    style={{ width: '100%', padding: '8px', background: '#1e293b', border: '1px solid #475569', color: 'white', borderRadius: '4px', outline: 'none' }}
+                  />
+                </div>
+                <div style={{ maxHeight: '250px', overflowY: 'auto' }}>
+                  {filteredCountries.length === 0 ? (
+                    <div style={{ padding: '10px', color: '#94a3b8', textAlign: 'center', fontSize: '0.85rem' }}>Nincs találat.</div>
+                  ) : (
+                    filteredCountries.map(c => (
+                      <div 
+                        key={c.id} 
+                        onClick={() => {
+                          setSalonCountry(c.id.toString());
+                          setIsCountryDropdownOpen(false);
+                          setCountrySearch('');
+                        }}
+                        style={{ padding: '10px 15px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', transition: 'background 0.2s', borderBottom: '1px solid #1e293b' }}
+                        onMouseOver={e => e.currentTarget.style.background = '#1e293b'}
+                        onMouseOut={e => e.currentTarget.style.background = 'transparent'}
+                      >
+                        <img src={getFlagImageUrl(c.country_code)} alt="Zászló" style={{ width: '24px', height: '18px', objectFit: 'cover', borderRadius: '3px', boxShadow: '0 1px 3px rgba(0,0,0,0.3)' }} />
+                        <span style={{ color: '#f8fafc' }}>{c.country_hun}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
           </div>
+          {/* ----------------------------------------------- */}
+
         </div>
 
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
@@ -367,8 +430,14 @@ export default function AdminSalonsView({
             
             <div style={{ cursor: 'pointer', flex: 1 }} onClick={() => setSelectedSalon(s)}>
               <div style={{ fontWeight: 'bold', color: '#60a5fa', fontSize: '1.1rem' }}>{s.name}</div>
-              <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: '5px' }}>
-                Zárás: {new Date(s.end_date).toLocaleDateString('hu-HU', { year: 'numeric', month: 'short', day: 'numeric' })} | {s.country_code && getFlagEmoji(s.country_code) ? `${getFlagEmoji(s.country_code)} ` : ''}{s.country_hun}
+              <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: '5px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <span>Zárás: {new Date(s.end_date).toLocaleDateString('hu-HU', { year: 'numeric', month: 'short', day: 'numeric' })} | </span>
+                
+                {/* JAVÍTÁS: Zászló képpel az alsó listában is! */}
+                {s.country_code && getFlagImageUrl(s.country_code) && (
+                  <img src={getFlagImageUrl(s.country_code)} alt="flag" style={{ width: '16px', borderRadius: '2px' }} />
+                )}
+                <span>{s.country_hun}</span>
               </div>
             </div>
             <div style={{ display: 'flex', gap: '5px' }}>
