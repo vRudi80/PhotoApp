@@ -613,26 +613,16 @@ app.delete('/api/salons/:id', async (req, res) => {
 // ==========================================
 app.get('/api/my-album', checkPremium, async (req, res) => {
   try { 
-    // JAVÍTÁS: Bővített lekérdezés, ami minden kép mellé hozzácsapja a globális díjak és elfogadások számát!
+    // JAVÍTÁS: Villámgyors LEFT JOIN az iszonyatosan lassú belső lekérdezések (Subqueries) helyett!
     const query = `
       SELECT p.*, 
-        -- 1. Valódi díjak megszámolása (ahol az award_id nem NULL, nem 0, nem 1 (sima elfogadás), és nem 15 (elutasított))
-        (SELECT COUNT(*) FROM photo_salon_entries e 
-         WHERE e.portfolio_id = p.id 
-           AND e.award_id IS NOT NULL 
-           AND e.award_id NOT IN (0, 1, 15)
-        ) as award_count,
-        
-        -- 2. Elfogadások megszámolása (award_id = 1, VAGY elért pont >= elfogadási határ, és nem lett 15-össel elutasítva)
-        (SELECT COUNT(*) FROM photo_salon_entries e 
-         WHERE e.portfolio_id = p.id 
-           AND (
-             e.award_id = 1 
-             OR (e.achieved_score >= e.acceptance_score AND (e.award_id IS NULL OR e.award_id != 15))
-           )
-        ) as acceptance_count
-      FROM photo_portfolio p 
+        COALESCE(SUM(CASE WHEN e.award_id IS NOT NULL AND e.award_id NOT IN (0, 1, 15) THEN 1 ELSE 0 END), 0) as award_count,
+        COALESCE(SUM(CASE WHEN e.award_id = 1 OR (e.achieved_score >= e.acceptance_score AND (e.award_id IS NULL OR e.award_id != 15)) THEN 1 ELSE 0 END), 0) as acceptance_count
+      FROM photo_portfolio p
+      LEFT JOIN photo_salon_entries e ON p.id = e.portfolio_id
       WHERE p.user_email = ?
+      GROUP BY p.id
+      ORDER BY p.title ASC
     `;
     const [rows] = await pool.query(query, [req.query.userEmail]); 
     res.json(rows); 
