@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { BACKEND_URL } from '../utils/constants';
-import { getFlagEmoji, getImageUrl } from '../utils/helpers';
+import { getImageUrl } from '../utils/helpers';
 
 interface SalonModalProps {
   salon: any;
@@ -12,29 +12,28 @@ export default function SalonModal({ salon, user, onClose }: SalonModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [portfolio, setPortfolio] = useState<any[]>([]);
   const [myEntries, setMyEntries] = useState<any[]>([]);
-  const [awards, setAwards] = useState<any[]>([]); // ÚJ: Díjak listája
+  const [awards, setAwards] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  
+  // ÚJ: Kereső a portfólióhoz
+  const [searchQuery, setSearchQuery] = useState('');
 
-  // ÚJ: Állapot a képenkénti eredmények szerkesztéséhez
   const [resultsEdit, setResultsEdit] = useState<Record<number, { awardId: string, achieved: string, acceptance: string }>>({});
 
-  const isEnded = new Date(salon.end_date) < new Date(new Date().setHours(0,0,0,0));
+  // Lejárt-e a határidő (de most már NEM blokkol, csak figyelmeztet!)
+  const isPastDeadline = new Date(salon.end_date) < new Date(new Date().setHours(0,0,0,0));
 
-  // Adatok betöltése
   const loadSubmissionData = useCallback(async () => {
     setIsLoading(true);
     try {
-      // 1. Portfólió lekérése
       const portRes = await fetch(`${BACKEND_URL}/api/my-album?userEmail=${user.email}`);
       if (portRes.ok) setPortfolio(await portRes.json());
 
-      // 2. Már leadott nevezések lekérése
       const entryRes = await fetch(`${BACKEND_URL}/api/salon-entries/${salon.id}?userEmail=${user.email}`);
       if (entryRes.ok) {
         const entries = await entryRes.json();
         setMyEntries(entries);
         
-        // Inicializáljuk a szerkesztő állapotot az adatbázisból jövő értékekkel
         const initialEdits: any = {};
         entries.forEach((e: any) => {
           initialEdits[e.entry_id] = {
@@ -46,7 +45,6 @@ export default function SalonModal({ salon, user, onClose }: SalonModalProps) {
         setResultsEdit(initialEdits);
       }
 
-      // 3. ÚJ: Választható díjak lekérése
       const awardsRes = await fetch(`${BACKEND_URL}/api/awards`);
       if (awardsRes.ok) setAwards(await awardsRes.json());
 
@@ -81,7 +79,7 @@ export default function SalonModal({ salon, user, onClose }: SalonModalProps) {
   };
 
   const handleEntryRemove = async (entryId: number) => {
-    if (!window.confirm("Biztosan visszavonod a nevezést?")) return;
+    if (!window.confirm("Biztosan törlöd ezt az archivált/leadott nevezést?")) return;
     try {
       const res = await fetch(`${BACKEND_URL}/api/salon-entries/${entryId}`, {
         method: 'DELETE',
@@ -94,7 +92,6 @@ export default function SalonModal({ salon, user, onClose }: SalonModalProps) {
     }
   };
 
-  // ÚJ: Eredmények mentése a backend felé
   const handleSaveResult = async (entryId: number) => {
     const edit = resultsEdit[entryId];
     try {
@@ -119,6 +116,35 @@ export default function SalonModal({ salon, user, onClose }: SalonModalProps) {
     }
   };
 
+  // ÚJ 1: Okoskereső szűrése a portfólióhoz (Cím és AI Tagek alapján)
+  const filteredPortfolio = useMemo(() => {
+    if (!searchQuery) return portfolio;
+    const lowerQuery = searchQuery.toLowerCase();
+    return portfolio.filter(p => {
+      const matchTitle = p.title && p.title.toLowerCase().includes(lowerQuery);
+      const matchTags = p.ai_tags && p.ai_tags.toLowerCase().includes(lowerQuery);
+      return matchTitle || matchTags;
+    });
+  }, [portfolio, searchQuery]);
+
+  // ÚJ 2: Már leadott képek okos sorrendezése (Díjazott -> Elfogadott -> Többi)
+  const sortedEntries = useMemo(() => {
+    return [...myEntries].sort((a, b) => {
+      // Ha 'a' díjazott de 'b' nem, akkor 'a' jön előre
+      if (a.award_id && !b.award_id) return -1;
+      if (!a.award_id && b.award_id) return 1;
+      
+      // Ha nincs díj, megnézzük az elfogadást
+      const aAccepted = a.achieved_score !== null && a.acceptance_score !== null && a.achieved_score >= a.acceptance_score;
+      const bAccepted = b.achieved_score !== null && b.acceptance_score !== null && b.achieved_score >= b.acceptance_score;
+      
+      if (aAccepted && !bAccepted) return -1;
+      if (!aAccepted && bAccepted) return 1;
+      
+      return 0; // Egyébként maradnak eredeti sorrendben
+    });
+  }, [myEntries]);
+
   if (!salon) return null;
 
   return (
@@ -129,17 +155,29 @@ export default function SalonModal({ salon, user, onClose }: SalonModalProps) {
         <div style={{ padding: '30px' }}>
           
           {isSubmitting ? (
-            /* --- NEVEZÉSI FELÜLET (Portfólió választó) --- */
+            /* --- NEVEZÉSI FELÜLET (Portfólió választó AI Keresővel) --- */
             <div>
-              <button onClick={() => setIsSubmitting(false)} style={{ background: 'transparent', color: '#60a5fa', border: 'none', padding: '0 0 20px 0', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                ← Vissza a szalon részleteihez
-              </button>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '15px' }}>
+                <button onClick={() => setIsSubmitting(false)} style={{ background: 'transparent', color: '#60a5fa', border: 'none', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  ← Vissza a részletekhez
+                </button>
+                
+                <input 
+                  type="text" 
+                  placeholder="🔍 Keresés cím, AI tag vagy értékelés alapján..." 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  style={{ flex: 1, minWidth: '250px', padding: '8px 15px', borderRadius: '8px', border: '1px solid #334155', background: '#0f172a', color: 'white' }}
+                />
+              </div>
               
               <h2 style={{ color: '#f8fafc', margin: '0 0 10px 0' }}>Képek kiválasztása</h2>
-              <p style={{ color: '#94a3b8', marginBottom: '20px' }}>Válassz a saját portfóliódból:</p>
+              <p style={{ color: '#94a3b8', marginBottom: '20px' }}>
+                {isPastDeadline ? "Visszamenőleges archiválás a saját portfóliódból:" : "Válassz a saját portfóliódból a nevezéshez:"}
+              </p>
               
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '20px' }}>
-                {portfolio.map(photo => {
+                {filteredPortfolio.map(photo => {
                   const imageUrl = getImageUrl(photo.drive_file_id, photo.file_url);
                   const submittedEntry = myEntries.find(e => e.id === photo.id); 
 
@@ -151,10 +189,10 @@ export default function SalonModal({ salon, user, onClose }: SalonModalProps) {
                       <div style={{ padding: '12px' }}>
                         <div style={{ fontWeight: 'bold', color: '#f8fafc', fontSize: '0.85rem', marginBottom: '10px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{photo.title}</div>
                         {submittedEntry ? (
-                          <div style={{ fontSize: '0.75rem', color: '#10b981', fontWeight: 'bold' }}>✅ Már nevezve ide</div>
+                          <div style={{ fontSize: '0.75rem', color: '#10b981', fontWeight: 'bold' }}>✅ {isPastDeadline ? 'Archiválva ide' : 'Már nevezve ide'}</div>
                         ) : (
                           <select id={`cat-select-${photo.id}`} style={{ width: '100%', padding: '6px', backgroundColor: '#1e293b', border: '1px solid #334155', color: 'white', borderRadius: '4px', fontSize: '0.8rem' }} onChange={(e) => handleEntrySubmit(photo.id, e.target.value)}>
-                            <option value="">-- Nevezés kategóriába --</option>
+                            <option value="">-- Hozzáadás kategóriához --</option>
                             {salon.categories?.map((c: string) => <option key={c} value={c}>{c}</option>)}
                           </select>
                         )}
@@ -162,31 +200,31 @@ export default function SalonModal({ salon, user, onClose }: SalonModalProps) {
                     </div>
                   )
                 })}
+                {filteredPortfolio.length === 0 && <p style={{ color: '#94a3b8' }}>Nincs a keresésnek megfelelő kép.</p>}
               </div>
             </div>
           ) : (
             /* --- FŐ ADATLAP + NEVEZÉSEK ÖSSZEGZÉSE --- */
             <>
-              {/* Fejléc infók... */}
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '15px' }}>
                 {salon.patron_details && salon.patron_details.length > 0 ? (
                   salon.patron_details.map((p: any) => <span key={p.name} style={{ background: '#a78bfa20', color: '#a78bfa', padding: '4px 10px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 'bold', border: '1px solid #a78bfa50' }}>{p.name}</span>)
                 ) : null}
                 {salon.is_circuit === 1 && <span style={{ background: '#f59e0b20', color: '#f59e0b', padding: '4px 10px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 'bold', border: '1px solid #f59e0b50' }}>Körverseny</span>}
+                {isPastDeadline && <span style={{ background: '#ef444420', color: '#ef4444', padding: '4px 10px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 'bold', border: '1px solid #ef444450' }}>Lezárult (Archívum)</span>}
               </div>
               
               <h2 style={{ color: '#f8fafc', fontSize: '1.8rem', margin: '0 0 15px 0' }}>{salon.name}</h2>
               
               {/* Saját nevezések szekció (Eredmény rögzítéssel) */}
-              {myEntries.length > 0 && (
+              {sortedEntries.length > 0 && (
                 <div style={{ background: '#0f172a', padding: '20px', borderRadius: '12px', border: '1px solid #10b98150', marginBottom: '30px' }}>
                   <h3 style={{ color: '#10b981', fontSize: '1.1rem', marginTop: 0, marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    ✅ Leadott nevezéseid ({myEntries.length} db)
+                    ✅ Rögzített képeid ({sortedEntries.length} db)
                   </h3>
                   
-                  {/* A kártyák szélességét picit növeltem, hogy kiférjenek a beviteli mezők */}
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '15px' }}>
-                    {myEntries.map(entry => {
+                    {sortedEntries.map(entry => {
                       const editState = resultsEdit[entry.entry_id] || { awardId: '', achieved: '', acceptance: '' };
                       const hasAward = entry.award_id !== null && entry.award_id !== undefined;
 
@@ -238,9 +276,7 @@ export default function SalonModal({ salon, user, onClose }: SalonModalProps) {
                               </button>
                             </div>
 
-                            {!isEnded && (
-                              <button onClick={() => handleEntryRemove(entry.entry_id)} style={{ position: 'absolute', top: '5px', right: '5px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '50%', width: '24px', height: '24px', cursor: 'pointer', fontSize: '14px', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
-                            )}
+                            <button onClick={() => handleEntryRemove(entry.entry_id)} style={{ position: 'absolute', top: '5px', right: '5px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '50%', width: '24px', height: '24px', cursor: 'pointer', fontSize: '14px', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>×</button>
                           </div>
                         </div>
                       )
@@ -249,20 +285,19 @@ export default function SalonModal({ salon, user, onClose }: SalonModalProps) {
                 </div>
               )}
 
-              {/* Nevezés gomb */}
+              {/* Nevezés / Archiválás gomb */}
               <button 
                 onClick={() => setIsSubmitting(true)}
-                disabled={isEnded}
-                style={{ width: '100%', background: isEnded ? '#334155' : '#38bdf8', color: isEnded ? '#94a3b8' : '#0f172a', border: 'none', padding: '15px', borderRadius: '8px', cursor: isEnded ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '1.2rem', marginBottom: '30px' }}
+                style={{ width: '100%', background: isPastDeadline ? '#475569' : '#38bdf8', color: isPastDeadline ? '#e2e8f0' : '#0f172a', border: 'none', padding: '15px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1.2rem', marginBottom: '30px', transition: 'background 0.2s' }}
               >
-                {isEnded ? 'A határidő lejárt' : myEntries.length > 0 ? 'További képek nevezése...' : 'Képek Nevezése a Portfóliómból 🚀'}
+                {isPastDeadline ? 'Képek Visszamenőleges Archiválása 📁' : sortedEntries.length > 0 ? 'További képek nevezése...' : 'Képek Nevezése a Portfóliómból 🚀'}
               </button>
 
               {/* Szalon adatok... */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '30px' }}>
                 <div>
                   <div style={{ fontSize: '0.8rem', color: '#94a3b8', textTransform: 'uppercase' }}>Határidő</div>
-                  <div style={{ fontSize: '1.2rem', color: isEnded ? '#94a3b8' : '#ef4444', fontWeight: 'bold' }}>{new Date(salon.end_date).toLocaleDateString('hu-HU')}</div>
+                  <div style={{ fontSize: '1.2rem', color: isPastDeadline ? '#94a3b8' : '#ef4444', fontWeight: 'bold' }}>{new Date(salon.end_date).toLocaleDateString('hu-HU')}</div>
                 </div>
                 <div>
                   <div style={{ fontSize: '0.8rem', color: '#94a3b8', textTransform: 'uppercase' }}>Díj</div>
