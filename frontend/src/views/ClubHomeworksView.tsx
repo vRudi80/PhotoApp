@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { getImageUrl } from '../utils/helpers';
 
 interface ClubHomeworksViewProps {
@@ -15,7 +16,7 @@ interface ClubHomeworksViewProps {
   setHwUploadPreview: (val: string | null) => void;
   handleHwFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleUploadHw: (homeworkId: number) => void;
-  setFullscreenData: (data: {url: string, title?: string}) => void;
+  setFullscreenData: (data: any) => void; // TRÜKK: any, hogy a plusz lájk adatokat is átvigye!
   editingHwEntryId: number | null;
   setEditingHwEntryId: (id: number | null) => void;
   editHwEntryTitle: string;
@@ -33,6 +34,9 @@ export default function ClubHomeworksView({
   setEditHwEntryTitle, handleUpdateHwEntryTitle, handleDeleteHwEntry, handleToggleLike
 }: ClubHomeworksViewProps) {
   
+  // Állapot, hogy melyik házi feladatnál kérték a népszerűségi rendezést (az ID-kat tároljuk)
+  const [sortedHwIds, setSortedHwIds] = useState<number[]>([]);
+
   const inputStyle = { width: '100%', padding: '10px', marginBottom: '10px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '6px', boxSizing: 'border-box' as const };
 
   if (!currentDbUser?.club_name) {
@@ -45,6 +49,34 @@ export default function ClubHomeworksView({
     );
   }
 
+  // Segédfüggvény a lapozás és a lájk modalnak való átadásához
+  const openGalleryModal = (clickedEntry: any, allEntries: any[], index: number) => {
+    setFullscreenData({
+      url: getImageUrl(clickedEntry.drive_file_id, clickedEntry.file_url),
+      title: `${clickedEntry.title} (${clickedEntry.user_name})`,
+      id: clickedEntry.id,
+      user_liked: clickedEntry.user_liked,
+      like_count: clickedEntry.like_count,
+      
+      // A lapozáshoz szükséges plusz adatok (amit majd a fő App.tsx az új Modals.tsx-nek továbbít)
+      _entryList: allEntries,
+      _currentIndex: index,
+      _onNavigate: (newIndex: number) => {
+        const nextEntry = allEntries[newIndex];
+        openGalleryModal(nextEntry, allEntries, newIndex); // Rekurzívan hívjuk a lapozásnál!
+      },
+      _onToggleLike: (entryId: number) => {
+        handleToggleLike(entryId);
+        // Frissítjük a modalban is a számot (optimizmus)
+        setFullscreenData((prev: any) => ({
+          ...prev,
+          user_liked: !prev.user_liked,
+          like_count: prev.user_liked ? Math.max(0, (prev.like_count || 0) - 1) : (prev.like_count || 0) + 1
+        }));
+      }
+    });
+  };
+
   return (
     <div>
       <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '15px' }}>
@@ -55,20 +87,27 @@ export default function ClubHomeworksView({
         <p style={{ color: '#94a3b8', fontSize: '1.1rem' }}>Jelenleg nincs kiírva házi feladat.</p>
       ) : (
         myClubHomeworks.map(hw => {
-          // Időzóna levágása a pontos megjelenítéshez és ellenőrzéshez
           const safeDeadlineStr = hw.deadline.replace('Z', ''); 
           const deadlineDate = new Date(safeDeadlineStr);
           const isPast = new Date() > deadlineDate;
           
           const myEntries = myHomeworkEntries.filter(e => e.homework_id === hw.id);
-          const hwEntriesForAll = clubHomeworkEntries.filter(e => e.homework_id === hw.id);
+          const hwEntriesForAllRaw = clubHomeworkEntries.filter(e => e.homework_id === hw.id);
           
-          // --- JAVÍTÁS 1: Képek sorbarendezése lájkok alapján (legtöbb lájk elöl) ---
-          const sortedHwEntriesForAll = [...hwEntriesForAll].sort((a, b) => (b.like_count || 0) - (a.like_count || 0));
+          const isSortedByLikes = sortedHwIds.includes(hw.id);
+
+          // Rendezés: Alapból időrendben (id alapján), de ha a gombot megnyomta, akkor lájk alapján csökkenőbe
+          const finalEntriesForAll = [...hwEntriesForAllRaw].sort((a, b) => {
+            if (isSortedByLikes) {
+              return (b.like_count || 0) - (a.like_count || 0);
+            }
+            // Alapértelmezett időrendi (a legújabb van legelöl)
+            return b.id - a.id; 
+          });
           
           const maxImages = hw.max_images || 4;
 
-          const uploaderStats = hwEntriesForAll.reduce((acc, curr) => {
+          const uploaderStats = hwEntriesForAllRaw.reduce((acc, curr) => {
              if (!acc[curr.user_name]) acc[curr.user_name] = 0;
              acc[curr.user_name]++;
              return acc;
@@ -77,15 +116,16 @@ export default function ClubHomeworksView({
           return (
             <div key={hw.id} style={{ backgroundColor: '#1e293b', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', border: isPast ? '1px solid #475569' : '1px solid #10b981', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', position: 'relative' }}>
               
-              <div className="contest-header">
+              <div className="contest-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>
                   <h3 style={{ margin: '0 0 5px 0', fontSize: '1.5rem', color: isPast ? '#cbd5e1' : '#f8fafc' }}>{hw.topic}</h3>
                   <p style={{ color: '#94a3b8', fontSize: '0.95rem', margin: '0 0 15px 0', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>{hw.description}</p>
                 </div>
-                <span className="contest-badge" style={{ background: isPast ? '#ef444420' : '#10b98120', color: isPast ? '#ef4444' : '#10b981' }}>
+                <span style={{ background: isPast ? '#ef444420' : '#10b98120', color: isPast ? '#ef4444' : '#10b981', padding: '4px 12px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 'bold' }}>
                   {isPast ? 'Lezárult' : 'Aktív Feltöltés'}
                 </span>
               </div>
+              
               <p style={{fontSize: '0.85rem', color: '#f59e0b', margin: '0 0 15px 0', fontWeight: 'bold'}}>
                 ⏰ Határidő: {deadlineDate.toLocaleString('hu-HU', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })} | Maximum {maxImages} kép
               </p>
@@ -132,11 +172,16 @@ export default function ClubHomeworksView({
                 <div style={{ marginTop: '20px', borderTop: '1px solid #334155', paddingTop: '20px' }}>
                   <h4 style={{margin: '0 0 15px 0', fontSize: '1.1rem', color: '#cbd5e1'}}>Saját beküldött képeid</h4>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '15px' }}>
-                    {myEntries.map(entry => {
+                    {myEntries.map((entry, index) => {
                       const imageUrl = getImageUrl(entry.drive_file_id, entry.file_url);
                       return (
                         <div key={entry.id} style={{ background: '#0f172a', borderRadius: '8px', overflow: 'hidden', border: '1px solid #334155' }}>
-                          <img src={imageUrl} alt={entry.title} onClick={() => setFullscreenData({url: imageUrl, title: entry.title})} style={{ width: '100%', height: '100px', objectFit: 'cover', cursor: 'zoom-in' }} />
+                          <img 
+                            src={imageUrl} 
+                            alt={entry.title} 
+                            onClick={() => openGalleryModal(entry, myEntries, index)} 
+                            style={{ width: '100%', height: '100px', objectFit: 'cover', cursor: 'zoom-in' }} 
+                          />
                           
                           {editingHwEntryId === entry.id ? (
                             <div style={{ padding: '12px' }}>
@@ -170,21 +215,48 @@ export default function ClubHomeworksView({
 
               {isPast && (
                 <div style={{ marginTop: '30px', borderTop: isLeader ? '2px dashed #f59e0b' : '1px solid #334155', paddingTop: '20px' }}>
-                  <h4 style={{margin: '0 0 5px 0', fontSize: '1.2rem', color: isLeader ? '#f59e0b' : '#38bdf8'}}>
-                    {isLeader ? '👑 Vezetői Galéria: Eredmények' : '📸 Klub Galéria: Eredmények'}
-                  </h4>
-                  <p style={{ color: '#94a3b8', fontSize: '0.85rem', marginBottom: '15px' }}>Kattints a képre a teljes méretű megtekintéshez és a cím elolvasásához. A képek népszerűség (lájkok) szerint vannak rendezve!</p>
                   
-                  {sortedHwEntriesForAll.length === 0 ? (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px', marginBottom: '15px' }}>
+                    <div>
+                      <h4 style={{margin: '0 0 5px 0', fontSize: '1.2rem', color: isLeader ? '#f59e0b' : '#38bdf8'}}>
+                        {isLeader ? '👑 Vezetői Galéria: Eredmények' : '📸 Klub Galéria: Eredmények'}
+                      </h4>
+                      <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: 0 }}>Kattints a képre a galéria nézethez (lapozáshoz). Két nézet között is válthatsz!</p>
+                    </div>
+
+                    <button 
+                      onClick={() => {
+                        if (isSortedByLikes) {
+                          setSortedHwIds(prev => prev.filter(id => id !== hw.id));
+                        } else {
+                          setSortedHwIds(prev => [...prev, hw.id]);
+                        }
+                      }}
+                      style={{ 
+                        background: isSortedByLikes ? '#f59e0b' : '#1e293b', 
+                        color: isSortedByLikes ? '#0f172a' : '#cbd5e1', 
+                        border: isSortedByLikes ? 'none' : '1px solid #475569', 
+                        padding: '8px 15px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem', transition: 'all 0.2s' 
+                      }}
+                    >
+                      {isSortedByLikes ? '❤️ Rendezve (Kattints az Időrendhez)' : '⏱️ Időrendi (Kattints a Népszerűséghez)'}
+                    </button>
+                  </div>
+                  
+                  {finalEntriesForAll.length === 0 ? (
                     <p style={{ color: '#94a3b8' }}>Még senki nem töltött fel képet ehhez a feladathoz.</p>
                   ) : (
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '15px' }}>
-                      {/* JAVÍTÁS 2: Rendezzett tömb használata a megjelenítéshez */}
-                      {sortedHwEntriesForAll.map(entry => {
+                      {finalEntriesForAll.map((entry, index) => {
                         const imageUrl = getImageUrl(entry.drive_file_id, entry.file_url);
                         return (
                           <div key={entry.id} style={{ background: '#0f172a', borderRadius: '8px', overflow: 'hidden', border: isLeader ? '1px solid #f59e0b50' : '1px solid #334155', display: 'flex', flexDirection: 'column' }}>
-                            <img src={imageUrl} alt={entry.title} onClick={() => setFullscreenData({url: imageUrl, title: entry.title})} style={{ width: '100%', height: '140px', objectFit: 'cover', cursor: 'zoom-in' }} />
+                            <img 
+                              src={imageUrl} 
+                              alt={entry.title} 
+                              onClick={() => openGalleryModal(entry, finalEntriesForAll, index)} 
+                              style={{ width: '100%', height: '140px', objectFit: 'cover', cursor: 'zoom-in' }} 
+                            />
                             
                             <div style={{ padding: '12px', flex: 1, display: 'flex', flexDirection: 'column' }}>
                               <div style={{ fontSize: '0.9rem', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#f8fafc' }}>{entry.title}</div>
@@ -199,7 +271,6 @@ export default function ClubHomeworksView({
                               </div>
                             </div>
                             
-                            {/* JAVÍTÁS 3: Letöltés gomb, kizárólag a vezetőségnek! */}
                             {isLeader && (
                               <a 
                                 href={entry.drive_file_id ? `https://docs.google.com/uc?export=download&id=${entry.drive_file_id}` : entry.file_url}
