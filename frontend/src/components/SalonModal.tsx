@@ -146,11 +146,11 @@ export default function SalonModal({ salon, user, onClose }: SalonModalProps) {
     return score;
   };
 
-// JAVÍTÁS 1: Szupergyors, optimalizált Portfólió rendezés (Globális eredmények szerint)
+// ÚJ 1: A Portfólió választó listát a KÉPEK EDDIGI (GLOBÁLIS) EREDMÉNYEI alapján rendezzük!
   const filteredPortfolio = useMemo(() => {
     let result = [...portfolio];
     
-    // 1. Szűrés keresőszóra
+    // 1. Keresés
     if (searchQuery) {
       const lowerQuery = searchQuery.toLowerCase();
       result = result.filter(p => {
@@ -160,23 +160,32 @@ export default function SalonModal({ salon, user, onClose }: SalonModalProps) {
       });
     }
 
-    // 2. Gyorsítótár (Map) a leadott képek pontjainak, hogy ne fusson ezerszer a .find()
-    const entryScoreMap = new Map();
-    myEntries.forEach(e => {
-      entryScoreMap.set(Number(e.id || e.portfolio_id), getEntryScore(e));
-    });
-
-    // 3. Rendezés csökkenő sorrendbe (Sztárképek legelöl)
+    // 2. Sorrendezés az eddigi eredmények (Díjak és Elfogadások) alapján
     return result.sort((a, b) => {
-      const scoreA = entryScoreMap.get(Number(a.id)) || 0;
-      const scoreB = entryScoreMap.get(Number(b.id)) || 0;
-      
+      // Segédfüggvény a globális pontszám kiszámításához
+      const getGlobalScore = (photo: any) => {
+        // Megpróbáljuk kiolvasni a backend által küldött összesített értékeket.
+        // (Ha nálad a backend pl. "total_awards" néven küldi a darabszámot, a kód azt is felismeri)
+        const awards = Number(photo.award_count || photo.awards || photo.total_awards || 0);
+        const acceptances = Number(photo.acceptance_count || photo.acceptances || photo.total_acceptances || 0);
+        
+        // Súlyozás: Díj = 3 pont, Elfogadás = 1 pont
+        return (awards * 3) + acceptances;
+      };
+
+      const scoreA = getGlobalScore(a);
+      const scoreB = getGlobalScore(b);
+
+      // Ha a két képnek holtversenyben ugyanannyi pontja van (pl. mindkettő még 0 pontos), 
+      // akkor a frissebb feltöltés kerüljön előrébb
       if (scoreB === scoreA) {
-        return b.id - a.id; // Holtverseny esetén a legújabb feltöltés jön előre
+        return b.id - a.id;
       }
+
+      // Csökkenő sorrend: a legmagasabb pontszámú "sztárkép" kerül legelőre
       return scoreB - scoreA;
     });
-  }, [portfolio, searchQuery, myEntries]);
+  }, [portfolio, searchQuery]);
 
   // JAVÍTÁS 2: A már leadott képek listájának rendezése
   const sortedEntries = useMemo(() => {
