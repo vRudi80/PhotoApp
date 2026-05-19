@@ -248,42 +248,121 @@ export default function ContestsView(props: ContestsViewProps) {
                         <button onClick={() => props.setEditContestId(null)} style={{ background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', padding: '10px', borderRadius: '6px', cursor: 'pointer' }}>Mégse</button>
                       </div>
                     </div>
+
+                  // --- JAVÍTOTT RÉSZ: TELJES KÉPERNYŐS ZSŰRI MÓD (DARK ROOM) ---
                   ) : props.judgingContestId === contest.id ? (
-                    <div style={{ background: '#0f172a', padding: '30px', borderRadius: '12px', textAlign: 'center', border: '1px solid #334155' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid #1e293b', paddingBottom: '15px' }}>
-                          <h3 style={{ color: '#f59e0b', margin: 0, fontSize: '1.4rem' }}>🏅 Zsűrizés folyamatban</h3>
-                          <span className="contest-badge" style={{ background: '#1e293b', color: '#94a3b8' }}>Hátralévő: {props.unvotedEntries.length} db</span>
+                    <>
+                      {/* Vizuális placeholder a normál listában, hogy ne tűnjön el a kártya */}
+                      <div style={{ background: '#0f172a', padding: '25px', borderRadius: '12px', textAlign: 'center', border: '2px solid #f59e0b' }}>
+                        <h4 style={{ color: '#f59e0b', margin: '0 0 10px 0', fontSize: '1.4rem' }}>⚖️ Zsűrizés megnyitva teljes képernyőn!</h4>
+                        <p style={{ color: '#94a3b8', margin: '0 0 20px 0' }}>Az értékelő pult egy új felugró ablakban nyílt meg. Ha véletlenül bezártad, de még maradt értékelendő kép, frissítsd az oldalt vagy kattints a gombra.</p>
+                        <button onClick={() => props.setJudgingContestId(null)} style={{ background: '#ef444420', color: '#ef4444', border: '1px solid #ef4444', padding: '10px 25px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
+                          Zsűrizés megszakítása
+                        </button>
                       </div>
-                      
-                      {props.unvotedEntries.length > 0 ? (
-                        <div>
-                          {(() => {
-                            const currentEntry = props.unvotedEntries[0];
-                            const imageUrl = getImageUrl(currentEntry.drive_file_id, currentEntry.file_url);
-                            return (
-                              <div style={{ background: '#1e293b', padding: '20px', borderRadius: '12px' }}>
-                                <h4 style={{ margin: '0 0 10px 0', fontSize: '1.6rem', color: '#f8fafc' }}>{currentEntry.title || "Névtelen kép"}</h4>
-                                <div style={{ display: 'inline-block', background: '#38bdf820', color: '#38bdf8', padding: '6px 16px', borderRadius: '100px', fontSize: '0.9rem', marginBottom: '25px', fontWeight: 'bold' }}>Kategória: {currentEntry.category || "Ismeretlen"}</div>
-                                <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%', marginBottom: '30px', minHeight: '350px', background: '#0f172a', borderRadius: '8px', overflow: 'hidden', border: '1px solid #334155' }}>
-                                  <img src={imageUrl} alt={currentEntry.title} onClick={() => props.setFullscreenData({url: imageUrl, title: currentEntry.title})} style={{ maxHeight: '600px', maxWidth: '100%', objectFit: 'contain', cursor: 'zoom-in', width: '100%' }} />
+
+                      {/* MAGA A TELJES KÉPERNYŐS ÉRTÉKELŐ FELÜLET */}
+                      <div style={{ position: 'fixed', inset: 0, backgroundColor: '#0f172a', zIndex: 10000, display: 'flex', flexDirection: 'column' }}>
+                        
+                        {/* Fejléc */}
+                        <div style={{ padding: '15px 30px', background: '#1e293b', borderBottom: '1px solid #334155', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
+                            <h3 style={{ margin: 0, color: '#f59e0b', fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              ⚖️ Zsűrizés: {contest.title}
+                            </h3>
+                            <div style={{ background: '#0f172a', border: '1px solid #334155', padding: '5px 15px', borderRadius: '100px', color: '#94a3b8', fontWeight: 'bold' }}>
+                              Még értékelésre vár: <span style={{ color: '#38bdf8', fontSize: '1.1rem', marginLeft: '5px' }}>{props.unvotedEntries.length} db</span>
+                            </div>
+                          </div>
+                          <button onClick={() => props.setJudgingContestId(null)} style={{ background: '#ef444420', color: '#ef4444', border: '1px solid #ef4444', padding: '8px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem', transition: 'all 0.2s' }}>
+                            Szünet / Kilépés
+                          </button>
+                        </div>
+
+                        {props.unvotedEntries.length > 0 ? (
+                          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                            
+                            {/* A hatalmas kép (Dark Room) */}
+                            {(() => {
+                              const currentEntry = props.unvotedEntries[0];
+                              const imageUrl = getImageUrl(currentEntry.drive_file_id, currentEntry.file_url);
+                              return (
+                                <div style={{ flex: 1, background: '#000000', display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px', overflow: 'hidden' }}>
+                                  <img 
+                                    src={imageUrl} 
+                                    alt="Nevezett kép" 
+                                    onClick={() => props.setFullscreenData({url: imageUrl, title: currentEntry.title})}
+                                    style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', cursor: 'zoom-in' }} 
+                                  />
                                 </div>
-                                <div style={{ background: '#0f172a', padding: '20px', borderRadius: '12px', display: 'inline-flex', alignItems: 'center', gap: '20px', border: '1px solid #334155', flexWrap: 'wrap', justifyContent: 'center' }}>
-                                  <label style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#94a3b8' }}>Pontszám:</label>
-                                  <input type="number" min="0" max="100" placeholder="0-100" value={props.currentScore} onChange={e => props.setCurrentScore(e.target.value ? Number(e.target.value) : '')} style={{ width: '120px', padding: '15px', fontSize: '1.5rem', textAlign: 'center', backgroundColor: '#1e293b', border: '2px solid #f59e0b', color: 'white', borderRadius: '8px', outline: 'none' }} />
-                                  <button onClick={props.submitVote} style={{ background: '#f59e0b', color: '#0f172a', border: 'none', padding: '15px 30px', fontSize: '1.2rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Értékelem</button>
+                              );
+                            })()}
+
+                            {/* Értékelő Pult (Vezérlők) */}
+                            <div style={{ background: '#1e293b', padding: '25px 40px', borderTop: '1px solid #334155', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '30px', flexWrap: 'wrap' }}>
+                              
+                              {/* Bal oldal: Adatok */}
+                              <div style={{ flex: '1', minWidth: '250px' }}>
+                                <div style={{ fontSize: '1.5rem', color: '#f8fafc', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: '8px' }}>
+                                  {props.unvotedEntries[0].title || 'Névtelen kép'}
+                                </div>
+                                <div style={{ display: 'inline-block', background: '#38bdf820', color: '#38bdf8', padding: '4px 12px', borderRadius: '100px', fontSize: '0.9rem', fontWeight: 'bold' }}>
+                                  Kategória: {props.unvotedEntries[0].category || 'Ismeretlen'}
                                 </div>
                               </div>
-                            );
-                          })()}
-                        </div>
-                      ) : (
-                        <div style={{ padding: '40px 0' }}>
-                          <div style={{ fontSize: '4rem', marginBottom: '10px' }}>🎉</div>
-                          <h2 style={{ color: '#10b981', margin: '0 0 10px 0' }}>Minden képet értékeltél!</h2>
-                          <button onClick={() => props.setJudgingContestId(null)} style={{ background: 'transparent', color: '#38bdf8', border: '1px solid #38bdf8', padding: '10px 20px', borderRadius: '6px', cursor: 'pointer', marginTop: '25px' }}>Vissza a pályázatokhoz</button>
-                        </div>
-                      )}
-                    </div>
+
+                              {/* Közép: Csúszka (Slider) */}
+                              <div style={{ flex: '2', minWidth: '300px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+                                <div style={{ display: 'flex', width: '100%', alignItems: 'center', gap: '20px' }}>
+                                  <span style={{ color: '#94a3b8', fontWeight: 'bold', fontSize: '1.3rem' }}>0</span>
+                                  <input 
+                                      type="range" 
+                                      min="0" max="100" 
+                                      value={props.currentScore === '' ? 0 : props.currentScore} 
+                                      onChange={e => props.setCurrentScore(Number(e.target.value))}
+                                      style={{ flex: 1, cursor: 'pointer', height: '10px', accentColor: '#f59e0b' }}
+                                  />
+                                  <span style={{ color: '#94a3b8', fontWeight: 'bold', fontSize: '1.3rem' }}>100</span>
+                                </div>
+                                <div style={{ color: '#64748b', fontSize: '0.85rem' }}>Húzd a csúszkát, vagy kattints a mezőbe a gépeléshez!</div>
+                              </div>
+
+                              {/* Jobb oldal: Pontszám és Gomb */}
+                              <div style={{ flex: '1', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '20px', minWidth: '250px' }}>
+                                <input 
+                                  type="number" 
+                                  min="0" max="100" 
+                                  placeholder="Pont"
+                                  value={props.currentScore}
+                                  onChange={e => props.setCurrentScore(e.target.value ? Number(e.target.value) : '')}
+                                  onKeyDown={e => { if(e.key === 'Enter' && props.currentScore !== '') props.submitVote() }}
+                                  style={{ width: '110px', fontSize: '2.5rem', padding: '10px', textAlign: 'center', background: '#0f172a', border: '3px solid #f59e0b', color: '#f59e0b', borderRadius: '12px', fontWeight: 'bold', outline: 'none', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.5)' }}
+                                />
+                                <button 
+                                  onClick={props.submitVote}
+                                  disabled={props.currentScore === ''}
+                                  style={{ background: props.currentScore === '' ? '#475569' : '#10b981', color: props.currentScore === '' ? '#94a3b8' : '#0f172a', border: 'none', padding: '20px 30px', borderRadius: '12px', fontSize: '1.4rem', fontWeight: 'bold', cursor: props.currentScore === '' ? 'not-allowed' : 'pointer', transition: 'all 0.2s', boxShadow: props.currentScore === '' ? 'none' : '0 4px 15px rgba(16, 185, 129, 0.4)' }}
+                                >
+                                  Tovább 🚀
+                                </button>
+                              </div>
+
+                            </div>
+                          </div>
+                        ) : (
+                          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', background: '#0f172a' }}>
+                            <div style={{ fontSize: '6rem', marginBottom: '20px' }}>🎉</div>
+                            <h2 style={{ color: '#10b981', fontSize: '2.5rem', margin: '0 0 15px 0' }}>Minden képet értékeltél!</h2>
+                            <p style={{ color: '#94a3b8', fontSize: '1.2rem', marginBottom: '30px' }}>Köszönjük a munkádat! A zsűrizés állását az admin felületen követheted.</p>
+                            <button onClick={() => props.setJudgingContestId(null)} style={{ background: '#38bdf8', color: '#0f172a', border: 'none', padding: '15px 30px', borderRadius: '8px', fontSize: '1.2rem', fontWeight: 'bold', cursor: 'pointer', transition: 'background 0.2s' }}>
+                              Vissza a pályázatokhoz
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  // --- TELJES KÉPERNYŐS ZSŰRI MÓD VÉGE ---
+
                   ) : props.viewResultsContestId === contest.id ? (
                       <div style={{ background: '#0f172a', padding: '20px', borderRadius: '8px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #334155', paddingBottom: '15px', marginBottom: '20px' }}>
