@@ -15,7 +15,7 @@ export default function SalonModal({ salon, user, onClose }: SalonModalProps) {
   const [awards, setAwards] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   
-  // ÚJ: Kereső a portfólióhoz
+  // Kereső a portfólióhoz
   const [searchQuery, setSearchQuery] = useState('');
 
   const [resultsEdit, setResultsEdit] = useState<Record<number, { awardId: string, achieved: string, acceptance: string }>>({});
@@ -116,61 +116,60 @@ export default function SalonModal({ salon, user, onClose }: SalonModalProps) {
     }
   };
 
-  // ÚJ 1: Okoskereső szűrése a portfólióhoz (Cím és AI Tagek alapján)
+  // Közös pontozó logika a rendezésekhez
+  const getEntryScore = (entry: any) => {
+    if (!entry) return 0;
+    let score = 0;
+    
+    const awardId = (entry.award_id !== null && entry.award_id !== undefined && entry.award_id !== '') 
+      ? Number(entry.award_id) 
+      : null;
+
+    if (awardId !== null && awardId !== 15 && awardId !== 0) {
+      if (awardId === 1) {
+        score += 1; // Sima elfogadás (Acceptance)
+      } else {
+        score += 3; // Valódi komoly díj (PSA, FIAP Gold, Silver, stb.)
+      }
+    }
+
+    const hasScores = entry.achieved_score !== null && entry.achieved_score !== '' && 
+                      entry.acceptance_score !== null && entry.acceptance_score !== '';
+                      
+    if (hasScores && awardId !== 15) {
+      const achieved = Number(entry.achieved_score);
+      const acceptance = Number(entry.acceptance_score);
+      if (achieved >= acceptance && score === 0) {
+        score += 1; 
+      }
+    }
+    return score;
+  };
+
+  // JAVÍTÁS 1: A Portfólió választó listát IS szűrjük és CSÖKKENŐ sorrendbe tesszük az eredmények szerint!
   const filteredPortfolio = useMemo(() => {
-    if (!searchQuery) return portfolio;
-    const lowerQuery = searchQuery.toLowerCase();
-    return portfolio.filter(p => {
-      const matchTitle = p.title && p.title.toLowerCase().includes(lowerQuery);
-      const matchTags = p.ai_tags && p.ai_tags.toLowerCase().includes(lowerQuery);
-      return matchTitle || matchTags;
-    });
-  }, [portfolio, searchQuery]);
+    let result = [...portfolio];
+    
+    if (searchQuery) {
+      const lowerQuery = searchQuery.toLowerCase();
+      result = result.filter(p => {
+        const matchTitle = p.title && p.title.toLowerCase().includes(lowerQuery);
+        const matchTags = p.ai_tags && p.ai_tags.toLowerCase().includes(lowerQuery);
+        return matchTitle || matchTags;
+      });
+    }
 
- // ÚJ 2: Már leadott képek okos sorrendezése (Súlyozott pontozással a valós adatbázis ID-k alapján)
+    return result.sort((a, b) => {
+      const entryA = myEntries.find(e => e.id === a.id);
+      const entryB = myEntries.find(e => e.id === b.id);
+      return getEntryScore(entryB) - getEntryScore(entryA);
+    });
+  }, [portfolio, searchQuery, myEntries]);
+
+  // JAVÍTÁS 2: A már leadott képek listáját IS csökkenő sorrendbe tesszük az elért eredmények szerint!
   const sortedEntries = useMemo(() => {
-    // Biztonsági ellenőrzés: ha a lista véletlenül nem tömb, ne omoljon össze
     if (!myEntries || !Array.isArray(myEntries)) return [];
-
-    return [...myEntries].sort((a, b) => {
-      
-      const calculateScore = (entry: any) => {
-        let score = 0;
-        
-        // 1. Biztonságos számmá alakítás (a NULL, undefined és üres string kezelése)
-        const awardId = (entry.award_id !== null && entry.award_id !== undefined && entry.award_id !== '') 
-          ? Number(entry.award_id) 
-          : null;
-
-        // 2. Díjak és elfogadások pontozása
-        // Ha van értékelés, és az nem 15 (elutasított), és nem 0
-        if (awardId !== null && awardId !== 15 && awardId !== 0) {
-          if (awardId === 1) {
-            score += 1; // Sima elfogadás (Acceptance)
-          } else {
-            score += 3; // Valódi díj (PSA Silver, stb.) - Nagyobb súlyt kap!
-          }
-        }
-
-        // 3. Ha esetleg nincs award_id megadva, de a pontok be vannak írva (és nem 15-ös)
-        const hasScores = entry.achieved_score !== null && entry.achieved_score !== '' && 
-                          entry.acceptance_score !== null && entry.acceptance_score !== '';
-                          
-        if (hasScores && awardId !== 15) {
-          const achieved = Number(entry.achieved_score);
-          const acceptance = Number(entry.acceptance_score);
-          // Ha elérte a határt, és még nem kapott pontot fentebb
-          if (achieved >= acceptance && score === 0) {
-            score += 1; 
-          }
-        }
-
-        return score;
-      };
-
-      // Csökkenő sorrend (a legtöbb pontot kapott képek kerülnek legelőre)
-      return calculateScore(b) - calculateScore(a);
-    });
+    return [...myEntries].sort((a, b) => getEntryScore(b) - getEntryScore(a));
   }, [myEntries]);
 
   if (!salon) return null;
@@ -183,7 +182,7 @@ export default function SalonModal({ salon, user, onClose }: SalonModalProps) {
         <div style={{ padding: '30px' }}>
           
           {isSubmitting ? (
-            /* --- NEVEZÉSI FELÜLET (Portfólió választó AI Keresővel) --- */
+            /* --- NEVEZÉSI FELÜLET (Portfólió választó AI Keresővel és Sorrendezéssel) --- */
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '15px' }}>
                 <button onClick={() => setIsSubmitting(false)} style={{ background: 'transparent', color: '#60a5fa', border: 'none', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '5px' }}>
@@ -201,7 +200,7 @@ export default function SalonModal({ salon, user, onClose }: SalonModalProps) {
               
               <h2 style={{ color: '#f8fafc', margin: '0 0 10px 0' }}>Képek kiválasztása</h2>
               <p style={{ color: '#94a3b8', marginBottom: '20px' }}>
-                {isPastDeadline ? "Visszamenőleges archiválás a saját portfóliódból:" : "Válassz a saját portfóliódból a nevezéshez:"}
+                {isPastDeadline ? "Visszamenőleges archiválás a saját portfóliódból (eredmények szerint rendezve):" : "Válassz a saját portfóliódból a nevezéshez (eredmények szerint rendezve):"}
               </p>
               
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '20px' }}>
@@ -232,7 +231,7 @@ export default function SalonModal({ salon, user, onClose }: SalonModalProps) {
               </div>
             </div>
           ) : (
-            /* --- FŐ ADATLAP + NEVEZÉSEK ÖSSZEGZÉSE --- */
+            /* --- FŐ ADATLAP + NEVEZÉSEK ÖSSZEGZÉSE (Sorrendezett) --- */
             <>
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '15px' }}>
                 {salon.patron_details && salon.patron_details.length > 0 ? (
@@ -254,7 +253,7 @@ export default function SalonModal({ salon, user, onClose }: SalonModalProps) {
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '15px' }}>
                     {sortedEntries.map(entry => {
                       const editState = resultsEdit[entry.entry_id] || { awardId: '', achieved: '', acceptance: '' };
-                      const hasAward = entry.award_id !== null && entry.award_id !== undefined;
+                      const hasAward = entry.award_id !== null && entry.award_id !== undefined && Number(entry.award_id) !== 15 && Number(entry.award_id) !== 0;
 
                       return (
                         <div key={entry.entry_id} style={{ position: 'relative', background: '#1e293b', borderRadius: '8px', overflow: 'hidden', border: hasAward ? '2px solid #f59e0b' : '1px solid #334155' }}>
