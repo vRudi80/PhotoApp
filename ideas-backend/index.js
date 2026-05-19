@@ -612,7 +612,34 @@ app.delete('/api/salons/:id', async (req, res) => {
 // --- SAJÁT KÉPALBUM (PORTFÓLIÓ) KEZELÉSE VÉDVE! ---
 // ==========================================
 app.get('/api/my-album', checkPremium, async (req, res) => {
-  try { const [rows] = await pool.query('SELECT * FROM photo_portfolio WHERE user_email = ? ORDER BY title ASC', [req.query.userEmail]); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba a képek lekérésekor' }); }
+  try { 
+    // JAVÍTÁS: Bővített lekérdezés, ami minden kép mellé hozzácsapja a globális díjak és elfogadások számát!
+    const query = `
+      SELECT p.*, 
+        -- 1. Valódi díjak megszámolása (ahol az award_id nem NULL, nem 0, nem 1 (sima elfogadás), és nem 15 (elutasított))
+        (SELECT COUNT(*) FROM photo_salon_entries e 
+         WHERE e.portfolio_id = p.id 
+           AND e.award_id IS NOT NULL 
+           AND e.award_id NOT IN (0, 1, 15)
+        ) as award_count,
+        
+        -- 2. Elfogadások megszámolása (award_id = 1, VAGY elért pont >= elfogadási határ, és nem lett 15-össel elutasítva)
+        (SELECT COUNT(*) FROM photo_salon_entries e 
+         WHERE e.portfolio_id = p.id 
+           AND (
+             e.award_id = 1 
+             OR (e.achieved_score >= e.acceptance_score AND (e.award_id IS NULL OR e.award_id != 15))
+           )
+        ) as acceptance_count
+      FROM photo_portfolio p 
+      WHERE p.user_email = ?
+    `;
+    const [rows] = await pool.query(query, [req.query.userEmail]); 
+    res.json(rows); 
+  } catch (err) { 
+    console.error(err);
+    res.status(500).json({ error: 'Hiba a képek lekérésekor' }); 
+  }
 });
 
 app.get('/api/my-portfolio-results', async (req, res) => {
