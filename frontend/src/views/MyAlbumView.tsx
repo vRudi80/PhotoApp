@@ -348,6 +348,20 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
                         </div>
                       )}
                     </div>
+                   <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                    <button 
+                      onClick={() => handleAnalyzePhoto(photo.id)} 
+                      disabled={isAnalyzingThis}
+                      style={{ width: '100%', background: '#8b5cf620', color: '#a78bfa', border: '1px solid #8b5cf6', padding: '8px', borderRadius: '6px', cursor: isAnalyzingThis ? 'not-allowed' : 'pointer', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '5px' }}
+                    >
+                      {isAnalyzingThis ? '⏳ Elemzés folyamatban...' : (photo.ai_tags ? '🤖 AI Újraelemzés' : '🤖 AI Elemzés (Zsűri értékelés)')}
+                    </button>
+
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <button onClick={() => { setEditingPhotoId(photo.id); setEditTitle(photo.title); }} style={{ flex: 1, background: '#38bdf820', color: '#38bdf8', border: 'none', padding: '8px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>Szerkeszt</button>
+                      <button onClick={() => handleDelete(photo.id)} style={{ flex: 1, background: '#ef444420', color: '#ef4444', border: 'none', padding: '8px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>Törlés</button>
+                    </div>
+                  </div>
                   </details>
                 )}
 
@@ -401,20 +415,7 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
                     </div>
                   </div>
                 ) : (
-                  <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                    <button 
-                      onClick={() => handleAnalyzePhoto(photo.id)} 
-                      disabled={isAnalyzingThis}
-                      style={{ width: '100%', background: '#8b5cf620', color: '#a78bfa', border: '1px solid #8b5cf6', padding: '8px', borderRadius: '6px', cursor: isAnalyzingThis ? 'not-allowed' : 'pointer', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '5px' }}
-                    >
-                      {isAnalyzingThis ? '⏳ Elemzés folyamatban...' : (photo.ai_tags ? '🤖 AI Újraelemzés' : '🤖 AI Elemzés (Zsűri értékelés)')}
-                    </button>
-
-                    <div style={{ display: 'flex', gap: '10px' }}>
-                      <button onClick={() => { setEditingPhotoId(photo.id); setEditTitle(photo.title); }} style={{ flex: 1, background: '#38bdf820', color: '#38bdf8', border: 'none', padding: '8px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>Szerkeszt</button>
-                      <button onClick={() => handleDelete(photo.id)} style={{ flex: 1, background: '#ef444420', color: '#ef4444', border: 'none', padding: '8px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>Törlés</button>
-                    </div>
-                  </div>
+                 
                 )}
               </div>
             </div>
