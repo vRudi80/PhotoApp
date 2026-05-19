@@ -592,7 +592,16 @@ function App() {
   return (
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
 
-      {fullscreenData && <FullscreenModal data={fullscreenData} onClose={() => setFullscreenData(null)} />}
+     {fullscreenData && (
+  <FullscreenModal 
+    data={fullscreenData} 
+    onClose={() => setFullscreenData(null)} 
+    entryList={fullscreenData._entryList} 
+    currentIndex={fullscreenData._currentIndex} 
+    onNavigate={fullscreenData._onNavigate} 
+    onToggleLike={fullscreenData._onToggleLike} 
+  />
+)}
       {selectedSalon && <SalonModal salon={selectedSalon} user={user} onClose={() => setSelectedSalon(null)} />}
       {activeVideo && <VideoModal videoUrl={activeVideo} onClose={() => setActiveVideo(null)} />}
 
