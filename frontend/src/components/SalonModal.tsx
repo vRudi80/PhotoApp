@@ -146,9 +146,11 @@ export default function SalonModal({ salon, user, onClose }: SalonModalProps) {
     return score;
   };
 
+// JAVÍTÁS 1: Szupergyors, optimalizált Portfólió rendezés (Globális eredmények szerint)
   const filteredPortfolio = useMemo(() => {
     let result = [...portfolio];
     
+    // 1. Szűrés keresőszóra
     if (searchQuery) {
       const lowerQuery = searchQuery.toLowerCase();
       result = result.filter(p => {
@@ -158,19 +160,25 @@ export default function SalonModal({ salon, user, onClose }: SalonModalProps) {
       });
     }
 
+    // 2. Gyorsítótár (Map) a leadott képek pontjainak, hogy ne fusson ezerszer a .find()
+    const entryScoreMap = new Map();
+    myEntries.forEach(e => {
+      entryScoreMap.set(Number(e.id || e.portfolio_id), getEntryScore(e));
+    });
+
+    // 3. Rendezés csökkenő sorrendbe (Sztárképek legelöl)
     return result.sort((a, b) => {
-      const scoreA = getEntryScore({ 
-        award_id: a.award_count > 0 ? 2 : 0, 
-        achieved_score: a.acceptance_count > 0 ? 10 : 0, 
-        acceptance_score: 5 
-      });
+      const scoreA = entryScoreMap.get(Number(a.id)) || 0;
+      const scoreB = entryScoreMap.get(Number(b.id)) || 0;
       
-      const entryA = myEntries.find(e => e.id === a.id);
-      const entryB = myEntries.find(e => e.id === b.id);
-      return getEntryScore(entryB) - getEntryScore(entryA);
+      if (scoreB === scoreA) {
+        return b.id - a.id; // Holtverseny esetén a legújabb feltöltés jön előre
+      }
+      return scoreB - scoreA;
     });
   }, [portfolio, searchQuery, myEntries]);
 
+  // JAVÍTÁS 2: A már leadott képek listájának rendezése
   const sortedEntries = useMemo(() => {
     if (!myEntries || !Array.isArray(myEntries)) return [];
     return [...myEntries].sort((a, b) => getEntryScore(b) - getEntryScore(a));
@@ -185,7 +193,14 @@ export default function SalonModal({ salon, user, onClose }: SalonModalProps) {
         
         <div style={{ padding: '30px' }}>
           
-          {isSubmitting ? (
+          {isLoading ? (
+            /* ÚJ: TÖLTÉSI JELZÉS AZ ABLAKON BELÜL */
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '50px 0', color: '#38bdf8' }}>
+              <div style={{ fontSize: '2.5rem', marginBottom: '15px', animation: 'spin 2s linear infinite' }}>⏳</div>
+              <h3 style={{ color: '#f8fafc', margin: 0 }}>Fényképek és eredmények betöltése...</h3>
+              <p style={{ color: '#94a3b8', fontSize: '0.85rem', marginTop: '5px' }}>Kérlek várj, amíg a rendszer rangsorolja a portfóliódat.</p>
+            </div>
+          ) : isSubmitting ? (
             /* --- NEVEZÉSI FELÜLET --- */
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '15px' }}>
@@ -204,7 +219,7 @@ export default function SalonModal({ salon, user, onClose }: SalonModalProps) {
               
               <h2 style={{ color: '#f8fafc', margin: '0 0 10px 0' }}>Képek kiválasztása</h2>
               <p style={{ color: '#94a3b8', marginBottom: '20px' }}>
-                {isPastDeadline ? "Visszamenőleges archiválás a saját portfóliódból (eredmények szerint rendezve):" : "Válassz a saját portfóliódból a nevezéshez (eredmények szerint rendezve):"}
+                {isPastDeadline ? "Visszamenőleges archiválás a saját portfóliódból (eddigi sikerek szerint rendezve):" : "Válassz a saját portfóliódból a nevezéshez (eddigi sikerek szerint rendezve):"}
               </p>
               
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '20px' }}>
@@ -237,7 +252,7 @@ export default function SalonModal({ salon, user, onClose }: SalonModalProps) {
           ) : (
             /* --- FŐ ADATLAP --- */
             <>
-              {/* Fejléc - Jelvények (Most már az azonosítószámmal együtt!) */}
+              {/* Fejléc - Jelvények */}
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '15px' }}>
                 {salon.patron_details && salon.patron_details.length > 0 ? (
                   salon.patron_details.map((p: any) => (
@@ -252,7 +267,7 @@ export default function SalonModal({ salon, user, onClose }: SalonModalProps) {
               
               <h2 style={{ color: '#f8fafc', fontSize: '1.8rem', margin: '0 0 15px 0' }}>{salon.name}</h2>
 
-              {/* ÚJ: RÉSZLETES INFORMÁCIÓS BLOKK */}
+              {/* RÉSZLETES INFORMÁCIÓS BLOKK */}
               <div style={{ background: '#0f172a', padding: '20px', borderRadius: '10px', border: '1px solid #334155', marginBottom: '25px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', justifyContent: 'space-between' }}>
                   
