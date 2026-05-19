@@ -239,13 +239,13 @@ export default function ClubHomeworksView({
                         }
                       }}
                       style={{ 
-                        background: isSortedByLikes ? '#f59e0b' : '#1e293b', 
-                        color: isSortedByLikes ? '#0f172a' : '#cbd5e1', 
+                        background: isSortedByLikes ? '#ef4444' : '#1e293b', 
+                        color: isSortedByLikes ? '#ffffff' : '#cbd5e1', 
                         border: isSortedByLikes ? 'none' : '1px solid #475569', 
                         padding: '8px 15px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem', transition: 'all 0.2s' 
                       }}
                     >
-                      {isSortedByLikes ? '❤️ Rendezve (Kattints az Időrendhez)' : '⏱️ Időrendi (Kattints a Népszerűséghez)'}
+                      {isSortedByLikes ? '❤️ Népszerűség szerint (Váltás Névsorra)' : '👤 Névsor szerint (Váltás Népszerűségre)'}
                     </button>
                   </div>
                   
