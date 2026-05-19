@@ -127,21 +127,35 @@ export default function SalonModal({ salon, user, onClose }: SalonModalProps) {
     });
   }, [portfolio, searchQuery]);
 
-  // ÚJ 2: Már leadott képek okos sorrendezése (Díjazott -> Elfogadott -> Többi)
+  // ÚJ 2: Már leadott képek okos sorrendezése (Súlyozott pontozással)
   const sortedEntries = useMemo(() => {
     return [...myEntries].sort((a, b) => {
-      // Ha 'a' díjazott de 'b' nem, akkor 'a' jön előre
-      if (a.award_id && !b.award_id) return -1;
-      if (!a.award_id && b.award_id) return 1;
       
-      // Ha nincs díj, megnézzük az elfogadást
-      const aAccepted = a.achieved_score !== null && a.acceptance_score !== null && a.achieved_score >= a.acceptance_score;
-      const bAccepted = b.achieved_score !== null && b.acceptance_score !== null && b.achieved_score >= b.acceptance_score;
-      
-      if (aAccepted && !bAccepted) return -1;
-      if (!aAccepted && bAccepted) return 1;
-      
-      return 0; // Egyébként maradnak eredeti sorrendben
+      // Belső függvény a képek pontértékének kiszámítására
+      const calculateScore = (entry: any) => {
+        let score = 0;
+        
+        // 1. Van-e érvényes díja? (Létezik és nem a 15-ös azonosító)
+        const hasRealAward = entry.award_id && Number(entry.award_id) !== 15;
+        if (hasRealAward) {
+          score += 2; // A díj önmagában 2 pontot ér
+        }
+        
+        // 2. Elérte-e az elfogadási határt?
+        const isAccepted = entry.achieved_score !== null && 
+                           entry.acceptance_score !== null && 
+                           Number(entry.achieved_score) >= Number(entry.acceptance_score);
+                           
+        // Ha elfogadták, és nem kapta meg a 15-ös "elutasítva" pecsétet
+        if (isAccepted && Number(entry.award_id) !== 15) {
+          score += 1; // Az elfogadás plusz 1 pontot ér
+        }
+        
+        return score;
+      };
+
+      // Csökkenő sorrendbe rendezzük a pontszámok alapján (legtöbb pont van legelöl)
+      return calculateScore(b) - calculateScore(a);
     });
   }, [myEntries]);
 
