@@ -20,7 +20,7 @@ import ContestsView from './views/ContestsView';
 import MyAlbumView from './views/MyAlbumView';
 import AdminSettingsView from './views/admin/AdminSettingsView';
 import FiapProgressView from './views/FiapProgressView';
-
+import SessionGuard from './components/SessionGuard';
 
 function App() {
   const [user, setUser] = useState<any>(null);
@@ -322,7 +322,19 @@ function App() {
     fetchData(); 
     fetchMyEntries(decoded.email);
   };
-
+return (
+  <div className="app-container">
+    {/* ... a fejléc, a menü és az oldalak ... */}
+    
+    {/* AZ ÚJ MUNKAMENET ŐR! */}
+    {user && (
+       <SessionGuard logoutUser={() => {
+         setUser(null); // Ez üríti ki a memóriát, így visszaugrik a bejelentkezőre
+         // window.location.reload(); // (Opcionális: ha teljesen nullázni akarod az oldalt)
+       }} />
+    )}
+  </div>
+);
 
   const handleAddClub = async () => { if (!newClubName) return; const res = await fetch(`${BACKEND_URL}/api/clubs`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: newClubName }) }); if (res.ok) { setNewClubName(''); fetchData(); } };
   const handleDeleteClub = async (id: number) => { if (!window.confirm("Biztosan törlöd ezt a klubot?")) return; const res = await fetch(`${BACKEND_URL}/api/clubs/${id}`, { method: 'DELETE' }); if (res.ok) fetchData(); };
