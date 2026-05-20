@@ -673,7 +673,7 @@ function App() {
             )}
 
             {activeTab === 'fiap_progress' && (
-              <FiapProgressView user={user} />
+              <FiapProgressView user={user} allUsers={allUsers} />
             )}
 
             {activeTab === 'admin_salons' && user.email === ADMIN_EMAIL && (
