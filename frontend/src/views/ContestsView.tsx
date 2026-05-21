@@ -78,10 +78,8 @@ interface ContestsViewProps {
 export default function ContestsView(props: ContestsViewProps) {
   const inputStyle = { width: '100%', padding: '10px', marginBottom: '10px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '6px', boxSizing: 'border-box' as const };
 
-  // ÚJ: Dupla-kattintás gátló a szavazásnál
   const [isSubmittingVote, setIsSubmittingVote] = useState(false);
 
-  // Ha frissül a szavazandó képek listája (azaz sikeres volt a mentés), feloldjuk a gombot
   useEffect(() => {
     setIsSubmittingVote(false);
   }, [props.unvotedEntries, props.currentScore]);
@@ -98,21 +96,35 @@ export default function ContestsView(props: ContestsViewProps) {
 
       {!(props.activeTab === 'contests_club_active' && !props.currentDbUser?.club_name) && (
         <>
-          {props.activeTab === 'admin_contests' && props.user.email === ADMIN_EMAIL && (
+          {/* JAVÍTÁS: Az űrlap látható az Admin fülön az adminnak, ÉS a Klub fülön a Klubvezetőnek! */}
+          {((props.activeTab === 'admin_contests' && props.user.email === ADMIN_EMAIL) || 
+            (props.activeTab === 'contests_club_active' && props.isLeader)) && (
+            
             <div style={{ backgroundColor: '#1e293b', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', border: '1px solid #f59e0b' }}>
-              <h3 style={{ marginTop: 0, color: '#f59e0b' }}>⚙️ Új Pályázat Létrehozása</h3>
+              <h3 style={{ marginTop: 0, color: '#f59e0b' }}>
+                {props.user.email === ADMIN_EMAIL ? '⚙️ Globális Pályázat Létrehozása (Admin)' : `📝 Új Belső Pályázat Kiírása (${props.currentDbUser?.club_name})`}
+              </h3>
               <input placeholder="Pályázat címe" value={props.newTitle} onChange={e => props.setNewTitle(e.target.value)} style={inputStyle} />
-              <textarea placeholder="Leírás" value={props.newDesc} onChange={e => props.setNewDesc(e.target.value)} style={{...inputStyle, minHeight: '60px'}} />
+              <textarea placeholder="Leírás / Szabályzat" value={props.newDesc} onChange={e => props.setNewDesc(e.target.value)} style={{...inputStyle, minHeight: '60px'}} />
               <div style={{display: 'flex', gap: '10px', flexWrap: 'wrap'}}>
                 <div style={{flex: '1 1 200px'}}><label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Kezdés</label><input type="datetime-local" value={props.newStart} onChange={e => props.setNewStart(e.target.value)} style={inputStyle} /></div>
                 <div style={{flex: '1 1 200px'}}><label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Befejezés</label><input type="datetime-local" value={props.newEnd} onChange={e => props.setNewEnd(e.target.value)} style={inputStyle} /></div>
               </div>
-              <input placeholder="Kategóriák (pl: Természet, Portré) - vesszővel elválasztva" value={props.newCats} onChange={e => props.setNewCats(e.target.value)} style={inputStyle} />
-              <select value={props.newRestrictedClub} onChange={e => props.setNewRestrictedClub(e.target.value)} style={{...inputStyle, border: '1px solid #f59e0b'}}>
-                <option value="">🔓 Nyilvános pályázat (Bárki nevezhet)</option>
-                {props.clubs.map(c => <option key={c.id} value={c.name}>🔒 Zártkörű: {c.name}</option>)}
-              </select>
-              <button onClick={props.handleCreateContest} style={{ background: '#10b981', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Létrehozás</button>
+              <input placeholder="Kategóriák (pl: Természet, Portré, Kreatív) - vesszővel elválasztva" value={props.newCats} onChange={e => props.setNewCats(e.target.value)} style={inputStyle} />
+              
+              {/* JAVÍTÁS: Ha a klubvezető hozza létre, nem tud választani, fixen zártkörű a saját klubjának! */}
+              {props.user.email === ADMIN_EMAIL ? (
+                <select value={props.newRestrictedClub} onChange={e => props.setNewRestrictedClub(e.target.value)} style={{...inputStyle, border: '1px solid #f59e0b'}}>
+                  <option value="">🔓 Nyilvános pályázat (Bárki nevezhet)</option>
+                  {props.clubs.map(c => <option key={c.id} value={c.name}>🔒 Zártkörű: {c.name}</option>)}
+                </select>
+              ) : (
+                <div style={{ padding: '10px', background: '#0f172a', borderRadius: '6px', color: '#cbd5e1', fontSize: '0.9rem', marginBottom: '15px', border: '1px solid #334155' }}>
+                  🔒 Láthatóság: <strong>Kizárólag a(z) {props.currentDbUser?.club_name} tagjai nevezhetnek.</strong>
+                </div>
+              )}
+              
+              <button onClick={props.handleCreateContest} style={{ background: '#10b981', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Pályázat Kiírása 🚀</button>
             </div>
           )}
 
@@ -152,7 +164,7 @@ export default function ContestsView(props: ContestsViewProps) {
                 <div key={contest.id} style={{ backgroundColor: '#1e293b', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', border: `1px solid ${badgeColor}`, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', position: 'relative' }}>
                   
                   {contest.restricted_club && (
-                    <div className="contest-badge" style={{ position: 'absolute', top: '-12px', left: '20px', background: '#f59e0b', color: '#0f172a', boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
+                    <div style={{ position: 'absolute', top: '-12px', left: '20px', background: '#f59e0b', color: '#0f172a', padding: '4px 12px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 'bold', boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
                       🔒 Zártkörű: {contest.restricted_club}
                     </div>
                   )}
@@ -258,7 +270,6 @@ export default function ContestsView(props: ContestsViewProps) {
                       </div>
                     </div>
 
-                  // --- TELJES KÉPERNYŐS ZSŰRI MÓD (DARK ROOM) ---
                   ) : props.judgingContestId === contest.id ? (
                     <>
                       <div style={{ background: '#0f172a', padding: '25px', borderRadius: '12px', textAlign: 'center', border: '2px solid #f59e0b' }}>
@@ -270,7 +281,6 @@ export default function ContestsView(props: ContestsViewProps) {
                       </div>
 
                       <div style={{ position: 'fixed', inset: 0, backgroundColor: '#0f172a', zIndex: 10000, display: 'flex', flexDirection: 'column' }}>
-                        
                         <div style={{ padding: '15px 30px', background: '#1e293b', borderBottom: '1px solid #334155', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
                             <h3 style={{ margin: 0, color: '#f59e0b', fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -287,8 +297,6 @@ export default function ContestsView(props: ContestsViewProps) {
 
                         {props.unvotedEntries.length > 0 ? (
                           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                            
-                            {/* JAVÍTÁS 1: onClick={() => setFullscreenData...} KIVÉVE innen, hogy ne nyisson dupla ablakot! */}
                             {(() => {
                               const currentEntry = props.unvotedEntries[0];
                               const imageUrl = getImageUrl(currentEntry.drive_file_id, currentEntry.file_url);
@@ -329,7 +337,6 @@ export default function ContestsView(props: ContestsViewProps) {
                               </div>
 
                               <div style={{ flex: '1', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '20px', minWidth: '250px' }}>
-                                {/* JAVÍTÁS 2: Enter megnyomás is védett a dupla kattintás ellen */}
                                 <input 
                                   type="number" 
                                   min="0" max="100" 
@@ -344,7 +351,6 @@ export default function ContestsView(props: ContestsViewProps) {
                                   }}
                                   style={{ width: '110px', fontSize: '2.5rem', padding: '10px', textAlign: 'center', background: '#0f172a', border: '3px solid #f59e0b', color: '#f59e0b', borderRadius: '12px', fontWeight: 'bold', outline: 'none', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.5)' }}
                                 />
-                                {/* JAVÍTÁS 3: Dupla kattintás védelem és animált homokóra */}
                                 <button 
                                   onClick={() => {
                                     setIsSubmittingVote(true);
@@ -356,7 +362,6 @@ export default function ContestsView(props: ContestsViewProps) {
                                   {isSubmittingVote ? '⏳...' : 'Tovább 🚀'}
                                 </button>
                               </div>
-
                             </div>
                           </div>
                         ) : (
@@ -371,7 +376,6 @@ export default function ContestsView(props: ContestsViewProps) {
                         )}
                       </div>
                     </>
-                  // --- TELJES KÉPERNYŐS ZSŰRI MÓD VÉGE ---
 
                   ) : props.viewResultsContestId === contest.id ? (
                       <div style={{ background: '#0f172a', padding: '20px', borderRadius: '8px' }}>
