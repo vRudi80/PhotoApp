@@ -327,7 +327,41 @@ function App() {
     if (res.ok) { alert("Sikeres mentés!"); fetchData(); } 
   };
   
-  const handleCreateContest = async () => { if (!newTitle || !newStart || !newEnd || !newCats) return alert("Cím, dátumok és kategóriák kötelezőek!"); const res = await fetch(`${BACKEND_URL}/api/contests`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: newTitle, description: newDesc, startDate: newStart, endDate: newEnd, categories: newCats, restrictedClub: newRestrictedClub }) }); if (res.ok) { setNewTitle(''); setNewDesc(''); setNewStart(''); setNewEnd(''); setNewCats(''); setNewRestrictedClub(''); fetchData(); } };
+    const handleCreateContest = async () => { 
+    if (!newTitle || !newStart || !newEnd || !newCats) return alert("Cím, dátumok és kategóriák kötelezőek!"); 
+
+    // --- BIZTONSÁGI ZÁR: Klubvezető csak a saját klubjának hozhat létre zárt pályázatot! ---
+    let finalRestrictedClub = newRestrictedClub;
+    if (user.email !== ADMIN_EMAIL) {
+      finalRestrictedClub = currentDbUser?.club_name || '';
+      if (!finalRestrictedClub) {
+        return alert("Hiba: Nem vagy klubhoz rendelve, így nem írhatsz ki pályázatot!");
+      }
+    }
+    // ------------------------------------------------------------------------------------
+
+    const res = await fetch(`${BACKEND_URL}/api/contests`, { 
+      method: 'POST', 
+      headers: { 'Content-Type': 'application/json' }, 
+      body: JSON.stringify({ 
+        title: newTitle, 
+        description: newDesc, 
+        startDate: newStart, 
+        endDate: newEnd, 
+        categories: newCats, 
+        restrictedClub: finalRestrictedClub // A kényszerített, biztonságos érték megy a backendre
+      }) 
+    }); 
+
+    if (res.ok) { 
+      setNewTitle(''); setNewDesc(''); setNewStart(''); setNewEnd(''); setNewCats(''); setNewRestrictedClub(''); 
+      fetchData(); 
+      alert("Pályázat sikeresen kiírva! 🚀");
+    } else {
+      alert("Hiba történt a mentés során.");
+    }
+  };
+
   
   const startEdit = (contest: any) => { 
     setEditContestId(contest.id); 
