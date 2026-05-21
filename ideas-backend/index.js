@@ -296,7 +296,13 @@ app.post('/api/upload', upload.single('photo'), async (req, res) => {
     const fileExt = file.originalname && file.originalname.includes('.') ? file.originalname.substring(file.originalname.lastIndexOf('.')).toLowerCase() : '.jpg';
     const driveRes = await drive.files.create({ requestBody: { name: `Nevezes_${contestId}_${userName}_${Date.now()}${fileExt}`, parents: [process.env.DRIVE_MASTER_FOLDER_ID] }, media: { mimeType: file.mimetype, body: bufferStream }, fields: 'id, webViewLink' });
 
-    await pool.query('INSERT INTO photo_entries (contest_id, user_email, user_name, title, category, file_url, drive_file_id) VALUES (?, ?, ?, ?, ?, ?, ?)', [contestId, userEmail, userName, title, category, driveRes.data.webViewLink, driveRes.data.id]);
+    // A meglévő INSERT részt cseréld erre:
+const fileSize = req.file.size; // <-- ÚJ
+await pool.query(
+  'INSERT INTO photo_entries (contest_id, user_email, user_name, title, category, file_url, drive_file_id, file_size) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 
+  [contestId, userEmail, userName, title, category, driveRes.data.webViewLink, driveRes.data.id, fileSize]
+);
+
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -485,7 +491,13 @@ app.post('/api/upload-homework', upload.single('photo'), async (req, res) => {
     const fileExt = file.originalname && file.originalname.includes('.') ? file.originalname.substring(file.originalname.lastIndexOf('.')).toLowerCase() : '.jpg';
     const driveRes = await drive.files.create({ requestBody: { name: `Hazi_${homeworkId}_${userName}_${Date.now()}${fileExt}`, parents: [process.env.DRIVE_MASTER_FOLDER_ID] }, media: { mimeType: file.mimetype, body: bufferStream }, fields: 'id, webViewLink' });
 
-    await pool.query('INSERT INTO photo_homework_entries (homework_id, user_email, user_name, title, file_url, drive_file_id) VALUES (?, ?, ?, ?, ?, ?)', [homeworkId, userEmail, userName, title, driveRes.data.webViewLink, driveRes.data.id]);
+    // A meglévő INSERT részt cseréld erre:
+const fileSize = req.file.size; // <-- ÚJ
+await pool.query(
+  'INSERT INTO photo_homework_entries (homework_id, user_email, user_name, title, file_url, drive_file_id, file_size) VALUES (?, ?, ?, ?, ?, ?, ?)', 
+  [homeworkId, userEmail, userName, title, driveRes.data.webViewLink, driveRes.data.id, fileSize]
+);
+
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -648,7 +660,13 @@ app.post('/api/my-album/upload', upload.single('photo'), checkPremium, async (re
     const bufferStream = new Readable(); bufferStream.push(file.buffer); bufferStream.push(null);
     const fileExt = file.originalname && file.originalname.includes('.') ? file.originalname.substring(file.originalname.lastIndexOf('.')).toLowerCase() : '.jpg';
     const driveRes = await drive.files.create({ requestBody: { name: `Portfolio_${userName}_${Date.now()}${fileExt}`, parents: [process.env.DRIVE_MASTER_FOLDER_ID] }, media: { mimeType: file.mimetype, body: bufferStream }, fields: 'id, webViewLink' });
-    await pool.query('INSERT INTO photo_portfolio (user_email, user_name, title, file_url, drive_file_id) VALUES (?, ?, ?, ?, ?)', [userEmail, userName, title, driveRes.data.webViewLink, driveRes.data.id]);
+    // A meglévő INSERT részt cseréld erre:
+const fileSize = req.file.size; // <-- ÚJ
+await pool.query(
+  'INSERT INTO photo_portfolio (user_email, user_name, title, file_url, drive_file_id, file_size) VALUES (?, ?, ?, ?, ?, ?)', 
+  [userEmail, userName, title, driveRes.data.webViewLink, driveRes.data.id, fileSize]
+);
+
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -681,6 +699,63 @@ app.delete('/api/my-album/:id', checkPremium, async (req, res) => {
     await pool.query('DELETE FROM photo_portfolio WHERE id = ?', [req.params.id]);
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: 'Hiba a törlésnél' }); }
+});
+// --- JAVÍTOTT: TÁRHELY STATISZTIKA (ADMIN) PONTOS BÁJTOKKAL ---
+app.get('/api/admin/user-storage-stats', async (req, res) => {
+  try {
+    const query = `
+      SELECT user_email, COUNT(*) as total_photos, COALESCE(SUM(file_size), 0) as total_bytes
+      FROM (
+        SELECT user_email, file_size FROM photo_portfolio
+        UNION ALL
+        SELECT user_email, file_size FROM photo_entries
+        UNION ALL
+        SELECT user_email, file_size FROM photo_homework_entries
+      ) as all_photos
+      GROUP BY user_email
+    `;
+    const [rows] = await pool.query(query);
+    res.json(rows);
+  } catch (err) {
+    console.error('Hiba a tárhely lekérésekor:', err);
+    res.status(500).json({ error: 'Szerver hiba' });
+  }
+});
+// --- ÚJ: FÁJLMÉRETEK SZINKRONIZÁLÁSA A GOOGLE DRIVE-RÓL ---
+app.post('/api/admin/sync-file-sizes', async (req, res) => {
+  try {
+    const tables = ['photo_portfolio', 'photo_entries', 'photo_homework_entries'];
+    let updatedCount = 0;
+
+    for (const table of tables) {
+      // Megkeressük azokat, amiknek van Drive ID-ja, de nincs még mérete (0)
+      const [rows] = await pool.query(`SELECT id, drive_file_id FROM ${table} WHERE drive_file_id IS NOT NULL AND file_size = 0`);
+      
+      for (const row of rows) {
+        try {
+          // Lekérjük a pontos méretet a Google Drive API-tól
+          const fileMetadata = await drive.files.get({
+            fileId: row.drive_file_id,
+            fields: 'size' // Csak a fájlméretet kérjük le, hogy villámgyors legyen
+          });
+
+          if (fileMetadata.data.size) {
+            const sizeInBytes = parseInt(fileMetadata.data.size, 10);
+            await pool.query(`UPDATE ${table} SET file_size = ? WHERE id = ?`, [sizeInBytes, row.id]);
+            updatedCount++;
+          }
+        } catch (driveErr) {
+          // Ha a fájlt időközben törölték a Drive-ról, de az adatbázisban még ott van, elegánsan átlépjük
+          console.error(`Nem található vagy hibás Drive fájl (${row.drive_file_id}):`, driveErr.message);
+        }
+      }
+    }
+    
+    res.json({ success: true, updatedCount });
+  } catch (err) {
+    console.error('Hiba a fájlméretek szinkronizálása közben:', err);
+    res.status(500).json({ error: 'Szinkronizálási hiba' });
+  }
 });
 
 // ==========================================
