@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { BACKEND_URL } from '../../utils/constants';
 
 interface AdminUsersViewProps {
   allUsers: any[];
@@ -21,6 +22,62 @@ export default function AdminUsersView({
 }: AdminUsersViewProps) {
   
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Tárhely statisztikák állapota
+  const [storageStats, setStorageStats] = useState<Record<string, { count: number, bytes: number }>>({});
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  // Adatok lekérése a backendről
+  useEffect(() => {
+    const fetchStorageStats = async () => {
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/admin/user-storage-stats`);
+        if (res.ok) {
+          const data = await res.json();
+          const statsMap: Record<string, { count: number, bytes: number }> = {};
+          data.forEach((stat: any) => {
+            statsMap[stat.user_email] = { 
+              count: stat.total_photos || 0, 
+              bytes: Number(stat.total_bytes) || 0 
+            };
+          });
+          setStorageStats(statsMap);
+        }
+      } catch (e) {
+        console.error("Nem sikerült betölteni a tárhely statisztikákat", e);
+      } finally {
+        setIsLoadingStats(false);
+      }
+    };
+    fetchStorageStats();
+  }, []);
+
+  // Szinkronizáló gomb a Google Drive felé
+  const handleSyncSizes = async () => {
+    setIsSyncing(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/admin/sync-file-sizes`, { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json();
+        alert(`Szinkronizáció befejezve! ${data.updatedCount} db régi kép fájlmérete frissítve a Google Drive alapján.`);
+        window.location.reload(); // Újratöltjük az oldalt, hogy a frissített statisztika betöltsön
+      }
+    } catch (e) {
+      alert("Hiba történt a szinkronizáció során.");
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  // Bájtok emberi (MB/GB) formátummá alakítása
+  const formatExactStorage = (bytes: number) => {
+    if (!bytes || bytes === 0) return '0 MB';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
 
   // Keresés szűrése
   const filteredUsers = allUsers.filter(u => 
@@ -29,7 +86,6 @@ export default function AdminUsersView({
     (u.club_name && u.club_name.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  // Dátum formázó (Utolsó belépéshez és Prémium megújuláshoz)
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return '-';
     try {
@@ -43,7 +99,7 @@ export default function AdminUsersView({
 
   return (
     <div>
-      <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', color: '#f59e0b' }}>👥 Felhasználók és Klubtagságok</h2>
+      <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', color: '#f59e0b' }}>👥 Felhasználók és Tárhely Kezelése</h2>
       
       {/* Statisztika és Kereső sáv */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#1e293b', padding: '15px 20px', borderRadius: '12px', marginBottom: '20px', border: '1px solid #334155', flexWrap: 'wrap', gap: '15px' }}>
@@ -58,56 +114,73 @@ export default function AdminUsersView({
           </div>
         </div>
         
-        <input 
-          type="text" 
-          placeholder="🔍 Keresés név, email vagy klub alapján..." 
-          value={searchTerm}
-          onChange={e => setSearchTerm(e.target.value)}
-          style={{ padding: '8px 15px', borderRadius: '8px', border: '1px solid #475569', background: '#0f172a', color: 'white', minWidth: '250px' }}
-        />
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          <button 
+            onClick={handleSyncSizes} 
+            disabled={isSyncing}
+            style={{ padding: '8px 15px', borderRadius: '8px', border: '1px solid #38bdf8', background: isSyncing ? '#38bdf820' : 'transparent', color: '#38bdf8', cursor: isSyncing ? 'not-allowed' : 'pointer', fontWeight: 'bold', transition: 'all 0.2s' }}
+          >
+            {isSyncing ? '⏳ Drive Szinkronizálás...' : '🔄 Régi képek méretének szinkronizálása'}
+          </button>
+
+          <input 
+            type="text" 
+            placeholder="🔍 Keresés név, email vagy klub alapján..." 
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            style={{ padding: '8px 15px', borderRadius: '8px', border: '1px solid #475569', background: '#0f172a', color: 'white', minWidth: '250px', outline: 'none' }}
+          />
+        </div>
       </div>
 
       {/* Felhasználók táblázata */}
-      <div style={{ overflowX: 'auto', background: '#1e293b', borderRadius: '12px', border: '1px solid #334155' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+      <div style={{ overflowX: 'auto', background: '#1e293b', borderRadius: '12px', border: '1px solid #334155', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '1000px' }}>
           <thead>
             <tr style={{ background: '#0f172a', color: '#94a3b8', fontSize: '0.8rem', textTransform: 'uppercase' }}>
               <th style={{ padding: '15px', borderBottom: '1px solid #334155' }}>Felhasználó</th>
-              <th style={{ padding: '15px', borderBottom: '1px solid #334155' }}>Klubtagság és Szerepkör</th>
-              <th style={{ padding: '15px', borderBottom: '1px solid #334155' }}>Előfizetés</th>
-              <th style={{ padding: '15px', borderBottom: '1px solid #334155' }}>Statisztika</th>
-              <th style={{ padding: '15px', borderBottom: '1px solid #334155' }}>Művelet</th>
+              <th style={{ padding: '15px', borderBottom: '1px solid #334155' }}>Klub és Szerepkör</th>
+              <th style={{ padding: '15px', borderBottom: '1px solid #334155', textAlign: 'center' }}>Tárhely Foglalás</th>
+              <th style={{ padding: '15px', borderBottom: '1px solid #334155' }}>Aktivitás & AI</th>
+              <th style={{ padding: '15px', borderBottom: '1px solid #334155', textAlign: 'right' }}>Művelet</th>
             </tr>
           </thead>
           <tbody>
             {filteredUsers.map((u, index) => {
-              // 1. Mik az eredeti, adatbázisban lévő értékek?
               const originalClub = u.club_name || '';
               const originalRole = u.club_role || 'member';
-
-              // 2. Mik a jelenleg kiválasztott értékek (ha van szerkesztés, azt mutatjuk, különben az eredetit)
               const currentClubValue = userClubEdits[u.email] !== undefined ? userClubEdits[u.email] : originalClub;
               const currentRoleValue = userRoleEdits[u.email] !== undefined ? userRoleEdits[u.email] : originalRole;
-              
-              // 3. JAVÍTÁS: Csak akkor van változás, ha a kiválasztott érték TÉNYLEG eltér az eredetitől!
               const hasChanges = currentClubValue !== originalClub || currentRoleValue !== originalRole;
               
-              // Prémium státusz vizsgálata
               const isPremium = u.is_premium === 1;
               const hasExpiredPremium = u.is_premium === 0 && u.premium_until;
 
+              // Tárhely adatok kiolvasása
+              const userStats = storageStats[u.email] || { count: 0, bytes: 0 };
+              const isHeavyUser = userStats.count > 50;
+
               return (
-                <tr key={index} style={{ borderBottom: '1px solid #334155', transition: 'background 0.2s' }} onMouseOver={e => e.currentTarget.style.background = '#33415550'} onMouseOut={e => e.currentTarget.style.background = 'transparent'}>
+                <tr key={index} style={{ borderBottom: '1px solid #334155', backgroundColor: index % 2 === 0 ? 'transparent' : '#0f172a50', transition: 'background 0.2s' }} onMouseOver={e => e.currentTarget.style.backgroundColor = '#33415550'} onMouseOut={e => e.currentTarget.style.backgroundColor = index % 2 === 0 ? 'transparent' : '#0f172a50'}>
                   
                   {/* 1. Név és Email */}
                   <td style={{ padding: '15px' }}>
-                    <div style={{ fontWeight: 'bold', color: '#f8fafc', marginBottom: '4px' }}>{u.name}</div>
+                    <div style={{ fontWeight: 'bold', color: '#f8fafc', marginBottom: '4px' }}>{u.name || 'Nincs név megadva'}</div>
                     <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>{u.email}</div>
+                    <div style={{ marginTop: '8px' }}>
+                      {isPremium ? (
+                        <span style={{ background: '#10b98120', color: '#10b981', padding: '2px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 'bold' }}>👑 Prémium ({formatDate(u.premium_until).split(' ')[0]})</span>
+                      ) : hasExpiredPremium ? (
+                        <span style={{ background: '#ef444420', color: '#ef4444', padding: '2px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 'bold' }}>⏳ Lejárt</span>
+                      ) : (
+                        <span style={{ background: '#334155', color: '#94a3b8', padding: '2px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 'bold' }}>⚪ Ingyenes</span>
+                      )}
+                    </div>
                   </td>
                   
                   {/* 2. Klubtagság beállítása */}
                   <td style={{ padding: '15px' }}>
-                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       <select 
                         value={currentClubValue} 
                         onChange={(e) => setUserClubEdits({...userClubEdits, [u.email]: e.target.value})} 
@@ -129,45 +202,48 @@ export default function AdminUsersView({
                     </div>
                   </td>
 
-                  {/* 3. ÚJ: Előfizetés és Forduló */}
-                  <td style={{ padding: '15px' }}>
-                    {isPremium ? (
-                      <div>
-                        <div style={{ display: 'inline-block', background: '#10b98120', color: '#10b981', padding: '2px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '4px' }}>
-                          👑 Prémium
-                        </div>
-                        <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Forduló: {formatDate(u.premium_until).split(' ')[0]}</div>
-                      </div>
-                    ) : hasExpiredPremium ? (
-                      <div>
-                        <div style={{ display: 'inline-block', background: '#ef444420', color: '#ef4444', padding: '2px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '4px' }}>
-                          ⏳ Lejárt
-                        </div>
-                        <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Lejárt: {formatDate(u.premium_until).split(' ')[0]}</div>
-                      </div>
+                  {/* 3. Tárhely Foglalás */}
+                  <td style={{ padding: '15px', textAlign: 'center' }}>
+                    {isLoadingStats ? (
+                      <span style={{ color: '#64748b' }}>⏳...</span>
                     ) : (
-                      <div style={{ display: 'inline-block', background: '#334155', color: '#94a3b8', padding: '2px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 'bold' }}>
-                        ⚪ Ingyenes
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px' }}>
+                        <span style={{ 
+                          background: isHeavyUser ? '#ef444420' : '#38bdf820', 
+                          color: isHeavyUser ? '#ef4444' : '#38bdf8', 
+                          padding: '4px 10px', 
+                          borderRadius: '100px', 
+                          fontWeight: 'bold',
+                          fontSize: '0.85rem',
+                          border: `1px solid ${isHeavyUser ? '#ef4444' : '#38bdf8'}`
+                        }}>
+                          📸 {userStats.count} kép
+                        </span>
+                        <span style={{ color: isHeavyUser ? '#ef4444' : '#a78bfa', fontWeight: 'bold', fontSize: '0.9rem' }}>
+                          💾 {formatExactStorage(userStats.bytes)}
+                        </span>
                       </div>
                     )}
                   </td>
 
-                  {/* 4. ÚJ: Statisztikák (AI és Utolsó belépés) */}
+                  {/* 4. Statisztikák (AI és Utolsó belépés) */}
                   <td style={{ padding: '15px' }}>
                     <div style={{ fontSize: '0.85rem', color: '#cbd5e1', marginBottom: '4px' }} title="Elemzett képek száma">
-                      🤖 AI Képelemzés: <span style={{ fontWeight: 'bold', color: u.ai_usage_count > 0 ? '#38bdf8' : '#64748b' }}>{u.ai_usage_count || 0} db</span>
+                      🤖 AI Elemzés: <span style={{ fontWeight: 'bold', color: u.ai_usage_count > 0 ? '#38bdf8' : '#64748b' }}>{u.ai_usage_count || 0} db</span>
                     </div>
-                    <div style={{ fontSize: '0.7rem', color: '#64748b' }}>
-                      Belépett: {formatDate(u.last_login)}
+                    <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                      Belépett:<br/>{formatDate(u.last_login)}
                     </div>
                   </td>
 
                   {/* 5. Mentés gomb */}
-                  <td style={{ padding: '15px' }}>
+                  <td style={{ padding: '15px', textAlign: 'right' }}>
                     {hasChanges && (
                       <button 
                         onClick={() => saveUserClub(u.email)} 
-                        style={{ background: '#f59e0b', color: '#0f172a', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}
+                        style={{ background: '#f59e0b', color: '#0f172a', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem', transition: 'transform 0.1s' }}
+                        onMouseDown={e => e.currentTarget.style.transform = 'scale(0.95)'}
+                        onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
                       >
                         Mentés
                       </button>
