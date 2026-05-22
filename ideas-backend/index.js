@@ -731,7 +731,7 @@ app.post('/api/admin/sync-file-sizes', async (req, res) => {
 
     for (const table of tables) {
       // 1. VÉDELEM: Csak azokat kérjük le, ahol ténylegesen van valami szöveg, és nem csak üres ''
-      const [rows] = await pool.query(`SELECT id, drive_file_id FROM ${table} WHERE TRIM(file_url) != '' and file_url like '%lh3%' AND file_size = 0');
+      const [rows] = await pool.query(`SELECT id, drive_file_id FROM ${table} WHERE TRIM(file_url) != '' AND file_size = 0');
       
       for (const row of rows) {
         
