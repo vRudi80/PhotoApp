@@ -13,8 +13,7 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
   const [photoResults, setPhotoResults] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [totalAccountBytes, setTotalAccountBytes] = useState(0);
-
+  
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadTitle, setUploadTitle] = useState('');
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
@@ -27,9 +26,12 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
 
   const [analyzingPhotoId, setAnalyzingPhotoId] = useState<number | null>(null);
 
+  // Teljes fiók szintű tárhely (opcionális extra infóhoz)
+  const [totalAccountBytes, setTotalAccountBytes] = useState(0);
+
   const hasPremiumAccess = user && (user.isPremium || user.is_premium);
 
-    const fetchMyPhotos = async () => {
+  const fetchMyPhotos = async () => {
     if (!hasPremiumAccess) {
       setIsLoading(false);
       return;
@@ -44,7 +46,7 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
         if (resResults.ok) setPhotoResults(await resResults.json());
       }
 
-      // ÚJ: Lekérjük a teljes (Admin szintű) tárhely statisztikát a usernek
+      // Teljes admin szintű tárhely lekérése
       const resStats = await fetch(`${BACKEND_URL}/api/admin/user-storage-stats`);
       if (resStats.ok) {
         const stats = await resStats.json();
@@ -60,7 +62,6 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
       setIsLoading(false);
     }
   };
-
 
   useEffect(() => {
     fetchMyPhotos();
@@ -79,10 +80,9 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
     });
   }, [photos, searchTerm]);
 
-  // --- ÚJ: Tárhely (Bájt) Számító Logika ---
+  // Tárhely (Bájt) Számító Logika
   const totalSizeInBytes = useMemo(() => {
     if (!photos || photos.length === 0) return 0;
-    // Csak a pozitív méretű fájlokat adjuk össze (a -1 = külsős/hiba)
     return photos.reduce((sum, photo) => sum + Math.max(photo.file_size || 0, 0), 0);
   }, [photos]);
 
@@ -93,7 +93,32 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
-  // ----------------------------------------
+
+  // --- ÚJ: LETÖLTÉS FUNKCIÓ ---
+  const handleDownload = (photo: any) => {
+    // Ellenőrizzük, hogy hibás/régi fájl-e (mérete -1, vagy túl rövid/rossz az azonosító)
+    if (
+      photo.file_size === -1 || 
+      !photo.drive_file_id || 
+      photo.drive_file_id.length < 15 || 
+      photo.drive_file_id.includes('http')
+    ) {
+      alert("⚠️ Ez egy korábbi rendszerből származó fotó, a letöltés nem lehetséges. Kérlek, cseréld le a fájlt a 'Szerkesztés' gombbal, ha itt szeretnéd tárolni és letölthetővé tenni!");
+      return;
+    }
+
+    // Google Drive közvetlen letöltési link generálása
+    const downloadUrl = `https://drive.google.com/uc?export=download&id=${photo.drive_file_id}`;
+    
+    // Egy láthatatlan link létrehozása és rákattintás a letöltés indításához
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.setAttribute('download', photo.title || 'letoltes.jpg'); // Fájlnév javaslata
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+  // -----------------------------
 
   const handleUpdatePhoto = async (photoId: number) => {
     if (!editTitle) return alert('A cím nem lehet üres!');
@@ -219,7 +244,7 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
         <span style={{ fontSize: '2.5rem' }}>🖼️</span> Saját Képalbum (Portfólió)
       </h2>
 
-            {/* --- JAVÍTOTT: TÁRHELY INFORMÁCIÓS SÁV --- */}
+      {/* TÁRHELY INFORMÁCIÓS SÁV */}
       <div style={{ 
         display: 'flex', 
         alignItems: 'center', 
@@ -244,10 +269,9 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
         <div style={{ height: '20px', width: '2px', background: '#475569', display: window.innerWidth < 500 ? 'none' : 'block' }}></div>
         
         <div style={{ fontSize: '1rem', color: '#cbd5e1' }} title="Minden kép, beleértve a belső pályázatokat és házikat is!">
-          ☁️ Teljes Tárhely Foglalás (házikkal,stb): <strong style={{ color: '#f59e0b' }}>{formatExactStorage(totalAccountBytes)}</strong>
+          ☁️ Teljes Tárhely Foglalás (házik, stb): <strong style={{ color: '#f59e0b' }}>{formatExactStorage(totalAccountBytes)}</strong>
         </div>
       </div>
-      {/* ---------------------------------- */}
 
       <div style={{ background: '#1e293b', padding: '20px', borderRadius: '12px', marginBottom: '20px', border: '1px solid #38bdf850' }}>
         <h3 style={{ marginTop: 0, color: '#38bdf8', fontSize: '1.2rem' }}>📤 Új fotó hozzáadása a portfólióhoz</h3>
@@ -373,7 +397,6 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
                   </div>
                 )}
 
-                {/* AI Zsűri Értékelés lenyíló panel */}
                 <details style={{ marginBottom: '15px', background: '#38bdf810', borderRadius: '8px', border: '1px solid #38bdf830' }}>
                   <summary style={{ padding: '10px 12px', fontSize: '0.75rem', color: '#38bdf8', textTransform: 'uppercase', fontWeight: 'bold', cursor: 'pointer', outline: 'none', userSelect: 'none' }}>
                     🤖 AI Zsűri Értékelése
@@ -427,7 +450,6 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
                   </div>
                 </details>
 
-                {/* Eredmények lenyíló panel */}
                 {currentPhotoResults.length > 0 && !editingPhotoId && (
                   <details style={{ marginBottom: '15px', background: '#0f172a', borderRadius: '8px', border: '1px solid #334155' }}>
                     <summary style={{ padding: '10px', fontSize: '0.75rem', color: '#60a5fa', fontWeight: 'bold', cursor: 'pointer', outline: 'none', userSelect: 'none' }}>
@@ -477,9 +499,10 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
                     </div>
                   </div>
                 ) : (
-                  <div style={{ marginTop: 'auto', display: 'flex', gap: '10px' }}>
-                    <button onClick={() => { setEditingPhotoId(photo.id); setEditTitle(photo.title); }} style={{ flex: 1, background: '#38bdf820', color: '#38bdf8', border: 'none', padding: '8px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>✏️ Szerkeszt</button>
-                    <button onClick={() => handleDelete(photo.id)} style={{ flex: 1, background: '#ef444420', color: '#ef4444', border: 'none', padding: '8px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>🗑️ Törlés</button>
+                  <div style={{ marginTop: 'auto', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <button onClick={() => handleDownload(photo)} style={{ flex: '1 1 calc(33% - 8px)', background: '#10b98120', color: '#10b981', border: 'none', padding: '8px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>⬇️ Letöltés</button>
+                    <button onClick={() => { setEditingPhotoId(photo.id); setEditTitle(photo.title); }} style={{ flex: '1 1 calc(33% - 8px)', background: '#38bdf820', color: '#38bdf8', border: 'none', padding: '8px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>✏️ Szerkeszt</button>
+                    <button onClick={() => handleDelete(photo.id)} style={{ flex: '1 1 calc(33% - 8px)', background: '#ef444420', color: '#ef4444', border: 'none', padding: '8px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>🗑️ Törlés</button>
                   </div>
                 )}
               </div>
