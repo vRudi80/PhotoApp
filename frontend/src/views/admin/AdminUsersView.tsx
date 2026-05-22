@@ -26,7 +26,6 @@ export default function AdminUsersView({
   // Tárhely statisztikák állapota
   const [storageStats, setStorageStats] = useState<Record<string, { count: number, bytes: number }>>({});
   const [isLoadingStats, setIsLoadingStats] = useState(true);
-  const [isSyncing, setIsSyncing] = useState(false);
 
   // Adatok lekérése a backendről
   useEffect(() => {
@@ -52,23 +51,6 @@ export default function AdminUsersView({
     };
     fetchStorageStats();
   }, []);
-
-  // Szinkronizáló gomb a Google Drive felé
-  const handleSyncSizes = async () => {
-    setIsSyncing(true);
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/admin/sync-file-sizes`, { method: 'POST' });
-      if (res.ok) {
-        const data = await res.json();
-        alert(`Szinkronizáció befejezve! ${data.updatedCount} db régi kép fájlmérete frissítve a Google Drive alapján.`);
-        window.location.reload(); // Újratöltjük az oldalt, hogy a frissített statisztika betöltsön
-      }
-    } catch (e) {
-      alert("Hiba történt a szinkronizáció során.");
-    } finally {
-      setIsSyncing(false);
-    }
-  };
 
   // Bájtok emberi (MB/GB) formátummá alakítása
   const formatExactStorage = (bytes: number) => {
@@ -114,23 +96,13 @@ export default function AdminUsersView({
           </div>
         </div>
         
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-          <button 
-            onClick={handleSyncSizes} 
-            disabled={isSyncing}
-            style={{ padding: '8px 15px', borderRadius: '8px', border: '1px solid #38bdf8', background: isSyncing ? '#38bdf820' : 'transparent', color: '#38bdf8', cursor: isSyncing ? 'not-allowed' : 'pointer', fontWeight: 'bold', transition: 'all 0.2s' }}
-          >
-            {isSyncing ? '⏳ Drive Szinkronizálás...' : '🔄 Régi képek méretének szinkronizálása'}
-          </button>
-
-          <input 
-            type="text" 
-            placeholder="🔍 Keresés név, email vagy klub alapján..." 
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-            style={{ padding: '8px 15px', borderRadius: '8px', border: '1px solid #475569', background: '#0f172a', color: 'white', minWidth: '250px', outline: 'none' }}
-          />
-        </div>
+        <input 
+          type="text" 
+          placeholder="🔍 Keresés név, email vagy klub alapján..." 
+          value={searchTerm}
+          onChange={e => setSearchTerm(e.target.value)}
+          style={{ padding: '8px 15px', borderRadius: '8px', border: '1px solid #475569', background: '#0f172a', color: 'white', minWidth: '350px', outline: 'none' }}
+        />
       </div>
 
       {/* Felhasználók táblázata */}
