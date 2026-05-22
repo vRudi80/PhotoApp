@@ -722,42 +722,61 @@ app.get('/api/admin/user-storage-stats', async (req, res) => {
   }
 });
 
-// --- ÚJ: FÁJLMÉRETEK SZINKRONIZÁLÁSA A GOOGLE DRIVE-RÓL ---
+// --- JAVÍTOTT: FÁJLMÉRETEK SZINKRONIZÁLÁSA (KÜLSŐ LINKEK ÁTUGORÁSA) ---
 app.post('/api/admin/sync-file-sizes', async (req, res) => {
   try {
     const tables = ['photo_portfolio', 'photo_entries', 'photo_homework_entries'];
     let updatedCount = 0;
+    let skippedCount = 0; // Számoljuk, mennyit dobtunk a "kukába" (-1)
 
     for (const table of tables) {
-      // Megkeressük azokat, amiknek van Drive ID-ja, de nincs még mérete (0)
+      // Csak a feldolgozatlan (0-s méretű) sorokat kérjük le
       const [rows] = await pool.query(`SELECT id, drive_file_id FROM ${table} WHERE drive_file_id IS NOT NULL AND file_size = 0`);
       
       for (const row of rows) {
+        
+        // 1. VÉDELEM: Ha ez egy külső link (pl. http://... vagy tartalmaz perjelet/pontot), azonnal átugorjuk!
+        if (row.drive_file_id.includes('http') || row.drive_file_id.includes('/') || row.drive_file_id.includes('.')) {
+          await pool.query(`UPDATE ${table} SET file_size = -1 WHERE id = ?`, [row.id]);
+          skippedCount++;
+          continue;
+        }
+
         try {
-          // Lekérjük a pontos méretet a Google Drive API-tól
+          // 2. Lekérjük a méretet a mi Drive-unkról
           const fileMetadata = await drive.files.get({
             fileId: row.drive_file_id,
-            fields: 'size' // Csak a fájlméretet kérjük le, hogy villámgyors legyen
+            fields: 'size'
           });
 
           if (fileMetadata.data.size) {
             const sizeInBytes = parseInt(fileMetadata.data.size, 10);
             await pool.query(`UPDATE ${table} SET file_size = ? WHERE id = ?`, [sizeInBytes, row.id]);
             updatedCount++;
+          } else {
+            // Létezik, de valamiért nincs mérete (pl. mappa vagy google doksi)
+            await pool.query(`UPDATE ${table} SET file_size = -1 WHERE id = ?`, [row.id]);
+            skippedCount++;
           }
         } catch (driveErr) {
-          // Ha a fájlt időközben törölték a Drive-ról, de az adatbázisban még ott van, elegánsan átlépjük
-          console.error(`Nem található vagy hibás Drive fájl (${row.drive_file_id}):`, driveErr.message);
+          // 3. VÉDELEM: Ha 403 (Nincs jogunk - másé a kép) vagy 404 (Törölték / Nem létezik), akkor végleg átugorjuk!
+          if (driveErr.code === 404 || driveErr.code === 403 || driveErr.status === 404 || driveErr.status === 403) {
+            await pool.query(`UPDATE ${table} SET file_size = -1 WHERE id = ?`, [row.id]);
+            skippedCount++;
+          } else {
+            console.error(`Egyéb hiba a Drive API-nál (${row.drive_file_id}):`, driveErr.message);
+          }
         }
       }
     }
     
-    res.json({ success: true, updatedCount });
+    res.json({ success: true, updatedCount, skippedCount });
   } catch (err) {
     console.error('Hiba a fájlméretek szinkronizálása közben:', err);
     res.status(500).json({ error: 'Szinkronizálási hiba' });
   }
 });
+
 
 // ==========================================
 // --- VALÓDI AI KÉPELEMZÉS VÉDVE! ---
