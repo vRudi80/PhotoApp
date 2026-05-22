@@ -244,7 +244,7 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
         <div style={{ height: '20px', width: '2px', background: '#475569', display: window.innerWidth < 500 ? 'none' : 'block' }}></div>
         
         <div style={{ fontSize: '1rem', color: '#cbd5e1' }} title="Minden kép, beleértve a belső pályázatokat és házikat is!">
-          ☁️ Teljes Tárhely Foglalás: <strong style={{ color: '#f59e0b' }}>{formatExactStorage(totalAccountBytes)}</strong>
+          ☁️ Teljes Tárhely Foglalás (házikkal,stb): <strong style={{ color: '#f59e0b' }}>{formatExactStorage(totalAccountBytes)}</strong>
         </div>
       </div>
       {/* ---------------------------------- */}
