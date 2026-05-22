@@ -26,10 +26,17 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
 
   const [analyzingPhotoId, setAnalyzingPhotoId] = useState<number | null>(null);
 
-  // Teljes fiók szintű tárhely (opcionális extra infóhoz)
   const [totalAccountBytes, setTotalAccountBytes] = useState(0);
 
   const hasPremiumAccess = user && (user.isPremium || user.is_premium);
+
+  // --- ÚJ: CSOMAG ÉS LIMIT KALKULÁCIÓ ---
+  let premiumLevel = user?.premiumLevel || user?.premium_level || 0;
+  if (hasPremiumAccess && premiumLevel === 0) premiumLevel = 1; // Fallback
+  
+  // 1-es szint = 1 GB, 2-es szint = 5 GB
+  const maxStorageBytes = premiumLevel >= 2 ? 5 * 1024 * 1024 * 1024 : 1 * 1024 * 1024 * 1024; 
+  const packageName = premiumLevel >= 2 ? 'Pro Prémium (5 GB)' : 'Alap Prémium (1 GB)';
 
   const fetchMyPhotos = async () => {
     if (!hasPremiumAccess) {
@@ -46,7 +53,6 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
         if (resResults.ok) setPhotoResults(await resResults.json());
       }
 
-      // Teljes admin szintű tárhely lekérése
       const resStats = await fetch(`${BACKEND_URL}/api/admin/user-storage-stats`);
       if (resStats.ok) {
         const stats = await resStats.json();
@@ -55,7 +61,6 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
           setTotalAccountBytes(Number(myStat.total_bytes));
         }
       }
-
     } catch (e) {
       console.error(e);
     } finally {
@@ -67,12 +72,9 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
     fetchMyPhotos();
   }, [user]);
 
-  // Kereső logika
   const filteredPhotos = useMemo(() => {
     if (!searchTerm) return photos;
-    
     const lowerTerm = searchTerm.toLowerCase();
-    
     return photos.filter(p => {
       const matchTitle = p.title && p.title.toLowerCase().includes(lowerTerm);
       const matchAi = p.ai_tags && p.ai_tags.toLowerCase().includes(lowerTerm);
@@ -80,11 +82,13 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
     });
   }, [photos, searchTerm]);
 
-  // Tárhely (Bájt) Számító Logika
   const totalSizeInBytes = useMemo(() => {
     if (!photos || photos.length === 0) return 0;
     return photos.reduce((sum, photo) => sum + Math.max(photo.file_size || 0, 0), 0);
   }, [photos]);
+
+  // Százalék kiszámítása a folyamatjelzőhöz
+  const storagePercent = Math.min(100, (totalSizeInBytes / maxStorageBytes) * 100);
 
   const formatExactStorage = (bytes: number) => {
     if (!bytes || bytes === 0) return '0 MB';
@@ -94,34 +98,29 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  // --- ÚJ: LETÖLTÉS FUNKCIÓ ---
   const handleDownload = (photo: any) => {
-    // Ellenőrizzük, hogy hibás/régi fájl-e (mérete -1, vagy túl rövid/rossz az azonosító)
-    if (
-      photo.file_size === -1 || 
-      !photo.drive_file_id || 
-      photo.drive_file_id.length < 15 || 
-      photo.drive_file_id.includes('http')
-    ) {
+    if (photo.file_size === -1 || !photo.drive_file_id || photo.drive_file_id.length < 15 || photo.drive_file_id.includes('http')) {
       alert("⚠️ Ez egy korábbi rendszerből származó fotó, a letöltés nem lehetséges. Kérlek, cseréld le a fájlt a 'Szerkesztés' gombbal, ha itt szeretnéd tárolni és letölthetővé tenni!");
       return;
     }
-
-    // Google Drive közvetlen letöltési link generálása
     const downloadUrl = `https://drive.google.com/uc?export=download&id=${photo.drive_file_id}`;
-    
-    // Egy láthatatlan link létrehozása és rákattintás a letöltés indításához
     const link = document.createElement('a');
     link.href = downloadUrl;
-    link.setAttribute('download', photo.title || 'letoltes.jpg'); // Fájlnév javaslata
+    link.setAttribute('download', photo.title || 'letoltes.jpg');
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
-  // -----------------------------
 
   const handleUpdatePhoto = async (photoId: number) => {
     if (!editTitle) return alert('A cím nem lehet üres!');
+    
+    // Tárhely védelem szerkesztésnél (ha új fájlt tölt fel)
+    if (editFile && totalSizeInBytes + editFile.size > maxStorageBytes) {
+      alert(`⚠️ Megtelt a tárhelyed! Válts nagyobb csomagra a Csomagok menüpontban.`);
+      return;
+    }
+
     setUpdatingPhotoId(photoId); 
     try {
       const formData = new FormData();
@@ -129,63 +128,30 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
       formData.append('userEmail', user.email);
       if (editFile) formData.append('photo', editFile);
 
-      const res = await fetch(`${BACKEND_URL}/api/my-album/${photoId}`, {
-        method: 'PUT',
-        body: formData
-      });
-
+      const res = await fetch(`${BACKEND_URL}/api/my-album/${photoId}`, { method: 'PUT', body: formData });
       if (res.ok) {
         setEditingPhotoId(null);
         setEditFile(null);
         fetchMyPhotos();
       }
-    } catch (e) {
-      alert('Hálózati hiba!');
-    } finally {
-      setUpdatingPhotoId(null);
-    }
+    } catch (e) { alert('Hálózati hiba!'); } finally { setUpdatingPhotoId(null); }
   };
 
   const handleDelete = async (photoId: number) => {
     if (!window.confirm("Biztosan törlöd?")) return;
     try {
-      const res = await fetch(`${BACKEND_URL}/api/my-album/${photoId}`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userEmail: user.email })
-      });
-      
-      if (res.ok) {
-        fetchMyPhotos();
-      } else {
-        alert("Hálózat túlterhelt vagy hiba a Google Drive-val. Kérlek, próbáld újra pár másodperc múlva!");
-      }
-    } catch (e) {
-      alert("Hálózat túlterhelt vagy hiba a Google Drive-val. Kérlek, próbáld újra pár másodperc múlva!");
-    }
+      const res = await fetch(`${BACKEND_URL}/api/my-album/${photoId}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userEmail: user.email }) });
+      if (res.ok) fetchMyPhotos();
+    } catch (e) { alert("Hiba a törlésnél."); }
   };
 
   const handleAnalyzePhoto = async (photoId: number) => {
     setAnalyzingPhotoId(photoId);
     try {
-      const res = await fetch(`${BACKEND_URL}/api/my-album/${photoId}/analyze`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userEmail: user.email })
-      });
-      
-      const data = await res.json();
-      
-      if (res.ok) {
-        fetchMyPhotos();
-      } else {
-        alert(`Szerver hiba:\n\n${data.error || 'Ismeretlen hiba történt'}`);
-      }
-    } catch (e: any) {
-      alert(`Hálózati hiba: ${e.message}`);
-    } finally {
-      setAnalyzingPhotoId(null);
-    }
+      const res = await fetch(`${BACKEND_URL}/api/my-album/${photoId}/analyze`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userEmail: user.email }) });
+      if (res.ok) fetchMyPhotos();
+      else { const data = await res.json(); alert(`Szerver hiba:\n\n${data.error}`); }
+    } catch (e: any) { alert(`Hálózati hiba: ${e.message}`); } finally { setAnalyzingPhotoId(null); }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -198,6 +164,13 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
 
   const handleUpload = async () => {
     if (!uploadFile || !uploadTitle) return alert("Kép és cím megadása kötelező!");
+    
+    // TÁRHELY VÉDELEM: Letiltjuk a feltöltést, ha túllépi a csomagját
+    if (totalSizeInBytes + uploadFile.size > maxStorageBytes) {
+      alert(`⚠️ Megtelt a tárhelyed (${formatExactStorage(maxStorageBytes)})! Kérlek, törölj régebbi képeket, vagy válts nagyobb csomagra (Csomagok menüpont).`);
+      return;
+    }
+
     setIsUploading(true);
     try {
       const formData = new FormData();
@@ -207,20 +180,13 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
       formData.append('title', uploadTitle);
 
       const res = await fetch(`${BACKEND_URL}/api/my-album/upload`, { method: 'POST', body: formData });
-      
       if (res.ok) {
         setUploadFile(null);
         setUploadPreview(null);
         setUploadTitle('');
         fetchMyPhotos();
-      } else {
-        alert("Hálózat túlterhelt vagy hiba a Google Drive-val. Kérlek, próbáld újra pár másodperc múlva!");
       }
-    } catch (error) {
-      alert("Hálózat túlterhelt vagy hiba a Google Drive-val. Kérlek, próbáld újra pár másodperc múlva!");
-    } finally {
-      setIsUploading(false);
-    }
+    } catch (error) { alert("Hiba a feltöltésnél."); } finally { setIsUploading(false); }
   };
 
   if (!hasPremiumAccess) {
@@ -244,34 +210,36 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
         <span style={{ fontSize: '2.5rem' }}>🖼️</span> Saját Képalbum (Portfólió)
       </h2>
 
-      {/* TÁRHELY INFORMÁCIÓS SÁV */}
-      <div style={{ 
-        display: 'flex', 
-        alignItems: 'center', 
-        gap: '20px', 
-        background: '#1e293b', 
-        padding: '12px 20px', 
-        borderRadius: '10px', 
-        marginBottom: '25px', 
-        border: '1px solid #334155',
-        flexWrap: 'wrap'
-      }}>
-        <div style={{ fontSize: '1rem', color: '#cbd5e1' }}>
-          📸 Képek száma: <strong style={{ color: '#38bdf8' }}>{photos.length} db</strong>
-        </div>
-        
-        <div style={{ height: '20px', width: '2px', background: '#475569', display: window.innerWidth < 500 ? 'none' : 'block' }}></div>
-        
-        <div style={{ fontSize: '1rem', color: '#cbd5e1' }} title="Csak az ebben a mappában lévő képek mérete">
-          📁 Portfólió mérete: <strong style={{ color: '#a78bfa' }}>{formatExactStorage(totalSizeInBytes)}</strong>
+      {/* --- GYÖNYÖRŰ FOLYAMATJELZŐ SÁV --- */}
+      <div style={{ background: '#1e293b', padding: '20px', borderRadius: '12px', marginBottom: '25px', border: '1px solid #334155', boxShadow: '0 4px 6px rgba(0,0,0,0.2)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '12px' }}>
+          <div>
+            <span style={{ color: '#cbd5e1', fontSize: '1rem' }}>Csomagod: </span>
+            <strong style={{ color: premiumLevel >= 2 ? '#818cf8' : '#38bdf8', fontSize: '1.1rem' }}>{packageName}</strong>
+          </div>
+          <div style={{ color: '#94a3b8', fontSize: '0.95rem' }}>
+            Portfólió: <strong style={{ color: '#f8fafc' }}>{formatExactStorage(totalSizeInBytes)}</strong> / {formatExactStorage(maxStorageBytes)}
+          </div>
         </div>
 
-        <div style={{ height: '20px', width: '2px', background: '#475569', display: window.innerWidth < 500 ? 'none' : 'block' }}></div>
+        {/* Progress Bar */}
+        <div style={{ width: '100%', background: '#0f172a', height: '14px', borderRadius: '100px', overflow: 'hidden', border: '1px solid #475569' }}>
+          <div style={{ 
+            width: `${storagePercent}%`, 
+            background: storagePercent > 90 ? '#ef4444' : storagePercent > 70 ? '#f59e0b' : (premiumLevel >= 2 ? '#818cf8' : '#10b981'), 
+            height: '100%', 
+            transition: 'width 0.5s ease-in-out' 
+          }}></div>
+        </div>
         
-        <div style={{ fontSize: '1rem', color: '#cbd5e1' }} title="Minden kép, beleértve a belső pályázatokat és házikat is!">
-          ☁️ Teljes Tárhely Foglalás (házik, stb): <strong style={{ color: '#f59e0b' }}>{formatExactStorage(totalAccountBytes)}</strong>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '12px', fontSize: '0.85rem' }}>
+          <span style={{ color: '#64748b' }}>Teljes felhő foglalásod: <strong>{formatExactStorage(totalAccountBytes)}</strong></span>
+          {storagePercent > 90 && (
+            <span style={{ color: '#ef4444', fontWeight: 'bold' }}>⚠️ A portfólió tárhelyed majdnem betelt!</span>
+          )}
         </div>
       </div>
+      {/* --------------------------------- */}
 
       <div style={{ background: '#1e293b', padding: '20px', borderRadius: '12px', marginBottom: '20px', border: '1px solid #38bdf850' }}>
         <h3 style={{ marginTop: 0, color: '#38bdf8', fontSize: '1.2rem' }}>📤 Új fotó hozzáadása a portfólióhoz</h3>
@@ -297,8 +265,8 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
           </div>
           <button 
             onClick={handleUpload} 
-            disabled={isUploading} 
-            style={{ background: '#10b981', color: 'white', padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: isUploading ? 'not-allowed' : 'pointer', fontWeight: 'bold', height: '42px' }}
+            disabled={isUploading || storagePercent >= 100} 
+            style={{ background: storagePercent >= 100 ? '#475569' : '#10b981', color: storagePercent >= 100 ? '#94a3b8' : 'white', padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: isUploading || storagePercent >= 100 ? 'not-allowed' : 'pointer', fontWeight: 'bold', height: '42px' }}
           >
             {isUploading ? '⏳ Feltöltés...' : '🚀 Kép Feltöltése'}
           </button>
