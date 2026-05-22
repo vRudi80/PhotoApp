@@ -105,6 +105,13 @@ export default function Header({
             </button>
           </div>
 
+          {/* ÚJ: Csomagok & Tárhely gomb */}
+          <div className="nav-item-container" style={{ zIndex: 50 }}>
+            <button className={`nav-btn ${activeTab === 'packages' ? 'active' : ''}`} style={{ color: '#818cf8' }} onClick={() => handleNavClick('packages')}>
+              <span>💎 Csomagok & Tárhely</span>
+            </button>
+          </div>
+
           {(user?.email === ADMIN_EMAIL || isLeader) && (
             <div className="nav-item-container" style={{ zIndex: dropdownOpen === 'admin' ? 60 : 50 }}>
               <button className={`nav-btn ${dropdownOpen === 'admin' || activeTab.startsWith('admin_') ? 'active' : ''}`} style={{ color: '#f59e0b' }} onClick={() => setDropdownOpen(dropdownOpen === 'admin' ? null : 'admin')}>
@@ -135,10 +142,8 @@ export default function Header({
           )}
         </div> 
 
-        {/* --- FELHASZNÁLÓI BLOKK (ÚJ, KÉTSOROS ELRENDEZÉS) --- */}
         <div className="user-group" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '10px' }}>
           
-          {/* 1. FELSŐ SOR: Név, Csillag, Vezetőség */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
             <span style={{ fontWeight: 'bold', color: '#f8fafc', fontSize: '1rem' }}>
               {user.name}
@@ -155,7 +160,6 @@ export default function Header({
             )}
           </div>
 
-          {/* 2. ALSÓ SOR: Prémium Kezelés és Kijelentkezés gombok */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
             
             {(user?.isPremium || user?.is_premium) && (
