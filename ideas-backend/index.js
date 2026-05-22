@@ -834,20 +834,19 @@ A JSON pontos struktúrája ez legyen:
 });
 
 // ==========================================
-// --- MAFOSZ MINŐSÍTÉS STATISZTIKA ---
+// --- MAFOSZ MINŐSÍTÉS STATISZTIKA (FIX ID: 3) ---
 // ==========================================
 app.get('/api/mafosz-progress', checkPremium, async (req, res) => {
   const userEmail = req.query.userEmail;
   try {
-    // Csak a MAFOSZ védnökölt szalonokat nézzük
+    // Csak azokat a szalonokat nézzük, ahol a patron_id = 3 (MAFOSZ) be van állítva
     const baseWhere = `
       WHERE e.user_email = ? 
       AND e.award_id IS NOT NULL AND e.award_id > 0 
       AND a.award_name IS NOT NULL AND TRIM(a.award_name) != '' 
       AND EXISTS (
         SELECT 1 FROM photo_salon_patrons sp 
-        JOIN photo_patrons p ON sp.patron_id = p.id
-        WHERE sp.salon_id = s.id AND p.name LIKE '%MAFOSZ%'
+        WHERE sp.salon_id = s.id AND sp.patron_id = 3
       )
     `;
 
@@ -869,6 +868,7 @@ app.get('/api/mafosz-progress', checkPremium, async (req, res) => {
       awards: Number(statsRows[0].total_awards) || 0 
     });
   } catch (err) { 
+    console.error('Hiba a MAFOSZ statisztika lekérésekor:', err);
     res.status(500).json({ error: 'Hiba a MAFOSZ statisztika lekérésekor' }); 
   }
 });
@@ -889,10 +889,9 @@ app.get('/api/mafosz-entries', checkPremium, async (req, res) => {
       JOIN photo_salons s ON e.salon_id = s.id 
       JOIN photo_awards a ON e.award_id = a.id 
       JOIN photo_salon_patrons sp ON sp.salon_id = s.id 
-      JOIN photo_patrons p ON sp.patron_id = p.id
       LEFT JOIN photo_portfolio port ON e.portfolio_id = port.id 
       WHERE e.user_email = ? 
-        AND p.name LIKE '%MAFOSZ%'
+        AND sp.patron_id = 3 
         AND e.award_id IS NOT NULL AND e.award_id > 0 
         AND a.award_name IS NOT NULL AND TRIM(a.award_name) != '' 
       ORDER BY s.name ASC, photo_title ASC
@@ -900,9 +899,11 @@ app.get('/api/mafosz-entries', checkPremium, async (req, res) => {
     
     res.json(rows);
   } catch (err) { 
+    console.error('Hiba a MAFOSZ tételes lista lekérésekor:', err);
     res.status(500).json({ error: 'Hiba a MAFOSZ tételes lista lekérésekor' }); 
   }
 });
+
 
 // ==========================================
 // --- FIAP MINŐSÍTÉS STATISZTIKA VÉDVE! ---
