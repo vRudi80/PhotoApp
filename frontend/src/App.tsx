@@ -21,6 +21,7 @@ import MyAlbumView from './views/MyAlbumView';
 import AdminSettingsView from './views/admin/AdminSettingsView';
 import FiapProgressView from './views/FiapProgressView';
 import SessionGuard from './components/SessionGuard';
+import MafoszProgressView from './views/MafoszProgressView'; 
 
 // ÚJ: A Csomagok oldal importálása!
 import PackagesView from './components/PackagesView'; 
@@ -70,7 +71,8 @@ function App() {
   const [selectedSalon, setSelectedSalon] = useState<any>(null);
 
   // ÚJ: A 'packages' hozzáadva a lehetséges fülekhez!
-  const [activeTab, setActiveTab] = useState<'contests_open_active' | 'contests_club_active' | 'contests_closed' | 'club_nights' | 'club_homeworks' | 'salons' | 'my_album' | 'admin_contests' | 'admin_users' | 'admin_clubs' | 'admin_meetings' | 'admin_homeworks' | 'admin_salons' | 'packages'>('contests_open_active');
+  const [activeTab, setActiveTab] = useState<'contests_open_active' | 'contests_club_active' | 'contests_closed' | 'club_nights' | 'club_homeworks' | 'salons' | 'my_album' | 'admin_contests' | 'admin_users' | 'admin_clubs' | 'admin_meetings' | 'admin_homeworks' | 'admin_salons' | 'packages' | 'fiap_progress' | 'mafosz_progress'>('contests_open_active');
+  const [dropdownOpen, setDropdownOpen] = useState<'contests' | 'club' | 'admin' | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState<'contests' | 'club' | 'admin' | null>(null);
   
   const [userClubEdits, setUserClubEdits] = useState<Record<string, string>>({});
