@@ -704,7 +704,7 @@ app.delete('/api/my-album/:id', checkPremium, async (req, res) => {
 app.get('/api/admin/user-storage-stats', async (req, res) => {
   try {
     const query = `
-      SELECT user_email, COUNT(*) as total_photos, COALESCE(SUM(file_size), 0) as total_bytes
+      SELECT user_email, COUNT(*) as total_photos, COALESCE(SUM(GREATEST(file_size, 0)), 0) as total_bytes
       FROM (
         SELECT user_email, file_size FROM photo_portfolio
         UNION ALL
@@ -721,6 +721,7 @@ app.get('/api/admin/user-storage-stats', async (req, res) => {
     res.status(500).json({ error: 'Szerver hiba' });
   }
 });
+
 // --- ÚJ: FÁJLMÉRETEK SZINKRONIZÁLÁSA A GOOGLE DRIVE-RÓL ---
 app.post('/api/admin/sync-file-sizes', async (req, res) => {
   try {
