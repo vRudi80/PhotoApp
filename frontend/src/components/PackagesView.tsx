@@ -8,7 +8,11 @@ interface PackagesViewProps {
 export default function PackagesView({ user }: PackagesViewProps) {
   const [isLoading, setIsLoading] = useState(false);
 
-  const premiumLevel = user?.premiumLevel || user?.premium_level || 0;
+  // BIZTONSÁGI JAVÍTÁS: Ha a user prémium, de még nem szinkronizált le a szintje, akkor alapból 1-es.
+  let premiumLevel = user?.premiumLevel || user?.premium_level || 0;
+  if ((user?.isPremium || user?.is_premium) && premiumLevel === 0) {
+    premiumLevel = 1;
+  }
 
   const handleSubscribe = async (tier: 'basic' | 'pro') => {
     setIsLoading(true);
