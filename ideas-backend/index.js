@@ -52,7 +52,7 @@ app.post('/api/webhook', express.raw({type: 'application/json'}), async (req, re
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
-      if (event.type === 'checkout.session.completed') {
+  if (event.type === 'checkout.session.completed') {
     const session = event.data.object;
     // Stripe okosság: ha customer ID-t adunk át, a customer_email néha null, így biztonságosabb lekérni a details-ből
     const userEmail = session.customer_details ? session.customer_details.email : session.customer_email;
@@ -93,10 +93,7 @@ app.post('/api/webhook', express.raw({type: 'application/json'}), async (req, re
     } catch (err) {
       console.error('Adatbázis/Lemondási hiba a webhookban:', err);
     }
-  }
-
-  }
-
+  } // <--- JAVÍTVA: Itt volt elcsúszva a zárójel a te kódodban!
 
   if (event.type === 'customer.subscription.deleted') {
     const customerId = event.data.object.customer;
@@ -144,7 +141,6 @@ const checkPremium = async (req, res, next) => {
 // 4. API VÉGPONTOK (ROUTES)
 // ==========================================
 
-// --- STRIPE: ELŐFIZETÉSI OLDAL (CHECKOUT) GENERÁLÁSA ---
 // --- STRIPE: ELŐFIZETÉSI OLDAL (CHECKOUT) GENERÁLÁSA ---
 app.post('/api/create-checkout-session', async (req, res) => {
   const { userEmail, tier } = req.body;
@@ -206,7 +202,7 @@ app.post('/api/auth/sync', async (req, res) => {
     );
 
     // 2. ÚJ: Lekérjük a user aktuális prémium státuszát is az adatbázisból
-    const [rows] = await pool.query('SELECT is_premium, premium_until FROM photo_users WHERE email = ?', [email]);
+    const [rows] = await pool.query('SELECT is_premium, premium_until, premium_level FROM photo_users WHERE email = ?', [email]);
     
     const userDb = rows[0];
     const now = new Date();
@@ -220,7 +216,7 @@ app.post('/api/auth/sync', async (req, res) => {
       success: true,
       isPremium: isPremiumActive,
       premiumLevel: userDb.premium_level,
-      premiumUntil: userDb.premium_until // ISO dátum string, pl: "2026-06-17T10:48:32.000Z"
+      premiumUntil: userDb.premium_until 
     });
   } catch (err) { 
     console.error(err);
@@ -336,12 +332,11 @@ app.post('/api/upload', upload.single('photo'), async (req, res) => {
     const fileExt = file.originalname && file.originalname.includes('.') ? file.originalname.substring(file.originalname.lastIndexOf('.')).toLowerCase() : '.jpg';
     const driveRes = await drive.files.create({ requestBody: { name: `Nevezes_${contestId}_${userName}_${Date.now()}${fileExt}`, parents: [process.env.DRIVE_MASTER_FOLDER_ID] }, media: { mimeType: file.mimetype, body: bufferStream }, fields: 'id, webViewLink' });
 
-    // A meglévő INSERT részt cseréld erre:
-const fileSize = req.file.size; // <-- ÚJ
-await pool.query(
-  'INSERT INTO photo_entries (contest_id, user_email, user_name, title, category, file_url, drive_file_id, file_size) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 
-  [contestId, userEmail, userName, title, category, driveRes.data.webViewLink, driveRes.data.id, fileSize]
-);
+    const fileSize = req.file.size; 
+    await pool.query(
+      'INSERT INTO photo_entries (contest_id, user_email, user_name, title, category, file_url, drive_file_id, file_size) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 
+      [contestId, userEmail, userName, title, category, driveRes.data.webViewLink, driveRes.data.id, fileSize]
+    );
 
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -417,13 +412,11 @@ app.put('/api/meetings/:id', upload.single('coverPhoto'), async (req, res) => {
   
   try {
     if (file) {
-      // 1. Megnézzük, volt-e régi kép, hogy letöröljük a Drive-ról (ne foglalja a helyet)
       const [oldRows] = await pool.query('SELECT drive_file_id FROM photo_club_meetings WHERE id = ?', [req.params.id]);
       if (oldRows.length > 0 && oldRows[0].drive_file_id) {
         await drive.files.delete({ fileId: oldRows[0].drive_file_id }).catch(e => console.log('Régi borítókép törlése sikertelen:', e.message));
       }
 
-      // 2. Új kép feltöltése
       const bufferStream = new Readable(); 
       bufferStream.push(file.buffer); 
       bufferStream.push(null);
@@ -436,18 +429,15 @@ app.put('/api/meetings/:id', upload.single('coverPhoto'), async (req, res) => {
         fields: 'id, webViewLink' 
       });
       
-      // 3. Adatbázis frissítése az új képpel
       await pool.query('UPDATE photo_club_meetings SET meeting_date=?, meeting_time=?, topic=?, description=?, location_type=?, location_details=?, file_url=?, drive_file_id=?, video_link=? WHERE id=?', 
         [date, time, topic, description, locationType, locationDetails, driveRes.data.webViewLink, driveRes.data.id, videoLink || null, req.params.id]);
     } else {
-      // Ha nem töltöttek fel új képet, csak a szövegeket frissítjük
       await pool.query('UPDATE photo_club_meetings SET meeting_date=?, meeting_time=?, topic=?, description=?, location_type=?, location_details=?, video_link=? WHERE id=?', 
         [date, time, topic, description, locationType, locationDetails, videoLink || null, req.params.id]);
     }
     res.json({ success: true });
   } catch (err) { 
     console.error('Klubest mentési hiba:', err);
-    // Ha a Google megint eldobja a kapcsolatot (ECONNRESET), normális magyar hibaüzenetet adunk
     res.status(500).json({ error: 'Hálózati hiba a Google Drive feltöltésnél. Kérlek, próbáld újra egy perc múlva!' }); 
   }
 });
@@ -531,12 +521,11 @@ app.post('/api/upload-homework', upload.single('photo'), async (req, res) => {
     const fileExt = file.originalname && file.originalname.includes('.') ? file.originalname.substring(file.originalname.lastIndexOf('.')).toLowerCase() : '.jpg';
     const driveRes = await drive.files.create({ requestBody: { name: `Hazi_${homeworkId}_${userName}_${Date.now()}${fileExt}`, parents: [process.env.DRIVE_MASTER_FOLDER_ID] }, media: { mimeType: file.mimetype, body: bufferStream }, fields: 'id, webViewLink' });
 
-    // A meglévő INSERT részt cseréld erre:
-const fileSize = req.file.size; // <-- ÚJ
-await pool.query(
-  'INSERT INTO photo_homework_entries (homework_id, user_email, user_name, title, file_url, drive_file_id, file_size) VALUES (?, ?, ?, ?, ?, ?, ?)', 
-  [homeworkId, userEmail, userName, title, driveRes.data.webViewLink, driveRes.data.id, fileSize]
-);
+    const fileSize = req.file.size; 
+    await pool.query(
+      'INSERT INTO photo_homework_entries (homework_id, user_email, user_name, title, file_url, drive_file_id, file_size) VALUES (?, ?, ?, ?, ?, ?, ?)', 
+      [homeworkId, userEmail, userName, title, driveRes.data.webViewLink, driveRes.data.id, fileSize]
+    );
 
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -665,7 +654,6 @@ app.delete('/api/salons/:id', async (req, res) => {
 // ==========================================
 app.get('/api/my-album', checkPremium, async (req, res) => {
   try { 
-    // JAVÍTÁS: Villámgyors LEFT JOIN az iszonyatosan lassú belső lekérdezések (Subqueries) helyett!
     const query = `
       SELECT p.*, 
         COALESCE(SUM(CASE WHEN e.award_id IS NOT NULL AND e.award_id NOT IN (0, 1, 15) THEN 1 ELSE 0 END), 0) as award_count,
@@ -700,12 +688,12 @@ app.post('/api/my-album/upload', upload.single('photo'), checkPremium, async (re
     const bufferStream = new Readable(); bufferStream.push(file.buffer); bufferStream.push(null);
     const fileExt = file.originalname && file.originalname.includes('.') ? file.originalname.substring(file.originalname.lastIndexOf('.')).toLowerCase() : '.jpg';
     const driveRes = await drive.files.create({ requestBody: { name: `Portfolio_${userName}_${Date.now()}${fileExt}`, parents: [process.env.DRIVE_MASTER_FOLDER_ID] }, media: { mimeType: file.mimetype, body: bufferStream }, fields: 'id, webViewLink' });
-    // A meglévő INSERT részt cseréld erre:
-const fileSize = req.file.size; // <-- ÚJ
-await pool.query(
-  'INSERT INTO photo_portfolio (user_email, user_name, title, file_url, drive_file_id, file_size) VALUES (?, ?, ?, ?, ?, ?)', 
-  [userEmail, userName, title, driveRes.data.webViewLink, driveRes.data.id, fileSize]
-);
+    
+    const fileSize = req.file.size; 
+    await pool.query(
+      'INSERT INTO photo_portfolio (user_email, user_name, title, file_url, drive_file_id, file_size) VALUES (?, ?, ?, ?, ?, ?)', 
+      [userEmail, userName, title, driveRes.data.webViewLink, driveRes.data.id, fileSize]
+    );
 
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -740,7 +728,7 @@ app.delete('/api/my-album/:id', checkPremium, async (req, res) => {
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: 'Hiba a törlésnél' }); }
 });
-// --- JAVÍTOTT: TÁRHELY STATISZTIKA (ADMIN) PONTOS BÁJTOKKAL ---
+
 app.get('/api/admin/user-storage-stats', async (req, res) => {
   try {
     const query = `
@@ -779,13 +767,11 @@ app.post('/api/my-album/:id/analyze', checkPremium, async (req, res) => {
     const imageBuffer = Buffer.from(driveRes.data);
     const base64Image = imageBuffer.toString('base64');
     
-    // JAVÍTÁS 1: A legstabilabb Gemini modellt használjuk, és SZIGORÚ JSON MÓDBA kényszerítjük!
     const model = genAI.getGenerativeModel({ 
       model: "gemini-2.5-flash",
       generationConfig: { responseMimeType: "application/json" } 
     });
     
-    // JAVÍTÁS 2: Bolondbiztos prompt, hogy véletlenül se tegyen idézőjelet a szövegbe
     const prompt = `Te egy szigorú nemzetközi fotós zsűri vagy (FIAP/PSA szabályrendszer). Kérlek, elemezd ezt a fotót. 
 KIZÁRÓLAG egy érvényes JSON objektumot adj vissza!
 A JSON pontos struktúrája ez legyen:
@@ -799,7 +785,6 @@ A JSON pontos struktúrája ez legyen:
     const response = await result.response;
     let text = response.text();
     
-    // JAVÍTÁS 3: Brutálisan levágunk minden sallangot a JSON körül, bárhova is rejtette az AI
     const jsonStart = text.indexOf('{');
     const jsonEnd = text.lastIndexOf('}');
     
@@ -807,10 +792,7 @@ A JSON pontos struktúrája ez legyen:
       throw new Error("Az AI nem generált felismerhető JSON objektumot.");
     }
     
-    // Csak a tiszta kapcsos zárójelek közötti részt tartjuk meg
     text = text.substring(jsonStart, jsonEnd + 1);
-    
-    // Érvényesség ellenőrzése
     JSON.parse(text); 
     
     await pool.query('UPDATE photo_portfolio SET ai_tags = ? WHERE id = ?', [text, req.params.id]);
@@ -818,15 +800,12 @@ A JSON pontos struktúrája ez legyen:
   } catch (err) {
     console.error('Gemini / Rendszer hiba:', err.message);
     
-    // --- JAVÍTOTT, FELHASZNÁLÓBARÁT HIBAKEZELÉS ---
-    // Ha a Google szerverei túlterheltek (503-as hiba)
     if (err.message.includes('503') || err.message.includes('high demand') || err.message.includes('overloaded')) {
       return res.status(503).json({ 
         error: 'Az AI szerverek jelenleg nagyon leterheltek a nagy érdeklődés miatt. Kérlek, próbáld meg az elemzést újra 1-2 perc múlva! 🤖⏳' 
       });
     }
 
-    // Bármilyen egyéb AI vagy rendszerhiba esetén
     return res.status(500).json({ 
       error: 'Sajnos a mesterséges intelligencia jelenleg nem tudta kielemezni ezt a képet. Kérlek, próbáld újra később!' 
     });
@@ -839,17 +818,22 @@ A JSON pontos struktúrája ez legyen:
 app.get('/api/mafosz-progress', checkPremium, async (req, res) => {
   const userEmail = req.query.userEmail;
   try {
-    // 100%-ban ugyanaz a baseWhere mint a FIAP-nál, csak patron_id = 3
-    const baseWhere = `WHERE e.user_email = ? AND e.award_id IS NOT NULL AND e.award_id > 0 AND a.award_name IS NOT NULL AND TRIM(a.award_name) != '' AND EXISTS (SELECT 1 FROM photo_salon_patrons sp WHERE sp.salon_id = s.id AND sp.patron_id = 3)`;
+    const baseQuery = `
+      FROM photo_salon_entries e 
+      JOIN photo_salons s ON e.salon_id = s.id 
+      JOIN photo_awards a ON e.award_id = a.id 
+      JOIN photo_salon_patrons sp ON sp.salon_id = s.id 
+      WHERE sp.patron_id = 3 
+        AND e.user_email = ? 
+        AND e.award_id IS NOT NULL 
+        AND e.award_id > 0 
+        AND a.award_name IS NOT NULL 
+        AND TRIM(a.award_name) != ''
+    `;
     
-    // Elfogadások száma (MAFOSZ szabály: 1 Díj = 2 Elfogadás)
-    const [accRows] = await pool.query(`SELECT SUM(CASE WHEN LOWER(a.award_name) != 'acceptance' THEN 2 ELSE 1 END) as total_acceptances FROM photo_salon_entries e JOIN photo_salons s ON e.salon_id = s.id JOIN photo_awards a ON e.award_id = a.id ${baseWhere}`, [userEmail]);
-    
-    // Különböző művek száma (Ugyanaz mint FIAP)
-    const [workRows] = await pool.query(`SELECT COUNT(DISTINCT e.portfolio_id) as distinct_works FROM photo_salon_entries e JOIN photo_salons s ON e.salon_id = s.id JOIN photo_awards a ON e.award_id = a.id ${baseWhere}`, [userEmail]);
-    
-    // Díjak száma (Ezt a MAFOSZ külön kéri)
-    const [awardRows] = await pool.query(`SELECT SUM(CASE WHEN LOWER(a.award_name) != 'acceptance' THEN 1 ELSE 0 END) as total_awards FROM photo_salon_entries e JOIN photo_salons s ON e.salon_id = s.id JOIN photo_awards a ON e.award_id = a.id ${baseWhere}`, [userEmail]);
+    const [accRows] = await pool.query(`SELECT SUM(CASE WHEN LOWER(a.award_name) != 'acceptance' THEN 2 ELSE 1 END) as total_acceptances ${baseQuery}`, [userEmail]);
+    const [workRows] = await pool.query(`SELECT COUNT(DISTINCT e.portfolio_id) as distinct_works ${baseQuery}`, [userEmail]);
+    const [awardRows] = await pool.query(`SELECT SUM(CASE WHEN LOWER(a.award_name) != 'acceptance' THEN 1 ELSE 0 END) as total_awards ${baseQuery}`, [userEmail]);
     
     res.json({ 
       acceptances: Number(accRows[0].total_acceptances) || 0, 
@@ -858,7 +842,7 @@ app.get('/api/mafosz-progress', checkPremium, async (req, res) => {
     });
   } catch (err) { 
     console.error('Hiba a MAFOSZ statisztika lekérésekor:', err);
-    res.status(500).json({ error: 'Hiba a MAFOSZ statisztika lekérésekor' }); 
+    res.status(500).json({ error: err.message }); 
   }
 });
 
@@ -880,18 +864,21 @@ app.get('/api/mafosz-entries', checkPremium, async (req, res) => {
       FROM photo_salon_entries e 
       JOIN photo_salons s ON e.salon_id = s.id 
       JOIN photo_awards a ON e.award_id = a.id 
-      JOIN photo_salon_patrons sp ON sp.salon_id = s.id AND sp.patron_id = 3
+      JOIN photo_salon_patrons sp ON sp.salon_id = s.id 
       LEFT JOIN photo_portfolio port ON e.portfolio_id = port.id 
-      WHERE e.user_email = ? 
-        AND e.award_id IS NOT NULL AND e.award_id > 0 
-        AND a.award_name IS NOT NULL AND TRIM(a.award_name) != '' 
+      WHERE sp.patron_id = 3 
+        AND e.user_email = ? 
+        AND e.award_id IS NOT NULL 
+        AND e.award_id > 0 
+        AND a.award_name IS NOT NULL 
+        AND TRIM(a.award_name) != '' 
       ORDER BY s.name ASC, photo_title ASC
     `, [userEmail]);
     
     res.json(rows);
   } catch (err) { 
     console.error('Hiba a MAFOSZ tételes lista lekérésekor:', err);
-    res.status(500).json({ error: 'Hiba a MAFOSZ tételes lista lekérésekor' }); 
+    res.status(500).json({ error: err.message }); 
   }
 });
 
@@ -1085,4 +1072,3 @@ app.post('/api/create-portal-session', async (req, res) => {
 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => console.log(`Szerver fut a ${PORT} porton`));
-
