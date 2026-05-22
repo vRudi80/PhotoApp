@@ -834,38 +834,27 @@ A JSON pontos struktúrája ez legyen:
 });
 
 // ==========================================
-// --- MAFOSZ MINŐSÍTÉS STATISZTIKA (FIX ID: 3) ---
+// --- MAFOSZ MINŐSÍTÉS STATISZTIKA VÉDVE! ---
 // ==========================================
 app.get('/api/mafosz-progress', checkPremium, async (req, res) => {
   const userEmail = req.query.userEmail;
   try {
-    // Csak azokat a szalonokat nézzük, ahol a patron_id = 3 (MAFOSZ) be van állítva
-    const baseWhere = `
-      WHERE e.user_email = ? 
-      AND e.award_id IS NOT NULL AND e.award_id > 0 
-      AND a.award_name IS NOT NULL AND TRIM(a.award_name) != '' 
-      AND EXISTS (
-        SELECT 1 FROM photo_salon_patrons sp 
-        WHERE sp.salon_id = s.id AND sp.patron_id = 3
-      )
-    `;
-
-    // 1 díj = 2 elfogadás szabály beépítve a total_acceptances számításba!
-    const [statsRows] = await pool.query(`
-      SELECT 
-        SUM(CASE WHEN LOWER(a.award_name) != 'acceptance' THEN 2 ELSE 1 END) as total_acceptances,
-        COUNT(DISTINCT e.portfolio_id) as distinct_works,
-        SUM(CASE WHEN LOWER(a.award_name) != 'acceptance' THEN 1 ELSE 0 END) as total_awards
-      FROM photo_salon_entries e 
-      JOIN photo_salons s ON e.salon_id = s.id 
-      JOIN photo_awards a ON e.award_id = a.id 
-      ${baseWhere}
-    `, [userEmail]);
-
+    // 100%-ban ugyanaz a baseWhere mint a FIAP-nál, csak patron_id = 3
+    const baseWhere = `WHERE e.user_email = ? AND e.award_id IS NOT NULL AND e.award_id > 0 AND a.award_name IS NOT NULL AND TRIM(a.award_name) != '' AND EXISTS (SELECT 1 FROM photo_salon_patrons sp WHERE sp.salon_id = s.id AND sp.patron_id = 3)`;
+    
+    // Elfogadások száma (MAFOSZ szabály: 1 Díj = 2 Elfogadás)
+    const [accRows] = await pool.query(`SELECT SUM(CASE WHEN LOWER(a.award_name) != 'acceptance' THEN 2 ELSE 1 END) as total_acceptances FROM photo_salon_entries e JOIN photo_salons s ON e.salon_id = s.id JOIN photo_awards a ON e.award_id = a.id ${baseWhere}`, [userEmail]);
+    
+    // Különböző művek száma (Ugyanaz mint FIAP)
+    const [workRows] = await pool.query(`SELECT COUNT(DISTINCT e.portfolio_id) as distinct_works FROM photo_salon_entries e JOIN photo_salons s ON e.salon_id = s.id JOIN photo_awards a ON e.award_id = a.id ${baseWhere}`, [userEmail]);
+    
+    // Díjak száma (Ezt a MAFOSZ külön kéri)
+    const [awardRows] = await pool.query(`SELECT SUM(CASE WHEN LOWER(a.award_name) != 'acceptance' THEN 1 ELSE 0 END) as total_awards FROM photo_salon_entries e JOIN photo_salons s ON e.salon_id = s.id JOIN photo_awards a ON e.award_id = a.id ${baseWhere}`, [userEmail]);
+    
     res.json({ 
-      acceptances: Number(statsRows[0].total_acceptances) || 0, 
-      works: Number(statsRows[0].distinct_works) || 0, 
-      awards: Number(statsRows[0].total_awards) || 0 
+      acceptances: Number(accRows[0].total_acceptances) || 0, 
+      works: Number(workRows[0].distinct_works) || 0, 
+      awards: Number(awardRows[0].total_awards) || 0 
     });
   } catch (err) { 
     console.error('Hiba a MAFOSZ statisztika lekérésekor:', err);
@@ -873,6 +862,9 @@ app.get('/api/mafosz-progress', checkPremium, async (req, res) => {
   }
 });
 
+// ==========================================
+// --- MAFOSZ TÉTELES LISTA ---
+// ==========================================
 app.get('/api/mafosz-entries', checkPremium, async (req, res) => {
   const userEmail = req.query.userEmail;
   try {
@@ -888,10 +880,9 @@ app.get('/api/mafosz-entries', checkPremium, async (req, res) => {
       FROM photo_salon_entries e 
       JOIN photo_salons s ON e.salon_id = s.id 
       JOIN photo_awards a ON e.award_id = a.id 
-      JOIN photo_salon_patrons sp ON sp.salon_id = s.id 
+      JOIN photo_salon_patrons sp ON sp.salon_id = s.id AND sp.patron_id = 3
       LEFT JOIN photo_portfolio port ON e.portfolio_id = port.id 
       WHERE e.user_email = ? 
-        AND sp.patron_id = 3 
         AND e.award_id IS NOT NULL AND e.award_id > 0 
         AND a.award_name IS NOT NULL AND TRIM(a.award_name) != '' 
       ORDER BY s.name ASC, photo_title ASC
@@ -903,6 +894,7 @@ app.get('/api/mafosz-entries', checkPremium, async (req, res) => {
     res.status(500).json({ error: 'Hiba a MAFOSZ tételes lista lekérésekor' }); 
   }
 });
+
 
 
 // ==========================================
