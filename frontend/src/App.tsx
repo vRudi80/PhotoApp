@@ -21,9 +21,8 @@ import MyAlbumView from './views/MyAlbumView';
 import AdminSettingsView from './views/admin/AdminSettingsView';
 import FiapProgressView from './views/FiapProgressView';
 import SessionGuard from './components/SessionGuard';
-import MafoszProgressView from './views/MafoszProgressView'; 
 
-// ÚJ: A Csomagok oldal importálása!
+import MafoszProgressView from './views/MafoszProgressView'; 
 import PackagesView from './components/PackagesView'; 
 
 function App() {
@@ -70,7 +69,6 @@ function App() {
   
   const [selectedSalon, setSelectedSalon] = useState<any>(null);
 
-  // ÚJ: A 'packages' hozzáadva a lehetséges fülekhez!
   const [activeTab, setActiveTab] = useState<'contests_open_active' | 'contests_club_active' | 'contests_closed' | 'club_nights' | 'club_homeworks' | 'salons' | 'my_album' | 'admin_contests' | 'admin_users' | 'admin_clubs' | 'admin_meetings' | 'admin_homeworks' | 'admin_salons' | 'packages' | 'fiap_progress' | 'mafosz_progress'>('contests_open_active');
   const [dropdownOpen, setDropdownOpen] = useState<'contests' | 'club' | 'admin' | null>(null);
   
@@ -256,7 +254,6 @@ function App() {
                   isPremium: data.isPremium,
                   is_premium: data.isPremium,
                   premiumUntil: data.premiumUntil,
-                  // ÚJ: Átvesszük a prémium szintjét is!
                   premiumLevel: data.premiumLevel,
                   premium_level: data.premiumLevel
                 });
@@ -661,9 +658,26 @@ function App() {
 
           <main className="main-container">
 
-            {/* ÚJ: Csomagok oldal */}
+            {/* Megjelenítési blokkok az összes menüponthoz */}
+
             {activeTab === 'packages' && (
               <PackagesView user={user} />
+            )}
+
+            {activeTab === 'my_album' && (
+              <MyAlbumView 
+                user={user} 
+                setFullscreenData={setFullscreenData} 
+              />
+            )}
+
+            {activeTab === 'fiap_progress' && (
+              <FiapProgressView user={user} allUsers={allUsers} />
+            )}
+
+            {/* ---> HIÁNYZÓ MAFOSZ BLOKK BEMÁSOLVA! <--- */}
+            {activeTab === 'mafosz_progress' && (
+              <MafoszProgressView user={user} allUsers={allUsers} />
             )}
 
             {activeTab === 'admin_clubs' && user.email === ADMIN_EMAIL && (
@@ -710,17 +724,6 @@ function App() {
                 setHwMaxImages={setHwMaxImages} clearHwForm={clearHwForm} handleSaveHw={handleSaveHw}
                 startEditHw={startEditHw} handleDeleteHw={handleDeleteHw}
               />
-            )}
-
-            {activeTab === 'my_album' && (
-              <MyAlbumView 
-                user={user} 
-                setFullscreenData={setFullscreenData} 
-              />
-            )}
-
-            {activeTab === 'fiap_progress' && (
-              <FiapProgressView user={user} allUsers={allUsers} />
             )}
 
             {activeTab === 'admin_salons' && user.email === ADMIN_EMAIL && (
