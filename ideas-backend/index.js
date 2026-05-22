@@ -52,23 +52,26 @@ app.post('/api/webhook', express.raw({type: 'application/json'}), async (req, re
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
-  if (event.type === 'checkout.session.completed') {
+    if (event.type === 'checkout.session.completed') {
     const session = event.data.object;
     const userEmail = session.customer_email;
     const customerId = session.customer; 
+    const tier = session.metadata ? session.metadata.tier : 'basic'; // ÚJ: Kiolvassuk a csomagot
+    const premiumLevel = tier === 'pro' ? 2 : 1; // ÚJ: Szint meghatározása
 
     try {
       const premiumUntil = new Date();
       premiumUntil.setMonth(premiumUntil.getMonth() + 1);
       await pool.query(
-        'UPDATE photo_users SET is_premium = 1, premium_until = ?, stripe_customer_id = ? WHERE email = ?',
-        [premiumUntil, customerId, userEmail]
+        'UPDATE photo_users SET is_premium = 1, premium_until = ?, stripe_customer_id = ?, premium_level = ? WHERE email = ?',
+        [premiumUntil, customerId, premiumLevel, userEmail]
       );
-      console.log(`✅ Prémium sikeresen aktiválva neki: ${userEmail}`);
+      console.log(`✅ Prémium (${tier}) aktiválva: ${userEmail}`);
     } catch (err) {
       console.error('Adatbázis hiba a webhookban:', err);
     }
   }
+
 
   if (event.type === 'customer.subscription.deleted') {
     const customerId = event.data.object.customer;
@@ -118,41 +121,36 @@ const checkPremium = async (req, res, next) => {
 
 // --- STRIPE: ELŐFIZETÉSI OLDAL (CHECKOUT) GENERÁLÁSA ---
 app.post('/api/create-checkout-session', async (req, res) => {
-  const { userEmail } = req.body;
+  const { userEmail, tier } = req.body; // ÚJ: Megkapjuk, hogy 'basic' vagy 'pro'
+  
+  const isPro = tier === 'pro';
+  const priceAmount = isPro ? 249000 : 100000; // 2490 Ft vagy 1000 Ft
+  const productName = isPro ? 'Képolvasók Fotóklub Pro Prémium' : 'Képolvasók Fotóklub Alap Prémium';
+  
   try {
-const session = await stripe.checkout.sessions.create({
+    const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
-      line_items: [
-        {
+      line_items: [{
           price_data: {
             currency: 'huf',
-            product_data: {
-              name: 'Képolvasók Fotóklub Prémium',
-              description: 'AI képelemzés, korlátlan portfólió, és nemzetközi FIAP/PSA statisztikák.',
-            },
-            unit_amount: 100000, // (Ez marad 1000 Ft, ahogy beállítottad)
+            product_data: { name: productName },
+            unit_amount: priceAmount, 
             recurring: { interval: 'month' },
           },
           quantity: 1,
-        },
-      ],
+      }],
       mode: 'subscription',
-      
-      // --- EZT AZ ÚJ RÉSZT ADD HOZZÁ! ---
-      subscription_data: {
-        trial_period_days: 7, // 7 napos ingyenes próbaidőszak
-      },
-      // ---------------------------------
-
+      subscription_data: { trial_period_days: 7 },
+      metadata: { tier: isPro ? 'pro' : 'basic' }, // ÚJ: Átadjuk a webhooknak a csomag nevét
       success_url: `${req.headers.origin}?success=true`,
       cancel_url: `${req.headers.origin}?canceled=true`,
     });
     res.json({ url: session.url });
   } catch (e) {
-    console.error('Stripe Hiba:', e);
     res.status(500).json({ error: e.message });
   }
 });
+
 
 // --- AUTH ÉS USEREK ---
 app.post('/api/auth/sync', async (req, res) => {
@@ -180,6 +178,7 @@ app.post('/api/auth/sync', async (req, res) => {
     res.json({ 
       success: true,
       isPremium: isPremiumActive,
+      premiumLevel: userDb.premium_level,
       premiumUntil: userDb.premium_until // ISO dátum string, pl: "2026-06-17T10:48:32.000Z"
     });
   } catch (err) { 
