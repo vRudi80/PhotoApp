@@ -722,65 +722,6 @@ app.get('/api/admin/user-storage-stats', async (req, res) => {
   }
 });
 
-// --- JAVÍTOTT, MAXIMÁLISAN HIBATŰRŐ: FÁJLMÉRETEK SZINKRONIZÁLÁSA ---
-app.post('/api/admin/sync-file-sizes', async (req, res) => {
-  try {
-    const tables = ['photo_portfolio', 'photo_entries', 'photo_homework_entries'];
-    let updatedCount = 0;
-    let skippedCount = 0; // Számoljuk, mennyit dobtunk a "kukába" (-1)
-
-    for (const table of tables) {
-      // 1. VÉDELEM: Csak azokat kérjük le, ahol ténylegesen van valami szöveg, és nem csak üres ''
-      const [rows] = await pool.query(`SELECT id, drive_file_id FROM ${table} WHERE TRIM(file_url) != '' AND file_size = 0');
-      
-      for (const row of rows) {
-        
-        const fileId = row.drive_file_id.trim();
-
-        // 2. VÉDELEM: Ha külső link (http), VAGY túl rövid ahhoz, hogy valódi Google Drive ID legyen (< 15 karakter)
-        if (fileId.length < 15 || fileId.includes('http') || fileId.includes('/') || fileId.includes('.')) {
-          await pool.query(`UPDATE ${table} SET file_size = -1 WHERE id = ?`, [row.id]);
-          skippedCount++;
-          continue;
-        }
-
-        try {
-          // Lekérjük a méretet a mi Drive-unkról
-          const fileMetadata = await drive.files.get({
-            fileId: fileId,
-            fields: 'size'
-          });
-
-          if (fileMetadata.data.size) {
-            const sizeInBytes = parseInt(fileMetadata.data.size, 10);
-            await pool.query(`UPDATE ${table} SET file_size = ? WHERE id = ?`, [sizeInBytes, row.id]);
-            updatedCount++;
-          } else {
-            // Létezik, de valamiért nincs mérete (pl. üres mappa vagy Google dokumentum)
-            await pool.query(`UPDATE ${table} SET file_size = -1 WHERE id = ?`, [row.id]);
-            skippedCount++;
-          }
-        } catch (driveErr) {
-          const errorCode = driveErr.code || driveErr.status;
-          
-          // 3. VÉDELEM: Ha 400 (Hibás ID), 403 (Nincs jog), 404 (Törölve) -> Kuka (-1)
-          if (errorCode === 404 || errorCode === 403 || errorCode === 400) {
-            await pool.query(`UPDATE ${table} SET file_size = -1 WHERE id = ?`, [row.id]);
-            skippedCount++;
-          } else {
-            // Egyéb hálózati probléma (pl. 429 Túl sok kérés), ezt kiírjuk, de nem tesszük -1-re
-            console.error(`Egyéb hiba a Drive API-nál (${fileId}):`, driveErr.message);
-          }
-        }
-      }
-    }
-    
-    res.json({ success: true, updatedCount, skippedCount });
-  } catch (err) {
-    console.error('Hiba a fájlméretek szinkronizálása közben:', err);
-    res.status(500).json({ error: 'Szinkronizálási hiba' });
-  }
-});
 
 
 // ==========================================
