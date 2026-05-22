@@ -675,7 +675,6 @@ function App() {
               <FiapProgressView user={user} allUsers={allUsers} />
             )}
 
-            {/* ---> HIÁNYZÓ MAFOSZ BLOKK BEMÁSOLVA! <--- */}
             {activeTab === 'mafosz_progress' && (
               <MafoszProgressView user={user} allUsers={allUsers} />
             )}
