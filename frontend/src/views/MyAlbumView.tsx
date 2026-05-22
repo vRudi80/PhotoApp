@@ -13,7 +13,8 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
   const [photoResults, setPhotoResults] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  
+  const [totalAccountBytes, setTotalAccountBytes] = useState(0);
+
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadTitle, setUploadTitle] = useState('');
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
@@ -28,7 +29,7 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
 
   const hasPremiumAccess = user && (user.isPremium || user.is_premium);
 
-  const fetchMyPhotos = async () => {
+    const fetchMyPhotos = async () => {
     if (!hasPremiumAccess) {
       setIsLoading(false);
       return;
@@ -42,12 +43,24 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
         const resResults = await fetch(`${BACKEND_URL}/api/my-portfolio-results?userEmail=${user.email}`);
         if (resResults.ok) setPhotoResults(await resResults.json());
       }
+
+      // ÚJ: Lekérjük a teljes (Admin szintű) tárhely statisztikát a usernek
+      const resStats = await fetch(`${BACKEND_URL}/api/admin/user-storage-stats`);
+      if (resStats.ok) {
+        const stats = await resStats.json();
+        const myStat = stats.find((s: any) => s.user_email === user.email);
+        if (myStat) {
+          setTotalAccountBytes(Number(myStat.total_bytes));
+        }
+      }
+
     } catch (e) {
       console.error(e);
     } finally {
       setIsLoading(false);
     }
   };
+
 
   useEffect(() => {
     fetchMyPhotos();
@@ -206,7 +219,7 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
         <span style={{ fontSize: '2.5rem' }}>🖼️</span> Saját Képalbum (Portfólió)
       </h2>
 
-      {/* --- ÚJ: TÁRHELY INFORMÁCIÓS SÁV --- */}
+            {/* --- JAVÍTOTT: TÁRHELY INFORMÁCIÓS SÁV --- */}
       <div style={{ 
         display: 'flex', 
         alignItems: 'center', 
@@ -219,13 +232,19 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
         flexWrap: 'wrap'
       }}>
         <div style={{ fontSize: '1rem', color: '#cbd5e1' }}>
-          📸 Portfólió mérete: <strong style={{ color: '#38bdf8' }}>{photos.length} db kép</strong>
+          📸 Képek száma: <strong style={{ color: '#38bdf8' }}>{photos.length} db</strong>
         </div>
         
         <div style={{ height: '20px', width: '2px', background: '#475569', display: window.innerWidth < 500 ? 'none' : 'block' }}></div>
         
-        <div style={{ fontSize: '1rem', color: '#cbd5e1' }}>
-          💾 Felhasznált tárhely: <strong style={{ color: '#a78bfa' }}>{formatExactStorage(totalSizeInBytes)}</strong>
+        <div style={{ fontSize: '1rem', color: '#cbd5e1' }} title="Csak az ebben a mappában lévő képek mérete">
+          📁 Portfólió mérete: <strong style={{ color: '#a78bfa' }}>{formatExactStorage(totalSizeInBytes)}</strong>
+        </div>
+
+        <div style={{ height: '20px', width: '2px', background: '#475569', display: window.innerWidth < 500 ? 'none' : 'block' }}></div>
+        
+        <div style={{ fontSize: '1rem', color: '#cbd5e1' }} title="Minden kép, beleértve a belső pályázatokat és házikat is!">
+          ☁️ Teljes Tárhely Foglalás: <strong style={{ color: '#f59e0b' }}>{formatExactStorage(totalAccountBytes)}</strong>
         </div>
       </div>
       {/* ---------------------------------- */}
