@@ -1,7 +1,7 @@
-import { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { BACKEND_URL, ADMIN_EMAIL } from '../utils/constants';
 import { getImageUrl } from '../utils/helpers';
-import PremiumPaywall from '../components/PremiumPaywall';
+import PremiumPaywall from './PremiumPaywall';
 
 const MAFOSZ_LEVELS = [
   { id: 'A-MAFOSZ', name: 'MAFOSZ Fotóművésze', req: { acceptances: 70, works: 20, awards: 1 }, color: '#10b981' },
@@ -71,7 +71,7 @@ export default function MafoszProgressView({ user, allUsers = [] }: MafoszProgre
     return (
       <div>
         <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '15px', color: '#60a5fa' }}>
-          <span style={{ fontSize: '2.5rem' }}>🇭🇺</span> MAFOSZ Minősítés Követő
+          <span style={{ fontSize: '2.5rem' }}>🏆</span> MAFOSZ Minősítés
         </h2>
         <PremiumPaywall user={user} />
       </div>
@@ -113,7 +113,7 @@ export default function MafoszProgressView({ user, allUsers = [] }: MafoszProgre
   return (
     <div>
       <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '15px', color: '#60a5fa' }}>
-        <span style={{ fontSize: '2.5rem' }}>🇭🇺</span> MAFOSZ Minősítés Követő
+        <span style={{ fontSize: '2.5rem' }}>🏆</span> MAFOSZ Minősítés Követő
       </h2>
 
       {user.email === ADMIN_EMAIL && allUsers.length > 0 && (
