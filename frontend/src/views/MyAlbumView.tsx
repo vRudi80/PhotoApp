@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { BACKEND_URL } from '../utils/constants';
 import { getImageUrl } from '../utils/helpers';
 import PremiumPaywall from './PremiumPaywall';
@@ -53,6 +53,7 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
     fetchMyPhotos();
   }, [user]);
 
+  // Kereső logika
   const filteredPhotos = useMemo(() => {
     if (!searchTerm) return photos;
     
@@ -64,6 +65,22 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
       return matchTitle || matchAi;
     });
   }, [photos, searchTerm]);
+
+  // --- ÚJ: Tárhely (Bájt) Számító Logika ---
+  const totalSizeInBytes = useMemo(() => {
+    if (!photos || photos.length === 0) return 0;
+    // Csak a pozitív méretű fájlokat adjuk össze (a -1 = külsős/hiba)
+    return photos.reduce((sum, photo) => sum + Math.max(photo.file_size || 0, 0), 0);
+  }, [photos]);
+
+  const formatExactStorage = (bytes: number) => {
+    if (!bytes || bytes === 0) return '0 MB';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+  // ----------------------------------------
 
   const handleUpdatePhoto = async (photoId: number) => {
     if (!editTitle) return alert('A cím nem lehet üres!');
@@ -189,6 +206,30 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
         <span style={{ fontSize: '2.5rem' }}>🖼️</span> Saját Képalbum (Portfólió)
       </h2>
 
+      {/* --- ÚJ: TÁRHELY INFORMÁCIÓS SÁV --- */}
+      <div style={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        gap: '20px', 
+        background: '#1e293b', 
+        padding: '12px 20px', 
+        borderRadius: '10px', 
+        marginBottom: '25px', 
+        border: '1px solid #334155',
+        flexWrap: 'wrap'
+      }}>
+        <div style={{ fontSize: '1rem', color: '#cbd5e1' }}>
+          📸 Portfólió mérete: <strong style={{ color: '#38bdf8' }}>{photos.length} db kép</strong>
+        </div>
+        
+        <div style={{ height: '20px', width: '2px', background: '#475569', display: window.innerWidth < 500 ? 'none' : 'block' }}></div>
+        
+        <div style={{ fontSize: '1rem', color: '#cbd5e1' }}>
+          💾 Felhasznált tárhely: <strong style={{ color: '#a78bfa' }}>{formatExactStorage(totalSizeInBytes)}</strong>
+        </div>
+      </div>
+      {/* ---------------------------------- */}
+
       <div style={{ background: '#1e293b', padding: '20px', borderRadius: '12px', marginBottom: '20px', border: '1px solid #38bdf850' }}>
         <h3 style={{ marginTop: 0, color: '#38bdf8', fontSize: '1.2rem' }}>📤 Új fotó hozzáadása a portfólióhoz</h3>
         <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
@@ -229,14 +270,10 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#1e293b', padding: '15px 20px', borderRadius: '12px', marginBottom: '20px', border: '1px solid #334155', flexWrap: 'wrap', gap: '15px' }}>
         <div style={{ display: 'flex', gap: '20px' }}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#10b981' }}>{photos.length}</div>
-            <div style={{ fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase' }}>Összes kép</div>
-          </div>
           {searchTerm && (
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#38bdf8' }}>{filteredPhotos.length}</div>
-              <div style={{ fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase' }}>Találat</div>
+              <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#38bdf8' }}>{filteredPhotos.length} / {photos.length}</div>
+              <div style={{ fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase' }}>Keresési találat</div>
             </div>
           )}
         </div>
@@ -245,7 +282,7 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
           placeholder="🔍 Keresés a képeid között..." 
           value={searchTerm}
           onChange={e => setSearchTerm(e.target.value)}
-          style={{ padding: '8px 15px', borderRadius: '8px', border: '1px solid #475569', background: '#0f172a', color: 'white', minWidth: '250px' }}
+          style={{ padding: '8px 15px', borderRadius: '8px', border: '1px solid #475569', background: '#0f172a', color: 'white', minWidth: '300px', outline: 'none' }}
         />
       </div>
 
@@ -317,7 +354,7 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
                   </div>
                 )}
 
-                {/* AI Zsűri Értékelés lenyíló panel (A gombot beletettük!) */}
+                {/* AI Zsűri Értékelés lenyíló panel */}
                 <details style={{ marginBottom: '15px', background: '#38bdf810', borderRadius: '8px', border: '1px solid #38bdf830' }}>
                   <summary style={{ padding: '10px 12px', fontSize: '0.75rem', color: '#38bdf8', textTransform: 'uppercase', fontWeight: 'bold', cursor: 'pointer', outline: 'none', userSelect: 'none' }}>
                     🤖 AI Zsűri Értékelése
@@ -348,7 +385,6 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
                           </div>
                         )}
                         
-                        {/* JAVÍTÁS: Az AI gombot beletettük a lenyíló fül aljába! */}
                         <button 
                           onClick={() => handleAnalyzePhoto(photo.id)} 
                           disabled={isAnalyzingThis}
