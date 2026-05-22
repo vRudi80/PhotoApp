@@ -722,7 +722,7 @@ app.get('/api/admin/user-storage-stats', async (req, res) => {
   }
 });
 
-// --- JAVÍTOTT: FÁJLMÉRETEK SZINKRONIZÁLÁSA (KÜLSŐ LINKEK ÁTUGORÁSA) ---
+// --- JAVÍTOTT, MAXIMÁLISAN HIBATŰRŐ: FÁJLMÉRETEK SZINKRONIZÁLÁSA ---
 app.post('/api/admin/sync-file-sizes', async (req, res) => {
   try {
     const tables = ['photo_portfolio', 'photo_entries', 'photo_homework_entries'];
@@ -730,22 +730,24 @@ app.post('/api/admin/sync-file-sizes', async (req, res) => {
     let skippedCount = 0; // Számoljuk, mennyit dobtunk a "kukába" (-1)
 
     for (const table of tables) {
-      // Csak a feldolgozatlan (0-s méretű) sorokat kérjük le
-      const [rows] = await pool.query(`SELECT id, drive_file_id FROM ${table} WHERE drive_file_id IS NOT NULL AND file_size = 0`);
+      // 1. VÉDELEM: Csak azokat kérjük le, ahol ténylegesen van valami szöveg, és nem csak üres ''
+      const [rows] = await pool.query(`SELECT id, drive_file_id FROM ${table} WHERE drive_file_id IS NOT NULL AND TRIM(drive_file_id) != '' AND file_size = 0`);
       
       for (const row of rows) {
         
-        // 1. VÉDELEM: Ha ez egy külső link (pl. http://... vagy tartalmaz perjelet/pontot), azonnal átugorjuk!
-        if (row.drive_file_id.includes('http') || row.drive_file_id.includes('/') || row.drive_file_id.includes('.')) {
+        const fileId = row.drive_file_id.trim();
+
+        // 2. VÉDELEM: Ha külső link (http), VAGY túl rövid ahhoz, hogy valódi Google Drive ID legyen (< 15 karakter)
+        if (fileId.length < 15 || fileId.includes('http') || fileId.includes('/') || fileId.includes('.')) {
           await pool.query(`UPDATE ${table} SET file_size = -1 WHERE id = ?`, [row.id]);
           skippedCount++;
           continue;
         }
 
         try {
-          // 2. Lekérjük a méretet a mi Drive-unkról
+          // Lekérjük a méretet a mi Drive-unkról
           const fileMetadata = await drive.files.get({
-            fileId: row.drive_file_id,
+            fileId: fileId,
             fields: 'size'
           });
 
@@ -754,17 +756,20 @@ app.post('/api/admin/sync-file-sizes', async (req, res) => {
             await pool.query(`UPDATE ${table} SET file_size = ? WHERE id = ?`, [sizeInBytes, row.id]);
             updatedCount++;
           } else {
-            // Létezik, de valamiért nincs mérete (pl. mappa vagy google doksi)
+            // Létezik, de valamiért nincs mérete (pl. üres mappa vagy Google dokumentum)
             await pool.query(`UPDATE ${table} SET file_size = -1 WHERE id = ?`, [row.id]);
             skippedCount++;
           }
         } catch (driveErr) {
-          // 3. VÉDELEM: Ha 403 (Nincs jogunk - másé a kép) vagy 404 (Törölték / Nem létezik), akkor végleg átugorjuk!
-          if (driveErr.code === 404 || driveErr.code === 403 || driveErr.status === 404 || driveErr.status === 403) {
+          const errorCode = driveErr.code || driveErr.status;
+          
+          // 3. VÉDELEM: Ha 400 (Hibás ID), 403 (Nincs jog), 404 (Törölve) -> Kuka (-1)
+          if (errorCode === 404 || errorCode === 403 || errorCode === 400) {
             await pool.query(`UPDATE ${table} SET file_size = -1 WHERE id = ?`, [row.id]);
             skippedCount++;
           } else {
-            console.error(`Egyéb hiba a Drive API-nál (${row.drive_file_id}):`, driveErr.message);
+            // Egyéb hálózati probléma (pl. 429 Túl sok kérés), ezt kiírjuk, de nem tesszük -1-re
+            console.error(`Egyéb hiba a Drive API-nál (${fileId}):`, driveErr.message);
           }
         }
       }
