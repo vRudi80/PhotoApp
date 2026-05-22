@@ -833,6 +833,76 @@ A JSON pontos struktúrája ez legyen:
   }
 });
 
+// ==========================================
+// --- MAFOSZ MINŐSÍTÉS STATISZTIKA ---
+// ==========================================
+app.get('/api/mafosz-progress', checkPremium, async (req, res) => {
+  const userEmail = req.query.userEmail;
+  try {
+    // Csak a MAFOSZ védnökölt szalonokat nézzük
+    const baseWhere = `
+      WHERE e.user_email = ? 
+      AND e.award_id IS NOT NULL AND e.award_id > 0 
+      AND a.award_name IS NOT NULL AND TRIM(a.award_name) != '' 
+      AND EXISTS (
+        SELECT 1 FROM photo_salon_patrons sp 
+        JOIN photo_patrons p ON sp.patron_id = p.id
+        WHERE sp.salon_id = s.id AND p.name LIKE '%MAFOSZ%'
+      )
+    `;
+
+    // 1 díj = 2 elfogadás szabály beépítve a total_acceptances számításba!
+    const [statsRows] = await pool.query(`
+      SELECT 
+        SUM(CASE WHEN LOWER(a.award_name) != 'acceptance' THEN 2 ELSE 1 END) as total_acceptances,
+        COUNT(DISTINCT e.portfolio_id) as distinct_works,
+        SUM(CASE WHEN LOWER(a.award_name) != 'acceptance' THEN 1 ELSE 0 END) as total_awards
+      FROM photo_salon_entries e 
+      JOIN photo_salons s ON e.salon_id = s.id 
+      JOIN photo_awards a ON e.award_id = a.id 
+      ${baseWhere}
+    `, [userEmail]);
+
+    res.json({ 
+      acceptances: Number(statsRows[0].total_acceptances) || 0, 
+      works: Number(statsRows[0].distinct_works) || 0, 
+      awards: Number(statsRows[0].total_awards) || 0 
+    });
+  } catch (err) { 
+    res.status(500).json({ error: 'Hiba a MAFOSZ statisztika lekérésekor' }); 
+  }
+});
+
+app.get('/api/mafosz-entries', checkPremium, async (req, res) => {
+  const userEmail = req.query.userEmail;
+  try {
+    const [rows] = await pool.query(`
+      SELECT 
+        COALESCE(port.title, 'Ismeretlen / Törölt kép') as photo_title, 
+        s.name as salon_name, 
+        sp.patron_number as mafosz_number, 
+        a.award_name as award, 
+        s.submission_type, 
+        port.drive_file_id, 
+        port.file_url 
+      FROM photo_salon_entries e 
+      JOIN photo_salons s ON e.salon_id = s.id 
+      JOIN photo_awards a ON e.award_id = a.id 
+      JOIN photo_salon_patrons sp ON sp.salon_id = s.id 
+      JOIN photo_patrons p ON sp.patron_id = p.id
+      LEFT JOIN photo_portfolio port ON e.portfolio_id = port.id 
+      WHERE e.user_email = ? 
+        AND p.name LIKE '%MAFOSZ%'
+        AND e.award_id IS NOT NULL AND e.award_id > 0 
+        AND a.award_name IS NOT NULL AND TRIM(a.award_name) != '' 
+      ORDER BY s.name ASC, photo_title ASC
+    `, [userEmail]);
+    
+    res.json(rows);
+  } catch (err) { 
+    res.status(500).json({ error: 'Hiba a MAFOSZ tételes lista lekérésekor' }); 
+  }
+});
 
 // ==========================================
 // --- FIAP MINŐSÍTÉS STATISZTIKA VÉDVE! ---
