@@ -52,24 +52,49 @@ app.post('/api/webhook', express.raw({type: 'application/json'}), async (req, re
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
-    if (event.type === 'checkout.session.completed') {
+      if (event.type === 'checkout.session.completed') {
     const session = event.data.object;
-    const userEmail = session.customer_email;
+    // Stripe okosság: ha customer ID-t adunk át, a customer_email néha null, így biztonságosabb lekérni a details-ből
+    const userEmail = session.customer_details ? session.customer_details.email : session.customer_email;
     const customerId = session.customer; 
-    const tier = session.metadata ? session.metadata.tier : 'basic'; // ÚJ: Kiolvassuk a csomagot
-    const premiumLevel = tier === 'pro' ? 2 : 1; // ÚJ: Szint meghatározása
+    const newSubscriptionId = session.subscription; // AZ ÚJ, most indult előfizetés azonosítója
+    const tier = session.metadata ? session.metadata.tier : 'basic'; 
+    const premiumLevel = tier === 'pro' ? 2 : 1; 
 
     try {
+      // --- ÚJ: RÉGI ELŐFIZETÉSEK AUTOMATIKUS LEMONDÁSA (UPGRADE VÉDELEM) ---
+      if (customerId && newSubscriptionId) {
+        // Lekérjük a Stripe-tól ennek az embernek az összes aktív előfizetését
+        const activeSubscriptions = await stripe.subscriptions.list({
+          customer: customerId,
+          status: 'active',
+        });
+        
+        // Végigmegyünk rajtuk...
+        for (const sub of activeSubscriptions.data) {
+          // És ha találunk olyat, ami NEM a most vásárolt új csomag, azt azonnal lemondjuk!
+          if (sub.id !== newSubscriptionId) {
+            await stripe.subscriptions.cancel(sub.id);
+            console.log(`🧹 Csomagváltás: A régi előfizetést automatikusan lemondtuk (${sub.id})`);
+          }
+        }
+      }
+      // -------------------------------------------------------------------
+
       const premiumUntil = new Date();
       premiumUntil.setMonth(premiumUntil.getMonth() + 1);
+      
+      // Adatbázis frissítése (Figyelünk, hogy az email OR stripe_customer_id alapján is megtalálja)
       await pool.query(
-        'UPDATE photo_users SET is_premium = 1, premium_until = ?, stripe_customer_id = ?, premium_level = ? WHERE email = ?',
-        [premiumUntil, customerId, premiumLevel, userEmail]
+        'UPDATE photo_users SET is_premium = 1, premium_until = ?, stripe_customer_id = ?, premium_level = ? WHERE email = ? OR stripe_customer_id = ?',
+        [premiumUntil, customerId, premiumLevel, userEmail, customerId]
       );
-      console.log(`✅ Prémium (${tier}) aktiválva: ${userEmail}`);
+      console.log(`✅ Prémium (${tier}) sikeresen aktiválva neki: ${userEmail || customerId}`);
     } catch (err) {
-      console.error('Adatbázis hiba a webhookban:', err);
+      console.error('Adatbázis/Lemondási hiba a webhookban:', err);
     }
+  }
+
   }
 
 
@@ -120,15 +145,20 @@ const checkPremium = async (req, res, next) => {
 // ==========================================
 
 // --- STRIPE: ELŐFIZETÉSI OLDAL (CHECKOUT) GENERÁLÁSA ---
+// --- STRIPE: ELŐFIZETÉSI OLDAL (CHECKOUT) GENERÁLÁSA ---
 app.post('/api/create-checkout-session', async (req, res) => {
-  const { userEmail, tier } = req.body; // ÚJ: Megkapjuk, hogy 'basic' vagy 'pro'
-  
+  const { userEmail, tier } = req.body;
   const isPro = tier === 'pro';
-  const priceAmount = isPro ? 249000 : 100000; // 2490 Ft vagy 1000 Ft
+  const priceAmount = isPro ? 249000 : 100000;
   const productName = isPro ? 'Képolvasók Fotóklub Pro Prémium' : 'Képolvasók Fotóklub Alap Prémium';
   
   try {
-    const session = await stripe.checkout.sessions.create({
+    // 1. Megnézzük, hogy van-e már a fotósnak Stripe fiókja nálunk
+    const [rows] = await pool.query('SELECT stripe_customer_id FROM photo_users WHERE email = ?', [userEmail]);
+    const existingCustomerId = rows.length > 0 ? rows[0].stripe_customer_id : null;
+
+    // 2. Felépítjük a fizetési munkamenetet
+    const sessionConfig = {
       payment_method_types: ['card'],
       line_items: [{
           price_data: {
@@ -141,15 +171,26 @@ app.post('/api/create-checkout-session', async (req, res) => {
       }],
       mode: 'subscription',
       subscription_data: { trial_period_days: 7 },
-      metadata: { tier: isPro ? 'pro' : 'basic' }, // ÚJ: Átadjuk a webhooknak a csomag nevét
+      metadata: { tier: isPro ? 'pro' : 'basic' },
       success_url: `${req.headers.origin}?success=true`,
       cancel_url: `${req.headers.origin}?canceled=true`,
-    });
+    };
+
+    // 3. Ha már régi motoros, hozzákötjük a fiókjához! Ha új, az emailjét adjuk át.
+    if (existingCustomerId) {
+      sessionConfig.customer = existingCustomerId;
+    } else {
+      sessionConfig.customer_email = userEmail;
+    }
+
+    const session = await stripe.checkout.sessions.create(sessionConfig);
     res.json({ url: session.url });
   } catch (e) {
+    console.error('Stripe Hiba:', e);
     res.status(500).json({ error: e.message });
   }
 });
+
 
 
 // --- AUTH ÉS USEREK ---
