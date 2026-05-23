@@ -106,7 +106,83 @@ app.post('/api/webhook', express.raw({type: 'application/json'}), async (req, re
     }
   }
 
+    // ... (Prémium lemondva/lejárt blokk után) ...
+
+  // ÚJ: PÁLYÁZATI DÍJ FIZETÉSE SIKERES!
+  if (event.type === 'checkout.session.completed') {
+    const session = event.data.object;
+    
+    // Csak akkor foglalkozunk vele, ha ez egy "Pályázati Nevezési Díj" (ezt a metadatában fogjuk átadni)
+    if (session.metadata && session.metadata.type === 'contest_fee') {
+      const contestId = session.metadata.contest_id;
+      const userEmail = session.metadata.user_email;
+      const sessionId = session.id;
+
+      try {
+        await pool.query(
+          'INSERT INTO photo_contest_payments (contest_id, user_email, stripe_session_id, status) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE status = ?',
+          [contestId, userEmail, sessionId, 'paid', 'paid']
+        );
+        console.log(`✅ Sikeres pályázati díj fizetés! Pályázat ID: ${contestId}, Fotós: ${userEmail}`);
+      } catch (err) {
+        console.error('Adatbázis hiba a pályázati díj fizetésénél:', err);
+      }
+    }
+  }
+
   res.send();
+});
+
+// --- STRIPE: PÁLYÁZATI NEVEZÉSI DÍJ FIZETÉSE ---
+app.post('/api/create-contest-payment', async (req, res) => {
+  const { userEmail, contestId } = req.body;
+  
+  try {
+    // Lekérjük a pályázat árát és nevét
+    const [contests] = await pool.query('SELECT title, entry_fee, fee_currency FROM photo_contests WHERE id = ?', [contestId]);
+    if (contests.length === 0) return res.status(404).json({ error: 'A pályázat nem található!' });
+    
+    const contest = contests[0];
+    if (contest.entry_fee <= 0) return res.status(400).json({ error: 'Ez a pályázat ingyenes!' });
+
+    // Létrehozzuk a Stripe Checkout Session-t
+    const sessionConfig = {
+      payment_method_types: ['card'],
+      line_items: [{
+          price_data: {
+            currency: contest.fee_currency.toLowerCase(),
+            product_data: { name: `Nevezési díj: ${contest.title}` },
+            unit_amount: contest.entry_fee * 100, // A Stripe a legkisebb váltópénzben (cent/fillér) kéri!
+          },
+          quantity: 1,
+      }],
+      mode: 'payment', // Ez egyszeri fizetés lesz (nem előfizetés!)
+      metadata: { 
+        type: 'contest_fee',
+        contest_id: contestId.toString(),
+        user_email: userEmail
+      },
+      // Ha sikeres, visszadobjuk a "Pályázataim" fülre egy "success_contest" paraméterrel
+      success_url: `${req.headers.origin}?tab=contests_open_active&success_contest=${contestId}`,
+      cancel_url: `${req.headers.origin}?tab=contests_open_active&canceled_contest=true`,
+    };
+
+    const session = await stripe.checkout.sessions.create(sessionConfig);
+    res.json({ url: session.url });
+  } catch (e) {
+    console.error('Stripe Pályázati fizetés Hiba:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Lekérdező végpont, hogy a frontend tudja, fizetett-e már
+app.get('/api/contest-payments', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT contest_id, user_email FROM photo_contest_payments WHERE status = "paid"');
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Hiba a fizetések lekérésekor' });
+  }
 });
 
 
@@ -375,8 +451,28 @@ app.get('/api/admin/jury-stats/:contestId', async (req, res) => {
 });
 
 app.get('/api/jury-entries/:contestId', async (req, res) => {
-  try { const [rows] = await pool.query(`SELECT e.id, e.title, e.category, e.file_url, e.drive_file_id FROM photo_entries e LEFT JOIN photo_votes v ON e.id = v.entry_id AND v.jury_email = ? WHERE e.contest_id = ? AND v.id IS NULL`, [req.query.userEmail, req.params.contestId]); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
+  try { 
+    // JAVÍTÁS: Csak akkor adjuk vissza a képet, ha:
+    // 1. A pályázat ingyenes (entry_fee = 0 vagy NULL)
+    // 2. VAGY a fotós szerepel a fizetett táblában
+    const query = `
+      SELECT e.id, e.title, e.category, e.file_url, e.drive_file_id 
+      FROM photo_entries e 
+      JOIN photo_contests c ON e.contest_id = c.id
+      LEFT JOIN photo_votes v ON e.id = v.entry_id AND v.jury_email = ? 
+      LEFT JOIN photo_contest_payments p ON e.contest_id = p.contest_id AND e.user_email = p.user_email
+      WHERE e.contest_id = ? 
+        AND v.id IS NULL
+        AND (c.entry_fee IS NULL OR c.entry_fee = 0 OR p.id IS NOT NULL)
+    `;
+    const [rows] = await pool.query(query, [req.query.userEmail, req.params.contestId]); 
+    res.json(rows); 
+  } catch (err) { 
+    console.error('Hiba a zsűri képeinek lekérésekor:', err);
+    res.status(500).json({ error: 'Hiba' }); 
+  }
 });
+
 
 app.post('/api/vote', async (req, res) => {
   if (req.body.score < 0 || req.body.score > 100) return res.status(400).json({ error: 'Érvénytelen pontszám!' });
