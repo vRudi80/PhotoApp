@@ -8,7 +8,7 @@ require('dotenv').config();
 const axios = require('axios');
 const cheerio = require('cheerio');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-const xlsx = require('xlsx'); // <--- EZT ADD HOZZÁ A TETEJÉHEZ
+const xlsx = require('xlsx');
 
 // ==========================================
 // 1. INICIALIZÁLÁSOK ÉS KAPCSOLATOK
@@ -55,64 +55,8 @@ app.post('/api/webhook', express.raw({type: 'application/json'}), async (req, re
 
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object;
-    // Stripe okosság: ha customer ID-t adunk át, a customer_email néha null, így biztonságosabb lekérni a details-ből
-    const userEmail = session.customer_details ? session.customer_details.email : session.customer_email;
-    const customerId = session.customer; 
-    const newSubscriptionId = session.subscription; // AZ ÚJ, most indult előfizetés azonosítója
-    const tier = session.metadata ? session.metadata.tier : 'basic'; 
-    const premiumLevel = tier === 'pro' ? 2 : 1; 
 
-    try {
-      // --- ÚJ: RÉGI ELŐFIZETÉSEK AUTOMATIKUS LEMONDÁSA (UPGRADE VÉDELEM) ---
-      if (customerId && newSubscriptionId) {
-        // Lekérjük a Stripe-tól ennek az embernek az összes aktív előfizetését
-        const activeSubscriptions = await stripe.subscriptions.list({
-          customer: customerId,
-          status: 'active',
-        });
-        
-        // Végigmegyünk rajtuk...
-        for (const sub of activeSubscriptions.data) {
-          // És ha találunk olyat, ami NEM a most vásárolt új csomag, azt azonnal lemondjuk!
-          if (sub.id !== newSubscriptionId) {
-            await stripe.subscriptions.cancel(sub.id);
-            console.log(`🧹 Csomagváltás: A régi előfizetést automatikusan lemondtuk (${sub.id})`);
-          }
-        }
-      }
-      // -------------------------------------------------------------------
-
-      const premiumUntil = new Date();
-      premiumUntil.setMonth(premiumUntil.getMonth() + 1);
-      
-      // Adatbázis frissítése (Figyelünk, hogy az email OR stripe_customer_id alapján is megtalálja)
-      await pool.query(
-        'UPDATE photo_users SET is_premium = 1, premium_until = ?, stripe_customer_id = ?, premium_level = ? WHERE email = ? OR stripe_customer_id = ?',
-        [premiumUntil, customerId, premiumLevel, userEmail, customerId]
-      );
-      console.log(`✅ Prémium (${tier}) sikeresen aktiválva neki: ${userEmail || customerId}`);
-    } catch (err) {
-      console.error('Adatbázis/Lemondási hiba a webhookban:', err);
-    }
-  } // <--- JAVÍTVA: Itt volt elcsúszva a zárójel a te kódodban!
-
-  if (event.type === 'customer.subscription.deleted') {
-    const customerId = event.data.object.customer;
-    try {
-      await pool.query('UPDATE photo_users SET is_premium = 0 WHERE stripe_customer_id = ?', [customerId]);
-      console.log(`❌ Prémium lemondva/lejárt (Customer ID: ${customerId})`);
-    } catch (err) {
-      console.error('Adatbázis hiba a webhook lemondásnál:', err);
-    }
-  }
-
-    // ... (Prémium lemondva/lejárt blokk után) ...
-
-  // ÚJ: PÁLYÁZATI DÍJ FIZETÉSE SIKERES!
-  if (event.type === 'checkout.session.completed') {
-    const session = event.data.object;
-    
-    // Csak akkor foglalkozunk vele, ha ez egy "Pályázati Nevezési Díj" (ezt a metadatában fogjuk átadni)
+    // --- A) PÁLYÁZATI DÍJ FIZETÉSE ---
     if (session.metadata && session.metadata.type === 'contest_fee') {
       const contestId = session.metadata.contest_id;
       const userEmail = session.metadata.user_email;
@@ -127,63 +71,64 @@ app.post('/api/webhook', express.raw({type: 'application/json'}), async (req, re
       } catch (err) {
         console.error('Adatbázis hiba a pályázati díj fizetésénél:', err);
       }
+    } 
+    // --- B) PRÉMIUM ELŐFIZETÉS KEZELÉSE ---
+    else {
+      const userEmail = session.customer_details ? session.customer_details.email : session.customer_email;
+      const customerId = session.customer; 
+      const newSubscriptionId = session.subscription; 
+      const tier = session.metadata ? session.metadata.tier : 'basic'; 
+      const premiumLevel = tier === 'pro' ? 2 : 1; 
+
+      try {
+        if (customerId && newSubscriptionId) {
+          const activeSubscriptions = await stripe.subscriptions.list({
+            customer: customerId,
+            status: 'active',
+          });
+          
+          for (const sub of activeSubscriptions.data) {
+            if (sub.id !== newSubscriptionId) {
+              await stripe.subscriptions.cancel(sub.id);
+              console.log(`🧹 Csomagváltás: A régi előfizetést automatikusan lemondtuk (${sub.id})`);
+            }
+          }
+        }
+
+        const premiumUntil = new Date();
+        premiumUntil.setMonth(premiumUntil.getMonth() + 1);
+        
+        await pool.query(
+          'UPDATE photo_users SET is_premium = 1, premium_until = ?, stripe_customer_id = ?, premium_level = ? WHERE email = ? OR stripe_customer_id = ?',
+          [premiumUntil, customerId, premiumLevel, userEmail, customerId]
+        );
+        console.log(`✅ Prémium (${tier}) sikeresen aktiválva neki: ${userEmail || customerId}`);
+      } catch (err) {
+        console.error('Adatbázis/Lemondási hiba a webhookban:', err);
+      }
+    }
+  }
+
+  if (event.type === 'customer.subscription.deleted') {
+    const customerId = event.data.object.customer;
+    try {
+      await pool.query('UPDATE photo_users SET is_premium = 0 WHERE stripe_customer_id = ?', [customerId]);
+      console.log(`❌ Prémium lemondva/lejárt (Customer ID: ${customerId})`);
+    } catch (err) {
+      console.error('Adatbázis hiba a webhook lemondásnál:', err);
     }
   }
 
   res.send();
 });
 
-  // --- ÚJ: STRIPE PÁLYÁZATI FIZETÉS INDÍTÁSA (IPAD TESZT VERZIÓ) ---
-  const handlePayContestFee = async (contestId: number) => {
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/create-contest-payment`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          userEmail: user.email, 
-          contestId: contestId,
-          returnUrl: window.location.origin 
-        })
-      });
-
-      let data;
-      try {
-        data = await res.json();
-      } catch (err) {
-        throw new Error(`A szerver nem JSON választ küldött. Kód: ${res.status}`);
-      }
-      
-      if (data.url) {
-        window.location.href = data.url; 
-      } else {
-        alert(data.error || 'Ismeretlen hiba a fizetés indításakor.');
-      }
-    } catch (e: any) {
-      // Brutálisan részletes hibaüzenet, ami felugrik a tableten:
-      alert(`🔥 RÉSZLETES HÁLÓZATI HIBA:\n\nÜzenet: ${e.message}\n\nBackend címe, amit hívtunk: ${BACKEND_URL}`);
-    }
-  };
-
-
-// Lekérdező végpont, hogy a frontend tudja, fizetett-e már
-app.get('/api/contest-payments', async (req, res) => {
-  try {
-    const [rows] = await pool.query('SELECT contest_id, user_email FROM photo_contest_payments WHERE status = "paid"');
-    res.json(rows);
-  } catch (err) {
-    res.status(500).json({ error: 'Hiba a fizetések lekérésekor' });
-  }
-});
-
-
 
 // ==========================================
 // 3. MIDDLEWARE ÉS ALAP BEÁLLÍTÁSOK
 // ==========================================
-app.use(express.json()); // Most már bekapcsolhatjuk a JSON-t a többi végpontnak!
+app.use(express.json()); 
 const upload = multer({ storage: multer.memoryStorage() });
 
-// Prémium státuszt ellenőrző kapuőr (Middleware)
 const checkPremium = async (req, res, next) => {
   const userEmail = req.query.userEmail || req.body.userEmail;
   if (!userEmail) return res.status(400).json({ error: 'Felhasználói azonosító (email) szükséges!' });
@@ -217,11 +162,9 @@ app.post('/api/create-checkout-session', async (req, res) => {
   const productName = isPro ? 'Képolvasók Fotóklub Pro Prémium' : 'Képolvasók Fotóklub Alap Prémium';
   
   try {
-    // 1. Megnézzük, hogy van-e már a fotósnak Stripe fiókja nálunk
     const [rows] = await pool.query('SELECT stripe_customer_id FROM photo_users WHERE email = ?', [userEmail]);
     const existingCustomerId = rows.length > 0 ? rows[0].stripe_customer_id : null;
 
-    // 2. Felépítjük a fizetési munkamenetet
     const sessionConfig = {
       payment_method_types: ['card'],
       line_items: [{
@@ -240,7 +183,6 @@ app.post('/api/create-checkout-session', async (req, res) => {
       cancel_url: `${req.headers.origin}?canceled=true`,
     };
 
-    // 3. Ha már régi motoros, hozzákötjük a fiókjához! Ha új, az emailjét adjuk át.
     if (existingCustomerId) {
       sessionConfig.customer = existingCustomerId;
     } else {
@@ -256,12 +198,65 @@ app.post('/api/create-checkout-session', async (req, res) => {
 });
 
 
+// --- STRIPE: PÁLYÁZATI NEVEZÉSI DÍJ FIZETÉSE ---
+app.post('/api/create-contest-payment', async (req, res) => {
+  const { userEmail, contestId, returnUrl } = req.body;
+  
+  if (!contestId) return res.status(400).json({ error: 'Nem érkezett meg a pályázat azonosítója!' });
+
+  try {
+    const [contests] = await pool.query('SELECT title, entry_fee, fee_currency FROM photo_contests WHERE id = ?', [contestId]);
+    if (contests.length === 0) return res.status(404).json({ error: 'A pályázat nem található!' });
+    
+    const contest = contests[0];
+    if (contest.entry_fee <= 0) return res.status(400).json({ error: 'Ez a pályázat ingyenes!' });
+
+    const origin = returnUrl || req.headers.origin || 'https://kepolvasok.hu';
+
+    const sessionConfig = {
+      payment_method_types: ['card'],
+      line_items: [{
+          price_data: {
+            currency: (contest.fee_currency || 'HUF').toLowerCase(),
+            product_data: { name: `Nevezési díj: ${contest.title}` },
+            unit_amount: contest.entry_fee * 100, 
+          },
+          quantity: 1,
+      }],
+      mode: 'payment',
+      metadata: { 
+        type: 'contest_fee',
+        contest_id: contestId.toString(),
+        user_email: userEmail
+      },
+      success_url: `${origin}?tab=contests_open_active&success_contest=${contestId}`,
+      cancel_url: `${origin}?tab=contests_open_active&canceled_contest=true`,
+    };
+
+    const session = await stripe.checkout.sessions.create(sessionConfig);
+    res.json({ url: session.url });
+  } catch (e) {
+    console.error('Stripe Pályázati fizetés Hiba:', e);
+    res.status(500).json({ error: `Stripe szerver hiba: ${e.message}` });
+  }
+});
+
+
+// Lekérdező végpont, hogy a frontend tudja, fizetett-e már
+app.get('/api/contest-payments', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT contest_id, user_email FROM photo_contest_payments WHERE status = "paid"');
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Hiba a fizetések lekérésekor' });
+  }
+});
+
 
 // --- AUTH ÉS USEREK ---
 app.post('/api/auth/sync', async (req, res) => {
   const { email, name, sub } = req.body;
   try {
-    // 1. Regisztráljuk vagy frissítjük a usert
     await pool.query(
       `INSERT INTO photo_users (google_id, email, name, last_login) 
        VALUES (?, ?, ?, NOW()) 
@@ -269,17 +264,13 @@ app.post('/api/auth/sync', async (req, res) => {
       [sub, email, name, name]
     );
 
-    // 2. ÚJ: Lekérjük a user aktuális prémium státuszát is az adatbázisból
     const [rows] = await pool.query('SELECT is_premium, premium_until, premium_level FROM photo_users WHERE email = ?', [email]);
     
     const userDb = rows[0];
     const now = new Date();
     const premiumUntil = userDb.premium_until ? new Date(userDb.premium_until) : null;
-    
-    // Eldöntjük, hogy ténylegesen aktív-e a prémium tagsága
     const isPremiumActive = (userDb.is_premium === 1 && premiumUntil && premiumUntil > now);
 
-    // Visszaküldjük a frontendnek a válaszban
     res.json({ 
       success: true,
       isPremium: isPremiumActive,
@@ -295,7 +286,6 @@ app.post('/api/auth/sync', async (req, res) => {
 
 app.get('/api/users', async (req, res) => {
   try { 
-    // Bővített lekérdezés: Lekérjük a Prémium adatokat is, ÉS megszámoljuk az AI elemezések számát userenként
     const [rows] = await pool.query(`
       SELECT 
         u.email, 
@@ -361,7 +351,6 @@ app.get('/api/contests', async (req, res) => {
 });
 
 app.post('/api/contests', async (req, res) => {
-  // Új mezők: entryFee, feeCurrency
   const { title, description, startDate, endDate, categories, restrictedClub, entryFee, feeCurrency } = req.body;
   try { 
     await pool.query(
@@ -456,9 +445,6 @@ app.get('/api/admin/jury-stats/:contestId', async (req, res) => {
 
 app.get('/api/jury-entries/:contestId', async (req, res) => {
   try { 
-    // JAVÍTÁS: Csak akkor adjuk vissza a képet, ha:
-    // 1. A pályázat ingyenes (entry_fee = 0 vagy NULL)
-    // 2. VAGY a fotós szerepel a fizetett táblában
     const query = `
       SELECT e.id, e.title, e.category, e.file_url, e.drive_file_id 
       FROM photo_entries e 
@@ -731,7 +717,7 @@ app.post('/api/salons', async (req, res) => {
         if (existing.length > 0) { await conn.rollback(); return res.status(400).json({ error: `Ezzel az azonosítóval (${existing[0].patron_number}) már létezik szalon a rendszerben!` }); }
       }
     }
-    const [result] = await conn.query('INSERT INTO photo_salons (name, fee_amount, fee_currency, start_date, end_date, website, results_date, is_circuit, awards_count, cash_prize, circuit_number, submission_type, host_country_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [name, feeAmount || null, feeCurrency || 'EUR', startDate || null, endDate, website || null, resultsDate || null, isCircuit ? 1 : 0, awardsCount || 0, cashPrize || null, circuitNumber || null, submissionType || 'online', hostCountryId || null]);
+    const [result] = await conn.query('INSERT INTO photo_salons (name, fee_amount, fee_currency, start_date, end_date, website, results_date, is_circuit, awards_count, cashPrize, circuit_number, submission_type, host_country_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [name, feeAmount || null, feeCurrency || 'EUR', startDate || null, endDate, website || null, resultsDate || null, isCircuit ? 1 : 0, awardsCount || 0, cashPrize || null, circuitNumber || null, submissionType || 'online', hostCountryId || null]);
     const salonId = result.insertId;
     if (patronsData && patronsData.length > 0) {
       const pValues = patronsData.map(p => [salonId, p.id, p.number || null]);
