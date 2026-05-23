@@ -137,30 +137,23 @@ app.post('/api/webhook', express.raw({type: 'application/json'}), async (req, re
 app.post('/api/create-contest-payment', async (req, res) => {
   const { userEmail, contestId, returnUrl } = req.body;
   
-  // 1. Védelmi vonal: Ellenőrizzük, hogy egyáltalán megérkezett-e az ID
-  if (!contestId) {
-    return res.status(400).json({ error: 'Rendszerhiba: Nem érkezett meg a pályázat azonosítója (contestId) a gombnyomáskor!' });
-  }
+  if (!contestId) return res.status(400).json({ error: 'Nem érkezett meg a pályázat azonosítója!' });
 
   try {
     const [contests] = await pool.query('SELECT title, entry_fee, fee_currency FROM photo_contests WHERE id = ?', [contestId]);
-    
-    // 2. Védelmi vonal: Ha az adatbázisban tényleg nincs ilyen
-    if (contests.length === 0) {
-      return res.status(404).json({ error: `A pályázat nem található az adatbázisban (Keresett ID: ${contestId})!` });
-    }
+    if (contests.length === 0) return res.status(404).json({ error: 'A pályázat nem található!' });
     
     const contest = contests[0];
-    if (contest.entry_fee <= 0) return res.status(400).json({ error: 'Ez a pályázat ingyenes, nem kell fizetni!' });
+    if (contest.entry_fee <= 0) return res.status(400).json({ error: 'Ez a pályázat ingyenes!' });
 
-    // 3. Védelmi vonal: Biztosítjuk, hogy a Stripe mindig tudja, hova kell visszadobni a usert
     const origin = returnUrl || req.headers.origin || 'https://kepolvasok.hu';
 
     const sessionConfig = {
       payment_method_types: ['card'],
       line_items: [{
           price_data: {
-            currency: contest.fee_currency.toLowerCase(),
+            // JAVÍTÁS: Ha az adatbázisban NULL lenne a pénznem, automatikusan HUF-ot adunk át!
+            currency: (contest.fee_currency || 'HUF').toLowerCase(),
             product_data: { name: `Nevezési díj: ${contest.title}` },
             unit_amount: contest.entry_fee * 100, 
           },
@@ -180,9 +173,11 @@ app.post('/api/create-contest-payment', async (req, res) => {
     res.json({ url: session.url });
   } catch (e) {
     console.error('Stripe Pályázati fizetés Hiba:', e);
+    // Beszédes hibaüzenet a frontendnek!
     res.status(500).json({ error: `Stripe szerver hiba: ${e.message}` });
   }
 });
+
 
 
 // Lekérdező végpont, hogy a frontend tudja, fizetett-e már
