@@ -20,6 +20,8 @@ interface ContestsViewProps {
   newEnd: string; setNewEnd: (v: string) => void;
   newCats: string; setNewCats: (v: string) => void;
   newRestrictedClub: string; setNewRestrictedClub: (v: string) => void;
+  newEntryFee: number | string; setNewEntryFee: (v: number | string) => void; // ÚJ!
+  newFeeCurrency: string; setNewFeeCurrency: (v: string) => void; // ÚJ!
   handleCreateContest: () => void;
   
   // Edit contest form
@@ -30,6 +32,8 @@ interface ContestsViewProps {
   editEnd: string; setEditEnd: (v: string) => void;
   editCats: string; setEditCats: (v: string) => void;
   editRestrictedClub: string; setEditRestrictedClub: (v: string) => void;
+  editEntryFee: number | string; setEditEntryFee: (v: number | string) => void; // ÚJ!
+  editFeeCurrency: string; setEditFeeCurrency: (v: string) => void; // ÚJ!
   startEdit: (c: any) => void;
   handleUpdateContest: () => void;
   handleDeleteContest: (id: number) => void;
@@ -73,6 +77,10 @@ interface ContestsViewProps {
   handleDeleteEntry: (id: number) => void;
 
   setFullscreenData: (data: {url: string, title?: string} | null) => void;
+
+  // ÚJ: Fizetések kezelése
+  contestPayments: any[];
+  handlePayContestFee: (contestId: number) => void;
 }
 
 export default function ContestsView(props: ContestsViewProps) {
@@ -96,7 +104,6 @@ export default function ContestsView(props: ContestsViewProps) {
 
       {!(props.activeTab === 'contests_club_active' && !props.currentDbUser?.club_name) && (
         <>
-          {/* JAVÍTÁS: Az űrlap látható az Admin fülön az adminnak, ÉS a Klub fülön a Klubvezetőnek! */}
           {((props.activeTab === 'admin_contests' && props.user.email === ADMIN_EMAIL) || 
             (props.activeTab === 'contests_club_active' && props.isLeader)) && (
             
@@ -106,13 +113,29 @@ export default function ContestsView(props: ContestsViewProps) {
               </h3>
               <input placeholder="Pályázat címe" value={props.newTitle} onChange={e => props.setNewTitle(e.target.value)} style={inputStyle} />
               <textarea placeholder="Leírás / Szabályzat" value={props.newDesc} onChange={e => props.setNewDesc(e.target.value)} style={{...inputStyle, minHeight: '60px'}} />
+              
               <div style={{display: 'flex', gap: '10px', flexWrap: 'wrap'}}>
                 <div style={{flex: '1 1 200px'}}><label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Kezdés</label><input type="datetime-local" value={props.newStart} onChange={e => props.setNewStart(e.target.value)} style={inputStyle} /></div>
                 <div style={{flex: '1 1 200px'}}><label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Befejezés</label><input type="datetime-local" value={props.newEnd} onChange={e => props.setNewEnd(e.target.value)} style={inputStyle} /></div>
               </div>
+
+              {/* ÚJ: Pályázati díj beállítása */}
+              <div style={{display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '5px'}}>
+                <div style={{flex: '1 1 200px'}}>
+                  <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Nevezési díj (0 = Ingyenes)</label>
+                  <input type="number" min="0" value={props.newEntryFee} onChange={e => props.setNewEntryFee(e.target.value)} style={inputStyle} />
+                </div>
+                <div style={{flex: '1 1 200px'}}>
+                  <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Pénznem</label>
+                  <select value={props.newFeeCurrency} onChange={e => props.setNewFeeCurrency(e.target.value)} style={inputStyle}>
+                    <option value="HUF">HUF (Forint)</option>
+                    <option value="EUR">EUR (Euró)</option>
+                  </select>
+                </div>
+              </div>
+
               <input placeholder="Kategóriák (pl: Természet, Portré, Kreatív) - vesszővel elválasztva" value={props.newCats} onChange={e => props.setNewCats(e.target.value)} style={inputStyle} />
               
-              {/* JAVÍTÁS: Ha a klubvezető hozza létre, nem tud választani, fixen zártkörű a saját klubjának! */}
               {props.user.email === ADMIN_EMAIL ? (
                 <select value={props.newRestrictedClub} onChange={e => props.setNewRestrictedClub(e.target.value)} style={{...inputStyle, border: '1px solid #f59e0b'}}>
                   <option value="">🔓 Nyilvános pályázat (Bárki nevezhet)</option>
@@ -159,6 +182,11 @@ export default function ContestsView(props: ContestsViewProps) {
               const badgeText = isActive ? 'Aktív Pályázat' : isEnded ? (isJudgingComplete ? 'Lezárult' : 'Zsűrizés alatt') : 'Hamarosan indul';
               const badgeColor = isActive ? '#10b981' : isEnded ? (isJudgingComplete ? '#ef4444' : '#a78bfa') : '#f59e0b';
               const badgeBg = isActive ? '#10b98120' : isEnded ? (isJudgingComplete ? '#ef444420' : '#a78bfa20') : '#f59e0b20';
+
+              // ÚJ: Fizetési státusz ellenőrzése ehhez a pályázathoz
+              const entryFee = contest.entry_fee || 0;
+              const isFeeRequired = entryFee > 0;
+              const hasPaid = (props.contestPayments || []).some(p => p.contest_id === contest.id && p.user_email === props.user.email);
 
               return (
                 <div key={contest.id} style={{ backgroundColor: '#1e293b', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', border: `1px solid ${badgeColor}`, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', position: 'relative' }}>
@@ -237,16 +265,28 @@ export default function ContestsView(props: ContestsViewProps) {
                             if (!acc[curr.user_email]) acc[curr.user_email] = { name: curr.user_name, cats: [] };
                             acc[curr.user_email].cats.push({ cat: curr.category, count: curr.image_count });
                             return acc;
-                          }, {} as Record<string, any>)).map(([email, data]: any) => (
-                            <div key={email} style={{ background: '#1e293b', padding: '15px', borderRadius: '8px', border: '1px solid #334155' }}>
-                              <div style={{ fontWeight: 'bold', fontSize: '1.1rem', color: '#f8fafc', marginBottom: '5px' }}>{data.name}</div>
-                              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                                {data.cats.map((c: any) => (
-                                  <span key={c.cat} style={{ background: '#38bdf820', color: '#38bdf8', padding: '6px 12px', borderRadius: '100px', fontSize: '0.85rem' }}>{c.cat}: <strong style={{color: '#f8fafc'}}>{c.count} db</strong></span>
-                                ))}
+                          }, {} as Record<string, any>)).map(([email, data]: any) => {
+                            // ÚJ: Fizetési állapot ellenőrzése az adminként vizsgált tagnál
+                            const userHasPaid = (props.contestPayments || []).some(p => p.contest_id === contest.id && p.user_email === email);
+                            
+                            return (
+                              <div key={email} style={{ background: '#1e293b', padding: '15px', borderRadius: '8px', border: '1px solid #334155' }}>
+                                <div style={{ fontWeight: 'bold', fontSize: '1.1rem', color: '#f8fafc', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                                  <span>{data.name}</span>
+                                  {isFeeRequired && (
+                                    <span style={{ fontSize: '0.85rem', color: userHasPaid ? '#10b981' : '#f59e0b', background: userHasPaid ? '#10b98120' : '#f59e0b20', padding: '4px 8px', borderRadius: '4px', border: `1px solid ${userHasPaid ? '#10b98150' : '#f59e0b50'}` }}>
+                                      {userHasPaid ? '✅ Befizetve' : '⏳ Nincs fizetve'}
+                                    </span>
+                                  )}
+                                </div>
+                                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                                  {data.cats.map((c: any) => (
+                                    <span key={c.cat} style={{ background: '#38bdf820', color: '#38bdf8', padding: '6px 12px', borderRadius: '100px', fontSize: '0.85rem' }}>{c.cat}: <strong style={{color: '#f8fafc'}}>{c.count} db</strong></span>
+                                  ))}
+                                </div>
                               </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       )}
                     </div>
@@ -255,10 +295,27 @@ export default function ContestsView(props: ContestsViewProps) {
                       <h4 style={{marginTop: 0, color: '#f59e0b'}}>Pályázat Szerkesztése</h4>
                       <input value={props.editTitle} onChange={e => props.setEditTitle(e.target.value)} style={inputStyle} />
                       <textarea value={props.editDesc} onChange={e => props.setEditDesc(e.target.value)} style={{...inputStyle, minHeight: '60px'}} />
+                      
                       <div style={{display: 'flex', gap: '10px', flexWrap: 'wrap'}}>
                         <div style={{flex: '1 1 200px'}}><label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Kezdés</label><input type="datetime-local" value={props.editStart} onChange={e => props.setEditStart(e.target.value)} style={inputStyle} /></div>
                         <div style={{flex: '1 1 200px'}}><label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Befejezés</label><input type="datetime-local" value={props.editEnd} onChange={e => props.setEditEnd(e.target.value)} style={inputStyle} /></div>
                       </div>
+
+                      {/* ÚJ: Pályázati díj módosítása */}
+                      <div style={{display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '5px'}}>
+                        <div style={{flex: '1 1 200px'}}>
+                          <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Nevezési díj (0 = Ingyenes)</label>
+                          <input type="number" min="0" value={props.editEntryFee} onChange={e => props.setEditEntryFee(e.target.value)} style={inputStyle} />
+                        </div>
+                        <div style={{flex: '1 1 200px'}}>
+                          <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Pénznem</label>
+                          <select value={props.editFeeCurrency} onChange={e => props.setEditFeeCurrency(e.target.value)} style={inputStyle}>
+                            <option value="HUF">HUF (Forint)</option>
+                            <option value="EUR">EUR (Euró)</option>
+                          </select>
+                        </div>
+                      </div>
+
                       <input value={props.editCats} onChange={e => props.setEditCats(e.target.value)} style={inputStyle} />
                       <select value={props.editRestrictedClub} onChange={e => props.setEditRestrictedClub(e.target.value)} style={{...inputStyle, border: '1px solid #f59e0b'}}>
                         <option value="">🔓 Nyilvános pályázat (Bárki nevezhet)</option>
@@ -416,6 +473,12 @@ export default function ContestsView(props: ContestsViewProps) {
                           <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', paddingTop: contest.restricted_club ? '10px' : '0' }}>
                             <h3 style={{ margin: '0' }}>{contest.title}</h3>
                             <span className="contest-badge" style={{ background: badgeBg, color: badgeColor, marginLeft: '10px' }}>{badgeText}</span>
+                            {/* ÚJ: Fizetős jelvény megjelenítése a cím mellett */}
+                            {isFeeRequired && (
+                              <span style={{ background: '#f59e0b20', color: '#f59e0b', border: '1px solid #f59e0b50', padding: '2px 8px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 'bold', marginLeft: '10px' }}>
+                                💎 {entryFee} {contest.fee_currency}
+                              </span>
+                            )}
                           </div>
 
                           <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', marginTop: '10px' }}>
@@ -482,6 +545,29 @@ export default function ContestsView(props: ContestsViewProps) {
                             <button onClick={() => props.handleUpload(contest.id)} disabled={props.isUploading} style={{ flex: '1 1 150px', background: props.isUploading ? '#475569' : '#10b981', color: 'white', border: 'none', padding: '12px', borderRadius: '8px', cursor: props.isUploading ? 'not-allowed' : 'pointer', fontWeight: 'bold', transition: 'background 0.3s' }}>{props.isUploading ? 'Feltöltés ⏳...' : 'Beküldés 🚀'}</button>
                             <button onClick={() => { props.setActiveUploadContest(null); props.setUploadPreview(null); }} disabled={props.isUploading} style={{ flex: '1 1 100px', background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', padding: '12px', borderRadius: '8px', cursor: props.isUploading ? 'not-allowed' : 'pointer' }}>Mégse</button>
                           </div>
+                        </div>
+                      )}
+
+                      {/* ÚJ: FIZETÉSI BLOKK FELHASZNÁLÓKNAK */}
+                      {myContestEntries.length > 0 && isFeeRequired && !hasPaid && (
+                        <div style={{ background: '#f59e0b20', border: '1px solid #f59e0b', padding: '20px', borderRadius: '12px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
+                          <div>
+                            <strong style={{ color: '#f59e0b', fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '8px' }}>⚠️ Nevezési díj fizetése szükséges</strong>
+                            <div style={{ color: '#cbd5e1', fontSize: '0.95rem', marginTop: '8px', lineHeight: '1.5' }}>
+                              Látjuk, hogy töltöttél fel képeket! A képeid azonban csak a nevezési díj beérkezése után kerülnek a zsűri elé.<br/>
+                              Fizetendő összeg: <strong style={{color: '#f8fafc', fontSize: '1.1rem'}}>{entryFee} {contest.fee_currency}</strong>
+                            </div>
+                          </div>
+                          <button onClick={() => props.handlePayContestFee(contest.id)} style={{ background: '#f59e0b', color: '#0f172a', border: 'none', padding: '12px 25px', borderRadius: '8px', fontWeight: 'bold', fontSize: '1.1rem', cursor: 'pointer', transition: 'transform 0.2s', boxShadow: '0 4px 10px rgba(245, 158, 11, 0.3)' }} onMouseOver={e => e.currentTarget.style.transform = 'translateY(-2px)'} onMouseOut={e => e.currentTarget.style.transform = 'translateY(0)'}>
+                            💳 Fizetés (Stripe)
+                          </button>
+                        </div>
+                      )}
+
+                      {/* ÚJ: SIKERES FIZETÉS JELZÉSE */}
+                      {myContestEntries.length > 0 && isFeeRequired && hasPaid && (
+                        <div style={{ background: '#10b98120', border: '1px solid #10b98150', padding: '12px 20px', borderRadius: '8px', marginBottom: '20px', color: '#10b981', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <span style={{fontSize: '1.2rem'}}>✅</span> Nevezési díj sikeresen befizetve! A képeid érvényesek és a zsűri elé kerülnek.
                         </div>
                       )}
 
