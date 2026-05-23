@@ -152,7 +152,6 @@ app.post('/api/create-contest-payment', async (req, res) => {
       payment_method_types: ['card'],
       line_items: [{
           price_data: {
-            // JAVÍTÁS: Ha az adatbázisban NULL lenne a pénznem, automatikusan HUF-ot adunk át!
             currency: (contest.fee_currency || 'HUF').toLowerCase(),
             product_data: { name: `Nevezési díj: ${contest.title}` },
             unit_amount: contest.entry_fee * 100, 
@@ -173,12 +172,9 @@ app.post('/api/create-contest-payment', async (req, res) => {
     res.json({ url: session.url });
   } catch (e) {
     console.error('Stripe Pályázati fizetés Hiba:', e);
-    // Beszédes hibaüzenet a frontendnek!
     res.status(500).json({ error: `Stripe szerver hiba: ${e.message}` });
   }
 });
-
-
 
 // Lekérdező végpont, hogy a frontend tudja, fizetett-e már
 app.get('/api/contest-payments', async (req, res) => {
@@ -189,6 +185,7 @@ app.get('/api/contest-payments', async (req, res) => {
     res.status(500).json({ error: 'Hiba a fizetések lekérésekor' });
   }
 });
+
 
 
 // ==========================================
