@@ -8,6 +8,7 @@ require('dotenv').config();
 const axios = require('axios');
 const cheerio = require('cheerio');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const xlsx = require('xlsx'); // <--- EZT ADD HOZZÁ A TETEJÉHEZ
 
 // ==========================================
 // 1. INICIALIZÁLÁSOK ÉS KAPCSOLATOK
@@ -1043,6 +1044,201 @@ app.post('/api/admin/import-fiap', async (req, res) => {
     res.json({ count: importedCount, success: true });
   } catch (e) { await conn.rollback(); res.status(500).json({ error: e.message }); } finally { conn.release(); }
 });
+
+// ==========================================
+// --- OKOS EXCEL IMPORTÁLÁS (FIAP/MAFOSZ) ---
+// ==========================================
+
+// 1. Fájl fogadása, Excel olvasás, AI normalizálás és DB ellenőrzés
+app.post('/api/import/excel-analyze', upload.single('file'), checkPremium, async (req, res) => {
+  const { userEmail } = req.body;
+  if (!req.file) return res.status(400).json({ error: 'Nincs fájl feltöltve!' });
+
+  try {
+    // 1. Excel beolvasása a memóriából
+    const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
+    const sheetName = workbook.SheetNames[0]; // Az első munkalapot olvassuk
+    const rawData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
+
+    if (rawData.length === 0) return res.status(400).json({ error: 'Az Excel táblázat üres vagy nem olvasható.' });
+    
+    // Limitáljuk az AI-nak küldött adatot, hogy ne kapjon "sokkot" (max 150 sor egyszerre)
+    const sampleData = rawData.slice(0, 150);
+
+    // 2. Gemini AI Normalizálás
+    const model = genAI.getGenerativeModel({
+      model: "gemini-2.5-flash",
+      generationConfig: { responseMimeType: "application/json" }
+    });
+
+    const prompt = `Kaptál egy nyers JSON adatot, ami egy fotós FIAP/MAFOSZ pályázati eredményeit tartalmazza egy Excelből.
+    A feladatod, hogy normalizáld ezt az adatot, és egy szigorú, egységes JSON tömböt (Array) adj vissza!
+    
+    Szabályok minden sorhoz:
+    - "title": Keresd meg a kép címét (Image Title, Title, Photo, Image Name, stb.).
+    - "fiapNumber": Keresd meg a FIAP vagy MAFOSZ azonosítót (pl. "2024/123", "FIAP Patronage", stb.). Ha nincs, hagyd üresen.
+    - "award": Keresd meg az eredményt (Acceptance, Gold Medal, Ribbon, Elfogadás, stb.). Ha nincs, legyen "Acceptance".
+    - "salonName": Keresd meg a Szalon nevét (Salon, Exhibition, stb.). HA NINCS BENNE konkrét szalonnév oszlop, akkor a "fiapNumber" alapján (a fotós tudásbázisodból) találd ki a pályázat nevét (pl. 'Oasis Photo Circuit')! Ha sehogy sem tudod, legyen "Ismeretlen Szalon".
+
+    KIZÁRÓLAG egy érvényes JSON tömböt adj vissza, amiben ilyen objektumok vannak (szigorúan idézőjelek nélkül a kulcsokon belül):
+    [{"title": "Kép címe", "fiapNumber": "2024/001", "award": "Acceptance", "salonName": "Szalon Neve 2024"}]
+
+    Nyers adat:
+    ${JSON.stringify(sampleData)}
+    `;
+
+    const result = await model.generateContent(prompt);
+    let text = await result.response.text();
+    
+    const jsonStart = text.indexOf('[');
+    const jsonEnd = text.lastIndexOf(']');
+    if (jsonStart === -1 || jsonEnd === -1) throw new Error("Az AI nem generált érvényes listát.");
+    
+    const normalizedArray = JSON.parse(text.substring(jsonStart, jsonEnd + 1));
+
+    // 3. Adatbázis ellenőrzés (Soronként vizsgáló logikád megvalósítása)
+    const processedResults = [];
+    const [dbPortfolio] = await pool.query('SELECT id, title FROM photo_portfolio WHERE user_email = ?', [userEmail]);
+    
+    // Lekérjük az összes FIAP/MAFOSZ szalont a patron number alapján
+    const [dbSalons] = await pool.query('SELECT s.id, s.name, sp.patron_number FROM photo_salons s JOIN photo_salon_patrons sp ON s.id = sp.salon_id WHERE sp.patron_number IS NOT NULL AND sp.patron_number != ""');
+    
+    // Lekérjük a user összes eddigi nevezését
+    const [dbEntries] = await pool.query('SELECT salon_id, portfolio_id FROM photo_salon_entries WHERE user_email = ?', [userEmail]);
+
+    for (const item of normalizedArray) {
+      const itemTitle = item.title ? item.title.trim() : '';
+      const itemFiap = item.fiapNumber ? item.fiapNumber.trim() : '';
+      
+      let status = 'ready'; // Zöld: minden megvan
+      let portfolioId = null;
+      let salonId = null;
+      let warnings = [];
+
+      // A) Portfólió ellenőrzés (Név alapján)
+      const matchedPhoto = dbPortfolio.find(p => p.title.toLowerCase() === itemTitle.toLowerCase());
+      if (matchedPhoto) {
+        portfolioId = matchedPhoto.id;
+      } else {
+        status = 'missing_photo'; // Sárga: üres kép lesz
+        warnings.push('A kép nincs a portfóliódban (üres keretként jön létre).');
+      }
+
+      // B) Szalon ellenőrzés (FIAP azonosító alapján)
+      const matchedSalon = dbSalons.find(s => s.patron_number === itemFiap);
+      if (matchedSalon) {
+        salonId = matchedSalon.id;
+        item.salonName = matchedSalon.name; // Felülírjuk a nálunk szereplő hivatalos névre!
+      } else {
+        if (status === 'ready') status = 'missing_salon'; // Piros/Sárga: új szalon lesz
+        else status = 'missing_both';
+        warnings.push('A szalon nem létezik, automatikusan létrejön.');
+      }
+
+      // C) Duplikáció ellenőrzés (Már nevezte ezt a képet ebbe a szalonba?)
+      if (portfolioId && salonId) {
+        const isDuplicate = dbEntries.find(e => e.salon_id === salonId && e.portfolio_id === portfolioId);
+        if (isDuplicate) {
+          status = 'duplicate'; // Szürke: kihagyjuk
+          warnings = ['Ez az eredmény már szerepel a rendszerben!'];
+        }
+      }
+
+      processedResults.push({
+        ...item,
+        status,
+        warnings,
+        portfolioId,
+        salonId
+      });
+    }
+
+    res.json(processedResults);
+
+  } catch (err) {
+    console.error('Excel feldolgozási hiba:', err);
+    res.status(500).json({ error: 'Hiba történt az Excel elemzésekor: ' + err.message });
+  }
+});
+
+// 2. A jóváhagyott lista végleges mentése az Adatbázisba
+app.post('/api/import/execute', checkPremium, async (req, res) => {
+  const { userEmail, userName, items } = req.body; 
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    // Lekérjük a díjakat, hogy az AI által adott "Award"-ot össze tudjuk párosítani
+    const [dbAwards] = await conn.query('SELECT id, award_name FROM photo_awards');
+
+    for (const item of items) {
+      // Duplikáltakat kérés szerint szigorúan kihagyjuk
+      if (item.status === 'duplicate' || item.skip) continue; 
+
+      let finalSalonId = item.salonId;
+      let finalPortfolioId = item.portfolioId;
+
+      // 1. Szalon létrehozása, ha nincs
+      if (!finalSalonId) {
+        const todayStr = new Date().toISOString().split('T')[0];
+        const [insSalon] = await conn.query(
+          'INSERT INTO photo_salons (name, start_date, end_date, submission_type) VALUES (?, ?, ?, ?)',
+          [item.salonName || 'Importált Szalon', todayStr, todayStr, 'online']
+        );
+        finalSalonId = insSalon.insertId;
+        
+        // Hozzárendeljük a FIAP védnökséget (patron_id = 1), ha van FIAP száma
+        if (item.fiapNumber) {
+          await conn.query(
+            'INSERT INTO photo_salon_patrons (salon_id, patron_id, patron_number) VALUES (?, ?, ?)',
+            [finalSalonId, 1, item.fiapNumber]
+          );
+        }
+      }
+
+      // 2. Fotó létrehozása üresen, ha nincs
+      if (!finalPortfolioId) {
+        const [insPhoto] = await conn.query(
+          'INSERT INTO photo_portfolio (user_email, user_name, title, file_url, drive_file_id) VALUES (?, ?, ?, ?, ?)',
+          [userEmail, userName || 'Importált Felhasználó', item.title || 'Ismeretlen Kép', '', null]
+        );
+        finalPortfolioId = insPhoto.insertId;
+      }
+
+      // 3. Díj azonosítása vagy létrehozása (pl. "Gold Medal", "Acceptance")
+      let awardId = null;
+      if (item.award) {
+        const matchedAward = dbAwards.find(a => a.award_name.toLowerCase() === item.award.toLowerCase());
+        if (matchedAward) {
+          awardId = matchedAward.id;
+        } else {
+          // Ha nincs ilyen díj a rendszerben, automatikusan létrehozzuk!
+          const [[{ nextId }]] = await conn.query('SELECT COALESCE(MAX(id), 0) + 1 as nextId FROM photo_awards');
+          await conn.query('INSERT INTO photo_awards (id, award_name) VALUES (?, ?)', [nextId, item.award]);
+          awardId = nextId;
+          dbAwards.push({ id: awardId, award_name: item.award }); // Hozzáadjuk a listához, hogy a kövi sornál már megtalálja
+        }
+      }
+
+      // 4. Eredmény végleges rögzítése a "Importált" kategóriával
+      await conn.query(
+        'INSERT INTO photo_salon_entries (salon_id, user_email, portfolio_id, award_id, category) VALUES (?, ?, ?, ?, ?)',
+        [finalSalonId, userEmail, finalPortfolioId, awardId, 'Importált']
+      );
+    }
+
+    await conn.commit();
+    res.json({ success: true });
+  } catch (e) {
+    await conn.rollback();
+    console.error('Importálási hiba:', e);
+    res.status(500).json({ error: e.message });
+  } finally {
+    conn.release();
+  }
+});
+
+
 // ==========================================
 // --- STRIPE: ÜGYFÉLKAPU (CUSTOMER PORTAL) LEMONDÁSHOZ ÉS KÁRTYACSERÉHEZ ---
 // ==========================================
