@@ -3,6 +3,7 @@ import { BACKEND_URL, ADMIN_EMAIL } from '../utils/constants'; // JAVÍTÁS: Imp
 import { getImageUrl } from '../utils/helpers';
 import PremiumPaywall from './PremiumPaywall'; 
 import { getFlagImageUrl } from '../utils/helpers';
+import ExcelImportModal from '../components/ExcelImportModal';
 
 const FIAP_LEVELS = [
   { id: 'NFIAP', name: 'Novice FIAP', req: { acceptances: 25, countries: 5, works: 10 }, color: '#ec4899' },
@@ -24,7 +25,8 @@ export default function FiapProgressView({ user, allUsers = [] }: FiapProgressVi
   const [stats, setStats] = useState({ acceptances: 0, countries: 0, works: 0 });
   const [entries, setEntries] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+
   const [searchTerm, setSearchTerm] = useState('');
 
   // --- ÚJ JAVÍTÁS: Kijelölt email állapot, alapból a saját (bejelentkezett) usere ---
@@ -123,7 +125,17 @@ export default function FiapProgressView({ user, allUsers = [] }: FiapProgressVi
       <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '15px', color: '#60a5fa' }}>
         <span style={{ fontSize: '2.5rem' }}>🏅</span> FIAP Minősítés Követő
       </h2>
-
+ {/* ÚJ: Excel Import gomb */}
+        {user.email === selectedEmail && (
+          <button 
+            onClick={() => setIsImportModalOpen(true)}
+            style={{ background: '#10b981', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+          >
+            <span>📊</span> Excel Importálás (AI)
+          </button>
+        )}
+      </div>
+    
       {/* --- ÚJ JAVÍTÁS: ADMIN LEGÖRDÜLŐ MENÜ (Ha ő az admin) --- */}
       {user.email === ADMIN_EMAIL && allUsers.length > 0 && (
         <div style={{ marginBottom: '30px', padding: '20px', background: '#1e293b', borderRadius: '12px', border: '2px solid #f59e0b', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}>
@@ -152,6 +164,15 @@ export default function FiapProgressView({ user, allUsers = [] }: FiapProgressVi
                 </option>
             ))}
           </select>
+             <ExcelImportModal 
+        isOpen={isImportModalOpen} 
+        onClose={() => setIsImportModalOpen(false)} 
+        user={user} 
+        onSuccess={() => {
+          // Ha az import sikeres volt, kiváltunk egy újratöltést, hogy látszódjanak az új adatok!
+          window.location.reload(); 
+        }} 
+      />
         </div>
       )}
 
