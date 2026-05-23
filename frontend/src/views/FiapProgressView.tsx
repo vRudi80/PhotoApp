@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { BACKEND_URL, ADMIN_EMAIL } from '../utils/constants'; // JAVÍTÁS: Importáljuk az ADMIN_EMAIL-t!
+import { BACKEND_URL, ADMIN_EMAIL } from '../utils/constants';
 import { getImageUrl } from '../utils/helpers';
 import PremiumPaywall from './PremiumPaywall'; 
 import { getFlagImageUrl } from '../utils/helpers';
@@ -15,10 +15,9 @@ const FIAP_LEVELS = [
   { id: 'EFIAP/p', name: 'Excellence Platinum', req: { acceptances: 1200, countries: 40, works: 300 }, color: '#334155' }
 ];
 
-// JAVÍTÁS: Kiegészítjük a Props interface-t, hogy fogadhassa az összes usert is
 interface FiapProgressViewProps {
   user: any;
-  allUsers?: any[]; // Az App.tsx-ben átadott lista az adminoknak
+  allUsers?: any[]; 
 }
 
 export default function FiapProgressView({ user, allUsers = [] }: FiapProgressViewProps) {
@@ -26,13 +25,9 @@ export default function FiapProgressView({ user, allUsers = [] }: FiapProgressVi
   const [entries, setEntries] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-
   const [searchTerm, setSearchTerm] = useState('');
-
-  // --- ÚJ JAVÍTÁS: Kijelölt email állapot, alapból a saját (bejelentkezett) usere ---
   const [selectedEmail, setSelectedEmail] = useState(user?.email || '');
 
-  // Ha esetleg megváltozik a propból kapott user (pl. kijelentkezik / bejelentkezik)
   useEffect(() => {
     if (user?.email) setSelectedEmail(user.email);
   }, [user]);
@@ -44,9 +39,8 @@ export default function FiapProgressView({ user, allUsers = [] }: FiapProgressVi
     }
 
     const fetchProgress = async () => {
-      setIsLoading(true); // Újratöltéskor mutassunk egy kis töltés ikont
+      setIsLoading(true); 
       try {
-        // JAVÍTÁS: Most már a selectedEmail változót küldjük a backendnek!
         const [resStats, resEntries] = await Promise.all([
           fetch(`${BACKEND_URL}/api/fiap-progress?userEmail=${selectedEmail}`),
           fetch(`${BACKEND_URL}/api/fiap-entries?userEmail=${selectedEmail}`)
@@ -62,7 +56,7 @@ export default function FiapProgressView({ user, allUsers = [] }: FiapProgressVi
     };
     
     fetchProgress();
-  }, [user, selectedEmail]); // A lekérdezés lefut, ha a selectedEmail megváltozik!
+  }, [user, selectedEmail]); 
 
   const filteredEntries = useMemo(() => {
     if (!searchTerm) return entries;
@@ -122,10 +116,13 @@ export default function FiapProgressView({ user, allUsers = [] }: FiapProgressVi
 
   return (
     <div>
-      <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '15px', color: '#60a5fa' }}>
-        <span style={{ fontSize: '2.5rem' }}>🏅</span> FIAP Minősítés Követő
-      </h2>
- {/* ÚJ: Excel Import gomb */}
+      {/* JAVÍTVA: Szépen egy sorba rendeztük a címet és a gombot */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px', marginBottom: '1.5rem' }}>
+        <h2 style={{ margin: 0, fontSize: '2rem', display: 'flex', alignItems: 'center', gap: '15px', color: '#60a5fa' }}>
+          <span style={{ fontSize: '2.5rem' }}>🏅</span> FIAP Minősítés Követő
+        </h2>
+        
+        {/* ÚJ: Excel Import gomb */}
         {user.email === selectedEmail && (
           <button 
             onClick={() => setIsImportModalOpen(true)}
@@ -136,7 +133,7 @@ export default function FiapProgressView({ user, allUsers = [] }: FiapProgressVi
         )}
       </div>
     
-      {/* --- ÚJ JAVÍTÁS: ADMIN LEGÖRDÜLŐ MENÜ (Ha ő az admin) --- */}
+      {/* --- ADMIN LEGÖRDÜLŐ MENÜ --- */}
       {user.email === ADMIN_EMAIL && allUsers.length > 0 && (
         <div style={{ marginBottom: '30px', padding: '20px', background: '#1e293b', borderRadius: '12px', border: '2px solid #f59e0b', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '10px' }}>
@@ -156,7 +153,6 @@ export default function FiapProgressView({ user, allUsers = [] }: FiapProgressVi
             <option value={user.email}>-- Saját adataim megtekintése --</option>
             {allUsers
               .filter(u => u.email !== user.email)
-              // Név szerinti ábécé sorrendbe rendezve
               .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
               .map(u => (
                 <option key={u.email} value={u.email}>
@@ -164,19 +160,9 @@ export default function FiapProgressView({ user, allUsers = [] }: FiapProgressVi
                 </option>
             ))}
           </select>
-             <ExcelImportModal 
-        isOpen={isImportModalOpen} 
-        onClose={() => setIsImportModalOpen(false)} 
-        user={user} 
-        onSuccess={() => {
-          // Ha az import sikeres volt, kiváltunk egy újratöltést, hogy látszódjanak az új adatok!
-          window.location.reload(); 
-        }} 
-      />
         </div>
       )}
 
-      {/* --- Ha kiválasztott valakit, aki épp töltődik --- */}
       {isLoading ? (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '300px', color: '#60a5fa' }}>
           <div style={{ fontSize: '3rem', marginBottom: '20px', animation: 'spin 2s linear infinite' }}>⏳</div>
@@ -323,6 +309,14 @@ export default function FiapProgressView({ user, allUsers = [] }: FiapProgressVi
           )}
         </>
       )}
+
+      {/* JAVÍTVA: A Modal kikerült a lógó levegőből, és az oldal legvégére, a legbelső div elé került! */}
+      <ExcelImportModal 
+        isOpen={isImportModalOpen} 
+        onClose={() => setIsImportModalOpen(false)} 
+        user={user} 
+        onSuccess={() => window.location.reload()} 
+      />
     </div>
   );
 }
