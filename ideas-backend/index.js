@@ -133,48 +133,37 @@ app.post('/api/webhook', express.raw({type: 'application/json'}), async (req, re
   res.send();
 });
 
-// --- STRIPE: PÁLYÁZATI NEVEZÉSI DÍJ FIZETÉSE ---
-app.post('/api/create-contest-payment', async (req, res) => {
-  const { userEmail, contestId, returnUrl } = req.body;
-  
-  if (!contestId) return res.status(400).json({ error: 'Nem érkezett meg a pályázat azonosítója!' });
+  // --- ÚJ: STRIPE PÁLYÁZATI FIZETÉS INDÍTÁSA (IPAD TESZT VERZIÓ) ---
+  const handlePayContestFee = async (contestId: number) => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/create-contest-payment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          userEmail: user.email, 
+          contestId: contestId,
+          returnUrl: window.location.origin 
+        })
+      });
 
-  try {
-    const [contests] = await pool.query('SELECT title, entry_fee, fee_currency FROM photo_contests WHERE id = ?', [contestId]);
-    if (contests.length === 0) return res.status(404).json({ error: 'A pályázat nem található!' });
-    
-    const contest = contests[0];
-    if (contest.entry_fee <= 0) return res.status(400).json({ error: 'Ez a pályázat ingyenes!' });
+      let data;
+      try {
+        data = await res.json();
+      } catch (err) {
+        throw new Error(`A szerver nem JSON választ küldött. Kód: ${res.status}`);
+      }
+      
+      if (data.url) {
+        window.location.href = data.url; 
+      } else {
+        alert(data.error || 'Ismeretlen hiba a fizetés indításakor.');
+      }
+    } catch (e: any) {
+      // Brutálisan részletes hibaüzenet, ami felugrik a tableten:
+      alert(`🔥 RÉSZLETES HÁLÓZATI HIBA:\n\nÜzenet: ${e.message}\n\nBackend címe, amit hívtunk: ${BACKEND_URL}`);
+    }
+  };
 
-    const origin = returnUrl || req.headers.origin || 'https://kepolvasok.hu';
-
-    const sessionConfig = {
-      payment_method_types: ['card'],
-      line_items: [{
-          price_data: {
-            currency: (contest.fee_currency || 'HUF').toLowerCase(),
-            product_data: { name: `Nevezési díj: ${contest.title}` },
-            unit_amount: contest.entry_fee * 100, 
-          },
-          quantity: 1,
-      }],
-      mode: 'payment',
-      metadata: { 
-        type: 'contest_fee',
-        contest_id: contestId.toString(),
-        user_email: userEmail
-      },
-      success_url: `${origin}?tab=contests_open_active&success_contest=${contestId}`,
-      cancel_url: `${origin}?tab=contests_open_active&canceled_contest=true`,
-    };
-
-    const session = await stripe.checkout.sessions.create(sessionConfig);
-    res.json({ url: session.url });
-  } catch (e) {
-    console.error('Stripe Pályázati fizetés Hiba:', e);
-    res.status(500).json({ error: `Stripe szerver hiba: ${e.message}` });
-  }
-});
 
 // Lekérdező végpont, hogy a frontend tudja, fizetett-e már
 app.get('/api/contest-payments', async (req, res) => {
