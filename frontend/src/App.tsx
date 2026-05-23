@@ -70,7 +70,8 @@ function App() {
   const [selectedSalon, setSelectedSalon] = useState<any>(null);
 
   const [activeTab, setActiveTab] = useState<'contests_open_active' | 'contests_club_active' | 'contests_closed' | 'club_nights' | 'club_homeworks' | 'salons' | 'my_album' | 'admin_contests' | 'admin_users' | 'admin_clubs' | 'admin_meetings' | 'admin_homeworks' | 'admin_salons' | 'packages' | 'fiap_progress' | 'mafosz_progress'>('contests_open_active');
-  const [dropdownOpen, setDropdownOpen] = useState<'contests' | 'club' | 'admin' | null>(null);
+  const [dropdownOpen, setDropdownOpen] = useState<'contests' | 'club' | 'admin' | 'progress' | null>(null);
+
   
   const [userClubEdits, setUserClubEdits] = useState<Record<string, string>>({});
   const [userRoleEdits, setUserRoleEdits] = useState<Record<string, string>>({});
