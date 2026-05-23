@@ -350,25 +350,31 @@ function App() {
     fetchMyEntries(decoded.email);
   };
 
-  // --- ÚJ: STRIPE PÁLYÁZATI FIZETÉS INDÍTÁSA ---
+   // --- ÚJ: STRIPE PÁLYÁZATI FIZETÉS INDÍTÁSA ---
   const handlePayContestFee = async (contestId: number) => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/create-contest-payment`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userEmail: user.email, contestId })
+        body: JSON.stringify({ 
+          userEmail: user.email, 
+          contestId: contestId,
+          returnUrl: window.location.origin // Védőháló: Fixen átadjuk a weboldal URL-jét
+        })
       });
       const data = await res.json();
       
       if (data.url) {
         window.location.href = data.url; // Átirányítás a Stripe-ra
       } else {
+        // Ha bármi hiba van, itt egy felugró ablakban (Alert) fogja kiírni, nem egy új oldalon!
         alert(data.error || 'Hiba a fizetés indításakor.');
       }
     } catch (e) {
       alert('Hálózati hiba a Stripe elérésekor!');
     }
   };
+
 
   const handleAddClub = async () => { if (!newClubName) return; const res = await fetch(`${BACKEND_URL}/api/clubs`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: newClubName }) }); if (res.ok) { setNewClubName(''); fetchData(); } };
   const handleDeleteClub = async (id: number) => { if (!window.confirm("Biztosan törlöd ezt a klubot?")) return; const res = await fetch(`${BACKEND_URL}/api/clubs/${id}`, { method: 'DELETE' }); if (res.ok) fetchData(); };
