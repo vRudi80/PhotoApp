@@ -7,8 +7,9 @@ interface HeaderProps {
   isLeader: boolean;
   activeTab: string;
   setActiveTab: (tab: any) => void;
-  dropdownOpen: 'contests' | 'club' | 'admin' | null;
-  setDropdownOpen: (open: 'contests' | 'club' | 'admin' | null) => void;
+  // JAVÍTÁS: Hozzáadtuk a 'progress' (Minősítések) opciót a lenyíló menü típusaihoz
+  dropdownOpen: 'contests' | 'club' | 'admin' | 'progress' | null;
+  setDropdownOpen: (open: 'contests' | 'club' | 'admin' | 'progress' | null) => void;
   onLogout: () => void;
 }
 
@@ -33,7 +34,6 @@ export default function Header({
   // SEGÉDFÜGGVÉNY: A Stripe Ügyfélkapu indítása
   const handleManageSubscription = async () => {
     try {
-      // JAVÍTÁS: Itt a "backtick" (visszafelé dőlő idézőjel) használata a dinamikus URL-hez!
       const res = await fetch(`${BACKEND_URL}/api/create-portal-session`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -89,31 +89,45 @@ export default function Header({
           </div>
 
           <div className="nav-item-container" style={{ zIndex: 50 }}>
+              <button className={`nav-btn ${activeTab === 'my_album' ? 'active' : ''}`} style={{ color: '#10b981' }} onClick={() => handleNavClick('my_album')}>
+                <span>🖼️ Saját Képalbum</span>
+              </button>
+          </div>
+
+          <div className="nav-item-container" style={{ zIndex: 50 }}>
             <button className={`nav-btn ${activeTab === 'salons' ? 'active' : ''}`} style={{ color: '#60a5fa' }} onClick={() => handleNavClick('salons')}>
               <span>🌐 Nemzetközi Szalonok</span>
             </button>
           </div>
 
-          <div className="nav-item-container" style={{ zIndex: 50 }}>
-              <button className={`nav-btn ${activeTab === 'my_album' ? 'active' : ''}`} style={{ color: '#10b981' }} onClick={() => handleNavClick('my_album')}>
-                <span>🖼️ Saját Képalbum</span>
-              </button>
-          </div>
-          
-          <div className="nav-item-container" style={{ zIndex: 50 }}>
-            <button className={`nav-btn ${activeTab === 'fiap_progress' ? 'active' : ''}`} style={{ color: '#f472b6' }} onClick={() => handleNavClick('fiap_progress')}>
-              <span>🏅 FIAP Minősítések</span>
+          {/* --- JAVÍTOTT RÉSZ: ÖSSZEVONT MINŐSÍTÉSEK MENÜ --- */}
+          <div className="nav-item-container" style={{ zIndex: dropdownOpen === 'progress' ? 60 : 50 }}>
+            <button 
+              className={`nav-btn ${dropdownOpen === 'progress' || activeTab === 'fiap_progress' || activeTab === 'mafosz_progress' ? 'active' : ''}`} 
+              onClick={() => setDropdownOpen(dropdownOpen === 'progress' ? null : 'progress')}
+            >
+              <span>🏆 Minősítések</span> <span>▾</span>
             </button>
+            {dropdownOpen === 'progress' && (
+              <div className="dropdown-menu">
+                <button 
+                  className={`drop-item ${activeTab === 'fiap_progress' ? 'active' : ''}`} 
+                  onClick={() => handleNavClick('fiap_progress')}
+                >
+                  🏅 FIAP Követő
+                </button>
+                <button 
+                  className={`drop-item ${activeTab === 'mafosz_progress' ? 'active' : ''}`} 
+                  onClick={() => handleNavClick('mafosz_progress')}
+                >
+                  🇭🇺 MAFOSZ Követő
+                </button>
+              </div>
+            )}
           </div>
+          {/* ----------------------------------------------- */}
 
-          {/* ÚJ MENÜPONT BEÉPÍTÉSE - MAFOSZ */}
-          <div className="nav-item-container" style={{ zIndex: 50 }}>
-            <button className={`nav-btn ${activeTab === 'mafosz_progress' ? 'active' : ''}`} style={{ color: '#10b981' }} onClick={() => handleNavClick('mafosz_progress')}>
-              <span>🇭🇺 MAFOSZ Minősítések</span>
-            </button>
-          </div>
-
-          {/* ÚJ: Csomagok & Tárhely gomb */}
+          {/* Csomagok & Tárhely gomb */}
           <div className="nav-item-container" style={{ zIndex: 50 }}>
             <button className={`nav-btn ${activeTab === 'packages' ? 'active' : ''}`} style={{ color: '#818cf8' }} onClick={() => handleNavClick('packages')}>
               <span>💎 Csomagok & Tárhely</span>
