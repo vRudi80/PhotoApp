@@ -114,13 +114,32 @@ export default function ContestsView(props: ContestsViewProps) {
               <input placeholder="Pályázat címe" value={props.newTitle} onChange={e => props.setNewTitle(e.target.value)} style={inputStyle} />
               <textarea placeholder="Leírás / Szabályzat" value={props.newDesc} onChange={e => props.setNewDesc(e.target.value)} style={{...inputStyle, minHeight: '60px'}} />
               
-                            <div style={{display: 'flex', gap: '10px', flexWrap: 'wrap'}}>
-                <div style={{flex: '1 1 200px'}}><label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Kezdés</label><input type="datetime-local" value={props.newStart} onChange={e => props.setNewStart(e.target.value)} style={inputStyle} /></div>
-                <div style={{flex: '1 1 200px'}}><label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Befejezés</label><input type="datetime-local" value={props.newEnd} onChange={e => props.setNewEnd(e.target.value)} style={inputStyle} /></div>
+                                         {/* Dátumok - GRID elrendezés */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '15px', marginBottom: '5px' }}>
+                <div>
+                  <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Kezdés</label>
+                  <input type="datetime-local" value={props.newStart} onChange={e => props.setNewStart(e.target.value)} style={inputStyle} />
+                </div>
+                <div>
+                  <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Befejezés</label>
+                  <input type="datetime-local" value={props.newEnd} onChange={e => props.setNewEnd(e.target.value)} style={inputStyle} />
+                </div>
               </div>
 
-              {/* ÚJ: Pályázati díj beállítása */}
-              <div style={{display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '5px'}}>
+              {/* Pályázati díj beállítása - GRID elrendezés */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '15px', marginBottom: '5px' }}>
+                <div>
+                  <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Nevezési díj (0 = Ingyenes)</label>
+                  <input type="number" min="0" value={props.newEntryFee} onChange={e => props.setNewEntryFee(e.target.value)} style={inputStyle} />
+                </div>
+                <div>
+                  <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Pénznem</label>
+                  <select value={props.newFeeCurrency} onChange={e => props.setNewFeeCurrency(e.target.value)} style={inputStyle}>
+                    <option value="HUF">HUF (Forint)</option>
+                    <option value="EUR">EUR (Euró)</option>
+                  </select>
+                </div>
+              </div>
 
                 <div style={{flex: '1 1 200px'}}>
                   <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Nevezési díj (0 = Ingyenes)</label>
