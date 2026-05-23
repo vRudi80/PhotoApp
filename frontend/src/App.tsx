@@ -31,6 +31,8 @@ function App() {
   const [clubs, setClubs] = useState<any[]>([]);
   const [salonPatronNumbers, setSalonPatronNumbers] = useState<Record<number, string>>({});
   const [userEntrySalonIds, setUserEntrySalonIds] = useState<number[]>([]);
+  
+  // ÚJ: Pályázati fizetések tárolója
   const [contestPayments, setContestPayments] = useState<any[]>([]);
 
   const [contests, setContests] = useState<any[]>([]);
@@ -73,7 +75,6 @@ function App() {
   const [activeTab, setActiveTab] = useState<'contests_open_active' | 'contests_club_active' | 'contests_closed' | 'club_nights' | 'club_homeworks' | 'salons' | 'my_album' | 'admin_contests' | 'admin_users' | 'admin_clubs' | 'admin_meetings' | 'admin_homeworks' | 'admin_salons' | 'packages' | 'fiap_progress' | 'mafosz_progress'>('contests_open_active');
   const [dropdownOpen, setDropdownOpen] = useState<'contests' | 'club' | 'admin' | 'progress' | null>(null);
 
-  
   const [userClubEdits, setUserClubEdits] = useState<Record<string, string>>({});
   const [userRoleEdits, setUserRoleEdits] = useState<Record<string, string>>({});
   const [newClubName, setNewClubName] = useState('');
@@ -84,6 +85,11 @@ function App() {
   const [newEnd, setNewEnd] = useState('');
   const [newCats, setNewCats] = useState('');
   const [newRestrictedClub, setNewRestrictedClub] = useState(''); 
+  
+  // ÚJ: Pályázat létrehozása fizetési mezők
+  const [newEntryFee, setNewEntryFee] = useState<number | string>(0);
+  const [newFeeCurrency, setNewFeeCurrency] = useState('HUF');
+
   const [editContestId, setEditContestId] = useState<number | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [editDesc, setEditDesc] = useState('');
@@ -91,6 +97,10 @@ function App() {
   const [editEnd, setEditEnd] = useState('');
   const [editCats, setEditCats] = useState('');
   const [editRestrictedClub, setEditRestrictedClub] = useState(''); 
+
+  // ÚJ: Pályázat szerkesztése fizetési mezők
+  const [editEntryFee, setEditEntryFee] = useState<number | string>(0);
+  const [editFeeCurrency, setEditFeeCurrency] = useState('HUF');
 
   const [editMeetId, setEditMeetId] = useState<number | null>(null);
   const [meetClubId, setMeetClubId] = useState('');
@@ -153,12 +163,24 @@ function App() {
 
   const [fullscreenData, setFullscreenData] = useState<any>(null);
 
+  // ÚJ: Pályázati fizetés sikeres visszatérésének figyelése
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const successContest = urlParams.get('success_contest');
+    if (successContest) {
+      alert('🎉 Sikeres nevezési díj fizetés! A képeid érvényesek és a zsűri elé kerülnek.');
+      window.history.replaceState({}, document.title, window.location.pathname + '?tab=contests_open_active');
+      setActiveTab('contests_open_active'); 
+    }
+  }, []);
+
   const fetchData = async (retryCount = 0) => {
     if (retryCount === 0) setIsInitialLoading(true);
     try {
+      // ÚJ: Hozzáadtuk a contest-payments lekérdezését is
       const [
         resUsers, resClubs, resContests, resJury, resMeetings, 
-        resHw, resCountries, resCats, resPatrons, resSalons
+        resHw, resCountries, resCats, resPatrons, resSalons, resPayments
       ] = await Promise.all([
         fetch(`${BACKEND_URL}/api/users`),
         fetch(`${BACKEND_URL}/api/clubs`),
@@ -169,7 +191,8 @@ function App() {
         fetch(`${BACKEND_URL}/api/countries`),
         fetch(`${BACKEND_URL}/api/categories`),
         fetch(`${BACKEND_URL}/api/patrons`),
-        fetch(`${BACKEND_URL}/api/salons`)
+        fetch(`${BACKEND_URL}/api/salons`),
+        fetch(`${BACKEND_URL}/api/contest-payments`)
       ]);
 
       if (!resUsers.ok || !resContests.ok || !resMeetings.ok || !resHw.ok) {
@@ -186,6 +209,7 @@ function App() {
       if (resCats.ok) setAllCategories(await resCats.json());
       if (resPatrons.ok) setPatrons(await resPatrons.json());
       if (resSalons.ok) setSalons(await resSalons.json());
+      if (resPayments && resPayments.ok) setContestPayments(await resPayments.json()); // ÚJ
 
       setIsInitialLoading(false); 
     } catch (e) { 
@@ -326,6 +350,26 @@ function App() {
     fetchMyEntries(decoded.email);
   };
 
+  // --- ÚJ: STRIPE PÁLYÁZATI FIZETÉS INDÍTÁSA ---
+  const handlePayContestFee = async (contestId: number) => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/create-contest-payment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userEmail: user.email, contestId })
+      });
+      const data = await res.json();
+      
+      if (data.url) {
+        window.location.href = data.url; // Átirányítás a Stripe-ra
+      } else {
+        alert(data.error || 'Hiba a fizetés indításakor.');
+      }
+    } catch (e) {
+      alert('Hálózati hiba a Stripe elérésekor!');
+    }
+  };
+
   const handleAddClub = async () => { if (!newClubName) return; const res = await fetch(`${BACKEND_URL}/api/clubs`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: newClubName }) }); if (res.ok) { setNewClubName(''); fetchData(); } };
   const handleDeleteClub = async (id: number) => { if (!window.confirm("Biztosan törlöd ezt a klubot?")) return; const res = await fetch(`${BACKEND_URL}/api/clubs/${id}`, { method: 'DELETE' }); if (res.ok) fetchData(); };
   
@@ -336,7 +380,7 @@ function App() {
     if (res.ok) { alert("Sikeres mentés!"); fetchData(); } 
   };
   
-    const handleCreateContest = async () => { 
+  const handleCreateContest = async () => { 
     if (!newTitle || !newStart || !newEnd || !newCats) return alert("Cím, dátumok és kategóriák kötelezőek!"); 
 
     let finalRestrictedClub = newRestrictedClub;
@@ -356,12 +400,15 @@ function App() {
         startDate: newStart, 
         endDate: newEnd, 
         categories: newCats, 
-        restrictedClub: finalRestrictedClub 
+        restrictedClub: finalRestrictedClub,
+        entryFee: newEntryFee,     // ÚJ 
+        feeCurrency: newFeeCurrency // ÚJ
       }) 
     }); 
 
     if (res.ok) { 
       setNewTitle(''); setNewDesc(''); setNewStart(''); setNewEnd(''); setNewCats(''); setNewRestrictedClub(''); 
+      setNewEntryFee(0); setNewFeeCurrency('HUF'); // Visszaállítjuk alapra
       fetchData(); 
       alert("Pályázat sikeresen kiírva! 🚀");
     } else {
@@ -375,6 +422,8 @@ function App() {
     setEditDesc(contest.description); 
     setEditCats(contest.categories || ''); 
     setEditRestrictedClub(contest.restricted_club || ''); 
+    setEditEntryFee(contest.entry_fee || 0); // ÚJ
+    setEditFeeCurrency(contest.fee_currency || 'HUF'); // ÚJ
     
     const formatDate = (dateStr: string | null) => { 
       if (!dateStr) return ''; 
@@ -385,11 +434,56 @@ function App() {
     setEditEnd(formatDate(contest.end_date)); 
   };
 
-  const handleUpdateContest = async () => { const res = await fetch(`${BACKEND_URL}/api/contests/${editContestId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: editTitle, description: editDesc, startDate: editStart || null, endDate: editEnd || null, categories: editCats, restrictedClub: editRestrictedClub }) }); if (res.ok) { setEditContestId(null); fetchData(); alert("Pályázat sikeresen frissítve!"); } };
+  const handleUpdateContest = async () => { 
+    const res = await fetch(`${BACKEND_URL}/api/contests/${editContestId}`, { 
+      method: 'PUT', 
+      headers: { 'Content-Type': 'application/json' }, 
+      body: JSON.stringify({ 
+        title: editTitle, 
+        description: editDesc, 
+        startDate: editStart || null, 
+        endDate: editEnd || null, 
+        categories: editCats, 
+        restrictedClub: editRestrictedClub,
+        entryFee: editEntryFee,      // ÚJ
+        feeCurrency: editFeeCurrency // ÚJ 
+      }) 
+    }); 
+    if (res.ok) { 
+      setEditContestId(null); 
+      fetchData(); 
+      alert("Pályázat sikeresen frissítve!"); 
+    } 
+  };
+
   const handleAddJury = async (contestId: number) => { if (!selectedJuryEmail) return; const res = await fetch(`${BACKEND_URL}/api/jury`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contestId, userEmail: selectedJuryEmail }) }); if (res.ok) { setSelectedJuryEmail(''); fetchData(); } };
   const handleRemoveJury = async (contestId: number, email: string) => { const res = await fetch(`${BACKEND_URL}/api/jury`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contestId, userEmail: email }) }); if (res.ok) fetchData(); };
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (file) { setUploadFile(file); setUploadPreview(URL.createObjectURL(file)); } };
-  const handleUpload = async (contestId: number) => { if (!uploadFile || !uploadTitle || !uploadCategory) return alert("Minden kötelező!"); setIsUploading(true); try { const formData = new FormData(); formData.append('photo', uploadFile); formData.append('contestId', String(contestId)); formData.append('userEmail', user.email); formData.append('userName', user.name); formData.append('title', uploadTitle); formData.append('category', uploadCategory); const res = await fetch(`${BACKEND_URL}/api/upload`, { method: 'POST', body: formData }); if (res.ok) { alert("Feltöltve!"); setActiveUploadContest(null); setUploadFile(null); setUploadPreview(null); setUploadTitle(''); setUploadCategory(''); fetchMyEntries(user.email); } else { const err = await res.json(); alert(`Hiba: ${err.error}`); } } catch (error) { alert("Hiba"); } finally { setIsUploading(false); } };
+  
+  const handleUpload = async (contestId: number) => { 
+    if (!uploadFile || !uploadTitle || !uploadCategory) return alert("Minden kötelező!"); 
+    setIsUploading(true); 
+    try { 
+      const formData = new FormData(); 
+      formData.append('photo', uploadFile); 
+      formData.append('contestId', String(contestId)); 
+      formData.append('userEmail', user.email); 
+      formData.append('userName', user.name); 
+      formData.append('title', uploadTitle); 
+      formData.append('category', uploadCategory); 
+      const res = await fetch(`${BACKEND_URL}/api/upload`, { method: 'POST', body: formData }); 
+      if (res.ok) { 
+        alert("Feltöltve!"); setActiveUploadContest(null); setUploadFile(null); setUploadPreview(null); setUploadTitle(''); setUploadCategory(''); fetchMyEntries(user.email); 
+      } else { 
+        const err = await res.json(); alert(`Hiba: ${err.error}`); 
+      } 
+    } catch (error) { 
+      alert("Hiba"); 
+    } finally { 
+      setIsUploading(false); 
+    } 
+  };
+
   const handleUpdateEntryTitle = async (entryId: number) => { if (!editEntryTitle) return alert('A cím nem lehet üres!'); const res = await fetch(`${BACKEND_URL}/api/entries/${entryId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: editEntryTitle, userEmail: user.email }) }); if (res.ok) { setEditingEntryId(null); fetchMyEntries(user.email); } else alert('Hiba a cím frissítésekor!'); };
   const handleDeleteEntry = async (entryId: number) => { if (!window.confirm("Biztosan törlöd?")) return; const res = await fetch(`${BACKEND_URL}/api/entries/${entryId}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userEmail: user.email }) }); if (res.ok) fetchMyEntries(user.email); };
   const startJudging = async (contestId: number) => { const res = await fetch(`${BACKEND_URL}/api/jury-entries/${contestId}?userEmail=${user.email}`); if (res.ok) { setUnvotedEntries(await res.json()); setJudgingContestId(contestId); setCurrentScore(''); } };
@@ -660,8 +754,6 @@ function App() {
 
           <main className="main-container">
 
-            {/* Megjelenítési blokkok az összes menüponthoz */}
-
             {activeTab === 'packages' && (
               <PackagesView user={user} />
             )}
@@ -802,6 +894,14 @@ function App() {
                 newStart={newStart} setNewStart={setNewStart} newEnd={newEnd}
                 setNewEnd={setNewEnd} newCats={newCats} setNewCats={setNewCats}
                 newRestrictedClub={newRestrictedClub} setNewRestrictedClub={setNewRestrictedClub}
+                
+                // Új Fizetés mezők átadása
+                newEntryFee={newEntryFee} setNewEntryFee={setNewEntryFee}
+                newFeeCurrency={newFeeCurrency} setNewFeeCurrency={setNewFeeCurrency}
+                editEntryFee={editEntryFee} setEditEntryFee={setEditEntryFee}
+                editFeeCurrency={editFeeCurrency} setEditFeeCurrency={setEditFeeCurrency}
+                contestPayments={contestPayments} handlePayContestFee={handlePayContestFee}
+                
                 handleCreateContest={handleCreateContest} editContestId={editContestId}
                 setEditContestId={setEditContestId} editTitle={editTitle} setEditTitle={setEditTitle}
                 editDesc={editDesc} setEditDesc={setEditDesc} editStart={editStart}
