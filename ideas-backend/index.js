@@ -370,13 +370,26 @@ app.get('/api/contests', async (req, res) => {
 });
 
 app.post('/api/contests', async (req, res) => {
-  const { title, description, startDate, endDate, categories, restrictedClub } = req.body;
-  try { await pool.query('INSERT INTO photo_contests (title, description, start_date, end_date, categories, restricted_club) VALUES (?, ?, ?, ?, ?, ?)', [title, description, startDate, endDate, categories, restrictedClub]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
+  // Új mezők: entryFee, feeCurrency
+  const { title, description, startDate, endDate, categories, restrictedClub, entryFee, feeCurrency } = req.body;
+  try { 
+    await pool.query(
+      'INSERT INTO photo_contests (title, description, start_date, end_date, categories, restricted_club, entry_fee, fee_currency) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 
+      [title, description, startDate, endDate, categories, restrictedClub, entryFee || 0, feeCurrency || 'HUF']
+    ); 
+    res.json({ success: true }); 
+  } catch (err) { res.status(500).json({ error: 'Hiba' }); }
 });
 
 app.put('/api/contests/:id', async (req, res) => {
-  const { title, description, startDate, endDate, categories, restrictedClub } = req.body;
-  try { await pool.query('UPDATE photo_contests SET title = ?, description = ?, start_date = ?, end_date = ?, categories = ?, restricted_club = ? WHERE id = ?', [title, description, startDate, endDate, categories, restrictedClub, req.params.id]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
+  const { title, description, startDate, endDate, categories, restrictedClub, entryFee, feeCurrency } = req.body;
+  try { 
+    await pool.query(
+      'UPDATE photo_contests SET title = ?, description = ?, start_date = ?, end_date = ?, categories = ?, restricted_club = ?, entry_fee = ?, fee_currency = ? WHERE id = ?', 
+      [title, description, startDate, endDate, categories, restrictedClub, entryFee || 0, feeCurrency || 'HUF', req.params.id]
+    ); 
+    res.json({ success: true }); 
+  } catch (err) { res.status(500).json({ error: 'Hiba' }); }
 });
 
 app.delete('/api/contests/:id', async (req, res) => {
