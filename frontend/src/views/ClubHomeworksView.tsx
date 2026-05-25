@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { getImageUrl } from '../utils/helpers';
+import { BACKEND_URL } from '../utils/constants';
 
 interface ClubHomeworksViewProps {
   currentDbUser: any;
@@ -34,14 +35,13 @@ export default function ClubHomeworksView({
   setEditHwEntryTitle, handleUpdateHwEntryTitle, handleDeleteHwEntry, handleToggleLike
 }: ClubHomeworksViewProps) {
   
-  // Állapot, hogy melyik házi feladatnál kérték a népszerűségi rendezést (az ID-kat tároljuk)
   const [sortedHwIds, setSortedHwIds] = useState<number[]>([]);
-  
-  // Állapot az összecsukható kártyákhoz (melyik van nyitva)
   const [expandedHwIds, setExpandedHwIds] = useState<number[]>([]);
-
-  // Keresőmező állapota
   const [hwSearch, setHwSearch] = useState('');
+
+  // ÚJ: Itt tároljuk helyben a kiválasztások (is_selected) állapotát, 
+  // hogy gombnyomáskor azonnal frissüljön a felület újratöltés nélkül!
+  const [localSelections, setLocalSelections] = useState<Record<number, boolean>>({});
 
   const inputStyle = { width: '100%', padding: '10px', marginBottom: '10px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '6px', boxSizing: 'border-box' as const };
 
@@ -55,7 +55,21 @@ export default function ClubHomeworksView({
     );
   }
 
-  // Segédfüggvény a lapozás és a lájk modalnak való átadásához
+  // ÚJ: Kiválasztás (toggle) funkció hívása
+  const handleToggleSelect = async (entryId: number) => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/homework-entries/${entryId}/toggle-select`, {
+        method: 'POST',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setLocalSelections(prev => ({ ...prev, [entryId]: data.is_selected === 1 }));
+      }
+    } catch (e) {
+      console.error('Hiba a kiválasztáskor:', e);
+    }
+  };
+
   const openGalleryModal = (clickedEntry: any, allEntries: any[], index: number) => {
     setFullscreenData({
       url: getImageUrl(clickedEntry.drive_file_id, clickedEntry.file_url),
@@ -85,7 +99,6 @@ export default function ClubHomeworksView({
     setExpandedHwIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   };
 
-  // Házi feladatok szűrése a keresőmező alapján
   const filteredHomeworks = myClubHomeworks.filter(hw => {
     if (!hwSearch) return true;
     const q = hwSearch.toLowerCase();
@@ -98,7 +111,6 @@ export default function ClubHomeworksView({
         <span style={{ fontSize: '2.5rem' }}>📝</span> Házi Feladatok: {currentDbUser.club_name}
       </h2>
 
-      {/* Keresőmező */}
       <div style={{ marginBottom: '25px', display: 'flex', gap: '15px', alignItems: 'center', background: '#1e293b', padding: '15px', borderRadius: '12px', border: '1px solid #334155' }}>
         <input 
           type="text" 
@@ -125,7 +137,6 @@ export default function ClubHomeworksView({
           const isSortedByLikes = sortedHwIds.includes(hw.id);
           const isExpanded = expandedHwIds.includes(hw.id);
 
-          // Rendezés: Alapból NÉVSORBAN, ha a gombot megnyomta, akkor lájk alapján csökkenőbe
           const finalEntriesForAll = [...hwEntriesForAllRaw].sort((a, b) => {
             if (isSortedByLikes) {
               if ((b.like_count || 0) !== (a.like_count || 0)) {
@@ -139,11 +150,27 @@ export default function ClubHomeworksView({
           
           const maxImages = hw.max_images || 4;
 
-          const uploaderStats = hwEntriesForAllRaw.reduce((acc, curr) => {
-             if (!acc[curr.user_name]) acc[curr.user_name] = 0;
-             acc[curr.user_name]++;
-             return acc;
-          }, {} as Record<string, number>);
+          // --- ÚJ: VEZETŐI TÁBLÁZAT ADATOK (Statisztika) ---
+          const uploaderStats: Record<string, any[]> = {};
+          let totalSelectedInHw = 0;
+
+          hwEntriesForAllRaw.forEach(entry => {
+             const userName = entry.user_name || 'Ismeretlen';
+             if (!uploaderStats[userName]) uploaderStats[userName] = [];
+             
+             // Kiszámoljuk az aktuális állapotot (a helyi felülbírálással)
+             const isSelected = localSelections[entry.id] !== undefined ? localSelections[entry.id] : (entry.is_selected === 1);
+             if (isSelected) totalSelectedInHw++;
+
+             uploaderStats[userName].push({
+               title: entry.title,
+               likes: entry.like_count || 0,
+               isSelected: isSelected
+             });
+          });
+
+          // Névsorba rendezzük az embereket a statisztikához
+          const sortedUploaders = Object.keys(uploaderStats).sort((a, b) => a.localeCompare(b));
 
           return (
             <div key={hw.id} style={{ backgroundColor: '#1e293b', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', border: isPast ? '1px solid #475569' : '1px solid #10b981', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', position: 'relative', transition: 'all 0.3s ease' }}>
@@ -162,34 +189,72 @@ export default function ClubHomeworksView({
                 ⏰ Határidő: {deadlineDate.toLocaleString('hu-HU', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })} | Maximum {maxImages} kép
               </p>
 
-              {/* Lenyitó/Összecsukó gomb */}
               <button 
                 onClick={() => toggleExpand(hw.id)} 
                 style={{ width: '100%', background: isExpanded ? '#334155' : '#0f172a', color: isExpanded ? '#94a3b8' : '#38bdf8', border: '1px solid #334155', padding: '10px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', transition: 'all 0.2s' }}
-                onMouseOver={e => e.currentTarget.style.background = '#334155'}
-                onMouseOut={e => e.currentTarget.style.background = isExpanded ? '#334155' : '#0f172a'}
               >
                 {isExpanded ? '▲ Részletek és Galéria elrejtése' : `▼ ${isPast ? 'Eredmények és Galéria megtekintése' : 'Kép feltöltése és Galéria megtekintése'}`}
               </button>
 
               {isExpanded && (
                 <div style={{ marginTop: '20px', animation: 'fadeIn 0.3s ease-out' }}>
+                  
+                  {/* --- ÚJ: VEZETŐI STATISZTIKA TÁBLÁZAT --- */}
                   {isLeader && (
-                    <div style={{ marginBottom: '20px', padding: '15px', background: '#0f172a', borderRadius: '8px', border: '1px solid #334155' }}>
-                      <h4 style={{ margin: '0 0 10px 0', fontSize: '0.85rem', color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '1px' }}>📊 Feltöltések eddig (Vezetői infó)</h4>
-                      {Object.keys(uploaderStats).length === 0 ? (
-                        <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>Még nem érkezett feltöltés a klubtagoktól.</div>
+                    <div style={{ marginBottom: '20px', padding: '20px', background: '#0f172a', borderRadius: '12px', border: '1px solid #f59e0b50' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                        <h4 style={{ margin: 0, fontSize: '1rem', color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                          📊 Klub Portfólió Válogatás (Vezetői Nézet)
+                        </h4>
+                        <div style={{ background: '#10b98120', color: '#10b981', border: '1px solid #10b98150', padding: '4px 12px', borderRadius: '100px', fontWeight: 'bold', fontSize: '0.85rem' }}>
+                          ✅ Összes kiválasztva: {totalSelectedInHw} kép
+                        </div>
+                      </div>
+
+                      {sortedUploaders.length === 0 ? (
+                        <div style={{ fontSize: '0.9rem', color: '#94a3b8' }}>Még nem érkezett feltöltés a klubtagoktól.</div>
                       ) : (
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                          {Object.entries(uploaderStats).map(([name, count]) => (
-                            <span key={name} style={{ background: '#1e293b', border: '1px solid #475569', color: '#cbd5e1', padding: '6px 12px', borderRadius: '100px', fontSize: '0.85rem' }}>
-                              {name}: <strong style={{ color: count >= maxImages ? '#10b981' : '#f8fafc' }}>{count}/{maxImages}</strong>
-                            </span>
-                          ))}
+                        <div style={{ overflowX: 'auto' }}>
+                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                            <thead>
+                              <tr style={{ borderBottom: '2px solid #334155', textAlign: 'left', color: '#94a3b8' }}>
+                                <th style={{ padding: '8px' }}>Szerző neve</th>
+                                <th style={{ padding: '8px', textAlign: 'center' }}>Feltöltött</th>
+                                <th style={{ padding: '8px' }}>Beküldött képek (Lájk / Státusz)</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {sortedUploaders.map(name => {
+                                const userEntries = uploaderStats[name];
+                                const selectedCount = userEntries.filter(e => e.isSelected).length;
+
+                                return (
+                                  <tr key={name} style={{ borderBottom: '1px solid #1e293b' }}>
+                                    <td style={{ padding: '12px 8px', color: '#f8fafc', fontWeight: 'bold' }}>{name}</td>
+                                    <td style={{ padding: '12px 8px', textAlign: 'center', color: userEntries.length >= maxImages ? '#10b981' : '#cbd5e1' }}>
+                                      {userEntries.length} / {maxImages}
+                                    </td>
+                                    <td style={{ padding: '12px 8px' }}>
+                                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                        {userEntries.map((entry, i) => (
+                                          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '5px', background: entry.isSelected ? '#10b98120' : '#1e293b', border: entry.isSelected ? '1px solid #10b98150' : '1px solid #334155', padding: '4px 8px', borderRadius: '6px', fontSize: '0.8rem' }}>
+                                            <span style={{ color: '#e2e8f0', maxWidth: '120px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{entry.title}</span>
+                                            <span style={{ color: '#ef4444', fontWeight: 'bold' }}>❤️ {entry.likes}</span>
+                                            {entry.isSelected && <span title="Kiválasztva" style={{ color: '#10b981' }}>✅</span>}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
                         </div>
                       )}
                     </div>
                   )}
+                  {/* -------------------------------------- */}
 
                   {!isPast && activeUploadHw !== hw.id && myEntries.length < maxImages && (
                     <button onClick={() => { setActiveUploadHw(hw.id); setHwUploadTitle(''); setHwUploadPreview(null); }} style={{ background: '#38bdf8', color: '#0f172a', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', marginBottom: '15px', width: '100%' }}>+ Kép Feltöltése ({myEntries.length}/{maxImages})</button>
@@ -222,7 +287,6 @@ export default function ClubHomeworksView({
                           return (
                             <div key={entry.id} style={{ background: '#0f172a', borderRadius: '8px', overflow: 'hidden', border: '1px solid #334155' }}>
                               
-                              {/* JAVÍTÁS: Fekete háttér és contain */}
                               <div style={{ height: '140px', width: '100%', background: '#000000', cursor: 'zoom-in' }} onClick={() => openGalleryModal(entry, myEntries, index)}>
                                 <img 
                                   src={imageUrl} 
@@ -299,10 +363,20 @@ export default function ClubHomeworksView({
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '15px' }}>
                           {finalEntriesForAll.map((entry, index) => {
                             const imageUrl = getImageUrl(entry.drive_file_id, entry.file_url);
+                            
+                            // ÚJ: Kiválasztás állapotának megállapítása
+                            const isSelected = localSelections[entry.id] !== undefined ? localSelections[entry.id] : (entry.is_selected === 1);
+
                             return (
-                              <div key={entry.id} style={{ background: '#0f172a', borderRadius: '8px', overflow: 'hidden', border: isLeader ? '1px solid #f59e0b50' : '1px solid #334155', display: 'flex', flexDirection: 'column' }}>
+                              <div key={entry.id} style={{ position: 'relative', background: '#0f172a', borderRadius: '8px', overflow: 'hidden', border: isSelected ? '2px solid #10b981' : (isLeader ? '1px solid #f59e0b50' : '1px solid #334155'), display: 'flex', flexDirection: 'column', transition: 'border 0.2s' }}>
                                 
-                                {/* JAVÍTÁS: Fekete háttér és contain */}
+                                {/* ÚJ: Vizuális plecsni, ha ki van választva */}
+                                {isSelected && (
+                                  <div style={{ position: 'absolute', top: '10px', left: '10px', background: '#10b981', color: 'white', padding: '4px 8px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 'bold', zIndex: 10, boxShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
+                                    ✅ Kiválasztva
+                                  </div>
+                                )}
+
                                 <div style={{ height: '160px', width: '100%', background: '#000000', cursor: 'zoom-in' }} onClick={() => openGalleryModal(entry, finalEntriesForAll, index)}>
                                   <img 
                                     src={imageUrl} 
@@ -325,18 +399,28 @@ export default function ClubHomeworksView({
                                   </div>
                                 </div>
                                 
+                                {/* ÚJ: Vezetői gombok (Kiválasztás + Letöltés) */}
                                 {isLeader && (
-                                  <a 
-                                    href={entry.drive_file_id ? `https://docs.google.com/uc?export=download&id=${entry.drive_file_id}` : entry.file_url}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    title="Eredeti felbontású kép letöltése"
-                                    style={{ display: 'block', textAlign: 'center', background: '#f59e0b15', color: '#f59e0b', padding: '8px', fontSize: '0.8rem', textDecoration: 'none', fontWeight: 'bold', borderTop: '1px solid #f59e0b40', transition: 'background 0.2s' }}
-                                    onMouseOver={e => e.currentTarget.style.background = '#f59e0b30'}
-                                    onMouseOut={e => e.currentTarget.style.background = '#f59e0b15'}
-                                  >
-                                    ⬇️ Eredeti letöltése
-                                  </a>
+                                  <div style={{ display: 'flex', borderTop: '1px solid #f59e0b40' }}>
+                                    <button 
+                                      onClick={() => handleToggleSelect(entry.id)}
+                                      style={{ flex: 1, background: isSelected ? '#10b98120' : 'transparent', color: isSelected ? '#10b981' : '#94a3b8', border: 'none', padding: '8px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }}
+                                    >
+                                      {isSelected ? '❌ Kivesz' : '✅ Kiválaszt'}
+                                    </button>
+                                    <div style={{ width: '1px', background: '#f59e0b40' }}></div>
+                                    <a 
+                                      href={entry.drive_file_id ? `https://docs.google.com/uc?export=download&id=${entry.drive_file_id}` : entry.file_url}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      title="Eredeti felbontású kép letöltése"
+                                      style={{ flex: 1, textAlign: 'center', background: '#f59e0b15', color: '#f59e0b', padding: '8px', fontSize: '0.8rem', textDecoration: 'none', fontWeight: 'bold', transition: 'background 0.2s' }}
+                                      onMouseOver={e => e.currentTarget.style.background = '#f59e0b30'}
+                                      onMouseOut={e => e.currentTarget.style.background = '#f59e0b15'}
+                                    >
+                                      ⬇️ Letöltés
+                                    </a>
+                                  </div>
                                 )}
                               </div>
                             )
