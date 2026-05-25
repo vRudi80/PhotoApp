@@ -650,6 +650,24 @@ app.post('/api/homework-entries/:id/like', async (req, res) => {
     }
   } catch (err) { res.status(500).json({ error: 'Hiba a like-olásnál' }); }
 });
+// --- ÚJ: HÁZI FELADAT KÉP KIVÁLASZTÁSA (Klubvezetői válogatás) ---
+app.post('/api/homework-entries/:id/toggle-select', async (req, res) => {
+  const entryId = req.params.id;
+  try {
+    // Lekérjük a jelenlegi státuszt
+    const [rows] = await pool.query('SELECT is_selected FROM photo_homework_entries WHERE id = ?', [entryId]);
+    if (rows.length === 0) return res.status(404).json({ error: 'A kép nem található!' });
+    
+    // Megfordítjuk (ha 1 volt, 0 lesz, ha 0 volt, 1 lesz)
+    const newStatus = rows[0].is_selected ? 0 : 1;
+    await pool.query('UPDATE photo_homework_entries SET is_selected = ? WHERE id = ?', [newStatus, entryId]);
+    
+    res.json({ success: true, is_selected: newStatus });
+  } catch (err) { 
+    console.error('Hiba a kép kiválasztásakor:', err);
+    res.status(500).json({ error: 'Hiba a státusz módosításakor' }); 
+  }
+});
 
 // --- NEMZETKÖZI SZALONOK ÉS PÁLYÁZATOK (ADMIN) ---
 app.get('/api/countries', async (req, res) => {
