@@ -3,12 +3,16 @@ const cors = require('cors');
 const mysql = require('mysql2/promise');
 const multer = require('multer');
 const { google } = require('googleapis');
-const { Readable } = require('stream');
 require('dotenv').config();
 const axios = require('axios');
 const cheerio = require('cheerio');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const xlsx = require('xlsx');
+
+// Új csomagok a fájlrendszer-alapú memóriakímélő kezeléshez
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 
 // ==========================================
 // 1. INICIALIZÁLÁSOK ÉS KAPCSOLATOK
@@ -127,7 +131,20 @@ app.post('/api/webhook', express.raw({type: 'application/json'}), async (req, re
 // 3. MIDDLEWARE ÉS ALAP BEÁLLÍTÁSOK
 // ==========================================
 app.use(express.json()); 
-const upload = multer({ storage: multer.memoryStorage() });
+
+// Optimalizált fájl feltöltés: a szerver temp mappájába rakjuk a memóriafoglalás helyett
+const upload = multer({ dest: os.tmpdir() });
+
+// Segédfüggvény az ideiglenes fájlok törléséhez
+const cleanupTempFile = (file) => {
+  if (file && file.path && fs.existsSync(file.path)) {
+    try {
+      fs.unlinkSync(file.path);
+    } catch (err) {
+      console.error('Hiba a temp fájl törlésekor:', err.message);
+    }
+  }
+};
 
 const checkPremium = async (req, res, next) => {
   const userEmail = req.query.userEmail || req.body.userEmail;
@@ -392,15 +409,30 @@ app.post('/api/upload', upload.single('photo'), async (req, res) => {
   const { contestId, userEmail, userName, title, category } = req.body;
   const file = req.file;
   if (!file) return res.status(400).json({ error: 'Nincs fájl kiválasztva!' });
+  
   try {
     const [juryCheck] = await pool.query('SELECT * FROM photo_jury WHERE contest_id = ? AND user_email = ?', [contestId, userEmail]);
-    if (juryCheck.length > 0) return res.status(403).json({ error: 'Zsűritagként nem nevezhetsz!' });
+    if (juryCheck.length > 0) {
+      cleanupTempFile(file);
+      return res.status(403).json({ error: 'Zsűritagként nem nevezhetsz!' });
+    }
+    
     const [countRows] = await pool.query('SELECT COUNT(*) as count FROM photo_entries WHERE contest_id = ? AND user_email = ? AND category = ?', [contestId, userEmail, category]);
-    if (countRows[0].count >= 4) return res.status(400).json({ error: 'Elérted a 4 képes limitet!' });
+    if (countRows[0].count >= 4) {
+      cleanupTempFile(file);
+      return res.status(400).json({ error: 'Elérted a 4 képes limitet!' });
+    }
 
-    const bufferStream = new Readable(); bufferStream.push(file.buffer); bufferStream.push(null);
+    const fileStream = fs.createReadStream(file.path);
     const fileExt = file.originalname && file.originalname.includes('.') ? file.originalname.substring(file.originalname.lastIndexOf('.')).toLowerCase() : '.jpg';
-    const driveRes = await drive.files.create({ requestBody: { name: `Nevezes_${contestId}_${userName}_${Date.now()}${fileExt}`, parents: [process.env.DRIVE_MASTER_FOLDER_ID] }, media: { mimeType: file.mimetype, body: bufferStream }, fields: 'id, webViewLink' });
+    
+    const driveRes = await drive.files.create({ 
+      requestBody: { name: `Nevezes_${contestId}_${userName}_${Date.now()}${fileExt}`, parents: [process.env.DRIVE_MASTER_FOLDER_ID] }, 
+      media: { mimeType: file.mimetype, body: fileStream }, 
+      fields: 'id, webViewLink' 
+    });
+
+    cleanupTempFile(file);
 
     const fileSize = req.file.size; 
     await pool.query(
@@ -409,7 +441,10 @@ app.post('/api/upload', upload.single('photo'), async (req, res) => {
     );
 
     res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { 
+    cleanupTempFile(file);
+    res.status(500).json({ error: err.message }); 
+  }
 });
 
 app.put('/api/entries/:id', async (req, res) => {
@@ -483,14 +518,22 @@ app.post('/api/meetings', upload.single('coverPhoto'), async (req, res) => {
   const file = req.file; let fileUrl = null; let driveFileId = null;
   try {
     if (file) {
-      const bufferStream = new Readable(); bufferStream.push(file.buffer); bufferStream.push(null);
+      const fileStream = fs.createReadStream(file.path);
       const fileExt = file.originalname && file.originalname.includes('.') ? file.originalname.substring(file.originalname.lastIndexOf('.')).toLowerCase() : '.jpg';
-      const driveRes = await drive.files.create({ requestBody: { name: `Klubest_Cover_${Date.now()}${fileExt}`, parents: [process.env.DRIVE_MASTER_FOLDER_ID] }, media: { mimeType: file.mimetype, body: bufferStream }, fields: 'id, webViewLink' });
+      const driveRes = await drive.files.create({ 
+        requestBody: { name: `Klubest_Cover_${Date.now()}${fileExt}`, parents: [process.env.DRIVE_MASTER_FOLDER_ID] }, 
+        media: { mimeType: file.mimetype, body: fileStream }, 
+        fields: 'id, webViewLink' 
+      });
       fileUrl = driveRes.data.webViewLink; driveFileId = driveRes.data.id;
+      cleanupTempFile(file);
     }
     await pool.query('INSERT INTO photo_club_meetings (club_id, meeting_date, meeting_time, topic, description, location_type, location_details, file_url, drive_file_id, video_link) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [clubId, date, time, topic, description, locationType, locationDetails, fileUrl, driveFileId, videoLink || null]);
     res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { 
+    cleanupTempFile(file);
+    res.status(500).json({ error: err.message }); 
+  }
 });
 
 app.put('/api/meetings/:id', upload.single('coverPhoto'), async (req, res) => {
@@ -504,18 +547,17 @@ app.put('/api/meetings/:id', upload.single('coverPhoto'), async (req, res) => {
         await drive.files.delete({ fileId: oldRows[0].drive_file_id }).catch(e => console.log('Régi borítókép törlése sikertelen:', e.message));
       }
 
-      const bufferStream = new Readable(); 
-      bufferStream.push(file.buffer); 
-      bufferStream.push(null);
-      
+      const fileStream = fs.createReadStream(file.path);
       const fileExt = file.originalname && file.originalname.includes('.') ? file.originalname.substring(file.originalname.lastIndexOf('.')).toLowerCase() : '.jpg';
       
       const driveRes = await drive.files.create({ 
         requestBody: { name: `Klubest_Cover_${Date.now()}${fileExt}`, parents: [process.env.DRIVE_MASTER_FOLDER_ID] }, 
-        media: { mimeType: file.mimetype, body: bufferStream }, 
+        media: { mimeType: file.mimetype, body: fileStream }, 
         fields: 'id, webViewLink' 
       });
       
+      cleanupTempFile(file);
+
       await pool.query('UPDATE photo_club_meetings SET meeting_date=?, meeting_time=?, topic=?, description=?, location_type=?, location_details=?, file_url=?, drive_file_id=?, video_link=? WHERE id=?', 
         [date, time, topic, description, locationType, locationDetails, driveRes.data.webViewLink, driveRes.data.id, videoLink || null, req.params.id]);
     } else {
@@ -524,6 +566,7 @@ app.put('/api/meetings/:id', upload.single('coverPhoto'), async (req, res) => {
     }
     res.json({ success: true });
   } catch (err) { 
+    cleanupTempFile(file);
     console.error('Klubest mentési hiba:', err);
     res.status(500).json({ error: 'Hálózati hiba a Google Drive feltöltésnél. Kérlek, próbáld újra egy perc múlva!' }); 
   }
@@ -598,15 +641,28 @@ app.post('/api/upload-homework', upload.single('photo'), async (req, res) => {
   if (!file) return res.status(400).json({ error: 'Nincs fájl kiválasztva!' });
   try {
     const [hwRows] = await pool.query('SELECT max_images FROM photo_homeworks WHERE id = ?', [homeworkId]);
-    if (hwRows.length === 0) return res.status(404).json({ error: 'A házi feladat nem található!' });
+    if (hwRows.length === 0) {
+      cleanupTempFile(file);
+      return res.status(404).json({ error: 'A házi feladat nem található!' });
+    }
     const maxImages = hwRows[0].max_images;
 
     const [countRows] = await pool.query('SELECT COUNT(*) as count FROM photo_homework_entries WHERE homework_id = ? AND user_email = ?', [homeworkId, userEmail]);
-    if (countRows[0].count >= maxImages) return res.status(400).json({ error: `Elérted a maximálisan feltölthető ${maxImages} képes limitet!` });
+    if (countRows[0].count >= maxImages) {
+      cleanupTempFile(file);
+      return res.status(400).json({ error: `Elérted a maximálisan feltölthető ${maxImages} képes limitet!` });
+    }
 
-    const bufferStream = new Readable(); bufferStream.push(file.buffer); bufferStream.push(null);
+    const fileStream = fs.createReadStream(file.path);
     const fileExt = file.originalname && file.originalname.includes('.') ? file.originalname.substring(file.originalname.lastIndexOf('.')).toLowerCase() : '.jpg';
-    const driveRes = await drive.files.create({ requestBody: { name: `Hazi_${homeworkId}_${userName}_${Date.now()}${fileExt}`, parents: [process.env.DRIVE_MASTER_FOLDER_ID] }, media: { mimeType: file.mimetype, body: bufferStream }, fields: 'id, webViewLink' });
+    
+    const driveRes = await drive.files.create({ 
+      requestBody: { name: `Hazi_${homeworkId}_${userName}_${Date.now()}${fileExt}`, parents: [process.env.DRIVE_MASTER_FOLDER_ID] }, 
+      media: { mimeType: file.mimetype, body: fileStream }, 
+      fields: 'id, webViewLink' 
+    });
+
+    cleanupTempFile(file);
 
     const fileSize = req.file.size; 
     await pool.query(
@@ -615,7 +671,10 @@ app.post('/api/upload-homework', upload.single('photo'), async (req, res) => {
     );
 
     res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { 
+    cleanupTempFile(file);
+    res.status(500).json({ error: err.message }); 
+  }
 });
 
 app.put('/api/homework-entries/:id', async (req, res) => {
@@ -650,15 +709,13 @@ app.post('/api/homework-entries/:id/like', async (req, res) => {
     }
   } catch (err) { res.status(500).json({ error: 'Hiba a like-olásnál' }); }
 });
-// --- ÚJ: HÁZI FELADAT KÉP KIVÁLASZTÁSA (Klubvezetői válogatás) ---
+
 app.post('/api/homework-entries/:id/toggle-select', async (req, res) => {
   const entryId = req.params.id;
   try {
-    // Lekérjük a jelenlegi státuszt
     const [rows] = await pool.query('SELECT is_selected FROM photo_homework_entries WHERE id = ?', [entryId]);
     if (rows.length === 0) return res.status(404).json({ error: 'A kép nem található!' });
     
-    // Megfordítjuk (ha 1 volt, 0 lesz, ha 0 volt, 1 lesz)
     const newStatus = rows[0].is_selected ? 0 : 1;
     await pool.query('UPDATE photo_homework_entries SET is_selected = ? WHERE id = ?', [newStatus, entryId]);
     
@@ -789,11 +846,19 @@ app.post('/api/my-album/upload', upload.single('photo'), checkPremium, async (re
   const { userEmail, userName, title } = req.body;
   const file = req.file;
   if (!file) return res.status(400).json({ error: 'Nincs fájl kiválasztva!' });
+  
   try {
-    const bufferStream = new Readable(); bufferStream.push(file.buffer); bufferStream.push(null);
+    const fileStream = fs.createReadStream(file.path);
     const fileExt = file.originalname && file.originalname.includes('.') ? file.originalname.substring(file.originalname.lastIndexOf('.')).toLowerCase() : '.jpg';
-    const driveRes = await drive.files.create({ requestBody: { name: `Portfolio_${userName}_${Date.now()}${fileExt}`, parents: [process.env.DRIVE_MASTER_FOLDER_ID] }, media: { mimeType: file.mimetype, body: bufferStream }, fields: 'id, webViewLink' });
     
+    const driveRes = await drive.files.create({ 
+      requestBody: { name: `Portfolio_${userName}_${Date.now()}${fileExt}`, parents: [process.env.DRIVE_MASTER_FOLDER_ID] }, 
+      media: { mimeType: file.mimetype, body: fileStream }, 
+      fields: 'id, webViewLink' 
+    });
+    
+    cleanupTempFile(file);
+
     const fileSize = req.file.size; 
     await pool.query(
       'INSERT INTO photo_portfolio (user_email, user_name, title, file_url, drive_file_id, file_size) VALUES (?, ?, ?, ?, ?, ?)', 
@@ -801,27 +866,46 @@ app.post('/api/my-album/upload', upload.single('photo'), checkPremium, async (re
     );
 
     res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { 
+    cleanupTempFile(file);
+    res.status(500).json({ error: err.message }); 
+  }
 });
 
 app.put('/api/my-album/:id', upload.single('photo'), checkPremium, async (req, res) => {
-
+  const file = req.file;
   try {
-    const { title, userEmail } = req.body; const file = req.file;
+    const { title, userEmail } = req.body; 
     const [rows] = await pool.query('SELECT * FROM photo_portfolio WHERE id = ? AND user_email = ?', [req.params.id, userEmail]);
-    if (rows.length === 0) return res.status(403).json({ error: 'Nincs jogosultságod módosítani ezt a képet!' });
+    if (rows.length === 0) {
+      cleanupTempFile(file);
+      return res.status(403).json({ error: 'Nincs jogosultságod módosítani ezt a képet!' });
+    }
+    
     if (file) {
       if (rows[0].drive_file_id) await drive.files.delete({ fileId: rows[0].drive_file_id }).catch(e => console.log('Régi kép törlése a Drive-ról sikertelen:', e.message));
-      const bufferStream = new Readable(); bufferStream.push(file.buffer); bufferStream.push(null);
+      
+      const fileStream = fs.createReadStream(file.path);
       const fileExt = file.originalname && file.originalname.includes('.') ? file.originalname.substring(file.originalname.lastIndexOf('.')).toLowerCase() : '.jpg';
       const userName = rows[0].user_name || 'Ismeretlen';
-      const driveRes = await drive.files.create({ requestBody: { name: `Portfolio_${userName}_Frissitett_${Date.now()}${fileExt}`, parents: [process.env.DRIVE_MASTER_FOLDER_ID] }, media: { mimeType: file.mimetype, body: bufferStream }, fields: 'id, webViewLink' });
+      
+      const driveRes = await drive.files.create({ 
+        requestBody: { name: `Portfolio_${userName}_Frissitett_${Date.now()}${fileExt}`, parents: [process.env.DRIVE_MASTER_FOLDER_ID] }, 
+        media: { mimeType: file.mimetype, body: fileStream }, 
+        fields: 'id, webViewLink' 
+      });
+      
+      cleanupTempFile(file);
+
       await pool.query('UPDATE photo_portfolio SET title = ?, file_url = ?, drive_file_id = ? WHERE id = ? AND user_email = ?', [title, driveRes.data.webViewLink, driveRes.data.id, req.params.id, userEmail]);
     } else {
       await pool.query('UPDATE photo_portfolio SET title = ? WHERE id = ? AND user_email = ?', [title, req.params.id, userEmail]);
     }
     res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: 'Hiba a kép frissítésekor: ' + err.message }); }
+  } catch (err) { 
+    cleanupTempFile(file);
+    res.status(500).json({ error: 'Hiba a kép frissítésekor: ' + err.message }); 
+  }
 });
 
 app.delete('/api/my-album/:id', checkPremium, async (req, res) => {
@@ -869,8 +953,14 @@ app.post('/api/my-album/:id/analyze', checkPremium, async (req, res) => {
     if (!photo.drive_file_id) return res.status(400).json({ error: 'Ehhez a képhez nem található fizikai fájl. Valószínűleg egy korábban feltöltött kép. Kérlek, töltsd fel újra a "Szerkesztés" gombra kattintva!' });
 
     const driveRes = await drive.files.get({ fileId: photo.drive_file_id, alt: 'media' }, { responseType: 'arraybuffer' });
-    const imageBuffer = Buffer.from(driveRes.data);
+    let imageBuffer = Buffer.from(driveRes.data);
     const base64Image = imageBuffer.toString('base64');
+    
+    // RAM AZONNALI FELSZABADÍTÁSA: 
+    // Mivel a base64 string már megvan, a nyers buffereket kiürítjük, 
+    // hogy a Node.js Garbage Collector ki tudja takarítani őket a memóriából.
+    imageBuffer = null;
+    driveRes.data = null;
     
     const model = genAI.getGenerativeModel({ 
       model: "gemini-2.5-flash",
@@ -1063,7 +1153,6 @@ app.get('/api/admin/scrape-fiap', async (req, res) => {
     const [existingPatrons] = await pool.query('SELECT patron_number FROM photo_salon_patrons WHERE patron_id = 1 AND patron_number IS NOT NULL');
     const existingFiapNumbers = existingPatrons.map(p => p.patron_number);
     
-    // ZSENIÁLIS TRÜKK: Axios helyett a natív Fetch API-t használjuk kőkemény Chrome álruhában
     const response = await fetch('https://www.myfiap.net/patronages', { 
       method: 'GET',
       headers: { 
@@ -1088,7 +1177,6 @@ app.get('/api/admin/scrape-fiap', async (req, res) => {
       throw new Error(`A FIAP szerver elutasította a kérést: ${response.status} ${response.statusText}`);
     }
 
-    // A letöltött HTML szöveg kinyerése
     const html = await response.text();
     const $ = cheerio.load(html);
     const scrapedSalons = [];
@@ -1159,14 +1247,16 @@ app.post('/api/import/excel-analyze', upload.single('file'), checkPremium, async
   if (!req.file) return res.status(400).json({ error: 'Nincs fájl feltöltve!' });
 
   try {
-    // 1. Excel beolvasása a memóriából
-    const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
-    const sheetName = workbook.SheetNames[0]; // Az első munkalapot olvassuk
+    // Excel beolvasása a MAPPÁBÓL (lemezről), nem a RAM-ból
+    const workbook = xlsx.readFile(req.file.path);
+    const sheetName = workbook.SheetNames[0]; 
     const rawData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
+    
+    // Töröljük is a lemezről, amint az xlsx csomag feldolgozta
+    cleanupTempFile(req.file);
 
     if (rawData.length === 0) return res.status(400).json({ error: 'Az Excel táblázat üres vagy nem olvasható.' });
     
-    // Limitáljuk az AI-nak küldött adatot, hogy ne kapjon "sokkot" (max 150 sor egyszerre)
     const sampleData = rawData.slice(0, 150);
 
     // 2. Gemini AI Normalizálás
@@ -1200,50 +1290,45 @@ app.post('/api/import/excel-analyze', upload.single('file'), checkPremium, async
     
     const normalizedArray = JSON.parse(text.substring(jsonStart, jsonEnd + 1));
 
-    // 3. Adatbázis ellenőrzés (Soronként vizsgáló logikád megvalósítása)
+    // 3. Adatbázis ellenőrzés
     const processedResults = [];
     const [dbPortfolio] = await pool.query('SELECT id, title FROM photo_portfolio WHERE user_email = ?', [userEmail]);
     
-    // Lekérjük az összes FIAP/MAFOSZ szalont a patron number alapján
     const [dbSalons] = await pool.query('SELECT s.id, s.name, sp.patron_number FROM photo_salons s JOIN photo_salon_patrons sp ON s.id = sp.salon_id WHERE sp.patron_number IS NOT NULL AND sp.patron_number != ""');
     
-    // Lekérjük a user összes eddigi nevezését
     const [dbEntries] = await pool.query('SELECT salon_id, portfolio_id FROM photo_salon_entries WHERE user_email = ?', [userEmail]);
 
     for (const item of normalizedArray) {
       const itemTitle = item.title ? item.title.trim() : '';
       const itemFiap = item.fiapNumber ? item.fiapNumber.trim() : '';
       
-      let status = 'ready'; // Zöld: minden megvan
+      let status = 'ready'; 
       let portfolioId = null;
       let salonId = null;
       let warnings = [];
 
-      // A) Portfólió ellenőrzés (Név alapján)
       const matchedPhoto = dbPortfolio.find(p => p.title.toLowerCase() === itemTitle.toLowerCase());
       if (matchedPhoto) {
         portfolioId = matchedPhoto.id;
       } else {
-        status = 'missing_photo'; // Sárga: üres kép lesz
+        status = 'missing_photo'; 
         warnings.push('A kép nincs a portfóliódban (üres keretként jön létre).');
       }
 
-      // B) Szalon ellenőrzés (FIAP azonosító alapján)
       const matchedSalon = dbSalons.find(s => s.patron_number === itemFiap);
       if (matchedSalon) {
         salonId = matchedSalon.id;
-        item.salonName = matchedSalon.name; // Felülírjuk a nálunk szereplő hivatalos névre!
+        item.salonName = matchedSalon.name; 
       } else {
-        if (status === 'ready') status = 'missing_salon'; // Piros/Sárga: új szalon lesz
+        if (status === 'ready') status = 'missing_salon'; 
         else status = 'missing_both';
         warnings.push('A szalon nem létezik, automatikusan létrejön.');
       }
 
-      // C) Duplikáció ellenőrzés (Már nevezte ezt a képet ebbe a szalonba?)
       if (portfolioId && salonId) {
         const isDuplicate = dbEntries.find(e => e.salon_id === salonId && e.portfolio_id === portfolioId);
         if (isDuplicate) {
-          status = 'duplicate'; // Szürke: kihagyjuk
+          status = 'duplicate'; 
           warnings = ['Ez az eredmény már szerepel a rendszerben!'];
         }
       }
@@ -1260,6 +1345,7 @@ app.post('/api/import/excel-analyze', upload.single('file'), checkPremium, async
     res.json(processedResults);
 
   } catch (err) {
+    cleanupTempFile(req.file);
     console.error('Excel feldolgozási hiba:', err);
     res.status(500).json({ error: 'Hiba történt az Excel elemzésekor: ' + err.message });
   }
@@ -1272,17 +1358,14 @@ app.post('/api/import/execute', checkPremium, async (req, res) => {
   try {
     await conn.beginTransaction();
 
-    // Lekérjük a díjakat, hogy az AI által adott "Award"-ot össze tudjuk párosítani
     const [dbAwards] = await conn.query('SELECT id, award_name FROM photo_awards');
 
     for (const item of items) {
-      // Duplikáltakat kérés szerint szigorúan kihagyjuk
       if (item.status === 'duplicate' || item.skip) continue; 
 
       let finalSalonId = item.salonId;
       let finalPortfolioId = item.portfolioId;
 
-      // 1. Szalon létrehozása, ha nincs
       if (!finalSalonId) {
         const todayStr = new Date().toISOString().split('T')[0];
         const [insSalon] = await conn.query(
@@ -1291,7 +1374,6 @@ app.post('/api/import/execute', checkPremium, async (req, res) => {
         );
         finalSalonId = insSalon.insertId;
         
-        // Hozzárendeljük a FIAP védnökséget (patron_id = 1), ha van FIAP száma
         if (item.fiapNumber) {
           await conn.query(
             'INSERT INTO photo_salon_patrons (salon_id, patron_id, patron_number) VALUES (?, ?, ?)',
@@ -1300,7 +1382,6 @@ app.post('/api/import/execute', checkPremium, async (req, res) => {
         }
       }
 
-      // 2. Fotó létrehozása üresen, ha nincs
       if (!finalPortfolioId) {
         const [insPhoto] = await conn.query(
           'INSERT INTO photo_portfolio (user_email, user_name, title, file_url, drive_file_id) VALUES (?, ?, ?, ?, ?)',
@@ -1309,22 +1390,19 @@ app.post('/api/import/execute', checkPremium, async (req, res) => {
         finalPortfolioId = insPhoto.insertId;
       }
 
-      // 3. Díj azonosítása vagy létrehozása (pl. "Gold Medal", "Acceptance")
       let awardId = null;
       if (item.award) {
         const matchedAward = dbAwards.find(a => a.award_name.toLowerCase() === item.award.toLowerCase());
         if (matchedAward) {
           awardId = matchedAward.id;
         } else {
-          // Ha nincs ilyen díj a rendszerben, automatikusan létrehozzuk!
           const [[{ nextId }]] = await conn.query('SELECT COALESCE(MAX(id), 0) + 1 as nextId FROM photo_awards');
           await conn.query('INSERT INTO photo_awards (id, award_name) VALUES (?, ?)', [nextId, item.award]);
           awardId = nextId;
-          dbAwards.push({ id: awardId, award_name: item.award }); // Hozzáadjuk a listához, hogy a kövi sornál már megtalálja
+          dbAwards.push({ id: awardId, award_name: item.award }); 
         }
       }
 
-      // 4. Eredmény végleges rögzítése a "Importált" kategóriával
       await conn.query(
         'INSERT INTO photo_salon_entries (salon_id, user_email, portfolio_id, award_id, category) VALUES (?, ?, ?, ?, ?)',
         [finalSalonId, userEmail, finalPortfolioId, awardId, 'Importált']
@@ -1349,20 +1427,17 @@ app.post('/api/import/execute', checkPremium, async (req, res) => {
 app.post('/api/create-portal-session', async (req, res) => {
   const { userEmail } = req.body;
   try {
-    // Megkeressük a user stripe_customer_id-ját az adatbázisban
     const [rows] = await pool.query('SELECT stripe_customer_id FROM photo_users WHERE email = ?', [userEmail]);
     
     if (rows.length === 0 || !rows[0].stripe_customer_id) {
       return res.status(400).json({ error: 'Ehhez a felhasználóhoz nem tartozik Stripe előfizetés!' });
     }
 
-    // Létrehozzuk a Stripe beépített ügyfélkapu munkamenetét
     const session = await stripe.billingPortal.sessions.create({
       customer: rows[0].stripe_customer_id,
-      return_url: req.headers.origin, // Ide dobja vissza lemondás után (a főoldalra)
+      return_url: req.headers.origin, 
     });
 
-    // Visszaküldjük a lemondó oldal linkjét
     res.json({ url: session.url });
   } catch (e) {
     console.error('Stripe Portal Hiba:', e);
