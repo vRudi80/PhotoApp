@@ -81,6 +81,8 @@ function App() {
 
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
+  const [newCategorySettings, setNewCategorySettings] = useState<Record<string, any>>({});
+
   const [newStart, setNewStart] = useState('');
   const [newEnd, setNewEnd] = useState('');
   const [newCats, setNewCats] = useState('');
@@ -101,6 +103,7 @@ function App() {
   // ÚJ: Pályázat szerkesztése fizetési mezők
   const [editEntryFee, setEditEntryFee] = useState<number | string>(0);
   const [editFeeCurrency, setEditFeeCurrency] = useState('HUF');
+  const [editCategorySettings, setEditCategorySettings] = useState<Record<string, any>>({});
 
   const [editMeetId, setEditMeetId] = useState<number | null>(null);
   const [meetClubId, setMeetClubId] = useState('');
@@ -407,8 +410,10 @@ function App() {
         endDate: newEnd, 
         categories: newCats, 
         restrictedClub: finalRestrictedClub,
-        entryFee: newEntryFee,     // ÚJ 
-        feeCurrency: newFeeCurrency // ÚJ
+        entryFee: newEntryFee,
+        feeCurrency: newFeeCurrency,
+        categorySettings: newCategorySettings // ÚJ
+
       }) 
     }); 
 
@@ -435,7 +440,10 @@ function App() {
       if (!dateStr) return ''; 
       return dateStr.replace('Z', '').substring(0, 16);
     }; 
-    
+    try {
+      setEditCategorySettings(typeof contest.category_settings === 'string' ? JSON.parse(contest.category_settings) : (contest.category_settings || {}));
+    } catch(e) { setEditCategorySettings({}); }
+
     setEditStart(formatDate(contest.start_date)); 
     setEditEnd(formatDate(contest.end_date)); 
   };
@@ -451,8 +459,10 @@ function App() {
         endDate: editEnd || null, 
         categories: editCats, 
         restrictedClub: editRestrictedClub,
-        entryFee: editEntryFee,      // ÚJ
-        feeCurrency: editFeeCurrency // ÚJ 
+                entryFee: editEntryFee,
+        feeCurrency: editFeeCurrency,
+        categorySettings: editCategorySettings // ÚJ
+
       }) 
     }); 
     if (res.ok) { 
@@ -936,6 +946,11 @@ function App() {
                 setEditingEntryId={setEditingEntryId} editEntryTitle={editEntryTitle}
                 setEditEntryTitle={setEditEntryTitle} handleUpdateEntryTitle={handleUpdateEntryTitle}
                 handleDeleteEntry={handleDeleteEntry} setFullscreenData={setFullscreenData}
+                newCategorySettings={newCategorySettings}
+                setNewCategorySettings={setNewCategorySettings}
+                editCategorySettings={editCategorySettings}
+                setEditCategorySettings={setEditCategorySettings}
+
               />
             )}
           </main>
