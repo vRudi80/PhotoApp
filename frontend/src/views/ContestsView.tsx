@@ -12,6 +12,7 @@ interface ContestsViewProps {
   filteredContests: any[];
   myEntries: any[];
   juryList: any[];
+  myJudgedContests: any[]; // ÚJ!
   
   // New contest form
   newTitle: string; setNewTitle: (v: string) => void;
@@ -22,7 +23,7 @@ interface ContestsViewProps {
   newRestrictedClub: string; setNewRestrictedClub: (v: string) => void;
   newEntryFee: number | string; setNewEntryFee: (v: number | string) => void; 
   newFeeCurrency: string; setNewFeeCurrency: (v: string) => void; 
-  newCategorySettings: Record<string, any>; setNewCategorySettings: (v: Record<string, any>) => void; // ÚJ!
+  newCategorySettings: Record<string, any>; setNewCategorySettings: (v: Record<string, any>) => void;
   handleCreateContest: () => void;
   
   // Edit contest form
@@ -35,7 +36,7 @@ interface ContestsViewProps {
   editRestrictedClub: string; setEditRestrictedClub: (v: string) => void;
   editEntryFee: number | string; setEditEntryFee: (v: number | string) => void; 
   editFeeCurrency: string; setEditFeeCurrency: (v: string) => void; 
-  editCategorySettings: Record<string, any>; setEditCategorySettings: (v: Record<string, any>) => void; // ÚJ!
+  editCategorySettings: Record<string, any>; setEditCategorySettings: (v: Record<string, any>) => void;
   startEdit: (c: any) => void;
   handleUpdateContest: () => void;
   handleDeleteContest: (id: number) => void;
@@ -143,7 +144,6 @@ export default function ContestsView(props: ContestsViewProps) {
 
               <input placeholder="Kategóriák (pl: Természet, Portré, Kreatív) - vesszővel elválasztva" value={props.newCats} onChange={e => props.setNewCats(e.target.value)} style={inputStyle} />
               
-              {/* ÚJ: Dinamikus kategória beállító panel LÉTREHOZÁSNÁL */}
               {props.newCats.split(',').map(c => c.trim()).filter(Boolean).length > 0 && (
                 <div style={{ background: '#0f172a', padding: '15px', borderRadius: '8px', marginBottom: '15px', border: '1px solid #334155' }}>
                   <h4 style={{ margin: '0 0 15px 0', color: '#38bdf8' }}>⚙️ Kategória specifikus díjazás és ponthatárok</h4>
@@ -227,6 +227,12 @@ export default function ContestsView(props: ContestsViewProps) {
               const entryFee = contest.entry_fee || 0;
               const isFeeRequired = entryFee > 0;
               const hasPaid = (props.contestPayments || []).some(p => p.contest_id === contest.id && p.user_email === props.user.email);
+
+              // ÚJ: Kiszámoljuk, végzett-e már a zsűritag
+              const myJudgeData = props.myJudgedContests?.find(j => j.contest_id === contest.id);
+              const isDoneJudging = myJudgeData 
+                ? (myJudgeData.judgeable_count > 0 && myJudgeData.voted_count >= myJudgeData.judgeable_count) || (isEnded && myJudgeData.judgeable_count === 0)
+                : false;
 
               return (
                 <div key={contest.id} style={{ backgroundColor: '#1e293b', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', border: `1px solid ${badgeColor}`, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', position: 'relative' }}>
@@ -362,7 +368,6 @@ export default function ContestsView(props: ContestsViewProps) {
 
                       <input value={props.editCats} onChange={e => props.setEditCats(e.target.value)} style={inputStyle} />
                       
-                      {/* ÚJ: Dinamikus kategória beállító panel SZERKESZTÉSNÉL */}
                       {props.editCats.split(',').map(c => c.trim()).filter(Boolean).length > 0 && (
                         <div style={{ background: '#1e293b', padding: '15px', borderRadius: '8px', marginBottom: '15px', border: '1px solid #475569' }}>
                           <h4 style={{ margin: '0 0 15px 0', color: '#f59e0b' }}>⚙️ Kategória specifikus díjazás és ponthatárok</h4>
@@ -567,7 +572,7 @@ export default function ContestsView(props: ContestsViewProps) {
                                             {awardName && <span style={{ background: awardBg, color: awardColor, padding: '2px 6px', borderRadius: '4px', fontSize: '0.75rem', border: `1px solid ${awardBorder}`, whiteSpace: 'nowrap' }}>{awardIcon} {awardName}</span>}
                                             {isAcceptance && <span style={{ background: '#10b98120', color: '#10b981', padding: '2px 6px', borderRadius: '4px', fontSize: '0.75rem', border: '1px solid #10b98150', whiteSpace: 'nowrap' }}>✅ Acceptance</span>}
                                           </div>
-                                          <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '4px' }}>Készítő: {res.user_name} </div>
+                                          <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '4px' }}>Készítő: {res.user_name} ({res.user_email})</div>
                                         </div>
                                         <div style={{ textAlign: 'right' }}>
                                           <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#10b981' }}>{res.total_score} pont</div>
@@ -581,7 +586,6 @@ export default function ContestsView(props: ContestsViewProps) {
                             )
                           });
                         })()}
-
                       </div>
                   ) : (
                     <>
@@ -628,14 +632,30 @@ export default function ContestsView(props: ContestsViewProps) {
                         </div>
                       )}
 
+                      {/* ÚJ: Zsűritag doboz - Gomb helyett ✅ Értékelés befejezve felirat is lehet! */}
                       {isUserJury && (
                         <div style={{ background: 'linear-gradient(to right, #f59e0b20, #0f172a)', borderLeft: '4px solid #f59e0b', color: '#f8fafc', padding: '15px 20px', borderRadius: '0 8px 8px 0', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
                           <div>
                             <strong style={{ color: '#f59e0b', fontSize: '1.1rem' }}>🏅 Zsűritag vagy!</strong>
-                            <div style={{ fontSize: '0.9rem', marginTop: '5px', color: '#cbd5e1' }}>{isActive ? 'A pontozás a pályázat lezárulta után indul.' : isEnded ? 'A pályázat lezárult, kezdheted a pontozást!' : 'A pályázat még nem indult el.'}</div>
+                            <div style={{ fontSize: '0.9rem', marginTop: '5px', color: '#cbd5e1' }}>
+                              {isActive 
+                                ? 'A pontozás a pályázat lezárulta után indul.' 
+                                : isEnded 
+                                  ? (isDoneJudging ? 'Minden képet értékeltél, köszönjük a munkád!' : 'A pályázat lezárult, kezdheted a pontozást!') 
+                                  : 'A pályázat még nem indult el.'}
+                            </div>
                           </div>
-                          {isEnded && (
+                          
+                          {/* Csak akkor mutatjuk a gombot, ha még NEM végzett! */}
+                          {isEnded && !isDoneJudging && (
                             <button onClick={() => props.startJudging(contest.id)} style={{ background: '#f59e0b', color: '#0f172a', border: 'none', padding: '10px 20px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 6px -1px rgba(245, 158, 11, 0.3)' }}>Értékelés Indítása</button>
+                          )}
+                          
+                          {/* Ha végzett, egy zöld pipás plecsni jelenik meg! */}
+                          {isEnded && isDoneJudging && (
+                            <div style={{ background: '#10b981', color: '#0f172a', padding: '10px 20px', borderRadius: '8px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 6px -1px rgba(16, 185, 129, 0.3)' }}>
+                              ✅ Értékelés befejezve
+                            </div>
                           )}
                         </div>
                       )}
