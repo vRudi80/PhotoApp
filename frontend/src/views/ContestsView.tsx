@@ -100,6 +100,7 @@ export default function ContestsView(props: ContestsViewProps) {
   }, [props.unvotedEntries, props.currentScore]);
 
   // ÚJ: OKLEVÉL GENERÁLÓ LOGIKA
+  // ÚJ: OKLEVÉL GENERÁLÓ LOGIKA
   const generateCertificate = async (contest: any, result: any, awardName: string, isAcceptance: boolean, contestJury: any[]) => {
     setGeneratingCertId(result.id);
     try {
@@ -116,6 +117,13 @@ export default function ContestsView(props: ContestsViewProps) {
       // 3. PDF Létrehozása (A4 Fekvő)
       const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
 
+      // JAVÍTÁS: A PDF alap betűtípusai nem ismerik a magyar ő/ű betűket (q-t csinálnak belőle).
+      // Vizuálisan nagyon hasonló ö/ü betűkre cseréljük őket a hibátlan megjelenésért!
+      const fixHu = (str: string) => {
+        if (!str) return '';
+        return str.replace(/ő/g, 'ö').replace(/ű/g, 'ü').replace(/Ő/g, 'Ö').replace(/Ű/g, 'Ü');
+      };
+
       // --- DIZÁJN ÉS RAJZOLÁS ---
       
       // Dupla arany keret
@@ -129,24 +137,24 @@ export default function ContestsView(props: ContestsViewProps) {
       doc.setFont("times", "bolditalic");
       doc.setFontSize(40);
       doc.setTextColor(30, 41, 59); // Sötét szürkéskék
-      doc.text("OKLEVÉL", 148.5, 35, { align: "center" });
+      doc.text(fixHu("OKLEVÉL"), 148.5, 35, { align: "center" });
 
       doc.setFont("times", "normal");
       doc.setFontSize(22);
-      doc.text(contest.title, 148.5, 48, { align: "center" });
+      doc.text(fixHu(contest.title), 148.5, 48, { align: "center" });
 
       // Díj megnevezése (Arany színnel)
       doc.setFont("times", "bold");
       doc.setFontSize(16);
       doc.setTextColor(217, 119, 6);
       const awardText = awardName ? `Díj: ${awardName}` : 'Eredmény: Elfogadás (Acceptance)';
-      doc.text(awardText, 148.5, 60, { align: "center" });
+      doc.text(fixHu(awardText), 148.5, 60, { align: "center" });
 
       // Kategória
       doc.setFont("times", "italic");
       doc.setTextColor(100, 116, 139);
       doc.setFontSize(14);
-      doc.text(`Kategória: ${result.category}`, 148.5, 68, { align: "center" });
+      doc.text(fixHu(`Kategória: ${result.category}`), 148.5, 68, { align: "center" });
 
       // --- KÉP BEILLESZTÉSE KÖZÉPRE ---
       const maxW = 160;
@@ -165,21 +173,22 @@ export default function ContestsView(props: ContestsViewProps) {
       doc.setFont("times", "bold");
       doc.setFontSize(18);
       doc.setTextColor(30, 41, 59);
-      doc.text(`"${result.title}"`, 148.5, imgY + imgH + 12, { align: "center" });
+      doc.text(fixHu(`"${result.title}"`), 148.5, imgY + imgH + 12, { align: "center" });
 
       doc.setFont("times", "normal");
       doc.setFontSize(14);
-      doc.text(`Készítette: ${result.user_name}`, 148.5, imgY + imgH + 20, { align: "center" });
+      doc.text(fixHu(`Készítette: ${result.user_name}`), 148.5, imgY + imgH + 20, { align: "center" });
 
       // --- ZSŰRI NÉVSOR ALUL ---
       const juryNames = contestJury.map(j => props.allUsers.find(u => u.email === j.user_email)?.name || j.user_email).join(', ');
       doc.setFont("times", "italic");
       doc.setFontSize(12);
       doc.setTextColor(148, 163, 184);
-      doc.text(`A zsűri tagjai: ${juryNames}`, 148.5, 192, { align: "center" });
+      doc.text(fixHu(`A zsűri tagjai: ${juryNames}`), 148.5, 192, { align: "center" });
 
-      // PDF Mentése
-      doc.save(`Oklevel_${result.user_name}_${result.title}.pdf`);
+      // PDF Mentése (Speciális karakterek eltávolítása a fájlnévből a biztonságos letöltéshez)
+      const safeFileName = `Oklevel_${result.user_name}_${result.title}`.replace(/[^a-zA-Z0-9_áéíóúöüÁÉÍÓÚÖÜ]/g, '_');
+      doc.save(`${safeFileName}.pdf`);
       
     } catch (err) {
       alert('Sajnos hiba történt az oklevél generálása közben.');
