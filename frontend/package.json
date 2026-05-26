@@ -14,7 +14,8 @@
     "@react-oauth/google": "^0.12.1",
     "jwt-decode": "^4.0.0",
     "axios": "^1.6.0",
-    "cheerio": "^1.0.0-rc.12"
+    "cheerio": "^1.0.0-rc.12",
+    "jspdf": "^2.5.1"
   },
   
   "devDependencies": {
