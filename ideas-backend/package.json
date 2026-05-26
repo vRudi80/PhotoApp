@@ -16,8 +16,9 @@
     "mysql2": "^3.9.7",
     "axios": "^1.6.0",
     "cheerio": "^1.0.0-rc.12",
-   "@google/generative-ai": "latest",
-"stripe": "latest",
- "xlsx": "^0.18.5" 
+    "@google/generative-ai": "latest",
+    "stripe": "latest",
+    "xlsx": "^0.18.5",
+    "jspdf": "^2.5.1"
   }
 }
