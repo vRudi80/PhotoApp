@@ -829,7 +829,10 @@ app.post('/api/salons', async (req, res) => {
         if (existing.length > 0) { await conn.rollback(); return res.status(400).json({ error: `Ezzel az azonosítóval (${existing[0].patron_number}) már létezik szalon a rendszerben!` }); }
       }
     }
-    const [result] = await conn.query('INSERT INTO photo_salons (name, fee_amount, fee_currency, start_date, end_date, website, results_date, is_circuit, awards_count, cashPrize, circuit_number, submission_type, host_country_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [name, feeAmount || null, feeCurrency || 'EUR', startDate || null, endDate, website || null, resultsDate || null, isCircuit ? 1 : 0, awardsCount || 0, cashPrize || null, circuitNumber || null, submissionType || 'online', hostCountryId || null]);
+    
+    // JAVÍTÁS: cashPrize helyett cash_prize az SQL parancsban!
+    const [result] = await conn.query('INSERT INTO photo_salons (name, fee_amount, fee_currency, start_date, end_date, website, results_date, is_circuit, awards_count, cash_prize, circuit_number, submission_type, host_country_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [name, feeAmount || null, feeCurrency || 'EUR', startDate || null, endDate, website || null, resultsDate || null, isCircuit ? 1 : 0, awardsCount || 0, cashPrize || null, circuitNumber || null, submissionType || 'online', hostCountryId || null]);
+    
     const salonId = result.insertId;
     if (patronsData && patronsData.length > 0) {
       const pValues = patronsData.map(p => [salonId, p.id, p.number || null]);
