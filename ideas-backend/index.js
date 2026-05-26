@@ -534,6 +534,17 @@ app.get('/api/results/:contestId', async (req, res) => {
   try { const [rows] = await pool.query(`SELECT e.id, e.title, e.category, e.file_url, e.drive_file_id, e.user_name, e.user_email, COALESCE(SUM(v.score), 0) as total_score, COUNT(v.id) as vote_count FROM photo_entries e LEFT JOIN photo_votes v ON e.id = v.entry_id WHERE e.contest_id = ? GROUP BY e.id ORDER BY e.category ASC, total_score DESC`, [req.params.contestId]); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
 });
 
+// --- ÚJ: KÉP LETÖLTÉSE BASE64 FORMÁTUMBAN (OKLEVÉLHEZ) ---
+app.get('/api/image-base64/:fileId', async (req, res) => {
+  try {
+    const driveRes = await drive.files.get({ fileId: req.params.fileId, alt: 'media' }, { responseType: 'arraybuffer' });
+    const base64 = Buffer.from(driveRes.data).toString('base64');
+    res.json({ base64: `data:image/jpeg;base64,${base64}` });
+  } catch (err) {
+    res.status(500).json({ error: 'Nem sikerült a képet betölteni az oklevélhez.' });
+  }
+});
+
 // --- KLUBESTEK (MEETINGS) ---
 app.get('/api/meetings', async (req, res) => {
   try { const [rows] = await pool.query(`SELECT m.*, c.name as club_name FROM photo_club_meetings m JOIN photo_clubs c ON m.club_id = c.id ORDER BY m.meeting_date DESC, m.meeting_time DESC`); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
