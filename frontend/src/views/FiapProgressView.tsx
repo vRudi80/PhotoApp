@@ -65,7 +65,7 @@ export default function FiapProgressView({ user, allUsers = [] }: FiapProgressVi
   const handleExportFiapC = async () => {
     setIsExporting(true);
     try {
-      const res = await fetch(`${BACKEND_URL}/api/export-fiap-c?userEmail=${props.user.email}`);
+      const res = await fetch(`${BACKEND_URL}/api/export-fiap-c?userEmail=${user.email}`);
       
       // JAVÍTÁS: Ha nem 200 OK a válasz, megpróbáljuk megérteni a szerver pontos üzenetét
       if (!res.ok) {
