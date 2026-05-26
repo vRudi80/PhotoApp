@@ -61,12 +61,32 @@ export default function FiapProgressView({ user, allUsers = [] }: FiapProgressVi
   // --- ÚJ: FIAP C LAP EXCEL LETÖLTÉSE ---
   const [isExporting, setIsExporting] = useState(false);
 
+  // --- ÚJ: FIAP C LAP EXCEL LETÖLTÉSE (OKOS HIBAKEZELÉSSEL) ---
+  const [isExporting, setIsExporting] = useState(false);
+
   const handleExportFiapC = async () => {
     setIsExporting(true);
     try {
       const res = await fetch(`${BACKEND_URL}/api/export-fiap-c?userEmail=${props.user.email}`);
-      if (!res.ok) throw new Error('Hiba az exportáláskor');
       
+      // JAVÍTÁS: Ha nem 200 OK a válasz, megpróbáljuk megérteni a szerver pontos üzenetét
+      if (!res.ok) {
+        let errMsg = 'Ismeretlen szerverhiba történt.';
+        try {
+          const errData = await res.json();
+          // Ha a checkPremium dobta meg (pl. PREMIUM_REQUIRED)
+          if (errData.error === 'PREMIUM_REQUIRED' || errData.message) {
+            errMsg = errData.message || 'Ehhez a funkcióhoz aktív Prémium előfizetés szükséges!';
+          } else {
+            errMsg = errData.error || errMsg;
+          }
+        } catch(e) {
+          errMsg = `Szerver hibaoldalt küldött. Állapotkód: ${res.status}`;
+        }
+        throw new Error(errMsg);
+      }
+      
+      // Ha minden jó, jöhet a letöltés indítása
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -76,8 +96,9 @@ export default function FiapProgressView({ user, allUsers = [] }: FiapProgressVi
       a.click();
       a.remove();
       window.URL.revokeObjectURL(url);
-    } catch (e) {
-      alert("Hálózati hiba az Excel letöltésekor!");
+    } catch (e: any) {
+      // Itt már a pontos hiba fog megjelenni egy Alert ablakban!
+      alert(`❌ Hiba az Excel letöltésekor:\n\n${e.message}`);
     } finally {
       setIsExporting(false);
     }
