@@ -58,8 +58,6 @@ export default function FiapProgressView({ user, allUsers = [] }: FiapProgressVi
     fetchProgress();
   }, [user, selectedEmail]); 
 
-  // --- ÚJ: FIAP C LAP EXCEL LETÖLTÉSE ---
-  const [isExporting, setIsExporting] = useState(false);
 
   // --- ÚJ: FIAP C LAP EXCEL LETÖLTÉSE (OKOS HIBAKEZELÉSSEL) ---
   const [isExporting, setIsExporting] = useState(false);
