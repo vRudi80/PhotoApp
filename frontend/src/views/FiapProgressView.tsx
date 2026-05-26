@@ -58,6 +58,31 @@ export default function FiapProgressView({ user, allUsers = [] }: FiapProgressVi
     fetchProgress();
   }, [user, selectedEmail]); 
 
+  // --- ÚJ: FIAP C LAP EXCEL LETÖLTÉSE ---
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExportFiapC = async () => {
+    setIsExporting(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/export-fiap-c?userEmail=${props.user.email}`);
+      if (!res.ok) throw new Error('Hiba az exportáláskor');
+      
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `FIAP_Page_C_Export_${new Date().toISOString().split('T')[0]}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      alert("Hálózati hiba az Excel letöltésekor!");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+  
   const filteredEntries = useMemo(() => {
     if (!searchTerm) return entries;
     const lowerTerm = searchTerm.toLowerCase();
@@ -132,7 +157,32 @@ export default function FiapProgressView({ user, allUsers = [] }: FiapProgressVi
           </button>
         )}
       </div>
-    
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '15px' }}>
+          <h3 style={{ margin: 0, color: '#f8fafc', fontSize: '1.5rem' }}>FIAP Tételes Eredménylista</h3>
+          
+          <button 
+            onClick={handleExportFiapC} 
+            disabled={isExporting}
+            style={{ 
+              background: isExporting ? '#475569' : '#10b981', 
+              color: '#0f172a', 
+              border: 'none', 
+              padding: '10px 20px', 
+              borderRadius: '8px', 
+              cursor: isExporting ? 'not-allowed' : 'pointer', 
+              fontWeight: 'bold',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              transition: 'background 0.2s',
+              boxShadow: '0 4px 6px rgba(16, 185, 129, 0.2)'
+            }}
+          >
+            {isExporting ? '⏳ Generálás...' : '📗 Excel Export (C Lap)'}
+          </button>
+        </div>
+      
       {/* --- ADMIN LEGÖRDÜLŐ MENÜ --- */}
       {user.email === ADMIN_EMAIL && allUsers.length > 0 && (
         <div style={{ marginBottom: '30px', padding: '20px', background: '#1e293b', borderRadius: '12px', border: '2px solid #f59e0b', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}>
