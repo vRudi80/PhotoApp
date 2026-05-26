@@ -34,7 +34,8 @@ function App() {
   
   // ÚJ: Pályázati fizetések tárolója
   const [contestPayments, setContestPayments] = useState<any[]>([]);
-
+  const [myJudgedContests, setMyJudgedContests] = useState<any[]>([]);
+  
   const [contests, setContests] = useState<any[]>([]);
   const [myEntries, setMyEntries] = useState<any[]>([]);
   const [juryList, setJuryList] = useState<any[]>([]);
@@ -226,15 +227,20 @@ function App() {
     }
   };
   
-  const fetchMyEntries = async (email: string) => {
+const fetchMyEntries = async (email: string) => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/my-entries?userEmail=${email}`);
       if (res.ok) setMyEntries(await res.json());
+      
       const resHw = await fetch(`${BACKEND_URL}/api/my-homework-entries?userEmail=${email}`);
       if (resHw.ok) setMyHomeworkEntries(await resHw.json());
       
       const resSalons = await fetch(`${BACKEND_URL}/api/my-salon-entries-status?userEmail=${email}`);
       if (resSalons.ok) setUserEntrySalonIds(await resSalons.json());
+
+      // ÚJ: Lekérdezzük a zsűrizési haladást is
+      const resJudged = await fetch(`${BACKEND_URL}/api/my-judged-contests?userEmail=${email}`);
+      if (resJudged.ok) setMyJudgedContests(await resJudged.json());
     } catch (e) { console.error(e); }
   };
   
@@ -503,7 +509,21 @@ function App() {
   const handleUpdateEntryTitle = async (entryId: number) => { if (!editEntryTitle) return alert('A cím nem lehet üres!'); const res = await fetch(`${BACKEND_URL}/api/entries/${entryId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: editEntryTitle, userEmail: user.email }) }); if (res.ok) { setEditingEntryId(null); fetchMyEntries(user.email); } else alert('Hiba a cím frissítésekor!'); };
   const handleDeleteEntry = async (entryId: number) => { if (!window.confirm("Biztosan törlöd?")) return; const res = await fetch(`${BACKEND_URL}/api/entries/${entryId}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userEmail: user.email }) }); if (res.ok) fetchMyEntries(user.email); };
   const startJudging = async (contestId: number) => { const res = await fetch(`${BACKEND_URL}/api/jury-entries/${contestId}?userEmail=${user.email}`); if (res.ok) { setUnvotedEntries(await res.json()); setJudgingContestId(contestId); setCurrentScore(''); } };
-  const submitVote = async () => { const score = Number(currentScore); if (score < 0 || score > 100 || currentScore === '') return alert("0 és 100 közötti pontszámot adj meg!"); const res = await fetch(`${BACKEND_URL}/api/vote`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ entryId: unvotedEntries[0].id, juryEmail: user.email, score }) }); if (res.ok) { setUnvotedEntries(prev => prev.slice(1)); setCurrentScore(''); } };
+  const submitVote = async () => { 
+    const score = Number(currentScore); 
+    if (score < 0 || score > 100 || currentScore === '') return alert("0 és 100 közötti pontszámot adj meg!"); 
+    const res = await fetch(`${BACKEND_URL}/api/vote`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ entryId: unvotedEntries[0].id, juryEmail: user.email, score }) }); 
+    
+    if (res.ok) { 
+      setUnvotedEntries(prev => prev.slice(1)); 
+      setCurrentScore(''); 
+      // Ha ez volt az utolsó kép a tömbben, frissítjük az állapotokat a háttérben!
+      if (unvotedEntries.length === 1) { 
+        fetchMyEntries(user.email);
+        fetchData(); 
+      }
+    } 
+  };
   const loadResults = async (contestId: number) => { const res = await fetch(`${BACKEND_URL}/api/results/${contestId}`); if (res.ok) { setContestResults(await res.json()); setViewResultsContestId(contestId); } };
   const loadStats = async (contestId: number) => { const res = await fetch(`${BACKEND_URL}/api/admin/stats/${contestId}`); if (res.ok) { setContestStats(await res.json()); setViewStatsContestId(contestId); } };
   const handleDeleteContest = async (id: number) => { if (!window.confirm("❗ BIZTOSAN TÖRLÖD ezt a pályázatot?\n\nA hozzá tartozó összes kép, nevezés és szavazat is VÉGLEG törlődik a szerverről és a Google Drive-ról is!")) return; const res = await fetch(`${BACKEND_URL}/api/contests/${id}`, { method: 'DELETE' }); if (res.ok) fetchData(); else alert("Hiba történt a törlés során!"); };
@@ -910,6 +930,7 @@ function App() {
                 newStart={newStart} setNewStart={setNewStart} newEnd={newEnd}
                 setNewEnd={setNewEnd} newCats={newCats} setNewCats={setNewCats}
                 newRestrictedClub={newRestrictedClub} setNewRestrictedClub={setNewRestrictedClub}
+                myJudgedContests={myJudgedContests}
                 
                 // Új Fizetés mezők átadása
                 newEntryFee={newEntryFee} setNewEntryFee={setNewEntryFee}
