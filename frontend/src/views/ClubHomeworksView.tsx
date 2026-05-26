@@ -38,9 +38,10 @@ export default function ClubHomeworksView({
   const [sortedHwIds, setSortedHwIds] = useState<number[]>([]);
   const [expandedHwIds, setExpandedHwIds] = useState<number[]>([]);
   const [hwSearch, setHwSearch] = useState('');
+  
+  // ÚJ: Szűrő állapot a kiválasztott képekhez
+  const [filterSelectedHwIds, setFilterSelectedHwIds] = useState<number[]>([]);
 
-  // ÚJ: Itt tároljuk helyben a kiválasztások (is_selected) állapotát, 
-  // hogy gombnyomáskor azonnal frissüljön a felület újratöltés nélkül!
   const [localSelections, setLocalSelections] = useState<Record<number, boolean>>({});
 
   const inputStyle = { width: '100%', padding: '10px', marginBottom: '10px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '6px', boxSizing: 'border-box' as const };
@@ -55,7 +56,6 @@ export default function ClubHomeworksView({
     );
   }
 
-  // ÚJ: Kiválasztás (toggle) funkció hívása
   const handleToggleSelect = async (entryId: number) => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/homework-entries/${entryId}/toggle-select`, {
@@ -136,6 +136,9 @@ export default function ClubHomeworksView({
           
           const isSortedByLikes = sortedHwIds.includes(hw.id);
           const isExpanded = expandedHwIds.includes(hw.id);
+          
+          // ÚJ: Szűrés állapota
+          const isFilterActive = filterSelectedHwIds.includes(hw.id);
 
           const finalEntriesForAll = [...hwEntriesForAllRaw].sort((a, b) => {
             if (isSortedByLikes) {
@@ -147,10 +150,14 @@ export default function ClubHomeworksView({
             const nameB = b.user_name || '';
             return nameA.localeCompare(nameB);
           });
+
+          // ÚJ: A megjelenítendő (és a lapozónak átadott) lista, a szűrő alapján
+          const displayEntries = isFilterActive 
+            ? finalEntriesForAll.filter(entry => localSelections[entry.id] !== undefined ? localSelections[entry.id] : (entry.is_selected === 1))
+            : finalEntriesForAll;
           
           const maxImages = hw.max_images || 4;
 
-          // --- ÚJ: VEZETŐI TÁBLÁZAT ADATOK (Statisztika) ---
           const uploaderStats: Record<string, any[]> = {};
           let totalSelectedInHw = 0;
 
@@ -158,7 +165,6 @@ export default function ClubHomeworksView({
              const userName = entry.user_name || 'Ismeretlen';
              if (!uploaderStats[userName]) uploaderStats[userName] = [];
              
-             // Kiszámoljuk az aktuális állapotot (a helyi felülbírálással)
              const isSelected = localSelections[entry.id] !== undefined ? localSelections[entry.id] : (entry.is_selected === 1);
              if (isSelected) totalSelectedInHw++;
 
@@ -169,7 +175,6 @@ export default function ClubHomeworksView({
              });
           });
 
-          // Névsorba rendezzük az embereket a statisztikához
           const sortedUploaders = Object.keys(uploaderStats).sort((a, b) => a.localeCompare(b));
 
           return (
@@ -199,10 +204,9 @@ export default function ClubHomeworksView({
               {isExpanded && (
                 <div style={{ marginTop: '20px', animation: 'fadeIn 0.3s ease-out' }}>
                   
-                  {/* --- ÚJ: VEZETŐI STATISZTIKA TÁBLÁZAT --- */}
                   {isLeader && (
                     <div style={{ marginBottom: '20px', padding: '20px', background: '#0f172a', borderRadius: '12px', border: '1px solid #f59e0b50' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', flexWrap: 'wrap', gap: '10px' }}>
                         <h4 style={{ margin: 0, fontSize: '1rem', color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '1px' }}>
                           📊 Klub Portfólió Válogatás (Vezetői Nézet)
                         </h4>
@@ -254,7 +258,6 @@ export default function ClubHomeworksView({
                       )}
                     </div>
                   )}
-                  {/* -------------------------------------- */}
 
                   {!isPast && activeUploadHw !== hw.id && myEntries.length < maxImages && (
                     <button onClick={() => { setActiveUploadHw(hw.id); setHwUploadTitle(''); setHwUploadPreview(null); }} style={{ background: '#38bdf8', color: '#0f172a', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', marginBottom: '15px', width: '100%' }}>+ Kép Feltöltése ({myEntries.length}/{maxImages})</button>
@@ -277,7 +280,6 @@ export default function ClubHomeworksView({
                     </div>
                   )}
 
-                  {/* Saját nevezések */}
                   {myEntries.length > 0 && (
                     <div style={{ marginTop: '20px', borderTop: '1px solid #334155', paddingTop: '20px' }}>
                       <h4 style={{margin: '0 0 15px 0', fontSize: '1.1rem', color: '#cbd5e1'}}>Saját beküldött képeid</h4>
@@ -326,7 +328,6 @@ export default function ClubHomeworksView({
                     </div>
                   )}
 
-                  {/* Teljes Klub Galéria */}
                   {isPast && (
                     <div style={{ marginTop: '30px', borderTop: isLeader ? '2px dashed #f59e0b' : '1px solid #334155', paddingTop: '20px' }}>
                       
@@ -338,46 +339,66 @@ export default function ClubHomeworksView({
                           <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: 0 }}>Kattints a képre a galéria nézethez (lapozáshoz). Két nézet között is válthatsz!</p>
                         </div>
 
-                        <button 
-                          onClick={() => {
-                            if (isSortedByLikes) {
-                              setSortedHwIds(prev => prev.filter(id => id !== hw.id));
-                            } else {
-                              setSortedHwIds(prev => [...prev, hw.id]);
-                            }
-                          }}
-                          style={{ 
-                            background: isSortedByLikes ? '#ef4444' : '#1e293b', 
-                            color: isSortedByLikes ? '#ffffff' : '#cbd5e1', 
-                            border: isSortedByLikes ? 'none' : '1px solid #475569', 
-                            padding: '8px 15px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem', transition: 'all 0.2s' 
-                          }}
-                        >
-                          {isSortedByLikes ? '❤️ Népszerűség szerint (Váltás Névsorra)' : '👤 Névsor szerint (Váltás Népszerűségre)'}
-                        </button>
+                        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                          {/* ÚJ: Szűrő gomb beépítése */}
+                          <button 
+                            onClick={() => {
+                              if (isFilterActive) {
+                                setFilterSelectedHwIds(prev => prev.filter(id => id !== hw.id));
+                              } else {
+                                setFilterSelectedHwIds(prev => [...prev, hw.id]);
+                              }
+                            }}
+                            style={{ 
+                              background: isFilterActive ? '#10b981' : '#1e293b', 
+                              color: isFilterActive ? '#0f172a' : '#cbd5e1', 
+                              border: isFilterActive ? 'none' : '1px solid #475569', 
+                              padding: '8px 15px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem', transition: 'all 0.2s' 
+                            }}
+                          >
+                            {isFilterActive ? '✅ Csak kiválasztottak (Mutasd mind)' : '🔍 Csak kiválasztottak mutatása'}
+                          </button>
+
+                          <button 
+                            onClick={() => {
+                              if (isSortedByLikes) {
+                                setSortedHwIds(prev => prev.filter(id => id !== hw.id));
+                              } else {
+                                setSortedHwIds(prev => [...prev, hw.id]);
+                              }
+                            }}
+                            style={{ 
+                              background: isSortedByLikes ? '#ef4444' : '#1e293b', 
+                              color: isSortedByLikes ? '#ffffff' : '#cbd5e1', 
+                              border: isSortedByLikes ? 'none' : '1px solid #475569', 
+                              padding: '8px 15px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem', transition: 'all 0.2s' 
+                            }}
+                          >
+                            {isSortedByLikes ? '❤️ Népszerűség szerint (Váltás Névsorra)' : '👤 Névsor szerint (Váltás Népszerűségre)'}
+                          </button>
+                        </div>
                       </div>
                       
-                      {finalEntriesForAll.length === 0 ? (
-                        <p style={{ color: '#94a3b8' }}>Még senki nem töltött fel képet ehhez a feladathoz.</p>
+                      {displayEntries.length === 0 ? (
+                        <p style={{ color: '#94a3b8' }}>
+                          {isFilterActive ? 'Nincs megjeleníthető kiválasztott kép.' : 'Még senki nem töltött fel képet ehhez a feladathoz.'}
+                        </p>
                       ) : (
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '15px' }}>
-                          {finalEntriesForAll.map((entry, index) => {
+                          {displayEntries.map((entry, index) => {
                             const imageUrl = getImageUrl(entry.drive_file_id, entry.file_url);
-                            
-                            // ÚJ: Kiválasztás állapotának megállapítása
                             const isSelected = localSelections[entry.id] !== undefined ? localSelections[entry.id] : (entry.is_selected === 1);
 
                             return (
                               <div key={entry.id} style={{ position: 'relative', background: '#0f172a', borderRadius: '8px', overflow: 'hidden', border: isSelected ? '2px solid #10b981' : (isLeader ? '1px solid #f59e0b50' : '1px solid #334155'), display: 'flex', flexDirection: 'column', transition: 'border 0.2s' }}>
                                 
-                                {/* ÚJ: Vizuális plecsni, ha ki van választva */}
                                 {isSelected && (
                                   <div style={{ position: 'absolute', top: '10px', left: '10px', background: '#10b981', color: 'white', padding: '4px 8px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 'bold', zIndex: 10, boxShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
                                     ✅ Kiválasztva
                                   </div>
                                 )}
 
-                                <div style={{ height: '160px', width: '100%', background: '#000000', cursor: 'zoom-in' }} onClick={() => openGalleryModal(entry, finalEntriesForAll, index)}>
+                                <div style={{ height: '160px', width: '100%', background: '#000000', cursor: 'zoom-in' }} onClick={() => openGalleryModal(entry, displayEntries, index)}>
                                   <img 
                                     src={imageUrl} 
                                     alt={entry.title} 
@@ -399,7 +420,6 @@ export default function ClubHomeworksView({
                                   </div>
                                 </div>
                                 
-                                {/* ÚJ: Vezetői gombok (Kiválasztás + Letöltés) */}
                                 {isLeader && (
                                   <div style={{ display: 'flex', borderTop: '1px solid #f59e0b40' }}>
                                     <button 
