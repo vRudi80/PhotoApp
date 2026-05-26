@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { ADMIN_EMAIL } from '../utils/constants';
+import { ADMIN_EMAIL, BACKEND_URL } from '../utils/constants';
 import { getImageUrl } from '../utils/helpers';
+import jsPDF from 'jspdf'; // ÚJ: PDF generáló beimportálása
 
 interface ContestsViewProps {
   activeTab: string;
@@ -12,7 +13,7 @@ interface ContestsViewProps {
   filteredContests: any[];
   myEntries: any[];
   juryList: any[];
-  myJudgedContests: any[]; // ÚJ!
+  myJudgedContests: any[];
   
   // New contest form
   newTitle: string; setNewTitle: (v: string) => void;
@@ -90,10 +91,103 @@ export default function ContestsView(props: ContestsViewProps) {
   const inputStyle = { width: '100%', padding: '10px', marginBottom: '10px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '6px', boxSizing: 'border-box' as const };
 
   const [isSubmittingVote, setIsSubmittingVote] = useState(false);
+  
+  // ÚJ: Oklevél generálás állapota
+  const [generatingCertId, setGeneratingCertId] = useState<number | null>(null);
 
   useEffect(() => {
     setIsSubmittingVote(false);
   }, [props.unvotedEntries, props.currentScore]);
+
+  // ÚJ: OKLEVÉL GENERÁLÓ LOGIKA
+  const generateCertificate = async (contest: any, result: any, awardName: string, isAcceptance: boolean, contestJury: any[]) => {
+    setGeneratingCertId(result.id);
+    try {
+      // 1. Kép letöltése a backendről (Base64)
+      const res = await fetch(`${BACKEND_URL}/api/image-base64/${result.drive_file_id}`);
+      const data = await res.json();
+      if (!data.base64) throw new Error("Hiba a kép letöltésekor");
+
+      // 2. Kép méreteinek kinyerése
+      const img = new Image();
+      img.src = data.base64;
+      await new Promise((resolve) => { img.onload = resolve; });
+
+      // 3. PDF Létrehozása (A4 Fekvő)
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+      // --- DIZÁJN ÉS RAJZOLÁS ---
+      
+      // Dupla arany keret
+      doc.setDrawColor(217, 119, 6); // Arany szín
+      doc.setLineWidth(2);
+      doc.rect(10, 10, 277, 190);
+      doc.setLineWidth(0.5);
+      doc.rect(12, 12, 273, 186);
+
+      // Címek és szövegek
+      doc.setFont("times", "bolditalic");
+      doc.setFontSize(40);
+      doc.setTextColor(30, 41, 59); // Sötét szürkéskék
+      doc.text("OKLEVÉL", 148.5, 35, { align: "center" });
+
+      doc.setFont("times", "normal");
+      doc.setFontSize(22);
+      doc.text(contest.title, 148.5, 48, { align: "center" });
+
+      // Díj megnevezése (Arany színnel)
+      doc.setFont("times", "bold");
+      doc.setFontSize(16);
+      doc.setTextColor(217, 119, 6);
+      const awardText = awardName ? `Díj: ${awardName}` : 'Eredmény: Elfogadás (Acceptance)';
+      doc.text(awardText, 148.5, 60, { align: "center" });
+
+      // Kategória
+      doc.setFont("times", "italic");
+      doc.setTextColor(100, 116, 139);
+      doc.setFontSize(14);
+      doc.text(`Kategória: ${result.category}`, 148.5, 68, { align: "center" });
+
+      // --- KÉP BEILLESZTÉSE KÖZÉPRE ---
+      const maxW = 160;
+      const maxH = 90;
+      let imgW = img.width;
+      let imgH = img.height;
+      const ratio = Math.min(maxW / imgW, maxH / imgH);
+      imgW = imgW * ratio;
+      imgH = imgH * ratio;
+      const imgX = (297 - imgW) / 2;
+      const imgY = 75;
+
+      doc.addImage(data.base64, 'JPEG', imgX, imgY, imgW, imgH);
+
+      // --- KÉP ALATTI ADATOK ---
+      doc.setFont("times", "bold");
+      doc.setFontSize(18);
+      doc.setTextColor(30, 41, 59);
+      doc.text(`"${result.title}"`, 148.5, imgY + imgH + 12, { align: "center" });
+
+      doc.setFont("times", "normal");
+      doc.setFontSize(14);
+      doc.text(`Készítette: ${result.user_name}`, 148.5, imgY + imgH + 20, { align: "center" });
+
+      // --- ZSŰRI NÉVSOR ALUL ---
+      const juryNames = contestJury.map(j => props.allUsers.find(u => u.email === j.user_email)?.name || j.user_email).join(', ');
+      doc.setFont("times", "italic");
+      doc.setFontSize(12);
+      doc.setTextColor(148, 163, 184);
+      doc.text(`A zsűri tagjai: ${juryNames}`, 148.5, 192, { align: "center" });
+
+      // PDF Mentése
+      doc.save(`Oklevel_${result.user_name}_${result.title}.pdf`);
+      
+    } catch (err) {
+      alert('Sajnos hiba történt az oklevél generálása közben.');
+      console.error(err);
+    } finally {
+      setGeneratingCertId(null);
+    }
+  };
 
   return (
     <>
@@ -228,7 +322,6 @@ export default function ContestsView(props: ContestsViewProps) {
               const isFeeRequired = entryFee > 0;
               const hasPaid = (props.contestPayments || []).some(p => p.contest_id === contest.id && p.user_email === props.user.email);
 
-              // ÚJ: Kiszámoljuk, végzett-e már a zsűritag
               const myJudgeData = props.myJudgedContests?.find(j => j.contest_id === contest.id);
               const isDoneJudging = myJudgeData 
                 ? (myJudgeData.judgeable_count > 0 && myJudgeData.voted_count >= myJudgeData.judgeable_count) || (isEnded && myJudgeData.judgeable_count === 0)
@@ -525,7 +618,6 @@ export default function ContestsView(props: ContestsViewProps) {
                           <button onClick={() => props.setViewResultsContestId(null)} style={{ background: 'transparent', color: '#94a3b8', border: '1px solid #475569', padding: '5px 15px', borderRadius: '6px', cursor: 'pointer' }}>Bezár</button>
                         </div>
                         
-                        {/* ÚJ: Eredmények megjelenítése díjakkal és elfogadásokkal */}
                         {(() => {
                           let catSettings: Record<string, any> = {};
                           try {
@@ -548,18 +640,17 @@ export default function ContestsView(props: ContestsViewProps) {
                                     const awardName = awardsArr[index]; 
                                     const isAcceptance = !awardName && res.total_score >= accScore;
 
-                                    // Színlogika: 1. Arany, 2. Ezüst, 3. Bronz, minden más Díj = Kék
-                                    let awardColor = '#38bdf8'; // Alap kék a 4. helytől
+                                    let awardColor = '#38bdf8'; 
                                     let awardBg = '#38bdf820';
                                     let awardBorder = '#38bdf850';
                                     let awardIcon = '🏅';
 
                                     if (index === 0) {
-                                      awardColor = '#fbbf24'; awardBg = '#fbbf2420'; awardBorder = '#fbbf2450'; awardIcon = '🥇'; // Arany
+                                      awardColor = '#fbbf24'; awardBg = '#fbbf2420'; awardBorder = '#fbbf2450'; awardIcon = '🥇'; 
                                     } else if (index === 1) {
-                                      awardColor = '#cbd5e1'; awardBg = '#cbd5e120'; awardBorder = '#cbd5e150'; awardIcon = '🥈'; // Ezüst
+                                      awardColor = '#cbd5e1'; awardBg = '#cbd5e120'; awardBorder = '#cbd5e150'; awardIcon = '🥈'; 
                                     } else if (index === 2) {
-                                      awardColor = '#d97706'; awardBg = '#d9770620'; awardBorder = '#d9770650'; awardIcon = '🥉'; // Bronz
+                                      awardColor = '#d97706'; awardBg = '#d9770620'; awardBorder = '#d9770650'; awardIcon = '🥉'; 
                                     }
 
                                     return (
@@ -573,6 +664,18 @@ export default function ContestsView(props: ContestsViewProps) {
                                             {isAcceptance && <span style={{ background: '#10b98120', color: '#10b981', padding: '2px 6px', borderRadius: '4px', fontSize: '0.75rem', border: '1px solid #10b98150', whiteSpace: 'nowrap' }}>✅ Acceptance</span>}
                                           </div>
                                           <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '4px' }}>Készítő: {res.user_name} ({res.user_email})</div>
+                                          
+                                          {/* ÚJ: OKLEVÉL LETÖLTÉSE GOMB (Csak a saját díjazott képeknél!) */}
+                                          {props.user.email === res.user_email && (awardName || isAcceptance) && (
+                                            <button
+                                              onClick={() => generateCertificate(contest, res, awardName || '', isAcceptance, contestJury)}
+                                              disabled={generatingCertId === res.id}
+                                              style={{ marginTop: '8px', background: 'transparent', color: '#f59e0b', border: '1px solid #f59e0b', padding: '4px 10px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 'bold', cursor: generatingCertId === res.id ? 'not-allowed' : 'pointer', transition: 'all 0.2s', opacity: generatingCertId === res.id ? 0.5 : 1 }}
+                                            >
+                                              {generatingCertId === res.id ? '⏳ Oklevél generálása...' : '📜 Oklevél letöltése (PDF)'}
+                                            </button>
+                                          )}
+                                          
                                         </div>
                                         <div style={{ textAlign: 'right' }}>
                                           <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#10b981' }}>{res.total_score} pont</div>
@@ -632,7 +735,6 @@ export default function ContestsView(props: ContestsViewProps) {
                         </div>
                       )}
 
-                      {/* ÚJ: Zsűritag doboz - Gomb helyett ✅ Értékelés befejezve felirat is lehet! */}
                       {isUserJury && (
                         <div style={{ background: 'linear-gradient(to right, #f59e0b20, #0f172a)', borderLeft: '4px solid #f59e0b', color: '#f8fafc', padding: '15px 20px', borderRadius: '0 8px 8px 0', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
                           <div>
@@ -646,15 +748,14 @@ export default function ContestsView(props: ContestsViewProps) {
                             </div>
                           </div>
                           
-                          {/* Csak akkor mutatjuk a gombot, ha még NEM végzett! */}
                           {isEnded && !isDoneJudging && (
                             <button onClick={() => props.startJudging(contest.id)} style={{ background: '#f59e0b', color: '#0f172a', border: 'none', padding: '10px 20px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 6px -1px rgba(245, 158, 11, 0.3)' }}>Értékelés Indítása</button>
                           )}
                           
-                          {/* Ha végzett, egy zöld pipás plecsni jelenik meg! */}
                           {isEnded && isDoneJudging && (
-                          <button onClick={() => props.loadResults(contest.id)} style={{ background: '#10b981', border: 'none', color: 'white', fontSize: '0.7rem', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer' }}>✅ Értékelés befejezve</button>
-                           
+                            <div style={{ background: '#10b981', color: '#0f172a', padding: '10px 20px', borderRadius: '8px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 6px -1px rgba(16, 185, 129, 0.3)' }}>
+                              ✅ Értékelés befejezve
+                            </div>
                           )}
                         </div>
                       )}
