@@ -1138,6 +1138,79 @@ app.get('/api/fiap-entries', checkPremium, async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Hiba a FIAP tételes lista lekérésekor' }); }
 });
 
+// --- ÚJ: FIAP C LAK (PAGE C) EXPORTÁLÁSA EXCELBE ---
+app.get('/api/export-fiap-c', checkPremium, async (req, res) => {
+  const userEmail = req.query.userEmail;
+  try {
+    // 1. Lekérjük az összes FIAP eredményt, KÖTELEZŐEN Cím szerint, azon belül Szalon szerint rendezve!
+    const [rows] = await pool.query(`
+      SELECT 
+        COALESCE(p.title, 'Ismeretlen / Törölt kép') as photo_title, 
+        s.name as salon_name, 
+        c.country as country_eng, 
+        sp.patron_number as fiap_number, 
+        a.award_name as award 
+      FROM photo_salon_entries e 
+      JOIN photo_salons s ON e.salon_id = s.id 
+      JOIN photo_awards a ON e.award_id = a.id 
+      JOIN photo_salon_patrons sp ON sp.salon_id = s.id AND sp.patron_id = 1 
+      LEFT JOIN photo_portfolio p ON e.portfolio_id = p.id 
+      LEFT JOIN photo_countries c ON s.host_country_id = c.id 
+      WHERE e.user_email = ? 
+        AND e.award_id IS NOT NULL 
+        AND e.award_id > 0 
+        AND a.award_name IS NOT NULL 
+        AND TRIM(a.award_name) != '' 
+      ORDER BY photo_title ASC, s.name ASC
+    `, [userEmail]);
+
+    // 2. FIAP sorszámozási logika (Title N° és Acc. N°)
+    let currentTitle = '';
+    let titleNum = 0;
+    let accNum = 0;
+    const exportData = [];
+
+    rows.forEach(row => {
+      accNum++;
+      const t = row.photo_title.trim();
+      
+      // Ha új képnév jön, növeljük a Kép sorszámát
+      if (t !== currentTitle) {
+        titleNum++;
+        currentTitle = t;
+      }
+      
+      // A FIAP az Acceptance szót általában nem kéri az Award oszlopba, csak a tényleges díjakat
+      const finalAward = (row.award && row.award.toLowerCase() !== 'acceptance' && row.award.toLowerCase() !== 'elfogadás') ? row.award : '';
+
+      exportData.push({
+        'Acc. N°': accNum,
+        'Title N°': titleNum,
+        'Title of the work': t,
+        'Salon': row.salon_name,
+        'Country': row.country_eng || '',
+        'Nr FIAP yyyy/xxx': row.fiap_number || '',
+        'Award': finalAward
+      });
+    });
+
+    // 3. Excel fájl legenerálása
+    const worksheet = xlsx.utils.json_to_sheet(exportData);
+    const workbook = xlsx.utils.book_new();
+    xlsx.utils.book_append_sheet(workbook, worksheet, "FIAP_Page_C_Data");
+
+    const excelBuffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+    // 4. Kiküldés a böngészőnek letöltésre
+    res.setHeader('Content-Disposition', 'attachment; filename="FIAP_Page_C_Export.xlsx"');
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.send(excelBuffer);
+
+  } catch (err) {
+    console.error('Hiba a FIAP Excel generálásakor:', err);
+    res.status(500).json({ error: 'Szerver hiba az Excel generálásakor' });
+  }
+});
 // --- SZALON NEVEZÉSEK ÉS EGYÉB (PORTFÓLIÓBÓL) ---
 app.get('/api/salon-entries/:salonId', async (req, res) => {
   try { const [rows] = await pool.query(`SELECT e.id as entry_id, e.category, e.award_id, e.achieved_score, e.acceptance_score, p.*, a.award_name FROM photo_salon_entries e JOIN photo_portfolio p ON e.portfolio_id = p.id LEFT JOIN photo_awards a ON e.award_id = a.id WHERE e.salon_id = ? AND e.user_email = ?`, [req.params.salonId, req.query.userEmail]); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba a nevezések lekérésekor' }); }
