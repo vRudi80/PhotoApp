@@ -567,7 +567,7 @@ export default function ContestsView(props: ContestsViewProps) {
                                             {awardName && <span style={{ background: awardBg, color: awardColor, padding: '2px 6px', borderRadius: '4px', fontSize: '0.75rem', border: `1px solid ${awardBorder}`, whiteSpace: 'nowrap' }}>{awardIcon} {awardName}</span>}
                                             {isAcceptance && <span style={{ background: '#10b98120', color: '#10b981', padding: '2px 6px', borderRadius: '4px', fontSize: '0.75rem', border: '1px solid #10b98150', whiteSpace: 'nowrap' }}>✅ Acceptance</span>}
                                           </div>
-                                          <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '4px' }}>Készítő: {res.user_name} ({res.user_email})</div>
+                                          <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '4px' }}>Készítő: {res.user_name} </div>
                                         </div>
                                         <div style={{ textAlign: 'right' }}>
                                           <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#10b981' }}>{res.total_score} pont</div>
