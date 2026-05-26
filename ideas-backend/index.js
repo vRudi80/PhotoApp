@@ -446,7 +446,33 @@ app.post('/api/upload', upload.single('photo'), async (req, res) => {
     res.status(500).json({ error: err.message }); 
   }
 });
-
+// --- ÚJ: A zsűritag saját haladásának lekérdezése ---
+app.get('/api/my-judged-contests', async (req, res) => {
+  try {
+    const query = `
+      SELECT 
+        c.id as contest_id,
+        (
+          SELECT COUNT(*) FROM photo_entries e 
+          LEFT JOIN photo_contest_payments p ON e.contest_id = p.contest_id AND e.user_email = p.user_email
+          WHERE e.contest_id = c.id AND (c.entry_fee IS NULL OR c.entry_fee = 0 OR p.id IS NOT NULL)
+        ) as judgeable_count,
+        (
+          SELECT COUNT(*) FROM photo_votes v 
+          JOIN photo_entries e ON v.entry_id = e.id 
+          WHERE e.contest_id = c.id AND v.jury_email = ?
+        ) as voted_count
+      FROM photo_contests c
+      JOIN photo_jury j ON c.id = j.contest_id
+      WHERE j.user_email = ?
+    `;
+    const [rows] = await pool.query(query, [req.query.userEmail, req.query.userEmail]);
+    res.json(rows);
+  } catch (err) { 
+    console.error(err);
+    res.status(500).json({ error: 'Hiba' }); 
+  }
+});
 app.put('/api/entries/:id', async (req, res) => {
   try {
     const [result] = await pool.query('UPDATE photo_entries SET title = ? WHERE id = ? AND user_email = ?', [req.body.title, req.params.id, req.body.userEmail]);
