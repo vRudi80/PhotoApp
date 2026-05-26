@@ -543,14 +543,28 @@ export default function ContestsView(props: ContestsViewProps) {
                                     const awardName = awardsArr[index]; 
                                     const isAcceptance = !awardName && res.total_score >= accScore;
 
+                                    // Színlogika: 1. Arany, 2. Ezüst, 3. Bronz, minden más Díj = Kék
+                                    let awardColor = '#38bdf8'; // Alap kék a 4. helytől
+                                    let awardBg = '#38bdf820';
+                                    let awardBorder = '#38bdf850';
+                                    let awardIcon = '🏅';
+
+                                    if (index === 0) {
+                                      awardColor = '#fbbf24'; awardBg = '#fbbf2420'; awardBorder = '#fbbf2450'; awardIcon = '🥇'; // Arany
+                                    } else if (index === 1) {
+                                      awardColor = '#cbd5e1'; awardBg = '#cbd5e120'; awardBorder = '#cbd5e150'; awardIcon = '🥈'; // Ezüst
+                                    } else if (index === 2) {
+                                      awardColor = '#d97706'; awardBg = '#d9770620'; awardBorder = '#d9770650'; awardIcon = '🥉'; // Bronz
+                                    }
+
                                     return (
-                                      <div key={res.id} style={{ display: 'flex', alignItems: 'center', background: '#1e293b', padding: '10px', borderRadius: '8px', border: awardName ? '1px solid #fbbf2450' : isAcceptance ? '1px solid #10b98130' : '1px solid transparent' }}>
-                                        <div style={{ fontSize: '1.5rem', fontWeight: 'bold', width: '40px', color: index === 0 ? '#fbbf24' : index === 1 ? '#94a3b8' : index === 2 ? '#b45309' : '#475569' }}>#{index + 1}</div>
+                                      <div key={res.id} style={{ display: 'flex', alignItems: 'center', background: '#1e293b', padding: '10px', borderRadius: '8px', border: awardName ? `1px solid ${awardBorder}` : isAcceptance ? '1px solid #10b98130' : '1px solid transparent' }}>
+                                        <div style={{ fontSize: '1.5rem', fontWeight: 'bold', width: '40px', color: index === 0 ? '#fbbf24' : index === 1 ? '#cbd5e1' : index === 2 ? '#d97706' : '#475569' }}>#{index + 1}</div>
                                         <img src={getImageUrl(res.drive_file_id, res.file_url)} alt="Kép" style={{ width: '60px', height: '60px', objectFit: 'cover', borderRadius: '4px', marginRight: '15px', cursor: 'pointer' }} onClick={() => props.setFullscreenData({url: getImageUrl(res.drive_file_id, res.file_url), title: res.title})} />
                                         <div style={{ flex: 1 }}>
                                           <div style={{ fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                                             {res.title}
-                                            {awardName && <span style={{ background: '#f59e0b20', color: '#f59e0b', padding: '2px 6px', borderRadius: '4px', fontSize: '0.75rem', border: '1px solid #f59e0b50', whiteSpace: 'nowrap' }}>🏆 {awardName}</span>}
+                                            {awardName && <span style={{ background: awardBg, color: awardColor, padding: '2px 6px', borderRadius: '4px', fontSize: '0.75rem', border: `1px solid ${awardBorder}`, whiteSpace: 'nowrap' }}>{awardIcon} {awardName}</span>}
                                             {isAcceptance && <span style={{ background: '#10b98120', color: '#10b981', padding: '2px 6px', borderRadius: '4px', fontSize: '0.75rem', border: '1px solid #10b98150', whiteSpace: 'nowrap' }}>✅ Acceptance</span>}
                                           </div>
                                           <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '4px' }}>Készítő: {res.user_name} ({res.user_email})</div>
@@ -567,6 +581,7 @@ export default function ContestsView(props: ContestsViewProps) {
                             )
                           });
                         })()}
+
                       </div>
                   ) : (
                     <>
