@@ -653,9 +653,8 @@ export default function ContestsView(props: ContestsViewProps) {
                           
                           {/* Ha végzett, egy zöld pipás plecsni jelenik meg! */}
                           {isEnded && isDoneJudging && (
-                            <div style={{ background: '#10b981', color: '#0f172a', padding: '10px 20px', borderRadius: '8px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 6px -1px rgba(16, 185, 129, 0.3)' }}>
-                              ✅ Értékelés befejezve
-                            </div>
+                          <button onClick={() => props.loadResults(contest.id)} style={{ background: '#10b981', border: 'none', color: 'white', fontSize: '0.7rem', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer' }}>✅ Értékelés befejezvek</button>
+                           
                           )}
                         </div>
                       )}
