@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ADMIN_EMAIL, BACKEND_URL } from '../utils/constants';
 import { getImageUrl } from '../utils/helpers';
-import jsPDF from 'jspdf'; // ÚJ: PDF generáló beimportálása
+import jsPDF from 'jspdf';
 
 interface ContestsViewProps {
   activeTab: string;
@@ -665,7 +665,6 @@ export default function ContestsView(props: ContestsViewProps) {
                                           </div>
                                           <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '4px' }}>Készítő: {res.user_name} </div>
                                           
-                                          {/* ÚJ: OKLEVÉL LETÖLTÉSE GOMB (Csak a saját díjazott képeknél!) */}
                                           {props.user.email === res.user_email && (awardName || isAcceptance) && (
                                             <button
                                               onClick={() => generateCertificate(contest, res, awardName || '', isAcceptance, contestJury)}
