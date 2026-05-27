@@ -7,7 +7,6 @@ interface HeaderProps {
   isLeader: boolean;
   activeTab: string;
   setActiveTab: (tab: any) => void;
-  // JAVÍTÁS: Hozzáadtuk a 'progress' (Minősítések) opciót a lenyíló menü típusaihoz
   dropdownOpen: 'contests' | 'club' | 'admin' | 'progress' | null;
   setDropdownOpen: (open: 'contests' | 'club' | 'admin' | 'progress' | null) => void;
   onLogout: () => void;
@@ -31,7 +30,6 @@ export default function Header({
     setIsMobileMenuOpen(false); 
   };
 
-  // SEGÉDFÜGGVÉNY: A Stripe Ügyfélkapu indítása
   const handleManageSubscription = async () => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/create-portal-session`, {
@@ -63,9 +61,16 @@ export default function Header({
       <div className={`header-nav-container ${isMobileMenuOpen ? 'mobile-open' : ''}`}>
         <div className="nav-group">
           
+          {/* ÚJ: FŐOLDAL GOMB */}
+          <div className="nav-item-container" style={{ zIndex: 50 }}>
+            <button className={`nav-btn ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => handleNavClick('dashboard')}>
+              <span>🏠 Főoldal</span>
+            </button>
+          </div>
+
           <div className="nav-item-container" style={{ zIndex: dropdownOpen === 'contests' ? 60 : 50 }}>
             <button className={`nav-btn ${dropdownOpen === 'contests' || activeTab.startsWith('contests_') ? 'active' : ''}`} onClick={() => setDropdownOpen(dropdownOpen === 'contests' ? null : 'contests')}>
-              <span>Pályázatok</span> <span>▾</span>
+              <span>📝 Pályázatok</span> <span>▾</span>
             </button>
             {dropdownOpen === 'contests' && (
               <div className="dropdown-menu">
@@ -78,7 +83,7 @@ export default function Header({
           
           <div className="nav-item-container" style={{ zIndex: dropdownOpen === 'club' ? 60 : 50 }}>
             <button className={`nav-btn ${dropdownOpen === 'club' || activeTab.startsWith('club_') ? 'active' : ''}`} onClick={() => setDropdownOpen(dropdownOpen === 'club' ? null : 'club')}>
-              <span>Saját klubom</span> <span>▾</span>
+              <span>👥 Fotóklub</span> <span>▾</span>
             </button>
             {dropdownOpen === 'club' && (
               <div className="dropdown-menu">
@@ -88,26 +93,6 @@ export default function Header({
             )}
           </div>
 
-          <div className="nav-item-container" style={{ zIndex: 50 }}>
-              <button className={`nav-btn ${activeTab === 'my_album' ? 'active' : ''}`} style={{ color: '#10b981' }} onClick={() => handleNavClick('my_album')}>
-                <span>🖼️ Saját Képalbum</span>
-              </button>
-          </div>
-
-          <div className="nav-item-container" style={{ zIndex: 50 }}>
-              <button className={`nav-btn ${activeTab === 'map_spots' ? 'active' : ''}`} style={{ color: '#10b981' }} onClick={() => handleNavClick('map_spots')}>
-                <span>🌍 Helyszínek</span>
-              </button>
-          </div>
-          
-          
-          <div className="nav-item-container" style={{ zIndex: 50 }}>
-            <button className={`nav-btn ${activeTab === 'salons' ? 'active' : ''}`} style={{ color: '#60a5fa' }} onClick={() => handleNavClick('salons')}>
-              <span>🌐 Nemzetközi Szalonok</span>
-            </button>
-          </div>
-
-          {/* --- JAVÍTOTT RÉSZ: ÖSSZEVONT MINŐSÍTÉSEK MENÜ --- */}
           <div className="nav-item-container" style={{ zIndex: dropdownOpen === 'progress' ? 60 : 50 }}>
             <button 
               className={`nav-btn ${dropdownOpen === 'progress' || activeTab === 'fiap_progress' || activeTab === 'mafosz_progress' ? 'active' : ''}`} 
@@ -117,54 +102,53 @@ export default function Header({
             </button>
             {dropdownOpen === 'progress' && (
               <div className="dropdown-menu">
-                <button 
-                  className={`drop-item ${activeTab === 'fiap_progress' ? 'active' : ''}`} 
-                  onClick={() => handleNavClick('fiap_progress')}
-                >
-                  🏅 FIAP Követő
-                </button>
-                <button 
-                  className={`drop-item ${activeTab === 'mafosz_progress' ? 'active' : ''}`} 
-                  onClick={() => handleNavClick('mafosz_progress')}
-                >
-                  🇭🇺 MAFOSZ Követő
-                </button>
+                <button className={`drop-item ${activeTab === 'fiap_progress' ? 'active' : ''}`} onClick={() => handleNavClick('fiap_progress')}>🏅 FIAP Követő</button>
+                <button className={`drop-item ${activeTab === 'mafosz_progress' ? 'active' : ''}`} onClick={() => handleNavClick('mafosz_progress')}>🇭🇺 MAFOSZ Követő</button>
               </div>
             )}
           </div>
-          {/* ----------------------------------------------- */}
 
-          {/* Csomagok & Tárhely gomb */}
           <div className="nav-item-container" style={{ zIndex: 50 }}>
-            <button className={`nav-btn ${activeTab === 'packages' ? 'active' : ''}`} style={{ color: '#818cf8' }} onClick={() => handleNavClick('packages')}>
-              <span>💎 Csomagok & Tárhely</span>
+              <button className={`nav-btn ${activeTab === 'salons' ? 'active' : ''}`} style={{ color: '#60a5fa' }} onClick={() => handleNavClick('salons')}>
+                <span>🌐 Szalonok</span>
+              </button>
+          </div>
+
+          <div className="nav-item-container" style={{ zIndex: 50 }}>
+              <button className={`nav-btn ${activeTab === 'map_spots' ? 'active' : ''}`} style={{ color: '#10b981' }} onClick={() => handleNavClick('map_spots')}>
+                <span>🌍 Helyszínek</span>
+              </button>
+          </div>
+
+          <div className="nav-item-container" style={{ zIndex: 50 }}>
+              <button className={`nav-btn ${activeTab === 'my_album' ? 'active' : ''}`} style={{ color: '#f59e0b' }} onClick={() => handleNavClick('my_album')}>
+                <span>🖼️ Portfólió</span>
+              </button>
+          </div>
+
+          <div className="nav-item-container" style={{ zIndex: 50 }}>
+            <button className={`nav-btn ${activeTab === 'packages' ? 'active' : ''}`} style={{ color: '#8b5cf6' }} onClick={() => handleNavClick('packages')}>
+              <span>💎 Tárhely</span>
             </button>
           </div>
 
           {(user?.email === ADMIN_EMAIL || isLeader) && (
             <div className="nav-item-container" style={{ zIndex: dropdownOpen === 'admin' ? 60 : 50 }}>
-              <button className={`nav-btn ${dropdownOpen === 'admin' || activeTab.startsWith('admin_') ? 'active' : ''}`} style={{ color: '#f59e0b' }} onClick={() => setDropdownOpen(dropdownOpen === 'admin' ? null : 'admin')}>
-                <span>⚙️ Adminisztráció</span> <span>▾</span>
+              <button className={`nav-btn ${dropdownOpen === 'admin' || activeTab.startsWith('admin_') ? 'active' : ''}`} style={{ color: '#ef4444' }} onClick={() => setDropdownOpen(dropdownOpen === 'admin' ? null : 'admin')}>
+                <span>⚙️ Admin</span> <span>▾</span>
               </button>
               {dropdownOpen === 'admin' && (
                 <div className="dropdown-menu">
-                  {user?.email === ADMIN_EMAIL && <button className={`drop-item ${activeTab === 'admin_contests' ? 'active' : ''}`} style={{ color: activeTab === 'admin_contests' ? '#f59e0b' : ''}} onClick={() => handleNavClick('admin_contests')}>Pályázatok kezelése</button>}
-                  <button className={`drop-item ${activeTab === 'admin_meetings' ? 'active' : ''}`} style={{ color: activeTab === 'admin_meetings' ? '#f59e0b' : ''}} onClick={() => handleNavClick('admin_meetings')}>Klubestek kezelése</button>
-                  <button className={`drop-item ${activeTab === 'admin_homeworks' ? 'active' : ''}`} style={{ color: activeTab === 'admin_homeworks' ? '#f59e0b' : ''}} onClick={() => handleNavClick('admin_homeworks')}>Házi feladatok kezelése</button>
+                  {user?.email === ADMIN_EMAIL && <button className={`drop-item ${activeTab === 'admin_contests' ? 'active' : ''}`} style={{ color: activeTab === 'admin_contests' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_contests')}>Pályázatok kezelése</button>}
+                  <button className={`drop-item ${activeTab === 'admin_meetings' ? 'active' : ''}`} style={{ color: activeTab === 'admin_meetings' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_meetings')}>Klubestek kezelése</button>
+                  <button className={`drop-item ${activeTab === 'admin_homeworks' ? 'active' : ''}`} style={{ color: activeTab === 'admin_homeworks' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_homeworks')}>Házi feladatok kezelése</button>
                   
                   {user?.email === ADMIN_EMAIL && (
-                    <button 
-                      className={`drop-item ${activeTab === 'admin_settings' ? 'active' : ''}`} 
-                      style={{ color: activeTab === 'admin_settings' ? '#f59e0b' : ''}} 
-                      onClick={() => handleNavClick('admin_settings')}
-                    >
-                      Kategóriák és Díjak
-                    </button>
+                    <button className={`drop-item ${activeTab === 'admin_settings' ? 'active' : ''}`} style={{ color: activeTab === 'admin_settings' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_settings')}>Kategóriák és Díjak</button>
                   )}
-                  
-                  {user?.email === ADMIN_EMAIL && <button className={`drop-item ${activeTab === 'admin_salons' ? 'active' : ''}`} style={{ color: activeTab === 'admin_salons' ? '#f59e0b' : ''}} onClick={() => handleNavClick('admin_salons')}>Szalonok kezelése</button>}
-                  {user?.email === ADMIN_EMAIL && <button className={`drop-item ${activeTab === 'admin_users' ? 'active' : ''}`} style={{ color: activeTab === 'admin_users' ? '#f59e0b' : ''}} onClick={() => handleNavClick('admin_users')}>Felhasználók</button>}
-                  {user?.email === ADMIN_EMAIL && <button className={`drop-item ${activeTab === 'admin_clubs' ? 'active' : ''}`} style={{ color: activeTab === 'admin_clubs' ? '#f59e0b' : ''}} onClick={() => handleNavClick('admin_clubs')}>Fotóklubok</button>}
+                  {user?.email === ADMIN_EMAIL && <button className={`drop-item ${activeTab === 'admin_salons' ? 'active' : ''}`} style={{ color: activeTab === 'admin_salons' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_salons')}>Szalonok kezelése</button>}
+                  {user?.email === ADMIN_EMAIL && <button className={`drop-item ${activeTab === 'admin_users' ? 'active' : ''}`} style={{ color: activeTab === 'admin_users' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_users')}>Felhasználók</button>}
+                  {user?.email === ADMIN_EMAIL && <button className={`drop-item ${activeTab === 'admin_clubs' ? 'active' : ''}`} style={{ color: activeTab === 'admin_clubs' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_clubs')}>Fotóklubok</button>}
                 </div>
               )}
             </div>
@@ -198,7 +182,7 @@ export default function Header({
                 onMouseOver={e => e.currentTarget.style.background = '#10b98120'}
                 onMouseOut={e => e.currentTarget.style.background = '#1e293b'}
               >
-                👑 Prémium Kezelés
+                👑 Előfizetés
               </button>
             )}
 
