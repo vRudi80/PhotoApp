@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { BACKEND_URL } from '../utils/constants';
@@ -21,6 +21,7 @@ interface MapSpotsViewProps {
   setFullscreenData: (data: any) => void;
 }
 
+// 1. Segéd komponens: Kattintás érzékelése
 function MapClickHandler({ onMapClick }: { onMapClick: (latlng: any) => void }) {
   useMapEvents({
     click(e) {
@@ -30,14 +31,28 @@ function MapClickHandler({ onMapClick }: { onMapClick: (latlng: any) => void }) 
   return null;
 }
 
+// 2. Segéd komponens: Térkép kamera mozgatása (FlyTo) település keresésnél
+function MapCameraController({ targetPosition }: { targetPosition: [number, number] | null }) {
+  const map = useMap();
+  useEffect(() => {
+    if (targetPosition) {
+      map.flyTo(targetPosition, 13, { duration: 1.5 }); // 13-as zoom szint városokhoz ideális
+    }
+  }, [targetPosition, map]);
+  return null;
+}
+
 export default function MapSpotsView({ user, setFullscreenData }: MapSpotsViewProps) {
   const [locations, setLocations] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   
+  // --- ÚJ: Településkereső állapotai ---
+  const [citySearch, setCitySearch] = useState('');
+  const [cityResults, setCityResults] = useState<any[]>([]);
+  const [mapTargetPosition, setMapTargetPosition] = useState<[number, number] | null>(null);
+
   // Feltöltés állapotai
   const [newSpotLatLng, setNewSpotLatLng] = useState<{lat: number, lng: number} | null>(null);
-  
-  // Szerkesztés állapota (Ha nem null, egy meglévő helyszínt módosítunk)
   const [editingSpot, setEditingSpot] = useState<any | null>(null);
 
   const [uploadTitle, setUploadTitle] = useState('');
@@ -64,6 +79,25 @@ export default function MapSpotsView({ user, setFullscreenData }: MapSpotsViewPr
     fetchLocations(searchQuery);
   }, [searchQuery]);
 
+  // --- ÚJ: Település keresése OpenStreetMap API-val ---
+  const handleCitySearch = async () => {
+    if (!citySearch.trim()) return;
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(citySearch)}&limit=5`);
+      const data = await res.json();
+      setCityResults(data);
+      if (data.length === 0) alert("Nem található ilyen nevű település vagy hely!");
+    } catch (e) {
+      console.error("Geocoding hiba:", e);
+    }
+  };
+
+  const handleSelectCity = (lat: string, lon: string) => {
+    setMapTargetPosition([parseFloat(lat), parseFloat(lon)]);
+    setCityResults([]); // Találati lista bezárása
+    setCitySearch(''); // Keresőmező kiürítése
+  };
+
   const handleMapClick = (latlng: {lat: number, lng: number}) => {
     setEditingSpot(null);
     setNewSpotLatLng(latlng);
@@ -80,6 +114,7 @@ export default function MapSpotsView({ user, setFullscreenData }: MapSpotsViewPr
     setUploadDesc(loc.description);
     setUploadFile(null);
     setUploadPreview(getImageUrl(loc.drive_file_id, loc.file_url));
+    setMapTargetPosition([loc.lat, loc.lng]); // Kamera ugrás a szerkesztett pinre
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -103,7 +138,6 @@ export default function MapSpotsView({ user, setFullscreenData }: MapSpotsViewPr
 
     try {
       if (editingSpot) {
-        // SZERKESZTÉS (PUT)
         const res = await fetch(`${BACKEND_URL}/api/locations/${editingSpot.id}`, {
           method: 'PUT',
           body: formData
@@ -114,7 +148,6 @@ export default function MapSpotsView({ user, setFullscreenData }: MapSpotsViewPr
           fetchLocations(searchQuery);
         }
       } else if (newSpotLatLng) {
-        // ÚJ LÉTREHOZÁSA (POST)
         formData.append('userName', user.name || user.email);
         formData.append('lat', newSpotLatLng.lat.toString());
         formData.append('lng', newSpotLatLng.lng.toString());
@@ -137,7 +170,7 @@ export default function MapSpotsView({ user, setFullscreenData }: MapSpotsViewPr
   };
 
   const handleDeleteLocation = async (id: number) => {
-    if (!window.confirm("Biztosan törölni szeretnéd ezt a fotós helyszínt? A művelet nem vonható vissza!")) return;
+    if (!window.confirm("Biztosan törölni szeretnéd ezt a fotós helyszínt?")) return;
     try {
       const res = await fetch(`${BACKEND_URL}/api/locations/${id}`, {
         method: 'DELETE',
@@ -161,7 +194,7 @@ export default function MapSpotsView({ user, setFullscreenData }: MapSpotsViewPr
         body: JSON.stringify({ userEmail: user.email })
       });
       if (res.ok) {
-        fetchLocations(searchQuery); // Frissítjük a térképet a lájkok miatt
+        fetchLocations(searchQuery); 
       }
     } catch (e) {
       console.error(e);
@@ -175,18 +208,68 @@ export default function MapSpotsView({ user, setFullscreenData }: MapSpotsViewPr
           🌍 Fotós Helyszínek (Spot Finder)
         </h2>
         <div style={{ background: '#10b98120', color: '#10b981', padding: '8px 15px', borderRadius: '8px', border: '1px solid #10b98150', fontWeight: 'bold' }}>
-          💡 Tipp: Kattints a térképre új helyért! A sajátjaidat szerkesztheted is.
+          💡 Tipp: Keress rá a városra, majd kattints a térképre a pontos helyért!
         </div>
       </div>
 
-      <div style={{ marginBottom: '20px', background: '#1e293b', padding: '15px', borderRadius: '12px', border: '1px solid #334155' }}>
-        <input 
-          type="text" 
-          placeholder="🔍 Keresés helyszínre vagy leírásra (pl. 'Balaton', 'Napkelte', 'Urbex')..." 
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          style={{ width: '100%', padding: '12px 15px', borderRadius: '8px', border: '1px solid #475569', background: '#0f172a', color: 'white', outline: 'none', fontSize: '1rem', boxSizing: 'border-box' }}
-        />
+      {/* DUPLA KERESŐ SÁV */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', marginBottom: '20px' }}>
+        
+        {/* Adatbázis kereső (Meglévő helyek szűrése) */}
+        <div style={{ background: '#1e293b', padding: '15px', borderRadius: '12px', border: '1px solid #334155' }}>
+          <label style={{ color: '#38bdf8', fontWeight: 'bold', display: 'block', marginBottom: '8px', fontSize: '0.9rem' }}>🔍 Meglévő fotós helyszínek szűrése</label>
+          <input 
+            type="text" 
+            placeholder="Keresés névben, leírásban (pl. 'Urbex', 'Napkelte')..." 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{ width: '100%', padding: '10px 15px', borderRadius: '8px', border: '1px solid #475569', background: '#0f172a', color: 'white', outline: 'none', boxSizing: 'border-box' }}
+          />
+        </div>
+
+        {/* Településkereső a térkép mozgatásához */}
+        <div style={{ background: '#1e293b', padding: '15px', borderRadius: '12px', border: '1px solid #334155', position: 'relative' }}>
+          <label style={{ color: '#f59e0b', fontWeight: 'bold', display: 'block', marginBottom: '8px', fontSize: '0.9rem' }}>✈️ Ugrás településre / címre</label>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <input 
+              type="text" 
+              placeholder="Város, utca (pl. Budapest, Hősök tere)" 
+              value={citySearch}
+              onChange={(e) => setCitySearch(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleCitySearch(); }}
+              style={{ flex: 1, padding: '10px 15px', borderRadius: '8px', border: '1px solid #475569', background: '#0f172a', color: 'white', outline: 'none', boxSizing: 'border-box' }}
+            />
+            <button 
+              onClick={handleCitySearch}
+              style={{ background: '#f59e0b', color: '#0f172a', border: 'none', padding: '0 20px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}
+            >
+              Ugrás
+            </button>
+          </div>
+
+          {/* Település találati lista */}
+          {cityResults.length > 0 && (
+            <div style={{ position: 'absolute', top: '100%', left: '15px', right: '15px', background: '#0f172a', border: '1px solid #475569', borderRadius: '8px', zIndex: 1000, marginTop: '5px', overflow: 'hidden', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}>
+              {cityResults.map((res, i) => (
+                <div 
+                  key={i} 
+                  onClick={() => handleSelectCity(res.lat, res.lon)}
+                  style={{ padding: '10px 15px', borderBottom: '1px solid #1e293b', cursor: 'pointer', transition: 'background 0.2s', color: '#cbd5e1', fontSize: '0.9rem' }}
+                  onMouseOver={e => e.currentTarget.style.background = '#1e293b'}
+                  onMouseOut={e => e.currentTarget.style.background = 'transparent'}
+                >
+                  📍 {res.display_name}
+                </div>
+              ))}
+              <div 
+                onClick={() => setCityResults([])}
+                style={{ padding: '8px', textAlign: 'center', background: '#ef444420', color: '#ef4444', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}
+              >
+                ✖ Bezárás
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       <div style={{ display: 'flex', gap: '20px', flexDirection: 'column' }}>
@@ -224,6 +307,10 @@ export default function MapSpotsView({ user, setFullscreenData }: MapSpotsViewPr
         {/* TÉRKÉP */}
         <div style={{ height: '650px', width: '100%', borderRadius: '12px', overflow: 'hidden', border: '1px solid #334155', zIndex: 1 }}>
           <MapContainer center={[47.4979, 19.0402]} zoom={7} style={{ height: '100%', width: '100%' }}>
+            
+            {/* ÚJ: Kamera vezérlő a kereséshez */}
+            <MapCameraController targetPosition={mapTargetPosition} />
+
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -253,10 +340,7 @@ export default function MapSpotsView({ user, setFullscreenData }: MapSpotsViewPr
                         {loc.description}
                       </p>
                       
-                      {/* INTERAKTÍV PANEL: LÁJK, SZERKESZTÉS, TÖRLÉS */}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', background: '#f8fafc', padding: '6px', borderRadius: '6px' }}>
-                        
-                        {/* Lájk gomb */}
                         <button 
                           onClick={() => handleToggleLike(loc.id)}
                           style={{ background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', borderRadius: '50px', backgroundColor: hasLiked ? '#ef444415' : 'transparent' }}
@@ -265,7 +349,6 @@ export default function MapSpotsView({ user, setFullscreenData }: MapSpotsViewPr
                           <span style={{ fontWeight: 'bold', color: hasLiked ? '#ef4444' : '#64748b', fontSize: '0.85rem' }}>{loc.like_count || 0}</span>
                         </button>
 
-                        {/* Saját menedzsment gombok */}
                         {isOwn && (
                           <div style={{ display: 'flex', gap: '5px' }}>
                             <button 
