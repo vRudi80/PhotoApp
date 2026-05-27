@@ -60,16 +60,6 @@ export default function AdminWeeklyView() {
     }
   };
 
-  const handleActivate = async (id: number) => {
-    if (!window.confirm("Biztosan aktiválod ezt a témát? A korábbi aktív téma lezárul.")) return;
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/admin/weekly-topics/${id}/activate`, { method: 'POST' });
-      if (res.ok) fetchTopics();
-    } catch (e) {
-      alert("Hiba!");
-    }
-  };
-
   const handleDelete = async (id: number) => {
     if (!window.confirm("❗ BIZTOSAN TÖRLÖD? Minden hozzátartozó kép és szavazat is törlődik végleg!")) return;
     try {
@@ -80,9 +70,26 @@ export default function AdminWeeklyView() {
     }
   };
 
+  // Segédfüggvény a státusz megállapításához
+  const getTopicStatus = (sDateStr: string, eDateStr: string) => {
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const start = new Date(sDateStr);
+    start.setHours(0,0,0,0);
+    const end = new Date(eDateStr);
+    end.setHours(23,59,59,999);
+
+    if (today > end) return { label: 'LEZÁRULT', color: '#94a3b8', bg: 'transparent' };
+    if (today < start) return { label: 'JÖVŐBELI', color: '#f59e0b', bg: '#f59e0b15' };
+    return { label: 'AKTÍV', color: '#10b981', bg: '#10b98115' };
+  };
+
   return (
     <div>
       <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', color: '#f59e0b' }}>🔥 Heti Kihívások (Párbaj) Kezelése</h2>
+      <p style={{ color: '#94a3b8', marginBottom: '20px' }}>
+        A rendszer automatikusan aktiválja azokat a témákat, amiknek a mai dátum a kezdő- és végdátuma közé esik!
+      </p>
 
       {/* LÉTREHOZÓ / SZERKESZTŐ ŰRLAP */}
       <div style={{ backgroundColor: '#1e293b', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', border: '1px solid #f97316' }}>
@@ -96,46 +103,48 @@ export default function AdminWeeklyView() {
         
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginBottom: '15px' }}>
           <div>
-            <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Kezdés</label>
+            <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Kezdés (Ettől a naptól Aktív)</label>
             <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} style={inputStyle} />
           </div>
           <div>
-            <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Zárás (Határidő)</label>
+            <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Zárás (Eddig a napig Aktív)</label>
             <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} style={inputStyle} />
           </div>
         </div>
 
         <button onClick={handleSave} style={{ background: '#10b981', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', width: '100%' }}>
-          {editId ? 'Változtatások Mentése' : 'Téma Létrehozása'}
+          {editId ? 'Változtatások Mentése' : 'Téma Mentése a Naptárba'}
         </button>
       </div>
 
       {/* TÉMÁK LISTÁJA */}
-      <h3 style={{ color: '#f8fafc' }}>Eddigi Témák</h3>
+      <h3 style={{ color: '#f8fafc' }}>Kihívások Naptára</h3>
       <div style={{ background: '#1e293b', borderRadius: '12px', overflow: 'hidden', border: '1px solid #334155' }}>
-        {topics.length === 0 ? <div style={{padding: '20px', color: '#94a3b8', textAlign: 'center'}}>Nincs még téma.</div> : null}
-        {topics.map((t, i) => (
-          <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px', borderBottom: i < topics.length - 1 ? '1px solid #334155' : 'none', background: t.is_active ? '#f9731620' : (i % 2 === 0 ? '#0f172a' : 'transparent'), flexWrap: 'wrap', gap: '15px' }}>
-            
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 'bold', color: t.is_active ? '#f97316' : '#60a5fa', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                {t.title} 
-                {t.is_active && <span style={{ background: '#f97316', color: '#fff', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px' }}>AKTÍV</span>}
+        {topics.length === 0 ? <div style={{padding: '20px', color: '#94a3b8', textAlign: 'center'}}>Nincs még téma felvíve.</div> : null}
+        {topics.map((t, i) => {
+          const status = getTopicStatus(t.start_date, t.end_date);
+          return (
+            <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px', borderBottom: i < topics.length - 1 ? '1px solid #334155' : 'none', background: status.bg, flexWrap: 'wrap', gap: '15px' }}>
+              
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 'bold', color: '#f8fafc', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  {t.title} 
+                  <span style={{ background: status.color, color: '#fff', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px' }}>
+                    {status.label}
+                  </span>
+                </div>
+                <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: '5px' }}>
+                  {new Date(t.start_date).toLocaleDateString('hu-HU')} - {new Date(t.end_date).toLocaleDateString('hu-HU')}
+                </div>
               </div>
-              <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: '5px' }}>
-                {new Date(t.start_date).toLocaleDateString('hu-HU')} - {new Date(t.end_date).toLocaleDateString('hu-HU')}
+              
+              <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+                <button onClick={() => startEdit(t)} style={{ background: 'transparent', color: '#f59e0b', border: '1px solid #f59e0b', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Szerkeszt</button>
+                <button onClick={() => handleDelete(t.id)} style={{ background: '#ef444420', color: '#ef4444', border: 'none', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Töröl</button>
               </div>
             </div>
-            
-            <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
-              {!t.is_active && (
-                <button onClick={() => handleActivate(t.id)} style={{ background: '#10b981', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Aktivál</button>
-              )}
-              <button onClick={() => startEdit(t)} style={{ background: 'transparent', color: '#f59e0b', border: '1px solid #f59e0b', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Szerkeszt</button>
-              <button onClick={() => handleDelete(t.id)} style={{ background: '#ef444420', color: '#ef4444', border: 'none', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Töröl</button>
-            </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
     </div>
