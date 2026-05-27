@@ -703,11 +703,7 @@ const fetchMyEntries = async (email: string) => {
     const isEnded = now > end && start.getFullYear() > 1970;
 
     if (activeTab === 'admin_contests') return true; 
-
-    {activeTab === 'admin_weekly' && user.email === ADMIN_EMAIL && (
-      <AdminWeeklyView />
-    )}
-    
+   
     if (activeTab === 'contests_closed') {
        if (!isEnded) return false;
        if (isRestricted && contest.restricted_club !== currentDbUser?.club_name) return false;
@@ -840,7 +836,10 @@ const fetchMyEntries = async (email: string) => {
                 setUserRoleEdits={setUserRoleEdits} saveUserClub={saveUserClub} 
               />
             )}
-
+            {activeTab === 'admin_weekly' && user.email === ADMIN_EMAIL && (
+              <AdminWeeklyView />
+            )}
+            
             {activeTab === 'admin_meetings' && (user.email === ADMIN_EMAIL || isLeader) && (
               <AdminMeetingsView 
                 user={user} currentDbUser={currentDbUser} clubs={clubs} meetings={meetings} 
