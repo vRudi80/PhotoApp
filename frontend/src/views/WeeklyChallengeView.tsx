@@ -239,23 +239,58 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   <div style={{ color: '#94a3b8', textAlign: 'center', padding: '20px' }}>Nincs még elég szavazat.</div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    {finalLeaderboard.map((entry, index) => {
-                      const isMe = entry.user_email === user.email;
-                      const hasEnoughVotes = entry.user_vote_count >= requiredVotes;
-                      return (
-                        <div key={entry.id} style={{ display: 'flex', alignItems: 'center', background: hasEnoughVotes ? (isMe ? '#f59e0b20' : '#0f172a') : '#0f172a50', border: hasEnoughVotes ? (isMe ? '1px solid #f59e0b50' : '1px solid #334155') : '1px dashed #ef444450', padding: '10px', borderRadius: '8px', opacity: hasEnoughVotes ? 1 : 0.6 }}>
-                          <div style={{ fontSize: '1.5rem', fontWeight: 'bold', width: '35px', color: hasEnoughVotes ? '#fbbf24' : '#94a3b8', textAlign: 'center' }}>{hasEnoughVotes ? `${index + 1}.` : '🔒'}</div>
-                          <div onClick={() => setFullscreenData({url: getImageUrl(entry.drive_file_id, entry.file_url), title: entry.user_name})} style={{ width: '50px', height: '50px', backgroundColor: '#000', borderRadius: '6px', overflow: 'hidden', margin: '0 15px', cursor: 'zoom-in' }}><img src={getImageUrl(entry.drive_file_id, entry.file_url)} alt="Top" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /></div>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ color: '#f8fafc', fontWeight: 'bold' }}>{entry.user_name}</div>
-                            <div style={{ fontSize: '0.8rem', color: hasEnoughVotes ? '#94a3b8' : '#ef4444' }}>{hasEnoughVotes ? `${entry.views_count} megtekintés` : 'Nem szavazott (Kizárva)'}</div>
-                          </div>
-                          <div style={{ textAlign: 'right' }}>
-                            <div style={{ color: '#f97316', fontWeight: 'bold' }}>{Number(entry.win_rate).toFixed(0)}% 🔥</div>
-                          </div>
-                        </div>
-                      )
-                    })}
+{finalLeaderboard.map((entry, index) => {
+                const isMe = entry.user_email === user.email;
+                const winRate = Number(entry.win_rate).toFixed(0);
+                const hasEnoughVotes = entry.user_vote_count >= requiredVotes;
+
+                // --- ÚJ: Arany, Ezüst, Bronz és Semleges színkódok ---
+                const rankColor = index === 0 ? '#fbbf24' : // 1. Arany
+                                  index === 1 ? '#e2e8f0' : // 2. Ezüst
+                                  index === 2 ? '#cd7f32' : // 3. Bronz
+                                  '#64748b';                // Többi: Semleges kékesszürke
+
+                return (
+                  <div key={entry.id} style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    background: hasEnoughVotes ? (isMe ? '#f59e0b20' : '#0f172a') : '#0f172a50', 
+                    border: hasEnoughVotes ? (isMe ? '1px solid #f59e0b50' : '1px solid #334155') : '1px dashed #ef444450', 
+                    padding: '10px', 
+                    borderRadius: '8px',
+                    opacity: hasEnoughVotes ? 1 : 0.6,
+                    filter: hasEnoughVotes ? 'none' : 'grayscale(80%)'
+                  }}>
+                    
+                    {/* JAVÍTOTT: Itt kapja meg a sorszám az érmék színét! */}
+                    <div style={{ fontSize: '1.5rem', fontWeight: 'bold', width: '35px', color: hasEnoughVotes ? rankColor : '#94a3b8', textAlign: 'center' }}>
+                      {hasEnoughVotes ? `${index + 1}.` : '🔒'}
+                    </div>
+                    
+                    <div 
+                      onClick={() => setFullscreenData({url: getImageUrl(entry.drive_file_id, entry.file_url), title: `Készítő: ${entry.user_name}`})}
+                      style={{ width: '50px', height: '50px', backgroundColor: '#000', borderRadius: '6px', overflow: 'hidden', margin: '0 15px', cursor: 'zoom-in', flexShrink: 0 }}
+                    >
+                      <img src={getImageUrl(entry.drive_file_id, entry.file_url)} alt="Top" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    </div>
+                    
+                    <div style={{ flex: 1 }}>
+                      <div style={{ color: hasEnoughVotes ? '#f8fafc' : '#94a3b8', fontWeight: 'bold', fontSize: '0.95rem' }}>
+                        {entry.user_name} {isMe && <span style={{fontSize: '0.75rem', background: '#f59e0b', color: '#0f172a', padding: '2px 6px', borderRadius: '4px', marginLeft: '5px'}}>Én</span>}
+                      </div>
+                      <div style={{ fontSize: '0.8rem', color: hasEnoughVotes ? '#94a3b8' : '#ef4444', marginTop: '3px' }}>
+                        {hasEnoughVotes ? `${entry.views_count} megtekintés` : 'Lusta szavazó (Kizárva)'}
+                      </div>
+                    </div>
+                    
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ color: hasEnoughVotes ? '#f97316' : '#94a3b8', fontWeight: 'bold', fontSize: '1.1rem' }}>{winRate}% 🔥</div>
+                      <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{entry.likes_count} lájk</div>
+                    </div>
+
+                  </div>
+                )
+              })}
                   </div>
                 )}
               </div>
