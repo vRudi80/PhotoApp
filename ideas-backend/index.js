@@ -636,7 +636,7 @@ app.post('/api/attendance/:meetingId', async (req, res) => {
 // --- HETI KIHÍVÁS (PÁRBAJ / TINDER MODELL) ---
 // ==========================================
 
-// 1. Aktuális téma lekérése (Aktivitási Bónusszal és biztonságos matekkal!)
+// 1. Aktuális téma lekérése (Súlyozott 100 pontos skála: 80% Kép, 20% Aktivitás)
 app.get('/api/weekly/current', async (req, res) => {
   const { userEmail } = req.query;
   try {
@@ -658,10 +658,12 @@ app.get('/api/weekly/current', async (req, res) => {
     const [allEntriesCount] = await pool.query('SELECT COUNT(*) as total FROM weekly_entries WHERE topic_id = ?', [currentTopic.id]);
     const totalEntries = allEntriesCount[0].total || 0;
     
-    // Az alap érvényességhez (lakat levételéhez) elég egy fix, alacsony szám (pl. 3)
+    // Az alap érvényességhez (lakat levételhez) továbbra is elég 3 szavazat.
     const requiredVotes = Math.max(0, Math.min(3, totalEntries - 1));
+    
+    // ÚJ: Összes szavazható kép száma a rendszerben (Saját magát kivonva, nullával osztás elkerülve)
+    const votableEntries = Math.max(1, totalEntries - 1);
 
-    // Lekérjük a nyers adatokat
     const [rawLeaderboard] = await pool.query(`
       SELECT e.id, e.user_name, e.user_email, e.file_url, e.drive_file_id, e.views_count, e.likes_count,
              (
@@ -674,25 +676,30 @@ app.get('/api/weekly/current', async (req, res) => {
         AND e.views_count >= 3
     `, [currentTopic.id, currentTopic.id]);
 
-    // JS-ben kiszámoljuk a bónuszokat, BIZTONSÁGOS számkonverziókkal!
-    const MAX_BONUS = 15; 
-    
+    // JS MATEMATIKA (100 pontos skála)
     const processedLeaderboard = rawLeaderboard.map(entry => {
-      // Biztosítjuk, hogy minden érték valós szám legyen
       const likes = Number(entry.likes_count) || 0;
-      const views = Number(entry.views_count) || 1; // 1, hogy elkerüljük a nullával való osztást
+      const views = Number(entry.views_count) || 1; 
       const userVotes = Number(entry.user_vote_count) || 0;
 
-      const baseWinRate = (likes / views) * 100;
-      const karmaBonus = Math.min(MAX_BONUS, userVotes);
-      const totalScore = baseWinRate + karmaBonus;
+      // 1. Fotó Minősége (Max 80 pont)
+      const winRate = likes / views; 
+      const qualityScore = winRate * 80;
+
+      // 2. Aktivitási Bónusz (Max 20 pont) - Százalékos arányban!
+      const activityRatio = Math.min(1, userVotes / votableEntries);
+      const activityScore = activityRatio * 20;
+
+      // 3. Végső Pontszám
+      const totalScore = qualityScore + activityScore;
       
       return {
         ...entry,
-        win_rate: baseWinRate, // Ezt is meghagyjuk a biztonság kedvéért
-        base_win_rate: baseWinRate,
-        karma_bonus: karmaBonus,
-        total_score: totalScore
+        win_rate: winRate * 100, 
+        quality_score: qualityScore,
+        activity_score: activityScore,
+        total_score: totalScore,
+        user_vote_count: userVotes
       };
     });
 
@@ -702,9 +709,10 @@ app.get('/api/weekly/current', async (req, res) => {
     res.json({ 
       topic: currentTopic, 
       myEntry: myEntries.length > 0 ? myEntries[0] : null, 
-      myVoteCount: myVotes[0].vote_count, 
-      requiredVotes, 
-      leaderboard: processedLeaderboard.slice(0, 15) // Top 15
+      myVoteCount: myVotes[0]?.vote_count || 0, 
+      requiredVotes,
+      votableEntries, // Ezt átküldjük a frontendnek a figyelmeztetéshez!
+      leaderboard: processedLeaderboard.slice(0, 15) 
     });
   } catch (err) { 
     console.error(err);
