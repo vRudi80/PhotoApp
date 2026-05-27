@@ -778,6 +778,36 @@ app.post('/api/weekly/vote', async (req, res) => {
   }
 });
 
+// 5. Hamarosan induló témák lekérése (amik még nem aktívak és a jövőben kezdődnek)
+app.get('/api/weekly/upcoming', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM weekly_topics WHERE is_active = false AND start_date > CURRENT_DATE() ORDER BY start_date ASC');
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: 'Hiba az elkövetkező témák lekérésekor' }); }
+});
+
+// 6. Korábbi, lezárult témák lekérése
+app.get('/api/weekly/past', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM weekly_topics WHERE is_active = false AND end_date < CURRENT_DATE() ORDER BY end_date DESC');
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: 'Hiba a korábbi témák lekérésekor' }); }
+});
+
+// 7. Egy konkrét lezárult téma VÉGLEGES toplistájának lekérése
+app.get('/api/weekly/history/:topicId', async (req, res) => {
+  try {
+    const [leaderboard] = await pool.query(`
+      SELECT e.id, e.user_name, e.file_url, e.drive_file_id, e.views_count, e.likes_count,
+             (e.likes_count * 100 / e.views_count) as win_rate
+      FROM weekly_entries e
+      WHERE e.topic_id = ? AND e.views_count > 0
+      ORDER BY win_rate DESC, likes_count DESC
+    `, [req.params.topicId]);
+    res.json(leaderboard);
+  } catch (err) { res.status(500).json({ error: 'Hiba a múltbéli toplista lekérésekor' }); }
+});
+
 // ==========================================
 // --- HETI KIHÍVÁS ADMINISZTRÁCIÓ ---
 // ==========================================
