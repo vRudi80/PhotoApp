@@ -636,25 +636,34 @@ app.post('/api/attendance/:meetingId', async (req, res) => {
 // --- HETI KIHÍVÁS (PÁRBAJ / TINDER MODELL) ---
 // ==========================================
 
-// 1. Aktuális téma lekérése (Ami MA épp fut)
+// 1. Aktuális téma lekérése (Aktivitási Bónusszal!)
 app.get('/api/weekly/current', async (req, res) => {
   const { userEmail } = req.query;
   try {
-    // AUTOMATIKA: A mai dátum a start_date és az end_date közé esik!
-    const [topics] = await pool.query('SELECT * FROM weekly_topics WHERE CURRENT_DATE() >= start_date AND CURRENT_DATE() <= end_date ORDER BY id DESC LIMIT 1');
-    if (topics.length === 0) return res.json({ topic: null });
-    const currentTopic = topics[0];
+    const [allTopics] = await pool.query('SELECT * FROM weekly_topics ORDER BY id DESC');
+    const today = new Date();
+    const currentTopic = allTopics.find(t => {
+        const start = new Date(t.start_date);
+        const end = new Date(t.end_date);
+        start.setHours(0,0,0,0);
+        end.setHours(23,59,59,999);
+        return today >= start && today <= end;
+    });
+
+    if (!currentTopic) return res.json({ topic: null });
 
     const [myEntries] = await pool.query('SELECT * FROM weekly_entries WHERE topic_id = ? AND user_email = ?', [currentTopic.id, userEmail]);
     const [myVotes] = await pool.query('SELECT COUNT(*) as vote_count FROM weekly_votes v JOIN weekly_entries e ON v.entry_id = e.id WHERE e.topic_id = ? AND v.voter_email = ?', [currentTopic.id, userEmail]);
 
-    const [allEntries] = await pool.query('SELECT COUNT(*) as total FROM weekly_entries WHERE topic_id = ?', [currentTopic.id]);
-    const totalEntries = allEntries[0].total;
-    const requiredVotes = Math.max(0, Math.min(10, totalEntries - 1));
+    const [allEntriesCount] = await pool.query('SELECT COUNT(*) as total FROM weekly_entries WHERE topic_id = ?', [currentTopic.id]);
+    const totalEntries = allEntriesCount[0].total;
+    
+    // Az alap érvényességhez (lakat levételéhez) elég egy fix, alacsony szám (pl. 3, vagy kevesebb, ha kevés a kép)
+    const requiredVotes = Math.max(0, Math.min(3, totalEntries - 1));
 
-    const [leaderboard] = await pool.query(`
+    // Lekérjük a nyers adatokat
+    const [rawLeaderboard] = await pool.query(`
       SELECT e.id, e.user_name, e.user_email, e.file_url, e.drive_file_id, e.views_count, e.likes_count,
-             (e.likes_count * 100 / e.views_count) as win_rate,
              (
                SELECT COUNT(*) FROM weekly_votes v 
                JOIN weekly_entries we ON v.entry_id = we.id 
@@ -663,11 +672,35 @@ app.get('/api/weekly/current', async (req, res) => {
       FROM weekly_entries e
       WHERE e.topic_id = ? 
         AND e.views_count >= 3
-      ORDER BY win_rate DESC, likes_count DESC 
-      LIMIT 15
     `, [currentTopic.id, currentTopic.id]);
 
-    res.json({ topic: currentTopic, myEntry: myEntries.length > 0 ? myEntries[0] : null, myVoteCount: myVotes[0].vote_count, requiredVotes, leaderboard });
+    // JS-ben kiszámoljuk a bónuszokat és a végső pontot!
+    const MAX_BONUS = 15; // Maximum 15 extra pont szerezhető szavazással
+    
+    const processedLeaderboard = rawLeaderboard.map(entry => {
+      const baseWinRate = (entry.likes_count / entry.views_count) * 100;
+      // Minden szavazat = +1 pont, max 15-ig
+      const karmaBonus = Math.min(MAX_BONUS, entry.user_vote_count);
+      const totalScore = baseWinRate + karmaBonus;
+      
+      return {
+        ...entry,
+        base_win_rate: baseWinRate,
+        karma_bonus: karmaBonus,
+        total_score: totalScore
+      };
+    });
+
+    // Sorba rendezés a Végső Pontszám alapján (csökkenő)
+    processedLeaderboard.sort((a, b) => b.total_score - a.total_score);
+
+    res.json({ 
+      topic: currentTopic, 
+      myEntry: myEntries.length > 0 ? myEntries[0] : null, 
+      myVoteCount: myVotes[0].vote_count, 
+      requiredVotes, 
+      leaderboard: processedLeaderboard.slice(0, 15) // Top 15-öt küldjük vissza
+    });
   } catch (err) { res.status(500).json({ error: 'Hiba a heti kihívás lekérésekor' }); }
 });
 
