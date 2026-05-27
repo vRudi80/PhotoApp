@@ -21,7 +21,7 @@ export default function ClubNightsView({
         <div style={{ textAlign: 'center', padding: '4rem 2rem', background: '#1e293b', borderRadius: '16px', border: '1px solid #334155' }}>
           <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🔒</div>
           <h2 style={{ color: '#f59e0b', margin: '0 0 10px 0' }}>Nem vagy klubhoz rendelve</h2>
-          <p style={{ color: '#94a3b8', fontSize: '1.1rem' }}>A klubod eseményeinek megtekintéséhez kérjük, vedd fel a kapcsolatot egy adminisztrátorral. - rudolf.kovari@kepolvasok.hu </p>
+          <p style={{ color: '#94a3b8', fontSize: '1.1rem' }}>A klubod eseményeinek megtekintéséhez kérjük, vedd fel a kapcsolatot egy adminisztrátorral. - kovari.rudolf@gmail.com</p>
         </div>
       ) : (
         <>
