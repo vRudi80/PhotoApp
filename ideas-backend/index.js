@@ -637,34 +637,49 @@ app.post('/api/attendance/:meetingId', async (req, res) => {
 // ==========================================
 
 // 1. Aktuális téma, a felhasználó státusza és a Toplista lekérése
+// 1. Aktuális téma, a felhasználó státusza és a Toplista lekérése (Dinamikus Limittel)
 app.get('/api/weekly/current', async (req, res) => {
   const { userEmail } = req.query;
   try {
-    // Keresünk egy aktív témát
+    // 1. Keresünk egy aktív témát
     const [topics] = await pool.query('SELECT * FROM weekly_topics WHERE is_active = true ORDER BY id DESC LIMIT 1');
     if (topics.length === 0) return res.json({ topic: null });
     const currentTopic = topics[0];
 
-    // Megnézzük, a user töltött-e már fel
+    // 2. Megnézzük, a user töltött-e már fel
     const [myEntries] = await pool.query('SELECT * FROM weekly_entries WHERE topic_id = ? AND user_email = ?', [currentTopic.id, userEmail]);
     
-    // Megnézzük, hányszor szavazott a user ezen a héten
+    // 3. Megnézzük, hányszor szavazott a user ezen a héten
     const [myVotes] = await pool.query('SELECT COUNT(*) as vote_count FROM weekly_votes v JOIN weekly_entries e ON v.entry_id = e.id WHERE e.topic_id = ? AND v.voter_email = ?', [currentTopic.id, userEmail]);
 
-    // Toplista (Legalább 3 megtekintés kell, hogy valós legyen az arány)
+    // 4. DINAMIKUS LIMIT SZÁMÍTÁSA
+    // Lekérjük, összesen hány kép van a héten. A kötelező szavazat: összes kép mínusz 1 (önmaga), maximum 10.
+    const [allEntries] = await pool.query('SELECT COUNT(*) as total FROM weekly_entries WHERE topic_id = ?', [currentTopic.id]);
+    const totalEntries = allEntries[0].total;
+    const requiredVotes = Math.max(0, Math.min(10, totalEntries - 1));
+
+    // 5. TOPLISTA (Szigorú szűréssel)
+    // Csak azok kerülhetnek fel, akiknek van elég megtekintése (>=3) ÉS leadták a kötelező szavazatukat!
     const [leaderboard] = await pool.query(`
-      SELECT id, user_name, file_url, drive_file_id, views_count, likes_count,
-             (likes_count / views_count * 100) as win_rate
-      FROM weekly_entries 
-      WHERE topic_id = ? AND views_count >= 3
+      SELECT e.id, e.user_name, e.file_url, e.drive_file_id, e.views_count, e.likes_count,
+             (e.likes_count * 100 / e.views_count) as win_rate
+      FROM weekly_entries e
+      WHERE e.topic_id = ? 
+        AND e.views_count >= 3
+        AND (
+          SELECT COUNT(*) FROM weekly_votes v 
+          JOIN weekly_entries we ON v.entry_id = we.id 
+          WHERE we.topic_id = ? AND v.voter_email = e.user_email
+        ) >= ?
       ORDER BY win_rate DESC, likes_count DESC 
       LIMIT 10
-    `, [currentTopic.id]);
+    `, [currentTopic.id, currentTopic.id, requiredVotes]);
 
     res.json({
       topic: currentTopic,
       myEntry: myEntries.length > 0 ? myEntries[0] : null,
       myVoteCount: myVotes[0].vote_count,
+      requiredVotes: requiredVotes, // Ezt átküldjük a frontendnek a figyelmeztetéshez
       leaderboard
     });
   } catch (err) { res.status(500).json({ error: 'Hiba a heti kihívás lekérésekor' }); }
