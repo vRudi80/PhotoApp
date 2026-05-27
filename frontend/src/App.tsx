@@ -23,6 +23,7 @@ import FiapProgressView from './views/FiapProgressView';
 import SessionGuard from './components/SessionGuard';
 import MapSpotsView from './views/MapSpotsView';
 import DashboardView from './views/DashboardView';
+import WeeklyChallengeView from './views/WeeklyChallengeView';
 
 import MafoszProgressView from './views/MafoszProgressView'; 
 import PackagesView from './components/PackagesView'; 
@@ -790,6 +791,10 @@ const fetchMyEntries = async (email: string) => {
               />
             )}
 
+            {activeTab === 'weekly_challenge' && (
+                <WeeklyChallengeView user={user} setFullscreenData={setFullscreenData} />
+              )}
+            
             {activeTab === 'packages' && (
               <PackagesView user={user} />
             )}
