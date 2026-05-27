@@ -24,6 +24,7 @@ import SessionGuard from './components/SessionGuard';
 import MapSpotsView from './views/MapSpotsView';
 import DashboardView from './views/DashboardView';
 import WeeklyChallengeView from './views/WeeklyChallengeView';
+import AdminWeeklyView from './views/admin/AdminWeeklyView';
 
 import MafoszProgressView from './views/MafoszProgressView'; 
 import PackagesView from './components/PackagesView'; 
@@ -703,6 +704,10 @@ const fetchMyEntries = async (email: string) => {
 
     if (activeTab === 'admin_contests') return true; 
 
+    {activeTab === 'admin_weekly' && user.email === ADMIN_EMAIL && (
+      <AdminWeeklyView />
+    )}
+    
     if (activeTab === 'contests_closed') {
        if (!isEnded) return false;
        if (isRestricted && contest.restricted_club !== currentDbUser?.club_name) return false;
