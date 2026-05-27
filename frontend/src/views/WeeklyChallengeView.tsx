@@ -84,7 +84,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         setMyVoteCount(prev => prev + 1);
         fetchNextVote(topic.id);
         
-        // Frissítjük a nézetet, ha épp most teljesítettük a kvótát
         if (myVoteCount + 1 === requiredVotes) {
             fetchCurrentTopic();
         }
@@ -141,6 +140,15 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   );
 
   const missingVotes = requiredVotes - myVoteCount;
+
+  // --- ÚJ: TOPLISTA KETTÉBONTÁSA ÉS ÚJRARENDEZÉSE ---
+  // Különvesszük azokat, akik teljesítették a kvótát (érvényesek) és akik nem (lusta szavazók).
+  // Mivel a backend már Win Rate alapján csökkenőbe rendezte őket, a két tömb is jó sorrendben marad!
+  const validEntries = leaderboard.filter(e => e.user_vote_count >= requiredVotes);
+  const invalidEntries = leaderboard.filter(e => e.user_vote_count < requiredVotes);
+  
+  // A végleges listában ELŐRE kerülnek az érvényesek, és csak a végére a kizártak
+  const finalLeaderboard = [...validEntries, ...invalidEntries];
 
   return (
     <div style={{ animation: 'fadeIn 0.4s ease-out' }}>
@@ -243,22 +251,21 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
 
         </div>
 
-        {/* JOBB OLDAL: TOPLISTA (Okos megjelenítéssel) */}
         <div style={{ background: '#1e293b', padding: '25px', borderRadius: '16px', border: '1px solid #f59e0b' }}>
           <h3 style={{ margin: '0 0 5px 0', color: '#f59e0b', fontSize: '1.4rem' }}>🏆 Heti Toplista</h3>
           <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 20px 0' }}>
-            A rangsor a Win Rate alapján áll fel (min. 3 megtekintés). Ha valaki nem teljesíti az aktuális szavazási kvótát, 🔒 Lakat alá kerül és elveszíti az érvényességét!
+            A rangsor az arányszám (Win Rate) alapján áll fel. Előre kerülnek az ÉRVÉNYES játékosok (akik eleget szavaztak). A lusta szavazók 🔒 lakat alá kerülnek a lista végére!
           </p>
           
-          {leaderboard.length === 0 ? (
+          {finalLeaderboard.length === 0 ? (
             <div style={{ color: '#94a3b8', textAlign: 'center', padding: '20px' }}>Még nem érkezett elég szavazat a toplista felállításához.</div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {leaderboard.map((entry, index) => {
+              {/* JAVÍTÁS: A finalLeaderboard-on iterálunk végig! */}
+              {finalLeaderboard.map((entry, index) => {
                 const isMe = entry.user_email === user.email;
                 const winRate = Number(entry.win_rate).toFixed(0);
                 
-                // Ellenőrizzük, hogy a versenyző teljesítette-e a saját kvótáját
                 const hasEnoughVotes = entry.user_vote_count >= requiredVotes;
 
                 return (
