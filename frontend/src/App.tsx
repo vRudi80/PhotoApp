@@ -795,6 +795,13 @@ const fetchMyEntries = async (email: string) => {
               <PackagesView user={user} />
             )}
 
+            {activeTab === 'map_spots' && (
+              <MapSpotsView 
+              user={user} 
+              setFullscreenData={setFullscreenData} 
+                />
+            )}
+            
             {activeTab === 'my_album' && (
               <MyAlbumView 
                 user={user} 
