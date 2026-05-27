@@ -11,7 +11,11 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const [loading, setLoading] = useState(true);
   const [topic, setTopic] = useState<any>(null);
   const [myEntry, setMyEntry] = useState<any>(null);
+  
+  // Szavazási limit és státusz
   const [myVoteCount, setMyVoteCount] = useState(0);
+  const [requiredVotes, setRequiredVotes] = useState(10); // Dinamikus limit a backendtől
+  
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
 
   // Értékelő (Párbaj) állapotok
@@ -33,6 +37,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         setTopic(data.topic);
         setMyEntry(data.myEntry);
         setMyVoteCount(data.myVoteCount);
+        setRequiredVotes(data.requiredVotes || 0); // Beállítjuk a dinamikus limitet
         setLeaderboard(data.leaderboard);
         if (data.topic) fetchNextVote(data.topic.id);
       }
@@ -86,10 +91,15 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       if (res.ok) {
         setMyVoteCount(prev => prev + 1);
         fetchNextVote(topic.id);
+        
+        // Ha pont a szavazással léptük át a limitet, frissítsük a toplistát, hátha most jelentünk meg rajta!
+        if (myVoteCount + 1 === requiredVotes) {
+            fetchCurrentTopic();
+        }
       }
     } catch (e) {
       alert('Hálózati hiba a szavazásnál!');
-      fetchNextVote(topic.id); // Töltse be az újat hibánál is
+      fetchNextVote(topic.id);
     }
   };
 
@@ -117,7 +127,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         alert('Kép sikeresen benevezve a párbajra!');
         setUploadFile(null);
         setUploadPreview(null);
-        fetchCurrentTopic(); // Frissítjük a nézetet
+        fetchCurrentTopic(); // Frissítjük a nézetet, hogy lássa az új requiredVotes-t!
       } else {
         const err = await res.json();
         alert(err.error);
@@ -160,9 +170,10 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           <div style={{ background: '#1e293b', padding: '25px', borderRadius: '16px', border: '1px solid #334155', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             <h3 style={{ margin: '0 0 20px 0', color: '#f8fafc', fontSize: '1.4rem' }}>⚔️ Képpárbaj</h3>
             
-            {myVoteCount < 10 && (
+            {/* Dinamikus piros figyelmeztetés a kötelező szavazatokról */}
+            {(requiredVotes > 0 && myVoteCount < requiredVotes) && (
               <div style={{ width: '100%', background: '#ef444420', color: '#ef4444', padding: '10px', borderRadius: '8px', border: '1px solid #ef444450', marginBottom: '15px', fontSize: '0.9rem', textAlign: 'center' }}>
-                Kérlek értékelj még <b>{10 - myVoteCount}</b> képet, hogy a te fotód is részt vegyen a versenyben!
+                Kérlek értékelj még <b>{requiredVotes - myVoteCount}</b> képet, hogy a te fotód is felkerülhessen a Toplistára!
               </div>
             )}
 
@@ -174,7 +185,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
               </div>
             ) : voteEntry ? (
               <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                {/* A titkos fotó */}
                 <div 
                   style={{ width: '100%', height: '350px', backgroundColor: '#000', borderRadius: '12px', overflow: 'hidden', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-in' }}
                   onClick={() => setFullscreenData({url: getImageUrl(voteEntry.drive_file_id, voteEntry.file_url), title: 'Heti Kihívás Fotó'})}
@@ -182,7 +192,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   <img src={getImageUrl(voteEntry.drive_file_id, voteEntry.file_url)} alt="Szavazás" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
                 </div>
                 
-                {/* Gombok */}
                 <div style={{ display: 'flex', gap: '15px', width: '100%' }}>
                   <button 
                     onClick={() => handleVote('pass')}
@@ -245,10 +254,13 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         {/* JOBB OLDAL: TOPLISTA */}
         <div style={{ background: '#1e293b', padding: '25px', borderRadius: '16px', border: '1px solid #f59e0b' }}>
           <h3 style={{ margin: '0 0 5px 0', color: '#f59e0b', fontSize: '1.4rem' }}>🏆 Heti Toplista</h3>
-          <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 20px 0' }}>A rangsor a kapott szavazatok és a megjelenések aránya (Win Rate) alapján áll fel. Legalább 3 megtekintés szükséges a listára kerüléshez.</p>
+          <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 20px 0' }}>
+            A rangsor a kapott szavazatok és a megjelenések aránya (Win Rate) alapján áll fel. 
+            Egy fotónak legalább 3 megtekintést kell kapnia a többiektől, hogy a statisztikája érvényes legyen és felkerülhessen ide.
+          </p>
           
           {leaderboard.length === 0 ? (
-            <div style={{ color: '#94a3b8', textAlign: 'center', padding: '20px' }}>Még nem érkezett elég szavazat a toplista felállításához. Légy te az első!</div>
+            <div style={{ color: '#94a3b8', textAlign: 'center', padding: '20px' }}>Még nem érkezett elég szavazat a toplista felállításához, vagy még senki sem teljesítette a kvótát.</div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {leaderboard.map((entry, index) => {
