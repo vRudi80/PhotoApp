@@ -80,6 +80,7 @@ export default function Header({
             <button className={`nav-btn ${dropdownOpen === 'club' || activeTab.startsWith('club_') ? 'active' : ''}`} onClick={() => setDropdownOpen(dropdownOpen === 'club' ? null : 'club')}>
               <span>Saját klubom</span> <span>▾</span>
             </button>
+            <button onClick={() => setActiveTab('map_spots')}>🌍 Helyszínek</button>
             {dropdownOpen === 'club' && (
               <div className="dropdown-menu">
                 <button className={`drop-item ${activeTab === 'club_nights' ? 'active' : ''}`} onClick={() => handleNavClick('club_nights')}>Klubestek</button>
