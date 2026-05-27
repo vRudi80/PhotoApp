@@ -80,7 +80,6 @@ export default function Header({
             <button className={`nav-btn ${dropdownOpen === 'club' || activeTab.startsWith('club_') ? 'active' : ''}`} onClick={() => setDropdownOpen(dropdownOpen === 'club' ? null : 'club')}>
               <span>Saját klubom</span> <span>▾</span>
             </button>
-            <button onClick={() => setActiveTab('map_spots')}>🌍 Helyszínek</button>
             {dropdownOpen === 'club' && (
               <div className="dropdown-menu">
                 <button className={`drop-item ${activeTab === 'club_nights' ? 'active' : ''}`} onClick={() => handleNavClick('club_nights')}>Klubestek</button>
@@ -95,6 +94,13 @@ export default function Header({
               </button>
           </div>
 
+          <div className="nav-item-container" style={{ zIndex: 50 }}>
+              <button className={`nav-btn ${activeTab === 'map_spots' ? 'active' : ''}`} style={{ color: '#10b981' }} onClick={() => handleNavClick('map_spots')}>
+                <span>🌍 Helyszínek</span>
+              </button>
+          </div>
+          
+          
           <div className="nav-item-container" style={{ zIndex: 50 }}>
             <button className={`nav-btn ${activeTab === 'salons' ? 'active' : ''}`} style={{ color: '#60a5fa' }} onClick={() => handleNavClick('salons')}>
               <span>🌐 Nemzetközi Szalonok</span>
