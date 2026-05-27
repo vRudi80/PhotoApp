@@ -636,23 +636,22 @@ app.post('/api/attendance/:meetingId', async (req, res) => {
 // --- HETI KIHÍVÁS (PÁRBAJ / TINDER MODELL) ---
 // ==========================================
 
-// 1. Aktuális téma, a felhasználó státusza és a Toplista lekérése (Látható kizárásokkal)
+// 1. Aktuális téma lekérése (Ami MA épp fut)
 app.get('/api/weekly/current', async (req, res) => {
   const { userEmail } = req.query;
   try {
-    const [topics] = await pool.query('SELECT * FROM weekly_topics WHERE is_active = true ORDER BY id DESC LIMIT 1');
+    // AUTOMATIKA: A mai dátum a start_date és az end_date közé esik!
+    const [topics] = await pool.query('SELECT * FROM weekly_topics WHERE CURRENT_DATE() >= start_date AND CURRENT_DATE() <= end_date ORDER BY id DESC LIMIT 1');
     if (topics.length === 0) return res.json({ topic: null });
     const currentTopic = topics[0];
 
     const [myEntries] = await pool.query('SELECT * FROM weekly_entries WHERE topic_id = ? AND user_email = ?', [currentTopic.id, userEmail]);
-    
     const [myVotes] = await pool.query('SELECT COUNT(*) as vote_count FROM weekly_votes v JOIN weekly_entries e ON v.entry_id = e.id WHERE e.topic_id = ? AND v.voter_email = ?', [currentTopic.id, userEmail]);
 
     const [allEntries] = await pool.query('SELECT COUNT(*) as total FROM weekly_entries WHERE topic_id = ?', [currentTopic.id]);
     const totalEntries = allEntries[0].total;
     const requiredVotes = Math.max(0, Math.min(10, totalEntries - 1));
 
-    // TOPLISTA: Mindenkit lekérünk (akinek van 3 megtekintése), de mellétesszük, hányat szavazott!
     const [leaderboard] = await pool.query(`
       SELECT e.id, e.user_name, e.user_email, e.file_url, e.drive_file_id, e.views_count, e.likes_count,
              (e.likes_count * 100 / e.views_count) as win_rate,
@@ -668,13 +667,7 @@ app.get('/api/weekly/current', async (req, res) => {
       LIMIT 15
     `, [currentTopic.id, currentTopic.id]);
 
-    res.json({
-      topic: currentTopic,
-      myEntry: myEntries.length > 0 ? myEntries[0] : null,
-      myVoteCount: myVotes[0].vote_count,
-      requiredVotes: requiredVotes,
-      leaderboard
-    });
+    res.json({ topic: currentTopic, myEntry: myEntries.length > 0 ? myEntries[0] : null, myVoteCount: myVotes[0].vote_count, requiredVotes, leaderboard });
   } catch (err) { res.status(500).json({ error: 'Hiba a heti kihívás lekérésekor' }); }
 });
 
@@ -778,20 +771,38 @@ app.post('/api/weekly/vote', async (req, res) => {
   }
 });
 
-// 5. Hamarosan induló témák lekérése (amik még nem aktívak és a jövőben kezdődnek)
+// 5. Hamarosan induló témák (Kezdési dátum a jövőben van)
 app.get('/api/weekly/upcoming', async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT * FROM weekly_topics WHERE is_active = false AND start_date > CURRENT_DATE() ORDER BY start_date ASC');
+    const [rows] = await pool.query('SELECT * FROM weekly_topics WHERE start_date > CURRENT_DATE() ORDER BY start_date ASC');
     res.json(rows);
   } catch (err) { res.status(500).json({ error: 'Hiba az elkövetkező témák lekérésekor' }); }
 });
 
-// 6. Korábbi, lezárult témák lekérése
+// 6. Korábbi, lezárult témák (Zárási dátum a múltban van)
 app.get('/api/weekly/past', async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT * FROM weekly_topics WHERE is_active = false AND end_date < CURRENT_DATE() ORDER BY end_date DESC');
+    const [rows] = await pool.query('SELECT * FROM weekly_topics WHERE end_date < CURRENT_DATE() ORDER BY end_date DESC');
     res.json(rows);
   } catch (err) { res.status(500).json({ error: 'Hiba a korábbi témák lekérésekor' }); }
+});
+
+// --- ADMINISZTRÁCIÓ (Egyszerűsítve) ---
+app.post('/api/admin/weekly-topics', async (req, res) => {
+  const { title, description, startDate, endDate } = req.body;
+  try {
+    // Nincs több is_active állítgatás!
+    await pool.query('INSERT INTO weekly_topics (title, description, start_date, end_date) VALUES (?, ?, ?, ?)', [title, description, startDate, endDate]);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: 'Hiba a téma létrehozásakor' }); }
+});
+
+app.put('/api/admin/weekly-topics/:id', async (req, res) => {
+  const { title, description, startDate, endDate } = req.body;
+  try {
+    await pool.query('UPDATE weekly_topics SET title = ?, description = ?, start_date = ?, end_date = ? WHERE id = ?', [title, description, startDate, endDate, req.params.id]);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: 'Hiba a téma szerkesztésekor' }); }
 });
 
 // 7. Egy konkrét lezárult téma VÉGLEGES toplistájának lekérése
