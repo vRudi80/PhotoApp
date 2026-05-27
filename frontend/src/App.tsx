@@ -21,6 +21,7 @@ import MyAlbumView from './views/MyAlbumView';
 import AdminSettingsView from './views/admin/AdminSettingsView';
 import FiapProgressView from './views/FiapProgressView';
 import SessionGuard from './components/SessionGuard';
+import MapSpotsView from './views/MapSpotsView';
 
 import MafoszProgressView from './views/MafoszProgressView'; 
 import PackagesView from './components/PackagesView'; 
