@@ -157,7 +157,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         <h2 style={{ margin: '0 0 10px 0', fontSize: '2rem' }}>🔥 Heti Kihívás: {topic.title}</h2>
         <p style={{ margin: '0 0 15px 0', fontSize: '1.1rem', opacity: 0.9 }}>{topic.description}</p>
         <div style={{ display: 'inline-block', background: 'rgba(0,0,0,0.2)', padding: '5px 15px', borderRadius: '50px', fontSize: '0.9rem', fontWeight: 'bold' }}>
-          ⏳ Határidő: {new Date(topic.end_date).toLocaleDateString('hu-HU')}
+          ⏳ Játék vége: {new Date(topic.end_date).toLocaleDateString('hu-HU')}
         </div>
       </div>
 
