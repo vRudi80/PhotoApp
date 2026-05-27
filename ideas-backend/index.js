@@ -875,33 +875,40 @@ app.get('/api/my-album', checkPremium, async (req, res) => {
 });
 
 // ==========================================
-// --- FOTÓS HELYSZÍNEK (MAP SPOTS) ---
+// --- FOTÓS HELYSZÍNEK (MAP SPOTS) - JAVÍTOTT & BŐVÍTETT ---
 // ==========================================
 
-// Helyszínek lekérése (kereséssel)
+// Helyszínek lekérése lájkokkal és egyedi szűréssel
 app.get('/api/locations', async (req, res) => {
-  const { search } = req.query;
+  const { search, userEmail } = req.query;
   try {
-    let query = 'SELECT * FROM photo_locations ORDER BY created_at DESC';
-    let params = [];
+    let query = `
+      SELECT l.*,
+             (SELECT COUNT(*) FROM photo_location_likes WHERE location_id = l.id) as like_count,
+             (SELECT COUNT(*) FROM photo_location_likes WHERE location_id = l.id AND user_email = ?) as user_liked
+      FROM photo_locations l
+    `;
+    let params = [userEmail || ''];
     
     if (search) {
-      query = 'SELECT * FROM photo_locations WHERE title LIKE ? OR description LIKE ? ORDER BY created_at DESC';
-      params = [`%${search}%`, `%${search}%`];
+      query += ' WHERE l.title LIKE ? OR l.description LIKE ?';
+      params.push(`%${search}%`, `%${search}%`);
     }
+    
+    query += ' ORDER BY l.created_at DESC';
     
     const [rows] = await pool.query(query, params);
     res.json(rows);
   } catch (err) { 
+    console.error(err);
     res.status(500).json({ error: 'Hiba a helyszínek lekérésekor' }); 
   }
 });
 
-// Új helyszín feltöltése képpel
+// Új helyszín feltöltése
 app.post('/api/locations', upload.single('photo'), async (req, res) => {
   const { userEmail, userName, lat, lng, title, description } = req.body;
   const file = req.file;
-  
   if (!file) return res.status(400).json({ error: 'Fotó feltöltése kötelező a helyszínhez!' });
 
   try {
@@ -920,19 +927,77 @@ app.post('/api/locations', upload.single('photo'), async (req, res) => {
       'INSERT INTO photo_locations (user_email, user_name, lat, lng, title, description, file_url, drive_file_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 
       [userEmail, userName, lat, lng, title, description, driveRes.data.webViewLink, driveRes.data.id]
     );
-
     res.json({ success: true });
   } catch (err) { 
     cleanupTempFile(file);
-    console.error('Hiba a helyszín feltöltésénél:', err);
-    res.status(500).json({ error: 'Hiba a helyszín mentésekor: ' + err.message }); 
+    res.status(500).json({ error: 'Hiba a mentéskor: ' + err.message }); 
   }
 });
-app.get('/api/my-portfolio-results', async (req, res) => {
+
+// Helyszín lájkolása / lájk visszavonása
+app.post('/api/locations/:id/like', async (req, res) => {
+  const { userEmail } = req.body;
+  const locationId = req.params.id;
   try {
-    const [rows] = await pool.query(`SELECT e.portfolio_id, s.name as salon_name, a.award_name, e.achieved_score, e.acceptance_score FROM photo_salon_entries e JOIN photo_salons s ON e.salon_id = s.id LEFT JOIN photo_awards a ON e.award_id = a.id WHERE e.user_email = ? AND (e.award_id IS NOT NULL OR e.achieved_score IS NOT NULL) ORDER BY s.end_date DESC`, [req.query.userEmail]);
-    res.json(rows);
-  } catch (err) { res.status(500).json({ error: 'Hiba az eredmények lekérésekor' }); }
+    const [existing] = await pool.query('SELECT * FROM photo_location_likes WHERE location_id = ? AND user_email = ?', [locationId, userEmail]);
+    if (existing.length > 0) {
+      await pool.query('DELETE FROM photo_location_likes WHERE location_id = ? AND user_email = ?', [locationId, userEmail]);
+      res.json({ liked: false });
+    } else {
+      await pool.query('INSERT INTO photo_location_likes (location_id, user_email) VALUES (?, ?)', [locationId, userEmail]);
+      res.json({ liked: true });
+    }
+  } catch (err) { res.status(500).json({ error: 'Hiba a lájkolásnál' }); }
+});
+
+// Helyszín szerkesztése (Opcionálisan új fotóval)
+app.put('/api/locations/:id', upload.single('photo'), async (req, res) => {
+  const { title, description, userEmail } = req.body;
+  const file = req.file;
+  try {
+    const [rows] = await pool.query('SELECT * FROM photo_locations WHERE id = ? AND user_email = ?', [req.params.id, userEmail]);
+    if (rows.length === 0) {
+      if (file) cleanupTempFile(file);
+      return res.status(403).json({ error: 'Nincs jogosultságod módosítani ezt a helyszínt!' });
+    }
+
+    if (file) {
+      if (rows[0].drive_file_id) {
+        await drive.files.delete({ fileId: rows[0].drive_file_id }).catch(e => console.log('Törlési hiba:', e.message));
+      }
+      const fileStream = fs.createReadStream(file.path);
+      const fileExt = file.originalname && file.originalname.includes('.') ? file.originalname.substring(file.originalname.lastIndexOf('.')).toLowerCase() : '.jpg';
+      const driveRes = await drive.files.create({ 
+        requestBody: { name: `Location_Edit_${Date.now()}${fileExt}`, parents: [process.env.DRIVE_MASTER_FOLDER_ID] }, 
+        media: { mimeType: file.mimetype, body: fileStream }, 
+        fields: 'id, webViewLink' 
+      });
+      cleanupTempFile(file);
+      await pool.query('UPDATE photo_locations SET title = ?, description = ?, file_url = ?, drive_file_id = ? WHERE id = ?', [title, description, driveRes.data.webViewLink, driveRes.data.id, req.params.id]);
+    } else {
+      await pool.query('UPDATE photo_locations SET title = ?, description = ? WHERE id = ?', [title, description, req.params.id]);
+    }
+    res.json({ success: true });
+  } catch (err) { 
+    if (file) cleanupTempFile(file);
+    res.status(500).json({ error: err.message }); 
+  }
+});
+
+// Helyszín törlése
+app.delete('/api/locations/:id', async (req, res) => {
+  const { userEmail } = req.body;
+  try {
+    const [rows] = await pool.query('SELECT * FROM photo_locations WHERE id = ? AND user_email = ?', [req.params.id, userEmail]);
+    if (rows.length === 0) return res.status(403).json({ error: 'Nincs jogosultságod törölni ezt a helyszínt!' });
+
+    if (rows[0].drive_file_id) {
+      await drive.files.delete({ fileId: rows[0].drive_file_id }).catch(e => console.log(e.message));
+    }
+    await pool.query('DELETE FROM photo_location_likes WHERE location_id = ?', [req.params.id]);
+    await pool.query('DELETE FROM photo_locations WHERE id = ?', [req.params.id]);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: 'Hiba a törlésnél' }); }
 });
 
 app.post('/api/my-album/upload', upload.single('photo'), checkPremium, async (req, res) => {
