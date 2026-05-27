@@ -12,6 +12,14 @@ export default function DashboardView({ user, isLeader, setActiveTab }: Dashboar
   // A csempék adatai (Ikon, Szín, Cím, Leírás, és hogy hova ugorjon)
   const tiles = [
     {
+      id: 'weekly_challenge',
+      icon: '🔥',
+      color: '#f97316', // Narancssárga
+      title: 'Heti Kihívás (Párbaj)',
+      desc: 'Tölts fel az aktuális heti témában, szavazz mások képeire és kerülj a toplista élére!',
+      tab: 'weekly_challenge'
+    },
+    {
       id: 'my_album',
       icon: '🖼️',
       color: '#f59e0b', // Sárga
@@ -145,7 +153,6 @@ export default function DashboardView({ user, isLeader, setActiveTab }: Dashboar
 
       </div>
 
-      {/* CSS Animációk a csempékhez */}
       <style>{`
         .dashboard-tile:hover {
           transform: translateY(-5px);
