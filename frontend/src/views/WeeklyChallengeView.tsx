@@ -13,8 +13,12 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   
   const [topic, setTopic] = useState<any>(null);
   const [myEntry, setMyEntry] = useState<any>(null);
+  
+  // Szavazási adatok
   const [myVoteCount, setMyVoteCount] = useState(0);
   const [requiredVotes, setRequiredVotes] = useState(3); 
+  const [votableEntries, setVotableEntries] = useState(1); // Összes szavazható kép
+
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
 
   const [upcomingTopics, setUpcomingTopics] = useState<any[]>([]);
@@ -30,8 +34,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
-  const MAX_BONUS = 15; // Szinkronban a backenddel
-
   const fetchCurrentTopic = async () => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/weekly/current?userEmail=${user.email}`);
@@ -41,6 +43,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         setMyEntry(data.myEntry);
         setMyVoteCount(data.myVoteCount);
         setRequiredVotes(data.requiredVotes || 0); 
+        setVotableEntries(data.votableEntries || 1);
         setLeaderboard(data.leaderboard);
         if (data.topic) fetchNextVote(data.topic.id);
       }
@@ -97,7 +100,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       if (res.ok) {
         setMyVoteCount(prev => prev + 1);
         fetchNextVote(topic.id);
-        fetchCurrentTopic(); // Frissítjük, hogy lássuk nőni a pontunkat élőben!
+        fetchCurrentTopic(); // Frissítjük, hogy élben lássuk a pontjaink emelkedését
       }
     } catch (e) {
       fetchNextVote(topic.id);
@@ -137,7 +140,10 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     finally { setIsUploading(false); }
   };
 
-  const missingVotes = requiredVotes - myVoteCount;
+  // Dinamikus változók a figyelmeztetésekhez
+  const isLocked = myVoteCount < requiredVotes;
+  const missingVotesForMaxBonus = votableEntries - myVoteCount;
+
   const validEntries = leaderboard.filter(e => e.user_vote_count >= requiredVotes);
   const invalidEntries = leaderboard.filter(e => e.user_vote_count < requiredVotes);
   const finalLeaderboard = [...validEntries, ...invalidEntries];
@@ -170,18 +176,18 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   <h3 style={{ margin: '0 0 10px 0', color: '#f8fafc', fontSize: '1.4rem' }}>🔥 Téma: {topic.title}</h3>
                   <p style={{ margin: '0 0 20px 0', color: '#94a3b8', fontSize: '0.9rem', textAlign: 'center' }}>{topic.description}</p>
                   
-                  {/* MOTIVÁCIÓS ÜZENETEK */}
-                  {missingVotes > 0 ? (
+                  {/* MOTIVÁCIÓS ÜZENETEK (3 fázisú) */}
+                  {isLocked ? (
                     <div style={{ width: '100%', background: '#ef444420', color: '#ef4444', padding: '12px', borderRadius: '8px', border: '1px solid #ef444450', marginBottom: '15px', fontSize: '0.9rem', textAlign: 'center' }}>
-                      Értékelj még <b>{missingVotes}</b> képet, hogy felkerülj a Toplistára!
+                      Értékelj még <b>{requiredVotes - myVoteCount}</b> képet, hogy levettük a lakatot és felkerülj a Toplistára!
                     </div>
-                  ) : myVoteCount < MAX_BONUS ? (
+                  ) : missingVotesForMaxBonus > 0 ? (
                     <div style={{ width: '100%', background: '#10b98120', color: '#10b981', padding: '12px', borderRadius: '8px', border: '1px solid #10b98150', marginBottom: '15px', fontSize: '0.9rem', textAlign: 'center' }}>
-                      Érvényes vagy! Gyűjts bónuszpontokat: <b>még {MAX_BONUS - myVoteCount} kép</b> értékelésével növelheted a saját pontszámodat!
+                      Érvényes vagy, de pontokat vesztesz! Értékelj még <b>{missingVotesForMaxBonus} új képet</b>, hogy visszaszerezd a maximális (20/20) aktivitási pontodat!
                     </div>
                   ) : (
                     <div style={{ width: '100%', background: '#f59e0b20', color: '#f59e0b', padding: '12px', borderRadius: '8px', border: '1px solid #f59e0b50', marginBottom: '15px', fontSize: '0.9rem', textAlign: 'center' }}>
-                      🏆 Elérted a maximális aktivitási bónuszt (+{MAX_BONUS} pont)!
+                      🏆 Elérted a maximális aktivitást (20/20 pont)!
                     </div>
                   )}
 
@@ -189,7 +195,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                     <div style={{ padding: '40px 20px', textAlign: 'center', background: '#0f172a', borderRadius: '12px', width: '100%' }}>
                       <div style={{ fontSize: '3rem', marginBottom: '10px' }}>🎉</div>
                       <h4 style={{ color: '#10b981', margin: '0 0 10px 0' }}>Minden elérhető képet értékeltél!</h4>
-                      <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: 0 }}>Várjuk a további feltöltőket, hogy tovább gyűjthesd a bónuszt!</p>
+                      <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: 0 }}>Látogass vissza később, ha töltenek fel új fotókat!</p>
                     </div>
                   ) : voteEntry ? (
                     <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -200,8 +206,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                         <img src={getImageUrl(voteEntry.drive_file_id, voteEntry.file_url)} alt="Szavazás" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
                       </div>
                       <div style={{ display: 'flex', gap: '15px', width: '100%' }}>
-                        <button onClick={() => handleVote('pass')} style={{ flex: 1, padding: '15px', background: '#334155', color: '#f8fafc', border: 'none', borderRadius: '100px', fontSize: '1.2rem', fontWeight: 'bold', cursor: 'pointer' }}>⏭️ Tovább</button>
-                        <button onClick={() => handleVote('like')} style={{ flex: 1, padding: '15px', background: 'linear-gradient(to right, #f97316, #ef4444)', color: 'white', border: 'none', borderRadius: '100px', fontSize: '1.2rem', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 15px rgba(239, 68, 68, 0.4)' }}>🔥 Tetszik!</button>
+                        <button onClick={() => handleVote('pass')} style={{ flex: 1, padding: '15px', background: '#334155', color: '#f8fafc', border: 'none', borderRadius: '100px', fontSize: '1.2rem', fontWeight: 'bold', cursor: 'pointer', transition: 'transform 0.1s' }} onMouseOver={e=>e.currentTarget.style.transform='scale(0.95)'} onMouseOut={e=>e.currentTarget.style.transform='scale(1)'}>⏭️ Tovább</button>
+                        <button onClick={() => handleVote('like')} style={{ flex: 1, padding: '15px', background: 'linear-gradient(to right, #f97316, #ef4444)', color: 'white', border: 'none', borderRadius: '100px', fontSize: '1.2rem', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 15px rgba(239, 68, 68, 0.4)', transition: 'transform 0.1s' }} onMouseOver={e=>e.currentTarget.style.transform='scale(1.05)'} onMouseOut={e=>e.currentTarget.style.transform='scale(1)'}>🔥 Tetszik!</button>
                       </div>
                     </div>
                   ) : <div style={{ color: '#94a3b8' }}>Kép betöltése...</div>}
@@ -236,9 +242,9 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
 
               {/* TOPLISTA MODUL */}
               <div style={{ background: '#1e293b', padding: '25px', borderRadius: '16px', border: '1px solid #f59e0b' }}>
-                <h3 style={{ margin: '0 0 5px 0', color: '#f59e0b', fontSize: '1.4rem' }}>🏆 Heti Toplista</h3>
+                <h3 style={{ margin: '0 0 5px 0', color: '#f59e0b', fontSize: '1.4rem' }}>🏆 Heti Toplista (Max 100 pt)</h3>
                 <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 20px 0' }}>
-                  A végső pontszám = Tisztán kapott arány (Win Rate) + <b>Aktivitási Bónusz</b> (+1 pont minden leadott értékelésedért, max 15-ig).
+                  A végső pontszám összetétele: <b>Fotó minősége (Max 80 pt)</b> + <b>Aktivitás (Max 20 pt)</b>. Az aktivitási pontod csökken, ha új fotók érkeznek a rendszerbe és nem értékeled őket!
                 </p>
                 
                 {finalLeaderboard.length === 0 ? (
@@ -258,14 +264,14 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                           <div style={{ flex: 1 }}>
                             <div style={{ color: '#f8fafc', fontWeight: 'bold' }}>{entry.user_name}</div>
                             <div style={{ fontSize: '0.8rem', color: hasEnoughVotes ? '#94a3b8' : '#ef4444' }}>
-                              {hasEnoughVotes ? `${entry.views_count} megtekintés` : 'Nem szavazott (Kizárva)'}
+                              {hasEnoughVotes ? `${entry.views_count} megtekintés` : 'Lusta szavazó (Kizárva)'}
                             </div>
                           </div>
                           
                           <div style={{ textAlign: 'right' }}>
-                            <div style={{ color: '#f97316', fontWeight: 'bold', fontSize: '1.2rem' }}>{Number(entry.total_score).toFixed(0)} Pt 🔥</div>
+                            <div style={{ color: '#f97316', fontWeight: 'bold', fontSize: '1.2rem' }}>{Number(entry.total_score).toFixed(1)} Pt 🔥</div>
                             <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
-                              ({Number(entry.base_win_rate).toFixed(0)}% arány + {entry.karma_bonus} bónusz)
+                              Minőség: {Number(entry.quality_score).toFixed(1)} | Aktivitás: {Number(entry.activity_score).toFixed(1)}
                             </div>
                           </div>
                         </div>
@@ -345,7 +351,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                         <div style={{ color: '#f8fafc', fontWeight: 'bold', fontSize: '0.9rem' }}>{entry.user_name}</div>
                         <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{entry.views_count} nézettség</div>
                       </div>
-                      <div style={{ color: '#3b82f6', fontWeight: 'bold', fontSize: '1rem' }}>{Number(entry.win_rate).toFixed(0)}%</div>
+                      <div style={{ color: '#3b82f6', fontWeight: 'bold', fontSize: '1rem' }}>{Number((entry.likes_count / entry.views_count)*100).toFixed(0)}%</div>
                     </div>
                   )
                 })}
