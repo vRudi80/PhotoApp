@@ -12,23 +12,18 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const [topic, setTopic] = useState<any>(null);
   const [myEntry, setMyEntry] = useState<any>(null);
   
-  // Szavazási limit és státusz
   const [myVoteCount, setMyVoteCount] = useState(0);
-  const [requiredVotes, setRequiredVotes] = useState(10); // Dinamikus limit a backendtől
-  
+  const [requiredVotes, setRequiredVotes] = useState(10); 
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
 
-  // Értékelő (Párbaj) állapotok
   const [voteEntry, setVoteEntry] = useState<any>(null);
   const [isVoting, setIsVoting] = useState(false);
   const [noMoreEntries, setNoMoreEntries] = useState(false);
 
-  // Feltöltés állapotok
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
-  // Alapadatok lekérése
   const fetchCurrentTopic = async () => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/weekly/current?userEmail=${user.email}`);
@@ -37,7 +32,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         setTopic(data.topic);
         setMyEntry(data.myEntry);
         setMyVoteCount(data.myVoteCount);
-        setRequiredVotes(data.requiredVotes || 0); // Beállítjuk a dinamikus limitet
+        setRequiredVotes(data.requiredVotes || 0); 
         setLeaderboard(data.leaderboard);
         if (data.topic) fetchNextVote(data.topic.id);
       }
@@ -48,7 +43,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     }
   };
 
-  // Következő szavazható kép lekérése
   const fetchNextVote = async (topicId: number) => {
     setIsVoting(true);
     try {
@@ -74,11 +68,9 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     fetchCurrentTopic();
   }, []);
 
-  // Szavazat leadása
   const handleVote = async (type: 'like' | 'pass') => {
     if (!voteEntry || !topic) return;
     
-    // Optikai visszajelzés (gyors eltűnés)
     const oldEntryId = voteEntry.id;
     setVoteEntry(null); 
 
@@ -92,7 +84,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         setMyVoteCount(prev => prev + 1);
         fetchNextVote(topic.id);
         
-        // Ha pont a szavazással léptük át a limitet, frissítsük a toplistát, hátha most jelentünk meg rajta!
+        // Frissítjük a nézetet, ha épp most teljesítettük a kvótát
         if (myVoteCount + 1 === requiredVotes) {
             fetchCurrentTopic();
         }
@@ -103,7 +95,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     }
   };
 
-  // Kép feltöltése
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
@@ -127,7 +118,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         alert('Kép sikeresen benevezve a párbajra!');
         setUploadFile(null);
         setUploadPreview(null);
-        fetchCurrentTopic(); // Frissítjük a nézetet, hogy lássa az új requiredVotes-t!
+        fetchCurrentTopic(); 
       } else {
         const err = await res.json();
         alert(err.error);
@@ -149,10 +140,11 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     </div>
   );
 
+  const missingVotes = requiredVotes - myVoteCount;
+
   return (
     <div style={{ animation: 'fadeIn 0.4s ease-out' }}>
       
-      {/* FEJLÉC */}
       <div style={{ background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)', padding: '30px', borderRadius: '16px', marginBottom: '30px', color: 'white', boxShadow: '0 10px 25px rgba(249, 115, 22, 0.3)', position: 'relative', overflow: 'hidden' }}>
         <h2 style={{ margin: '0 0 10px 0', fontSize: '2rem' }}>🔥 Heti Kihívás: {topic.title}</h2>
         <p style={{ margin: '0 0 15px 0', fontSize: '1.1rem', opacity: 0.9 }}>{topic.description}</p>
@@ -163,25 +155,26 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '30px' }}>
         
-        {/* BAL OLDAL: PÁRBAJ ÉS FELTÖLTÉS */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           
-          {/* Szavazó / Párbaj modul */}
           <div style={{ background: '#1e293b', padding: '25px', borderRadius: '16px', border: '1px solid #334155', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             <h3 style={{ margin: '0 0 20px 0', color: '#f8fafc', fontSize: '1.4rem' }}>⚔️ Képpárbaj</h3>
             
-            {/* Dinamikus piros figyelmeztetés a kötelező szavazatokról */}
-            {(requiredVotes > 0 && myVoteCount < requiredVotes) && (
-              <div style={{ width: '100%', background: '#ef444420', color: '#ef4444', padding: '10px', borderRadius: '8px', border: '1px solid #ef444450', marginBottom: '15px', fontSize: '0.9rem', textAlign: 'center' }}>
-                Kérlek értékelj még <b>{requiredVotes - myVoteCount}</b> képet, hogy a te fotód is felkerülhessen a Toplistára!
+            {missingVotes > 0 && (
+              <div style={{ width: '100%', background: '#ef444420', color: '#ef4444', padding: '15px', borderRadius: '8px', border: '1px solid #ef444450', marginBottom: '15px', fontSize: '0.9rem', textAlign: 'center' }}>
+                {myVoteCount > 0 ? (
+                  <><b>Új képek érkeztek!</b><br/>A kvóta megnőtt. Ahhoz, hogy érvényes maradj a Toplistán, értékelj még <b>{missingVotes}</b> képet!</>
+                ) : (
+                  <>Kérlek értékelj <b>{missingVotes}</b> képet a többiektől, hogy a te fotód is felkerülhessen a Toplistára!</>
+                )}
               </div>
             )}
 
             {noMoreEntries ? (
               <div style={{ padding: '40px 20px', textAlign: 'center', background: '#0f172a', borderRadius: '12px', width: '100%' }}>
                 <div style={{ fontSize: '3rem', marginBottom: '10px' }}>🎉</div>
-                <h4 style={{ color: '#10b981', margin: '0 0 10px 0' }}>Minden képet értékeltél!</h4>
-                <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: 0 }}>Nincs több új fotó. Látogass vissza később, hátha töltenek fel újat a többiek!</p>
+                <h4 style={{ color: '#10b981', margin: '0 0 10px 0' }}>Minden elérhető képet értékeltél!</h4>
+                <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: 0 }}>A kvótádat teljesítetted. Látogass vissza később, hátha töltenek fel újat a többiek!</p>
               </div>
             ) : voteEntry ? (
               <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -216,7 +209,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
             )}
           </div>
 
-          {/* Saját feltöltés modul */}
           <div style={{ background: '#1e293b', padding: '25px', borderRadius: '16px', border: '1px solid #334155' }}>
             <h3 style={{ margin: '0 0 15px 0', color: '#f8fafc', fontSize: '1.4rem' }}>📸 Saját Nevezésem</h3>
             
@@ -251,27 +243,38 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
 
         </div>
 
-        {/* JOBB OLDAL: TOPLISTA */}
+        {/* JOBB OLDAL: TOPLISTA (Okos megjelenítéssel) */}
         <div style={{ background: '#1e293b', padding: '25px', borderRadius: '16px', border: '1px solid #f59e0b' }}>
           <h3 style={{ margin: '0 0 5px 0', color: '#f59e0b', fontSize: '1.4rem' }}>🏆 Heti Toplista</h3>
           <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 20px 0' }}>
-            A rangsor a kapott szavazatok és a megjelenések aránya (Win Rate) alapján áll fel. 
-            Egy fotónak legalább 3 megtekintést kell kapnia a többiektől, hogy a statisztikája érvényes legyen és felkerülhessen ide.
+            A rangsor a Win Rate alapján áll fel (min. 3 megtekintés). Ha valaki nem teljesíti az aktuális szavazási kvótát, 🔒 Lakat alá kerül és elveszíti az érvényességét!
           </p>
           
           {leaderboard.length === 0 ? (
-            <div style={{ color: '#94a3b8', textAlign: 'center', padding: '20px' }}>Még nem érkezett elég szavazat a toplista felállításához, vagy még senki sem teljesítette a kvótát.</div>
+            <div style={{ color: '#94a3b8', textAlign: 'center', padding: '20px' }}>Még nem érkezett elég szavazat a toplista felállításához.</div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {leaderboard.map((entry, index) => {
-                const isMe = entry.user_name === user.name;
+                const isMe = entry.user_email === user.email;
                 const winRate = Number(entry.win_rate).toFixed(0);
+                
+                // Ellenőrizzük, hogy a versenyző teljesítette-e a saját kvótáját
+                const hasEnoughVotes = entry.user_vote_count >= requiredVotes;
 
                 return (
-                  <div key={entry.id} style={{ display: 'flex', alignItems: 'center', background: isMe ? '#f59e0b20' : '#0f172a', border: isMe ? '1px solid #f59e0b50' : '1px solid #334155', padding: '10px', borderRadius: '8px' }}>
+                  <div key={entry.id} style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    background: hasEnoughVotes ? (isMe ? '#f59e0b20' : '#0f172a') : '#0f172a50', 
+                    border: hasEnoughVotes ? (isMe ? '1px solid #f59e0b50' : '1px solid #334155') : '1px dashed #ef444450', 
+                    padding: '10px', 
+                    borderRadius: '8px',
+                    opacity: hasEnoughVotes ? 1 : 0.6,
+                    filter: hasEnoughVotes ? 'none' : 'grayscale(80%)'
+                  }}>
                     
-                    <div style={{ fontSize: '1.5rem', fontWeight: 'bold', width: '35px', color: index === 0 ? '#fbbf24' : index === 1 ? '#cbd5e1' : index === 2 ? '#d97706' : '#475569', textAlign: 'center' }}>
-                      {index + 1}.
+                    <div style={{ fontSize: '1.5rem', fontWeight: 'bold', width: '35px', color: hasEnoughVotes ? (index === 0 ? '#fbbf24' : index === 1 ? '#cbd5e1' : index === 2 ? '#d97706' : '#475569') : '#94a3b8', textAlign: 'center' }}>
+                      {hasEnoughVotes ? `${index + 1}.` : '🔒'}
                     </div>
                     
                     <div 
@@ -282,16 +285,16 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                     </div>
                     
                     <div style={{ flex: 1 }}>
-                      <div style={{ color: '#f8fafc', fontWeight: 'bold', fontSize: '0.95rem' }}>
+                      <div style={{ color: hasEnoughVotes ? '#f8fafc' : '#94a3b8', fontWeight: 'bold', fontSize: '0.95rem' }}>
                         {entry.user_name} {isMe && <span style={{fontSize: '0.75rem', background: '#f59e0b', color: '#0f172a', padding: '2px 6px', borderRadius: '4px', marginLeft: '5px'}}>Én</span>}
                       </div>
-                      <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '3px' }}>
-                        {entry.views_count} megtekintés
+                      <div style={{ fontSize: '0.8rem', color: hasEnoughVotes ? '#94a3b8' : '#ef4444', marginTop: '3px' }}>
+                        {hasEnoughVotes ? `${entry.views_count} megtekintés` : 'Lusta szavazó (Kizárva)'}
                       </div>
                     </div>
                     
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ color: '#f97316', fontWeight: 'bold', fontSize: '1.1rem' }}>{winRate}% 🔥</div>
+                      <div style={{ color: hasEnoughVotes ? '#f97316' : '#94a3b8', fontWeight: 'bold', fontSize: '1.1rem' }}>{winRate}% 🔥</div>
                       <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{entry.likes_count} lájk</div>
                     </div>
 
