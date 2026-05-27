@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { jwtDecode } from "jwt-decode";
 import { GOOGLE_CLIENT_ID, BACKEND_URL, ADMIN_EMAIL } from './utils/constants';
-import { getFlagEmoji, getImageUrl, getYouTubeEmbed } from './utils/helpers';
+import { getImageUrl } from './utils/helpers';
 import LoginScreen from './components/LoginScreen';
 import { FullscreenModal, VideoModal } from './components/Modals';
 import Header from './components/Header';
@@ -34,7 +34,6 @@ function App() {
   const [salonPatronNumbers, setSalonPatronNumbers] = useState<Record<number, string>>({});
   const [userEntrySalonIds, setUserEntrySalonIds] = useState<number[]>([]);
   
-  // ÚJ: Pályázati fizetések tárolója
   const [contestPayments, setContestPayments] = useState<any[]>([]);
   const [myJudgedContests, setMyJudgedContests] = useState<any[]>([]);
   
@@ -75,7 +74,8 @@ function App() {
   
   const [selectedSalon, setSelectedSalon] = useState<any>(null);
 
-  const [activeTab, setActiveTab] = useState('dashboard') | 'contests_club_active' | 'contests_closed' | 'club_nights' | 'club_homeworks' | 'salons' | 'my_album' | 'admin_contests' | 'admin_users' | 'admin_clubs' | 'admin_meetings' | 'admin_homeworks' | 'admin_salons' | 'packages' | 'fiap_progress' | 'mafosz_progress'>('contests_open_active');
+  // JAVÍTÁS: A hibás TypeScript leírást eltávolítottuk, letisztítva csak a string maradt.
+  const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [dropdownOpen, setDropdownOpen] = useState<'contests' | 'club' | 'admin' | 'progress' | null>(null);
 
   const [userClubEdits, setUserClubEdits] = useState<Record<string, string>>({});
@@ -91,7 +91,6 @@ function App() {
   const [newCats, setNewCats] = useState('');
   const [newRestrictedClub, setNewRestrictedClub] = useState(''); 
   
-  // ÚJ: Pályázat létrehozása fizetési mezők
   const [newEntryFee, setNewEntryFee] = useState<number | string>(0);
   const [newFeeCurrency, setNewFeeCurrency] = useState('HUF');
 
@@ -103,7 +102,6 @@ function App() {
   const [editCats, setEditCats] = useState('');
   const [editRestrictedClub, setEditRestrictedClub] = useState(''); 
 
-  // ÚJ: Pályázat szerkesztése fizetési mezők
   const [editEntryFee, setEditEntryFee] = useState<number | string>(0);
   const [editFeeCurrency, setEditFeeCurrency] = useState('HUF');
   const [editCategorySettings, setEditCategorySettings] = useState<Record<string, any>>({});
@@ -169,7 +167,6 @@ function App() {
 
   const [fullscreenData, setFullscreenData] = useState<any>(null);
 
-  // ÚJ: Pályázati fizetés sikeres visszatérésének figyelése
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const successContest = urlParams.get('success_contest');
@@ -183,7 +180,6 @@ function App() {
   const fetchData = async (retryCount = 0) => {
     if (retryCount === 0) setIsInitialLoading(true);
     try {
-      // ÚJ: Hozzáadtuk a contest-payments lekérdezését is
       const [
         resUsers, resClubs, resContests, resJury, resMeetings, 
         resHw, resCountries, resCats, resPatrons, resSalons, resPayments
@@ -215,7 +211,7 @@ function App() {
       if (resCats.ok) setAllCategories(await resCats.json());
       if (resPatrons.ok) setPatrons(await resPatrons.json());
       if (resSalons.ok) setSalons(await resSalons.json());
-      if (resPayments && resPayments.ok) setContestPayments(await resPayments.json()); // ÚJ
+      if (resPayments && resPayments.ok) setContestPayments(await resPayments.json());
 
       setIsInitialLoading(false); 
     } catch (e) { 
@@ -240,7 +236,6 @@ const fetchMyEntries = async (email: string) => {
       const resSalons = await fetch(`${BACKEND_URL}/api/my-salon-entries-status?userEmail=${email}`);
       if (resSalons.ok) setUserEntrySalonIds(await resSalons.json());
 
-      // ÚJ: Lekérdezzük a zsűrizési haladást is
       const resJudged = await fetch(`${BACKEND_URL}/api/my-judged-contests?userEmail=${email}`);
       if (resJudged.ok) setMyJudgedContests(await resJudged.json());
     } catch (e) { console.error(e); }
@@ -361,7 +356,6 @@ const fetchMyEntries = async (email: string) => {
     fetchMyEntries(decoded.email);
   };
 
-   // --- ÚJ: STRIPE PÁLYÁZATI FIZETÉS INDÍTÁSA ---
   const handlePayContestFee = async (contestId: number) => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/create-contest-payment`, {
@@ -370,15 +364,14 @@ const fetchMyEntries = async (email: string) => {
         body: JSON.stringify({ 
           userEmail: user.email, 
           contestId: contestId,
-          returnUrl: window.location.origin // Védőháló: Fixen átadjuk a weboldal URL-jét
+          returnUrl: window.location.origin
         })
       });
       const data = await res.json();
       
       if (data.url) {
-        window.location.href = data.url; // Átirányítás a Stripe-ra
+        window.location.href = data.url;
       } else {
-        // Ha bármi hiba van, itt egy felugró ablakban (Alert) fogja kiírni, nem egy új oldalon!
         alert(data.error || 'Hiba a fizetés indításakor.');
       }
     } catch (e) {
@@ -420,14 +413,13 @@ const fetchMyEntries = async (email: string) => {
         restrictedClub: finalRestrictedClub,
         entryFee: newEntryFee,
         feeCurrency: newFeeCurrency,
-        categorySettings: newCategorySettings // ÚJ
-
+        categorySettings: newCategorySettings
       }) 
     }); 
 
     if (res.ok) { 
       setNewTitle(''); setNewDesc(''); setNewStart(''); setNewEnd(''); setNewCats(''); setNewRestrictedClub(''); 
-      setNewEntryFee(0); setNewFeeCurrency('HUF'); // Visszaállítjuk alapra
+      setNewEntryFee(0); setNewFeeCurrency('HUF'); 
       fetchData(); 
       alert("Pályázat sikeresen kiírva! 🚀");
     } else {
@@ -441,8 +433,8 @@ const fetchMyEntries = async (email: string) => {
     setEditDesc(contest.description); 
     setEditCats(contest.categories || ''); 
     setEditRestrictedClub(contest.restricted_club || ''); 
-    setEditEntryFee(contest.entry_fee || 0); // ÚJ
-    setEditFeeCurrency(contest.fee_currency || 'HUF'); // ÚJ
+    setEditEntryFee(contest.entry_fee || 0);
+    setEditFeeCurrency(contest.fee_currency || 'HUF');
     
     const formatDate = (dateStr: string | null) => { 
       if (!dateStr) return ''; 
@@ -469,8 +461,7 @@ const fetchMyEntries = async (email: string) => {
         restrictedClub: editRestrictedClub,
                 entryFee: editEntryFee,
         feeCurrency: editFeeCurrency,
-        categorySettings: editCategorySettings // ÚJ
-
+        categorySettings: editCategorySettings
       }) 
     }); 
     if (res.ok) { 
@@ -519,7 +510,6 @@ const fetchMyEntries = async (email: string) => {
     if (res.ok) { 
       setUnvotedEntries(prev => prev.slice(1)); 
       setCurrentScore(''); 
-      // Ha ez volt az utolsó kép a tömbben, frissítjük az állapotokat a háttérben!
       if (unvotedEntries.length === 1) { 
         fetchMyEntries(user.email);
         fetchData(); 
@@ -644,7 +634,7 @@ const fetchMyEntries = async (email: string) => {
     setSalonCash(salon.cash_prize || '');
 
     if (salon.categories && allCategories.length > 0) {
-      const catIds = allCategories.filter(c => salon.categories.includes(c.name) || salon.categories.includes(c.hun_name)).map(c => c.id);
+      const catIds = allCategories.filter((c:any) => salon.categories.includes(c.name) || salon.categories.includes(c.hun_name)).map((c:any) => c.id);
       setSalonSelectedCats(catIds);
     } else setSalonSelectedCats([]);
 
@@ -790,16 +780,15 @@ const fetchMyEntries = async (email: string) => {
             onLogout={() => { localStorage.removeItem('photoAppToken'); setUser(null); }} 
           />
           
+          {/* JAVÍTÁS: A dupla <main> taget kivettük, így szép tiszta a kódstruktúra */}
           <main className="app-main">
             {activeTab === 'dashboard' && (
               <DashboardView 
                 user={user} 
-                isLeader={isLeader} 
+                isLeader={!!isLeader} 
                 setActiveTab={setActiveTab} 
               />
             )}
-        
-          <main className="main-container">
 
             {activeTab === 'packages' && (
               <PackagesView user={user} />
@@ -950,7 +939,6 @@ const fetchMyEntries = async (email: string) => {
                 newRestrictedClub={newRestrictedClub} setNewRestrictedClub={setNewRestrictedClub}
                 myJudgedContests={myJudgedContests}
                 
-                // Új Fizetés mezők átadása
                 newEntryFee={newEntryFee} setNewEntryFee={setNewEntryFee}
                 newFeeCurrency={newFeeCurrency} setNewFeeCurrency={setNewFeeCurrency}
                 editEntryFee={editEntryFee} setEditEntryFee={setEditEntryFee}
@@ -989,7 +977,6 @@ const fetchMyEntries = async (email: string) => {
                 setNewCategorySettings={setNewCategorySettings}
                 editCategorySettings={editCategorySettings}
                 setEditCategorySettings={setEditCategorySettings}
-
               />
             )}
           </main>
