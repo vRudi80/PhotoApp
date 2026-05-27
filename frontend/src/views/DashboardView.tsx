@@ -16,7 +16,7 @@ export default function DashboardView({ user, isLeader, setActiveTab }: Dashboar
       icon: '🖼️',
       color: '#f59e0b', // Sárga
       title: 'Saját Portfólió',
-      desc: 'Töltsd fel és menedzseld a saját fotóidat, kérj AI elemzést.',
+      desc: 'Töltsd fel és menedzseld a saját fotóidat, nézd meg az eredményeidet, vagy akár kérj AI elemzést.',
       tab: 'my_album'
     },
     {
@@ -32,7 +32,7 @@ export default function DashboardView({ user, isLeader, setActiveTab }: Dashboar
       icon: '🏆',
       color: '#f43f5e', // Pirosas/Rózsaszín
       title: 'Minősítések (FIAP/MAFOSZ)',
-      desc: 'Kövesd nyomon az elfogadásaidat, generálj Excel dossziékat.',
+      desc: 'Kövesd nyomon az elfogadásaidat, generálj FIAP kompatibilis Excel táblát.',
       tab: 'fiap_progress'
     },
     {
@@ -40,7 +40,7 @@ export default function DashboardView({ user, isLeader, setActiveTab }: Dashboar
       icon: '🌐',
       color: '#3b82f6', // Kék
       title: 'Nemzetközi Szalonok',
-      desc: 'Böngéssz az aktuális FIAP és MAFOSZ szalonok között, nevezd be a fotóidat.',
+      desc: 'Böngéssz az aktuális FIAP, MAFOSZ, PSA, vagy klub szalonok között, nevezd be a fotóidat pályázatokra.',
       tab: 'salons'
     },
     {
@@ -56,7 +56,7 @@ export default function DashboardView({ user, isLeader, setActiveTab }: Dashboar
       icon: '👥',
       color: '#06b6d4', // Türkiz
       title: 'Fotóklub Élet',
-      desc: 'Klubestek, találkozók és házi feladatok egy helyen.',
+      desc: 'Klubestek, találkozók, feladatok, vagy klub portfólió válogatás egy helyen.',
       tab: 'club_nights'
     }
   ];
