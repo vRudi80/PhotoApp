@@ -874,6 +874,60 @@ app.get('/api/my-album', checkPremium, async (req, res) => {
   }
 });
 
+// ==========================================
+// --- FOTÓS HELYSZÍNEK (MAP SPOTS) ---
+// ==========================================
+
+// Helyszínek lekérése (kereséssel)
+app.get('/api/locations', async (req, res) => {
+  const { search } = req.query;
+  try {
+    let query = 'SELECT * FROM photo_locations ORDER BY created_at DESC';
+    let params = [];
+    
+    if (search) {
+      query = 'SELECT * FROM photo_locations WHERE title LIKE ? OR description LIKE ? ORDER BY created_at DESC';
+      params = [`%${search}%`, `%${search}%`];
+    }
+    
+    const [rows] = await pool.query(query, params);
+    res.json(rows);
+  } catch (err) { 
+    res.status(500).json({ error: 'Hiba a helyszínek lekérésekor' }); 
+  }
+});
+
+// Új helyszín feltöltése képpel
+app.post('/api/locations', upload.single('photo'), async (req, res) => {
+  const { userEmail, userName, lat, lng, title, description } = req.body;
+  const file = req.file;
+  
+  if (!file) return res.status(400).json({ error: 'Fotó feltöltése kötelező a helyszínhez!' });
+
+  try {
+    const fileStream = fs.createReadStream(file.path);
+    const fileExt = file.originalname && file.originalname.includes('.') ? file.originalname.substring(file.originalname.lastIndexOf('.')).toLowerCase() : '.jpg';
+    
+    const driveRes = await drive.files.create({ 
+      requestBody: { name: `Location_${userName}_${Date.now()}${fileExt}`, parents: [process.env.DRIVE_MASTER_FOLDER_ID] }, 
+      media: { mimeType: file.mimetype, body: fileStream }, 
+      fields: 'id, webViewLink' 
+    });
+
+    cleanupTempFile(file);
+
+    await pool.query(
+      'INSERT INTO photo_locations (user_email, user_name, lat, lng, title, description, file_url, drive_file_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 
+      [userEmail, userName, lat, lng, title, description, driveRes.data.webViewLink, driveRes.data.id]
+    );
+
+    res.json({ success: true });
+  } catch (err) { 
+    cleanupTempFile(file);
+    console.error('Hiba a helyszín feltöltésénél:', err);
+    res.status(500).json({ error: 'Hiba a helyszín mentésekor: ' + err.message }); 
+  }
+});
 app.get('/api/my-portfolio-results', async (req, res) => {
   try {
     const [rows] = await pool.query(`SELECT e.portfolio_id, s.name as salon_name, a.award_name, e.achieved_score, e.acceptance_score FROM photo_salon_entries e JOIN photo_salons s ON e.salon_id = s.id LEFT JOIN photo_awards a ON e.award_id = a.id WHERE e.user_email = ? AND (e.award_id IS NOT NULL OR e.achieved_score IS NOT NULL) ORDER BY s.end_date DESC`, [req.query.userEmail]);
