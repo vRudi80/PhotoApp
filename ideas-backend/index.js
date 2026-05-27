@@ -770,6 +770,77 @@ app.post('/api/weekly/vote', async (req, res) => {
   }
 });
 
+// ==========================================
+// --- HETI KIHÍVÁS ADMINISZTRÁCIÓ ---
+// ==========================================
+
+// Összes téma lekérése
+app.get('/api/admin/weekly-topics', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM weekly_topics ORDER BY start_date DESC');
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: 'Hiba a témák lekérésekor' }); }
+});
+
+// Új téma létrehozása
+app.post('/api/admin/weekly-topics', async (req, res) => {
+  const { title, description, startDate, endDate } = req.body;
+  try {
+    await pool.query(
+      'INSERT INTO weekly_topics (title, description, start_date, end_date, is_active) VALUES (?, ?, ?, ?, false)',
+      [title, description, startDate, endDate]
+    );
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: 'Hiba a téma létrehozásakor' }); }
+});
+
+// Téma szerkesztése
+app.put('/api/admin/weekly-topics/:id', async (req, res) => {
+  const { title, description, startDate, endDate } = req.body;
+  try {
+    await pool.query(
+      'UPDATE weekly_topics SET title = ?, description = ?, start_date = ?, end_date = ? WHERE id = ?',
+      [title, description, startDate, endDate, req.params.id]
+    );
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: 'Hiba a téma szerkesztésekor' }); }
+});
+
+// Téma aktiválása (A többit automatikusan kikapcsolja!)
+app.post('/api/admin/weekly-topics/:id/activate', async (req, res) => {
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    // Minden témát inaktívvá teszünk
+    await conn.query('UPDATE weekly_topics SET is_active = false');
+    // Csak ezt az egyet aktiváljuk
+    await conn.query('UPDATE weekly_topics SET is_active = true WHERE id = ?', [req.params.id]);
+    await conn.commit();
+    res.json({ success: true });
+  } catch (e) {
+    await conn.rollback();
+    res.status(500).json({ error: 'Hiba az aktiváláskor' });
+  } finally {
+    conn.release();
+  }
+});
+
+// Téma törlése
+app.delete('/api/admin/weekly-topics/:id', async (req, res) => {
+  try {
+    // Töröljük a hozzá tartozó képeket a drive-ról
+    const [entries] = await pool.query('SELECT drive_file_id FROM weekly_entries WHERE topic_id = ?', [req.params.id]);
+    for (const entry of entries) {
+      if (entry.drive_file_id) await drive.files.delete({ fileId: entry.drive_file_id }).catch(e => console.log('Drive törlési hiba:', e.message));
+    }
+    // Adatbázis rekordok törlése
+    await pool.query('DELETE FROM weekly_votes WHERE entry_id IN (SELECT id FROM weekly_entries WHERE topic_id = ?)', [req.params.id]);
+    await pool.query('DELETE FROM weekly_entries WHERE topic_id = ?', [req.params.id]);
+    await pool.query('DELETE FROM weekly_topics WHERE id = ?', [req.params.id]);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: 'Hiba a törléskor' }); }
+});
+
 // --- HÁZI FELADATOK ---
 app.get('/api/homeworks', async (req, res) => {
   try {
