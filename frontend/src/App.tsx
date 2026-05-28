@@ -25,6 +25,7 @@ import MapSpotsView from './views/MapSpotsView';
 import DashboardView from './views/DashboardView';
 import WeeklyChallengeView from './views/WeeklyChallengeView';
 import AdminWeeklyView from './views/admin/AdminWeeklyView';
+import ClubNewsView from './views/ClubNewsView';
 
 import MafoszProgressView from './views/MafoszProgressView'; 
 import PackagesView from './components/PackagesView'; 
@@ -805,6 +806,12 @@ const fetchMyEntries = async (email: string) => {
               user={user} 
               setFullscreenData={setFullscreenData} 
                 />
+            )}
+            {activeTab === 'club_news' && (
+              <ClubNewsView 
+                user={user} 
+                clubId={1} 
+              />
             )}
             
             {activeTab === 'my_album' && (
