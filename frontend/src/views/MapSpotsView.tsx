@@ -44,25 +44,26 @@ function MapCameraController({ targetPosition }: { targetPosition: [number, numb
 // --- ÚJ: Dedikált Marker Komponens a Leaflet Bug kikerülésére ---
 // ==========================================
 function SpotMarker({ loc, isOwnOrAdmin, handleMarkerDragEnd, handleToggleLike, handleStartEdit, handleDeleteLocation, setFullscreenData }: any) {
-  const markerRef = useRef<any>(null);
+  // ÚJ TRÜKK: Egy belső számláló, amivel kényszerítjük a Reactet a gombostű újragenerálására
+  const [keyTick, setKeyTick] = useState(0); 
+  
   const imageUrl = getImageUrl(loc.drive_file_id, loc.file_url);
   const hasLiked = loc.user_liked === 1;
 
   return (
     <Marker 
-      ref={markerRef}
+      key={`${loc.id}-${keyTick}`} // Bűvészmutatvány: Ha a keyTick változik, a régi gombostű megsemmisül, és jön egy új!
       position={[loc.lat, loc.lng]}
       draggable={isOwnOrAdmin}
       eventHandlers={{
         dragend: (e) => handleMarkerDragEnd(loc.id, e),
-        // LEAFLET BUG FIX: Ha bezárul a popup, a marker "lefagyhat". 
-        // Ezzel a trükkel újraindítjuk a marker eseményfigyelőit egy pillanat alatt!
+        // LEAFLET BUG FIX: A "Nukleáris" megoldás.
         popupclose: () => {
-          if (markerRef.current && isOwnOrAdmin) {
-            markerRef.current.dragging.disable();
+          if (isOwnOrAdmin) {
+            // Amikor bezárul a buborék, várunk egy picit, majd kicseréljük a gombostűt egy újra!
             setTimeout(() => {
-              if (markerRef.current) markerRef.current.dragging.enable();
-            }, 10);
+              setKeyTick(prev => prev + 1);
+            }, 50);
           }
         }
       }}
