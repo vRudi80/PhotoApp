@@ -1184,14 +1184,13 @@ app.get('/api/my-album', checkPremium, async (req, res) => {
 });
 
 // 2. ÚJ (VISSZAÁLLÍTOTT): Kép feltöltése az albumba
-app.post('/api/my-album', upload.single('photo'), checkPremium, async (req, res) => {
+app.post('/api/my-album/upload', upload.single('photo'), checkPremium, async (req, res) => {
+
+  const { userEmail, userName, title } = req.body;
   const file = req.file;
   if (!file) return res.status(400).json({ error: 'Nincs fájl kiválasztva!' });
   
   try {
-    const { title, userEmail, userName } = req.body;
-    
-    // Fájl beolvasása és felküldése a Google Drive-ra
     const fileStream = fs.createReadStream(file.path);
     const fileExt = file.originalname && file.originalname.includes('.') ? file.originalname.substring(file.originalname.lastIndexOf('.')).toLowerCase() : '.jpg';
     
@@ -1202,6 +1201,19 @@ app.post('/api/my-album', upload.single('photo'), checkPremium, async (req, res)
     });
     
     cleanupTempFile(file);
+
+    const fileSize = req.file.size; 
+    await pool.query(
+      'INSERT INTO photo_portfolio (user_email, user_name, title, file_url, drive_file_id, file_size) VALUES (?, ?, ?, ?, ?, ?)', 
+      [userEmail, userName, title, driveRes.data.webViewLink, driveRes.data.id, fileSize]
+    );
+
+    res.json({ success: true });
+  } catch (err) { 
+    cleanupTempFile(file);
+    res.status(500).json({ error: err.message }); 
+  }
+});
 
     // Mentés a MySQL adatbázisba
     const fileSize = req.file.size;
