@@ -1192,20 +1192,18 @@ app.delete('/api/locations/:id', async (req, res) => {
     const [rows] = await pool.query('SELECT * FROM photo_locations WHERE id = ?', [req.params.id]);
     if (rows.length === 0) return res.status(404).json({ error: 'Helyszín nem található' });
 
-    // JOGOSULTSÁG: Csak a sajátja, VAGY ha a felhasználó az Admin
     if (rows[0].user_email !== userEmail && userEmail !== process.env.ADMIN_EMAIL) {
       return res.status(403).json({ error: 'Nincs jogosultságod törölni ezt a helyszínt!' });
     }
 
-    // Először a képet töröljük a Google Drive-ról (ha van)
     if (rows[0].drive_file_id) {
       await drive.files.delete({ fileId: rows[0].drive_file_id }).catch(e => console.log(e.message));
     }
     
-    // Utána letöröljük a hozzá tartozó lájkokat (hogy ne akadjon össze az adatbázis)
+    // Töröljük a lájkokat és a KOMMENTEKET is!
     await pool.query('DELETE FROM photo_location_likes WHERE location_id = ?', [req.params.id]);
+    await pool.query('DELETE FROM photo_location_comments WHERE location_id = ?', [req.params.id]);
     
-    // Végül magát a helyszínt is töröljük
     await pool.query('DELETE FROM photo_locations WHERE id = ?', [req.params.id]);
     res.json({ success: true });
   } catch (err) { 
@@ -1245,6 +1243,38 @@ app.post('/api/locations/:id/like', async (req, res) => {
   } catch (err) {
     console.error("Lájkolási hiba az adatbázisban:", err);
     res.status(500).json({ error: 'Adatbázis hiba történt a lájkolás során.' });
+  }
+});
+// ==========================================
+// --- TÉRKÉPES HELYSZÍN KOMMENTEK ---
+// ==========================================
+
+// Kommentek lekérése egy adott helyszínhez
+app.get('/api/locations/:id/comments', async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      'SELECT * FROM photo_location_comments WHERE location_id = ? ORDER BY created_at ASC', 
+      [req.params.id]
+    );
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Hiba a kommentek lekérésekor' });
+  }
+});
+
+// Új komment beküldése
+app.post('/api/locations/:id/comments', async (req, res) => {
+  const { userEmail, userName, commentText } = req.body;
+  if (!commentText || commentText.trim() === '') return res.status(400).json({ error: 'Üres komment!' });
+
+  try {
+    await pool.query(
+      'INSERT INTO photo_location_comments (location_id, user_email, user_name, comment_text) VALUES (?, ?, ?, ?)', 
+      [req.params.id, userEmail, userName, commentText]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Hiba a komment mentésekor' });
   }
 });
 
