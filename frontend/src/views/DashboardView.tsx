@@ -20,6 +20,14 @@ export default function DashboardView({ user, isLeader, setActiveTab }: Dashboar
       tab: 'weekly_challenge'
     },
     {
+      id: 'contests',
+      icon: '📝',
+      color: '#8b5cf6', // Lila
+      title: 'Nyílt Pályázatok',
+      desc: 'Vegyél részt a közösségi vagy zártkörű házi fotópályázatokon.',
+      tab: 'contests_open_active'
+    },
+    {
       id: 'my_album',
       icon: '🖼️',
       color: '#f59e0b', // Sárga
@@ -51,14 +59,7 @@ export default function DashboardView({ user, isLeader, setActiveTab }: Dashboar
       desc: 'Böngéssz az aktuális FIAP, MAFOSZ, PSA, vagy klub szalonok között, nevezd be a fotóidat pályázatokra.',
       tab: 'salons'
     },
-    {
-      id: 'contests',
-      icon: '📝',
-      color: '#8b5cf6', // Lila
-      title: 'Nyílt Pályázatok',
-      desc: 'Vegyél részt a közösségi vagy zártkörű házi fotópályázatokon.',
-      tab: 'contests_open_active'
-    },
+    
     {
       id: 'club',
       icon: '👥',
