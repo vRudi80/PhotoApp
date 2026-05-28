@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { BACKEND_URL } from '../utils/constants';
+import { BACKEND_URL, ADMIN_EMAIL } from '../utils/constants';
 import { getImageUrl } from '../utils/helpers';
 
 import iconUrl from 'leaflet/dist/images/marker-icon.png';
@@ -21,7 +21,6 @@ interface MapSpotsViewProps {
   setFullscreenData: (data: any) => void;
 }
 
-// 1. Segéd komponens: Kattintás érzékelése
 function MapClickHandler({ onMapClick }: { onMapClick: (latlng: any) => void }) {
   useMapEvents({
     click(e) {
@@ -31,12 +30,11 @@ function MapClickHandler({ onMapClick }: { onMapClick: (latlng: any) => void }) 
   return null;
 }
 
-// 2. Segéd komponens: Térkép kamera mozgatása (FlyTo) település keresésnél
 function MapCameraController({ targetPosition }: { targetPosition: [number, number] | null }) {
   const map = useMap();
   useEffect(() => {
     if (targetPosition) {
-      map.flyTo(targetPosition, 13, { duration: 1.5 }); // 13-as zoom szint városokhoz ideális
+      map.flyTo(targetPosition, 13, { duration: 1.5 }); 
     }
   }, [targetPosition, map]);
   return null;
@@ -46,12 +44,10 @@ export default function MapSpotsView({ user, setFullscreenData }: MapSpotsViewPr
   const [locations, setLocations] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   
-  // --- ÚJ: Településkereső állapotai ---
   const [citySearch, setCitySearch] = useState('');
   const [cityResults, setCityResults] = useState<any[]>([]);
   const [mapTargetPosition, setMapTargetPosition] = useState<[number, number] | null>(null);
 
-  // Feltöltés állapotai
   const [newSpotLatLng, setNewSpotLatLng] = useState<{lat: number, lng: number} | null>(null);
   const [editingSpot, setEditingSpot] = useState<any | null>(null);
 
@@ -62,6 +58,8 @@ export default function MapSpotsView({ user, setFullscreenData }: MapSpotsViewPr
   const [isUploading, setIsUploading] = useState(false);
 
   const inputStyle = { width: '100%', padding: '10px', marginBottom: '10px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '6px', boxSizing: 'border-box' as const };
+
+  const isAdmin = user?.email === ADMIN_EMAIL; // Admin ellenőrzése
 
   const fetchLocations = async (search = '') => {
     try {
@@ -79,7 +77,6 @@ export default function MapSpotsView({ user, setFullscreenData }: MapSpotsViewPr
     fetchLocations(searchQuery);
   }, [searchQuery]);
 
-  // --- ÚJ: Település keresése OpenStreetMap API-val ---
   const handleCitySearch = async () => {
     if (!citySearch.trim()) return;
     try {
@@ -94,8 +91,8 @@ export default function MapSpotsView({ user, setFullscreenData }: MapSpotsViewPr
 
   const handleSelectCity = (lat: string, lon: string) => {
     setMapTargetPosition([parseFloat(lat), parseFloat(lon)]);
-    setCityResults([]); // Találati lista bezárása
-    setCitySearch(''); // Keresőmező kiürítése
+    setCityResults([]); 
+    setCitySearch(''); 
   };
 
   const handleMapClick = (latlng: {lat: number, lng: number}) => {
@@ -114,7 +111,33 @@ export default function MapSpotsView({ user, setFullscreenData }: MapSpotsViewPr
     setUploadDesc(loc.description);
     setUploadFile(null);
     setUploadPreview(getImageUrl(loc.drive_file_id, loc.file_url));
-    setMapTargetPosition([loc.lat, loc.lng]); // Kamera ugrás a szerkesztett pinre
+    setMapTargetPosition([loc.lat, loc.lng]); 
+  };
+
+  // --- ÚJ: Marker elhúzása (Drag&Drop) elmentése az adatbázisba ---
+  const handleMarkerDragEnd = async (id: number, e: any) => {
+    const marker = e.target;
+    const position = marker.getLatLng();
+    
+    try {
+      const formData = new FormData();
+      formData.append('userEmail', user.email);
+      formData.append('lat', position.lat.toString());
+      formData.append('lng', position.lng.toString());
+      // A backend automatikusan megtartja a címet és leírást, ha nem küldjük el
+
+      const res = await fetch(`${BACKEND_URL}/api/locations/${id}`, {
+        method: 'PUT',
+        body: formData
+      });
+      if (!res.ok) {
+        alert("Nincs jogosultságod vagy hiba történt a helyszín mozgatásakor!");
+        fetchLocations(searchQuery); // Visszaugratja a markert az eredeti helyére
+      }
+    } catch (error) {
+      alert("Hálózati hiba!");
+      fetchLocations(searchQuery);
+    }
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -205,35 +228,32 @@ export default function MapSpotsView({ user, setFullscreenData }: MapSpotsViewPr
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '15px' }}>
         <h2 style={{ fontSize: '2rem', margin: 0, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '10px' }}>
-          🌍 Fotós Helyszínek (Spot Finder)
+          🌍 Fotós Helyszínek
         </h2>
         <div style={{ background: '#10b98120', color: '#10b981', padding: '8px 15px', borderRadius: '8px', border: '1px solid #10b98150', fontWeight: 'bold' }}>
-          💡 Tipp: Keress rá a városra, majd kattints a térképre a pontos helyért!
+          💡 Tipp: A saját gombostűidet megfoghatod és odébb húzhatod a finomhangoláshoz!
         </div>
       </div>
 
-      {/* DUPLA KERESŐ SÁV */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', marginBottom: '20px' }}>
         
-        {/* Adatbázis kereső (Meglévő helyek szűrése) */}
         <div style={{ background: '#1e293b', padding: '15px', borderRadius: '12px', border: '1px solid #334155' }}>
           <label style={{ color: '#38bdf8', fontWeight: 'bold', display: 'block', marginBottom: '8px', fontSize: '0.9rem' }}>🔍 Meglévő fotós helyszínek szűrése</label>
           <input 
             type="text" 
-            placeholder="Keresés névben, leírásban (pl. 'Urbex', 'Napkelte')..." 
+            placeholder="Keresés névben, leírásban (pl. 'Urbex')..." 
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             style={{ width: '100%', padding: '10px 15px', borderRadius: '8px', border: '1px solid #475569', background: '#0f172a', color: 'white', outline: 'none', boxSizing: 'border-box' }}
           />
         </div>
 
-        {/* Településkereső a térkép mozgatásához */}
         <div style={{ background: '#1e293b', padding: '15px', borderRadius: '12px', border: '1px solid #334155', position: 'relative' }}>
           <label style={{ color: '#f59e0b', fontWeight: 'bold', display: 'block', marginBottom: '8px', fontSize: '0.9rem' }}>✈️ Ugrás településre / címre</label>
           <div style={{ display: 'flex', gap: '10px' }}>
             <input 
               type="text" 
-              placeholder="Város, utca (pl. Budapest, Hősök tere)" 
+              placeholder="Város, utca (pl. Budapest)" 
               value={citySearch}
               onChange={(e) => setCitySearch(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') handleCitySearch(); }}
@@ -247,7 +267,6 @@ export default function MapSpotsView({ user, setFullscreenData }: MapSpotsViewPr
             </button>
           </div>
 
-          {/* Település találati lista */}
           {cityResults.length > 0 && (
             <div style={{ position: 'absolute', top: '100%', left: '15px', right: '15px', background: '#0f172a', border: '1px solid #475569', borderRadius: '8px', zIndex: 1000, marginTop: '5px', overflow: 'hidden', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}>
               {cityResults.map((res, i) => (
@@ -274,7 +293,6 @@ export default function MapSpotsView({ user, setFullscreenData }: MapSpotsViewPr
 
       <div style={{ display: 'flex', gap: '20px', flexDirection: 'column' }}>
         
-        {/* LÉTREHOZÓ / SZERKESZTŐ PANEL */}
         {(newSpotLatLng || editingSpot) && (
           <div style={{ background: '#0f172a', padding: '20px', borderRadius: '12px', border: editingSpot ? '2px solid #f59e0b' : '2px solid #38bdf8', animation: 'fadeIn 0.3s ease-out' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
@@ -304,11 +322,9 @@ export default function MapSpotsView({ user, setFullscreenData }: MapSpotsViewPr
           </div>
         )}
 
-        {/* TÉRKÉP */}
         <div style={{ height: '650px', width: '100%', borderRadius: '12px', overflow: 'hidden', border: '1px solid #334155', zIndex: 1 }}>
           <MapContainer center={[47.4979, 19.0402]} zoom={7} style={{ height: '100%', width: '100%' }}>
             
-            {/* ÚJ: Kamera vezérlő a kereséshez */}
             <MapCameraController targetPosition={mapTargetPosition} />
 
             <TileLayer
@@ -320,17 +336,30 @@ export default function MapSpotsView({ user, setFullscreenData }: MapSpotsViewPr
 
             {locations.map((loc) => {
               const imageUrl = getImageUrl(loc.drive_file_id, loc.file_url);
-              const isOwn = loc.user_email === user.email;
+              // Jogosultság: sajátja VAGY te vagy az admin!
+              const isOwnOrAdmin = loc.user_email === user.email || isAdmin; 
               const hasLiked = loc.user_liked === 1;
 
               return (
-                <Marker key={loc.id} position={[loc.lat, loc.lng]}>
+                <Marker 
+                  key={loc.id} 
+                  position={[loc.lat, loc.lng]}
+                  draggable={isOwnOrAdmin} // A marker "megfogható", ha jogosult rá
+                  eventHandlers={{
+                    dragend: (e) => handleMarkerDragEnd(loc.id, e)
+                  }}
+                >
                   <Popup>
                     <div style={{ width: '230px', textAlign: 'center', fontFamily: 'sans-serif' }}>
                       <strong style={{ fontSize: '1.1rem', display: 'block', marginBottom: '6px', color: '#0f172a' }}>{loc.title}</strong>
                       
+                      {/* JAVÍTÁS: stopPropagation beépítése az Event Bubbling ellen! */}
                       <div 
-                        onClick={() => setFullscreenData({url: imageUrl, title: loc.title})}
+                        onClick={(e) => {
+                          e.stopPropagation(); 
+                          e.preventDefault();
+                          setFullscreenData({url: imageUrl, title: loc.title});
+                        }}
                         style={{ width: '100%', height: '120px', backgroundColor: '#f1f5f9', borderRadius: '6px', overflow: 'hidden', cursor: 'zoom-in', marginBottom: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                       >
                         <img src={imageUrl} alt={loc.title} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
@@ -349,7 +378,7 @@ export default function MapSpotsView({ user, setFullscreenData }: MapSpotsViewPr
                           <span style={{ fontWeight: 'bold', color: hasLiked ? '#ef4444' : '#64748b', fontSize: '0.85rem' }}>{loc.like_count || 0}</span>
                         </button>
 
-                        {isOwn && (
+                        {isOwnOrAdmin && (
                           <div style={{ display: 'flex', gap: '5px' }}>
                             <button 
                               onClick={() => handleStartEdit(loc)}
@@ -369,8 +398,14 @@ export default function MapSpotsView({ user, setFullscreenData }: MapSpotsViewPr
                         )}
                       </div>
                       
+                      {isOwnOrAdmin && (
+                        <div style={{ fontSize: '0.7rem', color: '#f59e0b', marginBottom: '5px', fontWeight: 'bold' }}>
+                          ✋ A gombostűt megfogva odébb húzhatod!
+                        </div>
+                      )}
+                      
                       <div style={{ fontSize: '0.75rem', color: '#94a3b8', borderTop: '1px solid #e2e8f0', paddingTop: '6px', textAlign: 'left' }}>
-                        Felfedező: <b style={{color: '#475569'}}>{isOwn ? 'Te' : loc.user_name}</b><br/>
+                        Felfedező: <b style={{color: '#475569'}}>{loc.user_name}</b><br/>
                         Naptár: {new Date(loc.created_at).toLocaleDateString('hu-HU')}
                       </div>
                     </div>
