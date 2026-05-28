@@ -87,6 +87,8 @@ export default function Header({
             </button>
             {dropdownOpen === 'club' && (
               <div className="dropdown-menu">
+                {/* ÚJ: Klub Hírek gomb */}
+                <button className={`drop-item ${activeTab === 'club_news' ? 'active' : ''}`} onClick={() => handleNavClick('club_news')}>Klub Hírek</button>
                 <button className={`drop-item ${activeTab === 'club_nights' ? 'active' : ''}`} onClick={() => handleNavClick('club_nights')}>Klubestek</button>
                 <button className={`drop-item ${activeTab === 'club_homeworks' ? 'active' : ''}`} onClick={() => handleNavClick('club_homeworks')}>Házi feladatok</button>
               </div>
