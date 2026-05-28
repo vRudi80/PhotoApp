@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -40,6 +40,100 @@ function MapCameraController({ targetPosition }: { targetPosition: [number, numb
   return null;
 }
 
+// ==========================================
+// --- ÚJ: Dedikált Marker Komponens a Leaflet Bug kikerülésére ---
+// ==========================================
+function SpotMarker({ loc, isOwnOrAdmin, handleMarkerDragEnd, handleToggleLike, handleStartEdit, handleDeleteLocation, setFullscreenData }: any) {
+  const markerRef = useRef<any>(null);
+  const imageUrl = getImageUrl(loc.drive_file_id, loc.file_url);
+  const hasLiked = loc.user_liked === 1;
+
+  return (
+    <Marker 
+      ref={markerRef}
+      position={[loc.lat, loc.lng]}
+      draggable={isOwnOrAdmin}
+      eventHandlers={{
+        dragend: (e) => handleMarkerDragEnd(loc.id, e),
+        // LEAFLET BUG FIX: Ha bezárul a popup, a marker "lefagyhat". 
+        // Ezzel a trükkel újraindítjuk a marker eseményfigyelőit egy pillanat alatt!
+        popupclose: () => {
+          if (markerRef.current && isOwnOrAdmin) {
+            markerRef.current.dragging.disable();
+            setTimeout(() => {
+              if (markerRef.current) markerRef.current.dragging.enable();
+            }, 10);
+          }
+        }
+      }}
+    >
+      <Popup>
+        <div style={{ width: '230px', textAlign: 'center', fontFamily: 'sans-serif' }}>
+          <strong style={{ fontSize: '1.1rem', display: 'block', marginBottom: '6px', color: '#0f172a' }}>{loc.title}</strong>
+          
+          <div 
+            onClick={(e) => {
+              e.stopPropagation(); 
+              e.preventDefault();
+              setFullscreenData({url: imageUrl, title: loc.title});
+            }}
+            style={{ width: '100%', height: '120px', backgroundColor: '#f1f5f9', borderRadius: '6px', overflow: 'hidden', cursor: 'zoom-in', marginBottom: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            <img src={imageUrl} alt={loc.title} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+          </div>
+          
+          <p style={{ fontSize: '0.85rem', color: '#334155', margin: '0 0 10px 0', textAlign: 'left', maxHeight: '80px', overflowY: 'auto', lineHeight: '1.4' }}>
+            {loc.description}
+          </p>
+          
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', background: '#f8fafc', padding: '6px', borderRadius: '6px' }}>
+            <button 
+              onClick={(e) => { e.stopPropagation(); handleToggleLike(loc.id); }}
+              style={{ background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', borderRadius: '50px', backgroundColor: hasLiked ? '#ef444415' : 'transparent' }}
+            >
+              <span style={{ fontSize: '1.1rem' }}>{hasLiked ? '❤️' : '🤍'}</span>
+              <span style={{ fontWeight: 'bold', color: hasLiked ? '#ef4444' : '#64748b', fontSize: '0.85rem' }}>{loc.like_count || 0}</span>
+            </button>
+
+            {isOwnOrAdmin && (
+              <div style={{ display: 'flex', gap: '5px' }}>
+                <button 
+                  onClick={(e) => { e.stopPropagation(); handleStartEdit(loc); }}
+                  title="Szerkesztés"
+                  style={{ background: '#f59e0b20', color: '#d97706', border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}
+                >
+                  Szerkeszt
+                </button>
+                <button 
+                  onClick={(e) => { e.stopPropagation(); handleDeleteLocation(loc.id); }}
+                  title="Törlés"
+                  style={{ background: '#ef444420', color: '#ef4444', border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}
+                >
+                  Töröl
+                </button>
+              </div>
+            )}
+          </div>
+          
+          {isOwnOrAdmin && (
+            <div style={{ fontSize: '0.7rem', color: '#f59e0b', marginBottom: '5px', fontWeight: 'bold' }}>
+              ✋ A gombostűt megfogva odébb húzhatod!
+            </div>
+          )}
+          
+          <div style={{ fontSize: '0.75rem', color: '#94a3b8', borderTop: '1px solid #e2e8f0', paddingTop: '6px', textAlign: 'left' }}>
+            Felfedező: <b style={{color: '#475569'}}>{loc.user_name}</b><br/>
+            Naptár: {new Date(loc.created_at).toLocaleDateString('hu-HU')}
+          </div>
+        </div>
+      </Popup>
+    </Marker>
+  );
+}
+
+// ==========================================
+// --- FŐ KOMPONENS ---
+// ==========================================
 export default function MapSpotsView({ user, setFullscreenData }: MapSpotsViewProps) {
   const [locations, setLocations] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -59,7 +153,7 @@ export default function MapSpotsView({ user, setFullscreenData }: MapSpotsViewPr
 
   const inputStyle = { width: '100%', padding: '10px', marginBottom: '10px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '6px', boxSizing: 'border-box' as const };
 
-  const isAdmin = user?.email === ADMIN_EMAIL; // Admin ellenőrzése
+  const isAdmin = user?.email === ADMIN_EMAIL; 
 
   const fetchLocations = async (search = '') => {
     try {
@@ -114,23 +208,22 @@ export default function MapSpotsView({ user, setFullscreenData }: MapSpotsViewPr
     setMapTargetPosition([loc.lat, loc.lng]); 
   };
 
-  // --- ÚJ: Marker elhúzása (Drag&Drop) elmentése az adatbázisba ---
-  // --- JAVÍTOTT: Marker elhúzása (Drag&Drop) ---
   const handleMarkerDragEnd = async (id: number, e: any) => {
     const marker = e.target;
     const position = marker.getLatLng();
+    const safeLat = position.lat.toFixed(8);
+    const safeLng = position.lng.toFixed(8);
+
+    // JAVÍTÁS: Azonnali React state frissítés, hogy a memóriában is az új helyén legyen a marker!
+    setLocations(prev => prev.map(loc => loc.id === id ? { ...loc, lat: parseFloat(safeLat), lng: parseFloat(safeLng) } : loc));
     
     try {
-      // BIZTOSÍTÉK: 8 tizedesjegyre kerekítjük, hogy az SQL adatbázis ne omoljon össze!
-      const safeLat = position.lat.toFixed(8);
-      const safeLng = position.lng.toFixed(8);
-
       const res = await fetch(`${BACKEND_URL}/api/locations/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userEmail: user.email,
-          isAdmin: isAdmin, // Átküldjük az admin státuszt is a biztonság kedvéért
+          isAdmin: isAdmin,
           lat: safeLat,
           lng: safeLng
         })
@@ -139,9 +232,8 @@ export default function MapSpotsView({ user, setFullscreenData }: MapSpotsViewPr
       if (!res.ok) {
         const err = await res.json();
         alert(`Hiba: ${err.error || 'Mentés sikertelen!'}`);
-        fetchLocations(searchQuery); // Visszaugratja a markert az eredeti helyére
+        fetchLocations(searchQuery); 
       }
-      // Ha sikeres, nem csinálunk semmit, a gombostű boldogan ott marad!
     } catch (error) {
       alert("Hálózati hiba!");
       fetchLocations(searchQuery);
@@ -342,83 +434,20 @@ export default function MapSpotsView({ user, setFullscreenData }: MapSpotsViewPr
             
             <MapClickHandler onMapClick={handleMapClick} />
 
+            {/* JAVÍTÁS: Átadtuk a ciklust az új SpotMarker komponensnek */}
             {locations.map((loc) => {
-              const imageUrl = getImageUrl(loc.drive_file_id, loc.file_url);
-              // Jogosultság: sajátja VAGY te vagy az admin!
               const isOwnOrAdmin = loc.user_email === user.email || isAdmin; 
-              const hasLiked = loc.user_liked === 1;
-
               return (
-                <Marker 
+                <SpotMarker 
                   key={loc.id} 
-                  position={[loc.lat, loc.lng]}
-                  draggable={isOwnOrAdmin} // A marker "megfogható", ha jogosult rá
-                  eventHandlers={{
-                    dragend: (e) => handleMarkerDragEnd(loc.id, e)
-                  }}
-                >
-                  <Popup>
-                    <div style={{ width: '230px', textAlign: 'center', fontFamily: 'sans-serif' }}>
-                      <strong style={{ fontSize: '1.1rem', display: 'block', marginBottom: '6px', color: '#0f172a' }}>{loc.title}</strong>
-                      
-                      {/* JAVÍTÁS: stopPropagation beépítése az Event Bubbling ellen! */}
-                      <div 
-                        onClick={(e) => {
-                          e.stopPropagation(); 
-                          e.preventDefault();
-                          setFullscreenData({url: imageUrl, title: loc.title});
-                        }}
-                        style={{ width: '100%', height: '120px', backgroundColor: '#f1f5f9', borderRadius: '6px', overflow: 'hidden', cursor: 'zoom-in', marginBottom: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                      >
-                        <img src={imageUrl} alt={loc.title} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
-                      </div>
-                      
-                      <p style={{ fontSize: '0.85rem', color: '#334155', margin: '0 0 10px 0', textAlign: 'left', maxHeight: '80px', overflowY: 'auto', lineHeight: '1.4' }}>
-                        {loc.description}
-                      </p>
-                      
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', background: '#f8fafc', padding: '6px', borderRadius: '6px' }}>
-                        <button 
-                          onClick={() => handleToggleLike(loc.id)}
-                          style={{ background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', borderRadius: '50px', backgroundColor: hasLiked ? '#ef444415' : 'transparent' }}
-                        >
-                          <span style={{ fontSize: '1.1rem' }}>{hasLiked ? '❤️' : '🤍'}</span>
-                          <span style={{ fontWeight: 'bold', color: hasLiked ? '#ef4444' : '#64748b', fontSize: '0.85rem' }}>{loc.like_count || 0}</span>
-                        </button>
-
-                        {isOwnOrAdmin && (
-                          <div style={{ display: 'flex', gap: '5px' }}>
-                            <button 
-                              onClick={() => handleStartEdit(loc)}
-                              title="Helyszín szerkesztése"
-                              style={{ background: '#f59e0b20', color: '#d97706', border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}
-                            >
-                              Szerkeszt
-                            </button>
-                            <button 
-                              onClick={() => handleDeleteLocation(loc.id)}
-                              title="Helyszín törlése"
-                              style={{ background: '#ef444420', color: '#ef4444', border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}
-                            >
-                              Töröl
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                      
-                      {isOwnOrAdmin && (
-                        <div style={{ fontSize: '0.7rem', color: '#f59e0b', marginBottom: '5px', fontWeight: 'bold' }}>
-                          ✋ A gombostűt megfogva odébb húzhatod!
-                        </div>
-                      )}
-                      
-                      <div style={{ fontSize: '0.75rem', color: '#94a3b8', borderTop: '1px solid #e2e8f0', paddingTop: '6px', textAlign: 'left' }}>
-                        Felfedező: <b style={{color: '#475569'}}>{loc.user_name}</b><br/>
-                        Naptár: {new Date(loc.created_at).toLocaleDateString('hu-HU')}
-                      </div>
-                    </div>
-                  </Popup>
-                </Marker>
+                  loc={loc} 
+                  isOwnOrAdmin={isOwnOrAdmin}
+                  handleMarkerDragEnd={handleMarkerDragEnd}
+                  handleToggleLike={handleToggleLike}
+                  handleStartEdit={handleStartEdit}
+                  handleDeleteLocation={handleDeleteLocation}
+                  setFullscreenData={setFullscreenData}
+                />
               )
             })}
           </MapContainer>
