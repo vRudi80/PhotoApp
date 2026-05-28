@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from 'react-leaflet';
+import React, { useState, useEffect } from 'react';
+import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { BACKEND_URL, ADMIN_EMAIL } from '../utils/constants';
@@ -40,114 +40,6 @@ function MapCameraController({ targetPosition }: { targetPosition: [number, numb
   return null;
 }
 
-// ==========================================
-// --- ÚJ: Dedikált Marker Komponens a Ghost Popup hiba ellen (React-módszer) ---
-// ==========================================
-function SpotMarker({ loc, isOwnOrAdmin, handleMarkerDragEnd, handleToggleLike, handleStartEdit, handleDeleteLocation, setFullscreenData }: any) {
-  const markerRef = useRef<any>(null);
-  
-  // A VÉGSŐ MEGOLDÁS: A React-et használjuk arra, hogy a bezáráskor megsemmisítse a tartalmat
-  const [isOpen, setIsOpen] = useState(false);
-
-  const imageUrl = getImageUrl(loc.drive_file_id, loc.file_url);
-  const hasLiked = loc.user_liked === 1;
-
-  return (
-    <Marker 
-      ref={markerRef}
-      position={[loc.lat, loc.lng]}
-      draggable={isOwnOrAdmin}
-      eventHandlers={{
-        dragend: (e) => handleMarkerDragEnd(loc.id, e),
-        popupopen: () => {
-          setIsOpen(true); // Engedélyezzük a Reactnek, hogy megépítse a HTML-t
-        },
-        popupclose: () => {
-          setIsOpen(false); // A React azonnal letörli a láthatatlan elemeket, nincs szellem-ablak!
-          
-          // Biztosíték a mozgathatóság (drag) újraindítására
-          if (markerRef.current && isOwnOrAdmin) {
-            markerRef.current.dragging.disable();
-            setTimeout(() => {
-              if (markerRef.current) markerRef.current.dragging.enable();
-            }, 50);
-          }
-        }
-      }}
-    >
-      <Popup>
-        {/* TRÜKK: Csak akkor rajzoljuk ki a képet és a gombokat, ha a popup NYITVA van */}
-        {isOpen ? (
-          <div style={{ width: '230px', textAlign: 'center', fontFamily: 'sans-serif' }}>
-            <strong style={{ fontSize: '1.1rem', display: 'block', marginBottom: '6px', color: '#0f172a' }}>{loc.title}</strong>
-            
-            <div 
-              onClick={(e) => {
-                e.stopPropagation(); 
-                e.preventDefault();
-                setFullscreenData({url: imageUrl, title: loc.title});
-              }}
-              style={{ width: '100%', height: '120px', backgroundColor: '#f1f5f9', borderRadius: '6px', overflow: 'hidden', cursor: 'zoom-in', marginBottom: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            >
-              <img src={imageUrl} alt={loc.title} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
-            </div>
-            
-            <p style={{ fontSize: '0.85rem', color: '#334155', margin: '0 0 10px 0', textAlign: 'left', maxHeight: '80px', overflowY: 'auto', lineHeight: '1.4' }}>
-              {loc.description}
-            </p>
-            
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', background: '#f8fafc', padding: '6px', borderRadius: '6px' }}>
-              <button 
-                onClick={(e) => { e.stopPropagation(); handleToggleLike(loc.id); }}
-                style={{ background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', borderRadius: '50px', backgroundColor: hasLiked ? '#ef444415' : 'transparent' }}
-              >
-                <span style={{ fontSize: '1.1rem' }}>{hasLiked ? '❤️' : '🤍'}</span>
-                <span style={{ fontWeight: 'bold', color: hasLiked ? '#ef4444' : '#64748b', fontSize: '0.85rem' }}>{loc.like_count || 0}</span>
-              </button>
-
-              {isOwnOrAdmin && (
-                <div style={{ display: 'flex', gap: '5px' }}>
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); handleStartEdit(loc); }}
-                    title="Helyszín szerkesztése"
-                    style={{ background: '#f59e0b20', color: '#d97706', border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}
-                  >
-                    Szerkeszt
-                  </button>
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); handleDeleteLocation(loc.id); }}
-                    title="Helyszín törlése"
-                    style={{ background: '#ef444420', color: '#ef4444', border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}
-                  >
-                    Töröl
-                  </button>
-                </div>
-              )}
-            </div>
-            
-            {isOwnOrAdmin && (
-              <div style={{ fontSize: '0.7rem', color: '#f59e0b', marginBottom: '5px', fontWeight: 'bold' }}>
-                ✋ A gombostűt megfogva odébb húzhatod!
-              </div>
-            )}
-            
-            <div style={{ fontSize: '0.75rem', color: '#94a3b8', borderTop: '1px solid #e2e8f0', paddingTop: '6px', textAlign: 'left' }}>
-              Felfedező: <b style={{color: '#475569'}}>{loc.user_name}</b><br/>
-              Naptár: {new Date(loc.created_at).toLocaleDateString('hu-HU')}
-            </div>
-          </div>
-        ) : (
-          // Ha nincs nyitva, egy üres láthatatlan 1 pixeles divet adunk vissza
-          <div style={{ width: '1px', height: '1px' }}></div>
-        )}
-      </Popup>
-    </Marker>
-  );
-}
-
-// ==========================================
-// --- FŐ KOMPONENS ---
-// ==========================================
 export default function MapSpotsView({ user, setFullscreenData }: MapSpotsViewProps) {
   const [locations, setLocations] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -158,6 +50,9 @@ export default function MapSpotsView({ user, setFullscreenData }: MapSpotsViewPr
 
   const [newSpotLatLng, setNewSpotLatLng] = useState<{lat: number, lng: number} | null>(null);
   const [editingSpot, setEditingSpot] = useState<any | null>(null);
+
+  // --- ÚJ: A kiválasztott helyszín, amit a lebegő kártyán mutatunk ---
+  const [activeSpot, setActiveSpot] = useState<any | null>(null);
 
   const [uploadTitle, setUploadTitle] = useState('');
   const [uploadDesc, setUploadDesc] = useState('');
@@ -175,6 +70,12 @@ export default function MapSpotsView({ user, setFullscreenData }: MapSpotsViewPr
       if (res.ok) {
         const data = await res.json();
         setLocations(data);
+        // Ha épp nyitva van egy kártya, frissítjük annak is az adatait (pl. egy lájkolás után)
+        if (activeSpot) {
+          const updatedSpot = data.find((d: any) => d.id === activeSpot.id);
+          if (updatedSpot) setActiveSpot(updatedSpot);
+          else setActiveSpot(null);
+        }
       }
     } catch (e) {
       console.error('Hiba a helyszínek betöltésekor', e);
@@ -210,10 +111,12 @@ export default function MapSpotsView({ user, setFullscreenData }: MapSpotsViewPr
     setUploadDesc('');
     setUploadFile(null);
     setUploadPreview(null);
+    setActiveSpot(null); // Bezárjuk a kártyát, ha a térképre kattintanak
   };
 
   const handleStartEdit = (loc: any) => {
     setNewSpotLatLng(null);
+    setActiveSpot(null); // Szerkesztésnél is bezárjuk a kártyát
     setEditingSpot(loc);
     setUploadTitle(loc.title);
     setUploadDesc(loc.description);
@@ -228,7 +131,6 @@ export default function MapSpotsView({ user, setFullscreenData }: MapSpotsViewPr
     const safeLat = position.lat.toFixed(8);
     const safeLng = position.lng.toFixed(8);
 
-    // JAVÍTÁS: Azonnali React state frissítés, hogy a memóriában is az új helyén legyen a marker!
     setLocations(prev => prev.map(loc => loc.id === id ? { ...loc, lat: parseFloat(safeLat), lng: parseFloat(safeLng) } : loc));
     
     try {
@@ -316,6 +218,7 @@ export default function MapSpotsView({ user, setFullscreenData }: MapSpotsViewPr
       });
       if (res.ok) {
         alert("Helyszín sikeresen törölve!");
+        setActiveSpot(null);
         fetchLocations(searchQuery);
       }
     } catch (e) {
@@ -350,56 +253,23 @@ export default function MapSpotsView({ user, setFullscreenData }: MapSpotsViewPr
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', marginBottom: '20px' }}>
-        
         <div style={{ background: '#1e293b', padding: '15px', borderRadius: '12px', border: '1px solid #334155' }}>
           <label style={{ color: '#38bdf8', fontWeight: 'bold', display: 'block', marginBottom: '8px', fontSize: '0.9rem' }}>🔍 Meglévő fotós helyszínek szűrése</label>
-          <input 
-            type="text" 
-            placeholder="Keresés névben, leírásban (pl. 'Urbex')..." 
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            style={{ width: '100%', padding: '10px 15px', borderRadius: '8px', border: '1px solid #475569', background: '#0f172a', color: 'white', outline: 'none', boxSizing: 'border-box' }}
-          />
+          <input type="text" placeholder="Keresés névben, leírásban (pl. 'Urbex')..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ width: '100%', padding: '10px 15px', borderRadius: '8px', border: '1px solid #475569', background: '#0f172a', color: 'white', outline: 'none', boxSizing: 'border-box' }} />
         </div>
 
         <div style={{ background: '#1e293b', padding: '15px', borderRadius: '12px', border: '1px solid #334155', position: 'relative' }}>
           <label style={{ color: '#f59e0b', fontWeight: 'bold', display: 'block', marginBottom: '8px', fontSize: '0.9rem' }}>✈️ Ugrás településre / címre</label>
           <div style={{ display: 'flex', gap: '10px' }}>
-            <input 
-              type="text" 
-              placeholder="Város, utca (pl. Budapest)" 
-              value={citySearch}
-              onChange={(e) => setCitySearch(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') handleCitySearch(); }}
-              style={{ flex: 1, padding: '10px 15px', borderRadius: '8px', border: '1px solid #475569', background: '#0f172a', color: 'white', outline: 'none', boxSizing: 'border-box' }}
-            />
-            <button 
-              onClick={handleCitySearch}
-              style={{ background: '#f59e0b', color: '#0f172a', border: 'none', padding: '0 20px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}
-            >
-              Ugrás
-            </button>
+            <input type="text" placeholder="Város, utca (pl. Budapest)" value={citySearch} onChange={(e) => setCitySearch(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleCitySearch(); }} style={{ flex: 1, padding: '10px 15px', borderRadius: '8px', border: '1px solid #475569', background: '#0f172a', color: 'white', outline: 'none', boxSizing: 'border-box' }} />
+            <button onClick={handleCitySearch} style={{ background: '#f59e0b', color: '#0f172a', border: 'none', padding: '0 20px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>Ugrás</button>
           </div>
-
           {cityResults.length > 0 && (
             <div style={{ position: 'absolute', top: '100%', left: '15px', right: '15px', background: '#0f172a', border: '1px solid #475569', borderRadius: '8px', zIndex: 1000, marginTop: '5px', overflow: 'hidden', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}>
               {cityResults.map((res, i) => (
-                <div 
-                  key={i} 
-                  onClick={() => handleSelectCity(res.lat, res.lon)}
-                  style={{ padding: '10px 15px', borderBottom: '1px solid #1e293b', cursor: 'pointer', transition: 'background 0.2s', color: '#cbd5e1', fontSize: '0.9rem' }}
-                  onMouseOver={e => e.currentTarget.style.background = '#1e293b'}
-                  onMouseOut={e => e.currentTarget.style.background = 'transparent'}
-                >
-                  📍 {res.display_name}
-                </div>
+                <div key={i} onClick={() => handleSelectCity(res.lat, res.lon)} style={{ padding: '10px 15px', borderBottom: '1px solid #1e293b', cursor: 'pointer', transition: 'background 0.2s', color: '#cbd5e1', fontSize: '0.9rem' }} onMouseOver={e => e.currentTarget.style.background = '#1e293b'} onMouseOut={e => e.currentTarget.style.background = 'transparent'}>📍 {res.display_name}</div>
               ))}
-              <div 
-                onClick={() => setCityResults([])}
-                style={{ padding: '8px', textAlign: 'center', background: '#ef444420', color: '#ef4444', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}
-              >
-                ✖ Bezárás
-              </div>
+              <div onClick={() => setCityResults([])} style={{ padding: '8px', textAlign: 'center', background: '#ef444420', color: '#ef4444', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>✖ Bezárás</div>
             </div>
           )}
         </div>
@@ -407,72 +277,101 @@ export default function MapSpotsView({ user, setFullscreenData }: MapSpotsViewPr
 
       <div style={{ display: 'flex', gap: '20px', flexDirection: 'column' }}>
         
+        {/* Létrehozó / Szerkesztő modul */}
         {(newSpotLatLng || editingSpot) && (
           <div style={{ background: '#0f172a', padding: '20px', borderRadius: '12px', border: editingSpot ? '2px solid #f59e0b' : '2px solid #38bdf8', animation: 'fadeIn 0.3s ease-out' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-              <h3 style={{ margin: 0, color: editingSpot ? '#f59e0b' : '#38bdf8' }}>
-                {editingSpot ? `✏️ "${editingSpot.title}" szerkesztése` : '📍 Új Helyszín Rögzítése'}
-              </h3>
+              <h3 style={{ margin: 0, color: editingSpot ? '#f59e0b' : '#38bdf8' }}>{editingSpot ? `✏️ "${editingSpot.title}" szerkesztése` : '📍 Új Helyszín Rögzítése'}</h3>
               <button onClick={() => { setNewSpotLatLng(null); setEditingSpot(null); }} style={{ background: 'transparent', color: '#94a3b8', border: 'none', fontSize: '1.2rem', cursor: 'pointer' }}>✖</button>
             </div>
-
             <input placeholder="Helyszín neve (pl. Prédikálószék kilátó)" value={uploadTitle} onChange={e => setUploadTitle(e.target.value)} style={inputStyle} disabled={isUploading} />
-            <textarea placeholder="Leírás: Miért jó ez a hely? Mikor érdemes idejönni? Hol lehet parkolni?" value={uploadDesc} onChange={e => setUploadDesc(e.target.value)} style={{...inputStyle, minHeight: '80px'}} disabled={isUploading} />
-            
-            <label style={{fontSize: '0.8rem', color: '#94a3b8', display: 'block', marginBottom: '5px'}}>
-              {editingSpot ? 'Fotó cseréje (Opcionális)' : 'Helyszín fotója (Kötelező)'}
-            </label>
+            <textarea placeholder="Leírás: Miért jó ez a hely? Mikor érdemes idejönni?" value={uploadDesc} onChange={e => setUploadDesc(e.target.value)} style={{...inputStyle, minHeight: '80px'}} disabled={isUploading} />
+            <label style={{fontSize: '0.8rem', color: '#94a3b8', display: 'block', marginBottom: '5px'}}>{editingSpot ? 'Fotó cseréje (Opcionális)' : 'Helyszín fotója (Kötelező)'}</label>
             <input type="file" accept="image/jpeg, image/png, image/webp" onChange={handleFileSelect} style={{ color: '#94a3b8', marginBottom: '15px', width: '100%' }} disabled={isUploading} />
-            
             {uploadPreview && (
-              <div style={{marginTop: '10px', marginBottom: '20px', textAlign: 'center'}}>
-                <img src={uploadPreview} alt="Előnézet" style={{maxHeight: '200px', borderRadius: '8px', border: '1px solid #334155'}} />
-              </div>
+              <div style={{marginTop: '10px', marginBottom: '20px', textAlign: 'center'}}><img src={uploadPreview} alt="Előnézet" style={{maxHeight: '200px', borderRadius: '8px', border: '1px solid #334155'}} /></div>
             )}
-            
-            <button onClick={handleSaveSpot} disabled={isUploading} style={{ width: '100%', background: editingSpot ? '#f59e0b' : '#10b981', color: 'white', border: 'none', padding: '12px', borderRadius: '8px', cursor: isUploading ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>
-              {isUploading ? 'Mentés folyamatban ⏳...' : editingSpot ? 'Változtatások mentése 💾' : 'Helyszín Mentése 🚀'}
-            </button>
+            <button onClick={handleSaveSpot} disabled={isUploading} style={{ width: '100%', background: editingSpot ? '#f59e0b' : '#10b981', color: 'white', border: 'none', padding: '12px', borderRadius: '8px', cursor: isUploading ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>{isUploading ? 'Mentés folyamatban ⏳...' : editingSpot ? 'Változtatások mentése 💾' : 'Helyszín Mentése 🚀'}</button>
           </div>
         )}
 
-        <div style={{ height: '650px', width: '100%', borderRadius: '12px', overflow: 'hidden', border: '1px solid #334155', zIndex: 1 }}>
-          <MapContainer center={[47.4979, 19.0402]} zoom={7} style={{ height: '100%', width: '100%' }}>
-            
+        {/* TÉRKÉP ÉS AZ INFORMÁCIÓS KÁRTYA */}
+        <div style={{ position: 'relative', height: '650px', width: '100%', borderRadius: '12px', overflow: 'hidden', border: '1px solid #334155' }}>
+          
+          <MapContainer center={[47.4979, 19.0402]} zoom={7} style={{ height: '100%', width: '100%', zIndex: 1 }}>
             <MapCameraController targetPosition={mapTargetPosition} />
-
-            <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
-            
+            <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
             <MapClickHandler onMapClick={handleMapClick} />
 
-            {/* JAVÍTÁS: Átadtuk a ciklust az új SpotMarker komponensnek */}
+            {/* Sima markerek, NINCS Popup, a klikk csak betölti a kártyát */}
             {locations.map((loc) => {
               const isOwnOrAdmin = loc.user_email === user.email || isAdmin; 
               return (
-                <SpotMarker 
+                <Marker 
                   key={loc.id} 
-                  loc={loc} 
-                  isOwnOrAdmin={isOwnOrAdmin}
-                  handleMarkerDragEnd={handleMarkerDragEnd}
-                  handleToggleLike={handleToggleLike}
-                  handleStartEdit={handleStartEdit}
-                  handleDeleteLocation={handleDeleteLocation}
-                  setFullscreenData={setFullscreenData}
+                  position={[loc.lat, loc.lng]}
+                  draggable={isOwnOrAdmin}
+                  eventHandlers={{
+                    dragend: (e) => handleMarkerDragEnd(loc.id, e),
+                    click: () => setActiveSpot(loc) // Kattintás megnyitja a lebegő kártyát!
+                  }}
                 />
               )
             })}
           </MapContainer>
+
+          {/* ÚJ: LEBEGŐ INFORMÁCIÓS KÁRTYA (Független a Leaflettől) */}
+          {activeSpot && (() => {
+            const isOwnOrAdmin = activeSpot.user_email === user.email || isAdmin;
+            const hasLiked = activeSpot.user_liked === 1;
+            const imageUrl = getImageUrl(activeSpot.drive_file_id, activeSpot.file_url);
+
+            return (
+              <div style={{ position: 'absolute', top: '20px', right: '20px', width: '320px', background: 'rgba(15, 23, 42, 0.95)', backdropFilter: 'blur(10px)', border: '1px solid #334155', borderRadius: '16px', padding: '20px', zIndex: 1000, boxShadow: '0 15px 30px rgba(0,0,0,0.5)', animation: 'slideIn 0.3s ease-out' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '15px' }}>
+                  <h3 style={{ margin: 0, color: '#f8fafc', fontSize: '1.2rem', lineHeight: '1.3', paddingRight: '10px' }}>{activeSpot.title}</h3>
+                  <button onClick={() => setActiveSpot(null)} style={{ background: '#334155', color: '#cbd5e1', border: 'none', width: '30px', height: '30px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>✖</button>
+                </div>
+
+                <div 
+                  onClick={() => setFullscreenData({url: imageUrl, title: activeSpot.title})}
+                  style={{ width: '100%', height: '180px', backgroundColor: '#000', borderRadius: '8px', overflow: 'hidden', cursor: 'zoom-in', marginBottom: '15px', border: '1px solid #475569' }}
+                >
+                  <img src={imageUrl} alt={activeSpot.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                </div>
+
+                <p style={{ color: '#cbd5e1', fontSize: '0.9rem', margin: '0 0 20px 0', lineHeight: '1.5', maxHeight: '120px', overflowY: 'auto' }}>
+                  {activeSpot.description}
+                </p>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#1e293b', padding: '10px', borderRadius: '8px', marginBottom: '15px' }}>
+                  <button onClick={() => handleToggleLike(activeSpot.id)} style={{ background: hasLiked ? '#ef444420' : '#334155', border: hasLiked ? '1px solid #ef444450' : '1px solid transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px', borderRadius: '50px', transition: 'all 0.2s' }}>
+                    <span style={{ fontSize: '1.2rem' }}>{hasLiked ? '❤️' : '🤍'}</span>
+                    <span style={{ fontWeight: 'bold', color: hasLiked ? '#ef4444' : '#94a3b8' }}>{activeSpot.like_count || 0} Kedvelés</span>
+                  </button>
+                </div>
+
+                {isOwnOrAdmin && (
+                  <div style={{ display: 'flex', gap: '10px', borderTop: '1px solid #334155', paddingTop: '15px' }}>
+                    <button onClick={() => handleStartEdit(activeSpot)} style={{ flex: 1, background: '#f59e0b20', color: '#f59e0b', border: '1px solid #f59e0b50', padding: '8px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Szerkesztés</button>
+                    <button onClick={() => handleDeleteLocation(activeSpot.id)} style={{ flex: 1, background: '#ef444420', color: '#ef4444', border: '1px solid #ef444450', padding: '8px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Törlés</button>
+                  </div>
+                )}
+
+                <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '15px', textAlign: 'center' }}>
+                  Felfedező: <b style={{color: '#94a3b8'}}>{activeSpot.user_name}</b><br/>
+                  {new Date(activeSpot.created_at).toLocaleDateString('hu-HU')}
+                </div>
+              </div>
+            );
+          })()}
+
         </div>
       </div>
       
       <style>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(-5px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes slideIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
       `}</style>
     </div>
   );
