@@ -1987,6 +1987,109 @@ app.post('/api/create-portal-session', async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
+// ==========================================
+// --- KLUB HÍREK (NEWS) MODUL ---
+// ==========================================
 
+// 1. Hírek lekérése egy adott klubhoz
+app.get('/api/clubs/:clubId/news', async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      'SELECT * FROM photo_club_news WHERE club_id = ? ORDER BY created_at DESC',
+      [req.params.clubId]
+    );
+    res.json(rows);
+  } catch (err) { 
+    res.status(500).json({ error: 'Hiba a hírek lekérésekor' }); 
+  }
+});
+
+// 2. Új hír posztolása (Csak vezetőknek)
+app.post('/api/clubs/:clubId/news', async (req, res) => {
+  const { title, content, userEmail, userName } = req.body;
+  if (!title || !content) return res.status(400).json({ error: 'Cím és tartalom kötelező!' });
+  
+  try {
+    await pool.query(
+      'INSERT INTO photo_club_news (club_id, author_email, author_name, title, content) VALUES (?, ?, ?, ?, ?)',
+      [req.params.clubId, userEmail, userName, title, content]
+    );
+    res.json({ success: true });
+  } catch (err) { 
+    res.status(500).json({ error: 'Hiba a hír posztolásakor' }); 
+  }
+});
+
+// 3. Hír törlése (Csak vezetőknek)
+app.delete('/api/news/:id', async (req, res) => {
+  try {
+    // Töröljük a hírhez tartozó olvasottságot és kommenteket is, hogy tiszta maradjon az adatbázis!
+    await pool.query('DELETE FROM photo_club_news_reads WHERE news_id = ?', [req.params.id]);
+    await pool.query('DELETE FROM photo_club_news_comments WHERE news_id = ?', [req.params.id]);
+    await pool.query('DELETE FROM photo_club_news WHERE id = ?', [req.params.id]);
+    res.json({ success: true });
+  } catch (err) { 
+    res.status(500).json({ error: 'Hiba a hír törlésekor' }); 
+  }
+});
+
+// 4. Olvasottság jelzése (Amikor egy tag kinyitja a posztot)
+app.post('/api/news/:id/read', async (req, res) => {
+  const { userEmail } = req.body;
+  try {
+    // Az INSERT IGNORE megakadályozza, hogy duplikáljuk a sort, ha többször is kinyitja
+    await pool.query(
+      'INSERT IGNORE INTO photo_club_news_reads (news_id, user_email) VALUES (?, ?)',
+      [req.params.id, userEmail]
+    );
+    res.json({ success: true });
+  } catch (err) { 
+    res.status(500).json({ error: 'Hiba az olvasottság mentésekor' }); 
+  }
+});
+
+// 5. Olvasók listájának lekérése (Vezetőknek)
+app.get('/api/news/:id/readers', async (req, res) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT r.user_email, u.name, r.read_at 
+      FROM photo_club_news_reads r 
+      JOIN photo_users u ON r.user_email = u.email 
+      WHERE r.news_id = ? 
+      ORDER BY r.read_at DESC
+    `, [req.params.id]);
+    res.json(rows);
+  } catch (err) { 
+    res.status(500).json({ error: 'Hiba az olvasók lekérésekor' }); 
+  }
+});
+
+// 6. Kommentek lekérése egy hírhez
+app.get('/api/news/:id/comments', async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      'SELECT * FROM photo_club_news_comments WHERE news_id = ? ORDER BY created_at ASC',
+      [req.params.id]
+    );
+    res.json(rows);
+  } catch (err) { 
+    res.status(500).json({ error: 'Hiba a kommentek lekérésekor' }); 
+  }
+});
+
+// 7. Komment beküldése egy hírhez
+app.post('/api/news/:id/comments', async (req, res) => {
+  const { userEmail, userName, commentText } = req.body;
+  if (!commentText) return res.status(400).json({ error: 'Üres komment!' });
+  try {
+    await pool.query(
+      'INSERT INTO photo_club_news_comments (news_id, user_email, user_name, comment_text) VALUES (?, ?, ?, ?)',
+      [req.params.id, userEmail, userName, commentText]
+    );
+    res.json({ success: true });
+  } catch (err) { 
+    res.status(500).json({ error: 'Hiba a komment mentésekor' }); 
+  }
+});
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => console.log(`Szerver fut a ${PORT} porton`));
