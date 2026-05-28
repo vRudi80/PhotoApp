@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { BACKEND_URL, ADMIN_EMAIL } from '../utils/constants';
 
 interface ClubNewsViewProps {
-  user: any;           // A Google Auth-ból jövő alap user (email, name)
-  currentDbUser: any;  // Az adatbázisból jövő teljes user (club_name, club_role)
+  user: any;           
+  currentDbUser: any;  
 }
 
 export default function ClubNewsView({ user, currentDbUser }: ClubNewsViewProps) {
@@ -23,12 +23,10 @@ export default function ClubNewsView({ user, currentDbUser }: ClubNewsViewProps)
   const [comments, setComments] = useState<any[]>([]);
   const [newComment, setNewComment] = useState('');
 
-  // Jogosultság ellenőrzése a currentDbUser alapján
   const isLeader = currentDbUser?.club_role === 'leader' || currentDbUser?.club_role === 'deputy' || user.email === ADMIN_EMAIL; 
 
   const inputStyle = { width: '100%', padding: '12px', marginBottom: '15px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '8px', boxSizing: 'border-box' as const };
 
-  // 1. Klub ID azonosítása a név alapján
   useEffect(() => {
     const fetchClubId = async () => {
       if (!currentDbUser?.club_name) return;
@@ -46,11 +44,11 @@ export default function ClubNewsView({ user, currentDbUser }: ClubNewsViewProps)
     fetchClubId();
   }, [currentDbUser?.club_name]);
 
-  // 2. Hírek lekérése, amint megvan a clubId
+  // JAVÍTÁS: Átküldjük a user.email-t is, hogy a szerver tudja, nekünk mi az új hír!
   const fetchNews = async () => {
     if (!clubId) return;
     try {
-      const res = await fetch(`${BACKEND_URL}/api/clubs/${clubId}/news`);
+      const res = await fetch(`${BACKEND_URL}/api/clubs/${clubId}/news?userEmail=${user.email}`);
       if (res.ok) setNewsList(await res.json());
     } catch (e) { console.error(e); }
   };
@@ -66,6 +64,9 @@ export default function ClubNewsView({ user, currentDbUser }: ClubNewsViewProps)
     }
     setExpandedNewsId(newsId);
     setShowReaders(false);
+
+    // VIZUÁLIS TRÜKK: Azonnal eltüntetjük a piros "ÚJ" gombot a memóriában
+    setNewsList(prev => prev.map(n => n.id === newsId ? { ...n, is_read: 1 } : n));
     
     try {
       await fetch(`${BACKEND_URL}/api/news/${newsId}/read`, {
@@ -140,7 +141,6 @@ export default function ClubNewsView({ user, currentDbUser }: ClubNewsViewProps)
   return (
     <div style={{ animation: 'fadeIn 0.4s ease-out' }}>
       
-      {/* 1. LAKATOS HIBAKÉPERNYŐ (Pont mint a Klubesteknél) */}
       {!currentDbUser?.club_name ? (
         <div style={{ textAlign: 'center', padding: '4rem 2rem', background: '#1e293b', borderRadius: '16px', border: '1px solid #334155' }}>
           <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🔒</div>
@@ -148,7 +148,6 @@ export default function ClubNewsView({ user, currentDbUser }: ClubNewsViewProps)
           <p style={{ color: '#94a3b8', fontSize: '1.1rem' }}>A klubod híreinek megtekintéséhez kérjük, vedd fel a kapcsolatot egy adminisztrátorral. - kovari.rudolf@gmail.com</p>
         </div>
       ) : (
-        /* 2. NORMÁL NÉZET (Ha van klubja) */
         <>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '15px' }}>
             <h2 style={{ fontSize: '2rem', margin: 0, display: 'flex', alignItems: 'center', gap: '15px' }}>
@@ -184,24 +183,34 @@ export default function ClubNewsView({ user, currentDbUser }: ClubNewsViewProps)
             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
               {newsList.map((news) => {
                 const isExpanded = expandedNewsId === news.id;
+                // BIZTOSÍTÉK: Ha a szerverről 0 jön, vagy még nincs beállítva, akkor olvasatlan
+                const isUnread = !news.is_read || news.is_read === 0;
                 
                 return (
-                  <div key={news.id} style={{ background: '#1e293b', borderRadius: '12px', border: isExpanded ? '1px solid #38bdf8' : '1px solid #334155', overflow: 'hidden', transition: 'all 0.3s' }}>
+                  <div key={news.id} style={{ background: '#1e293b', borderRadius: '12px', border: isExpanded ? '1px solid #38bdf8' : (isUnread ? '1px solid #ef444450' : '1px solid #334155'), overflow: 'hidden', transition: 'all 0.3s', position: 'relative' }}>
                     
                     <div 
                       onClick={() => handleExpandNews(news.id)}
                       style={{ padding: '20px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: isExpanded ? '#0f172a' : 'transparent' }}
                     >
                       <div style={{ flex: 1 }}>
-                        <div style={{ color: '#94a3b8', fontSize: '0.8rem', marginBottom: '5px', display: 'flex', gap: '10px' }}>
+                        <div style={{ color: '#94a3b8', fontSize: '0.8rem', marginBottom: '5px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          
+                          {/* ÚJ CÍMKE A JELENTÉSSEL */}
+                          {isUnread && (
+                            <span style={{ background: '#ef4444', color: 'white', padding: '2px 8px', borderRadius: '12px', fontSize: '0.7rem', fontWeight: 'bold', letterSpacing: '0.5px' }}>
+                              ÚJ HÍR
+                            </span>
+                          )}
+                          
                           <span>📅 {new Date(news.created_at).toLocaleDateString('hu-HU')}</span>
                           <span>✍️ {news.author_name}</span>
                         </div>
-                        <h3 style={{ margin: 0, color: isExpanded ? '#38bdf8' : '#f8fafc', fontSize: '1.2rem' }}>
+                        <h3 style={{ margin: 0, color: isExpanded ? '#38bdf8' : (isUnread ? '#f8fafc' : '#cbd5e1'), fontSize: '1.2rem', transition: 'color 0.2s' }}>
                           {news.title}
                         </h3>
                       </div>
-                      <div style={{ fontSize: '1.5rem', color: '#64748b', transition: 'transform 0.3s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)' }}>
+                      <div style={{ fontSize: '1.5rem', color: isUnread ? '#ef4444' : '#64748b', transition: 'transform 0.3s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)' }}>
                         ▼
                       </div>
                     </div>
