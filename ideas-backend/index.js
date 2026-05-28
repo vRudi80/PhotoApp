@@ -1184,51 +1184,54 @@ app.get('/api/my-album', checkPremium, async (req, res) => {
 });
 
 // 2. ÚJ (VISSZAÁLLÍTOTT): Kép feltöltése az albumba
+// 2. Kép feltöltése az albumba (Atombiztos verzió)
 app.post('/api/my-album/upload', upload.single('photo'), checkPremium, async (req, res) => {
-
-  const { userEmail, userName, title } = req.body;
   const file = req.file;
   if (!file) return res.status(400).json({ error: 'Nincs fájl kiválasztva!' });
-  
+
   try {
+    const { userEmail, userName, title } = req.body;
+
+    // BIZTOSÍTÉK 1: Ha a frontend nem küldi el a nevet vagy a címet, ne omoljon össze az SQL!
+    const safeUserName = userName || 'Fotós';
+    const safeTitle = title || 'Cím nélkül';
+
     const fileStream = fs.createReadStream(file.path);
-    const fileExt = file.originalname && file.originalname.includes('.') ? file.originalname.substring(file.originalname.lastIndexOf('.')).toLowerCase() : '.jpg';
+    const fileExt = file.originalname && file.originalname.includes('.') 
+      ? file.originalname.substring(file.originalname.lastIndexOf('.')).toLowerCase() 
+      : '.jpg';
     
+    // Google Drive feltöltés
     const driveRes = await drive.files.create({ 
-      requestBody: { name: `Portfolio_${userName}_${Date.now()}${fileExt}`, parents: [process.env.DRIVE_MASTER_FOLDER_ID] }, 
+      requestBody: { 
+        name: `Portfolio_${safeUserName}_${Date.now()}${fileExt}`, 
+        parents: [process.env.DRIVE_MASTER_FOLDER_ID] 
+      }, 
       media: { mimeType: file.mimetype, body: fileStream }, 
       fields: 'id, webViewLink' 
     });
     
     cleanupTempFile(file);
 
-    const fileSize = req.file.size; 
+    // BIZTOSÍTÉK 2: Fájlméret biztosítása
+    const fileSize = file.size || 0; 
+
     await pool.query(
       'INSERT INTO photo_portfolio (user_email, user_name, title, file_url, drive_file_id, file_size) VALUES (?, ?, ?, ?, ?, ?)', 
-      [userEmail, userName, title, driveRes.data.webViewLink, driveRes.data.id, fileSize]
+      [userEmail, safeUserName, safeTitle, driveRes.data.webViewLink, driveRes.data.id, fileSize]
     );
 
     res.json({ success: true });
   } catch (err) { 
     cleanupTempFile(file);
-    res.status(500).json({ error: err.message }); 
+    
+    // BIZTOSÍTÉK 3: Pontos hiba kiírása a Render konzolba
+    console.error('❌ HIBA A PORTFÓLIÓ FELTÖLTÉSEKOR:', err); 
+    
+    res.status(500).json({ error: 'Szerver hiba a mentéskor: ' + err.message }); 
   }
 });
 
-    // Mentés a MySQL adatbázisba
-    const fileSize = req.file.size;
-    await pool.query(
-      'INSERT INTO photo_portfolio (user_email, user_name, title, file_url, drive_file_id, file_size) VALUES (?, ?, ?, ?, ?, ?)', 
-      [userEmail, userName || 'Ismeretlen', title || 'Cím nélkül', driveRes.data.webViewLink, driveRes.data.id, fileSize]
-    );
-
-    res.json({ success: true });
-  } catch (err) { 
-    cleanupTempFile(file);
-    console.error('Hiba a feltöltésnél:', err);
-    res.status(500).json({ error: 'Hiba a kép mentésekor: ' + err.message }); 
-  }
-});
 
 // 3. Kép szerkesztése (cím módosítása vagy új fotó)
 app.put('/api/my-album/:id', upload.single('photo'), checkPremium, async (req, res) => {
