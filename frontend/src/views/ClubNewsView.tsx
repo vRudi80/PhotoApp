@@ -3,10 +3,13 @@ import { BACKEND_URL } from '../utils/constants';
 
 interface ClubNewsViewProps {
   user: any;
-  clubId: number;
 }
 
-export default function ClubNewsView({ user, clubId }: ClubNewsViewProps) {
+export default function ClubNewsView({ user }: ClubNewsViewProps) {
+  // Dinamikus Klub azonosító
+  const [clubId, setClubId] = useState<number | null>(null);
+  const [isLoadingClub, setIsLoadingClub] = useState(true);
+
   const [newsList, setNewsList] = useState<any[]>([]);
   const [expandedNewsId, setExpandedNewsId] = useState<number | null>(null);
   
@@ -21,12 +24,40 @@ export default function ClubNewsView({ user, clubId }: ClubNewsViewProps) {
   const [comments, setComments] = useState<any[]>([]);
   const [newComment, setNewComment] = useState('');
 
-  // Jogosultság ellenőrzése: Csak a 'leader' (vagy admin) posztolhat/láthat olvasottságot
-  const isLeader = user.club_role === 'leader' || user.email === 'kovari.rudolf@gmail.com'; 
+  // Jogosultság ellenőrzése (Látom az adatbázisodban, hogy van 'leader' és 'deputy' szerepkör is!)
+  const isLeader = user.club_role === 'leader' || user.club_role === 'deputy' || user.email === 'kovari.rudolf@gmail.com'; 
 
   const inputStyle = { width: '100%', padding: '12px', marginBottom: '15px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '8px', boxSizing: 'border-box' as const };
 
+  // 1. LÉPÉS: Megkeressük a felhasználó klubjának ID-ját a neve alapján
+  useEffect(() => {
+    const fetchUserClub = async () => {
+      if (!user?.club_name) {
+        setIsLoadingClub(false);
+        return;
+      }
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/clubs`);
+        if (res.ok) {
+          const clubs = await res.json();
+          // Összepárosítjuk a user.club_name-et az adatbázisból kapott névvel
+          const myClub = clubs.find((c: any) => c.name === user.club_name);
+          if (myClub) {
+            setClubId(myClub.id);
+          }
+        }
+      } catch (e) {
+        console.error("Hiba a klubok lekérésekor", e);
+      } finally {
+        setIsLoadingClub(false);
+      }
+    };
+    fetchUserClub();
+  }, [user]);
+
+  // 2. LÉPÉS: Ha megvan az ID, lekérjük a híreket
   const fetchNews = async () => {
+    if (!clubId) return;
     try {
       const res = await fetch(`${BACKEND_URL}/api/clubs/${clubId}/news`);
       if (res.ok) setNewsList(await res.json());
@@ -37,7 +68,6 @@ export default function ClubNewsView({ user, clubId }: ClubNewsViewProps) {
     if (clubId) fetchNews();
   }, [clubId]);
 
-  // Hír megnyitása: Rögzíti, hogy elolvasta, majd behúzza a kommenteket
   const handleExpandNews = async (newsId: number) => {
     if (expandedNewsId === newsId) {
       setExpandedNewsId(null);
@@ -47,19 +77,16 @@ export default function ClubNewsView({ user, clubId }: ClubNewsViewProps) {
     setShowReaders(false);
     
     try {
-      // Olvasottság jelzése a szervernek
       await fetch(`${BACKEND_URL}/api/news/${newsId}/read`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userEmail: user.email })
       });
-      // Kommentek betöltése
       const res = await fetch(`${BACKEND_URL}/api/news/${newsId}/comments`);
       if (res.ok) setComments(await res.json());
     } catch (e) { console.error(e); }
   };
 
-  // Vezetőknek: Kik olvasták el?
   const fetchReaders = async (newsId: number) => {
     if (showReaders) {
       setShowReaders(false);
@@ -75,6 +102,7 @@ export default function ClubNewsView({ user, clubId }: ClubNewsViewProps) {
   };
 
   const handlePostNews = async () => {
+    if (!clubId) return;
     if (!newTitle.trim() || !newContent.trim()) return alert("Cím és tartalom is kötelező!");
     try {
       const res = await fetch(`${BACKEND_URL}/api/clubs/${clubId}/news`, {
@@ -118,14 +146,32 @@ export default function ClubNewsView({ user, clubId }: ClubNewsViewProps) {
     } catch (e) { alert("Hiba a kommentelésnél!"); }
   };
 
+  // --- Védőhálók (Loading és Hiba állapotok) ---
+  if (isLoadingClub) {
+    return <div style={{ color: '#94a3b8', textAlign: 'center', padding: '50px' }}>⏳ Klubadatok azonosítása...</div>;
+  }
+
+  if (!clubId) {
+    return (
+      <div style={{ textAlign: 'center', padding: '3rem', background: '#1e293b', borderRadius: '12px', border: '1px solid #ef444450' }}>
+        <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🚫</div>
+        <h3 style={{ color: '#ef4444', margin: '0 0 10px 0' }}>Nem tartozol egyetlen klubhoz sem</h3>
+        <p style={{ color: '#94a3b8' }}>A hírek olvasásához tagnak kell lenned egy fotóklubban. Kérd meg az admint, hogy állítsa be a profilodat!</p>
+      </div>
+    );
+  }
+
   return (
     <div style={{ animation: 'fadeIn 0.4s ease-out' }}>
       
-      {/* CÍMSOR ÉS POSZTOLÁS GOMB (VEZETŐKNEK) */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '15px' }}>
-        <h2 style={{ fontSize: '1.8rem', margin: 0, color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '10px' }}>
-          📰 Klub Hírek & Közlemények
-        </h2>
+        <div>
+          <h2 style={{ fontSize: '1.8rem', margin: '0 0 5px 0', color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            📰 Klub Hírek & Közlemények
+          </h2>
+          <div style={{ color: '#94a3b8', fontSize: '0.9rem' }}>Aktuális klubod: <b style={{ color: '#f8fafc' }}>{user.club_name}</b></div>
+        </div>
+
         {isLeader && (
           <button 
             onClick={() => setIsPosting(!isPosting)}
@@ -136,7 +182,6 @@ export default function ClubNewsView({ user, clubId }: ClubNewsViewProps) {
         )}
       </div>
 
-      {/* ÚJ HÍR ŰRLAP */}
       {isLeader && isPosting && (
         <div style={{ background: '#1e293b', padding: '20px', borderRadius: '12px', border: '2px solid #10b981', marginBottom: '25px', animation: 'fadeIn 0.3s ease-out' }}>
           <h3 style={{ margin: '0 0 15px 0', color: '#10b981' }}>Közlemény írása</h3>
@@ -148,7 +193,6 @@ export default function ClubNewsView({ user, clubId }: ClubNewsViewProps) {
         </div>
       )}
 
-      {/* HÍREK LISTÁJA */}
       {newsList.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '40px', background: '#1e293b', borderRadius: '12px', color: '#94a3b8' }}>
           Jelenleg nincsenek aktív hírek ebben a klubban.
@@ -161,7 +205,6 @@ export default function ClubNewsView({ user, clubId }: ClubNewsViewProps) {
             return (
               <div key={news.id} style={{ background: '#1e293b', borderRadius: '12px', border: isExpanded ? '1px solid #38bdf8' : '1px solid #334155', overflow: 'hidden', transition: 'all 0.3s' }}>
                 
-                {/* Hír Fejléce (Kattintható lenyitó) */}
                 <div 
                   onClick={() => handleExpandNews(news.id)}
                   style={{ padding: '20px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: isExpanded ? '#0f172a' : 'transparent' }}
@@ -180,7 +223,6 @@ export default function ClubNewsView({ user, clubId }: ClubNewsViewProps) {
                   </div>
                 </div>
 
-                {/* Hír Tartalma és Kommentek (Lenyitva) */}
                 {isExpanded && (
                   <div style={{ padding: '0 20px 20px 20px', borderTop: '1px solid #334155', animation: 'fadeIn 0.3s ease-out' }}>
                     
@@ -188,7 +230,6 @@ export default function ClubNewsView({ user, clubId }: ClubNewsViewProps) {
                       {news.content}
                     </p>
 
-                    {/* Vezérlő Gombok (Olvasottság / Törlés) */}
                     {isLeader && (
                       <div style={{ display: 'flex', gap: '10px', marginTop: '20px', paddingTop: '15px', borderTop: '1px dashed #334155' }}>
                         <button onClick={() => fetchReaders(news.id)} style={{ background: '#3b82f620', color: '#3b82f6', border: '1px solid #3b82f650', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>
@@ -200,7 +241,6 @@ export default function ClubNewsView({ user, clubId }: ClubNewsViewProps) {
                       </div>
                     )}
 
-                    {/* Olvasók Listája (Csak vezetőnek, ha lenyitja) */}
                     {isLeader && showReaders && (
                       <div style={{ marginTop: '15px', background: '#0f172a', padding: '15px', borderRadius: '8px', border: '1px solid #334155' }}>
                         <h4 style={{ margin: '0 0 10px 0', color: '#3b82f6', fontSize: '0.9rem' }}>Ezt a hírt eddig {readers.length} tag olvasta el:</h4>
@@ -218,7 +258,6 @@ export default function ClubNewsView({ user, clubId }: ClubNewsViewProps) {
                       </div>
                     )}
 
-                    {/* KOMMENTEK */}
                     <div style={{ background: '#0f172a', borderRadius: '12px', padding: '15px', marginTop: '25px', border: '1px solid #1e293b' }}>
                       <h4 style={{ margin: '0 0 15px 0', color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '8px' }}>
                         💬 Hozzászólások <span style={{ background: '#334155', padding: '2px 8px', borderRadius: '50px', fontSize: '0.75rem' }}>{comments.length}</span>
