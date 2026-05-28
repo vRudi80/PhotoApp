@@ -1257,55 +1257,7 @@ app.post('/api/locations/:id/like', async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Hiba a lájkolásnál' }); }
 });
 
-// Helyszín szerkesztése (Opcionálisan új fotóval)
-app.put('/api/locations/:id', upload.single('photo'), async (req, res) => {
-  const { title, description, userEmail } = req.body;
-  const file = req.file;
-  try {
-    const [rows] = await pool.query('SELECT * FROM photo_locations WHERE id = ? AND user_email = ?', [req.params.id, userEmail]);
-    if (rows.length === 0) {
-      if (file) cleanupTempFile(file);
-      return res.status(403).json({ error: 'Nincs jogosultságod módosítani ezt a helyszínt!' });
-    }
-
-    if (file) {
-      if (rows[0].drive_file_id) {
-        await drive.files.delete({ fileId: rows[0].drive_file_id }).catch(e => console.log('Törlési hiba:', e.message));
-      }
-      const fileStream = fs.createReadStream(file.path);
-      const fileExt = file.originalname && file.originalname.includes('.') ? file.originalname.substring(file.originalname.lastIndexOf('.')).toLowerCase() : '.jpg';
-      const driveRes = await drive.files.create({ 
-        requestBody: { name: `Location_Edit_${Date.now()}${fileExt}`, parents: [process.env.DRIVE_MASTER_FOLDER_ID] }, 
-        media: { mimeType: file.mimetype, body: fileStream }, 
-        fields: 'id, webViewLink' 
-      });
-      cleanupTempFile(file);
-      await pool.query('UPDATE photo_locations SET title = ?, description = ?, file_url = ?, drive_file_id = ? WHERE id = ?', [title, description, driveRes.data.webViewLink, driveRes.data.id, req.params.id]);
-    } else {
-      await pool.query('UPDATE photo_locations SET title = ?, description = ? WHERE id = ?', [title, description, req.params.id]);
-    }
-    res.json({ success: true });
-  } catch (err) { 
-    if (file) cleanupTempFile(file);
-    res.status(500).json({ error: err.message }); 
-  }
-});
-
-// Helyszín törlése
-app.delete('/api/locations/:id', async (req, res) => {
-  const { userEmail } = req.body;
-  try {
-    const [rows] = await pool.query('SELECT * FROM photo_locations WHERE id = ? AND user_email = ?', [req.params.id, userEmail]);
-    if (rows.length === 0) return res.status(403).json({ error: 'Nincs jogosultságod törölni ezt a helyszínt!' });
-
-    if (rows[0].drive_file_id) {
-      await drive.files.delete({ fileId: rows[0].drive_file_id }).catch(e => console.log(e.message));
-    }
-    await pool.query('DELETE FROM photo_location_likes WHERE location_id = ?', [req.params.id]);
-    await pool.query('DELETE FROM photo_locations WHERE id = ?', [req.params.id]);
-    res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: 'Hiba a törlésnél' }); }
-});
+https://app.eu1.chromeriver.com/apollo/expenseReports/5337710c-ce52-43e6-9d41-6d9cb14ba654/lineItems/d6c7d392-61c9-4d88-a901-9789c58c805e/getPdfReceipts
 
 app.post('/api/my-album/upload', upload.single('photo'), checkPremium, async (req, res) => {
 
