@@ -115,25 +115,33 @@ export default function MapSpotsView({ user, setFullscreenData }: MapSpotsViewPr
   };
 
   // --- ÚJ: Marker elhúzása (Drag&Drop) elmentése az adatbázisba ---
+  // --- JAVÍTOTT: Marker elhúzása (Drag&Drop) ---
   const handleMarkerDragEnd = async (id: number, e: any) => {
     const marker = e.target;
     const position = marker.getLatLng();
     
     try {
-      const formData = new FormData();
-      formData.append('userEmail', user.email);
-      formData.append('lat', position.lat.toString());
-      formData.append('lng', position.lng.toString());
-      // A backend automatikusan megtartja a címet és leírást, ha nem küldjük el
+      // BIZTOSÍTÉK: 8 tizedesjegyre kerekítjük, hogy az SQL adatbázis ne omoljon össze!
+      const safeLat = position.lat.toFixed(8);
+      const safeLng = position.lng.toFixed(8);
 
       const res = await fetch(`${BACKEND_URL}/api/locations/${id}`, {
         method: 'PUT',
-        body: formData
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userEmail: user.email,
+          isAdmin: isAdmin, // Átküldjük az admin státuszt is a biztonság kedvéért
+          lat: safeLat,
+          lng: safeLng
+        })
       });
+
       if (!res.ok) {
-        alert("Nincs jogosultságod vagy hiba történt a helyszín mozgatásakor!");
+        const err = await res.json();
+        alert(`Hiba: ${err.error || 'Mentés sikertelen!'}`);
         fetchLocations(searchQuery); // Visszaugratja a markert az eredeti helyére
       }
+      // Ha sikeres, nem csinálunk semmit, a gombostű boldogan ott marad!
     } catch (error) {
       alert("Hálózati hiba!");
       fetchLocations(searchQuery);
