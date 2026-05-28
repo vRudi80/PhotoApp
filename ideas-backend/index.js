@@ -1991,13 +1991,17 @@ app.post('/api/create-portal-session', async (req, res) => {
 // --- KLUB HÍREK (NEWS) MODUL ---
 // ==========================================
 
-// 1. Hírek lekérése egy adott klubhoz
+// 1. Hírek lekérése egy adott klubhoz (Kiegészítve az egyéni olvasottság vizsgálattal)
 app.get('/api/clubs/:clubId/news', async (req, res) => {
+  const userEmail = req.query.userEmail; // Megkapjuk a böngészőtől, hogy ki kérdezi le
   try {
-    const [rows] = await pool.query(
-      'SELECT * FROM photo_club_news WHERE club_id = ? ORDER BY created_at DESC',
-      [req.params.clubId]
-    );
+    const [rows] = await pool.query(`
+      SELECT n.*, 
+        (SELECT COUNT(*) FROM photo_club_news_reads r WHERE r.news_id = n.id AND r.user_email = ?) as is_read 
+      FROM photo_club_news n 
+      WHERE n.club_id = ? 
+      ORDER BY n.created_at DESC
+    `, [userEmail, req.params.clubId]);
     res.json(rows);
   } catch (err) { 
     res.status(500).json({ error: 'Hiba a hírek lekérésekor' }); 
