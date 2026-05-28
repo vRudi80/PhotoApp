@@ -807,10 +807,12 @@ const fetchMyEntries = async (email: string) => {
               setFullscreenData={setFullscreenData} 
                 />
             )}
-              {activeTab === 'club_news' && (
-                <ClubNewsView user={user} />
-              )}  
-                  
+            {activeTab === 'club_news' && (
+              <ClubNewsView 
+                user={user} 
+                currentDbUser={currentDbUser} 
+              />
+            )}
             {activeTab === 'my_album' && (
               <MyAlbumView 
                 user={user} 
