@@ -1161,6 +1161,8 @@ app.delete('/api/salons/:id', async (req, res) => {
 // ==========================================
 // --- SAJÁT KÉPALBUM (PORTFÓLIÓ) KEZELÉSE VÉDVE! ---
 // ==========================================
+
+// 1. Képek lekérése
 app.get('/api/my-album', checkPremium, async (req, res) => {
   try { 
     const query = `
@@ -1180,6 +1182,113 @@ app.get('/api/my-album', checkPremium, async (req, res) => {
     res.status(500).json({ error: 'Hiba a képek lekérésekor' }); 
   }
 });
+
+// 2. ÚJ (VISSZAÁLLÍTOTT): Kép feltöltése az albumba
+app.post('/api/my-album', upload.single('photo'), checkPremium, async (req, res) => {
+  const file = req.file;
+  if (!file) return res.status(400).json({ error: 'Nincs fájl kiválasztva!' });
+  
+  try {
+    const { title, userEmail, userName } = req.body;
+    
+    // Fájl beolvasása és felküldése a Google Drive-ra
+    const fileStream = fs.createReadStream(file.path);
+    const fileExt = file.originalname && file.originalname.includes('.') ? file.originalname.substring(file.originalname.lastIndexOf('.')).toLowerCase() : '.jpg';
+    
+    const driveRes = await drive.files.create({ 
+      requestBody: { name: `Portfolio_${userName}_${Date.now()}${fileExt}`, parents: [process.env.DRIVE_MASTER_FOLDER_ID] }, 
+      media: { mimeType: file.mimetype, body: fileStream }, 
+      fields: 'id, webViewLink' 
+    });
+    
+    cleanupTempFile(file);
+
+    // Mentés a MySQL adatbázisba
+    const fileSize = req.file.size;
+    await pool.query(
+      'INSERT INTO photo_portfolio (user_email, user_name, title, file_url, drive_file_id, file_size) VALUES (?, ?, ?, ?, ?, ?)', 
+      [userEmail, userName || 'Ismeretlen', title || 'Cím nélkül', driveRes.data.webViewLink, driveRes.data.id, fileSize]
+    );
+
+    res.json({ success: true });
+  } catch (err) { 
+    cleanupTempFile(file);
+    console.error('Hiba a feltöltésnél:', err);
+    res.status(500).json({ error: 'Hiba a kép mentésekor: ' + err.message }); 
+  }
+});
+
+// 3. Kép szerkesztése (cím módosítása vagy új fotó)
+app.put('/api/my-album/:id', upload.single('photo'), checkPremium, async (req, res) => {
+  const file = req.file;
+  try {
+    const { title, userEmail } = req.body; 
+    const [rows] = await pool.query('SELECT * FROM photo_portfolio WHERE id = ? AND user_email = ?', [req.params.id, userEmail]);
+    if (rows.length === 0) {
+      cleanupTempFile(file);
+      return res.status(403).json({ error: 'Nincs jogosultságod módosítani ezt a képet!' });
+    }
+    
+    if (file) {
+      if (rows[0].drive_file_id) await drive.files.delete({ fileId: rows[0].drive_file_id }).catch(e => console.log('Régi kép törlése a Drive-ról sikertelen:', e.message));
+      
+      const fileStream = fs.createReadStream(file.path);
+      const fileExt = file.originalname && file.originalname.includes('.') ? file.originalname.substring(file.originalname.lastIndexOf('.')).toLowerCase() : '.jpg';
+      const userName = rows[0].user_name || 'Ismeretlen';
+      
+      const driveRes = await drive.files.create({ 
+        requestBody: { name: `Portfolio_${userName}_Frissitett_${Date.now()}${fileExt}`, parents: [process.env.DRIVE_MASTER_FOLDER_ID] }, 
+        media: { mimeType: file.mimetype, body: fileStream }, 
+        fields: 'id, webViewLink' 
+      });
+      
+      cleanupTempFile(file);
+
+      const fileSize = req.file.size;
+      await pool.query('UPDATE photo_portfolio SET title = ?, file_url = ?, drive_file_id = ?, file_size = ? WHERE id = ? AND user_email = ?', [title, driveRes.data.webViewLink, driveRes.data.id, fileSize, req.params.id, userEmail]);
+    } else {
+      await pool.query('UPDATE photo_portfolio SET title = ? WHERE id = ? AND user_email = ?', [title, req.params.id, userEmail]);
+    }
+    res.json({ success: true });
+  } catch (err) { 
+    cleanupTempFile(file);
+    res.status(500).json({ error: 'Hiba a kép frissítésekor: ' + err.message }); 
+  }
+});
+
+// 4. Kép törlése
+app.delete('/api/my-album/:id', checkPremium, async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM photo_portfolio WHERE id = ? AND user_email = ?', [req.params.id, req.body.userEmail]);
+    if (rows.length === 0) return res.status(403).json({ error: 'Nincs jogod!' });
+    if (rows[0].drive_file_id) await drive.files.delete({ fileId: rows[0].drive_file_id }).catch(e => console.log(e.message));
+    await pool.query('DELETE FROM photo_portfolio WHERE id = ?', [req.params.id]);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: 'Hiba a törlésnél' }); }
+});
+
+// 5. Tárhely statisztika lekérése (Admin funkció)
+app.get('/api/admin/user-storage-stats', async (req, res) => {
+  try {
+    const query = `
+      SELECT user_email, COUNT(*) as total_photos, COALESCE(SUM(GREATEST(file_size, 0)), 0) as total_bytes
+      FROM (
+        SELECT user_email, file_size FROM photo_portfolio
+        UNION ALL
+        SELECT user_email, file_size FROM photo_entries
+        UNION ALL
+        SELECT user_email, file_size FROM photo_homework_entries
+      ) as all_photos
+      GROUP BY user_email
+    `;
+    const [rows] = await pool.query(query);
+    res.json(rows);
+  } catch (err) {
+    console.error('Hiba a tárhely lekérésekor:', err);
+    res.status(500).json({ error: 'Szerver hiba' });
+  }
+});
+
 
 // ==========================================
 // --- FOTÓS HELYSZÍNEK (MAP SPOTS) TELJES BLOKK ---
@@ -1339,73 +1448,6 @@ app.post('/api/locations/:id/comments', async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: 'Hiba a komment mentésekor' });
-  }
-});
-
-app.put('/api/my-album/:id', upload.single('photo'), checkPremium, async (req, res) => {
-  const file = req.file;
-  try {
-    const { title, userEmail } = req.body; 
-    const [rows] = await pool.query('SELECT * FROM photo_portfolio WHERE id = ? AND user_email = ?', [req.params.id, userEmail]);
-    if (rows.length === 0) {
-      cleanupTempFile(file);
-      return res.status(403).json({ error: 'Nincs jogosultságod módosítani ezt a képet!' });
-    }
-    
-    if (file) {
-      if (rows[0].drive_file_id) await drive.files.delete({ fileId: rows[0].drive_file_id }).catch(e => console.log('Régi kép törlése a Drive-ról sikertelen:', e.message));
-      
-      const fileStream = fs.createReadStream(file.path);
-      const fileExt = file.originalname && file.originalname.includes('.') ? file.originalname.substring(file.originalname.lastIndexOf('.')).toLowerCase() : '.jpg';
-      const userName = rows[0].user_name || 'Ismeretlen';
-      
-      const driveRes = await drive.files.create({ 
-        requestBody: { name: `Portfolio_${userName}_Frissitett_${Date.now()}${fileExt}`, parents: [process.env.DRIVE_MASTER_FOLDER_ID] }, 
-        media: { mimeType: file.mimetype, body: fileStream }, 
-        fields: 'id, webViewLink' 
-      });
-      
-      cleanupTempFile(file);
-
-      await pool.query('UPDATE photo_portfolio SET title = ?, file_url = ?, drive_file_id = ? WHERE id = ? AND user_email = ?', [title, driveRes.data.webViewLink, driveRes.data.id, req.params.id, userEmail]);
-    } else {
-      await pool.query('UPDATE photo_portfolio SET title = ? WHERE id = ? AND user_email = ?', [title, req.params.id, userEmail]);
-    }
-    res.json({ success: true });
-  } catch (err) { 
-    cleanupTempFile(file);
-    res.status(500).json({ error: 'Hiba a kép frissítésekor: ' + err.message }); 
-  }
-});
-
-app.delete('/api/my-album/:id', checkPremium, async (req, res) => {
-  try {
-    const [rows] = await pool.query('SELECT * FROM photo_portfolio WHERE id = ? AND user_email = ?', [req.params.id, req.body.userEmail]);
-    if (rows.length === 0) return res.status(403).json({ error: 'Nincs jogod!' });
-    if (rows[0].drive_file_id) await drive.files.delete({ fileId: rows[0].drive_file_id }).catch(e => console.log(e.message));
-    await pool.query('DELETE FROM photo_portfolio WHERE id = ?', [req.params.id]);
-    res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: 'Hiba a törlésnél' }); }
-});
-
-app.get('/api/admin/user-storage-stats', async (req, res) => {
-  try {
-    const query = `
-      SELECT user_email, COUNT(*) as total_photos, COALESCE(SUM(GREATEST(file_size, 0)), 0) as total_bytes
-      FROM (
-        SELECT user_email, file_size FROM photo_portfolio
-        UNION ALL
-        SELECT user_email, file_size FROM photo_entries
-        UNION ALL
-        SELECT user_email, file_size FROM photo_homework_entries
-      ) as all_photos
-      GROUP BY user_email
-    `;
-    const [rows] = await pool.query(query);
-    res.json(rows);
-  } catch (err) {
-    console.error('Hiba a tárhely lekérésekor:', err);
-    res.status(500).json({ error: 'Szerver hiba' });
   }
 });
 
