@@ -70,12 +70,14 @@ export default function MapSpotsView({ user, setFullscreenData }: MapSpotsViewPr
       if (res.ok) {
         const data = await res.json();
         setLocations(data);
-        // Ha épp nyitva van egy kártya, frissítjük annak is az adatait (pl. egy lájkolás után)
-        if (activeSpot) {
-          const updatedSpot = data.find((d: any) => d.id === activeSpot.id);
-          if (updatedSpot) setActiveSpot(updatedSpot);
-          else setActiveSpot(null);
-        }
+        
+        // JAVÍTÁS: A React "Stale State" (beragadt memória) kikerülése.
+        // Itt a 'prev' garantálja, hogy mindig a legfrissebb nyitott kártyát frissítjük az új adatokkal!
+        setActiveSpot(prev => {
+          if (!prev) return null;
+          const updatedSpot = data.find((d: any) => d.id === prev.id);
+          return updatedSpot ? updatedSpot : prev;
+        });
       }
     } catch (e) {
       console.error('Hiba a helyszínek betöltésekor', e);
