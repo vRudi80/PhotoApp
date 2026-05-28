@@ -41,51 +41,16 @@ function MapCameraController({ targetPosition }: { targetPosition: [number, numb
 }
 
 // ==========================================
-// --- ÚJ: Dedikált Marker Komponens a Ghost Popup hiba ellen ---
+// --- ÚJ: Dedikált Marker Komponens a Ghost Popup hiba ellen (React-módszer) ---
 // ==========================================
 function SpotMarker({ loc, isOwnOrAdmin, handleMarkerDragEnd, handleToggleLike, handleStartEdit, handleDeleteLocation, setFullscreenData }: any) {
-  // A ref-ekkel közvetlen hozzáférést kapunk a Leaflet objektumokhoz
   const markerRef = useRef<any>(null);
-  const popupRef = useRef<any>(null);
-  const map = useMap(); // Hozzáférés a térkép objektumhoz
+  
+  // A VÉGSŐ MEGOLDÁS: A React-et használjuk arra, hogy a bezáráskor megsemmisítse a tartalmat
+  const [isOpen, setIsOpen] = useState(false);
 
   const imageUrl = getImageUrl(loc.drive_file_id, loc.file_url);
   const hasLiked = loc.user_liked === 1;
-
-  // Ez a trükk a Ghost Popup megsemmisítésére
-  useEffect(() => {
-    // Amikor a gombostű létrejön, feliratkozunk a bezárási eseményre
-    const marker = markerRef.current;
-    if (!marker) return;
-
-    // Definiáljuk a drasztikus tisztító függvényt
-    const purgePopupDOM = () => {
-      setTimeout(() => {
-        // 1. Megkeressük a Leaflet popup-konténerét a DOM-ban
-        const popupPane = map.getPane('popupPane');
-        if (popupPane) {
-          // 2. Gyökerestül kitépünk belőle minden HTML elemet azonnal!
-          // Ez elpusztítja a láthatatlan "szellem" ablakot, ami blokkolta a térképet.
-          while (popupPane.firstChild) {
-            popupPane.removeChild(popupPane.firstChild);
-          }
-        }
-        // 3. Opcionálisan: újraindítjuk a marker eseménykezelőit a biztonság kedvéért
-        if (isOwnOrAdmin && marker.dragging) {
-          marker.dragging.disable();
-          marker.dragging.enable();
-        }
-      }, 10); // Egy minimális késleltetés kell, hogy a Leaflet saját eseményei lefussanak
-    };
-
-    // Hozzáadjuk az eseménykezelőt
-    marker.on('popupclose', purgePopupDOM);
-
-    // Takarítás, ha a gombostű megsemmisülne (React unmount)
-    return () => {
-      marker.off('popupclose', purgePopupDOM);
-    };
-  }, [map, isOwnOrAdmin]); // Csak akkor fut le újra, ha ezek változnak
 
   return (
     <Marker 
@@ -94,69 +59,87 @@ function SpotMarker({ loc, isOwnOrAdmin, handleMarkerDragEnd, handleToggleLike, 
       draggable={isOwnOrAdmin}
       eventHandlers={{
         dragend: (e) => handleMarkerDragEnd(loc.id, e),
+        popupopen: () => {
+          setIsOpen(true); // Engedélyezzük a Reactnek, hogy megépítse a HTML-t
+        },
+        popupclose: () => {
+          setIsOpen(false); // A React azonnal letörli a láthatatlan elemeket, nincs szellem-ablak!
+          
+          // Biztosíték a mozgathatóság (drag) újraindítására
+          if (markerRef.current && isOwnOrAdmin) {
+            markerRef.current.dragging.disable();
+            setTimeout(() => {
+              if (markerRef.current) markerRef.current.dragging.enable();
+            }, 50);
+          }
+        }
       }}
     >
-      <Popup ref={popupRef} className="purged-popup">
-        {/* Adunk egy osztálynevet a Popup-nak, hogy könnyebben megtaláljuk, ha kell */}
-        <div style={{ width: '230px', textAlign: 'center', fontFamily: 'sans-serif' }}>
-          <strong style={{ fontSize: '1.1rem', display: 'block', marginBottom: '6px', color: '#0f172a' }}>{loc.title}</strong>
-          
-          <div 
-            onClick={(e) => {
-              // Megállítjuk a kattintást, hogy ne terjedjen át a térképre
-              e.stopPropagation(); 
-              e.preventDefault();
-              setFullscreenData({url: imageUrl, title: loc.title});
-            }}
-            style={{ width: '100%', height: '120px', backgroundColor: '#f1f5f9', borderRadius: '6px', overflow: 'hidden', cursor: 'zoom-in', marginBottom: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-          >
-            <img src={imageUrl} alt={loc.title} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
-          </div>
-          
-          <p style={{ fontSize: '0.85rem', color: '#334155', margin: '0 0 10px 0', textAlign: 'left', maxHeight: '80px', overflowY: 'auto', lineHeight: '1.4' }}>
-            {loc.description}
-          </p>
-          
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', background: '#f8fafc', padding: '6px', borderRadius: '6px' }}>
-            <button 
-              onClick={(e) => { e.stopPropagation(); handleToggleLike(loc.id); }}
-              style={{ background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', borderRadius: '50px', backgroundColor: hasLiked ? '#ef444415' : 'transparent' }}
+      <Popup>
+        {/* TRÜKK: Csak akkor rajzoljuk ki a képet és a gombokat, ha a popup NYITVA van */}
+        {isOpen ? (
+          <div style={{ width: '230px', textAlign: 'center', fontFamily: 'sans-serif' }}>
+            <strong style={{ fontSize: '1.1rem', display: 'block', marginBottom: '6px', color: '#0f172a' }}>{loc.title}</strong>
+            
+            <div 
+              onClick={(e) => {
+                e.stopPropagation(); 
+                e.preventDefault();
+                setFullscreenData({url: imageUrl, title: loc.title});
+              }}
+              style={{ width: '100%', height: '120px', backgroundColor: '#f1f5f9', borderRadius: '6px', overflow: 'hidden', cursor: 'zoom-in', marginBottom: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             >
-              <span style={{ fontSize: '1.1rem' }}>{hasLiked ? '❤️' : '🤍'}</span>
-              <span style={{ fontWeight: 'bold', color: hasLiked ? '#ef4444' : '#64748b', fontSize: '0.85rem' }}>{loc.like_count || 0}</span>
-            </button>
+              <img src={imageUrl} alt={loc.title} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+            </div>
+            
+            <p style={{ fontSize: '0.85rem', color: '#334155', margin: '0 0 10px 0', textAlign: 'left', maxHeight: '80px', overflowY: 'auto', lineHeight: '1.4' }}>
+              {loc.description}
+            </p>
+            
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', background: '#f8fafc', padding: '6px', borderRadius: '6px' }}>
+              <button 
+                onClick={(e) => { e.stopPropagation(); handleToggleLike(loc.id); }}
+                style={{ background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', borderRadius: '50px', backgroundColor: hasLiked ? '#ef444415' : 'transparent' }}
+              >
+                <span style={{ fontSize: '1.1rem' }}>{hasLiked ? '❤️' : '🤍'}</span>
+                <span style={{ fontWeight: 'bold', color: hasLiked ? '#ef4444' : '#64748b', fontSize: '0.85rem' }}>{loc.like_count || 0}</span>
+              </button>
 
+              {isOwnOrAdmin && (
+                <div style={{ display: 'flex', gap: '5px' }}>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); handleStartEdit(loc); }}
+                    title="Helyszín szerkesztése"
+                    style={{ background: '#f59e0b20', color: '#d97706', border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}
+                  >
+                    Szerkeszt
+                  </button>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); handleDeleteLocation(loc.id); }}
+                    title="Helyszín törlése"
+                    style={{ background: '#ef444420', color: '#ef4444', border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}
+                  >
+                    Töröl
+                  </button>
+                </div>
+              )}
+            </div>
+            
             {isOwnOrAdmin && (
-              <div style={{ display: 'flex', gap: '5px' }}>
-                <button 
-                  onClick={(e) => { e.stopPropagation(); handleStartEdit(loc); }}
-                  title="Helyszín szerkesztése"
-                  style={{ background: '#f59e0b20', color: '#d97706', border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}
-                >
-                  Szerkeszt
-                </button>
-                <button 
-                  onClick={(e) => { e.stopPropagation(); handleDeleteLocation(loc.id); }}
-                  title="Helyszín törlése"
-                  style={{ background: '#ef444420', color: '#ef4444', border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}
-                >
-                  Töröl
-                </button>
+              <div style={{ fontSize: '0.7rem', color: '#f59e0b', marginBottom: '5px', fontWeight: 'bold' }}>
+                ✋ A gombostűt megfogva odébb húzhatod!
               </div>
             )}
-          </div>
-          
-          {isOwnOrAdmin && (
-            <div style={{ fontSize: '0.7rem', color: '#f59e0b', marginBottom: '5px', fontWeight: 'bold' }}>
-              ✋ A gombostűt megfogva odébb húzhatod!
+            
+            <div style={{ fontSize: '0.75rem', color: '#94a3b8', borderTop: '1px solid #e2e8f0', paddingTop: '6px', textAlign: 'left' }}>
+              Felfedező: <b style={{color: '#475569'}}>{loc.user_name}</b><br/>
+              Naptár: {new Date(loc.created_at).toLocaleDateString('hu-HU')}
             </div>
-          )}
-          
-          <div style={{ fontSize: '0.75rem', color: '#94a3b8', borderTop: '1px solid #e2e8f0', paddingTop: '6px', textAlign: 'left' }}>
-            Felfedező: <b style={{color: '#475569'}}>{loc.user_name}</b><br/>
-            Naptár: {new Date(loc.created_at).toLocaleDateString('hu-HU')}
           </div>
-        </div>
+        ) : (
+          // Ha nincs nyitva, egy üres láthatatlan 1 pixeles divet adunk vissza
+          <div style={{ width: '1px', height: '1px' }}></div>
+        )}
       </Popup>
     </Marker>
   );
