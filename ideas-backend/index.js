@@ -1241,52 +1241,61 @@ app.post('/api/locations', upload.single('photo'), async (req, res) => {
   }
 });
 
-// Helyszín lájkolása / lájk visszavonása
-app.post('/api/locations/:id/like', async (req, res) => {
-  const { userEmail } = req.body;
-  const locationId = req.params.id;
-  try {
-    const [existing] = await pool.query('SELECT * FROM photo_location_likes WHERE location_id = ? AND user_email = ?', [locationId, userEmail]);
-    if (existing.length > 0) {
-      await pool.query('DELETE FROM photo_location_likes WHERE location_id = ? AND user_email = ?', [locationId, userEmail]);
-      res.json({ liked: false });
-    } else {
-      await pool.query('INSERT INTO photo_location_likes (location_id, user_email) VALUES (?, ?)', [locationId, userEmail]);
-      res.json({ liked: true });
-    }
-  } catch (err) { res.status(500).json({ error: 'Hiba a lájkolásnál' }); }
-});
-
-https://app.eu1.chromeriver.com/apollo/expenseReports/5337710c-ce52-43e6-9d41-6d9cb14ba654/lineItems/d6c7d392-61c9-4d88-a901-9789c58c805e/getPdfReceipts
-
-app.post('/api/my-album/upload', upload.single('photo'), checkPremium, async (req, res) => {
-
-  const { userEmail, userName, title } = req.body;
+// Helyszín szerkesztése (Opcionálisan új fotóval ÉS mozgatható koordinátákkal)
+app.put('/api/locations/:id', upload.single('photo'), async (req, res) => {
+  const { title, description, userEmail, lat, lng, isAdmin } = req.body;
   const file = req.file;
-  if (!file) return res.status(400).json({ error: 'Nincs fájl kiválasztva!' });
-  
+
   try {
-    const fileStream = fs.createReadStream(file.path);
-    const fileExt = file.originalname && file.originalname.includes('.') ? file.originalname.substring(file.originalname.lastIndexOf('.')).toLowerCase() : '.jpg';
-    
-    const driveRes = await drive.files.create({ 
-      requestBody: { name: `Portfolio_${userName}_${Date.now()}${fileExt}`, parents: [process.env.DRIVE_MASTER_FOLDER_ID] }, 
-      media: { mimeType: file.mimetype, body: fileStream }, 
-      fields: 'id, webViewLink' 
-    });
-    
-    cleanupTempFile(file);
+    const [rows] = await pool.query('SELECT * FROM photo_locations WHERE id = ?', [req.params.id]);
+    if (rows.length === 0) {
+      if (file) cleanupTempFile(file);
+      return res.status(404).json({ error: 'Helyszín nem található' });
+    }
 
-    const fileSize = req.file.size; 
-    await pool.query(
-      'INSERT INTO photo_portfolio (user_email, user_name, title, file_url, drive_file_id, file_size) VALUES (?, ?, ?, ?, ?, ?)', 
-      [userEmail, userName, title, driveRes.data.webViewLink, driveRes.data.id, fileSize]
-    );
+    // JOGOSULTSÁG: Csak a sajátja, VAGY ha a frontend szerint Admin, VAGY ha a .env-ben ő az Admin
+    if (rows[0].user_email !== userEmail && !isAdmin && userEmail !== process.env.ADMIN_EMAIL) {
+      if (file) cleanupTempFile(file);
+      return res.status(403).json({ error: 'Nincs jogosultságod módosítani ezt a helyszínt!' });
+    }
 
+    // Meglévő adatok megtartása, ha a kérésben nem szerepelnek
+    const newTitle = title || rows[0].title;
+    const newDesc = description || rows[0].description;
+    
+    // Biztonságos koordináta ellenőrzés (ha jött új, azt használjuk)
+    const newLat = lat !== undefined ? lat : rows[0].lat;
+    const newLng = lng !== undefined ? lng : rows[0].lng;
+
+    if (file) {
+      if (rows[0].drive_file_id) {
+        await drive.files.delete({ fileId: rows[0].drive_file_id }).catch(e => console.log('Törlési hiba:', e.message));
+      }
+      const fileStream = fs.createReadStream(file.path);
+      const fileExt = file.originalname && file.originalname.includes('.') ? file.originalname.substring(file.originalname.lastIndexOf('.')).toLowerCase() : '.jpg';
+      const driveRes = await drive.files.create({ 
+        requestBody: { name: `Location_Edit_${Date.now()}${fileExt}`, parents: [process.env.DRIVE_MASTER_FOLDER_ID] }, 
+        media: { mimeType: file.mimetype, body: fileStream }, 
+        fields: 'id, webViewLink' 
+      });
+      cleanupTempFile(file);
+      
+      await pool.query(
+        'UPDATE photo_locations SET title = ?, description = ?, lat = ?, lng = ?, file_url = ?, drive_file_id = ? WHERE id = ?', 
+        [newTitle, newDesc, newLat, newLng, driveRes.data.webViewLink, driveRes.data.id, req.params.id]
+      );
+    } else {
+      // Ha nincs kép, csak koordináta vagy szöveg frissítés
+      await pool.query(
+        'UPDATE photo_locations SET title = ?, description = ?, lat = ?, lng = ? WHERE id = ?', 
+        [newTitle, newDesc, newLat, newLng, req.params.id]
+      );
+    }
     res.json({ success: true });
   } catch (err) { 
-    cleanupTempFile(file);
-    res.status(500).json({ error: err.message }); 
+    if (file) cleanupTempFile(file);
+    console.error(err);
+    res.status(500).json({ error: 'Adatbázis hiba a mentés során!' }); 
   }
 });
 
