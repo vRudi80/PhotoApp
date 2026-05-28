@@ -1182,120 +1182,69 @@ app.get('/api/my-album', checkPremium, async (req, res) => {
 });
 
 // ==========================================
-// --- FOTÓS HELYSZÍNEK (MAP SPOTS) - JAVÍTOTT & BŐVÍTETT ---
+// --- TÉRKÉPES HELYSZÍN LÁJKOLÁSA ÉS TÖRLÉSE (PÓTOLVA) ---
 // ==========================================
 
-// Helyszínek lekérése lájkokkal és egyedi szűréssel
-app.get('/api/locations', async (req, res) => {
-  const { search, userEmail } = req.query;
-  try {
-    let query = `
-      SELECT l.*,
-             (SELECT COUNT(*) FROM photo_location_likes WHERE location_id = l.id) as like_count,
-             (SELECT COUNT(*) FROM photo_location_likes WHERE location_id = l.id AND user_email = ?) as user_liked
-      FROM photo_locations l
-    `;
-    let params = [userEmail || ''];
-    
-    if (search) {
-      query += ' WHERE l.title LIKE ? OR l.description LIKE ?';
-      params.push(`%${search}%`, `%${search}%`);
-    }
-    
-    query += ' ORDER BY l.created_at DESC';
-    
-    const [rows] = await pool.query(query, params);
-    res.json(rows);
-  } catch (err) { 
-    console.error(err);
-    res.status(500).json({ error: 'Hiba a helyszínek lekérésekor' }); 
-  }
-});
-
-// Új helyszín feltöltése
-app.post('/api/locations', upload.single('photo'), async (req, res) => {
-  const { userEmail, userName, lat, lng, title, description } = req.body;
-  const file = req.file;
-  if (!file) return res.status(400).json({ error: 'Fotó feltöltése kötelező a helyszínhez!' });
-
-  try {
-    const fileStream = fs.createReadStream(file.path);
-    const fileExt = file.originalname && file.originalname.includes('.') ? file.originalname.substring(file.originalname.lastIndexOf('.')).toLowerCase() : '.jpg';
-    
-    const driveRes = await drive.files.create({ 
-      requestBody: { name: `Location_${userName}_${Date.now()}${fileExt}`, parents: [process.env.DRIVE_MASTER_FOLDER_ID] }, 
-      media: { mimeType: file.mimetype, body: fileStream }, 
-      fields: 'id, webViewLink' 
-    });
-
-    cleanupTempFile(file);
-
-    await pool.query(
-      'INSERT INTO photo_locations (user_email, user_name, lat, lng, title, description, file_url, drive_file_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 
-      [userEmail, userName, lat, lng, title, description, driveRes.data.webViewLink, driveRes.data.id]
-    );
-    res.json({ success: true });
-  } catch (err) { 
-    cleanupTempFile(file);
-    res.status(500).json({ error: 'Hiba a mentéskor: ' + err.message }); 
-  }
-});
-
-// Helyszín szerkesztése (Opcionálisan új fotóval ÉS mozgatható koordinátákkal)
-app.put('/api/locations/:id', upload.single('photo'), async (req, res) => {
-  const { title, description, userEmail, lat, lng, isAdmin } = req.body;
-  const file = req.file;
-
+// Helyszín törlése (Admin joggal is)
+app.delete('/api/locations/:id', async (req, res) => {
+  const { userEmail } = req.body;
   try {
     const [rows] = await pool.query('SELECT * FROM photo_locations WHERE id = ?', [req.params.id]);
-    if (rows.length === 0) {
-      if (file) cleanupTempFile(file);
-      return res.status(404).json({ error: 'Helyszín nem található' });
+    if (rows.length === 0) return res.status(404).json({ error: 'Helyszín nem található' });
+
+    // JOGOSULTSÁG: Csak a sajátja, VAGY ha a felhasználó az Admin
+    if (rows[0].user_email !== userEmail && userEmail !== process.env.ADMIN_EMAIL) {
+      return res.status(403).json({ error: 'Nincs jogosultságod törölni ezt a helyszínt!' });
     }
 
-    // JOGOSULTSÁG: Csak a sajátja, VAGY ha a frontend szerint Admin, VAGY ha a .env-ben ő az Admin
-    if (rows[0].user_email !== userEmail && !isAdmin && userEmail !== process.env.ADMIN_EMAIL) {
-      if (file) cleanupTempFile(file);
-      return res.status(403).json({ error: 'Nincs jogosultságod módosítani ezt a helyszínt!' });
+    // Először a képet töröljük a Google Drive-ról (ha van)
+    if (rows[0].drive_file_id) {
+      await drive.files.delete({ fileId: rows[0].drive_file_id }).catch(e => console.log(e.message));
     }
-
-    // Meglévő adatok megtartása, ha a kérésben nem szerepelnek
-    const newTitle = title || rows[0].title;
-    const newDesc = description || rows[0].description;
     
-    // Biztonságos koordináta ellenőrzés (ha jött új, azt használjuk)
-    const newLat = lat !== undefined ? lat : rows[0].lat;
-    const newLng = lng !== undefined ? lng : rows[0].lng;
-
-    if (file) {
-      if (rows[0].drive_file_id) {
-        await drive.files.delete({ fileId: rows[0].drive_file_id }).catch(e => console.log('Törlési hiba:', e.message));
-      }
-      const fileStream = fs.createReadStream(file.path);
-      const fileExt = file.originalname && file.originalname.includes('.') ? file.originalname.substring(file.originalname.lastIndexOf('.')).toLowerCase() : '.jpg';
-      const driveRes = await drive.files.create({ 
-        requestBody: { name: `Location_Edit_${Date.now()}${fileExt}`, parents: [process.env.DRIVE_MASTER_FOLDER_ID] }, 
-        media: { mimeType: file.mimetype, body: fileStream }, 
-        fields: 'id, webViewLink' 
-      });
-      cleanupTempFile(file);
-      
-      await pool.query(
-        'UPDATE photo_locations SET title = ?, description = ?, lat = ?, lng = ?, file_url = ?, drive_file_id = ? WHERE id = ?', 
-        [newTitle, newDesc, newLat, newLng, driveRes.data.webViewLink, driveRes.data.id, req.params.id]
-      );
-    } else {
-      // Ha nincs kép, csak koordináta vagy szöveg frissítés
-      await pool.query(
-        'UPDATE photo_locations SET title = ?, description = ?, lat = ?, lng = ? WHERE id = ?', 
-        [newTitle, newDesc, newLat, newLng, req.params.id]
-      );
-    }
+    // Utána letöröljük a hozzá tartozó lájkokat (hogy ne akadjon össze az adatbázis)
+    await pool.query('DELETE FROM photo_location_likes WHERE location_id = ?', [req.params.id]);
+    
+    // Végül magát a helyszínt is töröljük
+    await pool.query('DELETE FROM photo_locations WHERE id = ?', [req.params.id]);
     res.json({ success: true });
   } catch (err) { 
-    if (file) cleanupTempFile(file);
     console.error(err);
-    res.status(500).json({ error: 'Adatbázis hiba a mentés során!' }); 
+    res.status(500).json({ error: 'Hiba a törlésnél' }); 
+  }
+});
+
+// Helyszín lájkolása (Like / Unlike Kapcsoló)
+app.post('/api/locations/:id/like', async (req, res) => {
+  const { userEmail } = req.body;
+  const locationId = req.params.id;
+
+  try {
+    // Megnézzük, hogy ez a user lájkolta-e már ezt a helyszínt
+    const [existing] = await pool.query(
+      'SELECT * FROM photo_location_likes WHERE location_id = ? AND user_email = ?', 
+      [locationId, userEmail]
+    );
+
+    if (existing.length > 0) {
+      // Ha már lájkolta, akkor ez egy UNLIKE akció (Töröljük az adatbázisból)
+      await pool.query(
+        'DELETE FROM photo_location_likes WHERE location_id = ? AND user_email = ?', 
+        [locationId, userEmail]
+      );
+    } else {
+      // Ha még nem lájkolta, akkor beszúrjuk a LIKE-ot az adatbázisba
+      await pool.query(
+        'INSERT INTO photo_location_likes (location_id, user_email) VALUES (?, ?)', 
+        [locationId, userEmail]
+      );
+    }
+    
+    // Sikeres válasz küldése a frontendnek
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Lájkolási hiba az adatbázisban:", err);
+    res.status(500).json({ error: 'Adatbázis hiba történt a lájkolás során.' });
   }
 });
 
