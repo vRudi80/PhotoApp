@@ -53,7 +53,6 @@ export default function MapSpotsView({ user, setFullscreenData }: MapSpotsViewPr
 
   const [activeSpot, setActiveSpot] = useState<any | null>(null);
   
-  // --- ÚJ: Komment állapotok ---
   const [comments, setComments] = useState<any[]>([]);
   const [newComment, setNewComment] = useState('');
   const [isCommenting, setIsCommenting] = useState(false);
@@ -85,7 +84,6 @@ export default function MapSpotsView({ user, setFullscreenData }: MapSpotsViewPr
     }
   };
 
-  // --- ÚJ: Kommentek betöltése, ha új helyszínt nyitunk meg ---
   const fetchComments = async (locationId: number) => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/locations/${locationId}/comments`);
@@ -142,7 +140,13 @@ export default function MapSpotsView({ user, setFullscreenData }: MapSpotsViewPr
     setUploadDesc(loc.description);
     setUploadFile(null);
     setUploadPreview(getImageUrl(loc.drive_file_id, loc.file_url));
-    setMapTargetPosition([loc.lat, loc.lng]); 
+    
+    // BIZTOSÍTÉK: Számmá konvertálás
+    const safeLat = parseFloat(loc.lat);
+    const safeLng = parseFloat(loc.lng);
+    if (!isNaN(safeLat) && !isNaN(safeLng)) {
+      setMapTargetPosition([safeLat, safeLng]); 
+    }
   };
 
   const handleMarkerDragEnd = async (id: number, e: any) => {
@@ -226,7 +230,6 @@ export default function MapSpotsView({ user, setFullscreenData }: MapSpotsViewPr
     } catch (e) { console.error(e); }
   };
 
-  // --- ÚJ: Komment beküldése ---
   const handlePostComment = async () => {
     if (!newComment.trim() || !activeSpot) return;
     setIsCommenting(true);
@@ -238,7 +241,7 @@ export default function MapSpotsView({ user, setFullscreenData }: MapSpotsViewPr
       });
       if (res.ok) {
         setNewComment('');
-        fetchComments(activeSpot.id); // Lista frissítése
+        fetchComments(activeSpot.id);
       }
     } catch (e) { alert("Hiba a komment elküldésekor!"); }
     finally { setIsCommenting(false); }
@@ -299,12 +302,20 @@ export default function MapSpotsView({ user, setFullscreenData }: MapSpotsViewPr
             <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
             <MapClickHandler onMapClick={handleMapClick} />
 
+            {/* BIZTOSÍTÉK: Szigorú adattípus ellenőrzés a Marker rajzolása előtt! */}
             {locations.map((loc) => {
+              if (!loc.lat || !loc.lng) return null; // Ha hibás sor van az adatbázisban, átugorjuk!
+              
+              const latNum = parseFloat(loc.lat);
+              const lngNum = parseFloat(loc.lng);
+              
+              if (isNaN(latNum) || isNaN(lngNum)) return null; // Ha véletlenül szöveg került be, átugorjuk!
+
               const isOwnOrAdmin = loc.user_email === user.email || isAdmin; 
               return (
                 <Marker 
                   key={loc.id} 
-                  position={[loc.lat, loc.lng]}
+                  position={[latNum, lngNum]}
                   draggable={isOwnOrAdmin}
                   eventHandlers={{
                     dragend: (e) => handleMarkerDragEnd(loc.id, e),
@@ -315,7 +326,6 @@ export default function MapSpotsView({ user, setFullscreenData }: MapSpotsViewPr
             })}
           </MapContainer>
 
-          {/* LEBEGŐ KÁRTYA KOMMENTEKKEL */}
           {activeSpot && (() => {
             const isOwnOrAdmin = activeSpot.user_email === user.email || isAdmin;
             const hasLiked = activeSpot.user_liked === 1;
@@ -324,15 +334,12 @@ export default function MapSpotsView({ user, setFullscreenData }: MapSpotsViewPr
             return (
               <div style={{ position: 'absolute', top: '15px', right: '15px', width: '340px', maxHeight: '620px', display: 'flex', flexDirection: 'column', background: 'rgba(15, 23, 42, 0.95)', backdropFilter: 'blur(10px)', border: '1px solid #334155', borderRadius: '16px', zIndex: 1000, boxShadow: '0 15px 30px rgba(0,0,0,0.5)', animation: 'slideIn 0.3s ease-out' }}>
                 
-                {/* Fejléc */}
                 <div style={{ padding: '15px 15px 0 15px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <h3 style={{ margin: '0 0 10px 0', color: '#f8fafc', fontSize: '1.2rem', lineHeight: '1.3', paddingRight: '10px' }}>{activeSpot.title}</h3>
                   <button onClick={() => setActiveSpot(null)} style={{ background: '#334155', color: '#cbd5e1', border: 'none', width: '28px', height: '28px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>✖</button>
                 </div>
 
-                {/* Gördíthető tartalom */}
                 <div style={{ padding: '0 15px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                  
                   <div onClick={() => setFullscreenData({url: imageUrl, title: activeSpot.title})} style={{ width: '100%', height: '160px', backgroundColor: '#000', borderRadius: '8px', overflow: 'hidden', cursor: 'zoom-in', flexShrink: 0, border: '1px solid #475569' }}>
                     <img src={imageUrl} alt={activeSpot.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   </div>
@@ -358,7 +365,6 @@ export default function MapSpotsView({ user, setFullscreenData }: MapSpotsViewPr
                     </div>
                   )}
 
-                  {/* KOMMENT SZEKCIÓ */}
                   <div style={{ borderTop: '1px solid #334155', paddingTop: '15px', marginTop: '5px' }}>
                     <h4 style={{ margin: '0 0 10px 0', color: '#f8fafc', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '6px' }}>💬 Hozzászólások <span style={{ background: '#334155', padding: '2px 8px', borderRadius: '50px', fontSize: '0.75rem' }}>{comments.length}</span></h4>
                     
@@ -381,7 +387,6 @@ export default function MapSpotsView({ user, setFullscreenData }: MapSpotsViewPr
                   
                 </div>
 
-                {/* Komment írása (Fixen alul) */}
                 <div style={{ padding: '15px', borderTop: '1px solid #1e293b', background: '#0f172a', borderBottomLeftRadius: '16px', borderBottomRightRadius: '16px' }}>
                   <div style={{ display: 'flex', gap: '8px' }}>
                     <input 
