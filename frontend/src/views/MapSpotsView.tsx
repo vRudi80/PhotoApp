@@ -41,39 +41,69 @@ function MapCameraController({ targetPosition }: { targetPosition: [number, numb
 }
 
 // ==========================================
-// --- ÚJ: Dedikált Marker Komponens a Leaflet Bug kikerülésére ---
+// --- ÚJ: Dedikált Marker Komponens a Ghost Popup hiba ellen ---
 // ==========================================
 function SpotMarker({ loc, isOwnOrAdmin, handleMarkerDragEnd, handleToggleLike, handleStartEdit, handleDeleteLocation, setFullscreenData }: any) {
-  // ÚJ TRÜKK: Egy belső számláló, amivel kényszerítjük a Reactet a gombostű újragenerálására
-  const [keyTick, setKeyTick] = useState(0); 
-  
+  // A ref-ekkel közvetlen hozzáférést kapunk a Leaflet objektumokhoz
+  const markerRef = useRef<any>(null);
+  const popupRef = useRef<any>(null);
+  const map = useMap(); // Hozzáférés a térkép objektumhoz
+
   const imageUrl = getImageUrl(loc.drive_file_id, loc.file_url);
   const hasLiked = loc.user_liked === 1;
 
+  // Ez a trükk a Ghost Popup megsemmisítésére
+  useEffect(() => {
+    // Amikor a gombostű létrejön, feliratkozunk a bezárási eseményre
+    const marker = markerRef.current;
+    if (!marker) return;
+
+    // Definiáljuk a drasztikus tisztító függvényt
+    const purgePopupDOM = () => {
+      setTimeout(() => {
+        // 1. Megkeressük a Leaflet popup-konténerét a DOM-ban
+        const popupPane = map.getPane('popupPane');
+        if (popupPane) {
+          // 2. Gyökerestül kitépünk belőle minden HTML elemet azonnal!
+          // Ez elpusztítja a láthatatlan "szellem" ablakot, ami blokkolta a térképet.
+          while (popupPane.firstChild) {
+            popupPane.removeChild(popupPane.firstChild);
+          }
+        }
+        // 3. Opcionálisan: újraindítjuk a marker eseménykezelőit a biztonság kedvéért
+        if (isOwnOrAdmin && marker.dragging) {
+          marker.dragging.disable();
+          marker.dragging.enable();
+        }
+      }, 10); // Egy minimális késleltetés kell, hogy a Leaflet saját eseményei lefussanak
+    };
+
+    // Hozzáadjuk az eseménykezelőt
+    marker.on('popupclose', purgePopupDOM);
+
+    // Takarítás, ha a gombostű megsemmisülne (React unmount)
+    return () => {
+      marker.off('popupclose', purgePopupDOM);
+    };
+  }, [map, isOwnOrAdmin]); // Csak akkor fut le újra, ha ezek változnak
+
   return (
     <Marker 
-      key={`${loc.id}-${keyTick}`} // Bűvészmutatvány: Ha a keyTick változik, a régi gombostű megsemmisül, és jön egy új!
+      ref={markerRef}
       position={[loc.lat, loc.lng]}
       draggable={isOwnOrAdmin}
       eventHandlers={{
         dragend: (e) => handleMarkerDragEnd(loc.id, e),
-        // LEAFLET BUG FIX: A "Nukleáris" megoldás.
-        popupclose: () => {
-          if (isOwnOrAdmin) {
-            // Amikor bezárul a buborék, várunk egy picit, majd kicseréljük a gombostűt egy újra!
-            setTimeout(() => {
-              setKeyTick(prev => prev + 1);
-            }, 50);
-          }
-        }
       }}
     >
-      <Popup>
+      <Popup ref={popupRef} className="purged-popup">
+        {/* Adunk egy osztálynevet a Popup-nak, hogy könnyebben megtaláljuk, ha kell */}
         <div style={{ width: '230px', textAlign: 'center', fontFamily: 'sans-serif' }}>
           <strong style={{ fontSize: '1.1rem', display: 'block', marginBottom: '6px', color: '#0f172a' }}>{loc.title}</strong>
           
           <div 
             onClick={(e) => {
+              // Megállítjuk a kattintást, hogy ne terjedjen át a térképre
               e.stopPropagation(); 
               e.preventDefault();
               setFullscreenData({url: imageUrl, title: loc.title});
@@ -100,14 +130,14 @@ function SpotMarker({ loc, isOwnOrAdmin, handleMarkerDragEnd, handleToggleLike, 
               <div style={{ display: 'flex', gap: '5px' }}>
                 <button 
                   onClick={(e) => { e.stopPropagation(); handleStartEdit(loc); }}
-                  title="Szerkesztés"
+                  title="Helyszín szerkesztése"
                   style={{ background: '#f59e0b20', color: '#d97706', border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}
                 >
                   Szerkeszt
                 </button>
                 <button 
                   onClick={(e) => { e.stopPropagation(); handleDeleteLocation(loc.id); }}
-                  title="Törlés"
+                  title="Helyszín törlése"
                   style={{ background: '#ef444420', color: '#ef4444', border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}
                 >
                   Töröl
