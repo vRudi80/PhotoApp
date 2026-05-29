@@ -23,6 +23,8 @@ L.Marker.prototype.options.icon = DefaultIcon;
 interface MapSpotsViewProps {
   user: any;
   setFullscreenData: (data: any) => void;
+  targetMapSpotId?: number | null;             // <-- EZT ADD HOZZÁ
+  setTargetMapSpotId?: (id: number | null) => void; // <-- EZT ADD HOZZÁ
 }
 
 function MapClickHandler({ onMapClick }: { onMapClick: (latlng: any) => void }) {
@@ -44,7 +46,7 @@ function MapCameraController({ targetPosition }: { targetPosition: [number, numb
   return null;
 }
 
-export default function MapSpotsView({ user, setFullscreenData }: MapSpotsViewProps) {
+export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId, setTargetMapSpotId }: MapSpotsViewProps) {
   const [locations, setLocations] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -99,7 +101,25 @@ export default function MapSpotsView({ user, setFullscreenData }: MapSpotsViewPr
       console.error("Hiba a kommentek betöltésekor");
     }
   };
-
+// ==========================================
+  // AUTÓMATIKUS UGRÁS A CÉL GOMBOSTŰRE
+  // ==========================================
+  useEffect(() => {
+    // Ha van célpontunk, ÉS már be is töltöttük a helyszíneket a szerverről
+    if (targetMapSpotId && locations.length > 0) {
+      // Megkeressük az adott ID-jű helyszínt a listában
+      const spotToOpen = locations.find(loc => loc.id === targetMapSpotId);
+      
+      if (spotToOpen) {
+        setActiveSpot(spotToOpen); // Megnyitjuk a lebegő kártyát
+        setMapTargetPosition([spotToOpen.lat, spotToOpen.lng]); // Odatekerjük a kamerát
+        
+        // Kinullázzuk a célt, hogy ha később simán megnyitja a térképet, ne ugorjon ide vissza
+        if (setTargetMapSpotId) setTargetMapSpotId(null); 
+      }
+    }
+  }, [targetMapSpotId, locations]);
+  
   useEffect(() => {
     fetchLocations(searchQuery);
   }, [searchQuery]);
