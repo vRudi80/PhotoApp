@@ -819,7 +819,7 @@ const fetchMyEntries = async (email: string) => {
   });
 
   return (
-    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+  
       {fullscreenData && (
         <FullscreenModal 
           data={fullscreenData} 
@@ -1078,7 +1078,7 @@ const fetchMyEntries = async (email: string) => {
           
         </div>
       )}
-    </GoogleOAuthProvider>
+
   );
 }
 
