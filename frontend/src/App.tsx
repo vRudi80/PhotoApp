@@ -818,8 +818,8 @@ const fetchMyEntries = async (email: string) => {
     return matchName || matchPatron;
   });
 
-  return (
-  
+    return (
+    <>
       {fullscreenData && (
         <FullscreenModal 
           data={fullscreenData} 
@@ -855,7 +855,6 @@ const fetchMyEntries = async (email: string) => {
             onLogout={() => { localStorage.removeItem('photoAppToken'); setUser(null); }} 
           />
           
-          {/* JAVÍTÁS: A dupla <main> taget kivettük, így szép tiszta a kódstruktúra */}
           <main className="app-main">
             {activeTab === 'dashboard' && (
               <DashboardView 
@@ -1078,7 +1077,7 @@ const fetchMyEntries = async (email: string) => {
           
         </div>
       )}
-
+    </>
   );
 }
 
