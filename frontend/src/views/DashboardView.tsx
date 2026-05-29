@@ -5,6 +5,7 @@ interface DashboardViewProps {
   user: any;
   isLeader: boolean;
   setActiveTab: (tab: string) => void;
+  setTargetMapSpotId?: (id: number | null) => void;
 }
 
 export default function DashboardView({ user, isLeader, setActiveTab }: DashboardViewProps) {
