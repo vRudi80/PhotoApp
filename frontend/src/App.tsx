@@ -27,6 +27,7 @@ import WeeklyChallengeView from './views/WeeklyChallengeView';
 import AdminWeeklyView from './views/admin/AdminWeeklyView';
 import ClubNewsView from './views/ClubNewsView';
 
+
 import MafoszProgressView from './views/MafoszProgressView'; 
 import PackagesView from './components/PackagesView'; 
 
