@@ -48,11 +48,20 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
 
   // --- ÉRTESÍTÉSEK KEZELÉSE ---
 
-  const handleDismissAlert = (e: React.MouseEvent, alertKey: string) => {
+const handleDismissAlert = (e: React.MouseEvent, alertKey: string, type?: string, id?: number) => {
     e.stopPropagation(); 
     const newDismissed = [...dismissedAlerts, alertKey];
     setDismissedAlerts(newDismissed);
     localStorage.setItem('dismissed_alerts', JSON.stringify(newDismissed));
+
+    // ÚJ: Ha térkép kommentet ikszeltünk ki, szólunk a szervernek!
+    if (type === 'map_comment' && id) {
+      fetch(`${BACKEND_URL}/api/locations/comments/${id}/read`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userEmail: user.email })
+      }).catch(err => console.error(err));
+    }
   };
 
   const handleNewsClick = (newsId: number) => {
@@ -68,6 +77,24 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
     }).catch(err => console.error(err));
 
     setActiveTab('club_news');
+  };
+
+  // ÚJ: Átadjuk a commentId-t is
+  const handleMapCommentClick = (locationId: number, commentId: number) => {
+    const alertKey = `com_${commentId}`;
+    const newDismissed = [...dismissedAlerts, alertKey];
+    setDismissedAlerts(newDismissed);
+    localStorage.setItem('dismissed_alerts', JSON.stringify(newDismissed));
+    
+    // Szólunk a szervernek, hogy véglegesen olvasott
+    fetch(`${BACKEND_URL}/api/locations/comments/${commentId}/read`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userEmail: user.email })
+    }).catch(err => console.error(err));
+
+    if (setTargetMapSpotId) setTargetMapSpotId(locationId);
+    setActiveTab('map_spots');
   };
 
   const handleMapCommentClick = (locationId: number, createdAt: string) => {
@@ -95,7 +122,7 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
   const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString('hu-HU', { month: 'short', day: 'numeric' });
 
   const visibleNews = alerts?.unreadNews?.filter((n: any) => !dismissedAlerts.includes(`news_${n.id}`)) || [];
-  const visibleComments = alerts?.mapComments?.filter((c: any) => !dismissedAlerts.includes(`com_${c.location_id}_${c.created_at}`)) || [];
+  const visibleComments = alerts?.mapComments?.filter((c: any) => !dismissedAlerts.includes(`com_${c.comment_id}`)) || [];
   const visibleWeekly = alerts?.weekly || null;
   const visibleHomeworks = alerts?.homeworks || [];
   const visibleContests = alerts?.contests || [];
@@ -152,8 +179,8 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
             ))}
 
             {visibleComments.map((comment: any) => (
-              <div key={`com_${comment.location_id}_${comment.created_at}`} onClick={() => handleMapCommentClick(comment.location_id, comment.created_at)} className="alert-card" style={{ background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(16, 185, 129, 0.05))', border: '1px solid #10b98150', borderLeft: '4px solid #10b981' }}>
-                <button className="dismiss-btn" onClick={(e) => handleDismissAlert(e, `com_${comment.location_id}_${comment.created_at}`)}>✖</button>
+              <div key={`com_${comment.comment_id}`} onClick={() => handleMapCommentClick(comment.location_id, comment.comment_id)} className="alert-card" style={{ background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(16, 185, 129, 0.05))', border: '1px solid #10b98150', borderLeft: '4px solid #10b981' }}>
+                <button className="dismiss-btn" onClick={(e) => handleDismissAlert(e, `com_${comment.comment_id}`, 'map_comment', comment.comment_id)}>✖</button>
                 <div style={{ fontSize: '1.5rem', marginBottom: '8px' }}>💬</div>
                 <div style={{ color: '#10b981', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '2px', textTransform: 'uppercase' }}>Térkép: {comment.user_name} írt</div>
                 <h4 style={{ margin: 0, color: '#f8fafc', fontSize: '0.95rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Helyszín: {comment.location_title}</h4>
