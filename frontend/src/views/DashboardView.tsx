@@ -97,16 +97,6 @@ const handleDismissAlert = (e: React.MouseEvent, alertKey: string, type?: string
     setActiveTab('map_spots');
   };
 
-  const handleMapCommentClick = (locationId: number, createdAt: string) => {
-    const alertKey = `com_${locationId}_${createdAt}`;
-    const newDismissed = [...dismissedAlerts, alertKey];
-    setDismissedAlerts(newDismissed);
-    localStorage.setItem('dismissed_alerts', JSON.stringify(newDismissed));
-    
-    if (setTargetMapSpotId) setTargetMapSpotId(locationId);
-    setActiveTab('map_spots');
-  };
-  
   const tiles = [
     { id: 'weekly_challenge', icon: '🔥', color: '#f97316', title: 'Heti Kihívás (Párbaj)', desc: 'Tölts fel az aktuális heti témában, szavazz mások képeire és kerülj a toplista élére!', tab: 'weekly_challenge' },
     { id: 'contests', icon: '📝', color: '#8b5cf6', title: 'Nyílt Pályázatok', desc: 'Vegyél részt a közösségi vagy zártkörű házi fotópályázatokon.', tab: 'contests_open_active' },
