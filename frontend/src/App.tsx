@@ -34,6 +34,77 @@ function App() {
   const [user, setUser] = useState<any>(null);
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [clubs, setClubs] = useState<any[]>([]);
+
+  // ==========================================
+  // --- CSENDES SZINKRONIZÁLÓ (AUTO-WAKE-UP) ---
+  // ==========================================
+  useEffect(() => {
+    const silentAuthSync = async () => {
+      const storedUserStr = localStorage.getItem('user');
+      if (!storedUserStr) return;
+
+      try {
+        const localUser = JSON.parse(storedUserStr);
+        if (!localUser || !localUser.email) return;
+
+        // 1. Prémium státusz és alap adatok azonnali frissítése
+        const authRes = await fetch(`${BACKEND_URL}/api/auth/sync`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: localUser.email,
+            name: localUser.name,
+            sub: localUser.googleId || localUser.sub || 'silent-sync'
+          })
+        });
+
+        if (authRes.ok) {
+          const authData = await authRes.json();
+          const freshUser = {
+            ...localUser,
+            isPremium: authData.isPremium,
+            premiumLevel: authData.premiumLevel,
+            premiumUntil: authData.premiumUntil
+          };
+          
+          localStorage.setItem('user', JSON.stringify(freshUser));
+          setUser(freshUser); // Frissíti az épp bejelentkezett usert
+        }
+
+        // 2. Az összes adatbázisos user (köztük a klubtagok és adminok) frissítése
+        const usersRes = await fetch(`${BACKEND_URL}/api/users`);
+        if (usersRes.ok) {
+          const freshAllUsers = await usersRes.json();
+          setAllUsers(freshAllUsers); // Frissíti a teljes listát a memóriában
+        }
+
+      } catch (error) {
+        console.error('Csendes szinkronizációs hiba a háttérben:', error);
+      }
+    };
+
+    // Lefut azonnal a betöltéskor
+    silentAuthSync();
+
+    // Figyelők: Ha visszaváltanak a fülre, vagy fókuszt kap az ablak
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        silentAuthSync();
+      }
+    };
+    const handleFocus = () => {
+      silentAuthSync();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    // Takarítás kilépéskor
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, []);
   const [salonPatronNumbers, setSalonPatronNumbers] = useState<Record<number, string>>({});
   const [userEntrySalonIds, setUserEntrySalonIds] = useState<number[]>([]);
   
