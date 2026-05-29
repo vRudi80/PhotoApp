@@ -1183,7 +1183,6 @@ app.get('/api/my-album', checkPremium, async (req, res) => {
   }
 });
 
-// 2. ÚJ (VISSZAÁLLÍTOTT): Kép feltöltése az albumba
 // 2. Kép feltöltése az albumba (Atombiztos verzió)
 app.post('/api/my-album/upload', upload.single('photo'), checkPremium, async (req, res) => {
   const file = req.file;
@@ -2194,16 +2193,18 @@ app.get('/api/dashboard-alerts', async (req, res) => {
     }
 
     // 5. Friss kommentek a saját térképes gombostűkön (Utolsó 7 nap, és nem saját maga írta)
+// 5. Friss kommentek a saját térképes gombostűkön (Utolsó 7 nap, és nem saját maga írta)
     const [mapComments] = await pool.query(`
-      SELECT c.location_id, l.title as location_title, c.user_name, c.created_at 
+      SELECT c.id as comment_id, c.location_id, l.title as location_title, c.user_name, c.created_at 
       FROM photo_location_comments c 
       JOIN photo_locations l ON c.location_id = l.id 
       WHERE l.user_email = ? 
       AND c.user_email != ? 
       AND c.created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)
+      AND c.id NOT IN (SELECT comment_id FROM photo_location_comment_reads WHERE user_email = ?)
       ORDER BY c.created_at DESC
       LIMIT 5
-    `, [userEmail, userEmail]);
+    `, [userEmail, userEmail, userEmail]);
 
     res.json({
       contests,
@@ -2216,6 +2217,19 @@ app.get('/api/dashboard-alerts', async (req, res) => {
   } catch (err) {
     console.error('Dashboard alerts error:', err);
     res.status(500).json({ error: 'Hiba az értesítések betöltésekor' });
+  }
+});
+// Térkép komment olvasottá tétele
+app.post('/api/locations/comments/:commentId/read', async (req, res) => {
+  const { userEmail } = req.body;
+  try {
+    await pool.query(
+      'INSERT IGNORE INTO photo_location_comment_reads (comment_id, user_email) VALUES (?, ?)',
+      [req.params.commentId, userEmail]
+    );
+    res.json({ success: true });
+  } catch (err) { 
+    res.status(500).json({ error: 'Hiba az olvasottság rögzítésekor' }); 
   }
 });
 const PORT = process.env.PORT || 4000;
