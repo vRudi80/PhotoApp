@@ -2,7 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.tsx'
 import { GoogleOAuthProvider } from '@react-oauth/google'
-import './index.css' // Ha van ilyened
+
 
 const GOOGLE_CLIENT_ID = "A_TE_CLIENT_ID_KÓDOD.apps.googleusercontent.com";
 
