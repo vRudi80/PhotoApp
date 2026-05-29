@@ -11,15 +11,22 @@ interface DashboardViewProps {
 export default function DashboardView({ user, isLeader, setActiveTab, setTargetMapSpotId }: DashboardViewProps) {
   const [alerts, setAlerts] = useState<any>(null);
   const [isLoadingAlerts, setIsLoadingAlerts] = useState(true);
+  
+  // A már bezárt / olvasott értesítések azonosítóit tároljuk
+  const [dismissedAlerts, setDismissedAlerts] = useState<string[]>([]);
 
-  // Értesítések lekérése
+  // 1. Memóriából (localStorage) betöltjük a korábban "ikszelt" értesítéseket
+  useEffect(() => {
+    const stored = localStorage.getItem('dismissed_alerts');
+    if (stored) setDismissedAlerts(JSON.parse(stored));
+  }, []);
+
+  // 2. Értesítések lekérése a szerverről
   useEffect(() => {
     const fetchAlerts = async () => {
       try {
         const res = await fetch(`${BACKEND_URL}/api/dashboard-alerts?userEmail=${user.email}`);
-        if (res.ok) {
-          setAlerts(await res.json());
-        }
+        if (res.ok) setAlerts(await res.json());
       } catch (e) {
         console.error("Hiba az értesítések lekérésekor", e);
       } finally {
@@ -28,6 +35,41 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
     };
     if (user?.email) fetchAlerts();
   }, [user]);
+
+  // --- ÉRTESÍTÉSEK KEZELÉSE ---
+
+  // Kézi bezárás (X gomb) és automatikus háttér-szinkronizáció
+  const handleDismissAlert = (e: React.MouseEvent, alertKey: string, alertType?: string, id?: number) => {
+    e.stopPropagation(); // Ne kattintson bele a kártyába, csak a gombot érzékelje!
+    
+    const newDismissed = [...dismissedAlerts, alertKey];
+    setDismissedAlerts(newDismissed);
+    localStorage.setItem('dismissed_alerts', JSON.stringify(newDismissed));
+
+    // Ha ez egy Klub Hír, a háttérben azonnal rögzítjük a szerveren is, hogy elolvasta!
+    if (alertType === 'news' && id) {
+      fetch(`${BACKEND_URL}/api/news/${id}/read`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userEmail: user.email })
+      }).catch(err => console.error(err));
+    }
+  };
+
+  // Kattintás Klub Hírre: Ugrás + Automatikus Olvasottá tétel
+  const handleNewsClick = (newsId: number) => {
+    const alertKey = `news_${newsId}`;
+    handleDismissAlert({ stopPropagation: () => {} } as React.MouseEvent, alertKey, 'news', newsId);
+    setActiveTab('club_news');
+  };
+
+  // Kattintás Térkép Kommentre: Ugrás gombostűre + Automatikus eltüntetés
+  const handleMapCommentClick = (locationId: number, createdAt: string) => {
+    const alertKey = `com_${locationId}_${createdAt}`;
+    handleDismissAlert({ stopPropagation: () => {} } as React.MouseEvent, alertKey);
+    if (setTargetMapSpotId) setTargetMapSpotId(locationId);
+    setActiveTab('map_spots');
+  };
   
   // A csempék adatai
   const tiles = [
@@ -42,10 +84,16 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
 
   const adminTile = { id: 'admin', icon: '⚙️', color: '#ef4444', title: 'Adminisztráció', desc: 'Pályázatok, klubestek, felhasználók és szalonok kezelése.', tab: (user?.email === ADMIN_EMAIL) ? 'admin_contests' : 'admin_meetings' };
 
-  // Dátum formázó segédfüggvény
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('hu-HU', { month: 'short', day: 'numeric' });
-  };
+  const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString('hu-HU', { month: 'short', day: 'numeric' });
+
+  // Szűrjük a látható értesítéseket (amiket még nem zárt be a user)
+  const visibleNews = alerts?.unreadNews?.filter((n: any) => !dismissedAlerts.includes(`news_${n.id}`)) || [];
+  const visibleComments = alerts?.mapComments?.filter((c: any) => !dismissedAlerts.includes(`com_${c.location_id}_${c.created_at}`)) || [];
+  const visibleWeekly = (alerts?.weekly && !dismissedAlerts.includes(`weekly_${alerts.weekly.id}`)) ? alerts.weekly : null;
+  const visibleHomeworks = alerts?.homeworks?.filter((h: any) => !dismissedAlerts.includes(`hw_${h.id}`)) || [];
+  const visibleContests = alerts?.contests?.filter((c: any) => !dismissedAlerts.includes(`cont_${c.id}`)) || [];
+
+  const hasAnyVisibleAlerts = visibleNews.length > 0 || visibleComments.length > 0 || visibleWeekly || visibleHomeworks.length > 0 || visibleContests.length > 0;
 
   return (
     <div style={{ animation: 'fadeIn 0.5s ease-out' }}>
@@ -67,7 +115,7 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
         )}
       </div>
 
-      {/* --- ÚJ: ÉRTESÍTÉSI KÖZPONT (ACTION CENTER) --- */}
+      {/* --- ÉRTESÍTÉSI KÖZPONT --- */}
       {!isLoadingAlerts && alerts && (
         <div style={{ marginBottom: '35px' }}>
           <h2 style={{ fontSize: '1.2rem', color: '#cbd5e1', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -76,57 +124,56 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
           
           <div style={{ display: 'flex', gap: '15px', overflowX: 'auto', paddingBottom: '10px', scrollbarWidth: 'thin', scrollbarColor: '#475569 transparent' }} className="custom-scrollbar">
             
-            {/* Olvasatlan Klub Hírek */}
-            {alerts.unreadNews?.map((news: any) => (
-              <div key={`news_${news.id}`} onClick={() => setActiveTab('club_news')} className="alert-card" style={{ background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(239, 68, 68, 0.05))', border: '1px solid #ef444450', borderLeft: '4px solid #ef4444' }}>
+            {visibleNews.map((news: any) => (
+              <div key={`news_${news.id}`} onClick={() => handleNewsClick(news.id)} className="alert-card" style={{ background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(239, 68, 68, 0.05))', border: '1px solid #ef444450', borderLeft: '4px solid #ef4444' }}>
+                <button className="dismiss-btn" onClick={(e) => handleDismissAlert(e, `news_${news.id}`, 'news', news.id)}>✖</button>
                 <div style={{ fontSize: '1.5rem', marginBottom: '8px' }}>📰</div>
                 <div style={{ color: '#ef4444', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '2px', textTransform: 'uppercase' }}>Új Klub Hír!</div>
                 <h4 style={{ margin: 0, color: '#f8fafc', fontSize: '0.95rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{news.title}</h4>
               </div>
             ))}
 
-            {/* Térképes Kommentek */}
-            {alerts.mapComments?.map((comment: any) => (
-              <div key={`com_${comment.location_id}_${comment.created_at}`} onClick={() => {
-                if (setTargetMapSpotId) setTargetMapSpotId(comment.location_id);
-                setActiveTab('map_spots');
-              }} className="alert-card" style={{ background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(16, 185, 129, 0.05))', border: '1px solid #10b98150', borderLeft: '4px solid #10b981' }}>
+            {visibleComments.map((comment: any) => (
+              <div key={`com_${comment.location_id}_${comment.created_at}`} onClick={() => handleMapCommentClick(comment.location_id, comment.created_at)} className="alert-card" style={{ background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(16, 185, 129, 0.05))', border: '1px solid #10b98150', borderLeft: '4px solid #10b981' }}>
+                <button className="dismiss-btn" onClick={(e) => handleDismissAlert(e, `com_${comment.location_id}_${comment.created_at}`)}>✖</button>
                 <div style={{ fontSize: '1.5rem', marginBottom: '8px' }}>💬</div>
                 <div style={{ color: '#10b981', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '2px', textTransform: 'uppercase' }}>Térkép: {comment.user_name} írt</div>
                 <h4 style={{ margin: 0, color: '#f8fafc', fontSize: '0.95rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Helyszín: {comment.location_title}</h4>
               </div>
             ))}
 
-            {/* Aktív Heti Kihívás */}
-            {alerts.weekly && (
+            {visibleWeekly && (
               <div onClick={() => setActiveTab('weekly_challenge')} className="alert-card" style={{ background: 'linear-gradient(135deg, rgba(249, 115, 22, 0.1), rgba(249, 115, 22, 0.05))', border: '1px solid #f9731650', borderLeft: '4px solid #f97316' }}>
+                <button className="dismiss-btn" onClick={(e) => handleDismissAlert(e, `weekly_${visibleWeekly.id}`)}>✖</button>
                 <div style={{ fontSize: '1.5rem', marginBottom: '8px' }}>🔥</div>
-                <div style={{ color: '#f97316', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '2px', textTransform: 'uppercase' }}>Futó Párbaj ({formatDate(alerts.weekly.end_date)}-ig)</div>
-                <h4 style={{ margin: 0, color: '#f8fafc', fontSize: '0.95rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{alerts.weekly.title}</h4>
+                <div style={{ color: '#f97316', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '2px', textTransform: 'uppercase' }}>Futó Párbaj ({formatDate(visibleWeekly.end_date)}-ig)</div>
+                <h4 style={{ margin: 0, color: '#f8fafc', fontSize: '0.95rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{visibleWeekly.title}</h4>
               </div>
             )}
 
-            {/* Aktív Klub Házi Feladatok */}
-            {alerts.homeworks?.map((hw: any) => (
+            {visibleHomeworks.map((hw: any) => (
               <div key={`hw_${hw.id}`} onClick={() => setActiveTab('club_homeworks')} className="alert-card" style={{ background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.1), rgba(6, 182, 212, 0.05))', border: '1px solid #06b6d450', borderLeft: '4px solid #06b6d4' }}>
+                <button className="dismiss-btn" onClick={(e) => handleDismissAlert(e, `hw_${hw.id}`)}>✖</button>
                 <div style={{ fontSize: '1.5rem', marginBottom: '8px' }}>📸</div>
                 <div style={{ color: '#06b6d4', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '2px', textTransform: 'uppercase' }}>Házi feladat ({formatDate(hw.deadline)}-ig)</div>
                 <h4 style={{ margin: 0, color: '#f8fafc', fontSize: '0.95rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{hw.topic}</h4>
               </div>
             ))}
 
-            {/* Aktív Nyílt Pályázatok */}
-            {alerts.contests?.map((contest: any) => (
+            {visibleContests.map((contest: any) => (
               <div key={`cont_${contest.id}`} onClick={() => setActiveTab('contests_open_active')} className="alert-card" style={{ background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(139, 92, 246, 0.05))', border: '1px solid #8b5cf650', borderLeft: '4px solid #8b5cf6' }}>
+                <button className="dismiss-btn" onClick={(e) => handleDismissAlert(e, `cont_${contest.id}`)}>✖</button>
                 <div style={{ fontSize: '1.5rem', marginBottom: '8px' }}>🏆</div>
                 <div style={{ color: '#8b5cf6', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '2px', textTransform: 'uppercase' }}>Aktív Pályázat ({formatDate(contest.end_date)}-ig)</div>
                 <h4 style={{ margin: 0, color: '#f8fafc', fontSize: '0.95rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{contest.title}</h4>
               </div>
             ))}
 
-            {/* Ha semmi nincs */}
-            {(!alerts.weekly && alerts.unreadNews?.length === 0 && alerts.mapComments?.length === 0 && alerts.homeworks?.length === 0 && alerts.contests?.length === 0) && (
-              <div style={{ color: '#64748b', fontSize: '0.95rem', fontStyle: 'italic', padding: '10px 0' }}>Jelenleg nincs új értesítésed vagy határidős feladatod.</div>
+            {/* Ha semmi nincs vagy mindent bezártak */}
+            {!hasAnyVisibleAlerts && (
+              <div style={{ color: '#64748b', fontSize: '0.95rem', fontStyle: 'italic', padding: '10px 0' }}>
+                Jelenleg nincs új értesítésed vagy határidős feladatod. Nyugalom van! ☕
+              </div>
             )}
 
           </div>
@@ -198,16 +245,16 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
           background: #ef444410 !important;
         }
         
-        /* ÚJ: Értesítés kártyák stílusa */
+        /* Értesítés kártyák stílusa */
         .alert-card {
           min-width: 220px;
           max-width: 280px;
           padding: 15px;
-          borderRadius: 12px;
+          border-radius: 12px;
           cursor: pointer;
           transition: all 0.2s ease-out;
           flex-shrink: 0;
-          border-radius: 12px;
+          position: relative;
         }
         .alert-card:hover {
           transform: translateY(-3px);
@@ -215,17 +262,32 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
           filter: brightness(1.2);
         }
 
-        /* Szép görgetősáv a vízszintes menühöz */
-        .custom-scrollbar::-webkit-scrollbar {
-          height: 6px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
+        /* A kis X (Bezáró gomb) stílusa */
+        .dismiss-btn {
+          position: absolute;
+          top: 8px;
+          right: 8px;
           background: transparent;
+          border: none;
+          color: #94a3b8;
+          cursor: pointer;
+          font-size: 1.1rem;
+          padding: 4px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.2s;
         }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background-color: #475569;
-          border-radius: 10px;
+        .dismiss-btn:hover {
+          background: rgba(255,255,255,0.1);
+          color: #f8fafc;
         }
+
+        /* Szép görgetősáv a vízszintes menühöz */
+        .custom-scrollbar::-webkit-scrollbar { height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #475569; border-radius: 10px; }
         
         @keyframes fadeIn {
           from { opacity: 0; transform: translateY(10px); }
