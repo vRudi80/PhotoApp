@@ -8,7 +8,7 @@ interface DashboardViewProps {
   setTargetMapSpotId?: (id: number | null) => void;
 }
 
-export default function DashboardView({ user, isLeader, setActiveTab }: DashboardViewProps) {
+export default function DashboardView({ user, isLeader, setActiveTab, setTargetMapSpotId }: DashboardViewProps) {
   const [alerts, setAlerts] = useState<any>(null);
   const [isLoadingAlerts, setIsLoadingAlerts] = useState(true);
 
@@ -87,7 +87,10 @@ export default function DashboardView({ user, isLeader, setActiveTab }: Dashboar
 
             {/* Térképes Kommentek */}
             {alerts.mapComments?.map((comment: any) => (
-              <div key={`com_${comment.location_id}_${comment.created_at}`} onClick={() => setActiveTab('map_spots')} className="alert-card" style={{ background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(16, 185, 129, 0.05))', border: '1px solid #10b98150', borderLeft: '4px solid #10b981' }}>
+              <div key={`com_${comment.location_id}_${comment.created_at}`} onClick={() => {
+                if (setTargetMapSpotId) setTargetMapSpotId(comment.location_id);
+                setActiveTab('map_spots');
+              }} className="alert-card" style={{ background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(16, 185, 129, 0.05))', border: '1px solid #10b98150', borderLeft: '4px solid #10b981' }}>
                 <div style={{ fontSize: '1.5rem', marginBottom: '8px' }}>💬</div>
                 <div style={{ color: '#10b981', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '2px', textTransform: 'uppercase' }}>Térkép: {comment.user_name} írt</div>
                 <h4 style={{ margin: 0, color: '#f8fafc', fontSize: '0.95rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Helyszín: {comment.location_title}</h4>
