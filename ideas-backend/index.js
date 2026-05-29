@@ -2152,5 +2152,71 @@ app.post('/api/news/:id/comments', async (req, res) => {
     res.status(500).json({ error: 'Hiba a komment mentésekor' }); 
   }
 });
+// ==========================================
+// --- DASHBOARD ÉRTESÍTÉSEK (ACTION CENTER) ---
+// ==========================================
+app.get('/api/dashboard-alerts', async (req, res) => {
+  const { userEmail } = req.query;
+  try {
+    // 1. Megkeressük a user klubját
+    const [users] = await pool.query('SELECT club_name FROM photo_users WHERE email = ?', [userEmail]);
+    const clubName = users.length > 0 ? users[0].club_name : null;
+
+    // 2. Aktív nyílt pályázatok (Még tartanak)
+    const [contests] = await pool.query('SELECT id, title, end_date FROM photo_contests WHERE start_date <= CURRENT_DATE() AND end_date >= CURRENT_DATE() ORDER BY end_date ASC');
+
+    // 3. Aktív heti kihívás
+    const [weekly] = await pool.query('SELECT id, title, end_date FROM weekly_topics WHERE start_date <= CURRENT_DATE() AND end_date >= CURRENT_DATE() LIMIT 1');
+
+    // 4. Klub specifikus dolgok (Ha van klubja)
+    let homeworks = [];
+    let unreadNews = [];
+    
+    if (clubName) {
+      const [clubs] = await pool.query('SELECT id FROM photo_clubs WHERE name = ?', [clubName]);
+      if (clubs.length > 0) {
+        const clubId = clubs[0].id;
+        
+        // Aktív házik
+        const [hw] = await pool.query('SELECT id, topic, deadline FROM photo_homeworks WHERE club_id = ? AND deadline >= CURRENT_DATE() ORDER BY deadline ASC', [clubId]);
+        homeworks = hw;
+
+        // Olvasatlan hírek (Ahol a user még nincs benne a "reads" táblában)
+        const [news] = await pool.query(`
+          SELECT id, title, created_at 
+          FROM photo_club_news 
+          WHERE club_id = ? 
+          AND id NOT IN (SELECT news_id FROM photo_club_news_reads WHERE user_email = ?)
+          ORDER BY created_at DESC
+        `, [clubId, userEmail]);
+        unreadNews = news;
+      }
+    }
+
+    // 5. Friss kommentek a saját térképes gombostűkön (Utolsó 7 nap, és nem saját maga írta)
+    const [mapComments] = await pool.query(`
+      SELECT c.location_id, l.title as location_title, c.user_name, c.created_at 
+      FROM photo_location_comments c 
+      JOIN photo_locations l ON c.location_id = l.id 
+      WHERE l.user_email = ? 
+      AND c.user_email != ? 
+      AND c.created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)
+      ORDER BY c.created_at DESC
+      LIMIT 5
+    `, [userEmail, userEmail]);
+
+    res.json({
+      contests,
+      weekly: weekly.length > 0 ? weekly[0] : null,
+      homeworks,
+      unreadNews,
+      mapComments
+    });
+
+  } catch (err) {
+    console.error('Dashboard alerts error:', err);
+    res.status(500).json({ error: 'Hiba az értesítések betöltésekor' });
+  }
+});
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => console.log(`Szerver fut a ${PORT} porton`));
