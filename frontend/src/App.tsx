@@ -33,6 +33,7 @@ import PackagesView from './components/PackagesView';
 function App() {
   const [user, setUser] = useState<any>(null);
   const [allUsers, setAllUsers] = useState<any[]>([]);
+  const [targetMapSpotId, setTargetMapSpotId] = useState<number | null>(null);
   const [clubs, setClubs] = useState<any[]>([]);
 
   // ==========================================
@@ -860,7 +861,8 @@ const fetchMyEntries = async (email: string) => {
               <DashboardView 
                 user={user} 
                 isLeader={!!isLeader} 
-                setActiveTab={setActiveTab} 
+                setActiveTab={setActiveTab}
+                setTargetMapSpotId={setTargetMapSpotId}
               />
             )}
 
@@ -875,7 +877,9 @@ const fetchMyEntries = async (email: string) => {
             {activeTab === 'map_spots' && (
               <MapSpotsView 
               user={user} 
-              setFullscreenData={setFullscreenData} 
+              setFullscreenData={setFullscreenData}
+              targetMapSpotId={targetMapSpotId} 
+              setTargetMapSpotId={setTargetMapSpotId}
                 />
             )}
             {activeTab === 'club_news' && (
