@@ -26,6 +26,8 @@ import DashboardView from './views/DashboardView';
 import WeeklyChallengeView from './views/WeeklyChallengeView';
 import AdminWeeklyView from './views/admin/AdminWeeklyView';
 import ClubNewsView from './views/ClubNewsView';
+
+
 import MafoszProgressView from './views/MafoszProgressView'; 
 import PackagesView from './components/PackagesView'; 
 
@@ -35,6 +37,76 @@ function App() {
   const [targetMapSpotId, setTargetMapSpotId] = useState<number | null>(null);
   const [clubs, setClubs] = useState<any[]>([]);
 
+  // ==========================================
+  // --- CSENDES SZINKRONIZÁLÓ (AUTO-WAKE-UP) ---
+  // ==========================================
+  useEffect(() => {
+    const silentAuthSync = async () => {
+      const storedUserStr = localStorage.getItem('user');
+      if (!storedUserStr) return;
+
+      try {
+        const localUser = JSON.parse(storedUserStr);
+        if (!localUser || !localUser.email) return;
+
+        // 1. Prémium státusz és alap adatok azonnali frissítése
+        const authRes = await fetch(`${BACKEND_URL}/api/auth/sync`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: localUser.email,
+            name: localUser.name,
+            sub: localUser.googleId || localUser.sub || 'silent-sync'
+          })
+        });
+
+        if (authRes.ok) {
+          const authData = await authRes.json();
+          const freshUser = {
+            ...localUser,
+            isPremium: authData.isPremium,
+            premiumLevel: authData.premiumLevel,
+            premiumUntil: authData.premiumUntil
+          };
+          
+          localStorage.setItem('user', JSON.stringify(freshUser));
+          setUser(freshUser); // Frissíti az épp bejelentkezett usert
+        }
+
+        // 2. Az összes adatbázisos user (köztük a klubtagok és adminok) frissítése
+        const usersRes = await fetch(`${BACKEND_URL}/api/users`);
+        if (usersRes.ok) {
+          const freshAllUsers = await usersRes.json();
+          setAllUsers(freshAllUsers); // Frissíti a teljes listát a memóriában
+        }
+
+      } catch (error) {
+        console.error('Csendes szinkronizációs hiba a háttérben:', error);
+      }
+    };
+
+    // Lefut azonnal a betöltéskor
+    silentAuthSync();
+
+    // Figyelők: Ha visszaváltanak a fülre, vagy fókuszt kap az ablak
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        silentAuthSync();
+      }
+    };
+    const handleFocus = () => {
+      silentAuthSync();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    // Takarítás kilépéskor
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, []);
   const [salonPatronNumbers, setSalonPatronNumbers] = useState<Record<number, string>>({});
   const [userEntrySalonIds, setUserEntrySalonIds] = useState<number[]>([]);
   
@@ -78,6 +150,7 @@ function App() {
   
   const [selectedSalon, setSelectedSalon] = useState<any>(null);
 
+  // JAVÍTÁS: A hibás TypeScript leírást eltávolítottuk, letisztítva csak a string maradt.
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [dropdownOpen, setDropdownOpen] = useState<'contests' | 'club' | 'admin' | 'progress' | null>(null);
 
@@ -170,77 +243,6 @@ function App() {
 
   const [fullscreenData, setFullscreenData] = useState<any>(null);
 
-  // ==========================================
-  // --- INAKTIVITÁS FIGYELŐ (AUTO-LOGOUT) ---
-  // ==========================================
-  useEffect(() => {
-    if (!user) return; 
-
-    const INACTIVITY_LIMIT_MS = 15 * 60 * 1000; // 15 perc
-    let timeoutId: NodeJS.Timeout;
-
-    const resetTimer = () => {
-      clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => {
-        localStorage.removeItem('photoAppToken');
-        setUser(null);
-        alert("Biztonsági okokból automatikusan kijelentkeztettünk az inaktivitás miatt.");
-      }, INACTIVITY_LIMIT_MS);
-    };
-
-    const events = ['mousemove', 'keydown', 'mousedown', 'touchstart', 'scroll'];
-    events.forEach(event => window.addEventListener(event, resetTimer));
-    
-    resetTimer();
-
-    return () => {
-      events.forEach(event => window.removeEventListener(event, resetTimer));
-      clearTimeout(timeoutId);
-    };
-  }, [user]);
-
-  // ==========================================
-  // --- ABLAK FÓKUSZ ÉS ADATFRISSÍTÉS ---
-  // ==========================================
-  useEffect(() => {
-    if (!user) return;
-
-    const handleFocus = () => {
-      fetch(`${BACKEND_URL}/api/auth/sync`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: user.email, name: user.name, sub: user.sub || user.googleId || 'silent-sync' })
-      }).then(res => res.ok ? res.json() : null)
-        .then(data => {
-          if (data) {
-            setUser((prev: any) => ({
-              ...prev,
-              isPremium: data.isPremium,
-              premiumLevel: data.premiumLevel,
-              premiumUntil: data.premiumUntil
-            }));
-          }
-        }).catch(console.error);
-
-      fetchData(); 
-      fetchMyEntries(user.email);
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        handleFocus();
-      }
-    };
-
-    window.addEventListener('focus', handleFocus);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    return () => {
-      window.removeEventListener('focus', handleFocus);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [user]);
-
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const successContest = urlParams.get('success_contest');
@@ -254,30 +256,40 @@ function App() {
   const fetchData = async (retryCount = 0) => {
     if (retryCount === 0) setIsInitialLoading(true);
     try {
-      const [resUsers, resClubs] = await Promise.all([
+      const [
+        resUsers, resClubs, resContests, resJury, resMeetings, 
+        resHw, resCountries, resCats, resPatrons, resSalons, resPayments
+      ] = await Promise.all([
         fetch(`${BACKEND_URL}/api/users`),
         fetch(`${BACKEND_URL}/api/clubs`),
+        fetch(`${BACKEND_URL}/api/contests`),
+        fetch(`${BACKEND_URL}/api/jury`),
+        fetch(`${BACKEND_URL}/api/meetings`),
+        fetch(`${BACKEND_URL}/api/homeworks`),
+        fetch(`${BACKEND_URL}/api/countries`),
+        fetch(`${BACKEND_URL}/api/categories`),
+        fetch(`${BACKEND_URL}/api/patrons`),
+        fetch(`${BACKEND_URL}/api/salons`),
+        fetch(`${BACKEND_URL}/api/contest-payments`)
       ]);
 
-      if (!resUsers.ok) throw new Error("Adatbázis hiba");
+      if (!resUsers.ok || !resContests.ok || !resMeetings.ok || !resHw.ok) {
+        throw new Error("Az adatbázis kapcsolat épp helyreáll...");
+      }
 
       if (resUsers.ok) setAllUsers(await resUsers.json());
       if (resClubs.ok) setClubs(await resClubs.json());
+      if (resContests.ok) setContests(await resContests.json());
+      if (resJury.ok) setJuryList(await resJury.json());
+      if (resMeetings.ok) setMeetings(await resMeetings.json());
+      if (resHw.ok) setHomeworks(await resHw.json());
+      if (resCountries.ok) setCountries(await resCountries.json());
+      if (resCats.ok) setAllCategories(await resCats.json());
+      if (resPatrons.ok) setPatrons(await resPatrons.json());
+      if (resSalons.ok) setSalons(await resSalons.json());
+      if (resPayments && resPayments.ok) setContestPayments(await resPayments.json());
 
       setIsInitialLoading(false); 
-
-      Promise.all([
-        fetch(`${BACKEND_URL}/api/contests`).then(r => r.ok && r.json().then(setContests)),
-        fetch(`${BACKEND_URL}/api/jury`).then(r => r.ok && r.json().then(setJuryList)),
-        fetch(`${BACKEND_URL}/api/meetings`).then(r => r.ok && r.json().then(setMeetings)),
-        fetch(`${BACKEND_URL}/api/homeworks`).then(r => r.ok && r.json().then(setHomeworks)),
-        fetch(`${BACKEND_URL}/api/countries`).then(r => r.ok && r.json().then(setCountries)),
-        fetch(`${BACKEND_URL}/api/categories`).then(r => r.ok && r.json().then(setAllCategories)),
-        fetch(`${BACKEND_URL}/api/patrons`).then(r => r.ok && r.json().then(setPatrons)),
-        fetch(`${BACKEND_URL}/api/salons`).then(r => r.ok && r.json().then(setSalons)),
-        fetch(`${BACKEND_URL}/api/contest-payments`).then(r => r.ok && r.json().then(setContestPayments))
-      ]).catch(e => console.error("Háttér letöltési hiba:", e));
-
     } catch (e) { 
       console.error("Adatlekérési hiba, újrapróbálkozás...", e); 
       if (retryCount < 3) {
@@ -289,7 +301,7 @@ function App() {
     }
   };
   
-  const fetchMyEntries = async (email: string) => {
+const fetchMyEntries = async (email: string) => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/my-entries?userEmail=${email}`);
       if (res.ok) setMyEntries(await res.json());
@@ -313,6 +325,8 @@ function App() {
   };
 
   useEffect(() => {
+    fetchData();
+
     const urlParams = new URLSearchParams(window.location.search);
     const isSuccess = urlParams.get('success');
 
@@ -329,33 +343,41 @@ function App() {
           localStorage.removeItem('photoAppToken');
           setIsAuthLoading(false);
         } else {
-          setUser(decoded);
-          setIsAuthLoading(false);
-
           const delay = isSuccess ? 2500 : 0;
+          
           setTimeout(() => {
-            fetch(`${BACKEND_URL}/api/auth/sync`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ email: decoded.email, name: decoded.name, sub: decoded.sub })
-            })
-            .then(res => res.ok ? res.json() : null)
-            .then(data => {
-                if(data) {
-                    setUser((prev: any) => ({
-                        ...prev,
-                        isPremium: data.isPremium,
-                        is_premium: data.isPremium,
-                        premiumUntil: data.premiumUntil,
-                        premiumLevel: data.premiumLevel,
-                        premium_level: data.premiumLevel
-                    }));
+            const attemptSync = async (retry = 0) => {
+              try {
+                const res = await fetch(`${BACKEND_URL}/api/auth/sync`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ email: decoded.email, name: decoded.name, sub: decoded.sub })
+                });
+                
+                if (!res.ok) throw new Error("Szerver hiba az auth szinkronizációnál");
+                
+                const data = await res.json();
+                setUser({
+                  ...decoded,
+                  isPremium: data.isPremium,
+                  is_premium: data.isPremium,
+                  premiumUntil: data.premiumUntil,
+                  premiumLevel: data.premiumLevel,
+                  premium_level: data.premiumLevel
+                });
+                setIsAuthLoading(false); 
+              } catch (err) {
+                if (retry < 3) {
+                  setTimeout(() => attemptSync(retry + 1), 1500); 
+                } else {
+                  setUser(decoded); 
+                  setIsAuthLoading(false);
                 }
-            })
-            .catch(err => console.error("Sync hiba:", err));
+              }
+            };
 
+            attemptSync(); 
             fetchMyEntries(decoded.email);
-            fetchData();
           }, delay);
         }
       } catch (e) { 
@@ -381,30 +403,33 @@ function App() {
     localStorage.setItem('photoAppToken', credential);
     const decoded: any = jwtDecode(credential);
     
-    setUser(decoded);
-    
-    fetch(`${BACKEND_URL}/api/auth/sync`, { 
-      method: 'POST', 
-      headers: { 'Content-Type': 'application/json' }, 
-      body: JSON.stringify({ email: decoded.email, name: decoded.name, sub: decoded.sub }) 
-    })
-    .then(res => res.ok ? res.json() : null)
-    .then(data => {
-      if (data) {
-        setUser((prev: any) => ({
-          ...prev,
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/auth/sync`, { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ email: decoded.email, name: decoded.name, sub: decoded.sub }) 
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        setUser({
+          ...decoded,
           isPremium: data.isPremium,
           is_premium: data.isPremium, 
           premiumUntil: data.premiumUntil,
           premiumLevel: data.premiumLevel,
           premium_level: data.premiumLevel
-        }));
+        });
+      } else {
+        setUser(decoded); 
       }
-    })
-    .catch(console.error);
+    } catch (e) {
+      console.error(e);
+      setUser(decoded);
+    }
     
-    fetchMyEntries(decoded.email);
     fetchData(); 
+    fetchMyEntries(decoded.email);
   };
 
   const handlePayContestFee = async (contestId: number) => {
@@ -429,6 +454,7 @@ function App() {
       alert('Hálózati hiba a Stripe elérésekor!');
     }
   };
+
 
   const handleAddClub = async () => { if (!newClubName) return; const res = await fetch(`${BACKEND_URL}/api/clubs`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: newClubName }) }); if (res.ok) { setNewClubName(''); fetchData(); } };
   const handleDeleteClub = async (id: number) => { if (!window.confirm("Biztosan törlöd ezt a klubot?")) return; const res = await fetch(`${BACKEND_URL}/api/clubs/${id}`, { method: 'DELETE' }); if (res.ok) fetchData(); };
@@ -830,6 +856,7 @@ function App() {
             onLogout={() => { localStorage.removeItem('photoAppToken'); setUser(null); }} 
           />
           
+          {/* JAVÍTÁS: A dupla <main> taget kivettük, így szép tiszta a kódstruktúra */}
           <main className="app-main">
             {activeTab === 'dashboard' && (
               <DashboardView 
@@ -1057,4 +1084,3 @@ function App() {
 }
 
 export default App;
-
