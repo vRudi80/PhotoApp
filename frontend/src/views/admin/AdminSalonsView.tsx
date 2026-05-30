@@ -1,60 +1,45 @@
-import { useState, useEffect, useRef } from 'react';
-import { BACKEND_URL } from '../../utils/constants';
-import { getFlagImageUrl } from '../../utils/helpers'; // JAVÍTÁS: A képi zászlót importáljuk az emojik helyett!
+import React, { useState, useEffect, useRef } from 'react';
+import { getFlagImageUrl } from '../../utils/helpers';
 
+// EZEK AZ EGYETLEN DOLGOK, AMIKET MÉG AZ APP.TSX AD ÁT:
 interface AdminSalonsViewProps {
-  editSalonId: number | null;
-  startEditSalon: (salon: any) => void;
-  clearSalonForm: () => void;
-
-  salonName: string; setSalonName: (val: string) => void;
-  salonType: 'online' | 'print'; setSalonType: (val: 'online' | 'print') => void;
-  salonCountry: string; setSalonCountry: (val: string) => void;
+  salons: any[];
   countries: any[];
-  salonFee: string; setSalonFee: (val: string) => void;
-  salonCurrency: string; setSalonCurrency: (val: string) => void;
-  salonWeb: string; setSalonWeb: (val: string) => void;
-  salonStart: string; setSalonStart: (val: string) => void;
-  salonEnd: string; setSalonEnd: (val: string) => void;
-  salonResults: string; setSalonResults: (val: string) => void;
-  salonIsCircuit: boolean; setSalonIsCircuit: (val: boolean) => void;
-  salonCircuitNum: string; setSalonCircuitNum: (val: string) => void;
-  salonAwards: string; setSalonAwards: (val: string) => void;
-  salonCash: string; setSalonCash: (val: string) => void;
-  
   allCategories: any[];
-  salonSelectedCats: number[]; setSalonSelectedCats: (val: number[]) => void;
   patrons: any[];
-  salonSelectedPatrons: number[]; setSalonSelectedPatrons: (val: number[]) => void;
-  
-  salonPatronNumbers: Record<number, string>;
-  setSalonPatronNumbers: (val: Record<number, string>) => void;
-
-  toggleArrayItem: (arr: number[], setArr: Function, id: number) => void;
-  
-  handleSaveSalon: () => void;
-  sortedSalons: any[];
-  setSelectedSalon: (salon: any) => void;
-  handleDeleteSalon: (id: number) => void;
-  
-  fetchAdminSalons?: () => void; 
+  BACKEND_URL: string;
+  fetchData: () => void; // Ahhoz kell, hogy mentés után frissüljön a fő App adata!
+  setSelectedSalon: (salon: any) => void; // Hogy meg tudd nyitni a SalonModal-t az App.tsx-ből
 }
 
 export default function AdminSalonsView({
-  editSalonId, startEditSalon, clearSalonForm,
-  salonName, setSalonName, salonType, setSalonType, salonCountry, setSalonCountry, countries,
-  salonFee, setSalonFee, salonCurrency, setSalonCurrency, salonWeb, setSalonWeb,
-  salonStart, setSalonStart, salonEnd, setSalonEnd, salonResults, setSalonResults,
-  salonIsCircuit, setSalonIsCircuit, salonCircuitNum, setSalonCircuitNum,
-  salonAwards, setSalonAwards, salonCash, setSalonCash, allCategories, salonSelectedCats,
-  setSalonSelectedCats, patrons, salonSelectedPatrons, setSalonSelectedPatrons,
-  salonPatronNumbers, setSalonPatronNumbers,
-  toggleArrayItem, handleSaveSalon, sortedSalons, setSelectedSalon, handleDeleteSalon, fetchAdminSalons
+  salons, countries, allCategories, patrons, BACKEND_URL, fetchData, setSelectedSalon
 }: AdminSalonsViewProps) {
 
   const inputStyle = { width: '100%', padding: '10px', marginBottom: '10px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '6px', boxSizing: 'border-box' as const };
 
-  // --- ÚJ: KERESHETŐ ORSZÁGVÁLASZTÓ ÁLLAPOTAI ---
+  // ==============================================================
+  // 1. IDE KÖLTÖZTEK A HELYI ÁLLAPOTOK (STATE-EK) AZ APP.TSX-BŐL
+  // ==============================================================
+  const [salonName, setSalonName] = useState('');
+  const [salonFee, setSalonFee] = useState('');
+  const [salonCurrency, setSalonCurrency] = useState('EUR');
+  const [salonStart, setSalonStart] = useState('');
+  const [salonEnd, setSalonEnd] = useState('');
+  const [salonWeb, setSalonWeb] = useState('');
+  const [salonResults, setSalonResults] = useState('');
+  const [salonIsCircuit, setSalonIsCircuit] = useState(false);
+  const [salonAwards, setSalonAwards] = useState('');
+  const [salonCash, setSalonCash] = useState('');
+  const [salonCircuitNum, setSalonCircuitNum] = useState('');
+  const [salonType, setSalonType] = useState<'online' | 'print'>('online');
+  const [salonCountry, setSalonCountry] = useState('');
+  const [salonSelectedPatrons, setSalonSelectedPatrons] = useState<number[]>([]);
+  const [salonSelectedCats, setSalonSelectedCats] = useState<number[]>([]);
+  const [salonPatronNumbers, setSalonPatronNumbers] = useState<Record<number, string>>({});
+  const [editSalonId, setEditSalonId] = useState<number | null>(null);
+
+  // --- KERESHETŐ ORSZÁGVÁLASZTÓ ÁLLAPOTAI ---
   const [isCountryDropdownOpen, setIsCountryDropdownOpen] = useState(false);
   const [countrySearch, setCountrySearch] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -90,6 +75,8 @@ export default function AdminSalonsView({
     return nameA.localeCompare(nameB);
   });
 
+  const sortedSalons = [...salons].sort((a, b) => new Date(b.end_date).getTime() - new Date(a.end_date).getTime());
+
   const [scrapedSalons, setScrapedSalons] = useState<any[]>(() => {
     const saved = localStorage.getItem('scrapedSalonsData');
     return saved ? JSON.parse(saved) : [];
@@ -100,6 +87,110 @@ export default function AdminSalonsView({
   useEffect(() => {
     localStorage.setItem('scrapedSalonsData', JSON.stringify(scrapedSalons));
   }, [scrapedSalons]);
+
+
+  // ==============================================================
+  // 2. IDE KÖLTÖZTEK A FÜGGVÉNYEK AZ APP.TSX-BŐL
+  // ==============================================================
+
+  const toggleArrayItem = (arr: number[], setArr: Function, id: number) => { 
+    if (arr.includes(id)) setArr(arr.filter(item => item !== id)); 
+    else setArr([...arr, id]); 
+  };
+
+  const clearSalonForm = () => { 
+    setEditSalonId(null); 
+    setSalonName(''); setSalonFee(''); setSalonCurrency('EUR'); setSalonStart(''); 
+    setSalonEnd(''); setSalonWeb(''); setSalonResults(''); setSalonIsCircuit(false); 
+    setSalonAwards(''); setSalonCash(''); setSalonCircuitNum(''); setSalonType('online'); 
+    setSalonCountry(''); setSalonSelectedPatrons([]); setSalonSelectedCats([]); 
+    setSalonPatronNumbers({});
+  };
+
+  const startEditSalon = (salon: any) => {
+    setEditSalonId(salon.id);
+    setSalonName(salon.name || '');
+    setSalonType(salon.submission_type || 'online');
+    setSalonCountry(salon.host_country_id?.toString() || '');
+    setSalonFee(salon.fee_amount?.toString() || '');
+    setSalonCurrency(salon.fee_currency || 'EUR');
+    setSalonWeb(salon.website || '');
+    
+    const formatDate = (dateStr: string | null) => {
+      if (!dateStr) return '';
+      try { return new Date(dateStr).toISOString().slice(0, 10); } catch(e) { return ''; }
+    };
+    
+    setSalonStart(formatDate(salon.start_date));
+    setSalonEnd(formatDate(salon.end_date));
+    setSalonResults(formatDate(salon.results_date));
+    setSalonIsCircuit(salon.is_circuit === 1);
+    setSalonCircuitNum(salon.circuit_number || '');
+    setSalonAwards(salon.awards_count?.toString() || '');
+    setSalonCash(salon.cash_prize || '');
+
+    if (salon.categories && allCategories.length > 0) {
+      const catIds = allCategories.filter((c:any) => salon.categories.includes(c.name) || salon.categories.includes(c.hun_name)).map((c:any) => c.id);
+      setSalonSelectedCats(catIds);
+    } else setSalonSelectedCats([]);
+
+    if (salon.patron_details && patrons.length > 0) {
+      const pIds: number[] = [];
+      const pNumbers: Record<number, string> = {};
+      salon.patron_details.forEach((p: any) => {
+        const patronObj = patrons.find(pat => pat.name === p.name);
+        if (patronObj) {
+          pIds.push(patronObj.id);
+          pNumbers[patronObj.id] = p.number || '';
+        }
+      });
+      setSalonSelectedPatrons(pIds);
+      setSalonPatronNumbers(pNumbers);
+    } else {
+      setSalonSelectedPatrons([]);
+      setSalonPatronNumbers({});
+    }
+  };
+
+  const handleSaveSalon = async () => { 
+    if (!salonName || !salonEnd) return alert("A Szalon neve és a záródátum megadása kötelező!"); 
+    try { 
+      const patronsData = salonSelectedPatrons.map(id => ({
+        id: id,
+        number: salonPatronNumbers[id] || ''
+      }));
+
+      const payload = { 
+        name: salonName, feeAmount: salonFee, feeCurrency: salonCurrency, startDate: salonStart, 
+        endDate: salonEnd, website: salonWeb, resultsDate: salonResults, isCircuit: salonIsCircuit, 
+        awardsCount: salonAwards, cashPrize: salonCash, circuitNumber: salonCircuitNum, 
+        submissionType: salonType, hostCountryId: salonCountry, 
+        patronsData: patronsData,
+        categoryIds: salonSelectedCats 
+      }; 
+      
+      const url = editSalonId ? `${BACKEND_URL}/api/salons/${editSalonId}` : `${BACKEND_URL}/api/salons`;
+      const method = editSalonId ? 'PUT' : 'POST';
+
+      const res = await fetch(url, { 
+        method, 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify(payload) 
+      }); 
+      
+      if (res.ok) { 
+        alert(editSalonId ? "Szalon sikeresen frissítve!" : "Szalon sikeresen hozzáadva!"); 
+        clearSalonForm(); 
+        fetchData(); 
+      } else alert("Hiba a mentés során."); 
+    } catch (e) { alert("Hálózati hiba!"); } 
+  };
+
+  const handleDeleteSalon = async (id: number) => { 
+    if(!window.confirm("Biztosan törlöd ezt a Szalont?")) return; 
+    const res = await fetch(`${BACKEND_URL}/api/salons/${id}`, { method: 'DELETE' }); 
+    if(res.ok) fetchData(); 
+  };
 
   const handleScrapeFiap = async () => {
     setIsScraping(true);
@@ -134,7 +225,7 @@ export default function AdminSalonsView({
         const result = await res.json();
         alert(`Sikeresen importálva ${result.count} db új nemzetközi szalon!`);
         setScrapedSalons([]); 
-        if (fetchAdminSalons) fetchAdminSalons();
+        fetchData();
       } else {
         alert("Hiba a szerver oldalon az importálás során.");
       }
@@ -174,7 +265,7 @@ export default function AdminSalonsView({
     );
     if (matchedCountry) {
       setSalonCountry(matchedCountry.id.toString());
-      setCountrySearch(''); // Keresőmező nullázása az átemeléskor
+      setCountrySearch(''); 
     }
 
     setSalonPatronNumbers({ 1: item.fiap_number });
@@ -183,6 +274,9 @@ export default function AdminSalonsView({
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  // ==============================================================
+  // 3. RENDERELÉS (KIRAJZOLÁS)
+  // ==============================================================
 
   return (
     <div>
@@ -257,7 +351,6 @@ export default function AdminSalonsView({
             </select>
           </div>
           
-          {/* --- JAVÍTOTT RÉSZ: KERESHETŐ ORSZÁG LEGÖRDÜLŐ --- */}
           <div style={{flex: '1 1 200px', position: 'relative'}} ref={dropdownRef}>
             <label style={{fontSize:'0.8rem', color:'#94a3b8', display: 'block', marginBottom: '5px'}}>Házigazda ország</label>
             
@@ -312,7 +405,6 @@ export default function AdminSalonsView({
               </div>
             )}
           </div>
-          {/* ----------------------------------------------- */}
 
         </div>
 
@@ -433,7 +525,6 @@ export default function AdminSalonsView({
               <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: '5px', display: 'flex', alignItems: 'center', gap: '5px' }}>
                 <span>Zárás: {new Date(s.end_date).toLocaleDateString('hu-HU', { year: 'numeric', month: 'short', day: 'numeric' })} | </span>
                 
-                {/* JAVÍTÁS: Zászló képpel az alsó listában is! */}
                 {s.country_code && getFlagImageUrl(s.country_code) && (
                   <img src={getFlagImageUrl(s.country_code)} alt="flag" style={{ width: '16px', borderRadius: '2px' }} />
                 )}
