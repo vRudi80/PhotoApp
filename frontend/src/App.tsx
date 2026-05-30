@@ -121,23 +121,9 @@ function MainContent() {
   const [allCategories, setAllCategories] = useState<any[]>([]);
   const [patrons, setPatrons] = useState<any[]>([]);
   
-  const [salonName, setSalonName] = useState('');
-  const [salonFee, setSalonFee] = useState('');
+  
   const [salonSearch, setSalonSearch] = useState('');
-  const [salonCurrency, setSalonCurrency] = useState('EUR');
-  const [salonStart, setSalonStart] = useState('');
-  const [salonEnd, setSalonEnd] = useState('');
-  const [salonWeb, setSalonWeb] = useState('');
-  const [salonResults, setSalonResults] = useState('');
-  const [salonIsCircuit, setSalonIsCircuit] = useState(false);
-  const [salonAwards, setSalonAwards] = useState('');
-  const [salonCash, setSalonCash] = useState('');
-  const [salonCircuitNum, setSalonCircuitNum] = useState('');
-  const [salonType, setSalonType] = useState<'online' | 'print'>('online');
-  const [salonCountry, setSalonCountry] = useState('');
-  const [salonSelectedPatrons, setSalonSelectedPatrons] = useState<number[]>([]);
-  const [salonSelectedCats, setSalonSelectedCats] = useState<number[]>([]);
-  const [editSalonId, setEditSalonId] = useState<number | null>(null);
+  
   const [selectedSalon, setSelectedSalon] = useState<any>(null);
 
   const navigate = useNavigate();
@@ -678,97 +664,6 @@ function MainContent() {
       if (club) fetchClubHomeworkEntries(club.id, user.email);
     }
   };
-
-  const clearSalonForm = () => { 
-    setEditSalonId(null); 
-    setSalonName(''); setSalonFee(''); setSalonCurrency('EUR'); setSalonStart(''); 
-    setSalonEnd(''); setSalonWeb(''); setSalonResults(''); setSalonIsCircuit(false); 
-    setSalonAwards(''); setSalonCash(''); setSalonCircuitNum(''); setSalonType('online'); 
-    setSalonCountry(''); setSalonSelectedPatrons([]); setSalonSelectedCats([]); 
-    setSalonPatronNumbers({});
-  };
-
-  const startEditSalon = (salon: any) => {
-    setEditSalonId(salon.id);
-    setSalonName(salon.name || '');
-    setSalonType(salon.submission_type || 'online');
-    setSalonCountry(salon.host_country_id?.toString() || '');
-    setSalonFee(salon.fee_amount?.toString() || '');
-    setSalonCurrency(salon.fee_currency || 'EUR');
-    setSalonWeb(salon.website || '');
-    
-    const formatDate = (dateStr: string | null) => {
-      if (!dateStr) return '';
-      try { return new Date(dateStr).toISOString().slice(0, 10); } catch(e) { return ''; }
-    };
-    
-    setSalonStart(formatDate(salon.start_date));
-    setSalonEnd(formatDate(salon.end_date));
-    setSalonResults(formatDate(salon.results_date));
-    setSalonIsCircuit(salon.is_circuit === 1);
-    setSalonCircuitNum(salon.circuit_number || '');
-    setSalonAwards(salon.awards_count?.toString() || '');
-    setSalonCash(salon.cash_prize || '');
-
-    if (salon.categories && allCategories.length > 0) {
-      const catIds = allCategories.filter((c:any) => salon.categories.includes(c.name) || salon.categories.includes(c.hun_name)).map((c:any) => c.id);
-      setSalonSelectedCats(catIds);
-    } else setSalonSelectedCats([]);
-
-    if (salon.patron_details && patrons.length > 0) {
-      const pIds: number[] = [];
-      const pNumbers: Record<number, string> = {};
-      salon.patron_details.forEach((p: any) => {
-        const patronObj = patrons.find(pat => pat.name === p.name);
-        if (patronObj) {
-          pIds.push(patronObj.id);
-          pNumbers[patronObj.id] = p.number || '';
-        }
-      });
-      setSalonSelectedPatrons(pIds);
-      setSalonPatronNumbers(pNumbers);
-    } else {
-      setSalonSelectedPatrons([]);
-      setSalonPatronNumbers({});
-    }
-  };
-
-  const handleSaveSalon = async () => { 
-    if (!salonName || !salonEnd) return alert("A Szalon neve és a záródátum megadása kötelező!"); 
-    try { 
-      const patronsData = salonSelectedPatrons.map(id => ({
-        id: id,
-        number: salonPatronNumbers[id] || ''
-      }));
-
-      const payload = { 
-        name: salonName, feeAmount: salonFee, feeCurrency: salonCurrency, startDate: salonStart, 
-        endDate: salonEnd, website: salonWeb, resultsDate: salonResults, isCircuit: salonIsCircuit, 
-        awardsCount: salonAwards, cashPrize: salonCash, circuitNumber: salonCircuitNum, 
-        submissionType: salonType, hostCountryId: salonCountry, 
-        patronsData: patronsData,
-        categoryIds: salonSelectedCats 
-      }; 
-      
-      const url = editSalonId ? `${BACKEND_URL}/api/salons/${editSalonId}` : `${BACKEND_URL}/api/salons`;
-      const method = editSalonId ? 'PUT' : 'POST';
-
-      const res = await fetch(url, { 
-        method, 
-        headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify(payload) 
-      }); 
-      
-      if (res.ok) { 
-        alert(editSalonId ? "Szalon sikeresen frissítve!" : "Szalon sikeresen hozzáadva!"); 
-        clearSalonForm(); 
-        fetchData(); 
-      } else alert("Hiba a mentés során."); 
-    } catch (e) { alert("Hálózati hiba!"); } 
-  };
-
-  const handleDeleteSalon = async (id: number) => { if(!window.confirm("Biztosan törlöd ezt a Szalont?")) return; const res = await fetch(`${BACKEND_URL}/api/salons/${id}`, { method: 'DELETE' }); if(res.ok) fetchData(); };
-  const toggleArrayItem = (arr: number[], setArr: Function, id: number) => { if (arr.includes(id)) setArr(arr.filter(item => item !== id)); else setArr([...arr, id]); };
 
   const filteredContests = contests.filter(contest => {
     const isRestricted = contest.restricted_club && contest.restricted_club.trim() !== '';
