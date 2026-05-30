@@ -1,15 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { getFlagImageUrl } from '../../utils/helpers';
 
-// EZEK AZ EGYETLEN DOLGOK, AMIKET MÉG AZ APP.TSX AD ÁT:
 interface AdminSalonsViewProps {
   salons: any[];
   countries: any[];
   allCategories: any[];
   patrons: any[];
   BACKEND_URL: string;
-  fetchData: () => void; // Ahhoz kell, hogy mentés után frissüljön a fő App adata!
-  setSelectedSalon: (salon: any) => void; // Hogy meg tudd nyitni a SalonModal-t az App.tsx-ből
+  fetchData: () => void;
+  setSelectedSalon: (salon: any) => void;
 }
 
 export default function AdminSalonsView({
@@ -18,9 +17,7 @@ export default function AdminSalonsView({
 
   const inputStyle = { width: '100%', padding: '10px', marginBottom: '10px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '6px', boxSizing: 'border-box' as const };
 
-  // ==============================================================
-  // 1. IDE KÖLTÖZTEK A HELYI ÁLLAPOTOK (STATE-EK) AZ APP.TSX-BŐL
-  // ==============================================================
+  // --- HELYI ÁLLAPOTOK (Ide költöztek az App.tsx-ből!) ---
   const [salonName, setSalonName] = useState('');
   const [salonFee, setSalonFee] = useState('');
   const [salonCurrency, setSalonCurrency] = useState('EUR');
@@ -39,12 +36,11 @@ export default function AdminSalonsView({
   const [salonPatronNumbers, setSalonPatronNumbers] = useState<Record<number, string>>({});
   const [editSalonId, setEditSalonId] = useState<number | null>(null);
 
-  // --- KERESHETŐ ORSZÁGVÁLASZTÓ ÁLLAPOTAI ---
+  // --- Kereshető országválasztó állapotok ---
   const [isCountryDropdownOpen, setIsCountryDropdownOpen] = useState(false);
   const [countrySearch, setCountrySearch] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Zárjuk be a legördülőt, ha mellékattintanak
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -59,9 +55,7 @@ export default function AdminSalonsView({
     c.country_hun.toLowerCase().includes(countrySearch.toLowerCase()) || 
     c.country.toLowerCase().includes(countrySearch.toLowerCase())
   );
-
   const selectedCountryObj = countries.find(c => c.id.toString() === salonCountry);
-  // --------------------------------------------------
 
   const sortedCategories = [...allCategories].sort((a, b) => {
     const nameA = a.hun_name || a.name || '';
@@ -77,6 +71,7 @@ export default function AdminSalonsView({
 
   const sortedSalons = [...salons].sort((a, b) => new Date(b.end_date).getTime() - new Date(a.end_date).getTime());
 
+  // --- Scraper / Import állapotok ---
   const [scrapedSalons, setScrapedSalons] = useState<any[]>(() => {
     const saved = localStorage.getItem('scrapedSalonsData');
     return saved ? JSON.parse(saved) : [];
@@ -88,11 +83,7 @@ export default function AdminSalonsView({
     localStorage.setItem('scrapedSalonsData', JSON.stringify(scrapedSalons));
   }, [scrapedSalons]);
 
-
-  // ==============================================================
-  // 2. IDE KÖLTÖZTEK A FÜGGVÉNYEK AZ APP.TSX-BŐL
-  // ==============================================================
-
+  // --- FÜGGVÉNYEK ---
   const toggleArrayItem = (arr: number[], setArr: Function, id: number) => { 
     if (arr.includes(id)) setArr(arr.filter(item => item !== id)); 
     else setArr([...arr, id]); 
@@ -139,44 +130,27 @@ export default function AdminSalonsView({
       const pNumbers: Record<number, string> = {};
       salon.patron_details.forEach((p: any) => {
         const patronObj = patrons.find(pat => pat.name === p.name);
-        if (patronObj) {
-          pIds.push(patronObj.id);
-          pNumbers[patronObj.id] = p.number || '';
-        }
+        if (patronObj) { pIds.push(patronObj.id); pNumbers[patronObj.id] = p.number || ''; }
       });
       setSalonSelectedPatrons(pIds);
       setSalonPatronNumbers(pNumbers);
-    } else {
-      setSalonSelectedPatrons([]);
-      setSalonPatronNumbers({});
-    }
+    } else { setSalonSelectedPatrons([]); setSalonPatronNumbers({}); }
   };
 
   const handleSaveSalon = async () => { 
     if (!salonName || !salonEnd) return alert("A Szalon neve és a záródátum megadása kötelező!"); 
     try { 
-      const patronsData = salonSelectedPatrons.map(id => ({
-        id: id,
-        number: salonPatronNumbers[id] || ''
-      }));
-
+      const patronsData = salonSelectedPatrons.map(id => ({ id: id, number: salonPatronNumbers[id] || '' }));
       const payload = { 
         name: salonName, feeAmount: salonFee, feeCurrency: salonCurrency, startDate: salonStart, 
         endDate: salonEnd, website: salonWeb, resultsDate: salonResults, isCircuit: salonIsCircuit, 
         awardsCount: salonAwards, cashPrize: salonCash, circuitNumber: salonCircuitNum, 
-        submissionType: salonType, hostCountryId: salonCountry, 
-        patronsData: patronsData,
-        categoryIds: salonSelectedCats 
+        submissionType: salonType, hostCountryId: salonCountry, patronsData: patronsData, categoryIds: salonSelectedCats 
       }; 
       
       const url = editSalonId ? `${BACKEND_URL}/api/salons/${editSalonId}` : `${BACKEND_URL}/api/salons`;
       const method = editSalonId ? 'PUT' : 'POST';
-
-      const res = await fetch(url, { 
-        method, 
-        headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify(payload) 
-      }); 
+      const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); 
       
       if (res.ok) { 
         alert(editSalonId ? "Szalon sikeresen frissítve!" : "Szalon sikeresen hozzáadva!"); 
@@ -199,16 +173,9 @@ export default function AdminSalonsView({
       if (res.ok) {
         const data = await res.json();
         setScrapedSalons(data); 
-        if (data.length === 0) alert("Nem találtam új adatokat a myfiap.net-en (vagy mindegyik már az adatbázisodban van).");
-      } else {
-        const errorData = await res.json();
-        alert(`Szerver hiba:\n\n${errorData.error || res.statusText}`);
-      }
-    } catch (e: any) {
-      alert(`Hálózati hiba a kapcsolat során. Fut a backend?`);
-    } finally {
-      setIsScraping(false);
-    }
+        if (data.length === 0) alert("Nem találtam új adatokat a myfiap.net-en.");
+      } else alert(`Szerver hiba`);
+    } catch (e: any) { alert(`Hálózati hiba.`); } finally { setIsScraping(false); }
   };
 
   const handleImportSalons = async () => {
@@ -216,24 +183,15 @@ export default function AdminSalonsView({
     setIsImporting(true);
     try {
       const res = await fetch(`${BACKEND_URL}/api/admin/import-fiap`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ salonsToImport: scrapedSalons })
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ salonsToImport: scrapedSalons })
       });
-      
       if (res.ok) {
         const result = await res.json();
         alert(`Sikeresen importálva ${result.count} db új nemzetközi szalon!`);
         setScrapedSalons([]); 
         fetchData();
-      } else {
-        alert("Hiba a szerver oldalon az importálás során.");
-      }
-    } catch (e) {
-      alert("Hálózati hiba importáláskor!");
-    } finally {
-      setIsImporting(false);
-    }
+      } else alert("Hiba az importálás során.");
+    } catch (e) { alert("Hálózati hiba importáláskor!"); } finally { setIsImporting(false); }
   };
 
   const formatDateForInput = (dateStr: string) => {
@@ -248,35 +206,20 @@ export default function AdminSalonsView({
 
   const handleLoadToForm = (item: any, index: number) => {
     clearSalonForm();
-    
     const todayStr = new Date().toISOString().split('T')[0];
     setSalonStart(todayStr); 
-    
-    setSalonName(item.name);
-    setSalonType(item.submission_type);
-    setSalonWeb(item.website || '');
+    setSalonName(item.name); setSalonType(item.submission_type); setSalonWeb(item.website || '');
     if (item.fee) setSalonFee(item.fee);
     setSalonEnd(formatDateForInput(item.end_date_raw));
     setSalonIsCircuit(item.is_circuit === 1);
 
-    const matchedCountry = countries.find(c => 
-      c.country?.toLowerCase() === item.country?.toLowerCase() || 
-      c.country_hun?.toLowerCase() === item.country?.toLowerCase()
-    );
-    if (matchedCountry) {
-      setSalonCountry(matchedCountry.id.toString());
-      setCountrySearch(''); 
-    }
+    const matchedCountry = countries.find(c => c.country?.toLowerCase() === item.country?.toLowerCase() || c.country_hun?.toLowerCase() === item.country?.toLowerCase());
+    if (matchedCountry) { setSalonCountry(matchedCountry.id.toString()); setCountrySearch(''); }
 
     setSalonPatronNumbers({ 1: item.fiap_number });
     setSalonSelectedPatrons([1]);
-
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
-
-  // ==============================================================
-  // 3. RENDERELÉS (KIRAJZOLÁS)
-  // ==============================================================
 
   return (
     <div>
@@ -315,12 +258,8 @@ export default function AdminSalonsView({
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: '8px' }}>
-                      <button onClick={() => handleLoadToForm(s, i)} style={{ background: '#f59e0b', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>
-                        ✏️ Átemelés űrlapba
-                      </button>
-                      <button onClick={() => handleRemoveScraped(i)} style={{ background: '#ef444420', color: '#ef4444', border: '1px solid #ef4444', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>
-                        🗑️ Törlés
-                      </button>
+                      <button onClick={() => handleLoadToForm(s, i)} style={{ background: '#f59e0b', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>✏️ Átemelés űrlapba</button>
+                      <button onClick={() => handleRemoveScraped(i)} style={{ background: '#ef444420', color: '#ef4444', border: '1px solid #ef4444', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>🗑️ Törlés</button>
                     </div>
                   </div>
                 </div>
@@ -334,9 +273,7 @@ export default function AdminSalonsView({
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', flexWrap: 'wrap', gap: '10px' }}>
           <h3 style={{ margin: 0, color: '#f59e0b' }}>{editSalonId ? '✏️ Szalon Szerkesztése' : '➕ Kézi Szalon Létrehozása'}</h3>
           {editSalonId && (
-            <button onClick={clearSalonForm} style={{ background: 'transparent', color: '#ef4444', border: 'none', cursor: 'pointer' }}>
-              Mégse / Új létrehozása
-            </button>
+            <button onClick={clearSalonForm} style={{ background: 'transparent', color: '#ef4444', border: 'none', cursor: 'pointer' }}>Mégse / Új létrehozása</button>
           )}
         </div>
         
@@ -353,49 +290,26 @@ export default function AdminSalonsView({
           
           <div style={{flex: '1 1 200px', position: 'relative'}} ref={dropdownRef}>
             <label style={{fontSize:'0.8rem', color:'#94a3b8', display: 'block', marginBottom: '5px'}}>Házigazda ország</label>
-            
-            <div 
-              onClick={() => setIsCountryDropdownOpen(!isCountryDropdownOpen)}
-              style={{ ...inputStyle, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px' }}
-            >
+            <div onClick={() => setIsCountryDropdownOpen(!isCountryDropdownOpen)} style={{ ...inputStyle, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px' }}>
               {selectedCountryObj ? (
                 <>
                   <img src={getFlagImageUrl(selectedCountryObj.country_code)} alt="Zászló" style={{ width: '20px', height: '15px', objectFit: 'cover', borderRadius: '2px' }} />
                   <span>{selectedCountryObj.country_hun}</span>
                 </>
-              ) : (
-                <span style={{ color: '#94a3b8' }}>-- Válassz országot --</span>
-              )}
+              ) : <span style={{ color: '#94a3b8' }}>-- Válassz országot --</span>}
             </div>
 
             {isCountryDropdownOpen && (
               <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#0f172a', border: '1px solid #334155', borderRadius: '8px', zIndex: 50, boxShadow: '0 10px 25px rgba(0,0,0,0.5)', overflow: 'hidden' }}>
                 <div style={{ padding: '10px', borderBottom: '1px solid #334155' }}>
-                  <input 
-                    type="text" 
-                    placeholder="🔍 Keresés országra..." 
-                    value={countrySearch}
-                    onChange={(e) => setCountrySearch(e.target.value)}
-                    onClick={(e) => e.stopPropagation()}
-                    style={{ width: '100%', padding: '8px', background: '#1e293b', border: '1px solid #475569', color: 'white', borderRadius: '4px', outline: 'none' }}
-                  />
+                  <input type="text" placeholder="🔍 Keresés országra..." value={countrySearch} onChange={(e) => setCountrySearch(e.target.value)} onClick={(e) => e.stopPropagation()} style={{ width: '100%', padding: '8px', background: '#1e293b', border: '1px solid #475569', color: 'white', borderRadius: '4px', outline: 'none' }} />
                 </div>
                 <div style={{ maxHeight: '250px', overflowY: 'auto' }}>
                   {filteredCountries.length === 0 ? (
                     <div style={{ padding: '10px', color: '#94a3b8', textAlign: 'center', fontSize: '0.85rem' }}>Nincs találat.</div>
                   ) : (
                     filteredCountries.map(c => (
-                      <div 
-                        key={c.id} 
-                        onClick={() => {
-                          setSalonCountry(c.id.toString());
-                          setIsCountryDropdownOpen(false);
-                          setCountrySearch('');
-                        }}
-                        style={{ padding: '10px 15px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', transition: 'background 0.2s', borderBottom: '1px solid #1e293b' }}
-                        onMouseOver={e => e.currentTarget.style.background = '#1e293b'}
-                        onMouseOut={e => e.currentTarget.style.background = 'transparent'}
-                      >
+                      <div key={c.id} onClick={() => { setSalonCountry(c.id.toString()); setIsCountryDropdownOpen(false); setCountrySearch(''); }} style={{ padding: '10px 15px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', transition: 'background 0.2s', borderBottom: '1px solid #1e293b' }} onMouseOver={e => e.currentTarget.style.background = '#1e293b'} onMouseOut={e => e.currentTarget.style.background = 'transparent'}>
                         <img src={getFlagImageUrl(c.country_code)} alt="Zászló" style={{ width: '24px', height: '18px', objectFit: 'cover', borderRadius: '3px', boxShadow: '0 1px 3px rgba(0,0,0,0.3)' }} />
                         <span style={{ color: '#f8fafc' }}>{c.country_hun}</span>
                       </div>
@@ -405,66 +319,33 @@ export default function AdminSalonsView({
               </div>
             )}
           </div>
-
         </div>
 
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-          <div style={{flex: '1 1 150px'}}>
-            <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Nevezési díj (Pl: 20)</label>
-            <input type="number" value={salonFee} onChange={e => setSalonFee(e.target.value)} style={inputStyle} />
-          </div>
+          <div style={{flex: '1 1 150px'}}><label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Nevezési díj (Pl: 20)</label><input type="number" value={salonFee} onChange={e => setSalonFee(e.target.value)} style={inputStyle} /></div>
           <div style={{flex: '1 1 100px'}}>
             <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Pénznem</label>
             <select value={salonCurrency} onChange={e => setSalonCurrency(e.target.value)} style={inputStyle}>
-              <option value="EUR">EUR</option>
-              <option value="USD">USD</option>
-              <option value="HUF">HUF</option>
-              <option value="GBP">GBP</option>
+              <option value="EUR">EUR</option><option value="USD">USD</option><option value="HUF">HUF</option><option value="GBP">GBP</option>
             </select>
           </div>
-          <div style={{flex: '1 1 250px'}}>
-            <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Weboldal URL (https://...)</label>
-            <input type="url" value={salonWeb} onChange={e => setSalonWeb(e.target.value)} style={inputStyle} />
-          </div>
+          <div style={{flex: '1 1 250px'}}><label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Weboldal URL (https://...)</label><input type="url" value={salonWeb} onChange={e => setSalonWeb(e.target.value)} style={inputStyle} /></div>
         </div>
 
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-          <div style={{flex: '1 1 150px'}}>
-            <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Kezdés (Opcionális)</label>
-            <input type="date" value={salonStart} onChange={e => setSalonStart(e.target.value)} style={inputStyle} />
-          </div>
-          <div style={{flex: '1 1 150px'}}>
-            <label style={{fontSize:'0.8rem', color:'#ef4444', fontWeight: 'bold'}}>Zárás (Határidő)</label>
-            <input type="date" value={salonEnd} onChange={e => setSalonEnd(e.target.value)} style={{...inputStyle, border: '1px solid #ef4444'}} />
-          </div>
-          <div style={{flex: '1 1 150px'}}>
-            <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Eredményhirdetés</label>
-            <input type="date" value={salonResults} onChange={e => setSalonResults(e.target.value)} style={inputStyle} />
-          </div>
+          <div style={{flex: '1 1 150px'}}><label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Kezdés (Opcionális)</label><input type="date" value={salonStart} onChange={e => setSalonStart(e.target.value)} style={inputStyle} /></div>
+          <div style={{flex: '1 1 150px'}}><label style={{fontSize:'0.8rem', color:'#ef4444', fontWeight: 'bold'}}>Zárás (Határidő)</label><input type="date" value={salonEnd} onChange={e => setSalonEnd(e.target.value)} style={{...inputStyle, border: '1px solid #ef4444'}} /></div>
+          <div style={{flex: '1 1 150px'}}><label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Eredményhirdetés</label><input type="date" value={salonResults} onChange={e => setSalonResults(e.target.value)} style={inputStyle} /></div>
         </div>
 
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'flex-start', background: '#0f172a', padding: '15px', borderRadius: '8px', border: '1px solid #334155', marginBottom: '15px' }}>
-          <div style={{flex: '1 1 100%', marginBottom: '10px'}}>
-            <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Szalon / Körverseny azonosítója (pl. FIAP 2024/001)</label>
-            <input placeholder="Azonosító számok..." value={salonCircuitNum} onChange={e => setSalonCircuitNum(e.target.value)} style={{...inputStyle, marginBottom: 0}} />
-          </div>
-          <div style={{flex: '1 1 100%'}}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', color: '#f8fafc', fontWeight: 'bold' }}>
-              <input type="checkbox" checked={salonIsCircuit} onChange={e => setSalonIsCircuit(e.target.checked)} style={{ width: '20px', height: '20px' }} />
-              Ez a szalon egy Körverseny (Circuit) része
-            </label>
-          </div>
+          <div style={{flex: '1 1 100%', marginBottom: '10px'}}><label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Szalon / Körverseny azonosítója (pl. FIAP 2024/001)</label><input placeholder="Azonosító számok..." value={salonCircuitNum} onChange={e => setSalonCircuitNum(e.target.value)} style={{...inputStyle, marginBottom: 0}} /></div>
+          <div style={{flex: '1 1 100%'}}><label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', color: '#f8fafc', fontWeight: 'bold' }}><input type="checkbox" checked={salonIsCircuit} onChange={e => setSalonIsCircuit(e.target.checked)} style={{ width: '20px', height: '20px' }} />Ez a szalon egy Körverseny (Circuit) része</label></div>
         </div>
 
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '15px' }}>
-          <div style={{flex: '1 1 150px'}}>
-            <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Kiosztott díjak száma</label>
-            <input type="number" value={salonAwards} onChange={e => setSalonAwards(e.target.value)} style={inputStyle} />
-          </div>
-          <div style={{flex: '1 1 300px'}}>
-            <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Készpénzes nyeremény (Opcionális)</label>
-            <input placeholder="pl: 1000 EUR a legjobb fotónak" value={salonCash} onChange={e => setSalonCash(e.target.value)} style={inputStyle} />
-          </div>
+          <div style={{flex: '1 1 150px'}}><label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Kiosztott díjak száma</label><input type="number" value={salonAwards} onChange={e => setSalonAwards(e.target.value)} style={inputStyle} /></div>
+          <div style={{flex: '1 1 300px'}}><label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Készpénzes nyeremény (Opcionális)</label><input placeholder="pl: 1000 EUR a legjobb fotónak" value={salonCash} onChange={e => setSalonCash(e.target.value)} style={inputStyle} /></div>
         </div>
 
         <div style={{ marginBottom: '15px', padding: '15px', background: '#0f172a', borderRadius: '8px', border: '1px solid #334155' }}>
@@ -486,23 +367,8 @@ export default function AdminSalonsView({
               const isSelected = salonSelectedPatrons.includes(p.id);
               return (
                 <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', minWidth: '120px' }}>
-                    <input 
-                      type="checkbox" 
-                      checked={isSelected} 
-                      onChange={() => toggleArrayItem(salonSelectedPatrons, setSalonSelectedPatrons, p.id)} 
-                    />
-                    <span style={{ color: isSelected ? '#a78bfa' : '#cbd5e1' }}>{p.name}</span>
-                  </label>
-                  
-                  {isSelected && (
-                    <input 
-                      placeholder={`${p.name} azonosító (pl. 2024/123)`}
-                      value={salonPatronNumbers[p.id] || ''} 
-                      onChange={e => setSalonPatronNumbers({...salonPatronNumbers, [p.id]: e.target.value})}
-                      style={{ ...inputStyle, marginBottom: 0, padding: '5px 10px', flex: 1, maxWidth: '300px', fontSize: '0.85rem' }}
-                    />
-                  )}
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', minWidth: '120px' }}><input type="checkbox" checked={isSelected} onChange={() => toggleArrayItem(salonSelectedPatrons, setSalonSelectedPatrons, p.id)} /><span style={{ color: isSelected ? '#a78bfa' : '#cbd5e1' }}>{p.name}</span></label>
+                  {isSelected && <input placeholder={`${p.name} azonosító`} value={salonPatronNumbers[p.id] || ''} onChange={e => setSalonPatronNumbers({...salonPatronNumbers, [p.id]: e.target.value})} style={{ ...inputStyle, marginBottom: 0, padding: '5px 10px', flex: 1, maxWidth: '300px', fontSize: '0.85rem' }} />}
                 </div>
               );
             })}
@@ -519,15 +385,11 @@ export default function AdminSalonsView({
         {sortedSalons.length === 0 ? <div style={{padding: '20px', color: '#94a3b8', textAlign: 'center'}}>Még nincs egyetlen szalon sem felvéve.</div> : null}
         {sortedSalons.map((s, i) => (
           <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px', borderBottom: i < sortedSalons.length - 1 ? '1px solid #334155' : 'none', background: i % 2 === 0 ? '#0f172a' : 'transparent', flexWrap: 'wrap', gap: '10px' }}>
-            
             <div style={{ cursor: 'pointer', flex: 1 }} onClick={() => setSelectedSalon(s)}>
               <div style={{ fontWeight: 'bold', color: '#60a5fa', fontSize: '1.1rem' }}>{s.name}</div>
               <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: '5px', display: 'flex', alignItems: 'center', gap: '5px' }}>
                 <span>Zárás: {new Date(s.end_date).toLocaleDateString('hu-HU', { year: 'numeric', month: 'short', day: 'numeric' })} | </span>
-                
-                {s.country_code && getFlagImageUrl(s.country_code) && (
-                  <img src={getFlagImageUrl(s.country_code)} alt="flag" style={{ width: '16px', borderRadius: '2px' }} />
-                )}
+                {s.country_code && getFlagImageUrl(s.country_code) && <img src={getFlagImageUrl(s.country_code)} alt="flag" style={{ width: '16px', borderRadius: '2px' }} />}
                 <span>{s.country_hun}</span>
               </div>
             </div>
