@@ -139,7 +139,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
 
     myStats.history.forEach(e => {
       const percentile = e.rank / e.total_entries;
-      if (percentile <= 0.1 && e.rank > 3) top10Count++; // Dobogósokat nem számoljuk ide duplán
+      if (percentile <= 0.1 && e.rank > 3) top10Count++; 
       if (percentile > 0.1 && percentile <= 0.2) top20Count++;
     });
   }
@@ -256,17 +256,27 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         </>
       )}
 
-      {/* 2. ÉS 3. FÜL: UGYANAZ, MINT EDDIG (Hamarosan / Archívum) */}
+      {/* 2. FÜL: HAMAROSAN INDUL */}
       {subTab === 'upcoming' && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
-          {upcomingTopics.map(t => (
-            <div key={t.id} style={{ background: '#1e293b', padding: '20px', borderRadius: '16px', border: '1px solid #475569' }}>
-              <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🗓️</div><h4 style={{ color: '#f59e0b', margin: '0 0 10px 0' }}>{t.title}</h4><p style={{ color: '#cbd5e1', fontSize: '0.9rem' }}>{t.description}</p>
-            </div>
-          ))}
+          {upcomingTopics.length === 0 ? (
+            <div style={{ color: '#94a3b8', gridColumn: '1/-1', textAlign: 'center', padding: '40px', background: '#1e293b', borderRadius: '12px' }}>Nincs betárazva elkövetkező téma.</div>
+          ) : (
+            upcomingTopics.map(t => (
+              <div key={t.id} style={{ background: '#1e293b', padding: '20px', borderRadius: '16px', border: '1px solid #475569', display: 'flex', flexDirection: 'column' }}>
+                <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🗓️</div>
+                <h4 style={{ color: '#f59e0b', margin: '0 0 10px 0', fontSize: '1.2rem' }}>{t.title}</h4>
+                <p style={{ color: '#cbd5e1', fontSize: '0.9rem', margin: '0 0 15px 0', flex: 1 }}>{t.description}</p>
+                <div style={{ color: '#94a3b8', fontSize: '0.85rem', background: '#0f172a', padding: '10px', borderRadius: '8px', textAlign: 'center', fontWeight: 'bold' }}>
+                  ⏳ Kezdés: {new Date(t.start_date).toLocaleDateString('hu-HU')}
+                </div>
+              </div>
+            ))
+          )}
         </div>
       )}
 
+      {/* 3. FÜL: ARCHÍVUM */}
       {subTab === 'past' && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr md:350px', gap: '30px' }}>
           <div style={{ background: '#1e293b', borderRadius: '16px', padding: '20px', border: '1px solid #334155' }}>
@@ -290,7 +300,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         </div>
       )}
 
-      {/* --- ÚJ 4. FÜL: GURUSHOTS STÍLUSÚ TRÓFEATEREM --- */}
+      {/* --- 4. FÜL: GURUSHOTS STÍLUSÚ TRÓFEATEREM --- */}
       {subTab === 'my_stats' && myStats && (
         <div style={{ animation: 'fadeIn 0.5s ease-in-out' }}>
           
