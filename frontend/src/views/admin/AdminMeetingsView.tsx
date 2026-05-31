@@ -1,5 +1,7 @@
-import { ADMIN_EMAIL } from '../../utils/constants';
+import React, { useState } from 'react';
+import { BACKEND_URL, ADMIN_EMAIL } from '../../utils/constants';
 
+// Ezeket a propokat kapja meg az App.tsx-ből:
 interface AdminMeetingsViewProps {
   user: any;
   currentDbUser: any;
@@ -7,44 +9,122 @@ interface AdminMeetingsViewProps {
   meetings: any[];
   allUsers: any[];
   adminMeetings: any[];
-  // Form state
-  editMeetId: number | null;
-  meetClubId: string; setMeetClubId: (val: string) => void;
-  meetDate: string; setMeetDate: (val: string) => void;
-  meetTime: string; setMeetTime: (val: string) => void;
-  meetTopic: string; setMeetTopic: (val: string) => void;
-  meetDesc: string; setMeetDesc: (val: string) => void;
-  meetLocType: 'physical' | 'online'; setMeetLocType: (val: 'physical' | 'online') => void;
-  meetLocDetails: string; setMeetLocDetails: (val: string) => void;
-  meetVideoLink: string; setMeetVideoLink: (val: string) => void;
-  meetCoverPreview: string | null;
-  isMeetingUploading: boolean;
-  // Handlers
-  clearMeetingForm: () => void;
-  handleMeetingCoverSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  handleSaveMeeting: () => void;
-  startEditMeeting: (m: any) => void;
-  handleDeleteMeeting: (id: number) => void;
-  // Attendance
-  attendanceMeetId: number | null; setAttendanceMeetId: (id: number | null) => void;
-  attendanceList: string[];
-  openAttendance: (id: number) => void;
-  toggleAttendance: (email: string) => void;
-  saveAttendance: () => void;
+  fetchData: () => void;
 }
 
 export default function AdminMeetingsView({
-  user, currentDbUser, clubs, meetings, allUsers, adminMeetings,
-  editMeetId, meetClubId, setMeetClubId, meetDate, setMeetDate, meetTime, setMeetTime,
-  meetTopic, setMeetTopic, meetDesc, setMeetDesc, meetLocType, setMeetLocType,
-  meetLocDetails, setMeetLocDetails, meetVideoLink, setMeetVideoLink, meetCoverPreview,
-  isMeetingUploading, clearMeetingForm, handleMeetingCoverSelect, handleSaveMeeting,
-  startEditMeeting, handleDeleteMeeting, attendanceMeetId, setAttendanceMeetId,
-  attendanceList, openAttendance, toggleAttendance, saveAttendance
+  user, currentDbUser, clubs, meetings, allUsers, adminMeetings, fetchData
 }: AdminMeetingsViewProps) {
 
   const inputStyle = { width: '100%', padding: '10px', marginBottom: '10px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '6px', boxSizing: 'border-box' as const };
 
+  // ==============================================================
+  // 1. HELYI ÁLLAPOTOK (Ezek költöztek ide az App.tsx-ből)
+  // ==============================================================
+  const [editMeetId, setEditMeetId] = useState<number | null>(null);
+  const [meetClubId, setMeetClubId] = useState('');
+  const [meetDate, setMeetDate] = useState('');
+  const [meetTime, setMeetTime] = useState('');
+  const [meetTopic, setMeetTopic] = useState('');
+  const [meetDesc, setMeetDesc] = useState('');
+  const [meetLocType, setMeetLocType] = useState<'physical' | 'online'>('physical');
+  const [meetLocDetails, setMeetLocDetails] = useState('');
+  const [meetVideoLink, setMeetVideoLink] = useState(''); 
+  const [meetCover, setMeetCover] = useState<File | null>(null);
+  const [meetCoverPreview, setMeetCoverPreview] = useState<string | null>(null);
+  const [isMeetingUploading, setIsMeetingUploading] = useState(false);
+  
+  const [attendanceMeetId, setAttendanceMeetId] = useState<number | null>(null);
+  const [attendanceList, setAttendanceList] = useState<string[]>([]);
+
+  // ==============================================================
+  // 2. FÜGGVÉNYEK (Ide költöztek az App.tsx-ből)
+  // ==============================================================
+  const handleMeetingCoverSelect = (e: React.ChangeEvent<HTMLInputElement>) => { 
+    const file = e.target.files?.[0]; 
+    if (file) { setMeetCover(file); setMeetCoverPreview(URL.createObjectURL(file)); } 
+  };
+
+  const startEditMeeting = (m: any) => { 
+    setEditMeetId(m.id); 
+    setMeetClubId(m.club_id.toString()); 
+    setMeetDate(m.meeting_date.split('T')[0]); 
+    setMeetTime(m.meeting_time.substring(0, 5)); 
+    setMeetTopic(m.topic); 
+    setMeetDesc(m.description || ''); 
+    setMeetLocType(m.location_type); 
+    setMeetLocDetails(m.location_details || ''); 
+    setMeetVideoLink(m.video_link || ''); 
+    setMeetCover(null); 
+    setMeetCoverPreview(null); 
+  };
+
+  const clearMeetingForm = () => { 
+    setEditMeetId(null); setMeetClubId(''); setMeetDate(''); setMeetTime(''); 
+    setMeetTopic(''); setMeetDesc(''); setMeetLocDetails(''); setMeetVideoLink(''); 
+    setMeetCover(null); setMeetCoverPreview(null); 
+  };
+
+  const handleSaveMeeting = async () => { 
+    const finalClubId = user?.email !== ADMIN_EMAIL ? clubs.find(c => c.name === currentDbUser?.club_name)?.id : meetClubId; 
+    if (!finalClubId || !meetDate || !meetTime || !meetTopic) return alert("Klub, Dátum, Időpont és Téma kötelező!"); 
+    
+    setIsMeetingUploading(true); 
+    try { 
+      const formData = new FormData(); 
+      formData.append('clubId', finalClubId.toString()); 
+      formData.append('date', meetDate); 
+      formData.append('time', meetTime); 
+      formData.append('topic', meetTopic); 
+      formData.append('description', meetDesc); 
+      formData.append('locationType', meetLocType); 
+      formData.append('locationDetails', meetLocDetails); 
+      formData.append('videoLink', meetVideoLink); 
+      if (meetCover) formData.append('coverPhoto', meetCover); 
+      
+      const url = editMeetId ? `${BACKEND_URL}/api/meetings/${editMeetId}` : `${BACKEND_URL}/api/meetings`; 
+      const method = editMeetId ? 'PUT' : 'POST'; 
+      const res = await fetch(url, { method, body: formData }); 
+      
+      if (res.ok) { 
+        alert(editMeetId ? "Klubest frissítve!" : "Klubest sikeresen létrehozva!"); 
+        clearMeetingForm(); 
+        fetchData(); 
+      } else { 
+        const err = await res.json(); alert(`Hiba: ${err.error}`); 
+      } 
+    } catch (error) { alert("Hálózati hiba!"); } finally { setIsMeetingUploading(false); } 
+  };
+
+  const handleDeleteMeeting = async (id: number) => { 
+    if (!window.confirm("Biztosan törlöd ezt a klubestet?")) return; 
+    const res = await fetch(`${BACKEND_URL}/api/meetings/${id}`, { method: 'DELETE' }); 
+    if (res.ok) fetchData(); 
+  };
+
+  const openAttendance = async (meetId: number) => { 
+    setAttendanceMeetId(meetId); 
+    const res = await fetch(`${BACKEND_URL}/api/attendance/${meetId}`); 
+    if (res.ok) setAttendanceList(await res.json()); 
+  };
+
+  const toggleAttendance = (email: string) => { 
+    setAttendanceList(prev => prev.includes(email) ? prev.filter(e => e !== email) : [...prev, email]); 
+  };
+
+  const saveAttendance = async () => { 
+    if (!attendanceMeetId) return; 
+    const res = await fetch(`${BACKEND_URL}/api/attendance/${attendanceMeetId}`, { 
+      method: 'POST', 
+      headers: { 'Content-Type': 'application/json' }, 
+      body: JSON.stringify({ emails: attendanceList }) 
+    }); 
+    if (res.ok) { alert("Jelenléti ív mentve!"); setAttendanceMeetId(null); } 
+  };
+
+  // ==============================================================
+  // 3. RENDERELÉS
+  // ==============================================================
   return (
     <div>
       <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', color: '#f59e0b' }}>📅 Klubestek Kezelése</h2>
