@@ -58,10 +58,13 @@ function MainContent() {
 
         if (authRes.ok) {
           const authData = await authRes.json();
+          // JAVÍTVA: Hozzáadva mindkét írásmód, hogy minden komponens megtalálja!
           const freshUser = {
             ...localUser,
             isPremium: authData.isPremium,
+            is_premium: authData.isPremium,
             premiumLevel: authData.premiumLevel,
+            premium_level: authData.premiumLevel,
             premiumUntil: authData.premiumUntil
           };
           
@@ -147,7 +150,6 @@ function MainContent() {
   const [meetingSearch, setMeetingSearch] = useState(''); 
   const [activeVideo, setActiveVideo] = useState<string | null>(null);
 
-  // A Contestekhez szükséges feltöltési állapotok
   const [activeUploadContest, setActiveUploadContest] = useState<number | null>(null);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
@@ -273,7 +275,15 @@ function MainContent() {
                 });
                 if (!res.ok) throw new Error("Hiba");
                 const data = await res.json();
-                setUser({ ...decoded, isPremium: data.isPremium, premiumUntil: data.premiumUntil, premiumLevel: data.premiumLevel });
+                // JAVÍTVA ITT IS!
+                setUser({ 
+                  ...decoded, 
+                  isPremium: data.isPremium, 
+                  is_premium: data.isPremium,
+                  premiumUntil: data.premiumUntil, 
+                  premiumLevel: data.premiumLevel,
+                  premium_level: data.premiumLevel
+                });
                 setIsAuthLoading(false); 
               } catch (err) {
                 if (retry < 3) setTimeout(() => attemptSync(retry + 1), 1500); 
@@ -308,7 +318,15 @@ function MainContent() {
       });
       if (res.ok) {
         const data = await res.json();
-        const freshUser = { ...decoded, isPremium: data.isPremium, premiumUntil: data.premiumUntil, premiumLevel: data.premiumLevel };
+        // JAVÍTVA ITT IS!
+        const freshUser = { 
+          ...decoded, 
+          isPremium: data.isPremium, 
+          is_premium: data.isPremium,
+          premiumUntil: data.premiumUntil, 
+          premiumLevel: data.premiumLevel,
+          premium_level: data.premiumLevel
+        };
         setUser(freshUser);
         localStorage.setItem('user', JSON.stringify(freshUser)); 
       } else {
@@ -387,7 +405,6 @@ function MainContent() {
     } catch (error) { alert("Hiba"); } finally { setIsUploading(false); } 
   };
 
-  // KÉP SZERKESZTÉSE ÉS TÖRLÉSE FÜGGVÉNYEK (Pályázatok és Házifeladatok is használják)
   const handleUpdateEntryTitle = async (entryId: number) => { 
     if (!editEntryTitle) return alert('A cím nem lehet üres!'); 
     const res = await fetch(`${BACKEND_URL}/api/entries/${entryId}`, { 
@@ -395,25 +412,13 @@ function MainContent() {
     }); 
     if (res.ok) { setEditingEntryId(null); fetchMyEntries(user.email); } else alert('Hiba a cím frissítésekor!'); 
   };
-  
+
   const handleDeleteEntry = async (entryId: number) => { 
     if (!window.confirm("Biztosan törlöd?")) return; 
     const res = await fetch(`${BACKEND_URL}/api/entries/${entryId}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userEmail: user.email }) }); 
     if (res.ok) fetchMyEntries(user.email); 
   };
 
-  const handleDeleteHwEntry = async (entryId: number) => {
-    if (!window.confirm("Biztosan törlöd ezt a feltöltést?")) return;
-    const res = await fetch(`${BACKEND_URL}/api/homework-entries/${entryId}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userEmail: user.email }) });
-    if (res.ok) { fetchMyEntries(user.email); const club = clubs.find(c => c.name === currentDbUser?.club_name); if (club) fetchClubHomeworkEntries(club.id, user.email); }
-  };
-
-  const handleToggleLike = async (entryId: number) => {
-    const res = await fetch(`${BACKEND_URL}/api/homework-entries/${entryId}/like`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userEmail: user.email }) });
-    if (res.ok) { const club = clubs.find(c => c.name === currentDbUser?.club_name); if (club) fetchClubHomeworkEntries(club.id, user.email); }
-  };
-
-  // Zsűrizés és eredmények
   const startJudging = async (contestId: number) => { const res = await fetch(`${BACKEND_URL}/api/jury-entries/${contestId}?userEmail=${user.email}`); if (res.ok) { setUnvotedEntries(await res.json()); setJudgingContestId(contestId); setCurrentScore(''); } };
   const submitVote = async () => { 
     const score = Number(currentScore); 
@@ -426,7 +431,6 @@ function MainContent() {
   const handleDeleteContest = async (id: number) => { if (!window.confirm("❗ BIZTOSAN TÖRLÖD ezt a pályázatot?")) return; const res = await fetch(`${BACKEND_URL}/api/contests/${id}`, { method: 'DELETE' }); if (res.ok) fetchData(); else alert("Hiba történt a törlés során!"); };
   const loadJuryProgress = async (contestId: number) => { const res = await fetch(`${BACKEND_URL}/api/admin/jury-stats/${contestId}`); if (res.ok) { setJuryProgressData(await res.json()); setViewJuryProgressId(contestId); } };
   
-
   const filteredContests = contests.filter(contest => {
     const isRestricted = contest.restricted_club && contest.restricted_club.trim() !== '';
     const now = new Date(); const start = contest.start_date ? new Date(contest.start_date) : new Date(0); const end = contest.end_date ? new Date(contest.end_date) : new Date(0); const isEnded = now > end && start.getFullYear() > 1970;
@@ -499,51 +503,15 @@ function MainContent() {
               <Route path="/salons" element={<SalonsView salonSearch={salonSearch} setSalonSearch={setSalonSearch} searchedSalons={searchedSalons} setSelectedSalon={setSelectedSalon} userEntrySalonIds={userEntrySalonIds} user={user} BACKEND_URL={BACKEND_URL} />} />
               <Route path="/club_nights" element={<ClubNightsView currentDbUser={currentDbUser} meetingSearch={meetingSearch} setMeetingSearch={setMeetingSearch} searchedMeetings={searchedMeetings} setActiveVideo={setActiveVideo} />} />
 
-              {/* === ADMINISZTRÁCIÓS FELÜLETEK (SZIGORÚAN VÉDVE!) === */}
+              {/* === ADMINISZTRÁCIÓS FELÜLETEK === */}
               <Route path="/admin_clubs" element={user?.email === ADMIN_EMAIL ? <AdminClubsView clubs={clubs} newClubName={newClubName} setNewClubName={setNewClubName} handleAddClub={handleAddClub} handleDeleteClub={handleDeleteClub} /> : <Navigate to="/dashboard" />} />
               <Route path="/admin_users" element={user?.email === ADMIN_EMAIL ? <AdminUsersView allUsers={allUsers} clubs={clubs} userClubEdits={userClubEdits} setUserClubEdits={setUserClubEdits} userRoleEdits={userRoleEdits} setUserRoleEdits={setUserRoleEdits} saveUserClub={saveUserClub} /> : <Navigate to="/dashboard" />} />
               <Route path="/admin_weekly" element={user?.email === ADMIN_EMAIL ? <AdminWeeklyView /> : <Navigate to="/dashboard" />} />
               <Route path="/admin_settings" element={user?.email === ADMIN_EMAIL ? <AdminSettingsView /> : <Navigate to="/dashboard" />} />
               
-              <Route path="/admin_salons" element={
-                user?.email === ADMIN_EMAIL ? (
-                  <AdminSalonsView 
-                    salons={salons} 
-                    countries={countries} 
-                    allCategories={allCategories} 
-                    patrons={patrons} 
-                    BACKEND_URL={BACKEND_URL} 
-                    fetchData={fetchData} 
-                    setSelectedSalon={setSelectedSalon} 
-                  />
-                ) : <Navigate to="/dashboard" />
-              } />
-              
-              <Route path="/admin_meetings" element={
-                (user?.email === ADMIN_EMAIL || isLeader) ? (
-                  <AdminMeetingsView 
-                    user={user} 
-                    currentDbUser={currentDbUser} 
-                    clubs={clubs} 
-                    meetings={meetings} 
-                    allUsers={allUsers} 
-                    adminMeetings={adminMeetings} 
-                    fetchData={fetchData} 
-                  />
-                ) : <Navigate to="/dashboard" replace />
-              } />
-
-             <Route path="/admin_homeworks" element={
-                (user?.email === ADMIN_EMAIL || isLeader) ? (
-                  <AdminHomeworksView 
-                    user={user} 
-                    currentDbUser={currentDbUser} 
-                    clubs={clubs} 
-                    adminHomeworks={adminHomeworks} 
-                    fetchData={fetchData} 
-                  />
-                ) : <Navigate to="/dashboard" replace />
-              } />
+              <Route path="/admin_salons" element={user?.email === ADMIN_EMAIL ? <AdminSalonsView salons={salons} countries={countries} allCategories={allCategories} patrons={patrons} BACKEND_URL={BACKEND_URL} fetchData={fetchData} setSelectedSalon={setSelectedSalon} /> : <Navigate to="/dashboard" />} />
+              <Route path="/admin_meetings" element={(user?.email === ADMIN_EMAIL || isLeader) ? <AdminMeetingsView user={user} currentDbUser={currentDbUser} clubs={clubs} meetings={meetings} allUsers={allUsers} adminMeetings={adminMeetings} fetchData={fetchData} /> : <Navigate to="/dashboard" replace />} />
+              <Route path="/admin_homeworks" element={(user?.email === ADMIN_EMAIL || isLeader) ? <AdminHomeworksView user={user} currentDbUser={currentDbUser} clubs={clubs} adminHomeworks={adminHomeworks} fetchData={fetchData} /> : <Navigate to="/dashboard" replace />} />
 
               {/* === PÁLYÁZATOK KÖZÖNSÉGES TAGOKNAK === */}
               {['/contests_open_active', '/contests_club_active', '/contests_closed'].map(path => (
@@ -556,9 +524,7 @@ function MainContent() {
               <Route path="/admin_contests" element={
                 (user?.email === ADMIN_EMAIL || isLeader) ? (
                   <ContestsView activeTab={activeTab} user={user} currentDbUser={currentDbUser} isLeader={!!isLeader} clubs={clubs} allUsers={allUsers} filteredContests={filteredContests} myEntries={myEntries} juryList={juryList} newTitle={newTitle} setNewTitle={setNewTitle} newDesc={newDesc} setNewDesc={setNewDesc} newStart={newStart} setNewStart={setNewStart} newEnd={newEnd} setNewEnd={setNewEnd} newCats={newCats} setNewCats={setNewCats} newRestrictedClub={newRestrictedClub} setNewRestrictedClub={setNewRestrictedClub} myJudgedContests={myJudgedContests} newEntryFee={newEntryFee} setNewEntryFee={setNewEntryFee} newFeeCurrency={newFeeCurrency} setNewFeeCurrency={setNewFeeCurrency} editEntryFee={editEntryFee} setEditEntryFee={setEditEntryFee} editFeeCurrency={editFeeCurrency} setEditFeeCurrency={setEditFeeCurrency} contestPayments={contestPayments} handlePayContestFee={handlePayContestFee} handleCreateContest={handleCreateContest} editContestId={editContestId} setEditContestId={setEditContestId} editTitle={editTitle} setEditTitle={setEditTitle} editDesc={editDesc} setEditDesc={setEditDesc} editStart={editStart} setEditStart={setEditStart} editEnd={editEnd} setEditEnd={setEditEnd} editCats={editCats} setEditCats={setEditCats} editRestrictedClub={editRestrictedClub} setEditRestrictedClub={setEditRestrictedClub} startEdit={startEdit} handleUpdateContest={handleUpdateContest} handleDeleteContest={handleDeleteContest} viewStatsContestId={viewStatsContestId} setViewStatsContestId={setViewStatsContestId} contestStats={contestStats} loadStats={loadStats} viewJuryProgressId={viewJuryProgressId} setViewJuryProgressId={setViewJuryProgressId} juryProgressData={juryProgressData} loadJuryProgress={loadJuryProgress} manageJuryContestId={manageJuryContestId} setManageJuryContestId={setManageJuryContestId} selectedJuryEmail={selectedJuryEmail} setSelectedJuryEmail={setSelectedJuryEmail} handleAddJury={handleAddJury} handleRemoveJury={handleRemoveJury} viewResultsContestId={viewResultsContestId} setViewResultsContestId={setViewResultsContestId} contestResults={contestResults} loadResults={loadResults} activeUploadContest={activeUploadContest} setActiveUploadContest={setActiveUploadContest} uploadTitle={uploadTitle} setUploadTitle={setUploadTitle} uploadCategory={uploadCategory} setUploadCategory={setUploadCategory} uploadPreview={uploadPreview} setUploadPreview={setUploadPreview} isUploading={isUploading} handleFileSelect={handleFileSelect} handleUpload={handleUpload} judgingContestId={judgingContestId} setJudgingContestId={setJudgingContestId} unvotedEntries={unvotedEntries} currentScore={currentScore} setCurrentScore={setCurrentScore} startJudging={startJudging} submitVote={submitVote} editingEntryId={editingEntryId} setEditingEntryId={setEditingEntryId} editEntryTitle={editEntryTitle} setEditEntryTitle={setEditEntryTitle} handleUpdateEntryTitle={handleUpdateEntryTitle} handleDeleteEntry={handleDeleteEntry} setFullscreenData={setFullscreenData} newCategorySettings={newCategorySettings} setNewCategorySettings={setNewCategorySettings} editCategorySettings={editCategorySettings} setEditCategorySettings={setEditCategorySettings} />
-                ) : (
-                  <Navigate to="/dashboard" replace />
-                )
+                ) : <Navigate to="/dashboard" replace />
               } />
 
               {/* KLUB HÁZIFELADATOK */}
@@ -571,8 +537,6 @@ function MainContent() {
                   clubHomeworkEntries={clubHomeworkEntries} 
                   isLeader={!!isLeader} 
                   setFullscreenData={setFullscreenData} 
-                  handleDeleteHwEntry={handleDeleteHwEntry} 
-                  handleToggleLike={handleToggleLike} 
                   fetchMyEntries={fetchMyEntries}
                   fetchClubHomeworkEntries={fetchClubHomeworkEntries}
                   clubs={clubs}
