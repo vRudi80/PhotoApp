@@ -153,10 +153,8 @@ function MainContent() {
   const [hwUploadPreview, setHwUploadPreview] = useState<string | null>(null);
   const [hwUploadTitle, setHwUploadTitle] = useState('');
   const [isHwUploading, setIsHwUploading] = useState(false);
-  
   const [editingHwEntryId, setEditingHwEntryId] = useState<number | null>(null);
   const [editHwEntryTitle, setEditHwEntryTitle] = useState('');
-
 
   const [activeVideo, setActiveVideo] = useState<string | null>(null);
 
@@ -414,35 +412,7 @@ function MainContent() {
   const loadJuryProgress = async (contestId: number) => { const res = await fetch(`${BACKEND_URL}/api/admin/jury-stats/${contestId}`); if (res.ok) { setJuryProgressData(await res.json()); setViewJuryProgressId(contestId); } };
   
 
-   const handleHwFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (file) { setHwUploadFile(file); setHwUploadPreview(URL.createObjectURL(file)); } };
-  
-  const handleUploadHw = async (homeworkId: number) => {
-    if (!hwUploadFile || !hwUploadTitle) return alert("Kép és cím megadása kötelező!");
-    setIsHwUploading(true);
-    try {
-      const formData = new FormData(); formData.append('photo', hwUploadFile); formData.append('homeworkId', String(homeworkId)); formData.append('userEmail', user.email); formData.append('userName', user.name); formData.append('title', hwUploadTitle);
-      const res = await fetch(`${BACKEND_URL}/api/upload-homework`, { method: 'POST', body: formData });
-      if (res.ok) { alert("Feltöltve!"); setActiveUploadHw(null); setHwUploadFile(null); setHwUploadPreview(null); setHwUploadTitle(''); fetchMyEntries(user.email); const club = clubs.find(c => c.name === currentDbUser?.club_name); if (club) fetchClubHomeworkEntries(club.id, user.email); } else { const err = await res.json(); alert(`Hiba: ${err.error}`); }
-    } catch (error) { alert("Hiba a feltöltésnél"); } finally { setIsHwUploading(false); }
-  };
-
-  const handleUpdateHwEntryTitle = async (entryId: number) => {
-    if (!editHwEntryTitle) return alert('A cím nem lehet üres!');
-    const res = await fetch(`${BACKEND_URL}/api/homework-entries/${entryId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: editHwEntryTitle, userEmail: user.email }) });
-    if (res.ok) { setEditingHwEntryId(null); fetchMyEntries(user.email); const club = clubs.find(c => c.name === currentDbUser?.club_name); if (club) fetchClubHomeworkEntries(club.id, user.email); } else alert('Hiba a cím frissítésekor!');
-  };
-
-  const handleDeleteHwEntry = async (entryId: number) => {
-    if (!window.confirm("Biztosan törlöd ezt a feltöltést?")) return;
-    const res = await fetch(`${BACKEND_URL}/api/homework-entries/${entryId}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userEmail: user.email }) });
-    if (res.ok) { fetchMyEntries(user.email); const club = clubs.find(c => c.name === currentDbUser?.club_name); if (club) fetchClubHomeworkEntries(club.id, user.email); }
-  };
-
-  const handleToggleLike = async (entryId: number) => {
-    const res = await fetch(`${BACKEND_URL}/api/homework-entries/${entryId}/like`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userEmail: user.email }) });
-    if (res.ok) { const club = clubs.find(c => c.name === currentDbUser?.club_name); if (club) fetchClubHomeworkEntries(club.id, user.email); }
-  };
-
+   
   const filteredContests = contests.filter(contest => {
     const isRestricted = contest.restricted_club && contest.restricted_club.trim() !== '';
     const now = new Date(); const start = contest.start_date ? new Date(contest.start_date) : new Date(0); const end = contest.end_date ? new Date(contest.end_date) : new Date(0); const isEnded = now > end && start.getFullYear() > 1970;
@@ -578,9 +548,23 @@ function MainContent() {
               } />
 
               {/* KLUB HÁZIFELADATOK */}
-              <Route path="/club_homeworks" element={
-                <ClubHomeworksView currentDbUser={currentDbUser} myClubHomeworks={myClubHomeworks} myHomeworkEntries={myHomeworkEntries} clubHomeworkEntries={clubHomeworkEntries} isLeader={!!isLeader} activeUploadHw={activeUploadHw} setActiveUploadHw={setActiveUploadHw} hwUploadTitle={hwUploadTitle} setHwUploadTitle={setHwUploadTitle} isHwUploading={isHwUploading} hwUploadPreview={hwUploadPreview} setHwUploadPreview={setHwUploadPreview} handleHwFileSelect={handleHwFileSelect} handleUploadHw={handleUploadHw} setFullscreenData={setFullscreenData} editingHwEntryId={editingHwEntryId} setEditingHwEntryId={setEditingHwEntryId} editHwEntryTitle={editHwEntryTitle} setEditHwEntryTitle={setEditHwEntryTitle} handleUpdateHwEntryTitle={handleUpdateHwEntryTitle} handleDeleteHwEntry={handleDeleteHwEntry} handleToggleLike={handleToggleLike} />
-              } />
+             <Route path="/club_homeworks" element={
+  <ClubHomeworksView 
+    user={user}
+    currentDbUser={currentDbUser} 
+    myClubHomeworks={myClubHomeworks} 
+    myHomeworkEntries={myHomeworkEntries} 
+    clubHomeworkEntries={clubHomeworkEntries} 
+    isLeader={!!isLeader} 
+    setFullscreenData={setFullscreenData} 
+    handleDeleteHwEntry={handleDeleteHwEntry} 
+    handleToggleLike={handleToggleLike} 
+    fetchMyEntries={fetchMyEntries}
+    fetchClubHomeworkEntries={fetchClubHomeworkEntries}
+    clubs={clubs}
+  />
+} />
+
 
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Routes>
