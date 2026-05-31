@@ -67,6 +67,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     try { const [rows] = await pool.query('SELECT * FROM weekly_topics WHERE end_date < CURRENT_DATE() ORDER BY end_date DESC'); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
+  // 4. Archívum 
   app.get('/api/weekly/history/:topicId', async (req, res) => {
     try {
       const [leaderboard] = await pool.query(`
@@ -78,11 +79,10 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
-  // 5. GURUSHOTS LOGIKA: AKTUÁLIS TOPLISTA (DÁTUM HIBA JAVÍTVA!)
+  // 5. GURUSHOTS LOGIKA: AKTUÁLIS TOPLISTA (SQL ÉS DÁTUM HIBA JAVÍTVA!)
   app.get('/api/weekly/current', async (req, res) => {
     const { userEmail } = req.query;
     try {
-      // VISSZATÉRTÜNK AZ EREDETI, JÓL BEVÁLT DÁTUM VIZSGÁLATODHOZ!
       const [allTopics] = await pool.query('SELECT * FROM weekly_topics ORDER BY id DESC');
       const today = new Date();
       const topic = allTopics.find(t => {
@@ -98,12 +98,12 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       const [myEntries] = await pool.query('SELECT * FROM weekly_entries WHERE topic_id = ? AND user_email = ?', [topic.id, userEmail]);
       const [myVotes] = await pool.query('SELECT COUNT(*) as cnt FROM weekly_votes WHERE topic_id = ? AND user_email = ?', [topic.id, userEmail]);
 
+      // JAVÍTÁS: Nincs JOIN hiba! Csak a weekly_entries-ből olvasunk mindent.
       const [leaderboard] = await pool.query(`
-        SELECT e.id, e.user_email, e.file_url, e.drive_file_id, e.likes_count, e.views_count, u.name as user_name
-        FROM weekly_entries e
-        JOIN photo_users u ON e.user_email = u.email
-        WHERE e.topic_id = ?
-        ORDER BY e.likes_count DESC, e.views_count ASC
+        SELECT id, user_email, user_name, file_url, drive_file_id, likes_count, views_count
+        FROM weekly_entries
+        WHERE topic_id = ?
+        ORDER BY likes_count DESC, views_count ASC
       `, [topic.id]);
 
       res.json({
@@ -112,7 +112,10 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         myVoteCount: myVotes[0]?.cnt || 0,
         leaderboard
       });
-    } catch (err) { res.status(500).json({ error: 'Hiba' }); }
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Hiba' }); 
+    }
   });
 
   // 6. GURUSHOTS LOGIKA: SAJÁT EREDMÉNYEK (TRÓFEATEREM)
