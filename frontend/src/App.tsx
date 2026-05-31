@@ -106,7 +106,6 @@ function MainContent() {
   const [allCategories, setAllCategories] = useState<any[]>([]);
   const [patrons, setPatrons] = useState<any[]>([]);
   
-  // EZEK MARADTAK (A SalonsView is használja őket)
   const [salonSearch, setSalonSearch] = useState('');
   const [selectedSalon, setSelectedSalon] = useState<any>(null);
 
@@ -146,18 +145,9 @@ function MainContent() {
   const [editCategorySettings, setEditCategorySettings] = useState<Record<string, any>>({});
 
   const [meetingSearch, setMeetingSearch] = useState(''); 
-
-  
-  const [activeUploadHw, setActiveUploadHw] = useState<number | null>(null);
-  const [hwUploadFile, setHwUploadFile] = useState<File | null>(null);
-  const [hwUploadPreview, setHwUploadPreview] = useState<string | null>(null);
-  const [hwUploadTitle, setHwUploadTitle] = useState('');
-  const [isHwUploading, setIsHwUploading] = useState(false);
-  const [editingHwEntryId, setEditingHwEntryId] = useState<number | null>(null);
-  const [editHwEntryTitle, setEditHwEntryTitle] = useState('');
-
   const [activeVideo, setActiveVideo] = useState<string | null>(null);
 
+  // A Contestekhez szükséges feltöltési állapotok
   const [activeUploadContest, setActiveUploadContest] = useState<number | null>(null);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
@@ -397,8 +387,33 @@ function MainContent() {
     } catch (error) { alert("Hiba"); } finally { setIsUploading(false); } 
   };
 
-  const handleUpdateEntryTitle = async (entryId: number) => { if (!editEntryTitle) return alert('A cím nem lehet üres!'); const res = await fetch(`${BACKEND_URL}/api/entries/${entryId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: editEntryTitle, userEmail: user.email }) }); if (res.ok) { setEditingEntryId(null); fetchMyEntries(user.email); } else alert('Hiba a cím frissítésekor!'); };
-  const handleDeleteEntry = async (entryId: number) => { if (!window.confirm("Biztosan törlöd?")) return; const res = await fetch(`${BACKEND_URL}/api/entries/${entryId}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userEmail: user.email }) }); if (res.ok) fetchMyEntries(user.email); };
+  // KÉP SZERKESZTÉSE ÉS TÖRLÉSE FÜGGVÉNYEK (Pályázatok és Házifeladatok is használják)
+  const handleUpdateEntryTitle = async (entryId: number) => { 
+    if (!editEntryTitle) return alert('A cím nem lehet üres!'); 
+    const res = await fetch(`${BACKEND_URL}/api/entries/${entryId}`, { 
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: editEntryTitle, userEmail: user.email }) 
+    }); 
+    if (res.ok) { setEditingEntryId(null); fetchMyEntries(user.email); } else alert('Hiba a cím frissítésekor!'); 
+  };
+  
+  const handleDeleteEntry = async (entryId: number) => { 
+    if (!window.confirm("Biztosan törlöd?")) return; 
+    const res = await fetch(`${BACKEND_URL}/api/entries/${entryId}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userEmail: user.email }) }); 
+    if (res.ok) fetchMyEntries(user.email); 
+  };
+
+  const handleDeleteHwEntry = async (entryId: number) => {
+    if (!window.confirm("Biztosan törlöd ezt a feltöltést?")) return;
+    const res = await fetch(`${BACKEND_URL}/api/homework-entries/${entryId}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userEmail: user.email }) });
+    if (res.ok) { fetchMyEntries(user.email); const club = clubs.find(c => c.name === currentDbUser?.club_name); if (club) fetchClubHomeworkEntries(club.id, user.email); }
+  };
+
+  const handleToggleLike = async (entryId: number) => {
+    const res = await fetch(`${BACKEND_URL}/api/homework-entries/${entryId}/like`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userEmail: user.email }) });
+    if (res.ok) { const club = clubs.find(c => c.name === currentDbUser?.club_name); if (club) fetchClubHomeworkEntries(club.id, user.email); }
+  };
+
+  // Zsűrizés és eredmények
   const startJudging = async (contestId: number) => { const res = await fetch(`${BACKEND_URL}/api/jury-entries/${contestId}?userEmail=${user.email}`); if (res.ok) { setUnvotedEntries(await res.json()); setJudgingContestId(contestId); setCurrentScore(''); } };
   const submitVote = async () => { 
     const score = Number(currentScore); 
@@ -412,7 +427,6 @@ function MainContent() {
   const loadJuryProgress = async (contestId: number) => { const res = await fetch(`${BACKEND_URL}/api/admin/jury-stats/${contestId}`); if (res.ok) { setJuryProgressData(await res.json()); setViewJuryProgressId(contestId); } };
   
 
-   
   const filteredContests = contests.filter(contest => {
     const isRestricted = contest.restricted_club && contest.restricted_club.trim() !== '';
     const now = new Date(); const start = contest.start_date ? new Date(contest.start_date) : new Date(0); const end = contest.end_date ? new Date(contest.end_date) : new Date(0); const isEnded = now > end && start.getFullYear() > 1970;
@@ -491,7 +505,6 @@ function MainContent() {
               <Route path="/admin_weekly" element={user?.email === ADMIN_EMAIL ? <AdminWeeklyView /> : <Navigate to="/dashboard" />} />
               <Route path="/admin_settings" element={user?.email === ADMIN_EMAIL ? <AdminSettingsView /> : <Navigate to="/dashboard" />} />
               
-              {/* --- EZ AZ ÚJ LETISZTÍTOTT ADMIN SALONS VIEW BEKÖTÉS --- */}
               <Route path="/admin_salons" element={
                 user?.email === ADMIN_EMAIL ? (
                   <AdminSalonsView 
@@ -507,31 +520,32 @@ function MainContent() {
               } />
               
               <Route path="/admin_meetings" element={
-  (user?.email === ADMIN_EMAIL || isLeader) ? (
-    <AdminMeetingsView 
-      user={user} 
-      currentDbUser={currentDbUser} 
-      clubs={clubs} 
-      meetings={meetings} 
-      allUsers={allUsers} 
-      adminMeetings={adminMeetings} 
-      fetchData={fetchData} 
-    />
-  ) : <Navigate to="/dashboard" replace />
-} />
+                (user?.email === ADMIN_EMAIL || isLeader) ? (
+                  <AdminMeetingsView 
+                    user={user} 
+                    currentDbUser={currentDbUser} 
+                    clubs={clubs} 
+                    meetings={meetings} 
+                    allUsers={allUsers} 
+                    adminMeetings={adminMeetings} 
+                    fetchData={fetchData} 
+                  />
+                ) : <Navigate to="/dashboard" replace />
+              } />
 
              <Route path="/admin_homeworks" element={
-  (user?.email === ADMIN_EMAIL || isLeader) ? (
-    <AdminHomeworksView 
-      user={user} 
-      currentDbUser={currentDbUser} 
-      clubs={clubs} 
-      adminHomeworks={adminHomeworks} 
-      fetchData={fetchData} 
-    />
-  ) : <Navigate to="/dashboard" replace />
-} />
-         {/* === PÁLYÁZATOK KÖZÖNSÉGES TAGOKNAK === */}
+                (user?.email === ADMIN_EMAIL || isLeader) ? (
+                  <AdminHomeworksView 
+                    user={user} 
+                    currentDbUser={currentDbUser} 
+                    clubs={clubs} 
+                    adminHomeworks={adminHomeworks} 
+                    fetchData={fetchData} 
+                  />
+                ) : <Navigate to="/dashboard" replace />
+              } />
+
+              {/* === PÁLYÁZATOK KÖZÖNSÉGES TAGOKNAK === */}
               {['/contests_open_active', '/contests_club_active', '/contests_closed'].map(path => (
                 <Route key={path} path={path} element={
                   <ContestsView activeTab={activeTab} user={user} currentDbUser={currentDbUser} isLeader={!!isLeader} clubs={clubs} allUsers={allUsers} filteredContests={filteredContests} myEntries={myEntries} juryList={juryList} newTitle={newTitle} setNewTitle={setNewTitle} newDesc={newDesc} setNewDesc={setNewDesc} newStart={newStart} setNewStart={setNewStart} newEnd={newEnd} setNewEnd={setNewEnd} newCats={newCats} setNewCats={setNewCats} newRestrictedClub={newRestrictedClub} setNewRestrictedClub={setNewRestrictedClub} myJudgedContests={myJudgedContests} newEntryFee={newEntryFee} setNewEntryFee={setNewEntryFee} newFeeCurrency={newFeeCurrency} setNewFeeCurrency={setNewFeeCurrency} editEntryFee={editEntryFee} setEditEntryFee={setEditEntryFee} editFeeCurrency={editFeeCurrency} setEditFeeCurrency={setEditFeeCurrency} contestPayments={contestPayments} handlePayContestFee={handlePayContestFee} handleCreateContest={handleCreateContest} editContestId={editContestId} setEditContestId={setEditContestId} editTitle={editTitle} setEditTitle={setEditTitle} editDesc={editDesc} setEditDesc={setEditDesc} editStart={editStart} setEditStart={setEditStart} editEnd={editEnd} setEditEnd={setEditEnd} editCats={editCats} setEditCats={setEditCats} editRestrictedClub={editRestrictedClub} setEditRestrictedClub={setEditRestrictedClub} startEdit={startEdit} handleUpdateContest={handleUpdateContest} handleDeleteContest={handleDeleteContest} viewStatsContestId={viewStatsContestId} setViewStatsContestId={setViewStatsContestId} contestStats={contestStats} loadStats={loadStats} viewJuryProgressId={viewJuryProgressId} setViewJuryProgressId={setViewJuryProgressId} juryProgressData={juryProgressData} loadJuryProgress={loadJuryProgress} manageJuryContestId={manageJuryContestId} setManageJuryContestId={setManageJuryContestId} selectedJuryEmail={selectedJuryEmail} setSelectedJuryEmail={setSelectedJuryEmail} handleAddJury={handleAddJury} handleRemoveJury={handleRemoveJury} viewResultsContestId={viewResultsContestId} setViewResultsContestId={setViewResultsContestId} contestResults={contestResults} loadResults={loadResults} activeUploadContest={activeUploadContest} setActiveUploadContest={setActiveUploadContest} uploadTitle={uploadTitle} setUploadTitle={setUploadTitle} uploadCategory={uploadCategory} setUploadCategory={setUploadCategory} uploadPreview={uploadPreview} setUploadPreview={setUploadPreview} isUploading={isUploading} handleFileSelect={handleFileSelect} handleUpload={handleUpload} judgingContestId={judgingContestId} setJudgingContestId={setJudgingContestId} unvotedEntries={unvotedEntries} currentScore={currentScore} setCurrentScore={setCurrentScore} startJudging={startJudging} submitVote={submitVote} editingEntryId={editingEntryId} setEditingEntryId={setEditingEntryId} editEntryTitle={editEntryTitle} setEditEntryTitle={setEditEntryTitle} handleUpdateEntryTitle={handleUpdateEntryTitle} handleDeleteEntry={handleDeleteEntry} setFullscreenData={setFullscreenData} newCategorySettings={newCategorySettings} setNewCategorySettings={setNewCategorySettings} editCategorySettings={editCategorySettings} setEditCategorySettings={setEditCategorySettings} />
@@ -548,23 +562,22 @@ function MainContent() {
               } />
 
               {/* KLUB HÁZIFELADATOK */}
-             <Route path="/club_homeworks" element={
-  <ClubHomeworksView 
-    user={user}
-    currentDbUser={currentDbUser} 
-    myClubHomeworks={myClubHomeworks} 
-    myHomeworkEntries={myHomeworkEntries} 
-    clubHomeworkEntries={clubHomeworkEntries} 
-    isLeader={!!isLeader} 
-    setFullscreenData={setFullscreenData} 
-    handleDeleteHwEntry={handleDeleteHwEntry} 
-    handleToggleLike={handleToggleLike} 
-    fetchMyEntries={fetchMyEntries}
-    fetchClubHomeworkEntries={fetchClubHomeworkEntries}
-    clubs={clubs}
-  />
-} />
-
+              <Route path="/club_homeworks" element={
+                <ClubHomeworksView 
+                  user={user}
+                  currentDbUser={currentDbUser} 
+                  myClubHomeworks={myClubHomeworks} 
+                  myHomeworkEntries={myHomeworkEntries} 
+                  clubHomeworkEntries={clubHomeworkEntries} 
+                  isLeader={!!isLeader} 
+                  setFullscreenData={setFullscreenData} 
+                  handleDeleteHwEntry={handleDeleteHwEntry} 
+                  handleToggleLike={handleToggleLike} 
+                  fetchMyEntries={fetchMyEntries}
+                  fetchClubHomeworkEntries={fetchClubHomeworkEntries}
+                  clubs={clubs}
+                />
+              } />
 
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Routes>
