@@ -312,7 +312,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
             <>
               {/* FELHASZNÁLÓ SZINTJE ÉS PROGRESS BAR */}
               <div style={{ background: '#1e293b', padding: '25px', borderRadius: '16px', border: `1px solid ${currentLevel.color}`, marginBottom: '30px', textAlign: 'center' }}>
-                <h3 style={{ color: '#94a3b8', margin: '0 0 5px 0', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '2px' }}>Jelenlegi Státuszod</h3>
+                <h3 style={{ color: '#94a3b8', margin: '0 0 5px 0', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '2px' }}>Jelenlegi Státuszod a lezárt párbajok alapján</h3>
                 <h1 style={{ color: currentLevel.color, margin: '0 0 15px 0', fontSize: '2.5rem' }}>{currentLevel.name}</h1>
                 
                 <div style={{ width: '100%', maxWidth: '500px', background: '#0f172a', height: '12px', borderRadius: '10px', margin: '0 auto', overflow: 'hidden' }}>
