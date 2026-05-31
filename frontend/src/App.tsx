@@ -145,18 +145,6 @@ function MainContent() {
   const [editFeeCurrency, setEditFeeCurrency] = useState('HUF');
   const [editCategorySettings, setEditCategorySettings] = useState<Record<string, any>>({});
 
-  const [editMeetId, setEditMeetId] = useState<number | null>(null);
-  const [meetClubId, setMeetClubId] = useState('');
-  const [meetDate, setMeetDate] = useState('');
-  const [meetTime, setMeetTime] = useState('');
-  const [meetTopic, setMeetTopic] = useState('');
-  const [meetDesc, setMeetDesc] = useState('');
-  const [meetLocType, setMeetLocType] = useState<'physical' | 'online'>('physical');
-  const [meetLocDetails, setMeetLocDetails] = useState('');
-  const [meetVideoLink, setMeetVideoLink] = useState(''); 
-  const [meetCover, setMeetCover] = useState<File | null>(null);
-  const [meetCoverPreview, setMeetCoverPreview] = useState<string | null>(null);
-  const [isMeetingUploading, setIsMeetingUploading] = useState(false);
   const [meetingSearch, setMeetingSearch] = useState(''); 
 
   const [editHwId, setEditHwId] = useState<number | null>(null);
@@ -175,8 +163,7 @@ function MainContent() {
   const [editingHwEntryId, setEditingHwEntryId] = useState<number | null>(null);
   const [editHwEntryTitle, setEditHwEntryTitle] = useState('');
 
-  const [attendanceMeetId, setAttendanceMeetId] = useState<number | null>(null);
-  const [attendanceList, setAttendanceList] = useState<string[]>([]);
+
   const [activeVideo, setActiveVideo] = useState<string | null>(null);
 
   const [activeUploadContest, setActiveUploadContest] = useState<number | null>(null);
@@ -432,14 +419,6 @@ function MainContent() {
   const handleDeleteContest = async (id: number) => { if (!window.confirm("❗ BIZTOSAN TÖRLÖD ezt a pályázatot?")) return; const res = await fetch(`${BACKEND_URL}/api/contests/${id}`, { method: 'DELETE' }); if (res.ok) fetchData(); else alert("Hiba történt a törlés során!"); };
   const loadJuryProgress = async (contestId: number) => { const res = await fetch(`${BACKEND_URL}/api/admin/jury-stats/${contestId}`); if (res.ok) { setJuryProgressData(await res.json()); setViewJuryProgressId(contestId); } };
   
-  const handleMeetingCoverSelect = (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (file) { setMeetCover(file); setMeetCoverPreview(URL.createObjectURL(file)); } };
-  const startEditMeeting = (m: any) => { setEditMeetId(m.id); setMeetClubId(m.club_id.toString()); setMeetDate(m.meeting_date.split('T')[0]); setMeetTime(m.meeting_time.substring(0, 5)); setMeetTopic(m.topic); setMeetDesc(m.description || ''); setMeetLocType(m.location_type); setMeetLocDetails(m.location_details || ''); setMeetVideoLink(m.video_link || ''); setMeetCover(null); setMeetCoverPreview(null); };
-  const clearMeetingForm = () => { setEditMeetId(null); setMeetClubId(''); setMeetDate(''); setMeetTime(''); setMeetTopic(''); setMeetDesc(''); setMeetLocDetails(''); setMeetVideoLink(''); setMeetCover(null); setMeetCoverPreview(null); };
-  const handleSaveMeeting = async () => { const finalClubId = user.email !== ADMIN_EMAIL ? clubs.find(c => c.name === currentDbUser?.club_name)?.id : meetClubId; if (!finalClubId || !meetDate || !meetTime || !meetTopic) return alert("Klub, Dátum, Időpont és Téma kötelező!"); setIsMeetingUploading(true); try { const formData = new FormData(); formData.append('clubId', finalClubId.toString()); formData.append('date', meetDate); formData.append('time', meetTime); formData.append('topic', meetTopic); formData.append('description', meetDesc); formData.append('locationType', meetLocType); formData.append('locationDetails', meetLocDetails); formData.append('videoLink', meetVideoLink); if (meetCover) formData.append('coverPhoto', meetCover); const url = editMeetId ? `${BACKEND_URL}/api/meetings/${editMeetId}` : `${BACKEND_URL}/api/meetings`; const method = editMeetId ? 'PUT' : 'POST'; const res = await fetch(url, { method, body: formData }); if (res.ok) { alert(editMeetId ? "Klubest frissítve!" : "Klubest sikeresen létrehozva!"); clearMeetingForm(); fetchData(); } else { const err = await res.json(); alert(`Hiba: ${err.error}`); } } catch (error) { alert("Hálózati hiba!"); } finally { setIsMeetingUploading(false); } };
-  const handleDeleteMeeting = async (id: number) => { if (!window.confirm("Biztosan törlöd ezt a klubestet?")) return; const res = await fetch(`${BACKEND_URL}/api/meetings/${id}`, { method: 'DELETE' }); if (res.ok) fetchData(); };
-  const openAttendance = async (meetId: number) => { setAttendanceMeetId(meetId); const res = await fetch(`${BACKEND_URL}/api/attendance/${meetId}`); if (res.ok) setAttendanceList(await res.json()); };
-  const toggleAttendance = (email: string) => { setAttendanceList(prev => prev.includes(email) ? prev.filter(e => e !== email) : [...prev, email]); };
-  const saveAttendance = async () => { if (!attendanceMeetId) return; const res = await fetch(`${BACKEND_URL}/api/attendance/${attendanceMeetId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ emails: attendanceList }) }); if (res.ok) { alert("Jelenléti ív mentve!"); setAttendanceMeetId(null); } };
 
   const clearHwForm = () => { setEditHwId(null); setHwClubId(''); setHwTopic(''); setHwDesc(''); setHwDeadline(''); setHwMaxImages(4); };
   const startEditHw = (h: any) => { setEditHwId(h.id); setHwClubId(h.club_id.toString()); setHwTopic(h.topic); setHwDesc(h.description || ''); setHwMaxImages(h.max_images || 4); const formatDate = (dateStr: string) => { if (!dateStr) return ''; return dateStr.replace('Z', '').substring(0, 16); }; setHwDeadline(formatDate(h.deadline)); };
@@ -568,7 +547,20 @@ function MainContent() {
                 ) : <Navigate to="/dashboard" />
               } />
               
-              <Route path="/admin_meetings" element={(user?.email === ADMIN_EMAIL || isLeader) ? <AdminMeetingsView user={user} currentDbUser={currentDbUser} clubs={clubs} meetings={meetings} allUsers={allUsers} adminMeetings={adminMeetings} editMeetId={editMeetId} meetClubId={meetClubId} setMeetClubId={setMeetClubId} meetDate={meetDate} setMeetDate={setMeetDate} meetTime={meetTime} setMeetTime={setMeetTime} meetTopic={meetTopic} setMeetTopic={setMeetTopic} meetDesc={meetDesc} setMeetDesc={setMeetDesc} meetLocType={meetLocType} setMeetLocType={setMeetLocType} meetLocDetails={meetLocDetails} setMeetLocDetails={setMeetLocDetails} meetVideoLink={meetVideoLink} setMeetVideoLink={setMeetVideoLink} meetCoverPreview={meetCoverPreview} isMeetingUploading={isMeetingUploading} clearMeetingForm={clearMeetingForm} handleMeetingCoverSelect={handleMeetingCoverSelect} handleSaveMeeting={handleSaveMeeting} startEditMeeting={startEditMeeting} handleDeleteMeeting={handleDeleteMeeting} attendanceMeetId={attendanceMeetId} setAttendanceMeetId={setAttendanceMeetId} attendanceList={attendanceList} openAttendance={openAttendance} toggleAttendance={toggleAttendance} saveAttendance={saveAttendance} /> : <Navigate to="/dashboard" />} />
+              <Route path="/admin_meetings" element={
+  (user?.email === ADMIN_EMAIL || isLeader) ? (
+    <AdminMeetingsView 
+      user={user} 
+      currentDbUser={currentDbUser} 
+      clubs={clubs} 
+      meetings={meetings} 
+      allUsers={allUsers} 
+      adminMeetings={adminMeetings} 
+      fetchData={fetchData} 
+    />
+  ) : <Navigate to="/dashboard" replace />
+} />
+
               <Route path="/admin_homeworks" element={(user?.email === ADMIN_EMAIL || isLeader) ? <AdminHomeworksView user={user} currentDbUser={currentDbUser} clubs={clubs} adminHomeworks={adminHomeworks} editHwId={editHwId} hwClubId={hwClubId} setHwClubId={setHwClubId} hwTopic={hwTopic} setHwTopic={setHwTopic} hwDesc={hwDesc} setHwDesc={setHwDesc} hwDeadline={hwDeadline} setHwDeadline={setHwDeadline} hwMaxImages={hwMaxImages} setHwMaxImages={setHwMaxImages} clearHwForm={clearHwForm} handleSaveHw={handleSaveHw} startEditHw={startEditHw} handleDeleteHw={handleDeleteHw} /> : <Navigate to="/dashboard" />} />
 
               {/* === PÁLYÁZATOK KÖZÖNSÉGES TAGOKNAK === */}
