@@ -125,7 +125,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const exposureEarned = myVoteCount * 2;
   const viewsRemaining = myEntry ? (exposureEarned - myEntry.views_count) : 0;
 
-  // --- GURUSHOTS STÍLUSÚ STATISZTIKA SZÁMÍTÁSOK ---
   let totalLikes = 0;
   let totalViews = 0;
   let top10Count = 0;
@@ -144,7 +143,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     });
   }
 
-  // Státusz (Level) meghatározása az eddig szerzett lájkok alapján
   const getLevel = (likes: number) => {
     if (likes < 20) return { name: 'Újonc 🌱', nextAt: 20, color: '#94a3b8' };
     if (likes < 100) return { name: 'Felfedezett 📸', nextAt: 100, color: '#38bdf8' };
@@ -236,7 +234,12 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                 <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 20px 0' }}>Az nyer, aki a legtöbb lájkot kapja!</p>
                 {leaderboard.length === 0 ? <div style={{ color: '#94a3b8', textAlign: 'center', padding: '20px' }}>Még senki sem töltött fel képet.</div> : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    {leaderboard.map((entry, index) => {
+                    {
+                    // JAVÍTVA: Itt kapta meg a Frontend az erőszakos újrarendezést is biztonságképp!
+                    [...leaderboard].sort((a, b) => {
+                      if (b.likes_count !== a.likes_count) return b.likes_count - a.likes_count;
+                      return a.views_count - b.views_count;
+                    }).map((entry, index) => {
                       const isMe = entry.user_email === user.email;
                       const rankColor = index === 0 ? '#fbbf24' : index === 1 ? '#e2e8f0' : index === 2 ? '#cd7f32' : '#64748b';
                       return (
@@ -289,7 +292,11 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           </div>
           <div style={{ background: '#1e293b', borderRadius: '16px', padding: '20px', border: '1px solid #3b82f6' }}>
             <h3 style={{ margin: '0 0 15px 0', color: '#3b82f6' }}>🏅 Végeleges Dobogó</h3>
-            {pastLeaderboard.map((entry, index) => (
+            {/* JAVÍTVA: Itt is megkapta a Frontend a védelmet az Archívumra! */}
+            {[...pastLeaderboard].sort((a, b) => {
+              if (b.likes_count !== a.likes_count) return b.likes_count - a.likes_count;
+              return a.views_count - b.views_count;
+            }).map((entry, index) => (
               <div key={entry.id} style={{ display: 'flex', alignItems: 'center', background: '#0f172a', padding: '10px', borderRadius: '8px', marginBottom: '10px' }}>
                 <div style={{ fontSize: '1.3rem', fontWeight: 'bold', width: '30px', color: index === 0 ? '#fbbf24' : '#94a3b8' }}>{index + 1}.</div>
                 <img src={getImageUrl(entry.drive_file_id, entry.file_url)} alt="Top" style={{ width: '45px', height: '45px', borderRadius: '4px', margin: '0 10px', objectFit: 'cover' }} />
