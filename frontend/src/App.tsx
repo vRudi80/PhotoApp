@@ -307,6 +307,16 @@ function MainContent() {
       if (club) fetchClubHomeworkEntries(club.id, user.email);
     }
   }, [activeTab, currentDbUser, clubs, user]);
+  const handleDeleteHwEntry = async (entryId: number) => {
+    if (!window.confirm("Biztosan törlöd ezt a feltöltést?")) return;
+    const res = await fetch(`${BACKEND_URL}/api/homework-entries/${entryId}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userEmail: user.email }) });
+    if (res.ok) { fetchMyEntries(user.email); const club = clubs.find(c => c.name === currentDbUser?.club_name); if (club) fetchClubHomeworkEntries(club.id, user.email); }
+  };
+
+  const handleToggleLike = async (entryId: number) => {
+    const res = await fetch(`${BACKEND_URL}/api/homework-entries/${entryId}/like`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userEmail: user.email }) });
+    if (res.ok) { const club = clubs.find(c => c.name === currentDbUser?.club_name); if (club) fetchClubHomeworkEntries(club.id, user.email); }
+  };
 
   const handleLoginSuccess = async (credential: string) => {
     localStorage.setItem('photoAppToken', credential);
