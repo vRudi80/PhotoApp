@@ -71,21 +71,26 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { cleanupTempFile(file); res.status(500).json({ error: err.message }); }
   });
 
-  // 3. Egy random (legkevesebbet látott) kép lekérése szavazásra
+    // --- GURUSHOTS LOGIKA: KÖVETKEZŐ KÉP KIVÁLASZTÁSA ---
   app.get('/api/weekly/next-vote', async (req, res) => {
     const { topicId, userEmail } = req.query;
     try {
-      const [candidates] = await pool.query(`
-        SELECT e.id, e.file_url, e.drive_file_id FROM weekly_entries e
-        LEFT JOIN weekly_votes v ON e.id = v.entry_id AND v.voter_email = ?
-        WHERE e.topic_id = ? AND e.user_email != ? AND v.id IS NULL
-        ORDER BY e.views_count ASC LIMIT 10
-      `, [userEmail, topicId, userEmail]);
+      // ZSENIÁLIS MATEK: Kiszámoljuk, hogy a kép feltöltője hányszor szavazott.
+      // Minden szavazatáért 2 megjelenést (nézettséget) érdemel. 
+      // Azt a képet dobjuk fel legelőször, aminek a legnagyobb a lemaradása (kiérdemelt nézettség - valós nézettség).
+      const [entries] = await pool.query(`
+        SELECT e.*, 
+          (SELECT COUNT(*) FROM weekly_votes v WHERE v.user_email = e.user_email AND v.topic_id = e.topic_id) as owner_votes
+        FROM weekly_entries e
+        WHERE e.topic_id = ? 
+          AND e.user_email != ? 
+          AND e.id NOT IN (SELECT entry_id FROM weekly_votes WHERE user_email = ? AND topic_id = ?)
+        ORDER BY ((owner_votes * 2) - e.views_count) DESC, RAND()
+        LIMIT 1
+      `, [topicId, userEmail, userEmail, topicId]);
 
-      if (candidates.length === 0) return res.json({ entry: null, message: 'Minden e-heti képet értékeltél már!' });
-      const randomIndex = Math.floor(Math.random() * candidates.length);
-      res.json({ entry: candidates[randomIndex] });
-    } catch (err) { res.status(500).json({ error: 'Hiba a kép betöltésekor' }); }
+      res.json({ entry: entries[0] || null });
+    } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
   // 4. Szavazat (Lájk / Passz) leadása
@@ -123,24 +128,51 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       res.json(leaderboard);
     } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
-    // --- ÚJ: SAJÁT EREDMÉNYEK STATISZTIKÁJA ---
+   // --- GURUSHOTS LOGIKA: TOPLISTA ---
+  app.get('/api/weekly/current', async (req, res) => {
+    const { userEmail } = req.query;
+    try {
+      const [topics] = await pool.query('SELECT * FROM weekly_topics WHERE start_date <= CURRENT_DATE() AND end_date >= CURRENT_DATE() LIMIT 1');
+      if (topics.length === 0) return res.json({ topic: null });
+      const topic = topics[0];
+
+      const [myEntries] = await pool.query('SELECT * FROM weekly_entries WHERE topic_id = ? AND user_email = ?', [topic.id, userEmail]);
+      const [myVotes] = await pool.query('SELECT COUNT(*) as cnt FROM weekly_votes WHERE topic_id = ? AND user_email = ?', [topic.id, userEmail]);
+
+      // A Toplista mostantól NYERS LÁJKOK alapján van rendezve! Nincs több 100 pontos matek.
+      const [leaderboard] = await pool.query(`
+        SELECT e.id, e.user_email, e.file_url, e.drive_file_id, e.likes_count, e.views_count, u.name as user_name
+        FROM weekly_entries e
+        JOIN photo_users u ON e.user_email = u.email
+        WHERE e.topic_id = ?
+        ORDER BY e.likes_count DESC, e.views_count ASC
+      `, [topic.id]);
+
+      res.json({
+        topic,
+        myEntry: myEntries[0] || null,
+        myVoteCount: myVotes[0].cnt,
+        leaderboard
+      });
+    } catch (err) { res.status(500).json({ error: 'Hiba' }); }
+  });
+
+  
+  // --- GURUSHOTS LOGIKA: SAJÁT EREDMÉNYEK (TRÓFEATEREM) ---
   app.get('/api/weekly/my-stats', async (req, res) => {
     const { userEmail } = req.query;
     try {
-      // 1. Lekérjük az összes lezárult témát
       const [pastTopics] = await pool.query('SELECT * FROM weekly_topics WHERE end_date < CURRENT_DATE() ORDER BY end_date DESC');
-      
       let podiums = { first: 0, second: 0, third: 0 };
       let history = [];
 
-      // 2. Minden témára legeneráljuk a toplistát, és megnézzük, hanyadik lett a user
       for (const topic of pastTopics) {
+        // Rangsorolás tiszta Lájk alapon
         const [entries] = await pool.query(`
-          SELECT id, user_email, file_url, likes_count, views_count, 
-                 (likes_count * 100 / GREATEST(views_count, 1)) as win_rate
+          SELECT id, user_email, file_url, likes_count, views_count
           FROM weekly_entries 
-          WHERE topic_id = ? AND views_count > 0 
-          ORDER BY win_rate DESC, likes_count DESC
+          WHERE topic_id = ? 
+          ORDER BY likes_count DESC, views_count ASC
         `, [topic.id]);
 
         const userIndex = entries.findIndex(e => e.user_email === userEmail);
@@ -149,9 +181,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
           const rank = userIndex + 1;
           const entry = entries[userIndex];
           
-          if (rank === 1) podiums.first++;
-          else if (rank === 2) podiums.second++;
-          else if (rank === 3) podiums.third++;
+          if (rank === 1) podiums.first++; else if (rank === 2) podiums.second++; else if (rank === 3) podiums.third++;
 
           history.push({
             topic_title: topic.title,
@@ -159,18 +189,13 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
             rank: rank,
             total_entries: entries.length,
             file_url: entry.file_url,
-            win_rate: entry.win_rate,
             likes: entry.likes_count,
             views: entry.views_count
           });
         }
       }
-
       res.json({ podiums, history });
-    } catch (err) { 
-      console.error(err);
-      res.status(500).json({ error: 'Hiba a statisztika lekérésekor' }); 
-    }
+    } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
 
