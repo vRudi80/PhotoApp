@@ -1,32 +1,88 @@
-import { ADMIN_EMAIL } from '../../utils/constants';
+import React, { useState } from 'react';
+import { BACKEND_URL, ADMIN_EMAIL } from '../../utils/constants';
 
+// JAVÍTVA: A propok listája letisztult, csak a globális adatok kellenek!
 interface AdminHomeworksViewProps {
   user: any;
   currentDbUser: any;
   clubs: any[];
   adminHomeworks: any[];
-  // Form state
-  editHwId: number | null;
-  hwClubId: string; setHwClubId: (val: string) => void;
-  hwTopic: string; setHwTopic: (val: string) => void;
-  hwDesc: string; setHwDesc: (val: string) => void;
-  hwDeadline: string; setHwDeadline: (val: string) => void;
-  hwMaxImages: number; setHwMaxImages: (val: number) => void;
-  // Handlers
-  clearHwForm: () => void;
-  handleSaveHw: () => void;
-  startEditHw: (h: any) => void;
-  handleDeleteHw: (id: number) => void;
+  fetchData: () => void;
 }
 
 export default function AdminHomeworksView({
-  user, currentDbUser, clubs, adminHomeworks, editHwId, hwClubId, setHwClubId,
-  hwTopic, setHwTopic, hwDesc, setHwDesc, hwDeadline, setHwDeadline,
-  hwMaxImages, setHwMaxImages, clearHwForm, handleSaveHw, startEditHw, handleDeleteHw
+  user, currentDbUser, clubs, adminHomeworks, fetchData
 }: AdminHomeworksViewProps) {
 
   const inputStyle = { width: '100%', padding: '10px', marginBottom: '10px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '6px', boxSizing: 'border-box' as const };
 
+  // ==============================================================
+  // 1. HELYI ÁLLAPOTOK (Ezek költöztek ide az App.tsx-ből)
+  // ==============================================================
+  const [editHwId, setEditHwId] = useState<number | null>(null);
+  const [hwClubId, setHwClubId] = useState('');
+  const [hwTopic, setHwTopic] = useState('');
+  const [hwDesc, setHwDesc] = useState('');
+  const [hwDeadline, setHwDeadline] = useState('');
+  const [hwMaxImages, setHwMaxImages] = useState<number>(4);
+
+  // ==============================================================
+  // 2. FÜGGVÉNYEK (Ide költöztek az App.tsx-ből)
+  // ==============================================================
+  const clearHwForm = () => { 
+    setEditHwId(null); 
+    setHwClubId(''); 
+    setHwTopic(''); 
+    setHwDesc(''); 
+    setHwDeadline(''); 
+    setHwMaxImages(4); 
+  };
+
+  const startEditHw = (h: any) => { 
+    setEditHwId(h.id); 
+    setHwClubId(h.club_id.toString()); 
+    setHwTopic(h.topic); 
+    setHwDesc(h.description || ''); 
+    setHwMaxImages(h.max_images || 4); 
+    
+    const formatDate = (dateStr: string) => { 
+      if (!dateStr) return '';
+      return dateStr.replace('Z', '').substring(0, 16); 
+    }; 
+    
+    setHwDeadline(formatDate(h.deadline)); 
+  };
+
+  const handleSaveHw = async () => { 
+    const finalClubId = user?.email !== ADMIN_EMAIL ? clubs.find(c => c.name === currentDbUser?.club_name)?.id : hwClubId; 
+    if (!finalClubId || !hwTopic || !hwDeadline) return alert("Klub, Téma és Határidő kötelező!"); 
+    
+    try { 
+      const url = editHwId ? `${BACKEND_URL}/api/homeworks/${editHwId}` : `${BACKEND_URL}/api/homeworks`; 
+      const method = editHwId ? 'PUT' : 'POST'; 
+      const res = await fetch(url, { 
+        method, 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ clubId: finalClubId, topic: hwTopic, description: hwDesc, deadline: hwDeadline, maxImages: hwMaxImages }) 
+      }); 
+      
+      if (res.ok) { 
+        alert(editHwId ? "Házi feladat frissítve!" : "Házi feladat létrehozva!"); 
+        clearHwForm(); 
+        fetchData(); 
+      } else alert("Hiba történt!"); 
+    } catch (e) { alert("Hálózati hiba!"); } 
+  };
+
+  const handleDeleteHw = async (id: number) => { 
+    if (!window.confirm("Biztosan törlöd ezt a házi feladatot? A hozzá tartozó összes kép is törlődik!")) return; 
+    const res = await fetch(`${BACKEND_URL}/api/homeworks/${id}`, { method: 'DELETE' }); 
+    if (res.ok) fetchData(); 
+  };
+
+  // ==============================================================
+  // 3. RENDERELÉS
+  // ==============================================================
   return (
     <div>
       <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', color: '#f59e0b' }}>📝 Házi Feladatok Kezelése</h2>
@@ -75,7 +131,6 @@ export default function AdminHomeworksView({
         {adminHomeworks.length === 0 ? <div style={{padding: '20px', color: '#94a3b8', textAlign: 'center'}}>Nincs megjeleníthető feladat.</div> : null}
         {adminHomeworks.map((h, i) => {
           
-          // JAVÍTÁS: Időzóna levágása a listázáshoz is!
           const safeDeadlineStr = h.deadline.replace('Z', ''); 
           const deadlineDate = new Date(safeDeadlineStr);
           const isPast = new Date() > deadlineDate;
@@ -85,7 +140,6 @@ export default function AdminHomeworksView({
               <div>
                 <div style={{ fontWeight: 'bold', color: '#38bdf8' }}>{h.topic}</div>
                 <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>
-                  {/* JAVÍTÁS: Pontos formázás itt is */}
                   Klub: {h.club_name} | Határidő: {deadlineDate.toLocaleString('hu-HU', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })} | Max: {h.max_images || 4} kép
                   <span style={{ color: isPast ? '#ef4444' : '#10b981', fontWeight: 'bold', marginLeft: '10px' }}>
                     ({isPast ? 'Lezárult' : 'Aktív'})
