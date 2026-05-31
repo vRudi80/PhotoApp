@@ -123,6 +123,56 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       res.json(leaderboard);
     } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
+    // --- ÚJ: SAJÁT EREDMÉNYEK STATISZTIKÁJA ---
+  app.get('/api/weekly/my-stats', async (req, res) => {
+    const { userEmail } = req.query;
+    try {
+      // 1. Lekérjük az összes lezárult témát
+      const [pastTopics] = await pool.query('SELECT * FROM weekly_topics WHERE end_date < CURRENT_DATE() ORDER BY end_date DESC');
+      
+      let podiums = { first: 0, second: 0, third: 0 };
+      let history = [];
+
+      // 2. Minden témára legeneráljuk a toplistát, és megnézzük, hanyadik lett a user
+      for (const topic of pastTopics) {
+        const [entries] = await pool.query(`
+          SELECT id, user_email, file_url, likes_count, views_count, 
+                 (likes_count * 100 / GREATEST(views_count, 1)) as win_rate
+          FROM weekly_entries 
+          WHERE topic_id = ? AND views_count > 0 
+          ORDER BY win_rate DESC, likes_count DESC
+        `, [topic.id]);
+
+        const userIndex = entries.findIndex(e => e.user_email === userEmail);
+        
+        if (userIndex !== -1) {
+          const rank = userIndex + 1;
+          const entry = entries[userIndex];
+          
+          if (rank === 1) podiums.first++;
+          else if (rank === 2) podiums.second++;
+          else if (rank === 3) podiums.third++;
+
+          history.push({
+            topic_title: topic.title,
+            start_date: topic.start_date,
+            rank: rank,
+            total_entries: entries.length,
+            file_url: entry.file_url,
+            win_rate: entry.win_rate,
+            likes: entry.likes_count,
+            views: entry.views_count
+          });
+        }
+      }
+
+      res.json({ podiums, history });
+    } catch (err) { 
+      console.error(err);
+      res.status(500).json({ error: 'Hiba a statisztika lekérésekor' }); 
+    }
+  });
+
 
   // ADMINISZTRÁCIÓ
   app.get('/api/admin/weekly-topics', async (req, res) => {
