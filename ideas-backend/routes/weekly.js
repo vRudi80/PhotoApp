@@ -67,7 +67,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     try { const [rows] = await pool.query('SELECT * FROM weekly_topics WHERE end_date < CURRENT_DATE() ORDER BY end_date DESC'); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
-  // 4. JAVÍTVA: Archívum is nyers lájkok alapján rendez!
   app.get('/api/weekly/history/:topicId', async (req, res) => {
     try {
       const [leaderboard] = await pool.query(`
@@ -79,13 +78,22 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
-  // 5. GURUSHOTS LOGIKA: AKTUÁLIS TOPLISTA (A régi, duplikált végpont törölve!)
+  // 5. GURUSHOTS LOGIKA: AKTUÁLIS TOPLISTA (DÁTUM HIBA JAVÍTVA!)
   app.get('/api/weekly/current', async (req, res) => {
     const { userEmail } = req.query;
     try {
-      const [topics] = await pool.query('SELECT * FROM weekly_topics WHERE start_date <= CURRENT_DATE() AND end_date >= CURRENT_DATE() LIMIT 1');
-      if (topics.length === 0) return res.json({ topic: null });
-      const topic = topics[0];
+      // VISSZATÉRTÜNK AZ EREDETI, JÓL BEVÁLT DÁTUM VIZSGÁLATODHOZ!
+      const [allTopics] = await pool.query('SELECT * FROM weekly_topics ORDER BY id DESC');
+      const today = new Date();
+      const topic = allTopics.find(t => {
+          const start = new Date(t.start_date);
+          const end = new Date(t.end_date);
+          start.setHours(0,0,0,0);
+          end.setHours(23,59,59,999);
+          return today >= start && today <= end;
+      });
+
+      if (!topic) return res.json({ topic: null });
 
       const [myEntries] = await pool.query('SELECT * FROM weekly_entries WHERE topic_id = ? AND user_email = ?', [topic.id, userEmail]);
       const [myVotes] = await pool.query('SELECT COUNT(*) as cnt FROM weekly_votes WHERE topic_id = ? AND user_email = ?', [topic.id, userEmail]);
