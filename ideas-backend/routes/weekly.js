@@ -1,57 +1,8 @@
 const fs = require('fs');
 
 module.exports = function(app, pool, drive, upload, cleanupTempFile) {
-  // 1. Aktuális téma lekérése
-  app.get('/api/weekly/current', async (req, res) => {
-    const { userEmail } = req.query;
-    try {
-      const [allTopics] = await pool.query('SELECT * FROM weekly_topics ORDER BY id DESC');
-      const today = new Date();
-      const currentTopic = allTopics.find(t => {
-          const start = new Date(t.start_date);
-          const end = new Date(t.end_date);
-          start.setHours(0,0,0,0);
-          end.setHours(23,59,59,999);
-          return today >= start && today <= end;
-      });
-
-      if (!currentTopic) return res.json({ topic: null });
-
-      const [myEntries] = await pool.query('SELECT * FROM weekly_entries WHERE topic_id = ? AND user_email = ?', [currentTopic.id, userEmail]);
-      const [myVotes] = await pool.query('SELECT COUNT(*) as vote_count FROM weekly_votes v JOIN weekly_entries e ON v.entry_id = e.id WHERE e.topic_id = ? AND v.voter_email = ?', [currentTopic.id, userEmail]);
-
-      const [allEntriesCount] = await pool.query('SELECT COUNT(*) as total FROM weekly_entries WHERE topic_id = ?', [currentTopic.id]);
-      const totalEntries = allEntriesCount[0].total || 0;
-      const requiredVotes = Math.max(0, Math.min(3, totalEntries - 1));
-      const votableEntries = Math.max(1, totalEntries - 1);
-
-      const [rawLeaderboard] = await pool.query(`
-        SELECT e.id, e.user_name, e.user_email, e.file_url, e.drive_file_id, e.views_count, e.likes_count,
-               (SELECT COUNT(*) FROM weekly_votes v JOIN weekly_entries we ON v.entry_id = we.id WHERE we.topic_id = ? AND v.voter_email = e.user_email) as user_vote_count
-        FROM weekly_entries e WHERE e.topic_id = ? AND e.views_count >= 3
-      `, [currentTopic.id, currentTopic.id]);
-
-      const processedLeaderboard = rawLeaderboard.map(entry => {
-        const likes = Number(entry.likes_count) || 0;
-        const views = Number(entry.views_count) || 1; 
-        const userVotes = Number(entry.user_vote_count) || 0;
-
-        const winRate = likes / views; 
-        const qualityScore = winRate * 80;
-        const activityRatio = Math.min(1, userVotes / votableEntries);
-        const activityScore = activityRatio * 20;
-        const totalScore = qualityScore + activityScore;
-        
-        return { ...entry, win_rate: winRate * 100, quality_score: qualityScore, activity_score: activityScore, total_score: totalScore, user_vote_count: userVotes };
-      });
-
-      processedLeaderboard.sort((a, b) => b.total_score - a.total_score);
-
-      res.json({ topic: currentTopic, myEntry: myEntries.length > 0 ? myEntries[0] : null, myVoteCount: myVotes[0]?.vote_count || 0, requiredVotes, votableEntries, leaderboard: processedLeaderboard.slice(0, 15) });
-    } catch (err) { res.status(500).json({ error: 'Hiba a heti kihívás lekérésekor' }); }
-  });
-
-  // 2. Kép feltöltése a kihívásra
+  
+  // 1. Kép feltöltése a kihívásra
   app.post('/api/weekly/upload', upload.single('photo'), async (req, res) => {
     const { topicId, userEmail, userName } = req.body;
     const file = req.file;
@@ -71,13 +22,10 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { cleanupTempFile(file); res.status(500).json({ error: err.message }); }
   });
 
-    // --- GURUSHOTS LOGIKA: KÖVETKEZŐ KÉP KIVÁLASZTÁSA ---
+  // 2. GURUSHOTS LOGIKA: KÖVETKEZŐ KÉP KIVÁLASZTÁSA
   app.get('/api/weekly/next-vote', async (req, res) => {
     const { topicId, userEmail } = req.query;
     try {
-      // ZSENIÁLIS MATEK: Kiszámoljuk, hogy a kép feltöltője hányszor szavazott.
-      // Minden szavazatáért 2 megjelenést (nézettséget) érdemel. 
-      // Azt a képet dobjuk fel legelőször, aminek a legnagyobb a lemaradása (kiérdemelt nézettség - valós nézettség).
       const [entries] = await pool.query(`
         SELECT e.*, 
           (SELECT COUNT(*) FROM weekly_votes v WHERE v.user_email = e.user_email AND v.topic_id = e.topic_id) as owner_votes
@@ -93,7 +41,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
-  // 4. Szavazat (Lájk / Passz) leadása
+  // 3. Szavazat (Lájk / Passz) leadása
   app.post('/api/weekly/vote', async (req, res) => {
     const { entryId, userEmail, voteType } = req.body; 
     const conn = await pool.getConnection();
@@ -119,16 +67,19 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     try { const [rows] = await pool.query('SELECT * FROM weekly_topics WHERE end_date < CURRENT_DATE() ORDER BY end_date DESC'); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
+  // 4. JAVÍTVA: Archívum is nyers lájkok alapján rendez!
   app.get('/api/weekly/history/:topicId', async (req, res) => {
     try {
       const [leaderboard] = await pool.query(`
-        SELECT e.id, e.user_name, e.file_url, e.drive_file_id, e.views_count, e.likes_count, (e.likes_count * 100 / e.views_count) as win_rate
-        FROM weekly_entries e WHERE e.topic_id = ? AND e.views_count > 0 ORDER BY win_rate DESC, likes_count DESC
+        SELECT e.id, e.user_name, e.file_url, e.drive_file_id, e.views_count, e.likes_count
+        FROM weekly_entries e WHERE e.topic_id = ? AND e.views_count > 0 
+        ORDER BY likes_count DESC, views_count ASC
       `, [req.params.topicId]);
       res.json(leaderboard);
     } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
-   // --- GURUSHOTS LOGIKA: TOPLISTA ---
+
+  // 5. GURUSHOTS LOGIKA: AKTUÁLIS TOPLISTA (A régi, duplikált végpont törölve!)
   app.get('/api/weekly/current', async (req, res) => {
     const { userEmail } = req.query;
     try {
@@ -139,7 +90,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       const [myEntries] = await pool.query('SELECT * FROM weekly_entries WHERE topic_id = ? AND user_email = ?', [topic.id, userEmail]);
       const [myVotes] = await pool.query('SELECT COUNT(*) as cnt FROM weekly_votes WHERE topic_id = ? AND user_email = ?', [topic.id, userEmail]);
 
-      // A Toplista mostantól NYERS LÁJKOK alapján van rendezve! Nincs több 100 pontos matek.
       const [leaderboard] = await pool.query(`
         SELECT e.id, e.user_email, e.file_url, e.drive_file_id, e.likes_count, e.views_count, u.name as user_name
         FROM weekly_entries e
@@ -151,14 +101,13 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       res.json({
         topic,
         myEntry: myEntries[0] || null,
-        myVoteCount: myVotes[0].cnt,
+        myVoteCount: myVotes[0]?.cnt || 0,
         leaderboard
       });
     } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
-  
-  // --- GURUSHOTS LOGIKA: SAJÁT EREDMÉNYEK (TRÓFEATEREM) ---
+  // 6. GURUSHOTS LOGIKA: SAJÁT EREDMÉNYEK (TRÓFEATEREM)
   app.get('/api/weekly/my-stats', async (req, res) => {
     const { userEmail } = req.query;
     try {
@@ -167,7 +116,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       let history = [];
 
       for (const topic of pastTopics) {
-        // Rangsorolás tiszta Lájk alapon
         const [entries] = await pool.query(`
           SELECT id, user_email, file_url, likes_count, views_count
           FROM weekly_entries 
@@ -197,7 +145,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       res.json({ podiums, history });
     } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
-
 
   // ADMINISZTRÁCIÓ
   app.get('/api/admin/weekly-topics', async (req, res) => {
