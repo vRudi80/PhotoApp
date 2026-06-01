@@ -179,7 +179,7 @@ export default function ContestsView(props: ContestsViewProps) {
     } catch (err) {
       alert('Sajnos hiba történt az oklevél generálása közben.');
       console.error(err);
-    } final {
+    } finally {
       setGeneratingCertId(null);
     }
   };
@@ -318,7 +318,6 @@ export default function ContestsView(props: ContestsViewProps) {
             categories.forEach((cat: string) => categoryCounts[cat] = 0);
             myContestEntries.forEach(entry => { if (categoryCounts[entry.category] !== undefined) categoryCounts[entry.category]++; });
 
-            // JAVÍTVA: A lekérdezés a dual-write miatt még szöveg- és név-alapon egyezik le az App-al
             const canManageContest = props.user.email === ADMIN_EMAIL || (props.isLeader && contest.restricted_club === props.currentDbUser?.club_name);
             const expectedVotes = (contest.entry_count || 0) * (contest.jury_count || 0);
             const isJudgingComplete = contest.entry_count > 0 ? (expectedVotes > 0 && contest.vote_count >= expectedVotes) : true;
