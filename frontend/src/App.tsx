@@ -615,6 +615,9 @@ const saveUserClub = async (email: string) => {
                   fetchMyEntries={fetchMyEntries}
                   fetchClubHomeworkEntries={fetchClubHomeworkEntries}
                   clubs={clubs}
+                  // JAVÍTVA: Átadjuk a hiányzó lájkoló logikát a komponensnek!
+                  onToggleLike={handleToggleLike}
+                  handleToggleLike={handleToggleLike}
                 />
               } />
 
