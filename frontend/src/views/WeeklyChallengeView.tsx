@@ -188,23 +188,55 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   <p style={{ margin: '0 0 20px 0', color: '#94a3b8', fontSize: '0.9rem', textAlign: 'center' }}>{topic.description}</p>
                   
                   {/* --- AZ IGAZI LÁTHATÓSÁGI MÉRŐ (EXPOSURE METER) --- */}
-                  {!myEntry ? (
+                 {!myEntry ? (
                     <div style={{ width: '100%', background: '#3b82f620', color: '#3b82f6', padding: '12px', borderRadius: '8px', border: '1px solid #3b82f650', marginBottom: '15px', fontSize: '0.9rem', textAlign: 'center' }}>Még nem neveztél fotót. Töltsd fel a képedet az induláshoz!</div>
                   ) : (
-                    <div style={{ width: '100%', background: '#0f172a', padding: '15px', borderRadius: '12px', border: `1px solid ${exposureColor}`, marginBottom: '20px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                        <span style={{ color: '#94a3b8', fontSize: '0.85rem', fontWeight: 'bold', textTransform: 'uppercase' }}>Képed Láthatósága:</span>
-                        <span style={{ color: exposureColor, fontSize: '0.85rem', fontWeight: 'bold', textTransform: 'uppercase' }}>{exposureLabel}</span>
-                      </div>
+                    <div style={{ width: '100%', background: '#0f172a', padding: '20px', borderRadius: '16px', border: `1px solid ${exposureColor}40`, marginBottom: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: `0 10px 30px -10px ${exposureColor}30`, transition: 'all 0.5s ease' }}>
+                      <h4 style={{ color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '2px', margin: '0 0 15px 0', fontSize: '0.8rem' }}>Láthatósági Mérő</h4>
                       
-                      <div style={{ width: '100%', background: '#334155', height: '14px', borderRadius: '10px', overflow: 'hidden', display: 'flex' }}>
-                        <div style={{ width: `${exposurePercentage}%`, background: exposureColor, height: '100%', transition: 'all 0.5s ease-out' }}></div>
+                      {/* Vizuális Kilométeróra (Sebességmérő) SVG */}
+                      <div style={{ position: 'relative', width: '220px', height: '120px' }}>
+                        <svg viewBox="0 0 200 110" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
+                          {/* Szürke háttérsáv */}
+                          <path 
+                            d="M 20 100 A 80 80 0 0 1 180 100" 
+                            fill="none" 
+                            stroke="#334155" 
+                            strokeWidth="14" 
+                            strokeLinecap="round" 
+                          />
+                          {/* Színes, kitöltődő sáv */}
+                          <path 
+                            d="M 20 100 A 80 80 0 0 1 180 100" 
+                            fill="none" 
+                            stroke={exposureColor} 
+                            strokeWidth="14" 
+                            strokeLinecap="round" 
+                            pathLength="100" 
+                            strokeDasharray="100" 
+                            strokeDashoffset={100 - exposurePercentage} 
+                            style={{ 
+                              transition: 'stroke-dashoffset 1.5s cubic-bezier(0.4, 0, 0.2, 1), stroke 0.5s', 
+                              filter: `drop-shadow(0 0 8px ${exposureColor}90)` 
+                            }} 
+                          />
+                        </svg>
+                        
+                        {/* Középső feliratok */}
+                        <div style={{ position: 'absolute', bottom: '0', left: '0', width: '100%', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', height: '100%' }}>
+                          <div style={{ fontSize: '2.8rem', fontWeight: '900', color: exposureColor, lineHeight: '1', textShadow: `0 0 15px ${exposureColor}60`, transition: 'color 0.5s' }}>
+                            {Math.round(exposurePercentage)}<span style={{ fontSize: '1.2rem' }}>%</span>
+                          </div>
+                          <div style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#f8fafc', textTransform: 'uppercase', marginTop: '5px', letterSpacing: '1px' }}>
+                            {exposureLabel}
+                          </div>
+                        </div>
                       </div>
-                      
-                      <p style={{ fontSize: '0.75rem', color: '#64748b', margin: '10px 0 0 0', textAlign: 'center' }}>
+
+                      <p style={{ fontSize: '0.8rem', color: '#94a3b8', margin: '20px 0 0 0', textAlign: 'center', lineHeight: '1.5' }}>
                         {exposurePercentage >= 80 
-                          ? 'A képed jelenleg kiemelt helyen pörög! Térj vissza később, ha új képeket töltenek fel a többiek.' 
-                          : 'Értékelj minél több fotót, hogy visszatöltsd a mérőt és a lista elejére kerülj!'}
+                          ? '🔥 A képed jelenleg a maximumon pörög! Hátradőlhetsz.' 
+                          : '⚡ Szavazz mások fotóira, hogy visszatöltsd a mérőt és előre ugorj a listán!'}
                       </p>
                     </div>
                   )}
