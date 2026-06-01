@@ -122,7 +122,9 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     finally { setIsUploading(false); }
   };
 
-  const exposureEarned = myVoteCount * 2;
+  // --- JAVÍTOTT ENERGIA RENDSZER ---
+  const BASE_EXPOSURE = 10; // Mindenki kap 10 ingyen megjelenést az indulásnál!
+  const exposureEarned = BASE_EXPOSURE + (myVoteCount * 2);
   const viewsRemaining = myEntry ? (exposureEarned - myEntry.views_count) : 0;
 
   let totalLikes = 0;
@@ -181,12 +183,13 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   <h3 style={{ margin: '0 0 10px 0', color: '#f8fafc', fontSize: '1.4rem' }}>🔥 Téma: {topic.title}</h3>
                   <p style={{ margin: '0 0 20px 0', color: '#94a3b8', fontSize: '0.9rem', textAlign: 'center' }}>{topic.description}</p>
                   
+                  {/* JAVÍTOTT ÉS FINOMÍTOTT ÜZENETEK */}
                   {!myEntry ? (
-                    <div style={{ width: '100%', background: '#3b82f620', color: '#3b82f6', padding: '12px', borderRadius: '8px', border: '1px solid #3b82f650', marginBottom: '15px', fontSize: '0.9rem', textAlign: 'center' }}>Még nem neveztél fotót. Töltsd fel a képedet, hogy elkezdhess láthatóságot gyűjteni!</div>
+                    <div style={{ width: '100%', background: '#3b82f620', color: '#3b82f6', padding: '12px', borderRadius: '8px', border: '1px solid #3b82f650', marginBottom: '15px', fontSize: '0.9rem', textAlign: 'center' }}>Még nem neveztél fotót. Töltsd fel a képedet, és azonnal kapsz {BASE_EXPOSURE} ingyenes megjelenést!</div>
                   ) : viewsRemaining <= 0 ? (
-                    <div style={{ width: '100%', background: '#ef444420', color: '#ef4444', padding: '12px', borderRadius: '8px', border: '1px solid #ef444450', marginBottom: '15px', fontSize: '0.9rem', textAlign: 'center' }}>⚠️ <b>Láthatatlanná váltál!</b> Szavazz másokra, hogy újra megkapják a képedet!</div>
+                    <div style={{ width: '100%', background: '#ef444420', color: '#ef4444', padding: '12px', borderRadius: '8px', border: '1px solid #ef444450', marginBottom: '15px', fontSize: '0.9rem', textAlign: 'center' }}>⚠️ <b>Kifogytál az energiából!</b> A képed hátrasorolódott. Értékelj másokat, hogy újra a lista elejére kerülj!</div>
                   ) : (
-                    <div style={{ width: '100%', background: '#10b98120', color: '#10b981', padding: '12px', borderRadius: '8px', border: '1px solid #10b98150', marginBottom: '15px', fontSize: '0.9rem', textAlign: 'center' }}>🚀 A képed pörög a rendszerben! <b>Még {viewsRemaining} megjelenésed</b> van a szavazataid miatt.</div>
+                    <div style={{ width: '100%', background: '#10b98120', color: '#10b981', padding: '12px', borderRadius: '8px', border: '1px solid #10b98150', marginBottom: '15px', fontSize: '0.9rem', textAlign: 'center' }}>🚀 A képed pörög a rendszerben! <b>Még {viewsRemaining} kiemelt megjelenésed</b> van.</div>
                   )}
 
                   {noMoreEntries ? (
@@ -235,7 +238,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                 {leaderboard.length === 0 ? <div style={{ color: '#94a3b8', textAlign: 'center', padding: '20px' }}>Még senki sem töltött fel képet.</div> : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     {
-                    // JAVÍTVA: Itt kapta meg a Frontend az erőszakos újrarendezést is biztonságképp!
                     [...leaderboard].sort((a, b) => {
                       if (b.likes_count !== a.likes_count) return b.likes_count - a.likes_count;
                       return a.views_count - b.views_count;
@@ -292,7 +294,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           </div>
           <div style={{ background: '#1e293b', borderRadius: '16px', padding: '20px', border: '1px solid #3b82f6' }}>
             <h3 style={{ margin: '0 0 15px 0', color: '#3b82f6' }}>🏅 Végeleges Dobogó</h3>
-            {/* JAVÍTVA: Itt is megkapta a Frontend a védelmet az Archívumra! */}
             {[...pastLeaderboard].sort((a, b) => {
               if (b.likes_count !== a.likes_count) return b.likes_count - a.likes_count;
               return a.views_count - b.views_count;
@@ -358,7 +359,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                 </div>
               </div>
 
-              {/* RÉSZLETES ELŐZMÉNYEK KÉPEKKEL */}
+              {/* RÉSZLETES ELŐZMÉNYEK KÉPEKKEL (JAVÍTVA: EREDETI KÉP BETÖLTÉSE) */}
               <h3 style={{ color: '#f8fafc', marginBottom: '15px' }}>📸 Korábbi Pályaművek ({myStats.history.length})</h3>
               
               {myStats.history.length === 0 ? (
@@ -375,12 +376,12 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
 
                     return (
                       <div key={idx} style={{ background: '#1e293b', borderRadius: '12px', overflow: 'hidden', border: `1px solid ${badgeColor}`, transition: 'transform 0.2s', cursor: 'pointer' }}
-                           onClick={() => setFullscreenData({url: getImageUrl(undefined, entry.file_url), title: entry.topic_title})}>
+                           onClick={() => setFullscreenData({url: getImageUrl(entry.drive_file_id, entry.file_url), title: entry.topic_title})}>
                         
                         <div style={{ position: 'relative', height: '200px' }}>
-                          <img src={getImageUrl(undefined, entry.file_url)} alt="Pályamű" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          {/* JAVÍTVA: A drive_file_id most már átadódik az img-nek! */}
+                          <img src={getImageUrl(entry.drive_file_id, entry.file_url)} alt="Pályamű" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                           
-                          {/* GuruShots szerű Plecsni a képen */}
                           <div style={{ position: 'absolute', top: '10px', left: '10px', background: badgeColor, color: badgeColor === '#fbbf24' ? 'black' : 'white', padding: '5px 12px', borderRadius: '20px', fontWeight: 'bold', fontSize: '0.85rem', boxShadow: '0 2px 5px rgba(0,0,0,0.5)' }}>
                             {badge || `${entry.rank}. Hely`}
                           </div>
