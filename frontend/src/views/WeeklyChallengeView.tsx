@@ -303,11 +303,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                     {!myEntry ? 'Töltsd fel a képedet az induláshoz, és kapsz 10 alap energiát!' : exposurePercentage >= 80 ? '🔥 A képed a maximumon pörög! Jelenleg nincs más dolgod.' : '⚡ Értékelj másokat, töltsd fel a mérőt és kerülj az élre!'}
                   </p>
                 </div>
-                
-                  <p style={{ fontSize: '0.85rem', color: '#94a3b8', margin: '20px 0 0 0', textAlign: 'center', lineHeight: '1.6', zIndex: 1 }}>
-                    {!myEntry ? 'Töltsd fel a képedet az induláshoz, és kapsz 10 alap energiát!' : exposurePercentage >= 80 ? '🔥 A képed a maximumon pörög! Jelenleg nincs más dolgod.' : '⚡ Értékelj másokat, töltsd fel a mérőt és kerülj az élre!'}
-                  </p>
-                </div>
+
                 {/* SZAVAZÓ ARÉNA */}
                 <div style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #334155', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
                   <h3 style={{ margin: '0 0 20px 0', color: '#f8fafc', fontSize: '1.4rem' }}>⚔️ Értékelő Aréna</h3>
