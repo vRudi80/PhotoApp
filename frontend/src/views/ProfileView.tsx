@@ -76,7 +76,7 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
           <div style={{ fontSize: '3.5rem', marginBottom: '15px' }}>🛡️</div>
           <h3 style={{ color: '#10b981', margin: '0 0 10px 0', fontSize: '1.6rem' }}>Klubtagság Beállítása</h3>
           <p style={{ color: '#94a3b8', fontSize: '0.95rem', lineHeight: '1.6', margin: 0 }}>
-            Képviseld a csapatodat a Heti Párbajokban! A szerzett pontjaiddal a klubodat is a ranglista élére repítheted. A változtatás azonnal életbe lép.
+            Képviseld a csapatodat a Heti Párbajokban! A szerzett pontjaiddal a klubodat is a ranglista élére repítheted. Részt vehetsz a klubéletben. Látod a híreket, küldhetsz be házi feladatokat, vagy részt vehetsz a belső pályázatokon. A változtatás azonnal életbe lép.
           </p>
         </div>
 
