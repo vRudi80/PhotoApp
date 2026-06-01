@@ -300,7 +300,7 @@ app.post('/api/weekly/report-off-topic', async (req, res) => {
   try {
     // 1. Megpróbáljuk növelni a számlálót
     const [updateResult] = await pool.query(
-      'UPDATE weekly_entries SET off_topic_count = off_topic_count + 1 WHERE id = ?', 
+      'UPDATE weekly_entries SET off_topic_count = off_topic_count + 1, views_count = views_count + 1 WHERE id = ?', 
       [entryId]
     );
     console.log("✅ Adatbázis számláló sikeresen frissítve. Eredmény:", updateResult);
