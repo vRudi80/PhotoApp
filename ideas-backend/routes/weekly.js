@@ -14,7 +14,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     return { super: 4, brilliant: 6 };                            // Guru 👑
   }
 
-  // 1. AKTUÁLIS TÉMA ÉS TOPLISTA LEKÉRÉSE
+  // 1. AKTUÁLIS TÉMA ÉS TOPLISTA LEKÉRÉSE (KLUBOK ÉLŐ ÁLLÁSÁVAL)
   app.get('/api/weekly/current', async (req, res) => {
     const { userEmail } = req.query;
     try {
@@ -43,25 +43,48 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       const totalEntries = allEntriesCount[0].total || 0;
       const votableEntries = Math.max(1, totalEntries - 1);
 
+      // JAVÍTVA: Lekérjük a klubneveket is az élő listához!
       const [leaderboard] = await pool.query(`
-        SELECT id, user_name, user_email, file_url, drive_file_id, views_count, likes_count
-        FROM weekly_entries 
-        WHERE topic_id = ? 
-        ORDER BY likes_count DESC, views_count ASC
+        SELECT e.id, e.user_name, e.user_email, e.file_url, e.drive_file_id, e.views_count, e.likes_count, u.club_name
+        FROM weekly_entries e 
+        LEFT JOIN photo_users u ON e.user_email = u.email
+        WHERE e.topic_id = ? 
+        ORDER BY e.likes_count DESC, e.views_count ASC
       `, [currentTopic.id]);
+
+      // ÚJ: Élő Klubok Csatája kiszámolása
+      const clubsData = {};
+      leaderboard.forEach(entry => {
+        if (!entry.club_name || entry.club_name.trim() === '') return; 
+        if (!clubsData[entry.club_name]) clubsData[entry.club_name] = [];
+        clubsData[entry.club_name].push(Number(entry.likes_count));
+      });
+
+      const clubLeaderboard = [];
+      for (const club in clubsData) {
+        clubsData[club].sort((a, b) => b - a);
+        const top3 = clubsData[club].slice(0, 3);
+        const totalScore = top3.reduce((sum, val) => sum + val, 0);
+        clubLeaderboard.push({
+          club_name: club,
+          total_score: totalScore,
+          members_counted: top3.length
+        });
+      }
+      clubLeaderboard.sort((a, b) => b.total_score - a.total_score);
 
       res.json({ 
         topic: currentTopic, 
         myEntry: myEntries.length > 0 ? myEntries[0] : null, 
         myVoteCount: myVotes[0]?.vote_count || 0, 
         votableEntries,
-        leaderboard 
+        leaderboard,
+        clubLeaderboard // <-- Átadjuk a frontednek az élő állást is!
       });
     } catch (err) { 
       res.status(500).json({ error: 'Hiba a heti kihívás lekérésekor' }); 
     }
   });
-
   // 2. KÉP FELTÖLTÉSE (ELSŐ NEVEZÉS)
   app.post('/api/weekly/upload', upload.single('photo'), async (req, res) => {
     const { topicId, userEmail, userName } = req.body;
