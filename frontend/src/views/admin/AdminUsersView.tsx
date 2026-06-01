@@ -141,7 +141,7 @@ export default function AdminUsersView({
                     <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>{u.email}</div>
                     <div style={{ marginTop: '8px' }}>
                       {isPremium ? (
-                        <span style={{ background: '#10b98120', color: '#10b981', padding: '2px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 'bold' }}>👑 Prémium ({formatDate(u.premium_until).split(' ')[0]})</span>
+                        <span style={{ background: '#10b98120', color: '#10b981', padding: '2px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 'bold' }}>👑 Prémium ({formatDate(u.premium_until)})</span>
                       ) : hasExpiredPremium ? (
                         <span style={{ background: '#ef444420', color: '#ef4444', padding: '2px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 'bold' }}>⏳ Lejárt</span>
                       ) : (
