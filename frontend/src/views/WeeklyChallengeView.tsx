@@ -22,6 +22,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const [selectedPastTopicId, setSelectedPastTopicId] = useState<number | null>(null);
   const [pastLeaderboard, setPastLeaderboard] = useState<any[]>([]);
   const [pastClubLeaderboard, setPastClubLeaderboard] = useState<any[]>([]);
+  const [currentClubLeaderboard, setCurrentClubLeaderboard] = useState<any[]>([]);
 
   const [voteEntry, setVoteEntry] = useState<any>(null);
   const [noMoreEntries, setNoMoreEntries] = useState(false);
@@ -50,6 +51,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         setMyVoteCount(data.myVoteCount);
         setVotableEntries(data.votableEntries || 1);
         setLeaderboard(data.leaderboard || []);
+        setCurrentClubLeaderboard(data.clubLeaderboard || []); // <-- EZ AZ ÚJ SOR
         if (data.topic) fetchNextVote(data.topic.id);
       }
     } catch (e) { console.error(e); }
@@ -395,6 +397,30 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   )}
                 </div>
 
+                {/* ÚJ: ÉLŐ KLUBOK CSATÁJA */}
+                <div style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #10b981', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                    <h3 style={{ margin: 0, color: '#10b981', fontSize: '1.4rem' }}>🛡️ Klubok Csatája</h3>
+                    <span style={{ fontSize: '0.8rem', background: '#ef4444', color: 'white', padding: '3px 10px', borderRadius: '12px', fontWeight: 'bold', animation: 'pulse 2s infinite', boxShadow: '0 0 10px rgba(239, 68, 68, 0.6)' }}>ÉLŐ</span>
+                  </div>
+                  <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 20px 0', lineHeight: '1.5' }}>A 3 legjobb klubtag aktuális pontja alapján. Küzdj a csapatodért!</p>
+                  
+                  {(!currentClubLeaderboard || currentClubLeaderboard.length === 0) ? <div style={{ color: '#94a3b8', textAlign: 'center', padding: '20px', background: '#0f172a', borderRadius: '16px' }}>Még nincs rangsorolt klub.</div> : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {currentClubLeaderboard.map((club, index) => (
+                        <div key={index} style={{ display: 'flex', alignItems: 'center', background: 'linear-gradient(135deg, #0f172a, #1e293b)', border: '1px solid #059669', padding: '12px', borderRadius: '12px' }}>
+                          <div style={{ fontSize: '1.5rem', fontWeight: '900', width: '35px', color: index === 0 ? '#fbbf24' : '#cbd5e1', textAlign: 'center' }}>{index + 1}.</div>
+                          <div style={{ flex: 1, marginLeft: '10px' }}>
+                            <div style={{ color: 'white', fontWeight: 'bold', fontSize: '1.1rem' }}>{club.club_name}</div>
+                            <div style={{ color: '#64748b', fontSize: '0.8rem' }}>{club.members_counted} tag alapján</div>
+                          </div>
+                          <div style={{ color: '#10b981', fontWeight: '900', fontSize: '1.4rem' }}>{club.total_score} ⭐</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                
                 <div style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #f59e0b', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
                   <h3 style={{ margin: '0 0 10px 0', color: '#f59e0b', fontSize: '1.4rem' }}>🏆 Vak Toplista</h3>
                   <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 20px 0', lineHeight: '1.5' }}>A taktikázás elkerülése végett az ellenfelek kiléte a zárásig <b>titkos</b>! Látod a mezőnyt, de senki sem tud célzottan leszavazni másokat.</p>
