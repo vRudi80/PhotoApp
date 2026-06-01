@@ -185,7 +185,7 @@ export default function ContestsView(props: ContestsViewProps) {
 
   return (
     <div style={{ animation: 'fadeIn 0.4s ease-out' }}>
-      {props.activeTab === 'contests_club_active' && !props.currentDbUser?.club_id && (
+      {props.activeTab === 'contests_club_active' && !props.currentDbUser?.club_name && (
         <div style={{ textAlign: 'center', padding: '5rem 2rem', background: 'linear-gradient(180deg, #1e293b, #0f172a)', borderRadius: '24px', border: '1px solid #ef444440', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
           <div style={{ fontSize: '4rem', marginBottom: '1.5rem' }}>🔒</div>
           <h2 style={{ color: '#ef4444', margin: '0 0 12px 0', fontSize: '1.8rem' }}>Nem vagy klubhoz rendelve</h2>
@@ -316,7 +316,7 @@ export default function ContestsView(props: ContestsViewProps) {
                 myContestEntries.forEach(entry => { if (categoryCounts[entry.category] !== undefined) categoryCounts[entry.category]++; });
 
                 // JAVÍTVA: Az ellenőrzés ID alapon történik a golyóálló működésért
-                const canManageContest = props.user.email === ADMIN_EMAIL || (props.isLeader && contest.restricted_club_id === props.currentDbUser?.club_id);
+                const canManageContest = props.user.email === ADMIN_EMAIL || (props.isLeader && contest.restricted_club === props.currentDbUser?.club_name);
                 const expectedVotes = (contest.entry_count || 0) * (contest.jury_count || 0);
                 const isJudgingComplete = contest.entry_count > 0 ? (expectedVotes > 0 && contest.vote_count >= expectedVotes) : true;
                 
