@@ -129,7 +129,14 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       cleanupTempFile(file);
 
       // Frissítés: Pontszám (likes_count) VISSZALŐVE NULLÁRA, swapped jelző beállítva 1-re, nézettség MEGMARAD!
-      await pool.query('UPDATE weekly_entries SET file_url = ?, drive_file_id = ?, likes_count = 0, swapped = 1 WHERE id = ?', [driveRes.data.webViewLink, driveRes.data.id, existing[0].id]);
+     await pool.query(
+        'UPDATE weekly_entries SET file_url = ?, drive_file_id = ?, likes_count = 0, view_count = 0, swapped = 1 WHERE id = ?', 
+        [driveRes.data.webViewLink, driveRes.data.id, existing[0].id]
+      );
+      // 2. ÚJ: Töröljük a szavazási előzményeket ehhez az entry_id-hoz, 
+      // így a rendszer elfelejti, hogy a többiek már látták, és újra bedobja nekik a párbajba!
+      // (A 'weekly_likes' nevet cseréld ki arra a táblára, ahol a leadott heti voksokat/lájkokat gyűjtöd!)
+      await pool.query('DELETE FROM weekly_likes WHERE entry_id = ?', [existing[0].id]);
       
       res.json({ success: true });
     } catch (err) { cleanupTempFile(file); res.status(500).json({ error: err.message }); }
