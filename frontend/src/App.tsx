@@ -59,7 +59,6 @@ function MainContent() {
 
         if (authRes.ok) {
           const authData = await authRes.json();
-          // JAVÍTVA: Hozzáadva mindkét írásmód, hogy minden komponens megtalálja!
           const freshUser = {
             ...localUser,
             isPremium: authData.isPremium,
@@ -276,7 +275,6 @@ function MainContent() {
                 });
                 if (!res.ok) throw new Error("Hiba");
                 const data = await res.json();
-                // JAVÍTVA ITT IS!
                 setUser({ 
                   ...decoded, 
                   isPremium: data.isPremium, 
@@ -329,7 +327,6 @@ function MainContent() {
       });
       if (res.ok) {
         const data = await res.json();
-        // JAVÍTVA ITT IS!
         const freshUser = { 
           ...decoded, 
           isPremium: data.isPremium, 
@@ -364,6 +361,25 @@ function MainContent() {
   const handleAddClub = async () => { if (!newClubName) return; const res = await fetch(`${BACKEND_URL}/api/clubs`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: newClubName }) }); if (res.ok) { setNewClubName(''); fetchData(); } };
   const handleDeleteClub = async (id: number) => { if (!window.confirm("Biztosan törlöd ezt a klubot?")) return; const res = await fetch(`${BACKEND_URL}/api/clubs/${id}`, { method: 'DELETE' }); if (res.ok) fetchData(); };
   
+  // ÚJ: Admin oldali klubnév frissítő logikája, ami hiányzott!
+  const handleUpdateClub = async (id: number, name: string) => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/clubs/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name })
+      });
+      if (res.ok) {
+        fetchData();
+        alert('Klub neve sikeresen frissítve!');
+      } else {
+        alert('Hiba történt a klub frissítésekor.');
+      }
+    } catch (e) {
+      alert('Hálózati hiba történt!');
+    }
+  };
+
   const saveUserClub = async (email: string) => { 
     const clubName = userClubEdits[email] !== undefined ? userClubEdits[email] : (allUsers.find(u => u.email === email)?.club_name || ''); 
     const clubRole = userRoleEdits[email] !== undefined ? userRoleEdits[email] : (allUsers.find(u => u.email === email)?.club_role || 'member');
@@ -375,12 +391,9 @@ function MainContent() {
     if (!newTitle || !newStart || !newEnd || !newCats) return alert("Cím, dátumok és kategóriák kötelezőek!"); 
     
     let finalRestrictedClubId: number | null = null;
-    
     if (user.email === ADMIN_EMAIL) {
-      // Admin hozza létre: a newRestrictedClub most már a kiválasztott klub ID-ja stringként
       finalRestrictedClubId = newRestrictedClub ? Number(newRestrictedClub) : null;
     } else {
-      // Klubvezető hozza létre: automatikusan az ő adatbázisból jövő klub ID-ját kapja meg
       finalRestrictedClubId = currentDbUser?.club_id || null;
       if (!finalRestrictedClubId) return alert("Hiba: Nem vagy klubhoz rendelve!");
     }
@@ -394,7 +407,7 @@ function MainContent() {
         startDate: newStart, 
         endDate: newEnd, 
         categories: newCats, 
-        restrictedClubId: finalRestrictedClubId, // JAVÍTVA: Az új backend kulcsot küldjük számmá alakítva!
+        restrictedClubId: finalRestrictedClubId,
         entryFee: newEntryFee, 
         feeCurrency: newFeeCurrency, 
         categorySettings: newCategorySettings 
@@ -412,7 +425,6 @@ function MainContent() {
     setEditTitle(contest.title); 
     setEditDesc(contest.description); 
     setEditCats(contest.categories || ''); 
-    // JAVÍTVA: A szöveges név helyett most már a restricted_club_id-t töltjük be a szerkesztő formba stringként!
     setEditRestrictedClub(contest.restricted_club_id ? String(contest.restricted_club_id) : ''); 
     setEditEntryFee(contest.entry_fee || 0); 
     setEditFeeCurrency(contest.fee_currency || 'HUF');
@@ -433,7 +445,7 @@ function MainContent() {
         startDate: editStart || null, 
         endDate: editEnd || null, 
         categories: editCats, 
-        restrictedClubId: editRestrictedClub ? Number(editRestrictedClub) : null, // JAVÍTVA: Az új backend kulcsot küldjük!
+        restrictedClubId: editRestrictedClub ? Number(editRestrictedClub) : null,
         entryFee: editEntryFee, 
         feeCurrency: editFeeCurrency, 
         categorySettings: editCategorySettings 
@@ -447,7 +459,7 @@ function MainContent() {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (file) { setUploadFile(file); setUploadPreview(URL.createObjectURL(file)); } };
   
   const handleUpload = async (contestId: number) => { 
-    if (!uploadFile || !uploadTitle || !uploadCategory) return alert("Minden kötelező!"); 
+    if (!uploadFile || !uploadTitle || !uploadCategory) return alert("Minden közelő!"); 
     setIsUploading(true); 
     try { 
       const formData = new FormData(); formData.append('photo', uploadFile); formData.append('contestId', String(contestId)); formData.append('userEmail', user.email); formData.append('userName', user.name); formData.append('title', uploadTitle); formData.append('category', uploadCategory); 
@@ -555,8 +567,8 @@ function MainContent() {
               <Route path="/salons" element={<SalonsView salonSearch={salonSearch} setSalonSearch={setSalonSearch} searchedSalons={searchedSalons} setSelectedSalon={setSelectedSalon} userEntrySalonIds={userEntrySalonIds} user={user} BACKEND_URL={BACKEND_URL} />} />
               <Route path="/club_nights" element={<ClubNightsView currentDbUser={currentDbUser} meetingSearch={meetingSearch} setMeetingSearch={setMeetingSearch} searchedMeetings={searchedMeetings} setActiveVideo={setActiveVideo} />} />
 
-              {/* === ADMINISZTRÁCIÓS FELÜLETEK === */}
-              <Route path="/admin_clubs" element={user?.email === ADMIN_EMAIL ? <AdminClubsView clubs={clubs} newClubName={newClubName} setNewClubName={setNewClubName} handleAddClub={handleAddClub} handleDeleteClub={handleDeleteClub} /> : <Navigate to="/dashboard" />} />
+              {/* === ADMINISZTRÁCIÓS FELÜLETEK (KIEGÉSZÍTVE AZ UPDATE LOGIKÁVAL) === */}
+              <Route path="/admin_clubs" element={user?.email === ADMIN_EMAIL ? <AdminClubsView clubs={clubs} newClubName={newClubName} setNewClubName={setNewClubName} handleAddClub={handleAddClub} handleDeleteClub={handleDeleteClub} handleUpdateClub={handleUpdateClub} /> : <Navigate to="/dashboard" />} />
               <Route path="/admin_users" element={user?.email === ADMIN_EMAIL ? <AdminUsersView allUsers={allUsers} clubs={clubs} userClubEdits={userClubEdits} setUserClubEdits={setUserClubEdits} userRoleEdits={userRoleEdits} setUserRoleEdits={setUserRoleEdits} saveUserClub={saveUserClub} /> : <Navigate to="/dashboard" />} />
               <Route path="/admin_weekly" element={user?.email === ADMIN_EMAIL ? <AdminWeeklyView /> : <Navigate to="/dashboard" />} />
               <Route path="/admin_settings" element={user?.email === ADMIN_EMAIL ? <AdminSettingsView /> : <Navigate to="/dashboard" />} />
