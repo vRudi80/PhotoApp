@@ -381,10 +381,19 @@ function MainContent() {
     }
   };
 
-  const saveUserClub = async (email: string) => { 
+const saveUserClub = async (email: string) => { 
     const clubName = userClubEdits[email] !== undefined ? userClubEdits[email] : (allUsers.find(u => u.email === email)?.club_name || ''); 
     const clubRole = userRoleEdits[email] !== undefined ? userRoleEdits[email] : (allUsers.find(u => u.email === email)?.club_role || 'member');
-    const res = await fetch(`${BACKEND_URL}/api/users/${email}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clubName, clubRole }) }); 
+    
+    // ÚJ: Megkeressük a névhez tartozó ID-t a meglévő klubok listájából
+    const matchedClub = clubs.find(c => c.name === clubName);
+    const clubId = matchedClub ? matchedClub.id : null;
+
+    const res = await fetch(`${BACKEND_URL}/api/users/${email}`, { 
+      method: 'PUT', 
+      headers: { 'Content-Type': 'application/json' }, 
+      body: JSON.stringify({ clubName, clubRole, clubId }) // JAVÍTVA: Most már a clubId is utazik a csomagban!
+    }); 
     if (res.ok) { alert("Sikeres mentés!"); fetchData(); } 
   };
   
