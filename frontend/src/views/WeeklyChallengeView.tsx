@@ -239,8 +239,9 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
               </div>
 
               <div style={{ background: '#1e293b', padding: '25px', borderRadius: '16px', border: '1px solid #f59e0b' }}>
-                <h3 style={{ margin: '0 0 5px 0', color: '#f59e0b', fontSize: '1.4rem' }}>🏆 Jelenlegi Rangsor</h3>
-                <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 20px 0' }}>Az nyer, aki a legtöbb lájkot kapja!</p>
+                <h3 style={{ margin: '0 0 5px 0', color: '#f59e0b', fontSize: '1.4rem' }}>🏆 Jelenlegi Állás (Vak Lista)</h3>
+                <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 20px 0' }}>A taktikázás elkerülése végett a többi versenyző fotója és neve a párbaj lezárásáig <b>titkosítva</b> van! Így látod a mezőnyt, de senki sem tud célzottan leszavazni másokat.</p>
+                
                 {leaderboard.length === 0 ? <div style={{ color: '#94a3b8', textAlign: 'center', padding: '20px' }}>Még senki sem töltött fel képet.</div> : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     {
@@ -250,16 +251,44 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                     }).map((entry, index) => {
                       const isMe = entry.user_email === user.email;
                       const rankColor = index === 0 ? '#fbbf24' : index === 1 ? '#e2e8f0' : index === 2 ? '#cd7f32' : '#64748b';
+                      
                       return (
-                        <div key={entry.id} style={{ display: 'flex', alignItems: 'center', background: isMe ? '#f59e0b20' : '#0f172a', border: isMe ? '1px solid #f59e0b50' : '1px solid #334155', padding: '10px', borderRadius: '8px' }}>
+                        <div key={entry.id} style={{ display: 'flex', alignItems: 'center', background: isMe ? '#f59e0b20' : '#0f172a', border: isMe ? '1px solid #f59e0b50' : '1px solid #334155', padding: '10px', borderRadius: '8px', opacity: isMe ? 1 : 0.8 }}>
                           <div style={{ fontSize: '1.5rem', fontWeight: 'bold', width: '35px', color: rankColor, textAlign: 'center' }}>{index + 1}.</div>
-                          <div onClick={() => setFullscreenData({url: getImageUrl(entry.drive_file_id, entry.file_url), title: entry.user_name})} style={{ width: '50px', height: '50px', backgroundColor: '#000', borderRadius: '6px', overflow: 'hidden', margin: '0 15px', cursor: 'zoom-in', flexShrink: 0 }}><img src={getImageUrl(entry.drive_file_id, entry.file_url)} alt="Top" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /></div>
-                          <div style={{ flex: 1 }}><div style={{ color: '#f8fafc', fontWeight: 'bold' }}>{entry.user_name}</div><div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Nézettség: {entry.views_count}</div></div>
-                          <div style={{ textAlign: 'right' }}><div style={{ color: '#f97316', fontWeight: 'bold', fontSize: '1.4rem' }}>{entry.likes_count} 🔥</div></div>
+                          
+                          {/* Mások képe homályosítva, saját kép éles. Máséra nem lehet rákattintani! */}
+                          <div 
+                            onClick={() => isMe ? setFullscreenData({url: getImageUrl(entry.drive_file_id, entry.file_url), title: entry.user_name}) : null} 
+                            style={{ width: '50px', height: '50px', backgroundColor: '#000', borderRadius: '6px', overflow: 'hidden', margin: '0 15px', cursor: isMe ? 'zoom-in' : 'default', flexShrink: 0 }}
+                          >
+                            <img 
+                              src={getImageUrl(entry.drive_file_id, entry.file_url)} 
+                              alt="Top" 
+                              style={{ 
+                                width: '100%', height: '100%', objectFit: 'cover', 
+                                filter: isMe ? 'none' : 'blur(8px) grayscale(70%)', 
+                                transform: isMe ? 'none' : 'scale(1.2)' // A scale eltünteti a blur fehér széleit
+                              }} 
+                            />
+                          </div>
+                          
+                          <div style={{ flex: 1 }}>
+                            {/* Név elrejtése */}
+                            <div style={{ color: isMe ? '#f8fafc' : '#94a3b8', fontWeight: 'bold', fontStyle: isMe ? 'normal' : 'italic' }}>
+                              {isMe ? entry.user_name : 'Titkosított ellenfél'}
+                            </div>
+                            <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Nézettség: {entry.views_count}</div>
+                          </div>
+                          
+                          <div style={{ textAlign: 'right' }}>
+                            <div style={{ color: isMe ? '#f97316' : '#94a3b8', fontWeight: 'bold', fontSize: '1.4rem' }}>{entry.likes_count} 🔥</div>
+                          </div>
                         </div>
                       )
                     })}
                   </div>
+                )}
+              </div>
                 )}
               </div>
             </div>
