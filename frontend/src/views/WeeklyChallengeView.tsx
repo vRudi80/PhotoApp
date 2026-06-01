@@ -193,17 +193,17 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   )}
 
                   {!myEntry ? (
-                  <div style={{ padding: '30px 20px', textAlign: 'center', background: '#0f172a', borderRadius: '12px', width: '100%', border: '1px dashed #f59e0b' }}>
-                    <div style={{ fontSize: '3rem', marginBottom: '10px' }}>🛑</div>
-                    <h4 style={{ color: '#f59e0b', margin: '0 0 10px 0' }}>Nincs szavazati jogod!</h4>
-                    <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: 0 }}>A szavazáshoz és mások képeinek értékeléséhez előbb nevezned kell egy saját fotóval!</p>
-                  </div>
-                ) : noMoreEntries ? (
-                  <div style={{ padding: '40px 20px', textAlign: 'center', background: '#0f172a', borderRadius: '12px', width: '100%' }}>
-                    <div style={{ fontSize: '3rem', marginBottom: '10px' }}>🎉</div>
-                    <h4 style={{ color: '#10b981', margin: '0 0 10px 0' }}>Mindent értékeltél!</h4>
-                  </div>
-                ) : voteEntry ? (
+                    <div style={{ padding: '30px 20px', textAlign: 'center', background: '#0f172a', borderRadius: '12px', width: '100%', border: '1px dashed #f59e0b' }}>
+                      <div style={{ fontSize: '3rem', marginBottom: '10px' }}>🛑</div>
+                      <h4 style={{ color: '#f59e0b', margin: '0 0 10px 0' }}>Nincs szavazati jogod!</h4>
+                      <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: 0 }}>A szavazáshoz és mások képeinek értékeléséhez előbb nevezned kell egy saját fotóval!</p>
+                    </div>
+                  ) : noMoreEntries ? (
+                    <div style={{ padding: '40px 20px', textAlign: 'center', background: '#0f172a', borderRadius: '12px', width: '100%' }}>
+                      <div style={{ fontSize: '3rem', marginBottom: '10px' }}>🎉</div>
+                      <h4 style={{ color: '#10b981', margin: '0 0 10px 0' }}>Mindent értékeltél!</h4>
+                    </div>
+                  ) : voteEntry ? (
                     <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                       <div onClick={() => setFullscreenData({url: getImageUrl(voteEntry.drive_file_id, voteEntry.file_url), title: 'Heti Kihívás'})} style={{ width: '100%', height: '350px', backgroundColor: '#000', borderRadius: '12px', overflow: 'hidden', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-in' }}>
                         <img src={getImageUrl(voteEntry.drive_file_id, voteEntry.file_url)} alt="Szavazás" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
@@ -267,7 +267,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                               style={{ 
                                 width: '100%', height: '100%', objectFit: 'cover', 
                                 filter: isMe ? 'none' : 'blur(8px) grayscale(70%)', 
-                                transform: isMe ? 'none' : 'scale(1.2)' // A scale eltünteti a blur fehér széleit
+                                transform: isMe ? 'none' : 'scale(1.2)' 
                               }} 
                             />
                           </div>
@@ -287,8 +287,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                       )
                     })}
                   </div>
-                )}
-              </div>
                 )}
               </div>
             </div>
@@ -394,7 +392,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                 </div>
               </div>
 
-              {/* RÉSZLETES ELŐZMÉNYEK KÉPEKKEL (JAVÍTVA: EREDETI KÉP BETÖLTÉSE) */}
+              {/* RÉSZLETES ELŐZMÉNYEK KÉPEKKEL */}
               <h3 style={{ color: '#f8fafc', marginBottom: '15px' }}>📸 Korábbi Pályaművek ({myStats.history.length})</h3>
               
               {myStats.history.length === 0 ? (
@@ -414,7 +412,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                            onClick={() => setFullscreenData({url: getImageUrl(entry.drive_file_id, entry.file_url), title: entry.topic_title})}>
                         
                         <div style={{ position: 'relative', height: '200px' }}>
-                          {/* JAVÍTVA: A drive_file_id most már átadódik az img-nek! */}
                           <img src={getImageUrl(entry.drive_file_id, entry.file_url)} alt="Pályamű" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                           
                           <div style={{ position: 'absolute', top: '10px', left: '10px', background: badgeColor, color: badgeColor === '#fbbf24' ? 'black' : 'white', padding: '5px 12px', borderRadius: '20px', fontWeight: 'bold', fontSize: '0.85rem', boxShadow: '0 2px 5px rgba(0,0,0,0.5)' }}>
