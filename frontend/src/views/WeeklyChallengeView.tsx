@@ -124,20 +124,24 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     finally { setIsUploading(false); }
   };
 
-  // --- AZ ÚJ GURUSHOTS MÉRŐ MATEK ---
-  const exposurePercentage = Math.min(100, Math.max(0, (myVoteCount / votableEntries) * 100));
-  let exposureColor = '#ef4444'; // Alacsony (Piros)
-  let exposureLabel = 'Alacsony';
-  if (exposurePercentage >= 80) { exposureColor = '#10b981'; exposureLabel = 'Maximális'; } // Zöld
-  else if (exposurePercentage >= 40) { exposureColor = '#f59e0b'; exposureLabel = 'Közepes'; } // Sárga
+  // --- AZ IGAZI GURUSHOTS ENERGIA-MÉRŐ (AKKUMULÁTOR) MATEK ---
+  const BASE_EXPOSURE = 10; // 10 ingyen megjelenés induláskor
+  const exposureEarned = BASE_EXPOSURE + (myVoteCount * 2); // Amit megkeresett (Alap + Szavazatok)
+  const viewsRemaining = myEntry ? (exposureEarned - myEntry.views_count) : 0; // A vödörben maradt energia
 
+  // A Mérő (Akkumulátor) 100%-os, ha van legalább 15 tartalék megjelenése. Ha fogy a tartalék, esik a %!
+  const exposurePercentage = myEntry ? Math.min(100, Math.max(0, (viewsRemaining / 15) * 100)) : 0;
 
-  let totalLikes = 0; let totalViews = 0; let top10Count = 0; let top20Count = 0; let podiumCount = 0;
-  if (myStats) {
-    totalLikes = myStats.history.reduce((sum, e) => sum + e.likes, 0); totalViews = myStats.history.reduce((sum, e) => sum + e.views, 0); podiumCount = myStats.podiums.first + myStats.podiums.second + myStats.podiums.third;
-    myStats.history.forEach(e => { const percentile = e.rank / e.total_entries; if (percentile <= 0.1 && e.rank > 3) top10Count++; if (percentile > 0.1 && percentile <= 0.2) top20Count++; });
+  let exposureColor = '#ef4444'; // Alacsony / Láthatatlan (Piros)
+  let exposureLabel = viewsRemaining <= 0 ? 'Láthatatlan (0%)' : 'Alacsony';
+  
+  if (exposurePercentage >= 80) { 
+    exposureColor = '#10b981'; 
+    exposureLabel = 'Maximális'; 
+  } else if (exposurePercentage >= 40) { 
+    exposureColor = '#f59e0b'; 
+    exposureLabel = 'Közepes'; 
   }
-
   const getLevel = (likes: number) => {
     if (likes < 20) return { name: 'Újonc 🌱', nextAt: 20, color: '#94a3b8' };
     if (likes < 100) return { name: 'Felfedezett 📸', nextAt: 100, color: '#38bdf8' };
