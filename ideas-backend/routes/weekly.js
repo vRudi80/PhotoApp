@@ -2,7 +2,7 @@ const fs = require('fs');
 
 module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   
-  // 1. AKTUÁLIS TÉMA ÉS TOPLISTA LEKÉRÉSE (Dátumkezelés az eredeti, biztonságos módszereddel)
+  // 1. AKTUÁLIS TÉMA ÉS TOPLISTA LEKÉRÉSE
   app.get('/api/weekly/current', async (req, res) => {
     const { userEmail } = req.query;
     try {
@@ -20,7 +20,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
       const [myEntries] = await pool.query('SELECT * FROM weekly_entries WHERE topic_id = ? AND user_email = ?', [currentTopic.id, userEmail]);
       
-      // Pontos JOIN a te adatbázisod oszlopneveivel (voter_email és entry_id)
       const [myVotes] = await pool.query(`
         SELECT COUNT(*) as vote_count 
         FROM weekly_votes v 
@@ -67,10 +66,11 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { cleanupTempFile(file); res.status(500).json({ error: err.message }); }
   });
 
-  // 3. KÖVETKEZŐ KÉP KIVÁLASZTÁSA (GURUSHOTS MATEK - JAVÍTOTT SQL)
+  // 3. KÖVETKEZŐ KÉP KIVÁLASZTÁSA
   app.get('/api/weekly/next-vote', async (req, res) => {
     const { topicId, userEmail } = req.query;
     try {
+      // JAVÍTVA: A háttérben mindenki kap 10 alap energiát az algoritmusban is!
       const [entries] = await pool.query(`
         SELECT e.*, 
           (SELECT COUNT(*) 
@@ -81,7 +81,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         WHERE e.topic_id = ? 
           AND e.user_email != ? 
           AND e.id NOT IN (SELECT entry_id FROM weekly_votes WHERE voter_email = ?)
-        ORDER BY ((owner_votes * 2) - e.views_count) DESC, RAND()
+        ORDER BY ((10 + (owner_votes * 2)) - e.views_count) DESC, RAND()
         LIMIT 1
       `, [topicId, userEmail, userEmail]);
 
@@ -129,7 +129,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
-  // 5. TRÓFEATEREM STATISZTIKÁK
+  // 5. TRÓFEATEREM STATISZTIKÁK (KÉP ID JAVÍTVA!)
   app.get('/api/weekly/my-stats', async (req, res) => {
     const { userEmail } = req.query;
     try {
@@ -138,8 +138,9 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       let history = [];
 
       for (const topic of pastTopics) {
+        // JAVÍTVA: Itt hiányzott a drive_file_id az előző lekérdezésből!
         const [entries] = await pool.query(`
-          SELECT id, user_email, file_url, likes_count, views_count
+          SELECT id, user_email, file_url, drive_file_id, likes_count, views_count
           FROM weekly_entries 
           WHERE topic_id = ? 
           ORDER BY likes_count DESC, views_count ASC
@@ -159,6 +160,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
             rank: rank,
             total_entries: entries.length,
             file_url: entry.file_url,
+            drive_file_id: entry.drive_file_id, // JAVÍTVA: Átadjuk a Frontendnek
             likes: entry.likes_count,
             views: entry.views_count
           });
