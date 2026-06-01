@@ -43,6 +43,7 @@ app.post('/api/webhook', express.raw({type: 'application/json'}), async (req, re
   try { event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET); } 
   catch (err) { return res.status(400).send(`Webhook Error: ${err.message}`); }
 
+  // --- 1. ESEMÉNY: Első feliratkozás (vagy pályázati díj) ---
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object;
 
@@ -66,10 +67,36 @@ app.post('/api/webhook', express.raw({type: 'application/json'}), async (req, re
     }
   }
 
+  // --- 2. ÚJ ESEMÉNY: Trial lejárat ÉS minden sikeres havi megújulás! ---
+  if (event.type === 'invoice.paid') {
+    const invoice = event.data.object;
+    
+    // Csak a feliratkozáshoz tartozó számlákkal foglalkozunk (az egyszeri pályázati díjaknak nincs subscription-je)
+    if (invoice.subscription) {
+      const customerId = invoice.customer;
+      
+      // A Stripe másodpercben küldi a lejárati dátumot, a JS Date viszont ezredmásodpercet vár, ezért szorozzuk 1000-rel!
+      const periodEnd = new Date(invoice.lines.data[0].period.end * 1000);
+      
+      try {
+        // Frissítjük a felhasználót: aktív státuszban tartjuk, és beírjuk a Stripe által diktált hivatalos lejárati dátumot!
+        await pool.query(
+          'UPDATE photo_users SET is_premium = 1, premium_until = ? WHERE stripe_customer_id = ?', 
+          [periodEnd, customerId]
+        );
+        console.log(`💰 Sikeres fizetés feldolgozva (${customerId}). Új lejárati dátum: ${periodEnd}`);
+      } catch (err) { 
+        console.error('Adatbázis hiba az invoice.paid feldolgozásakor:', err); 
+      }
+    }
+  }
+
+  // --- 3. ESEMÉNY: Lemondott / Megszakadt előfizetés ---
   if (event.type === 'customer.subscription.deleted') {
     const customerId = event.data.object.customer;
     try { await pool.query('UPDATE photo_users SET is_premium = 0 WHERE stripe_customer_id = ?', [customerId]); } catch (err) { console.error('Hiba:', err); }
   }
+  
   res.send();
 });
 
