@@ -133,13 +133,21 @@ export default function Header({
             </button>
           </div>
 
-          {/* ÚJ: PROFILOM GOMB (ZÖLDES-KÉKES NEON SZÍNNEL) */}
+          {/* PROFILOM GOMB */}
           <div className="nav-item-container" style={{ zIndex: 50 }}>
             <button className={`nav-btn ${activeTab === 'profile' ? 'active' : ''}`} style={{ color: '#14b8a6' }} onClick={() => handleNavClick('profile')}>
               <span>👤 Profilom</span>
             </button>
           </div>
 
+          {/* ÚJ: SUPPORT / ÜGYFÉLSZOLGÁLAT GOMB */}
+          <div className="nav-item-container" style={{ zIndex: 50 }}>
+            <button className={`nav-btn ${activeTab === 'tickets' ? 'active' : ''}`} style={{ color: '#f43f5e' }} onClick={() => handleNavClick('tickets')}>
+              <span>✉️ Support</span>
+            </button>
+          </div>
+
+          {/* ADMIN DROPDOWN */}
           {(user?.email === ADMIN_EMAIL || isLeader) && (
             <div className="nav-item-container" style={{ zIndex: dropdownOpen === 'admin' ? 60 : 50 }}>
               <button className={`nav-btn ${dropdownOpen === 'admin' || activeTab.startsWith('admin_') ? 'active' : ''}`} style={{ color: '#ef4444' }} onClick={() => setDropdownOpen(dropdownOpen === 'admin' ? null : 'admin')}>
