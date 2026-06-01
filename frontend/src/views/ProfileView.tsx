@@ -4,22 +4,21 @@ import { BACKEND_URL } from '../utils/constants';
 interface ProfileViewProps {
   user: any;
   setUser: (user: any) => void;
-  fetchData: () => Promise<void>; // Új frissítő függvény az App.tsx-ből
+  fetchData: () => Promise<void>; // A fő app adatfrissítő függvénye
 }
 
 export default function ProfileView({ user, setUser, fetchData }: ProfileViewProps) {
   const [availableClubs, setAvailableClubs] = useState<any[]>([]);
-  const [selectedClub, setSelectedClub] = useState(user?.club_name || '');
+  // JAVÍTVA: Most már a club_id-t követjük belső állapotban (stringként a select elemhez)
+  const [selectedClubId, setSelectedClubId] = useState<string>(user?.club_id ? String(user.club_id) : '');
   const [isSaving, setIsSaving] = useState(false);
 
-  // Ha időközben betöltődik a user az App.tsx-ből, szinkronizáljuk a kijelölést
+  // Ha időközben frissül az App.tsx-ből kapott user objektum, szinkronizáljuk a kijelölést
   useEffect(() => {
-    if (user?.club_name) {
-      setSelectedClub(user.club_name);
-    }
+    setSelectedClubId(user?.club_id ? String(user.club_id) : '');
   }, [user]);
 
-  // Betöltjük a klubokat a szerverről
+  // Betöltjük a klubokat a szerverről (Most már kapunk id-t és name-et is)
   useEffect(() => {
     fetch(`${BACKEND_URL}/api/clubs`)
       .then(res => res.json())
@@ -33,13 +32,20 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
       const res = await fetch(`${BACKEND_URL}/api/users/update-club`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: user.email, clubName: selectedClub })
+        // JAVÍTVA: clubName string helyett a számra konvertált clubId-t küldjük (vagy null-t)
+        body: JSON.stringify({ 
+          email: user.email, 
+          clubId: selectedClubId === '' ? null : Number(selectedClubId) 
+        })
       });
       
       if (res.ok) {
-        alert(selectedClub ? `🛡️ Sikeresen csatlakoztál a(z) ${selectedClub} klubhoz!` : 'Kiléptél a klubból, mostantól függetlenként indulsz!');
+        // Megkeressük a listában a klub nevét, hogy ki tudjuk írni a szép üzenetben
+        const currentClubObj = availableClubs.find(c => String(c.id) === selectedClubId);
         
-        // Lefuttatjuk a fő app adatfrissítését, így azonnal szinkronba kerül minden fül!
+        alert(currentClubObj ? `🛡️ Sikeresen csatlakoztál a(z) ${currentClubObj.name} klubhoz!` : 'Kiléptél a klubból, mostantól függetlenként indulsz!');
+        
+        // Lefuttatjuk a fő app adatfrissítését, így azonnal szinkronba kerül a Header és az összes többi fül!
         if (fetchData) await fetchData();
       } else {
         alert('Hiba történt a mentéskor!');
@@ -81,31 +87,34 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          {/* A select value-ja most már a belső kiválasztott ID-t követi */}
           <select 
-            value={selectedClub} 
-            onChange={(e) => setSelectedClub(e.target.value)}
+            value={selectedClubId} 
+            onChange={(e) => setSelectedClubId(e.target.value)}
             style={{ width: '100%', padding: '16px', borderRadius: '14px', background: '#0f172a', color: 'white', border: '1px solid #334155', fontSize: '1.05rem', outline: 'none', cursor: 'pointer' }}
           >
             <option value="">-- Független fotós vagyok --</option>
-            {availableClubs.map((club, i) => (
-              <option key={i} value={club.name}>{club.name}</option>
+            {/* JAVÍTVA: A legördülő menü opcióinak értéke (value) a klub egyedi ID-ja lesz */}
+            {availableClubs.map((club) => (
+              <option key={club.id} value={String(club.id)}>{club.name}</option>
             ))}
           </select>
 
+          {/* A gomb letiltási állapota most már a club_id-k egyezőségét figyeli */}
           <button 
             onClick={handleClubSave} 
-            disabled={isSaving || selectedClub === (user?.club_name || '')}
+            disabled={isSaving || selectedClubId === (user?.club_id ? String(user.club_id) : '')}
             style={{ 
               width: '100%', padding: '16px', borderRadius: '14px', border: 'none', 
-              background: (isSaving || selectedClub === (user?.club_name || '')) ? '#334155' : 'linear-gradient(135deg, #10b981, #059669)', 
-              color: (isSaving || selectedClub === (user?.club_name || '')) ? '#64748b' : 'white', 
+              background: (isSaving || selectedClubId === (user?.club_id ? String(user.club_id) : '')) ? '#334155' : 'linear-gradient(135deg, #10b981, #059669)', 
+              color: (isSaving || selectedClubId === (user?.club_id ? String(user.club_id) : '')) ? '#64748b' : 'white', 
               fontSize: '1.1rem', fontWeight: 'bold', 
-              cursor: (isSaving || selectedClub === (user?.club_name || '')) ? 'not-allowed' : 'pointer', 
+              cursor: (isSaving || selectedClubId === (user?.club_id ? String(user.club_id) : '')) ? 'not-allowed' : 'pointer', 
               transition: 'all 0.3s', 
-              boxShadow: (selectedClub !== (user?.club_name || '') && !isSaving) ? '0 5px 20px rgba(16, 185, 129, 0.4)' : 'none' 
+              boxShadow: (selectedClubId !== (user?.club_id ? String(user.club_id) : '') && !isSaving) ? '0 5px 20px rgba(16, 185, 129, 0.4)' : 'none' 
             }}
           >
-            {isSaving ? 'Mentés folyamatban...' : (selectedClub === (user?.club_name || '') ? 'Jelenlegi Klubod' : 'Mentés és Csatlakozás 🚀')}
+            {isSaving ? 'Mentés folyamatban...' : (selectedClubId === (user?.club_id ? String(user.club_id) : '') ? 'Jelenlegi Klubod' : 'Mentés és Csatlakozás 🚀')}
           </button>
         </div>
       </div>
