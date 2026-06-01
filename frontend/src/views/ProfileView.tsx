@@ -25,19 +25,23 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
       .catch(console.error);
   }, []);
 
-  // 2. Ha klubvezető az illető, betöltjük a klubjához tartozó jelentkezőket
+  // 2. JAVÍTVA: Ha a közvetlen club_id hiányzik, név alapján kikeresi az activeClubs listából!
   const loadPendingMembers = () => {
-    if (isLeader && user?.club_id) {
-      fetch(`${BACKEND_URL}/api/clubs/pending-members?clubId=${user.club_id}`)
+    const matchedClub = activeClubs.find(c => c.name === user?.club_name);
+    const effectiveClubId = user?.club_id || matchedClub?.id;
+
+    if (isLeader && effectiveClubId) {
+      fetch(`${BACKEND_URL}/api/clubs/pending-members?clubId=${effectiveClubId}`)
         .then(res => res.json())
         .then(data => setPendingMembers(data || []))
         .catch(console.error);
     }
   };
 
+  // JAVÍTVA: Az activeClubs is bekerült a figyelők közé, így amint megvannak a klubadatok, azonnal frissít!
   useEffect(() => {
     loadPendingMembers();
-  }, [user, isLeader]);
+  }, [user, isLeader, activeClubs]);
 
   // 3. Csatlakozási kérelem leadása
   const handleJoinClub = async () => {
@@ -102,7 +106,7 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
           </div>
         )}
 
-        {/* KLUBVÁLASZTÓ LISTA (Csak ha nincs elfogadott vagy függőben lévő klubja) */}
+        {/* KLUBVÁLASZTÓ LISTA */}
         {!user?.club_name && user?.club_role !== 'pending' && (
           <>
             <select value={selectedClubId} onChange={e => setSelectedClubId(e.target.value)} style={inputStyle}>
@@ -116,7 +120,7 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
         )}
       </div>
 
-      {/* KLUBVEZETŐI JÓVÁHAGYÓ PANEL (Csak vezetőknek ugrik fel) */}
+      {/* KLUBVEZETŐI JÓVÁHAGYÓ PANEL */}
       {isLeader && (
         <div style={{ backgroundColor: '#1e293b', padding: '30px', borderRadius: '24px', border: '1px solid #10b981', boxShadow: '0 10px 30px rgba(16,185,129,0.1)' }}>
           <h3 style={{ margin: '0 0 10px 0', color: '#10b981' }}>👑 Tagfelvételi Kérelmek ({user.club_name})</h3>
