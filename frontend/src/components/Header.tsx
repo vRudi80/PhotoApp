@@ -61,7 +61,7 @@ export default function Header({
       <div className={`header-nav-container ${isMobileMenuOpen ? 'mobile-open' : ''}`}>
         <div className="nav-group">
           
-          {/* ÚJ: FŐOLDAL GOMB */}
+          {/* FŐOLDAL GOMB */}
           <div className="nav-item-container" style={{ zIndex: 50 }}>
             <button className={`nav-btn ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => handleNavClick('dashboard')}>
               <span>🏠 Főoldal</span>
@@ -87,7 +87,6 @@ export default function Header({
             </button>
             {dropdownOpen === 'club' && (
               <div className="dropdown-menu">
-                {/* ÚJ: Klub Hírek gomb */}
                 <button className={`drop-item ${activeTab === 'club_news' ? 'active' : ''}`} onClick={() => handleNavClick('club_news')}>Klub Hírek</button>
                 <button className={`drop-item ${activeTab === 'club_nights' ? 'active' : ''}`} onClick={() => handleNavClick('club_nights')}>Klubestek</button>
                 <button className={`drop-item ${activeTab === 'club_homeworks' ? 'active' : ''}`} onClick={() => handleNavClick('club_homeworks')}>Házi feladatok</button>
@@ -131,6 +130,13 @@ export default function Header({
           <div className="nav-item-container" style={{ zIndex: 50 }}>
             <button className={`nav-btn ${activeTab === 'packages' ? 'active' : ''}`} style={{ color: '#8b5cf6' }} onClick={() => handleNavClick('packages')}>
               <span>💎 Tárhely</span>
+            </button>
+          </div>
+
+          {/* ÚJ: PROFILOM GOMB (ZÖLDES-KÉKES NEON SZÍNNEL) */}
+          <div className="nav-item-container" style={{ zIndex: 50 }}>
+            <button className={`nav-btn ${activeTab === 'profile' ? 'active' : ''}`} style={{ color: '#14b8a6' }} onClick={() => handleNavClick('profile')}>
+              <span>👤 Profilom</span>
             </button>
           </div>
 
