@@ -135,7 +135,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       );
 
       // 2. ÚJ: Töröljük a szavazási előzményeket ehhez az entry_id-hoz
-      await pool.query('DELETE FROM weekly_likes WHERE entry_id = ?', [existing[0].id]);
+      await pool.query('DELETE FROM weekly_votes WHERE entry_id = ?', [existing[0].id]);
       
       res.json({ success: true });
     } catch (err) { cleanupTempFile(file); res.status(500).json({ error: err.message }); }
