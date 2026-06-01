@@ -105,6 +105,70 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     try { await pool.query('INSERT INTO photo_club_news_comments (news_id, user_email, user_name, comment_text) VALUES (?, ?, ?, ?)', [req.params.id, userEmail, userName, commentText]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
+  // 1. Csak azon klubok listázása a tagoknak, ahol VAN aktív vezető vagy helyettes
+  app.get('/api/clubs/active-only', async (req, res) => {
+    try {
+      const [rows] = await pool.query(`
+        SELECT DISTINCT c.* FROM photo_clubs c
+        INNER JOIN photo_users u ON c.id = u.club_id
+        WHERE u.club_role IN ('leader', 'deputy')
+        ORDER BY c.name ASC
+      `);
+      res.json(rows);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // 2. Csatlakozási kérelem elküldése (Beállítja a nevet, ID-t, de a szerepkör 'pending' lesz!)
+  app.post('/api/clubs/join-request', async (req, res) => {
+    const { userEmail, clubId, clubName } = req.body;
+    if (!userEmail || !clubId || !clubName) return res.status(400).json({ error: 'Hiányzó adatok!' });
+
+    try {
+      await pool.query(
+        "UPDATE photo_users SET club_id = ?, club_name = ?, club_role = 'pending' WHERE email = ?",
+        [clubId, clubName, userEmail]
+      );
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // 3. Függőben lévő (pending) tagok kigyűjtése egy adott klub vezetőjének
+  app.get('/api/clubs/pending-members', async (req, res) => {
+    const { clubId } = req.query;
+    if (!clubId) return res.status(400).json({ error: 'Hiányzó klub azonosító!' });
+
+    try {
+      const [rows] = await pool.query(
+        "SELECT email, name, club_name FROM photo_users WHERE club_id = ? AND club_role = 'pending'",
+        [clubId]
+      );
+      res.json(rows);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // 4. Tag jóváhagyása vagy elutasítása a vezető által
+  app.post('/api/clubs/handle-request', async (req, res) => {
+    const { targetEmail, action } = req.body; // action: 'approve' vagy 'reject'
+    try {
+      if (action === 'approve') {
+        // Elfogadás: a szerepkör átvált 'member'-re
+        await pool.query("UPDATE photo_users SET club_role = 'member' WHERE email = ?", [targetEmail]);
+      } else {
+        // Elutasítás: teljesen leválasztjuk a klubról
+        await pool.query("UPDATE photo_users SET club_id = NULL, club_name = NULL, club_role = 'member' WHERE email = ?", [targetEmail]);
+      }
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+  
   // DASHBOARD ALERTS
   app.get('/api/dashboard-alerts', async (req, res) => {
     const { userEmail } = req.query;
