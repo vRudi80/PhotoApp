@@ -277,18 +277,19 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   </div>
                 </div>
                 
-               {/* LÁTHATÓSÁGI MÉRŐ KILOMÉTERÓRA */}
-                <div style={{ width: '100%', background: '#0f172a', padding: '25px', borderRadius: '24px', border: `1px solid ${exposureColor}40`, display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: `0 10px 40px -10px ${exposureColor}30`, transition: 'all 0.5s ease' }}>
-                  <h4 style={{ color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '2px', margin: '0 0 15px 0', fontSize: '0.85rem' }}>Láthatósági Mérő</h4>
+              {/* LÁTHATÓSÁGI MÉRŐ KILOMÉTERÓRA (Reszponzív JAVÍTÁS) */}
+                <div style={{ width: '100%', boxSizing: 'border-box', background: '#0f172a', padding: '25px 15px', borderRadius: '24px', border: `1px solid ${exposureColor}40`, display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: `0 10px 40px -10px ${exposureColor}30`, transition: 'all 0.5s ease' }}>
+                  <h4 style={{ color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '2px', margin: '0 0 15px 0', fontSize: '0.85rem', textAlign: 'center' }}>Láthatósági Mérő</h4>
                   
-                  <div style={{ position: 'relative', width: '220px', height: '120px', display: 'flex', justifyContent: 'center' }}>
-                    {/* Az SVG fixálva van az abszolút pozícióval, így nem tudja szétnyomni a dobozt */}
-                    <svg viewBox="0 0 200 110" style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, overflow: 'visible' }}>
+                  {/* Reszponzív, önmagát skálázó konténer az SVG-nek */}
+                  <div style={{ position: 'relative', width: '100%', maxWidth: '240px', margin: '0 auto' }}>
+                    <svg viewBox="0 0 200 120" style={{ width: '100%', height: 'auto', display: 'block', overflow: 'visible' }}>
                       <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#1e293b" strokeWidth="16" strokeLinecap="round" />
-                      <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke={exposureColor} strokeWidth="16" strokeLinecap="round" pathLength="100" strokeDasharray="100" strokeDashoffset={100 - exposurePercentage} style={{ transition: 'stroke-dashoffset 1.5s cubic-bezier(0.4, 0, 0.2, 1), stroke 0.5s', filter: `drop-shadow(0 0 10px ${exposureColor}90)` }} />
+                      <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke={exposureColor} strokeWidth="16" strokeLinecap="round" pathLength="100" strokeDasharray="100" strokeDashoffset={100 - exposurePercentage} style={{ transition: 'stroke-dashoffset 1.5s cubic-bezier(0.4, 0, 0.2, 1), stroke 0.5s', filter: `drop-shadow(0 0 8px ${exposureColor}90)` }} />
                     </svg>
                     
-                    <div style={{ position: 'absolute', bottom: '0', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    {/* A szöveg tökéletesen az ív közepére van igazítva */}
+                    <div style={{ position: 'absolute', bottom: '15px', left: '0', width: '100%', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                       <div style={{ fontSize: '2.8rem', fontWeight: '900', color: exposureColor, lineHeight: '1', textShadow: `0 0 20px ${exposureColor}60`, transition: 'color 0.5s' }}>
                         {Math.round(exposurePercentage)}<span style={{ fontSize: '1.2rem' }}>%</span>
                       </div>
@@ -298,6 +299,11 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                     </div>
                   </div>
 
+                  <p style={{ fontSize: '0.85rem', color: '#94a3b8', margin: '15px 0 0 0', textAlign: 'center', lineHeight: '1.6' }}>
+                    {!myEntry ? 'Töltsd fel a képedet az induláshoz, és kapsz 10 alap energiát!' : exposurePercentage >= 80 ? '🔥 A képed a maximumon pörög! Jelenleg nincs más dolgod.' : '⚡ Értékelj másokat, töltsd fel a mérőt és kerülj az élre!'}
+                  </p>
+                </div>
+                
                   <p style={{ fontSize: '0.85rem', color: '#94a3b8', margin: '20px 0 0 0', textAlign: 'center', lineHeight: '1.6', zIndex: 1 }}>
                     {!myEntry ? 'Töltsd fel a képedet az induláshoz, és kapsz 10 alap energiát!' : exposurePercentage >= 80 ? '🔥 A képed a maximumon pörög! Jelenleg nincs más dolgod.' : '⚡ Értékelj másokat, töltsd fel a mérőt és kerülj az élre!'}
                   </p>
