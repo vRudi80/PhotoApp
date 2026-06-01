@@ -287,44 +287,43 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
   
    // ÚJ: TÉMATÉVESZTÉS JELENTÉSE (HIBAKERESŐ NAPLÓZÁSSAL)
-  app.post('/api/weekly/report-off-topic', async (req, res) => {
-    const { entryId, userEmail } = req.body;
-    
-    // Ezt látnod kell a szerver logban, amint rákattintasz a gombra a frontend csoportban:
-    console.log("📥 OFF-TOPIC JELENTÉS ÉRKEZETT:", { entryId, userEmail });
+app.post('/api/weekly/report-off-topic', async (req, res) => {
+  const { entryId, userEmail } = req.body;
+  
+  // Ezt látnod kell a szerver logban, amint rákattintasz a gombra a frontend csoportban:
+  console.log("📥 OFF-TOPIC JELENTÉS ÉRKEZETT:", { entryId, userEmail });
 
-    if (!entryId || !userEmail) {
-      return res.status(400).json({ error: 'Hiányzó adatok a kérésből!' });
-    }
+  if (!entryId || !userEmail) {
+    return res.status(400).json({ error: 'Hiányzó adatok a kérésből!' });
+  }
 
+  try {
+    // 1. Megpróbáljuk növelni a számlálót
+    const [updateResult] = await pool.query(
+      'UPDATE weekly_entries SET off_topic_count = off_topic_count + 1 WHERE id = ?', 
+      [entryId]
+    );
+    console.log("✅ Adatbázis számláló sikeresen frissítve. Eredmény:", updateResult);
+
+    // 2. Szavazási előzmény beírása egy védett al-blokkban
+    // JAVÍTVA: Külső dupla idézőjelek, hogy ne ütközzön a belső 'pass' szöveggel!
     try {
-      // 1. Megpróbáljuk növelni a számlálót
-      const [updateResult] = await pool.query(
-        'UPDATE weekly_entries SET off_topic_count = off_topic_count + 1 WHERE id = ?', 
-        [entryId]
+      await pool.query(
+        "INSERT IGNORE INTO weekly_votes (entry_id, voter_email, vote_type) VALUES (?, ?, 'pass')", 
+        [entryId, userEmail]
       );
-      console.log("✅ Adatbázis számláló sikeresen frissítve. Eredmény:", updateResult);
-
-      // 2. Szavazási előzmény beírása egy védett al-blokkban
-      // Ha a lájkok táblád neve esetleg nem 'weekly_likes', ez a rész hibára futhat.
-      // Ezzel a trükkel a számláló megmarad, de a logban látni fogjuk a hibát!
-      try {
-        await pool.query(
-          'INSERT IGNORE INTO weekly_likes (entry_id, user_email, is_like) VALUES (?, ?, 0)', 
-          [entryId, userEmail]
-        );
-        console.log("✅ Szavazási előzmény rögzítve a felhasználónak.");
-      } catch (likeErr) {
-        console.error("⚠️ Figyelem: A szavazási előzmény táblába nem sikerült írni (lehet, hogy más a neve?):", likeErr.message);
-      }
-
-      res.json({ success: true });
-    } catch (err) {
-      // Ha az UPDATE hasal el (pl. elgépelt oszlopnév miatt), itt azonnal kiírja a pontos okot:
-      console.error("🔥 CRITICAL ADATBÁZIS HIBA:", err.message);
-      res.status(500).json({ error: err.message });
+      console.log("✅ Szavazási előzmény rögzítve a felhasználónak.");
+    } catch (likeErr) {
+      console.error("⚠️ Figyelem: A szavazási előzmény táblába nem sikerült írni (lehet, hogy más a neve?):", likeErr.message);
     }
-  });
+
+    res.json({ success: true });
+  } catch (err) {
+    // Ha az UPDATE hasal el (pl. elgépelt oszlopnév miatt), itt azonnal kiírja a pontos okot:
+    console.error("🔥 CRITICAL ADATBÁZIS HIBA:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
   
   // ADMIN VÉGPONTOK
   app.get('/api/admin/weekly-topics', async (req, res) => {
