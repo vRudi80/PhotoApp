@@ -3,19 +3,27 @@ import { BACKEND_URL } from '../utils/constants';
 
 interface ProfileViewProps {
   user: any;
-  setUser: (user: any) => void; // Ahhoz, hogy a fő app is tudja, ha változott a klub!
+  setUser: (user: any) => void;
+  fetchData: () => Promise<void>; // Új frissítő függvény az App.tsx-ből
 }
 
-export default function ProfileView({ user, setUser }: ProfileViewProps) {
+export default function ProfileView({ user, setUser, fetchData }: ProfileViewProps) {
   const [availableClubs, setAvailableClubs] = useState<any[]>([]);
   const [selectedClub, setSelectedClub] = useState(user?.club_name || '');
   const [isSaving, setIsSaving] = useState(false);
+
+  // Ha időközben betöltődik a user az App.tsx-ből, szinkronizáljuk a kijelölést
+  useEffect(() => {
+    if (user?.club_name) {
+      setSelectedClub(user.club_name);
+    }
+  }, [user]);
 
   // Betöltjük a klubokat a szerverről
   useEffect(() => {
     fetch(`${BACKEND_URL}/api/clubs`)
       .then(res => res.json())
-      .then(data => setAvailableClubs(data))
+      .then(data => setAvailableClubs(data || []))
       .catch(console.error);
   }, []);
 
@@ -29,9 +37,10 @@ export default function ProfileView({ user, setUser }: ProfileViewProps) {
       });
       
       if (res.ok) {
-        alert(selectedClub ? '🛡️ Sikeresen csatlakoztál a klubhoz!' : 'Kiléptél a klubból, mostantól függetlenként indulsz!');
-        // Frissítjük a globális User state-et is!
-        setUser({ ...user, club_name: selectedClub });
+        alert(selectedClub ? `🛡️ Sikeresen csatlakoztál a(z) ${selectedClub} klubhoz!` : 'Kiléptél a klubból, mostantól függetlenként indulsz!');
+        
+        // Lefuttatjuk a fő app adatfrissítését, így azonnal szinkronba kerül minden fül!
+        if (fetchData) await fetchData();
       } else {
         alert('Hiba történt a mentéskor!');
       }
@@ -40,6 +49,11 @@ export default function ProfileView({ user, setUser }: ProfileViewProps) {
     }
     setIsSaving(false);
   };
+
+  // Ha még töltődnek az adatok az App.tsx-ben
+  if (!user) {
+    return <div style={{ color: '#94a3b8', textAlign: 'center', padding: '50px' }}>⏳ Felhasználói profil betöltése...</div>;
+  }
 
   return (
     <div style={{ animation: 'fadeIn 0.4s ease-out', display: 'flex', flexDirection: 'column', gap: '30px', alignItems: 'center' }}>
@@ -70,7 +84,7 @@ export default function ProfileView({ user, setUser }: ProfileViewProps) {
           <select 
             value={selectedClub} 
             onChange={(e) => setSelectedClub(e.target.value)}
-            style={{ width: '100%', padding: '16px', borderRadius: '14px', background: '#0f172a', color: 'white', border: '1px solid #334155', fontSize: '1.05rem', outline: 'none', cursor: 'pointer', appearance: 'none' }}
+            style={{ width: '100%', padding: '16px', borderRadius: '14px', background: '#0f172a', color: 'white', border: '1px solid #334155', fontSize: '1.05rem', outline: 'none', cursor: 'pointer' }}
           >
             <option value="">-- Független fotós vagyok --</option>
             {availableClubs.map((club, i) => (
