@@ -150,6 +150,27 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     } catch (e) { console.error(e); }
   };
 
+  const handleOffTopicReport = async (entryId: number) => {
+  if (!window.confirm("Biztosan jelented ezt a képet, mert nem illik a heti témához?")) return;
+  
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/weekly/report-off-topic`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entryId, userEmail: user.email })
+    });
+    
+    if (res.ok) {
+      alert("🚫 Jelentve! A kép eltűnt a párbajodból.");
+      // Itt meg kell hívnod azt a függvényt, ami a frontendeden a KÖVETKEZŐ képre ugrik, 
+      // pontosan úgy, mintha leadott volna egy szavazatot!
+      loadNextPair(); 
+    }
+  } catch (e) {
+    alert("Hiba a jelentés során.");
+  }
+};
+  
   const handleVote = async (type: 'pass' | 'super' | 'brilliant') => {
     if (!voteEntry || !topic) return;
     const oldEntryId = voteEntry.id;
@@ -347,6 +368,12 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                         </div>
                         <button onClick={() => handleVote('pass')} style={{ width: '100%', padding: '12px', background: '#334155', color: '#cbd5e1', border: 'none', borderRadius: '14px', fontSize: '0.95rem', cursor: 'pointer', transition: 'background 0.2s' }}>
                           ⏭️ Nem tetszik (0 pont)
+                        </button>
+                        <button 
+                          onClick={() => handleOffTopicReport(currentImageId)}
+                          style={{ background: '#ef444415', color: '#ef4444', border: '1px solid #ef444440', padding: '10px 20px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold' }}
+                        >
+                          ⚠️ Off-Topic Jelentés
                         </button>
                       </div>
                     </div>
