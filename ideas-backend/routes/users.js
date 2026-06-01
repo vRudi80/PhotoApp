@@ -24,8 +24,23 @@ module.exports = function(app, pool) {
     } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
   
+  // Felhasználó klubjának és szerepkörének módosítása (Admin felület)
   app.put('/api/users/:email', async (req, res) => {
-    try { await pool.query('UPDATE photo_users SET club_name = ?, club_role = ? WHERE email = ?', [req.body.clubName || null, req.body.clubRole || 'member', req.params.email]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
+    const { email } = req.params;
+    const { clubName, clubRole, clubId } = req.body; // JAVÍTVA: Fogadjuk a clubId-t is
+
+    try {
+      // JAVÍTVA: Az SQL parancs most már a club_id-t is beírja a photo_users táblába!
+      await pool.query(
+        'UPDATE photo_users SET club_name = ?, club_role = ?, club_id = ? WHERE email = ?',
+        [clubName || null, clubRole || 'member', clubId || null, email]
+      );
+      
+      res.json({ success: true });
+    } catch (err) {
+      console.error("🔥 Hiba a felhasználó klubjának mentésekor:", err.message);
+      res.status(500).json({ error: err.message });
+    }
   });
 
   app.get('/api/jury', async (req, res) => {
