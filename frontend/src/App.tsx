@@ -26,6 +26,7 @@ import DashboardView from './views/DashboardView';
 import WeeklyChallengeView from './views/WeeklyChallengeView';
 import AdminWeeklyView from './views/admin/AdminWeeklyView';
 import ClubNewsView from './views/ClubNewsView';
+import ProfileView from './views/ProfileView';
 import { BrowserRouter, Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 
 import MafoszProgressView from './views/MafoszProgressView'; 
@@ -504,6 +505,7 @@ function MainContent() {
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="/dashboard" element={<DashboardView user={user} isLeader={!!isLeader} setActiveTab={setActiveTab} setTargetMapSpotId={setTargetMapSpotId} />} />
               <Route path="/weekly_challenge" element={<WeeklyChallengeView user={user} setFullscreenData={setFullscreenData} />} />
+              <Route path="/profile" element={<ProfileView user={user} setUser={setUser} />} />
               <Route path="/packages" element={<PackagesView user={user} />} />
               <Route path="/map_spots" element={<MapSpotsView user={user} setFullscreenData={setFullscreenData} targetMapSpotId={targetMapSpotId} setTargetMapSpotId={setTargetMapSpotId} />} />
               <Route path="/club_news" element={<ClubNewsView user={user} currentDbUser={currentDbUser} />} />
