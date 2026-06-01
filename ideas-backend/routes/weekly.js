@@ -3,12 +3,13 @@ const fs = require('fs');
 module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   
   // 1. AKTUÁLIS TÉMA ÉS TOPLISTA LEKÉRÉSE
+  // 5. GURUSHOTS LOGIKA: AKTUÁLIS TOPLISTA (Kiegészítve a Votable Entries adattal a Mérőhöz)
   app.get('/api/weekly/current', async (req, res) => {
     const { userEmail } = req.query;
     try {
       const [allTopics] = await pool.query('SELECT * FROM weekly_topics ORDER BY id DESC');
       const today = new Date();
-      const currentTopic = allTopics.find(t => {
+      const topic = allTopics.find(t => {
           const start = new Date(t.start_date);
           const end = new Date(t.end_date);
           start.setHours(0,0,0,0);
@@ -16,33 +17,39 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
           return today >= start && today <= end;
       });
 
-      if (!currentTopic) return res.json({ topic: null });
+      if (!topic) return res.json({ topic: null });
 
-      const [myEntries] = await pool.query('SELECT * FROM weekly_entries WHERE topic_id = ? AND user_email = ?', [currentTopic.id, userEmail]);
+      const [myEntries] = await pool.query('SELECT * FROM weekly_entries WHERE topic_id = ? AND user_email = ?', [topic.id, userEmail]);
       
       const [myVotes] = await pool.query(`
         SELECT COUNT(*) as vote_count 
         FROM weekly_votes v 
         JOIN weekly_entries e ON v.entry_id = e.id 
         WHERE e.topic_id = ? AND v.voter_email = ?
-      `, [currentTopic.id, userEmail]);
+      `, [topic.id, userEmail]);
+
+      // ÚJ: Kiszámoljuk az összes értékelhető képet a Mérőhöz!
+      const [allEntriesCount] = await pool.query('SELECT COUNT(*) as total FROM weekly_entries WHERE topic_id = ?', [topic.id]);
+      const totalEntries = allEntriesCount[0].total || 0;
+      const votableEntries = Math.max(1, totalEntries - 1); // Saját magára nem szavazhat
 
       const [leaderboard] = await pool.query(`
-        SELECT id, user_name, user_email, file_url, drive_file_id, views_count, likes_count
-        FROM weekly_entries 
-        WHERE topic_id = ? 
+        SELECT id, user_email, user_name, file_url, drive_file_id, likes_count, views_count
+        FROM weekly_entries
+        WHERE topic_id = ?
         ORDER BY likes_count DESC, views_count ASC
-      `, [currentTopic.id]);
+      `, [topic.id]);
 
-      res.json({ 
-        topic: currentTopic, 
-        myEntry: myEntries.length > 0 ? myEntries[0] : null, 
-        myVoteCount: myVotes[0]?.vote_count || 0, 
-        leaderboard 
+      res.json({
+        topic,
+        myEntry: myEntries[0] || null,
+        myVoteCount: myVotes[0]?.vote_count || 0,
+        votableEntries, // <-- EZT KÜLDJÜK LE AZ ÚJ MÉRŐNEK!
+        leaderboard
       });
-    } catch (err) { 
-      console.error("Hiba current-ben:", err);
-      res.status(500).json({ error: 'Hiba a heti kihívás lekérésekor' }); 
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Hiba a toplista betöltésekor' }); 
     }
   });
 
