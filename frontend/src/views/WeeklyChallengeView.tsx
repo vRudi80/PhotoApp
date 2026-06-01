@@ -142,6 +142,14 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     exposureColor = '#f59e0b'; 
     exposureLabel = 'Közepes'; 
   }
+
+  // --- TRÓFEATEREM STATISZTIKÁK (EZ MARAD) ---
+  let totalLikes = 0; let totalViews = 0; let top10Count = 0; let top20Count = 0; let podiumCount = 0;
+  if (myStats) {
+    totalLikes = myStats.history.reduce((sum, e) => sum + e.likes, 0); totalViews = myStats.history.reduce((sum, e) => sum + e.views, 0); podiumCount = myStats.podiums.first + myStats.podiums.second + myStats.podiums.third;
+    myStats.history.forEach(e => { const percentile = e.rank / e.total_entries; if (percentile <= 0.1 && e.rank > 3) top10Count++; if (percentile > 0.1 && percentile <= 0.2) top20Count++; });
+  }
+
   const getLevel = (likes: number) => {
     if (likes < 20) return { name: 'Újonc 🌱', nextAt: 20, color: '#94a3b8' };
     if (likes < 100) return { name: 'Felfedezett 📸', nextAt: 100, color: '#38bdf8' };
