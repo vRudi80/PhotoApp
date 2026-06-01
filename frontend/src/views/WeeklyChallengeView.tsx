@@ -348,7 +348,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                           </button>
                         </div>
                         <button onClick={() => handleVote('pass')} style={{ width: '100%', padding: '12px', background: '#334155', color: '#cbd5e1', border: 'none', borderRadius: '14px', fontSize: '0.95rem', cursor: 'pointer', transition: 'background 0.2s' }}>
-                          ⏭️ Tovább (0 pont)
+                          ⏭️ Nem tetszik (0 pont)
                         </button>
                       </div>
                     </div>
@@ -595,9 +595,9 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       )}
       
       {/* 4. FÜL: TRÓFEATEREM */}
-      {subTab === 'my_stats' && myStats && (
+      {subTab === 'my_stats' && (
         <div style={{ animation: 'fadeIn 0.5s ease-in-out' }}>
-          {isLoadingStats ? (
+          {isLoadingStats && !myStats ? (
             <div style={{ color: '#94a3b8', textAlign: 'center', padding: '50px' }}>⏳ Statisztikák betöltése...</div>
           ) : !myStats ? (
             <div style={{ color: '#ef4444', textAlign: 'center', padding: '20px' }}>Nem sikerült betölteni az adatokat.</div>
@@ -645,37 +645,46 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
 
               <h3 style={{ color: '#f8fafc', marginBottom: '20px', fontSize: '1.5rem' }}>📸 Korábbi Pályaművek ({myStats.history.length})</h3>
               
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '25px' }}>
-                {myStats.history.map((entry, idx) => {
-                  const percentile = entry.rank / entry.total_entries;
-                  let badge = ''; let badgeColor = '#334155';
-                  if (entry.rank <= 3) { badge = '🏆 Dobogós'; badgeColor = '#fbbf24'; }
-                  else if (percentile <= 0.1) { badge = '⭐ Top 10%'; badgeColor = '#a855f7'; }
-                  else if (percentile <= 0.2) { badge = '✨ Top 20%'; badgeColor = '#10b981'; }
+              {/* JAVÍTVA: Visszakerült az üres állapot vizuális jelzése! */}
+              {myStats.history.length === 0 ? (
+                <div style={{ color: '#94a3b8', background: '#1e293b', padding: '40px', borderRadius: '20px', textAlign: 'center', border: '1px dashed #334155' }}>
+                  <div style={{ fontSize: '3rem', marginBottom: '15px' }}>📸</div>
+                  <h4 style={{ color: '#f8fafc', margin: '0 0 10px 0', fontSize: '1.2rem' }}>Még nincs befejezett kihívásod!</h4>
+                  <p style={{ margin: 0, fontSize: '0.9rem' }}>Vegyél részt a heti párbajokban, és itt fognak megjelenni a korábbi eredményeid, trófeáid és a fotóid.</p>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '25px' }}>
+                  {myStats.history.map((entry, idx) => {
+                    const percentile = entry.rank / entry.total_entries;
+                    let badge = ''; let badgeColor = '#334155';
+                    if (entry.rank <= 3) { badge = '🏆 Dobogós'; badgeColor = '#fbbf24'; }
+                    else if (percentile <= 0.1) { badge = '⭐ Top 10%'; badgeColor = '#a855f7'; }
+                    else if (percentile <= 0.2) { badge = '✨ Top 20%'; badgeColor = '#10b981'; }
 
-                  return (
-                    <div key={idx} style={{ background: '#1e293b', borderRadius: '20px', overflow: 'hidden', border: `1px solid ${badgeColor}`, cursor: 'pointer', transition: 'transform 0.2s', boxShadow: '0 10px 20px rgba(0,0,0,0.3)' }} onClick={() => setFullscreenData({url: getImageUrl(entry.drive_file_id, entry.file_url), title: entry.topic_title})} onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
-                      <div style={{ position: 'relative', height: '220px' }}>
-                        <img src={getImageUrl(entry.drive_file_id, entry.file_url)} alt="Pályamű" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={handleImageError} />
-                        <div style={{ position: 'absolute', top: '15px', left: '15px', background: badgeColor, color: badgeColor === '#fbbf24' ? 'black' : 'white', padding: '6px 16px', borderRadius: '100px', fontWeight: '900', fontSize: '0.9rem', boxShadow: '0 4px 10px rgba(0,0,0,0.5)' }}>
-                          {badge || `${entry.rank}. Hely`}
+                    return (
+                      <div key={idx} style={{ background: '#1e293b', borderRadius: '20px', overflow: 'hidden', border: `1px solid ${badgeColor}`, cursor: 'pointer', transition: 'transform 0.2s', boxShadow: '0 10px 20px rgba(0,0,0,0.3)' }} onClick={() => setFullscreenData({url: getImageUrl(entry.drive_file_id, entry.file_url), title: entry.topic_title})} onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
+                        <div style={{ position: 'relative', height: '220px' }}>
+                          <img src={getImageUrl(entry.drive_file_id, entry.file_url)} alt="Pályamű" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={handleImageError} />
+                          <div style={{ position: 'absolute', top: '15px', left: '15px', background: badgeColor, color: badgeColor === '#fbbf24' ? 'black' : 'white', padding: '6px 16px', borderRadius: '100px', fontWeight: '900', fontSize: '0.9rem', boxShadow: '0 4px 10px rgba(0,0,0,0.5)' }}>
+                            {badge || `${entry.rank}. Hely`}
+                          </div>
+                        </div>
+                        <div style={{ padding: '20px' }}>
+                          <h4 style={{ margin: '0 0 15px 0', color: '#f8fafc', fontSize: '1.2rem' }}>{entry.topic_title}</h4>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94a3b8', fontSize: '0.9rem', marginBottom: '12px' }}>
+                            <span>Mezőny: {entry.total_entries} kép</span>
+                            <span style={{color: '#f8fafc'}}>Helyezés: <b>{entry.rank}.</b></span>
+                          </div>
+                          <div style={{ background: '#0f172a', padding: '15px', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
+                            <span style={{color: '#f97316', fontWeight: '900'}}>⭐ {entry.likes} pont</span>
+                            <span style={{color: '#38bdf8', fontWeight: 'bold'}}>👁️ {entry.views}</span>
+                          </div>
                         </div>
                       </div>
-                      <div style={{ padding: '20px' }}>
-                        <h4 style={{ margin: '0 0 15px 0', color: '#f8fafc', fontSize: '1.2rem' }}>{entry.topic_title}</h4>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94a3b8', fontSize: '0.9rem', marginBottom: '12px' }}>
-                          <span>Mezőny: {entry.total_entries} kép</span>
-                          <span style={{color: '#f8fafc'}}>Helyezés: <b>{entry.rank}.</b></span>
-                        </div>
-                        <div style={{ background: '#0f172a', padding: '15px', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
-                          <span style={{color: '#f97316', fontWeight: '900'}}>⭐ {entry.likes} pont</span>
-                          <span style={{color: '#38bdf8', fontWeight: 'bold'}}>👁️ {entry.views}</span>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+              )}
             </>
           )}
         </div>
