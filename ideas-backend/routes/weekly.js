@@ -285,7 +285,34 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       res.json({ podiums, history });
     } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
-
+  
+    app.post('/api/weekly/report-off-topic', async (req, res) => {
+      const { entryId, userEmail } = req.body;
+      if (!entryId || !userEmail) return res.status(400).json({ error: 'Hiányzó adatok!' });
+    
+      const conn = await pool.getConnection();
+      try {
+        await conn.beginTransaction();
+    
+        // 1. Növeljük az off-topic számlálót a képen
+        await conn.query('UPDATE weekly_entries SET off_topic_count = off_topic_count + 1 WHERE id = ?', [entryId]);
+    
+        // 2. Beírjuk a szavazási előzmények közé, hogy az algoritmus legközelebb ÁTUGORJA ezt a képet a usernek
+        // (A 'weekly_likes' nevet igazítsd ahhoz a táblához, ahol a leadott voksokat gyűjtöd!)
+        await conn.query(
+          'INSERT IGNORE INTO weekly_likes (entry_id, user_email, is_like) VALUES (?, ?, ?)', 
+          [entryId, userEmail, 0] // 0 = nem lájk, de rögzítve van, hogy látta
+        );
+    
+        await conn.commit();
+        res.json({ success: true, message: 'Jelentés sikeresen rögzítve!' });
+      } catch (err) {
+        await conn.rollback();
+        res.status(500).json({ error: err.message });
+      } finally {
+        conn.release();
+      }
+    });
   // ADMIN VÉGPONTOK
   app.get('/api/admin/weekly-topics', async (req, res) => {
     try { const [rows] = await pool.query('SELECT * FROM weekly_topics ORDER BY start_date DESC'); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
