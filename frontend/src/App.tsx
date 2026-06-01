@@ -373,31 +373,71 @@ function MainContent() {
   
   const handleCreateContest = async () => { 
     if (!newTitle || !newStart || !newEnd || !newCats) return alert("Cím, dátumok és kategóriák kötelezőek!"); 
-    let finalRestrictedClub = newRestrictedClub;
-    if (user.email !== ADMIN_EMAIL) {
-      finalRestrictedClub = currentDbUser?.club_name || '';
-      if (!finalRestrictedClub) return alert("Hiba: Nem vagy klubhoz rendelve!");
+    
+    let finalRestrictedClubId: number | null = null;
+    
+    if (user.email === ADMIN_EMAIL) {
+      // Admin hozza létre: a newRestrictedClub most már a kiválasztott klub ID-ja stringként
+      finalRestrictedClubId = newRestrictedClub ? Number(newRestrictedClub) : null;
+    } else {
+      // Klubvezető hozza létre: automatikusan az ő adatbázisból jövő klub ID-ját kapja meg
+      finalRestrictedClubId = currentDbUser?.club_id || null;
+      if (!finalRestrictedClubId) return alert("Hiba: Nem vagy klubhoz rendelve!");
     }
+
     const res = await fetch(`${BACKEND_URL}/api/contests`, { 
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, 
-      body: JSON.stringify({ title: newTitle, description: newDesc, startDate: newStart, endDate: newEnd, categories: newCats, restrictedClub: finalRestrictedClub, entryFee: newEntryFee, feeCurrency: newFeeCurrency, categorySettings: newCategorySettings }) 
+      method: 'POST', 
+      headers: { 'Content-Type': 'application/json' }, 
+      body: JSON.stringify({ 
+        title: newTitle, 
+        description: newDesc, 
+        startDate: newStart, 
+        endDate: newEnd, 
+        categories: newCats, 
+        restrictedClubId: finalRestrictedClubId, // JAVÍTVA: Az új backend kulcsot küldjük számmá alakítva!
+        entryFee: newEntryFee, 
+        feeCurrency: newFeeCurrency, 
+        categorySettings: newCategorySettings 
+      }) 
     }); 
     if (res.ok) { 
-      setNewTitle(''); setNewDesc(''); setNewStart(''); setNewEnd(''); setNewCats(''); setNewRestrictedClub(''); setNewEntryFee(0); setNewFeeCurrency('HUF'); fetchData(); alert("Pályázat sikeresen kiírva! 🚀");
+      setNewTitle(''); setNewDesc(''); setNewStart(''); setNewEnd(''); setNewCats(''); setNewRestrictedClub(''); setNewEntryFee(0); setNewFeeCurrency('HUF'); 
+      fetchData(); 
+      alert("Pályázat sikeresen kiírva! 🚀");
     } else alert("Hiba történt a mentés során.");
   };
 
   const startEdit = (contest: any) => { 
-    setEditContestId(contest.id); setEditTitle(contest.title); setEditDesc(contest.description); setEditCats(contest.categories || ''); setEditRestrictedClub(contest.restricted_club || ''); setEditEntryFee(contest.entry_fee || 0); setEditFeeCurrency(contest.fee_currency || 'HUF');
+    setEditContestId(contest.id); 
+    setEditTitle(contest.title); 
+    setEditDesc(contest.description); 
+    setEditCats(contest.categories || ''); 
+    // JAVÍTVA: A szöveges név helyett most már a restricted_club_id-t töltjük be a szerkesztő formba stringként!
+    setEditRestrictedClub(contest.restricted_club_id ? String(contest.restricted_club_id) : ''); 
+    setEditEntryFee(contest.entry_fee || 0); 
+    setEditFeeCurrency(contest.fee_currency || 'HUF');
+    
     const formatDate = (dateStr: string | null) => { if (!dateStr) return ''; return dateStr.replace('Z', '').substring(0, 16); }; 
     try { setEditCategorySettings(typeof contest.category_settings === 'string' ? JSON.parse(contest.category_settings) : (contest.category_settings || {})); } catch(e) { setEditCategorySettings({}); }
-    setEditStart(formatDate(contest.start_date)); setEditEnd(formatDate(contest.end_date)); 
+    setEditStart(formatDate(contest.start_date)); 
+    setEditEnd(formatDate(contest.end_date)); 
   };
 
   const handleUpdateContest = async () => { 
     const res = await fetch(`${BACKEND_URL}/api/contests/${editContestId}`, { 
-      method: 'PUT', headers: { 'Content-Type': 'application/json' }, 
-      body: JSON.stringify({ title: editTitle, description: editDesc, startDate: editStart || null, endDate: editEnd || null, categories: editCats, restrictedClub: editRestrictedClub, entryFee: editEntryFee, feeCurrency: editFeeCurrency, categorySettings: editCategorySettings }) 
+      method: 'PUT', 
+      headers: { 'Content-Type': 'application/json' }, 
+      body: JSON.stringify({ 
+        title: editTitle, 
+        description: editDesc, 
+        startDate: editStart || null, 
+        endDate: editEnd || null, 
+        categories: editCats, 
+        restrictedClubId: editRestrictedClub ? Number(editRestrictedClub) : null, // JAVÍTVA: Az új backend kulcsot küldjük!
+        entryFee: editEntryFee, 
+        feeCurrency: editFeeCurrency, 
+        categorySettings: editCategorySettings 
+      }) 
     }); 
     if (res.ok) { setEditContestId(null); fetchData(); alert("Pályázat sikeresen frissítve!"); } 
   };
