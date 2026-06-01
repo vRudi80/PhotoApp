@@ -130,7 +130,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
       // Frissítés: Pontszám (likes_count) VISSZALŐVE NULLÁRA, swapped jelző beállítva 1-re, nézettség MEGMARAD!
      await pool.query(
-        'UPDATE weekly_entries SET file_url = ?, drive_file_id = ?, likes_count = 0, view_count = 0, off_topic_count = 0, swapped = 1 WHERE id = ?', 
+        'UPDATE weekly_entries SET file_url = ?, drive_file_id = ?, likes_count = 0, view_count = 0, swapped = 1 WHERE id = ?', 
         [driveRes.data.webViewLink, driveRes.data.id, existing[0].id]
       );
       // 2. ÚJ: Töröljük a szavazási előzményeket ehhez az entry_id-hoz, 
