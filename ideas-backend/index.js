@@ -102,6 +102,7 @@ require('./routes/map')(app, pool, drive, upload, cleanupTempFile);
 require('./routes/weekly')(app, pool, drive, upload, cleanupTempFile);
 require('./routes/contests')(app, pool, drive, upload, cleanupTempFile);
 require('./routes/homeworks')(app, pool, drive, upload, cleanupTempFile);
+require('./routes/profile')(app, pool);
 
 // Új fájlok:
 require('./routes/users')(app, pool);
