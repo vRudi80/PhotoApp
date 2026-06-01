@@ -240,6 +240,57 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       await conn.commit(); res.json({ success: true });
     } catch (e) { await conn.rollback(); res.status(500).json({ error: 'Hiba' }); } finally { conn.release(); }
   });
+  // --- EGYSZER HASZNÁLATOS ÚJRASZÁMOLÓ (Ideiglenes végpont) ---
+  app.get('/api/admin/recalculate-current', async (req, res) => {
+    try {
+      const [allTopics] = await pool.query('SELECT * FROM weekly_topics ORDER BY id DESC');
+      const today = new Date();
+      const currentTopic = allTopics.find(t => {
+          const start = new Date(t.start_date);
+          const end = new Date(t.end_date);
+          start.setHours(0,0,0,0);
+          end.setHours(23,59,59,999);
+          return today >= start && today <= end;
+      });
+
+      if (!currentTopic) return res.json({ error: "Nincs aktív téma, amit újra kéne számolni!" });
+
+      // 1. Lenullázzuk a jelenlegi heti pontokat (views_count és likes_count)
+      await pool.query('UPDATE weekly_entries SET likes_count = 0, views_count = 0 WHERE topic_id = ?', [currentTopic.id]);
+
+      // 2. Lekérjük az összes eddigi szavazatot erre a hétre
+      const [votes] = await pool.query('SELECT * FROM weekly_votes WHERE entry_id IN (SELECT id FROM weekly_entries WHERE topic_id = ?)', [currentTopic.id]);
+
+      // 3. Egyenként újraszámoljuk őket a súlyozott rendszerrel
+      for (const vote of votes) {
+        // Megnézzük, milyen szinten van a szavazó (csak a korábbi lezárt hetek alapján)
+        const [rows] = await pool.query('SELECT SUM(likes_count) as total FROM weekly_entries WHERE user_email = ? AND topic_id != ?', [vote.voter_email, currentTopic.id]);
+        const totalLikes = rows[0].total || 0;
+        
+        // Hatalmi szorzó megállapítása
+        let power = { super: 1, brilliant: 2 };
+        if (totalLikes >= 800) power = { super: 4, brilliant: 6 };
+        else if (totalLikes >= 300) power = { super: 3, brilliant: 5 };
+        else if (totalLikes >= 100) power = { super: 2, brilliant: 4 };
+        else if (totalLikes >= 20) power = { super: 2, brilliant: 3 };
+
+        let pointsToAdd = 0;
+        // A régi "like" szavazatokat konvertáljuk a legerősebb "Zseniális"-ra
+        if (vote.vote_type === 'like' || vote.vote_type === 'brilliant') {
+            pointsToAdd = power.brilliant;
+        } else if (vote.vote_type === 'super') {
+            pointsToAdd = power.super;
+        }
+
+        // Frissítjük a képet az új súlyozott pontokkal és +1 megtekintéssel
+        await pool.query('UPDATE weekly_entries SET views_count = views_count + 1, likes_count = likes_count + ? WHERE id = ?', [pointsToAdd, vote.entry_id]);
+      }
+
+      res.json({ success: true, message: `Sikeresen újraszámolva ${votes.length} db szavazat az új rang-súlyozós rendszer szerint!` });
+    } catch(e) {
+      res.status(500).json({error: e.message});
+    }
+  });
   app.delete('/api/admin/weekly-topics/:id', async (req, res) => {
     try {
       const [entries] = await pool.query('SELECT drive_file_id FROM weekly_entries WHERE topic_id = ?', [req.params.id]);
