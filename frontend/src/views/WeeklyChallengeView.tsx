@@ -85,27 +85,50 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   }, [subTab]);
 
   // VISSZASZÁMLÁLÓ LOGIKA
+// VISSZASZÁMLÁLÓ LOGIKA (JAVÍTOTT ÉS AZONNAL INDULÓ)
   useEffect(() => {
-    if (!topic || !topic.end_date) return;
-    const interval = setInterval(() => {
+    if (!topic || !topic.end_date) {
+      setTimeLeft('Ismeretlen dátum');
+      return;
+    }
+
+    const calculateTimeLeft = () => {
       const now = new Date().getTime();
-      const end = new Date(topic.end_date);
+      // iOS / Safari kompatibilis dátum parse-olás
+      const end = new Date(topic.end_date.replace(' ', 'T')); 
+      
+      if (isNaN(end.getTime())) {
+        setTimeLeft('Hibás dátum');
+        return false;
+      }
+
       end.setHours(23, 59, 59, 999);
       const distance = end.getTime() - now;
 
       if (distance < 0) {
         setTimeLeft('Párbaj Lezárult!');
-        clearInterval(interval);
-        return;
+        return false;
       }
 
       const days = Math.floor(distance / (1000 * 60 * 60 * 24));
-      const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-      const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+      // PadStart-al kiegészítjük 0-val, ha 10 alatti a szám (pl. 08:05:02)
+      const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)).toString().padStart(2, '0');
+      const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60)).toString().padStart(2, '0');
+      const seconds = Math.floor((distance % (1000 * 60)) / 1000).toString().padStart(2, '0');
 
-      setTimeLeft(`${days} nap ${hours}ó ${minutes}p ${seconds}mp`);
+      setTimeLeft(`${days} nap ${hours}:${minutes}:${seconds}`);
+      return true;
+    };
+
+    // Azonnal lefuttatjuk, nem várunk 1 másodpercet!
+    const isActive = calculateTimeLeft();
+    if (!isActive) return;
+
+    const interval = setInterval(() => {
+      const stillActive = calculateTimeLeft();
+      if (!stillActive) clearInterval(interval);
     }, 1000);
+    
     return () => clearInterval(interval);
   }, [topic]);
 
