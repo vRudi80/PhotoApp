@@ -286,33 +286,46 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
   
-    app.post('/api/weekly/report-off-topic', async (req, res) => {
-      const { entryId, userEmail } = req.body;
-      if (!entryId || !userEmail) return res.status(400).json({ error: 'Hiányzó adatok!' });
+   // ÚJ: TÉMATÉVESZTÉS JELENTÉSE (HIBAKERESŐ NAPLÓZÁSSAL)
+  app.post('/api/weekly/report-off-topic', async (req, res) => {
+    const { entryId, userEmail } = req.body;
     
-      const conn = await pool.getConnection();
+    // Ezt látnod kell a szerver logban, amint rákattintasz a gombra a frontend csoportban:
+    console.log("📥 OFF-TOPIC JELENTÉS ÉRKEZETT:", { entryId, userEmail });
+
+    if (!entryId || !userEmail) {
+      return res.status(400).json({ error: 'Hiányzó adatok a kérésből!' });
+    }
+
+    try {
+      // 1. Megpróbáljuk növelni a számlálót
+      const [updateResult] = await pool.query(
+        'UPDATE weekly_entries SET off_topic_count = off_topic_count + 1 WHERE id = ?', 
+        [entryId]
+      );
+      console.log("✅ Adatbázis számláló sikeresen frissítve. Eredmény:", updateResult);
+
+      // 2. Szavazási előzmény beírása egy védett al-blokkban
+      // Ha a lájkok táblád neve esetleg nem 'weekly_likes', ez a rész hibára futhat.
+      // Ezzel a trükkel a számláló megmarad, de a logban látni fogjuk a hibát!
       try {
-        await conn.beginTransaction();
-    
-        // 1. Növeljük az off-topic számlálót a képen
-        await conn.query('UPDATE weekly_entries SET off_topic_count = off_topic_count + 1 WHERE id = ?', [entryId]);
-    
-        // 2. Beírjuk a szavazási előzmények közé, hogy az algoritmus legközelebb ÁTUGORJA ezt a képet a usernek
-        // (A 'weekly_likes' nevet igazítsd ahhoz a táblához, ahol a leadott voksokat gyűjtöd!)
-        await conn.query(
-          'INSERT IGNORE INTO weekly_likes (entry_id, user_email, is_like) VALUES (?, ?, ?)', 
-          [entryId, userEmail, 0] // 0 = nem lájk, de rögzítve van, hogy látta
+        await pool.query(
+          'INSERT IGNORE INTO weekly_likes (entry_id, user_email, is_like) VALUES (?, ?, 0)', 
+          [entryId, userEmail]
         );
-    
-        await conn.commit();
-        res.json({ success: true, message: 'Jelentés sikeresen rögzítve!' });
-      } catch (err) {
-        await conn.rollback();
-        res.status(500).json({ error: err.message });
-      } finally {
-        conn.release();
+        console.log("✅ Szavazási előzmény rögzítve a felhasználónak.");
+      } catch (likeErr) {
+        console.error("⚠️ Figyelem: A szavazási előzmény táblába nem sikerült írni (lehet, hogy más a neve?):", likeErr.message);
       }
-    });
+
+      res.json({ success: true });
+    } catch (err) {
+      // Ha az UPDATE hasal el (pl. elgépelt oszlopnév miatt), itt azonnal kiírja a pontos okot:
+      console.error("🔥 CRITICAL ADATBÁZIS HIBA:", err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+  
   // ADMIN VÉGPONTOK
   app.get('/api/admin/weekly-topics', async (req, res) => {
     try { const [rows] = await pool.query('SELECT * FROM weekly_topics ORDER BY start_date DESC'); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
