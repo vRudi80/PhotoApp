@@ -21,7 +21,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const [pastTopics, setPastTopics] = useState<any[]>([]);
   const [selectedPastTopicId, setSelectedPastTopicId] = useState<number | null>(null);
   const [pastLeaderboard, setPastLeaderboard] = useState<any[]>([]);
-  const [pastClubLeaderboard, setPastClubLeaderboard] = useState<any[]>([]); // <-- EZ AZ ÚJ SOR
+  const [pastClubLeaderboard, setPastClubLeaderboard] = useState<any[]>([]);
 
   const [voteEntry, setVoteEntry] = useState<any>(null);
   const [noMoreEntries, setNoMoreEntries] = useState(false);
@@ -36,8 +36,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
 
   const [myStats, setMyStats] = useState<{podiums: any, history: any[]} | null>(null);
   const [showHelp, setShowHelp] = useState(false);
+  const [isLoadingStats, setIsLoadingStats] = useState(false);
 
-  // ÉLŐ VISSZASZÁMLÁLÓ ÁLLAPOT
   const [timeLeft, setTimeLeft] = useState<string>('');
 
   const fetchCurrentTopic = async () => {
@@ -49,7 +49,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         setMyEntry(data.myEntry);
         setMyVoteCount(data.myVoteCount);
         setVotableEntries(data.votableEntries || 1);
-        setLeaderboard(data.leaderboard);
+        setLeaderboard(data.leaderboard || []);
         if (data.topic) fetchNextVote(data.topic.id);
       }
     } catch (e) { console.error(e); }
@@ -71,7 +71,15 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     setIsLoadingStats(true);
     try {
       const res = await fetch(`${BACKEND_URL}/api/weekly/my-stats?userEmail=${user.email}`);
-      if (res.ok) setMyStats(await res.json());
+      if (res.ok) {
+          const data = await res.json();
+          // Biztonsági ellenőrzés
+          if (data && data.history && data.podiums) {
+             setMyStats(data);
+          } else {
+             setMyStats({ podiums: { first: 0, second: 0, third: 0 }, history: [] });
+          }
+      }
     } catch (error) { console.error(error); } 
     finally { setIsLoadingStats(false); }
   };
@@ -81,12 +89,10 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       fetchCurrentTopic();
       fetchMyStats();
     }
-    else if (subTab === 'upcoming') fetch(`${BACKEND_URL}/api/weekly/upcoming`).then(res => res.json()).then(data => setUpcomingTopics(data)).catch(console.error);
-    else if (subTab === 'past') fetch(`${BACKEND_URL}/api/weekly/past`).then(res => res.json()).then(data => setPastTopics(data)).catch(console.error);
+    else if (subTab === 'upcoming') fetch(`${BACKEND_URL}/api/weekly/upcoming`).then(res => res.json()).then(data => setUpcomingTopics(data || [])).catch(console.error);
+    else if (subTab === 'past') fetch(`${BACKEND_URL}/api/weekly/past`).then(res => res.json()).then(data => setPastTopics(data || [])).catch(console.error);
   }, [subTab]);
 
-  // VISSZASZÁMLÁLÓ LOGIKA
-// VISSZASZÁMLÁLÓ LOGIKA (JAVÍTOTT ÉS AZONNAL INDULÓ)
   useEffect(() => {
     if (!topic || !topic.end_date) {
       setTimeLeft('Ismeretlen dátum');
@@ -95,7 +101,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
 
     const calculateTimeLeft = () => {
       const now = new Date().getTime();
-      // iOS / Safari kompatibilis dátum parse-olás
       const end = new Date(topic.end_date.replace(' ', 'T')); 
       
       if (isNaN(end.getTime())) {
@@ -112,7 +117,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       }
 
       const days = Math.floor(distance / (1000 * 60 * 60 * 24));
-      // PadStart-al kiegészítjük 0-val, ha 10 alatti a szám (pl. 08:05:02)
       const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)).toString().padStart(2, '0');
       const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60)).toString().padStart(2, '0');
       const seconds = Math.floor((distance % (1000 * 60)) / 1000).toString().padStart(2, '0');
@@ -121,7 +125,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       return true;
     };
 
-    // Azonnal lefuttatjuk, nem várunk 1 másodpercet!
     const isActive = calculateTimeLeft();
     if (!isActive) return;
 
@@ -139,7 +142,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       const res = await fetch(`${BACKEND_URL}/api/weekly/history/${topicId}`);
       if (res.ok) {
         const data = await res.json();
-        // Beállítjuk mindkét listát a Backend válasza alapján
         setPastLeaderboard(data.leaderboard || []);
         setPastClubLeaderboard(data.clubLeaderboard || []);
       }
@@ -205,8 +207,11 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   };
 
   let totalLikes = 0; let totalViews = 0; let top10Count = 0; let top20Count = 0; let podiumCount = 0;
-  if (myStats) {
-    totalLikes = myStats.history.reduce((sum, e) => sum + e.likes, 0); totalViews = myStats.history.reduce((sum, e) => sum + e.views, 0); podiumCount = myStats.podiums.first + myStats.podiums.second + myStats.podiums.third;
+  // Biztonságos null ellenőrzés
+  if (myStats && myStats.history) {
+    totalLikes = myStats.history.reduce((sum, e) => sum + e.likes, 0); 
+    totalViews = myStats.history.reduce((sum, e) => sum + e.views, 0); 
+    podiumCount = myStats.podiums.first + myStats.podiums.second + myStats.podiums.third;
     myStats.history.forEach(e => { const percentile = e.rank / e.total_entries; if (percentile <= 0.1 && e.rank > 3) top10Count++; if (percentile > 0.1 && percentile <= 0.2) top20Count++; });
   }
 
@@ -239,7 +244,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const currentLevel = getLevel(totalLikes);
   const progressPercent = currentLevel.nextAt ? (totalLikes / currentLevel.nextAt) * 100 : 100;
 
-  // Hibás kép linkek elkapása (Fallback image)
   const handleImageError = (e: any) => {
     e.currentTarget.src = 'https://via.placeholder.com/400x300/1e293b/64748b?text=Kép+nem+található';
   };
@@ -247,7 +251,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   return (
     <div style={{ animation: 'fadeIn 0.4s ease-out' }}>
       
-     {/* GAMIFIKÁLT FÜLEK MENÜ ÉS SÚGÓ GOMB */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', flexWrap: 'wrap', gap: '15px' }}>
         <div style={{ display: 'flex', gap: '10px', background: '#0f172a', padding: '10px', borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.3)', width: 'fit-content', flexWrap: 'wrap', border: '1px solid #1e293b' }}>
           <button onClick={() => setSubTab('current')} style={{ padding: '10px 24px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: subTab === 'current' ? 'linear-gradient(135deg, #f97316, #ef4444)' : 'transparent', color: subTab === 'current' ? 'white' : '#94a3b8', transition: 'all 0.3s', boxShadow: subTab === 'current' ? '0 4px 15px rgba(239,68,68,0.4)' : 'none' }}>⚔️ Aréna</button>
@@ -256,7 +259,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           <button onClick={() => { setSubTab('my_stats'); fetchMyStats(); }} style={{ padding: '10px 24px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: subTab === 'my_stats' ? 'linear-gradient(135deg, #8b5cf6, #6366f1)' : 'transparent', color: subTab === 'my_stats' ? 'white' : '#94a3b8', transition: 'all 0.3s', boxShadow: subTab === 'my_stats' ? '0 4px 15px rgba(139,92,246,0.4)' : 'none' }}>🏆 Trófeaterem</button>
         </div>
         
-        {/* ÚJ: Súgó Gomb a jobb oldalon */}
         <button onClick={() => setShowHelp(true)} style={{ padding: '12px 24px', borderRadius: '12px', border: '1px solid #38bdf8', cursor: 'pointer', fontWeight: 'bold', background: '#0f172a', color: '#38bdf8', transition: 'all 0.3s', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 15px rgba(56,189,248,0.2)' }}>
           <span style={{ fontSize: '1.2rem' }}>📖</span> Játékszabályok & Rangok
         </button>
@@ -275,10 +277,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '30px' }}>
               
-              {/* BAL OSZLOP: TÉMA, MÉRŐ ÉS SZAVAZÁS */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
                 
-                {/* GAMIFIKÁLT TÉMA ÉS VISSZASZÁMLÁLÓ */}
                 <div style={{ background: 'linear-gradient(135deg, #1e293b, #0f172a)', padding: '30px', borderRadius: '24px', border: '1px solid #334155', display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: '0 10px 30px rgba(0,0,0,0.5)', position: 'relative', overflow: 'hidden' }}>
                   <div style={{ position: 'absolute', top: '-20px', right: '-20px', fontSize: '8rem', opacity: 0.05 }}>🔥</div>
                   <h3 style={{ margin: '0 0 10px 0', color: '#f8fafc', fontSize: '1.8rem', textAlign: 'center', zIndex: 1 }}>{topic.title}</h3>
@@ -290,18 +290,15 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   </div>
                 </div>
                 
-              {/* LÁTHATÓSÁGI MÉRŐ KILOMÉTERÓRA (Reszponzív JAVÍTÁS) */}
                 <div style={{ width: '100%', boxSizing: 'border-box', background: '#0f172a', padding: '25px 15px', borderRadius: '24px', border: `1px solid ${exposureColor}40`, display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: `0 10px 40px -10px ${exposureColor}30`, transition: 'all 0.5s ease' }}>
                   <h4 style={{ color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '2px', margin: '0 0 15px 0', fontSize: '0.85rem', textAlign: 'center' }}>Láthatósági Mérő</h4>
                   
-                  {/* Reszponzív, önmagát skálázó konténer az SVG-nek */}
                   <div style={{ position: 'relative', width: '100%', maxWidth: '240px', margin: '0 auto' }}>
                     <svg viewBox="0 0 200 120" style={{ width: '100%', height: 'auto', display: 'block', overflow: 'visible' }}>
                       <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#1e293b" strokeWidth="16" strokeLinecap="round" />
                       <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke={exposureColor} strokeWidth="16" strokeLinecap="round" pathLength="100" strokeDasharray="100" strokeDashoffset={100 - exposurePercentage} style={{ transition: 'stroke-dashoffset 1.5s cubic-bezier(0.4, 0, 0.2, 1), stroke 0.5s', filter: `drop-shadow(0 0 8px ${exposureColor}90)` }} />
                     </svg>
                     
-                    {/* A szöveg tökéletesen az ív közepére van igazítva */}
                     <div style={{ position: 'absolute', bottom: '15px', left: '0', width: '100%', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                       <div style={{ fontSize: '2.8rem', fontWeight: '900', color: exposureColor, lineHeight: '1', textShadow: `0 0 20px ${exposureColor}60`, transition: 'color 0.5s' }}>
                         {Math.round(exposurePercentage)}<span style={{ fontSize: '1.2rem' }}>%</span>
@@ -317,7 +314,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   </p>
                 </div>
 
-                {/* SZAVAZÓ ARÉNA */}
                 <div style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #334155', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
                   <h3 style={{ margin: '0 0 20px 0', color: '#f8fafc', fontSize: '1.4rem' }}>⚔️ Értékelő Aréna</h3>
                   {!myEntry ? (
@@ -356,7 +352,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                 </div>
               </div>
 
-              {/* JOBB OSZLOP: SAJÁT KÉP, JOKER ÉS VAK LISTA */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
                 
                 <div style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #334155', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
@@ -371,7 +366,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                         <div style={{ textAlign: 'center' }}><div style={{ color: '#94a3b8', fontSize: '0.85rem', textTransform: 'uppercase', marginBottom: '5px' }}>Nézettség</div><div style={{ color: '#38bdf8', fontSize: '1.5rem', fontWeight: '900' }}>{myEntry.views_count} 👁️</div></div>
                       </div>
 
-                      {/* GAMIFIKÁLT JOKER KÁRTYA */}
                       {myEntry.swapped === 0 ? (
                         <div style={{ marginTop: '25px', background: 'linear-gradient(135deg, #4c1d9520, #be123c20)', padding: '20px', borderRadius: '16px', border: '1px solid #be123c50' }}>
                           <h5 style={{ margin: '0 0 10px 0', color: '#f43f5e', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>🃏 Joker: Taktikai Képcsere</h5>
@@ -401,12 +395,11 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   )}
                 </div>
 
-                {/* SZÍNES VAK RANGSOR */}
                 <div style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #f59e0b', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
                   <h3 style={{ margin: '0 0 10px 0', color: '#f59e0b', fontSize: '1.4rem' }}>🏆 Vak Toplista</h3>
                   <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 20px 0', lineHeight: '1.5' }}>A taktikázás elkerülése végett az ellenfelek kiléte a zárásig <b>titkos</b>! Látod a mezőnyt, de senki sem tud célzottan leszavazni másokat.</p>
                   
-                  {leaderboard.length === 0 ? <div style={{ color: '#94a3b8', textAlign: 'center', padding: '30px', background: '#0f172a', borderRadius: '16px' }}>Még üres az Aréna. Légy te az első!</div> : (
+                  {(!leaderboard || leaderboard.length === 0) ? <div style={{ color: '#94a3b8', textAlign: 'center', padding: '30px', background: '#0f172a', borderRadius: '16px' }}>Még üres az Aréna. Légy te az első!</div> : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                       {[...leaderboard].sort((a, b) => {
                         if (b.likes_count !== a.likes_count) return b.likes_count - a.likes_count;
@@ -420,7 +413,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                             <div style={{ fontSize: '1.5rem', fontWeight: '900', width: '35px', color: rankColor, textAlign: 'center' }}>{index + 1}.</div>
                             <div onClick={() => isMe ? setFullscreenData({url: getImageUrl(entry.drive_file_id, entry.file_url), title: entry.user_name}) : null} style={{ width: '55px', height: '55px', backgroundColor: '#000', borderRadius: '10px', overflow: 'hidden', margin: '0 15px', cursor: isMe ? 'zoom-in' : 'default', flexShrink: 0, position: 'relative' }}>
                               
-                              {/* SZÍNES BLUR OVERLAY MÁSOK KÉPÉRE */}
                               <img src={getImageUrl(entry.drive_file_id, entry.file_url)} alt="Top" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: isMe ? 'none' : 'blur(6px) contrast(120%) saturation(150%)', transform: isMe ? 'none' : 'scale(1.2)' }} onError={handleImageError} />
                               
                               {!isMe && (
@@ -450,10 +442,9 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         </>
       )}
 
-      {/* 2. FÜL: HAMAROSAN INDUL */}
       {subTab === 'upcoming' && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '25px' }}>
-          {upcomingTopics.length === 0 ? (
+          {(!upcomingTopics || upcomingTopics.length === 0) ? (
             <div style={{ color: '#94a3b8', gridColumn: '1/-1', textAlign: 'center', padding: '60px', background: '#1e293b', borderRadius: '24px', border: '1px solid #334155' }}>Nincs betárazva elkövetkező téma.</div>
           ) : (
             upcomingTopics.map(t => (
@@ -470,34 +461,32 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         </div>
       )}
 
-      {/* 3. FÜL: ARCHÍVUM */}
       {subTab === 'past' && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr md:350px', gap: '30px' }}>
           
-          {/* BAL OSZLOP: Lezárult témák listája */}
           <div style={{ background: '#1e293b', borderRadius: '24px', padding: '25px', border: '1px solid #334155', boxShadow: '0 10px 30px rgba(0,0,0,0.2)', height: 'fit-content' }}>
             <h3 style={{ margin: '0 0 20px 0', color: '#60a5fa', fontSize: '1.4rem' }}>📚 Lezárult hetek</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {pastTopics.map(t => (
-                <div key={t.id} onClick={() => loadPastHistoryList(t.id)} style={{ padding: '15px 20px', background: selectedPastTopicId === t.id ? 'linear-gradient(90deg, #3b82f640, #0f172a)' : '#0f172a', border: selectedPastTopicId === t.id ? '1px solid #3b82f6' : '1px solid #334155', borderRadius: '12px', cursor: 'pointer', color: 'white', fontWeight: selectedPastTopicId === t.id ? 'bold' : 'normal', transition: 'all 0.2s' }}>
-                  {t.title}
-                </div>
-              ))}
-            </div>
+            {(!pastTopics || pastTopics.length === 0) ? <div style={{color: '#94a3b8', textAlign: 'center'}}>Nincs lezárt kihívás.</div> : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {pastTopics.map(t => (
+                  <div key={t.id} onClick={() => loadPastHistoryList(t.id)} style={{ padding: '15px 20px', background: selectedPastTopicId === t.id ? 'linear-gradient(90deg, #3b82f640, #0f172a)' : '#0f172a', border: selectedPastTopicId === t.id ? '1px solid #3b82f6' : '1px solid #334155', borderRadius: '12px', cursor: 'pointer', color: 'white', fontWeight: selectedPastTopicId === t.id ? 'bold' : 'normal', transition: 'all 0.2s' }}>
+                    {t.title}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           
-          {/* JOBB OSZLOP: Eredmények (Klub és Egyéni) */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
             
-            {/* KLUBOK CSATÁJA (TOP 3 SZABÁLY) */}
             <div style={{ background: '#1e293b', borderRadius: '24px', padding: '25px', border: '1px solid #10b981', boxShadow: '0 10px 30px rgba(0,0,0,0.2)' }}>
               <h3 style={{ margin: '0 0 5px 0', color: '#10b981', fontSize: '1.4rem' }}>🛡️ Klubok Csatája</h3>
               <p style={{ color: '#94a3b8', fontSize: '0.8rem', margin: '0 0 20px 0' }}>Csak a 3 legjobb klubtag pontja számít!</p>
               
-              {selectedPastTopicId && pastClubLeaderboard.length === 0 && <div style={{color: '#94a3b8', textAlign: 'center', padding: '10px'}}>Nincs résztvevő klub.</div>}
+              {selectedPastTopicId && (!pastClubLeaderboard || pastClubLeaderboard.length === 0) && <div style={{color: '#94a3b8', textAlign: 'center', padding: '10px'}}>Nincs résztvevő klub.</div>}
               {!selectedPastTopicId && <div style={{color: '#94a3b8', textAlign: 'center', padding: '10px'}}>Válassz egy témát a listából.</div>}
               
-              {pastClubLeaderboard.map((club, index) => (
+              {pastClubLeaderboard && pastClubLeaderboard.map((club, index) => (
                 <div key={index} style={{ display: 'flex', alignItems: 'center', background: 'linear-gradient(135deg, #0f172a, #1e293b)', padding: '15px', borderRadius: '12px', marginBottom: '12px', border: '1px solid #059669' }}>
                   <div style={{ fontSize: '1.5rem', fontWeight: '900', width: '35px', color: index === 0 ? '#fbbf24' : '#cbd5e1', textAlign: 'center' }}>{index + 1}.</div>
                   <div style={{ flex: 1, marginLeft: '10px' }}>
@@ -509,13 +498,12 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
               ))}
             </div>
 
-            {/* EGYÉNI VÉGLEGES DOBOGÓ */}
             <div style={{ background: '#1e293b', borderRadius: '24px', padding: '25px', border: '1px solid #3b82f6', boxShadow: '0 10px 30px rgba(0,0,0,0.2)' }}>
               <h3 style={{ margin: '0 0 20px 0', color: '#3b82f6', fontSize: '1.4rem' }}>🏅 Egyéni Végeredmény</h3>
               
               {!selectedPastTopicId && <div style={{color: '#94a3b8', textAlign: 'center', padding: '10px'}}>Válassz egy témát a listából.</div>}
               
-              {[...pastLeaderboard].sort((a, b) => {
+              {pastLeaderboard && [...pastLeaderboard].sort((a, b) => {
                 if (b.likes_count !== a.likes_count) return b.likes_count - a.likes_count;
                 return a.views_count - b.views_count;
               }).map((entry, index) => (
@@ -524,7 +512,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   <img src={getImageUrl(entry.drive_file_id, entry.file_url)} alt="Top" style={{ width: '50px', height: '50px', borderRadius: '8px', margin: '0 15px', objectFit: 'cover' }} onError={handleImageError} />
                   <div style={{ flex: 1 }}>
                     <div style={{ color: 'white', fontWeight: 'bold' }}>{entry.user_name}</div>
-                    {/* Megjelenítjük a klub nevét a felhasználó neve alatt is! */}
                     {entry.club_name && <div style={{ color: '#10b981', fontSize: '0.75rem', fontWeight: 'bold' }}>🛡️ {entry.club_name}</div>}
                   </div>
                   <div style={{ color: '#f97316', fontWeight: '900', fontSize: '1.2rem' }}>{entry.likes_count} ⭐</div>
@@ -535,7 +522,101 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           </div>
         </div>
       )}
-{/* --- FELUGRÓ SÚGÓ ABLAK (MODAL) --- */}
+
+      {subTab === 'my_stats' && (
+        <div style={{ animation: 'fadeIn 0.5s ease-in-out' }}>
+          {isLoadingStats && (!myStats || myStats.history.length === 0) ? (
+            <div style={{ color: '#94a3b8', textAlign: 'center', padding: '50px' }}>⏳ Statisztikák betöltése...</div>
+          ) : !myStats ? (
+            <div style={{ color: '#ef4444', textAlign: 'center', padding: '20px' }}>Nem sikerült betölteni az adatokat.</div>
+          ) : (
+            <>
+              <div style={{ background: 'linear-gradient(180deg, #1e293b, #0f172a)', padding: '40px 25px', borderRadius: '24px', border: `1px solid ${currentLevel.color}50`, marginBottom: '40px', textAlign: 'center', boxShadow: `0 10px 40px -10px ${currentLevel.color}40`, position: 'relative', overflow: 'hidden' }}>
+                <div style={{ position: 'absolute', top: '-50px', left: '50%', transform: 'translateX(-50%)', width: '300px', height: '300px', background: `${currentLevel.color}20`, filter: 'blur(80px)', borderRadius: '50%' }}></div>
+                <h3 style={{ color: '#94a3b8', margin: '0 0 10px 0', fontSize: '1rem', textTransform: 'uppercase', letterSpacing: '3px', position: 'relative', zIndex: 1 }}>Jelenlegi Státuszod a lezárt párbajok alapján</h3>
+                <h1 style={{ color: currentLevel.color, margin: '0 0 20px 0', fontSize: '3.5rem', fontWeight: '900', textShadow: `0 0 20px ${currentLevel.color}60`, position: 'relative', zIndex: 1 }}>{currentLevel.name}</h1>
+                
+                <div style={{ width: '100%', maxWidth: '600px', background: '#0f172a', height: '16px', borderRadius: '10px', margin: '0 auto', overflow: 'hidden', border: '1px solid #334155', position: 'relative', zIndex: 1 }}>
+                  <div style={{ width: `${progressPercent}%`, background: `linear-gradient(90deg, transparent, ${currentLevel.color})`, height: '100%', boxShadow: `0 0 10px ${currentLevel.color}` }}></div>
+                </div>
+                {currentLevel.nextAt ? (
+                  <div style={{ color: '#cbd5e1', fontSize: '0.9rem', marginTop: '15px', position: 'relative', zIndex: 1 }}>
+                    Még <b style={{color: 'white', fontSize: '1.1rem'}}>{currentLevel.nextAt - totalLikes} Rangpont</b> kell a következő szinthez!
+                  </div>
+                ) : (
+                  <div style={{ color: '#fbbf24', fontSize: '1rem', marginTop: '15px', fontWeight: 'bold', position: 'relative', zIndex: 1 }}>Elérted a maximális szintet! Te vagy a Fotós Guru!</div>
+                )}
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '20px', marginBottom: '40px' }}>
+                <div style={{ background: '#0f172a', padding: '25px', borderRadius: '20px', textAlign: 'center', border: '1px solid #334155', boxShadow: '0 10px 20px rgba(0,0,0,0.2)' }}>
+                  <div style={{ fontSize: '2.5rem', fontWeight: '900', color: '#f97316', marginBottom: '5px' }}>{totalLikes}</div>
+                  <div style={{ color: '#94a3b8', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Összes Szerzett Pont</div>
+                </div>
+                <div style={{ background: '#0f172a', padding: '25px', borderRadius: '20px', textAlign: 'center', border: '1px solid #334155', boxShadow: '0 10px 20px rgba(0,0,0,0.2)' }}>
+                  <div style={{ fontSize: '2.5rem', fontWeight: '900', color: '#38bdf8', marginBottom: '5px' }}>{totalViews}</div>
+                  <div style={{ color: '#94a3b8', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Összes Megtekintés</div>
+                </div>
+                <div style={{ background: '#0f172a', padding: '25px', borderRadius: '20px', textAlign: 'center', border: '1px solid #fbbf24', boxShadow: '0 10px 20px rgba(251,191,36,0.1)' }}>
+                  <div style={{ fontSize: '2.5rem', fontWeight: '900', color: '#fbbf24', marginBottom: '5px' }}>{podiumCount}</div>
+                  <div style={{ color: '#fbbf24', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Dobogós Helyezés</div>
+                </div>
+                <div style={{ background: '#0f172a', padding: '25px', borderRadius: '20px', textAlign: 'center', border: '1px solid #a855f7', boxShadow: '0 10px 20px rgba(168,85,247,0.1)' }}>
+                  <div style={{ fontSize: '2.5rem', fontWeight: '900', color: '#a855f7', marginBottom: '5px' }}>{top10Count}</div>
+                  <div style={{ color: '#a855f7', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Top 10% Plecsni</div>
+                </div>
+                <div style={{ background: '#0f172a', padding: '25px', borderRadius: '20px', textAlign: 'center', border: '1px solid #10b981', boxShadow: '0 10px 20px rgba(16,185,129,0.1)' }}>
+                  <div style={{ fontSize: '2.5rem', fontWeight: '900', color: '#10b981', marginBottom: '5px' }}>{top20Count}</div>
+                  <div style={{ color: '#10b981', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Top 20% Plecsni</div>
+                </div>
+              </div>
+
+              <h3 style={{ color: '#f8fafc', marginBottom: '20px', fontSize: '1.5rem' }}>📸 Korábbi Pályaművek ({myStats.history.length})</h3>
+              
+              {myStats.history.length === 0 ? (
+                <div style={{ color: '#94a3b8', background: '#1e293b', padding: '40px', borderRadius: '20px', textAlign: 'center', border: '1px dashed #334155' }}>
+                  <div style={{ fontSize: '3rem', marginBottom: '15px' }}>📸</div>
+                  <h4 style={{ color: '#f8fafc', margin: '0 0 10px 0', fontSize: '1.2rem' }}>Még nincs befejezett kihívásod!</h4>
+                  <p style={{ margin: 0, fontSize: '0.9rem' }}>Vegyél részt a heti párbajokban, és itt fognak megjelenni a korábbi eredményeid, trófeáid és a fotóid.</p>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '25px' }}>
+                  {myStats.history.map((entry, idx) => {
+                    const percentile = entry.rank / entry.total_entries;
+                    let badge = ''; let badgeColor = '#334155';
+                    if (entry.rank <= 3) { badge = '🏆 Dobogós'; badgeColor = '#fbbf24'; }
+                    else if (percentile <= 0.1) { badge = '⭐ Top 10%'; badgeColor = '#a855f7'; }
+                    else if (percentile <= 0.2) { badge = '✨ Top 20%'; badgeColor = '#10b981'; }
+
+                    return (
+                      <div key={idx} style={{ background: '#1e293b', borderRadius: '20px', overflow: 'hidden', border: `1px solid ${badgeColor}`, cursor: 'pointer', transition: 'transform 0.2s', boxShadow: '0 10px 20px rgba(0,0,0,0.3)' }} onClick={() => setFullscreenData({url: getImageUrl(entry.drive_file_id, entry.file_url), title: entry.topic_title})} onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
+                        <div style={{ position: 'relative', height: '220px' }}>
+                          <img src={getImageUrl(entry.drive_file_id, entry.file_url)} alt="Pályamű" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={handleImageError} />
+                          <div style={{ position: 'absolute', top: '15px', left: '15px', background: badgeColor, color: badgeColor === '#fbbf24' ? 'black' : 'white', padding: '6px 16px', borderRadius: '100px', fontWeight: '900', fontSize: '0.9rem', boxShadow: '0 4px 10px rgba(0,0,0,0.5)' }}>
+                            {badge || `${entry.rank}. Hely`}
+                          </div>
+                        </div>
+                        <div style={{ padding: '20px' }}>
+                          <h4 style={{ margin: '0 0 15px 0', color: '#f8fafc', fontSize: '1.2rem' }}>{entry.topic_title}</h4>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94a3b8', fontSize: '0.9rem', marginBottom: '12px' }}>
+                            <span>Mezőny: {entry.total_entries} kép</span>
+                            <span style={{color: '#f8fafc'}}>Helyezés: <b>{entry.rank}.</b></span>
+                          </div>
+                          <div style={{ background: '#0f172a', padding: '15px', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
+                            <span style={{color: '#f97316', fontWeight: '900'}}>⭐ {entry.likes} pont</span>
+                            <span style={{color: '#38bdf8', fontWeight: 'bold'}}>👁️ {entry.views}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
       {showHelp && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(5px)', zIndex: 9999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px', boxSizing: 'border-box', animation: 'fadeIn 0.2s ease-out' }}>
           <div style={{ background: '#0f172a', border: '1px solid #334155', borderRadius: '24px', width: '100%', maxWidth: '700px', maxHeight: '90vh', overflowY: 'auto', padding: '30px', position: 'relative', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.8)' }}>
@@ -591,102 +672,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
 
             </div>
           </div>
-        </div>
-      )}
-      
-      {/* 4. FÜL: TRÓFEATEREM */}
-      {subTab === 'my_stats' && (
-        <div style={{ animation: 'fadeIn 0.5s ease-in-out' }}>
-          {isLoadingStats && !myStats ? (
-            <div style={{ color: '#94a3b8', textAlign: 'center', padding: '50px' }}>⏳ Statisztikák betöltése...</div>
-          ) : !myStats ? (
-            <div style={{ color: '#ef4444', textAlign: 'center', padding: '20px' }}>Nem sikerült betölteni az adatokat.</div>
-          ) : (
-            <>
-              <div style={{ background: 'linear-gradient(180deg, #1e293b, #0f172a)', padding: '40px 25px', borderRadius: '24px', border: `1px solid ${currentLevel.color}50`, marginBottom: '40px', textAlign: 'center', boxShadow: `0 10px 40px -10px ${currentLevel.color}40`, position: 'relative', overflow: 'hidden' }}>
-                <div style={{ position: 'absolute', top: '-50px', left: '50%', transform: 'translateX(-50%)', width: '300px', height: '300px', background: `${currentLevel.color}20`, filter: 'blur(80px)', borderRadius: '50%' }}></div>
-                <h3 style={{ color: '#94a3b8', margin: '0 0 10px 0', fontSize: '1rem', textTransform: 'uppercase', letterSpacing: '3px', position: 'relative', zIndex: 1 }}>Jelenlegi Státuszod a lezárt párbajok alapján</h3>
-                <h1 style={{ color: currentLevel.color, margin: '0 0 20px 0', fontSize: '3.5rem', fontWeight: '900', textShadow: `0 0 20px ${currentLevel.color}60`, position: 'relative', zIndex: 1 }}>{currentLevel.name}</h1>
-                
-                <div style={{ width: '100%', maxWidth: '600px', background: '#0f172a', height: '16px', borderRadius: '10px', margin: '0 auto', overflow: 'hidden', border: '1px solid #334155', position: 'relative', zIndex: 1 }}>
-                  <div style={{ width: `${progressPercent}%`, background: `linear-gradient(90deg, transparent, ${currentLevel.color})`, height: '100%', boxShadow: `0 0 10px ${currentLevel.color}` }}></div>
-                </div>
-                {currentLevel.nextAt ? (
-                  <div style={{ color: '#cbd5e1', fontSize: '0.9rem', marginTop: '15px', position: 'relative', zIndex: 1 }}>
-                    Még <b style={{color: 'white', fontSize: '1.1rem'}}>{currentLevel.nextAt - totalLikes} Rangpont</b> kell a következő szinthez!
-                  </div>
-                ) : (
-                  <div style={{ color: '#fbbf24', fontSize: '1rem', marginTop: '15px', fontWeight: 'bold', position: 'relative', zIndex: 1 }}>Elérted a maximális szintet! Te vagy a Fotós Guru!</div>
-                )}
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '20px', marginBottom: '40px' }}>
-                <div style={{ background: '#0f172a', padding: '25px', borderRadius: '20px', textAlign: 'center', border: '1px solid #334155', boxShadow: '0 10px 20px rgba(0,0,0,0.2)' }}>
-                  <div style={{ fontSize: '2.5rem', fontWeight: '900', color: '#f97316', marginBottom: '5px' }}>{totalLikes}</div>
-                  <div style={{ color: '#94a3b8', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Összes Szerzett Pont</div>
-                </div>
-                <div style={{ background: '#0f172a', padding: '25px', borderRadius: '20px', textAlign: 'center', border: '1px solid #334155', boxShadow: '0 10px 20px rgba(0,0,0,0.2)' }}>
-                  <div style={{ fontSize: '2.5rem', fontWeight: '900', color: '#38bdf8', marginBottom: '5px' }}>{totalViews}</div>
-                  <div style={{ color: '#94a3b8', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Összes Megtekintés</div>
-                </div>
-                <div style={{ background: '#0f172a', padding: '25px', borderRadius: '20px', textAlign: 'center', border: '1px solid #fbbf24', boxShadow: '0 10px 20px rgba(251,191,36,0.1)' }}>
-                  <div style={{ fontSize: '2.5rem', fontWeight: '900', color: '#fbbf24', marginBottom: '5px' }}>{podiumCount}</div>
-                  <div style={{ color: '#fbbf24', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Dobogós Helyezés</div>
-                </div>
-                <div style={{ background: '#0f172a', padding: '25px', borderRadius: '20px', textAlign: 'center', border: '1px solid #a855f7', boxShadow: '0 10px 20px rgba(168,85,247,0.1)' }}>
-                  <div style={{ fontSize: '2.5rem', fontWeight: '900', color: '#a855f7', marginBottom: '5px' }}>{top10Count}</div>
-                  <div style={{ color: '#a855f7', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Top 10% Plecsni</div>
-                </div>
-                <div style={{ background: '#0f172a', padding: '25px', borderRadius: '20px', textAlign: 'center', border: '1px solid #10b981', boxShadow: '0 10px 20px rgba(16,185,129,0.1)' }}>
-                  <div style={{ fontSize: '2.5rem', fontWeight: '900', color: '#10b981', marginBottom: '5px' }}>{top20Count}</div>
-                  <div style={{ color: '#10b981', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Top 20% Plecsni</div>
-                </div>
-              </div>
-
-              <h3 style={{ color: '#f8fafc', marginBottom: '20px', fontSize: '1.5rem' }}>📸 Korábbi Pályaművek ({myStats.history.length})</h3>
-              
-              {/* JAVÍTVA: Visszakerült az üres állapot vizuális jelzése! */}
-              {myStats.history.length === 0 ? (
-                <div style={{ color: '#94a3b8', background: '#1e293b', padding: '40px', borderRadius: '20px', textAlign: 'center', border: '1px dashed #334155' }}>
-                  <div style={{ fontSize: '3rem', marginBottom: '15px' }}>📸</div>
-                  <h4 style={{ color: '#f8fafc', margin: '0 0 10px 0', fontSize: '1.2rem' }}>Még nincs befejezett kihívásod!</h4>
-                  <p style={{ margin: 0, fontSize: '0.9rem' }}>Vegyél részt a heti párbajokban, és itt fognak megjelenni a korábbi eredményeid, trófeáid és a fotóid.</p>
-                </div>
-              ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '25px' }}>
-                  {myStats.history.map((entry, idx) => {
-                    const percentile = entry.rank / entry.total_entries;
-                    let badge = ''; let badgeColor = '#334155';
-                    if (entry.rank <= 3) { badge = '🏆 Dobogós'; badgeColor = '#fbbf24'; }
-                    else if (percentile <= 0.1) { badge = '⭐ Top 10%'; badgeColor = '#a855f7'; }
-                    else if (percentile <= 0.2) { badge = '✨ Top 20%'; badgeColor = '#10b981'; }
-
-                    return (
-                      <div key={idx} style={{ background: '#1e293b', borderRadius: '20px', overflow: 'hidden', border: `1px solid ${badgeColor}`, cursor: 'pointer', transition: 'transform 0.2s', boxShadow: '0 10px 20px rgba(0,0,0,0.3)' }} onClick={() => setFullscreenData({url: getImageUrl(entry.drive_file_id, entry.file_url), title: entry.topic_title})} onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
-                        <div style={{ position: 'relative', height: '220px' }}>
-                          <img src={getImageUrl(entry.drive_file_id, entry.file_url)} alt="Pályamű" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={handleImageError} />
-                          <div style={{ position: 'absolute', top: '15px', left: '15px', background: badgeColor, color: badgeColor === '#fbbf24' ? 'black' : 'white', padding: '6px 16px', borderRadius: '100px', fontWeight: '900', fontSize: '0.9rem', boxShadow: '0 4px 10px rgba(0,0,0,0.5)' }}>
-                            {badge || `${entry.rank}. Hely`}
-                          </div>
-                        </div>
-                        <div style={{ padding: '20px' }}>
-                          <h4 style={{ margin: '0 0 15px 0', color: '#f8fafc', fontSize: '1.2rem' }}>{entry.topic_title}</h4>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94a3b8', fontSize: '0.9rem', marginBottom: '12px' }}>
-                            <span>Mezőny: {entry.total_entries} kép</span>
-                            <span style={{color: '#f8fafc'}}>Helyezés: <b>{entry.rank}.</b></span>
-                          </div>
-                          <div style={{ background: '#0f172a', padding: '15px', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
-                            <span style={{color: '#f97316', fontWeight: '900'}}>⭐ {entry.likes} pont</span>
-                            <span style={{color: '#38bdf8', fontWeight: 'bold'}}>👁️ {entry.views}</span>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </>
-          )}
         </div>
       )}
     </div>
