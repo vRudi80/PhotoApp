@@ -35,19 +35,6 @@ function MapClickHandler({ onMapClick }: { onMapClick: (latlng: any) => void }) 
   return null;
 }
 
-// JAVÍTVA: A MapResizer mostantól agresszívebben, többször is kényszeríti a méretarányok helyreállítását, 
-// hogy kiküszöbölje a tab-váltásokból eredő vakfoltokat!
-function MapResizer() {
-  const map = useMap();
-  useEffect(() => {
-    map.invalidateSize();
-    const t1 = setTimeout(() => map.invalidateSize(), 100);
-    const t2 = setTimeout(() => map.invalidateSize(), 600);
-    return () => { clearTimeout(t1); clearTimeout(t2); };
-  }, [map]);
-  return null;
-}
-
 function MapCameraController({ targetPosition }: { targetPosition: [number, number] | null }) {
   const map = useMap();
   useEffect(() => {
@@ -72,8 +59,8 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
   // Lebegő kártya state
   const [activeSpot, setActiveSpot] = useState<any | null>(null);
 
-  // TÉRKÉP STÍLUS STATE ('street' vagy 'topo')
-  const [mapTheme, setMapTheme] = useState<'street' | 'topo'>('street');
+  // TÉRKÉP STÍLUS STATE ('dark' vagy 'light')
+  const [mapTheme, setMapTheme] = useState<'dark' | 'light'>('dark');
 
   // Kommentek state
   const [comments, setComments] = useState<any[]>([]);
@@ -285,7 +272,6 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
     } catch (e) { console.error(e); }
   };
 
-  // KOMMENT BEKÜLDÉSE FORMDATA ALAPON (KÉPPEL VAGY ANÉLKÜL)
   const handlePostComment = async () => {
     if ((!newComment.trim() && !commentFile) || !activeSpot) return;
     setIsCommenting(true);
@@ -355,7 +341,6 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
             <input placeholder="Helyszín neve (pl. Prédikálószék kilátó)" value={uploadTitle} onChange={e => setUploadTitle(e.target.value)} style={inputStyle} disabled={isUploading} />
             <textarea placeholder="Leírás: Miért jó ez a hely?" value={uploadDesc} onChange={e => setUploadDesc(e.target.value)} style={{...inputStyle, minHeight: '80px'}} disabled={isUploading} />
             
-            {/* INLINE EXIF ÉS LOGISZTIKAI PANEL A FORMON */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginBottom: '15px', background: '#1e293b30', padding: '15px', borderRadius: '8px', border: '1px solid #1e293b' }}>
               <div>
                 <label style={{ fontSize: '0.8rem', color: '#38bdf8', fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>📅 Készítés hónapja</label>
@@ -394,38 +379,36 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
           </div>
         )}
 
-        {/* TÉRKÉP TÉMÁJÁT VÁLTÓ SZELEKTOR PANEL */}
+        {/* ÚJ: TÉRKÉP TÉMÁJÁT VÁLTÓ SZELEKTOR PANEL (A TÉRKÉP FELETT) */}
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '-10px', zIndex: 10 }}>
           <div style={{ background: '#1e293b', padding: '4px', borderRadius: '8px', border: '1px solid #334155', display: 'flex', gap: '4px' }}>
             <button 
-              onClick={() => setMapTheme('street')} 
-              style={{ background: mapTheme === 'street' ? '#0f172a' : 'transparent', color: mapTheme === 'street' ? '#38bdf8' : '#64748b', border: 'none', padding: '6px 14px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem', transition: 'all 0.2s' }}
+              onClick={() => setMapTheme('dark')} 
+              style={{ background: mapTheme === 'dark' ? '#0f172a' : 'transparent', color: mapTheme === 'dark' ? '#38bdf8' : '#64748b', border: 'none', padding: '6px 14px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem', transition: 'all 0.2s' }}
             >
-              🗺️ Részletes Utcai
+              🌑 Sötét térkép
             </button>
             <button 
-              onClick={() => setMapTheme('topo')} 
-              style={{ background: mapTheme === 'topo' ? '#f8fafc' : 'transparent', color: mapTheme === 'topo' ? '#0f172a' : '#64748b', border: 'none', padding: '6px 14px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem', transition: 'all 0.2s' }}
+              onClick={() => setMapTheme('light')} 
+              style={{ background: mapTheme === 'light' ? '#f8fafc' : 'transparent', color: mapTheme === 'light' ? '#0f172a' : '#64748b', border: 'none', padding: '6px 14px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem', transition: 'all 0.2s' }}
             >
-              ⛰️ Fotós Domborzati
+              ☀️ Világos térkép
             </button>
           </div>
         </div>
 
         {/* INTERAKTÍV TÉRKÉP FELÜLET */}
         <div style={{ position: 'relative', height: '650px', width: '100%', borderRadius: '12px', overflow: 'hidden', border: '1px solid #334155' }}>
-          <MapContainer center={[47.4979, 19.0402]} zoom={7} minZoom={3} style={{ height: '100%', width: '100%', zIndex: 1 }}>
-            
-            <MapResizer />
+          <MapContainer center={[47.4979, 19.0402]} zoom={7} style={{ height: '100%', width: '100%', zIndex: 1 }}>
             <MapCameraController targetPosition={mapTargetPosition} />
             
+            {/* JAVÍTVA: Dinamikus Tile URL a kiválasztott mapTheme alapján (Mindkettő angol/latin betűs CARTO réteg!) */}
             <TileLayer 
-              attribution='Tiles &copy; Esri &mdash; Source: Esri, DeLorme, NAVTEQ, USGS, Intermap, iPC, NRCAN, METI, TomTom' 
-              url={mapTheme === 'street' 
-                ? "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{x}/{y}" 
-                : "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{x}/{y}"
-              }
-              noWrap={true}
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>' 
+              url={mapTheme === 'dark' 
+                ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" 
+                : "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+              } 
             />
             
             <MapClickHandler onMapClick={handleMapClick} />
@@ -580,13 +563,9 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
         </div>
       </div>
       
-     <style>{`
+      <style>{`
         @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes slideIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
-        
-        /* Tiszta, biztonságos Leaflet kiegészítések, amik nem bántják a pozicionálást */
-        .leaflet-container img.leaflet-tile { max-width: none !important; max-height: none !important; }
-        .leaflet-container { font-family: inherit; }
       `}</style>
     </div>
   );
