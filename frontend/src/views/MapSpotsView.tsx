@@ -342,7 +342,7 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
             {/* INLINE EXIF ÉS LOGISZTIKAI PANEL A FORMON */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginBottom: '15px', background: '#1e293b30', padding: '15px', borderRadius: '8px', border: '1px solid #1e293b' }}>
               <div>
-                <label style={{ fontSize: '0.8rem', color: '#38bdf8', fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>📅 Ideális Hónap</label>
+                <label style={{ fontSize: '0.8rem', color: '#38bdf8', fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>📅 Készítés hónapja</label>
                 <select value={uploadMonth} onChange={e => setUploadMonth(e.target.value)} style={{...inputStyle, marginBottom: 0}} disabled={isUploading}>
                   <option value="">-- Nincs megadva --</option>
                   {['Január', 'Február', 'Március', 'Április', 'Május', 'Június', 'Július', 'Augusztus', 'Szeptember', 'Október', 'November', 'December'].map(m => (
@@ -351,7 +351,7 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
                 </select>
               </div>
               <div>
-                <label style={{ fontSize: '0.8rem', color: '#f59e0b', fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>☀️ Ideális Napszak</label>
+                <label style={{ fontSize: '0.8rem', color: '#f59e0b', fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>☀️ Készítés napszakja</label>
                 <select value={uploadTimeOfDay} onChange={e => setUploadTimeOfDay(e.target.value)} style={{...inputStyle, marginBottom: 0}} disabled={isUploading}>
                   <option value="">-- Nincs megadva --</option>
                   {['Napkelte / Aranyóra', 'Napközben', 'Naplemente / Kékóra', 'Éjszaka / Tejút'].map(n => (
