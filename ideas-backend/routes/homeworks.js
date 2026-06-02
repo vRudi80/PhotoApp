@@ -61,12 +61,27 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
   app.delete('/api/homework-entries/:id', async (req, res) => {
     try {
-      const [rows] = await pool.query('SELECT * FROM photo_homework_entries WHERE id = ? AND user_email = ?', [req.params.id, req.body.userEmail]);
-      if (rows.length === 0) return res.status(403).json({ error: 'Nincs jogod!' });
-      if (rows[0].drive_file_id) await drive.files.delete({ fileId: rows[0].drive_file_id }).catch(e => console.log(e.message));
+      // JAVÍTVA: Ha a body-ból elveszne az email, a biztonságos query paraméterből (URL-ből) is kiolvassuk!
+      const userEmail = req.body.userEmail || req.query.userEmail;
+
+      if (!userEmail) {
+        return res.status(400).json({ error: 'Hiányzó felhasználói e-mail cím!' });
+      }
+
+      const [rows] = await pool.query('SELECT * FROM photo_homework_entries WHERE id = ? AND user_email = ?', [req.params.id, userEmail]);
+      if (rows.length === 0) return res.status(403).json({ error: 'Nincs jogod törölni ezt a képet!' });
+      
+      // Ha van Google Drive azonosító, letöröljük a felhőből is a képet
+      if (rows[0].drive_file_id) {
+        await drive.files.delete({ fileId: rows[0].drive_file_id }).catch(e => console.log('Drive törlési hiba:', e.message));
+      }
+      
+      // Töröljük az adatbázisból
       await pool.query('DELETE FROM photo_homework_entries WHERE id = ?', [req.params.id]);
       res.json({ success: true });
-    } catch (err) { res.status(500).json({ error: 'Hiba' }); }
+    } catch (err) { 
+      res.status(500).json({ error: 'Szerveroldali hiba a törlés során.' }); 
+    }
   });
 
   app.post('/api/homework-entries/:id/like', async (req, res) => {
