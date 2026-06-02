@@ -36,10 +36,11 @@ export default function TicketsView({ user }: TicketsViewProps) {
     loadTickets();
   }, [user]);
 
-  // Válaszok betöltése egy kiválasztott tickethez
+  // Válaszok betöltése egy kiválasztott tickethez (FELOKOSÍTVA)
   useEffect(() => {
     if (selectedTicket) {
-      fetch(`${BACKEND_URL}/api/tickets/${selectedTicket.id}/replies`)
+      // JAVÍTVA: Átadjuk a user adatait, hogy a backend tudja, kinek kell nullázni az olvasottságot!
+      fetch(`${BACKEND_URL}/api/tickets/${selectedTicket.id}/replies?userEmail=${user.email}&isAdmin=${isAdmin}`)
         .then(res => res.json())
         .then(data => {
           setReplies(data || []);
@@ -143,18 +144,29 @@ export default function TicketsView({ user }: TicketsViewProps) {
               <p style={{ color: '#64748b', textAlign: 'center', margin: '20px 0' }}>Nincs aktív vagy korábbi bejelentésed.</p>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {tickets.map(t => (
-                  <div key={t.id} onClick={() => setSelectedTicket(t)} style={{ background: '#0f172a', padding: '15px 20px', borderRadius: '14px', border: '1px solid #334155', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'transform 0.2s, border-color 0.2s' }} onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.borderColor = '#475569'; }} onMouseOut={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.borderColor = '#334155'; }}>
+              {tickets.map(t => {
+                // Meghatározzuk, hogy az aktuális néző számára olvasatlan-e a ticket
+                const isUnreadForMe = isAdmin ? t.admin_unread === 1 : t.user_unread === 1;
+
+                return (
+                  <div key={t.id} onClick={() => setSelectedTicket(t)} style={{ background: '#0f172a', padding: '15px 20px', borderRadius: '14px', border: isUnreadForMe ? '1px solid #f43f5e80' : '1px solid #334155', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'transform 0.2s, border-color 0.2s', boxShadow: isUnreadForMe ? '0 0 15px rgba(244,63,94,0.05)' : 'none' }} onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-2px)'; }} onMouseOut={e => { e.currentTarget.style.transform = 'none'; }}>
                     <div>
-                      <div style={{ fontWeight: 'bold', color: '#f8fafc', fontSize: '1rem', marginBottom: '4px' }}>{t.subject}</div>
-                      <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        {/* ÚJ: Olvasatlan jelző címke */}
+                        {isUnreadForMe && (
+                          <span style={{ background: '#f43f5e', color: 'white', fontSize: '0.7rem', fontWeight: 'bold', padding: '2px 8px', borderRadius: '6px', textTransform: 'uppercase', letterSpacing: '0.5px', animation: 'pulse 2s infinite' }}>Új üzenet</span>
+                        )}
+                        <div style={{ fontWeight: 'bold', color: isUnreadForMe ? '#fff' : '#f8fafc', fontSize: '1rem' }}>{t.subject}</div>
+                      </div>
+                      <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '5px' }}>
                         {isAdmin ? `Beküldő: ${t.user_name} (${t.user_email})` : 'Ügyfélszolgálat'} • {new Date(t.updated_at).toLocaleDateString('hu-HU')}
                       </div>
                     </div>
                     <div>{getStatusBadge(t.status)}</div>
                   </div>
-                ))}
-              </div>
+                );
+              })}
+            </div>
             )}
           </div>
         </>
