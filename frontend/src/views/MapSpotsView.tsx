@@ -364,7 +364,7 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
                 <input placeholder="pl. Sony A7 IV" value={uploadCamera} onChange={e => setUploadCamera(e.target.value)} style={{...inputStyle, marginBottom: 0}} disabled={isUploading} />
               </div>
               <div>
-                <label style={{ fontSize: '0.8rem', color: '#a855f7', fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>🔭 Ajánlott Objektív</label>
+                <label style={{ fontSize: '0.8rem', color: '#a855f7', fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>🔭 Használt Objektív</label>
                 <input placeholder="pl. 16-35mm nagylátószög" value={uploadLens} onChange={e => setUploadLens(e.target.value)} style={{...inputStyle, marginBottom: 0}} disabled={isUploading} />
               </div>
             </div>
