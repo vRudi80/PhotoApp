@@ -336,9 +336,9 @@ export default function AdminSalonsView({
         </div>
 
         <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', marginBottom: '5px' }}>
-          <div style={{flex: '1 1 150px'}}><label style={{fontSize:'0.8rem', color:'#94a3b8', display: 'block', marginBottom: '6px'}}>Megnyitás (Kezdés)</label><input type="date" value={salonStart} onChange={e => setSalonStart(e.target.value)} style={inputStyle} /></div>
-          <div style={{flex: '1 1 150px'}}><label style={{fontSize:'0.8rem', color:'#ef4444', fontWeight: 'bold', display: 'block', marginBottom: '6px'}}>🔴 Vgső Határidő (Zárás)</label><input type="date" value={salonEnd} onChange={e => setSalonEnd(e.target.value)} style={{...inputStyle, border: '1px solid #ef4444'}} /></div>
-          <div style={{flex: '1 1 150px'}}><label style={{fontSize:'0.8rem', color:'#94a3b8', display: 'block', marginBottom: '6px'}}>Közlemény / Értesítés napja</label><input type="date" value={salonResults} onChange={e => setSalonResults(e.target.value)} style={inputStyle} /></div>
+          <div style={{flex: '1 1 150px'}}><label style={{fontSize:'0.8rem', color:'#94a3b8', display: 'block', marginBottom: '6px'}}>Kezdés</label><input type="date" value={salonStart} onChange={e => setSalonStart(e.target.value)} style={inputStyle} /></div>
+          <div style={{flex: '1 1 150px'}}><label style={{fontSize:'0.8rem', color:'#ef4444', fontWeight: 'bold', display: 'block', marginBottom: '6px'}}>🔴 Határidő</label><input type="date" value={salonEnd} onChange={e => setSalonEnd(e.target.value)} style={{...inputStyle, border: '1px solid #ef4444'}} /></div>
+          <div style={{flex: '1 1 150px'}}><label style={{fontSize:'0.8rem', color:'#94a3b8', display: 'block', marginBottom: '6px'}}>Értesítés napja</label><input type="date" value={salonResults} onChange={e => setSalonResults(e.target.value)} style={inputStyle} /></div>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', background: '#0f172a', padding: '15px 20px', borderRadius: '14px', border: '1px solid #334155', marginBottom: '15px' }}>
