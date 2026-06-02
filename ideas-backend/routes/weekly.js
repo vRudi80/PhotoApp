@@ -128,9 +128,10 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
       cleanupTempFile(file);
 
-      // JAVÍTVA: off_topic_count nullázva, elgépelt view_count kivéve (így a views_count érintetlen marad)
+      // JAVÍTVA: A pontok, az off-topic panaszok ÉS a valós nézettség (views_count) is nullázódik, 
+      // így az új fotó tiszta lappal, maximális akkumulátor-energiával robbanhat be az Arénába!
       await pool.query(
-        'UPDATE weekly_entries SET file_url = ?, drive_file_id = ?, likes_count = 0, off_topic_count = 0, swapped = 1 WHERE id = ?', 
+        'UPDATE weekly_entries SET file_url = ?, drive_file_id = ?, likes_count = 0, views_count = 0, off_topic_count = 0, swapped = 1 WHERE id = ?', 
         [driveRes.data.webViewLink, driveRes.data.id, existing[0].id]
       );
 
