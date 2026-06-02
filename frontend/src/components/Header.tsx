@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useState, useEffect } from 'react'; // <-- JAVÍTVA: Beírva a useEffect is!
 import { googleLogout } from '@react-oauth/google';
 import { ADMIN_EMAIL, BACKEND_URL } from '../utils/constants';
 
