@@ -24,6 +24,24 @@ export default function Header({
   
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  const [unreadTicketsCount, setUnreadTicketsCount] = useState(0);
+  const isAdminUser = user?.email === ADMIN_EMAIL;
+
+  // 10 percenként csendben leellenőrzi, van-e új üzenet
+  useEffect(() => {
+    if (!user?.email) return;
+    const checkUnread = () => {
+      fetch(`${BACKEND_URL}/api/tickets/unread-count?userEmail=${user.email}&isAdmin=${isAdminUser}`)
+        .then(res => res.json())
+        .then(data => setUnreadTicketsCount(data.count || 0))
+        .catch(console.error);
+    };
+    
+    checkUnread();
+    const interval = setInterval(checkUnread, 600000); // 30 mp-es poll
+    return () => clearInterval(interval);
+  }, [user, activeTab]); // Tabváltáskor is frissít egyet azonnal
+  
   const handleNavClick = (tab: string) => {
     setActiveTab(tab);
     setDropdownOpen(null);
@@ -149,10 +167,15 @@ export default function Header({
             </button>
           </div>
 
-          {/* ÚJ: SUPPORT / ÜGYFÉLSZOLGÁLAT GOMB */}
+          {/* SUPPORT GOMB PIROS ÉRTESÍTŐ KÖRREKKEL */}
           <div className="nav-item-container" style={{ zIndex: 50 }}>
-            <button className={`nav-btn ${activeTab === 'tickets' ? 'active' : ''}`} style={{ color: '#f43f5e' }} onClick={() => handleNavClick('tickets')}>
+            <button className={`nav-btn ${activeTab === 'tickets' ? 'active' : ''}`} style={{ color: '#f43f5e', display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => handleNavClick('tickets')}>
               <span>✉️ Support</span>
+              {unreadTicketsCount > 0 && (
+                <span style={{ background: '#ef4444', color: 'white', fontSize: '0.75rem', fontWeight: 'bold', padding: '2px 6px', borderRadius: '100px', display: 'inline-block', lineHeight: '1', boxShadow: '0 0 8px #ef4444' }}>
+                  {unreadTicketsCount}
+                </span>
+              )}
             </button>
           </div>
 
