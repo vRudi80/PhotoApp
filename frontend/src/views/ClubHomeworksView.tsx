@@ -3,29 +3,28 @@ import { getImageUrl } from '../utils/helpers';
 import { BACKEND_URL } from '../utils/constants';
 
 interface ClubHomeworksViewProps {
-  user: any; // <-- Ezt beletettük, hogy azonosítani tudjuk a saját képeket!
+  user: any; 
   currentDbUser: any;
   myClubHomeworks: any[];
   myHomeworkEntries: any[];
   clubHomeworkEntries: any[];
   isLeader: boolean;
   setFullscreenData: (data: any) => void; 
-  handleDeleteHwEntry: (entryId: number) => void;
   handleToggleLike: (entryId: number) => void;
-  fetchMyEntries: (email: string) => void; // Frissítéshez kell!
-  fetchClubHomeworkEntries: (clubId: number, email: string) => void; // Frissítéshez kell!
-  clubs: any[]; // Klub azonosításhoz
+  fetchMyEntries: (email: string) => void; 
+  fetchClubHomeworkEntries: (clubId: number, email: string) => void; 
+  clubs: any[]; 
 }
 
 export default function ClubHomeworksView({
   user, currentDbUser, myClubHomeworks, myHomeworkEntries, clubHomeworkEntries,
-  isLeader, setFullscreenData, handleDeleteHwEntry, handleToggleLike, fetchMyEntries, fetchClubHomeworkEntries, clubs
+  isLeader, setFullscreenData, handleToggleLike, fetchMyEntries, fetchClubHomeworkEntries, clubs
 }: ClubHomeworksViewProps) {
   
   const inputStyle = { width: '100%', padding: '10px', marginBottom: '10px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '6px', boxSizing: 'border-box' as const };
 
   // ==============================================================
-  // 1. HELYI ÁLLAPOTOK (Ezek költöztek ide az App.tsx-ből)
+  // 1. HELYI ÁLLAPOTOK
   // ==============================================================
   const [sortedHwIds, setSortedHwIds] = useState<number[]>([]);
   const [expandedHwIds, setExpandedHwIds] = useState<number[]>([]);
@@ -53,7 +52,7 @@ export default function ClubHomeworksView({
   }
 
   // ==============================================================
-  // 2. FÜGGVÉNYEK (Ide költöztek)
+  // 2. FÜGGVÉNYEK
   // ==============================================================
   const handleHwFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => { 
     const file = e.target.files?.[0]; 
@@ -95,6 +94,32 @@ export default function ClubHomeworksView({
       const club = clubs.find(c => c.name === currentDbUser?.club_name); 
       if (club) fetchClubHomeworkEntries(club.id, user.email);
     } else alert('Hiba a cím frissítésekor!');
+  };
+
+  // ÚJ LOKÁLIS JAVÍTÁS: Golyóálló törlés megerősítéssel és query-string fallback támogatással!
+  const handleLocalDeleteHwEntry = async (entryId: number) => {
+    if (!window.confirm("Biztosan véglegesen törölni szeretnéd ezt a beküldött fotódat?")) return;
+    
+    try {
+      // Az emailt elküldjük a biztonság kedvéért a törzsben ÉS URL paraméterként is!
+      const res = await fetch(`${BACKEND_URL}/api/homework-entries/${entryId}?userEmail=${encodeURIComponent(user.email)}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userEmail: user.email })
+      });
+
+      if (res.ok) {
+        alert("📸 Kép sikeresen eltávolítva a házi feladatból!");
+        fetchMyEntries(user.email); // Lista frissítése
+        const club = clubs.find(c => c.name === currentDbUser?.club_name); 
+        if (club) fetchClubHomeworkEntries(club.id, user.email);
+      } else {
+        const err = await res.json();
+        alert(`Hiba a törlés során: ${err.error}`);
+      }
+    } catch (e) {
+      alert("Hálózati hiba történt a törlés közben.");
+    }
   };
 
   const handleToggleSelect = async (entryId: number) => {
@@ -154,7 +179,6 @@ export default function ClubHomeworksView({
           const deadlineDate = new Date(safeDeadlineStr);
           const isPast = new Date() > deadlineDate;
           
-          // JAVÍTÁS: CSAK az aktuálisan bejelentkezett felhasználó képeit számoljuk össze a számlálóhoz!
           const myEntries = clubHomeworkEntries.filter(e => e.homework_id === hw.id && e.user_email === user.email);
           const hwEntriesForAllRaw = clubHomeworkEntries.filter(e => e.homework_id === hw.id);
           
@@ -311,7 +335,8 @@ export default function ClubHomeworksView({
                                   {!isPast && (
                                     <div style={{ display: 'flex', gap: '5px', marginTop: '12px', flexWrap: 'wrap' }}>
                                       <button onClick={() => { setEditingHwEntryId(entry.id); setEditHwEntryTitle(entry.title); }} style={{ flex: '1 1 45%', background: '#38bdf820', color: '#38bdf8', border: 'none', padding: '6px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>Szerkeszt</button>
-                                      <button onClick={() => handleDeleteHwEntry(entry.id)} style={{ flex: '1 1 45%', background: '#ef444420', color: '#ef4444', border: 'none', padding: '6px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>Törlés</button>
+                                      {/* JAVÍTVA: A helyi, golyóálló törlő függvényt hívjuk meg! */}
+                                      <button onClick={() => handleLocalDeleteHwEntry(entry.id)} style={{ flex: '1 1 45%', background: '#ef444420', color: '#ef4444', border: 'none', padding: '6px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>Törlés</button>
                                     </div>
                                   )}
                                 </div>
