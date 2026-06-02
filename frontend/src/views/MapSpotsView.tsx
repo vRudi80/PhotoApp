@@ -19,15 +19,12 @@ interface MapSpotsViewProps {
 }
 
 export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId, setTargetMapSpotId }: MapSpotsViewProps) {
-  // Inicializáljuk a Google Maps betöltőt
   const { isLoaded } = useJsApiLoader({
     id: 'google-map-script',
     googleMapsApiKey: GOOGLE_MAPS_API_KEY
   });
 
-  // JAVÍTVA: Térkép példány referenciájának tárolása (Ez száműzi a crasht!)
   const [map, setMap] = useState<any>(null);
-
   const [locations, setLocations] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -41,10 +38,8 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
   const [editingSpot, setEditingSpot] = useState<any | null>(null);
   const [activeSpot, setActiveSpot] = useState<any | null>(null);
 
-  // TÉRKÉP STÍLUS STATE ('roadmap' = utcai, 'hybrid' = műholdas utcanevekkel)
   const [mapTheme, setMapTheme] = useState<'roadmap' | 'hybrid'>('roadmap');
 
-  // Kommentek és feltöltések
   const [comments, setComments] = useState<any[]>([]);
   const [newComment, setNewComment] = useState('');
   const [isCommenting, setIsCommenting] = useState(false);
@@ -87,14 +82,12 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
     } catch (e) { console.error(e); }
   };
 
-  // JAVÍTVA: Finom kamera-úsztatás panTo segítségével, ha a célkoordináta megváltozik
   useEffect(() => {
     if (map && mapTargetPosition) {
       map.panTo(mapTargetPosition);
     }
   }, [mapTargetPosition, map]);
 
-  // AUTOMATIKUS UGRÁS ÉRTESÍTÉSBŐL / IRÁNYÍTÓPULTRÓL
   useEffect(() => {
     if (targetMapSpotId && locations.length > 0) {
       const spotToOpen = locations.find(loc => loc.id === targetMapSpotId);
@@ -166,11 +159,23 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
     setUploadLens(loc.lens || '');
   };
 
+  // JAVÍTVA: Megerősítés kérése áthúzáskor + Mégse esetén pozíció visszaállítása
   const handleMarkerDragEnd = async (id: number, e: any) => {
     if (!e.latLng) return;
+
+    const currentSpot = locations.find(loc => loc.id === id);
+    const spotTitle = currentSpot ? `"${currentSpot.title}"` : 'ezt a helyszínt';
+
+    if (!window.confirm(`Biztosan át szeretnéd mozgatni ${spotTitle} gombostűjét az új koordinátákra?`)) {
+      // Ha mégsem akarja, újratöltjük az adatbázisból, így a marker visszaugrik a régi helyére
+      fetchLocations(searchQuery);
+      return;
+    }
+
     const safeLat = e.latLng.lat().toFixed(8);
     const safeLng = e.latLng.lng().toFixed(8);
 
+    // Ha rányomott, hogy OK, akkor frissítjük a lokális state-et és küldjük a backendre
     setLocations(prev => prev.map(loc => loc.id === id ? { ...loc, lat: safeLat, lng: safeLng } : loc));
     
     try {
@@ -179,8 +184,14 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userEmail: user.email, isAdmin: isAdmin, lat: safeLat, lng: safeLng })
       });
-      if (!res.ok) { alert('Mentés sikertelen!'); fetchLocations(searchQuery); }
-    } catch (error) { alert("Hálózati hiba!"); fetchLocations(searchQuery); }
+      if (!res.ok) { 
+        alert('Mentés sikertelen!'); 
+        fetchLocations(searchQuery); 
+      }
+    } catch (error) { 
+      alert("Hálózati hiba!"); 
+      fetchLocations(searchQuery); 
+    }
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -265,7 +276,6 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
     finally { setIsCommenting(false); }
   };
 
-  // JAVÍTVA: Referencia mentése és takarítása
   const onLoad = useCallback((mapInstance: any) => {
     setMap(mapInstance);
   }, []);
