@@ -5,6 +5,9 @@ import L from 'leaflet';
 import { BACKEND_URL, ADMIN_EMAIL } from '../utils/constants';
 import { getImageUrl } from '../utils/helpers';
 
+// ==========================================
+// A Leaflet 404-es "Láthatatlan Gombostű" hibájának kikerülése
+// ==========================================
 const DefaultIcon = L.icon({
   iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
@@ -53,19 +56,24 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
   const [newSpotLatLng, setNewSpotLatLng] = useState<{lat: number, lng: number} | null>(null);
   const [editingSpot, setEditingSpot] = useState<any | null>(null);
 
+  // Lebegő kártya state
   const [activeSpot, setActiveSpot] = useState<any | null>(null);
 
+  // Kommentek state
   const [comments, setComments] = useState<any[]>([]);
   const [newComment, setNewComment] = useState('');
   const [isCommenting, setIsCommenting] = useState(false);
+  const [commentFile, setCommentFile] = useState<File | null>(null);
+  const [commentPreview, setCommentPreview] = useState<string | null>(null);
 
+  // Fő helyszín feltöltés state
   const [uploadTitle, setUploadTitle] = useState('');
   const [uploadDesc, setUploadDesc] = useState('');
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
-  // ÚJ MEZŐK STATE-JEI
+  // FOTÓS METAADATOK STATE
   const [uploadMonth, setUploadMonth] = useState('');
   const [uploadTimeOfDay, setUploadTimeOfDay] = useState('');
   const [uploadCamera, setUploadCamera] = useState('');
@@ -102,6 +110,7 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
     }
   };
 
+  // AUTOMATIKUS UGRÁS ÉRTESÍTÉSBŐL / IRÁNYÍTÓPULTRÓL
   useEffect(() => {
     if (targetMapSpotId && locations.length > 0) {
       const spotToOpen = locations.find(loc => loc.id === targetMapSpotId);
@@ -123,6 +132,8 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
     } else {
       setComments([]);
       setNewComment('');
+      setCommentFile(null);
+      setCommentPreview(null);
     }
   }, [activeSpot?.id]);
 
@@ -166,7 +177,7 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
     setUploadFile(null);
     setUploadPreview(getImageUrl(loc.drive_file_id, loc.file_url));
     setMapTargetPosition([loc.lat, loc.lng]); 
-    // Új mezők betöltése szerkesztésre
+    // Korábbi adatok betöltése módosításra
     setUploadMonth(loc.photo_month || '');
     setUploadTimeOfDay(loc.photo_time_of_day || '');
     setUploadCamera(loc.camera || '');
@@ -215,7 +226,7 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
     formData.append('userEmail', user.email);
     formData.append('title', uploadTitle);
     formData.append('description', uploadDesc);
-    // ÚJ MEZŐK HOZZÁADÁSA A FORMDATA CSOMAGHOZ
+    // Fotós adatok csatolása a kéréshez
     formData.append('photoMonth', uploadMonth);
     formData.append('photoTimeOfDay', uploadTimeOfDay);
     formData.append('camera', uploadCamera);
@@ -258,17 +269,26 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
     } catch (e) { console.error(e); }
   };
 
+  // KOMMENT BEKÜLDÉSE FORMDATA ALAPON (KÉPPEL VAGY ANÉLKÜL)
   const handlePostComment = async () => {
-    if (!newComment.trim() || !activeSpot) return;
+    if ((!newComment.trim() && !commentFile) || !activeSpot) return;
     setIsCommenting(true);
+
+    const formData = new FormData();
+    formData.append('userEmail', user.email);
+    formData.append('userName', user.name);
+    formData.append('commentText', newComment.trim());
+    if (commentFile) formData.append('photo', commentFile);
+
     try {
       const res = await fetch(`${BACKEND_URL}/api/locations/${activeSpot.id}/comments`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userEmail: user.email, userName: user.name, commentText: newComment.trim() })
+        body: formData
       });
       if (res.ok) {
         setNewComment('');
+        setCommentFile(null);
+        setCommentPreview(null);
         fetchComments(activeSpot.id);
       }
     } catch (e) { alert("Hiba a komment elküldésekor!"); }
@@ -282,6 +302,7 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
         <div style={{ background: '#10b98120', color: '#10b981', padding: '8px 15px', borderRadius: '8px', border: '1px solid #10b98150', fontWeight: 'bold' }}>💡 Tipp: A saját gombostűidet megfoghatod és odébb húzhatod a finomhangoláshoz!</div>
       </div>
 
+      {/* SZŰRŐK ÉS KERESŐK */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', marginBottom: '20px' }}>
         <div style={{ background: '#1e293b', padding: '15px', borderRadius: '12px', border: '1px solid #334155' }}>
           <label style={{ color: '#38bdf8', fontWeight: 'bold', display: 'block', marginBottom: '8px', fontSize: '0.9rem' }}>🔍 Meglévő fotós helyszínek szűrése</label>
@@ -307,7 +328,7 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
 
       <div style={{ display: 'flex', gap: '20px', flexDirection: 'column' }}>
         
-        {/* RÖGZÍTŐ ÉS SZERKESZTŐ PANEL (KIBŐVÍTVE) */}
+        {/* RÖGZÍTŐ ÉS SZERKESZTŐ FORM MODUL */}
         {(newSpotLatLng || editingSpot) && (
           <div style={{ background: '#0f172a', padding: '20px', borderRadius: '12px', border: editingSpot ? '2px solid #f59e0b' : '2px solid #38bdf8', animation: 'fadeIn 0.3s ease-out' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
@@ -318,7 +339,7 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
             <input placeholder="Helyszín neve (pl. Prédikálószék kilátó)" value={uploadTitle} onChange={e => setUploadTitle(e.target.value)} style={inputStyle} disabled={isUploading} />
             <textarea placeholder="Leírás: Miért jó ez a hely?" value={uploadDesc} onChange={e => setUploadDesc(e.target.value)} style={{...inputStyle, minHeight: '80px'}} disabled={isUploading} />
             
-            {/* ÚJ FORM MEZŐK CSOPORTJA */}
+            {/* INLINE EXIF ÉS LOGISZTIKAI PANEL A FORMON */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginBottom: '15px', background: '#1e293b30', padding: '15px', borderRadius: '8px', border: '1px solid #1e293b' }}>
               <div>
                 <label style={{ fontSize: '0.8rem', color: '#38bdf8', fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>📅 Ideális Hónap</label>
@@ -357,6 +378,7 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
           </div>
         )}
 
+        {/* INTERAKTÍV TÉRKÉP FELÜLET */}
         <div style={{ position: 'relative', height: '650px', width: '100%', borderRadius: '12px', overflow: 'hidden', border: '1px solid #334155' }}>
           <MapContainer center={[47.4979, 19.0402]} zoom={7} style={{ height: '100%', width: '100%', zIndex: 1 }}>
             <MapCameraController targetPosition={mapTargetPosition} />
@@ -379,7 +401,7 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
             })}
           </MapContainer>
 
-          {/* LEBEGŐ KÁRTYA AZ ÚJ ADATOK KIJELZÉSÉVEL (KIBŐVÍTVE) */}
+          {/* LEBEGŐ RÉSZLETES INFORMÁCIÓS PANEL (SIDEBAR) */}
           {activeSpot && (() => {
             const isOwnOrAdmin = activeSpot.user_email === user.email || isAdmin;
             const hasLiked = activeSpot.user_liked === 1;
@@ -402,7 +424,7 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
                     {activeSpot.description}
                   </p>
 
-                  {/* ÚJ: FOTÓS JAVASLATOK / EXIF ADATOK PANELFELÜLETE */}
+                  {/* KÖRNYEZET ÉS EXIF PANEL JELZŐK */}
                   {(activeSpot.photo_month || activeSpot.photo_time_of_day || activeSpot.camera || activeSpot.lens) && (
                     <div style={{ background: '#0f172a', border: '1px solid #1e293b', padding: '12px', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       <div style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#64748b', textTransform: 'uppercase', letterSpacing: '1px' }}>📸 Környezet & Exif tippek</div>
@@ -432,6 +454,7 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
                     </div>
                   )}
 
+                  {/* HOZZÁSZÓLÁSOK LISTÁJA (KÉPMINDENÍTÉSSEL) */}
                   <div style={{ borderTop: '1px solid #334155', paddingTop: '12px' }}>
                     <h4 style={{ margin: '0 0 10px 0', color: '#f8fafc', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '6px' }}>💬 Hozzászólások <span style={{ background: '#334155', padding: '2px 8px', borderRadius: '50px', fontSize: '0.75rem' }}>{comments.length}</span></h4>
                     
@@ -446,6 +469,16 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
                               <span style={{ color: '#64748b', fontSize: '0.7rem' }}>{new Date(c.created_at).toLocaleDateString('hu-HU')}</span>
                             </div>
                             <div style={{ color: '#cbd5e1', fontSize: '0.9rem', lineHeight: '1.4' }}>{c.comment_text}</div>
+                            
+                            {/* KOMMENT FOTÓ MEGJELENÍTÉSE (KATTINTÁSRA NAGYÍTÁS) */}
+                            {c.file_url && (
+                              <div 
+                                onClick={() => setFullscreenData({url: getImageUrl(c.drive_file_id, c.file_url), title: `${c.user_name} fotós tippje`})} 
+                                style={{ marginTop: '8px', width: '100%', maxHeight: '130px', backgroundColor: '#000', borderRadius: '6px', overflow: 'hidden', cursor: 'zoom-in', border: '1px solid #232f46' }}
+                              >
+                                <img src={getImageUrl(c.drive_file_id, c.file_url)} alt="Komment fotó" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -453,11 +486,34 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
                   </div>
                 </div>
 
+                {/* ÚJ KOMMENT BEVITEL + AUDIO/KÉP CSATOLÁS */}
                 <div style={{ padding: '15px', borderTop: '1px solid #1e293b', background: '#0f172a', borderBottomLeftRadius: '16px', borderBottomRightRadius: '16px' }}>
-                  <div style={{ display: 'flex', gap: '8px' }}>
+                  
+                  {/* ELŐNÉZETI MINIATŰR KÜLDÉS ELŐTT */}
+                  {commentPreview && (
+                    <div style={{ position: 'relative', display: 'inline-block', marginBottom: '10px', animation: 'fadeIn 0.2s' }}>
+                      <img src={commentPreview} alt="Csatolt fotó" style={{ maxHeight: '60px', borderRadius: '6px', border: '1px solid #38bdf850' }} />
+                      <button onClick={() => { setCommentFile(null); setCommentPreview(null); }} style={{ position: 'absolute', top: '-5px', right: '-5px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '50%', width: '18px', height: '18px', fontSize: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>✕</button>
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    
+                    {/* DISZKRÉT REJTETT KAMERÁS FÁJLVÁLASZTÓ */}
+                    <label style={{ cursor: 'pointer', fontSize: '1.2rem', background: '#1e293b', padding: '6px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #334155', width: '36px', height: '36px', boxSizing: 'border-box', transition: 'background 0.2s' }} title="Fotó csatolása">
+                      📷
+                      <input type="file" accept="image/jpeg, image/png, image/webp" onChange={(e) => {
+                        if (e.target.files && e.target.files.length > 0) {
+                          const file = e.target.files[0];
+                          setCommentFile(file);
+                          setCommentPreview(URL.createObjectURL(file));
+                        }
+                      }} style={{ display: 'none' }} disabled={isCommenting} />
+                    </label>
+
                     <input 
                       type="text" 
-                      placeholder="Írj egy tippet vagy kérdést..." 
+                      placeholder={commentFile ? "Írj hozzá szöveget (opcionális)..." : "Írj egy tippet vagy kérdést..."} 
                       value={newComment}
                       onChange={(e) => setNewComment(e.target.value)}
                       onKeyDown={(e) => { if (e.key === 'Enter') handlePostComment(); }}
@@ -465,8 +521,8 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
                     />
                     <button 
                       onClick={handlePostComment}
-                      disabled={!newComment.trim() || isCommenting}
-                      style={{ background: newComment.trim() ? '#38bdf8' : '#334155', color: '#0f172a', border: 'none', width: '36px', height: '36px', borderRadius: '50%', cursor: newComment.trim() ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', transition: 'background 0.2s' }}
+                      disabled={(!newComment.trim() && !commentFile) || isCommenting}
+                      style={{ background: (newComment.trim() || commentFile) ? '#38bdf8' : '#334155', color: '#0f172a', border: 'none', width: '36px', height: '36px', borderRadius: '50%', cursor: (newComment.trim() || commentFile) ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', transition: 'background 0.2s' }}
                     >
                       ➤
                     </button>
