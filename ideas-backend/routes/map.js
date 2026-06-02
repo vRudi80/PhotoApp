@@ -152,15 +152,44 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-  // 7. Komment beküldése
-  app.post('/api/locations/:id/comments', async (req, res) => {
+  // 7. Komment beküldése (KIBŐVÍTVE OPTIONÁLIS FOTÓFELTÖLTÉSSEL)
+  app.post('/api/locations/:id/comments', upload.single('photo'), async (req, res) => {
     const { userEmail, userName, commentText } = req.body;
-    if (!commentText || commentText.trim() === '') return res.status(400).json({ error: 'Üres komment!' });
+    const file = req.file;
+    
+    // Akkor hiba, ha se szöveg, se kép nem érkezett
+    if ((!commentText || commentText.trim() === '') && !file) {
+      return res.status(400).json({ error: 'Üres hozzászólás!' });
+    }
+
+    let fileUrl = null;
+    let driveFileId = null;
+
     try {
-      await pool.query('INSERT INTO photo_location_comments (location_id, user_email, user_name, comment_text) VALUES (?, ?, ?, ?)', [req.params.id, userEmail, userName, commentText]);
+      // Ha a user csatolt fotót, kilőjük a Google Drive-ra
+      if (file) {
+        const fileStream = fs.createReadStream(file.path);
+        const fileExt = file.originalname && file.originalname.includes('.') ? file.originalname.substring(file.originalname.lastIndexOf('.')).toLowerCase() : '.jpg';
+        const driveRes = await drive.files.create({ 
+          requestBody: { name: `Comment_${userName}_${Date.now()}${fileExt}`, parents: [process.env.DRIVE_MASTER_FOLDER_ID] }, 
+          media: { mimeType: file.mimetype, body: fileStream }, 
+          fields: 'id, webViewLink' 
+        });
+        fileUrl = driveRes.data.webViewLink;
+        driveFileId = driveRes.data.id;
+        cleanupTempFile(file); // Töröljük a szerverről a temp fájlt
+      }
+
+      // Elmentjük a hozzászólást (a kép adatai NULL-ok maradnak, ha nem küldött fotót)
+      await pool.query(
+        'INSERT INTO photo_location_comments (location_id, user_email, user_name, comment_text, file_url, drive_file_id) VALUES (?, ?, ?, ?, ?, ?)', 
+        [req.params.id, userEmail, userName, commentText || '', fileUrl, driveFileId]
+      );
+      
       res.json({ success: true });
-    } catch (err) {
-      res.status(500).json({ error: 'Hiba a komment mentésekor' });
+    } catch (err) { 
+      if (file) cleanupTempFile(file);
+      res.status(500).json({ error: 'Hiba a komment mentésekor' }); 
     }
   });
 
