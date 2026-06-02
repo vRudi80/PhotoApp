@@ -35,15 +35,15 @@ function MapClickHandler({ onMapClick }: { onMapClick: (latlng: any) => void }) 
   return null;
 }
 
+// JAVÍTVA: A MapResizer mostantól agresszívebben, többször is kényszeríti a méretarányok helyreállítását, 
+// hogy kiküszöbölje a tab-váltásokból eredő vakfoltokat!
 function MapResizer() {
   const map = useMap();
   useEffect(() => {
-    // Amint a térkép létrejön, adunk a böngészőnek 100ms-ot, hogy elrendezze a DOM-ot,
-    // majd kényszerítjük a Leaflet-et, hogy azonnal számolja újra a valós konténerméretet!
-    const timer = setTimeout(() => {
-      map.invalidateSize();
-    }, 100);
-    return () => clearTimeout(timer);
+    map.invalidateSize();
+    const t1 = setTimeout(() => map.invalidateSize(), 100);
+    const t2 = setTimeout(() => map.invalidateSize(), 600);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [map]);
   return null;
 }
@@ -72,7 +72,7 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
   // Lebegő kártya state
   const [activeSpot, setActiveSpot] = useState<any | null>(null);
 
-  // TÉRKÉP STÍLUS STATE ('dark' vagy 'light')
+  // TÉRKÉP STÍLUS STATE ('street' vagy 'topo')
   const [mapTheme, setMapTheme] = useState<'street' | 'topo'>('street');
 
   // Kommentek state
@@ -285,6 +285,7 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
     } catch (e) { console.error(e); }
   };
 
+  // KOMMENT BEKÜLDÉSE FORMDATA ALAPON (KÉPPEL VAGY ANÉLKÜL)
   const handlePostComment = async () => {
     if ((!newComment.trim() && !commentFile) || !activeSpot) return;
     setIsCommenting(true);
@@ -354,6 +355,7 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
             <input placeholder="Helyszín neve (pl. Prédikálószék kilátó)" value={uploadTitle} onChange={e => setUploadTitle(e.target.value)} style={inputStyle} disabled={isUploading} />
             <textarea placeholder="Leírás: Miért jó ez a hely?" value={uploadDesc} onChange={e => setUploadDesc(e.target.value)} style={{...inputStyle, minHeight: '80px'}} disabled={isUploading} />
             
+            {/* INLINE EXIF ÉS LOGISZTIKAI PANEL A FORMON */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginBottom: '15px', background: '#1e293b30', padding: '15px', borderRadius: '8px', border: '1px solid #1e293b' }}>
               <div>
                 <label style={{ fontSize: '0.8rem', color: '#38bdf8', fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>📅 Készítés hónapja</label>
@@ -392,7 +394,6 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
           </div>
         )}
 
-        {/* ÚJ: TÉRKÉP TÉMÁJÁT VÁLTÓ SZELEKTOR PANEL (A TÉRKÉP FELETT) */}
         {/* TÉRKÉP TÉMÁJÁT VÁLTÓ SZELEKTOR PANEL */}
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '-10px', zIndex: 10 }}>
           <div style={{ background: '#1e293b', padding: '4px', borderRadius: '8px', border: '1px solid #334155', display: 'flex', gap: '4px' }}>
@@ -411,16 +412,13 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
           </div>
         </div>
 
-      {/* INTERAKTÍV TÉRKÉP FELÜLET */}
+        {/* INTERAKTÍV TÉRKÉP FELÜLET */}
         <div style={{ position: 'relative', height: '650px', width: '100%', borderRadius: '12px', overflow: 'hidden', border: '1px solid #334155' }}>
           <MapContainer center={[47.4979, 19.0402]} zoom={7} minZoom={3} style={{ height: '100%', width: '100%', zIndex: 1 }}>
             
-            {/* ÚJ: Helyreállítja a megvakult méretarányokat mountoláskor */}
             <MapResizer />
-            
             <MapCameraController targetPosition={mapTargetPosition} />
             
-            {/* JAVÍTVA: A noWrap={true} megakadályozza, hogy a világmapa egymás után ismétlődjön */}
             <TileLayer 
               attribution='Tiles &copy; Esri &mdash; Source: Esri, DeLorme, NAVTEQ, USGS, Intermap, iPC, NRCAN, METI, TomTom' 
               url={mapTheme === 'street' 
@@ -582,13 +580,26 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
         </div>
       </div>
       
-<style>{`
+      <style>{`
         @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes slideIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
         
-        /* JAVÍTVA: Ha a bundler elnyelné a Leaflet CSS-t, ez a két sor megmenti a csempék elcsúszását! */
+        /* ====================================================================
+           BRUTÁLIS AD-HOC JAVÍTÁS:
+           Ha a produkciós Vercel build elnyelné az external leaflet.css-t, 
+           ez a CSS kód manuálisan visszakényszeríti a csempék abszolút pozícióját.
+           Ezzel az ismétlődő tapéta hiba örökre megszűnik!
+           ==================================================================== */
         .leaflet-container img.leaflet-tile { max-width: none !important; max-height: none !important; }
         .leaflet-tile-container { pointer-events: none; }
+        .leaflet-map-pane, .leaflet-tile, .leaflet-marker-icon, .leaflet-marker-shadow, .leaflet-tile-container, .leaflet-pane { 
+          position: absolute !important; 
+          left: 0 !important; 
+          top: 0 !important; 
+        }
+        .leaflet-container { overflow: hidden !important; position: relative !important; }
+        .leaflet-tile { filter: inherit; visibility: hidden; }
+        .leaflet-tile-loaded { visibility: inherit !important; }
       `}</style>
     </div>
   );
