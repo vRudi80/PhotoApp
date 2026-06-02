@@ -167,6 +167,13 @@ export default function ContestsView(props: ContestsViewProps) {
       doc.setFontSize(14);
       doc.text(fixHu(`Készítette: ${result.user_name}`), 148.5, imgY + imgH + 20, { align: "center" });
 
+      // --- ÚJ: DÁTUM (KELT) GENERÁLÁSA A BAL ALSÓ SAROKBA ---
+      doc.setFont("times", "normal");
+      doc.setFontSize(12);
+      doc.setTextColor(100, 116, 139);
+      const todayStr = new Date().toLocaleDateString('hu-HU', { year: 'numeric', month: 'long', day: 'numeric' });
+      doc.text(fixHu(`Kelt: ${todayStr}`), 20, 192);
+
       const juryNames = contestJury.map(j => props.allUsers.find(u => u.email === j.user_email)?.name || j.user_email).join(', ');
       doc.setFont("times", "italic");
       doc.setFontSize(12);
@@ -184,7 +191,7 @@ export default function ContestsView(props: ContestsViewProps) {
     }
   };
 
-  // VÉDELMI ZÁRADEK (GUARD CLAUSE): Ha nincs még klubja, korán megállítjuk és kitesszük a lakatot
+  // VÉDELMI ZÁRADEK (GUARD CLAUSE)
   if (props.activeTab === 'contests_club_active' && !props.currentDbUser?.club_name) {
     return (
       <div style={{ textAlign: 'center', padding: '5rem 2rem', background: 'linear-gradient(180deg, #1e293b, #0f172a)', borderRadius: '24px', border: '1px solid #ef444440', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
@@ -197,7 +204,6 @@ export default function ContestsView(props: ContestsViewProps) {
     );
   }
 
-  // HA VAN KLUBJA (VAGY MÁS FÜLÖN VAN), INNEN ZÖKKENŐMENTESEN RENDELŐDIK MINDEN ADAT:
   return (
     <div style={{ animation: 'fadeIn 0.4s ease-out' }}>
       
@@ -296,7 +302,7 @@ export default function ContestsView(props: ContestsViewProps) {
         {props.activeTab === 'admin_contests' ? '📁 Összes Pályázat Kezelése' : props.activeTab === 'contests_club_active' ? `🛡️ Klubom Aktív Pályázatai` : props.activeTab === 'contests_closed' ? '📜 Lezárult Fotópályázatok' : '🌐 Nyílt Aktív Fotópályázatok'}
       </h2>
       
-      {/* PÁLYÁZATOK MEGJELENÍTÉSE */}
+      {/* PÁLYÁZATOK LISTÁJA */}
       {props.filteredContests.length === 0 ? (
         <div style={{ color: '#94a3b8', background: '#1e293b', padding: '30px', borderRadius: '16px', textAlign: 'center', border: '1px solid #334155' }}>Jelenleg nincsenek pályázatok ebben a kategóriában.</div>
       ) : (
@@ -344,7 +350,7 @@ export default function ContestsView(props: ContestsViewProps) {
                   </div>
                 )}
 
-                {/* ALSZEKCIÓK ÉS RÉSZLETEK INTERFÉSZ */}
+                {/* ALSZEKCIÓK INTERFÉSZ */}
                 {props.viewJuryProgressId === contest.id ? (
                   <div style={{ background: '#0f172a', padding: '20px', borderRadius: '16px', marginBottom: '20px', border: '1px solid #a78bfa' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #334155', paddingBottom: '15px', marginBottom: '20px' }}>
@@ -646,7 +652,7 @@ export default function ContestsView(props: ContestsViewProps) {
                     )}
 
                     {isUserJury && (
-                      <div style={{ background: 'linear-gradient(90deg, #f59e0b10, transparent)', borderLeft: '4px solid #f59e0b', color: '#f8fafc', padding: '15px', borderRadius: '0 12px 12px 0', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
+                      <div style={{ background: 'linear-gradient(90deg, #f59e0b10, transparent)', borderLeft: '4px solid #f59e0b', color: '#f8fafc', padding: '15px', borderRadius: '0 12px 12px 0', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '25px', flexWrap: 'wrap' }}>
                         <div>
                           <strong style={{ color: '#f59e0b' }}>⚖️ Zsűritagként vagy kijelölve</strong>
                           <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: '4px' }}>
