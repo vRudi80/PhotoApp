@@ -4,7 +4,7 @@ import { BACKEND_URL, ADMIN_EMAIL } from '../utils/constants';
 import { getImageUrl } from '../utils/helpers';
 
 // ==========================================
-// 🔑 IDE ÍRD BE A SAJÁT GOOGLE MAPS API KULCSODAT!
+// 🔑 A Google Maps API kulcsod
 // ==========================================
 const GOOGLE_MAPS_API_KEY = "AIzaSyDakZMXvQgw523qNu9htsvW5J2gPPdZUUM";
 
@@ -25,13 +25,15 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
     googleMapsApiKey: GOOGLE_MAPS_API_KEY
   });
 
+  // JAVÍTVA: Térkép példány referenciájának tárolása (Ez száműzi a crasht!)
+  const [map, setMap] = useState<any>(null);
+
   const [locations, setLocations] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   
   const [citySearch, setCitySearch] = useState('');
   const [cityResults, setCityResults] = useState<any[]>([]);
   
-  // Google Maps koordináta objektum formátum: { lat: number, lng: number }
   const [mapTargetPosition, setMapTargetPosition] = useState<{lat: number, lng: number}>(defaultCenter);
   const [mapZoom, setMapZoom] = useState<number>(7);
 
@@ -85,18 +87,26 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
     } catch (e) { console.error(e); }
   };
 
+  // JAVÍTVA: Finom kamera-úsztatás panTo segítségével, ha a célkoordináta megváltozik
+  useEffect(() => {
+    if (map && mapTargetPosition) {
+      map.panTo(mapTargetPosition);
+    }
+  }, [mapTargetPosition, map]);
+
   // AUTOMATIKUS UGRÁS ÉRTESÍTÉSBŐL / IRÁNYÍTÓPULTRÓL
   useEffect(() => {
     if (targetMapSpotId && locations.length > 0) {
       const spotToOpen = locations.find(loc => loc.id === targetMapSpotId);
       if (spotToOpen) {
         setActiveSpot(spotToOpen);
-        setMapTargetPosition({ lat: parseFloat(spotToOpen.lat), lng: parseFloat(spotToOpen.lng) });
+        const pos = { lat: parseFloat(spotToOpen.lat), lng: parseFloat(spotToOpen.lng) };
+        setMapTargetPosition(pos);
         setMapZoom(14);
         if (setTargetMapSpotId) setTargetMapSpotId(null); 
       }
     }
-  }, [targetMapSpotId, locations]);
+  }, [targetMapSpotId, locations, map]);
   
   useEffect(() => { fetchLocations(searchQuery); }, [searchQuery]);
 
@@ -255,9 +265,23 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
     finally { setIsCommenting(false); }
   };
 
-  // Ha még tölt a Google szkript, egy elegáns sötét töltőképernyőt mutatunk
+  // JAVÍTVA: Referencia mentése és takarítása
+  const onLoad = useCallback((mapInstance: any) => {
+    setMap(mapInstance);
+  }, []);
+
+  const onUnmount = useCallback(() => {
+    setMap(null);
+  }, []);
+
+  const handleZoomChanged = () => {
+    if (map) {
+      setMapZoom(map.getZoom());
+    }
+  };
+
   if (!isLoaded) {
-    return <div style={{ color: '#94a3b8', padding: '40px', textAlign: 'center', background: '#1e293b', borderRadius: '12px' }}>📡 Google Maps műholdas kapcsolat felépítése...</div>;
+    return <div style={{ color: '#94a3b8', padding: '40px', textAlign: 'center', background: '#1e293b', borderRadius: '12px' }}>📡 Google Maps kapcsolat felépítése...</div>;
   }
 
   return (
@@ -342,7 +366,7 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
           </div>
         )}
 
-        {/* TÉRKÉP MÓD VÁLTÓ (Közvetlenül a Google Maps felett) */}
+        {/* TÉRKÉP MÓD VÁLTÓ */}
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '-10px', zIndex: 10 }}>
           <div style={{ background: '#1e293b', padding: '4px', borderRadius: '8px', border: '1px solid #334155', display: 'flex', gap: '4px' }}>
             <button onClick={() => setMapTheme('roadmap')} style={{ background: mapTheme === 'roadmap' ? '#0f172a' : 'transparent', color: mapTheme === 'roadmap' ? '#38bdf8' : '#64748b', border: 'none', padding: '6px 14px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem' }}>🗺️ Utcatérkép</button>
@@ -359,7 +383,9 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
             zoom={mapZoom}
             onClick={handleMapClick}
             mapTypeId={mapTheme}
-            onZoomChanged={function(this: any) { if(this) setMapZoom(this.getZoom()); }}
+            onLoad={onLoad}
+            onUnmount={onUnmount}
+            onZoomChanged={handleZoomChanged}
             options={{
               streetViewControl: false,
               fullscreenControl: false,
@@ -368,7 +394,7 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
           >
             {/* Új lehelyezendő marker előnézete */}
             {newSpotLatLng && (
-              <MarkerF position={newSpotLatLng} icon="https://maps.google.com/mapfiles/ms/icons/blue-dot.png" />
+              <MarkerF position={newSpotLatLng} />
             )}
 
             {/* Meglévő mentett helyszínek */}
