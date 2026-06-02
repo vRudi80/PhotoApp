@@ -4,10 +4,8 @@ import { BACKEND_URL, ADMIN_EMAIL } from '../utils/constants';
 import { getImageUrl } from '../utils/helpers';
 import exifr from 'exifr'; // Hivatalos EXIF adatolvasó modul
 
-// ==========================================
-// 🔑 A Google Maps API kulcsod
-// ==========================================
-const GOOGLE_MAPS_API_KEY = "AIzaSyDakZMXvQgw523qNu9htsvW5J2gPPdZUUM";
+// A kulcsot innentől biztonságosan a környezeti változókból olvassa be a rendszer
+const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "";
 
 const containerStyle = { width: '100%', height: '100%' };
 const defaultCenter = { lat: 47.4979, lng: 19.0402 };
