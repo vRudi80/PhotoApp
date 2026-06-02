@@ -580,26 +580,13 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
         </div>
       </div>
       
-      <style>{`
+     <style>{`
         @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes slideIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
         
-        /* ====================================================================
-           BRUTÁLIS AD-HOC JAVÍTÁS:
-           Ha a produkciós Vercel build elnyelné az external leaflet.css-t, 
-           ez a CSS kód manuálisan visszakényszeríti a csempék abszolút pozícióját.
-           Ezzel az ismétlődő tapéta hiba örökre megszűnik!
-           ==================================================================== */
+        /* Tiszta, biztonságos Leaflet kiegészítések, amik nem bántják a pozicionálást */
         .leaflet-container img.leaflet-tile { max-width: none !important; max-height: none !important; }
-        .leaflet-tile-container { pointer-events: none; }
-        .leaflet-map-pane, .leaflet-tile, .leaflet-marker-icon, .leaflet-marker-shadow, .leaflet-tile-container, .leaflet-pane { 
-          position: absolute !important; 
-          left: 0 !important; 
-          top: 0 !important; 
-        }
-        .leaflet-container { overflow: hidden !important; position: relative !important; }
-        .leaflet-tile { filter: inherit; visibility: hidden; }
-        .leaflet-tile-loaded { visibility: inherit !important; }
+        .leaflet-container { font-family: inherit; }
       `}</style>
     </div>
   );
