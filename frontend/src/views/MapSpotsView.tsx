@@ -35,6 +35,19 @@ function MapClickHandler({ onMapClick }: { onMapClick: (latlng: any) => void }) 
   return null;
 }
 
+function MapResizer() {
+  const map = useMap();
+  useEffect(() => {
+    // Amint a térkép létrejön, adunk a böngészőnek 100ms-ot, hogy elrendezze a DOM-ot,
+    // majd kényszerítjük a Leaflet-et, hogy azonnal számolja újra a valós konténerméretet!
+    const timer = setTimeout(() => {
+      map.invalidateSize();
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [map]);
+  return null;
+}
+
 function MapCameraController({ targetPosition }: { targetPosition: [number, number] | null }) {
   const map = useMap();
   useEffect(() => {
@@ -398,18 +411,23 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
           </div>
         </div>
 
-        {/* INTERAKTÍV TÉRKÉP FELÜLET */}
+      {/* INTERAKTÍV TÉRKÉP FELÜLET */}
         <div style={{ position: 'relative', height: '650px', width: '100%', borderRadius: '12px', overflow: 'hidden', border: '1px solid #334155' }}>
-          <MapContainer center={[47.4979, 19.0402]} zoom={7} style={{ height: '100%', width: '100%', zIndex: 1 }}>
+          <MapContainer center={[47.4979, 19.0402]} zoom={7} minZoom={3} style={{ height: '100%', width: '100%', zIndex: 1 }}>
+            
+            {/* ÚJ: Helyreállítja a megvakult méretarányokat mountoláskor */}
+            <MapResizer />
+            
             <MapCameraController targetPosition={mapTargetPosition} />
             
-           {/* JAVÍTVA: Professzionális, ultra-részletes GIS/Esri térképrétegek nemzetközi feliratokkal */}
+            {/* JAVÍTVA: A noWrap={true} megakadályozza, hogy a világmapa egymás után ismétlődjön */}
             <TileLayer 
               attribution='Tiles &copy; Esri &mdash; Source: Esri, DeLorme, NAVTEQ, USGS, Intermap, iPC, NRCAN, METI, TomTom' 
               url={mapTheme === 'street' 
                 ? "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{x}/{y}" 
                 : "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{x}/{y}"
-              } 
+              }
+              noWrap={true}
             />
             
             <MapClickHandler onMapClick={handleMapClick} />
@@ -564,9 +582,13 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
         </div>
       </div>
       
-      <style>{`
+<style>{`
         @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes slideIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+        
+        /* JAVÍTVA: Ha a bundler elnyelné a Leaflet CSS-t, ez a két sor megmenti a csempék elcsúszását! */
+        .leaflet-container img.leaflet-tile { max-width: none !important; max-height: none !important; }
+        .leaflet-tile-container { pointer-events: none; }
       `}</style>
     </div>
   );
