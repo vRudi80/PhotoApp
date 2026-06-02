@@ -378,11 +378,22 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
           </div>
         )}
 
-        {/* INTERAKTÍV TÉRKÉP FELÜLET */}
         <div style={{ position: 'relative', height: '650px', width: '100%', borderRadius: '12px', overflow: 'hidden', border: '1px solid #334155' }}>
           <MapContainer center={[47.4979, 19.0402]} zoom={7} style={{ height: '100%', width: '100%', zIndex: 1 }}>
             <MapCameraController targetPosition={mapTargetPosition} />
-            <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+            
+            {/* =========================================================================================
+                JAVÍTVA: A régi OpenStreetMap helyett a CARTO nemzetközi, latin betűs sötét térképét használjuk!
+                Minden felirat (kínai, arab, cirill) automatikusan transzkribálva/lefordítva jelenik meg angolul.
+                
+                Tipp: Ha sötét helyett a klasszikus színes térképet szeretnéd, cseréld ki az url-t erre:
+                "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+               ========================================================================================= */}
+            <TileLayer 
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>' 
+              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" 
+            />
+            
             <MapClickHandler onMapClick={handleMapClick} />
 
             {locations.map((loc) => {
@@ -454,7 +465,7 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
                     </div>
                   )}
 
-                  {/* HOZZÁSZÓLÁSOK LISTÁJA (KÉPMINDENÍTÉSSEL) */}
+                  {/* HOZZÁSZÓLÁSOK LISTÁJA */}
                   <div style={{ borderTop: '1px solid #334155', paddingTop: '12px' }}>
                     <h4 style={{ margin: '0 0 10px 0', color: '#f8fafc', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '6px' }}>💬 Hozzászólások <span style={{ background: '#334155', padding: '2px 8px', borderRadius: '50px', fontSize: '0.75rem' }}>{comments.length}</span></h4>
                     
@@ -470,7 +481,7 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
                             </div>
                             <div style={{ color: '#cbd5e1', fontSize: '0.9rem', lineHeight: '1.4' }}>{c.comment_text}</div>
                             
-                            {/* KOMMENT FOTÓ MEGJELENÍTÉSE (KATTINTÁSRA NAGYÍTÁS) */}
+                            {/* KOMMENT FOTÓ MEGJELENÍTÉSE */}
                             {c.file_url && (
                               <div 
                                 onClick={() => setFullscreenData({url: getImageUrl(c.drive_file_id, c.file_url), title: `${c.user_name} fotós tippje`})} 
@@ -486,7 +497,6 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
                   </div>
                 </div>
 
-                {/* ÚJ KOMMENT BEVITEL + AUDIO/KÉP CSATOLÁS */}
                 <div style={{ padding: '15px', borderTop: '1px solid #1e293b', background: '#0f172a', borderBottomLeftRadius: '16px', borderBottomRightRadius: '16px' }}>
                   
                   {/* ELŐNÉZETI MINIATŰR KÜLDÉS ELŐTT */}
