@@ -60,7 +60,7 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
   const [activeSpot, setActiveSpot] = useState<any | null>(null);
 
   // TÉRKÉP STÍLUS STATE ('dark' vagy 'light')
-  const [mapTheme, setMapTheme] = useState<'dark' | 'light'>('dark');
+  const [mapTheme, setMapTheme] = useState<'street' | 'topo'>('street');
 
   // Kommentek state
   const [comments, setComments] = useState<any[]>([]);
@@ -380,19 +380,20 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
         )}
 
         {/* ÚJ: TÉRKÉP TÉMÁJÁT VÁLTÓ SZELEKTOR PANEL (A TÉRKÉP FELETT) */}
+        {/* TÉRKÉP TÉMÁJÁT VÁLTÓ SZELEKTOR PANEL */}
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '-10px', zIndex: 10 }}>
           <div style={{ background: '#1e293b', padding: '4px', borderRadius: '8px', border: '1px solid #334155', display: 'flex', gap: '4px' }}>
             <button 
-              onClick={() => setMapTheme('dark')} 
-              style={{ background: mapTheme === 'dark' ? '#0f172a' : 'transparent', color: mapTheme === 'dark' ? '#38bdf8' : '#64748b', border: 'none', padding: '6px 14px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem', transition: 'all 0.2s' }}
+              onClick={() => setMapTheme('street')} 
+              style={{ background: mapTheme === 'street' ? '#0f172a' : 'transparent', color: mapTheme === 'street' ? '#38bdf8' : '#64748b', border: 'none', padding: '6px 14px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem', transition: 'all 0.2s' }}
             >
-              🌑 Sötét térkép
+              🗺️ Részletes Utcai
             </button>
             <button 
-              onClick={() => setMapTheme('light')} 
-              style={{ background: mapTheme === 'light' ? '#f8fafc' : 'transparent', color: mapTheme === 'light' ? '#0f172a' : '#64748b', border: 'none', padding: '6px 14px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem', transition: 'all 0.2s' }}
+              onClick={() => setMapTheme('topo')} 
+              style={{ background: mapTheme === 'topo' ? '#f8fafc' : 'transparent', color: mapTheme === 'topo' ? '#0f172a' : '#64748b', border: 'none', padding: '6px 14px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem', transition: 'all 0.2s' }}
             >
-              ☀️ Világos térkép
+              ⛰️ Fotós Domborzati
             </button>
           </div>
         </div>
@@ -402,12 +403,12 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
           <MapContainer center={[47.4979, 19.0402]} zoom={7} style={{ height: '100%', width: '100%', zIndex: 1 }}>
             <MapCameraController targetPosition={mapTargetPosition} />
             
-            {/* JAVÍTVA: Dinamikus Tile URL a kiválasztott mapTheme alapján (Mindkettő angol/latin betűs CARTO réteg!) */}
+           {/* JAVÍTVA: Professzionális, ultra-részletes GIS/Esri térképrétegek nemzetközi feliratokkal */}
             <TileLayer 
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>' 
-              url={mapTheme === 'dark' 
-                ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" 
-                : "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+              attribution='Tiles &copy; Esri &mdash; Source: Esri, DeLorme, NAVTEQ, USGS, Intermap, iPC, NRCAN, METI, TomTom' 
+              url={mapTheme === 'street' 
+                ? "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{x}/{y}" 
+                : "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{x}/{y}"
               } 
             />
             
