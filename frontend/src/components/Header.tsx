@@ -104,7 +104,16 @@ export default function Header({
             {dropdownOpen === 'progress' && (
               <div className="dropdown-menu">
                 <button className={`drop-item ${activeTab === 'fiap_progress' ? 'active' : ''}`} onClick={() => handleNavClick('fiap_progress')}>🏅 FIAP Követő</button>
-                <button className={`drop-item ${activeTab === 'mafosz_progress' ? 'active' : ''}`} onClick={() => handleNavClick('mafosz_progress')}>🇭🇺 MAFOSZ Követő</button>
+                <button className={`drop-item ${activeTab === 'mafosz_progress' ? 'active' : ''}`} onClick={() => handleNavClick('mafosz_progress')}>
+                <img 
+                  src="https://flagcdn.com/16x12/hu.png" 
+                  width="16" 
+                  height="12" 
+                  alt="HU" 
+                  style={{ marginRight: '8px', borderRadius: '2px', verticalAlign: 'middle', display: 'inline-block' }} 
+                />
+                MAFOSZ Követő
+              </button>
               </div>
             )}
           </div>
