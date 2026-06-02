@@ -25,9 +25,9 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-  // 2. Új helyszín felvitele
+  // 2. Új helyszín felvitele (KIBŐVÍTVE)
   app.post('/api/locations', upload.single('photo'), async (req, res) => {
-    const { userEmail, userName, lat, lng, title, description } = req.body;
+    const { userEmail, userName, lat, lng, title, description, photoMonth, photoTimeOfDay, camera, lens } = req.body;
     const file = req.file;
     if (!file) return res.status(400).json({ error: 'Fotó feltöltése kötelező a helyszínhez!' });
 
@@ -41,8 +41,8 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       });
       cleanupTempFile(file);
       await pool.query(
-        'INSERT INTO photo_locations (user_email, user_name, lat, lng, title, description, file_url, drive_file_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 
-        [userEmail, userName, lat, lng, title, description, driveRes.data.webViewLink, driveRes.data.id]
+        'INSERT INTO photo_locations (user_email, user_name, lat, lng, title, description, file_url, drive_file_id, photo_month, photo_time_of_day, camera, lens) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 
+        [userEmail, userName, lat, lng, title, description, driveRes.data.webViewLink, driveRes.data.id, photoMonth || null, photoTimeOfDay || null, camera || null, lens || null]
       );
       res.json({ success: true });
     } catch (err) { 
@@ -51,9 +51,9 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-  // 3. Helyszín szerkesztése (és mozgatása)
+  // 3. Helyszín szerkesztése és mozgatása (KIBŐVÍTVE)
   app.put('/api/locations/:id', upload.single('photo'), async (req, res) => {
-    const { title, description, userEmail, lat, lng, isAdmin } = req.body;
+    const { title, description, userEmail, lat, lng, isAdmin, photoMonth, photoTimeOfDay, camera, lens } = req.body;
     const file = req.file;
 
     try {
@@ -71,6 +71,12 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       const newDesc = description || rows[0].description;
       const newLat = lat !== undefined ? lat : rows[0].lat;
       const newLng = lng !== undefined ? lng : rows[0].lng;
+      
+      // Új mezők fallback logikája
+      const newMonth = photoMonth !== undefined ? photoMonth : rows[0].photo_month;
+      const newTime = photoTimeOfDay !== undefined ? photoTimeOfDay : rows[0].photo_time_of_day;
+      const newCamera = camera !== undefined ? camera : rows[0].camera;
+      const newLens = lens !== undefined ? lens : rows[0].lens;
 
       if (file) {
         if (rows[0].drive_file_id) {
@@ -84,9 +90,9 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
           fields: 'id, webViewLink' 
         });
         cleanupTempFile(file);
-        await pool.query('UPDATE photo_locations SET title=?, description=?, lat=?, lng=?, file_url=?, drive_file_id=? WHERE id=?', [newTitle, newDesc, newLat, newLng, driveRes.data.webViewLink, driveRes.data.id, req.params.id]);
+        await pool.query('UPDATE photo_locations SET title=?, description=?, lat=?, lng=?, file_url=?, drive_file_id=?, photo_month=?, photo_time_of_day=?, camera=?, lens=? WHERE id=?', [newTitle, newDesc, newLat, newLng, driveRes.data.webViewLink, driveRes.data.id, newMonth, newTime, newCamera, newLens, req.params.id]);
       } else {
-        await pool.query('UPDATE photo_locations SET title=?, description=?, lat=?, lng=? WHERE id=?', [newTitle, newDesc, newLat, newLng, req.params.id]);
+        await pool.query('UPDATE photo_locations SET title=?, description=?, lat=?, lng=?, photo_month=?, photo_time_of_day=?, camera=?, lens=? WHERE id=?', [newTitle, newDesc, newLat, newLng, newMonth, newTime, newCamera, newLens, req.params.id]);
       }
       res.json({ success: true });
     } catch (err) { 
