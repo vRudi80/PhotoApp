@@ -1,23 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
-import L from 'leaflet';
+import React, { useState, useEffect, useCallback } from 'react';
+import { GoogleMap, useJsApiLoader, MarkerF } from '@react-google-maps/api';
 import { BACKEND_URL, ADMIN_EMAIL } from '../utils/constants';
 import { getImageUrl } from '../utils/helpers';
 
 // ==========================================
-// A Leaflet 404-es "Láthatatlan Gombostű" hibájának kikerülése
+// 🔑 IDE ÍRD BE A SAJÁT GOOGLE MAPS API KULCSODAT!
 // ==========================================
-const DefaultIcon = L.icon({
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41]
-});
-L.Marker.prototype.options.icon = DefaultIcon;
+const GOOGLE_MAPS_API_KEY = "AIzaSyDakZMXvQgw523qNu9htsvW5J2gPPdZUUM";
+
+const containerStyle = { width: '100%', height: '100%' };
+const defaultCenter = { lat: 47.4979, lng: 19.0402 };
 
 interface MapSpotsViewProps {
   user: any;
@@ -26,64 +18,49 @@ interface MapSpotsViewProps {
   setTargetMapSpotId?: (id: number | null) => void;
 }
 
-function MapClickHandler({ onMapClick }: { onMapClick: (latlng: any) => void }) {
-  useMapEvents({
-    click(e) {
-      onMapClick(e.latlng);
-    },
-  });
-  return null;
-}
-
-function MapCameraController({ targetPosition }: { targetPosition: [number, number] | null }) {
-  const map = useMap();
-  useEffect(() => {
-    if (targetPosition) {
-      map.flyTo(targetPosition, 13, { duration: 1.5 }); 
-    }
-  }, [targetPosition, map]);
-  return null;
-}
-
 export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId, setTargetMapSpotId }: MapSpotsViewProps) {
+  // Inicializáljuk a Google Maps betöltőt
+  const { isLoaded } = useJsApiLoader({
+    id: 'google-map-script',
+    googleMapsApiKey: GOOGLE_MAPS_API_KEY
+  });
+
   const [locations, setLocations] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   
   const [citySearch, setCitySearch] = useState('');
   const [cityResults, setCityResults] = useState<any[]>([]);
-  const [mapTargetPosition, setMapTargetPosition] = useState<[number, number] | null>(null);
+  
+  // Google Maps koordináta objektum formátum: { lat: number, lng: number }
+  const [mapTargetPosition, setMapTargetPosition] = useState<{lat: number, lng: number}>(defaultCenter);
+  const [mapZoom, setMapZoom] = useState<number>(7);
 
   const [newSpotLatLng, setNewSpotLatLng] = useState<{lat: number, lng: number} | null>(null);
   const [editingSpot, setEditingSpot] = useState<any | null>(null);
-
-  // Lebegő kártya state
   const [activeSpot, setActiveSpot] = useState<any | null>(null);
 
-  // TÉRKÉP STÍLUS STATE ('dark' vagy 'light')
-  const [mapTheme, setMapTheme] = useState<'dark' | 'light'>('dark');
+  // TÉRKÉP STÍLUS STATE ('roadmap' = utcai, 'hybrid' = műholdas utcanevekkel)
+  const [mapTheme, setMapTheme] = useState<'roadmap' | 'hybrid'>('roadmap');
 
-  // Kommentek state
+  // Kommentek és feltöltések
   const [comments, setComments] = useState<any[]>([]);
   const [newComment, setNewComment] = useState('');
   const [isCommenting, setIsCommenting] = useState(false);
   const [commentFile, setCommentFile] = useState<File | null>(null);
   const [commentPreview, setCommentPreview] = useState<string | null>(null);
 
-  // Fő helyszín feltöltés state
   const [uploadTitle, setUploadTitle] = useState('');
   const [uploadDesc, setUploadDesc] = useState('');
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
-  // FOTÓS METAADATOK STATE
   const [uploadMonth, setUploadMonth] = useState('');
   const [uploadTimeOfDay, setUploadTimeOfDay] = useState('');
   const [uploadCamera, setUploadCamera] = useState('');
   const [uploadLens, setUploadLens] = useState('');
 
   const inputStyle = { width: '100%', padding: '10px', marginBottom: '10px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '6px', boxSizing: 'border-box' as const };
-
   const isAdmin = user?.email === ADMIN_EMAIL; 
 
   const fetchLocations = async (search = '') => {
@@ -92,25 +69,20 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
       if (res.ok) {
         const data = await res.json();
         setLocations(data);
-        
         setActiveSpot(prev => {
           if (!prev) return null;
           const updatedSpot = data.find((d: any) => d.id === prev.id);
           return updatedSpot ? updatedSpot : prev;
         });
       }
-    } catch (e) {
-      console.error('Hiba a helyszínek betöltésekor', e);
-    }
+    } catch (e) { console.error(e); }
   };
 
   const fetchComments = async (locationId: number) => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/locations/${locationId}/comments`);
       if (res.ok) setComments(await res.json());
-    } catch (e) {
-      console.error("Hiba a kommentek betöltésekor");
-    }
+    } catch (e) { console.error(e); }
   };
 
   // AUTOMATIKUS UGRÁS ÉRTESÍTÉSBŐL / IRÁNYÍTÓPULTRÓL
@@ -119,25 +91,18 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
       const spotToOpen = locations.find(loc => loc.id === targetMapSpotId);
       if (spotToOpen) {
         setActiveSpot(spotToOpen);
-        setMapTargetPosition([spotToOpen.lat, spotToOpen.lng]);
+        setMapTargetPosition({ lat: parseFloat(spotToOpen.lat), lng: parseFloat(spotToOpen.lng) });
+        setMapZoom(14);
         if (setTargetMapSpotId) setTargetMapSpotId(null); 
       }
     }
   }, [targetMapSpotId, locations]);
   
-  useEffect(() => {
-    fetchLocations(searchQuery);
-  }, [searchQuery]);
+  useEffect(() => { fetchLocations(searchQuery); }, [searchQuery]);
 
   useEffect(() => {
-    if (activeSpot) {
-      fetchComments(activeSpot.id);
-    } else {
-      setComments([]);
-      setNewComment('');
-      setCommentFile(null);
-      setCommentPreview(null);
-    }
+    if (activeSpot) { fetchComments(activeSpot.id); } 
+    else { setComments([]); setNewComment(''); setCommentFile(null); setCommentPreview(null); }
   }, [activeSpot?.id]);
 
   const handleCitySearch = async () => {
@@ -146,25 +111,29 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
       const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(citySearch)}&limit=5`);
       const data = await res.json();
       setCityResults(data);
-      if (data.length === 0) alert("Nem található ilyen nevű település vagy hely!");
-    } catch (e) { console.error("Geocoding hiba:", e); }
+      if (data.length === 0) alert("Nem található ilyen hely!");
+    } catch (e) { console.error(e); }
   };
 
   const handleSelectCity = (lat: string, lon: string) => {
-    setMapTargetPosition([parseFloat(lat), parseFloat(lon)]);
+    setMapTargetPosition({ lat: parseFloat(lat), lng: parseFloat(lon) });
+    setMapZoom(13);
     setCityResults([]); 
     setCitySearch(''); 
   };
 
-  const handleMapClick = (latlng: {lat: number, lng: number}) => {
+  const handleMapClick = (e: any) => {
+    if (!e.latLng) return;
+    const clickedLat = e.latLng.lat();
+    const clickedLng = e.latLng.lng();
+
     setEditingSpot(null);
-    setNewSpotLatLng(latlng);
+    setNewSpotLatLng({ lat: clickedLat, lng: clickedLng });
     setUploadTitle('');
     setUploadDesc('');
     setUploadFile(null);
     setUploadPreview(null);
     setActiveSpot(null); 
-    // Új mezők alaphelyzetbe állítása
     setUploadMonth('');
     setUploadTimeOfDay('');
     setUploadCamera('');
@@ -179,8 +148,8 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
     setUploadDesc(loc.description);
     setUploadFile(null);
     setUploadPreview(getImageUrl(loc.drive_file_id, loc.file_url));
-    setMapTargetPosition([loc.lat, loc.lng]); 
-    // Korábbi adatok betöltése módosításra
+    setMapTargetPosition({ lat: parseFloat(loc.lat), lng: parseFloat(loc.lng) });
+    setMapZoom(14);
     setUploadMonth(loc.photo_month || '');
     setUploadTimeOfDay(loc.photo_time_of_day || '');
     setUploadCamera(loc.camera || '');
@@ -188,10 +157,9 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
   };
 
   const handleMarkerDragEnd = async (id: number, e: any) => {
-    const marker = e.target;
-    const position = marker.getLatLng();
-    const safeLat = position.lat.toFixed(8);
-    const safeLng = position.lng.toFixed(8);
+    if (!e.latLng) return;
+    const safeLat = e.latLng.lat().toFixed(8);
+    const safeLng = e.latLng.lng().toFixed(8);
 
     setLocations(prev => prev.map(loc => loc.id === id ? { ...loc, lat: safeLat, lng: safeLng } : loc));
     
@@ -201,14 +169,8 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userEmail: user.email, isAdmin: isAdmin, lat: safeLat, lng: safeLng })
       });
-      if (!res.ok) {
-        alert('Mentés sikertelen!');
-        fetchLocations(searchQuery); 
-      }
-    } catch (error) {
-      alert("Hálózati hiba!");
-      fetchLocations(searchQuery);
-    }
+      if (!res.ok) { alert('Mentés sikertelen!'); fetchLocations(searchQuery); }
+    } catch (error) { alert("Hálózati hiba!"); fetchLocations(searchQuery); }
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -229,7 +191,6 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
     formData.append('userEmail', user.email);
     formData.append('title', uploadTitle);
     formData.append('description', uploadDesc);
-    // Fotós adatok csatolása a kéréshez
     formData.append('photoMonth', uploadMonth);
     formData.append('photoTimeOfDay', uploadTimeOfDay);
     formData.append('camera', uploadCamera);
@@ -283,10 +244,7 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
     if (commentFile) formData.append('photo', commentFile);
 
     try {
-      const res = await fetch(`${BACKEND_URL}/api/locations/${activeSpot.id}/comments`, {
-        method: 'POST',
-        body: formData
-      });
+      const res = await fetch(`${BACKEND_URL}/api/locations/${activeSpot.id}/comments`, { method: 'POST', body: formData });
       if (res.ok) {
         setNewComment('');
         setCommentFile(null);
@@ -297,11 +255,16 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
     finally { setIsCommenting(false); }
   };
 
+  // Ha még tölt a Google szkript, egy elegáns sötét töltőképernyőt mutatunk
+  if (!isLoaded) {
+    return <div style={{ color: '#94a3b8', padding: '40px', textAlign: 'center', background: '#1e293b', borderRadius: '12px' }}>📡 Google Maps műholdas kapcsolat felépítése...</div>;
+  }
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '15px' }}>
         <h2 style={{ fontSize: '2rem', margin: 0, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '10px' }}>🌍 Fotós Helyszínek</h2>
-        <div style={{ background: '#10b98120', color: '#10b981', padding: '8px 15px', borderRadius: '8px', border: '1px solid #10b98150', fontWeight: 'bold' }}>💡 Tipp: A saját gombostűidet megfoghatod és odébb húzhatod a finomhangoláshoz!</div>
+        <div style={{ background: '#10b98120', color: '#10b981', padding: '8px 15px', borderRadius: '8px', border: '1px solid #10b98150', fontWeight: 'bold' }}>💡 Tipp: Kattints a térképre bárhol egy új gombostű lehelyezéséhez!</div>
       </div>
 
       {/* SZŰRŐK ÉS KERESŐK */}
@@ -330,7 +293,7 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
 
       <div style={{ display: 'flex', gap: '20px', flexDirection: 'column' }}>
         
-        {/* RÖGZÍTŐ ÉS SZERKESZTŐ FORM MODUL */}
+        {/* FORM PANEL */}
         {(newSpotLatLng || editingSpot) && (
           <div style={{ background: '#0f172a', padding: '20px', borderRadius: '12px', border: editingSpot ? '2px solid #f59e0b' : '2px solid #38bdf8', animation: 'fadeIn 0.3s ease-out' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
@@ -379,57 +342,52 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
           </div>
         )}
 
-        {/* ÚJ: TÉRKÉP TÉMÁJÁT VÁLTÓ SZELEKTOR PANEL (A TÉRKÉP FELETT) */}
+        {/* TÉRKÉP MÓD VÁLTÓ (Közvetlenül a Google Maps felett) */}
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '-10px', zIndex: 10 }}>
           <div style={{ background: '#1e293b', padding: '4px', borderRadius: '8px', border: '1px solid #334155', display: 'flex', gap: '4px' }}>
-            <button 
-              onClick={() => setMapTheme('dark')} 
-              style={{ background: mapTheme === 'dark' ? '#0f172a' : 'transparent', color: mapTheme === 'dark' ? '#38bdf8' : '#64748b', border: 'none', padding: '6px 14px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem', transition: 'all 0.2s' }}
-            >
-              🌑 Sötét térkép
-            </button>
-            <button 
-              onClick={() => setMapTheme('light')} 
-              style={{ background: mapTheme === 'light' ? '#f8fafc' : 'transparent', color: mapTheme === 'light' ? '#0f172a' : '#64748b', border: 'none', padding: '6px 14px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem', transition: 'all 0.2s' }}
-            >
-              ☀️ Világos térkép
-            </button>
+            <button onClick={() => setMapTheme('roadmap')} style={{ background: mapTheme === 'roadmap' ? '#0f172a' : 'transparent', color: mapTheme === 'roadmap' ? '#38bdf8' : '#64748b', border: 'none', padding: '6px 14px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem' }}>🗺️ Utcatérkép</button>
+            <button onClick={() => setMapTheme('hybrid')} style={{ background: mapTheme === 'hybrid' ? '#f8fafc' : 'transparent', color: mapTheme === 'hybrid' ? '#0f172a' : '#64748b', border: 'none', padding: '6px 14px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem' }}>🛰️ Műholdas Hibrid</button>
           </div>
         </div>
 
-        {/* INTERAKTÍV TÉRKÉP FELÜLET */}
+        {/* GOOGLE MAPS PANEL */}
         <div style={{ position: 'relative', height: '650px', width: '100%', borderRadius: '12px', overflow: 'hidden', border: '1px solid #334155' }}>
-          <MapContainer center={[47.4979, 19.0402]} zoom={7} style={{ height: '100%', width: '100%', zIndex: 1 }}>
-            <MapCameraController targetPosition={mapTargetPosition} />
-            
-            {/* JAVÍTVA: Dinamikus Tile URL a kiválasztott mapTheme alapján (Mindkettő angol/latin betűs CARTO réteg!) */}
-            <TileLayer 
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>' 
-              url={mapTheme === 'dark' 
-                ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" 
-                : "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-              } 
-            />
-            
-            <MapClickHandler onMapClick={handleMapClick} />
+          
+          <GoogleMap
+            mapContainerStyle={containerStyle}
+            center={mapTargetPosition}
+            zoom={mapZoom}
+            onClick={handleMapClick}
+            mapTypeId={mapTheme}
+            onZoomChanged={function(this: any) { if(this) setMapZoom(this.getZoom()); }}
+            options={{
+              streetViewControl: false,
+              fullscreenControl: false,
+              mapTypeControl: false
+            }}
+          >
+            {/* Új lehelyezendő marker előnézete */}
+            {newSpotLatLng && (
+              <MarkerF position={newSpotLatLng} icon="https://maps.google.com/mapfiles/ms/icons/blue-dot.png" />
+            )}
 
+            {/* Meglévő mentett helyszínek */}
             {locations.map((loc) => {
               const isOwnOrAdmin = loc.user_email === user.email || isAdmin; 
+              const pos = { lat: parseFloat(loc.lat), lng: parseFloat(loc.lng) };
               return (
-                <Marker 
+                <MarkerF 
                   key={loc.id} 
-                  position={[loc.lat, loc.lng]}
+                  position={pos}
                   draggable={isOwnOrAdmin}
-                  eventHandlers={{
-                    dragend: (e) => handleMarkerDragEnd(loc.id, e),
-                    click: () => setActiveSpot(loc)
-                  }}
+                  onDragEnd={(e) => handleMarkerDragEnd(loc.id, e)}
+                  onClick={() => setActiveSpot(loc)}
                 />
               )
             })}
-          </MapContainer>
+          </GoogleMap>
 
-          {/* LEBEGŐ RÉSZLETES INFORMÁCIÓS PANEL (SIDEBAR) */}
+          {/* LEBEGŐ SIDEBAR KÁRTYA */}
           {activeSpot && (() => {
             const isOwnOrAdmin = activeSpot.user_email === user.email || isAdmin;
             const hasLiked = activeSpot.user_liked === 1;
@@ -448,11 +406,9 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
                     <img src={imageUrl} alt={activeSpot.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   </div>
 
-                  <p style={{ color: '#cbd5e1', fontSize: '0.9rem', margin: 0, lineHeight: '1.5' }}>
-                    {activeSpot.description}
-                  </p>
+                  <p style={{ color: '#cbd5e1', fontSize: '0.9rem', margin: 0, lineHeight: '1.5' }}>{activeSpot.description}</p>
 
-                  {/* KÖRNYEZET ÉS EXIF PANEL JELZŐK */}
+                  {/* TIPIKUS EXIF ADATOK */}
                   {(activeSpot.photo_month || activeSpot.photo_time_of_day || activeSpot.camera || activeSpot.lens) && (
                     <div style={{ background: '#0f172a', border: '1px solid #1e293b', padding: '12px', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       <div style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#64748b', textTransform: 'uppercase', letterSpacing: '1px' }}>📸 Környezet & Exif tippek</div>
@@ -470,9 +426,7 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
                       <span style={{ fontSize: '1.2rem' }}>{hasLiked ? '❤️' : '🤍'}</span>
                       <span style={{ fontWeight: 'bold', color: hasLiked ? '#ef4444' : '#94a3b8' }}>{activeSpot.like_count || 0} Kedvelés</span>
                     </button>
-                    <div style={{ fontSize: '0.75rem', color: '#64748b', textAlign: 'right', lineHeight: '1.2' }}>
-                      Felfedező:<br/><b style={{color: '#94a3b8'}}>{activeSpot.user_name}</b>
-                    </div>
+                    <div style={{ fontSize: '0.75rem', color: '#64748b', textAlign: 'right', lineHeight: '1.2' }}>Felfedező:<br/><b style={{color: '#94a3b8'}}>{activeSpot.user_name}</b></div>
                   </div>
 
                   {isOwnOrAdmin && (
@@ -485,7 +439,6 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
                   {/* HOZZÁSZÓLÁSOK LISTÁJA */}
                   <div style={{ borderTop: '1px solid #334155', paddingTop: '12px' }}>
                     <h4 style={{ margin: '0 0 10px 0', color: '#f8fafc', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '6px' }}>💬 Hozzászólások <span style={{ background: '#334155', padding: '2px 8px', borderRadius: '50px', fontSize: '0.75rem' }}>{comments.length}</span></h4>
-                    
                     {comments.length === 0 ? (
                       <div style={{ color: '#64748b', fontSize: '0.85rem', fontStyle: 'italic', marginBottom: '15px' }}>Még senki sem szólt hozzá.</div>
                     ) : (
@@ -497,13 +450,8 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
                               <span style={{ color: '#64748b', fontSize: '0.7rem' }}>{new Date(c.created_at).toLocaleDateString('hu-HU')}</span>
                             </div>
                             <div style={{ color: '#cbd5e1', fontSize: '0.9rem', lineHeight: '1.4' }}>{c.comment_text}</div>
-                            
-                            {/* KOMMENT FOTÓ MEGJELENÍTÉSE */}
                             {c.file_url && (
-                              <div 
-                                onClick={() => setFullscreenData({url: getImageUrl(c.drive_file_id, c.file_url), title: `${c.user_name} fotós tippje`})} 
-                                style={{ marginTop: '8px', width: '100%', maxHeight: '130px', backgroundColor: '#000', borderRadius: '6px', overflow: 'hidden', cursor: 'zoom-in', border: '1px solid #232f46' }}
-                              >
+                              <div onClick={() => setFullscreenData({url: getImageUrl(c.drive_file_id, c.file_url), title: `${c.user_name} fotós tippje`})} style={{ marginTop: '8px', width: '100%', maxHeight: '130px', backgroundColor: '#000', borderRadius: '6px', overflow: 'hidden', cursor: 'zoom-in', border: '1px solid #232f46' }}>
                                 <img src={getImageUrl(c.drive_file_id, c.file_url)} alt="Komment fotó" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                               </div>
                             )}
@@ -514,9 +462,8 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
                   </div>
                 </div>
 
+                {/* ÚJ KOMMENT */}
                 <div style={{ padding: '15px', borderTop: '1px solid #1e293b', background: '#0f172a', borderBottomLeftRadius: '16px', borderBottomRightRadius: '16px' }}>
-                  
-                  {/* ELŐNÉZETI MINIATŰR KÜLDÉS ELŐTT */}
                   {commentPreview && (
                     <div style={{ position: 'relative', display: 'inline-block', marginBottom: '10px', animation: 'fadeIn 0.2s' }}>
                       <img src={commentPreview} alt="Csatolt fotó" style={{ maxHeight: '60px', borderRadius: '6px', border: '1px solid #38bdf850' }} />
@@ -525,34 +472,17 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
                   )}
 
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    
-                    {/* DISZKRÉT REJTETT KAMERÁS FÁJLVÁLASZTÓ */}
-                    <label style={{ cursor: 'pointer', fontSize: '1.2rem', background: '#1e293b', padding: '6px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #334155', width: '36px', height: '36px', boxSizing: 'border-box', transition: 'background 0.2s' }} title="Fotó csatolása">
+                    <label style={{ cursor: 'pointer', fontSize: '1.2rem', background: '#1e293b', padding: '6px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #334155', width: '36px', height: '36px', boxSizing: 'border-box' }} title="Fotó csatolása">
                       📷
                       <input type="file" accept="image/jpeg, image/png, image/webp" onChange={(e) => {
                         if (e.target.files && e.target.files.length > 0) {
-                          const file = e.target.files[0];
-                          setCommentFile(file);
-                          setCommentPreview(URL.createObjectURL(file));
+                          const file = e.target.files[0]; setCommentFile(file); setCommentPreview(URL.createObjectURL(file));
                         }
                       }} style={{ display: 'none' }} disabled={isCommenting} />
                     </label>
 
-                    <input 
-                      type="text" 
-                      placeholder={commentFile ? "Írj hozzá szöveget (opcionális)..." : "Írj egy tippet vagy kérdést..."} 
-                      value={newComment}
-                      onChange={(e) => setNewComment(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') handlePostComment(); }}
-                      style={{ flex: 1, padding: '8px 12px', borderRadius: '20px', border: '1px solid #334155', background: '#1e293b', color: 'white', outline: 'none', fontSize: '0.9rem' }}
-                    />
-                    <button 
-                      onClick={handlePostComment}
-                      disabled={(!newComment.trim() && !commentFile) || isCommenting}
-                      style={{ background: (newComment.trim() || commentFile) ? '#38bdf8' : '#334155', color: '#0f172a', border: 'none', width: '36px', height: '36px', borderRadius: '50%', cursor: (newComment.trim() || commentFile) ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', transition: 'background 0.2s' }}
-                    >
-                      ➤
-                    </button>
+                    <input type="text" placeholder={commentFile ? "Írj hozzá szöveget (opcionális)..." : "Írj egy tippet vagy kérdést..."} value={newComment} onChange={(e) => setNewComment(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handlePostComment(); }} style={{ flex: 1, padding: '8px 12px', borderRadius: '20px', border: '1px solid #334155', background: '#1e293b', color: 'white', outline: 'none', fontSize: '0.9rem' }} />
+                    <button onClick={handlePostComment} disabled={(!newComment.trim() && !commentFile) || isCommenting} style={{ background: (newComment.trim() || commentFile) ? '#38bdf8' : '#334155', color: '#0f172a', border: 'none', width: '36px', height: '36px', borderRadius: '50%', cursor: (newComment.trim() || commentFile) ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>➤</button>
                   </div>
                 </div>
 
