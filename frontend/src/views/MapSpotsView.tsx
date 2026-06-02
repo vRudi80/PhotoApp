@@ -59,6 +59,9 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
   // Lebegő kártya state
   const [activeSpot, setActiveSpot] = useState<any | null>(null);
 
+  // TÉRKÉP STÍLUS STATE ('dark' vagy 'light')
+  const [mapTheme, setMapTheme] = useState<'dark' | 'light'>('dark');
+
   // Kommentek state
   const [comments, setComments] = useState<any[]>([]);
   const [newComment, setNewComment] = useState('');
@@ -269,7 +272,6 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
     } catch (e) { console.error(e); }
   };
 
-  // KOMMENT BEKÜLDÉSE FORMDATA ALAPON (KÉPPEL VAGY ANÉLKÜL)
   const handlePostComment = async () => {
     if ((!newComment.trim() && !commentFile) || !activeSpot) return;
     setIsCommenting(true);
@@ -339,7 +341,6 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
             <input placeholder="Helyszín neve (pl. Prédikálószék kilátó)" value={uploadTitle} onChange={e => setUploadTitle(e.target.value)} style={inputStyle} disabled={isUploading} />
             <textarea placeholder="Leírás: Miért jó ez a hely?" value={uploadDesc} onChange={e => setUploadDesc(e.target.value)} style={{...inputStyle, minHeight: '80px'}} disabled={isUploading} />
             
-            {/* INLINE EXIF ÉS LOGISZTIKAI PANEL A FORMON */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginBottom: '15px', background: '#1e293b30', padding: '15px', borderRadius: '8px', border: '1px solid #1e293b' }}>
               <div>
                 <label style={{ fontSize: '0.8rem', color: '#38bdf8', fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>📅 Készítés hónapja</label>
@@ -378,20 +379,36 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
           </div>
         )}
 
+        {/* ÚJ: TÉRKÉP TÉMÁJÁT VÁLTÓ SZELEKTOR PANEL (A TÉRKÉP FELETT) */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '-10px', zIndex: 10 }}>
+          <div style={{ background: '#1e293b', padding: '4px', borderRadius: '8px', border: '1px solid #334155', display: 'flex', gap: '4px' }}>
+            <button 
+              onClick={() => setMapTheme('dark')} 
+              style={{ background: mapTheme === 'dark' ? '#0f172a' : 'transparent', color: mapTheme === 'dark' ? '#38bdf8' : '#64748b', border: 'none', padding: '6px 14px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem', transition: 'all 0.2s' }}
+            >
+              🌑 Sötét térkép
+            </button>
+            <button 
+              onClick={() => setMapTheme('light')} 
+              style={{ background: mapTheme === 'light' ? '#f8fafc' : 'transparent', color: mapTheme === 'light' ? '#0f172a' : '#64748b', border: 'none', padding: '6px 14px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem', transition: 'all 0.2s' }}
+            >
+              ☀️ Világos térkép
+            </button>
+          </div>
+        </div>
+
+        {/* INTERAKTÍV TÉRKÉP FELÜLET */}
         <div style={{ position: 'relative', height: '650px', width: '100%', borderRadius: '12px', overflow: 'hidden', border: '1px solid #334155' }}>
           <MapContainer center={[47.4979, 19.0402]} zoom={7} style={{ height: '100%', width: '100%', zIndex: 1 }}>
             <MapCameraController targetPosition={mapTargetPosition} />
             
-            {/* =========================================================================================
-                JAVÍTVA: A régi OpenStreetMap helyett a CARTO nemzetközi, latin betűs sötét térképét használjuk!
-                Minden felirat (kínai, arab, cirill) automatikusan transzkribálva/lefordítva jelenik meg angolul.
-                
-                Tipp: Ha sötét helyett a klasszikus színes térképet szeretnéd, cseréld ki az url-t erre:
-                "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-               ========================================================================================= */}
+            {/* JAVÍTVA: Dinamikus Tile URL a kiválasztott mapTheme alapján (Mindkettő angol/latin betűs CARTO réteg!) */}
             <TileLayer 
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>' 
-              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" 
+              url={mapTheme === 'dark' 
+                ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" 
+                : "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+              } 
             />
             
             <MapClickHandler onMapClick={handleMapClick} />
