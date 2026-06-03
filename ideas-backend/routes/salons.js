@@ -200,14 +200,13 @@ module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload,
   });
 
   // ====================================================================
-  // 🤖 JAVÍTVA: AI ALAPÚ ÉLŐ KERESÉS (JSON-kényszerítési konfliktus feloldva)
+  // 🤖 JAVÍTVA: AI ALAPÚ ÉLŐ KERESÉS KATEGÓRIA KIGYŰJTÉSSEL
   // ====================================================================
   app.post('/api/admin/analyze-fiap-id', async (req, res) => {
     const { fiapNumber } = req.body;
     if (!fiapNumber) return res.status(400).json({ error: 'FIAP azonosító megadása kötelező!' });
 
     try {
-      // JAVÍTVA: Eltávolítva a generationConfig JSON kényszerítése, mert tool-al együtt nem támogatja az API
       const model = genAI.getGenerativeModel({ 
         model: "gemini-2.5-flash", 
         tools: [{ googleSearch: {} }] 
@@ -225,6 +224,7 @@ module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload,
         "fee": "A nevezési díj alapösszege euróban kifejezve, CSAK számként megadva (pl. 20 vagy 25)",
         "submission_type": "online" vagy "print",
         "is_circuit": true ha ez egy körverseny (Circuit), egyébként false,
+        "categories": ["Open Color", "Open Monochrome", "Nature", "Travel"],
         "fiap_number": "${fiapNumber}"
       }
       
@@ -233,7 +233,6 @@ module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload,
       const result = await model.generateContent(prompt);
       const text = await result.response.text();
       
-      // Az olló megtalálja a JSON kezdetét és végét a nyers szövegből
       const jsonStart = text.indexOf('{');
       const jsonEnd = text.lastIndexOf('}');
       if (jsonStart === -1 || jsonEnd === -1) throw new Error("Az AI nem generált érvényes struktúrát.");
@@ -244,6 +243,7 @@ module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload,
       res.status(500).json({ error: 'Hiba az AI élő keresése során: ' + err.message });
     }
   });
+
 
 
 
