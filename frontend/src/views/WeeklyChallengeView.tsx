@@ -8,7 +8,7 @@ interface WeeklyChallengeViewProps {
 }
 
 // ====================================================================
-// 📊 GLOBÁLIS SEGÉDFÜGGVÉNYEK: Teljesen kívül, védve a minifikációs hibáktól
+// 📊 GLOBÁLIS SEGÉDFÜGGVÉNYEK
 // ====================================================================
 const getTopicType = (startDate: string, endDate: string) => {
   if (!startDate || !endDate) return 'weekly';
@@ -16,7 +16,6 @@ const getTopicType = (startDate: string, endDate: string) => {
   return durationDays <= 2 ? 'daily' : 'weekly';
 };
 
-// JAVÍTVA: Globális hatókörbe kiemelve, így soha többé nem dobhat "not defined" hibát!
 const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
   e.currentTarget.src = 'https://via.placeholder.com/400x300/1e293b/64748b?text=Kép+nem+található';
 };
@@ -137,8 +136,11 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
 
   const [timeLeft, setTimeLeft] = useState<string>('');
 
-  // Biztonságos globális kalkulációk
-  const totalLikes = myStats?.history?.reduce((sum, e) => sum + (Number(e?.likes) || 0), 0) || 0;
+  // Szerveroldali szinkronizált szavazati adatok állapotai
+  const [userTotalLikes, setUserTotalLikes] = useState<number>(0);
+  const [userPower, setUserPower] = useState<{ super: number; brilliant: number }>({ super: 1, brilliant: 2 });
+
+  // Háttér statisztikák összegzése (Csak a trófeakártyák darabszámplecsnijeihez használjuk)
   const totalViews = myStats?.history?.reduce((sum, e) => sum + (Number(e?.views) || 0), 0) || 0;
   const podiumCount = myStats ? (Number(myStats.podiums?.first || 0) + Number(myStats.podiums?.second || 0) + Number(myStats.podiums?.third || 0)) : 0;
   
@@ -153,18 +155,16 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     });
   }
 
-  const myPower = {
-    super: totalLikes < 20 ? 1 : totalLikes < 100 ? 2 : totalLikes < 300 ? 2 : totalLikes < 800 ? 3 : 4,
-    brilliant: totalLikes < 20 ? 2 : totalLikes < 100 ? 3 : totalLikes < 300 ? 4 : totalLikes < 800 ? 5 : 6
-  };
-
-  const currentLevel = totalLikes < 20 ? { name: 'Újonc 🌱', nextAt: 20, color: '#94a3b8' } :
-                       totalLikes < 100 ? { name: 'Felfedezett 📸', nextAt: 100, color: '#38bdf8' } :
-                       totalLikes < 300 ? { name: 'Haladó ⭐', nextAt: 300, color: '#10b981' } :
-                       totalLikes < 800 ? { name: 'Profi 🏅', nextAt: 800, color: '#f59e0b' } :
+  // ====================================================================
+  // ⚡ JAVÍTVA: A JELENLEGI SZINT ÉS HALADÁS SZÁMÍTÁSA MÁR AZ USER_TOTAL_LIKES-ON ALAPUL!
+  // ====================================================================
+  const currentLevel = userTotalLikes < 20 ? { name: 'Újonc 🌱', nextAt: 20, color: '#94a3b8' } :
+                       userTotalLikes < 100 ? { name: 'Felfedezett 📸', nextAt: 100, color: '#38bdf8' } :
+                       userTotalLikes < 300 ? { name: 'Haladó ⭐', nextAt: 300, color: '#10b981' } :
+                       userTotalLikes < 800 ? { name: 'Profi 🏅', nextAt: 800, color: '#f59e0b' } :
                        { name: 'Guru 👑', nextAt: null, color: '#fbbf24' };
 
-  const progressPercent = currentLevel.nextAt ? (totalLikes / currentLevel.nextAt) * 100 : 100;
+  const progressPercent = currentLevel.nextAt ? (userTotalLikes / currentLevel.nextAt) * 100 : 100;
 
   const BASE_EXPOSURE = 10;
   const exposureEarned = BASE_EXPOSURE + (Number(myVoteCount || 0) * 2);
@@ -199,6 +199,10 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
+        
+        if (data.userTotalLikes !== undefined) setUserTotalLikes(data.userTotalLikes);
+        if (data.userPower) setUserPower(data.userPower);
+
         if (!selectedTopicId) {
           setActiveTopics(data.activeTopics || []);
         } else {
@@ -520,10 +524,10 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                           <div style={{ display: 'flex', gap: '12px', width: '100%', flexDirection: 'column' }}>
                             <div style={{ display: 'flex', gap: '12px', width: '100%' }}>
                               <button onClick={() => handleVote('super')} style={{ flex: 1, padding: '15px', background: 'linear-gradient(135deg, #1e3a8a, #3b82f6)', color: 'white', border: 'none', borderRadius: '14px', fontSize: '1.1rem', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 15px rgba(59, 130, 246, 0.4)' }}>
-                                ✨ Szuper <br/><span style={{fontSize: '0.8rem', fontWeight: 'normal'}}>+{myPower.super} pont</span>
+                                ✨ Szuper <br/><span style={{fontSize: '0.8rem', fontWeight: 'normal'}}>+{userPower.super} pont</span>
                               </button>
                               <button onClick={() => handleVote('brilliant')} style={{ flex: 1, padding: '15px', background: 'linear-gradient(135deg, #f97316, #ef4444)', color: 'white', border: 'none', borderRadius: '14px', fontSize: '1.1rem', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 15px rgba(239, 68, 68, 0.4)' }}>
-                                🔥 Zseniális <br/><span style={{fontSize: '0.8rem', fontWeight: 'normal'}}>+{myPower.brilliant} pont</span>
+                                🔥 Zseniális <br/><span style={{fontSize: '0.8rem', fontWeight: 'normal'}}>+{userPower.brilliant} pont</span>
                               </button>
                             </div>
                             <button onClick={() => handleVote('pass')} style={{ width: '100%', padding: '12px', background: '#334155', color: '#cbd5e1', border: 'none', borderRadius: '14px', fontSize: '0.95rem', cursor: 'pointer' }}>
@@ -608,7 +612,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                               <div style={{ fontSize: '1.5rem', fontWeight: '900', width: '35px', color: index === 0 ? '#fbbf24' : '#cbd5e1', textAlign: 'center' }}>{index + 1}.</div>
                               <div style={{ flex: 1, marginLeft: '10px' }}>
                                 <div style={{ color: 'white', fontWeight: 'bold', fontSize: '1.1rem' }}>{club?.club_name || 'Ismeretlen Klub'}</div>
-                                <div style={{ color: '#64748b', fontSize: '0.8rem' }}>{club?.members_counted || 0} aktív tag</div>
+                                <div style={{ color: '#64748b', fontSize: '0.8rem' }}>{club?.members_counted || 0} tag</div>
                               </div>
                               <div style={{ color: '#10b981', fontWeight: '900', fontSize: '1.4rem' }}>{club?.total_score || 0} ⭐</div>
                             </div>
@@ -650,7 +654,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                                   <div style={{ color: isMe ? '#f8fafc' : '#94a3b8', fontWeight: 'bold', fontStyle: isMe ? 'normal' : 'italic', fontSize: '1.05rem' }}>
                                     {isMe ? (entry?.user_name || 'Én') : 'Titkosított ellenfél'}
                                   </div>
-                                  <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Nézettség: {entry?.views_count || 0}</div>
+                                  <div style={{ fontSize: '0.8.rem', color: '#64748b' }}>Nézettség: {entry?.views_count || 0}</div>
                                 </div>
                                 <div style={{ textAlign: 'right' }}>
                                   <div style={{ color: isMe ? '#f97316' : '#94a3b8', fontWeight: '900', fontSize: '1.5rem' }}>{entry?.likes_count || 0} ⭐</div>
@@ -785,6 +789,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
             <div style={{ color: '#ef4444', textAlign: 'center', padding: '20px' }}>Nem sikerült betölteni az adatokat.</div>
           ) : (
             <>
+              {/* JAVÍTVA: A Progress sáv és az óriási szintjelzés mostantól a valós userTotalLikes értékre hallgat! */}
               <div style={{ background: 'linear-gradient(180deg, #1e293b, #0f172a)', padding: '40px 25px', borderRadius: '24px', border: `1px solid ${currentLevel.color}50`, marginBottom: '40px', textAlign: 'center', boxShadow: `0 10px 40px -10px ${currentLevel.color}40`, position: 'relative', overflow: 'hidden' }}>
                 <div style={{ position: 'absolute', top: '-50px', left: '50%', transform: 'translateX(-50%)', width: '300px', height: '300px', background: `${currentLevel.color}20`, filter: 'blur(80px)', borderRadius: '50%' }}></div>
                 <h3 style={{ color: '#94a3b8', margin: '0 0 10px 0', fontSize: '1rem', textTransform: 'uppercase', letterSpacing: '3px', position: 'relative', zIndex: 1 }}>Jelenlegi Státuszod</h3>
@@ -795,7 +800,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                 </div>
                 {currentLevel.nextAt ? (
                   <div style={{ color: '#cbd5e1', fontSize: '0.9rem', marginTop: '15px', position: 'relative', zIndex: 1 }}>
-                    Még <b style={{color: 'white', fontSize: '1.1rem'}}>{currentLevel.nextAt - totalLikes} Rangpont</b> kell a következő szinthez!
+                    Még <b style={{color: 'white', fontSize: '1.1rem'}}>{currentLevel.nextAt - userTotalLikes} Rangpont</b> kell a következő szinthez!
                   </div>
                 ) : (
                   <div style={{ color: '#fbbf24', fontSize: '1rem', marginTop: '15px', fontWeight: 'bold', position: 'relative', zIndex: 1 }}>Elérted a maximális szintet! Te vagy a Fotós Guru!</div>
@@ -804,7 +809,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '20px', marginBottom: '40px' }}>
                 <div style={{ background: '#0f172a', padding: '25px', borderRadius: '20px', textAlign: 'center', border: '1px solid #334155', boxShadow: '0 10px 20px rgba(0,0,0,0.2)' }}>
-                  <div style={{ fontSize: '2.5rem', fontWeight: '900', color: '#f97316', marginBottom: '5px' }}>{totalLikes}</div>
+                  <div style={{ fontSize: '2.5rem', fontWeight: '900', color: '#f97316', marginBottom: '5px' }}>{userTotalLikes}</div>
                   <div style={{ color: '#94a3b8', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Összes Szerzett Pont</div>
                 </div>
                 <div style={{ background: '#0f172a', padding: '25px', borderRadius: '20px', textAlign: 'center', border: '1px solid #334155', boxShadow: '0 10px 20px rgba(0,0,0,0.2)' }}>
