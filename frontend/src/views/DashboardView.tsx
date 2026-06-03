@@ -127,7 +127,7 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
             Üdvözlünk, <span style={{ color: '#38bdf8' }}>{user.name}</span>! 👋
           </h1>
           <p style={{ margin: 0, color: '#94a3b8', fontSize: '1.1rem' }}>
-            Válaszd ki, hogy melyik modult szeretnéd használni ma.
+            Ha valami nem megfelelően működik, a support részen kapcsolatba léphetsz a fejlesztővel!
           </p>
         </div>
         {(user?.isPremium || user?.is_premium) && (
