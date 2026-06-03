@@ -123,7 +123,7 @@ module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload,
   app.get('/api/mafosz-entries', checkPremium, async (req, res) => {
     const userEmail = req.query.userEmail;
     try {
-      const [rows] = await pool.query(`SELECT COALESCE(port.title, 'Ismeretlen / Törölt kép') as photo_title, s.name as salon_name, sp.patron_number as mafosz_number, a.award_name as award, s.submission_type, port.drive_file_id, port.file_url FROM photo_salon_entries e JOIN photo_salons s ON e.salon_id = s.id JOIN photo_awards a ON e.award_id = a.id JOIN photo_salon_patrons sp ON sp.salon_id = s.id LEFT JOIN photo_portfolio port ON e.portfolio_id = port.id WHERE sp.patron_id = 3 AND e.user_email = ? AND e.award_id IS NOT NULL AND e.award_id > 0 AND a.award_name IS NOT NULL AND TRIM(a.award_name) != '' ORDER BY s.name ASC, photo_title ASC`, [userEmail]);
+      const [rows] = await pool.query(`SELECT COALESCE(port.title, 'Ismeretlen / Törölt kép') as photo_title, s.name as salon_name, sp.patron_number as mafosz_number, a.award_name as award, s.submission_type, port.drive_file_id, port.file_url FROM photo_salon_entries e JOIN photo_salons s ON e.salon_id = s.id JOIN photo_awards a ON e.award_id = a.id JOIN photo_salon_patrons sp ON sp.salon_id = s.id WHERE sp.patron_id = 3 AND e.user_email = ? AND e.award_id IS NOT NULL AND e.award_id > 0 AND a.award_name IS NOT NULL AND TRIM(a.award_name) != '' ORDER BY s.name ASC, photo_title ASC`, [userEmail]);
       res.json(rows);
     } catch (err) { res.status(500).json({ error: err.message }); }
   });
@@ -199,6 +199,50 @@ module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload,
     } catch (err) { res.status(500).json({ error: `Hálózati hiba: ${err.message}` }); }
   });
 
+  // ====================================================================
+  // 🤖 ÚJ VÉGPONT: AI ALAPÚ FIAP AZONOSÍTÓ KERESÉS ÉS ELEMZÉS
+  // ====================================================================
+  app.post('/api/admin/analyze-fiap-id', async (req, res) => {
+    const { fiapNumber } = req.body;
+    if (!fiapNumber) return res.status(400).json({ error: 'FIAP azonosító megadása kötelező!' });
+
+    try {
+      const model = genAI.getGenerativeModel({ 
+        model: "gemini-2.5-flash", 
+        generationConfig: { responseMimeType: "application/json" } 
+      });
+
+      const prompt = `Te egy nemzetközi fotópályázat szakértő vagy. Kaptál egy FIAP védnökségi azonosítót (Patronage number): "${fiapNumber}".
+      Keresd meg a globális tudásbázisodban az ehhez az azonosító kódhoz tartozó hivatalos nemzetközi fotópályázat (Salon) adatait.
+      
+      Adj vissza egy pontos JSON objektumot az alábbi struktúrával:
+      {
+        "name": "A pályázat hivatalos teljes angol neve",
+        "website": "A pályázat vagy a szervező klub hivatalos weboldalának címe (URL)",
+        "end_date": "A beküldési határidő (Closing date) YYYY-MM-DD formátumban. Ha nem tudod pontosan, az évszámból és a sorszámból következtess egy reális, becsült záródátumra",
+        "country": "A rendező ország hivatalos angol neve (pl. India, Spain, Hungary, Serbia)",
+        "fee": "A nevezési díj átlagos összege euróban kifejezve, CSAK számként megadva (pl. 20 vagy 25)",
+        "submission_type": "online" vagy "print",
+        "is_circuit": true ha ez egy körverseny (Circuit), egyébként false,
+        "fiap_number": Maga az átadott azonosító megtisztítva szabványos formára (pl. "2025/123")
+      }
+      
+      Szigorúan csak az érvényes JSON objektumot küldd vissza, minden egyéb magyarázó szöveg nélkül!`;
+
+      const result = await model.generateContent(prompt);
+      const text = await result.response.text();
+      
+      const jsonStart = text.indexOf('{');
+      const jsonEnd = text.lastIndexOf('}');
+      if (jsonStart === -1 || jsonEnd === -1) throw new Error("Az AI nem generált érvényes adatot.");
+      
+      const parsedData = JSON.parse(text.substring(jsonStart, jsonEnd + 1));
+      res.json(parsedData);
+    } catch (err) {
+      res.status(500).json({ error: 'Hiba az AI elemzés során: ' + err.message });
+    }
+  });
+
   app.post('/api/admin/import-fiap', async (req, res) => {
     const { salonsToImport } = req.body;
     if (!salonsToImport || salonsToImport.length === 0) return res.json({ count: 0 });
@@ -243,7 +287,7 @@ module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload,
       - "fiapNumber": Keresd meg a FIAP vagy MAFOSZ azonosítót. Ha nincs, hagyd üresen.
       - "award": Keresd meg az eredményt. Ha nincs, legyen "Acceptance".
       - "salonName": Keresd meg a Szalon nevét. HA NINCS, akkor a "fiapNumber" alapján (a tudásbázisodból) találd ki a pályázat nevét! Ha sehogy sem tudod, legyen "Ismeretlen Szalon".
-      KIZÁRÓLAG egy érvényes JSON tömböt adj vissza: [{"title": "Kép címe", "fiapNumber": "2024/001", "award": "Acceptance", "salonName": "Szalon Neve 2024"}]\nNyers adat:\n${JSON.stringify(sampleData)}`;
+      KIZÁRÓLEG egy érvényes JSON tömböt adj vissza: [{"title": "Kép címe", "fiapNumber": "2024/001", "award": "Acceptance", "salonName": "Szalon Neve 2024"}]\nNyers adat:\n${JSON.stringify(sampleData)}`;
   
       const result = await model.generateContent(prompt);
       let text = await result.response.text();
@@ -254,7 +298,7 @@ module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload,
   
       const processedResults = [];
       const [dbPortfolio] = await pool.query('SELECT id, title FROM photo_portfolio WHERE user_email = ?', [userEmail]);
-      const [dbSalons] = await pool.query('SELECT s.id, s.name, sp.patron_number FROM photo_salons s JOIN photo_salon_patrons sp ON s.id = sp.salon_id WHERE sp.patron_number IS NOT NULL AND sp.patron_number != ""');
+      const [dbSalons] = await pool.query('SELECT s.id, s.name, sp.patron_number FROM photo_salons s JOIN photo_salons_patrons sp ON s.id = sp.salon_id WHERE sp.patron_number IS NOT NULL AND sp.patron_number != ""');
       const [dbEntries] = await pool.query('SELECT salon_id, portfolio_id FROM photo_salon_entries WHERE user_email = ?', [userEmail]);
   
       for (const item of normalizedArray) {
