@@ -213,7 +213,7 @@ module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload,
       });
 
       const prompt = `Te egy nemzetközi fotópályázat szakértő vagy. Kaptál egy FIAP védnökségi azonosítót (Patronage number): "${fiapNumber}".
-      Keresd meg a globális tudásbázisodban az ehhez az azonosító kódhoz tartozó hivatalos nemzetközi fotópályázat (Salon) adatait.
+      Keresd meg az ehhez az azonosító kódhoz tartozó hivatalos nemzetközi FIAP fotópályázat (Salon) adatait.
       
       Adj vissza egy pontos JSON objektumot az alábbi struktúrával:
       {
