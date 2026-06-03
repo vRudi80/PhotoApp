@@ -176,7 +176,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       const [users] = await pool.query('SELECT club_name FROM photo_users WHERE email = ?', [userEmail]);
       const clubName = users.length > 0 ? users[0].club_name : null;
       const [contests] = await pool.query('SELECT id, title, end_date FROM photo_contests WHERE start_date <= CURRENT_DATE() AND end_date >= CURRENT_DATE() ORDER BY end_date ASC');
-      const [weekly] = await pool.query('SELECT id, title, end_date FROM weekly_topics WHERE start_date <= CURRENT_DATE() AND end_date >= CURRENT_DATE() LIMIT 1');
+      const [weekly] = await pool.query('SELECT id, title, end_date FROM weekly_topics WHERE start_date <= CURRENT_DATE() AND end_date >= CURRENT_DATE()');
   
       let homeworks = []; let unreadNews = [];
       if (clubName) {
