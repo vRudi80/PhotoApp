@@ -62,7 +62,7 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
     }, 1000);
     
     return () => clearInterval(interval);
-  }, [topic]);
+  }, [topic.id, topic.end_date]);
 
   const isDaily = getTopicType(topic.start_date, topic.end_date) === 'daily';
 
@@ -93,7 +93,6 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
 }
 
 export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyChallengeViewProps) {
-  // 1. ÁLLAPOTOK (STATE HOOKS)
   const [subTab, setSubTab] = useState<'current' | 'upcoming' | 'past' | 'my_stats'>('current');
   const [loading, setLoading] = useState(true);
   
@@ -130,60 +129,51 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
 
   const [timeLeft, setTimeLeft] = useState<string>('');
 
-  // 2. SZINT ÉS PONT RENDSZER STATIKUS BEÁLLÍTÁSAI
-  const getVotePower = (likes: number) => {
-    if (likes < 20) return { super: 1, brilliant: 2 };
-    if (likes < 100) return { super: 2, brilliant: 3 };
-    if (likes < 300) return { super: 2, brilliant: 4 };
-    if (likes < 800) return { super: 3, brilliant: 5 };
-    return { super: 4, brilliant: 6 };
-  };
-
-  const getLevel = (likes: number) => {
-    if (likes < 20) return { name: 'Újonc 🌱', nextAt: 20, color: '#94a3b8' };
-    if (likes < 100) return { name: 'Felfedezett 📸', nextAt: 100, color: '#38bdf8' };
-    if (likes < 300) return { name: 'Haladó ⭐', nextAt: 300, color: '#10b981' };
-    if (likes < 800) return { name: 'Profi 🏅', nextAt: 800, color: '#f59e0b' };
-    return { name: 'Guru 👑', nextAt: null, color: '#fbbf24' };
-  };
-
   // ====================================================================
-  // ⚡ JAVÍTVA: AZ ÖSSZES ÉLŐ SZÁMÍTÁS HOISZTOLÁSA A BIZTONSÁGOS SCOPE ÉRDEKÉBEN
+  // ⚡ JAVÍTVA: ABSZOLÚT GOLYÓÁLLÓ SZÁMÍTÁSOK (NaN és UNDEFINED ELLENI VÉDELEM)
   // ====================================================================
-  const totalLikes = myStats?.history?.reduce((sum, e) => sum + e.likes, 0) || 0;
-  const totalViews = myStats?.history?.reduce((sum, e) => sum + e.views, 0) || 0;
+  const totalLikes = myStats?.history?.reduce((sum, e) => sum + (Number(e.likes) || 0), 0) || 0;
+  const totalViews = myStats?.history?.reduce((sum, e) => sum + (Number(e.views) || 0), 0) || 0;
   const podiumCount = myStats ? (Number(myStats.podiums?.first || 0) + Number(myStats.podiums?.second || 0) + Number(myStats.podiums?.third || 0)) : 0;
   
   let top10Count = 0;
   let top20Count = 0;
   if (myStats?.history) {
     myStats.history.forEach(e => {
-      const percentile = e.rank / e.total_entries;
-      if (percentile <= 0.1 && e.rank > 3) top10Count++;
+      const entriesCount = Number(e.total_entries) || 1;
+      const percentile = (Number(e.rank) || 1) / entriesCount;
+      if (percentile <= 0.1 && (Number(e.rank) || 0) > 3) top10Count++;
       if (percentile > 0.1 && percentile <= 0.2) top20Count++;
     });
   }
 
-  const myPower = getVotePower(totalLikes);
-  const currentLevel = getLevel(totalLikes);
+  const myPower = {
+    super: totalLikes < 20 ? 1 : totalLikes < 100 ? 2 : totalLikes < 300 ? 2 : totalLikes < 800 ? 3 : 4,
+    brilliant: totalLikes < 20 ? 2 : totalLikes < 100 ? 3 : totalLikes < 300 ? 4 : totalLikes < 800 ? 5 : 6
+  };
+
+  const currentLevel = totalLikes < 20 ? { name: 'Újonc 🌱', nextAt: 20, color: '#94a3b8' } :
+                       totalLikes < 100 ? { name: 'Felfedezett 📸', nextAt: 100, color: '#38bdf8' } :
+                       totalLikes < 300 ? { name: 'Haladó ⭐', nextAt: 300, color: '#10b981' } :
+                       totalLikes < 800 ? { name: 'Profi 🏅', nextAt: 800, color: '#f59e0b' } :
+                       { name: 'Guru 👑', nextAt: null, color: '#fbbf24' };
+
   const progressPercent = currentLevel.nextAt ? (totalLikes / currentLevel.nextAt) * 100 : 100;
 
+  // Golyóálló láthatósági mérő számítások (Ez javítja a crash-t!)
   const BASE_EXPOSURE = 10;
-  const exposureEarned = BASE_EXPOSURE + (myVoteCount * 2);
-  const viewsRemaining = myEntry ? (exposureEarned - myEntry.views_count) : 0;
-  const exposurePercentage = myEntry ? Math.min(100, Math.max(0, (viewsRemaining / 15) * 100)) : 0;
+  const exposureEarned = BASE_EXPOSURE + (Number(myVoteCount || 0) * 2);
+  const safeViewsCount = myEntry ? (Number(myEntry.views_count) || 0) : 0;
+  const viewsRemaining = myEntry ? (exposureEarned - safeViewsCount) : 0;
+  const rawPercentage = myEntry ? ((viewsRemaining / 15) * 100) : 0;
+  const exposurePercentage = isNaN(rawPercentage) || !isFinite(rawPercentage) ? 0 : Math.min(100, Math.max(0, rawPercentage));
 
   let exposureColor = '#ef4444';
   let exposureLabel = viewsRemaining <= 0 ? 'Láthatatlan (0%)' : 'Alacsony';
-  if (exposurePercentage >= 80) {
-    exposureColor = '#10b981';
-    exposureLabel = 'Maximális';
-  } else if (exposurePercentage >= 40) {
-    exposureColor = '#f59e0b';
-    exposureLabel = 'Közepes';
-  }
+  if (exposurePercentage >= 80) { exposureColor = '#10b981'; exposureLabel = 'Maximális'; } 
+  else if (exposurePercentage >= 40) { exposureColor = '#f59e0b'; exposureLabel = 'Közepes'; }
 
-  // Megakadályozzuk, hogy a szoba váltásakor régi adatokkal fusson neki a renderelésnek
+  // Azonnali takarítás szobaváltáskor
   useEffect(() => {
     setTopic(null);
     setMyEntry(null);
@@ -198,8 +188,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     setLoading(true);
     try {
       const url = selectedTopicId 
-        ? `${BACKEND_URL}/api/weekly/current?userEmail=${user.email}&topicId=${selectedTopicId}`
-        : `${BACKEND_URL}/api/weekly/current?userEmail=${user.email}`;
+        ? `${BACKEND_URL}/api/weekly/current?userEmail=${user?.email || ''}&topicId=${selectedTopicId}`
+        : `${BACKEND_URL}/api/weekly/current?userEmail=${user?.email || ''}`;
 
       const res = await fetch(url);
       if (res.ok) {
@@ -209,8 +199,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         } else {
           setTopic(data.topic);
           setMyEntry(data.myEntry);
-          setMyVoteCount(data.myVoteCount);
-          setVotableEntries(data.votableEntries || 1);
+          setMyVoteCount(Number(data.myVoteCount) || 0);
+          setVotableEntries(Number(data.votableEntries) || 1);
           setLeaderboard(data.leaderboard || []);
           setCurrentClubLeaderboard(data.clubLeaderboard || []);
           if (data.topic) fetchNextVote(data.topic.id);
@@ -222,7 +212,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
 
   const fetchNextVote = async (topicId: number) => {
     try {
-      const res = await fetch(`${BACKEND_URL}/api/weekly/next-vote?topicId=${topicId}&userEmail=${user.email}`);
+      const res = await fetch(`${BACKEND_URL}/api/weekly/next-vote?topicId=${topicId}&userEmail=${user?.email || ''}`);
       if (res.ok) {
         const data = await res.json();
         if (data && data.entry) { setVoteEntry(data.entry); setNoMoreEntries(false); } 
@@ -234,7 +224,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const fetchMyStats = async () => {
     setIsLoadingStats(true);
     try {
-      const res = await fetch(`${BACKEND_URL}/api/weekly/my-stats?userEmail=${user.email}`);
+      const res = await fetch(`${BACKEND_URL}/api/weekly/my-stats?userEmail=${user?.email || ''}`);
       if (res.ok) {
           const data = await res.json();
           if (data && data.history && data.podiums) {
@@ -319,7 +309,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       const res = await fetch(`${BACKEND_URL}/api/weekly/report-off-topic`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ entryId, userEmail: user.email })
+        body: JSON.stringify({ entryId, userEmail: user?.email || '' })
       });
       
       if (res.ok) {
@@ -343,7 +333,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     try {
       const res = await fetch(`${BACKEND_URL}/api/weekly/vote`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ entryId: oldEntryId, userEmail: user.email, voteType: type })
+        body: JSON.stringify({ entryId: oldEntryId, userEmail: user?.email || '', voteType: type })
       });
       if (res.ok) {
         setMyVoteCount(prev => prev + 1);
@@ -365,7 +355,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     setIsUploading(true);
     try {
       const formData = new FormData();
-      formData.append('photo', uploadFile); formData.append('topicId', topic.id.toString()); formData.append('userEmail', user.email); formData.append('userName', user.name);
+      formData.append('photo', uploadFile); formData.append('topicId', topic.id.toString()); formData.append('userEmail', user?.email || ''); formData.append('userName', user?.name || '');
       const res = await fetch(`${BACKEND_URL}/api/weekly/upload`, { method: 'POST', body: formData });
       if (res.ok) { alert('🎉 Sikeres nevezés! Irány szavazni!'); setUploadFile(null); setUploadPreview(null); fetchCurrentTopic(); } 
       else { const err = await res.json(); alert(err.error); }
@@ -386,7 +376,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     setIsSwapping(true);
     try {
       const formData = new FormData();
-      formData.append('photo', swapFile); formData.append('topicId', topic.id.toString()); formData.append('userEmail', user.email); formData.append('userName', user.name);
+      formData.append('photo', swapFile); formData.append('topicId', topic.id.toString()); formData.append('userEmail', user?.email || ''); formData.append('userName', user?.name || '');
       const res = await fetch(`${BACKEND_URL}/api/weekly/swap`, { method: 'POST', body: formData });
       if (res.ok) { alert('🔄 Kép sikeresen lecserélve! Újra indul a harc!'); setSwapFile(null); setSwapPreview(null); fetchCurrentTopic(); } 
       else { const err = await res.json(); alert(err.error); }
@@ -499,7 +489,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                     </div>
 
                     <div style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #334155', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
-                      <h3 style={{ margin: '0 0 20px 0', color: '#f8fafc', fontSize: '1.4rem' }}>⚔️ Értékelő Aréna</h3>
+                      <h3 style={{ margin: '0 0 20px 0', color: '#f8fafc', fontSize: '1.4rem' }}>📸 Értékelő Aréna</h3>
                       {!myEntry ? (
                         <div style={{ padding: '40px 20px', textAlign: 'center', background: '#0f172a', borderRadius: '16px', border: '2px dashed #f59e0b' }}>
                           <div style={{ fontSize: '3.5rem', marginBottom: '15px' }}>🛑</div>
@@ -515,7 +505,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                       ) : voteEntry ? (
                         <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                           <div onClick={() => setFullscreenData({url: getImageUrl(voteEntry.drive_file_id, voteEntry.file_url), title: 'Kihívás'})} style={{ width: '100%', height: '380px', backgroundColor: '#000', borderRadius: '16px', overflow: 'hidden', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-in', boxShadow: '0 10px 20px rgba(0,0,0,0.5)' }}>
-                            <img src={getImageUrl(voteEntry.drive_file_id, voteEntry.file_url)} alt="Szavazás" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} onError={handleOriginalImageError} />
+                            <img src={getImageUrl(voteEntry.drive_file_id, voteEntry.file_url)} alt="Szavazás" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} onError={handleImageError} />
                           </div>
                           
                           {voteEntry.off_topic_count > 0 && (
@@ -632,10 +622,14 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                       {(!leaderboard || leaderboard.length === 0) ? <div style={{ color: '#94a3b8', textAlign: 'center', padding: '30px', background: '#0f172a', borderRadius: '16px' }}>Még üres az Aréna.</div> : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                           {[...leaderboard].sort((a, b) => {
-                            if (b.likes_count !== a.likes_count) return b.likes_count - a.likes_count;
-                            return a.views_count - b.views_count;
+                            const likesA = Number(a.likes_count || 0);
+                            const likesB = Number(b.likes_count || 0);
+                            const viewsA = Number(a.views_count || 0);
+                            const viewsB = Number(b.views_count || 0);
+                            if (likesB !== likesA) return likesB - likesA;
+                            return viewsA - viewsB;
                           }).map((entry, index) => {
-                            const isMe = entry.user_email === user.email;
+                            const isMe = entry.user_email === user?.email;
                             const rankColor = index === 0 ? '#fbbf24' : index === 1 ? '#e2e8f0' : index === 2 ? '#cd7f32' : '#64748b';
                             
                             return (
@@ -757,8 +751,12 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
               {!selectedPastTopicId && <div style={{color: '#94a3b8', textAlign: 'center', padding: '10px'}}>Válassz egy témát a listából.</div>}
               
               {pastLeaderboard && [...pastLeaderboard].sort((a, b) => {
-                if (b.likes_count !== a.likes_count) return b.likes_count - a.likes_count;
-                return a.views_count - b.views_count;
+                const likesA = Number(a.likes_count || 0);
+                const likesB = Number(b.likes_count || 0);
+                const viewsA = Number(a.views_count || 0);
+                const viewsB = Number(b.views_count || 0);
+                if (likesB !== likesA) return likesB - likesA;
+                return viewsA - viewsB;
               }).map((entry, index) => (
                 <div key={entry.id} style={{ display: 'flex', alignItems: 'center', background: '#0f172a', padding: '12px', borderRadius: '12px', marginBottom: '12px', border: '1px solid #334155' }}>
                   <div style={{ fontSize: '1.4rem', fontWeight: '900', width: '35px', color: index === 0 ? '#fbbf24' : '#94a3b8', textAlign: 'center' }}>{index + 1}.</div>
@@ -835,9 +833,9 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '25px' }}>
                   {myStats.history.map((entry, idx) => {
-                    const percentile = entry.rank / entry.total_entries;
+                    const percentile = (Number(entry.rank) || 1) / (Number(entry.total_entries) || 1);
                     let badge = ''; let badgeColor = '#334155';
-                    if (entry.rank <= 3) { badge = '🏆 Dobogós'; badgeColor = '#fbbf24'; }
+                    if ((Number(entry.rank) || 0) <= 3) { badge = '🏆 Dobogós'; badgeColor = '#fbbf24'; }
                     else if (percentile <= 0.1) { badge = '⭐ Top 10%'; badgeColor = '#a855f7'; }
                     else if (percentile <= 0.2) { badge = '✨ Top 20%'; badgeColor = '#10b981'; }
 
