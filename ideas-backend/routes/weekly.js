@@ -259,6 +259,26 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       res.json({ podiums, history });
     } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
+
+  // 6b. ÚJ: GLOBÁLIS DICSŐSÉGCSARNOK LEKÉRDEZÉSE RANGOKHOZ
+  app.get('/api/weekly/hall-of-fame', async (req, res) => {
+    try {
+      const [rows] = await pool.query(`
+        SELECT 
+          u.name as user_name, 
+          u.email as user_email, 
+          u.club_name,
+          COALESCE(SUM(e.likes_count), 0) as total_likes
+        FROM photo_users u
+        LEFT JOIN weekly_entries e ON u.email = e.user_email
+        GROUP BY u.email, u.name, u.club_name
+        ORDER BY total_likes DESC, u.name ASC
+      `);
+      res.json(rows);
+    } catch (err) {
+      res.status(500).json({ error: 'Hiba a dicsőségcsarnok lekérésekor' });
+    }
+  });
   
   app.post('/api/weekly/report-off-topic', async (req, res) => {
     const { entryId, userEmail } = req.body;
