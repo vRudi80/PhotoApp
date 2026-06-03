@@ -93,6 +93,7 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
 }
 
 export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyChallengeViewProps) {
+  // 1. ÁLLAPOTOK (STATE HOOKS)
   const [subTab, setSubTab] = useState<'current' | 'upcoming' | 'past' | 'my_stats'>('current');
   const [loading, setLoading] = useState(true);
   
@@ -129,7 +130,60 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
 
   const [timeLeft, setTimeLeft] = useState<string>('');
 
-  // JAVÍTVA: Amikor párbajt váltunk, AZONNAL töröljük a régi szoba memóriáját, megakadályozva a fehér képernyőt!
+  // 2. SZINT ÉS PONT RENDSZER STATIKUS BEÁLLÍTÁSAI
+  const getVotePower = (likes: number) => {
+    if (likes < 20) return { super: 1, brilliant: 2 };
+    if (likes < 100) return { super: 2, brilliant: 3 };
+    if (likes < 300) return { super: 2, brilliant: 4 };
+    if (likes < 800) return { super: 3, brilliant: 5 };
+    return { super: 4, brilliant: 6 };
+  };
+
+  const getLevel = (likes: number) => {
+    if (likes < 20) return { name: 'Újonc 🌱', nextAt: 20, color: '#94a3b8' };
+    if (likes < 100) return { name: 'Felfedezett 📸', nextAt: 100, color: '#38bdf8' };
+    if (likes < 300) return { name: 'Haladó ⭐', nextAt: 300, color: '#10b981' };
+    if (likes < 800) return { name: 'Profi 🏅', nextAt: 800, color: '#f59e0b' };
+    return { name: 'Guru 👑', nextAt: null, color: '#fbbf24' };
+  };
+
+  // ====================================================================
+  // ⚡ JAVÍTVA: AZ ÖSSZES ÉLŐ SZÁMÍTÁS HOISZTOLÁSA A BIZTONSÁGOS SCOPE ÉRDEKÉBEN
+  // ====================================================================
+  const totalLikes = myStats?.history?.reduce((sum, e) => sum + e.likes, 0) || 0;
+  const totalViews = myStats?.history?.reduce((sum, e) => sum + e.views, 0) || 0;
+  const podiumCount = myStats ? (Number(myStats.podiums?.first || 0) + Number(myStats.podiums?.second || 0) + Number(myStats.podiums?.third || 0)) : 0;
+  
+  let top10Count = 0;
+  let top20Count = 0;
+  if (myStats?.history) {
+    myStats.history.forEach(e => {
+      const percentile = e.rank / e.total_entries;
+      if (percentile <= 0.1 && e.rank > 3) top10Count++;
+      if (percentile > 0.1 && percentile <= 0.2) top20Count++;
+    });
+  }
+
+  const myPower = getVotePower(totalLikes);
+  const currentLevel = getLevel(totalLikes);
+  const progressPercent = currentLevel.nextAt ? (totalLikes / currentLevel.nextAt) * 100 : 100;
+
+  const BASE_EXPOSURE = 10;
+  const exposureEarned = BASE_EXPOSURE + (myVoteCount * 2);
+  const viewsRemaining = myEntry ? (exposureEarned - myEntry.views_count) : 0;
+  const exposurePercentage = myEntry ? Math.min(100, Math.max(0, (viewsRemaining / 15) * 100)) : 0;
+
+  let exposureColor = '#ef4444';
+  let exposureLabel = viewsRemaining <= 0 ? 'Láthatatlan (0%)' : 'Alacsony';
+  if (exposurePercentage >= 80) {
+    exposureColor = '#10b981';
+    exposureLabel = 'Maximális';
+  } else if (exposurePercentage >= 40) {
+    exposureColor = '#f59e0b';
+    exposureLabel = 'Közepes';
+  }
+
+  // Megakadályozzuk, hogy a szoba váltásakor régi adatokkal fusson neki a renderelésnek
   useEffect(() => {
     setTopic(null);
     setMyEntry(null);
@@ -340,7 +394,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     finally { setIsSwapping(false); }
   };
 
-  const handleOriginalImageError = (e: any) => {
+  const handleImageError = (e: any) => {
     e.currentTarget.src = 'https://via.placeholder.com/400x300/1e293b/64748b?text=Kép+nem+található';
   };
 
@@ -402,7 +456,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                 </button>
               </div>
 
-              {/* JAVÍTVA: A szigorú state-reset miatt a guard mostantól tökéletesen és crashtől mentesen megvárja az új adatokat */}
               {(!topic || loading) ? (
                 <div style={{ color: '#94a3b8', textAlign: 'center', padding: '50px' }}>⏳ Aréna szoba előkészítése...</div>
               ) : (
@@ -602,7 +655,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                                   </div>
                                   <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Nézettség: {entry.views_count}</div>
                                 </div>
-                                {/* JAVÍTVA: Elgépelt stílustulajdonság száműzve */}
                                 <div style={{ textAlign: 'right' }}>
                                   <div style={{ color: isMe ? '#f97316' : '#94a3b8', fontWeight: '900', fontSize: '1.5rem' }}>{entry.likes_count} ⭐</div>
                                 </div>
@@ -699,7 +751,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
               ))}
             </div>
 
-            <div style={{ background: '#1e293b', borderRadius: '24px', padding: '25px', border: '1px solid #3b82f6', boxShadow: '0 10px 30px rgba(0,0,0,0.2)' }}>
+            <div style={{ background: '#1e293b', borderRadius: '24px', padding: '25px', border: '1px solid #334155', boxShadow: '0 10px 30px rgba(0,0,0,0.2)' }}>
               <h3 style={{ margin: '0 0 20px 0', color: '#3b82f6', fontSize: '1.4rem' }}>🏅 Egyéni Végeredmény</h3>
               
               {!selectedPastTopicId && <div style={{color: '#94a3b8', textAlign: 'center', padding: '10px'}}>Válassz egy témát a listából.</div>}
