@@ -199,49 +199,52 @@ module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload,
     } catch (err) { res.status(500).json({ error: `Hálózati hiba: ${err.message}` }); }
   });
 
-  // ====================================================================
-  // 🤖 ÚJ VÉGPONT: AI ALAPÚ FIAP AZONOSÍTÓ KERESÉS ÉS ELEMZÉS
+    // ====================================================================
+  // 🤖 JAVÍTVA: AI ALAPÚ FIAP AZONOSÍTÓ KERESÉS ÉLŐ GOOGLE MEGHALYTÁSSAL
   // ====================================================================
   app.post('/api/admin/analyze-fiap-id', async (req, res) => {
     const { fiapNumber } = req.body;
     if (!fiapNumber) return res.status(400).json({ error: 'FIAP azonosító megadása kötelező!' });
 
     try {
+      // Aktiváljuk a Google Search-öt, így az AI valós időben böngészik a neten
       const model = genAI.getGenerativeModel({ 
         model: "gemini-2.5-flash", 
-        generationConfig: { responseMimeType: "application/json" } 
+        generationConfig: { responseMimeType: "application/json" },
+        tools: [{ googleSearch: {} }] // <-- EZ AZ ÉLŐ INTERNETES KERESŐ ESZKÖZ!
       });
 
-      const prompt = `Te egy nemzetközi fotópályázat szakértő vagy. Kaptál egy FIAP védnökségi azonosítót (Patronage number): "${fiapNumber}".
-      Keresd meg az ehhez az azonosító kódhoz tartozó hivatalos nemzetközi FIAP fotópályázat (Salon) adatait.
+      const prompt = `Használd a Google keresőt! Keresd meg a következő hivatalos FIAP védnökségi számmal (Patronage number) rendelkező fotópályázatot: "${fiapNumber}".
+      Keresd meg a pályázat hivatalos kiírását (Regulations / Closing date), és gyűjtsd ki az adatokat szigorúan a talált weboldalak alapján.
       
-      Adj vissza egy pontos JSON objektumot az alábbi struktúrával:
+      A válaszod egy precíz JSON objektum legyen:
       {
-        "name": "A pályázat hivatalos teljes angol neve",
-        "website": "A pályázat vagy a szervező klub hivatalos weboldalának címe (URL)",
-        "end_date": "A beküldési határidő (Closing date) YYYY-MM-DD formátumban. Ha nem tudod pontosan, az évszámból és a sorszámból következtess egy reális, becsült záródátumra",
-        "country": "A rendező ország hivatalos angol neve (pl. India, Spain, Hungary, Serbia)",
-        "fee": "A nevezési díj átlagos összege euróban kifejezve, CSAK számként megadva (pl. 20 vagy 25)",
+        "name": "A pályázat hivatalos teljes angol neve (pl. 5th Balkan Exhibition 2026)",
+        "website": "A pályázat hivatalos weboldalának közvetlen címe (URL)",
+        "end_date": "A beküldési határidő (Closing date) YYYY-MM-DD formátumban.",
+        "country": "A rendező ország hivatalos angol neve (pl. India, Spain, Serbia, Germany)",
+        "fee": "A nevezési díj alapösszege euróban kifejezve, CSAK számként megadva (pl. 20 vagy 25)",
         "submission_type": "online" vagy "print",
         "is_circuit": true ha ez egy körverseny (Circuit), egyébként false,
-        "fiap_number": Maga az átadott azonosító megtisztítva szabványos formára (pl. "2025/123")
+        "fiap_number": "${fiapNumber}"
       }
       
-      Szigorúan csak az érvényes JSON objektumot küldd vissza, minden egyéb magyarázó szöveg nélkül!`;
+      Fontos: Ha nem leled a pontos napot, a sorszámból és az évszámból következtess egy reális, becsült záródátumra. Szigorúan csak a JSON-t küldd vissza!`;
 
       const result = await model.generateContent(prompt);
       const text = await result.response.text();
       
       const jsonStart = text.indexOf('{');
       const jsonEnd = text.lastIndexOf('}');
-      if (jsonStart === -1 || jsonEnd === -1) throw new Error("Az AI nem generált érvényes adatot.");
+      if (jsonStart === -1 || jsonEnd === -1) throw new Error("Az AI nem generált érvényes JSON-t.");
       
       const parsedData = JSON.parse(text.substring(jsonStart, jsonEnd + 1));
       res.json(parsedData);
     } catch (err) {
-      res.status(500).json({ error: 'Hiba az AI elemzés során: ' + err.message });
+      res.status(500).json({ error: 'Hiba az AI élő keresése során: ' + err.message });
     }
   });
+
 
   app.post('/api/admin/import-fiap', async (req, res) => {
     const { salonsToImport } = req.body;
