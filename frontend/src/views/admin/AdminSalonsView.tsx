@@ -142,6 +142,9 @@ export default function AdminSalonsView({
     } else { setSalonSelectedPatrons([]); setSalonPatronNumbers({}); }
   };
 
+  // ====================================================================
+  // 💾 JAVÍTVA: INTELLIGENS HIBAKEZELÉS A VALÓDI OKOK KIDERÍTÉSÉHEZ
+  // ====================================================================
   const handleSaveSalon = async () => { 
     if (!salonName || !salonEnd) return alert("A Szalon neve és a záródátum megadása kötelező!"); 
     try { 
@@ -161,29 +164,14 @@ export default function AdminSalonsView({
         alert(editSalonId ? "Szalon sikeresen frissítve!" : "Szalon sikeresen hozzáadva!"); 
         clearSalonForm(); 
         fetchData(); 
-      } else alert("Hiba a mentés során."); 
-    } catch (e) { alert("Hálózati hiba!"); } 
+      } else {
+        // JAVÍTVA: Kiolvassuk a szerver által küldött valódi hibaüzenetet (pl. "Ezzel az azonosítóval már létezik...")
+        const errorData = await res.json().catch(() => ({}));
+        alert(errorData.error || "Hiba történt a mentés során.");
+      }
+    } catch (e) { alert("Hálózati hiba lépett fel a mentés közben!"); } 
   };
 
-  const handleDeleteSalon = async (id: number) => { 
-    if(!window.confirm("Biztosan törlöd ezt a Szalont?")) return; 
-    const res = await fetch(`${BACKEND_URL}/api/salons/${id}`, { method: 'DELETE' }); 
-    if(res.ok) fetchData(); 
-  };
-
-  const handleScrapeFiap = async () => {
-    setIsScraping(true);
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/admin/scrape-fiap`);
-      if (res.ok) {
-        const data = await res.json();
-        setScrapedSalons(data || []); 
-        if (data.length === 0) alert("Nem találtam új adatokat a myfiap.net-en.");
-      } else alert(`Szerver hiba`);
-    } catch (e: any) { alert(`Hálózati hiba.`); } finally { setIsScraping(false); }
-  };
-
-  // 🤖 AI AZONOSÍTÓ ALAPÚ KERESÉS ÉS BEEMELÉS LOGIKÁJA
   const handleAiLookup = async () => {
     if (!specificFiapId.trim()) return alert("Kérlek adj meg egy érvényes FIAP védnökségi azonosítót!");
     setIsAiLoading(true);
@@ -207,14 +195,12 @@ export default function AdminSalonsView({
         if (item.fee) setSalonFee(item.fee.toString());
         if (item.end_date) setSalonEnd(item.end_date);
 
-        // JAVÍTVA: Szuperbiztos körverseny csekk (ha a névben benne van, vagy a flag igaz)
         const isCircuitSalon = item.is_circuit === true || 
                                String(item.is_circuit).toLowerCase() === 'true' || 
                                item.is_circuit === 1 || 
                                (item.name && item.name.toLowerCase().includes('circuit'));
         
         setSalonIsCircuit(isCircuitSalon);
-        // JAVÍTVA: Körverseny esetén szigorúan ÜRESEN hagyjuk a kódmezőt, különben beírjuk a FIAP számot
         setSalonCircuitNum(isCircuitSalon ? '' : (item.fiap_number || specificFiapId));
 
         if (item.country) {
@@ -225,7 +211,6 @@ export default function AdminSalonsView({
           if (matchedCountry) { setSalonCountry(matchedCountry.id.toString()); setCountrySearch(''); }
         }
 
-        // JAVÍTVA: Csak a szöveges ajánlást töltjük be, a checkboxokat tisztán, ÜRESEN hagyjuk!
         if (item.categories) {
           setAiDetectedCats(Array.isArray(item.categories) ? item.categories.join(', ') : item.categories);
         }
@@ -278,7 +263,6 @@ export default function AdminSalonsView({
     if (item.fee) setSalonFee(item.fee);
     setSalonEnd(formatDateForInput(item.end_date_raw));
     
-    // JAVÍTVA: Robot-beemelésnél is szigorúan érvényesítjük a körverseny-kód törlési szabályt!
     const isCircuitSalon = item.is_circuit === 1 || 
                            item.is_circuit === true || 
                            String(item.is_circuit).toLowerCase() === 'true' ||
@@ -289,7 +273,7 @@ export default function AdminSalonsView({
     if (item.categories) {
       setAiDetectedCats(Array.isArray(item.categories) ? item.categories.join(', ') : item.categories);
     }
-    setSalonSelectedCats([]); // JAVÍTVA: Itt is üresen hagyjuk a checkboxokat
+    setSalonSelectedCats([]); 
 
     const matchedCountry = countries.find(c => c.country?.toLowerCase() === item.country?.toLowerCase() || c.country_hun?.toLowerCase() === item.country?.toLowerCase());
     if (matchedCountry) { setSalonCountry(matchedCountry.id.toString()); setCountrySearch(''); }
@@ -310,7 +294,6 @@ export default function AdminSalonsView({
         
         <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', alignItems: 'flex-end', background: '#0f172a50', padding: '20px', borderRadius: '16px', border: '1px solid #334155' }}>
           
-          {/* Opció A: Globális kaparás */}
           <div style={{ flex: '1 1 300px' }}>
             <div style={{ fontWeight: 'bold', color: '#cbd5e1', marginBottom: '8px', fontSize: '0.9rem' }}>A verzió: Főoldali frissítés (Első oldal kaparása)</div>
             <button onClick={handleScrapeFiap} disabled={isScraping} style={{ width: '100%', background: isScraping ? '#334155' : 'linear-gradient(135deg, #3b82f6, #1d4ed8)', color: 'white', padding: '12px 24px', borderRadius: '100px', border: 'none', cursor: isScraping ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '0.9rem', transition: 'all 0.3s' }}>
@@ -318,7 +301,6 @@ export default function AdminSalonsView({
             </button>
           </div>
 
-          {/* Opció B: EGYEDI ÉLŐ AI KERESŐ */}
           <div style={{ flex: '1 1 350px' }}>
             <div style={{ fontWeight: 'bold', color: '#a78bfa', marginBottom: '8px', fontSize: '0.9rem' }}>B verzió: Keresés és beemelés védnökségi szám alapján (Élő Google Keresés)</div>
             <div style={{ display: 'flex', gap: '10px' }}>
@@ -456,7 +438,7 @@ export default function AdminSalonsView({
             <input placeholder="Azonosító kódok..." value={salonCircuitNum} onChange={e => setSalonCircuitNum(e.target.value)} style={{...inputStyle, marginBottom: 0}} />
           </div>
           <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', color: '#f8fafc', fontWeight: 'bold', marginTop: '5px', fontSize: '0.95rem' }}>
-            <input type="checkbox" checked={salonIsCircuit} onChange={e => setSalonIsCircuit(e.target.checked)} style={{ width: '18px', height: '18px', accentColor: '#f59e0b' }} />
+            <input type="checkbox" checked={salonIsCircuit} onChange={e => setSalonIsCircuit(e.checked)} style={{ width: '18px', height: '18px', accentColor: '#f59e0b' }} />
             Ez a rendezvény egy Körverseny (Circuit) részét képezi
           </label>
         </div>
@@ -470,7 +452,6 @@ export default function AdminSalonsView({
         <div style={{ marginBottom: '15px', padding: '20px', background: '#0f172a', borderRadius: '16px', border: '1px solid #334155' }}>
           <label style={{fontSize:'0.9rem', color:'#38bdf8', fontWeight: 'bold', display: 'block', marginBottom: '12px'}}>Indított Szekciók / Kategóriák</label>
           
-          {/* AI/ROBOT TEXTBOX KIJELZŐ MEZŐ */}
           {aiDetectedCats && (
             <div style={{ marginBottom: '15px', padding: '12px 16px', background: '#38bdf810', border: '1px dashed #38bdf860', borderRadius: '8px', color: '#38bdf8', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span>🤖</span> <span><b>AI által talált szekciók (Válaszd ki őket alul kézzel):</b> <input type="text" readOnly value={aiDetectedCats} style={{ background: 'transparent', border: 'none', color: '#cbd5e1', fontStyle: 'italic', paddingLeft: '5px', outline: 'none', width: '70%', fontSize: '0.9rem' }} /></span>
