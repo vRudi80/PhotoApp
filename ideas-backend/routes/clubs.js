@@ -171,27 +171,31 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   
   // DASHBOARD ALERTS
   app.get('/api/dashboard-alerts', async (req, res) => {
-    const { userEmail } = req.query;
-    try {
-      const [users] = await pool.query('SELECT club_name FROM photo_users WHERE email = ?', [userEmail]);
-      const clubName = users.length > 0 ? users[0].club_name : null;
-      const [contests] = await pool.query('SELECT id, title, end_date FROM photo_contests WHERE start_date <= CURRENT_DATE() AND end_date >= CURRENT_DATE() ORDER BY end_date ASC');
-      const [weekly] = await pool.query('SELECT id, title, end_date FROM weekly_topics WHERE start_date <= CURRENT_DATE() AND end_date >= CURRENT_DATE()');
-  
-      let homeworks = []; let unreadNews = [];
-      if (clubName) {
-        const [clubs] = await pool.query('SELECT id FROM photo_clubs WHERE name = ?', [clubName]);
-        if (clubs.length > 0) {
-          const clubId = clubs[0].id;
-          const [hw] = await pool.query('SELECT id, topic, deadline FROM photo_homeworks WHERE club_id = ? AND deadline >= CURRENT_DATE() ORDER BY deadline ASC', [clubId]);
-          homeworks = hw;
-          const [news] = await pool.query(`SELECT id, title, created_at FROM photo_club_news WHERE club_id = ? AND id NOT IN (SELECT news_id FROM photo_club_news_reads WHERE user_email = ?) ORDER BY created_at DESC`, [clubId, userEmail]);
-          unreadNews = news;
-        }
+  const { userEmail } = req.query;
+  try {
+    const [users] = await pool.query('SELECT club_name FROM photo_users WHERE email = ?', [userEmail]);
+    const clubName = users.length > 0 ? users[0].club_name : null;
+    const [contests] = await pool.query('SELECT id, title, end_date FROM photo_contests WHERE start_date <= CURRENT_DATE() AND end_date >= CURRENT_DATE() ORDER BY end_date ASC');
+    
+    // Lekérjük az összes éppen futó párbajt
+    const [weekly] = await pool.query('SELECT id, title, end_date FROM weekly_topics WHERE start_date <= CURRENT_DATE() AND end_date >= CURRENT_DATE()');
+
+    let homeworks = []; let unreadNews = [];
+    if (clubName) {
+      const [clubs] = await pool.query('SELECT id FROM photo_clubs WHERE name = ?', [clubName]);
+      if (clubs.length > 0) {
+        const clubId = clubs[0].id;
+        const [hw] = await pool.query('SELECT id, topic, deadline FROM photo_homeworks WHERE club_id = ? AND deadline >= CURRENT_DATE() ORDER BY deadline ASC', [clubId]);
+        homeworks = hw;
+        const [news] = await pool.query(`SELECT id, title, created_at FROM photo_club_news WHERE club_id = ? AND id NOT IN (SELECT news_id FROM photo_club_news_reads WHERE user_email = ?) ORDER BY created_at DESC`, [clubId, userEmail]);
+        unreadNews = news;
       }
-  
-      const [mapComments] = await pool.query(`SELECT c.id as comment_id, c.location_id, l.title as location_title, c.user_name, c.created_at FROM photo_location_comments c JOIN photo_locations l ON c.location_id = l.id WHERE l.user_email = ? AND c.user_email != ? AND c.created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY) AND c.id NOT IN (SELECT comment_id FROM photo_location_comment_reads WHERE user_email = ?) ORDER BY c.created_at DESC LIMIT 5`, [userEmail, userEmail, userEmail]);
-      res.json({ contests, weekly: weekly.length > 0 ? weekly[0] : null, homeworks, unreadNews, mapComments });
-    } catch (err) { res.status(500).json({ error: 'Hiba az értesítések betöltésekor' }); }
-  });
+    }
+
+    const [mapComments] = await pool.query(`SELECT c.id as comment_id, c.location_id, l.title as location_title, c.user_name, c.created_at FROM photo_location_comments c JOIN photo_locations l ON c.location_id = l.id WHERE l.user_email = ? AND c.user_email != ? AND c.created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY) AND c.id NOT IN (SELECT comment_id FROM photo_location_comment_reads WHERE user_email = ?) ORDER BY c.created_at DESC LIMIT 5`, [userEmail, userEmail, userEmail]);
+    
+    // JAVÍTVA: A teljes weekly tömböt küldjük el, nem csak az első elemet!
+    res.json({ contests, weekly, homeworks, unreadNews, mapComments });
+  } catch (err) { res.status(500).json({ error: 'Hiba az értesítések betöltésekor' }); }
+});
 };
