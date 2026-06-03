@@ -8,7 +8,7 @@ interface WeeklyChallengeViewProps {
 }
 
 // ====================================================================
-// 📊 GLOBÁLIS SEGÉDFÜGGVÉNYEK
+// 📊 GLOBÁLIS SEGÉDFÜGGVÉNYEK: Teljesen kívül, védve a minifikációs hibáktól
 // ====================================================================
 const getTopicType = (startDate: string, endDate: string) => {
   if (!startDate || !endDate) return 'weekly';
@@ -18,6 +18,15 @@ const getTopicType = (startDate: string, endDate: string) => {
 
 const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
   e.currentTarget.src = 'https://via.placeholder.com/400x300/1e293b/64748b?text=Kép+nem+található';
+};
+
+// Központosított szintmeghatározó a konzisztens dicsőségfalhoz
+const getLevelDetails = (likes: number) => {
+  if (likes < 20) return { name: 'Újonc 🌱', color: '#94a3b8', bg: '#94a3b815' };
+  if (likes < 100) return { name: 'Felfedezett 📸', color: '#38bdf8', bg: '#38bdf815' };
+  if (likes < 300) return { name: 'Haladó ⭐', color: '#10b981', bg: '#10b98115' };
+  if (likes < 800) return { name: 'Profi 🏅', color: '#f59e0b', bg: '#f59e0b15' };
+  return { name: 'Guru 👑', color: '#fbbf24', bg: '#fbbf2420' };
 };
 
 // ====================================================================
@@ -100,7 +109,8 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
 // ⚔️ FŐ KOMPONENS
 // ====================================================================
 export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyChallengeViewProps) {
-  const [subTab, setSubTab] = useState<'current' | 'upcoming' | 'past' | 'my_stats'>('current');
+  // JAVÍTVA: hall_of_fame hozzáadva a subTab típushoz
+  const [subTab, setSubTab] = useState<'current' | 'upcoming' | 'past' | 'my_stats' | 'hall_of_fame'>('current');
   const [loading, setLoading] = useState(true);
   
   const [activeTopics, setActiveTopics] = useState<any[]>([]);
@@ -140,7 +150,11 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const [userTotalLikes, setUserTotalLikes] = useState<number>(0);
   const [userPower, setUserPower] = useState<{ super: number; brilliant: number }>({ super: 1, brilliant: 2 });
 
-  // Háttér statisztikák összegzése (Csak a trófeakártyák darabszámplecsnijeihez használjuk)
+  // ÚJ: Globális dicsőségfal állapota
+  const [hallOfFame, setHallOfFame] = useState<any[]>([]);
+  const [isLoadingHof, setIsLoadingHof] = useState(false);
+
+  // Háttér statisztikák összegzése
   const totalViews = myStats?.history?.reduce((sum, e) => sum + (Number(e?.views) || 0), 0) || 0;
   const podiumCount = myStats ? (Number(myStats.podiums?.first || 0) + Number(myStats.podiums?.second || 0) + Number(myStats.podiums?.third || 0)) : 0;
   
@@ -155,16 +169,13 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     });
   }
 
-  // ====================================================================
-  // ⚡ JAVÍTVA: A JELENLEGI SZINT ÉS HALADÁS SZÁMÍTÁSA MÁR AZ USER_TOTAL_LIKES-ON ALAPUL!
-  // ====================================================================
-  const currentLevel = userTotalLikes < 20 ? { name: 'Újonc 🌱', nextAt: 20, color: '#94a3b8' } :
-                       userTotalLikes < 100 ? { name: 'Felfedezett 📸', nextAt: 100, color: '#38bdf8' } :
-                       userTotalLikes < 300 ? { name: 'Haladó ⭐', nextAt: 300, color: '#10b981' } :
-                       userTotalLikes < 800 ? { name: 'Profi 🏅', nextAt: 800, color: '#f59e0b' } :
-                       { name: 'Guru 👑', nextAt: null, color: '#fbbf24' };
-
-  const progressPercent = currentLevel.nextAt ? (userTotalLikes / currentLevel.nextAt) * 100 : 100;
+  // Szintszámítás a szinkronizált userTotalLikes alapján
+  const currentLevel = getLevelDetails(userTotalLikes);
+  const progressPercent = userTotalLikes < 20 ? (userTotalLikes / 20) * 100 :
+                          userTotalLikes < 100 ? (userTotalLikes / 100) * 100 :
+                          userTotalLikes < 300 ? (userTotalLikes / 300) * 100 :
+                          userTotalLikes < 800 ? (userTotalLikes / 800) * 100 : 100;
+  const nextLevelAt = userTotalLikes < 20 ? 20 : userTotalLikes < 100 ? 100 : userTotalLikes < 300 ? 300 : userTotalLikes < 800 ? 800 : null;
 
   const BASE_EXPOSURE = 10;
   const exposureEarned = BASE_EXPOSURE + (Number(myVoteCount || 0) * 2);
@@ -248,6 +259,18 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     finally { setIsLoadingStats(false); }
   };
 
+  // ÚJ: Dicsőségfal lekérése
+  const fetchHallOfFame = async () => {
+    setIsLoadingHof(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/weekly/hall-of-fame`);
+      if (res.ok) {
+        setHallOfFame(await res.json());
+      }
+    } catch (e) { console.error(e); }
+    finally { setIsLoadingHof(false); }
+  };
+
   useEffect(() => {
     if (subTab === 'current') {
       fetchCurrentTopic(false);
@@ -255,6 +278,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     }
     else if (subTab === 'upcoming') fetch(`${BACKEND_URL}/api/weekly/upcoming`).then(res => res.json()).then(data => setUpcomingTopics(data || [])).catch(console.error);
     else if (subTab === 'past') fetch(`${BACKEND_URL}/api/weekly/past`).then(res => res.json()).then(data => setPastTopics(data || [])).catch(console.error);
+    else if (subTab === 'hall_of_fame') fetchHallOfFame();
   }, [subTab, selectedTopicId]);
 
   useEffect(() => {
@@ -404,6 +428,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           <button onClick={() => setSubTab('upcoming')} style={{ padding: '10px 24px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: subTab === 'upcoming' ? '#334155' : 'transparent', color: subTab === 'upcoming' ? 'white' : '#94a3b8', transition: 'all 0.3s' }}>⏳ Hamarosan</button>
           <button onClick={() => setSubTab('past')} style={{ padding: '10px 24px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: subTab === 'past' ? '#334155' : 'transparent', color: subTab === 'past' ? 'white' : '#94a3b8', transition: 'all 0.3s' }}>📜 Archívum</button>
           <button onClick={() => { setSubTab('my_stats'); fetchMyStats(); }} style={{ padding: '10px 24px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: subTab === 'my_stats' ? 'linear-gradient(135deg, #8b5cf6, #6366f1)' : 'transparent', color: subTab === 'my_stats' ? 'white' : '#94a3b8', transition: 'all 0.3s', boxShadow: subTab === 'my_stats' ? '0 4px 15px rgba(139,92,246,0.4)' : 'none' }}>🏆 Trófeaterem</button>
+          {/* ÚJ GOMB: Dicsőségcsarnok fül megnyitása */}
+          <button onClick={() => setSubTab('hall_of_fame')} style={{ padding: '10px 24px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: subTab === 'hall_of_fame' ? 'linear-gradient(135deg, #fbbf24, #d97706)' : 'transparent', color: subTab === 'hall_of_fame' ? '#0f172a' : '#94a3b8', transition: 'all 0.3s', boxShadow: subTab === 'hall_of_fame' ? '0 4px 15px rgba(251,191,36,0.4)' : 'none' }}>👑 Dicsőségfal</button>
         </div>
         
         <button onClick={() => setShowHelp(true)} style={{ padding: '12px 24px', borderRadius: '12px', border: '1px solid #38bdf8', cursor: 'pointer', fontWeight: 'bold', background: '#0f172a', color: '#38bdf8', transition: 'all 0.3s', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 15px rgba(56,189,248,0.2)' }}>
@@ -612,7 +638,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                               <div style={{ fontSize: '1.5rem', fontWeight: '900', width: '35px', color: index === 0 ? '#fbbf24' : '#cbd5e1', textAlign: 'center' }}>{index + 1}.</div>
                               <div style={{ flex: 1, marginLeft: '10px' }}>
                                 <div style={{ color: 'white', fontWeight: 'bold', fontSize: '1.1rem' }}>{club?.club_name || 'Ismeretlen Klub'}</div>
-                                <div style={{ color: '#64748b', fontSize: '0.8rem' }}>{club?.members_counted || 0} tag</div>
+                                <div style={{ color: '#64748b', fontSize: '0.8rem' }}>{club?.members_counted || 0} aktív tag</div>
                               </div>
                               <div style={{ color: '#10b981', fontWeight: '900', fontSize: '1.4rem' }}>{club?.total_score || 0} ⭐</div>
                             </div>
@@ -654,7 +680,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                                   <div style={{ color: isMe ? '#f8fafc' : '#94a3b8', fontWeight: 'bold', fontStyle: isMe ? 'normal' : 'italic', fontSize: '1.05rem' }}>
                                     {isMe ? (entry?.user_name || 'Én') : 'Titkosított ellenfél'}
                                   </div>
-                                  <div style={{ fontSize: '0.8.rem', color: '#64748b' }}>Nézettség: {entry?.views_count || 0}</div>
+                                  <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Nézettség: {entry?.views_count || 0}</div>
                                 </div>
                                 <div style={{ textAlign: 'right' }}>
                                   <div style={{ color: isMe ? '#f97316' : '#94a3b8', fontWeight: '900', fontSize: '1.5rem' }}>{entry?.likes_count || 0} ⭐</div>
@@ -789,7 +815,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
             <div style={{ color: '#ef4444', textAlign: 'center', padding: '20px' }}>Nem sikerült betölteni az adatokat.</div>
           ) : (
             <>
-              {/* JAVÍTVA: A Progress sáv és az óriási szintjelzés mostantól a valós userTotalLikes értékre hallgat! */}
               <div style={{ background: 'linear-gradient(180deg, #1e293b, #0f172a)', padding: '40px 25px', borderRadius: '24px', border: `1px solid ${currentLevel.color}50`, marginBottom: '40px', textAlign: 'center', boxShadow: `0 10px 40px -10px ${currentLevel.color}40`, position: 'relative', overflow: 'hidden' }}>
                 <div style={{ position: 'absolute', top: '-50px', left: '50%', transform: 'translateX(-50%)', width: '300px', height: '300px', background: `${currentLevel.color}20`, filter: 'blur(80px)', borderRadius: '50%' }}></div>
                 <h3 style={{ color: '#94a3b8', margin: '0 0 10px 0', fontSize: '1rem', textTransform: 'uppercase', letterSpacing: '3px', position: 'relative', zIndex: 1 }}>Jelenlegi Státuszod</h3>
@@ -798,9 +823,9 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                 <div style={{ width: '100%', maxWidth: '600px', background: '#0f172a', height: '16px', borderRadius: '10px', margin: '0 auto', overflow: 'hidden', border: '1px solid #334155', position: 'relative', zIndex: 1 }}>
                   <div style={{ width: `${progressPercent}%`, background: `linear-gradient(90deg, transparent, ${currentLevel.color})`, height: '100%', boxShadow: `0 0 10px ${currentLevel.color}` }}></div>
                 </div>
-                {currentLevel.nextAt ? (
+                {nextLevelAt ? (
                   <div style={{ color: '#cbd5e1', fontSize: '0.9rem', marginTop: '15px', position: 'relative', zIndex: 1 }}>
-                    Még <b style={{color: 'white', fontSize: '1.1rem'}}>{currentLevel.nextAt - userTotalLikes} Rangpont</b> kell a következő szinthez!
+                    Még <b style={{color: 'white', fontSize: '1.1rem'}}>{nextLevelAt - userTotalLikes} Rangpont</b> kell a következő szinthez!
                   </div>
                 ) : (
                   <div style={{ color: '#fbbf24', fontSize: '1rem', marginTop: '15px', fontWeight: 'bold', position: 'relative', zIndex: 1 }}>Elérted a maximális szintet! Te vagy a Fotós Guru!</div>
@@ -879,6 +904,81 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                 </div>
               )}
             </>
+          )}
+        </div>
+      )}
+
+      {/* ====================================================================
+          👑 ÚJ PANEL: GLOBÁLIS DICSŐSÉGFAL (HALL OF FAME) NÉZET
+          ==================================================================== */}
+      {subTab === 'hall_of_fame' && (
+        <div style={{ background: '#1e293b', padding: '30px', borderRadius: '24px', border: '1px solid #fbbf2440', boxShadow: '0 10px 40px rgba(0,0,0,0.4)' }}>
+          <div style={{ marginBottom: '25px' }}>
+            <h2 style={{ color: '#fbbf24', margin: 0, fontSize: '1.8rem', fontWeight: '900' }}>👑 Globális Fotós Dicsőségfal</h2>
+            <p style={{ color: '#94a3b8', margin: '5px 0 0 0' }}>A közösség összesített ranglistája az éles és lezárult arénákban gyűjtött csillagok alapján.</p>
+          </div>
+
+          {isLoadingHof ? (
+            <div style={{ color: '#94a3b8', textAlign: 'center', padding: '40px' }}>⏳ A pódium összeállítása...</div>
+          ) : hallOfFame.length === 0 ? (
+            <div style={{ color: '#64748b', textAlign: 'center', padding: '20px' }}>Még egyetlen fotós sem gyűjtött pontot. Legyél te az első!</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {hallOfFame.map((row, index) => {
+                const isMe = row.user_email === user?.email;
+                const likes = Number(row.total_likes) || 0;
+                const level = getLevelDetails(likes);
+                
+                // Első három helyezett egyedi pódium színei
+                const rankColor = index === 0 ? '#fbbf24' : index === 1 ? '#cbd5e1' : index === 2 ? '#b45309' : '#64748b';
+                const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
+
+                return (
+                  <div 
+                    key={row.user_email || index} 
+                    style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      background: isMe ? 'linear-gradient(90deg, #fbbf2415, #0f172a)' : '#0f172a', 
+                      border: isMe ? '1px solid #fbbf2460' : '1px solid #334155', 
+                      padding: '16px 20px', 
+                      borderRadius: '16px',
+                      boxShadow: isMe ? '0 0 20px #fbbf2415' : 'none',
+                      transition: 'transform 0.2s'
+                    }}
+                  >
+                    {/* Helyezés / Érem */}
+                    <div style={{ fontSize: '1.4rem', fontWeight: '900', width: '45px', color: rankColor, textAlign: 'center' }}>
+                      {medal}
+                    </div>
+
+                    {/* Név és Klub */}
+                    <div style={{ flex: 1, marginLeft: '10px' }}>
+                      <div style={{ color: isMe ? '#fbbf24' : 'white', fontWeight: 'bold', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {row.user_name} {isMe && <span style={{ fontSize: '0.75rem', background: '#fbbf24', color: '#0f172a', padding: '2px 8px', borderRadius: '10px', fontWeight: '900' }}>TE VAGY</span>}
+                      </div>
+                      {row.club_name && (
+                        <div style={{ color: '#10b981', fontSize: '0.8rem', fontWeight: 'bold', marginTop: '2px' }}>
+                          🛡️ {row.club_name}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Globális Szint Jelvény */}
+                    <div style={{ marginRight: '20px' }}>
+                      <span style={{ color: level.color, background: level.bg, border: `1px solid ${level.color}40`, padding: '6px 16px', borderRadius: '100px', fontSize: '0.85rem', fontWeight: 'bold' }}>
+                        {level.name}
+                      </span>
+                    </div>
+
+                    {/* Pontszám */}
+                    <div style={{ textAlign: 'right', minWidth: '80px' }}>
+                      <div style={{ color: '#fbbf24', fontWeight: '900', fontSize: '1.4rem' }}>{likes} <span style={{ fontSize: '0.9rem', fontWeight: 'normal', color: '#64748b' }}>⭐</span></div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
       )}
