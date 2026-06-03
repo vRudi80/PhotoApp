@@ -129,9 +129,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
 
   const [timeLeft, setTimeLeft] = useState<string>('');
 
-  // ====================================================================
-  // ⚡ JAVÍTVA: ABSZOLÚT GOLYÓÁLLÓ SZÁMÍTÁSOK (NaN és UNDEFINED ELLENI VÉDELEM)
-  // ====================================================================
+  // Szuperbiztos, hoisztolt globális számítások a stabil hatókörért
   const totalLikes = myStats?.history?.reduce((sum, e) => sum + (Number(e.likes) || 0), 0) || 0;
   const totalViews = myStats?.history?.reduce((sum, e) => sum + (Number(e.views) || 0), 0) || 0;
   const podiumCount = myStats ? (Number(myStats.podiums?.first || 0) + Number(myStats.podiums?.second || 0) + Number(myStats.podiums?.third || 0)) : 0;
@@ -160,7 +158,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
 
   const progressPercent = currentLevel.nextAt ? (totalLikes / currentLevel.nextAt) * 100 : 100;
 
-  // Golyóálló láthatósági mérő számítások (Ez javítja a crash-t!)
   const BASE_EXPOSURE = 10;
   const exposureEarned = BASE_EXPOSURE + (Number(myVoteCount || 0) * 2);
   const safeViewsCount = myEntry ? (Number(myEntry.views_count) || 0) : 0;
@@ -184,8 +181,9 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     setTimeLeft('');
   }, [selectedTopicId]);
 
-  const fetchCurrentTopic = async () => {
-    setLoading(true);
+  // JAVÍTVA: Az isSilent paraméter bevezetése, ami megakadályozza az oldal villogását!
+  const fetchCurrentTopic = async (isSilent = false) => {
+    if (!isSilent) setLoading(true);
     try {
       const url = selectedTopicId 
         ? `${BACKEND_URL}/api/weekly/current?userEmail=${user?.email || ''}&topicId=${selectedTopicId}`
@@ -203,11 +201,12 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           setVotableEntries(Number(data.votableEntries) || 1);
           setLeaderboard(data.leaderboard || []);
           setCurrentClubLeaderboard(data.clubLeaderboard || []);
-          if (data.topic) fetchNextVote(data.topic.id);
+          // Csak akkor kérünk új szavazást, ha nem background frissítés, mert a handleVote már külön kezeli!
+          if (!isSilent && data.topic) fetchNextVote(data.topic.id);
         }
       }
     } catch (e) { console.error(e); }
-    finally { setLoading(false); }
+    finally { if (!isSilent) setLoading(false); }
   };
 
   const fetchNextVote = async (topicId: number) => {
@@ -239,67 +238,12 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
 
   useEffect(() => {
     if (subTab === 'current') {
-      fetchCurrentTopic();
+      fetchCurrentTopic(false);
       fetchMyStats();
     }
     else if (subTab === 'upcoming') fetch(`${BACKEND_URL}/api/weekly/upcoming`).then(res => res.json()).then(data => setUpcomingTopics(data || [])).catch(console.error);
     else if (subTab === 'past') fetch(`${BACKEND_URL}/api/weekly/past`).then(res => res.json()).then(data => setPastTopics(data || [])).catch(console.error);
   }, [subTab, selectedTopicId]);
-
-  useEffect(() => {
-    if (!topic || !topic.end_date) {
-      setTimeLeft('Ismeretlen dátum');
-      return;
-    }
-
-    const calculateTimeLeft = () => {
-      const now = new Date().getTime();
-      const end = new Date(topic.end_date?.replace ? topic.end_date.replace(' ', 'T') : topic.end_date); 
-      
-      if (isNaN(end.getTime())) {
-        setTimeLeft('Hibás dátum');
-        return false;
-      }
-
-      end.setHours(23, 59, 59, 999);
-      const distance = end.getTime() - now;
-
-      if (distance < 0) {
-        setTimeLeft('Párbaj Lezárult!');
-        return false;
-      }
-
-      const days = Math.floor(distance / (1000 * 60 * 60 * 24));
-      const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)).toString().padStart(2, '0');
-      const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60)).toString().padStart(2, '0');
-      const seconds = Math.floor((distance % (1000 * 60)) / 1000).toString().padStart(2, '0');
-
-      setTimeLeft(`${days} nap ${hours}:${minutes}:${seconds}`);
-      return true;
-    };
-
-    const isActive = calculateTimeLeft();
-    if (!isActive) return;
-
-    const interval = setInterval(() => {
-      const stillActive = calculateTimeLeft();
-      if (!stillActive) clearInterval(interval);
-    }, 1000);
-    
-    return () => clearInterval(interval);
-  }, [topic]);
-
-  const loadPastHistoryList = async (topicId: number) => {
-    setSelectedPastTopicId(topicId);
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/weekly/history/${topicId}`);
-      if (res.ok) {
-        const data = await res.json();
-        setPastLeaderboard(data.leaderboard || []);
-        setPastClubLeaderboard(data.clubLeaderboard || []);
-      }
-    } catch (e) { console.error(e); }
-  };
 
   const handleOffTopicReport = async (entryId: number) => {
     if (!window.confirm("Biztosan jelented ezt a képet, mert nem illik a témához?")) return;
@@ -317,7 +261,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         setMyVoteCount(prev => prev + 1);
         if (topic) {
           fetchNextVote(topic.id);
-          fetchCurrentTopic(); 
+          fetchCurrentTopic(true); // JAVÍTVA: Csendes háttérfrissítés villogás nélkül
         }
       }
     } catch (e) {
@@ -338,7 +282,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       if (res.ok) {
         setMyVoteCount(prev => prev + 1);
         fetchNextVote(topic.id);
-        fetchCurrentTopic(); 
+        fetchCurrentTopic(true); // JAVÍTVA: Csendes háttérfrissítés villogás nélkül!
       }
     } catch (e) { if(topic) fetchNextVote(topic.id); }
   };
@@ -357,7 +301,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       const formData = new FormData();
       formData.append('photo', uploadFile); formData.append('topicId', topic.id.toString()); formData.append('userEmail', user?.email || ''); formData.append('userName', user?.name || '');
       const res = await fetch(`${BACKEND_URL}/api/weekly/upload`, { method: 'POST', body: formData });
-      if (res.ok) { alert('🎉 Sikeres nevezés! Irány szavazni!'); setUploadFile(null); setUploadPreview(null); fetchCurrentTopic(); } 
+      if (res.ok) { alert('🎉 Sikeres nevezés! Irány szavazni!'); setUploadFile(null); setUploadPreview(null); fetchCurrentTopic(false); } 
       else { const err = await res.json(); alert(err.error); }
     } catch (e) { alert("Feltöltési hiba!"); }
     finally { setIsUploading(false); }
@@ -378,13 +322,13 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       const formData = new FormData();
       formData.append('photo', swapFile); formData.append('topicId', topic.id.toString()); formData.append('userEmail', user?.email || ''); formData.append('userName', user?.name || '');
       const res = await fetch(`${BACKEND_URL}/api/weekly/swap`, { method: 'POST', body: formData });
-      if (res.ok) { alert('🔄 Kép sikeresen lecserélve! Újra indul a harc!'); setSwapFile(null); setSwapPreview(null); fetchCurrentTopic(); } 
+      if (res.ok) { alert('🔄 Kép sikeresen lecserélve! Újra indul a harc!'); setSwapFile(null); setSwapPreview(null); fetchCurrentTopic(false); } 
       else { const err = await res.json(); alert(err.error); }
     } catch (e) { alert("Hiba a csere során!"); }
     finally { setIsSwapping(false); }
   };
 
-  const handleImageError = (e: any) => {
+  const handleOriginalImageError = (e: any) => {
     e.currentTarget.src = 'https://via.placeholder.com/400x300/1e293b/64748b?text=Kép+nem+található';
   };
 
@@ -489,7 +433,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                     </div>
 
                     <div style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #334155', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
-                      <h3 style={{ margin: '0 0 20px 0', color: '#f8fafc', fontSize: '1.4rem' }}>📸 Értékelő Aréna</h3>
+                      <h3 style={{ margin: '0 0 20px 0', color: '#f8fafc', fontSize: '1.4rem' }}>⚔️ Értékelő Aréna</h3>
                       {!myEntry ? (
                         <div style={{ padding: '40px 20px', textAlign: 'center', background: '#0f172a', borderRadius: '16px', border: '2px dashed #f59e0b' }}>
                           <div style={{ fontSize: '3.5rem', marginBottom: '15px' }}>🛑</div>
@@ -505,7 +449,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                       ) : voteEntry ? (
                         <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                           <div onClick={() => setFullscreenData({url: getImageUrl(voteEntry.drive_file_id, voteEntry.file_url), title: 'Kihívás'})} style={{ width: '100%', height: '380px', backgroundColor: '#000', borderRadius: '16px', overflow: 'hidden', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-in', boxShadow: '0 10px 20px rgba(0,0,0,0.5)' }}>
-                            <img src={getImageUrl(voteEntry.drive_file_id, voteEntry.file_url)} alt="Szavazás" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} onError={handleImageError} />
+                            <img src={getImageUrl(voteEntry.drive_file_id, voteEntry.file_url)} alt="Szavazás" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} onError={handleOriginalImageError} />
                           </div>
                           
                           {voteEntry.off_topic_count > 0 && (
@@ -714,8 +658,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           
           <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
             
-            <div style={{ background: '#1e293b', borderRadius: '24px', padding: '25px', border: '1px solid #10b981', boxShadow: '0 10px 30px rgba(0,0,0,0.2)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+            <div style={{ background: '#1e293b', borderRadius: '24px', padding: '25px', border: '1px solid #10b981', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontStyle: 'normal', alignItems: 'center', marginBottom: '10px' }}>
                 <h3 style={{ margin: 0, color: '#10b981', fontSize: '1.4rem' }}>🛡️ Klubok Csatája</h3>
                 {selectedPastTopicId && (() => {
                   const t = pastTopics.find(x => x.id === selectedPastTopicId);
