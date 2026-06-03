@@ -28,7 +28,6 @@ export default function AdminSalonsView({
   const [salonIsCircuit, setSalonIsCircuit] = useState(false);
   const [salonAwards, setSalonAwards] = useState('');
   const [salonCash, setSalonCash] = useState('');
-  const [salonOriginalImageError, setSalonOriginalImageError] = useState(''); // Javítva a belső scope kontextushoz
   const [salonCircuitNum, setSalonCircuitNum] = useState('');
   const [salonType, setSalonType] = useState<'online' | 'print'>('online');
   const [salonCountry, setSalonCountry] = useState('');
@@ -42,7 +41,7 @@ export default function AdminSalonsView({
   const [countrySearch, setCountrySearch] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // --- ÚJ: Egyedi AI alapú FIAP kereső állapotai ---
+  // --- Egyedi AI alapú FIAP kereső állapotai ---
   const [specificFiapId, setSpecificFiapId] = useState('');
   const [isAiLoading, setIsAiLoading] = useState(false);
 
@@ -183,9 +182,7 @@ export default function AdminSalonsView({
     } catch (e: any) { alert(`Hálózati hiba.`); } finally { setIsScraping(false); }
   };
 
-  // ====================================================================
-  // 🤖 ÚJ SEGÉDFÜGGVÉNY: AZ AZONOSÍTÓ ALAPÚ AI KERESÉS ÉS BEEMELÉS LOGIKÁJA
-  // ====================================================================
+  // 🤖 AZ AZONOSÍTÓ ALAPÚ AI KERESÉS ÉS BEEMELÉS LOGIKÁJA
   const handleAiLookup = async () => {
     if (!specificFiapId.trim()) return alert("Kérlek adj meg egy érvényes FIAP védnökségi azonosítót!");
     setIsAiLoading(true);
@@ -201,7 +198,6 @@ export default function AdminSalonsView({
       if (res.ok) {
         const item = await res.json();
         
-        // Alapadatok beemelése az űrlapba
         const todayStr = new Date().toISOString().split('T')[0];
         setSalonStart(todayStr); 
         setSalonName(item.name || 'Ismeretlen AI Szalon'); 
@@ -212,7 +208,6 @@ export default function AdminSalonsView({
         if (item.end_date) setSalonEnd(item.end_date);
         setSalonIsCircuit(item.is_circuit === true);
 
-        // Ország intelligens párosítása
         if (item.country) {
           const matchedCountry = countries.find(c => 
             c.country?.toLowerCase() === item.country?.toLowerCase() || 
@@ -224,13 +219,14 @@ export default function AdminSalonsView({
           }
         }
 
-        // FIAP Védnökség automatikus kipipálása és engedélyszám beírása (Id: 1 a FIAP a rendszeredben)
+        // Automata FIAP (Id: 1) védnökség hozzáadás
         setSalonSelectedPatrons([1]);
         setSalonPatronNumbers({ 1: item.fiap_number || specificFiapId });
 
-        alert(`🤖 AI Sikeresen megtalálta és beemelte a(z) "${item.name}" kiírást! Ellenőrizd a határidőt, és nyomj a Publikálásra.`);
+        alert(`🤖 Az AI sikeresen átfésülte a webet és beemelte a(z) "${item.name}" szalont! Ellenőrizd az adatokat, és kattints a Publikálásra.`);
         setSpecificFiapId('');
-        window.scrollTo({ top: 300, behavior: 'smooth' }); // Finom görgetés az űrlaphoz
+        const element = document.getElementById('salon-main-form');
+        if (element) element.scrollIntoView({ behavior: 'smooth' });
       } else {
         const err = await res.json();
         alert(`AI hiba: ${err.error || 'Nem sikerült elemezni az azonosítót.'}`);
@@ -282,7 +278,8 @@ export default function AdminSalonsView({
 
     setSalonPatronNumbers({ 1: item.fiap_number });
     setSalonSelectedPatrons([1]);
-    window.scrollTo({ top: 300, behavior: 'smooth' });
+    const element = document.getElementById('salon-main-form');
+    if (element) element.scrollIntoView({ behavior: 'smooth' });
   };
 
   return (
@@ -292,26 +289,25 @@ export default function AdminSalonsView({
       {/* 🤖 FIAP ROBOT MŰSZERFAL */}
       <div style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', marginBottom: '25px', border: '1px solid #334155', boxShadow: '0 10px 30px rgba(0,0,0,0.2)' }}>
         <h3 style={{ marginTop: 0, color: '#60a5fa', fontSize: '1.4rem', display: 'flex', alignItems: 'center', gap: '8px' }}>🤖 FIAP Robot - Automata betöltés</h3>
-        <p style={{ color: '#94a3b8', fontSize: '0.95rem', marginBottom: '20px', lineHeight: '1.5' }}>A rendszer képes a <b>myfiap.net</b> listájának átvizsgálására, vagy konkrét azonosító alapján AI lekérdezésre.</p>
+        <p style={{ color: '#94a3b8', fontSize: '0.95rem', marginBottom: '20px', lineHeight: '1.5' }}>A rendszer képes a <b>myfiap.net</b> listájának átvizsgálására, vagy konkrét azonosító alapján AI élő Google-keresésre.</p>
         
-        {/* JAVÍTVA: Kétirányú betöltési opciók stílusos elrendezése */}
         <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', alignItems: 'flex-end', background: '#0f172a50', padding: '20px', borderRadius: '16px', border: '1px solid #334155' }}>
           
           {/* Opció A: Globális kaparás */}
           <div style={{ flex: '1 1 300px' }}>
-            <div style={{ fontWeight: 'bold', color: '#cbd5e1', marginBottom: '8px', fontSize: '0.9rem' }}>A verzió: Teljes főoldali frissítés</div>
+            <div style={{ fontWeight: 'bold', color: '#cbd5e1', marginBottom: '8px', fontSize: '0.9rem' }}>A verzió: Főoldali frissítés (Első oldal kaparása)</div>
             <button onClick={handleScrapeFiap} disabled={isScraping} style={{ width: '100%', background: isScraping ? '#334155' : 'linear-gradient(135deg, #3b82f6, #1d4ed8)', color: 'white', padding: '12px 24px', borderRadius: '100px', border: 'none', cursor: isScraping ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '0.9rem', transition: 'all 0.3s' }}>
               {isScraping ? '⏳ Adatok letöltése...' : '🌐 Új Pályázatok Keresése (myfiap.net)'}
             </button>
           </div>
 
-          {/* Opció B: ÚJ EGYEDI AI AZONOSÍTÓ KERESŐ */}
+          {/* Opció B: EGYEDI ÉLŐ AI KERESŐ */}
           <div style={{ flex: '1 1 350px' }}>
-            <div style={{ fontWeight: 'bold', color: '#a78bfa', marginBottom: '8px', fontSize: '0.9rem' }}>B verzió: Egyedi AI lekérdezés védnökségi szám alapján</div>
+            <div style={{ fontWeight: 'bold', color: '#a78bfa', marginBottom: '8px', fontSize: '0.9rem' }}>B verzió: Keresés és beemelés védnökségi szám alapján (Élő Google Keresés)</div>
             <div style={{ display: 'flex', gap: '10px' }}>
               <input 
                 type="text" 
-                placeholder="pl: FIAP 2025/123 vagy 2026/055" 
+                placeholder="pl: FIAP 2026/123 vagy 2025/555" 
                 value={specificFiapId} 
                 onChange={e => setSpecificFiapId(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') handleAiLookup(); }}
@@ -334,7 +330,7 @@ export default function AdminSalonsView({
           <div style={{ marginTop: '25px', background: '#0f172a', padding: '20px', borderRadius: '16px', border: '1px solid #334155' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '15px' }}>
               <h4 style={{ color: '#10b981', margin: 0, fontSize: '1.2rem' }}>Talált szalonok ({scrapedSalons.length} db):</h4>
-              <button onClick={handleImportSalons} disabled={isImporting} style={{ background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', padding: '10px 20px', borderRadius: '10px', border: 'none', cursor: 'importing' ? 'not-allowed' : 'pointer', fontWeight: 'bold', transition: 'all 0.3s' }}>
+              <button onClick={handleImportSalons} disabled={isImporting} style={{ background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', padding: '10px 20px', borderRadius: '10px', border: 'none', cursor: isImporting ? 'not-allowed' : 'pointer', fontWeight: 'bold', transition: 'all 0.3s' }}>
                 {isImporting ? '⏳ Importálás...' : '🚀 Összes bekészített importálása'}
               </button>
             </div>
@@ -491,7 +487,7 @@ export default function AdminSalonsView({
         </div>
 
         <button onClick={handleSaveSalon} style={{ background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', border: 'none', padding: '14px 25px', borderRadius: '12px', cursor: 'pointer', fontWeight: 'bold', width: '100%', fontSize: '1.05rem', transition: 'all 0.3s', boxShadow: '0 4px 15px rgba(16,185,129,0.3)' }}>
-          {editSalonId ? 'Módosítások Véglegesítése 💾' : 'Szalon Hivatalos Publikálása 🚀'}
+          {editSalonId ? 'Módosítások Véglegenítése 💾' : 'Szalon Hivatalos Publikálása 🚀'}
         </button>
       </div>
 
