@@ -66,9 +66,10 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
   const inputStyle = { width: '100%', padding: '10px', marginBottom: '10px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '6px', boxSizing: 'border-box' as const };
   const isAdmin = user?.email === ADMIN_EMAIL; 
 
-  const fetchLocations = async (search = '') => {
+  // JAVÍTVA: A backendtől mindig a teljes listát kérjük le, a szűrést a frontend végzi villámgyorsan
+  const fetchLocations = async () => {
     try {
-      const res = await fetch(`${BACKEND_URL}/api/locations?search=${encodeURIComponent(search)}&userEmail=${user.email}`);
+      const res = await fetch(`${BACKEND_URL}/api/locations?search=&userEmail=${user.email}`);
       if (res.ok) {
         const data = await res.json();
         setLocations(data);
@@ -87,6 +88,23 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
       if (res.ok) setComments(await res.json());
     } catch (e) { console.error(e); }
   };
+
+  // ====================================================================
+  // 🔍 ÚJ: Szuper-kereső logika (Keres névben, leírásban ÉS az összes EXIF adatban)
+  // ====================================================================
+  const filteredLocations = locations.filter(loc => {
+    const query = searchQuery.toLowerCase().trim();
+    if (!query) return true; // Ha üres a kereső, minden látszik
+    
+    return (
+      loc.title?.toLowerCase().includes(query) ||
+      loc.description?.toLowerCase().includes(query) ||
+      loc.camera?.toLowerCase().includes(query) ||
+      loc.lens?.toLowerCase().includes(query) ||
+      loc.photo_month?.toLowerCase().includes(query) ||
+      loc.photo_time_of_day?.toLowerCase().includes(query)
+    );
+  });
 
   // Finom kamera-úsztatás panTo segítségével, ha a célkoordináta megváltozik
   useEffect(() => {
@@ -109,7 +127,8 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
     }
   }, [targetMapSpotId, locations, map]);
   
-  useEffect(() => { fetchLocations(searchQuery); }, [searchQuery]);
+  // Első betöltésnél leszippantjuk a helyszíneket
+  useEffect(() => { fetchLocations(); }, []);
 
   useEffect(() => {
     if (activeSpot) { fetchComments(activeSpot.id); } 
@@ -175,7 +194,7 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
     const spotTitle = currentSpot ? `"${currentSpot.title}"` : 'ezt a helyszínt';
 
     if (!window.confirm(`Biztosan át szeretnéd mozgatni ${spotTitle} gombostűjét az új koordinátákra?`)) {
-      fetchLocations(searchQuery);
+      fetchLocations();
       return;
     }
 
@@ -190,8 +209,8 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userEmail: user.email, isAdmin: isAdmin, lat: safeLat, lng: safeLng })
       });
-      if (!res.ok) { alert('Mentés sikertelen!'); fetchLocations(searchQuery); }
-    } catch (error) { alert("Hálózati hiba!"); fetchLocations(searchQuery); }
+      if (!res.ok) { alert('Mentés sikertelen!'); fetchLocations(); }
+    } catch (error) { alert("Hálózati hiba!"); fetchLocations(); }
   };
 
   // AUTOMATIKUS EXIF ADATOLVASÁS KÉPVÁLASZTÁSKOR
@@ -258,13 +277,13 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
     try {
       if (editingSpot) {
         const res = await fetch(`${BACKEND_URL}/api/locations/${editingSpot.id}`, { method: 'PUT', body: formData });
-        if (res.ok) { alert('Helyszín frissítve!'); setEditingSpot(null); fetchLocations(searchQuery); }
+        if (res.ok) { alert('Helyszín frissítve!'); setEditingSpot(null); fetchLocations(); }
       } else if (newSpotLatLng) {
         formData.append('userName', user.name || user.email);
         formData.append('lat', newSpotLatLng.lat.toString());
         formData.append('lng', newSpotLatLng.lng.toString());
         const res = await fetch(`${BACKEND_URL}/api/locations`, { method: 'POST', body: formData });
-        if (res.ok) { alert('Helyszín rögzítve!'); setNewSpotLatLng(null); fetchLocations(searchQuery); }
+        if (res.ok) { alert('Helyszín rögzítve!'); setNewSpotLatLng(null); fetchLocations(); }
       }
     } catch (e) { alert("Hálózati hiba!"); } finally { setIsUploading(false); }
   };
@@ -277,7 +296,7 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userEmail: user.email })
       });
-      if (res.ok) { alert("Helyszín törölve!"); setActiveSpot(null); fetchLocations(searchQuery); }
+      if (res.ok) { alert("Helyszín törölve!"); setActiveSpot(null); fetchLocations(); }
     } catch (e) { alert("Hiba a törlés során."); }
   };
 
@@ -288,7 +307,7 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userEmail: user.email })
       });
-      if (res.ok) fetchLocations(searchQuery); 
+      if (res.ok) fetchLocations(); 
     } catch (e) { console.error(e); }
   };
 
@@ -343,7 +362,7 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', marginBottom: '20px' }}>
         <div style={{ background: '#1e293b', padding: '15px', borderRadius: '12px', border: '1px solid #334155' }}>
           <label style={{ color: '#38bdf8', fontWeight: 'bold', display: 'block', marginBottom: '8px', fontSize: '0.9rem' }}>🔍 Meglévő fotós helyszínek szűrése</label>
-          <input type="text" placeholder="Keresés névben, leírásban..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ width: '100%', padding: '10px 15px', borderRadius: '8px', border: '1px solid #475569', background: '#0f172a', color: 'white', outline: 'none', boxSizing: 'border-box' }} />
+          <input type="text" placeholder="Keresés névben, vázban, objektívben, hónapban..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ width: '100%', padding: '10px 15px', borderRadius: '8px', border: '1px solid #475569', background: '#0f172a', color: 'white', outline: 'none', boxSizing: 'border-box' }} />
         </div>
 
         <div style={{ background: '#1e293b', padding: '15px', borderRadius: '12px', border: '1px solid #334155', position: 'relative' }}>
@@ -444,7 +463,8 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
               <MarkerF position={newSpotLatLng} />
             )}
 
-            {locations.map((loc) => {
+            {/* JAVÍTVA: A teljes lista (locations) helyett a szűrt listát (filteredLocations) képezzük le a térképre! */}
+            {filteredLocations.map((loc) => {
               const isOwnOrAdmin = loc.user_email === user.email || isAdmin; 
               const pos = { lat: parseFloat(loc.lat), lng: parseFloat(loc.lng) };
               return (
