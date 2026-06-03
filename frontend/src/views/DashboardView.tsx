@@ -20,7 +20,7 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
     if (stored) setDismissedAlerts(JSON.parse(stored));
   }, []);
 
-  // 2. Értesítések lekérése (Okosított verzió: Csak email változásra figyel, kezeli a Render alvását)
+  // 2. Értesítések lekérése
   useEffect(() => {
     let isMounted = true;
 
@@ -44,17 +44,16 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
     if (user?.email) fetchAlerts();
 
     return () => { isMounted = false; };
-  }, [user?.email]); // <-- FONTOS: Csak az emailre figyel, nem a teljes user objektumra, ami a háttérben frissül!
+  }, [user?.email]);
 
   // --- ÉRTESÍTÉSEK KEZELÉSE ---
 
-const handleDismissAlert = (e: React.MouseEvent, alertKey: string, type?: string, id?: number) => {
+  const handleDismissAlert = (e: React.MouseEvent, alertKey: string, type?: string, id?: number) => {
     e.stopPropagation(); 
     const newDismissed = [...dismissedAlerts, alertKey];
     setDismissedAlerts(newDismissed);
     localStorage.setItem('dismissed_alerts', JSON.stringify(newDismissed));
 
-    // ÚJ: Ha térkép kommentet ikszeltünk ki, szólunk a szervernek!
     if (type === 'map_comment' && id) {
       fetch(`${BACKEND_URL}/api/locations/comments/${id}/read`, {
         method: 'POST',
@@ -79,14 +78,12 @@ const handleDismissAlert = (e: React.MouseEvent, alertKey: string, type?: string
     setActiveTab('club_news');
   };
 
-  // ÚJ: Átadjuk a commentId-t is
   const handleMapCommentClick = (locationId: number, commentId: number) => {
     const alertKey = `com_${commentId}`;
     const newDismissed = [...dismissedAlerts, alertKey];
     setDismissedAlerts(newDismissed);
     localStorage.setItem('dismissed_alerts', JSON.stringify(newDismissed));
     
-    // Szólunk a szervernek, hogy véglegesen olvasott
     fetch(`${BACKEND_URL}/api/locations/comments/${commentId}/read`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -111,13 +108,14 @@ const handleDismissAlert = (e: React.MouseEvent, alertKey: string, type?: string
 
   const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString('hu-HU', { month: 'short', day: 'numeric' });
 
+  // JAVÍTVA: A szigorú tömb alapú szűrések a párhuzamosan futó párbajokhoz
   const visibleNews = alerts?.unreadNews?.filter((n: any) => !dismissedAlerts.includes(`news_${n.id}`)) || [];
   const visibleComments = alerts?.mapComments?.filter((c: any) => !dismissedAlerts.includes(`com_${c.comment_id}`)) || [];
-  const visibleWeekly = alerts?.weekly || null;
+  const visibleWeekly = Array.isArray(alerts?.weekly) ? alerts.weekly : [];
   const visibleHomeworks = alerts?.homeworks || [];
   const visibleContests = alerts?.contests || [];
 
-  const hasAnyVisibleAlerts = visibleNews.length > 0 || visibleComments.length > 0 || visibleWeekly || visibleHomeworks.length > 0 || visibleContests.length > 0;
+  const hasAnyVisibleAlerts = visibleNews.length > 0 || visibleComments.length > 0 || visibleWeekly.length > 0 || visibleHomeworks.length > 0 || visibleContests.length > 0;
 
   return (
     <div style={{ animation: 'fadeIn 0.5s ease-out' }}>
@@ -177,13 +175,14 @@ const handleDismissAlert = (e: React.MouseEvent, alertKey: string, type?: string
               </div>
             ))}
 
-            {visibleWeekly && (
-              <div onClick={() => setActiveTab('weekly_challenge')} className="alert-card" style={{ background: 'linear-gradient(135deg, rgba(249, 115, 22, 0.1), rgba(249, 115, 22, 0.05))', border: '1px solid #f9731650', borderLeft: '4px solid #f97316' }}>
+            {/* JAVÍTVA: Hurrá, mostantól ciklusban rendereljük ki az ÖSSZES futó napi és heti párbajt! */}
+            {visibleWeekly.map((w: any) => (
+              <div key={`weekly_${w.id}`} onClick={() => setActiveTab('weekly_challenge')} className="alert-card" style={{ background: 'linear-gradient(135deg, rgba(249, 115, 22, 0.1), rgba(249, 115, 22, 0.05))', border: '1px solid #f9731650', borderLeft: '4px solid #f97316' }}>
                 <div style={{ fontSize: '1.5rem', marginBottom: '8px' }}>🔥</div>
-                <div style={{ color: '#f97316', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '2px', textTransform: 'uppercase' }}>Futó Párbaj ({formatDate(visibleWeekly.end_date)}-ig)</div>
-                <h4 style={{ margin: 0, color: '#f8fafc', fontSize: '0.95rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{visibleWeekly.title}</h4>
+                <div style={{ color: '#f97316', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '2px', textTransform: 'uppercase' }}>Futó Párbaj ({formatDate(w.end_date)}-ig)</div>
+                <h4 style={{ margin: 0, color: '#f8fafc', fontSize: '0.95rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{w.title}</h4>
               </div>
-            )}
+            ))}
 
             {visibleHomeworks.map((hw: any) => (
               <div key={`hw_${hw.id}`} onClick={() => setActiveTab('club_homeworks')} className="alert-card" style={{ background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.1), rgba(6, 182, 212, 0.05))', border: '1px solid #06b6d450', borderLeft: '4px solid #06b6d4' }}>
