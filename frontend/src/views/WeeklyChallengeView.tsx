@@ -11,7 +11,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const [subTab, setSubTab] = useState<'current' | 'upcoming' | 'past' | 'my_stats'>('current');
   const [loading, setLoading] = useState(true);
   
-  // ÚJ: Párhuzamos párbajok kezeléséhez szükséges extra állapotok
+  // Párhuzamos párbajok kezeléséhez szükséges állapotok
   const [activeTopics, setActiveTopics] = useState<any[]>([]);
   const [selectedTopicId, setSelectedTopicId] = useState<number | null>(null);
 
@@ -45,7 +45,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
 
   const [timeLeft, setTimeLeft] = useState<string>('');
 
-  // JAVÍTVA: Dinamikus lekérdezés: ha van kijelölt ID, az Arénát tölti, ha nincs, a listát!
   const fetchCurrentTopic = async () => {
     setLoading(true);
     try {
@@ -305,7 +304,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
 
       {subTab === 'current' && (
         <>
-          {/* ÚJ NÉZET: Ha nincs kiválasztva konkrét párbaj, kilistázzuk a párhuzamos kihívásokat */}
+          {/* FŐ LISTA NÉZET: Ha nincs kiválasztva konkrét párbaj */}
           {selectedTopicId === null ? (
             <div>
               <div style={{ marginBottom: '20px' }}>
@@ -324,7 +323,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '25px', marginTop: '20px' }}>
                   {activeTopics.map((t) => {
-                    // Kiszámoljuk, napi vagy heti kihívás-e az időtartam alapján
                     const durationDays = Math.ceil((new Date(t.end_date).getTime() - new Date(t.start_date).getTime()) / (1000 * 60 * 60 * 24));
                     const isDaily = durationDays <= 2;
 
@@ -349,7 +347,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                         <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: '0 0 20px 0', lineHeight: '1.5', flex: 1 }}>{t.description}</p>
                         
                         <div style={{ background: '#00000040', padding: '10px 15px', borderRadius: '10px', fontSize: '0.85rem', color: '#cbd5e1', textAlign: 'center', border: '1px solid #1e293b' }}>
-                          📅 Záróra: {new Date(t.end_date).toLocaleDateString('hu-HU')} 23:59
+                          📅 Záróra: {new Date(t.end_date).toLocaleDateString('hu-HU')}
                         </div>
                       </div>
                     );
@@ -358,7 +356,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
               )}
             </div>
           ) : (
-            /* ARÉNA SZÓBA: Ha van kiválasztott ID, betölti a megszokott egyedi arénát */
+            /* ARÉNA SZÓBA: Ha belekattintottál egy konkrét szobába */
             <div>
               <div style={{ marginBottom: '20px' }}>
                 <button 
@@ -371,8 +369,9 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                 </button>
               </div>
 
-              {loading && !topic ? (
-                <div style={{ color: '#94a3b8', textAlign: 'center', padding: '50px' }}>⏳ Aréna betöltése...</div>
+              {/* JAVÍTVA: Biztonsági guard, ami megakadályozza a null érték olvasás miatti white-screent */}
+              {(!topic || loading) ? (
+                <div style={{ color: '#94a3b8', textAlign: 'center', padding: '50px' }}>⏳ Aréna szoba előkészítése...</div>
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '30px' }}>
                   
@@ -570,7 +569,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                                   </div>
                                   <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Nézettség: {entry.views_count}</div>
                                 </div>
-                                <div style={{ textAlign: 'right' }}>
+                                <div style={{ textView: 'right', textAlign: 'right' }}>
                                   <div style={{ color: isMe ? '#f97316' : '#94a3b8', fontWeight: '900', fontSize: '1.5rem' }}>{entry.likes_count} ⭐</div>
                                 </div>
                               </div>
@@ -607,11 +606,11 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       )}
 
       {subTab === 'past' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr md:350px', gap: '30px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '30px' }}>
           
           <div style={{ background: '#1e293b', borderRadius: '24px', padding: '25px', border: '1px solid #334155', boxShadow: '0 10px 30px rgba(0,0,0,0.2)', height: 'fit-content' }}>
-            <h3 style={{ margin: '0 0 20px 0', color: '#60a5fa', fontSize: '1.4rem' }}>📚 Lezárult hetek</h3>
-            {(!pastTopics || pastTopics.length === 0) ? <div style={{color: '#94a3b8', textAlign: 'center'}}>Nincs lezáradt kihívás.</div> : (
+            <h3 style={{ margin: '0 0 20px 0', color: '#60a5fa', fontSize: '1.4rem' }}>📚 Lezárult Kihívások</h3>
+            {(!pastTopics || pastTopics.length === 0) ? <div style={{color: '#94a3b8', textAlign: 'center'}}>Nincs lezárt kihívás.</div> : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {pastTopics.map(t => (
                   <div key={t.id} onClick={() => loadPastHistoryList(t.id)} style={{ padding: '15px 20px', background: selectedPastTopicId === t.id ? 'linear-gradient(90deg, #3b82f640, #0f172a)' : '#0f172a', border: selectedPastTopicId === t.id ? '1px solid #3b82f6' : '1px solid #334155', borderRadius: '12px', cursor: 'pointer', color: 'white', fontWeight: selectedPastTopicId === t.id ? 'bold' : 'normal', transition: 'all 0.2s' }}>
