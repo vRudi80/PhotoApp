@@ -199,25 +199,24 @@ module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload,
     } catch (err) { res.status(500).json({ error: `Hálózati hiba: ${err.message}` }); }
   });
 
-    // ====================================================================
-  // 🤖 JAVÍTVA: AI ALAPÚ FIAP AZONOSÍTÓ KERESÉS ÉLŐ GOOGLE MEGHALYTÁSSAL
+  // ====================================================================
+  // 🤖 JAVÍTVA: AI ALAPÚ ÉLŐ KERESÉS (JSON-kényszerítési konfliktus feloldva)
   // ====================================================================
   app.post('/api/admin/analyze-fiap-id', async (req, res) => {
     const { fiapNumber } = req.body;
     if (!fiapNumber) return res.status(400).json({ error: 'FIAP azonosító megadása kötelező!' });
 
     try {
-      // Aktiváljuk a Google Search-öt, így az AI valós időben böngészik a neten
+      // JAVÍTVA: Eltávolítva a generationConfig JSON kényszerítése, mert tool-al együtt nem támogatja az API
       const model = genAI.getGenerativeModel({ 
         model: "gemini-2.5-flash", 
-        generationConfig: { responseMimeType: "application/json" },
-        tools: [{ googleSearch: {} }] // <-- EZ AZ ÉLŐ INTERNETES KERESŐ ESZKÖZ!
+        tools: [{ googleSearch: {} }] 
       });
 
       const prompt = `Használd a Google keresőt! Keresd meg a következő hivatalos FIAP védnökségi számmal (Patronage number) rendelkező fotópályázatot: "${fiapNumber}".
       Keresd meg a pályázat hivatalos kiírását (Regulations / Closing date), és gyűjtsd ki az adatokat szigorúan a talált weboldalak alapján.
       
-      A válaszod egy precíz JSON objektum legyen:
+      A válaszodban KIZÁRÓLAG egy darab tiszta JSON objektumot küldj vissza az alábbi struktúrával:
       {
         "name": "A pályázat hivatalos teljes angol neve (pl. 5th Balkan Exhibition 2026)",
         "website": "A pályázat hivatalos weboldalának közvetlen címe (URL)",
@@ -229,14 +228,15 @@ module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload,
         "fiap_number": "${fiapNumber}"
       }
       
-      Fontos: Ha nem leled a pontos napot, a sorszámból és az évszámból következtess egy reális, becsült záródátumra. Szigorúan csak a JSON-t küldd vissza!`;
+      Fontos: Ne írj semmilyen bevezető szöveget, magyarázatot vagy lezárást, csak a kért JSON objektumot formázd meg a válaszodban!`;
 
       const result = await model.generateContent(prompt);
       const text = await result.response.text();
       
+      // Az olló megtalálja a JSON kezdetét és végét a nyers szövegből
       const jsonStart = text.indexOf('{');
       const jsonEnd = text.lastIndexOf('}');
-      if (jsonStart === -1 || jsonEnd === -1) throw new Error("Az AI nem generált érvényes JSON-t.");
+      if (jsonStart === -1 || jsonEnd === -1) throw new Error("Az AI nem generált érvényes struktúrát.");
       
       const parsedData = JSON.parse(text.substring(jsonStart, jsonEnd + 1));
       res.json(parsedData);
@@ -244,6 +244,7 @@ module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload,
       res.status(500).json({ error: 'Hiba az AI élő keresése során: ' + err.message });
     }
   });
+
 
 
   app.post('/api/admin/import-fiap', async (req, res) => {
