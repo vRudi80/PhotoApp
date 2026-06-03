@@ -41,7 +41,7 @@ export default function AdminSalonsView({
   const [countrySearch, setCountrySearch] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // --- ÚJ ÁLLAPOTOK: AI/Robot által talált nyers szekciók szöveges mezője ---
+  // --- AI / Robot által talált nyers szekciók állapotai ---
   const [specificFiapId, setSpecificFiapId] = useState('');
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aiDetectedCats, setAiDetectedCats] = useState<string>('');
@@ -183,9 +183,7 @@ export default function AdminSalonsView({
     } catch (e: any) { alert(`Hálózati hiba.`); } finally { setIsScraping(false); }
   };
 
-  // ====================================================================
-  // 🤖 JAVÍTVA: INTELLIGENS AI KERESŐ KATEGÓRIA AUTOMATA-PÁROSÍTÁSSAL
-  // ====================================================================
+  // 🤖 AI AZONOSÍTÓ ALAPÚ KERESÉS ÉS BEEMELÉS LOGIKÁJA
   const handleAiLookup = async () => {
     if (!specificFiapId.trim()) return alert("Kérlek adj meg egy érvényes FIAP védnökségi azonosítót!");
     setIsAiLoading(true);
@@ -209,9 +207,14 @@ export default function AdminSalonsView({
         if (item.fee) setSalonFee(item.fee.toString());
         if (item.end_date) setSalonEnd(item.end_date);
 
-        // JAVÍTVA: Ha körverseny, a csekket bepipáljuk, de a kódmezőt ÜRESEN hagyjuk a többi számhoz!
-        const isCircuitSalon = item.is_circuit === true;
+        // JAVÍTVA: Szuperbiztos körverseny csekk (ha a névben benne van, vagy a flag igaz)
+        const isCircuitSalon = item.is_circuit === true || 
+                               String(item.is_circuit).toLowerCase() === 'true' || 
+                               item.is_circuit === 1 || 
+                               (item.name && item.name.toLowerCase().includes('circuit'));
+        
         setSalonIsCircuit(isCircuitSalon);
+        // JAVÍTVA: Körverseny esetén szigorúan ÜRESEN hagyjuk a kódmezőt, különben beírjuk a FIAP számot
         setSalonCircuitNum(isCircuitSalon ? '' : (item.fiap_number || specificFiapId));
 
         if (item.country) {
@@ -222,36 +225,16 @@ export default function AdminSalonsView({
           if (matchedCountry) { setSalonCountry(matchedCountry.id.toString()); setCountrySearch(''); }
         }
 
-        // JAVÍTVA: A talált kategóriákat betesszük a szöveges gyűjtőmezőbe + megpróbáljuk előre bepipálni őket!
-        if (item.categories && Array.isArray(item.categories)) {
-          setAiDetectedCats(item.categories.join(', '));
-          
-          const autoSelectedIds: number[] = [];
-          sortedCategories.forEach(cat => {
-            const cName = (cat.name || '').toLowerCase();
-            const cHun = (cat.hun_name || '').toLowerCase();
-            
-            item.categories.forEach((sc: string) => {
-              const sCat = sc.toLowerCase();
-              if (
-                sCat.includes(cName) || sCat.includes(cHun) ||
-                (sCat.includes('color') && cHun.includes('színes')) ||
-                (sCat.includes('mono') && cHun.includes('monokróm')) ||
-                (sCat.includes('nature') && cHun.includes('természet')) ||
-                (sCat.includes('travel') && cHun.includes('utazás')) ||
-                (sCat.includes('sport') && cHun.includes('sport'))
-              ) {
-                if (!autoSelectedIds.includes(cat.id)) autoSelectedIds.push(cat.id);
-              }
-            });
-          });
-          setSalonSelectedCats(autoSelectedIds);
+        // JAVÍTVA: Csak a szöveges ajánlást töltjük be, a checkboxokat tisztán, ÜRESEN hagyjuk!
+        if (item.categories) {
+          setAiDetectedCats(Array.isArray(item.categories) ? item.categories.join(', ') : item.categories);
         }
+        setSalonSelectedCats([]); 
 
         setSalonSelectedPatrons([1]);
         setSalonPatronNumbers({ 1: item.fiap_number || specificFiapId });
 
-        alert(`🤖 AI Sikeresen betöltötte a(z) "${item.name}" szalont! Ellenőrizd a szekciókat és nyomj a Publikálásra.`);
+        alert(`🤖 Az AI sikeresen betöltötte a(z) "${item.name}" szalont! Kategória ajánlások bekészítve.`);
         setSpecificFiapId('');
         document.getElementById('salon-main-form')?.scrollIntoView({ behavior: 'smooth' });
       } else {
@@ -295,14 +278,18 @@ export default function AdminSalonsView({
     if (item.fee) setSalonFee(item.fee);
     setSalonEnd(formatDateForInput(item.end_date_raw));
     
-    // JAVÍTVA: A robot-beemelésnél is érvényesítjük a körverseny szabályt!
-    const isCircuitSalon = item.is_circuit === 1;
+    // JAVÍTVA: Robot-beemelésnél is szigorúan érvényesítjük a körverseny-kód törlési szabályt!
+    const isCircuitSalon = item.is_circuit === 1 || 
+                           item.is_circuit === true || 
+                           String(item.is_circuit).toLowerCase() === 'true' ||
+                           (item.name && item.name.toLowerCase().includes('circuit'));
     setSalonIsCircuit(isCircuitSalon);
     setSalonCircuitNum(isCircuitSalon ? '' : item.fiap_number);
 
     if (item.categories) {
       setAiDetectedCats(Array.isArray(item.categories) ? item.categories.join(', ') : item.categories);
     }
+    setSalonSelectedCats([]); // JAVÍTVA: Itt is üresen hagyjuk a checkboxokat
 
     const matchedCountry = countries.find(c => c.country?.toLowerCase() === item.country?.toLowerCase() || c.country_hun?.toLowerCase() === item.country?.toLowerCase());
     if (matchedCountry) { setSalonCountry(matchedCountry.id.toString()); setCountrySearch(''); }
@@ -483,10 +470,10 @@ export default function AdminSalonsView({
         <div style={{ marginBottom: '15px', padding: '20px', background: '#0f172a', borderRadius: '16px', border: '1px solid #334155' }}>
           <label style={{fontSize:'0.9rem', color:'#38bdf8', fontWeight: 'bold', display: 'block', marginBottom: '12px'}}>Indított Szekciók / Kategóriák</label>
           
-          {/* JAVÍTVA: ÚJ AI/ROBOT TEXTBOX KIJELZŐ MEZŐ */}
+          {/* AI/ROBOT TEXTBOX KIJELZŐ MEZŐ */}
           {aiDetectedCats && (
             <div style={{ marginBottom: '15px', padding: '12px 16px', background: '#38bdf810', border: '1px dashed #38bdf860', borderRadius: '8px', color: '#38bdf8', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span>🤖</span> <span><b>AI által beolvasott szekciók:</b> <input type="text" readOnly value={aiDetectedCats} style={{ background: 'transparent', border: 'none', color: '#cbd5e1', fontStyle: 'italic', paddingLeft: '5px', outline: 'none', width: '70%', fontSize: '0.9rem' }} /></span>
+              <span>🤖</span> <span><b>AI által talált szekciók (Válaszd ki őket alul kézzel):</b> <input type="text" readOnly value={aiDetectedCats} style={{ background: 'transparent', border: 'none', color: '#cbd5e1', fontStyle: 'italic', paddingLeft: '5px', outline: 'none', width: '70%', fontSize: '0.9rem' }} /></span>
             </div>
           )}
 
