@@ -261,6 +261,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // 6b. ÚJ: GLOBÁLIS DICSŐSÉGCSARNOK LEKÉRDEZÉSE RANGOKHOZ
+// 6b. JAVÍTVA: GLOBÁLIS DICSŐSÉGCSARNOK (A nulla pontosok automatikus kiszűrésével)
   app.get('/api/weekly/hall-of-fame', async (req, res) => {
     try {
       const [rows] = await pool.query(`
@@ -272,6 +273,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         FROM photo_users u
         LEFT JOIN weekly_entries e ON u.email = e.user_email
         GROUP BY u.email, u.name, u.club_name
+        HAVING total_likes > 0
         ORDER BY total_likes DESC, u.name ASC
       `);
       res.json(rows);
