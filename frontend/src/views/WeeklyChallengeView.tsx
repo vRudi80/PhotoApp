@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { BACKEND_URL } from '../utils/constants';
 import { getImageUrl } from '../utils/helpers';
 
@@ -7,11 +7,95 @@ interface WeeklyChallengeViewProps {
   setFullscreenData: (data: any) => void;
 }
 
+// ====================================================================
+// 📊 GLOBÁLIS SEGÉDFÜGGVÉNY: Kiszámolja a dátumból a verseny típusát
+// ====================================================================
+const getTopicType = (startDate: string, endDate: string) => {
+  if (!startDate || !endDate) return 'weekly';
+  const durationDays = Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24));
+  return durationDays <= 2 ? 'daily' : 'weekly';
+};
+
+// ====================================================================
+// ⏳ SEGÉDKOMPONENS: Önálló kártya saját belső visszaszámlálóval
+// ====================================================================
+function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }) {
+  const [timeLeft, setTimeLeft] = useState<string>('Számítás...');
+
+  useEffect(() => {
+    if (!topic || !topic.end_date) return;
+
+    const calculateTimeLeft = () => {
+      const now = new Date().getTime();
+      const end = new Date(topic.end_date?.replace ? topic.end_date.replace(' ', 'T') : topic.end_date); 
+      
+      if (isNaN(end.getTime())) {
+        setTimeLeft('Hibás dátum');
+        return false;
+      }
+
+      end.setHours(23, 59, 59, 999);
+      const distance = end.getTime() - now;
+
+      if (distance < 0) {
+        setTimeLeft('Párbaj Lezárult!');
+        return false;
+      }
+
+      const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)).toString().padStart(2, '0');
+      const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60)).toString().padStart(2, '0');
+      const seconds = Math.floor((distance % (1000 * 60)) / 1000).toString().padStart(2, '0');
+
+      if (days > 0) {
+        setTimeLeft(`${days} nap ${hours}:${minutes}:${seconds}`);
+      } else {
+        setTimeLeft(`${hours}:${minutes}:${seconds}`);
+      }
+      return true;
+    };
+
+    calculateTimeLeft();
+    const interval = setInterval(() => {
+      const stillActive = calculateTimeLeft();
+      if (!stillActive) clearInterval(interval);
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, [topic]);
+
+  const isDaily = getTopicType(topic.start_date, topic.end_date) === 'daily';
+
+  return (
+    <div 
+      onClick={onSelect}
+      style={{ background: 'linear-gradient(145deg, #1e293b, #0f172a)', borderRadius: '20px', border: '1px solid #334155', padding: '25px', cursor: 'pointer', transition: 'all 0.3s ease', boxShadow: '0 10px 25px rgba(0,0,0,0.4)', display: 'flex', flexDirection: 'column', position: 'relative' }}
+      onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-5px)'; e.currentTarget.style.borderColor = isDaily ? '#ef4444' : '#3b82f6'; }}
+      onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = '#334155'; }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+        <span style={{ background: isDaily ? '#ef444420' : '#3b82f620', color: isDaily ? '#f87171' : '#60a5fa', border: `1px solid ${isDaily ? '#ef444450' : '#3b82f650'}`, padding: '4px 12px', borderRadius: '50px', fontSize: '0.8rem', fontWeight: 'bold' }}>
+          {isDaily ? '🔴 Napi Pörgős' : '🔵 Heti Klasszikus'}
+        </span>
+        <span style={{ color: topic.hasEntered ? '#10b981' : '#f59e0b', fontSize: '0.85rem', fontWeight: 'bold' }}>
+          {topic.hasEntered ? '🚀 Neveztél' : '⏳ Még nem neveztél'}
+        </span>
+      </div>
+
+      <h3 style={{ color: 'white', margin: '0 0 10px 0', fontSize: '1.4rem', fontWeight: 'bold' }}>{topic.title}</h3>
+      <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: '0 0 20px 0', lineHeight: '1.5', flex: 1 }}>{topic.description}</p>
+      
+      <div style={{ background: '#00000040', padding: '12px 15px', borderRadius: '12px', fontSize: '0.9rem', color: isDaily ? '#f87171' : '#38bdf8', textAlign: 'center', border: '1px solid #1e293b', fontWeight: 'bold', fontFamily: 'monospace', letterSpacing: '0.5px' }}>
+        ⏳ Hátralévő idő: {timeLeft}
+      </div>
+    </div>
+  );
+}
+
 export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyChallengeViewProps) {
   const [subTab, setSubTab] = useState<'current' | 'upcoming' | 'past' | 'my_stats'>('current');
   const [loading, setLoading] = useState(true);
   
-  // Párhuzamos párbajok kezeléséhez szükséges állapotok
   const [activeTopics, setActiveTopics] = useState<any[]>([]);
   const [selectedTopicId, setSelectedTopicId] = useState<number | null>(null);
 
@@ -45,6 +129,17 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
 
   const [timeLeft, setTimeLeft] = useState<string>('');
 
+  // JAVÍTVA: Amikor párbajt váltunk, AZONNAL töröljük a régi szoba memóriáját, megakadályozva a fehér képernyőt!
+  useEffect(() => {
+    setTopic(null);
+    setMyEntry(null);
+    setVoteEntry(null);
+    setLeaderboard([]);
+    setCurrentClubLeaderboard([]);
+    setNoMoreEntries(false);
+    setTimeLeft('');
+  }, [selectedTopicId]);
+
   const fetchCurrentTopic = async () => {
     setLoading(true);
     try {
@@ -76,7 +171,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       const res = await fetch(`${BACKEND_URL}/api/weekly/next-vote?topicId=${topicId}&userEmail=${user.email}`);
       if (res.ok) {
         const data = await res.json();
-        if (data.entry) { setVoteEntry(data.entry); setNoMoreEntries(false); } 
+        if (data && data.entry) { setVoteEntry(data.entry); setNoMoreEntries(false); } 
         else { setVoteEntry(null); setNoMoreEntries(true); }
       }
     } catch (e) { console.error(e); }
@@ -115,7 +210,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
 
     const calculateTimeLeft = () => {
       const now = new Date().getTime();
-      const end = new Date(topic.end_date.replace(' ', 'T')); 
+      const end = new Date(topic.end_date?.replace ? topic.end_date.replace(' ', 'T') : topic.end_date); 
       
       if (isNaN(end.getTime())) {
         setTimeLeft('Hibás dátum');
@@ -245,44 +340,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     finally { setIsSwapping(false); }
   };
 
-  let totalLikes = 0; let totalViews = 0; let top10Count = 0; let top20Count = 0; let podiumCount = 0;
-  if (myStats && myStats.history) {
-    totalLikes = myStats.history.reduce((sum, e) => sum + e.likes, 0); 
-    totalViews = myStats.history.reduce((sum, e) => sum + e.views, 0); 
-    podiumCount = myStats.podiums.first + myStats.podiums.second + myStats.podiums.third;
-    myStats.history.forEach(e => { const percentile = e.rank / e.total_entries; if (percentile <= 0.1 && e.rank > 3) top10Count++; if (percentile > 0.1 && percentile <= 0.2) top20Count++; });
-  }
-
-  const getVotePower = (likes: number) => {
-    if (likes < 20) return { super: 1, brilliant: 2 };
-    if (likes < 100) return { super: 2, brilliant: 3 };
-    if (likes < 300) return { super: 2, brilliant: 4 };
-    if (likes < 800) return { super: 3, brilliant: 5 };
-    return { super: 4, brilliant: 6 };
-  };
-  const myPower = getVotePower(totalLikes);
-
-  const BASE_EXPOSURE = 10;
-  const exposureEarned = BASE_EXPOSURE + (myVoteCount * 2);
-  const viewsRemaining = myEntry ? (exposureEarned - myEntry.views_count) : 0;
-  const exposurePercentage = myEntry ? Math.min(100, Math.max(0, (viewsRemaining / 15) * 100)) : 0;
-
-  let exposureColor = '#ef4444';
-  let exposureLabel = viewsRemaining <= 0 ? 'Láthatatlan (0%)' : 'Alacsony';
-  if (exposurePercentage >= 80) { exposureColor = '#10b981'; exposureLabel = 'Maximális'; } 
-  else if (exposurePercentage >= 40) { exposureColor = '#f59e0b'; exposureLabel = 'Közepes'; }
-
-  const getLevel = (likes: number) => {
-    if (likes < 20) return { name: 'Újonc 🌱', nextAt: 20, color: '#94a3b8' };
-    if (likes < 100) return { name: 'Felfedezett 📸', nextAt: 100, color: '#38bdf8' };
-    if (likes < 300) return { name: 'Haladó ⭐', nextAt: 300, color: '#10b981' };
-    if (likes < 800) return { name: 'Profi 🏅', nextAt: 800, color: '#f59e0b' };
-    return { name: 'Guru 👑', nextAt: null, color: '#fbbf24' };
-  };
-  const currentLevel = getLevel(totalLikes);
-  const progressPercent = currentLevel.nextAt ? (totalLikes / currentLevel.nextAt) * 100 : 100;
-
-  const handleImageError = (e: any) => {
+  const handleOriginalImageError = (e: any) => {
     e.currentTarget.src = 'https://via.placeholder.com/400x300/1e293b/64748b?text=Kép+nem+található';
   };
 
@@ -304,7 +362,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
 
       {subTab === 'current' && (
         <>
-          {/* FŐ LISTA NÉZET: Ha nincs kiválasztva konkrét párbaj */}
           {selectedTopicId === null ? (
             <div>
               <div style={{ marginBottom: '20px' }}>
@@ -322,45 +379,21 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                 </div>
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '25px', marginTop: '20px' }}>
-                  {activeTopics.map((t) => {
-                    const durationDays = Math.ceil((new Date(t.end_date).getTime() - new Date(t.start_date).getTime()) / (1000 * 60 * 60 * 24));
-                    const isDaily = durationDays <= 2;
-
-                    return (
-                      <div 
-                        key={t.id} 
-                        onClick={() => setSelectedTopicId(t.id)}
-                        style={{ background: 'linear-gradient(145deg, #1e293b, #0f172a)', borderRadius: '20px', border: '1px solid #334155', padding: '25px', cursor: 'pointer', transition: 'all 0.3s ease', boxShadow: '0 10px 25px rgba(0,0,0,0.4)', display: 'flex', flexDirection: 'column', position: 'relative' }}
-                        onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-5px)'; e.currentTarget.style.borderColor = isDaily ? '#ef4444' : '#3b82f6'; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = '#334155'; }}
-                      >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-                          <span style={{ background: isDaily ? '#ef444420' : '#3b82f620', color: isDaily ? '#f87171' : '#60a5fa', border: `1px solid ${isDaily ? '#ef444450' : '#3b82f650'}`, padding: '4px 12px', borderRadius: '50px', fontSize: '0.8rem', fontWeight: 'bold' }}>
-                            {isDaily ? '🔴 Napi Pörgős' : '🔵 Heti Klasszikus'}
-                          </span>
-                          <span style={{ color: t.hasEntered ? '#10b981' : '#f59e0b', fontSize: '0.85rem', fontWeight: 'bold' }}>
-                            {t.hasEntered ? '🚀 Neveztél' : '⏳ Még nem neveztél'}
-                          </span>
-                        </div>
-
-                        <h3 style={{ color: 'white', margin: '0 0 10px 0', fontSize: '1.4rem', fontWeight: 'bold' }}>{t.title}</h3>
-                        <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: '0 0 20px 0', lineHeight: '1.5', flex: 1 }}>{t.description}</p>
-                        
-                        <div style={{ background: '#00000040', padding: '10px 15px', borderRadius: '10px', fontSize: '0.85rem', color: '#cbd5e1', textAlign: 'center', border: '1px solid #1e293b' }}>
-                          📅 Záróra: {new Date(t.end_date).toLocaleDateString('hu-HU')}
-                        </div>
-                      </div>
-                    );
-                  })}
+                  {activeTopics.map((t) => (
+                    <ChallengeCard 
+                      key={t.id} 
+                      topic={t} 
+                      onSelect={() => setSelectedTopicId(t.id)} 
+                    />
+                  ))}
                 </div>
               )}
             </div>
           ) : (
-            /* ARÉNA SZÓBA: Ha belekattintottál egy konkrét szobába */
             <div>
               <div style={{ marginBottom: '20px' }}>
                 <button 
-                  onClick={() => { setSelectedTopicId(null); setTopic(null); }} 
+                  onClick={() => { setSelectedTopicId(null); }} 
                   style={{ background: '#1e293b', border: '1px solid #334155', color: '#cbd5e1', padding: '8px 18px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem', transition: 'all 0.2s' }}
                   onMouseOver={(e) => e.currentTarget.style.background = '#334155'}
                   onMouseOut={(e) => e.currentTarget.style.background = '#1e293b'}
@@ -369,7 +402,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                 </button>
               </div>
 
-              {/* JAVÍTVA: Biztonsági guard, ami megakadályozza a null érték olvasás miatti white-screent */}
+              {/* JAVÍTVA: A szigorú state-reset miatt a guard mostantól tökéletesen és crashtől mentesen megvárja az új adatokat */}
               {(!topic || loading) ? (
                 <div style={{ color: '#94a3b8', textAlign: 'center', padding: '50px' }}>⏳ Aréna szoba előkészítése...</div>
               ) : (
@@ -429,7 +462,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                       ) : voteEntry ? (
                         <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                           <div onClick={() => setFullscreenData({url: getImageUrl(voteEntry.drive_file_id, voteEntry.file_url), title: 'Kihívás'})} style={{ width: '100%', height: '380px', backgroundColor: '#000', borderRadius: '16px', overflow: 'hidden', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-in', boxShadow: '0 10px 20px rgba(0,0,0,0.5)' }}>
-                            <img src={getImageUrl(voteEntry.drive_file_id, voteEntry.file_url)} alt="Szavazás" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} onError={handleImageError} />
+                            <img src={getImageUrl(voteEntry.drive_file_id, voteEntry.file_url)} alt="Szavazás" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} onError={handleOriginalImageError} />
                           </div>
                           
                           {voteEntry.off_topic_count > 0 && (
@@ -472,8 +505,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                             <img src={getImageUrl(myEntry.drive_file_id, myEntry.file_url)} alt="Saját" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} onError={handleImageError} />
                           </div>
                           <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'space-between', background: '#0f172a', padding: '20px', borderRadius: '12px', borderLeft: `4px solid ${exposureColor}` }}>
-                            <div style={{ textAlign: 'center' }}><div style={{ color: '#94a3b8', fontSize: '0.85rem', textTransform: 'uppercase', marginBottom: '5px' }}>Eredmény</div><div style={{ color: '#f59e0b', fontSize: '1.5rem', fontWeight: '900' }}>{myEntry.likes_count} ⭐</div></div>
-                            <div style={{ textAlign: 'center' }}><div style={{ color: '#94a3b8', fontSize: '0.85rem', textTransform: 'uppercase', marginBottom: '5px' }}>Nézettség</div><div style={{ color: '#38bdf8', fontSize: '1.5rem', fontWeight: '900' }}>{myEntry.views_count} 👁️</div></div>
+                            <div style={{ textAlign: 'center' }}><div style={{ color: '#94a3b8', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '5px' }}>Eredmény</div><div style={{ color: '#f59e0b', fontSize: '1.5rem', fontWeight: '900' }}>{myEntry.likes_count} ⭐</div></div>
+                            <div style={{ textAlign: 'center' }}><div style={{ color: '#94a3b8', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '5px' }}>Nézettség</div><div style={{ color: '#38bdf8', fontSize: '1.5rem', fontWeight: '900' }}>{myEntry.views_count} 👁️</div></div>
                           </div>
 
                           {myEntry.off_topic_count > 0 && (
@@ -569,7 +602,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                                   </div>
                                   <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Nézettség: {entry.views_count}</div>
                                 </div>
-                                <div style={{ textView: 'right', textAlign: 'right' }}>
+                                {/* JAVÍTVA: Elgépelt stílustulajdonság száműzve */}
+                                <div style={{ textAlign: 'right' }}>
                                   <div style={{ color: isMe ? '#f97316' : '#94a3b8', fontWeight: '900', fontSize: '1.5rem' }}>{entry.likes_count} ⭐</div>
                                 </div>
                               </div>
@@ -591,16 +625,24 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           {(!upcomingTopics || upcomingTopics.length === 0) ? (
             <div style={{ color: '#94a3b8', gridColumn: '1/-1', textAlign: 'center', padding: '60px', background: '#1e293b', borderRadius: '24px', border: '1px solid #334155' }}>Nincs betárazva elkövetkező téma.</div>
           ) : (
-            upcomingTopics.map(t => (
-              <div key={t.id} style={{ background: 'linear-gradient(180deg, #1e293b, #0f172a)', padding: '25px', borderRadius: '24px', border: '1px solid #475569', display: 'flex', flexDirection: 'column', boxShadow: '0 10px 20px rgba(0,0,0,0.2)' }}>
-                <div style={{ fontSize: '3rem', marginBottom: '15px' }}>🗓️</div>
-                <h4 style={{ color: '#f59e0b', margin: '0 0 10px 0', fontSize: '1.4rem' }}>{t.title}</h4>
-                <p style={{ color: '#cbd5e1', fontSize: '0.95rem', margin: '0 0 20px 0', flex: 1, lineHeight: '1.6' }}>{t.description}</p>
-                <div style={{ color: '#38bdf8', fontSize: '0.9rem', background: '#0f172a', padding: '15px', borderRadius: '12px', textAlign: 'center', fontWeight: 'bold', border: '1px solid #38bdf840' }}>
-                  ⏳ Start: {new Date(t.start_date).toLocaleDateString('hu-HU')}
+            upcomingTopics.map(t => {
+              const isDaily = getTopicType(t.start_date, t.end_date) === 'daily';
+              return (
+                <div key={t.id} style={{ background: 'linear-gradient(180deg, #1e293b, #0f172a)', padding: '25px', borderRadius: '24px', border: '1px solid #475569', display: 'flex', flexDirection: 'column', boxShadow: '0 10px 20px rgba(0,0,0,0.2)' }}>
+                  <div style={{ marginBottom: '10px' }}>
+                    <span style={{ background: isDaily ? '#ef444420' : '#3b82f620', color: isDaily ? '#f87171' : '#60a5fa', border: `1px solid ${isDaily ? '#ef444450' : '#3b82f650'}`, padding: '4px 12px', borderRadius: '50px', fontSize: '0.8rem', fontWeight: 'bold' }}>
+                      {isDaily ? '🔴 Napi Kihívás' : '🔵 Heti Kihívás'}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '3rem', marginBottom: '15px' }}>🗓️</div>
+                  <h4 style={{ color: '#f59e0b', margin: '0 0 10px 0', fontSize: '1.4rem' }}>{t.title}</h4>
+                  <p style={{ color: '#cbd5e1', fontSize: '0.95rem', margin: '0 0 20px 0', flex: 1, lineHeight: '1.6' }}>{t.description}</p>
+                  <div style={{ color: '#38bdf8', fontSize: '0.9rem', background: '#0f172a', padding: '15px', borderRadius: '12px', textAlign: 'center', fontWeight: 'bold', border: '1px solid #38bdf840' }}>
+                    ⏳ Start: {new Date(t.start_date).toLocaleDateString('hu-HU')}
+                  </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       )}
@@ -612,11 +654,14 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
             <h3 style={{ margin: '0 0 20px 0', color: '#60a5fa', fontSize: '1.4rem' }}>📚 Lezárult Kihívások</h3>
             {(!pastTopics || pastTopics.length === 0) ? <div style={{color: '#94a3b8', textAlign: 'center'}}>Nincs lezárt kihívás.</div> : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {pastTopics.map(t => (
-                  <div key={t.id} onClick={() => loadPastHistoryList(t.id)} style={{ padding: '15px 20px', background: selectedPastTopicId === t.id ? 'linear-gradient(90deg, #3b82f640, #0f172a)' : '#0f172a', border: selectedPastTopicId === t.id ? '1px solid #3b82f6' : '1px solid #334155', borderRadius: '12px', cursor: 'pointer', color: 'white', fontWeight: selectedPastTopicId === t.id ? 'bold' : 'normal', transition: 'all 0.2s' }}>
-                    {t.title}
-                  </div>
-                ))}
+                {pastTopics.map(t => {
+                  const isDaily = getTopicType(t.start_date, t.end_date) === 'daily';
+                  return (
+                    <div key={t.id} onClick={() => loadPastHistoryList(t.id)} style={{ padding: '15px 20px', background: selectedPastTopicId === t.id ? 'linear-gradient(90deg, #3b82f640, #0f172a)' : '#0f172a', border: selectedPastTopicId === t.id ? '1px solid #3b82f6' : '1px solid #334155', borderRadius: '12px', cursor: 'pointer', color: 'white', fontWeight: selectedPastTopicId === t.id ? 'bold' : 'normal', transition: 'all 0.2s' }}>
+                      {isDaily ? '🔴 ' : '🔵 '} {t.title}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -624,7 +669,19 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
             
             <div style={{ background: '#1e293b', borderRadius: '24px', padding: '25px', border: '1px solid #10b981', boxShadow: '0 10px 30px rgba(0,0,0,0.2)' }}>
-              <h3 style={{ margin: '0 0 5px 0', color: '#10b981', fontSize: '1.4rem' }}>🛡️ Klubok Csatája</h3>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                <h3 style={{ margin: 0, color: '#10b981', fontSize: '1.4rem' }}>🛡️ Klubok Csatája</h3>
+                {selectedPastTopicId && (() => {
+                  const t = pastTopics.find(x => x.id === selectedPastTopicId);
+                  if (!t) return null;
+                  const isDaily = getTopicType(t.start_date, t.end_date) === 'daily';
+                  return (
+                    <span style={{ fontSize: '0.75rem', background: isDaily ? '#ef444420' : '#3b82f620', color: isDaily ? '#f87171' : '#60a5fa', padding: '3px 10px', borderRadius: '12px', fontWeight: 'bold', border: `1px solid ${isDaily ? '#ef444450' : '#3b82f650'}` }}>
+                      {isDaily ? 'Napi' : 'Heti'}
+                    </span>
+                  );
+                })()}
+              </div>
               <p style={{ color: '#94a3b8', fontSize: '0.8rem', margin: '0 0 20px 0' }}>Csak a 3 legjobb klubtag pontja számít!</p>
               
               {selectedPastTopicId && (!pastClubLeaderboard || pastClubLeaderboard.length === 0) && <div style={{color: '#94a3b8', textAlign: 'center', padding: '10px'}}>Nincs résztvevő klub.</div>}
@@ -732,12 +789,18 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                     else if (percentile <= 0.1) { badge = '⭐ Top 10%'; badgeColor = '#a855f7'; }
                     else if (percentile <= 0.2) { badge = '✨ Top 20%'; badgeColor = '#10b981'; }
 
+                    const isDaily = getTopicType(entry.start_date, entry.end_date) === 'daily';
+
                     return (
                       <div key={idx} style={{ background: '#1e293b', borderRadius: '20px', overflow: 'hidden', border: `1px solid ${badgeColor}`, cursor: 'pointer', transition: 'transform 0.2s', boxShadow: '0 10px 20px rgba(0,0,0,0.3)' }} onClick={() => setFullscreenData({url: getImageUrl(entry.drive_file_id, entry.file_url), title: entry.topic_title})} onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
                         <div style={{ position: 'relative', height: '220px' }}>
                           <img src={getImageUrl(entry.drive_file_id, entry.file_url)} alt="Pályamű" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={handleImageError} />
                           <div style={{ position: 'absolute', top: '15px', left: '15px', background: badgeColor, color: badgeColor === '#fbbf24' ? 'black' : 'white', padding: '6px 16px', borderRadius: '100px', fontWeight: '900', fontSize: '0.9rem', boxShadow: '0 4px 10px rgba(0,0,0,0.5)' }}>
                             {badge || `${entry.rank}. Hely`}
+                          </div>
+                          
+                          <div style={{ position: 'absolute', top: '15px', right: '15px', background: 'rgba(15, 23, 42, 0.85)', backdropFilter: 'blur(4px)', color: isDaily ? '#f87171' : '#60a5fa', padding: '4px 12px', borderRadius: '50px', fontSize: '0.75rem', fontWeight: 'bold', border: `1px solid ${isDaily ? '#ef444450' : '#3b82f650'}`, boxShadow: '0 4px 10px rgba(0,0,0,0.3)' }}>
+                            {isDaily ? '🔴 Napi' : '🔵 Heti'}
                           </div>
                         </div>
                         <div style={{ padding: '20px' }}>
