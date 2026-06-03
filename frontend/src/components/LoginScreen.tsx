@@ -10,7 +10,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   
   // A dashboard alapján felépített funkció-lista
   const features = [
-    { icon: '🔥', title: 'Heti Párbaj', desc: 'Képes kihívások és toplisták.', color: '#f97316' },
+    { icon: '🔥', title: 'Párbaj', desc: 'Fotós kihívások és toplisták.', color: '#f97316' },
     { icon: '🏆', title: 'FIAP / MAFOSZ', desc: 'Nemzetközi minősítés követő.', color: '#f43f5e' },
     { icon: '🌍', title: 'Fotós Térkép', desc: 'Közösségi helyszín megosztó.', color: '#10b981' },
     { icon: '🖼️', title: 'AI Elemzés', desc: 'Portfólió és okos képelemzés.', color: '#f59e0b' },
