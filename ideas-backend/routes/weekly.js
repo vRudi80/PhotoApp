@@ -14,7 +14,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     return { super: 4, brilliant: 6 };                            // Guru 👑
   }
 
-  // 1. AKTUÁLIS TÉMA ÉS ARÉNA DATA LEKÉRÉSE
+  // 1. AKTUÁLIS TÉMA ÉS ARÉNA DATA LEKÉRÉSE (JAVÍTVA: SZINKRONIZÁLT ERŐSÍTÉSSEL)
   app.get('/api/weekly/current', async (req, res) => {
     const { userEmail, topicId } = req.query;
     try {
@@ -29,6 +29,11 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
           return today >= start && today <= end;
       });
 
+      // Kiszámoljuk a szavazó globális erejét és valós összpontszámát az adatbázisból
+      const power = await getUserVotePower(pool, userEmail);
+      const [likesRows] = await pool.query('SELECT SUM(likes_count) as total FROM weekly_entries WHERE user_email = ?', [userEmail]);
+      const userTotalLikes = likesRows[0].total || 0;
+
       if (!topicId) {
         const topicsWithStatus = [];
         for (const t of activeTopics) {
@@ -38,7 +43,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
             hasEntered: entry.length > 0
           });
         }
-        return res.json({ activeTopics: topicsWithStatus });
+        return res.json({ activeTopics: topicsWithStatus, userTotalLikes, userPower: power });
       }
 
       const currentTopic = activeTopics.find(t => t.id === Number(topicId)) || allTopics.find(t => t.id === Number(topicId));
@@ -91,7 +96,9 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         myVoteCount: myVotes[0]?.vote_count || 0, 
         votableEntries,
         leaderboard,
-        clubLeaderboard
+        clubLeaderboard,
+        userTotalLikes,  // Bekötve a frontend szinkronhoz!
+        userPower: power // Bekötve a frontend szinkronhoz!
       });
     } catch (err) { 
       res.status(500).json({ error: 'Hiba a kihívás részleteinek lekérésekor' }); 
@@ -217,7 +224,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
-  // 6. JAVÍTVA: ÁTADJUK AZ END_DATE MEZŐT IS A TRÓFEATEREMNEK A TÍPUS MEGHATÁROZÁSÁHOZ
   app.get('/api/weekly/my-stats', async (req, res) => {
     const { userEmail } = req.query;
     try {
@@ -240,7 +246,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
           history.push({
             topic_title: topic.title,
             start_date: topic.start_date,
-            end_date: topic.end_date, // <-- ÚJ: Ebből számolja ki a frontend a plecsnit!
+            end_date: topic.end_date,
             rank: rank,
             total_entries: entries.length,
             file_url: entry.file_url,
@@ -261,37 +267,5 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       await pool.query("INSERT IGNORE INTO weekly_votes (entry_id, voter_email, vote_type) VALUES (?, ?, 'pass')", [entryId, userEmail]);
       res.json({ success: true });
     } catch (err) { res.status(500).json({ error: err.message }); }
-  });
-
-  // ADMIN VÉGPONTOK
-  app.get('/api/admin/weekly-topics', async (req, res) => {
-    try { const [rows] = await pool.query('SELECT * FROM weekly_topics ORDER BY start_date DESC'); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
-  });
-  app.post('/api/admin/weekly-topics', async (req, res) => {
-    const { title, description, startDate, endDate } = req.body;
-    try { await pool.query('INSERT INTO weekly_topics (title, description, start_date, end_date, is_active) VALUES (?, ?, ?, ?, false)', [title, description, startDate, endDate]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
-  });
-  app.put('/api/admin/weekly-topics/:id', async (req, res) => {
-    const { title, description, startDate, endDate } = req.body;
-    try { await pool.query('UPDATE weekly_topics SET title = ?, description = ?, start_date = ?, end_date = ? WHERE id = ?', [title, description, startDate, endDate, req.params.id]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
-  });
-  app.post('/api/admin/weekly-topics/:id/activate', async (req, res) => {
-    const conn = await pool.getConnection();
-    try {
-      await conn.beginTransaction();
-      await conn.query('UPDATE weekly_topics SET is_active = false');
-      await conn.query('UPDATE weekly_topics SET is_active = true WHERE id = ?', [req.params.id]);
-      await conn.commit(); res.json({ success: true });
-    } catch (e) { await conn.rollback(); res.status(500).json({ error: 'Hiba' }); } finally { conn.release(); }
-  });
-  app.delete('/api/admin/weekly-topics/:id', async (req, res) => {
-    try {
-      const [entries] = await pool.query('SELECT drive_file_id FROM weekly_entries WHERE topic_id = ?', [req.params.id]);
-      for (const entry of entries) { if (entry.drive_file_id) await drive.files.delete({ fileId: entry.drive_file_id }).catch(e => console.log(e.message)); }
-      await pool.query('DELETE FROM weekly_votes WHERE entry_id IN (SELECT id FROM weekly_entries WHERE topic_id = ?)', [req.params.id]);
-      await pool.query('DELETE FROM weekly_entries WHERE topic_id = ?', [req.params.id]);
-      await pool.query('DELETE FROM weekly_topics WHERE id = ?', [req.params.id]);
-      res.json({ success: true });
-    } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 };
