@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { useState, useEffect } from 'react'; // <-- JAVÍTVA: Beírva a useEffect is!
+import { useState, useEffect } from 'react';
 import { googleLogout } from '@react-oauth/google';
 import { ADMIN_EMAIL, BACKEND_URL } from '../utils/constants';
 
@@ -24,7 +23,6 @@ export default function Header({
 }: HeaderProps) {
   
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-
   const [unreadTicketsCount, setUnreadTicketsCount] = useState(0);
   const isAdminUser = user?.email === ADMIN_EMAIL;
 
@@ -39,9 +37,9 @@ export default function Header({
     };
     
     checkUnread();
-    const interval = setInterval(checkUnread, 600000); // 30 mp-es poll
+    const interval = setInterval(checkUnread, 600000);
     return () => clearInterval(interval);
-  }, [user, activeTab]); // Tabváltáskor is frissít egyet azonnal
+  }, [user, activeTab]);
   
   const handleNavClick = (tab: string) => {
     setActiveTab(tab);
@@ -168,7 +166,7 @@ export default function Header({
             </button>
           </div>
 
-          {/* SUPPORT GOMB PIROS ÉRTESÍTŐ KÖRREKKEL */}
+          {/* SUPPORT GOMB */}
           <div className="nav-item-container" style={{ zIndex: 50 }}>
             <button className={`nav-btn ${activeTab === 'tickets' ? 'active' : ''}`} style={{ color: '#f43f5e', display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => handleNavClick('tickets')}>
               <span>✉️ Support</span>
@@ -183,11 +181,18 @@ export default function Header({
           {/* ADMIN DROPDOWN */}
           {(user?.email === ADMIN_EMAIL || isLeader) && (
             <div className="nav-item-container" style={{ zIndex: dropdownOpen === 'admin' ? 60 : 50 }}>
-              <button className={`nav-btn ${dropdownOpen === 'admin' || activeTab.startsWith('admin_') ? 'active' : ''}`} style={{ color: '#ef4444' }} onClick={() => setDropdownOpen(dropdownOpen === 'admin' ? null : 'admin')}>
+              {/* JAVÍTVA: Ha a leader_club aktív, az admin főgomb is megkapja az active stílust */}
+              <button className={`nav-btn ${dropdownOpen === 'admin' || activeTab.startsWith('admin_') || activeTab === 'leader_club' ? 'active' : ''}`} style={{ color: '#ef4444' }} onClick={() => setDropdownOpen(dropdownOpen === 'admin' ? null : 'admin')}>
                 <span>⚙️ Admin</span> <span>▾</span>
               </button>
               {dropdownOpen === 'admin' && (
                 <div className="dropdown-menu">
+                  {/* ÚJ: Csak vezetőknek és helyetteseknek (isLeader) látható klubkezelő menüpont */}
+                  {isLeader && (
+                    <button className={`drop-item ${activeTab === 'leader_club' ? 'active' : ''}`} style={{ color: '#0ea5e9', fontWeight: 'bold' }} onClick={() => handleNavClick('leader_club')}>
+                      🛡️ Klubom adatai
+                    </button>
+                  )}
                   {user?.email === ADMIN_EMAIL && <button className={`drop-item ${activeTab === 'admin_contests' ? 'active' : ''}`} style={{ color: activeTab === 'admin_contests' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_contests')}>Pályázatok kezelése</button>}
                   <button className={`drop-item ${activeTab === 'admin_meetings' ? 'active' : ''}`} style={{ color: activeTab === 'admin_meetings' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_meetings')}>Klubestek kezelése</button>
                   <button className={`drop-item ${activeTab === 'admin_homeworks' ? 'active' : ''}`} style={{ color: activeTab === 'admin_homeworks' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_homeworks')}>Házi feladatok kezelése</button>
