@@ -30,7 +30,7 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
 
   const hasPremiumAccess = user && (user.isPremium || user.is_premium);
 
-  // --- ÚJ: CSOMAG ÉS LIMIT KALKULÁCIÓ ---
+  // --- CSOMAG ÉS LIMIT KALKULÁCIÓ ---
   let premiumLevel = user?.premiumLevel || user?.premium_level || 0;
   if (hasPremiumAccess && premiumLevel === 0) premiumLevel = 1; // Fallback
   
@@ -239,7 +239,6 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
           )}
         </div>
       </div>
-      {/* --------------------------------- */}
 
       <div style={{ background: '#1e293b', padding: '20px', borderRadius: '12px', marginBottom: '20px', border: '1px solid #38bdf850' }}>
         <h3 style={{ marginTop: 0, color: '#38bdf8', fontSize: '1.2rem' }}>📤 Új fotó hozzáadása a portfólióhoz</h3>
@@ -418,31 +417,38 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
                   </div>
                 </details>
 
-                {currentPhotoResults.length > 0 && !editingPhotoId && (
+                {/* JAVÍTVA: A felesleges length > 0 tiltást kivettem, így az eredmény doboz mostantól SOHA nem tűnik el titokzatosan */}
+                {!editingPhotoId && (
                   <details style={{ marginBottom: '15px', background: '#0f172a', borderRadius: '8px', border: '1px solid #334155' }}>
                     <summary style={{ padding: '10px', fontSize: '0.75rem', color: '#60a5fa', fontWeight: 'bold', cursor: 'pointer', outline: 'none', userSelect: 'none' }}>
                       🎖️ Eredmények szalonokban ({entryCount})
                     </summary>
-                    <div style={{ padding: '0 10px 10px 10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      {currentPhotoResults.map((res, i) => {
-                        const isAcc = res.award_name && res.award_name.toLowerCase() === 'acceptance';
-                        return (
-                          <div key={i} style={{ fontSize: '0.8rem', color: '#cbd5e1', lineHeight: '1.3', paddingBottom: '6px', borderBottom: i < currentPhotoResults.length - 1 ? '1px solid #1e293b' : 'none' }}>
-                            <span style={{ color: '#f8fafc', fontWeight: 'bold' }}>{res.salon_name}</span>
-                            <br/>
-                            {res.award_name && (
-                              <span style={{ color: isAcc ? '#10b981' : '#f59e0b', fontWeight: 'bold' }}>
-                                {res.award_name}
-                              </span>
-                            )}
-                            {res.achieved_score !== null && (
-                              <span style={{ color: '#94a3b8', marginLeft: '5px' }}>
-                                ({res.achieved_score} / {res.acceptance_score || '?'})
-                              </span>
-                            )}
-                          </div>
-                        );
-                      })}
+                    <div style={{ padding: '10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      {currentPhotoResults.length === 0 ? (
+                        <div style={{ color: '#64748b', fontSize: '0.8rem', fontStyle: 'italic', padding: '5px 0' }}>
+                          Ehhez a képhez még nincs rögzített nemzetközi pályázati vagy szalon eredmény.
+                        </div>
+                      ) : (
+                        currentPhotoResults.map((res, i) => {
+                          const isAcc = res.award_name && res.award_name.toLowerCase() === 'acceptance';
+                          return (
+                            <div key={i} style={{ fontSize: '0.8rem', color: '#cbd5e1', lineHeight: '1.3', paddingBottom: '6px', borderBottom: i < currentPhotoResults.length - 1 ? '1px solid #1e293b' : 'none' }}>
+                              <span style={{ color: '#f8fafc', fontWeight: 'bold' }}>{res.salon_name}</span>
+                              <br/>
+                              {res.award_name && (
+                                <span style={{ color: isAcc ? '#10b981' : '#f59e0b', fontWeight: 'bold' }}>
+                                  {res.award_name}
+                                </span>
+                              )}
+                              {res.achieved_score !== null && (
+                                <span style={{ color: '#94a3b8', marginLeft: '5px' }}>
+                                  ({res.achieved_score} / {res.acceptance_score || '?'})
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })
+                      )}
                     </div>
                   </details>
                 )}
