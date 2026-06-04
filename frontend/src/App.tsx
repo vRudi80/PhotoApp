@@ -579,6 +579,8 @@ const saveUserClub = async (email: string) => {
               <Route path="/salons" element={<SalonsView salonSearch={salonSearch} setSalonSearch={setSalonSearch} searchedSalons={searchedSalons} setSelectedSalon={setSelectedSalon} userEntrySalonIds={userEntrySalonIds} user={user} BACKEND_URL={BACKEND_URL} />} />
               <Route path="/club_nights" element={<ClubNightsView currentDbUser={currentDbUser} meetingSearch={meetingSearch} setMeetingSearch={setMeetingSearch} searchedMeetings={searchedMeetings} setActiveVideo={setActiveVideo} />} />
 
+              <Route path="/leader_club" element={isLeader ? <LeaderClubView user={user} BACKEND_URL={BACKEND_URL} /> : <Navigate to="/dashboard" replace />} />
+
               {/* === ADMINISZTRÁCIÓS FELÜLETEK (KIEGÉSZÍTVE AZ UPDATE LOGIKÁVAL) === */}
               <Route path="/admin_clubs" element={user?.email === ADMIN_EMAIL ? <AdminClubsView clubs={clubs} newClubName={newClubName} setNewClubName={setNewClubName} handleAddClub={handleAddClub} handleDeleteClub={handleDeleteClub} handleUpdateClub={handleUpdateClub} /> : <Navigate to="/dashboard" />} />
               <Route path="/admin_users" element={user?.email === ADMIN_EMAIL ? <AdminUsersView allUsers={allUsers} clubs={clubs} userClubEdits={userClubEdits} setUserClubEdits={setUserClubEdits} userRoleEdits={userRoleEdits} setUserRoleEdits={setUserRoleEdits} saveUserClub={saveUserClub} /> : <Navigate to="/dashboard" />} />
