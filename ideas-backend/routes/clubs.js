@@ -2,7 +2,9 @@ const fs = require('fs');
 
 module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
-  // KLUBOK ALAP
+  // ====================================================================
+  // 📁 KLUBOK ALAP KEZELÉSE (MEGLÉVŐ)
+  // ====================================================================
   app.get('/api/clubs', async (req, res) => {
     try { const [rows] = await pool.query('SELECT * FROM photo_clubs ORDER BY name ASC'); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
@@ -13,7 +15,9 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     try { await pool.query('DELETE FROM photo_clubs WHERE id = ?', [req.params.id]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
-  // KLUBESTEK
+  // ====================================================================
+  // ⏳ KLUBESTEK (MEGLÉVŐ)
+  // ====================================================================
   app.get('/api/meetings', async (req, res) => {
     try { const [rows] = await pool.query(`SELECT m.*, c.name as club_name FROM photo_club_meetings m JOIN photo_clubs c ON m.club_id = c.id ORDER BY m.meeting_date DESC, m.meeting_time DESC`); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
@@ -71,7 +75,9 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (e) { await conn.rollback(); res.status(500).json({ error: e.message }); } finally { conn.release(); }
   });
 
-  // HÍREK (NEWS)
+  // ====================================================================
+  // 📰 HÍREK SZEKCIÓ (MEGLÉVŐ)
+  // ====================================================================
   app.get('/api/clubs/:clubId/news', async (req, res) => {
     const userEmail = req.query.userEmail;
     try {
@@ -105,7 +111,9 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     try { await pool.query('INSERT INTO photo_club_news_comments (news_id, user_email, user_name, comment_text) VALUES (?, ?, ?, ?)', [req.params.id, userEmail, userName, commentText]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
-  // 1. Csak azon klubok listázása a tagoknak, ahol VAN aktív vezető vagy helyettes
+  // ====================================================================
+  // 👥 TAGFELVÉTEL ÉS KÉRELMEK (MEGLÉVŐ)
+  // ====================================================================
   app.get('/api/clubs/active-only', async (req, res) => {
     try {
       const [rows] = await pool.query(`
@@ -115,87 +123,154 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         ORDER BY c.name ASC
       `);
       res.json(rows);
-    } catch (err) {
-      res.status(500).json({ error: err.message });
-    }
+    } catch (err) { res.status(500).json({ error: err.message }); }
   });
 
-  // 2. Csatlakozási kérelem elküldése (Beállítja a nevet, ID-t, de a szerepkör 'pending' lesz!)
   app.post('/api/clubs/join-request', async (req, res) => {
     const { userEmail, clubId, clubName } = req.body;
     if (!userEmail || !clubId || !clubName) return res.status(400).json({ error: 'Hiányzó adatok!' });
-
     try {
-      await pool.query(
-        "UPDATE photo_users SET club_id = ?, club_name = ?, club_role = 'pending' WHERE email = ?",
-        [clubId, clubName, userEmail]
-      );
+      await pool.query("UPDATE photo_users SET club_id = ?, club_name = ?, club_role = 'pending' WHERE email = ?", [clubId, clubName, userEmail]);
       res.json({ success: true });
-    } catch (err) {
-      res.status(500).json({ error: err.message });
-    }
+    } catch (err) { res.status(500).json({ error: err.message }); }
   });
 
-  // 3. Függőben lévő (pending) tagok kigyűjtése egy adott klub vezetőjének
   app.get('/api/clubs/pending-members', async (req, res) => {
     const { clubId } = req.query;
     if (!clubId) return res.status(400).json({ error: 'Hiányzó klub azonosító!' });
-
     try {
-      const [rows] = await pool.query(
-        "SELECT email, name, club_name FROM photo_users WHERE club_id = ? AND club_role = 'pending'",
-        [clubId]
-      );
+      const [rows] = await pool.query("SELECT email, name, club_name FROM photo_users WHERE club_id = ? AND club_role = 'pending'", [clubId]);
       res.json(rows);
-    } catch (err) {
-      res.status(500).json({ error: err.message });
-    }
+    } catch (err) { res.status(500).json({ error: err.message }); }
   });
 
-  // 4. Tag jóváhagyása vagy elutasítása a vezető által
   app.post('/api/clubs/handle-request', async (req, res) => {
-    const { targetEmail, action } = req.body; // action: 'approve' vagy 'reject'
+    const { targetEmail, action } = req.body;
     try {
       if (action === 'approve') {
-        // Elfogadás: a szerepkör átvált 'member'-re
         await pool.query("UPDATE photo_users SET club_role = 'member' WHERE email = ?", [targetEmail]);
       } else {
-        // Elutasítás: teljesen leválasztjuk a klubról
         await pool.query("UPDATE photo_users SET club_id = NULL, club_name = NULL, club_role = 'member' WHERE email = ?", [targetEmail]);
       }
       res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+  });
+
+  // ====================================================================
+  // 🛡️ ÚJ VÉGPONTOK: VEZETŐI ÉS HELYETTESI MODULOK
+  // ====================================================================
+
+  // 1. SAJÁT KLUB ADATAINAK ÉS TÉTELES TAGLISTÁJÁNAK LEKÉRÉSE
+  app.get('/api/my-club', async (req, res) => {
+    const { userEmail } = req.query;
+    try {
+      const [userRows] = await pool.query('SELECT club_id, club_role FROM photo_users WHERE email = ?', [userEmail]);
+      if (userRows.length === 0 || !userRows[0].club_id) {
+        return res.status(404).json({ error: 'Nem tartozol egyetlen regisztrált fotóklubhoz sem!' });
+      }
+
+      const { club_id, club_role } = userRows[0];
+      if (club_role !== 'leader' && club_role !== 'deputy') {
+        return res.status(403).json({ error: 'Nincs jogosultságod a klubvezetői adatok eléréséhez!' });
+      }
+
+      const [clubRows] = await pool.query('SELECT * FROM photo_clubs WHERE id = ?', [club_id]);
+      if (clubRows.length === 0) return res.status(404).json({ error: 'A fotóklub nem található!' });
+
+      const [members] = await pool.query(
+        "SELECT name, email, club_role FROM photo_users WHERE club_id = ? AND club_role != 'pending' ORDER BY name ASC",
+        [club_id]
+      );
+
+      res.json({ club: clubRows[0], members });
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      console.error(err);
+      res.status(500).json({ error: 'Hiba a klubadatok szinkronizálásakor' });
     }
   });
-  
-  // DASHBOARD ALERTS
-  app.get('/api/dashboard-alerts', async (req, res) => {
-  const { userEmail } = req.query;
-  try {
-    const [users] = await pool.query('SELECT club_name FROM photo_users WHERE email = ?', [userEmail]);
-    const clubName = users.length > 0 ? users[0].club_name : null;
-    const [contests] = await pool.query('SELECT id, title, end_date FROM photo_contests WHERE start_date <= CURRENT_DATE() AND end_date >= CURRENT_DATE() ORDER BY end_date ASC');
-    
-    // Lekérjük az összes éppen futó párbajt
-    const [weekly] = await pool.query('SELECT id, title, end_date FROM weekly_topics WHERE start_date <= CURRENT_DATE() AND end_date >= CURRENT_DATE()');
 
-    let homeworks = []; let unreadNews = [];
-    if (clubName) {
-      const [clubs] = await pool.query('SELECT id FROM photo_clubs WHERE name = ?', [clubName]);
-      if (clubs.length > 0) {
-        const clubId = clubs[0].id;
-        const [hw] = await pool.query('SELECT id, topic, deadline FROM photo_homeworks WHERE club_id = ? AND deadline >= CURRENT_DATE() ORDER BY deadline ASC', [clubId]);
-        homeworks = hw;
-        const [news] = await pool.query(`SELECT id, title, created_at FROM photo_club_news WHERE club_id = ? AND id NOT IN (SELECT news_id FROM photo_club_news_reads WHERE user_email = ?) ORDER BY created_at DESC`, [clubId, userEmail]);
-        unreadNews = news;
+  // 2. KLUB NEVÉNEK GLOBÁLIS MÓDOSÍTÁSA (A tagoknál is átírja!)
+  app.post('/api/my-club/update-name', async (req, res) => {
+    const { clubId, newClubName, userEmail } = req.body;
+    if (!clubId || !newClubName || !newClubName.trim()) return res.status(400).json({ error: 'A név nem lehet üres!' });
+
+    try {
+      const [userRows] = await pool.query('SELECT club_role FROM photo_users WHERE email = ? AND club_id = ?', [userEmail, clubId]);
+      if (userRows.length === 0 || (userRows[0].club_role !== 'leader' && userRows[0].club_role !== 'deputy')) {
+        return res.status(403).json({ error: 'Nincs jogod megváltoztatni a klub nevét!' });
       }
-    }
 
-    const [mapComments] = await pool.query(`SELECT c.id as comment_id, c.location_id, l.title as location_title, c.user_name, c.created_at FROM photo_location_comments c JOIN photo_locations l ON c.location_id = l.id WHERE l.user_email = ? AND c.user_email != ? AND c.created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY) AND c.id NOT IN (SELECT comment_id FROM photo_location_comment_reads WHERE user_email = ?) ORDER BY c.created_at DESC LIMIT 5`, [userEmail, userEmail, userEmail]);
-    
-    // JAVÍTVA: A teljes weekly tömböt küldjük el, nem csak az első elemet!
-    res.json({ contests, weekly, homeworks, unreadNews, mapComments });
-  } catch (err) { res.status(500).json({ error: 'Hiba az értesítések betöltésekor' }); }
-});
+      const conn = await pool.getConnection();
+      try {
+        await conn.beginTransaction();
+        await conn.query('UPDATE photo_clubs SET name = ? WHERE id = ?', [newClubName.trim(), clubId]);
+        await conn.query('UPDATE photo_users SET club_name = ? WHERE club_id = ?', [newClubName.trim(), clubId]);
+        await conn.commit();
+        res.json({ success: true });
+      } catch (err) { await conn.rollback(); throw err; } finally { conn.release(); }
+    } catch (err) { res.status(500).json({ error: 'Hiba: ' + err.message }); }
+  });
+
+  // 3. KLUB LOGÓ FELTÖLTÉSE GOOGLE DRIVE-RA
+  app.post('/api/my-club/logo', upload.single('logo'), async (req, res) => {
+    const file = req.file;
+    const { clubId, userEmail } = req.body;
+    if (!file) return res.status(400).json({ error: 'Fájl feltöltése kötelező!' });
+
+    try {
+      const [userRows] = await pool.query('SELECT club_role FROM photo_users WHERE email = ? AND club_id = ?', [userEmail, clubId]);
+      if (userRows.length === 0 || (userRows[0].club_role !== 'leader' && userRows[0].club_role !== 'deputy')) {
+        cleanupTempFile(file);
+        return res.status(403).json({ error: 'Nincs jogosultságod a logó módosításához!' });
+      }
+
+      const [clubRows] = await pool.query('SELECT drive_logo_id, name FROM photo_clubs WHERE id = ?', [clubId]);
+      if (clubRows.length === 0) { cleanupTempFile(file); return res.status(404).json({ error: 'Klub nem található' }); }
+
+      if (clubRows[0].drive_logo_id) {
+        await drive.files.delete({ fileId: clubRows[0].drive_logo_id }).catch(e => console.log('Régi logó törlése sikertelen:', e.message));
+      }
+
+      const fileStream = fs.createReadStream(file.path);
+      const fileExt = file.originalname && file.originalname.includes('.') ? file.originalname.substring(file.originalname.lastIndexOf('.')).toLowerCase() : '.png';
+
+      const driveRes = await drive.files.create({ 
+        requestBody: { name: `ClubLogo_${clubId}_${Date.now()}${fileExt}`, parents: [process.env.DRIVE_MASTER_FOLDER_ID] }, 
+        media: { mimeType: file.mimetype, body: fileStream }, 
+        fields: 'id, webViewLink' 
+      });
+
+      cleanupTempFile(file);
+      await pool.query('UPDATE photo_clubs SET logo_url = ?, drive_logo_id = ? WHERE id = ?', [driveRes.data.webViewLink, driveRes.data.id, clubId]);
+      res.json({ success: true });
+    } catch (err) { cleanupTempFile(file); res.status(500).json({ error: err.message }); }
+  });
+
+  // ====================================================================
+  // 🔔 DASHBOARD ALERTS (MEGLÉVŐ)
+  // ====================================================================
+  app.get('/api/dashboard-alerts', async (req, res) => {
+    const { userEmail } = req.query;
+    try {
+      const [users] = await pool.query('SELECT club_name FROM photo_users WHERE email = ?', [userEmail]);
+      const clubName = users.length > 0 ? users[0].club_name : null;
+      const [contests] = await pool.query('SELECT id, title, end_date FROM photo_contests WHERE start_date <= CURRENT_DATE() AND end_date >= CURRENT_DATE() ORDER BY end_date ASC');
+      const [weekly] = await pool.query('SELECT id, title, end_date FROM weekly_topics WHERE start_date <= CURRENT_DATE() AND end_date >= CURRENT_DATE()');
+
+      let homeworks = []; let unreadNews = [];
+      if (clubName) {
+        const [clubs] = await pool.query('SELECT id FROM photo_clubs WHERE name = ?', [clubName]);
+        if (clubs.length > 0) {
+          const clubId = clubs[0].id;
+          const [hw] = await pool.query('SELECT id, topic, deadline FROM photo_homeworks WHERE club_id = ? AND deadline >= CURRENT_DATE() ORDER BY deadline ASC', [clubId]);
+          homeworks = hw;
+          const [news] = await pool.query(`SELECT id, title, created_at FROM photo_club_news WHERE club_id = ? AND id NOT IN (SELECT news_id FROM photo_club_news_reads WHERE user_email = ?) ORDER BY created_at DESC`, [clubId, userEmail]);
+          unreadNews = news;
+        }
+      }
+
+      const [mapComments] = await pool.query(`SELECT c.id as comment_id, c.location_id, l.title as location_title, c.user_name, c.created_at FROM photo_location_comments c JOIN photo_locations l ON c.location_id = l.id WHERE l.user_email = ? AND c.user_email != ? AND c.created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY) AND c.id NOT IN (SELECT comment_id FROM photo_location_comment_reads WHERE user_email = ?) ORDER BY c.created_at DESC LIMIT 5`, [userEmail, userEmail, userEmail]);
+      res.json({ contests, weekly, homeworks, unreadNews, mapComments });
+    } catch (err) { res.status(500).json({ error: 'Hiba az értesítések betöltésekor' }); }
+  });
 };
