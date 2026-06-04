@@ -2,7 +2,9 @@ const fs = require('fs');
 
 module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, checkPremium) {
   
-  // 1. Képek lekérése
+  // ====================================================================
+  // 1. KÉPEK ALAPADATAINAK LEKÉRÉSE
+  // ====================================================================
   app.get('/api/my-album', checkPremium, async (req, res) => {
     try { 
       const query = `
@@ -23,7 +25,34 @@ module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, chec
     }
   });
 
-  // 2. Kép feltöltése az albumba
+  // ====================================================================
+  // 📢 ÚJ VÉGPONT: A PORTFÓLIÓ KÉPEKHEZ TARTOZÓ SZALONEREDMÉNYEK TÉTELES LISTÁJA
+  // ====================================================================
+  app.get('/api/my-portfolio-results', checkPremium, async (req, res) => {
+    try {
+      const query = `
+        SELECT 
+          e.portfolio_id,
+          s.name as salon_name,
+          a.award_name,
+          e.achieved_score,
+          e.acceptance_score
+        FROM photo_salon_entries e
+        JOIN photo_salons s ON e.salon_id = s.id
+        LEFT JOIN photo_awards a ON e.award_id = a.id
+        WHERE e.user_email = ?
+      `;
+      const [rows] = await pool.query(query, [req.query.userEmail]);
+      res.json(rows);
+    } catch (err) {
+      console.error('❌ Hiba a portfolio results lekérésekor:', err);
+      res.status(500).json({ error: 'Hiba a szalon eredmények lekérésekor' });
+    }
+  });
+
+  // ====================================================================
+  // 2. KÉP FELTÖLTÉSE AZ ALBUMBA
+  // ====================================================================
   app.post('/api/my-album/upload', upload.single('photo'), checkPremium, async (req, res) => {
     const file = req.file;
     if (!file) return res.status(400).json({ error: 'Nincs fájl kiválasztva!' });
@@ -62,7 +91,9 @@ module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, chec
     }
   });
 
-  // 3. Kép szerkesztése (cím módosítása vagy új fotó)
+  // ====================================================================
+  // 3. KÉP SZERKESZTÉSE (CÍM VAGY FÁJL MÓDOSÍTÁSA)
+  // ====================================================================
   app.put('/api/my-album/:id', upload.single('photo'), checkPremium, async (req, res) => {
     const file = req.file;
     try {
@@ -99,7 +130,9 @@ module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, chec
     }
   });
 
-  // 4. Kép törlése
+  // ====================================================================
+  // 4. KÉP TÖRLÉSE
+  // ====================================================================
   app.delete('/api/my-album/:id', checkPremium, async (req, res) => {
     try {
       const [rows] = await pool.query('SELECT * FROM photo_portfolio WHERE id = ? AND user_email = ?', [req.params.id, req.body.userEmail]);
@@ -110,7 +143,9 @@ module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, chec
     } catch (err) { res.status(500).json({ error: 'Hiba a törlésnél' }); }
   });
 
-  // 5. Tárhely statisztika
+  // ====================================================================
+  // 5. TÁRHELY STATISZTIKA
+  // ====================================================================
   app.get('/api/admin/user-storage-stats', async (req, res) => {
     try {
       const query = `
@@ -132,7 +167,9 @@ module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, chec
     }
   });
 
+  // ====================================================================
   // 6. VALÓDI AI KÉPELEMZÉS
+  // ====================================================================
   app.post('/api/my-album/:id/analyze', checkPremium, async (req, res) => {
     const { userEmail } = req.body;
     try {
