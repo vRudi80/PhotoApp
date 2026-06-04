@@ -7,8 +7,8 @@ interface HeaderProps {
   isLeader: boolean;
   activeTab: string;
   setActiveTab: (tab: any) => void;
-  dropdownOpen: 'contests' | 'club' | 'admin' | 'progress' | null;
-  setDropdownOpen: (open: 'contests' | 'club' | 'admin' | 'progress' | null) => void;
+  dropdownOpen: string | null; // JAVÍTVA: Rugalmas típus az új menüpontokhoz
+  setDropdownOpen: (open: string | null) => void;
   onLogout: () => void;
 }
 
@@ -78,13 +78,18 @@ export default function Header({
       <div className={`header-nav-container ${isMobileMenuOpen ? 'mobile-open' : ''}`}>
         <div className="nav-group">
           
-          {/* FŐOLDAL GOMB */}
+          {/* ====================================================================
+               FŐ NAVIGÁCIÓ (BAL OLDAL)
+             ==================================================================== */}
+          
+          {/* 1. FŐOLDAL GOMB */}
           <div className="nav-item-container" style={{ zIndex: 50 }}>
             <button className={`nav-btn ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => handleNavClick('dashboard')}>
               <span>🏠 Főoldal</span>
             </button>
           </div>
 
+          {/* 2. PÁLYÁZATOK DROPDOWN */}
           <div className="nav-item-container" style={{ zIndex: dropdownOpen === 'contests' ? 60 : 50 }}>
             <button className={`nav-btn ${dropdownOpen === 'contests' || activeTab.startsWith('contests_') ? 'active' : ''}`} onClick={() => setDropdownOpen(dropdownOpen === 'contests' ? null : 'contests')}>
               <span>📝 Pályázatok</span> <span>▾</span>
@@ -98,6 +103,7 @@ export default function Header({
             )}
           </div>
           
+          {/* 3. FOTÓKLUB DROPDOWN */}
           <div className="nav-item-container" style={{ zIndex: dropdownOpen === 'club' ? 60 : 50 }}>
             <button className={`nav-btn ${dropdownOpen === 'club' || activeTab.startsWith('club_') ? 'active' : ''}`} onClick={() => setDropdownOpen(dropdownOpen === 'club' ? null : 'club')}>
               <span>👥 Fotóklub</span> <span>▾</span>
@@ -111,87 +117,50 @@ export default function Header({
             )}
           </div>
 
-          <div className="nav-item-container" style={{ zIndex: dropdownOpen === 'progress' ? 60 : 50 }}>
+          {/* 4. ÚJ: INTEGRÁLT NEMZETKÖZI SZALONOK MENÜPONT */}
+          <div className="nav-item-container" style={{ zIndex: dropdownOpen === 'international' ? 60 : 50 }}>
             <button 
-              className={`nav-btn ${dropdownOpen === 'progress' || activeTab === 'fiap_progress' || activeTab === 'mafosz_progress' ? 'active' : ''}`} 
-              onClick={() => setDropdownOpen(dropdownOpen === 'progress' ? null : 'progress')}
+              className={`nav-btn ${dropdownOpen === 'international' || ['salons', 'fiap_progress', 'mafosz_progress'].includes(activeTab) ? 'active' : ''}`} 
+              style={{ color: '#60a5fa' }} 
+              onClick={() => setDropdownOpen(dropdownOpen === 'international' ? null : 'international')}
             >
-              <span>🏆 Minősítések</span> <span>▾</span>
+              <span>🌐 Nemzetközi szalonok</span> <span>▾</span>
             </button>
-            {dropdownOpen === 'progress' && (
+            {dropdownOpen === 'international' && (
               <div className="dropdown-menu">
+                <button className={`drop-item ${activeTab === 'salons' ? 'active' : ''}`} onClick={() => handleNavClick('salons')}>🌐 Szalonok listája</button>
                 <button className={`drop-item ${activeTab === 'fiap_progress' ? 'active' : ''}`} onClick={() => handleNavClick('fiap_progress')}>🏅 FIAP Követő</button>
                 <button className={`drop-item ${activeTab === 'mafosz_progress' ? 'active' : ''}`} onClick={() => handleNavClick('mafosz_progress')}>
-                <img 
-                  src="https://flagcdn.com/16x12/hu.png" 
-                  width="16" 
-                  height="12" 
-                  alt="HU" 
-                  style={{ marginRight: '8px', borderRadius: '2px', verticalAlign: 'middle', display: 'inline-block' }} 
-                />
-                MAFOSZ Követő
-              </button>
+                  <img 
+                    src="https://flagcdn.com/16x12/hu.png" 
+                    width="16" 
+                    height="12" 
+                    alt="HU" 
+                    style={{ marginRight: '8px', borderRadius: '2px', verticalAlign: 'middle', display: 'inline-block' }} 
+                  />
+                  MAFOSZ Követő
+                </button>
               </div>
             )}
           </div>
 
-          <div className="nav-item-container" style={{ zIndex: 50 }}>
-              <button className={`nav-btn ${activeTab === 'salons' ? 'active' : ''}`} style={{ color: '#60a5fa' }} onClick={() => handleNavClick('salons')}>
-                <span>🌐 Szalonok</span>
-              </button>
-          </div>
-
+          {/* 5. HELYSZÍNEK TÉRKÉP */}
           <div className="nav-item-container" style={{ zIndex: 50 }}>
               <button className={`nav-btn ${activeTab === 'map_spots' ? 'active' : ''}`} style={{ color: '#10b981' }} onClick={() => handleNavClick('map_spots')}>
                 <span>🌍 Helyszínek</span>
               </button>
           </div>
 
-          <div className="nav-item-container" style={{ zIndex: 50 }}>
-              <button className={`nav-btn ${activeTab === 'my_album' ? 'active' : ''}`} style={{ color: '#f59e0b' }} onClick={() => handleNavClick('my_album')}>
-                <span>🖼️ Portfólió</span>
-              </button>
-          </div>
-
-          <div className="nav-item-container" style={{ zIndex: 50 }}>
-            <button className={`nav-btn ${activeTab === 'packages' ? 'active' : ''}`} style={{ color: '#8b5cf6' }} onClick={() => handleNavClick('packages')}>
-              <span>💎 Tárhely</span>
-            </button>
-          </div>
-
-          {/* PROFILOM GOMB */}
-          <div className="nav-item-container" style={{ zIndex: 50 }}>
-            <button className={`nav-btn ${activeTab === 'profile' ? 'active' : ''}`} style={{ color: '#14b8a6' }} onClick={() => handleNavClick('profile')}>
-              <span>👤 Profilom</span>
-            </button>
-          </div>
-
-          {/* SUPPORT GOMB */}
-          <div className="nav-item-container" style={{ zIndex: 50 }}>
-            <button className={`nav-btn ${activeTab === 'tickets' ? 'active' : ''}`} style={{ color: '#f43f5e', display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => handleNavClick('tickets')}>
-              <span>✉️ Support</span>
-              {unreadTicketsCount > 0 && (
-                <span style={{ background: '#ef4444', color: 'white', fontSize: '0.75rem', fontWeight: 'bold', padding: '2px 6px', borderRadius: '100px', display: 'inline-block', lineHeight: '1', boxShadow: '0 0 8px #ef4444' }}>
-                  {unreadTicketsCount}
-                </span>
-              )}
-            </button>
-          </div>
-
-          {/* ADMIN DROPDOWN */}
+          {/* 6. ADMIN DROPDOWN */}
           {(user?.email === ADMIN_EMAIL || isLeader) && (
             <div className="nav-item-container" style={{ zIndex: dropdownOpen === 'admin' ? 60 : 50 }}>
-              {/* JAVÍTVA: Ha a leader_club aktív, az admin főgomb is megkapja az active stílust */}
               <button className={`nav-btn ${dropdownOpen === 'admin' || activeTab.startsWith('admin_') || activeTab === 'leader_club' ? 'active' : ''}`} style={{ color: '#ef4444' }} onClick={() => setDropdownOpen(dropdownOpen === 'admin' ? null : 'admin')}>
                 <span>⚙️ Admin</span> <span>▾</span>
               </button>
               {dropdownOpen === 'admin' && (
                 <div className="dropdown-menu">
-                  {/* ÚJ: Csak vezetőknek és helyetteseknek (isLeader) látható klubkezelő menüpont */}
                   {isLeader && (
-                    <button className={`drop-item ${activeTab === 'leader_club' ? 'active' : ''}`} style={{ color: '#0ea5e9', fontWeight: 'bold' }} onClick={() => handleNavClick('leader_club')}>
-                      🛡️ Klubom adatai
-                    </button>
+                    <button className={`drop-item ${activeTab === 'leader_club' ? 'active' : ''}`} style={{ color: '#0ea5e9', fontWeight: 'bold' }} onClick={() => handleNavClick('leader_club')}>🛡️ Klubom adatai</button>
                   )}
                   {user?.email === ADMIN_EMAIL && <button className={`drop-item ${activeTab === 'admin_contests' ? 'active' : ''}`} style={{ color: activeTab === 'admin_contests' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_contests')}>Pályázatok kezelése</button>}
                   <button className={`drop-item ${activeTab === 'admin_meetings' ? 'active' : ''}`} style={{ color: activeTab === 'admin_meetings' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_meetings')}>Klubestek kezelése</button>
@@ -210,45 +179,64 @@ export default function Header({
           )}
         </div> 
 
-        <div className="user-group" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '10px' }}>
+        {/* ====================================================================
+             ÚJ GRUPÁLT FIÓK MENÜ (JOBB OLDAL)
+           ==================================================================== */}
+        <div className="user-group" style={{ display: 'flex', alignItems: 'center', gap: '15px', position: 'relative' }}>
           
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            <span style={{ fontWeight: 'bold', color: '#f8fafc', fontSize: '1rem' }}>
-              {user.name}
-            </span>
-            
-            {(user?.isPremium || user?.is_premium) && (
-              <span title="Prémium Tag" style={{ fontSize: '1.1rem' }}>⭐</span>
-            )}
-            
-            {isLeader && (
-              <span style={{ fontSize: '0.75rem', background: '#f59e0b20', color: '#f59e0b', padding: '3px 8px', borderRadius: '6px', border: '1px solid #f59e0b50', fontWeight: 'bold' }}>
-                Vezetőség
-              </span>
-            )}
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-            
-            {(user?.isPremium || user?.is_premium) && (
-              <button 
-                onClick={handleManageSubscription}
-                style={{ background: '#1e293b', color: '#10b981', border: '1px solid #10b98150', padding: '6px 12px', borderRadius: '6px', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', fontWeight: 'bold', transition: 'background 0.2s' }}
-                onMouseOver={e => e.currentTarget.style.background = '#10b98120'}
-                onMouseOut={e => e.currentTarget.style.background = '#1e293b'}
-              >
-                👑 Előfizetés
-              </button>
-            )}
-
+          <div className="nav-item-container" style={{ zIndex: dropdownOpen === 'user_account' ? 70 : 50 }}>
             <button 
-              onClick={() => { googleLogout(); onLogout(); }} 
-              style={{ background: 'transparent', border: '1px solid #ef444450', color: '#ef4444', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', transition: 'background 0.2s' }}
-              onMouseOver={e => e.currentTarget.style.background = '#ef444420'}
-              onMouseOut={e => e.currentTarget.style.background = 'transparent'}
+              className={`nav-btn ${dropdownOpen === 'user_account' || ['profile', 'my_album', 'packages', 'tickets'].includes(activeTab) ? 'active' : ''}`} 
+              style={{ color: '#14b8a6', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}
+              onClick={() => setDropdownOpen(dropdownOpen === 'user_account' ? null : 'user_account')}
             >
-              Kijelentkezés
+              <span>👤 {user.name}</span>
+              {(user?.isPremium || user?.is_premium) && <span title="Prémium Tag" style={{ fontSize: '1.1rem' }}>⭐</span>}
+              {isLeader && (
+                <span style={{ fontSize: '0.65rem', background: '#f59e0b20', color: '#f59e0b', padding: '2px 6px', borderRadius: '4px', border: '1px solid #f59e0b50', fontWeight: 'bold' }}>
+                  Vezetőség
+                </span>
+              )}
+              <span>▾</span>
             </button>
+
+            {dropdownOpen === 'user_account' && (
+              <div className="dropdown-menu" style={{ right: 0, left: 'auto', minWidth: '220px' }}>
+                <button className={`drop-item ${activeTab === 'profile' ? 'active' : ''}`} style={{ color: '#14b8a6' }} onClick={() => handleNavClick('profile')}>👤 Profilom</button>
+                <button className={`drop-item ${activeTab === 'my_album' ? 'active' : ''}`} style={{ color: '#f59e0b' }} onClick={() => handleNavClick('my_album')}>🖼️ Saját Portfólió</button>
+                <button className={`drop-item ${activeTab === 'packages' ? 'active' : ''}`} style={{ color: '#8b5cf6' }} onClick={() => handleNavClick('packages')}>💎 Tárhelycsomagom</button>
+                
+                <button className={`drop-item ${activeTab === 'tickets' ? 'active' : ''}`} style={{ color: '#f43f5e', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} onClick={() => handleNavClick('tickets')}>
+                  <span>✉️ Support & Segítség</span>
+                  {unreadTicketsCount > 0 && (
+                    <span style={{ background: '#ef4444', color: 'white', fontSize: '0.7rem', padding: '2px 7px', borderRadius: '100px', fontWeight: 'bold', boxShadow: '0 0 8px #ef4444' }}>
+                      {unreadTicketsCount}
+                    </span>
+                  )}
+                </button>
+
+                {(user?.isPremium || user?.is_premium) && (
+                  <button 
+                    onClick={handleManageSubscription}
+                    style={{ color: '#10b981', fontWeight: 'bold' }}
+                    className="drop-item"
+                  >
+                    💳 Stripe Ügyfélkapu
+                  </button>
+                )}
+
+                {/* Letisztult elválasztó vonal a kijelentkezés gomb előtt */}
+                <div style={{ height: '1px', backgroundColor: '#334155', margin: '6px 0' }}></div>
+
+                <button 
+                  className="drop-item" 
+                  style={{ color: '#ef4444' }} 
+                  onClick={() => { googleLogout(); onLogout(); }}
+                >
+                  🚪 Kijelentkezés
+                </button>
+              </div>
+            )}
           </div>
 
         </div>
