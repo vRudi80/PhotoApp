@@ -27,6 +27,9 @@ interface ContestsViewProps {
   newCategorySettings: Record<string, any>; setNewCategorySettings: (v: Record<string, any>) => void;
   handleCreateContest: () => void;
   
+  // JAVÍTVA: Új szponzor kezelő propok az új kiíráshoz
+  newSponsorClub: string; setNewSponsorClub: (v: string) => void;
+  
   // Edit contest form
   editContestId: number | null; setEditContestId: (v: number | null) => void;
   editTitle: string; setEditTitle: (v: string) => void;
@@ -41,6 +44,9 @@ interface ContestsViewProps {
   startEdit: (c: any) => void;
   handleUpdateContest: () => void;
   handleDeleteContest: (id: number) => void;
+
+  // JAVÍTVA: Új szponzor kezelő propok a szerkesztéshez
+  editSponsorClub: string; setEditSponsorClub: (v: string) => void;
 
   // Stats & Progress
   viewStatsContestId: number | null; setViewStatsContestId: (v: number | null) => void;
@@ -167,7 +173,7 @@ export default function ContestsView(props: ContestsViewProps) {
       doc.setFontSize(14);
       doc.text(fixHu(`Készítette: ${result.user_name}`), 148.5, imgY + imgH + 20, { align: "center" });
 
-      // --- ÚJ: DÁTUM (KELT) GENERÁLÁSA A BAL ALSÓ SAROKBA ---
+      // DÁTUM (KELT) GENERÁLÁSA A BAL ALSÓ SAROKBA
       doc.setFont("times", "normal");
       doc.setFontSize(12);
       doc.setTextColor(100, 116, 139);
@@ -278,20 +284,39 @@ export default function ContestsView(props: ContestsViewProps) {
             </div>
           )}
 
-          {props.user.email === ADMIN_EMAIL ? (
-            <select 
-              value={String(currentNewClubValue)} 
-              onChange={e => props.setNewRestrictedClub(e.target.value)} 
-              style={{...inputStyle, border: '1px solid #f59e0b', cursor: 'pointer'}}
-            >
-              <option value="">🔓 Nyilvános pályázat (Bárki nevezhet)</option>
-              {props.clubs.map(c => <option key={c.id} value={String(c.id)}>🔒 Zártkörű: {c.name}</option>)}
-            </select>
-          ) : (
-            <div style={{ padding: '15px', background: '#0f172a', borderRadius: '12px', color: '#cbd5e1', fontSize: '0.95rem', marginBottom: '20px', border: '1px solid #334155' }}>
-              🛡️ Láthatóság: <strong>Kizárólag a(z) {props.currentDbUser?.club_name} tagjai küldhetnek be képet.</strong>
+          {/* JAVÍTVA: Kétoszlopos modern rácselrendezés a Láthatóság és az ÚJ Szponzorválasztó mezőknek */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px', marginBottom: '15px' }}>
+            <div>
+              <label style={{fontSize:'0.8rem', color:'#94a3b8', fontWeight: 'bold', display: 'block', marginBottom: '6px'}}>🔒 Pályázat Láthatósága / Elérése</label>
+              {props.user.email === ADMIN_EMAIL ? (
+                <select 
+                  value={String(currentNewClubValue)} 
+                  onChange={e => props.setNewRestrictedClub(e.target.value)} 
+                  style={{...inputStyle, border: '1px solid #f59e0b', cursor: 'pointer', marginBottom: 0}}
+                >
+                  <option value="">🔓 Nyilvános pályázat (Bárki nevezhet)</option>
+                  {props.clubs.map(c => <option key={c.id} value={String(c.id)}>🔒 Zártkörű: {c.name}</option>)}
+                </select>
+              ) : (
+                <div style={{ padding: '12px', background: '#0f172a', borderRadius: '10px', color: '#cbd5e1', fontSize: '0.95rem', border: '1px solid #334155' }}>
+                  Zártkörű: <strong>{props.currentDbUser?.club_name}</strong>
+                </div>
+              )}
             </div>
-          )}
+
+            {/* ÚJ MEZŐ: Szponzoráló fotóklub kiválasztása új pályázat kiírásakor */}
+            <div>
+              <label style={{fontSize:'0.8rem', color:'#a78bfa', fontWeight: 'bold', display: 'block', marginBottom: '6px'}}>🏆 Szponzoráló Fotóklub (Oklevél logóhoz)</label>
+              <select 
+                value={props.newSponsorClub} 
+                onChange={e => props.setNewSponsorClub(e.target.value)} 
+                style={{...inputStyle, border: '1px solid #a78bfa', cursor: 'pointer', marginBottom: 0}}
+              >
+                <option value="">-- Nincs kiemelt szponzor klub --</option>
+                {props.clubs.map(c => <option key={c.id} value={String(c.id)}>🛡️ {c.name}</option>)}
+              </select>
+            </div>
+          </div>
           
           <button onClick={props.handleCreateContest} style={{ background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', border: 'none', padding: '12px 30px', borderRadius: '12px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem', transition: 'all 0.3s', boxShadow: '0 4px 15px rgba(16,185,129,0.3)' }}>Pályázat Kiírása 🚀</button>
         </div>
@@ -476,14 +501,34 @@ export default function ContestsView(props: ContestsViewProps) {
 
                     <input value={props.editCats} onChange={e => props.setEditCats(e.target.value)} style={inputStyle} />
                     
-                    <select 
-                      value={String(currentEditClubValue)} 
-                      onChange={e => props.setEditRestrictedClub(e.target.value)} 
-                      style={{...inputStyle, border: '1px solid #f59e0b'}}
-                    >
-                      <option value="">🔓 Nyilvános pályázat (Bárki nevezhet)</option>
-                      {props.clubs.map(c => <option key={c.id} value={String(c.id)}>🔒 Zártkörű: {c.name}</option>)}
-                    </select>
+                    {/* JAVÍTVA: Kétoszlopos elrendezés a szerkesztési űrlap Láthatóság és Szponzor választóihoz */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '15px', marginBottom: '5px' }}>
+                      <div>
+                        <label style={{fontSize:'0.8rem', color:'#94a3b8', display: 'block', marginBottom: '4px'}}>Pályázat Láthatósága</label>
+                        <select 
+                          value={String(currentEditClubValue)} 
+                          onChange={e => props.setEditRestrictedClub(e.target.value)} 
+                          style={{...inputStyle, border: '1px solid #f59e0b', marginBottom: 0}}
+                        >
+                          <option value="">🔓 Nyilvános pályázat (Bárki nevezhet)</option>
+                          {props.clubs.map(c => <option key={c.id} value={String(c.id)}>🔒 Zártkörű: {c.name}</option>)}
+                        </select>
+                      </div>
+
+                      {/* ÚJ MEZŐ: Szponzoráló fotóklub kiválasztása szerkesztéskor */}
+                      <div>
+                        <label style={{fontSize:'0.8rem', color:'#a78bfa', display: 'block', marginBottom: '4px'}}>Szponzoráló Fotóklub (Oklevél logóhoz)</label>
+                        <select 
+                          value={props.editSponsorClub} 
+                          onChange={e => props.setEditSponsorClub(e.target.value)} 
+                          style={{...inputStyle, border: '1px solid #a78bfa', marginBottom: 0}}
+                        >
+                          <option value="">-- Nincs kiemelt szponzor klub --</option>
+                          {props.clubs.map(c => <option key={c.id} value={String(c.id)}>🛡️ {c.name}</option>)}
+                        </select>
+                      </div>
+                    </div>
+
                     <div style={{display: 'flex', gap: '10px', marginTop: '15px'}}>
                       <button onClick={props.handleUpdateContest} style={{ flex: 1, background: '#10b981', color: 'white', border: 'none', padding: '12px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold' }}>Változtatások mentése</button>
                       <button onClick={() => props.setEditContestId(null)} style={{ background: '#334155', color: '#cbd5e1', border: 'none', padding: '12px 20px', borderRadius: '10px', cursor: 'pointer' }}>Mégse</button>
@@ -621,7 +666,7 @@ export default function ContestsView(props: ContestsViewProps) {
                       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                         {canManageContest && (
                           <>
-                            <button onClick={() => props.loadStats(contest.id)} style={{ background: '#0f172a', border: '1px solid #38bdf840', color: '#38bdf8', fontSize: '0.8rem', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>📊 Nevezők</button>
+                            <button onClick={() => props.loadStats(contest.id)} style={{ background: '#0f172a', border: '1px solid #334155', color: '#cbd5e1', fontSize: '0.8rem', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>📊 Nevezők</button>
                             {contestJury.length > 0 && (
                               <button onClick={() => props.loadJuryProgress(contest.id)} style={{ background: '#0f172a', border: '1px solid #a78bfa40', color: '#a78bfa', fontSize: '0.8rem', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>📈 Zsűri Állása</button>
                             )}
@@ -690,7 +735,7 @@ export default function ContestsView(props: ContestsViewProps) {
                     )}
 
                     {myContestEntries.length > 0 && isFeeRequired && !hasPaid && (
-                      <div style={{ background: 'linear-gradient(90deg, #f59e0b15, transparent)', border: '1px solid #f59e0b40', padding: '20px', borderRadius: '16px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
+                      <div style={{ background: 'linear-gradient(90deg, #f59e0b15, transparent)', border: '1px solid #f59e0b40', padding: '20px', borderRadius: '24px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
                         <div>
                           <strong style={{ color: '#f59e0b', fontSize: '1.1rem' }}>⚠️ Nevezési díj kiegyenlítése szükséges</strong>
                           <p style={{ color: '#cbd5e1', fontSize: '0.9rem', margin: '5px 0 0 0', lineHeight: '1.5' }}>
