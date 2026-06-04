@@ -102,34 +102,30 @@ export default function ContestsView(props: ContestsViewProps) {
   const currentNewClubValue = props.clubs.find(c => String(c.id) === props.newRestrictedClub || c.name === props.newRestrictedClub)?.id || '';
   const currentEditClubValue = props.clubs.find(c => String(c.id) === props.editRestrictedClub || c.name === props.editRestrictedClub)?.id || '';
 
-  // OKLEVÉL GENERÁLÓ LOGIKA ASZINKRON LOGÓ ELŐ-BETÖLTÉSSEL
+  // ====================================================================
+  // 📜 JAVÍTVA: OKLEVÉL GENERÁLÓ LOGIKA NYERS BASE64 STRINGLEKÉRÉSSEL
+  // ====================================================================
   const generateCertificate = async (contest: any, result: any, awardName: string, isAcceptance: boolean, contestJury: any[]) => {
     setGeneratingCertId(result.id);
     try {
+      // 1. Alkotás képének letöltése
       const res = await fetch(`${BACKEND_URL}/api/image-base64/${result.drive_file_id}`);
       const data = await res.json();
       if (!data.base64) throw new Error("Hiba a kép letöltésekor");
 
-      let logoImgInstance: HTMLImageElement | null = null;
+      // 2. JAVÍTVA: Szponzor klub logó letöltése közvetlen base64 stringként (mint a fő képnél)
+      let sponsorLogoBase64: string | null = null;
       const sponsorClubObj = props.clubs.find(c => Number(c.id) === Number(contest.sponsor_club_id));
       
       if (sponsorClubObj && sponsorClubObj.drive_logo_id) {
         try {
           const logoRes = await fetch(`${BACKEND_URL}/api/image-base64/${sponsorClubObj.drive_logo_id}`);
           const logoData = await logoRes.json();
-          
           if (logoData.base64) {
-            logoImgInstance = new Image();
-            logoImgInstance.src = logoData.base64;
-            await new Promise((resolve, reject) => {
-              if (logoImgInstance) {
-                logoImgInstance.onload = resolve;
-                logoImgInstance.onerror = reject;
-              }
-            });
+            sponsorLogoBase64 = logoData.base64;
           }
         } catch (e) { 
-          console.error("Nem sikerült aszinkron módon dekódolni a klublogót a PDF-hez", e); 
+          console.error("Nem sikerült letölteni a klublogót a PDF-hez", e); 
         }
       }
 
@@ -144,14 +140,16 @@ export default function ContestsView(props: ContestsViewProps) {
         return str.replace(/ő/g, 'ö').replace(/ű/g, 'ü').replace(/Ő/g, 'Ö').replace(/Ű/g, 'Ü');
       };
 
+      // Díszkeret rajzolása
       doc.setDrawColor(217, 119, 6); 
       doc.setLineWidth(2);
       doc.rect(10, 10, 277, 190);
       doc.setLineWidth(0.5);
       doc.rect(12, 12, 273, 186);
 
-      if (logoImgInstance) {
-        doc.addImage(logoImgInstance, 'PNG', 252, 15, 22, 22);
+      // JAVÍTVA: Nyers base64 stringként adjuk át a logót, így a jsPDF transzparensen és hibátlanul rendereli
+      if (sponsorLogoBase64) {
+        doc.addImage(sponsorLogoBase64, 'PNG', 252, 15, 22, 22);
       }
 
       doc.setFont("times", "bolditalic");
@@ -195,6 +193,7 @@ export default function ContestsView(props: ContestsViewProps) {
       doc.setFontSize(14);
       doc.text(fixHu(`Készítette: ${result.user_name}`), 148.5, imgY + imgH + 20, { align: "center" });
 
+      // DÁTUM (KELT) GENERÁLÁSA A BAL ALSÓ SAROKBA
       doc.setFont("times", "normal");
       doc.setFontSize(12);
       doc.setTextColor(100, 116, 139);
@@ -520,7 +519,7 @@ export default function ContestsView(props: ContestsViewProps) {
 
                     <input value={props.editCats} onChange={e => props.setEditCats(e.target.value)} style={inputStyle} />
                     
-                    {/* ➕ JAVÍTVA: Ponthatárok és díjak szerkesztési lehetőségének visszaépítése a MÓDOSÍTÁS panelre is */}
+                    {/* Ponthatárok és díjak szerkesztési lehetősége */}
                     {props.editCats.split(',').map(c => c.trim()).filter(Boolean).length > 0 && (
                       <div style={{ background: '#0f172a', padding: '20px', borderRadius: '16px', marginBottom: '20px', border: '1px solid #334155' }}>
                         <h4 style={{ margin: '0 0 15px 0', color: '#38bdf8', fontSize: '1.1rem' }}>⚙️ Kategória Ponthatárok & Díjak (Módosítás)</h4>
@@ -586,9 +585,6 @@ export default function ContestsView(props: ContestsViewProps) {
                     </div>
                   </div>
                 ) : props.judgingContestId === contest.id ? (
-                  // ====================================================================
-                  // ⚖️ JAVÍTVA: GOLYÓÁLLÓ ÉRTÉKELŐ PULT RUGALMAS KÉPMÉRETEZÉSSEL
-                  // ====================================================================
                   <div style={{ position: 'fixed', inset: 0, backgroundColor: '#000000', zIndex: 10000, display: 'flex', flexDirection: 'column' }}>
                     <div style={{ padding: '15px 30px', background: '#0f172a', borderBottom: '1px solid #1e293b', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '15px', flexShrink: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '25px' }}>
@@ -604,14 +600,12 @@ export default function ContestsView(props: ContestsViewProps) {
                           const currentEntry = props.unvotedEntries[0];
                           const imageUrl = getImageUrl(currentEntry.drive_file_id, currentEntry.file_url);
                           return (
-                            // JAVÍTVA: overflow hidden és minHeight 0 megakadályozza, hogy a kép kitolja a gombokat a képernyőről
                             <div key={currentEntry.id} style={{ flex: 1, minHeight: 0, background: '#000', display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '15px', overflow: 'hidden' }}>
                               <img src={imageUrl} alt="Bírálat" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', boxShadow: '0 20px 50px rgba(0,0,0,0.9)' }} />
                             </div>
                           );
                         })()}
 
-                        {/* JAVÍTVA: flexShrink 0 garantálja, hogy ez a sáv MINDIG fixen és láthatóan a képernyő alján maradjon */}
                         <div style={{ background: '#0f172a', padding: '20px 40px', borderTop: '1px solid #1e293b', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '30px', flexWrap: 'wrap', flexShrink: 0 }}>
                           <div style={{ flex: '1', minWidth: '220px' }}>
                             <div style={{ fontSize: '1.3rem', color: '#f8fafc', fontWeight: '900', marginBottom: '6px' }}>{props.unvotedEntries[0].title || 'Névtelen pályamű'}</div>
@@ -636,7 +630,6 @@ export default function ContestsView(props: ContestsViewProps) {
                       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', background: '#0f172a' }}>
                         <div style={{ fontSize: '5rem', marginBottom: '20px' }}>🎉</div>
                         <h2 style={{ color: '#10b981', fontSize: '2rem', margin: '0 0 10px 0' }}>Minden fotót lepontoztál!</h2>
-                        <p style={{ color: '#94a3b8', marginBottom: '25px' }}>A pontjaid rögzítésre kerültek, köszönjük az értékes munkád.</p>
                         <p style={{ color: '#94a3b8', marginBottom: '25px' }}>A pontjaid rögzítésre kerültek, köszönjük az értékes munkád.</p>
                         <button onClick={() => props.setJudgingContestId(null)} style={{ background: '#38bdf8', color: '#0f172a', border: 'none', padding: '12px 25px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>Vissza a listához</button>
                       </div>
@@ -742,7 +735,7 @@ export default function ContestsView(props: ContestsViewProps) {
                               <>
                                 <button onClick={() => props.startEdit(contest)} style={{ background: '#0f172a', border: '1px solid #f59e0b40', color: '#f59e0b', fontSize: '0.8rem', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer' }}>Módosítás ✏️</button>
                                 {props.user.email === ADMIN_EMAIL && <button onClick={() => props.setManageJuryContestId(contest.id)} style={{ background: '#0f172a', border: '1px solid #8b5cf640', color: '#8b5cf6', fontSize: '0.8rem', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer' }}>Zsűri ({contestJury.length})</button>}
-                                {props.user.email === ADMIN_EMAIL && <button onClick={() => props.handleDeleteContest(contest.id)} style={{ background: '#ef444415', color: '#ef4444', border: 'none', fontSize: '0.8rem', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Törlés</button>}
+                                {props.user.email === ADMIN_EMAIL && <button onClick={() => props.handleDeleteContest(contest.id)} style={{ background: '#ef444415', color: '#ef4444', border: 'none', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Törlés</button>}
                               </>
                             )}
                           </>
