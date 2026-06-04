@@ -103,30 +103,44 @@ export default function ContestsView(props: ContestsViewProps) {
   const currentEditClubValue = props.clubs.find(c => String(c.id) === props.editRestrictedClub || c.name === props.editRestrictedClub)?.id || '';
 
   // ====================================================================
-  // 📜 JAVÍTVA: OKLEVÉL GENERÁLÓ LOGIKA NYERS BASE64 STRINGLEKÉRÉSSEL
+  // 📜 JAVÍTVA: OKLEVÉL GENERÁLÓ LOGIKA DIAGNOSZTIKÁVAL ÉS SZŰRŐVEL
   // ====================================================================
   const generateCertificate = async (contest: any, result: any, awardName: string, isAcceptance: boolean, contestJury: any[]) => {
     setGeneratingCertId(result.id);
+    
+    // 🔍 VEZETÉKES DIAGNOSZTIKA A BÖNGÉSZŐ KONZOLRA (F12 gombbal látható)
+    console.log("=== 🛡️ OKLEVÉL GENERÁLÁSI NAPLÓ ===");
+    console.log("1. Kiválasztott Pályázat adatai (contest):", contest);
+    console.log("2. Pályázatból érkező Szponzor Klub ID:", contest.sponsor_club_id || contest.sponsorClubId);
+    console.log("3. Rendszerben lévő összes fotóklub:", props.clubs);
+
     try {
       // 1. Alkotás képének letöltése
       const res = await fetch(`${BACKEND_URL}/api/image-base64/${result.drive_file_id}`);
       const data = await res.json();
       if (!data.base64) throw new Error("Hiba a kép letöltésekor");
 
-      // 2. JAVÍTVA: Szponzor klub logó letöltése közvetlen base64 stringként (mint a fő képnél)
+      // 2. Szponzor logóBase64 kikeresése
       let sponsorLogoBase64: string | null = null;
-      const sponsorClubObj = props.clubs.find(c => Number(c.id) === Number(contest.sponsor_club_id));
+      const targetSponsorId = contest.sponsor_club_id || contest.sponsorClubId;
+      const sponsorClubObj = props.clubs.find(c => Number(c.id) === Number(targetSponsorId));
       
+      console.log("4. Párosított Szponzor Klub objektum:", sponsorClubObj);
+
       if (sponsorClubObj && sponsorClubObj.drive_logo_id) {
+        console.log("5. Logó Drive ID-ja megvan a memóriában:", sponsorClubObj.drive_logo_id);
         try {
           const logoRes = await fetch(`${BACKEND_URL}/api/image-base64/${sponsorClubObj.drive_logo_id}`);
           const logoData = await logoRes.json();
           if (logoData.base64) {
             sponsorLogoBase64 = logoData.base64;
+            console.log("6. 🏆 Klublogó sikeresen átalakítva Base64-re a háttérben!");
           }
         } catch (e) { 
-          console.error("Nem sikerült letölteni a klublogót a PDF-hez", e); 
+          console.error("❌ Hiba a klublogó Base64 letöltése közben:", e); 
         }
+      } else {
+        console.log("⚠️ Nem fut le logó letöltés: Nincs szponzor kirendelve, vagy üres a drive_logo_id!");
       }
 
       const img = new Image();
@@ -147,9 +161,16 @@ export default function ContestsView(props: ContestsViewProps) {
       doc.setLineWidth(0.5);
       doc.rect(12, 12, 273, 186);
 
-      // JAVÍTVA: Nyers base64 stringként adjuk át a logót, így a jsPDF transzparensen és hibátlanul rendereli
+      // JAVÍTVA: Intelligens formátum-szűrő, hogy a jsPDF ne dobjon hibát PNG/JPG eltérésnél
       if (sponsorLogoBase64) {
-        doc.addImage(sponsorLogoBase64, 'PNG', 252, 15, 22, 22);
+        let format = 'JPEG';
+        const lowerBase = sponsorLogoBase64.toLowerCase();
+        if (lowerBase.includes('image/png')) format = 'PNG';
+        if (lowerBase.includes('image/webp')) format = 'WEBP';
+        if (lowerBase.includes('image/gif')) format = 'GIF';
+        
+        console.log("7. 🖌️ Logó elhelyezése a PDF-re formátummal:", format);
+        doc.addImage(sponsorLogoBase64, format, 252, 15, 22, 22);
       }
 
       doc.setFont("times", "bolditalic");
@@ -193,7 +214,6 @@ export default function ContestsView(props: ContestsViewProps) {
       doc.setFontSize(14);
       doc.text(fixHu(`Készítette: ${result.user_name}`), 148.5, imgY + imgH + 20, { align: "center" });
 
-      // DÁTUM (KELT) GENERÁLÁSA A BAL ALSÓ SAROKBA
       doc.setFont("times", "normal");
       doc.setFontSize(12);
       doc.setTextColor(100, 116, 139);
@@ -585,6 +605,7 @@ export default function ContestsView(props: ContestsViewProps) {
                     </div>
                   </div>
                 ) : props.judgingContestId === contest.id ? (
+                  /* ÉRTÉKELŐ PULT RUGALMAS KÉPMÉRETEZÉSSEL ÉS FIX ALSÓ SÁVVAL */
                   <div style={{ position: 'fixed', inset: 0, backgroundColor: '#000000', zIndex: 10000, display: 'flex', flexDirection: 'column' }}>
                     <div style={{ padding: '15px 30px', background: '#0f172a', borderBottom: '1px solid #1e293b', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '15px', flexShrink: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '25px' }}>
@@ -735,7 +756,7 @@ export default function ContestsView(props: ContestsViewProps) {
                               <>
                                 <button onClick={() => props.startEdit(contest)} style={{ background: '#0f172a', border: '1px solid #f59e0b40', color: '#f59e0b', fontSize: '0.8rem', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer' }}>Módosítás ✏️</button>
                                 {props.user.email === ADMIN_EMAIL && <button onClick={() => props.setManageJuryContestId(contest.id)} style={{ background: '#0f172a', border: '1px solid #8b5cf640', color: '#8b5cf6', fontSize: '0.8rem', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer' }}>Zsűri ({contestJury.length})</button>}
-                                {props.user.email === ADMIN_EMAIL && <button onClick={() => props.handleDeleteContest(contest.id)} style={{ background: '#ef444415', color: '#ef4444', border: 'none', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Törlés</button>}
+                                {props.user.email === ADMIN_EMAIL && <button onClick={() => props.handleDeleteContest(contest.id)} style={{ background: '#ef444415', color: '#ef4444', border: 'none', fontSize: '0.8rem', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Törlés</button>}
                               </>
                             )}
                           </>
