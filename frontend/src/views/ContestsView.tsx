@@ -213,7 +213,7 @@ export default function ContestsView(props: ContestsViewProps) {
     } catch (err) {
       alert('Sajnos hiba történt az oklevél generálása közben.');
       console.error(err);
-    } finally { // <-- JAVÍTVA: finaly -> finally
+    } finally { 
       setGeneratingCertId(null);
     }
   };
@@ -520,6 +520,40 @@ export default function ContestsView(props: ContestsViewProps) {
 
                     <input value={props.editCats} onChange={e => props.setEditCats(e.target.value)} style={inputStyle} />
                     
+                    {/* ➕ JAVÍTVA: Ponthatárok és díjak szerkesztési lehetőségének visszaépítése a MÓDOSÍTÁS panelre is */}
+                    {props.editCats.split(',').map(c => c.trim()).filter(Boolean).length > 0 && (
+                      <div style={{ background: '#0f172a', padding: '20px', borderRadius: '16px', marginBottom: '20px', border: '1px solid #334155' }}>
+                        <h4 style={{ margin: '0 0 15px 0', color: '#38bdf8', fontSize: '1.1rem' }}>⚙️ Kategória Ponthatárok & Díjak (Módosítás)</h4>
+                        {props.editCats.split(',').map(c => c.trim()).filter(Boolean).map(cat => (
+                          <div key={cat} style={{ marginBottom: '15px', paddingBottom: '15px', borderBottom: '1px dashed #1e293b' }}>
+                            <strong style={{ color: '#f8fafc', display: 'block', marginBottom: '10px', fontSize: '0.95rem' }}>✨ {cat} kategória:</strong>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px' }}>
+                              <div>
+                                <label style={{fontSize:'0.75rem', color:'#94a3b8'}}>Elfogadási ponthatár</label>
+                                <input 
+                                  type="number" 
+                                  placeholder="Pl.: 24" 
+                                  value={props.editCategorySettings[cat]?.acceptanceScore || ''} 
+                                  onChange={e => props.editCategorySettings[cat] ? props.setEditCategorySettings({...props.editCategorySettings, [cat]: { ...props.editCategorySettings[cat], acceptanceScore: e.target.value ? Number(e.target.value) : '' }}) : props.setEditCategorySettings({...props.editCategorySettings, [cat]: { acceptanceScore: e.target.value ? Number(e.target.value) : '' }})}
+                                  style={{...inputStyle, marginBottom: 0, marginTop: '5px'}} 
+                                />
+                              </div>
+                              <div>
+                                <label style={{fontSize:'0.75rem', color:'#94a3b8'}}>Díjak (1., 2., 3. hely - vesszővel elválasztva)</label>
+                                <input 
+                                  type="text" 
+                                  placeholder="Pl: Arany Oklevél, Ezüst, Bronz" 
+                                  value={props.editCategorySettings[cat]?.awardsString || ''} 
+                                  onChange={e => props.editCategorySettings[cat] ? props.setEditCategorySettings({...props.editCategorySettings, [cat]: { ...props.editCategorySettings[cat], awardsString: e.target.value }}) : props.setEditCategorySettings({...props.editCategorySettings, [cat]: { awardsString: e.target.value }})}
+                                  style={{...inputStyle, marginBottom: 0, marginTop: '5px'}} 
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '15px', marginBottom: '5px' }}>
                       <div>
                         <label style={{fontSize:'0.8rem', color:'#94a3b8', display: 'block', marginBottom: '4px'}}>Pályázat Láthatósága</label>
@@ -552,8 +586,11 @@ export default function ContestsView(props: ContestsViewProps) {
                     </div>
                   </div>
                 ) : props.judgingContestId === contest.id ? (
+                  // ====================================================================
+                  // ⚖️ JAVÍTVA: GOLYÓÁLLÓ ÉRTÉKELŐ PULT RUGALMAS KÉPMÉRETEZÉSSEL
+                  // ====================================================================
                   <div style={{ position: 'fixed', inset: 0, backgroundColor: '#000000', zIndex: 10000, display: 'flex', flexDirection: 'column' }}>
-                    <div style={{ padding: '15px 30px', background: '#0f172a', borderBottom: '1px solid #1e293b', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '15px' }}>
+                    <div style={{ padding: '15px 30px', background: '#0f172a', borderBottom: '1px solid #1e293b', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '15px', flexShrink: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '25px' }}>
                         <h3 style={{ margin: 0, color: '#f59e0b', fontSize: '1.3rem' }}>⚖️ Értékelő Pult: {contest.title}</h3>
                         <span style={{ background: '#1e293b', padding: '6px 16px', borderRadius: '100px', color: '#38bdf8', fontWeight: 'bold', fontSize: '0.9rem', border: '1px solid #334155' }}>Hátralévő fotók: {props.unvotedEntries.length} db</span>
@@ -562,18 +599,20 @@ export default function ContestsView(props: ContestsViewProps) {
                     </div>
 
                     {props.unvotedEntries.length > 0 ? (
-                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
+                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden', position: 'relative' }}>
                         {(() => {
                           const currentEntry = props.unvotedEntries[0];
                           const imageUrl = getImageUrl(currentEntry.drive_file_id, currentEntry.file_url);
                           return (
-                            <div key={currentEntry.id} style={{ flex: 1, background: '#000', display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '15px' }}>
+                            // JAVÍTVA: overflow hidden és minHeight 0 megakadályozza, hogy a kép kitolja a gombokat a képernyőről
+                            <div key={currentEntry.id} style={{ flex: 1, minHeight: 0, background: '#000', display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '15px', overflow: 'hidden' }}>
                               <img src={imageUrl} alt="Bírálat" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', boxShadow: '0 20px 50px rgba(0,0,0,0.9)' }} />
                             </div>
                           );
                         })()}
 
-                        <div style={{ background: '#0f172a', padding: '20px 40px', borderTop: '1px solid #1e293b', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '30px', flexWrap: 'wrap' }}>
+                        {/* JAVÍTVA: flexShrink 0 garantálja, hogy ez a sáv MINDIG fixen és láthatóan a képernyő alján maradjon */}
+                        <div style={{ background: '#0f172a', padding: '20px 40px', borderTop: '1px solid #1e293b', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '30px', flexWrap: 'wrap', flexShrink: 0 }}>
                           <div style={{ flex: '1', minWidth: '220px' }}>
                             <div style={{ fontSize: '1.3rem', color: '#f8fafc', fontWeight: '900', marginBottom: '6px' }}>{props.unvotedEntries[0].title || 'Névtelen pályamű'}</div>
                             <span style={{ background: '#38bdf815', color: '#38bdf8', padding: '4px 12px', borderRadius: '100px', fontSize: '0.85rem', fontWeight: 'bold', border: '1px solid #38bdf830' }}>📂 {props.unvotedEntries[0].category}</span>
@@ -597,6 +636,7 @@ export default function ContestsView(props: ContestsViewProps) {
                       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', background: '#0f172a' }}>
                         <div style={{ fontSize: '5rem', marginBottom: '20px' }}>🎉</div>
                         <h2 style={{ color: '#10b981', fontSize: '2rem', margin: '0 0 10px 0' }}>Minden fotót lepontoztál!</h2>
+                        <p style={{ color: '#94a3b8', marginBottom: '25px' }}>A pontjaid rögzítésre kerültek, köszönjük az értékes munkád.</p>
                         <p style={{ color: '#94a3b8', marginBottom: '25px' }}>A pontjaid rögzítésre kerültek, köszönjük az értékes munkád.</p>
                         <button onClick={() => props.setJudgingContestId(null)} style={{ background: '#38bdf8', color: '#0f172a', border: 'none', padding: '12px 25px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>Vissza a listához</button>
                       </div>
@@ -653,7 +693,7 @@ export default function ContestsView(props: ContestsViewProps) {
                                       )}
                                     </div>
                                     <div style={{ textAlign: 'right' }}>
-                                      <div style={{ fontSize: '1.2rem', fontWeight: '900', color: '#10b981' }}>{res.total_score} font</div>
+                                      <div style={{ fontSize: '1.2rem', fontWeight: '900', color: '#10b981' }}>{res.total_score} pont</div>
                                       <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{res.vote_count} bírálat</div>
                                     </div>
                                   </div>
@@ -678,9 +718,8 @@ export default function ContestsView(props: ContestsViewProps) {
                           )}
                         </div>
                         
-                        {/* SZPONZOR LOGÓ ÉS NÉV MEGJELENÍTÉSE A PÁLYÁZAT KÁRTYÁJÁN */}
                         {sponsorClubObj && (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#0f172a50', padding: '8px 14px', borderRadius: '10px', border: '1px solid #38bdf820', width: 'fit-content', marginTop: '12px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#0f172a50', padding: '8px 14px', borderRadius: '10px', border: '1px solid #334155', width: 'fit-content', marginTop: '12px' }}>
                             <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: '600' }}>🛡️ Védnök / Szponzor:</span>
                             {sponsorClubObj.drive_logo_id && (
                               <img src={getImageUrl(sponsorClubObj.drive_logo_id, sponsorClubObj.logo_url)} alt="Club Logo" style={{ width: '22px', height: '22px', objectFit: 'contain' }} />
@@ -699,11 +738,11 @@ export default function ContestsView(props: ContestsViewProps) {
                             {contestJury.length > 0 && (
                               <button onClick={() => props.loadJuryProgress(contest.id)} style={{ background: '#0f172a', border: '1px solid #a78bfa40', color: '#a78bfa', fontSize: '0.8rem', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>📈 Zsűri Állása</button>
                             )}
-                            {props.user.email === ADMIN_EMAIL && props.activeTab === 'admin_contests' && (
+                            {(props.user.email === ADMIN_EMAIL || props.isLeader) && (
                               <>
                                 <button onClick={() => props.startEdit(contest)} style={{ background: '#0f172a', border: '1px solid #f59e0b40', color: '#f59e0b', fontSize: '0.8rem', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer' }}>Módosítás ✏️</button>
-                                <button onClick={() => props.setManageJuryContestId(contest.id)} style={{ background: '#0f172a', border: '1px solid #8b5cf640', color: '#8b5cf6', fontSize: '0.8rem', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer' }}>Zsűri ({contestJury.length})</button>
-                                <button onClick={() => props.handleDeleteContest(contest.id)} style={{ background: '#ef444415', color: '#ef4444', border: 'none', fontSize: '0.8rem', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Törlés</button>
+                                {props.user.email === ADMIN_EMAIL && <button onClick={() => props.setManageJuryContestId(contest.id)} style={{ background: '#0f172a', border: '1px solid #8b5cf640', color: '#8b5cf6', fontSize: '0.8rem', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer' }}>Zsűri ({contestJury.length})</button>}
+                                {props.user.email === ADMIN_EMAIL && <button onClick={() => props.handleDeleteContest(contest.id)} style={{ background: '#ef444415', color: '#ef4444', border: 'none', fontSize: '0.8rem', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Törlés</button>}
                               </>
                             )}
                           </>
