@@ -102,18 +102,14 @@ export default function ContestsView(props: ContestsViewProps) {
   const currentNewClubValue = props.clubs.find(c => String(c.id) === props.newRestrictedClub || c.name === props.newRestrictedClub)?.id || '';
   const currentEditClubValue = props.clubs.find(c => String(c.id) === props.editRestrictedClub || c.name === props.editRestrictedClub)?.id || '';
 
-  // ====================================================================
-  // 📜 JAVÍTVA: OKLEVÉL GENERÁLÓ LOGIKA ASZINKRON LOGÓ ELŐ-BETÖLTÉSSEL
-  // ====================================================================
+  // OKLEVÉL GENERÁLÓ LOGIKA ASZINKRON LOGÓ ELŐ-BETÖLTÉSSEL
   const generateCertificate = async (contest: any, result: any, awardName: string, isAcceptance: boolean, contestJury: any[]) => {
     setGeneratingCertId(result.id);
     try {
-      // 1. Alkotás képének letöltése
       const res = await fetch(`${BACKEND_URL}/api/image-base64/${result.drive_file_id}`);
       const data = await res.json();
       if (!data.base64) throw new Error("Hiba a kép letöltésekor");
 
-      // 2. JAVÍTVA: Szponzor klub logó letöltése ÉS aszinkron HTML Image dekódolása
       let logoImgInstance: HTMLImageElement | null = null;
       const sponsorClubObj = props.clubs.find(c => Number(c.id) === Number(contest.sponsor_club_id));
       
@@ -123,7 +119,6 @@ export default function ContestsView(props: ContestsViewProps) {
           const logoData = await logoRes.json();
           
           if (logoData.base64) {
-            // Létrehozunk egy memóriabeli kép objektumot és megvárjuk, míg a böngésző feldolgozza
             logoImgInstance = new Image();
             logoImgInstance.src = logoData.base64;
             await new Promise((resolve, reject) => {
@@ -149,14 +144,12 @@ export default function ContestsView(props: ContestsViewProps) {
         return str.replace(/ő/g, 'ö').replace(/ű/g, 'ü').replace(/Ő/g, 'Ö').replace(/Ű/g, 'Ü');
       };
 
-      // Díszkeret rajzolása
       doc.setDrawColor(217, 119, 6); 
       doc.setLineWidth(2);
       doc.rect(10, 10, 277, 190);
       doc.setLineWidth(0.5);
       doc.rect(12, 12, 273, 186);
 
-      // JAVÍTVA: Most már a teljesen előkészített HTML Image objektumot adjuk át a tiszta PNG rendereléshez
       if (logoImgInstance) {
         doc.addImage(logoImgInstance, 'PNG', 252, 15, 22, 22);
       }
@@ -202,7 +195,6 @@ export default function ContestsView(props: ContestsViewProps) {
       doc.setFontSize(14);
       doc.text(fixHu(`Készítette: ${result.user_name}`), 148.5, imgY + imgH + 20, { align: "center" });
 
-      // DÁTUM (KELT) GENERÁLÁSA A BAL ALSÓ SAROKBA
       doc.setFont("times", "normal");
       doc.setFontSize(12);
       doc.setTextColor(100, 116, 139);
@@ -221,7 +213,7 @@ export default function ContestsView(props: ContestsViewProps) {
     } catch (err) {
       alert('Sajnos hiba történt az oklevél generálása közben.');
       console.error(err);
-    } finaly {
+    } finally { // <-- JAVÍTVA: finaly -> finally
       setGeneratingCertId(null);
     }
   };
@@ -661,7 +653,7 @@ export default function ContestsView(props: ContestsViewProps) {
                                       )}
                                     </div>
                                     <div style={{ textAlign: 'right' }}>
-                                      <div style={{ fontSize: '1.2rem', fontWeight: '900', color: '#10b981' }}>{res.total_score} pont</div>
+                                      <div style={{ fontSize: '1.2rem', fontWeight: '900', color: '#10b981' }}>{res.total_score} font</div>
                                       <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{res.vote_count} bírálat</div>
                                     </div>
                                   </div>
