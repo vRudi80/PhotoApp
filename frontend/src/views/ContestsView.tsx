@@ -26,9 +26,7 @@ interface ContestsViewProps {
   newFeeCurrency: string; setNewFeeCurrency: (v: string) => void; 
   newCategorySettings: Record<string, any>; setNewCategorySettings: (v: Record<string, any>) => void;
   handleCreateContest: () => void;
-  
-  // JAVÍTVA: Új szponzor kezelő propok az új kiíráshoz
-  newSponsorClub: string; setNewSponsorClub: (v: string) => void;
+  newSponsorClub: string; setNewSponsorClub: (v: string) => void; // Szponzor kezelés
   
   // Edit contest form
   editContestId: number | null; setEditContestId: (v: number | null) => void;
@@ -44,9 +42,7 @@ interface ContestsViewProps {
   startEdit: (c: any) => void;
   handleUpdateContest: () => void;
   handleDeleteContest: (id: number) => void;
-
-  // JAVÍTVA: Új szponzor kezelő propok a szerkesztéshez
-  editSponsorClub: string; setEditSponsorClub: (v: string) => void;
+  editSponsorClub: string; setEditSponsorClub: (v: string) => void; // Szponzor kezelés
 
   // Stats & Progress
   viewStatsContestId: number | null; setViewStatsContestId: (v: number | null) => void;
@@ -103,17 +99,28 @@ export default function ContestsView(props: ContestsViewProps) {
     setIsSubmittingVote(false);
   }, [props.unvotedEntries, props.currentScore]);
 
-  // Hibrid ID-szűrő az átmeneti dual-write időszakra
   const currentNewClubValue = props.clubs.find(c => String(c.id) === props.newRestrictedClub || c.name === props.newRestrictedClub)?.id || '';
   const currentEditClubValue = props.clubs.find(c => String(c.id) === props.editRestrictedClub || c.name === props.editRestrictedClub)?.id || '';
 
-  // OKLEVÉL GENERÁLÓ LOGIKA
+  // JAVÍTVA: OKLEVÉL GENERÁLÓ LOGIKA INTELIGENS KLUB LOGÓ BEÉPÍTÉSSEL
   const generateCertificate = async (contest: any, result: any, awardName: string, isAcceptance: boolean, contestJury: any[]) => {
     setGeneratingCertId(result.id);
     try {
+      // 1. Alkotás képének letöltése
       const res = await fetch(`${BACKEND_URL}/api/image-base64/${result.drive_file_id}`);
       const data = await res.json();
       if (!data.base64) throw new Error("Hiba a kép letöltésekor");
+
+      // 2. ÚJ: Szponzor klub logó letöltése (ha van hozzárendelve és van Drive ID-ja)
+      let logoBase64 = null;
+      const sponsorClubObj = props.clubs.find(c => Number(c.id) === Number(contest.sponsor_club_id));
+      if (sponsorClubObj && sponsorClubObj.drive_logo_id) {
+        try {
+          const logoRes = await fetch(`${BACKEND_URL}/api/image-base64/${sponsorClubObj.drive_logo_id}`);
+          const logoData = await logoRes.json();
+          if (logoData.base64) logoBase64 = logoData.base64;
+        } catch (e) { console.error("Nem sikerült letölteni a klublogót a PDF-hez", e); }
+      }
 
       const img = new Image();
       img.src = data.base64;
@@ -126,11 +133,17 @@ export default function ContestsView(props: ContestsViewProps) {
         return str.replace(/ő/g, 'ö').replace(/ű/g, 'ü').replace(/Ő/g, 'Ö').replace(/Ű/g, 'Ü');
       };
 
+      // Díszkeret rajzolása
       doc.setDrawColor(217, 119, 6); 
       doc.setLineWidth(2);
       doc.rect(10, 10, 277, 190);
       doc.setLineWidth(0.5);
       doc.rect(12, 12, 273, 186);
+
+      // ÚJ: SZPONZOR LOGÓ ELHELYEZÉSE A PDF JOBB FELSŐ SARKÁBA
+      if (logoBase64) {
+        doc.addImage(logoBase64, 'PNG', 252, 15, 22, 22);
+      }
 
       doc.setFont("times", "bolditalic");
       doc.setFontSize(40);
@@ -197,7 +210,6 @@ export default function ContestsView(props: ContestsViewProps) {
     }
   };
 
-  // VÉDELMI ZÁRADEK (GUARD CLAUSE)
   if (props.activeTab === 'contests_club_active' && !props.currentDbUser?.club_name) {
     return (
       <div style={{ textAlign: 'center', padding: '5rem 2rem', background: 'linear-gradient(180deg, #1e293b, #0f172a)', borderRadius: '24px', border: '1px solid #ef444440', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
@@ -284,7 +296,7 @@ export default function ContestsView(props: ContestsViewProps) {
             </div>
           )}
 
-          {/* JAVÍTVA: Kétoszlopos modern rácselrendezés a Láthatóság és az ÚJ Szponzorválasztó mezőknek */}
+          {/* Kétoszlopos elrendezés a Láthatóság és Szponzor választóknak */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px', marginBottom: '15px' }}>
             <div>
               <label style={{fontSize:'0.8rem', color:'#94a3b8', fontWeight: 'bold', display: 'block', marginBottom: '6px'}}>🔒 Pályázat Láthatósága / Elérése</label>
@@ -304,7 +316,6 @@ export default function ContestsView(props: ContestsViewProps) {
               )}
             </div>
 
-            {/* ÚJ MEZŐ: Szponzoráló fotóklub kiválasztása új pályázat kiírásakor */}
             <div>
               <label style={{fontSize:'0.8rem', color:'#a78bfa', fontWeight: 'bold', display: 'block', marginBottom: '6px'}}>🏆 Szponzoráló Fotóklub (Oklevél logóhoz)</label>
               <select 
@@ -336,9 +347,7 @@ export default function ContestsView(props: ContestsViewProps) {
             const now = new Date();
             const start = contest.start_date ? new Date(contest.start_date) : new Date(0);
             const end = contest.end_date ? new Date(contest.end_date) : new Date(0);
-            const isStarted = now >= start;
-            const isEnded = now > end && start.getFullYear() > 1970;
-            const isActive = isStarted && !isEnded;
+            const isActive = now >= start && now <= end;
             
             const categories = contest.categories ? contest.categories.split(',').map((c:string) => c.trim()).filter(Boolean) : [];
             const contestJury = props.juryList.filter(j => j.contest_id === contest.id);
@@ -353,18 +362,19 @@ export default function ContestsView(props: ContestsViewProps) {
             const expectedVotes = (contest.entry_count || 0) * (contest.jury_count || 0);
             const isJudgingComplete = contest.entry_count > 0 ? (expectedVotes > 0 && contest.vote_count >= expectedVotes) : true;
             
-            const badgeText = isActive ? 'Nevezés Nyitva' : isEnded ? (isJudgingComplete ? 'Lezárult' : 'Zsűrizés folyamatban') : 'Hamarosan indul';
-            const badgeColor = isActive ? '#10b981' : isEnded ? (isJudgingComplete ? '#ef4444' : '#a78bfa') : '#f59e0b';
-            const badgeBg = isActive ? '#10b98120' : isEnded ? (isJudgingComplete ? '#ef444420' : '#a78bfa20') : '#f59e0b20';
+            const badgeColor = isActive ? '#10b981' : '#ef4444';
+            const badgeText = isActive ? 'Nevezés Nyitva' : isJudgingComplete ? 'Lezárult' : 'Zsűrizés alatt';
+            const badgeBg = isActive ? '#10b98120' : '#ef444420';
 
             const entryFee = contest.entry_fee || 0;
             const isFeeRequired = entryFee > 0;
             const hasPaid = (props.contestPayments || []).some(p => p.contest_id === contest.id && p.user_email === props.user.email);
 
             const myJudgeData = props.myJudgedContests?.find(j => j.contest_id === contest.id);
-            const isDoneJudging = myJudgeData 
-              ? (myJudgeData.judgeable_count > 0 && myJudgeData.voted_count >= myJudgeData.judgeable_count) || (isEnded && myJudgeData.judgeable_count === 0)
-              : false;
+            const isDoneJudging = myJudgeData ? myJudgeData.voted_count >= myJudgeData.judgeable_count : false;
+
+            // ÚJ: Megkeressük a pályázathoz tartozó szponzor klubot a logó kirajzolásához
+            const sponsorClubObj = props.clubs.find(c => Number(c.id) === Number(contest.sponsor_club_id));
 
             return (
               <div key={contest.id} style={{ backgroundColor: '#1e293b', padding: '25px', borderRadius: '24px', border: `1px solid ${badgeColor}40`, boxShadow: '0 10px 30px rgba(0,0,0,0.2)', position: 'relative', overflow: 'hidden' }}>
@@ -501,7 +511,7 @@ export default function ContestsView(props: ContestsViewProps) {
 
                     <input value={props.editCats} onChange={e => props.setEditCats(e.target.value)} style={inputStyle} />
                     
-                    {/* JAVÍTVA: Kétoszlopos elrendezés a szerkesztési űrlap Láthatóság és Szponzor választóihoz */}
+                    {/* Kétoszlopos elrendezés a szerkesztési űrlap Láthatóság és Szponzor választóihoz */}
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '15px', marginBottom: '5px' }}>
                       <div>
                         <label style={{fontSize:'0.8rem', color:'#94a3b8', display: 'block', marginBottom: '4px'}}>Pályázat Láthatósága</label>
@@ -515,7 +525,6 @@ export default function ContestsView(props: ContestsViewProps) {
                         </select>
                       </div>
 
-                      {/* ÚJ MEZŐ: Szponzoráló fotóklub kiválasztása szerkesztéskor */}
                       <div>
                         <label style={{fontSize:'0.8rem', color:'#a78bfa', display: 'block', marginBottom: '4px'}}>Szponzoráló Fotóklub (Oklevél logóhoz)</label>
                         <select 
@@ -660,7 +669,19 @@ export default function ContestsView(props: ContestsViewProps) {
                             <span style={{ background: '#f59e0b15', color: '#f59e0b', border: '1px solid #f59e0b40', padding: '4px 10px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 'bold' }}>💎 NEVEZÉSI DÍJ: {entryFee} {contest.fee_currency}</span>
                           )}
                         </div>
-                        <p style={{ color: '#cbd5e1', fontSize: '0.95rem', margin: '10px 0 0 0', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>{contest.description}</p>
+                        
+                        {/* ÚJ: SZPONZOR LOGÓ ÉS NÉV MEGJELENÍTÉSE A PÁLYÁZAT KÁRTYÁJÁN A NEVEZŐKNEK */}
+                        {sponsorClubObj && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#0f172a50', padding: '8px 14px', borderRadius: '10px', border: '1px solid #38bdf820', width: 'fit-content', marginTop: '12px' }}>
+                            <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: '600' }}>🛡️ Védnök / Szponzor:</span>
+                            {sponsorClubObj.drive_logo_id && (
+                              <img src={getImageUrl(sponsorClubObj.drive_logo_id, sponsorClubObj.logo_url)} alt="Club Logo" style={{ width: '22px', height: '22px', objectFit: 'contain' }} />
+                            )}
+                            <strong style={{ color: '#38bdf8', fontSize: '0.9rem' }}>{sponsorClubObj.name}</strong>
+                          </div>
+                        )}
+
+                        <p style={{ color: '#cbd5e1', fontSize: '0.95rem', margin: '12px 0 0 0', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>{contest.description}</p>
                       </div>
 
                       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
