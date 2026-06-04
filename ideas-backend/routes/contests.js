@@ -65,21 +65,40 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
   // 3. Pályázat módosítása (JAVÍTVA: Kettős írás frissítésnél is!)
   app.put('/api/contests/:id', async (req, res) => {
-    const { title, description, startDate, endDate, categories, restrictedClubId, entryFee, feeCurrency, categorySettings } = req.body;
-    try { 
-      let restrictedClubName = null;
-      if (restrictedClubId) {
-        const [clubRows] = await pool.query('SELECT name FROM photo_clubs WHERE id = ?', [restrictedClubId]);
-        if (clubRows.length > 0) restrictedClubName = clubRows[0].name;
-      }
+  const { 
+    title, description, startDate, endDate, categories, 
+    restrictedClubId, sponsorClubId, entryFee, feeCurrency, categorySettings 
+  } = req.body;
 
-      await pool.query(
-        'UPDATE photo_contests SET title = ?, description = ?, start_date = ?, end_date = ?, categories = ?, restricted_club = ?, restricted_club_id = ?, entry_fee = ?, fee_currency = ?, category_settings = ? WHERE id = ?', 
-        [title, description, startDate, endDate, categories, restrictedClubName, restrictedClubId || null, entryFee || 0, feeCurrency || 'HUF', categorySettings ? JSON.stringify(categorySettings) : null, req.params.id]
-      ); 
-      res.json({ success: true }); 
-    } catch (err) { res.status(500).json({ error: 'Hiba a frissítés során' }); }
-  });
+  try {
+    let restrictedClubName = null;
+    if (restrictedClubId) {
+      const [clubRows] = await pool.query('SELECT name FROM photo_clubs WHERE id = ?', [restrictedClubId]);
+      if (clubRows.length > 0) restrictedClubName = clubRows[0].name;
+    }
+
+    const query = `
+      UPDATE photo_contests SET 
+        title = ?, description = ?, start_date = ?, end_date = ?, categories = ?, 
+        restricted_club = ?, restricted_club_id = ?, sponsor_club_id = ?, 
+        entry_fee = ?, fee_currency = ?, category_settings = ? 
+      WHERE id = ?
+    `;
+
+    await pool.query(query, [
+      title, description, startDate || null, endDate || null, categories,
+      restrictedClubName, restrictedClubId || null, sponsorClubId || null,
+      entryFee || 0, feeCurrency || 'HUF', 
+      categorySettings ? JSON.stringify(categorySettings) : null,
+      req.params.id // <-- A legvégén a WHERE feltételhez tartozó ID!
+    ]);
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("❌ Hiba a pályázat frissítésekor:", err);
+    res.status(500).json({ error: 'Hiba a frissítés során' });
+  }
+});
 
   // 4. Pályázat törlése
   app.delete('/api/contests/:id', async (req, res) => {
