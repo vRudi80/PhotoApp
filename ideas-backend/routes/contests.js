@@ -19,23 +19,49 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
   // 2. Új pályázat létrehozása (JAVÍTVA: Kettős írás ID és Név alapján!)
   app.post('/api/contests', async (req, res) => {
-    const { title, description, startDate, endDate, categories, restrictedClubId, entryFee, feeCurrency, categorySettings } = req.body;
-    try { 
-      // Háttérben lekérjük a klub nevét az ID alapján, ha klubhoz kötött a pályázat
-      let restrictedClubName = null;
-      if (restrictedClubId) {
-        const [clubRows] = await pool.query('SELECT name FROM photo_clubs WHERE id = ?', [restrictedClubId]);
-        if (clubRows.length > 0) restrictedClubName = clubRows[0].name;
-      }
+  const { 
+    title, description, startDate, endDate, categories, 
+    restrictedClubId, sponsorClubId, entryFee, feeCurrency, categorySettings 
+  } = req.body;
 
-      // Elmentjük mindkét oszlopot (restricted_club és restricted_club_id)
-      await pool.query(
-        'INSERT INTO photo_contests (title, description, start_date, end_date, categories, restricted_club, restricted_club_id, entry_fee, fee_currency, category_settings) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 
-        [title, description, startDate, endDate, categories, restrictedClubName, restrictedClubId || null, entryFee || 0, feeCurrency || 'HUF', categorySettings ? JSON.stringify(categorySettings) : null]
-      ); 
-      res.json({ success: true }); 
-    } catch (err) { res.status(500).json({ error: 'Hiba a mentés során' }); }
-  });
+  try { 
+    // 1. Háttérben lekérjük a klub nevét az ID alapján, ha klubhoz kötött a pályázat
+    let restrictedClubName = null;
+    if (restrictedClubId) {
+      const [clubRows] = await pool.query('SELECT name FROM photo_clubs WHERE id = ?', [restrictedClubId]);
+      if (clubRows.length > 0) restrictedClubName = clubRows[0].name;
+    }
+
+    // 2. Elmentjük az összes oszlopot pontosan összehangolva (11 oszlop = 11 kérdőjel!)
+    const query = `
+      INSERT INTO photo_contests (
+        title, description, start_date, end_date, categories, 
+        restricted_club, restricted_club_id, sponsor_club_id, 
+        entry_fee, fee_currency, category_settings
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+
+    // JAVÍTVA: Beillesztve a hiányzó vessző a query után, és az értékek pontos sorrendbe rakva
+    await pool.query(query, [
+      title,
+      description,
+      startDate || null,
+      endDate || null,
+      categories,
+      restrictedClubName,          // -> restricted_club (szöveg)
+      restrictedClubId || null,    // -> restricted_club_id (szám)
+      sponsorClubId || null,       // -> sponsor_club_id (szám)
+      entryFee || 0,
+      feeCurrency || 'HUF',
+      categorySettings ? JSON.stringify(categorySettings) : null
+    ]); 
+
+    res.json({ success: true }); 
+  } catch (err) { 
+    console.error("❌ Hiba a pályázat mentésekor:", err); // Így a konzolon látod, ha elírtál egy oszlopnevet
+    res.status(500).json({ error: 'Hiba a mentés során' }); 
+  }
+});
 
   // 3. Pályázat módosítása (JAVÍTVA: Kettős írás frissítésnél is!)
   app.put('/api/contests/:id', async (req, res) => {
