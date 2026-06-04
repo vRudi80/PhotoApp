@@ -1,17 +1,24 @@
+const fs = require('fs');
+
 module.exports = function(app, pool) {
   
-  // 1. Összes elérhető klub lekérése a "photo_clubs" táblából (Most már az ID-t is kikérjük!)
+  // ====================================================================
+  // 1. JAVÍTVA: Most már az ÖSSZES mezőt (*) lekérjük a photo_clubs táblából,
+  // így a logó URL és a Drive ID is sértetlenül átmegy a frontendnek!
+  // ====================================================================
   app.get('/api/clubs', async (req, res) => {
     try {
-      const [rows] = await pool.query('SELECT id, name FROM photo_clubs ORDER BY name ASC');
+      const [rows] = await pool.query('SELECT * FROM photo_clubs ORDER BY name ASC');
       res.json(rows);
     } catch (err) {
+      console.error("Hiba a klubok lekérésekor:", err);
       res.status(500).json({ error: 'Hiba a klubok lekérésekor' });
     }
   });
 
+  // ====================================================================
   // 2. Felhasználó klubjának frissítése a "photo_users" táblában
-  // JAVÍTVA: A frontendtől már a clubId-t kapjuk, de mindkét oszlopot (ID és Név) egyszerre mentjük!
+  // ====================================================================
   app.put('/api/users/update-club', async (req, res) => {
     const { email, clubId } = req.body; // clubName helyett clubId érkezik
     
@@ -39,9 +46,9 @@ module.exports = function(app, pool) {
     }
   });
 
-  // 3. ÚJ: Klub átnevezése az Admin felületen
-  // Mivel bevezettük az ID-t, most már golyóálló: átírjuk a nevet a fő táblában, 
-  // és frissítjük a photo_users-ben is ott, ahol az ID egyezik!
+  // ====================================================================
+  // 3. Klub átnevezése az Admin felületen
+  // ====================================================================
   app.put('/api/clubs/:id', async (req, res) => {
     const { id } = req.params;
     const { name } = req.body;
