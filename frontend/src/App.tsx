@@ -29,6 +29,7 @@ import ClubNewsView from './views/ClubNewsView';
 import ProfileView from './views/ProfileView';
 import { BrowserRouter, Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import TicketsView from './views/TicketsView';
+import LeaderClubView from './views/LeaderClubView';
 
 import MafoszProgressView from './views/MafoszProgressView'; 
 import PackagesView from './components/PackagesView'; 
