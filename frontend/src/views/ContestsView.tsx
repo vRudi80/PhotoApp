@@ -26,7 +26,7 @@ interface ContestsViewProps {
   newFeeCurrency: string; setNewFeeCurrency: (v: string) => void; 
   newCategorySettings: Record<string, any>; setNewCategorySettings: (v: Record<string, any>) => void;
   handleCreateContest: () => void;
-  newSponsorClub: string; setNewSponsorClub: (v: string) => void; // Szponzor kezelés
+  newSponsorClub: string; setNewSponsorClub: (v: string) => void;
   
   // Edit contest form
   editContestId: number | null; setEditContestId: (v: number | null) => void;
@@ -42,7 +42,7 @@ interface ContestsViewProps {
   startEdit: (c: any) => void;
   handleUpdateContest: () => void;
   handleDeleteContest: (id: number) => void;
-  editSponsorClub: string; setEditSponsorClub: (v: string) => void; // Szponzor kezelés
+  editSponsorClub: string; setEditSponsorClub: (v: string) => void;
 
   // Stats & Progress
   viewStatsContestId: number | null; setViewStatsContestId: (v: number | null) => void;
@@ -102,16 +102,14 @@ export default function ContestsView(props: ContestsViewProps) {
   const currentNewClubValue = props.clubs.find(c => String(c.id) === props.newRestrictedClub || c.name === props.newRestrictedClub)?.id || '';
   const currentEditClubValue = props.clubs.find(c => String(c.id) === props.editRestrictedClub || c.name === props.editRestrictedClub)?.id || '';
 
-  // JAVÍTVA: OKLEVÉL GENERÁLÓ LOGIKA INTELIGENS KLUB LOGÓ BEÉPÍTÉSSEL
+  // OKLEVÉL GENERÁLÓ LOGIKA INTELIGENS KLUB LOGÓ BEÉPÍTÉSSEL
   const generateCertificate = async (contest: any, result: any, awardName: string, isAcceptance: boolean, contestJury: any[]) => {
     setGeneratingCertId(result.id);
     try {
-      // 1. Alkotás képének letöltése
       const res = await fetch(`${BACKEND_URL}/api/image-base64/${result.drive_file_id}`);
       const data = await res.json();
       if (!data.base64) throw new Error("Hiba a kép letöltésekor");
 
-      // 2. ÚJ: Szponzor klub logó letöltése (ha van hozzárendelve és van Drive ID-ja)
       let logoBase64 = null;
       const sponsorClubObj = props.clubs.find(c => Number(c.id) === Number(contest.sponsor_club_id));
       if (sponsorClubObj && sponsorClubObj.drive_logo_id) {
@@ -133,14 +131,12 @@ export default function ContestsView(props: ContestsViewProps) {
         return str.replace(/ő/g, 'ö').replace(/ű/g, 'ü').replace(/Ő/g, 'Ö').replace(/Ű/g, 'Ü');
       };
 
-      // Díszkeret rajzolása
       doc.setDrawColor(217, 119, 6); 
       doc.setLineWidth(2);
       doc.rect(10, 10, 277, 190);
       doc.setLineWidth(0.5);
       doc.rect(12, 12, 273, 186);
 
-      // ÚJ: SZPONZOR LOGÓ ELHELYEZÉSE A PDF JOBB FELSŐ SARKÁBA
       if (logoBase64) {
         doc.addImage(logoBase64, 'PNG', 252, 15, 22, 22);
       }
@@ -186,7 +182,6 @@ export default function ContestsView(props: ContestsViewProps) {
       doc.setFontSize(14);
       doc.text(fixHu(`Készítette: ${result.user_name}`), 148.5, imgY + imgH + 20, { align: "center" });
 
-      // DÁTUM (KELT) GENERÁLÁSA A BAL ALSÓ SAROKBA
       doc.setFont("times", "normal");
       doc.setFontSize(12);
       doc.setTextColor(100, 116, 139);
@@ -276,7 +271,7 @@ export default function ContestsView(props: ContestsViewProps) {
                         type="number" 
                         placeholder="Pl.: 24" 
                         value={props.newCategorySettings[cat]?.acceptanceScore || ''} 
-                        onChange={e => props.setNewCategorySettings({...props.newCategorySettings, [cat]: { ...props.newCategorySettings[cat], acceptanceScore: e.target.value ? Number(e.target.value) : '' }})}
+                        onChange={e => props.newCategorySettings[cat] ? props.setNewCategorySettings({...props.newCategorySettings, [cat]: { ...props.newCategorySettings[cat], acceptanceScore: e.target.value ? Number(e.target.value) : '' }}) : props.setNewCategorySettings({...props.newCategorySettings, [cat]: { acceptanceScore: e.target.value ? Number(e.target.value) : '' }})}
                         style={{...inputStyle, marginBottom: 0, marginTop: '5px'}} 
                       />
                     </div>
@@ -286,7 +281,7 @@ export default function ContestsView(props: ContestsViewProps) {
                         type="text" 
                         placeholder="Pl: Arany Oklevél, Ezüst, Bronz" 
                         value={props.newCategorySettings[cat]?.awardsString || ''} 
-                        onChange={e => props.setNewCategorySettings({...props.newCategorySettings, [cat]: { ...props.newCategorySettings[cat], awardsString: e.target.value }})}
+                        onChange={e => props.newCategorySettings[cat] ? props.setNewCategorySettings({...props.newCategorySettings, [cat]: { ...props.newCategorySettings[cat], awardsString: e.target.value }}) : props.setNewCategorySettings({...props.newCategorySettings, [cat]: { awardsString: e.target.value }})}
                         style={{...inputStyle, marginBottom: 0, marginTop: '5px'}} 
                       />
                     </div>
@@ -296,7 +291,6 @@ export default function ContestsView(props: ContestsViewProps) {
             </div>
           )}
 
-          {/* Kétoszlopos elrendezés a Láthatóság és Szponzor választóknak */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px', marginBottom: '15px' }}>
             <div>
               <label style={{fontSize:'0.8rem', color:'#94a3b8', fontWeight: 'bold', display: 'block', marginBottom: '6px'}}>🔒 Pályázat Láthatósága / Elérése</label>
@@ -347,7 +341,11 @@ export default function ContestsView(props: ContestsViewProps) {
             const now = new Date();
             const start = contest.start_date ? new Date(contest.start_date) : new Date(0);
             const end = contest.end_date ? new Date(contest.end_date) : new Date(0);
-            const isActive = now >= start && now <= end;
+            
+            // JAVÍTVA: Visszahelyezve a hiányzó isStarted és isEnded állapotok
+            const isStarted = now >= start;
+            const isEnded = now > end && start.getFullYear() > 1970;
+            const isActive = isStarted && !isEnded;
             
             const categories = contest.categories ? contest.categories.split(',').map((c:string) => c.trim()).filter(Boolean) : [];
             const contestJury = props.juryList.filter(j => j.contest_id === contest.id);
@@ -362,9 +360,10 @@ export default function ContestsView(props: ContestsViewProps) {
             const expectedVotes = (contest.entry_count || 0) * (contest.jury_count || 0);
             const isJudgingComplete = contest.entry_count > 0 ? (expectedVotes > 0 && contest.vote_count >= expectedVotes) : true;
             
-            const badgeColor = isActive ? '#10b981' : '#ef4444';
-            const badgeText = isActive ? 'Nevezés Nyitva' : isJudgingComplete ? 'Lezárult' : 'Zsűrizés alatt';
-            const badgeBg = isActive ? '#10b98120' : '#ef444420';
+            // JAVÍTVA: Visszaállítva a korábbi golyóálló hármas badge színrendszer
+            const badgeText = isActive ? 'Nevezés Nyitva' : isEnded ? (isJudgingComplete ? 'Lezárult' : 'Zsűrizés folyamatban') : 'Hamarosan indul';
+            const badgeColor = isActive ? '#10b981' : isEnded ? (isJudgingComplete ? '#ef4444' : '#a78bfa') : '#f59e0b';
+            const badgeBg = isActive ? '#10b98120' : isEnded ? (isJudgingComplete ? '#ef444420' : '#a78bfa20') : '#f59e0b20';
 
             const entryFee = contest.entry_fee || 0;
             const isFeeRequired = entryFee > 0;
@@ -373,7 +372,6 @@ export default function ContestsView(props: ContestsViewProps) {
             const myJudgeData = props.myJudgedContests?.find(j => j.contest_id === contest.id);
             const isDoneJudging = myJudgeData ? myJudgeData.voted_count >= myJudgeData.judgeable_count : false;
 
-            // ÚJ: Megkeressük a pályázathoz tartozó szponzor klubot a logó kirajzolásához
             const sponsorClubObj = props.clubs.find(c => Number(c.id) === Number(contest.sponsor_club_id));
 
             return (
@@ -511,7 +509,6 @@ export default function ContestsView(props: ContestsViewProps) {
 
                     <input value={props.editCats} onChange={e => props.setEditCats(e.target.value)} style={inputStyle} />
                     
-                    {/* Kétoszlopos elrendezés a szerkesztési űrlap Láthatóság és Szponzor választóihoz */}
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '15px', marginBottom: '5px' }}>
                       <div>
                         <label style={{fontSize:'0.8rem', color:'#94a3b8', display: 'block', marginBottom: '4px'}}>Pályázat Láthatósága</label>
@@ -670,7 +667,7 @@ export default function ContestsView(props: ContestsViewProps) {
                           )}
                         </div>
                         
-                        {/* ÚJ: SZPONZOR LOGÓ ÉS NÉV MEGJELENÍTÉSE A PÁLYÁZAT KÁRTYÁJÁN A NEVEZŐKNEK */}
+                        {/* SZPONZOR LOGÓ ÉS NÉV MEGJELENÍTÉSE A PÁLYÁZAT KÁRTYÁJÁN */}
                         {sponsorClubObj && (
                           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#0f172a50', padding: '8px 14px', borderRadius: '10px', border: '1px solid #38bdf820', width: 'fit-content', marginTop: '12px' }}>
                             <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: '600' }}>🛡️ Védnök / Szponzor:</span>
@@ -770,7 +767,7 @@ export default function ContestsView(props: ContestsViewProps) {
 
                     {myContestEntries.length > 0 && isFeeRequired && hasPaid && (
                       <div style={{ background: '#10b98110', border: '1px solid #10b98130', padding: '12px 20px', borderRadius: '10px', marginBottom: '20px', color: '#10b981', fontSize: '0.9rem', fontWeight: 'bold' }}>
-                        ✓ Nevezési díj sikeresen rendezve a Stripe rendszerén keresztül. Fotóid érvényesek!
+                        ✓ Nevezési díj sikeresen rendezve a Stripe rendszerén keresztül. Fotóid érvényes!
                       </div>
                     )}
 
