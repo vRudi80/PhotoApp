@@ -108,11 +108,21 @@ export default function ContestsView(props: ContestsViewProps) {
   const generateCertificate = async (contest: any, result: any, awardName: string, isAcceptance: boolean, contestJury: any[]) => {
     setGeneratingCertId(result.id);
     
-    // 🔍 VEZETÉKES DIAGNOSZTIKA A BÖNGÉSZŐ KONZOLRA (F12 gombbal látható)
+   // 🔍 VEZETÉKES DIAGNOSZTIKA A BÖNGÉSZŐ KONZOLRA
     console.log("=== 🛡️ OKLEVÉL GENERÁLÁSI NAPLÓ ===");
     console.log("1. Kiválasztott Pályázat adatai (contest):", contest);
     console.log("2. Pályázatból érkező Szponzor Klub ID:", contest.sponsor_club_id || contest.sponsorClubId);
-    console.log("3. Rendszerben lévő összes fotóklub:", props.clubs);
+    
+    const targetSponsorId = contest.sponsor_club_id || contest.sponsorClubId;
+    const sponsorClubObj = props.clubs.find(c => Number(c.id) === Number(targetSponsorId));
+    
+    if (sponsorClubObj) {
+      console.log("3. Párosított Szponzor Klub nyers mezői (Kulcsok):", Object.keys(sponsorClubObj));
+      console.log("4. drive_logo_id értéke:", sponsorClubObj.drive_logo_id);
+      console.log("5. logo_url értéke:", sponsorClubObj.logo_url);
+    } else {
+      console.log("3. ❌ Nem található fotóklub ezzel az ID-val a props.clubs tömbben!");
+    }
 
     try {
       // 1. Alkotás képének letöltése
