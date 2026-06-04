@@ -32,12 +32,12 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
 
   // --- CSOMAG ÉS LIMIT KALKULÁCIÓ ---
   let premiumLevel = user?.premiumLevel || user?.premium_level || 0;
-  if (hasPremiumAccess && premiumLevel === 0) premiumLevel = 1; // Fallback
+  if (hasPremiumAccess && premiumLevel === 0) premiumLevel = 1; 
   
-  // 1-es szint = 1 GB, 2-es szint = 5 GB
   const maxStorageBytes = premiumLevel >= 2 ? 5 * 1024 * 1024 * 1024 : 1 * 1024 * 1024 * 1024; 
   const packageName = premiumLevel >= 2 ? 'Pro Prémium (5 GB)' : 'Alap Prémium (1 GB)';
 
+  // JAVÍTVA: Atomi szintű, egyszerre történő állapotfrissítés a szinkronizációs hibák ellen
   const fetchMyPhotos = async () => {
     if (!hasPremiumAccess) {
       setIsLoading(false);
@@ -46,11 +46,15 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
 
     try {
       const res = await fetch(`${BACKEND_URL}/api/my-album?userEmail=${user.email}`);
-      
       if (res.ok) {
-        setPhotos(await res.json());
+        const photosData = await res.json();
+        
+        // Megvárjuk a szalon eredményeket is, mielőtt bármit renderelnénk
         const resResults = await fetch(`${BACKEND_URL}/api/my-portfolio-results?userEmail=${user.email}`);
-        if (resResults.ok) setPhotoResults(await resResults.json());
+        const resultsData = resResults.ok ? await resResults.json() : [];
+        
+        setPhotos(photosData);
+        setPhotoResults(resultsData);
       }
 
       const resStats = await fetch(`${BACKEND_URL}/api/admin/user-storage-stats`);
@@ -87,7 +91,6 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
     return photos.reduce((sum, photo) => sum + Math.max(photo.file_size || 0, 0), 0);
   }, [photos]);
 
-  // Százalék kiszámítása a folyamatjelzőhöz
   const storagePercent = Math.min(100, (totalSizeInBytes / maxStorageBytes) * 100);
 
   const formatExactStorage = (bytes: number) => {
@@ -115,7 +118,6 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
   const handleUpdatePhoto = async (photoId: number) => {
     if (!editTitle) return alert('A cím nem lehet üres!');
     
-    // Tárhely védelem szerkesztésnél (ha új fájlt tölt fel)
     if (editFile && totalSizeInBytes + editFile.size > maxStorageBytes) {
       alert(`⚠️ Megtelt a tárhelyed! Válts nagyobb csomagra a Csomagok menüpontban.`);
       return;
@@ -165,7 +167,6 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
   const handleUpload = async () => {
     if (!uploadFile || !uploadTitle) return alert("Kép és cím megadása kötelező!");
     
-    // TÁRHELY VÉDELEM: Letiltjuk a feltöltést, ha túllépi a csomagját
     if (totalSizeInBytes + uploadFile.size > maxStorageBytes) {
       alert(`⚠️ Megtelt a tárhelyed (${formatExactStorage(maxStorageBytes)})! Kérlek, törölj régebbi képeket, vagy válts nagyobb csomagra (Csomagok menüpont).`);
       return;
@@ -210,7 +211,7 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
         <span style={{ fontSize: '2.5rem' }}>🖼️</span> Saját Képalbum (Portfólió)
       </h2>
 
-      {/* --- GYÖNYÖRŰ FOLYAMATJELZŐ SÁV --- */}
+      {/* --- FOLYAMATJELZŐ SÁV --- */}
       <div style={{ background: '#1e293b', padding: '20px', borderRadius: '12px', marginBottom: '25px', border: '1px solid #334155', boxShadow: '0 4px 6px rgba(0,0,0,0.2)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '12px' }}>
           <div>
@@ -222,7 +223,6 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
           </div>
         </div>
 
-        {/* Progress Bar */}
         <div style={{ width: '100%', background: '#0f172a', height: '14px', borderRadius: '100px', overflow: 'hidden', border: '1px solid #475569' }}>
           <div style={{ 
             width: `${storagePercent}%`, 
@@ -302,7 +302,10 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
           const isUpdatingThis = updatingPhotoId === photo.id;
           const isAnalyzingThis = analyzingPhotoId === photo.id;
           
-          const currentPhotoResults = photoResults.filter(r => r.portfolio_id === photo.id);
+          // JAVÍTVA: Golyóálló típuskonverziós szűrés (szám vs string ellentétek feloldása)
+          const currentPhotoResults = photoResults.filter(r => 
+            Number(r.portfolio_id || r.portfolioId) === Number(photo.id)
+          );
 
           const entryCount = currentPhotoResults.length;
           const awardCount = currentPhotoResults.filter(r => r.award_name && r.award_name.toLowerCase() !== 'acceptance').length;
@@ -417,7 +420,6 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
                   </div>
                 </details>
 
-                {/* JAVÍTVA: A felesleges length > 0 tiltást kivettem, így az eredmény doboz mostantól SOHA nem tűnik el titokzatosan */}
                 {!editingPhotoId && (
                   <details style={{ marginBottom: '15px', background: '#0f172a', borderRadius: '8px', border: '1px solid #334155' }}>
                     <summary style={{ padding: '10px', fontSize: '0.75rem', color: '#60a5fa', fontWeight: 'bold', cursor: 'pointer', outline: 'none', userSelect: 'none' }}>
@@ -458,7 +460,7 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
                     <input 
                       value={editTitle} 
                       onChange={e => setEditTitle(e.target.value)} 
-                      style={{ width: '100%', padding: '8px', backgroundColor: '#0f172a', border: '1px solid #38bdf8', color: 'white', borderRadius: '4px' }} 
+                      style={{ width: '100%', padding: '8px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '4px' }} 
                       placeholder="Új cím..."
                     />
                     <input 
