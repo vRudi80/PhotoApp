@@ -102,22 +102,40 @@ export default function ContestsView(props: ContestsViewProps) {
   const currentNewClubValue = props.clubs.find(c => String(c.id) === props.newRestrictedClub || c.name === props.newRestrictedClub)?.id || '';
   const currentEditClubValue = props.clubs.find(c => String(c.id) === props.editRestrictedClub || c.name === props.editRestrictedClub)?.id || '';
 
-  // OKLEVÉL GENERÁLÓ LOGIKA INTELIGENS KLUB LOGÓ BEÉPÍTÉSSEL
+  // ====================================================================
+  // 📜 JAVÍTVA: OKLEVÉL GENERÁLÓ LOGIKA ASZINKRON LOGÓ ELŐ-BETÖLTÉSSEL
+  // ====================================================================
   const generateCertificate = async (contest: any, result: any, awardName: string, isAcceptance: boolean, contestJury: any[]) => {
     setGeneratingCertId(result.id);
     try {
+      // 1. Alkotás képének letöltése
       const res = await fetch(`${BACKEND_URL}/api/image-base64/${result.drive_file_id}`);
       const data = await res.json();
       if (!data.base64) throw new Error("Hiba a kép letöltésekor");
 
-      let logoBase64 = null;
+      // 2. JAVÍTVA: Szponzor klub logó letöltése ÉS aszinkron HTML Image dekódolása
+      let logoImgInstance: HTMLImageElement | null = null;
       const sponsorClubObj = props.clubs.find(c => Number(c.id) === Number(contest.sponsor_club_id));
+      
       if (sponsorClubObj && sponsorClubObj.drive_logo_id) {
         try {
           const logoRes = await fetch(`${BACKEND_URL}/api/image-base64/${sponsorClubObj.drive_logo_id}`);
           const logoData = await logoRes.json();
-          if (logoData.base64) logoBase64 = logoData.base64;
-        } catch (e) { console.error("Nem sikerült letölteni a klublogót a PDF-hez", e); }
+          
+          if (logoData.base64) {
+            // Létrehozunk egy memóriabeli kép objektumot és megvárjuk, míg a böngésző feldolgozza
+            logoImgInstance = new Image();
+            logoImgInstance.src = logoData.base64;
+            await new Promise((resolve, reject) => {
+              if (logoImgInstance) {
+                logoImgInstance.onload = resolve;
+                logoImgInstance.onerror = reject;
+              }
+            });
+          }
+        } catch (e) { 
+          console.error("Nem sikerült aszinkron módon dekódolni a klublogót a PDF-hez", e); 
+        }
       }
 
       const img = new Image();
@@ -131,14 +149,16 @@ export default function ContestsView(props: ContestsViewProps) {
         return str.replace(/ő/g, 'ö').replace(/ű/g, 'ü').replace(/Ő/g, 'Ö').replace(/Ű/g, 'Ü');
       };
 
+      // Díszkeret rajzolása
       doc.setDrawColor(217, 119, 6); 
       doc.setLineWidth(2);
       doc.rect(10, 10, 277, 190);
       doc.setLineWidth(0.5);
       doc.rect(12, 12, 273, 186);
 
-      if (logoBase64) {
-        doc.addImage(logoBase64, 'PNG', 252, 15, 22, 22);
+      // JAVÍTVA: Most már a teljesen előkészített HTML Image objektumot adjuk át a tiszta PNG rendereléshez
+      if (logoImgInstance) {
+        doc.addImage(logoImgInstance, 'PNG', 252, 15, 22, 22);
       }
 
       doc.setFont("times", "bolditalic");
@@ -182,6 +202,7 @@ export default function ContestsView(props: ContestsViewProps) {
       doc.setFontSize(14);
       doc.text(fixHu(`Készítette: ${result.user_name}`), 148.5, imgY + imgH + 20, { align: "center" });
 
+      // DÁTUM (KELT) GENERÁLÁSA A BAL ALSÓ SAROKBA
       doc.setFont("times", "normal");
       doc.setFontSize(12);
       doc.setTextColor(100, 116, 139);
@@ -200,7 +221,7 @@ export default function ContestsView(props: ContestsViewProps) {
     } catch (err) {
       alert('Sajnos hiba történt az oklevél generálása közben.');
       console.error(err);
-    } finally {
+    } finaly {
       setGeneratingCertId(null);
     }
   };
@@ -342,7 +363,6 @@ export default function ContestsView(props: ContestsViewProps) {
             const start = contest.start_date ? new Date(contest.start_date) : new Date(0);
             const end = contest.end_date ? new Date(contest.end_date) : new Date(0);
             
-            // JAVÍTVA: Visszahelyezve a hiányzó isStarted és isEnded állapotok
             const isStarted = now >= start;
             const isEnded = now > end && start.getFullYear() > 1970;
             const isActive = isStarted && !isEnded;
@@ -360,7 +380,6 @@ export default function ContestsView(props: ContestsViewProps) {
             const expectedVotes = (contest.entry_count || 0) * (contest.jury_count || 0);
             const isJudgingComplete = contest.entry_count > 0 ? (expectedVotes > 0 && contest.vote_count >= expectedVotes) : true;
             
-            // JAVÍTVA: Visszaállítva a korábbi golyóálló hármas badge színrendszer
             const badgeText = isActive ? 'Nevezés Nyitva' : isEnded ? (isJudgingComplete ? 'Lezárult' : 'Zsűrizés folyamatban') : 'Hamarosan indul';
             const badgeColor = isActive ? '#10b981' : isEnded ? (isJudgingComplete ? '#ef4444' : '#a78bfa') : '#f59e0b';
             const badgeBg = isActive ? '#10b98120' : isEnded ? (isJudgingComplete ? '#ef444420' : '#a78bfa20') : '#f59e0b20';
@@ -729,7 +748,7 @@ export default function ContestsView(props: ContestsViewProps) {
                     )}
 
                     {isActive && !isUserJury && props.activeUploadContest !== contest.id && (
-                      <button onClick={() => { props.setActiveUploadContest(contest.id); props.setUploadCategory(''); }} style={{ background: 'linear-gradient(135deg, #38bdf8, #0284c7)', color: '#0f172a', border: 'none', padding: '10px 20px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem', marginBottom: '15px', transition: 'all 0.2s', boxShadow: '0 4px 15px rgba(56,189,248,0.3)' }} onMouseOver={e => e.currentTarget.style.transform = 'translateY(-2px)'} onMouseOut={e => e.currentTarget.style.transform = 'none'}>+ Új Fotó Nevezése</button>
+                      <button onClick={() => { props.setActiveUploadContest(contest.id); props.setUploadCategory(''); }} style={{ background: 'linear-gradient(135deg, #38bdf8, #0284c7)', color: '#0f172a', border: 'none', padding: '10px 20px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem', marginBottom: '15px', transition: 'all 0.2s', boxShadow: '0 4px 15px rgba(56,189,248,0.3)' }}>+ Új Fotó Nevezése</button>
                     )}
 
                     {props.activeUploadContest === contest.id && (
