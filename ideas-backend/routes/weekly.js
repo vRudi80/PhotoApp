@@ -2,22 +2,77 @@ const fs = require('fs');
 
 module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   
-  // Segédfüggvény: Kiszámolja a szavazó aktuális pontozási erejét (Csak az aktív vagy lezárt képeket számolja, duplikációk nélkül)
-  async function getUserVotePower(pool, email) {
-    const [rows] = await pool.query(`
+  // 📊 1. SEGÉDFÜGGVÉNY: Kiszámolja egy felhasználó összesített pontjait ÉS hivatalos győzelmeit (1. helyezéseit)
+  async function getUserLikesAndVictories(pool, email) {
+    // Összes szerzett lájk/pont
+    const [likesRows] = await pool.query(`
       SELECT COALESCE(SUM(e.likes_count), 0) as total 
       FROM weekly_entries e
       JOIN weekly_topics t ON e.topic_id = t.id
       WHERE e.user_email = ? AND (e.is_active = 1 OR t.end_date < CURRENT_DATE())
     `, [email]);
-    const totalLikes = rows[0].total || 0;
-    
-    if (totalLikes < 20) return { super: 1, brilliant: 2 };       // Újonc 🌱
-    if (totalLikes < 100) return { super: 2, brilliant: 3 };      // Felfedezett 📸
-    if (totalLikes < 300) return { super: 2, brilliant: 4 };      // Haladó ⭐
-    if (totalLikes < 800) return { super: 3, brilliant: 5 };      // Profi 🏅
-    return { super: 4, brilliant: 6 };                            // Guru 👑
+    const totalLikes = likesRows[0].total || 0;
+
+    // Hivatalos győzelmek (Hányszor volt abszolút első helyezett lezárt arénában)
+    const [pastTopics] = await pool.query('SELECT id FROM weekly_topics WHERE end_date < CURRENT_DATE()');
+    let victories = 0;
+    for (const topic of pastTopics) {
+      const [entries] = await pool.query(`
+        SELECT user_email FROM weekly_entries 
+        WHERE topic_id = ? AND is_active = 1 
+        ORDER BY likes_count DESC, views_count ASC LIMIT 1
+      `, [topic.id]);
+      if (entries[0] && entries[0].user_email === email) {
+        victories++;
+      }
+    }
+    return { totalLikes, victories };
   }
+
+  // 📈 2. SEGÉDFÜGGVÉNY: Meghatározza a szint sorszámát (1-5) az új szabályok alapján
+  function calculateRankLevel(totalLikes, victories) {
+    if (totalLikes < 20) return 1;                  // Újonc 🌱
+    if (totalLikes < 100) return 2;                 // Felfedezett 📸
+    if (totalLikes < 300 || victories < 1) return 3; // Haladó ⭐ (Hiába van sok pontja, ha nincs 1 győzelme)
+    if (totalLikes < 800 || victories < 3) return 4; // Profi 🏅 (Hiába van sok pontja, ha nincs 3 győzelme)
+    return 5;                                       // Guru 👑
+  }
+
+  // 🚨 3. ÚJ MOTOR: Ellenőrzi a szintlépést, és azonnal kioszt +10 cserét, ha feljebb lépett!
+  async function checkAndAwardLevelUp(pool, email) {
+    const { totalLikes, victories } = await getUserLikesAndVictories(pool, email);
+    const newLevel = calculateRankLevel(totalLikes, victories);
+
+    const [userRows] = await pool.query('SELECT rank_level FROM photo_users WHERE email = ?', [email]);
+    if (userRows.length > 0) {
+      const oldLevel = userRows[0].rank_level;
+      
+      // Ha szintet lépett felfelé: kap fixen 10 Joker cserét!
+      if (newLevel > oldLevel) {
+        await pool.query(
+          'UPDATE photo_users SET rank_level = ?, swap_balance = swap_balance + 10 WHERE email = ?',
+          [newLevel, email]
+        );
+        console.log(`🎉 SZINTLÉPÉS DETEKTÁLVA: ${email} szintet lépett (${oldLevel} -> ${newLevel})! +10 Joker kiosztva.`);
+      } else if (newLevel < oldLevel) {
+        await pool.query('UPDATE photo_users SET rank_level = ? WHERE email = ?', [newLevel, email]);
+      }
+    }
+    return newLevel;
+  }
+
+  // ⚙️ 4. MÓDOSÍTVA: Kiszámolja a szavazó pontozási erejét az új szintek alapján
+  async function getUserVotePower(pool, email) {
+    const { totalLikes, victories } = await getUserLikesAndVictories(pool, email);
+    const level = calculateRankLevel(totalLikes, victories);
+    
+    if (level === 1) return { super: 1, brilliant: 2 }; // Újonc 🌱
+    if (level === 2) return { super: 2, brilliant: 3 }; // Felfedezett 📸
+    if (level === 3) return { super: 2, brilliant: 4 }; // Haladó ⭐
+    if (level === 4) return { super: 3, brilliant: 5 }; // Profi 🏅
+    return { super: 4, brilliant: 6 };                  // Guru 👑
+  }
+
 
   // 🏆 JAVÍTVA: Holtverseny-biztos lezáró motor pontszám-referenciákkal
   async function processFinishedChallenges(pool) {
