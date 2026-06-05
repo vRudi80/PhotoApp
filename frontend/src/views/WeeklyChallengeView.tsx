@@ -986,7 +986,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                             onClick={() => setActiveShareData(entry)}
                             style={{ width: '100%', background: 'linear-gradient(135deg, #14b8a6, #0d9488)', color: 'white', border: 'none', padding: '10px', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', boxShadow: '0 4px 12px rgba(20,184,166,0.2)' }}
                           >
-                            🚀 Látványos Trófeakártya Generálása
+                            🚀 Eredmény megosztása
                           </button>
                         </div>
                       </div>
