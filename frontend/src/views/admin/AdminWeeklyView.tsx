@@ -9,6 +9,10 @@ export default function AdminWeeklyView() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
+  // 🛡️ ÚJ ÁLLAPOTOK: A duplikált IP-cím alapú gyanús tevékenységekhez
+  const [suspiciousActivities, setSuspiciousActivities] = useState<any[]>([]);
+  const [loadingSuspicious, setLoadingSuspicious] = useState(false);
+
   const inputStyle = { width: '100%', padding: '10px', marginBottom: '10px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '6px', boxSizing: 'border-box' as const };
 
   const fetchTopics = async () => {
@@ -20,8 +24,23 @@ export default function AdminWeeklyView() {
     }
   };
 
+  // 🛡️ ÚJ FUNKCIÓ: Gyanús tevékenységek lekérése a backendről
+  const fetchSuspicious = async () => {
+    setLoadingSuspicious(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/admin/weekly/suspicious`);
+      if (res.ok) setSuspiciousActivities(await res.json());
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingSuspicious(false);
+    }
+  };
+
+  // MÓDOSÍTVA: Betöltéskor a témák naptára mellett a gyanús szűrést is elindítjuk
   useEffect(() => {
     fetchTopics();
+    fetchSuspicious();
   }, []);
 
   const clearForm = () => {
@@ -54,6 +73,7 @@ export default function AdminWeeklyView() {
         alert("Sikeresen mentve!");
         clearForm();
         fetchTopics();
+        fetchSuspicious(); // Mentés után frissítjük a gyanús listát is biztonságból
       } else alert("Hiba a mentés során.");
     } catch (e) {
       alert("Hálózati hiba!");
@@ -64,13 +84,15 @@ export default function AdminWeeklyView() {
     if (!window.confirm("❗ BIZTOSAN TÖRLÖD? Minden hozzátartozó kép és szavazat is törlődik végleg!")) return;
     try {
       const res = await fetch(`${BACKEND_URL}/api/admin/weekly-topics/${id}`, { method: 'DELETE' });
-      if (res.ok) fetchTopics();
+      if (res.ok) {
+        fetchTopics();
+        fetchSuspicious();
+      }
     } catch (e) {
       alert("Hiba!");
     }
   };
 
-  // Segédfüggvény a státusz megállapításához
   const getTopicStatus = (sDateStr: string, eDateStr: string) => {
     const today = new Date();
     today.setHours(0,0,0,0);
@@ -88,8 +110,48 @@ export default function AdminWeeklyView() {
     <div>
       <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', color: '#f59e0b' }}>🔥 Heti Kihívások (Párbaj) Kezelése</h2>
       <p style={{ color: '#94a3b8', marginBottom: '20px' }}>
-        A rendszer automatikusan aktiválja azokat a témákat, amiknek a mai dátum a kezdő- és végdátuma közé esik!
+        A system automatikusan aktiválja azokat a témákat, amiknek a mai dátum a kezdő- és végdátuma közé esik!
       </p>
+
+      {/* 🚨 ÚJ: GYANÚS TEVÉKENYSÉGEK (IP DUPLIKÁCIÓ DETEKTÁLÓ) PANEL */}
+      <div style={{ backgroundColor: '#1e1b4b', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', border: suspiciousActivities.length > 0 ? '2px solid #ef4444' : '1px solid #334155', boxShadow: suspiciousActivities.length > 0 ? '0 0 15px rgba(239,68,68,0.2)' : 'none' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+          <h3 style={{ margin: 0, color: suspiciousActivities.length > 0 ? '#f87171' : '#10b981', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {suspiciousActivities.length > 0 ? '🚨 Gyanús Tevékenységek Detektálva!' : '🛡️ Rendszerbiztonság rendben'}
+          </h3>
+          <button onClick={fetchSuspicious} style={{ background: '#334155', color: '#cbd5e1', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>
+            {loadingSuspicious ? 'Frissítés...' : '🔄 Ellenőrzés futtatása'}
+          </button>
+        </div>
+
+        {suspiciousActivities.length === 0 ? (
+          <p style={{ color: '#94a3b8', margin: 0, fontSize: '0.9rem', fontStyle: 'italic' }}>
+            Jelenleg nincs olyan hálózati IP-cím, amiről egyszerre több felhasználó nevezett volna ugyanabba a párbajba.
+          </p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <p style={{ color: '#cbd5e1', margin: '0 0 5px 0', fontSize: '0.9rem' }}>
+              Az alábbi fiókok <b>ugyanarról az internetkapcsolatról (IP-címről)</b> küldtek be képeket a megadott fordulóban:
+            </p>
+            {suspiciousActivities.map((act, index) => (
+              <div key={index} style={{ background: '#0f172a', padding: '12px 15px', borderRadius: '8px', borderLeft: '4px solid #ef4444', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+                  <span style={{ fontWeight: 'bold', color: '#f8fafc' }}>⚔️ {act.topic_title}</span>
+                  <span style={{ color: '#64748b', fontSize: '0.8rem', fontFamily: 'monospace' }}>🌐 Hálózati IP: {act.ip_address}</span>
+                </div>
+                <div style={{ color: '#f87171', fontSize: '0.9rem', marginTop: '4px' }}>
+                  👥 <b>Érintett felhasználók ({act.entry_count} fiók):</b>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', paddingLeft: '10px', marginTop: '2px' }}>
+                  {act.suspect_list.split(' || ').map((suspect: string, sIdx: number) => (
+                    <div key={sIdx} style={{ color: '#cbd5e1', fontSize: '0.85rem' }}>• {suspect}</div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* LÉTREHOZÓ / SZERKESZTŐ ŰRLAP */}
       <div style={{ backgroundColor: '#1e293b', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', border: '1px solid #f97316' }}>
