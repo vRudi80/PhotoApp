@@ -14,7 +14,70 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     return { super: 4, brilliant: 6 };                            // Guru 👑
   }
 
-  // 1. AKTUÁLIS TÉMA ÉS ARÉNA DATA LEKÉRÉSE (JAVÍTVA: SZINKRONIZÁLT ERŐSÍTÉSSEL)
+  // ====================================================================
+  // ⚙️ ÚJ: ADMINISZTRÁCIÓS VÉGPONTOK (A HETI KIHÍVÁSOK KEZELÉSÉHEZ)
+  // ====================================================================
+
+  // Admin 1. Összes téma lekérése a naptárhoz (Időrendben csökkenőben)
+  app.get('/api/admin/weekly-topics', async (req, res) => {
+    try {
+      const [rows] = await pool.query('SELECT * FROM weekly_topics ORDER BY start_date DESC');
+      res.json(rows);
+    } catch (err) {
+      console.error("❌ Hiba az admin témák lekérésekor:", err);
+      res.status(500).json({ error: 'Hiba a témák lekérésekor' });
+    }
+  });
+
+  // Admin 2. Új téma létrehozása/mentése
+  app.post('/api/admin/weekly-topics', async (req, res) => {
+    const { title, description, startDate, endDate } = req.body;
+    try {
+      await pool.query(
+        'INSERT INTO weekly_topics (title, description, start_date, end_date) VALUES (?, ?, ?, ?)',
+        [title, description, startDate, endDate]
+      );
+      res.json({ success: true });
+    } catch (err) {
+      console.error("❌ Hiba az új téma mentésekor:", err);
+      res.status(500).json({ error: 'Hiba a mentés során' });
+    }
+  });
+
+  // Admin 3. Meglévő téma szerkesztése ID alapján
+  app.put('/api/admin/weekly-topics/:id', async (req, res) => {
+    const { id } = req.params;
+    const { title, description, startDate, endDate } = req.body;
+    try {
+      await pool.query(
+        'UPDATE weekly_topics SET title = ?, description = ?, start_date = ?, end_date = ? WHERE id = ?',
+        [title, description, startDate, endDate, id]
+      );
+      res.json({ success: true });
+    } catch (err) {
+      console.error("❌ Hiba a téma frissítésekor:", err);
+      res.status(500).json({ error: 'Hiba a frissítés során' });
+    }
+  });
+
+  // Admin 4. Téma végleges törlése
+  app.delete('/api/admin/weekly-topics/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+      await pool.query('DELETE FROM weekly_topics WHERE id = ?', [id]);
+      res.json({ success: true });
+    } catch (err) {
+      console.error("❌ Hiba a téma törlésekor:", err);
+      res.status(500).json({ error: 'Hiba a törlés során' });
+    }
+  });
+
+
+  // ====================================================================
+  // ⚔️ FELHASZNÁLÓI ÉS ARÉNA VÉGPONTOK (MEGLÉVŐK)
+  // ====================================================================
+
+  // 1. AKTUÁLIS TÉMA ÉS ARÉNA DATA LEKÉRÉSE
   app.get('/api/weekly/current', async (req, res) => {
     const { userEmail, topicId } = req.query;
     try {
@@ -29,7 +92,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
           return today >= start && today <= end;
       });
 
-      // Kiszámoljuk a szavazó globális erejét és valós összpontszámát az adatbázisból
       const power = await getUserVotePower(pool, userEmail);
       const [likesRows] = await pool.query('SELECT SUM(likes_count) as total FROM weekly_entries WHERE user_email = ?', [userEmail]);
       const userTotalLikes = likesRows[0].total || 0;
@@ -97,8 +159,8 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         votableEntries,
         leaderboard,
         clubLeaderboard,
-        userTotalLikes,  // Bekötve a frontend szinkronhoz!
-        userPower: power // Bekötve a frontend szinkronhoz!
+        userTotalLikes,
+        userPower: power
       });
     } catch (err) { 
       res.status(500).json({ error: 'Hiba a kihívás részleteinek lekérésekor' }); 
@@ -260,8 +322,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
-  // 6b. ÚJ: GLOBÁLIS DICSŐSÉGCSARNOK LEKÉRDEZÉSE RANGOKHOZ
-// 6b. JAVÍTVA: GLOBÁLIS DICSŐSÉGCSARNOK (A nulla pontosok automatikus kiszűrésével)
+  // GLOBÁLIS DICSŐSÉGCSARNOK
   app.get('/api/weekly/hall-of-fame', async (req, res) => {
     try {
       const [rows] = await pool.query(`
