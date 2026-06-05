@@ -37,6 +37,25 @@ export default function AdminWeeklyView() {
     }
   };
 
+  const handleDisqualify = async (topicId: number, userEmail: string, userName: string) => {
+    if (!window.confirm(`❗ Biztosan törlöd ${userName} (${userEmail}) nevezését ebből a fordulóból? A képe és a pontjai végleg elvesznek!`)) return;
+    
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/admin/weekly/disqualify?topicId=${topicId}&userEmail=${userEmail}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        alert("Sikeresen eltávolítva a versenyből!");
+        fetchSuspicious(); // Azonnal frissítjük a piros gyanús panelt
+        fetchTopics();     // Frissítjük a naptárat is
+      } else {
+        alert("Hiba történt a törlés során.");
+      }
+    } catch (e) {
+      alert("Hálózati hiba!");
+    }
+  };
+  
   // MÓDOSÍTVA: Betöltéskor a témák naptára mellett a gyanús szűrést is elindítjuk
   useEffect(() => {
     fetchTopics();
@@ -129,25 +148,28 @@ export default function AdminWeeklyView() {
             Jelenleg nincs olyan hálózati IP-cím, amiről egyszerre több felhasználó nevezett volna ugyanabba a párbajba.
           </p>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <p style={{ color: '#cbd5e1', margin: '0 0 5px 0', fontSize: '0.9rem' }}>
-              Az alábbi fiókok <b>ugyanarról az internetkapcsolatról (IP-címről)</b> küldtek be képeket a megadott fordulóban:
-            </p>
-            {suspiciousActivities.map((act, index) => (
-              <div key={index} style={{ background: '#0f172a', padding: '12px 15px', borderRadius: '8px', borderLeft: '4px solid #ef4444', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
-                  <span style={{ fontWeight: 'bold', color: '#f8fafc' }}>⚔️ {act.topic_title}</span>
-                  <span style={{ color: '#64748b', fontSize: '0.8rem', fontFamily: 'monospace' }}>🌐 Hálózati IP: {act.ip_address}</span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingLeft: '10px', marginTop: '5px' }}>
+                  {act.suspect_list.split(' || ').map((suspect: string, sIdx: number) => {
+                    // Trükk: Szétválasztjuk a nevet és az emailt, amit a GROUP_CONCAT összefűzött
+                    // suspect formátuma: "Kovács Péter (email@gmail.com)"
+                    const namePart = suspect.split(' (')[0];
+                    const emailPart = suspect.includes('(') ? suspect.split('(')[1].replace(')', '') : '';
+
+                    return (
+                      <div key={sIdx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#1e293b', padding: '6px 12px', borderRadius: '6px', border: '1px solid #334155' }}>
+                        <span style={{ color: '#cbd5e1', fontSize: '0.85rem' }}>• {suspect}</span>
+                        <button 
+                          onClick={() => handleDisqualify(act.topic_id, emailPart, namePart)}
+                          style={{ background: '#ef444420', color: '#f87171', border: '1px solid #ef444450', padding: '3px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold', transition: 'all 0.2s' }}
+                          onMouseOver={e => e.currentTarget.style.background = '#ef444440'}
+                          onMouseOut={e => e.currentTarget.style.background = '#ef444420'}
+                        >
+                          🗑️ Nevezés Törlése
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
-                <div style={{ color: '#f87171', fontSize: '0.9rem', marginTop: '4px' }}>
-                  👥 <b>Érintett felhasználók ({act.entry_count} fiók):</b>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', paddingLeft: '10px', marginTop: '2px' }}>
-                  {act.suspect_list.split(' || ').map((suspect: string, sIdx: number) => (
-                    <div key={sIdx} style={{ color: '#cbd5e1', fontSize: '0.85rem' }}>• {suspect}</div>
-                  ))}
-                </div>
-              </div>
             ))}
           </div>
         )}
