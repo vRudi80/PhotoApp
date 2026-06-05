@@ -67,7 +67,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   // ⚔️ FELHASZNÁLÓI ÉS ARÉNA VÉGPONTOK
   // ====================================================================
 
-  // 1. AKTUÁLIS TÉMA ÉS ARÉNA DATA LEKÉRÉSE (MÓDOSÍTVA A GLOBÁLIS CSRE-PÉNZTÁRCÁHOZ)
+ // 1. AKTUÁLIS TÉMA ÉS ARÉNA DATA LEKÉRÉSE (JAVÍTVA A HIBÁS MEZŐ ELTÁVOLÍTÁSÁVAL)
   app.get('/api/weekly/current', async (req, res) => {
     const { userEmail, topicId } = req.query;
     try {
@@ -84,7 +84,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
       const power = await getUserVotePower(pool, userEmail);
       
-      // Lekérjük a felhasználó éles, globális csere egyenlegét a profiljából
       const [userRows] = await pool.query('SELECT COALESCE(swap_balance, 0) as swap_balance FROM photo_users WHERE email = ?', [userEmail]);
       const swapBalance = userRows[0] ? userRows[0].swap_balance : 3;
 
@@ -103,7 +102,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       const currentTopic = activeTopics.find(t => t.id === Number(topicId)) || allTopics.find(t => t.id === Number(topicId));
       if (!currentTopic) return res.status(404).json({ error: 'Ez a kihívás nem található vagy már lezárult!' });
 
-      // Különválasztjuk a JELENLEG AKTÍV és a KORÁBBI (soft-deleted) képeit a fordulónak
       const [myEntries] = await pool.query('SELECT * FROM weekly_entries WHERE topic_id = ? AND user_email = ? AND is_active = 1', [currentTopic.id, userEmail]);
       const [myPastEntries] = await pool.query('SELECT * FROM weekly_entries WHERE topic_id = ? AND user_email = ? AND is_active = 0 ORDER BY id DESC', [currentTopic.id, userEmail]);
       
@@ -114,14 +112,13 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         WHERE e.topic_id = ? AND v.voter_email = ?
       `, [currentTopic.id, userEmail]);
 
-      // Csak az aktív képeket számoljuk a teljes mezőnyben
       const [allEntriesCount] = await pool.query('SELECT COUNT(*) as total FROM weekly_entries WHERE topic_id = ? AND is_active = 1', [currentTopic.id]);
       const totalEntries = allEntriesCount[0].total || 0;
       const votableEntries = Math.max(1, totalEntries - 1);
 
-      // A toplistára is kizárólag az aktuálisan versenyben lévő (is_active = 1) fotók kerülnek
+      // ✅ JAVÍTVA: e.title teljesen kitörölve a SELECT listából, így már nem száll el az SQL!
       const [leaderboard] = await pool.query(`
-        SELECT e.id, e.user_name, e.user_email, e.file_url, e.drive_file_id, e.views_count, e.likes_count, u.club_name, e.title
+        SELECT e.id, e.user_name, e.user_email, e.file_url, e.drive_file_id, e.views_count, e.likes_count, u.club_name
         FROM weekly_entries e 
         LEFT JOIN photo_users u ON e.user_email = u.email
         WHERE e.topic_id = ? AND e.is_active = 1
@@ -147,16 +144,17 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       res.json({ 
         topic: currentTopic, 
         myEntry: myEntries.length > 0 ? myEntries[0] : null, 
-        myPastEntries, // Átadva a frontend történeti listához!
+        myPastEntries, 
         myVoteCount: myVotes[0]?.vote_count || 0, 
         votableEntries,
         leaderboard,
         clubLeaderboard,
         userTotalLikes,
         userPower: power,
-        swapBalance // Átadva a globális pénztárca kijelzéshez!
+        swapBalance
       });
     } catch (err) { 
+      console.error("❌ Hiba az aréna betöltésekor:", err);
       res.status(500).json({ error: 'Hiba a kihívás részleteinek lekérésekor' }); 
     }
   });
