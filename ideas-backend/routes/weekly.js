@@ -19,7 +19,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     return { super: 4, brilliant: 6 };                            // Guru 👑
   }
 
-  // 🏆 ÚJ: Automatikus lezáró motor, ami kiosztja a cseréket a dobogósoknak, ha lejárt egy párbaj
+  // 🏆 JAVÍTVA: Holtverseny-biztos lezáró motor pontszám-referenciákkal
   async function processFinishedChallenges(pool) {
     try {
       // Megkeressük azokat a lezárult témákat, amik nincsenek még feldolgozva
@@ -28,28 +28,42 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       );
 
       for (const topic of unfinished) {
-        // Lekérjük az adott forduló aktív nevezéseit hivatalos toplista sorrendben
+        // ❗ MÓDOSÍTVA: A likes_count mezőt is lekérjük az összehasonlításhoz
         const [entries] = await pool.query(
-          'SELECT user_email FROM weekly_entries WHERE topic_id = ? AND is_active = 1 ORDER BY likes_count DESC, views_count ASC',
+          'SELECT user_email, likes_count FROM weekly_entries WHERE topic_id = ? AND is_active = 1 ORDER BY likes_count DESC, views_count ASC',
           [topic.id]
         );
 
-        // 🥇 1. Helyezett jutalmazása (+3 csere)
-        if (entries[0]) {
-          await pool.query('UPDATE photo_users SET swap_balance = swap_balance + 3 WHERE email = ?', [entries[0].user_email]);
-        }
-        // 🥈 2. Helyezett jutalmazása (+2 csere)
-        if (entries[1]) {
-          await pool.query('UPDATE photo_users SET swap_balance = swap_balance + 2 WHERE email = ?', [entries[1].user_email]);
-        }
-        // 🥉 3. Helyezett jutalmazása (+1 csere)
-        if (entries[2]) {
-          await pool.query('UPDATE photo_users SET swap_balance = swap_balance + 1 WHERE email = ?', [entries[2].user_email]);
+        if (entries.length === 0) {
+          // Ha senki sem nevezett a fordulóba, egyszerűen lezárjuk a témát és megyünk tovább
+          await pool.query('UPDATE weekly_topics SET processed = 1 WHERE id = ?', [topic.id]);
+          continue;
         }
 
-        // Megjelöljük a témát feldolgozottnak, hogy soha többet ne oszthasson ki rá jutalmat
+        // 📊 Kigyűjtjük a dobogós helyek mérce-pontszámait az indexek alapján
+        const score1 = entries[0].likes_count;
+        const score2 = entries[1] ? entries[1].likes_count : -1;
+        const score3 = entries[2] ? entries[2].likes_count : -1;
+
+        // Végigmegyünk a FORDULÓ ÖSSZES JÁTÉKOSÁN
+        for (const entry of entries) {
+          // Ha pontszáma megegyezik az 1. helyezettével, megkapja a +3 cserét (akkor is, ha többen vannak)
+          if (entry.likes_count === score1) {
+            await pool.query('UPDATE photo_users SET swap_balance = swap_balance + 3 WHERE email = ?', [entry.user_email]);
+          } 
+          // Ha a 2. helyezett pontszámát érte el
+          else if (entry.likes_count === score2) {
+            await pool.query('UPDATE photo_users SET swap_balance = swap_balance + 2 WHERE email = ?', [entry.user_email]);
+          } 
+          // Ha a 3. helyezettével azonos a pontja (itt kapnak a 4., 5. stb. helyen állók is, ha döntetlen van!)
+          else if (entry.likes_count === score3) {
+            await pool.query('UPDATE photo_users SET swap_balance = swap_balance + 1 WHERE email = ?', [entry.user_email]);
+          }
+        }
+
+        // Megjelöljük a témát feldolgozottnak
         await pool.query('UPDATE weekly_topics SET processed = 1 WHERE id = ?', [topic.id]);
-        console.log(`🏆 Kihívás #${topic.id} sikeresen lezárva, a dobogós cserék jóváírva a profilokban!`);
+        console.log(`🏆 Kihívás #${topic.id} igazságosan lezárva. Holtversenyek ellenőrizve, a cserék kiosztva!`);
       }
     } catch (err) {
       console.error("❌ Hiba a lezárt kihívások feldolgozásakor:", err.message);
