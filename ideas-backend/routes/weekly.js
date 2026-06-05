@@ -19,6 +19,42 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     return { super: 4, brilliant: 6 };                            // Guru 👑
   }
 
+  // 🏆 ÚJ: Automatikus lezáró motor, ami kiosztja a cseréket a dobogósoknak, ha lejárt egy párbaj
+  async function processFinishedChallenges(pool) {
+    try {
+      // Megkeressük azokat a lezárult témákat, amik nincsenek még feldolgozva
+      const [unfinished] = await pool.query(
+        'SELECT id FROM weekly_topics WHERE end_date < CURRENT_DATE() AND processed = 0'
+      );
+
+      for (const topic of unfinished) {
+        // Lekérjük az adott forduló aktív nevezéseit hivatalos toplista sorrendben
+        const [entries] = await pool.query(
+          'SELECT user_email FROM weekly_entries WHERE topic_id = ? AND is_active = 1 ORDER BY likes_count DESC, views_count ASC',
+          [topic.id]
+        );
+
+        // 🥇 1. Helyezett jutalmazása (+3 csere)
+        if (entries[0]) {
+          await pool.query('UPDATE photo_users SET swap_balance = swap_balance + 3 WHERE email = ?', [entries[0].user_email]);
+        }
+        // 🥈 2. Helyezett jutalmazása (+2 csere)
+        if (entries[1]) {
+          await pool.query('UPDATE photo_users SET swap_balance = swap_balance + 2 WHERE email = ?', [entries[1].user_email]);
+        }
+        // 🥉 3. Helyezett jutalmazása (+1 csere)
+        if (entries[2]) {
+          await pool.query('UPDATE photo_users SET swap_balance = swap_balance + 1 WHERE email = ?', [entries[2].user_email]);
+        }
+
+        // Megjelöljük a témát feldolgozottnak, hogy soha többet ne oszthasson ki rá jutalmat
+        await pool.query('UPDATE weekly_topics SET processed = 1 WHERE id = ?', [topic.id]);
+        console.log(`🏆 Kihívás #${topic.id} sikeresen lezárva, a dobogós cserék jóváírva a profilokban!`);
+      }
+    } catch (err) {
+      console.error("❌ Hiba a lezárt kihívások feldolgozásakor:", err.message);
+    }
+  }
   // ====================================================================
   // ⚙️ ADMINISZTRÁCIÓS VÉGPONTOK
   // ====================================================================
@@ -71,6 +107,9 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   app.get('/api/weekly/current', async (req, res) => {
     const { userEmail, topicId } = req.query;
     try {
+      // 🛡️ AZONNALI CSEKK: Ha van frissen lezárult téma, itt rögtön kiosztja a cseréket!
+      await processFinishedChallenges(pool);
+
       const [allTopics] = await pool.query('SELECT * FROM weekly_topics ORDER BY id DESC');
       const today = new Date();
       
