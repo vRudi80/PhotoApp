@@ -654,55 +654,30 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                       )}
                     </div>
 
-                    {/* ÉLŐ KLUBOK CSATÁJA */}
+                                        {/* ÉLŐ KLUBOK CSATÁJA */}
                     <div style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #10b981', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
-                      <div style={{ display: 'flex', justifyContext: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                         <h3 style={{ margin: 0, color: '#10b981', fontSize: '1.4rem' }}>🛡️ Klubok Csatája</h3>
-                        <span style={{ fontSize: '0.8rem', background: '#ef4444', color: 'white', padding: '3px 10px', borderRadius: '12px', fontWeight: 'bold' }}>ÉLŐ</span>
+                        <span style={{ fontSize: '0.8rem', background: '#ef4444', color: 'white', padding: '3px 10px', borderRadius: '12px', fontWeight: 'bold', boxShadow: '0 0 10px rgba(239, 68, 68, 0.6)' }}>ÉLŐ</span>
                       </div>
                       <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 20px 0', lineHeight: '1.5' }}>A 3 legjobb klubtag megmérettetése alapján.</p>
                       
                       {(!currentClubLeaderboard || currentClubLeaderboard.length === 0) ? <div style={{ color: '#94a3b8', textAlign: 'center', padding: '20px', background: '#0f172a', borderRadius: '16px' }}>Még nincs rangsorolt klub.</div> : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                          {currentClubLeaderboard.map((club, index) => {
-                            const clubMembers = leaderboard
-                              .filter(entry => entry?.club_name === club?.club_name)
-                              .sort((a, b) => Number(b?.likes_count || 0) - Number(a?.likes_count || 0));
-
-                            return (
-                              <div key={index} style={{ display: 'flex', flexDirection: 'column', background: 'linear-gradient(135deg, #0f172a, #1e293b)', border: '1px solid #059669', padding: '12px', borderRadius: '12px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center' }}>
-                                  <div style={{ fontSize: '1.5rem', fontWeight: '900', width: '35px', color: index === 0 ? '#fbbf24' : '#cbd5e1', textAlign: 'center' }}>{index + 1}.</div>
-                                  <div style={{ flex: 1, marginLeft: '10px' }}>
-                                    <div style={{ color: 'white', fontWeight: 'bold', fontSize: '1.1rem' }}>{club?.club_name || 'Ismeretlen Klub'}</div>
-                                    <div style={{ color: '#64748b', fontSize: '0.8rem' }}>{club?.members_counted || 0} aktív tag</div>
-                                  </div>
-                                  <div style={{ color: '#10b981', fontWeight: '900', fontSize: '1.4rem' }}>{club?.total_score || 0} ⭐</div>
-                                </div>
-
-                                <details style={{ marginTop: '10px', borderTop: '1px dashed #334155', paddingTop: '8px' }}>
-                                  <summary style={{ fontSize: '0.8rem', color: '#38bdf8', cursor: 'pointer', outline: 'none', userSelect: 'none' }}>
-                                    📊 Pontszerző játékosok listája ({clubMembers.length} fő)
-                                  </summary>
-                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '8px', paddingLeft: '10px' }}>
-                                    {clubMembers.length === 0 ? (
-                                      <span style={{ fontSize: '0.8rem', color: '#64748b', fontStyle: 'italic' }}>Még nincs pontot szerző tag ebben a fordulóban.</span>
-                                    ) : (
-                                      clubMembers.map((m, idx) => (
-                                        <div key={idx} style={{ display: 'flex', justifyContext: 'space-between', fontSize: '0.85rem', color: '#cbd5e1' }}>
-                                          <span>👤 {m.user_name} <small style={{ color: '#64748b' }}>("{m.title || 'Cím nélkül'}")</small></span>
-                                          <span style={{ fontWeight: 'bold', color: '#fbbf24' }}>{m.likes_count || 0} ⭐</span>
-                                        </div>
-                                      ))
-                                    )}
-                                  </div>
-                                </details>
+                          {currentClubLeaderboard.map((club, index) => (
+                            <div key={index} style={{ display: 'flex', alignItems: 'center', background: 'linear-gradient(135deg, #0f172a, #1e293b)', border: '1px solid #059669', padding: '12px', borderRadius: '12px' }}>
+                              <div style={{ fontSize: '1.5rem', fontWeight: '900', width: '35px', color: index === 0 ? '#fbbf24' : '#cbd5e1', textAlign: 'center' }}>{index + 1}.</div>
+                              <div style={{ flex: 1, marginLeft: '10px' }}>
+                                <div style={{ color: 'white', fontWeight: 'bold', fontSize: '1.1rem' }}>{club?.club_name || 'Ismeretlen Klub'}</div>
+                                <div style={{ color: '#64748b', fontSize: '0.8rem' }}>{club?.members_counted || 0} aktív tag</div>
                               </div>
-                            );
-                          })}
+                              <div style={{ color: '#10b981', fontWeight: '900', fontSize: '1.4rem' }}>{club?.total_score || 0} ⭐</div>
+                            </div>
+                          ))}
                         </div>
                       )}
                     </div>
+
                     
                     {/* VAK TOPLISTA */}
                     <div style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #f59e0b', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
@@ -783,7 +758,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         </div>
       )}
 
-      {subTab === 'past' && (
+          {subTab === 'past' && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '30px' }}>
           
           <div style={{ background: '#1e293b', borderRadius: '24px', padding: '25px', border: '1px solid #334155', boxShadow: '0 10px 30px rgba(0,0,0,0.2)', height: 'fit-content' }}>
@@ -805,7 +780,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
             
             <div style={{ background: '#1e293b', borderRadius: '24px', padding: '25px', border: '1px solid #10b981', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
-              <div style={{ display: 'flex', justifyContext: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                 <h3 style={{ margin: 0, color: '#10b981', fontSize: '1.4rem' }}>🛡️ Klubok Csatája</h3>
                 {selectedPastTopicId && (() => {
                   const t = pastTopics.find(x => x.id === selectedPastTopicId);
@@ -848,7 +823,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                           <span style={{ fontSize: '0.8rem', color: '#64748b', fontStyle: 'italic' }}>Nem volt pontot szerző tag ebben a fordulóban.</span>
                         ) : (
                           clubMembers.map((m, idx) => (
-                            <div key={idx} style={{ display: 'flex', justifyContext: 'space-between', fontSize: '0.85rem', color: '#cbd5e1' }}>
+                            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#cbd5e1' }}>
                               <span>👤 {m.user_name} <small style={{ color: '#64748b' }}>("{m.title || 'Cím nélkül'}")</small></span>
                               <span style={{ fontWeight: 'bold', color: '#fbbf24' }}>{m.likes_count || 0} ⭐</span>
                             </div>
@@ -876,6 +851,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
               }).map((entry, index) => (
                 <div key={entry?.id || index} style={{ display: 'flex', alignItems: 'center', background: '#0f172a', padding: '12px', borderRadius: '12px', marginBottom: '12px', border: '1px solid #334155' }}>
                   <div style={{ fontSize: '1.4rem', fontWeight: '900', width: '35px', color: index === 0 ? '#fbbf24' : '#94a3b8', textAlign: 'center' }}>{index + 1}.</div>
+                  {/* JAVÍTVA: Elhelyezve a nagyítás (zoom-in és onClick) az archív egyéni képeken is */}
                   <img 
                     src={getImageUrl(entry?.drive_file_id, entry?.file_url)} 
                     alt="Top" 
@@ -895,6 +871,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           </div>
         </div>
       )}
+
 
       {subTab === 'my_stats' && (
         <div style={{ animation: 'fadeIn 0.5s ease-in-out' }}>
