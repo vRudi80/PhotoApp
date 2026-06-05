@@ -167,11 +167,16 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-  // 2. KÉP FELTÖLTÉSE
+   // 2. KÉP FELTÖLTÉSE (KIEGÉSZÍTVE IP-CÍM RÖGZÍTÉSSEL)
   app.post('/api/weekly/upload', upload.single('photo'), async (req, res) => {
     const { topicId, userEmail, userName } = req.body;
     const file = req.file;
     if (!file) return res.status(400).json({ error: 'Fotó kötelező!' });
+
+    // 🛡️ Golyóálló IP-cím kinyerés az éles felhős környezetekhez
+    const ipAddress = req.headers['x-forwarded-for'] 
+      ? req.headers['x-forwarded-for'].split(',')[0].trim() 
+      : (req.ip || req.socket.remoteAddress);
 
     try {
       const [existing] = await pool.query('SELECT id FROM weekly_entries WHERE topic_id = ? AND user_email = ?', [topicId, userEmail]);
@@ -182,7 +187,13 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       const driveRes = await drive.files.create({ requestBody: { name: `Challenge_${topicId}_${userName}_${Date.now()}${fileExt}`, parents: [process.env.DRIVE_MASTER_FOLDER_ID] }, media: { mimeType: file.mimetype, body: fileStream }, fields: 'id, webViewLink' });
 
       cleanupTempFile(file);
-      await pool.query('INSERT INTO weekly_entries (topic_id, user_email, user_name, file_url, drive_file_id, swapped) VALUES (?, ?, ?, ?, ?, 0)', [topicId, userEmail, userName, driveRes.data.webViewLink, driveRes.data.id]);
+      
+      // ➕ JAVÍTVA: Az ip_address oszlopba is elmentjük az adatot
+      await pool.query(
+        'INSERT INTO weekly_entries (topic_id, user_email, user_name, file_url, drive_file_id, swapped, ip_address) VALUES (?, ?, ?, ?, ?, 0, ?)', 
+        [topicId, userEmail, userName, driveRes.data.webViewLink, driveRes.data.id, ipAddress]
+      );
+      
       res.json({ success: true });
     } catch (err) { cleanupTempFile(file); res.status(500).json({ error: err.message }); }
   });
@@ -322,6 +333,31 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
+    // Admin 5. ÚJ: Gyanús (duplikált IP) tevékenységek lekérése
+  app.get('/api/admin/weekly/suspicious', async (req, res) => {
+    try {
+      const [rows] = await pool.query(`
+        SELECT 
+          e.topic_id,
+          t.title AS topic_title,
+          e.ip_address,
+          COUNT(*) AS entry_count,
+          GROUP_CONCAT(CONCAT(e.user_name, ' (', e.user_email, ')') SEPARATOR ' || ') AS suspect_list
+        FROM weekly_entries e
+        JOIN weekly_topics t ON e.topic_id = t.id
+        WHERE e.ip_address IS NOT NULL AND e.ip_address != '127.0.0.1'
+        GROUP BY e.topic_id, e.ip_address
+        HAVING COUNT(*) > 1
+        ORDER BY e.topic_id DESC
+      `);
+      res.json(rows);
+    } catch (err) {
+      console.error("❌ Hiba a gyanús tevékenységek lekérésekor:", err);
+      res.status(500).json({ error: 'Hiba a lekérdezés során' });
+    }
+  });
+
+  
   // GLOBÁLIS DICSŐSÉGCSARNOK
   app.get('/api/weekly/hall-of-fame', async (req, res) => {
     try {
