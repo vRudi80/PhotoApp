@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BACKEND_URL } from '../utils/constants';
 import { getImageUrl } from '../utils/helpers';
-import { toPng } from 'html-to-image'; // ➕ IMPORTÁLVA: A PNG konvertáló
+import { toPng } from 'html-to-image'; 
 
 interface WeeklyChallengeViewProps {
   user: any;
@@ -117,6 +117,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
 
   const [topic, setTopic] = useState<any>(null);
   const [myEntry, setMyEntry] = useState<any>(null);
+  const [myPastEntries, setMyPastEntries] = useState<any[]>([]); // ➕ ÚJ: Korábbi inaktív képek tömbje
+  const [swapBalance, setSwapBalance] = useState<number>(3);     // ➕ ÚJ: Globális csereegyenleg állapota
   const [myVoteCount, setMyVoteCount] = useState(0);
   const [votableEntries, setVotableEntries] = useState(1);
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
@@ -151,11 +153,9 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const [hallOfFame, setHallOfFame] = useState<any[]>([]);
   const [isLoadingHof, setIsLoadingHof] = useState(false);
 
-  // ➕ ÚJ ÁLLAPOTOK: A trófeakártya megosztásához és előnézetéhez
   const [activeShareData, setActiveShareData] = useState<any | null>(null);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
 
-  // ✅ JÓ HELYRE MOZGATVA: A megosztandó Base64 kép állapotai és lekérése a komponensen belül
   const [shareBase64, setShareBase64] = useState<string | null>(null);
   const [loadingShareImg, setLoadingShareImg] = useState(false);
 
@@ -213,6 +213,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   useEffect(() => {
     setTopic(null);
     setMyEntry(null);
+    setMyPastEntries([]);
     setVoteEntry(null);
     setLeaderboard([]);
     setCurrentClubLeaderboard([]);
@@ -233,6 +234,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         
         if (data.userTotalLikes !== undefined) setUserTotalLikes(data.userTotalLikes);
         if (data.userPower) setUserPower(data.userPower);
+        if (data.swapBalance !== undefined) setSwapBalance(data.swapBalance); // ➕ BEKÖTVE
 
         if (!selectedTopicId) {
           setActiveTopics(data.activeTopics || []);
@@ -240,6 +242,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           if (data && data.topic) {
             setTopic(data.topic);
             setMyEntry(data.myEntry);
+            setMyPastEntries(data.myPastEntries || []); // ➕ BEKÖTVE
             setMyVoteCount(Number(data.myVoteCount) || 0);
             setVotableEntries(Number(data.votableEntries) || 1);
             setLeaderboard(data.leaderboard || []);
@@ -426,7 +429,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
 
   const handleSwapSubmit = async () => {
     if (!swapFile || !topic) return;
-    if (!window.confirm("⚠️ Biztosan lecseréled a képedet? Az eddig gyűjtött pontjaid elvesznek és nulláról indulnak, de a láthatóságod megmarad!")) return;
+    if (!window.confirm("⚠️ Biztosan elhasználsz 1 Joker cserét? Az új képed 0 pontról fog indulni, de a korábbi képedet bármikor visszahozhatod!")) return;
     setIsSwapping(true);
     try {
       const formData = new FormData();
@@ -438,19 +441,34 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     finally { setIsSwapping(false); }
   };
 
-   // ====================================================================
-  // ⚙️ JAVÍTVA: TRÓFEAKÁRTYA GENERÁLÁSA DUPLA-RENDERELLÉSSEL A FOTÓ FIXÁLÁSÁHOZ
-  // ====================================================================
+  // ➕ ÚJ FUNKCIÓ: VISSZAVÁLTÁS EGY KORÁBBI FOTÓRA (SWAP BACK INDÍTÁSA)
+  const handleSwapBackSubmit = async (entryId: number) => {
+    if (swapBalance < 1) return alert("Nincs elég Joker cseréd a számládon!");
+    if (!window.confirm("↩️ Biztosan visszatérsz erre a korábbi fotódra? Ez 1 Joker cserédbe kerül, de a kép azonnal visszakapja az összes korábban itt gyűjtött csillagát!")) return;
+    
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/weekly/swap-back`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topicId: topic.id, userEmail: user?.email, entryId })
+      });
+      if (res.ok) {
+        alert("↩️ Fotó sikeresen visszaaktiválva!");
+        fetchCurrentTopic(false);
+      } else {
+        const err = await res.json();
+        alert(err.error || "Hiba a visszaváltás során.");
+      }
+    } catch (e) { alert("Hálózati hiba!"); }
+  };
+
   const handleExecuteShare = async () => {
     const node = document.getElementById('share-card-node');
     if (!node || !activeShareData) return;
     
     setIsGeneratingImage(true);
     try {
-      // 🥇 Első hívás: kényszeríti a böngészőt, hogy betöltse a Base64-et a belső memóriájába
       await toPng(node, { cacheBust: true });
-      
-      // 🥈 Második hívás: ez már ténylegesen rögzíti a fotót is a végső képre
       const dataUrl = await toPng(node, { cacheBust: true, quality: 1.0 });
       const blob = await (await fetch(dataUrl)).blob();
       const file = new File([blob], `Parbaj_Award_${activeShareData.topic_title}.png`, { type: 'image/png' });
@@ -471,11 +489,10 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     } catch (e) {
       alert('Sajnos hiba történt a kép generálása közben.');
       console.error(e);
-    } finally {
+    } file {
       setIsGeneratingImage(false);
     }
   };
-
 
   return (
     <div style={{ animation: 'fadeIn 0.4s ease-out' }}>
@@ -572,7 +589,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                       </div>
 
                       <p style={{ fontSize: '0.85rem', color: '#94a3b8', margin: '15px 0 0 0', textAlign: 'center', lineHeight: '1.6' }}>
-                        {!myEntry ? 'Töltsd fel a képedet az induláshoz, és kapsz 10 alap energiát!' : exposurePercentage >= 80 ? '🔥 A képed a maximumon pörög! Jelenleg nincs más dolgod.' : '⚡ Értékelj másokat, töltsd fel a mérőt és kerülj az élre!'}
+                        {/* JAVÍTVA: UX Finomítás a képcserére kényszerítés magyarázatához */}
+                        {!myEntry ? 'Töltsd fel a képedet az induláshoz, és kapsz 10 alap energiát!' : voteEntry ? '⚡ Új fotó érkezett az Arénába (vagy valaki Jokert használt)! Értékelt, hogy a mérőd újra maxon pörögjön!' : '🔥 A képed a maximumon pörög! Jelenleg nincs több értékelhető kép az Arénában.'}
                       </p>
                     </div>
 
@@ -628,8 +646,17 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
                     
+                    {/* ====================================================================
+                        📸 MÓDOSÍTVA: SAJÁT NEVEZÉSEM PANEL (GAMIFIKÁLT TÖRTÉNETI MODELL)
+                        ==================================================================== */}
                     <div style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #334155', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
-                      <h3 style={{ margin: '0 0 20px 0', color: '#f8fafc', fontSize: '1.4rem' }}>📸 Saját Nevezésem</h3>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                        <h3 style={{ margin: 0, color: '#f8fafc', fontSize: '1.4rem' }}>📸 Saját Nevezésem</h3>
+                        <span style={{ fontSize: '0.85rem', background: '#be123c30', color: '#fb7185', border: '1px solid #be123c60', padding: '4px 12px', borderRadius: '50px', fontWeight: 'bold' }}>
+                          🃏 Joker cserék: {swapBalance} db
+                        </span>
+                      </div>
+
                       {myEntry ? (
                         <div>
                           <div style={{ width: '100%', height: '220px', backgroundColor: '#000', borderRadius: '16px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 'inset 0 0 20px rgba(0,0,0,0.8)' }}>
@@ -645,23 +672,49 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                               <strong style={{ color: '#ef4444', display: 'block', marginBottom: '4px', fontSize: '0.95rem' }}>
                                 🚫 Figyelmeztetés: Tématévesztés gyanúja!
                               </strong>
-                              A képedet eddig <b>{myEntry.off_topic_count} fotóstársad</b> jelentette off-topicnak. Kérlek ügyelj a pontos illeszkedésre, vagy használd az alábbi képcsere modult!
+                              A képedet eddig <b>{myEntry.off_topic_count} fotóstársad</b> jelentette off-topicnak. Kérlek ügyelj a pontos illeszkedésre!
                             </div>
                           )}
 
-                          {myEntry.swapped === 0 ? (
+                          {/* KORLÁTLAN CSERE: Amíg van globális swap egyenlege, addig cserélhet taktikai új fotóra */}
+                          {swapBalance > 0 ? (
                             <div style={{ marginTop: '25px', background: 'linear-gradient(135deg, #4c1d9520, #be123c20)', padding: '20px', borderRadius: '16px', border: '1px solid #be123c50' }}>
-                              <h5 style={{ margin: '0 0 10px 0', color: '#f43f5e', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>🃏 Joker: Taktikai Képcsere</h5>
-                              <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 15px 0', lineHeight: '1.5' }}>Rosszul teljesít a képed? Ebben a párbajban egyszer lecserélheted! A pontjaid nullázódnak, de a megkeresett Láthatóságod megmarad.</p>
+                              <h5 style={{ margin: '0 0 10px 0', color: '#f43f5e', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>🔄 Új Fotó Feltöltése & Csere</h5>
+                              <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 15px 0', lineHeight: '1.5' }}>Rosszul megy a szekér? Tölts fel egy vadonatúj fotót 1 cserepontért! Az új kép 0 pontról indul, de a mostani képedet sem veszíted el.</p>
                               <input type="file" accept="image/jpeg, image/png, image/webp" onChange={handleSwapFileSelect} style={{ color: '#cbd5e1', marginBottom: '15px', fontSize: '0.85rem', width: '100%', padding: '10px', background: '#0f172a', borderRadius: '8px' }} disabled={isSwapping} />
-                              {swapPreview && <div style={{marginBottom: '15px', display: 'flex', justifyContent: 'center'}}><img src={swapPreview} alt="Swap preview" style={{maxHeight: '120px', borderRadius: '8px', border: '2px solid #e11d48'}} /></div>}
-                              <button onClick={handleSwapSubmit} disabled={!swapFile || isSwapping} style={{ width: '100%', background: !swapFile ? '#334155' : 'linear-gradient(135deg, #e11d48, #be123c)', color: !swapFile ? '#94a3b8' : 'white', border: 'none', padding: '12px', borderRadius: '12px', fontWeight: 'bold', fontSize: '1rem' }}>
-                                {isSwapping ? 'Csere folyamatban...' : 'Joker Felhasználása 🔄'}
+                              {swapPreview && <div style={{marginBottom: '15px', display: 'flex', justifyContent: 'center'))}}><img src={swapPreview} alt="Swap preview" style={{maxHeight: '120px', borderRadius: '8px', border: '2px solid #e11d48'}} /></div>}
+                              <button onClick={handleSwapSubmit} disabled={!swapFile || isSwapping} style={{ width: '100%', background: !swapFile ? '#334155' : 'linear-gradient(135deg, #e11d48, #be123c)', color: !swapFile ? '#94a3b8' : 'white', border: 'none', padding: '12px', borderRadius: '12px', fontWeight: 'bold', fontSize: '1rem', cursor: !swapFile ? 'not-allowed' : 'pointer' }}>
+                                {isSwapping ? 'Csere folyamatban...' : 'Joker Elköltése 🔄'}
                               </button>
                             </div>
                           ) : (
                             <div style={{ marginTop: '25px', background: '#0f172a', padding: '15px', borderRadius: '12px', color: '#64748b', fontSize: '0.9rem', textAlign: 'center', border: '1px dashed #475569' }}>
-                              🔒 Ebben a párbajban már elhasználtad a Joker kártyádat.
+                              🔒 Elfogytak a globális Joker cseréid! Teljesíts jól feladatokat extra pontokért.
+                            </div>
+                          )}
+
+                          {/* ➕ ÚJ PANEL: KORÁBBI FOTÓID EBBEN A FORDULÓBAN (SWAP BACK LISTA) */}
+                          {myPastEntries.length > 0 && (
+                            <div style={{ marginTop: '25px', borderTop: '1px dashed #334155', paddingTop: '20px' }}>
+                              <h5 style={{ margin: '0 0 12px 0', color: '#38bdf8', fontSize: '1.05rem' }}>↩️ Korábbi fotóid ebben a fordulóban</h5>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                {myPastEntries.map((past, pIdx) => (
+                                  <div key={pIdx} style={{ display: 'flex', alignItems: 'center', background: '#0f172a', padding: '8px', borderRadius: '12px', border: '1px solid #1e293b' }}>
+                                    <img src={getImageUrl(past.drive_file_id, past.file_url)} alt="Past" style={{ width: '45px', height: '45px', objectFit: 'cover', borderRadius: '6px' }} onError={handleImageError} />
+                                    <div style={{ flex: 1, marginLeft: '10px' }}>
+                                      <div style={{ fontSize: '#64748b', color: '#94a3b8', fontSize: '0.8rem' }}>Eltárolt korábbi állás:</div>
+                                      <div style={{ fontSize: '0.9rem', color: '#fbbf24', fontWeight: 'bold' }}>{past.likes_count} ⭐ <span style={{ color: '#64748b', fontWeight: 'normal', fontSize: '0.75rem' }}>({past.views_count} 👁️)</span></div>
+                                    </div>
+                                    <button 
+                                      onClick={() => handleSwapBackSubmit(past.id)}
+                                      disabled={swapBalance < 1}
+                                      style={{ background: swapBalance < 1 ? '#1e293b' : 'linear-gradient(135deg, #0284c7, #0369a1)', color: swapBalance < 1 ? '#475569' : 'white', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 'bold', cursor: swapBalance < 1 ? 'not-allowed' : 'pointer' }}
+                                    >
+                                      ↩️ Visszaaktiválás
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
                             </div>
                           )}
                         </div>
@@ -1129,7 +1182,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         </div>
       )}
 
-          {/* ====================================================================
+      {/* ====================================================================
           👑 JAVÍTVA: MODERN TRÓFEAKÁRTYA PREVIEW MODAL CSS HÁTTÉRKÉPPEL
           ==================================================================== */}
       {activeShareData && (
@@ -1165,7 +1218,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
               <div style={{ color: '#64748b', fontSize: '0.65rem', marginTop: '2px', letterSpacing: '1px' }}>PÁRBAJ TRÓFEA</div>
             </div>
 
-                       {/* JAVÍTVA: Elemi CSS tulajdonságok használata, hogy a html-to-image ne dobja el a méretezést */}
+            {/* JAVÍTVA: Elemi CSS tulajdonságok használata, hogy a html-to-image ne dobja el a méretezést */}
             <div style={{ 
               width: '100%', 
               height: '200px', 
@@ -1178,12 +1231,11 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
               justifyContent: 'center', 
               position: 'relative',
               boxSizing: 'border-box',
-              // ❗ Összevont "background" helyett kötelezően külön bontva:
               backgroundColor: '#000',
               backgroundImage: shareBase64 ? `url(${shareBase64})` : 'none',
               backgroundRepeat: 'no-repeat',
               backgroundPosition: 'center center',
-              backgroundSize: 'contain' // Így már garantáltan a teljes fotó bele fog zsugorodni a keretbe!
+              backgroundSize: 'contain'
             }}>
               {loadingShareImg && (
                 <div style={{ color: '#64748b', fontSize: '0.85rem' }}>⏳ Kép előkészítése...</div>
@@ -1192,7 +1244,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                 <div style={{ color: '#ef4444', fontSize: '0.85rem' }}>⚠️ Kép betöltési hiba</div>
               )}
             </div>
-
 
             <div style={{ textAlign: 'center', zIndex: 10 }}>
               <div style={{ fontSize: '2.5rem', margin: 0, lineHeight: 1 }}>🏆</div>
