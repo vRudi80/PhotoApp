@@ -20,6 +20,27 @@ const getTopicType = (startDate: string, endDate: string) => {
 const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
   e.currentTarget.src = 'https://via.placeholder.com/400x300/1e293b/64748b?text=Kép+nem+található';
 };
+  // ➕ EZT ADD HOZZÁ A COMPONENT ÁLLAPOTAI MELLÉ:
+  const [shareBase64, setShareBase64] = useState<string | null>(null);
+  const [loadingShareImg, setLoadingShareImg] = useState(false);
+
+  useEffect(() => {
+    if (!activeShareData) {
+      setShareBase64(null);
+      return;
+    }
+    setLoadingShareImg(true);
+    fetch(`${BACKEND_URL}/api/image-base64/${activeShareData.drive_file_id}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.base64) setShareBase64(data.base64);
+        setLoadingShareImg(false);
+      })
+      .catch(err => {
+        console.error("Hiba a megosztó kép letöltésekor:", err);
+        setLoadingShareImg(false);
+      });
+  }, [activeShareData]);
 
 const getLevelDetails = (likes: number) => {
   if (likes < 20) return { name: 'Újonc 🌱', color: '#94a3b8', bg: '#94a3b815' };
@@ -1109,104 +1130,107 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         </div>
       )}
 
-      {/* ====================================================================
-          👑 ÚJ: MODERN TRÓFEAKÁRTYA PREVIEW MODAL ÉS DIGITÁLIS GENERÁTOR
+          {/* ====================================================================
+          👑 JAVÍTVA: MODERN TRÓFEAKÁRTYA PREVIEW MODAL ÉS DIGITÁLIS GENERÁTOR
           ==================================================================== */}
       {activeShareData && (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 99999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContext: 'center', padding: '20px', overflowY: 'auto' }}>
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 99999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px', overflowY: 'auto' }}>
           
-          <div style={{ display: 'flex', justifyContext: 'space-between', width: '100%', maxWidth: '340px', marginBottom: '15px', alignItems: 'center' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', maxWidth: '340px', marginBottom: '15px', alignItems: 'center' }}>
             <span style={{ color: '#94a3b8', fontSize: '0.9rem', fontWeight: 'bold' }}>📱 Trófeakártya Előnézet</span>
             <button onClick={() => setActiveShareData(null)} style={{ background: '#1e293b', border: 'none', color: '#ef4444', padding: '6px 14px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>Mégse ✕</button>
           </div>
 
-          {/* 
-            📌 EZ AZ A CSOMAGOLÓ DOBOZ, AMIT A HTML-TO-IMAGE LEFÉNYKÉPEZ.
-            A crossOrigin="anonymous" attribútum elengedhetetlen, különben a Drive kép tiltást kap a vásznon!
-          */}
           <div 
             id="share-card-node"
             style={{ 
               width: '340px', 
-              height: '560px', 
+              height: '580px', // ➕ 20px-el megemelve a kényelmes helyért
               background: 'linear-gradient(145deg, #0b0f19, #1e1b4b)', 
               borderRadius: '24px', 
-              padding: '30px 20px', 
+              padding: '25px 20px', 
               boxSizing: 'border-box',
               display: 'flex', 
               flexDirection: 'column', 
               alignItems: 'center', 
-              justifyContext: 'space-between',
+              justifyContent: 'space-between',
               border: '3px solid #fbbf24',
               position: 'relative',
               overflow: 'hidden'
             }}
           >
-            {/* Háttér izzás */}
+            {/* Háttér dekorációs izzás */}
             <div style={{ position: 'absolute', top: '-100px', width: '200px', height: '200px', background: '#fbbf2415', filter: 'blur(50px)', borderRadius: '50%' }}></div>
 
-            {/* Fejléc szöveg */}
+            {/* Fejléc */}
             <div style={{ textAlign: 'center', zIndex: 10 }}>
               <div style={{ color: '#fbbf24', fontSize: '0.75rem', fontWeight: '900', letterSpacing: '3px', textTransform: 'uppercase' }}>📸 FOTÓKLUB PORTÁL</div>
               <div style={{ color: '#64748b', fontSize: '0.65rem', marginTop: '2px', letterSpacing: '1px' }}>ARENA TROPHY ACCREDITATION</div>
             </div>
 
-            {/* FELHASZNÁLÓ SAJÁT FOTÓJA ARANY KERETBEN */}
-            <div style={{ width: '100%', height: '200px', background: '#000', borderRadius: '16px', overflow: 'hidden', border: '2px solid #fbbf24', boxShadow: '0 8px 25px rgba(0,0,0,0.5)', zIndex: 10, display: 'flex', alignItems: 'center', justifyContext: 'center' }}>
-              <img 
-                src={getImageUrl(activeShareData.drive_file_id, activeShareData.file_url)} 
-                alt="Award" 
-                crossOrigin="anonymous" // 🔑 KRITIKUS: Ezzel engedélyezzük a kép mentését!
-                style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
-                onError={handleImageError}
-              />
+            {/* JAVÍTVA: FELHASZNÁLÓ SAJÁT FOTÓJA BIZTONSÁGOS BASE64 ADATBÓL */}
+            <div style={{ width: '100%', height: '200px', background: '#000', borderRadius: '16px', overflow: 'hidden', border: '2px solid #fbbf24', boxShadow: '0 8px 25px rgba(0,0,0,0.5)', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+              {loadingShareImg ? (
+                <div style={{ color: '#64748b', fontSize: '0.85rem' }}>⏳ Kép előkészítése...</div>
+              ) : shareBase64 ? (
+                <img 
+                  src={shareBase64} 
+                  alt="Award Artwork" 
+                  style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
+                />
+              ) : (
+                <div style={{ color: '#ef4444', fontSize: '0.85rem' }}>⚠️ Kép betöltési hiba</div>
+              )}
             </div>
 
             {/* Helyezés és név */}
             <div style={{ textAlign: 'center', zIndex: 10 }}>
-              <div style={{ fontSize: '3rem', margin: 0, lineHeight: 1 }}>🏆</div>
-              <h2 style={{ color: 'white', fontSize: '1.5rem', fontWeight: '900', margin: '8px 0 2px 0' }}>{user?.name || 'Fotóművész'}</h2>
+              <div style={{ fontSize: '2.5rem', margin: 0, lineHeight: 1 }}>🏆</div>
+              <h2 style={{ color: 'white', fontSize: '1.4rem', fontWeight: '900', margin: '6px 0 2px 0' }}>{user?.name || 'Fotóművész'}</h2>
               <div style={{ background: 'linear-gradient(90deg, transparent, #fbbf2430, transparent)', color: '#fbbf24', padding: '4px 20px', borderRadius: '4px', fontWeight: 'bold', fontSize: '1.05rem', letterSpacing: '1px' }}>
                 {activeShareData.rank}. HELYEZÉS
               </div>
             </div>
 
-            {/* Téma részletei */}
-            <div style={{ width: '100%', background: 'rgba(0,0,0,0.4)', padding: '12px', borderRadius: '14px', border: '1px solid #23293f', textAlign: 'center', zIndex: 10, boxSizing: 'border-box' }}>
-              <div style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '1px' }}>Kihívás témája:</div>
-              <div style={{ fontSize: '1.05rem', color: '#f8fafc', fontWeight: 'bold', margin: '2px 0 8px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {/* JAVÍTVA: Téma részletei ÖSSZECSÚSZÁS ELLENI TISZTA RÁCCSAL */}
+            <div style={{ width: '100%', background: 'rgba(0,0,0,0.4)', padding: '12px', borderRadius: '14px', border: '1px solid #23293f', zIndex: 10, boxSizing: 'border-box' }}>
+              <div style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '1px', textAlign: 'center' }}>Kihívás témája:</div>
+              <div style={{ fontSize: '1rem', color: '#f8fafc', fontWeight: 'bold', margin: '2px 0 10px 0', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 "{activeShareData.topic_title}"
               </div>
               
-              <div style={{ display: 'flex', justifyContext: 'space-around', borderTop: '1px dashed #23293f', paddingTop: '8px' }}>
-                <div>
-                  <div style={{ fontSize: '0.7rem', color: '#64748b' }}>Közösségi Értékelés</div>
-                  <div style={{ fontSize: '1.1rem', fontWeight: '900', color: '#f97316' }}>{activeShareData.likes} ⭐</div>
+              {/* Blokkosított elrendezés flex: 1 értékekkel, hogy garantáltan ne érjenek egymáshoz */}
+              <div style={{ display: 'flex', width: '100%', borderTop: '1px dashed #23293f', paddingTop: '10px' }}>
+                <div style={{ flex: 1, textAlign: 'center' }}>
+                  <div style={{ fontSize: '0.7rem', color: '#64748b', marginBottom: '2px' }}>Közösségi Értékelés</div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: '900', color: '#f97316' }}>{activeShareData.likes || 0} ⭐</div>
                 </div>
-                <div>
-                  <div style={{ fontSize: '0.7er', color: '#64748b' }}>Összes Nevező</div>
-                  <div style={{ fontSize: '1.1rem', fontWeight: '900', color: '#38bdf8' }}>{activeShareData.total_entries} fotó</div>
+                <div style={{ width: '1px', background: '#23293f' }}></div>
+                <div style={{ flex: 1, textAlign: 'center' }}>
+                  <div style={{ fontSize: '0.7rem', color: '#64748b', marginBottom: '2px' }}>Összes Nevező</div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: '900', color: '#38bdf8' }}>{activeShareData.total_entries || 0} fotó</div>
                 </div>
               </div>
             </div>
 
-            {/* Alsó lábléc meghívó */}
+            {/* Lábléc */}
             <div style={{ textAlign: 'center', zIndex: 10 }}>
-              <div style={{ fontSize: '0.7rem', color: '#475569' }}>Mérd meg a szemed a következő párbajban:</div>
-              <div style={{ fontSize: '#38bdf8', fontWeight: 'bold', color: '#38bdf8', marginTop: '1px', fontSize: '0.8rem' }}>portal.fotoklub.hu</div>
+              <div style={{ fontSize: '0.65rem', color: '#475569' }}>Mérd meg a szemed a következő párbajban:</div>
+              <div style={{ color: '#38bdf8', fontWeight: 'bold', marginTop: '1px', fontSize: '0.8rem' }}>portal.fotoklub.hu</div>
             </div>
           </div>
 
-          {/* Küldés / Indítás gomb */}
+          {/* Indító gomb */}
           <button 
             onClick={handleExecuteShare}
-            disabled={isGeneratingImage}
-            style={{ width: '100%', maxWidth: '340px', marginTop: '15px', background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)', color: 'white', border: 'none', padding: '14px', borderRadius: '14px', fontSize: '1.1rem', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContext: 'center', gap: '8px', boxShadow: '0 10px 25px rgba(29,78,216,0.3)' }}
+            disabled={isGeneratingImage || loadingShareImg}
+            style={{ width: '100%', maxWidth: '340px', marginTop: '15px', background: isGeneratingImage || loadingShareImg ? '#334155' : 'linear-gradient(135deg, #3b82f6, #1d4ed8)', color: isGeneratingImage || loadingShareImg ? '#64748b' : 'white', border: 'none', padding: '14px', borderRadius: '14px', fontSize: '1.1rem', fontWeight: 'bold', cursor: isGeneratingImage || loadingShareImg ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', boxShadow: '0 10px 25px rgba(29,78,216,0.3)' }}
           >
-            {isGeneratingImage ? '⏳ Trófea renderelése...' : '📱 Kártya Megosztása / Mentése 🚀'}
+            {isGeneratingImage ? '⏳ Trófea mentése...' : '📱 Kártya Megosztása / Mentése 🚀'}
           </button>
         </div>
       )}
+
 
     </div>
   );
