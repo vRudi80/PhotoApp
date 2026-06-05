@@ -1165,7 +1165,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
               <div style={{ color: '#64748b', fontSize: '0.65rem', marginTop: '2px', letterSpacing: '1px' }}>PÁRBAJ TRÓFEA</div>
             </div>
 
-            {/* JAVÍTVA: CSS background-image használata az elcsúszás- és exportálási hibák ellen */}
+                       {/* JAVÍTVA: Elemi CSS tulajdonságok használata, hogy a html-to-image ne dobja el a méretezést */}
             <div style={{ 
               width: '100%', 
               height: '200px', 
@@ -1178,9 +1178,12 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
               justifyContent: 'center', 
               position: 'relative',
               boxSizing: 'border-box',
-              // Ha megvan a Base64 kód, beállítjuk háttérnek, egyébként sima fekete
-              background: shareBase64 ? `#000 url(${shareBase64}) no-repeat center center` : '#000',
-              backgroundSize: 'contain'
+              // ❗ Összevont "background" helyett kötelezően külön bontva:
+              backgroundColor: '#000',
+              backgroundImage: shareBase64 ? `url(${shareBase64})` : 'none',
+              backgroundRepeat: 'no-repeat',
+              backgroundPosition: 'center center',
+              backgroundSize: 'contain' // Így már garantáltan a teljes fotó bele fog zsugorodni a keretbe!
             }}>
               {loadingShareImg && (
                 <div style={{ color: '#64748b', fontSize: '0.85rem' }}>⏳ Kép előkészítése...</div>
@@ -1189,6 +1192,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                 <div style={{ color: '#ef4444', fontSize: '0.85rem' }}>⚠️ Kép betöltési hiba</div>
               )}
             </div>
+
 
             <div style={{ textAlign: 'center', zIndex: 10 }}>
               <div style={{ fontSize: '2.5rem', margin: 0, lineHeight: 1 }}>🏆</div>
