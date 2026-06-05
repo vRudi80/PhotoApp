@@ -89,6 +89,17 @@ export default function Header({
             </button>
           </div>
 
+          {/* ➕ ÚJ: 1b. PÁRBAJ (ARÉNA) GOMB KÖZVETLENÜL A FŐOLDAL MELLETT */}
+          <div className="nav-item-container" style={{ zIndex: 50 }}>
+            <button 
+              className={`nav-btn ${activeTab === 'weekly_challenge' ? 'active' : ''}`} 
+              style={{ color: '#f97316' }} // Különleges, narancssárga kiemelés az Aréna hangulathoz
+              onClick={() => handleNavClick('weekly_challenge')}
+            >
+              <span>⚔️ Párbaj</span>
+            </button>
+          </div>
+
           {/* 2. PÁLYÁZATOK DROPDOWN */}
           <div className="nav-item-container" style={{ zIndex: dropdownOpen === 'contests' ? 60 : 50 }}>
             <button className={`nav-btn ${dropdownOpen === 'contests' || activeTab.startsWith('contests_') ? 'active' : ''}`} onClick={() => setDropdownOpen(dropdownOpen === 'contests' ? null : 'contests')}>
@@ -117,7 +128,7 @@ export default function Header({
             )}
           </div>
 
-          {/* 4. ÚJ: INTEGRÁLT NEMZETKÖZI SZALONOK MENÜPONT */}
+          {/* 4. INTEGRÁLT NEMZETKÖZI SZALONOK MENÜPONT */}
           <div className="nav-item-container" style={{ zIndex: dropdownOpen === 'international' ? 60 : 50 }}>
             <button 
               className={`nav-btn ${dropdownOpen === 'international' || ['salons', 'fiap_progress', 'mafosz_progress'].includes(activeTab) ? 'active' : ''}`} 
@@ -180,7 +191,7 @@ export default function Header({
         </div> 
 
         {/* ====================================================================
-             ÚJ GRUPÁLT FIÓK MENÜ (JOBB OLDAL)
+             FIÓK MENÜ (JOBB OLDAL)
            ==================================================================== */}
         <div className="user-group" style={{ display: 'flex', alignItems: 'center', gap: '15px', position: 'relative' }}>
           
@@ -225,7 +236,6 @@ export default function Header({
                   </button>
                 )}
 
-                {/* Letisztult elválasztó vonal a kijelentkezés gomb előtt */}
                 <div style={{ height: '1px', backgroundColor: '#334155', margin: '6px 0' }}></div>
 
                 <button 
