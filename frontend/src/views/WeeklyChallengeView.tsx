@@ -21,13 +21,14 @@ const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
   e.currentTarget.src = 'https://via.placeholder.com/400x300/1e293b/64748b?text=Kép+nem+található';
 };
 
-const getLevelDetails = (likes: number) => {
+const getLevelDetails = (likes: number, victories: number) => {
   if (likes < 20) return { name: 'Újonc 🌱', color: '#94a3b8', bg: '#94a3b815' };
   if (likes < 100) return { name: 'Felfedezett 📸', color: '#38bdf8', bg: '#38bdf815' };
-  if (likes < 300) return { name: 'Haladó ⭐', color: '#10b981', bg: '#10b98115' };
-  if (likes < 800) return { name: 'Profi 🏅', color: '#f59e0b', bg: '#f59e0b15' };
+  if (likes < 300 || victories < 1) return { name: 'Haladó ⭐', color: '#10b981', bg: '#10b98115' }; // JAVÍTVA
+  if (likes < 800 || victories < 3) return { name: 'Profi 🏅', color: '#f59e0b', bg: '#f59e0b15' };   // JAVÍTVA
   return { name: 'Guru 👑', color: '#fbbf24', bg: '#fbbf2420' };
 };
+
 
 // ====================================================================
 // ⏳ SEGÉDKOMPONENS: Önálló kártya saját belső visszaszámlálóval
@@ -148,6 +149,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const [timeLeft, setTimeLeft] = useState<string>('');
 
   const [userTotalLikes, setUserTotalLikes] = useState<number>(0);
+  const [userVictories, setUserVictories] = useState<number>(0); // ➕ ÚJ ÁLLAPOT
+
   const [userPower, setUserPower] = useState<{ super: number; brilliant: number }>({ super: 1, brilliant: 2 });
 
   const [hallOfFame, setHallOfFame] = useState<any[]>([]);
@@ -233,6 +236,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         const data = await res.json();
         
         if (data.userTotalLikes !== undefined) setUserTotalLikes(data.userTotalLikes);
+        if (data.userVictories !== undefined) setUserVictories(data.userVictories); // ➕ BEKÖTVE
+
         if (data.userPower) setUserPower(data.userPower);
         if (data.swapBalance !== undefined) setSwapBalance(data.swapBalance); // ➕ BEKÖTVE
 
@@ -1173,18 +1178,19 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
               
               <div style={{ background: '#1e293b', padding: '20px', borderRadius: '16px', borderLeft: '4px solid #38bdf8' }}>
                 <h4 style={{ color: '#38bdf8', margin: '0 0 15px 0', fontSize: '1.1rem' }}>⭐ Ranglétra és Szavazati Erő</h4>
-                <p style={{ color: '#cbd5e1', fontSize: '0.9rem', lineHeight: '1.6', margin: '0 0 15px 0' }}>
-                  Nem minden szavazat ér ugyanannyit! Ahogy halmozod a pontokat a kihívások során, a rangod növekszik. Minél magasabb a rangod, annál <b>több pontot adsz</b> másoknak, amikor értékeled őket!
+                         <p style={{ color: '#cbd5e1', fontSize: '0.9rem', lineHeight: '1.6', margin: '0 0 15px 0' }}>
+                  Nem minden szavazat ér ugyanannyit! Ahogy halmozod a pontokat és győzelmeket, a rangod növekszik. Minél magasabb a rangod, annál több pontot adsz másoknak! <b style={{ color: '#fb7185' }}>💡 Minden sikeres szintlépésért a rendszer azonnal +10 db ajándék Joker cserével jutalmaz meg!</b>
                 </p>
                 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {[
                     { name: 'Újonc 🌱', req: '0 - 19 pont', power: '✨ +1 / 🔥 +2', color: '#94a3b8' },
                     { name: 'Felfedezett 📸', req: '20 - 99 pont', power: '✨ +2 / 🔥 +3', color: '#38bdf8' },
-                    { name: 'Haladó ⭐', req: '100 - 299 pont', power: '✨ +2 / 🔥 +4', color: '#10b981' },
-                    { name: 'Profi 🏅', req: '300 - 799 pont', power: '✨ +3 / 🔥 +5', color: '#f59e0b' },
-                    { name: 'Guru 👑', req: '800+ pont', power: '✨ +4 / 🔥 +6', color: '#fbbf24' }
+                    { name: 'Haladó ⭐', req: '100 - 299 pont (vagy nincs győzelem)', power: '✨ +2 / 🔥 +4', color: '#10b981' },
+                    { name: 'Profi 🏅', req: '300 - 799 pont ÉS legalább 1 győzelem', power: '✨ +3 / 🔥 +5', color: '#f59e0b' },
+                    { name: 'Guru 👑', req: '800+ pont ÉS legalább 3 győzelem', power: '✨ +4 / 🔥 +6', color: '#fbbf24' }
                   ].map((rank, i) => {
+
                     const isMyRank = currentLevel && currentLevel.name === rank.name;
                     return (
                       <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 15px', background: isMyRank ? `${rank.color}20` : '#0f172a', border: isMyRank ? `1px solid ${rank.color}` : '1px solid #334155', borderRadius: '8px' }}>
