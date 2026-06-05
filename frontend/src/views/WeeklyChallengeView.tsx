@@ -462,13 +462,19 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     } catch (e) { alert("Hálózati hiba!"); }
   };
 
+  // ====================================================================
+  // ⚙️ JAVÍTVA: TRÓFEAKÁRTYA GENERÁLÁSA DUPLA-RENDERELLÉSSEL A FOTÓ FIXÁLÁSÁHOZ
+  // ====================================================================
   const handleExecuteShare = async () => {
     const node = document.getElementById('share-card-node');
     if (!node || !activeShareData) return;
     
     setIsGeneratingImage(true);
     try {
+      // 🥇 Első hívás: kényszeríti a böngészőt, hogy betöltse a Base64-et a belső memóriájába
       await toPng(node, { cacheBust: true });
+      
+      // 🥈 Második hívás: ez már ténylegesen rögzíti a fotót is a végső képre
       const dataUrl = await toPng(node, { cacheBust: true, quality: 1.0 });
       const blob = await (await fetch(dataUrl)).blob();
       const file = new File([blob], `Parbaj_Award_${activeShareData.topic_title}.png`, { type: 'image/png' });
@@ -489,11 +495,11 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     } catch (e) {
       alert('Sajnos hiba történt a kép generálása közben.');
       console.error(e);
-    } file {
+    } finally { // 🔑 JAVÍTVA: "file" helyett most már helyesen "finally" szerepel!
       setIsGeneratingImage(false);
     }
   };
-
+  
   return (
     <div style={{ animation: 'fadeIn 0.4s ease-out' }}>
       
