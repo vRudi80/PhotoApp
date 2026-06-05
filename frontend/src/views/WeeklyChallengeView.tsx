@@ -1153,8 +1153,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
             <div style={{ position: 'absolute', top: '-100px', width: '200px', height: '200px', background: '#fbbf2415', filter: 'blur(50px)', borderRadius: '50%' }}></div>
 
             <div style={{ textAlign: 'center', zIndex: 10 }}>
-              <div style={{ color: '#fbbf24', fontSize: '0.75rem', fontWeight: '900', letterSpacing: '3px', textTransform: 'uppercase' }}>📸 FOTÓKLUB PORTÁL</div>
-              <div style={{ color: '#64748b', fontSize: '0.65rem', marginTop: '2px', letterSpacing: '1px' }}>ARENA TROPHY ACCREDITATION</div>
+              <div style={{ color: '#fbbf24', fontSize: '0.75rem', fontWeight: '900', letterSpacing: '3px', textTransform: 'uppercase' }}>📸 kepolvasok.guru</div>
+              <div style={{ color: '#64748b', fontSize: '0.65rem', marginTop: '2px', letterSpacing: '1px' }}>PÁRPBAJ TRÓFEA</div>
             </div>
 
             <div style={{ width: '100%', height: '200px', background: '#000', borderRadius: '16px', overflow: 'hidden', border: '2px solid #fbbf24', boxShadow: '0 8px 25px rgba(0,0,0,0.5)', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
