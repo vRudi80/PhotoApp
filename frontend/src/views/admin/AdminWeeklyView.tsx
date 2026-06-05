@@ -170,6 +170,7 @@ export default function AdminWeeklyView() {
                     );
                   })}
                 </div>
+       </div>
             ))}
           </div>
         )}
