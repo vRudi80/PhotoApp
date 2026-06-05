@@ -646,8 +646,9 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                                   </div>
                                   <div style={{ color: '#10b981', fontWeight: '900', fontSize: '1.4rem' }}>{club?.total_score || 0} ⭐</div>
                                 </div>
+                              </div>)
 
-                                
+          
                           })}
                         </div>
                       )}
