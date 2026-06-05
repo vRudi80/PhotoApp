@@ -132,7 +132,7 @@ export default function AdminWeeklyView() {
         A system automatikusan aktiválja azokat a témákat, amiknek a mai dátum a kezdő- és végdátuma közé esik!
       </p>
 
-      {/* 🚨 ÚJ: GYANÚS TEVÉKENYSÉGEK (IP DUPLIKÁCIÓ DETEKTÁLÓ) PANEL */}
+{/* 🚨 ÚJ: GYANÚS TEVÉKENYSÉGEK (IP DUPLIKÁCIÓ DETEKTÁLÓ) PANEL */}
       <div style={{ backgroundColor: '#1e1b4b', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', border: suspiciousActivities.length > 0 ? '2px solid #ef4444' : '1px solid #334155', boxShadow: suspiciousActivities.length > 0 ? '0 0 15px rgba(239,68,68,0.2)' : 'none' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
           <h3 style={{ margin: 0, color: suspiciousActivities.length > 0 ? '#f87171' : '#10b981', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -148,10 +148,24 @@ export default function AdminWeeklyView() {
             Jelenleg nincs olyan hálózati IP-cím, amiről egyszerre több felhasználó nevezett volna ugyanabba a párbajba.
           </p>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingLeft: '10px', marginTop: '5px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <p style={{ color: '#cbd5e1', margin: '0 0 5px 0', fontSize: '0.9rem' }}>
+              Az alábbi fiókok <b>ugyanarról az internetkapcsolatról (IP-címről)</b> küldtek be képeket a megadott fordulóban:
+            </p>
+            
+            {/* ✅ JAVÍTVA: Visszakerült a hiányzó .map ciklus, így az "act" már létezik és a zárójelek is a helyükre kerültek! */}
+            {suspiciousActivities.map((act, index) => (
+              <div key={index} style={{ background: '#0f172a', padding: '12px 15px', borderRadius: '8px', borderLeft: '4px solid #ef4444', display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '10px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+                  <span style={{ fontWeight: 'bold', color: '#f8fafc' }}>⚔️ {act.topic_title}</span>
+                  <span style={{ color: '#64748b', fontSize: '0.8rem', fontFamily: 'monospace' }}>🌐 Hálózati IP: {act.ip_address}</span>
+                </div>
+                <div style={{ color: '#f87171', fontSize: '0.9rem', marginTop: '4px' }}>
+                  👥 <b>Érintett felhasználók ({act.entry_count} fiók):</b>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingLeft: '10px', marginTop: '5px' }}>
                   {act.suspect_list.split(' || ').map((suspect: string, sIdx: number) => {
-                    // Trükk: Szétválasztjuk a nevet és az emailt, amit a GROUP_CONCAT összefűzött
-                    // suspect formátuma: "Kovács Péter (email@gmail.com)"
                     const namePart = suspect.split(' (')[0];
                     const emailPart = suspect.includes('(') ? suspect.split('(')[1].replace(')', '') : '';
 
@@ -170,7 +184,7 @@ export default function AdminWeeklyView() {
                     );
                   })}
                 </div>
-       </div>
+              </div>
             ))}
           </div>
         )}
