@@ -438,8 +438,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     finally { setIsSwapping(false); }
   };
 
-  // ====================================================================
-  // ➕ ÚJ: TRÓFEAKÁRTYA ASZINKRON GENERÁLÁSA ÉS NATÍV WEB SHARE INDÍTÁSA
+   // ====================================================================
+  // ⚙️ JAVÍTVA: TRÓFEAKÁRTYA GENERÁLÁSA DUPLA-RENDERELLÉSSEL A FOTÓ FIXÁLÁSÁHOZ
   // ====================================================================
   const handleExecuteShare = async () => {
     const node = document.getElementById('share-card-node');
@@ -447,6 +447,10 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     
     setIsGeneratingImage(true);
     try {
+      // 🥇 Első hívás: kényszeríti a böngészőt, hogy betöltse a Base64-et a belső memóriájába
+      await toPng(node, { cacheBust: true });
+      
+      // 🥈 Második hívás: ez már ténylegesen rögzíti a fotót is a végső képre
       const dataUrl = await toPng(node, { cacheBust: true, quality: 1.0 });
       const blob = await (await fetch(dataUrl)).blob();
       const file = new File([blob], `Parbaj_Award_${activeShareData.topic_title}.png`, { type: 'image/png' });
@@ -471,6 +475,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       setIsGeneratingImage(false);
     }
   };
+
 
   return (
     <div style={{ animation: 'fadeIn 0.4s ease-out' }}>
@@ -1124,6 +1129,9 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         </div>
       )}
 
+          {/* ====================================================================
+          👑 JAVÍTVA: MODERN TRÓFEAKÁRTYA PREVIEW MODAL CSS HÁTTÉRKÉPPEL
+          ==================================================================== */}
       {activeShareData && (
         <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 99999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px', overflowY: 'auto' }}>
           
@@ -1154,19 +1162,30 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
 
             <div style={{ textAlign: 'center', zIndex: 10 }}>
               <div style={{ color: '#fbbf24', fontSize: '0.75rem', fontWeight: '900', letterSpacing: '3px', textTransform: 'uppercase' }}>📸 kepolvasok.guru</div>
-              <div style={{ color: '#64748b', fontSize: '0.65rem', marginTop: '2px', letterSpacing: '1px' }}>PÁRPBAJ TRÓFEA</div>
+              <div style={{ color: '#64748b', fontSize: '0.65rem', marginTop: '2px', letterSpacing: '1px' }}>PÁRBAJ TRÓFEA</div>
             </div>
 
-            <div style={{ width: '100%', height: '200px', background: '#000', borderRadius: '16px', overflow: 'hidden', border: '2px solid #fbbf24', boxShadow: '0 8px 25px rgba(0,0,0,0.5)', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-              {loadingShareImg ? (
+            {/* JAVÍTVA: CSS background-image használata az elcsúszás- és exportálási hibák ellen */}
+            <div style={{ 
+              width: '100%', 
+              height: '200px', 
+              borderRadius: '16px', 
+              border: '2px solid #fbbf24', 
+              boxShadow: '0 8px 25px rgba(0,0,0,0.5)', 
+              zIndex: 10, 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              position: 'relative',
+              boxSizing: 'border-box',
+              // Ha megvan a Base64 kód, beállítjuk háttérnek, egyébként sima fekete
+              background: shareBase64 ? `#000 url(${shareBase64}) no-repeat center center` : '#000',
+              backgroundSize: 'contain'
+            }}>
+              {loadingShareImg && (
                 <div style={{ color: '#64748b', fontSize: '0.85rem' }}>⏳ Kép előkészítése...</div>
-              ) : shareBase64 ? (
-                <img 
-                  src={shareBase64} 
-                  alt="Award Artwork" 
-                  style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
-                />
-              ) : (
+              )}
+              {!shareBase64 && !loadingShareImg && (
                 <div style={{ color: '#ef4444', fontSize: '0.85rem' }}>⚠️ Kép betöltési hiba</div>
               )}
             </div>
