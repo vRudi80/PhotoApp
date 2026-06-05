@@ -356,7 +356,33 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       res.status(500).json({ error: 'Hiba a lekérdezés során' });
     }
   });
-
+  
+// Admin 6. ÚJ: Egy konkrét nevezés törlése a párbajból email és téma alapján
+  app.delete('/api/admin/weekly/disqualify', async (req, res) => {
+    const { topicId, userEmail } = req.query;
+    try {
+      // 1. Megkeressük a nevezést, hogy a Drive-ról is letörölhessük a képet
+      const [entries] = await pool.query('SELECT id, drive_file_id FROM weekly_entries WHERE topic_id = ? AND user_email = ?', [topicId, userEmail]);
+      
+      if (entries.length > 0) {
+        const entryId = entries[0].id;
+        
+        // Letöröljük a Google Drive-ról
+        if (entries[0].drive_file_id) {
+          await drive.files.delete({ fileId: entries[0].drive_file_id }).catch(e => console.log("Drive törlési hiba:", e.message));
+        }
+        
+        // Letöröljük a leadott szavazatait és magát a nevezést az adatbázisból
+        await pool.query('DELETE FROM weekly_votes WHERE entry_id = ?', [entryId]);
+        await pool.query('DELETE FROM weekly_entries WHERE id = ?', [entryId]);
+      }
+      
+      res.json({ success: true, message: 'Felhasználó sikeresen kizárva a fordulóból.' });
+    } catch (err) {
+      console.error("❌ Hiba a kizárás során:", err);
+      res.status(500).json({ error: 'Hiba a törlés során' });
+    }
+  });
   
   // GLOBÁLIS DICSŐSÉGCSARNOK
   app.get('/api/weekly/hall-of-fame', async (req, res) => {
