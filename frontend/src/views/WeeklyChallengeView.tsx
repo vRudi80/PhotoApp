@@ -680,7 +680,23 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                                   <div style={{ color: '#10b981', fontWeight: '900', fontSize: '1.4rem' }}>{club?.total_score || 0} ⭐</div>
                                 </div>
 
-                              
+                                <details style={{ marginTop: '10px', borderTop: '1px dashed #334155', paddingTop: '8px' }}>
+                                  <summary style={{ fontSize: '0.8rem', color: '#38bdf8', cursor: 'pointer', outline: 'none', userSelect: 'none' }}>
+                                    📊 Pontszerző játékosok listája ({clubMembers.length} fő)
+                                  </summary>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '8px', paddingLeft: '10px' }}>
+                                    {clubMembers.length === 0 ? (
+                                      <span style={{ fontSize: '0.8rem', color: '#64748b', fontStyle: 'italic' }}>Még nincs pontot szerző tag ebben a fordulóban.</span>
+                                    ) : (
+                                      clubMembers.map((m, idx) => (
+                                        <div key={idx} style={{ display: 'flex', justifyContext: 'space-between', fontSize: '0.85rem', color: '#cbd5e1' }}>
+                                          <span>👤 {m.user_name} <small style={{ color: '#64748b' }}>("{m.title || 'Cím nélkül'}")</small></span>
+                                          <span style={{ fontWeight: 'bold', color: '#fbbf24' }}>{m.likes_count || 0} ⭐</span>
+                                        </div>
+                                      ))
+                                    )}
+                                  </div>
+                                </details>
                               </div>
                             );
                           })}
