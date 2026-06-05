@@ -1153,6 +1153,19 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                 </p>
               </div>
 
+              {/* 🏆 ÚJ: DOBOGÓS JUTALMAK SZABÁLYZAT DOBOZ */}
+              <div style={{ background: '#1e293b', padding: '20px', borderRadius: '16px', borderLeft: '4px solid #fbbf24' }}>
+                <h4 style={{ color: '#fbbf24', margin: '0 0 10px 0', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '6px' }}>🏆 Dobogós Nyeremények & Extra Cserék</h4>
+                <p style={{ color: '#cbd5e1', fontSize: '0.9rem', lineHeight: '1.6', margin: 0 }}>
+                  A párbajok lezárulásakor a mezőny legkiemelkedőbb fotóművészei értékes **globális Joker cseréket** kapnak jutalmul, amiket a naptár bármelyik jövőbeli kihívásában szabadon elkölthetnek:
+                </p>
+                <ul style={{ color: '#f8fafc', fontSize: '0.9rem', margin: '10px 0 0 0', paddingLeft: '20px', lineHeight: '1.8' }}>
+                  <li>🥇 <b>1. Helyezett (Győztes):</b> <span style={{ color: '#fbbf24', fontWeight: 'bold' }}>+3 db</span> profil szintű Joker csere</li>
+                  <li>🥈 <b>2. Helyezett:</b> <span style={{ color: '#cbd5e1', fontWeight: 'bold' }}>+2 db</span> profil szintű Joker csere</li>
+                  <li>🥉 <b>3. Helyezett:</b> <span style={{ color: '#cd7f32', fontWeight: 'bold' }}>+1 db</span> profil szintű Joker csere</li>
+                </ul>
+              </div>
+              
               <div style={{ background: '#1e293b', padding: '20px', borderRadius: '16px', borderLeft: '4px solid #38bdf8' }}>
                 <h4 style={{ color: '#38bdf8', margin: '0 0 15px 0', fontSize: '1.1rem' }}>⭐ Ranglétra és Szavazati Erő</h4>
                 <p style={{ color: '#cbd5e1', fontSize: '0.9rem', lineHeight: '1.6', margin: '0 0 15px 0' }}>
