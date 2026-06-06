@@ -525,12 +525,13 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         link.click();
       }
       setActiveShareData(null);
-    } catch (e) {
+     } catch (e) {
       alert('Sajnos hiba történt a kép generálása közben.');
       console.error(e);
-    } finaly { 
+    } finally { // 👈 Így, két darab 'l' betűvel!
       setIsGeneratingImage(false);
     }
+
   };
   
   return (
