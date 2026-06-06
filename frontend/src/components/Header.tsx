@@ -7,7 +7,7 @@ interface HeaderProps {
   isLeader: boolean;
   activeTab: string;
   setActiveTab: (tab: any) => void;
-  dropdownOpen: string | null; // JAVÍTVA: Rugalmas típus az új menüpontokhoz
+  dropdownOpen: string | null; 
   setDropdownOpen: (open: string | null) => void;
   onLogout: () => void;
 }
@@ -89,11 +89,11 @@ export default function Header({
             </button>
           </div>
 
-          {/* ➕ ÚJ: 1b. PÁRBAJ (ARÉNA) GOMB KÖZVETLENÜL A FŐOLDAL MELLETT */}
+          {/* 1b. PÁRBAJ (ARÉNA) GOMB KÖZVETLENÜL A FŐOLDAL MELLETT */}
           <div className="nav-item-container" style={{ zIndex: 50 }}>
             <button 
               className={`nav-btn ${activeTab === 'weekly_challenge' ? 'active' : ''}`} 
-              style={{ color: '#f97316' }} // Különleges, narancssárga kiemelés az Aréna hangulathoz
+              style={{ color: '#f97316' }} 
               onClick={() => handleNavClick('weekly_challenge')}
             >
               <span>⚔️ Párbaj</span>
@@ -175,7 +175,15 @@ export default function Header({
                   )}
                   {user?.email === ADMIN_EMAIL && <button className={`drop-item ${activeTab === 'admin_contests' ? 'active' : ''}`} style={{ color: activeTab === 'admin_contests' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_contests')}>Pályázatok kezelése</button>}
                   <button className={`drop-item ${activeTab === 'admin_meetings' ? 'active' : ''}`} style={{ color: activeTab === 'admin_meetings' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_meetings')}>Klubestek kezelése</button>
-                  <button onClick={() => setCurrentAdminTab('cloudinary_test')}>🧪 Cloudinary Teszt</button>
+                  
+                  {/* 👑 JAVÍTVA: Helyes router alapú navigáció és dropdown stílusosztály */}
+                  <button 
+                    className={`drop-item ${activeTab === 'admin_cloudinary_test' ? 'active' : ''}`} 
+                    style={{ color: activeTab === 'admin_cloudinary_test' ? '#a78bfa' : '' }} 
+                    onClick={() => handleNavClick('admin_cloudinary_test')}
+                  >
+                    🧪 Cloudinary Teszt
+                  </button>
 
                   <button className={`drop-item ${activeTab === 'admin_homeworks' ? 'active' : ''}`} style={{ color: activeTab === 'admin_homeworks' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_homeworks')}>Házi feladatok kezelése</button>
                   {user?.email === ADMIN_EMAIL && <button className={`drop-item ${activeTab === 'admin_weekly' ? 'active' : ''}`} style={{ color: activeTab === 'admin_weekly' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_weekly')}>Párbaj kezelése</button>}
