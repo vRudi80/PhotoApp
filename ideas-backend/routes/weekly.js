@@ -2,7 +2,7 @@ const fs = require('fs');
 
 module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   
-    // 📊 JAVÍTVA: MySQL 5.7 kompatibilis, hurokmentesített, szupergyors statisztikai lekérdezés
+  // 📊 JAVÍTVA: MySQL 5.7 kompatibilis, hurokmentesített, szupergyors statisztikai lekérdezés
   async function getUserLikesAndVictories(pool, email) {
     // 1. Összes szerzett lájk/pont lekérése (Változatlan, stabil rész)
     const [likesRows] = await pool.query(`
@@ -44,7 +44,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     return 5;                                       // Guru 👑
   }
 
-    // 🎁 ÚJ SEGÉDFÜGGVÉNY: Generál és elment egy egyedi meghívó kódot, ha még nincs a usernek
+  // 🎁 ÚJ SEGÉDFÜGGVÉNY: Generál és elment egy egyedi meghívó kódot, ha még nincs a usernek
   async function ensureReferralCode(pool, email) {
     const [rows] = await pool.query('SELECT referral_code FROM photo_users WHERE email = ?', [email]);
     if (rows[0] && !rows[0].referral_code) {
@@ -141,6 +141,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       console.error("❌ Hiba a lezárt kihívások feldolgozásakor:", err.message);
     }
   }
+
   // ====================================================================
   // ⚙️ ADMINISZTRÁCIÓS VÉGPONTOK
   // ====================================================================
@@ -153,6 +154,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       res.status(500).json({ error: 'Hiba a témák lekérésekor' });
     }
   });
+
   // 👥 ÚJ ADMIN VÉGPONT: Felhasználók listája a Párbajmester kiválasztásához
   app.get('/api/admin/weekly/users', async (req, res) => {
     try {
@@ -163,7 +165,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-    app.post('/api/admin/weekly-topics', async (req, res) => {
+  app.post('/api/admin/weekly-topics', async (req, res) => {
     const { title, description, startDate, endDate, masterEmail } = req.body; // ➕ masterEmail bevéve
     try {
       await pool.query(
@@ -212,7 +214,14 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       // Ha van frissen lezárult téma, itt osztja ki a cseréket a holtverseny-szabályok szerint
       await processFinishedChallenges(pool);
 
-      const [allTopics] = await pool.query('SELECT * FROM weekly_topics ORDER BY id DESC');
+      // 👑 JAVÍTVA: Összekapcsoljuk a photo_users táblával, hogy megkapjuk a párbajmester nevét is!
+      const [allTopics] = await pool.query(`
+        SELECT t.*, u.name AS master_name 
+        FROM weekly_topics t
+        LEFT JOIN photo_users u ON t.master_email = u.email
+        ORDER BY t.id DESC
+      `);
+      
       const today = new Date();
       
       // Aktív témák szűrése a dátumok alapján
@@ -355,9 +364,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
 
-
-  // 2. ELSŐ KÉP FELTÖLTÉSE
-    // ====================================================================
+  // ====================================================================
   // 📸 INTEGRÁLT VÉGPONT: ELSŐ KÉP FELTÖLTÉSE & NEVEZÉS (MÓDOSÍTVA)
   // ====================================================================
   app.post('/api/weekly/upload', upload.single('photo'), async (req, res) => {
@@ -376,7 +383,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       }
 
       // 🔍 2. NEVEZÉS DUPLIKÁCIÓ ELLENŐRZÉSE
-      // Megnézzük, hogy akár aktív, akár inaktív képe van-e már (ha van inaktív is, akkor ő már nem "upload", hanem "swap" fázisban van)
       const [existing] = await pool.query('SELECT id FROM weekly_entries WHERE topic_id = ? AND user_email = ?', [topicId, userEmail]);
       if (existing.length > 0) { 
         cleanupTempFile(file); 
@@ -441,24 +447,23 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         return res.status(400).json({ error: 'Még nincs aktív nevezésed, amit lecserélhetnél!' });
       }
 
-      // 3. SOFT-DELETE: Nem töröljük, csak lekapcsoljuk a jelenlegi fotót inaktívra (is_active = 0)
-      // Így a szavazati tábla érintetlen marad, a többiek Expo-mérője nem sérül!
+      // 3. SOFT-DELETE
       await conn.query('UPDATE weekly_entries SET is_active = 0 WHERE id = ?', [existing[0].id]);
 
-      // 4. Feltöltjük az új képet a Drive-ra (A régit NEM töröljük, hogy visszaváltható legyen!)
+      // 4. Feltöltjük az új képet a Drive-ra
       const fileStream = fs.createReadStream(file.path);
       const fileExt = file.originalname && file.originalname.includes('.') ? file.originalname.substring(file.originalname.lastIndexOf('.')).toLowerCase() : '.jpg';
       const driveRes = await drive.files.create({ requestBody: { name: `Challenge_SWAP_${topicId}_${userName}_${Date.now()}${fileExt}`, parents: [process.env.DRIVE_MASTER_FOLDER_ID] }, media: { mimeType: file.mimetype, body: fileStream }, fields: 'id, webViewLink' });
       cleanupTempFile(file);
 
-      // 5. Beszúrunk egy TELJESEN ÚJ SORT az új képnek (0 pontról indul, de is_active = 1)
+      // 5. Beszúrunk egy TELJESEN ÚJ SORT az új képnek
       const nextSwapCount = existing[0].swapped + 1;
       await conn.query(
         'INSERT INTO weekly_entries (topic_id, user_email, user_name, file_url, drive_file_id, swapped, ip_address, is_active, likes_count, views_count) VALUES (?, ?, ?, ?, ?, ?, ?, 1, 0, 0)',
         [topicId, userEmail, userName, driveRes.data.webViewLink, driveRes.data.id, nextSwapCount, ipAddress]
       );
 
-      // 6. VALUTA LEVONÁS: Levonunk 1 cserét a felhasználó globális számlájáról
+      // 6. VALUTA LEVONÁS
       await conn.query('UPDATE photo_users SET swap_balance = swap_balance - 1 WHERE email = ?', [userEmail]);
 
       await conn.commit();
@@ -488,8 +493,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       // 2. Lekapcsoljuk az aktuális aktív képet
       await conn.query('UPDATE weekly_entries SET is_active = 0 WHERE topic_id = ? AND user_email = ? AND is_active = 1', [topicId, userEmail]);
 
-      // 3. Újraaktiváljuk a választott régi képet (is_active = 1)
-      // Mivel a pontjai (likes_count) és megtekintései megmaradtak, azonnal onnan folytatja a versenyt!
+      // 3. Újraaktiváljuk a választott régi képet
       const [result] = await conn.query('UPDATE weekly_entries SET is_active = 1 WHERE id = ? AND topic_id = ? AND user_email = ?', [entryId, topicId, userEmail]);
       
       if (result.affectedRows === 0) {
@@ -497,7 +501,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         return res.status(404).json({ error: 'A kiválasztott korábbi kép nem található!' });
       }
 
-      // 4. Levonjuk a csereköltséget a globális profilból
+      // 4. Levonjuk a csereköltséget
       await conn.query('UPDATE photo_users SET swap_balance = swap_balance - 1 WHERE email = ?', [userEmail]);
 
       await conn.commit();
@@ -580,31 +584,26 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
 
-    // 🎁 ÚJ VÉGPONT: MEGHÍVÓ KÓD BEVÁLTÁSA (+10 JOKER CSATORNÁZÁSA)
+  // 🎁 ÚJ VÉGPONT: MEGHÍVÓ KÓD BEVÁLTÁSA (+10 JOKER CSATORNÁZÁSA)
   app.post('/api/weekly/claim-referral', async (req, res) => {
     const { userEmail, referralCode } = req.body;
     try {
-      // 1. Megnézzük, hogy a beíró létezik-e és használt-e már kódot
       const [userRows] = await pool.query('SELECT referred_by FROM photo_users WHERE email = ?', [userEmail]);
       if (!userRows[0]) return res.status(404).json({ error: 'Felhasználó nem található!' });
       if (userRows[0].referred_by) return res.status(400).json({ error: 'Te már adtál meg meghívó kódot korábban!' });
 
-      // 2. Megkeressük, kié a beírt kód
       const cleanCode = referralCode.trim().toUpperCase();
       const [referrerRows] = await pool.query('SELECT email FROM photo_users WHERE referral_code = ?', [cleanCode]);
       if (referrerRows.length === 0) return res.status(400).json({ error: 'Ez a meghívó kód nem létezik!' });
 
       const referrerEmail = referrerRows[0].email;
-
-      // 3. Biztonsági szűrés: Saját magát nem hívhatja meg senki
       if (referrerEmail === userEmail) return res.status(400).json({ error: 'Saját magad kódját nem adhatod meg!' });
 
-      // 4. Tranzakció indítása: a meghívó kap 10 cserét, a regisztrálónál pedig elmentjük a kapcsolatot
       const conn = await pool.getConnection();
       try {
         await conn.beginTransaction();
         await conn.query('UPDATE photo_users SET swap_balance = swap_balance + 10 WHERE email = ?', [referrerEmail]);
-        await conn.query('UPDATE photo_users SET referred_by = ? WHERE email = ?', [referrerEmail, userEmail]);
+        await conn.query('UPDATE photo_users SET referred_by = ? WHERE email = ?', [userEmail]);
         await conn.commit();
         res.json({ success: true });
       } catch (txErr) {
@@ -688,7 +687,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
-  // Admin 5. GYANÚS (IP DUPLIKÁCIÓ) LEKÉRÉSE (MÓDOSÍTVA: Csak a különböző felhasználókat számolja, a képcseréket kiszűri!)
+  // Admin 5. GYANÚS (IP DUPLIKÁCIÓ) LEKÉRÉSE
   app.get('/api/admin/weekly/suspicious', async (req, res) => {
     try {
       const [rows] = await pool.query(`
@@ -714,7 +713,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   app.delete('/api/admin/weekly/disqualify', async (req, res) => {
     const { topicId, userEmail } = req.query;
     try {
-      // Töröljük az ÖSSZES képet ehhez a fordulóhoz és userhez (ha volt korábbi inaktív képe is)
       const [entries] = await pool.query('SELECT id, drive_file_id FROM weekly_entries WHERE topic_id = ? AND user_email = ?', [topicId, userEmail]);
       
       for (const entry of entries) {
@@ -731,7 +729,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
   
-  // 🏆 GLOBÁLIS DICSŐSÉGCSARNOK (JAVÍTVA: A VALÓS MEZŐNEVEKKEL)
+  // 🏆 GLOBÁLIS DICSŐSÉGCSARNOK
   app.get('/api/weekly/hall-of-fame', async (req, res) => {
     try {
       const [rows] = await pool.query(`
@@ -739,13 +737,13 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
           u.name as user_name, 
           u.email as user_email, 
           u.club_name,
-          c.drive_logo_id, -- ✅ JAVÍTVA: A valós Google Drive ID mező
-          c.logo_url,      -- ✅ JAVÍTVA: A valós Logó URL mező
+          c.drive_logo_id, 
+          c.logo_url,      
           COALESCE(SUM(e.likes_count), 0) as total_likes
         FROM photo_users u
         LEFT JOIN weekly_entries e ON u.email = e.user_email AND e.is_active = 1
         LEFT JOIN photo_clubs c ON u.club_name = c.name
-        GROUP BY u.email, u.name, u.club_name, c.drive_logo_id, c.logo_url -- ✅ Csoportosítás frissítve
+        GROUP BY u.email, u.name, u.club_name, c.drive_logo_id, c.logo_url 
         HAVING total_likes > 0
         ORDER BY total_likes DESC, u.name ASC
       `);
@@ -775,8 +773,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-  
-  
   app.post('/api/weekly/report-off-topic', async (req, res) => {
     const { entryId, userEmail } = req.body;
     try {
