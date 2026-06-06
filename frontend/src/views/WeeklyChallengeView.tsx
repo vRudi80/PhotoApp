@@ -627,7 +627,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                           
                           {voteEntry.off_topic_count > 0 && (
                             <div style={{ background: '#f59e0b15', color: '#f59e0b', border: '1px solid #f59e0b40', padding: '8px 16px', borderRadius: '10px', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '15px', display: 'inline-flex', alignItems: 'center', gap: '6px', width: '100%', boxSizing: 'border-box' }}>
-                              ⚠️ {voteEntry.off_topic_count} játékos szerint ez a kép Off-Topic!
+                              ⚠️ {voteEntry.off_topic_count} játékos szerint ez a kép Off-Topic vagy AI generált!
                             </div>
                           )}
                           
@@ -647,7 +647,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                               onClick={() => handleOffTopicReport(voteEntry.id)}
                               style={{ width: '100%', padding: '10px 20px', background: '#ef444410', color: '#ef4444', border: '1px solid #ef444430', borderRadius: '14px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem' }}
                             >
-                              ⚠️ Off-Topic Jelentés
+                              ⚠️ Off-Topic/AI gyanús Jelentés
                             </button>
                           </div>
                         </div>
@@ -683,7 +683,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                               <strong style={{ color: '#ef4444', display: 'block', marginBottom: '4px', fontSize: '0.95rem' }}>
                                 🚫 Figyelmeztetés: Tématévesztés gyanúja!
                               </strong>
-                              A képedet eddig <b>{myEntry.off_topic_count} fotóstársad</b> jelentette off-topicnak. Kérlek ügyelj a pontos illeszkedésre!
+                              A képedet eddig <b>{myEntry.off_topic_count} fotóstársad</b> jelentette off-topicnak vagy gyanúsan AI-al generáltnak. Kérlek ügyelj a pontos témára, illetve ne használj AI fotót!
                             </div>
                           )}
 
