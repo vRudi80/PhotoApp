@@ -596,29 +596,22 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '30px' }}>
                   
+                  {/* ── BAL OLDALI OSZLOP Container ── */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
                     
+                    {/* TÉMA INFÓ KÁRTYA */}
                     <div style={{ background: 'linear-gradient(135deg, #1e293b, #0f172a)', padding: '30px', borderRadius: '24px', border: '1px solid #334155', display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: '0 10px 30px rgba(0,0,0,0.5)', position: 'relative', overflow: 'hidden' }}>
                       <div style={{ position: 'absolute', top: '-20px', right: '-20px', fontSize: '8rem', opacity: 0.05 }}>🔥</div>
-                          <h3 style={{ color: 'white', margin: '0 0 10px 0', fontSize: '1.4rem', fontWeight: 'bold' }}>{topic.title}</h3>
-      <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: '0 0 20px 0', lineHeight: '1.5', flex: 1 }}>{topic.description}</p>
-      
-      {/* 👑 ⚡ ÚJ: Párbajmester kijelzése az Aktuális kártyákon */}
-      {topic.master_email && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#a78bfa', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '15px', background: '#a78bfa10', padding: '8px 14px', borderRadius: '10px', border: '1px solid #a78bfa20', width: 'fit-content' }}>
-          <span>👑 Párbajmester:</span>
-          <span style={{ color: '#e9d5ff', fontFamily: 'monospace', fontWeight: 'normal' }}>{topic.master_email}</span>
-        </div>
-      )}
-
-      <div style={{ background: '#00000040', padding: '12px 15px', borderRadius: '12px', fontSize: '0.9rem', color: isDaily ? '#f87171' : '#38bdf8', textAlign: 'center', border: '1px solid #1e293b', fontWeight: 'bold', fontFamily: 'monospace', letterSpacing: '0.5px' }}>
-        ⏳ Hátralévő idő: {timeLeft}
-      </div>
-
+                      <h3 style={{ margin: '0 0 10px 0', color: '#f8fafc', fontSize: '1.8rem', textAlign: 'center', zIndex: 1 }}>{topic.title}</h3>
+                      <p style={{ margin: '0 0 20px 0', color: '#cbd5e1', fontSize: '0.95rem', textAlign: 'center', zIndex: 1, lineHeight: '1.6' }}>{topic.description}</p>
+                      
+                      <div style={{ background: '#00000080', padding: '15px 30px', borderRadius: '100px', border: '1px solid #ef444450', backdropFilter: 'blur(10px)', zIndex: 1 }}>
+                        <div style={{ fontSize: '0.75rem', color: '#ef4444', textTransform: 'uppercase', letterSpacing: '2px', textAlign: 'center', marginBottom: '5px' }}>Hátralévő Idő</div>
                         <div style={{ color: '#f8fafc', fontSize: '1.5rem', fontWeight: '900', fontFamily: 'monospace', letterSpacing: '1px' }}>{timeLeft || 'Számítás...'}</div>
                       </div>
                     </div>
                     
+                    {/* EXPO / LÁTHATÓSÁGI MÉRŐ */}
                     <div style={{ width: '100%', boxSizing: 'border-box', background: '#0f172a', padding: '25px 15px', borderRadius: '24px', border: `1px solid ${exposureColor}40`, display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: `0 10px 40px -10px ${exposureColor}30`, transition: 'all 0.5s ease' }}>
                       <h4 style={{ color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '2px', margin: '0 0 15px 0', fontSize: '0.85rem', textAlign: 'center' }}>Láthatósági Mérő</h4>
                       
@@ -643,9 +636,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                       </p>
                     </div>
 
-                                 {/* ====================================================================
-                        ⚔️ ÉRTÉKELŐ ARÉNA PANEL (JAVÍTVA ÉS TISZTÍTVA)
-                        ==================================================================== */}
+                    {/* ÉRTÉKELŐ ARÉNA PULT */}
                     <div style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #334155', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
                       <h3 style={{ margin: '0 0 20px 0', color: '#f8fafc', fontSize: '1.4rem' }}>⚔️ Értékelő Aréna</h3>
                       
@@ -704,15 +695,13 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                           </div>
                         </div>
                       ) : <div style={{ color: '#94a3b8', textAlign: 'center', padding: '20px' }}>Kép betöltése...</div>}
-                    </div> {/* ✅ Closes Értékelő Aréna panel */}
-                  </div> {/* ✅ Closes Left Column Container */}
+                    </div> {/* Finishes Arena Panel */}
+                  </div> {/* Finishes Left Column */}
 
-                  {/* ====================================================================
-                      👉 JOBB OLDALI OSZLOP INDÍTÁSA (Saját Nevezések, Toplisták)
-                      ==================================================================== */}
+                  {/* ── JOBB OLDALI OSZLOP Container ── */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
-
                     
+                    {/* SAJÁT KÉP / PROFIL STATISZTIKA FORDULÓN BELÜL */}
                     <div style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #334155', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
                         <h3 style={{ margin: 0, color: '#f8fafc', fontSize: '1.4rem' }}>📸 Saját Nevezésem</h3>
@@ -869,13 +858,15 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                         </div>
                       )}
                     </div>
-                  </div>
+                  </div> {/* Finishes Right Column */}
+
                 </div>
               )}
             </div>
           )}
         </>
       )}
+}
 
       {subTab === 'upcoming' && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '25px' }}>
