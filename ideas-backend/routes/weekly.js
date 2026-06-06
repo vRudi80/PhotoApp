@@ -2,9 +2,9 @@ const fs = require('fs');
 
 module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   
-  // 📊 1. SEGÉDFÜGGVÉNY: Kiszámolja egy felhasználó összesített pontjait ÉS hivatalos győzelmeit (1. helyezéseit)
+   // 📊 JAVÍTVA & ELLENŐRIZVE: Ultra-gyors, hurokmentesített statisztikai lekérdezés (1 query a 30+ helyett!)
   async function getUserLikesAndVictories(pool, email) {
-    // Összes szerzett lájk/pont
+    // 1. Összes szerzett lájk/pont lekérése (Változatlan kód)
     const [likesRows] = await pool.query(`
       SELECT COALESCE(SUM(e.likes_count), 0) as total 
       FROM weekly_entries e
@@ -13,21 +13,23 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     `, [email]);
     const totalLikes = likesRows[0].total || 0;
 
-    // Hivatalos győzelmek (Hányszor volt abszolút első helyezett lezárt arénában)
-    const [pastTopics] = await pool.query('SELECT id FROM weekly_topics WHERE end_date < CURRENT_DATE()');
-    let victories = 0;
-    for (const topic of pastTopics) {
-      const [entries] = await pool.query(`
-        SELECT user_email FROM weekly_entries 
-        WHERE topic_id = ? AND is_active = 1 
-        ORDER BY likes_count DESC, views_count ASC LIMIT 1
-      `, [topic.id]);
-      if (entries[0] && entries[0].user_email === email) {
-        victories++;
-      }
-    }
+    // 2. Győzelmek kiszámítása egyetlen kombinált, hurokmentes SQL lekérdezéssel
+    const [victoryRows] = await pool.query(`
+      WITH ranked_entries AS (
+        SELECT topic_id, user_email,
+               ROW_NUMBER() OVER (PARTITION BY topic_id ORDER BY likes_count DESC, views_count ASC) as rnk
+        FROM weekly_entries
+        WHERE topic_id IN (SELECT id FROM weekly_topics WHERE end_date < CURRENT_DATE())
+          AND is_active = 1
+      )
+      SELECT COUNT(*) as victories FROM ranked_entries WHERE rnk = 1 AND user_email = ?
+    `, [email]);
+    
+    const victories = victoryRows[0]?.victories || 0;
+
     return { totalLikes, victories };
   }
+
 
   // 📈 2. SEGÉDFÜGGVÉNY: Meghatározza a szint sorszámát (1-5) az új szabályok alapján
   function calculateRankLevel(totalLikes, victories) {
