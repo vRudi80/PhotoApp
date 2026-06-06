@@ -99,11 +99,11 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
       <h3 style={{ color: 'white', margin: '0 0 10px 0', fontSize: '1.4rem', fontWeight: 'bold' }}>{topic.title}</h3>
       <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: '0 0 20px 0', lineHeight: '1.5', flex: 1 }}>{topic.description}</p>
       
-      {/* 👑 ⚡ ÚJ: Párbajmester kijelzése az Aktuális kártyákon */}
-      {topic.master_email && (
+      {/* 👑 JAVÍTVA: Párbajmester nevének kijelzése az Aktuális kártyákon */}
+      {(topic.master_name || topic.master_email) && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#a78bfa', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '15px', background: '#a78bfa10', padding: '8px 14px', borderRadius: '10px', border: '1px solid #a78bfa20', width: 'fit-content' }}>
           <span>👑 Párbajmester:</span>
-          <span style={{ color: '#e9d5ff', fontFamily: 'monospace', fontWeight: 'normal' }}>{topic.master_email}</span>
+          <span style={{ color: '#e9d5ff', fontWeight: 'bold' }}>{topic.master_name || topic.master_email}</span>
         </div>
       )}
 
@@ -613,7 +613,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                       <p style={{ margin: '0 0 20px 0', color: '#cbd5e1', fontSize: '0.95rem', textAlign: 'center', zIndex: 1, lineHeight: '1.6' }}>{topic.description}</p>
                       
                       <div style={{ background: '#00000080', padding: '15px 30px', borderRadius: '100px', border: '1px solid #ef444450', backdropFilter: 'blur(10px)', zIndex: 1 }}>
-                        <div style={{ fontSize: '0.75rem', color: '#ef4444', textTransform: 'uppercase', letterSpacing: '2px', letterSpacing: '2px', textAlign: 'center', marginBottom: '5px' }}>Hátralévő Idő</div>
+                        <div style={{ fontSize: '0.75rem', color: '#ef4444', textTransform: 'uppercase', letterSpacing: '2px', textAlign: 'center', marginBottom: '5px' }}>Hátralévő Idő</div>
                         <div style={{ color: '#f8fafc', fontSize: '1.5rem', fontWeight: '900', fontFamily: 'monospace', letterSpacing: '1px' }}>{timeLeft || 'Számítás...'}</div>
                       </div>
                     </div>
@@ -702,8 +702,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                           </div>
                         </div>
                       ) : <div style={{ color: '#94a3b8', textAlign: 'center', padding: '20px' }}>Kép betöltése...</div>}
-                    </div> {/* Finishes Arena Panel */}
-                  </div> {/* Finishes Left Column */}
+                    </div>
+                  </div>
 
                   {/* ── JOBB OLDALI OSZLOP Container ── */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
@@ -740,7 +740,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                               <strong style={{ color: '#ef4444', display: 'block', marginBottom: '4px', fontSize: '0.95rem' }}>
                                 🚫 Figyelmeztetés: Tématévesztés gyanúja!
                               </strong>
-                              A képedet eddig <b>{myEntry.off_topic_count} fotóstársad</b> jelentette off-topicnak vagy gyanúsan AI-al generáltnak. Kérlek ügyelj a pontos témára, illetve ne használj AI fotót!
+                              A képedet edjim <b>{myEntry.off_topic_count} fotóstársad</b> jelentette off-topicnak vagy gyanúsan AI-al generáltnak. Kérlek ügyelj a pontos témára, illetve ne használj AI fotót!
                             </div>
                           )}
 
@@ -865,7 +865,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                         </div>
                       )}
                     </div>
-                  </div> {/* Finishes Right Column */}
+                  </div>
 
                 </div>
               )}
@@ -892,11 +892,11 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   <h4 style={{ color: '#f59e0b', margin: '0 0 10px 0', fontSize: '1.4rem' }}>{t.title}</h4>
                   <p style={{ color: '#cbd5e1', fontSize: '0.95rem', margin: '0 0 20px 0', flex: 1, lineHeight: '1.6' }}>{t.description}</p>
                   
-                  {/* 👑 ⚡ ÚJ: Párbajmester kijelzése a Hamarosan kártyákon */}
-                  {t.master_email && (
+                  {/* 👑 JAVÍTVA: Párbajmester nevének kijelzése a Hamarosan kártyákon */}
+                  {(t.master_name || t.master_email) && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#a78bfa', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '15px', background: '#a78bfa10', padding: '8px 14px', borderRadius: '10px', border: '1px solid #a78bfa20', width: 'fit-content' }}>
                       <span>👑 Párbajmester:</span>
-                      <span style={{ color: '#e9d5ff', fontFamily: 'monospace', fontWeight: 'normal' }}>{t.master_email}</span>
+                      <span style={{ color: '#e9d5ff', fontWeight: 'bold' }}>{t.master_name || t.master_email}</span>
                     </div>
                   )}
 
@@ -975,7 +975,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                           <span style={{ fontSize: '0.8rem', color: '#64748b', fontStyle: 'italic' }}>Nem volt pontot szerző tag ebben a fordulóban.</span>
                         ) : (
                           clubMembers.map((m, idx) => (
-                            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#cbd5e1' }}>
+                            <div key={idx} style={{ display: 'flex', justifycontent: 'space-between', fontSize: '0.85rem', color: '#cbd5e1' }}>
                               <span>👤 {m.user_name} <small style={{ color: '#64748b' }}>("{m.title || 'Cím nélkül'}")</small></span>
                               <span style={{ fontWeight: 'bold', color: '#fbbf24' }}>{m.likes_count || 0} ⭐</span>
                             </div>
