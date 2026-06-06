@@ -616,7 +616,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                       ) : noMoreEntries ? (
                         <div style={{ padding: '50px 20px', textAlign: 'center', background: 'linear-gradient(135deg, #0f172a, #1e293b)', borderRadius: '16px', border: '1px solid #10b981' }}>
                           <div style={{ fontSize: '4rem', marginBottom: '15px' }}>🎉</div>
-                          <h4 style={{ color: '#10b981', margin: '0 0 10px 0', fontSize: '1.5rem' }}>Mintent értékeltél!</h4>
+                          <h4 style={{ color: '#10b981', margin: '0 0 10px 0', fontSize: '1.5rem' }}>Mindent értékeltél!</h4>
                           <p style={{ color: '#94a3b8', fontSize: '0.95rem', margin: 0 }}>Várj, amíg a többiek is töltenek fel új képeket.</p>
                         </div>
                       ) : voteEntry ? (
