@@ -1116,14 +1116,14 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                       <div style={{ color: isMe ? '#fbbf24' : 'white', fontWeight: 'bold', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
                         {row.user_name} {isMe && <span style={{ fontSize: '0.75rem', background: '#fbbf24', color: '#0f172a', padding: '2px 8px', borderRadius: '10px', fontWeight: '900' }}>TE VAGY</span>}
                       </div>
-                    {row.club_name && (
+                                     {row.club_name && (
                       <div style={{ color: '#10b981', fontSize: '0.8rem', fontWeight: 'bold', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        {/* ✅ HA VAN LOGÓ: Kirajzolja a képet, HA NINCS vagy MEGHIBÁSODIK: Visszaugrik a pajzs emojira */}
-                        {row.club_logo ? (
+                        {/* ✅ JAVÍTVA: Az oklevélhez hasonlóan itt is a getImageUrl-lel állítjuk össze a logó forrását */}
+                        {row.drive_logo_id || row.logo_url ? (
                           <img 
-                            src={row.club_logo} 
+                            src={getImageUrl(row.drive_logo_id, row.logo_url)} 
                             alt="" 
-                            style={{ width: '18px', height: '18px', borderRadius: '4px', objectFit: 'cover', border: '1px solid #10b98130', display: 'inline-block' }} 
+                            style={{ width: '18px', height: '18px', borderRadius: '4px', objectFit: 'contain', backgroundColor: '#0f172a', border: '1px solid #10b98130', display: 'inline-block' }} 
                             onError={(e) => { e.currentTarget.outerHTML = '<span>🛡️</span>'; }} 
                           />
                         ) : (
@@ -1132,6 +1132,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                         <span>{row.club_name}</span>
                       </div>
                     )}
+
 
                     </div>
 
