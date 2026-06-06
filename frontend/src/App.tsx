@@ -27,6 +27,7 @@ import WeeklyChallengeView from './views/WeeklyChallengeView';
 import AdminWeeklyView from './views/admin/AdminWeeklyView';
 import ClubNewsView from './views/ClubNewsView';
 import ProfileView from './views/ProfileView';
+import AdminCloudinaryTestView from './views/admin/AdminCloudinaryTestView'; // ➕ ÚJ IMPORT SOR
 import { BrowserRouter, Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import TicketsView from './views/TicketsView';
 import LeaderClubView from './views/LeaderClubView';
@@ -597,10 +598,13 @@ function MainContent() {
               <Route path="/leader_club" element={isLeader ? <LeaderClubView user={user} BACKEND_URL={BACKEND_URL} /> : <Navigate to="/dashboard" replace />} />
 
               {/* === ADMINISZTRÁCIÓS FELÜLETEK === */}
-              <Route path="/admin_clubs" element={user?.email === ADMIN_EMAIL ? <AdminClubsView clubs={clubs} newClubName={newClubName} setNewClubName={setNewClubName} handleAddClub={handleAddClub} handleDeleteClub={handleDeleteClub} handleUpdateClub={handleUpdateClub} /> : <Navigate to="/dashboard" />} />
-              <Route path="/admin_users" element={user?.email === ADMIN_EMAIL ? <AdminUsersView allUsers={allUsers} clubs={clubs} userClubEdits={userClubEdits} setUserClubEdits={setUserClubEdits} userRoleEdits={userRoleEdits} setUserRoleEdits={setUserRoleEdits} saveUserClub={saveUserClub} /> : <Navigate to="/dashboard" />} />
-              <Route path="/admin_weekly" element={user?.email === ADMIN_EMAIL ? <AdminWeeklyView /> : <Navigate to="/dashboard" />} />
-              <Route path="/admin_settings" element={user?.email === ADMIN_EMAIL ? <AdminSettingsView /> : <Navigate to="/dashboard" />} />
+            {/* === ADMINISZTRÁCIÓS FELÜLETEK === */}
+<Route path="/admin_clubs" element={user?.email === ADMIN_EMAIL ? <AdminClubsView clubs={clubs} newClubName={newClubName} setNewClubName={setNewClubName} handleAddClub={handleAddClub} handleDeleteClub={handleDeleteClub} handleUpdateClub={handleUpdateClub} /> : <Navigate to="/dashboard" />} />
+<Route path="/admin_users" element={user?.email === ADMIN_EMAIL ? <AdminUsersView allUsers={allUsers} clubs={clubs} userClubEdits={userClubEdits} setUserClubEdits={setUserClubEdits} userRoleEdits={userRoleEdits} setUserRoleEdits={setUserRoleEdits} saveUserClub={saveUserClub} /> : <Navigate to="/dashboard" />} />
+<Route path="/admin_weekly" element={user?.email === ADMIN_EMAIL ? <AdminWeeklyView /> : <Navigate to="/dashboard" />} />
+<Route path="/admin_cloudinary_test" element={user?.email === ADMIN_EMAIL ? <AdminCloudinaryTestView /> : <Navigate to="/dashboard" />} /> {/* ➕ ÚJ ROUTE SOR */}
+<Route path="/admin_settings" element={user?.email === ADMIN_EMAIL ? <AdminSettingsView /> : <Navigate to="/dashboard" />} />
+
               
               <Route path="/admin_salons" element={user?.email === ADMIN_EMAIL ? <AdminSalonsView salons={salons} countries={countries} allCategories={allCategories} patrons={patrons} BACKEND_URL={BACKEND_URL} fetchData={fetchData} setSelectedSalon={setSelectedSalon} /> : <Navigate to="/dashboard" />} />
               <Route path="/admin_meetings" element={(user?.email === ADMIN_EMAIL || isLeader) ? <AdminMeetingsView user={user} currentDbUser={currentDbUser} clubs={clubs} meetings={meetings} allUsers={allUsers} adminMeetings={adminMeetings} fetchData={fetchData} /> : <Navigate to="/dashboard" replace />} />
