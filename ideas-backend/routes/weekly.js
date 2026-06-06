@@ -567,30 +567,27 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
   
-  // 🏆 GLOBÁLIS DICSŐSÉGCSARNOK (JAVÍTVA: GOLYÓÁLLÓ, LOGÓVAL KIEGÉSZÍTETT VERZIÓ)
+  // 🏆 GLOBÁLIS DICSŐSÉGCSARNOK (JAVÍTVA: A VALÓS MEZŐNEVEKKEL)
   app.get('/api/weekly/hall-of-fame', async (req, res) => {
     try {
-      // Megpróbáljuk behúzni a klub logóját a photo_clubs (vagy clubs) táblából.
-      // Ha a táblaneved eltérne (pl. simán "clubs"), írd át a "LEFT JOIN photo_clubs c" részt!
       const [rows] = await pool.query(`
         SELECT 
           u.name as user_name, 
           u.email as user_email, 
           u.club_name,
-          c.logo as club_logo,
+          c.drive_logo_id, -- ✅ JAVÍTVA: A valós Google Drive ID mező
+          c.logo_url,      -- ✅ JAVÍTVA: A valós Logó URL mező
           COALESCE(SUM(e.likes_count), 0) as total_likes
         FROM photo_users u
         LEFT JOIN weekly_entries e ON u.email = e.user_email AND e.is_active = 1
         LEFT JOIN photo_clubs c ON u.club_name = c.name
-        GROUP BY u.email, u.name, u.club_name, c.logo
+        GROUP BY u.email, u.name, u.club_name, c.drive_logo_id, c.logo_url -- ✅ Csoportosítás frissítve
         HAVING total_likes > 0
         ORDER BY total_likes DESC, u.name ASC
       `);
       res.json(rows);
     } catch (err) {
-      // ✅ GOLYÓÁLLÓ HIBAKEZELÉS: Ha a fenti JOIN elszállna hibás táblanév miatt, a terminálodba pontosan kiírja a hibát,
-      // de a szerver nem omlik össze, hanem visszaugrik a logó nélküli biztonsági alap lekérdezésre!
-      console.error("⚠️ Figyelem, a klublogós dicsőségfal lekérdezés hibát dobott (vélhetően hibás táblanév):", err.message);
+      console.error("⚠️ Figyelem, a klublogós dicsőségfal lekérdezés hibát dobott:", err.message);
       
       try {
         const [fallbackRows] = await pool.query(`
@@ -598,7 +595,8 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
             u.name as user_name, 
             u.email as user_email, 
             u.club_name,
-            NULL as club_logo,
+            NULL as drive_logo_id,
+            NULL as logo_url,
             COALESCE(SUM(e.likes_count), 0) as total_likes
           FROM photo_users u
           LEFT JOIN weekly_entries e ON u.email = e.user_email AND e.is_active = 1
@@ -612,6 +610,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       }
     }
   });
+
   
   
   app.post('/api/weekly/report-off-topic', async (req, res) => {
