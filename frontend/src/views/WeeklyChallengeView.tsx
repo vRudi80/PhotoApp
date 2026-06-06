@@ -112,6 +112,11 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
 export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyChallengeViewProps) {
   const [subTab, setSubTab] = useState<'current' | 'upcoming' | 'past' | 'my_stats' | 'hall_of_fame'>('current');
   const [loading, setLoading] = useState(true);
+  const [myReferralCode, setMyReferralCode] = useState<string>('');
+  const [referredBy, setReferredBy] = useState<string | null>(null);
+  const [referralInput, setReferralInput] = useState<string>('');
+  const [isClaimingReferral, setIsClaimingReferral] = useState<boolean>(false);
+
   
   const [activeTopics, setActiveTopics] = useState<any[]>([]);
   const [selectedTopicId, setSelectedTopicId] = useState<number | null>(null);
@@ -237,6 +242,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         
         if (data.userTotalLikes !== undefined) setUserTotalLikes(data.userTotalLikes);
         if (data.userVictories !== undefined) setUserVictories(data.userVictories); // ➕ BEKÖTVE
+        if (data.myReferralCode !== undefined) setMyReferralCode(data.myReferralCode);
+        if (data.referredBy !== undefined) setReferredBy(data.referredBy);
 
         if (data.userPower) setUserPower(data.userPower);
         if (data.swapBalance !== undefined) setSwapBalance(data.swapBalance); // ➕ BEKÖTVE
@@ -403,6 +410,27 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         fetchCurrentTopic(true); 
       }
     } catch (e) { if(topic) fetchNextVote(topic.id); }
+  };
+    // 🎁 ÚJ: Meghívó kód elküldése a szerverre
+  const handleClaimReferral = async () => {
+    if (!referralInput.trim()) return;
+    setIsClaimingReferral(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/weekly/claim-referral`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userEmail: user?.email, referralCode: referralInput })
+      });
+      if (res.ok) {
+        alert("🎉 Sikeres érvényesítés! A meghívód megkapta a +10 db ajándék Joker cserét.");
+        setReferredBy(referralInput); // Azonnal elrejtjük az inputot a felületről
+        fetchCurrentTopic(true);      // Csendben frissítjük a statisztikákat
+      } else {
+        const err = await res.json();
+        alert(err.error || "Hiba történt a kód beváltása során.");
+      }
+    } catch (e) { alert("Hálózati hiba!"); }
+    finally { setIsClaimingReferral(false); }
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1009,6 +1037,64 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   <div style={{ fontSize: '2.5rem', fontWeight: '900', color: '#10b981', marginBottom: '5px' }}>{top20Count}</div>
                   <div style={{ color: '#10b981', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Top 20% Plecsni</div>
                 </div>
+              </div>
+              {/* ====================================================================
+                  🎁 ÚJ: MEGHÍVÓ RENDSZER INTERFÉSZ (AJÁNDÉK CSERÉKÉRT)
+                  ==================================================================== */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '25px', marginBottom: '40px' }}>
+                
+                {/* 1. PANEL: SAJÁT KÓD MEGOSZTÁSA */}
+                <div style={{ background: 'linear-gradient(145deg, #1e293b, #0f172a)', padding: '25px', borderRadius: '24px', border: '1px solid #38bdf840', boxShadow: '0 10px 25px rgba(0,0,0,0.3)' }}>
+                  <h4 style={{ margin: '0 0 10px 0', color: '#38bdf8', fontSize: '1.2rem' }}>🎁 Hívj meg egy barátot!</h4>
+                  <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 20px 0', lineHeight: '1.5' }}>
+                    Oszd meg a kódodat egy fotós ismerősöddel! Ha regisztrál a portálra és megadja a kódod, te **azonnal +10 db Joker cserét** kapsz a globális egyenlegedhez.
+                  </p>
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center', background: '#0f172a', padding: '12px 20px', borderRadius: '12px', border: '1px dashed #38bdf860' }}>
+                    <span style={{ color: '#64748b', fontSize: '0.8rem', fontWeight: 'bold' }}>KÓDOD:</span>
+                    <strong style={{ color: 'white', fontSize: '1.3rem', fontFamily: 'monospace', letterSpacing: '1px', flex: 1 }}>{myReferralCode}</strong>
+                    <button 
+                      onClick={() => { navigator.clipboard.writeText(myReferralCode); alert("📋 Meghívó kód a vágólapra másolva!"); }}
+                      style={{ background: '#38bdf820', color: '#38bdf8', border: '1px solid #38bdf840', padding: '6px 12px', borderRadius: '8px', fontWeight: 'bold', fontSize: '0.8rem', cursor: 'pointer' }}
+                    >
+                      Másolás
+                    </button>
+                  </div>
+                </div>
+
+                {/* 2. PANEL: MEGHÍVÓ BEVÁLTÁSA */}
+                <div style={{ background: 'linear-gradient(145deg, #1e293b, #0f172a)', padding: '25px', borderRadius: '24px', border: '1px solid #10b98140', boxShadow: '0 10px 25px rgba(0,0,0,0.3)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                  <div>
+                    <h4 style={{ margin: '0 0 10px 0', color: '#10b981', fontSize: '1.2rem' }}>🤝 Téged ki hívott meg?</h4>
+                    <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 20px 0', lineHeight: '1.5' }}>
+                      Ha egy barátod ajánlására regisztráltál a Fotóklub Portálra, add meg az ő személyes kódját, hogy megkapja érte a megérdemelt jutalom cseréit!
+                    </p>
+                  </div>
+                  
+                  {!referredBy ? (
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <input 
+                        type="text" 
+                        placeholder="Pl.: REF-A1B2C3" 
+                        value={referralInput}
+                        onChange={e => setReferralInput(e.target.value)}
+                        disabled={isClaimingReferral}
+                        style={{ flex: 1, padding: '12px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '12px', fontSize: '1rem', outline: 'none', textTransform: 'uppercase', fontFamily: 'monospace' }} 
+                      />
+                      <button 
+                        onClick={handleClaimReferral}
+                        disabled={!referralInput.trim() || isClaimingReferral}
+                        style={{ background: !referralInput.trim() || isClaimingReferral ? '#334155' : 'linear-gradient(135deg, #10b981, #059669)', color: !referralInput.trim() || isClaimingReferral ? '#64748b' : 'white', border: 'none', padding: '0 20px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}
+                      >
+                        {isClaimingReferral ? '...' : 'Beküldés'}
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ background: '#10b98110', border: '1px solid #10b98130', padding: '12px', borderRadius: '12px', color: '#10b981', fontSize: '0.9rem', fontWeight: 'bold', textAlign: 'center' }}>
+                      ✓ Sikeresen rögzítetted a meghívásodat! Köszönjük.
+                    </div>
+                  )}
+                </div>
+
               </div>
 
               <h3 style={{ color: '#f8fafc', marginBottom: '20px', fontSize: '1.5rem' }}>📸 Korábbi Pályaművek ({myStats?.history?.length || 0})</h3>
