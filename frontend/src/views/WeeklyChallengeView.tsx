@@ -116,6 +116,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const [referredBy, setReferredBy] = useState<string | null>(null);
   const [referralInput, setReferralInput] = useState<string>('');
   const [isClaimingReferral, setIsClaimingReferral] = useState<boolean>(false);
+  const [masterVotesLeft, setMasterVotesLeft] = useState<number>(0); // ➕ ÚJ
+  const [isMaster, setIsMaster] = useState<boolean>(false);         // ➕ ÚJ
 
   
   const [activeTopics, setActiveTopics] = useState<any[]>([]);
@@ -218,7 +220,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   if (exposurePercentage >= 80) { exposureColor = '#10b981'; exposureLabel = 'Maximális'; } 
   else if (exposurePercentage >= 40) { exposureColor = '#f59e0b'; exposureLabel = 'Közepes'; }
 
-  useEffect(() => {
+    useEffect(() => {
     setTopic(null);
     setMyEntry(null);
     setMyPastEntries([]);
@@ -227,7 +229,10 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     setCurrentClubLeaderboard([]);
     setNoMoreEntries(false);
     setTimeLeft('');
+    setMasterVotesLeft(0); // ➕ ÚJ
+    setIsMaster(false);     // ➕ ÚJ
   }, [selectedTopicId]);
+
 
   const fetchCurrentTopic = async (isSilent = false) => {
     if (!isSilent) setLoading(true);
@@ -241,7 +246,10 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         const data = await res.json();
         
         if (data.userTotalLikes !== undefined) setUserTotalLikes(data.userTotalLikes);
-        if (data.userVictories !== undefined) setUserVictories(data.userVictories); // ➕ BEKÖTVE
+        if (data.userVictories !== undefined) setUserVictories(data.userVictories);
+        if (data.masterVotesLeft !== undefined) setMasterVotesLeft(data.masterVotesLeft); // ➕ ÚJ
+        if (data.isMaster !== undefined) setIsMaster(data.isMaster);                     // ➕ ÚJ
+
         if (data.myReferralCode !== undefined) setMyReferralCode(data.myReferralCode);
         if (data.referredBy !== undefined) setReferredBy(data.referredBy);
 
@@ -635,13 +643,18 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
 
                     <div style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #334155', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
                       <h3 style={{ margin: '0 0 20px 0', color: '#f8fafc', fontSize: '1.4rem' }}>⚔️ Értékelő Aréna</h3>
-                      {!myEntry ? (
+                                        <div style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #334155', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
+                      <h3 style={{ margin: '0 0 20px 0', color: '#f8fafc', fontSize: '1.4rem' }}>⚔️ Értékelő Aréna</h3>
+                      
+                      {/* ⚡ JAVÍTVA: Ha nincs nevezése, DE ő a Párbajmester, akkor ÁTENGEDI a kapun! */}
+                      {(!myEntry && !isMaster) ? (
                         <div style={{ padding: '40px 20px', textAlign: 'center', background: '#0f172a', borderRadius: '166px', border: '2px dashed #f59e0b' }}>
                           <div style={{ fontSize: '3.5rem', marginBottom: '15px' }}>🛑</div>
                           <h4 style={{ color: '#f59e0b', margin: '0 0 10px 0', fontSize: '1.3rem' }}>Nincs szavazati jogod!</h4>
                           <p style={{ color: '#94a3b8', fontSize: '0.95rem', margin: 0, lineHeight: '1.5' }}>A küzdelembe való belépéshez először be kell nevezned egy saját fotóval!</p>
                         </div>
                       ) : noMoreEntries ? (
+
                         <div style={{ padding: '50px 20px', textAlign: 'center', background: 'linear-gradient(135deg, #0f172a, #1e293b)', borderRadius: '16px', border: '1px solid #10b981' }}>
                           <div style={{ fontSize: '4rem', marginBottom: '15px' }}>🎉</div>
                           <h4 style={{ color: '#10b981', margin: '0 0 10px 0', fontSize: '1.5rem' }}>Mindent értékeltél!</h4>
@@ -660,8 +673,22 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                           )}
                           
                           <div style={{ display: 'flex', gap: '12px', width: '100%', flexDirection: 'column' }}>
+                      
+                            
+                            {/* 👑 ⚡ ÚJ: Ha ő a Párbajmester, és van még muníciója, megjelenik az Aranygomb */}
+                            {isMaster && masterVotesLeft > 0 && (
+                              <button 
+                                onClick={() => handleVote('master')} 
+                                style={{ width: '100%', padding: '16px', background: 'linear-gradient(135deg, #fbbf24, #d97706)', color: '#0f172a', border: 'none', borderRadius: '14px', fontSize: '1.1rem', fontWeight: '900', cursor: 'pointer', boxShadow: '0 4px 15px rgba(251,191,36,0.4)', marginBottom: '6px' }}
+                              >
+                                👑 Párbajmester Különdíj (+10 pont) <br/>
+                                <span style={{ fontSize: '0.8rem', fontWeight: 'bold', opacity: 0.8 }}>Még {masterVotesLeft} db szavazatod maradt</span>
+                              </button>
+                            )}
+
                             <div style={{ display: 'flex', gap: '12px', width: '100%' }}>
                               <button onClick={() => handleVote('super')} style={{ flex: 1, padding: '15px', background: 'linear-gradient(135deg, #1e3a8a, #3b82f6)', color: 'white', border: 'none', borderRadius: '14px', fontSize: '1.1rem', fontWeight: 'bold', cursor: 'pointer' }}>
+
                                 ✨ Szuper <br/><span style={{fontSize: '0.8rem', fontWeight: 'normal'}}>+{userPower.super} pont</span>
                               </button>
                               <button onClick={() => handleVote('brilliant')} style={{ flex: 1, padding: '15px', background: 'linear-gradient(135deg, #f97316, #ef4444)', color: 'white', border: 'none', borderRadius: '14px', fontSize: '1.1rem', fontWeight: 'bold', cursor: 'pointer' }}>
@@ -688,7 +715,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                     {/* ====================================================================
                         📸 MÓDOSÍTVA: SAJÁT NEVEZÉSEM PANEL (GAMIFIKÁLT TÖRTÉNETI MODELL)
                         ==================================================================== */}
-                    <div style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #334155', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
+                                      <div style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #334155', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
                         <h3 style={{ margin: 0, color: '#f8fafc', fontSize: '1.4rem' }}>📸 Saját Nevezésem</h3>
                         <span style={{ fontSize: '0.85rem', background: '#be123c30', color: '#fb7185', border: '1px solid #be123c60', padding: '4px 12px', borderRadius: '50px', fontWeight: 'bold' }}>
@@ -696,8 +723,18 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                         </span>
                       </div>
 
-                      {myEntry ? (
+                      {/* 👑 ⚡ ÚJ: Ha ő a Párbajmester, egy gyönyörű tájékoztató fogadja a feltöltés helyett */}
+                      {isMaster ? (
+                        <div style={{ padding: '30px 15px', background: 'linear-gradient(135deg, #4c1d9520, #1e1b4b40)', border: '1px solid #a78bfa40', borderRadius: '16px', textAlign: 'center' }}>
+                          <div style={{ fontSize: '3.5rem', marginBottom: '10px' }}>👑</div>
+                          <h4 style={{ color: '#a78bfa', margin: '0 0 8px 0', fontSize: '1.25rem', fontWeight: 'bold' }}>Te vagy a Párbajmester!</h4>
+                          <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: 0, lineHeight: '1.6' }}>
+                            Ezen a héten te lettél felkérve a főbírónak! Saját alkotással nem nevezhetsz, cserébe kapsz 5 darab, egyenként **+10 pontot** érő Különdíjat, amit a szavazás során oszthatsz szét a kedvenc képeid között.
+                          </p>
+                        </div>
+                      ) : myEntry ? (
                         <div>
+
                           <div style={{ width: '100%', height: '220px', backgroundColor: '#000', borderRadius: '16px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 'inset 0 0 20px rgba(0,0,0,0.8)' }}>
                             <img src={getImageUrl(myEntry.drive_file_id, myEntry.file_url)} alt="Saját" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} onError={handleImageError} />
                           </div>
