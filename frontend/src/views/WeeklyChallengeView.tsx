@@ -99,6 +99,14 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
       <h3 style={{ color: 'white', margin: '0 0 10px 0', fontSize: '1.4rem', fontWeight: 'bold' }}>{topic.title}</h3>
       <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: '0 0 20px 0', lineHeight: '1.5', flex: 1 }}>{topic.description}</p>
       
+      {/* 👑 ⚡ ÚJ: Párbajmester kijelzése az Aktuális kártyákon */}
+      {topic.master_email && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#a78bfa', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '15px', background: '#a78bfa10', padding: '8px 14px', borderRadius: '10px', border: '1px solid #a78bfa20', width: 'fit-content' }}>
+          <span>👑 Párbajmester:</span>
+          <span style={{ color: '#e9d5ff', fontFamily: 'monospace', fontWeight: 'normal' }}>{topic.master_email}</span>
+        </div>
+      )}
+
       <div style={{ background: '#00000040', padding: '12px 15px', borderRadius: '12px', fontSize: '0.9rem', color: isDaily ? '#f87171' : '#38bdf8', textAlign: 'center', border: '1px solid #1e293b', fontWeight: 'bold', fontFamily: 'monospace', letterSpacing: '0.5px' }}>
         ⏳ Hátralévő idő: {timeLeft}
       </div>
@@ -528,10 +536,9 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
      } catch (e) {
       alert('Sajnos hiba történt a kép generálása közben.');
       console.error(e);
-    } finally { // 👈 Így, két darab 'l' betűvel!
+    } finally { 
       setIsGeneratingImage(false);
     }
-
   };
   
   return (
@@ -606,7 +613,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                       <p style={{ margin: '0 0 20px 0', color: '#cbd5e1', fontSize: '0.95rem', textAlign: 'center', zIndex: 1, lineHeight: '1.6' }}>{topic.description}</p>
                       
                       <div style={{ background: '#00000080', padding: '15px 30px', borderRadius: '100px', border: '1px solid #ef444450', backdropFilter: 'blur(10px)', zIndex: 1 }}>
-                        <div style={{ fontSize: '0.75rem', color: '#ef4444', textTransform: 'uppercase', letterSpacing: '2px', textAlign: 'center', marginBottom: '5px' }}>Hátralévő Idő</div>
+                        <div style={{ fontSize: '0.75rem', color: '#ef4444', textTransform: 'uppercase', letterSpacing: '2px', letterSpacing: '2px', textAlign: 'center', marginBottom: '5px' }}>Hátralévő Idő</div>
                         <div style={{ color: '#f8fafc', fontSize: '1.5rem', fontWeight: '900', fontFamily: 'monospace', letterSpacing: '1px' }}>{timeLeft || 'Számítás...'}</div>
                       </div>
                     </div>
@@ -866,7 +873,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           )}
         </>
       )}
-}
 
       {subTab === 'upcoming' && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '25px' }}>
@@ -876,7 +882,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
             upcomingTopics.map(t => {
               const isDaily = getTopicType(t.start_date, t.end_date) === 'daily';
               return (
-                             <div key={t.id} style={{ background: 'linear-gradient(180deg, #1e293b, #0f172a)', padding: '25px', borderRadius: '24px', border: '1px solid #475569', display: 'flex', flexDirection: 'column', boxShadow: '0 10px 20px rgba(0,0,0,0.2)' }}>
+                <div key={t.id} style={{ background: 'linear-gradient(180deg, #1e293b, #0f172a)', padding: '25px', borderRadius: '24px', border: '1px solid #475569', display: 'flex', flexDirection: 'column', boxShadow: '0 10px 20px rgba(0,0,0,0.2)' }}>
                   <div style={{ marginBottom: '10px' }}>
                     <span style={{ background: isDaily ? '#ef444420' : '#3b82f620', color: isDaily ? '#f87171' : '#60a5fa', border: `1px solid ${isDaily ? '#ef444450' : '#3b82f650'}`, padding: '4px 12px', borderRadius: '50px', fontSize: '0.8rem', fontWeight: 'bold' }}>
                       {isDaily ? '🔴 Napi Kihívás' : '🔵 Heti Kihívás'}
@@ -898,7 +904,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                     ⏳ Start: {new Date(t.start_date).toLocaleDateString('hu-HU')}
                   </div>
                 </div>
-
               );
             })
           )}
@@ -1252,7 +1257,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                       </span>
                     </div>
 
-                    <div style={{ textAlign: 'right', minWidth: '80px' }}>
+                    <div style={{ textalign: 'right', minWidth: '80px' }}>
                       <div style={{ color: '#fbbf24', fontWeight: '900', fontSize: '1.4rem' }}>{likes} <span style={{ fontSize: '0.9rem', fontWeight: 'normal', color: '#64748b' }}>⭐</span></div>
                     </div>
                   </div>
@@ -1319,7 +1324,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                           <div style={{ color: rank.color, fontWeight: 'bold', fontSize: '1rem' }}>{rank.name} {isMyRank && <span style={{fontSize: '0.75rem', background: rank.color, color: '#000', padding: '2px 6px', borderRadius: '10px', marginLeft: '5px'}}>TE VAGY</span>}</div>
                           <div style={{ color: '#64748b', fontSize: '0.8rem' }}>Szükséges: {rank.req}</div>
                         </div>
-                        <div style={{ textAlign: 'right', fontWeight: 'bold', color: '#f8fafc', fontSize: '0.9rem' }}>
+                        <div style={{ textalign: 'right', fontWeight: 'bold', color: '#f8fafc', fontSize: '0.9rem' }}>
                           {rank.power}
                         </div>
                       </div>
