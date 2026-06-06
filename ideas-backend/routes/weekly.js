@@ -570,6 +570,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
   
+    // GLOBÁLIS DICSŐSÉGCSARNOK (MÓDOSÍTVA A KLUB LOGÓ MEZŐVEL)
   app.get('/api/weekly/hall-of-fame', async (req, res) => {
     try {
       const [rows] = await pool.query(`
@@ -577,10 +578,11 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
           u.name as user_name, 
           u.email as user_email, 
           u.club_name,
+          u.club_logo, -- 👈 ÚJ: Lekérjük a klub logójának URL-jét is az adatbázisból
           COALESCE(SUM(e.likes_count), 0) as total_likes
         FROM photo_users u
         LEFT JOIN weekly_entries e ON u.email = e.user_email AND e.is_active = 1
-        GROUP BY u.email, u.name, u.club_name
+        GROUP BY u.email, u.name, u.club_name, u.club_logo -- 👈 Bevéve a csoportosításba is
         HAVING total_likes > 0
         ORDER BY total_likes DESC, u.name ASC
       `);
@@ -589,6 +591,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       res.status(500).json({ error: 'Hiba a dicsőségcsarnok lekérésekor' });
     }
   });
+
   
   app.post('/api/weekly/report-off-topic', async (req, res) => {
     const { entryId, userEmail } = req.body;
