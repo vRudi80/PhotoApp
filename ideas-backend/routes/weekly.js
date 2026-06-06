@@ -211,7 +211,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     const { userEmail, topicId } = req.query;
     try {
       // 🏆 1. AUTOMATIKUS LEZÁRÓ MOTOR FUTTATÁSA
-      // Ha van frissen lezárult téma, itt osztja ki a cseréket a holtverseny-szabályok szerint
       await processFinishedChallenges(pool);
 
       // 👑 JAVÍTVA: Összekapcsoljuk a photo_users táblával, hogy megkapjuk a párbajmester nevét is!
@@ -234,7 +233,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       });
 
       // 👑 2. FELHASZNÁLÓI STATISZTIKÁK & ÚJ RANGRENDSZER LEKÉRDEZÉSE
-      // Kiszámolja a szavazati erőt a pontok ÉS győzelmek alapján
       const power = await getUserVotePower(pool, userEmail);
       const { totalLikes, victories } = await getUserLikesAndVictories(pool, userEmail);
       const userTotalLikes = totalLikes;
@@ -268,8 +266,8 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
           swapBalance,
           myReferralCode, 
           referredBy,
-          masterVotesLeft: 0, // Alapértelmezett érték a gyűjtőoldalon
-          isMaster: false     // Alapértelmezett érték a gyűjtőoldalon
+          masterVotesLeft: 0, 
+          isMaster: false     
         });
       }
 
@@ -309,7 +307,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       const totalEntries = allEntriesCount[0].total || 0;
       
       // ⚡ JAVÍTVA: Ha ő a Párbajmester, nincs saját fotója, így a teljes mezőnyre szavazhat (totalEntries)
-      // Ha normál játékos, akkor levonjuk a sajátját (totalEntries - 1)
       const votableEntries = isMasterUser ? totalEntries : Math.max(1, totalEntries - 1);
 
       // Vak toplista: Kizárólag az aktív képek jelennek meg
@@ -353,8 +350,8 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         swapBalance,
         myReferralCode, 
         referredBy,
-        masterVotesLeft,       // 👑 Párbajmester hátralévő szavazatszáma (0-5)
-        isMaster: isMasterUser  // 👑 Igaz, ha a belépett user a Párbajmester
+        masterVotesLeft,       
+        isMaster: isMasterUser  
       });
 
     } catch (err) { 
@@ -365,7 +362,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
 
   // ====================================================================
-  // 📸 INTEGRÁLT VÉGPONT: ELSŐ KÉP FELTÖLTÉSE & NEVEZÉS (MÓDOSÍTVA)
+  // 📸 INTEGRÁLT VÉGPONT: ELSŐ KÉP FELTÖLTÉSE & NEVEZÉS
   // ====================================================================
   app.post('/api/weekly/upload', upload.single('photo'), async (req, res) => {
     const { topicId, userEmail, userName } = req.body;
@@ -419,7 +416,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
 
-  // 3. JAVÍTVA: ÚJ KÉP FELTÖLTÉSE CSERÉVEL (SOFT-DELETE MODELL, PÉNZTÁRCA LEVONÁSSAL)
+  // 3. JAVÍTVA: ÚJ KÉP FELTÖLTÉSE CSERÉVEL
   app.post('/api/weekly/swap', upload.single('photo'), async (req, res) => {
     const { topicId, userEmail, userName } = req.body;
     const file = req.file;
@@ -512,7 +509,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } finally { conn.release(); }
   });
 
-  // 4. KÖVETKEZŐ KÉP KIVÁLASZTÁSA (KIZÁRÓLAG AZ AKTÍV KÉPEKET SORSOLJA)
+  // 4. KÖVETKEZŐ KÉP KIVÁLASZTÁSA
   app.get('/api/weekly/next-vote', async (req, res) => {
     const { topicId, userEmail } = req.query;
     try {
@@ -528,7 +525,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { res.status(500).json({ error: 'Hiba a kép lekérésekor' }); }
   });
 
-  // 5. SZAVAZAT LEADÁSA (KIEGÉSZÍTVE A +10 PONTOS PÁRBAJMESTER LOGIKÁVAL)
+  // 5. SZAVAZAT LEADÁSA
   app.post('/api/weekly/vote', async (req, res) => {
     const { entryId, userEmail, voteType } = req.body; 
     const conn = await pool.getConnection();
@@ -561,7 +558,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
           return res.status(400).json({ error: 'Már elhasználtad mind az 5 Párbajmester szavazatodat!' });
         }
 
-        calculatedPoints = 10; // Fixen 10 pont!
+        calculatedPoints = 10; 
       } 
       // NORMÁL SZAVAZÓK
       else {
@@ -584,7 +581,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
 
-  // 🎁 ÚJ VÉGPONT: MEGHÍVÓ KÓD BEVÁLTÁSA (+10 JOKER CSATORNÁZÁSA)
+  // 🎁 ÚJ VÉGPONT: MEGHÍVÓ KÓD BEVÁLTÁSA
   app.post('/api/weekly/claim-referral', async (req, res) => {
     const { userEmail, referralCode } = req.body;
     try {
@@ -616,12 +613,32 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
+  // 👑 JAVÍTVA: A jövőbeli témákhoz is behúzza a párbajmester nevét a photo_users táblából
   app.get('/api/weekly/upcoming', async (req, res) => {
-    try { const [rows] = await pool.query('SELECT * FROM weekly_topics WHERE start_date > CURRENT_DATE() ORDER BY start_date ASC'); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
+    try { 
+      const [rows] = await pool.query(`
+        SELECT t.*, u.name AS master_name 
+        FROM weekly_topics t
+        LEFT JOIN photo_users u ON t.master_email = u.email
+        WHERE t.start_date > CURRENT_DATE() 
+        ORDER BY t.start_date ASC
+      `); 
+      res.json(rows); 
+    } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
+  // 👑 JAVÍTVA: Az archív témákhoz is behúzza a párbajmester nevét a photo_users táblából
   app.get('/api/weekly/past', async (req, res) => {
-    try { const [rows] = await pool.query('SELECT * FROM weekly_topics WHERE end_date < CURRENT_DATE() ORDER BY end_date DESC'); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
+    try { 
+      const [rows] = await pool.query(`
+        SELECT t.*, u.name AS master_name 
+        FROM weekly_topics t
+        LEFT JOIN photo_users u ON t.master_email = u.email
+        WHERE t.end_date < CURRENT_DATE() 
+        ORDER BY t.end_date DESC
+      `); 
+      res.json(rows); 
+    } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
   app.get('/api/weekly/history/:topicId', async (req, res) => {
@@ -687,7 +704,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
-  // Admin 5. GYANÚS (IP DUPLIKÁCIÓ) LEKÉRÉSE
+  // Admin GYANÚS (IP DUPLIKÁCIÓ) LEKÉRÉSE
   app.get('/api/admin/weekly/suspicious', async (req, res) => {
     try {
       const [rows] = await pool.query(`
