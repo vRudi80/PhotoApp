@@ -2,9 +2,9 @@ const fs = require('fs');
 
 module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   
-   // 📊 JAVÍTVA & ELLENŐRIZVE: Ultra-gyors, hurokmentesített statisztikai lekérdezés (1 query a 30+ helyett!)
+    // 📊 JAVÍTVA: MySQL 5.7 kompatibilis, hurokmentesített, szupergyors statisztikai lekérdezés
   async function getUserLikesAndVictories(pool, email) {
-    // 1. Összes szerzett lájk/pont lekérése (Változatlan kód)
+    // 1. Összes szerzett lájk/pont lekérése (Változatlan, stabil rész)
     const [likesRows] = await pool.query(`
       SELECT COALESCE(SUM(e.likes_count), 0) as total 
       FROM weekly_entries e
@@ -13,16 +13,20 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     `, [email]);
     const totalLikes = likesRows[0].total || 0;
 
-    // 2. Győzelmek kiszámítása egyetlen kombinált, hurokmentes SQL lekérdezéssel
+    // 2. Győzelmek kiszámítása egyetlen leleményes, verziófüggetlen al-lekérdezéssel (for hurok nélkül!)
     const [victoryRows] = await pool.query(`
-      WITH ranked_entries AS (
-        SELECT topic_id, user_email,
-               ROW_NUMBER() OVER (PARTITION BY topic_id ORDER BY likes_count DESC, views_count ASC) as rnk
-        FROM weekly_entries
-        WHERE topic_id IN (SELECT id FROM weekly_topics WHERE end_date < CURRENT_DATE())
-          AND is_active = 1
-      )
-      SELECT COUNT(*) as victories FROM ranked_entries WHERE rnk = 1 AND user_email = ?
+      SELECT COUNT(*) as victories
+      FROM weekly_entries e1
+      WHERE e1.user_email = ? 
+        AND e1.is_active = 1
+        AND e1.topic_id IN (SELECT id FROM weekly_topics WHERE end_date < CURRENT_DATE())
+        AND e1.id = (
+          SELECT e2.id 
+          FROM weekly_entries e2
+          WHERE e2.topic_id = e1.topic_id AND e2.is_active = 1
+          ORDER BY e2.likes_count DESC, e2.views_count ASC
+          LIMIT 1
+        )
     `, [email]);
     
     const victories = victoryRows[0]?.victories || 0;
