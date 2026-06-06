@@ -45,6 +45,29 @@ module.exports = function(app, pool) {
       res.status(500).json({ error: 'Hiba a mentés során' });
     }
   });
+  // ====================================================================
+  // 👤 ÚJ VÉGPONT: Felhasználó nevének módosítása (táblák szinkronizálásával)
+  // ====================================================================
+  app.put('/api/users/update-name', async (req, res) => {
+    const { email, newName } = req.body;
+
+    if (!email || !newName || !newName.trim()) {
+      return res.status(400).json({ error: 'A név megadása kötelező!' });
+    }
+
+    try {
+      // 1. Átírjuk a nevet a fő felhasználói táblában
+      await pool.query('UPDATE photo_users SET name = ? WHERE email = ?', [newName.trim(), email]);
+
+      // 2. Frissítjük az összes korábbi és jelenlegi heti nevezését is, hogy a toplisták ne szakadjanak el!
+      await pool.query('UPDATE weekly_entries SET user_name = ? WHERE user_email = ?', [newName.trim(), email]);
+
+      res.json({ success: true, message: 'Név sikeresen frissítve minden felületen!' });
+    } catch (err) {
+      console.error("Névmódosítási hiba az adatbázisban:", err);
+      res.status(500).json({ error: 'Szerveroldali hiba történt a név mentésekor.' });
+    }
+  });
 
   // ====================================================================
   // 3. Klub átnevezése az Admin felületen
