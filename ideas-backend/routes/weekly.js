@@ -38,6 +38,17 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     return 5;                                       // Guru 👑
   }
 
+    // 🎁 ÚJ SEGÉDFÜGGVÉNY: Generál és elment egy egyedi meghívó kódot, ha még nincs a usernek
+  async function ensureReferralCode(pool, email) {
+    const [rows] = await pool.query('SELECT referral_code FROM photo_users WHERE email = ?', [email]);
+    if (rows[0] && !rows[0].referral_code) {
+      const randomCode = 'REF-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+      await pool.query('UPDATE photo_users SET referral_code = ? WHERE email = ?', [randomCode, email]);
+      return randomCode;
+    }
+    return rows[0]?.referral_code || '';
+  }
+
   // 🚨 3. ÚJ MOTOR: Ellenőrzi a szintlépést, és azonnal kioszt +10 cserét, ha feljebb lépett!
   async function checkAndAwardLevelUp(pool, email) {
     const { totalLikes, victories } = await getUserLikesAndVictories(pool, email);
@@ -200,6 +211,10 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       // Lekérjük a felhasználó éles, globális csereegyenlegét a tárcájából
       const [userRows] = await pool.query('SELECT COALESCE(swap_balance, 0) as swap_balance FROM photo_users WHERE email = ?', [userEmail]);
       const swapBalance = userRows[0] ? userRows[0].swap_balance : 3;
+      // ✅ ÚJ: Generálunk/lekérünk egy meghívó kódot és ellenőrizzük, hogy őt meghívták-e
+      const myReferralCode = await ensureReferralCode(pool, userEmail);
+      const [referredCheck] = await pool.query('SELECT referred_by FROM photo_users WHERE email = ?', [userEmail]);
+      const referredBy = referredCheck[0] ? referredCheck[0].referred_by : null;
 
       // --------------------------------------------------------------------
       // A) HA NINCS SPECIFIKUS TOPIC ID -> Kihívások listájának visszaadása (Aréna főoldal)
@@ -218,7 +233,10 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
           userTotalLikes, 
           userVictories: victories, // ➕ Átadva a frontend rang-számításához
           userPower: power, 
-          swapBalance 
+          swapBalance,
+          myReferralCode, // ➕ Bekötve a válaszba
+          referredBy  // ➕ Bekötve a válaszba
+
         });
       }
 
@@ -283,7 +301,10 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         userTotalLikes,
         userVictories: victories, // ➕ Átadva az aréna belső nézetéhez is
         userPower: power,
-        swapBalance
+        swapBalance,
+        myReferralCode, // ➕ Bekötve a válaszba
+        referredBy  // ➕ Bekötve a válaszba
+
       });
 
     } catch (err) { 
@@ -451,6 +472,43 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       await conn.commit();
       res.json({ success: true });
     } catch (err) { await conn.rollback(); res.status(500).json({ error: 'Hiba' }); } finally { conn.release(); }
+  });
+
+    // 🎁 ÚJ VÉGPONT: MEGHÍVÓ KÓD BEVÁLTÁSA (+10 JOKER CSATORNÁZÁSA)
+  app.post('/api/weekly/claim-referral', async (req, res) => {
+    const { userEmail, referralCode } = req.body;
+    try {
+      // 1. Megnézzük, hogy a beíró létezik-e és használt-e már kódot
+      const [userRows] = await pool.query('SELECT referred_by FROM photo_users WHERE email = ?', [userEmail]);
+      if (!userRows[0]) return res.status(404).json({ error: 'Felhasználó nem található!' });
+      if (userRows[0].referred_by) return res.status(400).json({ error: 'Te már adtál meg meghívó kódot korábban!' });
+
+      // 2. Megkeressük, kié a beírt kód
+      const cleanCode = referralCode.trim().toUpperCase();
+      const [referrerRows] = await pool.query('SELECT email FROM photo_users WHERE referral_code = ?', [cleanCode]);
+      if (referrerRows.length === 0) return res.status(400).json({ error: 'Ez a meghívó kód nem létezik!' });
+
+      const referrerEmail = referrerRows[0].email;
+
+      // 3. Biztonsági szűrés: Saját magát nem hívhatja meg senki
+      if (referrerEmail === userEmail) return res.status(400).json({ error: 'Saját magad kódját nem adhatod meg!' });
+
+      // 4. Tranzakció indítása: a meghívó kap 10 cserét, a regisztrálónál pedig elmentjük a kapcsolatot
+      const conn = await pool.getConnection();
+      try {
+        await conn.beginTransaction();
+        await conn.query('UPDATE photo_users SET swap_balance = swap_balance + 10 WHERE email = ?', [referrerEmail]);
+        await conn.query('UPDATE photo_users SET referred_by = ? WHERE email = ?', [referrerEmail, userEmail]);
+        await conn.commit();
+        res.json({ success: true });
+      } catch (txErr) {
+        await conn.rollback();
+        throw txErr;
+      } finally { conn.release(); }
+
+    } catch (err) {
+      res.status(500).json({ error: 'Hiba a kód érvényesítésekor.' });
+    }
   });
 
   app.get('/api/weekly/upcoming', async (req, res) => {
