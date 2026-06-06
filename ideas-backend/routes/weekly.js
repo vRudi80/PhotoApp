@@ -1,4 +1,13 @@
 const fs = require('fs');
+const cloudinary = require('cloudinary').v2;
+
+// Cloudinary konfiguráció a környezeti változókból
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
+
 
 module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   
@@ -790,6 +799,54 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
+    // ====================================================================
+  // 🧪 ADMIN TESZT VÉGPONT: Kép feltöltése Cloudinary-re (Adatbázis érintése nélkül)
+  // ====================================================================
+  app.post('/api/admin/test-cloudinary', upload.single('photo'), async (req, res) => {
+    const file = req.file;
+    if (!file) return res.status(400).json({ error: 'Nem választottál ki fájlt!' });
+
+    try {
+      // 🚀 Feltöltés a Cloudinary-re egy dedikált teszt mappába
+      const result = await cloudinary.uploader.upload(file.path, {
+        folder: 'fotoklub_tesztek',
+        // Automatikus optimalizációk kérése a Cloudinary-től
+        transformation: [
+          { quality: 'auto', fetch_format: 'auto' }
+        ]
+      });
+
+      // 🧹 Ideiglenes helyi temp fájl letakarítása a Render szerverről
+      if (typeof cleanupTempFile === 'function') {
+        cleanupTempFile(file);
+      } else {
+        const fs = require('fs');
+        if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+      }
+
+      // Visszaküldjük a Cloudinary adatait a frontend tesztpanelnek
+      res.json({
+        success: true,
+        secure_url: result.secure_url,    // Ez a szupergyors CDN URL
+        public_id: result.public_id,      // A kép egyedi azonosítója a felhőben
+        format: result.format,            // Milyen formátumra alakította (pl. webp)
+        bytes: result.bytes,              // A kapott fájlméret byte-ban
+        width: result.width,
+        height: result.height
+      });
+
+    } catch (err) {
+      // Hiba esetén is takarítunk
+      if (file) {
+        const fs = require('fs');
+        if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+      }
+      console.error("❌ Cloudinary teszt feltöltési hiba:", err);
+      res.status(500).json({ error: err.message || 'Szerveroldali hiba a feltöltéskor.' });
+    }
+  });
+
+  
   app.post('/api/weekly/report-off-topic', async (req, res) => {
     const { entryId, userEmail } = req.body;
     try {
