@@ -643,7 +643,9 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                       </p>
                     </div>
 
-                    {/* ✅ JAVÍTVA: Megszüntetve a duplikált és egymásba ágyazott div kódblokk */}
+                                 {/* ====================================================================
+                        ⚔️ ÉRTÉKELŐ ARÉNA PANEL (JAVÍTVA ÉS TISZTÍTVA)
+                        ==================================================================== */}
                     <div style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #334155', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
                       <h3 style={{ margin: '0 0 20px 0', color: '#f8fafc', fontSize: '1.4rem' }}>⚔️ Értékelő Aréna</h3>
                       
@@ -702,10 +704,14 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                           </div>
                         </div>
                       ) : <div style={{ color: '#94a3b8', textAlign: 'center', padding: '20px' }}>Kép betöltése...</div>}
-                    </div>
-                  </div>
+                    </div> {/* ✅ Closes Értékelő Aréna panel */}
+                  </div> {/* ✅ Closes Left Column Container */}
 
+                  {/* ====================================================================
+                      👉 JOBB OLDALI OSZLOP INDÍTÁSA (Saját Nevezések, Toplisták)
+                      ==================================================================== */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
+
                     
                     <div style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #334155', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
