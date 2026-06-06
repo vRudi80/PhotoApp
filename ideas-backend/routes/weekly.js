@@ -168,9 +168,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-  // ====================================================================
-  // ⚔️ FELHASZNÁLÓI ÉS ARÉNA VÉGPONTOK
-  // ====================================================================
 
   // ====================================================================
   // ⚔️ INTEGRÁLT VÉGPONT: AKTUÁLIS TÉMA ÉS ARÉNA ADATOK LEKÉRÉSE
@@ -570,7 +567,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
   
-    // GLOBÁLIS DICSŐSÉGCSARNOK (MÓDOSÍTVA A KLUB LOGÓ MEZŐVEL)
+   // GLOBÁLIS DICSŐSÉGCSARNOK (JAVÍTVA: KLUB TÁBLA ÖSSZEKAPCSOLÁSSAL)
   app.get('/api/weekly/hall-of-fame', async (req, res) => {
     try {
       const [rows] = await pool.query(`
@@ -578,19 +575,22 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
           u.name as user_name, 
           u.email as user_email, 
           u.club_name,
-          u.club_logo, -- 👈 ÚJ: Lekérjük a klub logójának URL-jét is az adatbázisból
+          c.logo as club_logo, -- ✅ JAVÍTVA: A photo_clubs (c) táblából húzzuk be a logót!
           COALESCE(SUM(e.likes_count), 0) as total_likes
         FROM photo_users u
         LEFT JOIN weekly_entries e ON u.email = e.user_email AND e.is_active = 1
-        GROUP BY u.email, u.name, u.club_name, u.club_logo -- 👈 Bevéve a csoportosításba is
+        LEFT JOIN photo_clubs c ON u.club_name = c.name -- ✅ ÚJ: Összekötjük a klubnevek alapján
+        GROUP BY u.email, u.name, u.club_name, c.logo -- ✅ JAVÍTVA: A csoportosításba is a c.logo került
         HAVING total_likes > 0
         ORDER BY total_likes DESC, u.name ASC
       `);
       res.json(rows);
     } catch (err) {
+      console.error("❌ Hiba a dicsőségcsarnok lekérésekor:", err.message);
       res.status(500).json({ error: 'Hiba a dicsőségcsarnok lekérésekor' });
     }
   });
+
 
   
   app.post('/api/weekly/report-off-topic', async (req, res) => {
