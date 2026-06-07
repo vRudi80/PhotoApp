@@ -65,9 +65,9 @@ const compressImageOnClient = (file: File): Promise<File> => {
             });
             resolve(compressedFile);
           } else {
-            resolve(file); // Fallback, ha a canvas elbukna
+            resolve(file); 
           }
-        }, 'image/jpeg', 0.8); // 0.8 = 80% minőség (szinte észrevehetetlen romlás, tizedakkora méret!)
+        }, 'image/jpeg', 0.8); 
       };
     };
   });
@@ -164,8 +164,6 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
   );
 }
 
-
-
 // ====================================================================
 // ⚔️ FŐ KOMPONENS
 // ====================================================================
@@ -233,7 +231,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const [loadingShareImg, setLoadingShareImg] = useState(false);
 
   // ====================================================================
-  // 👑 JAVÍTVA: Biztonságos Base64 betöltés trófeakártyákhoz (Drive és Cloudinary támogatás)
+  // 👑 JAVÍTVA: Biztonságos Base64 betöltés trófeakártyákhoz
   // ====================================================================
   useEffect(() => {
     if (!activeShareData) {
@@ -512,11 +510,10 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     finally { setIsClaimingReferral(false); }
   };
 
-const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const rawFile = e.target.files[0];
       
-      // 🚀 Varázslat: Ha a kép nagyobb mint 2 MB, a háttérben azonnal összenyomjuk!
       let finalFile = rawFile;
       if (rawFile.size > 2 * 1024 * 1024) {
         console.log("⚡ Óriásfájl észlelve, böngészős tömörítés indul...");
@@ -564,10 +561,10 @@ const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     finally { setIsSwapping(false); }
   };
 
-const handleSelectPhotoForSwap = async (photoUrl: string) => {
+  const handleSelectPhotoForSwap = async (photoUrl: string) => {
     if (!window.confirm("⚠️ Biztosan elhasználsz 1 Joker cserét erre az albumképre? Ez a fotó most 0 pontról fog újraindulni ebben a fordulóban!")) return;
     setIsSwapping(true);
-    setShowSwapAlbumModal(false); // Bezárjuk a választó ablakot
+    setShowSwapAlbumModal(false); 
     
     try {
       const swapRes = await fetch(`${BACKEND_URL}/api/weekly/swap-existing`, {
@@ -631,7 +628,6 @@ const handleSelectPhotoForSwap = async (photoUrl: string) => {
           <button onClick={() => setSubTab('upcoming')} style={{ padding: '10px 24px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: subTab === 'upcoming' ? '#334155' : 'transparent', color: subTab === 'upcoming' ? 'white' : '#94a3b8', transition: 'all 0.3s' }}>⏳ Hamarosan</button>
           <button onClick={() => setSubTab('past')} style={{ padding: '10px 24px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: subTab === 'past' ? '#334155' : 'transparent', color: subTab === 'past' ? 'white' : '#94a3b8', transition: 'all 0.3s' }}>📜 Archívum</button>
           
-          {/* ➕ ÚJ SUB-TAB GOMB: Képtáram */}
           <button 
             onClick={() => setSubTab('arena_album')} 
             style={{ 
@@ -743,7 +739,7 @@ const handleSelectPhotoForSwap = async (photoUrl: string) => {
                         </div>
 
                         <p style={{ fontSize: '0.85rem', color: '#94a3b8', margin: '15px 0 0 0', textAlign: 'center', lineHeight: '1.6' }}>
-                          {!myEntry ? 'Töltsd fel a képedet az induláshoz, és kapsz 10 alap energiát!' : voteEntry ? '⚡ Új fotó érkezett az Arénába (vagy valaki Jokert használt)! Értékelt, hogy a mérőd újra maxon pörögjön!' : '🔥 A képed a maximumon pörög! Jelenleg nincs több értékelhető kép az Arénában.'}
+                          {!myEntry ? 'Töltsd felt a képedet az induláshoz, és kapsz 10 alap energiát!' : voteEntry ? '⚡ Új fotó érkezett az Arénába (vagy valaki Jokert használt)! Értékelt, hogy a mérőd újra maxon pörögjön!' : '🔥 A képed a maximumon pörög! Jelenleg nincs több értékelhető kép az Arénában.'}
                         </p>
                       </div>
                     )}
@@ -850,46 +846,46 @@ const handleSelectPhotoForSwap = async (photoUrl: string) => {
                           )}
 
                           {swapBalance > 0 ? (
-            <div style={{ marginTop: '25px', background: 'linear-gradient(135deg, #4c1d9520, #be123c20)', padding: '20px', borderRadius: '16px', border: '1px solid #be123c50' }}>
-              <h5 style={{ margin: '0 0 10px 0', color: '#f43f5e', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>🔄 Új Fotó Feltöltése & Csere</h5>
-              <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 15px 0', lineHeight: '1.5' }}>Rosszul megy a szekér? Tölts fel egy vadonatúj fotót 1 cserepontért! Az új kép 0 pontról indul, de a mostani képedet sem veszíted el.</p>
-              <input type="file" accept="image/jpeg, image/png, image/webp" onChange={handleSwapFileSelect} style={{ color: '#cbd5e1', marginBottom: '15px', fontSize: '0.85rem', width: '100%', padding: '10px', background: '#0f172a', borderRadius: '8px' }} disabled={isSwapping} />
-              {swapPreview && <div style={{marginBottom: '15px', display: 'flex', justifyContent: 'center'}}><img src={swapPreview} alt="Swap preview" style={{maxHeight: '120px', borderRadius: '8px', border: '2px solid #e11d48'}} /></div>}
-              <button onClick={handleSwapSubmit} disabled={!swapFile || isSwapping} style={{ width: '100%', background: !swapFile ? '#334155' : 'linear-gradient(135deg, #e11d48, #be123c)', color: !swapFile ? '#94a3b8' : 'white', border: 'none', padding: '12px', borderRadius: '12px', fontWeight: 'bold', fontSize: '1rem', cursor: !swapFile ? 'not-allowed' : 'pointer' }}>
-                {isSwapping ? 'Csere folyamatban...' : 'Joker Elköltése Tallózással 🔄'}
-              </button>
+                            <div style={{ marginTop: '25px', background: 'linear-gradient(135deg, #4c1d9520, #be123c20)', padding: '20px', borderRadius: '16px', border: '1px solid #be123c50' }}>
+                              <h5 style={{ margin: '0 0 10px 0', color: '#f43f5e', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>🔄 Új Fotó Feltöltése & Csere</h5>
+                              <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 15px 0', lineHeight: '1.5' }}>Rosszul megy a szekér? Tölts fel egy vadonatúj fotót 1 cserepontért! Az új kép 0 pontról indul, de a mostani képedet sem veszíted el.</p>
+                              <input type="file" accept="image/jpeg, image/png, image/webp" onChange={handleSwapFileSelect} style={{ color: '#cbd5e1', marginBottom: '15px', fontSize: '0.85rem', width: '100%', padding: '10px', background: '#0f172a', borderRadius: '8px' }} disabled={isSwapping} />
+                              {swapPreview && <div style={{marginBottom: '15px', display: 'flex', justifyContent: 'center'}}><img src={swapPreview} alt="Swap preview" style={{maxHeight: '120px', borderRadius: '8px', border: '2px solid #e11d48'}} /></div>}
+                              <button onClick={handleSwapSubmit} disabled={!swapFile || isSwapping} style={{ width: '100%', background: !swapFile ? '#334155' : 'linear-gradient(135deg, #e11d48, #be123c)', color: !swapFile ? '#94a3b8' : 'white', border: 'none', padding: '12px', borderRadius: '12px', fontWeight: 'bold', fontSize: '1rem', cursor: !swapFile ? 'not-allowed' : 'pointer' }}>
+                                {isSwapping ? 'Csere folyamatban...' : 'Joker Elköltése Tallózással 🔄'}
+                              </button>
 
-           {/* ⚡ ÚJ: INTELLIGENS JOKER CSERE ARÉNA ALBUMBÓL */}
-              <div style={{ marginTop: '18px', borderTop: '1px solid #be123c40', paddingTop: '15px', textAlign: 'center' }}>
-                <p style={{ color: '#64748b', fontSize: '0.8rem', margin: '0 0 10px 0' }}>VAGY elhasználhatsz 1 Jokert egy már meglévő albumképedre:</p>
-                <button 
-                  disabled={isSwapping || isLoadingSwapAlbum}
-                  onClick={async () => {
-                    setIsLoadingSwapAlbum(true);
-                    try {
-                      // Lekérjük a képeket a frissített API-ról
-                      const res = await fetch(`${BACKEND_URL}/api/weekly/my-album?userEmail=${user?.email}`);
-                      if (res.ok) {
-                        const albumPhotos = await res.json();
-                        if (albumPhotos.length === 0) {
-                          alert("Még nincs kép az Aréna képtáradban!");
-                        } else {
-                          setSwapAlbumPhotos(albumPhotos); // Elmentjük a képeket a state-be
-                          setShowSwapAlbumModal(true);     // 🔥 Megnyitjuk a csodaszép modern ablakot a prompt helyett!
-                        }
-                      }
-                    } catch (e) {
-                      alert("Hiba az album betöltésekor.");
-                    } finally {
-                      setIsLoadingSwapAlbum(false);
-                    }
-                  }}
-                  style={{ width: '100%', background: '#1e293b', border: '1px solid #f43f5e', color: '#f43f5e', padding: '10px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.9rem', transition: 'all 0.2s' }}
-                >
-                  {isLoadingSwapAlbum ? '⏳ Képtár betöltése...' : '🖼️ Joker Csere az Aréna Képtárból'}
-                </button>
-              </div>
-          ) : (
+                              {/* ⚡ ÚJ: INTELLIGENS JOKER CSERE ARÉNA ALBUMBÓL */}
+                              <div style={{ marginTop: '18px', borderTop: '1px solid #be123c40', paddingTop: '15px', textAlign: 'center' }}>
+                                <p style={{ color: '#64748b', fontSize: '0.8rem', margin: '0 0 10px 0' }}>VAGY elhasználhatsz 1 Jokert egy már meglévő albumképedre:</p>
+                                <button 
+                                  disabled={isSwapping || isLoadingSwapAlbum}
+                                  onClick={async () => {
+                                    setIsLoadingSwapAlbum(true);
+                                    try {
+                                      const res = await fetch(`${BACKEND_URL}/api/weekly/my-album?userEmail=${user?.email}`);
+                                      if (res.ok) {
+                                        const albumPhotos = await res.json();
+                                        if (albumPhotos.length === 0) {
+                                          alert("Még nincs kép az Aréna képtáradban!");
+                                        } else {
+                                          setSwapAlbumPhotos(albumPhotos); 
+                                          setShowSwapAlbumModal(true);     
+                                        }
+                                      }
+                                    } catch (e) {
+                                      alert("Hiba az album betöltésekor.");
+                                    } finally {
+                                      setIsLoadingSwapAlbum(false);
+                                    }
+                                  }}
+                                  style={{ width: '100%', background: '#1e293b', border: '1px solid #f43f5e', color: '#f43f5e', padding: '10px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.9rem', transition: 'all 0.2s' }}
+                                >
+                                  {isLoadingSwapAlbum ? '⏳ Képtár betöltése...' : '🖼️ Joker Csere az Aréna Képtárból'}
+                                </button>
+                              </div>
+                            </div> // 🔐 JAVÍTVA: Itt zártuk le a hiányzó divet!
+                          ) : (
                             <div style={{ marginTop: '25px', background: '#0f172a', padding: '15px', borderRadius: '12px', color: '#64748b', fontSize: '0.9rem', textAlign: 'center', border: '1px dashed #475569' }}>
                               🔒 Elfogytak a globális Joker cseréid! Teljesíts jól feladatokat extra pontokért.
                             </div>
@@ -933,7 +929,7 @@ const handleSelectPhotoForSwap = async (photoUrl: string) => {
                               <p style={{ color: '#64748b', fontSize: '0.8rem', margin: '0 0 10px 0' }}>VAGY választhatsz egy meglévő fotót az albumodból:</p>
                               <button 
                                 onClick={async () => {
-                                  const res = await fetch(`${BACKEND_URL}/api/my-album?userEmail=${user?.email}`);
+                                  const res = await fetch(`${BACKEND_URL}/api/weekly/my-album?userEmail=${user?.email}`);
                                   if (res.ok) {
                                     const albumPhotos = await res.json();
                                     if (albumPhotos.length === 0) return alert("Még nincs kép az Aréna képtáradban!");
@@ -1522,7 +1518,7 @@ const handleSelectPhotoForSwap = async (photoUrl: string) => {
         </div>
       )}
 
-{/* 🖼️ MODERN VIZUÁLIS ALBUMVÁLASZTÓ MODAL JOKER CSERÉHEZ (Böngészős prompt helyett) */}
+      {/* 🖼️ MODERN VIZUÁLIS ALBUMVÁLASZTÓ MODAL JOKER CSERÉHEZ (Böngészős prompt helyett) */}
       {showSwapAlbumModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 99999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px', boxSizing: 'border-box' }}>
           <div style={{ background: '#0f172a', border: '1px solid #334155', borderRadius: '24px', width: '100%', maxWidth: '550px', maxHeight: '80vh', overflowY: 'auto', padding: '25px', position: 'relative', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.8)' }}>
@@ -1538,7 +1534,7 @@ const handleSelectPhotoForSwap = async (photoUrl: string) => {
                   key={p.id || idx} 
                   onClick={() => handleSelectPhotoForSwap(p.file_url)}
                   style={{ background: '#1e293b', borderRadius: '14px', overflow: 'hidden', border: '2px solid #334155', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', flexDirection: 'column' }}
-                  onMousOver={(e) => { e.currentTarget.style.borderColor = '#f43f5e'; e.currentTarget.style.transform = 'scale(1.02)'; }}
+                  onMouseOver={(e) => { e.currentTarget.style.borderColor = '#f43f5e'; e.currentTarget.style.transform = 'scale(1.02)'; }}
                   onMouseOut={(e) => { e.currentTarget.style.borderColor = '#334155'; e.currentTarget.style.transform = 'scale(1)'; }}
                 >
                   <div style={{ width: '100%', height: '115px', backgroundColor: '#000', overflow: 'hidden' }}>
@@ -1645,7 +1641,7 @@ const handleSelectPhotoForSwap = async (photoUrl: string) => {
               </div>
             </div>
 
-            <div style={{ textPlain: 'center', zIndex: 10 }}>
+            <div style={{ textAlign: 'center', zIndex: 10 }}>
               <div style={{ fontSize: '0.65rem', color: '#475569' }}>Játssz Te is következő párbajban:</div>
               <div style={{ color: '#38bdf8', fontWeight: 'bold', marginTop: '1px', fontSize: '0.8rem' }}>kepolvasok.guru</div>
             </div>
