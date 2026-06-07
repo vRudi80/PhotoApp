@@ -154,32 +154,28 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-  // ====================================================================
-  // ⚙️ JAVÍTVA: Új téma létrehozása közvetlen borítókép feltöltéssel
+ // ====================================================================
+  // ⚙️ JAVÍTVA: Új téma létrehozása borítóképpel és szerzővel
   // ====================================================================
   app.post('/api/admin/weekly-topics', upload.single('cover'), async (req, res) => {
-    // Multipart form-data esetén a mezők a req.body-ból érkeznek
-    const { title, description, startDate, endDate, masterEmail } = req.body; 
+    // ➕ Hozzáadva: coverAuthor átvétele a form-ból
+    const { title, description, startDate, endDate, masterEmail, coverAuthor } = req.body; 
     const file = req.file;
     let finalCoverUrl = null;
 
     try {
-      // Ha az admin kiválasztott egy borítóképet, feltoljuk a Cloudinary-re
       if (file) {
         const result = await cloudinary.uploader.upload(file.path, {
           folder: 'parbaj_boritokepek',
-          width: 1200, 
-          height: 600, 
-          crop: "limit", 
-          quality: "auto:good"
+          width: 1200, height: 600, crop: "limit", quality: "auto:good"
         });
         finalCoverUrl = result.secure_url;
-        if (fs.existsSync(file.path)) fs.unlinkSync(file.path); // Töröljük a Render szerverről a temp fájlt
+        if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
       }
 
       await pool.query(
-        'INSERT INTO weekly_topics (title, description, start_date, end_date, master_email, cover_url) VALUES (?, ?, ?, ?, ?, ?)', 
-        [title, description, startDate, endDate, masterEmail || null, finalCoverUrl]
+        'INSERT INTO weekly_topics (title, description, start_date, end_date, master_email, cover_url, cover_author) VALUES (?, ?, ?, ?, ?, ?, ?)', 
+        [title, description, startDate, endDate, masterEmail || null, finalCoverUrl, coverAuthor || null]
       );
       res.json({ success: true });
     } catch (err) {
@@ -189,33 +185,28 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // ⚙️ JAVÍTVA: Téma szerkesztése borítókép cserével vagy megtartásával
+  // ⚙️ JAVÍTVA: Téma szerkesztése borítóképpel és szerzővel
   // ====================================================================
   app.put('/api/admin/weekly-topics/:id', upload.single('cover'), async (req, res) => {
     const { id } = req.params;
-    const { title, description, startDate, endDate, masterEmail, coverUrl } = req.body; 
+    // ➕ Hozzáadva: coverAuthor átvétele a form-ból
+    const { title, description, startDate, endDate, masterEmail, coverUrl, coverAuthor } = req.body; 
     const file = req.file;
-    
-    // Alapértelmezetten megtartjuk azt a linket, ami a frontenről érkezik (ha nem cserélték le a képet)
     let finalCoverUrl = coverUrl || null; 
 
     try {
-      // Ha az admin vadonatúj képet tallózott be, azt feltoljuk, és felülírjuk a régi linket
       if (file) {
         const result = await cloudinary.uploader.upload(file.path, {
           folder: 'parbaj_boritokepek',
-          width: 1200, 
-          height: 600, 
-          crop: "limit", 
-          quality: "auto:good"
+          width: 1200, height: 600, crop: "limit", quality: "auto:good"
         });
         finalCoverUrl = result.secure_url;
         if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
       }
 
       await pool.query(
-        'UPDATE weekly_topics SET title = ?, description = ?, start_date = ?, end_date = ?, master_email = ?, cover_url = ? WHERE id = ?', 
-        [title, description, startDate, endDate, masterEmail || null, finalCoverUrl, id]
+        'UPDATE weekly_topics SET title = ?, description = ?, start_date = ?, end_date = ?, master_email = ?, cover_url = ?, cover_author = ? WHERE id = ?', 
+        [title, description, startDate, endDate, masterEmail || null, finalCoverUrl, coverAuthor || null, id]
       );
       res.json({ success: true });
     } catch (err) {
