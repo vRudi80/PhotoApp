@@ -1468,8 +1468,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
             </div>
 
             <div style={{ textAlign: 'center', zIndex: 10 }}>
-              <div style={{ fontSize: '0.65rem', color: '#475569' }}>Mérd meg a szemed a következő párbajban:</div>
-              <div style={{ color: '#38bdf8', fontWeight: 'bold', marginTop: '1px', fontSize: '0.8rem' }}>portal.fotoklub.hu</div>
+              <div style={{ fontSize: '0.65rem', color: '#475569' }}>Játssz Te is következő párbajban:</div>
+              <div style={{ color: '#38bdf8', fontWeight: 'bold', marginTop: '1px', fontSize: '0.8rem' }}>kepolvasok.guru</div>
             </div>
           </div>
 
