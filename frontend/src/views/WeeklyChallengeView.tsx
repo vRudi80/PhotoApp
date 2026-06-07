@@ -154,17 +154,14 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
           }
         </span>
       </div>
-    {/* 🖼️ PRÉMIUM BORÍTÓKÉP AZ AKTUÁLIS KÁRTYÁKON (Vágás nélkül, elmosott háttérrel) */}
+      {/* 🖼️ PRÉMIUM BORÍTÓKÉP AZ AKTUÁLIS KÁRTYÁKON (Vágás nélkül, elmosott háttérrel) */}
       {topic.cover_url && (
         <div style={{ width: '100%', height: '160px', borderRadius: '14px', overflow: 'hidden', marginBottom: '15px', border: '1px solid #334155', position: 'relative', backgroundColor: '#090d16' }}>
-          {/* Elmosott alsó réteg */}
           <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${topic.cover_url})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(12px) brightness(0.5)', transform: 'scale(1.1)' }}></div>
-          {/* Tiszta, teljes elülső kép */}
           <img src={topic.cover_url} alt="" style={{ position: 'relative', width: '100%', height: '100%', objectFit: 'contain', zIndex: 1 }} onError={handleImageError} />
         </div>
       )}
       
-      {/* ➕ ÚJ: SZERZŐ KIÍRÁSA A BORÍTÓ ALÁ */}
       {topic.cover_author && (
         <div style={{ color: '#64748b', fontSize: '0.75rem', fontStyle: 'italic', marginTop: '-10px', marginBottom: '15px', textAlign: 'right', paddingRight: '5px' }}>
           📸 Borítókép: {topic.cover_author}
@@ -295,7 +292,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   }
 
   const currentLevel = getLevelDetails(userTotalLikes, userVictories);
-    // 📊 INTELLIGENS NOMÁD RANG-PROGRESSZIÓ SZÁMÍTÓ ENGINE
+  // 📊 INTELLIGENS NOMÁD RANG-PROGRESSZIÓ SZÁMÍTÓ ENGINE
   const thresholds = [
     { name: 'Újonc 🌱', min: 0, max: 30, vic: 0 },
     { name: 'Bojtár 🪶', min: 30, max: 100, vic: 0 },
@@ -474,7 +471,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60)).toString().padStart(2, '0');
       const seconds = Math.floor((distance % (1000 * 60)) / 1000).toString().padStart(2, '0');
 
-      setTimeLeft(`${days} nap ${hours}:${minutes}:${seconds}`);
+      setTimeLeft(`${days} day ${hours}:${minutes}:${seconds}`);
       return true;
     };
 
@@ -612,6 +609,27 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       if (res.ok) { alert('🔄 Kép sikeresen lecserélve! Újra indul a harc!'); setSwapFile(null); setSwapPreview(null); fetchCurrentTopic(false); } 
       else { const err = await res.json(); alert(err.error); }
     } catch (e) { alert("Hiba a csere során!"); }
+    finally { setIsSwapping(false); }
+  };
+
+  // ➕ ÚJ: Hiányzó Joker visszacsere végrehajtó motor (ezzel elkerülhető az egyenleg hiba)
+  const handleSwapBackSubmit = async (entryId: number) => {
+    if (!window.confirm("⚠️ Biztosan visszatérsz ehhez a korábbi pályaművedhez? Ez 1 Joker pontodba fog kerülni, viszont visszakapod az akkori csillagaidat!")) return;
+    setIsSwapping(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/weekly/swap-back`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topicId: topic.id, userEmail: user?.email, entryId })
+      });
+      if (res.ok) {
+        alert("↩️ Sikeresen visszaaktiváltad a korábbi fotódat!");
+        fetchCurrentTopic(false);
+      } else {
+        const err = await res.json();
+        alert(err.error || "Hiba a csere során.");
+      }
+    } catch (e) { alert("Hálózati hiba!"); }
     finally { setIsSwapping(false); }
   };
 
@@ -935,7 +953,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                                   {isLoadingSwapAlbum ? '⏳ Képtár betöltése...' : '🖼️ Joker Csere az Aréna Képtárból'}
                                 </button>
                               </div>
-                            </div> // 🔐 JAVÍTVA: Itt zártuk le a hiányzó divet!
+                            </div> 
                           ) : (
                             <div style={{ marginTop: '25px', background: '#0f172a', padding: '15px', borderRadius: '12px', color: '#64748b', fontSize: '0.9rem', textAlign: 'center', border: '1px dashed #475569' }}>
                               🔒 Elfogytak a globális Joker cseréid! Teljesíts jól feladatokat extra pontokért.
@@ -975,7 +993,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                               {isUploading ? 'Feltöltés...' : 'Nevezés és Indulás 🚀'}
                             </button>
 
-                            {/* ⚡ INTELLIGENS ALBUMBÓL VÁLASZTÓ INTEGRÁCIÓ */}
+                            {/* ── INTELLIGENS ALBUMBÓL VÁLASZTÓ INTEGRÁCIÓ ── */}
                             <div style={{ marginTop: '15px', borderTop: '1px solid #334155', paddingTop: '15px', textAlign: 'center' }}>
                               <p style={{ color: '#64748b', fontSize: '0.8rem', margin: '0 0 10px 0' }}>VAGY választhatsz egy meglévő fotót az albumodból:</p>
                               <button 
@@ -1082,7 +1100,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                                 </div>
                               </div>
                             )
-                          })}
+                          }).slice(0, 15)}
                         </div>
                       )}
                     </div>
@@ -1109,7 +1127,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                       {isDaily ? '🔴 Napi Kihívás' : '🔵 Heti Kihívás'}
                     </span>
                   </div>
-
                 
                   {/* 🖼️ PRÉMIUM BORÍTÓKÉP A HAMAROSAN KÁRTYÁKON (Vágás nélkül, elmosott háttérrel) */}
                   {t.cover_url && (
@@ -1119,13 +1136,11 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                     </div>
                   )}
 
-                  {/* ➕ ÚJ: SZERZŐ KIÍRÁSA A HAMAROSAN BORÍTÓ ALÁ */}
                   {t.cover_author && (
                     <div style={{ color: '#64748b', fontSize: '0.75rem', fontStyle: 'italic', marginTop: '-10px', marginBottom: '15px', textAlign: 'right', paddingRight: '5px' }}>
                       📸 Borítókép: {t.cover_author}
                     </div>
                   )}
-
 
                   <h4 style={{ color: '#f59e0b', margin: '0 0 10px 0', fontSize: '1.4rem' }}>{t.title}</h4>
                   <p style={{ color: '#cbd5e1', fontSize: '0.95rem', margin: '0 0 20px 0', flex: 1, lineHeight: '1.6' }}>{t.description}</p>
@@ -1175,12 +1190,9 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                 return (
                   <div style={{ marginBottom: '30px' }}>
                     <div style={{ width: '100%', height: '200px', borderRadius: '24px', overflow: 'hidden', border: '1px solid #334155', boxShadow: '0 10px 25px rgba(0,0,0,0.4)', position: 'relative', backgroundColor: '#090d16' }}>
-                      {/* Elmosott panoráma háttér */}
                       <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${t.cover_url})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(15px) brightness(0.5)', transform: 'scale(1.1)' }}></div>
-                      {/* Teljes, vágásmentes fotó művészi minőségben */}
                       <img src={t.cover_url} alt="" style={{ position: 'relative', width: '100%', height: '100%', objectFit: 'contain', zIndex: 1 }} onError={handleImageError} />
                     </div>
-                    {/* SZERZŐ KIÍRÁSA AZ ARCHÍV BANNER ALÁ */}
                     {t.cover_author && (
                       <div style={{ color: '#64748b', fontSize: '0.8rem', fontStyle: 'italic', marginTop: '5px', textAlign: 'right', paddingRight: '10px' }}>
                         📸 Borítókép: {t.cover_author}
@@ -1300,14 +1312,11 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                 <div style={{ width: '100%', maxWidth: '600px', background: '#0f172a', height: '16px', borderRadius: '10px', margin: '0 auto', overflow: 'hidden', border: '1px solid #334155', position: 'relative', zIndex: 1 }}>
                   <div style={{ width: `${progressPercent}%`, background: `linear-gradient(90deg, transparent, ${currentLevel.color})`, height: '100%' }}></div>
                 </div>
-                {nextLevelAt ? (
-                   <div style={{ color: '#cbd5e1', fontSize: '0.9rem', marginTop: '15px', position: 'relative', zIndex: 1 }}>
-    {levelHelpText}
-  </div>
-
-                ) : (
-                  <div style={{ color: '#fbbf24', fontSize: '1rem', marginTop: '15px', fontWeight: 'bold', position: 'relative', zIndex: 1 }}>Elérted a maximális szintet! Te vagy a Fotós Guru!</div>
-                )}
+                
+                {/* 👑 JAVÍTVA: A fagyást okozó nextLevelAt változó eltávolítva, a dinamikus levelHelpText közvetlenül renderelődik */}
+                <div style={{ color: currentLevel.name === 'Fejedelem 👑' ? '#fbbf24' : '#cbd5e1', fontSize: currentLevel.name === 'Fejedelem 👑' ? '1rem' : '0.9rem', marginTop: '15px', position: 'relative', zIndex: 1, fontWeight: currentLevel.name === 'Fejedelem 👑' ? 'bold' : 'normal' }}>
+                  {levelHelpText}
+                </div>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '20px', marginBottom: '40px' }}>
@@ -1583,7 +1592,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                 </p>
                 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                   {[
+                  {[
                     { name: 'Újonc 🌱', req: '0 - 29 pont', power: '✨ +1 / 🔥 +2', color: '#94a3b8' },
                     { name: 'Bojtár 🪶', req: '30 - 99 pont', power: '✨ +2 / 🔥 +3', color: '#cbd5e1' },
                     { name: 'Nyomolvasó 🎯', req: '100 - 249 pont', power: '✨ +2 / 🔥 +4', color: '#38bdf8' },
@@ -1610,7 +1619,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                       </div>
                     )
                   })}
-
                 </div>
               </div>
             </div>
@@ -1619,7 +1627,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         </div>
       )}
 
-{/* 🖼️ MODERN VIZUÁLIS ALBUMVÁLASZTÓ MODAL JOKER CSERÉHEZ (Intelligens Visszacsere-érzékelővel) */}
+      {/* MODERN VIZUÁLIS ALBUMVÁLASZTÓ MODAL */}
       {showSwapAlbumModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 99999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px', boxSizing: 'border-box' }}>
           <div style={{ background: '#0f172a', border: '1px solid #334155', borderRadius: '24px', width: '100%', maxWidth: '550px', maxHeight: '80vh', overflowY: 'auto', padding: '25px', position: 'relative', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.8)' }}>
@@ -1631,7 +1639,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
             
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '15px' }}>
               {swapAlbumPhotos.map((p, idx) => {
-                // 🕵️‍♂️ INTELLIGENS SZŰRŐ: Megnézzük, hogy ez a fotó szerepel-e már a forduló korábbi (deaktivált) bejegyzései között
                 const pastMatch = myPastEntries.find(past => past.file_url === p.file_url);
                 
                 return (
@@ -1639,17 +1646,17 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                     key={p.id || idx} 
                     onClick={() => {
                       if (pastMatch) {
-                        setShowSwapAlbumModal(false); // Bezárjuk az ablakot
-                        handleSwapBackSubmit(pastMatch.id); // ⚡ PONTMENTÉS: Visszahívjuk a régi pontjaival!
+                        setShowSwapAlbumModal(false); 
+                        handleSwapBackSubmit(pastMatch.id); 
                       } else {
-                        handleSelectPhotoForSwap(p.file_url); // Új csere 0 pontról
+                        handleSelectPhotoForSwap(p.file_url); 
                       }
                     }}
                     style={{ 
                       background: '#1e293b', 
                       borderRadius: '14px', 
                       overflow: 'hidden', 
-                      border: pastMatch ? '2px solid #0284c7' : '2px solid #334155', // Szép kék keret a visszacserélhető képeknek
+                      border: pastMatch ? '2px solid #0284c7' : '2px solid #334155', 
                       cursor: 'pointer', 
                       transition: 'all 0.2s', 
                       display: 'flex', 
@@ -1662,7 +1669,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                     <div style={{ width: '100%', height: '115px', backgroundColor: '#000', overflow: 'hidden', position: 'relative' }}>
                       <img src={getImageUrl(null, p.file_url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       
-                      {/* ↩️ LÁTVÁNYOS VISSZACSERE BADGE */}
                       {pastMatch && (
                         <span style={{ position: 'absolute', top: '8px', left: '8px', background: 'linear-gradient(135deg, #0284c7, #0369a1)', color: 'white', fontWeight: 'bold', fontSize: '0.65rem', padding: '4px 8px', borderRadius: '6px', boxShadow: '0 4px 10px rgba(0,0,0,0.5)', border: '1px solid #38bdf840' }}>
                           ↩️ Visszacsere
@@ -1670,7 +1676,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                       )}
                     </div>
                     <div style={{ padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', background: '#090d16', borderTop: '1px solid #232d3f', fontWeight: 'bold' }}>
-                      {/* Ha ez egy visszacsere, akkor az ebben a fordulóban elért korábbi pontját mutatjuk, különben a kép globális karrier pontjait */}
                       <span style={{ color: '#fbbf24' }}>⭐ {pastMatch ? pastMatch.likes_count : (p.totalLikes || 0)}</span>
                       <span style={{ color: '#38bdf8' }}>👁️ {pastMatch ? pastMatch.views_count : (p.totalViews || 0)}</span>
                     </div>
@@ -1741,7 +1746,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
               )}
             </div>
 
-            <div style={{ textAlign: 'center', zIndex: 10 }}>
+            <div style={{ textPlain: 'center', zIndex: 10 }}>
               <div style={{ fontSize: '2.5rem', margin: 0, lineHeight: 1 }}>🏆</div>
               
               <h2 style={{ color: 'white', fontSize: '1.4rem', fontWeight: '900', margin: '6px 0 2px 0' }}>
