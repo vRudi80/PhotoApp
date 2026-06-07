@@ -41,12 +41,20 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     return { totalLikes, victories };
   }
 
+  // 👑 JAVÍTVA: Az új, 12 szintes Nomád-Magyar progressziós motor (Tűpontos győzelmi kényszer-szűréssel)
   function calculateRankLevel(totalLikes, victories) {
-    if (totalLikes < 20) return 1;                  
-    if (totalLikes < 100) return 2;                 
-    if (totalLikes < 300 || victories < 1) return 3; 
-    if (totalLikes < 800 || victories < 3) return 4; 
-    return 5;                                       
+    if (totalLikes < 30) return 1;                           // 1. Újonc 🌱
+    if (totalLikes < 100) return 2;                          // 2. Bojtár 🪶
+    if (totalLikes < 250) return 3;                          // 3. Nyomolvasó 🎯
+    if (totalLikes < 500 || victories < 1) return 4;         // 4. Íjász 🏹
+    if (totalLikes < 800 || victories < 2) return 5;         // 5. Lovas 🐎
+    if (totalLikes < 1300 || victories < 3) return 6;        // 6. Sólyom 🦅
+    if (totalLikes < 2000 || victories < 5) return 7;        // 7. Vitéz ⚔️
+    if (totalLikes < 3200 || victories < 7) return 8;        // 8. Bajnok 🛡️
+    if (totalLikes < 4800 || victories < 9) return 9;        // 9. Törzsfő ⭐
+    if (totalLikes < 7000 || victories < 12) return 10;      // 10. Hadúr 🔱
+    if (totalLikes < 10000 || victories < 15) return 11;     // 11. Táltos 🔥
+    return 12;                                               // 12. Fejedelem 👑
   }
 
   async function ensureReferralCode(pool, email) {
@@ -80,15 +88,23 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     return newLevel;
   }
 
+  // 👑 JAVÍTVA: Dinamikus, 12 szintre skálázott szavazati erő számító (✨ Szuper / 🔥 Zseniális)
   async function getUserVotePower(pool, email) {
     const { totalLikes, victories } = await getUserLikesAndVictories(pool, email);
     const level = calculateRankLevel(totalLikes, victories);
     
-    if (level === 1) return { super: 1, brilliant: 2 }; 
-    if (level === 2) return { super: 2, brilliant: 3 }; 
-    if (level === 3) return { super: 2, brilliant: 4 }; 
-    if (level === 4) return { super: 3, brilliant: 5 }; 
-    return { super: 4, brilliant: 6 };                  
+    if (level === 1) return { super: 1, brilliant: 2 };   // Újonc 🌱
+    if (level === 2) return { super: 2, brilliant: 3 };   // Bojtár 🪶
+    if (level === 3) return { super: 2, brilliant: 4 };   // Nyomolvasó 🎯
+    if (level === 4) return { super: 3, brilliant: 5 };   // Íjász 🏹
+    if (level === 5) return { super: 3, brilliant: 6 };   // Lovas 🐎
+    if (level === 6) return { super: 4, brilliant: 7 };   // Sólyom 🦅
+    if (level === 7) return { super: 4, brilliant: 8 };   // Vitéz ⚔️
+    if (level === 8) return { super: 5, brilliant: 10 };  // Bajnok 🛡️
+    if (level === 9) return { super: 5, brilliant: 12 };  // Törzsfő ⭐
+    if (level === 10) return { super: 6, brilliant: 14 }; // Hadúr 🔱
+    if (level === 11) return { super: 7, brilliant: 17 }; // Táltos 🔥
+    return { super: 8, brilliant: 20 };                  // Fejedelem 👑
   }
 
   async function processFinishedChallenges(pool) {
@@ -154,11 +170,10 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
- // ====================================================================
+  // ====================================================================
   // ⚙️ JAVÍTVA: Új téma létrehozása borítóképpel és szerzővel
   // ====================================================================
   app.post('/api/admin/weekly-topics', upload.single('cover'), async (req, res) => {
-    // ➕ Hozzáadva: coverAuthor átvétele a form-ból
     const { title, description, startDate, endDate, masterEmail, coverAuthor } = req.body; 
     const file = req.file;
     let finalCoverUrl = null;
@@ -195,9 +210,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     let finalCoverUrl = coverUrl || null; 
 
     try {
-      // Ha az admin új képet tallózott be, elindul a cserefolyamat
       if (file) {
-        // 1. Feltöltjük az ÚJ képet a Cloudinary-re
         const result = await cloudinary.uploader.upload(file.path, {
           folder: 'parbaj_boritokepek',
           width: 1200, 
@@ -206,10 +219,8 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
           quality: "auto:good"
         });
         
-        // 2. HA volt korábban borítókép, azt most véglegesen TÖRÖLJÜK a Cloudinary-ről
         if (coverUrl && coverUrl.includes('parbaj_boritokepek')) {
           try {
-            // Kimásoljuk a public_id-t az URL-ből (pl.: parbaj_boritokepek/valami_random_id)
             const urlParts = coverUrl.split('/parbaj_boritokepek/');
             if (urlParts.length > 1) {
               const filenameWithExt = urlParts[1];
@@ -219,7 +230,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
               await cloudinary.uploader.destroy(publicId);
             }
           } catch (deleteErr) {
-            // Ha a törlés valamiért elbukna (pl. már manuálisan törölted), a rendszer ne akadjon el
             console.error("⚠️ Nem sikerült törölni a régi képet a Cloudinary-ről:", deleteErr.message);
           }
         }
@@ -228,7 +238,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
       }
 
-      // 3. Mentjük az új adatokat az adatbázisba
       await pool.query(
         'UPDATE weekly_topics SET title = ?, description = ?, start_date = ?, end_date = ?, master_email = ?, cover_url = ?, cover_author = ? WHERE id = ?', 
         [title, description, startDate, endDate, masterEmail || null, finalCoverUrl, req.body.coverAuthor || null, id]
@@ -394,7 +403,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // 🖼️ ÁTNEVEZVE: `/api/weekly/my-album` lett az ütközések elkerülése miatt!
+  // 🖼️ ÁTNEVEZVE: `/api/weekly/my-album`
   // ====================================================================
   app.get('/api/weekly/my-album', async (req, res) => {
     const { userEmail } = req.query;
@@ -478,7 +487,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // 🚀 ÚJ NEVEZÉS VÉGPONT JAVÍTÁSA
+  // 🚀 ÚJ NEVEZÉS VÉGPONT
   // ====================================================================
   app.post('/api/weekly/upload', upload.single('photo'), async (req, res) => {
     const { topicId, userEmail, userName } = req.body;
@@ -513,7 +522,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // 🃏 JOKER CSERE VÉGPONT JAVÍTÁSA
+  // 🃏 JOKER CSERE VÉGPONT
   // ====================================================================
   app.post('/api/weekly/swap', upload.single('photo'), async (req, res) => {
     const { topicId, userEmail, userName } = req.body;
@@ -555,7 +564,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // 🃏 ÚJ VÉGPONT: JOKER CSERE MEGLÉVŐ ALBUMKÉPPEL (Fájlfeltöltés nélkül)
+  // 🃏 JOKER CSERE MEGLÉVŐ ALBUMKÉPPEL
   // ====================================================================
   app.post('/api/weekly/swap-existing', async (req, res) => {
     const { topicId, userEmail, userName, fileUrl } = req.body;
@@ -566,31 +575,26 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     try {
       await conn.beginTransaction();
 
-      // 1. Ellenőrizzük, van-e elég Jokere
       const [userRows] = await conn.query('SELECT swap_balance FROM photo_users WHERE email = ?', [userEmail]);
       if (!userRows[0] || userRows[0].swap_balance < 1) {
         await conn.rollback();
         return res.status(400).json({ error: 'Nincs elég Joker cseréd!' });
       }
 
-      // 2. Megkeressük az aktuális aktív nevezést, amit le akar cserélni
       const [existing] = await conn.query('SELECT id, swapped FROM weekly_entries WHERE topic_id = ? AND user_email = ? AND is_active = 1', [topicId, userEmail]);
       if (existing.length === 0) {
         await conn.rollback();
         return res.status(400).json({ error: 'Még nincs aktív nevezésed, amit lecserélhetnél!' });
       }
 
-      // 3. Leállítjuk (deaktiváljuk) a mostani futó képet
       await conn.query('UPDATE weekly_entries SET is_active = 0 WHERE id = ?', [existing[0].id]);
 
-      // 4. Új sor beszúrása az albumkép URL-jével, 0 pontról indítva
       const nextSwapCount = existing[0].swapped + 1;
       await conn.query(
         'INSERT INTO weekly_entries (topic_id, user_email, user_name, file_url, drive_file_id, swapped, ip_address, is_active, likes_count, views_count) VALUES (?, ?, ?, ?, \'\', ?, ?, 1, 0, 0)',
         [topicId, userEmail, userName, fileUrl, nextSwapCount, ipAddress]
       );
 
-      // 5. Levonunk 1 pontot a Joker egyenlegből
       await conn.query('UPDATE photo_users SET swap_balance = swap_balance - 1 WHERE email = ?', [userEmail]);
 
       await conn.commit();
@@ -604,7 +608,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
   
   // ====================================================================
-  // ⚔️ ÚJ VÉGPONT: NEVEZÉS MEGLÉVŐ ALBUMKÉPPEL
+  // ⚔️ NEVEZÉS MEGLÉVŐ ALBUMKÉPPEL
   // ====================================================================
   app.post('/api/weekly/upload-existing', async (req, res) => {
     const { topicId, userEmail, userName, fileUrl } = req.body;
@@ -970,9 +974,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-  // ====================================================================
-  // 🚚 MÓDOSÍTVA: ALBUMÉPÍTŐ, JAVÍTOTT MIGRÁCIÓS MOTOR (Üres user_photos fix)
-  // ====================================================================
   app.get('/api/admin/migrate-drive-to-cloudinary', async (req, res) => {
     try {
       const [rows] = await pool.query(
@@ -986,25 +987,21 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         message: `🚚 Albumépítő és biztonságos költöztetés elindítva a háttérben! Figyeld a Render élő logjait.`
       });
 
-      // 💥 ULTRA-ALACSONY MEMÓRIÁJÚ, AUTOMATIKUS ALBUM FELÉPÍTŐ FOLYAMAT
       (async () => {
         try {
           console.log(`[Háttér] 🔧 1. FÁZIS: Aréna album (user_photos) felépítése az eddigi 24 képből...`);
           
-          // Lekérjük az összes olyan képet, ami már sikeresen átment Cloudinary-re
           const [alreadyMigrated] = await pool.query(
             "SELECT user_email, file_url FROM weekly_entries WHERE file_url LIKE '%cloudinary.com%'"
           );
 
           let builtCount = 0;
           for (const entry of alreadyMigrated) {
-            // Megnézzük, szerepel-e már az albumban
             const [exists] = await pool.query(
               "SELECT id FROM user_photos WHERE user_email = ? AND file_url = ?",
               [entry.user_email, entry.file_url]
             );
             
-            // ⚡ HA NINCS BENNE, BEILLESZTJÜK (Mivel üres a táblád, itt fogja mindet legenerálni!)
             if (exists.length === 0) {
               await pool.query(
                 "INSERT INTO user_photos (user_email, file_url, file_hash) VALUES (?, ?, 'migrated')",
@@ -1047,13 +1044,11 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
               if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
 
-              // A. Frissítjük a galéria bejegyzést
               await pool.query(
                 "UPDATE weekly_entries SET drive_file_id = '', file_url = ? WHERE id = ?",
                 [uploadResult.secure_url, entry.id]
               );
 
-              // B. ⚡ AZONNALI ALBUMMENTÉS: Mivel üres a tábla, közvetlenül beillesztjük (INSERT) az új linket az albumba!
               const [albumExists] = await pool.query(
                 "SELECT id FROM user_photos WHERE user_email = ? AND file_url = ?",
                 [entry.user_email, uploadResult.secure_url]
@@ -1087,9 +1082,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-  // ====================================================================
-  // 📱 ÚJ: BASE64 PROXY VÉGPONT
-  // ====================================================================
   app.get('/api/admin/base64-proxy', async (req, res) => {
     const { url } = req.query;
     if (!url) return res.status(400).json({ error: 'Hiányzó URL' });
