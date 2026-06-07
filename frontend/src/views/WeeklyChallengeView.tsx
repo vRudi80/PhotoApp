@@ -1438,13 +1438,19 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
               )}
             </div>
 
-            <div style={{ textAlign: 'center', zIndex: 10 }}>
-              <div style={{ fontSize: '2.5rem', margin: 0, lineHeight: 1 }}>🏆</div>
-              <h2 style={{ color: 'white', fontSize: '1.4rem', fontWeight: '900', margin: '6px 0 2px 0' }}>{user?.name || 'Fotóművész'}</h2>
-              <div style={{ background: 'linear-gradient(90deg, transparent, #fbbf2430, transparent)', color: '#fbbf24', padding: '4px 20px', borderRadius: '4px', fontWeight: 'bold', fontSize: '1.05rem', letterSpacing: '1px' }}>
-                {activeShareData.rank}. HELYEZÉS
-              </div>
-            </div>
+          <div style={{ textAlign: 'center', zIndex: 10 }}>
+  <div style={{ fontSize: '2.5rem', margin: 0, lineHeight: 1 }}>🏆</div>
+  
+  {/* JAVÍTVA: Első körben a kártyához tartozó adatbázis-nevet jelenítjük meg, így azonnal frissül! */}
+  <h2 style={{ color: 'white', fontSize: '1.4rem', fontWeight: '900', margin: '6px 0 2px 0' }}>
+    {activeShareData?.user_name || user?.name || 'Fotóművész'}
+  </h2>
+  
+  <div style={{ background: 'linear-gradient(90deg, transparent, #fbbf2430, transparent)', color: '#fbbf24', padding: '4px 20px', borderRadius: '4px', fontWeight: 'bold', fontSize: '1.05rem', letterSpacing: '1px' }}>
+    {activeShareData.rank}. HELYEZÉS
+  </div>
+</div>
+
 
             <div style={{ width: '100%', background: 'rgba(0,0,0,0.4)', padding: '12px', borderRadius: '14px', border: '1px solid #23293f', zIndex: 10, boxSizing: 'border-box' }}>
               <div style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '1px', textAlign: 'center' }}>Kihívás témája:</div>
