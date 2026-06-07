@@ -579,9 +579,10 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
               <div style={{ marginBottom: '20px' }}>
                 <h2 style={{ color: 'white', margin: 0, fontSize: '1.8rem' }}>🔥 Aktuális Kihívások</h2>
                 <p style={{ color: '#94a3b8', margin: '5px 0 0 0' }}>Válassz egyet az alábbi futó párbajok közül, és lépj be a küzdelembe!</p>
-              <span style={{ background: '#ef444420', color: '#f87171', border: `1px solid ${ '#ef444450', padding: '4px 12px', borderRadius: '50px', fontSize: '0.8rem', fontWeight: 'bold' }}>
-          {'🔴 Figyelem: a napokban a játék kéoszerverét költöztetem egy gyorsabb helyre, elképzelhető, hogy lesznek kimaradások. Türelmetek, megértésetek köszönöm!'}
-        </span>
+          <span style={{ background: '#ef444420', color: '#f87171', border: '1px solid #ef444450', padding: '4px 12px', borderRadius: '50px', fontSize: '0.8rem', fontWeight: 'bold' }}>
+  {'🔴 Figyelem: a napokban a játék képszerverét költöztetem egy gyorsabb helyre, elképzelhető, hogy lesznek kimaradások. Türelmetek, megértésetek köszönöm!'}
+</span>
+
               </div>
 
               {loading ? (
