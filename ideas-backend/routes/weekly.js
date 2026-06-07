@@ -949,11 +949,10 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // 🚚 GOLYÓÁLLÓ, BAD GATEWAY-BIZTOS MIGRÁCIÓ (HÁTTÉRFOLYAMAT)
+  // 🚚 MEMÓRIAKÍMÉLŐ, LEMEZ-ALAPÚ MIGRÁCIÓ (Nincs több OOM / 512MB hiba)
   // ====================================================================
   app.get('/api/admin/migrate-drive-to-cloudinary', async (req, res) => {
     try {
-      // 1. Lekérjük azokat, amik még a Google Drive-on vannak
       const [rows] = await pool.query(
         "SELECT id, drive_file_id, user_name FROM weekly_entries WHERE drive_file_id IS NOT NULL AND drive_file_id != ''"
       );
@@ -962,30 +961,34 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         return res.json({ success: true, message: 'Minden kép át van már költöztetve!' });
       }
 
-      // 🚀 ZSENIÁLIS HÚZÁS: Azonnal válaszolunk a böngészőnek, így a Render Load Balancer nem dob 502-es hibát!
+      // Segédfüggvény a képek közötti kötelező pihenőhöz
+      const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+      // Azonnal megnyugtatjuk a böngészőt és a Render átjárót
       res.json({
         success: true,
-        message: `🚚 Költöztetés sikeresen elindítva a háttérben ${rows.length} db képre! Ezt a lapot bezárhatod. Nyisd meg a Render.com-ot, és a Dashboardon a LIVE LOGS felületen kövesd a haladást másodpercről másodpercre!`
+        message: ` Lemez-alapú költöztetés elindítva a háttérben ${rows.length} db képre! Figyeld a Render élő logjait.`
       });
 
-      // 💥 AZONNALI ÖNÁLLÓ HÁTTÉRFOLYAMAT (Nem blokkolja a fenti HTTP választ)
+      // 💥 ÖNÁLLÓ ASZINKRON HÁTTÉRFOLYAMAT
       (async () => {
-        console.log(`[Háttér Motor] 🚚 Költöztetés indul: ${rows.length} db kép feldolgozása...`);
+        console.log(`[Háttér] 💾 Lemez-pufferelt, ultra-biztonságos mód indul: ${rows.length} db kép...`);
         let migratedCount = 0;
+        const tempFilePath = './temp_migration_file.jpg'; // Átmeneti hely a lemezen
 
         for (const entry of rows) {
           try {
-            // Letöltés pufferként
+            // 1. Letöltés a Google-től nyers bufferként
             const driveResponse = await drive.files.get(
               { fileId: entry.drive_file_id, alt: 'media' },
               { responseType: 'arraybuffer' }
             );
 
-            const base64Data = Buffer.from(driveResponse.data).toString('base64');
-            const dataUri = `data:image/jpeg;base64,${base64Data}`;
+            // 2. Azonnal kiírjuk a merevlemezre, így a RAM azonnal felszabadul!
+            fs.writeFileSync(tempFilePath, Buffer.from(driveResponse.data));
 
-            // Feltöltés Cloudinary-re optimalizálva
-            const uploadResult = await cloudinary.uploader.upload(dataUri, {
+            // 3. Feltöltés a Cloudinary-re közvetlenül a lemezről (átméretezéssel)
+            const uploadResult = await cloudinary.uploader.upload(tempFilePath, {
               folder: 'parbaj_archivum',
               width: 1600,
               height: 1600,
@@ -993,27 +996,35 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
               quality: "auto:good"
             });
 
-            // Adatbázis mentés
+            // 4. Az átmeneti fájlt azonnal letakarítjuk a lemezről
+            if (fs.existsSync(tempFilePath)) {
+              fs.unlinkSync(tempFilePath);
+            }
+
+            // 5. MySQL frissítés
             await pool.query(
               "UPDATE weekly_entries SET drive_file_id = NULL, file_url = ? WHERE id = ?",
               [uploadResult.secure_url, entry.id]
             );
 
             migratedCount++;
-            console.log(`✓ [Háttér] [${migratedCount}/${rows.length}] ${entry.user_name} fotója sikeresen áttolva a felhőbe.`);
+            console.log(`✓ [Háttér] [${migratedCount}/${rows.length}] ${entry.user_name} fotója sikeresen áttolva.`);
+
+            // 6. ⏱️ KÖTELEZŐ SZÜNET: Hagyunk 1 másodperc pihenőt a szervernek, hogy kiürítse a memóriát
+            await delay(1000);
 
           } catch (singleErr) {
-            console.error(`❌ [Háttér Hiba] Nem sikerült a(z) ${entry.id} ID-jú kép költöztetése:`, singleErr.message);
+            console.error(`❌ [Háttér Hiba] Hiba a(z) ${entry.id} ID-jú képnél:`, singleErr.message);
+            // Biztonsági takarítás hiba esetén is
+            if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
           }
         }
-        console.log(`🏁 [Háttér Motor] A költöztetés sikeresen befejeződött! Átmásolva: ${migratedCount} db kép.`);
+        console.log(`🏁 [Háttér] A költöztetés sikeresen lezárult! Összesen áthelyezve: ${migratedCount} db kép.`);
       })();
 
     } catch (err) {
       console.error("Súlyos hiba a háttérmotor indításakor:", err);
-      if (!res.headersSent) {
-        res.status(500).json({ error: err.message });
-      }
+      if (!res.headersSent) res.status(500).json({ error: err.message });
     }
   });
   
