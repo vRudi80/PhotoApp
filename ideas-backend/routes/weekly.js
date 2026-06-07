@@ -450,128 +450,83 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-  // ====================================================================
-  // ⚔️ MÓDOSÍTVA: ÉLES NEVEZÉS FELTÖLTÉSE (Ujjnyomat ellenőrzéssel bővítve)
+  /// ====================================================================
+  // 2. ÚJ NEVEZÉS VÉGPONT JAVÍTÁSA (Szintén üres sztringgel)
   // ====================================================================
   app.post('/api/weekly/upload', upload.single('photo'), async (req, res) => {
     const { topicId, userEmail, userName } = req.body;
     const file = req.file;
     if (!file) return res.status(400).json({ error: 'Fotó kötelező!' });
-
     const ipAddress = req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : (req.ip || req.socket.remoteAddress);
-
     try {
       const [topicCheck] = await pool.query('SELECT master_email FROM weekly_topics WHERE id = ?', [topicId]);
-      if (topicCheck[0] && topicCheck[0].master_email === userEmail) {
-        if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
-        return res.status(400).json({ error: 'Párbajmesterként nem nevezhetsz a saját párbajodra!' });
-      }
-
+      if (topicCheck[0] && topicCheck[0].master_email === userEmail) { if (fs.existsSync(file.path)) fs.unlinkSync(file.path); return res.status(400).json({ error: 'Párbajmesterként nem nevezhetsz!' }); }
       const [existingEntry] = await pool.query('SELECT id FROM weekly_entries WHERE topic_id = ? AND user_email = ?', [topicId, userEmail]);
-      if (existingEntry.length > 0) { 
-        if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
-        return res.status(400).json({ error: 'Már neveztél erre a kihívásra!' }); 
-      }
+      if (existingEntry.length > 0) { if (fs.existsSync(file.path)) fs.unlinkSync(file.path); return res.status(400).json({ error: 'Már neveztél!' }); }
 
-      // 🧠 MEGTESZALAPÚ ELLENŐRZÉS:
       const fileBuffer = fs.readFileSync(file.path);
       const fileHash = crypto.createHash('md5').update(fileBuffer).digest('hex');
-
       let finalFileUrl = '';
+      
       const [duplicatePhoto] = await pool.query("SELECT file_url FROM user_photos WHERE user_email = ? AND file_hash = ?", [userEmail, fileHash]);
 
       if (duplicatePhoto.length > 0) {
-        // Újrafelhasználás tárhely-pazarlás nélkül
         finalFileUrl = duplicatePhoto[0].file_url;
         if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
       } else {
-        // Új feltöltés
-        const result = await cloudinary.uploader.upload(file.path, {
-          folder: 'parbajok', width: 1600, height: 1600, crop: "limit", quality: "auto:good"
-        });
+        const result = await cloudinary.uploader.upload(file.path, { folder: 'parbajok', width: 1600, height: 1600, crop: "limit", quality: "auto:good" });
         finalFileUrl = result.secure_url;
         if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
-
-        // Automatikusan beiktatjuk a saját albumába is, hogy legközelebb meglegyen
         await pool.query("INSERT INTO user_photos (user_email, file_url, file_hash) VALUES (?, ?, ?)", [userEmail, finalFileUrl, fileHash]);
       }
 
-      await pool.query(
-        'INSERT INTO weekly_entries (topic_id, user_email, user_name, file_url, drive_file_id, swapped, ip_address, is_active) VALUES (?, ?, ?, ?, NULL, 0, ?, 1)', 
-        [topicId, userEmail, userName, finalFileUrl, ipAddress]
-      );
-      
+      // ⚡ JAVÍTVA: '' küldése drive_file_id gyanánt NULL helyett
+      await pool.query('INSERT INTO weekly_entries (topic_id, user_email, user_name, file_url, drive_file_id, swapped, ip_address, is_active) VALUES (?, ?, ?, ?, \'\', 0, ?, 1)', [topicId, userEmail, userName, finalFileUrl, ipAddress]);
       res.json({ success: true });
-    } catch (err) { 
-      if (file && fs.existsSync(file.path)) fs.unlinkSync(file.path);
-      res.status(500).json({ error: err.message }); 
-    }
+    } catch (err) { if (file && fs.existsSync(file.path)) fs.unlinkSync(file.path); res.status(500).json({ error: err.message }); }
   });
 
   // ====================================================================
-  // 🃏 MÓDOSÍTVA: JOKER CSŐS KÉPCSERE (Ujjnyomat ellenőrzéssel bővítve)
+  // 3. JOKER CSERE VÉGPONT JAVÍTÁSA (Szintén üres sztringgel)
   // ====================================================================
   app.post('/api/weekly/swap', upload.single('photo'), async (req, res) => {
     const { topicId, userEmail, userName } = req.body;
     const file = req.file;
     if (!file) return res.status(400).json({ error: 'Új fotó kötelező!' });
-
     const ipAddress = req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : (req.ip || req.socket.remoteAddress);
     const conn = await pool.getConnection();
-
     try {
       await conn.beginTransaction();
-
       const [userRows] = await conn.query('SELECT swap_balance FROM photo_users WHERE email = ?', [userEmail]);
-      if (!userRows[0] || userRows[0].swap_balance < 1) {
-        if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
-        await conn.rollback();
-        return res.status(400).json({ error: 'Nincs elég Joker cseréd!' });
-      }
-
+      if (!userRows[0] || userRows[0].swap_balance < 1) { if (fs.existsSync(file.path)) fs.unlinkSync(file.path); await conn.rollback(); return res.status(400).json({ error: 'Nincs elég Joker cseréd!' }); }
       const [existing] = await conn.query('SELECT id, swapped FROM weekly_entries WHERE topic_id = ? AND user_email = ? AND is_active = 1', [topicId, userEmail]);
-      if (existing.length === 0) {
-        if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
-        await conn.rollback();
-        return res.status(400).json({ error: 'Még nincs aktív nevezésed!' });
-      }
+      if (existing.length === 0) { if (fs.existsSync(file.path)) fs.unlinkSync(file.path); await conn.rollback(); return res.status(400).json({ error: 'Még nincs aktív nevezésed!' }); }
 
       await conn.query('UPDATE weekly_entries SET is_active = 0 WHERE id = ?', [existing[0].id]);
 
-      // HASH CSEKK CSERÉRE IS
       const fileBuffer = fs.readFileSync(file.path);
       const fileHash = crypto.createHash('md5').update(fileBuffer).digest('hex');
-
       let finalFileUrl = '';
+      
       const [duplicatePhoto] = await conn.query("SELECT file_url FROM user_photos WHERE user_email = ? AND file_hash = ?", [userEmail, fileHash]);
 
       if (duplicatePhoto.length > 0) {
         finalFileUrl = duplicatePhoto[0].file_url;
         if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
       } else {
-        const result = await cloudinary.uploader.upload(file.path, {
-          folder: 'parbajok', width: 1600, height: 1600, crop: "limit", quality: "auto:good"
-        });
+        const result = await cloudinary.uploader.upload(file.path, { folder: 'parbajok', width: 1600, height: 1600, crop: "limit", quality: "auto:good" });
         finalFileUrl = result.secure_url;
         if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
         await conn.query("INSERT INTO user_photos (user_email, file_url, file_hash) VALUES (?, ?, ?)", [userEmail, finalFileUrl, fileHash]);
       }
 
       const nextSwapCount = existing[0].swapped + 1;
-      await conn.query(
-        'INSERT INTO weekly_entries (topic_id, user_email, user_name, file_url, drive_file_id, swapped, ip_address, is_active, likes_count, views_count) VALUES (?, ?, ?, ?, NULL, ?, ?, 1, 0, 0)',
-        [topicId, userEmail, userName, finalFileUrl, nextSwapCount, ipAddress]
-      );
-
+      // ⚡ JAVÍTVA: '' küldése drive_file_id gyanánt NULL helyett
+      await conn.query('INSERT INTO weekly_entries (topic_id, user_email, user_name, file_url, drive_file_id, swapped, ip_address, is_active, likes_count, views_count) VALUES (?, ?, ?, ?, \'\', ?, ?, 1, 0, 0)', [topicId, userEmail, userName, finalFileUrl, nextSwapCount, ipAddress]);
       await conn.query('UPDATE photo_users SET swap_balance = swap_balance - 1 WHERE email = ?', [userEmail]);
-
       await conn.commit();
       res.json({ success: true });
-    } catch (err) { 
-      await conn.rollback(); 
-      if (file && fs.existsSync(file.path)) fs.unlinkSync(file.path);
-      res.status(500).json({ error: err.message }); 
-    } finally { conn.release(); }
+    } catch (err) { await conn.rollback(); if (file && fs.existsSync(file.path)) fs.unlinkSync(file.path); res.status(500).json({ error: err.message }); } finally { conn.release(); }
   });
 
   // ====================================================================
@@ -949,7 +904,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // 🚚 MEMÓRIAKÍMÉLŐ, LEMEZ-ALAPÚ MIGRÁCIÓ (Nincs több OOM / 512MB hiba)
+  // 1. MIGRÁCIÓS VÉGPONT JAVÍTÁSA (drive_file_id = '' lett NULL helyett)
   // ====================================================================
   app.get('/api/admin/migrate-drive-to-cloudinary', async (req, res) => {
     try {
@@ -961,69 +916,54 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         return res.json({ success: true, message: 'Minden kép át van már költöztetve!' });
       }
 
-      // Segédfüggvény a képek közötti kötelező pihenőhöz
       const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-      // Azonnal megnyugtatjuk a böngészőt és a Render átjárót
       res.json({
         success: true,
-        message: ` Lemez-alapú költöztetés elindítva a háttérben ${rows.length} db képre! Figyeld a Render élő logjait.`
+        message: `Lemez-alapú költöztetés elindítva a háttérben ${rows.length} db képre!`
       });
 
-      // 💥 ÖNÁLLÓ ASZINKRON HÁTTÉRFOLYAMAT
       (async () => {
-        console.log(`[Háttér] 💾 Lemez-pufferelt, ultra-biztonságos mód indul: ${rows.length} db kép...`);
+        console.log(`[Háttér] Mód indul: ${rows.length} db kép...`);
         let migratedCount = 0;
-        const tempFilePath = './temp_migration_file.jpg'; // Átmeneti hely a lemezen
+        const tempFilePath = './temp_migration_file.jpg';
 
         for (const entry of rows) {
           try {
-            // 1. Letöltés a Google-től nyers bufferként
             const driveResponse = await drive.files.get(
               { fileId: entry.drive_file_id, alt: 'media' },
               { responseType: 'arraybuffer' }
             );
 
-            // 2. Azonnal kiírjuk a merevlemezre, így a RAM azonnal felszabadul!
             fs.writeFileSync(tempFilePath, Buffer.from(driveResponse.data));
 
-            // 3. Feltöltés a Cloudinary-re közvetlenül a lemezről (átméretezéssel)
             const uploadResult = await cloudinary.uploader.upload(tempFilePath, {
               folder: 'parbaj_archivum',
-              width: 1600,
-              height: 1600,
-              crop: "limit",
-              quality: "auto:good"
+              width: 1600, height: 1600, crop: "limit", quality: "auto:good"
             });
 
-            // 4. Az átmeneti fájlt azonnal letakarítjuk a lemezről
-            if (fs.existsSync(tempFilePath)) {
-              fs.unlinkSync(tempFilePath);
-            }
+            if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
 
-            // 5. MySQL frissítés
+            // ⚡ JAVÍTVA: drive_file_id = '' (üres sztring) a NULL helyett!
             await pool.query(
-              "UPDATE weekly_entries SET drive_file_id = NULL, file_url = ? WHERE id = ?",
+              "UPDATE weekly_entries SET drive_file_id = '', file_url = ? WHERE id = ?",
               [uploadResult.secure_url, entry.id]
             );
 
             migratedCount++;
-            console.log(`✓ [Háttér] [${migratedCount}/${rows.length}] ${entry.user_name} fotója sikeresen áttolva.`);
+            console.log(`✓ [Háttér] [${migratedCount}/${rows.length}] ${entry.user_name} kész.`);
 
-            // 6. ⏱️ KÖTELEZŐ SZÜNET: Hagyunk 1 másodperc pihenőt a szervernek, hogy kiürítse a memóriát
             await delay(1000);
 
           } catch (singleErr) {
             console.error(`❌ [Háttér Hiba] Hiba a(z) ${entry.id} ID-jú képnél:`, singleErr.message);
-            // Biztonsági takarítás hiba esetén is
             if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
           }
         }
-        console.log(`🏁 [Háttér] A költöztetés sikeresen lezárult! Összesen áthelyezve: ${migratedCount} db kép.`);
+        console.log(`🏁 [Háttér] Kész! Átmásolva: ${migratedCount} db kép.`);
       })();
 
     } catch (err) {
-      console.error("Súlyos hiba a háttérmotor indításakor:", err);
       if (!res.headersSent) res.status(500).json({ error: err.message });
     }
   });
