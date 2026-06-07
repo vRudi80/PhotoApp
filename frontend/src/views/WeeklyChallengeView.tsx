@@ -34,8 +34,8 @@ const getLevelDetails = (likes: number, victories: number) => {
 // ⏳ SEGÉDKOMPONENS: Önálló kártya saját belső visszaszámlálóval
 // ====================================================================
 // JAVÍTVA: Most már a user objektumot is elkéri a kártya propként
-function ChallengeCard({ topic, onSelect, user }: { topic: any; onSelect: () => void; user: any }) {
-  const [timeLeft, setTimeLeft] = useState<string>('Számítás...');
+function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }) {
+   const [timeLeft, setTimeLeft] = useState<string>('Számítás...');
 
   useEffect(() => {
     if (!topic || !topic.end_date) return;
@@ -81,13 +81,10 @@ function ChallengeCard({ topic, onSelect, user }: { topic: any; onSelect: () => 
 
   const isDaily = getTopicType(topic.start_date, topic.end_date) === 'daily';
 
-  // JAVÍTVA: Itt történik meg a belső ellenőrzés, amit javasoltál!
-    // JAVÍTVA: Kis- és nagybetű független, szóköz-biztos ellenőrzés emailre ÉS névre is!
-  const isMaster = 
-    (topic.master_email && user?.email && topic.master_email.toLowerCase().trim() === user.email.toLowerCase().trim()) ||
-    (topic.master_name && user?.name && topic.master_name.toLowerCase().trim() === user.name.toLowerCase().trim());
 
-
+  // JAVÍTVA: Egyszerűen csak kiolvassuk, amit a backend küldött! Nem kell hozzá a user prop sem!
+  const isMaster = topic.isMaster === true;
+  
   const statusColor = isMaster ? '#a78bfa' : (topic.hasEntered ? '#10b981' : '#f59e0b');
 
   return (
