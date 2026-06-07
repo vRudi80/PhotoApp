@@ -155,11 +155,12 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   app.post('/api/admin/weekly-topics', async (req, res) => {
-    const { title, description, startDate, endDate, masterEmail } = req.body; 
+    // ➕ Hozzáadva: coverUrl beolvasása a kérésből
+    const { title, description, startDate, endDate, masterEmail, coverUrl } = req.body; 
     try {
       await pool.query(
-        'INSERT INTO weekly_topics (title, description, start_date, end_date, master_email) VALUES (?, ?, ?, ?, ?)', 
-        [title, description, startDate, endDate, masterEmail || null]
+        'INSERT INTO weekly_topics (title, description, start_date, end_date, master_email, cover_url) VALUES (?, ?, ?, ?, ?, ?)', 
+        [title, description, startDate, endDate, masterEmail || null, coverUrl || null]
       );
       res.json({ success: true });
     } catch (err) {
@@ -169,11 +170,12 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
   app.put('/api/admin/weekly-topics/:id', async (req, res) => {
     const { id } = req.params;
-    const { title, description, startDate, endDate, masterEmail } = req.body; 
+    // ➕ Hozzáadva: coverUrl beolvasása a kérésből
+    const { title, description, startDate, endDate, masterEmail, coverUrl } = req.body; 
     try {
       await pool.query(
-        'UPDATE weekly_topics SET title = ?, description = ?, start_date = ?, end_date = ?, master_email = ? WHERE id = ?', 
-        [title, description, startDate, endDate, masterEmail || null, id]
+        'UPDATE weekly_topics SET title = ?, description = ?, start_date = ?, end_date = ?, master_email = ?, cover_url = ? WHERE id = ?', 
+        [title, description, startDate, endDate, masterEmail || null, coverUrl || null, id]
       );
       res.json({ success: true });
     } catch (err) {
