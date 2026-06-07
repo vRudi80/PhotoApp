@@ -146,10 +146,13 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
           }
         </span>
       </div>
-    {/* 🖼️ BORÍTÓKÉP AZ AKTUÁLIS KÁRTYÁKON */}
+    {/* 🖼️ PRÉMIUM BORÍTÓKÉP AZ AKTUÁLIS KÁRTYÁKON (Vágás nélkül, elmosott háttérrel) */}
       {topic.cover_url && (
-        <div style={{ width: '100%', height: '150px', borderRadius: '14px', overflow: 'hidden', marginBottom: '15px', border: '1px solid #334155' }}>
-          <img src={topic.cover_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={handleImageError} />
+        <div style={{ width: '100%', height: '160px', borderRadius: '14px', overflow: 'hidden', marginBottom: '15px', border: '1px solid #334155', position: 'relative', backgroundColor: '#090d16' }}>
+          {/* Elmosott alsó réteg */}
+          <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${topic.cover_url})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(12px) brightness(0.5)', transform: 'scale(1.1)' }}></div>
+          {/* Tiszta, teljes elülső kép */}
+          <img src={topic.cover_url} alt="" style={{ position: 'relative', width: '100%', height: '100%', objectFit: 'contain', zIndex: 1 }} onError={handleImageError} />
         </div>
       )}
       
@@ -1070,10 +1073,11 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   </div>
 
                 
-                  {/* 🖼️ BORÍTÓKÉP A HAMAROSAN KÁRTYÁKON */}
+                  {/* 🖼️ PRÉMIUM BORÍTÓKÉP A HAMAROSAN KÁRTYÁKON (Vágás nélkül, elmosott háttérrel) */}
                   {t.cover_url && (
-                    <div style={{ width: '100%', height: '140px', borderRadius: '14px', overflow: 'hidden', marginBottom: '15px', border: '1px solid #334155' }}>
-                      <img src={t.cover_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={handleImageError} />
+                    <div style={{ width: '100%', height: '150px', borderRadius: '14px', overflow: 'hidden', marginBottom: '15px', border: '1px solid #334155', position: 'relative', backgroundColor: '#090d16' }}>
+                      <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${t.cover_url})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(12px) brightness(0.5)', transform: 'scale(1.1)' }}></div>
+                      <img src={t.cover_url} alt="" style={{ position: 'relative', width: '100%', height: '100%', objectFit: 'contain', zIndex: 1 }} onError={handleImageError} />
                     </div>
                   )}
 
@@ -1126,16 +1130,19 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           
           <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
             
-            {/* 🖼️ NAGY BORÍTÓKÉP BANNER AZ ARCHÍVUM EREDMÉNYEI FELETT */}
+            {/* 🖼️ NAGY PRÉMIUM BORÍTÓKÉP BANNER AZ ARCHÍVUM EREDMÉNYEI FELETT */}
             {selectedPastTopicId && (() => {
               const t = pastTopics.find(x => x.id === selectedPastTopicId);
               if (t && t.cover_url) {
                 return (
                   <div style={{ marginBottom: '30px' }}>
-                    <div style={{ width: '100%', height: '160px', borderRadius: '24px', overflow: 'hidden', border: '1px solid #334155', boxShadow: '0 10px 25px rgba(0,0,0,0.4)' }}>
-                      <img src={t.cover_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={handleImageError} />
+                    <div style={{ width: '100%', height: '200px', borderRadius: '24px', overflow: 'hidden', border: '1px solid #334155', boxShadow: '0 10px 25px rgba(0,0,0,0.4)', position: 'relative', backgroundColor: '#090d16' }}>
+                      {/* Elmosott panoráma háttér */}
+                      <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${t.cover_url})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(15px) brightness(0.5)', transform: 'scale(1.1)' }}></div>
+                      {/* Teljes, vágásmentes fotó művészi minőségben */}
+                      <img src={t.cover_url} alt="" style={{ position: 'relative', width: '100%', height: '100%', objectFit: 'contain', zIndex: 1 }} onError={handleImageError} />
                     </div>
-                    {/* ➕ ÚJ: SZERZŐ KIÍRÁSA AZ ARCHÍV BANNER ALÁ */}
+                    {/* SZERZŐ KIÍRÁSA AZ ARCHÍV BANNER ALÁ */}
                     {t.cover_author && (
                       <div style={{ color: '#64748b', fontSize: '0.8rem', fontStyle: 'italic', marginTop: '5px', textAlign: 'right', paddingRight: '10px' }}>
                         📸 Borítókép: {t.cover_author}
