@@ -23,12 +23,20 @@ const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
 };
 
 const getLevelDetails = (likes: number, victories: number) => {
-  if (likes < 20) return { name: 'Újonc 🌱', color: '#94a3b8', bg: '#94a3b815' };
-  if (likes < 100) return { name: 'Felfedezett 📸', color: '#38bdf8', bg: '#38bdf815' };
-  if (likes < 300 || victories < 1) return { name: 'Haladó ⭐', color: '#10b981', bg: '#10b98115' };
-  if (likes < 800 || victories < 3) return { name: 'Profi 🏅', color: '#f59e0b', bg: '#f59e0b15' };
-  return { name: 'Guru 👑', color: '#fbbf24', bg: '#fbbf2420' };
+  if (likes < 30) return { name: 'Újonc 🌱', color: '#94a3b8', bg: '#94a3b815' };
+  if (likes < 100) return { name: 'Bojtár 🪶', color: '#cbd5e1', bg: '#cbd5e115' };
+  if (likes < 250) return { name: 'Nyomolvasó 🎯', color: '#38bdf8', bg: '#38bdf815' };
+  if (likes < 500) return { name: 'Íjász 🏹', color: '#60a5fa', bg: '#60a5fa15' };
+  if (likes < 800 || victories < 1) return { name: 'Lovas 🐎', color: '#10b981', bg: '#10b98115' };
+  if (likes < 1300 || victories < 2) return { name: 'Sólyom 🦅', color: '#059669', bg: '#05966915' };
+  if (likes < 2000 || victories < 3) return { name: 'Vitéz ⚔️', color: '#a78bfa', bg: '#a78bfa15' };
+  if (likes < 3200 || victories < 5) return { name: 'Bajnok 🛡️', color: '#ec4899', bg: '#ec489915' };
+  if (likes < 4800 || victories < 7) return { name: 'Törzsfő ⭐', color: '#f59e0b', bg: '#f59e0b15' };
+  if (likes < 7000 || victories < 9) return { name: 'Hadúr 🔱', color: '#eab308', bg: '#eab30815' };
+  if (likes < 10000 || victories < 12) return { name: 'Táltos 🔥', color: '#ef4444', bg: '#ef444415' };
+  return { name: 'Fejedelem 👑', color: '#fbbf24', bg: '#fbbf2420' };
 };
+
 
 // ====================================================================
 // ⚡ BÖNGÉSZŐS KÉPTÖMÖRÍTŐ MOTOR (Max 1920px, 80% minőség, szupergyors)
@@ -287,11 +295,41 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   }
 
   const currentLevel = getLevelDetails(userTotalLikes, userVictories);
-  const progressPercent = userTotalLikes < 20 ? (userTotalLikes / 20) * 100 :
-                          userTotalLikes < 100 ? (userTotalLikes / 100) * 100 :
-                          userTotalLikes < 300 ? (userTotalLikes / 300) * 100 :
-                          userTotalLikes < 800 ? (userTotalLikes / 800) * 100 : 100;
-  const nextLevelAt = userTotalLikes < 20 ? 20 : userTotalLikes < 100 ? 100 : userTotalLikes < 300 ? 300 : userTotalLikes < 800 ? 800 : null;
+    // 📊 INTELLIGENS NOMÁD RANG-PROGRESSZIÓ SZÁMÍTÓ ENGINE
+  const thresholds = [
+    { name: 'Újonc 🌱', min: 0, max: 30, vic: 0 },
+    { name: 'Bojtár 🪶', min: 30, max: 100, vic: 0 },
+    { name: 'Nyomolvasó 🎯', min: 100, max: 250, vic: 0 },
+    { name: 'Íjász 🏹', min: 250, max: 500, vic: 0 },
+    { name: 'Lovas 🐎', min: 500, max: 800, vic: 1 },
+    { name: 'Sólyom 🦅', min: 800, max: 1300, vic: 2 },
+    { name: 'Vitéz ⚔️', min: 1300, max: 2000, vic: 3 },
+    { name: 'Bajnok 🛡️', min: 2000, max: 3200, vic: 5 },
+    { name: 'Törzsfő ⭐', min: 3200, max: 4800, vic: 7 },
+    { name: 'Hadúr 🔱', min: 4800, max: 7000, vic: 9 },
+    { name: 'Táltos 🔥', min: 7000, max: 10000, vic: 12 },
+    { name: 'Fejedelem 👑', min: 10000, max: Infinity, vic: 15 }
+  ];
+
+  const currentRankIndex = thresholds.findIndex(t => t.name === currentLevel.name);
+  const currentBracket = thresholds[currentRankIndex];
+
+  let progressPercent = 100;
+  let levelHelpText = "Elérted a maximális szintet! Te vagy a Fotós Fejedelem! 👑";
+
+  if (currentBracket && currentBracket.max !== Infinity) {
+    const range = currentBracket.max - currentBracket.min;
+    const currentProgress = userTotalLikes - currentBracket.min;
+    progressPercent = Math.min(100, Math.max(0, (currentProgress / range) * 100));
+
+    if (userTotalLikes < currentBracket.max) {
+      levelHelpText = `Még ${currentBracket.max - userTotalLikes} Rangpont (lajk) szükséges a következő szinthez!`;
+    } else if (currentBracket.vic && userVictories < currentBracket.vic) {
+      levelHelpText = `🔒 Megvannak a pontjaid, de még ${currentBracket.vic - userVictories} db Aréna Győzelem (🥇) szükséges a szintlépéshez!`;
+    } else {
+      levelHelpText = "Gratulálunk! Minden feltétel teljesítve a szintlépéshez!";
+    }
+  }
 
   const BASE_EXPOSURE = 10;
   const exposureEarned = BASE_EXPOSURE + (Number(myVoteCount || 0) * 2);
@@ -1263,9 +1301,10 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   <div style={{ width: `${progressPercent}%`, background: `linear-gradient(90deg, transparent, ${currentLevel.color})`, height: '100%' }}></div>
                 </div>
                 {nextLevelAt ? (
-                  <div style={{ color: '#cbd5e1', fontSize: '0.9rem', marginTop: '15px', position: 'relative', zIndex: 1 }}>
-                    Még <b style={{color: 'white', fontSize: '1.1rem'}}>{nextLevelAt - userTotalLikes} Rangpont</b> kell a következő szinthez!
-                  </div>
+                   <div style={{ color: '#cbd5e1', fontSize: '0.9rem', marginTop: '15px', position: 'relative', zIndex: 1 }}>
+    {levelHelpText}
+  </div>
+
                 ) : (
                   <div style={{ color: '#fbbf24', fontSize: '1rem', marginTop: '15px', fontWeight: 'bold', position: 'relative', zIndex: 1 }}>Elérted a maximális szintet! Te vagy a Fotós Guru!</div>
                 )}
@@ -1544,12 +1583,19 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                 </p>
                 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {[
-                    { name: 'Újonc 🌱', req: '0 - 19 pont', power: '✨ +1 / 🔥 +2', color: '#94a3b8' },
-                    { name: 'Felfedezett 📸', req: '20 - 99 pont', power: '✨ +2 / 🔥 +3', color: '#38bdf8' },
-                    { name: 'Haladó ⭐', req: '100 - 299 pont', power: '✨ +2 / 🔥 +4', color: '#10b981' },
-                    { name: 'Profi 🏅', req: '300 - 799 pont ÉS legalább 1 győzelem', power: '✨ +3 / 🔥 +5', color: '#f59e0b' },
-                    { name: 'Guru 👑', req: '800+ pont ÉS legalább 3 győzelem', power: '✨ +4 / 🔥 +6', color: '#fbbf24' }
+                                   {[
+                    { name: 'Újonc 🌱', req: '0 - 29 pont', power: '✨ +1 / 🔥 +2', color: '#94a3b8' },
+                    { name: 'Bojtár 🪶', req: '30 - 99 pont', power: '✨ +2 / 🔥 +3', color: '#cbd5e1' },
+                    { name: 'Nyomolvasó 🎯', req: '100 - 249 pont', power: '✨ +2 / 🔥 +4', color: '#38bdf8' },
+                    { name: 'Íjász 🏹', req: '250 - 499 pont', power: '✨ +3 / 🔥 +5', color: '#60a5fa' },
+                    { name: 'Lovas 🐎', req: '500 - 799 pont ÉS 1+ győzelem', power: '✨ +3 / 🔥 +6', color: '#10b981' },
+                    { name: 'Sólyom 🦅', req: '800 - 1299 pont ÉS 2+ győzelem', power: '✨ +4 / 🔥 +7', color: '#059669' },
+                    { name: 'Vitéz ⚔️', req: '1300 - 1999 pont ÉS 3+ győzelem', power: '✨ +4 / 🔥 +8', color: '#a78bfa' },
+                    { name: 'Bajnok 🛡️', req: '2000 - 3199 pont ÉS 5+ győzelem', power: '✨ +5 / 🔥 +10', color: '#ec4899' },
+                    { name: 'Törzsfő ⭐', req: '3200 - 4799 pont ÉS 7+ győzelem', power: '✨ +5 / 🔥 +12', color: '#f59e0b' },
+                    { name: 'Hadúr 🔱', req: '4800 - 6999 pont ÉS 9+ győzelem', power: '✨ +6 / 🔥 +14', color: '#eab308' },
+                    { name: 'Táltos 🔥', req: '7000 - 9999 pont ÉS 12+ győzelem', power: '✨ +7 / 🔥 +17', color: '#ef4444' },
+                    { name: 'Fejedelem 👑', req: '10000+ pont ÉS 15+ győzelem', power: '✨ +8 / 🔥 +20', color: '#fbbf24' }
                   ].map((rank, i) => {
                     const isMyRank = currentLevel && currentLevel.name === rank.name;
                     return (
@@ -1564,6 +1610,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                       </div>
                     )
                   })}
+
                 </div>
               </div>
             </div>
