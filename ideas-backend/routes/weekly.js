@@ -949,38 +949,80 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // 🚚 ÚJ: AUTOMATIKUS MIGRÁCIÓS SZKRIPT (Drive -> Cloudinary átemelés)
+  // 🚚 GOLYÓÁLLÓ MIGRÁCIÓ: Google Drive képek átmásolása Cloudinary-re
   // ====================================================================
   app.get('/api/admin/migrate-drive-to-cloudinary', async (req, res) => {
     try {
+      // 1. Lekérjük az összes olyan sort, ami még a Google Drive-on van
       const [rows] = await pool.query(
         "SELECT id, drive_file_id, user_name FROM weekly_entries WHERE drive_file_id IS NOT NULL AND drive_file_id != ''"
       );
-      if (rows.length === 0) return res.json({ success: true, message: 'Minden kép át van már költöztetve!' });
 
+      if (rows.length === 0) {
+        return res.json({ success: true, message: 'Minden kép át van már költöztetve!' });
+      }
+
+      console.log(`🚚 Költöztetés indul: ${rows.length} db kép feldolgozása biztonságos puffer módban...`);
       let migratedCount = 0;
+      let failedCount = 0;
+      const errorLog = []; // Itt gyűjtjük a hibákat, hogy lássuk ha elakad
+
       for (const entry of rows) {
         try {
-          const driveResponse = await drive.files.get({ fileId: entry.drive_file_id, alt: 'media' }, { responseType: 'stream' });
-          const cloudinaryUpload = () => {
-            return new Promise((resolve, reject) => {
-              const c_stream = cloudinary.uploader.upload_stream({ folder: 'parbaj_archivum', width: 1600, height: 1600, crop: "limit", quality: "auto:good" }, (error, result) => {
-                if (error) reject(error); else resolve(result);
-              });
-              driveResponse.data.pipe(c_stream);
-            });
-          };
-          const uploadResult = await cloudinaryUpload();
-          await pool.query("UPDATE weekly_entries SET drive_file_id = NULL, file_url = ? WHERE id = ?", [uploadResult.secure_url, entry.id]);
+          // 2. Letöltés a Google Drive API-ból megbízható ArrayBufferként (a stream helyett)
+          const driveResponse = await drive.files.get(
+            { fileId: entry.drive_file_id, alt: 'media' },
+            { responseType: 'arraybuffer' }
+          );
+
+          // 3. Átalakítás Base64 formátummá (ez nem akad el a hálózati csatornákon)
+          const base64Data = Buffer.from(driveResponse.data).toString('base64');
+          const dataUri = `data:image/jpeg;base64,${base64Data}`;
+
+          // 4. Feltöltés a Cloudinary-re az éles méretkorláttal és tömörítéssel
+          const uploadResult = await cloudinary.uploader.upload(dataUri, {
+            folder: 'parbaj_archivum',
+            width: 1600,
+            height: 1600,
+            crop: "limit",
+            quality: "auto:good"
+          });
+
+          // 5. Frissítjük a MySQL-t: drive_file_id = NULL, file_url = Cloudinary szupergyors URL
+          await pool.query(
+            "UPDATE weekly_entries SET drive_file_id = NULL, file_url = ? WHERE id = ?",
+            [uploadResult.secure_url, entry.id]
+          );
+
           migratedCount++;
+          console.log(`✓ [${migratedCount}] ${entry.user_name} fotója sikeresen áttelepítve.`);
+
         } catch (singleErr) {
-          console.error(`❌ Migrációs hiba a(z) ${entry.id} ID-nál:`, singleErr.message);
+          failedCount++;
+          // Elmentjük a pontos hibaüzenetet, hogy megmutathassuk a weblapon
+          errorLog.push({
+            entry_id: entry.id,
+            user_name: entry.user_name,
+            error: singleErr.message
+          });
+          console.error(`❌ Hiba a(z) ${entry.id} ID-jú képnél:`, singleErr.message);
         }
       }
-      res.json({ success: true, message: `Sikeres migráció! ${migratedCount} db kép átköltöztetve.` });
-    } catch (err) { res.status(500).json({ error: err.message }); }
-  });
 
+      // Visszaküldünk egy részletes jelentést, így nem repülünk vakon
+      res.json({
+        success: true,
+        message: "A költöztetési folyamat lefutott.",
+        successful_migrations: migratedCount,
+        failed_migrations: failedCount,
+        detailed_errors: errorLog // Ha ez a tömb üres, akkor minden tökéletes lett!
+      });
+
+    } catch (err) {
+      console.error("Súlyos hiba a migrációs szkript futásakor:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
   // ====================================================================
   // 📱 ÚJ: BASE64 PROXY VÉGPONT (A trófeakártya letöltés zökkenőmentes működéséhez)
   // ====================================================================
