@@ -910,7 +910,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                       {isDaily ? '🔴 Napi Kihívás' : '🔵 Heti Kihívás'}
                     </span>
                   </div>
-                  <div style={{ fontSize: '3rem', marginBottom: '15px' }}>🗓️</div>
+                
                   <h4 style={{ color: '#f59e0b', margin: '0 0 10px 0', fontSize: '1.4rem' }}>{t.title}</h4>
                   <p style={{ color: '#cbd5e1', fontSize: '0.95rem', margin: '0 0 20px 0', flex: 1, lineHeight: '1.6' }}>{t.description}</p>
                   
