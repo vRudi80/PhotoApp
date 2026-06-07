@@ -185,29 +185,55 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // ⚙️ JAVÍTVA: Téma szerkesztése borítóképpel és szerzővel
+  // 🃏 JAVÍTVA: Szerkesztés automatikus régi kép-megsemmisítéssel (Cloudinary)
   // ====================================================================
   app.put('/api/admin/weekly-topics/:id', upload.single('cover'), async (req, res) => {
     const { id } = req.params;
-    // ➕ Hozzáadva: coverAuthor átvétele a form-ból
-    const { title, description, startDate, endDate, masterEmail, coverUrl, coverAuthor } = req.body; 
+    const { title, description, startDate, endDate, masterEmail, coverUrl } = req.body; 
     const file = req.file;
+    
     let finalCoverUrl = coverUrl || null; 
 
     try {
+      // Ha az admin új képet tallózott be, elindul a cserefolyamat
       if (file) {
+        // 1. Feltöltjük az ÚJ képet a Cloudinary-re
         const result = await cloudinary.uploader.upload(file.path, {
           folder: 'parbaj_boritokepek',
-          width: 1200, height: 600, crop: "limit", quality: "auto:good"
+          width: 1200, 
+          height: 600, 
+          crop: "limit", 
+          quality: "auto:good"
         });
+        
+        // 2. HA volt korábban borítókép, azt most véglegesen TÖRÖLJÜK a Cloudinary-ről
+        if (coverUrl && coverUrl.includes('parbaj_boritokepek')) {
+          try {
+            // Kimásoljuk a public_id-t az URL-ből (pl.: parbaj_boritokepek/valami_random_id)
+            const urlParts = coverUrl.split('/parbaj_boritokepek/');
+            if (urlParts.length > 1) {
+              const filenameWithExt = urlParts[1];
+              const publicId = 'parbaj_boritokepek/' + filenameWithExt.split('.')[0];
+              
+              console.log(`[Cloudinary] 🗑️ Régi borítókép törlése: ${publicId}`);
+              await cloudinary.uploader.destroy(publicId);
+            }
+          } catch (deleteErr) {
+            // Ha a törlés valamiért elbukna (pl. már manuálisan törölted), a rendszer ne akadjon el
+            console.error("⚠️ Nem sikerült törölni a régi képet a Cloudinary-ről:", deleteErr.message);
+          }
+        }
+
         finalCoverUrl = result.secure_url;
         if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
       }
 
+      // 3. Mentjük az új adatokat az adatbázisba
       await pool.query(
         'UPDATE weekly_topics SET title = ?, description = ?, start_date = ?, end_date = ?, master_email = ?, cover_url = ?, cover_author = ? WHERE id = ?', 
-        [title, description, startDate, endDate, masterEmail || null, finalCoverUrl, coverAuthor || null, id]
+        [title, description, startDate, endDate, masterEmail || null, finalCoverUrl, req.body.coverAuthor || null, id]
       );
+      
       res.json({ success: true });
     } catch (err) {
       if (file && fs.existsSync(file.path)) fs.unlinkSync(file.path);
