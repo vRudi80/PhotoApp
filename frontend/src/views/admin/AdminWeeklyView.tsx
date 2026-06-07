@@ -3,13 +3,17 @@ import { BACKEND_URL } from '../../utils/constants';
 
 export default function AdminWeeklyView() {
   const [topics, setTopics] = useState<any[]>([]);
-  const [users, setUsers] = useState<any[]>([]); // ➕ ÚJ ÁLLAPOT A USEREKHEZ
+  const [users, setUsers] = useState<any[]>([]); 
   const [editId, setEditId] = useState<number | null>(null);
   const [title, setTitle] = useState('');
   const [desc, setDesc] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [masterEmail, setMasterEmail] = useState(''); // ➕ ÚJ ÁLLAPOT A KIVÁLASZTOTTHOZ
+  const [masterEmail, setMasterEmail] = useState(''); 
+
+  // ➕ ÚJ: Borítókép állapotok
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverUrl, setCoverUrl] = useState('');
 
   const [suspiciousActivities, setSuspiciousActivities] = useState<any[]>([]);
   const [loadingSuspicious, setLoadingSuspicious] = useState(false);
@@ -23,7 +27,6 @@ export default function AdminWeeklyView() {
     } catch (e) { console.error(e); }
   };
 
-  // ➕ ÚJ FUNKCIÓ: Felhasználók lekérése a legördülő menühöz
   const fetchUsers = async () => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/admin/weekly/users`);
@@ -49,7 +52,7 @@ export default function AdminWeeklyView() {
   
   useEffect(() => {
     fetchTopics();
-    fetchUsers(); // ➕ Meghívva betöltéskor
+    fetchUsers(); 
     fetchSuspicious();
   }, []);
 
@@ -59,7 +62,14 @@ export default function AdminWeeklyView() {
     setDesc('');
     setStartDate('');
     setEndDate('');
-    setMasterEmail(''); // ➕ Alaphelyzetbe állítás
+    setMasterEmail(''); 
+    // ➕ ÚJ: Kép állapotok törlése
+    setCoverFile(null);
+    setCoverUrl('');
+    
+    // Manuálisan reseteljük a file input mezőt, ha létezik
+    const fileInput = document.getElementById('cover-file-input') as HTMLInputElement;
+    if (fileInput) fileInput.value = '';
   };
 
   const startEdit = (t: any) => {
@@ -68,19 +78,39 @@ export default function AdminWeeklyView() {
     setDesc(t.description || '');
     setStartDate(t.start_date ? t.start_date.split('T')[0] : '');
     setEndDate(t.end_date ? t.end_date.split('T')[0] : '');
-    setMasterEmail(t.master_email || ''); // ➕ Szerkesztendő adat betöltése
+    setMasterEmail(t.master_email || ''); 
+    // ➕ ÚJ: Jelenlegi kép link betöltése szerkesztéshez
+    setCoverUrl(t.cover_url || '');
+    setCoverFile(null); 
   };
 
+  // ⚙️ MÓDOSÍTVA: JSON helyett FormData küldése a backendnek
   const handleSave = async () => {
     if (!title || !startDate || !endDate) return alert("Cím és dátumok kötelezőek!");
     try {
       const url = editId ? `${BACKEND_URL}/api/admin/weekly-topics/${editId}` : `${BACKEND_URL}/api/admin/weekly-topics`;
       const method = editId ? 'PUT' : 'POST';
+      
+      // ⚡ VÁLTOZTATÁS: FormData felépítése
+      const formData = new FormData();
+      formData.append('title', title);
+      formData.append('description', desc);
+      formData.append('startDate', startDate);
+      formData.append('endDate', endDate);
+      formData.append('masterEmail', masterEmail);
+      
+      // Szerkesztésnél visszaküldjük a régi URL-t, hátha nem változott meg a kép
+      if (coverUrl) formData.append('coverUrl', coverUrl);
+      
+      // Ha kiválasztottunk egy ÚJ fájlt a gépről, becsatoljuk
+      if (coverFile) formData.append('cover', coverFile);
+
       const res = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, description: desc, startDate, endDate, masterEmail }) // ➕ masterEmail átadva
+        // FIGYELEM: Multipart FormData-nál TILOS beírni a headers-be a 'Content-Type'-ot, a böngésző magától beállítja!
+        body: formData 
       });
+
       if (res.ok) {
         alert("Sikeresen mentve!");
         clearForm();
@@ -160,13 +190,40 @@ export default function AdminWeeklyView() {
         <input placeholder="A téma címe (pl. Tavaszi Fények)" value={title} onChange={e => setTitle(e.target.value)} style={inputStyle} />
         <textarea placeholder="Rövid leírás, útmutató a fotósoknak..." value={desc} onChange={e => setDesc(e.target.value)} style={{...inputStyle, minHeight: '80px'}} />
         
-        {/* ➕ ÚJ SELECT MEZŐ: Párbajmester kirendelése */}
         <div style={{ marginBottom: '15px' }}>
           <label style={{ fontSize: '0.8rem', color: '#94a3b8', display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>⚖️ Kijelölt Párbajmester (Speciális 10 pontos bíráló)</label>
           <select value={masterEmail} onChange={e => setMasterEmail(e.target.value)} style={inputStyle}>
             <option value="">-- Nincs külön párbajmester kijelölve (Opcionális) --</option>
             {users.map(u => <option key={u.email} value={u.email}>{u.name} ({u.email})</option>)}
           </select>
+        </div>
+
+        {/* ➕ ÚJ: BORÍTÓKÉP TALLÓZÓ MEZŐ ÉS INTUITÍV ELŐNÉZET */}
+        <div style={{ marginBottom: '20px', padding: '15px', background: '#0f172a50', borderRadius: '10px', border: '1px dashed #334155' }}>
+          <label style={{ fontSize: '0.8rem', color: '#38bdf8', display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>🖼️ Párbaj Vizuális Borítóképe (Cloudinary automata feltöltés)</label>
+          <input 
+            id="cover-file-input"
+            type="file" 
+            accept="image/*" 
+            onChange={e => { if(e.target.files?.[0]) setCoverFile(e.target.files[0]); }} 
+            style={inputStyle} 
+          />
+          
+          {/* Új, még el nem mentett kép élő előnézete */}
+          {coverFile && (
+            <div style={{ marginTop: '10px' }}>
+              <span style={{ color: '#ef4444', fontSize: '0.8rem', fontWeight: 'bold' }}>✨ Új borítókép előnézet (Mentésre vár):</span>
+              <img src={URL.createObjectURL(coverFile)} alt="Preview" style={{ width: '100%', maxHeight: '130px', objectFit: 'cover', borderRadius: '8px', marginTop: '5px', border: '1px solid #ef4444' }} />
+            </div>
+          )}
+          
+          {/* Már korábban mentett, létező borítókép megjelenítése */}
+          {coverUrl && !coverFile && (
+            <div style={{ marginTop: '10px' }}>
+              <span style={{ color: '#94a3b8', fontSize: '0.8rem' }}>🖼️ Jelenleg aktív borítókép:</span>
+              <img src={coverUrl} alt="Current cover" style={{ width: '100%', maxHeight: '130px', objectFit: 'cover', borderRadius: '8px', marginTop: '5px', border: '1px solid #334155' }} />
+            </div>
+          )}
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginBottom: '15px' }}>
@@ -192,7 +249,17 @@ export default function AdminWeeklyView() {
           const status = getTopicStatus(t.start_date, t.end_date);
           return (
             <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px', borderBottom: i < topics.length - 1 ? '1px solid #334155' : 'none', background: status.bg, flexWrap: 'wrap', gap: '15px' }}>
-              <div style={{ flex: 1 }}>
+              
+              {/* ➕ ÚJ: KIS BORÍTÓKÉP THUMBNAIL A LISTÁBAN AZ ÁTLÁTHATÓSÁGÉRT */}
+              <div style={{ width: '70px', height: '45px', backgroundColor: '#0f172a', borderRadius: '6px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #334155', flexShrink: 0 }}>
+                {t.cover_url ? (
+                  <img src={t.cover_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={handleImageError} />
+                ) : (
+                  <span style={{ fontSize: '1.2rem', opacity: 0.4 }}>🖼️</span>
+                )}
+              </div>
+
+              <div style={{ flex: 1, marginLeft: '5px' }}>
                 <div style={{ fontWeight: 'bold', color: '#f8fafc', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
                   {t.title} 
                   <span style={{ background: status.color, color: '#fff', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px' }}>{status.label}</span>
@@ -200,7 +267,6 @@ export default function AdminWeeklyView() {
                 <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: '5px' }}>
                   {new Date(t.start_date).toLocaleDateString('hu-HU')} - {new Date(t.end_date).toLocaleDateString('hu-HU')}
                 </div>
-                {/* ➕ ÚJ: Mester e-mail kiírása a sorban */}
                 {t.master_email && (
                   <div style={{ fontSize: '0.8rem', color: '#a78bfa', marginTop: '4px', fontWeight: 'bold' }}>
                     👑 Kijelölt Párbajmester: {t.master_email}
