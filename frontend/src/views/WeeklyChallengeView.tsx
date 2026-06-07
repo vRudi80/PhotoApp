@@ -190,13 +190,22 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const [shareBase64, setShareBase64] = useState<string | null>(null);
   const [loadingShareImg, setLoadingShareImg] = useState(false);
 
+  // ====================================================================
+  // 👑 JAVÍTVA: Biztonságos Base64 betöltés trófeakártyákhoz (Drive és Cloudinary támogatás)
+  // ====================================================================
   useEffect(() => {
     if (!activeShareData) {
       setShareBase64(null);
       return;
     }
     setLoadingShareImg(true);
-    fetch(`${BACKEND_URL}/api/image-base64/${activeShareData.drive_file_id}`)
+    
+    // Eldöntjük, hogy a régi Google Drive API-t vagy az új szupergyors proxy-t hívjuk meg
+    const fetchUrl = activeShareData.drive_file_id 
+      ? `${BACKEND_URL}/api/image-base64/${activeShareData.drive_file_id}`
+      : `${BACKEND_URL}/api/admin/base64-proxy?url=${encodeURIComponent(activeShareData.file_url)}`;
+
+    fetch(fetchUrl)
       .then(res => res.json())
       .then(data => {
         if (data.base64) setShareBase64(data.base64);
