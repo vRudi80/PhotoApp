@@ -1,5 +1,6 @@
 const fs = require('fs');
 const cloudinary = require('cloudinary').v2;
+const crypto = require('crypto'); // ➕ ÚJ IMPORT
 
 // Cloudinary konfiguráció a környezeti változókból
 cloudinary.config({
@@ -358,7 +359,99 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
 
   // ====================================================================
-  // 📸 JAVÍTVA: ELSŐ KÉP FELTÖLTÉSE & NEVEZÉS (CLOUDINARY)
+  // 🖼️ ÚJ ALBUM VÉGPONT: Felhasználó saját képeinek lekérése a párbaj-statisztikákkal
+  // ====================================================================
+  app.get('/api/my-album', async (req, res) => {
+    const { userEmail } = req.query;
+    if (!userEmail) return res.status(400).json({ error: 'Hiányzó e-mail cím!' });
+
+    try {
+      // 1. Lekérjük a felhasználó összes albumképét
+      const [photos] = await pool.query(
+        "SELECT id, file_url, created_at FROM user_photos WHERE user_email = ? ORDER BY created_at DESC",
+        [userEmail]
+      );
+
+      // 2. Minden képhez lekérjük, hogy melyik párbajban hogyan szerepelt eddig
+      const albumWithStats = [];
+      for (const photo of photos) {
+        const [history] = await pool.query(`
+          SELECT t.title AS topic_title, e.likes_count, e.views_count, e.is_active, t.end_date
+          FROM weekly_entries e
+          JOIN weekly_topics t ON e.topic_id = t.id
+          WHERE e.file_url = ? AND e.user_email = ?
+        `, [photo.file_url, userEmail]);
+
+        // Kiszámoljuk az összesített pontokat és megtekintéseket erre a konkrét fotóra
+        const totalLikes = history.reduce((sum, h) => sum + Number(h.likes_count), 0);
+        const totalViews = history.reduce((sum, h) => sum + Number(h.views_count), 0);
+
+        albumWithStats.push({
+          ...photo,
+          totalLikes,
+          totalViews,
+          history // Ez egy tömb lesz a frontendnek (párbaj neve, pontok, nézettség)
+        });
+      }
+
+      res.json(albumWithStats);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Hiba az album lekérésekor.' });
+    }
+  });
+
+  // ====================================================================
+  // 🖼️ ÚJ ALBUM VÉGPONT: Kép feltöltése KÖZVETLENÜL CSAK AZ ALBUMBA (Tárhely-optimalizált)
+  // ====================================================================
+  app.post('/api/my-album/upload', upload.single('photo'), async (req, res) => {
+    const { userEmail } = req.body;
+    const file = req.file;
+    if (!file || !userEmail) {
+      if (file && fs.existsSync(file.path)) fs.unlinkSync(file.path);
+      return res.status(400).json({ error: 'Hiányzó fájl vagy e-mail!' });
+    }
+
+    try {
+      // 1. Digitális ujjnyomat (MD5 hash) kiszámítása a fájlból
+      const fileBuffer = fs.readFileSync(file.path);
+      const fileHash = crypto.createHash('md5').update(fileBuffer).digest('hex');
+
+      // 2. CSEKK: Feltöltötte már ezt a képet korábban ez a felhasználó?
+      const [existing] = await pool.query(
+        "SELECT file_url FROM user_photos WHERE user_email = ? AND file_hash = ?",
+        [userEmail, fileHash]
+      );
+
+      if (existing.length > 0) {
+        // 🎉 MEGVAGY! A kép már megvan, töröljük a temp fájlt, és a meglévő URL-t adjuk vissza!
+        if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+        return res.json({ success: true, message: 'Ez a kép már szerepel az albumodban! (0 bájtot használtunk el)', file_url: existing[0].file_url });
+      }
+
+      // 3. Ha teljesen új kép, mehet fel a Cloudinary-re átméretezve
+      const result = await cloudinary.uploader.upload(file.path, {
+        folder: 'felhasznaloi_albumok',
+        width: 1600, height: 1600, crop: "limit", quality: "auto:good"
+      });
+
+      if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+
+      // 4. Mentés az albumba az ujjnyomattal együtt
+      await pool.query(
+        "INSERT INTO user_photos (user_email, file_url, file_hash) VALUES (?, ?, ?)",
+        [userEmail, result.secure_url, fileHash]
+      );
+
+      res.json({ success: true, file_url: result.secure_url });
+    } catch (err) {
+      if (file && fs.existsSync(file.path)) fs.unlinkSync(file.path);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ====================================================================
+  // ⚔️ MÓDOSÍTVA: ÉLES NEVEZÉS FELTÖLTÉSE (Ujjnyomat ellenőrzéssel bővítve)
   // ====================================================================
   app.post('/api/weekly/upload', upload.single('photo'), async (req, res) => {
     const { topicId, userEmail, userName } = req.body;
@@ -371,42 +464,52 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       const [topicCheck] = await pool.query('SELECT master_email FROM weekly_topics WHERE id = ?', [topicId]);
       if (topicCheck[0] && topicCheck[0].master_email === userEmail) {
         if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
-        return res.status(400).json({ error: 'Párbajmesterként nem nevezhetsz a saját párbajodra! Te vagy a kijelölt főbíráló. ⚖️' });
+        return res.status(400).json({ error: 'Párbajmesterként nem nevezhetsz a saját párbajodra!' });
       }
 
-      const [existing] = await pool.query('SELECT id FROM weekly_entries WHERE topic_id = ? AND user_email = ?', [topicId, userEmail]);
-      if (existing.length > 0) { 
+      const [existingEntry] = await pool.query('SELECT id FROM weekly_entries WHERE topic_id = ? AND user_email = ?', [topicId, userEmail]);
+      if (existingEntry.length > 0) { 
         if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
-        return res.status(400).json({ error: 'Már neveztél erre a kihívásra! Kép cseréjéhez használd a Csere panelt.' }); 
+        return res.status(400).json({ error: 'Már neveztél erre a kihívásra!' }); 
       }
 
-      // 🚀 Feltöltés és tömörítés a Cloudinary 'parbajok' mappájába
-      const result = await cloudinary.uploader.upload(file.path, {
-        folder: 'parbajok',
-        width: 1600,
-        height: 1600,
-        crop: "limit",
-        quality: "auto:good"
-      });
+      // 🧠 MEGTESZALAPÚ ELLENŐRZÉS:
+      const fileBuffer = fs.readFileSync(file.path);
+      const fileHash = crypto.createHash('md5').update(fileBuffer).digest('hex');
 
-      if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+      let finalFileUrl = '';
+      const [duplicatePhoto] = await pool.query("SELECT file_url FROM user_photos WHERE user_email = ? AND file_hash = ?", [userEmail, fileHash]);
+
+      if (duplicatePhoto.length > 0) {
+        // Újrafelhasználás tárhely-pazarlás nélkül
+        finalFileUrl = duplicatePhoto[0].file_url;
+        if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+      } else {
+        // Új feltöltés
+        const result = await cloudinary.uploader.upload(file.path, {
+          folder: 'parbajok', width: 1600, height: 1600, crop: "limit", quality: "auto:good"
+        });
+        finalFileUrl = result.secure_url;
+        if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+
+        // Automatikusan beiktatjuk a saját albumába is, hogy legközelebb meglegyen
+        await pool.query("INSERT INTO user_photos (user_email, file_url, file_hash) VALUES (?, ?, ?)", [userEmail, finalFileUrl, fileHash]);
+      }
 
       await pool.query(
         'INSERT INTO weekly_entries (topic_id, user_email, user_name, file_url, drive_file_id, swapped, ip_address, is_active) VALUES (?, ?, ?, ?, NULL, 0, ?, 1)', 
-        [topicId, userEmail, userName, result.secure_url, ipAddress]
+        [topicId, userEmail, userName, finalFileUrl, ipAddress]
       );
       
       res.json({ success: true });
     } catch (err) { 
       if (file && fs.existsSync(file.path)) fs.unlinkSync(file.path);
-      console.error("❌ Kritikus hiba a fotó nevezése során:", err.message);
       res.status(500).json({ error: err.message }); 
     }
   });
 
-
   // ====================================================================
-  // 🃏 JAVÍTVA: ÚJ KÉP FELTÖLTÉSE CSERÉVEL (CLOUDINARY)
+  // 🃏 MÓDOSÍTVA: JOKER CSŐS KÉPCSERE (Ujjnyomat ellenőrzéssel bővítve)
   // ====================================================================
   app.post('/api/weekly/swap', upload.single('photo'), async (req, res) => {
     const { topicId, userEmail, userName } = req.body;
@@ -423,33 +526,41 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       if (!userRows[0] || userRows[0].swap_balance < 1) {
         if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
         await conn.rollback();
-        return res.status(400).json({ error: 'Nincs elég Joker cseréd a számládon!' });
+        return res.status(400).json({ error: 'Nincs elég Joker cseréd!' });
       }
 
       const [existing] = await conn.query('SELECT id, swapped FROM weekly_entries WHERE topic_id = ? AND user_email = ? AND is_active = 1', [topicId, userEmail]);
       if (existing.length === 0) {
         if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
         await conn.rollback();
-        return res.status(400).json({ error: 'Még nincs aktív nevezésed, amit lecserélhetnél!' });
+        return res.status(400).json({ error: 'Még nincs aktív nevezésed!' });
       }
 
       await conn.query('UPDATE weekly_entries SET is_active = 0 WHERE id = ?', [existing[0].id]);
 
-      // 🚀 Feltöltés és tömörítés a Cloudinary 'parbajok' mappájába
-      const result = await cloudinary.uploader.upload(file.path, {
-        folder: 'parbajok',
-        width: 1600,
-        height: 1600,
-        crop: "limit",
-        quality: "auto:good"
-      });
+      // HASH CSEKK CSERÉRE IS
+      const fileBuffer = fs.readFileSync(file.path);
+      const fileHash = crypto.createHash('md5').update(fileBuffer).digest('hex');
 
-      if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+      let finalFileUrl = '';
+      const [duplicatePhoto] = await conn.query("SELECT file_url FROM user_photos WHERE user_email = ? AND file_hash = ?", [userEmail, fileHash]);
+
+      if (duplicatePhoto.length > 0) {
+        finalFileUrl = duplicatePhoto[0].file_url;
+        if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+      } else {
+        const result = await cloudinary.uploader.upload(file.path, {
+          folder: 'parbajok', width: 1600, height: 1600, crop: "limit", quality: "auto:good"
+        });
+        finalFileUrl = result.secure_url;
+        if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+        await conn.query("INSERT INTO user_photos (user_email, file_url, file_hash) VALUES (?, ?, ?)", [userEmail, finalFileUrl, fileHash]);
+      }
 
       const nextSwapCount = existing[0].swapped + 1;
       await conn.query(
         'INSERT INTO weekly_entries (topic_id, user_email, user_name, file_url, drive_file_id, swapped, ip_address, is_active, likes_count, views_count) VALUES (?, ?, ?, ?, NULL, ?, ?, 1, 0, 0)',
-        [topicId, userEmail, userName, result.secure_url, nextSwapCount, ipAddress]
+        [topicId, userEmail, userName, finalFileUrl, nextSwapCount, ipAddress]
       );
 
       await conn.query('UPDATE photo_users SET swap_balance = swap_balance - 1 WHERE email = ?', [userEmail]);
@@ -461,6 +572,34 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       if (file && fs.existsSync(file.path)) fs.unlinkSync(file.path);
       res.status(500).json({ error: err.message }); 
     } finally { conn.release(); }
+  });
+
+  // ====================================================================
+  // ⚔️ ÚJ VÉGPONT: NEVEZÉS MEGLÉVŐ ALBUMKÉPPEL
+  // ====================================================================
+  app.post('/api/weekly/upload-existing', async (req, res) => {
+    const { topicId, userEmail, userName, fileUrl } = req.body;
+    if (!topicId || !userEmail || !fileUrl) return res.status(400).json({ error: 'Hiányzó adatok!' });
+    
+    const ipAddress = req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : (req.ip || req.socket.remoteAddress);
+
+    try {
+      const [topicCheck] = await pool.query('SELECT master_email FROM weekly_topics WHERE id = ?', [topicId]);
+      if (topicCheck[0] && topicCheck[0].master_email === userEmail) {
+        return res.status(400).json({ error: 'Párbajmesterként nem nevezhetsz a saját párbajodra!' });
+      }
+
+      const [existing] = await pool.query('SELECT id FROM weekly_entries WHERE topic_id = ? AND user_email = ?', [topicId, userEmail]);
+      if (existing.length > 0) return res.status(400).json({ error: 'Már neveztél erre a kihívásra!' });
+
+      await pool.query(
+        'INSERT INTO weekly_entries (topic_id, user_email, user_name, file_url, drive_file_id, swapped, ip_address, is_active) VALUES (?, ?, ?, ?, NULL, 0, ?, 1)', 
+        [topicId, userEmail, userName, fileUrl, ipAddress]
+      );
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
   });
 
 
