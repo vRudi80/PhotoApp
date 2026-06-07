@@ -334,9 +334,9 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // 🖼️ ÚJ ALBUM VÉGPONT: Felhasználó saját képeinek lekérése
+  // 🖼️ ÁTNEVEZVE: `/api/weekly/my-album` lett az ütközések elkerülése miatt!
   // ====================================================================
-  app.get('/api/my-album', async (req, res) => {
+  app.get('/api/weekly/my-album', async (req, res) => {
     const { userEmail } = req.query;
     if (!userEmail) return res.status(400).json({ error: 'Hiányzó e-mail cím!' });
 
@@ -374,9 +374,9 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // 🖼️ ÚJ ALBUM VÉGPONT: Kép feltöltése KÖZVETLENÜL CSAK AZ ALBUMBA
+  // 🖼️ ÁTNEVEZVE: `/api/weekly/my-album/upload`
   // ====================================================================
-  app.post('/api/my-album/upload', upload.single('photo'), async (req, res) => {
+  app.post('/api/weekly/my-album/upload', upload.single('photo'), async (req, res) => {
     const { userEmail } = req.body;
     const file = req.file;
     if (!file || !userEmail) {
