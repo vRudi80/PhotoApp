@@ -33,7 +33,8 @@ const getLevelDetails = (likes: number, victories: number) => {
 // ====================================================================
 // ⏳ SEGÉDKOMPONENS: Önálló kártya saját belső visszaszámlálóval
 // ====================================================================
-function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }) {
+// JAVÍTVA: Az isMaster-t most már megkapja propként a szülőtől!
+function ChallengeCard({ topic, onSelect, isMaster }: { topic: any; onSelect: () => void; isMaster: boolean }) {
   const [timeLeft, setTimeLeft] = useState<string>('Számítás...');
 
   useEffect(() => {
@@ -100,7 +101,6 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
       <h3 style={{ color: 'white', margin: '0 0 10px 0', fontSize: '1.4rem', fontWeight: 'bold' }}>{topic.title}</h3>
       <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: '0 0 20px 0', lineHeight: '1.5', flex: 1 }}>{topic.description}</p>
       
-      {/* 👑 JAVÍTVA: Párbajmester nevének kijelzése az Aktuális kártyákon */}
       {(topic.master_name || topic.master_email) && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#a78bfa', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '15px', background: '#a78bfa10', padding: '8px 14px', borderRadius: '10px', border: '1px solid #a78bfa20', width: 'fit-content' }}>
           <span>👑 Párbajmester:</span>
@@ -579,10 +579,12 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '25px', marginTop: '20px' }}>
                   {activeTopics.map((t) => (
+                    // JAVÍTVA: Átadjuk az isMaster változót propként!
                     <ChallengeCard 
                       key={t.id} 
                       topic={t} 
                       onSelect={() => setSelectedTopicId(t.id)} 
+                      isMaster={isMaster}
                     />
                   ))}
                 </div>
@@ -619,32 +621,32 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                       </div>
                     </div>
                     
-                  {/* EXPO / LÁTHATÓSÁGI MÉRŐ */}
-{!isMaster && (
-  <div style={{ width: '100%', boxSizing: 'border-box', background: '#0f172a', padding: '25px 15px', borderRadius: '24px', border: `1px solid ${exposureColor}40`, display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: `0 10px 40px -10px ${exposureColor}30`, transition: 'all 0.5s ease' }}>
-    <h4 style={{ color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '2px', margin: '0 0 15px 0', fontSize: '0.85rem', textAlign: 'center' }}>Láthatósági Mérő</h4>
-    
-    <div style={{ position: 'relative', width: '100%', maxWidth: '240px', margin: '0 auto' }}>
-      <svg viewBox="0 0 200 120" style={{ width: '100%', height: 'auto', display: 'block', overflow: 'visible' }}>
-        <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#1e293b" strokeWidth="16" strokeLinecap="round" />
-        <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke={exposureColor} strokeWidth="16" strokeLinecap="round" pathLength="100" strokeDasharray="100" strokeDashoffset={100 - exposurePercentage} />
-      </svg>
-      
-      <div style={{ position: 'absolute', bottom: '15px', left: '0', width: '100%', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <div style={{ fontSize: '2.8rem', fontWeight: '900', color: exposureColor, lineHeight: '1' }}>
-          {Math.round(exposurePercentage)}<span style={{ fontSize: '1.2rem' }}>%</span>
-        </div>
-        <div style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#f8fafc', textTransform: 'uppercase', marginTop: '5px', letterSpacing: '2px' }}>
-          {exposureLabel}
-        </div>
-      </div>
-    </div>
+                    {/* EXPO / LÁTHATÓSÁGI MÉRŐ */}
+                    {!isMaster && (
+                      <div style={{ width: '100%', boxSizing: 'border-box', background: '#0f172a', padding: '25px 15px', borderRadius: '24px', border: `1px solid ${exposureColor}40`, display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: `0 10px 40px -10px ${exposureColor}30`, transition: 'all 0.5s ease' }}>
+                        <h4 style={{ color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '2px', margin: '0 0 15px 0', fontSize: '0.85rem', textAlign: 'center' }}>Láthatósági Mérő</h4>
+                        
+                        <div style={{ position: 'relative', width: '100%', maxWidth: '240px', margin: '0 auto' }}>
+                          <svg viewBox="0 0 200 120" style={{ width: '100%', height: 'auto', display: 'block', overflow: 'visible' }}>
+                            <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#1e293b" strokeWidth="16" strokeLinecap="round" />
+                            <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke={exposureColor} strokeWidth="16" strokeLinecap="round" pathLength="100" strokeDasharray="100" strokeDashoffset={100 - exposurePercentage} />
+                          </svg>
+                          
+                          <div style={{ position: 'absolute', bottom: '15px', left: '0', width: '100%', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                            <div style={{ fontSize: '2.8rem', fontWeight: '900', color: exposureColor, lineHeight: '1' }}>
+                              {Math.round(exposurePercentage)}<span style={{ fontSize: '1.2rem' }}>%</span>
+                            </div>
+                            <div style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#f8fafc', textTransform: 'uppercase', marginTop: '5px', letterSpacing: '2px' }}>
+                              {exposureLabel}
+                            </div>
+                          </div>
+                        </div>
 
-    <p style={{ fontSize: '0.85rem', color: '#94a3b8', margin: '15px 0 0 0', textAlign: 'center', lineHeight: '1.6' }}>
-      {!myEntry ? 'Töltsd fel a képedet az induláshoz, és kapsz 10 alap energiát!' : voteEntry ? '⚡ Új fotó érkezett az Arénába (vagy valaki Jokert használt)! Értékelt, hogy a mérőd újra maxon pörögjön!' : '🔥 A képed a maximumon pörög! Jelenleg nincs több értékelhető kép az Arénában.'}
-    </p>
-  </div>
-)}
+                        <p style={{ fontSize: '0.85rem', color: '#94a3b8', margin: '15px 0 0 0', textAlign: 'center', lineHeight: '1.6' }}>
+                          {!myEntry ? 'Töltsd fel a képedet az induláshoz, és kapsz 10 alap energiát!' : voteEntry ? '⚡ Új fotó érkezett az Arénába (vagy valaki Jokert használt)! Értékelt, hogy a mérőd újra maxon pörögjön!' : '🔥 A képed a maximumon pörög! Jelenleg nincs több értékelhető kép az Arénában.'}
+                        </p>
+                      </div>
+                    )}
 
                     {/* ÉRTÉKELŐ ARÉNA PULT */}
                     <div style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #334155', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
@@ -740,10 +742,10 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
 
                           {myEntry.off_topic_count > 0 && (
                             <div style={{ background: 'linear-gradient(90deg, #ef444415, transparent)', borderLeft: '4px solid #ef4444', padding: '15px', borderRadius: '0 12px 12px 0', marginTop: '15px', fontSize: '0.85rem', color: '#cbd5e1', lineHeight: '1.5' }}>
-                              <strong style={{ color: '#ef4444', display: 'block', marginBottom: '4px', fontSize: '0.95rem' }}>
+                              <b style={{ color: '#ef4444', display: 'block', marginBottom: '4px', fontSize: '0.95rem' }}>
                                 🚫 Figyelmeztetés: Tématévesztés gyanúja!
-                              </strong>
-                              A képedet edjim <b>{myEntry.off_topic_count} fotóstársad</b> jelentette off-topicnak vagy gyanúsan AI-al generáltnak. Kérlek ügyelj a pontos témára, illetve ne használj AI fotót!
+                              </b>
+                              A képedet eddig <b>{myEntry.off_topic_count} fotóstársad</b> jelentette off-topicnak vagy gyanúsan AI-al generáltnak. Kérlek ügyelj a pontos témára, illetve ne használj AI fotót!
                             </div>
                           )}
 
@@ -895,7 +897,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   <h4 style={{ color: '#f59e0b', margin: '0 0 10px 0', fontSize: '1.4rem' }}>{t.title}</h4>
                   <p style={{ color: '#cbd5e1', fontSize: '0.95rem', margin: '0 0 20px 0', flex: 1, lineHeight: '1.6' }}>{t.description}</p>
                   
-                  {/* 👑 JAVÍTVA: Párbajmester nevének kijelzése a Hamarosan kártyákon */}
                   {(t.master_name || t.master_email) && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#a78bfa', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '15px', background: '#a78bfa10', padding: '8px 14px', borderRadius: '10px', border: '1px solid #a78bfa20', width: 'fit-content' }}>
                       <span>👑 Párbajmester:</span>
@@ -978,7 +979,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                           <span style={{ fontSize: '0.8rem', color: '#64748b', fontStyle: 'italic' }}>Nem volt pontot szerző tag ebben a fordulóban.</span>
                         ) : (
                           clubMembers.map((m, idx) => (
-                            <div key={idx} style={{ display: 'flex', justifycontent: 'space-between', fontSize: '0.85rem', color: '#cbd5e1' }}>
+                            // JAVÍTVA: justifycontent -> justifyContent
+                            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#cbd5e1' }}>
                               <span>👤 {m.user_name} <small style={{ color: '#64748b' }}>("{m.title || 'Cím nélkül'}")</small></span>
                               <span style={{ fontWeight: 'bold', color: '#fbbf24' }}>{m.likes_count || 0} ⭐</span>
                             </div>
@@ -1097,7 +1099,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   </div>
                 </div>
 
-                <div style={{ background: 'linear-gradient(145deg, #1e293b, #0f172a)', padding: '25px', borderRadius: '24px', border: '1px solid #10b98140', boxShadow: '0 10px 25px rgba(0,0,0,0.3)', display: 'flex', flexDirection: 'column', justifycontent: 'space-between' }}>
+                {/* JAVÍTVA: justifycontent -> justifyContent */}
+                <div style={{ background: 'linear-gradient(145deg, #1e293b, #0f172a)', padding: '25px', borderRadius: '24px', border: '1px solid #10b98140', boxShadow: '0 10px 25px rgba(0,0,0,0.3)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                   <div>
                     <h4 style={{ margin: '0 0 10px 0', color: '#10b981', fontSize: '1.2rem' }}>🤝 Téged ki hívott meg?</h4>
                     <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 20px 0', lineHeight: '1.5' }}>
@@ -1153,6 +1156,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                     const isDaily = getTopicType(entry?.start_date, entry?.end_date) === 'daily';
 
                     return (
+                      // JAVÍTVA: justifycontent -> justifyContent
                       <div key={idx} style={{ background: '#1e293b', borderRadius: '20px', overflow: 'hidden', border: `1px solid ${badgeColor}`, transition: 'transform 0.2s', boxShadow: '0 10px 20px rgba(0,0,0,0.3)', display: 'flex', flexDirection: 'column' }}>
                         <div style={{ position: 'relative', height: '220px' }}>
                           <img src={getImageUrl(entry?.drive_file_id, entry?.file_url)} alt="Pályamű" style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'zoom-in' }} onClick={() => setFullscreenData({url: getImageUrl(entry?.drive_file_id, entry?.file_url), title: entry?.topic_title || ''})} onError={handleImageError} />
@@ -1164,22 +1168,26 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                             {isDaily ? '🔴 Napi' : '🔵 Heti'}
                           </div>
                         </div>
-                        <div style={{ padding: '20px', flex: 1, display: 'flex', flexDirection: 'column', justifycontent: 'space-between' }}>
+                        {/* JAVÍTVA: justifycontent -> justifyContent */}
+                        <div style={{ padding: '20px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                           <div>
                             <h4 style={{ margin: '0 0 15px 0', color: '#f8fafc', fontSize: '1.2rem' }}>{entry?.topic_title}</h4>
-                            <div style={{ display: 'flex', justifycontent: 'space-between', color: '#94a3b8', fontSize: '0.9rem', marginBottom: '12px' }}>
+                            {/* JAVÍTVA: justifycontent -> justifyContent */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94a3b8', fontSize: '0.9rem', marginBottom: '12px' }}>
                               <span>Mezőny: {entry?.total_entries || 0} kép</span>
                               <span style={{color: '#f8fafc'}}>Helyezés: <b>{entry?.rank || 0}.</b></span>
                             </div>
-                            <div style={{ background: '#0f172a', padding: '15px', borderRadius: '12px', display: 'flex', justifycontent: 'space-between', fontSize: '0.9rem', marginBottom: '15px' }}>
+                            {/* JAVÍTVA: justifycontent -> justifyContent */}
+                            <div style={{ background: '#0f172a', padding: '15px', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', marginBottom: '15px' }}>
                               <span style={{color: '#f97316', fontWeight: '900'}}>⭐ {entry?.likes || 0} pont</span>
                               <span style={{color: '#38bdf8', fontWeight: 'bold'}}>👁️ {entry?.views || 0}</span>
                             </div>
                           </div>
 
+                          {/* JAVÍTVA: justifycontent -> justifyContent */}
                           <button 
                             onClick={() => setActiveShareData(entry)}
-                            style={{ width: '100%', background: 'linear-gradient(135deg, #14b8a6, #0d9488)', color: 'white', border: 'none', padding: '10px', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifycontent: 'center', gap: '8px', boxShadow: '0 4px 12px rgba(20,184,166,0.2)' }}
+                            style={{ width: '100%', background: 'linear-gradient(135deg, #14b8a6, #0d9488)', color: 'white', border: 'none', padding: '10px', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', boxShadow: '0 4px 12px rgba(20,184,166,0.2)' }}
                           >
                             🚀 Eredmény megosztása
                           </button>
@@ -1260,7 +1268,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                       </span>
                     </div>
 
-                    <div style={{ textalign: 'right', minWidth: '80px' }}>
+                    {/* JAVÍTVA: textalign -> textAlign */}
+                    <div style={{ textAlign: 'right', minWidth: '80px' }}>
                       <div style={{ color: '#fbbf24', fontWeight: '900', fontSize: '1.4rem' }}>{likes} <span style={{ fontSize: '0.9rem', fontWeight: 'normal', color: '#64748b' }}>⭐</span></div>
                     </div>
                   </div>
@@ -1294,7 +1303,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                 </p>
               </div>
 
-              {/* 👑 ÚJ: Párbajmester leírása a szabályzatban */}
               <div style={{ background: '#1e293b', padding: '20px', borderRadius: '16px', borderLeft: '4px solid #a78bfa' }}>
                 <h4 style={{ color: '#a78bfa', margin: '0 0 10px 0', fontSize: '1.1rem' }}>👑 Ki az a Párbajmester?</h4>
                 <p style={{ color: '#cbd5e1', fontSize: '0.9rem', lineHeight: '1.6', margin: 0 }}>
@@ -1351,13 +1359,16 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
 
 
       {activeShareData && (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 99999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifycontent: 'center', padding: '20px', overflowY: 'auto' }}>
+        // JAVÍTVA: justifycontent -> justifyContent
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 99999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px', overflowY: 'auto' }}>
           
-          <div style={{ display: 'flex', justifycontent: 'space-between', width: '100%', maxWidth: '340px', marginBottom: '15px', alignItems: 'center' }}>
+          {/* JAVÍTVA: justifycontent -> justifyContent */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', maxWidth: '340px', marginBottom: '15px', alignItems: 'center' }}>
             <span style={{ color: '#94a3b8', fontSize: '0.9rem', fontWeight: 'bold' }}>📱 Trófeakártya Előnézet</span>
             <button onClick={() => setActiveShareData(null)} style={{ background: '#1e293b', border: 'none', color: '#ef4444', padding: '6px 14px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>Mégse ✕</button>
           </div>
 
+          {/* JAVÍTVA: justifycontent -> justifyContent */}
           <div 
             id="share-card-node"
             style={{ 
@@ -1370,7 +1381,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
               display: 'flex', 
               flexDirection: 'column', 
               alignItems: 'center', 
-              justifycontent: 'space-between',
+              justifyContent: 'space-between',
               border: '3px solid #fbbf24',
               position: 'relative',
               overflow: 'hidden'
@@ -1383,6 +1394,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
               <div style={{ color: '#64748b', fontSize: '0.65rem', marginTop: '2px', letterSpacing: '1px' }}>PÁRBAJ TRÓFEA</div>
             </div>
 
+            {/* JAVÍTVA: justifycontent -> justifyContent */}
             <div style={{ 
               width: '100%', 
               height: '200px', 
@@ -1392,7 +1404,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
               zIndex: 10, 
               display: 'flex', 
               alignItems: 'center', 
-              justifycontent: 'center', 
+              justifyContent: 'center', 
               position: 'relative',
               boxSizing: 'border-box',
               backgroundColor: '#000',
@@ -1423,12 +1435,14 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                 "{activeShareData.topic_title}"
               </div>
               
-              <div style={{ display: 'flex', width: '100%', borderTop: '1px dashed #23293f', paddingTop: '10px' }}>
+              <div style={{ display: 'flex', width: '100%', borderTop: '1px solid #23293f', paddingTop: '10px' }}>
+                {/* JAVÍTVA: justifycontent -> justifyContent */}
                 <div style={{ flex: 1, textAlign: 'center' }}>
                   <div style={{ fontSize: '0.7rem', color: '#64748b', marginBottom: '2px' }}>Közösségi Értékelés</div>
                   <div style={{ fontSize: '1.1rem', fontWeight: '900', color: '#f97316' }}>{activeShareData.likes || 0} ⭐</div>
                 </div>
                 <div style={{ width: '1px', background: '#23293f' }}></div>
+                {/* JAVÍTVA: justifycontent -> justifyContent */}
                 <div style={{ flex: 1, textAlign: 'center' }}>
                   <div style={{ fontSize: '0.7rem', color: '#64748b', marginBottom: '2px' }}>Összes Nevező</div>
                   <div style={{ fontSize: '1.1rem', fontWeight: '900', color: '#38bdf8' }}>{activeShareData.total_entries || 0} fotó</div>
@@ -1442,10 +1456,11 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
             </div>
           </div>
 
+          {/* JAVÍTVA: justifycontent -> justifyContent */}
           <button 
             onClick={handleExecuteShare}
             disabled={isGeneratingImage || loadingShareImg}
-            style={{ width: '100%', maxWidth: '340px', marginTop: '15px', background: isGeneratingImage || loadingShareImg ? '#334155' : 'linear-gradient(135deg, #3b82f6, #1d4ed8)', color: isGeneratingImage || loadingShareImg ? '#64748b' : 'white', border: 'none', padding: '14px', borderRadius: '14px', fontSize: '1.1rem', fontWeight: 'bold', cursor: isGeneratingImage || loadingShareImg ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifycontent: 'center', gap: '8px', boxShadow: '0 10px 25px rgba(29,78,216,0.3)' }}
+            style={{ width: '100%', maxWidth: '340px', marginTop: '15px', background: isGeneratingImage || loadingShareImg ? '#334155' : 'linear-gradient(135deg, #3b82f6, #1d4ed8)', color: isGeneratingImage || loadingShareImg ? '#64748b' : 'white', border: 'none', padding: '14px', borderRadius: '14px', fontSize: '1.1rem', fontWeight: 'bold', cursor: isGeneratingImage || loadingShareImg ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', boxShadow: '0 10px 25px rgba(29,78,216,0.3)' }}
           >
             {isGeneratingImage ? '⏳ Trófea mentése...' : '📱 Kártya Megosztása / Mentése 🚀'}
           </button>
