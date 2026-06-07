@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BACKEND_URL } from '../utils/constants';
 import { getImageUrl } from '../utils/helpers';
 import { toPng } from 'html-to-image'; 
+import MyArenaAlbumView from './MyArenaAlbumView'; // ➕ ÚJ IMPORT SOR
 
 interface WeeklyChallengeViewProps {
   user: any;
@@ -132,7 +133,7 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
 // ⚔️ FŐ KOMPONENS
 // ====================================================================
 export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyChallengeViewProps) {
-  const [subTab, setSubTab] = useState<'current' | 'upcoming' | 'past' | 'my_stats' | 'hall_of_fame'>('current');
+  const [subTab, setSubTab] = useState<'current' | 'upcoming' | 'past' | 'my_stats' | 'hall_of_fame' | 'arena_album'>('current');
   const [loading, setLoading] = useState(true);
   const [myReferralCode, setMyReferralCode] = useState<string>('');
   const [referredBy, setReferredBy] = useState<string | null>(null);
@@ -569,12 +570,31 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', flexWrap: 'wrap', gap: '15px' }}>
         <div style={{ display: 'flex', gap: '10px', background: '#0f172a', padding: '10px', borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.3)', width: 'fit-content', flexWrap: 'wrap', border: '1px solid #1e293b' }}>
-          <button onClick={() => { setSubTab('current'); setSelectedTopicId(null); }} style={{ padding: '10px 24px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: subTab === 'current' ? 'linear-gradient(135deg, #f97316, #ef4444)' : 'transparent', color: subTab === 'current' ? 'white' : '#94a3b8', transition: 'all 0.3s', boxShadow: subTab === 'current' ? '0 4px 15px rgba(239,68,68,0.4)' : 'none' }}>⚔️ Aréna</button>
-          <button onClick={() => setSubTab('upcoming')} style={{ padding: '10px 24px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: subTab === 'upcoming' ? '#334155' : 'transparent', color: subTab === 'upcoming' ? 'white' : '#94a3b8', transition: 'all 0.3s' }}>⏳ Hamarosan</button>
-          <button onClick={() => setSubTab('past')} style={{ padding: '10px 24px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: subTab === 'past' ? '#334155' : 'transparent', color: subTab === 'past' ? 'white' : '#94a3b8', transition: 'all 0.3s' }}>📜 Archívum</button>
-          <button onClick={() => { setSubTab('my_stats'); fetchMyStats(); }} style={{ padding: '10px 24px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: subTab === 'my_stats' ? 'linear-gradient(135deg, #8b5cf6, #6366f1)' : 'transparent', color: subTab === 'my_stats' ? 'white' : '#94a3b8', transition: 'all 0.3s', boxShadow: subTab === 'my_stats' ? '0 4px 15px rgba(139,92,246,0.4)' : 'none' }}>🏆 Trófeaterem</button>
-          <button onClick={() => setSubTab('hall_of_fame')} style={{ padding: '10px 24px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: subTab === 'hall_of_fame' ? 'linear-gradient(135deg, #fbbf24, #d97706)' : 'transparent', color: subTab === 'hall_of_fame' ? '#0f172a' : '#94a3b8', transition: 'all 0.3s', boxShadow: subTab === 'hall_of_fame' ? '0 4px 15px rgba(251,191,36,0.4)' : 'none' }}>👑 Dicsőségfal</button>
-        </div>
+        <button onClick={() => { setSubTab('current'); setSelectedTopicId(null); }} ...>⚔️ Aréna</button>
+        <button onClick={() => setSubTab('upcoming')} ...>⏳ Hamarosan</button>
+        <button onClick={() => setSubTab('past')} ...>📜 Archívum</button>
+        
+        {/* ➕ ÚJ SUB-TAB GOMB: Képtáram */}
+        <button 
+          onClick={() => setSubTab('arena_album')} 
+          style={{ 
+            padding: '10px 24px', 
+            borderRadius: '10px', 
+            border: 'none', 
+            cursor: 'pointer', 
+            fontWeight: 'bold', 
+            background: subTab === 'arena_album' ? 'linear-gradient(135deg, #14b8a6, #0d9488)' : 'transparent', 
+            color: subTab === 'arena_album' ? 'white' : '#94a3b8', 
+            transition: 'all 0.3s', 
+            boxShadow: subTab === 'arena_album' ? '0 4px 15px rgba(20,184,166,0.4)' : 'none' 
+          }}
+        >
+          🖼️ Képtáram
+        </button>
+
+  <button onClick={() => { setSubTab('my_stats'); fetchMyStats(); }} ...>🏆 Trófeaterem</button>
+  <button onClick={() => setSubTab('hall_of_fame')} ...>👑 Dicsőségfal</button>
+</div>
         
         <button onClick={() => setShowHelp(true)} style={{ padding: '12px 24px', borderRadius: '12px', border: '1px solid #38bdf8', cursor: 'pointer', fontWeight: 'bold', background: '#0f172a', color: '#38bdf8', transition: 'all 0.3s', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 15px rgba(56,189,248,0.2)' }}>
           <span style={{ fontSize: '1.2rem' }}>📖</span> Játékszabályok & Rangok
@@ -1305,8 +1325,12 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           )}
         </div>
       )}
+      
+      {subTab === 'arena_album' && (
+        <MyArenaAlbumView user={user} setFullscreenData={setFullscreenData} />
+      )}
 
-       {showHelp && (
+      {showHelp && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(5px)', zIndex: 9999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px', boxSizing: 'border-box', animation: 'fadeIn 0.2s ease-out' }}>
           <div style={{ background: '#0f172a', border: '1px solid #334155', borderRadius: '24px', width: '100%', maxWidth: '700px', maxHeight: '90vh', overflowY: 'auto', padding: '30px', position: 'relative', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.8)' }}>
             
