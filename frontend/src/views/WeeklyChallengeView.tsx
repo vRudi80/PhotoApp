@@ -179,6 +179,10 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const [masterVotesLeft, setMasterVotesLeft] = useState<number>(0);
   const [isMaster, setIsMaster] = useState<boolean>(false);         
 
+  const [showSwapAlbumModal, setShowSwapAlbumModal] = useState(false);
+  const [swapAlbumPhotos, setSwapAlbumPhotos] = useState<any[]>([]);
+  const [isLoadingSwapAlbum, setIsLoadingSwapAlbum] = useState(false);
+  
   const [activeTopics, setActiveTopics] = useState<any[]>([]);
   const [selectedTopicId, setSelectedTopicId] = useState<number | null>(null);
 
@@ -560,24 +564,30 @@ const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     finally { setIsSwapping(false); }
   };
 
-  const handleSwapBackSubmit = async (entryId: number) => {
-    if (swapBalance < 1) return alert("Nincs elég Joker cseréd a számládon!");
-    if (!window.confirm("↩️ Biztosan visszatérsz erre a korábbi fotódra? Ez 1 Joker cserédbe kerül, de a kép azonnal visszakapja az összes korábban itt gyűjtött csillagát!")) return;
+const handleSelectPhotoForSwap = async (photoUrl: string) => {
+    if (!window.confirm("⚠️ Biztosan elhasználsz 1 Joker cserét erre az albumképre? Ez a fotó most 0 pontról fog újraindulni ebben a fordulóban!")) return;
+    setIsSwapping(true);
+    setShowSwapAlbumModal(false); // Bezárjuk a választó ablakot
     
     try {
-      const res = await fetch(`${BACKEND_URL}/api/weekly/swap-back`, {
+      const swapRes = await fetch(`${BACKEND_URL}/api/weekly/swap-existing`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topicId: topic.id, userEmail: user?.email, entryId })
+        body: JSON.stringify({ topicId: topic.id, userEmail: user.email, userName: user.name, fileUrl: photoUrl })
       });
-      if (res.ok) {
-        alert("↩️ Fotó sikeresen visszaaktiválva!");
+      
+      if (swapRes.ok) {
+        alert("🎉 Sikeres Joker képcsere az Aréna képtáradból!");
         fetchCurrentTopic(false);
       } else {
-        const err = await res.json();
-        alert(err.error || "Hiba a visszaváltás során.");
+        const err = await swapRes.json(); 
+        alert(err.error);
       }
-    } catch (e) { alert("Hálózati hiba!"); }
+    } catch (e) { 
+      alert("Hálózati hiba a csere során."); 
+    } finally { 
+      setIsSwapping(false); 
+    }
   };
 
   const handleExecuteShare = async () => {
@@ -849,48 +859,36 @@ const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
                 {isSwapping ? 'Csere folyamatban...' : 'Joker Elköltése Tallózással 🔄'}
               </button>
 
-              {/* ⚡ ÚJ: INTELLIGENS JOKER CSERE ARÉNA ALBUMBÓL */}
+           {/* ⚡ ÚJ: INTELLIGENS JOKER CSERE ARÉNA ALBUMBÓL */}
               <div style={{ marginTop: '18px', borderTop: '1px solid #be123c40', paddingTop: '15px', textAlign: 'center' }}>
                 <p style={{ color: '#64748b', fontSize: '0.8rem', margin: '0 0 10px 0' }}>VAGY elhasználhatsz 1 Jokert egy már meglévő albumképedre:</p>
                 <button 
-                  disabled={isSwapping}
+                  disabled={isSwapping || isLoadingSwapAlbum}
                   onClick={async () => {
-                    const res = await fetch(`${BACKEND_URL}/api/weekly/my-album?userEmail=${user?.email}`);
-                    if (res.ok) {
-                      const albumPhotos = await res.json();
-                      if (albumPhotos.length === 0) return alert("Még nincs kép az Aréna képtáradban!");
-                      
-                      const msg = albumPhotos.map((p: any, i: number) => `${i+1}. Fotó (${p.totalLikes}⭐)`).join('\n');
-                      const choice = prompt(`Válassz egy képet a sorszáma alapján a Joker cseréhez (1-${albumPhotos.length}):\n\n${msg}`);
-                      if (choice) {
-                        const idx = parseInt(choice) - 1;
-                        if (albumPhotos[idx]) {
-                          if (!window.confirm("⚠️ Biztosan elhasználsz 1 Joker cserét erre az albumképre? Ez a fotó most 0 pontról fog újraindulni ebben a fordulóban!")) return;
-                          setIsSwapping(true);
-                          
-                          const swapRes = await fetch(`${BACKEND_URL}/api/weekly/swap-existing`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ topicId: topic.id, userEmail: user.email, userName: user.name, fileUrl: albumPhotos[idx].file_url })
-                          });
-                          
-                          if (swapRes.ok) {
-                            alert("🎉 Sikeres Joker képcsere az Aréna képtáradból!");
-                            fetchCurrentTopic(false);
-                          } else {
-                            const err = await swapRes.json(); alert(err.error);
-                          }
-                          setIsSwapping(false);
+                    setIsLoadingSwapAlbum(true);
+                    try {
+                      // Lekérjük a képeket a frissített API-ról
+                      const res = await fetch(`${BACKEND_URL}/api/weekly/my-album?userEmail=${user?.email}`);
+                      if (res.ok) {
+                        const albumPhotos = await res.json();
+                        if (albumPhotos.length === 0) {
+                          alert("Még nincs kép az Aréna képtáradban!");
+                        } else {
+                          setSwapAlbumPhotos(albumPhotos); // Elmentjük a képeket a state-be
+                          setShowSwapAlbumModal(true);     // 🔥 Megnyitjuk a csodaszép modern ablakot a prompt helyett!
                         }
                       }
+                    } catch (e) {
+                      alert("Hiba az album betöltésekor.");
+                    } finally {
+                      setIsLoadingSwapAlbum(false);
                     }
                   }}
                   style={{ width: '100%', background: '#1e293b', border: '1px solid #f43f5e', color: '#f43f5e', padding: '10px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.9rem', transition: 'all 0.2s' }}
                 >
-                  🖼️ Joker Csere az Aréna Képtárból
+                  {isLoadingSwapAlbum ? '⏳ Képtár betöltése...' : '🖼️ Joker Csere az Aréna Képtárból'}
                 </button>
               </div>
-            </div>
           ) : (
                             <div style={{ marginTop: '25px', background: '#0f172a', padding: '15px', borderRadius: '12px', color: '#64748b', fontSize: '0.9rem', textAlign: 'center', border: '1px dashed #475569' }}>
                               🔒 Elfogytak a globális Joker cseréid! Teljesíts jól feladatokat extra pontokért.
@@ -1524,7 +1522,39 @@ const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
         </div>
       )}
 
-
+{/* 🖼️ MODERN VIZUÁLIS ALBUMVÁLASZTÓ MODAL JOKER CSERÉHEZ (Böngészős prompt helyett) */}
+      {showSwapAlbumModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 99999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px', boxSizing: 'border-box' }}>
+          <div style={{ background: '#0f172a', border: '1px solid #334155', borderRadius: '24px', width: '100%', maxWidth: '550px', maxHeight: '80vh', overflowY: 'auto', padding: '25px', position: 'relative', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.8)' }}>
+            
+            <button onClick={() => setShowSwapAlbumModal(false)} style={{ position: 'absolute', top: '20px', right: '20px', background: '#1e293b', border: 'none', color: '#94a3b8', fontSize: '1.2rem', width: '35px', height: '35px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✖</button>
+            
+            <h3 style={{ color: 'white', margin: '0 0 5px 0', fontSize: '1.5rem', fontWeight: 'bold' }}>🃏 Válaszd ki a Joker Fotódat</h3>
+            <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 20px 0', lineHeight: '1.4' }}>Melyik galériás képedet küldöd harcba? Kattints a fotóra az indításhoz. A kiválasztott kép 0 pontról indul újra!</p>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '15px' }}>
+              {swapAlbumPhotos.map((p, idx) => (
+                <div 
+                  key={p.id || idx} 
+                  onClick={() => handleSelectPhotoForSwap(p.file_url)}
+                  style={{ background: '#1e293b', borderRadius: '14px', overflow: 'hidden', border: '2px solid #334155', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', flexDirection: 'column' }}
+                  onMousOver={(e) => { e.currentTarget.style.borderColor = '#f43f5e'; e.currentTarget.style.transform = 'scale(1.02)'; }}
+                  onMouseOut={(e) => { e.currentTarget.style.borderColor = '#334155'; e.currentTarget.style.transform = 'scale(1)'; }}
+                >
+                  <div style={{ width: '100%', height: '115px', backgroundColor: '#000', overflow: 'hidden' }}>
+                    <img src={getImageUrl(null, p.file_url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  </div>
+                  <div style={{ padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', background: '#090d16', borderTop: '1px solid #232d3f', fontWeight: 'bold' }}>
+                    <span style={{ color: '#fbbf24' }}>⭐ {p.totalLikes || 0}</span>
+                    <span style={{ color: '#38bdf8' }}>👁️ {p.totalViews || 0}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+          
       {activeShareData && (
         <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 99999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px', overflowY: 'auto' }}>
           
