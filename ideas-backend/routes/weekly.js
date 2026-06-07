@@ -495,6 +495,55 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
+  // 🃏 ÚJ VÉGPONT: JOKER CSERE MEGLÉVŐ ALBUMKÉPPEL (Fájlfeltöltés nélkül)
+  // ====================================================================
+  app.post('/api/weekly/swap-existing', async (req, res) => {
+    const { topicId, userEmail, userName, fileUrl } = req.body;
+    if (!topicId || !userEmail || !fileUrl) return res.status(400).json({ error: 'Hiányzó adatok!' });
+
+    const ipAddress = req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : (req.ip || req.socket.remoteAddress);
+    const conn = await pool.getConnection();
+    try {
+      await conn.beginTransaction();
+
+      // 1. Ellenőrizzük, van-e elég Jokere
+      const [userRows] = await conn.query('SELECT swap_balance FROM photo_users WHERE email = ?', [userEmail]);
+      if (!userRows[0] || userRows[0].swap_balance < 1) {
+        await conn.rollback();
+        return res.status(400).json({ error: 'Nincs elég Joker cseréd!' });
+      }
+
+      // 2. Megkeressük az aktuális aktív nevezést, amit le akar cserélni
+      const [existing] = await conn.query('SELECT id, swapped FROM weekly_entries WHERE topic_id = ? AND user_email = ? AND is_active = 1', [topicId, userEmail]);
+      if (existing.length === 0) {
+        await conn.rollback();
+        return res.status(400).json({ error: 'Még nincs aktív nevezésed, amit lecserélhetnél!' });
+      }
+
+      // 3. Leállítjuk (deaktiváljuk) a mostani futó képet
+      await conn.query('UPDATE weekly_entries SET is_active = 0 WHERE id = ?', [existing[0].id]);
+
+      // 4. Új sor beszúrása az albumkép URL-jével, 0 pontról indítva
+      const nextSwapCount = existing[0].swapped + 1;
+      await conn.query(
+        'INSERT INTO weekly_entries (topic_id, user_email, user_name, file_url, drive_file_id, swapped, ip_address, is_active, likes_count, views_count) VALUES (?, ?, ?, ?, \'\', ?, ?, 1, 0, 0)',
+        [topicId, userEmail, userName, fileUrl, nextSwapCount, ipAddress]
+      );
+
+      // 5. Levonunk 1 pontot a Joker egyenlegből
+      await conn.query('UPDATE photo_users SET swap_balance = swap_balance - 1 WHERE email = ?', [userEmail]);
+
+      await conn.commit();
+      res.json({ success: true });
+    } catch (err) {
+      await conn.rollback();
+      res.status(500).json({ error: err.message });
+    } finally {
+      conn.release();
+    }
+  });
+  
+  // ====================================================================
   // ⚔️ ÚJ VÉGPONT: NEVEZÉS MEGLÉVŐ ALBUMKÉPPEL
   // ====================================================================
   app.post('/api/weekly/upload-existing', async (req, res) => {
