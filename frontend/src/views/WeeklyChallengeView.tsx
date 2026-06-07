@@ -82,7 +82,13 @@ function ChallengeCard({ topic, onSelect, user }: { topic: any; onSelect: () => 
   const isDaily = getTopicType(topic.start_date, topic.end_date) === 'daily';
 
   // JAVÍTVA: Itt történik meg a belső ellenőrzés, amit javasoltál!
-  const isMaster = topic.master_email === user?.email;
+    // JAVÍTVA: Kis- és nagybetű független, szóköz-biztos ellenőrzés emailre ÉS névre is!
+  const isMaster = 
+    (topic.master_email && user?.email && topic.master_email.toLowerCase().trim() === user.email.toLowerCase().trim()) ||
+    (topic.master_name && user?.name && topic.master_name.toLowerCase().trim() === user.name.toLowerCase().trim());
+
+  const statusColor = isMaster ? '#a78bfa' : (topic.hasEntered ? '#10b981' : '#f59e0b');
+
   const statusColor = isMaster ? '#a78bfa' : (topic.hasEntered ? '#10b981' : '#f59e0b');
 
   return (
