@@ -2,6 +2,7 @@ const fs = require('fs');
 const cloudinary = require('cloudinary').v2;
 const crypto = require('crypto');
 const sharp = require('sharp');
+sharp.cache(false);
 
 // Cloudinary konfiguráció a környezeti változókból
 cloudinary.config({
@@ -928,7 +929,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
             migratedCount++;
             console.log(`✓ [Háttér] [${migratedCount}/${rows.length}] ${entry.user_name} fotója SIKERESEN tömörítve és áttolva.`);
 
-            await delay(1000);
+            await delay(2000);
 
           } catch (singleErr) {
             console.error(`❌ [Háttér Hiba] Hiba a(z) ${entry.id} ID-jú képnél:`, singleErr.message);
