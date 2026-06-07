@@ -862,74 +862,123 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // 🚚 GOLYÓÁLLÓ, BIZTONSÁGOS, TISZTA JS ALAPÚ MIGRÁCIÓ (Nincs Sharp / Nincs Segfault)
+  // 🚚 MÓDOSÍTVA: SZUPER-SZINKRONIZÁLT MIGRÁCIÓS API (Aréna album fixelvel)
   // ====================================================================
   app.get('/api/admin/migrate-drive-to-cloudinary', async (req, res) => {
     try {
+      // ➕ JAVÍTVA: Bekértük a lekérdezésbe a user_email-t is a szinkronizáláshoz!
       const [rows] = await pool.query(
-        "SELECT id, drive_file_id, user_name FROM weekly_entries WHERE drive_file_id IS NOT NULL AND drive_file_id != ''"
+        "SELECT id, drive_file_id, user_name, user_email FROM weekly_entries WHERE drive_file_id IS NOT NULL AND drive_file_id != ''"
       );
-
-      if (rows.length === 0) {
-        return res.json({ success: true, message: 'Minden kép át van már költöztetve!' });
-      }
 
       const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
       res.json({
         success: true,
-        message: `🚚 Szuperbiztos költöztetés elindítva a háttérben ${rows.length} db képre! Figyeld a Render élő logjait.`
+        message: `🚚 Kétfázisú album-szinkronos költöztetés elindítva a háttérben! Figyeld a Render élő logjait.`
       });
 
-      // 💥 ULTRA-ALACSONY MEMÓRIÁJÚ HÁTTÉRFOLYAMAT
+      // 💥 ULTRA-ALACSONY MEMÓRIÁJÚ, SZINKRONIZÁLT HÁTTÉRFOLYAMAT
       (async () => {
-        console.log(`[Háttér] 💾 Biztonságos mód indul: ${rows.length} db kép feldolgozása...`);
-        let migratedCount = 0;
-        const tempFilePath = './temp_migration_file.jpg'; 
+        try {
+          console.log(`[Háttér] 🔧 1. FÁZIS: Korábban átment 24 kép utólagos szinkronizálása az Aréna albumba...`);
+          
+          // Lekérjük az összes olyan emailt, akinél van már sikeresen átmigrált kép a galériában
+          const [migratedUsers] = await pool.query(
+            "SELECT DISTINCT user_email FROM weekly_entries WHERE file_url LIKE '%cloudinary.com%'"
+          );
 
-        for (const entry of rows) {
-          try {
-            const driveResponse = await drive.files.get(
-              { fileId: entry.drive_file_id, alt: 'media' },
-              { responseType: 'arraybuffer' }
+          let repairedCount = 0;
+          for (const u of migratedUsers) {
+            const email = u.user_email;
+            
+            // Lekérjük a felhasználó már átmigrált bejegyzéseit időrendben
+            const [entries] = await pool.query(
+              "SELECT file_url FROM weekly_entries WHERE user_email = ? AND file_url LIKE '%cloudinary.com%' ORDER BY id ASC"
+            );
+            
+            // Lekérjük a felhasználó még régi linkes albumképeit időrendben
+            const [photos] = await pool.query(
+              "SELECT id FROM user_photos WHERE user_email = ? AND file_url NOT LIKE '%cloudinary.com%' ORDER BY id ASC"
             );
 
-            const buffer = Buffer.from(driveResponse.data);
-
-            // 🛡️ BIZTONSÁGI PAJZS: Ha a kép nagyobb, mint 10 MB, kihagyjuk kézi átvitelre.
-            // Ezzel garantáljuk, hogy a szerver sosem kap 512MB-os memóriatüskét vagy Cloudinary hibát!
-            if (buffer.length > 10 * 1024 * 1024) {
-              console.log(`⏭️ [Háttér Kihagyva] ${entry.user_name} fotója túl nagy (${(buffer.length / 1024 / 1024).toFixed(2)} MB). Kihagyva kézi ellenőrzésre.`);
-              continue; 
+            // Mivel a nevezés és az albumba írás egyszerre történt, az ID-k relatív sorrendje tökéletesen megegyezik!
+            const limit = Math.min(entries.length, photos.length);
+            for (let i = 0; i < limit; i++) {
+              await pool.query(
+                "UPDATE user_photos SET file_url = ? WHERE id = ?",
+                [entries[i].file_url, photos[i].id]
+              );
+              repairedCount++;
             }
-
-            // Kiírjuk a barátságos méretű fájlt a lemezre (RAM kiürül)
-            fs.writeFileSync(tempFilePath, buffer);
-
-            // Feltöltés a Cloudinary-re közvetlenül a lemezről
-            const uploadResult = await cloudinary.uploader.upload(tempFilePath, {
-              folder: 'parbaj_archivum'
-            });
-
-            if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
-
-            // MySQL frissítés
-            await pool.query(
-              "UPDATE weekly_entries SET drive_file_id = '', file_url = ? WHERE id = ?",
-              [uploadResult.secure_url, entry.id]
-            );
-
-            migratedCount++;
-            console.log(`✓ [Háttér] [${migratedCount}/${rows.length}] ${entry.user_name} fotója áttolva.`);
-
-            await delay(1500); // Biztonságos 1.5 másodperces szünet
-
-          } catch (singleErr) {
-            console.error(`❌ [Háttér Hiba] Hiba a(z) ${entry.id} ID-jú képnél:`, singleErr.message);
-            if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
           }
+          console.log(`✓ [Háttér] 🎉 SIKER: ${repairedCount} db korábbi kép sikeresen utólagosan szinkronizálva az Aréna albumban!`);
+
+          console.log(`[Háttér] 💾 2. FÁZIS: Maradék ${rows.length} db kép feldolgozása + élő album szinkron...`);
+          
+          if (rows.length === 0) {
+            console.log("🏁 [Háttér] Nincs új kép a költöztetéshez, az utólagos javítás befejeződött.");
+            return;
+          }
+
+          let migratedCount = 0;
+          const tempFilePath = './temp_migration_file.jpg'; 
+
+          for (const entry of rows) {
+            try {
+              // Elmentjük a régi URL-t a frissítés ELŐTT, hogy megkeressük vele az album párját
+              const [currentEntry] = await pool.query("SELECT file_url FROM weekly_entries WHERE id = ?", [entry.id]);
+              const oldFileUrl = currentEntry[0]?.file_url;
+
+              const driveResponse = await drive.files.get(
+                { fileId: entry.drive_file_id, alt: 'media' },
+                { responseType: 'arraybuffer' }
+              );
+
+              const buffer = Buffer.from(driveResponse.data);
+
+              // Biztonsági szűrő a 10 MB feletti monstrumokra
+              if (buffer.length > 10 * 1024 * 1024) {
+                console.log(`⏭️ [Háttér Kihagyva] ${entry.user_name} fotója túl nagy (${(buffer.length / 1024 / 1024).toFixed(2)} MB).`);
+                continue; 
+              }
+
+              fs.writeFileSync(tempFilePath, buffer);
+
+              const uploadResult = await cloudinary.uploader.upload(tempFilePath, {
+                folder: 'parbaj_archivum'
+              });
+
+              if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
+
+              // A. Frissítjük a fő galéria bejegyzést
+              await pool.query(
+                "UPDATE weekly_entries SET drive_file_id = '', file_url = ? WHERE id = ?",
+                [uploadResult.secure_url, entry.id]
+              );
+
+              // B. ⚡ ÉLŐ SZINKRON: Frissítjük az Aréna albumot is ugyanezzel a Cloudinary linkkel!
+              if (oldFileUrl) {
+                await pool.query(
+                  "UPDATE user_photos SET file_url = ? WHERE file_url = ? AND user_email = ?",
+                  [uploadResult.secure_url, oldFileUrl, entry.user_email]
+                );
+              }
+
+              migratedCount++;
+              console.log(`✓ [Háttér] [${migratedCount}/${rows.length}] ${entry.user_name} fotója áttolva és az albumban is szinkronizálva.`);
+
+              await delay(1500);
+
+            } catch (singleErr) {
+              console.error(`❌ [Háttér Hiba] Hiba a(z) ${entry.id} ID-jú képnél:`, singleErr.message);
+              if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
+            }
+          }
+          console.log(`🏁 [Háttér] A teljes folyamat lezárult! Sikeresen újramigrált: ${migratedCount} db kép.`);
+        } catch (bgErr) {
+          console.error("Súlyos hiba történt a háttérfolyamat futása közben:", bgErr);
         }
-        console.log(`🏁 [Háttér] A költöztetés lezárult! Sikeresen áthelyezve: ${migratedCount} db kép.`);
       })();
 
     } catch (err) {
