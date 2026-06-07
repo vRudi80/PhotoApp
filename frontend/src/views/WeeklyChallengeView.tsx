@@ -92,7 +92,8 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
           {isDaily ? '🔴 Napi Pörgős' : '🔵 Heti Klasszikus'}
         </span>
         <span style={{ color: topic.hasEntered ? '#10b981' : '#f59e0b', fontSize: '0.85rem', fontWeight: 'bold' }}>
-          {topic.hasEntered ? '🚀 Neveztél' : '⏳ Még nem neveztél'}
+          {topic.hasEntered && !isMaster ? '🚀 Neveztél' : '⏳ Még nem neveztél'}
+          {isMaster ? '🚀 Párbajmester vagy' : ''}
         </span>
       </div>
 
@@ -642,7 +643,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                       <p style={{ fontSize: '0.85rem', color: '#94a3b8', margin: '15px 0 0 0', textAlign: 'center', lineHeight: '1.6' }}>
                         {!myEntry ? 'Töltsd fel a képedet az induláshoz, és kapsz 10 alap energiát!' : voteEntry ? '⚡ Új fotó érkezett az Arénába (vagy valaki Jokert használt)! Értékelt, hogy a mérőd újra maxon pörögjön!' : '🔥 A képed a maximumon pörög! Jelenleg nincs több értékelhető kép az Arénában.'}
                       </p>
-                    </div>}
+                    </div>)}
 
                     {/* ÉRTÉKELŐ ARÉNA PULT */}
                     <div style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #334155', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
