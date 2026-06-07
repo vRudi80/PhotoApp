@@ -1,6 +1,7 @@
 const fs = require('fs');
 const cloudinary = require('cloudinary').v2;
 const crypto = require('crypto'); // ➕ ÚJ IMPORT
+const sharp = require('sharp');
 
 // Cloudinary konfiguráció a környezeti változókból
 cloudinary.config({
@@ -903,70 +904,58 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-  // ====================================================================
-  // 1. MIGRÁCIÓS VÉGPONT JAVÍTÁSA (drive_file_id = '' lett NULL helyett)
-  // ====================================================================
-  app.get('/api/admin/migrate-drive-to-cloudinary', async (req, res) => {
-    try {
-      const [rows] = await pool.query(
-        "SELECT id, drive_file_id, user_name FROM weekly_entries WHERE drive_file_id IS NOT NULL AND drive_file_id != ''"
-      );
-
-      if (rows.length === 0) {
-        return res.json({ success: true, message: 'Minden kép át van már költöztetve!' });
-      }
-
-      const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-
-      res.json({
-        success: true,
-        message: `Lemez-alapú költöztetés elindítva a háttérben ${rows.length} db képre!`
-      });
-
+  // 💥 ÖNÁLLÓ ASZINKRON HÁTTÉRFOLYAMAT (Módosított, sharp-al felszerelt verzió)
       (async () => {
-        console.log(`[Háttér] Mód indul: ${rows.length} db kép...`);
+        console.log(`[Háttér] 💾 Lemez-pufferelt + Képtömörítős mód indul: ${rows.length} db kép...`);
         let migratedCount = 0;
-        const tempFilePath = './temp_migration_file.jpg';
+        const tempFilePath = './temp_migration_file.jpg'; 
+        const compressedFilePath = './temp_compressed_file.jpg'; // 👈 ÚJ ÁTMENETI FÁJL
 
         for (const entry of rows) {
           try {
+            // 1. Letöltés a Google-től nyers bufferként
             const driveResponse = await drive.files.get(
               { fileId: entry.drive_file_id, alt: 'media' },
               { responseType: 'arraybuffer' }
             );
 
+            // 2. Kiírjuk a nyers fájlt a lemezre
             fs.writeFileSync(tempFilePath, Buffer.from(driveResponse.data));
 
-            const uploadResult = await cloudinary.uploader.upload(tempFilePath, {
-              folder: 'parbaj_archivum',
-              width: 1600, height: 1600, crop: "limit", quality: "auto:good"
+            // 3. ⚡ AUTOMATIKUS KICSINYÍTÉS: Ha nagyobb mint 1920px, összenyomja, és 80%-os JPG-t csinál belőle
+            await sharp(tempFilePath)
+              .resize(1920, 1920, { fit: 'inside', withoutEnlargement: true })
+              .jpeg({ quality: 80 })
+              .toFile(compressedFilePath);
+
+            // 4. Feltöltés a Cloudinary-re közvetlenül a tömörített fájlból
+            const uploadResult = await cloudinary.uploader.upload(compressedFilePath, {
+              folder: 'parbaj_archivum'
             });
 
+            // 5. Takarítás a merevlemezről (mindkét ideiglenes fájlt töröljük)
             if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
+            if (fs.existsSync(compressedFilePath)) fs.unlinkSync(compressedFilePath);
 
-            // ⚡ JAVÍTVA: drive_file_id = '' (üres sztring) a NULL helyett!
+            // 6. MySQL frissítés
             await pool.query(
               "UPDATE weekly_entries SET drive_file_id = '', file_url = ? WHERE id = ?",
               [uploadResult.secure_url, entry.id]
             );
 
             migratedCount++;
-            console.log(`✓ [Háttér] [${migratedCount}/${rows.length}] ${entry.user_name} kész.`);
+            console.log(`✓ [Háttér] [${migratedCount}/${rows.length}] ${entry.user_name} fotója SIKERESEN tömörítve és áttolva.`);
 
             await delay(1000);
 
           } catch (singleErr) {
             console.error(`❌ [Háttér Hiba] Hiba a(z) ${entry.id} ID-jú képnél:`, singleErr.message);
             if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
+            if (fs.existsSync(compressedFilePath)) fs.unlinkSync(compressedFilePath);
           }
         }
-        console.log(`🏁 [Háttér] Kész! Átmásolva: ${migratedCount} db kép.`);
+        console.log(`🏁 [Háttér] A költöztetés sikeresen lezárult! Összesen áthelyezve: ${migratedCount} db kép.`);
       })();
-
-    } catch (err) {
-      if (!res.headersSent) res.status(500).json({ error: err.message });
-    }
-  });
   
   // ====================================================================
   // 📱 ÚJ: BASE64 PROXY VÉGPONT (A trófeakártya letöltés zökkenőmentes működéséhez)
