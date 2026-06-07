@@ -93,7 +93,7 @@ function ChallengeCard({ topic, onSelect, isMaster }: { topic: any; onSelect: ()
           {isDaily ? '🔴 Napi Pörgős' : '🔵 Heti Klasszikus'}
         </span>
         <span style={{ color: topic.hasEntered ? '#10b981' : '#f59e0b', fontSize: '0.85rem', fontWeight: 'bold' }}>
-          {topic.hasEntered && !isMaster ? '🚀 Neveztél' : '⏳ Még nem neveztél'}
+          {(topic.hasEntered && !isMaster) ? '🚀 Neveztél' : '⏳ Még nem neveztél'}
           {isMaster && '🚀 Párbajmester vagy' }
         </span>
       </div>
