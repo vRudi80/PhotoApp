@@ -11,10 +11,11 @@ export default function AdminWeeklyView() {
   const [endDate, setEndDate] = useState('');
   const [masterEmail, setMasterEmail] = useState(''); 
 
-  // ➕ Vizuális javítás: Biztonságos borítókép állapotok
   const [coverFile, setCoverFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string>(''); // Biztonságos előnézeti link állandó re-renderelés ellen
+  const [previewUrl, setPreviewUrl] = useState<string>(''); 
   const [coverUrl, setCoverUrl] = useState('');
+  // ➕ ÚJ: Szerző állapotváltozója
+  const [coverAuthor, setCoverAuthor] = useState('');
 
   const [suspiciousActivities, setSuspiciousActivities] = useState<any[]>([]);
   const [loadingSuspicious, setLoadingSuspicious] = useState(false);
@@ -66,8 +67,8 @@ export default function AdminWeeklyView() {
     setMasterEmail(''); 
     setCoverFile(null);
     setCoverUrl('');
+    setCoverAuthor(''); // ➕ Törlés
     
-    // Memóriakezelés: Felszabadítjuk a böngészőből a virtuális képlinket
     if (previewUrl) {
       URL.revokeObjectURL(previewUrl);
       setPreviewUrl('');
@@ -85,6 +86,7 @@ export default function AdminWeeklyView() {
     setEndDate(t.end_date ? t.end_date.split('T')[0] : '');
     setMasterEmail(t.master_email || ''); 
     setCoverUrl(t.cover_url || '');
+    setCoverAuthor(t.cover_author || ''); // ➕ Betöltés
     
     if (previewUrl) {
       URL.revokeObjectURL(previewUrl);
@@ -105,6 +107,7 @@ export default function AdminWeeklyView() {
       formData.append('startDate', startDate);
       formData.append('endDate', endDate);
       formData.append('masterEmail', masterEmail);
+      formData.append('coverAuthor', coverAuthor); // ➕ Küldés
       
       if (coverUrl) formData.append('coverUrl', coverUrl);
       if (coverFile) formData.append('cover', coverFile);
@@ -212,10 +215,18 @@ export default function AdminWeeklyView() {
               if(e.target.files?.[0]) {
                 const file = e.target.files[0];
                 setCoverFile(file);
-                setPreviewUrl(URL.createObjectURL(file)); // Biztonságos frissítés, csak fájlválasztáskor
+                setPreviewUrl(URL.createObjectURL(file)); 
               }
             }} 
             style={inputStyle} 
+          />
+          
+          {/* ➕ ÚJ MEZŐ: Borítókép készítője */}
+          <input 
+            placeholder="Borítókép készítőjének neve (pl. Rudolf Kővári-Vágner)" 
+            value={coverAuthor} 
+            onChange={e => setCoverAuthor(e.target.value)} 
+            style={{...inputStyle, marginTop: '5px', marginBottom: '5px'}} 
           />
           
           {previewUrl && (
@@ -272,6 +283,7 @@ export default function AdminWeeklyView() {
                 </div>
                 <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: '5px' }}>
                   {new Date(t.start_date).toLocaleDateString('hu-HU')} - {new Date(t.end_date).toLocaleDateString('hu-HU')}
+                  {t.cover_author && <span style={{color: '#38bdf8'}}> • 📸 {t.cover_author}</span>}
                 </div>
                 {t.master_email && (
                   <div style={{ fontSize: '0.8rem', color: '#a78bfa', marginTop: '4px', fontWeight: 'bold' }}>
