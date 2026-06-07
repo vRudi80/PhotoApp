@@ -55,14 +55,25 @@ export function getFlagImageUrl(countryCode: string): string {
   return `https://flagcdn.com/w40/${cleanCode.toLowerCase()}.png`;
 }
 
-// --- Központi kép URL generáló Google Drive-hoz ---
 
-export function getImageUrl(driveFileId?: string | null, fileUrl?: string) {
-  if (driveFileId) {
-    return `https://lh3.googleusercontent.com/d/${driveFileId}`;
-  }
-  return fileUrl || '';
-}
+export const getImageUrl = (driveFileId: string | null, fileUrl: string): string => {
+  
+  // 1. 🛡️ HA CLOUDINARY: Csak és kizárólag akkor optimalizálunk, ha a linkben szerepel a 'cloudinary.com'.
+  // Ez a FIAP-os képeidet egyáltalán nem fogja bántani!
+  if (fileUrl && fileUrl.includes('cloudinary.com')) {
+    return fileUrl.replace('/upload/', '/upload/f_auto,q_auto,w_1000,c_limit/');
+  }
+
+  // 2. 🐌 HA RÉGI DRIVE ID: Ha van még régi, költöztetés előtti Drive ID, azt a megszokott módon alakítjuk át.
+  if (driveFileId && driveFileId !== '') {
+    return `https://lh3.googleusercontent.com/d/${driveFileId}`;
+  }
+
+  // 3. ↩️ MINDEN MÁS ESETBEN (Pl. a photo_portfolio táblás beégetett Google Drive linkek):
+  // Érintetlenül, változtatás nélkül visszaadjuk az eredeti URL-t, pont úgy, mint a fejlesztés előtt.
+  return fileUrl || 'https://via.placeholder.com/400x300/1e293b/64748b?text=Kép+nem+található';
+};
+
 // YouTube URL átalakító
 export function getYouTubeEmbed(url: string) {
   const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^&?]+)/);
