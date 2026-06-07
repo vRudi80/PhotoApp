@@ -687,7 +687,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
-  app.get('/api/weekly/my-stats', async (req, res) => {
+    app.get('/api/weekly/my-stats', async (req, res) => {
     const { userEmail } = req.query;
     try {
       const [pastTopics] = await pool.query('SELECT * FROM weekly_topics WHERE end_date < CURRENT_DATE() ORDER BY end_date DESC');
@@ -695,8 +695,9 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       let history = [];
 
       for (const topic of pastTopics) {
+        // JAVÍTVA: Beemeltük a user_name mezőt a SELECT-be!
         const [entries] = await pool.query(`
-          SELECT id, user_email, file_url, drive_file_id, likes_count, views_count
+          SELECT id, user_email, user_name, file_url, drive_file_id, likes_count, views_count
           FROM weekly_entries WHERE topic_id = ? AND is_active = 1 ORDER BY likes_count DESC, views_count ASC
         `, [topic.id]);
 
@@ -715,13 +716,15 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
             file_url: entry.file_url,
             drive_file_id: entry.drive_file_id,
             likes: entry.likes_count,
-            views: entry.views_count
+            views: entry.views_count,
+            user_name: entry.user_name // JAVÍTVA: Továbbítjuk az adatbázisból jövő, friss nevet!
           });
         }
       }
       res.json({ podiums, history });
     } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
+
 
   // Admin GYANÚS (IP DUPLIKÁCIÓ) LEKÉRÉSE
   app.get('/api/admin/weekly/suspicious', async (req, res) => {
