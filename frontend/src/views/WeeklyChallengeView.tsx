@@ -33,7 +33,8 @@ const getLevelDetails = (likes: number, victories: number) => {
 // ====================================================================
 // ⏳ SEGÉDKOMPONENS: Önálló kártya saját belső visszaszámlálóval
 // ====================================================================
-function ChallengeCard({ topic, onSelect, isMaster }: { topic: any; onSelect: () => void; isMaster: boolean }) {
+// JAVÍTVA: Most már a user objektumot is elkéri a kártya propként
+function ChallengeCard({ topic, onSelect, user }: { topic: any; onSelect: () => void; user: any }) {
   const [timeLeft, setTimeLeft] = useState<string>('Számítás...');
 
   useEffect(() => {
@@ -80,7 +81,8 @@ function ChallengeCard({ topic, onSelect, isMaster }: { topic: any; onSelect: ()
 
   const isDaily = getTopicType(topic.start_date, topic.end_date) === 'daily';
 
-  // Dinamikus színbeállítás a státusz alapján (Mester = Lila, Nevezett = Zöld, Hiányzó = Narancs)
+  // JAVÍTVA: Itt történik meg a belső ellenőrzés, amit javasoltál!
+  const isMaster = topic.master_email === user?.email;
   const statusColor = isMaster ? '#a78bfa' : (topic.hasEntered ? '#10b981' : '#f59e0b');
 
   return (
@@ -95,7 +97,6 @@ function ChallengeCard({ topic, onSelect, isMaster }: { topic: any; onSelect: ()
           {isDaily ? '🔴 Napi Pörgős' : '🔵 Heti Klasszikus'}
         </span>
         
-        {/* JAVÍTVA: Egyértelmű, egymásból következő feltételrendszer */}
         <span style={{ color: statusColor, fontSize: '0.85rem', fontWeight: 'bold' }}>
           {isMaster 
             ? '🚀 Párbajmester vagy' 
@@ -122,6 +123,7 @@ function ChallengeCard({ topic, onSelect, isMaster }: { topic: any; onSelect: ()
     </div>
   );
 }
+
 
 
 // ====================================================================
