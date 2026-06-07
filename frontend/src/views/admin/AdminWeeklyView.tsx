@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { BACKEND_URL } from '../../utils/constants';
 
+// 👑 JAVÍTVA: Pótolva a hiányzó képkezelő függvény, ami a fehér képernyőt okozta!
+const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+  e.currentTarget.src = 'https://via.placeholder.com/400x300/1e293b/64748b?text=Kép+nem+található';
+};
+
 export default function AdminWeeklyView() {
   const [topics, setTopics] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]); 
@@ -14,7 +19,6 @@ export default function AdminWeeklyView() {
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string>(''); 
   const [coverUrl, setCoverUrl] = useState('');
-  // ➕ ÚJ: Szerző állapotváltozója
   const [coverAuthor, setCoverAuthor] = useState('');
 
   const [suspiciousActivities, setSuspiciousActivities] = useState<any[]>([]);
@@ -67,7 +71,7 @@ export default function AdminWeeklyView() {
     setMasterEmail(''); 
     setCoverFile(null);
     setCoverUrl('');
-    setCoverAuthor(''); // ➕ Törlés
+    setCoverAuthor('');
     
     if (previewUrl) {
       URL.revokeObjectURL(previewUrl);
@@ -86,7 +90,7 @@ export default function AdminWeeklyView() {
     setEndDate(t.end_date ? t.end_date.split('T')[0] : '');
     setMasterEmail(t.master_email || ''); 
     setCoverUrl(t.cover_url || '');
-    setCoverAuthor(t.cover_author || ''); // ➕ Betöltés
+    setCoverAuthor(t.cover_author || '');
     
     if (previewUrl) {
       URL.revokeObjectURL(previewUrl);
@@ -107,7 +111,7 @@ export default function AdminWeeklyView() {
       formData.append('startDate', startDate);
       formData.append('endDate', endDate);
       formData.append('masterEmail', masterEmail);
-      formData.append('coverAuthor', coverAuthor); // ➕ Küldés
+      formData.append('coverAuthor', coverAuthor);
       
       if (coverUrl) formData.append('coverUrl', coverUrl);
       if (coverFile) formData.append('cover', coverFile);
@@ -221,7 +225,6 @@ export default function AdminWeeklyView() {
             style={inputStyle} 
           />
           
-          {/* ➕ ÚJ MEZŐ: Borítókép készítője */}
           <input 
             placeholder="Borítókép készítőjének neve (pl. Rudolf Kővári-Vágner)" 
             value={coverAuthor} 
