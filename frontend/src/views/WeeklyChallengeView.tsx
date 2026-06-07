@@ -33,7 +33,6 @@ const getLevelDetails = (likes: number, victories: number) => {
 // ====================================================================
 // ⏳ SEGÉDKOMPONENS: Önálló kártya saját belső visszaszámlálóval
 // ====================================================================
-// JAVÍTVA: Az isMaster-t most már megkapja propként a szülőtől!
 function ChallengeCard({ topic, onSelect, isMaster }: { topic: any; onSelect: () => void; isMaster: boolean }) {
   const [timeLeft, setTimeLeft] = useState<string>('Számítás...');
 
@@ -81,6 +80,9 @@ function ChallengeCard({ topic, onSelect, isMaster }: { topic: any; onSelect: ()
 
   const isDaily = getTopicType(topic.start_date, topic.end_date) === 'daily';
 
+  // Dinamikus színbeállítás a státusz alapján (Mester = Lila, Nevezett = Zöld, Hiányzó = Narancs)
+  const statusColor = isMaster ? '#a78bfa' : (topic.hasEntered ? '#10b981' : '#f59e0b');
+
   return (
     <div 
       onClick={onSelect}
@@ -92,9 +94,15 @@ function ChallengeCard({ topic, onSelect, isMaster }: { topic: any; onSelect: ()
         <span style={{ background: isDaily ? '#ef444420' : '#3b82f620', color: isDaily ? '#f87171' : '#60a5fa', border: `1px solid ${isDaily ? '#ef444450' : '#3b82f650'}`, padding: '4px 12px', borderRadius: '50px', fontSize: '0.8rem', fontWeight: 'bold' }}>
           {isDaily ? '🔴 Napi Pörgős' : '🔵 Heti Klasszikus'}
         </span>
-        <span style={{ color: topic.hasEntered ? '#10b981' : '#f59e0b', fontSize: '0.85rem', fontWeight: 'bold' }}>
-          {(topic.hasEntered && !isMaster) ? '🚀 Neveztél' : '⏳ Még nem neveztél'}
-          {isMaster && '🚀 Párbajmester vagy' }
+        
+        {/* JAVÍTVA: Egyértelmű, egymásból következő feltételrendszer */}
+        <span style={{ color: statusColor, fontSize: '0.85rem', fontWeight: 'bold' }}>
+          {isMaster 
+            ? '🚀 Párbajmester vagy' 
+            : topic.hasEntered 
+              ? '🚀 Neveztél' 
+              : '⏳ Még nem neveztél'
+          }
         </span>
       </div>
 
@@ -114,6 +122,7 @@ function ChallengeCard({ topic, onSelect, isMaster }: { topic: any; onSelect: ()
     </div>
   );
 }
+
 
 // ====================================================================
 // ⚔️ FŐ KOMPONENS
