@@ -812,7 +812,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   // ====================================================================
   // 🚚 ÚJ: AUTOMATIKUS MIGRÁCIÓS SZKRIPT (Drive -> Cloudinary átemelés)
   // ====================================================================
-  app.post('/api/admin/migrate-drive-to-cloudinary', async (req, res) => {
+  app.get('/api/admin/migrate-drive-to-cloudinary', async (req, res) => {
     try {
       const [rows] = await pool.query(
         "SELECT id, drive_file_id, user_name FROM weekly_entries WHERE drive_file_id IS NOT NULL AND drive_file_id != ''"
