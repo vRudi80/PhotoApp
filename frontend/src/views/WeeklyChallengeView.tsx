@@ -152,6 +152,13 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
           <img src={topic.cover_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={handleImageError} />
         </div>
       )}
+      
+      {/* ➕ ÚJ: SZERZŐ KIÍRÁSA A BORÍTÓ ALÁ */}
+      {topic.cover_author && (
+        <div style={{ color: '#64748b', fontSize: '0.75rem', fontStyle: 'italic', marginTop: '-10px', marginBottom: '15px', textAlign: 'right', paddingRight: '5px' }}>
+          📸 Borítókép: {topic.cover_author}
+        </div>
+      )}
 
       <h3 style={{ color: 'white', margin: '0 0 10px 0', fontSize: '1.4rem', fontWeight: 'bold' }}>{topic.title}</h3>
       <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: '0 0 20px 0', lineHeight: '1.5', flex: 1 }}>{topic.description}</p>
@@ -1070,6 +1077,13 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                     </div>
                   )}
 
+                  {/* ➕ ÚJ: SZERZŐ KIÍRÁSA A HAMAROSAN BORÍTÓ ALÁ */}
+                  {t.cover_author && (
+                    <div style={{ color: '#64748b', fontSize: '0.75rem', fontStyle: 'italic', marginTop: '-10px', marginBottom: '15px', textAlign: 'right', paddingRight: '5px' }}>
+                      📸 Borítókép: {t.cover_author}
+                    </div>
+                  )}
+
 
                   <h4 style={{ color: '#f59e0b', margin: '0 0 10px 0', fontSize: '1.4rem' }}>{t.title}</h4>
                   <p style={{ color: '#cbd5e1', fontSize: '0.95rem', margin: '0 0 20px 0', flex: 1, lineHeight: '1.6' }}>{t.description}</p>
@@ -1117,8 +1131,16 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
               const t = pastTopics.find(x => x.id === selectedPastTopicId);
               if (t && t.cover_url) {
                 return (
-                  <div style={{ width: '100%', height: '160px', borderRadius: '24px', overflow: 'hidden', border: '1px solid #334155', boxShadow: '0 10px 25px rgba(0,0,0,0.4)' }}>
-                    <img src={t.cover_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={handleImageError} />
+                  <div style={{ marginBottom: '30px' }}>
+                    <div style={{ width: '100%', height: '160px', borderRadius: '24px', overflow: 'hidden', border: '1px solid #334155', boxShadow: '0 10px 25px rgba(0,0,0,0.4)' }}>
+                      <img src={t.cover_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={handleImageError} />
+                    </div>
+                    {/* ➕ ÚJ: SZERZŐ KIÍRÁSA AZ ARCHÍV BANNER ALÁ */}
+                    {t.cover_author && (
+                      <div style={{ color: '#64748b', fontSize: '0.8rem', fontStyle: 'italic', marginTop: '5px', textAlign: 'right', paddingRight: '10px' }}>
+                        📸 Borítókép: {t.cover_author}
+                      </div>
+                    )}
                   </div>
                 );
               }
