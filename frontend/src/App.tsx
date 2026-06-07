@@ -17,7 +17,8 @@ import AdminMeetingsView from './views/admin/AdminMeetingsView';
 import AdminHomeworksView from './views/admin/AdminHomeworksView';
 import AdminSalonsView from './views/admin/AdminSalonsView';
 import ContestsView from './views/ContestsView';
-import MyAlbumView from './views/MyAlbumView';
+import MyAlbumView from './views/MyAlbumView'; // Ez a régi szalonos, marad érintetlenül!
+import MyArenaAlbumView from './views/MyArenaAlbumView'; // ➕ ÚJ IMPORT AZ ARÉNA ALBUMHOZ
 import AdminSettingsView from './views/admin/AdminSettingsView';
 import FiapProgressView from './views/FiapProgressView';
 import SessionGuard from './components/SessionGuard';
@@ -590,6 +591,7 @@ function MainContent() {
               <Route path="/map_spots" element={<MapSpotsView user={user} setFullscreenData={setFullscreenData} targetMapSpotId={targetMapSpotId} setTargetMapSpotId={setTargetMapSpotId} />} />
               <Route path="/club_news" element={<ClubNewsView user={user} currentDbUser={currentDbUser} />} />
               <Route path="/my_album" element={<MyAlbumView user={user} setFullscreenData={setFullscreenData} />} />
+              <Route path="/arena_album" element={<MyArenaAlbumView user={user} setFullscreenData={setFullscreenData} />} /> {/* ➕ ÚJ UTALÁSI SOR */}
               <Route path="/fiap_progress" element={<FiapProgressView user={user} allUsers={allUsers} />} />
               <Route path="/mafosz_progress" element={<MafoszProgressView user={user} allUsers={allUsers} />} />
               <Route path="/salons" element={<SalonsView salonSearch={salonSearch} setSalonSearch={setSalonSearch} searchedSalons={searchedSalons} setSelectedSalon={setSelectedSalon} userEntrySalonIds={userEntrySalonIds} user={user} BACKEND_URL={BACKEND_URL} />} />
