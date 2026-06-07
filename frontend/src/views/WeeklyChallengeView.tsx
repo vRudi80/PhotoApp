@@ -1547,7 +1547,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   {[
                     { name: 'Újonc 🌱', req: '0 - 19 pont', power: '✨ +1 / 🔥 +2', color: '#94a3b8' },
                     { name: 'Felfedezett 📸', req: '20 - 99 pont', power: '✨ +2 / 🔥 +3', color: '#38bdf8' },
-                    { name: 'Haladó ⭐', req: '100 - 299 pont (vagy nincs győzelem)', power: '✨ +2 / 🔥 +4', color: '#10b981' },
+                    { name: 'Haladó ⭐', req: '100 - 299 pont', power: '✨ +2 / 🔥 +4', color: '#10b981' },
                     { name: 'Profi 🏅', req: '300 - 799 pont ÉS legalább 1 győzelem', power: '✨ +3 / 🔥 +5', color: '#f59e0b' },
                     { name: 'Guru 👑', req: '800+ pont ÉS legalább 3 győzelem', power: '✨ +4 / 🔥 +6', color: '#fbbf24' }
                   ].map((rank, i) => {
