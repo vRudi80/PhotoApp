@@ -11,8 +11,9 @@ export default function AdminWeeklyView() {
   const [endDate, setEndDate] = useState('');
   const [masterEmail, setMasterEmail] = useState(''); 
 
-  // ➕ ÚJ: Borítókép állapotok
+  // ➕ Vizuális javítás: Biztonságos borítókép állapotok
   const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string>(''); // Biztonságos előnézeti link állandó re-renderelés ellen
   const [coverUrl, setCoverUrl] = useState('');
 
   const [suspiciousActivities, setSuspiciousActivities] = useState<any[]>([]);
@@ -63,11 +64,15 @@ export default function AdminWeeklyView() {
     setStartDate('');
     setEndDate('');
     setMasterEmail(''); 
-    // ➕ ÚJ: Kép állapotok törlése
     setCoverFile(null);
     setCoverUrl('');
     
-    // Manuálisan reseteljük a file input mezőt, ha létezik
+    // Memóriakezelés: Felszabadítjuk a böngészőből a virtuális képlinket
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl('');
+    }
+    
     const fileInput = document.getElementById('cover-file-input') as HTMLInputElement;
     if (fileInput) fileInput.value = '';
   };
@@ -79,19 +84,21 @@ export default function AdminWeeklyView() {
     setStartDate(t.start_date ? t.start_date.split('T')[0] : '');
     setEndDate(t.end_date ? t.end_date.split('T')[0] : '');
     setMasterEmail(t.master_email || ''); 
-    // ➕ ÚJ: Jelenlegi kép link betöltése szerkesztéshez
     setCoverUrl(t.cover_url || '');
+    
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl('');
+    }
     setCoverFile(null); 
   };
 
-  // ⚙️ MÓDOSÍTVA: JSON helyett FormData küldése a backendnek
   const handleSave = async () => {
     if (!title || !startDate || !endDate) return alert("Cím és dátumok kötelezőek!");
     try {
       const url = editId ? `${BACKEND_URL}/api/admin/weekly-topics/${editId}` : `${BACKEND_URL}/api/admin/weekly-topics`;
       const method = editId ? 'PUT' : 'POST';
       
-      // ⚡ VÁLTOZTATÁS: FormData felépítése
       const formData = new FormData();
       formData.append('title', title);
       formData.append('description', desc);
@@ -99,15 +106,11 @@ export default function AdminWeeklyView() {
       formData.append('endDate', endDate);
       formData.append('masterEmail', masterEmail);
       
-      // Szerkesztésnél visszaküldjük a régi URL-t, hátha nem változott meg a kép
       if (coverUrl) formData.append('coverUrl', coverUrl);
-      
-      // Ha kiválasztottunk egy ÚJ fájlt a gépről, becsatoljuk
       if (coverFile) formData.append('cover', coverFile);
 
       const res = await fetch(url, {
         method,
-        // FIGYELEM: Multipart FormData-nál TILOS beírni a headers-be a 'Content-Type'-ot, a böngésző magától beállítja!
         body: formData 
       });
 
@@ -198,26 +201,30 @@ export default function AdminWeeklyView() {
           </select>
         </div>
 
-        {/* ➕ ÚJ: BORÍTÓKÉP TALLÓZÓ MEZŐ ÉS INTUITÍV ELŐNÉZET */}
+        {/* BORÍTÓKÉP TALLÓZÓ MEZŐ ÉS INTUITÍV ELŐNÉZET */}
         <div style={{ marginBottom: '20px', padding: '15px', background: '#0f172a50', borderRadius: '10px', border: '1px dashed #334155' }}>
           <label style={{ fontSize: '0.8rem', color: '#38bdf8', display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>🖼️ Párbaj Vizuális Borítóképe (Cloudinary automata feltöltés)</label>
           <input 
             id="cover-file-input"
             type="file" 
             accept="image/*" 
-            onChange={e => { if(e.target.files?.[0]) setCoverFile(e.target.files[0]); }} 
+            onChange={e => { 
+              if(e.target.files?.[0]) {
+                const file = e.target.files[0];
+                setCoverFile(file);
+                setPreviewUrl(URL.createObjectURL(file)); // Biztonságos frissítés, csak fájlválasztáskor
+              }
+            }} 
             style={inputStyle} 
           />
           
-          {/* Új, még el nem mentett kép élő előnézete */}
-          {coverFile && (
+          {previewUrl && (
             <div style={{ marginTop: '10px' }}>
               <span style={{ color: '#ef4444', fontSize: '0.8rem', fontWeight: 'bold' }}>✨ Új borítókép előnézet (Mentésre vár):</span>
-              <img src={URL.createObjectURL(coverFile)} alt="Preview" style={{ width: '100%', maxHeight: '130px', objectFit: 'cover', borderRadius: '8px', marginTop: '5px', border: '1px solid #ef4444' }} />
+              <img src={previewUrl} alt="Preview" style={{ width: '100%', maxHeight: '130px', objectFit: 'cover', borderRadius: '8px', marginTop: '5px', border: '1px solid #ef4444' }} />
             </div>
           )}
           
-          {/* Már korábban mentett, létező borítókép megjelenítése */}
           {coverUrl && !coverFile && (
             <div style={{ marginTop: '10px' }}>
               <span style={{ color: '#94a3b8', fontSize: '0.8rem' }}>🖼️ Jelenleg aktív borítókép:</span>
@@ -250,7 +257,6 @@ export default function AdminWeeklyView() {
           return (
             <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px', borderBottom: i < topics.length - 1 ? '1px solid #334155' : 'none', background: status.bg, flexWrap: 'wrap', gap: '15px' }}>
               
-              {/* ➕ ÚJ: KIS BORÍTÓKÉP THUMBNAIL A LISTÁBAN AZ ÁTLÁTHATÓSÁGÉRT */}
               <div style={{ width: '70px', height: '45px', backgroundColor: '#0f172a', borderRadius: '6px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #334155', flexShrink: 0 }}>
                 {t.cover_url ? (
                   <img src={t.cover_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={handleImageError} />
@@ -259,7 +265,7 @@ export default function AdminWeeklyView() {
                 )}
               </div>
 
-              <div style={{ flex: 1, marginLeft: '5px' }}>
+              <div style={{ flex: 1, marginLeft: '10px' }}>
                 <div style={{ fontWeight: 'bold', color: '#f8fafc', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
                   {t.title} 
                   <span style={{ background: status.color, color: '#fff', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px' }}>{status.label}</span>
