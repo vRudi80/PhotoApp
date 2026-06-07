@@ -1061,12 +1061,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                       {isDaily ? '🔴 Napi Kihívás' : '🔵 Heti Kihívás'}
                     </span>
                   </div>
-                <div key={t.id} style={{ background: 'linear-gradient(180deg, #1e293b, #0f172a)', padding: '25px', borderRadius: '24px', border: '1px solid #475569', display: 'flex', flexDirection: 'column', boxShadow: '0 10px 20px rgba(0,0,0,0.2)' }}>
-                  <div style={{ marginBottom: '10px' }}>
-                    <span style={{ background: isDaily ? '#ef444420' : '#3b82f620', color: isDaily ? '#f87171' : '#60a5fa', border: `1px solid ${isDaily ? '#ef444450' : '#3b82f650'}`, padding: '4px 12px', borderRadius: '50px', fontSize: '0.8rem', fontWeight: 'bold' }}>
-                      {isDaily ? '🔴 Napi Kihívás' : '🔵 Heti Kihívás'}
-                    </span>
-                  </div>
+
                 
                   {/* 🖼️ BORÍTÓKÉP A HAMAROSAN KÁRTYÁKON */}
                   {t.cover_url && (
