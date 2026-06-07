@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BACKEND_URL } from '../utils/constants';
 import { getImageUrl } from '../utils/helpers';
 import { toPng } from 'html-to-image'; 
-import MyArenaAlbumView from './MyArenaAlbumView'; // ➕ ÚJ IMPORT SOR
+import MyArenaAlbumView from './MyArenaAlbumView';
 
 interface WeeklyChallengeViewProps {
   user: any;
@@ -34,7 +34,6 @@ const getLevelDetails = (likes: number, victories: number) => {
 // ====================================================================
 // ⏳ SEGÉDKOMPONENS: Önálló kártya saját belső visszaszámlálóval
 // ====================================================================
-// JAVÍTVA: Most már a user objektumot is elkéri a kártya propként
 function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }) {
    const [timeLeft, setTimeLeft] = useState<string>('Számítás...');
 
@@ -81,11 +80,7 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
   }, [topic.id, topic.end_date]);
 
   const isDaily = getTopicType(topic.start_date, topic.end_date) === 'daily';
-
-
-  // JAVÍTVA: Egyszerűen csak kiolvassuk, amit a backend küldött! Nem kell hozzá a user prop sem!
   const isMaster = topic.isMaster === true;
-  
   const statusColor = isMaster ? '#a78bfa' : (topic.hasEntered ? '#10b981' : '#f59e0b');
 
   return (
@@ -201,7 +196,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     }
     setLoadingShareImg(true);
     
-    // Eldöntjük, hogy a régi Google Drive API-t vagy az új szupergyors proxy-t hívjuk meg
     const fetchUrl = activeShareData.drive_file_id 
       ? `${BACKEND_URL}/api/image-base64/${activeShareData.drive_file_id}`
       : `${BACKEND_URL}/api/admin/base64-proxy?url=${encodeURIComponent(activeShareData.file_url)}`;
@@ -570,31 +564,31 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', flexWrap: 'wrap', gap: '15px' }}>
         <div style={{ display: 'flex', gap: '10px', background: '#0f172a', padding: '10px', borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.3)', width: 'fit-content', flexWrap: 'wrap', border: '1px solid #1e293b' }}>
-        <button onClick={() => { setSubTab('current'); setSelectedTopicId(null); }} ...>⚔️ Aréna</button>
-        <button onClick={() => setSubTab('upcoming')} ...>⏳ Hamarosan</button>
-        <button onClick={() => setSubTab('past')} ...>📜 Archívum</button>
-        
-        {/* ➕ ÚJ SUB-TAB GOMB: Képtáram */}
-        <button 
-          onClick={() => setSubTab('arena_album')} 
-          style={{ 
-            padding: '10px 24px', 
-            borderRadius: '10px', 
-            border: 'none', 
-            cursor: 'pointer', 
-            fontWeight: 'bold', 
-            background: subTab === 'arena_album' ? 'linear-gradient(135deg, #14b8a6, #0d9488)' : 'transparent', 
-            color: subTab === 'arena_album' ? 'white' : '#94a3b8', 
-            transition: 'all 0.3s', 
-            boxShadow: subTab === 'arena_album' ? '0 4px 15px rgba(20,184,166,0.4)' : 'none' 
-          }}
-        >
-          🖼️ Képtáram
-        </button>
+          <button onClick={() => { setSubTab('current'); setSelectedTopicId(null); }} style={{ padding: '10px 24px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: subTab === 'current' ? 'linear-gradient(135deg, #f97316, #ef4444)' : 'transparent', color: subTab === 'current' ? 'white' : '#94a3b8', transition: 'all 0.3s', boxShadow: subTab === 'current' ? '0 4px 15px rgba(239,68,68,0.4)' : 'none' }}>⚔️ Aréna</button>
+          <button onClick={() => setSubTab('upcoming')} style={{ padding: '10px 24px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: subTab === 'upcoming' ? '#334155' : 'transparent', color: subTab === 'upcoming' ? 'white' : '#94a3b8', transition: 'all 0.3s' }}>⏳ Hamarosan</button>
+          <button onClick={() => setSubTab('past')} style={{ padding: '10px 24px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: subTab === 'past' ? '#334155' : 'transparent', color: subTab === 'past' ? 'white' : '#94a3b8', transition: 'all 0.3s' }}>📜 Archívum</button>
+          
+          {/* ➕ ÚJ SUB-TAB GOMB: Képtáram */}
+          <button 
+            onClick={() => setSubTab('arena_album')} 
+            style={{ 
+              padding: '10px 24px', 
+              borderRadius: '10px', 
+              border: 'none', 
+              cursor: 'pointer', 
+              fontWeight: 'bold', 
+              background: subTab === 'arena_album' ? 'linear-gradient(135deg, #14b8a6, #0d9488)' : 'transparent', 
+              color: subTab === 'arena_album' ? 'white' : '#94a3b8', 
+              transition: 'all 0.3s', 
+              boxShadow: subTab === 'arena_album' ? '0 4px 15px rgba(20,184,166,0.4)' : 'none' 
+            }}
+          >
+            🖼️ Képtáram
+          </button>
 
-  <button onClick={() => { setSubTab('my_stats'); fetchMyStats(); }} ...>🏆 Trófeaterem</button>
-  <button onClick={() => setSubTab('hall_of_fame')} ...>👑 Dicsőségfal</button>
-</div>
+          <button onClick={() => { setSubTab('my_stats'); fetchMyStats(); }} style={{ padding: '10px 24px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: subTab === 'my_stats' ? 'linear-gradient(135deg, #8b5cf6, #6366f1)' : 'transparent', color: subTab === 'my_stats' ? 'white' : '#94a3b8', transition: 'all 0.3s', boxShadow: subTab === 'my_stats' ? '0 4px 15px rgba(139,92,246,0.4)' : 'none' }}>🏆 Trófeaterem</button>
+          <button onClick={() => setSubTab('hall_of_fame')} style={{ padding: '10px 24px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: subTab === 'hall_of_fame' ? 'linear-gradient(135deg, #fbbf24, #d97706)' : 'transparent', color: subTab === 'hall_of_fame' ? '#0f172a' : '#94a3b8', transition: 'all 0.3s', boxShadow: subTab === 'hall_of_fame' ? '0 4px 15px rgba(251,191,36,0.4)' : 'none' }}>👑 Dicsőségfal</button>
+        </div>
         
         <button onClick={() => setShowHelp(true)} style={{ padding: '12px 24px', borderRadius: '12px', border: '1px solid #38bdf8', cursor: 'pointer', fontWeight: 'bold', background: '#0f172a', color: '#38bdf8', transition: 'all 0.3s', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 15px rgba(56,189,248,0.2)' }}>
           <span style={{ fontSize: '1.2rem' }}>📖</span> Játékszabályok & Rangok
@@ -608,10 +602,9 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
               <div style={{ marginBottom: '20px' }}>
                 <h2 style={{ color: 'white', margin: 0, fontSize: '1.8rem' }}>🔥 Aktuális Kihívások</h2>
                 <p style={{ color: '#94a3b8', margin: '5px 0 0 0' }}>Válassz egyet az alábbi futó párbajok közül, és lépj be a küzdelembe!</p>
-          <span style={{ background: '#ef444420', color: '#f87171', border: '1px solid #ef444450', padding: '4px 12px', borderRadius: '50px', fontSize: '0.8rem', fontWeight: 'bold' }}>
-  {'🔴 Figyelem: a napokban a játék képszerverét költöztetem egy gyorsabb helyre, elképzelhető, hogy lesznek kimaradások. Türelmetek, megértésetek köszönöm!'}
-</span>
-
+                <span style={{ background: '#ef444420', color: '#f87171', border: '1px solid #ef444450', padding: '4px 12px', borderRadius: '50px', fontSize: '0.8rem', fontWeight: 'bold' }}>
+                  {'🔴 Figyelem: a napokban a játék képszerverét költöztetem egy gyorsabb helyre, elképzelhető, hogy lesznek kimaradások. Türelmetek, megértésetek köszönöm!'}
+                </span>
               </div>
 
               {loading ? (
@@ -625,12 +618,10 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '25px', marginTop: '20px' }}>
                   {activeTopics.map((t) => (
-                    // JAVÍTVA: Átadjuk az isMaster változót propként!
                     <ChallengeCard 
                       key={t.id} 
                       topic={t} 
                       onSelect={() => setSelectedTopicId(t.id)} 
-                      isMaster={isMaster}
                     />
                   ))}
                 </div>
@@ -843,6 +834,45 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                             <button onClick={handleUpload} disabled={!uploadFile || isUploading} style={{ width: '100%', background: (!uploadFile || isUploading) ? '#334155' : 'linear-gradient(135deg, #0ea5e9, #2563eb)', color: (!uploadFile || isUploading) ? '#94a3b8' : 'white', border: 'none', padding: '14px', borderRadius: '12px', fontSize: '1.1rem', fontWeight: 'bold' }}>
                               {isUploading ? 'Feltöltés...' : 'Nevezés és Indulás 🚀'}
                             </button>
+
+                            {/* ⚡ INTELLIGENS ALBUMBÓL VÁLASZTÓ INTEGRÁCIÓ */}
+                            <div style={{ marginTop: '15px', borderTop: '1px solid #334155', paddingTop: '15px', textAlign: 'center' }}>
+                              <p style={{ color: '#64748b', fontSize: '0.8rem', margin: '0 0 10px 0' }}>VAGY választhatsz egy meglévő fotót az albumodból:</p>
+                              <button 
+                                onClick={async () => {
+                                  const res = await fetch(`${BACKEND_URL}/api/my-album?userEmail=${user?.email}`);
+                                  if (res.ok) {
+                                    const albumPhotos = await res.json();
+                                    if (albumPhotos.length === 0) return alert("Még nincs kép az Aréna képtáradban!");
+                                    
+                                    const msg = albumPhotos.map((p: any, i: number) => `${i+1}. Fotó (${p.totalLikes}⭐)`).join('\n');
+                                    const choice = prompt(`Válassz egy képet a sorszáma alapján (1-${albumPhotos.length}):\n\n${msg}`);
+                                    if (choice) {
+                                      const idx = parseInt(choice) - 1;
+                                      if (albumPhotos[idx]) {
+                                        if (!window.confirm("Biztosan ezzel a meglévő képeddel nevezel be a küzdelembe?")) return;
+                                        setIsUploading(true);
+                                        const selectRes = await fetch(`${BACKEND_URL}/api/weekly/upload-existing`, {
+                                          method: 'POST',
+                                          headers: { 'Content-Type': 'application/json' },
+                                          body: JSON.stringify({ topicId: topic.id, userEmail: user.email, userName: user.name, fileUrl: albumPhotos[idx].file_url })
+                                        });
+                                        if (selectRes.ok) {
+                                          alert("🎉 Sikeres nevezés az albumból!");
+                                          fetchCurrentTopic(false);
+                                        } else {
+                                          const err = await selectRes.json(); alert(err.error);
+                                        }
+                                        setIsUploading(false);
+                                      }
+                                    }
+                                  }
+                                }}
+                                style={{ width: '100%', background: '#1e293b', border: '1px solid #14b8a6', color: '#14b8a6', padding: '10px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.9rem' }}
+                              >
+                                🖼️ Választás az Aréna Képtárból
+                              </button>
+                            </div>
                           </div>
                         </div>
                       )}
@@ -1025,7 +1055,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                           <span style={{ fontSize: '0.8rem', color: '#64748b', fontStyle: 'italic' }}>Nem volt pontot szerző tag ebben a fordulóban.</span>
                         ) : (
                           clubMembers.map((m, idx) => (
-                            // JAVÍTVA: justifycontent -> justifyContent
                             <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#cbd5e1' }}>
                               <span>👤 {m.user_name} <small style={{ color: '#64748b' }}>("{m.title || 'Cím nélkül'}")</small></span>
                               <span style={{ fontWeight: 'bold', color: '#fbbf24' }}>{m.likes_count || 0} ⭐</span>
@@ -1131,7 +1160,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                 <div style={{ background: 'linear-gradient(145deg, #1e293b, #0f172a)', padding: '25px', borderRadius: '24px', border: '1px solid #38bdf840', boxShadow: '0 10px 25px rgba(0,0,0,0.3)' }}>
                   <h4 style={{ margin: '0 0 10px 0', color: '#38bdf8', fontSize: '1.2rem' }}>🎁 Hívj meg egy barátot!</h4>
                   <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 20px 0', lineHeight: '1.5' }}>
-                    Oszd meg a kódodat egy fotós ismerősöddel! Ha regisztrál a portálra és megadja a kódod, te **azonnal +10 db Joker cserét** kapsz a globális egyenlegedhez.
+                    Oszd meg a kódodat egy fotós ismerősöddel! Ha regisztrál a portálra ÉS megadja a kódod, te **azonnal +10 db Joker cserét** kapsz a globális egyenlegedhez.
                   </p>
                   <div style={{ display: 'flex', gap: '10px', alignItems: 'center', background: '#0f172a', padding: '12px 20px', borderRadius: '12px', border: '1px dashed #38bdf860' }}>
                     <span style={{ color: '#64748b', fontSize: '0.8rem', fontWeight: 'bold' }}>KÓDOD:</span>
@@ -1145,7 +1174,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   </div>
                 </div>
 
-                {/* JAVÍTVA: justifycontent -> justifyContent */}
                 <div style={{ background: 'linear-gradient(145deg, #1e293b, #0f172a)', padding: '25px', borderRadius: '24px', border: '1px solid #10b98140', boxShadow: '0 10px 25px rgba(0,0,0,0.3)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                   <div>
                     <h4 style={{ margin: '0 0 10px 0', color: '#10b981', fontSize: '1.2rem' }}>🤝 Téged ki hívott meg?</h4>
@@ -1202,7 +1230,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                     const isDaily = getTopicType(entry?.start_date, entry?.end_date) === 'daily';
 
                     return (
-                      // JAVÍTVA: justifycontent -> justifyContent
                       <div key={idx} style={{ background: '#1e293b', borderRadius: '20px', overflow: 'hidden', border: `1px solid ${badgeColor}`, transition: 'transform 0.2s', boxShadow: '0 10px 20px rgba(0,0,0,0.3)', display: 'flex', flexDirection: 'column' }}>
                         <div style={{ position: 'relative', height: '220px' }}>
                           <img src={getImageUrl(entry?.drive_file_id, entry?.file_url)} alt="Pályamű" style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'zoom-in' }} onClick={() => setFullscreenData({url: getImageUrl(entry?.drive_file_id, entry?.file_url), title: entry?.topic_title || ''})} onError={handleImageError} />
@@ -1214,23 +1241,19 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                             {isDaily ? '🔴 Napi' : '🔵 Heti'}
                           </div>
                         </div>
-                        {/* JAVÍTVA: justifycontent -> justifyContent */}
                         <div style={{ padding: '20px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                           <div>
                             <h4 style={{ margin: '0 0 15px 0', color: '#f8fafc', fontSize: '1.2rem' }}>{entry?.topic_title}</h4>
-                            {/* JAVÍTVA: justifycontent -> justifyContent */}
                             <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94a3b8', fontSize: '0.9rem', marginBottom: '12px' }}>
                               <span>Mezőny: {entry?.total_entries || 0} kép</span>
                               <span style={{color: '#f8fafc'}}>Helyezés: <b>{entry?.rank || 0}.</b></span>
                             </div>
-                            {/* JAVÍTVA: justifycontent -> justifyContent */}
                             <div style={{ background: '#0f172a', padding: '15px', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', marginBottom: '15px' }}>
                               <span style={{color: '#f97316', fontWeight: '900'}}>⭐ {entry?.likes || 0} pont</span>
                               <span style={{color: '#38bdf8', fontWeight: 'bold'}}>👁️ {entry?.views || 0}</span>
                             </div>
                           </div>
 
-                          {/* JAVÍTVA: justifycontent -> justifyContent */}
                           <button 
                             onClick={() => setActiveShareData(entry)}
                             style={{ width: '100%', background: 'linear-gradient(135deg, #14b8a6, #0d9488)', color: 'white', border: 'none', padding: '10px', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', boxShadow: '0 4px 12px rgba(20,184,166,0.2)' }}
@@ -1314,7 +1337,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                       </span>
                     </div>
 
-                    {/* JAVÍTVA: textalign -> textAlign */}
                     <div style={{ textAlign: 'right', minWidth: '80px' }}>
                       <div style={{ color: '#fbbf24', fontWeight: '900', fontSize: '1.4rem' }}>{likes} <span style={{ fontSize: '0.9rem', fontWeight: 'normal', color: '#64748b' }}>⭐</span></div>
                     </div>
@@ -1409,16 +1431,13 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
 
 
       {activeShareData && (
-        // JAVÍTVA: justifycontent -> justifyContent
         <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 99999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px', overflowY: 'auto' }}>
           
-          {/* JAVÍTVA: justifycontent -> justifyContent */}
           <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', maxWidth: '340px', marginBottom: '15px', alignItems: 'center' }}>
             <span style={{ color: '#94a3b8', fontSize: '0.9rem', fontWeight: 'bold' }}>📱 Trófeakártya Előnézet</span>
             <button onClick={() => setActiveShareData(null)} style={{ background: '#1e293b', border: 'none', color: '#ef4444', padding: '6px 14px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>Mégse ✕</button>
           </div>
 
-          {/* JAVÍTVA: justifycontent -> justifyContent */}
           <div 
             id="share-card-node"
             style={{ 
@@ -1444,7 +1463,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
               <div style={{ color: '#64748b', fontSize: '0.65rem', marginTop: '2px', letterSpacing: '1px' }}>PÁRBAJ TRÓFEA</div>
             </div>
 
-            {/* JAVÍTVA: justifycontent -> justifyContent */}
             <div style={{ 
               width: '100%', 
               height: '200px', 
@@ -1471,19 +1489,17 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
               )}
             </div>
 
-          <div style={{ textAlign: 'center', zIndex: 10 }}>
-  <div style={{ fontSize: '2.5rem', margin: 0, lineHeight: 1 }}>🏆</div>
-  
-  {/* JAVÍTVA: Első körben a kártyához tartozó adatbázis-nevet jelenítjük meg, így azonnal frissül! */}
-  <h2 style={{ color: 'white', fontSize: '1.4rem', fontWeight: '900', margin: '6px 0 2px 0' }}>
-    {activeShareData?.user_name || user?.name || 'Fotóművész'}
-  </h2>
-  
-  <div style={{ background: 'linear-gradient(90deg, transparent, #fbbf2430, transparent)', color: '#fbbf24', padding: '4px 20px', borderRadius: '4px', fontWeight: 'bold', fontSize: '1.05rem', letterSpacing: '1px' }}>
-    {activeShareData.rank}. HELYEZÉS
-  </div>
-</div>
-
+            <div style={{ textAlign: 'center', zIndex: 10 }}>
+              <div style={{ fontSize: '2.5rem', margin: 0, lineHeight: 1 }}>🏆</div>
+              
+              <h2 style={{ color: 'white', fontSize: '1.4rem', fontWeight: '900', margin: '6px 0 2px 0' }}>
+                {activeShareData?.user_name || user?.name || 'Fotóművész'}
+              </h2>
+              
+              <div style={{ background: 'linear-gradient(90deg, transparent, #fbbf2430, transparent)', color: '#fbbf24', padding: '4px 20px', borderRadius: '4px', fontWeight: 'bold', fontSize: '1.05rem', letterSpacing: '1px' }}>
+                {activeShareData.rank}. HELYEZÉS
+              </div>
+            </div>
 
             <div style={{ width: '100%', background: 'rgba(0,0,0,0.4)', padding: '12px', borderRadius: '14px', border: '1px solid #23293f', zIndex: 10, boxSizing: 'border-box' }}>
               <div style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '1px', textAlign: 'center' }}>Kihívás témája:</div>
@@ -1492,13 +1508,11 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
               </div>
               
               <div style={{ display: 'flex', width: '100%', borderTop: '1px solid #23293f', paddingTop: '10px' }}>
-                {/* JAVÍTVA: justifycontent -> justifyContent */}
                 <div style={{ flex: 1, textAlign: 'center' }}>
                   <div style={{ fontSize: '0.7rem', color: '#64748b', marginBottom: '2px' }}>Közösségi Értékelés</div>
                   <div style={{ fontSize: '1.1rem', fontWeight: '900', color: '#f97316' }}>{activeShareData.likes || 0} ⭐</div>
                 </div>
                 <div style={{ width: '1px', background: '#23293f' }}></div>
-                {/* JAVÍTVA: justifycontent -> justifyContent */}
                 <div style={{ flex: 1, textAlign: 'center' }}>
                   <div style={{ fontSize: '0.7rem', color: '#64748b', marginBottom: '2px' }}>Összes Nevező</div>
                   <div style={{ fontSize: '1.1rem', fontWeight: '900', color: '#38bdf8' }}>{activeShareData.total_entries || 0} fotó</div>
@@ -1506,13 +1520,12 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
               </div>
             </div>
 
-            <div style={{ textAlign: 'center', zIndex: 10 }}>
+            <div style={{ textPlain: 'center', zIndex: 10 }}>
               <div style={{ fontSize: '0.65rem', color: '#475569' }}>Játssz Te is következő párbajban:</div>
               <div style={{ color: '#38bdf8', fontWeight: 'bold', marginTop: '1px', fontSize: '0.8rem' }}>kepolvasok.guru</div>
             </div>
           </div>
 
-          {/* JAVÍTVA: justifycontent -> justifyContent */}
           <button 
             onClick={handleExecuteShare}
             disabled={isGeneratingImage || loadingShareImg}
