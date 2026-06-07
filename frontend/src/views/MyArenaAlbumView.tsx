@@ -10,7 +10,8 @@ export default function MyArenaAlbumView({ user, setFullscreenData }: { user: an
 
   const fetchAlbum = async () => {
     try {
-      const res = await fetch(`${BACKEND_URL}/api/my-album?userEmail=${user?.email}`);
+      // ⚡ JAVÍTVA: Az új, elszeparált arénás album végpontot hívjuk!
+      const res = await fetch(`${BACKEND_URL}/api/weekly/my-album?userEmail=${user?.email}`);
       if (res.ok) setPhotos(await res.json());
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
@@ -26,7 +27,8 @@ export default function MyArenaAlbumView({ user, setFullscreenData }: { user: an
     formData.append('userEmail', user.email);
 
     try {
-      const res = await fetch(`${BACKEND_URL}/api/my-album/upload`, { method: 'POST', body: formData });
+      // ⚡ JAVÍTVA: Az új, elszeparált arénás feltöltő végpontot hívjuk!
+      const res = await fetch(`${BACKEND_URL}/api/weekly/my-album/upload`, { method: 'POST', body: formData });
       if (res.ok) {
         alert('🎉 Kép sikeresen rögzítve az Aréna albumodban!');
         fetchAlbum();
@@ -64,7 +66,7 @@ export default function MyArenaAlbumView({ user, setFullscreenData }: { user: an
                   <span style={{ position: 'absolute', top: '10px', left: '10px', background: '#ef4444', color: 'white', fontWeight: 'bold', fontSize: '0.75rem', padding: '3px 8px', borderRadius: '6px' }}>⚔️ Harcban van</span>
                 )}
               </div>
-              <div style={{ padding: '15px', flex: 1, display: 'flex', flexDirection: 'column', justifyWith: 'space-between' }}>
+              <div style={{ padding: '15px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#cbd5e1', background: '#0f172a', padding: '8px 12px', borderRadius: '8px', marginBottom: '10px' }}>
                   <span style={{ color: '#f97316', fontWeight: 'bold' }}>⭐ {photo.totalLikes} pont</span>
                   <span style={{ color: '#38bdf8' }}>👁️ {photo.totalViews}</span>
