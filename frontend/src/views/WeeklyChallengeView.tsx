@@ -87,7 +87,6 @@ function ChallengeCard({ topic, onSelect, user }: { topic: any; onSelect: () => 
     (topic.master_email && user?.email && topic.master_email.toLowerCase().trim() === user.email.toLowerCase().trim()) ||
     (topic.master_name && user?.name && topic.master_name.toLowerCase().trim() === user.name.toLowerCase().trim());
 
-  const statusColor = isMaster ? '#a78bfa' : (topic.hasEntered ? '#10b981' : '#f59e0b');
 
   const statusColor = isMaster ? '#a78bfa' : (topic.hasEntered ? '#10b981' : '#f59e0b');
 
