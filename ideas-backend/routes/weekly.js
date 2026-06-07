@@ -154,32 +154,73 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-  app.post('/api/admin/weekly-topics', async (req, res) => {
-    // ➕ Hozzáadva: coverUrl beolvasása a kérésből
-    const { title, description, startDate, endDate, masterEmail, coverUrl } = req.body; 
+  // ====================================================================
+  // ⚙️ JAVÍTVA: Új téma létrehozása közvetlen borítókép feltöltéssel
+  // ====================================================================
+  app.post('/api/admin/weekly-topics', upload.single('cover'), async (req, res) => {
+    // Multipart form-data esetén a mezők a req.body-ból érkeznek
+    const { title, description, startDate, endDate, masterEmail } = req.body; 
+    const file = req.file;
+    let finalCoverUrl = null;
+
     try {
+      // Ha az admin kiválasztott egy borítóképet, feltoljuk a Cloudinary-re
+      if (file) {
+        const result = await cloudinary.uploader.upload(file.path, {
+          folder: 'parbaj_boritokepek',
+          width: 1200, 
+          height: 600, 
+          crop: "limit", 
+          quality: "auto:good"
+        });
+        finalCoverUrl = result.secure_url;
+        if (fs.existsSync(file.path)) fs.unlinkSync(file.path); // Töröljük a Render szerverről a temp fájlt
+      }
+
       await pool.query(
         'INSERT INTO weekly_topics (title, description, start_date, end_date, master_email, cover_url) VALUES (?, ?, ?, ?, ?, ?)', 
-        [title, description, startDate, endDate, masterEmail || null, coverUrl || null]
+        [title, description, startDate, endDate, masterEmail || null, finalCoverUrl]
       );
       res.json({ success: true });
     } catch (err) {
-      res.status(500).json({ error: 'Hiba a mentés során' });
+      if (file && fs.existsSync(file.path)) fs.unlinkSync(file.path);
+      res.status(500).json({ error: 'Hiba a mentés során: ' + err.message });
     }
   });
 
-  app.put('/api/admin/weekly-topics/:id', async (req, res) => {
+  // ====================================================================
+  // ⚙️ JAVÍTVA: Téma szerkesztése borítókép cserével vagy megtartásával
+  // ====================================================================
+  app.put('/api/admin/weekly-topics/:id', upload.single('cover'), async (req, res) => {
     const { id } = req.params;
-    // ➕ Hozzáadva: coverUrl beolvasása a kérésből
     const { title, description, startDate, endDate, masterEmail, coverUrl } = req.body; 
+    const file = req.file;
+    
+    // Alapértelmezetten megtartjuk azt a linket, ami a frontenről érkezik (ha nem cserélték le a képet)
+    let finalCoverUrl = coverUrl || null; 
+
     try {
+      // Ha az admin vadonatúj képet tallózott be, azt feltoljuk, és felülírjuk a régi linket
+      if (file) {
+        const result = await cloudinary.uploader.upload(file.path, {
+          folder: 'parbaj_boritokepek',
+          width: 1200, 
+          height: 600, 
+          crop: "limit", 
+          quality: "auto:good"
+        });
+        finalCoverUrl = result.secure_url;
+        if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+      }
+
       await pool.query(
         'UPDATE weekly_topics SET title = ?, description = ?, start_date = ?, end_date = ?, master_email = ?, cover_url = ? WHERE id = ?', 
-        [title, description, startDate, endDate, masterEmail || null, coverUrl || null, id]
+        [title, description, startDate, endDate, masterEmail || null, finalCoverUrl, id]
       );
       res.json({ success: true });
     } catch (err) {
-      res.status(500).json({ error: 'Hiba a frissítés során' });
+      if (file && fs.existsSync(file.path)) fs.unlinkSync(file.path);
+      res.status(500).json({ error: 'Hiba a frissítés során: ' + err.message });
     }
   });
 
