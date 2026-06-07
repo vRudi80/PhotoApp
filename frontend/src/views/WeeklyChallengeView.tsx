@@ -620,7 +620,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                     </div>
                     
                     {/* EXPO / LÁTHATÓSÁGI MÉRŐ */}
-                      {!isMaster) ? (
+                      {(!isMaster) ? (
                     <div style={{ width: '100%', boxSizing: 'border-box', background: '#0f172a', padding: '25px 15px', borderRadius: '24px', border: `1px solid ${exposureColor}40`, display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: `0 10px 40px -10px ${exposureColor}30`, transition: 'all 0.5s ease' }}>
                       <h4 style={{ color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '2px', margin: '0 0 15px 0', fontSize: '0.85rem', textAlign: 'center' }}>Láthatósági Mérő</h4>
                       
