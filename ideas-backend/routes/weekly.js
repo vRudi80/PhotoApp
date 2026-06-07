@@ -214,7 +214,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
 
   // ====================================================================
-  // ⚔️ INTEGRÁLT VÉGPONT: AKTUÁLIS TÉMA ÉS ARÉNA ADATOK LEKÉRÉSE
+  // ⚔️ INTEGRÁLT VÉGPONT: AKTUÁLIS TÉMA ÉS ARÉNA ADATOK LEKÉRDEZÉSE
   // ====================================================================
   app.get('/api/weekly/current', async (req, res) => {
     const { userEmail, topicId } = req.query;
@@ -262,9 +262,15 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         const topicsWithStatus = [];
         for (const t of activeTopics) {
           const [entry] = await pool.query('SELECT id FROM weekly_entries WHERE topic_id = ? AND user_email = ? AND is_active = 1', [t.id, userEmail]);
+          
+          // 👑 JAVÍTVA: Szigorú, név-mentes szerveroldali csekk minden egyes kártyára!
+          const isMasterForThisTopic = t.master_email && userEmail && 
+            t.master_email.toLowerCase().trim() === userEmail.toLowerCase().trim();
+
           topicsWithStatus.push({ 
             ...t, 
-            hasEntered: entry.length > 0 
+            hasEntered: entry.length > 0,
+            isMaster: !!isMasterForThisTopic // Közvetlenül rásütjük a kártya adatára!
           });
         }
         return res.json({ 
@@ -287,7 +293,10 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       if (!currentTopic) return res.status(404).json({ error: 'Ez a kihívás nem található vagy már lezárult!' });
 
       // 👑 ⚖️ Párbajmester státusz és a hátralévő 10 pontos szavzatok kiszámítása
-      const isMasterUser = currentTopic.master_email === userEmail;
+      // JAVÍTVA: Itt is kisbetűsre és biztonságosra cserélve a strict === összehasonlítást!
+      const isMasterUser = currentTopic.master_email && userEmail && 
+        currentTopic.master_email.toLowerCase().trim() === userEmail.toLowerCase().trim();
+
       let masterVotesLeft = 0;
       if (isMasterUser) {
         const [masterVotesCount] = await pool.query(`
@@ -346,7 +355,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
       // Teljes adatcsomag visszaküldése a frontend szoba számára
       res.json({ 
-        topic: currentTopic, 
+        topic: { ...currentTopic, isMaster: !!isMasterUser }, // Beágyazzuk ide is a biztonság kedvéért
         myEntry: myEntries.length > 0 ? myEntries[0] : null, 
         myPastEntries, 
         myVoteCount: myVotes[0]?.vote_count || 0, 
@@ -360,7 +369,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         myReferralCode, 
         referredBy,
         masterVotesLeft,       
-        isMaster: isMasterUser  
+        isMaster: !!isMasterUser  
       });
 
     } catch (err) { 
@@ -368,6 +377,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       res.status(500).json({ error: 'Szerveroldali hiba történt a szoba előkészítésekor.' }); 
     }
   });
+
 
 
   // ====================================================================
