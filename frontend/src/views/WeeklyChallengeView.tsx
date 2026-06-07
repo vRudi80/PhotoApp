@@ -146,6 +146,12 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
           }
         </span>
       </div>
+    {/* 🖼️ BORÍTÓKÉP AZ AKTUÁLIS KÁRTYÁKON */}
+      {topic.cover_url && (
+        <div style={{ width: '100%', height: '150px', borderRadius: '14px', overflow: 'hidden', marginBottom: '15px', border: '1px solid #334155' }}>
+          <img src={topic.cover_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={handleImageError} />
+        </div>
+      )}
 
       <h3 style={{ color: 'white', margin: '0 0 10px 0', fontSize: '1.4rem', fontWeight: 'bold' }}>{topic.title}</h3>
       <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: '0 0 20px 0', lineHeight: '1.5', flex: 1 }}>{topic.description}</p>
@@ -1055,7 +1061,21 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                       {isDaily ? '🔴 Napi Kihívás' : '🔵 Heti Kihívás'}
                     </span>
                   </div>
+                <div key={t.id} style={{ background: 'linear-gradient(180deg, #1e293b, #0f172a)', padding: '25px', borderRadius: '24px', border: '1px solid #475569', display: 'flex', flexDirection: 'column', boxShadow: '0 10px 20px rgba(0,0,0,0.2)' }}>
+                  <div style={{ marginBottom: '10px' }}>
+                    <span style={{ background: isDaily ? '#ef444420' : '#3b82f620', color: isDaily ? '#f87171' : '#60a5fa', border: `1px solid ${isDaily ? '#ef444450' : '#3b82f650'}`, padding: '4px 12px', borderRadius: '50px', fontSize: '0.8rem', fontWeight: 'bold' }}>
+                      {isDaily ? '🔴 Napi Kihívás' : '🔵 Heti Kihívás'}
+                    </span>
+                  </div>
                 
+                  {/* 🖼️ BORÍTÓKÉP A HAMAROSAN KÁRTYÁKON */}
+                  {t.cover_url && (
+                    <div style={{ width: '100%', height: '140px', borderRadius: '14px', overflow: 'hidden', marginBottom: '15px', border: '1px solid #334155' }}>
+                      <img src={t.cover_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={handleImageError} />
+                    </div>
+                  )}
+
+
                   <h4 style={{ color: '#f59e0b', margin: '0 0 10px 0', fontSize: '1.4rem' }}>{t.title}</h4>
                   <p style={{ color: '#cbd5e1', fontSize: '0.95rem', margin: '0 0 20px 0', flex: 1, lineHeight: '1.6' }}>{t.description}</p>
                   
@@ -1097,6 +1117,19 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           
           <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
             
+            {/* 🖼️ NAGY BORÍTÓKÉP BANNER AZ ARCHÍVUM EREDMÉNYEI FELETT */}
+            {selectedPastTopicId && (() => {
+              const t = pastTopics.find(x => x.id === selectedPastTopicId);
+              if (t && t.cover_url) {
+                return (
+                  <div style={{ width: '100%', height: '160px', borderRadius: '24px', overflow: 'hidden', border: '1px solid #334155', boxShadow: '0 10px 25px rgba(0,0,0,0.4)' }}>
+                    <img src={t.cover_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={handleImageError} />
+                  </div>
+                );
+              }
+              return null;
+            })()}
+
             <div style={{ background: '#1e293b', borderRadius: '24px', padding: '25px', border: '1px solid #10b981', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                 <h3 style={{ margin: 0, color: '#10b981', fontSize: '1.4rem' }}>🛡️ Klubok Csatája</h3>
