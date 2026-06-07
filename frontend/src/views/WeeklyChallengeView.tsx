@@ -30,6 +30,48 @@ const getLevelDetails = (likes: number, victories: number) => {
   return { name: 'Guru 👑', color: '#fbbf24', bg: '#fbbf2420' };
 };
 
+// ====================================================================
+// ⚡ BÖNGÉSZŐS KÉPTÖMÖRÍTŐ MOTOR (Max 1920px, 80% minőség, szupergyors)
+// ====================================================================
+const compressImageOnClient = (file: File): Promise<File> => {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        const MAX_SIZE = 1920;
+
+        if (width > height) {
+          if (width > MAX_SIZE) { height = Math.round((height * MAX_SIZE) / width); width = MAX_SIZE; }
+        } else {
+          if (height > MAX_SIZE) { width = Math.round((width * MAX_SIZE) / height); height = MAX_SIZE; }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const compressedFile = new File([blob], file.name.replace(/\.[^/.]+$/, "") + ".jpg", {
+              type: 'image/jpeg',
+              lastModified: Date.now(),
+            });
+            resolve(compressedFile);
+          } else {
+            resolve(file); // Fallback, ha a canvas elbukna
+          }
+        }, 'image/jpeg', 0.8); // 0.8 = 80% minőség (szinte észrevehetetlen romlás, tizedakkora méret!)
+      };
+    };
+  });
+};
 
 // ====================================================================
 // ⏳ SEGÉDKOMPONENS: Önálló kártya saját belső visszaszámlálóval
@@ -466,10 +508,21 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     finally { setIsClaimingReferral(false); }
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      const file = e.target.files[0];
-      setUploadFile(file); uploadPreview && URL.revokeObjectURL(uploadPreview); setUploadPreview(URL.createObjectURL(file));
+      const rawFile = e.target.files[0];
+      
+      // 🚀 Varázslat: Ha a kép nagyobb mint 2 MB, a háttérben azonnal összenyomjuk!
+      let finalFile = rawFile;
+      if (rawFile.size > 2 * 1024 * 1024) {
+        console.log("⚡ Óriásfájl észlelve, böngészős tömörítés indul...");
+        finalFile = await compressImageOnClient(rawFile);
+        console.log(`💪 Sikeres tömörítés: ${(rawFile.size / 1024 / 1024).toFixed(2)}MB -> ${(finalFile.size / 1024 / 1024).toFixed(2)}MB`);
+      }
+
+      setUploadFile(finalFile); 
+      uploadPreview && URL.revokeObjectURL(uploadPreview); 
+      setUploadPreview(URL.createObjectURL(finalFile));
     }
   };
 
