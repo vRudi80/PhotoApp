@@ -619,6 +619,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                     </div>
                     
                     {/* EXPO / LÁTHATÓSÁGI MÉRŐ */}
+                      {!isMaster) ? (
                     <div style={{ width: '100%', boxSizing: 'border-box', background: '#0f172a', padding: '25px 15px', borderRadius: '24px', border: `1px solid ${exposureColor}40`, display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: `0 10px 40px -10px ${exposureColor}30`, transition: 'all 0.5s ease' }}>
                       <h4 style={{ color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '2px', margin: '0 0 15px 0', fontSize: '0.85rem', textAlign: 'center' }}>Láthatósági Mérő</h4>
                       
@@ -641,7 +642,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                       <p style={{ fontSize: '0.85rem', color: '#94a3b8', margin: '15px 0 0 0', textAlign: 'center', lineHeight: '1.6' }}>
                         {!myEntry ? 'Töltsd fel a képedet az induláshoz, és kapsz 10 alap energiát!' : voteEntry ? '⚡ Új fotó érkezett az Arénába (vagy valaki Jokert használt)! Értékelt, hogy a mérőd újra maxon pörögjön!' : '🔥 A képed a maximumon pörög! Jelenleg nincs több értékelhető kép az Arénában.'}
                       </p>
-                    </div>
+                    </div>}
 
                     {/* ÉRTÉKELŐ ARÉNA PULT */}
                     <div style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #334155', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
@@ -722,7 +723,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                           <div style={{ fontSize: '3.5rem', marginBottom: '10px' }}>👑</div>
                           <h4 style={{ color: '#a78bfa', margin: '0 0 8px 0', fontSize: '1.25rem', fontWeight: 'bold' }}>Te vagy a Párbajmester!</h4>
                           <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: 0, lineHeight: '1.6' }}>
-                            Ezen a héten te lettél felkérve a főbírónak! Saját alkotással nem nevezhetsz, cserébe kapsz 5 darab, egyenként **+10 pontot** érő Különdíjat, amit a szavazás során oszthatsz szét a kedvenc képeid között.
+                            Ebben a párbajban te lettél felkérve a főbírónak! Saját alkotással nem nevezhetsz, cserébe kapsz 5 darab, egyenként **+10 pontot** érő Különdíjat, amit a szavazás során oszthatsz szét a kedvenc képeid között.
                           </p>
                         </div>
                       ) : myEntry ? (
