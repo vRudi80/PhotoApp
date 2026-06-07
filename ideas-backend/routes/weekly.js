@@ -949,11 +949,11 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // 🚚 GOLYÓÁLLÓ MIGRÁCIÓ: Google Drive képek átmásolása Cloudinary-re
+  // 🚚 GOLYÓÁLLÓ, BAD GATEWAY-BIZTOS MIGRÁCIÓ (HÁTTÉRFOLYAMAT)
   // ====================================================================
   app.get('/api/admin/migrate-drive-to-cloudinary', async (req, res) => {
     try {
-      // 1. Lekérjük az összes olyan sort, ami még a Google Drive-on van
+      // 1. Lekérjük azokat, amik még a Google Drive-on vannak
       const [rows] = await pool.query(
         "SELECT id, drive_file_id, user_name FROM weekly_entries WHERE drive_file_id IS NOT NULL AND drive_file_id != ''"
       );
@@ -962,67 +962,61 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         return res.json({ success: true, message: 'Minden kép át van már költöztetve!' });
       }
 
-      console.log(`🚚 Költöztetés indul: ${rows.length} db kép feldolgozása biztonságos puffer módban...`);
-      let migratedCount = 0;
-      let failedCount = 0;
-      const errorLog = []; // Itt gyűjtjük a hibákat, hogy lássuk ha elakad
-
-      for (const entry of rows) {
-        try {
-          // 2. Letöltés a Google Drive API-ból megbízható ArrayBufferként (a stream helyett)
-          const driveResponse = await drive.files.get(
-            { fileId: entry.drive_file_id, alt: 'media' },
-            { responseType: 'arraybuffer' }
-          );
-
-          // 3. Átalakítás Base64 formátummá (ez nem akad el a hálózati csatornákon)
-          const base64Data = Buffer.from(driveResponse.data).toString('base64');
-          const dataUri = `data:image/jpeg;base64,${base64Data}`;
-
-          // 4. Feltöltés a Cloudinary-re az éles méretkorláttal és tömörítéssel
-          const uploadResult = await cloudinary.uploader.upload(dataUri, {
-            folder: 'parbaj_archivum',
-            width: 1600,
-            height: 1600,
-            crop: "limit",
-            quality: "auto:good"
-          });
-
-          // 5. Frissítjük a MySQL-t: drive_file_id = NULL, file_url = Cloudinary szupergyors URL
-          await pool.query(
-            "UPDATE weekly_entries SET drive_file_id = NULL, file_url = ? WHERE id = ?",
-            [uploadResult.secure_url, entry.id]
-          );
-
-          migratedCount++;
-          console.log(`✓ [${migratedCount}] ${entry.user_name} fotója sikeresen áttelepítve.`);
-
-        } catch (singleErr) {
-          failedCount++;
-          // Elmentjük a pontos hibaüzenetet, hogy megmutathassuk a weblapon
-          errorLog.push({
-            entry_id: entry.id,
-            user_name: entry.user_name,
-            error: singleErr.message
-          });
-          console.error(`❌ Hiba a(z) ${entry.id} ID-jú képnél:`, singleErr.message);
-        }
-      }
-
-      // Visszaküldünk egy részletes jelentést, így nem repülünk vakon
+      // 🚀 ZSENIÁLIS HÚZÁS: Azonnal válaszolunk a böngészőnek, így a Render Load Balancer nem dob 502-es hibát!
       res.json({
         success: true,
-        message: "A költöztetési folyamat lefutott.",
-        successful_migrations: migratedCount,
-        failed_migrations: failedCount,
-        detailed_errors: errorLog // Ha ez a tömb üres, akkor minden tökéletes lett!
+        message: `🚚 Költöztetés sikeresen elindítva a háttérben ${rows.length} db képre! Ezt a lapot bezárhatod. Nyisd meg a Render.com-ot, és a Dashboardon a LIVE LOGS felületen kövesd a haladást másodpercről másodpercre!`
       });
 
+      // 💥 AZONNALI ÖNÁLLÓ HÁTTÉRFOLYAMAT (Nem blokkolja a fenti HTTP választ)
+      (async () => {
+        console.log(`[Háttér Motor] 🚚 Költöztetés indul: ${rows.length} db kép feldolgozása...`);
+        let migratedCount = 0;
+
+        for (const entry of rows) {
+          try {
+            // Letöltés pufferként
+            const driveResponse = await drive.files.get(
+              { fileId: entry.drive_file_id, alt: 'media' },
+              { responseType: 'arraybuffer' }
+            );
+
+            const base64Data = Buffer.from(driveResponse.data).toString('base64');
+            const dataUri = `data:image/jpeg;base64,${base64Data}`;
+
+            // Feltöltés Cloudinary-re optimalizálva
+            const uploadResult = await cloudinary.uploader.upload(dataUri, {
+              folder: 'parbaj_archivum',
+              width: 1600,
+              height: 1600,
+              crop: "limit",
+              quality: "auto:good"
+            });
+
+            // Adatbázis mentés
+            await pool.query(
+              "UPDATE weekly_entries SET drive_file_id = NULL, file_url = ? WHERE id = ?",
+              [uploadResult.secure_url, entry.id]
+            );
+
+            migratedCount++;
+            console.log(`✓ [Háttér] [${migratedCount}/${rows.length}] ${entry.user_name} fotója sikeresen áttolva a felhőbe.`);
+
+          } catch (singleErr) {
+            console.error(`❌ [Háttér Hiba] Nem sikerült a(z) ${entry.id} ID-jú kép költöztetése:`, singleErr.message);
+          }
+        }
+        console.log(`🏁 [Háttér Motor] A költöztetés sikeresen befejeződött! Átmásolva: ${migratedCount} db kép.`);
+      })();
+
     } catch (err) {
-      console.error("Súlyos hiba a migrációs szkript futásakor:", err);
-      res.status(500).json({ error: err.message });
+      console.error("Súlyos hiba a háttérmotor indításakor:", err);
+      if (!res.headersSent) {
+        res.status(500).json({ error: err.message });
+      }
     }
   });
+  
   // ====================================================================
   // 📱 ÚJ: BASE64 PROXY VÉGPONT (A trófeakártya letöltés zökkenőmentes működéséhez)
   // ====================================================================
