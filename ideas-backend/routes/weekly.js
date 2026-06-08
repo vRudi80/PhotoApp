@@ -821,33 +821,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
-  app.get('/api/weekly/history/:topicId', async (req, res) => {
-    try {
-      const [leaderboard] = await pool.query(`
-        SELECT e.id, e.user_name, e.file_url, e.drive_file_id, e.views_count, e.likes_count, u.club_name
-        FROM weekly_entries e LEFT JOIN photo_users u ON e.user_email = u.email
-        WHERE e.topic_id = ? AND e.views_count > 0 AND e.is_active = 1 ORDER BY e.likes_count DESC, e.views_count ASC
-      `, [req.params.topicId]);
-
-      const clubsData = {};
-      leaderboard.forEach(entry => {
-        if (!entry.club_name || entry.club_name.trim() === '') return; 
-        if (!clubsData[entry.club_name]) clubsData[entry.club_name] = [];
-        clubsData[entry.club_name].push(Number(entry.likes_count));
-      });
-
-      const clubLeaderboard = [];
-      for (const club in clubsData) {
-        clubsData[club].sort((a, b) => b - a);
-        const top3 = clubsData[club].slice(0, 3);
-        const totalScore = top3.reduce((sum, val) => sum + val, 0);
-        clubLeaderboard.push({ club_name: club, total_score: totalScore, members_counted: top3.length });
-      }
-      clubLeaderboard.sort((a, b) => b.total_score - a.total_score);
-      res.json({ leaderboard, clubLeaderboard });
-    } catch (err) { res.status(500).json({ error: 'Hiba' }); }
-  });
-
+ 
   app.get('/api/weekly/my-stats', async (req, res) => {
     const { userEmail } = req.query;
     try {
