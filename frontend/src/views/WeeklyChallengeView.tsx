@@ -177,24 +177,25 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
       <h3 style={{ color: 'white', margin: '0 0 10px 0', fontSize: '1.4rem', fontWeight: 'bold' }}>{topic.title}</h3>
       <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: '0 0 20px 0', lineHeight: '1.5', flex: 1 }}>{topic.description}</p>
       
-      {/* 📊 🔥 EGYVONALAS INFÓSÁV: Statisztikák és Párbajmester egy sorban */}
-      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '20px' }}>
+      {/* 📊 🔥 EGYVONALAS INFÓSÁV: Statisztikák és Párbajmester tökéletesen középre igazítva */}
+      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '20px', lineHeight: '1' }}>
+        
         {/* Párbajmester (csak ha létezik) */}
         {(topic.master_name || topic.master_email) && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#a78bfa', fontSize: '0.85rem', fontWeight: 'bold', background: '#a78bfa10', padding: '6px 14px', borderRadius: '10px', border: '1px solid #a78bfa20', whiteSpace: 'nowrap' }}>
-            <span>👑 Párbajmester:</span>
-            <span style={{ color: '#e9d5ff', fontWeight: 'bold' }}>{topic.master_name || topic.master_email}</span>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#a78bfa', fontSize: '0.85rem', fontWeight: 'bold', background: '#a78bfa10', padding: '6px 14px', borderRadius: '10px', border: '1px solid #a78bfa20', whiteSpace: 'nowrap', lineHeight: '1' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center' }}>👑 Párbajmester:&nbsp;</span>
+            <span style={{ color: '#e9d5ff', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center' }}>{topic.master_name || topic.master_email}</span>
           </div>
         )}
         
         {/* Játékosok száma */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#38bdf8', fontSize: '0.85rem', fontWeight: 'bold', background: '#38bdf810', padding: '6px 14px', borderRadius: '10px', border: '1px solid #38bdf820', whiteSpace: 'nowrap' }}>
-          👥 {topic.totalEntries || 0} fotós
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#38bdf8', fontSize: '0.85rem', fontWeight: 'bold', background: '#38bdf810', padding: '6px 14px', borderRadius: '10px', border: '1px solid #38bdf820', whiteSpace: 'nowrap', lineHeight: '1' }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center' }}>👥 {topic.totalEntries || 0} fotós</span>
         </div>
         
         {/* Hátralévő szavazatok */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: topic.unvotedEntries > 0 ? '#fb923c' : '#4ade80', fontSize: '0.85rem', fontWeight: 'bold', background: topic.unvotedEntries > 0 ? '#fb923c10' : '#4ade8010', padding: '6px 14px', borderRadius: '10px', border: topic.unvotedEntries > 0 ? '1px solid #fb923c20' : '1px solid #4ade8020', whiteSpace: 'nowrap' }}>
-          🗳️ {topic.unvotedEntries || 0} értékelendő
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: topic.unvotedEntries > 0 ? '#fb923c' : '#4ade80', fontSize: '0.85rem', fontWeight: 'bold', background: topic.unvotedEntries > 0 ? '#fb923c10' : '#4ade8010', padding: '6px 14px', borderRadius: '10px', border: topic.unvotedEntries > 0 ? '1px solid #fb923c20' : '1px solid #4ade8020', whiteSpace: 'nowrap', lineHeight: '1' }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center' }}>🗳️ {topic.unvotedEntries || 0} értékelendő</span>
         </div>        
       </div>
 
