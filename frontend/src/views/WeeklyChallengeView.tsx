@@ -3,6 +3,9 @@ import { BACKEND_URL } from '../utils/constants';
 import { getImageUrl } from '../utils/helpers';
 import { toPng } from 'html-to-image'; 
 import MyArenaAlbumView from './MyArenaAlbumView';
+import HelpModal from './WeeklyChallenge/HelpModal';
+import AlbumSelectionModal from './WeeklyChallenge/AlbumSelectionModal';
+import ShareCardModal from './WeeklyChallenge/ShareCardModal';
 
 interface WeeklyChallengeViewProps {
   user: any;
@@ -37,7 +40,6 @@ const getLevelDetails = (likes: number, victories: number) => {
   return { name: 'Fejedelem 👑', color: '#fbbf24', bg: '#fbbf2420' };
 };
 
-// 🛡️ JAVÍTVA: Biztonságos, virtuális DOM-barát klublogó kezelő alkomponens a crash elkerülésére
 function ClubLogo({ driveId, logoUrl }: { driveId: any; logoUrl: any }) {
   const [isError, setIsError] = useState(false);
   if (isError || (!driveId && !logoUrl)) {
@@ -96,9 +98,6 @@ const compressImageOnClient = (file: File): Promise<File> => {
   });
 };
 
-// ====================================================================
-// ⏳ SEGÉDKOMPONENS: Önálló kártya saját belső visszaszámlálóval
-// ====================================================================
 function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }) {
    const [timeLeft, setTimeLeft] = useState<string>('Számítás...');
 
@@ -1536,285 +1535,38 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       {subTab === 'arena_album' && (
         <MyArenaAlbumView user={user} setFullscreenData={setFullscreenData} />
       )}
-
-      {showHelp && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(5px)', zIndex: 9999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px', boxSizing: 'border-box', animation: 'fadeIn 0.2s ease-out' }}>
-          <div style={{ background: '#0f172a', border: '1px solid #334155', borderRadius: '24px', width: '100%', maxWidth: '700px', maxHeight: '90vh', overflowY: 'auto', padding: '30px', position: 'relative', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.8)' }}>
-            
-            <button onClick={() => setShowHelp(false)} style={{ position: 'absolute', top: '20px', right: '20px', background: '#1e293b', border: 'none', color: '#94a3b8', fontSize: '1.5rem', width: '40px', height: '40px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✖</button>
-            
-            <h2 style={{ color: '#f8fafc', margin: '0 0 25px 0', fontSize: '1.8rem', display: 'flex', alignItems: 'center', gap: '10px' }}>📖 Útmutató az Arénához</h2>
-            
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <div style={{ background: '#1e293b', padding: '20px', borderRadius: '16px', borderLeft: '4px solid #f59e0b' }}>
-                <h4 style={{ color: '#f59e0b', margin: '0 0 10px 0', fontSize: '1.1rem' }}>⚡ Láthatósági Mérő (Az Energia)</h4>
-                <p style={{ color: '#cbd5e1', fontSize: '0.9rem', lineHeight: '1.6', margin: 0 }}>
-                  Amikor feltöltöd a képed, kapsz energiát. Valahányszor a gép megmutatja a képed valakinek, ez az energia csökken. Új energiát úgy szerezhetsz, ha értékelsz más fotókat. Tartsd a mérőt a Zöld zónában!
-                </p>
-              </div>
-
-              <div style={{ background: '#1e293b', padding: '20px', borderRadius: '16px', borderLeft: '4px solid #e11d48' }}>
-                <h4 style={{ color: '#e11d48', margin: '0 0 10px 0', fontSize: '1.1rem' }}>🃏 Joker: Taktikai Képcsere</h4>
-                <p style={{ color: '#cbd5e1', fontSize: '0.9rem', lineHeight: '1.6', margin: 0 }}>
-                  Úgy érzed, rossz képet töltöttél fel, és lemaradtál a pontversenyben? Minden párbajban <b>egyszer</b> kijátszhatod a Jokert! A lecserélt fotóddal a pontjaid lenullázódnak, de a megkeresett Láthatóságod megmarad.
-                </p>
-              </div>
-
-              <div style={{ background: '#1e293b', padding: '20px', borderRadius: '16px', borderLeft: '4px solid #a78bfa' }}>
-                <h4 style={{ color: '#a78bfa', margin: '0 0 10px 0', fontSize: '1.1rem' }}>👑 Ki az a Párbajmester?</h4>
-                <p style={{ color: '#cbd5e1', fontSize: '0.9rem', lineHeight: '1.6', margin: 0 }}>
-                  Minden kihívásnak van egy kijelölt Párbajmestere, aki a forduló szakmai házigazdája és főbírálója. Mivel ő felügyeli a küzdelmet, saját alkotással <b>nem nevezhet</b> az adott játékban. Cserébe kap 5 darab exkluzív Párbajmester szavazatot, amelyek egyenként fixen <b>+10 pontot</b> érnek, így hatalmas hatalom van a kezében a kedvenc képei felemelésére!
-                </p>
-              </div>
-
-              <div style={{ background: '#1e293b', padding: '20px', borderRadius: '16px', borderLeft: '4px solid #fbbf24' }}>
-                <h4 style={{ color: '#fbbf24', margin: '0 0 10px 0', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '6px' }}>🏆 Dobogós Nyeremények & Extra Cserék</h4>
-                <p style={{ color: '#cbd5e1', fontSize: '0.9rem', lineHeight: '1.6', margin: 0 }}>
-                  A párbajok lezárulásakor a mezőny legkiemelkedőbb fotóművészei értékes **globális Joker cseréket** kapnak jutalmul, amiket a naptár bármelyik jövőbeli kihívásában szabadon elkölthetnek:
-                </p>
-                <ul style={{ color: '#f8fafc', fontSize: '0.9rem', margin: '10px 0 0 0', paddingLeft: '20px', lineHeight: '1.8' }}>
-                  <li>🥇 <b>1. Helyezett (Győztes):</b> <span style={{ color: '#fbbf24', fontWeight: 'bold' }}>+3 db</span> profil szintű Joker csere</li>
-                  <li>🥈 <b>2. Helyezett:</b> <span style={{ color: '#cbd5e1', fontWeight: 'bold' }}>+2 db</span> profil szintű Joker csere</li>
-                  <li>🥉 <b>3. Helyezett:</b> <span style={{ color: '#cd7f32', fontWeight: 'bold' }}>+1 db</span> profil szintű Joker csere</li>
-                </ul>
-              </div>
-              
-              <div style={{ background: '#1e293b', padding: '20px', borderRadius: '16px', borderLeft: '4px solid #38bdf8' }}>
-                <h4 style={{ color: '#38bdf8', margin: '0 0 15px 0', fontSize: '1.1rem' }}>⭐ Ranglétra és Szavazati Erő</h4>
-                <p style={{ color: '#cbd5e1', fontSize: '0.9rem', lineHeight: '1.6', margin: '0 0 15px 0' }}>
-                  Nem minden szavazat ér ugyanannyit! Ahogy halmozod a pontokat és győzelmeket, a rangod növekszik. Minél magasabb a rangod, annál több pontot adsz másoknak! <b style={{ color: '#fb7185' }}>💡 Minden szintlépésért a rendszer azonnal +10 db ajándék Joker cserével jutalmaz meg!</b>
-                </p>
-                
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {[
-                    { name: 'Újonc 🌱', req: '0 - 29 pont', power: '✨ +1 / 🔥 +2', color: '#94a3b8' },
-                    { name: 'Bojtár 🪶', req: '30 - 99 pont', power: '✨ +2 / 🔥 +3', color: '#cbd5e1' },
-                    { name: 'Nyomolvasó 🎯', req: '100 - 249 pont', power: '✨ +2 / 🔥 +4', color: '#38bdf8' },
-                    { name: 'Íjász 🏹', req: '250 - 499 pont', power: '✨ +3 / 🔥 +5', color: '#60a5fa' },
-                    { name: 'Lovas 🐎', req: '500 - 799 pont ÉS 1+ győzelem', power: '✨ +3 / 🔥 +6', color: '#10b981' },
-                    { name: 'Sólyom 🦅', req: '800 - 1299 pont ÉS 2+ győzelem', power: '✨ +4 / 🔥 +7', color: '#059669' },
-                    { name: 'Vitéz ⚔️', req: '1300 - 1999 pont ÉS 3+ győzelem', power: '✨ +4 / 🔥 +8', color: '#a78bfa' },
-                    { name: 'Bajnok 🛡️', req: '2000 - 3199 pont ÉS 5+ győzelem', power: '✨ +5 / 🔥 +10', color: '#ec4899' },
-                    { name: 'Törzsfő ⭐', req: '3200 - 4799 pont ÉS 7+ győzelem', power: '✨ +5 / 🔥 +12', color: '#f59e0b' },
-                    { name: 'Hadúr 🔱', req: '4800 - 6999 pont ÉS 9+ győzelem', power: '✨ +6 / 🔥 +14', color: '#eab308' },
-                    { name: 'Táltos 🔥', req: '7000 - 9999 pont ÉS 12+ győzelem', power: '✨ +7 / 🔥 +17', color: '#ef4444' },
-                    { name: 'Fejedelem 👑', req: '10000+ pont ÉS 15+ győzelem', power: '✨ +8 / 🔥 +20', color: '#fbbf24' }
-                  ].map((rank, i) => {
-                    const isMyRank = currentLevel && currentLevel.name === rank.name;
-                    return (
-                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 15px', background: isMyRank ? `${rank.color}20` : '#0f172a', border: isMyRank ? `1px solid ${rank.color}` : '1px solid #334155', borderRadius: '8px' }}>
-                        <div>
-                          <div style={{ color: rank.color, fontWeight: 'bold', fontSize: '1rem' }}>{rank.name} {isMyRank && <span style={{fontSize: '0.75rem', background: rank.color, color: '#000', padding: '2px 6px', borderRadius: '10px', marginLeft: '5px'}}>TE VAGY</span>}</div>
-                          <div style={{ color: '#64748b', fontSize: '0.8rem' }}>Szükséges: {rank.req}</div>
-                        </div>
-                        <div style={{ textAlign: 'right', fontWeight: 'bold', color: '#f8fafc', fontSize: '0.9rem' }}>
-                          {rank.power}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            </div>
-
-          </div>
-        </div>
-      )}
-
-      {/* MODERN VIZUÁLIS ALBUMVÁLASZTÓ MODAL JOKER CSERÉHEZ ÉS ÚJ NEVEZÉSHEZ */}
-      {showSwapAlbumModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 99999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px', boxSizing: 'border-box' }}>
-          <div style={{ background: '#0f172a', border: '1px solid #334155', borderRadius: '24px', width: '100%', maxWidth: '550px', maxHeight: '80vh', overflowY: 'auto', padding: '25px', position: 'relative', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.8)' }}>
-            
-            <button onClick={() => setShowSwapAlbumModal(false)} style={{ position: 'absolute', top: '20px', right: '20px', background: '#1e293b', border: 'none', color: '#94a3b8', fontSize: '1.2rem', width: '35px', height: '35px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✖</button>
-            
-            <h3 style={{ color: 'white', margin: '0 0 5px 0', fontSize: '1.5rem', fontWeight: 'bold' }}>
-              {albumModalMode === 'upload' ? '🖼️ Nevezés az Aréna Képtáradból' : '🃏 Válaszd ki a Joker Fotódat'}
-            </h3>
-            <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 20px 0', lineHeight: '1.4' }}>
-              {albumModalMode === 'upload' 
-                ? 'Melyik meglévő galériás fotóddal szeretnél benevezni a mostani párbajba?' 
-                : 'Melyik galériás képedet küldöd harcba? A kék keretes Visszacserék megtartják a fordulóban korábban szerzett csillagaikat!'}
-            </p>
-            
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '15px' }}>
-              {swapAlbumPhotos.map((p, idx) => {
-                const pastMatch = albumModalMode === 'swap' ? myPastEntries.find(past => past.file_url === p.file_url) : null;
-                
-                return (
-                  <div 
-                    key={p.id || idx} 
-                    onClick={async () => {
-                      if (albumModalMode === 'upload') {
-                        if (!window.confirm("Biztosan ezzel a meglévő képeddel nevezel be a küzdelembe?")) return;
-                        setIsUploading(true);
-                        setShowSwapAlbumModal(false);
-                        try {
-                          const selectRes = await fetch(`${BACKEND_URL}/api/weekly/upload-existing`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ topicId: topic.id, userEmail: user.email, userName: user.name, fileUrl: p.file_url })
-                          });
-                          if (selectRes.ok) {
-                            alert("🎉 Sikeres nevezés az albumból!");
-                            fetchCurrentTopic(false);
-                          } else {
-                            const err = await selectRes.json(); alert(err.error);
-                          }
-                        } catch (e) {
-                          alert("Hiba a nevezés során.");
-                        } finally {
-                          setIsUploading(false);
-                        }
-                      } else {
-                        if (pastMatch) {
-                          setShowSwapAlbumModal(false); 
-                          handleSwapBackSubmit(pastMatch.id); 
-                        } else {
-                          handleSelectPhotoForSwap(p.file_url); 
-                        }
-                      }
-                    }}
-                    style={{ 
-                      background: '#1e293b', 
-                      borderRadius: '14px', 
-                      overflow: 'hidden', 
-                      border: pastMatch ? '2px solid #0284c7' : '2px solid #334155', 
-                      cursor: 'pointer', 
-                      transition: 'all 0.2s', 
-                      display: 'flex', 
-                      flexDirection: 'column',
-                      position: 'relative'
-                    }}
-                    onMouseOver={(e) => { e.currentTarget.style.borderColor = pastMatch ? '#38bdf8' : '#f43f5e'; e.currentTarget.style.transform = 'scale(1.02)'; }}
-                    onMouseOut={(e) => { e.currentTarget.style.borderColor = pastMatch ? '#0284c7' : '#334155'; e.currentTarget.style.transform = 'scale(1)'; }}
-                  >
-                    <div style={{ width: '100%', height: '115px', backgroundColor: '#000', overflow: 'hidden', position: 'relative' }}>
-                      <img src={getImageUrl(null, p.file_url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      
-                      {pastMatch && (
-                        <span style={{ position: 'absolute', top: '8px', left: '8px', background: 'linear-gradient(135deg, #0284c7, #0369a1)', color: 'white', fontWeight: 'bold', fontSize: '0.65rem', padding: '4px 8px', borderRadius: '6px', boxShadow: '0 4px 10px rgba(0,0,0,0.5)', border: '1px solid #38bdf840' }}>
-                          ↩️ Visszacsere
-                        </span>
-                      )}
-                    </div>
-                    <div style={{ padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', background: '#090d16', borderTop: '1px solid #232d3f', fontWeight: 'bold' }}>
-                      <span style={{ color: '#fbbf24' }}>⭐ {pastMatch ? pastMatch.likes_count : (p.totalLikes || 0)}</span>
-                      <span style={{ color: '#38bdf8' }}>👁️ {pastMatch ? pastMatch.views_count : (p.totalViews || 0)}</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
           
-      {activeShareData && (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 99999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px', overflowY: 'auto' }}>
-          
-          <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', maxWidth: '340px', marginBottom: '15px', alignItems: 'center' }}>
-            <span style={{ color: '#94a3b8', fontSize: '0.9rem', fontWeight: 'bold' }}>📱 Trófeakártya Előnézet</span>
-            <button onClick={() => setActiveShareData(null)} style={{ background: '#1e293b', border: 'none', color: '#ef4444', padding: '6px 14px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>Mégse ✕</button>
-          </div>
+      {/* ── SEGÉD MODÁLOK KISZERVEZVE VEZÉRELVE ── */}
+      <HelpModal 
+        isOpen={showHelp} 
+        onClose={() => setShowHelp(false)} 
+        currentLevel={currentLevel} 
+      />
 
-          <div 
-            id="share-card-node"
-            style={{ 
-              width: '340px', 
-              height: '580px', 
-              background: 'linear-gradient(145deg, #0b0f19, #1e1b4b)', 
-              borderRadius: '24px', 
-              padding: '25px 20px', 
-              boxSizing: 'border-box',
-              display: 'flex', 
-              flexDirection: 'column', 
-              alignItems: 'center', 
-              justifyContent: 'space-between',
-              border: '3px solid #fbbf24',
-              position: 'relative',
-              overflow: 'hidden'
-            }}
-          >
-            <div style={{ position: 'absolute', top: '-100px', width: '200px', height: '200px', background: '#fbbf2415', filter: 'blur(50px)', borderRadius: '50%' }}></div>
+      <AlbumSelectionModal 
+        isOpen={showSwapAlbumModal}
+        onClose={() => setShowSwapAlbumModal(false)}
+        albumModalMode={albumModalMode}
+        swapAlbumPhotos={swapAlbumPhotos}
+        myPastEntries={myPastEntries}
+        topic={topic}
+        user={user}
+        setIsUploading={setIsUploading}
+        setIsSwapping={setIsSwapping}
+        fetchCurrentTopic={fetchCurrentTopic}
+        handleSwapBackSubmit={handleSwapBackSubmit}
+        handleSelectPhotoForSwap={handleSelectPhotoForSwap}
+      />
 
-            <div style={{ textAlign: 'center', zIndex: 10 }}>
-              <div style={{ color: '#fbbf24', fontSize: '0.75rem', fontWeight: '900', letterSpacing: '3px', textTransform: 'uppercase' }}>📸 kepolvasok.guru</div>
-              <div style={{ color: '#64748b', fontSize: '0.65rem', marginTop: '2px', letterSpacing: '1px' }}>PÁRBAJ TRÓFEA</div>
-            </div>
-
-            <div style={{ 
-              width: '100%', 
-              height: '200px', 
-              borderRadius: '16px', 
-              border: '2px solid #fbbf24', 
-              boxShadow: '0 8px 25px rgba(0,0,0,0.5)', 
-              zIndex: 10, 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center', 
-              position: 'relative',
-              boxSizing: 'border-box',
-              backgroundColor: '#000',
-              backgroundImage: shareBase64 ? `url(${shareBase64})` : 'none',
-              backgroundRepeat: 'no-repeat',
-              backgroundPosition: 'center center',
-              backgroundSize: 'contain'
-            }}>
-              {loadingShareImg && (
-                <div style={{ color: '#64748b', fontSize: '0.85rem' }}>⏳ Kép előkészítése...</div>
-              )}
-              {!shareBase64 && !loadingShareImg && (
-                <div style={{ color: '#ef4444', fontSize: '0.85rem' }}>⚠️ Kép betöltési hiba</div>
-              )}
-            </div>
-
-            <div style={{ textAlign: 'center', zIndex: 10 }}>
-              <div style={{ fontSize: '2.5rem', margin: 0, lineHeight: 1 }}>🏆</div>
-              
-              <h2 style={{ color: 'white', fontSize: '1.4rem', fontWeight: '900', margin: '6px 0 2px 0' }}>
-                {activeShareData?.user_name || user?.name || 'Fotóművész'}
-              </h2>
-              
-              <div style={{ background: 'linear-gradient(90deg, transparent, #fbbf2430, transparent)', color: '#fbbf24', padding: '4px 20px', borderRadius: '4px', fontWeight: 'bold', fontSize: '1.05rem', letterSpacing: '1px' }}>
-                {activeShareData.rank}. HELYEZÉS
-              </div>
-            </div>
-
-            <div style={{ width: '100%', background: 'rgba(0,0,0,0.4)', padding: '12px', borderRadius: '14px', border: '1px solid #23293f', zIndex: 10, boxSizing: 'border-box' }}>
-              <div style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '1px', textAlign: 'center' }}>Kihívás témája:</div>
-              <div style={{ fontSize: '1rem', color: '#f8fafc', fontWeight: 'bold', margin: '2px 0 10px 0', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                "{activeShareData.topic_title}"
-              </div>
-              
-              <div style={{ display: 'flex', width: '100%', borderTop: '1px solid #23293f', paddingTop: '10px' }}>
-                <div style={{ flex: 1, textAlign: 'center' }}>
-                  <div style={{ fontSize: '0.7rem', color: '#64748b', marginBottom: '2px' }}>Közösségi Értékelés</div>
-                  <div style={{ fontSize: '1.1rem', fontWeight: '900', color: '#f97316' }}>{activeShareData.likes || 0} ⭐</div>
-                </div>
-                <div style={{ width: '1px', background: '#23293f' }}></div>
-                <div style={{ flex: 1, textAlign: 'center' }}>
-                  <div style={{ fontSize: '0.7rem', color: '#64748b', marginBottom: '2px' }}>Összes Nevező</div>
-                  <div style={{ fontSize: '1.1rem', fontWeight: '900', color: '#38bdf8' }}>{activeShareData.total_entries || 0} fotó</div>
-                </div>
-              </div>
-            </div>
-
-            <div style={{ textAlign: 'center', zIndex: 10 }}>
-              <div style={{ fontSize: '0.65rem', color: '#475569' }}>Játssz Te is következő párbajban:</div>
-              <div style={{ color: '#38bdf8', fontWeight: 'bold', marginTop: '1px', fontSize: '0.8rem' }}>kepolvasok.guru</div>
-            </div>
-          </div>
-
-          <button 
-            onClick={handleExecuteShare}
-            disabled={isGeneratingImage || loadingShareImg}
-            style={{ width: '100%', maxWidth: '340px', marginTop: '15px', background: isGeneratingImage || loadingShareImg ? '#334155' : 'linear-gradient(135deg, #3b82f6, #1d4ed8)', color: isGeneratingImage || loadingShareImg ? '#64748b' : 'white', border: 'none', padding: '14px', borderRadius: '14px', fontSize: '1.1rem', fontWeight: 'bold', cursor: isGeneratingImage || loadingShareImg ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', boxShadow: '0 10px 25px rgba(29,78,216,0.3)' }}
-          >
-            {isGeneratingImage ? '⏳ Trófea mentése...' : '📱 Kártya Megosztása / Mentése 🚀'}
-          </button>
-        </div>
-      )}
+      <ShareCardModal 
+        activeShareData={activeShareData}
+        onClose={() => setActiveShareData(null)}
+        user={user}
+        shareBase64={shareBase64}
+        loadingShareImg={loadingShareImg}
+        isGeneratingImage={isGeneratingImage}
+        handleExecuteShare={handleExecuteShare}
+      />
 
     </div>
   );
