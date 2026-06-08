@@ -29,7 +29,7 @@ export default function UpcomingChallenges({
             🔮 Közelgő Csaták Menetrendje
           </h3>
           <p style={{ color: '#64748b', margin: '2px 0 0 0', fontSize: '0.85rem' }}>
-            A törzsi tanács által már jóváhagyott, hamarosan élesedő küzdelmek.
+            Már jóváhagyott, hamarosan élesedő küzdelmek.
           </p>
         </div>
         
