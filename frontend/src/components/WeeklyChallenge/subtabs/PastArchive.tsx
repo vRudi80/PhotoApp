@@ -96,7 +96,7 @@ export default function PastArchive({
               const isDaily = getTopicType(t.start_date, t.end_date) === 'daily';
               return (
                 <span style={{ fontSize: '0.75rem', background: isDaily ? '#ef444420' : '#3b82f620', color: isDaily ? '#f87171' : '#60a5fa', padding: '3px 10px', borderRadius: '12px', fontWeight: 'bold', border: `1px solid ${isDaily ? '#ef444450' : '#3b82f650'}` }}>
-                  {isDaily ? 'Napi Tusa' : 'Heti Portya'}
+                  {isDaily ? 'Villámháború' : 'Hosszú hadjárat'}
                 </span>
               );
             })()}
