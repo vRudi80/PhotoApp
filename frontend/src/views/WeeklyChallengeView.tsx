@@ -179,6 +179,14 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
       
       {/* 📊 🔥 EGYVONALAS INFÓSÁV: Statisztikák és Párbajmester egy sorban */}
       <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '20px' }}>
+        {/* Párbajmester (csak ha létezik) */}
+        {(topic.master_name || topic.master_email) && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#a78bfa', fontSize: '0.85rem', fontWeight: 'bold', background: '#a78bfa10', padding: '6px 14px', borderRadius: '10px', border: '1px solid #a78bfa20', whiteSpace: 'nowrap' }}>
+            <span>👑 Párbajmester:</span>
+            <span style={{ color: '#e9d5ff', fontWeight: 'bold' }}>{topic.master_name || topic.master_email}</span>
+          </div>
+        )}
+        
         {/* Játékosok száma */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#38bdf8', fontSize: '0.85rem', fontWeight: 'bold', background: '#38bdf810', padding: '6px 14px', borderRadius: '10px', border: '1px solid #38bdf820', whiteSpace: 'nowrap' }}>
           👥 {topic.totalEntries || 0} fotós
@@ -187,15 +195,7 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
         {/* Hátralévő szavazatok */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: topic.unvotedEntries > 0 ? '#fb923c' : '#4ade80', fontSize: '0.85rem', fontWeight: 'bold', background: topic.unvotedEntries > 0 ? '#fb923c10' : '#4ade8010', padding: '6px 14px', borderRadius: '10px', border: topic.unvotedEntries > 0 ? '1px solid #fb923c20' : '1px solid #4ade8020', whiteSpace: 'nowrap' }}>
           🗳️ {topic.unvotedEntries || 0} értékelendő
-        </div>
-
-        {/* Párbajmester (csak ha létezik) */}
-        {(topic.master_name || topic.master_email) && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#a78bfa', fontSize: '0.85rem', fontWeight: 'bold', background: '#a78bfa10', padding: '6px 14px', borderRadius: '10px', border: '1px solid #a78bfa20', whiteSpace: 'nowrap' }}>
-            <span>👑 Párbajmester:</span>
-            <span style={{ color: '#e9d5ff', fontWeight: 'bold' }}>{topic.master_name || topic.master_email}</span>
-          </div>
-        )}
+        </div>        
       </div>
 
       <div style={{ background: '#00000040', padding: '12px 15px', borderRadius: '12px', fontSize: '0.9rem', color: isDaily ? '#f87171' : '#38bdf8', textAlign: 'center', border: '1px solid #1e293b', fontWeight: 'bold', fontFamily: 'monospace', letterSpacing: '0.5px' }}>
