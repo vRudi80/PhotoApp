@@ -892,8 +892,12 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
   
+  // ====================================================================
+  // 👑 JAVÍTVA: SZINKRONIZÁLT, HISTORIKUS GLOBÁLIS DICSŐSÉGFAL
+  // ====================================================================
   app.get('/api/weekly/hall-of-fame', async (req, res) => {
     try {
+      // 🛠️ JAVÍTVA: Összekötjük a témákkal, és egy feltételes SUM-mal pontosan azokat a pontokat adjuk össze, amiket a Trófeaterem is számol!
       const [rows] = await pool.query(`
         SELECT 
           u.name as user_name, 
@@ -901,9 +905,10 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
           u.club_name,
           c.drive_logo_id, 
           c.logo_url,      
-          COALESCE(SUM(e.likes_count), 0) as total_likes
+          COALESCE(SUM(IF(e.is_active = 1 OR t.end_date < CURRENT_DATE(), e.likes_count, 0)), 0) as total_likes
         FROM photo_users u
-        LEFT JOIN weekly_entries e ON u.email = e.user_email AND e.is_active = 1
+        LEFT JOIN weekly_entries e ON u.email = e.user_email
+        LEFT JOIN weekly_topics t ON e.topic_id = t.id
         LEFT JOIN photo_clubs c ON u.club_name = c.name
         GROUP BY u.email, u.name, u.club_name, c.drive_logo_id, c.logo_url 
         HAVING total_likes > 0
@@ -912,6 +917,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       res.json(rows);
     } catch (err) {
       try {
+        // Fallback ág szintén szinkronizálva
         const [fallbackRows] = await pool.query(`
           SELECT 
             u.name as user_name, 
@@ -919,9 +925,10 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
             u.club_name,
             NULL as drive_logo_id,
             NULL as logo_url,
-            COALESCE(SUM(e.likes_count), 0) as total_likes
+            COALESCE(SUM(IF(e.is_active = 1 OR t.end_date < CURRENT_DATE(), e.likes_count, 0)), 0) as total_likes
           FROM photo_users u
-          LEFT JOIN weekly_entries e ON u.email = e.user_email AND e.is_active = 1
+          LEFT JOIN weekly_entries e ON u.email = e.user_email
+          LEFT JOIN weekly_topics t ON e.topic_id = t.id
           GROUP BY u.email, u.name, u.club_name
           HAVING total_likes > 0
           ORDER BY total_likes DESC, u.name ASC
