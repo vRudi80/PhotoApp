@@ -438,7 +438,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const loadPastHistoryList = async (topicId: number) => {
     setSelectedPastTopicId(topicId);
     try {
-      const res = await fetch(`${BACKEND_URL}/api/weekly/history/${topicId}`);
+      // 🔍 JAVÍTVA: Átadjuk a userEmail-t, hogy az archív képek be tudják tölteni a lájk státuszaidat!
+      const res = await fetch(`${BACKEND_URL}/api/weekly/history/${topicId}?userEmail=${user?.email || ''}`);
       if (res.ok) {
         const data = await res.json();
         setPastLeaderboard(data.leaderboard || []);
