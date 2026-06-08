@@ -149,7 +149,7 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
         <span style={{ background: isDaily ? '#ef444420' : '#3b82f620', color: isDaily ? '#f87171' : '#60a5fa', border: `1px solid ${isDaily ? '#ef444450' : '#3b82f650'}`, padding: '4px 12px', borderRadius: '50px', fontSize: '0.8rem', fontWeight: 'bold' }}>
-          {isDaily ? '🔴 Napi Pörgős' : '🔵 Heti Klasszikus'}
+          {isDaily ? '🔴 Villámháború' : '🔵 Hosszú hadjárat'}
         </span>
         
         <span style={{ color: statusColor, fontSize: '0.85rem', fontWeight: 'bold' }}>
