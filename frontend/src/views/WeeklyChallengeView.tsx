@@ -157,14 +157,11 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
       {/* 🖼️ PRÉMIUM BORÍTÓKÉP AZ AKTUÁLIS KÁRTYÁKON (Vágás nélkül, elmosott háttérrel) */}
       {topic.cover_url && (
         <div style={{ width: '100%', height: '160px', borderRadius: '14px', overflow: 'hidden', marginBottom: '15px', border: '1px solid #334155', position: 'relative', backgroundColor: '#090d16' }}>
-          {/* Elmosott alsó réteg */}
           <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${topic.cover_url})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(12px) brightness(0.5)', transform: 'scale(1.1)' }}></div>
-          {/* Tiszta, teljes elülső kép */}
           <img src={topic.cover_url} alt="" style={{ position: 'relative', width: '100%', height: '100%', objectFit: 'contain', zIndex: 1 }} onError={handleImageError} />
         </div>
       )}
       
-      {/* SZERZŐ KIÍRÁSA A BORÍTÓ ALÁ */}
       {topic.cover_author && (
         <div style={{ color: '#64748b', fontSize: '0.75rem', fontStyle: 'italic', marginTop: '-10px', marginBottom: '15px', textAlign: 'right', paddingRight: '5px' }}>
           📸 Borítókép: {topic.cover_author}
@@ -205,7 +202,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const [swapAlbumPhotos, setSwapAlbumPhotos] = useState<any[]>([]);
   const [isLoadingSwapAlbum, setIsLoadingSwapAlbum] = useState(false);
   
-  // ➕ ÚJ ÁLLAPOT: Modál üzemmód (Nevezés vagy Joker csere)
   const [albumModalMode, setAlbumModalMode] = useState<'upload' | 'swap'>('swap');
 
   const [activeTopics, setActiveTopics] = useState<any[]>([]);
@@ -249,7 +245,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const [userPower, setUserPower] = useState<{ super: number; brilliant: number }>({ super: 1, brilliant: 2 });
 
   const [hallOfFame, setHallOfFame] = useState<any[]>([]);
-  const [isLoadingHof, setIsLoadingHof] = useState(false);
 
   const [activeShareData, setActiveShareData] = useState<any | null>(null);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
@@ -429,14 +424,14 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   };
 
   const fetchHallOfFame = async () => {
-    setIsLoadingStats(true); // Korrigált töltés jelző statisztikához
+    setIsLoadingHof(true);
     try {
       const res = await fetch(`${BACKEND_URL}/api/weekly/hall-of-fame`);
       if (res.ok) {
         setHallOfFame(await res.json());
       }
     } catch (e) { console.error(e); }
-    finally { setIsLoadingStats(false); }
+    finally { setIsLoadingHof(false); }
   };
 
   useEffect(() => {
@@ -618,6 +613,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     finally { setIsSwapping(false); }
   };
 
+  // 📝 JAVÍTVA: Függvény törzse korrigálva
   const handleSwapBackSubmit = async (entryId: number) => {
     if (!window.confirm("⚠️ Biztosan visszatérsz ehhez a korábbi pályaművedhez? Ez 1 Joker pontodba fog kerülni, viszont visszakapod az akkori csillagaidat!")) return;
     setIsSwapping(true);
@@ -691,7 +687,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
      } catch (e) {
       alert('Sajnos hiba történt a kép generálása közben.');
       console.error(e);
-    } file { 
+    } finally { // 👑 JAVÍTVA: Elírás kiküszöbölve (file -> finally)
       setIsGeneratingImage(false);
     }
   };
@@ -944,7 +940,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                                           alert("Még nincs kép az Aréna képtáradban!");
                                         } else {
                                           setSwapAlbumPhotos(albumPhotos); 
-                                          setAlbumModalMode('swap'); // Vizuális swap mód beállítása
+                                          setAlbumModalMode('swap'); 
                                           setShowSwapAlbumModal(true);     
                                         }
                                       }
@@ -999,7 +995,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                               {isUploading ? 'Feltöltés...' : 'Nevezés és Indulás 🚀'}
                             </button>
 
-                            {/* 🎰 JAVÍTVA: Az image_93.png fájlon látható randa prompt() ablak kiváltása a modern galéria modállal */}
+                            {/* 🎰 JAVÍTVA: Az image_93.png-n látható prompt() ablak kiváltása modern galéria modállal */}
                             <div style={{ marginTop: '15px', borderTop: '1px solid #334155', paddingTop: '15px', textAlign: 'center' }}>
                               <p style={{ color: '#64748b', fontSize: '0.8rem', margin: '0 0 10px 0' }}>VAGY választhatsz egy meglévő fotót az albumodból:</p>
                               <button 
@@ -1013,7 +1009,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                                       if (albumPhotos.length === 0) return alert("Még nincs kép az Aréna képtáradban!");
                                       
                                       setSwapAlbumPhotos(albumPhotos);
-                                      setAlbumModalMode('upload'); // Nevezési vizuális mód élesítése prompt helyett!
+                                      setAlbumModalMode('upload'); 
                                       setShowSwapAlbumModal(true);
                                     }
                                   } catch (e) {
@@ -1123,7 +1119,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                       {isDaily ? '🔴 Napi Kihívás' : '🔵 Heti Kihívás'}
                     </span>
                   </div>
-
                 
                   {/* 🖼️ PRÉMIUM BORÍTÓKÉP A HAMAROSAN KÁRTYÁKON (Vágás nélkül, elmosott háttérrel) */}
                   {t.cover_url && (
@@ -1187,12 +1182,9 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                 return (
                   <div style={{ marginBottom: '30px' }}>
                     <div style={{ width: '100%', height: '200px', borderRadius: '24px', overflow: 'hidden', border: '1px solid #334155', boxShadow: '0 10px 25px rgba(0,0,0,0.4)', position: 'relative', backgroundColor: '#090d16' }}>
-                      {/* Elmosott panoráma háttér */}
                       <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${t.cover_url})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(15px) brightness(0.5)', transform: 'scale(1.1)' }}></div>
-                      {/* Teljes, vágásmentes fotó művészi minőségben */}
                       <img src={t.cover_url} alt="" style={{ position: 'relative', width: '100%', height: '100%', objectFit: 'contain', zIndex: 1 }} onError={handleImageError} />
                     </div>
-                    {/* SZERZŐ KIÍRÁSA AZ ARCHÍV BANNER ALÁ */}
                     {t.cover_author && (
                       <div style={{ color: '#64748b', fontSize: '0.8rem', fontStyle: 'italic', marginTop: '5px', textAlign: 'right', paddingRight: '10px' }}>
                         📸 Borítókép: {t.cover_author}
@@ -1587,7 +1579,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
               <div style={{ background: '#1e293b', padding: '20px', borderRadius: '16px', borderLeft: '4px solid #38bdf8' }}>
                 <h4 style={{ color: '#38bdf8', margin: '0 0 15px 0', fontSize: '1.1rem' }}>⭐ Ranglétra és Szavazati Erő</h4>
                 <p style={{ color: '#cbd5e1', fontSize: '0.9rem', lineHeight: '1.6', margin: '0 0 15px 0' }}>
-                  Nem minden szavazat ér ugyanannyit! Ahogy halmozod a pontokat és győzelmeket, a rangod növekszik. Minél magasabb a rangod, annál több pontot adsz másoknak! <b style={{ color: '#fb7185' }}>💡 Minden sikeres szintlépésért a rendszer azonnal +10 db ajándék Joker cserével jutalmaz meg!</b>
+                  Nem minden szavazat ér ugyanannyit! Ahogy halmozod a pontokat és győzelmeket, a rangod növekszik. Minél magasabb a rangod, annál több pontot adsz másoknak! <b style={{ color: '#fb7185' }}>💡 Minden szintlépésért a rendszer azonnal +10 db ajándék Joker cserével jutalmaz meg!</b>
                 </p>
                 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -1626,7 +1618,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         </div>
       )}
 
-      {/* 🖼️ JAVÍTVA: MODERN VIZUÁLIS ALBUMVÁLASZTÓ MODAL JOKER CSERÉHEZ ÉS ÚJ NEVEZÉSHEZ (image_93.png javítás) */}
+      {/* 🖼️ MODERN VIZUÁLIS ALBUMVÁLASZTÓ MODAL JOKER CSERÉHEZ ÉS ÚJ NEVEZÉSHEZ */}
       {showSwapAlbumModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 99999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px', boxSizing: 'border-box' }}>
           <div style={{ background: '#0f172a', border: '1px solid #334155', borderRadius: '24px', width: '100%', maxWidth: '550px', maxHeight: '80vh', overflowY: 'auto', padding: '25px', position: 'relative', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.8)' }}>
@@ -1644,7 +1636,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
             
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '15px' }}>
               {swapAlbumPhotos.map((p, idx) => {
-                // Csak akkor keresünk visszacserélhető meccset, ha valóban Joker csere módban vagyunk
                 const pastMatch = albumModalMode === 'swap' ? myPastEntries.find(past => past.file_url === p.file_url) : null;
                 
                 return (
@@ -1652,7 +1643,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                     key={p.id || idx} 
                     onClick={async () => {
                       if (albumModalMode === 'upload') {
-                        // ── ÚJ NEVEZÉS INDÍTÁSA MODÁLBÓL ──
                         if (!window.confirm("Biztosan ezzel a meglévő képeddel nevezel be a küzdelembe?")) return;
                         setIsUploading(true);
                         setShowSwapAlbumModal(false);
@@ -1674,7 +1664,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                           setIsUploading(false);
                         }
                       } else {
-                        // ── JOKER CSATÁBA KÜLDÉS ──
                         if (pastMatch) {
                           setShowSwapAlbumModal(false); 
                           handleSwapBackSubmit(pastMatch.id); 
@@ -1777,6 +1766,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
               )}
             </div>
 
+            {/* 👑 JAVÍTVA: Elírás korrigálva (textPlain -> textAlign) */}
             <div style={{ textAlign: 'center', zIndex: 10 }}>
               <div style={{ fontSize: '2.5rem', margin: 0, lineHeight: 1 }}>🏆</div>
               
