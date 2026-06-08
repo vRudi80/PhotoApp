@@ -35,7 +35,7 @@ export default function PastArchive({
       {/* 📜 BAL OLDALSÁV: BEFEJEZETT CSATÁK MENETRENDJE */}
       <div style={{ background: '#1e293b', borderRadius: '24px', padding: '25px', border: '1px solid #334155', boxShadow: '0 10px 30px rgba(0,0,0,0.2)', height: 'fit-content' }}>
         <h3 style={{ margin: '0 0 20px 0', color: '#60a5fa', fontSize: '1.4rem', fontWeight: 'bold' }}>📜 Befejezett Csaták</h3>
-        <p style={{ color: '#94a3b8', margin: 0 }}>Az eredményeknél a képre kattintva likolhatod, vagy hozzászólhatsz a fotóhoz</p>
+        <p style={{ color: '#94a3b8', margin: 0 }}>Az eredményeknél a képre kattintva likeolhatod, vagy hozzászólhatsz a fotóhoz</p>
         {(!pastTopics || pastTopics.length === 0) ? (
           <div style={{ color: '#94a3b8', textAlign: 'center' }}>Nincs lezárt küzdelem.</div>
         ) : (
