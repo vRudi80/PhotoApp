@@ -93,12 +93,12 @@ export default function ArchiveDetailModal({ entry, user, onClose, onLikeUpdate 
 
           {/* GÖRGETHETŐ CHAT-FOLYAM */}
           <div style={{ flex: 1, overflowY: 'auto', padding: '25px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
-            <h4 style={{ color: '#94a3b8', margin: '0 0 5px 0', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '1px' }}>⚔️ Törzsi Tanács eszmecseréje</h4>
+            <h4 style={{ color: '#94a3b8', margin: '0 0 5px 0', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '1px' }}>⚔️ Eszmecsere</h4>
             
             {loadingComments && comments.length === 0 ? (
               <div style={{ color: '#64748b', textAlign: 'center', padding: '20px' }}>Gondolatok betöltése...</div>
             ) : comments.length === 0 ? (
-              <div style={{ color: '#475569', textAlign: 'center', padding: '40px 20px', fontStyle: 'italic', fontSize: '0.95rem' }}>Ezen alkotás mellett még csendesen elvonult a törzs. Írd le az első gondolatot! 🪶</div>
+              <div style={{ color: '#475569', textAlign: 'center', padding: '40px 20px', fontStyle: 'italic', fontSize: '0.95rem' }}>Írd le az első gondolatot! 🪶</div>
             ) : (
               comments.map((c) => {
                 const isMe = c.user_email === user?.email;
