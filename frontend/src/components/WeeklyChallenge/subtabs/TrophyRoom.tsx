@@ -64,7 +64,7 @@ export default function TrophyRoom({
     progressPercent = Math.min(100, Math.max(0, (currentProgress / range) * 100));
 
     if (userTotalLikes < currentBracket.max) {
-      levelHelpText = `Még ${currentBracket.max - userTotalLikes} Rangpont (lajk) szükséges a következő szinthez!`;
+      levelHelpText = `Még ${currentBracket.max - userTotalLikes} szavazat szükséges a következő szinthez!`;
     } else if (currentBracket.vic && userVictories < currentBracket.vic) {
       levelHelpText = `🔒 Megvannak a pontjaid, de még ${currentBracket.vic - userVictories} db Aréna Győzelem (🥇) szükséges a szintlépéshez!`;
     } else {
@@ -132,11 +132,11 @@ export default function TrophyRoom({
         </div>
         <div style={{ background: '#0f172a', padding: '25px', borderRadius: '20px', textAlign: 'center', border: '1px solid #a855f7', boxShadow: '0 10px 20px rgba(168,85,247,0.1)' }}>
           <div style={{ fontSize: '2.5rem', fontWeight: '900', color: '#a855f7', marginBottom: '5px' }}>{top10Count}</div>
-          <div style={{ color: '#a855f7', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Top 10% Plecsni</div>
+          <div style={{ color: '#a855f7', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Top 10%</div>
         </div>
         <div style={{ background: '#0f172a', padding: '25px', borderRadius: '20px', textAlign: 'center', border: '1px solid #10b981', boxShadow: '0 10px 20px rgba(16,185,129,0.1)' }}>
           <div style={{ fontSize: '2.5rem', fontWeight: '900', color: '#10b981', marginBottom: '5px' }}>{top20Count}</div>
-          <div style={{ color: '#10b981', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Top 20% Plecsni</div>
+          <div style={{ color: '#10b981', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Top 20%</div>
         </div>
       </div>
 
