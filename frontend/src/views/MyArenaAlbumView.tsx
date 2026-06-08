@@ -72,7 +72,7 @@ export default function MyArenaAlbumView({ user, setFullscreenData }: { user: an
                   <span style={{ color: '#38bdf8' }}>👁️ {photo.totalViews}</span>
                 </div>
                 <button onClick={() => setSelectedPhoto(photo)} style={{ width: '100%', background: '#334155', color: 'white', border: 'none', padding: '8px', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>
-                  📊 Karrier Történet ({photo.history?.length || 0})
+                  📊 Eredmények ({photo.history?.length || 0})
                 </button>
               </div>
             </div>
