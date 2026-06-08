@@ -331,7 +331,7 @@ export default function AdminWeeklyView() {
         </div>
 
         <button onClick={handleSave} style={{ background: '#10b981', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', width: '100%', fontSize: '1rem' }}>
-          {editId ? 'Változtatások Mentése és Élesítés' : 'Csatiterv Mentése a Hadinaptárba'}
+          {editId ? 'Változtatások Mentése és Élesítés' : 'Csataterv Mentése'}
         </button>
       </div>
 
