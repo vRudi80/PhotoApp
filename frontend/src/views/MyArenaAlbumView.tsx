@@ -50,7 +50,6 @@ export default function MyArenaAlbumView({ user, setFullscreenData }: MyArenaAlb
         <p style={{ color: '#94a3b8', margin: '5px 0 0 0' }}>Az összes fotód karrierje, elért sikerei és történelme egyetlen helyen.</p>
       </div>
 
-      {/* FOTÓ RÁCS */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '20px' }}>
         {photos.map((photo) => (
           <div 
@@ -59,14 +58,12 @@ export default function MyArenaAlbumView({ user, setFullscreenData }: MyArenaAlb
             onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
             onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
           >
-            {/* ⚔️ VALÓDI AKTÍV HARC BADGE */}
             {photo.isCurrentlyActive && (
-              <span style={{ position: 'absolute', top: '12px', left: '12px', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', fontWeight: 'bold', fontSize: '0.75rem', padding: '5px 10px', borderRadius: '50px', zIndex: 10, boxShadow: '0 4px 12px rgba(16,185,129,0.5)', border: '1px solid #34d39940', animation: 'pulse 2s infinite' }}>
+              <span style={{ position: 'absolute', top: '12px', left: '12px', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', fontWeight: 'bold', fontSize: '0.75rem', padding: '5px 10px', borderRadius: '50px', zIndex: 10, boxShadow: '0 4px 12px rgba(16,185,129,0.5)', border: '1px solid #34d39940' }}>
                 ⚔️ Harcban
               </span>
             )}
 
-            {/* ÖSSZESÍTETT TRÓFEÁK A KÁRTYÁN */}
             {(photo.firstPlaces > 0 || photo.podiums > 0) && (
               <div style={{ position: 'absolute', top: '12px', right: '12px', background: 'rgba(15,23,42,0.85)', backdropFilter: 'blur(4px)', padding: '4px 8px', borderRadius: '8px', zIndex: 10, display: 'flex', gap: '8px', fontSize: '0.8rem', fontWeight: 'bold', border: '1px solid #334155' }}>
                 {photo.firstPlaces > 0 && <span style={{ color: '#fbbf24' }}>🥇 {photo.firstPlaces}</span>}
@@ -74,17 +71,15 @@ export default function MyArenaAlbumView({ user, setFullscreenData }: MyArenaAlb
               </div>
             )}
 
-            {/* KÉP ELŐNÉZET */}
             <div style={{ width: '100%', height: '180px', backgroundColor: '#000', overflow: 'hidden', position: 'relative' }}>
               <img 
                 src={getImageUrl(null, photo.file_url)} 
                 alt="" 
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'zoom-in' }}
                 onClick={() => setFullscreenData({ url: getImageUrl(null, photo.file_url), title: 'Galéria' })}
               />
             </div>
 
-            {/* STATISZTIKAI SÁV & RÉSZLETEK GOMB */}
             <div style={{ padding: '15px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', background: '#0f172a' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#cbd5e1', marginBottom: '12px', fontWeight: 'bold' }}>
                 <span style={{ color: '#f59e0b' }}>⭐ {photo.totalLikes || 0} pont</span>
@@ -104,22 +99,20 @@ export default function MyArenaAlbumView({ user, setFullscreenData }: MyArenaAlb
         ))}
       </div>
 
-      {/* 📊 RÉSZLETES FOTÓ KARRIER ÉS TÖRTÉNETI MODAL */}
+      {/* 📊 DETAIL MODAL */}
       {selectedPhoto && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 99999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
           <div style={{ background: '#0f172a', border: '1px solid #334155', borderRadius: '24px', width: '100%', maxWidth: '550px', maxHeight: '85vh', overflowY: 'auto', padding: '25px', position: 'relative', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.8)' }}>
             
-            <button onClick={() => setSelectedPhoto(null)} style={{ position: 'absolute', top: '20px', right: '20px', background: '#1e293b', border: 'none', color: '#94a3b8', fontSize: '1.2rem', width: '35px', height: '35px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', center: 'center', justifyContent: 'center' }}>✕</button>
+            <button onClick={() => setSelectedPhoto(null)} style={{ position: 'absolute', top: '20px', right: '20px', background: '#1e293b', border: 'none', color: '#94a3b8', fontSize: '1.2rem', width: '35px', height: '35px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
             
             <h3 style={{ color: 'white', margin: '0 0 5px 0', fontSize: '1.4rem', fontWeight: 'bold' }}>📊 Alkotás Életútja & Sikerei</h3>
             <p style={{ color: '#64748b', fontSize: '0.8rem', margin: '0 0 20px 0' }}>Feltöltve: {new Date(selectedPhoto.created_at).toLocaleDateString('hu-HU')}</p>
             
-            {/* NAGY KÉP PREVIEW A MODALBAN */}
             <div style={{ width: '100%', height: '220px', backgroundColor: '#000', borderRadius: '14px', overflow: 'hidden', marginBottom: '20px', border: '1px solid #334155' }}>
               <img src={getImageUrl(null, selectedPhoto.file_url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
             </div>
 
-            {/* KITÜNTETÉSEK ÖSSZESÍTŐ PANELJE */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px' }}>
               <div style={{ background: '#1e293b', padding: '12px', borderRadius: '12px', border: '1px solid #fbbf2440', textAlign: 'center' }}>
                 <div style={{ fontSize: '1.5rem' }}>🥇</div>
@@ -133,24 +126,28 @@ export default function MyArenaAlbumView({ user, setFullscreenData }: MyArenaAlb
               </div>
             </div>
 
-            {/* PÁRBAJ ELŐZMÉNYEK LISTÁJA */}
             <h4 style={{ color: 'white', fontSize: '1rem', fontWeight: 'bold', marginBottom: '12px', borderBottom: '1px solid #1e293b', paddingBottom: '8px' }}>⚔️ Részvételi Történet ({selectedPhoto.history?.length || 0} párbaj)</h4>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {selectedPhoto.history.map((h: any, hIdx: number) => {
                 const isLive = h.is_topic_live === 1;
+                const isSwapped = h.is_active === 0;
                 const isWinner = Number(h.entry_rank) === 1;
                 const isPodium = Number(h.entry_rank) <= 3;
                 
-                // Művészi keret a helyezéstől függően
                 let rowBorder = '1px solid #1e293b';
                 let rankBadgeColor = '#64748b';
                 let rankText = `${h.entry_rank}. Hely`;
                 
+                // 🛠️ JAVÍTVA: Ha a kép le lett cserélve egy lezárult versenyben, töröljük a fals eredményt
                 if (isLive) {
                   rowBorder = '1px solid #10b98140';
                   rankBadgeColor = '#10b981';
                   rankText = `Jelenleg ${h.entry_rank}.`;
+                } else if (isSwapped) {
+                  rowBorder = '1px dashed #ef444430';
+                  rankBadgeColor = '#ef4444';
+                  rankText = 'Lecserélve 🔄';
                 } else if (isWinner) {
                   rowBorder = '1px solid #fbbf24';
                   rankBadgeColor = '#fbbf24';
@@ -170,10 +167,12 @@ export default function MyArenaAlbumView({ user, setFullscreenData }: MyArenaAlb
                     </div>
 
                     <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
-                      <span style={{ background: `${rankBadgeColor}20`, color: rankBadgeColor, border: `1px solid ${rankBadgeColor}40`, padding: '4px 10px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 'bold', minWidth: '65px', textAlign: 'center' }}>
+                      <span style={{ background: `${rankBadgeColor}20`, color: rankBadgeColor, border: `1px solid ${rankBadgeColor}40`, padding: '4px 10px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 'bold', minWidth: '75px', display: 'inline-block', textAlign: 'center' }}>
                         {rankText}
                       </span>
-                      <small style={{ color: '#475569', fontSize: '0.7rem' }}>/{h.total_entries} képből</small>
+                      <small style={{ color: '#475569', fontSize: '0.7rem' }}>
+                        {isSwapped ? 'Kiesett a cserével' : `/${h.total_entries} képből`}
+                      </small>
                     </div>
                   </div>
                 );
