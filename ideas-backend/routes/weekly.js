@@ -885,6 +885,9 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
+  // ====================================================================
+  // 🚨 GYANÚS TEVÉKENYSÉGEK DETEKTÁLÁSA (JAVÍTVA: MIDDLE BY -> HAVING)
+  // ====================================================================
   app.get('/api/admin/weekly/suspicious', async (req, res) => {
     try {
       const [rows] = await pool.query(`
@@ -898,12 +901,12 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         JOIN weekly_topics t ON e.topic_id = t.id
         WHERE e.ip_address IS NOT NULL AND e.ip_address != '127.0.0.1'
         GROUP BY e.topic_id, e.ip_address
-        MIDDLE BY COUNT(DISTINCT e.user_email) > 1
+        HAVING COUNT(DISTINCT e.user_email) > 1 -- 👑 JAVÍTVA: Visszaállítva a hivatalos HAVING parancs!
         ORDER BY e.topic_id DESC
       `);
       res.json(rows);
     } catch (err) {
-      res.status(500).json({ error: 'Hiba a lekérdezés során' });
+      res.status(500).json({ error: 'Hiba a lekérdezés során: ' + err.message });
     }
   });
   
@@ -1211,13 +1214,17 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-  // ====================================================================
-  // 💬 ARCHÍVUM KIBESZÉLŐ: Új komment hozzáfűzése
+ // ====================================================================
+  // 💬 ARCHÍVUM KIBESZÉLŐ: Új komment hozzáfűzése (Bővített hiba-visszajelzéssel)
   // ====================================================================
   app.post('/api/weekly/archive/comment', async (req, res) => {
     const { entryId, userEmail, userName, commentText } = req.body;
+    
+    // 🔍 JAVÍTVA: Ha hiba van, pontosan megmondjuk mi hiányzik!
     if (!entryId || !userEmail || !userName || !commentText?.trim()) {
-      return res.status(400).json({ error: 'Minden mező kitöltése kötelező!' });
+      return res.status(400).json({ 
+        error: `Hiányzó adatok a kommenthez! kapott entryId: ${entryId}, userEmail: ${userEmail}, userName: ${userName}, szöveg: ${commentText}` 
+      });
     }
     try {
       await pool.query(
@@ -1231,25 +1238,28 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // ❤️ ARCHÍVUM KIBESZÉLŐ: Utólagos lájk oda-vissza kapcsolása (Toggle)
+  // ❤️ ARCHÍVUM KIBESZÉLŐ: Utólagos lájk (Bővített hiba-visszajelzéssel)
   // ====================================================================
   app.post('/api/weekly/archive/like-toggle', async (req, res) => {
     const { entryId, userEmail } = req.body;
-    if (!entryId || !userEmail) return res.status(400).json({ error: 'Hiányzó adatok!' });
+    
+    // 🔍 JAVÍTVA: Ha hiba van, pontosan megmondjuk mi hiányzik!
+    if (!entryId || !userEmail) {
+      return res.status(400).json({ 
+        error: `Hiányzó adatok a lájkoláshoz! kapott entryId: ${entryId}, userEmail: ${userEmail}` 
+      });
+    }
 
     try {
-      // Megnézzük, lájkolta-e már
       const [existing] = await pool.query(
         "SELECT id FROM weekly_archive_likes WHERE entry_id = ? AND user_email = ?",
         [entryId, userEmail]
       );
 
       if (existing.length > 0) {
-        // Ha már lájkolta, akkor visszavonjuk (töröljük)
         await pool.query("DELETE FROM weekly_archive_likes WHERE id = ?", [existing[0].id]);
         res.json({ success: true, liked: false });
       } else {
-        // Ha még nem lájkolta, hozzáadjuk
         await pool.query("INSERT INTO weekly_archive_likes (entry_id, user_email) VALUES (?, ?)", [entryId, userEmail]);
         res.json({ success: true, liked: true });
       }
