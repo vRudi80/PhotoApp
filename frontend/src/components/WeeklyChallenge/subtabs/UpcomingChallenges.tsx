@@ -37,7 +37,7 @@ export default function UpcomingChallenges({
           onClick={() => setShowPlanner(!showPlanner)}
           style={{ padding: '10px 20px', borderRadius: '10px', border: showPlanner ? '1px solid #ef4444' : '1px solid #f59e0b', background: showPlanner ? '#ef444420' : 'linear-gradient(135deg, #f59e0b, #d97706)', color: showPlanner ? '#f87171' : '#0f172a', fontWeight: 'bold', fontSize: '0.9rem', cursor: 'pointer', transition: 'all 0.2s', boxShadow: showPlanner ? 'none' : '0 4px 12px rgba(245,158,11,0.2)' }}
         >
-          {showPlanner ? '✕ Tervező bezárása' : '⚔️ Új csatiterv benyújtása'}
+          {showPlanner ? '✕ Tervező bezárása' : '⚔️ Új csataterv benyújtása'}
         </button>
       </div>
 
