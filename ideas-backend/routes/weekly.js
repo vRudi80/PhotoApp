@@ -795,18 +795,19 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-  app.get('/api/weekly/upcoming', async (req, res) => {
-    try { 
-      const [rows] = await pool.query(`
-        SELECT t.*, u.name AS master_name 
-        FROM weekly_topics t
-        LEFT JOIN photo_users u ON t.master_email = u.email
-        WHERE t.start_date > CURRENT_DATE() 
-        ORDER BY t.start_date ASC
-      `); 
-      res.json(rows); 
-    } catch (err) { res.status(500).json({ error: 'Hiba' }); }
-  });
+  // ====================================================================
+// ⏳ JAVÍTVA: A nyilvános "Hamarosan" lista CSAK az elfogadott csatákat adhatja ki!
+// ====================================================================
+app.get('/api/weekly/upcoming', async (req, res) => {
+  try {
+    const [topics] = await pool.query(
+      "SELECT * FROM weekly_topics WHERE start_date > CURRENT_DATE() AND status = 'approved' ORDER BY start_date ASC"
+    );
+    res.json(topics);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
   app.get('/api/weekly/past', async (req, res) => {
     try { 
@@ -1123,8 +1124,11 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (e) { res.status(500).json({ error: e.message }); }
   });
 
+const fs = require('fs');
+const path = require('path');
+
 // ====================================================================
-// 📜 CSATATERVEZŐ: Új csatajavaslat (Tűpontos adatbázis-mappinggel)
+// 📜 CSATATERVEZŐ: Új csatajavaslat (Kiterjesztés-javítással és átnevezéssel)
 // ====================================================================
 app.post('/api/weekly/propose', upload.single('cover'), async (req, res) => {
   const { title, description, cover_author, master_name, start_date, end_date, userEmail } = req.body;
@@ -1135,9 +1139,21 @@ app.post('/api/weekly/propose', upload.single('cover'), async (req, res) => {
 
   try {
     const serverUrl = req.protocol + '://' + req.get('host');
-    const coverUrl = req.file ? `${serverUrl}/uploads/${req.file.filename}` : null;
+    let coverUrl = null;
 
-    // 🛠️ JAVÍTVA: master_name helyett a tábládban szereplő master_email oszlopot használjuk!
+    // ⚡ Ha van feltöltött borítókép, gatyába rázzuk a kiterjesztését
+    if (req.file) {
+      const ext = path.extname(req.file.originalname) || '.jpg'; // Kiolvassuk pl.: .jpg
+      const filenameWithExt = req.file.filename + ext;           // Hozzáadjuk a Multer hash-hez
+      
+      const oldPath = req.file.path;
+      const newPath = path.join(req.file.destination, filenameWithExt);
+      
+      // Fizikailag átnevezzük a fájlt a szerveren, hogy legyen kiterjesztése
+      fs.renameSync(oldPath, newPath);
+      coverUrl = `${serverUrl}/uploads/${filenameWithExt}`;
+    }
+
     await pool.query(
       `INSERT INTO weekly_topics 
        (title, description, cover_url, cover_author, master_email, start_date, end_date, status, proposed_by) 
