@@ -176,15 +176,6 @@ export default function Header({
                   {user?.email === ADMIN_EMAIL && <button className={`drop-item ${activeTab === 'admin_contests' ? 'active' : ''}`} style={{ color: activeTab === 'admin_contests' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_contests')}>Pályázatok kezelése</button>}
                   <button className={`drop-item ${activeTab === 'admin_meetings' ? 'active' : ''}`} style={{ color: activeTab === 'admin_meetings' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_meetings')}>Klubestek kezelése</button>
                   
-                  {/* 👑 JAVÍTVA: Helyes router alapú navigáció és dropdown stílusosztály */}
-                  <button 
-                    className={`drop-item ${activeTab === 'admin_cloudinary_test' ? 'active' : ''}`} 
-                    style={{ color: activeTab === 'admin_cloudinary_test' ? '#a78bfa' : '' }} 
-                    onClick={() => handleNavClick('admin_cloudinary_test')}
-                  >
-                    🧪 Cloudinary Teszt
-                  </button>
-
                   <button className={`drop-item ${activeTab === 'admin_homeworks' ? 'active' : ''}`} style={{ color: activeTab === 'admin_homeworks' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_homeworks')}>Házi feladatok kezelése</button>
                   {user?.email === ADMIN_EMAIL && <button className={`drop-item ${activeTab === 'admin_weekly' ? 'active' : ''}`} style={{ color: activeTab === 'admin_weekly' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_weekly')}>Csata kezelése</button>}
                   
