@@ -372,16 +372,25 @@ export default function AdminWeeklyView() {
                 )}
               </div>
 
-              {/* AKCIÓGOMBOK: Elbírálásra váró tervek esetén külön gombok jelennek meg */}
+{/* AKCIÓGOMBOK: Most már a bírálatra váró tervek is szabadon szerkeszthetők! */}
               <div style={{ display: 'flex', gap: '8px' }}>
                 {isPending ? (
                   <>
+                    {/* 🛠️ ÚJ: Függőben lévő javaslat betöltése a szerkesztőbe */}
+                    <button 
+                      onClick={() => startEdit(t)} 
+                      style={{ background: 'transparent', color: '#f59e0b', border: '1px solid #f59e0b', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+                    >
+                      Szerkeszt
+                    </button>
+                    
                     <button 
                       onClick={() => handleProposalDecision(t.id, 'approved')} 
                       style={{ background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', border: 'none', padding: '8px 14px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}
                     >
                       ✓ Elfogad
                     </button>
+                    
                     <button 
                       onClick={() => handleProposalDecision(t.id, 'rejected')} 
                       style={{ background: '#ef444420', color: '#f87171', border: '1px solid #ef444450', padding: '8px 14px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}
