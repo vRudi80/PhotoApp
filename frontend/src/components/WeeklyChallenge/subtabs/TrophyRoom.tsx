@@ -74,7 +74,7 @@ export default function TrophyRoom({
 
   // Statisztikai összesítések
   const totalViews = myStats.history?.reduce((sum, e) => sum + (Number(e?.views) || 0), 0) || 0;
-  const podiumCount = Number(myStats.podiums?.first || 0) + Number(myStats.podiums?.second || 0) + Number(myStats.podiums?.third || 0);
+  const podiumCount = Number(myStats.podiums?.second || 0) + Number(myStats.podiums?.third || 0);
   
   let top10Count = 0;
   let top20Count = 0;
