@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react'; // 👑 Beemelve a useMemo a hardveres gyorsításhoz
 import { getImageUrl } from '../../../utils/helpers';
 
 interface ArenaActiveRoomProps {
@@ -47,11 +47,61 @@ export default function ArenaActiveRoom({
   setFullscreenData, handleImageError
 }: ArenaActiveRoomProps) {
 
-  // 🛡️ Szigorú aszinkron védelmi vonal (Megakadályozza a fehér képernyőt)
+  // 🛡️ Szigorú aszinkron védelmi vonal
   const safeLeaderboard = Array.isArray(leaderboard) ? leaderboard : [];
   const safeClubLeaderboard = Array.isArray(currentClubLeaderboard) ? currentClubLeaderboard : [];
   const safePastEntries = Array.isArray(myPastEntries) ? myPastEntries : [];
   const safeUserPower = userPower || { super: 1, brilliant: 2 };
+
+  // ====================================================================
+  // 🚀 HARDVERES GYORSÍTÁS: Vak Toplista gyorsítótárazása (useMemo)
+  // ====================================================================
+  // Ez a blokk megakadályozza, hogy a nehéz CSS blur filterek és a rendezés
+  // másodpercenként újra lefusson, amikor a timeLeft órája ketyeg!
+  const renderedLeaderboard = useMemo(() => {
+    if (safeLeaderboard.length === 0) {
+      return <div style={{ color: '#94a3b8', textAlign: 'center', padding: '30px', background: '#0f172a', borderRadius: '16px' }}>Még üres az Aréna.</div>;
+    }
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        {[...safeLeaderboard].sort((a, b) => {
+          const likesA = Number(a?.likes_count || 0);
+          const likesB = Number(b?.likes_count || 0);
+          const viewsA = Number(a?.views_count || 0);
+          const viewsB = Number(b?.views_count || 0);
+          if (likesB !== likesA) return likesB - likesA;
+          return viewsA - viewsB;
+        }).slice(0, 15).map((entry, index) => {
+          const isMe = entry?.user_email === user?.email;
+          const rankColor = index === 0 ? '#fbbf24' : index === 1 ? '#e2e8f0' : index === 2 ? '#cd7f32' : '#64748b';
+          
+          return (
+            <div key={entry?.id || index} style={{ display: 'flex', alignItems: 'center', background: isMe ? 'linear-gradient(90deg, #f59e0b20, #0f172a)' : '#0f172a', border: isMe ? '1px solid #f59e0b50' : '1px solid #334155', padding: '12px', borderRadius: '12px' }}>
+              <div style={{ fontSize: '1.5rem', fontWeight: '900', width: '35px', color: rankColor, textAlign: 'center' }}>{index + 1}.</div>
+              <div onClick={() => isMe ? setFullscreenData({url: getImageUrl(entry?.drive_file_id, entry?.file_url), title: entry?.user_name || ''}) : null} style={{ width: '55px', height: '55px', backgroundColor: '#000', borderRadius: '10px', overflow: 'hidden', margin: '0 15px', cursor: isMe ? 'zoom-in' : 'default', flexShrink: 0, position: 'relative' }}>
+                <img src={getImageUrl(entry?.drive_file_id, entry?.file_url)} alt="Top" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: isMe ? 'none' : 'blur(6px) contrast(120%) saturation(150%)', transform: isMe ? 'none' : 'scale(1.2)' }} onError={handleImageError} />
+                {!isMe && (
+                  <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <span style={{ fontSize: '1.5rem', opacity: 0.8 }}>🔒</span>
+                  </div>
+                )}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ color: isMe ? '#f8fafc' : '#94a3b8', fontWeight: 'bold', fontStyle: isMe ? 'normal' : 'italic', fontSize: '1.05rem' }}>
+                  {isMe ? (entry?.user_name || 'Én') : 'Titkosított ellenfél'}
+                </div>
+                <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Nézettség: {entry?.views_count || 0}</div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ color: isMe ? '#f97316' : '#94a3b8', fontWeight: '900', fontSize: '1.4rem' }}>{entry?.likes_count || 0} ⭐</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }, [safeLeaderboard, user?.email]); // 👈 KIZÁRÓLAG akkor rajzolja újra, ha a toplista adatai változnak!
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '30px', animation: 'fadeIn 0.4s ease-out' }}>
@@ -92,7 +142,7 @@ export default function ArenaActiveRoom({
               </div>
             </div>
             <p style={{ fontSize: '0.85rem', color: '#94a3b8', margin: '15px 0 0 0', textAlign: 'center', lineHeight: '1.6' }}>
-              {!myEntry ? 'Töltsd felt a képedet az induláshoz, és kapsz 10 alap energiát!' : voteEntry ? '⚡ Új fotó érkezett az Arénába (vagy valaki Jokert használt)! Értékelt, hogy a mérőd újra maxon pörögjön!' : '🔥 A képed a maximumon pörög! Jelenleg nincs több értékelhető kép az Arénában.'}
+              {!myEntry ? 'Töltsd felt a képedet az induláshoz, i kapsz 10 alap energiát!' : voteEntry ? '⚡ Új fotó érkezett az Arénába (vagy valaki Jokert használt)! Értékelj, hogy a mérőd újra maxon pörögjen!' : '🔥 A képed a maximumon pörög! Jelenleg nincs több értékelhető kép az Arénában.'}
             </p>
           </div>
         )}
@@ -209,7 +259,7 @@ export default function ArenaActiveRoom({
                   </button>
 
                   <div style={{ marginTop: '18px', borderTop: '1px solid #be123c40', paddingTop: '15px', textAlign: 'center' }}>
-                    <p style={{ color: '#64748b', fontSize: '0.8rem', margin: '0 0 10px 0' }}>VAGY elhasználhatsz 1 Jokert egy már meglévő albumképedre:</p>
+                    <p style={{ color: '#64748b', fontSize: '0.8rem', margin: '0 0 10px 0' }}>VAGY elhasználsz 1 Jokert egy már meglévő albumképedre:</p>
                     <button 
                       disabled={isSwapping || isLoadingSwapAlbum}
                       onClick={onOpenAlbumForSwap}
@@ -302,44 +352,8 @@ export default function ArenaActiveRoom({
           <h3 style={{ margin: '0 0 10px 0', color: '#f59e0b', fontSize: '1.4rem' }}>🏆 Vak Toplista</h3>
           <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 20px 0', lineHeight: '1.5' }}>A taktikázás elkerülése végett az ellenfelek kiléte titkos!</p>
           
-          {safeLeaderboard.length === 0 ? <div style={{ color: '#94a3b8', textAlign: 'center', padding: '30px', background: '#0f172a', borderRadius: '16px' }}>Még üres az Aréna.</div> : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {[...safeLeaderboard].sort((a, b) => {
-                const likesA = Number(a?.likes_count || 0);
-                const likesB = Number(b?.likes_count || 0);
-                const viewsA = Number(a?.views_count || 0);
-                const viewsB = Number(b?.views_count || 0);
-                if (likesB !== likesA) return likesB - likesA;
-                return viewsA - viewsB;
-              }).map((entry, index) => {
-                const isMe = entry?.user_email === user?.email;
-                const rankColor = index === 0 ? '#fbbf24' : index === 1 ? '#e2e8f0' : index === 2 ? '#cd7f32' : '#64748b';
-                
-                return (
-                  <div key={entry?.id || index} style={{ display: 'flex', alignItems: 'center', background: isMe ? 'linear-gradient(90deg, #f59e0b20, #0f172a)' : '#0f172a', border: isMe ? '1px solid #f59e0b50' : '1px solid #334155', padding: '12px', borderRadius: '12px' }}>
-                    <div style={{ fontSize: '1.5rem', fontWeight: '900', width: '35px', color: rankColor, textAlign: 'center' }}>{index + 1}.</div>
-                    <div onClick={() => isMe ? setFullscreenData({url: getImageUrl(entry?.drive_file_id, entry?.file_url), title: entry?.user_name || ''}) : null} style={{ width: '55px', height: '55px', backgroundColor: '#000', borderRadius: '10px', overflow: 'hidden', margin: '0 15px', cursor: isMe ? 'zoom-in' : 'default', flexShrink: 0, position: 'relative' }}>
-                      <img src={getImageUrl(entry?.drive_file_id, entry?.file_url)} alt="Top" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: isMe ? 'none' : 'blur(6px) contrast(120%) saturation(150%)', transform: isMe ? 'none' : 'scale(1.2)' }} onError={handleImageError} />
-                      {!isMe && (
-                        <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <span style={{ fontSize: '1.5rem', opacity: 0.8 }}>🔒</span>
-                        </div>
-                      )}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ color: isMe ? '#f8fafc' : '#94a3b8', fontWeight: 'bold', fontStyle: isMe ? 'normal' : 'italic', fontSize: '1.05rem' }}>
-                        {isMe ? (entry?.user_name || 'Én') : 'Titkosított ellenfél'}
-                      </div>
-                      <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Nézettség: {entry?.views_count || 0}</div>
-                    </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ color: isMe ? '#f97316' : '#94a3b8', fontWeight: '900', fontSize: '1.5rem' }}>{entry?.likes_count || 0} ⭐</div>
-                    </div>
-                  </div>
-                )
-              }).slice(0, 15)}
-            </div>
-          )}
+          {/* ⚡ RENDKÍVÜL FELGYORSÍTOTT MEMOIZÁLT TOPLISTA BLOKK */}
+          {renderedLeaderboard}
         </div>
       </div>
 
