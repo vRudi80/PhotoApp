@@ -302,22 +302,26 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
       // A) HA A FŐ LISTÁT TÖLTI BE A FRONTEND
       if (!topicId) {
-        // N+1 hurok helyett egyetlen nagyteljesítményű SQL JOIN húzza be az összes csatát és státuszt!
+        // 🔥 JAVÍTVA: Bekérjük a teljes játékosszámot, és a júzer által még LE NEM SZAVAZOTT fotók darabszámát!
         const [activeTopics] = await pool.query(`
           SELECT t.*, u.name AS master_name,
             IF(e.id IS NOT NULL, 1, 0) as hasEntered,
-            IF(t.master_email IS NOT NULL AND LOWER(TRIM(t.master_email)) = LOWER(TRIM(?)), 1, 0) as isMaster
+            IF(t.master_email IS NOT NULL AND LOWER(TRIM(t.master_email)) = LOWER(TRIM(?)), 1, 0) as isMaster,
+            (SELECT COUNT(*) FROM weekly_entries we WHERE we.topic_id = t.id AND we.is_active = 1) as totalEntries,
+            (SELECT COUNT(*) FROM weekly_entries we WHERE we.topic_id = t.id AND we.is_active = 1 AND LOWER(TRIM(we.user_email)) != LOWER(TRIM(?)) AND we.id NOT IN (SELECT entry_id FROM weekly_votes WHERE voter_email = ?)) as unvotedEntries
           FROM weekly_topics t
           LEFT JOIN photo_users u ON t.master_email = u.email
           LEFT JOIN weekly_entries e ON e.topic_id = t.id AND LOWER(TRIM(e.user_email)) = LOWER(TRIM(?)) AND e.is_active = 1
           WHERE CURRENT_DATE() BETWEEN t.start_date AND t.end_date AND (t.status = 'approved' OR t.status IS NULL)
           ORDER BY t.id DESC
-        `, [userEmail || '', userEmail || '']);
+        `, [userEmail || '', userEmail || '', userEmail || '', userEmail || '', userEmail || '']);
 
         const mappedTopics = activeTopics.map(t => ({
           ...t,
           hasEntered: t.hasEntered === 1,
-          isMaster: t.isMaster === 1
+          isMaster: t.isMaster === 1,
+          totalEntries: Number(t.totalEntries || 0),     // 👥 Átalakítva számmá a frontendnek
+          unvotedEntries: Number(t.unvotedEntries || 0)   // 🗳️ Átalakítva számmá a frontendnek
         }));
 
         return res.json({ 
