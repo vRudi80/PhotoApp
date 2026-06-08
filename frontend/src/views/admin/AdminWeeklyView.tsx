@@ -109,7 +109,7 @@ export default function AdminWeeklyView() {
         body: JSON.stringify({ topicId, decision })
       });
       if (res.ok) {
-        alert("✓ A döntés sikeresen rögzítve a törzsi naptárban!");
+        alert("✓ A döntés sikeresen rögzítve a naptárban!");
         fetchTopics();
       } else {
         alert("Hiba történt a bírálat mentése során.");
@@ -336,7 +336,7 @@ export default function AdminWeeklyView() {
       </div>
 
       {/* TÉMÁK LISTÁJA */}
-      <h3 style={{ color: '#f8fafc', marginBottom: '15px', fontSize: '1.3rem', fontWeight: 'bold' }}>📜 Törzsi Haditervek és Csataterek</h3>
+      <h3 style={{ color: '#f8fafc', marginBottom: '15px', fontSize: '1.3rem', fontWeight: 'bold' }}>📜 Csatatervek</h3>
       <div style={{ background: '#1e293b', borderRadius: '12px', overflow: 'hidden', border: '1px solid #334155' }}>
         {topics.map((t, i) => {
           const status = getTopicStatus(t.status, t.start_date, t.end_date);
