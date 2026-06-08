@@ -37,8 +37,8 @@ export default function MyArenaAlbumView({ user, setFullscreenData }: MyArenaAlb
     return (
       <div style={{ textAlign: 'center', padding: '5rem 2rem', background: '#1e293b', borderRadius: '24px', border: '1px solid #334155' }}>
         <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🖼️</div>
-        <h3 style={{ color: 'white', fontSize: '1.5rem', margin: '0 0 10px 0' }}>Az Aréna Képtárad még üres</h3>
-        <p style={{ color: '#94a3b8', margin: 0 }}>Nevezz be a futó párbajok egyikébe, és a fotóid automatikusan bekerülnek ide!</p>
+        <h3 style={{ color: 'white', fontSize: '1.5rem', margin: '0 0 10px 0' }}>A képcsarnokod még üres</h3>
+        <p style={{ color: '#94a3b8', margin: 0 }}>Nevezz be a futó csaták egyikébe, és a fotóid automatikusan bekerülnek ide!</p>
       </div>
     );
   }
@@ -46,8 +46,8 @@ export default function MyArenaAlbumView({ user, setFullscreenData }: MyArenaAlb
   return (
     <div style={{ animation: 'fadeIn 0.4s ease-out' }}>
       <div style={{ marginBottom: '25px' }}>
-        <h2 style={{ color: 'white', margin: 0, fontSize: '1.8rem', fontWeight: 'bold' }}>🖼️ Aréna Képtáram</h2>
-        <p style={{ color: '#94a3b8', margin: '5px 0 0 0' }}>Az összes fotód karrierje, elért sikerei és történelme egyetlen helyen.</p>
+        <h2 style={{ color: 'white', margin: 0, fontSize: '1.8rem', fontWeight: 'bold' }}>🖼️ Képcsarnokod</h2>
+        <p style={{ color: '#94a3b8', margin: '5px 0 0 0' }}>Az összes fképed eredménye, elért sikerei és történelme egyetlen helyen.</p>
       </div>
 
       {/* FOTÓ RÁCS */}
@@ -130,7 +130,7 @@ export default function MyArenaAlbumView({ user, setFullscreenData }: MyArenaAlb
               </div>
             </div>
 
-            <h4 style={{ color: 'white', fontSize: '1rem', fontWeight: 'bold', marginBottom: '12px', borderBottom: '1px solid #1e293b', paddingBottom: '8px' }}>⚔️ Részvételi Történet ({selectedPhoto.history?.length || 0} párbaj)</h4>
+            <h4 style={{ color: 'white', fontSize: '1rem', fontWeight: 'bold', marginBottom: '12px', borderBottom: '1px solid #1e293b', paddingBottom: '8px' }}>⚔️ Részvételi Történet ({selectedPhoto.history?.length || 0} csata)</h4>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {selectedPhoto.history.map((h: any, hIdx: number) => {
