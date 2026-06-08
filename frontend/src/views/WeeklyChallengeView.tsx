@@ -382,13 +382,15 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     finally { setIsLoadingHof(false); }
   };
 
+  // ⚡ OPTIMALIZÁLT ADATLEKÉRŐ: Csak azt tölti be, amit a játékos éppen lát!
   useEffect(() => {
     if (subTab === 'current') {
       fetchCurrentTopic(false);
-      fetchMyStats();
+      // 🔥 JAVÍTVA: fetchMyStats() innen kitörölve, hogy ne terhelje a csaták betöltését!
     }
     else if (subTab === 'upcoming') fetch(`${BACKEND_URL}/api/weekly/upcoming`).then(res => res.json()).then(data => setUpcomingTopics(data || [])).catch(console.error);
     else if (subTab === 'past') fetch(`${BACKEND_URL}/api/weekly/past`).then(res => res.json()).then(data => setPastTopics(data || [])).catch(console.error);
+    else if (subTab === 'my_stats') fetchMyStats(); // 👑 JAVÍTVA: A nehéz statisztika CSAK akkor fut le, ha a Trófeaterembe lépünk!
     else if (subTab === 'hall_of_fame') fetchHallOfFame();
   }, [subTab, selectedTopicId]);
 
