@@ -99,13 +99,13 @@ export default function BattlePlanner({ user, onSuccess }: BattlePlannerProps) {
         alert("⚔️ Haditerv sikeresen benyújtva bírálatra!");
         setTitle(''); setDescription(''); setCoverAuthor(''); setMasterName('');
         setStartDate(''); setEndDate(''); setCoverFile(null); setPreview(null);
-        onSuccess(); // Visszaváltunk a listára
+        onSuccess(); 
       } else {
         alert("Hiba történt a küldés során.");
       }
     } catch (error) {
       console.error(error);
-    } university {
+    } finally {
       setSubmitting(false);
     }
   };
