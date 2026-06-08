@@ -7,6 +7,7 @@ import HelpModal from '../components/WeeklyChallenge/HelpModal';
 import AlbumSelectionModal from '../components/WeeklyChallenge/AlbumSelectionModal';
 import ShareCardModal from '../components/WeeklyChallenge/ShareCardModal';
 import TrophyRoom from '../components/WeeklyChallenge/subtabs/TrophyRoom';
+import HallOfFame from '../components/WeeklyChallenge/subtabs/HallOfFame';
 
 interface WeeklyChallengeViewProps {
   user: any;
@@ -39,64 +40,6 @@ const getLevelDetails = (likes: number, victories: number) => {
   if (likes < 7000 || victories < 9) return { name: 'Hadúr 🔱', color: '#eab308', bg: '#eab30815' };
   if (likes < 10000 || victories < 12) return { name: 'Táltos 🔥', color: '#ef4444', bg: '#ef444415' };
   return { name: 'Fejedelem 👑', color: '#fbbf24', bg: '#fbbf2420' };
-};
-
-function ClubLogo({ driveId, logoUrl }: { driveId: any; logoUrl: any }) {
-  const [isError, setIsError] = useState(false);
-  if (isError || (!driveId && !logoUrl)) {
-    return <span style={{ fontSize: '1.1rem' }}>🛡️</span>;
-  }
-  return (
-    <img 
-      src={getImageUrl(driveId, logoUrl)} 
-      alt="" 
-      style={{ width: '18px', height: '18px', borderRadius: '4px', objectFit: 'contain', backgroundColor: '#0f172a', border: '1px solid #10b98130', display: 'inline-block' }} 
-      onError={() => setIsError(true)} 
-    />
-  );
-}
-
-// ====================================================================
-// ⚡ BÖNGÉSZŐS KÉPTÖMÖRÍTŐ MOTOR (Max 1920px, 80% minőség, szupergyors)
-// ====================================================================
-const compressImageOnClient = (file: File): Promise<File> => {
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = (event) => {
-      const img = new Image();
-      img.src = event.target?.result as string;
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let width = img.width;
-        let height = img.height;
-        const MAX_SIZE = 1920;
-
-        if (width > height) {
-          if (width > MAX_SIZE) { height = Math.round((height * MAX_SIZE) / width); width = MAX_SIZE; }
-        } else {
-          if (height > MAX_SIZE) { width = Math.round((width * MAX_SIZE) / height); height = MAX_SIZE; }
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx?.drawImage(img, 0, 0, width, height);
-
-        canvas.toBlob((blob) => {
-          if (blob) {
-            const compressedFile = new File([blob], file.name.replace(/\.[^/.]+$/, "") + ".jpg", {
-              type: 'image/jpeg',
-              lastModified: Date.now(),
-            });
-            resolve(compressedFile);
-          } else {
-            resolve(file); 
-          }
-        }, 'image/jpeg', 0.8); 
-      };
-    };
-  });
 };
 
 function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }) {
@@ -290,7 +233,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       });
   }, [activeShareData]);
 
-  // 👑 JAVÍTVA: Kigyomláltuk az összeomlást okozó holtkódot és a törölt statisztikai hurok maradványait!
+  // ✨ JAVÍTVA: Csak a HelpModal által megkövetelt minimális szint információ maradt itt!
   const currentLevel = getLevelDetails(userTotalLikes, userVictories);
 
   const BASE_EXPOSURE = 10;
@@ -698,7 +641,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
             <div>
               <div style={{ marginBottom: '20px' }}>
                 <h2 style={{ color: 'white', margin: 0, fontSize: '1.8rem' }}>🔥 Aktuális Kihívások</h2>
-                <p style={{ color: '#94a3b8', margin: '5px 0 0 0' }}>Válassz egyet az alábbi futó párbajok közül, és lépj be a küzdelembe!</p>
+                <p style={{ color: '#94a3b8', margin: '5px 0 0 0' }}>Válassz eenet az alábbi futó párbajok közül, és lépj be a küzdelembe!</p>
               </div>
 
               {loading ? (
@@ -774,7 +717,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                         </div>
 
                         <p style={{ fontSize: '0.85rem', color: '#94a3b8', margin: '15px 0 0 0', textAlign: 'center', lineHeight: '1.6' }}>
-                          {!myEntry ? 'Töltsd felt a képedet az induláshoz, és kapsz 10 alap energiát!' : voteEntry ? '⚡ Új fotó érkezett az Arénába (vagy valaki Jokert használt)! Értékelt, hogy a mérőd újra maxon pörögjön!' : '🔥 A képed a maximumon pörög! Jelenleg nincs több értékelhető kép az Arénában.'}
+                          {!myEntry ? 'Töltsd felt a képedet az induláshoz, és kapsz 10 alap energiát!' : voteEntry ? '⚡ Új fotó érkezett az Arénába (vagy valaki Jokert használt)! Értékelt, hogy a mérőd újra maxon pörögjön!' : '🔥 A képed a maximumon pörög! Jelenleg nincs több értékelhető kép az Arénaban.'}
                         </p>
                       </div>
                     )}
@@ -1275,71 +1218,12 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       )}
 
       {subTab === 'hall_of_fame' && (
-        <div style={{ background: '#1e293b', padding: '30px', borderRadius: '24px', border: '1px solid #fbbf2440', boxShadow: '0 10px 40px rgba(0,0,0,0.4)' }}>
-          <div style={{ marginBottom: '25px' }}>
-            <h2 style={{ color: '#fbbf24', margin: 0, fontSize: '1.8rem', fontWeight: '900' }}>👑 Globális Fotós Dicsőségfal</h2>
-            <p style={{ color: '#94a3b8', margin: '5px 0 0 0' }}>A közösség összesített ranglistája az éles és lezárult arénákban gyűjtött csillagok alapján.</p>
-          </div>
-
-          {isLoadingHof ? (
-            <div style={{ color: '#94a3b8', textAlign: 'center', padding: '40px' }}>⏳ A pódium összeállítása...</div>
-          ) : hallOfFame.length === 0 ? (
-            <div style={{ color: '#64748b', textAlign: 'center', padding: '20px' }}>Még egyetlen fotós sem gyűjtött pontot. Legyél te az első!</div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {hallOfFame.map((row, index) => {
-                const isMe = row.user_email === user?.email;
-                const likes = Number(row.total_likes) || 0;
-                const level = getLevelDetails(likes, 0); 
-                
-                const rankColor = index === 0 ? '#fbbf24' : index === 1 ? '#cbd5e1' : index === 2 ? '#b45309' : '#64748b';
-                const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
-
-                return (
-                  <div 
-                    key={row.user_email || index} 
-                    style={{ 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      background: isMe ? 'linear-gradient(90deg, #fbbf2415, #0f172a)' : '#0f172a', 
-                      border: isMe ? '1px solid #fbbf2460' : '1px solid #334155', 
-                      padding: '16px 20px', 
-                      borderRadius: '16px',
-                      boxShadow: isMe ? '0 0 20px #fbbf2415' : 'none',
-                      transition: 'transform 0.2s'
-                    }}
-                  >
-                    <div style={{ fontSize: '1.4rem', fontWeight: '900', width: '45px', color: rankColor, textAlign: 'center' }}>
-                      {medal}
-                    </div>
-
-                    <div style={{ flex: 1, marginLeft: '10px' }}>
-                      <div style={{ color: isMe ? '#fbbf24' : 'white', fontWeight: 'bold', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        {row.user_name} {isMe && <span style={{ fontSize: '0.75rem', background: '#fbbf24', color: '#0f172a', padding: '2px 8px', borderRadius: '10px', fontWeight: '900' }}>TE VAGY</span>}
-                      </div>
-                      {row.club_name && (
-                        <div style={{ color: '#10b981', fontSize: '0.8rem', fontWeight: 'bold', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <ClubLogo driveId={row.drive_logo_id} logoUrl={row.logo_url} />
-                          <span>{row.club_name}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    <div style={{ marginRight: '20px' }}>
-                      <span style={{ color: level.color, background: level.bg, border: `1px solid ${level.color}40`, padding: '6px 16px', borderRadius: '100px', fontSize: '0.85rem', fontWeight: 'bold' }}>
-                        {level.name}
-                      </span>
-                    </div>
-
-                    <div style={{ textAlign: 'right', minWidth: '80px' }}>
-                      <div style={{ color: '#fbbf24', fontWeight: '900', fontSize: '1.4rem' }}>{likes} <span style={{ fontSize: '0.9rem', fontWeight: 'normal', color: '#64748b' }}>⭐</span></div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
+        <HallOfFame
+          isLoadingHof={isLoadingHof}
+          hallOfFame={hallOfFame}
+          user={user}
+          getLevelDetails={getLevelDetails}
+        />
       )}
       
       {subTab === 'arena_album' && (
