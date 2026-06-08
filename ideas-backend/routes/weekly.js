@@ -1123,8 +1123,8 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (e) { res.status(500).json({ error: e.message }); }
   });
 
-  // ====================================================================
-// 📜 CSATATERVEZŐ: Új csatajavaslat beküldése borítóképpel
+// ====================================================================
+// 📜 CSATATERVEZŐ: Új csatajavaslat beküldése borítóképpel (Dinamikus URL javítással)
 // ====================================================================
 app.post('/api/weekly/propose', upload.single('cover'), async (req, res) => {
   const { title, description, cover_author, master_name, start_date, end_date, userEmail } = req.body;
@@ -1134,8 +1134,9 @@ app.post('/api/weekly/propose', upload.single('cover'), async (req, res) => {
   }
 
   try {
-    // Ha töltött fel képet, a mentett URL-t használjuk, ha nem, marad null
-    const coverUrl = req.file ? `${BACKEND_URL}/uploads/${req.file.filename}` : null;
+    // 🛠️ JAVÍTVA: Dinamikusan generáljuk a szerver URL-jét, így nincs ReferenceError!
+    const serverUrl = req.protocol + '://' + req.get('host');
+    const coverUrl = req.file ? `${serverUrl}/uploads/${req.file.filename}` : null;
 
     await pool.query(
       `INSERT INTO weekly_topics 
@@ -1146,11 +1147,10 @@ app.post('/api/weekly/propose', upload.single('cover'), async (req, res) => {
 
     res.json({ success: '⚔️ A csatitervedet sikeresen elmentettük! A törzsi tanács (admin) hamarosan elbírálja.' });
   } catch (err) {
-    console.error(err);
+    console.error("Csatajavaslat hiba:", err);
     res.status(500).json({ error: 'Hiba történt a javaslat mentésekor.' });
   }
 });
-
 // ====================================================================
 // 🛡️ ADMIN: Függőben lévő javaslatok lekérése
 // ====================================================================
