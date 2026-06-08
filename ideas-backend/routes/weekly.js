@@ -403,7 +403,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
 // ====================================================================
-  // 🖼️ JAVÍTVA: Intelligens Csere-Összesítő és Valódi Végeredmény Album API
+  // 🖼️ VÉGLEG JAVÍTVA: Tűpontos, Joker-Cserét és Kiesést Kezelő Album API
   // ====================================================================
   app.get('/api/weekly/my-album', async (req, res) => {
     const { userEmail } = req.query;
@@ -417,27 +417,27 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
       const albumWithStats = [];
       for (const photo of photos) {
-        // Lekérjük a képet, de a pontokat és a rangot a felhasználó kihívásban elért MAX teljesítményére kerekítjük ki
+        // Visszatérünk a fotó SAJÁT, egyedi eredményeihez
         const [history] = await pool.query(`
           SELECT 
             t.id AS topic_id,
             t.title AS topic_title, 
-            (SELECT MAX(likes_count) FROM weekly_entries WHERE topic_id = t.id AND user_email = e.user_email) as likes_count,
-            (SELECT MAX(views_count) FROM weekly_entries WHERE topic_id = t.id AND user_email = e.user_email) as views_count,
+            e.likes_count, 
+            e.views_count, 
             e.is_active, 
             t.end_date,
             IF(t.end_date >= CURRENT_DATE(), 1, 0) AS is_topic_live,
             (
               SELECT COUNT(*) + 1 
               FROM weekly_entries e2 
-              WHERE e2.topic_id = t.id 
+              WHERE e2.topic_id = e.topic_id 
                 AND e2.is_active = 1 
-                AND e2.likes_count > (SELECT MAX(likes_count) FROM weekly_entries WHERE topic_id = t.id AND user_email = e.user_email)
+                AND (e2.likes_count > e.likes_count OR (e2.likes_count = e.likes_count AND e2.views_count < e.views_count))
             ) AS entry_rank,
             (
               SELECT COUNT(*) 
               FROM weekly_entries e3 
-              WHERE e3.topic_id = t.id AND e3.is_active = 1
+              WHERE e3.topic_id = e.topic_id AND e3.is_active = 1
             ) AS total_entries
           FROM weekly_entries e
           JOIN weekly_topics t ON e.topic_id = t.id
@@ -448,8 +448,9 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         const totalLikes = history.reduce((sum, h) => sum + Number(h.likes_count), 0);
         const totalViews = history.reduce((sum, h) => sum + Number(h.views_count), 0);
         
-        const firstPlaces = history.filter(h => Number(h.entry_rank) === 1 && h.is_topic_live === 0).length;
-        const podiums = history.filter(h => Number(h.entry_rank) <= 3 && h.is_topic_live === 0).length;
+        // STRIKT ELLENŐRZÉS: Csak akkor kap trófeát a kép, ha a forduló lezárult ÉS aktív maradt a végéig!
+        const firstPlaces = history.filter(h => Number(h.entry_rank) === 1 && h.is_topic_live === 0 && h.is_active === 1).length;
+        const podiums = history.filter(h => Number(h.entry_rank) <= 3 && h.is_topic_live === 0 && h.is_active === 1).length;
         
         const isCurrentlyActive = history.some(h => h.is_active === 1 && h.is_topic_live === 1);
 
@@ -470,6 +471,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       res.status(500).json({ error: 'Hiba az album lekérésekor.' });
     }
   });
+  
   // ====================================================================
   // 🖼️ ÁTNEVEZVE: `/api/weekly/my-album/upload`
   // ====================================================================
