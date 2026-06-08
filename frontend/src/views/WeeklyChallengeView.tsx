@@ -785,9 +785,10 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           upcomingTopics={upcomingTopics}
           getTopicType={getTopicType}
           handleImageError={handleImageError}
+          user={user} // 👈 Ez az egyetlen plusz sor kell ide!
         />
       )}
-
+      
       {subTab === 'past' && (
         <PastArchive
           pastTopics={pastTopics}
