@@ -1194,7 +1194,106 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       res.status(500).json({ error: 'Hiba az elbírálás során.' });
     }
   });
-    
+
+  // ====================================================================
+  // 💬 ARCHÍVUM KIBESZÉLŐ: Kommentek lekérése egy adott képhez
+  // ====================================================================
+  app.get('/api/weekly/archive/comments/:entryId', async (req, res) => {
+    const { entryId } = req.params;
+    try {
+      const [comments] = await pool.query(
+        "SELECT id, user_name, user_email, comment_text, created_at FROM weekly_archive_comments WHERE entry_id = ? ORDER BY created_at ASC",
+        [entryId]
+      );
+      res.json(comments);
+    } catch (err) {
+      res.status(500).json({ error: 'Hiba a kommentek betöltésekor: ' + err.message });
+    }
+  });
+
+  // ====================================================================
+  // 💬 ARCHÍVUM KIBESZÉLŐ: Új komment hozzáfűzése
+  // ====================================================================
+  app.post('/api/weekly/archive/comment', async (req, res) => {
+    const { entryId, userEmail, userName, commentText } = req.body;
+    if (!entryId || !userEmail || !userName || !commentText?.trim()) {
+      return res.status(400).json({ error: 'Minden mező kitöltése kötelező!' });
+    }
+    try {
+      await pool.query(
+        "INSERT INTO weekly_archive_comments (entry_id, user_email, user_name, comment_text) VALUES (?, ?, ?, ?)",
+        [entryId, userEmail, userName, commentText.trim()]
+      );
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ error: 'Hiba a komment mentésekor: ' + err.message });
+    }
+  });
+
+  // ====================================================================
+  // ❤️ ARCHÍVUM KIBESZÉLŐ: Utólagos lájk oda-vissza kapcsolása (Toggle)
+  // ====================================================================
+  app.post('/api/weekly/archive/like-toggle', async (req, res) => {
+    const { entryId, userEmail } = req.body;
+    if (!entryId || !userEmail) return res.status(400).json({ error: 'Hiányzó adatok!' });
+
+    try {
+      // Megnézzük, lájkolta-e már
+      const [existing] = await pool.query(
+        "SELECT id FROM weekly_archive_likes WHERE entry_id = ? AND user_email = ?",
+        [entryId, userEmail]
+      );
+
+      if (existing.length > 0) {
+        // Ha már lájkolta, akkor visszavonjuk (töröljük)
+        await pool.query("DELETE FROM weekly_archive_likes WHERE id = ?", [existing[0].id]);
+        res.json({ success: true, liked: false });
+      } else {
+        // Ha még nem lájkolta, hozzáadjuk
+        await pool.query("INSERT INTO weekly_archive_likes (entry_id, user_email) VALUES (?, ?)", [entryId, userEmail]);
+        res.json({ success: true, liked: true });
+      }
+    } catch (err) {
+      res.status(500).json({ error: 'Hiba a lájk kezelésekor: ' + err.message });
+    }
+  });
+
+  // ====================================================================
+  // JAVÍTVA: A meglévő történeti lekérdezést kiegészítjük az utólagos adatokkal!
+  // Keresd meg ezt a végpontot a weekly.js-ben, és cseréld ki erre!
+  // ====================================================================
+  app.get('/api/weekly/history/:topicId', async (req, res) => {
+    const { userEmail } = req.query; // 👈 Beemeljük az e-mailt a lájk-státusz ellenőrzéshez
+    try {
+      const [leaderboard] = await pool.query(`
+        SELECT 
+          e.id, e.user_name, e.file_url, e.drive_file_id, e.views_count, e.likes_count, u.club_name,
+          (SELECT COUNT(*) FROM weekly_archive_likes wal WHERE wal.entry_id = e.id) as archive_likes,
+          IF((SELECT COUNT(*) FROM weekly_archive_likes wal2 WHERE wal2.entry_id = e.id AND wal2.user_email = ?) > 0, 1, 0) as has_user_liked
+        FROM weekly_entries e LEFT JOIN photo_users u ON e.user_email = u.email
+        WHERE e.topic_id = ? AND e.views_count > 0 AND e.is_active = 1 
+        ORDER BY e.likes_count DESC, e.views_count ASC
+      `, [userEmail || '', req.params.topicId]);
+
+      const clubsData = {};
+      leaderboard.forEach(entry => {
+        if (!entry.club_name || entry.club_name.trim() === '') return; 
+        if (!clubsData[entry.club_name]) clubsData[entry.club_name] = [];
+        clubsData[entry.club_name].push(Number(entry.likes_count));
+      });
+
+      const clubLeaderboard = [];
+      for (const club in clubsData) {
+        clubsData[club].sort((a, b) => b - a);
+        const top3 = clubsData[club].slice(0, 3);
+        const totalScore = top3.reduce((sum, val) => sum + val, 0);
+        clubLeaderboard.push({ club_name: club, total_score: totalScore, members_counted: top3.length });
+      }
+      clubLeaderboard.sort((a, b) => b.total_score - a.total_score);
+      res.json({ leaderboard, clubLeaderboard });
+    } catch (err) { res.status(500).json({ error: 'Hiba: ' + err.message }); }
+  });
+  
   app.post('/api/weekly/report-off-topic', async (req, res) => {
     const { entryId, userEmail } = req.body;
     try {
