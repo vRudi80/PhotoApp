@@ -10,6 +10,7 @@ import TrophyRoom from '../components/WeeklyChallenge/subtabs/TrophyRoom';
 import HallOfFame from '../components/WeeklyChallenge/subtabs/HallOfFame';
 import PastArchive from '../components/WeeklyChallenge/subtabs/PastArchive';
 import UpcomingChallenges from '../components/WeeklyChallenge/subtabs/UpcomingChallenges';
+import ArenaActiveRoom from '../components/WeeklyChallenge/subtabs/ArenaActiveRoom';
 
 interface WeeklyChallengeViewProps {
   user: any;
@@ -539,7 +540,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     finally { setIsUploading(false); }
   };
 
-  const handleSwapFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelectForSwap = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
       setSwapFile(file); swapPreview && URL.revokeObjectURL(swapPreview); setSwapPreview(URL.createObjectURL(file));
@@ -583,7 +584,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   };
 
   const handleSelectPhotoForSwap = async (photoUrl: string) => {
-    if (!window.confirm("⚠️ Biztosan elhasználsz 1 Joker cserét erre az albumképre? Ez a fotó most 0 pontról fog újraindulni ebben a fordulóban!")) return;
+    if (!window.confirm("⚠️ Biztosan elhasználsz 1 Joker cserére erre az albumképre? Ez a fotó most 0 pontról fog újraindulni ebben a fordulóban!")) return;
     setIsSwapping(true);
     setShowSwapAlbumModal(false); 
     
@@ -737,7 +738,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   isLoadingSwapAlbum={isLoadingSwapAlbum}
                   isSwapping={isSwapping}
                   swapPreview={swapPreview}
-                  handleSwapFileSelect={handleSwapFileSelect}
+                  handleSwapFileSelect={handleFileSelectForSwap}
                   handleSwapSubmit={handleSwapSubmit}
                   onOpenAlbumForUpload={async () => {
                     setIsLoadingSwapAlbum(true);
