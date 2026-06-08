@@ -450,7 +450,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         
         // STRIKT ELLENŐRZÉS: Csak akkor kap trófeát a kép, ha a forduló lezárult ÉS aktív maradt a végéig!
         const firstPlaces = history.filter(h => Number(h.entry_rank) === 1 && h.is_topic_live === 0 && h.is_active === 1).length;
-        const podiums = history.filter(h => Number(h.entry_rank) <= 3 && h.is_topic_live === 0 && h.is_active === 1).length;
+       const podiums = history.filter(h => Number(h.entry_rank) >= 2 && Number(h.entry_rank) <= 3 && h.is_topic_live === 0 && h.is_active === 1).length;
         
         const isCurrentlyActive = history.some(h => h.is_active === 1 && h.is_topic_live === 1);
 
