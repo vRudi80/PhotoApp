@@ -1,6 +1,5 @@
 import React from 'react';
 import { getImageUrl } from '../../../utils/helpers';
-import { BACKEND_URL } from '../../../utils/constants';
 
 interface ArenaActiveRoomProps {
   topic: any;
@@ -19,30 +18,20 @@ interface ArenaActiveRoomProps {
   leaderboard: any[];
   currentClubLeaderboard: any[];
   user: any;
-  
-  // Állapotok és kezelők a feltöltéshez
   isUploading: boolean;
   uploadPreview: string | null;
   handleFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleUpload: () => void;
   isLoadingSwapAlbum: boolean;
-  
-  // Állapotok és kezelők a Joker cseréhez
   isSwapping: boolean;
   swapPreview: string | null;
   handleSwapFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleSwapSubmit: () => void;
-  
-  // Modál nyitók az albumhoz
   onOpenAlbumForUpload: () => void;
   onOpenAlbumForSwap: () => void;
-  
-  // Játékmenet kezelők
   handleVote: (type: 'pass' | 'super' | 'brilliant' | 'master') => void;
   handleOffTopicReport: (id: number) => void;
   handleSwapBackSubmit: (id: number) => void;
-  
-  // Globális UI kezelők
   setFullscreenData: (data: any) => void;
   handleImageError: (e: React.SyntheticEvent<HTMLImageElement, Event>) => void;
 }
@@ -58,17 +47,23 @@ export default function ArenaActiveRoom({
   setFullscreenData, handleImageError
 }: ArenaActiveRoomProps) {
 
+  // Biztonsági háló az aszinkron adatoknak
+  const safeLeaderboard = Array.isArray(leaderboard) ? leaderboard : [];
+  const safeClubLeaderboard = Array.isArray(currentClubLeaderboard) ? currentClubLeaderboard : [];
+  const safePastEntries = Array.isArray(myPastEntries) ? myPastEntries : [];
+  const safeUserPower = userPower || { super: 1, brilliant: 2 };
+
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '30px', animation: 'fadeIn 0.4s ease-out' }}>
       
-      {/* ── BAL OLDALI OSZLOP: Infók és Értékelés ── */}
+      {/* ── BAL OLDALI OSZLOP ── */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
         
-        {/* TÉMA INFÓ KÁRTYA */}
+        {/* TÉMA INFÓ */}
         <div style={{ background: 'linear-gradient(135deg, #1e293b, #0f172a)', padding: '30px', borderRadius: '24px', border: '1px solid #334155', display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: '0 10px 30px rgba(0,0,0,0.5)', position: 'relative', overflow: 'hidden' }}>
           <div style={{ position: 'absolute', top: '-20px', right: '-20px', fontSize: '8rem', opacity: 0.05 }}>🔥</div>
-          <h3 style={{ margin: '0 0 10px 0', color: '#f8fafc', fontSize: '1.8rem', textAlign: 'center', zIndex: 1 }}>{topic.title}</h3>
-          <p style={{ margin: '0 0 20px 0', color: '#cbd5e1', fontSize: '0.95rem', textAlign: 'center', zIndex: 1, lineHeight: '1.6' }}>{topic.description}</p>
+          <h3 style={{ margin: '0 0 10px 0', color: '#f8fafc', fontSize: '1.8rem', textAlign: 'center', zIndex: 1 }}>{topic?.title || 'Betöltés...'}</h3>
+          <p style={{ margin: '0 0 20px 0', color: '#cbd5e1', fontSize: '0.95rem', textAlign: 'center', zIndex: 1, lineHeight: '1.6' }}>{topic?.description || ''}</p>
           
           <div style={{ background: '#00000080', padding: '15px 30px', borderRadius: '100px', border: '1px solid #ef444450', backdropFilter: 'blur(10px)', zIndex: 1 }}>
             <div style={{ fontSize: '0.75rem', color: '#ef4444', textTransform: 'uppercase', letterSpacing: '2px', textAlign: 'center', marginBottom: '5px' }}>Hátralévő Idő</div>
@@ -76,27 +71,26 @@ export default function ArenaActiveRoom({
           </div>
         </div>
         
-        {/* EXPO / LÁTHATÓSÁGI MÉRŐ */}
+        {/* LÁTHATÓSÁGI MÉRŐ */}
         {!isMaster && (
-          <div style={{ width: '100%', boxSizing: 'border-box', background: '#0f172a', padding: '25px 15px', borderRadius: '24px', border: `1px solid ${exposureColor}40`, display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: `0 10px 40px -10px ${exposureColor}30`, transition: 'all 0.5s ease' }}>
+          <div style={{ width: '100%', boxSizing: 'border-box', background: '#0f172a', padding: '25px 15px', borderRadius: '24px', border: `1px solid ${exposureColor || '#ef4444'}40`, display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: `0 10px 40px -10px ${exposureColor || '#ef4444'}30`, transition: 'all 0.5s ease' }}>
             <h4 style={{ color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '2px', margin: '0 0 15px 0', fontSize: '0.85rem', textAlign: 'center' }}>Láthatósági Mérő</h4>
             
             <div style={{ position: 'relative', width: '100%', maxWidth: '240px', margin: '0 auto' }}>
               <svg viewBox="0 0 200 120" style={{ width: '100%', height: 'auto', display: 'block', overflow: 'visible' }}>
                 <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#1e293b" strokeWidth="16" strokeLinecap="round" />
-                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke={exposureColor} strokeWidth="16" strokeLinecap="round" pathLength="100" strokeDasharray="100" strokeDashoffset={100 - exposurePercentage} />
+                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke={exposureColor || '#ef4444'} strokeWidth="16" strokeLinecap="round" pathLength="100" strokeDasharray="100" strokeDashoffset={100 - (exposurePercentage || 0)} />
               </svg>
               
               <div style={{ position: 'absolute', bottom: '15px', left: '0', width: '100%', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <div style={{ fontSize: '2.8rem', fontWeight: '900', color: exposureColor, lineHeight: '1' }}>
-                  {Math.round(exposurePercentage)}<span style={{ fontSize: '1.2rem' }}>%</span>
+                <div style={{ fontSize: '2.8rem', fontWeight: '900', color: exposureColor || '#ef4444', lineHeight: '1' }}>
+                  {Math.round(exposurePercentage || 0)}<span style={{ fontSize: '1.2rem' }}>%</span>
                 </div>
                 <div style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#f8fafc', textTransform: 'uppercase', marginTop: '5px', letterSpacing: '2px' }}>
-                  {exposureLabel}
+                  {exposureLabel || 'Számítás...'}
                 </div>
               </div>
             </div>
-
             <p style={{ fontSize: '0.85rem', color: '#94a3b8', margin: '15px 0 0 0', textAlign: 'center', lineHeight: '1.6' }}>
               {!myEntry ? 'Töltsd felt a képedet az induláshoz, és kapsz 10 alap energiát!' : voteEntry ? '⚡ Új fotó érkezett az Arénába (vagy valaki Jokert használt)! Értékelt, hogy a mérőd újra maxon pörögjön!' : '🔥 A képed a maximumon pörög! Jelenleg nincs több értékelhető kép az Arénában.'}
             </p>
@@ -144,10 +138,10 @@ export default function ArenaActiveRoom({
 
                 <div style={{ display: 'flex', gap: '12px', width: '100%' }}>
                   <button onClick={() => handleVote('super')} style={{ flex: 1, padding: '15px', background: 'linear-gradient(135deg, #1e3a8a, #3b82f6)', color: 'white', border: 'none', borderRadius: '14px', fontSize: '1.1rem', fontWeight: 'bold', cursor: 'pointer' }}>
-                    ✨ Szuper <br/><span style={{fontSize: '0.8rem', fontWeight: 'normal'}}>+{userPower.super} pont</span>
+                    ✨ Szuper <br/><span style={{fontSize: '0.8rem', fontWeight: 'normal'}}>+{safeUserPower.super} pont</span>
                   </button>
                   <button onClick={() => handleVote('brilliant')} style={{ flex: 1, padding: '15px', background: 'linear-gradient(135deg, #f97316, #ef4444)', color: 'white', border: 'none', borderRadius: '14px', fontSize: '1.1rem', fontWeight: 'bold', cursor: 'pointer' }}>
-                    🔥 Zseniális <br/><span style={{fontSize: '0.8rem', fontWeight: 'normal'}}>+{userPower.brilliant} pont</span>
+                    🔥 Zseniális <br/><span style={{fontSize: '0.8rem', fontWeight: 'normal'}}>+{safeUserPower.brilliant} pont</span>
                   </button>
                 </div>
                 <button onClick={() => handleVote('pass')} style={{ width: '100%', padding: '12px', background: '#334155', color: '#cbd5e1', border: 'none', borderRadius: '14px', fontSize: '0.95rem', cursor: 'pointer' }}>
@@ -165,10 +159,10 @@ export default function ArenaActiveRoom({
         </div>
       </div>
 
-      {/* ── JOBB OLDALI OSZLOP: Saját nevezés és Rangsorok ── */}
+      {/* ── JOBB OLDALI OSZLOP ── */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
         
-        {/* SAJÁT KÉP / PROFIL STATISZTIKA FORDULÓN BELÜL */}
+        {/* SAJÁT NEVEZÉS */}
         <div style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #334155', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
             <h3 style={{ margin: 0, color: '#f8fafc', fontSize: '1.4rem' }}>📸 Saját Nevezésem</h3>
@@ -190,7 +184,7 @@ export default function ArenaActiveRoom({
               <div style={{ width: '100%', height: '220px', backgroundColor: '#000', borderRadius: '16px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 'inset 0 0 20px rgba(0,0,0,0.8)' }}>
                 <img src={getImageUrl(myEntry.drive_file_id, myEntry.file_url)} alt="Saját" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} onError={handleImageError} />
               </div>
-              <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'space-between', background: '#0f172a', padding: '20px', borderRadius: '12px', borderLeft: `4px solid ${exposureColor}` }}>
+              <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'space-between', background: '#0f172a', padding: '20px', borderRadius: '12px', borderLeft: `4px solid ${exposureColor || '#ef4444'}` }}>
                 <div style={{ textAlign: 'center' }}><div style={{ color: '#94a3b8', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '5px' }}>Eredmény</div><div style={{ color: '#f59e0b', fontSize: '1.5rem', fontWeight: '900' }}>{myEntry.likes_count} ⭐</div></div>
                 <div style={{ textAlign: 'center' }}><div style={{ color: '#94a3b8', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '5px' }}>Nézettség</div><div style={{ color: '#38bdf8', fontSize: '1.5rem', fontWeight: '900' }}>{myEntry.views_count} 👁️</div></div>
               </div>
@@ -231,11 +225,11 @@ export default function ArenaActiveRoom({
                 </div>
               )}
 
-              {myPastEntries.length > 0 && (
+              {safePastEntries.length > 0 && (
                 <div style={{ marginTop: '25px', borderTop: '1px dashed #334155', paddingTop: '20px' }}>
                   <h5 style={{ margin: '0 0 12px 0', color: '#38bdf8', fontSize: '1.05rem' }}>↩️ Korábbi fotóid ebben a fordulóban</h5>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    {myPastEntries.map((past, pIdx) => (
+                    {safePastEntries.map((past, pIdx) => (
                       <div key={pIdx} style={{ display: 'flex', alignItems: 'center', background: '#0f172a', padding: '8px', borderRadius: '12px', border: '1px solid #1e293b' }}>
                         <img src={getImageUrl(past.drive_file_id, past.file_url)} alt="Past" style={{ width: '45px', height: '45px', objectFit: 'cover', borderRadius: '6px' }} onError={handleImageError} />
                         <div style={{ flex: 1, marginLeft: '10px' }}>
@@ -279,7 +273,7 @@ export default function ArenaActiveRoom({
           )}
         </div>
 
-        {/* ÉLŐ KLUBOK CSATÁJA */}
+        {/* KLUBOK CSATÁJA */}
         <div style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #10b981', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
             <h3 style={{ margin: 0, color: '#10b981', fontSize: '1.4rem' }}>🛡️ Klubok Csatája</h3>
@@ -287,9 +281,9 @@ export default function ArenaActiveRoom({
           </div>
           <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 20px 0', lineHeight: '1.5' }}>A 3 legjobb klubtag megmérettetése alapján.</p>
           
-          {(!currentClubLeaderboard || currentClubLeaderboard.length === 0) ? <div style={{ color: '#94a3b8', textAlign: 'center', padding: '20px', background: '#0f172a', borderRadius: '16px' }}>Még nincs rangsorolt klub.</div> : (
+          {safeClubLeaderboard.length === 0 ? <div style={{ color: '#94a3b8', textAlign: 'center', padding: '20px', background: '#0f172a', borderRadius: '16px' }}>Még nincs rangsorolt klub.</div> : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {currentClubLeaderboard.map((club, index) => (
+              {safeClubLeaderboard.map((club, index) => (
                 <div key={index} style={{ display: 'flex', alignItems: 'center', background: 'linear-gradient(135deg, #0f172a, #1e293b)', border: '1px solid #059669', padding: '12px', borderRadius: '12px' }}>
                   <div style={{ fontSize: '1.5rem', fontWeight: '900', width: '35px', color: index === 0 ? '#fbbf24' : '#cbd5e1', textAlign: 'center' }}>{index + 1}.</div>
                   <div style={{ flex: 1, marginLeft: '10px' }}>
@@ -308,9 +302,9 @@ export default function ArenaActiveRoom({
           <h3 style={{ margin: '0 0 10px 0', color: '#f59e0b', fontSize: '1.4rem' }}>🏆 Vak Toplista</h3>
           <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 20px 0', lineHeight: '1.5' }}>A taktikázás elkerülése végett az ellenfelek kiléte titkos!</p>
           
-          {(!leaderboard || leaderboard.length === 0) ? <div style={{ color: '#94a3b8', textAlign: 'center', padding: '30px', background: '#0f172a', borderRadius: '16px' }}>Még üres az Aréna.</div> : (
+          {safeLeaderboard.length === 0 ? <div style={{ color: '#94a3b8', textAlign: 'center', padding: '30px', background: '#0f172a', borderRadius: '16px' }}>Még üres az Aréna.</div> : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {[...leaderboard].sort((a, b) => {
+              {[...safeLeaderboard].sort((a, b) => {
                 const likesA = Number(a?.likes_count || 0);
                 const likesB = Number(b?.likes_count || 0);
                 const viewsA = Number(a?.views_count || 0);
