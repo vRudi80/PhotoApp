@@ -28,11 +28,17 @@ export default function ArchiveDetailModal({ entry, userEmail, userName, onClose
   }, [entry?.id]);
 
   const handleLike = async () => {
+    // 🛡️ FRONTEND VÉDELMI VONAL: Ha nincs email, el sem indul a kérés!
+    if (!userEmail) {
+      alert("❌ Hiba: A rendszer nem azonosította a profilodat (üres a userEmail)! Jelentkezz be újra.");
+      return;
+    }
+
     try {
       const res = await fetch(`${BACKEND_URL}/api/weekly/archive/like-toggle`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ entryId: entry.id, userEmail: userEmail }) // 👈 Közvetlenül küldjük
+        body: JSON.stringify({ entryId: entry.id, userEmail: userEmail })
       });
       
       if (res.ok) {
@@ -50,14 +56,20 @@ export default function ArchiveDetailModal({ entry, userEmail, userName, onClose
     e.preventDefault();
     if (!newComment.trim()) return;
 
+    // 🛡️ FRONTEND VÉDELMI VONAL: Ha nincs email, itt sem indul el a kérés!
+    if (!userEmail) {
+      alert("❌ Hiba: Kommenteléshez be kell jelentkezned!");
+      return;
+    }
+
     try {
       const res = await fetch(`${BACKEND_URL}/api/weekly/archive/comment`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           entryId: entry.id,
-          userEmail: userEmail, // 👈 Közvetlenül küldjük
-          userName: userName || 'Névtelen harcos', // 👈 Közvetlenül küldjük
+          userEmail: userEmail,
+          userName: userName,
           commentText: newComment
         })
       });
