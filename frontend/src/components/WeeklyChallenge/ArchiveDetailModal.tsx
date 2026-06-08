@@ -26,17 +26,24 @@ export default function ArchiveDetailModal({ entry, user, onClose, onLikeUpdate 
     if (entry?.id) fetchComments();
   }, [entry?.id]);
 
-  const handleLike = async () => {
+ const handleLike = async () => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/weekly/archive/like-toggle`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ entryId: entry.id, userEmail: user?.email })
       });
+      
       if (res.ok) {
-        onLikeUpdate(); // Értesítjük az Archívumot, hogy kérje le újra a listát a friss darabszámért
+        onLikeUpdate(); 
+      } else {
+        // 🚨 HA 400-as VAGY BÁRMILYEN HIBA VAN, FELUGRASZTJUK!
+        const errData = await res.json();
+        alert(errData.error || "Hiba történt a lájkolás közben.");
       }
-    } catch (e) { console.error(e); }
+    } catch (e) { 
+      alert("Hálózati hiba a lájk elküldésekor.");
+    }
   };
 
   const handleCommentSubmit = async (e: React.FormEvent) => {
@@ -54,11 +61,18 @@ export default function ArchiveDetailModal({ entry, user, onClose, onLikeUpdate 
           commentText: newComment
         })
       });
+      
       if (res.ok) {
         setNewComment('');
-        fetchComments(); // Frissítjük a listát
+        fetchComments(); 
+      } else {
+        // 🚨 HA 400-as VAGY BÁRMILYEN HIBA VAN, FELUGRASZTJUK!
+        const errData = await res.json();
+        alert(errData.error || "Hiba történt a komment elküldésekor.");
       }
-    } catch (e) { console.error(e); }
+    } catch (e) { 
+      alert("Hálózati hiba a komment elküldésekor.");
+    }
   };
 
   return (
