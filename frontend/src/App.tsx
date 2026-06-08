@@ -28,7 +28,6 @@ import WeeklyChallengeView from './views/WeeklyChallengeView';
 import AdminWeeklyView from './views/admin/AdminWeeklyView';
 import ClubNewsView from './views/ClubNewsView';
 import ProfileView from './views/ProfileView';
-import AdminCloudinaryTestView from './views/admin/AdminCloudinaryTestView'; // ➕ ÚJ IMPORT SOR
 import { BrowserRouter, Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import TicketsView from './views/TicketsView';
 import LeaderClubView from './views/LeaderClubView';
