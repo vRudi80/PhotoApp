@@ -195,9 +195,10 @@ export default function PastArchive({
       {currentModalEntry && (
         <ArchiveDetailModal
           entry={currentModalEntry}
-          user={user}
-          onClose={() => setActiveArchiveEntry(null)}
-          onLikeUpdate={() => {
+        userEmail={user?.email || user?.userEmail || ''} // 👈 Biztonsági háló: ha a rendszered máshogy nevezné, mindkettőt megnézi
+        userName={user?.name || user?.userName || 'Nomád harcos'} 
+        onClose={() => setActiveArchiveEntry(null)}
+        onLikeUpdate={() => {
             // Frissítjük a szülő komponens listáját, hogy a háttérben is naprakész legyen a lájkok száma
             if (selectedPastTopicId) {
               loadPastHistoryList(selectedPastTopicId);
