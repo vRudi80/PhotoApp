@@ -1246,8 +1246,8 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   // JAVÍTVA: A meglévő történeti lekérdezést kiegészítjük az utólagos adatokkal!
   // Keresd meg ezt a végpontot a weekly.js-ben, és cseréld ki erre!
   // ====================================================================
-  app.get('/api/weekly/history/:topicId', async (req, res) => {
-    const { userEmail } = req.query; // 👈 Beemeljük az e-mailt a lájk-státusz ellenőrzéshez
+ app.get('/api/weekly/history/:topicId', async (req, res) => {
+    const { userEmail } = req.query; 
     try {
       const [leaderboard] = await pool.query(`
         SELECT 
@@ -1268,10 +1268,8 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
       const clubLeaderboard = [];
       for (const club in clubsData) {
-        clubsData[club].sort((a, b) => b - a);
-        const top3 = clubsData[club].slice(0, 3);
-        const totalScore = top3.reduce((sum, val) => sum + val, 0);
-        clubLeaderboard.push({ club_name: club, total_score: totalScore, members_counted: top3.length });
+        clubsData[club].sort((a, b) => b - a); const top3 = clubsData[club].slice(0, 3);
+        clubLeaderboard.push({ club_name: club, total_score: top3.reduce((sum, val) => sum + val, 0), members_counted: top3.length });
       }
       clubLeaderboard.sort((a, b) => b.total_score - a.total_score);
       res.json({ leaderboard, clubLeaderboard });
