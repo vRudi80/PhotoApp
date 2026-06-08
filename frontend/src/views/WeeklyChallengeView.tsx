@@ -800,6 +800,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           getTopicType={getTopicType}
           handleImageError={handleImageError}
           setFullscreenData={setFullscreenData}
+          user={user}
         />
       )}
 
