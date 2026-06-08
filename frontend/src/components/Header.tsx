@@ -96,7 +96,7 @@ export default function Header({
               style={{ color: '#f97316' }} 
               onClick={() => handleNavClick('weekly_challenge')}
             >
-              <span>⚔️ Párbaj</span>
+              <span>⚔️ Csaták</span>
             </button>
           </div>
 
@@ -186,7 +186,7 @@ export default function Header({
                   </button>
 
                   <button className={`drop-item ${activeTab === 'admin_homeworks' ? 'active' : ''}`} style={{ color: activeTab === 'admin_homeworks' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_homeworks')}>Házi feladatok kezelése</button>
-                  {user?.email === ADMIN_EMAIL && <button className={`drop-item ${activeTab === 'admin_weekly' ? 'active' : ''}`} style={{ color: activeTab === 'admin_weekly' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_weekly')}>Párbaj kezelése</button>}
+                  {user?.email === ADMIN_EMAIL && <button className={`drop-item ${activeTab === 'admin_weekly' ? 'active' : ''}`} style={{ color: activeTab === 'admin_weekly' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_weekly')}>Csata kezelése</button>}
                   
                   {user?.email === ADMIN_EMAIL && (
                     <button className={`drop-item ${activeTab === 'admin_settings' ? 'active' : ''}`} style={{ color: activeTab === 'admin_settings' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_settings')}>Kategóriák és Díjak</button>
