@@ -89,7 +89,7 @@ const compressImageOnClient = (file: File): Promise<File> => {
 };
 
 // ====================================================================
-// ⏳ SELEKCIÓS KÁRTYA KOMPONENS
+// ⏳ SELEKCIÓS KÁRTYA KOMPONENS (Optimalizált verzió statisztikai chipekkel)
 // ====================================================================
 function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }) {
   const [timeLeft, setTimeLeft] = useState<string>('Számítás...');
@@ -143,7 +143,7 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
   return (
     <div 
       onClick={onSelect}
-      style={{ background: 'linear-gradient(145deg, #1e293b, #0f172a)', borderRadius: '20px', border: '1px solid #334155', padding: '25px', cursor: 'pointer', transition: 'all 0.3s ease', boxShadow: '0 10px 25px rgba(0,0,0,0.4)', display: 'flex', flexDirection: 'column', position: 'relative' }}
+      style={{ background: 'linear-gradient(145deg, #1e293b, #0f172a)', borderRadius: '24px', border: '1px solid #334155', padding: '25px', cursor: 'pointer', transition: 'all 0.3s ease', boxShadow: '0 10px 25px rgba(0,0,0,0.4)', display: 'flex', flexDirection: 'column', position: 'relative' }}
       onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-5px)'; e.currentTarget.style.borderColor = isDaily ? '#ef4444' : '#3b82f6'; }}
       onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = '#334155'; }}
     >
@@ -177,6 +177,19 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
       <h3 style={{ color: 'white', margin: '0 0 10px 0', fontSize: '1.4rem', fontWeight: 'bold' }}>{topic.title}</h3>
       <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: '0 0 20px 0', lineHeight: '1.5', flex: 1 }}>{topic.description}</p>
       
+      {/* 📊 🔥 ÚJ: CSATATÉR STATISZTIKAI CHIP-EK */}
+      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '20px' }}>
+        {/* Játékosok száma */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#38bdf8', fontSize: '0.85rem', fontWeight: 'bold', background: '#38bdf810', padding: '6px 14px', borderRadius: '10px', border: '1px solid #38bdf820' }}>
+          👥 {topic.totalEntries || 0} fotós
+        </div>
+        
+        {/* Hátralévő kiértékelések száma dinamikus színnel (ha zéró, akkor megnyugtató zöld) */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: topic.unvotedEntries > 0 ? '#fb923c' : '#4ade80', fontSize: '0.85rem', fontWeight: 'bold', background: topic.unvotedEntries > 0 ? '#fb923c10' : '#4ade8010', padding: '6px 14px', borderRadius: '10px', border: topic.unvotedEntries > 0 ? '1px solid #fb923c20' : '1px solid #4ade8020' }}>
+          🗳️ {topic.unvotedEntries || 0} értékelendő
+        </div>
+      </div>
+
       {(topic.master_name || topic.master_email) && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#a78bfa', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '15px', background: '#a78bfa10', padding: '8px 14px', borderRadius: '10px', border: '1px solid #a78bfa20', width: 'fit-content' }}>
           <span>👑 Párbajmester:</span>
