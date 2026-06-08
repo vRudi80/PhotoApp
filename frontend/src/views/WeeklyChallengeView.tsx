@@ -3,9 +3,9 @@ import { BACKEND_URL } from '../utils/constants';
 import { getImageUrl } from '../utils/helpers';
 import { toPng } from 'html-to-image'; 
 import MyArenaAlbumView from './MyArenaAlbumView';
-import HelpModal from './WeeklyChallenge/HelpModal';
-import AlbumSelectionModal from './WeeklyChallenge/AlbumSelectionModal';
-import ShareCardModal from './WeeklyChallenge/ShareCardModal';
+import HelpModal from '../components/WeeklyChallenge/HelpModal';
+import AlbumSelectionModal from '../components/WeeklyChallenge/AlbumSelectionModal';
+import ShareCardModal from '../components/WeeklyChallenge/ShareCardModal';
 
 interface WeeklyChallengeViewProps {
   user: any;
