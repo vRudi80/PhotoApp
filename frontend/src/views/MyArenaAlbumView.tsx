@@ -50,6 +50,7 @@ export default function MyArenaAlbumView({ user, setFullscreenData }: MyArenaAlb
         <p style={{ color: '#94a3b8', margin: '5px 0 0 0' }}>Az összes fotód karrierje, elért sikerei és történelme egyetlen helyen.</p>
       </div>
 
+      {/* FOTÓ RÁCS */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '20px' }}>
         {photos.map((photo) => (
           <div 
@@ -64,10 +65,11 @@ export default function MyArenaAlbumView({ user, setFullscreenData }: MyArenaAlb
               </span>
             )}
 
+            {/* KÁRTYA BÉLYEGKÉP PLECSNIK */}
             {(photo.firstPlaces > 0 || photo.podiums > 0) && (
               <div style={{ position: 'absolute', top: '12px', right: '12px', background: 'rgba(15,23,42,0.85)', backdropFilter: 'blur(4px)', padding: '4px 8px', borderRadius: '8px', zIndex: 10, display: 'flex', gap: '8px', fontSize: '0.8rem', fontWeight: 'bold', border: '1px solid #334155' }}>
                 {photo.firstPlaces > 0 && <span style={{ color: '#fbbf24' }}>🥇 {photo.firstPlaces}</span>}
-                {photo.podiums > photo.firstPlaces && <span style={{ color: '#cbd5e1' }}>🏆 {photo.podiums - photo.firstPlaces}</span>}
+                {photo.podiums > 0 && <span style={{ color: '#cbd5e1' }}>🏆 {photo.podiums}</span>}
               </div>
             )}
 
@@ -99,7 +101,7 @@ export default function MyArenaAlbumView({ user, setFullscreenData }: MyArenaAlb
         ))}
       </div>
 
-      {/* 📊 DETAIL MODAL */}
+      {/* 📊 RÉSZLETES MODAL */}
       {selectedPhoto && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 99999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
           <div style={{ background: '#0f172a', border: '1px solid #334155', borderRadius: '24px', width: '100%', maxWidth: '550px', maxHeight: '85vh', overflowY: 'auto', padding: '25px', position: 'relative', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.8)' }}>
@@ -113,6 +115,7 @@ export default function MyArenaAlbumView({ user, setFullscreenData }: MyArenaAlb
               <img src={getImageUrl(null, selectedPhoto.file_url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
             </div>
 
+            {/* TITULUSOK PANELJE TISZTÁN */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px' }}>
               <div style={{ background: '#1e293b', padding: '12px', borderRadius: '12px', border: '1px solid #fbbf2440', textAlign: 'center' }}>
                 <div style={{ fontSize: '1.5rem' }}>🥇</div>
@@ -122,7 +125,8 @@ export default function MyArenaAlbumView({ user, setFullscreenData }: MyArenaAlb
               <div style={{ background: '#1e293b', padding: '12px', borderRadius: '12px', border: '1px solid #cbd5e140', textAlign: 'center' }}>
                 <div style={{ fontSize: '1.5rem' }}>🏆</div>
                 <div style={{ color: 'white', fontWeight: 'bold', fontSize: '1.1rem', marginTop: '2px' }}>{selectedPhoto.podiums} db</div>
-                <div style={{ color: '#cbd5e1', fontSize: '0.75rem', fontWeight: 'bold', textTransform: 'uppercase' }}>Dobogós Hely</div>
+                {/* 📝 JAVÍTVA: Egyértelműbb felirat a félreértések elkerülésére */}
+                <div style={{ color: '#cbd5e1', fontSize: '0.75rem', fontWeight: 'bold', textTransform: 'uppercase' }}>Dobogós (2-3. hely)</div>
               </div>
             </div>
 
@@ -139,7 +143,6 @@ export default function MyArenaAlbumView({ user, setFullscreenData }: MyArenaAlb
                 let rankBadgeColor = '#64748b';
                 let rankText = `${h.entry_rank}. Hely`;
                 
-                // 🛠️ JAVÍTVA: Ha a kép le lett cserélve egy lezárult versenyben, töröljük a fals eredményt
                 if (isLive) {
                   rowBorder = '1px solid #10b98140';
                   rankBadgeColor = '#10b981';
