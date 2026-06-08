@@ -3,8 +3,8 @@ import { BACKEND_URL } from '../../utils/constants';
 
 interface ArchiveDetailModalProps {
   entry: any;
-  userEmail: string; // 👈 Objektum helyett tiszta string
-  userName: string;  // 👈 Objektum helyett tiszta string
+  userEmail: string;
+  userName: string;
   onClose: () => void;
   onLikeUpdate: () => void;
 }
@@ -13,6 +13,16 @@ export default function ArchiveDetailModal({ entry, userEmail, userName, onClose
   const [comments, setComments] = useState<any[]>([]);
   const [newComment, setNewComment] = useState('');
   const [loadingComments, setLoadingComments] = useState(false);
+
+  // ⚡ LOKÁLIS MEMÓRIA: Azonnali vizuális visszajelzés a lájkokhoz
+  const [likesCount, setLikesCount] = useState<number>(Number(entry?.archive_likes) || 0);
+  const [isLiked, setIsLiked] = useState<boolean>(entry?.has_user_liked === 1 || entry?.has_user_liked === true);
+
+  // Biztonsági háló: Ha a beküldött entry megváltozik, szinkronizálunk
+  useEffect(() => {
+    setLikesCount(Number(entry?.archive_likes) || 0);
+    setIsLiked(entry?.has_user_liked === 1 || entry?.has_user_liked === true);
+  }, [entry]);
 
   const fetchComments = async () => {
     setLoadingComments(true);
@@ -28,9 +38,8 @@ export default function ArchiveDetailModal({ entry, userEmail, userName, onClose
   }, [entry?.id]);
 
   const handleLike = async () => {
-    // 🛡️ FRONTEND VÉDELMI VONAL: Ha nincs email, el sem indul a kérés!
     if (!userEmail) {
-      alert("❌ Hiba: A rendszer nem azonosította a profilodat (üres a userEmail)! Jelentkezz be újra.");
+      alert("❌ Hiba: A rendszer nem azonosította a profilodat! Jelentkezz be újra.");
       return;
     }
 
@@ -42,7 +51,15 @@ export default function ArchiveDetailModal({ entry, userEmail, userName, onClose
       });
       
       if (res.ok) {
-        onLikeUpdate(); 
+        const data = await res.json();
+        if (data.success) {
+          // 🚀 ITT A VARÁZSLAT: Azonnal átírjuk a kijelzőt a szerver válasza alapján!
+          setIsLiked(data.liked);
+          setLikesCount(prev => data.liked ? prev + 1 : Math.max(0, prev - 1));
+          
+          // Szólunk a háttérben futó listának is, hogy frissüljön
+          onLikeUpdate(); 
+        }
       } else {
         const errData = await res.json();
         alert(errData.error || "Hiba történt a lájkolás közben.");
@@ -55,12 +72,7 @@ export default function ArchiveDetailModal({ entry, userEmail, userName, onClose
   const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newComment.trim()) return;
-
-    // 🛡️ FRONTEND VÉDELMI VONAL: Ha nincs email, itt sem indul el a kérés!
-    if (!userEmail) {
-      alert("❌ Hiba: Kommenteléshez be kell jelentkezned!");
-      return;
-    }
+    if (!userEmail) return alert("❌ Hiba: Kommenteléshez be kell jelentkezned!");
 
     try {
       const res = await fetch(`${BACKEND_URL}/api/weekly/archive/comment`, {
@@ -87,7 +99,7 @@ export default function ArchiveDetailModal({ entry, userEmail, userName, onClose
   };
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.9)', backdropFilter: 'blur(12px)', zIndex: 99999, display: 'flex', justifyContent: 'center', Center: 'center', alignItems: 'center', padding: '20px' }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.9)', backdropFilter: 'blur(12px)', zIndex: 99999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
       <div style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: '24px', width: '100%', maxWidth: '1100px', height: '85vh', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.7)' }}>
         
         {/* BAL OLDAL: FOTÓ */}
@@ -96,7 +108,7 @@ export default function ArchiveDetailModal({ entry, userEmail, userName, onClose
           <img src={entry.file_url} alt="" style={{ maxWidth: '100%', maxHeight: '70vh', objectFit: 'contain', borderRadius: '12px' }} />
         </div>
 
-        {/* JOBB OLDAL: PANEL */}
+        {/* JOBB OLDAL: MEGBESZÉLŐ PANEL */}
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#0f172a' }}>
           <div style={{ padding: '25px', borderBottom: '1px solid #223047', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
@@ -104,12 +116,13 @@ export default function ArchiveDetailModal({ entry, userEmail, userName, onClose
               <small style={{ color: '#64748b' }}>Hivatalos eredmény: {entry.likes_count} ⭐</small>
             </div>
 
+            {/* ❤️ AZONNAL REAGÁLÓ LÁJK GOMB */}
             <button 
               onClick={handleLike}
-              style={{ display: 'flex', alignItems: 'center', gap: '8px', background: entry.has_user_liked ? 'rgba(239, 68, 68, 0.15)' : '#1e293b', border: entry.has_user_liked ? '1px solid #ef4444' : '1px solid #334155', color: entry.has_user_liked ? '#f87171' : '#cbd5e1', padding: '10px 20px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }}
+              style={{ display: 'flex', alignItems: 'center', gap: '8px', background: isLiked ? 'rgba(239, 68, 68, 0.15)' : '#1e293b', border: isLiked ? '1px solid #ef4444' : '1px solid #334155', color: isLiked ? '#f87171' : '#cbd5e1', padding: '10px 20px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }}
             >
-              <span style={{ fontSize: '1.2rem' }}>{entry.has_user_liked ? '❤️' : '🤍'}</span>
-              <span>{entry.archive_likes || 0} elismerés</span>
+              <span style={{ fontSize: '1.2rem' }}>{isLiked ? '❤️' : '🤍'}</span>
+              <span>{likesCount} elismerés</span>
             </button>
           </div>
 
@@ -125,7 +138,7 @@ export default function ArchiveDetailModal({ entry, userEmail, userName, onClose
                 const isMe = c.user_email === userEmail;
                 return (
                   <div key={c.id} style={{ background: isMe ? '#1e293b' : '#1e293b60', padding: '12px 15px', borderRadius: '14px', border: isMe ? '1px solid #475569' : '1px solid #334155', alignSelf: isMe ? 'flex-end' : 'flex-start', maxWidth: '85%', width: 'fit-content' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '20px', marginBottom: '4px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '20px', FlightMarginBottom: '4px' }}>
                       <strong style={{ color: isMe ? '#f59e0b' : '#38bdf8', fontSize: '0.85rem' }}>{c.user_name}</strong>
                       <small style={{ color: '#475569', fontSize: '0.75rem' }}>{new Date(c.created_at).toLocaleTimeString('hu-HU', {hour: '2-digit', minute:'2-digit'})}</small>
                     </div>
