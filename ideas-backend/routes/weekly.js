@@ -402,8 +402,8 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-  // ====================================================================
-  // 🖼️ ÁTNEVEZVE: `/api/weekly/my-album`
+ // ====================================================================
+  // 🖼️ JAVÍTVA: Intelligens Rangsoroló és Valódi Harci Állapot Számító Album API
   // ====================================================================
   app.get('/api/weekly/my-album', async (req, res) => {
     const { userEmail } = req.query;
@@ -417,20 +417,51 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
       const albumWithStats = [];
       for (const photo of photos) {
+        // Lekérjük a kép történetét, és kiszámoljuk a pontos helyezését minden egyes párbajban
         const [history] = await pool.query(`
-          SELECT t.title AS topic_title, e.likes_count, e.views_count, e.is_active, t.end_date
+          SELECT 
+            t.id AS topic_id,
+            t.title AS topic_title, 
+            e.likes_count, 
+            e.views_count, 
+            e.is_active, 
+            t.end_date,
+            IF(t.end_date >= CURRENT_DATE(), 1, 0) AS is_topic_live,
+            (
+              SELECT COUNT(*) + 1 
+              FROM weekly_entries e2 
+              WHERE e2.topic_id = e.topic_id 
+                AND e2.is_active = 1 
+                AND (e2.likes_count > e.likes_count OR (e2.likes_count = e.likes_count AND e2.views_count < e.views_count))
+            ) AS entry_rank,
+            (
+              SELECT COUNT(*) 
+              FROM weekly_entries e3 
+              WHERE e3.topic_id = e.topic_id AND e3.is_active = 1
+            ) AS total_entries
           FROM weekly_entries e
           JOIN weekly_topics t ON e.topic_id = t.id
           WHERE e.file_url = ? AND e.user_email = ?
+          ORDER BY t.end_date DESC
         `, [photo.file_url, userEmail]);
 
         const totalLikes = history.reduce((sum, h) => sum + Number(h.likes_count), 0);
         const totalViews = history.reduce((sum, h) => sum + Number(h.views_count), 0);
+        
+        // 🥇 Csak a már LEZÁRULT párbajok győzelmeit és dobogóit számoljuk fix plecsninek
+        const firstPlaces = history.filter(h => Number(h.entry_rank) === 1 && h.is_topic_live === 0).length;
+        const podiums = history.filter(h => Number(h.entry_rank) <= 3 && h.is_topic_live === 0).length;
+        
+        // ⚔️ Tűpontos LIVE ellenőrzés: Csak akkor harcol, ha az entry aktív ÉS a téma még fut!
+        const isCurrentlyActive = history.some(h => h.is_active === 1 && h.is_topic_live === 1);
 
         albumWithStats.push({
           ...photo,
           totalLikes,
           totalViews,
+          firstPlaces,
+          podiums,
+          isCurrentlyActive,
           history
         });
       }
