@@ -85,7 +85,7 @@ export default function MyArenaAlbumView({ user, setFullscreenData }: { user: an
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(4px)', zIndex: 9999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
           <div style={{ background: '#0f172a', padding: '30px', borderRadius: '24px', border: '1px solid #475569', width: '100%', maxWidth: '500px', position: 'relative' }}>
             <button onClick={() => setSelectedPhoto(null)} style={{ position: 'absolute', top: '15px', right: '15px', background: 'none', border: 'none', color: '#94a3b8', fontSize: '1.2rem', cursor: 'pointer' }}>✕</button>
-            <h3 style={{ margin: '0 0 15px 0', color: 'white' }}>📈 Fotó Karrier Jelentés</h3>
+            <h3 style={{ margin: '0 0 15px 0', color: 'white' }}>📈 Fotó története</h3>
             <div style={{ width: '100%', height: '160px', borderRadius: '12px', overflow: 'hidden', marginBottom: '20px', backgroundColor: '#000' }}>
               <img src={getImageUrl(null, selectedPhoto.file_url)} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
             </div>
