@@ -1,95 +1,167 @@
 import React, { useState } from 'react';
-import BattlePlanner from './BattlePlanner';
+import { BACKEND_URL } from '../../../utils/constants';
 
-interface UpcomingChallengesProps {
-  upcomingTopics: any[];
-  getTopicType: (startDate: string, endDate: string) => 'daily' | 'weekly';
-  handleImageError: (e: React.SyntheticEvent<HTMLImageElement, Event>) => void;
+interface BattlePlannerProps {
   user: any;
+  onSuccess: () => void;
 }
 
-export default function UpcomingChallenges({
-  upcomingTopics,
-  getTopicType,
-  handleImageError,
-  user
-}: UpcomingChallengesProps) {
-  const [isPlanning, setIsPlanning] = useState(false);
+// ⚡ BÖNGÉSZŐS KÉPTÖMÖRÍTŐ MOTOR (Max 1920px, 80% minőség - Borítóképekhez optimalizálva)
+const compressImageOnClient = (file: File): Promise<File> => {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        const MAX_SIZE = 1920;
+
+        if (width > height) {
+          if (width > MAX_SIZE) { height = Math.round((height * MAX_SIZE) / width); width = MAX_SIZE; }
+        } else {
+          if (height > MAX_SIZE) { width = Math.round((width * MAX_SIZE) / height); height = MAX_SIZE; }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const compressedFile = new File([blob], file.name.replace(/\.[^/.]+$/, "") + ".jpg", {
+              type: 'image/jpeg',
+              lastModified: Date.now(),
+            });
+            resolve(compressedFile);
+          } else {
+            resolve(file); 
+          }
+        }, 'image/jpeg', 0.8); 
+      };
+    };
+  });
+};
+
+export default function BattlePlanner({ user, onSuccess }: BattlePlannerProps) {
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [coverAuthor, setCoverAuthor] = useState('');
+  const [masterName, setMasterName] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const rawFile = e.target.files[0];
+      
+      let finalFile = rawFile;
+      if (rawFile.size > 2 * 1024 * 1024) {
+        console.log("⚡ Óriás borítókép észlelve, kliens oldali zsugorítás indul...");
+        finalFile = await compressImageOnClient(rawFile);
+        console.log(`💪 Borító tömörítve: ${(rawFile.size / 1024 / 1024).toFixed(2)}MB -> ${(finalFile.size / 1024 / 1024).toFixed(2)}MB`);
+      }
+
+      setCoverFile(finalFile);
+      preview && URL.revokeObjectURL(preview);
+      setPreview(URL.createObjectURL(finalFile));
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title || !description || !startDate || !endDate) return alert("Minden kötelező mezőt tölts ki!");
+
+    setSubmitting(true);
+    const formData = new FormData();
+    formData.append('title', title);
+    formData.append('description', description);
+    formData.append('cover_author', coverAuthor);
+    formData.append('master_name', masterName);
+    formData.append('start_date', startDate);
+    formData.append('end_date', endDate);
+    formData.append('userEmail', user?.email || '');
+    if (coverFile) formData.append('cover', coverFile);
+
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/weekly/propose`, {
+        method: 'POST',
+        body: formData
+      });
+      if (res.ok) {
+        alert("⚔️ Haditerv sikeresen benyújtva bírálatra!");
+        setTitle(''); setDescription(''); setCoverAuthor(''); setMasterName('');
+        setStartDate(''); setEndDate(''); setCoverFile(null); setPreview(null);
+        onSuccess(); 
+      } else {
+        alert("Hiba történt a küldés során.");
+      }
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
-    <div style={{ animation: 'fadeIn 0.4s ease-out' }}>
-      
-      {/* 🧭 FUNKCIÓS SÁV: Váltógomb a Tervező és a Lista között */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px', background: '#10b98105', padding: '15px 20px', borderRadius: '16px', border: '1px dashed #334155' }}>
+    <div style={{ maxWidth: '600px', margin: '0 auto', background: '#1e293b', padding: '30px', borderRadius: '24px', border: '1px solid #334155', boxShadow: '0 10px 30px rgba(0,0,0,0.4)', animation: 'fadeIn 0.3s ease-out' }}>
+      <h2 style={{ color: '#f59e0b', margin: '0 0 10px 0', fontSize: '1.6rem', fontWeight: 'bold' }}>📜 Új Csata Javaslata</h2>
+      <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: '0 0 25px 0', lineHeight: '1.5' }}>Vázold fel a haditervedet! Ha a törzsi tanács jóváhagyja, a javaslatod bekerül a hivatalos közelgő csaták közé.</p>
+
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
         <div>
-          <h3 style={{ color: 'white', margin: 0, fontSize: '1.2rem', fontWeight: 'bold' }}>
-            {isPlanning ? '🛠️ Új haditerv kovácsolása' : '⏳ Menetrend szerinti Csaták'}
-          </h3>
-          <p style={{ color: '#64748b', margin: '2px 0 0 0', fontSize: '0.85rem' }}>
-            {isPlanning ? 'Töltsd ki az űrlapot a témajavaslathoz.' : 'A törzsi tanács által már jóváhagyott, hamarosan induló küzdelmek.'}
-          </p>
+          <label style={{ color: '#cbd5e1', display: 'block', marginBottom: '6px', fontSize: '0.9rem', fontWeight: 'bold' }}>Csata megnevezése (Téma) *</label>
+          <input type="text" placeholder="Pl.: Vadvizek moraja, Városi sziluettek" value={title} onChange={e => setTitle(e.target.value)} required style={{ width: '100%', padding: '12px', background: '#0f172a', border: '1px solid #334155', borderRadius: '10px', color: 'white', outline: 'none' }} />
         </div>
-        
-        <button
-          onClick={() => setIsPlanning(!isPlanning)}
-          style={{ padding: '10px 20px', borderRadius: '10px', border: isPlanning ? '1px solid #64748b' : '1px solid #f59e0b', background: isPlanning ? '#1e293b' : 'linear-gradient(135deg, #f59e0b, #d97706)', color: isPlanning ? '#cbd5e1' : '#0f172a', fontWeight: 'bold', fontSize: '0.9rem', cursor: 'pointer', transition: 'all 0.2s', boxShadow: isPlanning ? 'none' : '0 4px 12px rgba(245,158,11,0.2)' }}
-        >
-          {isPlanning ? '⬅️ Vissza a csatákhoz' : '⚔️ Új csatiterv benyújtása'}
-        </button>
-      </div>
 
-      {/* RENDERELÉSI LOGIKA */}
-      {isPlanning ? (
-        <BattlePlanner user={user} onSuccess={() => setIsPlanning(false)} />
-      ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '25px' }}>
-          {(!upcomingTopics || upcomingTopics.length === 0) ? (
-            <div style={{ color: '#94a3b8', gridColumn: '1/-1', textAlign: 'center', padding: '60px', background: '#1e293b', borderRadius: '24px', border: '1px solid #334155' }}>
-              Nincs betárazva elkövetkező csata.
+        <div>
+          <label style={{ color: '#cbd5e1', display: 'block', marginBottom: '6px', fontSize: '0.9rem', fontWeight: 'bold' }}>Hadparancs (Részletes leírás & Megkötések) *</label>
+          <textarea rows={4} placeholder="Milyen kompozíciókat vársz? Mit tilos használni?" value={description} onChange={e => setDescription(e.target.value)} required style={{ width: '100%', padding: '12px', background: '#0f172a', border: '1px solid #334155', borderRadius: '10px', color: 'white', outline: 'none', resize: 'none' }} />
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+          <div>
+            <label style={{ color: '#cbd5e1', display: 'block', marginBottom: '6px', fontSize: '0.9rem', fontWeight: 'bold' }}>Kezdés dátuma *</label>
+            <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} required style={{ width: '100%', padding: '12px', background: '#0f172a', border: '1px solid #334155', borderRadius: '10px', color: 'white', outline: 'none' }} />
+          </div>
+          <div>
+            <label style={{ color: '#cbd5e1', display: 'block', marginBottom: '6px', fontSize: '0.9rem', fontWeight: 'bold' }}>Zárás dátuma *</label>
+            <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} required style={{ width: '100%', padding: '12px', background: '#0f172a', border: '1px solid #334155', borderRadius: '10px', color: 'white', outline: 'none' }} />
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+          <div>
+            <label style={{ color: '#cbd5e1', display: 'block', marginBottom: '6px', fontSize: '0.9rem', fontWeight: 'bold' }}>Kijelölt Csatabíró</label>
+            <input type="text" placeholder="Pl.: Csontos Mária" value={masterName} onChange={e => setMasterName(e.target.value)} style={{ width: '100%', padding: '12px', background: '#0f172a', border: '1px solid #334155', borderRadius: '10px', color: 'white', outline: 'none' }} />
+          </div>
+          <div>
+            <label style={{ color: '#cbd5e1', display: 'block', marginBottom: '6px', fontSize: '0.9rem', fontWeight: 'bold' }}>Borítókép készítője</label>
+            <input type="text" placeholder="Pl.: János Lakatos" value={coverAuthor} onChange={e => setCoverAuthor(e.target.value)} style={{ width: '100%', padding: '12px', background: '#0f172a', border: '1px solid #334155', borderRadius: '10px', color: 'white', outline: 'none' }} />
+          </div>
+        </div>
+
+        <div>
+          <label style={{ color: '#cbd5e1', display: 'block', marginBottom: '6px', fontSize: '0.9rem', fontWeight: 'bold' }}>Borítókép kiválasztása</label>
+          <input type="file" accept="image/*" onChange={handleFileChange} style={{ color: '#94a3b8', fontSize: '0.9rem' }} />
+          {preview && (
+            <div style={{ marginTop: '15px', height: '140px', borderRadius: '10px', overflow: 'hidden', border: '1px solid #334155' }}>
+              <img src={preview} alt="Előnézet" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             </div>
-          ) : (
-            upcomingTopics.map(t => {
-              const isDaily = getTopicType(t.start_date, t.end_date) === 'daily';
-              return (
-                <div key={t.id} style={{ background: 'linear-gradient(180deg, #1e293b, #0f172a)', padding: '25px', borderRadius: '24px', border: '1px solid #475569', display: 'flex', flexDirection: 'column', boxShadow: '0 10px 20px rgba(0,0,0,0.2)' }}>
-                  <div style={{ marginBottom: '10px' }}>
-                    <span style={{ background: isDaily ? '#ef444420' : '#3b82f620', color: isDaily ? '#f87171' : '#60a5fa', border: `1px solid ${isDaily ? '#ef444450' : '#3b82f650'}`, padding: '4px 12px', borderRadius: '50px', fontSize: '0.8rem', fontWeight: 'bold' }}>
-                      {isDaily ? '🔴 Napi Csata' : '🔵 Heti Csata'}
-                    </span>
-                  </div>
-                
-                  {t.cover_url && (
-                    <div style={{ width: '100%', height: '150px', borderRadius: '14px', overflow: 'hidden', marginBottom: '15px', border: '1px solid #334155', position: 'relative', backgroundColor: '#090d16' }}>
-                      <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${t.cover_url})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(12px) brightness(0.5)', transform: 'scale(1.1)' }}></div>
-                      <img src={t.cover_url} alt="" style={{ position: 'relative', width: '100%', height: '100%', objectFit: 'contain', zIndex: 1 }} onError={handleImageError} />
-                    </div>
-                  )}
-
-                  {t.cover_author && (
-                    <div style={{ color: '#64748b', fontSize: '0.75rem', fontStyle: 'italic', marginTop: '-10px', marginBottom: '15px', textAlign: 'right', paddingRight: '5px' }}>
-                      📸 Borítókép: {t.cover_author}
-                    </div>
-                  )}
-
-                  <h4 style={{ color: '#f59e0b', margin: '0 0 10px 0', fontSize: '1.4rem', fontWeight: 'bold' }}>{t.title}</h4>
-                  <p style={{ color: '#cbd5e1', fontSize: '0.95rem', margin: '0 0 20px 0', flex: 1, lineHeight: '1.6' }}>{t.description}</p>
-                  
-                  {(t.master_name || t.master_email) && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#a78bfa', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '15px', background: '#a78bfa10', padding: '8px 14px', borderRadius: '10px', border: '1px solid #a78bfa20', width: 'fit-content' }}>
-                      <span>👑 Csatabíró:</span>
-                      <span style={{ color: '#e9d5ff', fontWeight: 'bold' }}>{t.master_name || t.master_email}</span>
-                    </div>
-                  )}
-
-                  <div style={{ color: '#38bdf8', fontSize: '0.9rem', background: '#0f172a', padding: '15px', borderRadius: '12px', textAlign: 'center', fontWeight: 'bold', border: '1px solid #38bdf840' }}>
-                    ⏳ Start: {new Date(t.start_date).toLocaleDateString('hu-HU')}
-                  </div>
-                </div>
-              );
-            })
           )}
         </div>
-      )}
+
+        <button type="submit" disabled={submitting} style={{ width: '100%', background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#0f172a', border: 'none', padding: '14px', borderRadius: '12px', fontSize: '1.05rem', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 15px rgba(245,158,11,0.3)', marginTop: '10px' }}>
+          {submitting ? 'Haditerv küldése...' : 'Haditerv beküldése Törzsi bírálatra ⚔️'}
+        </button>
+      </form>
     </div>
   );
 }
