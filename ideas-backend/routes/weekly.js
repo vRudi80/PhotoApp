@@ -1123,6 +1123,65 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (e) { res.status(500).json({ error: e.message }); }
   });
 
+  // ====================================================================
+// 📜 CSATATERVEZŐ: Új csatajavaslat beküldése borítóképpel
+// ====================================================================
+app.post('/api/weekly/propose', upload.single('cover'), async (req, res) => {
+  const { title, description, cover_author, master_name, start_date, end_date, userEmail } = req.body;
+  
+  if (!title || !description || !start_date || !end_date) {
+    return res.status(400).json({ error: 'Minden kötelező mezőt ki kell tölteni!' });
+  }
+
+  try {
+    // Ha töltött fel képet, a mentett URL-t használjuk, ha nem, marad null
+    const coverUrl = req.file ? `${BACKEND_URL}/uploads/${req.file.filename}` : null;
+
+    await pool.query(
+      `INSERT INTO weekly_topics 
+       (title, description, cover_url, cover_author, master_name, start_date, end_date, status, proposed_by) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?)` ,
+      [title, description, coverUrl, cover_author, master_name, start_date, end_date, userEmail]
+    );
+
+    res.json({ success: '⚔️ A csatitervedet sikeresen elmentettük! A törzsi tanács (admin) hamarosan elbírálja.' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Hiba történt a javaslat mentésekor.' });
+  }
+});
+
+// ====================================================================
+// 🛡️ ADMIN: Függőben lévő javaslatok lekérése
+// ====================================================================
+app.get('/api/admin/proposals', async (req, res) => {
+  try {
+    const [proposals] = await pool.query(
+      "SELECT * FROM weekly_topics WHERE status = 'pending' ORDER BY start_date ASC"
+    );
+    res.json(proposals);
+  } catch (err) {
+    res.status(500).json({ error: 'Hiba a javaslatok lekérésekor.' });
+  }
+});
+
+// ====================================================================
+// 🛡️ ADMIN: Csatajavaslat elbírálása (approved / rejected)
+// ====================================================================
+app.post('/api/admin/decide-proposal', async (req, res) => {
+  const { topicId, decision } = req.body; // decision: 'approved' vagy 'rejected'
+  
+  try {
+    await pool.query(
+      "UPDATE weekly_topics SET status = ? WHERE id = ?",
+      [decision, topicId]
+    );
+    res.json({ success: `Sikeres bírálat: ${decision === 'approved' ? 'Elfogadva és csatasorba állítva!' : 'Elutasítva.'}` });
+  } catch (err) {
+    res.status(500).json({ error: 'Hiba az elbírálás során.' });
+  }
+});
+  
   app.post('/api/weekly/report-off-topic', async (req, res) => {
     const { entryId, userEmail } = req.body;
     try {
