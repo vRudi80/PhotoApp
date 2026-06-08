@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { BACKEND_URL } from '../../utils/constants';
 
 interface ArchiveDetailModalProps {
-  entry: any; // Az aktuálisan kiválasztott kép adatai
-  user: any;  // Bejelentkezett felhasználó
+  entry: any;
+  userEmail: string; // 👈 Objektum helyett tiszta string
+  userName: string;  // 👈 Objektum helyett tiszta string
   onClose: () => void;
-  onLikeUpdate: () => void; // Frissíti a szülőt, ha változik a lájk száma
+  onLikeUpdate: () => void;
 }
 
-export default function ArchiveDetailModal({ entry, user, onClose, onLikeUpdate }: ArchiveDetailModalProps) {
+export default function ArchiveDetailModal({ entry, userEmail, userName, onClose, onLikeUpdate }: ArchiveDetailModalProps) {
   const [comments, setComments] = useState<any[]>([]);
   const [newComment, setNewComment] = useState('');
   const [loadingComments, setLoadingComments] = useState(false);
@@ -26,18 +27,17 @@ export default function ArchiveDetailModal({ entry, user, onClose, onLikeUpdate 
     if (entry?.id) fetchComments();
   }, [entry?.id]);
 
- const handleLike = async () => {
+  const handleLike = async () => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/weekly/archive/like-toggle`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ entryId: entry.id, userEmail: user?.email })
+        body: JSON.stringify({ entryId: entry.id, userEmail: userEmail }) // 👈 Közvetlenül küldjük
       });
       
       if (res.ok) {
         onLikeUpdate(); 
       } else {
-        // 🚨 HA 400-as VAGY BÁRMILYEN HIBA VAN, FELUGRASZTJUK!
         const errData = await res.json();
         alert(errData.error || "Hiba történt a lájkolás közben.");
       }
@@ -56,8 +56,8 @@ export default function ArchiveDetailModal({ entry, user, onClose, onLikeUpdate 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           entryId: entry.id,
-          userEmail: user?.email,
-          userName: user?.name || 'Névtelen harcos',
+          userEmail: userEmail, // 👈 Közvetlenül küldjük
+          userName: userName || 'Névtelen harcos', // 👈 Közvetlenül küldjük
           commentText: newComment
         })
       });
@@ -66,7 +66,6 @@ export default function ArchiveDetailModal({ entry, user, onClose, onLikeUpdate 
         setNewComment('');
         fetchComments(); 
       } else {
-        // 🚨 HA 400-as VAGY BÁRMILYEN HIBA VAN, FELUGRASZTJUK!
         const errData = await res.json();
         alert(errData.error || "Hiba történt a komment elküldésekor.");
       }
@@ -76,26 +75,23 @@ export default function ArchiveDetailModal({ entry, user, onClose, onLikeUpdate 
   };
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.9)', backdropFilter: 'blur(12px)', zIndex: 99999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.9)', backdropFilter: 'blur(12px)', zIndex: 99999, display: 'flex', justifyContent: 'center', Center: 'center', alignItems: 'center', padding: '20px' }}>
       <div style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: '24px', width: '100%', maxWidth: '1100px', height: '85vh', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.7)' }}>
         
-        {/* 🖼️ BAL OLDAL: A FOTÓ KIEMELVE */}
+        {/* BAL OLDAL: FOTÓ */}
         <div style={{ background: '#090d16', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: '20px', position: 'relative', borderRight: '1px solid #334155' }}>
           <button onClick={onClose} style={{ position: 'absolute', top: '20px', left: '20px', background: '#1e293b', border: 'none', color: '#94a3b8', padding: '8px 16px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold' }}>⬅️ Bezárás</button>
           <img src={entry.file_url} alt="" style={{ maxWidth: '100%', maxHeight: '70vh', objectFit: 'contain', borderRadius: '12px' }} />
         </div>
 
-        {/* 💬 JOBB OLDAL: INTERAKCIÓS PANEL (Lájk + Kommentek) */}
+        {/* JOBB OLDAL: PANEL */}
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#0f172a' }}>
-          
-          {/* FEJLÉC & UTÓLAGOS ELISMERÉS */}
           <div style={{ padding: '25px', borderBottom: '1px solid #223047', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <h3 style={{ color: 'white', margin: 0, fontSize: '1.2rem' }}>Alkotó: {entry.user_name}</h3>
               <small style={{ color: '#64748b' }}>Hivatalos eredmény: {entry.likes_count} ⭐</small>
             </div>
 
-            {/* ❤️ UTÓLAGOS LÁJK GOMB */}
             <button 
               onClick={handleLike}
               style={{ display: 'flex', alignItems: 'center', gap: '8px', background: entry.has_user_liked ? 'rgba(239, 68, 68, 0.15)' : '#1e293b', border: entry.has_user_liked ? '1px solid #ef4444' : '1px solid #334155', color: entry.has_user_liked ? '#f87171' : '#cbd5e1', padding: '10px 20px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }}
@@ -105,7 +101,6 @@ export default function ArchiveDetailModal({ entry, user, onClose, onLikeUpdate 
             </button>
           </div>
 
-          {/* GÖRGETHETŐ CHAT-FOLYAM */}
           <div style={{ flex: 1, overflowY: 'auto', padding: '25px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
             <h4 style={{ color: '#94a3b8', margin: '0 0 5px 0', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '1px' }}>⚔️ Eszmecsere</h4>
             
@@ -115,7 +110,7 @@ export default function ArchiveDetailModal({ entry, user, onClose, onLikeUpdate 
               <div style={{ color: '#475569', textAlign: 'center', padding: '40px 20px', fontStyle: 'italic', fontSize: '0.95rem' }}>Írd le az első gondolatot! 🪶</div>
             ) : (
               comments.map((c) => {
-                const isMe = c.user_email === user?.email;
+                const isMe = c.user_email === userEmail;
                 return (
                   <div key={c.id} style={{ background: isMe ? '#1e293b' : '#1e293b60', padding: '12px 15px', borderRadius: '14px', border: isMe ? '1px solid #475569' : '1px solid #334155', alignSelf: isMe ? 'flex-end' : 'flex-start', maxWidth: '85%', width: 'fit-content' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: '20px', marginBottom: '4px' }}>
@@ -129,7 +124,6 @@ export default function ArchiveDetailModal({ entry, user, onClose, onLikeUpdate 
             )}
           </div>
 
-          {/* BEVITELI MEZŐ */}
           <form onSubmit={handleCommentSubmit} style={{ padding: '20px', background: '#1e293b', borderTop: '1px solid #334155', display: 'flex', gap: '10px' }}>
             <input 
               type="text" 
@@ -146,7 +140,6 @@ export default function ArchiveDetailModal({ entry, user, onClose, onLikeUpdate 
               Küldés
             </button>
           </form>
-
         </div>
       </div>
     </div>
