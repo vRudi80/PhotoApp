@@ -1242,20 +1242,23 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
+ // ====================================================================
+  // 👑 ARCHÍVUM TÖRTÉNETI LEKÉRDEZÉS (KONSZOLIDÁLT, LÁJK-TUDATOS VERZIÓ)
   // ====================================================================
-  // JAVÍTVA: A meglévő történeti lekérdezést kiegészítjük az utólagos adatokkal!
-  // Keresd meg ezt a végpontot a weekly.js-ben, és cseréld ki erre!
-  // ====================================================================
- app.get('/api/weekly/history/:topicId', async (req, res) => {
+  app.get('/api/weekly/history/:topicId', async (req, res) => {
     const { userEmail } = req.query; 
     try {
+      // 🛠️ JAVÍTVA: Beágyazott lekérdezések helyett golyóálló LEFT JOIN + GROUP BY-t használunk!
       const [leaderboard] = await pool.query(`
         SELECT 
           e.id, e.user_name, e.file_url, e.drive_file_id, e.views_count, e.likes_count, u.club_name,
-          (SELECT COUNT(*) FROM weekly_archive_likes wal WHERE wal.entry_id = e.id) as archive_likes,
-          IF((SELECT COUNT(*) FROM weekly_archive_likes wal2 WHERE wal2.entry_id = e.id AND wal2.user_email = ?) > 0, 1, 0) as has_user_liked
-        FROM weekly_entries e LEFT JOIN photo_users u ON e.user_email = u.email
+          COUNT(DISTINCT wal.id) as archive_likes,
+          COALESCE(MAX(IF(wal.user_email = ?, 1, 0)), 0) as has_user_liked
+        FROM weekly_entries e 
+        LEFT JOIN photo_users u ON e.user_email = u.email
+        LEFT JOIN weekly_archive_likes wal ON wal.entry_id = e.id
         WHERE e.topic_id = ? AND e.views_count > 0 AND e.is_active = 1 
+        GROUP BY e.id, e.user_name, e.file_url, e.drive_file_id, e.views_count, e.likes_count, u.club_name
         ORDER BY e.likes_count DESC, e.views_count ASC
       `, [userEmail || '', req.params.topicId]);
 
