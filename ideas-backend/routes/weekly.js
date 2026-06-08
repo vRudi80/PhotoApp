@@ -779,14 +779,22 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
+  // ====================================================================
+  // ⏳ JAVÍTVA: Közelgő csaták lekérése a Csatabíró VALÓDI NEVÉVEL
+  // ====================================================================
   app.get('/api/weekly/upcoming', async (req, res) => {
     try {
-      const [topics] = await pool.query(
-        "SELECT * FROM weekly_topics WHERE start_date > CURRENT_DATE() AND status = 'approved' ORDER BY start_date ASC"
-      );
+      // 👑 JAVÍTVA: Behozzuk a photo_users táblát egy LEFT JOIN-nal, hogy az e-mail helyett a név jelenjen meg!
+      const [topics] = await pool.query(`
+        SELECT t.*, u.name AS master_name 
+        FROM weekly_topics t
+        LEFT JOIN photo_users u ON t.master_email = u.email
+        WHERE t.start_date > CURRENT_DATE() AND t.status = 'approved'
+        ORDER BY t.start_date ASC
+      `);
       res.json(topics);
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      res.status(500).json({ error: 'Hiba a közelgő csaták betöltésekor: ' + err.message });
     }
   });
 
