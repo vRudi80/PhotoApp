@@ -12,6 +12,9 @@ cloudinary.config({
 
 module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   
+  // 🕒 Globális in-memory változó a háttérben futó lezárások ritkításához
+  let lastChallengeProcessTime = 0;
+
   // 📊 JAVÍTVA: MySQL 5.7 kompatibilis, hurokmentesített, szupergyors statisztikai lekérdezés
   async function getUserLikesAndVictories(pool, email) {
     const [likesRows] = await pool.query(`
@@ -171,9 +174,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-  // ====================================================================
-  // ⚙️ JAVÍTVA: Új téma létrehozása borítóképpel és szerzővel
-  // ====================================================================
   app.post('/api/admin/weekly-topics', upload.single('cover'), async (req, res) => {
     const { title, description, startDate, endDate, masterEmail, coverAuthor } = req.body; 
     const file = req.file;
@@ -200,9 +200,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-  // ====================================================================
-  // 🃏 JAVÍTVA: Szerkesztés automatikus régi kép-megsemmisítéssel (Cloudinary)
-  // ====================================================================
   app.put('/api/admin/weekly-topics/:id', upload.single('cover'), async (req, res) => {
     const { id } = req.params;
     const { title, description, startDate, endDate, masterEmail, coverUrl } = req.body; 
@@ -262,29 +259,17 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // ⚔️ INTEGRÁLT VÉGPONT: AKTUÁLIS TÉMA ÉS ARÉNA ADATOK LEKÉRDEZÉSE
+  // ⚔️ JAVÍTVA: TURBÓ FOKOZATÚ, HUROKMENTES CSATATÉR FŐ VÉGPONT
   // ====================================================================
   app.get('/api/weekly/current', async (req, res) => {
     const { userEmail, topicId } = req.query;
     try {
-      await processFinishedChallenges(pool);
-
-      const [allTopics] = await pool.query(`
-        SELECT t.*, u.name AS master_name 
-        FROM weekly_topics t
-        LEFT JOIN photo_users u ON t.master_email = u.email
-        ORDER BY t.id DESC
-      `);
-      
-      const today = new Date();
-      
-      const activeTopics = allTopics.filter(t => {
-          const start = new Date(t.start_date);
-          const end = new Date(t.end_date);
-          start.setHours(0,0,0,0);
-          end.setHours(23,59,59,999);
-          return today >= start && today <= end;
-      });
+      // ⚡ 1. JAVÍTVA: A nehéz lezárási motort levesszük a főszálról! Háttérben fut, nem váratja a júzert.
+      const now = Date.now();
+      if (now - lastChallengeProcessTime > 15 * 60 * 1000) {
+        lastChallengeProcessTime = now;
+        processFinishedChallenges(pool).catch(e => console.error("Háttér feldolgozási hiba:", e)); 
+      }
 
       const power = await getUserVotePower(pool, userEmail);
       const { totalLikes, victories } = await getUserLikesAndVictories(pool, userEmail);
@@ -297,21 +282,29 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       const [referredCheck] = await pool.query('SELECT referred_by FROM photo_users WHERE email = ?', [userEmail]);
       const referredBy = referredCheck[0] ? referredCheck[0].referred_by : null;
 
+      // A) HA A FŐ LISTÁT TÖLTI BE A FRONTEND
       if (!topicId) {
-        const topicsWithStatus = [];
-        for (const t of activeTopics) {
-          const [entry] = await pool.query('SELECT id FROM weekly_entries WHERE topic_id = ? AND user_email = ? AND is_active = 1', [t.id, userEmail]);
-          const isMasterForThisTopic = t.master_email && userEmail && 
-            t.master_email.toLowerCase().trim() === userEmail.toLowerCase().trim();
+        // ⚡ 2. JAVÍTVA: N+1 hurok helyett egyetlen nagyteljesítményű SQL JOIN húzza be a státuszokat!
+        const [activeTopics] = await pool.query(`
+          SELECT t.*, u.name AS master_name,
+            IF(e.id IS NOT NULL, 1, 0) as hasEntered,
+            IF(t.master_email IS NOT NULL AND LOWER(TRIM(t.master_email)) = LOWER(TRIM(?)), 1, 0) as isMaster
+          FROM weekly_topics t
+          LEFT JOIN photo_users u ON t.master_email = u.email
+          LEFT JOIN weekly_entries e ON e.topic_id = t.id AND LOWER(TRIM(e.user_email)) = LOWER(TRIM(?)) AND e.is_active = 1
+          WHERE CURRENT_DATE() BETWEEN t.start_date AND t.end_date AND (t.status = 'approved' OR t.status IS NULL)
+          ORDER BY t.id DESC
+        `, [userEmail || '', userEmail || '']);
 
-          topicsWithStatus.push({ 
-            ...t, 
-            hasEntered: entry.length > 0,
-            isMaster: !!isMasterForThisTopic 
-          });
-        }
+        // Frontend kompatibilis boolean mapping (1/0 -> true/false)
+        const mappedTopics = activeTopics.map(t => ({
+          ...t,
+          hasEntered: t.hasEntered === 1,
+          isMaster: t.isMaster === 1
+        }));
+
         return res.json({ 
-          activeTopics: topicsWithStatus, 
+          activeTopics: mappedTopics, 
           userTotalLikes, 
           userVictories: victories, 
           userPower: power, 
@@ -323,7 +316,15 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         });
       }
 
-      const currentTopic = activeTopics.find(t => t.id === Number(topicId)) || allTopics.find(t => t.id === Number(topicId));
+      // B) HA EGY SPECIFIKUS CSATA ARÉNÁJÁBA LÉPÜNK BE
+      const [allTopics] = await pool.query(`
+        SELECT t.*, u.name AS master_name 
+        FROM weekly_topics t
+        LEFT JOIN photo_users u ON t.master_email = u.email
+        WHERE t.id = ?
+      `, [topicId]);
+      
+      const currentTopic = allTopics[0];
       if (!currentTopic) return res.status(404).json({ error: 'Ez a kihívás nem található vagy már lezárult!' });
 
       const isMasterUser = currentTopic.master_email && userEmail && 
@@ -403,9 +404,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-  // ====================================================================
-  // 🖼️ VÉGLEG JAVÍTVA: Tűpontos, Joker-Cserét és Kiesést Kezelő Album API
-  // ====================================================================
   app.get('/api/weekly/my-album', async (req, res) => {
     const { userEmail } = req.query;
     if (!userEmail) return res.status(400).json({ error: 'Hiányzó e-mail cím!' });
@@ -471,9 +469,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
   
-  // ====================================================================
-  // 🖼️ ÁTNEVEZVE: `/api/weekly/my-album/upload`
-  // ====================================================================
   app.post('/api/weekly/my-album/upload', upload.single('photo'), async (req, res) => {
     const { userEmail } = req.body;
     const file = req.file;
@@ -515,9 +510,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-  // ====================================================================
-  // 🚀 ÚJ NEVEZÉS VÉGPONT
-  // ====================================================================
   app.post('/api/weekly/upload', upload.single('photo'), async (req, res) => {
     const { topicId, userEmail, userName } = req.body;
     const file = req.file;
@@ -550,9 +542,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { if (file && fs.existsSync(file.path)) fs.unlinkSync(file.path); res.status(500).json({ error: err.message }); }
   });
 
-  // ====================================================================
-  // 🃏 JOKER CSERE VÉGPONT
-  // ====================================================================
   app.post('/api/weekly/swap', upload.single('photo'), async (req, res) => {
     const { topicId, userEmail, userName } = req.body;
     const file = req.file;
@@ -592,9 +581,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { await conn.rollback(); if (file && fs.existsSync(file.path)) fs.unlinkSync(file.path); res.status(500).json({ error: err.message }); } finally { conn.release(); }
   });
 
-  // ====================================================================
-  // 🃏 JOKER CSERE MEGLÉVŐ ALBUMKÉPPEL
-  // ====================================================================
   app.post('/api/weekly/swap-existing', async (req, res) => {
     const { topicId, userEmail, userName, fileUrl } = req.body;
     if (!topicId || !userEmail || !fileUrl) return res.status(400).json({ error: 'Hiányzó adatok!' });
@@ -636,9 +622,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
   
-  // ====================================================================
-  // 🛡️ NEVEZÉS MEGLÉVŐ ALBUMKÉPPEL
-  // ====================================================================
   app.post('/api/weekly/upload-existing', async (req, res) => {
     const { topicId, userEmail, userName, fileUrl } = req.body;
     if (!topicId || !userEmail || !fileUrl) return res.status(400).json({ error: 'Hiányzó adatok!' });
@@ -794,9 +777,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-  // ====================================================================
-  // ⏳ JAVÍTVA: A nyilvános "Hamarosan" lista CSAK az elfogadott csatákat adhatja ki!
-  // ====================================================================
   app.get('/api/weekly/upcoming', async (req, res) => {
     try {
       const [topics] = await pool.query(
@@ -814,18 +794,17 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         SELECT t.*, u.name AS master_name 
         FROM weekly_topics t
         LEFT JOIN photo_users u ON t.master_email = u.email
-        WHERE t.end_date < CURRENT_DATE() 
+        WHERE t.end_date < CURRENT_DATE() AND t.status = 'approved'
         ORDER BY t.end_date DESC
       `); 
       res.json(rows); 
     } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
- 
   app.get('/api/weekly/my-stats', async (req, res) => {
     const { userEmail } = req.query;
     try {
-      const [pastTopics] = await pool.query('SELECT * FROM weekly_topics WHERE end_date < CURRENT_DATE() ORDER BY end_date DESC');
+      const [pastTopics] = await pool.query("SELECT * FROM weekly_topics WHERE end_date < CURRENT_DATE() AND status = 'approved' ORDER BY end_date DESC");
       let podiums = { first: 0, second: 0, third: 0 };
       let history = [];
 
@@ -860,7 +839,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // 🚨 GYANÚS TEVÉKENYSÉGEK DETEKTÁLÁSA (JAVÍTVA: MIDDLE BY -> HAVING)
+  // 🚨 GYANÚS TEVÉKENYSÉGEK DETEKTÁLÁSA (👑 JAVÍTVA: MIDDLE BY -> HAVING)
   // ====================================================================
   app.get('/api/admin/weekly/suspicious', async (req, res) => {
     try {
@@ -875,7 +854,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         JOIN weekly_topics t ON e.topic_id = t.id
         WHERE e.ip_address IS NOT NULL AND e.ip_address != '127.0.0.1'
         GROUP BY e.topic_id, e.ip_address
-        HAVING COUNT(DISTINCT e.user_email) > 1 -- 👑 JAVÍTVA: Visszaállítva a hivatalos HAVING parancs!
+        HAVING COUNT(DISTINCT e.user_email) > 1
         ORDER BY e.topic_id DESC
       `);
       res.json(rows);
@@ -1100,9 +1079,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (e) { res.status(500).json({ error: e.message }); }
   });
 
-  // ====================================================================
-  // 📜 CSATATERVEZŐ: Új csatajavaslat (Felhőalapú Cloudinary feltöltéssel & Adatbázis-javítással)
-  // ====================================================================
   app.post('/api/weekly/propose', upload.single('cover'), async (req, res) => {
     const { title, description, cover_author, master_name, start_date, end_date, userEmail } = req.body;
     
@@ -1113,19 +1089,15 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     try {
       let coverUrl = null;
 
-      // ⚡ Ha van borítókép, azonnal áttoljuk a Cloudinary-ra, megelőzve az eltűnéseket
       if (req.file) {
         const result = await cloudinary.uploader.upload(req.file.path, {
           folder: 'parbaj_boritokepek',
           width: 1200, height: 600, crop: "limit", quality: "auto:good"
         });
         coverUrl = result.secure_url;
-        
-        // Helyi temp fájl azonnali megsemmisítése
         if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
       }
 
-      // 🛠️ Tűpontos SQL mapping: master_name értéke a tábládban lévő master_email oszlopba kerül!
       await pool.query(
         `INSERT INTO weekly_topics 
          (title, description, cover_url, cover_author, master_email, start_date, end_date, status, proposed_by) 
@@ -1141,9 +1113,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
     
-  // ====================================================================
-  // 🛡️ ADMIN: Függőben lévő javaslatok lekérése
-  // ====================================================================
   app.get('/api/admin/proposals', async (req, res) => {
     try {
       const [proposals] = await pool.query(
@@ -1155,9 +1124,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-  // ====================================================================
-  // 🛡️ ADMIN: Csatajavaslat elbírálása (approved / rejected)
-  // ====================================================================
   app.post('/api/admin/decide-proposal', async (req, res) => {
     const { topicId, decision } = req.body; 
     
@@ -1173,8 +1139,9 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // 💬 ARCHÍVUM KIBESZÉLŐ: Kommentek lekérése egy adott képhez
+  // 💬 ESZMECSERE ÉS UTÓLAGOS ELISMERÉSEK KIBESZÉLŐ VÉGPONTJAI
   // ====================================================================
+
   app.get('/api/weekly/archive/comments/:entryId', async (req, res) => {
     const { entryId } = req.params;
     try {
@@ -1188,16 +1155,12 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
- // ====================================================================
-  // 💬 ARCHÍVUM KIBESZÉLŐ: Új komment hozzáfűzése (Bővített hiba-visszajelzéssel)
-  // ====================================================================
   app.post('/api/weekly/archive/comment', async (req, res) => {
     const { entryId, userEmail, userName, commentText } = req.body;
     
-    // 🔍 JAVÍTVA: Ha hiba van, pontosan megmondjuk mi hiányzik!
     if (!entryId || !userEmail || !userName || !commentText?.trim()) {
       return res.status(400).json({ 
-        error: `Hiányzó adatok a kommenthez! kapott entryId: ${entryId}, userEmail: ${userEmail}, userName: ${userName}, szöveg: ${commentText}` 
+        error: `Hiányzó adatok a kommenthez!` 
       });
     }
     try {
@@ -1211,16 +1174,12 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-  // ====================================================================
-  // ❤️ ARCHÍVUM KIBESZÉLŐ: Utólagos lájk (Bővített hiba-visszajelzéssel)
-  // ====================================================================
   app.post('/api/weekly/archive/like-toggle', async (req, res) => {
     const { entryId, userEmail } = req.body;
     
-    // 🔍 JAVÍTVA: Ha hiba van, pontosan megmondjuk mi hiányzik!
     if (!entryId || !userEmail) {
       return res.status(400).json({ 
-        error: `Hiányzó adatok a lájkoláshoz! kapott entryId: ${entryId}, userEmail: ${userEmail}` 
+        error: `Hiányzó adatok a lájkoláshoz!` 
       });
     }
 
@@ -1242,13 +1201,12 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
- // ====================================================================
+  // ====================================================================
   // 👑 ARCHÍVUM TÖRTÉNETI LEKÉRDEZÉS (KONSZOLIDÁLT, LÁJK-TUDATOS VERZIÓ)
   // ====================================================================
   app.get('/api/weekly/history/:topicId', async (req, res) => {
     const { userEmail } = req.query; 
     try {
-      // 🛠️ JAVÍTVA: Beágyazott lekérdezések helyett golyóálló LEFT JOIN + GROUP BY-t használunk!
       const [leaderboard] = await pool.query(`
         SELECT 
           e.id, e.user_name, e.file_url, e.drive_file_id, e.views_count, e.likes_count, u.club_name,
@@ -1278,7 +1236,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       res.json({ leaderboard, clubLeaderboard });
     } catch (err) { res.status(500).json({ error: 'Hiba: ' + err.message }); }
   });
-  
+    
   app.post('/api/weekly/report-off-topic', async (req, res) => {
     const { entryId, userEmail } = req.body;
     try {
