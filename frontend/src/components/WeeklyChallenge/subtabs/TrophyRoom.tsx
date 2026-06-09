@@ -18,13 +18,15 @@ interface TrophyRoomProps {
   getLevelDetails: (likes: number, victories: number) => { name: string; color: string; bg: string };
   getTopicType: (start: string, end: string) => 'daily' | 'weekly';
   handleImageError: (e: React.SyntheticEvent<HTMLImageElement, Event>) => void;
+  premiumUntil?: string | null; // 👑 ÚJ PROP: Az ajándék prémium követéséhez
 }
 
 export default function TrophyRoom({
   isLoadingStats, myStats, userTotalLikes, userVictories, swapBalance,
   myReferralCode, referredBy, referralInput, setReferralInput,
   isClaimingReferral, handleClaimReferral, setActiveShareData, setFullscreenData,
-  getLevelDetails, getTopicType, handleImageError
+  getLevelDetails, getTopicType, handleImageError,
+  premiumUntil // 👑 Beemelve a destruktúrálásba
 }: TrophyRoomProps) {
 
   if (isLoadingStats && (!myStats || myStats.history.length === 0)) {
@@ -89,10 +91,13 @@ export default function TrophyRoom({
     });
   }
 
+  // 👑 PRÉMIUM IDŐZÍTŐ VALIDÁLÁS
+  const isPremiumActive = premiumUntil && new Date(premiumUntil) > new Date();
+
   return (
     <div style={{ animation: 'fadeIn 0.5s ease-in-out' }}>
       {/* Szint progressziós banner */}
-      <div style={{ background: 'linear-gradient(180deg, #1e293b, #0f172a)', padding: '40px 25px', borderRadius: '24px', border: `1px solid ${currentLevel.color}50`, marginBottom: '40px', textAlign: 'center', boxShadow: `0 10px 40px -10px ${currentLevel.color}40`, position: 'relative', overflow: 'hidden' }}>
+      <div style={{ background: 'linear-gradient(180deg, #1e293b, #0f172a)', padding: '40px 25px', borderRadius: '24px', border: `1px solid ${currentLevel.color}50`, marginBottom: '25px', textAlign: 'center', boxShadow: `0 10px 40px -10px ${currentLevel.color}40`, position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', top: '-50px', left: '50%', transform: 'translateX(-50%)', width: '300px', height: '300px', background: `${currentLevel.color}20`, filter: 'blur(80px)', borderRadius: '50%' }}></div>
         <h3 style={{ color: '#94a3b8', margin: '0 0 10px 0', fontSize: '1rem', textTransform: 'uppercase', letterSpacing: '3px', position: 'relative', zIndex: 1 }}>Jelenlegi Státuszod</h3>
         <h1 style={{ color: currentLevel.color, margin: '0 0 20px 0', fontSize: '3.5rem', fontWeight: '900', textShadow: `0 0 20px ${currentLevel.color}60`, position: 'relative', zIndex: 1 }}>{currentLevel.name}</h1>
@@ -106,11 +111,24 @@ export default function TrophyRoom({
         </div>
       </div>
 
+      {/* 💎 💎 ÚJ: JÁTÉKBAN NYERT PRÉMIUM JUTALOM ÁLLAPOTJELZŐ BANNER */}
+      {isPremiumActive && (
+        <div style={{ background: 'linear-gradient(90deg, #10b98115, #0f172a)', border: '1px solid #10b98140', borderLeft: '5px solid #10b981', padding: '18px 25px', borderRadius: '16px', marginBottom: '40px', display: 'flex', alignItems: 'center', gap: '15px', boxShadow: '0 0 30px rgba(16,185,129,0.05)' }}>
+          <div style={{ fontSize: '2rem' }}>💎</div>
+          <div>
+            <div style={{ color: '#4ade80', fontWeight: '900', fontSize: '1.1rem', marginBottom: '3px' }}>Aktív Győzelmi Prémium Tagság!</div>
+            <div style={{ color: '#94a3b8', fontSize: '0.85rem' }}>
+              Az Aréna bajnokaként a korlátlan prémium kiváltságaid biztosítva vannak egészen eddig: <strong style={{ color: '#f8fafc' }}>{new Date(premiumUntil!).toLocaleDateString('hu-HU', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</strong> (Nem igényel bankkártyát).
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Stat rács szétválasztott Trófeákkal */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '20px', marginBottom: '40px' }}>
         <div style={{ background: '#0f172a', padding: '25px', borderRadius: '20px', textAlign: 'center', border: '1px solid #334155', boxShadow: '0 10px 20px rgba(0,0,0,0.2)' }}>
           <div style={{ fontSize: '2.5rem', fontWeight: '900', color: '#f97316', marginBottom: '5px' }}>{userTotalLikes}</div>
-          <div style={{ color: '#94a3b8', fontSize: '#0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Összes Szerzett Pont</div>
+          <div style={{ color: '#94a3b8', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Összes Szerzett Pont</div>
         </div>
         {/* 🥇 ARÉNA GYŐZELMEK BOX */}
         <div style={{ background: '#0f172a', padding: '25px', borderRadius: '20px', textAlign: 'center', border: '1px solid #fbbf24', boxShadow: '0 10px 20px rgba(251,191,36,0.1)' }}>
@@ -122,7 +140,7 @@ export default function TrophyRoom({
           <div style={{ fontSize: '2.5rem', fontWeight: '900', color: '#cbd5e1', marginBottom: '5px' }}>{podiumCount} db</div>
           <div style={{ color: '#cbd5e1', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Dobogós (2-3. hely)</div>
         </div>
-        <div style={{ background: '#0f172a', padding: '25px', borderRadius: '20px', textAlign: 'center', border: '1px solid #be123c', boxShadow: '0 10px 20px rgba(190,18,60,0.1)' }}>
+        <div style={{ background: '#0f172a', padding: '25px', borderRadius: '20px', textAlign: 'center', border: '1px solid #fb7185', boxShadow: '0 10px 20px rgba(190,18,60,0.1)' }}>
           <div style={{ fontSize: '2.5rem', fontWeight: '900', color: '#fb7185', marginBottom: '5px' }}>{swapBalance} db</div>
           <div style={{ color: '#fb7185', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Elkölthető Joker Csere</div>
         </div>
@@ -187,7 +205,7 @@ export default function TrophyRoom({
             </div>
           ) : (
             <div style={{ background: '#10b98110', border: '1px solid #10b98130', padding: '12px', borderRadius: '12px', color: '#10b981', fontSize: '0.9rem', fontWeight: 'bold', textAlign: 'center' }}>
-              ✓ Sikeresen rögzítetted a meghívásodat! Köszönjük.
+              \u2713 Sikeresen rögzítetted a meghívásodat! Köszönjük.
             </div>
           )}
         </div>
@@ -209,7 +227,6 @@ export default function TrophyRoom({
             const percentile = (Number(entry?.rank) || 1) / totalEntries;
             const rank = Number(entry?.rank) || 0;
             
-            // 🥇 JAVÍTVA: Exkluzív és tűpontos badge generátor
             let badge = ''; let badgeColor = '#334155';
             if (rank === 1) { badge = '🥇 1. Hely'; badgeColor = '#fbbf24'; }
             else if (rank <= 3) { badge = '🏆 Dobogós (2-3.)'; badgeColor = '#cbd5e1'; }
@@ -219,11 +236,10 @@ export default function TrophyRoom({
             const isDaily = getTopicType(entry?.start_date, entry?.end_date) === 'daily';
 
             return (
-              <div key={idx} style={{ background: '#1e293b', borderRadius: '20px', overflow: 'hidden', border: `1px solid ${badgeColor}`, transition: 'transform 0.2s', boxShadow: '0 10px 20px rgba(0,0,0,0.3)', display: 'flex', flexDirection: 'column' }}>
+              <div key={idx} style={{ background: '#1e293b', borderRadius: '20px', overflow: 'hidden', border: `1px solid ${badgeColor}`, transition: 'transform 0.2s', boxShadow: '0 10px 20px rgba(0,0,0,0.3)', display: 'flex', flexDirection: 'column' }} onMouseOver={e => e.currentTarget.style.transform = 'translateY(-3px)'} onMouseOut={e => e.currentTarget.style.transform = 'none'}>
                 <div style={{ position: 'relative', height: '220px' }}>
                   <img src={getImageUrl(entry?.drive_file_id, entry?.file_url)} alt="Pályamű" style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'zoom-in' }} onClick={() => setFullscreenData({url: getImageUrl(entry?.drive_file_id, entry?.file_url), title: entry?.topic_title || ''})} onError={handleImageError} />
                   
-                  {/* JAVÍTVA: Kontrasztos szövegszín arany és ezüst esetén */}
                   <div style={{ position: 'absolute', top: '15px', left: '15px', background: badgeColor, color: badgeColor === '#fbbf24' || badgeColor === '#cbd5e1' ? 'black' : 'white', padding: '6px 16px', borderRadius: '100px', fontWeight: '900', fontSize: '0.9rem' }}>
                     {badge || `${entry?.rank}. Hely`}
                   </div>
