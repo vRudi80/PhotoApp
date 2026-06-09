@@ -874,6 +874,22 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       res.status(500).json({ error: 'Hiba a lekérdezés során: ' + err.message });
     }
   });
+
+  // ====================================================================
+  // 🟢 ADMIN: Gyanús IP-ről érkező nevezés elfogadása (Fehérlistázás)
+  // ====================================================================
+  app.post('/api/admin/weekly/approve-ip', async (req, res) => {
+    const { topicId, userEmail } = req.body;
+    try {
+      await pool.query(
+        'UPDATE weekly_entries SET ip_approved = 1 WHERE topic_id = ? AND user_email = ?',
+        [topicId, userEmail]
+      );
+      res.json({ success: true, message: 'Felhasználó nevezése sikeresen elfogadva, IP konfliktus feloldva.' });
+    } catch (err) {
+      res.status(500).json({ error: 'Hiba az elfogadás során: ' + err.message });
+    }
+  });
   
   app.delete('/api/admin/weekly/disqualify', async (req, res) => {
     const { topicId, userEmail } = req.query;
