@@ -47,6 +47,13 @@ const compressImageOnClient = (file: File): Promise<File> => {
   });
 };
 
+const formatDateTimeLocal = (dateStr: string) => {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  const tzOffset = d.getTimezoneOffset() * 60000;
+  return new Date(d.getTime() - tzOffset).toISOString().slice(0, 16);
+};
+
 export default function AdminWeeklyView() {
   const [topics, setTopics] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]); 
@@ -165,8 +172,8 @@ export default function AdminWeeklyView() {
     setEditId(t.id);
     setTitle(t.title);
     setDesc(t.description || '');
-    setStartDate(t.start_date ? t.start_date.split('T')[0] : '');
-    setEndDate(t.end_date ? t.end_date.split('T')[0] : '');
+    setStartDate(t.start_date ? formatDateTimeLocal(t.start_date) : '');
+    setEndDate(t.end_date ? formatDateTimeLocal(t.end_date) : '');
     setMasterEmail(t.master_email || ''); 
     setCoverUrl(t.cover_url || '');
     setCoverAuthor(t.cover_author || '');
@@ -218,18 +225,18 @@ export default function AdminWeeklyView() {
   };
 
   // 🛡️ JAVÍTVA: Most már figyeli a status mezőt is, így nem keveri össze a javaslatokat a beütemezett csatákkal!
-  const getTopicStatus = (statusStr: string, sDateStr: string, eDateStr: string) => {
-    if (statusStr === 'pending') return { label: 'BÍRÁLATRA VÁR ⏳', color: '#eab308', bg: '#eab30810' };
-    if (statusStr === 'rejected') return { label: 'ELUTASÍTVA ❌', color: '#ef4444', bg: '#ef444410' };
+ const getTopicStatus = (statusStr: string, sDateStr: string, eDateStr: string) => {
+  if (statusStr === 'pending') return { label: 'BÍRÁLATRA VÁR ⏳', color: '#eab308', bg: '#eab30810' };
+  if (statusStr === 'rejected') return { label: 'ELUTASÍTVA ❌', color: '#ef4444', bg: '#ef444410' };
 
-    const today = new Date(); today.setHours(0,0,0,0);
-    const start = new Date(sDateStr); start.setHours(0,0,0,0);
-    const end = new Date(eDateStr); end.setHours(23,59,59,999);
-    
-    if (today > end) return { label: 'LEZÁRULT 📜', color: '#94a3b8', bg: 'transparent' };
-    if (today < start) return { label: 'BEÜTEMEZETT 📅', color: '#38bdf8', bg: '#38bdf810' };
-    return { label: 'ÉLŐ CSATA ⚔️', color: '#10b981', bg: '#10b98110' };
-  };
+  const today = new Date();
+  const start = new Date(sDateStr);
+  const end = new Date(eDateStr);
+  
+  if (today > end) return { label: 'LEZÁRULT 📜', color: '#94a3b8', bg: 'transparent' };
+  if (today < start) return { label: 'BEÜTEMEZETT 📅', color: '#38bdf8', bg: '#38bdf810' };
+  return { label: 'ÉLŐ CSATA ⚔️', color: '#10b981', bg: '#10b98110' };
+};
 
   return (
     <div>
@@ -352,17 +359,16 @@ export default function AdminWeeklyView() {
           )}
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginBottom: '15px' }}>
-          <div>
-            <label style={{fontSize:'0.8rem', color:'#94a3b8', fontWeight: 'bold'}}>Hadművelet Kezdete</label>
-            <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} style={inputStyle} />
-          </div>
-          <div>
-            <label style={{fontSize:'0.8rem', color:'#94a3b8', fontWeight: 'bold'}}>Hadművelet Vége</label>
-            <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} style={inputStyle} />
-          </div>
-        </div>
-
+       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginBottom: '15px' }}>
+  <div>
+    <label style={{fontSize:'0.8rem', color:'#94a3b8', fontWeight: 'bold'}}>Hadművelet Kezdete (Óra/Perc is)</label>
+    <input type="datetime-local" value={startDate} onChange={e => setStartDate(e.target.value)} style={inputStyle} />
+  </div>
+  <div>
+    <label style={{fontSize:'0.8rem', color:'#94a3b8', fontWeight: 'bold'}}>Hadművelet Vége (Óra/Perc is)</label>
+    <input type="datetime-local" value={endDate} onChange={e => setEndDate(e.target.value)} style={inputStyle} />
+  </div>
+</div>
         <button onClick={handleSave} style={{ background: '#10b981', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', width: '100%', fontSize: '1rem' }}>
           {editId ? 'Változtatások Mentése és Élesítés' : 'Csataterv Mentése'}
         </button>
@@ -393,11 +399,11 @@ export default function AdminWeeklyView() {
                     {status.label}
                   </span>
                 </div>
-                <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: '5px' }}>
-                  {new Date(t.start_date).toLocaleDateString('hu-HU')} - {new Date(t.end_date).toLocaleDateString('hu-HU')}
-                  {t.cover_author && <span style={{color: '#38bdf8'}}> • 📸 {t.cover_author}</span>}
-                  {t.proposed_by && <span style={{color: '#f59e0b', fontWeight: 'bold'}}> • 📜 Beküldte: {t.proposed_by}</span>}
-                </div>
+                  <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: '5px' }}>
+                    {new Date(t.start_date).toLocaleString('hu-HU', { dateStyle: 'short', timeStyle: 'short' })} - {new Date(t.end_date).toLocaleString('hu-HU', { dateStyle: 'short', timeStyle: 'short' })}
+                    {t.cover_author && <span style={{color: '#38bdf8'}}> • 📸 {t.cover_author}</span>}
+                    {t.proposed_by && <span style={{color: '#f59e0b', fontWeight: 'bold'}}> • 📜 Beküldte: {t.proposed_by}</span>}
+                  </div>
                 {t.master_email && (
                   <div style={{ fontSize: '0.8rem', color: '#a78bfa', marginTop: '4px', fontWeight: 'bold' }}>
                     👑 Csatabíró: {t.master_email}
