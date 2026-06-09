@@ -46,7 +46,7 @@ export default function HelpModal({ isOpen, onClose, currentLevel }: HelpModalPr
             </p>
             <ul style={{ color: '#f8fafc', fontSize: '0.9rem', margin: '10px 0 0 0', paddingLeft: '20px', lineHeight: '1.8' }}>
               {/* 👑 FRISSÍTVE: A dicsőséges 1. hely prémium jutalmának feltüntetése */}
-              <li>🥇 <b>1. Helyezett (Győztes):</b> <span style={{ color: '#fbbf24', fontWeight: 'bold' }}>+3 db</span> globális Joker csere <span style={{ color: '#4ade80', fontWeight: '900' }}>+ 1 HÉT TELJES PRÉMIUM ELŐFIZETÉS</span> teljesen ingyen, kártyaadatok nélkül!</li>
+              <li>🥇 <b>1. Helyezett (Győztes):</b> <span style={{ color: '#fbbf24', fontWeight: 'bold' }}>+3 db</span> globális Joker csere <span style={{ color: '#4ade80', fontWeight: '900' }}>+ 1 HÉT ALAP PRÉMIUM ELŐFIZETÉS</span> teljesen ingyen, kártyaadatok nélkül!</li>
               <li>🥈 <b>2. Helyezett:</b> <span style={{ color: '#cbd5e1', fontWeight: 'bold' }}>+2 db</span> profil szintű Joker csere</li>
               <li>🥉 <b>3. Helyezett:</b> <span style={{ color: '#cd7f32', fontWeight: 'bold' }}>+1 db</span> profil szintű Joker csere</li>
             </ul>
