@@ -49,9 +49,10 @@ const compressImageOnClient = (file: File): Promise<File> => {
 
 const formatDateTimeLocal = (dateStr: string) => {
   if (!dateStr) return '';
-  const d = new Date(dateStr);
-  const tzOffset = d.getTimezoneOffset() * 60000;
-  return new Date(d.getTime() - tzOffset).toISOString().slice(0, 16);
+  // 🎯 TISZTA SZÖVEGES MEGOLDÁS: Teljesen kikapcsoljuk az időzóna-értelmezést
+  // Ha szóköz van benne, lecseréljük 'T'-re, és levágjuk az első 16 karaktert (ÉÉÉÉ-HH-NNTHH:MM)
+  // Így a "2026-06-09 19:00:00" vagy "2026-06-09T19:00:00.000Z" -> fixen "2026-06-09T19:00" lesz.
+  return dateStr.replace(' ', 'T').slice(0, 16);
 };
 
 export default function AdminWeeklyView() {
