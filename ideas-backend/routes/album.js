@@ -2,6 +2,79 @@ const fs = require('fs');
 
 module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, checkPremium) {
   
+  // 🛡️ ÚJ REJTETT FÉKRENDSZER: Tárhely limit ellenőrző függvény (Az image_4ed904.png csomagjai alapján)
+  async function checkStorageLimit(pool, email, incomingFileBytes, currentPhotoIdToExclude = null) {
+    // 1. Lekérjük a felhasználó prémium és Stripe adatait
+    const [userRows] = await pool.query(
+      'SELECT is_premium, premium_until, premium_tier, stripe_status FROM photo_users WHERE email = ?', 
+      [email]
+    );
+    if (userRows.length === 0) return { allowed: false, error: 'Felhasználó nem található!' };
+
+    const user = userRows[0];
+    const now = new Date();
+    // Prémium, ha aktív a Stripe-ja VAGY az adatbázis naptára szerint még él az ajándék ideje
+    const isPremium = user.is_premium === 1 || user.stripe_status === 'active' || (user.premium_until && new Date(user.premium_until) > now);
+    
+    // 2. Korlátok kiszámítása (Ingyenes: 100 MB / Alap: 1 GB / Pro: 5 GB)
+    let limitBytes = 100 * 1024 * 1024; // Ingyenes alapcsomag: 100 MB (Szabadon módosíthatod)
+    
+    if (isPremium) {
+      if (user.premium_tier === 'pro' || user.premium_tier === 2 || String(user.premium_tier).toLowerCase() === 'pro') {
+        limitBytes = 5 * 1024 * 1024 * 1024; // Pro Prémium: 5 GB
+      } else {
+        limitBytes = 1 * 1024 * 1024 * 1024; // Alap Prémium: 1 GB
+      }
+    }
+
+    // 3. Összeszámoljuk az eddigi tárhelyfoglalást mind a 3 táblából (Kivéve az épp frissítés alatt álló képet, ha van)
+    let query = '';
+    let queryParams = [];
+
+    if (currentPhotoIdToExclude) {
+      query = `
+        SELECT COALESCE(SUM(GREATEST(file_size, 0)), 0) as total_bytes
+        FROM (
+          SELECT user_email, file_size FROM photo_portfolio WHERE id != ?
+          UNION ALL
+          SELECT user_email, file_size FROM photo_entries
+          UNION ALL
+          SELECT user_email, file_size FROM photo_homework_entries
+        ) as all_photos
+        WHERE user_email = ?
+      `;
+      queryParams = [currentPhotoIdToExclude, email];
+    } else {
+      query = `
+        SELECT COALESCE(SUM(GREATEST(file_size, 0)), 0) as total_bytes
+        FROM (
+          SELECT user_email, file_size FROM photo_portfolio
+          UNION ALL
+          SELECT user_email, file_size FROM photo_entries
+          UNION ALL
+          SELECT user_email, file_size FROM photo_homework_entries
+        ) as all_photos
+        WHERE user_email = ?
+      `;
+      queryParams = [email];
+    }
+
+    const [storageRows] = await pool.query(query, queryParams);
+    const currentBytes = Number(storageRows[0].total_bytes) || 0;
+
+    // 4. Ha az új fájllal túllépné a keretet, blokkoljuk a folyamatot
+    if (currentBytes + incomingFileBytes > limitBytes) {
+      const limitText = limitBytes >= 1024*1024*1024 ? `${limitBytes / (1024*1024*1024)} GB` : `${limitBytes / (1024*1024)} MB`;
+      const currentMB = (currentBytes / (1024 * 1024)).toFixed(2);
+      return { 
+        allowed: false, 
+        error: `❌ Tárhely megtelt! A csomagod korlátja ${limitText}. Jelenleg elhasznált: ${currentMB} MB. Kérjük, szabadíts fel helyet a galériádban, vagy válts nagyobb csomagra!` 
+      };
+    }
+
+    return { allowed: true };
+  }
+
   // ====================================================================
   // 1. KÉPEK ALAPADATAINAK LEKÉRÉSE
   // ====================================================================
@@ -51,7 +124,7 @@ module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, chec
   });
 
   // ====================================================================
-  // 2. KÉP FELTÖLTÉSE AZ ALBUMBA
+  // 2. KÉP FELTÖLTÉSE AZ ALBUMBA (Javítva: Aktív tárhely-korlátozással!)
   // ====================================================================
   app.post('/api/my-album/upload', upload.single('photo'), checkPremium, async (req, res) => {
     const file = req.file;
@@ -59,6 +132,15 @@ module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, chec
 
     try {
       const { userEmail, userName, title } = req.body;
+
+      // 🛡️ SOROMPÓ: Megnézzük, van-e elég helye még a Google Drive terhelése előtt!
+      const incomingBytes = file.size || 0;
+      const storageCheck = await checkStorageLimit(pool, userEmail, incomingBytes);
+      if (!storageCheck.allowed) {
+        cleanupTempFile(file);
+        return res.status(400).json({ error: storageCheck.error });
+      }
+
       const safeUserName = userName || 'Fotós';
       const safeTitle = title || 'Cím nélkül';
 
@@ -92,7 +174,7 @@ module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, chec
   });
 
   // ====================================================================
-  // 3. KÉP SZERKESZTÉSE (CÍM VAGY FÁJL MÓDOSÍTÁSA)
+  // 3. KÉP SZERKESZTÉSE (Javítva: Tárhely-korrekciós számítással!)
   // ====================================================================
   app.put('/api/my-album/:id', upload.single('photo'), checkPremium, async (req, res) => {
     const file = req.file;
@@ -105,6 +187,14 @@ module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, chec
       }
       
       if (file) {
+        // 🛡️ SOROMPÓ: Mivel új fájlt tölt fel a régi helyére, az ellenőrzésnél kivonjuk a régi kép méretét!
+        const incomingBytes = file.size || 0;
+        const storageCheck = await checkStorageLimit(pool, userEmail, incomingBytes, req.params.id);
+        if (!storageCheck.allowed) {
+          cleanupTempFile(file);
+          return res.status(400).json({ error: storageCheck.error });
+        }
+
         if (rows[0].drive_file_id) await drive.files.delete({ fileId: rows[0].drive_file_id }).catch(e => console.log('Régi kép törlése a Drive-ról sikertelen:', e.message));
         
         const fileStream = fs.createReadStream(file.path);
@@ -194,7 +284,7 @@ module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, chec
   KIZÁRÓLAG egy érvényes JSON objektumot adj vissza!
   A JSON pontos struktúrája ez legyen:
   {
-    "evaluation": "Ide írj egy 2-3 mondatos magyar nyelvű, professzionális, őszinte zsűri értékelést. Térj ki a kompozícióra, fényekre, és a kategóriára. Ne használj idézőjeleket ezen a szövegen belül!",
+    "evaluation": "Ide írj egy 2-3 mondatos magyar nyelvű, professzionális, őszinte zsűri értékelést. Térj ki a kompozícióra, fényekre, és a kategóriára. Ne használj idézőjeleket ezen a szövegen binnen!",
     "tags": "ide jöjjön 6-8 angol kulcsszó vesszővel elválasztva (pl: monochrome, portrait)"
   }`;
       
