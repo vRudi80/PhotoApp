@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BACKEND_URL } from '../../utils/constants';
+import { BACKEND_URL } from '../../../utils/constants';
 
 // 👑 KÉPKEZELŐ BIZTONSÁGI MENTÉS (Ha a borítókép nem található)
 const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
