@@ -102,6 +102,41 @@ export default function AdminSalonsView({
     setSalonPatronNumbers({}); setAiDetectedCats('');
   };
 
+  // 🌐 PÓTOLVA: Automatizált FIAP kereső / kaparó motor
+  const handleScrapeFiap = async () => {
+    setIsScraping(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/admin/scrape-fiap`); // Igény szerint módosítsd a te pontos végpontodra
+      if (res.ok) {
+        const data = await res.json();
+        setScrapedSalons(data);
+        alert(`✓ A robot sikeresen végzett! ${data.length} új szalont talált.`);
+      } else {
+        alert("Nem sikerült lekérni az adatokat a myfiap.net-ről.");
+      }
+    } catch (e) {
+      alert("Hálózati hiba a robot futtatása közben!");
+    } finally {
+      setIsScraping(false);
+    }
+  };
+
+  // 🗑️ PÓTOLVA: Biztonsági törlés végpont-összeköttetéssel
+  const handleDeleteSalon = async (id: number) => {
+    if (!window.confirm("Biztosan véglegesen törölni szeretnéd ezt a szalont?")) return;
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/salons/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        alert("Szalon sikeresen törölve a jegyzékből!");
+        fetchData();
+      } else {
+        alert("Hiba történt a törlés során.");
+      }
+    } catch (e) {
+      alert("Hálózati hiba lépett fel a törlési kérelem közben!");
+    }
+  };
+
   const startEditSalon = (salon: any) => {
     setEditSalonId(salon.id);
     setSalonName(salon.name || '');
@@ -142,9 +177,6 @@ export default function AdminSalonsView({
     } else { setSalonSelectedPatrons([]); setSalonPatronNumbers({}); }
   };
 
-  // ====================================================================
-  // 💾 JAVÍTVA: INTELLIGENS HIBAKEZELÉS A VALÓDI OKOK KIDERÍTÉSÉHEZ
-  // ====================================================================
   const handleSaveSalon = async () => { 
     if (!salonName || !salonEnd) return alert("A Szalon neve és a záródátum megadása kötelező!"); 
     try { 
@@ -165,7 +197,6 @@ export default function AdminSalonsView({
         clearSalonForm(); 
         fetchData(); 
       } else {
-        // JAVÍTVA: Kiolvassuk a szerver által küldött valódi hibaüzenetet (pl. "Ezzel az azonosítóval már létezik...")
         const errorData = await res.json().catch(() => ({}));
         alert(errorData.error || "Hiba történt a mentés során.");
       }
@@ -290,7 +321,7 @@ export default function AdminSalonsView({
       {/* 🤖 FIAP ROBOT MŰSZERFAL */}
       <div style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', marginBottom: '25px', border: '1px solid #334155', boxShadow: '0 10px 30px rgba(0,0,0,0.2)' }}>
         <h3 style={{ marginTop: 0, color: '#60a5fa', fontSize: '1.4rem', display: 'flex', alignItems: 'center', gap: '8px' }}>🤖 FIAP Robot - Automata betöltés</h3>
-        <p style={{ color: '#94a3b8', fontSize: '0.95rem', marginBottom: '20px', lineHeight: '1.5' }}>A rendszer képes a <b>myfiap.net</b> listájának átvizsgálására, vagy konkrét azonosító alapján AI élő Google-keresésre.</p>
+        <p style={{ color: '#94a3b8', fontSize: '0.95rem', marginBottom: '20px', lineHeight: '1.5' }}>A system képes a <b>myfiap.net</b> listájának átvizsgálására, vagy konkrét azonosító alapján AI élő Google-keresésre.</p>
         
         <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', alignItems: 'flex-end', background: '#0f172a50', padding: '20px', borderRadius: '16px', border: '1px solid #334155' }}>
           
@@ -438,7 +469,8 @@ export default function AdminSalonsView({
             <input placeholder="Azonosító kódok..." value={salonCircuitNum} onChange={e => setSalonCircuitNum(e.target.value)} style={{...inputStyle, marginBottom: 0}} />
           </div>
           <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', color: '#f8fafc', fontWeight: 'bold', marginTop: '5px', fontSize: '0.95rem' }}>
-            <input type="checkbox" checked={salonIsCircuit} onChange={e => setSalonIsCircuit(e.checked)} style={{ width: '18px', height: '18px', accentColor: '#f59e0b' }} />
+            {/* 🎯 JAVÍTVA: e.checked helyett e.target.checked használata */}
+            <input type="checkbox" checked={salonIsCircuit} onChange={e => setSalonIsCircuit(e.target.checked)} style={{ width: '18px', height: '18px', accentColor: '#f59e0b' }} />
             Ez a rendezvény egy Körverseny (Circuit) részét képezi
           </label>
         </div>
