@@ -1237,6 +1237,47 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
+  // 👑 JELENTKEZÉS CSATABÍRÓNAK (FELHASZNÁLÓI OLDAL)
+  // ====================================================================
+  app.post('/api/weekly/apply-master', async (req, res) => {
+    const { topicId, userEmail } = req.body;
+    try {
+      // Ellenőrizzük, nincs-e már elfogadott vagy másik folyamatban lévő bíró
+      const [check] = await pool.query('SELECT master_email, pending_master_email FROM weekly_topics WHERE id = ?', [topicId]);
+      if (!check[0]) return res.status(404).json({ error: 'Ez a csata nem található!' });
+      if (check[0].master_email) return res.status(400).json({ error: 'Ekhöz a csatához már tartozik Csatabíró!' });
+      if (check[0].pending_master_email) return res.status(400).json({ error: 'Valaki már jelentkezett erre a pozícióra, elbírálásra vár!' });
+
+      await pool.query('UPDATE weekly_topics SET pending_master_email = ? WHERE id = ?', [userEmail, topicId]);
+      res.json({ success: true, message: 'Jelentkezés sikeresen regisztrálva, admin jóváhagyásra vár!' });
+    } catch (err) {
+      res.status(500).json({ error: 'Szerveroldali hiba: ' + err.message });
+    }
+  });
+
+  // ====================================================================
+  // 🛠️ ADMINISZTRÁTORI DÖNTÉS A CSATABÍRÓRÓL
+  // ====================================================================
+  app.post('/api/admin/decide-master', async (req, res) => {
+    const { topicId, decision } = req.body; // decision: 'approved' vagy 'rejected'
+    try {
+      if (decision === 'approved') {
+        // Ha elfogadjuk, a pending_master_email átkerül a végleges master_email helyére
+        await pool.query(
+          'UPDATE weekly_topics SET master_email = pending_master_email, pending_master_email = NULL WHERE id = ?',
+          [topicId]
+        );
+      } else {
+        // Ha elutasítjuk, egyszerűen ürítjük a jelentkezőt
+        await pool.query('UPDATE weekly_topics SET pending_master_email = NULL WHERE id = ?', [topicId]);
+      }
+      res.json({ success: true, message: `Bírálat rögzítve: ${decision}` });
+    } catch (err) {
+      res.status(500).json({ error: 'Szerveroldali hiba bírálatkor: ' + err.message });
+    }
+  });
+  
+  // ====================================================================
   // 👑 ARCHÍVUM TÖRTÉNETI LEKÉRDEZÉS (KONSZOLIDÁLT, LÁJK-TUDATOS VERZIÓ)
   // ====================================================================
   app.get('/api/weekly/history/:topicId', async (req, res) => {
