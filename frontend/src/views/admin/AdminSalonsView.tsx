@@ -46,6 +46,9 @@ export default function AdminSalonsView({
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aiDetectedCats, setAiDetectedCats] = useState<string>('');
 
+  // 👑 ÚJ: Inline kategória kreátor állapot
+  const [newCustomCatName, setNewCustomCatName] = useState('');
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -62,7 +65,9 @@ export default function AdminSalonsView({
   );
   const selectedCountryObj = countries.find(c => c.id.toString() === salonCountry);
 
-  const sortedCategories = [...allCategories].sort((a, b) => {
+  // 🛡️ JAVÍTVA: Biztonsági tömb-ellenőrzés, hogy véletlenül se legyen undefined crash
+  const safeCategories = Array.isArray(allCategories) ? allCategories : [];
+  const sortedCategories = [...safeCategories].sort((a, b) => {
     const nameA = a.hun_name || a.name || '';
     const nameB = b.hun_name || b.name || '';
     return nameA.localeCompare(nameB, 'hu'); 
@@ -99,14 +104,13 @@ export default function AdminSalonsView({
     setSalonEnd(''); setSalonWeb(''); setSalonResults(''); setSalonIsCircuit(false); 
     setSalonAwards(''); setSalonCash(''); setSalonCircuitNum(''); setSalonType('online'); 
     setSalonCountry(''); setSalonSelectedPatrons([]); setSalonSelectedCats([]); 
-    setSalonPatronNumbers({}); setAiDetectedCats('');
+    setSalonPatronNumbers({}); setAiDetectedCats(''); setNewCustomCatName('');
   };
 
-  // 🌐 PÓTOLVA: Automatizált FIAP kereső / kaparó motor
   const handleScrapeFiap = async () => {
     setIsScraping(true);
     try {
-      const res = await fetch(`${BACKEND_URL}/api/admin/scrape-fiap`); // Igény szerint módosítsd a te pontos végpontodra
+      const res = await fetch(`${BACKEND_URL}/api/admin/scrape-fiap`); 
       if (res.ok) {
         const data = await res.json();
         setScrapedSalons(data);
@@ -121,7 +125,6 @@ export default function AdminSalonsView({
     }
   };
 
-  // 🗑️ PÓTOLVA: Biztonsági törlés végpont-összeköttetéssel
   const handleDeleteSalon = async (id: number) => {
     if (!window.confirm("Biztosan véglegesen törölni szeretnéd ezt a szalont?")) return;
     try {
@@ -134,6 +137,27 @@ export default function AdminSalonsView({
       }
     } catch (e) {
       alert("Hálózati hiba lépett fel a törlési kérelem közben!");
+    }
+  };
+
+  // 👑 ÚJ INLINE MOTOR: Új kategória létrehozása és azonnali betöltése a listába
+  const handleCreateNewCategoryInline = async () => {
+    if (!newCustomCatName.trim()) return alert("Írj be egy kategória nevet!");
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/categories`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newCustomCatName.trim(), hun_name: newCustomCatName.trim() })
+      });
+      if (res.ok) {
+        alert(`🎉 "${newCustomCatName}" sikeresen hozzáadva a globális listához!`);
+        setNewCustomCatName('');
+        fetchData(); // Újratöltjük a szülő adatait, így frissül az allCategories prop!
+      } else {
+        alert("Nem sikerült menteni a kategóriát.");
+      }
+    } catch (e) {
+      alert("Hálózati hiba a kategória mentésekor.");
     }
   };
 
@@ -160,8 +184,8 @@ export default function AdminSalonsView({
     setSalonAwards(salon.awards_count?.toString() || '');
     setSalonCash(salon.cash_prize || '');
 
-    if (salon.categories && allCategories.length > 0) {
-      const catIds = allCategories.filter((c:any) => salon.categories.includes(c.name) || salon.categories.includes(c.hun_name)).map((c:any) => c.id);
+    if (salon.categories && safeCategories.length > 0) {
+      const catIds = safeCategories.filter((c:any) => salon.categories.includes(c.name) || salon.categories.includes(c.hun_name)).map((c:any) => c.id);
       setSalonSelectedCats(catIds);
     } else setSalonSelectedCats([]);
 
@@ -321,7 +345,7 @@ export default function AdminSalonsView({
       {/* 🤖 FIAP ROBOT MŰSZERFAL */}
       <div style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', marginBottom: '25px', border: '1px solid #334155', boxShadow: '0 10px 30px rgba(0,0,0,0.2)' }}>
         <h3 style={{ marginTop: 0, color: '#60a5fa', fontSize: '1.4rem', display: 'flex', alignItems: 'center', gap: '8px' }}>🤖 FIAP Robot - Automata betöltés</h3>
-        <p style={{ color: '#94a3b8', fontSize: '0.95rem', marginBottom: '20px', lineHeight: '1.5' }}>A system képes a <b>myfiap.net</b> listájának átvizsgálására, vagy konkrét azonosító alapján AI élő Google-keresésre.</p>
+        <p style={{ color: '#94a3b8', fontSize: '0.95rem', marginBottom: '20px', lineHeight: '1.5' }}>A rendszer képes a <b>myfiap.net</b> listájának átvizsgálására, vagy konkrét azonosító alapján AI élő Google-keresésre.</p>
         
         <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', alignItems: 'flex-end', background: '#0f172a50', padding: '20px', borderRadius: '16px', border: '1px solid #334155' }}>
           
@@ -469,7 +493,6 @@ export default function AdminSalonsView({
             <input placeholder="Azonosító kódok..." value={salonCircuitNum} onChange={e => setSalonCircuitNum(e.target.value)} style={{...inputStyle, marginBottom: 0}} />
           </div>
           <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', color: '#f8fafc', fontWeight: 'bold', marginTop: '5px', fontSize: '0.95rem' }}>
-            {/* 🎯 JAVÍTVA: e.checked helyett e.target.checked használata */}
             <input type="checkbox" checked={salonIsCircuit} onChange={e => setSalonIsCircuit(e.target.checked)} style={{ width: '18px', height: '18px', accentColor: '#f59e0b' }} />
             Ez a rendezvény egy Körverseny (Circuit) részét képezi
           </label>
@@ -480,7 +503,7 @@ export default function AdminSalonsView({
           <div style={{flex: '1 1 300px'}}><label style={{fontSize:'0.8rem', color:'#94a3b8', display: 'block', marginBottom: '6px'}}>Pénzjutalom (Különdíjak, ha vannak)</label><input placeholder="pl: 500 EUR a szalon legjobb kollekciójának" value={salonCash} onChange={e => setSalonCash(e.target.value)} style={inputStyle} /></div>
         </div>
 
-        {/* KATEGÓRIÁK TÖBBSZÖRÖS VÁLASZTÓ PILLÉK */}
+        {/* 🎨 KATEGÓRIÁK TÖBBSZÖRÖS VÁLASZTÓ PILLÉK - GOLYÓÁLLÓ FIXÁLÁSSAL */}
         <div style={{ marginBottom: '15px', padding: '20px', background: '#0f172a', borderRadius: '16px', border: '1px solid #334155' }}>
           <label style={{fontSize:'0.9rem', color:'#38bdf8', fontWeight: 'bold', display: 'block', marginBottom: '12px'}}>Indított Szekciók / Kategóriák</label>
           
@@ -490,16 +513,44 @@ export default function AdminSalonsView({
             </div>
           )}
 
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-            {sortedCategories.map(cat => {
-              const isCatSelected = salonSelectedCats.includes(cat.id);
-              return (
-                <label key={cat.id} style={{ display: 'flex', alignItems: 'center', gap: '5px', background: isCatSelected ? '#38bdf820' : 'transparent', color: isCatSelected ? '#38bdf8' : '#94a3b8', padding: '6px 14px', borderRadius: '100px', cursor: 'pointer', border: `1px solid ${isCatSelected ? '#38bdf8' : '#334155'}`, fontWeight: isCatSelected ? 'bold' : 'normal', fontSize: '0.85rem', transition: 'all 0.2s' }}>
-                  <input type="checkbox" checked={isCatSelected} onChange={() => toggleArrayItem(salonSelectedCats, setSalonSelectedCats, cat.id)} style={{ display: 'none' }} />
-                  {isCatSelected ? '✓ ' : ''}{cat.hun_name || cat.name}
-                </label>
-              );
-            })}
+          {/* Ha üres a lista, egy barátságos üzenetet adunk a kongó üresség helyett */}
+          {sortedCategories.length === 0 ? (
+            <div style={{ color: '#64748b', fontSize: '0.85rem', fontStyle: 'italic', marginBottom: '15px' }}>
+              ⚠️ Nincsenek betöltött kategóriák a rendszerben. Hozz létre egyet alább!
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+              {sortedCategories.map(cat => {
+                const isCatSelected = salonSelectedCats.includes(cat.id);
+                return (
+                  <label key={cat.id} style={{ display: 'flex', alignItems: 'center', gap: '5px', background: isCatSelected ? '#38bdf820' : 'transparent', color: isCatSelected ? '#38bdf8' : '#94a3b8', padding: '6px 14px', borderRadius: '100px', cursor: 'pointer', border: `1px solid ${isCatSelected ? '#38bdf8' : '#334155'}`, fontWeight: isCatSelected ? 'bold' : 'normal', fontSize: '0.85rem', transition: 'all 0.2s' }}>
+                    <input type="checkbox" checked={isCatSelected} onChange={() => toggleArrayItem(salonSelectedCats, setSalonSelectedCats, cat.id)} style={{ display: 'none' }} />
+                    {isCatSelected ? '✓ ' : ''}{cat.hun_name || cat.name}
+                  </label>
+                );
+              })}
+            </div>
+          )}
+
+          {/* 👑 ÚJ EXTRA: Inline kategória kreátor gyors gomb */}
+          <div style={{ display: 'flex', gap: '10px', marginTop: '20px', paddingTop: '15px', borderTop: '1px dashed #223147' }}>
+            <input 
+              type="text" 
+              placeholder="Hiányzik egy kategória? Írd be ide és add hozzá azonnal (pl: Természet, Utazás)..." 
+              value={newCustomCatName} 
+              onChange={e => setNewCustomCatName(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleCreateNewCategoryInline(); } }}
+              style={{ flex: 1, padding: '8px 14px', background: '#1e293b', border: '1px dashed #475569', color: 'white', borderRadius: '8px', fontSize: '0.85rem', outline: 'none' }}
+            />
+            <button 
+              type="button"
+              onClick={handleCreateNewCategoryInline}
+              style={{ background: '#38bdf820', color: '#38bdf8', border: '1px solid #38bdf850', padding: '0 16px', borderRadius: '8px', fontWeight: 'bold', fontSize: '0.85rem', cursor: 'pointer', transition: 'all 0.2s' }}
+              onMouseOver={e => e.currentTarget.style.background = '#38bdf840'}
+              onMouseOut={e => e.currentTarget.style.background = '#38bdf820'}
+            >
+              + Új kategória
+            </button>
           </div>
         </div>
 
