@@ -25,7 +25,7 @@ export default function UpcomingChallenges({
   const handleApplyMaster = async (topicId: number) => {
     if (!user?.email) return alert("❌ A jelentkezéshez előbb be kell jelentkezned!");
     
-    const confirmMessage = `⚔️ Biztosan jelentkezel ennek a csatának a Csatabírójának?\n\nFigyelem: Csatabíróként saját fotóval nem indulhatsz a versenyben, viszont kapsz 5 darab exkluzív +10 pontot érő szavazatot!`;
+    const confirmMessage = `⚔️ Biztosan jelentkezel ennek a csatának a Párbajmesterének?\n\nFigyelem: Párbajmesterként saját fotóval nem indulhatsz a versenyben, viszont kapsz 5 darab exkluzív +10 pontot érő szavazatot!`;
     if (!window.confirm(confirmMessage)) return;
 
     setApplyingId(topicId);
@@ -134,7 +134,7 @@ export default function UpcomingChallenges({
                     {/* 👤 JELENLEGI CSATABÍRÓ INFÓ VAGY AKCIÓGOMBOK */}
                     {hasMaster ? (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#a78bfa', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '15px', background: '#a78bfa10', padding: '8px 14px', borderRadius: '10px', border: '1px solid #a78bfa20', width: 'fit-content' }}>
-                        <span>👑 Csatabíró:</span>
+                        <span>👑 Párbajmester:</span>
                         <span style={{ color: '#e9d5ff', fontWeight: 'bold' }}>{t.master_name || t.master_email}</span>
                       </div>
                     ) : t.pending_master_email ? (
@@ -149,7 +149,7 @@ export default function UpcomingChallenges({
                         onMouseOver={e => e.currentTarget.style.background = 'rgba(16, 185, 129, 0.25)'}
                         onMouseOut={e => e.currentTarget.style.background = 'rgba(16, 185, 129, 0.12)'}
                       >
-                        {applyingId === t.id ? 'Feldolgozás...' : '👑 Jelentkezés Csatabírónak'}
+                        {applyingId === t.id ? 'Feldolgozás...' : '👑 Jelentkezés Párbajmesternek'}
                       </button>
                     )}
 
