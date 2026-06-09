@@ -65,6 +65,16 @@ export default function ArenaActiveRoom({
           <h3 style={{ margin: '0 0 10px 0', color: '#f8fafc', fontSize: '1.8rem', textAlign: 'center', zIndex: 1 }}>{topic?.title || 'Kihívás szoba'}</h3>
           <p style={{ margin: '0 0 20px 0', color: '#cbd5e1', fontSize: '0.95rem', textAlign: 'center', zIndex: 1, lineHeight: '1.6' }}>{topic?.description || ''}</p>
           
+          {/* 🏆 🔥 ÚJ: DINAMIKUS CSATATÉR FŐDÍJ BANNER */}
+          <div style={{ width: '100%', background: 'linear-gradient(135deg, rgba(251, 191, 36, 0.1), rgba(16, 185, 129, 0.05))', border: '1px solid rgba(251, 191, 36, 0.3)', padding: '12px 20px', borderRadius: '14px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'center', zIndex: 1, boxShadow: '0 4px 15px rgba(0,0,0,0.2)' }}>
+            <span style={{ fontSize: '1.3rem' }}>🏆</span>
+            <div style={{ textAlign: 'center', fontSize: '0.9rem', lineHeight: '1.4' }}>
+              <span style={{ color: '#fbbf24', fontWeight: 'bold' }}>FŐDÍJ AZ 1. HELYÉRT:</span>{' '}
+              <strong style={{ color: '#4ade80' }}>1 HÉT INGYEN PRÉMIUM</strong>{' '}
+              <span style={{ color: '#cbd5e1' }}>+ 3 db Joker Csere! 💎</span>
+            </div>
+          </div>
+
           <div style={{ background: '#00000080', padding: '15px 30px', borderRadius: '100px', border: '1px solid #ef444450', backdropFilter: 'blur(10px)', zIndex: 1 }}>
             <div style={{ fontSize: '0.75rem', color: '#ef4444', textTransform: 'uppercase', letterSpacing: '2px', textAlign: 'center', marginBottom: '5px' }}>Hátralévő Idő</div>
             <div style={{ color: '#f8fafc', fontSize: '1.5rem', fontWeight: '900', fontFamily: 'monospace', letterSpacing: '1px' }}>{timeLeft || 'Számítás...'}</div>
