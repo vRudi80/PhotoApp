@@ -21,7 +21,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       SELECT COALESCE(SUM(e.likes_count), 0) as total 
       FROM weekly_entries e
       JOIN weekly_topics t ON e.topic_id = t.id
-      WHERE e.user_email = ? AND (e.is_active = 1 OR t.end_date < CURRENT_DATE())
+      WHERE e.user_email = ? AND (e.is_active = 1 OR t.end_date < NOW())
     `, [email]);
     const totalLikes = likesRows[0].total || 0;
 
@@ -30,7 +30,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       FROM weekly_entries e1
       WHERE e1.user_email = ? 
         AND e1.is_active = 1
-        AND e1.topic_id IN (SELECT id FROM weekly_topics WHERE end_date < CURRENT_DATE())
+        AND e1.topic_id IN (SELECT id FROM weekly_topics WHERE end_date < NOW())
         AND e1.id = (
           SELECT e2.id 
           FROM weekly_entries e2
@@ -121,7 +121,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   async function processFinishedChallenges(pool) {
     try {
       const [unfinished] = await pool.query(
-        'SELECT id FROM weekly_topics WHERE end_date < CURRENT_DATE() AND processed = 0'
+        'SELECT id FROM weekly_topics WHERE end_date < NOW() AND processed = 0'
       );
 
       for (const topic of unfinished) {
@@ -312,7 +312,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
           FROM weekly_topics t
           LEFT JOIN photo_users u ON t.master_email = u.email
           LEFT JOIN weekly_entries e ON e.topic_id = t.id AND LOWER(TRIM(e.user_email)) = LOWER(TRIM(?)) AND e.is_active = 1
-          WHERE CURRENT_DATE() BETWEEN t.start_date AND t.end_date AND (t.status = 'approved' OR t.status IS NULL)
+          WHERE NOW() BETWEEN t.start_date AND t.end_date AND (t.status = 'approved' OR t.status IS NULL)
           ORDER BY t.id DESC
         `, [userEmail || '', userEmail || '', userEmail || '', userEmail || '', userEmail || '']);
 
@@ -398,7 +398,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
             e.views_count, 
             e.is_active, 
             t.end_date,
-            IF(t.end_date >= CURRENT_DATE(), 1, 0) AS is_topic_live,
+            IF(t.end_date >= NOW(), 1, 0) AS is_topic_live,
             (
               SELECT COUNT(*) + 1 
               FROM weekly_entries e2 
@@ -789,7 +789,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         SELECT t.*, u.name AS master_name 
         FROM weekly_topics t
         LEFT JOIN photo_users u ON t.master_email = u.email
-        WHERE t.start_date > CURRENT_DATE() AND t.status = 'approved'
+        WHERE t.start_date > Now() AND t.status = 'approved'
         ORDER BY t.start_date ASC
       `);
       res.json(topics);
@@ -804,7 +804,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         SELECT t.*, u.name AS master_name 
         FROM weekly_topics t
         LEFT JOIN photo_users u ON t.master_email = u.email
-        WHERE t.end_date < CURRENT_DATE() AND t.status = 'approved'
+        WHERE t.end_date < NOW() AND t.status = 'approved'
         ORDER BY t.end_date DESC
       `); 
       res.json(rows); 
@@ -814,7 +814,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   app.get('/api/weekly/my-stats', async (req, res) => {
     const { userEmail } = req.query;
     try {
-      const [pastTopics] = await pool.query("SELECT * FROM weekly_topics WHERE end_date < CURRENT_DATE() AND status = 'approved' ORDER BY end_date DESC");
+      const [pastTopics] = await pool.query("SELECT * FROM weekly_topics WHERE end_date < NOW() AND status = 'approved' ORDER BY end_date DESC");
       let podiums = { first: 0, second: 0, third: 0 };
       let history = [];
 
@@ -931,7 +931,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
           u.club_name,
           c.drive_logo_id, 
           c.logo_url,      
-          COALESCE(SUM(IF(e.is_active = 1 OR t.end_date < CURRENT_DATE(), e.likes_count, 0)), 0) as total_likes
+          COALESCE(SUM(IF(e.is_active = 1 OR t.end_date < NOW(), e.likes_count, 0)), 0) as total_likes
         FROM photo_users u
         LEFT JOIN weekly_entries e ON u.email = e.user_email
         LEFT JOIN weekly_topics t ON e.topic_id = t.id
@@ -951,7 +951,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
             u.club_name,
             NULL as drive_logo_id,
             NULL as logo_url,
-            COALESCE(SUM(IF(e.is_active = 1 OR t.end_date < CURRENT_DATE(), e.likes_count, 0)), 0) as total_likes
+            COALESCE(SUM(IF(e.is_active = 1 OR t.end_date < NOW(), e.likes_count, 0)), 0) as total_likes
           FROM photo_users u
           LEFT JOIN weekly_entries e ON u.email = e.user_email
           LEFT JOIN weekly_topics t ON e.topic_id = t.id
