@@ -38,7 +38,7 @@ export default function UpcomingChallenges({
 
       if (res.ok) {
         alert("🎉 Jelentkezésed sikeresen elküldve! A főadmin hamarosan elbírálja a műszerfalon.");
-        window.location.reload(); // Frissítünk, hogy látszódjon a függő státusz
+        window.location.reload(); 
       } else {
         const err = await res.json();
         alert(err.error || "Hiba történt a jelentkezés során.");
@@ -50,12 +50,12 @@ export default function UpcomingChallenges({
     }
   };
 
-  // 🕒 Dátum és időpont formázó (Külön bontja a napot és az órát a szép megjelenítéshez)
+  // 🕒 JAVÍTVA: A timeZone: 'UTC' kényszerítésével kikapcsoljuk a böngésző automata +2 órás eltolását!
   const formatDateTime = (dateString: string) => {
     const d = new Date(dateString);
     return {
-      date: d.toLocaleDateString('hu-HU', { year: 'numeric', month: 'short', day: 'numeric' }),
-      time: d.toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' })
+      date: d.toLocaleDateString('hu-HU', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' }),
+      time: d.toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' })
     };
   };
 
@@ -153,7 +153,7 @@ export default function UpcomingChallenges({
                       </button>
                     )}
 
-                    {/* 🕒 JAVÍTVA: Igényes, óra/perc pontosságú dátumkijelzés */}
+                    {/* 🕒 IDŐZÍTŐ PANEL */}
                     <div style={{ background: '#0f172a', padding: '15px', borderRadius: '12px', border: '1px solid #38bdf840', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span style={{ color: '#64748b', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold' }}>Indulás</span>
