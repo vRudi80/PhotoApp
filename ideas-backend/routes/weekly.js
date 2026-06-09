@@ -15,6 +15,52 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   // 🕒 Globális in-memory változó a háttérben futó lezárások ritkításához
   let lastChallengeProcessTime = 0;
 
+  // 🛡️ ÚJ VÉDELMI VONAL: Tárhely limit ellenőrző függvény (Az image_4ed904.png alapján)
+  async function checkStorageLimit(dbQueryTarget, email, incomingFileBytes) {
+    // 1. Lekérjük a felhasználó prémium adatait
+    const [userRows] = await dbQueryTarget.query(
+      'SELECT is_premium, premium_until, premium_tier FROM photo_users WHERE email = ?', 
+      [email]
+    );
+    if (userRows.length === 0) return { allowed: false, error: 'Felhasználó nem található!' };
+
+    const user = userRows[0];
+    const now = new Date();
+    const isPremium = user.is_premium === 1 || (user.premium_until && new Date(user.premium_until) > now);
+    
+    // 2. Alapértelmezett korlátok beállítása (Ingyenes / Alap / Pro)
+    let limitBytes = 100 * 1024 * 1024; // Ingyenes csomag: 100 MB (Szabadon módosíthatod)
+    
+    if (isPremium) {
+      // 💡 Megjegyzés: Ha a Pro előfizetőknél a 'premium_tier' oszlopba 'pro'-t vagy 2-es számot mentesz:
+      if (user.premium_tier === 'pro' || user.premium_tier === 2 || user.premium_tier === 'Pro') {
+        limitBytes = 5 * 1024 * 1024 * 1024; // Pro Prémium: 5 GB
+      } else {
+        limitBytes = 1 * 1024 * 1024 * 1024; // Alap Prémium: 1 GB
+      }
+    }
+
+    // 3. Összeszámoljuk a felhasználó eddigi tárhelyfoglalását
+    // ⚠️ Figyelem: Ha az adatbázisodban a méret oszlop nem 'file_size', hanem pl. 'bytes', írd át lent!
+    const [storageRows] = await dbQueryTarget.query(
+      'SELECT COALESCE(SUM(file_size), 0) as total_bytes FROM user_photos WHERE user_email = ?', 
+      [email]
+    );
+    const currentBytes = Number(storageRows[0].total_bytes) || 0;
+
+    // 4. Ha az új kép méretével átlépné a korlátot, elutasítjuk
+    if (currentBytes + incomingFileBytes > limitBytes) {
+      const limitText = limitBytes >= 1024*1024*1024 ? `${limitBytes / (1024*1024*1024)} GB` : `${limitBytes / (1024*1024)} MB`;
+      const currentMB = (currentBytes / (1024 * 1024)).toFixed(2);
+      return { 
+        allowed: false, 
+        error: `❌ Tárhely megtelt! A csomagod korlátja ${limitText}. Jelenleg elhasznált: ${currentMB} MB. Kérjük, szabadíts fel helyet vagy válts nagyobb csomagra!` 
+      };
+    }
+
+    return { allowed: true };
+  }
+
   // 📊 JAVÍTVA: MySQL 5.7 kompatibilis, hurokmentesített, szupergyors statisztikai lekérdezés
   async function getUserLikesAndVictories(pool, email) {
     const [likesRows] = await pool.query(`
@@ -108,7 +154,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     return newLevel;
   }
 
-  // 👑 JAVÍTVA: Dinamikus, 12 szintre skálázott szavazati erő számító (✨ Szuper / 🔥 Zseniális)
   async function getUserVotePower(pool, email) {
     const { totalLikes, victories } = await getUserLikesAndVictories(pool, email);
     const level = calculateRankLevel(totalLikes, victories);
@@ -116,7 +161,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   }
 
   // ====================================================================
-  // 🏆 LEZÁRÓ MOTOR (Bővítve az automata Intelligens Prémium osztással)
+  // 🏆 LEZÁRÓ MOTOR
   // ====================================================================
   async function processFinishedChallenges(pool) {
     try {
@@ -141,10 +186,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
         for (const entry of entries) {
           if (entry.likes_count === score1) {
-            // 1. Helyezett jutalma: +3 Joker csere
             await pool.query('UPDATE photo_users SET swap_balance = swap_balance + 3 WHERE email = ?', [entry.user_email]);
-            
-            // 👑 ÚJ JAVÍTÁS: +1 hét ajándék Prémium elhelyezése intelligens naptár-hosszabbítással!
             await pool.query(`
               UPDATE photo_users 
               SET premium_until = DATE_ADD(IF(premium_until > NOW(), premium_until, NOW()), INTERVAL 7 DAY) 
@@ -220,17 +262,13 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     const { id } = req.params;
     const { title, description, startDate, endDate, masterEmail, coverUrl } = req.body; 
     const file = req.file;
-    
     let finalCoverUrl = coverUrl || null; 
 
     try {
       if (file) {
         const result = await cloudinary.uploader.upload(file.path, {
           folder: 'parbaj_boritokepek',
-          width: 1200, 
-          height: 600, 
-          crop: "limit", 
-          quality: "auto:good"
+          width: 1200, height: 600, crop: "limit", quality: "auto:good"
         });
         
         if (coverUrl && coverUrl.includes('parbaj_boritokepek')) {
@@ -239,8 +277,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
             if (urlParts.length > 1) {
               const filenameWithExt = urlParts[1];
               const publicId = 'parbaj_boritokepek/' + filenameWithExt.split('.')[0];
-              
-              console.log(`[Cloudinary] 🗑️ Régi borítókép törlése: ${publicId}`);
               await cloudinary.uploader.destroy(publicId);
             }
           } catch (deleteErr) {
@@ -275,19 +311,17 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // ⚔️ JAVÍTVA: TURBÓ FOKOZATÚ, HUROKMENTES CSATATÉR FŐ VÉGPONT
+  // ⚔️ CSATATÉR FŐ VÉGPONT
   // ====================================================================
   app.get('/api/weekly/current', async (req, res) => {
     const { userEmail, topicId } = req.query;
     try {
-      // ⚡ A nehéz lezárási motort levesszük az éles kiszolgálási szálról! Háttérben fut.
       const now = Date.now();
       if (now - lastChallengeProcessTime > 15 * 60 * 1000) {
         lastChallengeProcessTime = now;
         processFinishedChallenges(pool).catch(e => console.error("Háttér hiba:", e)); 
       }
 
-      // Csak egyszer kérjük le a profil statisztikákat, megszüntetve a redundáns DB köröket!
       const { totalLikes, victories } = await getUserLikesAndVictories(pool, userEmail);
       const userTotalLikes = totalLikes;
       const rankLevel = calculateRankLevel(totalLikes, victories);
@@ -300,9 +334,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       const [referredCheck] = await pool.query('SELECT referred_by FROM photo_users WHERE email = ?', [userEmail]);
       const referredBy = referredCheck[0] ? referredCheck[0].referred_by : null;
 
-      // A) HA A FŐ LISTÁT TÖLTI BE A FRONTEND
       if (!topicId) {
-        // 🔥 JAVÍTVA: Bekérjük a teljes játékosszámot, és a júzer által még LE NEM SZAVAZOTT fotók darabszámát!
         const [activeTopics] = await pool.query(`
           SELECT t.*, u.name AS master_name,
             IF(e.id IS NOT NULL, 1, 0) as hasEntered,
@@ -320,8 +352,8 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
           ...t,
           hasEntered: t.hasEntered === 1,
           isMaster: t.isMaster === 1,
-          totalEntries: Number(t.totalEntries || 0),     // 👥 Átalakítva számmá a frontendnek
-          unvotedEntries: Number(t.unvotedEntries || 0)   // 🗳️ Átalakítva számmá a frontendnek
+          totalEntries: Number(t.totalEntries || 0),
+          unvotedEntries: Number(t.unvotedEntries || 0)
         }));
 
         return res.json({ 
@@ -329,7 +361,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         });
       }
 
-      // B) HA EGY SPECIFIKUS CSATA ARÉNÁJÁBA LÉPÜNK BE
       const [allTopics] = await pool.query('SELECT t.*, u.name AS master_name FROM weekly_topics t LEFT JOIN photo_users u ON t.master_email = u.email WHERE t.id = ?', [topicId]);
       const currentTopic = allTopics[0];
       if (!currentTopic) return res.status(404).json({ error: 'Ez a kihívás nem található vagy már lezárult!' });
@@ -443,6 +474,9 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
   
+  // ====================================================================
+  // 💾 ALBUM FELTÖLTÉS (Javítva: Előzetes tárhely ellenőrzéssel és bájtok mentésével)
+  // ====================================================================
   app.post('/api/weekly/my-album/upload', upload.single('photo'), async (req, res) => {
     const { userEmail } = req.body;
     const file = req.file;
@@ -452,6 +486,14 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
 
     try {
+      // 🛡️ KORLÁTOZÁS: Ellenőrizzük a méretet a lemezen még a Cloudinary feltöltés előtt
+      const tempFileSize = fs.statSync(file.path).size;
+      const storageCheck = await checkStorageLimit(pool, userEmail, tempFileSize);
+      if (!storageCheck.allowed) {
+        if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+        return res.status(400).json({ error: storageCheck.error });
+      }
+
       const fileBuffer = fs.readFileSync(file.path);
       const fileHash = crypto.createHash('md5').update(fileBuffer).digest('hex');
 
@@ -472,9 +514,10 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
       if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
 
+      // 👑 MENTÉS: Beírjuk a pontos bájtokat is az adatbázisodba!
       await pool.query(
-        "INSERT INTO user_photos (user_email, file_url, file_hash) VALUES (?, ?, ?)",
-        [userEmail, result.secure_url, fileHash]
+        "INSERT INTO user_photos (user_email, file_url, file_hash, file_size) VALUES (?, ?, ?, ?)",
+        [userEmail, result.secure_url, fileHash, result.bytes]
       );
 
       res.json({ success: true, file_url: result.secure_url });
@@ -484,6 +527,9 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
+  // ====================================================================
+  // ⚔️ ÚJ NEVEZÉS INDÍTÁSA (Javítva: Előzetes tárhely ellenőrzéssel és bájtok mentésével)
+  // ====================================================================
   app.post('/api/weekly/upload', upload.single('photo'), async (req, res) => {
     const { topicId, userEmail, userName } = req.body;
     const file = req.file;
@@ -494,6 +540,14 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       if (topicCheck[0] && topicCheck[0].master_email === userEmail) { if (fs.existsSync(file.path)) fs.unlinkSync(file.path); return res.status(400).json({ error: 'Párbajmesterként nem nevezhetsz!' }); }
       const [existingEntry] = await pool.query('SELECT id FROM weekly_entries WHERE topic_id = ? AND user_email = ?', [topicId, userEmail]);
       if (existingEntry.length > 0) { if (fs.existsSync(file.path)) fs.unlinkSync(file.path); return res.status(400).json({ error: 'Már neveztél!' }); }
+
+      // 🛡️ KORLÁTOZÁS: Korai szűrés a lokális fájlméret alapján
+      const tempFileSize = fs.statSync(file.path).size;
+      const storageCheck = await checkStorageLimit(pool, userEmail, tempFileSize);
+      if (!storageCheck.allowed) {
+        if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+        return res.status(400).json({ error: storageCheck.error });
+      }
 
       const fileBuffer = fs.readFileSync(file.path);
       const fileHash = crypto.createHash('md5').update(fileBuffer).digest('hex');
@@ -508,7 +562,8 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         const result = await cloudinary.uploader.upload(file.path, { folder: 'parbajok', width: 1600, height: 1600, crop: "limit", quality: "auto:good" });
         finalFileUrl = result.secure_url;
         if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
-        await pool.query("INSERT INTO user_photos (user_email, file_url, file_hash) VALUES (?, ?, ?)", [userEmail, finalFileUrl, fileHash]);
+        // 👑 MENTÉS: Mentjük a fájlméretet
+        await pool.query("INSERT INTO user_photos (user_email, file_url, file_hash, file_size) VALUES (?, ?, ?, ?)", [userEmail, finalFileUrl, fileHash, result.bytes]);
       }
 
       await pool.query('INSERT INTO weekly_entries (topic_id, user_email, user_name, file_url, drive_file_id, swapped, ip_address, is_active) VALUES (?, ?, ?, ?, \'\', 0, ?, 1)', [topicId, userEmail, userName, finalFileUrl, ipAddress]);
@@ -516,6 +571,9 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { if (file && fs.existsSync(file.path)) fs.unlinkSync(file.path); res.status(500).json({ error: err.message }); }
   });
 
+  // ====================================================================
+  // 🃏 JOKER CSATA CSERE TALLÓZÁSSAL (Javítva: Tranzakció-biztos ellenőrzéssel)
+  // ====================================================================
   app.post('/api/weekly/swap', upload.single('photo'), async (req, res) => {
     const { topicId, userEmail, userName } = req.body;
     const file = req.file;
@@ -528,6 +586,15 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       if (!userRows[0] || userRows[0].swap_balance < 1) { if (fs.existsSync(file.path)) fs.unlinkSync(file.path); await conn.rollback(); return res.status(400).json({ error: 'Nincs elég Joker cseréd!' }); }
       const [existing] = await conn.query('SELECT id, swapped FROM weekly_entries WHERE topic_id = ? AND user_email = ? AND is_active = 1', [topicId, userEmail]);
       if (existing.length === 0) { if (fs.existsSync(file.path)) fs.unlinkSync(file.path); await conn.rollback(); return res.status(400).json({ error: 'Még nincs aktív nevezésed!' }); }
+
+      // 🛡️ KORLÁTOZÁS: Tranzakció alatt is futtatjuk a korai szűrést
+      const tempFileSize = fs.statSync(file.path).size;
+      const storageCheck = await checkStorageLimit(conn, userEmail, tempFileSize);
+      if (!storageCheck.allowed) {
+        if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+        await conn.rollback();
+        return res.status(400).json({ error: storageCheck.error });
+      }
 
       await conn.query('UPDATE weekly_entries SET is_active = 0 WHERE id = ?', [existing[0].id]);
 
@@ -544,7 +611,8 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         const result = await cloudinary.uploader.upload(file.path, { folder: 'parbajok', width: 1600, height: 1600, crop: "limit", quality: "auto:good" });
         finalFileUrl = result.secure_url;
         if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
-        await pool.query("INSERT INTO user_photos (user_email, file_url, file_hash) VALUES (?, ?, ?)", [userEmail, finalFileUrl, fileHash]);
+        // 👑 MENTÉS: Mentjük a fájlméretet
+        await conn.query("INSERT INTO user_photos (user_email, file_url, file_hash, file_size) VALUES (?, ?, ?, ?)", [userEmail, finalFileUrl, fileHash, result.bytes]);
       }
 
       const nextSwapCount = existing[0].swapped + 1;
@@ -659,8 +727,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   app.get('/api/weekly/next-vote', async (req, res) => {
     const { topicId, userEmail } = req.query;
     try {
-      // ⚡ Kidobtuk a processzorigyilkos on-the-fly al-lekérdezést! 
-      // Az indexelt views_count szerinti rendezés azonnali választ ad!
       const [entries] = await pool.query(`
         SELECT e.id, e.user_name, e.file_url, e.views_count, e.likes_count 
         FROM weekly_entries e
@@ -684,29 +750,24 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     try {
       await conn.beginTransaction();
       
-      // 1. Duplikált szavazás szűrése
       const [existing] = await conn.query('SELECT id FROM weekly_votes WHERE entry_id = ? AND voter_email = ?', [entryId, userEmail]);
       if (existing.length > 0) { 
         await conn.rollback(); 
         return res.json({ success: false, message: 'Már szavaztál!' }); 
       }
 
-      // 2. Téma azonosítása a kép alapján
       const [entryTopicRows] = await conn.query('SELECT topic_id FROM weekly_entries WHERE id = ?', [entryId]);
       const topicId = entryTopicRows[0]?.topic_id;
 
       let calculatedPoints = 0;
 
-      // 3. Pontszámítás a szavazat típusa szerint
       if (voteType === 'master') {
-        // Csatabíró jogosultság ellenőrzése
         const [topicRows] = await conn.query('SELECT master_email FROM weekly_topics WHERE id = ?', [topicId]);
         if (!topicRows[0] || topicRows[0].master_email !== userEmail) {
           await conn.rollback();
           return res.status(403).json({ error: 'Nem te vagy a csata kijelölt Csatabírója!' });
         }
 
-        // Bírói limit ellenőrzése (max 5)
         const [masterVotesCount] = await conn.query(`
           SELECT COUNT(*) as count FROM weekly_votes v 
           JOIN weekly_entries e ON v.entry_id = e.id 
@@ -721,18 +782,15 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         calculatedPoints = 10; 
       } 
       else {
-        // ⚡ JAVÍTVA: Újrahasznosítjuk a gyors in-memory szavazati erő logikát a nehéz beágyazott hurok helyett!
         const { totalLikes, victories } = await getUserLikesAndVictories(conn, userEmail);
         const level = calculateRankLevel(totalLikes, victories);
         const power = getVotePowerByLevel(level);
         calculatedPoints = voteType === 'super' ? power.super : power.brilliant;
       }
 
-      // 4. Szavazat rögzítése és pontok hozzáírása a képhez
       await conn.query('INSERT INTO weekly_votes (entry_id, voter_email, vote_type) VALUES (?, ?, ?)', [entryId, userEmail, voteType]);
       await conn.query('UPDATE weekly_entries SET views_count = views_count + 1, likes_count = likes_count + ? WHERE id = ?', [calculatedPoints, entryId]);
 
-      // 5. Alkotó szintlépésének ellenőrzése
       const [entryRows] = await conn.query('SELECT user_email FROM weekly_entries WHERE id = ?', [entryId]);
       if (entryRows[0]?.user_email) {
         await checkAndAwardLevelUp(conn, entryRows[0].user_email);
@@ -780,11 +838,10 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // ⏳ JAVÍTVA: Közelgő csaták lekérése a Csatabíró VALÓDI NEVÉVEL
+  // ⏳ KÖZELGŐ CSATÁK
   // ====================================================================
   app.get('/api/weekly/upcoming', async (req, res) => {
     try {
-      // 👑 JAVÍTVA: Behozzuk a photo_users táblát egy LEFT JOIN-nal, hogy az e-mail helyett a név jelenjen meg!
       const [topics] = await pool.query(`
         SELECT t.*, u.name AS master_name 
         FROM weekly_topics t
@@ -849,7 +906,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // 🚨 GYANÚS TEVÉKENYSÉGEK DETEKTÁLÁSA (Javítva: Elfogadás-tudatos szűréssel)
+  // 🚨 GYANÚS TEVÉKENYSÉGEK DETEKTÁLÁSA
   // ====================================================================
   app.get('/api/admin/weekly/suspicious', async (req, res) => {
     try {
@@ -864,7 +921,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         JOIN weekly_topics t ON e.topic_id = t.id
         WHERE e.ip_address IS NOT NULL 
           AND e.ip_address != '127.0.0.1'
-          AND e.ip_approved = 0 -- 🔥 ÚJ: Csak a még el nem fogadott nevezéseket ellenőrizzük!
+          AND e.ip_approved = 0
         GROUP BY e.topic_id, e.ip_address
         HAVING COUNT(DISTINCT e.user_email) > 1
         ORDER BY e.topic_id DESC
@@ -875,9 +932,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-  // ====================================================================
-  // 🟢 ADMIN: Gyanús IP-ről érkező nevezés elfogadása (Fehérlistázás)
-  // ====================================================================
   app.post('/api/admin/weekly/approve-ip', async (req, res) => {
     const { topicId, userEmail } = req.body;
     try {
@@ -919,11 +973,10 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
   
   // ====================================================================
-  // 👑 JAVÍTVA: SZINKRONIZÁLT, HISTORIKUS GLOBÁLIS DICSŐSÉGFAL
+  // 👑 HISTORIKUS GLOBÁLIS DICSŐSÉGFAL
   // ====================================================================
   app.get('/api/weekly/hall-of-fame', async (req, res) => {
     try {
-      // 🛠️ JAVÍTVA: Összekötjük a témákkal, és egy feltételes SUM-mal pontosan azokat a pontokat adjuk össze, amiket a Trófeaterem is számol!
       const [rows] = await pool.query(`
         SELECT 
           u.name as user_name, 
@@ -943,7 +996,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       res.json(rows);
     } catch (err) {
       try {
-        // Fallback ág szintén szinkronizálva
         const [fallbackRows] = await pool.query(`
           SELECT 
             u.name as user_name, 
@@ -973,10 +1025,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     try {
       const result = await cloudinary.uploader.upload(file.path, {
         folder: 'fotoklub_tesztek',
-        width: 1600,
-        height: 1600,
-        crop: "limit",
-        quality: "auto:good"
+        width: 1600, height: 1600, crop: "limit", quality: "auto:good"
       });
 
       if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
@@ -995,6 +1044,9 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
+  // ====================================================================
+  // 🚚 RÉGI DRIVE MIGRÁCIÓ (Bővítve a bájtok felépítésével)
+  // ====================================================================
   app.get('/api/admin/migrate-drive-to-cloudinary', async (req, res) => {
     try {
       const [rows] = await pool.query(
@@ -1025,7 +1077,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
             
             if (exists.length === 0) {
               await pool.query(
-                "INSERT INTO user_photos (user_email, file_url, file_hash) VALUES (?, ?, 'migrated')",
+                "INSERT INTO user_photos (user_email, file_url, file_hash, file_size) VALUES (?, ?, 'migrated', 0)",
                 [entry.user_email, entry.file_url]
               );
               builtCount++;
@@ -1076,8 +1128,8 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
               );
               if (albumExists.length === 0) {
                 await pool.query(
-                  "INSERT INTO user_photos (user_email, file_url, file_hash) VALUES (?, ?, 'migrated')",
-                  [entry.user_email, uploadResult.secure_url]
+                  "INSERT INTO user_photos (user_email, file_url, file_hash, file_size) VALUES (?, ?, 'migrated', ?)",
+                  [entry.user_email, uploadResult.secure_url, uploadResult.bytes]
                 );
               }
 
@@ -1174,7 +1226,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // 💬 ESZMECSERE ÉS UTÓLAGOS ELISMERÉSEK KIBESZÉLŐ VÉGPONTJAI
+  // 💬 ESZMECSERE VÉGPONTOK
   // ====================================================================
 
   app.get('/api/weekly/archive/comments/:entryId', async (req, res) => {
@@ -1237,7 +1289,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // 👑 ARCHÍVUM TÖRTÉNETI LEKÉRDEZÉS (KONSZOLIDÁLT, LÁJK-TUDATOS VERZIÓ)
+  // 👑 ARCHÍVUM TÖRTÉNETI LEKÉRDEZÉS
   // ====================================================================
   app.get('/api/weekly/history/:topicId', async (req, res) => {
     const { userEmail } = req.query; 
