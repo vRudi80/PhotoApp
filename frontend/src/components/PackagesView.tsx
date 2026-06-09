@@ -54,8 +54,9 @@ export default function PackagesView({ user }: PackagesViewProps) {
           <div style={{ marginBottom: '30px' }}>
             <Feature text="1 GB Portfólió Tárhely (kb. 300 kép)" />
             <Feature text="Mesterséges Intelligencia Zsűri (AI)" />
-            <Feature text="FIAP/PSA Nemzetközi Statisztikák" />
-            <Feature text="Részvétel belső klubpályázatokon" />
+            <Feature text="FIAP/MAFOSZ Statisztikák, szintek" />
+            <Feature text="FIAP excel export" />
+            <Feature text="Nemzetközi,- és hazai szalonok információi" />
           </div>
 
           {premiumLevel === 1 ? (
