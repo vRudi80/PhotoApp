@@ -401,7 +401,8 @@ export default function AdminWeeklyView() {
                   </span>
                 </div>
                   <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: '5px' }}>
-                    {new Date(t.start_date).toLocaleString('hu-HU', { dateStyle: 'short', timeStyle: 'short' })} - {new Date(t.end_date).toLocaleString('hu-HU', { dateStyle: 'short', timeStyle: 'short' })}
+                    {/* 🕒 JAVÍTVA: timeZone: 'UTC' hozzáadva mindkét oldalhoz, így nincs több +2 órás elcsúszás */}
+                    {new Date(t.start_date).toLocaleString('hu-HU', { dateStyle: 'short', timeStyle: 'short', timeZone: 'UTC' })} - {new Date(t.end_date).toLocaleString('hu-HU', { dateStyle: 'short', timeStyle: 'short', timeZone: 'UTC' })}
                     {t.cover_author && <span style={{color: '#38bdf8'}}> • 📸 {t.cover_author}</span>}
                     {t.proposed_by && <span style={{color: '#f59e0b', fontWeight: 'bold'}}> • 📜 Beküldte: {t.proposed_by}</span>}
                   </div>
