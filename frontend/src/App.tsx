@@ -310,6 +310,9 @@ function MainContent() {
 
   const currentDbUser = allUsers.find(u => u.email === user?.email);
   const isLeader = currentDbUser?.club_role === 'leader' || currentDbUser?.club_role === 'deputy';
+  // 👑 PRÉMIUM STÁTUSZ ELLENŐRZÉSE: Stripe aktív VAGY az ajándék prémium még nem járt le
+  const isPremium = currentDbUser?.stripe_status === 'active' || 
+    (currentDbUser?.premium_until && new Date(currentDbUser.premium_until) > new Date());
 
   useEffect(() => {
     if (activeTab === 'club_homeworks' && currentDbUser) {
