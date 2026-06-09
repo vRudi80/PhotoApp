@@ -849,7 +849,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // 🚨 GYANÚS TEVÉKENYSÉGEK DETEKTÁLÁSA (👑 JAVÍTVA: MIDDLE BY -> HAVING)
+  // 🚨 GYANÚS TEVÉKENYSÉGEK DETEKTÁLÁSA (Javítva: Elfogadás-tudatos szűréssel)
   // ====================================================================
   app.get('/api/admin/weekly/suspicious', async (req, res) => {
     try {
@@ -862,7 +862,9 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
           GROUP_CONCAT(DISTINCT CONCAT(e.user_name, ' (', e.user_email, ')') SEPARATOR ' || ') AS suspect_list
         FROM weekly_entries e
         JOIN weekly_topics t ON e.topic_id = t.id
-        WHERE e.ip_address IS NOT NULL AND e.ip_address != '127.0.0.1'
+        WHERE e.ip_address IS NOT NULL 
+          AND e.ip_address != '127.0.0.1'
+          AND e.ip_approved = 0 -- 🔥 ÚJ: Csak a még el nem fogadott nevezéseket ellenőrizzük!
         GROUP BY e.topic_id, e.ip_address
         HAVING COUNT(DISTINCT e.user_email) > 1
         ORDER BY e.topic_id DESC
