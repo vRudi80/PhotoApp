@@ -70,7 +70,7 @@ export default function ArenaActiveRoom({
             <span style={{ fontSize: '1.3rem' }}>🏆</span>
             <div style={{ textAlign: 'center', fontSize: '0.9rem', lineHeight: '1.4' }}>
               <span style={{ color: '#fbbf24', fontWeight: 'bold' }}>FŐDÍJ AZ 1. HELYÉRT:</span>{' '}
-              <strong style={{ color: '#4ade80' }}>1 HÉT INGYEN PRÉMIUM</strong>{' '}
+              <strong style={{ color: '#4ade80' }}>1 HÉT INGYEN ALAP PRÉMIUM</strong>{' '}
               <span style={{ color: '#cbd5e1' }}>+ 3 db Joker Csere! 💎</span>
             </div>
           </div>
