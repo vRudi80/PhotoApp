@@ -404,7 +404,36 @@ export default function AdminWeeklyView() {
                   </div>
                 )}
               </div>
-
+{/* 👑 CSATABÍRÓI JELENTKEZÉS BÍRÁLATA AZ ADMINON */}
+{t.pending_master_email && (
+  <div style={{ background: '#eab30810', padding: '12px 18px', borderRadius: '10px', border: '1px solid #eab30840', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', width: '100%', boxSizing: 'border-box' }}>
+    <span style={{ color: '#f59e0b', fontSize: '0.9rem', fontWeight: 'bold' }}>
+      👑 Csatabíró aspiráns: <strong style={{color: '#fff'}}>{t.pending_master_email}</strong>
+    </span>
+    <div style={{ display: 'flex', gap: '10px' }}>
+      <button 
+        onClick={async () => {
+          if(!window.confirm(`Biztosan kinevezed őt Csatabírónak: ${t.pending_master_email}?`)) return;
+          const res = await fetch(`${BACKEND_URL}/api/admin/decide-master`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ topicId: t.id, decision: 'approved' })});
+          if(res.ok) { alert("✓ Csatabíró sikeresen kinevezve!"); window.location.reload(); }
+        }} 
+        style={{ background: '#10b981', color: '#0f172a', border: 'none', padding: '5px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem' }}
+      >
+        Elfogad
+      </button>
+      <button 
+        onClick={async () => {
+          if(!window.confirm("Elutasítod a jelentkezést?")) return;
+          const res = await fetch(`${BACKEND_URL}/api/admin/decide-master`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ topicId: t.id, decision: 'rejected' })});
+          if(res.ok) { alert("✕ Jelentkezés elutasítva."); window.location.reload(); }
+        }} 
+        style={{ background: '#ef444420', color: '#ef4444', border: '1px solid #ef444450', padding: '5px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem' }}
+      >
+        Elutasít
+      </button>
+    </div>
+  </div>
+)}
               {/* AKCIÓGOMBOK */}
               <div style={{ display: 'flex', gap: '8px' }}>
                 {isPending ? (
