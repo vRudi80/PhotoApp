@@ -97,6 +97,24 @@ export default function AdminWeeklyView() {
     } catch (e) { alert("Hálózati hiba!"); }
   };
 
+  // 🟢 ÚJ: Gyanús IP-ről érkező nevezés elfogadása (Fehérlistázás frontend kezelője)
+  const handleApproveIp = async (topicId: number, userEmail: string, userName: string) => {
+    if (!window.confirm(`✅ Biztosan elfogadod ${userName} (${userEmail}) nevezését legitimként ezen az IP-címen?`)) return;
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/admin/weekly/approve-ip`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topicId, userEmail })
+      });
+      if (res.ok) {
+        alert("🟢 Nevezés sikeresen jóváhagyva, az IP konfliktus feloldva!");
+        fetchSuspicious();
+      } else {
+        alert("Hiba történt a jóváhagyás során.");
+      }
+    } catch (e) { alert("Hálózati hiba!"); }
+  };
+
   // 🛡️ JAVÍTVA: Új funkció a beérkező játékosi csatatervek elbírálásához
   const handleProposalDecision = async (topicId: number, decision: 'approved' | 'rejected') => {
     const actionText = decision === 'approved' ? 'ELFOGADOD és harcrendbe állítod' : 'ELUTASÍTOD';
@@ -245,7 +263,23 @@ export default function AdminWeeklyView() {
                     return (
                       <div key={sIdx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#1e293b', padding: '6px 12px', borderRadius: '6px' }}>
                         <span style={{ color: '#cbd5e1', fontSize: '0.85rem' }}>• {suspect}</span>
-                        <button onClick={() => handleDisqualify(act.topic_id, emailPart, namePart)} style={{ background: '#ef444420', color: '#f87171', border: '1px solid #ef444450', padding: '3px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }}>🗑️ Törlés</button>
+                        
+                        {/* 🛠️ JAVÍTVA: Elfogadó és Törlő gombok dizájnos konténere egymás mellett */}
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button 
+                            onClick={() => handleApproveIp(act.topic_id, emailPart, namePart)} 
+                            style={{ background: '#10b98120', color: '#4ade80', border: '1px solid #10b98150', padding: '4px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}
+                          >
+                            ✅ Elfogad
+                          </button>
+                          <button 
+                            onClick={() => handleDisqualify(act.topic_id, emailPart, namePart)} 
+                            style={{ background: '#ef444420', color: '#f87171', border: '1px solid #ef444450', padding: '4px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}
+                          >
+                            🗑️ Törlés
+                          </button>
+                        </div>
+
                       </div>
                     );
                   })}
@@ -274,7 +308,6 @@ export default function AdminWeeklyView() {
           </select>
         </div>
 
-        {/* 🛠️ JAVÍTVA: Kliens oldali tömörítő motor beépítve az admin képkiválasztóhoz is! */}
         <div style={{ marginBottom: '20px', padding: '15px', background: '#0f172a50', borderRadius: '10px', border: '1px dashed #334155' }}>
           <label style={{ fontSize: '0.8rem', color: '#38bdf8', display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>🖼️ Csata Vizuális Borítóképe (Automata tömörítéssel)</label>
           <input 
@@ -372,25 +405,22 @@ export default function AdminWeeklyView() {
                 )}
               </div>
 
-{/* AKCIÓGOMBOK: Most már a bírálatra váró tervek is szabadon szerkeszthetők! */}
+              {/* AKCIÓGOMBOK */}
               <div style={{ display: 'flex', gap: '8px' }}>
                 {isPending ? (
                   <>
-                    {/* 🛠️ ÚJ: Függőben lévő javaslat betöltése a szerkesztőbe */}
                     <button 
                       onClick={() => startEdit(t)} 
                       style={{ background: 'transparent', color: '#f59e0b', border: '1px solid #f59e0b', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
                     >
                       Szerkeszt
                     </button>
-                    
                     <button 
                       onClick={() => handleProposalDecision(t.id, 'approved')} 
                       style={{ background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', border: 'none', padding: '8px 14px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}
                     >
                       ✓ Elfogad
                     </button>
-                    
                     <button 
                       onClick={() => handleProposalDecision(t.id, 'rejected')} 
                       style={{ background: '#ef444420', color: '#f87171', border: '1px solid #ef444450', padding: '8px 14px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}
