@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import BattlePlanner from './BattlePlanner';
-import { BACKEND_URL } from '../../utils/constants'; // ⚠️ Ellenőrizd az import utat!
+import { BACKEND_URL } from '../../../utils/constants';
 
 interface UpcomingChallengesProps {
   upcomingTopics: any[];
