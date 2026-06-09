@@ -90,7 +90,8 @@ export default function UpcomingChallenges({
                   )}
 
                   <div style={{ color: '#38bdf8', fontSize: '0.9rem', background: '#0f172a', padding: '15px', borderRadius: '12px', textAlign: 'center', fontWeight: 'bold', border: '1px solid #38bdf840' }}>
-                    ⏳ {new Date(t.start_date).toLocaleDateString('hu-HU') - {new Date(t.end_date).toLocaleDateString('hu-HU') }
+                    ⏳ {new Date(t.start_date).toLocaleDateString('hu-HU')}
+                    { - } {new Date(t.end_date).toLocaleDateString('hu-HU')}
                   </div>
                 </div>
               );
