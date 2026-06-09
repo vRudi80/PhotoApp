@@ -92,9 +92,19 @@ app.post('/api/webhook', express.raw({type: 'application/json'}), async (req, re
   }
 
   // --- 3. ESEMÉNY: Lemondott / Megszakadt előfizetés ---
+  // --- 3. ESEMÉNY: Lemondott / Megszakadt előfizetés ---
   if (event.type === 'customer.subscription.deleted') {
     const customerId = event.data.object.customer;
-    try { await pool.query('UPDATE photo_users SET is_premium = 0 WHERE stripe_customer_id = ?', [customerId]); } catch (err) { console.error('Hiba:', err); }
+    try { 
+      // 👑 JAVÍTVA: Nemcsak az is_premium-ot nullázzuk, hanem a lejárati dátumot is teljesen kiürítjük, így láncreakcióként minden kapu bezárul!
+      await pool.query(
+        'UPDATE photo_users SET is_premium = 0, premium_until = NULL WHERE stripe_customer_id = ?', 
+        [customerId]
+      ); 
+      console.log(`❌ Előfizetés sikeresen lezárva az adatbázisban a Stripe jelzése alapján: ${customerId}`);
+    } catch (err) { 
+      console.error('Hiba a lemondás feldolgozásakor:', err); 
+    }
   }
   
   res.send();
