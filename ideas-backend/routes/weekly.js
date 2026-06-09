@@ -112,21 +112,12 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   async function getUserVotePower(pool, email) {
     const { totalLikes, victories } = await getUserLikesAndVictories(pool, email);
     const level = calculateRankLevel(totalLikes, victories);
-    
-    if (level === 1) return { super: 1, brilliant: 2 };   // Újonc 🌱
-    if (level === 2) return { super: 2, brilliant: 3 };   // Bojtár 🪶
-    if (level === 3) return { super: 2, brilliant: 4 };   // Nyomolvasó 🎯
-    if (level === 4) return { super: 3, brilliant: 5 };   // Íjász 🏹
-    if (level === 5) return { super: 3, brilliant: 6 };   // Lovas 🐎
-    if (level === 6) return { super: 4, brilliant: 7 };   // Sólyom 🦅
-    if (level === 7) return { super: 4, brilliant: 8 };   // Vitéz ⚔️
-    if (level === 8) return { super: 5, brilliant: 10 };  // Bajnok 🛡️
-    if (level === 9) return { super: 5, brilliant: 12 };  // Törzsfő ⭐
-    if (level === 10) return { super: 6, brilliant: 14 }; // Hadúr 🔱
-    if (level === 11) return { super: 7, brilliant: 17 }; // Táltos 🔥
-    return { super: 8, brilliant: 20 };                  // Fejedelem 👑
+    return getVotePowerByLevel(level);
   }
 
+  // ====================================================================
+  // 🏆 LEZÁRÓ MOTOR (Bővítve az automata Intelligens Prémium osztással)
+  // ====================================================================
   async function processFinishedChallenges(pool) {
     try {
       const [unfinished] = await pool.query(
@@ -150,7 +141,16 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
         for (const entry of entries) {
           if (entry.likes_count === score1) {
+            // 1. Helyezett jutalma: +3 Joker csere
             await pool.query('UPDATE photo_users SET swap_balance = swap_balance + 3 WHERE email = ?', [entry.user_email]);
+            
+            // 👑 ÚJ JAVÍTÁS: +1 hét ajándék Prémium elhelyezése intelligens naptár-hosszabbítással!
+            await pool.query(`
+              UPDATE photo_users 
+              SET premium_until = DATE_ADD(IF(premium_until > NOW(), premium_until, NOW()), INTERVAL 7 DAY) 
+              WHERE email = ?
+            `, [entry.user_email]);
+            console.log(`🎉 PRÉMIUM KIUTALVA: ${entry.user_email} megnyerte a csatát, kapott 7 nap prémium időt!`);
           } 
           else if (entry.likes_count === score2) {
             await pool.query('UPDATE photo_users SET swap_balance = swap_balance + 2 WHERE email = ?', [entry.user_email]);
@@ -274,7 +274,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
- // ====================================================================
+  // ====================================================================
   // ⚔️ JAVÍTVA: TURBÓ FOKOZATÚ, HUROKMENTES CSATATÉR FŐ VÉGPONT
   // ====================================================================
   app.get('/api/weekly/current', async (req, res) => {
@@ -653,7 +653,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } finally { conn.release(); }
   });
 
- // ====================================================================
+  // ====================================================================
   // 🚀 JAVÍTVA: ULTRA OPTIMALIZÁLT SZAVAZAT-GENERÁTOR (2ms-os futás)
   // ====================================================================
   app.get('/api/weekly/next-vote', async (req, res) => {
@@ -1147,7 +1147,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       res.status(500).json({ error: `Szerveroldali hiba: ${err.message}` });
     }
   });
-    
+      
   app.get('/api/admin/proposals', async (req, res) => {
     try {
       const [proposals] = await pool.query(
