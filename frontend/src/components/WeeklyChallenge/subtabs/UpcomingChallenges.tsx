@@ -50,6 +50,15 @@ export default function UpcomingChallenges({
     }
   };
 
+  // 🕒 Dátum és időpont formázó (Külön bontja a napot és az órát a szép megjelenítéshez)
+  const formatDateTime = (dateString: string) => {
+    const d = new Date(dateString);
+    return {
+      date: d.toLocaleDateString('hu-HU', { year: 'numeric', month: 'short', day: 'numeric' }),
+      time: d.toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' })
+    };
+  };
+
   return (
     <div style={{ animation: 'fadeIn 0.4s ease-out', display: 'flex', flexDirection: 'column', gap: '30px' }}>
       
@@ -91,6 +100,9 @@ export default function UpcomingChallenges({
               const isDaily = getTopicType(t.start_date, t.end_date) === 'daily';
               const hasMaster = t.master_name || t.master_email;
               const isPendingMe = t.pending_master_email === user?.email;
+              
+              const startFormat = formatDateTime(t.start_date);
+              const endFormat = formatDateTime(t.end_date);
 
               return (
                 <div key={t.id} style={{ background: 'linear-gradient(180deg, #1e293b, #0f172a)', padding: '25px', borderRadius: '24px', border: '1px solid #475569', display: 'flex', flexDirection: 'column', boxShadow: '0 10px 20px rgba(0,0,0,0.2)', justifyContent: 'space-between' }}>
@@ -119,7 +131,7 @@ export default function UpcomingChallenges({
                   </div>
                   
                   <div>
-                    {/* 👤 JELENLEGI CSATABÍRÓ INFÓVAGY AKCIÓGOMBOK */}
+                    {/* 👤 JELENLEGI CSATABÍRÓ INFÓ VAGY AKCIÓGOMBOK */}
                     {hasMaster ? (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#a78bfa', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '15px', background: '#a78bfa10', padding: '8px 14px', borderRadius: '10px', border: '1px solid #a78bfa20', width: 'fit-content' }}>
                         <span>👑 Csatabíró:</span>
@@ -141,10 +153,27 @@ export default function UpcomingChallenges({
                       </button>
                     )}
 
-                    <div style={{ color: '#38bdf8', fontSize: '0.9rem', background: '#0f172a', padding: '15px', borderRadius: '12px', textAlign: 'center', fontWeight: 'bold', border: '1px solid #38bdf840' }}>
-                       ⏳ {new Date(t.start_date).toLocaleDateString('hu-HU')}
-                       -  {new Date(t.end_date).toLocaleDateString('hu-HU')}
+                    {/* 🕒 JAVÍTVA: Igényes, óra/perc pontosságú dátumkijelzés */}
+                    <div style={{ background: '#0f172a', padding: '15px', borderRadius: '12px', border: '1px solid #38bdf840', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ color: '#64748b', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold' }}>Indulás</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ color: '#38bdf8', fontSize: '0.9rem', fontWeight: 'bold' }}>{startFormat.date}</span>
+                          <span style={{ background: '#38bdf820', color: '#38bdf8', padding: '2px 6px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '900' }}>{startFormat.time}</span>
+                        </div>
+                      </div>
+                      
+                      <div style={{ height: '1px', background: '#1e293b', width: '100%' }}></div>
+                      
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ color: '#64748b', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold' }}>Zárás</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ color: '#f87171', fontSize: '0.9rem', fontWeight: 'bold' }}>{endFormat.date}</span>
+                          <span style={{ background: '#ef444420', color: '#f87171', padding: '2px 6px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '900' }}>{endFormat.time}</span>
+                        </div>
+                      </div>
                     </div>
+
                   </div>
                 </div>
               );
