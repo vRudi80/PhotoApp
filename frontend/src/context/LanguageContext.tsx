@@ -95,7 +95,41 @@ const translations = {
     tileClubTitle: 'Fotóklub Élet',
     tileClubDesc: 'Klubestek, találkozók, feladatok, vagy klub portfólió válogatás egy helyen.',
     tileAdminTitle: 'Adminisztráció',
-    tileAdminDesc: 'Pályázatok, klubestek, felhasználók és szalonok kezelése.'
+    tileAdminDesc: 'Pályázatok, klubestek, felhasználók és szalonok kezelése.',
+
+    // === HU BLOKK ALJA ===
+    profTitle: '👤 Személyes adatok',
+    profNotice: 'Ez a név fog megjelenni a leadott pályaműveid mellett, a dicsőségfalon és az okleveleken is.',
+    profLabelName: 'Megjelenített név',
+    profPlaceholderName: 'Teljes neved',
+    profSaving: 'Módosítás mentése...',
+    profSaveBtn: 'Változtatások Mentése 💾',
+    profClubTitle: '🛡️ Fotóklub tagság beállítása',
+    profClubPending: 'Csatlakozási kérelem elküldve a(z) {club} klubhoz. A klub vezetőjének vagy helyettesének jóváhagyására várunk. Addig a belső felületek zárolva maradnak.',
+    profClubActive: '✓ Aktív tagja vagy a(z) {club} fotóklubnak ({role} rangban).',
+    profClubNone: 'Jelenleg nem tartozol egyetlen klubhoz sem. Válassz az alábbi, aktív vezetőséggel rendelkező klubok közül!',
+    profSelectClub: '-- Válassz fotóklubot --',
+    profSendRequest: 'Csatlakozási kérelem elküldése ✉️',
+    profLeaderTitle: '👑 Tagfelvételi Kérelmek',
+    profLeaderNotice: 'Az alábbi fotósok szeretnének csatlakozni a klubodhoz. Az elbírálás után azonnali hozzáférést kapnak.',
+    profNoPending: 'Nincs függőben lévő jelentkezés.',
+    profApprove: 'Befogadás ✓',
+    profReject: 'Elutasítás',
+    roleLeader: 'Klubvezető',
+    roleDeputy: 'Helyettes',
+    roleMember: 'Klubtag',
+    // Rendszerüzenetek
+    msgEmptyName: 'A név mező nem maradhat üresen!',
+    msgSameName: 'Ez a név megegyezik a jelenlegi neveddel.',
+    msgNameSuccess: '🎯 Megjelenített név sikeresen átírva!',
+    msgNameError: 'Hiba történt a név mentése közben.',
+    msgNetworkError: 'Hálózati hiba történt.',
+    msgSelectClubError: 'Kérlek válassz egy fotóklubot!',
+    msgRequestSent: '✉️ Kérelem elküldve a vezetőségnek!',
+    msgApproveConfirm: 'Befogadod a tagot a klubba?',
+    msgRejectConfirm: 'Biztosan elutasítod a jelentkezést?',
+    msgApproveSuccess: '✅ Tag sikeresen felvéve!',
+    msgRejectSuccess: '❌ Jelentkezés elutasítva.'
   },
   en: {
     // Navigációs fülek (WeeklyChallengeView)
@@ -190,7 +224,41 @@ const translations = {
     tileClubTitle: 'Photo Club Life',
     tileClubDesc: 'Club nights, meetings, tasks, or club portfolio selections all in one place.',
     tileAdminTitle: 'Administration',
-    tileAdminDesc: 'Manage contests, club nights, users, and salons.'
+    tileAdminDesc: 'Manage contests, club nights, users, and salons.',
+
+    // === EN BLOKK ALJA ===
+    profTitle: '👤 Personal Data',
+    profNotice: 'This name will appear next to your submitted entries, on the wall of fame, and on certificates as well.',
+    profLabelName: 'Display Name',
+    profPlaceholderName: 'Your full name',
+    profSaving: 'Saving changes...',
+    profSaveBtn: 'Save Changes 💾',
+    profClubTitle: '🛡️ Photo Club Membership Settings',
+    profClubPending: 'Join request sent to {club} photo club. Waiting for approval from the club leader or deputy. Until then, internal pages remain locked.',
+    profClubActive: '✓ You are an active member of {club} photo club (Role: {role}).',
+    profClubNone: 'You currently do not belong to any club. Choose from the active clubs below!',
+    profSelectClub: '-- Choose a photo club --',
+    profSendRequest: 'Send Join Request ✉️',
+    profLeaderTitle: '👑 Membership Applications',
+    profLeaderNotice: 'The photographers below want to join your club. They will get instant access after approval.',
+    profNoPending: 'No pending applications.',
+    profApprove: 'Accept ✓',
+    profReject: 'Reject',
+    roleLeader: 'Club Leader',
+    roleDeputy: 'Deputy',
+    roleMember: 'Club Member',
+    // System messages
+    msgEmptyName: 'The name field cannot be empty!',
+    msgSameName: 'This name is identical to your current name.',
+    msgNameSuccess: '🎯 Display name successfully updated!',
+    msgNameError: 'An error occurred while saving the name.',
+    msgNetworkError: 'A network error occurred.',
+    msgSelectClubError: 'Please select a photo club!',
+    msgRequestSent: '✉️ Request sent to the leadership!',
+    msgApproveConfirm: 'Do you want to accept this member into the club?',
+    msgRejectConfirm: 'Are you sure you want to reject this application?',
+    msgApproveSuccess: '✅ Member successfully accepted!',
+    msgRejectSuccess: '❌ Application rejected.'
   }
 };
 
