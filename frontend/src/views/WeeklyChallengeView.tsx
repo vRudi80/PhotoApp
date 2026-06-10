@@ -444,13 +444,16 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subTab, selectedTopicId]);
 
-  // 🔄 JAVÍTVA: Üzenetek és Gépelők együttes poling szinkronizációja (Bulletproof struktúra)
+  // 🔄 ABSZOLÚT GOLYÓÁLLÓ ÉLŐ MOTOR: Rekurzív setTimeout láncreakció hálózati cache-tiltással
   useEffect(() => {
+    // Csak akkor indulhat el, ha a kihívások főoldalán vagyunk
     if (subTab !== 'current' || selectedTopicId !== null) return;
+
+    let timerId: NodeJS.Timeout;
+    let isMounted = true; // Biztonsági kapcsoló unmount esetére
 
     const fetchLobbyChat = async () => {
       try {
-        // 🎯 JAVÍTVA: Kényszerített böngésző, Vercel/Render és Cloudflare cache-megsemmisítő fejlécek
         const res = await fetch(`${BACKEND_URL}/api/weekly/chat/0?t=${Date.now()}`, {
           method: 'GET',
           headers: {
@@ -460,11 +463,11 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           }
         });
         
-        if (res.ok) {
+        if (res.ok && isMounted) {
           const data = await res.json();
           
-          // 🔍 DIAGNOSZTIKA: Nyisd meg az F12-t a böngésződben, itt látni fogod a háttérben érkező élő pulzust!
-          console.log("📥 Aréna Lobbi élő szinkronizáció:", data.messages?.length, "üzenet beolvasva.");
+          // 🔍 F12 KONZOL TESZT: Itt látni fogod minden körben a pulzust!
+          console.log("📥 Élő Lobbi szinkronizáció lefutott. Üzenetek száma:", data.messages?.length);
 
           // Frissítjük az üzeneteket
           setLobbyMessages(data.messages || []);
@@ -475,15 +478,22 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         }
       } catch (err) {
         console.error("❌ Hiba a lobbi chat szinkronizációjakor:", err);
+      } finally {
+        // 🎯 A TRÜKK: Csak akkor ütemezzük be a következő kört, ha az előző TELJESEN lefutott és még aktív a fül
+        if (isMounted && subTab === 'current' && selectedTopicId === null) {
+          timerId = setTimeout(fetchLobbyChat, 2500); // 2.5 másodperc múlva jön a következő impulzus
+        }
       }
     };
 
-    // Első azonnali betöltés a belépés pillanatában
+    // Első láncszem indítása
     fetchLobbyChat();
 
-    // 🎯 JAVÍTVA: 2.5 másodpercre (2500ms) rövidített szinkronizációs ablak a szülő komponensek remount-csapdája ellen
-    const interval = setInterval(fetchLobbyChat, 2500);
-    return () => clearInterval(interval);
+    // Takarítás, ha elnavigál a user
+    return () => {
+      isMounted = false;
+      clearTimeout(timerId);
+    };
   }, [subTab, selectedTopicId]);
 
   // Automatikusan a csevegés aljára gördít új üzenet érkezésekor
