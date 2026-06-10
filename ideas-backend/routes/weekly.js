@@ -27,37 +27,38 @@ const getLocalMySQLNow = () => {
 };
 
 
-  // 📊 JAVÍTVA: MySQL 5.7 kompatibilis, hurokmentesített, szupergyors statisztikai lekérdezés helyi idővel
-  async function getUserLikesAndVictories(pool, email) {
-    const currentNow = getLocalMySQLNow();
+// 📊 JAVÍTVA: Teljesen hurokmentesített, magyar időzónára szinkronizált profil statisztika
+async function getUserLikesAndVictories(pool, email) {
+  const currentNow = getLocalMySQLNow();
 
-    const [likesRows] = await pool.query(`
-      SELECT COALESCE(SUM(e.likes_count), 0) as total 
-      FROM weekly_entries e
-      JOIN weekly_topics t ON e.topic_id = t.id
-      WHERE e.user_email = ? AND (e.is_active = 1 OR t.end_date < ?)
-    `, [email, currentNow]);
-    const totalLikes = likesRows[0].total || 0;
+  const [likesRows] = await pool.query(`
+    SELECT COALESCE(SUM(e.likes_count), 0) as total 
+    FROM weekly_entries e
+    JOIN weekly_topics t ON e.topic_id = t.id
+    WHERE e.user_email = ? AND (e.is_active = 1 OR t.end_date < ?)
+  `, [email, currentNow]);
+  const totalLikes = likesRows[0].total || 0;
 
-    const [victoryRows] = await pool.query(`
-      SELECT COUNT(*) as victories
-      FROM weekly_entries e1
-      WHERE e1.user_email = ? 
-        AND e1.is_active = 1
-        AND e1.topic_id IN (SELECT id FROM weekly_topics WHERE end_date < ?)
-        AND e1.id = (
-          SELECT e2.id 
-          FROM weekly_entries e2
-          WHERE e2.topic_id = e1.topic_id AND e2.is_active = 1
-          ORDER BY e2.likes_count DESC, e2.views_count ASC
-          LIMIT 1
-        )
-    `, [email, currentNow]);
-    
-    const victories = victoryRows[0]?.victories || 0;
+  const [victoryRows] = await pool.query(`
+    SELECT COUNT(*) as victories
+    FROM weekly_entries e1
+    WHERE e1.user_email = ? 
+      AND e1.is_active = 1
+      AND e1.topic_id IN (SELECT id FROM weekly_topics WHERE end_date < ?)
+      AND e1.id = (
+        SELECT e2.id 
+        FROM weekly_entries e2
+        WHERE e2.topic_id = e1.topic_id AND e2.is_active = 1
+        ORDER BY e2.likes_count DESC, e2.views_count ASC
+        LIMIT 1
+      )
+  `, [email, currentNow]);
+  
+  const victories = victoryRows[0]?.victories || 0;
 
-    return { totalLikes, victories };
-  }
+  return { totalLikes, victories };
+}
+
 
   // 👑 JAVÍTVA: Az új, 12 szintes Nomád-Magyar progressziós motor (Tűpontos győzelmi kényszer-szűréssel)
   function calculateRankLevel(totalLikes, victories) {
