@@ -147,7 +147,7 @@ export default function ContestsView(props: ContestsViewProps) {
       // Dinamikus karakter-szűrő a jsPDF korlátaihoz (magyar ékezetek Times-hoz igazítása szükség esetén)
       const fixHu = (str: string) => {
         if (!str) return '';
-        if (lang === 'en') return str;
+        // A PDF generátornak teljesen mindegy a UI nyelv, a Times fontnak muszáj konvertálni!
         return str.replace(/ő/g, 'ö').replace(/ű/g, 'ü').replace(/Ő/g, 'Ö').replace(/Ű/g, 'Ü');
       };
 
