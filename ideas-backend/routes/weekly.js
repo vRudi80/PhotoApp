@@ -678,7 +678,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
 // ====================================================================
-  // 🗳️ ULTRA OPTIMALIZÁLT SZAVAZATBEKÜLDŐ VÉGPONT (Javított, pass-biztos verzió)
+  // 🗳️ ULTRA OPTIMALIZÁLT SZAVAZATBEKÜLDŐ VÉGPONT (Képmester-biztos verzió)
   // ====================================================================
   app.post('/api/weekly/vote', async (req, res) => {
     const { entryId, userEmail, voteType } = req.body; 
@@ -693,21 +693,32 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         return res.json({ success: false, message: 'Már szavaztál!' }); 
       }
 
-      // 2. Téma azonosítása a kép alapján
+      // 2. Téma és Csatabíró (Képmester) azonosítása a kép alapján
       const [entryTopicRows] = await conn.query('SELECT topic_id FROM weekly_entries WHERE id = ?', [entryId]);
       const topicId = entryTopicRows[0]?.topic_id;
 
+      const [topicRows] = await conn.query('SELECT master_email FROM weekly_topics WHERE id = ?', [topicId]);
+      const assignedMasterEmail = topicRows[0]?.master_email;
+      
+      // 👑 Ellenőrizzük, hogy a szavazó-e a szoba hivatalos Képmestere
+      const isRealMasterOfThisRoom = (userEmail === assignedMasterEmail);
+
+      // 🎯 KÉNYSZERÍTÉS: Ha a Képmester a legerősebb voksát ('brilliant' vagy 'master') küldi, 
+      // akkor azt az adatbázis és a limitellenőrzés kedvéért fixen 'master'-nek tekintjük.
+      let finalVoteType = voteType;
+      if (isRealMasterOfThisRoom && (voteType === 'brilliant' || voteType === 'master')) {
+        finalVoteType = 'master';
+      }
+
       let calculatedPoints = 0;
 
-      // 3. Pontszámítás a szavazat típusa szerint
-      if (voteType === 'pass') {
-        // 🎯 JAVÍTVA: Ha nem tetszik / kihagyás van, a kép 0 pontot kap, de a megtekintés számlálója nőni fog
+      // 3. Pontszámítás az ellenőrzött szavazat típusa szerint
+      if (finalVoteType === 'pass') {
         calculatedPoints = 0;
       } 
-      else if (voteType === 'master') {
-        // Csatabíró jogosultság ellenőrzése
-        const [topicRows] = await conn.query('SELECT master_email FROM weekly_topics WHERE id = ?', [topicId]);
-        if (!topicRows[0] || topicRows[0].master_email !== userEmail) {
+      else if (finalVoteType === 'master') {
+        // 🛡️ BIZTONSÁGI PAJZS: Ha a frontend 'master'-t küldött, de az illető NEM a Képmester, visszaverjük!
+        if (!isRealMasterOfThisRoom) {
           await conn.rollback();
           return res.status(403).json({ error: 'Nem te vagy a csata kijelölt Csatabírója!' });
         }
@@ -727,15 +738,15 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         calculatedPoints = 10; 
       } 
       else {
-        // ⚡ JAVÍTVA: Újrahasznosítjuk a gyors in-memory szavazati erő logikát a nehéz beágyazott hurok helyett!
+        // Sima játékosok szavazata, vagy a Képmester 'super' voksa (ami a saját rangja szerint ad pontot)
         const { totalLikes, victories } = await getUserLikesAndVictories(conn, userEmail);
         const level = calculateRankLevel(totalLikes, victories);
         const power = getVotePowerByLevel(level);
-        calculatedPoints = voteType === 'super' ? power.super : power.brilliant;
+        calculatedPoints = finalVoteType === 'super' ? power.super : power.brilliant;
       }
 
-      // 4. Szavazat rögzítése és pontok hozzáírása a képhez
-      await conn.query('INSERT INTO weekly_votes (entry_id, voter_email, vote_type) VALUES (?, ?, ?)', [entryId, userEmail, voteType]);
+      // 4. Szavazat rögzítése és pontok hozzáírása a képhez (már a kényszerített finalVoteType-al!)
+      await conn.query('INSERT INTO weekly_votes (entry_id, voter_email, vote_type) VALUES (?, ?, ?)', [entryId, userEmail, finalVoteType]);
       await conn.query('UPDATE weekly_entries SET views_count = views_count + 1, likes_count = likes_count + ? WHERE id = ?', [calculatedPoints, entryId]);
 
       // 5. Alkotó szintlépésének ellenőrzése (Csak ha ténylegesen kapott pontot a kép)
@@ -747,7 +758,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       }
 
       await conn.commit();
-      res.json({ success: true });
+      res.json({ success: true, savedAs: finalVoteType });
     } catch (err) { 
       await conn.rollback(); 
       res.status(500).json({ error: 'Hiba a szavazat feldolgozásakor.' }); 
