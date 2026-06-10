@@ -35,7 +35,7 @@ export default function AlbumSelectionModal({
         </h3>
         <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 20px 0', lineHeight: '1.4' }}>
           {albumModalMode === 'upload' 
-            ? 'Melyik meglévő galériás fotóddal szeretnél benevezni a mostani párbajba?' 
+            ? 'Melyik meglévő galériás fotóddal szeretnél benevezni a mostani futamra?' 
             : 'Melyik galériás képedet küldöd harcba? A kék keretes Visszacserék megtartják a fordulóban korábban szerzett csillagaikat!'}
         </p>
         
