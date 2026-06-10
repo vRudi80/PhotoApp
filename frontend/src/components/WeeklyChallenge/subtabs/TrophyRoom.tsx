@@ -18,7 +18,7 @@ interface TrophyRoomProps {
   getLevelDetails: (likes: number, victories: number) => { name: string; color: string; bg: string };
   getTopicType: (start: string, end: string) => 'daily' | 'weekly';
   handleImageError: (e: React.SyntheticEvent<HTMLImageElement, Event>) => void;
-  premiumUntil?: string | null; // 👑 ÚJ PROP: Az ajándék prémium követéséhez
+  premiumUntil?: string | null; 
 }
 
 export default function TrophyRoom({
@@ -26,7 +26,7 @@ export default function TrophyRoom({
   myReferralCode, referredBy, referralInput, setReferralInput,
   isClaimingReferral, handleClaimReferral, setActiveShareData, setFullscreenData,
   getLevelDetails, getTopicType, handleImageError,
-  premiumUntil // 👑 Beemelve a destruktúrálásba
+  premiumUntil 
 }: TrophyRoomProps) {
 
   if (isLoadingStats && (!myStats || myStats.history.length === 0)) {
@@ -37,29 +37,48 @@ export default function TrophyRoom({
     return <div style={{ color: '#ef4444', textAlign: 'center', padding: '20px' }}>Nem sikerült betölteni az adatokat.</div>;
   }
 
-  // 📊 NOMÁD RANG-PROGRESSZIÓ SZÁMÍTÓ ENGINE
-  const currentLevel = getLevelDetails(userTotalLikes, userVictories);
+  // 📐 FOTÓSMESTER RANG-PROGRESSZIÓ ADATBÁZIS (Matematikai határértékekkel kiegészítve)
   const thresholds = [
-  { name: 'Fényleső 🌱', req: '0 - 29 pont', power: '✨ +1 / 🔥 +2', color: '#94a3b8' },
-  { name: 'Megfigyelő 👁️', req: '30 - 99 pont', power: '✨ +2 / 🔥 +3', color: '#cbd5e1' },
-  { name: 'Képvadász 📷', req: '100 - 249 pont', power: '✨ +2 / 🔥 +4', color: '#38bdf8' },
-  { name: 'Komponista 📐', req: '250 - 499 pont', power: '✨ +3 / 🔥 +5', color: '#60a5fa' },
-  { name: 'Fényíró 🎞️', req: '500 - 799 pont ÉS 1+ győzelem', power: '✨ +3 / 🔥 +6', color: '#10b981' },
-  { name: 'Esztéta 💎', req: '800 - 1299 pont ÉS 2+ győzelem', power: '✨ +4 / 🔥 +7', color: '#059669' },
-  { name: 'Szakértő 🎯', req: '1300 - 1999 pont ÉS 3+ győzelem', power: '✨ +4 / 🔥 +8', color: '#a78bfa' },
-  { name: 'Képmester 🎨', req: '2000 - 3199 pont ÉS 5+ győzelem', power: '✨ +5 / 🔥 +10', color: '#ec4899' },
-  { name: 'Nagymester 🌟', req: '3200 - 4799 pont ÉS 7+ győzelem', power: '✨ +5 / 🔥 +12', color: '#f59e0b' },
-  { name: 'Virtuóz ⚡', req: '4800 - 6999 pont ÉS 9+ győzelem', power: '✨ +6 / 🔥 +14', color: '#eab308' },
-  { name: 'Fotóguru 🔥', req: '7000 - 9999 pont ÉS 12+ győzelem', power: '✨ +7 / 🔥 +17', color: '#ef4444' },
-  { name: 'Vizuális Legenda 👑', req: '10000+ pont ÉS 15+ győzelem', power: '✨ +8 / 🔥 +20', color: '#fbbf24' }
-
+    { name: 'Fényleső 🌱', req: '0 - 29 pont', power: '✨ +1 / 🔥 +2', color: '#94a3b8', min: 0, max: 30, vic: 0 },
+    { name: 'Megfigyelő 👁️', req: '30 - 99 pont', power: '✨ +2 / 🔥 +3', color: '#cbd5e1', min: 30, max: 100, vic: 0 },
+    { name: 'Képvadász 📷', req: '100 - 249 pont', power: '✨ +2 / 🔥 +4', color: '#38bdf8', min: 100, max: 250, vic: 0 },
+    { name: 'Komponista 📐', req: '250 - 499 pont', power: '✨ +3 / 🔥 +5', color: '#60a5fa', min: 250, max: 500, vic: 0 },
+    { name: 'Fényíró 🎞️', req: '500 - 799 pont ÉS 1+ győzelem', power: '✨ +3 / 🔥 +6', color: '#10b981', min: 500, max: 800, vic: 1 },
+    { name: 'Esztéta 💎', req: '800 - 1299 pont ÉS 2+ győzelem', power: '✨ +4 / 🔥 +7', color: '#059669', min: 800, max: 1300, vic: 2 },
+    { name: 'Szakértő 🎯', req: '1300 - 1999 pont ÉS 3+ győzelem', power: '✨ +4 / 🔥 +8', color: '#a78bfa', min: 1300, max: 2000, vic: 3 },
+    { name: 'Képmester 🎨', req: '2000 - 3199 pont ÉS 5+ győzelem', power: '✨ +5 / 🔥 +10', color: '#ec4899', min: 2000, max: 3200, vic: 5 },
+    { name: 'Nagymester 🌟', req: '3200 - 4799 pont ÉS 7+ győzelem', power: '✨ +5 / 🔥 +12', color: '#f59e0b', min: 3200, max: 4800, vic: 7 },
+    { name: 'Virtuóz ⚡', req: '4800 - 6999 pont ÉS 9+ győzelem', power: '✨ +6 / 🔥 +14', color: '#eab308', min: 4800, max: 7000, vic: 9 },
+    { name: 'Fotóguru 🔥', req: '7000 - 9999 pont ÉS 12+ győzelem', power: '✨ +7 / 🔥 +17', color: '#ef4444', min: 7000, max: 10000, vic: 12 },
+    { name: 'Vizuális Legenda 👑', req: '10000+ pont ÉS 15+ győzelem', power: '✨ +8 / 🔥 +20', color: '#fbbf24', min: 10000, max: Infinity, vic: 15 }
   ];
 
-  const currentRankIndex = thresholds.findIndex(t => t.name === currentLevel.name);
-  const currentBracket = thresholds[currentRankIndex];
+  // 🎯 BIZTONSÁGI JAVÍTÁS: A szülő elavult függvénye helyett helyben, kőkeményen kalkulálunk a backend logikája szerint
+  const getActualRankBracket = (likes: number, vics: number) => {
+    if (likes < 30) return thresholds[0];
+    if (likes < 100) return thresholds[1];
+    if (likes < 250) return thresholds[2];
+    if (likes < 500 || vics < 1) return thresholds[3];
+    if (likes < 800 || vics < 2) return thresholds[4];
+    if (likes < 1300 || vics < 3) return thresholds[5];
+    if (likes < 2000 || vics < 5) return thresholds[6];
+    if (likes < 3200 || vics < 7) return thresholds[7];
+    if (likes < 4800 || vics < 9) return thresholds[8];
+    if (likes < 7000 || vics < 12) return thresholds[9];
+    if (likes < 10000 || vics < 15) return thresholds[10];
+    return thresholds[11];
+  };
 
+  const currentBracket = getActualRankBracket(userTotalLikes, userVictories);
+  const currentLevel = {
+    name: currentBracket.name,
+    color: currentBracket.color,
+    bg: `${currentBracket.color}15`
+  };
+
+  // 📊 SZÁZALÉK ÉS UTASÍTÓ SZÖVEG SZÁMÍTÁSA A VALÓDI ADATOKBÓL
   let progressPercent = 100;
-  let levelHelpText = "Elérted a maximális szintet! Te vagy a Fotós Fejedelem! 👑";
+  let levelHelpText = "Elérted a legmagasabb rangot! Te vagy a klub Vizuális Legendája! 👑";
 
   if (currentBracket && currentBracket.max !== Infinity) {
     const range = currentBracket.max - currentBracket.min;
@@ -67,18 +86,15 @@ export default function TrophyRoom({
     progressPercent = Math.min(100, Math.max(0, (currentProgress / range) * 100));
 
     if (userTotalLikes < currentBracket.max) {
-      levelHelpText = `Még ${currentBracket.max - userTotalLikes} szavazat szükséges a következő szinthez!`;
-    } else if (currentBracket.vic && userVictories < currentBracket.vic) {
+      levelHelpText = `Még ${currentBracket.max - userTotalLikes} pont szükséges a következő szinthez!`;
+    } else if (userVictories < currentBracket.vic) {
       levelHelpText = `🔒 Megvannak a pontjaid, de még ${currentBracket.vic - userVictories} db Aréna Győzelem (🥇) szükséges a szintlépéshez!`;
     } else {
       levelHelpText = "Gratulálunk! Minden feltétel teljesítve a szintlépéshez!";
     }
   }
 
-  // Statisztikai összesítések exkluzív módon
   const totalViews = myStats.history?.reduce((sum, e) => sum + (Number(e?.views) || 0), 0) || 0;
-  
-  // 🏆 JAVÍTVA: Csak a valós 2. és 3. helyeket számoljuk dobogós trófeának!
   const podiumCount = Number(myStats.podiums?.second || 0) + Number(myStats.podiums?.third || 0);
   
   let top10Count = 0;
@@ -92,7 +108,6 @@ export default function TrophyRoom({
     });
   }
 
-  // 👑 PRÉMIUM IDŐZÍTŐ VALIDÁLÁS
   const isPremiumActive = premiumUntil && new Date(premiumUntil) > new Date();
 
   return (
@@ -107,12 +122,12 @@ export default function TrophyRoom({
           <div style={{ width: `${progressPercent}%`, background: `linear-gradient(90deg, transparent, ${currentLevel.color})`, height: '100%' }}></div>
         </div>
         
-        <div style={{ color: currentLevel.name === 'Fejedelem 👑' ? '#fbbf24' : '#cbd5e1', fontSize: currentLevel.name === 'Fejedelem 👑' ? '1rem' : '0.9rem', marginTop: '15px', position: 'relative', zIndex: 1, fontWeight: currentLevel.name === 'Fejedelem 👑' ? 'bold' : 'normal' }}>
+        <div style={{ color: currentLevel.name === 'Vizuális Legenda 👑' ? '#fbbf24' : '#cbd5e1', fontSize: currentLevel.name === 'Vizuális Legenda 👑' ? '1rem' : '0.9rem', marginTop: '15px', position: 'relative', zIndex: 1, fontWeight: currentLevel.name === 'Vizuális Legenda 👑' ? 'bold' : 'normal' }}>
           {levelHelpText}
         </div>
       </div>
 
-      {/* 💎 💎 ÚJ: JÁTÉKBAN NYERT PRÉMIUM JUTALOM ÁLLAPOTJELZŐ BANNER */}
+      {/* JÁTÉKBAN NYERT PRÉMIUM JUTALOM ÁLLAPOTJELZŐ BANNER */}
       {isPremiumActive && (
         <div style={{ background: 'linear-gradient(90deg, #10b98115, #0f172a)', border: '1px solid #10b98140', borderLeft: '5px solid #10b981', padding: '18px 25px', borderRadius: '16px', marginBottom: '40px', display: 'flex', alignItems: 'center', gap: '15px', boxShadow: '0 0 30px rgba(16,185,129,0.05)' }}>
           <div style={{ fontSize: '2rem' }}>💎</div>
@@ -131,12 +146,10 @@ export default function TrophyRoom({
           <div style={{ fontSize: '2.5rem', fontWeight: '900', color: '#f97316', marginBottom: '5px' }}>{userTotalLikes}</div>
           <div style={{ color: '#94a3b8', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Összes Szerzett Pont</div>
         </div>
-        {/* 🥇 ARÉNA GYŐZELMEK BOX */}
         <div style={{ background: '#0f172a', padding: '25px', borderRadius: '20px', textAlign: 'center', border: '1px solid #fbbf24', boxShadow: '0 10px 20px rgba(251,191,36,0.1)' }}>
           <div style={{ fontSize: '2.5rem', fontWeight: '900', color: '#fbbf24', marginBottom: '5px' }}>{userVictories} db</div>
           <div style={{ color: '#fbbf24', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Aréna Győzelem (🥇)</div>
         </div>
-        {/* 🏆 VALÓS DOBOGÓSOK BOX (CSAK 2-3. HELY) */}
         <div style={{ background: '#0f172a', padding: '25px', borderRadius: '20px', textAlign: 'center', border: '1px solid #cbd5e1', boxShadow: '0 10px 20px rgba(203,213,225,0.1)' }}>
           <div style={{ fontSize: '2.5rem', fontWeight: '900', color: '#cbd5e1', marginBottom: '5px' }}>{podiumCount} db</div>
           <div style={{ color: '#cbd5e1', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Dobogós (2-3. hely)</div>
@@ -206,7 +219,7 @@ export default function TrophyRoom({
             </div>
           ) : (
             <div style={{ background: '#10b98110', border: '1px solid #10b98130', padding: '12px', borderRadius: '12px', color: '#10b981', fontSize: '0.9rem', fontWeight: 'bold', textAlign: 'center' }}>
-              \u2713 Sikeresen rögzítetted a meghívásodat! Köszönjük.
+              ✓ Sikeresen rögzítetted a meghívásodat! Köszönjük.
             </div>
           )}
         </div>
