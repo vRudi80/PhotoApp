@@ -448,13 +448,24 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   useEffect(() => {
     if (subTab !== 'current' || selectedTopicId !== null) return;
 
-const fetchLobbyChat = async () => {
+    const fetchLobbyChat = async () => {
       try {
-        // 🎯 JAVÍTVA: Hozzáadtunk egy egyedi időbélyeget (?_=${Date.now()}), ami megakadályozza a böngésző hibás cache-elését!
-        const res = await fetch(`${BACKEND_URL}/api/weekly/chat/0?_=${Date.now()}`);
+        // 🎯 JAVÍTVA: Kényszerített böngésző, Vercel/Render és Cloudflare cache-megsemmisítő fejlécek
+        const res = await fetch(`${BACKEND_URL}/api/weekly/chat/0?t=${Date.now()}`, {
+          method: 'GET',
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+          }
+        });
+        
         if (res.ok) {
           const data = await res.json();
           
+          // 🔍 DIAGNOSZTIKA: Nyisd meg az F12-t a böngésződben, itt látni fogod a háttérben érkező élő pulzust!
+          console.log("📥 Aréna Lobbi élő szinkronizáció:", data.messages?.length, "üzenet beolvasva.");
+
           // Frissítjük az üzeneteket
           setLobbyMessages(data.messages || []);
           
@@ -463,15 +474,15 @@ const fetchLobbyChat = async () => {
           setCurrentlyTyping(othersTyping);
         }
       } catch (err) {
-        console.error("Hiba a lobbi chat szinkronizációjakor:", err);
+        console.error("❌ Hiba a lobbi chat szinkronizációjakor:", err);
       }
     };
 
-    // Első azonnali betöltés
+    // Első azonnali betöltés a belépés pillanatában
     fetchLobbyChat();
 
-    // Szigorúan stabil 4 másodperces ciklus
-    const interval = setInterval(fetchLobbyChat, 4000);
+    // 🎯 JAVÍTVA: 2.5 másodpercre (2500ms) rövidített szinkronizációs ablak a szülő komponensek remount-csapdája ellen
+    const interval = setInterval(fetchLobbyChat, 2500);
     return () => clearInterval(interval);
   }, [subTab, selectedTopicId]);
 
