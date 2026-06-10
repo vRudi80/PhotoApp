@@ -568,7 +568,13 @@ const translations = {
     planLabelTitleEn: '🇬🇧 Kihívás címe (Angolul - Opcionális)',
     planPlaceholderTitleEn: 'Pl.: Roar of Wild Waters',
     planLabelDescEn: '🇬🇧 Részletes leírás (Angolul - Opcionális)',
-    planPlaceholderDescEn: 'What kind of photos are you looking for?...'
+    planPlaceholderDescEn: 'What kind of photos are you looking for?...',
+
+    // === HU BLOKK ALJA ===
+    adminLabelTitleEn: '🇬🇧 Csata témája angolul (Opcionális)',
+    adminPlaceholderTitleEn: 'E.g., Spring Lights',
+    adminLabelDescEn: '🇬🇧 Hadparancs angolul (Opcionális)',
+    adminPlaceholderDescEn: 'Guideline and rules for photographers in English...'
   },
 
   
@@ -1138,7 +1144,13 @@ const translations = {
     planLabelTitleEn: '🇬🇧 Challenge Title (English - Optional)',
     planPlaceholderTitleEn: 'E.g., Roar of Wild Waters',
     planLabelDescEn: '🇬🇧 Detailed Description (English - Optional)',
-    planPlaceholderDescEn: 'What kind of photos are you looking for?...'
+    planPlaceholderDescEn: 'What kind of photos are you looking for?...',
+
+    // === EN BLOKK ALJA ===
+    adminLabelTitleEn: '🇬🇧 Challenge Title in English (Optional)',
+    adminPlaceholderTitleEn: 'E.g., Spring Lights',
+    adminLabelDescEn: '🇬🇧 Command/Description in English (Optional)',
+    adminPlaceholderDescEn: 'Guideline and rules for photographers in English...'
   }
 };
 
