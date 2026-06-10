@@ -96,7 +96,7 @@ export default function Header({
               style={{ color: '#f97316' }} 
               onClick={() => handleNavClick('weekly_challenge')}
             >
-              <span>⚔️ Csaták</span>
+              <span>🏆 Mesterek ligája</span>
             </button>
           </div>
 
