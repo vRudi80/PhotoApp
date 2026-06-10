@@ -141,7 +141,7 @@ export default function ArenaActiveRoom({
                     onClick={() => handleVote('master')} 
                     style={{ width: '100%', padding: '16px', background: 'linear-gradient(135deg, #fbbf24, #d97706)', color: '#0f172a', border: 'none', borderRadius: '14px', fontSize: '1.1rem', fontWeight: '900', cursor: 'pointer', boxShadow: '0 4px 15px rgba(251,191,36,0.4)', marginBottom: '6px' }}
                   >
-                    👑 Párbajmester Különdíj (+10 pont) <br/>
+                    👑 Képmester Különdíj (+10 pont) <br/>
                     <span style={{ fontSize: '0.8rem', fontWeight: 'bold', opacity: 0.8 }}>Még {masterVotesLeft} db szavazatod maradt</span>
                   </button>
                 )}
@@ -184,9 +184,9 @@ export default function ArenaActiveRoom({
           {isMaster ? (
             <div style={{ padding: '30px 15px', background: 'linear-gradient(135deg, #4c1d9520, #1e1b4b40)', border: '1px solid #a78bfa40', borderRadius: '16px', textAlign: 'center' }}>
               <div style={{ fontSize: '3.5rem', marginBottom: '10px' }}>👑</div>
-              <h4 style={{ color: '#a78bfa', margin: '0 0 8px 0', fontSize: '1.25rem', fontWeight: 'bold' }}>Te vagy a Párbajmester!</h4>
+              <h4 style={{ color: '#a78bfa', margin: '0 0 8px 0', fontSize: '1.25rem', fontWeight: 'bold' }}>Te vagy a Képmester!</h4>
               <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: 0, lineHeight: '1.6' }}>
-                Ebben a párbajban te lettél felkérve a főbírónak! Saját alkotással nem nevezhetsz, cserébe kapsz 5 darab, egyenként **+10 pontot** érő Különdíjat, amit a szavazás során oszthatsz szét a kedvenc képeid között.
+                Ebben a futamban te lettél felkérve a képmesternek! Saját alkotással nem nevezhetsz, cserébe kapsz 5 darab, egyenként **+10 pontot** érő Különdíjat, amit a szavazás során oszthatsz szét a kedvenc képeid között.
               </p>
             </div>
           ) : myEntry ? (
