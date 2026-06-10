@@ -112,12 +112,12 @@ export default function BattlePlanner({ user, onSuccess }: BattlePlannerProps) {
 
   return (
     <div style={{ maxWidth: '600px', margin: '0 auto', background: '#1e293b', padding: '30px', borderRadius: '24px', border: '1px solid #334155', boxShadow: '0 10px 30px rgba(0,0,0,0.4)', animation: 'fadeIn 0.3s ease-out' }}>
-      <h2 style={{ color: '#f59e0b', margin: '0 0 10px 0', fontSize: '1.6rem', fontWeight: 'bold' }}>📜 Új Csata Javaslata</h2>
-      <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: '0 0 25px 0', lineHeight: '1.5' }}>Vázold fel a haditervedet! Ha a törzsi tanács jóváhagyja, a javaslatod bekerül a hivatalos közelgő csaták közé.</p>
+      <h2 style={{ color: '#f59e0b', margin: '0 0 10px 0', fontSize: '1.6rem', fontWeight: 'bold' }}>📜 Új Kihívás Javaslata</h2>
+      <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: '0 0 25px 0', lineHeight: '1.5' }}>Vázold fel a kihívást! Jóváhagyás után, a javaslatod bekerül a hivatalos közelgő kihívások közé.</p>
 
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
         <div>
-          <label style={{ color: '#cbd5e1', display: 'block', marginBottom: '6px', fontSize: '0.9rem', fontWeight: 'bold' }}>Csata megnevezése (Téma) *</label>
+          <label style={{ color: '#cbd5e1', display: 'block', marginBottom: '6px', fontSize: '0.9rem', fontWeight: 'bold' }}>Kihívás megnevezése (Téma) *</label>
           <input type="text" placeholder="Pl.: Vadvizek moraja, Városi sziluettek" value={title} onChange={e => setTitle(e.target.value)} required style={{ width: '100%', padding: '12px', background: '#0f172a', border: '1px solid #334155', borderRadius: '10px', color: 'white', outline: 'none' }} />
         </div>
 
@@ -139,7 +139,7 @@ export default function BattlePlanner({ user, onSuccess }: BattlePlannerProps) {
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
           <div>
-            <label style={{ color: '#cbd5e1', display: 'block', marginBottom: '6px', fontSize: '0.9rem', fontWeight: 'bold' }}>Kijelölt Csatabíró</label>
+            <label style={{ color: '#cbd5e1', display: 'block', marginBottom: '6px', fontSize: '0.9rem', fontWeight: 'bold' }}>Kijelölt Képmester</label>
             <input type="text" placeholder="Pl.: Csontos Mária" value={masterName} onChange={e => setMasterName(e.target.value)} style={{ width: '100%', padding: '12px', background: '#0f172a', border: '1px solid #334155', borderRadius: '10px', color: 'white', outline: 'none' }} />
           </div>
           <div>
