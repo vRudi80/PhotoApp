@@ -574,7 +574,27 @@ const translations = {
     adminLabelTitleEn: '🇬🇧 Csata témája angolul (Opcionális)',
     adminPlaceholderTitleEn: 'E.g., Spring Lights',
     adminLabelDescEn: '🇬🇧 Hadparancs angolul (Opcionális)',
-    adminPlaceholderDescEn: 'Guideline and rules for photographers in English...'
+    adminPlaceholderDescEn: 'Guideline and rules for photographers in English...',
+
+    // === HU BLOKK ALJA ===
+    upTitle: '🔮 Közelgő Kihívások Menetrendje',
+    upDesc: 'Már jóváhagyott, hamarosan élesedő kihívások.',
+    upClosePlanner: '✕ Tervező bezárása',
+    upOpenPlanner: '⚔️ Új kihívásterv benyújtása',
+    upEmpty: 'Nincs betárazva elkövetkező kihívás. Kattints a fenti gombra, és javasolj egy új témát!',
+    upDaily: '🔴 Villámfutam',
+    upWeekly: '🔵 Mesterfutam',
+    upCoverAuthor: '📸 Borítókép: ',
+    upMaster: '👑 Képmester:',
+    upPendingMe: '⏳ Jelentkezésed elbírálásra vár...',
+    upPendingOther: '⏳ Valaki már jelentkezett (Bírálatra vár)',
+    upApplyBtn: '👑 Jelentkezés Képmesternek',
+    upProcessing: 'Feldolgozás...',
+    upStart: 'Indulás',
+    upEnd: 'Zárás',
+    msgLoginRequired: '❌ A jelentkezéshez előbb be kell jelentkezned!',
+    msgApplyConfirm: '⚔️ Biztosan jelentkezel ennek a futamnak a Képmesterének?\n\nFigyelem: Képmesterként saját fotóval nem indulhatsz a futamban, viszont kapsz 5 darab exkluzív +10 pontot érő szavazatot!',
+    msgApplySuccess: '🎉 Jelentkezésed sikeresen elküldve! A főadmin hamarosan elbírálja a műszerfalon.',
   },
 
   
@@ -1150,7 +1170,27 @@ const translations = {
     adminLabelTitleEn: '🇬🇧 Challenge Title in English (Optional)',
     adminPlaceholderTitleEn: 'E.g., Spring Lights',
     adminLabelDescEn: '🇬🇧 Command/Description in English (Optional)',
-    adminPlaceholderDescEn: 'Guideline and rules for photographers in English...'
+    adminPlaceholderDescEn: 'Guideline and rules for photographers in English...',
+
+    // === EN BLOKK ALJA ===
+    upTitle: '🔮 Upcoming Challenges Schedule',
+    upDesc: 'Approved challenges that will go live soon.',
+    upClosePlanner: '✕ Close Planner',
+    upOpenPlanner: '⚔️ Propose New Challenge',
+    upEmpty: 'No upcoming challenges scheduled. Click the button above to propose a new theme!',
+    upDaily: '🔴 Blitz Match',
+    upWeekly: '🔵 Master Match',
+    upCoverAuthor: '📸 Cover by: ',
+    upMaster: '👑 Master:',
+    upPendingMe: '⏳ Your application is pending review...',
+    upPendingOther: '⏳ Someone has already applied (Pending review)',
+    upApplyBtn: '👑 Apply for Master',
+    upProcessing: 'Processing...',
+    upStart: 'Starts',
+    upEnd: 'Ends',
+    msgLoginRequired: '❌ You must log in first to apply!',
+    msgApplyConfirm: '⚔️ Are you sure you want to apply as the Master for this match?\n\nAttention: As a Master, you cannot enter the match with your own photo, but you will receive 5 exclusive votes worth +10 points each!',
+    msgApplySuccess: '🎉 Application successfully sent! The admin will review it on the dashboard shortly.'
   }
 };
 
