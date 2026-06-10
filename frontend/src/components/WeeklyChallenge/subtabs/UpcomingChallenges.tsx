@@ -25,7 +25,7 @@ export default function UpcomingChallenges({
   const handleApplyMaster = async (topicId: number) => {
     if (!user?.email) return alert("❌ A jelentkezéshez előbb be kell jelentkezned!");
     
-    const confirmMessage = `⚔️ Biztosan jelentkezel ennek a csatának a Párbajmesterének?\n\nFigyelem: Párbajmesterként saját fotóval nem indulhatsz a versenyben, viszont kapsz 5 darab exkluzív +10 pontot érő szavazatot!`;
+    const confirmMessage = `⚔️ Biztosan jelentkezel ennek a futamnak a Képmesterének?\n\nFigyelem: Képmesterként saját fotóval nem indulhatsz a futamban, viszont kapsz 5 darab exkluzív +10 pontot érő szavazatot!`;
     if (!window.confirm(confirmMessage)) return;
 
     setApplyingId(topicId);
@@ -66,10 +66,10 @@ export default function UpcomingChallenges({
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#10b98105', padding: '15px 20px', borderRadius: '16px', border: '1px dashed #334155', flexWrap: 'wrap', gap: '15px' }}>
         <div>
           <h3 style={{ color: 'white', margin: 0, fontSize: '1.2rem', fontWeight: 'bold' }}>
-            🔮 Közelgő Csaták Menetrendje
+            🔮 Közelgő Kihívások Menetrendje
           </h3>
           <p style={{ color: '#64748b', margin: '2px 0 0 0', fontSize: '0.85rem' }}>
-            Már jóváhagyott, hamarosan élesedő küzdelmek.
+            Már jóváhagyott, hamarosan élesedő kihívások.
           </p>
         </div>
         
@@ -77,7 +77,7 @@ export default function UpcomingChallenges({
           onClick={() => setShowPlanner(!showPlanner)}
           style={{ padding: '10px 20px', borderRadius: '10px', border: showPlanner ? '1px solid #ef4444' : '1px solid #f59e0b', background: showPlanner ? '#ef444420' : 'linear-gradient(135deg, #f59e0b, #d97706)', color: showPlanner ? '#f87171' : '#0f172a', fontWeight: 'bold', fontSize: '0.9rem', cursor: 'pointer', transition: 'all 0.2s', boxShadow: showPlanner ? 'none' : '0 4px 12px rgba(245,158,11,0.2)' }}
         >
-          {showPlanner ? '✕ Tervező bezárása' : '⚔️ Új csataterv benyújtása'}
+          {showPlanner ? '✕ Tervező bezárása' : '⚔️ Új kihívásterv benyújtása'}
         </button>
       </div>
 
@@ -92,7 +92,7 @@ export default function UpcomingChallenges({
       <div>
         {safeUpcomingTopics.length === 0 ? (
           <div style={{ color: '#94a3b8', textAlign: 'center', padding: '60px', background: '#1e293b', borderRadius: '24px', border: '1px solid #334155' }}>
-            Nincs betárazva elkövetkező csata. Kattints a fenti gombra, és javasolj egy új témát!
+            Nincs betárazva elkövetkező kihívás. Kattints a fenti gombra, és javasolj egy új témát!
           </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '25px' }}>
@@ -109,7 +109,7 @@ export default function UpcomingChallenges({
                   <div>
                     <div style={{ marginBottom: '10px' }}>
                       <span style={{ background: isDaily ? '#ef444420' : '#3b82f620', color: isDaily ? '#f87171' : '#60a5fa', border: `1px solid ${isDaily ? '#ef444450' : '#3b82f650'}`, padding: '4px 12px', borderRadius: '50px', fontSize: '0.8rem', fontWeight: 'bold' }}>
-                        {isDaily ? '🔴 Villámháború' : '🔵 Hosszú hadjárat'}
+                        {isDaily ? '🔴 Villámfutam' : '🔵 Mesterfutam'}
                       </span>
                     </div>
                   
@@ -134,7 +134,7 @@ export default function UpcomingChallenges({
                     {/* 👤 JELENLEGI CSATABÍRÓ INFÓ VAGY AKCIÓGOMBOK */}
                     {hasMaster ? (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#a78bfa', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '15px', background: '#a78bfa10', padding: '8px 14px', borderRadius: '10px', border: '1px solid #a78bfa20', width: 'fit-content' }}>
-                        <span>👑 Párbajmester:</span>
+                        <span>👑 Képjmester:</span>
                         <span style={{ color: '#e9d5ff', fontWeight: 'bold' }}>{t.master_name || t.master_email}</span>
                       </div>
                     ) : t.pending_master_email ? (
@@ -149,7 +149,7 @@ export default function UpcomingChallenges({
                         onMouseOver={e => e.currentTarget.style.background = 'rgba(16, 185, 129, 0.25)'}
                         onMouseOut={e => e.currentTarget.style.background = 'rgba(16, 185, 129, 0.12)'}
                       >
-                        {applyingId === t.id ? 'Feldolgozás...' : '👑 Jelentkezés Párbajmesternek'}
+                        {applyingId === t.id ? 'Feldolgozás...' : '👑 Jelentkezés Képmesternek'}
                       </button>
                     )}
 
