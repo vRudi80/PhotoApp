@@ -92,6 +92,7 @@ const compressImageOnClient = (file: File): Promise<File> => {
 // ====================================================================
 // ⏳ SELEKCIÓS KÁRTYA KOMPONENS (Egyvonalas statisztikai sávval)
 // ====================================================================
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }) {
   const [timeLeft, setTimeLeft] = useState<string>('Számítás...');
 
@@ -149,7 +150,6 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
       onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = '#334155'; }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-        {/* 👑 JAVÍTVA: Arculati feliratok frissítve */}
         <span style={{ background: isDaily ? '#ef444420' : '#3b82f620', color: isDaily ? '#f87171' : '#60a5fa', border: `1px solid ${isDaily ? '#ef444450' : '#3b82f650'}`, padding: '4px 12px', borderRadius: '50px', fontSize: '0.8rem', fontWeight: 'bold' }}>
           {isDaily ? '🔴 Villámfutam' : '🔵 Mesterfutam'}
         </span>
@@ -231,6 +231,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const [myPastEntries, setMyPastEntries] = useState<any[]>([]); 
   const [swapBalance, setSwapBalance] = useState<number>(3);     
   const [myVoteCount, setMyVoteCount] = useState(0);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [votableEntries, setVotableEntries] = useState(1);
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
 
@@ -269,13 +270,20 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const [shareBase64, setShareBase64] = useState<string | null>(null);
   const [loadingShareImg, setLoadingShareImg] = useState(false);
 
-  // 👑 ➕ ÚJ: KÖZPONTI LOBBI CSEVEGŐ ÁLLAPOTOK
+  // ── 👑 JAVÍTVA: BULLETPROOF KÖZPONTI LOBBI STATE-EK ÉS IDŐZÍTŐ ──
   const [lobbyMessages, setLobbyMessages] = useState<any[]>([]);
-  const [currentlyTyping, setCurrentlyTyping] = useState<string[]>([]); // ➕ ÚJ STATE A GÉPELŐKNEK
-  const lastTypingSignalSent = useRef<number>(0); // ➕ ÚJ REF, hogy ne bombázzuk a szervert minden leütésnél
+  const [currentlyTyping, setCurrentlyTyping] = useState<string[]>([]);
   const [typedLobbyMsg, setTypedLobbyMsg] = useState('');
   const [isSendingLobbyMsg, setIsSendingLobbyMsg] = useState(false);
+  
   const lobbyChatBottomRef = useRef<HTMLDivElement>(null);
+  const lastTypingSignalSent = useRef<number>(0);
+
+  // 🎯 TRÜKK: useRef-be zárjuk a nevedet, hogy az időzítő ne induljon újra, ha változik a user objektumod
+  const myOfficialNameRef = useRef<string>('Én');
+  useEffect(() => {
+    myOfficialNameRef.current = myEntry?.user_name || user?.name || 'Én';
+  }, [myEntry, user]);
 
   useEffect(() => {
     if (!activeShareData) {
@@ -380,12 +388,12 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         body: JSON.stringify({
           topicId: 0,
           userEmail: user?.email,
-          userName: myEntry?.user_name || user?.name || 'Anonim Képolvasó'
+          userName: myOfficialNameRef.current
         })
       }).catch(() => {});
     }
   };
-  
+
   const fetchNextVote = async (topicId: number) => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/weekly/next-vote?topicId=${topicId}&userEmail=${user?.email || ''}`);
@@ -433,9 +441,10 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     else if (subTab === 'past') fetch(`${BACKEND_URL}/api/weekly/past`).then(res => res.json()).then(data => setPastTopics(data || [])).catch(console.error);
     else if (subTab === 'my_stats') fetchMyStats(); 
     else if (subTab === 'hall_of_fame') fetchHallOfFame();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subTab, selectedTopicId]);
 
-// 🔄 JAVÍTVA: Üzenetek és Gépelők együttes poling szinkronizációja
+  // 🔄 JAVÍTVA: Üzenetek és Gépelők együttes poling szinkronizációja (Bulletproof struktúra)
   useEffect(() => {
     if (subTab !== 'current' || selectedTopicId !== null) return;
 
@@ -447,19 +456,18 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           setLobbyMessages(data.messages || []);
           
           // Kiszűrjük saját magunkat a gépelők listájából, hogy ne lássuk, hogy mi írunk
-          const officialMyName = myEntry?.user_name || user?.name || 'Én';
-          const othersTyping = (data.typing || []).filter((name: string) => name !== officialMyName);
+          const othersTyping = (data.typing || []).filter((name: string) => name !== myOfficialNameRef.current);
           setCurrentlyTyping(othersTyping);
         }
       } catch (err) {
-        console.error("Hiba a lobbi chat lekérésekor:", err);
+        console.error("Hiba a lobbi chat szinkronizációjakor:", err);
       }
     };
 
     fetchLobbyChat();
     const interval = setInterval(fetchLobbyChat, 4000);
     return () => clearInterval(interval);
-  }, [subTab, selectedTopicId, myEntry, user]);
+  }, [subTab, selectedTopicId]);
 
   // Automatikusan a csevegés aljára gördít új üzenet érkezésekor
   useEffect(() => {
@@ -468,7 +476,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     }
   }, [lobbyMessages.length, selectedTopicId, subTab]);
 
- // 👑 JAVÍTVA: Backendről kapott hivatalos név beolvasása lokális rendereléshez
+  // 👑 JAVÍTVA: Backendről kapott hivatalos név beolvasása lokális rendereléshez
   const handleSendLobbyMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!typedLobbyMsg.trim() || isSendingLobbyMsg) return;
@@ -819,7 +827,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                 )}
               </div>
 
-              {/* ── 💬 ➕ ÚJ SECTION: KÖZPONTI ARÉNA LOBBI CHAT (KÁRTYÁK ALATT) ── */}
+              {/* ── 💬 ➕ SECTION: KÖZPONTI ARÉNA LOBBI CHAT (KÁRTYÁK ALATT) ── */}
               <div style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: '24px', padding: '25px', boxShadow: '0 15px 35px rgba(0,0,0,0.4)', display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '10px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
                   <div>
@@ -835,96 +843,96 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                 </div>
 
                 {/* Lobbi Üzenőfal konténer – Dupla biztonsági hálóval felszerelve */}
-        <div style={{ background: '#0f172a', borderRadius: '16px', padding: '20px', height: '300px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', border: '1px solid #223147' }}>
-          {lobbyMessages.length === 0 ? (
-            <div style={{ color: '#475569', textAlign: 'center', margin: 'auto', fontStyle: 'italic', fontSize: '0.9rem' }}>
-              Csendes még a Lobbi... 🤫 Indítsd el Te a társalgást, szólítsd meg a klubtagokat!
-            </div>
-          ) : (
-            lobbyMessages.map((msg, idx) => {
-              // 🎯 JAVÍTVA: Felkészítve aláhúzásos és tevefejes változóra is
-              const msgEmail = msg.user_email || msg.userEmail;
-              const msgName = msg.user_name || msg.userName;
-              const msgText = msg.message_text || msg.messageText;
-              
-              const isMsgMe = msgEmail === user?.email;
-              
-              return (
-                <div 
-                  key={msg.id || idx} 
-                  style={{ 
-                    display: 'flex', 
-                    flexDirection: 'column', 
-                    alignItems: isMsgMe ? 'flex-end' : 'flex-start',
-                    maxWidth: '80%',
-                    alignSelf: isMsgMe ? 'flex-end' : 'flex-start'
-                  }}
-                >
-                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginBottom: '3px', fontSize: '0.75rem', color: isMsgMe ? '#38bdf8' : '#94a3b8', fontWeight: 'bold' }}>
-                    <span>{msgName}</span>
-                    <span style={{ color: '#475569', fontWeight: 'normal' }}>
-                      • {new Date(msg.created_at).toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                  </div>
-                  <div 
-                    style={{ 
-                      background: isMsgMe ? 'linear-gradient(135deg, #0284c7, #0369a1)' : '#1e293b', 
-                      color: '#f8fafc', 
-                      padding: '10px 16px', 
-                      borderRadius: isMsgMe ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-                      fontSize: '0.92rem', 
-                      lineHeight: '1.4',
-                      wordBreak: 'break-word',
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-                      border: isMsgMe ? 'none' : '1px solid #334155'
-                    }}
-                  >
-                    {msgText}
-                  </div>
+                <div style={{ background: '#0f172a', borderRadius: '16px', padding: '20px', height: '300px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', border: '1px solid #223147' }}>
+                  {lobbyMessages.length === 0 ? (
+                    <div style={{ color: '#475569', textAlign: 'center', margin: 'auto', fontStyle: 'italic', fontSize: '0.9rem' }}>
+                      Csendes még a Lobbi... 🤫 Indítsd el Te a társalgást, szólítsd meg a klubtagokat!
+                    </div>
+                  ) : (
+                    lobbyMessages.map((msg, idx) => {
+                      // 🎯 JAVÍTVA: Felkészítve aláhúzásos és tevefejes változóra is
+                      const msgEmail = msg.user_email || msg.userEmail;
+                      const msgName = msg.user_name || msg.userName;
+                      const msgText = msg.message_text || msg.messageText;
+                      
+                      const isMsgMe = msgEmail === user?.email;
+                      
+                      return (
+                        <div 
+                          key={msg.id || idx} 
+                          style={{ 
+                            display: 'flex', 
+                            flexDirection: 'column', 
+                            alignItems: isMsgMe ? 'flex-end' : 'flex-start',
+                            maxWidth: '80%',
+                            alignSelf: isMsgMe ? 'flex-end' : 'flex-start'
+                          }}
+                        >
+                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginBottom: '3px', fontSize: '0.75rem', color: isMsgMe ? '#38bdf8' : '#94a3b8', fontWeight: 'bold' }}>
+                            <span>{msgName}</span>
+                            <span style={{ color: '#475569', fontWeight: 'normal' }}>
+                              • {new Date(msg.created_at).toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                          <div 
+                            style={{ 
+                              background: isMsgMe ? 'linear-gradient(135deg, #0284c7, #0369a1)' : '#1e293b', 
+                              color: '#f8fafc', 
+                              padding: '10px 16px', 
+                              borderRadius: isMsgMe ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+                              fontSize: '0.92rem', 
+                              lineHeight: '1.4',
+                              wordBreak: 'break-word',
+                              boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                              border: isMsgMe ? 'none' : '1px solid #334155'
+                            }}
+                          >
+                            {msgText}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                  <div ref={lobbyChatBottomRef} />
                 </div>
-              );
-            })
-          )}
-         <div ref={lobbyChatBottomRef} />
-        </div>
 
-        {/* ── ➕ IDE ILLESZD BE: ANIMÁLT GÉPELÉS-JELZŐ SÁV ── */}
-        <div style={{ height: '20px', paddingLeft: '10px', fontSize: '0.85rem', color: '#38bdf8', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '5px', transition: 'all 0.3s' }}>
-          {currentlyTyping.length > 0 && (
-            <>
-              <span>{currentlyTyping.join(', ')} épp ír</span>
-              <span className="typing-dots" style={{ display: 'inline-flex', gap: '2px' }}>
-                <span style={{ animation: 'bounce 1.4s infinite both', animationDelay: '0s' }}>•</span>
-                <span style={{ animation: 'bounce 1.4s infinite both', animationDelay: '0.2s' }}>•</span>
-                <span style={{ animation: 'bounce 1.4s infinite both', animationDelay: '0.4s' }}>•</span>
-              </span>
-            </>
-          )}
-        </div>
+                {/* ── ➕ ANIMÁLT GÉPELÉS-JELZŐ SÁV ── */}
+                <div style={{ height: '20px', paddingLeft: '10px', fontSize: '0.85rem', color: '#38bdf8', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '5px', transition: 'all 0.3s' }}>
+                  {currentlyTyping.length > 0 && (
+                    <>
+                      <span>{currentlyTyping.join(', ')} épp ír</span>
+                      <span className="typing-dots" style={{ display: 'inline-flex', gap: '2px' }}>
+                        <span style={{ animation: 'bounce 1.4s infinite both', animationDelay: '0s' }}>•</span>
+                        <span style={{ animation: 'bounce 1.4s infinite both', animationDelay: '0.2s' }}>•</span>
+                        <span style={{ animation: 'bounce 1.4s infinite both', animationDelay: '0.4s' }}>•</span>
+                      </span>
+                    </>
+                  )}
+                </div>
 
-        {/* Üzenetküldő form */}
-        <form onSubmit={handleSendLobbyMessage} style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-          <input 
-            type="text" 
-            placeholder="Írj egy üzenetet a központi lobbiba a klubtagoknak..." 
-            value={typedLobbyMsg}
-            onChange={handleInputChange} // 🎯 ERRE CSERÉLD LE az eddigi onChange-et!
-            maxLength={500}
-            disabled={isSendingLobbyMsg}
-            style={{ flex: 1, padding: '14px 18px', background: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '14px', fontSize: '0.95rem', outline: 'none', transition: 'all 0.2s' }}
-            onFocus={e => e.target.style.borderColor = '#38bdf8'}
-            onBlur={e => e.target.style.borderColor = '#334155'}
-          />
-          <button 
-            type="submit"
-            disabled={!typedLobbyMsg.trim() || isSendingLobbyMsg}
-            style={{ background: (!typedLobbyMsg.trim() || isSendingLobbyMsg) ? '#334155' : 'linear-gradient(135deg, #0ea5e9, #2563eb)', color: (!typedLobbyMsg.trim() || isSendingLobbyMsg) ? '#64748b' : 'white', border: 'none', padding: '14px 28px', borderRadius: '14px', fontWeight: 'bold', fontSize: '0.95rem', cursor: 'pointer', transition: 'all 0.2s', boxShadow: typedLobbyMsg.trim() ? '0 4px 15px rgba(37,99,235,0.3)' : 'none' }}
-          >
-            {isSendingLobbyMsg ? '...' : 'Küldés 🚀'}
-          </button>
-        </form>
-      </div>
-    </div>
+                {/* Üzenetküldő form */}
+                <form onSubmit={handleSendLobbyMessage} style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                  <input 
+                    type="text" 
+                    placeholder="Írj egy üzenetet..." 
+                    value={typedLobbyMsg}
+                    onChange={handleInputChange} // 🎯 ERRE CSERÉLD LE az eddigi onChange-et!
+                    maxLength={500}
+                    disabled={isSendingLobbyMsg}
+                    style={{ flex: 1, padding: '14px 18px', background: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '14px', fontSize: '0.95rem', outline: 'none', transition: 'all 0.2s' }}
+                    onFocus={e => e.target.style.borderColor = '#38bdf8'}
+                    onBlur={e => e.target.style.borderColor = '#334155'}
+                  />
+                  <button 
+                    type="submit"
+                    disabled={!typedLobbyMsg.trim() || isSendingLobbyMsg}
+                    style={{ background: (!typedLobbyMsg.trim() || isSendingLobbyMsg) ? '#334155' : 'linear-gradient(135deg, #0ea5e9, #2563eb)', color: (!typedLobbyMsg.trim() || isSendingLobbyMsg) ? '#64748b' : 'white', border: 'none', padding: '14px 28px', borderRadius: '14px', fontWeight: 'bold', fontSize: '0.95rem', cursor: 'pointer', transition: 'all 0.2s', boxShadow: typedLobbyMsg.trim() ? '0 4px 15px rgba(37,99,235,0.3)' : 'none' }}
+                  >
+                    {isSendingLobbyMsg ? '...' : 'Küldés 🚀'}
+                  </button>
+                </form>
+              </div>
+            </div>
           ) : (
             <div>
               <div style={{ marginBottom: '20px' }}>
