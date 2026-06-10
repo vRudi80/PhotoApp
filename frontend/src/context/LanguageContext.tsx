@@ -209,7 +209,28 @@ const translations = {
     roomBlindLeaderboardDesc: 'A taktikázás elkerülése végett az ellenfelek kiléte titkos!',
     roomArenaEmpty: 'Még üres az Aréna.',
     roomEncryptedOpponent: 'Titkosított ellenfél',
-    roomMe: 'Én'
+    roomMe: 'Én',
+
+    // === HU BLOKK ALJA ===
+    planTitle: '📜 Új Kihívás Javaslata',
+    planDesc: 'Vázold fel a kihívást! Jóváhagyás után, a javaslatod bekerül a hivatalos közelgő kihívások közé.',
+    planLabelTitle: 'Kihívás megnevezése (Téma) *',
+    planPlaceholderTitle: 'Pl.: Vadvizek moraja, Városi sziluettek',
+    planLabelDesc: 'Hadparancs (Részletes leírás & Megkötések) *',
+    planPlaceholderDesc: 'Milyen kompozíciókat vársz? Mit tilos használni?',
+    planLabelStart: 'Kezdés dátuma *',
+    planLabelEnd: 'Zárás dátuma *',
+    planLabelMaster: 'Kijelölt Képmester',
+    planPlaceholderMaster: 'Pl.: Csontos Mária',
+    planLabelAuthor: 'Borítókép készítője',
+    planPlaceholderAuthor: 'Pl.: János Lakatos',
+    planLabelCover: 'Borítókép kiválasztása',
+    planPreviewAlt: 'Elölnézet',
+    planSubmitting: 'Haditerv küldése...',
+    planSubmitBtn: 'Haditerv beküldése Törzsi bírálatra ⚔️',
+    msgFillAllFields: 'Minden kötelező mezőt tölts ki!',
+    msgProposalSuccess: '⚔️ Haditerv sikeresen benyújtva bírálatra!',
+    msgProposalError: 'Hiba történt a küldés során.'
   },
   en: {
     // Navigációs fülek (WeeklyChallengeView)
@@ -418,7 +439,28 @@ const translations = {
     roomBlindLeaderboardDesc: 'Opponent identities are hidden to prevent tactical voting!',
     roomArenaEmpty: 'The Arena is currently empty.',
     roomEncryptedOpponent: 'Encrypted Opponent',
-    roomMe: 'Me'
+    roomMe: 'Me',
+
+    // === EN BLOKK ALJA ===
+    planTitle: '📜 Propose New Challenge',
+    planDesc: 'Outline the challenge! After approval, your proposal will be included in the official upcoming challenges.',
+    planLabelTitle: 'Challenge Name (Theme) *',
+    planPlaceholderTitle: 'E.g., Roar of Wild Waters, City Silhouettes',
+    planLabelDesc: 'Mission Orders (Detailed Description & Constraints) *',
+    planPlaceholderDesc: 'What kind of compositions are you expecting? What is forbidden to use?',
+    planLabelStart: 'Start Date *',
+    planLabelEnd: 'End Date *',
+    planLabelMaster: 'Designated Challenge Master',
+    planPlaceholderMaster: 'E.g., Mary Smith',
+    planLabelAuthor: 'Cover Photo Creator',
+    planPlaceholderAuthor: 'E.g., John Doe',
+    planLabelCover: 'Select Cover Photo',
+    planPreviewAlt: 'Preview',
+    planSubmitting: 'Submitting proposal...',
+    planSubmitBtn: 'Submit Proposal for Club Review ⚔️',
+    msgFillAllFields: 'Please fill in all required fields!',
+    msgProposalSuccess: '⚔️ Challenge proposal successfully submitted for review!',
+    msgProposalError: 'An error occurred during submission.'
   }
 };
 
