@@ -441,14 +441,14 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     }
   }, [lobbyMessages.length, selectedTopicId, subTab]);
 
-  // 👑 ➕ ÚJ: KÖZPONTI LOBBI ÜZENETBEKÜLDŐ KEZELŐ
+ // 👑 JAVÍTVA: Azonnali lokális append tűpontos snake_case formátumban
   const handleSendLobbyMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!typedLobbyMsg.trim() || isSendingLobbyMsg) return;
 
     setIsSendingLobbyMsg(true);
     const msgPayload = {
-      topicId: 0, // Központi Lobbi kódja
+      topicId: 0,
       userEmail: user?.email,
       userName: user?.name || 'Anonim Képolvasó',
       messageText: typedLobbyMsg
@@ -462,11 +462,20 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       });
       if (res.ok) {
         setTypedLobbyMsg('');
-        setLobbyMessages(prev => [...prev, { ...msgPayload, created_at: new Date().toISOString() }]);
+        // 🎯 Azonnal beillesztjük aláshúzással, hogy a felület azonnal tökéletesen kirajzolja a saját térfeleden!
+        setLobbyMessages(prev => [...prev, { 
+          id: Date.now(),
+          topic_id: 0,
+          user_email: user?.email,
+          user_name: user?.name || 'Anonim Képolvasó',
+          message_text: typedLobbyMsg,
+          created_at: new Date().toISOString() 
+        }]);
       }
     } catch (err) {
       console.error(err);
     } finally {
+      
       setIsSendingLobbyMsg(false);
     }
   };
@@ -796,53 +805,59 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   </div>
                 </div>
 
-                {/* Lobbi Üzenőfal konténer */}
-                <div style={{ background: '#0f172a', borderRadius: '16px', padding: '20px', height: '300px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', border: '1px solid #223147' }}>
-                  {lobbyMessages.length === 0 ? (
-                    <div style={{ color: '#475569', textAlign: 'center', margin: 'auto', fontStyle: 'italic', fontSize: '0.9rem' }}>
-                      Csendes még a Lobbi... 🤫 Indítsd el Te a társalgást, szólítsd meg a klubtagokat!
-                    </div>
-                  ) : (
-                    lobbyMessages.map((msg, idx) => {
-                      const isMsgMe = msg.user_email === user?.email;
-                      return (
-                        <div 
-                          key={msg.id || idx} 
-                          style={{ 
-                            display: 'flex', 
-                            flexDirection: 'column', 
-                            alignItems: isMsgMe ? 'flex-end' : 'flex-start',
-                            maxWidth: '80%',
-                            alignSelf: isMsgMe ? 'flex-end' : 'flex-start'
-                          }}
-                        >
-                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginBottom: '3px', fontSize: '0.75rem', color: isMsgMe ? '#38bdf8' : '#94a3b8', fontWeight: 'bold' }}>
-                            <span>{msg.user_name}</span>
-                            <span style={{ color: '#475569', fontWeight: 'normal' }}>
-                              • {new Date(msg.created_at).toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                          </div>
-                          <div 
-                            style={{ 
-                              background: isMsgMe ? 'linear-gradient(135deg, #0284c7, #0369a1)' : '#1e293b', 
-                              color: '#f8fafc', 
-                              padding: '10px 16px', 
-                              borderRadius: isMsgMe ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-                              fontSize: '0.92rem', 
-                              lineHeight: '1.4',
-                              wordBreak: 'break-word',
-                              boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-                              border: isMsgMe ? 'none' : '1px solid #334155'
-                            }}
-                          >
-                            {msg.message_text}
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
-                  <div ref={lobbyChatBottomRef} />
+                {/* Lobbi Üzenőfal konténer – Dupla biztonsági hálóval felszerelve */}
+        <div style={{ background: '#0f172a', borderRadius: '16px', padding: '20px', height: '300px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', border: '1px solid #223147' }}>
+          {lobbyMessages.length === 0 ? (
+            <div style={{ color: '#475569', textAlign: 'center', margin: 'auto', fontStyle: 'italic', fontSize: '0.9rem' }}>
+              Csendes még a Lobbi... 🤫 Indítsd el Te a társalgást, szólítsd meg a klubtagokat!
+            </div>
+          ) : (
+            lobbyMessages.map((msg, idx) => {
+              // 🎯 JAVÍTVA: Felkészítve aláhúzásos és tevefejes változóra is
+              const msgEmail = msg.user_email || msg.userEmail;
+              const msgName = msg.user_name || msg.userName;
+              const msgText = msg.message_text || msg.messageText;
+              
+              const isMsgMe = msgEmail === user?.email;
+              
+              return (
+                <div 
+                  key={msg.id || idx} 
+                  style={{ 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    alignItems: isMsgMe ? 'flex-end' : 'flex-start',
+                    maxWidth: '80%',
+                    alignSelf: isMsgMe ? 'flex-end' : 'flex-start'
+                  }}
+                >
+                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginBottom: '3px', fontSize: '0.75rem', color: isMsgMe ? '#38bdf8' : '#94a3b8', fontWeight: 'bold' }}>
+                    <span>{msgName}</span>
+                    <span style={{ color: '#475569', fontWeight: 'normal' }}>
+                      • {new Date(msg.created_at).toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                  <div 
+                    style={{ 
+                      background: isMsgMe ? 'linear-gradient(135deg, #0284c7, #0369a1)' : '#1e293b', 
+                      color: '#f8fafc', 
+                      padding: '10px 16px', 
+                      borderRadius: isMsgMe ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+                      fontSize: '0.92rem', 
+                      lineHeight: '1.4',
+                      wordBreak: 'break-word',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                      border: isMsgMe ? 'none' : '1px solid #334155'
+                    }}
+                  >
+                    {msgText}
+                  </div>
                 </div>
+              );
+            })
+          )}
+          <div ref={lobbyChatBottomRef} />
+        </div>
 
                 {/* Üzenetküldő form */}
                 <form onSubmit={handleSendLobbyMessage} style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
