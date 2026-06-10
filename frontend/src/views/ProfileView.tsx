@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { BACKEND_URL } from '../utils/constants';
 
+// 🎯 ÚJ IMPORT: Behozzuk a nyelvi kontextust
+import { useLanguage } from '../context/LanguageContext';
+
 interface ProfileViewProps {
   user: any; // Ez az adatbázisból jövő currentDbUser az App.tsx-ből
   setUser: (u: any) => void;
@@ -15,9 +18,11 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
   const [pendingMembers, setPendingMembers] = useState<any[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // ➕ ÚJ ÁLLAPOTOK A NÉVMÓDOSÍTÁSHOZ
   const [nameInput, setNameInput] = useState<string>('');
   const [isSavingName, setIsSavingName] = useState(false);
+
+  // 🎯 ÚJ: Aktiváljuk a fordítót
+  const { t, lang } = useLanguage();
 
   const isLeader = user?.club_role === 'leader' || user?.club_role === 'deputy';
 
@@ -53,10 +58,10 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
     loadPendingMembers();
   }, [user, isLeader, activeClubs]);
 
-  // ➕ 3. ÚJ FUNKCIÓ: Névváltoztatás elküldése
+  // 3. Névváltoztatás elküldése (Lefordított riasztásokkal)
   const handleUpdateName = async () => {
-    if (!nameInput.trim()) return alert('A név mező nem maradhat üresen!');
-    if (nameInput.trim() === user?.name) return alert('Ez a név megegyezik a jelenlegi neveddel.');
+    if (!nameInput.trim()) return alert(t('msgEmptyName'));
+    if (nameInput.trim() === user?.name) return alert(t('msgSameName'));
 
     setIsSavingName(true);
     try {
@@ -66,22 +71,22 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
         body: JSON.stringify({ email: user.email, newName: nameInput })
       });
       if (res.ok) {
-        alert('🎯 Megjelenített név sikeresen átírva!');
-        fetchData(); // Globális felhasználói adatok frissítése az App.tsx-ben
+        alert(t('msgNameSuccess'));
+        fetchData(); 
       } else {
         const data = await res.json();
-        alert(data.error || 'Hiba történt a név mentése közben.');
+        alert(data.error || t('msgNameError'));
       }
     } catch (e) {
-      alert('Hálózati hiba történt.');
+      alert(t('msgNetworkError'));
     } finally {
       setIsSavingName(false);
     }
   };
 
-  // 4. Csatlakozási kérelem leadása
+  // 4. Csatlakozási kérelem leadása (Lefordított riasztásokkal)
   const handleJoinClub = async () => {
-    if (!selectedClubId) return alert('Kérlek válassz egy fotóklubot!');
+    if (!selectedClubId) return alert(t('msgSelectClubError'));
     const targetClub = activeClubs.find(c => String(c.id) === selectedClubId);
     if (!targetClub) return;
 
@@ -93,17 +98,17 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
         body: JSON.stringify({ userEmail: user.email, clubId: targetClub.id, clubName: targetClub.name })
       });
       if (res.ok) {
-        alert(`✉️ Kérelem elküldve a(z) "${targetClub.name}" vezetőségének!`);
+        alert(lang === 'en' ? `✉️ Request sent to the leadership of "${targetClub.name}"!` : `✉️ Kérelem elküldve a(z) "${targetClub.name}" vezetőségének!`);
         fetchData();
       }
-    } catch (e) { alert('Hiba történt.'); }
+    } catch (e) { alert(t('msgNetworkError')); }
     finally { setIsSubmitting(false); }
   };
 
-  // 5. Kérelem elbírálása (Vezetői akció)
+  // 5. Kérelem elbírálása (Lefordított megerősítésekkel)
   const handleDecision = async (targetEmail: string, action: 'approve' | 'reject') => {
-    const text = action === 'approve' ? 'Befogadod a tagot a klubba?' : 'Biztosan elutasítod a jelentkezést?';
-    if (!window.confirm(text)) return;
+    const confirmText = action === 'approve' ? t('msgApproveConfirm') : t('msgRejectConfirm');
+    if (!window.confirm(confirmText)) return;
 
     try {
       const res = await fetch(`${BACKEND_URL}/api/clubs/handle-request`, {
@@ -112,29 +117,45 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
         body: JSON.stringify({ targetEmail, action })
       });
       if (res.ok) {
-        alert(action === 'approve' ? '✅ Tag sikeresen felvéve!' : '❌ Jelentkezés elutasítva.');
+        alert(action === 'approve' ? t('msgApproveSuccess') : t('msgRejectSuccess'));
         loadPendingMembers();
         fetchData();
       }
     } catch (e) { console.error(e); }
   };
 
+  // Segédfunkció a dinamikus klub-státusz üzenetek összerakásához
+  const getClubStatusMessage = () => {
+    if (user?.club_role === 'pending') {
+      return t('profClubPending').replace('{club}', user.club_name);
+    }
+    if (user?.club_name) {
+      const roleText = user.club_role === 'leader' 
+        ? t('roleLeader') 
+        : user.club_role === 'deputy' 
+          ? t('roleDeputy') 
+          : t('roleMember');
+      return t('profClubActive').replace('{club}', user.club_name).replace('{role}', roleText);
+    }
+    return t('profClubNone');
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '30px', maxWidth: '600px', margin: '0 auto', animation: 'fadeIn 0.3s ease-out' }}>
       
-      {/* ➕ ÚJ: SZEMÉLYES ADATOK PANEL (NÉVMÓDOSÍTÁS) */}
+      {/* SZEMÉLYES ADATOK PANEL (NÉVMÓDOSÍTÁS) */}
       <div style={{ backgroundColor: '#1e293b', padding: '30px', borderRadius: '24px', border: '1px solid #334155', boxShadow: '0 4px 20px rgba(0,0,0,0.15)' }}>
-        <h3 style={{ margin: '0 0 6px 0', color: '#f8fafc', fontSize: '1.25rem' }}>👤 Személyes adatok</h3>
-        <p style={{ color: '#64748b', fontSize: '0.85rem', margin: '0 0 20px 0' }}>Ez a név fog megjelenni a leadott pályaműveid mellett, a dicsőségfalon és az okleveleken is.</p>
+        <h3 style={{ margin: '0 0 6px 0', color: '#f8fafc', fontSize: '1.25rem' }}>{t('profTitle')}</h3>
+        <p style={{ color: '#64748b', fontSize: '0.85rem', margin: '0 0 20px 0' }}>{t('profNotice')}</p>
         
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          <label style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 'bold' }}>Megjelenített név</label>
+          <label style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 'bold' }}>{t('profLabelName')}</label>
           <input 
             type="text" 
             value={nameInput} 
             onChange={e => setNameInput(e.target.value)} 
             style={{ ...inputStyle, marginBottom: '15px', border: nameInput.trim() === user?.name ? '1px solid #334155' : '1px solid #38bdf8' }} 
-            placeholder="Teljes neved"
+            placeholder={t('profPlaceholderName')}
             disabled={isSavingName}
           />
         </div>
@@ -154,37 +175,31 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
             transition: 'all 0.2s'
           }}
         >
-          {isSavingName ? 'Módosítás mentése...' : 'Változtatások Mentése 💾'}
+          {isSavingName ? t('profSaving') : t('profSaveBtn')}
         </button>
       </div>
 
       {/* KLUB HOZZÁRENDELÉSI KÁRTYA */}
       <div style={{ backgroundColor: '#1e293b', padding: '30px', borderRadius: '24px', border: '1px solid #334155' }}>
-        <h3 style={{ margin: '0 0 15px 0', color: '#f8fafc', fontSize: '1.25rem' }}>🛡️ Fotóklub tagság beállítása</h3>
+        <h3 style={{ margin: '0 0 15px 0', color: '#f8fafc', fontSize: '1.25rem' }}>{t('profClubTitle')}</h3>
         
-        {user?.club_role === 'pending' ? (
-          <div style={{ background: '#f59e0b15', color: '#f59e0b', border: '1px solid #f59e0b40', padding: '15px', borderRadius: '12px', lineHeight: '1.5', marginBottom: '15px', fontSize: '0.9rem' }}>
-            ⏳ Csatlakozási kérelem elküldve a(z) <b>{user.club_name}</b> klubhoz. <br/>
-            A klub vezetőjének vagy helyettesének jóváhagyására várunk. Addig a belső felületek zárolva maradnak.
-          </div>
-        ) : user?.club_name ? (
-          <div style={{ background: '#10b98115', color: '#10b981', border: '1px solid #10b98140', padding: '15px', borderRadius: '12px', marginBottom: '15px', fontSize: '0.9rem' }}>
-            ✓ Aktív tagja vagy a(z) <b>{user.club_name}</b> fotóklubnak ({user.club_role === 'leader' ? 'Klubvezető' : user.club_role === 'deputy' ? 'Helyettes' : 'Klubtag'} rangban).
-          </div>
-        ) : (
-          <div style={{ background: '#0f172a', padding: '15px', borderRadius: '12px', color: '#94a3b8', fontSize: '0.9rem', marginBottom: '15px' }}>
-            Jelenleg nem tartozol egyetlen klubhoz sem. Válassz az alábbi, aktív vezetőséggel rendelkező klubok közül!
-          </div>
-        )}
+        <div style={{ 
+          background: user?.club_role === 'pending' ? '#f59e0b15' : user?.club_name ? '#10b98115' : '#0f172a', 
+          color: user?.club_role === 'pending' ? '#f59e0b' : user?.club_name ? '#10b981' : '#94a3b8', 
+          border: user?.club_role === 'pending' ? '1px solid #f59e0b40' : user?.club_name ? '1px solid #10b98140' : 'none',
+          padding: '15px', borderRadius: '12px', lineHeight: '1.5', marginBottom: '15px', fontSize: '0.9rem' 
+        }}>
+          {getClubStatusMessage()}
+        </div>
 
         {!user?.club_name && user?.club_role !== 'pending' && (
           <>
             <select value={selectedClubId} onChange={e => setSelectedClubId(e.target.value)} style={inputStyle}>
-              <option value="">-- Válassz fotóklubot --</option>
+              <option value="">{t('profSelectClub')}</option>
               {activeClubs.map(c => <option key={c.id} value={String(c.id)}>{c.name}</option>)}
             </select>
             <button onClick={handleJoinClub} disabled={isSubmitting} style={{ width: '100%', background: 'linear-gradient(135deg, #38bdf8, #0284c7)', color: '#0f172a', border: 'none', padding: '12px', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>
-              Csatlakozási kérelem elküldése ✉️
+              {t('profSendRequest')}
             </button>
           </>
         )}
@@ -193,11 +208,11 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
       {/* KLUBVEZETŐI JÓVÁHAGYÓ PANEL */}
       {isLeader && (
         <div style={{ backgroundColor: '#1e293b', padding: '30px', borderRadius: '24px', border: '1px solid #10b981', boxShadow: '0 10px 30px rgba(16,185,129,0.1)' }}>
-          <h3 style={{ margin: '0 0 10px 0', color: '#10b981', fontSize: '1.25rem' }}>👑 Tagfelvételi Kérelmek ({user.club_name})</h3>
-          <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 20px 0' }}>Az alábbi fotósok szeretnének csatlakozni a klubodhoz. Az elbírálás után azonnali hozzáférést kapnak.</p>
+          <h3 style={{ margin: '0 0 10px 0', color: '#10b981', fontSize: '1.25rem' }}>{t('profLeaderTitle')} ({user.club_name})</h3>
+          <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 20px 0' }}>{t('profLeaderNotice')}</p>
           
           {pendingMembers.length === 0 ? (
-            <div style={{ padding: '15px', background: '#0f172a', borderRadius: '12px', color: '#64748b', textAlign: 'center' }}>Nincs függőben lévő jelentkezés.</div>
+            <div style={{ padding: '15px', background: '#0f172a', borderRadius: '12px', color: '#64748b', textAlign: 'center' }}>{t('profNoPending')}</div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {pendingMembers.map(m => (
@@ -207,8 +222,8 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
                     <span style={{ fontSize: '0.8rem', color: '#64748b' }}>{m.email}</span>
                   </div>
                   <div style={{ display: 'flex', gap: '10px' }}>
-                    <button onClick={() => handleDecision(m.email, 'approve')} style={{ background: '#10b981', color: '#0f172a', border: 'none', padding: '8px 16px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>Befogadás ✓</button>
-                    <button onClick={() => handleDecision(m.email, 'reject')} style={{ background: 'transparent', color: '#ef4444', border: '1px solid #ef444440', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer' }}>Elutasítás</button>
+                    <button onClick={() => handleDecision(m.email, 'approve')} style={{ background: '#10b981', color: '#0f172a', border: 'none', padding: '8px 16px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>{t('profApprove')}</button>
+                    <button onClick={() => handleDecision(m.email, 'reject')} style={{ background: 'transparent', color: '#ef4444', border: '1px solid #ef444440', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer' }}>{t('profReject')}</button>
                   </div>
                 </div>
               ))}
