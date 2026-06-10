@@ -95,7 +95,7 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
   };
 
   const tiles = [
-    { id: 'weekly_challenge', icon: '🔥', color: '#f97316', title: 'Párbaj', desc: 'Tölts fel az aktuális napi, vagy heti témában, szavazz mások képeire és kerülj a toplista élére!', tab: 'weekly_challenge' },
+    { id: 'weekly_challenge', icon: '🔥', color: '#f97316', title: 'Kihívások', desc: 'Tölts fel az aktuális napi, vagy heti témában, szavazz mások képeire és kerülj a toplista élére!', tab: 'weekly_challenge' },
     { id: 'contests', icon: '📝', color: '#8b5cf6', title: 'Nyílt Pályázatok', desc: 'Vegyél részt a közösségi vagy zártkörű házi fotópályázatokon.', tab: 'contests_open_active' },
     { id: 'my_album', icon: '🖼️', color: '#f59e0b', title: 'Saját Portfólió', desc: 'Töltsd fel és menedzseld a saját fotóidat, nézd meg az eredményeidet, vagy akár kérj AI elemzést.', tab: 'my_album' },
     { id: 'map_spots', icon: '🌍', color: '#10b981', title: 'Fotós Helyszínek', desc: 'Fedezz fel új fotós helyeket a térképen, vagy oszd meg a sajátjaidat!', tab: 'map_spots' },
@@ -179,7 +179,7 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
             {visibleWeekly.map((w: any) => (
               <div key={`weekly_${w.id}`} onClick={() => setActiveTab('weekly_challenge')} className="alert-card" style={{ background: 'linear-gradient(135deg, rgba(249, 115, 22, 0.1), rgba(249, 115, 22, 0.05))', border: '1px solid #f9731650', borderLeft: '4px solid #f97316' }}>
                 <div style={{ fontSize: '1.5rem', marginBottom: '8px' }}>🔥</div>
-                <div style={{ color: '#f97316', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '2px', textTransform: 'uppercase' }}>Futó Párbaj ({formatDate(w.end_date)}-ig)</div>
+                <div style={{ color: '#f97316', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '2px', textTransform: 'uppercase' }}>Futó Kihívás ({formatDate(w.end_date)}-ig)</div>
                 <h4 style={{ margin: 0, color: '#f8fafc', fontSize: '0.95rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{w.title}</h4>
               </div>
             ))}
