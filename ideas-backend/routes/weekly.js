@@ -2,6 +2,8 @@ const fs = require('fs');
 const path = require('path'); // 👑 Előrehozva a legtetejére a tiszta import érdekében
 const cloudinary = require('cloudinary').v2;
 const crypto = require('crypto');
+// 🧠 Globális in-memory objektum a gépelő júzerek követéséhez (Adatbázis terhelés = 0!)
+let typingStatus = {};
 
 // Cloudinary konfiguráció a környezeti változókból
 cloudinary.config({
@@ -1319,41 +1321,47 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { res.status(500).json({ error: 'Hiba: ' + err.message }); }
   });
 
- // ====================================================================
-  // 💬 ARÉNA LÍGA ÉLŐ CSEVEGŐ VÉGPONTOK (Valós DB név-szinkronnal)
+// ====================================================================
+  // 💬 ARÉNA LÍGA ÉLŐ CSEVEGŐ VÉGPONTOK (Gépelés-jelző motorral)
   // ====================================================================
+  
+  // A) Üzenetek és gépelők lekérése egyben
   app.get('/api/weekly/chat/:topicId', async (req, res) => {
     const { topicId } = req.params;
     try {
-      // 🎯 JAVÍTVA: A photo_users táblából húzzuk be a hivatalos nevet (LEFT JOIN)
       const [messages] = await pool.query(`
-        SELECT 
-          c.id, 
-          COALESCE(u.name, c.user_name) AS user_name, 
-          c.user_email, 
-          c.message_text, 
-          c.created_at 
-        FROM weekly_chat c
-        LEFT JOIN photo_users u ON c.user_email = u.email
-        WHERE c.topic_id = ? 
-        ORDER BY c.created_at ASC 
-        LIMIT 100
+        SELECT c.id, COALESCE(u.name, c.user_name) AS user_name, c.user_email, c.message_text, c.created_at 
+        FROM weekly_chat c LEFT JOIN photo_users u ON c.user_email = u.email
+        WHERE c.topic_id = ? ORDER BY c.created_at ASC LIMIT 100
       `, [topicId]);
-      res.json(messages);
+
+      // 🎯 Kiszűrjük azokat, akik az elmúlt 5 másodpercben jelezték, hogy gépelnek
+      const now = Date.now();
+      const currentTypers = [];
+      if (typingStatus[topicId]) {
+        for (const email in typingStatus[topicId]) {
+          if (now - typingStatus[topicId][email].timestamp < 5000) {
+            currentTypers.push(typingStatus[topicId][email].name);
+          } else {
+            delete typingStatus[topicId][email]; // Kitakarítjuk a régi beragadt státuszokat
+          }
+        }
+      }
+
+      // Egyszerre adjuk vissza az üzeneteket és a gépelők listáját
+      res.json({ messages, typing: currentTypers });
     } catch (err) {
-      res.status(500).json({ error: 'Hiba a chat betöltésekor: ' + err.message });
+      res.status(500).json({ error: 'Hiba: ' + err.message });
     }
   });
 
+  // B) Új üzenet küldése
   app.post('/api/weekly/chat', async (req, res) => {
     const { topicId, userEmail, userName, messageText } = req.body;
-    
     if (topicId === undefined || topicId === null || !userEmail || !messageText?.trim()) {
-      return res.status(400).json({ error: 'Hiányzó adatok az üzenethez!' });
+      return res.status(400).json({ error: 'Hiányzó adatok!' });
     }
-    
     try {
-      // 🎯 JAVÍTVA: Üzenetküldéskor kikeresjük a felhasználó aktuális nevét a DB-ből
       const [userRows] = await pool.query('SELECT name FROM photo_users WHERE email = ?', [userEmail]);
       const officialName = userRows[0]?.name || userName || 'Anonim Fotós';
 
@@ -1362,27 +1370,31 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         [topicId, userEmail, officialName, messageText.trim()]
       );
       
-      // 🎯 Visszaküldjük a hivatalos nevet a frontendnek, hogy egyből jól jelenjen meg
+      // Ha elküldte az üzenetet, azonnal töröljük a gépelési státuszát
+      if (typingStatus[topicId] && typingStatus[topicId][userEmail]) {
+        delete typingStatus[topicId][userEmail];
+      }
+
       res.json({ success: true, user_name: officialName });
     } catch (err) {
-      res.status(500).json({ error: 'Hiba az üzenet küldésekor: ' + err.message });
+      res.status(500).json({ error: 'Hiba: ' + err.message });
     }
   });
 
-  app.post('/api/weekly/chat', async (req, res) => {
-    const { topicId, userEmail, userName, messageText } = req.body;
-    if (!topicId || !userEmail || !messageText?.trim()) {
-      return res.status(400).json({ error: 'Hiányzó adatok az üzenethez!' });
-    }
-    try {
-      await pool.query(
-        'INSERT INTO weekly_chat (topic_id, user_email, user_name, message_text) VALUES (?, ?, ?, ?)',
-        [topicId, userEmail, userName || 'Anonim Fotós', messageText.trim()]
-      );
-      res.json({ success: true });
-    } catch (err) {
-      res.status(500).json({ error: 'Hiba az üzenet küldésekor: ' + err.message });
-    }
+  // C) ➕ ÚJ VÉGPONT: Gépelési jelzés leadása a frontendről
+  app.post('/api/weekly/chat/typing', (req, res) => {
+    const { topicId, userEmail, userName } = req.body;
+    if (topicId === undefined || !userEmail) return res.json({ success: false });
+
+    if (!typingStatus[topicId]) typingStatus[topicId] = {};
+    
+    // Elmentjük a memóriába, hogy ez a user most épp aktív az input mezőben
+    typingStatus[topicId][userEmail] = {
+      name: userName || 'Valaki',
+      timestamp: Date.now()
+    };
+
+    res.json({ success: true });
   });
   
   app.post('/api/weekly/report-off-topic', async (req, res) => {
