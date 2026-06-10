@@ -562,7 +562,13 @@ const translations = {
     resultsVotesCount: ' bírálat',
     resultsCertCompiling: '⏳ Oklevél összeállítása...',
     resultsCertDownloadBtn: '📜 Hivatalos Oklevél Letöltése (PDF)',
-    msgMapMoveConfirmPlaceholder: 'Biztosan át szeretnéd mozgatni {title} gombostűjét az új koordinátákra?'
+    msgMapMoveConfirmPlaceholder: 'Biztosan át szeretnéd mozgatni {title} gombostűjét az új koordinátákra?',
+
+    // === HU BLOKK ALJA ===
+    planLabelTitleEn: '🇬🇧 Kihívás címe (Angolul - Opcionális)',
+    planPlaceholderTitleEn: 'Pl.: Roar of Wild Waters',
+    planLabelDescEn: '🇬🇧 Részletes leírás (Angolul - Opcionális)',
+    planPlaceholderDescEn: 'What kind of photos are you looking for?...'
   },
 
   
@@ -1126,7 +1132,13 @@ const translations = {
     resultsVotesCount: ' reviews',
     resultsCertCompiling: '⏳ Compiling certificate...',
     resultsCertDownloadBtn: '📜 Download Official Certificate (PDF)',
-    msgMapMoveConfirmPlaceholder: 'Are you sure you want to move the pin of {title} to the new coordinates?'
+    msgMapMoveConfirmPlaceholder: 'Are you sure you want to move the pin of {title} to the new coordinates?',
+
+    // === EN BLOKK ALJA ===
+    planLabelTitleEn: '🇬🇧 Challenge Title (English - Optional)',
+    planPlaceholderTitleEn: 'E.g., Roar of Wild Waters',
+    planLabelDescEn: '🇬🇧 Detailed Description (English - Optional)',
+    planPlaceholderDescEn: 'What kind of photos are you looking for?...'
   }
 };
 
