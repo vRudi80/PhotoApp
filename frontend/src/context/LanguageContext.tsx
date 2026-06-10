@@ -4,7 +4,7 @@ import React, { createContext, useState, useContext } from 'react';
 // Ide gyűjtjük a gombok, feliratok fix szövegeit. Nyugodtan bővíthetjük később!
 const translations = {
   hu: {
-    // Navigációs fülek
+    // Navigációs fülek (WeeklyChallengeView)
     tabChallenges: '🏆 Kihívások',
     tabUpcoming: '⏳ Közelgő ligák',
     tabPast: '📜 Befejezett ligák',
@@ -23,9 +23,51 @@ const translations = {
     photographers: 'fotós',
     unvoted: 'értékelendő',
     loading: '⏳ Betöltés...',
+
+    // 🎯 ÚJ: FEJLÉC / MENÜPONTOK
+    navHome: '🏠 Főoldal',
+    navArena: '🏆 Mesterek ligája',
+    navContests: '📝 Pályázatok',
+    navClub: '👥 Fotóklub',
+    navInternational: '🌐 Nemzetközi szalonok',
+    navMap: '🌍 Helyszínek',
+    navAdmin: '⚙️ Admin',
+    
+    // Pályázatok almenü
+    subClubContests: 'Klubom aktív pályázatai',
+    subOpenContests: 'Nyílt aktív pályázatok',
+    subClosedContests: 'Lezárult pályázatok',
+    
+    // Fotóklub almenü
+    subClubNews: 'Klub Hírek',
+    subClubNights: 'Klubestek',
+    subClubHomeworks: 'Házi feladatok',
+    
+    // Nemzetközi almenü
+    subSalonsList: '🌐 Szalonok listája',
+    subFiap: '🏅 FIAP Követő',
+    subMafosz: 'MAFOSZ Követő',
+    
+    // Admin almenü
+    subLeaderClub: '🛡️ Klubom adatai',
+    subManageContests: 'Pályázatok kezelése',
+    subManageMeetings: 'Klubestek kezelése',
+    subManageHomeworks: 'Házi feladatok kezelése',
+    subManageWeekly: 'Kihívások kezelése',
+    subManageSettings: 'Kategóriák és Díjak',
+    subManageSalons: 'Szalonok kezelése',
+    subManageUsers: 'Felhasználók',
+    subManageClubs: 'Fotóklubok',
+    
+    // Felhasználói fiók almenü
+    subProfile: '👤 Profilom',
+    subPortfolio: '🖼️ Saját Portfólió',
+    subPackages: '💎 Tárhelycsomagom',
+    subSupport: '✉️ Support & Segítség',
+    subLogout: '🚪 Kijelentkezés'
   },
   en: {
-    // Navigációs fülek
+    // Navigációs fülek (WeeklyChallengeView)
     tabChallenges: '🏆 Challenges',
     tabUpcoming: '⏳ Upcoming Leagues',
     tabPast: '📜 Past Leagues',
@@ -44,6 +86,48 @@ const translations = {
     photographers: 'photographers',
     unvoted: 'to review',
     loading: '⏳ Loading...',
+
+    // 🎯 ÚJ: FEJLÉC / MENÜPONTOK ANGOLUL
+    navHome: '🏠 Home',
+    navArena: '🏆 Masters League',
+    navContests: '📝 Contests',
+    navClub: '👥 Photo Club',
+    navInternational: '🌐 Intl. Salons',
+    navMap: '🌍 Map Spots',
+    navAdmin: '⚙️ Admin',
+    
+    // Pályázatok almenü
+    subClubContests: 'My Club Active Contests',
+    subOpenContests: 'Open Active Contests',
+    subClosedContests: 'Closed Contests',
+    
+    // Fotóklub almenü
+    subClubNews: 'Club News',
+    subClubNights: 'Club Nights',
+    subClubHomeworks: 'Homeworks',
+    
+    // Nemzetközi almenü
+    subSalonsList: '🌐 Salons List',
+    subFiap: '🏅 FIAP Tracker',
+    subMafosz: 'MAFOSZ Tracker',
+    
+    // Admin almenü
+    subLeaderClub: '🛡️ My Club Data',
+    subManageContests: 'Manage Contests',
+    subManageMeetings: 'Manage Club Nights',
+    subManageHomeworks: 'Manage Homeworks',
+    subManageWeekly: 'Manage Challenges',
+    subManageSettings: 'Categories & Awards',
+    subManageSalons: 'Manage Salons',
+    subManageUsers: 'Users',
+    subManageClubs: 'Photo Clubs',
+    
+    // Felhasználói fiók almenü
+    subProfile: '👤 My Profile',
+    subPortfolio: '🖼️ My Portfolio',
+    subPackages: '💎 My Storage',
+    subSupport: '✉️ Support & Help',
+    subLogout: '🚪 Logout'
   }
 };
 
