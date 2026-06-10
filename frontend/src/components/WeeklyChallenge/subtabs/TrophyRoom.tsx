@@ -259,7 +259,7 @@ export default function TrophyRoom({
                   </div>
                   
                   <div style={{ position: 'absolute', top: '15px', right: '15px', background: 'rgba(15, 23, 42, 0.85)', backdropFilter: 'blur(4px)', color: isDaily ? '#f87171' : '#60a5fa', padding: '4px 12px', borderRadius: '50px', fontSize: '0.75rem', fontWeight: 'bold', border: `1px solid ${isDaily ? '#ef444450' : '#3b82f650'}` }}>
-                    {isDaily ? '🔴 Villámháború' : '🔵 Hosszú hadjárat'}
+                    {isDaily ? '🔴 Villámhfutam' : '🔵 Mesterfutam'}
                   </div>
                 </div>
                 <div style={{ padding: '20px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
