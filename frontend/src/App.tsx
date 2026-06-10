@@ -35,6 +35,9 @@ import LeaderClubView from './views/LeaderClubView';
 import MafoszProgressView from './views/MafoszProgressView'; 
 import PackagesView from './components/PackagesView'; 
 
+// 🎯 ÚJ IMPORT: Behozzuk a nyelvi providert a környezetből
+import { LanguageProvider } from './context/LanguageContext';
+
 function MainContent() {
   const [user, setUser] = useState<any>(null);
   const [allUsers, setAllUsers] = useState<any[]>([]);
@@ -137,7 +140,6 @@ function MainContent() {
   const [newCats, setNewCats] = useState('');
   const [newRestrictedClub, setNewRestrictedClub] = useState(''); 
   
-  // ÚJ: Szponzoráló klub állapotai az új kiíráshoz
   const [newSponsorClub, setNewSponsorClub] = useState('');
 
   const [newEntryFee, setNewEntryFee] = useState<number | string>(0);
@@ -151,7 +153,6 @@ function MainContent() {
   const [editCats, setEditCats] = useState('');
   const [editRestrictedClub, setEditRestrictedClub] = useState(''); 
   
-  // ÚJ: Szponzoráló klub állapotai a szerkesztéshez
   const [editSponsorClub, setEditSponsorClub] = useState('');
 
   const [editEntryFee, setEditEntryFee] = useState<number | string>(0);
@@ -310,7 +311,6 @@ function MainContent() {
 
   const currentDbUser = allUsers.find(u => u.email === user?.email);
   const isLeader = currentDbUser?.club_role === 'leader' || currentDbUser?.club_role === 'deputy';
-  // 👑 PRÉMIUM STÁTUSZ ELLENŐRZÉSE: Stripe aktív VAGY az ajándék prémium még nem járt le
   const isPremium = currentDbUser?.stripe_status === 'active' || 
     (currentDbUser?.premium_until && new Date(currentDbUser.premium_until) > new Date());
 
@@ -410,7 +410,6 @@ function MainContent() {
     if (res.ok) { alert("Sikeres mentés!"); fetchData(); } 
   };
   
-  // JAVÍTVA: A Szponzor klub beépítése az új pályázat kiírásába
   const handleCreateContest = async () => { 
     if (!newTitle || !newStart || !newEnd || !newCats) return alert("Cím, dátumok és kategóriák kötelezőek!"); 
     
@@ -432,7 +431,7 @@ function MainContent() {
         endDate: newEnd, 
         categories: newCats, 
         restrictedClubId: finalRestrictedClubId,
-        sponsorClubId: newSponsorClub ? Number(newSponsorClub) : null, // <-- ÚJ OSZLOP BEKÖTÉSE
+        sponsorClubId: newSponsorClub ? Number(newSponsorClub) : null, 
         entryFee: newEntryFee, 
         feeCurrency: newFeeCurrency, 
         categorySettings: newCategorySettings 
@@ -452,7 +451,6 @@ function MainContent() {
     setEditCats(contest.categories || ''); 
     setEditRestrictedClub(contest.restricted_club_id ? String(contest.restricted_club_id) : ''); 
     
-    // JAVÍTVA: A szponzor klub betöltése szerkesztés megnyitásakor
     setEditSponsorClub(contest.sponsor_club_id ? String(contest.sponsor_club_id) : '');
 
     setEditEntryFee(contest.entry_fee || 0); 
@@ -464,7 +462,6 @@ function MainContent() {
     setEditEnd(formatDate(contest.end_date)); 
   };
 
-  // JAVÍTVA: A Szponzor klub elmentése a pályázat módosításakor
   const handleUpdateContest = async () => { 
     const res = await fetch(`${BACKEND_URL}/api/contests/${editContestId}`, { 
       method: 'PUT', 
@@ -476,7 +473,7 @@ function MainContent() {
         endDate: editEnd || null, 
         categories: editCats, 
         restrictedClubId: editRestrictedClub ? Number(editRestrictedClub) : null,
-        sponsorClubId: editSponsorClub ? Number(editSponsorClub) : null, // <-- ÚJ OSZLOP BEKÖTÉSE MÓDOSÍTÁSKOR
+        sponsorClubId: editSponsorClub ? Number(editSponsorClub) : null, 
         entryFee: editEntryFee, 
         feeCurrency: editFeeCurrency, 
         categorySettings: editCategorySettings 
@@ -496,7 +493,7 @@ function MainContent() {
       const formData = new FormData(); formData.append('photo', uploadFile); formData.append('contestId', String(contestId)); formData.append('userEmail', user.email); formData.append('userName', user.name); formData.append('title', uploadTitle); formData.append('category', uploadCategory); 
       const res = await fetch(`${BACKEND_URL}/api/upload`, { method: 'POST', body: formData }); 
       if (res.ok) { alert("Feltöltve!"); setActiveUploadContest(null); setUploadFile(null); setUploadPreview(null); setUploadTitle(''); setUploadCategory(''); fetchMyEntries(user.email); } else { const err = await res.json(); alert(`Hiba: ${err.error}`); } 
-    } catch (error) { alert("Hiba"); } finally { setIsUploading(false); } 
+    } catch (error) { alert("Hiba"); Corbin } finally { setIsUploading(false); } 
   };
 
   const handleUpdateEntryTitle = async (entryId: number) => { 
@@ -594,7 +591,7 @@ function MainContent() {
               <Route path="/map_spots" element={<MapSpotsView user={user} setFullscreenData={setFullscreenData} targetMapSpotId={targetMapSpotId} setTargetMapSpotId={setTargetMapSpotId} />} />
               <Route path="/club_news" element={<ClubNewsView user={user} currentDbUser={currentDbUser} />} />
               <Route path="/my_album" element={<MyAlbumView user={user} setFullscreenData={setFullscreenData} />} />
-              <Route path="/arena_album" element={<MyArenaAlbumView user={user} setFullscreenData={setFullscreenData} />} /> {/* ➕ ÚJ UTALÁSI SOR */}
+              <Route path="/arena_album" element={<MyArenaAlbumView user={user} setFullscreenData={setFullscreenData} />} /> 
               <Route path="/fiap_progress" element={<FiapProgressView user={user} allUsers={allUsers} />} />
               <Route path="/mafosz_progress" element={<MafoszProgressView user={user} allUsers={allUsers} />} />
               <Route path="/salons" element={<SalonsView salonSearch={salonSearch} setSalonSearch={setSalonSearch} searchedSalons={searchedSalons} setSelectedSalon={setSelectedSalon} userEntrySalonIds={userEntrySalonIds} user={user} BACKEND_URL={BACKEND_URL} />} />
@@ -603,12 +600,10 @@ function MainContent() {
               <Route path="/leader_club" element={isLeader ? <LeaderClubView user={user} BACKEND_URL={BACKEND_URL} /> : <Navigate to="/dashboard" replace />} />
 
               {/* === ADMINISZTRÁCIÓS FELÜLETEK === */}
-            {/* === ADMINISZTRÁCIÓS FELÜLETEK === */}
-<Route path="/admin_clubs" element={user?.email === ADMIN_EMAIL ? <AdminClubsView clubs={clubs} newClubName={newClubName} setNewClubName={setNewClubName} handleAddClub={handleAddClub} handleDeleteClub={handleDeleteClub} handleUpdateClub={handleUpdateClub} /> : <Navigate to="/dashboard" />} />
-<Route path="/admin_users" element={user?.email === ADMIN_EMAIL ? <AdminUsersView allUsers={allUsers} clubs={clubs} userClubEdits={userClubEdits} setUserClubEdits={setUserClubEdits} userRoleEdits={userRoleEdits} setUserRoleEdits={setUserRoleEdits} saveUserClub={saveUserClub} /> : <Navigate to="/dashboard" />} />
-<Route path="/admin_weekly" element={user?.email === ADMIN_EMAIL ? <AdminWeeklyView /> : <Navigate to="/dashboard" />} />
-<Route path="/admin_settings" element={user?.email === ADMIN_EMAIL ? <AdminSettingsView /> : <Navigate to="/dashboard" />} />
-
+              <Route path="/admin_clubs" element={user?.email === ADMIN_EMAIL ? <AdminClubsView clubs={clubs} newClubName={newClubName} setNewClubName={setNewClubName} handleAddClub={handleAddClub} handleDeleteClub={handleDeleteClub} handleUpdateClub={handleUpdateClub} /> : <Navigate to="/dashboard" />} />
+              <Route path="/admin_users" element={user?.email === ADMIN_EMAIL ? <AdminUsersView allUsers={allUsers} clubs={clubs} userClubEdits={userClubEdits} setUserClubEdits={setUserClubEdits} userRoleEdits={userRoleEdits} setUserRoleEdits={setUserRoleEdits} saveUserClub={saveUserClub} /> : <Navigate to="/dashboard" />} />
+              <Route path="/admin_weekly" element={user?.email === ADMIN_EMAIL ? <AdminWeeklyView /> : <Navigate to="/dashboard" />} />
+              <Route path="/admin_settings" element={user?.email === ADMIN_EMAIL ? <AdminSettingsView /> : <Navigate to="/dashboard" />} />
               
               <Route path="/admin_salons" element={user?.email === ADMIN_EMAIL ? <AdminSalonsView salons={salons} countries={countries} allCategories={allCategories} patrons={patrons} BACKEND_URL={BACKEND_URL} fetchData={fetchData} setSelectedSalon={setSelectedSalon} /> : <Navigate to="/dashboard" />} />
               <Route path="/admin_meetings" element={(user?.email === ADMIN_EMAIL || isLeader) ? <AdminMeetingsView user={user} currentDbUser={currentDbUser} clubs={clubs} meetings={meetings} allUsers={allUsers} adminMeetings={adminMeetings} fetchData={fetchData} /> : <Navigate to="/dashboard" replace />} />
@@ -618,7 +613,6 @@ function MainContent() {
               {['/contests_open_active', '/contests_club_active', '/contests_closed'].map(path => (
                 <Route key={path} path={path} element={
                   <ContestsView activeTab={activeTab} user={user} currentDbUser={currentDbUser} isLeader={!!isLeader} clubs={clubs} allUsers={allUsers} filteredContests={filteredContests} myEntries={myEntries} juryList={juryList} newTitle={newTitle} setNewTitle={setNewTitle} newDesc={newDesc} setNewDesc={setNewDesc} newStart={newStart} setNewStart={setNewStart} newEnd={newEnd} setNewEnd={setNewEnd} newCats={newCats} setNewCats={setNewCats} newRestrictedClub={newRestrictedClub} setNewRestrictedClub={setNewRestrictedClub} myJudgedContests={myJudgedContests} newEntryFee={newEntryFee} setNewEntryFee={setNewEntryFee} newFeeCurrency={newFeeCurrency} setNewFeeCurrency={setNewFeeCurrency} editEntryFee={editEntryFee} setEditEntryFee={setEditEntryFee} editFeeCurrency={editFeeCurrency} setEditFeeCurrency={setEditFeeCurrency} contestPayments={contestPayments} handlePayContestFee={handlePayContestFee} handleCreateContest={handleCreateContest} editContestId={editContestId} setEditContestId={setEditContestId} editTitle={editTitle} setEditTitle={setEditTitle} editDesc={editDesc} setEditDesc={setEditDesc} editStart={editStart} setEditStart={setEditStart} editEnd={editEnd} setEditEnd={setEditEnd} editCats={editCats} setEditCats={setEditCats} editRestrictedClub={editRestrictedClub} setEditRestrictedClub={setEditRestrictedClub} startEdit={startEdit} handleUpdateContest={handleUpdateContest} handleDeleteContest={handleDeleteContest} viewStatsContestId={viewStatsContestId} setViewStatsContestId={setViewStatsContestId} contestStats={contestStats} loadStats={loadStats} viewJuryProgressId={viewJuryProgressId} setViewJuryProgressId={setViewJuryProgressId} juryProgressData={juryProgressData} loadJuryProgress={loadJuryProgress} manageJuryContestId={manageJuryContestId} setManageJuryContestId={setManageJuryContestId} selectedJuryEmail={selectedJuryEmail} setSelectedJuryEmail={setSelectedJuryEmail} handleAddJury={handleAddJury} handleRemoveJury={handleRemoveJury} viewResultsContestId={viewResultsContestId} setViewResultsContestId={setViewResultsContestId} contestResults={contestResults} loadResults={loadResults} activeUploadContest={activeUploadContest} setActiveUploadContest={setActiveUploadContest} uploadTitle={uploadTitle} setUploadTitle={setUploadTitle} uploadCategory={uploadCategory} setUploadCategory={setUploadCategory} uploadPreview={uploadPreview} setUploadPreview={setUploadPreview} isUploading={isUploading} handleFileSelect={handleFileSelect} handleUpload={handleUpload} judgingContestId={judgingContestId} setJudgingContestId={setJudgingContestId} unvotedEntries={unvotedEntries} currentScore={currentScore} setCurrentScore={setCurrentScore} startJudging={startJudging} submitVote={submitVote} editingEntryId={editingEntryId} setEditingEntryId={setEditingEntryId} editEntryTitle={editEntryTitle} setEditEntryTitle={setEditEntryTitle} handleUpdateEntryTitle={handleUpdateEntryTitle} handleDeleteEntry={handleDeleteEntry} setFullscreenData={setFullscreenData} newCategorySettings={newCategorySettings} setNewCategorySettings={setNewCategorySettings} editCategorySettings={editCategorySettings} setEditCategorySettings={setEditCategorySettings} 
-                  // JAVÍTVA: Új paraméterek átadása a ContestsView-nak a szponzor klub kezeléséhez
                   newSponsorClub={newSponsorClub} setNewSponsorClub={setNewSponsorClub} editSponsorClub={editSponsorClub} setEditSponsorClub={setEditSponsorClub}
                   />
                 } />
@@ -628,7 +622,6 @@ function MainContent() {
               <Route path="/admin_contests" element={
                 (user?.email === ADMIN_EMAIL || isLeader) ? (
                   <ContestsView activeTab={activeTab} user={user} currentDbUser={currentDbUser} isLeader={!!isLeader} clubs={clubs} allUsers={allUsers} filteredContests={filteredContests} myEntries={myEntries} juryList={juryList} newTitle={newTitle} setNewTitle={setNewTitle} newDesc={newDesc} setNewDesc={setNewDesc} newStart={newStart} setNewStart={setNewStart} newEnd={newEnd} setNewEnd={setNewEnd} newCats={newCats} setNewCats={setNewCats} newRestrictedClub={newRestrictedClub} setNewRestrictedClub={setNewRestrictedClub} myJudgedContests={myJudgedContests} newEntryFee={newEntryFee} setNewEntryFee={setNewEntryFee} newFeeCurrency={newFeeCurrency} setNewFeeCurrency={setNewFeeCurrency} editEntryFee={editEntryFee} setEditEntryFee={setEditEntryFee} editFeeCurrency={editFeeCurrency} setEditFeeCurrency={setEditFeeCurrency} contestPayments={contestPayments} handlePayContestFee={handlePayContestFee} handleCreateContest={handleCreateContest} editContestId={editContestId} setEditContestId={setEditContestId} editTitle={editTitle} setEditTitle={setEditTitle} editDesc={editDesc} setEditDesc={setEditDesc} editStart={editStart} setEditStart={setEditStart} editEnd={editEnd} setEditEnd={setEditEnd} editCats={editCats} setEditCats={setEditCats} editRestrictedClub={editRestrictedClub} setEditRestrictedClub={setEditRestrictedClub} startEdit={startEdit} handleUpdateContest={handleUpdateContest} handleDeleteContest={handleDeleteContest} viewStatsContestId={viewStatsContestId} setViewStatsContestId={setViewStatsContestId} contestStats={contestStats} loadStats={loadStats} viewJuryProgressId={viewJuryProgressId} setViewJuryProgressId={setViewJuryProgressId} juryProgressData={juryProgressData} loadJuryProgress={loadJuryProgress} manageJuryContestId={manageJuryContestId} setManageJuryContestId={setManageJuryContestId} selectedJuryEmail={selectedJuryEmail} setSelectedJuryEmail={setSelectedJuryEmail} handleAddJury={handleAddJury} handleRemoveJury={handleRemoveJury} viewResultsContestId={viewResultsContestId} setViewResultsContestId={setViewResultsContestId} contestResults={contestResults} loadResults={loadResults} activeUploadContest={activeUploadContest} setActiveUploadContest={setActiveUploadContest} uploadTitle={uploadTitle} setUploadTitle={setUploadTitle} uploadCategory={uploadCategory} setUploadCategory={setUploadCategory} uploadPreview={uploadPreview} setUploadPreview={setUploadPreview} isUploading={isUploading} handleFileSelect={handleFileSelect} handleUpload={handleUpload} judgingContestId={judgingContestId} setJudgingContestId={setJudgingContestId} unvotedEntries={unvotedEntries} currentScore={currentScore} setCurrentScore={setCurrentScore} startJudging={startJudging} submitVote={submitVote} editingEntryId={editingEntryId} setEditingEntryId={setEditingEntryId} editEntryTitle={editEntryTitle} setEditEntryTitle={setEditEntryTitle} handleUpdateEntryTitle={handleUpdateEntryTitle} handleDeleteEntry={handleDeleteEntry} setFullscreenData={setFullscreenData} newCategorySettings={newCategorySettings} setNewCategorySettings={setNewCategorySettings} editCategorySettings={editCategorySettings} setEditCategorySettings={setEditCategorySettings} 
-                  // JAVÍTVA: Új paraméterek átadása az adminisztrációs felületen is
                   newSponsorClub={newSponsorClub} setNewSponsorClub={setNewSponsorClub} editSponsorClub={editSponsorClub} setEditSponsorClub={setEditSponsorClub}
                   />
                 ) : <Navigate to="/dashboard" replace />
@@ -668,12 +661,15 @@ function MainContent() {
   );
 }
 
+// 👑 JAVÍTVA: A legkülső szinten körbeöleljük a BrowserRouter-t a LanguageProvider-rel!
 export default function App() {
   return (
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
-      <BrowserRouter>
-        <MainContent />
-      </BrowserRouter>
+      <LanguageProvider>
+        <BrowserRouter>
+          <MainContent />
+        </BrowserRouter>
+      </LanguageProvider>
     </GoogleOAuthProvider>
   );
 }
