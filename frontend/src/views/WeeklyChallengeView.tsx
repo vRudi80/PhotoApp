@@ -885,32 +885,46 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
               );
             })
           )}
-          <div ref={lobbyChatBottomRef} />
+         <div ref={lobbyChatBottomRef} />
         </div>
 
-                {/* Üzenetküldő form */}
-                <form onSubmit={handleSendLobbyMessage} style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                  <input 
-                    type="text" 
-                    placeholder="Írj egy üzenetet a központi lobbiba a klubtagoknak..." 
-                    value={typedLobbyMsg}
-                    onChange={handleInputChange} // 🎯 ERRE CSERÉLD LE az eddigi onChange-et!
-                    maxLength={500}
-                    disabled={isSendingLobbyMsg}
-                    style={{ flex: 1, padding: '14px 18px', background: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '14px', fontSize: '0.95rem', outline: 'none', transition: 'all 0.2s' }}
-                    onFocus={e => e.target.style.borderColor = '#38bdf8'}
-                    onBlur={e => e.target.style.borderColor = '#334155'}
-                  />
-                  <button 
-                    type="submit"
-                    disabled={!typedLobbyMsg.trim() || isSendingLobbyMsg}
-                    style={{ background: (!typedLobbyMsg.trim() || isSendingLobbyMsg) ? '#334155' : 'linear-gradient(135deg, #0ea5e9, #2563eb)', color: (!typedLobbyMsg.trim() || isSendingLobbyMsg) ? '#64748b' : 'white', border: 'none', padding: '14px 28px', borderRadius: '14px', fontWeight: 'bold', fontSize: '0.95rem', cursor: 'pointer', transition: 'all 0.2s', boxShadow: typedLobbyMsg.trim() ? '0 4px 15px rgba(37,99,235,0.3)' : 'none' }}
-                  >
-                    {isSendingLobbyMsg ? '...' : 'Küldés 🚀'}
-                  </button>
-                </form>
-              </div>
-            </div>
+        {/* ── ➕ IDE ILLESZD BE: ANIMÁLT GÉPELÉS-JELZŐ SÁV ── */}
+        <div style={{ height: '20px', paddingLeft: '10px', fontSize: '0.85rem', color: '#38bdf8', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '5px', transition: 'all 0.3s' }}>
+          {currentlyTyping.length > 0 && (
+            <>
+              <span>{currentlyTyping.join(', ')} épp ír</span>
+              <span className="typing-dots" style={{ display: 'inline-flex', gap: '2px' }}>
+                <span style={{ animation: 'bounce 1.4s infinite both', animationDelay: '0s' }}>•</span>
+                <span style={{ animation: 'bounce 1.4s infinite both', animationDelay: '0.2s' }}>•</span>
+                <span style={{ animation: 'bounce 1.4s infinite both', animationDelay: '0.4s' }}>•</span>
+              </span>
+            </>
+          )}
+        </div>
+
+        {/* Üzenetküldő form */}
+        <form onSubmit={handleSendLobbyMessage} style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <input 
+            type="text" 
+            placeholder="Írj egy üzenetet a központi lobbiba a klubtagoknak..." 
+            value={typedLobbyMsg}
+            onChange={handleInputChange} // 🎯 ERRE CSERÉLD LE az eddigi onChange-et!
+            maxLength={500}
+            disabled={isSendingLobbyMsg}
+            style={{ flex: 1, padding: '14px 18px', background: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '14px', fontSize: '0.95rem', outline: 'none', transition: 'all 0.2s' }}
+            onFocus={e => e.target.style.borderColor = '#38bdf8'}
+            onBlur={e => e.target.style.borderColor = '#334155'}
+          />
+          <button 
+            type="submit"
+            disabled={!typedLobbyMsg.trim() || isSendingLobbyMsg}
+            style={{ background: (!typedLobbyMsg.trim() || isSendingLobbyMsg) ? '#334155' : 'linear-gradient(135deg, #0ea5e9, #2563eb)', color: (!typedLobbyMsg.trim() || isSendingLobbyMsg) ? '#64748b' : 'white', border: 'none', padding: '14px 28px', borderRadius: '14px', fontWeight: 'bold', fontSize: '0.95rem', cursor: 'pointer', transition: 'all 0.2s', boxShadow: typedLobbyMsg.trim() ? '0 4px 15px rgba(37,99,235,0.3)' : 'none' }}
+          >
+            {isSendingLobbyMsg ? '...' : 'Küldés 🚀'}
+          </button>
+        </form>
+      </div>
+    </div>
           ) : (
             <div>
               <div style={{ marginBottom: '20px' }}>
