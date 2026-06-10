@@ -2,6 +2,9 @@ import React from 'react';
 import { getImageUrl } from '../../utils/helpers';
 import { BACKEND_URL } from '../../utils/constants';
 
+// 🎯 ÚJ IMPORT: Behozzuk a nyelvi kontextust
+import { useLanguage } from '../../context/LanguageContext';
+
 interface AlbumSelectionModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -22,6 +25,9 @@ export default function AlbumSelectionModal({
   setIsUploading, setIsSwapping, fetchCurrentTopic, handleSwapBackSubmit, handleSelectPhotoForSwap
 }: AlbumSelectionModalProps) {
   
+  // 🎯 ÚJ: Aktiváljuk a fordítót (t)
+  const { t } = useLanguage();
+
   if (!isOpen) return null;
 
   return (
@@ -31,12 +37,10 @@ export default function AlbumSelectionModal({
         <button onClick={onClose} style={{ position: 'absolute', top: '20px', right: '20px', background: '#1e293b', border: 'none', color: '#94a3b8', fontSize: '1.2rem', width: '35px', height: '35px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✖</button>
         
         <h3 style={{ color: 'white', margin: '0 0 5px 0', fontSize: '1.5rem', fontWeight: 'bold' }}>
-          {albumModalMode === 'upload' ? '🖼️ Nevezés az Aréna Képtáradból' : '🃏 Válaszd ki a Joker Fotódat'}
+          {albumModalMode === 'upload' ? t('modalUploadTitle') : t('modalSwapTitle')}
         </h3>
         <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 20px 0', lineHeight: '1.4' }}>
-          {albumModalMode === 'upload' 
-            ? 'Melyik meglévő galériás fotóddal szeretnél benevezni a mostani futamra?' 
-            : 'Melyik galériás képedet küldöd harcba? A kék keretes Visszacserék megtartják a fordulóban korábban szerzett csillagaikat!'}
+          {albumModalMode === 'upload' ? t('modalUploadDesc') : t('modalSwapDesc')}
         </p>
         
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '15px' }}>
@@ -48,7 +52,7 @@ export default function AlbumSelectionModal({
                 key={p.id || idx} 
                 onClick={async () => {
                   if (albumModalMode === 'upload') {
-                    if (!window.confirm("Biztosan ezzel a meglévő képeddel nevezel be a küzdelembe?")) return;
+                    if (!window.confirm(t('msgUploadConfirm'))) return;
                     setIsUploading(true);
                     onClose();
                     try {
@@ -58,13 +62,13 @@ export default function AlbumSelectionModal({
                         body: JSON.stringify({ topicId: topic.id, userEmail: user.email, userName: user.name, fileUrl: p.file_url })
                       });
                       if (selectRes.ok) {
-                        alert("🎉 Sikeres nevezés az albumból!");
+                        alert(t('msgUploadSuccess'));
                         fetchCurrentTopic(false);
                       } else {
                         const err = await selectRes.json(); alert(err.error);
                       }
                     } catch (e) {
-                      alert("Hiba a nevezés során.");
+                      alert(t('msgUploadError'));
                     } finally {
                       setIsUploading(false);
                     }
@@ -86,10 +90,10 @@ export default function AlbumSelectionModal({
                 onMouseOut={(e) => { e.currentTarget.style.borderColor = pastMatch ? '#0284c7' : '#334155'; e.currentTarget.style.transform = 'scale(1)'; }}
               >
                 <div style={{ width: '100%', height: '115px', backgroundColor: '#000', overflow: 'hidden', position: 'relative' }}>
-                  <img src={getImageUrl(null, p.file_url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <img src={getImageUrl(null, p.file_url)} alt="Gallery asset" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   {pastMatch && (
                     <span style={{ position: 'absolute', top: '8px', left: '8px', background: 'linear-gradient(135deg, #0284c7, #0369a1)', color: 'white', fontWeight: 'bold', fontSize: '0.65rem', padding: '4px 8px', borderRadius: '6px', boxShadow: '0 4px 10px rgba(0,0,0,0.5)', border: '1px solid #38bdf840' }}>
-                      ↩️ Visszacsere
+                      {t('modalBadgeSwapBack')}
                     </span>
                   )}
                 </div>
