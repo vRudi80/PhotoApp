@@ -177,7 +177,7 @@ export default function Header({
                   <button className={`drop-item ${activeTab === 'admin_meetings' ? 'active' : ''}`} style={{ color: activeTab === 'admin_meetings' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_meetings')}>Klubestek kezelése</button>
                   
                   <button className={`drop-item ${activeTab === 'admin_homeworks' ? 'active' : ''}`} style={{ color: activeTab === 'admin_homeworks' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_homeworks')}>Házi feladatok kezelése</button>
-                  {user?.email === ADMIN_EMAIL && <button className={`drop-item ${activeTab === 'admin_weekly' ? 'active' : ''}`} style={{ color: activeTab === 'admin_weekly' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_weekly')}>Csata kezelése</button>}
+                  {user?.email === ADMIN_EMAIL && <button className={`drop-item ${activeTab === 'admin_weekly' ? 'active' : ''}`} style={{ color: activeTab === 'admin_weekly' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_weekly')}>Kihívások kezelése</button>}
                   
                   {user?.email === ADMIN_EMAIL && (
                     <button className={`drop-item ${activeTab === 'admin_settings' ? 'active' : ''}`} style={{ color: activeTab === 'admin_settings' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_settings')}>Kategóriák és Díjak</button>
