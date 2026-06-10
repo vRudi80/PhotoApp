@@ -64,7 +64,38 @@ const translations = {
     subPortfolio: '🖼️ Saját Portfólió',
     subPackages: '💎 Tárhelycsomagom',
     subSupport: '✉️ Support & Segítség',
-    subLogout: '🚪 Kijelentkezés'
+    subLogout: '🚪 Kijelentkezés',
+
+    dashWelcome: 'Üdvözlünk',
+    dashSupportNotice: 'Ha valami nem megfelelően működik, a support részen kapcsolatba léphetsz a fejlesztővel!',
+    dashPremiumBadge: '⭐ Aktív Prémium Tag',
+    dashAlertsTitle: '🔔 Aktuális Események & Értesítések',
+    dashSyncing: '⏳ Adatok szinkronizálása a szerverrel...',
+    dashSyncNotice: '(Ha régen voltál itt, a szerver felébresztése eltarthat pár másodpercig)',
+    dashAlertsError: '❌ Nem sikerült betölteni az értesítéseket.',
+    dashReload: 'Újratöltés',
+    dashNewNews: 'Új Klub Hír!',
+    dashLocation: 'Helyszín',
+    dashHomework: 'Házi feladat',
+    dashActiveContest: 'Aktív Pályázat',
+    dashNoAlerts: 'Jelenleg nincs új értesítésed vagy határidős feladatod. Nyugalom van! ☕',
+
+    tileWeeklyTitle: 'Kihívások',
+    tileWeeklyDesc: 'Tölts fel az aktuális napi, vagy heti témában, szavazz mások képeire és kerülj a toplista élére!',
+    tileContestsTitle: 'Nyílt Pályázatok',
+    tileContestsDesc: 'Vegyél részt a közösségi vagy zártkörű házi fotópályázatokon.',
+    tilePortfolioTitle: 'Saját Portfólió',
+    tilePortfolioDesc: 'Töltsd fel és menedzseld a saját fotóidat, nézd meg az eredményeidet, vagy akár kérj AI elemzést.',
+    tileMapTitle: 'Fotós Helyszínek',
+    tileMapDesc: 'Fedezz fel új fotós helyeket a térképen, vagy oszd meg a sajátjaidat!',
+    tileProgressTitle: 'Minősítések (FIAP/MAFOSZ)',
+    tileProgressDesc: 'Kövesd nyomon az elfogadásaidat, generálj FIAP kompatibilis Excel táblát.',
+    tileSalonsTitle: 'Nemzetközi Szalonok',
+    tileSalonsDesc: 'Böngéssz az aktuális FIAP, MAFOSZ, PSA, vagy klub szalonok között, nevezd be a fotóidat pályázatokra.',
+    tileClubTitle: 'Fotóklub Élet',
+    tileClubDesc: 'Klubestek, találkozók, feladatok, vagy klub portfólió válogatás egy helyen.',
+    tileAdminTitle: 'Adminisztráció',
+    tileAdminDesc: 'Pályázatok, klubestek, felhasználók és szalonok kezelése.'
   },
   en: {
     // Navigációs fülek (WeeklyChallengeView)
@@ -127,7 +158,39 @@ const translations = {
     subPortfolio: '🖼️ My Portfolio',
     subPackages: '💎 My Storage',
     subSupport: '✉️ Support & Help',
-    subLogout: '🚪 Logout'
+    subLogout: '🚪 Logout'.
+
+    dashWelcome: 'Welcome',
+    dashSupportNotice: 'If something is not working properly, you can contact the developer in the support section!',
+    dashPremiumBadge: '⭐ Active Premium Member',
+    dashAlertsTitle: '🔔 Current Events & Notifications',
+    dashSyncing: '⏳ Syncing data with the server...',
+    dashSyncNotice: '(If you haven\'t been here in a while, waking up the server might take a few seconds)',
+    dashAlertsError: '❌ Failed to load notifications.',
+    dashReload: 'Reload',
+    dashNewNews: 'New Club News!',
+    dashLocation: 'Location',
+    dashHomework: 'Homework',
+    dashActiveContest: 'Active Contest',
+    dashNoAlerts: 'You currently have no new notifications or deadline tasks. All quiet! ☕',
+
+    // Főoldal Csempék EN
+    tileWeeklyTitle: 'Challenges',
+    tileWeeklyDesc: 'Upload for the current daily or weekly theme, vote on others\' photos, and reach the top of the leaderboard!',
+    tileContestsTitle: 'Open Contests',
+    tileContestsDesc: 'Participate in community or private local photo contests.',
+    tilePortfolioTitle: 'My Portfolio',
+    tilePortfolioDesc: 'Upload and manage your own photos, view your results, or even request an AI analysis.',
+    tileMapTitle: 'Photo Locations',
+    tileMapDesc: 'Discover new photography spots on the map or share your own!',
+    tileProgressTitle: 'Distinctions (FIAP/MAFOSZ)',
+    tileProgressDesc: 'Track your acceptances and generate a FIAP-compatible Excel sheet.',
+    tileSalonsTitle: 'International Salons',
+    tileSalonsDesc: 'Browse through current FIAP, MAFOSZ, PSA, or club salons, and enter your photos into contests.',
+    tileClubTitle: 'Photo Club Life',
+    tileClubDesc: 'Club nights, meetings, tasks, or club portfolio selections all in one place.',
+    tileAdminTitle: 'Administration',
+    tileAdminDesc: 'Manage contests, club nights, users, and salons.'
   }
 };
 
