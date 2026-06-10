@@ -448,14 +448,17 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   useEffect(() => {
     if (subTab !== 'current' || selectedTopicId !== null) return;
 
-    const fetchLobbyChat = async () => {
+const fetchLobbyChat = async () => {
       try {
-        const res = await fetch(`${BACKEND_URL}/api/weekly/chat/0`);
+        // 🎯 JAVÍTVA: Hozzáadtunk egy egyedi időbélyeget (?_=${Date.now()}), ami megakadályozza a böngésző hibás cache-elését!
+        const res = await fetch(`${BACKEND_URL}/api/weekly/chat/0?_=${Date.now()}`);
         if (res.ok) {
           const data = await res.json();
+          
+          // Frissítjük az üzeneteket
           setLobbyMessages(data.messages || []);
           
-          // Kiszűrjük saját magunkat a gépelők listájából, hogy ne lássuk, hogy mi írunk
+          // Frissítjük a gépelőket (kiszűrve saját magunkat a ref alapján)
           const othersTyping = (data.typing || []).filter((name: string) => name !== myOfficialNameRef.current);
           setCurrentlyTyping(othersTyping);
         }
@@ -464,7 +467,10 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       }
     };
 
+    // Első azonnali betöltés
     fetchLobbyChat();
+
+    // Szigorúan stabil 4 másodperces ciklus
     const interval = setInterval(fetchLobbyChat, 4000);
     return () => clearInterval(interval);
   }, [subTab, selectedTopicId]);
