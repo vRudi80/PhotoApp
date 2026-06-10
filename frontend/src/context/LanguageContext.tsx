@@ -230,8 +230,17 @@ const translations = {
     planSubmitBtn: 'Haditerv beküldése Törzsi bírálatra ⚔️',
     msgFillAllFields: 'Minden kötelező mezőt tölts ki!',
     msgProposalSuccess: '⚔️ Haditerv sikeresen benyújtva bírálatra!',
-    msgProposalError: 'Hiba történt a küldés során.'
+    msgProposalError: 'Hiba történt a küldés során.',
+
+    // === HU BLOKK ALJA ===
+    hofLoading: '⏳ A pódium összeállítása...',
+    hofEmpty: 'Még egyetlen fotós sem gyűjtött pontot. Legyél te az első!',
+    hofTitle: '👑 Globális Fotós Dicsőségfal',
+    hofDesc: 'A közösség összesített ranglistája az éles és lezárult arénákban gyűjtött csillagok alapján.',
+    hofYou: 'TE VAGY'
   },
+
+  
   en: {
     // Navigációs fülek (WeeklyChallengeView)
     tabChallenges: '🏆 Challenges',
@@ -460,7 +469,14 @@ const translations = {
     planSubmitBtn: 'Submit Proposal for Club Review ⚔️',
     msgFillAllFields: 'Please fill in all required fields!',
     msgProposalSuccess: '⚔️ Challenge proposal successfully submitted for review!',
-    msgProposalError: 'An error occurred during submission.'
+    msgProposalError: 'An error occurred during submission.',
+
+    // === EN BLOKK ALJA ===
+    hofLoading: '⏳ Assembling the podium...',
+    hofEmpty: 'No photographers have earned points yet. Be the first!',
+    hofTitle: '👑 Global Photographers Hall of Fame',
+    hofDesc: 'The community\'s cumulative leaderboard based on stars earned in active and completed arenas.',
+    hofYou: 'YOU'
   }
 };
 
