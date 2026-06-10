@@ -174,13 +174,19 @@ for (const entry of entries) {
       [entry.user_email]
     );
     
-    // +1 hét ajándék Prémium elhelyezése (Casing- és szóköz-biztosan)
-    await pool.query(`
-      UPDATE photo_users 
-      SET premium_until = DATE_ADD(IF(premium_until > ?, premium_until, ?), INTERVAL 7 DAY) 
-      WHERE LOWER(TRIM(email)) = LOWER(TRIM(?))
-    `, [currentNow, currentNow, entry.user_email]);
-    
+   // 🎯 JAVÍTVA: NULL-dátum biztos automata prémium hosszabbítás
+// Ha a premium_until LÉTEZIK és a JÖVŐBEN VAN, akkor ahhoz adunk 7 napot (hosszabbítás).
+// Minden más esetben (ha NULL, üres, vagy már rég lejárt) a MAI NAPHOZ (currentNow) adunk 1 hetet!
+await pool.query(`
+  UPDATE photo_users 
+  SET premium_level = 1,
+      premium_until = DATE_ADD(
+        IF(premium_until IS NOT NULL AND premium_until > ?, premium_until, ?), 
+        INTERVAL 7 DAY
+      ) 
+  WHERE LOWER(TRIM(email)) = LOWER(TRIM(?))
+`, [currentNow, currentNow, entry.user_email]);
+
     console.log(`🎉 PRÉMIUM KIUTALVA: ${entry.user_email} megnyerte a csatát!`);
   } 
   else if (entry.likes_count === score2) {
