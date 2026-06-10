@@ -110,7 +110,7 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
       const distance = end.getTime() - now;
 
       if (distance < 0) {
-        setTimeLeft('Párbaj Lezárult!');
+        setTimeLeft('Futam Lezárult!');
         return false;
       }
 
@@ -154,7 +154,7 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
         
         <span style={{ color: statusColor, fontSize: '0.85rem', fontWeight: 'bold' }}>
           {isMaster 
-            ? '🚀 Párbajmester vagy' 
+            ? '🚀 Képmester vagy' 
             : topic.hasEntered 
               ? '🚀 Neveztél' 
               : '⏳ Még nem neveztél'
@@ -183,7 +183,7 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
         {/* Párbajmester (csak ha létezik) */}
         {(topic.master_name || topic.master_email) && (
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#a78bfa', fontSize: '0.85rem', fontWeight: 'bold', background: '#a78bfa10', padding: '6px 14px', borderRadius: '10px', border: '1px solid #a78bfa20', whiteSpace: 'nowrap', lineHeight: '1' }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center' }}>👑 Párbajmester:&nbsp;</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center' }}>👑 Képmester:&nbsp;</span>
             <span style={{ color: '#e9d5ff', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center' }}>{topic.master_name || topic.master_email}</span>
           </div>
         )}
@@ -428,7 +428,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       const distance = end.getTime() - now;
 
       if (distance < 0) {
-        setTimeLeft('Párbaj Lezárult!');
+        setTimeLeft('Futam Lezárult!');
         return false;
       }
 
@@ -477,7 +477,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       });
       
       if (res.ok) {
-        alert("🚫 Jelentve! A kép eltűnt a párbajodból.");
+        alert("🚫 Jelentve! A kép eltűnt a futamodból.");
         setMyVoteCount(prev => prev + 1);
         if (topic) {
           fetchNextVote(topic.id);
@@ -641,8 +641,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({
           files: [file],
-          title: 'Fotóklub Párbaj Trófea',
-          text: `🎉 Elértem a(z) ${activeShareData.rank}. helyezést a "${activeShareData.topic_title}" fotós párbajban! ⭐`
+          title: 'Fotóklub Futam Trófea',
+          text: `🎉 Elértem a(z) ${activeShareData.rank}. helyezést a "${activeShareData.topic_title}" fotós futamban! ⭐`
         });
       } else {
         const link = document.createElement('a');
