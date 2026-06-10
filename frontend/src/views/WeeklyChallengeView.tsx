@@ -271,6 +271,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
 
   // 👑 ➕ ÚJ: KÖZPONTI LOBBI CSEVEGŐ ÁLLAPOTOK
   const [lobbyMessages, setLobbyMessages] = useState<any[]>([]);
+  const [currentlyTyping, setCurrentlyTyping] = useState<string[]>([]); // ➕ ÚJ STATE A GÉPELŐKNEK
+  const lastTypingSignalSent = useRef<number>(0); // ➕ ÚJ REF, hogy ne bombázzuk a szervert minden leütésnél
   const [typedLobbyMsg, setTypedLobbyMsg] = useState('');
   const [isSendingLobbyMsg, setIsSendingLobbyMsg] = useState(false);
   const lobbyChatBottomRef = useRef<HTMLDivElement>(null);
@@ -364,6 +366,26 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     finally { if (!isSilent) setLoading(false); }
   };
 
+  // ➕ ÚJ FUNKCIÓ: Gépelési esemény leadása (Throttled)
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setTypedLobbyMsg(e.target.value);
+
+    const now = Date.now();
+    // Csak 3 másodpercenként egyszer küldünk jelet, ha folyamatosan ír a júzer
+    if (now - lastTypingSignalSent.current > 3000) {
+      lastTypingSignalSent.current = now;
+      fetch(`${BACKEND_URL}/api/weekly/chat/typing`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          topicId: 0,
+          userEmail: user?.email,
+          userName: myEntry?.user_name || user?.name || 'Anonim Képolvasó'
+        })
+      }).catch(() => {});
+    }
+  };
+  
   const fetchNextVote = async (topicId: number) => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/weekly/next-vote?topicId=${topicId}&userEmail=${user?.email || ''}`);
@@ -413,16 +435,21 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     else if (subTab === 'hall_of_fame') fetchHallOfFame();
   }, [subTab, selectedTopicId]);
 
-  // 👑 ➕ ÚJ: KÖZPONTI LOBBI CSEVEGŐ AUTOMATA ELEMZŐ & POLING MOTOR
+// 🔄 JAVÍTVA: Üzenetek és Gépelők együttes poling szinkronizációja
   useEffect(() => {
     if (subTab !== 'current' || selectedTopicId !== null) return;
 
     const fetchLobbyChat = async () => {
       try {
-        const res = await fetch(`${BACKEND_URL}/api/weekly/chat/0`); // A 0 az adatbázisban a globális lobbit jelöli
+        const res = await fetch(`${BACKEND_URL}/api/weekly/chat/0`);
         if (res.ok) {
           const data = await res.json();
-          setLobbyMessages(data || []);
+          setLobbyMessages(data.messages || []);
+          
+          // Kiszűrjük saját magunkat a gépelők listájából, hogy ne lássuk, hogy mi írunk
+          const officialMyName = myEntry?.user_name || user?.name || 'Én';
+          const othersTyping = (data.typing || []).filter((name: string) => name !== officialMyName);
+          setCurrentlyTyping(othersTyping);
         }
       } catch (err) {
         console.error("Hiba a lobbi chat lekérésekor:", err);
@@ -430,9 +457,9 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     };
 
     fetchLobbyChat();
-    const interval = setInterval(fetchLobbyChat, 4000); // 4 másodpercenként csendben szinkronizál
+    const interval = setInterval(fetchLobbyChat, 4000);
     return () => clearInterval(interval);
-  }, [subTab, selectedTopicId]);
+  }, [subTab, selectedTopicId, myEntry, user]);
 
   // Automatikusan a csevegés aljára gördít új üzenet érkezésekor
   useEffect(() => {
@@ -865,9 +892,9 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                 <form onSubmit={handleSendLobbyMessage} style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                   <input 
                     type="text" 
-                    placeholder="Írj egy üzenetet..." 
+                    placeholder="Írj egy üzenetet a központi lobbiba a klubtagoknak..." 
                     value={typedLobbyMsg}
-                    onChange={e => setTypedLobbyMsg(e.target.value)}
+                    onChange={handleInputChange} // 🎯 ERRE CSERÉLD LE az eddigi onChange-et!
                     maxLength={500}
                     disabled={isSendingLobbyMsg}
                     style={{ flex: 1, padding: '14px 18px', background: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '14px', fontSize: '0.95rem', outline: 'none', transition: 'all 0.2s' }}
