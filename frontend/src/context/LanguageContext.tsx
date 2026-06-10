@@ -320,7 +320,30 @@ const translations = {
     sharePhotosCount: ' fotó',
     sharePlayNext: 'Játssz Te is következő kihívásban:',
     shareSavingTrophy: '⏳ Trófea mentése...',
-    shareSaveBtn: '📱 Kártya Megosztása / Mentése 🚀'
+    shareSaveBtn: '📱 Kártya Megosztása / Mentése 🚀',
+
+    // === HU BLOKK ALJA ===
+    loginBadge: 'Vártunk már! 📸',
+    loginTitlePre: 'A Fotósok ',
+    loginTitleGradient: 'Digitális Otthona',
+    loginMainDesc: 'Lépj be a közösségbe! Fedezz fel új helyszíneket, versengj a heti kihívásokban, kövesd a nemzetközi FIAP/MAFOSZ sikereidet és kérj profi AI képelemzést a portfóliódra.',
+    loginBoxTitle: 'Lépj be a portálra',
+    loginBoxDesc: 'A belépéshez nincs szükség külön regisztrációra. Használd a meglévő, biztonságos Google fiókodat!',
+    loginSecureNotice: '🔒 100% Biztonságos Google azonosítás',
+    
+    // Bento-Rács Funkciók HU
+    loginFeatMatchTitle: 'Párbaj',
+    loginFeatMatchDesc: 'Fotós kihívások és toplisták.',
+    loginFeatFiapTitle: 'FIAP / MAFOSZ',
+    loginFeatFiapDesc: 'Nemzetközi minősítés követő.',
+    loginFeatMapTitle: 'Fotós Térkép',
+    loginFeatMapDesc: 'Közösségi helyszín megosztó.',
+    loginFeatAiTitle: 'AI Elemzés',
+    loginFeatAiDesc: 'Portfólió és okos képelemzés.',
+    loginFeatClubTitle: 'Fotóklub Élet',
+    loginFeatClubDesc: 'Hírek, klubestek és feladatok.',
+    loginFeatContestsTitle: 'Pályázatok',
+    loginFeatContestsDesc: 'Nyílt és zárt fotóversenyek.'
   },
 
   
@@ -642,7 +665,30 @@ const translations = {
     sharePhotosCount: ' photos',
     sharePlayNext: 'Join the next challenge too:',
     shareSavingTrophy: '⏳ Saving trophy...',
-    shareSaveBtn: '📱 Share / Save Card 🚀'
+    shareSaveBtn: '📱 Share / Save Card 🚀',
+
+    // === EN BLOKK ALJA ===
+    loginBadge: 'Welcome back! 📸',
+    loginTitlePre: 'The Digital Home ',
+    loginTitleGradient: 'of Photographers',
+    loginMainDesc: 'Join the community! Discover new locations, compete in weekly challenges, track your international FIAP/MAFOSZ success, and get professional AI feedback on your portfolio.',
+    loginBoxTitle: 'Sign in to the Portal',
+    loginBoxDesc: 'No separate registration is required. Use your existing, secure Google account!',
+    loginSecureNotice: '🔒 100% Secure Google Authentication',
+    
+    // Bento-Rács Funkciók EN
+    loginFeatMatchTitle: 'Arena Duel',
+    loginFeatMatchDesc: 'Photo challenges and live leaderboards.',
+    loginFeatFiapTitle: 'FIAP / MAFOSZ',
+    loginFeatFiapDesc: 'International distinction tracker.',
+    loginFeatMapTitle: 'Photo Map',
+    loginFeatMapDesc: 'Community spot sharing platform.',
+    loginFeatAiTitle: 'AI Analysis',
+    loginFeatAiDesc: 'Portfolio and smart image insights.',
+    loginFeatClubTitle: 'Photo Club Life',
+    loginFeatClubDesc: 'News, club nights, and assignments.',
+    loginFeatContestsTitle: 'Contests',
+    loginFeatContestsDesc: 'Open and private photo competitions.'
   }
 };
 
