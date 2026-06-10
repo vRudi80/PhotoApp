@@ -34,7 +34,7 @@ export default function PastArchive({
       
       {/* 📜 BAL OLDALSÁV: BEFEJEZETT CSATÁK MENETRENDJE */}
       <div style={{ background: '#1e293b', borderRadius: '24px', padding: '25px', border: '1px solid #334155', boxShadow: '0 10px 30px rgba(0,0,0,0.2)', height: 'fit-content' }}>
-        <h3 style={{ margin: '0 0 20px 0', color: '#60a5fa', fontSize: '1.4rem', fontWeight: 'bold' }}>📜 Befejezett Csaták</h3>
+        <h3 style={{ margin: '0 0 20px 0', color: '#60a5fa', fontSize: '1.4rem', fontWeight: 'bold' }}>📜 Befejezett Kihívások</h3>
         <p style={{ color: '#94a3b8', margin: 0 }}>Az eredményeknél a képre kattintva likeolhatod, vagy hozzászólhatsz a fotóhoz</p>
         {(!pastTopics || pastTopics.length === 0) ? (
           <div style={{ color: '#94a3b8', textAlign: 'center' }}>Nincs lezárt küzdelem.</div>
@@ -89,21 +89,21 @@ export default function PastArchive({
         {/* KLUBOK CSATÁJA RANGLISTA */}
         <div style={{ background: '#1e293b', borderRadius: '24px', padding: '25px', border: '1px solid #10b981', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-            <h3 style={{ margin: 0, color: '#10b981', fontSize: '1.4rem', fontWeight: 'bold' }}>🛡️ Klubok Csatája Eredmény</h3>
+            <h3 style={{ margin: 0, color: '#10b981', fontSize: '1.4rem', fontWeight: 'bold' }}>🛡️ Klubok Ligája Eredmény</h3>
             {selectedPastTopicId && (() => {
               const t = pastTopics.find(x => x.id === selectedPastTopicId);
               if (!t) return null;
               const isDaily = getTopicType(t.start_date, t.end_date) === 'daily';
               return (
                 <span style={{ fontSize: '0.75rem', background: isDaily ? '#ef444420' : '#3b82f620', color: isDaily ? '#f87171' : '#60a5fa', padding: '3px 10px', borderRadius: '12px', fontWeight: 'bold', border: `1px solid ${isDaily ? '#ef444450' : '#3b82f650'}` }}>
-                  {isDaily ? 'Villámháború' : 'Hosszú hadjárat'}
+                  {isDaily ? 'Villámfutam' : 'Mesterfutam'}
                 </span>
               );
             })()}
           </div>
           <p style={{ color: '#94a3b8', fontSize: '0.8rem', margin: '0 0 20px 0' }}>A 3 legjobb harcos teljesítménye alapján.</p>
           
-          {selectedPastTopicId && (!pastClubLeaderboard || pastClubLeaderboard.length === 0) && <div style={{ color: '#94a3b8', textAlign: 'center', padding: '10px' }}>Ebben a csatában nem mérkőztek meg szövetségek.</div>}
+          {selectedPastTopicId && (!pastClubLeaderboard || pastClubLeaderboard.length === 0) && <div style={{ color: '#94a3b8', textAlign: 'center', padding: '10px' }}>Ebben a futamban nem mérkőztek meg szövetségek.</div>}
           {!selectedPastTopicId && <div style={{ color: '#94a3b8', textAlign: 'center', padding: '10px' }}>Válassz egy hadműveletet a bal oldali listából.</div>}
           
           {pastClubLeaderboard && pastClubLeaderboard.map((club, index) => {
@@ -148,7 +148,7 @@ export default function PastArchive({
         <div style={{ background: '#1e293b', borderRadius: '24px', padding: '25px', border: '1px solid #334155', boxShadow: '0 10px 30px rgba(0,0,0,0.2)' }}>
           <h3 style={{ margin: '0 0 20px 0', color: '#3b82f6', fontSize: '1.4rem', fontWeight: 'bold' }}>🏅 Egyéni Rangsor</h3>
           
-          {!selectedPastTopicId && <div style={{ color: '#94a3b8', textAlign: 'center', padding: '10px' }}>Válassz egy csatát az eredmények megjelenítéséhez.</div>}
+          {!selectedPastTopicId && <div style={{ color: '#94a3b8', textAlign: 'center', padding: '10px' }}>Válassz egy futamot az eredmények megjelenítéséhez.</div>}
           
           {pastLeaderboard && [...pastLeaderboard].sort((a, b) => {
             const likesA = Number(a?.likes_count || 0);
