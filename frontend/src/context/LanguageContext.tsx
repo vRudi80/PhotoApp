@@ -237,7 +237,28 @@ const translations = {
     hofEmpty: 'Még egyetlen fotós sem gyűjtött pontot. Legyél te az első!',
     hofTitle: '👑 Globális Fotós Dicsőségfal',
     hofDesc: 'A közösség összesített ranglistája az éles és lezárult arénákban gyűjtött csillagok alapján.',
-    hofYou: 'TE VAGY'
+    hofYou: 'TE VAGY'.
+
+    // === HU BLOKK ALJA ===
+    archiveTitle: '📜 Befejezett Kihívások',
+    archiveNotice: 'Az eredményeknél a képre kattintva likeolhatod, vagy hozzászólhatsz a fotóhoz',
+    archiveEmpty: 'Nincs lezárt küzdelem.',
+    archiveCoverAuthor: '📸 Borítókép készítője: ',
+    archiveClubLeague: '🛡️ Klubok Ligája Eredmény',
+    archiveBlitz: 'Villámfutam',
+    archiveMaster: 'Mesterfutam',
+    archiveClubLeagueDesc: 'A 3 legjobb játékos teljesítménye alapján.',
+    archiveNoClubs: 'Ebben a futamban nem mérkőztek meg szövetségek.',
+    archiveSelectChallenge: 'Válassz egy futamot a bal oldali listából.',
+    archiveUnknownClub: 'Ismeretlen Klub',
+    archiveBasedOnPoints: ' fotós pontjai alapján',
+    archiveMemberIndividualScore: '📊 Klubjátékosok ({count} fő)',
+    archiveNoMemberPoints: 'Nem szerzett pontot senki ebből a klubból.',
+    archiveIndividualRanking: '🏅 Egyéni Rangsor',
+    archiveSelectMatch: 'Válassz egy futamot az eredmények megjelenítéséhez.',
+    archivePhotographer: 'Fotós',
+    archivePostPraises: ' utólagos dicséret',
+    archiveNomadWarrior: 'Nomád harcos'
   },
 
   
@@ -476,7 +497,28 @@ const translations = {
     hofEmpty: 'No photographers have earned points yet. Be the first!',
     hofTitle: '👑 Global Photographers Hall of Fame',
     hofDesc: 'The community\'s cumulative leaderboard based on stars earned in active and completed arenas.',
-    hofYou: 'YOU'
+    hofYou: 'YOU',
+
+    // === EN BLOKK ALJA ===
+    archiveTitle: '📜 Completed Challenges',
+    archiveNotice: 'Click on the photo in the results to like or comment',
+    archiveEmpty: 'No completed matches.',
+    archiveCoverAuthor: '📸 Cover photo by: ',
+    archiveClubLeague: '🛡️ Clubs League Results',
+    archiveBlitz: 'Blitz Match',
+    archiveMaster: 'Master Match',
+    archiveClubLeagueDesc: 'Based on the performance of the top 3 members.',
+    archiveNoClubs: 'No clubs competed in this match.',
+    archiveSelectChallenge: 'Select a challenge from the left sidebar.',
+    archiveUnknownClub: 'Unknown Club',
+    archiveBasedOnPoints: ' based on points of photographers',
+    archiveMemberIndividualScore: '📊 Members individual score ({count} people)',
+    archiveNoMemberPoints: 'No one earned points from this club.',
+    archiveIndividualRanking: '🏅 Individual Ranking',
+    archiveSelectMatch: 'Select a match to view results.',
+    archivePhotographer: 'Photographer',
+    archivePostPraises: ' post-match praises',
+    archiveNomadWarrior: 'Nomad warrior'
   }
 };
 
