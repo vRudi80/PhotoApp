@@ -165,26 +165,32 @@ async function getUserLikesAndVictories(pool, email) {
         const score2 = entries[1] ? entries[1].likes_count : -1;
         const score3 = entries[2] ? entries[2].likes_count : -1;
 
-        for (const entry of entries) {
-          if (entry.likes_count === score1) {
-            // 1. Helyezett jutalma: +3 Joker csere
-            await pool.query('UPDATE photo_users SET swap_balance = swap_balance + 3 WHERE email = ?', [entry.user_email]);
-            
-            // 👑 ÚJ JAVÍTÁS: +1 hét ajándék Prémium elhelyezése szinkronizált naptár-hosszabbítással!
-            await pool.query(`
-              UPDATE photo_users 
-              SET premium_until = DATE_ADD(IF(premium_until > ?, premium_until, ?), INTERVAL 7 DAY) 
-              WHERE email = ?
-            `, [currentNow, currentNow, entry.user_email]);
-            console.log(`🎉 PRÉMIUM KIUTALVA: ${entry.user_email} megnyerte a csatát, kapott 7 nap prémium időt!`);
-          } 
-          else if (entry.likes_count === score2) {
-            await pool.query('UPDATE photo_users SET swap_balance = swap_balance + 2 WHERE email = ?', [entry.user_email]);
-          } 
-          else if (entry.likes_count === score3) {
-            await pool.query('UPDATE photo_users SET swap_balance = swap_balance + 1 WHERE email = ?', [entry.user_email]);
-          }
-        }
+        // 🎯 JAVÍTVA: LOWER(TRIM()) védelemmel ellátott automata jutalomosztás
+for (const entry of entries) {
+  if (entry.likes_count === score1) {
+    // 1. Helyezett jutalma: +3 Joker csere (Casing-biztosan)
+    await pool.query(
+      'UPDATE photo_users SET swap_balance = swap_balance + 3 WHERE LOWER(TRIM(email)) = LOWER(TRIM(?))', 
+      [entry.user_email]
+    );
+    
+    // +1 hét ajándék Prémium elhelyezése (Casing- és szóköz-biztosan)
+    await pool.query(`
+      UPDATE photo_users 
+      SET premium_until = DATE_ADD(IF(premium_until > ?, premium_until, ?), INTERVAL 7 DAY) 
+      WHERE LOWER(TRIM(email)) = LOWER(TRIM(?))
+    `, [currentNow, currentNow, entry.user_email]);
+    
+    console.log(`🎉 PRÉMIUM KIUTALVA: ${entry.user_email} megnyerte a csatát!`);
+  } 
+  else if (entry.likes_count === score2) {
+    await pool.query('UPDATE photo_users SET swap_balance = swap_balance + 2 WHERE LOWER(TRIM(email)) = LOWER(TRIM(?))', [entry.user_email]);
+  } 
+  else if (entry.likes_count === score3) {
+    await pool.query('UPDATE photo_users SET swap_balance = swap_balance + 1 WHERE LOWER(TRIM(email)) = LOWER(TRIM(?))', [entry.user_email]);
+  }
+}
+
 
         await pool.query('UPDATE weekly_topics SET processed = 1 WHERE id = ?', [topic.id]);
         console.log(`🏆 Kihívás #${topic.id} lezárva. Cserék kiosztva!`);
