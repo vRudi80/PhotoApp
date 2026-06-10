@@ -1322,42 +1322,44 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
 // ====================================================================
-  // 💬 ARÉNA LÍGA ÉLŐ CSEVEGŐ VÉGPONTOK (Gépelés-jelző motorral)
+  // 💬 ARÉNA LÍGA ÉLŐ CSEVEGŐ VÉGPONTOK (Típusbiztos, 0-ra optimalizált)
   // ====================================================================
-  
-  // A) Üzenetek és gépelők lekérése egyben
   app.get('/api/weekly/chat/:topicId', async (req, res) => {
-    const { topicId } = req.params;
+    const parsedTopicId = Number(req.params.topicId); // 🎯 Kényszerített szám típus
     try {
       const [messages] = await pool.query(`
-        SELECT c.id, COALESCE(u.name, c.user_name) AS user_name, c.user_email, c.message_text, c.created_at 
+        SELECT 
+          c.id, 
+          COALESCE(u.name, c.user_name) AS user_name, 
+          c.user_email, 
+          c.message_text, 
+          c.created_at 
         FROM weekly_chat c LEFT JOIN photo_users u ON c.user_email = u.email
         WHERE c.topic_id = ? ORDER BY c.created_at ASC LIMIT 100
-      `, [topicId]);
+      `, [parsedTopicId]);
 
-      // 🎯 Kiszűrjük azokat, akik az elmúlt 5 másodpercben jelezték, hogy gépelnek
       const now = Date.now();
       const currentTypers = [];
-      if (typingStatus[topicId]) {
-        for (const email in typingStatus[topicId]) {
-          if (now - typingStatus[topicId][email].timestamp < 5000) {
-            currentTypers.push(typingStatus[topicId][email].name);
+      if (typingStatus[parsedTopicId]) {
+        for (const email in typingStatus[parsedTopicId]) {
+          if (now - typingStatus[parsedTopicId][email].timestamp < 5000) {
+            currentTypers.push(typingStatus[parsedTopicId][email].name);
           } else {
-            delete typingStatus[topicId][email]; // Kitakarítjuk a régi beragadt státuszokat
+            delete typingStatus[parsedTopicId][email];
           }
         }
       }
 
-      // Egyszerre adjuk vissza az üzeneteket és a gépelők listáját
       res.json({ messages, typing: currentTypers });
     } catch (err) {
       res.status(500).json({ error: 'Hiba: ' + err.message });
     }
   });
 
-  // B) Új üzenet küldése
   app.post('/api/weekly/chat', async (req, res) => {
     const { topicId, userEmail, userName, messageText } = req.body;
+    const parsedTopicId = Number(topicId); // 🎯 Kényszerített szám típus
+    
     if (topicId === undefined || topicId === null || !userEmail || !messageText?.trim()) {
       return res.status(400).json({ error: 'Hiányzó adatok!' });
     }
@@ -1367,12 +1369,11 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
       await pool.query(
         'INSERT INTO weekly_chat (topic_id, user_email, user_name, message_text) VALUES (?, ?, ?, ?)',
-        [topicId, userEmail, officialName, messageText.trim()]
+        [parsedTopicId, userEmail, officialName, messageText.trim()]
       );
       
-      // Ha elküldte az üzenetet, azonnal töröljük a gépelési státuszát
-      if (typingStatus[topicId] && typingStatus[topicId][userEmail]) {
-        delete typingStatus[topicId][userEmail];
+      if (typingStatus[parsedTopicId] && typingStatus[parsedTopicId][userEmail]) {
+        delete typingStatus[parsedTopicId][userEmail];
       }
 
       res.json({ success: true, user_name: officialName });
@@ -1381,15 +1382,14 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-  // C) ➕ ÚJ VÉGPONT: Gépelési jelzés leadása a frontendről
   app.post('/api/weekly/chat/typing', (req, res) => {
     const { topicId, userEmail, userName } = req.body;
+    const parsedTopicId = Number(topicId); // 🎯 Kényszerített szám típus
     if (topicId === undefined || !userEmail) return res.json({ success: false });
 
-    if (!typingStatus[topicId]) typingStatus[topicId] = {};
+    if (!typingStatus[parsedTopicId]) typingStatus[parsedTopicId] = {};
     
-    // Elmentjük a memóriába, hogy ez a user most épp aktív az input mezőben
-    typingStatus[topicId][userEmail] = {
+    typingStatus[parsedTopicId][userEmail] = {
       name: userName || 'Valaki',
       timestamp: Date.now()
     };
