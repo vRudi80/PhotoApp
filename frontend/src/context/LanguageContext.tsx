@@ -129,7 +129,27 @@ const translations = {
     msgApproveConfirm: 'Befogadod a tagot a klubba?',
     msgRejectConfirm: 'Biztosan elutasítod a jelentkezést?',
     msgApproveSuccess: '✅ Tag sikeresen felvéve!',
-    msgRejectSuccess: '❌ Jelentkezés elutasítva.'
+    msgRejectSuccess: '❌ Jelentkezés elutasítva.',
+
+    // === HU BLOKK ALJA ===
+    helpTitle: '📖 Útmutató a Mesterek Ligájához',
+    helpExposureTitle: '⚡ Láthatósági Mérő (Az Expozíciós Energia)',
+    helpExposureDesc: 'Amikor feltöltöd a képed, expozíciós energiát kapsz. Valahányszor a gép megmutatja a fotódat valakinek értékelésre, ez az energia csökken. Új energiát úgy szerezhetsz, ha te is pontozol más alkotásokat. Tartsd a mérőt a Zöld zónában!',
+    helpJokerTitle: '🃏 Joker: Taktikai Képcsere',
+    helpJokerDesc: 'Úgy érzed, jobb fotót is tudnál mutatni az adott témában? Minden kihívásban ugyanazzal a Joker ponttal szabadon cserélgetheted a képeidet az Aréna Képtáradból vagy a galériádból! Az új fotód 0 pontról indul, de a régit bármikor büntetés nélkül visszahozhatod.',
+    helpMasterTitle: '👑 Ki az a Témavezető Képmester?',
+    helpMasterDesc: 'Minden kihívásnak van egy kijelölt Képmestere, aki a forduló szakmai házigazdája. Mivel ő felügyeli a válogatást, saját alkotással nem indulhat az adott futamban. Cserébe kap 5 darab exkluzív Mester-szavazatot, amelyek egyenként fixen +10 pontot érnek, így kiemelt szerepe van a legszebb képek felemelésében!',
+    helpRewardsTitle: '🏆 Dobogós Nyeremények & Extra Cserék',
+    helpRewardsDesc: 'A futamok lezárulásakor a mezőny legkiemelkedőbb fotóművészei értékes globális Joker cseréket és exkluzív hozzáférést kapnak jutalmul:',
+    helpReward1: '1. Helyezett (Győztes):',
+    helpReward1Bonus: '+3 db globális Joker csere + 1 HÉTTEL MEGHOSSZABBÍTOTT PRÉMIUM TAGSÁG teljesen ingyen!',
+    helpReward2: '2. Helyezett:',
+    helpReward2Bonus: '+2 db Joker csere',
+    helpReward3: '3. Helyezett:',
+    helpReward3Bonus: '+1 db Joker csere',
+    helpRanksTitle: '⭐ Ranglétra és Szavazati Erő',
+    helpRanksDesc: 'Ahogy fejlődik a látásmódod, úgy növekszik a szavazati erőd is! Minél magasabb rangot érsz el a pontjaid és győzelmeid alapján, annál nagyobb súllyal bír a szavazatod mások képein. 💡 Minden szintlépésért a rendszer azonnal +10 db ajándék Joker cserével jutalmaz meg!',
+    helpYou: 'TE VAGY'
   },
   en: {
     // Navigációs fülek (WeeklyChallengeView)
@@ -258,7 +278,27 @@ const translations = {
     msgApproveConfirm: 'Do you want to accept this member into the club?',
     msgRejectConfirm: 'Are you sure you want to reject this application?',
     msgApproveSuccess: '✅ Member successfully accepted!',
-    msgRejectSuccess: '❌ Application rejected.'
+    msgRejectSuccess: '❌ Application rejected.',
+
+    // === EN BLOKK ALJA ===
+    helpTitle: '📖 Guide to the Masters League',
+    helpExposureTitle: '⚡ Exposure Meter (Exposure Energy)',
+    helpExposureDesc: 'When you upload your photo, you receive exposure energy. Every time the system shows your photo to someone for review, this energy decreases. You can gain new energy by voting on others\' work. Keep the meter in the Green zone!',
+    helpJokerTitle: '🃏 Joker: Tactical Photo Swap',
+    helpJokerDesc: 'Feel like you could show a better photo for the given theme? In every challenge, you can freely swap your pictures from your Arena Gallery or device using the same Joker point! Your new photo starts from 0 points, but you can bring the old one back at any time without penalty.',
+    helpMasterTitle: '👑 Who is the Challenge Master?',
+    helpMasterDesc: 'Every challenge has a designated Challenge Master, who serves as the professional host of the round. Since they oversee the selection, they cannot participate with their own work in that specific match. In return, they receive 5 exclusive Master votes, each worth a fixed +10 points, playing a key role in elevating the most beautiful images!',
+    helpRewardsTitle: '🏆 Podium Prizes & Extra Swaps',
+    helpRewardsDesc: 'At the end of each match, the most outstanding photographers in the field receive valuable global Joker swaps and exclusive access as a reward:',
+    helpReward1: '1st Place (Winner):',
+    helpReward1Bonus: '+3 global Joker swaps + 1 WEEK EXTENDED PREMIUM MEMBERSHIP completely free!',
+    helpReward2: '2nd Place:',
+    helpReward2Bonus: '+2 Joker swaps',
+    helpReward3: '3rd Place:',
+    helpReward3Bonus: '+1 Joker swap',
+    helpRanksTitle: '⭐ Rank Ladder and Voting Power',
+    helpRanksDesc: 'As your vision develops, your voting power grows too! The higher rank you achieve based on your points and victories, the more weight your vote carries on others\' photos. 💡 For every level up, the system instantly rewards you with +10 free bonus Joker swaps!',
+    helpYou: 'YOU'
   }
 };
 
