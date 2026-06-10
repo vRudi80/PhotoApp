@@ -359,6 +359,7 @@ function MainContent() {
       setUser(decoded); localStorage.setItem('user', JSON.stringify(decoded));
     }
     fetchData(); fetchMyEntries(decoded.email);
+    setActiveTab('dashboard');
   };
 
   const handlePayContestFee = async (contestId: number) => {
