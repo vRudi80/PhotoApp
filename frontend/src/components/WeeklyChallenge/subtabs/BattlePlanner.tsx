@@ -52,7 +52,9 @@ const compressImageOnClient = (file: File): Promise<File> => {
 
 export default function BattlePlanner({ user, onSuccess }: BattlePlannerProps) {
   const [title, setTitle] = useState('');
+  const [titleEn, setTitleEn] = useState(''); // 🎯 ÚJ STATE AZ ANGOL CÍMNEK
   const [description, setDescription] = useState('');
+  const [descriptionEn, setDescriptionEn] = useState(''); // 🎯 ÚJ STATE AZ ANGOL LEÍRÁSNAK
   const [coverAuthor, setCoverAuthor] = useState('');
   const [masterName, setMasterName] = useState('');
   const [startDate, setStartDate] = useState('');
@@ -61,7 +63,7 @@ export default function BattlePlanner({ user, onSuccess }: BattlePlannerProps) {
   const [preview, setPreview] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // 🎯 ÚJ: Aktiváljuk a nyelvi hookot
+  // 🎯 Aktiváljuk a nyelvi hookot
   const { t } = useLanguage();
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -88,7 +90,9 @@ export default function BattlePlanner({ user, onSuccess }: BattlePlannerProps) {
     setSubmitting(true);
     const formData = new FormData();
     formData.append('title', title);
+    formData.append('title_en', titleEn); // 🎯 ÚJ: Küldjük az angol címet
     formData.append('description', description);
+    formData.append('description_en', descriptionEn); // 🎯 ÚJ: Küldjük az angol leírást
     formData.append('cover_author', coverAuthor);
     formData.append('master_name', masterName);
     formData.append('start_date', startDate);
@@ -103,7 +107,7 @@ export default function BattlePlanner({ user, onSuccess }: BattlePlannerProps) {
       });
       if (res.ok) {
         alert(t('msgProposalSuccess'));
-        setTitle(''); setDescription(''); setCoverAuthor(''); setMasterName('');
+        setTitle(''); setTitleEn(''); setDescription(''); setDescriptionEn(''); setCoverAuthor(''); setMasterName('');
         setStartDate(''); setEndDate(''); setCoverFile(null); setPreview(null);
         onSuccess(); 
       } else {
@@ -127,9 +131,21 @@ export default function BattlePlanner({ user, onSuccess }: BattlePlannerProps) {
           <input type="text" placeholder={t('planPlaceholderTitle')} value={title} onChange={e => setTitle(e.target.value)} required style={{ width: '100%', padding: '12px', background: '#0f172a', border: '1px solid #334155', borderRadius: '10px', color: 'white', outline: 'none' }} />
         </div>
 
+        {/* 🎯 ÚJ MEZŐ: ANGOL CÍM (Kékebb kerettel vizuálisan elkülönítve) */}
+        <div>
+          <label style={{ color: '#38bdf8', display: 'block', marginBottom: '6px', fontSize: '0.9rem', fontWeight: 'bold' }}>{t('planLabelTitleEn')}</label>
+          <input type="text" placeholder={t('planPlaceholderTitleEn')} value={titleEn} onChange={e => setTitleEn(e.target.value)} style={{ width: '100%', padding: '12px', background: '#0f172a', border: '1px solid #38bdf840', borderRadius: '10px', color: 'white', outline: 'none' }} />
+        </div>
+
         <div>
           <label style={{ color: '#cbd5e1', display: 'block', marginBottom: '6px', fontSize: '0.9rem', fontWeight: 'bold' }}>{t('planLabelDesc')}</label>
           <textarea rows={4} placeholder={t('planPlaceholderDesc')} value={description} onChange={e => setDescription(e.target.value)} required style={{ width: '100%', padding: '12px', background: '#0f172a', border: '1px solid #334155', borderRadius: '10px', color: 'white', outline: 'none', resize: 'none' }} />
+        </div>
+
+        {/* 🎯 ÚJ MEZŐ: ANGOL LEÍRÁS */}
+        <div>
+          <label style={{ color: '#38bdf8', display: 'block', marginBottom: '6px', fontSize: '0.9rem', fontWeight: 'bold' }}>{t('planLabelDescEn')}</label>
+          <textarea rows={4} placeholder={t('planPlaceholderDescEn')} value={descriptionEn} onChange={e => setDescriptionEn(e.target.value)} style={{ width: '100%', padding: '12px', background: '#0f172a', border: '1px solid #38bdf840', borderRadius: '10px', color: 'white', outline: 'none', resize: 'none' }} />
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
