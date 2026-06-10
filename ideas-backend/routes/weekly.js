@@ -17,14 +17,22 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   // 🕒 Globális in-memory változó a háttérben futó lezárások ritkításához
   let lastChallengeProcessTime = 0;
 
-  // 📊 JAVÍTVA: MySQL 5.7 kompatibilis, hurokmentesített, szupergyors statisztikai lekérdezés
+  // 🎯 ÚJ: Időzóna-biztos helyi idő generátor a MySQL-nek (Bypass-olja a szerver UTC óráját)
+  const getLocalMySQLNow = () => {
+    const tzOffset = new Date().getTimezoneOffset() * 60000;
+    return new Date(Date.now() - tzOffset).toISOString().slice(0, 19).replace('T', ' ');
+  };
+
+  // 📊 JAVÍTVA: MySQL 5.7 kompatibilis, hurokmentesített, szupergyors statisztikai lekérdezés helyi idővel
   async function getUserLikesAndVictories(pool, email) {
+    const currentNow = getLocalMySQLNow();
+
     const [likesRows] = await pool.query(`
       SELECT COALESCE(SUM(e.likes_count), 0) as total 
       FROM weekly_entries e
       JOIN weekly_topics t ON e.topic_id = t.id
-      WHERE e.user_email = ? AND (e.is_active = 1 OR t.end_date < NOW())
-    `, [email]);
+      WHERE e.user_email = ? AND (e.is_active = 1 OR t.end_date < ?)
+    `, [email, currentNow]);
     const totalLikes = likesRows[0].total || 0;
 
     const [victoryRows] = await pool.query(`
@@ -32,7 +40,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       FROM weekly_entries e1
       WHERE e1.user_email = ? 
         AND e1.is_active = 1
-        AND e1.topic_id IN (SELECT id FROM weekly_topics WHERE end_date < NOW())
+        AND e1.topic_id IN (SELECT id FROM weekly_topics WHERE end_date < ?)
         AND e1.id = (
           SELECT e2.id 
           FROM weekly_entries e2
@@ -40,7 +48,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
           ORDER BY e2.likes_count DESC, e2.views_count ASC
           LIMIT 1
         )
-    `, [email]);
+    `, [email, currentNow]);
     
     const victories = victoryRows[0]?.victories || 0;
 
@@ -118,12 +126,14 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   }
 
   // ====================================================================
-  // 🏆 LEZÁRÓ MOTOR (Bővítve az automata Intelligens Prémium osztással)
+  // 🏆 LEZÁRÓ MOTOR (Szinkronizálva a pontos helyi időhöz)
   // ====================================================================
   async function processFinishedChallenges(pool) {
     try {
+      const currentNow = getLocalMySQLNow();
       const [unfinished] = await pool.query(
-        'SELECT id FROM weekly_topics WHERE end_date < NOW() AND processed = 0'
+        'SELECT id FROM weekly_topics WHERE end_date < ? AND processed = 0',
+        [currentNow]
       );
 
       for (const topic of unfinished) {
@@ -146,12 +156,12 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
             // 1. Helyezett jutalma: +3 Joker csere
             await pool.query('UPDATE photo_users SET swap_balance = swap_balance + 3 WHERE email = ?', [entry.user_email]);
             
-            // 👑 ÚJ JAVÍTÁS: +1 hét ajándék Prémium elhelyezése intelligens naptár-hosszabbítással!
+            // 👑 ÚJ JAVÍTÁS: +1 hét ajándék Prémium elhelyezése szinkronizált naptár-hosszabbítással!
             await pool.query(`
               UPDATE photo_users 
-              SET premium_until = DATE_ADD(IF(premium_until > NOW(), premium_until, NOW()), INTERVAL 7 DAY) 
+              SET premium_until = DATE_ADD(IF(premium_until > ?, premium_until, ?), INTERVAL 7 DAY) 
               WHERE email = ?
-            `, [entry.user_email]);
+            `, [currentNow, currentNow, entry.user_email]);
             console.log(`🎉 PRÉMIUM KIUTALVA: ${entry.user_email} megnyerte a csatát, kapott 7 nap prémium időt!`);
           } 
           else if (entry.likes_count === score2) {
@@ -192,7 +202,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-  // 🎯 MÓDOSÍTVA: Adminisztrátori mentés kibővítése az angol oszlopokkal
   app.post('/api/admin/weekly-topics', upload.single('cover'), async (req, res) => {
     const { title, title_en, description, description_en, startDate, endDate, masterEmail, coverAuthor } = req.body; 
     const file = req.file;
@@ -219,7 +228,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-  // 🎯 MÓDOSÍTVA: Adminisztrátori módosítás kibővítése az angol oszlopokkal
   app.put('/api/admin/weekly-topics/:id', upload.single('cover'), async (req, res) => {
     const { id } = req.params;
     const { title, title_en, description, description_en, startDate, endDate, masterEmail, coverUrl } = req.body; 
@@ -279,7 +287,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // ⚔️ JAVÍTVA: TURBÓ FOKOZATÚ, HUROKMENTES CSATATÉR FŐ VÉGPONT
+  // ⚔️ JAVÍTVA: TURBÓ FOKOZATÚ, HUROKMENTES CSATATÉR FŐ VÉGPONT (Helyi idővel)
   // ====================================================================
   app.get('/api/weekly/current', async (req, res) => {
     const { userEmail, topicId } = req.query;
@@ -306,7 +314,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
       // A) HA A FŐ LISTÁT TÖLTI BE A FRONTEND
       if (!topicId) {
-        // 🔥 JAVÍTVA: Bekérjük a teljes játékosszámot, és a júzer által még LE NEM SZAVAZOTT fotók darabszámát!
+        // 🔥 JAVÍTVA: Bekérjük a teljes játékosszámot, a le nem szavazott fotókat és a pontos helyi időt!
         const [activeTopics] = await pool.query(`
           SELECT t.*, u.name AS master_name,
             IF(e.id IS NOT NULL, 1, 0) as hasEntered,
@@ -316,9 +324,9 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
           FROM weekly_topics t
           LEFT JOIN photo_users u ON t.master_email = u.email
           LEFT JOIN weekly_entries e ON e.topic_id = t.id AND LOWER(TRIM(e.user_email)) = LOWER(TRIM(?)) AND e.is_active = 1
-          WHERE NOW() BETWEEN t.start_date AND t.end_date AND (t.status = 'approved' OR t.status IS NULL)
+          WHERE ? BETWEEN t.start_date AND t.end_date AND (t.status = 'approved' OR t.status IS NULL)
           ORDER BY t.id DESC
-        `, [userEmail || '', userEmail || '', userEmail || '', userEmail || '', userEmail || '']);
+        `, [userEmail || '', userEmail || '', userEmail || '', userEmail || '', getLocalMySQLNow()]);
 
         const mappedTopics = activeTopics.map(t => ({
           ...t,
@@ -402,7 +410,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
             e.views_count, 
             e.is_active, 
             t.end_date,
-            IF(t.end_date >= NOW(), 1, 0) AS is_topic_live,
+            IF(t.end_date >= ?, 1, 0) AS is_topic_live,
             (
               SELECT COUNT(*) + 1 
               FROM weekly_entries e2 
@@ -419,7 +427,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
           JOIN weekly_topics t ON e.topic_id = t.id
           WHERE e.file_url = ? AND e.user_email = ?
           ORDER BY t.end_date DESC
-        `, [photo.file_url, userEmail]);
+        `, [getLocalMySQLNow(), photo.file_url, userEmail]);
 
         const totalLikes = history.reduce((sum, h) => sum + Number(h.likes_count), 0);
         const totalViews = history.reduce((sum, h) => sum + Number(h.views_count), 0);
@@ -799,7 +807,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // ⏳ JAVÍTVA: Közelgő csaták lekérése a Csatabíró VALÓDI NEVÉVEL
+  // ⏳ JAVÍTVA: Közelgő csaták lekérése a Csatabíró VALÓDI NEVÉVEL (Helyi idővel)
   // ====================================================================
   app.get('/api/weekly/upcoming', async (req, res) => {
     try {
@@ -807,9 +815,9 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         SELECT t.*, u.name AS master_name 
         FROM weekly_topics t
         LEFT JOIN photo_users u ON t.master_email = u.email
-        WHERE t.start_date > Now() AND t.status = 'approved'
+        WHERE t.start_date > ? AND t.status = 'approved'
         ORDER BY t.start_date ASC
-      `);
+      `, [getLocalMySQLNow()]);
       res.json(topics);
     } catch (err) {
       res.status(500).json({ error: 'Hiba a közelgő csaták betöltésekor: ' + err.message });
@@ -822,18 +830,21 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         SELECT t.*, u.name AS master_name 
         FROM weekly_topics t
         LEFT JOIN photo_users u ON t.master_email = u.email
-        WHERE t.end_date < NOW() AND t.status = 'approved'
+        WHERE t.end_date < ? AND t.status = 'approved'
         ORDER BY t.end_date DESC
-      `); 
+      `, [getLocalMySQLNow()]); 
       res.json(rows); 
     } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
-  // 🎯 MÓDOSÍTVA: Történeti kártyák kibővítése a t.title_en mezővel, a frontend Trófeaterem támogatásához
+  // 🎯 MÓDOSÍTVA: Történeti kártyák kibővítése a t.title_en mezővel (Helyi idővel)
   app.get('/api/weekly/my-stats', async (req, res) => {
     const { userEmail } = req.query;
     try {
-      const [pastTopics] = await pool.query("SELECT * FROM weekly_topics WHERE end_date < NOW() AND status = 'approved' ORDER BY end_date DESC");
+      const [pastTopics] = await pool.query(
+        "SELECT * FROM weekly_topics WHERE end_date < ? AND status = 'approved' ORDER BY end_date DESC",
+        [getLocalMySQLNow()]
+      );
       let podiums = { first: 0, second: 0, third: 0 };
       let history = [];
 
@@ -851,7 +862,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
           history.push({
             topic_title: topic.title,
-            topic_title_en: topic.title_en, // 🎯 ÚJ
+            topic_title_en: topic.title_en, 
             start_date: topic.start_date,
             end_date: topic.end_date,
             rank: rank,
@@ -936,7 +947,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
   
   // ====================================================================
-  // 👑 JAVÍTVA: SZINKRONIZÁLT, HISTORIKUS GLOBÁLIS DICSŐSÉGFAL
+  // 👑 JAVÍTVA: SZINKRONIZÁLT, HISTORIKUS GLOBÁLIS DICSŐSÉGFAL (Helyi idővel)
   // ====================================================================
   app.get('/api/weekly/hall-of-fame', async (req, res) => {
     try {
@@ -947,7 +958,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
           u.club_name,
           c.drive_logo_id, 
           c.logo_url,      
-          COALESCE(SUM(IF(e.is_active = 1 OR t.end_date < NOW(), e.likes_count, 0)), 0) as total_likes
+          COALESCE(SUM(IF(e.is_active = 1 OR t.end_date < ?, e.likes_count, 0)), 0) as total_likes
         FROM photo_users u
         LEFT JOIN weekly_entries e ON u.email = e.user_email
         LEFT JOIN weekly_topics t ON e.topic_id = t.id
@@ -955,7 +966,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         GROUP BY u.email, u.name, u.club_name, c.drive_logo_id, c.logo_url 
         HAVING total_likes > 0
         ORDER BY total_likes DESC, u.name ASC
-      `);
+      `, [getLocalMySQLNow()]);
       res.json(rows);
     } catch (err) {
       try {
@@ -966,14 +977,14 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
             u.club_name,
             NULL as drive_logo_id,
             NULL as logo_url,
-            COALESCE(SUM(IF(e.is_active = 1 OR t.end_date < NOW(), e.likes_count, 0)), 0) as total_likes
+            COALESCE(SUM(IF(e.is_active = 1 OR t.end_date < ?, e.likes_count, 0)), 0) as total_likes
           FROM photo_users u
           LEFT JOIN weekly_entries e ON u.email = e.user_email
           LEFT JOIN weekly_topics t ON e.topic_id = t.id
           GROUP BY u.email, u.name, u.club_name
           HAVING total_likes > 0
           ORDER BY total_likes DESC, u.name ASC
-        `);
+        `, [getLocalMySQLNow()]);
         res.json(fallbackRows);
       } catch (fallbackErr) {
         res.status(500).json({ error: 'Hiba a dicsőségcsarnok lekérésekor' });
