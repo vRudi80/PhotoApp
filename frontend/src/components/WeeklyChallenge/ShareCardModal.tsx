@@ -37,7 +37,7 @@ export default function ShareCardModal({
 
         <div style={{ textAlign: 'center', zIndex: 10 }}>
           <div style={{ color: '#fbbf24', fontSize: '0.75rem', fontWeight: '900', letterSpacing: '3px', textTransform: 'uppercase' }}>📸 kepolvasok.guru</div>
-          <div style={{ color: '#64748b', fontSize: '0.65rem', marginTop: '2px', letterSpacing: '1px' }}>PÁRBAJ TRÓFEA</div>
+          <div style={{ color: '#64748b', fontSize: '0.65rem', marginTop: '2px', letterSpacing: '1px' }}>FUTAMTRÓFEA</div>
         </div>
 
         <div style={{ 
@@ -81,7 +81,7 @@ export default function ShareCardModal({
         </div>
 
         <div style={{ textAlign: 'center', zIndex: 10 }}>
-          <div style={{ fontSize: '0.65rem', color: '#475569' }}>Játssz Te is következő párbajban:</div>
+          <div style={{ fontSize: '0.65rem', color: '#475569' }}>Játssz Te is következő kihívásban:</div>
           <div style={{ color: '#38bdf8', fontWeight: 'bold', marginTop: '1px', fontSize: '0.8rem' }}>kepolvasok.guru</div>
         </div>
       </div>
