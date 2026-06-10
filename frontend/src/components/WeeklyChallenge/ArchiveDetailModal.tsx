@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { BACKEND_URL } from '../../utils/constants';
 
+// 🎯 ÚJ IMPORT: Behozzuk a nyelvi kontextust a nemzetközi működéshez
+import { useLanguage } from '../../context/LanguageContext';
+
 interface ArchiveDetailModalProps {
   entry: any;
   userEmail: string;
@@ -10,6 +13,8 @@ interface ArchiveDetailModalProps {
 }
 
 export default function ArchiveDetailModal({ entry, userEmail, userName, onClose, onLikeUpdate }: ArchiveDetailModalProps) {
+  const { t } = useLanguage();
+
   const [comments, setComments] = useState<any[]>([]);
   const [newComment, setNewComment] = useState('');
   const [loadingComments, setLoadingComments] = useState(false);
@@ -53,11 +58,8 @@ export default function ArchiveDetailModal({ entry, userEmail, userName, onClose
       if (res.ok) {
         const data = await res.json();
         if (data.success) {
-          // 🚀 ITT A VARÁZSLAT: Azonnal átírjuk a kijelzőt a szerver válasza alapján!
           setIsLiked(data.liked);
           setLikesCount(prev => data.liked ? prev + 1 : Math.max(0, prev - 1));
-          
-          // Szólunk a háttérben futó listának is, hogy frissüljön
           onLikeUpdate(); 
         }
       } else {
@@ -100,23 +102,49 @@ export default function ArchiveDetailModal({ entry, userEmail, userName, onClose
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.9)', backdropFilter: 'blur(12px)', zIndex: 99999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
-      <div style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: '24px', width: '100%', maxWidth: '1100px', height: '85vh', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.7)' }}>
+      
+      {/* 🎯 ULTRA RESZPONZÍV STYLING INJECTOR MOBILOKHOZ */}
+      <style>{`
+        @media (max-width: 800px) {
+          .responsive-archive-card {
+            grid-template-columns: 1fr !important;
+            height: 90vh !important;
+            height: 90dvh !important;
+            overflow-y: auto !important;
+          }
+          .responsive-photo-box {
+            border-right: none !important;
+            border-bottom: 1px solid #334155 !important;
+            padding: 15px !important;
+            justify-content: scale-down !important;
+          }
+          .responsive-archive-img {
+            max-height: 45vh !important;
+          }
+          .responsive-comment-box {
+            height: auto !important;
+            min-height: 450px !important;
+          }
+        }
+      `}</style>
+
+      {/* 1. FŐ KÁRTYA CONTAINER (Osztálynév hozzáadva) */}
+      <div className="responsive-archive-card" style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: '24px', width: '100%', maxWidth: '1100px', height: '85vh', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.7)' }}>
         
-        {/* BAL OLDAL: FOTÓ */}
-        <div style={{ background: '#090d16', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: '20px', position: 'relative', borderRight: '1px solid #334155' }}>
-          <button onClick={onClose} style={{ position: 'absolute', top: '20px', left: '20px', background: '#1e293b', border: 'none', color: '#94a3b8', padding: '8px 16px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold' }}>⬅️ Bezárás</button>
-          <img src={entry.file_url} alt="" style={{ maxWidth: '100%', maxHeight: '70vh', objectFit: 'contain', borderRadius: '12px' }} />
+        {/* BAL OLDAL: FOTÓ (Osztálynév hozzáadva) */}
+        <div className="responsive-photo-box" style={{ background: '#090d16', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: '20px', position: 'relative', borderRight: '1px solid #334155' }}>
+          <button onClick={onClose} style={{ position: 'absolute', top: '20px', left: '20px', background: '#1e293b', border: 'none', color: '#94a3b8', padding: '8px 16px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', zIndex: 10 }}>⬅️ Bezárás</button>
+          <img className="responsive-archive-img" src={entry.file_url} alt="" style={{ maxWidth: '100%', maxHeight: '70vh', objectFit: 'contain', borderRadius: '12px' }} />
         </div>
 
-        {/* JOBB OLDAL: MEGBESZÉLŐ PANEL */}
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#0f172a' }}>
+        {/* JOBB OLDAL: MEGBESZÉLŐ PANEL (Osztálynév hozzáadva) */}
+        <div className="responsive-comment-box" style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#0f172a' }}>
           <div style={{ padding: '25px', borderBottom: '1px solid #223047', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <h3 style={{ color: 'white', margin: 0, fontSize: '1.2rem' }}>Alkotó: {entry.user_name}</h3>
               <small style={{ color: '#64748b' }}>Hivatalos eredmény: {entry.likes_count} ⭐</small>
             </div>
 
-            {/* ❤️ AZONNAL REAGÁLÓ LÁJK GOMB */}
             <button 
               onClick={handleLike}
               style={{ display: 'flex', alignItems: 'center', gap: '8px', background: isLiked ? 'rgba(239, 68, 68, 0.15)' : '#1e293b', border: isLiked ? '1px solid #ef4444' : '1px solid #334155', color: isLiked ? '#f87171' : '#cbd5e1', padding: '10px 20px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }}
@@ -138,7 +166,7 @@ export default function ArchiveDetailModal({ entry, userEmail, userName, onClose
                 const isMe = c.user_email === userEmail;
                 return (
                   <div key={c.id} style={{ background: isMe ? '#1e293b' : '#1e293b60', padding: '12px 15px', borderRadius: '14px', border: isMe ? '1px solid #475569' : '1px solid #334155', alignSelf: isMe ? 'flex-end' : 'flex-start', maxWidth: '85%', width: 'fit-content' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '20px', FlightMarginBottom: '4px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '20px', marginBottom: '4px' }}>
                       <strong style={{ color: isMe ? '#f59e0b' : '#38bdf8', fontSize: '0.85rem' }}>{c.user_name}</strong>
                       <small style={{ color: '#475569', fontSize: '0.75rem' }}>{new Date(c.created_at).toLocaleTimeString('hu-HU', {hour: '2-digit', minute:'2-digit'})}</small>
                     </div>
