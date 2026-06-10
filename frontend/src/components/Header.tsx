@@ -197,33 +197,34 @@ export default function Header({
           )}
         </div> 
 
-        {/* ====================================================================
+       {/* ====================================================================
              FIÓK MENÜ (JOBB OLDAL)
            ==================================================================== */}
         <div className="user-group" style={{ display: 'flex', alignItems: 'center', gap: '15px', position: 'relative' }}>
           
-          {/* 🌐 ÚJ: Nyelvválasztó legördülő menü */}
-          <select 
-            value={lang} 
-            onChange={(e) => setLang(e.target.value as 'hu' | 'en')}
-            style={{ 
-              padding: '6px 12px', 
-              borderRadius: '10px', 
-              background: '#1e293b', 
-              color: '#cbd5e1', 
-              border: '1px solid #334155',
-              fontSize: '0.85rem',
-              fontWeight: 'bold',
-              outline: 'none',
-              cursor: 'pointer',
-              transition: 'all 0.2s'
-            }}
-            onFocus={(e) => e.target.style.borderColor = '#14b8a6'}
-            onBlur={(e) => e.target.style.borderColor = '#334155'}
-          >
-            <option value="hu">🇭🇺 HU</option>
-            <option value="en">🇬🇧 EN</option>
-          </select>
+          {/* 🎯 JAVÍTVA: Szelektor helyett ultra-modern, zászló-biztos kapcsoló gombok */}
+          <div style={{ display: 'flex', gap: '4px', background: '#1e293b', padding: '3px', borderRadius: '10px', border: '1px solid #334155' }}>
+            <button 
+              onClick={() => setLang('hu')} 
+              style={{ 
+                background: lang === 'hu' ? 'linear-gradient(135deg, #f97316, #ef4444)' : 'transparent', 
+                color: lang === 'hu' ? 'white' : '#94a3b8', 
+                border: 'none', padding: '6px 10px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '4px' 
+              }}
+            >
+              🇭🇺 <span style={{ fontSize: '0.75rem' }}>HU</span>
+            </button>
+            <button 
+              onClick={() => setLang('en')} 
+              style={{ 
+                background: lang === 'en' ? 'linear-gradient(135deg, #0284c7, #0369a1)' : 'transparent', 
+                color: lang === 'en' ? 'white' : '#94a3b8', 
+                border: 'none', padding: '6px 10px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '4px' 
+              }}
+            >
+              🇬🇧 <span style={{ fontSize: '0.75rem' }}>EN</span>
+            </button>
+          </div>
           
           <div className="nav-item-container" style={{ zIndex: dropdownOpen === 'user_account' ? 70 : 50 }}>
             <button 
