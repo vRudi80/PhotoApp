@@ -234,18 +234,37 @@ export default function AdminWeeklyView() {
     } catch (e) { alert("Hiba!"); }
   };
 
-  const getTopicStatus = (statusStr: string, sDateStr: string, eDateStr: string) => {
-    if (statusStr === 'pending') return { label: 'BÍRÁLATRA VÁR ⏳', color: '#eab308', bg: '#eab30810' };
-    if (statusStr === 'rejected') return { label: 'ELUTASÍTVA ❌', color: '#ef4444', bg: '#ef444410' };
+  // 🎯 Segédfüggvény az időzóna-eltolódás semlegesítésére (Ugyanaz, mint a játékos oldalon)
+const parseAdminDateSafe = (dateStr: string) => {
+  if (!dateStr) return new Date(0);
+  const parts = dateStr.split(/[- :T]/);
+  if (parts.length >= 5) {
+    return new Date(
+      parseInt(parts[0]),
+      parseInt(parts[1]) - 1,
+      parseInt(parts[2]),
+      parseInt(parts[3]),
+      parseInt(parts[4]),
+      parts[5] ? parseInt(parts[5]) : 0
+    );
+  }
+  return new Date(dateStr);
+};
 
-    const today = new Date();
-    const start = new Date(sDateStr);
-    const end = new Date(eDateStr);
-    
-    if (today > end) return { label: 'LEZÁRULT 📜', color: '#94a3b8', bg: 'transparent' };
-    if (today < start) return { label: 'BEÜTEMEZETT 📅', color: '#38bdf8', bg: '#38bdf810' };
-    return { label: 'ÉLŐ CSATA ⚔️', color: '#10b981', bg: '#10b98110' };
-  };
+const getTopicStatus = (statusStr: string, sDateStr: string, eDateStr: string) => {
+  if (statusStr === 'pending') return { label: 'BÍRÁLATRA VÁR ⏳', color: '#eab308', bg: '#eab30810' };
+  if (statusStr === 'rejected') return { label: 'ELUTASÍTVA ❌', color: '#ef4444', bg: '#ef444410' };
+
+  const today = new Date();
+  // 🎯 JAVÍTVA: Mindkét dátumot kényszerítjük a helyi időzónára, ignorálva az UTC eltolást
+  const start = parseAdminDateSafe(sDateStr);
+  const end = parseAdminDateSafe(eDateStr);
+  
+  if (today > end) return { label: 'LEZÁRULT 📜', color: '#94a3b8', bg: 'transparent' };
+  if (today < start) return { label: 'BEÜTEMEZETT 📅', color: '#38bdf8', bg: '#38bdf810' };
+  return { label: 'ÉLŐ FUTAM ⚔️', color: '#10b981', bg: '#10b98110' };
+};
+
 
   return (
     <div>
