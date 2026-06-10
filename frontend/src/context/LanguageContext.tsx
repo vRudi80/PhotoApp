@@ -343,7 +343,32 @@ const translations = {
     loginFeatClubTitle: 'Fotóklub Élet',
     loginFeatClubDesc: 'Hírek, klubestek és feladatok.',
     loginFeatContestsTitle: 'Pályázatok',
-    loginFeatContestsDesc: 'Nyílt és zárt fotóversenyek.'
+    loginFeatContestsDesc: 'Nyílt és zárt fotóversenyek.',
+
+    // === HU BLOKK ALJA ===
+    packTitle: 'Válaszd ki a számodra megfelelő csomagot',
+    packSubtitle: 'Aktiválj Prémium fiókot, hogy korlátlanul élvezhesd a platform összes funktionális előnyét!',
+    packCurrent: 'JELENLEGI CSOMAGOD',
+    packProBadge: 'PROFI FOTÓSOKNAK',
+    packMonth: ' / hó',
+    packActive: 'Aktív',
+    packSwitch: 'Váltás erre',
+    packSubscribe: 'Előfizetés (7 nap ingyen)',
+    packUpgrade: 'Bővítés (Upgrade)',
+    packBasicTitle: 'Alap Prémium',
+    packBasicDesc: 'Tökéletes választás feltörekvő fotósoknak és hobbistáknak.',
+    packBasicF1: '1 GB Portfólió Tárhely (kb. 300 kép)',
+    packBasicF2: 'Mesterséges Intelligencia Zsűri (AI)',
+    packBasicF3: 'FIAP/MAFOSZ Statisztikák, szintek',
+    packBasicF4: 'FIAP excel export',
+    packBasicF5: 'Nemzetközi,- és hazai szalonok információi',
+    packProTitle: 'Pro Prémium',
+    packProDesc: 'Hatalmas tárhely aktívan szalonozó fotóművészek számára.',
+    packProF1: '5 GB Portfólió Tárhely (kb. 1500 kép)',
+    packProF2: 'Minden funkció az Alap csomagból',
+    packProF3: 'Nincs aggodalom a betelt tárhely miatt',
+    packProF4: 'Kiemelt technikai támogatás',
+    msgStripeError: 'Hiba történt a fizetés indításakor.'
   },
 
   
@@ -688,7 +713,32 @@ const translations = {
     loginFeatClubTitle: 'Photo Club Life',
     loginFeatClubDesc: 'News, club nights, and assignments.',
     loginFeatContestsTitle: 'Contests',
-    loginFeatContestsDesc: 'Open and private photo competitions.'
+    loginFeatContestsDesc: 'Open and private photo competitions.',
+
+    // === EN BLOKK ALJA ===
+    packTitle: 'Choose the perfect plan for you',
+    packSubtitle: 'Activate a Premium account to enjoy all features of the platform without limits!',
+    packCurrent: 'YOUR CURRENT PLAN',
+    packProBadge: 'FOR PROFESSIONAL PHOTOGRAPHERS',
+    packMonth: ' / mo',
+    packActive: 'Active',
+    packSwitch: 'Switch to this',
+    packSubscribe: 'Subscribe (7 days free trial)',
+    packUpgrade: 'Upgrade',
+    packBasicTitle: 'Basic Premium',
+    packBasicDesc: 'Perfect choice for emerging photographers and hobbyists.',
+    packBasicF1: '1 GB Portfolio Storage (approx. 300 photos)',
+    packBasicF2: 'Artificial Intelligence Jury (AI)',
+    packBasicF3: 'FIAP/MAFOSZ Statistics, ranks',
+    packBasicF4: 'FIAP excel export',
+    packBasicF5: 'International and domestic salon information',
+    packProTitle: 'Pro Premium',
+    packProDesc: 'Huge storage space for actively exhibiting fine art photographers.',
+    packProF1: '5 GB Portfolio Storage (approx. 1500 photos)',
+    packProF2: 'All features from the Basic plan',
+    packProF3: 'No worries about full storage space',
+    packProF4: 'Priority technical support',
+    msgStripeError: 'An error occurred while starting the checkout session.'
   }
 };
 
