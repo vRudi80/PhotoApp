@@ -40,18 +40,19 @@ export default function TrophyRoom({
   // 📊 NOMÁD RANG-PROGRESSZIÓ SZÁMÍTÓ ENGINE
   const currentLevel = getLevelDetails(userTotalLikes, userVictories);
   const thresholds = [
-    { name: 'Újonc 🌱', min: 0, max: 30, vic: 0 },
-    { name: 'Bojtár 🪶', min: 30, max: 100, vic: 0 },
-    { name: 'Nyomolvasó 🎯', min: 100, max: 250, vic: 0 },
-    { name: 'Íjász 🏹', min: 250, max: 500, vic: 0 },
-    { name: 'Lovas 🐎', min: 500, max: 800, vic: 1 },
-    { name: 'Sólyom 🦅', min: 800, max: 1300, vic: 2 },
-    { name: 'Vitéz ⚔️', min: 1300, max: 2000, vic: 3 },
-    { name: 'Bajnok 🛡️', min: 2000, max: 3200, vic: 5 },
-    { name: 'Törzsfő ⭐', min: 3200, max: 4800, vic: 7 },
-    { name: 'Hadúr 🔱', min: 4800, max: 7000, vic: 9 },
-    { name: 'Táltos 🔥', min: 7000, max: 10000, vic: 12 },
-    { name: 'Fejedelem 👑', min: 10000, max: Infinity, vic: 15 }
+  { name: 'Fényleső 🌱', req: '0 - 29 pont', power: '✨ +1 / 🔥 +2', color: '#94a3b8' },
+  { name: 'Megfigyelő 👁️', req: '30 - 99 pont', power: '✨ +2 / 🔥 +3', color: '#cbd5e1' },
+  { name: 'Képvadász 📷', req: '100 - 249 pont', power: '✨ +2 / 🔥 +4', color: '#38bdf8' },
+  { name: 'Komponista 📐', req: '250 - 499 pont', power: '✨ +3 / 🔥 +5', color: '#60a5fa' },
+  { name: 'Fényíró 🎞️', req: '500 - 799 pont ÉS 1+ győzelem', power: '✨ +3 / 🔥 +6', color: '#10b981' },
+  { name: 'Esztéta 💎', req: '800 - 1299 pont ÉS 2+ győzelem', power: '✨ +4 / 🔥 +7', color: '#059669' },
+  { name: 'Szakértő 🎯', req: '1300 - 1999 pont ÉS 3+ győzelem', power: '✨ +4 / 🔥 +8', color: '#a78bfa' },
+  { name: 'Képmester 🎨', req: '2000 - 3199 pont ÉS 5+ győzelem', power: '✨ +5 / 🔥 +10', color: '#ec4899' },
+  { name: 'Nagymester 🌟', req: '3200 - 4799 pont ÉS 7+ győzelem', power: '✨ +5 / 🔥 +12', color: '#f59e0b' },
+  { name: 'Virtuóz ⚡', req: '4800 - 6999 pont ÉS 9+ győzelem', power: '✨ +6 / 🔥 +14', color: '#eab308' },
+  { name: 'Fotóguru 🔥', req: '7000 - 9999 pont ÉS 12+ győzelem', power: '✨ +7 / 🔥 +17', color: '#ef4444' },
+  { name: 'Vizuális Legenda 👑', req: '10000+ pont ÉS 15+ győzelem', power: '✨ +8 / 🔥 +20', color: '#fbbf24' }
+
   ];
 
   const currentRankIndex = thresholds.findIndex(t => t.name === currentLevel.name);
