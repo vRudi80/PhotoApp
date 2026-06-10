@@ -294,7 +294,17 @@ const translations = {
     trophyField: 'Mezőny: {count} kép',
     trophyRankLabel: 'Helyezés: ',
     trophyShareBtn: '🚀 Eredmény megosztása',
-    trophyPointsUnit: ' pont'
+    trophyPointsUnit: ' pont',
+
+    // === HU BLOKK ALJA ===
+    modalUploadTitle: '🖼️ Nevezés az Aréna Képtáradból',
+    modalSwapTitle: '🃏 Válaszd ki a Joker Fotódat',
+    modalUploadDesc: 'Melyik meglévő galériás fotóddal szeretnél benevezni a mostani futamra?',
+    modalSwapDesc: 'Melyik galériás képedet küldöd harcba? A kék keretes Visszacserék megtartják a fordulóban korábban szerzett csillagaikat!',
+    modalBadgeSwapBack: '↩️ Visszacsere',
+    msgUploadConfirm: 'Biztosan ezzel a meglévő képeddel nevezel be a küzdelembe?',
+    msgUploadSuccess: '🎉 Sikeres nevezés az albumból!',
+    msgUploadError: 'Hiba a nevezés során.'
   },
 
   
@@ -590,7 +600,17 @@ const translations = {
     trophyField: 'Field: {count} photos',
     trophyRankLabel: 'Rank: ',
     trophyShareBtn: '🚀 Share Result',
-    trophyPointsUnit: ' points'
+    trophyPointsUnit: ' points',
+
+    // === EN BLOKK ALJA ===
+    modalUploadTitle: '🖼️ Entry from Arena Gallery',
+    modalSwapTitle: '🃏 Choose Your Joker Photo',
+    modalUploadDesc: 'Which existing gallery photo would you like to enter into the current match?',
+    modalSwapDesc: 'Which gallery image are you sending into battle? Blue-bordered rollbacks keep their previously earned stars in this round!',
+    modalBadgeSwapBack: '↩️ Rollback',
+    msgUploadConfirm: 'Are you sure you want to enter the match with this existing photo?',
+    msgUploadSuccess: '🎉 Successfully entered from album!',
+    msgUploadError: 'An error occurred during entry.'
   }
 };
 
