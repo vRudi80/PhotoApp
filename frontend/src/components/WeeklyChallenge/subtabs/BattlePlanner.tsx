@@ -111,7 +111,7 @@ export default function BattlePlanner({ user, onSuccess }: BattlePlannerProps) {
       }
     } catch (error) {
       console.error(error);
-    } filey {
+    } finally {
       setSubmitting(false);
     }
   };
