@@ -865,7 +865,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                 <form onSubmit={handleSendLobbyMessage} style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                   <input 
                     type="text" 
-                    placeholder="Írj egy üzenetet a központi lobbiba a klubtagoknak..." 
+                    placeholder="Írj egy üzenetet..." 
                     value={typedLobbyMsg}
                     onChange={e => setTypedLobbyMsg(e.target.value)}
                     maxLength={500}
