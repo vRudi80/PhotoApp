@@ -132,11 +132,11 @@ const checkPremium = async (req, res, next) => {
 };
 
 // ====================================================================
-  // 🔒 IDEIGLENES ADMIN ÚJRAKALKULÁLÓ VÉGPONT (Terminál nélküli futtatáshoz)
+  // 🔒 IDEIGLENES ADMIN ÚJRAKALKULÁLÓ VÉGPONT (Séma-specifikus verzió)
   // ====================================================================
   app.get('/api/admin/recalculate-scores-secret-997', async (req, res) => {
     
-    // 📊 BELSŐ RANGPROGRESSZIÓS LOGIKA
+    // 📊 BELSŐ RANGPROGRESSZIÓS PONTOZÓ LOGIKA
     function getVoterPower(likes, victories) {
       if (likes < 30) return { super: 1, brilliant: 2 };
       if (likes < 100) return { super: 2, brilliant: 3 };
@@ -150,6 +150,22 @@ const checkPremium = async (req, res, next) => {
       if (likes < 7000 || victories < 9) return { super: 6, brilliant: 14 };
       if (likes < 10000 || victories < 12) return { super: 7, brilliant: 17 };
       return { super: 8, brilliant: 20 };
+    }
+
+    // 👑 NUMERIKUS SZINT KISZÁMÍTÁSA A RANK_LEVEL OSZLOPHOZ (1-12)
+    function calculateRankLevelNum(likes, victories) {
+      if (likes < 30) return 1;       // Fényleső 🌱
+      if (likes < 100) return 2;      // Megfigyelő 👁️
+      if (likes < 250) return 3;      // Képvadász 📷
+      if (likes < 500) return 4;      // Komponista 📐
+      if (likes < 800 || victories < 1) return 5;    // Fényíró 🎞️
+      if (likes < 1300 || victories < 2) return 6;   // Esztéta 💎
+      if (likes < 2000 || victories < 3) return 7;   // Szakértő 🎯
+      if (likes < 3200 || victories < 5) return 8;   // Képmester 🎨
+      if (likes < 4800 || victories < 7) return 9;   // Nagymester 🌟
+      if (likes < 7000 || victories < 9) return 10;  // Virtuóz ⚡
+      if (likes < 10000 || victories < 12) return 11; // Fotóguru 🔥
+      return 12; // Vizuális Legenda 👑
     }
 
     console.log("🚀 Böngészőből indított kronologikus újraszámolás...");
@@ -237,18 +253,22 @@ const checkPremium = async (req, res, next) => {
         }
       }
 
-      // 6. Profilok szinkronizálása a photo_users táblába
+      // 6. 🎯 JAVÍTVA: Kizárólag a valóságban létező 'rank_level' oszlopot frissítjük!
       for (const email in virtualUsers) {
+        const finalLevel = calculateRankLevelNum(
+          virtualUsers[email].totalLikes, 
+          virtualUsers[email].victories
+        );
+
         await pool.query(
-          'UPDATE photo_users SET userTotalLikes = ?, userVictories = ? WHERE email = ?',
-          [virtualUsers[email].totalLikes, virtualUsers[email].victories, email]
+          'UPDATE photo_users SET rank_level = ? WHERE email = ?',
+          [finalLevel, email]
         );
       }
 
-      // 🎯 VISSZAJELZÉS A BÖNGÉSZŐNEK (A process.exit() helyett ez kell, különben összeomlana a szerver!)
       res.json({ 
         success: true, 
-        message: "Minden történelmi pontszám és rang sikeresen újra lett építve a szerveren!",
+        message: "Minden történelmi pontszám és a felhasználók rank_level szintje sikeresen újra lett építve!",
         processedUsersCount: Object.keys(virtualUsers).length 
       });
 
