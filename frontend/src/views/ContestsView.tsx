@@ -1,7 +1,10 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ADMIN_EMAIL, BACKEND_URL } from '../utils/constants';
 import { getImageUrl } from '../utils/helpers';
 import jsPDF from 'jspdf';
+
+// 🎯 ÚJ IMPORT: Behozzuk a nyelvi kontextust
+import { useLanguage } from '../context/LanguageContext';
 
 interface ContestsViewProps {
   activeTab: string;
@@ -92,6 +95,9 @@ interface ContestsViewProps {
 export default function ContestsView(props: ContestsViewProps) {
   const inputStyle = { width: '100%', padding: '12px', marginBottom: '12px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '10px', boxSizing: 'border-box' as const, fontSize: '0.95rem', outline: 'none' };
 
+  // 🎯 ÚJ: Aktiváljuk a fordítót (t) és a nyelvi kontextust (lang)
+  const { t, lang } = useLanguage();
+
   const [isSubmittingVote, setIsSubmittingVote] = useState(false);
   const [generatingCertId, setGeneratingCertId] = useState<number | null>(null);
 
@@ -103,54 +109,33 @@ export default function ContestsView(props: ContestsViewProps) {
   const currentEditClubValue = props.clubs.find(c => String(c.id) === props.editRestrictedClub || c.name === props.editRestrictedClub)?.id || '';
 
   // ====================================================================
-  // 📜 JAVÍTVA: OKLEVÉL GENERÁLÓ LOGIKA DIAGNOSZTIKÁVAL ÉS SZŰRŐVEL
+  // 📜 JAVÍTVA: OKLEVÉL GENERÁLÓ LOGIKA NYELVILAG DIZÁJNOLVA
   // ====================================================================
   const generateCertificate = async (contest: any, result: any, awardName: string, isAcceptance: boolean, contestJury: any[]) => {
     setGeneratingCertId(result.id);
     
-   // 🔍 VEZETÉKES DIAGNOSZTIKA A BÖNGÉSZŐ KONZOLRA
-    console.log("=== 🛡️ OKLEVÉL GENERÁLÁSI NAPLÓ ===");
-    console.log("1. Kiválasztott Pályázat adatai (contest):", contest);
-    console.log("2. Pályázatból érkező Szponzor Klub ID:", contest.sponsor_club_id || contest.sponsorClubId);
-    
+    console.log("=== 🛡️ CERTIFICATE GENERATION LOG ===");
     const targetSponsorId = contest.sponsor_club_id || contest.sponsorClubId;
     const sponsorClubObj = props.clubs.find(c => Number(c.id) === Number(targetSponsorId));
-    
-    if (sponsorClubObj) {
-      console.log("3. Párosított Szponzor Klub nyers mezői (Kulcsok):", Object.keys(sponsorClubObj));
-      console.log("4. drive_logo_id értéke:", sponsorClubObj.drive_logo_id);
-      console.log("5. logo_url értéke:", sponsorClubObj.logo_url);
-    } else {
-      console.log("3. ❌ Nem található fotóklub ezzel az ID-val a props.clubs tömbben!");
-    }
 
     try {
       // 1. Alkotás képének letöltése
       const res = await fetch(`${BACKEND_URL}/api/image-base64/${result.drive_file_id}`);
       const data = await res.json();
-      if (!data.base64) throw new Error("Hiba a kép letöltésekor");
+      if (!data.base64) throw new Error("Error loading certificate image background asset");
 
       // 2. Szponzor logóBase64 kikeresése
       let sponsorLogoBase64: string | null = null;
-      const targetSponsorId = contest.sponsor_club_id || contest.sponsorClubId;
-      const sponsorClubObj = props.clubs.find(c => Number(c.id) === Number(targetSponsorId));
-      
-      console.log("4. Párosított Szponzor Klub objektum:", sponsorClubObj);
-
       if (sponsorClubObj && sponsorClubObj.drive_logo_id) {
-        console.log("5. Logó Drive ID-ja megvan a memóriában:", sponsorClubObj.drive_logo_id);
         try {
           const logoRes = await fetch(`${BACKEND_URL}/api/image-base64/${sponsorClubObj.drive_logo_id}`);
           const logoData = await logoRes.json();
           if (logoData.base64) {
             sponsorLogoBase64 = logoData.base64;
-            console.log("6. 🏆 Klublogó sikeresen átalakítva Base64-re a háttérben!");
           }
         } catch (e) { 
-          console.error("❌ Hiba a klublogó Base64 letöltése közben:", e); 
+          console.error("Error embedding sponsor logo asset:", e); 
         }
-      } else {
-        console.log("⚠️ Nem fut le logó letöltés: Nincs szponzor kirendelve, vagy üres a drive_logo_id!");
       }
 
       const img = new Image();
@@ -159,8 +144,10 @@ export default function ContestsView(props: ContestsViewProps) {
 
       const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
 
+      // Dinamikus karakter-szűrő a jsPDF korlátaihoz (magyar ékezetek Times-hoz igazítása szükség esetén)
       const fixHu = (str: string) => {
         if (!str) return '';
+        if (lang === 'en') return str;
         return str.replace(/ő/g, 'ö').replace(/ű/g, 'ü').replace(/Ő/g, 'Ö').replace(/Ű/g, 'Ü');
       };
 
@@ -171,22 +158,19 @@ export default function ContestsView(props: ContestsViewProps) {
       doc.setLineWidth(0.5);
       doc.rect(12, 12, 273, 186);
 
-      // JAVÍTVA: Intelligens formátum-szűrő, hogy a jsPDF ne dobjon hibát PNG/JPG eltérésnél
       if (sponsorLogoBase64) {
         let format = 'JPEG';
         const lowerBase = sponsorLogoBase64.toLowerCase();
         if (lowerBase.includes('image/png')) format = 'PNG';
         if (lowerBase.includes('image/webp')) format = 'WEBP';
         if (lowerBase.includes('image/gif')) format = 'GIF';
-        
-        console.log("7. 🖌️ Logó elhelyezése a PDF-re formátummal:", format);
         doc.addImage(sponsorLogoBase64, format, 252, 15, 22, 22);
       }
 
       doc.setFont("times", "bolditalic");
       doc.setFontSize(40);
       doc.setTextColor(30, 41, 59); 
-      doc.text(fixHu("OKLEVÉL"), 148.5, 35, { align: "center" });
+      doc.text(fixHu(lang === 'en' ? "CERTIFICATE" : "OKLEVÉL"), 148.5, 35, { align: "center" });
 
       doc.setFont("times", "normal");
       doc.setFontSize(22);
@@ -195,13 +179,16 @@ export default function ContestsView(props: ContestsViewProps) {
       doc.setFont("times", "bold");
       doc.setFontSize(16);
       doc.setTextColor(217, 119, 6);
-      const awardText = awardName ? `Díj: ${awardName}` : 'Eredmény: Elfogadás (Acceptance)';
+      
+      const awardText = awardName 
+        ? (lang === 'en' ? `Award: ${awardName}` : `Díj: ${awardName}`)
+        : (lang === 'en' ? 'Result: Acceptance' : 'Eredmény: Elfogadás (Acceptance)');
       doc.text(fixHu(awardText), 148.5, 60, { align: "center" });
 
       doc.setFont("times", "italic");
       doc.setTextColor(100, 116, 139);
       doc.setFontSize(14);
-      doc.text(fixHu(`Kategória: ${result.category}`), 148.5, 68, { align: "center" });
+      doc.text(fixHu(`${lang === 'en' ? 'Category' : 'Kategória'}: ${result.category}`), 148.5, 68, { align: "center" });
 
       const maxW = 160;
       const maxH = 90;
@@ -222,25 +209,26 @@ export default function ContestsView(props: ContestsViewProps) {
 
       doc.setFont("times", "normal");
       doc.setFontSize(14);
-      doc.text(fixHu(`Készítette: ${result.user_name}`), 148.5, imgY + imgH + 20, { align: "center" });
+      doc.text(fixHu(`${lang === 'en' ? 'Created by' : 'Készítette'}: ${result.user_name}`), 148.5, imgY + imgH + 20, { align: "center" });
 
       doc.setFont("times", "normal");
       doc.setFontSize(12);
       doc.setTextColor(100, 116, 139);
-      const todayStr = new Date().toLocaleDateString('hu-HU', { year: 'numeric', month: 'long', day: 'numeric' });
-      doc.text(fixHu(`Kelt: ${todayStr}`), 20, 192);
+      
+      const todayStr = new Date().toLocaleDateString(lang === 'en' ? 'en-US' : 'hu-HU', { year: 'numeric', month: 'long', day: 'numeric' });
+      doc.text(fixHu(`${lang === 'en' ? 'Date' : 'Kelt'}: ${todayStr}`), 20, 192);
 
       const juryNames = contestJury.map(j => props.allUsers.find(u => u.email === j.user_email)?.name || j.user_email).join(', ');
       doc.setFont("times", "italic");
       doc.setFontSize(12);
       doc.setTextColor(148, 163, 184);
-      doc.text(fixHu(`A zsűri tagjai: ${juryNames}`), 148.5, 192, { align: "center" });
+      doc.text(fixHu(`${lang === 'en' ? 'Jury members' : 'A zsűri tagjai'}: ${juryNames}`), 148.5, 192, { align: "center" });
 
-      const safeFileName = `Oklevel_${result.user_name}_${result.title}`.replace(/[^a-zA-Z0-9_áéíóúöüÁÉÍÓÚÖÜ]/g, '_');
+      const safeFileName = `Certificate_${result.user_name}_${result.title}`.replace(/[^a-zA-Z0-9_]/g, '_');
       doc.save(`${safeFileName}.pdf`);
       
     } catch (err) {
-      alert('Sajnos hiba történt az oklevél generálása közben.');
+      alert(t('msgGenerateImageError'));
       console.error(err);
     } finally { 
       setGeneratingCertId(null);
@@ -251,13 +239,21 @@ export default function ContestsView(props: ContestsViewProps) {
     return (
       <div style={{ textAlign: 'center', padding: '5rem 2rem', background: 'linear-gradient(180deg, #1e293b, #0f172a)', borderRadius: '24px', border: '1px solid #ef444440', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
         <div style={{ fontSize: '4rem', marginBottom: '1.5rem' }}>🔒</div>
-        <h2 style={{ color: '#ef4444', margin: '0 0 12px 0', fontSize: '1.8rem' }}>Nem vagy klubhoz rendelve</h2>
+        <h2 style={{ color: '#ef4444', margin: '0 0 12px 0', fontSize: '1.8rem' }}>{t('contNoClubTitle')}</h2>
         <p style={{ color: '#94a3b8', fontSize: '1.05rem', maxWidth: '500px', margin: '0 auto', lineHeight: '1.6' }}>
-          A belső klubpályázatok eléréséhez kérjük, először válassz egy fotóklubot a <b>Profilom</b> oldalon!
+          {t('contNoClubDesc')}
         </p>
       </div>
     );
   }
+
+  // Dinamikus címsor generátor a kiválasztott fül szerint
+  const getHeaderMainTitle = () => {
+    if (props.activeTab === 'admin_contests') return t('contTabAdminTitle');
+    if (props.activeTab === 'contests_club_active') return t('contTabClubTitle');
+    if (props.activeTab === 'contests_closed') return t('contTabClosedTitle');
+    return t('contTabOpenTitle');
+  };
 
   return (
     <div style={{ animation: 'fadeIn 0.4s ease-out' }}>
@@ -268,47 +264,47 @@ export default function ContestsView(props: ContestsViewProps) {
         
         <div style={{ backgroundColor: '#1e293b', padding: '30px', borderRadius: '24px', marginBottom: '30px', border: '1px solid #f59e0b', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
           <h3 style={{ marginTop: 0, marginBottom: '20px', color: '#f59e0b', fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
-            {props.user.email === ADMIN_EMAIL ? '⚙️ Globális Pályázat Kiírása (Admin)' : `📝 Új Belső Pályázat Indítása (${props.currentDbUser?.club_name})`}
+            {props.user.email === ADMIN_EMAIL ? t('contAdminCreateTitle') : `${t('contClubCreateTitle')} (${props.currentDbUser?.club_name})`}
           </h3>
-          <input placeholder="Pályázat címe" value={props.newTitle} onChange={e => props.setNewTitle(e.target.value)} style={inputStyle} />
-          <textarea placeholder="Pályázati kiírás, részletes szabályzat..." value={props.newDesc} onChange={e => props.setNewDesc(e.target.value)} style={{...inputStyle, minHeight: '80px', resize: 'vertical'}} />
+          <input placeholder={t('contPlaceholderTitle')} value={props.newTitle} onChange={e => props.setNewTitle(e.target.value)} style={inputStyle} />
+          <textarea placeholder={t('contPlaceholderDesc')} value={props.newDesc} onChange={e => props.setNewDesc(e.target.value)} style={{...inputStyle, minHeight: '80px', resize: 'vertical'}} />
           
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px', marginBottom: '5px' }}>
             <div>
-              <label style={{fontSize:'0.8rem', color:'#94a3b8', fontWeight: 'bold', display: 'block', marginBottom: '6px'}}>⏱️ Pályázat Kezdete</label>
+              <label style={{fontSize:'0.8rem', color:'#94a3b8', fontWeight: 'bold', display: 'block', marginBottom: '6px'}}>{t('contLabelStart')}</label>
               <input type="datetime-local" value={props.newStart} onChange={e => props.setNewStart(e.target.value)} style={inputStyle} />
             </div>
             <div>
-              <label style={{fontSize:'0.8rem', color:'#94a3b8', fontWeight: 'bold', display: 'block', marginBottom: '6px'}}>⌛ Nevezési Határidő</label>
+              <label style={{fontSize:'0.8rem', color:'#94a3b8', fontWeight: 'bold', display: 'block', marginBottom: '6px'}}>{t('contLabelEnd')}</label>
               <input type="datetime-local" value={props.newEnd} onChange={e => props.setNewEnd(e.target.value)} style={inputStyle} />
             </div>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px', marginBottom: '5px' }}>
             <div>
-              <label style={{fontSize:'0.8rem', color:'#94a3b8', fontWeight: 'bold', display: 'block', marginBottom: '6px'}}>🪙 Nevezési díj (0 = Ingyenes)</label>
+              <label style={{fontSize:'0.8rem', color:'#94a3b8', fontWeight: 'bold', display: 'block', marginBottom: '6px'}}>{t('contLabelFee')}</label>
               <input type="number" min="0" value={props.newEntryFee} onChange={e => props.setNewEntryFee(e.target.value)} style={inputStyle} />
             </div>
             <div>
-              <label style={{fontSize:'0.8rem', color:'#94a3b8', fontWeight: 'bold', display: 'block', marginBottom: '6px'}}>💵 Pénznem</label>
+              <label style={{fontSize:'0.8rem', color:'#94a3b8', fontWeight: 'bold', display: 'block', marginBottom: '6px'}}>{t('contLabelCurrency')}</label>
               <select value={props.newFeeCurrency} onChange={e => props.setNewFeeCurrency(e.target.value)} style={inputStyle}>
                 <option value="HUF">HUF (Forint)</option>
-                <option value="EUR">EUR (Euró)</option>
+                <option value="EUR">EUR (Euro)</option>
               </select>
             </div>
           </div>
 
-          <input placeholder="Kategóriák (pl: Természet, Portré, Street) - vesszővel elválasztva" value={props.newCats} onChange={e => props.setNewCats(e.target.value)} style={inputStyle} />
+          <input placeholder={t('contPlaceholderCats')} value={props.newCats} onChange={e => props.setNewCats(e.target.value)} style={inputStyle} />
           
           {props.newCats.split(',').map(c => c.trim()).filter(Boolean).length > 0 && (
             <div style={{ background: '#0f172a', padding: '20px', borderRadius: '16px', marginBottom: '20px', border: '1px solid #334155' }}>
-              <h4 style={{ margin: '0 0 15px 0', color: '#38bdf8', fontSize: '1.1rem' }}>⚙️ Kategória Ponthatárok & Díjak</h4>
+              <h4 style={{ margin: '0 0 15px 0', color: '#38bdf8', fontSize: '1.1rem' }}>{t('contCatsSettingsTitle')}</h4>
               {props.newCats.split(',').map(c => c.trim()).filter(Boolean).map(cat => (
                 <div key={cat} style={{ marginBottom: '15px', paddingBottom: '15px', borderBottom: '1px dashed #1e293b' }}>
-                  <strong style={{ color: '#f8fafc', display: 'block', marginBottom: '10px', fontSize: '0.95rem' }}>✨ {cat} kategória:</strong>
+                  <strong style={{ color: '#f8fafc', display: 'block', marginBottom: '10px', fontSize: '0.95rem' }}>✨ {cat}{t('contSectionTitle')}</strong>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px' }}>
                     <div>
-                      <label style={{fontSize:'0.75rem', color:'#94a3b8'}}>Elfogadási ponthatár</label>
+                      <label style={{fontSize:'0.75rem', color:'#94a3b8'}}>{t('contLabelAcceptScore')}</label>
                       <input 
                         type="number" 
                         placeholder="Pl.: 24" 
@@ -318,10 +314,10 @@ export default function ContestsView(props: ContestsViewProps) {
                       />
                     </div>
                     <div>
-                      <label style={{fontSize:'0.75rem', color:'#94a3b8'}}>Díjak (1., 2., 3. hely - vesszővel elválasztva)</label>
+                      <label style={{fontSize:'0.75rem', color:'#94a3b8'}}>{t('contLabelAwardsStr')}</label>
                       <input 
                         type="text" 
-                        placeholder="Pl: Arany Oklevél, Ezüst, Bronz" 
+                        placeholder={t('contPlaceholderAwards')} 
                         value={props.newCategorySettings[cat]?.awardsString || ''} 
                         onChange={e => props.newCategorySettings[cat] ? props.setNewCategorySettings({...props.newCategorySettings, [cat]: { ...props.newCategorySettings[cat], awardsString: e.target.value }}) : props.setNewCategorySettings({...props.newCategorySettings, [cat]: { awardsString: e.target.value }})}
                         style={{...inputStyle, marginBottom: 0, marginTop: '5px'}} 
@@ -335,48 +331,48 @@ export default function ContestsView(props: ContestsViewProps) {
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px', marginBottom: '15px' }}>
             <div>
-              <label style={{fontSize:'0.8rem', color:'#94a3b8', fontWeight: 'bold', display: 'block', marginBottom: '6px'}}>🔒 Pályázat Láthatósága / Elérése</label>
+              <label style={{fontSize:'0.8rem', color:'#94a3b8', fontWeight: 'bold', display: 'block', marginBottom: '6px'}}>{t('contVisibilityLabel')}</label>
               {props.user.email === ADMIN_EMAIL ? (
                 <select 
                   value={String(currentNewClubValue)} 
                   onChange={e => props.setNewRestrictedClub(e.target.value)} 
                   style={{...inputStyle, border: '1px solid #f59e0b', cursor: 'pointer', marginBottom: 0}}
                 >
-                  <option value="">🔓 Nyilvános pályázat (Bárki nevezhet)</option>
-                  {props.clubs.map(c => <option key={c.id} value={String(c.id)}>🔒 Zártkörű: {c.name}</option>)}
+                  <option value="">{t('contVisibilityPublic')}</option>
+                  {props.clubs.map(c => <option key={c.id} value={String(c.id)}>{t('contVisibilityPrivate')}{c.name}</option>)}
                 </select>
               ) : (
                 <div style={{ padding: '12px', background: '#0f172a', borderRadius: '10px', color: '#cbd5e1', fontSize: '0.95rem', border: '1px solid #334155' }}>
-                  Zártkörű: <strong>{props.currentDbUser?.club_name}</strong>
+                  {t('contVisibilityPrivate')}<strong>{props.currentDbUser?.club_name}</strong>
                 </div>
               )}
             </div>
 
             <div>
-              <label style={{fontSize:'0.8rem', color:'#a78bfa', fontWeight: 'bold', display: 'block', marginBottom: '6px'}}>🏆 Szponzoráló Fotóklub (Oklevél logóhoz)</label>
+              <label style={{fontSize:'0.8rem', color:'#a78bfa', fontWeight: 'bold', display: 'block', marginBottom: '6px'}}>{t('contSponsorLabel')}</label>
               <select 
                 value={props.newSponsorClub} 
                 onChange={e => props.setNewSponsorClub(e.target.value)} 
                 style={{...inputStyle, border: '1px solid #a78bfa', cursor: 'pointer', marginBottom: 0}}
               >
-                <option value="">-- Nincs kiemelt szponzor klub --</option>
+                <option value="">{t('contNoSponsor')}</option>
                 {props.clubs.map(c => <option key={c.id} value={String(c.id)}>🛡️ {c.name}</option>)}
               </select>
             </div>
           </div>
           
-          <button onClick={props.handleCreateContest} style={{ background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', border: 'none', padding: '12px 30px', borderRadius: '12px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem', transition: 'all 0.3s', boxShadow: '0 4px 15px rgba(16,185,129,0.3)' }}>Pályázat Kiírása 🚀</button>
+          <button onClick={props.handleCreateContest} style={{ background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', border: 'none', padding: '12px 30px', borderRadius: '12px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem', transition: 'all 0.3s', boxShadow: '0 4px 15px rgba(16,185,129,0.3)' }}>{t('contCreateBtn')}</button>
         </div>
       )}
 
       {/* CÍMSOR */}
       <h2 style={{ fontSize: '2rem', marginBottom: '20px', color: '#f8fafc', fontWeight: '900', letterSpacing: '-0.5px' }}>
-        {props.activeTab === 'admin_contests' ? '📁 Összes Pályázat Kezelése' : props.activeTab === 'contests_club_active' ? `🛡️ Klubom Aktív Pályázatai` : props.activeTab === 'contests_closed' ? '📜 Lezárult Fotópályázatok' : '🌐 Nyílt Aktív Fotópályázatok'}
+        {getHeaderMainTitle()}
       </h2>
       
       {/* PÁLYÁZATOK LISTÁJA */}
       {props.filteredContests.length === 0 ? (
-        <div style={{ color: '#94a3b8', background: '#1e293b', padding: '30px', borderRadius: '16px', textAlign: 'center', border: '1px solid #334155' }}>Jelenleg nincsenek pályázatok ebben a kategóriában.</div>
+        <div style={{ color: '#94a3b8', background: '#1e293b', padding: '30px', borderRadius: '16px', textAlign: 'center', border: '1px solid #334155' }}>{t('contEmptyList')}</div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
           {props.filteredContests.map(contest => {
@@ -401,7 +397,7 @@ export default function ContestsView(props: ContestsViewProps) {
             const expectedVotes = (contest.entry_count || 0) * (contest.jury_count || 0);
             const isJudgingComplete = contest.entry_count > 0 ? (expectedVotes > 0 && contest.vote_count >= expectedVotes) : true;
             
-            const badgeText = isActive ? 'Nevezés Nyitva' : isEnded ? (isJudgingComplete ? 'Lezárult' : 'Zsűrizés folyamatban') : 'Hamarosan indul';
+            const badgeText = isActive ? t('contBadgeOpen') : isEnded ? (isJudgingComplete ? t('contBadgeClosed') : t('contBadgeJudging')) : t('contBadgeSoon');
             const badgeColor = isActive ? '#10b981' : isEnded ? (isJudgingComplete ? '#ef4444' : '#a78bfa') : '#f59e0b';
             const badgeBg = isActive ? '#10b98120' : isEnded ? (isJudgingComplete ? '#ef444420' : '#a78bfa20') : '#f59e0b20';
 
@@ -419,7 +415,7 @@ export default function ContestsView(props: ContestsViewProps) {
                 
                 {contest.restricted_club && (
                   <div style={{ position: 'absolute', top: 0, left: '25px', background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#0f172a', padding: '5px 14px', borderRadius: '0 0 10px 10px', fontSize: '0.75rem', fontWeight: 'bold', boxShadow: '0 4px 10px rgba(0,0,0,0.3)', letterSpacing: '0.5px' }}>
-                    🔒 ZÁRTKÖRŰ: {contest.restricted_club}
+                    {t('contVisibilityPrivate').toUpperCase()}{contest.restricted_club}
                   </div>
                 )}
 
@@ -427,14 +423,14 @@ export default function ContestsView(props: ContestsViewProps) {
                 {props.viewJuryProgressId === contest.id ? (
                   <div style={{ background: '#0f172a', padding: '20px', borderRadius: '16px', marginBottom: '20px', border: '1px solid #a78bfa' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #334155', paddingBottom: '15px', marginBottom: '20px' }}>
-                      <h3 style={{ margin: 0, color: '#a78bfa', fontSize: '1.2rem' }}>📈 Értékelési Folyamat állása</h3>
-                      <button onClick={() => props.setViewJuryProgressId(null)} style={{ background: '#1e293b', color: '#94a3b8', border: 'none', padding: '6px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Bezárás</button>
+                      <h3 style={{ margin: 0, color: '#a78bfa', fontSize: '1.2rem' }}>{t('juryProgressTitle')}</h3>
+                      <button onClick={() => props.setViewJuryProgressId(null)} style={{ background: '#1e293b', color: '#94a3b8', border: 'none', padding: '6px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>{t('juryProgressClose')}</button>
                     </div>
                     <div style={{ marginBottom: '20px', color: '#94a3b8' }}>
-                      Összes beérkezett pályamű: <strong style={{color: '#f8fafc'}}>{props.juryProgressData.total_entries} fotó</strong>
+                      {t('juryProgressTotal')}<strong style={{color: '#f8fafc'}}>{props.juryProgressData.total_entries} {lang === 'en' ? 'photos' : 'fotó'}</strong>
                     </div>
                     {props.juryProgressData.stats.length === 0 ? (
-                      <p style={{ color: '#94a3b8', margin: 0 }}>Nincs hozzárendelve zsűritag.</p>
+                      <p style={{ color: '#94a3b8', margin: 0 }}>{t('juryProgressNoJury')}</p>
                     ) : (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                         {props.juryProgressData.stats.map((stat: any) => {
@@ -448,14 +444,14 @@ export default function ContestsView(props: ContestsViewProps) {
                               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', alignItems: 'center' }}>
                                 <strong style={{ color: '#f8fafc' }}>{name}</strong>
                                 <span style={{ color: remaining <= 0 ? '#10b981' : '#f59e0b', fontWeight: 'bold', fontSize: '0.85rem', background: remaining <= 0 ? '#10b98115' : '#f59e0b15', padding: '2px 8px', borderRadius: '6px' }}>
-                                  {remaining <= 0 ? '✓ Kész' : `${remaining} kép van hátra`}
+                                  {remaining <= 0 ? t('juryProgressDone') : `${remaining} ${t('juryProgressRemaining')}`}
                                 </span>
                               </div>
                               <div style={{ width: '100%', background: '#0f172a', borderRadius: '100px', height: '8px', overflow: 'hidden' }}>
                                 <div style={{ width: `${percent}%`, background: remaining <= 0 ? '#10b981' : 'linear-gradient(90deg, #a78bfa, #8b5cf6)', height: '100%' }}></div>
                               </div>
                               <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '6px', textAlign: 'right' }}>
-                                {stat.voted_count} / {props.juryProgressData.total_entries} fotó pontozva ({percent}%)
+                                {stat.voted_count} / {props.juryProgressData.total_entries} {t('juryProgressScoredUnit')}({percent}%)
                               </div>
                             </div>
                           );
@@ -465,27 +461,27 @@ export default function ContestsView(props: ContestsViewProps) {
                   </div>
                 ) : props.manageJuryContestId === contest.id ? (
                     <div style={{ background: '#0f172a', padding: '20px', borderRadius: '16px', border: '1px solid #8b5cf640' }}>
-                      <h4 style={{marginTop: 0, color: '#a78bfa', fontSize: '1.2rem', marginBottom: '15px'}}>⚖️ Bírálóbizottság Összeállítása</h4>
+                      <h4 style={{marginTop: 0, color: '#a78bfa', fontSize: '1.2rem', marginBottom: '15px'}}>{t('juryManageTitle')}</h4>
                       <div style={{display: 'flex', gap: '10px', marginBottom: '15px', flexWrap: 'wrap'}}>
                         <select value={props.selectedJuryEmail} onChange={e => props.setSelectedJuryEmail(e.target.value)} style={{...inputStyle, marginBottom: 0, flex: '1 1 200px'}}>
-                          <option value="">-- Válassz tagot a listából --</option>
+                          <option value="">{t('juryManageSelectPlaceholder')}</option>
                           {props.allUsers.filter(u => !contestJury.some(j => j.user_email === u.email)).map(u => (<option key={u.email} value={u.email}>{u.name} ({u.email})</option>))}
                         </select>
-                        <button onClick={() => props.handleAddJury(contest.id)} style={{ background: '#8b5cf6', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold' }}>Hozzáadás</button>
+                        <button onClick={() => props.handleAddJury(contest.id)} style={{ background: '#8b5cf6', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold' }}>{t('contAdd')}</button>
                       </div>
                       <ul style={{ padding: 0, listStyle: 'none', margin: '0 0 15px 0' }}>
-                        {contestJury.map(jury => <li key={jury.user_email} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#1e293b', padding: '12px', borderRadius: '10px', marginBottom: '6px', border: '1px solid #334155' }}><span>{props.allUsers.find(u => u.email === jury.user_email)?.name || jury.user_email}</span><button onClick={() => props.handleRemoveJury(contest.id, jury.user_email)} style={{ background: 'transparent', color: '#ef4444', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>Eltávolítás ✕</button></li>)}
+                        {contestJury.map(jury => <li key={jury.user_email} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#1e293b', padding: '12px', borderRadius: '10px', marginBottom: '6px', border: '1px solid #334155' }}><span>{props.allUsers.find(u => u.email === jury.user_email)?.name || jury.user_email}</span><button onClick={() => props.handleRemoveJury(contest.id, jury.user_email)} style={{ background: 'transparent', color: '#ef4444', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>{t('contRemove')}</button></li>)}
                       </ul>
-                      <button onClick={() => props.setManageJuryContestId(null)} style={{ background: '#334155', color: '#cbd5e1', border: 'none', padding: '8px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Vissza</button>
+                      <button onClick={() => props.setManageJuryContestId(null)} style={{ background: '#334155', color: '#cbd5e1', border: 'none', padding: '8px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>{t('contBack')}</button>
                     </div>
                 ) : props.viewStatsContestId === contest.id ? (
                   <div style={{ background: '#0f172a', padding: '20px', borderRadius: '16px', border: '1px solid #38bdf840' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #334155', paddingBottom: '15px', marginBottom: '20px' }}>
-                      <h3 style={{ margin: 0, color: '#38bdf8', fontSize: '1.2rem' }}>📊 Aktuális Jelentkezők Nyilvántartása</h3>
-                      <button onClick={() => props.setViewStatsContestId(null)} style={{ background: '#1e293b', color: '#94a3b8', border: 'none', padding: '6px 16px', borderRadius: '8px', cursor: 'pointer' }}>Bezárás</button>
+                      <h3 style={{ margin: 0, color: '#38bdf8', fontSize: '1.2rem' }}>{t('entrantsRegistryTitle')}</h3>
+                      <button onClick={() => props.setViewStatsContestId(null)} style={{ background: '#1e293b', color: '#94a3b8', border: 'none', padding: '6px 16px', borderRadius: '8px', cursor: 'pointer' }}>{t('juryProgressClose')}</button>
                     </div>
                     {props.contestStats.length === 0 ? (
-                      <p style={{ color: '#94a3b8', margin: 0 }}>Még nem érkezett hivatalos nevezés.</p>
+                      <p style={{ color: '#94a3b8', margin: 0 }}>{t('entrantsRegistryEmpty')}</p>
                     ) : (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                         {Object.entries(props.contestStats.reduce((acc, curr) => {
@@ -501,13 +497,13 @@ export default function ContestsView(props: ContestsViewProps) {
                                 <span>{data.name}</span>
                                 {isFeeRequired && (
                                   <span style={{ fontSize: '0.8rem', color: userHasPaid ? '#10b981' : '#f59e0b', background: userHasPaid ? '#10b98115' : '#f59e0b15', padding: '4px 10px', borderRadius: '6px', border: `1px solid ${userHasPaid ? '#10b98140' : '#f59e0b40'}`, fontWeight: 'bold' }}>
-                                    {userHasPaid ? '✓ Nevezési díj rendezve' : '⏳ Függőben lévő fizetés'}
+                                    {userHasPaid ? t('entrantsRegistryPaid') : t('entrantsRegistryPending')}
                                   </span>
                                 )}
                               </div>
                               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                                 {data.cats.map((c: any) => (
-                                  <span key={c.cat} style={{ background: '#0f172a', color: '#38bdf8', padding: '6px 12px', borderRadius: '8px', fontSize: '0.85rem', border: '1px solid #334155' }}>{c.cat}: <strong style={{color: '#f8fafc'}}>{c.count} db fotó</strong></span>
+                                  <span key={c.cat} style={{ background: '#0f172a', color: '#38bdf8', padding: '6px 12px', borderRadius: '8px', fontSize: '0.85rem', border: '1px solid #334155' }}>{c.cat}: <strong style={{color: '#f8fafc'}}>{c.count}{lang === 'en' ? ' photos' : ' db fotó'}</strong></span>
                                 ))}
                               </div>
                             </div>
@@ -518,28 +514,28 @@ export default function ContestsView(props: ContestsViewProps) {
                   </div>
                 ) : props.editContestId === contest.id ? (
                   <div style={{ background: '#0f172a', padding: '20px', borderRadius: '16px', border: '1px solid #f59e0b40' }}>
-                    <h4 style={{marginTop: 0, color: '#f59e0b', fontSize: '1.2rem', marginBottom: '15px'}}>Pályázat Paramétereinek Módosítása</h4>
+                    <h4 style={{marginTop: 0, color: '#f59e0b', fontSize: '1.2rem', marginBottom: '15px'}}>{t('contFormEditParamTitle')}</h4>
                     <input value={props.editTitle} onChange={e => props.setEditTitle(e.target.value)} style={inputStyle} />
                     <textarea value={props.editDesc} onChange={e => props.setEditDesc(e.target.value)} style={{...inputStyle, minHeight: '70px'}} />
                     
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '15px', marginBottom: '5px' }}>
                       <div>
-                        <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Kezdés</label>
+                        <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>{t('contFormEditStart')}</label>
                         <input type="datetime-local" value={props.editStart} onChange={e => props.setEditStart(e.target.value)} style={inputStyle} />
                       </div>
                       <div>
-                        <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Befejezés</label>
+                        <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>{t('contFormEditEnd')}</label>
                         <input type="datetime-local" value={props.editEnd} onChange={e => props.setEditEnd(e.target.value)} style={inputStyle} />
                       </div>
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '15px', marginBottom: '5px' }}>
                       <div>
-                        <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Nevezési díj</label>
+                        <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>{t('contLabelFee')}</label>
                         <input type="number" min="0" value={props.editEntryFee} onChange={e => props.setEditEntryFee(e.target.value)} style={inputStyle} />
                       </div>
                       <div>
-                        <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Pénznem</label>
+                        <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>{t('contLabelCurrency')}</label>
                         <select value={props.editFeeCurrency} onChange={e => props.setEditFeeCurrency(e.target.value)} style={inputStyle}>
                           <option value="HUF">HUF</option>
                           <option value="EUR">EUR</option>
@@ -549,16 +545,15 @@ export default function ContestsView(props: ContestsViewProps) {
 
                     <input value={props.editCats} onChange={e => props.setEditCats(e.target.value)} style={inputStyle} />
                     
-                    {/* Ponthatárok és díjak szerkesztési lehetősége */}
                     {props.editCats.split(',').map(c => c.trim()).filter(Boolean).length > 0 && (
                       <div style={{ background: '#0f172a', padding: '20px', borderRadius: '16px', marginBottom: '20px', border: '1px solid #334155' }}>
-                        <h4 style={{ margin: '0 0 15px 0', color: '#38bdf8', fontSize: '1.1rem' }}>⚙️ Kategória Ponthatárok & Díjak (Módosítás)</h4>
+                        <h4 style={{ margin: '0 0 15px 0', color: '#38bdf8', fontSize: '1.1rem' }}>{t('contFormEditSettingsTitle')}</h4>
                         {props.editCats.split(',').map(c => c.trim()).filter(Boolean).map(cat => (
                           <div key={cat} style={{ marginBottom: '15px', paddingBottom: '15px', borderBottom: '1px dashed #1e293b' }}>
-                            <strong style={{ color: '#f8fafc', display: 'block', marginBottom: '10px', fontSize: '0.95rem' }}>✨ {cat} kategória:</strong>
+                            <strong style={{ color: '#f8fafc', display: 'block', marginBottom: '10px', fontSize: '0.95rem' }}>✨ {cat}{t('contSectionTitle')}</strong>
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px' }}>
                               <div>
-                                <label style={{fontSize:'0.75rem', color:'#94a3b8'}}>Elfogadási ponthatár</label>
+                                <label style={{fontSize:'0.75rem', color:'#94a3b8'}}>{t('contLabelAcceptScore')}</label>
                                 <input 
                                   type="number" 
                                   placeholder="Pl.: 24" 
@@ -568,10 +563,10 @@ export default function ContestsView(props: ContestsViewProps) {
                                 />
                               </div>
                               <div>
-                                <label style={{fontSize:'0.75rem', color:'#94a3b8'}}>Díjak (1., 2., 3. hely - vesszővel elválasztva)</label>
+                                <label style={{fontSize:'0.75rem', color:'#94a3b8'}}>{t('contLabelAwardsStr')}</label>
                                 <input 
                                   type="text" 
-                                  placeholder="Pl: Arany Oklevél, Ezüst, Bronz" 
+                                  placeholder={t('contPlaceholderAwards')} 
                                   value={props.editCategorySettings[cat]?.awardsString || ''} 
                                   onChange={e => props.editCategorySettings[cat] ? props.setEditCategorySettings({...props.editCategorySettings, [cat]: { ...props.editCategorySettings[cat], awardsString: e.target.value }}) : props.setEditCategorySettings({...props.editCategorySettings, [cat]: { awardsString: e.target.value }})}
                                   style={{...inputStyle, marginBottom: 0, marginTop: '5px'}} 
@@ -585,44 +580,44 @@ export default function ContestsView(props: ContestsViewProps) {
 
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '15px', marginBottom: '5px' }}>
                       <div>
-                        <label style={{fontSize:'0.8rem', color:'#94a3b8', display: 'block', marginBottom: '4px'}}>Pályázat Láthatósága</label>
+                        <label style={{fontSize:'0.8rem', color:'#94a3b8', display: 'block', marginBottom: '4px'}}>{t('contVisibilityLabel')}</label>
                         <select 
                           value={String(currentEditClubValue)} 
                           onChange={e => props.setEditRestrictedClub(e.target.value)} 
                           style={{...inputStyle, border: '1px solid #f59e0b', marginBottom: 0}}
                         >
-                          <option value="">🔓 Nyilvános pályázat (Bárki nevezhet)</option>
-                          {props.clubs.map(c => <option key={c.id} value={String(c.id)}>🔒 Zártkörű: {c.name}</option>)}
+                          <option value="">{t('contVisibilityPublic')}</option>
+                          {props.clubs.map(c => <option key={c.id} value={String(c.id)}>{t('contVisibilityPrivate')}{c.name}</option>)}
                         </select>
                       </div>
 
                       <div>
-                        <label style={{fontSize:'0.8rem', color:'#a78bfa', display: 'block', marginBottom: '4px'}}>Szponzoráló Fotóklub (Oklevél logóhoz)</label>
+                        <label style={{fontSize:'0.8rem', color:'#a78bfa', display: 'block', marginBottom: '4px'}}>{t('contSponsorLabel')}</label>
                         <select 
                           value={props.editSponsorClub} 
                           onChange={e => props.setEditSponsorClub(e.target.value)} 
                           style={{...inputStyle, border: '1px solid #a78bfa', marginBottom: 0}}
                         >
-                          <option value="">-- Nincs kiemelt szponzor klub --</option>
+                          <option value="">{t('contNoSponsor')}</option>
                           {props.clubs.map(c => <option key={c.id} value={String(c.id)}>🛡️ {c.name}</option>)}
                         </select>
                       </div>
                     </div>
 
                     <div style={{display: 'flex', gap: '10px', marginTop: '15px'}}>
-                      <button onClick={props.handleUpdateContest} style={{ flex: 1, background: '#10b981', color: 'white', border: 'none', padding: '12px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold' }}>Változtatások mentése</button>
-                      <button onClick={() => props.setEditContestId(null)} style={{ background: '#334155', color: '#cbd5e1', border: 'none', padding: '12px 20px', borderRadius: '10px', cursor: 'pointer' }}>Mégse</button>
+                      <button onClick={props.handleUpdateContest} style={{ flex: 1, background: '#10b981', color: 'white', border: 'none', padding: '12px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold' }}>{t('contSaveChange')}</button>
+                      <button onClick={() => props.setEditContestId(null)} style={{ background: '#334155', color: '#cbd5e1', border: 'none', padding: '12px 20px', borderRadius: '10px', cursor: 'pointer' }}>{t('contCancel')}</button>
                     </div>
                   </div>
                 ) : props.judgingContestId === contest.id ? (
-                  /* ÉRTÉKELŐ PULT RUGALMAS KÉPMÉRETEZÉSSEL ÉS FIX ALSÓ SÁVVAL */
+                  /* ÉRTÉKELŐ PULT RUGALMAS KÉPMÉRETEZÉSSEL */
                   <div style={{ position: 'fixed', inset: 0, backgroundColor: '#000000', zIndex: 10000, display: 'flex', flexDirection: 'column' }}>
                     <div style={{ padding: '15px 30px', background: '#0f172a', borderBottom: '1px solid #1e293b', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '15px', flexShrink: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '25px' }}>
-                        <h3 style={{ margin: 0, color: '#f59e0b', fontSize: '1.3rem' }}>⚖️ Értékelő Pult: {contest.title}</h3>
-                        <span style={{ background: '#1e293b', padding: '6px 16px', borderRadius: '100px', color: '#38bdf8', fontWeight: 'bold', fontSize: '0.9rem', border: '1px solid #334155' }}>Hátralévő fotók: {props.unvotedEntries.length} db</span>
+                        <h3 style={{ margin: 0, color: '#f59e0b', fontSize: '1.3rem' }}>{t('judgingConsoleTitle')}{contest.title}</h3>
+                        <span style={{ background: '#1e293b', padding: '6px 16px', borderRadius: '100px', color: '#38bdf8', fontWeight: 'bold', fontSize: '0.9rem', border: '1px solid #334155' }}>{t('judgingConsoleRemaining')}{props.unvotedEntries.length}{lang === 'en' ? ' photos' : ' db'}</span>
                       </div>
-                      <button onClick={() => props.setJudgingContestId(null)} style={{ background: '#ef444420', color: '#ef4444', border: '1px solid #ef444440', padding: '8px 20px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold' }}>Bezárás / Kilépés</button>
+                      <button onClick={() => props.setJudgingContestId(null)} style={{ background: '#ef444420', color: '#ef4444', border: '1px solid #ef444440', padding: '8px 20px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold' }}>{t('judgingConsoleClose')}</button>
                     </div>
 
                     {props.unvotedEntries.length > 0 ? (
@@ -632,14 +627,14 @@ export default function ContestsView(props: ContestsViewProps) {
                           const imageUrl = getImageUrl(currentEntry.drive_file_id, currentEntry.file_url);
                           return (
                             <div key={currentEntry.id} style={{ flex: 1, minHeight: 0, background: '#000', display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '15px', overflow: 'hidden' }}>
-                              <img src={imageUrl} alt="Bírálat" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', boxShadow: '0 20px 50px rgba(0,0,0,0.9)' }} />
+                              <img src={imageUrl} alt="Judging asset" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', boxShadow: '0 20px 50px rgba(0,0,0,0.9)' }} />
                             </div>
                           );
                         })()}
 
                         <div style={{ background: '#0f172a', padding: '20px 40px', borderTop: '1px solid #1e293b', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '30px', flexWrap: 'wrap', flexShrink: 0 }}>
                           <div style={{ flex: '1', minWidth: '220px' }}>
-                            <div style={{ fontSize: '1.3rem', color: '#f8fafc', fontWeight: '900', marginBottom: '6px' }}>{props.unvotedEntries[0].title || 'Névtelen pályamű'}</div>
+                            <div style={{ fontSize: '1.3rem', color: '#f8fafc', fontWeight: '900', marginBottom: '6px' }}>{props.unvotedEntries[0].title || t('judgingConsoleAnonymous')}</div>
                             <span style={{ background: '#38bdf815', color: '#38bdf8', padding: '4px 12px', borderRadius: '100px', fontSize: '0.85rem', fontWeight: 'bold', border: '1px solid #38bdf830' }}>📂 {props.unvotedEntries[0].category}</span>
                           </div>
 
@@ -652,25 +647,25 @@ export default function ContestsView(props: ContestsViewProps) {
                           </div>
 
                           <div style={{ flex: '1', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '15px', minWidth: '220px' }}>
-                            <input type="number" min="0" max="100" placeholder="Pont" value={props.currentScore} onChange={e => props.setCurrentScore(e.target.value ? Number(e.target.value) : '')} onKeyDown={e => { if(e.key === 'Enter' && props.currentScore !== '' && !isSubmittingVote) { setIsSubmittingVote(true); props.submitVote(); } }} style={{ width: '100px', fontSize: '2.2rem', padding: '8px', textAlign: 'center', background: '#1e293b', border: '2px solid #f59e0b', color: '#f59e0b', borderRadius: '12px', fontWeight: '900', outline: 'none' }} />
-                            <button onClick={() => { setIsSubmittingVote(true); props.submitVote(); }} disabled={props.currentScore === '' || isSubmittingVote} style={{ background: props.currentScore === '' || isSubmittingVote ? '#334155' : 'linear-gradient(135deg, #10b981, #059669)', color: props.currentScore === '' || isSubmittingVote ? '#64748b' : 'white', border: 'none', padding: '16px 32px', borderRadius: '12px', fontSize: '1.2rem', fontWeight: 'bold', cursor: props.currentScore === '' || isSubmittingVote ? 'not-allowed' : 'pointer', transition: 'all 0.2s' }}>{isSubmittingVote ? '...' : 'Mentés'}</button>
+                            <input type="number" min="0" max="100" placeholder={t('judgingConsoleScorePlaceholder')} value={props.currentScore} onChange={e => props.setCurrentScore(e.target.value ? Number(e.target.value) : '')} onKeyDown={e => { if(e.key === 'Enter' && props.currentScore !== '' && !isSubmittingVote) { setIsSubmittingVote(true); props.submitVote(); } }} style={{ width: '100px', fontSize: '2.2rem', padding: '8px', textAlign: 'center', background: '#1e293b', border: '2px solid #f59e0b', color: '#f59e0b', borderRadius: '12px', fontWeight: '900', outline: 'none' }} />
+                            <button onClick={() => { setIsSubmittingVote(true); props.submitVote(); }} disabled={props.currentScore === '' || isSubmittingVote} style={{ background: props.currentScore === '' || isSubmittingVote ? '#334155' : 'linear-gradient(135deg, #10b981, #059669)', color: props.currentScore === '' || isSubmittingVote ? '#64748b' : 'white', border: 'none', padding: '16px 32px', borderRadius: '12px', fontSize: '1.2rem', fontWeight: 'bold', cursor: props.currentScore === '' || isSubmittingVote ? 'not-allowed' : 'pointer', transition: 'all 0.2s' }}>{isSubmittingVote ? '...' : t('contSave')}</button>
                           </div>
                         </div>
                       </div>
                     ) : (
                       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', background: '#0f172a' }}>
                         <div style={{ fontSize: '5rem', marginBottom: '20px' }}>🎉</div>
-                        <h2 style={{ color: '#10b981', fontSize: '2rem', margin: '0 0 10px 0' }}>Minden fotót lepontoztál!</h2>
-                        <p style={{ color: '#94a3b8', marginBottom: '25px' }}>A pontjaid rögzítésre kerültek, köszönjük az értékes munkád.</p>
-                        <button onClick={() => props.setJudgingContestId(null)} style={{ background: '#38bdf8', color: '#0f172a', border: 'none', padding: '12px 25px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>Vissza a listához</button>
+                        <h2 style={{ color: '#10b981', fontSize: '2rem', margin: '0 0 10px 0' }}>{t('judgingConsoleScoredAllTitle')}</h2>
+                        <p style={{ color: '#94a3b8', marginBottom: '25px' }}>{t('judgingConsoleScoredAllDesc')}</p>
+                        <button onClick={() => props.setJudgingContestId(null)} style={{ background: '#38bdf8', color: '#0f172a', border: 'none', padding: '12px 25px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>{t('judgingConsoleBackBtn')}</button>
                       </div>
                     )}
                   </div>
                 ) : props.viewResultsContestId === contest.id ? (
                   <div style={{ background: '#0f172a', padding: '25px', borderRadius: '16px', border: '1px solid #10b98140' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #334155', paddingBottom: '15px', marginBottom: '20px' }}>
-                      <h3 style={{ margin: '0', color: '#10b981', fontSize: '1.3rem' }}>🏆 Hivatalos Végeredmény Hirdetés</h3>
-                      <button onClick={() => props.setViewResultsContestId(null)} style={{ background: '#1e293b', color: '#94a3b8', border: 'none', padding: '6px 16px', borderRadius: '8px', cursor: 'pointer' }}>Bezárás</button>
+                      <h3 style={{ margin: '0', color: '#10b981', fontSize: '1.3rem' }}>{t('resultsTitle')}</h3>
+                      <button onClick={() => props.setViewResultsContestId(null)} style={{ background: '#1e293b', color: '#94a3b8', border: 'none', padding: '6px 16px', borderRadius: '8px', cursor: 'pointer' }}>{t('juryProgressClose')}</button>
                     </div>
                     
                     {(() => {
@@ -687,7 +682,7 @@ export default function ContestsView(props: ContestsViewProps) {
 
                         return (
                           <div key={cat} style={{ marginBottom: '30px' }}>
-                            <h4 style={{ color: '#38bdf8', borderBottom: '2px solid #38bdf840', display: 'inline-block', paddingBottom: '4px', marginBottom: '15px', fontSize: '1.1rem' }}>📂 {cat} szekció</h4>
+                            <h4 style={{ color: '#38bdf8', borderBottom: '2px solid #38bdf840', display: 'inline-block', paddingBottom: '4px', marginBottom: '15px', fontSize: '1.1rem' }}>📂 {cat}{t('resultsSectionUnit')}</h4>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                               {catResults.map((res, index) => {
                                 const awardName = awardsArr[index]; 
@@ -701,24 +696,24 @@ export default function ContestsView(props: ContestsViewProps) {
                                 return (
                                   <div key={res.id} style={{ display: 'flex', alignItems: 'center', background: '#1e293b', padding: '12px', borderRadius: '12px', border: awardName ? `1px solid ${awardBorder}` : isAcceptance ? '1px solid #10b98130' : '1px solid transparent', gap: '15px' }}>
                                     <div style={{ fontSize: '1.3rem', fontWeight: '900', width: '35px', color: awardColor }}>#{index + 1}</div>
-                                    <img src={getImageUrl(res.drive_file_id, res.file_url)} alt="Fotó" style={{ width: '55px', height: '55px', objectFit: 'cover', borderRadius: '6px', cursor: 'pointer', background: '#0f172a' }} onClick={() => props.setFullscreenData({url: getImageUrl(res.drive_file_id, res.file_url), title: res.title})} />
+                                    <img src={getImageUrl(res.drive_file_id, res.file_url)} alt="Artwork" style={{ width: '55px', height: '55px', objectFit: 'cover', borderRadius: '6px', cursor: 'pointer', background: '#0f172a' }} onClick={() => props.setFullscreenData({url: getImageUrl(res.drive_file_id, res.file_url), title: res.title})} />
                                     <div style={{ flex: 1 }}>
                                       <div style={{ fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', fontSize: '1rem' }}>
                                         {res.title}
                                         {awardName && <span style={{ background: awardBg, color: awardColor, padding: '2px 8px', borderRadius: '6px', fontSize: '0.75rem', border: `1px solid ${awardBorder}`, fontWeight: 'bold' }}>{awardIcon} {awardName}</span>}
-                                        {isAcceptance && <span style={{ background: '#10b98115', color: '#10b981', padding: '2px 8px', borderRadius: '6px', fontSize: '0.75rem', border: '1px solid #10b98130', fontWeight: 'bold' }}>✓ Elfogadva</span>}
+                                        {isAcceptance && <span style={{ background: '#10b98115', color: '#10b981', padding: '2px 8px', borderRadius: '6px', fontSize: '0.75rem', border: '1px solid #10b98130', fontWeight: 'bold' }}>{t('resultsAccepted')}</span>}
                                       </div>
-                                      <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px' }}>Fotós: {res.user_name}</div>
+                                      <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px' }}>{lang === 'en' ? 'Photographer' : 'Fotós'}: {res.user_name}</div>
                                       
                                       {props.user.email === res.user_email && (awardName || isAcceptance) && (
                                         <button onClick={() => generateCertificate(contest, res, awardName || '', isAcceptance, contestJury)} disabled={generatingCertId === res.id} style={{ marginTop: '8px', background: 'transparent', color: '#f59e0b', border: '1px solid #f59e0b50', padding: '4px 12px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 'bold', cursor: 'pointer' }}>
-                                          {generatingCertId === res.id ? '⏳ Oklevél összeállítása...' : '📜 Hivatalos Oklevél Letöltése (PDF)'}
+                                          {generatingCertId === res.id ? t('resultsCertCompiling') : t('resultsCertDownloadBtn')}
                                         </button>
                                       )}
                                     </div>
                                     <div style={{ textAlign: 'right' }}>
-                                      <div style={{ fontSize: '1.2rem', fontWeight: '900', color: '#10b981' }}>{res.total_score} pont</div>
-                                      <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{res.vote_count} bírálat</div>
+                                      <div style={{ fontSize: '1.2rem', fontWeight: '900', color: '#10b981' }}>{res.total_score}{t('trophyPointsUnit')}</div>
+                                      <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{res.vote_count}{t('resultsVotesCount')}</div>
                                     </div>
                                   </div>
                                 )
@@ -738,13 +733,13 @@ export default function ContestsView(props: ContestsViewProps) {
                           <h3 style={{ margin: 0, fontSize: '1.4rem', color: '#f8fafc', fontWeight: 'bold' }}>{contest.title}</h3>
                           <span style={{ background: badgeBg, color: badgeColor, padding: '4px 10px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 'bold', border: `1px solid ${badgeColor}30` }}>{badgeText}</span>
                           {isFeeRequired && (
-                            <span style={{ background: '#f59e0b15', color: '#f59e0b', border: '1px solid #f59e0b40', padding: '4px 10px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 'bold' }}>💎 NEVEZÉSI DÍJ: {entryFee} {contest.fee_currency}</span>
+                            <span style={{ background: '#f59e0b15', color: '#f59e0b', border: '1px solid #f59e0b40', padding: '4px 10px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 'bold' }}>{t('contCardFee')}{entryFee} {contest.fee_currency}</span>
                           )}
                         </div>
                         
                         {sponsorClubObj && (
                           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#0f172a50', padding: '8px 14px', borderRadius: '10px', border: '1px solid #334155', width: 'fit-content', marginTop: '12px' }}>
-                            <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: '600' }}>🛡️ Védnök / Szponzor:</span>
+                            <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: '600' }}>{t('contCardSponsor')}</span>
                             {sponsorClubObj.drive_logo_id && (
                               <img src={getImageUrl(sponsorClubObj.drive_logo_id, sponsorClubObj.logo_url)} alt="Club Logo" style={{ width: '22px', height: '22px', objectFit: 'contain' }} />
                             )}
@@ -758,103 +753,103 @@ export default function ContestsView(props: ContestsViewProps) {
                       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                         {canManageContest && (
                           <>
-                            <button onClick={() => props.loadStats(contest.id)} style={{ background: '#0f172a', border: '1px solid #334155', color: '#cbd5e1', fontSize: '0.8rem', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>📊 Nevezők</button>
+                            <button onClick={() => props.loadStats(contest.id)} style={{ background: '#0f172a', border: '1px solid #334155', color: '#cbd5e1', fontSize: '0.8rem', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>{t('contBtnEntrants')}</button>
                             {contestJury.length > 0 && (
-                              <button onClick={() => props.loadJuryProgress(contest.id)} style={{ background: '#0f172a', border: '1px solid #a78bfa40', color: '#a78bfa', fontSize: '0.8rem', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>📈 Zsűri Állása</button>
+                              <button onClick={() => props.loadJuryProgress(contest.id)} style={{ background: '#0f172a', border: '1px solid #a78bfa40', color: '#a78bfa', fontSize: '0.8rem', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>{t('contBtnJuryProgress')}</button>
                             )}
                             {(props.user.email === ADMIN_EMAIL || props.isLeader) && (
                               <>
-                                <button onClick={() => props.startEdit(contest)} style={{ background: '#0f172a', border: '1px solid #f59e0b40', color: '#f59e0b', fontSize: '0.8rem', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer' }}>Módosítás ✏️</button>
-                                {props.user.email === ADMIN_EMAIL && <button onClick={() => props.setManageJuryContestId(contest.id)} style={{ background: '#0f172a', border: '1px solid #8b5cf640', color: '#8b5cf6', fontSize: '0.8rem', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer' }}>Zsűri ({contestJury.length})</button>}
-                                {props.user.email === ADMIN_EMAIL && <button onClick={() => props.handleDeleteContest(contest.id)} style={{ background: '#ef444415', color: '#ef4444', border: 'none', fontSize: '0.8rem', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Törlés</button>}
+                                <button onClick={() => props.startEdit(contest)} style={{ background: '#0f172a', border: '1px solid #f59e0b40', color: '#f59e0b', fontSize: '0.8rem', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer' }}>{t('contBtnEdit')}</button>
+                                {props.user.email === ADMIN_EMAIL && <button onClick={() => props.setManageJuryContestId(contest.id)} style={{ background: '#0f172a', border: '1px solid #8b5cf640', color: '#8b5cf6', fontSize: '0.8rem', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer' }}>{t('contBtnJury')} ({contestJury.length})</button>}
+                                {props.user.email === ADMIN_EMAIL && <button onClick={() => props.handleDeleteContest(contest.id)} style={{ background: '#ef444415', color: '#ef4444', border: 'none', fontSize: '0.8rem', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>{t('contBtnDelete')}</button>}
                               </>
                             )}
                           </>
                         )}
                         {isEnded && contest.entry_count > 0 && (canManageContest || isJudgingComplete) && (
-                          <button onClick={() => props.loadResults(contest.id)} style={{ background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', color: 'white', fontSize: '0.85rem', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' }}>🏆 Eredményhirdetés</button>
+                          <button onClick={() => props.loadResults(contest.id)} style={{ background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', color: 'white', fontSize: '0.85rem', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' }}>{t('contBtnResults')}</button>
                         )}
                       </div>
                     </div>
 
                     <div style={{ display: 'flex', gap: '20px', fontSize: '0.85rem', color: '#94a3b8', margin: '15px 0', background: '#0f172a', padding: '10px 20px', borderRadius: '10px', border: '1px solid #334155', width: 'fit-content', flexWrap: 'wrap' }}>
-                      <span>📅 Időszak: <b>{start.getFullYear() > 1970 ? `${start.toLocaleDateString()} - ${end.toLocaleDateString()}` : 'Nincs megadva'}</b></span>
-                      <span>📸 Összes kép: <b>{contest.entry_count || 0} db</b></span>
+                      <span>{t('contCardPeriod')}<b>{start.getFullYear() > 1970 ? `${start.toLocaleDateString(lang === 'en' ? 'en-US' : 'hu-HU')} - ${end.toLocaleDateString(lang === 'en' ? 'en-US' : 'hu-HU')}` : t('contNoSponsor')}</b></span>
+                      <span>{t('contCardTotalImages')}<b>{contest.entry_count || 0}{lang === 'en' ? ' pcs' : ' db'}</b></span>
                     </div>
 
                     {contestJury.length > 0 && (
                       <div style={{ fontSize: '0.85rem', color: '#a78bfa', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span>⚖️ <b>Kijelölt Zsűri:</b> {contestJury.map(j => props.allUsers.find(u => u.email === j.user_email)?.name || j.user_email).join(', ')}</span>
+                        <span>{t('contCardJuryList')}<b>{contestJury.map(j => props.allUsers.find(u => u.email === j.user_email)?.name || j.user_email).join(', ')}</b></span>
                       </div>
                     )}
 
                     {isUserJury && (
                       <div style={{ background: 'linear-gradient(90deg, #f59e0b10, transparent)', borderLeft: '4px solid #f59e0b', color: '#f8fafc', padding: '15px', borderRadius: '0 12px 12px 0', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '25px', flexWrap: 'wrap' }}>
                         <div>
-                          <strong style={{ color: '#f59e0b' }}>⚖️ Zsűritagként vagy kijelölve</strong>
+                          <strong style={{ color: '#f59e0b' }}>{t('contJuryBannerTitle')}</strong>
                           <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: '4px' }}>
-                            {isActive ? 'A pontozás a nevezési határidő lejárta után élesedik.' : isEnded ? (isDoneJudging ? '✓ Minden fotót pontoztál, köszönjük!' : 'A nevezés lezárult, a bírálati pult készen áll.') : 'A pályázat még nem indult el.'}
+                            {isActive ? t('contJuryBannerSoon') : isEnded ? (isDoneJudging ? t('contJuryBannerDone') : t('contJuryBannerReady')) : t('contJuryBannerNotStarted')}
                           </div>
                         </div>
                         {isEnded && !isDoneJudging && (
-                          <button onClick={() => props.startJudging(contest.id)} style={{ background: '#f59e0b', color: '#0f172a', border: 'none', padding: '8px 20px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>Értékelési pult megnyitása</button>
+                          <button onClick={() => props.startJudging(contest.id)} style={{ background: '#f59e0b', color: '#0f172a', border: 'none', padding: '8px 20px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>{t('contBtnOpenJudging')}</button>
                         )}
                       </div>
                     )}
 
                     {isActive && !isUserJury && props.activeUploadContest !== contest.id && (
-                      <button onClick={() => { props.setActiveUploadContest(contest.id); props.setUploadCategory(''); }} style={{ background: 'linear-gradient(135deg, #38bdf8, #0284c7)', color: '#0f172a', border: 'none', padding: '10px 20px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem', marginBottom: '15px', transition: 'all 0.2s', boxShadow: '0 4px 15px rgba(56,189,248,0.3)' }}>+ Új Fotó Nevezése</button>
+                      <button onClick={() => { props.setActiveUploadContest(contest.id); props.setUploadCategory(''); }} style={{ background: 'linear-gradient(135deg, #38bdf8, #0284c7)', color: '#0f172a', border: 'none', padding: '10px 20px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem', marginBottom: '15px', transition: 'all 0.2s', boxShadow: '0 4px 15px rgba(56,189,248,0.3)' }}>{t('contBtnNewUpload')}</button>
                     )}
 
                     {props.activeUploadContest === contest.id && (
                       <div style={{ background: '#0f172a', padding: '20px', borderRadius: '16px', marginBottom: '20px', border: '1px solid #334155' }}>
-                        <h4 style={{marginTop: 0, color: '#38bdf8', fontSize: '1.1rem', marginBottom: '15px'}}>Fotómű kiválasztása és feltöltése</h4>
-                        <input placeholder="A mű pontos címe..." value={props.uploadTitle} onChange={e => props.setUploadTitle(e.target.value)} style={inputStyle} disabled={props.isUploading} />
+                        <h4 style={{marginTop: 0, color: '#38bdf8', fontSize: '1.1rem', marginBottom: '15px'}}>{t('contUploadPanelTitle')}</h4>
+                        <input placeholder={t('contUploadTitlePlaceholder')} value={props.uploadTitle} onChange={e => props.setUploadTitle(e.target.value)} style={inputStyle} disabled={props.isUploading} />
                         <select value={props.uploadCategory} onChange={e => props.setUploadCategory(e.target.value)} style={inputStyle} disabled={props.isUploading}>
-                          <option value="">-- Válassz kategóriát --</option>
+                          <option value="">{t('contUploadCatPlaceholder')}</option>
                           {categories.map((cat: string) => { 
                             const count = categoryCounts[cat] || 0; 
-                            return <option key={cat} value={cat} disabled={count >= 4}>{cat} ({count}/4 feltöltve)</option>; 
+                            return <option key={cat} value={cat} disabled={count >= 4}>{cat} ({count}/4{t('contUploadCountSuffix')}</option>; 
                           })}
                         </select>
                         <input type="file" accept="image/jpeg, image/png, image/webp" onChange={props.handleFileSelect} style={{ color: '#94a3b8', marginBottom: '15px', width: '100%' }} disabled={props.isUploading} />
                         {props.uploadPreview && <div style={{marginBottom: '20px', textAlign: 'center'}}><img src={props.uploadPreview} alt="Preview" style={{maxHeight: '260px', borderRadius: '12px', border: '2px solid #334155'}} /></div>}
                         <div style={{display: 'flex', gap: '10px'}}>
-                          <button onClick={() => props.handleUpload(contest.id)} disabled={props.isUploading} style={{ flex: 1, background: props.isUploading ? '#334155' : 'linear-gradient(135deg, #10b981, #059669)', color: 'white', border: 'none', padding: '12px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold' }}>{props.isUploading ? 'Fotó rögzítése a Drive-on...' : 'Feltöltés és Nevezés 🚀'}</button>
-                          <button onClick={() => { props.setActiveUploadContest(null); props.setUploadPreview(null); }} disabled={props.isUploading} style={{ background: 'transparent', color: '#ef4444', border: '1px solid #ef444440', padding: '12px 20px', borderRadius: '10px', cursor: 'pointer' }}>Mégse</button>
+                          <button onClick={() => props.handleUpload(contest.id)} disabled={props.isUploading} style={{ flex: 1, background: props.isUploading ? '#334155' : 'linear-gradient(135deg, #10b981, #059669)', color: 'white', border: 'none', padding: '12px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold' }}>{props.isUploading ? t('contUploadSaving') : t('contUploadSubmitBtn')}</button>
+                          <button onClick={() => { props.setActiveUploadContest(null); props.setUploadPreview(null); }} disabled={props.isUploading} style={{ background: 'transparent', color: '#ef4444', border: '1px solid #ef444440', padding: '12px 20px', borderRadius: '10px', cursor: 'pointer' }}>{t('contCancel')}</button>
                         </div>
                       </div>
                     )}
 
                     {myContestEntries.length > 0 && isFeeRequired && !hasPaid && (
-                      <div style={{ background: 'linear-gradient(90deg, #f59e0b15, transparent)', border: '1px solid #f59e0b40', padding: '20px', borderRadius: '24px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
+                      <div style={{ background: 'linear-gradient(90deg, #f59e0b10, transparent)', border: '1px solid #f59e0b40', padding: '20px', borderRadius: '24px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
                         <div>
-                          <strong style={{ color: '#f59e0b', fontSize: '1.1rem' }}>⚠️ Nevezési díj kiegyenlítése szükséges</strong>
+                          <strong style={{ color: '#f59e0b', fontSize: '1.1rem' }}>{t('contPayBannerTitle')}</strong>
                           <p style={{ color: '#cbd5e1', fontSize: '0.9rem', margin: '5px 0 0 0', lineHeight: '1.5' }}>
-                            Feltöltött fotóid rögzítésre kerültek, de a bírálati szakaszba csak a tranzakció sikeres lezárása után kerülhetnek.<br/>
-                            Fizetendő összeg: <span style={{color: 'white', fontWeight: 'bold'}}>{entryFee} {contest.fee_currency}</span>
+                            {t('contPayBannerDesc')}<br/>
+                            {t('contPayAmount')}<span style={{color: 'white', fontWeight: 'bold'}}>{entryFee} {contest.fee_currency}</span>
                           </p>
                         </div>
-                        <button onClick={() => props.handlePayContestFee(contest.id)} style={{ background: '#f59e0b', color: '#0f172a', border: 'none', padding: '12px 24px', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 12px rgba(245,158,11,0.3)' }}>💳 Biztonságos Fizetés (Stripe)</button>
+                        <button onClick={() => props.handlePayContestFee(contest.id)} style={{ background: '#f59e0b', color: '#0f172a', border: 'none', padding: '12px 24px', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 12px rgba(245,158,11,0.3)' }}>{t('contBtnPayStripe')}</button>
                       </div>
                     )}
 
                     {myContestEntries.length > 0 && isFeeRequired && hasPaid && (
                       <div style={{ background: '#10b98110', border: '1px solid #10b98130', padding: '12px 20px', borderRadius: '10px', marginBottom: '20px', color: '#10b981', fontSize: '0.9rem', fontWeight: 'bold' }}>
-                        ✓ Nevezési díj sikeresen rendezve a Stripe rendszerén keresztül. Fotóid érvényes!
+                        {t('contPaySuccessNotice')}
                       </div>
                     )}
 
                     {/* SAJÁT NEVEZÉSEK GALÉRIA */}
                     {myContestEntries.length > 0 && (
                       <div style={{ marginTop: '25px', borderTop: '1px solid #334155', paddingTop: '25px' }}>
-                        <h4 style={{margin: '0 0 20px 0', fontSize: '1.1rem', color: '#94a3b8', letterSpacing: '0.5px', textTransform: 'uppercase'}}>Saját Nevezett Alkotásaim</h4>
+                        <h4 style={{margin: '0 0 20px 0', fontSize: '1.1rem', color: '#94a3b8', letterSpacing: '0.5px', textTransform: 'uppercase'}}>{t('contMyGalleryTitle')}</h4>
                         {categories.map((cat: string) => {
                           const catEntries = myContestEntries.filter(e => e.category === cat);
                           if (catEntries.length === 0) return null;
                           return (
                             <div key={cat} style={{ marginBottom: '20px' }}>
-                              <h5 style={{ color: '#38bdf8', borderBottom: '1px solid #1e293b', paddingBottom: '6px', marginTop: 0, fontSize: '1rem', fontWeight: 'bold' }}>{cat} szekció <span style={{ color: '#64748b', fontSize: '0.85rem' }}>({catEntries.length}/4)</span></h5>
+                              <h5 style={{ color: '#38bdf8', borderBottom: '1px solid #1e293b', paddingBottom: '6px', marginTop: 0, fontSize: '1rem', fontWeight: 'bold' }}>{cat}{t('contSectionUnit')}<span style={{ color: '#64748b', fontSize: '0.85rem' }}>({catEntries.length}/4)</span></h5>
                               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '20px' }}>
                                 {catEntries.map(entry => {
                                   const imageUrl = getImageUrl(entry.drive_file_id, entry.file_url);
@@ -866,8 +861,8 @@ export default function ContestsView(props: ContestsViewProps) {
                                         <div style={{ padding: '10px' }}>
                                           <input value={props.editEntryTitle} onChange={e => props.setEditEntryTitle(e.target.value)} style={{ width: '100%', padding: '6px', marginBottom: '8px', backgroundColor: '#1e293b', border: '1px solid #38bdf8', color: 'white', borderRadius: '6px', fontSize: '0.85rem' }} />
                                           <div style={{ display: 'flex', gap: '4px' }}>
-                                            <button onClick={() => props.handleUpdateEntryTitle(entry.id)} style={{ flex: 1, background: '#10b981', color: 'white', border: 'none', padding: '6px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold', cursor: 'pointer' }}>Mentés</button>
-                                            <button onClick={() => props.setEditingEntryId(null)} style={{ background: 'transparent', color: '#ef4444', border: '1px solid #ef444430', padding: '6px', borderRadius: '4px', fontSize: '0.75rem', cursor: 'pointer' }}>Mégse</button>
+                                            <button onClick={() => props.handleUpdateEntryTitle(entry.id)} style={{ flex: 1, background: '#10b981', color: 'white', border: 'none', padding: '6px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold', cursor: 'pointer' }}>{t('contSave')}</button>
+                                            <button onClick={() => props.setEditingEntryId(null)} style={{ background: 'transparent', color: '#ef4444', border: '1px solid #ef444430', padding: '6px', borderRadius: '4px', fontSize: '0.75rem', cursor: 'pointer' }}>{t('contCancel')}</button>
                                           </div>
                                         </div>
                                       ) : (
@@ -875,7 +870,7 @@ export default function ContestsView(props: ContestsViewProps) {
                                           <div style={{ fontSize: '0.9rem', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#cbd5e1' }}>{entry.title}</div>
                                           {!isEnded && (
                                             <div style={{ display: 'flex', gap: '6px', marginTop: '10px' }}>
-                                              <button onClick={() => { props.setEditingEntryId(entry.id); props.setEditEntryTitle(entry.title); }} style={{ flex: 1, background: '#1e293b', color: '#38bdf8', border: '1px solid #38bdf830', padding: '5px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>Cím ✏️</button>
+                                              <button onClick={() => { props.setEditingEntryId(entry.id); props.setEditEntryTitle(entry.title); }} style={{ flex: 1, background: '#1e293b', color: '#38bdf8', border: '1px solid #38bdf830', padding: '5px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>{t('contBagdeEditTitle') || t('contBtnEditTitle')}</button>
                                               <button onClick={() => props.handleDeleteEntry(entry.id)} style={{ background: '#ef444415', color: '#ef4444', border: 'none', padding: '5px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' }}>✕</button>
                                             </div>
                                           )}
