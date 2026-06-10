@@ -62,10 +62,20 @@ export default function ArenaActiveRoom({
         {/* TÉMA INFÓ */}
         <div style={{ background: 'linear-gradient(135deg, #1e293b, #0f172a)', padding: '30px', borderRadius: '24px', border: '1px solid #334155', display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: '0 10px 30px rgba(0,0,0,0.5)', position: 'relative', overflow: 'hidden' }}>
           <div style={{ position: 'absolute', top: '-20px', right: '-20px', fontSize: '8rem', opacity: 0.05 }}>🔥</div>
-          <h3 style={{ margin: '0 0 10px 0', color: '#f8fafc', fontSize: '1.8rem', textAlign: 'center', zIndex: 1 }}>{topic?.title || 'Kihívás szoba'}</h3>
+          
+          {/* 👑 JAVÍTVA: A cím mellé flex elrendezéssel bekerült az aktuális Képmester jelvénye */}
+          <h3 style={{ margin: '0 0 10px 0', color: '#f8fafc', fontSize: '1.8rem', textAlign: 'center', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', flexWrap: 'wrap' }}>
+            <span>{topic?.title || 'Kihívás szoba'}</span>
+            {(topic?.master_name || topic?.master_email) && (
+              <span style={{ fontSize: '0.85rem', color: '#a78bfa', background: '#a78bfa15', padding: '5px 14px', borderRadius: '10px', border: '1px solid #a78bfa30', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                👑 Képmester: {topic.master_name || topic.master_email}
+              </span>
+            )}
+          </h3>
+          
           <p style={{ margin: '0 0 20px 0', color: '#cbd5e1', fontSize: '0.95rem', textAlign: 'center', zIndex: 1, lineHeight: '1.6' }}>{topic?.description || ''}</p>
           
-          {/* 🏆 🔥 ÚJ: DINAMIKUS CSATATÉR FŐDÍJ BANNER */}
+          {/* 🏆 🔥 DINAMIKUS CSATATÉR FŐDÍJ BANNER */}
           <div style={{ width: '100%', background: 'linear-gradient(135deg, rgba(251, 191, 36, 0.1), rgba(16, 185, 129, 0.05))', border: '1px solid rgba(251, 191, 36, 0.3)', padding: '12px 20px', borderRadius: '14px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'center', zIndex: 1, boxShadow: '0 4px 15px rgba(0,0,0,0.2)' }}>
             <span style={{ fontSize: '1.3rem' }}>🏆</span>
             <div style={{ textAlign: 'center', fontSize: '0.9rem', lineHeight: '1.4' }}>
@@ -346,7 +356,7 @@ export default function ArenaActiveRoom({
                       <div style={{ color: isMe ? '#f97316' : '#94a3b8', fontWeight: '900', fontSize: '1.5rem' }}>{entry?.likes_count || 0} ⭐</div>
                     </div>
                   </div>
-                )
+                );
               }).slice(0, 15)}
             </div>
           )}
