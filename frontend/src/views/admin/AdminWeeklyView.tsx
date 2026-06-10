@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { BACKEND_URL } from '../../utils/constants';
 
-// 👑 KÉPKEZELŐ BIZTONSÁGI MENTÉS (Ha a borítókép nem található)
+// 🎯 ÚJ IMPORT: Behozzuk a nyelvi kontextust
+import { useLanguage } from '../../context/LanguageContext';
+
 const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-  e.currentTarget.src = 'https://via.placeholder.com/400x300/1e293b/64748b?text=Kép+nem+található';
+  e.currentTarget.src = 'https://via.placeholder.com/400x300/1e293b/64748b?text=Image+not+found';
 };
 
-// ⚡ BÖNGÉSZŐS KÉPTÖMÖRÍTŐ MOTOR (Max 1920px, 80% minőség - Admin védelmi vonal)
 const compressImageOnClient = (file: File): Promise<File> => {
   return new Promise((resolve) => {
     const reader = new FileReader();
@@ -49,18 +50,22 @@ const compressImageOnClient = (file: File): Promise<File> => {
 
 const formatDateTimeLocal = (dateStr: string) => {
   if (!dateStr) return '';
-  // 🎯 TISZTA SZÖVEGES MEGOLDÁS: Teljesen kikapcsoljuk az időzóna-értelmezést
-  // Ha szóköz van benne, lecseréljük 'T'-re, és levágjuk az első 16 karaktert (ÉÉÉÉ-HH-NNTHH:MM)
-  // Így a "2026-06-09 19:00:00" vagy "2026-06-09T19:00:00.000Z" -> fixen "2026-06-09T19:00" lesz.
   return dateStr.replace(' ', 'T').slice(0, 16);
 };
 
 export default function AdminWeeklyView() {
+  // 🎯 ÚJ: Aktiváljuk a fordítót (t)
+  const { t } = useLanguage();
+
   const [topics, setTopics] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]); 
   const [editId, setEditId] = useState<number | null>(null);
+  
   const [title, setTitle] = useState('');
+  const [titleEn, setTitleEn] = useState(''); // 🎯 ÚJ STATE
   const [desc, setDesc] = useState('');
+  const [descEn, setDescEn] = useState(''); // 🎯 ÚJ STATE
+  
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [masterEmail, setMasterEmail] = useState(''); 
@@ -105,7 +110,6 @@ export default function AdminWeeklyView() {
     } catch (e) { alert("Hálózati hiba!"); }
   };
 
-  // 🟢 ÚJ: Gyanús IP-ről érkező nevezés elfogadása (Fehérlistázás frontend kezelője)
   const handleApproveIp = async (topicId: number, userEmail: string, userName: string) => {
     if (!window.confirm(`✅ Biztosan elfogadod ${userName} (${userEmail}) nevezését legitimként ezen az IP-címen?`)) return;
     try {
@@ -123,7 +127,6 @@ export default function AdminWeeklyView() {
     } catch (e) { alert("Hálózati hiba!"); }
   };
 
-  // 🛡️ JAVÍTVA: Új funkció a beérkező játékosi csatatervek elbírálásához
   const handleProposalDecision = async (topicId: number, decision: 'approved' | 'rejected') => {
     const actionText = decision === 'approved' ? 'ELFOGADOD és harcrendbe állítod' : 'ELUTASÍTOD';
     if (!window.confirm(`⚔️ Biztosan ${actionText} ezt a beküldött haditervet?`)) return;
@@ -152,7 +155,9 @@ export default function AdminWeeklyView() {
   const clearForm = () => {
     setEditId(null);
     setTitle('');
+    setTitleEn(''); // 🎯 ÚJ
     setDesc('');
+    setDescEn(''); // 🎯 ÚJ
     setStartDate('');
     setEndDate('');
     setMasterEmail(''); 
@@ -169,15 +174,17 @@ export default function AdminWeeklyView() {
     if (fileInput) fileInput.value = '';
   };
 
-  const startEdit = (t: any) => {
-    setEditId(t.id);
-    setTitle(t.title);
-    setDesc(t.description || '');
-    setStartDate(t.start_date ? formatDateTimeLocal(t.start_date) : '');
-    setEndDate(t.end_date ? formatDateTimeLocal(t.end_date) : '');
-    setMasterEmail(t.master_email || ''); 
-    setCoverUrl(t.cover_url || '');
-    setCoverAuthor(t.cover_author || '');
+  const startEdit = (tData: any) => {
+    setEditId(tData.id);
+    setTitle(tData.title);
+    setTitleEn(tData.title_en || ''); // 🎯 ÚJ
+    setDesc(tData.description || '');
+    setDescEn(tData.description_en || ''); // 🎯 ÚJ
+    setStartDate(tData.start_date ? formatDateTimeLocal(tData.start_date) : '');
+    setEndDate(tData.end_date ? formatDateTimeLocal(tData.end_date) : '');
+    setMasterEmail(tData.master_email || ''); 
+    setCoverUrl(tData.cover_url || '');
+    setCoverAuthor(tData.cover_author || '');
     
     if (previewUrl) {
       URL.revokeObjectURL(previewUrl);
@@ -194,7 +201,9 @@ export default function AdminWeeklyView() {
       
       const formData = new FormData();
       formData.append('title', title);
+      formData.append('title_en', titleEn); // 🎯 ÚJ: Továbbítjuk a backendnek
       formData.append('description', desc);
+      formData.append('description_en', descEn); // 🎯 ÚJ: Továbbítjuk a backendnek
       formData.append('startDate', startDate);
       formData.append('endDate', endDate);
       formData.append('masterEmail', masterEmail);
@@ -225,19 +234,18 @@ export default function AdminWeeklyView() {
     } catch (e) { alert("Hiba!"); }
   };
 
-  // 🛡️ JAVÍTVA: Most már figyeli a status mezőt is, így nem keveri össze a javaslatokat a beütemezett csatákkal!
- const getTopicStatus = (statusStr: string, sDateStr: string, eDateStr: string) => {
-  if (statusStr === 'pending') return { label: 'BÍRÁLATRA VÁR ⏳', color: '#eab308', bg: '#eab30810' };
-  if (statusStr === 'rejected') return { label: 'ELUTASÍTVA ❌', color: '#ef4444', bg: '#ef444410' };
+  const getTopicStatus = (statusStr: string, sDateStr: string, eDateStr: string) => {
+    if (statusStr === 'pending') return { label: 'BÍRÁLATRA VÁR ⏳', color: '#eab308', bg: '#eab30810' };
+    if (statusStr === 'rejected') return { label: 'ELUTASÍTVA ❌', color: '#ef4444', bg: '#ef444410' };
 
-  const today = new Date();
-  const start = new Date(sDateStr);
-  const end = new Date(eDateStr);
-  
-  if (today > end) return { label: 'LEZÁRULT 📜', color: '#94a3b8', bg: 'transparent' };
-  if (today < start) return { label: 'BEÜTEMEZETT 📅', color: '#38bdf8', bg: '#38bdf810' };
-  return { label: 'ÉLŐ CSATA ⚔️', color: '#10b981', bg: '#10b98110' };
-};
+    const today = new Date();
+    const start = new Date(sDateStr);
+    const end = new Date(eDateStr);
+    
+    if (today > end) return { label: 'LEZÁRULT 📜', color: '#94a3b8', bg: 'transparent' };
+    if (today < start) return { label: 'BEÜTEMEZETT 📅', color: '#38bdf8', bg: '#38bdf810' };
+    return { label: 'ÉLŐ CSATA ⚔️', color: '#10b981', bg: '#10b98110' };
+  };
 
   return (
     <div>
@@ -272,7 +280,6 @@ export default function AdminWeeklyView() {
                       <div key={sIdx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#1e293b', padding: '6px 12px', borderRadius: '6px' }}>
                         <span style={{ color: '#cbd5e1', fontSize: '0.85rem' }}>• {suspect}</span>
                         
-                        {/* 🛠️ JAVÍTVA: Elfogadó és Törlő gombok dizájnos konténere egymás mellett */}
                         <div style={{ display: 'flex', gap: '8px' }}>
                           <button 
                             onClick={() => handleApproveIp(act.topic_id, emailPart, namePart)} 
@@ -305,8 +312,15 @@ export default function AdminWeeklyView() {
           {editId && <button onClick={clearForm} style={{ background: 'transparent', color: '#ef4444', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>Mégse</button>}
         </div>
 
-        <input placeholder="A csata témája (pl. Tavaszi Fények)" value={title} onChange={e => setTitle(e.target.value)} style={inputStyle} />
-        <textarea placeholder="Hadparancs (Útmutató és leírás a fotósoknak...)" value={desc} onChange={e => setDesc(e.target.value)} style={{...inputStyle, minHeight: '80px'}} />
+        <input placeholder="A csata témája magyarul (pl. Tavaszi Fények)" value={title} onChange={e => setTitle(e.target.value)} style={inputStyle} />
+        
+        {/* 🎯 ÚJ MEZŐ: ANGOL CSATATÉMA */}
+        <input placeholder={t('adminPlaceholderTitleEn')} value={titleEn} onChange={e => setTitleEn(e.target.value)} style={{ ...inputStyle, border: '1px solid #38bdf860' }} />
+        
+        <textarea placeholder="Hadparancs magyarul (Útmutató és leírás a fotósoknak...)" value={desc} onChange={e => setDesc(e.target.value)} style={{...inputStyle, minHeight: '80px'}} />
+        
+        {/* 🎯 ÚJ MEZŐ: ANGOL HADPARANCS */}
+        <textarea placeholder={t('adminPlaceholderDescEn')} value={descEn} onChange={e => setDescEn(e.target.value)} style={{...inputStyle, minHeight: '80px', border: '1px solid #38bdf860'}} />
         
         <div style={{ marginBottom: '15px' }}>
           <label style={{ fontSize: '0.8rem', color: '#94a3b8', display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>⚖️ Kijelölt Csatabíró (Extra pontokat osztó főbíró)</label>
@@ -360,16 +374,16 @@ export default function AdminWeeklyView() {
           )}
         </div>
 
-       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginBottom: '15px' }}>
-  <div>
-    <label style={{fontSize:'0.8rem', color:'#94a3b8', fontWeight: 'bold'}}>Hadművelet Kezdete (Óra/Perc is)</label>
-    <input type="datetime-local" value={startDate} onChange={e => setStartDate(e.target.value)} style={inputStyle} />
-  </div>
-  <div>
-    <label style={{fontSize:'0.8rem', color:'#94a3b8', fontWeight: 'bold'}}>Hadművelet Vége (Óra/Perc is)</label>
-    <input type="datetime-local" value={endDate} onChange={e => setEndDate(e.target.value)} style={inputStyle} />
-  </div>
-</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginBottom: '15px' }}>
+          <div>
+            <label style={{fontSize:'0.8rem', color:'#94a3b8', fontWeight: 'bold'}}>Hadművelet Kezdete (Óra/Perc is)</label>
+            <input type="datetime-local" value={startDate} onChange={e => setStartDate(e.target.value)} style={inputStyle} />
+          </div>
+          <div>
+            <label style={{fontSize:'0.8rem', color:'#94a3b8', fontWeight: 'bold'}}>Hadművelet Vége (Óra/Perc is)</label>
+            <input type="datetime-local" value={endDate} onChange={e => setEndDate(e.target.value)} style={inputStyle} />
+          </div>
+        </div>
         <button onClick={handleSave} style={{ background: '#10b981', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', width: '100%', fontSize: '1rem' }}>
           {editId ? 'Változtatások Mentése és Élesítés' : 'Csataterv Mentése'}
         </button>
@@ -378,88 +392,97 @@ export default function AdminWeeklyView() {
       {/* TÉMÁK LISTÁJA */}
       <h3 style={{ color: '#f8fafc', marginBottom: '15px', fontSize: '1.3rem', fontWeight: 'bold' }}>📜 Csatatervek</h3>
       <div style={{ background: '#1e293b', borderRadius: '12px', overflow: 'hidden', border: '1px solid #334155' }}>
-        {topics.map((t, i) => {
-          const status = getTopicStatus(t.status, t.start_date, t.end_date);
-          const isPending = t.status === 'pending';
+        {topics.map((tData, i) => {
+          const status = getTopicStatus(tData.status, tData.start_date, tData.end_date);
+          const isPending = tData.status === 'pending';
           
           return (
-            <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px', borderBottom: i < topics.length - 1 ? '1px solid #334155' : 'none', background: status.bg, flexWrap: 'wrap', gap: '15px' }}>
+            <div key={tData.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px', borderBottom: i < topics.length - 1 ? '1px solid #334155' : 'none', background: status.bg, flexWrap: 'wrap', gap: '15px' }}>
               
               <div style={{ width: '70px', height: '45px', backgroundColor: '#0f172a', borderRadius: '6px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #334155', flexShrink: 0 }}>
-                {t.cover_url ? (
-                  <img src={t.cover_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={handleImageError} />
+                {tData.cover_url ? (
+                  <img src={tData.cover_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={handleImageError} />
                 ) : (
                   <span style={{ fontSize: '1.2rem', opacity: 0.4 }}>🖼️</span>
                 )}
               </div>
 
               <div style={{ flex: 1, marginLeft: '10px' }}>
-                <div style={{ fontWeight: 'bold', color: '#f8fafc', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  {t.title} 
-                  <span style={{ background: status.color, color: status.color === '#eab308' ? '#0f172a' : '#fff', fontSize: '0.7rem', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold' }}>
-                    {status.label}
-                  </span>
-                </div>
-                  <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: '5px' }}>
-                    {/* 🕒 JAVÍTVA: timeZone: 'UTC' hozzáadva mindkét oldalhoz, így nincs több +2 órás elcsúszás */}
-                    {new Date(t.start_date).toLocaleString('hu-HU', { dateStyle: 'short', timeStyle: 'short', timeZone: 'UTC' })} - {new Date(t.end_date).toLocaleString('hu-HU', { dateStyle: 'short', timeStyle: 'short', timeZone: 'UTC' })}
-                    {t.cover_author && <span style={{color: '#38bdf8'}}> • 📸 {t.cover_author}</span>}
-                    {t.proposed_by && <span style={{color: '#f59e0b', fontWeight: 'bold'}}> • 📜 Beküldte: {t.proposed_by}</span>}
+                <div style={{ fontWeight: 'bold', color: '#f8fafc', fontSize: '1.1rem', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    {tData.title} 
+                    <span style={{ background: status.color, color: status.color === '#eab308' ? '#0f172a' : '#fff', fontSize: '0.7rem', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold' }}>
+                      {status.label}
+                    </span>
                   </div>
-                {t.master_email && (
+                  {/* 🎯 ÚJ: Ha van angol cím, halványan megmutatjuk az adminnak az ellenőrzés végett */}
+                  {tData.title_en && (
+                    <span style={{ fontSize: '0.85rem', color: '#38bdf8', fontWeight: 'normal' }}>
+                      🇬🇧 {tData.title_en}
+                    </span>
+                  )}
+                </div>
+                <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: '5px' }}>
+                  {new Date(tData.start_date).toLocaleString('hu-HU', { dateStyle: 'short', timeStyle: 'short', timeZone: 'UTC' })} - {new Date(tData.end_date).toLocaleString('hu-HU', { dateStyle: 'short', timeStyle: 'short', timeZone: 'UTC' })}
+                  {tData.cover_author && <span style={{color: '#38bdf8'}}> • 📸 {tData.cover_author}</span>}
+                  {tData.proposed_by && <span style={{color: '#f59e0b', fontWeight: 'bold'}}> • 📜 Beküldte: {tData.proposed_by}</span>}
+                </div>
+                {tData.master_email && (
                   <div style={{ fontSize: '0.8rem', color: '#a78bfa', marginTop: '4px', fontWeight: 'bold' }}>
-                    👑 Csatabíró: {t.master_email}
+                    👑 Csatabíró: {tData.master_email}
                   </div>
                 )}
               </div>
-{/* 👑 CSATABÍRÓI JELENTKEZÉS BÍRÁLATA AZ ADMINON */}
-{t.pending_master_email && (
-  <div style={{ background: '#eab30810', padding: '12px 18px', borderRadius: '10px', border: '1px solid #eab30840', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', width: '100%', boxSizing: 'border-box' }}>
-    <span style={{ color: '#f59e0b', fontSize: '0.9rem', fontWeight: 'bold' }}>
-      👑 Csatabíró aspiráns: <strong style={{color: '#fff'}}>{t.pending_master_email}</strong>
-    </span>
-    <div style={{ display: 'flex', gap: '10px' }}>
-      <button 
-        onClick={async () => {
-          if(!window.confirm(`Biztosan kinevezed őt Csatabírónak: ${t.pending_master_email}?`)) return;
-          const res = await fetch(`${BACKEND_URL}/api/admin/decide-master`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ topicId: t.id, decision: 'approved' })});
-          if(res.ok) { alert("✓ Csatabíró sikeresen kinevezve!"); window.location.reload(); }
-        }} 
-        style={{ background: '#10b981', color: '#0f172a', border: 'none', padding: '5px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem' }}
-      >
-        Elfogad
-      </button>
-      <button 
-        onClick={async () => {
-          if(!window.confirm("Elutasítod a jelentkezést?")) return;
-          const res = await fetch(`${BACKEND_URL}/api/admin/decide-master`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ topicId: t.id, decision: 'rejected' })});
-          if(res.ok) { alert("✕ Jelentkezés elutasítva."); window.location.reload(); }
-        }} 
-        style={{ background: '#ef444420', color: '#ef4444', border: '1px solid #ef444450', padding: '5px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem' }}
-      >
-        Elutasít
-      </button>
-    </div>
-  </div>
-)}
+
+              {/* CSATABÍRÓI JELENTKEZÉS BÍRÁLATA AZ ADMINON */}
+              {tData.pending_master_email && (
+                <div style={{ background: '#eab30810', padding: '12px 18px', borderRadius: '10px', border: '1px solid #eab30840', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', width: '100%', boxSizing: 'border-box' }}>
+                  <span style={{ color: '#f59e0b', fontSize: '0.9rem', fontWeight: 'bold' }}>
+                    👑 Csatabíró aspiráns: <strong style={{color: '#fff'}}>{tData.pending_master_email}</strong>
+                  </span>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <button 
+                      onClick={async () => {
+                        if(!window.confirm(`Biztosan kinevezed őt Csatabírónak: ${tData.pending_master_email}?`)) return;
+                        const res = await fetch(`${BACKEND_URL}/api/admin/decide-master`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ topicId: tData.id, decision: 'approved' })});
+                        if(res.ok) { alert("✓ Csatabíró sikeresen kinevezve!"); fetchTopics(); }
+                      }} 
+                      style={{ background: '#10b981', color: '#0f172a', border: 'none', padding: '5px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem' }}
+                    >
+                      Elfogad
+                    </button>
+                    <button 
+                      onClick={async () => {
+                        if(!window.confirm("Elutasítod a jelentkezést?")) return;
+                        const res = await fetch(`${BACKEND_URL}/api/admin/decide-master`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ topicId: tData.id, decision: 'rejected' })});
+                        if(res.ok) { alert("✕ Jelentkezés elutasítva."); fetchTopics(); }
+                      }} 
+                      style={{ background: '#ef444420', color: '#ef4444', border: '1px solid #ef444450', padding: '5px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem' }}
+                    >
+                      Elutasít
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* AKCIÓGOMBOK */}
               <div style={{ display: 'flex', gap: '8px' }}>
                 {isPending ? (
                   <>
                     <button 
-                      onClick={() => startEdit(t)} 
+                      onClick={() => startEdit(tData)} 
                       style={{ background: 'transparent', color: '#f59e0b', border: '1px solid #f59e0b', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
                     >
                       Szerkeszt
                     </button>
                     <button 
-                      onClick={() => handleProposalDecision(t.id, 'approved')} 
+                      onClick={() => handleProposalDecision(tData.id, 'approved')} 
                       style={{ background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', border: 'none', padding: '8px 14px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}
                     >
                       ✓ Elfogad
                     </button>
                     <button 
-                      onClick={() => handleProposalDecision(t.id, 'rejected')} 
+                      onClick={() => handleProposalDecision(tData.id, 'rejected')} 
                       style={{ background: '#ef444420', color: '#f87171', border: '1px solid #ef444450', padding: '8px 14px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}
                     >
                       ✕ Elutasít
@@ -467,8 +490,8 @@ export default function AdminWeeklyView() {
                   </>
                 ) : (
                   <>
-                    <button onClick={() => startEdit(t)} style={{ background: 'transparent', color: '#f59e0b', border: '1px solid #f59e0b', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Szerkeszt</button>
-                    <button onClick={() => handleDelete(t.id)} style={{ background: '#ef444420', color: '#ef4444', border: 'none', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Töröl</button>
+                    <button onClick={() => startEdit(tData)} style={{ background: 'transparent', color: '#f59e0b', border: '1px solid #f59e0b', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Szerkeszt</button>
+                    <button onClick={() => handleDelete(tData.id)} style={{ background: '#ef444420', color: '#ef4444', border: 'none', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Töröl</button>
                   </>
                 )}
               </div>
