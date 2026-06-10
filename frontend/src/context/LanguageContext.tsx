@@ -237,7 +237,7 @@ const translations = {
     hofEmpty: 'Még egyetlen fotós sem gyűjtött pontot. Legyél te az első!',
     hofTitle: '👑 Globális Fotós Dicsőségfal',
     hofDesc: 'A közösség összesített ranglistája az éles és lezárult arénákban gyűjtött csillagok alapján.',
-    hofYou: 'TE VAGY'.
+    hofYou: 'TE VAGY',
 
     // === HU BLOKK ALJA ===
     archiveTitle: '📜 Befejezett Kihívások',
