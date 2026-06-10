@@ -675,8 +675,8 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { res.status(500).json({ error: 'Hiba a kép lekérésekor' }); }
   });
 
-  // ====================================================================
-  // 🗳️ ULTRA OPTIMALIZÁLT SZAVAZATBEKÜLDŐ VÉGPONT (Hurokmentesített verzió)
+// ====================================================================
+  // 🗳️ ULTRA OPTIMALIZÁLT SZAVAZATBEKÜLDŐ VÉGPONT (Javított, pass-biztos verzió)
   // ====================================================================
   app.post('/api/weekly/vote', async (req, res) => {
     const { entryId, userEmail, voteType } = req.body; 
@@ -698,7 +698,11 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       let calculatedPoints = 0;
 
       // 3. Pontszámítás a szavazat típusa szerint
-      if (voteType === 'master') {
+      if (voteType === 'pass') {
+        // 🎯 JAVÍTVA: Ha nem tetszik / kihagyás van, a kép 0 pontot kap, de a megtekintés számlálója nőni fog
+        calculatedPoints = 0;
+      } 
+      else if (voteType === 'master') {
         // Csatabíró jogosultság ellenőrzése
         const [topicRows] = await conn.query('SELECT master_email FROM weekly_topics WHERE id = ?', [topicId]);
         if (!topicRows[0] || topicRows[0].master_email !== userEmail) {
@@ -732,10 +736,12 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       await conn.query('INSERT INTO weekly_votes (entry_id, voter_email, vote_type) VALUES (?, ?, ?)', [entryId, userEmail, voteType]);
       await conn.query('UPDATE weekly_entries SET views_count = views_count + 1, likes_count = likes_count + ? WHERE id = ?', [calculatedPoints, entryId]);
 
-      // 5. Alkotó szintlépésének ellenőrzése
-      const [entryRows] = await conn.query('SELECT user_email FROM weekly_entries WHERE id = ?', [entryId]);
-      if (entryRows[0]?.user_email) {
-        await checkAndAwardLevelUp(conn, entryRows[0].user_email);
+      // 5. Alkotó szintlépésének ellenőrzése (Csak ha ténylegesen kapott pontot a kép)
+      if (calculatedPoints > 0) {
+        const [entryRows] = await conn.query('SELECT user_email FROM weekly_entries WHERE id = ?', [entryId]);
+        if (entryRows[0]?.user_email) {
+          await checkAndAwardLevelUp(conn, entryRows[0].user_email);
+        }
       }
 
       await conn.commit();
