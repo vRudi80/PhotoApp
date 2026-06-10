@@ -304,7 +304,23 @@ const translations = {
     modalBadgeSwapBack: '↩️ Visszacsere',
     msgUploadConfirm: 'Biztosan ezzel a meglévő képeddel nevezel be a küzdelembe?',
     msgUploadSuccess: '🎉 Sikeres nevezés az albumból!',
-    msgUploadError: 'Hiba a nevezés során.'
+    msgUploadError: 'Hiba a nevezés során.',
+
+    // === HU BLOKK ALJA ===
+    sharePreviewTitle: '📱 Trófeakártya Előnézet',
+    shareCancelBtn: 'Mégse ✕',
+    shareTrophySubtitle: 'FUTAMTRÓFEA',
+    sharePreparingImage: '⏳ Kép előkészítése...',
+    shareImageError: '⚠️ Kép betöltési hiba',
+    sharePhotographer: 'Fotóművész',
+    shareRankSuffix: '. HELYEZÉS',
+    shareTopicLabel: 'Kihívás témája:',
+    shareCommunityRating: 'Közösségi Értékelés',
+    shareTotalEntriesLabel: 'Összes Nevező',
+    sharePhotosCount: ' fotó',
+    sharePlayNext: 'Játssz Te is következő kihívásban:',
+    shareSavingTrophy: '⏳ Trófea mentése...',
+    shareSaveBtn: '📱 Kártya Megosztása / Mentése 🚀'
   },
 
   
@@ -610,7 +626,23 @@ const translations = {
     modalBadgeSwapBack: '↩️ Rollback',
     msgUploadConfirm: 'Are you sure you want to enter the match with this existing photo?',
     msgUploadSuccess: '🎉 Successfully entered from album!',
-    msgUploadError: 'An error occurred during entry.'
+    msgUploadError: 'An error occurred during entry.',
+
+    // === EN BLOKK ALJA ===
+    sharePreviewTitle: '📱 Trophy Card Preview',
+    shareCancelBtn: 'Cancel ✕',
+    shareTrophySubtitle: 'MATCH TROPHY',
+    sharePreparingImage: '⏳ Preparing image...',
+    shareImageError: '⚠️ Image load error',
+    sharePhotographer: 'Photographer',
+    shareRankSuffix: ' PLACE',
+    shareTopicLabel: 'Challenge Theme:',
+    shareCommunityRating: 'Community Rating',
+    shareTotalEntriesLabel: 'Total Entries',
+    sharePhotosCount: ' photos',
+    sharePlayNext: 'Join the next challenge too:',
+    shareSavingTrophy: '⏳ Saving trophy...',
+    shareSaveBtn: '📱 Share / Save Card 🚀'
   }
 };
 
