@@ -139,72 +139,79 @@ async function getUserLikesAndVictories(pool, email) {
     return getVotePowerByLevel(level);
   }
 
-  // ====================================================================
-  // 🏆 LEZÁRÓ MOTOR (Szinkronizálva a pontos helyi időhöz)
-  // ====================================================================
-  async function processFinishedChallenges(pool) {
-    try {
-      const currentNow = getLocalMySQLNow();
-      const [unfinished] = await pool.query(
-        'SELECT id FROM weekly_topics WHERE end_date < ? AND processed = 0',
-        [currentNow]
+ async function processFinishedChallenges(pool) {
+  try {
+    const currentNow = getLocalMySQLNow();
+
+    // 🧹 AUTOMATIKUS PRÉMIUM TAKARÍTÓ:
+    // Mindenkit, akinek a lejárati dátuma kisebb a mostani budapesti időnél,
+    // egyetlen szempillantás alatt visszaállítunk ingyenes (0) státuszba.
+    await pool.query(`
+      UPDATE photo_users 
+      SET premium_level = 0, 
+          is_premium = 0 
+      WHERE premium_until IS NOT NULL AND premium_until < ?
+    `, [currentNow]);
+
+    const [unfinished] = await pool.query(
+      'SELECT id FROM weekly_topics WHERE end_date < ? AND processed = 0',
+      [currentNow]
+    );
+
+    for (const topic of unfinished) {
+      const [entries] = await pool.query(
+        'SELECT user_email, likes_count FROM weekly_entries WHERE topic_id = ? AND is_active = 1 ORDER BY likes_count DESC, views_count ASC',
+        [topic.id]
       );
 
-      for (const topic of unfinished) {
-        const [entries] = await pool.query(
-          'SELECT user_email, likes_count FROM weekly_entries WHERE topic_id = ? AND is_active = 1 ORDER BY likes_count DESC, views_count ASC',
-          [topic.id]
-        );
+      if (entries.length === 0) {
+        await pool.query('UPDATE weekly_topics SET processed = 1 WHERE id = ?', [topic.id]);
+        continue;
+      }
 
-        if (entries.length === 0) {
-          await pool.query('UPDATE weekly_topics SET processed = 1 WHERE id = ?', [topic.id]);
-          continue;
+      const score1 = entries[0].likes_count;
+      const score2 = entries[1] ? entries[1].likes_count : -1;
+      const score3 = entries[2] ? entries[2].likes_count : -1;
+
+      // 🎯 LOWER(TRIM()) védelemmel ellátott automata jutalomosztás
+      for (const entry of entries) {
+        if (entry.likes_count === score1) {
+          // 1. Helyezett jutalma: +3 Joker csere (Casing-biztosan)
+          await pool.query(
+            'UPDATE photo_users SET swap_balance = swap_balance + 3 WHERE LOWER(TRIM(email)) = LOWER(TRIM(?))', 
+            [entry.user_email]
+          );
+          
+          // 🎯 Mindkét prémium flag (premium_level, is_premium) aktiválva, NULL-dátum védelemmel!
+          await pool.query(`
+            UPDATE photo_users 
+            SET premium_level = 1,
+                is_premium = 1,
+                premium_until = DATE_ADD(
+                  IF(premium_until IS NOT NULL AND premium_until > ?, premium_until, ?), 
+                  INTERVAL 7 DAY
+                ) 
+            WHERE LOWER(TRIM(email)) = LOWER(TRIM(?))
+          `, [currentNow, currentNow, entry.user_email]);
+
+          console.log(`🎉 PRÉMIUM KIUTALVA: ${entry.user_email} megnyerte a csatát!`);
+        } 
+        else if (entry.likes_count === score2) {
+          await pool.query('UPDATE photo_users SET swap_balance = swap_balance + 2 WHERE LOWER(TRIM(email)) = LOWER(TRIM(?))', [entry.user_email]);
+        } 
+        else if (entry.likes_count === score3) {
+          await pool.query('UPDATE photo_users SET swap_balance = swap_balance + 1 WHERE LOWER(TRIM(email)) = LOWER(TRIM(?))', [entry.user_email]);
         }
+      }
 
-        const score1 = entries[0].likes_count;
-        const score2 = entries[1] ? entries[1].likes_count : -1;
-        const score3 = entries[2] ? entries[2].likes_count : -1;
-
-        // 🎯 JAVÍTVA: LOWER(TRIM()) védelemmel ellátott automata jutalomosztás
-for (const entry of entries) {
-  if (entry.likes_count === score1) {
-    // 1. Helyezett jutalma: +3 Joker csere (Casing-biztosan)
-    await pool.query(
-      'UPDATE photo_users SET swap_balance = swap_balance + 3 WHERE LOWER(TRIM(email)) = LOWER(TRIM(?))', 
-      [entry.user_email]
-    );
-    
-   // 🎯 JAVÍTVA: NULL-dátum biztos automata prémium hosszabbítás
-// Ha a premium_until LÉTEZIK és a JÖVŐBEN VAN, akkor ahhoz adunk 7 napot (hosszabbítás).
-// Minden más esetben (ha NULL, üres, vagy már rég lejárt) a MAI NAPHOZ (currentNow) adunk 1 hetet!
-await pool.query(`
-  UPDATE photo_users 
-  SET premium_level = 1,
-      premium_until = DATE_ADD(
-        IF(premium_until IS NOT NULL AND premium_until > ?, premium_until, ?), 
-        INTERVAL 7 DAY
-      ) 
-  WHERE LOWER(TRIM(email)) = LOWER(TRIM(?))
-`, [currentNow, currentNow, entry.user_email]);
-
-    console.log(`🎉 PRÉMIUM KIUTALVA: ${entry.user_email} megnyerte a csatát!`);
-  } 
-  else if (entry.likes_count === score2) {
-    await pool.query('UPDATE photo_users SET swap_balance = swap_balance + 2 WHERE LOWER(TRIM(email)) = LOWER(TRIM(?))', [entry.user_email]);
-  } 
-  else if (entry.likes_count === score3) {
-    await pool.query('UPDATE photo_users SET swap_balance = swap_balance + 1 WHERE LOWER(TRIM(email)) = LOWER(TRIM(?))', [entry.user_email]);
+      await pool.query('UPDATE weekly_topics SET processed = 1 WHERE id = ?', [topic.id]);
+      console.log(`🏆 Kihívás #${topic.id} lezárva. Cserék kiosztva!`);
+    }
+  } catch (err) {
+    console.error("❌ Hiba a lezárt kihívások feldolgozásakor:", err.message);
   }
 }
 
-
-        await pool.query('UPDATE weekly_topics SET processed = 1 WHERE id = ?', [topic.id]);
-        console.log(`🏆 Kihívás #${topic.id} lezárva. Cserék kiosztva!`);
-      }
-    } catch (err) {
-      console.error("❌ Hiba a lezárt kihívások feldolgozásakor:", err.message);
-    }
-  }
 
   // ====================================================================
   // ⚙️ ADMINISZTRÁCIÓS VÉGPONTOK (Kétnyelvűsítve)
