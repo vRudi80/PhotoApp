@@ -1318,7 +1318,39 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       res.json({ leaderboard, clubLeaderboard });
     } catch (err) { res.status(500).json({ error: 'Hiba: ' + err.message }); }
   });
-    
+
+  // ====================================================================
+  // 💬 ARÉNA LÍGA ÉLŐ CSEVEGŐ VÉGPONTOK
+  // ====================================================================
+  app.get('/api/weekly/chat/:topicId', async (req, res) => {
+    const { topicId } = req.params;
+    try {
+      const [messages] = await pool.query(
+        'SELECT id, user_name, user_email, message_text, created_at FROM weekly_chat WHERE topic_id = ? ORDER BY created_at ASC LIMIT 100',
+        [topicId]
+      );
+      res.json(messages);
+    } catch (err) {
+      res.status(500).json({ error: 'Hiba a chat betöltésekor: ' + err.message });
+    }
+  });
+
+  app.post('/api/weekly/chat', async (req, res) => {
+    const { topicId, userEmail, userName, messageText } = req.body;
+    if (!topicId || !userEmail || !messageText?.trim()) {
+      return res.status(400).json({ error: 'Hiányzó adatok az üzenethez!' });
+    }
+    try {
+      await pool.query(
+        'INSERT INTO weekly_chat (topic_id, user_email, user_name, message_text) VALUES (?, ?, ?, ?)',
+        [topicId, userEmail, userName || 'Anonim Fotós', messageText.trim()]
+      );
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ error: 'Hiba az üzenet küldésekor: ' + err.message });
+    }
+  });
+  
   app.post('/api/weekly/report-off-topic', async (req, res) => {
     const { entryId, userEmail } = req.body;
     try {
