@@ -17,11 +17,15 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   // 🕒 Globális in-memory változó a háttérben futó lezárások ritkításához
   let lastChallengeProcessTime = 0;
 
-  // 🎯 ÚJ: Időzóna-biztos helyi idő generátor a MySQL-nek (Bypass-olja a szerver UTC óráját)
-  const getLocalMySQLNow = () => {
-    const tzOffset = new Date().getTimezoneOffset() * 60000;
-    return new Date(Date.now() - tzOffset).toISOString().slice(0, 19).replace('T', ' ');
-  };
+  // 🎯 JAVÍTVA: Nemzetközi felhőszerver-biztos Magyar Idő Generátor
+// Teljesen mindegy, hogy a szerver Amerikában vagy Németországban van, 
+// ez a kód explicit módon a Europe/Budapest idősíkot kéri le a Node-tól YYYY-MM-DD HH:mm:ss formátumban!
+const getLocalMySQLNow = () => {
+  const options = { timeZone: 'Europe/Budapest', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
+  const formatter = new Intl.DateTimeFormat('fr-CA', options); 
+  return formatter.format(new Date()).replace(',', '').trim();
+};
+
 
   // 📊 JAVÍTVA: MySQL 5.7 kompatibilis, hurokmentesített, szupergyors statisztikai lekérdezés helyi idővel
   async function getUserLikesAndVictories(pool, email) {
