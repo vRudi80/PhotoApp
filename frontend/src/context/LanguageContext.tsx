@@ -158,7 +158,7 @@ const translations = {
     subPortfolio: '🖼️ My Portfolio',
     subPackages: '💎 My Storage',
     subSupport: '✉️ Support & Help',
-    subLogout: '🚪 Logout'.
+    subLogout: '🚪 Logout',
 
     dashWelcome: 'Welcome',
     dashSupportNotice: 'If something is not working properly, you can contact the developer in the support section!',
