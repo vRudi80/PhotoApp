@@ -179,8 +179,8 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
             {visibleWeekly.map((w: any) => (
               <div key={`weekly_${w.id}`} onClick={() => setActiveTab('weekly_challenge')} className="alert-card" style={{ background: 'linear-gradient(135deg, rgba(249, 115, 22, 0.1), rgba(249, 115, 22, 0.05))', border: '1px solid #f9731650', borderLeft: '4px solid #f97316' }}>
                 <div style={{ fontSize: '1.5rem', marginBottom: '8px' }}>🔥</div>
-                <div style={{ color: '#f97316', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '2px', textTransform: 'uppercase' }}>Futó Kihívás ({formatDate(w.end_date)}-ig)</div>
-                <h4 style={{ margin: 0, color: '#f8fafc', fontSize: '0.95rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{w.title}</h4>
+                <div style={{ color: '#f97316', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '2px', textTransform: 'uppercase' }}>{w.title} </div>
+                <h4 style={{ margin: 0, color: '#f8fafc', fontSize: '0.95rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>({formatDate(w.end_date)}-ig)</h4>
               </div>
             ))}
 
