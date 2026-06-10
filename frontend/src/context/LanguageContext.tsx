@@ -293,7 +293,8 @@ const translations = {
     trophyBadgePodium: '🏆 Dobogós (2-3.)',
     trophyField: 'Mezőny: {count} kép',
     trophyRankLabel: 'Helyezés: ',
-    trophyShareBtn: '🚀 Eredmény megosztása'
+    trophyShareBtn: '🚀 Eredmény megosztása',
+    trophyPointsUnit: ' pont'
   },
 
   
@@ -588,7 +589,8 @@ const translations = {
     trophyBadgePodium: '🏆 Podium (2nd-3rd)',
     trophyField: 'Field: {count} photos',
     trophyRankLabel: 'Rank: ',
-    trophyShareBtn: '🚀 Share Result'
+    trophyShareBtn: '🚀 Share Result',
+    trophyPointsUnit: ' points'
   }
 };
 
