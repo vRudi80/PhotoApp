@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { BACKEND_URL, ADMIN_EMAIL } from '../../utils/constants';
 
-// Ezeket a propokat kapja meg az App.tsx-ből:
 interface AdminMeetingsViewProps {
   user: any;
   currentDbUser: any;
@@ -19,7 +18,19 @@ export default function AdminMeetingsView({
   const inputStyle = { width: '100%', padding: '10px', marginBottom: '10px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '6px', boxSizing: 'border-box' as const };
 
   // ==============================================================
-  // 1. HELYI ÁLLAPOTOK (Ezek költöztek ide az App.tsx-ből)
+  // 🛡️ 1. FRONTEND VÉDELMI VONAL: JOGOSULTSÁG ALAPÚ SZŰRÉS
+  // ==============================================================
+  const isGlobalAdmin = user?.email === ADMIN_EMAIL;
+  
+  const displayedMeetings = isGlobalAdmin
+    ? (Array.isArray(adminMeetings) ? adminMeetings : [])
+    : (Array.isArray(adminMeetings) ? adminMeetings : []).filter(m => 
+        m.club_id === currentDbUser?.club_id || 
+        m.club_name === currentDbUser?.club_name
+      );
+
+  // ==============================================================
+  // 2. HELYI ÁLLAPOTOK
   // ==============================================================
   const [editMeetId, setEditMeetId] = useState<number | null>(null);
   const [meetClubId, setMeetClubId] = useState('');
@@ -38,7 +49,7 @@ export default function AdminMeetingsView({
   const [attendanceList, setAttendanceList] = useState<string[]>([]);
 
   // ==============================================================
-  // 2. FÜGGVÉNYEK (Ide költöztek az App.tsx-ből)
+  // 3. FÜGGVÉNYEK ÉS INTERAKCIÓK
   // ==============================================================
   const handleMeetingCoverSelect = (e: React.ChangeEvent<HTMLInputElement>) => { 
     const file = e.target.files?.[0]; 
@@ -46,6 +57,11 @@ export default function AdminMeetingsView({
   };
 
   const startEditMeeting = (m: any) => { 
+    // 🛡️ 2. VÉDELMI VONAL: Szerkesztés tiltása idegen klubest esetén
+    if (!isGlobalAdmin && m.club_id !== currentDbUser?.club_id && m.club_name !== currentDbUser?.club_name) {
+      return alert("Nincs jogosultságod ennek a klubestnek a szerkesztéséhez!");
+    }
+
     setEditMeetId(m.id); 
     setMeetClubId(m.club_id.toString()); 
     setMeetDate(m.meeting_date.split('T')[0]); 
@@ -66,7 +82,10 @@ export default function AdminMeetingsView({
   };
 
   const handleSaveMeeting = async () => { 
-    const finalClubId = user?.email !== ADMIN_EMAIL ? clubs.find(c => c.name === currentDbUser?.club_name)?.id : meetClubId; 
+    // 🛡️ 3. VÉDELMI VONAL: Klubazonosító kényszerítése manipuláció ellen
+    const myClubId = currentDbUser?.club_id || clubs.find(c => c.name === currentDbUser?.club_name)?.id;
+    const finalClubId = isGlobalAdmin ? meetClubId : myClubId; 
+    
     if (!finalClubId || !meetDate || !meetTime || !meetTopic) return alert("Klub, Dátum, Időpont és Téma kötelező!"); 
     
     setIsMeetingUploading(true); 
@@ -96,16 +115,40 @@ export default function AdminMeetingsView({
     } catch (error) { alert("Hálózati hiba!"); } finally { setIsMeetingUploading(false); } 
   };
 
-  const handleDeleteMeeting = async (id: number) => { 
+  const handleDeleteMeeting = async (m: any) => { 
+    // 🛡️ Törlésvédelem idegen klubest esetén
+    if (!isGlobalAdmin && m.club_id !== currentDbUser?.club_id && m.club_name !== currentDbUser?.club_name) {
+      return alert("Nincs jogosultságod ennek a klubestnek a törléséhez!");
+    }
+
     if (!window.confirm("Biztosan törlöd ezt a klubestet?")) return; 
-    const res = await fetch(`${BACKEND_URL}/api/meetings/${id}`, { method: 'DELETE' }); 
-    if (res.ok) fetchData(); 
+    
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/meetings/${m.id}`, { method: 'DELETE' }); 
+      if (res.ok) {
+        alert("Klubest sikeresen törölve!");
+        fetchData(); 
+      } else {
+        alert("Hiba történt a törlés során!");
+      }
+    } catch (e) {
+      alert("Hálózati hiba!");
+    }
   };
 
-  const openAttendance = async (meetId: number) => { 
-    setAttendanceMeetId(meetId); 
-    const res = await fetch(`${BACKEND_URL}/api/attendance/${meetId}`); 
-    if (res.ok) setAttendanceList(await res.json()); 
+  const openAttendance = async (m: any) => { 
+    // 🛡️ 4. VÉDELMI VONAL: Jelenléti ív zárolása idegen klubest esetén
+    if (!isGlobalAdmin && m.club_id !== currentDbUser?.club_id && m.club_name !== currentDbUser?.club_name) {
+      return alert("Nincs jogosultságod ennek a jelenléti ívnek a kezeléséhez!");
+    }
+
+    setAttendanceMeetId(m.id); 
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/attendance/${m.id}`); 
+      if (res.ok) setAttendanceList(await res.json()); 
+    } catch (e) {
+      console.error("Hiba a jelenléti ív letöltésekor:", e);
+    }
   };
 
   const toggleAttendance = (email: string) => { 
@@ -114,21 +157,26 @@ export default function AdminMeetingsView({
 
   const saveAttendance = async () => { 
     if (!attendanceMeetId) return; 
-    const res = await fetch(`${BACKEND_URL}/api/attendance/${attendanceMeetId}`, { 
-      method: 'POST', 
-      headers: { 'Content-Type': 'application/json' }, 
-      body: JSON.stringify({ emails: attendanceList }) 
-    }); 
-    if (res.ok) { alert("Jelenléti ív mentve!"); setAttendanceMeetId(null); } 
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/attendance/${attendanceMeetId}`, { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ emails: attendanceList }) 
+      }); 
+      if (res.ok) { alert("Jelenléti ív sikeresen mentve!"); setAttendanceMeetId(null); } 
+    } catch (e) {
+      alert("Hiba történt a mentés során!");
+    }
   };
 
   // ==============================================================
-  // 3. RENDERELÉS
+  // 4. RENDERELÉS
   // ==============================================================
   return (
     <div>
       <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', color: '#f59e0b' }}>📅 Klubestek Kezelése</h2>
       
+      {/* JELENLÉTI ÍV MODUL */}
       {attendanceMeetId ? (
         <div style={{ backgroundColor: '#1e293b', padding: '2rem', borderRadius: '12px', border: '1px solid #38bdf8' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
@@ -136,11 +184,11 @@ export default function AdminMeetingsView({
             <button onClick={() => setAttendanceMeetId(null)} style={{ background: 'transparent', color: '#94a3b8', border: '1px solid #475569', padding: '5px 15px', borderRadius: '6px', cursor: 'pointer' }}>Bezár</button>
           </div>
           {(() => {
-            const meet = meetings.find(m => m.id === attendanceMeetId);
+            const meet = displayedMeetings.find(m => m.id === attendanceMeetId);
             const clubUsers = allUsers.filter(u => u.club_name === meet?.club_name);
             return (
               <>
-                {clubUsers.length === 0 ? <p>Nincsenek tagok ebben a klubban.</p> : (
+                {clubUsers.length === 0 ? <p style={{color: '#94a3b8'}}>Nincsenek regisztrált tagok ebben a klubban.</p> : (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '15px', marginBottom: '20px' }}>
                     {clubUsers.map(u => (
                       <label key={u.email} style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#0f172a', padding: '10px', borderRadius: '8px', cursor: 'pointer', border: '1px solid #334155' }}>
@@ -157,6 +205,7 @@ export default function AdminMeetingsView({
         </div>
       ) : (
         <>
+          {/* LÉTREHOZÓ PANEL */}
           <div style={{ backgroundColor: '#1e293b', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', border: '1px solid #f59e0b' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', flexWrap: 'wrap', gap: '10px' }}>
               <h3 style={{ margin: 0, color: '#f59e0b' }}>{editMeetId ? '✏️ Klubest Szerkesztése' : '➕ Új Klubest Meghirdetése'}</h3>
@@ -164,7 +213,7 @@ export default function AdminMeetingsView({
             </div>
             
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-              {user.email === ADMIN_EMAIL ? (
+              {isGlobalAdmin ? (
                 <div style={{flex: '1 1 200px'}}>
                   <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Melyik klubnak?</label>
                   <select value={meetClubId} onChange={e => setMeetClubId(e.target.value)} style={inputStyle}>
@@ -174,8 +223,8 @@ export default function AdminMeetingsView({
                 </div>
               ) : (
                 <div style={{flex: '1 1 200px'}}>
-                  <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Klub</label>
-                  <div style={{...inputStyle, background: '#334155', color: '#94a3b8'}}>{currentDbUser?.club_name}</div>
+                  <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Klubod</label>
+                  <div style={{...inputStyle, background: '#334155', color: '#cbd5e1', fontWeight: 'bold'}}>{currentDbUser?.club_name || 'Nincs klub regisztrálva'}</div>
                 </div>
               )}
               
@@ -220,22 +269,23 @@ export default function AdminMeetingsView({
             </button>
           </div>
 
-          <h3 style={{ color: '#f8fafc' }}>Rögzített Klubestek</h3>
+          {/* LISTA PANEL */}
+          <h3 style={{ color: '#f8fafc' }}>{isGlobalAdmin ? 'Összes Rögzített Klubest (Rendszergazda)' : 'Klubod Klubestjei'}</h3>
           <div style={{ background: '#1e293b', borderRadius: '12px', overflow: 'hidden', border: '1px solid #334155' }}>
-            {adminMeetings.length === 0 ? <div style={{padding: '20px', color: '#94a3b8', textAlign: 'center'}}>Nincs megjeleníthető klubest.</div> : null}
-            {adminMeetings.map((m, i) => (
-              <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px', borderBottom: i < adminMeetings.length - 1 ? '1px solid #334155' : 'none', background: i % 2 === 0 ? '#0f172a' : 'transparent', flexWrap: 'wrap', gap: '10px' }}>
+            {displayedMeetings.length === 0 ? <div style={{padding: '20px', color: '#94a3b8', textAlign: 'center'}}>Nincs megjeleníthető klubest ebben a klubban.</div> : null}
+            {displayedMeetings.map((m, i) => (
+              <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px', borderBottom: i < displayedMeetings.length - 1 ? '1px solid #334155' : 'none', background: i % 2 === 0 ? '#0f172a' : 'transparent', flexWrap: 'wrap', gap: '10px' }}>
                 <div>
-                  <div style={{ fontWeight: 'bold', color: '#38bdf8' }}>{new Date(m.meeting_date).toLocaleDateString()} {m.meeting_time.substring(0,5)} - {m.topic}</div>
+                  <div style={{ fontWeight: 'bold', color: '#38bdf8' }}>{new Date(m.meeting_date).toLocaleDateString('hu-HU')} {m.meeting_time.substring(0,5)} - {m.topic}</div>
                   <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>
-                    Klub: {m.club_name} 
+                    Klub: <span style={{color: '#f8fafc', fontWeight: 'bold'}}>{m.club_name}</span> 
                     {m.video_link && <span style={{ color: '#ef4444', marginLeft: '10px' }}>▶️ Van videó</span>}
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: '5px' }}>
-                  <button onClick={() => openAttendance(m.id)} style={{ background: '#38bdf820', color: '#38bdf8', border: 'none', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Jelenlét</button>
+                  <button onClick={() => openAttendance(m)} style={{ background: '#38bdf820', color: '#38bdf8', border: 'none', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Jelenlét</button>
                   <button onClick={() => startEditMeeting(m)} style={{ background: 'transparent', color: '#f59e0b', border: '1px solid #f59e0b', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer' }}>Szerkeszt</button>
-                  <button onClick={() => handleDeleteMeeting(m.id)} style={{ background: '#ef444420', color: '#ef4444', border: 'none', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer' }}>Töröl</button>
+                  <button onClick={() => handleDeleteMeeting(m)} style={{ background: '#ef444420', color: '#ef4444', border: 'none', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer' }}>Töröl</button>
                 </div>
               </div>
             ))}
