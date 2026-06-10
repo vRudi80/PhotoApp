@@ -705,11 +705,11 @@ export default function ContestsView(props: ContestsViewProps) {
                                       </div>
                                       <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px' }}>{lang === 'en' ? 'Photographer' : 'Fotós'}: {res.user_name}</div>
                                       
-                                      {props.user.email === res.user_email && (awardName || isAcceptance) && (
-                                        <button onClick={() => generateCertificate(contest, res, awardName || '', isAcceptance, contestJury)} disabled={generatingCertId === res.id} style={{ marginTop: '8px', background: 'transparent', color: '#f59e0b', border: '1px solid #f59e0b50', padding: '4px 12px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 'bold', cursor: 'pointer' }}>
-                                          {generatingCertId === res.id ? t('resultsCertCompiling') : t('resultsCertDownloadBtn')}
-                                        </button>
-                                      )}
+                                        {(props.user.email === res.user_email || canManageContest) && (awardName || isAcceptance) && (
+                                          <button onClick={() => generateCertificate(contest, res, awardName || '', isAcceptance, contestJury)} disabled={generatingCertId === res.id} style={{ marginTop: '8px', background: 'transparent', color: '#f59e0b', border: '1px solid #f59e0b50', padding: '4px 12px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 'bold', cursor: 'pointer' }}>
+                                            {generatingCertId === res.id ? t('resultsCertCompiling') : t('resultsCertDownloadBtn')}
+                                          </button>
+                                        )}
                                     </div>
                                     <div style={{ textAlign: 'right' }}>
                                       <div style={{ fontSize: '1.2rem', fontWeight: '900', color: '#10b981' }}>{res.total_score}{t('trophyPointsUnit')}</div>
