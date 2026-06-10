@@ -58,11 +58,11 @@ interface LanguageContextType {
 const LanguageContext = createContext<LanguageContextType>({} as LanguageContextType);
 
 export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Megpróbáljuk beolvasni a korábban elmentett nyelvet, különben a böngésző nyelvét nézzük, végső esetben 'hu'
+  // 🎯 JAVÍTVA: Ha nincs elmentve semmi, kényszerítve a magyar (hu) az alapértelmezett!
   const [lang, setLangState] = useState<Language>(() => {
     const saved = localStorage.getItem('app_lang');
     if (saved === 'hu' || saved === 'en') return saved;
-    return navigator.language.startsWith('en') ? 'en' : 'hu';
+    return 'hu'; 
   });
 
   const setLang = (newLang: Language) => {
@@ -70,7 +70,6 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setLangState(newLang);
   };
 
-  // Biztonságos fordító funkció: ha egy kulcs hiányozna angolul, automatikusan a magyart adja vissza
   const t = (key: keyof typeof translations.hu) => {
     return translations[lang]?.[key] || translations['hu'][key] || key;
   };
