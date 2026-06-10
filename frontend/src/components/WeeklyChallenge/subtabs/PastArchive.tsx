@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { getImageUrl } from '../../../utils/helpers';
-import ArchiveDetailModal from '../ArchiveDetailModal'; 
+import ArchiveDetailModal from '../ArchiveDetailModal';
 
 // 🎯 ÚJ IMPORT: Behozzuk a nyelvi kontextust
 import { useLanguage } from '../../../context/LanguageContext';
