@@ -17,14 +17,23 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   // 🕒 Globális in-memory változó a háttérben futó lezárások ritkításához
   let lastChallengeProcessTime = 0;
 
-  // 🎯 JAVÍTVA: Nemzetközi felhőszerver-biztos Magyar Idő Generátor
-// Teljesen mindegy, hogy a szerver Amerikában vagy Németországban van, 
-// ez a kód explicit módon a Europe/Budapest idősíkot kéri le a Node-tól YYYY-MM-DD HH:mm:ss formátumban!
+// 🎯 JAVÍTVA: Atombiztos, ICU-verzióktól független Magyar Idő Generátor
+// Nem használunk idegen nyelvi karakter-trükköket. Explicit módon elkérjük a budapesti 
+// falióra szerinti pontos számokat, és manuálisan fűzzük össze tiszta MySQL formátummá.
 const getLocalMySQLNow = () => {
-  const options = { timeZone: 'Europe/Budapest', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
-  const formatter = new Intl.DateTimeFormat('fr-CA', options); 
-  return formatter.format(new Date()).replace(',', '').trim();
+  const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Budapest' }));
+  const pad = num => String(num).padStart(2, '0');
+  
+  const year = d.getFullYear();
+  const month = pad(d.getMonth() + 1);
+  const day = pad(d.getDate());
+  const hours = pad(d.getHours());
+  const minutes = pad(d.getMinutes());
+  const seconds = pad(d.getSeconds());
+
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 };
+
 
 
 // 📊 JAVÍTVA: Teljesen hurokmentesített, magyar időzónára szinkronizált profil statisztika
