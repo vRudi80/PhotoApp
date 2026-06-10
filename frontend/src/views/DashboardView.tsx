@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { BACKEND_URL, ADMIN_EMAIL } from '../utils/constants';
 
+// 🎯 ÚJ IMPORT: Behozzuk a nyelvi kontextust
+import { useLanguage } from '../context/LanguageContext';
+
 interface DashboardViewProps {
   user: any;
   isLeader: boolean;
@@ -11,8 +14,10 @@ interface DashboardViewProps {
 export default function DashboardView({ user, isLeader, setActiveTab, setTargetMapSpotId }: DashboardViewProps) {
   const [alerts, setAlerts] = useState<any>(null);
   const [isLoadingAlerts, setIsLoadingAlerts] = useState(true);
-  
   const [dismissedAlerts, setDismissedAlerts] = useState<string[]>([]);
+
+  // 🎯 ÚJ: Aktiváljuk a fordítót (t) és a nyelvet (lang)
+  const { t, lang } = useLanguage();
 
   // 1. Memóriából betöltjük a korábban "ikszelt" értesítéseket
   useEffect(() => {
@@ -94,21 +99,22 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
     setActiveTab('map_spots');
   };
 
+  // 🎯 JAVÍTVA: A csempék címeit és leírásait kulcsalapúra cseréltük a szótárhoz
   const tiles = [
-    { id: 'weekly_challenge', icon: '🔥', color: '#f97316', title: 'Kihívások', desc: 'Tölts fel az aktuális napi, vagy heti témában, szavazz mások képeire és kerülj a toplista élére!', tab: 'weekly_challenge' },
-    { id: 'contests', icon: '📝', color: '#8b5cf6', title: 'Nyílt Pályázatok', desc: 'Vegyél részt a közösségi vagy zártkörű házi fotópályázatokon.', tab: 'contests_open_active' },
-    { id: 'my_album', icon: '🖼️', color: '#f59e0b', title: 'Saját Portfólió', desc: 'Töltsd fel és menedzseld a saját fotóidat, nézd meg az eredményeidet, vagy akár kérj AI elemzést.', tab: 'my_album' },
-    { id: 'map_spots', icon: '🌍', color: '#10b981', title: 'Fotós Helyszínek', desc: 'Fedezz fel új fotós helyeket a térképen, vagy oszd meg a sajátjaidat!', tab: 'map_spots' },
-    { id: 'progress', icon: '🏆', color: '#f43f5e', title: 'Minősítések (FIAP/MAFOSZ)', desc: 'Kövesd nyomon az elfogadásaidat, generálj FIAP kompatibilis Excel táblát.', tab: 'fiap_progress' },
-    { id: 'salons', icon: '🌐', color: '#3b82f6', title: 'Nemzetközi Szalonok', desc: 'Böngéssz az aktuális FIAP, MAFOSZ, PSA, vagy klub szalonok között, nevezd be a fotóidat pályázatokra.', tab: 'salons' },
-    { id: 'club', icon: '👥', color: '#06b6d4', title: 'Fotóklub Élet', desc: 'Klubestek, találkozók, feladatok, vagy klub portfólió válogatás egy helyen.', tab: 'club_nights' }
+    { id: 'weekly_challenge', icon: '🔥', color: '#f97316', titleKey: 'tileWeeklyTitle', descKey: 'tileWeeklyDesc', tab: 'weekly_challenge' },
+    { id: 'contests', icon: '📝', color: '#8b5cf6', titleKey: 'tileContestsTitle', descKey: 'tileContestsDesc', tab: 'contests_open_active' },
+    { id: 'my_album', icon: '🖼️', color: '#f59e0b', titleKey: 'tilePortfolioTitle', descKey: 'tilePortfolioDesc', tab: 'my_album' },
+    { id: 'map_spots', icon: '🌍', color: '#10b981', titleKey: 'tileMapTitle', descKey: 'tileMapDesc', tab: 'map_spots' },
+    { id: 'progress', icon: '🏆', color: '#f43f5e', titleKey: 'tileProgressTitle', descKey: 'tileProgressDesc', tab: 'fiap_progress' },
+    { id: 'salons', icon: '🌐', color: '#3b82f6', titleKey: 'tileSalonsTitle', descKey: 'tileSalonsDesc', tab: 'salons' },
+    { id: 'club', icon: '👥', color: '#06b6d4', titleKey: 'tileClubLifeTitle', titleKeyFallback: 'tileClubTitle', descKey: 'tileClubDesc', tab: 'club_nights' }
   ];
 
-  const adminTile = { id: 'admin', icon: '⚙️', color: '#ef4444', title: 'Adminisztráció', desc: 'Pályázatok, klubestek, felhasználók és szalonok kezelése.', tab: (user?.email === ADMIN_EMAIL) ? 'admin_contests' : 'admin_meetings' };
+  const adminTile = { id: 'admin', icon: '⚙️', color: '#ef4444', titleKey: 'tileAdminTitle', descKey: 'tileAdminDesc', tab: (user?.email === ADMIN_EMAIL) ? 'admin_contests' : 'admin_meetings' };
 
-  const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString('hu-HU', { month: 'short', day: 'numeric' });
+  // 🎯 JAVÍTVA: Dinamikus, nyelv-specifikus dátumformázás (hu-HU vs en-US)
+  const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString(lang === 'en' ? 'en-US' : 'hu-HU', { month: 'short', day: 'numeric' });
 
-  // JAVÍTVA: A szigorú tömb alapú szűrések a párhuzamosan futó párbajokhoz
   const visibleNews = alerts?.unreadNews?.filter((n: any) => !dismissedAlerts.includes(`news_${n.id}`)) || [];
   const visibleComments = alerts?.mapComments?.filter((c: any) => !dismissedAlerts.includes(`com_${c.comment_id}`)) || [];
   const visibleWeekly = Array.isArray(alerts?.weekly) ? alerts.weekly : [];
@@ -124,15 +130,15 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
       <div style={{ background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)', padding: '30px', borderRadius: '16px', border: '1px solid #334155', marginBottom: '25px', boxShadow: '0 10px 30px rgba(0,0,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '20px' }}>
         <div>
           <h1 style={{ margin: '0 0 10px 0', fontSize: '2.5rem', color: '#f8fafc' }}>
-            Üdvözlünk, <span style={{ color: '#38bdf8' }}>{user.name}</span>! 👋
+            {t('dashWelcome')}, <span style={{ color: '#38bdf8' }}>{user.name}</span>! 👋
           </h1>
           <p style={{ margin: 0, color: '#94a3b8', fontSize: '1.1rem' }}>
-            Ha valami nem megfelelően működik, a support részen kapcsolatba léphetsz a fejlesztővel!
+            {t('dashSupportNotice')}
           </p>
         </div>
         {(user?.isPremium || user?.is_premium) && (
           <div style={{ background: '#10b98120', border: '1px solid #10b981', padding: '10px 20px', borderRadius: '100px', color: '#10b981', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span>⭐</span> Aktív Prémium Tag
+            {t('dashPremiumBadge')}
           </div>
         )}
       </div>
@@ -140,19 +146,19 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
       {/* --- ÉRTESÍTÉSI KÖZPONT --- */}
       <div style={{ marginBottom: '35px', minHeight: '130px' }}>
         <h2 style={{ fontSize: '1.2rem', color: '#cbd5e1', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          🔔 Aktuális Események & Értesítések
+          {t('dashAlertsTitle')}
         </h2>
         
         {isLoadingAlerts ? (
           <div style={{ color: '#94a3b8', fontSize: '0.95rem', fontStyle: 'italic', padding: '25px', background: '#1e293b', borderRadius: '12px', border: '1px dashed #475569', textAlign: 'center', animation: 'pulse 2s infinite' }}>
-            ⏳ Adatok szinkronizálása a szerverrel... <br/>
-            <span style={{ fontSize: '0.8rem', color: '#64748b' }}>(Ha régen voltál itt, a szerver felébresztése eltarthat pár másodpercig)</span>
+            {t('dashSyncing')} <br/>
+            <span style={{ fontSize: '0.8rem', color: '#64748b' }}>{t('dashSyncNotice')}</span>
           </div>
         ) : !alerts ? (
           <div style={{ color: '#ef4444', fontSize: '0.95rem', padding: '20px', background: '#ef444410', borderRadius: '12px', border: '1px solid #ef444450', textAlign: 'center' }}>
-            ❌ Nem sikerült betölteni az értesítéseket. 
+            {t('dashAlertsError')}
             <button onClick={() => window.location.reload()} style={{ background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', padding: '4px 12px', borderRadius: '6px', cursor: 'pointer', marginLeft: '10px', fontWeight: 'bold' }}>
-              Újratöltés
+              {t('dashReload')}
             </button>
           </div>
         ) : (
@@ -161,7 +167,7 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
             {visibleNews.map((news: any) => (
               <div key={`news_${news.id}`} onClick={() => handleNewsClick(news.id)} className="alert-card" style={{ background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(239, 68, 68, 0.05))', border: '1px solid #ef444450', borderLeft: '4px solid #ef4444' }}>
                 <div style={{ fontSize: '1.5rem', marginBottom: '8px' }}>📰</div>
-                <div style={{ color: '#ef4444', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '2px', textTransform: 'uppercase' }}>Új Klub Hír!</div>
+                <div style={{ color: '#ef4444', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '2px', textTransform: 'uppercase' }}>{t('dashNewNews')}</div>
                 <h4 style={{ margin: 0, color: '#f8fafc', fontSize: '0.95rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{news.title}</h4>
               </div>
             ))}
@@ -170,24 +176,28 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
               <div key={`com_${comment.comment_id}`} onClick={() => handleMapCommentClick(comment.location_id, comment.comment_id)} className="alert-card" style={{ background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(16, 185, 129, 0.05))', border: '1px solid #10b98150', borderLeft: '4px solid #10b981' }}>
                 <button className="dismiss-btn" onClick={(e) => handleDismissAlert(e, `com_${comment.comment_id}`, 'map_comment', comment.comment_id)}>✖</button>
                 <div style={{ fontSize: '1.5rem', marginBottom: '8px' }}>💬</div>
-                <div style={{ color: '#10b981', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '2px', textTransform: 'uppercase' }}>Térkép: {comment.user_name} írt</div>
-                <h4 style={{ margin: 0, color: '#f8fafc', fontSize: '0.95rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Helyszín: {comment.location_title}</h4>
+                <div style={{ color: '#10b981', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '2px', textTransform: 'uppercase' }}>
+                  {lang === 'en' ? `Map: ${comment.user_name} commented` : `Térkép: ${comment.user_name} írt`}
+                </div>
+                <h4 style={{ margin: 0, color: '#f8fafc', fontSize: '0.95rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t('dashLocation')}: {comment.location_title}</h4>
               </div>
             ))}
 
-            {/* JAVÍTVA: Hurrá, mostantól ciklusban rendereljük ki az ÖSSZES futó napi és heti párbajt! */}
-            {visibleWeekly.map((w: any) => (
-              <div key={`weekly_${w.id}`} onClick={() => setActiveTab('weekly_challenge')} className="alert-card" style={{ background: 'linear-gradient(135deg, rgba(249, 115, 22, 0.1), rgba(249, 115, 22, 0.05))', border: '1px solid #f9731650', borderLeft: '4px solid #f97316' }}>
-                <div style={{ fontSize: '1.5rem', marginBottom: '8px' }}>🔥</div>
-                <div style={{ color: '#f97316', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '2px', textTransform: 'uppercase' }}>{w.title} </div>
-                <h4 style={{ margin: 0, color: '#f8fafc', fontSize: '0.95rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>({formatDate(w.end_date)}-ig)</h4>
-              </div>
-            ))}
+            {visibleWeekly.map((w: any) => {
+              const displayWTitle = lang === 'en' && w.title_en ? w.title_en : w.title;
+              return (
+                <div key={`weekly_${w.id}`} onClick={() => setActiveTab('weekly_challenge')} className="alert-card" style={{ background: 'linear-gradient(135deg, rgba(249, 115, 22, 0.1), rgba(249, 115, 22, 0.05))', border: '1px solid #f9731650', borderLeft: '4px solid #f97316' }}>
+                  <div style={{ fontSize: '1.5rem', marginBottom: '8px' }}>🔥</div>
+                  <div style={{ color: '#f97316', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '2px', textTransform: 'uppercase' }}>{displayWTitle}</div>
+                  <h4 style={{ margin: 0, color: '#f8fafc', fontSize: '0.95rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>({lang === 'en' ? 'until ' : ''}{formatDate(w.end_date)})</h4>
+                </div>
+              );
+            })}
 
             {visibleHomeworks.map((hw: any) => (
               <div key={`hw_${hw.id}`} onClick={() => setActiveTab('club_homeworks')} className="alert-card" style={{ background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.1), rgba(6, 182, 212, 0.05))', border: '1px solid #06b6d450', borderLeft: '4px solid #06b6d4' }}>
                 <div style={{ fontSize: '1.5rem', marginBottom: '8px' }}>📸</div>
-                <div style={{ color: '#06b6d4', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '2px', textTransform: 'uppercase' }}>Házi feladat ({formatDate(hw.deadline)}-ig)</div>
+                <div style={{ color: '#06b6d4', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '2px', textTransform: 'uppercase' }}>{t('dashHomework')} ({lang === 'en' ? 'until ' : ''}{formatDate(hw.deadline)})</div>
                 <h4 style={{ margin: 0, color: '#f8fafc', fontSize: '0.95rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{hw.topic}</h4>
               </div>
             ))}
@@ -195,21 +205,21 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
             {visibleContests.map((contest: any) => (
               <div key={`cont_${contest.id}`} onClick={() => setActiveTab('contests_open_active')} className="alert-card" style={{ background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(139, 92, 246, 0.05))', border: '1px solid #8b5cf650', borderLeft: '4px solid #8b5cf6' }}>
                 <div style={{ fontSize: '1.5rem', marginBottom: '8px' }}>🏆</div>
-                <div style={{ color: '#8b5cf6', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '2px', textTransform: 'uppercase' }}>Aktív Pályázat ({formatDate(contest.end_date)}-ig)</div>
+                <div style={{ color: '#8b5cf6', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '2px', textTransform: 'uppercase' }}>{t('dashActiveContest')} ({lang === 'en' ? 'until ' : ''}{formatDate(contest.end_date)})</div>
                 <h4 style={{ margin: 0, color: '#f8fafc', fontSize: '0.95rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{contest.title}</h4>
               </div>
             ))}
 
             {!hasAnyVisibleAlerts && (
               <div style={{ color: '#64748b', fontSize: '0.95rem', fontStyle: 'italic', padding: '10px 0', width: '100%', textAlign: 'center' }}>
-                Jelenleg nincs új értesítésed vagy határidős feladatod. Nyugalom van! ☕
+                {t('dashNoAlerts')}
               </div>
             )}
           </div>
         )}
       </div>
 
-      {/* Csempék (Grid hálózat) */}
+      {/* Csempék (Grid hálózat - lefordítva) */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
         
         {tiles.map((tile) => (
@@ -233,8 +243,12 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
             <div style={{ fontSize: '3rem', marginBottom: '15px', display: 'inline-block', background: `${tile.color}20`, padding: '15px', borderRadius: '12px', border: `1px solid ${tile.color}40` }}>
               {tile.icon}
             </div>
-            <h3 style={{ margin: '0 0 10px 0', fontSize: '1.4rem', color: '#f8fafc' }}>{tile.title}</h3>
-            <p style={{ margin: 0, color: '#94a3b8', lineHeight: '1.5' }}>{tile.desc}</p>
+            <h3 style={{ margin: '0 0 10px 0', fontSize: '1.4rem', color: '#f8fafc' }}>
+              {t(tile.titleKey as any)}
+            </h3>
+            <p style={{ margin: 0, color: '#94a3b8', lineHeight: '1.5' }}>
+              {t(tile.descKey as any)}
+            </p>
           </div>
         ))}
 
@@ -254,8 +268,12 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
             <div style={{ fontSize: '3rem', marginBottom: '15px', display: 'inline-block', background: `${adminTile.color}20`, padding: '15px', borderRadius: '12px', border: `1px solid ${adminTile.color}40` }}>
               {adminTile.icon}
             </div>
-            <h3 style={{ margin: '0 0 10px 0', fontSize: '1.4rem', color: adminTile.color }}>{adminTile.title}</h3>
-            <p style={{ margin: 0, color: '#94a3b8', lineHeight: '1.5' }}>{adminTile.desc}</p>
+            <h3 style={{ margin: '0 0 10px 0', fontSize: '1.4rem', color: adminTile.color }}>
+              {t(adminTile.titleKey as any)}
+            </h3>
+            <p style={{ margin: 0, color: '#94a3b8', lineHeight: '1.5' }}>
+              {t(adminTile.descKey as any)}
+            </p>
           </div>
         )}
 
