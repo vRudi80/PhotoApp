@@ -441,7 +441,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     }
   }, [lobbyMessages.length, selectedTopicId, subTab]);
 
- // 👑 JAVÍTVA: Azonnali lokális append tűpontos snake_case formátumban
+ // 👑 JAVÍTVA: Backendről kapott hivatalos név beolvasása lokális rendereléshez
   const handleSendLobbyMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!typedLobbyMsg.trim() || isSendingLobbyMsg) return;
@@ -460,14 +460,17 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(msgPayload)
       });
+      
       if (res.ok) {
+        const data = await res.json(); // 🎯 Kinyerjük a választ a servertől
         setTypedLobbyMsg('');
-        // 🎯 Azonnal beillesztjük aláshúzással, hogy a felület azonnal tökéletesen kirajzolja a saját térfeleden!
+        
+        // 🎯 A data.user_name tartalmazza az adatbázisból kiolvasott valódi nevet!
         setLobbyMessages(prev => [...prev, { 
           id: Date.now(),
           topic_id: 0,
           user_email: user?.email,
-          user_name: user?.name || 'Anonim Képolvasó',
+          user_name: data.user_name || user?.name || 'Anonim Képolvasó',
           message_text: typedLobbyMsg,
           created_at: new Date().toISOString() 
         }]);
@@ -475,7 +478,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     } catch (err) {
       console.error(err);
     } finally {
-      
       setIsSendingLobbyMsg(false);
     }
   };
