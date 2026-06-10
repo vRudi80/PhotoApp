@@ -289,15 +289,15 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   // ====================================================================
   // ⚔️ JAVÍTVA: TURBÓ FOKOZATÚ, HUROKMENTES CSATATÉR FŐ VÉGPONT (Helyi idővel)
   // ====================================================================
+    // ====================================================================
+  // ⚔️ JAVÍTVA: AZONNALI LEZÁRÁSSAL ELLÁTOTT CSATATÉR FŐ VÉGPONT
+  // ====================================================================
   app.get('/api/weekly/current', async (req, res) => {
     const { userEmail, topicId } = req.query;
     try {
-      // ⚡ A nehéz lezárási motort levesszük az éles kiszolgálási szálról! Háttérben fut.
-      const now = Date.now();
-      if (now - lastChallengeProcessTime > 15 * 60 * 1000) {
-        lastChallengeProcessTime = now;
-        processFinishedChallenges(pool).catch(e => console.error("Háttér hiba:", e)); 
-      }
+      // 🎯 AZONNALI KIÉRTÉKELÉS: Kidobtuk a 15 perces gátat! 
+      // Amint lejár a futam, az első látogató kérésére azonnal lefut a lezáró motor.
+      await processFinishedChallenges(pool);
 
       // Csak egyszer kérjük le a profil statisztikákat, megszüntetve a redundáns DB köröket!
       const { totalLikes, victories } = await getUserLikesAndVictories(pool, userEmail);
@@ -389,6 +389,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       res.status(500).json({ error: 'Szerveroldali hiba történt.' }); 
     }
   });
+
 
   app.get('/api/weekly/my-album', async (req, res) => {
     const { userEmail } = req.query;
