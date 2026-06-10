@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react';
 import { googleLogout } from '@react-oauth/google';
 import { ADMIN_EMAIL, BACKEND_URL } from '../utils/constants';
 
+// 🎯 ÚJ IMPORT: Behozzuk a nyelvi hookot
+import { useLanguage } from '../context/LanguageContext';
+
 interface HeaderProps {
   user: any;
   isLeader: boolean;
@@ -25,6 +28,9 @@ export default function Header({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [unreadTicketsCount, setUnreadTicketsCount] = useState(0);
   const isAdminUser = user?.email === ADMIN_EMAIL;
+
+  // 🎯 ÚJ: Aktiváljuk a nyelvi kontextust a fejlécben
+  const { lang, setLang } = useLanguage();
 
   // 10 percenként csendben leellenőrzi, van-e új üzenet
   useEffect(() => {
@@ -195,6 +201,29 @@ export default function Header({
              FIÓK MENÜ (JOBB OLDAL)
            ==================================================================== */}
         <div className="user-group" style={{ display: 'flex', alignItems: 'center', gap: '15px', position: 'relative' }}>
+          
+          {/* 🌐 ÚJ: Nyelvválasztó legördülő menü */}
+          <select 
+            value={lang} 
+            onChange={(e) => setLang(e.target.value as 'hu' | 'en')}
+            style={{ 
+              padding: '6px 12px', 
+              borderRadius: '10px', 
+              background: '#1e293b', 
+              color: '#cbd5e1', 
+              border: '1px solid #334155',
+              fontSize: '0.85rem',
+              fontWeight: 'bold',
+              outline: 'none',
+              cursor: 'pointer',
+              transition: 'all 0.2s'
+            }}
+            onFocus={(e) => e.target.style.borderColor = '#14b8a6'}
+            onBlur={(e) => e.target.style.borderColor = '#334155'}
+          >
+            <option value="hu">🇭🇺 HU</option>
+            <option value="en">🇬🇧 EN</option>
+          </select>
           
           <div className="nav-item-container" style={{ zIndex: dropdownOpen === 'user_account' ? 70 : 50 }}>
             <button 
