@@ -2,7 +2,7 @@ import React from 'react';
 import { GoogleLogin } from '@react-oauth/google';
 import logo from '../logo.png'; 
 
-// 🎯 ÚJ IMPORT: Behozzuk a nyelvi kontextust
+// Behozzuk a nyelvi kontextust
 import { useLanguage } from '../context/LanguageContext';
 
 interface LoginScreenProps {
@@ -11,10 +11,9 @@ interface LoginScreenProps {
 
 export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   
-  // 🎯 ÚJ: Aktiváljuk a fordítót (t) és a nyelvi állapotot (lang)
-  const { t, lang } = useLanguage();
+  // 🎯 ÚJ: Aktiváljuk a setLang függvényt is, hogy a belépés előtt is lehessen nyelvet váltani!
+  const { t, lang, setLang } = useLanguage();
 
-  // 🎯 JAVÍTVA: A Bento-rács elemeit kulcsalapúra strukturáltuk át
   const features = [
     { icon: '🔥', titleKey: 'loginFeatMatchTitle', descKey: 'loginFeatMatchDesc', color: '#f97316' },
     { icon: '🏆', titleKey: 'loginFeatFiapTitle', descKey: 'loginFeatFiapDesc', color: '#f43f5e' },
@@ -41,6 +40,32 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
       padding: '2rem'
     }}>
       
+      {/* 🎯 ÚJ: NYELVVÁLASZTÓ A JOBB FELSŐ SAROKBAN */}
+      <div style={{ position: 'absolute', top: '20px', right: '20px', zIndex: 100 }}>
+        <div style={{ display: 'flex', gap: '4px', background: 'rgba(30, 41, 59, 0.6)', backdropFilter: 'blur(10px)', padding: '3px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)' }}>
+          <button 
+            onClick={() => setLang('hu')} 
+            style={{ 
+              background: lang === 'hu' ? 'linear-gradient(135deg, #f97316, #ef4444)' : 'transparent', 
+              color: lang === 'hu' ? 'white' : '#94a3b8', 
+              border: 'none', padding: '6px 12px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '6px' 
+            }}
+          >
+            🇭🇺 <span>HU</span>
+          </button>
+          <button 
+            onClick={() => setLang('en')} 
+            style={{ 
+              background: lang === 'en' ? 'linear-gradient(135deg, #0284c7, #0369a1)' : 'transparent', 
+              color: lang === 'en' ? 'white' : '#94a3b8', 
+              border: 'none', padding: '6px 12px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '6px' 
+            }}
+          >
+            🇬🇧 <span>EN</span>
+          </button>
+        </div>
+      </div>
+
       {/* Háttér fények */}
       <div className="bg-glow" style={{ position: 'absolute', top: '-10%', left: '-10%', width: '500px', height: '500px', background: '#38bdf8', filter: 'blur(200px)', opacity: 0.15, borderRadius: '50%' }}></div>
       <div className="bg-glow" style={{ position: 'absolute', bottom: '-10%', right: '-10%', width: '500px', height: '500px', background: '#8b5cf6', filter: 'blur(200px)', opacity: 0.15, borderRadius: '50%' }}></div>
@@ -115,7 +140,6 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
             position: 'relative'
           }}>
             
-            {/* Lebegő badge */}
             <div style={{ position: 'absolute', top: '-15px', background: 'linear-gradient(135deg, #f59e0b, #f97316)', color: 'white', padding: '6px 16px', borderRadius: '50px', fontSize: '0.8rem', fontWeight: 'bold', boxShadow: '0 4px 10px rgba(249, 115, 22, 0.4)' }}>
               {t('loginBadge')}
             </div>
@@ -133,7 +157,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                   size="large" 
                   theme="filled_black" 
                   text="continue_with"
-                  locale={lang} // 🎯 ÚJ PRO-TIP: Átveszi az alkalmazás nyelvét, így a Google gomb belső szövege is lefordul!
+                  locale={lang} 
                 />
               </div>
               <span style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '5px' }}>
