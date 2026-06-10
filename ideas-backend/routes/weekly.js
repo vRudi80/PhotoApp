@@ -1133,39 +1133,53 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (e) { res.status(500).json({ error: e.message }); }
   });
 
-  app.post('/api/weekly/propose', upload.single('cover'), async (req, res) => {
-    const { title, description, cover_author, master_name, start_date, end_date, userEmail } = req.body;
-    
-    if (!title || !description || !start_date || !end_date) {
-      return res.status(400).json({ error: 'Minden kötelező mezőt ki kell tölteni!' });
+app.post('/api/weekly/propose', upload.single('cover'), async (req, res) => {
+  // 🎯 ÚJ: Kicsomagoljuk a title_en és description_en mezőket is a req.body-ból
+  const { title, title_en, description, description_en, cover_author, master_name, start_date, end_date, userEmail } = req.body;
+  
+  // A validáció marad a kötelező magyar mezőkön
+  if (!title || !description || !start_date || !end_date) {
+    return res.status(400).json({ error: 'Minden kötelező mezőt ki kell tölteni!' });
+  }
+
+  try {
+    let coverUrl = null;
+
+    if (req.file) {
+      const result = await cloudinary.uploader.upload(req.file.path, {
+        folder: 'parbaj_boritokepek',
+        width: 1200, height: 600, crop: "limit", quality: "auto:good"
+      });
+      coverUrl = result.secure_url;
+      if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
     }
 
-    try {
-      let coverUrl = null;
+    // 🎯 ÚJ: Beillesztettük a két új oszlopot (title_en, description_en) és a hozzájuk tartozó kérdőjeleket
+    await pool.query(
+      `INSERT INTO weekly_topics 
+        (title, title_en, description, description_en, cover_url, cover_author, master_email, start_date, end_date, status, proposed_by) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)` ,
+      [
+        title, 
+        title_en || null,         // 🎯 ÚJ: Ha üres string, NULL-ként mentjük
+        description, 
+        description_en || null,   // 🎯 ÚJ: Ha üres string, NULL-ként mentjük
+        coverUrl, 
+        cover_author, 
+        master_name || null, 
+        start_date, 
+        end_date, 
+        userEmail
+      ]
+    );
 
-      if (req.file) {
-        const result = await cloudinary.uploader.upload(req.file.path, {
-          folder: 'parbaj_boritokepek',
-          width: 1200, height: 600, crop: "limit", quality: "auto:good"
-        });
-        coverUrl = result.secure_url;
-        if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
-      }
-
-      await pool.query(
-        `INSERT INTO weekly_topics 
-         (title, description, cover_url, cover_author, master_email, start_date, end_date, status, proposed_by) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?)` ,
-        [title, description, coverUrl, cover_author, master_name || null, start_date, end_date, userEmail]
-      );
-
-      res.json({ success: '⚔️ A csatitervedet sikeresen elmentettük és feltöltöttük a felhőbe! A törzsi tanács hamarosan elbírálja.' });
-    } catch (err) {
-      if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
-      console.error("Csatajavaslat hiba:", err);
-      res.status(500).json({ error: `Szerveroldali hiba: ${err.message}` });
-    }
-  });
+    res.json({ success: '⚔️ A csatitervedet sikeresen elmentettük és feltöltöttük a felhőbe! A törzsi tanács hamarosan elbírálja.' });
+  } catch (err) {
+    if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    console.error("Csatajavaslat hiba:", err);
+    res.status(500).json({ error: `Szerveroldali hiba: ${err.message}` });
+  }
+});
       
   app.get('/api/admin/proposals', async (req, res) => {
     try {
