@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import BattlePlanner from './BattlePlanner';
 import { BACKEND_URL } from '../../../utils/constants';
 
+// 🎯 ÚJ IMPORT: Behozzuk a nyelvi kontextust
+import { useLanguage } from '../../../context/LanguageContext';
+
 interface UpcomingChallengesProps {
   upcomingTopics: any[];
   getTopicType: (startDate: string, endDate: string) => 'daily' | 'weekly';
@@ -9,24 +12,67 @@ interface UpcomingChallengesProps {
   user: any;
 }
 
+// ⚡ BÖNGÉSZŐS KÉPTÖMÖRÍTŐ MOTOR (Max 1920px, 80% minőség - Admin védelmi vonal)
+const compressImageOnClient = (file: File): Promise<File> => {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        const MAX_SIZE = 1920;
+
+        if (width > height) {
+          if (width > MAX_SIZE) { height = Math.round((height * MAX_SIZE) / width); width = MAX_SIZE; }
+        } else {
+          if (height > MAX_SIZE) { width = Math.round((width * MAX_SIZE) / height); height = MAX_SIZE; }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const compressedFile = new File([blob], file.name.replace(/\.[^/.]+$/, "") + ".jpg", {
+              type: 'image/jpeg',
+              lastModified: Date.now(),
+            });
+            resolve(compressedFile);
+          } else {
+            resolve(file); 
+          }
+        }, 'image/jpeg', 0.8); 
+      };
+    };
+  });
+};
+
 export default function UpcomingChallenges({
   upcomingTopics,
   getTopicType,
   handleImageError,
   user
 }: UpcomingChallengesProps) {
+  // 🎯 ÚJ: Aktiváljuk a fordítót (t) és az aktuális alkalmazás-nyelvet (lang)
+  const { t, lang } = useLanguage();
+
   const [showPlanner, setShowPlanner] = useState(false);
   const [applyingId, setApplyingId] = useState<number | null>(null);
 
   // Golyóálló aszinkron biztonsági háló
   const safeUpcomingTopics = Array.isArray(upcomingTopics) ? upcomingTopics : [];
 
-  // 👑 CSATABÍRÓI JELENTKEZÉS MOTOR
+  // 👑 CSATABÍRÓI JELENTKEZÉS MOTOR (Lokalizált üzenetekkel)
   const handleApplyMaster = async (topicId: number) => {
-    if (!user?.email) return alert("❌ A jelentkezéshez előbb be kell jelentkezned!");
+    if (!user?.email) return alert(t('msgLoginRequired'));
     
-    const confirmMessage = `⚔️ Biztosan jelentkezel ennek a futamnak a Képmesterének?\n\nFigyelem: Képmesterként saját fotóval nem indulhatsz a futamban, viszont kapsz 5 darab exkluzív +10 pontot érő szavazatot!`;
-    if (!window.confirm(confirmMessage)) return;
+    if (!window.confirm(t('msgApplyConfirm'))) return;
 
     setApplyingId(topicId);
     try {
@@ -37,25 +83,26 @@ export default function UpcomingChallenges({
       });
 
       if (res.ok) {
-        alert("🎉 Jelentkezésed sikeresen elküldve! A főadmin hamarosan elbírálja a műszerfalon.");
+        alert(t('msgApplySuccess'));
         window.location.reload(); 
       } else {
         const err = await res.json();
-        alert(err.error || "Hiba történt a jelentkezés során.");
+        alert(err.error || t('msgProposalError'));
       }
     } catch (e) {
-      alert("Hálózati hiba a jelentkezés elküldésekor.");
+      alert(t('msgNetworkError'));
     } finally {
       setApplyingId(null);
     }
   };
 
-  // 🕒 JAVÍTVA: A timeZone: 'UTC' kényszerítésével kikapcsoljuk a böngésző automata +2 órás eltolását!
+  // 🕒 JAVÍTVA: A dátumformázás dinamikusan leköveti a választott nyelvet!
   const formatDateTime = (dateString: string) => {
     const d = new Date(dateString);
+    const currentLocale = lang === 'en' ? 'en-US' : 'hu-HU';
     return {
-      date: d.toLocaleDateString('hu-HU', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' }),
-      time: d.toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' })
+      date: d.toLocaleDateString(currentLocale, { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' }),
+      time: d.toLocaleTimeString(currentLocale, { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' })
     };
   };
 
@@ -66,10 +113,10 @@ export default function UpcomingChallenges({
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#10b98105', padding: '15px 20px', borderRadius: '16px', border: '1px dashed #334155', flexWrap: 'wrap', gap: '15px' }}>
         <div>
           <h3 style={{ color: 'white', margin: 0, fontSize: '1.2rem', fontWeight: 'bold' }}>
-            🔮 Közelgő Kihívások Menetrendje
+            {t('upTitle')}
           </h3>
           <p style={{ color: '#64748b', margin: '2px 0 0 0', fontSize: '0.85rem' }}>
-            Már jóváhagyott, hamarosan élesedő kihívások.
+            {t('upDesc')}
           </p>
         </div>
         
@@ -77,7 +124,7 @@ export default function UpcomingChallenges({
           onClick={() => setShowPlanner(!showPlanner)}
           style={{ padding: '10px 20px', borderRadius: '10px', border: showPlanner ? '1px solid #ef4444' : '1px solid #f59e0b', background: showPlanner ? '#ef444420' : 'linear-gradient(135deg, #f59e0b, #d97706)', color: showPlanner ? '#f87171' : '#0f172a', fontWeight: 'bold', fontSize: '0.9rem', cursor: 'pointer', transition: 'all 0.2s', boxShadow: showPlanner ? 'none' : '0 4px 12px rgba(245,158,11,0.2)' }}
         >
-          {showPlanner ? '✕ Tervező bezárása' : '⚔️ Új kihívásterv benyújtása'}
+          {showPlanner ? t('upClosePlanner') : t('upOpenPlanner')}
         </button>
       </div>
 
@@ -92,71 +139,76 @@ export default function UpcomingChallenges({
       <div>
         {safeUpcomingTopics.length === 0 ? (
           <div style={{ color: '#94a3b8', textAlign: 'center', padding: '60px', background: '#1e293b', borderRadius: '24px', border: '1px solid #334155' }}>
-            Nincs betárazva elkövetkező kihívás. Kattints a fenti gombra, és javasolj egy új témát!
+            {t('upEmpty')}
           </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '25px' }}>
-            {safeUpcomingTopics.map(t => {
-              const isDaily = getTopicType(t.start_date, t.end_date) === 'daily';
-              const hasMaster = t.master_name || t.master_email;
-              const isPendingMe = t.pending_master_email === user?.email;
+            {safeUpcomingTopics.map(tData => {
+              // 🎯 JAVÍTVA: `t` helyett `tData`-t mapelünk, így nem ütközik az i18n t() funkcióval!
+              const isDaily = getTopicType(tData.start_date, tData.end_date) === 'daily';
+              const hasMaster = tData.master_name || tData.master_email;
+              const isPendingMe = tData.pending_master_email === user?.email;
               
-              const startFormat = formatDateTime(t.start_date);
-              const endFormat = formatDateTime(t.end_date);
+              const startFormat = formatDateTime(tData.start_date);
+              const endFormat = formatDateTime(tData.end_date);
+
+              // 🎯 JAVÍTVA: Dinamikus, adatbázis-szintű nyelvi szűrő a tartalomra
+              const displayTitle = lang === 'en' && tData.title_en ? tData.title_en : tData.title;
+              const displayDesc = lang === 'en' && tData.description_en ? tData.description_en : tData.description;
 
               return (
-                <div key={t.id} style={{ background: 'linear-gradient(180deg, #1e293b, #0f172a)', padding: '25px', borderRadius: '24px', border: '1px solid #475569', display: 'flex', flexDirection: 'column', boxShadow: '0 10px 20px rgba(0,0,0,0.2)', justifyContent: 'space-between' }}>
+                <div key={tData.id} style={{ background: 'linear-gradient(180deg, #1e293b, #0f172a)', padding: '25px', borderRadius: '24px', border: '1px solid #475569', display: 'flex', flexDirection: 'column', boxShadow: '0 10px 20px rgba(0,0,0,0.2)', justifyContent: 'space-between' }}>
                   <div>
                     <div style={{ marginBottom: '10px' }}>
                       <span style={{ background: isDaily ? '#ef444420' : '#3b82f620', color: isDaily ? '#f87171' : '#60a5fa', border: `1px solid ${isDaily ? '#ef444450' : '#3b82f650'}`, padding: '4px 12px', borderRadius: '50px', fontSize: '0.8rem', fontWeight: 'bold' }}>
-                        {isDaily ? '🔴 Villámfutam' : '🔵 Mesterfutam'}
+                        {isDaily ? t('upDaily') : t('upWeekly')}
                       </span>
                     </div>
                   
-                    {t.cover_url && (
+                    {tData.cover_url && (
                       <div style={{ width: '100%', height: '150px', borderRadius: '14px', overflow: 'hidden', marginBottom: '15px', border: '1px solid #334155', position: 'relative', backgroundColor: '#090d16' }}>
-                        <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${t.cover_url})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(12px) brightness(0.5)', transform: 'scale(1.1)' }}></div>
-                        <img src={t.cover_url} alt="" style={{ position: 'relative', width: '100%', height: '100%', objectFit: 'contain', zIndex: 1 }} onError={handleImageError} />
+                        <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${tData.cover_url})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(12px) brightness(0.5)', transform: 'scale(1.1)' }}></div>
+                        <img src={tData.cover_url} alt="" style={{ position: 'relative', width: '100%', height: '100%', objectFit: 'contain', zIndex: 1 }} onError={handleImageError} />
                       </div>
                     )}
 
-                    {t.cover_author && (
+                    {tData.cover_author && (
                       <div style={{ color: '#64748b', fontSize: '0.75rem', fontStyle: 'italic', marginTop: '-10px', marginBottom: '15px', textAlign: 'right', paddingRight: '5px' }}>
-                        📸 Borítókép: {t.cover_author}
+                        {t('upCoverAuthor')}{tData.cover_author}
                       </div>
                     )}
 
-                    <h4 style={{ color: '#f59e0b', margin: '0 0 10px 0', fontSize: '1.4rem', fontWeight: 'bold' }}>{t.title}</h4>
-                    <p style={{ color: '#cbd5e1', fontSize: '0.95rem', margin: '0 0 20px 0', lineHeight: '1.6' }}>{t.description}</p>
+                    <h4 style={{ color: '#f59e0b', margin: '0 0 10px 0', fontSize: '1.4rem', fontWeight: 'bold' }}>{displayTitle}</h4>
+                    <p style={{ color: '#cbd5e1', fontSize: '0.95rem', margin: '0 0 20px 0', lineHeight: '1.6' }}>{displayDesc}</p>
                   </div>
                   
                   <div>
                     {/* 👤 JELENLEGI CSATABÍRÓ INFÓ VAGY AKCIÓGOMBOK */}
                     {hasMaster ? (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#a78bfa', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '15px', background: '#a78bfa10', padding: '8px 14px', borderRadius: '10px', border: '1px solid #a78bfa20', width: 'fit-content' }}>
-                        <span>👑 Képjmester:</span>
-                        <span style={{ color: '#e9d5ff', fontWeight: 'bold' }}>{t.master_name || t.master_email}</span>
+                        <span>{t('upMaster')}</span>
+                        <span style={{ color: '#e9d5ff', fontWeight: 'bold' }}>{tData.master_name || tData.master_email}</span>
                       </div>
-                    ) : t.pending_master_email ? (
+                    ) : tData.pending_master_email ? (
                       <div style={{ background: isPendingMe ? '#eab30815' : '#33415540', border: `1px solid ${isPendingMe ? '#eab30840' : '#475569'}`, color: isPendingMe ? '#f59e0b' : '#94a3b8', padding: '10px', borderRadius: '12px', fontSize: '0.85rem', fontWeight: 'bold', textAlign: 'center', marginBottom: '15px' }}>
-                        {isPendingMe ? '⏳ Jelentkezésed elbírálásra vár...' : '⏳ Valaki már jelentkezett (Bírálatra vár)'}
+                        {isPendingMe ? t('upPendingMe') : t('upPendingOther')}
                       </div>
                     ) : (
                       <button
-                        onClick={() => handleApplyMaster(t.id)}
-                        disabled={applyingId === t.id}
+                        onClick={() => handleApplyMaster(tData.id)}
+                        disabled={applyingId === tData.id}
                         style={{ width: '100%', padding: '10px', background: 'rgba(16, 185, 129, 0.12)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: '12px', fontWeight: 'bold', fontSize: '0.9rem', cursor: 'pointer', marginBottom: '15px', transition: 'all 0.2s' }}
                         onMouseOver={e => e.currentTarget.style.background = 'rgba(16, 185, 129, 0.25)'}
                         onMouseOut={e => e.currentTarget.style.background = 'rgba(16, 185, 129, 0.12)'}
                       >
-                        {applyingId === t.id ? 'Feldolgozás...' : '👑 Jelentkezés Képmesternek'}
+                        {applyingId === tData.id ? t('upProcessing') : t('upApplyBtn')}
                       </button>
                     )}
 
                     {/* 🕒 IDŐZÍTŐ PANEL */}
                     <div style={{ background: '#0f172a', padding: '15px', borderRadius: '12px', border: '1px solid #38bdf840', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ color: '#64748b', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold' }}>Indulás</span>
+                        <span style={{ color: '#64748b', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold' }}>{t('upStart')}</span>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <span style={{ color: '#38bdf8', fontSize: '0.9rem', fontWeight: 'bold' }}>{startFormat.date}</span>
                           <span style={{ background: '#38bdf820', color: '#38bdf8', padding: '2px 6px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '900' }}>{startFormat.time}</span>
@@ -166,9 +218,9 @@ export default function UpcomingChallenges({
                       <div style={{ height: '1px', background: '#1e293b', width: '100%' }}></div>
                       
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ color: '#64748b', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold' }}>Zárás</span>
+                        <span style={{ color: '#64748b', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold' }}>{t('upEnd')}</span>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <span style={{ color: '#f87171', fontSize: '0.9rem', fontWeight: 'bold' }}>{endFormat.date}</span>
+                          <span style={{ color: '#maxW', fontSize: '0.9rem', fontWeight: 'bold', color: '#f87171' }}>{endFormat.date}</span>
                           <span style={{ background: '#ef444420', color: '#f87171', padding: '2px 6px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '900' }}>{endFormat.time}</span>
                         </div>
                       </div>
