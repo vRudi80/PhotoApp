@@ -12,7 +12,7 @@ import PastArchive from '../components/WeeklyChallenge/subtabs/PastArchive';
 import UpcomingChallenges from '../components/WeeklyChallenge/subtabs/UpcomingChallenges';
 import ArenaActiveRoom from '../components/WeeklyChallenge/subtabs/ArenaActiveRoom';
 
-// 🎯 ÚJ IMPORT: Behozzuk a nyelvi kontextust
+// 🎯 Aktiváljuk a nyelvi kontextust
 import { useLanguage } from '../context/LanguageContext';
 
 interface WeeklyChallengeViewProps {
@@ -30,7 +30,7 @@ const getTopicType = (startDate: string, endDate: string) => {
 };
 
 const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-  e.currentTarget.src = 'https://via.placeholder.com/400x300/1e293b/64748b?text=Kép+nem+található';
+  e.currentTarget.src = 'https://via.placeholder.com/400x300/1e293b/64748b?text=Image+not+found';
 };
 
 const getLevelDetails = (likes: number, victories: number) => {
@@ -89,13 +89,13 @@ const compressImageOnClient = (file: File): Promise<File> => {
 };
 
 // ====================================================================
-// ⏳ SELEKCIÓS KÁRTYA KOMPONENS (Fordítás-bekötéssel)
+// ⏳ SELEKCIÓS KÁRTYA KOMPONENS (Lefordítva)
 // ====================================================================
 function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }) {
-  const [timeLeft, setTimeLeft] = useState<string>('Számítás...');
-  
-  // 🎯 ÚJ: Behúzzuk a nyelvi szótárat a kártyába
+  // 🎯 Aktiváljuk a nyelvi szótárat a kártyába
   const { t, lang } = useLanguage();
+
+  const [timeLeft, setTimeLeft] = useState<string>(t('viewTimeCalc'));
 
   useEffect(() => {
     if (!topic || !topic.end_date) return;
@@ -109,14 +109,14 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
         : new Date(topic.end_date);
       
       if (isNaN(end.getTime())) {
-        setTimeLeft('Hibás dátum');
+        setTimeLeft(t('viewTimeError'));
         return false;
       }
 
       const distance = end.getTime() - now;
 
       if (distance < 0) {
-        setTimeLeft('Futam Lezárult!');
+        setTimeLeft(t('viewTimeEnded'));
         return false;
       }
 
@@ -126,7 +126,7 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
       const seconds = Math.floor((distance % (1000 * 60)) / 1000).toString().padStart(2, '0');
 
       if (days > 0) {
-        setTimeLeft(`${days} nap ${hours}:${minutes}:${seconds}`);
+        setTimeLeft(`${days}${t('viewTimeDays')}${hours}:${minutes}:${seconds}`);
       } else {
         setTimeLeft(`${hours}:${minutes}:${seconds}`);
       }
@@ -140,13 +140,12 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
     }, 1000);
     
     return () => clearInterval(interval);
-  }, [topic.id, topic.end_date]);
+  }, [topic.id, topic.end_date, t]);
 
   const isDaily = getTopicType(topic.start_date, topic.end_date) === 'daily';
   const isMaster = topic.isMaster === true;
   const statusColor = isMaster ? '#a78bfa' : (topic.hasEntered ? '#10b981' : '#f59e0b');
 
-  // 🎯 ÚJ: Dinamikus adatbázis-alapú fordítás. Ha van angol verzió, azt használja, különben a magyart.
   const displayTitle = lang === 'en' && topic.title_en ? topic.title_en : topic.title;
   const displayDesc = lang === 'en' && topic.description_en ? topic.description_en : topic.description;
 
@@ -180,18 +179,17 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
       
       {topic.cover_author && (
         <div style={{ color: '#64748b', fontSize: '0.75rem', fontStyle: 'italic', marginTop: '-10px', marginBottom: '15px', textAlign: 'right', paddingRight: '5px' }}>
-          📸 Borítókép: {topic.cover_author}
+          {t('viewCoverAuthor')}{topic.cover_author}
         </div>
       )}
 
-      {/* 🎯 ÚJ: Dinamikus nyelvű cím és leírás */}
       <h3 style={{ color: 'white', margin: '0 0 10px 0', fontSize: '1.4rem', fontWeight: 'bold' }}>{displayTitle}</h3>
       <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: '0 0 20px 0', lineHeight: '1.5', flex: 1 }}>{displayDesc}</p>
       
       <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '20px', lineHeight: '1' }}>
         {(topic.master_name || topic.master_email) && (
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#a78bfa', fontSize: '0.85rem', fontWeight: 'bold', background: '#a78bfa10', padding: '6px 14px', borderRadius: '10px', border: '1px solid #a78bfa20', whiteSpace: 'nowrap', lineHeight: '1' }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center' }}>👑 Képmester:&nbsp;</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center' }}>{t('viewMasterLabel')}</span>
             <span style={{ color: '#e9d5ff', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center' }}>{topic.master_name || topic.master_email}</span>
           </div>
         )}
@@ -216,6 +214,8 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
 // ⚔️ FŐ IRÁNYÍTÓKÖZPONT KOMPONENS
 // ====================================================================
 export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyChallengeViewProps) {
+  const { t, lang } = useLanguage();
+
   const [subTab, setSubTab] = useState<'current' | 'upcoming' | 'past' | 'my_stats' | 'hall_of_fame' | 'arena_album'>('current');
   const [loading, setLoading] = useState(true);
   const [myReferralCode, setMyReferralCode] = useState<string>('');
@@ -285,13 +285,10 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const lobbyChatBottomRef = useRef<HTMLDivElement>(null);
   const lastTypingSignalSent = useRef<number>(0);
 
-  // 🎯 ÚJ: Behúzzuk a fordítót a fő irányítópultba is
-  const { t } = useLanguage();
-
-  const myOfficialNameRef = useRef<string>('Én');
+  const myOfficialNameRef = useRef<string>(lang === 'en' ? 'Me' : 'Én');
   useEffect(() => {
-    myOfficialNameRef.current = myEntry?.user_name || user?.name || 'Én';
-  }, [myEntry, user]);
+    myOfficialNameRef.current = myEntry?.user_name || user?.name || (lang === 'en' ? 'Me' : 'Én');
+  }, [myEntry, user, lang]);
 
   useEffect(() => {
     if (!activeShareData) {
@@ -314,7 +311,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         }
       })
       .catch(err => {
-        console.error("Hiba a megosztó kép letöltésekor:", err);
+        console.error("Error downloading proxy asset:", err);
         if (isMounted) setLoadingShareImg(false);
       });
     return () => { isMounted = false; };
@@ -330,9 +327,9 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const exposurePercentage = isNaN(rawPercentage) || !isFinite(rawPercentage) ? 0 : Math.min(100, Math.max(0, rawPercentage));
 
   let exposureColor = '#ef4444';
-  let exposureLabel = viewsRemaining <= 0 ? 'Láthatatlan (0%)' : 'Alacsony';
-  if (exposurePercentage >= 80) { exposureColor = '#10b981'; exposureLabel = 'Maximális'; } 
-  else if (exposurePercentage >= 40) { exposureColor = '#f59e0b'; exposureLabel = 'Közepes'; }
+  let exposureLabel = viewsRemaining <= 0 ? (lang === 'en' ? 'Invisible (0%)' : 'Láthatatlan (0%)') : (lang === 'en' ? 'Low' : 'Alacsony');
+  if (exposurePercentage >= 80) { exposureColor = '#10b981'; exposureLabel = lang === 'en' ? 'Maximum' : 'Maximális'; } 
+  else if (exposurePercentage >= 40) { exposureColor = '#f59e0b'; exposureLabel = lang === 'en' ? 'Medium' : 'Közepes'; }
 
   useEffect(() => {
     setTopic(null);
@@ -477,7 +474,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           setCurrentlyTyping(othersTyping);
         }
       } catch (err) {
-        console.error("❌ Hiba a lobbi chat szinkronizációjakor:", err);
+        console.error("Lobby chat synchronization anomaly:", err);
       } finally {
         if (isMounted && subTab === 'current' && selectedTopicId === null) {
           timerId = setTimeout(fetchLobbyChat, 2500);
@@ -507,7 +504,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     const msgPayload = {
       topicId: 0,
       userEmail: user?.email,
-      userName: user?.name || 'Anonim Képolvasó',
+      userName: user?.name || (lang === 'en' ? 'Anonymous Photographer' : 'Anonim Képolvasó'),
       messageText: typedLobbyMsg
     };
 
@@ -526,7 +523,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           id: Date.now(),
           topic_id: 0,
           user_email: user?.email,
-          user_name: data.user_name || user?.name || 'Anonim Képolvasó',
+          user_name: data.user_name || user?.name || (lang === 'en' ? 'Anonymous Photographer' : 'Anonim Képolvasó'),
           message_text: typedLobbyMsg,
           created_at: new Date().toISOString() 
         }]);
@@ -540,7 +537,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
 
   useEffect(() => {
     if (!topic || !topic.end_date) {
-      setTimeLeft('Ismeretlen dátum');
+      setTimeLeft(t('viewTimeError'));
       return;
     }
 
@@ -553,14 +550,14 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         : new Date(topic.end_date);
       
       if (isNaN(end.getTime())) {
-        setTimeLeft('Hibás dátum');
+        setTimeLeft(t('viewTimeError'));
         return false;
       }
 
       const distance = end.getTime() - now;
 
       if (distance < 0) {
-        setTimeLeft('Futam Lezárult!');
+        setTimeLeft(t('viewTimeEnded'));
         return false;
       }
 
@@ -570,7 +567,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       const seconds = Math.floor((distance % (1000 * 60)) / 1000).toString().padStart(2, '0');
 
       if (days > 0) {
-        setTimeLeft(`${days} nap ${hours}:${minutes}:${seconds}`);
+        setTimeLeft(`${days}${t('viewTimeDays')}${hours}:${minutes}:${seconds}`);
       } else {
         setTimeLeft(`${hours}:${minutes}:${seconds}`);
       }
@@ -586,7 +583,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     }, 1000);
     
     return () => clearInterval(interval);
-  }, [topic]);
+  }, [topic, t]);
 
   const loadPastHistoryList = async (topicId: number) => {
     setSelectedPastTopicId(topicId);
@@ -601,7 +598,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   };
 
   const handleOffTopicReport = async (entryId: number) => {
-    if (!window.confirm("Biztosan jelented ezt a képet, mert nem illik a témához?")) return;
+    if (!window.confirm(t('msgReportConfirm'))) return;
     
     setVoteEntry(null);
     try {
@@ -612,7 +609,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       });
       
       if (res.ok) {
-        alert("🚫 Jelentve! A kép eltűnt a futamodból.");
+        alert(t('msgReportSuccess'));
         setMyVoteCount(prev => prev + 1);
         if (topic) {
           fetchNextVote(topic.id);
@@ -620,7 +617,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         }
       }
     } catch (e) {
-      alert("Hiba a jelentés során.");
+      alert(t('msgReportError'));
       if (topic) fetchNextVote(topic.id);
     }
   };
@@ -652,14 +649,14 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         body: JSON.stringify({ userEmail: user?.email, referralCode: referralInput })
       });
       if (res.ok) {
-        alert("🎉 Sikeres érvényesítés! A meghívód megkapta a +10 db ajándék Joker cserét.");
+        alert(t('msgReferralSuccess'));
         setReferredBy(referralInput); 
         fetchCurrentTopic(true);      
       } else {
         const err = await res.json();
-        alert(err.error || "Hiba történt a kód beváltása során.");
+        alert(err.error || t('msgSwapErrorMain'));
       }
-    } catch (e) { alert("Hálózati hiba!"); }
+    } catch (e) { alert(t('msgNetworkError')); }
     finally { setIsClaimingReferral(false); }
   };
 
@@ -669,9 +666,9 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       
       let finalFile = rawFile;
       if (rawFile.size > 2 * 1024 * 1024) {
-        console.log("⚡ Óriásfájl észlelve, böngészős tömörítés indul...");
+        console.log("⚡ Large asset detected, triggering browser side compression engine...");
         finalFile = await compressImageOnClient(rawFile);
-        console.log(`💪 Sikeres tömörítés: ${(rawFile.size / 1024 / 1024).toFixed(2)}MB -> ${(finalFile.size / 1024 / 1024).toFixed(2)}MB`);
+        console.log(`💪 Optimization profile completed: ${(rawFile.size / 1024 / 1024).toFixed(2)}MB -> ${(finalFile.size / 1024 / 1024).toFixed(2)}MB`);
       }
 
       setUploadFile(finalFile); 
@@ -687,9 +684,9 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       const formData = new FormData();
       formData.append('photo', uploadFile); formData.append('topicId', topic.id.toString()); formData.append('userEmail', user?.email || ''); formData.append('userName', user?.name || '');
       const res = await fetch(`${BACKEND_URL}/api/weekly/upload`, { method: 'POST', body: formData });
-      if (res.ok) { alert('🎉 Sikeres nevezés! Irány szavazni!'); setUploadFile(null); setUploadPreview(null); fetchCurrentTopic(false); } 
+      if (res.ok) { alert(t('msgUploadSuccessMain')); setUploadFile(null); setUploadPreview(null); fetchCurrentTopic(false); } 
       else { const err = await res.json(); alert(err.error); }
-    } catch (e) { alert("Feltöltési hiba!"); }
+    } catch (e) { alert(t('msgUploadErrorMain')); }
     finally { setIsUploading(false); }
   };
 
@@ -702,20 +699,20 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
 
   const handleSwapSubmit = async () => {
     if (!swapFile || !topic) return;
-    if (!window.confirm("⚠️ Biztosan elhasználsz 1 Joker cserét? Az új képed 0 pontról fog indulni, de a korábbi képedet bármikor visszahozhatod!")) return;
+    if (!window.confirm(t('msgSwapConfirm'))) return;
     setIsSwapping(true);
     try {
       const formData = new FormData();
       formData.append('photo', swapFile); formData.append('topicId', topic.id.toString()); formData.append('userEmail', user?.email || ''); formData.append('userName', user?.name || '');
       const res = await fetch(`${BACKEND_URL}/api/weekly/swap`, { method: 'POST', body: formData });
-      if (res.ok) { alert('🔄 Kép sikeresen lecserélve! Újra indul a harc!'); setSwapFile(null); setSwapPreview(null); fetchCurrentTopic(false); } 
+      if (res.ok) { alert(t('msgSwapSuccess')); setSwapFile(null); setSwapPreview(null); fetchCurrentTopic(false); } 
       else { const err = await res.json(); alert(err.error); }
-    } catch (e) { alert("Hiba a csere során!"); }
+    } catch (e) { alert(t('msgSwapErrorMain')); }
     finally { setIsSwapping(false); }
   };
 
   const handleSwapBackSubmit = async (entryId: number) => {
-    if (!window.confirm("⚠️ Biztosan visszatérsz ehhez a korábbi pályaművedhez? Ez 1 Joker pontodba fog kerülni, viszont visszakapod az akkori csillagaidat!")) return;
+    if (!window.confirm(t('msgSwapBackConfirm'))) return;
     setIsSwapping(true);
     try {
       const res = await fetch(`${BACKEND_URL}/api/weekly/swap-back`, {
@@ -724,20 +721,20 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         body: JSON.stringify({ topicId: topic.id, userEmail: user?.email, entryId })
       });
       if (res.ok) {
-        alert("↩️ Sikeresen visszaaktiváltad a korábbi fotódat!");
+        alert(t('msgSwapBackSuccess'));
         fetchCurrentTopic(false);
       } else {
         const err = await res.json();
-        alert(err.error || "Hiba a csere során.");
+        alert(err.error || t('msgSwapErrorMain'));
       }
-    } catch (e) { alert("Hálózati hiba!"); }
+    } catch (e) { alert(t('msgNetworkError')); }
     finally { 
       setIsSwapping(false);
     }
   };
 
   const handleSelectPhotoForSwap = async (photoUrl: string) => {
-    if (!window.confirm("⚠️ Biztosan elhasználsz 1 Joker cserére erre az albumképre? Ez a fotó most 0 pontról fog újrainduini ebben a fordulóban!")) return;
+    if (!window.confirm(t('msgSwapExistingConfirm'))) return;
     setIsSwapping(true);
     setShowSwapAlbumModal(false); 
     
@@ -749,14 +746,14 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       });
       
       if (swapRes.ok) {
-        alert("🎉 Sikeres Joker képcsere az Aréna képtáradból!");
+        alert(t('msgSwapExistingSuccess'));
         fetchCurrentTopic(false);
       } else {
         const err = await swapRes.json(); 
         alert(err.error);
       }
     } catch (e) { 
-      alert("Hálózati hiba a csere során."); 
+      alert(t('msgNetworkError')); 
     } finally { 
       setIsSwapping(false); 
     }
@@ -771,23 +768,37 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       await toPng(node, { cacheBust: true });
       const dataUrl = await toPng(node, { cacheBust: true, quality: 1.0 });
       const blob = await (await fetch(dataUrl)).blob();
-      const file = new File([blob], `Parbaj_Award_${activeShareData.topic_title}.png`, { type: 'image/png' });
+      const file = new File([blob], `Arena_Award_${activeShareData.topic_title}.png`, { type: 'image/png' });
+
+      // 🇬🇧 Ordinal suffix mapping to generate correct share details dynamically
+      const getOrdinalStr = (rankNum: number) => {
+        if (lang === 'hu') return `${rankNum}.`;
+        const m = rankNum % 10, n = rankNum % 100;
+        if (m === 1 && n !== 11) return `${rankNum}st`;
+        if (m === 2 && n !== 12) return `${rankNum}nd`;
+        if (m === 3 && n !== 13) return `${rankNum}rd`;
+        return `${rankNum}th`;
+      };
+
+      const shareTextCompiled = t('msgShareText')
+        .replace('{rank}', lang === 'en' ? getOrdinalStr(activeShareData.rank) : String(activeShareData.rank))
+        .replace('{title}', activeShareData.topic_title);
 
       if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({
           files: [file],
-          title: 'Fotóklub Futam Trófea',
-          text: `🎉 Elértem a(z) ${activeShareData.rank}. helyezést a "${activeShareData.topic_title}" fotós futamban! ⭐`
+          title: t('msgShareTitle'),
+          text: shareTextCompiled
         });
       } else {
         const link = document.createElement('a');
-        link.download = `Parbaj_Trofea_${activeShareData.topic_title}.png`;
+        link.download = `Arena_Trophy_${activeShareData.topic_title}.png`;
         link.href = dataUrl;
         link.click();
       }
       setActiveShareData(null);
      } catch (e) {
-      alert('Sajnos hiba történt a kép generálása közben.');
+      alert(t('msgGenerateImageError'));
       console.error(e);
     } finally { 
       setIsGeneratingImage(false);
@@ -797,7 +808,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   return (
     <div style={{ animation: 'fadeIn 0.4s ease-out' }}>
       
-      {/* 🎯 ÚJ: A gombok most már a t() függvénnyel dinamikusan fordítódnak */}
+      {/* TABS HEADER GOMBSOR (Lefordítva) */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', flexWrap: 'wrap', gap: '15px' }}>
         <div style={{ display: 'flex', gap: '10px', background: '#0f172a', padding: '10px', borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.3)', width: 'fit-content', flexWrap: 'wrap', border: '1px solid #1e293b' }}>
           <button onClick={() => { setSubTab('current'); setSelectedTopicId(null); }} style={{ padding: '10px 24px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: subTab === 'current' ? 'linear-gradient(135deg, #f97316, #ef4444)' : 'transparent', color: subTab === 'current' ? 'white' : '#94a3b8', transition: 'all 0.3s', boxShadow: subTab === 'current' ? '0 4px 15px rgba(239,68,68,0.4)' : 'none' }}>{t('tabChallenges')}</button>
@@ -831,8 +842,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
             <div style={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
               <div>
                 <div style={{ marginBottom: '20px' }}>
-                  <h2 style={{ color: 'white', margin: 0, fontSize: '1.8rem' }}>🔥 Aktuális Ligák</h2>
-                  <p style={{ color: '#94a3b8', margin: '5px 0 0 0' }}>Válassz egyet az alábbi futó ligák közül, és légy Te a legjobb!</p>
+                  <h2 style={{ color: 'white', margin: 0, fontSize: '1.8rem' }}>{t('viewActiveLeagues')}</h2>
+                  <p style={{ color: '#94a3b8', margin: '5px 0 0 0' }}>{t('viewActiveLeaguesDesc')}</p>
                 </div>
 
                 {loading ? (
@@ -840,39 +851,40 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                 ) : activeTopics.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '5rem 2rem', background: 'linear-gradient(180deg, #1e293b, #0f172a)', borderRadius: '24px', border: '1px solid #334155' }}>
                     <div style={{ fontSize: '5rem', marginBottom: '1rem' }}>😴</div>
-                    <h2 style={{ color: '#f59e0b', margin: '0 0 10px 0', fontSize: '2rem' }}>Jelenleg nincs egyetlen aktív liga sem!</h2>
-                    <p style={{ color: '#94a3b8' }}>Pihenj meg, hamarosan új kihívás érkezik.</p>
+                    <h2 style={{ color: '#f59e0b', margin: '0 0 10px 0', fontSize: '2rem' }}>{t('viewNoActiveLeagues')}</h2>
+                    <p style={{ color: '#94a3b8' }}>{t('viewNoActiveLeaguesDesc')}</p>
                   </div>
                 ) : (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '25px', marginTop: '20px' }}>
-                    {activeTopics.map((t) => (
+                    {activeTopics.map((actTop) => (
                       <ChallengeCard 
-                        key={t.id} 
-                        topic={t} 
-                        onSelect={() => setSelectedTopicId(t.id)} 
+                        key={actTop.id} 
+                        topic={actTop} 
+                        onSelect={() => setSelectedTopicId(actTop.id)} 
                       />
                     ))}
                   </div>
                 )}
               </div>
 
+              {/* ARÉNA KÖZPONTI LOBBI CHAT */}
               <div style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: '24px', padding: '25px', boxShadow: '0 15px 35px rgba(0,0,0,0.4)', display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '10px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
                   <div>
                     <h3 style={{ margin: 0, color: '#38bdf8', fontSize: '1.4rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span>💬</span> Aréna Központi Lobbi
+                      <span>💬</span> {t('viewLobbyTitle')}
                     </h3>
-                    <p style={{ margin: '3px 0 0 0', color: '#94a3b8', fontSize: '0.85rem' }}>Köszöntsd a bent lévőket, beszéld meg a taktikákat, hívd meg az ismerőseidet éles küzdelmekre!</p>
+                    <p style={{ margin: '3px 0 0 0', color: '#94a3b8', fontSize: '0.85rem' }}>{t('viewLobbyDesc')}</p>
                   </div>
                   <div style={{ background: '#38bdf815', border: '1px dashed #38bdf850', color: '#38bdf8', padding: '6px 14px', borderRadius: '10px', fontSize: '0.8rem', fontWeight: 'bold' }}>
-                    💡 Hívd be a fotós ismerőseidet az Arénába a saját meghívó kódoddal +10 db ajándék Jokerért!
+                    {t('viewLobbyTip')}
                   </div>
                 </div>
 
                 <div style={{ background: '#0f172a', borderRadius: '16px', padding: '20px', height: '300px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', border: '1px solid #223147' }}>
                   {lobbyMessages.length === 0 ? (
                     <div style={{ color: '#475569', textAlign: 'center', margin: 'auto', fontStyle: 'italic', fontSize: '0.9rem' }}>
-                      Csendes még a Lobbi... 🤫 Indítsd el Te a társalgást, szólítsd meg a klubtagokat!
+                      {t('viewLobbyEmpty')}
                     </div>
                   ) : (
                     lobbyMessages.map((msg, idx) => {
@@ -896,7 +908,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                           <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginBottom: '3px', fontSize: '0.75rem', color: isMsgMe ? '#38bdf8' : '#94a3b8', fontWeight: 'bold' }}>
                             <span>{msgName}</span>
                             <span style={{ color: '#475569', fontWeight: 'normal' }}>
-                              • {new Date(msg.created_at).toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' })}
+                              • {new Date(msg.created_at).toLocaleTimeString(lang === 'en' ? 'en-US' : 'hu-HU', { hour: '2-digit', minute: '2-digit' })}
                             </span>
                           </div>
                           <div 
@@ -924,7 +936,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                 <div style={{ height: '20px', paddingLeft: '10px', fontSize: '0.85rem', color: '#38bdf8', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '5px', transition: 'all 0.3s' }}>
                   {currentlyTyping.length > 0 && (
                     <>
-                      <span>{currentlyTyping.join(', ')} épp ír</span>
+                      <span>{currentlyTyping.join(', ')}{t('viewLobbyTyping')}</span>
                       <span className="typing-dots" style={{ display: 'inline-flex', gap: '2px' }}>
                         <span style={{ animation: 'bounce 1.4s infinite both', animationDelay: '0s' }}>•</span>
                         <span style={{ animation: 'bounce 1.4s infinite both', animationDelay: '0.2s' }}>•</span>
@@ -937,7 +949,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                 <form onSubmit={handleSendLobbyMessage} style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                   <input 
                     type="text" 
-                    placeholder="Írj egy üzenetet..." 
+                    placeholder={t('viewLobbyPlaceholder')} 
                     value={typedLobbyMsg}
                     onChange={handleInputChange} 
                     maxLength={500}
@@ -951,7 +963,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                     disabled={!typedLobbyMsg.trim() || isSendingLobbyMsg}
                     style={{ background: (!typedLobbyMsg.trim() || isSendingLobbyMsg) ? '#334155' : 'linear-gradient(135deg, #0ea5e9, #2563eb)', color: (!typedLobbyMsg.trim() || isSendingLobbyMsg) ? '#64748b' : 'white', border: 'none', padding: '14px 28px', borderRadius: '14px', fontWeight: 'bold', fontSize: '0.95rem', cursor: 'pointer', transition: 'all 0.2s', boxShadow: typedLobbyMsg.trim() ? '0 4px 15px rgba(37,99,235,0.3)' : 'none' }}
                   >
-                    {isSendingLobbyMsg ? '...' : 'Küldés 🚀'}
+                    {isSendingLobbyMsg ? '...' : t('viewLobbySend')}
                   </button>
                 </form>
               </div>
@@ -963,12 +975,12 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   onClick={() => { setSelectedTopicId(null); }} 
                   style={{ background: '#1e293b', border: '1px solid #334155', color: '#cbd5e1', padding: '8px 18px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem', transition: 'all 0.2s' }}
                 >
-                  ⬅️ Vissza a kihívásokhoz
+                  {t('viewBackBtn')}
                 </button>
               </div>
 
               {(!topic || loading) ? (
-                <div style={{ color: '#94a3b8', textAlign: 'center', padding: '50px' }}>⏳ Aréna szoba előkészítése...</div>
+                <div style={{ color: '#94a3b8', textAlign: 'center', padding: '50px' }}>{t('viewPreparingRoom')}</div>
               ) : (
                 <ArenaActiveRoom
                   topic={topic}
@@ -1002,12 +1014,12 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                       const res = await fetch(`${BACKEND_URL}/api/weekly/my-album?userEmail=${user?.email}`);
                       if (res.ok) {
                         const albumPhotos = await res.json();
-                        if (albumPhotos.length === 0) return alert("Még nincs kép az Aréna képtáradban!");
+                        if (albumPhotos.length === 0) return alert(t('msgNoPhotosInGallery'));
                         setSwapAlbumPhotos(albumPhotos);
                         setAlbumModalMode('upload');
                         setShowSwapAlbumModal(true);
                       }
-                    } catch (e) { alert("Hiba az album betöltésekor."); }
+                    } catch (e) { alert(t('msgGalleryLoadError')); }
                     finally { setIsLoadingSwapAlbum(false); }
                   }}
                   onOpenAlbumForSwap={async () => {
@@ -1016,12 +1028,12 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                       const res = await fetch(`${BACKEND_URL}/api/weekly/my-album?userEmail=${user?.email}`);
                       if (res.ok) {
                         const albumPhotos = await res.json();
-                        if (albumPhotos.length === 0) return alert("Még nincs kép az Aréna képtáradban!");
+                        if (albumPhotos.length === 0) return alert(t('msgNoPhotosInGallery'));
                         setSwapAlbumPhotos(albumPhotos);
                         setAlbumModalMode('swap');
                         setShowSwapAlbumModal(true);
                       }
-                    } catch (e) { alert("Hiba az album betöltésekor."); }
+                    } catch (e) { alert(t('msgGalleryLoadError')); }
                     finally { setIsLoadingSwapAlbum(false); }
                   }}
                   handleVote={handleVote}
