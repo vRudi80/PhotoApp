@@ -1320,15 +1320,25 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
  // ====================================================================
-  // 💬 ARÉNA LÍGA ÉLŐ CSEVEGŐ VÉGPONTOK (Javított, 0-biztos verzió)
+  // 💬 ARÉNA LÍGA ÉLŐ CSEVEGŐ VÉGPONTOK (Valós DB név-szinkronnal)
   // ====================================================================
   app.get('/api/weekly/chat/:topicId', async (req, res) => {
     const { topicId } = req.params;
     try {
-      const [messages] = await pool.query(
-        'SELECT id, user_name, user_email, message_text, created_at FROM weekly_chat WHERE topic_id = ? ORDER BY created_at ASC LIMIT 100',
-        [topicId]
-      );
+      // 🎯 JAVÍTVA: A photo_users táblából húzzuk be a hivatalos nevet (LEFT JOIN)
+      const [messages] = await pool.query(`
+        SELECT 
+          c.id, 
+          COALESCE(u.name, c.user_name) AS user_name, 
+          c.user_email, 
+          c.message_text, 
+          c.created_at 
+        FROM weekly_chat c
+        LEFT JOIN photo_users u ON c.user_email = u.email
+        WHERE c.topic_id = ? 
+        ORDER BY c.created_at ASC 
+        LIMIT 100
+      `, [topicId]);
       res.json(messages);
     } catch (err) {
       res.status(500).json({ error: 'Hiba a chat betöltésekor: ' + err.message });
@@ -1338,16 +1348,22 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   app.post('/api/weekly/chat', async (req, res) => {
     const { topicId, userEmail, userName, messageText } = req.body;
     
-    // 🎯 JAVÍTVA: !topicId helyett pontosan ellenőrizzük, hogy létezik-e (így a 0 is teljesen érvényes lesz)
     if (topicId === undefined || topicId === null || !userEmail || !messageText?.trim()) {
       return res.status(400).json({ error: 'Hiányzó adatok az üzenethez!' });
     }
+    
     try {
+      // 🎯 JAVÍTVA: Üzenetküldéskor kikeresjük a felhasználó aktuális nevét a DB-ből
+      const [userRows] = await pool.query('SELECT name FROM photo_users WHERE email = ?', [userEmail]);
+      const officialName = userRows[0]?.name || userName || 'Anonim Fotós';
+
       await pool.query(
         'INSERT INTO weekly_chat (topic_id, user_email, user_name, message_text) VALUES (?, ?, ?, ?)',
-        [topicId, userEmail, userName || 'Anonim Fotós', messageText.trim()]
+        [topicId, userEmail, officialName, messageText.trim()]
       );
-      res.json({ success: true });
+      
+      // 🎯 Visszaküldjük a hivatalos nevet a frontendnek, hogy egyből jól jelenjen meg
+      res.json({ success: true, user_name: officialName });
     } catch (err) {
       res.status(500).json({ error: 'Hiba az üzenet küldésekor: ' + err.message });
     }
