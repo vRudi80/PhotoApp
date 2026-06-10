@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { BACKEND_URL } from '../utils/constants';
 import { getImageUrl } from '../utils/helpers';
 import { toPng } from 'html-to-image'; 
@@ -30,19 +30,20 @@ const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
   e.currentTarget.src = 'https://via.placeholder.com/400x300/1e293b/64748b?text=Kép+nem+található';
 };
 
+// 👑 JAVÍTVA: A vadiúj Fotósmester alapú rang progresszió motor
 const getLevelDetails = (likes: number, victories: number) => {
-  if (likes < 30) return { name: 'Újonc 🌱', color: '#94a3b8', bg: '#94a3b815' };
-  if (likes < 100) return { name: 'Bojtár 🪶', color: '#cbd5e1', bg: '#cbd5e115' };
-  if (likes < 250) return { name: 'Nyomolvasó 🎯', color: '#38bdf8', bg: '#38bdf815' };
-  if (likes < 500) return { name: 'Íjász 🏹', color: '#60a5fa', bg: '#60a5fa15' };
-  if (likes < 800 || victories < 1) return { name: 'Lovas 🐎', color: '#10b981', bg: '#10b98115' };
-  if (likes < 1300 || victories < 2) return { name: 'Sólyom 🦅', color: '#059669', bg: '#05966915' };
-  if (likes < 2000 || victories < 3) return { name: 'Vitéz ⚔️', color: '#a78bfa', bg: '#a78bfa15' };
-  if (likes < 3200 || victories < 5) return { name: 'Bajnok 🛡️', color: '#ec4899', bg: '#ec489915' };
-  if (likes < 4800 || victories < 7) return { name: 'Törzsfő ⭐', color: '#f59e0b', bg: '#f59e0b15' };
-  if (likes < 7000 || victories < 9) return { name: 'Hadúr 🔱', color: '#eab308', bg: '#eab30815' };
-  if (likes < 10000 || victories < 12) return { name: 'Táltos 🔥', color: '#ef4444', bg: '#ef444415' };
-  return { name: 'Fejedelem 👑', color: '#fbbf24', bg: '#fbbf2420' };
+  if (likes < 30) return { name: 'Fényleső 🌱', color: '#94a3b8', bg: '#94a3b815' };
+  if (likes < 100) return { name: 'Megfigyelő 👁️', color: '#cbd5e1', bg: '#cbd5e115' };
+  if (likes < 250) return { name: 'Képvadász 📷', color: '#38bdf8', bg: '#38bdf815' };
+  if (likes < 500) return { name: 'Komponista 📐', color: '#60a5fa', bg: '#60a5fa15' };
+  if (likes < 800 || victories < 1) return { name: 'Fényíró 🎞️', color: '#10b981', bg: '#10b98115' };
+  if (likes < 1300 || victories < 2) return { name: 'Esztéta 💎', color: '#059669', bg: '#05966915' };
+  if (likes < 2000 || victories < 3) return { name: 'Szakértő 🎯', color: '#a78bfa', bg: '#a78bfa15' };
+  if (likes < 3200 || victories < 5) return { name: 'Képmester 🎨', color: '#ec4899', bg: '#ec489915' };
+  if (likes < 4800 || victories < 7) return { name: 'Nagymester 🌟', color: '#f59e0b', bg: '#f59e0b15' };
+  if (likes < 7000 || victories < 9) return { name: 'Virtuóz ⚡', color: '#eab308', bg: '#eab30815' };
+  if (likes < 10000 || victories < 12) return { name: 'Fotóguru 🔥', color: '#ef4444', bg: '#ef444415' };
+  return { name: 'Vizuális Legenda 👑', color: '#fbbf24', bg: '#fbbf2420' };
 };
 
 // ====================================================================
@@ -148,6 +149,7 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
       onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = '#334155'; }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+        {/* 👑 JAVÍTVA: Arculati feliratok frissítve */}
         <span style={{ background: isDaily ? '#ef444420' : '#3b82f620', color: isDaily ? '#f87171' : '#60a5fa', border: `1px solid ${isDaily ? '#ef444450' : '#3b82f650'}`, padding: '4px 12px', borderRadius: '50px', fontSize: '0.8rem', fontWeight: 'bold' }}>
           {isDaily ? '🔴 Villámfutam' : '🔵 Mesterfutam'}
         </span>
@@ -177,10 +179,9 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
       <h3 style={{ color: 'white', margin: '0 0 10px 0', fontSize: '1.4rem', fontWeight: 'bold' }}>{topic.title}</h3>
       <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: '0 0 20px 0', lineHeight: '1.5', flex: 1 }}>{topic.description}</p>
       
-      {/* 📊 🔥 EGYVONALAS INFÓSÁV: Statisztikák és Párbajmester tökéletesen középre igazítva */}
+      {/* 📊 🔥 INFÓSÁV KÉPMESTER FELIRATTAL */}
       <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '20px', lineHeight: '1' }}>
         
-        {/* Párbajmester (csak ha létezik) */}
         {(topic.master_name || topic.master_email) && (
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#a78bfa', fontSize: '0.85rem', fontWeight: 'bold', background: '#a78bfa10', padding: '6px 14px', borderRadius: '10px', border: '1px solid #a78bfa20', whiteSpace: 'nowrap', lineHeight: '1' }}>
             <span style={{ display: 'inline-flex', alignItems: 'center' }}>👑 Képmester:&nbsp;</span>
@@ -188,12 +189,10 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
           </div>
         )}
         
-        {/* Játékosok száma */}
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#38bdf8', fontSize: '0.85rem', fontWeight: 'bold', background: '#38bdf810', padding: '6px 14px', borderRadius: '10px', border: '1px solid #38bdf820', whiteSpace: 'nowrap', lineHeight: '1' }}>
           <span style={{ display: 'inline-flex', alignItems: 'center' }}>👥 {topic.totalEntries || 0} fotós</span>
         </div>
         
-        {/* Hátralévő szavazatok */}
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: topic.unvotedEntries > 0 ? '#fb923c' : '#4ade80', fontSize: '0.85rem', fontWeight: 'bold', background: topic.unvotedEntries > 0 ? '#fb923c10' : '#4ade8010', padding: '6px 14px', borderRadius: '10px', border: topic.unvotedEntries > 0 ? '1px solid #fb923c20' : '1px solid #4ade8020', whiteSpace: 'nowrap', lineHeight: '1' }}>
           <span style={{ display: 'inline-flex', alignItems: 'center' }}>🗳️ {topic.unvotedEntries || 0} értékelendő</span>
         </div>        
@@ -269,6 +268,12 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [shareBase64, setShareBase64] = useState<string | null>(null);
   const [loadingShareImg, setLoadingShareImg] = useState(false);
+
+  // 👑 ➕ ÚJ: KÖZPONTI LOBBI CSEVEGŐ ÁLLAPOTOK
+  const [lobbyMessages, setLobbyMessages] = useState<any[]>([]);
+  const [typedLobbyMsg, setTypedLobbyMsg] = useState('');
+  const [isSendingLobbyMsg, setIsSendingLobbyMsg] = useState(false);
+  const lobbyChatBottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!activeShareData) {
@@ -397,17 +402,74 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     finally { setIsLoadingHof(false); }
   };
 
-  // ⚡ OPTIMALIZÁLT ADATLEKÉRŐ: Csak azt tölti be, amit a játékos éppen lát!
+  // ⚡ OPTIMALIZÁLT ADATLEKÉRŐ
   useEffect(() => {
     if (subTab === 'current') {
       fetchCurrentTopic(false);
-      // 🔥 JAVÍTVA: fetchMyStats() innen kitörölve, hogy ne terhelje a csaták betöltését!
     }
     else if (subTab === 'upcoming') fetch(`${BACKEND_URL}/api/weekly/upcoming`).then(res => res.json()).then(data => setUpcomingTopics(data || [])).catch(console.error);
     else if (subTab === 'past') fetch(`${BACKEND_URL}/api/weekly/past`).then(res => res.json()).then(data => setPastTopics(data || [])).catch(console.error);
-    else if (subTab === 'my_stats') fetchMyStats(); // 👑 JAVÍTVA: A nehéz statisztika CSAK akkor fut le, ha a Trófeaterembe lépünk!
+    else if (subTab === 'my_stats') fetchMyStats(); 
     else if (subTab === 'hall_of_fame') fetchHallOfFame();
   }, [subTab, selectedTopicId]);
+
+  // 👑 ➕ ÚJ: KÖZPONTI LOBBI CSEVEGŐ AUTOMATA ELEMZŐ & POLING MOTOR
+  useEffect(() => {
+    if (subTab !== 'current' || selectedTopicId !== null) return;
+
+    const fetchLobbyChat = async () => {
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/weekly/chat/0`); // A 0 az adatbázisban a globális lobbit jelöli
+        if (res.ok) {
+          const data = await res.json();
+          setLobbyMessages(data || []);
+        }
+      } catch (err) {
+        console.error("Hiba a lobbi chat lekérésekor:", err);
+      }
+    };
+
+    fetchLobbyChat();
+    const interval = setInterval(fetchLobbyChat, 4000); // 4 másodpercenként csendben szinkronizál
+    return () => clearInterval(interval);
+  }, [subTab, selectedTopicId]);
+
+  // Automatikusan a csevegés aljára gördít új üzenet érkezésekor
+  useEffect(() => {
+    if (selectedTopicId === null && subTab === 'current') {
+      lobbyChatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [lobbyMessages.length, selectedTopicId, subTab]);
+
+  // 👑 ➕ ÚJ: KÖZPONTI LOBBI ÜZENETBEKÜLDŐ KEZELŐ
+  const handleSendLobbyMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!typedLobbyMsg.trim() || isSendingLobbyMsg) return;
+
+    setIsSendingLobbyMsg(true);
+    const msgPayload = {
+      topicId: 0, // Központi Lobbi kódja
+      userEmail: user?.email,
+      userName: user?.name || 'Anonim Képolvasó',
+      messageText: typedLobbyMsg
+    };
+
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/weekly/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(msgPayload)
+      });
+      if (res.ok) {
+        setTypedLobbyMsg('');
+        setLobbyMessages(prev => [...prev, { ...msgPayload, created_at: new Date().toISOString() }]);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSendingLobbyMsg(false);
+    }
+  };
 
   useEffect(() => {
     if (!topic || !topic.end_date) {
@@ -455,7 +517,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const loadPastHistoryList = async (topicId: number) => {
     setSelectedPastTopicId(topicId);
     try {
-      // 🔍 JAVÍTVA: Átadjuk a userEmail-t, hogy az archív képek be tudják tölteni a lájk státuszaidat!
       const res = await fetch(`${BACKEND_URL}/api/weekly/history/${topicId}?userEmail=${user?.email || ''}`);
       if (res.ok) {
         const data = await res.json();
@@ -664,7 +725,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', flexWrap: 'wrap', gap: '15px' }}>
         <div style={{ display: 'flex', gap: '10px', background: '#0f172a', padding: '10px', borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.3)', width: 'fit-content', flexWrap: 'wrap', border: '1px solid #1e293b' }}>
-          <button onClick={() => { setSubTab('current'); setSelectedTopicId(null); }} style={{ padding: '10px 24px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: subTab === 'current' ? 'linear-gradient(135deg, #f97316, #ef4444)' : 'transparent', color: subTab === 'current' ? 'white' : '#94a3b8', transition: 'all 0.3s', boxShadow: subTab === 'current' ? '0 4px 15px rgba(239,68,68,0.4)' : 'none' }}>⚔️ Kihívások</button>
+          <button onClick={() => { setSubTab('current'); setSelectedTopicId(null); }} style={{ padding: '10px 24px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: subTab === 'current' ? 'linear-gradient(135deg, #f97316, #ef4444)' : 'transparent', color: subTab === 'current' ? 'white' : '#94a3b8', transition: 'all 0.3s', boxShadow: subTab === 'current' ? '0 4px 15px rgba(239,68,68,0.4)' : 'none' }}>🏆 Kihívások</button>
           <button onClick={() => setSubTab('upcoming')} style={{ padding: '10px 24px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: subTab === 'upcoming' ? '#334155' : 'transparent', color: subTab === 'upcoming' ? 'white' : '#94a3b8', transition: 'all 0.3s' }}>⏳ Közelgő ligák</button>
           <button onClick={() => setSubTab('past')} style={{ padding: '10px 24px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: subTab === 'past' ? '#334155' : 'transparent', color: subTab === 'past' ? 'white' : '#94a3b8', transition: 'all 0.3s' }}>📜 Befejezett ligák</button>
           
@@ -692,31 +753,119 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       {subTab === 'current' && (
         <>
           {selectedTopicId === null ? (
-            <div>
-              <div style={{ marginBottom: '20px' }}>
-                <h2 style={{ color: 'white', margin: 0, fontSize: '1.8rem' }}>🔥 Aktuális Ligák</h2>
-                <p style={{ color: '#94a3b8', margin: '5px 0 0 0' }}>Válassz egyet az alábbi futó ligák közül, és légy Te a legjobb!</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
+              <div>
+                <div style={{ marginBottom: '20px' }}>
+                  <h2 style={{ color: 'white', margin: 0, fontSize: '1.8rem' }}>🔥 Aktuális Ligák</h2>
+                  <p style={{ color: '#94a3b8', margin: '5px 0 0 0' }}>Válassz egyet az alábbi futó ligák közül, és légy Te a legjobb!</p>
+                </div>
+
+                {loading ? (
+                  <div style={{ color: '#94a3b8', textAlign: 'center', padding: '50px' }}>⏳ Betöltés...</div>
+                ) : activeTopics.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '5rem 2rem', background: 'linear-gradient(180deg, #1e293b, #0f172a)', borderRadius: '24px', border: '1px solid #334155' }}>
+                    <div style={{ fontSize: '5rem', marginBottom: '1rem' }}>😴</div>
+                    <h2 style={{ color: '#f59e0b', margin: '0 0 10px 0', fontSize: '2rem' }}>Jelenleg nincs egyetlen aktív liga sem!</h2>
+                    <p style={{ color: '#94a3b8' }}>Pihenj meg, hamarosan új kihívás érkezik.</p>
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '25px', marginTop: '20px' }}>
+                    {activeTopics.map((t) => (
+                      <ChallengeCard 
+                        key={t.id} 
+                        topic={t} 
+                        onSelect={() => setSelectedTopicId(t.id)} 
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
 
-              {loading ? (
-                <div style={{ color: '#94a3b8', textAlign: 'center', padding: '50px' }}>⏳ Betöltés...</div>
-              ) : activeTopics.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '5rem 2rem', background: 'linear-gradient(180deg, #1e293b, #0f172a)', borderRadius: '24px', border: '1px solid #334155' }}>
-                  <div style={{ fontSize: '5rem', marginBottom: '1rem' }}>😴</div>
-                  <h2 style={{ color: '#f59e0b', margin: '0 0 10px 0', fontSize: '2rem' }}>Jelenleg nincs egyetlen aktív liga sem!</h2>
-                  <p style={{ color: '#94a3b8' }}>Pihenj meg, hamarosan új kihívás érkezik.</p>
+              {/* ── 💬 ➕ ÚJ SECTION: KÖZPONTI ARÉNA LOBBI CHAT (KÁRTYÁK ALATT) ── */}
+              <div style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: '24px', padding: '25px', boxShadow: '0 15px 35px rgba(0,0,0,0.4)', display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '10px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                  <div>
+                    <h3 style={{ margin: 0, color: '#38bdf8', fontSize: '1.4rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span>💬</span> Aréna Központi Lobbi
+                    </h3>
+                    <p style={{ margin: '3px 0 0 0', color: '#94a3b8', fontSize: '0.85rem' }}>Köszöntsd a bent lévőket, beszéld meg a taktikákat, hívd meg az ismerőseidet éles küzdelmekre!</p>
+                  </div>
+                  {/* Motivációs sáv */}
+                  <div style={{ background: '#38bdf815', border: '1px dashed #38bdf850', color: '#38bdf8', padding: '6px 14px', borderRadius: '10px', fontSize: '0.8rem', fontWeight: 'bold' }}>
+                    💡 Hívd be a fotós ismerőseidet az Arénába a saját meghívó kódoddal +10 db ajándék Jokerért!
+                  </div>
                 </div>
-              ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '25px', marginTop: '20px' }}>
-                  {activeTopics.map((t) => (
-                    <ChallengeCard 
-                      key={t.id} 
-                      topic={t} 
-                      onSelect={() => setSelectedTopicId(t.id)} 
-                    />
-                  ))}
+
+                {/* Lobbi Üzenőfal konténer */}
+                <div style={{ background: '#0f172a', borderRadius: '16px', padding: '20px', height: '300px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', border: '1px solid #223147' }}>
+                  {lobbyMessages.length === 0 ? (
+                    <div style={{ color: '#475569', textAlign: 'center', margin: 'auto', fontStyle: 'italic', fontSize: '0.9rem' }}>
+                      Csendes még a Lobbi... 🤫 Indítsd el Te a társalgást, szólítsd meg a klubtagokat!
+                    </div>
+                  ) : (
+                    lobbyMessages.map((msg, idx) => {
+                      const isMsgMe = msg.user_email === user?.email;
+                      return (
+                        <div 
+                          key={msg.id || idx} 
+                          style={{ 
+                            display: 'flex', 
+                            flexDirection: 'column', 
+                            alignItems: isMsgMe ? 'flex-end' : 'flex-start',
+                            maxWidth: '80%',
+                            alignSelf: isMsgMe ? 'flex-end' : 'flex-start'
+                          }}
+                        >
+                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginBottom: '3px', fontSize: '0.75rem', color: isMsgMe ? '#38bdf8' : '#94a3b8', fontWeight: 'bold' }}>
+                            <span>{msg.user_name}</span>
+                            <span style={{ color: '#475569', fontWeight: 'normal' }}>
+                              • {new Date(msg.created_at).toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                          <div 
+                            style={{ 
+                              background: isMsgMe ? 'linear-gradient(135deg, #0284c7, #0369a1)' : '#1e293b', 
+                              color: '#f8fafc', 
+                              padding: '10px 16px', 
+                              borderRadius: isMsgMe ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+                              fontSize: '0.92rem', 
+                              lineHeight: '1.4',
+                              wordBreak: 'break-word',
+                              boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                              border: isMsgMe ? 'none' : '1px solid #334155'
+                            }}
+                          >
+                            {msg.message_text}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                  <div ref={lobbyChatBottomRef} />
                 </div>
-              )}
+
+                {/* Üzenetküldő form */}
+                <form onSubmit={handleSendLobbyMessage} style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                  <input 
+                    type="text" 
+                    placeholder="Írj egy üzenetet a központi lobbiba a klubtagoknak..." 
+                    value={typedLobbyMsg}
+                    onChange={e => setTypedLobbyMsg(e.target.value)}
+                    maxLength={500}
+                    disabled={isSendingLobbyMsg}
+                    style={{ flex: 1, padding: '14px 18px', background: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '14px', fontSize: '0.95rem', outline: 'none', transition: 'all 0.2s' }}
+                    onFocus={e => e.target.style.borderColor = '#38bdf8'}
+                    onBlur={e => e.target.style.borderColor = '#334155'}
+                  />
+                  <button 
+                    type="submit"
+                    disabled={!typedLobbyMsg.trim() || isSendingLobbyMsg}
+                    style={{ background: (!typedLobbyMsg.trim() || isSendingLobbyMsg) ? '#334155' : 'linear-gradient(135deg, #0ea5e9, #2563eb)', color: (!typedLobbyMsg.trim() || isSendingLobbyMsg) ? '#64748b' : 'white', border: 'none', padding: '14px 28px', borderRadius: '14px', fontWeight: 'bold', fontSize: '0.95rem', cursor: 'pointer', transition: 'all 0.2s', boxShadow: typedLobbyMsg.trim() ? '0 4px 15px rgba(37,99,235,0.3)' : 'none' }}
+                  >
+                    {isSendingLobbyMsg ? '...' : 'Küldés 🚀'}
+                  </button>
+                </form>
+              </div>
             </div>
           ) : (
             <div>
@@ -803,7 +952,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           upcomingTopics={upcomingTopics}
           getTopicType={getTopicType}
           handleImageError={handleImageError}
-          user={user} // 👈 Ez az egyetlen plusz sor kell ide!
+          user={user}
         />
       )}
       
