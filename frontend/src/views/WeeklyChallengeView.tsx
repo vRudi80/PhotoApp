@@ -30,7 +30,6 @@ const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
   e.currentTarget.src = 'https://via.placeholder.com/400x300/1e293b/64748b?text=Kép+nem+található';
 };
 
-// 👑 JAVÍTVA: A vadiúj Fotósmester alapú rang progresszió motor
 const getLevelDetails = (likes: number, victories: number) => {
   if (likes < 30) return { name: 'Fényleső 🌱', color: '#94a3b8', bg: '#94a3b815' };
   if (likes < 100) return { name: 'Megfigyelő 👁️', color: '#cbd5e1', bg: '#cbd5e115' };
@@ -90,9 +89,8 @@ const compressImageOnClient = (file: File): Promise<File> => {
 };
 
 // ====================================================================
-// ⏳ SELEKCIÓS KÁRTYA KOMPONENS (Egyvonalas statisztikai sávval)
+// ⏳ SELEKCIÓS KÁRTYA KOMPONENS (Javított, időzóna-biztos határidővel)
 // ====================================================================
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }) {
   const [timeLeft, setTimeLeft] = useState<string>('Számítás...');
 
@@ -101,14 +99,19 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
 
     const calculateTimeLeft = () => {
       const now = new Date().getTime();
-      const end = new Date(topic.end_date?.replace ? topic.end_date.replace(' ', 'T') : topic.end_date); 
+      
+      // 🎯 JAVÍTVA: Kényszerített helyi idő parzolás a böngészők UTC anomáliái ellen
+      const parts = topic.end_date.split(/[- :T]/);
+      const end = parts.length >= 5 
+        ? new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), parseInt(parts[3]), parseInt(parts[4]), parts[5] ? parseInt(parts[5]) : 0)
+        : new Date(topic.end_date);
       
       if (isNaN(end.getTime())) {
         setTimeLeft('Hibás dátum');
         return false;
       }
 
-      end.setHours(23, 59, 59, 999);
+      // 🛑 JAVÍTVA: Az end.setHours(...) erőszakos felülírás teljesen ki lett törölve!
       const distance = end.getTime() - now;
 
       if (distance < 0) {
@@ -179,9 +182,7 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
       <h3 style={{ color: 'white', margin: '0 0 10px 0', fontSize: '1.4rem', fontWeight: 'bold' }}>{topic.title}</h3>
       <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: '0 0 20px 0', lineHeight: '1.5', flex: 1 }}>{topic.description}</p>
       
-      {/* 📊 🔥 INFÓSÁV KÉPMESTER FELIRATTAL */}
       <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '20px', lineHeight: '1' }}>
-        
         {(topic.master_name || topic.master_email) && (
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#a78bfa', fontSize: '0.85rem', fontWeight: 'bold', background: '#a78bfa10', padding: '6px 14px', borderRadius: '10px', border: '1px solid #a78bfa20', whiteSpace: 'nowrap', lineHeight: '1' }}>
             <span style={{ display: 'inline-flex', alignItems: 'center' }}>👑 Képmester:&nbsp;</span>
@@ -270,7 +271,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const [shareBase64, setShareBase64] = useState<string | null>(null);
   const [loadingShareImg, setLoadingShareImg] = useState(false);
 
-  // ── 👑 JAVÍTVA: BULLETPROOF KÖZPONTI LOBBI STATE-EK ÉS IDŐZÍTŐ ──
   const [lobbyMessages, setLobbyMessages] = useState<any[]>([]);
   const [currentlyTyping, setCurrentlyTyping] = useState<string[]>([]);
   const [typedLobbyMsg, setTypedLobbyMsg] = useState('');
@@ -279,7 +279,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const lobbyChatBottomRef = useRef<HTMLDivElement>(null);
   const lastTypingSignalSent = useRef<number>(0);
 
-  // 🎯 TRÜKK: useRef-be zárjuk a nevedet, hogy az időzítő ne induljon újra, ha változik a user objektumod
   const myOfficialNameRef = useRef<string>('Én');
   useEffect(() => {
     myOfficialNameRef.current = myEntry?.user_name || user?.name || 'Én';
@@ -290,6 +289,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       setShareBase64(null);
       return;
     }
+    let isMounted = true;
     setLoadingShareImg(true);
     
     const fetchUrl = activeShareData.drive_file_id 
@@ -299,13 +299,16 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     fetch(fetchUrl)
       .then(res => res.json())
       .then(data => {
-        if (data.base64) setShareBase64(data.base64);
-        setLoadingShareImg(false);
+        if (isMounted) {
+          if (data.base64) setShareBase64(data.base64);
+          setLoadingShareImg(false);
+        }
       })
       .catch(err => {
         console.error("Hiba a megosztó kép letöltésekor:", err);
-        setLoadingShareImg(false);
+        if (isMounted) setLoadingShareImg(false);
       });
+    return () => { isMounted = false; };
   }, [activeShareData]);
 
   const currentLevel = getLevelDetails(userTotalLikes, userVictories);
@@ -374,12 +377,10 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     finally { if (!isSilent) setLoading(false); }
   };
 
-  // ➕ ÚJ FUNKCIÓ: Gépelési esemény leadása (Throttled)
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setTypedLobbyMsg(e.target.value);
 
     const now = Date.now();
-    // Csak 3 másodpercenként egyszer küldünk jelet, ha folyamatosan ír a júzer
     if (now - lastTypingSignalSent.current > 3000) {
       lastTypingSignalSent.current = now;
       fetch(`${BACKEND_URL}/api/weekly/chat/typing`, {
@@ -432,7 +433,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     finally { setIsLoadingHof(false); }
   };
 
-  // ⚡ OPTIMALIZÁLT ADATLEKÉRŐ
   useEffect(() => {
     if (subTab === 'current') {
       fetchCurrentTopic(false);
@@ -444,13 +444,11 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subTab, selectedTopicId]);
 
-  // 🔄 ABSZOLÚT GOLYÓÁLLÓ ÉLŐ MOTOR: Rekurzív setTimeout láncreakció hálózati cache-tiltással
   useEffect(() => {
-    // Csak akkor indulhat el, ha a kihívások főoldalán vagyunk
     if (subTab !== 'current' || selectedTopicId !== null) return;
 
     let timerId: NodeJS.Timeout;
-    let isMounted = true; // Biztonsági kapcsoló unmount esetére
+    let isMounted = true;
 
     const fetchLobbyChat = async () => {
       try {
@@ -465,45 +463,33 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         
         if (res.ok && isMounted) {
           const data = await res.json();
-          
-          // 🔍 F12 KONZOL TESZT: Itt látni fogod minden körben a pulzust!
-          console.log("📥 Élő Lobbi szinkronizáció lefutott. Üzenetek száma:", data.messages?.length);
-
-          // Frissítjük az üzeneteket
           setLobbyMessages(data.messages || []);
-          
-          // Frissítjük a gépelőket (kiszűrve saját magunkat a ref alapján)
           const othersTyping = (data.typing || []).filter((name: string) => name !== myOfficialNameRef.current);
           setCurrentlyTyping(othersTyping);
         }
       } catch (err) {
         console.error("❌ Hiba a lobbi chat szinkronizációjakor:", err);
       } finally {
-        // 🎯 A TRÜKK: Csak akkor ütemezzük be a következő kört, ha az előző TELJESEN lefutott és még aktív a fül
         if (isMounted && subTab === 'current' && selectedTopicId === null) {
-          timerId = setTimeout(fetchLobbyChat, 2500); // 2.5 másodperc múlva jön a következő impulzus
+          timerId = setTimeout(fetchLobbyChat, 2500);
         }
       }
     };
 
-    // Első láncszem indítása
     fetchLobbyChat();
 
-    // Takarítás, ha elnavigál a user
     return () => {
       isMounted = false;
       clearTimeout(timerId);
     };
   }, [subTab, selectedTopicId]);
 
-  // Automatikusan a csevegés aljára gördít új üzenet érkezésekor
   useEffect(() => {
     if (selectedTopicId === null && subTab === 'current') {
       lobbyChatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [lobbyMessages.length, selectedTopicId, subTab]);
 
-  // 👑 JAVÍTVA: Backendről kapott hivatalos név beolvasása lokális rendereléshez
   const handleSendLobbyMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!typedLobbyMsg.trim() || isSendingLobbyMsg) return;
@@ -524,10 +510,9 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       });
       
       if (res.ok) {
-        const data = await res.json(); // 🎯 Kinyerjük a választ a servertől
+        const data = await res.json();
         setTypedLobbyMsg('');
         
-        // 🎯 A data.user_name tartalmazza az adatbázisból kiolvasott valódi nevet!
         setLobbyMessages(prev => [...prev, { 
           id: Date.now(),
           topic_id: 0,
@@ -539,11 +524,14 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       }
     } catch (err) {
       console.error(err);
-    } finally {
+    } filey {
       setIsSendingLobbyMsg(false);
     }
   };
 
+  // ====================================================================
+  // ⏳ JAVÍTVA: A szoba belső időzítője (Darabolós, tiszta helyi parzolás)
+  // ====================================================================
   useEffect(() => {
     if (!topic || !topic.end_date) {
       setTimeLeft('Ismeretlen dátum');
@@ -552,14 +540,19 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
 
     const calculateTimeLeft = () => {
       const now = new Date().getTime();
-      const end = new Date(topic.end_date?.replace ? topic.end_date.replace(' ', 'T') : topic.end_date); 
+      
+      // 🎯 JAVÍTVA: Darabolós parzolás helyi időzónára kényszerítve
+      const parts = topic.end_date.split(/[- :T]/);
+      const end = parts.length >= 5 
+        ? new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), parseInt(parts[3]), parseInt(parts[4]), parts[5] ? parseInt(parts[5]) : 0)
+        : new Date(topic.end_date);
       
       if (isNaN(end.getTime())) {
         setTimeLeft('Hibás dátum');
         return false;
       }
 
-      end.setHours(23, 59, 59, 999);
+      // 🛑 JAVÍTVA: Az end.setHours(...) hibaforrás itt is örökre törölve lett!
       const distance = end.getTime() - now;
 
       if (distance < 0) {
@@ -572,7 +565,11 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60)).toString().padStart(2, '0');
       const seconds = Math.floor((distance % (1000 * 60)) / 1000).toString().padStart(2, '0');
 
-      setTimeLeft(`${days} nap ${hours}:${minutes}:${seconds}`);
+      if (days > 0) {
+        setTimeLeft(`${days} nap ${hours}:${minutes}:${seconds}`);
+      } else {
+        setTimeLeft(`${hours}:${minutes}:${seconds}`);
+      }
       return true;
     };
 
@@ -736,7 +733,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   };
 
   const handleSelectPhotoForSwap = async (photoUrl: string) => {
-    if (!window.confirm("⚠️ Biztosan elhasználsz 1 Joker cserére erre az albumképre? Ez a fotó most 0 pontról fog újraindulni ebben a fordulóban!")) return;
+    if (!window.confirm("⚠️ Biztosan elhasználsz 1 Joker cserére erre az albumképre? Ez a fotó most 0 pontról fog újrainduini ebben a fordulóban!")) return;
     setIsSwapping(true);
     setShowSwapAlbumModal(false); 
     
@@ -854,7 +851,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                 )}
               </div>
 
-              {/* ── 💬 ➕ SECTION: KÖZPONTI ARÉNA LOBBI CHAT (KÁRTYÁK ALATT) ── */}
               <div style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: '24px', padding: '25px', boxShadow: '0 15px 35px rgba(0,0,0,0.4)', display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '10px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
                   <div>
@@ -863,13 +859,11 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                     </h3>
                     <p style={{ margin: '3px 0 0 0', color: '#94a3b8', fontSize: '0.85rem' }}>Köszöntsd a bent lévőket, beszéld meg a taktikákat, hívd meg az ismerőseidet éles küzdelmekre!</p>
                   </div>
-                  {/* Motivációs sáv */}
                   <div style={{ background: '#38bdf815', border: '1px dashed #38bdf850', color: '#38bdf8', padding: '6px 14px', borderRadius: '10px', fontSize: '0.8rem', fontWeight: 'bold' }}>
                     💡 Hívd be a fotós ismerőseidet az Arénába a saját meghívó kódoddal +10 db ajándék Jokerért!
                   </div>
                 </div>
 
-                {/* Lobbi Üzenőfal konténer – Dupla biztonsági hálóval felszerelve */}
                 <div style={{ background: '#0f172a', borderRadius: '16px', padding: '20px', height: '300px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', border: '1px solid #223147' }}>
                   {lobbyMessages.length === 0 ? (
                     <div style={{ color: '#475569', textAlign: 'center', margin: 'auto', fontStyle: 'italic', fontSize: '0.9rem' }}>
@@ -877,7 +871,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                     </div>
                   ) : (
                     lobbyMessages.map((msg, idx) => {
-                      // 🎯 JAVÍTVA: Felkészítve aláhúzásos és tevefejes változóra is
                       const msgEmail = msg.user_email || msg.userEmail;
                       const msgName = msg.user_name || msg.userName;
                       const msgText = msg.message_text || msg.messageText;
@@ -923,7 +916,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   <div ref={lobbyChatBottomRef} />
                 </div>
 
-                {/* ── ➕ ANIMÁLT GÉPELÉS-JELZŐ SÁV ── */}
                 <div style={{ height: '20px', paddingLeft: '10px', fontSize: '0.85rem', color: '#38bdf8', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '5px', transition: 'all 0.3s' }}>
                   {currentlyTyping.length > 0 && (
                     <>
@@ -937,13 +929,12 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   )}
                 </div>
 
-                {/* Üzenetküldő form */}
                 <form onSubmit={handleSendLobbyMessage} style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                   <input 
                     type="text" 
                     placeholder="Írj egy üzenetet..." 
                     value={typedLobbyMsg}
-                    onChange={handleInputChange} // 🎯 ERRE CSERÉLD LE az eddigi onChange-et!
+                    onChange={handleInputChange} 
                     maxLength={500}
                     disabled={isSendingLobbyMsg}
                     style={{ flex: 1, padding: '14px 18px', background: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '14px', fontSize: '0.95rem', outline: 'none', transition: 'all 0.2s' }}
