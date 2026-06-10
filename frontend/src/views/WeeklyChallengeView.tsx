@@ -12,6 +12,9 @@ import PastArchive from '../components/WeeklyChallenge/subtabs/PastArchive';
 import UpcomingChallenges from '../components/WeeklyChallenge/subtabs/UpcomingChallenges';
 import ArenaActiveRoom from '../components/WeeklyChallenge/subtabs/ArenaActiveRoom';
 
+// 🎯 ÚJ IMPORT: Behozzuk a nyelvi kontextust
+import { useLanguage } from '../context/LanguageContext';
+
 interface WeeklyChallengeViewProps {
   user: any;
   setFullscreenData: (data: any) => void;
@@ -45,9 +48,6 @@ const getLevelDetails = (likes: number, victories: number) => {
   return { name: 'Vizuális Legenda 👑', color: '#fbbf24', bg: '#fbbf2420' };
 };
 
-// ====================================================================
-// ⚡ BÖNGÉSZŐS KÉPTÖMÖRÍTŐ MOTOR
-// ====================================================================
 const compressImageOnClient = (file: File): Promise<File> => {
   return new Promise((resolve) => {
     const reader = new FileReader();
@@ -89,10 +89,13 @@ const compressImageOnClient = (file: File): Promise<File> => {
 };
 
 // ====================================================================
-// ⏳ SELEKCIÓS KÁRTYA KOMPONENS (Javított, időzóna-biztos határidővel)
+// ⏳ SELEKCIÓS KÁRTYA KOMPONENS (Fordítás-bekötéssel)
 // ====================================================================
 function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }) {
   const [timeLeft, setTimeLeft] = useState<string>('Számítás...');
+  
+  // 🎯 ÚJ: Behúzzuk a nyelvi szótárat a kártyába
+  const { t, lang } = useLanguage();
 
   useEffect(() => {
     if (!topic || !topic.end_date) return;
@@ -100,7 +103,6 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
     const calculateTimeLeft = () => {
       const now = new Date().getTime();
       
-      // 🎯 JAVÍTVA: Kényszerített helyi idő parzolás a böngészők UTC anomáliái ellen
       const parts = topic.end_date.split(/[- :T]/);
       const end = parts.length >= 5 
         ? new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), parseInt(parts[3]), parseInt(parts[4]), parts[5] ? parseInt(parts[5]) : 0)
@@ -111,7 +113,6 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
         return false;
       }
 
-      // 🛑 JAVÍTVA: Az end.setHours(...) erőszakos felülírás teljesen ki lett törölve!
       const distance = end.getTime() - now;
 
       if (distance < 0) {
@@ -145,6 +146,10 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
   const isMaster = topic.isMaster === true;
   const statusColor = isMaster ? '#a78bfa' : (topic.hasEntered ? '#10b981' : '#f59e0b');
 
+  // 🎯 ÚJ: Dinamikus adatbázis-alapú fordítás. Ha van angol verzió, azt használja, különben a magyart.
+  const displayTitle = lang === 'en' && topic.title_en ? topic.title_en : topic.title;
+  const displayDesc = lang === 'en' && topic.description_en ? topic.description_en : topic.description;
+
   return (
     <div 
       onClick={onSelect}
@@ -154,15 +159,15 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
         <span style={{ background: isDaily ? '#ef444420' : '#3b82f620', color: isDaily ? '#f87171' : '#60a5fa', border: `1px solid ${isDaily ? '#ef444450' : '#3b82f650'}`, padding: '4px 12px', borderRadius: '50px', fontSize: '0.8rem', fontWeight: 'bold' }}>
-          {isDaily ? '🔴 Villámfutam' : '🔵 Mesterfutam'}
+          {isDaily ? t('typeBlitz') : t('typeMaster')}
         </span>
         
         <span style={{ color: statusColor, fontSize: '0.85rem', fontWeight: 'bold' }}>
           {isMaster 
-            ? '🚀 Képmester vagy' 
+            ? t('statusMaster') 
             : topic.hasEntered 
-              ? '🚀 Neveztél' 
-              : '⏳ Még nem neveztél'
+              ? t('statusEntered') 
+              : t('statusNotEntered')
           }
         </span>
       </div>
@@ -179,8 +184,9 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
         </div>
       )}
 
-      <h3 style={{ color: 'white', margin: '0 0 10px 0', fontSize: '1.4rem', fontWeight: 'bold' }}>{topic.title}</h3>
-      <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: '0 0 20px 0', lineHeight: '1.5', flex: 1 }}>{topic.description}</p>
+      {/* 🎯 ÚJ: Dinamikus nyelvű cím és leírás */}
+      <h3 style={{ color: 'white', margin: '0 0 10px 0', fontSize: '1.4rem', fontWeight: 'bold' }}>{displayTitle}</h3>
+      <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: '0 0 20px 0', lineHeight: '1.5', flex: 1 }}>{displayDesc}</p>
       
       <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '20px', lineHeight: '1' }}>
         {(topic.master_name || topic.master_email) && (
@@ -191,16 +197,16 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
         )}
         
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#38bdf8', fontSize: '0.85rem', fontWeight: 'bold', background: '#38bdf810', padding: '6px 14px', borderRadius: '10px', border: '1px solid #38bdf820', whiteSpace: 'nowrap', lineHeight: '1' }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center' }}>👥 {topic.totalEntries || 0} fotós</span>
+          <span style={{ display: 'inline-flex', alignItems: 'center' }}>👥 {topic.totalEntries || 0} {t('photographers')}</span>
         </div>
         
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: topic.unvotedEntries > 0 ? '#fb923c' : '#4ade80', fontSize: '0.85rem', fontWeight: 'bold', background: topic.unvotedEntries > 0 ? '#fb923c10' : '#4ade8010', padding: '6px 14px', borderRadius: '10px', border: topic.unvotedEntries > 0 ? '1px solid #fb923c20' : '1px solid #4ade8020', whiteSpace: 'nowrap', lineHeight: '1' }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center' }}>🗳️ {topic.unvotedEntries || 0} értékelendő</span>
+          <span style={{ display: 'inline-flex', alignItems: 'center' }}>🗳️ {topic.unvotedEntries || 0} {t('unvoted')}</span>
         </div>        
       </div>
 
       <div style={{ background: '#00000040', padding: '12px 15px', borderRadius: '12px', fontSize: '0.9rem', color: isDaily ? '#f87171' : '#38bdf8', textAlign: 'center', border: '1px solid #1e293b', fontWeight: 'bold', fontFamily: 'monospace', letterSpacing: '0.5px' }}>
-        ⏳ Hátralévő idő: {timeLeft}
+        {t('timeLeft')} {timeLeft}
       </div>
     </div>
   );
@@ -278,6 +284,9 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   
   const lobbyChatBottomRef = useRef<HTMLDivElement>(null);
   const lastTypingSignalSent = useRef<number>(0);
+
+  // 🎯 ÚJ: Behúzzuk a fordítót a fő irányítópultba is
+  const { t } = useLanguage();
 
   const myOfficialNameRef = useRef<string>('Én');
   useEffect(() => {
@@ -529,9 +538,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     }
   };
 
-  // ====================================================================
-  // ⏳ JAVÍTVA: A szoba belső időzítője (Darabolós, tiszta helyi parzolás)
-  // ====================================================================
   useEffect(() => {
     if (!topic || !topic.end_date) {
       setTimeLeft('Ismeretlen dátum');
@@ -541,7 +547,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     const calculateTimeLeft = () => {
       const now = new Date().getTime();
       
-      // 🎯 JAVÍTVA: Darabolós parzolás helyi időzónára kényszerítve
       const parts = topic.end_date.split(/[- :T]/);
       const end = parts.length >= 5 
         ? new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), parseInt(parts[3]), parseInt(parts[4]), parts[5] ? parseInt(parts[5]) : 0)
@@ -552,7 +557,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         return false;
       }
 
-      // 🛑 JAVÍTVA: Az end.setHours(...) hibaforrás itt is örökre törölve lett!
       const distance = end.getTime() - now;
 
       if (distance < 0) {
@@ -793,11 +797,12 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   return (
     <div style={{ animation: 'fadeIn 0.4s ease-out' }}>
       
+      {/* 🎯 ÚJ: A gombok most már a t() függvénnyel dinamikusan fordítódnak */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', flexWrap: 'wrap', gap: '15px' }}>
         <div style={{ display: 'flex', gap: '10px', background: '#0f172a', padding: '10px', borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.3)', width: 'fit-content', flexWrap: 'wrap', border: '1px solid #1e293b' }}>
-          <button onClick={() => { setSubTab('current'); setSelectedTopicId(null); }} style={{ padding: '10px 24px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: subTab === 'current' ? 'linear-gradient(135deg, #f97316, #ef4444)' : 'transparent', color: subTab === 'current' ? 'white' : '#94a3b8', transition: 'all 0.3s', boxShadow: subTab === 'current' ? '0 4px 15px rgba(239,68,68,0.4)' : 'none' }}>🏆 Kihívások</button>
-          <button onClick={() => setSubTab('upcoming')} style={{ padding: '10px 24px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: subTab === 'upcoming' ? '#334155' : 'transparent', color: subTab === 'upcoming' ? 'white' : '#94a3b8', transition: 'all 0.3s' }}>⏳ Közelgő ligák</button>
-          <button onClick={() => setSubTab('past')} style={{ padding: '10px 24px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: subTab === 'past' ? '#334155' : 'transparent', color: subTab === 'past' ? 'white' : '#94a3b8', transition: 'all 0.3s' }}>📜 Befejezett ligák</button>
+          <button onClick={() => { setSubTab('current'); setSelectedTopicId(null); }} style={{ padding: '10px 24px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: subTab === 'current' ? 'linear-gradient(135deg, #f97316, #ef4444)' : 'transparent', color: subTab === 'current' ? 'white' : '#94a3b8', transition: 'all 0.3s', boxShadow: subTab === 'current' ? '0 4px 15px rgba(239,68,68,0.4)' : 'none' }}>{t('tabChallenges')}</button>
+          <button onClick={() => setSubTab('upcoming')} style={{ padding: '10px 24px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: subTab === 'upcoming' ? '#334155' : 'transparent', color: subTab === 'upcoming' ? 'white' : '#94a3b8', transition: 'all 0.3s' }}>{t('tabUpcoming')}</button>
+          <button onClick={() => setSubTab('past')} style={{ padding: '10px 24px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: subTab === 'past' ? '#334155' : 'transparent', color: subTab === 'past' ? 'white' : '#94a3b8', transition: 'all 0.3s' }}>{t('tabPast')}</button>
           
           <button 
             onClick={() => setSubTab('arena_album')} 
@@ -808,15 +813,15 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
               boxShadow: subTab === 'arena_album' ? '0 4px 15px rgba(20,184,166,0.4)' : 'none' 
             }}
           >
-            🖼️ Képcsarnok
+            {t('tabAlbum')}
           </button>
 
-          <button onClick={() => { setSubTab('my_stats'); fetchMyStats(); }} style={{ padding: '10px 24px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: subTab === 'my_stats' ? 'linear-gradient(135deg, #8b5cf6, #6366f1)' : 'transparent', color: subTab === 'my_stats' ? 'white' : '#94a3b8', transition: 'all 0.3s', boxShadow: subTab === 'my_stats' ? '0 4px 15px rgba(139,92,246,0.4)' : 'none' }}>🏆 Dicsőségfalam</button>
-          <button onClick={() => setSubTab('hall_of_fame')} style={{ padding: '10px 24px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: subTab === 'hall_of_fame' ? 'linear-gradient(135deg, #fbbf24, #d97706)' : 'transparent', color: subTab === 'hall_of_fame' ? '#0f172a' : '#94a3b8', transition: 'all 0.3s', boxShadow: subTab === 'hall_of_fame' ? '0 4px 15px rgba(251,191,36,0.4)' : 'none' }}>👑 Mesterek csarnoka</button>
+          <button onClick={() => { setSubTab('my_stats'); fetchMyStats(); }} style={{ padding: '10px 24px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: subTab === 'my_stats' ? 'linear-gradient(135deg, #8b5cf6, #6366f1)' : 'transparent', color: subTab === 'my_stats' ? 'white' : '#94a3b8', transition: 'all 0.3s', boxShadow: subTab === 'my_stats' ? '0 4px 15px rgba(139,92,246,0.4)' : 'none' }}>{t('tabStats')}</button>
+          <button onClick={() => setSubTab('hall_of_fame')} style={{ padding: '10px 24px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: subTab === 'hall_of_fame' ? 'linear-gradient(135deg, #fbbf24, #d97706)' : 'transparent', color: subTab === 'hall_of_fame' ? '#0f172a' : '#94a3b8', transition: 'all 0.3s', boxShadow: subTab === 'hall_of_fame' ? '0 4px 15px rgba(251,191,36,0.4)' : 'none' }}>{t('tabHof')}</button>
         </div>
         
         <button onClick={() => setShowHelp(true)} style={{ padding: '12px 24px', borderRadius: '12px', border: '1px solid #38bdf8', cursor: 'pointer', fontWeight: 'bold', background: '#0f172a', color: '#38bdf8', transition: 'all 0.3s', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 15px rgba(56,189,248,0.2)' }}>
-          <span style={{ fontSize: '1.2rem' }}>📖</span> Játékszabályok & Rangok
+          {t('btnRules')}
         </button>
       </div>
 
@@ -831,7 +836,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                 </div>
 
                 {loading ? (
-                  <div style={{ color: '#94a3b8', textAlign: 'center', padding: '50px' }}>⏳ Betöltés...</div>
+                  <div style={{ color: '#94a3b8', textAlign: 'center', padding: '50px' }}>{t('loading')}</div>
                 ) : activeTopics.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '5rem 2rem', background: 'linear-gradient(180deg, #1e293b, #0f172a)', borderRadius: '24px', border: '1px solid #334155' }}>
                     <div style={{ fontSize: '5rem', marginBottom: '1rem' }}>😴</div>
@@ -1088,7 +1093,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         <MyArenaAlbumView user={user} setFullscreenData={setFullscreenData} />
       )}
           
-      {/* ── SEGÉD MODÁLOK KISZERVEZVE ÉS VEZÉRELVE ── */}
       <HelpModal 
         isOpen={showHelp} 
         onClose={() => setShowHelp(false)} 
