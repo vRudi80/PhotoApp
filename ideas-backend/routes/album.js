@@ -1,12 +1,12 @@
 const fs = require('fs');
 
 module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, checkPremium) {
-  
+
   // 🛡️ ÚJ REJTETT FÉKRENDSZER: Tárhely limit ellenőrző függvény (Az image_4ed904.png csomagjai alapján)
   async function checkStorageLimit(pool, email, incomingFileBytes, currentPhotoIdToExclude = null) {
     // 1. Lekérjük a felhasználó prémium és Stripe adatait
     const [userRows] = await pool.query(
-      'SELECT is_premium, premium_until, premium_tier, stripe_status FROM photo_users WHERE email = ?', 
+      'SELECT is_premium, premium_until, premium_tier, stripe_status FROM photo_users WHERE email = ?',
       [email]
     );
     if (userRows.length === 0) return { allowed: false, error: 'Felhasználó nem található!' };
@@ -15,10 +15,10 @@ module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, chec
     const now = new Date();
     // Prémium, ha aktív a Stripe-ja VAGY az adatbázis naptára szerint még él az ajándék ideje
     const isPremium = user.is_premium === 1 || user.stripe_status === 'active' || (user.premium_until && new Date(user.premium_until) > now);
-    
+
     // 2. Korlátok kiszámítása (Ingyenes: 100 MB / Alap: 1 GB / Pro: 5 GB)
     let limitBytes = 100 * 1024 * 1024; // Ingyenes alapcsomag: 100 MB (Szabadon módosíthatod)
-    
+
     if (isPremium) {
       if (user.premium_tier === 'pro' || user.premium_tier === 2 || String(user.premium_tier).toLowerCase() === 'pro') {
         limitBytes = 5 * 1024 * 1024 * 1024; // Pro Prémium: 5 GB
@@ -64,11 +64,11 @@ module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, chec
 
     // 4. Ha az új fájllal túllépné a keretet, blokkoljuk a folyamatot
     if (currentBytes + incomingFileBytes > limitBytes) {
-      const limitText = limitBytes >= 1024*1024*1024 ? `${limitBytes / (1024*1024*1024)} GB` : `${limitBytes / (1024*1024)} MB`;
+      const limitText = limitBytes >= 1024 * 1024 * 1024 ? `${limitBytes / (1024 * 1024 * 1024)} GB` : `${limitBytes / (1024 * 1024)} MB`;
       const currentMB = (currentBytes / (1024 * 1024)).toFixed(2);
-      return { 
-        allowed: false, 
-        error: `❌ Tárhely megtelt! A csomagod korlátja ${limitText}. Jelenleg elhasznált: ${currentMB} MB. Kérjük, szabadíts fel helyet a galériádban, vagy válts nagyobb csomagra!` 
+      return {
+        allowed: false,
+        error: `❌ Tárhely megtelt! A csomagod korlátja ${limitText}. Jelenleg elhasznált: ${currentMB} MB. Kérjük, szabadíts fel helyet a galériádban, vagy válts nagyobb csomagra!`
       };
     }
 
@@ -79,7 +79,7 @@ module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, chec
   // 1. KÉPEK ALAPADATAINAK LEKÉRÉSE
   // ====================================================================
   app.get('/api/my-album', checkPremium, async (req, res) => {
-    try { 
+    try {
       const query = `
         SELECT p.*, 
           COALESCE(SUM(CASE WHEN e.award_id IS NOT NULL AND e.award_id NOT IN (0, 1, 15) THEN 1 ELSE 0 END), 0) as award_count,
@@ -90,11 +90,11 @@ module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, chec
         GROUP BY p.id
         ORDER BY p.title ASC
       `;
-      const [rows] = await pool.query(query, [req.query.userEmail]); 
-      res.json(rows); 
-    } catch (err) { 
+      const [rows] = await pool.query(query, [req.query.userEmail]);
+      res.json(rows);
+    } catch (err) {
       console.error(err);
-      res.status(500).json({ error: 'Hiba a képek lekérésekor' }); 
+      res.status(500).json({ error: 'Hiba a képek lekérésekor' });
     }
   });
 
@@ -145,31 +145,31 @@ module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, chec
       const safeTitle = title || 'Cím nélkül';
 
       const fileStream = fs.createReadStream(file.path);
-      const fileExt = file.originalname && file.originalname.includes('.') 
-        ? file.originalname.substring(file.originalname.lastIndexOf('.')).toLowerCase() 
+      const fileExt = file.originalname && file.originalname.includes('.')
+        ? file.originalname.substring(file.originalname.lastIndexOf('.')).toLowerCase()
         : '.jpg';
-      
-      const driveRes = await drive.files.create({ 
-        requestBody: { 
-          name: `Portfolio_${safeUserName}_${Date.now()}${fileExt}`, 
-          parents: [process.env.DRIVE_MASTER_FOLDER_ID] 
-        }, 
-        media: { mimeType: file.mimetype, body: fileStream }, 
-        fields: 'id, webViewLink' 
+
+      const driveRes = await drive.files.create({
+        requestBody: {
+          name: `Portfolio_${safeUserName}_${Date.now()}${fileExt}`,
+          parents: [process.env.DRIVE_MASTER_FOLDER_ID]
+        },
+        media: { mimeType: file.mimetype, body: fileStream },
+        fields: 'id, webViewLink'
       });
-      
+
       cleanupTempFile(file);
-      const fileSize = file.size || 0; 
+      const fileSize = file.size || 0;
 
       await pool.query(
-        'INSERT INTO photo_portfolio (user_email, user_name, title, file_url, drive_file_id, file_size) VALUES (?, ?, ?, ?, ?, ?)', 
+        'INSERT INTO photo_portfolio (user_email, user_name, title, file_url, drive_file_id, file_size) VALUES (?, ?, ?, ?, ?, ?)',
         [userEmail, safeUserName, safeTitle, driveRes.data.webViewLink, driveRes.data.id, fileSize]
       );
       res.json({ success: true });
-    } catch (err) { 
+    } catch (err) {
       cleanupTempFile(file);
-      console.error('❌ HIBA A PORTFÓLIÓ FELTÖLTÉSEKOR:', err); 
-      res.status(500).json({ error: 'Szerver hiba a mentéskor: ' + err.message }); 
+      console.error('❌ HIBA A PORTFÓLIÓ FELTÖLTÉSEKOR:', err);
+      res.status(500).json({ error: 'Szerver hiba a mentéskor: ' + err.message });
     }
   });
 
@@ -179,13 +179,13 @@ module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, chec
   app.put('/api/my-album/:id', upload.single('photo'), checkPremium, async (req, res) => {
     const file = req.file;
     try {
-      const { title, userEmail } = req.body; 
+      const { title, userEmail } = req.body;
       const [rows] = await pool.query('SELECT * FROM photo_portfolio WHERE id = ? AND user_email = ?', [req.params.id, userEmail]);
       if (rows.length === 0) {
         cleanupTempFile(file);
         return res.status(403).json({ error: 'Nincs jogosultságod módosítani ezt a képet!' });
       }
-      
+
       if (file) {
         // 🛡️ SOROMPÓ: Mivel új fájlt tölt fel a régi helyére, az ellenőrzésnél kivonjuk a régi kép méretét!
         const incomingBytes = file.size || 0;
@@ -196,17 +196,17 @@ module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, chec
         }
 
         if (rows[0].drive_file_id) await drive.files.delete({ fileId: rows[0].drive_file_id }).catch(e => console.log('Régi kép törlése a Drive-ról sikertelen:', e.message));
-        
+
         const fileStream = fs.createReadStream(file.path);
         const fileExt = file.originalname && file.originalname.includes('.') ? file.originalname.substring(file.originalname.lastIndexOf('.')).toLowerCase() : '.jpg';
         const userName = rows[0].user_name || 'Ismeretlen';
-        
-        const driveRes = await drive.files.create({ 
-          requestBody: { name: `Portfolio_${userName}_Frissitett_${Date.now()}${fileExt}`, parents: [process.env.DRIVE_MASTER_FOLDER_ID] }, 
-          media: { mimeType: file.mimetype, body: fileStream }, 
-          fields: 'id, webViewLink' 
+
+        const driveRes = await drive.files.create({
+          requestBody: { name: `Portfolio_${userName}_Frissitett_${Date.now()}${fileExt}`, parents: [process.env.DRIVE_MASTER_FOLDER_ID] },
+          media: { mimeType: file.mimetype, body: fileStream },
+          fields: 'id, webViewLink'
         });
-        
+
         cleanupTempFile(file);
         const fileSize = req.file.size;
         await pool.query('UPDATE photo_portfolio SET title = ?, file_url = ?, drive_file_id = ?, file_size = ? WHERE id = ? AND user_email = ?', [title, driveRes.data.webViewLink, driveRes.data.id, fileSize, req.params.id, userEmail]);
@@ -214,9 +214,9 @@ module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, chec
         await pool.query('UPDATE photo_portfolio SET title = ? WHERE id = ? AND user_email = ?', [title, req.params.id, userEmail]);
       }
       res.json({ success: true });
-    } catch (err) { 
+    } catch (err) {
       cleanupTempFile(file);
-      res.status(500).json({ error: 'Hiba a kép frissítésekor: ' + err.message }); 
+      res.status(500).json({ error: 'Hiba a kép frissítésekor: ' + err.message });
     }
   });
 
@@ -271,15 +271,15 @@ module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, chec
       const driveRes = await drive.files.get({ fileId: photo.drive_file_id, alt: 'media' }, { responseType: 'arraybuffer' });
       let imageBuffer = Buffer.from(driveRes.data);
       const base64Image = imageBuffer.toString('base64');
-      
+
       imageBuffer = null;
       driveRes.data = null;
-      
-      const model = genAI.getGenerativeModel({ 
+
+      const model = genAI.getGenerativeModel({
         model: "gemini-2.5-flash",
-        generationConfig: { responseMimeType: "application/json" } 
+        generationConfig: { responseMimeType: "application/json" }
       });
-      
+
       const prompt = `Te egy szigorú nemzetközi fotós zsűri vagy (FIAP/PSA szabályrendszer). Kérlek, elemezd ezt a fotót. 
   KIZÁRÓLAG egy érvényes JSON objektumot adj vissza!
   A JSON pontos struktúrája ez legyen:
@@ -287,19 +287,19 @@ module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, chec
     "evaluation": "Ide írj egy 2-3 mondatos magyar nyelvű, professzionális, őszinte zsűri értékelést. Térj ki a kompozícióra, fényekre, és a kategóriára. Ne használj idézőjeleket ezen a szövegen binnen!",
     "tags": "ide jöjjön 6-8 angol kulcsszó vesszővel elválasztva (pl: monochrome, portrait)"
   }`;
-      
+
       const imagePart = { inlineData: { data: base64Image, mimeType: "image/jpeg" } };
       const result = await model.generateContent([prompt, imagePart]);
       const response = await result.response;
       let text = response.text();
-      
+
       const jsonStart = text.indexOf('{');
       const jsonEnd = text.lastIndexOf('}');
       if (jsonStart === -1 || jsonEnd === -1) throw new Error("Hibás JSON");
-      
+
       text = text.substring(jsonStart, jsonEnd + 1);
-      JSON.parse(text); 
-      
+      JSON.parse(text);
+
       await pool.query('UPDATE photo_portfolio SET ai_tags = ? WHERE id = ?', [text, req.params.id]);
       res.json({ success: true, ai_tags: text });
     } catch (err) {
