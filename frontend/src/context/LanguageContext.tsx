@@ -324,8 +324,8 @@ const translations = {
 
     // === HU BLOKK ALJA ===
     loginBadge: 'Vártunk már! 📸',
-    loginTitlePre: 'A Fotósok ',
-    loginTitleGradient: 'Digitális Otthona',
+    loginTitlePre: 'PhotAwesome ',
+    loginTitleGradient: 'A fotósok digitális otthona',
     loginMainDesc: 'Lépj be a közösségbe! Fedezz fel új helyszíneket, versengj a heti kihívásokban, kövesd a nemzetközi FIAP/MAFOSZ sikereidet és kérj profi AI képelemzést a portfóliódra.',
     loginBoxTitle: 'Lépj be a portálra',
     loginBoxDesc: 'A belépéshez nincs szükség külön regisztrációra. Használd a meglévő, biztonságos Google fiókodat!',
@@ -920,8 +920,8 @@ const translations = {
 
     // === EN BLOKK ALJA ===
     loginBadge: 'Welcome back! 📸',
-    loginTitlePre: 'The Digital Home ',
-    loginTitleGradient: 'of Photographers',
+    loginTitlePre: 'PhotAwesome',
+    loginTitleGradient: 'The Digital Home of Photographers',
     loginMainDesc: 'Join the community! Discover new locations, compete in weekly challenges, track your international FIAP/MAFOSZ success, and get professional AI feedback on your portfolio.',
     loginBoxTitle: 'Sign in to the Portal',
     loginBoxDesc: 'No separate registration is required. Use your existing, secure Google account!',
