@@ -2,6 +2,10 @@ import { useState, useEffect } from 'react';
 import { googleLogout } from '@react-oauth/google';
 import { ADMIN_EMAIL, BACKEND_URL } from '../utils/constants';
 
+// 🎯 ÚJ: Behozzuk a kétnyelvű logókat a headerhez is
+import logoHu from './logo_hu2.png'; 
+import logoEn from './logo_en2.png';
+
 // Behozzuk a nyelvi hookot
 import { useLanguage } from '../context/LanguageContext';
 
@@ -31,6 +35,9 @@ export default function Header({
 
   // Aktiváljuk a nyelvi kontextust és a t() fordító függvényt
   const { lang, setLang, t } = useLanguage();
+
+  // 🎯 Meghatározzuk, hogy épp melyik logót kell mutatni
+  const currentLogo = lang === 'en' ? logoEn : logoHu;
 
   // 10 percenként csendben leellenőrzi, van-e új üzenet
   useEffect(() => {
@@ -75,7 +82,29 @@ export default function Header({
     <header className="app-header">
       
       <div className="mobile-header-top">
-        <div style={{ fontWeight: 'bold', color: '#f8fafc', fontSize: '1.2rem' }}>Fotóklub Portál</div>
+        {/* 🎯 ÚJ: PRÉMIUM LOGÓ ÉS ALKALMAZÁSNÉV */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ 
+            background: 'rgba(30, 41, 59, 0.7)', 
+            padding: '5px 6px', 
+            borderRadius: '10px', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            border: '1px solid rgba(255,255,255,0.08)',
+            boxShadow: '0 4px 10px rgba(0,0,0,0.3)'
+          }}>
+            <img 
+              src={currentLogo} 
+              alt="PhotAwesome" 
+              style={{ height: '26px', width: 'auto', objectFit: 'contain' }} 
+            />
+          </div>
+          <div style={{ fontWeight: '900', color: '#f8fafc', fontSize: '1.35rem', letterSpacing: '-0.5px' }}>
+            Phot<span style={{ background: 'linear-gradient(135deg, #38bdf8, #8b5cf6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Awesome</span>
+          </div>
+        </div>
+
         <button className="hamburger-btn" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
           {isMobileMenuOpen ? '✕' : '≡'}
         </button>
@@ -200,7 +229,7 @@ export default function Header({
            ==================================================================== */}
         <div className="user-group" style={{ display: 'flex', alignItems: 'center', gap: '15px', position: 'relative' }}>
           
-          {/* 🎯 JAVÍTVA: Nyelvválasztó gombok text emoji helyett stabil CDN képekkel */}
+          {/* Nyelvválasztó gombok */}
           <div style={{ display: 'flex', gap: '4px', background: '#1e293b', padding: '3px', borderRadius: '10px', border: '1px solid #334155' }}>
             <button 
               onClick={() => setLang('hu')} 
