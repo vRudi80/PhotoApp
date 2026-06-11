@@ -62,6 +62,23 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
       <div style={{ position: 'absolute', top: '20px', right: '20px', zIndex: 100 }}>
         <div style={{ display: 'flex', gap: '4px', background: 'rgba(30, 41, 59, 0.6)', backdropFilter: 'blur(10px)', padding: '3px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)' }}>
            <button 
+              onClick={() => setLang('hu')} 
+              style={{ 
+                background: lang === 'hu' ? 'linear-gradient(135deg, #f97316, #ef4444)' : 'transparent', 
+                color: lang === 'hu' ? 'white' : '#94a3b8', 
+                border: 'none', padding: '6px 10px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '6px' 
+              }}
+            >
+              <img 
+                src="https://flagcdn.com/16x12/hu.png" 
+                width="16" 
+                height="12" 
+                alt="HU" 
+                style={{ borderRadius: '2px', display: 'block', objectFit: 'cover' }} 
+              />
+              <span style={{ fontSize: '0.75rem' }}>HU</span>
+            </button>
+            <button 
               onClick={() => setLang('en')} 
               style={{ 
                 background: lang === 'en' ? 'linear-gradient(135deg, #0284c7, #0369a1)' : 'transparent', 
