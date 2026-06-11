@@ -2,8 +2,8 @@ import React from 'react';
 import { GoogleLogin } from '@react-oauth/google';
 
 // 🎯 ÚJ IMPORTOK: Helyes, egy mappán belüli relatív útvonalak
-import logoHu from './logo_hu.png'; 
-import logoEn from './logo_en.png'; 
+import logoHu from './logo_hu2.png'; 
+import logoEn from './logo_en2.png'; 
 
 // Behozzuk a nyelvi kontextust
 import { useLanguage } from '../context/LanguageContext';
