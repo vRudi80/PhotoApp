@@ -2,78 +2,78 @@ const fs = require('fs');
 
 module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, checkPremium) {
 
-  // 🛡️ ÚJ REJTETT FÉKRENDSZER: Tárhely limit ellenőrző függvény (Az image_4ed904.png csomagjai alapján)
-  async function checkStorageLimit(pool, email, incomingFileBytes, currentPhotoIdToExclude = null) {
-    // 1. Lekérjük a felhasználó prémium és Stripe adatait
-    const [userRows] = await pool.query(
-      'SELECT is_premium, premium_until, premium_tier, stripe_status FROM photo_users WHERE email = ?',
-      [email]
-    );
-    if (userRows.length === 0) return { allowed: false, error: 'Felhasználó nem található!' };
+  // 🛡️ JAVÍTVA: Tárhely limit ellenőrző függvény (premium_level oszlopnévvel!)
+async function checkStorageLimit(pool, email, incomingFileBytes, currentPhotoIdToExclude = null) {
+  // 1. Lekérjük a felhasználó prémium és Stripe adatait -> 🎯 premium_tier HELYETT premium_level!
+  const [userRows] = await pool.query(
+    'SELECT is_premium, premium_until, premium_level, stripe_status FROM photo_users WHERE email = ?', 
+    [email]
+  );
+  if (userRows.length === 0) return { allowed: false, error: 'Felhasználó nem található!' };
 
-    const user = userRows[0];
-    const now = new Date();
-    // Prémium, ha aktív a Stripe-ja VAGY az adatbázis naptára szerint még él az ajándék ideje
-    const isPremium = user.is_premium === 1 || user.stripe_status === 'active' || (user.premium_until && new Date(user.premium_until) > now);
-
-    // 2. Korlátok kiszámítása (Ingyenes: 100 MB / Alap: 1 GB / Pro: 5 GB)
-    let limitBytes = 100 * 1024 * 1024; // Ingyenes alapcsomag: 100 MB (Szabadon módosíthatod)
-
-    if (isPremium) {
-      if (user.premium_tier === 'pro' || user.premium_tier === 2 || String(user.premium_tier).toLowerCase() === 'pro') {
-        limitBytes = 5 * 1024 * 1024 * 1024; // Pro Prémium: 5 GB
-      } else {
-        limitBytes = 1 * 1024 * 1024 * 1024; // Alap Prémium: 1 GB
-      }
-    }
-
-    // 3. Összeszámoljuk az eddigi tárhelyfoglalást mind a 3 táblából (Kivéve az épp frissítés alatt álló képet, ha van)
-    let query = '';
-    let queryParams = [];
-
-    if (currentPhotoIdToExclude) {
-      query = `
-        SELECT COALESCE(SUM(GREATEST(file_size, 0)), 0) as total_bytes
-        FROM (
-          SELECT user_email, file_size FROM photo_portfolio WHERE id != ?
-          UNION ALL
-          SELECT user_email, file_size FROM photo_entries
-          UNION ALL
-          SELECT user_email, file_size FROM photo_homework_entries
-        ) as all_photos
-        WHERE user_email = ?
-      `;
-      queryParams = [currentPhotoIdToExclude, email];
+  const user = userRows[0];
+  const now = new Date();
+  const isPremium = user.is_premium === 1 || user.stripe_status === 'active' || (user.premium_until && new Date(user.premium_until) > now);
+  
+  // 2. Korlátok kiszámítása (Ingyenes: 100 MB / Alap: 1 GB / Pro: 5 GB)
+  let limitBytes = 100 * 1024 * 1024; // Ingyenes alapcsomag: 100 MB
+  
+  if (isPremium) {
+    // 🎯 JAVÍTVA: A premium_level értéke alapján döntünk (2 vagy nagyobb = Pro)
+    if (Number(user.premium_level) >= 2) {
+      limitBytes = 5 * 1024 * 1024 * 1024; // Pro Prémium: 5 GB
     } else {
-      query = `
-        SELECT COALESCE(SUM(GREATEST(file_size, 0)), 0) as total_bytes
-        FROM (
-          SELECT user_email, file_size FROM photo_portfolio
-          UNION ALL
-          SELECT user_email, file_size FROM photo_entries
-          UNION ALL
-          SELECT user_email, file_size FROM photo_homework_entries
-        ) as all_photos
-        WHERE user_email = ?
-      `;
-      queryParams = [email];
+      limitBytes = 1 * 1024 * 1024 * 1024; // Alap Prémium: 1 GB
     }
-
-    const [storageRows] = await pool.query(query, queryParams);
-    const currentBytes = Number(storageRows[0].total_bytes) || 0;
-
-    // 4. Ha az új fájllal túllépné a keretet, blokkoljuk a folyamatot
-    if (currentBytes + incomingFileBytes > limitBytes) {
-      const limitText = limitBytes >= 1024 * 1024 * 1024 ? `${limitBytes / (1024 * 1024 * 1024)} GB` : `${limitBytes / (1024 * 1024)} MB`;
-      const currentMB = (currentBytes / (1024 * 1024)).toFixed(2);
-      return {
-        allowed: false,
-        error: `❌ Tárhely megtelt! A csomagod korlátja ${limitText}. Jelenleg elhasznált: ${currentMB} MB. Kérjük, szabadíts fel helyet a galériádban, vagy válts nagyobb csomagra!`
-      };
-    }
-
-    return { allowed: true };
   }
+
+  // 3. Összeszámoljuk az eddigi tárhelyfoglalást mind a 3 táblából
+  let query = '';
+  let queryParams = [];
+
+  if (currentPhotoIdToExclude) {
+    query = `
+      SELECT COALESCE(SUM(GREATEST(file_size, 0)), 0) as total_bytes
+      FROM (
+        SELECT user_email, file_size FROM photo_portfolio WHERE id != ?
+        UNION ALL
+        SELECT user_email, file_size FROM photo_entries
+        UNION ALL
+        SELECT user_email, file_size FROM photo_homework_entries
+      ) as all_photos
+      WHERE user_email = ?
+    `;
+    queryParams = [currentPhotoIdToExclude, email];
+  } else {
+    query = `
+      SELECT COALESCE(SUM(GREATEST(file_size, 0)), 0) as total_bytes
+      FROM (
+        SELECT user_email, file_size FROM photo_portfolio
+        UNION ALL
+        SELECT user_email, file_size FROM photo_entries
+        UNION ALL
+        SELECT user_email, file_size FROM photo_homework_entries
+      ) as all_photos
+      WHERE user_email = ?
+    `;
+    queryParams = [email];
+  }
+
+  const [storageRows] = await pool.query(query, queryParams);
+  const currentBytes = Number(storageRows[0].total_bytes) || 0;
+
+  // 4. Ha az új fájllal túllépné a keretet, blokkoljuk a folyamatot
+  if (currentBytes + incomingFileBytes > limitBytes) {
+    const limitText = limitBytes >= 1024*1024*1024 ? `${limitBytes / (1024*1024*1024)} GB` : `${limitBytes / (1024*1024)} MB`;
+    const currentMB = (currentBytes / (1024 * 1024)).toFixed(2);
+    return { 
+      allowed: false, 
+      error: `❌ Tárhely megtelt! A csomagod korlátja ${limitText}. Jelenleg elhasznált: ${currentMB} MB. Kérjük, szabadíts fel helyet a galériádban, vagy válts nagyobb csomagra!` 
+    };
+  }
+
+  return { allowed: true };
+}
 
   // ====================================================================
   // 1. KÉPEK ALAPADATAINAK LEKÉRÉSE
