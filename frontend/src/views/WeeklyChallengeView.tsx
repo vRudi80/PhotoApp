@@ -92,9 +92,7 @@ const compressImageOnClient = (file: File): Promise<File> => {
 // ⏳ SELEKCIÓS KÁRTYA KOMPONENS (Lefordítva)
 // ====================================================================
 function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }) {
-  // 🎯 Aktiváljuk a nyelvi szótárat a kártyába
   const { t, lang } = useLanguage();
-
   const [timeLeft, setTimeLeft] = useState<string>(t('viewTimeCalc'));
 
   useEffect(() => {
@@ -102,7 +100,6 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
 
     const calculateTimeLeft = () => {
       const now = new Date().getTime();
-      
       const parts = topic.end_date.split(/[- :T]/);
       const end = parts.length >= 5 
         ? new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), parseInt(parts[3]), parseInt(parts[4]), parts[5] ? parseInt(parts[5]) : 0)
@@ -114,7 +111,6 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
       }
 
       const distance = end.getTime() - now;
-
       if (distance < 0) {
         setTimeLeft(t('viewTimeEnded'));
         return false;
@@ -160,14 +156,8 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
         <span style={{ background: isDaily ? '#ef444420' : '#3b82f620', color: isDaily ? '#f87171' : '#60a5fa', border: `1px solid ${isDaily ? '#ef444450' : '#3b82f650'}`, padding: '4px 12px', borderRadius: '50px', fontSize: '0.8rem', fontWeight: 'bold' }}>
           {isDaily ? t('typeBlitz') : t('typeMaster')}
         </span>
-        
         <span style={{ color: statusColor, fontSize: '0.85rem', fontWeight: 'bold' }}>
-          {isMaster 
-            ? t('statusMaster') 
-            : topic.hasEntered 
-              ? t('statusEntered') 
-              : t('statusNotEntered')
-          }
+          {isMaster ? t('statusMaster') : topic.hasEntered ? t('statusEntered') : t('statusNotEntered')}
         </span>
       </div>
       {topic.cover_url && (
@@ -176,7 +166,6 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
           <img src={topic.cover_url} alt="" style={{ position: 'relative', width: '100%', height: '100%', objectFit: 'contain', zIndex: 1 }} onError={handleImageError} />
         </div>
       )}
-      
       {topic.cover_author && (
         <div style={{ color: '#64748b', fontSize: '0.75rem', fontStyle: 'italic', marginTop: '-10px', marginBottom: '15px', textAlign: 'right', paddingRight: '5px' }}>
           {t('viewCoverAuthor')}{topic.cover_author}
@@ -186,20 +175,18 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
       <h3 style={{ color: 'white', margin: '0 0 10px 0', fontSize: '1.4rem', fontWeight: 'bold' }}>{displayTitle}</h3>
       <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: '0 0 20px 0', lineHeight: '1.5', flex: 1 }}>{displayDesc}</p>
       
-      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '20px', lineHeight: '1' }}>
+      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '20px', lineHeight: '1' }}>
         {(topic.master_name || topic.master_email) && (
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#a78bfa', fontSize: '0.85rem', fontWeight: 'bold', background: '#a78bfa10', padding: '6px 14px', borderRadius: '10px', border: '1px solid #a78bfa20', whiteSpace: 'nowrap', lineHeight: '1' }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center' }}>{t('viewMasterLabel')}</span>
-            <span style={{ color: '#e9d5ff', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center' }}>{topic.master_name || topic.master_email}</span>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#a78bfa', fontSize: '0.8rem', fontWeight: 'bold', background: '#a78bfa10', padding: '6px 10px', borderRadius: '10px', border: '1px solid #a78bfa20', whiteSpace: 'nowrap' }}>
+            <span>{t('viewMasterLabel')}</span>
+            <span style={{ color: '#e9d5ff' }}>{topic.master_name || topic.master_email}</span>
           </div>
         )}
-        
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#38bdf8', fontSize: '0.85rem', fontWeight: 'bold', background: '#38bdf810', padding: '6px 14px', borderRadius: '10px', border: '1px solid #38bdf820', whiteSpace: 'nowrap', lineHeight: '1' }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center' }}>👥 {topic.totalEntries || 0} {t('photographers')}</span>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#38bdf8', fontSize: '0.8rem', fontWeight: 'bold', background: '#38bdf810', padding: '6px 10px', borderRadius: '10px', border: '1px solid #38bdf820', whiteSpace: 'nowrap' }}>
+          <span>👥 {topic.totalEntries || 0} {t('photographers')}</span>
         </div>
-        
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: topic.unvotedEntries > 0 ? '#fb923c' : '#4ade80', fontSize: '0.85rem', fontWeight: 'bold', background: topic.unvotedEntries > 0 ? '#fb923c10' : '#4ade8010', padding: '6px 14px', borderRadius: '10px', border: topic.unvotedEntries > 0 ? '1px solid #fb923c20' : '1px solid #4ade8020', whiteSpace: 'nowrap', lineHeight: '1' }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center' }}>🗳️ {topic.unvotedEntries || 0} {t('unvoted')}</span>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: topic.unvotedEntries > 0 ? '#fb923c' : '#4ade80', fontSize: '0.8rem', fontWeight: 'bold', background: topic.unvotedEntries > 0 ? '#fb923c10' : '#4ade8010', padding: '6px 10px', borderRadius: '10px', border: topic.unvotedEntries > 0 ? '1px solid #fb923c20' : '1px solid #4ade8020', whiteSpace: 'nowrap' }}>
+          <span>🗳️ {topic.unvotedEntries || 0} {t('unvoted')}</span>
         </div>        
       </div>
 
@@ -238,7 +225,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const [myPastEntries, setMyPastEntries] = useState<any[]>([]); 
   const [swapBalance, setSwapBalance] = useState<number>(3);     
   const [myVoteCount, setMyVoteCount] = useState(0);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [votableEntries, setVotableEntries] = useState(1);
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
 
@@ -543,7 +529,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
 
     const calculateTimeLeft = () => {
       const now = new Date().getTime();
-      
       const parts = topic.end_date.split(/[- :T]/);
       const end = parts.length >= 5 
         ? new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), parseInt(parts[3]), parseInt(parts[4]), parts[5] ? parseInt(parts[5]) : 0)
@@ -555,7 +540,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       }
 
       const distance = end.getTime() - now;
-
       if (distance < 0) {
         setTimeLeft(t('viewTimeEnded'));
         return false;
@@ -770,7 +754,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       const blob = await (await fetch(dataUrl)).blob();
       const file = new File([blob], `Arena_Award_${activeShareData.topic_title}.png`, { type: 'image/png' });
 
-      // 🇬🇧 Ordinal suffix mapping to generate correct share details dynamically
       const getOrdinalStr = (rankNum: number) => {
         if (lang === 'hu') return `${rankNum}.`;
         const m = rankNum % 10, n = rankNum % 100;
@@ -800,7 +783,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
      } catch (e) {
       alert(t('msgGenerateImageError'));
       console.error(e);
-    } finally { 
+    } Goldly: { 
       setIsGeneratingImage(false);
     }
   };
@@ -808,29 +791,39 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   return (
     <div style={{ animation: 'fadeIn 0.4s ease-out' }}>
       
-      {/* TABS HEADER GOMBSOR (Lefordítva) */}
+      {/* 🔮 INTELIGENS BENTO GRID LAYOUT INJEKTOR */}
+      <style>{`
+        .arena-bento-grid {
+          display: grid;
+          grid-template-columns: 1fr 380px;
+          gap: 30px;
+          align-items: start;
+        }
+        @media (max-width: 1100px) {
+          .arena-bento-grid {
+            grid-template-columns: 1fr;
+            gap: 40px;
+          }
+          .arena-chat-sidebar {
+            height: 480px !important;
+          }
+        }
+        @keyframes bounce {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-4px); }
+        }
+      `}</style>
+      
+      {/* TABS HEADER GOMBSOR */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', flexWrap: 'wrap', gap: '15px' }}>
         <div style={{ display: 'flex', gap: '10px', background: '#0f172a', padding: '10px', borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.3)', width: 'fit-content', flexWrap: 'wrap', border: '1px solid #1e293b' }}>
           <button onClick={() => { setSubTab('current'); setSelectedTopicId(null); }} style={{ padding: '10px 24px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: subTab === 'current' ? 'linear-gradient(135deg, #f97316, #ef4444)' : 'transparent', color: subTab === 'current' ? 'white' : '#94a3b8', transition: 'all 0.3s', boxShadow: subTab === 'current' ? '0 4px 15px rgba(239,68,68,0.4)' : 'none' }}>{t('tabChallenges')}</button>
           <button onClick={() => setSubTab('upcoming')} style={{ padding: '10px 24px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: subTab === 'upcoming' ? '#334155' : 'transparent', color: subTab === 'upcoming' ? 'white' : '#94a3b8', transition: 'all 0.3s' }}>{t('tabUpcoming')}</button>
           <button onClick={() => setSubTab('past')} style={{ padding: '10px 24px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: subTab === 'past' ? '#334155' : 'transparent', color: subTab === 'past' ? 'white' : '#94a3b8', transition: 'all 0.3s' }}>{t('tabPast')}</button>
-          
-          <button 
-            onClick={() => setSubTab('arena_album')} 
-            style={{ 
-              padding: '10px 24px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 'bold', 
-              background: subTab === 'arena_album' ? 'linear-gradient(135deg, #14b8a6, #0d9488)' : 'transparent', 
-              color: subTab === 'arena_album' ? 'white' : '#94a3b8', transition: 'all 0.3s', 
-              boxShadow: subTab === 'arena_album' ? '0 4px 15px rgba(20,184,166,0.4)' : 'none' 
-            }}
-          >
-            {t('tabAlbum')}
-          </button>
-
+          <button onClick={() => setSubTab('arena_album')} style={{ padding: '10px 24px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: subTab === 'arena_album' ? 'linear-gradient(135deg, #14b8a6, #0d9488)' : 'transparent', color: subTab === 'arena_album' ? 'white' : '#94a3b8', transition: 'all 0.3s', boxShadow: subTab === 'arena_album' ? '0 4px 15px rgba(20,184,166,0.4)' : 'none' }}>{t('tabAlbum')}</button>
           <button onClick={() => { setSubTab('my_stats'); fetchMyStats(); }} style={{ padding: '10px 24px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: subTab === 'my_stats' ? 'linear-gradient(135deg, #8b5cf6, #6366f1)' : 'transparent', color: subTab === 'my_stats' ? 'white' : '#94a3b8', transition: 'all 0.3s', boxShadow: subTab === 'my_stats' ? '0 4px 15px rgba(139,92,246,0.4)' : 'none' }}>{t('tabStats')}</button>
           <button onClick={() => setSubTab('hall_of_fame')} style={{ padding: '10px 24px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: subTab === 'hall_of_fame' ? 'linear-gradient(135deg, #fbbf24, #d97706)' : 'transparent', color: subTab === 'hall_of_fame' ? '#0f172a' : '#94a3b8', transition: 'all 0.3s', boxShadow: subTab === 'hall_of_fame' ? '0 4px 15px rgba(251,191,36,0.4)' : 'none' }}>{t('tabHof')}</button>
         </div>
-        
         <button onClick={() => setShowHelp(true)} style={{ padding: '12px 24px', borderRadius: '12px', border: '1px solid #38bdf8', cursor: 'pointer', fontWeight: 'bold', background: '#0f172a', color: '#38bdf8', transition: 'all 0.3s', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 15px rgba(56,189,248,0.2)' }}>
           {t('btnRules')}
         </button>
@@ -839,9 +832,12 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       {subTab === 'current' && (
         <>
           {selectedTopicId === null ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
+            /* 🎯 KÉTOSZLOPOS BENTO-RÁCS ELRENDEZÉS */
+            <div className="arena-bento-grid">
+              
+              {/* BAL HASÁB: AKTÍV LEVELEK ÉS JÁTÉKOK */}
               <div>
-                <div style={{ marginBottom: '20px' }}>
+                <div style={{ marginBottom: '25px' }}>
                   <h2 style={{ color: 'white', margin: 0, fontSize: '1.8rem' }}>{t('viewActiveLeagues')}</h2>
                   <p style={{ color: '#94a3b8', margin: '5px 0 0 0' }}>{t('viewActiveLeaguesDesc')}</p>
                 </div>
@@ -855,7 +851,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                     <p style={{ color: '#94a3b8' }}>{t('viewNoActiveLeaguesDesc')}</p>
                   </div>
                 ) : (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '25px', marginTop: '20px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '25px' }}>
                     {activeTopics.map((actTop) => (
                       <ChallengeCard 
                         key={actTop.id} 
@@ -867,23 +863,19 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                 )}
               </div>
 
-              {/* ARÉNA KÖZPONTI LOBBI CHAT */}
-              <div style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: '24px', padding: '25px', boxShadow: '0 15px 35px rgba(0,0,0,0.4)', display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '10px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-                  <div>
-                    <h3 style={{ margin: 0, color: '#38bdf8', fontSize: '1.4rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span>💬</span> {t('viewLobbyTitle')}
-                    </h3>
-                    <p style={{ margin: '3px 0 0 0', color: '#94a3b8', fontSize: '0.85rem' }}>{t('viewLobbyDesc')}</p>
-                  </div>
-                  <div style={{ background: '#38bdf815', border: '1px dashed #38bdf850', color: '#38bdf8', padding: '6px 14px', borderRadius: '10px', fontSize: '0.8rem', fontWeight: 'bold' }}>
-                    {t('viewLobbyTip')}
-                  </div>
+              {/* JOBB HASÁB: FIX CSERESZAVATÚ OLDALSÁV (Zéró layout ugrálás!) */}
+              <div className="arena-chat-sidebar" style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: '24px', padding: '25px', boxShadow: '0 15px 35px rgba(0,0,0,0.4)', display: 'flex', flexDirection: 'column', gap: '15px', height: '580px', position: 'sticky', top: '20px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <h3 style={{ margin: 0, color: '#38bdf8', fontSize: '1.3rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span>💬</span> {t('viewLobbyTitle')}
+                  </h3>
+                  <p style={{ margin: 0, color: '#64748b', fontSize: '0.8rem' }}>{t('viewLobbyDesc')}</p>
                 </div>
 
-                <div style={{ background: '#0f172a', borderRadius: '16px', padding: '20px', height: '300px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', border: '1px solid #223147' }}>
+                {/* Üzenetek belső görgető doboza */}
+                <div style={{ background: '#0f172a', borderRadius: '16px', padding: '15px', flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', border: '1px solid #223147' }}>
                   {lobbyMessages.length === 0 ? (
-                    <div style={{ color: '#475569', textAlign: 'center', margin: 'auto', fontStyle: 'italic', fontSize: '0.9rem' }}>
+                    <div style={{ color: '#475569', textAlign: 'center', margin: 'auto', fontStyle: 'italic', fontSize: '0.85rem' }}>
                       {t('viewLobbyEmpty')}
                     </div>
                   ) : (
@@ -891,7 +883,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                       const msgEmail = msg.user_email || msg.userEmail;
                       const msgName = msg.user_name || msg.userName;
                       const msgText = msg.message_text || msg.messageText;
-                      
                       const isMsgMe = msgEmail === user?.email;
                       
                       return (
@@ -901,11 +892,11 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                             display: 'flex', 
                             flexDirection: 'column', 
                             alignItems: isMsgMe ? 'flex-end' : 'flex-start',
-                            maxWidth: '80%',
+                            maxWidth: '90%',
                             alignSelf: isMsgMe ? 'flex-end' : 'flex-start'
                           }}
                         >
-                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginBottom: '3px', fontSize: '0.75rem', color: isMsgMe ? '#38bdf8' : '#94a3b8', fontWeight: 'bold' }}>
+                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginBottom: '2px', fontSize: '0.72rem', color: isMsgMe ? '#38bdf8' : '#94a3b8', fontWeight: 'bold' }}>
                             <span>{msgName}</span>
                             <span style={{ color: '#475569', fontWeight: 'normal' }}>
                               • {new Date(msg.created_at).toLocaleTimeString(lang === 'en' ? 'en-US' : 'hu-HU', { hour: '2-digit', minute: '2-digit' })}
@@ -915,12 +906,12 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                             style={{ 
                               background: isMsgMe ? 'linear-gradient(135deg, #0284c7, #0369a1)' : '#1e293b', 
                               color: '#f8fafc', 
-                              padding: '10px 16px', 
-                              borderRadius: isMsgMe ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-                              fontSize: '0.92rem', 
+                              padding: '8px 14px', 
+                              borderRadius: isMsgMe ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
+                              fontSize: '0.88rem', 
                               lineHeight: '1.4',
                               wordBreak: 'break-word',
-                              boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                              boxShadow: '0 2px 6px rgba(0,0,0,0.12)',
                               border: isMsgMe ? 'none' : '1px solid #334155'
                             }}
                           >
@@ -933,11 +924,12 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   <div ref={lobbyChatBottomRef} />
                 </div>
 
-                <div style={{ height: '20px', paddingLeft: '10px', fontSize: '0.85rem', color: '#38bdf8', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '5px', transition: 'all 0.3s' }}>
+                {/* Éppen gépel visszajelző sáv */}
+                <div style={{ height: '16px', paddingLeft: '5px', fontSize: '0.78rem', color: '#38bdf8', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '4px' }}>
                   {currentlyTyping.length > 0 && (
                     <>
                       <span>{currentlyTyping.join(', ')}{t('viewLobbyTyping')}</span>
-                      <span className="typing-dots" style={{ display: 'inline-flex', gap: '2px' }}>
+                      <span className="typing-dots" style={{ display: 'inline-flex', gap: '1px' }}>
                         <span style={{ animation: 'bounce 1.4s infinite both', animationDelay: '0s' }}>•</span>
                         <span style={{ animation: 'bounce 1.4s infinite both', animationDelay: '0.2s' }}>•</span>
                         <span style={{ animation: 'bounce 1.4s infinite both', animationDelay: '0.4s' }}>•</span>
@@ -946,7 +938,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   )}
                 </div>
 
-                <form onSubmit={handleSendLobbyMessage} style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                {/* Szövegküldő form */}
+                <form onSubmit={handleSendLobbyMessage} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                   <input 
                     type="text" 
                     placeholder={t('viewLobbyPlaceholder')} 
@@ -954,19 +947,18 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                     onChange={handleInputChange} 
                     maxLength={500}
                     disabled={isSendingLobbyMsg}
-                    style={{ flex: 1, padding: '14px 18px', background: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '14px', fontSize: '0.95rem', outline: 'none', transition: 'all 0.2s' }}
-                    onFocus={e => e.target.style.borderColor = '#38bdf8'}
-                    onBlur={e => e.target.style.borderColor = '#334155'}
+                    style={{ flex: 1, padding: '12px 14px', background: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '12px', fontSize: '0.9rem', outline: 'none' }}
                   />
                   <button 
                     type="submit"
                     disabled={!typedLobbyMsg.trim() || isSendingLobbyMsg}
-                    style={{ background: (!typedLobbyMsg.trim() || isSendingLobbyMsg) ? '#334155' : 'linear-gradient(135deg, #0ea5e9, #2563eb)', color: (!typedLobbyMsg.trim() || isSendingLobbyMsg) ? '#64748b' : 'white', border: 'none', padding: '14px 28px', borderRadius: '14px', fontWeight: 'bold', fontSize: '0.95rem', cursor: 'pointer', transition: 'all 0.2s', boxShadow: typedLobbyMsg.trim() ? '0 4px 15px rgba(37,99,235,0.3)' : 'none' }}
+                    style={{ background: (!typedLobbyMsg.trim() || isSendingLobbyMsg) ? '#334155' : 'linear-gradient(135deg, #0ea5e9, #2563eb)', color: (!typedLobbyMsg.trim() || isSendingLobbyMsg) ? '#64748b' : 'white', border: 'none', padding: '12px 20px', borderRadius: '12px', fontWeight: 'bold', fontSize: '0.9rem', cursor: 'pointer' }}
                   >
                     {isSendingLobbyMsg ? '...' : t('viewLobbySend')}
                   </button>
                 </form>
               </div>
+
             </div>
           ) : (
             <div>
@@ -980,7 +972,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
               </div>
 
               {(!topic || loading) ? (
-                <div style={{ color: '#94a3b8', textAlign: 'center', padding: '50px' }}>{t('viewPreparingRoom')}</div>
+                <div style={{ color: '#94a3b8', BirdAlign: 'center', padding: '50px' }}>{t('viewPreparingRoom')}</div>
               ) : (
                 <ArenaActiveRoom
                   topic={topic}
