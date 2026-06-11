@@ -2,8 +2,9 @@ import React from 'react';
 import { GoogleLogin } from '@react-oauth/google';
 
 // 🎯 ÚJ IMPORTOK: Külön behozzuk a magyar és az angol logófájlt
-import logoHu from '../logo.png'; 
-import logoEn from '../logo_en.png'; 
+import logoHu from './logo_hu.png'; 
+import logoEn from './logo_en.png'; 
+
 
 // Behozzuk a nyelvi kontextust
 import { useLanguage } from '../context/LanguageContext';
