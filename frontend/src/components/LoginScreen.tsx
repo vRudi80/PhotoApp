@@ -1,10 +1,9 @@
 import React from 'react';
 import { GoogleLogin } from '@react-oauth/google';
 
-// 🎯 ÚJ IMPORTOK: Külön behozzuk a magyar és az angol logófájlt
+// 🎯 ÚJ IMPORTOK: Helyes, egy mappán belüli relatív útvonalak
 import logoHu from './logo_hu.png'; 
 import logoEn from './logo_en.png'; 
-
 
 // Behozzuk a nyelvi kontextust
 import { useLanguage } from '../context/LanguageContext';
@@ -18,7 +17,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   // 🎯 Aktiváljuk a kontextust
   const { t, lang, setLang } = useLanguage();
 
-  // 🎯 DINAMIKUS LOGÓVÁLASZTÓ: Ha a nyelv 'en', az angolt kapja, minden más esetben a magyart
+  // 🎯 DINAMIKUS LOGÓVÁLASZTÓ
   const currentLogo = lang === 'en' ? logoEn : logoHu;
 
   const features = [
@@ -46,6 +45,18 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
       overflow: 'hidden', 
       padding: '2rem'
     }}>
+
+      {/* 🔮 PRÉMIUM HÁTTÉR-SZŰRŐ: Ez a láthatatlan mátrix szűri ki a tiszta fehér (#ffffff) pixeleket */}
+      <svg style={{ position: 'absolute', width: 0, height: 0 }}>
+        <filter id="remove-white-bg">
+          <feColorMatrix type="matrix" values="
+            1 0 0 0 0
+            0 1 0 0 0
+            0 0 1 0 0
+            -1 -1 -1 3 -0.1
+          "/>
+        </filter>
+      </svg>
       
       {/* NYELVVÁLASZTÓ A JOBB FELSŐ SAROKBAN */}
       <div style={{ position: 'absolute', top: '20px', right: '20px', zIndex: 100 }}>
@@ -82,8 +93,17 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         {/* BAL OLDAL: Bemutatkozás és Funkciók */}
         <div style={{ flex: '1 1 500px', display: 'flex', flexDirection: 'column', gap: '1.5rem', animation: 'slideInLeft 0.8s ease-out' }}>
           
-          {/* 🎯 JAVÍTVA: A statikus 'logo' változó helyett az intellektuális 'currentLogo'-t rendereljük */}
-          <img src={currentLogo} alt="Képolvasók Fotóklub" style={{ width: '100%', maxWidth: '240px', marginBottom: '1rem', filter: 'drop-shadow(0px 4px 15px rgba(0,0,0,0.5))' }} />
+          {/* 🎯 JAVÍTVA: Az új transzparens SVG-szűrő és lágy vetett árnyék rákötése a logóra */}
+          <img 
+            src={currentLogo} 
+            alt="PhotAwesome" 
+            style={{ 
+              width: '100%', 
+              maxWidth: '240px', 
+              marginBottom: '1rem', 
+              filter: 'url(#remove-white-bg) drop-shadow(0px 10px 25px rgba(0,0,0,0.65))' 
+            }} 
+          />
           
           <h1 style={{ fontSize: '3rem', margin: 0, color: '#f8fafc', lineHeight: '1.1', fontWeight: 800, letterSpacing: '-1px' }}>
             {t('loginTitlePre')} <br/>
