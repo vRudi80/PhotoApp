@@ -12,6 +12,7 @@ const translations = {
     tabStats: '🏆 Dicsőségfalam',
     tabHof: '👑 Mesterek csarnoka',
     btnRules: '📖 Játékszabályok & Rangok',
+    tileClubLifeTitle: '📜 Klubélet'
     
     // Kártya feliratok
     typeBlitz: '🔴 Villámfutam',
@@ -607,6 +608,7 @@ const translations = {
     tabStats: '🏆 My Trophies',
     tabHof: '👑 Hall of Fame',
     btnRules: '📖 Rules & Ranks',
+    tileClubLifeTitle: '📜 Club life'
     
     // Kártya feliratok
     typeBlitz: '🔴 Blitz Match',
