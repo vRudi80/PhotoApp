@@ -1,6 +1,9 @@
 import React from 'react';
 import { GoogleLogin } from '@react-oauth/google';
-import logo from '../logo.png'; 
+
+// 🎯 ÚJ IMPORTOK: Külön behozzuk a magyar és az angol logófájlt
+import logoHu from '../logo.png'; 
+import logoEn from '../logo_en.png'; 
 
 // Behozzuk a nyelvi kontextust
 import { useLanguage } from '../context/LanguageContext';
@@ -11,8 +14,11 @@ interface LoginScreenProps {
 
 export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   
-  // 🎯 ÚJ: Aktiváljuk a setLang függvényt is, hogy a belépés előtt is lehessen nyelvet váltani!
+  // 🎯 Aktiváljuk a kontextust
   const { t, lang, setLang } = useLanguage();
+
+  // 🎯 DINAMIKUS LOGÓVÁLASZTÓ: Ha a nyelv 'en', az angolt kapja, minden más esetben a magyart
+  const currentLogo = lang === 'en' ? logoEn : logoHu;
 
   const features = [
     { icon: '🔥', titleKey: 'loginFeatMatchTitle', descKey: 'loginFeatMatchDesc', color: '#f97316' },
@@ -40,7 +46,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
       padding: '2rem'
     }}>
       
-      {/* 🎯 ÚJ: NYELVVÁLASZTÓ A JOBB FELSŐ SAROKBAN */}
+      {/* NYELVVÁLASZTÓ A JOBB FELSŐ SAROKBAN */}
       <div style={{ position: 'absolute', top: '20px', right: '20px', zIndex: 100 }}>
         <div style={{ display: 'flex', gap: '4px', background: 'rgba(30, 41, 59, 0.6)', backdropFilter: 'blur(10px)', padding: '3px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)' }}>
           <button 
@@ -75,7 +81,8 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         {/* BAL OLDAL: Bemutatkozás és Funkciók */}
         <div style={{ flex: '1 1 500px', display: 'flex', flexDirection: 'column', gap: '1.5rem', animation: 'slideInLeft 0.8s ease-out' }}>
           
-          <img src={logo} alt="Képolvasók Fotóklub" style={{ width: '100%', maxWidth: '240px', marginBottom: '1rem', filter: 'drop-shadow(0px 4px 15px rgba(0,0,0,0.5))' }} />
+          {/* 🎯 JAVÍTVA: A statikus 'logo' változó helyett az intellektuális 'currentLogo'-t rendereljük */}
+          <img src={currentLogo} alt="Képolvasók Fotóklub" style={{ width: '100%', maxWidth: '240px', marginBottom: '1rem', filter: 'drop-shadow(0px 4px 15px rgba(0,0,0,0.5))' }} />
           
           <h1 style={{ fontSize: '3rem', margin: 0, color: '#f8fafc', lineHeight: '1.1', fontWeight: 800, letterSpacing: '-1px' }}>
             {t('loginTitlePre')} <br/>
