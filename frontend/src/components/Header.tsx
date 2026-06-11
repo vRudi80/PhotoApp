@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { googleLogout } from '@react-oauth/google';
 import { ADMIN_EMAIL, BACKEND_URL } from '../utils/constants';
 
-// 🎯 ÚJ: Behozzuk a kétnyelvű logókat a headerhez is
+// 🎯 Behozzuk a kétnyelvű logókat a headerhez is
 import logoHu from './logo_hu2.png'; 
 import logoEn from './logo_en2.png';
 
@@ -78,39 +78,64 @@ export default function Header({
     }
   };
 
+  // 🎯 REUSABLE LOGO BLOCK: Hogy ne kelljen kétszer megírni a designt
+  const LogoBrandBlock = () => (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+      <div style={{ 
+        background: 'rgba(30, 41, 59, 0.7)', 
+        padding: '5px 6px', 
+        borderRadius: '10px', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center',
+        border: '1px solid rgba(255,255,255,0.08)',
+        boxShadow: '0 4px 10px rgba(0,0,0,0.3)'
+      }}>
+        <img 
+          src={currentLogo} 
+          alt="PhotAwesome" 
+          style={{ height: '24px', width: 'auto', objectFit: 'contain' }} 
+        />
+      </div>
+      <div style={{ fontWeight: '900', color: '#f8fafc', fontSize: '1.3rem', letterSpacing: '-0.5px' }}>
+        Phot<span style={{ background: 'linear-gradient(135deg, #38bdf8, #8b5cf6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Awesome</span>
+      </div>
+    </div>
+  );
+
   return (
     <header className="app-header">
       
+      {/* 🔮 INTELIGENS RESZPONZÍV STYLING: Elintézi a rejtést/megjelenítést a gyári CSS feszítése mellett is */}
+      <style>{`
+        .header-desktop-brand-wrapper {
+          display: flex;
+          align-items: center;
+          margin-right: 20px;
+        }
+        @media (max-width: 991px) {
+          .header-desktop-brand-wrapper {
+            display: none !important;
+          }
+        }
+      `}</style>
+      
+      {/* A: MOBIL FELÜLETŰ FELSŐ SÁV (Csak mobilon látszik) */}
       <div className="mobile-header-top">
-        {/* 🎯 ÚJ: PRÉMIUM LOGÓ ÉS ALKALMAZÁSNÉV */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ 
-            background: 'rgba(30, 41, 59, 0.7)', 
-            padding: '5px 6px', 
-            borderRadius: '10px', 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center',
-            border: '1px solid rgba(255,255,255,0.08)',
-            boxShadow: '0 4px 10px rgba(0,0,0,0.3)'
-          }}>
-            <img 
-              src={currentLogo} 
-              alt="PhotAwesome" 
-              style={{ height: '26px', width: 'auto', objectFit: 'contain' }} 
-            />
-          </div>
-          <div style={{ fontWeight: '900', color: '#f8fafc', fontSize: '1.35rem', letterSpacing: '-0.5px' }}>
-            Phot<span style={{ background: 'linear-gradient(135deg, #38bdf8, #8b5cf6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Awesome</span>
-          </div>
-        </div>
-
+        <LogoBrandBlock />
         <button className="hamburger-btn" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
           {isMobileMenuOpen ? '✕' : '≡'}
         </button>
       </div>
 
+      {/* B: ASZTALI / LENYÍLÓ NAVIGÁCIÓS PANEL */}
       <div className={`header-nav-container ${isMobileMenuOpen ? 'mobile-open' : ''}`}>
+        
+        {/* 🎯 ASZTALI BRANDING BLOKK (Csak nagy kijelzőn látszik, legelöl) */}
+        <div className="header-desktop-brand-wrapper">
+          <LogoBrandBlock />
+        </div>
+
         <div className="nav-group">
           
           {/* ====================================================================
@@ -213,7 +238,7 @@ export default function Header({
                   <button className={`drop-item ${activeTab === 'admin_homeworks' ? 'active' : ''}`} style={{ color: activeTab === 'admin_homeworks' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_homeworks')}>{t('subManageHomeworks')}</button>
                   {user?.email === ADMIN_EMAIL && <button className={`drop-item ${activeTab === 'admin_weekly' ? 'active' : ''}`} style={{ color: activeTab === 'admin_weekly' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_weekly')}>{t('subManageWeekly')}</button>}
                   {user?.email === ADMIN_EMAIL && (
-                    <button className={`drop-item ${activeTab === 'admin_settings' ? 'active' : ''}`} style={{ color: activeTab === 'admin_settings' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_settings')}>{t('subManageSettings')}</button>
+                    <button className={`drop-item ${activeTab === 'admin_settings' ? 'active' : ''}`} style={{ color: '#ef4444' }} onClick={() => handleNavClick('admin_settings')}>{t('subManageSettings')}</button>
                   )}
                   {user?.email === ADMIN_EMAIL && <button className={`drop-item ${activeTab === 'admin_salons' ? 'active' : ''}`} style={{ color: activeTab === 'admin_salons' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_salons')}>{t('subManageSalons')}</button>}
                   {user?.email === ADMIN_EMAIL && <button className={`drop-item ${activeTab === 'admin_users' ? 'active' : ''}`} style={{ color: activeTab === 'admin_users' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_users')}>{t('subManageUsers')}</button>}
