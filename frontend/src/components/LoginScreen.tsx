@@ -94,32 +94,16 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         <div style={{ flex: '1 1 500px', display: 'flex', flexDirection: 'column', gap: '1.5rem', animation: 'slideInLeft 0.8s ease-out' }}>
           
           {/* 🎯 JAVÍTVA: Az új transzparens SVG-szűrő és lágy vetett árnyék rákötése a logóra */}
-        <img 
-  src={currentLogo} 
-  alt="PhotAwesome" 
-  style={{ 
-    width: '100%', 
-    maxWidth: '240px', 
-    marginBottom: '1.5rem', 
-    
-    // 🎯 BENTO STÍLUS: Azonnal egybeolvasztjuk a dizájnt a lenti kártyákkal!
-    background: 'rgba(30, 41, 59, 0.3)', 
-    border: '1px solid rgba(255, 255, 255, 0.08)', 
-    borderRadius: '24px', 
-    padding: '16px',
-    backdropFilter: 'blur(10px)',
-    boxShadow: '0 15px 35px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
-    
-    // 🔮 SZŰRŐEK: Meghívjuk a háttéreltávolítót, a lágy maszk pedig elmossa az esetleges belső széleket
-    filter: 'url(#remove-white-bg)',
-    WebkitMaskImage: 'radial-gradient(circle, rgba(0,0,0,1) 75%, rgba(0,0,0,0.8) 100%)',
-    maskImage: 'radial-gradient(circle, rgba(0,0,0,1) 75%, rgba(0,0,0,0.8) 100%)',
-    
-    objectFit: 'contain',
-    transition: 'all 0.3s ease'
-  }} 
-/>
-
+          <img 
+            src={currentLogo} 
+            alt="PhotAwesome" 
+            style={{ 
+              width: '100%', 
+              maxWidth: '240px', 
+              marginBottom: '1rem', 
+              filter: 'url(#remove-white-bg) drop-shadow(0px 10px 25px rgba(0,0,0,0.65))' 
+            }} 
+          />
           
           <h1 style={{ fontSize: '3rem', margin: 0, color: '#f8fafc', lineHeight: '1.1', fontWeight: 800, letterSpacing: '-1px' }}>
             {t('loginTitlePre')} <br/>
