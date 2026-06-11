@@ -60,7 +60,7 @@ export default function ShareCardModal({
         <div style={{ position: 'absolute', top: '-100px', width: '200px', height: '200px', background: '#fbbf2415', filter: 'blur(50px)', borderRadius: '50%' }}></div>
 
         <div style={{ textAlign: 'center', zIndex: 10 }}>
-          <div style={{ color: '#fbbf24', fontSize: '0.75rem', fontWeight: '900', letterSpacing: '3px', textTransform: 'uppercase' }}>📸 kepolvasok.guru</div>
+          <div style={{ color: '#fbbf24', fontSize: '0.75rem', fontWeight: '900', letterSpacing: '3px', textTransform: 'uppercase' }}>📸 PhotAwesome.com</div>
           <div style={{ color: '#64748b', fontSize: '0.65rem', marginTop: '2px', letterSpacing: '1px' }}>{t('shareTrophySubtitle')}</div>
         </div>
 
@@ -106,7 +106,7 @@ export default function ShareCardModal({
 
         <div style={{ textAlign: 'center', zIndex: 10 }}>
           <div style={{ fontSize: '0.65rem', color: '#475569' }}>{t('sharePlayNext')}</div>
-          <div style={{ color: '#38bdf8', fontWeight: 'bold', marginTop: '1px', fontSize: '0.8rem' }}>kepolvasok.guru</div>
+          <div style={{ color: '#38bdf8', fontWeight: 'bold', marginTop: '1px', fontSize: '0.8rem' }}>PhotAwesome.com</div>
         </div>
       </div>
 
