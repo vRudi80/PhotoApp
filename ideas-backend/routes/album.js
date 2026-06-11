@@ -1,85 +1,87 @@
 const fs = require('fs');
 
 module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, checkPremium) {
-
-  // 🛡️ JAVÍTVA: Tárhely limit ellenőrző függvény (premium_level oszlopnévvel!)
-async function checkStorageLimit(pool, email, incomingFileBytes, currentPhotoIdToExclude = null) {
-  // 1. Lekérjük a felhasználó prémium és Stripe adatait -> 🎯 premium_tier HELYETT premium_level!
-  const [userRows] = await pool.query(
-    'SELECT is_premium, premium_until, premium_level, stripe_status FROM photo_users WHERE email = ?', 
-    [email]
-  );
-  if (userRows.length === 0) return { allowed: false, error: 'Felhasználó nem található!' };
-
-  const user = userRows[0];
-  const now = new Date();
-  const isPremium = user.is_premium === 1 || user.stripe_status === 'active' || (user.premium_until && new Date(user.premium_until) > now);
   
-  // 2. Korlátok kiszámítása (Ingyenes: 100 MB / Alap: 1 GB / Pro: 5 GB)
-  let limitBytes = 100 * 1024 * 1024; // Ingyenes alapcsomag: 100 MB
-  
-  if (isPremium) {
-    // 🎯 JAVÍTVA: A premium_level értéke alapján döntünk (2 vagy nagyobb = Pro)
-    if (Number(user.premium_level) >= 2) {
-      limitBytes = 5 * 1024 * 1024 * 1024; // Pro Prémium: 5 GB
-    } else {
-      limitBytes = 1 * 1024 * 1024 * 1024; // Alap Prémium: 1 GB
+  // 🛡️ REJTETT FÉKRENDSZER: Tárhely limit ellenőrző függvény (Javítva: Csak létező oszlopokkal!)
+  async function checkStorageLimit(pool, email, incomingFileBytes, currentPhotoIdToExclude = null) {
+    // 1. Lekérjük a felhasználó prémium adatait (🎯 JAVÍTVA: Csak a biztosan létező mezők maradtak!)
+    const [userRows] = await pool.query(
+      'SELECT is_premium, premium_until, premium_level FROM photo_users WHERE email = ?', 
+      [email]
+    );
+    if (userRows.length === 0) return { allowed: false, error: 'Felhasználó nem található!' };
+
+    const user = userRows[0];
+    const now = new Date();
+    
+    // Prémium, ha az is_premium értéke 1 VAGY a lejárati dátum még a jövőben van
+    const isPremium = user.is_premium === 1 || (user.premium_until && new Date(user.premium_until) > now);
+    
+    // 2. Korlátok kiszámítása (Ingyenes: 100 MB / Alap: 1 GB / Pro: 5 GB)
+    let limitBytes = 100 * 1024 * 1024; // Ingyenes alapcsomag: 100 MB
+    
+    if (isPremium) {
+      // 🎯 JAVÍTVA: A valós premium_level alapján döntünk (2-es szint = Pro 5GB, különben Alap 1GB)
+      if (Number(user.premium_level) >= 2) {
+        limitBytes = 5 * 1024 * 1024 * 1024; // Pro Prémium: 5 GB
+      } else {
+        limitBytes = 1 * 1024 * 1024 * 1024; // Alap Prémium: 1 GB
+      }
     }
+
+    // 3. Összeszámoljuk az eddigi tárhelyfoglalást mind a 3 táblából
+    let query = '';
+    let queryParams = [];
+
+    if (currentPhotoIdToExclude) {
+      query = `
+        SELECT COALESCE(SUM(GREATEST(file_size, 0)), 0) as total_bytes
+        FROM (
+          SELECT user_email, file_size FROM photo_portfolio WHERE id != ?
+          UNION ALL
+          SELECT user_email, file_size FROM photo_entries
+          UNION ALL
+          SELECT user_email, file_size FROM photo_homework_entries
+        ) as all_photos
+        WHERE user_email = ?
+      `;
+      queryParams = [currentPhotoIdToExclude, email];
+    } else {
+      query = `
+        SELECT COALESCE(SUM(GREATEST(file_size, 0)), 0) as total_bytes
+        FROM (
+          SELECT user_email, file_size FROM photo_portfolio
+          UNION ALL
+          SELECT user_email, file_size FROM photo_entries
+          UNION ALL
+          SELECT user_email, file_size FROM photo_homework_entries
+        ) as all_photos
+        WHERE user_email = ?
+      `;
+      queryParams = [email];
+    }
+
+    const [storageRows] = await pool.query(query, queryParams);
+    const currentBytes = Number(storageRows[0].total_bytes) || 0;
+
+    // 4. Ha az új fájllal túllépné a keretet, blokkoljuk a folyamatot
+    if (currentBytes + incomingFileBytes > limitBytes) {
+      const limitText = limitBytes >= 1024*1024*1024 ? `${limitBytes / (1024*1024*1024)} GB` : `${limitBytes / (1024*1024)} MB`;
+      const currentMB = (currentBytes / (1024 * 1024)).toFixed(2);
+      return { 
+        allowed: false, 
+        error: `❌ Tárhely megtelt! A csomagod korlátja ${limitText}. Jelenleg elhasznált: ${currentMB} MB. Kérjük, szabadíts fel helyet a galériádban, vagy válts nagyobb csomagra!` 
+      };
+    }
+
+    return { allowed: true };
   }
-
-  // 3. Összeszámoljuk az eddigi tárhelyfoglalást mind a 3 táblából
-  let query = '';
-  let queryParams = [];
-
-  if (currentPhotoIdToExclude) {
-    query = `
-      SELECT COALESCE(SUM(GREATEST(file_size, 0)), 0) as total_bytes
-      FROM (
-        SELECT user_email, file_size FROM photo_portfolio WHERE id != ?
-        UNION ALL
-        SELECT user_email, file_size FROM photo_entries
-        UNION ALL
-        SELECT user_email, file_size FROM photo_homework_entries
-      ) as all_photos
-      WHERE user_email = ?
-    `;
-    queryParams = [currentPhotoIdToExclude, email];
-  } else {
-    query = `
-      SELECT COALESCE(SUM(GREATEST(file_size, 0)), 0) as total_bytes
-      FROM (
-        SELECT user_email, file_size FROM photo_portfolio
-        UNION ALL
-        SELECT user_email, file_size FROM photo_entries
-        UNION ALL
-        SELECT user_email, file_size FROM photo_homework_entries
-      ) as all_photos
-      WHERE user_email = ?
-    `;
-    queryParams = [email];
-  }
-
-  const [storageRows] = await pool.query(query, queryParams);
-  const currentBytes = Number(storageRows[0].total_bytes) || 0;
-
-  // 4. Ha az új fájllal túllépné a keretet, blokkoljuk a folyamatot
-  if (currentBytes + incomingFileBytes > limitBytes) {
-    const limitText = limitBytes >= 1024*1024*1024 ? `${limitBytes / (1024*1024*1024)} GB` : `${limitBytes / (1024*1024)} MB`;
-    const currentMB = (currentBytes / (1024 * 1024)).toFixed(2);
-    return { 
-      allowed: false, 
-      error: `❌ Tárhely megtelt! A csomagod korlátja ${limitText}. Jelenleg elhasznált: ${currentMB} MB. Kérjük, szabadíts fel helyet a galériádban, vagy válts nagyobb csomagra!` 
-    };
-  }
-
-  return { allowed: true };
-}
 
   // ====================================================================
   // 1. KÉPEK ALAPADATAINAK LEKÉRÉSE
   // ====================================================================
   app.get('/api/my-album', checkPremium, async (req, res) => {
-    try {
+    try { 
       const query = `
         SELECT p.*, 
           COALESCE(SUM(CASE WHEN e.award_id IS NOT NULL AND e.award_id NOT IN (0, 1, 15) THEN 1 ELSE 0 END), 0) as award_count,
@@ -90,16 +92,16 @@ async function checkStorageLimit(pool, email, incomingFileBytes, currentPhotoIdT
         GROUP BY p.id
         ORDER BY p.title ASC
       `;
-      const [rows] = await pool.query(query, [req.query.userEmail]);
-      res.json(rows);
-    } catch (err) {
+      const [rows] = await pool.query(query, [req.query.userEmail]); 
+      res.json(rows); 
+    } catch (err) { 
       console.error(err);
-      res.status(500).json({ error: 'Hiba a képek lekérésekor' });
+      res.status(500).json({ error: 'Hiba a képek lekérésekor' }); 
     }
   });
 
   // ====================================================================
-  // 📢 ÚJ VÉGPONT: A PORTFÓLIÓ KÉPEKHEZ TARTOZÓ SZALONEREDMÉNYEK TÉTELES LISTÁJA
+  // 📢 PORTFÓLIÓ KÉPEKHEZ TARTOZÓ SZALONEREDMÉNYEK TÉTELES LISTÁJA
   // ====================================================================
   app.get('/api/my-portfolio-results', checkPremium, async (req, res) => {
     try {
@@ -124,7 +126,7 @@ async function checkStorageLimit(pool, email, incomingFileBytes, currentPhotoIdT
   });
 
   // ====================================================================
-  // 2. KÉP FELTÖLTÉSE AZ ALBUMBA (Javítva: Aktív tárhely-korlátozással!)
+  // 2. KÉP FELTÖLTÉSE AZ ALBUMBA
   // ====================================================================
   app.post('/api/my-album/upload', upload.single('photo'), checkPremium, async (req, res) => {
     const file = req.file;
@@ -133,7 +135,6 @@ async function checkStorageLimit(pool, email, incomingFileBytes, currentPhotoIdT
     try {
       const { userEmail, userName, title } = req.body;
 
-      // 🛡️ SOROMPÓ: Megnézzük, van-e elég helye még a Google Drive terhelése előtt!
       const incomingBytes = file.size || 0;
       const storageCheck = await checkStorageLimit(pool, userEmail, incomingBytes);
       if (!storageCheck.allowed) {
@@ -145,49 +146,48 @@ async function checkStorageLimit(pool, email, incomingFileBytes, currentPhotoIdT
       const safeTitle = title || 'Cím nélkül';
 
       const fileStream = fs.createReadStream(file.path);
-      const fileExt = file.originalname && file.originalname.includes('.')
-        ? file.originalname.substring(file.originalname.lastIndexOf('.')).toLowerCase()
+      const fileExt = file.originalname && file.originalname.includes('.') 
+        ? file.originalname.substring(file.originalname.lastIndexOf('.')).toLowerCase() 
         : '.jpg';
-
-      const driveRes = await drive.files.create({
-        requestBody: {
-          name: `Portfolio_${safeUserName}_${Date.now()}${fileExt}`,
-          parents: [process.env.DRIVE_MASTER_FOLDER_ID]
-        },
-        media: { mimeType: file.mimetype, body: fileStream },
-        fields: 'id, webViewLink'
+      
+      const driveRes = await drive.files.create({ 
+        requestBody: { 
+          name: `Portfolio_${safeUserName}_${Date.now()}${fileExt}`, 
+          parents: [process.env.DRIVE_MASTER_FOLDER_ID] 
+        }, 
+        media: { mimeType: file.mimetype, body: fileStream }, 
+        fields: 'id, webViewLink' 
       });
-
+      
       cleanupTempFile(file);
-      const fileSize = file.size || 0;
+      const fileSize = file.size || 0; 
 
       await pool.query(
-        'INSERT INTO photo_portfolio (user_email, user_name, title, file_url, drive_file_id, file_size) VALUES (?, ?, ?, ?, ?, ?)',
+        'INSERT INTO photo_portfolio (user_email, user_name, title, file_url, drive_file_id, file_size) VALUES (?, ?, ?, ?, ?, ?)', 
         [userEmail, safeUserName, safeTitle, driveRes.data.webViewLink, driveRes.data.id, fileSize]
       );
       res.json({ success: true });
-    } catch (err) {
+    } catch (err) { 
       cleanupTempFile(file);
-      console.error('❌ HIBA A PORTFÓLIÓ FELTÖLTÉSEKOR:', err);
-      res.status(500).json({ error: 'Szerver hiba a mentéskor: ' + err.message });
+      console.error('❌ HIBA A PORTFÓLIÓ FELTÖLTÉSEKOR:', err); 
+      res.status(500).json({ error: 'Szerver hiba a mentéskor: ' + err.message }); 
     }
   });
 
   // ====================================================================
-  // 3. KÉP SZERKESZTÉSE (Javítva: Tárhely-korrekciós számítással!)
+  // 3. KÉP SZERKESZTÉSE
   // ====================================================================
   app.put('/api/my-album/:id', upload.single('photo'), checkPremium, async (req, res) => {
     const file = req.file;
     try {
-      const { title, userEmail } = req.body;
+      const { title, userEmail } = req.body; 
       const [rows] = await pool.query('SELECT * FROM photo_portfolio WHERE id = ? AND user_email = ?', [req.params.id, userEmail]);
       if (rows.length === 0) {
         cleanupTempFile(file);
         return res.status(403).json({ error: 'Nincs jogosultságod módosítani ezt a képet!' });
       }
-
+      
       if (file) {
-        // 🛡️ SOROMPÓ: Mivel új fájlt tölt fel a régi helyére, az ellenőrzésnél kivonjuk a régi kép méretét!
         const incomingBytes = file.size || 0;
         const storageCheck = await checkStorageLimit(pool, userEmail, incomingBytes, req.params.id);
         if (!storageCheck.allowed) {
@@ -196,17 +196,17 @@ async function checkStorageLimit(pool, email, incomingFileBytes, currentPhotoIdT
         }
 
         if (rows[0].drive_file_id) await drive.files.delete({ fileId: rows[0].drive_file_id }).catch(e => console.log('Régi kép törlése a Drive-ról sikertelen:', e.message));
-
+        
         const fileStream = fs.createReadStream(file.path);
         const fileExt = file.originalname && file.originalname.includes('.') ? file.originalname.substring(file.originalname.lastIndexOf('.')).toLowerCase() : '.jpg';
         const userName = rows[0].user_name || 'Ismeretlen';
-
-        const driveRes = await drive.files.create({
-          requestBody: { name: `Portfolio_${userName}_Frissitett_${Date.now()}${fileExt}`, parents: [process.env.DRIVE_MASTER_FOLDER_ID] },
-          media: { mimeType: file.mimetype, body: fileStream },
-          fields: 'id, webViewLink'
+        
+        const driveRes = await drive.files.create({ 
+          requestBody: { name: `Portfolio_${userName}_Frissitett_${Date.now()}${fileExt}`, parents: [process.env.DRIVE_MASTER_FOLDER_ID] }, 
+          media: { mimeType: file.mimetype, body: fileStream }, 
+          fields: 'id, webViewLink' 
         });
-
+        
         cleanupTempFile(file);
         const fileSize = req.file.size;
         await pool.query('UPDATE photo_portfolio SET title = ?, file_url = ?, drive_file_id = ?, file_size = ? WHERE id = ? AND user_email = ?', [title, driveRes.data.webViewLink, driveRes.data.id, fileSize, req.params.id, userEmail]);
@@ -214,9 +214,9 @@ async function checkStorageLimit(pool, email, incomingFileBytes, currentPhotoIdT
         await pool.query('UPDATE photo_portfolio SET title = ? WHERE id = ? AND user_email = ?', [title, req.params.id, userEmail]);
       }
       res.json({ success: true });
-    } catch (err) {
+    } catch (err) { 
       cleanupTempFile(file);
-      res.status(500).json({ error: 'Hiba a kép frissítésekor: ' + err.message });
+      res.status(500).json({ error: 'Hiba a kép frissítésekor: ' + err.message }); 
     }
   });
 
@@ -275,9 +275,9 @@ async function checkStorageLimit(pool, email, incomingFileBytes, currentPhotoIdT
       imageBuffer = null;
       driveRes.data = null;
 
-      const model = genAI.getGenerativeModel({
+      const model = genAI.getGenerativeModel({ 
         model: "gemini-2.5-flash",
-        generationConfig: { responseMimeType: "application/json" }
+        generationConfig: { responseMimeType: "application/json" } 
       });
 
       const prompt = `Te egy szigorú nemzetközi fotós zsűri vagy (FIAP/PSA szabályrendszer). Kérlek, elemezd ezt a fotót. 
@@ -298,7 +298,7 @@ async function checkStorageLimit(pool, email, incomingFileBytes, currentPhotoIdT
       if (jsonStart === -1 || jsonEnd === -1) throw new Error("Hibás JSON");
 
       text = text.substring(jsonStart, jsonEnd + 1);
-      JSON.parse(text);
+      JSON.parse(text); 
 
       await pool.query('UPDATE photo_portfolio SET ai_tags = ? WHERE id = ?', [text, req.params.id]);
       res.json({ success: true, ai_tags: text });
