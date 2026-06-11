@@ -200,27 +200,41 @@ export default function Header({
            ==================================================================== */}
         <div className="user-group" style={{ display: 'flex', alignItems: 'center', gap: '15px', position: 'relative' }}>
           
-          {/* Nyelvválasztó pill-gombok */}
+          {/* 🎯 JAVÍTVA: Nyelvválasztó gombok text emoji helyett stabil CDN képekkel */}
           <div style={{ display: 'flex', gap: '4px', background: '#1e293b', padding: '3px', borderRadius: '10px', border: '1px solid #334155' }}>
             <button 
               onClick={() => setLang('hu')} 
               style={{ 
                 background: lang === 'hu' ? 'linear-gradient(135deg, #f97316, #ef4444)' : 'transparent', 
                 color: lang === 'hu' ? 'white' : '#94a3b8', 
-                border: 'none', padding: '6px 10px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '4px' 
+                border: 'none', padding: '6px 10px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '6px' 
               }}
             >
-              🇭🇺 <span style={{ fontSize: '0.75rem' }}>HU</span>
+              <img 
+                src="https://flagcdn.com/16x12/hu.png" 
+                width="16" 
+                height="12" 
+                alt="HU" 
+                style={{ borderRadius: '2px', display: 'block', objectFit: 'cover' }} 
+              />
+              <span style={{ fontSize: '0.75rem' }}>HU</span>
             </button>
             <button 
               onClick={() => setLang('en')} 
               style={{ 
                 background: lang === 'en' ? 'linear-gradient(135deg, #0284c7, #0369a1)' : 'transparent', 
                 color: lang === 'en' ? 'white' : '#94a3b8', 
-                border: 'none', padding: '6px 10px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '4px' 
+                border: 'none', padding: '6px 10px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '6px' 
               }}
             >
-              🇬🇧 <span style={{ fontSize: '0.75rem' }}>EN</span>
+              <img 
+                src="https://flagcdn.com/16x12/gb.png" 
+                width="16" 
+                height="12" 
+                alt="EN" 
+                style={{ borderRadius: '2px', display: 'block', objectFit: 'cover' }} 
+              />
+              <span style={{ fontSize: '0.75rem' }}>EN</span>
             </button>
           </div>
           
