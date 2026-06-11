@@ -43,7 +43,7 @@ export function getFlagEmoji(countryCode: string) {
   }
 }
 
-// ÚJ: Golyóálló kép alapú zászló URL generáló (Windows barát!)
+// Golyóálló kép alapú zászló URL generáló (Windows barát!)
 export function getFlagImageUrl(countryCode: string): string {
   if (!countryCode) return '';
   let cleanCode = countryCode.trim().toUpperCase();
@@ -51,28 +51,24 @@ export function getFlagImageUrl(countryCode: string): string {
     cleanCode = iso3ToIso2[cleanCode] || cleanCode;
   }
   if (cleanCode.length !== 2) return '';
-  // Visszaadjuk a FlagCDN 40px széles png linkjét kisbetűvel
   return `https://flagcdn.com/w40/${cleanCode.toLowerCase()}.png`;
 }
 
+// 🎯 JAVÍTVA: Visszatértünk a golyóálló, opcionális paraméteres Google Drive logikához!
+export function getImageUrl(driveFileId?: string | null, fileUrl?: string): string {
+  // 1. Elsőbbséget élvez a Google Drive ID (ha van, azonnal generáljuk a képet, zéró átalakítással)
+  if (driveFileId) {
+    return `https://lh3.googleusercontent.com/d/${driveFileId}`;
+  }
 
-export const getImageUrl = (driveFileId: string | null, fileUrl: string): string => {
-  
-  // 1. 🛡️ HA CLOUDINARY: Csak és kizárólag akkor optimalizálunk, ha a linkben szerepel a 'cloudinary.com'.
-  // Ez a FIAP-os képeidet egyáltalán nem fogja bántani!
+  // 2. Ha Cloudinary link van, azt optimalizálhatjuk (ha nincs benne, átugorja)
   if (fileUrl && fileUrl.includes('cloudinary.com')) {
     return fileUrl.replace('/upload/', '/upload/f_auto,q_auto,w_1000,c_limit/');
   }
 
-  // 2. 🐌 HA RÉGI DRIVE ID: Ha van még régi, költöztetés előtti Drive ID, azt a megszokott módon alakítjuk át.
-  if (driveFileId && driveFileId !== '') {
-    return `https://lh3.googleusercontent.com/d/${driveFileId}`;
-  }
-
-  // 3. ↩️ MINDEN MÁS ESETBEN (Pl. a photo_portfolio táblás beégetett Google Drive linkek):
-  // Érintetlenül, változtatás nélkül visszaadjuk az eredeti URL-t, pont úgy, mint a fejlesztés előtt.
-  return fileUrl || 'https://via.placeholder.com/400x300/1e293b/64748b?text=Kép+nem+található';
-};
+  // 3. Fallback: Ha nincs kép, a stabil és működő placehold.co-t hívjuk a halott domain helyett
+  return fileUrl || 'https://placehold.co/400x300/1e293b/64748b?text=Kép+nem+található';
+}
 
 // YouTube URL átalakító
 export function getYouTubeEmbed(url: string) {
