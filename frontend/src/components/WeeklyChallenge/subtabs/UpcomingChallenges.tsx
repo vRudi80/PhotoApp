@@ -5,85 +5,6 @@ import { BACKEND_URL } from '../../../utils/constants';
 // 🎯 ÚJ IMPORT: Behozzuk a nyelvi kontextust
 import { useLanguage } from '../../../context/LanguageContext';
 
-// 🕒 1. BIZTONSÁGOS UTC PARSER (Közös alapra hozza a böngészők eltérő dátumkezelését)
-const parseDateToUTC = (dateStr: string): number => {
-  if (!dateStr) return 0;
-  const parts = String(dateStr).split(/[- :T.]/);
-  if (parts.length >= 5) {
-    return Date.UTC(
-      parseInt(parts[0], 10),
-      parseInt(parts[1], 10) - 1,
-      parseInt(parts[2], 10),
-      parseInt(parts[3], 10),
-      parseInt(parts[4], 10),
-      parts[5] ? parseInt(parts[5], 10) : 0
-    );
-  }
-  return new Date(dateStr).getTime();
-};
-
-// 🕒 2. ÚJ HELYRE KÖLTÖZTETVE: Élő visszaszámláló segédkomponens (Főkomponensen KÍVÜL)
-function UpcomingCountdown({ startDate }: { startDate: string }) {
-  const { lang } = useLanguage();
-  const [timeLeft, setTimeLeft] = useState('');
-
-  useEffect(() => {
-    const calculateTime = () => {
-      const now = new Date().getTime();
-      const target = parseDateToUTC(startDate);
-      const difference = target - now;
-
-      if (difference <= 0) {
-        setTimeLeft(lang === 'en' ? 'Started! ⚔️' : 'Elindult! ⚔️');
-        return;
-      }
-
-      const days = Math.floor(difference / (1000 * 60 * 60 * 24));
-      const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-      const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((difference % (1000 * 60)) / 1000);
-
-      if (lang === 'en') {
-        if (days > 0) {
-          setTimeLeft(`${days}d ${hours}h ${minutes}m ${seconds}s`);
-        } else {
-          setTimeLeft(`${hours}h ${minutes}m ${seconds}s`);
-        }
-      } else {
-        if (days > 0) {
-          setTimeLeft(`${days}n ${hours}ó ${minutes}p ${seconds}mp`);
-        } else {
-          setTimeLeft(`${hours}ó ${minutes}p ${seconds}mp`);
-        }
-      }
-    };
-
-    calculateTime();
-    const interval = setInterval(calculateTime, 1000);
-    return () => clearInterval(interval);
-  }, [startDate, lang]);
-
-  return (
-    <div style={{ 
-      display: 'flex', 
-      justifyContent: 'space-between', 
-      alignItems: 'center', 
-      background: '#f59e0b10', 
-      padding: '10px 14px', 
-      borderRadius: '10px', 
-      border: '1px solid #f59e0b30',
-      marginBottom: '15px'
-    }}>
-      <span style={{ fontSize: '0.8rem', color: '#f59e0b', fontWeight: 'bold', letterSpacing: '0.5px' }}>
-        {lang === 'en' ? '⏳ STARTS IN:' : '⏳ KEZDÉSIG:'}
-      </span>
-      <span style={{ color: '#fff', fontFamily: 'monospace', fontSize: '1rem', fontWeight: 'bold', letterSpacing: '0.5px' }}>
-        {timeLeft}
-      </span>
-    </div>
-  );
-}
-
 interface UpcomingChallengesProps {
   upcomingTopics: any[];
   getTopicType: (startDate: string, endDate: string) => 'daily' | 'weekly';
@@ -91,7 +12,6 @@ interface UpcomingChallengesProps {
   user: any;
 }
 
-// ⚡ 3. FŐKOMPONENS
 export default function UpcomingChallenges({
   upcomingTopics,
   getTopicType,
@@ -103,7 +23,61 @@ export default function UpcomingChallenges({
   const [showPlanner, setShowPlanner] = useState(false);
   const [applyingId, setApplyingId] = useState<number | null>(null);
 
+  // 🕒 1. GOLYÓÁLLÓ KÖZÖS ÉLŐ IDŐBÉLYEG (A főkomponens szintjén, így sosem fagy meg)
+  const [currentNow, setCurrentNow] = useState(new Date().getTime());
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentNow(new Date().getTime());
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   const safeUpcomingTopics = Array.isArray(upcomingTopics) ? upcomingTopics : [];
+
+  // 🕒 2. IDŐZÓNA-BIZTOS HELYI IDŐ PARSER (A felhasználó helyi idejéhez igazítja a DB stringet)
+  const parseToLocalMillis = (dateStr: string): number => {
+    if (!dateStr) return 0;
+    // Standardizáljuk a formátumot a böngészők számára (szóköz -> T csere)
+    const standardized = String(dateStr).replace(' ', 'T').split('.')[0];
+    return new Date(standardized).getTime();
+  };
+
+  // 🕒 3. VISSZASZÁMLÁLÓ SZÖVEG GENERÁTOR
+  const getCountdownText = (startDateStr: string) => {
+    const targetMillis = parseToLocalMillis(startDateStr);
+    const difference = targetMillis - currentNow;
+
+    if (difference <= 0) {
+      return lang === 'en' ? 'Started! ⚔️' : 'Elindult! ⚔️';
+    }
+
+    const days = Math.floor(difference / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((difference % (1000 * 60)) / 1000);
+
+    if (lang === 'en') {
+      return days > 0 
+        ? `${days}d ${hours}h ${minutes}m ${seconds}s` 
+        : `${hours}h ${minutes}m ${seconds}s`;
+    } else {
+      return days > 0 
+        ? `${days}n ${hours}ó ${minutes}p ${seconds}mp` 
+        : `${hours}ó ${minutes}p ${seconds}mp`;
+    }
+  };
+
+  const formatDateTime = (dateString: string) => {
+    const localMillis = parseToLocalMillis(dateString);
+    const d = new Date(localMillis);
+    const currentLocale = lang === 'en' ? 'en-US' : 'hu-HU';
+    return {
+      // JAVÍTVA: Kivettük a timeZone: 'UTC' kényszerítést, így tökéletes a szinkron a számlálóval!
+      date: d.toLocaleDateString(currentLocale, { year: 'numeric', month: 'short', day: 'numeric' }),
+      time: d.toLocaleTimeString(currentLocale, { hour: '2-digit', minute: '2-digit' })
+    };
+  };
 
   const handleApplyMaster = async (topicId: number) => {
     if (!user?.email) return alert(t('msgLoginRequired'));
@@ -129,16 +103,6 @@ export default function UpcomingChallenges({
     } finally {
       setApplyingId(null);
     }
-  };
-
-  const formatDateTime = (dateString: string) => {
-    const utcMillis = parseDateToUTC(dateString);
-    const d = new Date(utcMillis);
-    const currentLocale = lang === 'en' ? 'en-US' : 'hu-HU';
-    return {
-      date: d.toLocaleDateString(currentLocale, { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' }),
-      time: d.toLocaleTimeString(currentLocale, { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' })
-    };
   };
 
   return (
@@ -241,8 +205,24 @@ export default function UpcomingChallenges({
                     {/* 🕒 IDŐZÍTŐ PANEL INTEGRÁLT UTC VISSZASZÁMLÁLÓVAL */}
                     <div style={{ background: '#0f172a', padding: '15px', borderRadius: '12px', border: '1px solid #334155', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       
-                      {/* ⏳ MEGJELENÍTÉS: Élő, stabilan ketyegő számláló */}
-                      <UpcomingCountdown startDate={tData.start_date} />
+                      {/* ⏳ JAVÍTVA: Most már garantáltan folyékonyan pörög vissza, és tűpontos a matek! */}
+                      <div style={{ 
+                        display: 'flex', 
+                        justifyContent: 'space-between', 
+                        alignItems: 'center', 
+                        background: '#f59e0b10', 
+                        padding: '10px 14px', 
+                        borderRadius: '10px', 
+                        border: '1px solid #f59e0b30',
+                        marginBottom: '10px'
+                      }}>
+                        <span style={{ fontSize: '0.8rem', color: '#f59e0b', fontWeight: 'bold', letterSpacing: '0.5px' }}>
+                          {lang === 'en' ? '⏳ STARTS IN:' : '⏳ KEZDÉSIG:'}
+                        </span>
+                        <span style={{ color: '#fff', fontFamily: 'monospace', fontSize: '1rem', fontWeight: 'bold', letterSpacing: '0.5px' }}>
+                          {getCountdownText(tData.start_date)}
+                        </span>
+                      </div>
 
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span style={{ color: '#64748b', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold' }}>{t('upStart')}</span>
