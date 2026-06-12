@@ -5,14 +5,24 @@ import { BACKEND_URL } from '../../../utils/constants';
 // 🎯 ÚJ IMPORT: Behozzuk a nyelvi kontextust
 import { useLanguage } from '../../../context/LanguageContext';
 
-interface UpcomingChallengesProps {
-  upcomingTopics: any[];
-  getTopicType: (startDate: string, endDate: string) => 'daily' | 'weekly';
-  handleImageError: (e: React.SyntheticEvent<HTMLImageElement, Event>) => void;
-  user: any;
-}
+// 🕒 1. BIZTONSÁGOS UTC PARSER (Közös alapra hozza a böngészők eltérő dátumkezelését)
+const parseDateToUTC = (dateStr: string): number => {
+  if (!dateStr) return 0;
+  const parts = String(dateStr).split(/[- :T.]/);
+  if (parts.length >= 5) {
+    return Date.UTC(
+      parseInt(parts[0], 10),
+      parseInt(parts[1], 10) - 1,
+      parseInt(parts[2], 10),
+      parseInt(parts[3], 10),
+      parseInt(parts[4], 10),
+      parts[5] ? parseInt(parts[5], 10) : 0
+    );
+  }
+  return new Date(dateStr).getTime();
+};
 
-// 🕒 HELPER KOMPONENS: Élő, javított UTC visszaszámláló ketyegő másodpercekkel
+// 🕒 2. ÚJ HELYRE KÖLTÖZTETVE: Élő visszaszámláló segédkomponens (Főkomponensen KÍVÜL)
 function UpcomingCountdown({ startDate }: { startDate: string }) {
   const { lang } = useLanguage();
   const [timeLeft, setTimeLeft] = useState('');
@@ -20,13 +30,7 @@ function UpcomingCountdown({ startDate }: { startDate: string }) {
   useEffect(() => {
     const calculateTime = () => {
       const now = new Date().getTime();
-      
-      // 🎯 JAVÍTVA: Ha a DB-ből jövő string végén nincs 'Z', odarakjuk, hogy kényszerítsük az UTC-t!
-      const utcString = startDate.includes('Z') || startDate.includes('+') 
-        ? startDate 
-        : startDate.replace(' ', 'T') + 'Z';
-        
-      const target = new Date(utcString).getTime();
+      const target = parseDateToUTC(startDate);
       const difference = target - now;
 
       if (difference <= 0) {
@@ -39,7 +43,6 @@ function UpcomingCountdown({ startDate }: { startDate: string }) {
       const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
       const seconds = Math.floor((difference % (1000 * 60)) / 1000);
 
-      // 🎯 JAVÍTVA: 'm' helyett 'mp' a magyar másodpercnek, és MINDENHOL látszódik a másodperc, hogy pörögjön!
       if (lang === 'en') {
         if (days > 0) {
           setTimeLeft(`${days}d ${hours}h ${minutes}m ${seconds}s`);
@@ -72,7 +75,7 @@ function UpcomingCountdown({ startDate }: { startDate: string }) {
       marginBottom: '15px'
     }}>
       <span style={{ fontSize: '0.8rem', color: '#f59e0b', fontWeight: 'bold', letterSpacing: '0.5px' }}>
-        ⏳ {lang === 'en' ? 'STARTS IN:' : 'KEZDÉSIG:'}
+        {lang === 'en' ? '⏳ STARTS IN:' : '⏳ KEZDÉSIG:'}
       </span>
       <span style={{ color: '#fff', fontFamily: 'monospace', fontSize: '1rem', fontWeight: 'bold', letterSpacing: '0.5px' }}>
         {timeLeft}
@@ -81,47 +84,14 @@ function UpcomingCountdown({ startDate }: { startDate: string }) {
   );
 }
 
-// ⚡ BÖNGÉSZŐS KÉPTÖMÖRÍTŐ MOTOR (Max 1920px, 80% minőség)
-const compressImageOnClient = (file: File): Promise<File> => {
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = (event) => {
-      const img = new Image();
-      img.src = event.target?.result as string;
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let width = img.width;
-        let height = img.height;
-        const MAX_SIZE = 1920;
+interface UpcomingChallengesProps {
+  upcomingTopics: any[];
+  getTopicType: (startDate: string, endDate: string) => 'daily' | 'weekly';
+  handleImageError: (e: React.SyntheticEvent<HTMLImageElement, Event>) => void;
+  user: any;
+}
 
-        if (width > height) {
-          if (width > MAX_SIZE) { height = Math.round((height * MAX_SIZE) / width); width = MAX_SIZE; }
-        } else {
-          if (height > MAX_SIZE) { width = Math.round((width * MAX_SIZE) / height); height = MAX_SIZE; }
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx?.drawImage(img, 0, 0, width, height);
-
-        canvas.toBlob((blob) => {
-          if (blob) {
-            const compressedFile = new File([blob], file.name.replace(/\.[^/.]+$/, "") + ".jpg", {
-              type: 'image/jpeg',
-              lastModified: Date.now(),
-            });
-            resolve(compressedFile);
-          } else {
-            resolve(file); 
-          }
-        }, 'image/jpeg', 0.8); 
-      };
-    };
-  });
-};
-
+// ⚡ 3. FŐKOMPONENS
 export default function UpcomingChallenges({
   upcomingTopics,
   getTopicType,
@@ -137,7 +107,6 @@ export default function UpcomingChallenges({
 
   const handleApplyMaster = async (topicId: number) => {
     if (!user?.email) return alert(t('msgLoginRequired'));
-    
     if (!window.confirm(t('msgApplyConfirm'))) return;
 
     setApplyingId(topicId);
@@ -163,7 +132,8 @@ export default function UpcomingChallenges({
   };
 
   const formatDateTime = (dateString: string) => {
-    const d = new Date(dateString);
+    const utcMillis = parseDateToUTC(dateString);
+    const d = new Date(utcMillis);
     const currentLocale = lang === 'en' ? 'en-US' : 'hu-HU';
     return {
       date: d.toLocaleDateString(currentLocale, { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' }),
@@ -269,9 +239,9 @@ export default function UpcomingChallenges({
                     )}
 
                     {/* 🕒 IDŐZÍTŐ PANEL INTEGRÁLT UTC VISSZASZÁMLÁLÓVAL */}
-                    <div style={{ background: '#0f172a', padding: '15px', borderRadius: '12px', border: '1px solid #38bdf840', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div style={{ background: '#0f172a', padding: '15px', borderRadius: '12px', border: '1px solid #334155', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       
-                      {/* 🎯 INTEGRÁLVA: Ez most már garantáltan és látványosan ketyeg! */}
+                      {/* ⏳ MEGJELENÍTÉS: Élő, stabilan ketyegő számláló */}
                       <UpcomingCountdown startDate={tData.start_date} />
 
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
