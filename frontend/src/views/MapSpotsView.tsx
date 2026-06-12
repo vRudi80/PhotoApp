@@ -111,6 +111,7 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
     return (
       loc.title?.toLowerCase().includes(query) ||
       loc.description?.toLowerCase().includes(query) ||
+      loc.user_name?.toLowerCase().includes(query) || // 🎯 JAVÍTVA: Most már a készítő nevére is szűr a React!
       loc.camera?.toLowerCase().includes(query) ||
       loc.lens?.toLowerCase().includes(query) ||
       loc.photo_month?.toLowerCase().includes(query) ||
