@@ -1,11 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ADMIN_EMAIL, BACKEND_URL } from '../utils/constants';
 
+// 🎯 ÚJ IMPORT: Nyelvi környezet beemelése
+import { useLanguage } from '../context/LanguageContext';
+
 interface TicketsViewProps {
   user: any;
 }
 
 export default function TicketsView({ user }: TicketsViewProps) {
+  // 🎯 ÚJ: Aktiváljuk a nyelvi hookokat
+  const { t, lang } = useLanguage();
+
   const inputStyle = { width: '100%', padding: '12px', marginBottom: '12px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '10px', boxSizing: 'border-box' as const, fontSize: '0.95rem', outline: 'none' };
   
   const isAdmin = user?.email === ADMIN_EMAIL;
@@ -36,10 +42,9 @@ export default function TicketsView({ user }: TicketsViewProps) {
     loadTickets();
   }, [user]);
 
-  // Válaszok betöltése egy kiválasztott tickethez (FELOKOSÍTVA)
+  // Válaszok betöltése egy kiválasztott tickethez
   useEffect(() => {
     if (selectedTicket) {
-      // JAVÍTVA: Átadjuk a user adatait, hogy a backend tudja, kinek kell nullázni az olvasottságot!
       fetch(`${BACKEND_URL}/api/tickets/${selectedTicket.id}/replies?userEmail=${user.email}&isAdmin=${isAdmin}`)
         .then(res => res.json())
         .then(data => {
@@ -52,7 +57,7 @@ export default function TicketsView({ user }: TicketsViewProps) {
 
   // Új ticket beküldése (User)
   const handleCreateTicket = async () => {
-    if (!subject.trim() || !initialMessage.trim()) return alert('Kérlek töltsd ki a tárgyat és az üzenetet is!');
+    if (!subject.trim() || !initialMessage.trim()) return alert(t('msgTicketsFillRequired'));
     
     try {
       const res = await fetch(`${BACKEND_URL}/api/tickets`, {
@@ -61,12 +66,12 @@ export default function TicketsView({ user }: TicketsViewProps) {
         body: JSON.stringify({ userEmail: user.email, userName: user.name, subject, message: initialMessage })
       });
       if (res.ok) {
-        alert('🚀 Hibajegy sikeresen elküldve! Hamarosan válaszolunk.');
+        alert(t('msgTicketsSubmitSuccess'));
         setSubject('');
         setInitialMessage('');
         loadTickets();
       }
-    } catch (e) { alert('Hiba történt a küldés során.'); }
+    } catch (e) { alert(t('msgTicketsSubmitError')); }
   };
 
   // Új válasz hozzáadása a beszélgetéshez
@@ -82,7 +87,7 @@ export default function TicketsView({ user }: TicketsViewProps) {
       });
       if (res.ok) {
         setReplyMessage('');
-        // Ha admin válaszol, automatikuszan "folyamatban"-ra állítjuk a státuszt
+        // Ha admin válaszol, automatikusan "folyamatban"-ra állítjuk a státuszt
         if (isAdmin && selectedTicket.status === 'open') {
           handleUpdateStatus(selectedTicket.id, 'in_progress');
         }
@@ -111,9 +116,9 @@ export default function TicketsView({ user }: TicketsViewProps) {
 
   const getStatusBadge = (status: string) => {
     const config: Record<string, { text: string, color: string, bg: string }> = {
-      open: { text: 'Új bejelentés', color: '#38bdf8', bg: '#38bdf815' },
-      in_progress: { text: 'Folyamatban', color: '#f59e0b', bg: '#f59e0b15' },
-      closed: { text: 'Lezárva', color: '#10b981', bg: '#10b98115' }
+      open: { text: t('ticketsStatusOpen'), color: '#38bdf8', bg: '#38bdf815' },
+      in_progress: { text: t('ticketsStatusInProgress'), color: '#f59e0b', bg: '#f59e0b15' },
+      closed: { text: t('ticketsStatusClosed'), color: '#10b981', bg: '#10b98115' }
     };
     const s = config[status] || config.open;
     return <span style={{ background: s.bg, color: s.color, border: `1px solid ${s.color}30`, padding: '4px 10px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 'bold' }}>{s.text}</span>;
@@ -128,41 +133,40 @@ export default function TicketsView({ user }: TicketsViewProps) {
           {/* USERNEK: ÚJ TICKET NYITÁSA */}
           {!isAdmin && (
             <div style={{ backgroundColor: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #334155', boxShadow: '0 10px 30px rgba(0,0,0,0.2)' }}>
-              <h3 style={{ margin: '0 0 15px 0', color: '#38bdf8', fontSize: '1.3rem' }}>🛠️ Új Segítségkérés indítása</h3>
-              <p style={{ color: '#94a3b8', fontSize: '0.85rem', marginBottom: '20px', lineHeight: '1.5' }}>Gondod akadt a fizetéssel, a Drive-feltöltéssel vagy hibát találtál? Írd meg bátran, és az Adminisztrátor hamarosan válaszol!</p>
-              <input placeholder="Hiba rövid megnevezése (Tárgy)..." value={subject} onChange={e => setSubject(e.target.value)} style={inputStyle} />
-              <textarea placeholder="Részletes leírás, mi történt..." value={initialMessage} onChange={e => setInitialMessage(e.target.value)} style={{ ...inputStyle, minHeight: '120px', resize: 'vertical' }} />
-              <button onClick={handleCreateTicket} style={{ width: '100%', background: 'linear-gradient(135deg, #38bdf8, #0284c7)', color: '#0f172a', border: 'none', padding: '12px', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>Hibajegy Elküldése 🚀</button>
+              <h3 style={{ margin: '0 0 15px 0', color: '#38bdf8', fontSize: '1.3rem' }}>{t('ticketsNewTicketTitle')}</h3>
+              <p style={{ color: '#94a3b8', fontSize: '0.85rem', marginBottom: '20px', lineHeight: '1.5' }}>{t('ticketsNewTicketDesc')}</p>
+              <input placeholder={t('ticketsSubjectPlaceholder')} value={subject} onChange={e => setSubject(e.target.value)} style={inputStyle} />
+              <textarea placeholder={t('ticketsMessagePlaceholder')} value={initialMessage} onChange={e => setInitialMessage(e.target.value)} style={{ ...inputStyle, minHeight: '120px', resize: 'vertical' }} />
+              <button onClick={handleCreateTicket} style={{ width: '100%', background: 'linear-gradient(135deg, #38bdf8, #0284c7)', color: '#0f172a', border: 'none', padding: '12px', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>{t('ticketsSubmitBtn')}</button>
             </div>
           )}
 
           {/* LISTA SZEKCIÓ */}
           <div style={{ backgroundColor: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #334155', boxShadow: '0 10px 30px rgba(0,0,0,0.2)', gridColumn: isAdmin ? '1 / -1' : 'auto' }}>
-            <h3 style={{ margin: '0 0 20px 0', color: '#cbd5e1', fontSize: '1.3rem' }}>{isAdmin ? '📂 Beérkezett Ügyfélszolgálati Jegyek' : '📜 Korábbi Hibajegyeim'}</h3>
+            <h3 style={{ margin: '0 0 20px 0', color: '#cbd5e1', fontSize: '1.3rem' }}>{isAdmin ? t('ticketsListTitleAdmin') : t('ticketsListTitleUser')}</h3>
             
             {tickets.length === 0 ? (
-              <p style={{ color: '#64748b', textAlign: 'center', margin: '20px 0' }}>Nincs aktív vagy korábbi bejelentésed.</p>
+              <p style={{ color: '#64748b', textAlign: 'center', margin: '20px 0' }}>{t('ticketsEmptyList')}</p>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {tickets.map(t => {
-                // Meghatározzuk, hogy az aktuális néző számára olvasatlan-e a ticket
-                const isUnreadForMe = isAdmin ? t.admin_unread === 1 : t.user_unread === 1;
+              {/* 🎯 JAVÍTVA: Átnevezve 'ticket'-re, hogy ne ütközzön a 't' fordítómotorral! */}
+              {tickets.map(ticket => {
+                const isUnreadForMe = isAdmin ? ticket.admin_unread === 1 : ticket.user_unread === 1;
 
                 return (
-                  <div key={t.id} onClick={() => setSelectedTicket(t)} style={{ background: '#0f172a', padding: '15px 20px', borderRadius: '14px', border: isUnreadForMe ? '1px solid #f43f5e80' : '1px solid #334155', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'transform 0.2s, border-color 0.2s', boxShadow: isUnreadForMe ? '0 0 15px rgba(244,63,94,0.05)' : 'none' }} onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-2px)'; }} onMouseOut={e => { e.currentTarget.style.transform = 'none'; }}>
+                  <div key={ticket.id} onClick={() => setSelectedTicket(ticket)} style={{ background: '#0f172a', padding: '15px 20px', borderRadius: '14px', border: isUnreadForMe ? '1px solid #f43f5e80' : '1px solid #334155', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'transform 0.2s, border-color 0.2s', boxShadow: isUnreadForMe ? '0 0 15px rgba(244,63,94,0.05)' : 'none' }} onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-2px)'; }} onMouseOut={e => { e.currentTarget.style.transform = 'none'; }}>
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        {/* ÚJ: Olvasatlan jelző címke */}
                         {isUnreadForMe && (
-                          <span style={{ background: '#f43f5e', color: 'white', fontSize: '0.7rem', fontWeight: 'bold', padding: '2px 8px', borderRadius: '6px', textTransform: 'uppercase', letterSpacing: '0.5px', animation: 'pulse 2s infinite' }}>Új üzenet</span>
+                          <span style={{ background: '#f43f5e', color: 'white', fontSize: '0.7rem', fontWeight: 'bold', padding: '2px 8px', borderRadius: '6px', textTransform: 'uppercase', letterSpacing: '0.5px', animation: 'pulse 2s infinite' }}>{t('ticketsBadgeNewMessage')}</span>
                         )}
-                        <div style={{ fontWeight: 'bold', color: isUnreadForMe ? '#fff' : '#f8fafc', fontSize: '1rem' }}>{t.subject}</div>
+                        <div style={{ fontWeight: 'bold', color: isUnreadForMe ? '#fff' : '#f8fafc', fontSize: '1rem' }}>{ticket.subject}</div>
                       </div>
                       <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '5px' }}>
-                        {isAdmin ? `Beküldő: ${t.user_name} (${t.user_email})` : 'Ügyfélszolgálat'} • {new Date(t.updated_at).toLocaleDateString('hu-HU')}
+                        {isAdmin ? `${t('ticketsSenderLabel')}${ticket.user_name} (${ticket.user_email})` : t('ticketsSupportLabel')} • {new Date(ticket.updated_at).toLocaleDateString(lang === 'en' ? 'en-US' : 'hu-HU')}
                       </div>
                     </div>
-                    <div>{getStatusBadge(t.status)}</div>
+                    <div>{getStatusBadge(ticket.status)}</div>
                   </div>
                 );
               })}
@@ -179,9 +183,9 @@ export default function TicketsView({ user }: TicketsViewProps) {
           {/* CHAT FEJLÉC */}
           <div style={{ padding: '20px 30px', borderBottom: '1px solid #334155', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#0f172a', borderRadius: '24px 24px 0 0' }}>
             <div>
-              <button onClick={() => { setSelectedTicket(null); loadTickets(); }} style={{ background: 'transparent', color: '#38bdf8', border: 'none', cursor: 'pointer', padding: '0 0 5px 0', fontSize: '0.9rem', fontWeight: 'bold' }}>← Vissza a listához</button>
+              <button onClick={() => { setSelectedTicket(null); loadTickets(); }} style={{ background: 'transparent', color: '#38bdf8', border: 'none', cursor: 'pointer', padding: '0 0 5px 0', fontSize: '0.9rem', fontWeight: 'bold' }}>{t('ticketsBackBtn')}</button>
               <h3 style={{ margin: 0, color: '#f8fafc', fontSize: '1.2rem' }}>{selectedTicket.subject}</h3>
-              <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px' }}>Felhasználó: <b>{selectedTicket.user_name}</b> ({selectedTicket.user_email})</div>
+              <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px' }}>{t('ticketsUserLabel')}<b>{selectedTicket.user_name}</b> ({selectedTicket.user_email})</div>
             </div>
             
             <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
@@ -194,9 +198,9 @@ export default function TicketsView({ user }: TicketsViewProps) {
                   onChange={e => handleUpdateStatus(selectedTicket.id, e.target.value)}
                   style={{ background: '#1e293b', color: 'white', border: '1px solid #475569', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' }}
                 >
-                  <option value="open">Új / Nyitott</option>
-                  <option value="in_progress">Folyamatban</option>
-                  <option value="closed">Lezárva ✓</option>
+                  <option value="open">{t('ticketsOptOpen')}</option>
+                  <option value="in_progress">{t('ticketsOptInProgress')}</option>
+                  <option value="closed">{t('ticketsOptClosed')}</option>
                 </select>
               )}
             </div>
@@ -212,7 +216,7 @@ export default function TicketsView({ user }: TicketsViewProps) {
                   <div style={{ background: isMe ? 'linear-gradient(135deg, #38bdf8, #0284c7)' : '#1e293b', color: isMe ? '#0f172a' : '#f8fafc', padding: '12px 18px', borderRadius: isMe ? '18px 18px 0 18px' : '18px 18px 18px 0', fontSize: '0.95rem', lineHeight: '1.5', whiteSpace: 'pre-wrap', boxShadow: '0 2px 5px rgba(0,0,0,0.1)' }}>
                     {r.message}
                   </div>
-                  <div style={{ fontSize: '0.7rem', color: '#334155', marginTop: '4px', padding: '0 5px' }}>{new Date(r.created_at).toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' })}</div>
+                  <div style={{ fontSize: '0.7rem', color: '#334155', marginTop: '4px', padding: '0 5px' }}>{new Date(r.created_at).toLocaleTimeString(lang === 'en' ? 'en-US' : 'hu-HU', { hour: '2-digit', minute: '2-digit' })}</div>
                 </div>
               );
             })}
@@ -221,13 +225,13 @@ export default function TicketsView({ user }: TicketsViewProps) {
 
           {/* CHAT BEVITELI MEZŐ ALUL */}
           {selectedTicket.status === 'closed' ? (
-            <div style={{ padding: '20px', textBackground: 'center', background: '#0f172a', color: '#10b981', fontWeight: 'bold', textAlign: 'center', borderRadius: '0 0 24px 24px', borderTop: '1px solid #334155' }}>
-              🔒 Ez a probléma sikeresen le lett zárva.
+            <div style={{ padding: '20px', background: '#0f172a', color: '#10b981', fontWeight: 'bold', textAlign: 'center', borderRadius: '0 0 24px 24px', borderTop: '1px solid #334155' }}>
+              {t('ticketsClosedNotice')}
             </div>
           ) : (
             <div style={{ padding: '20px 30px', borderTop: '1px solid #334155', background: '#0f172a', borderRadius: '0 0 24px 24px', display: 'flex', gap: '15px', alignItems: 'center' }}>
               <input 
-                placeholder="Írd meg a választ ide..." 
+                placeholder={t('ticketsReplyPlaceholder')} 
                 value={replyMessage} 
                 onChange={e => setReplyMessage(e.target.value)}
                 onKeyDown={e => { if(e.key === 'Enter' && !isSending) handleSendReply(); }}
@@ -239,7 +243,7 @@ export default function TicketsView({ user }: TicketsViewProps) {
                 disabled={isSending || !replyMessage.trim()}
                 style={{ background: (!replyMessage.trim() || isSending) ? '#334155' : '#10b981', color: (!replyMessage.trim() || isSending) ? '#64748b' : '#0f172a', border: 'none', padding: '12px 25px', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }}
               >
-                {isSending ? '...' : 'Küldés ✉️'}
+                {isSending ? '...' : t('ticketsSendBtn')}
               </button>
             </div>
           )}
