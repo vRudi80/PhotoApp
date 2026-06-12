@@ -4,13 +4,12 @@ import { getImageUrl } from '../../../utils/helpers';
 // 🎯 ÚJ IMPORT: Behozzuk a nyelvi kontextust
 import { useLanguage } from '../../../context/LanguageContext';
 
-// 🕒 1. ÚJ HELYRE KÖLTÖZTETVE: Golyóálló, fagyaszthatatlan élő számláló (Főkomponensen KÍVÜL)
+// 🕒 1. FIXEN SZINKRONIZÁLT AKTIÓV SZŐBA VISSZASZÁMLÁLÓ (A másikkal azonos prémium dizájnnal)
 function ActiveRoomCountdown({ endDate, lang }: { endDate: string; lang: string }) {
   const elementRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
     if (!endDate) return;
-    // Időzóna-biztos helyi idő parsolás
     const standardized = String(endDate).replace(' ', 'T').split('.')[0];
     const targetMillis = new Date(standardized).getTime();
 
@@ -30,7 +29,7 @@ function ActiveRoomCountdown({ endDate, lang }: { endDate: string; lang: string 
       const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
       const seconds = Math.floor((difference % (1000 * 60)) / 1000);
 
-      // Hajszálpontosan megegyező prémium formátum, pörgő másodpercekkel
+      // Hajszálpontosan megegyező formátum hófehér, ketyegő számokkal
       if (lang === 'en') {
         elementRef.current.innerText = days > 0 
           ? `${days}d ${hours}h ${minutes}m ${seconds}s` 
@@ -54,18 +53,17 @@ function ActiveRoomCountdown({ endDate, lang }: { endDate: string; lang: string 
       display: 'flex', 
       justifyContent: 'space-between', 
       alignItems: 'center', 
-      background: '#f59e0b10', // Megegyező borostyánsárga dizájn box
-      padding: '12px 20px', 
-      borderRadius: '14px', 
-      border: '1px solid #f59e0b30',
-      boxShadow: '0 4px 15px rgba(0,0,0,0.2)',
+      background: '#f59e0b10', 
+      padding: '10px 14px',             // 🎯 JAVÍTVA: Kompakt belső margó
+      borderRadius: '10px',             // 🎯 JAVÍTVA: Feszesebb kerekítés
+      border: '1px solid #f59e0b30',    // 🎯 JAVÍTVA: Finom borostyán keret
       boxSizing: 'border-box',
       zIndex: 1
     }}>
-      <span style={{ fontSize: '0.8rem', color: '#f59e0b', fontWeight: 'bold', letterSpacing: '1px' }}>
+      <span style={{ fontSize: '0.8rem', color: '#f59e0b', fontWeight: 'bold', letterSpacing: '0.5px' }}>
         {lang === 'en' ? '⏳ TIME LEFT:' : '⏳ HÁTRALÉVŐ IDŐ:'}
       </span>
-      <span ref={elementRef} style={{ color: '#fff', fontFamily: 'monospace', fontSize: '1.05rem', fontWeight: 'bold', letterSpacing: '0.5px' }}>---</span>
+      <span ref={elementRef} style={{ color: '#fff', fontFamily: 'monospace', fontSize: '1rem', fontWeight: 'bold', letterSpacing: '0.5px' }}>---</span>
     </div>
   );
 }
@@ -168,7 +166,7 @@ export default function ArenaActiveRoom({
             </div>
           </div>
 
-          {/* 🎯 JAVÍTVA: Ide került a golyóálló, azonos formátumú élő számláló */}
+          {/* 🎯 INTEGRÁLVA: Szuperstabil, azonos stílusú élő visszaszámláló */}
           <ActiveRoomCountdown endDate={topic?.end_date} lang={lang} />
         </div>
         
