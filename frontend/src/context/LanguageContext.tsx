@@ -232,6 +232,7 @@ const translations = {
     msgFillAllFields: 'Minden kötelező mezőt tölts ki!',
     msgProposalSuccess: '⚔️ Haditerv sikeresen benyújtva bírálatra!',
     msgProposalError: 'Hiba történt a küldés során.',
+    planCheckMasterMe: 'Képmester leszek',
 
     // === HU BLOKK ALJA ===
     hofLoading: '⏳ A pódium összeállítása...',
@@ -829,6 +830,7 @@ const translations = {
     msgFillAllFields: 'Please fill in all required fields!',
     msgProposalSuccess: '⚔️ Challenge proposal successfully submitted for review!',
     msgProposalError: 'An error occurred during submission.',
+    planCheckMasterMe: 'I like to be the Master',
 
     // === EN BLOKK ALJA ===
     hofLoading: '⏳ Assembling the podium...',
