@@ -1,9 +1,58 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import BattlePlanner from './BattlePlanner';
 import { BACKEND_URL } from '../../../utils/constants';
 
 // 🎯 ÚJ IMPORT: Behozzuk a nyelvi kontextust
 import { useLanguage } from '../../../context/LanguageContext';
+
+// 🕒 1. ÖNÁLLÓ, ULTRASTABIL DOM-ALAPÚ VISSZASZÁMLÁLÓ
+function UpcomingCountdown({ startDate, lang }: { startDate: string; lang: string }) {
+  const elementRef = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    // Időzóna-biztos helyi idő parsolás
+    const standardized = String(startDate).replace(' ', 'T').split('.')[0];
+    const targetMillis = new Date(standardized).getTime();
+
+    const updateTextDirectly = () => {
+      if (!elementRef.current) return;
+
+      const now = new Date().getTime();
+      const difference = targetMillis - now;
+
+      if (difference <= 0) {
+        elementRef.current.innerText = lang === 'en' ? 'Started! ⚔️' : 'Elindult! ⚔️';
+        return;
+      }
+
+      const days = Math.floor(difference / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((difference % (1000 * 60)) / 1000);
+
+      // Közvetlenül átírjuk a HTML-t, a React megkerülésével
+      if (lang === 'en') {
+        elementRef.current.innerText = days > 0 
+          ? `${days}d ${hours}h ${minutes}m ${seconds}s` 
+          : `${hours}h ${minutes}m ${seconds}s`;
+      } else {
+        elementRef.current.innerText = days > 0 
+          ? `${days}n ${hours}ó ${minutes}p ${seconds}mp` 
+          : `${hours}ó ${minutes}p ${seconds}mp`;
+      }
+    };
+
+    // Első futtatás azonnal, hogy ne legyen üres villanás
+    updateTextDirectly();
+
+    // Másodperces időzítő élesítése
+    const interval = setInterval(updateTextDirectly, 1000);
+
+    return () => clearInterval(interval);
+  }, [startDate, lang]); // Csak akkor frissül, ha a dátum vagy nyelv ténylegesen megváltozik
+
+  return <span ref={elementRef} style={{ color: '#fff', fontFamily: 'monospace', fontSize: '1rem', fontWeight: 'bold', letterSpacing: '0.5px' }}>---</span>;
+}
 
 interface UpcomingChallengesProps {
   upcomingTopics: any[];
@@ -12,6 +61,7 @@ interface UpcomingChallengesProps {
   user: any;
 }
 
+// ⚡ 2. FŐKOMPONENS
 export default function UpcomingChallenges({
   upcomingTopics,
   getTopicType,
@@ -19,61 +69,16 @@ export default function UpcomingChallenges({
   user
 }: UpcomingChallengesProps) {
   const { t, lang } = useLanguage();
-
   const [showPlanner, setShowPlanner] = useState(false);
   const [applyingId, setApplyingId] = useState<number | null>(null);
 
-  // 🕒 1. GOLYÓÁLLÓ KÖZÖS ÉLŐ IDŐBÉLYEG (A főkomponens szintjén, így sosem fagy meg)
-  const [currentNow, setCurrentNow] = useState(new Date().getTime());
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentNow(new Date().getTime());
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
-
   const safeUpcomingTopics = Array.isArray(upcomingTopics) ? upcomingTopics : [];
 
-  // 🕒 2. IDŐZÓNA-BIZTOS HELYI IDŐ PARSER (A felhasználó helyi idejéhez igazítja a DB stringet)
-  const parseToLocalMillis = (dateStr: string): number => {
-    if (!dateStr) return 0;
-    // Standardizáljuk a formátumot a böngészők számára (szóköz -> T csere)
-    const standardized = String(dateStr).replace(' ', 'T').split('.')[0];
-    return new Date(standardized).getTime();
-  };
-
-  // 🕒 3. VISSZASZÁMLÁLÓ SZÖVEG GENERÁTOR
-  const getCountdownText = (startDateStr: string) => {
-    const targetMillis = parseToLocalMillis(startDateStr);
-    const difference = targetMillis - currentNow;
-
-    if (difference <= 0) {
-      return lang === 'en' ? 'Started! ⚔️' : 'Elindult! ⚔️';
-    }
-
-    const days = Math.floor(difference / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
-    const seconds = Math.floor((difference % (1000 * 60)) / 1000);
-
-    if (lang === 'en') {
-      return days > 0 
-        ? `${days}d ${hours}h ${minutes}m ${seconds}s` 
-        : `${hours}h ${minutes}m ${seconds}s`;
-    } else {
-      return days > 0 
-        ? `${days}n ${hours}ó ${minutes}p ${seconds}mp` 
-        : `${hours}ó ${minutes}p ${seconds}mp`;
-    }
-  };
-
   const formatDateTime = (dateString: string) => {
-    const localMillis = parseToLocalMillis(dateString);
-    const d = new Date(localMillis);
+    const standardized = String(dateString).replace(' ', 'T').split('.')[0];
+    const d = new Date(standardized);
     const currentLocale = lang === 'en' ? 'en-US' : 'hu-HU';
     return {
-      // JAVÍTVA: Kivettük a timeZone: 'UTC' kényszerítést, így tökéletes a szinkron a számlálóval!
       date: d.toLocaleDateString(currentLocale, { year: 'numeric', month: 'short', day: 'numeric' }),
       time: d.toLocaleTimeString(currentLocale, { hour: '2-digit', minute: '2-digit' })
     };
@@ -202,10 +207,10 @@ export default function UpcomingChallenges({
                       </button>
                     )}
 
-                    {/* 🕒 IDŐZÍTŐ PANEL INTEGRÁLT UTC VISSZASZÁMLÁLÓVAL */}
+                    {/* 🕒 IDŐZÍTŐ PANEL */}
                     <div style={{ background: '#0f172a', padding: '15px', borderRadius: '12px', border: '1px solid #334155', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       
-                      {/* ⏳ JAVÍTVA: Most már garantáltan folyékonyan pörög vissza, és tűpontos a matek! */}
+                      {/* ⏳ MEGJELENÍTÉS: Szuperstabil, direkt DOM-alapú számláló box */}
                       <div style={{ 
                         display: 'flex', 
                         justifyContent: 'space-between', 
@@ -219,9 +224,8 @@ export default function UpcomingChallenges({
                         <span style={{ fontSize: '0.8rem', color: '#f59e0b', fontWeight: 'bold', letterSpacing: '0.5px' }}>
                           {lang === 'en' ? '⏳ STARTS IN:' : '⏳ KEZDÉSIG:'}
                         </span>
-                        <span style={{ color: '#fff', fontFamily: 'monospace', fontSize: '1rem', fontWeight: 'bold', letterSpacing: '0.5px' }}>
-                          {getCountdownText(tData.start_date)}
-                        </span>
+                        {/* 🎯 ÁTADVA: Itt hívjuk meg a golyóálló számlálót */}
+                        <UpcomingCountdown startDate={tData.start_date} lang={lang} />
                       </div>
 
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
