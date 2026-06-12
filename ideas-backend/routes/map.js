@@ -4,26 +4,29 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
   // 1. Helyszínek lekérése
   app.get('/api/locations', async (req, res) => {
-    const { search, userEmail } = req.query;
-    try {
-      let query = `
-        SELECT l.*,
-               (SELECT COUNT(*) FROM photo_location_likes WHERE location_id = l.id) as like_count,
-               (SELECT COUNT(*) FROM photo_location_likes WHERE location_id = l.id AND user_email = ?) as user_liked
-        FROM photo_locations l
-      `;
-      let params = [userEmail || ''];
-      if (search) {
-        query += ' WHERE l.title LIKE ? OR l.description LIKE ? or l.user_name LIKE ?' ;
-        params.push(`%${search}%`, `%${search}%`, `%${search}%`);
-      }
-      query += ' ORDER BY l.created_at DESC';
-      const [rows] = await pool.query(query, params);
-      res.json(rows);
-    } catch (err) { 
-      res.status(500).json({ error: 'Hiba a helyszínek lekérésekor' }); 
+  const { search, userEmail } = req.query;
+  try {
+    let query = `
+      SELECT l.*,
+             (SELECT COUNT(*) FROM photo_location_likes WHERE location_id = l.id) as like_count,
+             (SELECT COUNT(*) FROM photo_location_likes WHERE location_id = l.id AND user_email = ?) as user_liked
+      FROM photo_locations l
+    `;
+    let params = [userEmail || ''];
+    
+    if (search) {
+      query += ' WHERE l.title LIKE ? OR l.description LIKE ? OR l.user_name LIKE ?';
+      params.push(`%${search}%`, `%${search}%`, `%${search}%`);
     }
-  });
+    
+    query += ' ORDER BY l.created_at DESC';
+    const [rows] = await pool.query(query, params);
+    res.json(rows);
+  } catch (err) { 
+    console.error('Hiba a helyszínek lekérésekor:', err.message); // Érdemes logolni, hogy lásd a pontos SQL hibát
+    res.status(500).json({ error: 'Hiba a helyszínek lekérésekor' }); 
+  }
+});
 
   // 2. Új helyszín felvitele (KIBŐVÍTVE)
   app.post('/api/locations', upload.single('photo'), async (req, res) => {
