@@ -268,8 +268,8 @@ const getTopicStatus = (statusStr: string, sDateStr: string, eDateStr: string) =
 
   return (
     <div>
-      <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', color: '#f59e0b', fontWeight: 'bold' }}>⚔️ Csataterek és Haditerv Bírálat</h2>
-      <p style={{ color: '#94a3b8', marginBottom: '20px' }}>A rendszer automatikusan indítja el az elfogadott csatákat, amint elérkezik a kezdő dátumuk!</p>
+      <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', color: '#f59e0b', fontWeight: 'bold' }}>⚔️ Kihívás kezelő</h2>
+      <p style={{ color: '#94a3b8', marginBottom: '20px' }}>A rendszer automatikusan indítja el az elfogadott kihívásokat, amint elérkezik a kezdő dátumuk!</p>
 
       {/* GYANÚS TEVÉKENYSÉGEK PANEL */}
       <div style={{ backgroundColor: '#1e1b4b', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', border: suspiciousActivities.length > 0 ? '2px solid #ef4444' : '1px solid #334155' }}>
@@ -327,11 +327,11 @@ const getTopicStatus = (statusStr: string, sDateStr: string, eDateStr: string) =
       {/* LÉTREHOZÓ / SZERKESZTŐ ŰRLAP */}
       <div style={{ backgroundColor: '#1e293b', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', border: '1px solid #f97316' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-          <h3 style={{ margin: 0, color: '#f97316', fontWeight: 'bold' }}>{editId ? '✏️ Csata Szerkesztése' : '➕ Új Csata Kiírása'}</h3>
+          <h3 style={{ margin: 0, color: '#f97316', fontWeight: 'bold' }}>{editId ? '✏️ Kihívás Szerkesztése' : '➕ Új Kihívás Kiírása'}</h3>
           {editId && <button onClick={clearForm} style={{ background: 'transparent', color: '#ef4444', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>Mégse</button>}
         </div>
 
-        <input placeholder="A csata témája magyarul (pl. Tavaszi Fények)" value={title} onChange={e => setTitle(e.target.value)} style={inputStyle} />
+        <input placeholder="A kihívás témája magyarul (pl. Tavaszi Fények)" value={title} onChange={e => setTitle(e.target.value)} style={inputStyle} />
         
         {/* 🎯 ÚJ MEZŐ: ANGOL CSATATÉMA */}
         <input placeholder={t('adminPlaceholderTitleEn')} value={titleEn} onChange={e => setTitleEn(e.target.value)} style={{ ...inputStyle, border: '1px solid #38bdf860' }} />
@@ -342,15 +342,15 @@ const getTopicStatus = (statusStr: string, sDateStr: string, eDateStr: string) =
         <textarea placeholder={t('adminPlaceholderDescEn')} value={descEn} onChange={e => setDescEn(e.target.value)} style={{...inputStyle, minHeight: '80px', border: '1px solid #38bdf860'}} />
         
         <div style={{ marginBottom: '15px' }}>
-          <label style={{ fontSize: '0.8rem', color: '#94a3b8', display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>⚖️ Kijelölt Csatabíró (Extra pontokat osztó főbíró)</label>
+          <label style={{ fontSize: '0.8rem', color: '#94a3b8', display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>⚖️ Kijelölt Képmester (Extra pontokat osztó főbíró)</label>
           <select value={masterEmail} onChange={e => setMasterEmail(e.target.value)} style={inputStyle}>
-            <option value="">-- Nincs külön csatabíró kijelölve (Opcionális) --</option>
+            <option value="">-- Nincs külön képmester kijelölve (Opcionális) --</option>
             {users.map(u => <option key={u.email} value={u.email}>{u.name} ({u.email})</option>)}
           </select>
         </div>
 
         <div style={{ marginBottom: '20px', padding: '15px', background: '#0f172a50', borderRadius: '10px', border: '1px dashed #334155' }}>
-          <label style={{ fontSize: '0.8rem', color: '#38bdf8', display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>🖼️ Csata Vizuális Borítóképe (Automata tömörítéssel)</label>
+          <label style={{ fontSize: '0.8rem', color: '#38bdf8', display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>🖼️ Kihívás Vizuális Borítóképe (Automata tömörítéssel)</label>
           <input 
             id="cover-file-input"
             type="file" 
@@ -404,12 +404,12 @@ const getTopicStatus = (statusStr: string, sDateStr: string, eDateStr: string) =
           </div>
         </div>
         <button onClick={handleSave} style={{ background: '#10b981', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', width: '100%', fontSize: '1rem' }}>
-          {editId ? 'Változtatások Mentése és Élesítés' : 'Csataterv Mentése'}
+          {editId ? 'Változtatások Mentése és Élesítés' : 'Kihívás Mentése'}
         </button>
       </div>
 
       {/* TÉMÁK LISTÁJA */}
-      <h3 style={{ color: '#f8fafc', marginBottom: '15px', fontSize: '1.3rem', fontWeight: 'bold' }}>📜 Csatatervek</h3>
+      <h3 style={{ color: '#f8fafc', marginBottom: '15px', fontSize: '1.3rem', fontWeight: 'bold' }}>📜 Kihívás tervek</h3>
       <div style={{ background: '#1e293b', borderRadius: '12px', overflow: 'hidden', border: '1px solid #334155' }}>
         {topics.map((tData, i) => {
           const status = getTopicStatus(tData.status, tData.start_date, tData.end_date);
@@ -453,7 +453,7 @@ const getTopicStatus = (statusStr: string, sDateStr: string, eDateStr: string) =
                 </div>
                 {tData.master_email && (
                   <div style={{ fontSize: '0.8rem', color: '#a78bfa', marginTop: '4px', fontWeight: 'bold' }}>
-                    👑 Csatabíró: {tData.master_email}
+                    👑 Képmester: {tData.master_email}
                   </div>
                 )}
               </div>
@@ -462,14 +462,14 @@ const getTopicStatus = (statusStr: string, sDateStr: string, eDateStr: string) =
               {tData.pending_master_email && (
                 <div style={{ background: '#eab30810', padding: '12px 18px', borderRadius: '10px', border: '1px solid #eab30840', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', width: '100%', boxSizing: 'border-box' }}>
                   <span style={{ color: '#f59e0b', fontSize: '0.9rem', fontWeight: 'bold' }}>
-                    👑 Csatabíró aspiráns: <strong style={{color: '#fff'}}>{tData.pending_master_email}</strong>
+                    👑 Képmesternek jelentkezett: <strong style={{color: '#fff'}}>{tData.pending_master_email}</strong>
                   </span>
                   <div style={{ display: 'flex', gap: '10px' }}>
                     <button 
                       onClick={async () => {
-                        if(!window.confirm(`Biztosan kinevezed őt Csatabírónak: ${tData.pending_master_email}?`)) return;
+                        if(!window.confirm(`Biztosan kinevezed őt Képmesternek: ${tData.pending_master_email}?`)) return;
                         const res = await fetch(`${BACKEND_URL}/api/admin/decide-master`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ topicId: tData.id, decision: 'approved' })});
-                        if(res.ok) { alert("✓ Csatabíró sikeresen kinevezve!"); fetchTopics(); }
+                        if(res.ok) { alert("✓ Képmester sikeresen kinevezve!"); fetchTopics(); }
                       }} 
                       style={{ background: '#10b981', color: '#0f172a', border: 'none', padding: '5px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem' }}
                     >
