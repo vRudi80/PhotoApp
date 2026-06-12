@@ -1,8 +1,74 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { getImageUrl } from '../../../utils/helpers';
 
 // 🎯 ÚJ IMPORT: Behozzuk a nyelvi kontextust
 import { useLanguage } from '../../../context/LanguageContext';
+
+// 🕒 1. ÚJ HELYRE KÖLTÖZTETVE: Golyóálló, fagyaszthatatlan élő számláló (Főkomponensen KÍVÜL)
+function ActiveRoomCountdown({ endDate, lang }: { endDate: string; lang: string }) {
+  const elementRef = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    if (!endDate) return;
+    // Időzóna-biztos helyi idő parsolás
+    const standardized = String(endDate).replace(' ', 'T').split('.')[0];
+    const targetMillis = new Date(standardized).getTime();
+
+    const updateTextDirectly = () => {
+      if (!elementRef.current) return;
+
+      const now = new Date().getTime();
+      const difference = targetMillis - now;
+
+      if (difference <= 0) {
+        elementRef.current.innerText = lang === 'en' ? 'Match Closed!' : 'Futam Lezárult! 📜';
+        return;
+      }
+
+      const days = Math.floor(difference / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((difference % (1000 * 60)) / 1000);
+
+      // Hajszálpontosan megegyező prémium formátum, pörgő másodpercekkel
+      if (lang === 'en') {
+        elementRef.current.innerText = days > 0 
+          ? `${days}d ${hours}h ${minutes}m ${seconds}s` 
+          : `${hours}h ${minutes}m ${seconds}s`;
+      } else {
+        elementRef.current.innerText = days > 0 
+          ? `${days}n ${hours}ó ${minutes}p ${seconds}mp` 
+          : `${hours}ó ${minutes}p ${seconds}mp`;
+      }
+    };
+
+    updateTextDirectly();
+    const interval = setInterval(updateTextDirectly, 1000);
+
+    return () => clearInterval(interval);
+  }, [endDate, lang]);
+
+  return (
+    <div style={{ 
+      width: '100%',
+      display: 'flex', 
+      justifyContent: 'space-between', 
+      alignItems: 'center', 
+      background: '#f59e0b10', // Megegyező borostyánsárga dizájn box
+      padding: '12px 20px', 
+      borderRadius: '14px', 
+      border: '1px solid #f59e0b30',
+      boxShadow: '0 4px 15px rgba(0,0,0,0.2)',
+      boxSizing: 'border-box',
+      zIndex: 1
+    }}>
+      <span style={{ fontSize: '0.8rem', color: '#f59e0b', fontWeight: 'bold', letterSpacing: '1px' }}>
+        {lang === 'en' ? '⏳ TIME LEFT:' : '⏳ HÁTRALÉVŐ IDŐ:'}
+      </span>
+      <span ref={elementRef} style={{ color: '#fff', fontFamily: 'monospace', fontSize: '1.05rem', fontWeight: 'bold', letterSpacing: '0.5px' }}>---</span>
+    </div>
+  );
+}
 
 interface ArenaActiveRoomProps {
   topic: any;
@@ -39,6 +105,7 @@ interface ArenaActiveRoomProps {
   handleImageError: (e: React.SyntheticEvent<HTMLImageElement, Event>) => void;
 }
 
+// ⚔️ 2. FŐKOMPONENS
 export default function ArenaActiveRoom({
   topic, timeLeft, isMaster, exposureColor, exposurePercentage, exposureLabel,
   myEntry, voteEntry, noMoreEntries, masterVotesLeft, userPower, swapBalance,
@@ -50,7 +117,6 @@ export default function ArenaActiveRoom({
   setFullscreenData, handleImageError
 }: ArenaActiveRoomProps) {
 
-  // 🎯 ÚJ: Aktiváljuk a fordítót
   const { t, lang } = useLanguage();
 
   const safeLeaderboard = Array.isArray(leaderboard) ? leaderboard : [];
@@ -58,7 +124,6 @@ export default function ArenaActiveRoom({
   const safePastEntries = Array.isArray(myPastEntries) ? myPastEntries : [];
   const safeUserPower = userPower || { super: 1, brilliant: 2 };
 
-  // 🎯 ÚJ: Az expozíciós szöveges skála intelligens, valós idejű fordítása
   const getTranslatedExposureLabel = (label: string) => {
     if (lang === 'en') {
       if (label === 'Alacsony') return 'Low';
@@ -69,7 +134,6 @@ export default function ArenaActiveRoom({
     return label;
   };
 
-  // 🎯 ÚJ: Dinamikus, nyelv-specifikus cím és leírás kezelése a szobában
   const displayRoomTitle = lang === 'en' && topic?.title_en ? topic.title_en : (topic?.title || t('roomChallengeRoom'));
   const displayRoomDesc = lang === 'en' && topic?.description_en ? topic.description_en : (topic?.description || '');
 
@@ -104,10 +168,8 @@ export default function ArenaActiveRoom({
             </div>
           </div>
 
-          <div style={{ background: '#00000080', padding: '15px 30px', borderRadius: '100px', border: '1px solid #ef444450', backdropFilter: 'blur(10px)', zIndex: 1 }}>
-            <div style={{ fontSize: '0.75rem', color: '#ef4444', textTransform: 'uppercase', letterSpacing: '2px', textAlign: 'center', marginBottom: '5px' }}>{t('roomTimeLeft')}</div>
-            <div style={{ color: '#f8fafc', fontSize: '1.5rem', fontWeight: '900', fontFamily: 'monospace', letterSpacing: '1px' }}>{timeLeft || t('roomCalculating')}</div>
-          </div>
+          {/* 🎯 JAVÍTVA: Ide került a golyóálló, azonos formátumú élő számláló */}
+          <ActiveRoomCountdown endDate={topic?.end_date} lang={lang} />
         </div>
         
         {/* LÁTHATÓSÁGI MÉRŐ */}
