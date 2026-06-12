@@ -14,7 +14,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       `;
       let params = [userEmail || ''];
       if (search) {
-        query += ' WHERE l.title LIKE ? OR l.description LIKE ?';
+        query += ' WHERE l.title LIKE ? OR l.description LIKE ? or l.user_name LIKE ?' ;
         params.push(`%${search}%`, `%${search}%`);
       }
       query += ' ORDER BY l.created_at DESC';
