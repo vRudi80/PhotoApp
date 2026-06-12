@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import BattlePlanner from './BattlePlanner';
 import { BACKEND_URL } from '../../../utils/constants';
 
@@ -10,6 +10,69 @@ interface UpcomingChallengesProps {
   getTopicType: (startDate: string, endDate: string) => 'daily' | 'weekly';
   handleImageError: (e: React.SyntheticEvent<HTMLImageElement, Event>) => void;
   user: any;
+}
+
+// 🕒 ÚJ HELPER KOMPONENS: Élő, kétnyelvű visszaszámláló a kártyákhoz
+function UpcomingCountdown({ startDate }: { startDate: string }) {
+  const { lang } = useLanguage();
+  const [timeLeft, setTimeLeft] = useState('');
+
+  useEffect(() => {
+    const calculateTime = () => {
+      const now = new Date().getTime();
+      // Időzóna-biztos ISO konverzió szóközök cseréjével
+      const target = new Date(startDate.replace(' ', 'T')).getTime();
+      const difference = target - now;
+
+      if (difference <= 0) {
+        setTimeLeft(lang === 'en' ? 'Started! ⚔️' : 'Elindult! ⚔️');
+        return;
+      }
+
+      const days = Math.floor(difference / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((difference % (1000 * 60)) / 1000);
+
+      if (lang === 'en') {
+        if (days > 0) {
+          setTimeLeft(`${days}d ${hours}h ${minutes}m`);
+        } else {
+          setTimeLeft(`${hours}h ${minutes}m ${seconds}s`);
+        }
+      } else {
+        if (days > 0) {
+          setTimeLeft(`${days}n ${hours}ó ${minutes}p`);
+        } else {
+          setTimeLeft(`${hours}ó ${minutes}p ${seconds}m`);
+        }
+      }
+    };
+
+    calculateTime();
+    const interval = setInterval(calculateTime, 1000);
+    return () => clearInterval(interval);
+  }, [startDate, lang]);
+
+  return (
+    <div style={{ 
+      display: 'flex', 
+      justifyContent: 'space-between', 
+      alignItems: 'center', 
+      background: '#f59e0b10', 
+      padding: '8px 12px', 
+      borderRadius: '8px', 
+      border: '1px solid #f59e0b30',
+      marginBottom: '10px'
+    }}>
+      <span style={{ fontSize: '0.8rem', color: '#f59e0b', fontWeight: 'bold' }}>
+        ⏳ {lang === 'en' ? 'STARTS IN:' : 'KEZDÉSIG:'}
+      </span>
+      <span style={{ color: '#fff', fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 'bold', letterSpacing: '0.5px' }}>
+        {timeLeft}
+      </span>
+    </div>
+  );
 }
 
 // ⚡ BÖNGÉSZŐS KÉPTÖMÖRÍTŐ MOTOR (Max 1920px, 80% minőség - Admin védelmi vonal)
@@ -59,16 +122,13 @@ export default function UpcomingChallenges({
   handleImageError,
   user
 }: UpcomingChallengesProps) {
-  // 🎯 ÚJ: Aktiváljuk a fordítót (t) és az aktuális alkalmazás-nyelvet (lang)
   const { t, lang } = useLanguage();
 
   const [showPlanner, setShowPlanner] = useState(false);
   const [applyingId, setApplyingId] = useState<number | null>(null);
 
-  // Golyóálló aszinkron biztonsági háló
   const safeUpcomingTopics = Array.isArray(upcomingTopics) ? upcomingTopics : [];
 
-  // 👑 CSATABÍRÓI JELENTKEZÉS MOTOR (Lokalizált üzenetekkel)
   const handleApplyMaster = async (topicId: number) => {
     if (!user?.email) return alert(t('msgLoginRequired'));
     
@@ -96,7 +156,6 @@ export default function UpcomingChallenges({
     }
   };
 
-  // 🕒 JAVÍTVA: A dátumformázás dinamikusan leköveti a választott nyelvet!
   const formatDateTime = (dateString: string) => {
     const d = new Date(dateString);
     const currentLocale = lang === 'en' ? 'en-US' : 'hu-HU';
@@ -144,7 +203,6 @@ export default function UpcomingChallenges({
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '25px' }}>
             {safeUpcomingTopics.map(tData => {
-              // 🎯 JAVÍTVA: `t` helyett `tData`-t mapelünk, így nem ütközik az i18n t() funkcióval!
               const isDaily = getTopicType(tData.start_date, tData.end_date) === 'daily';
               const hasMaster = tData.master_name || tData.master_email;
               const isPendingMe = tData.pending_master_email === user?.email;
@@ -152,7 +210,6 @@ export default function UpcomingChallenges({
               const startFormat = formatDateTime(tData.start_date);
               const endFormat = formatDateTime(tData.end_date);
 
-              // 🎯 JAVÍTVA: Dinamikus, adatbázis-szintű nyelvi szűrő a tartalomra
               const displayTitle = lang === 'en' && tData.title_en ? tData.title_en : tData.title;
               const displayDesc = lang === 'en' && tData.description_en ? tData.description_en : tData.description;
 
@@ -205,8 +262,12 @@ export default function UpcomingChallenges({
                       </button>
                     )}
 
-                    {/* 🕒 IDŐZÍTŐ PANEL */}
+                    {/* 🕒 IDŐZÍTŐ PANEL INTEGRÁLT ÉLŐ VISSZASZÁMLÁLÓVAL */}
                     <div style={{ background: '#0f172a', padding: '15px', borderRadius: '12px', border: '1px solid #38bdf840', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      
+                      {/* 🎯 IDE KERÜLT AZ ÚJ ÉLŐ ÓRA: */}
+                      <UpcomingCountdown startDate={tData.start_date} />
+
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span style={{ color: '#64748b', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold' }}>{t('upStart')}</span>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -220,7 +281,7 @@ export default function UpcomingChallenges({
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span style={{ color: '#64748b', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold' }}>{t('upEnd')}</span>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <span style={{ color: '#maxW', fontSize: '0.9rem', fontWeight: 'bold', color: '#f87171' }}>{endFormat.date}</span>
+                          <span style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#f87171' }}>{endFormat.date}</span>
                           <span style={{ background: '#ef444420', color: '#f87171', padding: '2px 6px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '900' }}>{endFormat.time}</span>
                         </div>
                       </div>
