@@ -17,6 +17,7 @@ const translations = {
     // Kártya feliratok
     typeBlitz: '🔴 Villámfutam',
     typeMaster: '🔵 Mesterfutam',
+    typeWeekly: '🔵 Mesterfutam',
     statusMaster: '🚀 Képmester vagy',
     statusEntered: '🚀 Neveztél',
     statusNotEntered: '⏳ Még nem neveztél',
@@ -25,7 +26,7 @@ const translations = {
     unvoted: 'értékelendő',
     loading: '⏳ Betöltés...',
 
-    // 🎯 ÚJ: FEJLÉC / MENÜPONTOK
+    // FEJLÉC / MENÜPONTOK
     navHome: '🏠 Főoldal',
     navArena: '🏆 Mesterek ligája',
     navContests: '📝 Pályázatok',
@@ -67,7 +68,7 @@ const translations = {
     subSupport: '✉️ Support & Segítség',
     subLogout: '🚪 Kijelentkezés',
 
-    dashWelcome: 'Üdvözlünk',
+    dashWelcome: 'Ürevözlünk',
     dashSupportNotice: 'Ha valami nem megfelelően működik, a support részen kapcsolatba léphetsz a fejlesztővel!',
     dashPremiumBadge: '⭐ Aktív Prémium Tag',
     dashAlertsTitle: '🔔 Aktuális Események & Értesítések',
@@ -98,7 +99,6 @@ const translations = {
     tileAdminTitle: 'Adminisztráció',
     tileAdminDesc: 'Pályázatok, klubestek, felhasználók és szalonok kezelése.',
 
-    // === HU BLOKK ALJA ===
     profTitle: '👤 Személyes adatok',
     profNotice: 'Ez a név fog megjelenni a leadott pályaműveid mellett, a dicsőségfalon és az okleveleken is.',
     profLabelName: 'Megjelenített név',
@@ -106,7 +106,7 @@ const translations = {
     profSaving: 'Módosítás mentése...',
     profSaveBtn: 'Változtatások Mentése 💾',
     profClubTitle: '🛡️ Fotóklub tagság beállítása',
-    profClubPending: 'Csatlakozási kérelem elküldve a(z) {club} klubhoz. A klub vezetőjének vagy helyettesének jóváhagyására várunk. Addig a belső felületek zárolva maradnak.',
+    profClubPending: 'Csatlakozási kérelem elküldve a(z) {club} klubhoz. A klub vezetőbéli vagy helyettesének jóváhagyására várunk. Addig a belső felületek zárolva maradnak.',
     profClubActive: '✓ Aktív tagja vagy a(z) {club} fotóklubnak ({role} rangban).',
     profClubNone: 'Jelenleg nem tartozol egyetlen klubhoz sem. Válassz az alábbi, aktív vezetőséggel rendelkező klubok közül!',
     profSelectClub: '-- Válassz fotóklubot --',
@@ -119,12 +119,12 @@ const translations = {
     roleLeader: 'Klubvezető',
     roleDeputy: 'Helyettes',
     roleMember: 'Klubtag',
+    
     // Rendszerüzenetek
     msgEmptyName: 'A név mező nem maradhat üresen!',
     msgSameName: 'Ez a név megegyezik a jelenlegi neveddel.',
     msgNameSuccess: '🎯 Megjelenített név sikeresen átírva!',
     msgNameError: 'Hiba történt a név mentése közben.',
-    msgNetworkError: 'Hálózati hiba történt.',
     msgSelectClubError: 'Kérlek válassz egy fotóklubot!',
     msgRequestSent: '✉️ Kérelem elküldve a vezetőségnek!',
     msgApproveConfirm: 'Befogadod a tagot a klubba?',
@@ -132,7 +132,6 @@ const translations = {
     msgApproveSuccess: '✅ Tag sikeresen felvéve!',
     msgRejectSuccess: '❌ Jelentkezés elutasítva.',
 
-    // === HU BLOKK ALJA ===
     helpTitle: '📖 Útmutató a Mesterek Ligájához',
     helpExposureTitle: '⚡ Láthatósági Mérő (Az Expozíciós Energia)',
     helpExposureDesc: 'Amikor feltöltöd a képed, expozíciós energiát kapsz. Valahányszor a gép megmutatja a fotódat valakinek értékelésre, ez az energia csökken. Új energiát úgy szerezhetsz, ha te is pontozol más alkotásokat. Tartsd a mérőt a Zöld zónában!',
@@ -152,7 +151,6 @@ const translations = {
     helpRanksDesc: 'Ahogy fejlődik a látásmódod, úgy növekszik a szavazati erőd is! Minél magasabb rangot érsz el a pontjaid és győzelmeid alapján, annál nagyobb súllyal bír a szavazatod mások képein. 💡 Minden szintlépésért a rendszer azonnal +10 db ajándék Joker cserével jutalmaz meg!',
     helpYou: 'TE VAGY',
 
-    // === HU BLOKK ALJA ===
     roomChallengeRoom: 'Kihívás szoba',
     roomMasterTitle: '👑 Képmester:',
     roomMainPrize: 'FŐDÍJ AZ 1. HELYÉRT:',
@@ -212,7 +210,6 @@ const translations = {
     roomEncryptedOpponent: 'Titkosított ellenfél',
     roomMe: 'Én',
 
-    // === HU BLOKK ALJA ===
     planTitle: '📜 Új Kihívás Javaslata',
     planDesc: 'Vázold fel a kihívást! Jóváhagyás után, a javaslatod bekerül a hivatalos közelgő kihívások közé.',
     planLabelTitle: 'Kihívás megnevezése (Téma) *',
@@ -234,14 +231,12 @@ const translations = {
     msgProposalError: 'Hiba történt a küldés során.',
     planCheckMasterMe: 'Képmester leszek',
 
-    // === HU BLOKK ALJA ===
     hofLoading: '⏳ A pódium összeállítása...',
     hofEmpty: 'Még egyetlen fotós sem gyűjtött pontot. Legyél te az első!',
     hofTitle: '👑 Globális Fotós Dicsőségfal',
     hofDesc: 'A közösség összesített ranglistája az éles és lezárult arénákban gyűjtött csillagok alapján.',
     hofYou: 'TE VAGY',
 
-    // === HU BLOKK ALJA ===
     archiveTitle: '📜 Befejezett Kihívások',
     archiveNotice: 'Az eredményeknél a képre kattintva likeolhatod, vagy hozzászólhatsz a fotóhoz',
     archiveEmpty: 'Nincs lezárt küzdelem.',
@@ -262,7 +257,6 @@ const translations = {
     archivePostPraises: ' utólagos dicséret',
     archiveNomadWarrior: 'Nomád harcos',
 
-    // === HU BLOKK ALJA ===
     trophyLoading: '⏳ Statisztikák betöltése...',
     trophyError: 'Nem sikerült betölteni az adatokat.',
     trophyCurrentStatus: 'Jelenleg Státuszod',
@@ -290,7 +284,7 @@ const translations = {
     trophyPlaceholderRef: 'Pl.: REF-A1B2C3',
     trophyPastEntries: '📸 Korábbi Pályaművek ({count})',
     trophyNoPastEntries: 'Még nincs befejezett kihívásod!',
-    trophyNoPastEntriesDesc: 'Vegyél részt a kihívásokban, és itt fognak megjelenni a korábbi eredményeid.',
+    trophyNoPastEntriesDesc: 'Vegyél részt a kihívásokban, és itt fognak megjelennen a korábbi eredményeid.',
     trophyBadge1st: '🥇 1. Hely',
     trophyBadgePodium: '🏆 Dobogós (2-3.)',
     trophyField: 'Mezőny: {count} kép',
@@ -298,7 +292,6 @@ const translations = {
     trophyShareBtn: '🚀 Eredmény megosztása',
     trophyPointsUnit: ' pont',
 
-    // === HU BLOKK ALJA ===
     modalUploadTitle: '🖼️ Nevezés az Aréna Képtáradból',
     modalSwapTitle: '🃏 Válaszd ki a Joker Fotódat',
     modalUploadDesc: 'Melyik meglévő galériás fotóddal szeretnél benevezni a mostani futamra?',
@@ -308,7 +301,6 @@ const translations = {
     msgUploadSuccess: '🎉 Sikeres nevezés az albumból!',
     msgUploadError: 'Hiba a nevezés során.',
 
-    // === HU BLOKK ALJA ===
     sharePreviewTitle: '📱 Trófeakártya Előnézet',
     shareCancelBtn: 'Mégse ✕',
     shareTrophySubtitle: 'FUTAMTRÓFEA',
@@ -324,7 +316,6 @@ const translations = {
     shareSavingTrophy: '⏳ Trófea mentése...',
     shareSaveBtn: '📱 Kártya Megosztása / Mentése 🚀',
 
-    // === HU BLOKK ALJA ===
     loginBadge: 'Vártunk már! 📸',
     loginTitlePre: 'PhotAwesome ',
     loginTitleGradient: 'A fotósok digitális otthona',
@@ -347,7 +338,6 @@ const translations = {
     loginFeatContestsTitle: 'Pályázatok',
     loginFeatContestsDesc: 'Nyílt és zárt fotóversenyek.',
 
-    // === HU BLOKK ALJA ===
     packTitle: 'Válaszd ki a számodra megfelelő csomagot',
     packSubtitle: 'Aktiválj Prémium fiókot, hogy korlátlanul élvezhesd a platform összes funktionális előnyét!',
     packCurrent: 'JELENLEGI CSOMAGOD',
@@ -355,7 +345,7 @@ const translations = {
     packMonth: ' / hó',
     packActive: 'Aktív',
     packSwitch: 'Váltás erre',
-    packSubscribe: 'Előfizetés (7 nap ingyen)',
+    packSubscribe: 'Elöfizetés (7 nap ingyen)',
     packUpgrade: 'Bővítés (Upgrade)',
     packBasicTitle: 'Alap Prémium',
     packBasicDesc: 'Tökéletes választás feltörekvő fotósoknak és hobbistáknak.',
@@ -372,7 +362,6 @@ const translations = {
     packProF4: 'Kiemelt technikai támogatás',
     msgStripeError: 'Hiba történt a fizetés indításakor.',
 
-    // === HU BLOKK ALJA ===
     mapLoading: '📡 Google Maps kapcsolat felépítése...',
     mapTitle: '🌍 Fotós Helyszínek',
     mapTipBadge: '💡 Tipp: Kattints a térképre bárhol egy új gombostű lehelyezéséhez!',
@@ -411,7 +400,6 @@ const translations = {
     mapCommentPhotoTitle: 'Fotó csatolása',
     mapCommentPlaceholderPhoto: 'Írj hozzá szöveget (opcionális)...',
     mapCommentPlaceholderText: 'Írj egy tippet vagy kérdést...',
-    // Rendszer és megerősítő üzenetek
     msgNoCityFound: 'Nem található ilyen hely!',
     msgMapFillRequired: 'Kérlek adj meg címet és leírást!',
     msgMapPhotoRequired: 'Fotó feltöltése kötelező új helyszínnél!',
@@ -423,7 +411,6 @@ const translations = {
     msgCommentError: 'Hiba a komment elküldésekor!',
     msgSaveError: 'Mentés sikertelen!',
 
-    // === HU BLOKK ALJA ===
     viewTimeCalc: 'Számítás...',
     viewTimeError: 'Hibás dátum',
     viewTimeEnded: 'Futam Lezárult!',
@@ -443,7 +430,6 @@ const translations = {
     viewLobbySend: 'Küldés 🚀',
     viewBackBtn: '⬅️ Vissza a kihívásokhoz',
     viewPreparingRoom: '⏳ Aréna szoba előkészítése...',
-    // Rendszerüzenetek, confirm-ablakok
     msgNoPhotosInGallery: 'Még nincs kép az Aréna képtáradban!',
     msgGalleryLoadError: 'Hiba az album betöltésekor.',
     msgReportConfirm: 'Biztosan jelented ezt a képet, mert nem illik a témához?',
@@ -463,7 +449,6 @@ const translations = {
     msgShareTitle: 'Fotóklub Futam Trófea',
     msgGenerateImageError: 'Sajnos hiba történt a kép generálása közben.',
 
-    // === HU BLOKK ALJA ===
     contNoClubTitle: '🔒 Nem vagy klubhoz rendelve',
     contNoClubDesc: 'A belső klubpályázatok eléréséhez kérjük, először válassz egy fotóklubot a Profilom oldalon!',
     contAdminCreateTitle: '⚙️ Globális Pályázat Kiírása (Admin)',
@@ -566,19 +551,16 @@ const translations = {
     resultsCertDownloadBtn: '📜 Hivatalos Oklevél Letöltése (PDF)',
     msgMapMoveConfirmPlaceholder: 'Biztosan át szeretnéd mozgatni {title} gombostűjét az új koordinátákra?',
 
-    // === HU BLOKK ALJA ===
     planLabelTitleEn: '🇬🇧 Kihívás címe (Angolul - Opcionális)',
     planPlaceholderTitleEn: 'Pl.: Roar of Wild Waters',
     planLabelDescEn: '🇬🇧 Részletes leírás (Angolul - Opcionális)',
     planPlaceholderDescEn: 'What kind of photos are you looking for?...',
 
-    // === HU BLOKK ALJA ===
     adminLabelTitleEn: '🇬🇧 Csata témája angolul (Opcionális)',
     adminPlaceholderTitleEn: 'E.g., Spring Lights',
     adminLabelDescEn: '🇬🇧 Hadparancs angolul (Opcionális)',
     adminPlaceholderDescEn: 'Guideline and rules for photographers in English...',
 
-    // === HU BLOKK ALJA ===
     upTitle: '🔮 Közelgő Kihívások Menetrendje',
     upDesc: 'Már jóváhagyott, hamarosan élesedő kihívások.',
     upClosePlanner: '✕ Tervező bezárása',
@@ -597,6 +579,48 @@ const translations = {
     msgLoginRequired: '❌ A jelentkezéshez előbb be kell jelentkezned!',
     msgApplyConfirm: '⚔️ Biztosan jelentkezel ennek a futamnak a Képmesterének?\n\nFigyelem: Képmesterként saját fotóval nem indulhatsz a futamban, viszont kapsz 5 darab exkluzív +10 pontot érő szavazatot!',
     msgApplySuccess: '🎉 Jelentkezésed sikeresen elküldve! A főadmin hamarosan elbírálja a műszerfalon.',
+
+    // 🎯 🎯 🎯 ÚJ ALBUM / PORTFÓLIÓ NYELVI KULCSOK (Kizárólag HU) 🎯 🎯 🎯
+    albumTitle: '🖼️ Saját Képalbum (Portfólió)',
+    albumLoading: 'Portfólió betöltése...',
+    albumPackageLabel: 'Csomagod: ',
+    albumPortfolioLabel: 'Portfólió: ',
+    albumTotalCloudLabel: 'Teljes felhő foglalásod: ',
+    albumStorageWarning: '⚠️ A portfólió tárhelyed majdnem betelt!',
+    albumAddPhotoTitle: '📤 Új fotó hozzáadása a portfólióhoz',
+    albumPhotoTitleLabel: 'Fénykép címe',
+    albumPhotoTitlePlaceholder: 'Pl. Magányos fa a ködben',
+    albumSelectFileLabel: 'Fájl kiválasztása',
+    albumUploading: 'Feltöltés...',
+    albumUploadBtn: 'Kép Feltöltése',
+    albumPreviewLabel: 'Kiválasztott kép előnézete:',
+    albumSearchResultLabel: 'Keresési találat',
+    albumSearchPlaceholder: '🔍 Keresés a képeid között...',
+    albumTotalEntriesTooltip: 'Összes nevezés',
+    albumAwardsTooltip: 'Díjak száma',
+    albumAcceptancesTooltip: 'Elfogadások száma',
+    albumAiEvaluationTitle: '🤖 AI Zsűri Értékelése',
+    albumAiAnalyzing: 'Elemzés folyamatban...',
+    albumAiReanalyzeBtn: 'AI Újraelemzés Kérése',
+    albumAiNotEvaluated: 'Ezt a képet még nem értékelte a mesterséges intelligencia.',
+    albumAiStartAnalyzeBtn: 'AI Elemzés Indítása',
+    albumSalonResultsTitle: 'Eredmények szalonokban',
+    albumNewTitlePlaceholder: 'Új cím...',
+    albumSaveBtn: 'Mentés',
+    albumCancelBtn: 'Mégse',
+    albumDownloadBtn: 'Letöltés',
+    albumEditBtn: 'Szerkeszt',
+    albumDeleteBtn: 'Törlés',
+    msgAlbumLegacyDownloadError: '⚠️ Ez egy korábbi rendszerből származó fotó, a letöltés nem lehetséges.',
+    msgAlbumTitleRequired: 'A cím nem lehet üres!',
+    msgAlbumStorageFullUpgrade: '⚠️ Megtelt a tárhelyed! Válts nagyobb csomagra.',
+    msgAlbumDeleteConfirm: 'Biztosan törlöd?',
+    msgAlbumDeleteError: 'Hiba a törlésnél.',
+    msgAlbumUploadRequired: 'Kép és cím megadása kötelező!',
+    msgAlbumStorageFull: '⚠️ Megtelt a tárhelyed ({size})!',
+    msgAlbumUploadError: 'Hiba történt a feltöltés közben.',
+    msgAlbumUploadNetworkError: 'Hiba a feltöltésnél.',
+    msgServerError: 'Szerver hiba',
   },
 
   
@@ -614,6 +638,7 @@ const translations = {
     // Kártya feliratok
     typeBlitz: '🔴 Blitz Match',
     typeMaster: '🔵 Master Match',
+    typeWeekly: '🔵 Master Match',
     statusMaster: '🚀 You are the Master',
     statusEntered: '🚀 Entered',
     statusNotEntered: '⏳ Not Entered Yet',
@@ -622,7 +647,7 @@ const translations = {
     unvoted: 'to review',
     loading: '⏳ Loading...',
 
-    // 🎯 ÚJ: FEJLÉC / MENÜPONTOK ANGOLUL
+    // FEJLÉC / MENÜPONTOK ANGOLUL
     navHome: '🏠 Home',
     navArena: '🏆 Masters League',
     navContests: '📝 Contests',
@@ -696,7 +721,6 @@ const translations = {
     tileAdminTitle: 'Administration',
     tileAdminDesc: 'Manage contests, club nights, users, and salons.',
 
-    // === EN BLOKK ALJA ===
     profTitle: '👤 Personal Data',
     profNotice: 'This name will appear next to your submitted entries, on the wall of fame, and on certificates as well.',
     profLabelName: 'Display Name',
@@ -730,7 +754,6 @@ const translations = {
     msgApproveSuccess: '✅ Member successfully accepted!',
     msgRejectSuccess: '❌ Application rejected.',
 
-    // === EN BLOKK ALJA ===
     helpTitle: '📖 Guide to the Masters League',
     helpExposureTitle: '⚡ Exposure Meter (Exposure Energy)',
     helpExposureDesc: 'When you upload your photo, you receive exposure energy. Every time the system shows your photo to someone for review, this energy decreases. You can gain new energy by voting on others\' work. Keep the meter in the Green zone!',
@@ -750,7 +773,6 @@ const translations = {
     helpRanksDesc: 'As your vision develops, your voting power grows too! The higher rank you achieve based on your points and victories, the more weight your vote carries on others\' photos. 💡 For every level up, the system instantly rewards you with +10 free bonus Joker swaps!',
     helpYou: 'YOU',
 
-    // === EN BLOKK ALJA ===
     roomChallengeRoom: 'Challenge Room',
     roomMasterTitle: '👑 Challenge Master:',
     roomMainPrize: 'MAIN PRIZE FOR 1ST PLACE:',
@@ -792,6 +814,7 @@ const translations = {
     roomLoadingGallery: '⏳ Loading gallery...',
     roomSwapGalleryBtn: '🖼️ Joker Swap from Arena Gallery',
     roomNoSwapsLeft: '🔒 Out of global Joker swaps! Perform well in tasks for extra points.',
+    roomParentriesTitle: '↩️ Your previous entries in this round',
     roomPastEntriesTitle: '↩️ Your previous entries in this round',
     roomPastSavedScore: 'Saved previous standing:',
     roomReactivateBtn: '↩️ Reactivate',
@@ -810,7 +833,6 @@ const translations = {
     roomEncryptedOpponent: 'Encrypted Opponent',
     roomMe: 'Me',
 
-    // === EN BLOKK ALJA ===
     planTitle: '📜 Propose New Challenge',
     planDesc: 'Outline the challenge! After approval, your proposal will be included in the official upcoming challenges.',
     planLabelTitle: 'Challenge Name (Theme) *',
@@ -832,14 +854,12 @@ const translations = {
     msgProposalError: 'An error occurred during submission.',
     planCheckMasterMe: 'I like to be the Master',
 
-    // === EN BLOKK ALJA ===
     hofLoading: '⏳ Assembling the podium...',
     hofEmpty: 'No photographers have earned points yet. Be the first!',
     hofTitle: '👑 Global Photographers Hall of Fame',
     hofDesc: 'The community\'s cumulative leaderboard based on stars earned in active and completed arenas.',
     hofYou: 'YOU',
 
-    // === EN BLOKK ALJA ===
     archiveTitle: '📜 Completed Challenges',
     archiveNotice: 'Click on the photo in the results to like or comment',
     archiveEmpty: 'No completed matches.',
@@ -860,7 +880,6 @@ const translations = {
     archivePostPraises: ' post-match praises',
     archiveNomadWarrior: 'Nomad warrior',
 
-    // === EN BLOKK ALJA ===
     trophyLoading: '⏳ Loading statistics...',
     trophyError: 'Failed to load data.',
     trophyCurrentStatus: 'Your Current Status',
@@ -896,7 +915,6 @@ const translations = {
     trophyShareBtn: '🚀 Share Result',
     trophyPointsUnit: ' points',
 
-    // === EN BLOKK ALJA ===
     modalUploadTitle: '🖼️ Entry from Arena Gallery',
     modalSwapTitle: '🃏 Choose Your Joker Photo',
     modalUploadDesc: 'Which existing gallery photo would you like to enter into the current match?',
@@ -906,7 +924,6 @@ const translations = {
     msgUploadSuccess: '🎉 Successfully entered from album!',
     msgUploadError: 'An error occurred during entry.',
 
-    // === EN BLOKK ALJA ===
     sharePreviewTitle: '📱 Trophy Card Preview',
     shareCancelBtn: 'Cancel ✕',
     shareTrophySubtitle: 'MATCH TROPHY',
@@ -922,7 +939,6 @@ const translations = {
     shareSavingTrophy: '⏳ Saving trophy...',
     shareSaveBtn: '📱 Share / Save Card 🚀',
 
-    // === EN BLOKK ALJA ===
     loginBadge: 'Welcome back! 📸',
     loginTitlePre: 'PhotAwesome',
     loginTitleGradient: 'The Digital Home of Photographers',
@@ -945,7 +961,6 @@ const translations = {
     loginFeatContestsTitle: 'Contests',
     loginFeatContestsDesc: 'Open and private photo competitions.',
 
-    // === EN BLOKK ALJA ===
     packTitle: 'Choose the perfect plan for you',
     packSubtitle: 'Activate a Premium account to enjoy all features of the platform without limits!',
     packCurrent: 'YOUR CURRENT PLAN',
@@ -970,7 +985,6 @@ const translations = {
     packProF4: 'Priority technical support',
     msgStripeError: 'An error occurred while starting the checkout session.',
 
-    // === EN BLOKK ALJA ===
     mapLoading: '📡 Establishing Google Maps connection...',
     mapTitle: '🌍 Photography Spots',
     mapTipBadge: '💡 Tip: Click anywhere on the map to drop a new pin!',
@@ -1009,7 +1023,6 @@ const translations = {
     mapCommentPhotoTitle: 'Attach photo',
     mapCommentPlaceholderPhoto: 'Add a caption (optional)...',
     mapCommentPlaceholderText: 'Write a tip or a question...',
-    // System and confirmation messages
     msgNoCityFound: 'Location not found!',
     msgMapFillRequired: 'Please enter a title and description!',
     msgMapPhotoRequired: 'A photo upload is required for new locations!',
@@ -1021,7 +1034,6 @@ const translations = {
     msgCommentError: 'Error sending comment!',
     msgSaveError: 'Save failed!',
 
-    // === EN BLOKK ALJA ===
     viewTimeCalc: 'Calculating...',
     viewTimeError: 'Invalid date',
     viewTimeEnded: 'Match Closed!',
@@ -1041,7 +1053,6 @@ const translations = {
     viewLobbySend: 'Send 🚀',
     viewBackBtn: '⬅️ Back to challenges',
     viewPreparingRoom: '⏳ Preparing arena room...',
-    // System messages, confirms
     msgNoPhotosInGallery: 'There are no photos in your Arena gallery yet!',
     msgGalleryLoadError: 'Error loading album.',
     msgReportConfirm: 'Are you sure you want to report this image for being off-topic?',
@@ -1061,7 +1072,6 @@ const translations = {
     msgShareTitle: 'Photo Club Match Trophy',
     msgGenerateImageError: 'Unfortunately, an error occurred while generating the image.',
 
-    // === EN BLOKK ALJA ===
     contNoClubTitle: '🔒 Not Assigned to a Club',
     contNoClubDesc: 'To access internal club contests, please select a photo club on your Profile page first!',
     contAdminCreateTitle: '⚙️ Global Contest Announcement (Admin)',
@@ -1164,19 +1174,16 @@ const translations = {
     resultsCertDownloadBtn: '📜 Download Official Certificate (PDF)',
     msgMapMoveConfirmPlaceholder: 'Are you sure you want to move the pin of {title} to the new coordinates?',
 
-    // === EN BLOKK ALJA ===
     planLabelTitleEn: '🇬🇧 Challenge Title (English - Optional)',
     planPlaceholderTitleEn: 'E.g., Roar of Wild Waters',
     planLabelDescEn: '🇬🇧 Detailed Description (English - Optional)',
     planPlaceholderDescEn: 'What kind of photos are you looking for?...',
 
-    // === EN BLOKK ALJA ===
     adminLabelTitleEn: '🇬🇧 Challenge Title in English (Optional)',
     adminPlaceholderTitleEn: 'E.g., Spring Lights',
     adminLabelDescEn: '🇬🇧 Command/Description in English (Optional)',
     adminPlaceholderDescEn: 'Guideline and rules for photographers in English...',
 
-    // === EN BLOKK ALJA ===
     upTitle: '🔮 Upcoming Challenges Schedule',
     upDesc: 'Approved challenges that will go live soon.',
     upClosePlanner: '✕ Close Planner',
@@ -1194,7 +1201,49 @@ const translations = {
     upEnd: 'Ends',
     msgLoginRequired: '❌ You must log in first to apply!',
     msgApplyConfirm: '⚔️ Are you sure you want to apply as the Master for this match?\n\nAttention: As a Master, you cannot enter the match with your own photo, but you will receive 5 exclusive votes worth +10 points each!',
-    msgApplySuccess: '🎉 Application successfully sent! The admin will review it on the dashboard shortly.'
+    msgApplySuccess: '🎉 Application successfully sent! The admin will review it on the dashboard shortly.',
+
+    // 🎯 🎯 🎯 ÚJ ALBUM / PORTFÓLIÓ NYELVI KULCSOK (Kizárólag EN) 🎯 🎯 🎯
+    albumTitle: '🖼️ My Portfolio Album',
+    albumLoading: 'Loading portfolio...',
+    albumPackageLabel: 'Your plan: ',
+    albumPortfolioLabel: 'Portfolio: ',
+    albumTotalCloudLabel: 'Total cloud storage: ',
+    albumStorageWarning: '⚠️ Your portfolio storage space is almost full!',
+    albumAddPhotoTitle: '📤 Add new photo to your portfolio',
+    albumPhotoTitleLabel: 'Photo title',
+    albumPhotoTitlePlaceholder: 'E.g., Lonely tree in the fog',
+    albumSelectFileLabel: 'Select file',
+    albumUploading: 'Uploading...',
+    albumUploadBtn: 'Upload Image',
+    albumPreviewLabel: 'Selected photo preview:',
+    albumSearchResultLabel: 'Search result',
+    albumSearchPlaceholder: '🔍 Search your photos...',
+    albumTotalEntriesTooltip: 'Total entries',
+    albumAwardsTooltip: 'Number of awards',
+    albumAcceptancesTooltip: 'Number of acceptances',
+    albumAiEvaluationTitle: '🤖 AI Jury Evaluation',
+    albumAiAnalyzing: 'Analysis in progress...',
+    albumAiReanalyzeBtn: 'Request AI Re-analysis',
+    albumAiNotEvaluated: 'This photo has not been evaluated by AI yet.',
+    albumAiStartAnalyzeBtn: 'Start AI Analysis',
+    albumSalonResultsTitle: 'Salon results',
+    albumNewTitlePlaceholder: 'New title...',
+    albumSaveBtn: 'Save',
+    albumCancelBtn: 'Cancel',
+    albumDownloadBtn: 'Download',
+    albumEditBtn: 'Edit',
+    albumDeleteBtn: 'Delete',
+    msgAlbumLegacyDownloadError: '⚠️ This photo is from an older system, downloading is not possible.',
+    msgAlbumTitleRequired: 'Title cannot be empty!',
+    msgAlbumStorageFullUpgrade: '⚠️ Your storage is full! Please upgrade to a larger plan.',
+    msgAlbumDeleteConfirm: 'Are you sure you want to delete this photo?',
+    msgAlbumDeleteError: 'Error deleting photo.',
+    msgAlbumUploadRequired: 'Both image file and title are required!',
+    msgAlbumStorageFull: '⚠️ Your storage is full ({size})!',
+    msgAlbumUploadError: 'An error occurred during upload.',
+    msgAlbumUploadNetworkError: 'Network error during upload.',
+    msgServerError: 'Server error',
   }
 };
 
@@ -1209,7 +1258,6 @@ interface LanguageContextType {
 const LanguageContext = createContext<LanguageContextType>({} as LanguageContextType);
 
 export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // 🎯 JAVÍTVA: Ha nincs elmentve semmi, kényszerítve a magyar (hu) az alapértelmezett!
   const [lang, setLangState] = useState<Language>(() => {
     const saved = localStorage.getItem('app_lang');
     if (saved === 'hu' || saved === 'en') return saved;
