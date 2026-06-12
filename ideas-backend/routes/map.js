@@ -2,32 +2,34 @@ const fs = require('fs');
 
 module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
-  // 1. Helyszínek lekérése
+  // 1. Helyszínek lekérése (Javítva: Mobilis ékezet- és szóköz-szűréssel!)
   app.get('/api/locations', async (req, res) => {
-  const { search, userEmail } = req.query;
-  try {
-    let query = `
-      SELECT l.*,
-             (SELECT COUNT(*) FROM photo_location_likes WHERE location_id = l.id) as like_count,
-             (SELECT COUNT(*) FROM photo_location_likes WHERE location_id = l.id AND user_email = ?) as user_liked
-      FROM photo_locations l
-    `;
-    let params = [userEmail || ''];
-    
-    if (search) {
-      query += ' WHERE l.title LIKE ? OR l.description LIKE ? OR l.user_name LIKE ?';
-      params.push(`%${search}%`, `%${search}%`, `%${search}%`);
-    }
-    
-    query += ' ORDER BY l.created_at DESC';
-    const [rows] = await pool.query(query, params);
-    res.json(rows);
-  } catch (err) { 
-    console.error('Hiba a helyszínek lekérésekor:', err.message); // Érdemes logolni, hogy lásd a pontos SQL hibát
-    res.status(500).json({ error: 'Hiba a helyszínek lekérésekor' }); 
-  }
-});
+    const { search, userEmail } = req.query;
+    try {
+      let query = `
+        SELECT l.*,
+               (SELECT COUNT(*) FROM photo_location_likes WHERE location_id = l.id) as like_count,
+               (SELECT COUNT(*) FROM photo_location_likes WHERE location_id = l.id AND user_email = ?) as user_liked
+        FROM photo_locations l
+      `;
+      let params = [userEmail || ''];
+      
+      if (search) {
+        // 🎯 JAVÍTVA: kitakarítjuk a mobilok által generált rejtett hibákat (szóközök + iPhone NFD kódolás)
+        const cleanSearch = String(search).trim().normalize('NFC');
 
+        query += ' WHERE l.title LIKE ? OR l.description LIKE ? OR l.user_name LIKE ?';
+        params.push(`%${cleanSearch}%`, `%${cleanSearch}%`, `%${cleanSearch}%`);
+      }
+      
+      query += ' ORDER BY l.created_at DESC';
+      const [rows] = await pool.query(query, params);
+      res.json(rows);
+    } catch (err) { 
+      console.error('Hiba a helyszínek lekérésekor:', err.message);
+      res.status(500).json({ error: 'Hiba a helyszínek lekérésekor' }); 
+    }
+  });
   // 2. Új helyszín felvitele (KIBŐVÍTVE)
   app.post('/api/locations', upload.single('photo'), async (req, res) => {
     const { userEmail, userName, lat, lng, title, description, photoMonth, photoTimeOfDay, camera, lens } = req.body;
