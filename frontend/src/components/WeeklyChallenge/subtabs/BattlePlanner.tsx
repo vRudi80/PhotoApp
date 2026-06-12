@@ -56,7 +56,7 @@ export default function BattlePlanner({ user, onSuccess }: BattlePlannerProps) {
   const [description, setDescription] = useState('');
   const [descriptionEn, setDescriptionEn] = useState(''); // 🎯 ÚJ STATE AZ ANGOL LEÍRÁSNAK
   const [coverAuthor, setCoverAuthor] = useState('');
-  const [masterName, setMasterName] = useState('');
+  const [isMaster, setIsMaster] = useState(false); // 🎯 JAVÍTVA: Szöveg helyett most már logikai állapot (true/false)
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [coverFile, setCoverFile] = useState<File | null>(null);
@@ -94,7 +94,11 @@ export default function BattlePlanner({ user, onSuccess }: BattlePlannerProps) {
     formData.append('description', description);
     formData.append('description_en', descriptionEn); // 🎯 ÚJ: Küldjük az angol leírást
     formData.append('cover_author', coverAuthor);
-    formData.append('master_name', masterName);
+    
+    // 🎯 JAVÍTVA: Ha be van pipálva, automatikusan a beküldő user nevét (vagy emailjét) küldjük el képmesterként
+    const computedMasterName = isMaster ? (user?.name || user?.email || '') : '';
+    formData.append('master_name', computedMasterName);
+    
     formData.append('start_date', startDate);
     formData.append('end_date', endDate);
     formData.append('userEmail', user?.email || '');
@@ -107,7 +111,8 @@ export default function BattlePlanner({ user, onSuccess }: BattlePlannerProps) {
       });
       if (res.ok) {
         alert(t('msgProposalSuccess'));
-        setTitle(''); setTitleEn(''); setDescription(''); setDescriptionEn(''); setCoverAuthor(''); setMasterName('');
+        setTitle(''); setTitleEn(''); setDescription(''); setDescriptionEn(''); setCoverAuthor(''); 
+        setIsMaster(false); // 🎯 JAVÍTVA: Pipát alaphelyzetbe állítjuk
         setStartDate(''); setEndDate(''); setCoverFile(null); setPreview(null);
         onSuccess(); 
       } else {
@@ -160,9 +165,21 @@ export default function BattlePlanner({ user, onSuccess }: BattlePlannerProps) {
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+          {/* 🎯 JAVÍTVA: Szövegbeviteli mező helyett most már egy elegáns checkbox van itt */}
           <div>
             <label style={{ color: '#cbd5e1', display: 'block', marginBottom: '6px', fontSize: '0.9rem', fontWeight: 'bold' }}>{t('planLabelMaster')}</label>
-            <input type="text" placeholder={t('planPlaceholderMaster')} value={masterName} onChange={e => setMasterName(e.target.value)} style={{ width: '100%', padding: '12px', background: '#0f172a', border: '1px solid #334155', borderRadius: '10px', color: 'white', outline: 'none' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px', background: '#0f172a', border: '1px solid #334155', borderRadius: '10px', height: '46px', boxSizing: 'border-box' }}>
+              <input 
+                type="checkbox" 
+                id="isMasterCheckbox"
+                checked={isMaster} 
+                onChange={e => setIsMaster(e.target.checked)} 
+                style={{ width: '18px', height: '18px', accentColor: '#f59e0b', cursor: 'pointer' }}
+              />
+              <label htmlFor="isMasterCheckbox" style={{ color: '#94a3b8', fontSize: '0.85rem', cursor: 'pointer', userSelect: 'none', fontWeight: '500' }}>
+                {t('planCheckMasterMe') || 'Szeretnék én lenni'}
+              </label>
+            </div>
           </div>
           <div>
             <label style={{ color: '#cbd5e1', display: 'block', marginBottom: '6px', fontSize: '0.9rem', fontWeight: 'bold' }}>{t('planLabelAuthor')}</label>
