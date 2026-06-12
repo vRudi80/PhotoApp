@@ -217,7 +217,7 @@ const translations = {
     planDesc: 'Vázold fel a kihívást! Jóváhagyás után, a javaslatod bekerül a hivatalos közelgő kihívások közé.',
     planLabelTitle: 'Kihívás megnevezése (Téma) *',
     planPlaceholderTitle: 'Pl.: Vadvizek moraja, Városi sziluettek',
-    planLabelDesc: 'Hadparancs (Részletes leírás & Megkötések) *',
+    planLabelDesc: 'Leírás (Részletes leírás & Megkötések) *',
     planPlaceholderDesc: 'Milyen kompozíciókat vársz? Mit tilos használni?',
     planLabelStart: 'Kezdés dátuma *',
     planLabelEnd: 'Zárás dátuma *',
