@@ -336,7 +336,7 @@ const getTopicStatus = (statusStr: string, sDateStr: string, eDateStr: string) =
         {/* 🎯 ÚJ MEZŐ: ANGOL CSATATÉMA */}
         <input placeholder={t('adminPlaceholderTitleEn')} value={titleEn} onChange={e => setTitleEn(e.target.value)} style={{ ...inputStyle, border: '1px solid #38bdf860' }} />
         
-        <textarea placeholder="Hadparancs magyarul (Útmutató és leírás a fotósoknak...)" value={desc} onChange={e => setDesc(e.target.value)} style={{...inputStyle, minHeight: '80px'}} />
+        <textarea placeholder="Leírás magyarul (Útmutató és leírás a fotósoknak...)" value={desc} onChange={e => setDesc(e.target.value)} style={{...inputStyle, minHeight: '80px'}} />
         
         {/* 🎯 ÚJ MEZŐ: ANGOL HADPARANCS */}
         <textarea placeholder={t('adminPlaceholderDescEn')} value={descEn} onChange={e => setDescEn(e.target.value)} style={{...inputStyle, minHeight: '80px', border: '1px solid #38bdf860'}} />
