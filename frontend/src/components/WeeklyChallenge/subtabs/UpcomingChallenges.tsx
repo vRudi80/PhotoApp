@@ -12,7 +12,7 @@ interface UpcomingChallengesProps {
   user: any;
 }
 
-// 🕒 ÚJ HELPER KOMPONENS: Élő, kétnyelvű visszaszámláló a kártyákhoz
+// 🕒 HELPER KOMPONENS: Élő, javított UTC visszaszámláló ketyegő másodpercekkel
 function UpcomingCountdown({ startDate }: { startDate: string }) {
   const { lang } = useLanguage();
   const [timeLeft, setTimeLeft] = useState('');
@@ -20,8 +20,13 @@ function UpcomingCountdown({ startDate }: { startDate: string }) {
   useEffect(() => {
     const calculateTime = () => {
       const now = new Date().getTime();
-      // Időzóna-biztos ISO konverzió szóközök cseréjével
-      const target = new Date(startDate.replace(' ', 'T')).getTime();
+      
+      // 🎯 JAVÍTVA: Ha a DB-ből jövő string végén nincs 'Z', odarakjuk, hogy kényszerítsük az UTC-t!
+      const utcString = startDate.includes('Z') || startDate.includes('+') 
+        ? startDate 
+        : startDate.replace(' ', 'T') + 'Z';
+        
+      const target = new Date(utcString).getTime();
       const difference = target - now;
 
       if (difference <= 0) {
@@ -34,17 +39,18 @@ function UpcomingCountdown({ startDate }: { startDate: string }) {
       const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
       const seconds = Math.floor((difference % (1000 * 60)) / 1000);
 
+      // 🎯 JAVÍTVA: 'm' helyett 'mp' a magyar másodpercnek, és MINDENHOL látszódik a másodperc, hogy pörögjön!
       if (lang === 'en') {
         if (days > 0) {
-          setTimeLeft(`${days}d ${hours}h ${minutes}m`);
+          setTimeLeft(`${days}d ${hours}h ${minutes}m ${seconds}s`);
         } else {
           setTimeLeft(`${hours}h ${minutes}m ${seconds}s`);
         }
       } else {
         if (days > 0) {
-          setTimeLeft(`${days}n ${hours}ó ${minutes}p`);
+          setTimeLeft(`${days}n ${hours}ó ${minutes}p ${seconds}mp`);
         } else {
-          setTimeLeft(`${hours}ó ${minutes}p ${seconds}m`);
+          setTimeLeft(`${hours}ó ${minutes}p ${seconds}mp`);
         }
       }
     };
@@ -60,22 +66,22 @@ function UpcomingCountdown({ startDate }: { startDate: string }) {
       justifyContent: 'space-between', 
       alignItems: 'center', 
       background: '#f59e0b10', 
-      padding: '8px 12px', 
-      borderRadius: '8px', 
+      padding: '10px 14px', 
+      borderRadius: '10px', 
       border: '1px solid #f59e0b30',
-      marginBottom: '10px'
+      marginBottom: '15px'
     }}>
-      <span style={{ fontSize: '0.8rem', color: '#f59e0b', fontWeight: 'bold' }}>
+      <span style={{ fontSize: '0.8rem', color: '#f59e0b', fontWeight: 'bold', letterSpacing: '0.5px' }}>
         ⏳ {lang === 'en' ? 'STARTS IN:' : 'KEZDÉSIG:'}
       </span>
-      <span style={{ color: '#fff', fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 'bold', letterSpacing: '0.5px' }}>
+      <span style={{ color: '#fff', fontFamily: 'monospace', fontSize: '1rem', fontWeight: 'bold', letterSpacing: '0.5px' }}>
         {timeLeft}
       </span>
     </div>
   );
 }
 
-// ⚡ BÖNGÉSZŐS KÉPTÖMÖRÍTŐ MOTOR (Max 1920px, 80% minőség - Admin védelmi vonal)
+// ⚡ BÖNGÉSZŐS KÉPTÖMÖRÍTŐ MOTOR (Max 1920px, 80% minőség)
 const compressImageOnClient = (file: File): Promise<File> => {
   return new Promise((resolve) => {
     const reader = new FileReader();
@@ -262,10 +268,10 @@ export default function UpcomingChallenges({
                       </button>
                     )}
 
-                    {/* 🕒 IDŐZÍTŐ PANEL INTEGRÁLT ÉLŐ VISSZASZÁMLÁLÓVAL */}
+                    {/* 🕒 IDŐZÍTŐ PANEL INTEGRÁLT UTC VISSZASZÁMLÁLÓVAL */}
                     <div style={{ background: '#0f172a', padding: '15px', borderRadius: '12px', border: '1px solid #38bdf840', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       
-                      {/* 🎯 IDE KERÜLT AZ ÚJ ÉLŐ ÓRA: */}
+                      {/* 🎯 INTEGRÁLVA: Ez most már garantáltan és látványosan ketyeg! */}
                       <UpcomingCountdown startDate={tData.start_date} />
 
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
