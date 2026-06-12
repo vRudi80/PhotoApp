@@ -434,10 +434,15 @@ const getTopicStatus = (statusStr: string, sDateStr: string, eDateStr: string) =
                       {status.label}
                     </span>
                   </div>
-                  {/* 🎯 ÚJ: Ha van angol cím, halványan megmutatjuk az adminnak az ellenőrzés végett */}
+                  {/* 🎯 JAVÍTVA: A Windows-kompatibilis, kódolt brit zászló grafika elhelyezése */}
                   {tData.title_en && (
-                    <span style={{ fontSize: '0.85rem', color: '#38bdf8', fontWeight: 'normal' }}>
-                      🇬🇧 {tData.title_en}
+                    <span style={{ fontSize: '0.85rem', color: '#38bdf8', fontWeight: 'normal', display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+                      <img 
+                        src="https://flagcdn.com/w20/gb.png" 
+                        alt="🇬🇧" 
+                        style={{ width: '15px', height: 'auto', borderRadius: '2px', verticalAlign: 'middle', filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))' }} 
+                      />
+                      {tData.title_en}
                     </span>
                   )}
                 </div>
