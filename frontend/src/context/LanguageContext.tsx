@@ -40,6 +40,11 @@ const translations = {
     msgTicketsSubmitSuccess: '🚀 Hibajegy sikeresen elküldve! Hamarosan válaszolunk.',
     msgTicketsSubmitError: 'Hiba történt a küldés során.',
 
+    sortLabel: 'RENDEZÉS:',
+    sortEndDate: 'Befejezési idő (hamarosan lejáró)',
+    sortStartDate: 'Indulási idő (legfrissebb)',
+
+
     arenaAlbumLoading: '⏳ Képtárad rendezése...',
     arenaAlbumEmptyTitle: 'A képcsarnokod még üres',
     arenaAlbumEmptyDesc: 'Nevezz be a futó csaták egyikébe, és a fotóid automatikusan bekerülnek ide!',
@@ -742,6 +747,11 @@ const translations = {
     arenaAlbumPodiumPlace: 'Podium (2nd-3rd place)',
     arenaAlbumHistoryTitle: '⚔️ Participation History ({count} matches)',
     arenaAlbumHistorySwapped: 'Swapped 🔄',
+
+    sortLabel: 'SORT BY:',
+    sortEndDate: 'Closing time (soonest)',
+    sortStartDate: 'Starting time (newest)',
+
 
     ticketsStatusOpen: 'New Ticket',
     ticketsStatusInProgress: 'In Progress',
