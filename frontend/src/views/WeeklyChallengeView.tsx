@@ -220,6 +220,9 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const [activeTopics, setActiveTopics] = useState<any[]>([]);
   const [selectedTopicId, setSelectedTopicId] = useState<number | null>(null);
 
+  // 🎯 ÚJ STATE: Az aktív kihívások rendezési szempontjának követése
+  const [sortBy, setSortBy] = useState<'endDate' | 'startDate'>('endDate');
+
   const [topic, setTopic] = useState<any>(null);
   const [myEntry, setMyEntry] = useState<any>(null);
   const [myPastEntries, setMyPastEntries] = useState<any[]>([]); 
@@ -326,6 +329,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     setCurrentClubLeaderboard([]);
     setNoMoreEntries(false);
     setTimeLeft('');
+    setPastLeaderboard([]); // Biztonsági takarítás turnusváltásnál
+    setPastClubLeaderboard([]);
     setMasterVotesLeft(0); 
     setIsMaster(false);     
   }, [selectedTopicId]);
@@ -708,7 +713,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         alert(t('msgSwapBackSuccess'));
         fetchCurrentTopic(false);
       } else {
-        const err = await res.json();
+        const err = await swapRes.json();
         alert(err.error || t('msgSwapErrorMain'));
       }
     } catch (e) { alert(t('msgNetworkError')); }
@@ -783,10 +788,26 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
      } catch (e) {
       alert(t('msgGenerateImageError'));
       console.error(e);
-    } Goldly: { 
+    } finally { 
       setIsGeneratingImage(false);
     }
   };
+
+  // 🎯 ÚJ SZÁMÍTÁSI LOGIKA: Az aktív kihívások rendezése a kiválasztott sortBy állapottól függően
+  const sortedActiveTopics = [...activeTopics].sort((a, b) => {
+    // Mobil/Safari-biztos dátumformázás standard ISO formára
+    const dateStrA = String(sortBy === 'endDate' ? a.end_date : a.start_date).replace(' ', 'T').split('.')[0];
+    const dateStrB = String(sortBy === 'endDate' ? b.end_date : b.start_date).replace(' ', 'T').split('.')[0];
+    
+    const timeA = new Date(dateStrA).getTime() || 0;
+    const timeB = new Date(dateStrB).getTime() || 0;
+
+    if (sortBy === 'endDate') {
+      return timeA - timeB; // Befejezési idő szerint növekvő: a hamarosan lejárók kerülnek előre
+    } else {
+      return timeB - timeA; // Indulási idő szerint csökkenő: a legfrissebben indultak kerülnek előre
+    }
+  });
   
   return (
     <div style={{ animation: 'fadeIn 0.4s ease-out' }}>
@@ -822,7 +843,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           <button onClick={() => setSubTab('past')} style={{ padding: '10px 24px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: subTab === 'past' ? '#334155' : 'transparent', color: subTab === 'past' ? 'white' : '#94a3b8', transition: 'all 0.3s' }}>{t('tabPast')}</button>
           <button onClick={() => setSubTab('arena_album')} style={{ padding: '10px 24px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: subTab === 'arena_album' ? 'linear-gradient(135deg, #14b8a6, #0d9488)' : 'transparent', color: subTab === 'arena_album' ? 'white' : '#94a3b8', transition: 'all 0.3s', boxShadow: subTab === 'arena_album' ? '0 4px 15px rgba(20,184,166,0.4)' : 'none' }}>{t('tabAlbum')}</button>
           <button onClick={() => { setSubTab('my_stats'); fetchMyStats(); }} style={{ padding: '10px 24px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: subTab === 'my_stats' ? 'linear-gradient(135deg, #8b5cf6, #6366f1)' : 'transparent', color: subTab === 'my_stats' ? 'white' : '#94a3b8', transition: 'all 0.3s', boxShadow: subTab === 'my_stats' ? '0 4px 15px rgba(139,92,246,0.4)' : 'none' }}>{t('tabStats')}</button>
-          <button onClick={() => setSubTab('hall_of_fame')} style={{ padding: '10px 24px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: subTab === 'hall_of_fame' ? 'linear-gradient(135deg, #fbbf24, #d97706)' : 'transparent', color: subTab === 'hall_of_fame' ? '#0f172a' : '#94a3b8', transition: 'all 0.3s', boxShadow: subTab === 'hall_of_fame' ? '0 4px 15px rgba(251,191,36,0.4)' : 'none' }}>{t('tabHof')}</button>
+          <button onClick={() => setSubTab('hall_of_fame')} style={{ padding: '10px 24px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: subTab === 'hall_of_fame' ? 'linear-gradient(135deg, #fbbf24, #d97706)' : 'transparent', color: subTab === '#0f172a' ? '#0f172a' : '#94a3b8', transition: 'all 0.3s', boxShadow: subTab === 'hall_of_fame' ? '0 4px 15px rgba(251,191,36,0.4)' : 'none' }}>{t('tabHof')}</button>
         </div>
         <button onClick={() => setShowHelp(true)} style={{ padding: '12px 24px', borderRadius: '12px', border: '1px solid #38bdf8', cursor: 'pointer', fontWeight: 'bold', background: '#0f172a', color: '#38bdf8', transition: 'all 0.3s', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 15px rgba(56,189,248,0.2)' }}>
           {t('btnRules')}
@@ -837,9 +858,31 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
               
               {/* BAL HASÁB: AKTÍV LEVELEK ÉS JÁTÉKOK */}
               <div>
-                <div style={{ marginBottom: '25px' }}>
-                  <h2 style={{ color: 'white', margin: 0, fontSize: '1.8rem' }}>{t('viewActiveLeagues')}</h2>
-                  <p style={{ color: '#94a3b8', margin: '5px 0 0 0' }}>{t('viewActiveLeaguesDesc')}</p>
+                {/* 🎯 MÓDOSÍTVA: Flexbox-os fejlécre váltás a rendezési szűrő elegáns elhelyezéséhez */}
+                <div style={{ marginBottom: '25px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '15px' }}>
+                  <div>
+                    <h2 style={{ color: 'white', margin: 0, fontSize: '1.8rem' }}>{t('viewActiveLeagues')}</h2>
+                    <p style={{ color: '#94a3b8', margin: '5px 0 0 0' }}>{t('viewActiveLeaguesDesc')}</p>
+                  </div>
+
+                  {/* 🎯 ÚJ SZELEKTOR DOBOZ: Kétnyelvű legördülő szűrő, ami illeszkedik a sötét témához */}
+                  {activeTopics.length > 1 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ color: '#94a3b8', fontSize: '0.85rem', fontWeight: 'bold', letterSpacing: '0.5px' }}>
+                        {lang === 'en' ? 'SORT BY:' : 'RENDEZÉS:'}
+                      </span>
+                      <select
+                        value={sortBy}
+                        onChange={(e) => setSortBy(e.target.value as 'endDate' | 'startDate')}
+                        style={{ background: '#0f172a', color: 'white', border: '1px solid #334155', padding: '8px 14px', borderRadius: '10px', fontSize: '0.85rem', outline: 'none', cursor: 'pointer', fontWeight: 'bold', transition: 'border-color 0.2s' }}
+                        onFocus={(e) => e.target.style.borderColor = '#ef4444'}
+                        onBlur={(e) => e.target.style.borderColor = '#334155'}
+                      >
+                        <option value="endDate">{lang === 'en' ? 'Closing time (soonest)' : 'Befejezési idő (hamarosan lejáró)'}</option>
+                        <option value="startDate">{lang === 'en' ? 'Starting time (newest)' : 'Indulási idő (legfrissebb)'}</option>
+                      </select>
+                    </div>
+                  )}
                 </div>
 
                 {loading ? (
@@ -852,7 +895,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   </div>
                 ) : (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '25px' }}>
-                    {activeTopics.map((actTop) => (
+                    {/* 🎯 MÓDOSÍTVA: A nyers 'activeTopics' helyett a dinamikusan rendezett 'sortedActiveTopics'-ot térképezzük fel */}
+                    {sortedActiveTopics.map((actTop) => (
                       <ChallengeCard 
                         key={actTop.id} 
                         topic={actTop} 
@@ -863,7 +907,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                 )}
               </div>
 
-              {/* JOBB HASÁB: FIX CSERESZAVATÚ OLDALSÁV (Zéró layout ugrálás!) */}
+              {/* JOBB HASÁB: FIX CSERESZAVATÚ OLDALSÁV */}
               <div className="arena-chat-sidebar" style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: '24px', padding: '25px', boxShadow: '0 15px 35px rgba(0,0,0,0.4)', display: 'flex', flexDirection: 'column', gap: '15px', height: '580px', position: 'sticky', top: '20px' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   <h3 style={{ margin: 0, color: '#38bdf8', fontSize: '1.3rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -872,7 +916,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   <p style={{ margin: 0, color: '#64748b', fontSize: '0.8rem' }}>{t('viewLobbyDesc')}</p>
                 </div>
 
-                {/* Üzenetek belső görgető doboza */}
                 <div style={{ background: '#0f172a', borderRadius: '16px', padding: '15px', flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', border: '1px solid #223147' }}>
                   {lobbyMessages.length === 0 ? (
                     <div style={{ color: '#475569', textAlign: 'center', margin: 'auto', fontStyle: 'italic', fontSize: '0.85rem' }}>
@@ -924,7 +967,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   <div ref={lobbyChatBottomRef} />
                 </div>
 
-                {/* Éppen gépel visszajelző sáv */}
                 <div style={{ height: '16px', paddingLeft: '5px', fontSize: '0.78rem', color: '#38bdf8', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '4px' }}>
                   {currentlyTyping.length > 0 && (
                     <>
@@ -938,7 +980,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   )}
                 </div>
 
-                {/* Szövegküldő form */}
                 <form onSubmit={handleSendLobbyMessage} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                   <input 
                     type="text" 
