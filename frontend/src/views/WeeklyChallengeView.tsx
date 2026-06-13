@@ -865,11 +865,11 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                     <p style={{ color: '#94a3b8', margin: '5px 0 0 0' }}>{t('viewActiveLeaguesDesc')}</p>
                   </div>
 
-                  {/* 🎯 ÚJ SZELEKTOR DOBOZ: Kétnyelvű legördülő szűrő, ami illeszkedik a sötét témához */}
+                                  {/* 🎯 ÚJ SZELEKTOR DOBOZ: Tiszta szótár-alapú hivatkozásokkal */}
                   {activeTopics.length > 1 && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                       <span style={{ color: '#94a3b8', fontSize: '0.85rem', fontWeight: 'bold', letterSpacing: '0.5px' }}>
-                        {lang === 'en' ? 'SORT BY:' : 'RENDEZÉS:'}
+                        {t('sortLabel')}
                       </span>
                       <select
                         value={sortBy}
@@ -878,11 +878,12 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                         onFocus={(e) => e.target.style.borderColor = '#ef4444'}
                         onBlur={(e) => e.target.style.borderColor = '#334155'}
                       >
-                        <option value="endDate">{lang === 'en' ? 'Closing time (soonest)' : 'Befejezési idő (hamarosan lejáró)'}</option>
-                        <option value="startDate">{lang === 'en' ? 'Starting time (newest)' : 'Indulási idő (legfrissebb)'}</option>
+                        <option value="endDate">{t('sortEndDate')}</option>
+                        <option value="startDate">{t('sortStartDate')}</option>
                       </select>
                     </div>
                   )}
+
                 </div>
 
                 {loading ? (
