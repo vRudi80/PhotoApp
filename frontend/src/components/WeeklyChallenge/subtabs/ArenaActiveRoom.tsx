@@ -29,7 +29,6 @@ function ActiveRoomCountdown({ endDate, lang }: { endDate: string; lang: string 
       const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
       const seconds = Math.floor((difference % (1000 * 60)) / 1000);
 
-      // Hajszálpontosan megegyező formátum hófehér, ketyegő számokkal
       if (lang === 'en') {
         elementRef.current.innerText = days > 0 
           ? `${days}d ${hours}h ${minutes}m ${seconds}s` 
@@ -54,9 +53,9 @@ function ActiveRoomCountdown({ endDate, lang }: { endDate: string; lang: string 
       justifyContent: 'space-between', 
       alignItems: 'center', 
       background: '#f59e0b10', 
-      padding: '10px 14px',             // 🎯 JAVÍTVA: Kompakt belső margó
-      borderRadius: '10px',             // 🎯 JAVÍTVA: Feszesebb kerekítés
-      border: '1px solid #f59e0b30',    // 🎯 JAVÍTVA: Finom borostyán keret
+      padding: '10px 14px', 
+      borderRadius: '10px', 
+      border: '1px solid #f59e0b30', 
       boxSizing: 'border-box',
       zIndex: 1
     }}>
@@ -166,7 +165,6 @@ export default function ArenaActiveRoom({
             </div>
           </div>
 
-          {/* 🎯 INTEGRÁLVA: Szuperstabil, azonos stílusú élő visszaszámláló */}
           <ActiveRoomCountdown endDate={topic?.end_date} lang={lang} />
         </div>
         
@@ -225,13 +223,33 @@ export default function ArenaActiveRoom({
               )}
               
               <div style={{ display: 'flex', gap: '12px', width: '100%', flexDirection: 'column' }}>
-                {isMaster && masterVotesLeft > 0 && (
+                
+                {/* 🎯 JAVÍTVA: A Képmester gombja mindig látható, de ha elfogy a szavazat, letiltódik (disabled) */}
+                {isMaster && (
                   <button 
                     onClick={() => handleVote('master')} 
-                    style={{ width: '100%', padding: '16px', background: 'linear-gradient(135deg, #fbbf24, #d97706)', color: '#0f172a', border: 'none', borderRadius: '14px', fontSize: '1.1rem', fontWeight: '900', cursor: 'pointer', boxShadow: '0 4px 15px rgba(251,191,36,0.4)', marginBottom: '6px' }}
+                    disabled={masterVotesLeft <= 0}
+                    style={{ 
+                      width: '100%', 
+                      padding: '16px', 
+                      background: masterVotesLeft > 0 ? 'linear-gradient(135deg, #fbbf24, #d97706)' : '#1e293b', 
+                      color: masterVotesLeft > 0 ? '#0f172a' : '#64748b', 
+                      border: masterVotesLeft > 0 ? 'none' : '1px dashed #334155', 
+                      borderRadius: '14px', 
+                      fontSize: '1.1rem', 
+                      fontWeight: '900', 
+                      cursor: masterVotesLeft > 0 ? 'pointer' : 'not-allowed', 
+                      boxShadow: masterVotesLeft > 0 ? '0 4px 15px rgba(251,191,36,0.4)' : 'none', 
+                      marginBottom: '6px',
+                      transition: 'all 0.2s'
+                    }}
                   >
-                    {t('roomMasterVoteBtn')} <br/>
-                    <span style={{ fontSize: '0.8rem', fontWeight: 'bold', opacity: 0.8 }}>{t('roomMasterVotesRemaining').replace('{count}', String(masterVotesLeft))}</span>
+                    {masterVotesLeft > 0 ? t('roomMasterVoteBtn') : (lang === 'en' ? '👑 All Special Awards Distributed' : '👑 Minden Különdíj kiosztva')} <br/>
+                    <span style={{ fontSize: '0.8rem', fontWeight: 'bold', opacity: 0.8 }}>
+                      {masterVotesLeft > 0 
+                        ? t('roomMasterVotesRemaining').replace('{count}', String(masterVotesLeft))
+                        : (lang === 'en' ? '0 votes remaining' : '0 szavazat maradt')}
+                    </span>
                   </button>
                 )}
 
