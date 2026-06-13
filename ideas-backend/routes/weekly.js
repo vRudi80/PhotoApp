@@ -719,8 +719,8 @@ async function getUserLikesAndVictories(pool, email) {
     } catch (err) { res.status(500).json({ error: 'Hiba a kép lekérésekor' }); }
   });
 
-  // ====================================================================
-  // 🗳️ ULTRA OPTIMALIZÁLT SZAVAZATBEKÜLDŐ VÉGPONT (Képmester-biztos verzió)
+   // ====================================================================
+  // 🗳️ JAVÍTVA: ULTRA OPTIMALIZÁLT SZAVAZATBEKÜLDŐ VÉGPONT (Csatabíró-szabadon futó verzió)
   // ====================================================================
   app.post('/api/weekly/vote', async (req, res) => {
     const { entryId, userEmail, voteType } = req.body; 
@@ -742,16 +742,13 @@ async function getUserLikesAndVictories(pool, email) {
       const [topicRows] = await conn.query('SELECT master_email FROM weekly_topics WHERE id = ?', [topicId]);
       const assignedMasterEmail = topicRows[0]?.master_email;
       
-      // 👑 Ellenőrizzük, hogy a szavazó-e a szoba hivatalos Képmestere
-      const isRealMasterOfThisRoom = (userEmail === assignedMasterEmail);
+      const isRealMasterOfThisRoom = 
+        userEmail && 
+        assignedMasterEmail && 
+        userEmail.toLowerCase().trim() === assignedMasterEmail.toLowerCase().trim();
 
-      // 🎯 KÉNYSZERÍTÉS: Ha a Képmester a legerősebb voksát ('brilliant' vagy 'master') küldi, 
-      // akkor azt az adatbázis és a limitellenőrzés kedvéért fixen 'master'-nek tekintjük.
-      let finalVoteType = voteType;
-      if (isRealMasterOfThisRoom && (voteType === 'brilliant' || voteType === 'master')) {
-        finalVoteType = 'master';
-      }
-
+      // 🎯 JAVÍTVA: Eltávolítottuk a kényszerítést! A voteType pontosan az marad, amit a júzer megnyomott.
+      const finalVoteType = voteType;
       let calculatedPoints = 0;
 
       // 3. Pontszámítás az ellenőrzött szavazat típusa szerint
@@ -759,7 +756,7 @@ async function getUserLikesAndVictories(pool, email) {
         calculatedPoints = 0;
       } 
       else if (finalVoteType === 'master') {
-        // 🛡️ BIZTONSÁGI PAJZS: Ha a frontend 'master'-t küldött, de az illető NEM a Képmester, visszaverjük!
+        // 🛡️ BIZTONSÁGI PAJZS: Csak a szoba valódi Képmestere küldhet be 'master' típusú szavazatot
         if (!isRealMasterOfThisRoom) {
           await conn.rollback();
           return res.status(403).json({ error: 'Nem te vagy a csata kijelölt Csatabírója!' });
@@ -780,18 +777,18 @@ async function getUserLikesAndVictories(pool, email) {
         calculatedPoints = 10; 
       } 
       else {
-        // Sima játékosok szavazata, vagy a Képmester 'super' voksa (ami a saját rangja szerint ad pontot)
+        // Sima játékosok szavazata, VAGY a Képmester sima (super/brilliant) voksa, ami a saját rangja szerint ad pontot
         const { totalLikes, victories } = await getUserLikesAndVictories(conn, userEmail);
         const level = calculateRankLevel(totalLikes, victories);
         const power = getVotePowerByLevel(level);
         calculatedPoints = finalVoteType === 'super' ? power.super : power.brilliant;
       }
 
-      // 4. Szavazat rögzítése és pontok hozzáírása a képhez (már a kényszerített finalVoteType-al!)
+      // 4. Szavazat rögzítése és pontok hozzáírása a képhez
       await conn.query('INSERT INTO weekly_votes (entry_id, voter_email, vote_type) VALUES (?, ?, ?)', [entryId, userEmail, finalVoteType]);
       await conn.query('UPDATE weekly_entries SET views_count = views_count + 1, likes_count = likes_count + ? WHERE id = ?', [calculatedPoints, entryId]);
 
-      // 5. Alkotó szintlépésének ellenőrzése (Csak ha ténylegesen kapott pontot a kép)
+      // 5. Alkotó szintlépésének ellenőrzése
       if (calculatedPoints > 0) {
         const [entryRows] = await conn.query('SELECT user_email FROM weekly_entries WHERE id = ?', [entryId]);
         if (entryRows[0]?.user_email) {
@@ -808,6 +805,7 @@ async function getUserLikesAndVictories(pool, email) {
       conn.release(); 
     }
   });
+
 
   app.post('/api/weekly/claim-referral', async (req, res) => {
     const { userEmail, referralCode } = req.body;
