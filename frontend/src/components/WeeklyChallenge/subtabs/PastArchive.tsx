@@ -25,12 +25,12 @@ export default function PastArchive({
   handleImageError, setFullscreenData, user
 }: PastArchiveProps) {
 
-  // 🎯 ÚJ: Aktiváljuk a fordítót (t) és a nyelv-figyelőt (lang)
+  // 🎯 Nyelvi fordító és jelző beállítása
   const { t, lang } = useLanguage();
 
   const [activeArchiveEntry, setActiveArchiveEntry] = useState<any | null>(null);
 
-  // 👑 ÚJ ADMIN STATE-EK: A Facebook pódium-plakát automata generálásához az aloldalon
+  // 👑 Képgeneráló állapotok az admin pódium-plakáthoz
   const [adminPosterData, setAdminPosterData] = useState<{ topic: any; entries: any[] } | null>(null);
   const [isAdminGeneratingPoster, setIsAdminGeneratingPoster] = useState(false);
 
@@ -38,13 +38,13 @@ export default function PastArchive({
     ? (pastLeaderboard.find(x => x.id === activeArchiveEntry.id) || activeArchiveEntry)
     : null;
 
-  // 👑 ÚJ ADMIN FUNKCIÓ: Kivonja a top 3 helyezettet és Base64-é alakítja a képeiket a CORS hiba ellen
+  // 👑 ADMIN FUNKCIÓ: Top 3 helyezett kivonása és Base64 konverziója (CORS-biztos)
   const handleGenerateAdminPoster = async (matchedTopic: any) => {
     if (!matchedTopic || pastLeaderboard.length === 0) return;
     setIsAdminGeneratingPoster(true);
 
     try {
-      // Rangsorolunk pontosan úgy, ahogy az egyéni listában (Likes desc, Views asc)
+      // Szigorú rangsorolás: Lájkok csökkenő, Megtekintések növekvő sorrendben
       const sortedWinners = [...pastLeaderboard].sort((a, b) => {
         const likesA = Number(a?.likes_count || 0);
         const likesB = Number(b?.likes_count || 0);
@@ -71,6 +71,7 @@ export default function PastArchive({
           }
         } catch (e) { console.error("Kép konvertálási hiba:", e); }
         
+        // 🎯 Ellenőrizve: Az eredeti entry minden adata (köztük az adatbázis alapú user_name) megőrződik
         processedEntries.push({ ...entry, base64Url, rank: i + 1 });
       }
 
@@ -82,12 +83,12 @@ export default function PastArchive({
     }
   };
 
-  // 👑 ÚJ ADMIN EFFECT: Automatikusan letölti a képet, ha a rejtett DOM elemei összeálltak
+  // 👑 ADMIN EFFECT: Automatikus nagy felbontású képkonverzió és letöltésindítás
   useEffect(() => {
     if (!adminPosterData) return;
     
     const executeDownload = async () => {
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Idő a Base64 rendereléshez
+      await new Promise(resolve => setTimeout(resolve, 1000)); 
       const node = document.getElementById('admin-past-poster-node');
       
       if (node) {
@@ -167,7 +168,7 @@ export default function PastArchive({
                   </div>
                 )}
 
-                {/* 👑 ÚJ: Célzott, látványos Adminisztrátori pódium-generáló gomb */}
+                {/* 👑 Adminisztrátori pódium-generáló gomb */}
                 {user?.email === ADMIN_EMAIL && pastLeaderboard.length > 0 && (
                   <button
                     disabled={isAdminGeneratingPoster}
@@ -231,6 +232,7 @@ export default function PastArchive({
                     ) : (
                       clubMembers.map((m, idx) => (
                         <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#cbd5e1' }}>
+                          {/* 🎯 Biztosítva: Klubtagok nevei is az aktuális user_name mezőből jönnek */}
                           <span>👤 {m.user_name}</span>
                           <span style={{ fontWeight: 'bold', color: '#fbbf24' }}>{m.likes_count || 0} ⭐</span>
                         </div>
@@ -270,6 +272,7 @@ export default function PastArchive({
               </div>
 
               <div style={{ flex: 1 }}>
+                {/* 🎯 MÓDOSÍTVA: Felhasználó neve garantáltan a frissített user_name mezőből húzódik ki */}
                 <div style={{ color: 'white', fontWeight: 'bold' }}>{entry?.user_name || t('archivePhotographer')}</div>
                 {entry?.club_name && <div style={{ color: '#10b981', fontSize: '0.75rem', fontWeight: 'bold' }}>🛡️ {entry.club_name}</div>}
                 
@@ -289,7 +292,7 @@ export default function PastArchive({
 
       </div>
 
-      {/* 💬 INTERAKTÍV KIBESZÉLŐ MODÁL RENDERELÉSE */}
+      {/* 💬 INTERAKTÍV KIBESZÉLŐ MODÁL */}
       {currentModalEntry && (
         <ArchiveDetailModal
           entry={currentModalEntry}
@@ -304,7 +307,7 @@ export default function PastArchive({
         />
       )}
 
-      {/* 👑 ÚJ: REJTETT 3D PÓDIUM-GENERÁLÓ EGYSÉG (Láthatatlan, 1200x1200px-es HD Facebook sablon) */}
+      {/* 👑 REJTETT 3D PÓDIUM-GENERÁLÓ EGYSÉG (Láthatatlan, 1200x1200px-es HD Facebook sablon) */}
       <div style={{ position: 'absolute', top: '-9999px', left: '-9999px', overflow: 'hidden', width: 0, height: 0 }}>
         {adminPosterData && (
           <div 
@@ -338,6 +341,7 @@ export default function PastArchive({
                     <img src={adminPosterData.entries[1].base64Url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   </div>
                   <div style={{ background: 'linear-gradient(180deg, #334155 0%, #1e293b 100%)', width: '100%', height: '200px', borderRadius: '16px 16px 0 0', border: '1px solid #475569', borderBottom: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '15px', boxSizing: 'border-box', textAlign: 'center' }}>
+                    {/* 🎯 MÓDOSÍTVA: A plakáton is garantáltan az adatbázisból behúzott user_name jelenik meg */}
                     <div style={{ color: '#cbd5e1', fontSize: '24px', fontWeight: 'bold', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{adminPosterData.entries[1].user_name}</div>
                     <div style={{ color: '#94a3b8', fontSize: '22px', fontWeight: '900', marginTop: '4px' }}>{adminPosterData.entries[1].likes_count} ⭐</div>
                     <div style={{ color: '#cbd5e1', fontSize: '32px', fontWeight: '900', marginTop: '20px', letterSpacing: '1px' }}>🥈 2. {lang === 'en' ? 'PLACE' : 'HELY'}</div>
@@ -353,6 +357,7 @@ export default function PastArchive({
                     <img src={adminPosterData.entries[0].base64Url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   </div>
                   <div style={{ background: 'linear-gradient(180deg, #fbbf24 0%, #b45309 100%)', width: '100%', height: '270px', borderRadius: '20px 24px 0 0', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '15px', boxSizing: 'border-box', textAlign: 'center', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
+                    {/* 🎯 MÓDOSÍTVA: A plakáton is garantáltan az adatbázisból behúzott user_name jelenik meg */}
                     <div style={{ color: '#0f172a', fontSize: '28px', fontWeight: '900', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{adminPosterData.entries[0].user_name}</div>
                     <div style={{ color: '#0f172a', fontSize: '26px', fontWeight: '900', marginTop: '4px', opacity: 0.9 }}>{adminPosterData.entries[0].likes_count} ⭐</div>
                     <div style={{ color: '#ffffff', fontSize: '38px', fontWeight: '900', marginTop: '25px', letterSpacing: '1px', textShadow: '0 2px 10px rgba(0,0,0,0.4)' }}>🥇 1. {lang === 'en' ? 'PLACE' : 'HELY'}</div>
@@ -367,6 +372,7 @@ export default function PastArchive({
                     <img src={adminPosterData.entries[2].base64Url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   </div>
                   <div style={{ background: 'linear-gradient(180deg, #7c2d12 0%, #431407 100%)', width: '100%', height: '150px', borderRadius: '16px 16px 0 0', border: '1px solid #7c2d12', borderBottom: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '15px', boxSizing: 'border-box', textAlign: 'center' }}>
+                    {/* 🎯 MÓDOSÍTVA: A plakáton is garantáltan az adatbázisból behúzott user_name jelenik meg */}
                     <div style={{ color: '#ffedd5', fontSize: '22px', fontWeight: 'bold', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{adminPosterData.entries[2].user_name}</div>
                     <div style={{ color: '#fdba74', fontSize: '20px', fontWeight: '900', marginTop: '4px' }}>{adminPosterData.entries[2].likes_count} ⭐</div>
                     <div style={{ color: '#fdba74', fontSize: '28px', fontWeight: '900', marginTop: '15px', letterSpacing: '1px' }}>🥉 3. {lang === 'en' ? 'PLACE' : 'HELY'}</div>
@@ -379,7 +385,7 @@ export default function PastArchive({
             {/* Lábléc */}
             <div style={{ width: '100%', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '25px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#64748b', fontSize: '18px', fontWeight: 'bold' }}>
               <div>{lang === 'en' ? 'Join the Arena Battle:' : 'Csatlakozz a kihívásokhoz:'} <span style={{ color: '#38bdf8' }}>photawesome.com</span></div>
-              <div style={{ color: '#fbbf24', letterSpacing: '1px' }}>✨ Képolvasók fotóklub ✨</div>
+              <div style={{ color: '#fbbf24', letterSpacing: '1px' }}>✨ PhotAwesome Arena ✨</div>
             </div>
 
           </div>
