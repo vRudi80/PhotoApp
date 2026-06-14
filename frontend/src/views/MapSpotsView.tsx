@@ -21,7 +21,7 @@ interface MapSpotsViewProps {
 
 export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId, setTargetMapSpotId }: MapSpotsViewProps) {
   
-  // 🎯 ÚJ: Aktiváljuk a fordítót (t) és a nyelvi állapotot (lang)
+  // 🎯 Aktiváljuk a fordítót (t) és a nyelvi állapotot (lang)
   const { t, lang } = useLanguage();
 
   const { isLoaded } = useJsApiLoader({
@@ -65,7 +65,7 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
   const inputStyle = { width: '100%', padding: '10px', marginBottom: '10px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '6px', boxSizing: 'border-box' as const };
   const isAdmin = user?.email === ADMIN_EMAIL; 
 
-  // 🎯 ÚJ: Adatbázisban tárolt fix magyar szövegek dinamikus oda-vissza fordító szótára
+  // 🎯 Adatbázisban tárolt fix magyar szövegek dinamikus oda-vissza fordító szótára
   const dbTranslationsEn: Record<string, string> = {
     'Január': 'January', 'Február': 'February', 'Március': 'March', 'Április': 'April',
     'Május': 'May', 'Június': 'June', 'Július': 'July', 'Augusztus': 'August',
@@ -222,7 +222,7 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
     } catch (error) { alert(t('msgNetworkError')); fetchLocations(); }
   };
 
-  // 👑 JAVÍTVA: Automatikus GPS koordináta-olvasó és térkép-fókuszáló motor
+  // 👑 JAVÍTVA: Azonnali, betallózáskor lefutó EXIF-GPS térkép-teleport motor
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
@@ -230,8 +230,8 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
       setUploadPreview(URL.createObjectURL(file));
 
       try {
-        // 🎯 ÚJ: Lekérjük a 'latitude' és 'longitude' normalizált koordinátákat is az exifr-től
-        const exifData = await exifr.parse(file, ['Make', 'Model', 'LensModel', 'DateTimeOriginal', 'latitude', 'longitude']);
+        // 🎯 Nem korlátozzuk tömbbel, így az exifr engedélyezi a GPS alrendszert és kiszámolja a tizedeses koordinátákat
+        const exifData = await exifr.parse(file);
         
         if (exifData) {
           if (exifData.Model) {
@@ -260,25 +260,30 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
             }
           }
 
-          // 🎯 ÚJ: GPS koordináták ellenőrzése és a jelölő automatikus áthelyezése
+          // 🎯 Ellenőrizzük a kiszámolt koordinátákat betallózáskor
           if (typeof exifData.latitude === 'number' && typeof exifData.longitude === 'number') {
             const gpsCoords = { lat: exifData.latitude, lng: exifData.longitude };
             
+            // 1. Áthelyezzük a virtuális jelölőt (Marker) a térképen oda, ahol a fotó készült
             if (editingSpot) {
-              // Ha szerkesztünk, az épp módosított spot helyzetét írjuk felül
               setEditingSpot((prev: any) => prev ? { ...prev, lat: gpsCoords.lat.toString(), lng: gpsCoords.lng.toString() } : null);
             } else {
-              // Ha új spotot veszünk fel, a leendő új gombostűt lőjük oda
               setNewSpotLatLng(gpsCoords);
             }
 
-            // Térkép fókuszálása a kép készítésének valódi helyszínére nagy pontossággal
+            // 2. Frissítjük a React cél-pozíció állapotát
             setMapTargetPosition(gpsCoords);
-            setMapZoom(15);
+            setMapZoom(16); // Közelebbi, precízebb zoom az ellenőrzéshez
+
+            // 3. 🔥 KÉNYSZERÍTETT AZONNALI PAN: Ha a Google Maps példány már él, azonnal odarántjuk a kamerát!
+            if (map) {
+              map.panTo(gpsCoords);
+              map.setZoom(16);
+            }
           }
         }
       } catch (exifError) {
-        console.log("EXIF parsing bypassed or no GPS payload discovered.");
+        console.log("EXIF parsing bypassed or no GPS payload discovered inside the asset.");
       }
     }
   };
@@ -300,7 +305,6 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
 
     try {
       if (editingSpot) {
-        // 🎯 ÚJ: Ha az EXIF koordináta módosította az editingSpot-ot, elküldjük a frissített pozíciót is mentéskor
         formData.append('lat', editingSpot.lat);
         formData.append('lng', editingSpot.lng);
         const res = await fetch(`${BACKEND_URL}/api/locations/${editingSpot.id}`, { method: 'PUT', body: formData });
@@ -414,7 +418,7 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
         {/* FORM PANEL */}
         {(newSpotLatLng || editingSpot) && (
           <div style={{ background: '#0f172a', padding: '20px', borderRadius: '12px', border: editingSpot ? '2px solid #f59e0b' : '2px solid #38bdf8', animation: 'fadeIn 0.3s ease-out' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontItems: 'center', marginBottom: '15px' }}>
               <h3 style={{ margin: 0, color: editingSpot ? '#f59e0b' : '#38bdf8' }}>
                 {editingSpot ? t('mapFormEditTitle').replace('{title}', editingSpot.title) : t('mapFormNewTitle')}
               </h3>
@@ -449,7 +453,7 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
               </div>
               <div>
                 <label style={{ fontSize: '0.8rem', color: '#a855f7', fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>{t('mapFormLensLabel')}</label>
-                <input placeholder={t('mapFormLensPlaceholder')} value={uploadCamera || uploadLens} onChange={e => setUploadLens(e.target.value)} style={{...inputStyle, marginBottom: 0}} disabled={isUploading} />
+                <input placeholder={t('mapFormLensPlaceholder')} value={uploadLens} onChange={e => setUploadLens(e.target.value)} style={{...inputStyle, marginBottom: 0}} disabled={isUploading} />
               </div>
             </div>
 
@@ -530,7 +534,7 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
 
                   <p style={{ color: '#cbd5e1', fontSize: '0.9rem', margin: 0, lineHeight: '1.5' }}>{activeSpot.description}</p>
 
-                  {/* TIPIKUS EXIF ADATOK LEFORDÍTVA */}
+                  {/* EXIF ADATOK LEFORDÍTVA */}
                   {(activeSpot.photo_month || activeSpot.photo_time_of_day || activeSpot.camera || activeSpot.lens) && (
                     <div style={{ background: '#0f172a', border: '1px solid #1e293b', padding: '12px', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       <div style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#64748b', textTransform: 'uppercase', letterSpacing: '1px' }}>{t('mapExifCardTitle')}</div>
