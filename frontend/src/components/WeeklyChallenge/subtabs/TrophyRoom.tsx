@@ -225,7 +225,9 @@ export default function TrophyRoom({
                 type="text" 
                 placeholder={t('trophyPlaceholderRef')} 
                 value={referralInput}
-                onChange={e => setReferralInput(e.target.value)}
+                // 🎯 JAVÍTVA: Nemcsak látványban, de adat szinten is azonnal nagybetűsítünk!
+                onChange={e => setReferralInput(e.target.value.toUpperCase())}
+
                 disabled={isClaimingReferral}
                 style={{ flex: 1, padding: '12px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '12px', fontSize: '1rem', outline: 'none', textTransform: 'uppercase', fontFamily: 'monospace' }} 
               />
