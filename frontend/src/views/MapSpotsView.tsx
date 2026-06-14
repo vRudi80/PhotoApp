@@ -4,7 +4,7 @@ import { BACKEND_URL, ADMIN_EMAIL } from '../utils/constants';
 import { getImageUrl } from '../utils/helpers';
 import exifr from 'exifr'; 
 
-// 🎯 ÚJ IMPORT: Behozzuk a nyelvi kontextust
+// 🎯 Behozzuk a nyelvi kontextust
 import { useLanguage } from '../context/LanguageContext';
 
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "";
@@ -119,7 +119,7 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
     );
   });
 
-  // 👑 ÚJ: Ultra-gyors, reaktív statisztikai elemző motor a meglévő helyszínek alapján
+  // 👑 Reaktív statisztikai elemző motor a meglévő helyszínek alapján
   const mapStats = useMemo(() => {
     if (!locations || locations.length === 0) {
       return { totalSpots: 0, totalLikes: 0, mySpotsCount: 0, leaderboard: [] };
@@ -137,11 +137,10 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
       contributorMap[name] = (contributorMap[name] || 0) + 1;
     });
 
-    // Rangsorba állítjuk a top felfedezőket rögzítési darabszám szerint
     const leaderboard = Object.entries(contributorMap)
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => b.count - a.count)
-      .slice(0, 3); // Csak a top 3-at kérjük el
+      .slice(0, 3); 
 
     return { totalSpots: locations.length, totalLikes, mySpotsCount, leaderboard };
   }, [locations, user?.email]);
@@ -249,7 +248,7 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
     } catch (error) { alert(t('msgNetworkError')); fetchLocations(); }
   };
 
-  // 👑 JAVÍTVA: Azonnali, betallózáskor lefutó EXIF-GPS térkép-teleport motor
+  // 👑 Azonnali, betallózáskor lefutó EXIF-GPS térkép-teleport motor
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
@@ -257,6 +256,7 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
       setUploadPreview(URL.createObjectURL(file));
 
       try {
+        // 🎯 Nem korlátozzuk tömbbel, így az exifr engedélyezi a GPS alrendszert és kiszámolja a tizedeses koordinátákat
         const exifData = await exifr.parse(file);
         
         if (exifData) {
@@ -286,19 +286,22 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
             }
           }
 
-          // 🎯 Azonnali ellenőrzés és koordináta teleport betallózáskor
+          // 🎯 Ellenőrizzük a kiszámolt koordinátákat betallózáskor
           if (typeof exifData.latitude === 'number' && typeof exifData.longitude === 'number') {
             const gpsCoords = { lat: exifData.latitude, lng: exifData.longitude };
             
+            // 1. Áthelyezzük a virtuális jelölőt (Marker) a térképen oda, ahol a fotó készült
             if (editingSpot) {
               setEditingSpot((prev: any) => prev ? { ...prev, lat: gpsCoords.lat.toString(), lng: gpsCoords.lng.toString() } : null);
             } else {
               setNewSpotLatLng(gpsCoords);
             }
 
+            // 2. Frissítjük a React cél-pozíció állapotát
             setMapTargetPosition(gpsCoords);
             setMapZoom(16); 
 
+            // 3. 🔥 KÉNYSZERÍTETT AZONNALI PAN: Ha a Google Maps példány már él, azonnal odarántjuk a kamerát!
             if (map) {
               map.panTo(gpsCoords);
               map.setZoom(16);
@@ -411,45 +414,43 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '15px' }}>
         <h2 style={{ fontSize: '2rem', margin: 0, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '10px' }}>{t('mapTitle')}</h2>
         
-        {/* 🎯 MODERNIZÁLT INTELIGENS MEGHÍVÓ ÉS TELEPORT TIPP BANNER */}
+        {/* 🎯 KÉTNYELVŰSÍTETT TIPP BANNER */}
         <div style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.15), rgba(56,189,248,0.15))', color: '#34d399', padding: '10px 18px', borderRadius: '12px', border: '1px solid rgba(16,185,129,0.3)', fontWeight: 'bold', fontSize: '0.88rem', maxWidth: '650px', lineHeight: '1.4', boxShadow: '0 4px 15px rgba(0,0,0,0.15)' }}>
-          💡 <b>{lang === 'en' ? 'SMART PHOTO RADAR ON:' : 'INTELLIGENS FOTÓRADAR AKTÍV:'}</b>{' '}
-          {lang === 'en' 
-            ? 'Click the map to pin manually, OR simply select a photo. If it contains EXIF GPS coordinates, the radar will instantly teleport the map and lock the anchor marker right there!' 
-            : 'Kattints a térképre gombostűhöz, VAGY egyszerűen tallózz be egy fotót! Ha van benne EXIF GPS koordináta, a radar azonnal odateleportálja a térképet és odaszegezi a jelölőt!'}
+          💡 <b>{t('mapSmartRadarTitle')}</b>{' '}
+          {t('mapSmartRadarDesc')}
         </div>
       </div>
 
-      {/* 🎯 ÚJ: BENTO-STÍLUSÚ KÖZÖSSÉGI FELFEDEZŐ DASHBOARD PANELSOR */}
+      {/* 🎯 KÉTNYELVŰSÍTETT BENTO-STÍLUSÚ KÖZÖSSÉGI FELFEDEZŐ DASHBOARD PANELSOR */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '20px', marginBottom: '25px' }}>
         
         {/* Kártya 1: Globális térkép adatok */}
         <div style={{ background: 'linear-gradient(145deg, #1e293b, #0f172a)', padding: '20px', borderRadius: '16px', border: '1px solid #334155', boxShadow: '0 4px 15px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
           <div style={{ color: '#94a3b8', fontSize: '0.75rem', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '6px' }}>
-            {lang === 'en' ? '🌍 Global Map Database' : '🌍 Globális Térkép Adatbázis'}
+            {t('mapDashGlobalTitle')}
           </div>
           <div style={{ fontSize: '1.8rem', fontWeight: '900', color: '#38bdf8', marginBottom: '2px' }}>
-            {mapStats.totalSpots} <span style={{ fontSize: '1rem', fontWeight: 'normal', color: '#64748b' }}>{lang === 'en' ? 'locations' : 'helyszín'}</span>
+            {mapStats.totalSpots} <span style={{ fontSize: '1rem', fontWeight: 'normal', color: '#64748b' }}>{t('mapDashLocations')}</span>
           </div>
           <div style={{ color: '#f43f5e', fontWeight: 'bold', fontSize: '0.9rem' }}>
-            ❤️ {mapStats.totalLikes} <span style={{ color: '#94a3b8', fontWeight: 'normal', fontSize: '0.8rem' }}>{lang === 'en' ? 'community praises' : 'közösségi elismerés'}</span>
+            ❤️ {mapStats.totalLikes} <span style={{ color: '#94a3b8', fontWeight: 'normal', fontSize: '0.8rem' }}>{t('mapDashPraises')}</span>
           </div>
         </div>
 
         {/* Kártya 2: Felfedezők Dicsőségtáblája */}
         <div style={{ background: 'linear-gradient(145deg, #1e293b, #0f172a)', padding: '20px', borderRadius: '16px', border: '1px solid #fbbf2440', boxShadow: '0 4px 15px rgba(0,0,0,0.2)' }}>
           <div style={{ color: '#fbbf24', fontSize: '0.75rem', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>
-            🏆 {lang === 'en' ? 'Top Map Pioneers' : 'Top Térkép-Felfedezők'}
+            🏆 {t('mapDashPioneersTitle')}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             {mapStats.leaderboard.map((leader, i) => (
               <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#cbd5e1', borderBottom: i < 2 ? '1px dashed #334155' : 'none', paddingBottom: i < 2 ? '4px' : 0 }}>
                 <span>{i+1}. 👤 {leader.name}</span>
-                <b style={{ color: '#fbbf24' }}>{leader.count} {lang === 'en' ? 'spots' : 'hely'}</b>
+                <b style={{ color: '#fbbf24' }}>{leader.count} {t('mapDashSpots')}</b>
               </div>
             ))}
             {mapStats.leaderboard.length === 0 && (
-              <span style={{ fontSize: '0.85rem', color: '#64748b', fontStyle: 'italic' }}>{lang === 'en' ? 'No data discovered yet' : 'Még nincs rögzített adat'}</span>
+              <span style={{ fontSize: '0.85rem', color: '#64748b', fontStyle: 'italic' }}>{t('mapDashNoData')}</span>
             )}
           </div>
         </div>
@@ -458,17 +459,15 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
         <div style={{ background: 'linear-gradient(145deg, #16a34a10, #0f172a)', padding: '20px', borderRadius: '16px', border: '1px solid #10b98140', boxShadow: '0 4px 15px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
           <div>
             <div style={{ color: '#10b981', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '4px' }}>
-              {lang === 'en' ? '❤️ THANK YOU!' : '❤️ NAGYON KÖSZÖNJÜK!'}
+              {t('mapDashThankYou')}
             </div>
             <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.8rem', lineHeight: '1.4' }}>
-              {lang === 'en' 
-                ? 'Thank you for tracking and sharing your photography spots, building this visual roadmap together!' 
-                : 'Hálásak vagyunk, hogy a helyszíneid megosztásával te is építed a közösségünk interaktív fotós térképét!'}
+              {t('mapDashThankYouDesc')}
             </p>
           </div>
           <div style={{ borderTop: '1px solid #10b98120', paddingTop: '6px', marginTop: '6px', fontSize: '0.85rem', color: '#cbd5e1', fontWeight: 'bold' }}>
-            📸 {lang === 'en' ? 'Your contribution:' : 'Saját felfedezéseid:'}{' '}
-            <span style={{ color: '#10b981', fontSize: '1rem', fontWeight: '900' }}>{mapStats.mySpotsCount}</span> {lang === 'en' ? 'spots' : 'hely'}
+            📸 {t('mapDashYourContribution')}{' '}
+            <span style={{ color: '#10b981', fontSize: '1rem', fontWeight: '900' }}>{mapStats.mySpotsCount}</span> {t('mapDashSpots')}
           </div>
         </div>
 
@@ -517,7 +516,7 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
               <div>
                 <label style={{ fontSize: '0.8rem', color: '#38bdf8', fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>{t('mapFormMonthLabel')}</label>
                 <select value={uploadMonth} onChange={e => setUploadMonth(e.target.value)} style={{...inputStyle, marginBottom: 0}} disabled={isUploading}>
-                  <option value="">-- {lang === 'en' ? 'Not specified' : 'Nincs megadva'} --</option>
+                  <option value="">-- {t('mapNotSpecified')} --</option>
                   {['Január', 'Február', 'Március', 'Április', 'Május', 'Június', 'Július', 'Augusztus', 'Szeptember', 'Október', 'November', 'December'].map(m => (
                     <option key={m} value={m}>{translateDbValue(m)}</option>
                   ))}
@@ -526,7 +525,7 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
               <div>
                 <label style={{ fontSize: '0.8rem', color: '#f59e0b', fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>{t('mapFormTimeLabel')}</label>
                 <select value={uploadTimeOfDay} onChange={e => setUploadTimeOfDay(e.target.value)} style={{...inputStyle, marginBottom: 0}} disabled={isUploading}>
-                  <option value="">-- {lang === 'en' ? 'Not specified' : 'Nincs megadva'} --</option>
+                  <option value="">-- {t('mapNotSpecified')} --</option>
                   {['Napkelte / Aranyóra', 'Napközben', 'Naplemente / Kékóra', 'Éjszaka / Tejút'].map(n => (
                     <option key={n} value={n}>{translateDbValue(n)}</option>
                   ))}
