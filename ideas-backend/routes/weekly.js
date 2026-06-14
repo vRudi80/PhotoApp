@@ -804,8 +804,8 @@ async function getUserLikesAndVictories(pool, email) {
   });
 
 
-    // ====================================================================
-  // 🎁 JAVÍTVA: PARAMÉTER-SZINKRONIZÁLT MEGHÍVÓ KÓD BEVÁLTÓ VÉGPONT
+  // ====================================================================
+  // 🎁 FRISSÍTVE: KÉTOLDALÚ JUTALMAZÁSSAL ELLÁTOTT BEVÁLTÓ VÉGPONT
   // ====================================================================
   app.post('/api/weekly/claim-referral', async (req, res) => {
     const { userEmail, referralCode } = req.body;
@@ -825,10 +825,13 @@ async function getUserLikesAndVictories(pool, email) {
       try {
         await conn.beginTransaction();
         
-        // 1. Megjutalmazzuk a meghívót (Dalmát) +10 Joker cserével
+        // 1. 🥇 Megjutalmazzuk a meghívót (Dalmát) +10 Joker cserével
         await conn.query('UPDATE photo_users SET swap_balance = swap_balance + 10 WHERE email = ?', [referrerEmail]);
         
-        // 🎯 JAVÍTVA: Átadjuk mind a két paramétert [cleanCode, userEmail] a két kérdőjelnek megfelelően!
+        // 2. 🥈 ÚJ: Megjutalmazzuk a meghívottat (Vikit) +5 Joker cserével
+        await conn.query('UPDATE photo_users SET swap_balance = swap_balance + 5 WHERE email = ?', [userEmail]);
+        
+        // 3. 📝 Bejegyezzük a kapcsolatot az adatbázisba
         await conn.query('UPDATE photo_users SET referred_by = ? WHERE email = ?', [cleanCode, userEmail]);
         
         await conn.commit();
@@ -843,6 +846,7 @@ async function getUserLikesAndVictories(pool, email) {
       res.status(500).json({ error: 'Hiba a kód érvényesítésekor.' });
     }
   });
+
 
 
   // ====================================================================
