@@ -14,22 +14,21 @@ const translations = {
     btnRules: '📖 Játékszabályok & Rangok',
     tileClubLifeTitle: 'Klubélet',
 
-      profStatusTitle: 'Fiókállapot és Használat',
-  profEmailLabel: 'REGISZTRÁLT E-MAIL CÍM (NEM MÓDOSÍTHATÓ)',
-  profSubLabel: 'ELŐFIZETÉSI SZINT',
-  profStorageLabel: '💾 Portfólió Tárhely',
-  profStorageSub: 'kép',
-  profAiLabel: '🤖 AI Képelemzés',
-  profAiSub: 'alkalom',
-  profAiDesc: 'Generált okos címkék száma',
-  profPremiumActive: 'Aktív prémium tagság',
-  profPremiumValid: 'Érvényes eddig',
-  profPremiumExpired: 'Tagság Lejárt',
-  profPremiumExpiredDesc: 'Visszaállítva ingyenes csomagra',
-  profPremiumExpiredOn: 'Lejárat dátuma',
-  profFreeTier: 'Ingyenes Alapfiók',
-  profFreeTierDesc: 'Korlátozott elérésű csomag',
-
+    profStatusTitle: 'Fiókállapot és Használat',
+    profEmailLabel: 'REGISZTRÁLT E-MAIL CÍM (NEM MÓDOSÍTHATÓ)',
+    profSubLabel: 'ELŐFIZETÉSI SZINT',
+    profStorageLabel: '💾 Portfólió Tárhely',
+    profStorageSub: 'kép',
+    profAiLabel: '🤖 AI Képelemzés',
+    profAiSub: 'alkalom',
+    profAiDesc: 'Generált okos címkék száma',
+    profPremiumActive: 'Aktív prémium tagság',
+    profPremiumValid: 'Érvényes eddig',
+    profPremiumExpired: 'Tagság Lejárt',
+    profPremiumExpiredDesc: 'Visszaállítva ingyenes csomagra',
+    profPremiumExpiredOn: 'Lejárat dátuma',
+    profFreeTier: 'Ingyenes Alapfiók',
+    profFreeTierDesc: 'Korlátozott elérésű csomag',
 
     ticketsStatusOpen: 'Új bejelentés',
     ticketsStatusInProgress: 'Folyamatban',
@@ -60,7 +59,6 @@ const translations = {
     sortLabel: 'RENDEZÉS:',
     sortEndDate: 'Befejezési idő (hamarosan lejáró)',
     sortStartDate: 'Indulási idő (legfrissebb)',
-
 
     arenaAlbumLoading: '⏳ Képtárad rendezése...',
     arenaAlbumEmptyTitle: 'A képcsarnokod még üres',
@@ -227,7 +225,7 @@ const translations = {
     roomVotingArena: '⚔️ Értékelő Aréna',
     roomNoVoteRight: 'Nincs szavazati jogod!',
     roomNoVoteRightDesc: 'A küzdelembe való belépéshez először be kell nevezned egy saját fotóval!',
-    roomAllVoted: 'Mindent értékeltél!',
+    roomAllVoted: 'Mint értékeltek!',
     roomAllVotedDesc: 'Várj, amíg a többiek is töltenek fel új képeket.',
     roomOffTopicWarning: '⚠️ {count} játékos szerint ez a kép Off-Topic vagy AI generált!',
     roomMasterVoteBtn: '👑 Képmester Különdíj (+10 pont)',
@@ -642,7 +640,7 @@ const translations = {
     msgApplyConfirm: '⚔️ Biztosan jelentkezel ennek a futamnak a Képmesterének?\n\nFigyelem: Képmesterként saját fotóval nem indulhatsz a futamban, viszont kapsz 5 darab exkluzív +10 pontot érő szavazatot!',
     msgApplySuccess: '🎉 Jelentkezésed sikeresen elküldve! A főadmin hamarosan elbírálja a műszerfalon.',
 
-    // 🎯 🎯 🎯 ÚJ ALBUM / PORTFÓLIÓ NYELVI KULCSOK (Kizárólag HU) 🎯 🎯 🎯
+    // Album és Portfólió kulcsok
     albumTitle: '🖼️ Saját Képalbum (Portfólió)',
     albumLoading: 'Portfólió betöltése...',
     albumPackageLabel: 'Csomagod: ',
@@ -685,7 +683,6 @@ const translations = {
     msgServerError: 'Szerver hiba',
   },
 
-  
   en: {
     // Navigációs fülek (WeeklyChallengeView)
     tabChallenges: '🏆 Challenges',
@@ -718,22 +715,21 @@ const translations = {
     navMap: '🌍 Map Spots',
     navAdmin: '⚙️ Admin',
 
-      profStatusTitle: 'Account Status & Usage',
-  profEmailLabel: 'REGISTERED EMAIL ADDRESS (UNALTERABLE)',
-  profSubLabel: 'SUBSCRIPTION LEVEL',
-  profStorageLabel: '💾 Portfolio Storage',
-  profStorageSub: 'photos',
-  profAiLabel: '🤖 AI Analyses',
-  profAiSub: 'times',
-  profAiDesc: 'Smart tags generated',
-  profPremiumActive: 'Active subscription tier',
-  profPremiumValid: 'Valid Until',
-  profPremiumExpired: 'Subscription Expired',
-  profPremiumExpiredDesc: 'Standard free tier applied',
-  profPremiumExpiredOn: 'Expired On',
-  profFreeTier: 'Free Tier Account',
-  profFreeTierDesc: 'Limited features active',
-
+    profStatusTitle: 'Account Status & Usage',
+    profEmailLabel: 'REGISTERED EMAIL ADDRESS (UNALTERABLE)',
+    profSubLabel: 'SUBSCRIPTION LEVEL',
+    profStorageLabel: '💾 Portfolio Storage',
+    profStorageSub: 'photos',
+    profAiLabel: '🤖 AI Analyses',
+    profAiSub: 'times',
+    profAiDesc: 'Smart tags generated',
+    profPremiumActive: 'Active subscription tier',
+    profPremiumValid: 'Valid Until',
+    profPremiumExpired: 'Subscription Expired',
+    profPremiumExpiredDesc: 'Standard free tier applied',
+    profPremiumExpiredOn: 'Expired On',
+    profFreeTier: 'Free Tier Account',
+    profFreeTierDesc: 'Limited features active',
     
     // Pályázatok almenü
     subClubContests: 'My Club Active Contests',
@@ -785,7 +781,6 @@ const translations = {
     sortLabel: 'SORT BY:',
     sortEndDate: 'Closing time (soonest)',
     sortStartDate: 'Starting time (newest)',
-
 
     ticketsStatusOpen: 'New Ticket',
     ticketsStatusInProgress: 'In Progress',
@@ -879,7 +874,7 @@ const translations = {
     msgRejectSuccess: '❌ Application rejected.',
 
     helpTitle: '📖 Guide to the Masters League',
-    helpExposureTitle: '⚡ Exposure Meter (Exposure Energy)',
+    helpExposureTitle: '⚡ Guide to the Masters League',
     helpExposureDesc: 'When you upload your photo, you receive exposure energy. Every time the system shows your photo to someone for review, this energy decreases. You can gain new energy by voting on others\' work. Keep the meter in the Green zone!',
     helpJokerTitle: '🃏 Joker: Tactical Photo Swap',
     helpJokerDesc: 'Feel like you could show a better photo for the given theme? In every challenge, you can freely swap your pictures from your Arena Gallery or device using the same Joker point! Your new photo starts from 0 points, but you can bring the old one back at any time without penalty.',
@@ -1020,12 +1015,14 @@ const translations = {
     trophyStatJokers: 'Available Joker Swaps',
     trophyStatViews: 'Total Views',
     trophyInviteTitle: '🎁 Invite a Friend!',
-    trophyInviteDesc: 'Share your code with a fellow photographer! If they register on the portal AND enter your code, you instantly receive +10 global Joker swaps.',
+    // 🎯 FRISSÍTVE: Beletettem az angol leírásba is a +5 Joker bónuszt az ajánlott fél számára
+    trophyInviteDesc: 'Share your code with a fellow photographer! If they register on the portal AND enter your code, you instantly receive +10 global Joker swaps to your balance, and they receive +5.',
     trophyInviteCode: 'YOUR CODE:',
     trophyCopy: 'Copy',
     trophyCopiedAlert: '📋 Invitation code copied to clipboard!',
     trophyReferredTitle: '🤝 Who invited you?',
-    trophyReferredDesc: 'If you registered on the Photo Club Portal via a friend\'s recommendation, enter their personal code so they receive their well-deserved reward swaps!',
+    // 🎯 FRISSÍTVE: Kicsit finomítottam az angol megfogalmazáson is, hogy egyértelmű legyen a kétoldali bónusz
+    trophyReferredDesc: 'If you registered on the Photo Club Portal via a friend\'s recommendation, enter their personal code so they receive their well-deserved reward swaps, and you get yours too!',
     trophyReferredSuccess: '✓ Successfully registered your invitation! Thank you.',
     trophySubmit: 'Submit',
     trophyPlaceholderRef: 'E.g., REF-A1B2C3',
@@ -1327,7 +1324,7 @@ const translations = {
     msgApplyConfirm: '⚔️ Are you sure you want to apply as the Master for this match?\n\nAttention: As a Master, you cannot enter the match with your own photo, but you will receive 5 exclusive votes worth +10 points each!',
     msgApplySuccess: '🎉 Application successfully sent! The admin will review it on the dashboard shortly.',
 
-    // 🎯 🎯 🎯 ÚJ ALBUM / PORTFÓLIÓ NYELVI KULCSOK (Kizárólag EN) 🎯 🎯 🎯
+    // Album és Portfólió kulcsok
     albumTitle: '🖼️ My Portfolio Album',
     albumLoading: 'Loading portfolio...',
     albumPackageLabel: 'Your plan: ',
