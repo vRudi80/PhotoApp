@@ -14,7 +14,7 @@ const translations = {
     btnRules: '📖 Játékszabályok & Rangok',
     tileClubLifeTitle: 'Klubélet',
 
-    mapSmartRadarTitle: 'INTELLIGENS HELYSZÍNFELISMERES AKTÍV:',
+    mapSmartRadarTitle: 'INTELLIGENS HELYSZÍNFELISMERÉS AKTÍV:',
   mapSmartRadarDesc: 'Kattints a térképre gombostűhöz, MAJD egyszerűen tallózz be egy fotót! Ha van benne EXIF GPS koordináta, a radar azonnal odateleportálja a térképet és odaszegezi a jelölőt!',
   mapDashGlobalTitle: '🌍 Globális Térkép Adatbázis',
   mapDashLocations: 'helyszín',
