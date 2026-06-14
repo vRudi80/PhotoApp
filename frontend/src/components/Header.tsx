@@ -52,7 +52,7 @@ export default function Header({
     checkUnread();
     const interval = setInterval(checkUnread, 600000);
     return () => clearInterval(interval);
-  }, [user, activeTab]);
+  }, [user, activeTab, isAdminUser]);
   
   const handleNavClick = (tab: string) => {
     setActiveTab(tab);
@@ -78,7 +78,7 @@ export default function Header({
     }
   };
 
-  // 🎯 REUSABLE LOGO BLOCK: Hogy ne kelljen kétszer megírni a designt
+  // 🎯 REUSABLE LOGO BLOCK
   const LogoBrandBlock = () => (
     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
       <div style={{ 
@@ -106,7 +106,6 @@ export default function Header({
   return (
     <header className="app-header">
       
-      {/* 🔮 INTELIGENS RESZPONZÍV STYLING: Elintézi a rejtést/megjelenítést a gyári CSS feszítése mellett is */}
       <style>{`
         .header-desktop-brand-wrapper {
           display: flex;
@@ -120,7 +119,7 @@ export default function Header({
         }
       `}</style>
       
-      {/* A: MOBIL FELÜLETŰ FELSŐ SÁV (Csak mobilon látszik) */}
+      {/* A: MOBIL FELÜLETŰ FELSŐ SÁV */}
       <div className="mobile-header-top">
         <LogoBrandBlock />
         <button className="hamburger-btn" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
@@ -131,36 +130,24 @@ export default function Header({
       {/* B: ASZTALI / LENYÍLÓ NAVIGÁCIÓS PANEL */}
       <div className={`header-nav-container ${isMobileMenuOpen ? 'mobile-open' : ''}`}>
         
-        {/* 🎯 ASZTALI BRANDING BLOKK (Csak nagy kijelzőn látszik, legelöl) */}
         <div className="header-desktop-brand-wrapper">
           <LogoBrandBlock />
         </div>
 
         <div className="nav-group">
-          
-          {/* ====================================================================
-               FŐ NAVIGÁCIÓ (BAL OLDAL - LEFORDÍTVA)
-             ==================================================================== */}
-          
-          {/* 1. FŐOLDAL GOMB */}
+          {/* FŐ NAVIGÁCIÓ */}
           <div className="nav-item-container" style={{ zIndex: 50 }}>
             <button className={`nav-btn ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => handleNavClick('dashboard')}>
               <span>{t('navHome')}</span>
             </button>
           </div>
 
-          {/* 1b. PÁRBAJ (ARÉNA) GOMB */}
           <div className="nav-item-container" style={{ zIndex: 50 }}>
-            <button 
-              className={`nav-btn ${activeTab === 'weekly_challenge' ? 'active' : ''}`} 
-              style={{ color: '#f97316' }} 
-              onClick={() => handleNavClick('weekly_challenge')}
-            >
+            <button className={`nav-btn ${activeTab === 'weekly_challenge' ? 'active' : ''}`} style={{ color: '#f97316' }} onClick={() => handleNavClick('weekly_challenge')}>
               <span>{t('navArena')}</span>
             </button>
           </div>
 
-          {/* 2. PÁLYÁZATOK DROPDOWN */}
           <div className="nav-item-container" style={{ zIndex: dropdownOpen === 'contests' ? 60 : 50 }}>
             <button className={`nav-btn ${dropdownOpen === 'contests' || activeTab.startsWith('contests_') ? 'active' : ''}`} onClick={() => setDropdownOpen(dropdownOpen === 'contests' ? null : 'contests')}>
               <span>{t('navContests')}</span> <span>▾</span>
@@ -174,7 +161,6 @@ export default function Header({
             )}
           </div>
           
-          {/* 3. FOTÓKLUB DROPDOWN */}
           <div className="nav-item-container" style={{ zIndex: dropdownOpen === 'club' ? 60 : 50 }}>
             <button className={`nav-btn ${dropdownOpen === 'club' || activeTab.startsWith('club_') ? 'active' : ''}`} onClick={() => setDropdownOpen(dropdownOpen === 'club' ? null : 'club')}>
               <span>{t('navClub')}</span> <span>▾</span>
@@ -188,13 +174,8 @@ export default function Header({
             )}
           </div>
 
-          {/* 4. INTEGRÁLT NEMZETKÖZI SZALONOK MENÜPONT */}
           <div className="nav-item-container" style={{ zIndex: dropdownOpen === 'international' ? 60 : 50 }}>
-            <button 
-              className={`nav-btn ${dropdownOpen === 'international' || ['salons', 'fiap_progress', 'mafosz_progress'].includes(activeTab) ? 'active' : ''}`} 
-              style={{ color: '#60a5fa' }} 
-              onClick={() => setDropdownOpen(dropdownOpen === 'international' ? null : 'international')}
-            >
+            <button className={`nav-btn ${dropdownOpen === 'international' || ['salons', 'fiap_progress', 'mafosz_progress'].includes(activeTab) ? 'active' : ''}`} style={{ color: '#60a5fa' }} onClick={() => setDropdownOpen(dropdownOpen === 'international' ? null : 'international')}>
               <span>{t('navInternational')}</span> <span>▾</span>
             </button>
             {dropdownOpen === 'international' && (
@@ -202,27 +183,19 @@ export default function Header({
                 <button className={`drop-item ${activeTab === 'salons' ? 'active' : ''}`} onClick={() => handleNavClick('salons')}>{t('subSalonsList')}</button>
                 <button className={`drop-item ${activeTab === 'fiap_progress' ? 'active' : ''}`} onClick={() => handleNavClick('fiap_progress')}>{t('subFiap')}</button>
                 <button className={`drop-item ${activeTab === 'mafosz_progress' ? 'active' : ''}`} onClick={() => handleNavClick('mafosz_progress')}>
-                  <img 
-                    src="https://flagcdn.com/16x12/hu.png" 
-                    width="16" 
-                    height="12" 
-                    alt="HU" 
-                    style={{ marginRight: '8px', borderRadius: '2px', verticalAlign: 'middle', display: 'inline-block' }} 
-                  />
+                  <img src="https://flagcdn.com/16x12/hu.png" width="16" height="12" alt="HU" style={{ marginRight: '8px', borderRadius: '2px', verticalAlign: 'middle', display: 'inline-block' }} />
                   {t('subMafosz')}
                 </button>
               </div>
             )}
           </div>
 
-          {/* 5. HELYSZÍNEK TÉRKÉP */}
           <div className="nav-item-container" style={{ zIndex: 50 }}>
               <button className={`nav-btn ${activeTab === 'map_spots' ? 'active' : ''}`} style={{ color: '#10b981' }} onClick={() => handleNavClick('map_spots')}>
                 <span>{t('navMap')}</span>
               </button>
           </div>
 
-          {/* 6. ADMIN DROPDOWN */}
           {(user?.email === ADMIN_EMAIL || isLeader) && (
             <div className="nav-item-container" style={{ zIndex: dropdownOpen === 'admin' ? 60 : 50 }}>
               <button className={`nav-btn ${dropdownOpen === 'admin' || activeTab.startsWith('admin_') || activeTab === 'leader_club' ? 'active' : ''}`} style={{ color: '#ef4444' }} onClick={() => setDropdownOpen(dropdownOpen === 'admin' ? null : 'admin')}>
@@ -237,9 +210,7 @@ export default function Header({
                   <button className={`drop-item ${activeTab === 'admin_meetings' ? 'active' : ''}`} style={{ color: activeTab === 'admin_meetings' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_meetings')}>{t('subManageMeetings')}</button>
                   <button className={`drop-item ${activeTab === 'admin_homeworks' ? 'active' : ''}`} style={{ color: activeTab === 'admin_homeworks' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_homeworks')}>{t('subManageHomeworks')}</button>
                   {user?.email === ADMIN_EMAIL && <button className={`drop-item ${activeTab === 'admin_weekly' ? 'active' : ''}`} style={{ color: activeTab === 'admin_weekly' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_weekly')}>{t('subManageWeekly')}</button>}
-                  {user?.email === ADMIN_EMAIL && (
-                    <button className={`drop-item ${activeTab === 'admin_settings' ? 'active' : ''}`} style={{ color: '#ef4444' }} onClick={() => handleNavClick('admin_settings')}>{t('subManageSettings')}</button>
-                  )}
+                  {user?.email === ADMIN_EMAIL && <button className={`drop-item ${activeTab === 'admin_settings' ? 'active' : ''}`} style={{ color: '#ef4444' }} onClick={() => handleNavClick('admin_settings')}>{t('subManageSettings')}</button>}
                   {user?.email === ADMIN_EMAIL && <button className={`drop-item ${activeTab === 'admin_salons' ? 'active' : ''}`} style={{ color: activeTab === 'admin_salons' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_salons')}>{t('subManageSalons')}</button>}
                   {user?.email === ADMIN_EMAIL && <button className={`drop-item ${activeTab === 'admin_users' ? 'active' : ''}`} style={{ color: activeTab === 'admin_users' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_users')}>{t('subManageUsers')}</button>}
                   {user?.email === ADMIN_EMAIL && <button className={`drop-item ${activeTab === 'admin_clubs' ? 'active' : ''}`} style={{ color: activeTab === 'admin_clubs' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_clubs')}>{t('subManageClubs')}</button>}
@@ -249,45 +220,17 @@ export default function Header({
           )}
         </div> 
 
-        {/* ====================================================================
-             FIÓK MENÜ (JOBB OLDAL - LEFORDÍTVA)
-           ==================================================================== */}
+        {/* FIÓK MENÜ (JOBB OLDAL) */}
         <div className="user-group" style={{ display: 'flex', alignItems: 'center', gap: '15px', position: 'relative' }}>
           
-          {/* Nyelvválasztó gombok */}
+          {/* Nyelvválasztó */}
           <div style={{ display: 'flex', gap: '4px', background: '#1e293b', padding: '3px', borderRadius: '10px', border: '1px solid #334155' }}>
-            <button 
-              onClick={() => setLang('hu')} 
-              style={{ 
-                background: lang === 'hu' ? 'linear-gradient(135deg, #f97316, #ef4444)' : 'transparent', 
-                color: lang === 'hu' ? 'white' : '#94a3b8', 
-                border: 'none', padding: '6px 10px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '6px' 
-              }}
-            >
-              <img 
-                src="https://flagcdn.com/16x12/hu.png" 
-                width="16" 
-                height="12" 
-                alt="HU" 
-                style={{ borderRadius: '2px', display: 'block', objectFit: 'cover' }} 
-              />
+            <button onClick={() => setLang('hu')} style={{ background: lang === 'hu' ? 'linear-gradient(135deg, #f97316, #ef4444)' : 'transparent', color: lang === 'hu' ? 'white' : '#94a3b8', border: 'none', padding: '6px 10px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <img src="https://flagcdn.com/16x12/hu.png" width="16" height="12" alt="HU" style={{ borderRadius: '2px', display: 'block', objectFit: 'cover' }} />
               <span style={{ fontSize: '0.75rem' }}>HU</span>
             </button>
-            <button 
-              onClick={() => setLang('en')} 
-              style={{ 
-                background: lang === 'en' ? 'linear-gradient(135deg, #0284c7, #0369a1)' : 'transparent', 
-                color: lang === 'en' ? 'white' : '#94a3b8', 
-                border: 'none', padding: '6px 10px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '6px' 
-              }}
-            >
-              <img 
-                src="https://flagcdn.com/16x12/gb.png" 
-                width="16" 
-                height="12" 
-                alt="EN" 
-                style={{ borderRadius: '2px', display: 'block', objectFit: 'cover' }} 
-              />
+            <button onClick={() => setLang('en')} style={{ background: lang === 'en' ? 'linear-gradient(135deg, #0284c7, #0369a1)' : 'transparent', color: lang === 'en' ? 'white' : '#94a3b8', border: 'none', padding: '6px 10px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <img src="https://flagcdn.com/16x12/gb.png" width="16" height="12" alt="EN" style={{ borderRadius: '2px', display: 'block', objectFit: 'cover' }} />
               <span style={{ fontSize: '0.75rem' }}>EN</span>
             </button>
           </div>
@@ -298,7 +241,8 @@ export default function Header({
               style={{ color: '#14b8a6', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}
               onClick={() => setDropdownOpen(dropdownOpen === 'user_account' ? null : 'user_account')}
             >
-              <span>👤 {user.name}</span>
+              {/* 🎯 BIZTONSÁGI FALLBACK JAVÍTÁS: Ha a fentről jövő objektumban esetleg más elnevezés lenne */}
+              <span>👤 {user?.name || user?.user_name || 'Fotós'}</span>
               {(user?.isPremium || user?.is_premium) && <span title="Prémium Tag" style={{ fontSize: '1.1rem' }}>⭐</span>}
               {isLeader && (
                 <span style={{ fontSize: '0.65rem', background: '#f59e0b20', color: '#f59e0b', padding: '2px 6px', borderRadius: '4px', border: '1px solid #f59e0b50', fontWeight: 'bold' }}>
@@ -324,22 +268,14 @@ export default function Header({
                 </button>
 
                 {(user?.isPremium || user?.is_premium) && (
-                  <button 
-                    onClick={handleManageSubscription}
-                    style={{ color: '#10b981', fontWeight: 'bold' }}
-                    className="drop-item"
-                  >
+                  <button onClick={handleManageSubscription} style={{ color: '#10b981', fontWeight: 'bold' }} className="drop-item">
                     💳 Stripe Ügyfélkapu
                   </button>
                 )}
 
                 <div style={{ height: '1px', backgroundColor: '#334155', margin: '6px 0' }}></div>
 
-                <button 
-                  className="drop-item" 
-                  style={{ color: '#ef4444' }} 
-                  onClick={() => { googleLogout(); onLogout(); }}
-                >
+                <button className="drop-item" style={{ color: '#ef4444' }} onClick={() => { googleLogout(); onLogout(); }}>
                   {t('subLogout')}
                 </button>
               </div>
