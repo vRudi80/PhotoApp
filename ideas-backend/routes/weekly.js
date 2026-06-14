@@ -319,9 +319,6 @@ async function getUserLikesAndVictories(pool, email) {
     }
   });
 
-  // ====================================================================
-  // ⚔️ JAVÍTVA: TURBÓ FOKOZATÚ, HUROKMENTES CSATATÉR FŐ VÉGPONT (Helyi idővel)
-  // ====================================================================
     // ====================================================================
   // ⚔️ JAVÍTVA: AZONNALI LEZÁRÁSSAL ELLÁTOTT CSATATÉR FŐ VÉGPONT
   // ====================================================================
@@ -807,6 +804,9 @@ async function getUserLikesAndVictories(pool, email) {
   });
 
 
+    // ====================================================================
+  // 🎁 JAVÍTVA: PARAMÉTER-SZINKRONIZÁLT MEGHÍVÓ KÓD BEVÁLTÓ VÉGPONT
+  // ====================================================================
   app.post('/api/weekly/claim-referral', async (req, res) => {
     const { userEmail, referralCode } = req.body;
     try {
@@ -824,8 +824,13 @@ async function getUserLikesAndVictories(pool, email) {
       const conn = await pool.getConnection();
       try {
         await conn.beginTransaction();
+        
+        // 1. Megjutalmazzuk a meghívót (Dalmát) +10 Joker cserével
         await conn.query('UPDATE photo_users SET swap_balance = swap_balance + 10 WHERE email = ?', [referrerEmail]);
-        await conn.query('UPDATE photo_users SET referred_by = ? WHERE email = ?', [userEmail]);
+        
+        // 🎯 JAVÍTVA: Átadjuk mind a két paramétert [cleanCode, userEmail] a két kérdőjelnek megfelelően!
+        await conn.query('UPDATE photo_users SET referred_by = ? WHERE email = ?', [cleanCode, userEmail]);
+        
         await conn.commit();
         res.json({ success: true });
       } catch (txErr) {
@@ -834,9 +839,11 @@ async function getUserLikesAndVictories(pool, email) {
       } finally { conn.release(); }
 
     } catch (err) {
+      console.error("🔥 Kritikus hiba a kód ellenőrzésekor:", err.message);
       res.status(500).json({ error: 'Hiba a kód érvényesítésekor.' });
     }
   });
+
 
   // ====================================================================
   // ⏳ JAVÍTVA: Közelgő csaták lekérése a Csatabíró VALÓDI NEVÉVEL (Helyi idővel)
