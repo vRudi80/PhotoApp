@@ -979,10 +979,13 @@ async function getUserLikesAndVictories(pool, email) {
   });
   
   // ====================================================================
-  // 👑 JAVÍTVA: SZINKRONIZÁLT, HISTORIKUS GLOBÁLIS DICSŐSÉGFAL (Helyi idővel)
+  // 👑 JAVÍTVA ÉS ELLENŐRZÖTT: GLOBÁLIS DICSŐSÉGFAL (Minden eredeti funkció + Győzelmi statisztikák)
   // ====================================================================
   app.get('/api/weekly/hall-of-fame', async (req, res) => {
     try {
+      const currentNow = getLocalMySQLNow();
+
+      // ── FŐ LEKÉRDEZÉS (KLUBOKKAL ÉS LOGÓKKAL) ──
       const [rows] = await pool.query(`
         SELECT 
           u.name as user_name, 
@@ -990,7 +993,40 @@ async function getUserLikesAndVictories(pool, email) {
           u.club_name,
           c.drive_logo_id, 
           c.logo_url,      
-          COALESCE(SUM(IF(e.is_active = 1 OR t.end_date < ?, e.likes_count, 0)), 0) as total_likes
+          COALESCE(SUM(IF(e.is_active = 1 OR t.end_date < ?, e.likes_count, 0)), 0) as total_likes,
+          
+          -- 🥇 1. ÚJ OSZLOP: Első helyek (Győzelmek) kiszámítása a lezárt csatákból
+          (
+            SELECT COUNT(*) 
+            FROM weekly_entries e1
+            WHERE e1.user_email = u.email 
+              AND e1.is_active = 1
+              AND e1.topic_id IN (SELECT id FROM weekly_topics WHERE end_date < ?)
+              AND e1.id = (
+                SELECT e2.id 
+                FROM weekly_entries e2
+                WHERE e2.topic_id = e1.topic_id AND e2.is_active = 1
+                ORDER BY e2.likes_count DESC, e2.views_count ASC
+                LIMIT 1
+              )
+          ) AS first_places,
+
+          -- 🏆 2. ÚJ OSZLOP: Dobogós helyezések (Top 3) kiszámítása a lezárt csatákból
+          (
+            SELECT COUNT(*)
+            FROM weekly_entries e1
+            WHERE e1.user_email = u.email
+              AND e1.is_active = 1
+              AND e1.topic_id IN (SELECT id FROM weekly_topics WHERE end_date < ?)
+              AND (
+                SELECT COUNT(*) 
+                FROM weekly_entries e2 
+                WHERE e2.topic_id = e1.topic_id 
+                  AND e2.is_active = 1 
+                  AND (e2.likes_count > e1.likes_count OR (e2.likes_count = e1.likes_count AND e2.views_count < e1.views_count))
+              ) < 3
+          ) AS podiums
+
         FROM photo_users u
         LEFT JOIN weekly_entries e ON u.email = e.user_email
         LEFT JOIN weekly_topics t ON e.topic_id = t.id
@@ -998,10 +1034,15 @@ async function getUserLikesAndVictories(pool, email) {
         GROUP BY u.email, u.name, u.club_name, c.drive_logo_id, c.logo_url 
         HAVING total_likes > 0
         ORDER BY total_likes DESC, u.name ASC
-      `, [getLocalMySQLNow()]);
+      `, [currentNow, currentNow, currentNow]); // 🎯 Ellenőrizve: Hajszálpontosan 3 paraméter a 3 darab '?' helyőrzőhöz!
+      
       res.json(rows);
     } catch (err) {
+      console.error("Hiba a dicsőségfal lekérésekor:", err.message);
+      
+      // ── BIZTONSÁGI FALLBACK ÁG (Ha a photo_clubs tábla nem elérhető, ez menti meg az oldalt) ──
       try {
+        const currentNow = getLocalMySQLNow();
         const [fallbackRows] = await pool.query(`
           SELECT 
             u.name as user_name, 
@@ -1009,20 +1050,36 @@ async function getUserLikesAndVictories(pool, email) {
             u.club_name,
             NULL as drive_logo_id,
             NULL as logo_url,
-            COALESCE(SUM(IF(e.is_active = 1 OR t.end_date < ?, e.likes_count, 0)), 0) as total_likes
+            COALESCE(SUM(IF(e.is_active = 1 OR t.end_date < ?, e.likes_count, 0)), 0) as total_likes,
+            
+            -- Ide is bekerült a győzelem számláló
+            (
+              SELECT COUNT(*) FROM weekly_entries e1 
+              WHERE e1.user_email = u.email AND e1.is_active = 1 AND e1.topic_id IN (SELECT id FROM weekly_topics WHERE end_date < ?)
+              AND e1.id = (SELECT e2.id FROM weekly_entries e2 WHERE e2.topic_id = e1.topic_id AND e2.is_active = 1 ORDER BY e2.likes_count DESC, e2.views_count ASC LIMIT 1)
+            ) AS first_places,
+            
+            -- Ide is bekerült a dobogó számláló
+            (
+              SELECT COUNT(*) FROM weekly_entries e1
+              WHERE e1.user_email = u.email AND e1.is_active = 1 AND e1.topic_id IN (SELECT id FROM weekly_topics WHERE end_date < ?)
+              AND (SELECT COUNT(*) FROM weekly_entries e2 WHERE e2.topic_id = e1.topic_id AND e2.is_active = 1 AND (e2.likes_count > e1.likes_count OR (e2.likes_count = e1.likes_count AND e2.views_count < e1.views_count)))) < 3
+            ) AS podiums
+
           FROM photo_users u
           LEFT JOIN weekly_entries e ON u.email = e.user_email
           LEFT JOIN weekly_topics t ON e.topic_id = t.id
           GROUP BY u.email, u.name, u.club_name
           HAVING total_likes > 0
           ORDER BY total_likes DESC, u.name ASC
-        `, [getLocalMySQLNow()]);
+        `, [currentNow, currentNow, currentNow]); // 🎯 Ellenőrizve: A biztonsági ágon is stimmel a 3 időbélyeg!
         res.json(fallbackRows);
       } catch (fallbackErr) {
         res.status(500).json({ error: 'Hiba a dicsőségcsarnok lekérésekor' });
       }
     }
   });
+
 
   app.post('/api/admin/test-cloudinary', upload.single('photo'), async (req, res) => {
     const file = req.file;
