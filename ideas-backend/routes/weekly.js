@@ -1401,40 +1401,51 @@ async function getUserLikesAndVictories(pool, email) {
   });
   
   // ====================================================================
-  // 👑 ARCHÍVUM TÖRTÉNETI LEKÉRDEZÉS (KONSZOLIDÁLT, LÁJK-TUDATOS VERZIÓ)
+  // 📜 JAVÍTVA: ARCHÍV CSATA-TÖRTÉNELMI ADATOK ÉLŐ USER-NÉVVEL
   // ====================================================================
   app.get('/api/weekly/history/:topicId', async (req, res) => {
-    const { userEmail } = req.query; 
+    const { topicId } = req.params;
+    const userEmail = req.query.userEmail || '';
     try {
+      // 🎯 JAVÍTÁS: u.name AS user_name-et kérünk le, és JOIN-oljuk a photo_users táblát!
       const [leaderboard] = await pool.query(`
         SELECT 
-          e.id, e.user_name, e.file_url, e.drive_file_id, e.views_count, e.likes_count, u.club_name,
-          COUNT(DISTINCT wal.id) as archive_likes,
-          COALESCE(MAX(IF(wal.user_email = ?, 1, 0)), 0) as has_user_liked
-        FROM weekly_entries e 
+          e.id, 
+          e.topic_id, 
+          e.user_email, 
+          COALESCE(u.name, e.user_name) as user_name, 
+          e.file_url, 
+          e.drive_file_id, 
+          e.likes_count, 
+          e.views_count,
+          u.club_name,
+          (SELECT COUNT(*) FROM weekly_votes WHERE entry_id = e.id AND vote_type = 'master') as archive_likes,
+          EXISTS(SELECT 1 FROM weekly_votes WHERE entry_id = e.id AND voter_email = ?) as has_user_liked
+        FROM weekly_entries e
         LEFT JOIN photo_users u ON e.user_email = u.email
-        LEFT JOIN weekly_archive_likes wal ON wal.entry_id = e.id
-        WHERE e.topic_id = ? AND e.views_count > 0 AND e.is_active = 1 
-        GROUP BY e.id, e.user_name, e.file_url, e.drive_file_id, e.views_count, e.likes_count, u.club_name
+        WHERE e.topic_id = ? AND e.is_active = 1
         ORDER BY e.likes_count DESC, e.views_count ASC
-      `, [userEmail || '', req.params.topicId]);
+      `, [userEmail, topicId]);
 
-      const clubsData = {};
-      leaderboard.forEach(entry => {
-        if (!entry.club_name || entry.club_name.trim() === '') return; 
-        if (!clubsData[entry.club_name]) clubsData[entry.club_name] = [];
-        clubsData[entry.club_name].push(Number(entry.likes_count));
-      });
+      // A klub rangsor lekérdezése változatlan maradhat...
+      const [clubLeaderboard] = await pool.query(`
+        SELECT 
+          u.club_name,
+          COUNT(DISTINCT e.user_email) as members_counted,
+          SUM(e.likes_count) as total_score
+        FROM weekly_entries e
+        JOIN photo_users u ON e.user_email = u.email
+        WHERE e.topic_id = ? AND e.is_active = 1 AND u.club_name IS NOT NULL AND u.club_name != ''
+        GROUP BY u.club_name
+        ORDER BY total_score DESC
+      `, [topicId]);
 
-      const clubLeaderboard = [];
-      for (const club in clubsData) {
-        clubsData[club].sort((a, b) => b - a); const top3 = clubsData[club].slice(0, 3);
-        clubLeaderboard.push({ club_name: club, total_score: top3.reduce((sum, val) => sum + val, 0), members_counted: top3.length });
-      }
-      clubLeaderboard.sort((a, b) => b.total_score - a.total_score);
       res.json({ leaderboard, clubLeaderboard });
-    } catch (err) { res.status(500).json({ error: 'Hiba: ' + err.message }); }
+    } catch (err) {
+      res.status(500).json({ error: 'Hiba a történeti adatok lekérésekor.' });
+    }
   });
+
 
   // ====================================================================
   // 💬 ARÉNA LÍGA ÉLŐ CSEVEGŐ VÉGPONTOK (Típusbiztos, 0-ra optimalizált)
