@@ -633,10 +633,15 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     setIsClaimingReferral(true);
     try {
       const res = await fetch(`${BACKEND_URL}/api/weekly/claim-referral`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userEmail: user?.email, referralCode: referralInput })
-      });
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    userEmail: user?.email, 
+    // 🎯 JAVÍTVA: Levágjuk a felesleges szóközöket és garantáljuk a nagybetűt küldés előtt
+    referralCode: referralInput.trim().toUpperCase() 
+  })
+});
+
       if (res.ok) {
         alert(t('msgReferralSuccess'));
         setReferredBy(referralInput); 
