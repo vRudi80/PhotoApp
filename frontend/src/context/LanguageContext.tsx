@@ -14,6 +14,20 @@ const translations = {
     btnRules: '📖 Játékszabályok & Rangok',
     tileClubLifeTitle: 'Klubélet',
 
+    mapSmartRadarTitle: 'INTELLIGENS HELYSZÍNFELISMERES AKTÍV:',
+  mapSmartRadarDesc: 'Kattints a térképre gombostűhöz, MAJD egyszerűen tallózz be egy fotót! Ha van benne EXIF GPS koordináta, a radar azonnal odateleportálja a térképet és odaszegezi a jelölőt!',
+  mapDashGlobalTitle: '🌍 Globális Térkép Adatbázis',
+  mapDashLocations: 'helyszín',
+  mapDashPraises: 'közösségi elismerés',
+  mapDashPioneersTitle: 'Top Térkép-Felfedezők',
+  mapDashSpots: 'hely',
+  mapDashNoData: 'Még nincs rögzített adat',
+  mapDashThankYou: '❤️ NAGYON KÖSZÖNJÜK!',
+  mapDashThankYouDesc: 'Hálásak vagyunk, hogy a helyszíneid megosztásával te is építed a közösségünk interaktív fotós térképét!',
+  mapDashYourContribution: 'Saját felfedezéseid:',
+  mapNotSpecified: 'Nincs megadva',
+
+
     profStatusTitle: 'Fiókállapot és Használat',
     profEmailLabel: 'REGISZTRÁLT E-MAIL CÍM (NEM MÓDOSÍTHATÓ)',
     profSubLabel: 'ELŐFIZETÉSI SZINT',
@@ -730,6 +744,20 @@ const translations = {
     profPremiumExpiredOn: 'Expired On',
     profFreeTier: 'Free Tier Account',
     profFreeTierDesc: 'Limited features active',
+
+      mapSmartRadarTitle: 'SMART LOCATION RADAR ON:',
+  mapSmartRadarDesc: 'Click the map to pin manually, AND simply select a photo. If it contains EXIF GPS coordinates, the radar will instantly teleport the map and lock the anchor marker right there!',
+  mapDashGlobalTitle: '🌍 Global Map Database',
+  mapDashLocations: 'locations',
+  mapDashPraises: 'community praises',
+  mapDashPioneersTitle: 'Top Map Pioneers',
+  mapDashSpots: 'spots',
+  mapDashNoData: 'No data discovered yet',
+  mapDashThankYou: '❤️ THANK YOU!',
+  mapDashThankYouDesc: 'Thank you for tracking and sharing your photography spots, building this visual roadmap together!',
+  mapDashYourContribution: 'Your contribution:',
+  mapNotSpecified: 'Not specified',
+
     
     // Pályázatok almenü
     subClubContests: 'My Club Active Contests',
