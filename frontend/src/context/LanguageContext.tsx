@@ -130,7 +130,7 @@ const translations = {
     subSupport: '✉️ Support & Segítség',
     subLogout: '🚪 Kijelentkezés',
 
-    dashWelcome: 'Ürevözlünk',
+    dashWelcome: 'Üdvözlünk,',
     dashSupportNotice: 'Ha valami nem megfelelően működik, a support részen kapcsolatba léphetsz a fejlesztővel!',
     dashPremiumBadge: '⭐ Aktív Prémium Tag',
     dashAlertsTitle: '🔔 Aktuális Események & Értesítések',
