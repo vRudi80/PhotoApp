@@ -17,8 +17,8 @@ import AdminMeetingsView from './views/admin/AdminMeetingsView';
 import AdminHomeworksView from './views/admin/AdminHomeworksView';
 import AdminSalonsView from './views/admin/AdminSalonsView';
 import ContestsView from './views/ContestsView';
-import MyAlbumView from './views/MyAlbumView'; // Ez a régi szalonos, marad érintetlenül!
-import MyArenaAlbumView from './views/MyArenaAlbumView'; // ➕ ÚJ IMPORT AZ ARÉNA ALBUMHOZ
+import MyAlbumView from './views/MyAlbumView'; 
+import MyArenaAlbumView from './views/MyArenaAlbumView'; 
 import AdminSettingsView from './views/admin/AdminSettingsView';
 import FiapProgressView from './views/FiapProgressView';
 import SessionGuard from './components/SessionGuard';
@@ -35,7 +35,7 @@ import LeaderClubView from './views/LeaderClubView';
 import MafoszProgressView from './views/MafoszProgressView'; 
 import PackagesView from './components/PackagesView'; 
 
-// 🎯 ÚJ IMPORT: Behozzuk a nyelvi providert a környezetből
+// 🎯 Nyelvi provider környezet
 import { LanguageProvider } from './context/LanguageContext';
 
 function MainContent() {
@@ -493,7 +493,7 @@ function MainContent() {
       const formData = new FormData(); formData.append('photo', uploadFile); formData.append('contestId', String(contestId)); formData.append('userEmail', user.email); formData.append('userName', user.name); formData.append('title', uploadTitle); formData.append('category', uploadCategory); 
       const res = await fetch(`${BACKEND_URL}/api/upload`, { method: 'POST', body: formData }); 
       if (res.ok) { alert("Feltöltve!"); setActiveUploadContest(null); setUploadFile(null); setUploadPreview(null); setUploadTitle(''); setUploadCategory(''); fetchMyEntries(user.email); } else { const err = await res.json(); alert(`Hiba: ${err.error}`); } 
-    } catch (error) { alert("Hiba"); Corbin } finally { setIsUploading(false); } 
+    } catch (error) { alert("Hiba"); } finally { setIsUploading(false); } 
   };
 
   const handleUpdateEntryTitle = async (entryId: number) => { 
@@ -556,6 +556,23 @@ function MainContent() {
     return matchName || matchPatron;
   });
 
+  // 🎯 REKORD-ÖSSZEFÉSÜLŐ MOTOR A HEADER SZÁMÁRA: 
+  // Ha már betöltődött a friss adatbázis rekord (currentDbUser), akkor annak az adatait (pl. elmentett név)
+  // rásütjük a bejelentkezett alap user objektumra, hogy a felső menüsor is azonnal lekövesse!
+  const headerUser = useMemo(() => {
+    if (!user) return null;
+    if (!currentDbUser) return user;
+    return {
+      ...user,
+      name: currentDbUser.name || user.name,
+      is_premium: currentDbUser.is_premium,
+      isPremium: currentDbUser.is_premium === 1,
+      premium_until: currentDbUser.premium_until,
+      club_name: currentDbUser.club_name,
+      club_role: currentDbUser.club_role
+    };
+  }, [user, currentDbUser]);
+
   return (
     <>
       {fullscreenData && (
@@ -575,8 +592,9 @@ function MainContent() {
       ) : (
         <div className="app-container" style={{ minHeight: '100vh', backgroundColor: '#0f172a', color: '#f8fafc', fontFamily: 'Inter, sans-serif' }}>
           
+          {/* 🎯 JAVÍTVA: A friss, adatbázissal szinkronizált headerUser-t adjuk át a korábbi sima user helyett */}
           <Header 
-            user={user} isLeader={!!isLeader} activeTab={activeTab} setActiveTab={setActiveTab} dropdownOpen={dropdownOpen} setDropdownOpen={setDropdownOpen} 
+            user={headerUser} isLeader={!!isLeader} activeTab={activeTab} setActiveTab={setActiveTab} dropdownOpen={dropdownOpen} setDropdownOpen={setDropdownOpen} 
             onLogout={() => { localStorage.removeItem('photoAppToken'); localStorage.removeItem('user'); setUser(null); }} 
           />
           
@@ -661,7 +679,6 @@ function MainContent() {
   );
 }
 
-// 👑 JAVÍTVA: A legkülső szinten körbeöleljük a BrowserRouter-t a LanguageProvider-rel!
 export default function App() {
   return (
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
