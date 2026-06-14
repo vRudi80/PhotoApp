@@ -14,6 +14,23 @@ const translations = {
     btnRules: '📖 Játékszabályok & Rangok',
     tileClubLifeTitle: 'Klubélet',
 
+      profStatusTitle: 'Fiókállapot és Használat',
+  profEmailLabel: 'REGISZTRÁLT E-MAIL CÍM (NEM MÓDOSÍTHATÓ)',
+  profSubLabel: 'ELŐFIZETÉSI SZINT',
+  profStorageLabel: '💾 Portfólió Tárhely',
+  profStorageSub: 'kép',
+  profAiLabel: '🤖 AI Képelemzés',
+  profAiSub: 'alkalom',
+  profAiDesc: 'Generált okos címkék száma',
+  profPremiumActive: 'Aktív prémium tagság',
+  profPremiumValid: 'Érvényes eddig',
+  profPremiumExpired: 'Tagság Lejárt',
+  profPremiumExpiredDesc: 'Visszaállítva ingyenes csomagra',
+  profPremiumExpiredOn: 'Lejárat dátuma',
+  profFreeTier: 'Ingyenes Alapfiók',
+  profFreeTierDesc: 'Korlátozott elérésű csomag',
+
+
     ticketsStatusOpen: 'Új bejelentés',
     ticketsStatusInProgress: 'Folyamatban',
     ticketsStatusClosed: 'Lezárva',
@@ -700,6 +717,23 @@ const translations = {
     navInternational: '🌐 Intl. Salons',
     navMap: '🌍 Map Spots',
     navAdmin: '⚙️ Admin',
+
+      profStatusTitle: 'Account Status & Usage',
+  profEmailLabel: 'REGISTERED EMAIL ADDRESS (UNALTERABLE)',
+  profSubLabel: 'SUBSCRIPTION LEVEL',
+  profStorageLabel: '💾 Portfolio Storage',
+  profStorageSub: 'photos',
+  profAiLabel: '🤖 AI Analyses',
+  profAiSub: 'times',
+  profAiDesc: 'Smart tags generated',
+  profPremiumActive: 'Active subscription tier',
+  profPremiumValid: 'Valid Until',
+  profPremiumExpired: 'Subscription Expired',
+  profPremiumExpiredDesc: 'Standard free tier applied',
+  profPremiumExpiredOn: 'Expired On',
+  profFreeTier: 'Free Tier Account',
+  profFreeTierDesc: 'Limited features active',
+
     
     // Pályázatok almenü
     subClubContests: 'My Club Active Contests',
