@@ -5,14 +5,60 @@ import PremiumPaywall from './PremiumPaywall';
 import { getFlagImageUrl } from '../utils/helpers';
 import ExcelImportModal from '../components/ExcelImportModal';
 
+// 🎯 Aktiváljuk a nyelvi kontextust
+import { useLanguage } from '../context/LanguageContext';
+
+// 🏅 FRISSÍTVE: Kiegészítve a hivatalos 2026-os FIAP 1.2 f) pont szerinti 5-képes portfólió követelményekkel
 const FIAP_LEVELS = [
-  { id: 'NFIAP', name: 'Novice FIAP', req: { acceptances: 25, countries: 5, works: 10 }, color: '#ec4899' },
-  { id: 'AFIAP', name: 'Artist FIAP', req: { acceptances: 75, countries: 15, works: 20 }, color: '#10b981' },
-  { id: 'EFIAP', name: 'Excellence FIAP', req: { acceptances: 200, countries: 20, works: 40 }, color: '#ef4444' },
-  { id: 'EFIAP/b', name: 'Excellence Bronze', req: { acceptances: 400, countries: 25, works: 80 }, color: '#b45309' },
-  { id: 'EFIAP/s', name: 'Excellence Silver', req: { acceptances: 600, countries: 30, works: 130 }, color: '#94a3b8' },
-  { id: 'EFIAP/g', name: 'Excellence Gold', req: { acceptances: 900, countries: 35, works: 200 }, color: '#eab308' },
-  { id: 'EFIAP/p', name: 'Excellence Platinum', req: { acceptances: 1200, countries: 40, works: 300 }, color: '#334155' }
+  { 
+    id: 'NFIAP', 
+    name: 'Novice FIAP', 
+    req: { acceptances: 25, countries: 5, works: 10 }, 
+    portfolio: { type: 'acceptance', minCount: 2, minCountries: 3, label: 'legalább 2 elfogadással rendelkezik 3 különböző országban' },
+    color: '#ec4899' 
+  },
+  { 
+    id: 'AFIAP', 
+    name: 'Artist FIAP', 
+    req: { acceptances: 75, countries: 15, works: 20 }, 
+    portfolio: { type: 'acceptance', minCount: 3, minCountries: 5, label: 'legalább 3 elfogadással rendelkezik 5 különböző országban' },
+    color: '#10b981' 
+  },
+  { 
+    id: 'EFIAP', 
+    name: 'Excellence FIAP', 
+    req: { acceptances: 200, countries: 20, works: 40 }, 
+    portfolio: { type: 'acceptance', minCount: 3, minCountries: 5, label: 'legalább 3 elfogadással rendelkezik 5 különböző országban' },
+    color: '#ef4444' 
+  },
+  { 
+    id: 'EFIAP/b', 
+    name: 'Excellence Bronze', 
+    req: { acceptances: 400, countries: 25, works: 80 }, 
+    portfolio: { type: 'award', minCount: 1, minCountries: 5, label: 'legalább 1 díjjal (Award) rendelkezik 5 különböző országban' },
+    color: '#b45309' 
+  },
+  { 
+    id: 'EFIAP/s', 
+    name: 'Excellence Silver', 
+    req: { acceptances: 600, countries: 30, works: 130 }, 
+    portfolio: { type: 'award', minCount: 1, minCountries: 5, label: 'legalább 1 díjjal (Award) rendelkezik 5 különböző országban' },
+    color: '#94a3b8' 
+  },
+  { 
+    id: 'EFIAP/g', 
+    name: 'Excellence Gold', 
+    req: { acceptances: 900, countries: 35, works: 200 }, 
+    portfolio: { type: 'award', minCount: 1, minCountries: 5, label: 'legalább 1 díjjal (Award) rendelkezik 5 különböző országban' },
+    color: '#eab308' 
+  },
+  { 
+    id: 'EFIAP/p', 
+    name: 'Excellence Platinum', 
+    req: { acceptances: 1200, countries: 40, works: 300 }, 
+    portfolio: { type: 'award', minCount: 1, minCountries: 5, label: 'legalább 1 díjjal (Award) rendelkezik 5 különböző országban' },
+    color: '#334155' 
+  }
 ];
 
 interface FiapProgressViewProps {
@@ -21,6 +67,7 @@ interface FiapProgressViewProps {
 }
 
 export default function FiapProgressView({ user, allUsers = [] }: FiapProgressViewProps) {
+  const { t, lang } = useLanguage();
   const [stats, setStats] = useState({ acceptances: 0, countries: 0, works: 0 });
   const [entries, setEntries] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -58,21 +105,16 @@ export default function FiapProgressView({ user, allUsers = [] }: FiapProgressVi
     fetchProgress();
   }, [user, selectedEmail]); 
 
-
-  // --- ÚJ: FIAP C LAP EXCEL LETÖLTÉSE (OKOS HIBAKEZELÉSSEL) ---
   const [isExporting, setIsExporting] = useState(false);
 
   const handleExportFiapC = async () => {
     setIsExporting(true);
     try {
       const res = await fetch(`${BACKEND_URL}/api/export-fiap-c?userEmail=${user.email}`);
-      
-      // JAVÍTÁS: Ha nem 200 OK a válasz, megpróbáljuk megérteni a szerver pontos üzenetét
       if (!res.ok) {
         let errMsg = 'Ismeretlen szerverhiba történt.';
         try {
           const errData = await res.json();
-          // Ha a checkPremium dobta meg (pl. PREMIUM_REQUIRED)
           if (errData.error === 'PREMIUM_REQUIRED' || errData.message) {
             errMsg = errData.message || 'Ehhez a funkcióhoz aktív Prémium előfizetés szükséges!';
           } else {
@@ -84,7 +126,6 @@ export default function FiapProgressView({ user, allUsers = [] }: FiapProgressVi
         throw new Error(errMsg);
       }
       
-      // Ha minden jó, jöhet a letöltés indítása
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -95,7 +136,6 @@ export default function FiapProgressView({ user, allUsers = [] }: FiapProgressVi
       a.remove();
       window.URL.revokeObjectURL(url);
     } catch (e: any) {
-      // Itt már a pontos hiba fog megjelenni egy Alert ablakban!
       alert(`❌ Hiba az Excel letöltésekor:\n\n${e.message}`);
     } finally {
       setIsExporting(false);
@@ -115,17 +155,7 @@ export default function FiapProgressView({ user, allUsers = [] }: FiapProgressVi
     );
   }, [entries, searchTerm]);
 
-  if (!user || !user.is_premium) {
-    return (
-      <div>
-        <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '15px', color: '#60a5fa' }}>
-          <span style={{ fontSize: '2.5rem' }}>🏅</span> FIAP Minősítés Követő
-        </h2>
-        <PremiumPaywall user={user} />
-      </div>
-    );
-  }
-
+  // 🧠 REKORD-MÁSOLAT SZŰRŐ MOTOR: Kiszámolja, hány darab kép alkalmas a beküldendő 5-ös portfólióba
   let currentLevel = null;
   let nextLevel = FIAP_LEVELS[0];
 
@@ -137,6 +167,56 @@ export default function FiapProgressView({ user, allUsers = [] }: FiapProgressVi
     } else {
       break;
     }
+  }
+
+  const qualifyingPhotosCount = useMemo(() => {
+    if (!nextLevel || !nextLevel.portfolio) return 0;
+    const rule = nextLevel.portfolio;
+
+    // Képek csoportosítása cím szerint az egyedi statisztikákhoz
+    const photoGroups: { [title: string]: { totalAcceptances: number; totalAwards: number; acceptanceCountries: Set<string>; awardCountries: Set<string> } } = {};
+
+    entries.forEach(entry => {
+      const title = entry.photo_title?.trim().toLowerCase();
+      if (!title) return;
+
+      if (!photoGroups[title]) {
+        photoGroups[title] = { totalAcceptances: 0, totalAwards: 0, acceptanceCountries: new Set(), awardCountries: new Set() };
+      }
+
+      const country = entry.country?.trim().toLowerCase() || 'unknown';
+      const isAward = entry.award && entry.award.toLowerCase() !== 'acceptance';
+
+      // Elfogadások gyűjtése
+      photoGroups[title].totalAcceptances += 1;
+      photoGroups[title].acceptanceCountries.add(country);
+
+      // Díjak gyűjtése
+      if (isAward) {
+        photoGroups[title].totalAwards += 1;
+        photoGroups[title].awardCountries.add(country);
+      }
+    });
+
+    // Megszámoljuk hány darab egyedi kép felel meg a következő FIAP szint kritériumainak
+    return Object.values(photoGroups).filter(p => {
+      if (rule.type === 'acceptance') {
+        return p.totalAcceptances >= rule.minCount && p.acceptanceCountries.size >= rule.minCountries;
+      } else {
+        return p.totalAwards >= rule.minCount && p.awardCountries.size >= rule.minCountries;
+      }
+    }).length;
+  }, [entries, nextLevel]);
+
+  if (!user || !user.is_premium) {
+    return (
+      <div>
+        <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '15px', color: '#60a5fa' }}>
+          <span style={{ fontSize: '2.5rem' }}>🏅</span> FIAP Minősítés Követő
+        </h2>
+        <PremiumPaywall user={user} />
+      </div>
+    );
   }
 
   const ProgressBar = ({ label, current, required, color }: any) => {
@@ -160,13 +240,11 @@ export default function FiapProgressView({ user, allUsers = [] }: FiapProgressVi
 
   return (
     <div>
-      {/* JAVÍTVA: Szépen egy sorba rendeztük a címet és a gombot */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px', marginBottom: '1.5rem' }}>
         <h2 style={{ margin: 0, fontSize: '2rem', display: 'flex', alignItems: 'center', gap: '15px', color: '#60a5fa' }}>
           <span style={{ fontSize: '2.5rem' }}>🏅</span> FIAP Minősítés Követő
         </h2>
         
-        {/* ÚJ: Excel Import gomb */}
         {user.email === selectedEmail && (
           <button 
             onClick={() => setIsImportModalOpen(true)}
@@ -245,7 +323,7 @@ export default function FiapProgressView({ user, allUsers = [] }: FiapProgressVi
               : `Jelenleg ${allUsers.find(u => u.email === selectedEmail)?.name || selectedEmail} adatait vizsgálod.`}
           </p>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '30px', marginBottom: '40px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '30px', marginBottom: '30px' }}>
             <div style={{ background: 'linear-gradient(135deg, #1e293b, #0f172a)', padding: '30px', borderRadius: '16px', border: `2px solid ${currentLevel ? currentLevel.color : '#334155'}`, textAlign: 'center', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
               <div style={{ fontSize: '1rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '10px' }}>Jelenlegi Minősítésed</div>
               <div style={{ fontSize: '3rem', fontWeight: '900', color: currentLevel ? currentLevel.color : '#cbd5e1', marginBottom: '10px' }}>
@@ -277,6 +355,23 @@ export default function FiapProgressView({ user, allUsers = [] }: FiapProgressVi
                 <ProgressBar label="Összes Elfogadás" current={stats.acceptances} required={nextLevel.req.acceptances} color="#38bdf8" />
                 <ProgressBar label="Különböző Országok" current={stats.countries} required={nextLevel.req.countries} color="#a78bfa" />
                 <ProgressBar label="Különböző Művek" current={stats.works} required={nextLevel.req.works} color="#f472b6" />
+                
+                {/* 🎯 ÚJ JAVÍTÁS: A portfólió 5-képes szabályának élő vizuális kiértékelése */}
+                <div style={{ marginTop: '15px', paddingTop: '15px', borderTop: '1px dashed #475569' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', color: '#cbd5e1', fontWeight: 'bold', marginBottom: '4px' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      📋 {lang === 'en' ? '5 Portfolio Works Rule:' : '5 db Portfólió Kép Szabály:'}
+                    </span>
+                    <span style={{ color: qualifyingPhotosCount >= 5 ? '#10b981' : '#f59e0b' }}>
+                      {qualifyingPhotosCount} / 5 db {qualifyingPhotosCount >= 5 ? '✅' : '⏳'}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: '#94a3b8', lineHeight: '1.4', fontStyle: 'italic' }}>
+                    {lang === 'en' 
+                      ? `Requirement: At least 5 unique photos must have ${nextLevel.portfolio.minCount} ${nextLevel.portfolio.type === 'acceptance' ? 'acceptances' : 'awards'} from ${nextLevel.portfolio.minCountries} different countries.` 
+                      : `FIAP 1.2 f) feltétel: Legalább 5 olyan egyedi képednek kell lennie, amik közül mindegyik külön-külön ${nextLevel.portfolio.label}.`}
+                  </div>
+                </div>
               </div>
             ) : (
               <div style={{ background: 'linear-gradient(135deg, #10b981, #047857)', padding: '30px', borderRadius: '16px', color: 'white', textAlign: 'center', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
@@ -285,6 +380,16 @@ export default function FiapProgressView({ user, allUsers = [] }: FiapProgressVi
                 <p style={{ opacity: 0.9 }}>Gratulálunk! Elérted a Platina fokozatot. A Gyémánt és Mester fokozatokhoz egyedi portfólió benyújtása szükséges a FIAP felületén.</p>
               </div>
             )}
+          </div>
+
+          {/* 🎯 ÚJ INFÓ PANEL: Figyelmeztetés a 2026-os 10-es darabszámos korlátozásról */}
+          <div style={{ background: '#1e293b', borderLeft: '4px solid #38bdf8', padding: '15px 20px', borderRadius: '0 12px 12px 0', marginBottom: '40px', fontSize: '0.85rem', color: '#cbd5e1', lineHeight: '1.5' }}>
+            <strong style={{ color: '#38bdf8', display: 'block', marginBottom: '2px' }}>
+              ⚠️ {lang === 'en' ? 'FIAP 2026 Regulation Notice:' : 'Hivatalos FIAP 2026-os Szabályzati Értesítés:'}
+            </strong>
+            {lang === 'en' 
+              ? 'Starting from 2026, a single photo/work cannot have more than 10 acceptances or awards listed on the official application form. Excess acceptances for the same image will be ignored by judges.' 
+              : 'A 2026. január 1-je után kiírt szalonokból egyetlen fotóhoz/műhöz legfeljebb 10 elfogadás vagy díj listázható a hivatalos pályázati nyomtatványon. Az ezen felüli extra elfogadásokat a bíráló bizottság figyelmen kívül hagyja!'}
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', borderBottom: '1px solid #334155', paddingBottom: '15px', flexWrap: 'wrap', gap: '15px' }}>
@@ -379,7 +484,6 @@ export default function FiapProgressView({ user, allUsers = [] }: FiapProgressVi
         </>
       )}
 
-      {/* JAVÍTVA: A Modal kikerült a lógó levegőből, és az oldal legvégére, a legbelső div elé került! */}
       <ExcelImportModal 
         isOpen={isImportModalOpen} 
         onClose={() => setIsImportModalOpen(false)} 
