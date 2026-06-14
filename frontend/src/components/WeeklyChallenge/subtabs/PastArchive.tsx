@@ -318,13 +318,13 @@ export default function PastArchive({
             {/* Fejléc */}
             <div style={{ textAlign: 'center', width: '100%' }}>
               <div style={{ color: '#fbbf24', fontSize: '26px', fontWeight: '900', letterSpacing: '6px', textTransform: 'uppercase', marginBottom: '15px' }}>
-                ✨ {lang === 'en' ? 'PHOTAWESOME ARENA RESULTS' : 'PHOTAWESOME ARÉNA EREDMÉNYEK'} ✨
+                ✨ {lang === 'en' ? 'PhotAwesome.com Challenge RESULTS' : 'PhotAwesome.com Kihívás EREDMÉNYEK'} ✨
               </div>
               <h1 style={{ color: '#ffffff', fontSize: '64px', margin: '0 0 10px 0', fontWeight: '900', letterSpacing: '-1px', lineHeight: '1.2' }}>
                 {adminPosterData.topic.title}
               </h1>
               <div style={{ background: '#fbbf2415', color: '#fbbf24', border: '1px solid #fbbf2440', padding: '8px 30px', borderRadius: '50px', fontSize: '20px', fontWeight: 'bold', display: 'inline-block', letterSpacing: '1px' }}>
-                {lang === 'en' ? 'CONGRATULATIONS TO THE WINNERS!' : 'GRATULÁLUNK A GYŐZTESEKNEK! 🏆'}
+                {lang === 'en' ? 'THE WINNERS!' : 'A GYŐZTESEK! 🏆'}
               </div>
             </div>
 
@@ -378,8 +378,8 @@ export default function PastArchive({
 
             {/* Lábléc */}
             <div style={{ width: '100%', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '25px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#64748b', fontSize: '18px', fontWeight: 'bold' }}>
-              <div>{lang === 'en' ? 'Join the Arena Battle:' : 'Csatlakozz a harchoz:'} <span style={{ color: '#38bdf8' }}>photawesome.com</span></div>
-              <div style={{ color: '#fbbf24', letterSpacing: '1px' }}>✨ ARENA CHAMPIONS ✨</div>
+              <div>{lang === 'en' ? 'Join the Arena Battle:' : 'Csatlakozz a kihívásokhoz:'} <span style={{ color: '#38bdf8' }}>photawesome.com</span></div>
+              <div style={{ color: '#fbbf24', letterSpacing: '1px' }}>✨ Képolvasók fotóklub ✨</div>
             </div>
 
           </div>
