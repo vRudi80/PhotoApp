@@ -67,12 +67,16 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
         {hallOfFame.map((row, index) => {
           const isMe = row.user_email === user?.email;
           const likes = Number(row.total_likes) || 0;
+          
+          // 🎯 ÚJ: Kinyerjük a győzelmi és dobogós adatokat a sorból (0-s fallback-el, ha még nem frissült a backend)
+          const firstPlaces = Number(row.first_places) || 0;
+          const podiums = Number(row.podiums) || 0;
+
           const level = getLevelDetails(likes, 0); 
           
           const rankColor = index === 0 ? '#fbbf24' : index === 1 ? '#cbd5e1' : index === 2 ? '#b45309' : '#64748b';
           const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
 
-          // 🎯 ÚJ: Ha angol módban vagyunk, dinamikusan lefordítjuk a rang nevét
           const displayRankName = lang === 'en' ? (rankNamesEn[level.name] || level.name) : level.name;
 
           return (
@@ -86,33 +90,50 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
                 padding: '16px 20px', 
                 borderRadius: '16px',
                 boxShadow: isMe ? '0 0 20px #fbbf2415' : 'none',
-                transition: 'transform 0.2s'
+                transition: 'transform 0.2s',
+                flexWrap: 'wrap',
+                gap: '15px'
               }}
             >
+              {/* Érem / Helyezés */}
               <div style={{ fontSize: '1.4rem', fontWeight: '900', width: '45px', color: rankColor, textAlign: 'center' }}>
                 {medal}
               </div>
 
-              <div style={{ flex: 1, marginLeft: '10px' }}>
+              {/* Felhasználó adatai és a versenyeredmények */}
+              <div style={{ flex: 1, minWidth: '200px' }}>
                 <div style={{ color: isMe ? '#fbbf24' : 'white', fontWeight: 'bold', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   {row.user_name} {isMe && <span style={{ fontSize: '0.75rem', background: '#fbbf24', color: '#0f172a', padding: '2px 8px', borderRadius: '10px', fontWeight: '900' }}>{t('hofYou')}</span>}
                 </div>
+                
                 {row.club_name && (
                   <div style={{ color: '#10b981', fontSize: '0.8rem', fontWeight: 'bold', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <ClubLogo driveId={row.drive_logo_id} logoUrl={row.logo_url} />
                     <span>{row.club_name}</span>
                   </div>
                 )}
+
+                {/* 🎯 ÚJ: Verseny statisztikai boxok (Első helyek és dobogók száma) */}
+                <div style={{ display: 'flex', gap: '8px', marginTop: '8px', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '0.75rem', color: '#fbbf24', background: '#fbbf2410', padding: '3px 10px', borderRadius: '6px', border: '1px solid #fbbf2420', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    🥇 {firstPlaces} {lang === 'en' ? (firstPlaces === 1 ? 'Win' : 'Wins') : 'győzelem'}
+                  </span>
+                  <span style={{ fontSize: '0.75rem', color: '#38bdf8', background: '#38bdf810', padding: '3px 10px', borderRadius: '6px', border: '1px solid #38bdf820', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    🏆 {podiums} {lang === 'en' ? 'Podium' : 'dobogó'}
+                  </span>
+                </div>
               </div>
 
-              <div style={{ marginRight: '20px' }}>
-                <span style={{ color: level.color, background: level.bg, border: `1px solid ${level.color}40`, padding: '6px 16px', borderRadius: '100px', fontSize: '0.85rem', fontWeight: 'bold' }}>
+              {/* Rangjelzés */}
+              <div style={{ marginRight: '10px' }}>
+                <span style={{ color: level.color, background: level.bg, border: `1px solid ${level.color}40`, padding: '6px 16px', borderRadius: '100px', fontSize: '0.85rem', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
                   {displayRankName}
                 </span>
               </div>
 
+              {/* Összesített pontszám */}
               <div style={{ textAlign: 'right', minWidth: '80px' }}>
-                <div style={{ color: '#fbbf24', fontWeight: '900', fontSize: '1.4rem' }}>{likes} <span style={{ fontSize: '0.9rem', fontWeight: 'normal', color: '#64748b' }}>⭐</span></div>
+                <div style={{ color: '#fbbf24', fontWeight: '900', fontSize: '1.4rem', whiteSpace: 'nowrap' }}>{likes} <span style={{ fontSize: '0.9rem', fontWeight: 'normal', color: '#64748b' }}>⭐</span></div>
               </div>
             </div>
           );
