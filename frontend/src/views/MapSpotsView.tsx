@@ -111,7 +111,7 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
     return (
       loc.title?.toLowerCase().includes(query) ||
       loc.description?.toLowerCase().includes(query) ||
-      loc.user_name?.toLowerCase().includes(query) || // 🎯 JAVÍTVA: Most már a készítő nevére is szűr a React!
+      loc.user_name?.toLowerCase().includes(query) || 
       loc.camera?.toLowerCase().includes(query) ||
       loc.lens?.toLowerCase().includes(query) ||
       loc.photo_month?.toLowerCase().includes(query) ||
@@ -222,6 +222,7 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
     } catch (error) { alert(t('msgNetworkError')); fetchLocations(); }
   };
 
+  // 👑 JAVÍTVA: Automatikus GPS koordináta-olvasó és térkép-fókuszáló motor
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
@@ -229,7 +230,8 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
       setUploadPreview(URL.createObjectURL(file));
 
       try {
-        const exifData = await exifr.parse(file, ['Make', 'Model', 'LensModel', 'DateTimeOriginal']);
+        // 🎯 ÚJ: Lekérjük a 'latitude' és 'longitude' normalizált koordinátákat is az exifr-től
+        const exifData = await exifr.parse(file, ['Make', 'Model', 'LensModel', 'DateTimeOriginal', 'latitude', 'longitude']);
         
         if (exifData) {
           if (exifData.Model) {
@@ -257,9 +259,26 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
               setUploadTimeOfDay('Éjszaka / Tejút');
             }
           }
+
+          // 🎯 ÚJ: GPS koordináták ellenőrzése és a jelölő automatikus áthelyezése
+          if (typeof exifData.latitude === 'number' && typeof exifData.longitude === 'number') {
+            const gpsCoords = { lat: exifData.latitude, lng: exifData.longitude };
+            
+            if (editingSpot) {
+              // Ha szerkesztünk, az épp módosított spot helyzetét írjuk felül
+              setEditingSpot((prev: any) => prev ? { ...prev, lat: gpsCoords.lat.toString(), lng: gpsCoords.lng.toString() } : null);
+            } else {
+              // Ha új spotot veszünk fel, a leendő új gombostűt lőjük oda
+              setNewSpotLatLng(gpsCoords);
+            }
+
+            // Térkép fókuszálása a kép készítésének valódi helyszínére nagy pontossággal
+            setMapTargetPosition(gpsCoords);
+            setMapZoom(15);
+          }
         }
       } catch (exifError) {
-        console.log("EXIF parsing bypassed.");
+        console.log("EXIF parsing bypassed or no GPS payload discovered.");
       }
     }
   };
@@ -281,6 +300,9 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
 
     try {
       if (editingSpot) {
+        // 🎯 ÚJ: Ha az EXIF koordináta módosította az editingSpot-ot, elküldjük a frissített pozíciót is mentéskor
+        formData.append('lat', editingSpot.lat);
+        formData.append('lng', editingSpot.lng);
         const res = await fetch(`${BACKEND_URL}/api/locations/${editingSpot.id}`, { method: 'PUT', body: formData });
         if (res.ok) { alert(t('msgMapUpdateSuccess')); setEditingSpot(null); fetchLocations(); }
       } else if (newSpotLatLng) {
@@ -427,7 +449,7 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
               </div>
               <div>
                 <label style={{ fontSize: '0.8rem', color: '#a855f7', fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>{t('mapFormLensLabel')}</label>
-                <input placeholder={t('mapFormLensPlaceholder')} value={uploadLens} onChange={e => setUploadLens(e.target.value)} style={{...inputStyle, marginBottom: 0}} disabled={isUploading} />
+                <input placeholder={t('mapFormLensPlaceholder')} value={uploadCamera || uploadLens} onChange={e => setUploadLens(e.target.value)} style={{...inputStyle, marginBottom: 0}} disabled={isUploading} />
               </div>
             </div>
 
