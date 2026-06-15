@@ -98,6 +98,9 @@ export default function AdminWeeklyView() {
 
   const [timeWindow, setTimeWindow] = useState<'all' | 'current_month' | 'next_30'>('all');
 
+  // 🎯 ÚJ STATE: A globális kereső kifejezése
+  const [searchQuery, setSearchQuery] = useState('');
+
   const [activeDrag, setActiveDrag] = useState<{
     topicId: number;
     type: 'move' | 'resize-start' | 'resize-end';
@@ -249,6 +252,7 @@ export default function AdminWeeklyView() {
     } catch (e) { alert(t('msgNetworkError')); }
   };
 
+  // Gantt naptár számítások biztonsági fallbacekkel
   const ganttCalendarData = useMemo(() => {
     let absoluteMin = Infinity;
     let absoluteMax = 0;
@@ -332,7 +336,32 @@ export default function AdminWeeklyView() {
     return (elapsedMs / 86400000) * 40;
   }, [ganttCalendarData]);
 
-  // Drag & drop egérfigyelő
+  // ── 🎯 ÚJ: INTELLIGENS MULTI-MEZŐS KERESŐ ÉS IDŐABLAK SZŰRŐ MATRIX ──
+  const filteredTopics = useMemo(() => {
+    return topics.filter(tData => {
+      // 1. Időablak ellenőrzés
+      const endMillis = parseAdminDateSafe(tData.end_date).getTime();
+      const startMillis = parseAdminDateSafe(tData.start_date).getTime();
+      if (timeWindow !== 'all' && (endMillis < ganttCalendarData.minTime || startMillis > ganttCalendarData.maxTime)) {
+        return false;
+      }
+
+      // 2. Szöveges kereső kifejezés ellenőrzése (ha van beírva valami)
+      if (!searchQuery) return true;
+      const query = searchQuery.toLowerCase().trim();
+
+      const matchTitle = (tData.title || '').toLowerCase().includes(query);
+      const matchTitleEn = (tData.title_en || '').toLowerCase().includes(query);
+      const matchDesc = (tData.description || '').toLowerCase().includes(query);
+      const matchDescEn = (tData.description_en || '').toLowerCase().includes(query);
+      const matchMaster = (tData.master_email || '').toLowerCase().includes(query);
+      const matchAuthor = (tData.cover_author || '').toLowerCase().includes(query);
+
+      return matchTitle || matchTitleEn || matchDesc || matchDescEn || matchMaster || matchAuthor;
+    });
+  }, [topics, timeWindow, searchQuery, ganttCalendarData]);
+
+  // Drag & drop egérfigyelő motor
   useEffect(() => {
     if (!activeDrag) return;
 
@@ -492,27 +521,61 @@ export default function AdminWeeklyView() {
         </button>
       </div>
 
-      {/* GANTT TIMELINE DASHBOARD */}
+      {/* ── 📊 GANTT TIMELINE DASHBOARD KERESŐVEL ÉS SZŰRŐKKEL ── */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '15px' }}>
         <h3 style={{ color: '#f8fafc', margin: 0, fontSize: '1.4rem', fontWeight: 'bold' }}>📅 {t('adminGanttTitle')}</h3>
-        <div style={{ display: 'flex', gap: '5px', background: '#0f172a', padding: '4px', borderRadius: '10px', border: '1px solid #334155' }}>
-          <button onClick={() => setTimeWindow('all')} style={{ background: timeWindow === 'all' ? '#38bdf8' : 'transparent', color: timeWindow === 'all' ? '#0f172a' : '#94a3b8', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer' }}>{lang === 'en' ? 'Show All' : 'Mind'}</button>
-          <button onClick={() => setTimeWindow('current_month')} style={{ background: timeWindow === 'current_month' ? '#38bdf8' : 'transparent', color: timeWindow === 'current_month' ? '#0f172a' : '#94a3b8', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer' }}>{lang === 'en' ? 'This Month' : 'Aktuális hónap'}</button>
-          <button onClick={() => setTimeWindow('next_30')} style={{ background: timeWindow === 'next_30' ? '#38bdf8' : 'transparent', color: timeWindow === 'next_30' ? '#0f172a' : '#94a3b8', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer' }}>{lang === 'en' ? 'Next 30 Days' : 'Következő 30 nap'}</button>
+        
+        <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
+          
+          {/* 🔍 ÚJ: GANTT ÉLŐ MULTI-SEARCH INPUT MEZŐ */}
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+            <span style={{ position: 'absolute', left: '12px', color: '#64748b', fontSize: '0.9rem' }}>🔍</span>
+            <input 
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder={lang === 'en' ? "Search challenge, master, photographer..." : "Keresés cím, leírás, képmester, fotós..."}
+              style={{
+                background: '#0f172a',
+                color: '#fff',
+                border: '1px solid #334155',
+                padding: '8px 12px 8px 34px',
+                borderRadius: '10px',
+                fontSize: '0.85rem',
+                width: '280px',
+                outline: 'none',
+                boxSizing: 'border-box',
+                transition: 'border-color 0.2s'
+              }}
+              onFocus={e => e.currentTarget.style.borderColor = '#38bdf8'}
+              onBlur={e => e.currentTarget.style.borderColor = '#334155'}
+            />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery('')} style={{ position: 'absolute', right: '10px', background: 'transparent', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>✕</button>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', gap: '5px', background: '#0f172a', padding: '4px', borderRadius: '10px', border: '1px solid #334155' }}>
+            <button onClick={() => setTimeWindow('all')} style={{ background: timeWindow === 'all' ? '#38bdf8' : 'transparent', color: timeWindow === 'all' ? '#0f172a' : '#94a3b8', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer' }}>{lang === 'en' ? 'Show All' : 'Mind'}</button>
+            <button onClick={() => setTimeWindow('current_month')} style={{ background: timeWindow === 'current_month' ? '#38bdf8' : 'transparent', color: timeWindow === 'current_month' ? '#0f172a' : '#94a3b8', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer' }}>{lang === 'en' ? 'This Month' : 'Aktuális hónap'}</button>
+            <button onClick={() => setTimeWindow('next_30')} style={{ background: timeWindow === 'next_30' ? '#38bdf8' : 'transparent', color: timeWindow === 'next_30' ? '#0f172a' : '#94a3b8', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer' }}>{lang === 'en' ? 'Next 30 Days' : 'Következő 30 nap'}</button>
+          </div>
+
         </div>
       </div>
       
-      {/* NAPTÁR CANVAS REGET */}
+      {/* NAPTÁR FŐ GÖRGŐS RÉTEG */}
       <div style={{ background: '#1e293b', borderRadius: '24px', border: '1px solid #334155', padding: '25px', overflowX: 'auto', boxShadow: '0 15px 35px rgba(0,0,0,0.4)', boxSizing: 'border-box' }}>
         <div style={{ width: 'max-content', display: 'flex', flexDirection: 'column', gap: '15px', position: 'relative', userSelect: activeDrag ? 'none' : 'auto' }}>
           
-          {/* STICKY FEJLÉC */}
+          {/* STICKY KÉTLÉPCSŐS NAPTÁR FEJLÉC */}
           <div style={{ display: 'grid', gridTemplateColumns: `460px ${ganttCalendarData.totalDays * 40}px`, borderBottom: '2px solid #475569', paddingBottom: '12px' }}>
             <div style={{ color: '#38bdf8', fontWeight: '900', fontSize: '0.95rem', textTransform: 'uppercase', letterSpacing: '1px', display: 'flex', alignItems: 'center', paddingLeft: '14px', boxSizing: 'border-box' }}>
               {t('adminGanttChallengeColumn')}
             </div>
             
             <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
+              {/* 1. Szint: Dinamikus Hónap aggregáció */}
               <div style={{ display: 'flex', width: '100%', borderBottom: '1px solid rgba(71, 85, 105, 0.4)', paddingBottom: '6px' }}>
                 {monthsSpans.map((span, sIdx) => {
                   const monthNamesHu = ['Január', 'Február', 'Március', 'Április', 'Május', 'Június', 'Július', 'Augusztus', 'Szeptember', 'Október', 'November', 'December'];
@@ -524,6 +587,7 @@ export default function AdminWeeklyView() {
                   );
                 })}
               </div>
+              {/* 2. Szint: Napok számai */}
               <div style={{ display: 'flex', width: '100%', paddingTop: '4px' }}>
                 {ganttCalendarData.daysArray.map((date, dIdx) => {
                   const isWeekend = date.getDay() === 0 || date.getDay() === 6;
@@ -537,125 +601,126 @@ export default function AdminWeeklyView() {
             </div>
           </div>
 
-          {/* CAMPAIGN HADITERV SOROK */}
-          {topics.map((tData) => {
-            const status = getTopicStatus(tData.status, tData.start_date, tData.end_date);
-            const isPending = tData.status === 'pending';
-            
-            const startMillis = parseAdminDateSafe(tData.start_date).getTime();
-            const endMillis = parseAdminDateSafe(tData.end_date).getTime();
+          {/* ── 🎯 JAVÍTVA: A SZŰRT CSAPATADATOK (filteredTopics) FUTNAK VÉGIG A MAP CIKLUSBAN ── */}
+          {filteredTopics.length === 0 ? (
+            <div style={{ color: '#64748b', fontStyle: 'italic', padding: '40px', textAlign: 'left', fontSize: '0.95rem', paddingLeft: '14px' }}>
+              ⚠️ {lang === 'en' ? 'No challenges match the current filter criteria...' : 'Nincs a keresési feltételeknek megfelelő kihívás terv...'}
+            </div>
+          ) : (
+            filteredTopics.map((tData) => {
+              const status = getTopicStatus(tData.status, tData.start_date, tData.end_date);
+              const isPending = tData.status === 'pending';
+              
+              const startMillis = parseAdminDateSafe(tData.start_date).getTime();
+              const endMillis = parseAdminDateSafe(tData.end_date).getTime();
 
-            if (timeWindow !== 'all' && (endMillis < ganttCalendarData.minTime || startMillis > ganttCalendarData.maxTime)) {
-              return null;
-            }
+              const leftPx = ((startMillis - ganttCalendarData.minTime) / 86400000) * 40;
+              const widthPx = ((endMillis - startMillis) / 86400000) * 40;
 
-            const leftPx = ((startMillis - ganttCalendarData.minTime) / 86400000) * 40;
-            const widthPx = ((endMillis - startMillis) / 86400000) * 40;
+              const visualLeftPx = Math.max(0, leftPx);
+              const visualWidthPx = leftPx < 0 ? Math.max(0, widthPx + leftPx) : widthPx;
+              const isCurrentlyDragging = activeDrag?.topicId === tData.id;
 
-            const visualLeftPx = Math.max(0, leftPx);
-            const visualWidthPx = leftPx < 0 ? Math.max(0, widthPx + leftPx) : widthPx;
-            const isCurrentlyDragging = activeDrag?.topicId === tData.id;
+              const tooltipStart = new Date(tData.start_date).toLocaleString(lang === 'en' ? 'en-US' : 'hu-HU', { dateStyle: 'short', timeStyle: 'short', timeZone: 'UTC' });
+              const tooltipEnd = new Date(tData.end_date).toLocaleString(lang === 'en' ? 'en-US' : 'hu-HU', { dateStyle: 'short', timeStyle: 'short', timeZone: 'UTC' });
+              const tooltipText = `${t('adminTooltipFrom') || 'Kezdet'}: ${tooltipStart} ➔ ${t('adminTooltipTo') || 'Vége'}: ${tooltipEnd}`;
 
-            // ── 🎯 🎯 JAVÍTVA: A TOOLTIPTEXT VÁLTOZÓ DEKLARÁCIÓJA VISSZAKERÜLT A MEGFELELŐ HELYRE! ──
-            const tooltipStart = new Date(tData.start_date).toLocaleString(lang === 'en' ? 'en-US' : 'hu-HU', { dateStyle: 'short', timeStyle: 'short', timeZone: 'UTC' });
-            const tooltipEnd = new Date(tData.end_date).toLocaleString(lang === 'en' ? 'en-US' : 'hu-HU', { dateStyle: 'short', timeStyle: 'short', timeZone: 'UTC' });
-            const tooltipText = `${t('adminTooltipFrom') || 'Kezdet'}: ${tooltipStart} ➔ ${t('adminTooltipTo') || 'Vége'}: ${tooltipEnd}`;
+              return (
+                <div key={tData.id} style={{ display: 'grid', gridTemplateColumns: `460px ${ganttCalendarData.totalDays * 40}px`, alignItems: 'center', background: tData.isGanttModified ? '#10b98108' : '#0f172a30', borderRadius: '16px', border: tData.isGanttModified ? '1px solid #10b98150' : '1px solid #232f46', padding: '14px 0px', boxSizing: 'border-box' }}>
+                  
+                  <div style={{ display: 'flex', gap: '14px', paddingLeft: '14px', paddingRight: '15px', minWidth: 0, boxSizing: 'border-box', alignItems: 'center' }}>
+                    <div style={{ width: '74px', height: '46px', backgroundColor: '#0f172a', borderRadius: '6px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #334155', flexShrink: 0 }}>
+                      {tData.cover_url ? <img src={tData.cover_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={handleImageError} /> : <span style={{ fontSize: '1rem', opacity: 0.3 }}>🖼️</span>}
+                    </div>
 
-            return (
-              <div key={tData.id} style={{ display: 'grid', gridTemplateColumns: `460px ${ganttCalendarData.totalDays * 40}px`, alignItems: 'center', background: tData.isGanttModified ? '#10b98108' : '#0f172a30', borderRadius: '16px', border: tData.isGanttModified ? '1px solid #10b98150' : '1px solid #232f46', padding: '14px 0px', boxSizing: 'border-box' }}>
-                
-                <div style={{ display: 'flex', gap: '14px', paddingLeft: '14px', paddingRight: '15px', minWidth: 0, boxSizing: 'border-box', alignItems: 'center' }}>
-                  <div style={{ width: '74px', height: '46px', backgroundColor: '#0f172a', borderRadius: '6px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #334155', flexShrink: 0 }}>
-                    {tData.cover_url ? <img src={tData.cover_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={handleImageError} /> : <span style={{ fontSize: '1rem', opacity: 0.3 }}>🖼️</span>}
+                    <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                      <h4 style={{ margin: 0, fontWeight: 'bold', color: '#f8fafc', fontSize: '1.05rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tData.title}</h4>
+                      {tData.title_en && (
+                        <div style={{ fontSize: '0.82rem', color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '5px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <img src="https://flagcdn.com/w20/gb.png" alt="" style={{ width: '12px', height: 'auto', borderRadius: '1px' }} />
+                          <span style={{ fontStyle: 'italic' }}>{tData.title_en}</span>
+                        </div>
+                      )}
+                      <div style={{ fontSize: '0.76rem', color: '#64748b', display: 'flex', flexWrap: 'wrap', gap: '2px 8px', alignItems: 'center' }}>
+                        <span style={{ color: status.color, fontWeight: 'bold', background: `${status.color}10`, padding: '1px 6px', borderRadius: '4px' }}>{status.label}</span>
+                        {tData.proposed_by && <span style={{ color: '#f59e0b' }}>• 📜 {tData.proposed_by.split('@')[0]}</span>}
+                        {tData.master_email && <span style={{ color: '#a78bfa', fontWeight: 'bold' }}>• 👑 {tData.master_email.split('@')[0]}</span>}
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                        
+                        {tData.isGanttModified ? (
+                          <button onClick={() => handleQuickGanttSave(tData)} className="gantt-glow-save-btn" style={{ background: '#10b981', color: '#0f172a', border: 'none', padding: '3px 12px', borderRadius: '50px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'black', boxShadow: '0 0 10px #10b98180' }}>
+                            💾 {lang === 'en' ? 'Save Period' : 'Dátum Mentése'}
+                          </button>
+                        ) : (
+                          <button onClick={() => startEdit(tData)} style={{ background: 'transparent', color: '#f59e0b', border: '1px solid #f59e0b40', padding: '3px 10px', borderRadius: '50px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>{t('mapBtnEdit')}</button>
+                        )}
+
+                        {isPending ? (
+                          <>
+                            <button onClick={() => handleProposalDecision(tData.id, 'approved')} style={{ background: '#10b981', color: '#0f172a', border: 'none', padding: '3px 10px', borderRadius: '50px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>{t('adminBtnApprove')}</button>
+                            <button onClick={() => handleProposalDecision(tData.id, 'rejected')} style={{ background: '#ef444420', color: '#f87171', border: '1px solid #ef444440', padding: '3px 10px', borderRadius: '50px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>{t('adminBtnReject')}</button>
+                          </>
+                        ) : (
+                          <button onClick={() => handleDelete(tData.id)} style={{ background: '#ef444415', color: '#ef4444', border: 'none', padding: '3px 10px', borderRadius: '50px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>{t('roomBtnDelete')}</button>
+                        )}
+                      </div>
+                    </div>
                   </div>
 
-                  <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                    <h4 style={{ margin: 0, fontWeight: 'bold', color: '#f8fafc', fontSize: '1.05rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tData.title}</h4>
-                    {tData.title_en && (
-                      <div style={{ fontSize: '0.82rem', color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '5px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        <img src="https://flagcdn.com/w20/gb.png" alt="" style={{ width: '12px', height: 'auto', borderRadius: '1px' }} />
-                        <span style={{ fontStyle: 'italic' }}>{tData.title_en}</span>
+                  {/* JOBB CELLA */}
+                  <div className="gantt-bar-container" style={{ position: 'relative', width: '100%', height: '40px', display: 'flex', alignItems: 'center', boxSizing: 'border-box' }}>
+                    
+                    <div style={{ position: 'absolute', inset: 0, display: 'grid', gridTemplateColumns: `repeat(${ganttCalendarData.totalDays}, 1fr)`, pointerEvents: 'none', zIndex: 1 }}>
+                      {ganttCalendarData.daysArray.map((date, rIdx) => {
+                        const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+                        return <div key={rIdx} style={{ borderLeft: '1px solid rgba(51, 65, 85, 0.12)', height: '100%', background: isWeekend ? 'rgba(239, 68, 68, 0.015)' : 'transparent' }} />;
+                      })}
+                    </div>
+
+                    <div 
+                      title={tooltipText} 
+                      className={isCurrentlyDragging ? 'gantt-bar-dragging' : ''}
+                      style={{ 
+                        position: 'absolute', left: `${visualLeftPx}px`, width: `${visualWidthPx}px`, height: '24px', 
+                        background: tData.isGanttModified ? 'linear-gradient(135deg, #059669, #10b981)' : status.label === t('adminStatusEnded') ? 'linear-gradient(135deg, #475569, #64748b)' : `linear-gradient(135deg, ${status.color}90, ${status.color})`,
+                        borderRadius: '6px', border: tData.isGanttModified ? '1px solid #34d399' : status.label === t('adminStatusEnded') ? '1px solid #475569' : `1px solid ${status.color}`, boxSizing: 'border-box',
+                        boxShadow: tData.isGanttModified ? '0 0 12px rgba(16,185,129,0.4)' : `0 3px 8px ${status.color}25`, cursor: 'move', zIndex: 2, display: 'flex', justifyContent: 'space-between', overflow: 'hidden'
+                      }}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        setActiveDrag({ topicId: tData.id, type: 'move', startX: e.clientX, originalStartMs: startMillis, originalEndMs: endMillis });
+                      }}
+                    >
+                      <div 
+                        className="gantt-resize-handle"
+                        style={{ width: '8px', height: '100%', cursor: 'ew-resize', background: 'rgba(255,255,255,0.1)' }}
+                        onMouseDown={(e) => {
+                          e.stopPropagation();
+                          setActiveDrag({ topicId: tData.id, type: 'resize-start', startX: e.clientX, originalStartMs: startMillis, originalEndMs: endMillis });
+                        }}
+                      />
+                      <div 
+                        className="gantt-resize-handle"
+                        style={{ width: '8px', height: '100%', cursor: 'ew-resize', background: 'rgba(255,255,255,0.1)' }}
+                        onMouseDown={(e) => {
+                          e.stopPropagation();
+                          setActiveDrag({ topicId: tData.id, type: 'resize-end', startX: e.clientX, originalStartMs: startMillis, originalEndMs: endMillis });
+                        }}
+                      />
+                    </div>
+
+                    {tData.pending_master_email && (
+                      <div style={{ position: 'absolute', bottom: '-10px', left: `${visualLeftPx}px`, background: '#eab308', color: '#0f172a', fontSize: '0.62rem', padding: '1px 5px', borderRadius: '4px', fontWeight: 'black', zIndex: 3, boxShadow: '0 2px 4px rgba(0,0,0,0.4)' }}>
+                        👑 PENDING MASTER
                       </div>
                     )}
-                    <div style={{ fontSize: '0.76rem', color: '#64748b', display: 'flex', flexWrap: 'wrap', gap: '2px 8px', alignItems: 'center' }}>
-                      <span style={{ color: status.color, fontWeight: 'bold', background: `${status.color}10`, padding: '1px 6px', borderRadius: '4px' }}>{status.label}</span>
-                      {tData.proposed_by && <span style={{ color: '#f59e0b' }}>• 📜 {tData.proposed_by.split('@')[0]}</span>}
-                      {tData.master_email && <span style={{ color: '#a78bfa', fontWeight: 'bold' }}>• 👑 {tData.master_email.split('@')[0]}</span>}
-                    </div>
-                    <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
-                      
-                      {tData.isGanttModified ? (
-                        <button onClick={() => handleQuickGanttSave(tData)} className="gantt-glow-save-btn" style={{ background: '#10b981', color: '#0f172a', border: 'none', padding: '3px 12px', borderRadius: '50px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'black', boxShadow: '0 0 10px #10b98180' }}>
-                          💾 {lang === 'en' ? 'Save Period' : 'Dátum Mentése'}
-                        </button>
-                      ) : (
-                        <button onClick={() => startEdit(tData)} style={{ background: 'transparent', color: '#f59e0b', border: '1px solid #f59e0b40', padding: '3px 10px', borderRadius: '50px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>{t('mapBtnEdit')}</button>
-                      )}
-
-                      {isPending ? (
-                        <>
-                          <button onClick={() => handleProposalDecision(tData.id, 'approved')} style={{ background: '#10b981', color: '#0f172a', border: 'none', padding: '3px 10px', borderRadius: '50px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>{t('adminBtnApprove')}</button>
-                          <button onClick={() => handleProposalDecision(tData.id, 'rejected')} style={{ background: '#ef444420', color: '#f87171', border: '1px solid #ef444440', padding: '3px 10px', borderRadius: '50px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>{t('adminBtnReject')}</button>
-                        </>
-                      ) : (
-                        <button onClick={() => handleDelete(tData.id)} style={{ background: '#ef444415', color: '#ef4444', border: 'none', padding: '3px 10px', borderRadius: '50px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>{t('roomBtnDelete')}</button>
-                      )}
-                    </div>
                   </div>
+
                 </div>
-
-                {/* JOBB CELLA */}
-                <div className="gantt-bar-container" style={{ position: 'relative', width: '100%', height: '40px', display: 'flex', alignItems: 'center', boxSizing: 'border-box' }}>
-                  
-                  <div style={{ position: 'absolute', inset: 0, display: 'grid', gridTemplateColumns: `repeat(${ganttCalendarData.totalDays}, 1fr)`, pointerEvents: 'none', zIndex: 1 }}>
-                    {ganttCalendarData.daysArray.map((date, rIdx) => {
-                      const isWeekend = date.getDay() === 0 || date.getDay() === 6;
-                      return <div key={rIdx} style={{ borderLeft: '1px solid rgba(51, 65, 85, 0.12)', height: '100%', background: isWeekend ? 'rgba(239, 68, 68, 0.015)' : 'transparent' }} />;
-                    })}
-                  </div>
-
-                  <div 
-                    title={tooltipText} 
-                    className={isCurrentlyDragging ? 'gantt-bar-dragging' : ''}
-                    style={{ 
-                      position: 'absolute', left: `${visualLeftPx}px`, width: `${visualWidthPx}px`, height: '24px', 
-                      background: tData.isGanttModified ? 'linear-gradient(135deg, #059669, #10b981)' : status.label === t('adminStatusEnded') ? 'linear-gradient(135deg, #475569, #64748b)' : `linear-gradient(135deg, ${status.color}90, ${status.color})`,
-                      borderRadius: '6px', border: tData.isGanttModified ? '1px solid #34d399' : status.label === t('adminStatusEnded') ? '1px solid #475569' : `1px solid ${status.color}`, boxSizing: 'border-box',
-                      boxShadow: tData.isGanttModified ? '0 0 12px rgba(16,185,129,0.4)' : `0 3px 8px ${status.color}25`, cursor: 'move', zIndex: 2, display: 'flex', justifyContent: 'space-between', overflow: 'hidden'
-                    }}
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      setActiveDrag({ topicId: tData.id, type: 'move', startX: e.clientX, originalStartMs: startMillis, originalEndMs: endMillis });
-                    }}
-                  >
-                    <div 
-                      className="gantt-resize-handle"
-                      style={{ width: '8px', height: '100%', cursor: 'ew-resize', background: 'rgba(255,255,255,0.1)' }}
-                      onMouseDown={(e) => {
-                        e.stopPropagation();
-                        setActiveDrag({ topicId: tData.id, type: 'resize-start', startX: e.clientX, originalStartMs: startMillis, originalEndMs: endMillis });
-                      }}
-                    />
-                    <div 
-                      className="gantt-resize-handle"
-                      style={{ width: '8px', height: '100%', cursor: 'ew-resize', background: 'rgba(255,255,255,0.1)' }}
-                      onMouseDown={(e) => {
-                        e.stopPropagation();
-                        setActiveDrag({ topicId: tData.id, type: 'resize-end', startX: e.clientX, originalStartMs: startMillis, originalEndMs: endMillis });
-                      }}
-                    />
-                  </div>
-
-                  {tData.pending_master_email && (
-                    <div style={{ position: 'absolute', bottom: '-10px', left: `${visualLeftPx}px`, background: '#eab308', color: '#0f172a', fontSize: '0.62rem', padding: '1px 5px', borderRadius: '4px', fontWeight: 'black', zIndex: 3, boxShadow: '0 2px 4px rgba(0,0,0,0.4)' }}>
-                      👑 PENDING MASTER
-                    </div>
-                  )}
-                </div>
-
-              </div>
-            );
-          })}
+              );
+            })
+          )}
 
           {/* VÖRÖS JELZŐ CSÍK */}
           {nowIndicatorPositionPx !== null && (
