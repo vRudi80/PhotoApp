@@ -470,7 +470,7 @@ export default function ArenaActiveRoom({
               <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                 <h4 style={{ margin: 0, color: 'white', fontSize: '1.4rem', fontWeight: 'bold' }}>🔎 {t('roomInspectorTitle')}</h4>
                 <span style={{ color: '#64748b', fontSize: '0.85rem', fontWeight: 'bold', background: '#0f172a', padding: '4px 12px', borderRadius: '6px', border: '1px solid #334155' }}>
-                  🔒 {t('roomInspectorAnon')}
+                   {t('roomInspectorAnon')}
                 </span>
               </div>
               <button onClick={() => setSelectedExifPhoto(null)} style={{ background: '#334155', color: '#cbd5e1', border: 'none', width: '36px', height: '32px', borderRadius: '50%', cursor: 'pointer', fontWeight: 'bold', fontSize: '1.1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = '#ef4444'}>✕</button>
