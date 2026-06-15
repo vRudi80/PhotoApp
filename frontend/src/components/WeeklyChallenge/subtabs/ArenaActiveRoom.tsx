@@ -489,8 +489,8 @@ export default function ArenaActiveRoom({
             <div style={{ padding: '20px 30px', background: '#0f172a', borderTop: '1px solid #334155', display: 'flex', flexDirection: 'column', gap: '15px', flexShrink: 0 }}>
               
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px 25px', fontSize: '0.85rem', color: '#cbd5e1' }}>
-                <div>📷 <span style={{ color: '#64748b' }}>{t('mapExifCamera')}:</span> <b style={{ color: 'white' }}>{selectedExifPhoto.exif?.camera}</b></div>
-                <div>🔭 <span style={{ color: '#64748b' }}>{t('mapExifLens')}:</span> <b style={{ color: 'white' }}>{selectedExifPhoto.exif?.lens}</b></div>
+                <div> <span style={{ color: '#64748b' }}>{t('mapExifCamera')}:</span> <b style={{ color: 'white' }}>{selectedExifPhoto.exif?.camera}</b></div>
+                <div> <span style={{ color: '#64748b' }}>{t('mapExifLens')}:</span> <b style={{ color: 'white' }}>{selectedExifPhoto.exif?.lens}</b></div>
                 <div>⏱️ <span style={{ color: '#64748b' }}>{t('roomInspectorShutter')}:</span> <b style={{ color: '#38bdf8' }}>{selectedExifPhoto.exif?.shutter}</b></div>
                 <div>💎 <span style={{ color: '#64748b' }}>{t('roomInspectorIso')}:</span> <b style={{ color: '#38bdf8' }}>{selectedExifPhoto.exif?.iso}</b></div>
                 <div>📐 <span style={{ color: '#64748b' }}>{t('roomInspectorAperture')}:</span> <b style={{ color: '#10b981' }}>{selectedExifPhoto.exif?.aperture}</b></div>
