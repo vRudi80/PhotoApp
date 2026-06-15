@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { BACKEND_URL } from '../utils/constants';
 import { getImageUrl } from '../utils/helpers';
 import { toPng } from 'html-to-image'; 
@@ -213,7 +213,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const [masterVotesLeft, setMasterVotesLeft] = useState<number>(0);
   const [isMaster, setIsMaster] = useState<boolean>(false);
 
-  // 🎯 UNIFIKÁLT ÉS TISZTÍTOTT ÁLLAPOT-DOBOZ
+  // Új feltöltés adatai
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -224,6 +224,14 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const [uploadIso, setUploadIso] = useState('');
   const [uploadAperture, setUploadAperture] = useState('');
   const [uploadSoftware, setUploadSoftware] = useState('');
+
+  // 🎯 ÚJ STATE: Csere (swap) metaadatok kezelése
+  const [swapCamera, setSwapCamera] = useState('');
+  const [swapLens, setSwapLens] = useState('');
+  const [swapShutter, setSwapShutter] = useState('');
+  const [swapIso, setSwapIso] = useState('');
+  const [swapAperture, setSwapAperture] = useState('');
+  const [swapSoftware, setSwapSoftware] = useState('');
 
   const [showSwapAlbumModal, setShowSwapAlbumModal] = useState(false);
   const [swapAlbumPhotos, setSwapAlbumPhotos] = useState<any[]>([]);
@@ -356,7 +364,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         if (data.userTotalLikes !== undefined) setUserTotalLikes(data.userTotalLikes);
         if (data.userVictories !== undefined) setUserVictories(data.userVictories);
         if (data.masterVotesLeft !== undefined) setMasterVotesLeft(data.masterVotesLeft); 
-        if (data.isMaster !== undefined) setIsMaster(data.isMaster);                     
+        if (data.isMaster !== undefined) setIsMaster(data.isMaster);                      
         if (data.myReferralCode !== undefined) setMyReferralCode(data.myReferralCode);
         if (data.referredBy !== undefined) setReferredBy(data.referredBy);
         if (data.userPower) setUserPower(data.userPower);
@@ -660,7 +668,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     finally { setIsClaimingReferral(false); }
   };
 
-  // ── 🎯 EGYESÍTETT, KLIENS-ALAPÚ EXIF-KIBÁNYÁSZ MOTOR ──
+  // ── 📊 FILTÖLTÉSI EXIF-KIBÁNYÁSZ MOTOR ──
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const rawFile = e.target.files[0];
@@ -747,24 +755,86 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     }
   };
 
-  const handleFileSelectForSwap = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // ── 🎯 ÚJ: INTERAKTÍV EXIF-KIBÁNYÁSZ ÉS TÖMÖRÍTŐ CSATORNA KIFEJEZETTEN CSERÉHEZ (Swap) ──
+  const handleFileSelectForSwap = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      const file = e.target.files[0];
-      setSwapFile(file);
+      const rawFile = e.target.files[0];
+
+      try {
+        const exifData = await exifr.parse(rawFile);
+        
+        if (exifData) {
+          if (exifData.Model) {
+            const makePrefix = exifData.Make && !exifData.Model.startsWith(exifData.Make) ? `${exifData.Make} ` : '';
+            setSwapCamera(`${makePrefix}${exifData.Model}`);
+          } else if (exifData.Make) {
+            setSwapCamera(exifData.Make);
+          } else {
+            setSwapCamera('');
+          }
+
+          setSwapLens(exifData.LensModel || '');
+
+          if (exifData.ExposureTime) {
+            const shutterFraction = exifData.ExposureTime < 1 
+              ? `1/${Math.round(1 / exifData.ExposureTime)}s` 
+              : `${exifData.ExposureTime}s`;
+            setSwapShutter(shutterFraction);
+          } else {
+            setSwapShutter('');
+          }
+
+          setSwapIso(exifData.ISO ? String(exifData.ISO) : '');
+          setSwapAperture(exifData.FNumber ? `f/${exifData.FNumber}` : '');
+          setSwapSoftware(exifData.Software || '');
+        }
+      } catch (exifError) {
+        console.log("Nem található EXIF pecsét a képben.");
+        setSwapCamera(''); setSwapLens(''); setSwapShutter('');
+        setSwapIso(''); setSwapAperture(''); setSwapSoftware('');
+      }
+
+      let finalFile = rawFile;
+      if (rawFile.size > 2 * 1024 * 1024) {
+        console.log("⚡ Large asset detected on swap, compressing in client browser...");
+        finalFile = await compressImageOnClient(rawFile);
+      }
+
+      setSwapFile(finalFile);
       if (swapPreview) URL.revokeObjectURL(swapPreview);
-      setSwapPreview(URL.createObjectURL(file));
+      setSwapPreview(URL.createObjectURL(finalFile));
     }
   };
 
+  // ── 🎯 JAVÍTVA: A handleSwapSubmit most már hibátlanul átadja a kibányászott EXIF csomagot a backendnek! ──
   const handleSwapSubmit = async () => {
     if (!swapFile || !topic) return;
     if (!window.confirm(t('msgSwapConfirm'))) return;
     setIsSwapping(true);
     try {
       const formData = new FormData();
-      formData.append('photo', swapFile); formData.append('topicId', topic.id.toString()); formData.append('userEmail', user?.email || ''); formData.append('userName', user?.name || '');
+      formData.append('photo', swapFile); 
+      formData.append('topicId', topic.id.toString()); 
+      formData.append('userEmail', user?.email || ''); 
+      formData.append('userName', user?.name || '');
+      
+      // EXIF adatok hozzáfűzése a csere kérés törzséhez
+      formData.append('camera', swapCamera);
+      formData.append('lens', swapLens);
+      formData.append('shutter', swapShutter);
+      formData.append('iso', swapIso);
+      formData.append('aperture', swapAperture);
+      formData.append('software', swapSoftware);
+
       const res = await fetch(`${BACKEND_URL}/api/weekly/swap`, { method: 'POST', body: formData });
-      if (res.ok) { alert(t('msgSwapSuccess')); setSwapFile(null); setSwapPreview(null); fetchCurrentTopic(false); } 
+      if (res.ok) { 
+        alert(t('msgSwapSuccess')); 
+        setSwapFile(null); 
+        setSwapPreview(null); 
+        setSwapCamera(''); setSwapLens(''); setSwapShutter('');
+        setSwapIso(''); setSwapAperture(''); setSwapSoftware('');
+        fetchCurrentTopic(false); 
+      } 
       else { const err = await res.json(); alert(err.error); }
     } catch (e) { alert(t('msgSwapErrorMain')); }
     finally { setIsSwapping(false); }
@@ -957,7 +1027,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   </div>
                 ) : (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '25px' }}>
-                    {/* 🎯 JAVÍTVA: A felesleges nyílfüggvény pecsét törölve, a térképezés tiszta JSX tömbként fut le! */}
                     {sortedActiveTopics.map((actTop) => (
                       <ChallengeCard 
                         key={actTop.id} 
