@@ -251,14 +251,14 @@ export default function AdminWeeklyView() {
     return { minTime: min, maxTime: max };
   }, [topics]);
 
-  // ── 🎯 INTELLIGENS IDŐSKÁLA ÉS RÁCS-MARKER GENERÁTOR ──
+  // ── 🎯 DINAMIKUS IDŐSKÁLA OSZTÁS GENERÁTOR ──
   const timelineMarkers = useMemo(() => {
     const { minTime, maxTime } = ganttTimelineBounds;
     const totalScope = maxTime - minTime;
     if (totalScope <= 0) return [];
 
     const markers = [];
-    const steps = 5; // 6 darab feliratot tesz le (0%, 20%, 40%, 60%, 80%, 100%)
+    const steps = 5; // 6 egyenlő távolságú osztópont (0%, 20%, 40%, 60%, 80%, 100%)
     
     for (let i = 0; i <= steps; i++) {
       const exactTime = minTime + (totalScope * (i / steps));
@@ -393,7 +393,7 @@ export default function AdminWeeklyView() {
         </button>
       </div>
 
-      {/* ── 📊 GANTT IDŐVONAL ÜTEMTERV NÉZET ── */}
+      {/* ── 📊 GANTT IDŐVONAL NÉZET SINKRONIZÁLÁSA ── */}
       <h3 style={{ color: '#f8fafc', marginBottom: '20px', fontSize: '1.4rem', fontWeight: 'bold' }}>
         📅 {t('adminGanttTitle')}
       </h3>
@@ -401,25 +401,29 @@ export default function AdminWeeklyView() {
       <div style={{ background: '#1e293b', borderRadius: '20px', border: '1px solid #334155', padding: '25px', overflowX: 'auto', boxShadow: '0 15px 35px rgba(0,0,0,0.4)', boxSizing: 'border-box' }}>
         <div style={{ minWidth: '800px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
           
-          {/* 🎯 ÚJ: RENDKÍVÜL LÁTVÁNYOS DÁTUM TENGELY SKÁLA (A naptár legelejétől a legvégéig skálázva) */}
-          <div style={{ position: 'relative', height: '24px', marginBottom: '5px', paddingLeft: '95px', boxSizing: 'border-box' }}>
-            {timelineMarkers.map((marker, mIdx) => (
-              <span 
-                key={mIdx} 
-                style={{ 
-                  position: 'absolute', 
-                  left: `calc(95px + ${marker.percentage}% * (100% - 95px) / 100)`, 
-                  transform: 'translateX(-50%)', 
-                  color: '#94a3b8', 
-                  fontSize: '0.78rem', 
-                  fontWeight: 'bold', 
-                  fontFamily: 'monospace',
-                  letterSpacing: '0.5px' 
-                }}
-              >
-                {marker.label}
-              </span>
-            ))}
+          {/* 🎯 1. JAVÍTVA: RÁCS-SZINKRONIZÁLT IDŐVONAL SKÁLA (Pontosan a sávokkal azonos 95px-es eltolással indul) */}
+          <div style={{ display: 'grid', gridTemplateColumns: '95px 1fr', alignItems: 'center', height: '24px', marginBottom: '-5px', boxSizing: 'border-box' }}>
+            <div /> {/* Üres doboz a bal oldali sáv-címke (Idővonal) feletti igazításhoz */}
+            <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+              {timelineMarkers.map((marker, mIdx) => (
+                <span 
+                  key={mIdx} 
+                  style={{ 
+                    position: 'absolute', 
+                    left: `${marker.percentage}%`, 
+                    transform: 'translateX(-50%)', 
+                    color: '#38bdf8', 
+                    fontSize: '0.82rem', 
+                    fontWeight: 'bold', 
+                    fontFamily: 'monospace',
+                    letterSpacing: '0.5px',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  {marker.label}
+                </span>
+              ))}
+            </div>
           </div>
           
           {topics.map((tData) => {
@@ -439,7 +443,7 @@ export default function AdminWeeklyView() {
             return (
               <div key={tData.id} style={{ background: '#0f172a60', borderRadius: '16px', border: '1px solid #232f46', padding: '18px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
                 
-                {/* METADATA ADATOK */}
+                {/* METADATA RÉSZ */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', gap: '20px' }}>
                   
                   <div style={{ display: 'flex', gap: '15px', flex: 1, minWidth: 0 }}>
@@ -476,7 +480,6 @@ export default function AdminWeeklyView() {
                   </div>
 
                   {/* AKCIÓGOMBOK */}
-                  {/* 🎯 JAVÍTVA: A hibás 'roomSubDelete' nyelvi kulcs lecserélve a fixen bevált 'mapBtnDelete' kulcsra! */}
                   <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
                     {isPending ? (
                       <>
@@ -494,24 +497,37 @@ export default function AdminWeeklyView() {
 
                 </div>
 
-                {/* 🎯 GANTT SÁV + OSZLOPOS HÁTTÉRRÁCS INJEKCIÓ (Tökéletesen igazodik a fenti skálához) */}
+                {/* 🎯 2. JAVÍTVA: SZINKRONIZÁLT SÁV + OSZLOPOS HÁTTÉRRÁCS (Közvetlenül az 1fr területre illeszkedik) */}
                 <div style={{ display: 'grid', gridTemplateColumns: '95px 1fr', alignItems: 'center', width: '100%' }}>
-                  <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 'bold', letterSpacing: '0.5px', textTransform: 'uppercase' }}>{t('tabStats').split(' ')[0]}</span>
+                  <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 'bold', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
+                    {lang === 'en' ? 'Timeline' : 'Idővonal'}
+                  </span>
                   
                   <div style={{ background: '#0f172a80', height: '24px', width: '100%', borderRadius: '8px', position: 'relative', overflow: 'hidden', border: '1px solid #1e293b' }}>
-                    {/* Függőleges vezető rácsvonalak lehelyezése a háttérben */}
+                    {/* Függőleges háttér-rácsvonalak injektálása */}
                     {timelineMarkers.map((marker, mIdx) => (
-                      <div key={mIdx} style={{ position: 'absolute', left: `${marker.percentage}%`, top: 0, bottom: 0, width: '1px', background: 'rgba(51, 65, 85, 0.25)', zIndex: 1 }} />
+                      <div 
+                        key={mIdx} 
+                        style={{ 
+                          position: 'absolute', 
+                          left: `${marker.percentage}%`, 
+                          top: 0, 
+                          bottom: 0, 
+                          width: '1px', 
+                          background: 'rgba(51, 65, 85, 0.25)', 
+                          zIndex: 1 
+                        }} 
+                      />
                     ))}
 
-                    {/* Vizuális színes folyamatjelző sáv */}
+                    {/* Vizuális folyamatjelző sáv */}
                     <div 
                       style={{ 
                         position: 'absolute', 
                         left: `${safeLeft}%`, 
                         width: `${safeWidth}%`, 
                         height: '100%', 
-                        background: `linear-gradient(90deg, ${status.color}70, ${status.color})`,
+                        background: `linear-gradient(90deg, ${status.color}80, ${status.color})`,
                         borderRadius: '6px',
                         border: `1px solid ${status.color}`,
                         boxSizing: 'border-box',
