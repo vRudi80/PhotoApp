@@ -4,6 +4,7 @@ const cloudinary = require('cloudinary').v2;
 const crypto = require('crypto');
 // 🧠 Globális in-memory objektum a gépelő júzerek követéséhez (Adatbázis terhelés = 0!)
 let typingStatus = {};
+import exifr from 'exifr';
 
 // Cloudinary konfiguráció a környezeti változókból
 cloudinary.config({
@@ -530,38 +531,87 @@ async function getUserLikesAndVictories(pool, email) {
     }
   });
 
-  app.post('/api/weekly/upload', upload.single('photo'), async (req, res) => {
-    const { topicId, userEmail, userName } = req.body;
-    const file = req.file;
-    if (!file) return res.status(400).json({ error: 'Fotó kötelező!' });
-    const ipAddress = req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : (req.ip || req.socket.remoteAddress);
+ app.post('/api/weekly/upload', upload.single('photo'), async (req, res) => {
+  const { userEmail, topicId, userName } = req.body;
+  
+  // Alapértelmezetten minden oszlop értéke NULL (ha nincs EXIF vagy elhasal az olvasás)
+  let camera = null;
+  let lens = null;
+  let shutter = null;
+  let iso = null;
+  let aperture = null;
+  let software = null;
+
+  // 🎯 EXIF KIBÁNYÁSZÁSA A NYERS PUFERBŐL
+  if (req.file && req.file.buffer) {
     try {
-      const [topicCheck] = await pool.query('SELECT master_email FROM weekly_topics WHERE id = ?', [topicId]);
-      if (topicCheck[0] && topicCheck[0].master_email === userEmail) { if (fs.existsSync(file.path)) fs.unlinkSync(file.path); return res.status(400).json({ error: 'Párbajmesterként nem nevezhetsz!' }); }
-      const [existingEntry] = await pool.query('SELECT id FROM weekly_entries WHERE topic_id = ? AND user_email = ?', [topicId, userEmail]);
-      if (existingEntry.length > 0) { if (fs.existsSync(file.path)) fs.unlinkSync(file.path); return res.status(400).json({ error: 'Már neveztél!' }); }
-
-      const fileBuffer = fs.readFileSync(file.path);
-      const fileHash = crypto.createHash('md5').update(fileBuffer).digest('hex');
-      let finalFileUrl = '';
+      const exif = await exifr.parse(req.file.buffer);
       
-      const [duplicatePhoto] = await pool.query("SELECT file_url FROM user_photos WHERE user_email = ? AND file_hash = ?", [userEmail, fileHash]);
+      if (exif) {
+        // Gépváz gyártó + modell összefésülése (pl. "Sony ILCE-7M4")
+        if (exif.Model) {
+          const makePrefix = exif.Make && !exif.Model.startsWith(exif.Make) ? `${exif.Make} ` : '';
+          camera = `${makePrefix}${exif.Model}`;
+        } else if (exif.Make) {
+          camera = exif.Make;
+        }
 
-      if (duplicatePhoto.length > 0) {
-        finalFileUrl = duplicatePhoto[0].file_url;
-        if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
-      } else {
-        const result = await cloudinary.uploader.upload(file.path, { folder: 'parbajok', width: 1600, height: 1600, crop: "limit", quality: "auto:good" });
-        finalFileUrl = result.secure_url;
-        if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
-        await pool.query("INSERT INTO user_photos (user_email, file_url, file_hash) VALUES (?, ?, ?)", [userEmail, finalFileUrl, fileHash]);
+        // Objektív profil (pl. "FE 24-70mm F2.8 GM II")
+        lens = exif.LensModel || null;
+
+        // Záridő átalakítása tört értékké (pl. 0.004 -> "1/250s")
+        if (exif.ExposureTime) {
+          shutter = exif.ExposureTime < 1 
+            ? `1/${Math.round(1 / exif.ExposureTime)}s` 
+            : `${exif.ExposureTime}s`;
+        }
+
+        // Érzékenység (pl. "100")
+        iso = exif.ISO ? String(exif.ISO) : null;
+
+        // Rekeszérték (pl. 2.8 -> "f/2.8")
+        aperture = exif.FNumber ? `f/${exif.FNumber}` : null;
+
+        // Képszerkesztő szoftver lenyomat (pl. "Midjourney" vagy "Adobe Photoshop")
+        software = exif.Software || null;
       }
+    } catch (exifError) {
+      console.log("⚠️ Nem sikerült kinyerni az EXIF-et (talán AI kép vagy tisztított metaadat):", exifError.message);
+    }
+  }
 
-      await pool.query('INSERT INTO weekly_entries (topic_id, user_email, user_name, file_url, drive_file_id, swapped, ip_address, is_active) VALUES (?, ?, ?, ?, \'\', 0, ?, 1)', [topicId, userEmail, userName, finalFileUrl, ipAddress]);
-      res.json({ success: true });
-    } catch (err) { if (file && fs.existsSync(file.path)) fs.unlinkSync(file.path); res.status(500).json({ error: err.message }); }
-  });
+  try {
+    // 🎯 AZ SQL INSERTHEZ HOZZÁADJUK AZ ÚJ OSZLOPOKAT IS!
+    // Módosítsd a meglévő INSERT parancsodat így:
+    const query = `
+      INSERT INTO weekly_entries 
+      (topic_id, user_email, user_name, file_url, drive_file_id, is_active, camera, lens, shutter, iso, aperture, software) 
+      VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?)
+    `;
 
+    // Biztosítsd, hogy a paraméter tömb (arguments) pontosan kövesse az SQL kérdőjelek sorrendjét:
+    const values = [
+      topicId, 
+      userEmail, 
+      userName, 
+      generatedFileUrl,   // A te kódodban lévő drive/felhő URL változója
+      generatedDriveId,   // A te kódodban lévő file ID változója
+      camera, 
+      lens, 
+      shutter, 
+      iso, 
+      aperture, 
+      software
+    ];
+
+    await pool.query(query, values);
+    res.json({ success: true, message: 'Sikeres nevezés rögzített EXIF adatokkal!' });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Hiba történt a mentés során.' });
+  }
+});
   app.post('/api/weekly/swap', upload.single('photo'), async (req, res) => {
     const { topicId, userEmail, userName } = req.body;
     const file = req.file;
