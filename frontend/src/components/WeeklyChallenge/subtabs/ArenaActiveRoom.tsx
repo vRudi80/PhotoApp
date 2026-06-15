@@ -83,7 +83,7 @@ export default function ArenaActiveRoom({
 
   const { t, lang } = useLanguage();
 
-  // 📡 Kötegelt állapotkezelő dobozok
+  // 📡 Kötegelt állapotkezelők
   const [pendingVotes, setPendingVotes] = useState<Record<number, 'pass' | 'super' | 'brilliant' | 'master'>>({});
   const [selectedExifPhoto, setSelectedExifPhoto] = useState<any | null>(null);
   const [isSubmittingBatch, setIsSubmittingBatch] = useState(false);
@@ -93,12 +93,18 @@ export default function ArenaActiveRoom({
   const safePastEntries = Array.isArray(myPastEntries) ? myPastEntries : [];
   const safeUserPower = userPower || { super: 1, brilliant: 2 };
 
-  // 🧠 1. INTELLIGENS SZŰRŐ: Kiszűrünk maximum 10 olyan képet, amire még nem szavaztunk
+  // ── 🎯 ATOMBIZTOS JAVÍTÁS: Típus-toleráns szűrés az adatbázis-alapú EXIF-fel ──
   const batchVoteEntries = useMemo(() => {
-    const eligibleEntries = safeLeaderboard.filter(item => 
-      item.user_email !== user?.email && 
-      Number(item.has_user_voted || 0) !== 1
-    );
+    const eligibleEntries = safeLeaderboard.filter(item => {
+      const isOwnPhoto = item.user_email === user?.email;
+      
+      // Kezeli a MySQL 1/0, a JSON true/false és a string alapú visszatéréseket is!
+      const alreadyVoted = item.has_user_voted === 1 || 
+                           item.has_user_voted === true || 
+                           item.has_user_voted === '1';
+
+      return !isOwnPhoto && !alreadyVoted;
+    });
     
     return eligibleEntries.slice(0, 10).map(item => {
       const isLegacyPhoto = !item.camera && !item.software && !item.shutter;
@@ -135,7 +141,6 @@ export default function ArenaActiveRoom({
   const displayRoomTitle = lang === 'en' && topic?.title_en ? topic.title_en : (topic?.title || t('roomChallengeRoom'));
   const displayRoomDesc = lang === 'en' && topic?.description_en ? topic.description_en : (topic?.description || '');
 
-  // 🚀 2. CSOMAGKÜLDŐ MOTOR: Összegyűjti és elküldi a voksokat a backendnek
   const handleBatchSubmit = async () => {
     const totalVoted = Object.keys(pendingVotes).length;
     if (totalVoted < batchVoteEntries.length) {
@@ -162,8 +167,8 @@ export default function ArenaActiveRoom({
       setPendingVotes({});
       window.location.reload();
     } catch (e) {
-      console.error("Szavazatbeküldési hiba:", e);
-      alert(lang === 'en' ? '❌ Network error during submission.' : '❌ Hálózati hiba történt a szavazatok elküldésekor.');
+      console.error(e);
+      alert(lang === 'en' ? '❌ Network error during submission.' : '❌ Hálózati hiba történt a szavazat elküldésekor.');
     } finally {
       setIsSubmittingBatch(false);
     }
@@ -172,7 +177,7 @@ export default function ArenaActiveRoom({
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '30px', animation: 'fadeIn 0.4s ease-out' }}>
       
-      {/* ── BAL OLDALI OSZLOP (TÉMA + KÖTEGELT ÉRTÉKELŐ PULT) ── */}
+      {/* ── BAL OLDALI OSZLOP (INFO + KÖTEGELT ÉRTÉKELŐ PULT) ── */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
         
         {/* TÉMA INFÓ */}
@@ -197,11 +202,11 @@ export default function ArenaActiveRoom({
           </div>
         )}
 
-        {/* KÖTEGELT ÉRTÉKELŐ DESK */}
+        {/* BATCH EVALUATION MÁTRIX */}
         <div style={{ background: '#1e293b', padding: '35px', borderRadius: '24px', border: '2px solid #38bdf8', boxShadow: '0 15px 35px rgba(0,0,0,0.4)' }}>
           <div style={{ background: 'rgba(56, 189, 248, 0.08)', borderLeft: '4px solid #38bdf8', padding: '15px 20px', borderRadius: '0 12px 12px 0', marginBottom: '25px', fontSize: '0.85rem', color: '#cbd5e1', lineHeight: '1.5' }}>
             <strong style={{ color: '#38bdf8', display: 'block', marginBottom: '4px', fontSize: '0.95rem' }}>
-              🛡️ EXIF Diagnosztika és AI Elleni Védelem aktív
+              🛡️ EXIF Diagnasztika és AI Elleni Védelem aktív
             </strong>
             A verseny tisztaságának megőrzése érdekében minden kép alatt láthatóvá tettük a nyers fájl-metaadatokat. A generatív AI modellek nem rendelkeznek valódi fizikai gépvázzal, ISO profillal vagy záridő-ciklussal.
           </div>
@@ -232,16 +237,14 @@ export default function ArenaActiveRoom({
                       </div>
 
                       <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr', gap: '20px', alignItems: 'start' }}>
-                        {/* NAGYÍTHATÓ THUMBNAIL KÉP */}
                         <div 
                           onClick={() => setSelectedExifPhoto(entry)}
-                          style={{ width: '160px', height: '160px', backgroundColor: '#000', borderRadius: '12px', overflow: 'hidden', cursor: 'zoom-in', border: '1px solid #334155', position: 'relative' }}
+                          style={{ width: '160px', height: '160px', backgroundColor: '#000', borderRadius: '12px', overflow: 'hidden', cursor: 'zoom-in', border: '1px solid #334155', position: 'relative', boxShadow: '0 4px 10px rgba(0,0,0,0.4)' }}
                         >
                           <img src={entry.file_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={handleImageError} />
                           <div style={{ position: 'absolute', bottom: '5px', right: '5px', background: 'rgba(0,0,0,0.6)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.65rem', color: 'white' }}>🔍 NAGYÍT</div>
                         </div>
 
-                        {/* EXIF PANEL ÉS INFÓK SZEKCIÓ */}
                         <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%', minHeight: '160px' }}>
                           <div style={{ fontSize: '0.8rem', color: '#cbd5e1', lineHeight: '1.4' }}>
                             {entry.exif?.isLegacy ? (
@@ -254,6 +257,7 @@ export default function ArenaActiveRoom({
                               </div>
                             ) : null}
 
+                            {/* 🎯 JAVÍTVA: Közvetlenül az entry.exif adatbázis soraiból építkezik, zéró CORS hiba lehetőség */}
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 15px', color: '#94a3b8' }}>
                               <div>📷 {t('mapExifCamera')} <b style={{ color: entry.exif?.isLegacy ? '#475569' : '#f8fafc' }}>{entry.exif?.camera}</b></div>
                               <div>🔭 {t('mapExifLens')} <b style={{ color: entry.exif?.isLegacy ? '#475569' : '#f8fafc' }}>{entry.exif?.lens}</b></div>
@@ -262,7 +266,6 @@ export default function ArenaActiveRoom({
                             </div>
                           </div>
 
-                          {/* SZAVAZÓ ÉS REPORT PANEL */}
                           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '15px', alignItems: 'center' }}>
                             {[
                               { type: 'pass', label: t('roomVotePass').split(' ')[0], score: '0 pont', bg: '#334155' },
@@ -286,8 +289,6 @@ export default function ArenaActiveRoom({
                             <button
                               onClick={() => handleOffTopicReport(entry.id)}
                               style={{ padding: '6px 12px', borderRadius: '10px', border: '1px solid rgba(239, 68, 68, 0.3)', background: 'transparent', color: '#ef4444', fontWeight: 'bold', fontSize: '0.84rem', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', minWidth: '85px' }}
-                              onMouseEnter={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'}
-                              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                             >
                               <span>⚠️ Report</span>
                               <span style={{ fontSize: '0.65rem', opacity: 0.6 }}>AI / Off-Topic</span>
@@ -300,7 +301,6 @@ export default function ArenaActiveRoom({
                 })}
               </div>
 
-              {/* VÉGLEGESÍTŐ PANEL */}
               <div style={{ marginTop: '35px', borderTop: '1px solid #334155', paddingTop: '25px', textAlign: 'center' }}>
                 <button
                   onClick={handleBatchSubmit}
