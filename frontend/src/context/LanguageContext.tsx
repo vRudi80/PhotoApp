@@ -13,6 +13,7 @@ const translations = {
     tabHof: '👑 Mesterek csarnoka',
     btnRules: '📖 Játékszabályok & Rangok',
     tileClubLifeTitle: 'Klubélet',
+    roomBtnDelete: "Törlés",
 
     "adminTitle": "⚔️ Kihívás kezelő központ",
   "adminSubtitle": "A rendszer automatikusan indítja el az elfogadott kihívásokat, amint elérkezik a kezdő dátumuk!",
@@ -787,6 +788,7 @@ const translations = {
     photographers: 'photographers',
     unvoted: 'to review',
     loading: '⏳ Loading...',
+    roomBtnDelete: "Delete"
 
     // FEJLÉC / MENÜPONTOK ANGOLUL
     navHome: '🏠 Home',
