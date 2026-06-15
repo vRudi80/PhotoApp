@@ -96,9 +96,11 @@ export default function AdminWeeklyView() {
   const [suspiciousActivities, setSuspiciousActivities] = useState<any[]>([]);
   const [loadingSuspicious, setLoadingSuspicious] = useState(false);
 
-  const [timeWindow, setTimeWindow] = useState<'all' | 'current_month' | 'next_30'>('all');
+  // 🎯 EXPANDED STATE: Bővített időablak-kezelő és a hozzá tartozó egyéni dátumok
+  const [timeWindow, setTimeWindow] = useState<'all' | 'current_month' | 'next_30' | 'custom_range'>('all');
+  const [customRangeStart, setCustomRangeStart] = useState('');
+  const [customRangeEnd, setCustomRangeEnd] = useState('');
 
-  // 🎯 ÚJ STATE: A globális kereső kifejezése
   const [searchQuery, setSearchQuery] = useState('');
 
   const [activeDrag, setActiveDrag] = useState<{
@@ -226,9 +228,7 @@ export default function AdminWeeklyView() {
       formData.append('masterEmail', tData.master_email || '');
       formData.append('coverAuthor', tData.cover_author || '');
       
-      if (tData.cover_url) {
-        formData.append('coverUrl', tData.cover_url);
-      }
+      if (tData.cover_url) { formData.append('coverUrl', tData.cover_url); }
 
       const res = await fetch(`${BACKEND_URL}/api/admin/weekly-topics/${tData.id}`, {
         method: 'PUT',
@@ -252,7 +252,7 @@ export default function AdminWeeklyView() {
     } catch (e) { alert(t('msgNetworkError')); }
   };
 
-  // Gantt naptár számítások biztonsági fallbacekkel
+  // ── 📊 GANTT NAPTÁR-MATEMATIKA RE-CALIBRATION MOTOR ──
   const ganttCalendarData = useMemo(() => {
     let absoluteMin = Infinity;
     let absoluteMax = 0;
@@ -280,6 +280,17 @@ export default function AdminWeeklyView() {
     } else if (timeWindow === 'next_30') {
       absoluteMin = nowTs;
       absoluteMax = nowTs + 86400000 * 30;
+    } 
+    // 🎯 ÚJ: Egyéni választó rácsháló horgony számítása
+    else if (timeWindow === 'custom_range') {
+      if (customRangeStart && customRangeEnd) {
+        const parsedStart = new Date(customRangeStart).getTime();
+        const parsedEnd = new Date(customRangeEnd).getTime();
+        if (!isNaN(parsedStart) && !isNaN(parsedEnd)) {
+          absoluteMin = parsedStart;
+          absoluteMax = parsedEnd;
+        }
+      }
     }
 
     const minDate = new Date(absoluteMin);
@@ -309,7 +320,7 @@ export default function AdminWeeklyView() {
     }
 
     return { minTime: minDate.getTime(), maxTime: maxDate.getTime(), weeks, totalDays: daysArray.length, daysArray };
-  }, [topics, timeWindow]);
+  }, [topics, timeWindow, customRangeStart, customRangeEnd]);
 
   const monthsSpans = useMemo(() => {
     if (ganttCalendarData.daysArray.length === 0) return [];
@@ -336,32 +347,31 @@ export default function AdminWeeklyView() {
     return (elapsedMs / 86400000) * 40;
   }, [ganttCalendarData]);
 
-  // ── 🎯 ÚJ: INTELLIGENS MULTI-MEZŐS KERESŐ ÉS IDŐABLAK SZŰRŐ MATRIX ──
+  // Globális kereső és szűrő mátrix összevonás
   const filteredTopics = useMemo(() => {
     return topics.filter(tData => {
-      // 1. Időablak ellenőrzés
       const endMillis = parseAdminDateSafe(tData.end_date).getTime();
       const startMillis = parseAdminDateSafe(tData.start_date).getTime();
-      if (timeWindow !== 'all' && (endMillis < ganttCalendarData.minTime || startMillis > ganttCalendarData.maxTime)) {
+      
+      // Időablak check (az egyéni range-re is rávetítve)
+      if (endMillis < ganttCalendarData.minTime || startMillis > ganttCalendarData.maxTime) {
         return false;
       }
 
-      // 2. Szöveges kereső kifejezés ellenőrzése (ha van beírva valami)
       if (!searchQuery) return true;
       const query = searchQuery.toLowerCase().trim();
 
       const matchTitle = (tData.title || '').toLowerCase().includes(query);
       const matchTitleEn = (tData.title_en || '').toLowerCase().includes(query);
       const matchDesc = (tData.description || '').toLowerCase().includes(query);
-      const matchDescEn = (tData.description_en || '').toLowerCase().includes(query);
       const matchMaster = (tData.master_email || '').toLowerCase().includes(query);
       const matchAuthor = (tData.cover_author || '').toLowerCase().includes(query);
 
-      return matchTitle || matchTitleEn || matchDesc || matchDescEn || matchMaster || matchAuthor;
+      return matchTitle || matchTitleEn || matchDesc || matchMaster || matchAuthor;
     });
-  }, [topics, timeWindow, searchQuery, ganttCalendarData]);
+  }, [topics, searchQuery, ganttCalendarData]);
 
-  // Drag & drop egérfigyelő motor
+  // Drag & Drop / Resize egérkövető motor
   useEffect(() => {
     if (!activeDrag) return;
 
@@ -403,10 +413,6 @@ export default function AdminWeeklyView() {
       window.removeEventListener('mouseup', handleGlobalMouseUp);
     };
   }, [activeDrag]);
-
-  useEffect(() => {
-    fetchTopics(); fetchUsers(); fetchSuspicious();
-  }, []);
 
   return (
     <div style={{ animation: 'fadeIn 0.4s ease-out' }}>
@@ -521,61 +527,56 @@ export default function AdminWeeklyView() {
         </button>
       </div>
 
-      {/* ── 📊 GANTT TIMELINE DASHBOARD KERESŐVEL ÉS SZŰRŐKKEL ── */}
+      {/* GANTT TIMELINE FEJLÉC SZŰRŐKKEL */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '15px' }}>
         <h3 style={{ color: '#f8fafc', margin: 0, fontSize: '1.4rem', fontWeight: 'bold' }}>📅 {t('adminGanttTitle')}</h3>
         
-        <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
           
-          {/* 🔍 ÚJ: GANTT ÉLŐ MULTI-SEARCH INPUT MEZŐ */}
+          {/* ÉLŐ KERESŐ INPUT */}
           <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
             <span style={{ position: 'absolute', left: '12px', color: '#64748b', fontSize: '0.9rem' }}>🔍</span>
             <input 
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              placeholder={lang === 'en' ? "Search challenge, master, photographer..." : "Keresés cím, leírás, képmester, fotós..."}
-              style={{
-                background: '#0f172a',
-                color: '#fff',
-                border: '1px solid #334155',
-                padding: '8px 12px 8px 34px',
-                borderRadius: '10px',
-                fontSize: '0.85rem',
-                width: '280px',
-                outline: 'none',
-                boxSizing: 'border-box',
-                transition: 'border-color 0.2s'
-              }}
-              onFocus={e => e.currentTarget.style.borderColor = '#38bdf8'}
-              onBlur={e => e.currentTarget.style.borderColor = '#334155'}
+              placeholder={lang === 'en' ? "Search title, master, author..." : "Keresés név, képmester, fotós..."}
+              style={{ background: '#0f172a', color: '#fff', border: '1px solid #334155', padding: '8px 12px 8px 34px', borderRadius: '10px', fontSize: '0.85rem', width: '240px', outline: 'none', boxSizing: 'border-box' }}
             />
-            {searchQuery && (
-              <button onClick={() => setSearchQuery('')} style={{ position: 'absolute', right: '10px', background: 'transparent', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>✕</button>
-            )}
+            {searchQuery && <button onClick={() => setSearchQuery('')} style={{ position: 'absolute', right: '10px', background: 'transparent', border: 'none', color: '#64748b', cursor: 'pointer' }}>✕</button>}
           </div>
 
-          <div style={{ display: 'flex', gap: '5px', background: '#0f172a', padding: '4px', borderRadius: '10px', border: '1px solid #334155' }}>
+          {/* 🎯 JAVÍTVA: KOMBINOVÁLT SZŰRŐSÁV AZ ÚJ EGYÉNI RANGE IDŐPONTOKKAL */}
+          <div style={{ display: 'flex', gap: '5px', background: '#0f172a', padding: '4px', borderRadius: '10px', border: '1px solid #334155', alignItems: 'center' }}>
             <button onClick={() => setTimeWindow('all')} style={{ background: timeWindow === 'all' ? '#38bdf8' : 'transparent', color: timeWindow === 'all' ? '#0f172a' : '#94a3b8', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer' }}>{lang === 'en' ? 'Show All' : 'Mind'}</button>
             <button onClick={() => setTimeWindow('current_month')} style={{ background: timeWindow === 'current_month' ? '#38bdf8' : 'transparent', color: timeWindow === 'current_month' ? '#0f172a' : '#94a3b8', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer' }}>{lang === 'en' ? 'This Month' : 'Aktuális hónap'}</button>
             <button onClick={() => setTimeWindow('next_30')} style={{ background: timeWindow === 'next_30' ? '#38bdf8' : 'transparent', color: timeWindow === 'next_30' ? '#0f172a' : '#94a3b8', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer' }}>{lang === 'en' ? 'Next 30 Days' : 'Következő 30 nap'}</button>
+            <button onClick={() => setTimeWindow('custom_range')} style={{ background: timeWindow === 'custom_range' ? '#f59e0b' : 'transparent', color: timeWindow === 'custom_range' ? '#0f172a' : '#94a3b8', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer' }}>{lang === 'en' ? 'Custom Window' : 'Egyéni range'}</button>
           </div>
+
+          {/* 🎯 KIGÖRDÜLŐ KÉTUTAS DÁTUMVÁLASZTÓ CONTAINER */}
+          {timeWindow === 'custom_range' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#1e293b', padding: '4px 14px', borderRadius: '10px', border: '1px solid #f59e0b50', animation: 'fadeIn 0.2s ease-out' }}>
+              <input type="date" value={customRangeStart} onChange={e => setCustomRangeStart(e.target.value)} style={{ background: 'transparent', border: 'none', color: '#fff', fontSize: '0.82rem', outline: 'none', colorScheme: 'dark' }} />
+              <span style={{ color: '#64748b', fontSize: '0.85rem', fontWeight: 'bold' }}>➔</span>
+              <input type="date" value={customRangeEnd} onChange={e => setCustomRangeEnd(e.target.value)} style={{ background: 'transparent', border: 'none', color: '#fff', fontSize: '0.82rem', outline: 'none', colorScheme: 'dark' }} />
+            </div>
+          )}
 
         </div>
       </div>
       
-      {/* NAPTÁR FŐ GÖRGŐS RÉTEG */}
+      {/* GANTT CANVAS PLACEMENT */}
       <div style={{ background: '#1e293b', borderRadius: '24px', border: '1px solid #334155', padding: '25px', overflowX: 'auto', boxShadow: '0 15px 35px rgba(0,0,0,0.4)', boxSizing: 'border-box' }}>
         <div style={{ width: 'max-content', display: 'flex', flexDirection: 'column', gap: '15px', position: 'relative', userSelect: activeDrag ? 'none' : 'auto' }}>
           
-          {/* STICKY KÉTLÉPCSŐS NAPTÁR FEJLÉC */}
+          {/* NAPTÁR FEJLÉC */}
           <div style={{ display: 'grid', gridTemplateColumns: `460px ${ganttCalendarData.totalDays * 40}px`, borderBottom: '2px solid #475569', paddingBottom: '12px' }}>
             <div style={{ color: '#38bdf8', fontWeight: '900', fontSize: '0.95rem', textTransform: 'uppercase', letterSpacing: '1px', display: 'flex', alignItems: 'center', paddingLeft: '14px', boxSizing: 'border-box' }}>
               {t('adminGanttChallengeColumn')}
             </div>
             
             <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
-              {/* 1. Szint: Dinamikus Hónap aggregáció */}
               <div style={{ display: 'flex', width: '100%', borderBottom: '1px solid rgba(71, 85, 105, 0.4)', paddingBottom: '6px' }}>
                 {monthsSpans.map((span, sIdx) => {
                   const monthNamesHu = ['Január', 'Február', 'Március', 'Április', 'Május', 'Június', 'Július', 'Augusztus', 'Szeptember', 'Október', 'November', 'December'];
@@ -587,7 +588,6 @@ export default function AdminWeeklyView() {
                   );
                 })}
               </div>
-              {/* 2. Szint: Napok számai */}
               <div style={{ display: 'flex', width: '100%', paddingTop: '4px' }}>
                 {ganttCalendarData.daysArray.map((date, dIdx) => {
                   const isWeekend = date.getDay() === 0 || date.getDay() === 6;
@@ -601,10 +601,10 @@ export default function AdminWeeklyView() {
             </div>
           </div>
 
-          {/* ── 🎯 JAVÍTVA: A SZŰRT CSAPATADATOK (filteredTopics) FUTNAK VÉGIG A MAP CIKLUSBAN ── */}
+          {/* SOROK MAP-ELÉSE */}
           {filteredTopics.length === 0 ? (
-            <div style={{ color: '#64748b', fontStyle: 'italic', padding: '40px', textAlign: 'left', fontSize: '0.95rem', paddingLeft: '14px' }}>
-              ⚠️ {lang === 'en' ? 'No challenges match the current filter criteria...' : 'Nincs a keresési feltételeknek megfelelő kihívás terv...'}
+            <div style={{ color: '#64748b', fontStyle: 'italic', padding: '40px 14px', fontSize: '0.95rem' }}>
+              ⚠️ {lang === 'en' ? 'No active timelines found in the selected range...' : 'Nincs ütemezett kihívás a megadott szűrési feltételek mellett...'}
             </div>
           ) : (
             filteredTopics.map((tData) => {
@@ -668,7 +668,7 @@ export default function AdminWeeklyView() {
                     </div>
                   </div>
 
-                  {/* JOBB CELLA */}
+                  {/* JOBB RÁCS CELLA SÁVVAL */}
                   <div className="gantt-bar-container" style={{ position: 'relative', width: '100%', height: '40px', display: 'flex', alignItems: 'center', boxSizing: 'border-box' }}>
                     
                     <div style={{ position: 'absolute', inset: 0, display: 'grid', gridTemplateColumns: `repeat(${ganttCalendarData.totalDays}, 1fr)`, pointerEvents: 'none', zIndex: 1 }}>
