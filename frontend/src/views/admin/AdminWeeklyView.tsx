@@ -91,7 +91,9 @@ export default function AdminWeeklyView() {
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string>(''); 
   const [coverUrl, setCoverUrl] = useState('');
-  const [coverUrlAuthor, setCoverAuthor] = useState('');
+  
+  // 🎯 JAVÍTVA: Változónév visszaállítva coverAuthor-ra, hogy az űrlap bekötése újra működjön!
+  const [coverAuthor, setCoverAuthor] = useState('');
 
   const [suspiciousActivities, setSuspiciousActivities] = useState<any[]>([]);
   const [loadingSuspicious, setLoadingSuspicious] = useState(false);
@@ -202,7 +204,7 @@ export default function AdminWeeklyView() {
       formData.append('title', title); formData.append('title_en', titleEn); 
       formData.append('description', desc); formData.append('description_en', descEn); 
       formData.append('startDate', startDate); formData.append('endDate', endDate);
-      formData.append('masterEmail', masterEmail); formData.append('coverAuthor', coverUrlAuthor);
+      formData.append('masterEmail', masterEmail); formData.append('coverAuthor', coverAuthor);
       if (coverUrl) formData.append('coverUrl', coverUrl);
       if (coverFile) formData.append('cover', coverFile);
 
@@ -211,13 +213,23 @@ export default function AdminWeeklyView() {
     } catch (e) { alert(t('msgNetworkError')); }
   };
 
+  // ── 🎯 JAVÍTVA: ATOMBIZTOS RE-PACK LOGIKA (Minden adatot megőriz, semmit nem töröl ki a DB-ből) ──
   const handleQuickGanttSave = async (tData: any) => {
     try {
       const formData = new FormData();
       formData.append('title', tData.title);
+      formData.append('title_en', tData.title_en || '');
+      formData.append('description', tData.description || '');
+      formData.append('description_en', tData.description_en || '');
       formData.append('startDate', tData.start_date);
       formData.append('endDate', tData.end_date);
-      formData.append('description', tData.description || '');
+      formData.append('masterEmail', tData.master_email || '');
+      formData.append('coverAuthor', tData.cover_author || '');
+      
+      // Fixen visszaküldjük a meglévő kép URL-t, így a backend nem írja felül ürességgel!
+      if (tData.cover_url) {
+        formData.append('coverUrl', tData.cover_url);
+      }
 
       const res = await fetch(`${BACKEND_URL}/api/admin/weekly-topics/${tData.id}`, {
         method: 'PUT',
@@ -241,7 +253,7 @@ export default function AdminWeeklyView() {
     } catch (e) { alert(t('msgNetworkError')); }
   };
 
-  // ── 📊 GANTT IDŐVONAL SKÁLA ──
+  // Gantt naptár számítások
   const ganttCalendarData = useMemo(() => {
     let absoluteMin = Infinity;
     let absoluteMax = 0;
@@ -325,7 +337,7 @@ export default function AdminWeeklyView() {
     return (elapsedMs / 86400000) * 40;
   }, [ganttCalendarData]);
 
-  // ── 🎯 EGÉR-MOZGÁS KÖVETŐ ENGINE ──
+  // Egérmozgás figyelő
   useEffect(() => {
     if (!activeDrag) return;
 
@@ -358,13 +370,10 @@ export default function AdminWeeklyView() {
       }));
     };
 
-    const handleGlobalMouseUp = () => {
-      setActiveDrag(null);
-    };
+    const handleGlobalMouseUp = () => { setActiveDrag(null); };
 
     window.addEventListener('mousemove', handleGlobalMouseMove);
     window.addEventListener('mouseup', handleGlobalMouseUp);
-
     return () => {
       window.removeEventListener('mousemove', handleGlobalMouseMove);
       window.removeEventListener('mouseup', handleGlobalMouseUp);
@@ -376,7 +385,7 @@ export default function AdminWeeklyView() {
       <h2 style={{ fontSize: '2rem', marginBottom: '0.5rem', color: '#f59e0b', fontWeight: 'bold' }}>{t('adminTitle')}</h2>
       <p style={{ color: '#94a3b8', marginBottom: '25px' }}>{t('adminSubtitle')}</p>
 
-      {/* GYANÚS TEVÉKENYSÉGEK PANEL */}
+      {/* GYANÚS TEVÉKENYSÉGEK */}
       <div style={{ backgroundColor: '#1e1b4b', padding: '1.5rem', borderRadius: '16px', marginBottom: '2.5rem', border: suspiciousActivities.length > 0 ? '2px solid #ef4444' : '1px solid #334155', boxShadow: '0 8px 25px rgba(0,0,0,0.4)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
           <h3 style={{ margin: 0, color: suspiciousActivities.length > 0 ? '#f87171' : '#10b981', fontWeight: 'bold', fontSize: '1.2rem' }}>
@@ -417,7 +426,7 @@ export default function AdminWeeklyView() {
         )}
       </div>
 
-      {/* LÉTREHOZÓ / SZERKESZTŐ ŰRLAP */}
+      {/* ŰRLAP PANEL */}
       <div style={{ backgroundColor: '#1e293b', padding: '2rem', borderRadius: '20px', marginBottom: '3rem', border: '1px solid #f97316', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <h3 style={{ margin: 0, color: '#f97316', fontWeight: 'bold', fontSize: '1.4rem' }}>
@@ -454,7 +463,7 @@ export default function AdminWeeklyView() {
               setCoverFile(finalFile); setPreviewUrl(URL.createObjectURL(finalFile)); 
             }
           }} style={inputStyle} />
-          <input placeholder="Borítókép készítőjének neve (pl. Rudolf Kővári-Vágner)" value={coverUrlAuthor} onChange={e => setCoverAuthor(e.target.value)} style={{...inputStyle, marginTop: '5px', marginBottom: '0'}} />
+          <input placeholder="Borítókép készítőjének neve (pl. Rudolf Kővári-Vágner)" value={coverAuthor} onChange={e => setCoverAuthor(e.target.value)} style={{...inputStyle, marginTop: '5px', marginBottom: '0'}} />
           {previewUrl && (
             <div style={{ marginTop: '15px' }}>
               <span style={{ color: '#ef4444', fontSize: '0.8rem', fontWeight: 'bold' }}>✨ {t('adminPreviewNew')}</span>
@@ -484,7 +493,7 @@ export default function AdminWeeklyView() {
         </button>
       </div>
 
-      {/* TIMELINE */}
+      {/* GANTT HEADER */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '15px' }}>
         <h3 style={{ color: '#f8fafc', margin: 0, fontSize: '1.4rem', fontWeight: 'bold' }}>📅 {t('adminGanttTitle')}</h3>
         <div style={{ display: 'flex', gap: '5px', background: '#0f172a', padding: '4px', borderRadius: '10px', border: '1px solid #334155' }}>
@@ -494,10 +503,10 @@ export default function AdminWeeklyView() {
         </div>
       </div>
       
+      {/* NAPTÁR CANVASES RÉTEG */}
       <div style={{ background: '#1e293b', borderRadius: '24px', border: '1px solid #334155', padding: '25px', overflowX: 'auto', boxShadow: '0 15px 35px rgba(0,0,0,0.4)', boxSizing: 'border-box' }}>
         <div style={{ width: 'max-content', display: 'flex', flexDirection: 'column', gap: '15px', position: 'relative', userSelect: activeDrag ? 'none' : 'auto' }}>
           
-          {/* FEJLÉC GRID */}
           <div style={{ display: 'grid', gridTemplateColumns: `460px ${ganttCalendarData.totalDays * 40}px`, borderBottom: '2px solid #475569', paddingBottom: '12px' }}>
             <div style={{ color: '#38bdf8', fontWeight: '900', fontSize: '0.95rem', textTransform: 'uppercase', letterSpacing: '1px', display: 'flex', alignItems: 'center', paddingLeft: '14px', boxSizing: 'border-box' }}>
               {t('adminGanttChallengeColumn')}
@@ -528,7 +537,7 @@ export default function AdminWeeklyView() {
             </div>
           </div>
 
-          {/* SOROK */}
+          {/* SOROK KIRAKÁSA */}
           {topics.map((tData) => {
             const status = getTopicStatus(tData.status, tData.start_date, tData.end_date);
             const isPending = tData.status === 'pending';
@@ -545,8 +554,6 @@ export default function AdminWeeklyView() {
 
             const visualLeftPx = Math.max(0, leftPx);
             const visualWidthPx = leftPx < 0 ? Math.max(0, widthPx + leftPx) : widthPx;
-
-            // ── 🎯 INTERAKTÍV: Csekkoljuk, hogy ez a sáv épp húzás alatt van-e
             const isCurrentlyDragging = activeDrag?.topicId === tData.id;
 
             const tooltipStart = new Date(tData.start_date).toLocaleString(lang === 'en' ? 'en-US' : 'hu-HU', { dateStyle: 'short', timeStyle: 'short', timeZone: 'UTC' });
@@ -598,7 +605,6 @@ export default function AdminWeeklyView() {
 
                 {/* JOBB CELLA */}
                 <div className="gantt-bar-container" style={{ position: 'relative', width: '100%', height: '40px', display: 'flex', alignItems: 'center', boxSizing: 'border-box' }}>
-                  
                   <div style={{ position: 'absolute', inset: 0, display: 'grid', gridTemplateColumns: `repeat(${ganttCalendarData.totalDays}, 1fr)`, pointerEvents: 'none', zIndex: 1 }}>
                     {ganttCalendarData.daysArray.map((date, rIdx) => {
                       const isWeekend = date.getDay() === 0 || date.getDay() === 6;
@@ -606,67 +612,34 @@ export default function AdminWeeklyView() {
                     })}
                   </div>
 
-                  {/* FOLYAMATSÁV */}
                   <div 
                     title={tooltipText} 
-                    {/* 🎯 JAVÍTVA: Ha épp húzzuk, rátesszük az egyedi '.gantt-bar-dragging' stílusosztályt */}
                     className={isCurrentlyDragging ? 'gantt-bar-dragging' : ''}
                     style={{ 
-                      position: 'absolute', 
-                      left: `${visualLeftPx}px`, 
-                      width: `${visualWidthPx}px`, 
-                      height: '24px', 
+                      position: 'absolute', left: `${visualLeftPx}px`, width: `${visualWidthPx}px`, height: '24px', 
                       background: tData.isGanttModified ? 'linear-gradient(135deg, #059669, #10b981)' : status.label === t('adminStatusEnded') ? 'linear-gradient(135deg, #475569, #64748b)' : `linear-gradient(135deg, ${status.color}90, ${status.color})`,
-                      borderRadius: '6px', 
-                      border: tData.isGanttModified ? '1px solid #34d399' : status.label === t('adminStatusEnded') ? '1px solid #475569' : `1px solid ${status.color}`, 
-                      boxSizing: 'border-box',
-                      boxShadow: tData.isGanttModified ? '0 0 12px rgba(16,185,129,0.4)' : `0 3px 8px ${status.color}25`, 
-                      cursor: 'move', 
-                      zIndex: 2,
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      overflow: 'hidden'
+                      borderRadius: '6px', border: tData.isGanttModified ? '1px solid #34d399' : status.label === t('adminStatusEnded') ? '1px solid #475569' : `1px solid ${status.color}`, boxSizing: 'border-box',
+                      boxShadow: tData.isGanttModified ? '0 0 12px rgba(16,185,129,0.4)' : `0 3px 8px ${status.color}25`, cursor: 'move', zIndex: 2, display: 'flex', justifyContent: 'space-between', overflow: 'hidden'
                     }}
                     onMouseDown={(e) => {
                       e.preventDefault();
-                      setActiveDrag({
-                        topicId: tData.id,
-                        type: 'move',
-                        startX: e.clientX,
-                        originalStartMs: startMillis,
-                        originalEndMs: endMillis
-                      });
+                      setActiveDrag({ topicId: tData.id, type: 'move', startX: e.clientX, originalStartMs: startMillis, originalEndMs: endMillis });
                     }}
                   >
-                    {/* BAL OLDALI ÁTMÉRETEZŐ */}
                     <div 
                       className="gantt-resize-handle"
                       style={{ width: '8px', height: '100%', cursor: 'ew-resize', background: 'rgba(255,255,255,0.1)' }}
                       onMouseDown={(e) => {
                         e.stopPropagation();
-                        setActiveDrag({
-                          topicId: tData.id,
-                          type: 'resize-start',
-                          startX: e.clientX,
-                          originalStartMs: startMillis,
-                          originalEndMs: endMillis
-                        });
+                        setActiveDrag({ topicId: tData.id, type: 'resize-start', startX: e.clientX, originalStartMs: startMillis, originalEndMs: endMillis });
                       }}
                     />
-
-                    {/* JOBB OLDALI ÁTMÉRETEZŐ */}
                     <div 
                       className="gantt-resize-handle"
                       style={{ width: '8px', height: '100%', cursor: 'ew-resize', background: 'rgba(255,255,255,0.1)' }}
                       onMouseDown={(e) => {
                         e.stopPropagation();
-                        setActiveDrag({
-                          topicId: tData.id,
-                          type: 'resize-end',
-                          startX: e.clientX,
-                          originalStartMs: startMillis,
-                          originalEndMs: endMillis
-                        });
+                        setActiveDrag({ topicId: tData.id, type: 'resize-end', startX: e.clientX, originalStartMs: startMillis, originalEndMs: endMillis });
                       }}
                     />
                   </div>
@@ -692,42 +665,21 @@ export default function AdminWeeklyView() {
         </div>
       </div>
 
-      {/* ── 🎯 JAVÍTVA: EMELT SZINTŰ INTERAKTÍV TOOLTIP AUTOMATIZÁLÁS ── */}
       <style>{`
-        /* Normál hover alapú és kényszerített aktív drag alapú tooltip injektálás */
         .gantt-bar-container div[title]:hover::after,
         .gantt-bar-container .gantt-bar-dragging::after {
-          content: attr(title); 
-          position: absolute; 
-          bottom: 140%; 
-          left: 50%; 
-          transform: translateX(-50%);
-          background: #0f172a; 
-          color: #f8fafc; 
-          padding: 7px 14px; 
-          border-radius: 8px; 
-          font-size: 0.8rem;
-          font-family: monospace; 
-          white-space: nowrap; 
-          border: 1px solid #475569; 
-          box-shadow: 0 8px 20px rgba(0,0,0,0.6);
-          z-index: 99999; 
-          pointer-events: none;
-          opacity: 1 !important;
-          visibility: visible !important;
-          display: block !important;
+          content: attr(title); position: absolute; bottom: 140%; left: 50%; transform: translateX(-50%);
+          background: #0f172a; color: #f8fafc; padding: 7px 14px; border-radius: 8px; font-size: 0.8rem;
+          font-family: monospace; white-space: nowrap; border: 1px solid #475569; box-shadow: 0 8px 20px rgba(0,0,0,0.6);
+          zIndex: 99999; pointer-events: none; opacity: 1 !important; visibility: visible !important; display: block !important;
         }
-        .gantt-resize-handle:hover {
-          background: rgba(255,255,255,0.3) !important;
-        }
+        .gantt-resize-handle:hover { background: rgba(255,255,255,0.3) !important; }
         @keyframes pulseGlow {
           0% { box-shadow: 0 0 5px #10b98160; }
           50% { box-shadow: 0 0 15px #10b981bb; }
           100% { box-shadow: 0 0 5px #10b98160; }
         }
-        .gantt-glow-save-btn {
-          animation: pulseGlow 1.5s infinite ease-in-out;
-        }
+        .gantt-glow-save-btn { animation: pulseGlow 1.5s infinite ease-in-out; }
       `}</style>
     </div>
   );
