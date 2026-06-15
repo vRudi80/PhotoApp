@@ -232,7 +232,7 @@ export default function AdminWeeklyView() {
     return { label: t('adminStatusLive'), color: '#10b981', bg: '#10b98115' };
   };
 
-  // ── 📊 GANTT IDŐVONAL DINAMIKUS TENGELY SZÁMÍTÓJA ──
+  // ── 📊 GANTT IDŐVONAL HATÁRAI ──
   const ganttTimelineBounds = useMemo(() => {
     if (topics.length === 0) return { minTime: Date.now(), maxTime: Date.now() + 86400000 * 7 };
     
@@ -246,11 +246,33 @@ export default function AdminWeeklyView() {
       if (end > max) max = end;
     });
 
-    // Ha túl kicsi vagy hibás az intervallum, adunk neki egy alapértelmezett 1 hetet
     if (max <= min) max = min + 86400000 * 7;
 
     return { minTime: min, maxTime: max };
   }, [topics]);
+
+  // ── 🎯 INTELLIGENS IDŐSKÁLA ÉS RÁCS-MARKER GENERÁTOR ──
+  const timelineMarkers = useMemo(() => {
+    const { minTime, maxTime } = ganttTimelineBounds;
+    const totalScope = maxTime - minTime;
+    if (totalScope <= 0) return [];
+
+    const markers = [];
+    const steps = 5; // 6 darab feliratot tesz le (0%, 20%, 40%, 60%, 80%, 100%)
+    
+    for (let i = 0; i <= steps; i++) {
+      const exactTime = minTime + (totalScope * (i / steps));
+      const percentage = (i / steps) * 100;
+      const dObj = new Date(exactTime);
+      
+      const formattedLabel = lang === 'en'
+        ? dObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        : dObj.toLocaleDateString('hu-HU', { month: 'numeric', day: 'numeric' }) + '.';
+
+      markers.push({ percentage, label: formattedLabel });
+    }
+    return markers;
+  }, [ganttTimelineBounds, lang]);
 
   return (
     <div style={{ animation: 'fadeIn 0.4s ease-out' }}>
@@ -371,19 +393,39 @@ export default function AdminWeeklyView() {
         </button>
       </div>
 
-      {/* ── 📊 RAGYOGÓ GANTT IDŐVONAL ÉS ÜTEMTERV NÉZET ── */}
-      <h3 style={{ color: '#f8fafc', marginBottom: '20px', fontSize: '1.4rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '10px' }}>
+      {/* ── 📊 GANTT IDŐVONAL ÜTEMTERV NÉZET ── */}
+      <h3 style={{ color: '#f8fafc', marginBottom: '20px', fontSize: '1.4rem', fontWeight: 'bold' }}>
         📅 {t('adminGanttTitle')}
       </h3>
       
       <div style={{ background: '#1e293b', borderRadius: '20px', border: '1px solid #334155', padding: '25px', overflowX: 'auto', boxShadow: '0 15px 35px rgba(0,0,0,0.4)', boxSizing: 'border-box' }}>
         <div style={{ minWidth: '800px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
           
+          {/* 🎯 ÚJ: RENDKÍVÜL LÁTVÁNYOS DÁTUM TENGELY SKÁLA (A naptár legelejétől a legvégéig skálázva) */}
+          <div style={{ position: 'relative', height: '24px', marginBottom: '5px', paddingLeft: '95px', boxSizing: 'border-box' }}>
+            {timelineMarkers.map((marker, mIdx) => (
+              <span 
+                key={mIdx} 
+                style={{ 
+                  position: 'absolute', 
+                  left: `calc(95px + ${marker.percentage}% * (100% - 95px) / 100)`, 
+                  transform: 'translateX(-50%)', 
+                  color: '#94a3b8', 
+                  fontSize: '0.78rem', 
+                  fontWeight: 'bold', 
+                  fontFamily: 'monospace',
+                  letterSpacing: '0.5px' 
+                }}
+              >
+                {marker.label}
+              </span>
+            ))}
+          </div>
+          
           {topics.map((tData) => {
             const status = getTopicStatus(tData.status, tData.start_date, tData.end_date);
             const isPending = tData.status === 'pending';
             
-            // Relatív százalékos pozicionálás számítása a sávokhoz
             const startMillis = parseAdminDateSafe(tData.start_date).getTime();
             const endMillis = parseAdminDateSafe(tData.end_date).getTime();
             
@@ -391,23 +433,21 @@ export default function AdminWeeklyView() {
             const leftPercent = ((startMillis - ganttTimelineBounds.minTime) / totalScope) * 100;
             const widthPercent = ((endMillis - startMillis) / totalScope) * 100;
 
-            // Biztonsági korlátok a törések elkerülésére
             const safeLeft = Math.max(0, Math.min(95, leftPercent));
-            const safeWidth = Math.max(5, Math.min(100 - safeLeft, widthPercent));
+            const safeWidth = Math.max(4, Math.min(100 - safeLeft, widthPercent));
 
             return (
               <div key={tData.id} style={{ background: '#0f172a60', borderRadius: '16px', border: '1px solid #232f46', padding: '18px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
                 
-                {/* METADATA RÉSZ (Bal oldal / Felső sor) */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', gap: '20px', flexWrap: 'nowrap' }}>
+                {/* METADATA ADATOK */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', gap: '20px' }}>
                   
                   <div style={{ display: 'flex', gap: '15px', flex: 1, minWidth: 0 }}>
-                    {/* Kis borítókép */}
                     <div style={{ width: '80px', height: '50px', backgroundColor: '#0f172a', borderRadius: '8px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #334155', flexShrink: 0 }}>
                       {tData.cover_url ? (
                         <img src={tData.cover_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={handleImageError} />
                       ) : (
-                        <span style={{ fontSize: '1.2rem', opacity: 0.3 }}>🖼️</span>
+                        <span style={{ fontSize: '1.2rem', opacity: 0.4 }}>🖼️</span>
                       )}
                     </div>
 
@@ -419,7 +459,6 @@ export default function AdminWeeklyView() {
                         </span>
                       </div>
 
-                      {/* Angol cím */}
                       {tData.title_en && (
                         <div style={{ fontSize: '0.85rem', color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
                           <img src="https://flagcdn.com/w20/gb.png" alt="" style={{ width: '14px', height: 'auto', borderRadius: '2px' }} />
@@ -427,7 +466,6 @@ export default function AdminWeeklyView() {
                         </div>
                       )}
 
-                      {/* Dátumok, Beküldő, Képmester füzér */}
                       <div style={{ fontSize: '0.82rem', color: '#64748b', display: 'flex', flexWrap: 'wrap', gap: '5px 12px', alignItems: 'center' }}>
                         <span>📅 {new Date(tData.start_date).toLocaleString(lang === 'en' ? 'en-US' : 'hu-HU', { dateStyle: 'short', timeStyle: 'short', timeZone: 'UTC' })} - {new Date(tData.end_date).toLocaleString(lang === 'en' ? 'en-US' : 'hu-HU', { dateStyle: 'short', timeStyle: 'short', timeZone: 'UTC' })}</span>
                         {tData.cover_author && <span style={{ color: '#38bdf8' }}>• 📸 {tData.cover_author}</span>}
@@ -437,43 +475,54 @@ export default function AdminWeeklyView() {
                     </div>
                   </div>
 
-                  {/* AKCIÓGOMBOK (Jobb szél) */}
+                  {/* AKCIÓGOMBOK */}
+                  {/* 🎯 JAVÍTVA: A hibás 'roomSubDelete' nyelvi kulcs lecserélve a fixen bevált 'mapBtnDelete' kulcsra! */}
                   <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
                     {isPending ? (
                       <>
-                        <button onClick={() => startEdit(tData)} style={{ background: 'transparent', color: '#f59e0b', border: '1px solid #f59e0b50', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem', transition: 'all 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = '#f59e0b15'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>{t('mapBtnEdit')}</button>
-                        <button onClick={() => handleProposalDecision(tData.id, 'approved')} style={{ background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', border: 'none', padding: '7px 14px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem', boxShadow: '0 4px 10px rgba(16,185,129,0.2)' }}>{t('adminBtnApprove')}</button>
+                        <button onClick={() => startEdit(tData)} style={{ background: 'transparent', color: '#f59e0b', border: '1px solid #f59e0b50', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem' }}>{t('mapBtnEdit')}</button>
+                        <button onClick={() => handleProposalDecision(tData.id, 'approved')} style={{ background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', border: 'none', padding: '7px 14px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem' }}>{t('adminBtnApprove')}</button>
                         <button onClick={() => handleProposalDecision(tData.id, 'rejected')} style={{ background: '#ef444420', color: '#f87171', border: '1px solid #ef444440', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem' }}>{t('adminBtnReject')}</button>
                       </>
                     ) : (
                       <>
                         <button onClick={() => startEdit(tData)} style={{ background: 'transparent', color: '#f59e0b', border: '1px solid #f59e0b50', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem' }}>{t('mapBtnEdit')}</button>
-                        <button onClick={() => handleDelete(tData.id)} style={{ background: '#ef444420', color: '#ef4444', border: 'none', padding: '6px 14px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem' }}>{t('roomBtnDelete')}</button>
+                        <button onClick={() => handleDelete(tData.id)} style={{ background: '#ef444420', color: '#ef4444', border: 'none', padding: '6px 14px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem' }}>{t('mapBtnDelete')}</button>
                       </>
                     )}
                   </div>
 
                 </div>
 
-                {/* GANTT BAR - VIZUÁLIS IDŐVONAL SÁV */}
-                <div style={{ background: '#0f172a80', height: '24px', width: '100%', borderRadius: '8px', position: 'relative', overflow: 'hidden', border: '1px solid #1e293b' }}>
-                  <div 
-                    style={{ 
-                      position: 'absolute', 
-                      left: `${safeLeft}%`, 
-                      width: `${safeWidth}%`, 
-                      height: '100%', 
-                      background: `linear-gradient(90deg, ${status.color}80, ${status.color})`,
-                      borderRadius: '6px',
-                      border: `1px solid ${status.color}`,
-                      boxSizing: 'border-box',
-                      boxShadow: `0 0 12px ${status.color}30`,
-                      transition: 'all 0.3s ease'
-                    }} 
-                  />
+                {/* 🎯 GANTT SÁV + OSZLOPOS HÁTTÉRRÁCS INJEKCIÓ (Tökéletesen igazodik a fenti skálához) */}
+                <div style={{ display: 'grid', gridTemplateColumns: '95px 1fr', alignItems: 'center', width: '100%' }}>
+                  <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 'bold', letterSpacing: '0.5px', textTransform: 'uppercase' }}>{t('tabStats').split(' ')[0]}</span>
+                  
+                  <div style={{ background: '#0f172a80', height: '24px', width: '100%', borderRadius: '8px', position: 'relative', overflow: 'hidden', border: '1px solid #1e293b' }}>
+                    {/* Függőleges vezető rácsvonalak lehelyezése a háttérben */}
+                    {timelineMarkers.map((marker, mIdx) => (
+                      <div key={mIdx} style={{ position: 'absolute', left: `${marker.percentage}%`, top: 0, bottom: 0, width: '1px', background: 'rgba(51, 65, 85, 0.25)', zIndex: 1 }} />
+                    ))}
+
+                    {/* Vizuális színes folyamatjelző sáv */}
+                    <div 
+                      style={{ 
+                        position: 'absolute', 
+                        left: `${safeLeft}%`, 
+                        width: `${safeWidth}%`, 
+                        height: '100%', 
+                        background: `linear-gradient(90deg, ${status.color}70, ${status.color})`,
+                        borderRadius: '6px',
+                        border: `1px solid ${status.color}`,
+                        boxSizing: 'border-box',
+                        boxShadow: `0 0 12px ${status.color}25`,
+                        zIndex: 2
+                      }} 
+                    />
+                  </div>
                 </div>
 
-                {/* AL-BÍRÁLAT: CSATABÍRÓI JELENTKEZÉS KÁRTYA */}
+                {/* CSATABÍRÓI JELENTKEZÉS KÁRTYA */}
                 {tData.pending_master_email && (
                   <div style={{ background: '#eab30808', padding: '10px 15px', borderRadius: '10px', border: '1px solid #eab30825', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxSizing: 'border-box', marginTop: '5px' }}>
                     <span style={{ color: '#f59e0b', fontSize: '0.85rem', fontWeight: 'bold' }}>
