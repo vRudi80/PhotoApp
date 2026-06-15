@@ -11,7 +11,7 @@ import HallOfFame from '../components/WeeklyChallenge/subtabs/HallOfFame';
 import PastArchive from '../components/WeeklyChallenge/subtabs/PastArchive';
 import UpcomingChallenges from '../components/WeeklyChallenge/subtabs/UpcomingChallenges';
 import ArenaActiveRoom from '../components/WeeklyChallenge/subtabs/ArenaActiveRoom';
-import exifr from 'exifr'; // 🎯 Importáld a fájl tetején, ha még nincs ott!
+import exifr from 'exifr'; 
 
 // 🎯 Aktiváljuk a nyelvi kontextust
 import { useLanguage } from '../context/LanguageContext';
@@ -90,7 +90,7 @@ const compressImageOnClient = (file: File): Promise<File> => {
 };
 
 // ====================================================================
-// ⏳ SELEKCIÓS KÁRTYA KOMPONENS (Lefordítva)
+// ⏳ SELEKCIÓS KÁRTYA KOMPONENS
 // ====================================================================
 function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }) {
   const { t, lang } = useLanguage();
@@ -213,13 +213,17 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const [masterVotesLeft, setMasterVotesLeft] = useState<number>(0);
   const [isMaster, setIsMaster] = useState<boolean>(false);
 
+  // 🎯 UNIFIKÁLT ÉS TISZTÍTOTT ÁLLAPOT-DOBOZ (Zéró duplikáció!)
   const [uploadFile, setUploadFile] = useState<File | null>(null);
-const [uploadCamera, setUploadCamera] = useState('');
-const [uploadLens, setUploadLens] = useState('');
-const [uploadShutter, setUploadShutter] = useState('');
-const [uploadIso, setUploadIso] = useState('');
-const [uploadAperture, setUploadAperture] = useState('');
-const [uploadSoftware, setUploadSoftware] = useState('');
+  const [uploadPreview, setUploadPreview] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+
+  const [uploadCamera, setUploadCamera] = useState('');
+  const [uploadLens, setUploadLens] = useState('');
+  const [uploadShutter, setUploadShutter] = useState('');
+  const [uploadIso, setUploadIso] = useState('');
+  const [uploadAperture, setUploadAperture] = useState('');
+  const [uploadSoftware, setUploadSoftware] = useState('');
 
   const [showSwapAlbumModal, setShowSwapAlbumModal] = useState(false);
   const [swapAlbumPhotos, setSwapAlbumPhotos] = useState<any[]>([]);
@@ -228,8 +232,6 @@ const [uploadSoftware, setUploadSoftware] = useState('');
 
   const [activeTopics, setActiveTopics] = useState<any[]>([]);
   const [selectedTopicId, setSelectedTopicId] = useState<number | null>(null);
-
-  // 🎯 ÚJ STATE: Az aktív kihívások rendezési szempontjának követése
   const [sortBy, setSortBy] = useState<'endDate' | 'startDate'>('endDate');
 
   const [topic, setTopic] = useState<any>(null);
@@ -249,10 +251,6 @@ const [uploadSoftware, setUploadSoftware] = useState('');
 
   const [voteEntry, setVoteEntry] = useState<any>(null);
   const [noMoreEntries, setNoMoreEntries] = useState(false);
-
-  const [uploadFile, setUploadFile] = useState<File | null>(null);
-  const [uploadPreview, setUploadPreview] = useState<string | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
 
   const [swapFile, setSwapFile] = useState<File | null>(null);
   const [swapPreview, setSwapPreview] = useState<string | null>(null);
@@ -338,7 +336,7 @@ const [uploadSoftware, setUploadSoftware] = useState('');
     setCurrentClubLeaderboard([]);
     setNoMoreEntries(false);
     setTimeLeft('');
-    setPastLeaderboard([]); // Biztonsági takarítás turnusváltásnál
+    setPastLeaderboard([]); 
     setPastClubLeaderboard([]);
     setMasterVotesLeft(0); 
     setIsMaster(false);     
@@ -475,7 +473,7 @@ const [uploadSoftware, setUploadSoftware] = useState('');
         }
       } catch (err) {
         console.error("Lobby chat synchronization anomaly:", err);
-      } finally {
+      } finaly: {
         if (isMounted && subTab === 'current' && selectedTopicId === null) {
           timerId = setTimeout(fetchLobbyChat, 2500);
         }
@@ -642,14 +640,13 @@ const [uploadSoftware, setUploadSoftware] = useState('');
     setIsClaimingReferral(true);
     try {
       const res = await fetch(`${BACKEND_URL}/api/weekly/claim-referral`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ 
-    userEmail: user?.email, 
-    // 🎯 JAVÍTVA: Levágjuk a felesleges szóközöket és garantáljuk a nagybetűt küldés előtt
-    referralCode: referralInput.trim().toUpperCase() 
-  })
-});
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          userEmail: user?.email, 
+          referralCode: referralInput.trim().toUpperCase() 
+        })
+      });
 
       if (res.ok) {
         alert(t('msgReferralSuccess'));
@@ -663,10 +660,47 @@ const [uploadSoftware, setUploadSoftware] = useState('');
     finally { setIsClaimingReferral(false); }
   };
 
+  // ── 🎯 EGYESÍTETT, KLIENS-ALAPÚ EXIF-KIBÁNYÁSZ ÉS TÖMÖRÍTŐ MOTOR ──
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const rawFile = e.target.files[0];
-      
+
+      // 1. Olvasás az eredeti állományból (Mielőtt a tömörítő canvas letörölné a pecséteket)
+      try {
+        const exifData = await exifr.parse(rawFile);
+        
+        if (exifData) {
+          if (exifData.Model) {
+            const makePrefix = exifData.Make && !exifData.Model.startsWith(exifData.Make) ? `${exifData.Make} ` : '';
+            setUploadCamera(`${makePrefix}${exifData.Model}`);
+          } else if (exifData.Make) {
+            setUploadCamera(exifData.Make);
+          } else {
+            setUploadCamera('');
+          }
+
+          setUploadLens(exifData.LensModel || '');
+
+          if (exifData.ExposureTime) {
+            const shutterFraction = exifData.ExposureTime < 1 
+              ? `1/${Math.round(1 / exifData.ExposureTime)}s` 
+              : `${exifData.ExposureTime}s`;
+            setUploadShutter(shutterFraction);
+          } else {
+            setUploadShutter('');
+          }
+
+          setUploadIso(exifData.ISO ? String(exifData.ISO) : '');
+          setUploadAperture(exifData.FNumber ? `f/${exifData.FNumber}` : '');
+          setUploadSoftware(exifData.Software || '');
+        }
+      } catch (exifError) {
+        console.log("Nem található EXIF pecsét a kliensoldali radar futásakor.");
+        setUploadCamera(''); setUploadLens(''); setUploadShutter('');
+        setUploadIso(''); setUploadAperture(''); setUploadSoftware('');
+      }
+
+      // 2. Kliensoldali hardver-optimalizálás és skálázás
       let finalFile = rawFile;
       if (rawFile.size > 2 * 1024 * 1024) {
         console.log("⚡ Large asset detected, triggering browser side compression engine...");
@@ -675,99 +709,57 @@ const [uploadSoftware, setUploadSoftware] = useState('');
       }
 
       setUploadFile(finalFile); 
-      uploadPreview && URL.revokeObjectURL(uploadPreview); 
+      if (uploadPreview) URL.revokeObjectURL(uploadPreview); 
       setUploadPreview(URL.createObjectURL(finalFile));
     }
   };
 
- const handleUpload = async () => {
-  if (!uploadFile) return alert("Nincs fájl kiválasztva!");
+  // ── 🎯 JAVÍTVA: A FORM DATA BEKÜLDI A KINYERT STRÍNGEKET A SZERVERNEK ──
+  const handleUpload = async () => {
+    if (!uploadFile) return alert("Nincs fájl kiválasztva!");
 
-  setIsUploading(true);
-  const formData = new FormData();
-  formData.append('photo', uploadFile);
-  formData.append('userEmail', user.email);
-  formData.append('topicId', topic.id); // Vagy currentTopic.id, ahogy a szülőben van
-  formData.append('userName', user.name || user.email);
-  
-  // 🎯 Elküldjük a frontend által kinyert tiszta szöveges adatokat:
-  formData.append('camera', uploadCamera);
-  formData.append('lens', uploadLens);
-  formData.append('shutter', uploadShutter);
-  formData.append('iso', uploadIso);
-  formData.append('aperture', uploadAperture);
-  formData.append('software', uploadSoftware);
-
-  try {
-    const res = await fetch(`${BACKEND_URL}/api/weekly/upload`, {
-      method: 'POST',
-      body: formData,
-    });
-    if (res.ok) {
-      alert("Sikeres nevezés rögzített EXIF adatokkal!");
-      // Itt ürítheted az állapotokat...
-      setUploadFile(null);
-      setUploadCamera('');
-      setUploadLens('');
-      setUploadShutter('');
-      setUploadIso('');
-      setUploadAperture('');
-      setUploadSoftware('');
-      window.location.reload();
-    }
-  } catch (e) {
-    console.error("Feltöltési hiba:", e);
-  } finally {
-    setIsUploading(false);
-  }
-};
-const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-  if (e.target.files && e.target.files.length > 0) {
-    const file = e.target.files[0];
-    setUploadFile(file);
-    setUploadPreview(URL.createObjectURL(file)); // Ha van preview állapotod
+    setIsUploading(true);
+    const formData = new FormData();
+    formData.append('photo', uploadFile);
+    formData.append('userEmail', user.email);
+    formData.append('topicId', topic.id); 
+    formData.append('userName', user.name || user.email);
+    
+    // Tiszta string mezők felcsatolása
+    formData.append('camera', uploadCamera);
+    formData.append('lens', uploadLens);
+    formData.append('shutter', uploadShutter);
+    formData.append('iso', uploadIso);
+    formData.append('aperture', uploadAperture);
+    formData.append('software', uploadSoftware);
 
     try {
-      // 🎯 Pontosan a térképnél használt kliensoldali olvasó motor:
-      const exifData = await exifr.parse(file);
-      
-      if (exifData) {
-        if (exifData.Model) {
-          const makePrefix = exifData.Make && !exifData.Model.startsWith(exifData.Make) ? `${exifData.Make} ` : '';
-          setUploadCamera(`${makePrefix}${exifData.Model}`);
-        } else if (exifData.Make) {
-          setUploadCamera(exifData.Make);
-        } else {
-          setUploadCamera('');
-        }
-
-        setUploadLens(exifData.LensModel || '');
-
-        if (exifData.ExposureTime) {
-          const shutterFraction = exifData.ExposureTime < 1 
-            ? `1/${Math.round(1 / exifData.ExposureTime)}s` 
-            : `${exifData.ExposureTime}s`;
-          setUploadShutter(shutterFraction);
-        } else {
-          setUploadShutter('');
-        }
-
-        setUploadIso(exifData.ISO ? String(exifData.ISO) : '');
-        setUploadAperture(exifData.FNumber ? `f/${exifData.FNumber}` : '');
-        setUploadSoftware(exifData.Software || '');
+      const res = await fetch(`${BACKEND_URL}/api/weekly/upload`, {
+        method: 'POST',
+        body: formData,
+      });
+      if (res.ok) {
+        alert("Sikeres nevezés rögzített EXIF adatokkal!");
+        setUploadFile(null);
+        setUploadCamera(''); setUploadLens(''); setUploadShutter('');
+        setUploadIso(''); setUploadAperture(''); setUploadSoftware('');
+        window.location.reload();
       }
-    } catch (exifError) {
-      console.log("Nem található EXIF pecsét a képben.");
-      // Hiba vagy AI kép esetén ürítjük a mezőket
-      setUploadCamera('');
-      setUploadLens('');
-      setUploadShutter('');
-      setUploadIso('');
-      setUploadAperture('');
-      setUploadSoftware('');
+    } catch (e) {
+      console.error("Feltöltési hiba:", e);
+    } finally {
+      setIsUploading(false);
     }
-  }
-};
+  };
+
+  const handleFileSelectForSwap = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0];
+      setSwapFile(file);
+      if (swapPreview) URL.revokeObjectURL(swapPreview);
+      setSwapPreview(URL.createObjectURL(file));
+    }
+  };
 
   const handleSwapSubmit = async () => {
     if (!swapFile || !topic) return;
@@ -796,7 +788,7 @@ const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
         alert(t('msgSwapBackSuccess'));
         fetchCurrentTopic(false);
       } else {
-        const err = await swapRes.json();
+        const err = await res.json();
         alert(err.error || t('msgSwapErrorMain'));
       }
     } catch (e) { alert(t('msgNetworkError')); }
@@ -876,9 +868,7 @@ const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     }
   };
 
-  // 🎯 ÚJ SZÁMÍTÁSI LOGIKA: Az aktív kihívások rendezése a kiválasztott sortBy állapottól függően
   const sortedActiveTopics = [...activeTopics].sort((a, b) => {
-    // Mobil/Safari-biztos dátumformázás standard ISO formára
     const dateStrA = String(sortBy === 'endDate' ? a.end_date : a.start_date).replace(' ', 'T').split('.')[0];
     const dateStrB = String(sortBy === 'endDate' ? b.end_date : b.start_date).replace(' ', 'T').split('.')[0];
     
@@ -886,16 +876,15 @@ const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const timeB = new Date(dateStrB).getTime() || 0;
 
     if (sortBy === 'endDate') {
-      return timeA - timeB; // Befejezési idő szerint növekvő: a hamarosan lejárók kerülnek előre
+      return timeA - timeB;
     } else {
-      return timeB - timeA; // Indulási idő szerint csökkenő: a legfrissebben indultak kerülnek előre
+      return timeB - timeA;
     }
   });
   
   return (
     <div style={{ animation: 'fadeIn 0.4s ease-out' }}>
       
-      {/* 🔮 INTELIGENS BENTO GRID LAYOUT INJEKTOR */}
       <style>{`
         .arena-bento-grid {
           display: grid;
@@ -936,19 +925,16 @@ const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
       {subTab === 'current' && (
         <>
           {selectedTopicId === null ? (
-            /* 🎯 KÉTOSZLOPOS BENTO-RÁCS ELRENDEZÉS */
             <div className="arena-bento-grid">
               
-              {/* BAL HASÁB: AKTÍV LEVELEK ÉS JÁTÉKOK */}
+              {/* BAL HASÁB */}
               <div>
-                {/* 🎯 MÓDOSÍTVA: Flexbox-os fejlécre váltás a rendezési szűrő elegáns elhelyezéséhez */}
                 <div style={{ marginBottom: '25px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '15px' }}>
                   <div>
                     <h2 style={{ color: 'white', margin: 0, fontSize: '1.8rem' }}>{t('viewActiveLeagues')}</h2>
                     <p style={{ color: '#94a3b8', margin: '5px 0 0 0' }}>{t('viewActiveLeaguesDesc')}</p>
                   </div>
 
-                                  {/* 🎯 ÚJ SZELEKTOR DOBOZ: Tiszta szótár-alapú hivatkozásokkal */}
                   {activeTopics.length > 1 && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                       <span style={{ color: '#94a3b8', fontSize: '0.85rem', fontWeight: 'bold', letterSpacing: '0.5px' }}>
@@ -957,16 +943,13 @@ const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
                       <select
                         value={sortBy}
                         onChange={(e) => setSortBy(e.target.value as 'endDate' | 'startDate')}
-                        style={{ background: '#0f172a', color: 'white', border: '1px solid #334155', padding: '8px 14px', borderRadius: '10px', fontSize: '0.85rem', outline: 'none', cursor: 'pointer', fontWeight: 'bold', transition: 'border-color 0.2s' }}
-                        onFocus={(e) => e.target.style.borderColor = '#ef4444'}
-                        onBlur={(e) => e.target.style.borderColor = '#334155'}
+                        style={{ background: '#0f172a', color: 'white', border: '1px solid #334155', padding: '8px 14px', borderRadius: '10px', fontSize: '0.85rem', outline: 'none', cursor: 'pointer', fontWeight: 'bold' }}
                       >
                         <option value="endDate">{t('sortEndDate')}</option>
                         <option value="startDate">{t('sortStartDate')}</option>
                       </select>
                     </div>
                   )}
-
                 </div>
 
                 {loading ? (
@@ -979,8 +962,7 @@ const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
                   </div>
                 ) : (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '25px' }}>
-                    {/* 🎯 MÓDOSÍTVA: A nyers 'activeTopics' helyett a dinamikusan rendezett 'sortedActiveTopics'-ot térképezzük fel */}
-                    {sortedActiveTopics.map((actTop) => (
+                    {重新Rendezett => sortedActiveTopics.map((actTop) => (
                       <ChallengeCard 
                         key={actTop.id} 
                         topic={actTop} 
@@ -991,7 +973,7 @@ const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
                 )}
               </div>
 
-              {/* JOBB HASÁB: FIX CSERESZAVATÚ OLDALSÁV */}
+              {/* JOBB HASÁB */}
               <div className="arena-chat-sidebar" style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: '24px', padding: '25px', boxShadow: '0 15px 35px rgba(0,0,0,0.4)', display: 'flex', flexDirection: 'column', gap: '15px', height: '580px', position: 'sticky', top: '20px' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   <h3 style={{ margin: 0, color: '#38bdf8', fontSize: '1.3rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1090,14 +1072,14 @@ const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
               <div style={{ marginBottom: '20px' }}>
                 <button 
                   onClick={() => { setSelectedTopicId(null); }} 
-                  style={{ background: '#1e293b', border: '1px solid #334155', color: '#cbd5e1', padding: '8px 18px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem', transition: 'all 0.2s' }}
+                  style={{ background: '#1e293b', border: '1px solid #334155', color: '#cbd5e1', padding: '8px 18px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem' }}
                 >
                   {t('viewBackBtn')}
                 </button>
               </div>
 
               {(!topic || loading) ? (
-                <div style={{ color: '#94a3b8', BirdAlign: 'center', padding: '50px' }}>{t('viewPreparingRoom')}</div>
+                <div style={{ color: '#94a3b8', padding: '50px' }}>{t('viewPreparingRoom')}</div>
               ) : (
                 <ArenaActiveRoom
                   topic={topic}
