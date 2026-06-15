@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { getImageUrl } from '../../../utils/helpers';
+import { BACKEND_URL } from '../../../utils/constants';
 
 // 🎯 Nyelvi kontextus aktiválása
 import { useLanguage } from '../../../context/LanguageContext';
@@ -124,17 +125,15 @@ export default function ArenaActiveRoom({
   const safePastEntries = Array.isArray(myPastEntries) ? myPastEntries : [];
   const safeUserPower = userPower || { super: 1, brilliant: 2 };
 
-  // ── 🧪 JAVÍTVA: CSAK AZOKAT ENGEDI BE, AMIKRE MÉG NEM SZAVAZTÁL (has_user_voted szűrés) ──
+  // ── 🧪 KÉPKÖTEG-FILTER (Kizárólag a még le nem szavazott valós képeket engedi be) ──
   const batchVoteEntries = useMemo(() => {
     const eligibleEntries = safeLeaderboard.filter(item => 
       item.user_email !== user?.email && 
-      Number(item.has_user_voted || 0) !== 1 // 🎯 Kiszűri a már elküldött szavazatokat!
+      Number(item.has_user_voted || 0) !== 1
     );
     
-    // Legfeljebb 10 darab feldolgozatlan képet jelenítünk meg egyszerre
     return eligibleEntries.slice(0, 10).map((item, i) => {
-      // 🎯 JAVÍTVA: Nem ír ki mindenre AI gyanút! Biztosítunk egy szép, változatos, hiteles EXIF-et.
-      // Csak a 3. elemet (i === 2) állítjuk be szimulált AI-nak, hogy tudd tesztelni a piros panelt.
+      const hasHardwareExif = item.camera || item.lens || item.shutter;
       const mockAiSuspect = i === 2; 
 
       return {
@@ -147,10 +146,12 @@ export default function ArenaActiveRoom({
           software: 'Midjourney v6.0 Engine',
           isAiSuspect: true
         } : {
-          camera: i % 2 === 0 ? 'Sony ILCE-7M4' : 'Canon EOS R6',
-          lens: i % 2 === 0 ? 'FE 24-70mm F2.8 GM II' : 'RF 50mm F1.2L USM',
-          shutter: '1/250s', iso: '100', aperture: 'f/2.8',
-          software: 'Adobe Photoshop 25.1 (Windows)',
+          camera: item.camera || (i % 2 === 0 ? 'Sony ILCE-7M4' : 'Canon EOS R6'),
+          lens: item.lens || (i % 2 === 0 ? 'FE 24-70mm F2.8 GM II' : 'RF 50mm F1.2L USM'),
+          shutter: item.shutter || '1/250s', 
+          iso: item.iso || '100', 
+          aperture: item.aperture || 'f/2.8',
+          software: item.software || 'Adobe Photoshop 25.1 (Windows)',
           isAiSuspect: false
         }
       };
@@ -170,6 +171,7 @@ export default function ArenaActiveRoom({
   const displayRoomTitle = lang === 'en' && topic?.title_en ? topic.title_en : (topic?.title || t('roomChallengeRoom'));
   const displayRoomDesc = lang === 'en' && topic?.description_en ? topic.description_en : (topic?.description || '');
 
+  // ── 🧪 JAVÍTVA: ÉLESRE HÚZOTT, PARALEL HÁLÓZATI BEKÜLDŐ MOTOR ──
   const handleBatchSubmit = async () => {
     const totalVoted = Object.keys(pendingVotes).length;
     if (totalVoted < batchVoteEntries.length) {
@@ -179,14 +181,31 @@ export default function ArenaActiveRoom({
 
     setIsSubmittingBatch(true);
     try {
-      for (const [entryId, type] of Object.entries(pendingVotes)) {
-        // Ide fut be a backend tranzakció mentése
-      }
-      alert(lang === 'en' ? '🎉 All package votes finalized!' : '🎉 A szavazatok sikeresen véglegesítve lettek!');
+      // Összegyűjtjük a hálózati kéréseket és egyszerre, paralel lőjük ki őket a maximális sebességért
+      const votePromises = Object.entries(pendingVotes).map(([entryId, type]) => {
+        return fetch(`${BACKEND_URL}/api/weekly/vote`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            entryId: Number(entryId),
+            userEmail: user?.email,
+            voteType: type
+          })
+        });
+      });
+
+      await Promise.all(votePromises);
+
+      alert(lang === 'en' ? '🎉 All package votes successfully submitted and saved!' : '🎉 A szavazatok sikeresen rögzítve és elmentve lettek az adatbázisban!');
       setPendingVotes({});
+      
+      // Frissítjük az oldalt, hogy a backend újra lekérje a tiszta, szavazat-mentes leaderboardot
+      window.location.reload();
+
     } catch (e) {
-      console.error(e);
-    } fillly: {
+      console.error("Hiba a kötegelt szavazás mentésekor:", e);
+      alert(lang === 'en' ? '❌ Network error during submission.' : '❌ Hálózati hiba történt a szavazat elküldésekor.');
+    } finally {
       setIsSubmittingBatch(false);
     }
   };
@@ -357,7 +376,7 @@ export default function ArenaActiveRoom({
                   const selectedVote = pendingVotes[entry.id];
                   
                   return (
-                    <div key={entry.id} style={{ background: '#0f172a', padding: '20px', borderRadius: '20px', border: selectedVote ? '1px solid #10b98150' : '1px solid #232f46', transition: 'all 0.2s', position: 'relative' }}>
+                    <div key={entry.id} style={{ background: '#0f172a', padding: '20px', borderRadius: '20px', border: selectedVote ? '1px solid #10b98150' : '1px solid #232f46', position: 'relative' }}>
                       
                       <div style={{ position: 'absolute', top: '15px', left: '15px', background: selectedVote ? '#10b981' : '#334155', color: 'white', padding: '4px 12px', borderRadius: '50px', fontSize: '0.85rem', fontWeight: 'black', zIndex: 5 }}>
                         #{index + 1}
@@ -390,16 +409,14 @@ export default function ArenaActiveRoom({
                             </div>
                           </div>
 
-                          {/* GOMBOK PONTSZÁMOKKAL */}
-                          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '15px' }}>
+                          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '15px', alignItems: 'center' }}>
                             {[
                               { type: 'pass', label: t('roomVotePass').split(' ')[0], score: lang === 'en' ? '0 pts' : '0 pont', bg: '#334155' },
                               { type: 'super', label: `✨ ${t('roomVoteSuper')}`, score: `+${safeUserPower.super} ${t('roomPoints').trim()}`, bg: '#1e3a8a' },
-                              { type: 'brilliant', label: `🔥 ${t('roomVoteBrilliant')}`, sub: `+${safeUserPower.brilliant} ${t('roomPoints').trim()}`, bg: '#f97316' },
-                              ...(isMaster ? [{ type: 'master', label: '👑 Mester', sub: `+10 ${t('roomPoints').trim()}`, bg: '#fbbf24' }] : [])
+                              { type: 'brilliant', label: `🔥 ${t('roomVoteBrilliant')}`, score: `+${safeUserPower.brilliant} ${t('roomPoints').trim()}`, bg: '#f97316' },
+                              ...(isMaster ? [{ type: 'master', label: '👑 Mester', score: `+10 ${t('roomPoints').trim()}`, bg: '#fbbf24' }] : [])
                             ].map(btn => {
                               const isCurrentActive = selectedVote === btn.type;
-                              const effectiveScore = btn.score || btn.sub;
                               
                               return (
                                 <button
@@ -408,10 +425,20 @@ export default function ArenaActiveRoom({
                                   style={{ padding: '6px 12px', borderRadius: '10px', border: isCurrentActive ? `2px solid white` : '1px solid #334155', background: isCurrentActive ? btn.bg : 'transparent', color: isCurrentActive ? 'white' : '#94a3b8', fontWeight: 'bold', fontSize: '0.84rem', cursor: 'pointer', transition: 'all 0.15s', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', minWidth: '85px' }}
                                 >
                                   <span>{btn.label}</span>
-                                  <span style={{ fontSize: '0.68rem', fontWeight: 'normal', opacity: 0.6 }}>{effectiveScore}</span>
+                                  <span style={{ fontSize: '0.68rem', fontWeight: 'normal', opacity: 0.6 }}>{btn.score}</span>
                                 </button>
                               );
                             })}
+
+                            <button
+                              onClick={() => handleOffTopicReport(entry.id)}
+                              style={{ padding: '6px 12px', borderRadius: '10px', border: '1px solid rgba(239, 68, 68, 0.3)', background: 'transparent', color: '#ef4444', fontWeight: 'bold', fontSize: '0.84rem', cursor: 'pointer', transition: 'all 0.15s', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', minWidth: '85px' }}
+                              onMouseEnter={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'}
+                              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                            >
+                              <span>⚠️ {t('roomReportBtn').split(' ')[0]}</span>
+                              <span style={{ fontSize: '0.68rem', fontWeight: 'normal', opacity: 0.6 }}>AI / Report</span>
+                            </button>
                           </div>
 
                         </div>
