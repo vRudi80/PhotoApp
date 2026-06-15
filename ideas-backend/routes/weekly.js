@@ -528,66 +528,24 @@ async function getUserLikesAndVictories(pool, email) {
   });
 
 // ====================================================================
-  // 📸 ATOMBIZTOS EXIF-BÁNYÁSZ (BUFFER ALAPÚ) ÉS IP-RÖGZÍTŐ VÉGPONT
+  // 📸 KLIENS-ALAPÚ ULTRASTABIL FELTÖLTŐ ÉS ADATBÁZIS-MENTŐ VÉGPONT
   // ====================================================================
   app.post('/api/weekly/upload', upload.single('photo'), async (req, res) => {
-    const { userEmail, topicId, userName } = req.body;
+    // 🎯 Az EXIF adatok közvetlenül a req.body-ból érkeznek tiszta stringként!
+    const { userEmail, topicId, userName, camera, lens, shutter, iso, aperture, software } = req.body;
     const file = req.file;
     
     if (!file) {
       return res.status(400).json({ error: 'Nincs fájl kiválasztva!' });
     }
 
-    // 1. IP-cím kinyerése
+    // IP-cím kinyerése
     const ipAddress = req.headers['x-forwarded-for'] 
       ? req.headers['x-forwarded-for'].split(',')[0].trim() 
       : (req.ip || req.socket.remoteAddress);
 
-    let camera = null;
-    let lens = null;
-    let shutter = null;
-    let iso = null;
-    let aperture = null;
-    let software = null;
-
-    // 🎯 2. JAVÍTVA: Nyers pufferből olvasunk, hogy kicselezzük a kiterjesztés hiányát!
     try {
-      const exifr = require('exifr'); 
-      
-      // Beolvassuk a lemezről a fájlt egy Node.js Buffer objektumba
-      const fileBuffer = fs.readFileSync(file.path);
-      
-      // A puffert adjuk át, így az exifr a mágikus bájtok alapján garantáltan felismeri a formátumot
-      const exif = await exifr.parse(fileBuffer);
-      
-      console.log(`[EXIF RADAR] Nyers puffer sikeresen elemezve. Talált mezők száma:`, exif ? Object.keys(exif).length : 0);
-
-      if (exif) {
-        if (exif.Model) {
-          const makePrefix = exif.Make && !exif.Model.startsWith(exif.Make) ? `${exif.Make} ` : '';
-          camera = `${makePrefix}${exif.Model}`;
-        } else if (exif.Make) {
-          camera = exif.Make;
-        }
-
-        lens = exif.LensModel || null;
-
-        if (exif.ExposureTime) {
-          shutter = exif.ExposureTime < 1 
-            ? `1/${Math.round(1 / exif.ExposureTime)}s` 
-            : `${exif.ExposureTime}s`;
-        }
-
-        iso = exif.ISO ? String(exif.ISO) : null;
-        aperture = exif.FNumber ? `f/${exif.FNumber}` : null;
-        software = exif.Software || null;
-      }
-    } catch (exifError) {
-      console.error("❌ Hiba történt a puffer alapú EXIF olvasás közben:", exifError.message);
-    }
-
-    // 3. FELTÖLTÉS A CLOUDINARY-RA ÉS ADATBÁZIS MENTÉS
-    try {
+      // Feltöltés a Cloudinary-ra
       const result = await cloudinary.uploader.upload(file.path, {
         folder: 'parbajok',
         width: 1600,
@@ -596,9 +554,10 @@ async function getUserLikesAndVictories(pool, email) {
         quality: "auto:good"
       });
 
-      // Ideiglenes helyi fájl takarítása
+      // Ideiglenes fájl azonnali letakarítása a szerver lemezéről
       if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
 
+      // Mentés az adatbázisba az összes EXIF és IP oszloppal együtt
       const query = `
         INSERT INTO weekly_entries 
         (topic_id, user_email, user_name, file_url, drive_file_id, swapped, ip_address, is_active, likes_count, views_count, camera, lens, shutter, iso, aperture, software) 
@@ -611,21 +570,21 @@ async function getUserLikesAndVictories(pool, email) {
         userName, 
         result.secure_url, 
         ipAddress,
-        camera, 
-        lens, 
-        shutter, 
-        iso, 
-        aperture, 
-        software
+        camera || null, 
+        lens || null, 
+        shutter || null, 
+        iso || null, 
+        aperture || null, 
+        software || null
       ];
 
       await pool.query(query, values);
-      res.json({ success: true, message: 'Sikeres nevezés rögzített EXIF és IP adatokkal!' });
+      res.json({ success: true, message: 'Sikeres nevezés rögzített EXIF adatokkal!' });
 
     } catch (err) {
       if (file && fs.existsSync(file.path)) fs.unlinkSync(file.path);
-      console.error("Cloudinary / MySQL mentési hiba:", err);
-      res.status(500).json({ error: 'Hiba történt a feldolgozás során: ' + err.message });
+      console.error("Szerveroldali mentési hiba:", err);
+      res.status(500).json({ error: 'Hiba történt a mentés során: ' + err.message });
     }
   });
 
