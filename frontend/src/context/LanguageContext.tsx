@@ -14,6 +14,31 @@ const translations = {
     btnRules: '📖 Játékszabályok & Rangok',
     tileClubLifeTitle: 'Klubélet',
 
+  
+  "roomMatchClosed": "Futam Lezárult! 📜",
+  "roomTimeLeftLabel": "⏳ HÁTRALÉVŐ IDŐ:",
+  "roomZoomLabel": "🔍 NAGYÍT",
+  "roomShutterIso": "⏱️ Záridő / ISO:",
+  "roomSoftware": "💿 Szoftver:",
+  "roomExifShieldTitle": "🛡️ EXIF Diagnosztika és AI Elleni Védelem aktív",
+  "roomExifShieldDesc": "A verseny tisztaságának megőrzése érdekében minden kép alatt láthatóvá tettük a nyers fájl-metaadatokat. A generatív AI modellek nem rendelkeznek valódi fizikai gépvázzal, ISO profillal vagy záridő-ciklussal.",
+  "roomBatchTitle": "Kötegelt Értékelő Pult",
+  "roomBatchDesc": "Vizsgáld meg a képeket, válaszd ki a szavazatokat, majd az oldal alján véglegesítsd a csomagot!",
+  "roomBatchSubmitBtn": "📗 SZAVAZATOK VÉGLEGESÍTÉSE ÉS BEKÜLDÉSE",
+  "roomLegacyPhoto": "ℹ️ Exif hiányzik: korábban feltöltött kép",
+  "roomAiSuspect": "⚠️ AI GYANÚ: Hiányzó hardveres pecsét!",
+  "roomVerifiedHardware": "✓ Hardveresen igazolt: Hiteles fotó",
+  "roomInspectorTitle": "🔎 Képvizsgálat",
+  "roomInspectorArtist": "Alkotó művész",
+  "roomInspectorAnon": "🔒 Névtelen Alkotó (Titkosított)",
+  "roomInspectorShutter": "Záridő / Exposure",
+  "roomInspectorIso": "Érzékenység / ISO",
+  "roomInspectorAperture": "Rekeszérték / Aperture",
+  "roomInspectorSoftware": "Feldolgozó Szoftver",
+  "roomBatchAlertError": "Kérlek mind a {count} képet értékeld, mielőtt véglegesítenéd a szavazást!",
+  "roomBatchAlertSuccess": "🎉 A szavazatok sikeresen rögzítve és elmentve lettek az adatbázisban!"
+
+
     mapSmartRadarTitle: 'INTELLIGENS HELYSZÍNFELISMERÉS AKTÍV:',
   mapSmartRadarDesc: 'Kattints a térképre gombostűhöz, MAJD egyszerűen tallózz be egy fotót! Ha van benne EXIF GPS koordináta, a radar azonnal odateleportálja a térképet és odaszegezi a jelölőt!',
   mapDashGlobalTitle: '🌍 Globális Térkép Adatbázis',
@@ -757,6 +782,30 @@ const translations = {
   mapDashThankYouDesc: 'Thank you for tracking and sharing your photography spots, building this visual roadmap together!',
   mapDashYourContribution: 'Your contribution:',
   mapNotSpecified: 'Not specified',
+
+  
+  "roomMatchClosed": "Match Closed! 📜",
+  "roomTimeLeftLabel": "⏳ TIME LEFT:",
+  "roomZoomLabel": "🔍 ZOOM",
+  "roomShutterIso": "⏱️ Shutter / ISO:",
+  "roomSoftware": "💿 Software:",
+  "roomExifShieldTitle": "🛡️ EXIF Diagnostics & AI Protection active",
+  "roomExifShieldDesc": "To protect the purity of the competition, every photo displays raw hardware stamps. Generative AI models do not have true camera hardware signatures like physical lenses, ISO profiles, or shutter cycles.",
+  "roomBatchTitle": "Batch Evaluation Desk",
+  "roomBatchDesc": "Review photos locally, select your votes, and finalize the complete package at the bottom!",
+  "roomBatchSubmitBtn": "📗 FINALIZE AND SUBMIT PACK VOTES",
+  "roomLegacyPhoto": "ℹ️ Exif missing: previously uploaded image",
+  "roomAiSuspect": "⚠️ AI SUSPECT: Missing Hardware EXIF Signature!",
+  "roomVerifiedHardware": "✓ Hardware Verified: Authentic photo",
+  "roomInspectorTitle": "🔎 Image Inspector",
+  "roomInspectorArtist": "Artist Profile",
+  "roomInspectorAnon": "🔒 Anonymous Artist (Encrypted)",
+  "roomInspectorShutter": "Shutter / Exposure",
+  "roomInspectorIso": "Sensitivity / ISO",
+  "roomInspectorAperture": "Aperture Value",
+  "roomInspectorSoftware": "Processing Software",
+  "roomBatchAlertError": "Please vote for all {count} photos before finalizing!",
+  "roomBatchAlertSuccess": "🎉 All package votes successfully submitted and saved!"
 
     
     // Pályázatok almenü
