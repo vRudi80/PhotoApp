@@ -213,7 +213,7 @@ const translations = {
     subLogout: '🚪 Kijelentkezés',
 
     dashWelcome: 'Üdvözlünk',
-    dashSupportNotice: 'Nézz szét, próbálj ki mindenfunkciót!',
+    dashSupportNotice: 'Nézz szét, próbálj ki minden funkciót!',
     dashPremiumBadge: '⭐ Aktív Prémium Tag',
     dashAlertsTitle: '🔔 Aktuális Események & Értesítések',
     dashSyncing: '⏳ Adatok szinkronizálása a szerverrel...',
