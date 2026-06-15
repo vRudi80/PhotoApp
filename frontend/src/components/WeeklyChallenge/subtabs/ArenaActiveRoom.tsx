@@ -1,10 +1,10 @@
 import React, { useEffect, useRef } from 'react';
 import { getImageUrl } from '../../../utils/helpers';
 
-// 🎯 ÚJ IMPORT: Behozzuk a nyelvi kontextust
+// 🎯 Nyelvi kontextus aktiválása
 import { useLanguage } from '../../../context/LanguageContext';
 
-// 🕒 1. FIXEN SZINKRONIZÁLT AKTIÓV SZŐBA VISSZASZÁMLÁLÓ (A másikkal azonos prémium dizájnnal)
+// 🕒 1. FIXEN SZINKRONIZÁLT AKTIÓV SZŐBA VISSZASZÁMLÁLÓ
 function ActiveRoomCountdown({ endDate, lang }: { endDate: string; lang: string }) {
   const elementRef = useRef<HTMLSpanElement>(null);
 
@@ -102,7 +102,6 @@ interface ArenaActiveRoomProps {
   handleImageError: (e: React.SyntheticEvent<HTMLImageElement, Event>) => void;
 }
 
-// ⚔️ 2. FŐKOMPONENS
 export default function ArenaActiveRoom({
   topic, timeLeft, isMaster, exposureColor, exposurePercentage, exposureLabel,
   myEntry, voteEntry, noMoreEntries, masterVotesLeft, userPower, swapBalance,
@@ -134,6 +133,11 @@ export default function ArenaActiveRoom({
   const displayRoomTitle = lang === 'en' && topic?.title_en ? topic.title_en : (topic?.title || t('roomChallengeRoom'));
   const displayRoomDesc = lang === 'en' && topic?.description_en ? topic.description_en : (topic?.description || '');
 
+  // ── 🎯 EXIF ELLENŐRZŐ ÉS LOGIKAI SZŰRŐ MATRICÁK (Single view-ra optimalizálva) ──
+  const isLegacyPhoto = voteEntry && !voteEntry.camera && !voteEntry.software && !voteEntry.shutter;
+  const isAiFlagged = voteEntry && voteEntry.software && (voteEntry.software.toLowerCase().includes('midjourney') || voteEntry.software.toLowerCase().includes('stable'));
+  const isAiSuspect = voteEntry && !isLegacyPhoto && (!!isAiFlagged || (!voteEntry.camera && !voteEntry.shutter));
+
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '30px', animation: 'fadeIn 0.4s ease-out' }}>
       
@@ -155,7 +159,6 @@ export default function ArenaActiveRoom({
           
           <p style={{ margin: '0 0 20px 0', color: '#cbd5e1', fontSize: '0.95rem', textAlign: 'center', zIndex: 1, lineHeight: '1.6' }}>{displayRoomDesc}</p>
           
-          {/* DINAMIKUS CSATATÉR FŐDÍJ BANNER */}
           <div style={{ width: '100%', background: 'linear-gradient(135deg, rgba(251, 191, 36, 0.1), rgba(16, 185, 129, 0.05))', border: '1px solid rgba(251, 191, 36, 0.3)', padding: '12px 20px', borderRadius: '14px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'center', zIndex: 1, boxShadow: '0 4px 15px rgba(0,0,0,0.2)' }}>
             <span style={{ fontSize: '1.3rem' }}>🏆</span>
             <div style={{ textAlign: 'center', fontSize: '0.9rem', lineHeight: '1.4' }}>
@@ -215,6 +218,26 @@ export default function ArenaActiveRoom({
               <div onClick={() => setFullscreenData({url: getImageUrl(voteEntry?.drive_file_id, voteEntry?.file_url), title: 'Arena'})} style={{ width: '100%', height: '380px', backgroundColor: '#000', borderRadius: '16px', overflow: 'hidden', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-in', boxShadow: '0 10px 20px rgba(0,0,0,0.5)' }}>
                 <img src={getImageUrl(voteEntry?.drive_file_id, voteEntry?.file_url)} alt="Vote" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} onError={handleImageError} />
               </div>
+
+              {/* ── 🎯 ÚJ: JAVÍTVA ÉS INTEGRÁLVA: VALÓDI ADATBÁZIS-ALAPÚ EXIF MEGJELENÍTŐ ── */}
+              <div style={{ width: '100%', background: '#0f172a', padding: '15px', borderRadius: '14px', marginBottom: '20px', border: '1px solid #232f46', boxSizing: 'border-box' }}>
+                {isLegacyPhoto ? (
+                  <div style={{ background: '#f59e0b15', color: '#fbbf24', padding: '6px 12px', borderRadius: '8px', border: '1px solid #fbbf2430', fontWeight: 'bold', marginBottom: '12px', fontSize: '0.8rem', textAlign: 'center' }}>
+                    ℹ️ {lang === 'en' ? 'Exif missing: previously uploaded image' : 'Exif hiányzik: korábban feltöltött kép'}
+                  </div>
+                ) : isAiSuspect ? (
+                  <div style={{ background: '#ef444415', color: '#f87171', padding: '6px 12px', borderRadius: '8px', border: '1px solid #ef444430', fontWeight: 'bold', marginBottom: '12px', fontSize: '0.8rem', textAlign: 'center' }}>
+                    ⚠️ {lang === 'en' ? 'AI SUSPECT: Missing Hardware EXIF Signature!' : 'AI GYANÚ: Hiányzó hardveres pecsét!'}
+                  </div>
+                ) : null}
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 15px', fontSize: '0.8rem', color: '#94a3b8' }}>
+                  <div>📷 {t('mapExifCamera')} <b style={{ color: isLegacyPhoto ? '#475569' : '#f8fafc' }}>{voteEntry.camera || '-'}</b></div>
+                  <div>🔭 {t('mapExifLens')} <b style={{ color: isLegacyPhoto ? '#475569' : '#f8fafc' }}>{voteEntry.lens || '-'}</b></div>
+                  <div>⏱️ Záridő / ISO: <b style={{ color: isLegacyPhoto ? '#475569' : '#38bdf8' }}>{voteEntry.shutter || '-'} / {voteEntry.iso || '-'}</b></div>
+                  <div>💿 Szoftver: <b style={{ color: isLegacyPhoto ? '#475569' : '#a78bfa' }}>{voteEntry.software || '-'}</b></div>
+                </div>
+              </div>
               
               {voteEntry?.off_topic_count > 0 && (
                 <div style={{ background: '#f59e0b15', color: '#f59e0b', border: '1px solid #f59e0b40', padding: '8px 16px', borderRadius: '10px', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '15px', display: 'inline-flex', alignItems: 'center', gap: '6px', width: '100%', boxSizing: 'border-box' }}>
@@ -223,8 +246,6 @@ export default function ArenaActiveRoom({
               )}
               
               <div style={{ display: 'flex', gap: '12px', width: '100%', flexDirection: 'column' }}>
-                
-                {/* 🎯 JAVÍTVA: A Képmester gombja mindig látható, de ha elfogy a szavazat, letiltódik (disabled) */}
                 {isMaster && (
                   <button 
                     onClick={() => handleVote('master')} 
