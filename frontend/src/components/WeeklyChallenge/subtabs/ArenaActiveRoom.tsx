@@ -116,7 +116,7 @@ export default function ArenaActiveRoom({
   const { t, lang } = useLanguage();
 
   const [pendingVotes, setPendingVotes] = useState<Record<number, 'pass' | 'super' | 'brilliant' | 'master'>>({});
-  const [selectedExifPhoto, setSelectedExifPhoto] = useState<any | null>(null);
+  const [setSelectedExifPhoto, setSelectedExifPhoto] = useState<any | null>(null);
   const [isSubmittingBatch, setIsSubmittingBatch] = useState(false);
 
   const safeLeaderboard = Array.isArray(leaderboard) ? leaderboard : [];
@@ -124,13 +124,12 @@ export default function ArenaActiveRoom({
   const safePastEntries = Array.isArray(myPastEntries) ? myPastEntries : [];
   const safeUserPower = userPower || { super: 1, brilliant: 2 };
 
-  // ── 🧪 JAVÍTVA: ULTRA PRECIZ, DUPLIKÁCIÓ-MENTES KÉPKÖTEG-GENERÁTOR ──
+  // ── 🧪 DUPLIKÁCIÓ-MENTES KÉPKÖTEG-GENERÁTOR ──
   const batchVoteEntries = useMemo(() => {
     if (Array.isArray(voteEntry) && voteEntry.length > 0) return voteEntry.slice(0, 10);
     
     const uniqueEntries: any[] = [];
 
-    // 1. Első lépés: Betesszük a valódi éles következő képet, ha létezik
     if (voteEntry && voteEntry.file_url) {
       uniqueEntries.push({
         id: voteEntry.id || 8888,
@@ -150,11 +149,9 @@ export default function ArenaActiveRoom({
       });
     }
 
-    // 2. Második lépés: Hozzáadjuk a többi képet a ranglistából, de csak az egyedi URL-űeket
     safeLeaderboard.forEach((item) => {
       if (uniqueEntries.length < 10) {
         const itemUrl = getImageUrl(item.drive_file_id, item.file_url);
-        // Megakadályozzuk, hogy ugyanaz a kép mégegyszer bekerüljön
         const isAlreadyAdded = uniqueEntries.some(e => e.file_url === itemUrl);
         
         if (!isAlreadyAdded) {
@@ -187,14 +184,12 @@ export default function ArenaActiveRoom({
       }
     });
 
-    // 3. Harmadik lépés: Ha még mindig nincs meg a 10 darab, feltöltjük fixen egyedi, szép tesztképekkel
     let mockCounter = 0;
     while (uniqueEntries.length < 10) {
       const isAiSuspect = uniqueEntries.length === 4 || uniqueEntries.length === 8;
       uniqueEntries.push({
         id: 99990 + mockCounter,
         user_name: `Felfedező_${mockCounter + 1}`,
-        // Garantáltan egyedi Picsum ID-k, nincs ismétlődés
         file_url: `https://picsum.photos/id/${mockCounter + 35}/800/600`,
         drive_file_id: '',
         off_topic_count: mockCounter === 2 ? 1 : 0,
@@ -245,7 +240,7 @@ export default function ArenaActiveRoom({
     setIsSubmittingBatch(true);
     try {
       for (const [entryId, type] of Object.entries(pendingVotes)) {
-        // Itt fut le majd az éles beküldés ciklusa
+        // API hívások helye
       }
       alert(lang === 'en' ? '🎉 All 10 votes successfully recorded and finalized!' : '🎉 Mind a 10 szavazat sikeresen rögzítve és véglegesítve lett!');
       setPendingVotes({});
@@ -481,9 +476,13 @@ export default function ArenaActiveRoom({
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                  
+                  {/* 🎯 JAVÍTVA: Teljesen anonimizált profilmező, a név helyett egy tiszta, zárt lakat ikonnal ellátott jelölő szerepel */}
                   <div>
                     <span style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'block', fontWeight: 'bold', textTransform: 'uppercase' }}>{lang === 'en' ? 'Artist Profile' : 'Alkotó művész'}</span>
-                    <span style={{ color: '#38bdf8', fontSize: '1.1rem', fontWeight: 'bold' }}>{selectedExifPhoto.user_name}</span>
+                    <span style={{ color: '#64748b', fontSize: '1.05rem', fontWeight: 'bold', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '5px', marginTop: '3px' }}>
+                      🔒 {lang === 'en' ? 'Anonymous Artist (Encrypted)' : 'Névtelen Alkotó (Titkosított)'}
+                    </span>
                   </div>
 
                   <div style={{ height: '1px', background: '#334155' }}></div>
