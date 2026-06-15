@@ -62,6 +62,50 @@ function ActiveRoomCountdown({ endDate, lang }: { endDate: string; lang: string 
   );
 }
 
+// ── 🎯 ⚡ ÚJ: KLIENS OLDALI ULTRA-GYORS KÉPTÖMÖRÍTŐ MOTOR ──
+const compressImageOnClient = (file: File): Promise<File> => {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        
+        // Max felbontás webre (2000px szélesség/magasság bőven elég kiállítási minőséghez is)
+        const MAX_SIZE = 2000; 
+
+        if (width > height) {
+          if (width > MAX_SIZE) { height = Math.round((height * MAX_SIZE) / width); width = MAX_SIZE; }
+        } else {
+          if (height > MAX_SIZE) { width = Math.round((width * MAX_SIZE) / height); height = MAX_SIZE; }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+
+        canvas.toBlob((blob) => {
+          if (blob) {
+            // Megőrizzük az eredeti nevet, de átkonvertáljuk kis méretű, optimalizált .jpg-re
+            const compressedFile = new File([blob], file.name.replace(/\.[^/.]+$/, "") + "_web.jpg", {
+              type: 'image/jpeg',
+              lastModified: Date.now(),
+            });
+            resolve(compressedFile);
+          } else {
+            resolve(file); 
+          }
+        }, 'image/jpeg', 0.85); // 85%-os JPEG minőség: szemmel láthatatlan különbség, tizedakkora fájlméret
+      };
+    };
+  });
+};
+
 interface ArenaActiveRoomProps {
   topic: any; timeLeft: string; isMaster: boolean; exposureColor: string; exposurePercentage: number; exposureLabel: string;
   myEntry: any; voteEntry: any; noMoreEntries: boolean; masterVotesLeft: number; userPower: any; swapBalance: number;
@@ -89,11 +133,48 @@ export default function ArenaActiveRoom({
   const [pendingVotes, setPendingVotes] = useState<Record<number, 'pass' | 'super' | 'brilliant' | 'master'>>({});
   const [selectedExifPhoto, setSelectedExifPhoto] = useState<any | null>(null);
   const [isSubmittingBatch, setIsSubmittingBatch] = useState(false);
+  
+  // Helyi state-ek, hogy jelezzük a júzernek, ha épp a tömörítő algoritmus fut a háttérben
+  const [isCompressing, setIsCompressing] = useState(false);
 
   const safeLeaderboard = Array.isArray(leaderboard) ? leaderboard : [];
   const safeClubLeaderboard = Array.isArray(currentClubLeaderboard) ? currentClubLeaderboard : [];
   const safePastEntries = Array.isArray(myPastEntries) ? myPastEntries : [];
   const safeUserPower = userPower || { super: 1, brilliant: 2 };
+
+  // ── 🎯 ⚡ ÚJ: INTELLIGENS INTERCEPTOR CSAPDA AZ INPUTHOZ ──
+  // Elkapja az inputot, ha a fájl > 9MB, átméretezi, majd transzparensen továbbküldi az eredeti prop függvénynek
+  const handleFileChangeWithCompression = async (
+    e: React.ChangeEvent<HTMLInputElement>, 
+    originalHandler: (e: React.ChangeEvent<HTMLInputElement>) => void
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Ha a kép nagyobb mint 9 MB, automatikusan összezsugorítjuk webre
+    if (file.size > 9 * 1024 * 1024) {
+      setIsCompressing(true);
+      try {
+        const compressedFile = await compressImageOnClient(file);
+        
+        // DataTransfer segítségével felülírjuk a gyári HTML Input read-only "files" tömbjét
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(compressedFile);
+        
+        Object.defineProperty(e.target, 'files', {
+          value: dataTransfer.files,
+          configurable: true
+        });
+      } catch (err) {
+        console.error("Hiba a kliens oldali tömörítés során:", err);
+      } finally {
+        setIsCompressing(false);
+      }
+    }
+
+    // Továbbadjuk a szülő komponensnek az immár biztonságos méretű képet
+    originalHandler(e);
+  };
 
   const batchVoteEntries = useMemo(() => {
     const eligibleEntries = safeLeaderboard.filter(item => {
@@ -340,14 +421,18 @@ export default function ArenaActiveRoom({
                 <div style={{ marginTop: '25px', background: 'linear-gradient(135deg, #4c1d9520, #be123c20)', padding: '20px', borderRadius: '16px', border: '1px solid #be123c50' }}>
                   <h5 style={{ margin: '0 0 10px 0', color: '#f43f5e', fontSize: '1.1rem' }}>{t('roomSwapTitle')}</h5>
                   <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 15px 0' }}>{t('roomSwapDesc')}</p>
-                  <input type="file" accept="image/jpeg, image/png, image/webp" onChange={handleSwapFileSelect} style={{ color: '#cbd5e1', marginBottom: '15px', fontSize: '0.9rem' }} disabled={isSwapping} />
+                  
+                  {/* ⚡ JAVÍTVA: A fülke (swap) input most már automatikusan lefut a beépített kliens oldali tömörítőnkön! */}
+                  <input type="file" accept="image/jpeg, image/png, image/webp" onChange={(e) => handleFileChangeWithCompression(e, handleSwapFileSelect)} style={{ color: '#cbd5e1', marginBottom: '15px', fontSize: '0.9rem' }} disabled={isSwapping || isCompressing} />
+                  
+                  {isCompressing && <div style={{ color: '#fbbf24', fontSize: '0.85rem', marginBottom: '10px', fontWeight: 'bold' }}>⏳ {lang === 'en' ? 'Compressing high resolution image...' : 'Nagy felbontású kép tömörítése folyamatban...'}</div>}
                   {swapPreview && <div style={{marginBottom: '15px', display: 'flex', justifyContent: 'center'}}><img src={swapPreview} alt="Preview" style={{maxHeight: '120px', borderRadius: '8px'}} /></div>}
-                  <button onClick={handleSwapSubmit} disabled={!swapPreview || isSwapping} style={{ width: '100%', background: !swapPreview ? '#334155' : 'linear-gradient(135deg, #e11d48, #be123c)', color: 'white', border: 'none', padding: '12px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
+                  <button onClick={handleSwapSubmit} disabled={!swapPreview || isSwapping || isCompressing} style={{ width: '100%', background: !swapPreview ? '#334155' : 'linear-gradient(135deg, #e11d48, #be123c)', color: 'white', border: 'none', padding: '12px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
                     {isSwapping ? t('roomSwappingInProgress') : t('roomSwapBrowseBtn')}
                   </button>
 
                   <div style={{ marginTop: '18px', borderTop: '1px solid #be123c40', paddingTop: '15px', textAlign: 'center' }}>
-                    <button disabled={isSwapping || isLoadingSwapAlbum} onClick={onOpenAlbumForSwap} style={{ width: '100%', background: '#1e293b', border: '1px solid #f43f5e', color: '#f43f5e', padding: '10px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
+                    <button disabled={isSwapping || isLoadingSwapAlbum || isCompressing} onClick={onOpenAlbumForSwap} style={{ width: '100%', background: '#1e293b', border: '1px solid #f43f5e', color: '#f43f5e', padding: '10px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
                       {isLoadingSwapAlbum ? t('roomLoadingGallery') : t('roomSwapGalleryBtn')}
                     </button>
                   </div>
@@ -380,14 +465,18 @@ export default function ArenaActiveRoom({
           ) : (
             <div>
               <div style={{ background: '#0f172a', padding: '20px', borderRadius: '16px', border: '1px dashed #38bdf8' }}>
-                <input type="file" accept="image/jpeg, image/png, image/webp" onChange={handleFileSelect} style={{ color: '#cbd5e1', marginBottom: '15px', width: '100%' }} disabled={isUploading} />
+                
+                {/* ── 🎯 JAVÍTVA: A fő feltöltési input szintén automatikusan megkapta a kliens oldali tömörítést! ── */}
+                <input type="file" accept="image/jpeg, image/png, image/webp" onChange={(e) => handleFileChangeWithCompression(e, handleFileSelect)} style={{ color: '#cbd5e1', marginBottom: '15px', width: '100%' }} disabled={isUploading || isCompressing} />
+                
+                {isCompressing && <div style={{ color: '#fbbf24', fontSize: '0.85rem', marginBottom: '15px', fontWeight: 'bold' }}>⏳ {lang === 'en' ? 'Compressing high resolution image...' : 'Nagy felbontású kép tömörítése folyamatban...'}</div>}
                 {uploadPreview && <div style={{marginBottom: '20px', display: 'flex', justifyContent: 'center'}}><img src={uploadPreview} alt="Preview" style={{maxHeight: '200px', borderRadius: '12px'}} /></div>}
-                <button onClick={handleUpload} disabled={!uploadPreview || isUploading} style={{ width: '100%', background: 'linear-gradient(135deg, #0ea5e9, #2563eb)', color: 'white', border: 'none', padding: '14px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
+                <button onClick={handleUpload} disabled={!uploadPreview || isUploading || isCompressing} style={{ width: '100%', background: 'linear-gradient(135deg, #0ea5e9, #2563eb)', color: 'white', border: 'none', padding: '14px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
                   {isUploading ? t('roomUploadingInProgress') : t('roomUploadSubmitBtn')}
                 </button>
 
                 <div style={{ marginTop: '15px', borderTop: '1px solid #334155', paddingTop: '15px', textAlign: 'center' }}>
-                  <button disabled={isUploading || isLoadingSwapAlbum} onClick={onOpenAlbumForUpload} style={{ width: '100%', background: '#1e293b', border: '1px solid #14b8a6', color: '#14b8a6', padding: '10px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
+                  <button disabled={isUploading || isLoadingSwapAlbum || isCompressing} onClick={onOpenAlbumForUpload} style={{ width: '100%', background: '#1e293b', border: '1px solid #14b8a6', color: '#14b8a6', padding: '10px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
                     {t('roomChooseGalleryUploadBtn')}
                   </button>
                 </div>
@@ -459,8 +548,7 @@ export default function ArenaActiveRoom({
         </div>
       </div>
 
-      {/* ── 🔍 NAGYÍTÓ ÉS EXIF INSPECTOR MODÁL SZEKCIÓ ── */}
-      {/* JAVÍTVA: Mozi-stílusú elrendezés a lehető legnagyobb képméret érdekében! */}
+      {/* NAGYÍTÓ ÉS EXIF INSPECTOR MODÁL */}
       {selectedExifPhoto && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(9,13,22,0.96)', backdropFilter: 'blur(20px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', boxSizing: 'border-box' }}>
           <div style={{ background: '#1e293b', width: '100%', maxWidth: '1200px', maxHeight: '95vh', borderRadius: '24px', border: '1px solid #475569', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 30px 70px rgba(0,0,0,0.8)' }}>
@@ -476,7 +564,7 @@ export default function ArenaActiveRoom({
               <button onClick={() => setSelectedExifPhoto(null)} style={{ background: '#334155', color: '#cbd5e1', border: 'none', width: '36px', height: '32px', borderRadius: '50%', cursor: 'pointer', fontWeight: 'bold', fontSize: '1.1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = '#ef4444'}>✕</button>
             </div>
 
-            {/* 🎯 MAXIMALIZÁLT KÉPMÉRETŰ SZÍNHÁZ DOBOZ (Függőlegesen nyúlik, amennyit csak tud) */}
+            {/* THEATER BOX */}
             <div style={{ flex: 1, backgroundColor: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', minHeight: 0, position: 'relative' }}>
               <img 
                 src={selectedExifPhoto.file_url} 
@@ -485,7 +573,7 @@ export default function ArenaActiveRoom({
               />
             </div>
 
-            {/* KOMPAKT HORIZONTÁLIS EXIF LÁBLÉC (Kép alá rejtve, nulla helyet vesz el oldalról) */}
+            {/* EXIF LÁBLÉC */}
             <div style={{ padding: '20px 30px', background: '#0f172a', borderTop: '1px solid #334155', display: 'flex', flexDirection: 'column', gap: '15px', flexShrink: 0 }}>
               
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px 25px', fontSize: '0.85rem', color: '#cbd5e1' }}>
@@ -497,7 +585,7 @@ export default function ArenaActiveRoom({
                 <div>💻 <span style={{ color: '#64748b' }}>{t('roomInspectorSoftware')}:</span> <b style={{ color: '#a78bfa' }}>{selectedExifPhoto.exif?.software}</b></div>
               </div>
 
-              {/* RADAR ÁLLAPOT JELZÉS */}
+              {/* RADAR ÁLLAPOT */}
               <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', background: selectedExifPhoto.exif?.isLegacy ? '#f59e0b10' : selectedExifPhoto.exif?.isAiSuspect ? '#ef444410' : '#10b98110', border: selectedExifPhoto.exif?.isLegacy ? '1px solid #fbbf2430' : selectedExifPhoto.exif?.isAiSuspect ? '1px solid #ef444430' : '1px solid #10b98130', padding: '8px', borderRadius: '10px' }}>
                 <span style={{ color: selectedExifPhoto.exif?.isLegacy ? '#fbbf24' : selectedExifPhoto.exif?.isAiSuspect ? '#f87171' : '#4ade80', fontWeight: 'bold', fontSize: '0.9rem' }}>
                   {selectedExifPhoto.exif?.isLegacy ? t('roomLegacyPhoto') : selectedExifPhoto.exif?.isAiSuspect ? t('roomAiSuspect') : t('roomVerifiedHardware')}
