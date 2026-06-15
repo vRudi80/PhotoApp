@@ -1136,6 +1136,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   handleSwapBackSubmit={handleSwapBackSubmit}
                   setFullscreenData={setFullscreenData}
                   handleImageError={handleImageError}
+                  fetchCurrentTopic={fetchCurrentTopic}
                 />
               )}
             </div>
