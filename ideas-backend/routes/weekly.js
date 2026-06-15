@@ -319,7 +319,7 @@ async function getUserLikesAndVictories(pool, email) {
     }
   });
 
-    // ====================================================================
+// ====================================================================
   // ⚔️ JAVÍTVA: AZONNALI LEZÁRÁSSAL ELLÁTOTT CSATATÉR FŐ VÉGPONT
   // ====================================================================
   app.get('/api/weekly/current', async (req, res) => {
@@ -391,10 +391,16 @@ async function getUserLikesAndVictories(pool, email) {
       const totalEntries = allEntriesCount[0].total || 0;
       const votableEntries = isMasterUser ? totalEntries : Math.max(1, totalEntries - 1);
 
+      // 🎯 JAVÍTVA: Lekérjük a has_user_voted flaget és az adatbázisban tárolt EXIF mezőket is a kötegelt pultnak!
       const [leaderboard] = await pool.query(`
-        SELECT e.id, e.user_name, e.user_email, e.file_url, e.drive_file_id, e.views_count, e.likes_count, u.club_name
-        FROM weekly_entries e LEFT JOIN photo_users u ON e.user_email = u.email WHERE e.topic_id = ? AND e.is_active = 1 ORDER BY e.likes_count DESC, e.views_count ASC
-      `, [currentTopic.id]);
+        SELECT e.id, e.user_name, e.user_email, e.file_url, e.drive_file_id, e.views_count, e.likes_count, u.club_name,
+               e.camera, e.lens, e.shutter, e.iso, e.aperture, e.software,
+               EXISTS(SELECT 1 FROM weekly_votes WHERE entry_id = e.id AND voter_email = ?) as has_user_voted
+        FROM weekly_entries e 
+        LEFT JOIN photo_users u ON e.user_email = u.email 
+        WHERE e.topic_id = ? AND e.is_active = 1 
+        ORDER BY e.likes_count DESC, e.views_count ASC
+      `, [userEmail, currentTopic.id]); // 🎯 A paraméterek sorrendje hajszálpontosan követi a SQL-ben lévő két '?' helyőrzőt!
 
       const clubsData = {};
       leaderboard.forEach(entry => {
