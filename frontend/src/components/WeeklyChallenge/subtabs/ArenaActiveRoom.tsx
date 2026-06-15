@@ -62,7 +62,7 @@ function ActiveRoomCountdown({ endDate, lang }: { endDate: string; lang: string 
   );
 }
 
-// ── 🎯 ⚡ ÚJ: MEGBÍZHATÓ BINÁRIS EXIF RE-INJECTOR MOTOR ──
+// ── 🎯 ⚡ ÚJ: PROFI JAVÍTOTT BINÁRIS EXIF RE-INJECTOR MOTOR ──
 const insertExifToBlob = async (originalFile: File, compressedBlob: Blob): Promise<Blob> => {
   try {
     const origBuffer = await originalFile.arrayBuffer();
@@ -73,6 +73,7 @@ const insertExifToBlob = async (originalFile: File, compressedBlob: Blob): Promi
     if (origView.byteLength < 2 || compView.byteLength < 2) return compressedBlob;
     if (origView.getUint16(0) !== 0xFFD8 || compView.getUint16(0) !== 0xFFD8) return compressedBlob;
 
+    // 1. Kikeressük az eredeti képből a tiszta EXIF (APP1) szegmenst
     let origIdx = 2;
     let exifMarkerIdx = -1;
     let exifLength = 0;
@@ -90,10 +91,21 @@ const insertExifToBlob = async (originalFile: File, compressedBlob: Blob): Promi
     }
 
     if (exifMarkerIdx === -1) return compressedBlob;
-
     const exifSlice = origBuffer.slice(exifMarkerIdx, exifMarkerIdx + exifLength);
-    const compSlice = compBuffer.slice(2); 
-    
+
+    // 2. JAVÍTVA: Letisztítjuk a canvas által gyártott JPEG üres, zavaró APP0/APP1 szegmenseit a rácsúszás ellen
+    let compIdx = 2;
+    while (compIdx < compView.byteLength - 4) {
+      const marker = compView.getUint16(compIdx);
+      if (marker === 0xFFE0 || marker === 0xFFE1) {
+        compIdx += compView.getUint16(compIdx + 2) + 2;
+      } else {
+        break;
+      }
+    }
+    const compSlice = compBuffer.slice(compIdx);
+
+    // 3. Összefűzzük az atombiztos struktúrát: SOI -> Eredeti EXIF -> Tömörített képadatok
     return new Blob([new Uint8Array([0xFF, 0xD8]), exifSlice, compSlice], { type: 'image/jpeg' });
   } catch (e) {
     console.error("Sikertelen EXIF visszaírás:", e);
@@ -176,7 +188,6 @@ export default function ArenaActiveRoom({
   const safePastEntries = Array.isArray(myPastEntries) ? myPastEntries : [];
   const safeUserPower = userPower || { super: 1, brilliant: 2 };
 
-  // ── 🎯 INTERCEPTOR FÁJLFIGYELŐ A TÖMÖRÍTÉSHEZ ÉS AZ EXIF MÁSOLÁSHOZ ──
   const handleFileChangeWithCompression = async (
     e: React.ChangeEvent<HTMLInputElement>, 
     originalHandler: (e: React.ChangeEvent<HTMLInputElement>) => void
@@ -480,7 +491,7 @@ export default function ArenaActiveRoom({
                         <div style={{ flex: 1, marginLeft: '10px' }}>
                           <div style={{ fontSize: '0.9rem', color: '#fbbf24', fontWeight: 'bold' }}>{past?.likes_count || 0} ⭐</div>
                         </div>
-                        <button onClick={() => handleSwapBackSubmit(past.id)} disabled={swapBalance < 1} style={{ background: 'linear-gradient(135deg, #0284c7, #0369a1)', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', cursor: 'pointer' }}>
+                        <button onClick={handleSwapBackSubmit(past.id)} disabled={swapBalance < 1} style={{ background: 'linear-gradient(135deg, #0284c7, #0369a1)', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', cursor: 'pointer' }}>
                           {t('roomReactivateBtn')}
                         </button>
                       </div>
