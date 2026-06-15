@@ -11,6 +11,7 @@ import HallOfFame from '../components/WeeklyChallenge/subtabs/HallOfFame';
 import PastArchive from '../components/WeeklyChallenge/subtabs/PastArchive';
 import UpcomingChallenges from '../components/WeeklyChallenge/subtabs/UpcomingChallenges';
 import ArenaActiveRoom from '../components/WeeklyChallenge/subtabs/ArenaActiveRoom';
+import exifr from 'exifr'; // 🎯 Importáld a fájl tetején, ha még nincs ott!
 
 // 🎯 Aktiváljuk a nyelvi kontextust
 import { useLanguage } from '../context/LanguageContext';
@@ -210,7 +211,15 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const [referralInput, setReferralInput] = useState<string>('');
   const [isClaimingReferral, setIsClaimingReferral] = useState<boolean>(false);
   const [masterVotesLeft, setMasterVotesLeft] = useState<number>(0);
-  const [isMaster, setIsMaster] = useState<boolean>(false);         
+  const [isMaster, setIsMaster] = useState<boolean>(false);
+
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+const [uploadCamera, setUploadCamera] = useState('');
+const [uploadLens, setUploadLens] = useState('');
+const [uploadShutter, setUploadShutter] = useState('');
+const [uploadIso, setUploadIso] = useState('');
+const [uploadAperture, setUploadAperture] = useState('');
+const [uploadSoftware, setUploadSoftware] = useState('');
 
   const [showSwapAlbumModal, setShowSwapAlbumModal] = useState(false);
   const [swapAlbumPhotos, setSwapAlbumPhotos] = useState<any[]>([]);
@@ -671,25 +680,94 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     }
   };
 
-  const handleUpload = async () => {
-    if (!uploadFile || !topic) return;
-    setIsUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append('photo', uploadFile); formData.append('topicId', topic.id.toString()); formData.append('userEmail', user?.email || ''); formData.append('userName', user?.name || '');
-      const res = await fetch(`${BACKEND_URL}/api/weekly/upload`, { method: 'POST', body: formData });
-      if (res.ok) { alert(t('msgUploadSuccessMain')); setUploadFile(null); setUploadPreview(null); fetchCurrentTopic(false); } 
-      else { const err = await res.json(); alert(err.error); }
-    } catch (e) { alert(t('msgUploadErrorMain')); }
-    finally { setIsUploading(false); }
-  };
+ const handleUpload = async () => {
+  if (!uploadFile) return alert("Nincs fájl kiválasztva!");
 
-  const handleFileSelectForSwap = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      const file = e.target.files[0];
-      setSwapFile(file); swapPreview && URL.revokeObjectURL(swapPreview); setSwapPreview(URL.createObjectURL(file));
+  setIsUploading(true);
+  const formData = new FormData();
+  formData.append('photo', uploadFile);
+  formData.append('userEmail', user.email);
+  formData.append('topicId', topic.id); // Vagy currentTopic.id, ahogy a szülőben van
+  formData.append('userName', user.name || user.email);
+  
+  // 🎯 Elküldjük a frontend által kinyert tiszta szöveges adatokat:
+  formData.append('camera', uploadCamera);
+  formData.append('lens', uploadLens);
+  formData.append('shutter', uploadShutter);
+  formData.append('iso', uploadIso);
+  formData.append('aperture', uploadAperture);
+  formData.append('software', uploadSoftware);
+
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/weekly/upload`, {
+      method: 'POST',
+      body: formData,
+    });
+    if (res.ok) {
+      alert("Sikeres nevezés rögzített EXIF adatokkal!");
+      // Itt ürítheted az állapotokat...
+      setUploadFile(null);
+      setUploadCamera('');
+      setUploadLens('');
+      setUploadShutter('');
+      setUploadIso('');
+      setUploadAperture('');
+      setUploadSoftware('');
+      window.location.reload();
     }
-  };
+  } catch (e) {
+    console.error("Feltöltési hiba:", e);
+  } finally {
+    setIsUploading(false);
+  }
+};
+const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  if (e.target.files && e.target.files.length > 0) {
+    const file = e.target.files[0];
+    setUploadFile(file);
+    setUploadPreview(URL.createObjectURL(file)); // Ha van preview állapotod
+
+    try {
+      // 🎯 Pontosan a térképnél használt kliensoldali olvasó motor:
+      const exifData = await exifr.parse(file);
+      
+      if (exifData) {
+        if (exifData.Model) {
+          const makePrefix = exifData.Make && !exifData.Model.startsWith(exifData.Make) ? `${exifData.Make} ` : '';
+          setUploadCamera(`${makePrefix}${exifData.Model}`);
+        } else if (exifData.Make) {
+          setUploadCamera(exifData.Make);
+        } else {
+          setUploadCamera('');
+        }
+
+        setUploadLens(exifData.LensModel || '');
+
+        if (exifData.ExposureTime) {
+          const shutterFraction = exifData.ExposureTime < 1 
+            ? `1/${Math.round(1 / exifData.ExposureTime)}s` 
+            : `${exifData.ExposureTime}s`;
+          setUploadShutter(shutterFraction);
+        } else {
+          setUploadShutter('');
+        }
+
+        setUploadIso(exifData.ISO ? String(exifData.ISO) : '');
+        setUploadAperture(exifData.FNumber ? `f/${exifData.FNumber}` : '');
+        setUploadSoftware(exifData.Software || '');
+      }
+    } catch (exifError) {
+      console.log("Nem található EXIF pecsét a képben.");
+      // Hiba vagy AI kép esetén ürítjük a mezőket
+      setUploadCamera('');
+      setUploadLens('');
+      setUploadShutter('');
+      setUploadIso('');
+      setUploadAperture('');
+      setUploadSoftware('');
+    }
+  }
+};
 
   const handleSwapSubmit = async () => {
     if (!swapFile || !topic) return;
