@@ -528,7 +528,7 @@ async function getUserLikesAndVictories(pool, email) {
   });
 
 // ====================================================================
-  // 📸 ÉLES EXIF-BÁNYÁSZ ÉS INTEGRÁLT SZERVERLOGOLÓ VÉGPONT
+  // 📸 ATOMBIZTOS EXIF-BÁNYÁSZ (BUFFER ALAPÚ) ÉS IP-RÖGZÍTŐ VÉGPONT
   // ====================================================================
   app.post('/api/weekly/upload', upload.single('photo'), async (req, res) => {
     const { userEmail, topicId, userName } = req.body;
@@ -538,6 +538,7 @@ async function getUserLikesAndVictories(pool, email) {
       return res.status(400).json({ error: 'Nincs fájl kiválasztva!' });
     }
 
+    // 1. IP-cím kinyerése
     const ipAddress = req.headers['x-forwarded-for'] 
       ? req.headers['x-forwarded-for'].split(',')[0].trim() 
       : (req.ip || req.socket.remoteAddress);
@@ -549,14 +550,17 @@ async function getUserLikesAndVictories(pool, email) {
     let aperture = null;
     let software = null;
 
-    // 🎯 EXIF KIOLVASÁSA KÖZVETLENÜL A FÁJLÚTVONALBÓL
+    // 🎯 2. JAVÍTVA: Nyers pufferből olvasunk, hogy kicselezzük a kiterjesztés hiányát!
     try {
       const exifr = require('exifr'); 
       
-      // Az exifr zseniálisan képes Node.js-ben közvetlenül a lokális elérési útból olvasni
-      const exif = await exifr.parse(file.path);
+      // Beolvassuk a lemezről a fájlt egy Node.js Buffer objektumba
+      const fileBuffer = fs.readFileSync(file.path);
       
-      console.log(`[EXIF RADAR] Fájl beolvasva: ${file.filename}. Talált metaadatok:`, exif);
+      // A puffert adjuk át, így az exifr a mágikus bájtok alapján garantáltan felismeri a formátumot
+      const exif = await exifr.parse(fileBuffer);
+      
+      console.log(`[EXIF RADAR] Nyers puffer sikeresen elemezve. Talált mezők száma:`, exif ? Object.keys(exif).length : 0);
 
       if (exif) {
         if (exif.Model) {
@@ -579,13 +583,11 @@ async function getUserLikesAndVictories(pool, email) {
         software = exif.Software || null;
       }
     } catch (exifError) {
-      // Ez a log fog élesben megjelenni a Render konzolodon, ha a könyvtár összeomlik valamin
-      console.error("❌ Súlyos hiba történt a szerveroldali EXIF olvasás közben:", exifError.message);
+      console.error("❌ Hiba történt a puffer alapú EXIF olvasás közben:", exifError.message);
     }
 
-    // FELTÖLTÉS A CLOUDINARY FELHŐBE
+    // 3. FELTÖLTÉS A CLOUDINARY-RA ÉS ADATBÁZIS MENTÉS
     try {
-      // Mivel az EXIF-et már kimentettük a lokális fájlból, most már biztonságosan feltölthetjük a felhőbe
       const result = await cloudinary.uploader.upload(file.path, {
         folder: 'parbajok',
         width: 1600,
@@ -594,6 +596,7 @@ async function getUserLikesAndVictories(pool, email) {
         quality: "auto:good"
       });
 
+      // Ideiglenes helyi fájl takarítása
       if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
 
       const query = `
