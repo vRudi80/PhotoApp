@@ -53,6 +53,18 @@ const formatDateTimeLocal = (dateStr: string) => {
   return dateStr.replace(' ', 'T').slice(0, 16);
 };
 
+const parseAdminDateSafe = (dateStr: string) => {
+  if (!dateStr) return new Date(0);
+  const parts = dateStr.split(/[- :T]/);
+  if (parts.length >= 5) {
+    return new Date(
+      parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]),
+      parseInt(parts[3]), parseInt(parts[4]), parts[5] ? parseInt(parts[5]) : 0
+    );
+  }
+  return new Date(dateStr);
+};
+
 export default function AdminWeeklyView() {
   const { t, lang } = useLanguage();
 
@@ -80,6 +92,19 @@ export default function AdminWeeklyView() {
   const [timeWindow, setTimeWindow] = useState<'all' | 'current_month' | 'next_30'>('all');
 
   const inputStyle = { width: '100%', padding: '10px', marginBottom: '10px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '6px', boxSizing: 'border-box' as const };
+
+  const getTopicStatus = (statusStr: string, sDateStr: string, eDateStr: string) => {
+    if (statusStr === 'pending') return { label: t('adminStatusPending'), color: '#eab308' };
+    if (statusStr === 'rejected') return { label: t('adminStatusRejected'), color: '#ef4444' };
+
+    const today = new Date();
+    const start = parseAdminDateSafe(sDateStr);
+    const end = parseAdminDateSafe(eDateStr);
+    
+    if (today > end) return { label: t('adminStatusEnded'), color: '#94a3b8' };
+    if (today < start) return { label: t('adminStatusScheduled'), color: '#38bdf8' };
+    return { label: t('adminStatusLive'), color: '#10b981' };
+  };
 
   const fetchTopics = async () => {
     try {
@@ -141,12 +166,6 @@ export default function AdminWeeklyView() {
     } catch (e) { alert(t('msgNetworkError')); }
   };
   
-  useEffect(() => {
-    fetchTopics();
-    fetchUsers(); 
-    fetchSuspicious();
-  }, []);
-
   const clearForm = () => {
     setEditId(null); setTitle(''); setTitleEn(''); setDesc(''); setDescEn('');
     setStartDate(''); setEndDate(''); setMasterEmail(''); setCoverFile(null);
@@ -209,35 +228,10 @@ export default function AdminWeeklyView() {
     } catch (e) { alert(t('msgNetworkError')); }
   };
 
-  const parseAdminDateSafe = (dateStr: string) => {
-    if (!dateStr) return new Date(0);
-    const parts = dateStr.split(/[- :T]/);
-    if (parts.length >= 5) {
-      return new Date(
-        parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]),
-        parseInt(parts[3]), parseInt(parts[4]), parts[5] ? parseInt(parts[5]) : 0
-      );
-    }
-    return new Date(dateStr);
-  };
-
-  const getTopicStatus = (statusStr: string, sDateStr: string, eDateStr: string) => {
-    if (statusStr === 'pending') return { label: t('adminStatusPending'), color: '#eab308' };
-    if (statusStr === 'rejected') return { label: t('adminStatusRejected'), color: '#ef4444' };
-
-    const today = new Date();
-    const start = parseAdminDateSafe(sDateStr);
-    const end = parseAdminDateSafe(eDateStr);
-    
-    if (today > end) return { label: t('adminStatusEnded'), color: '#94a3b8' };
-    if (today < start) return { label: t('adminStatusScheduled'), color: '#38bdf8' };
-    return { label: t('adminStatusLive'), color: '#10b981' };
-  };
-
-  // ── 📊 GANTT NAPTÁR-MATEMATIKA HATÁRAI ──
+  // ── 📊 GANTT NAPTÁR-MATEMATIKA ──
   const ganttCalendarData = useMemo(() => {
     if (topics.length === 0) {
-      return { minTime: Date.now(), maxTime: Date.now() + 86400000 * 7, totalDays: 7, daysArray: [] };
+      return { minTime: Date.now(), maxTime: Date.now() + 86400000 * 7, weeks: [], totalDays: 7, daysArray: [] };
     }
     
     let absoluteMin = Infinity;
@@ -281,7 +275,12 @@ export default function AdminWeeklyView() {
       current.setDate(current.getDate() + 1);
     }
 
-    return { minTime: minDate.getTime(), maxTime: maxDate.getTime(), totalDays: daysArray.length, daysArray };
+    const weeks = [];
+    for (let i = 0; i < daysArray.length; i += 7) {
+      weeks.push(daysArray.slice(i, i + 7));
+    }
+
+    return { minTime: minDate.getTime(), maxTime: maxDate.getTime(), weeks, totalDays: daysArray.length, daysArray };
   }, [topics, timeWindow]);
 
   const monthsSpans = useMemo(() => {
@@ -304,7 +303,6 @@ export default function AdminWeeklyView() {
     return spans;
   }, [ganttCalendarData.daysArray]);
 
-  // VALÓDI IDŐBEN MOZGÓ JELENLEGI IDŐVONAL RADAR-POZÍCIÓJA
   const nowIndicatorPositionPx = useMemo(() => {
     const now = Date.now();
     if (now < ganttCalendarData.minTime || now > ganttCalendarData.maxTime) return null;
@@ -448,9 +446,9 @@ export default function AdminWeeklyView() {
       <div style={{ background: '#1e293b', borderRadius: '24px', border: '1px solid #334155', padding: '25px', overflowX: 'auto', boxShadow: '0 15px 35px rgba(0,0,0,0.4)', boxSizing: 'border-box' }}>
         <div style={{ width: 'max-content', display: 'flex', flexDirection: 'column', gap: '15px', position: 'relative' }}>
           
-          {/* STICKY KÉTLÉPCSŐS NAPTÁR FEJLÉC */}
+          {/* 🎯 JAVÍTVA: NAPTÁR FEJLÉC GRID (Tökéletesen a 460px-es trackhatárhoz igazítva, nullázott belső paddinggal) */}
           <div style={{ display: 'grid', gridTemplateColumns: `460px ${ganttCalendarData.totalDays * 40}px`, borderBottom: '2px solid #475569', paddingBottom: '12px' }}>
-            <div style={{ color: '#38bdf8', fontWeight: '900', fontSize: '0.95rem', textTransform: 'uppercase', letterSpacing: '1px', display: 'flex', alignItems: 'center' }}>
+            <div style={{ color: '#38bdf8', fontWeight: '900', fontSize: '0.95rem', textTransform: 'uppercase', letterSpacing: '1px', display: 'flex', alignItems: 'center', paddingLeft: '14px', boxSizing: 'border-box' }}>
               {t('adminGanttChallengeColumn')}
             </div>
             
@@ -494,19 +492,25 @@ export default function AdminWeeklyView() {
               return null;
             }
 
-            // ── 🎯 JAVÍTVA: PERCRE PONTOS, LEBEGŐPONTOS LINEÁRIS IDŐSÍK LEKÉPEZÉS ──
+            // Precíz, lebegőpontos lineáris idősík leképezés pixelben
             const leftPx = ((startMillis - ganttCalendarData.minTime) / 86400000) * 40;
             const widthPx = ((endMillis - startMillis) / 86400000) * 40;
+
+            // ── 🎯 JAVÍTVA: INTELLIGENS SÁV-VÁGÁS (Gantt-clipping) ──
+            // Ha a sáv a naptár látható határvonalán kívül indult, lehorgonyozzuk 0-nál, és levonjuk a kilógó részt
+            const visualLeftPx = Math.max(0, leftPx);
+            const visualWidthPx = leftPx < 0 ? Math.max(0, widthPx + leftPx) : widthPx;
 
             const tooltipStart = new Date(tData.start_date).toLocaleString(lang === 'en' ? 'en-US' : 'hu-HU', { dateStyle: 'short', timeStyle: 'short', timeZone: 'UTC' });
             const tooltipEnd = new Date(tData.end_date).toLocaleString(lang === 'en' ? 'en-US' : 'hu-HU', { dateStyle: 'short', timeStyle: 'short', timeZone: 'UTC' });
             const tooltipText = `${t('adminTooltipFrom')}: ${tooltipStart} ➔ ${t('adminTooltipTo')}: ${tooltipEnd}`;
 
             return (
-              <div key={tData.id} style={{ display: 'grid', gridTemplateColumns: `460px ${ganttCalendarData.totalDays * 40}px`, alignItems: 'center', background: '#0f172a30', borderRadius: '16px', border: '1px solid #232f46', padding: '14px', boxSizing: 'border-box' }}>
+              /* JAVÍTVA: A külső grid row padding-ját 0-ra vettük, így a rácsok tökéletesen fedik egymást */
+              <div key={tData.id} style={{ display: 'grid', gridTemplateColumns: `460px ${ganttCalendarData.totalDays * 40}px`, alignItems: 'center', background: '#0f172a30', borderRadius: '16px', border: '1px solid #232f46', padding: '14px 0px', boxSizing: 'border-box' }}>
                 
-                {/* BAL CELLA: METADATA ADATLAP PANEL */}
-                <div style={{ display: 'flex', gap: '14px', paddingRight: '15px', minWidth: 0, boxSizing: 'border-box', alignItems: 'center' }}>
+                {/* BAL CELLA: PROFI ADATLAP (A padding-ot ide költöztettük, így nem tolja el a rácsot!) */}
+                <div style={{ display: 'flex', gap: '14px', paddingLeft: '14px', paddingRight: '15px', minWidth: 0, boxSizing: 'border-box', alignItems: 'center' }}>
                   <div style={{ width: '74px', height: '46px', backgroundColor: '#0f172a', borderRadius: '6px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #334155', flexShrink: 0 }}>
                     {tData.cover_url ? (
                       <img src={tData.cover_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={handleImageError} />
@@ -525,8 +529,8 @@ export default function AdminWeeklyView() {
                     )}
                     <div style={{ fontSize: '0.76rem', color: '#64748b', display: 'flex', flexWrap: 'wrap', gap: '2px 8px', alignItems: 'center' }}>
                       <span style={{ color: status.color, fontWeight: 'bold', background: `${status.color}10`, padding: '1px 6px', borderRadius: '4px' }}>{status.label}</span>
-                      {tData.proposed_by && <span style={{ color: '#f59e0b' }}>• 📜 {tData.proposed_by}</span>}
-                      {tData.master_email && <span style={{ color: '#a78bfa', fontWeight: 'bold' }}>• 👑 {tData.master_email}</span>}
+                      {tData.proposed_by && <span style={{ color: '#f59e0b' }}>• 📜 {tData.proposed_by.split('@')[0]}</span>}
+                      {tData.master_email && <span style={{ color: '#a78bfa', fontWeight: 'bold' }}>• 👑 {tData.master_email.split('@')[0]}</span>}
                     </div>
                     <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
                       <button onClick={() => startEdit(tData)} style={{ background: 'transparent', color: '#f59e0b', border: '1px solid #f59e0b40', padding: '3px 10px', borderRadius: '50px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>{t('mapBtnEdit')}</button>
@@ -536,15 +540,16 @@ export default function AdminWeeklyView() {
                           <button onClick={() => handleProposalDecision(tData.id, 'rejected')} style={{ background: '#ef444420', color: '#f87171', border: '1px solid #ef444440', padding: '3px 10px', borderRadius: '50px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>{t('adminBtnReject')}</button>
                         </>
                       ) : (
-                        <button onClick={() => handleDelete(tData.id)} style={{ background: '#ef444415', color: '#ef4444', border: 'none', padding: '3px 10px', borderRadius: '50px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>{t('mapBtnDelete')}</button>
+                        <button onClick={() => handleDelete(tData.id)} style={{ background: '#ef444415', color: '#ef4444', border: 'none', padding: '3px 10px', borderRadius: '50px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>{t('roomBtnDelete')}</button>
                       )}
                     </div>
                   </div>
                 </div>
 
-                {/* JOBB CELLA: RÁCSHÁLÓ ÉS LINEÁRIS SÁV */}
+                {/* JOBB CELLA: IDŐVONAL CANVAS RÁCSOKKAL */}
                 <div className="gantt-bar-container" style={{ position: 'relative', width: '100%', height: '40px', display: 'flex', alignItems: 'center', boxSizing: 'border-box' }}>
                   
+                  {/* Függőleges rácsvonalak a háttérben */}
                   <div style={{ position: 'absolute', inset: 0, display: 'grid', gridTemplateColumns: `repeat(${ganttCalendarData.totalDays}, 1fr)`, pointerEvents: 'none', zIndex: 1 }}>
                     {ganttCalendarData.daysArray.map((date, rIdx) => {
                       const isWeekend = date.getDay() === 0 || date.getDay() === 6;
@@ -554,19 +559,28 @@ export default function AdminWeeklyView() {
                     })}
                   </div>
 
+                  {/* KÉK/SZÜRKE IDŐSÁV CSÍK (Most már hajszálpontosan a lezárás percében végződik!) */}
                   <div 
                     title={tooltipText} 
                     style={{ 
-                      position: 'absolute', left: `${leftPx}px`, width: `${widthPx}px`, height: '22px', 
+                      position: 'absolute', 
+                      left: `${visualLeftPx}px`, 
+                      width: `${visualWidthPx}px`, 
+                      height: '22px', 
                       background: status.label === t('adminStatusEnded') ? 'linear-gradient(135deg, #475569, #64748b)' : `linear-gradient(135deg, ${status.color}90, ${status.color})`,
-                      borderRadius: '6px', border: status.label === t('adminStatusEnded') ? '1px solid #475569' : `1px solid ${status.color}`, boxSizing: 'border-box',
-                      boxShadow: `0 3px 8px ${status.color}25`, cursor: 'help', zIndex: 2, transition: 'all 0.15s ease'
+                      borderRadius: '6px', 
+                      border: status.label === t('adminStatusEnded') ? '1px solid #475569' : `1px solid ${status.color}`, 
+                      boxSizing: 'border-box',
+                      boxShadow: `0 3px 8px ${status.color}25`, 
+                      cursor: 'help', 
+                      zIndex: 2, 
+                      transition: 'all 0.15s ease'
                     }}
                     onMouseEnter={e => e.currentTarget.style.transform = 'scaleY(1.08)'}
                     onMouseLeave={e => e.currentTarget.style.transform = 'none'}
                   />
                   {tData.pending_master_email && (
-                    <div style={{ position: 'absolute', bottom: '-10px', left: `${leftPx}px`, background: '#eab308', color: '#0f172a', fontSize: '0.62rem', padding: '1px 5px', borderRadius: '4px', fontWeight: 'black', zIndex: 3, boxShadow: '0 2px 4px rgba(0,0,0,0.4)' }}>
+                    <div style={{ position: 'absolute', bottom: '-10px', left: `${visualLeftPx}px`, background: '#eab308', color: '#0f172a', fontSize: '0.62rem', padding: '1px 5px', borderRadius: '4px', fontWeight: 'black', zIndex: 3, boxShadow: '0 2px 4px rgba(0,0,0,0.4)' }}>
                       👑 PENDING MASTER
                     </div>
                   )}
@@ -576,7 +590,7 @@ export default function AdminWeeklyView() {
             );
           })}
 
-          {/* FÜGGŐLEGES MAI JELZŐ CSÍK */}
+          {/* FÜGGŐLEGES MAI NAP JELZŐ CSÍK NEON GLOW-VAL (Tökéletesen kalibrálva a 460px-es élhez!) */}
           {nowIndicatorPositionPx !== null && (
             <div 
               style={{ 
