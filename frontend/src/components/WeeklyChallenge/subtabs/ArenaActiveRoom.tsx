@@ -5,9 +5,10 @@ import { BACKEND_URL } from '../../../utils/constants';
 // 🎯 Nyelvi kontextus aktiválása
 import { useLanguage } from '../../../context/LanguageContext';
 
-// 🕒 1. FIXEN SZINKRONIZÁLT AKTIÓV SZŐBA VISSZASZÁMLÁLÓ
+// 🕒 1. FIXEN SZINKRONIZÁLT AKTÍV SZŐBA VISSZASZÁMLÁLÓ
 function ActiveRoomCountdown({ endDate, lang }: { endDate: string; lang: string }) {
   const elementRef = useRef<HTMLSpanElement>(null);
+  const { t } = useLanguage();
 
   useEffect(() => {
     if (!endDate) return;
@@ -21,7 +22,7 @@ function ActiveRoomCountdown({ endDate, lang }: { endDate: string; lang: string 
       const difference = targetMillis - now;
 
       if (difference <= 0) {
-        elementRef.current.innerText = lang === 'en' ? 'Match Closed!' : 'Futam Lezárult! 📜';
+        elementRef.current.innerText = t('roomMatchClosed');
         return;
       }
 
@@ -45,7 +46,7 @@ function ActiveRoomCountdown({ endDate, lang }: { endDate: string; lang: string 
     const interval = setInterval(updateTextDirectly, 1000);
 
     return () => clearInterval(interval);
-  }, [endDate, lang]);
+  }, [endDate, lang, t]);
 
   return (
     <div style={{ 
@@ -54,7 +55,7 @@ function ActiveRoomCountdown({ endDate, lang }: { endDate: string; lang: string 
       border: '1px solid #f59e0b30', boxSizing: 'border-box', zIndex: 1
     }}>
       <span style={{ fontSize: '0.8rem', color: '#f59e0b', fontWeight: 'bold', letterSpacing: '0.5px' }}>
-        {lang === 'en' ? '⏳ TIME LEFT:' : '⏳ HÁTRALÉVŐ IDŐ:'}
+        {t('roomTimeLeftLabel')}
       </span>
       <span ref={elementRef} style={{ color: '#fff', fontFamily: 'monospace', fontSize: '1rem', fontWeight: 'bold', letterSpacing: '0.5px' }}>---</span>
     </div>
@@ -83,22 +84,19 @@ export default function ArenaActiveRoom({
 
   const { t, lang } = useLanguage();
 
-  // 📡 Kötegelt állapotkezelők
   const [pendingVotes, setPendingVotes] = useState<Record<number, 'pass' | 'super' | 'brilliant' | 'master'>>({});
   const [selectedExifPhoto, setSelectedExifPhoto] = useState<any | null>(null);
-  const [isSubmittingBatch, setIsSubmittingBatch] = useState(false);
+  const [isSubmittingBatch = false, setIsSubmittingBatch] = useState(false);
 
   const safeLeaderboard = Array.isArray(leaderboard) ? leaderboard : [];
   const safeClubLeaderboard = Array.isArray(currentClubLeaderboard) ? currentClubLeaderboard : [];
   const safePastEntries = Array.isArray(myPastEntries) ? myPastEntries : [];
   const safeUserPower = userPower || { super: 1, brilliant: 2 };
 
-  // ── 🎯 ATOMBIZTOS JAVÍTÁS: Típus-toleráns szűrés az adatbázis-alapú EXIF-fel ──
+  // 🧠 Típus-toleráns szűrés a kötegelt feldolgozáshoz
   const batchVoteEntries = useMemo(() => {
     const eligibleEntries = safeLeaderboard.filter(item => {
       const isOwnPhoto = item.user_email === user?.email;
-      
-      // Kezeli a MySQL 1/0, a JSON true/false és a string alapú visszatéréseket is!
       const alreadyVoted = item.has_user_voted === 1 || 
                            item.has_user_voted === true || 
                            item.has_user_voted === '1';
@@ -144,7 +142,7 @@ export default function ArenaActiveRoom({
   const handleBatchSubmit = async () => {
     const totalVoted = Object.keys(pendingVotes).length;
     if (totalVoted < batchVoteEntries.length) {
-      alert(lang === 'en' ? `Please vote for all ${batchVoteEntries.length} photos before finalizing!` : `Kérlek mind a ${batchVoteEntries.length} képet értékeld, mielőtt véglegesítenéd a szavazást!`);
+      alert(t('roomBatchAlertError').replace('{count}', String(batchVoteEntries.length)));
       return;
     }
 
@@ -163,12 +161,12 @@ export default function ArenaActiveRoom({
       });
 
       await Promise.all(votePromises);
-      alert(lang === 'en' ? '🎉 All package votes successfully submitted and saved!' : '🎉 A szavazatok sikeresen rögzítve és elmentve lettek az adatbázisban!');
+      alert(t('roomBatchAlertSuccess'));
       setPendingVotes({});
       window.location.reload();
     } catch (e) {
       console.error(e);
-      alert(lang === 'en' ? '❌ Network error during submission.' : '❌ Hálózati hiba történt a szavazat elküldésekor.');
+      alert(t('msgNetworkError'));
     } finally {
       setIsSubmittingBatch(false);
     }
@@ -202,17 +200,17 @@ export default function ArenaActiveRoom({
           </div>
         )}
 
-        {/* BATCH EVALUATION MÁTRIX */}
+        {/* KÖTEGELT ÉRTÉKELŐ DESK */}
         <div style={{ background: '#1e293b', padding: '35px', borderRadius: '24px', border: '2px solid #38bdf8', boxShadow: '0 15px 35px rgba(0,0,0,0.4)' }}>
           <div style={{ background: 'rgba(56, 189, 248, 0.08)', borderLeft: '4px solid #38bdf8', padding: '15px 20px', borderRadius: '0 12px 12px 0', marginBottom: '25px', fontSize: '0.85rem', color: '#cbd5e1', lineHeight: '1.5' }}>
             <strong style={{ color: '#38bdf8', display: 'block', marginBottom: '4px', fontSize: '0.95rem' }}>
-              🛡️ EXIF Diagnasztika és AI Elleni Védelem aktív
+              {t('roomExifShieldTitle')}
             </strong>
-            A verseny tisztaságának megőrzése érdekében minden kép alatt láthatóvá tettük a nyers fájl-metaadatokat. A generatív AI modellek nem rendelkeznek valódi fizikai gépvázzal, ISO profillal vagy záridő-ciklussal.
+            {t('roomExifShieldDesc')}
           </div>
 
-          <h3 style={{ margin: '0 0 5px 0', color: '#f8fafc', fontSize: '1.6rem', fontWeight: '900' }}>Kötegelt Értékelő Pult</h3>
-          <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: '0 0 25px 0' }}>Vizsgáld meg a képeket, válaszd ki a szavazatokat, majd az oldal alján véglegesítsd a csomagot!</p>
+          <h3 style={{ margin: '0 0 5px 0', color: '#f8fafc', fontSize: '1.6rem', fontWeight: '900' }}>{t('roomBatchTitle')}</h3>
+          <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: '0 0 25px 0' }}>{t('roomBatchDesc')}</p>
 
           {(!myEntry && !isMaster) ? (
             <div style={{ padding: '40px 20px', textAlign: 'center', background: '#0f172a', borderRadius: '16px', border: '2px dashed #f59e0b' }}>
@@ -237,41 +235,43 @@ export default function ArenaActiveRoom({
                       </div>
 
                       <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr', gap: '20px', alignItems: 'start' }}>
+                        {/* NAGYÍTHATÓ THUMBNAIL KÉP */}
                         <div 
                           onClick={() => setSelectedExifPhoto(entry)}
                           style={{ width: '160px', height: '160px', backgroundColor: '#000', borderRadius: '12px', overflow: 'hidden', cursor: 'zoom-in', border: '1px solid #334155', position: 'relative', boxShadow: '0 4px 10px rgba(0,0,0,0.4)' }}
                         >
                           <img src={entry.file_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={handleImageError} />
-                          <div style={{ position: 'absolute', bottom: '5px', right: '5px', background: 'rgba(0,0,0,0.6)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.65rem', color: 'white' }}>🔍 NAGYÍT</div>
+                          <div style={{ position: 'absolute', bottom: '5px', right: '5px', background: 'rgba(0,0,0,0.6)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.65rem', color: 'white' }}>{t('roomZoomLabel')}</div>
                         </div>
 
+                        {/* EXIF PANEL */}
                         <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%', minHeight: '160px' }}>
                           <div style={{ fontSize: '0.8rem', color: '#cbd5e1', lineHeight: '1.4' }}>
                             {entry.exif?.isLegacy ? (
                               <div style={{ background: '#f59e0b15', color: '#fbbf24', padding: '4px 10px', borderRadius: '6px', border: '1px solid #fbbf2430', fontWeight: 'bold', marginBottom: '8px', display: 'inline-block' }}>
-                                ℹ️ Exif hiányzik: korábban feltöltött kép
+                                {t('roomLegacyPhoto')}
                               </div>
                             ) : entry.exif?.isAiSuspect ? (
                               <div style={{ background: '#ef444415', color: '#f87171', padding: '4px 10px', borderRadius: '6px', border: '1px solid #ef444430', fontWeight: 'bold', marginBottom: '8px', display: 'inline-block' }}>
-                                ⚠️ AI GYANÚ: Hiányzó hardveres pecsét!
+                                {t('roomAiSuspect')}
                               </div>
                             ) : null}
 
-                            {/* 🎯 JAVÍTVA: Közvetlenül az entry.exif adatbázis soraiból építkezik, zéró CORS hiba lehetőség */}
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 15px', color: '#94a3b8' }}>
                               <div>📷 {t('mapExifCamera')} <b style={{ color: entry.exif?.isLegacy ? '#475569' : '#f8fafc' }}>{entry.exif?.camera}</b></div>
                               <div>🔭 {t('mapExifLens')} <b style={{ color: entry.exif?.isLegacy ? '#475569' : '#f8fafc' }}>{entry.exif?.lens}</b></div>
-                              <div>⏱️ Záridő / ISO: <b style={{ color: entry.exif?.isLegacy ? '#475569' : '#38bdf8' }}>{entry.exif?.shutter} / {entry.exif?.iso}</b></div>
-                              <div>💿 Szoftver: <b style={{ color: entry.exif?.isLegacy ? '#475569' : '#a78bfa' }}>{entry.exif?.software}</b></div>
+                              <div>⏱️ {t('roomShutterIso')} <b style={{ color: entry.exif?.isLegacy ? '#475569' : '#38bdf8' }}>{entry.exif?.shutter} / {entry.exif?.iso}</b></div>
+                              <div>💿 {t('roomSoftware')} <b style={{ color: entry.exif?.isLegacy ? '#475569' : '#a78bfa' }}>{entry.exif?.software}</b></div>
                             </div>
                           </div>
 
+                          {/* SZAVAZÓ ÉS REPORT PANEL */}
                           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '15px', alignItems: 'center' }}>
                             {[
                               { type: 'pass', label: t('roomVotePass').split(' ')[0], score: '0 pont', bg: '#334155' },
-                              { type: 'super', label: `✨ Szuper`, score: `+${safeUserPower.super} pont`, bg: '#1e3a8a' },
-                              { type: 'brilliant', label: `🔥 Zseniális`, score: `+${safeUserPower.brilliant} pont`, bg: '#f97316' },
-                              ...(isMaster ? [{ type: 'master', label: '👑 Mester', score: '+10 pont', bg: '#fbbf24' }] : [])
+                              { type: 'super', label: t('roomVoteSuper'), score: `+${safeUserPower.super} pont`, bg: '#1e3a8a' },
+                              { type: 'brilliant', label: t('roomVoteBrilliant'), score: `+${safeUserPower.brilliant} pont`, bg: '#f97316' },
+                              ...(isMaster ? [{ type: 'master', label: t('statusMaster'), score: '+10 pont', bg: '#fbbf24' }] : [])
                             ].map(btn => {
                               const isCurrentActive = selectedVote === btn.type;
                               return (
@@ -290,7 +290,7 @@ export default function ArenaActiveRoom({
                               onClick={() => handleOffTopicReport(entry.id)}
                               style={{ padding: '6px 12px', borderRadius: '10px', border: '1px solid rgba(239, 68, 68, 0.3)', background: 'transparent', color: '#ef4444', fontWeight: 'bold', fontSize: '0.84rem', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', minWidth: '85px' }}
                             >
-                              <span>⚠️ Report</span>
+                              <span>{t('roomReportBtn').split(' ')[0]}</span>
                               <span style={{ fontSize: '0.65rem', opacity: 0.6 }}>AI / Off-Topic</span>
                             </button>
                           </div>
@@ -301,13 +301,14 @@ export default function ArenaActiveRoom({
                 })}
               </div>
 
+              {/* VÉGLEGESÍTŐ PANEL */}
               <div style={{ marginTop: '35px', borderTop: '1px solid #334155', paddingTop: '25px', textAlign: 'center' }}>
                 <button
                   onClick={handleBatchSubmit}
                   disabled={isSubmittingBatch || Object.keys(pendingVotes).length < batchVoteEntries.length}
                   style={{ width: '100%', padding: '16px', borderRadius: '16px', border: 'none', background: Object.keys(pendingVotes).length === batchVoteEntries.length ? 'linear-gradient(135deg, #10b981, #059669)' : '#334155', color: Object.keys(pendingVotes).length === batchVoteEntries.length ? 'white' : '#64748b', fontSize: '1.2rem', fontWeight: '900', cursor: Object.keys(pendingVotes).length === batchVoteEntries.length ? 'pointer' : 'not-allowed', boxShadow: Object.keys(pendingVotes).length === batchVoteEntries.length ? '0 10px 25px rgba(16,185,129,0.3)' : 'none', transition: 'all 0.3s' }}
                 >
-                  {isSubmittingBatch ? '⏳ Processing...' : `📗 SZAVAZATOK VÉGLEGESÍTÉSE ÉS BEKÜLDÉSE (${Object.keys(pendingVotes).length} / ${batchVoteEntries.length})`}
+                  {isSubmittingBatch ? '⏳ Processing...' : `${t('roomBatchSubmitBtn')} (${Object.keys(pendingVotes).length} / ${batchVoteEntries.length})`}
                 </button>
               </div>
             </>
@@ -426,7 +427,7 @@ export default function ArenaActiveRoom({
           )}
         </div>
 
-        {/* VAK TOPLISTA MEGJELENÍTŐ */}
+        {/* VAK TOPLISTA */}
         <div style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #f59e0b', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
           <h3 style={{ margin: '0 0 10px 0', color: '#f59e0b', fontSize: '1.4rem' }}>{t('roomBlindLeaderboard')}</h3>
           <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 20px 0', lineHeight: '1.5' }}>{t('roomBlindLeaderboardDesc')}</p>
@@ -477,23 +478,25 @@ export default function ArenaActiveRoom({
             <div style={{ padding: '30px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxSizing: 'border-box' }}>
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                  <h4 style={{ margin: 0, color: 'white', fontSize: '1.3rem', fontWeight: 'bold' }}>🔎 Képvizsgálat</h4>
+                  <h4 style={{ margin: 0, color: 'white', fontSize: '1.3rem', fontWeight: 'bold' }}>{t('roomInspectorTitle')}</h4>
                   <button onClick={() => setSelectedExifPhoto(null)} style={{ background: '#334155', color: '#cbd5e1', border: 'none', width: '32px', height: '32px', borderRadius: '50%', cursor: 'pointer', fontWeight: 'bold' }}>✕</button>
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', fontSize: '0.9rem' }}>
-                  <div>📸 {t('mapExifCamera')}: <b style={{ color: 'white', display: 'block' }}>{selectedExifPhoto.exif?.camera}</b></div>
+                  <div><span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 'bold', display: 'block' }}>{t('roomInspectorArtist')}</span><b style={{ color: '#94a3b8' }}>{t('roomInspectorAnon')}</b></div>
+                  <div style={{ height: '1px', background: '#334155', margin: '5px 0' }}></div>
+                  <div>📷 {t('mapExifCamera')}: <b style={{ color: 'white', display: 'block' }}>{selectedExifPhoto.exif?.camera}</b></div>
                   <div>🔭 {t('mapExifLens')}: <b style={{ color: 'white', display: 'block' }}>{selectedExifPhoto.exif?.lens}</b></div>
-                  <div>⏱️ Záridő / Exposure: <b style={{ color: '#38bdf8', display: 'block' }}>{selectedExifPhoto.exif?.shutter}</b></div>
-                  <div>💎 Érzékenység / ISO: <b style={{ color: '#38bdf8', display: 'block' }}>{selectedExifPhoto.exif?.iso}</b></div>
-                  <div>📐 Rekeszérték / Aperture: <b style={{ color: '#10b981', display: 'block' }}>{selectedExifPhoto.exif?.aperture}</b></div>
-                  <div>💻 Feldolgozó Szoftver: <b style={{ color: '#a78bfa', display: 'block' }}>{selectedExifPhoto.exif?.software}</b></div>
+                  <div>⏱️ {t('roomInspectorShutter')}: <b style={{ color: '#38bdf8', display: 'block' }}>{selectedExifPhoto.exif?.shutter}</b></div>
+                  <div>💎 {t('roomInspectorIso')}: <b style={{ color: '#38bdf8', display: 'block' }}>{selectedExifPhoto.exif?.iso}</b></div>
+                  <div>📐 {t('roomInspectorAperture')}: <b style={{ color: '#10b981', display: 'block' }}>{selectedExifPhoto.exif?.aperture}</b></div>
+                  <div>💻 {t('roomInspectorSoftware')}: <b style={{ color: '#a78bfa', display: 'block' }}>{selectedExifPhoto.exif?.software}</b></div>
                 </div>
               </div>
 
               <div style={{ background: selectedExifPhoto.exif?.isLegacy ? '#f59e0b15' : selectedExifPhoto.exif?.isAiSuspect ? '#ef444415' : '#10b98115', border: selectedExifPhoto.exif?.isLegacy ? '1px solid #fbbf2440' : selectedExifPhoto.exif?.isAiSuspect ? '1px solid #ef444440' : '1px solid #10b98140', padding: '15px', borderRadius: '12px', textAlign: 'center' }}>
                 <span style={{ color: selectedExifPhoto.exif?.isLegacy ? '#fbbf24' : selectedExifPhoto.exif?.isAiSuspect ? '#f87171' : '#4ade80', fontWeight: 'bold', display: 'block' }}>
-                  {selectedExifPhoto.exif?.isLegacy ? 'Korábbi fotó: Nincs EXIF' : selectedExifPhoto.exif?.isAiSuspect ? '⚠️ AI gyanú: Veszélyes' : '✓ Hardveresen igazolt: Hiteles'}
+                  {selectedExifPhoto.exif?.isLegacy ? t('roomLegacyPhoto') : selectedExifPhoto.exif?.isAiSuspect ? t('roomAiSuspect') : t('roomVerifiedHardware')}
                 </span>
               </div>
             </div>
