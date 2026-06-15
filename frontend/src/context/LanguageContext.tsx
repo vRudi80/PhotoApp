@@ -239,7 +239,7 @@ const translations = {
     roomVotingArena: '⚔️ Értékelő Aréna',
     roomNoVoteRight: 'Nincs szavazati jogod!',
     roomNoVoteRightDesc: 'A küzdelembe való belépéshez először be kell nevezned egy saját fotóval!',
-    roomAllVoted: 'Mint értékeltek!',
+    roomAllVoted: 'Minden fotót értékeltél!',
     roomAllVotedDesc: 'Várj, amíg a többiek is töltenek fel új képeket.',
     roomOffTopicWarning: '⚠️ {count} játékos szerint ez a kép Off-Topic vagy AI generált!',
     roomMasterVoteBtn: '👑 Képmester Különdíj (+10 pont)',
