@@ -534,7 +534,7 @@ const translations = {
     mapBtnHybrid: '🛰️ Műholdas Hibrid',
     mapExifCardTitle: '📸 Környezet & Exif tippek',
     mapExifCamera: '📷 Gép: ',
-    mapExifLens: '🔭 Üveg: ',
+    mapExifLens: '🔭 Objektív: ',
     mapLikesUnit: ' Kedvelés',
     mapExplorerLabel: 'Felfedező:',
     mapBtnEdit: 'Szerkesztés',
