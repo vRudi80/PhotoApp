@@ -13,7 +13,7 @@ const translations = {
     tabHof: '👑 Mesterek csarnoka',
     btnRules: '📖 Játékszabályok & Rangok',
     tileClubLifeTitle: 'Klubélet',
-    roomBtnDelete: "Törlés",
+   
 
     "adminTitle": "⚔️ Kihívás kezelő központ",
   "adminSubtitle": "A rendszer automatikusan indítja el az elfogadott kihívásokat, amint elérkezik a kezdő dátumuk!",
@@ -52,6 +52,7 @@ const translations = {
   "adminMasterRejected": "✕ Jelentkezés elutasítva.",
   "adminBtnApprove": "Elfogad",
   "adminBtnReject": "Elutasít",
+     "roomBtnDelete": "Törlés",
 
     "adminGanttChallengeColumn": "Kihívás haditerv",
   "adminGanttTimeline": "Idővonal",
@@ -788,7 +789,7 @@ const translations = {
     photographers: 'photographers',
     unvoted: 'to review',
     loading: '⏳ Loading...',
-    roomBtnDelete: "Delete"
+
 
     // FEJLÉC / MENÜPONTOK ANGOLUL
     navHome: '🏠 Home',
@@ -851,6 +852,7 @@ const translations = {
   "roomInspectorSoftware": "Processing Software",
   "roomBatchAlertError": "Please vote for all {count} photos before finalizing!",
   "roomBatchAlertSuccess": "🎉 All package votes successfully submitted and saved!",
+        "roomBtnDelete": "Delete",
 
     
     // Pályázatok almenü
