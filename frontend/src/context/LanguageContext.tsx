@@ -51,6 +51,12 @@ const translations = {
   "adminMasterRejected": "✕ Jelentkezés elutasítva.",
   "adminBtnApprove": "Elfogad",
   "adminBtnReject": "Elutasít",
+
+    "adminGanttChallengeColumn": "Kihívás haditerv",
+  "adminGanttTimeline": "Idővonal",
+  "adminWeekLabel": "hét",
+  "adminTooltipFrom": "Kezdet",
+  "adminTooltipTo": "Vége",
   
   "roomMatchClosed": "Futam Lezárult! 📜",
   "roomTimeLeftLabel": "⏳ HÁTRALÉVŐ IDŐ:",
@@ -895,6 +901,12 @@ const translations = {
     sortLabel: 'SORT BY:',
     sortEndDate: 'Closing time (soonest)',
     sortStartDate: 'Starting time (newest)',
+
+    "adminGanttChallengeColumn": "Challenge Campaign",
+  "adminGanttTimeline": "Timeline",
+  "adminWeekLabel": "Week",
+  "adminTooltipFrom": "Start",
+  "adminTooltipTo": "End",
 
     ticketsStatusOpen: 'New Ticket',
     ticketsStatusInProgress: 'In Progress',
