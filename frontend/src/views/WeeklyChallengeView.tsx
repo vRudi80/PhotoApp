@@ -213,7 +213,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const [masterVotesLeft, setMasterVotesLeft] = useState<number>(0);
   const [isMaster, setIsMaster] = useState<boolean>(false);
 
-  // 🎯 UNIFIKÁLT ÉS TISZTÍTOTT ÁLLAPOT-DOBOZ (Zéró duplikáció!)
+  // 🎯 UNIFIKÁLT ÉS TISZTÍTOTT ÁLLAPOT-DOBOZ
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -473,7 +473,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         }
       } catch (err) {
         console.error("Lobby chat synchronization anomaly:", err);
-      } finaly: {
+      } finally {
         if (isMounted && subTab === 'current' && selectedTopicId === null) {
           timerId = setTimeout(fetchLobbyChat, 2500);
         }
@@ -660,12 +660,11 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     finally { setIsClaimingReferral(false); }
   };
 
-  // ── 🎯 EGYESÍTETT, KLIENS-ALAPÚ EXIF-KIBÁNYÁSZ ÉS TÖMÖRÍTŐ MOTOR ──
+  // ── 🎯 EGYESÍTETT, KLIENS-ALAPÚ EXIF-KIBÁNYÁSZ MOTOR ──
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const rawFile = e.target.files[0];
 
-      // 1. Olvasás az eredeti állományból (Mielőtt a tömörítő canvas letörölné a pecséteket)
       try {
         const exifData = await exifr.parse(rawFile);
         
@@ -695,17 +694,15 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           setUploadSoftware(exifData.Software || '');
         }
       } catch (exifError) {
-        console.log("Nem található EXIF pecsét a kliensoldali radar futásakor.");
+        console.log("Nem található EXIF pecsét a képben.");
         setUploadCamera(''); setUploadLens(''); setUploadShutter('');
         setUploadIso(''); setUploadAperture(''); setUploadSoftware('');
       }
 
-      // 2. Kliensoldali hardver-optimalizálás és skálázás
       let finalFile = rawFile;
       if (rawFile.size > 2 * 1024 * 1024) {
         console.log("⚡ Large asset detected, triggering browser side compression engine...");
         finalFile = await compressImageOnClient(rawFile);
-        console.log(`💪 Optimization profile completed: ${(rawFile.size / 1024 / 1024).toFixed(2)}MB -> ${(finalFile.size / 1024 / 1024).toFixed(2)}MB`);
       }
 
       setUploadFile(finalFile); 
@@ -714,7 +711,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     }
   };
 
-  // ── 🎯 JAVÍTVA: A FORM DATA BEKÜLDI A KINYERT STRÍNGEKET A SZERVERNEK ──
   const handleUpload = async () => {
     if (!uploadFile) return alert("Nincs fájl kiválasztva!");
 
@@ -725,7 +721,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     formData.append('topicId', topic.id); 
     formData.append('userName', user.name || user.email);
     
-    // Tiszta string mezők felcsatolása
     formData.append('camera', uploadCamera);
     formData.append('lens', uploadLens);
     formData.append('shutter', uploadShutter);
@@ -962,7 +957,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   </div>
                 ) : (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '25px' }}>
-                    {重新Rendezett => sortedActiveTopics.map((actTop) => (
+                    {/* 🎯 JAVÍTVA: A felesleges nyílfüggvény pecsét törölve, a térképezés tiszta JSX tömbként fut le! */}
+                    {sortedActiveTopics.map((actTop) => (
                       <ChallengeCard 
                         key={actTop.id} 
                         topic={actTop} 
