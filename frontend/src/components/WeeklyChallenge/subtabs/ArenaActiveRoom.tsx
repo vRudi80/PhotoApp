@@ -121,7 +121,7 @@ export default function ArenaActiveRoom({
   const [selectedExifPhoto, setSelectedExifPhoto] = useState<any | null>(null);
   const [isSubmittingBatch, setIsSubmittingBatch] = useState(false);
 
-  // ── 🧠 ÚJ: Háttértár a valós időben beolvasott EXIF metaadatoknak ──
+  // 📡 Háttértár a valós időben aszinkron módon beolvasott EXIF adatoknak
   const [realExifs, setRealExifs] = useState<Record<number, any>>({});
 
   const safeLeaderboard = Array.isArray(leaderboard) ? leaderboard : [];
@@ -141,61 +141,75 @@ export default function ArenaActiveRoom({
     }));
   }, [safeLeaderboard, user?.email]);
 
-  // ── 🛰️ ÚJ: ASZINKRON EXIF RADAR MOTOR (Közvetlenül a távoli URL-ekből olvas) ──
+  // ── 🛰️ AUTOMATIZÁLT, HIBRID EXIF-OLVASÓ RADAR (Kipusztítja az infinite re-render hibákat) ──
   useEffect(() => {
     if (batchVoteEntries.length === 0) return;
 
-    batchVoteEntries.forEach(async (entry) => {
-      // Ha erre a kép-idre már lefutott az elemzés, átugorjuk
-      if (realExifs[entry.id]) return;
+    let isMounted = true;
 
-      try {
-        // Megkíséreljük letölteni és elemezni a távoli kép fejlécét
-        const data = await exifr.parse(entry.file_url);
-        
-        if (data && (data.Model || data.Make || data.Software || data.ExposureTime)) {
-          const makePrefix = data.Make && data.Model && !data.Model.startsWith(data.Make) ? `${data.Make} ` : '';
-          const shutterFraction = data.ExposureTime ? (data.ExposureTime < 1 ? `1/${Math.round(1 / data.ExposureTime)}s` : `${data.ExposureTime}s`) : '-';
+    const parseAllExifsAsync = async () => {
+      for (const entry of batchVoteEntries) {
+        // Ha erre a kép ID-ra már van rögzített státuszunk a memóriában, ugrunk a következőre
+        if (realExifs[entry.id]) continue;
+
+        try {
+          // Megkíséreljük a távoli fejléc-olvasást a felhőből
+          const data = await exifr.parse(entry.file_url);
           
-          // Ellenőrizzük, hogy gyanús generatív AI szoftver-pecsét van-e benne hardver nélkül
-          const isAiSoftware = data.Software && (data.Software.toLowerCase().includes('midjourney') || data.Software.toLowerCase().includes('stable'));
+          if (!isMounted) return;
 
+          if (data && (data.Model || data.Make || data.Software || data.ExposureTime)) {
+            const makePrefix = data.Make && data.Model && !data.Model.startsWith(data.Make) ? `${data.Make} ` : '';
+            const shutterFraction = data.ExposureTime ? (data.ExposureTime < 1 ? `1/${Math.round(1 / data.ExposureTime)}s` : `${data.ExposureTime}s`) : '-';
+            const isAiSoftware = data.Software && (data.Software.toLowerCase().includes('midjourney') || data.Software.toLowerCase().includes('stable'));
+
+            setRealExifs(prev => ({
+              ...prev,
+              [entry.id]: {
+                camera: data.Model ? `${makePrefix}${data.Model}` : (data.Make || '-'),
+                lens: data.LensModel || '-',
+                shutter: shutterFraction,
+                iso: data.ISO ? String(data.ISO) : '-',
+                aperture: data.FNumber ? `f/${data.FNumber}` : '-',
+                software: data.Software || '-',
+                isAiSuspect: !!isAiSuspect || (!data.Model && !data.ExposureTime)
+              }
+            }));
+          } else {
+            // Ha a fájl beolvasható, de teljesen steril (Nincs kamera hardver-kód): AI Gyanú!
+            setRealExifs(prev => ({
+              ...prev,
+              [entry.id]: { camera: '-', lens: '-', shutter: '-', iso: '-', aperture: '-', software: data?.Software || '-', isAiSuspect: true }
+            }));
+          }
+        } catch (err) {
+          if (!isMounted) return;
+          
+          // 🎯 FALLBACK ÁG: Ha a böngésző CORS hibával letiltja a közvetlen fájlolvasást, 
+          // azonnal áttérünk a DB-ből érkező éles rekord-értékek kirajzolására!
           setRealExifs(prev => ({
             ...prev,
             [entry.id]: {
-              camera: data.Model ? `${makePrefix}${data.Model}` : (data.Make || '-'),
-              lens: data.LensModel || '-',
-              shutter: shutterFraction,
-              iso: data.ISO ? String(data.ISO) : '-',
-              aperture: data.FNumber ? `f/${data.FNumber}` : '-',
-              software: data.Software || '-',
-              isAiSuspect: !!isAiSoftware || (!data.Model && !data.ExposureTime)
-            }
-          }));
-        } else {
-          // Ha sikeres a beolvasás, de abszolút semmilyen fizikai adat nincs: AI gyanú!
-          setRealExifs(prev => ({
-            ...prev,
-            [entry.id]: {
-              camera: '-', lens: '-', shutter: '-', iso: '-', aperture: '-',
-              software: data?.Software || '-',
-              isAiSuspect: true
+              camera: entry.camera || (lang === 'en' ? 'Protected / DB Sync Needed' : 'Védett / DB Szinkron kell'),
+              lens: entry.lens || '-',
+              shutter: entry.shutter || '-',
+              iso: entry.iso || '-',
+              aperture: entry.aperture || '-',
+              software: entry.software || '-',
+              // Ha a DB-ben sincs kamera infó rögzítve feltöltés óta, akkor jelöljük meg gyanúsként
+              isAiSuspect: !entry.camera
             }
           }));
         }
-      } catch (err) {
-        // Biztonsági ág: Ha nincs EXIF (AI), vagy a szerver CORS-al blokkolja a nyers olvasást
-        setRealExifs(prev => ({
-          ...prev,
-          [entry.id]: {
-            camera: '-', lens: '-', shutter: '-', iso: '-', aperture: '-',
-            software: '-',
-            isAiSuspect: true
-          }
-        }));
       }
-    });
-  }, [batchVoteEntries, realExifs]);
+    };
+
+    parseAllExifsAsync();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [batchVoteEntries]);
 
   const getTranslatedExposureLabel = (label: string) => {
     if (lang === 'en') {
@@ -301,7 +315,79 @@ export default function ArenaActiveRoom({
           </div>
         )}
 
-        {/* KÖTEGELT ÉRTÉKELŐ PULT MÁTRIX */}
+        {/* KLUBOK CSATÁJA */}
+        <div style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #10b981', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+            <h3 style={{ margin 0, color: '#10b981', fontSize: '1.4rem' }}>{t('roomClubLeague')}</h3>
+            <span style={{ fontSize: '0.8rem', background: '#ef4444', color: 'white', padding: '3px 10px', borderRadius: '12px', fontWeight: 'bold', boxShadow: '0 0 10px rgba(239, 68, 68, 0.6)' }}>{t('roomLiveBadge')}</span>
+          </div>
+          <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 20px 0', lineHeight: '1.5' }}>{t('roomClubLeagueDesc')}</p>
+          
+          {safeClubLeaderboard.length === 0 ? <div style={{ color: '#94a3b8', textAlign: 'center', padding: '20px', background: '#0f172a', borderRadius: '16px' }}>{t('roomNoClubsYet')}</div> : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {safeClubLeaderboard.map((club, index) => (
+                <div key={index} style={{ display: 'flex', alignItems: 'center', background: 'linear-gradient(135deg, #0f172a, #1e293b)', border: '1px solid #059669', padding: '12px', borderRadius: '12px' }}>
+                  <div style={{ fontSize: '1.5rem', fontWeight: '900', width: '35px', color: index === 0 ? '#fbbf24' : '#cbd5e1', textAlign: 'center' }}>{index + 1}.</div>
+                  <div style={{ flex: 1, marginLeft: '10px' }}>
+                    <div style={{ color: 'white', fontWeight: 'bold', fontSize: '1.1rem' }}>{club?.club_name || 'Unknown Club'}</div>
+                    <div style={{ color: '#64748b', fontSize: '0.8rem' }}>{club?.members_counted || 0} {t('roomActiveMembers')}</div>
+                  </div>
+                  <div style={{ color: '#10b981', fontWeight: '900', fontSize: '1.4rem' }}>{club?.total_score || 0} ⭐</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* VAK TOPLISTA */}
+        <div style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #f59e0b', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
+          <h3 style={{ margin: '0 0 10px 0', color: '#f59e0b', fontSize: '1.4rem' }}>{t('roomBlindLeaderboard')}</h3>
+          <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 20px 0', lineHeight: '1.5' }}>{t('roomBlindLeaderboardDesc')}</p>
+          
+          {safeLeaderboard.length === 0 ? <div style={{ color: '#94a3b8', textAlign: 'center', padding: '30px', background: '#0f172a', borderRadius: '16px' }}>{t('roomArenaEmpty')}</div> : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {[...safeLeaderboard].sort((a, b) => {
+                const likesA = Number(a?.likes_count || 0);
+                const likesB = Number(b?.likes_count || 0);
+                const viewsA = Number(a?.views_count || 0);
+                const viewsB = Number(b?.views_count || 0);
+                if (likesB !== likesA) return likesB - likesA;
+                return viewsA - viewsB;
+              }).map((entry, index) => {
+                const isMe = entry?.user_email === user?.email;
+                const rankColor = index === 0 ? '#fbbf24' : index === 1 ? '#e2e8f0' : index === 2 ? '#cd7f32' : '#64748b';
+                
+                return (
+                  <div key={entry?.id || index} style={{ display: 'flex', alignItems: 'center', background: isMe ? 'linear-gradient(90deg, #f59e0b20, #0f172a)' : '#0f172a', border: isMe ? '1px solid #f59e0b50' : '1px solid #334155', padding: '12px', borderRadius: '12px' }}>
+                    <div style={{ fontSize: '1.5rem', fontWeight: '900', width: '35px', color: rankColor, textAlign: 'center' }}>{index + 1}.</div>
+                    <div onClick={() => isMe ? setFullscreenData({url: getImageUrl(entry?.drive_file_id, entry?.file_url), title: entry?.user_name || ''}) : null} style={{ width: '55px', height: '55px', backgroundColor: '#000', borderRadius: '10px', overflow: 'hidden', margin: '0 15px', cursor: isMe ? 'zoom-in' : 'default', flexShrink: 0, position: 'relative' }}>
+                      <img src={getImageUrl(entry?.drive_file_id, entry?.file_url)} alt="Top entry" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: isMe ? 'none' : 'blur(6px) contrast(120%) saturation(150%)', transform: isMe ? 'none' : 'scale(1.2)' }} onError={handleImageError} />
+                      {!isMe && (
+                        <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <span style={{ fontSize: '1.5rem', opacity: 0.8 }}>🔒</span>
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ color: isMe ? '#f8fafc' : '#94a3b8', fontWeight: 'bold', fontStyle: isMe ? 'normal' : 'italic', fontSize: '1.05rem' }}>
+                        {isMe ? (entry?.user_name || t('roomMe')) : t('roomEncryptedOpponent')}
+                      </div>
+                      <div style={{ fontSize: '0.8rem', color: '#64748b' }}>{t('roomViews')}: {entry?.views_count || 0}</div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ color: isMe ? '#f97316' : '#94a3b8', fontWeight: '900', fontSize: '1.5rem' }}>{entry?.likes_count || 0} ⭐</div>
+                    </div>
+                  </div>
+                );
+              }).slice(0, 15)}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── KÖTEGELT ÉRTÉKELŐ PULT MÁTRIX ── */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
+        
         <div style={{ background: '#1e293b', padding: '35px', borderRadius: '24px', border: '2px solid #38bdf8', boxShadow: '0 15px 35px rgba(0,0,0,0.4)' }}>
           
           <div style={{ background: 'rgba(56, 189, 248, 0.08)', borderLeft: '4px solid #38bdf8', padding: '15px 20px', borderRadius: '0 12px 12px 0', marginBottom: '25px', fontSize: '0.85rem', color: '#cbd5e1', lineHeight: '1.5' }}>
@@ -338,7 +424,7 @@ export default function ArenaActiveRoom({
                 {batchVoteEntries.map((entry, index) => {
                   const selectedVote = pendingVotes[entry.id];
                   
-                  // 🎯 Kivesszük a háttér-állapotból az adott kép valódi EXIF adatait
+                  // 🎯 Kivesszük a háttér-állapotból az éles hibrid EXIF adatokat (Ha még olvas, jön a Loading felirat)
                   const currentExif = realExifs[entry.id] || { camera: '⏳ Reading...', lens: '-', shutter: '-', iso: '-', aperture: '-', software: '-', isAiSuspect: false };
 
                   return (
@@ -360,11 +446,10 @@ export default function ArenaActiveRoom({
 
                         <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%', minHeight: '160px' }}>
                           
-                          {/* 🎯 JAVÍTVA: Valódi, kiolvasott EXIF diagnosztika */}
                           <div style={{ fontSize: '0.8rem', color: '#cbd5e1', lineHeight: '1.4' }}>
                             {currentExif.isAiSuspect ? (
                               <div style={{ background: '#ef444415', color: '#f87171', padding: '6px 12px', borderRadius: '8px', border: '1px solid #ef444430', fontWeight: 'bold', marginBottom: '8px', display: 'inline-block' }}>
-                                ⚠️ {lang === 'en' ? 'AI SUSPECT: Stripped Metadata / Digital Gen!' : 'AI GYANÚ: Hiányzó hardveres pecsét!'}
+                                ⚠️ {lang === 'en' ? 'AI SUSPECT: Missing Hardware EXIF Signature!' : 'AI GYANÚ: Hiányzó hardveres pecsét!'}
                               </div>
                             ) : null}
                             
@@ -432,179 +517,7 @@ export default function ArenaActiveRoom({
 
       </div>
 
-      {/* ── JOBB OLDALI OSZLOP ── */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
-        
-        {/* SAJÁT NEVEZÉS */}
-        <div style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #334155', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-            <h3 style={{ margin: 0, color: '#f8fafc', fontSize: '1.4rem' }}>{t('roomMyEntry')}</h3>
-            <span style={{ fontSize: '0.85rem', background: '#be123c30', color: '#fb7185', border: '1px solid #be123c60', padding: '4px 12px', borderRadius: '50px', fontWeight: 'bold' }}>
-              {t('roomJokerSwaps').replace('{count}', String(swapBalance))}
-            </span>
-          </div>
-
-          {isMaster ? (
-            <div style={{ padding: '30px 15px', background: 'linear-gradient(135deg, #4c1d9520, #1e1b4b40)', border: '1px solid #a78bfa40', borderRadius: '16px', textAlign: 'center' }}>
-              <div style={{ fontSize: '3.5rem', marginBottom: '10px' }}>👑</div>
-              <h4 style={{ color: '#a78bfa', margin: '0 0 8px 0', fontSize: '1.25rem', fontWeight: 'bold' }}>{t('roomYouAreMaster')}</h4>
-              <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: 0, lineHeight: '1.6' }}>
-                {t('roomYouAreMasterDesc')}
-              </p>
-            </div>
-          ) : myEntry ? (
-            <div>
-              <div style={{ width: '100%', height: '220px', backgroundColor: '#000', borderRadius: '16px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 'inset 0 0 20px rgba(0,0,0,0.8)' }}>
-                <img src={getImageUrl(myEntry?.drive_file_id, myEntry?.file_url)} alt="My submission" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} onError={handleImageError} />
-              </div>
-              <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'space-between', background: '#0f172a', padding: '20px', borderRadius: '12px', borderLeft: `4px solid ${exposureColor || '#ef4444'}` }}>
-                <div style={{ textAlign: 'center' }}><div style={{ color: '#94a3b8', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '5px' }}>{t('roomResult')}</div><div style={{ color: '#f59e0b', fontSize: '1.5rem', fontWeight: '900' }}>{myEntry?.likes_count || 0} ⭐</div></div>
-                <div style={{ textAlign: 'center' }}><div style={{ color: '#94a3b8', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '5px' }}>{t('roomViews')}</div><div style={{ color: '#38bdf8', fontSize: '1.5rem', fontWeight: '900' }}>{myEntry?.views_count || 0} 👁️</div></div>
-              </div>
-
-              {myEntry?.off_topic_count > 0 && (
-                <div style={{ background: 'linear-gradient(90deg, #ef444415, transparent)', borderLeft: '4px solid #ef4444', padding: '15px', borderRadius: '0 12px 12px 0', marginTop: '15px', fontSize: '0.85rem', color: '#cbd5e1', lineHeight: '1.5' }}>
-                  <b style={{ color: '#ef4444', display: 'block', marginBottom: '4px', fontSize: '0.95rem' }}>
-                    {t('roomMyOffTopicTitle')}
-                  </b>
-                  {t('roomMyOffTopicDesc').replace('{count}', String(myEntry.off_topic_count))}
-                </div>
-              )}
-
-              {swapBalance > 0 ? (
-                <div style={{ marginTop: '25px', background: 'linear-gradient(135deg, #4c1d9520, #be123c20)', padding: '20px', borderRadius: '16px', border: '1px solid #be123c50' }}>
-                  <h5 style={{ margin: '0 0 10px 0', color: '#f43f5e', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>{t('roomSwapTitle')}</h5>
-                  <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 15px 0', lineHeight: '1.5' }}>{t('roomSwapDesc')}</p>
-                  <input type="file" accept="image/jpeg, image/png, image/webp" onChange={handleSwapFileSelect} style={{ color: '#cbd5e1', marginBottom: '15px', fontSize: '0.9rem' }} disabled={isSwapping} />
-                  {swapPreview && <div style={{marginBottom: '15px', display: 'flex', justifyContent: 'center'}}><img src={swapPreview} alt="Swap preview" style={{maxHeight: '120px', borderRadius: '8px', border: '2px solid #e11d48'}} /></div>}
-                  <button onClick={handleSwapSubmit} disabled={!swapPreview || isSwapping} style={{ width: '100%', background: !swapPreview ? '#334155' : 'linear-gradient(135deg, #e11d48, #be123c)', color: !swapPreview ? '#94a3b8' : 'white', border: 'none', padding: '12px', borderRadius: '12px', fontWeight: 'bold', fontSize: '1rem', cursor: !swapPreview ? 'not-allowed' : 'pointer' }}>
-                    {isSwapping ? t('roomSwappingInProgress') : t('roomSwapBrowseBtn')}
-                  </button>
-
-                  <div style={{ marginTop: '18px', borderTop: '1px solid #be123c40', paddingTop: '15px', textAlign: 'center' }}>
-                    <p style={{ color: '#64748b', fontSize: '0.8rem', margin: '0 0 10px 0' }}>{t('roomOrUseAlbum')}</p>
-                    <button disabled={isSwapping || isLoadingSwapAlbum} onClick={onOpenAlbumForSwap} style={{ width: '100%', background: '#1e293b', border: '1px solid #f43f5e', color: '#f43f5e', padding: '10px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.9rem', transition: 'all 0.2s' }}>
-                      {isLoadingSwapAlbum ? t('roomLoadingGallery') : t('roomSwapGalleryBtn')}
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div style={{ marginTop: '25px', background: '#0f172a', padding: '15px', borderRadius: '12px', color: '#64748b', fontSize: '0.9rem', textAlign: 'center', border: '1px dashed #475569' }}>
-                  {t('roomNoSwapsLeft')}
-                </div>
-              )}
-
-              {safePastEntries.length > 0 && (
-                <div style={{ marginTop: '25px', borderTop: '1px dashed #334155', paddingTop: '20px' }}>
-                  <h5 style={{ margin: '0 0 12px 0', color: '#38bdf8', fontSize: '1.05rem' }}>{t('roomPastEntriesTitle')}</h5>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    {safePastEntries.map((past, pIdx) => (
-                      <div key={pIdx} style={{ display: 'flex', alignItems: 'center', background: '#0f172a', padding: '8px', borderRadius: '12px', border: '1px solid #1e293b' }}>
-                        <img src={getImageUrl(past?.drive_file_id, past?.file_url)} alt="Past entry" style={{ width: '45px', height: '45px', objectFit: 'cover', borderRadius: '6px' }} onError={handleImageError} />
-                        <div style={{ flex: 1, marginLeft: '10px' }}>
-                          <div style={{ color: '#94a3b8', fontSize: '0.8rem' }}>{t('roomPastSavedScore')}</div>
-                          <div style={{ fontSize: '0.9rem', color: '#fbbf24', fontWeight: 'bold' }}>{past?.likes_count || 0} ⭐ <span style={{ color: '#64748b', fontWeight: 'normal', fontSize: '0.75rem' }}>({past?.views_count || 0} 👁️)</span></div>
-                        </div>
-                        <button onClick={() => handleSwapBackSubmit(past.id)} disabled={swapBalance < 1} style={{ background: swapBalance < 1 ? '#1e293b' : 'linear-gradient(135deg, #0284c7, #0369a1)', color: swapBalance < 1 ? '#475569' : 'white', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 'bold', cursor: swapBalance < 1 ? 'not-allowed' : 'pointer' }}>
-                          {t('roomReactivateBtn')}
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div>
-              <div style={{ background: '#0f172a', padding: '20px', borderRadius: '16px', border: '1px dashed #38bdf8' }}>
-                <input type="file" accept="image/jpeg, image/png, image/webp" onChange={handleFileSelect} style={{ color: '#cbd5e1', marginBottom: '15px', width: '100%', fontSize: '0.9rem' }} disabled={isUploading} />
-                {uploadPreview && <div style={{marginBottom: '20px', display: 'flex', justifyContent: 'center'}}><img src={uploadPreview} alt="Preview" style={{maxHeight: '200px', borderRadius: '12px', boxShadow: '0 5px 15px rgba(0,0,0,0.5)'}} /></div>}
-                <button onClick={handleUpload} disabled={!uploadPreview || isUploading} style={{ width: '100%', background: (!uploadPreview || isUploading) ? '#334155' : 'linear-gradient(135deg, #0ea5e9, #2563eb)', color: (!uploadPreview || isUploading) ? '#94a3b8' : 'white', border: 'none', padding: '14px', borderRadius: '12px', fontSize: '1.1rem', fontWeight: 'bold' }}>
-                  {isUploading ? t('roomUploadingInProgress') : t('roomUploadSubmitBtn')}
-                </button>
-
-                <div style={{ marginTop: '15px', borderTop: '1px solid #334155', paddingTop: '15px', textAlign: 'center' }}>
-                  <p style={{ color: '#64748b', fontSize: '0.8rem', margin: '0 0 10px 0' }}>{t('roomOrChooseAlbumUpload')}</p>
-                  <button disabled={isUploading || isLoadingSwapAlbum} onClick={onOpenAlbumForUpload} style={{ width: '100%', background: '#1e293b', border: '1px solid #14b8a6', color: '#14b8a6', padding: '10px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.9rem' }}>
-                    {t('roomChooseGalleryUploadBtn')}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* KLUBOK CSATÁJA */}
-        <div style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #10b981', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-            <h3 style={{ margin: 0, color: '#10b981', fontSize: '1.4rem' }}>{t('roomClubLeague')}</h3>
-            <span style={{ fontSize: '0.8rem', background: '#ef4444', color: 'white', padding: '3px 10px', borderRadius: '12px', fontWeight: 'bold', boxShadow: '0 0 10px rgba(239, 68, 68, 0.6)' }}>{t('roomLiveBadge')}</span>
-          </div>
-          <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 20px 0', lineHeight: '1.5' }}>{t('roomClubLeagueDesc')}</p>
-          
-          {safeClubLeaderboard.length === 0 ? <div style={{ color: '#94a3b8', textAlign: 'center', padding: '20px', background: '#0f172a', borderRadius: '16px' }}>{t('roomNoClubsYet')}</div> : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {safeClubLeaderboard.map((club, index) => (
-                <div key={index} style={{ display: 'flex', alignItems: 'center', background: 'linear-gradient(135deg, #0f172a, #1e293b)', border: '1px solid #059669', padding: '12px', borderRadius: '12px' }}>
-                  <div style={{ fontSize: '1.5rem', fontWeight: '900', width: '35px', color: index === 0 ? '#fbbf24' : '#cbd5e1', textAlign: 'center' }}>{index + 1}.</div>
-                  <div style={{ flex: 1, marginLeft: '10px' }}>
-                    <div style={{ color: 'white', fontWeight: 'bold', fontSize: '1.1rem' }}>{club?.club_name || 'Unknown Club'}</div>
-                    <div style={{ color: '#64748b', fontSize: '0.8rem' }}>{club?.members_counted || 0} {t('roomActiveMembers')}</div>
-                  </div>
-                  <div style={{ color: '#10b981', fontWeight: '900', fontSize: '1.4rem' }}>{club?.total_score || 0} ⭐</div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* VAK TOPLISTA */}
-        <div style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #f59e0b', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
-          <h3 style={{ margin: '0 0 10px 0', color: '#f59e0b', fontSize: '1.4rem' }}>{t('roomBlindLeaderboard')}</h3>
-          <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 20px 0', lineHeight: '1.5' }}>{t('roomBlindLeaderboardDesc')}</p>
-          
-          {safeLeaderboard.length === 0 ? <div style={{ color: '#94a3b8', textAlign: 'center', padding: '30px', background: '#0f172a', borderRadius: '16px' }}>{t('roomArenaEmpty')}</div> : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {[...safeLeaderboard].sort((a, b) => {
-                const likesA = Number(a?.likes_count || 0);
-                const likesB = Number(b?.likes_count || 0);
-                const viewsA = Number(a?.views_count || 0);
-                const viewsB = Number(b?.views_count || 0);
-                if (likesB !== likesA) return likesB - likesA;
-                return viewsA - viewsB;
-              }).map((entry, index) => {
-                const isMe = entry?.user_email === user?.email;
-                const rankColor = index === 0 ? '#fbbf24' : index === 1 ? '#e2e8f0' : index === 2 ? '#cd7f32' : '#64748b';
-                
-                return (
-                  <div key={entry?.id || index} style={{ display: 'flex', alignItems: 'center', background: isMe ? 'linear-gradient(90deg, #f59e0b20, #0f172a)' : '#0f172a', border: isMe ? '1px solid #f59e0b50' : '1px solid #334155', padding: '12px', borderRadius: '12px' }}>
-                    <div style={{ fontSize: '1.5rem', fontWeight: '900', width: '35px', color: rankColor, textAlign: 'center' }}>{index + 1}.</div>
-                    <div onClick={() => isMe ? setFullscreenData({url: getImageUrl(entry?.drive_file_id, entry?.file_url), title: entry?.user_name || ''}) : null} style={{ width: '55px', height: '55px', backgroundColor: '#000', borderRadius: '10px', overflow: 'hidden', margin: '0 15px', cursor: isMe ? 'zoom-in' : 'default', flexShrink: 0, position: 'relative' }}>
-                      <img src={getImageUrl(entry?.drive_file_id, entry?.file_url)} alt="Top entry" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: isMe ? 'none' : 'blur(6px) contrast(120%) saturation(150%)', transform: isMe ? 'none' : 'scale(1.2)' }} onError={handleImageError} />
-                      {!isMe && (
-                        <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <span style={{ fontSize: '1.5rem', opacity: 0.8 }}>🔒</span>
-                        </div>
-                      )}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ color: isMe ? '#f8fafc' : '#94a3b8', fontWeight: 'bold', fontStyle: isMe ? 'normal' : 'italic', fontSize: '1.05rem' }}>
-                        {isMe ? (entry?.user_name || t('roomMe')) : t('roomEncryptedOpponent')}
-                      </div>
-                      <div style={{ fontSize: '0.8rem', color: '#64748b' }}>{t('roomViews')}: {entry?.views_count || 0}</div>
-                    </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ color: isMe ? '#f97316' : '#94a3b8', fontWeight: '900', fontSize: '1.5rem' }}>{entry?.likes_count || 0} ⭐</div>
-                    </div>
-                  </div>
-                );
-              }).slice(0, 15)}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ──🔍 INTERAKTÍV EXIF ÉS TELJESEN ANONIM NAGYÍTÓ MODÁL ── */}
+      {/* ── 🔍 INTERAKTÍV EXIF ÉS TELJESEN ANONIM NAGYÍTÓ MODÁL ── */}
       {selectedExifPhoto && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(9,13,22,0.95)', backdropFilter: 'blur(15px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '30px', boxSizing: 'border-box', animation: 'fadeIn 0.2s ease-out' }}>
           <div style={{ background: '#1e293b', width: '100%', maxWidth: '1000px', borderRadius: '24px', border: '1px solid #475569', overflow: 'hidden', display: 'grid', gridTemplateColumns: '1fr 340px', boxShadow: '0 25px 60px rgba(0,0,0,0.6)' }}>
