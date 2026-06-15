@@ -4,6 +4,7 @@ import { getImageUrl } from '../../../utils/helpers';
 // 🎯 Nyelvi kontextus aktiválása
 import { useLanguage } from '../../../context/LanguageContext';
 
+// 🕒 1. FIXEN SZINKRONIZÁLT AKTIÓV SZŐBA VISSZASZÁMLÁLÓ
 function ActiveRoomCountdown({ endDate, lang }: { endDate: string; lang: string }) {
   const elementRef = useRef<HTMLSpanElement>(null);
 
@@ -148,7 +149,7 @@ export default function ArenaActiveRoom({
                 <img src={getImageUrl(voteEntry?.drive_file_id, voteEntry?.file_url)} alt="Vote" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} onError={handleImageError} />
               </div>
 
-              {/* ── 🎯 VALÓDI ADATBÁZIS EXIF DIAGNOSZTIKAI MEGJELENÍTŐ KÁRTYA ── */}
+              {/* ── 🎯 JAVÍTVA: A hibás kódcsomag eltávolítva, tiszta stílusvisszaadás élesítve! ── */}
               <div style={{ width: '100%', background: '#0f172a', padding: '15px', borderRadius: '14px', marginBottom: '20px', border: '1px solid #232f46', boxSizing: 'border-box' }}>
                 {isLegacyPhoto ? (
                   <div style={{ background: '#f59e0b15', color: '#fbbf24', padding: '6px 12px', borderRadius: '8px', border: '1px solid #fbbf2430', fontWeight: 'bold', marginBottom: '12px', fontSize: '0.8rem', textAlign: 'center' }}>
@@ -161,7 +162,7 @@ export default function ArenaActiveRoom({
                 ) : null}
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 15px', fontSize: '0.8rem', color: '#94a3b8' }}>
-                  <div>📷 {t('mapExifCamera')} <b style={{ color:切换🎨 => isLegacyPhoto ? '#475569' : '#f8fafc' }}>{voteEntry.camera || '-'}</b></div>
+                  <div>📷 {t('mapExifCamera')} <b style={{ color: isLegacyPhoto ? '#475569' : '#f8fafc' }}>{voteEntry.camera || '-'}</b></div>
                   <div>🔭 {t('mapExifLens')} <b style={{ color: isLegacyPhoto ? '#475569' : '#f8fafc' }}>{voteEntry.lens || '-'}</b></div>
                   <div>⏱️ Záridő / ISO: <b style={{ color: isLegacyPhoto ? '#475569' : '#38bdf8' }}>{voteEntry.shutter || '-'} / {voteEntry.iso || '-'}</b></div>
                   <div>💿 Szoftver: <b style={{ color: isLegacyPhoto ? '#475569' : '#a78bfa' }}>{voteEntry.software || '-'}</b></div>
@@ -169,6 +170,34 @@ export default function ArenaActiveRoom({
               </div>
               
               <div style={{ display: 'flex', gap: '12px', width: '100%', flexDirection: 'column' }}>
+                {isMaster && (
+                  <button 
+                    onClick={() => handleVote('master')} 
+                    disabled={masterVotesLeft <= 0}
+                    style={{ 
+                      width: '100%', 
+                      padding: '16px', 
+                      background: masterVotesLeft > 0 ? 'linear-gradient(135deg, #fbbf24, #d97706)' : '#1e293b', 
+                      color: masterVotesLeft > 0 ? '#0f172a' : '#64748b', 
+                      border: masterVotesLeft > 0 ? 'none' : '1px dashed #334155', 
+                      borderRadius: '14px', 
+                      fontSize: '1.1rem', 
+                      fontWeight: '900', 
+                      cursor: masterVotesLeft > 0 ? 'pointer' : 'not-allowed', 
+                      boxShadow: masterVotesLeft > 0 ? '0 4px 15px rgba(251,191,36,0.4)' : 'none', 
+                      marginBottom: '6px',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    {masterVotesLeft > 0 ? t('roomMasterVoteBtn') : (lang === 'en' ? '👑 All Special Awards Distributed' : '👑 Minden Különdíj kiosztva')} <br/>
+                    <span style={{ fontSize: '0.8rem', fontWeight: 'bold', opacity: 0.8 }}>
+                      {masterVotesLeft > 0 
+                        ? t('roomMasterVotesRemaining').replace('{count}', String(masterVotesLeft))
+                        : (lang === 'en' ? '0 votes remaining' : '0 szavazat maradt')}
+                    </span>
+                  </button>
+                )}
+
                 <div style={{ display: 'flex', gap: '12px', width: '100%' }}>
                   <button onClick={() => handleVote('super')} style={{ flex: 1, padding: '15px', background: 'linear-gradient(135deg, #1e3a8a, #3b82f6)', color: 'white', border: 'none', borderRadius: '14px', fontSize: '1.1rem', fontWeight: 'bold', cursor: 'pointer' }}>
                     {t('roomVoteSuper')} <br/><span style={{fontSize: '0.8rem', fontWeight: 'normal'}}>+{safeUserPower.super}{t('roomPoints')}</span>
