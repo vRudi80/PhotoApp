@@ -53,6 +53,18 @@ const formatDateTimeLocal = (dateStr: string) => {
   return dateStr.replace(' ', 'T').slice(0, 16);
 };
 
+const parseAdminDateSafe = (dateStr: string) => {
+  if (!dateStr) return new Date(0);
+  const parts = dateStr.split(/[- :T]/);
+  if (parts.length >= 5) {
+    return new Date(
+      parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]),
+      parseInt(parts[3]), parseInt(parts[4]), parts[5] ? parseInt(parts[5]) : 0
+    );
+  }
+  return new Date(dateStr);
+};
+
 export default function AdminWeeklyView() {
   const { t, lang } = useLanguage();
 
@@ -80,6 +92,20 @@ export default function AdminWeeklyView() {
   const [timeWindow, setTimeWindow] = useState<'all' | 'current_month' | 'next_30'>('all');
 
   const inputStyle = { width: '100%', padding: '10px', marginBottom: '10px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '6px', boxSizing: 'border-box' as const };
+
+  // ── 🎯 JAVÍTVA: A státusz-kiértékelő most már bent él a komponensben, így látja a nyelvi erőforrásokat! ──
+  const getTopicStatus = (statusStr: string, sDateStr: string, eDateStr: string) => {
+    if (statusStr === 'pending') return { label: t('adminStatusPending'), color: '#eab308' };
+    if (statusStr === 'rejected') return { label: t('adminStatusRejected'), color: '#ef4444' };
+
+    const today = new Date();
+    const start = parseAdminDateSafe(sDateStr);
+    const end = parseAdminDateSafe(eDateStr);
+    
+    if (today > end) return { label: t('adminStatusEnded'), color: '#94a3b8' };
+    if (today < start) return { label: t('adminStatusScheduled'), color: '#38bdf8' };
+    return { label: t('adminStatusLive'), color: '#10b981' };
+  };
 
   const fetchTopics = async () => {
     try {
@@ -172,56 +198,7 @@ export default function AdminWeeklyView() {
     window.scrollTo({ top: 300, behavior: 'smooth' });
   };
 
-  const handleSave = async () => {
-    if (!title || !startDate || !endDate) return alert(t('mapFillRequired'));
-    try {
-      const url = editId ? `${BACKEND_URL}/api/admin/weekly-topics/${editId}` : `${BACKEND_URL}/api/admin/weekly-topics`;
-      const method = editId ? 'PUT' : 'POST';
-      
-      const formData = new FormData();
-      formData.append('title', title);
-      formData.append('title_en', titleEn); 
-      formData.append('description', desc);
-      formData.append('description_en', descEn); 
-      formData.append('startDate', startDate);
-      formData.append('endDate', endDate);
-      formData.append('masterEmail', masterEmail);
-      formData.append('coverAuthor', coverAuthor);
-      
-      if (coverUrl) formData.append('coverUrl', coverUrl);
-      if (coverFile) formData.append('cover', coverFile);
-
-      const res = await fetch(url, { method, body: formData });
-      if (res.ok) {
-        alert(t('msgMapUpdateSuccess'));
-        clearForm();
-        fetchTopics();
-        fetchSuspicious();
-      }
-    } catch (e) { alert(t('msgNetworkError')); }
-  };
-
-  const handleDelete = async (id: number) => {
-    if (!window.confirm(t('msgMapDeleteConfirm'))) return;
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/admin/weekly-topics/${id}`, { method: 'DELETE' });
-      if (res.ok) { fetchTopics(); fetchSuspicious(); }
-    } catch (e) { alert(t('msgNetworkError')); }
-  };
-
-  const parseAdminDateSafe = (dateStr: string) => {
-    if (!dateStr) return new Date(0);
-    const parts = dateStr.split(/[- :T]/);
-    if (parts.length >= 5) {
-      return new Date(
-        parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]),
-        parseInt(parts[3]), parseInt(parts[4]), parts[5] ? parseInt(parts[5]) : 0
-      );
-    }
-    return new Date(dateStr);
-  };
-
-  // ── 📊 GANTT NAPTÁR-MATEMATIKA HATÁRAI ──
+  // ── 📊 GANTT IDŐVONAL MATEMATIKA HATÁRAI ──
   const ganttCalendarData = useMemo(() => {
     if (topics.length === 0) {
       return { minTime: Date.now(), maxTime: Date.now() + 86400000 * 7, weeks: [], totalDays: 7, daysArray: [] };
@@ -276,7 +253,6 @@ export default function AdminWeeklyView() {
     return { minTime: minDate.getTime(), maxTime: maxDate.getTime(), weeks, totalDays: daysArray.length, daysArray };
   }, [topics, timeWindow]);
 
-  // Naptári hónap-agregátor tengely
   const monthsSpans = useMemo(() => {
     if (ganttCalendarData.daysArray.length === 0) return [];
     
@@ -290,16 +266,13 @@ export default function AdminWeeklyView() {
         count++;
       } else {
         spans.push({ month: currentMonth, year: currentYear, daysCount: count });
-        currentMonth = date.getMonth();
-        currentYear = date.getFullYear();
-        count = 1;
+        currentMonth = date.getMonth(); currentYear = date.getFullYear(); count = 1;
       }
     });
     spans.push({ month: currentMonth, year: currentYear, daysCount: count });
     return spans;
   }, [ganttCalendarData.daysArray]);
 
-  // Jelenlegi időpont vonal pozíciója
   const nowIndicatorPositionPx = useMemo(() => {
     const now = Date.now();
     if (now < ganttCalendarData.minTime || now > ganttCalendarData.maxTime) return null;
@@ -489,7 +462,6 @@ export default function AdminWeeklyView() {
               return null;
             }
 
-            // ── 🎯 JAVÍTVA: PERCRE PONTOS, LEBEGŐPONTOS LINEÁRIS IDŐSÍK LEKÉPEZÉS ──
             const leftPx = ((startMillis - ganttCalendarData.minTime) / 86400000) * 40;
             const widthPx = ((endMillis - startMillis) / 86400000) * 40;
 
@@ -550,14 +522,14 @@ export default function AdminWeeklyView() {
                     })}
                   </div>
 
-                  {/* INTERAKTÍV FOLYAMATSÁV */}
+                  {/* PROFI LINEÁRIS FOLYAMATSÁV */}
                   <div 
                     title={tooltipText} 
                     style={{ 
                       position: 'absolute', left: `${leftPx}px`, width: `${widthPx}px`, height: '22px', 
                       background: status.label === t('adminStatusEnded') ? 'linear-gradient(135deg, #475569, #64748b)' : `linear-gradient(135deg, ${status.color}90, ${status.color})`,
                       borderRadius: '6px', border: status.label === t('adminStatusEnded') ? '1px solid #475569' : `1px solid ${status.color}`, boxSizing: 'border-box',
-                      boxShadow: `0 3px 8px ${status.color}25`, cursor: 'help', zIndex: 2, transition: 'transform 0.15s ease'
+                      boxShadow: `0 3px 8px ${status.color}25`, cursor: 'help', zIndex: 2, transition: 'all 0.15s ease'
                     }}
                     onMouseEnter={e => e.currentTarget.style.transform = 'scaleY(1.08)'}
                     onMouseLeave={e => e.currentTarget.style.transform = 'none'}
