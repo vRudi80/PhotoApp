@@ -71,6 +71,7 @@ interface ArenaActiveRoomProps {
   onOpenAlbumForUpload: () => void; onOpenAlbumForSwap: () => void; handleVote: (type: 'pass' | 'super' | 'brilliant' | 'master') => void;
   handleOffTopicReport: (id: number) => void; handleSwapBackSubmit: (id: number) => void; setFullscreenData: (data: any) => void;
   handleImageError: (e: React.SyntheticEvent<HTMLImageElement, Event>) => void;
+  fetchCurrentTopic: (isSilent?: boolean) => Promise<void>; // 🎯 ÚJ: Interface kiegészítés
 }
 
 export default function ArenaActiveRoom({
@@ -79,21 +80,21 @@ export default function ArenaActiveRoom({
   myPastEntries, leaderboard, currentClubLeaderboard, user, isUploading, uploadPreview,
   handleFileSelect, handleUpload, isLoadingSwapAlbum, isSwapping, swapPreview,
   handleSwapFileSelect, handleSwapSubmit, onOpenAlbumForUpload, onOpenAlbumForSwap,
-  handleVote, handleOffTopicReport, handleSwapBackSubmit, setFullscreenData, handleImageError
+  handleVote, handleOffTopicReport, handleSwapBackSubmit, setFullscreenData, handleImageError,
+  fetchCurrentTopic // 🎯 ÚJ: Destrukturálva a beérkező propok között
 }: ArenaActiveRoomProps) {
 
   const { t, lang } = useLanguage();
 
   const [pendingVotes, setPendingVotes] = useState<Record<number, 'pass' | 'super' | 'brilliant' | 'master'>>({});
   const [selectedExifPhoto, setSelectedExifPhoto] = useState<any | null>(null);
-  const [isSubmittingBatch = false, setIsSubmittingBatch] = useState(false);
+  const [isSubmittingBatch, setIsSubmittingBatch] = useState(false);
 
   const safeLeaderboard = Array.isArray(leaderboard) ? leaderboard : [];
   const safeClubLeaderboard = Array.isArray(currentClubLeaderboard) ? currentClubLeaderboard : [];
   const safePastEntries = Array.isArray(myPastEntries) ? myPastEntries : [];
   const safeUserPower = userPower || { super: 1, brilliant: 2 };
 
-  // 🧠 Típus-toleráns szűrés a kötegelt feldolgozáshoz
   const batchVoteEntries = useMemo(() => {
     const eligibleEntries = safeLeaderboard.filter(item => {
       const isOwnPhoto = item.user_email === user?.email;
@@ -162,8 +163,11 @@ export default function ArenaActiveRoom({
 
       await Promise.all(votePromises);
       alert(t('roomBatchAlertSuccess'));
+      
+      // 🎯 JAVÍTVA: Ürítjük a lokális kijelöléseket, majd újra meghívjuk a szülő adatfrissítőjét!
       setPendingVotes({});
-      window.location.reload();
+      await fetchCurrentTopic(true); // Csendes frissítés, a szoba nyitva marad az új adatokkal!
+
     } catch (e) {
       console.error(e);
       alert(t('msgNetworkError'));
@@ -175,10 +179,8 @@ export default function ArenaActiveRoom({
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '30px', animation: 'fadeIn 0.4s ease-out' }}>
       
-      {/* ── BAL OLDALI OSZLOP (INFO + KÖTEGELT ÉRTÉKELŐ PULT) ── */}
+      {/* BAL OLDALI OSZLOP */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
-        
-        {/* TÉMA INFÓ */}
         <div style={{ background: 'linear-gradient(135deg, #1e293b, #0f172a)', padding: '30px', borderRadius: '24px', border: '1px solid #334155', display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: '0 10px 30px rgba(0,0,0,0.5)', position: 'relative', overflow: 'hidden' }}>
           <div style={{ position: 'absolute', top: '-20px', right: '-20px', fontSize: '8rem', opacity: 0.05 }}>🔥</div>
           <h3 style={{ margin: '0 0 10px 0', color: '#f8fafc', fontSize: '1.8rem', textAlign: 'center', zIndex: 1 }}>
@@ -188,7 +190,6 @@ export default function ArenaActiveRoom({
           <ActiveRoomCountdown endDate={topic?.end_date} lang={lang} />
         </div>
         
-        {/* LÁTHATÓSÁGI MÉRŐ */}
         {!isMaster && (
           <div style={{ width: '100%', boxSizing: 'border-box', background: '#0f172a', padding: '25px 15px', borderRadius: '24px', border: `1px solid ${exposureColor || '#ef4444'}40`, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             <svg viewBox="0 0 200 120" style={{ width: '100%', maxWidth: '240px', height: 'auto', display: 'block' }}>
@@ -200,7 +201,6 @@ export default function ArenaActiveRoom({
           </div>
         )}
 
-        {/* KÖTEGELT ÉRTÉKELŐ DESK */}
         <div style={{ background: '#1e293b', padding: '35px', borderRadius: '24px', border: '2px solid #38bdf8', boxShadow: '0 15px 35px rgba(0,0,0,0.4)' }}>
           <div style={{ background: 'rgba(56, 189, 248, 0.08)', borderLeft: '4px solid #38bdf8', padding: '15px 20px', borderRadius: '0 12px 12px 0', marginBottom: '25px', fontSize: '0.85rem', color: '#cbd5e1', lineHeight: '1.5' }}>
             <strong style={{ color: '#38bdf8', display: 'block', marginBottom: '4px', fontSize: '0.95rem' }}>
@@ -235,7 +235,6 @@ export default function ArenaActiveRoom({
                       </div>
 
                       <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr', gap: '20px', alignItems: 'start' }}>
-                        {/* NAGYÍTHATÓ THUMBNAIL KÉP */}
                         <div 
                           onClick={() => setSelectedExifPhoto(entry)}
                           style={{ width: '160px', height: '160px', backgroundColor: '#000', borderRadius: '12px', overflow: 'hidden', cursor: 'zoom-in', border: '1px solid #334155', position: 'relative', boxShadow: '0 4px 10px rgba(0,0,0,0.4)' }}
@@ -244,7 +243,6 @@ export default function ArenaActiveRoom({
                           <div style={{ position: 'absolute', bottom: '5px', right: '5px', background: 'rgba(0,0,0,0.6)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.65rem', color: 'white' }}>{t('roomZoomLabel')}</div>
                         </div>
 
-                        {/* EXIF PANEL */}
                         <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%', minHeight: '160px' }}>
                           <div style={{ fontSize: '0.8rem', color: '#cbd5e1', lineHeight: '1.4' }}>
                             {entry.exif?.isLegacy ? (
@@ -260,12 +258,11 @@ export default function ArenaActiveRoom({
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 15px', color: '#94a3b8' }}>
                               <div> {t('mapExifCamera')} <b style={{ color: entry.exif?.isLegacy ? '#475569' : '#f8fafc' }}>{entry.exif?.camera}</b></div>
                               <div> {t('mapExifLens')} <b style={{ color: entry.exif?.isLegacy ? '#475569' : '#f8fafc' }}>{entry.exif?.lens}</b></div>
-                              <div> {t('roomShutterIso')} <b style={{ color: entry.exif?.isLegacy ? '#475569' : '#38bdf8' }}>{entry.exif?.shutter} / {entry.exif?.iso}</b></div>
-                              <div> {t('roomSoftware')} <b style={{ color: entry.exif?.isLegacy ? '#475569' : '#a78bfa' }}>{entry.exif?.software}</b></div>
+                              <div>⏱️ {t('roomShutterIso')} <b style={{ color: entry.exif?.isLegacy ? '#475569' : '#38bdf8' }}>{entry.exif?.shutter} / {entry.exif?.iso}</b></div>
+                              <div>💿 {t('roomSoftware')} <b style={{ color: entry.exif?.isLegacy ? '#475569' : '#a78bfa' }}>{entry.exif?.software}</b></div>
                             </div>
                           </div>
 
-                          {/* SZAVAZÓ ÉS REPORT PANEL */}
                           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '15px', alignItems: 'center' }}>
                             {[
                               { type: 'pass', label: t('roomVotePass').split(' ')[0], score: '0 pont', bg: '#334155' },
@@ -301,7 +298,6 @@ export default function ArenaActiveRoom({
                 })}
               </div>
 
-              {/* VÉGLEGESÍTŐ PANEL */}
               <div style={{ marginTop: '35px', borderTop: '1px solid #334155', paddingTop: '25px', textAlign: 'center' }}>
                 <button
                   onClick={handleBatchSubmit}
@@ -316,10 +312,8 @@ export default function ArenaActiveRoom({
         </div>
       </div>
 
-      {/* ── JOBB OLDALI OSZLOP (SAJÁT JÁTÉK + KLUB + RANGSOROK) ── */}
+      {/* ── JOBB OLDALI OSZLOP ── */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
-        
-        {/* SAJÁT NEVEZÉS PANEL */}
         <div style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #334155', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
             <h3 style={{ margin: 0, color: '#f8fafc', fontSize: '1.4rem' }}>{t('roomMyEntry')}</h3>
@@ -427,7 +421,7 @@ export default function ArenaActiveRoom({
           )}
         </div>
 
-        {/* VAK TOPLISTA */}
+        {/* VAK TOPLISTA MEGJELENÍTŐ */}
         <div style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #f59e0b', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
           <h3 style={{ margin: '0 0 10px 0', color: '#f59e0b', fontSize: '1.4rem' }}>{t('roomBlindLeaderboard')}</h3>
           <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 20px 0', lineHeight: '1.5' }}>{t('roomBlindLeaderboardDesc')}</p>
