@@ -258,10 +258,10 @@ export default function ArenaActiveRoom({
                             ) : null}
 
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 15px', color: '#94a3b8' }}>
-                              <div>📷 {t('mapExifCamera')} <b style={{ color: entry.exif?.isLegacy ? '#475569' : '#f8fafc' }}>{entry.exif?.camera}</b></div>
-                              <div>🔭 {t('mapExifLens')} <b style={{ color: entry.exif?.isLegacy ? '#475569' : '#f8fafc' }}>{entry.exif?.lens}</b></div>
-                              <div>⏱️ {t('roomShutterIso')} <b style={{ color: entry.exif?.isLegacy ? '#475569' : '#38bdf8' }}>{entry.exif?.shutter} / {entry.exif?.iso}</b></div>
-                              <div>💿 {t('roomSoftware')} <b style={{ color: entry.exif?.isLegacy ? '#475569' : '#a78bfa' }}>{entry.exif?.software}</b></div>
+                              <div> {t('mapExifCamera')} <b style={{ color: entry.exif?.isLegacy ? '#475569' : '#f8fafc' }}>{entry.exif?.camera}</b></div>
+                              <div> {t('mapExifLens')} <b style={{ color: entry.exif?.isLegacy ? '#475569' : '#f8fafc' }}>{entry.exif?.lens}</b></div>
+                              <div> {t('roomShutterIso')} <b style={{ color: entry.exif?.isLegacy ? '#475569' : '#38bdf8' }}>{entry.exif?.shutter} / {entry.exif?.iso}</b></div>
+                              <div> {t('roomSoftware')} <b style={{ color: entry.exif?.isLegacy ? '#475569' : '#a78bfa' }}>{entry.exif?.software}</b></div>
                             </div>
                           </div>
 
@@ -485,8 +485,8 @@ export default function ArenaActiveRoom({
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', fontSize: '0.9rem' }}>
                   <div><span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 'bold', display: 'block' }}>{t('roomInspectorArtist')}</span><b style={{ color: '#94a3b8' }}>{t('roomInspectorAnon')}</b></div>
                   <div style={{ height: '1px', background: '#334155', margin: '5px 0' }}></div>
-                  <div>📷 {t('mapExifCamera')}: <b style={{ color: 'white', display: 'block' }}>{selectedExifPhoto.exif?.camera}</b></div>
-                  <div>🔭 {t('mapExifLens')}: <b style={{ color: 'white', display: 'block' }}>{selectedExifPhoto.exif?.lens}</b></div>
+                  <div> {t('mapExifCamera')}: <b style={{ color: 'white', display: 'block' }}>{selectedExifPhoto.exif?.camera}</b></div>
+                  <div> {t('mapExifLens')}: <b style={{ color: 'white', display: 'block' }}>{selectedExifPhoto.exif?.lens}</b></div>
                   <div>⏱️ {t('roomInspectorShutter')}: <b style={{ color: '#38bdf8', display: 'block' }}>{selectedExifPhoto.exif?.shutter}</b></div>
                   <div>💎 {t('roomInspectorIso')}: <b style={{ color: '#38bdf8', display: 'block' }}>{selectedExifPhoto.exif?.iso}</b></div>
                   <div>📐 {t('roomInspectorAperture')}: <b style={{ color: '#10b981', display: 'block' }}>{selectedExifPhoto.exif?.aperture}</b></div>
