@@ -186,6 +186,31 @@ export default function AdminWeeklyView() {
       if (res.ok) { alert(t('adminDecisionSaved')); fetchTopics(); }
     } catch (e) { alert(t('msgNetworkError')); }
   };
+
+  // ── 🎯 ÚJ: CSATABÍRÓ JELENTKEZÉS ELBÍRÁLÓ COUPLING ──
+  const handleMasterDecision = async (topicId: number, decision: 'approved' | 'rejected', email: string) => {
+    const confirmMsg = decision === 'approved' 
+      ? `Biztosan kinevezed ${email}-t a kihívás Csatabírójának?` 
+      : `Biztosan elutasítod ${email} Csatabírói jelentkezését?`;
+    
+    if (!window.confirm(confirmMsg)) return;
+
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/admin/decide-master`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topicId, decision })
+      });
+      if (res.ok) {
+        alert(decision === 'approved' ? '👑 Csatabíró sikeresen kinevezve!' : '✕ Jelentkezés elutasítva.');
+        fetchTopics();
+      } else {
+        alert('Hiba történt a bírálat mentése során.');
+      }
+    } catch (e) {
+      alert('Hálózati hiba lépett fel.');
+    }
+  };
   
   const clearForm = () => {
     setEditId(null); setTitle(''); setTitleEn(''); setDesc(''); setDescEn('');
@@ -636,7 +661,7 @@ export default function AdminWeeklyView() {
               return (
                 <div key={tData.id} style={{ display: 'grid', gridTemplateColumns: `460px ${ganttCalendarData.totalDays * 40}px`, alignItems: 'center', background: tData.isGanttModified ? '#10b98108' : '#0f172a30', borderRadius: '16px', border: tData.isGanttModified ? '1px solid #10b98150' : '1px solid #232f46', padding: '16px 0px', boxSizing: 'border-box' }}>
                   
-                  {/* 🎯 JAVÍTVA: ÁTRENDEZETT, TISZTA ADATLAP SORONKÉNTI BONTÁSBAN */}
+                  {/* JAVÍTVA: ÁTRENDEZETT, TISZTA ADATLAP SORONKÉNTI BONTÁSBAN */}
                   <div style={{ display: 'flex', gap: '16px', paddingLeft: '14px', paddingRight: '15px', minWidth: 0, boxSizing: 'border-box', alignItems: 'flex-start' }}>
                     
                     {/* Indexkép bal szélen, finoman felülre igazítva */}
@@ -718,7 +743,7 @@ export default function AdminWeeklyView() {
                       title={tooltipText} 
                       className={isCurrentlyDragging ? 'gantt-bar-dragging' : ''}
                       style={{ 
-                        position: 'absolute', left: `${visualLeftPx}px`, width: `${visualWidthPx}px`, height: '26px', 
+                        position: 'absolute', left: `${visualLeftPx}px`, width: `${visualWidthPx}px`, height: '24px', 
                         background: tData.isGanttModified ? 'linear-gradient(135deg, #059669, #10b981)' : status.label === t('adminStatusEnded') ? 'linear-gradient(135deg, #475569, #64748b)' : `linear-gradient(135deg, ${status.color}90, ${status.color})`,
                         borderRadius: '6px', border: tData.isGanttModified ? '1px solid #34d399' : status.label === t('adminStatusEnded') ? '1px solid #475569' : `1px solid ${status.color}`, boxSizing: 'border-box',
                         boxShadow: tData.isGanttModified ? '0 0 12px rgba(16,185,129,0.4)' : `0 3px 8px ${status.color}25`, cursor: 'move', zIndex: 2, display: 'flex', justifyContent: 'space-between', overflow: 'hidden'
