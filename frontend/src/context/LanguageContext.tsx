@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { BACKEND_URL } from '../../utils/constants';
+import { BACKEND_URL } from '../utils/constants';
 
 // 🎯 Nyelvi kontextus betöltése
 import { useLanguage } from '../../context/LanguageContext';
