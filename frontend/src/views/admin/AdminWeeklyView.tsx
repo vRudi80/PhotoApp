@@ -93,7 +93,7 @@ export default function AdminWeeklyView() {
 
   const inputStyle = { width: '100%', padding: '10px', marginBottom: '10px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '6px', boxSizing: 'border-box' as const };
 
-  // ── 🎯 JAVÍTVA: A státusz-kiértékelő most már bent él a komponensben, így látja a nyelvi erőforrásokat! ──
+  // ── 📊 STÁTUSZ KIÉRTÉKELŐ FUNKCIÓ ──
   const getTopicStatus = (statusStr: string, sDateStr: string, eDateStr: string) => {
     if (statusStr === 'pending') return { label: t('adminStatusPending'), color: '#eab308' };
     if (statusStr === 'rejected') return { label: t('adminStatusRejected'), color: '#ef4444' };
@@ -167,12 +167,6 @@ export default function AdminWeeklyView() {
     } catch (e) { alert(t('msgNetworkError')); }
   };
   
-  useEffect(() => {
-    fetchTopics();
-    fetchUsers(); 
-    fetchSuspicious();
-  }, []);
-
   const clearForm = () => {
     setEditId(null); setTitle(''); setTitleEn(''); setDesc(''); setDescEn('');
     setStartDate(''); setEndDate(''); setMasterEmail(''); setCoverFile(null);
@@ -198,7 +192,46 @@ export default function AdminWeeklyView() {
     window.scrollTo({ top: 300, behavior: 'smooth' });
   };
 
-  // ── 📊 GANTT IDŐVONAL MATEMATIKA HATÁRAI ──
+  // ── 🎯 RESTAURÁLVA: ADATMENTÉSI ENGINE ──
+  const handleSave = async () => {
+    if (!title || !startDate || !endDate) return alert(t('mapFillRequired'));
+    try {
+      const url = editId ? `${BACKEND_URL}/api/admin/weekly-topics/${editId}` : `${BACKEND_URL}/api/admin/weekly-topics`;
+      const method = editId ? 'PUT' : 'POST';
+      
+      const formData = new FormData();
+      formData.append('title', title);
+      formData.append('title_en', titleEn); 
+      formData.append('description', desc);
+      formData.append('description_en', descEn); 
+      formData.append('startDate', startDate);
+      formData.append('endDate', endDate);
+      formData.append('masterEmail', masterEmail);
+      formData.append('coverAuthor', coverAuthor);
+      
+      if (coverUrl) formData.append('coverUrl', coverUrl);
+      if (coverFile) formData.append('cover', coverFile);
+
+      const res = await fetch(url, { method, body: formData });
+      if (res.ok) {
+        alert(t('msgMapUpdateSuccess'));
+        clearForm();
+        fetchTopics();
+        fetchSuspicious();
+      }
+    } catch (e) { alert(t('msgNetworkError')); }
+  };
+
+  // ── 🎯 RESTAURÁLVA: TÖRLÉSI ENGINE ──
+  const handleDelete = async (id: number) => {
+    if (!window.confirm(t('msgMapDeleteConfirm'))) return;
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/admin/weekly-topics/${id}`, { method: 'DELETE' });
+      if (res.ok) { fetchTopics(); fetchSuspicious(); }
+    } catch (e) { alert(t('msgNetworkError')); }
+  };
+
+  // ── 📊 GANTT NAPTÁR-MATEMATIKA HATÁRAI ──
   const ganttCalendarData = useMemo(() => {
     if (topics.length === 0) {
       return { minTime: Date.now(), maxTime: Date.now() + 86400000 * 7, weeks: [], totalDays: 7, daysArray: [] };
@@ -400,7 +433,7 @@ export default function AdminWeeklyView() {
         </button>
       </div>
 
-      {/* ── GANTT TIMELINE DASHBOARD ── */}
+      {/* ── GANTT DASHBOARD ── */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '15px' }}>
         <h3 style={{ color: '#f8fafc', margin: 0, fontSize: '1.4rem', fontWeight: 'bold' }}>
           📅 {t('adminGanttTitle')}
@@ -412,18 +445,18 @@ export default function AdminWeeklyView() {
         </div>
       </div>
       
-      {/* NAPTÁR FŐ GÖRGŐS RÉTEG */}
+      {/* NAPTÁR CANVAS REGET */}
       <div style={{ background: '#1e293b', borderRadius: '24px', border: '1px solid #334155', padding: '25px', overflowX: 'auto', boxShadow: '0 15px 35px rgba(0,0,0,0.4)', boxSizing: 'border-box' }}>
         <div style={{ width: 'max-content', display: 'flex', flexDirection: 'column', gap: '15px', position: 'relative' }}>
           
-          {/* STICKY KÉTLÉPCSŐS NAPTÁR FEJLÉC */}
+          {/* NAPTÁR FEJLÉC GRID */}
           <div style={{ display: 'grid', gridTemplateColumns: `460px ${ganttCalendarData.totalDays * 40}px`, borderBottom: '2px solid #475569', paddingBottom: '12px' }}>
             <div style={{ color: '#38bdf8', fontWeight: '900', fontSize: '0.95rem', textTransform: 'uppercase', letterSpacing: '1px', display: 'flex', alignItems: 'center' }}>
               {t('adminGanttChallengeColumn')}
             </div>
             
             <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
-              {/* 1. Szint: Dinamikus Hónap aggregáció */}
+              {/* 1. Szint: Hónap aggregáció */}
               <div style={{ display: 'flex', width: '100%', borderBottom: '1px solid rgba(71, 85, 105, 0.4)', paddingBottom: '6px' }}>
                 {monthsSpans.map((span, sIdx) => {
                   const monthNamesHu = ['Január', 'Február', 'Március', 'Április', 'Május', 'Június', 'Július', 'Augusztus', 'Szeptember', 'Október', 'November', 'December'];
@@ -436,7 +469,7 @@ export default function AdminWeeklyView() {
                   );
                 })}
               </div>
-              {/* 2. Szint: Napok számai */}
+              {/* 2. Szint: Napok rácsa */}
               <div style={{ display: 'flex', width: '100%', paddingTop: '4px' }}>
                 {ganttCalendarData.daysArray.map((date, dIdx) => {
                   const isWeekend = date.getDay() === 0 || date.getDay() === 6;
@@ -450,7 +483,7 @@ export default function AdminWeeklyView() {
             </div>
           </div>
 
-          {/* CAMPAIGN HADITERV SOROK */}
+          {/* KIHÍVÁS CAMPAIGN SOROK */}
           {topics.map((tData) => {
             const status = getTopicStatus(tData.status, tData.start_date, tData.end_date);
             const isPending = tData.status === 'pending';
@@ -472,7 +505,7 @@ export default function AdminWeeklyView() {
             return (
               <div key={tData.id} style={{ display: 'grid', gridTemplateColumns: `460px ${ganttCalendarData.totalDays * 40}px`, alignItems: 'center', background: '#0f172a30', borderRadius: '16px', border: '1px solid #232f46', padding: '14px', boxSizing: 'border-box' }}>
                 
-                {/* BAL CELLA: METADATA ADATLAP PANEL */}
+                {/* BAL CELLA: ADATOK ÉS AKCIÓK */}
                 <div style={{ display: 'flex', gap: '14px', paddingRight: '15px', minWidth: 0, boxSizing: 'border-box', alignItems: 'center' }}>
                   <div style={{ width: '74px', height: '46px', backgroundColor: '#0f172a', borderRadius: '6px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #334155', flexShrink: 0 }}>
                     {tData.cover_url ? (
@@ -509,10 +542,9 @@ export default function AdminWeeklyView() {
                   </div>
                 </div>
 
-                {/* JOBB CELLA: RÁCSHÁLÓS SÁVOK CANVAS */}
+                {/* JOBB CELLA: RÁCSHÁLÓ ÉS LINEÁRIS SÁV */}
                 <div className="gantt-bar-container" style={{ position: 'relative', width: '100%', height: '40px', display: 'flex', alignItems: 'center', boxSizing: 'border-box' }}>
                   
-                  {/* Függőleges rácsvonalak */}
                   <div style={{ position: 'absolute', inset: 0, display: 'grid', gridTemplateColumns: `repeat(${ganttCalendarData.totalDays}, 1fr)`, pointerEvents: 'none', zIndex: 1 }}>
                     {ganttCalendarData.daysArray.map((date, rIdx) => {
                       const isWeekend = date.getDay() === 0 || date.getDay() === 6;
@@ -522,7 +554,6 @@ export default function AdminWeeklyView() {
                     })}
                   </div>
 
-                  {/* PROFI LINEÁRIS FOLYAMATSÁV */}
                   <div 
                     title={tooltipText} 
                     style={{ 
@@ -545,7 +576,7 @@ export default function AdminWeeklyView() {
             );
           })}
 
-          {/* FÜGGŐLEGES MAI NAP JELZŐ CSÍK NEON GLOW-VAL */}
+          {/* FÜGGŐLEGES MAI JELZŐ CSÍK */}
           {nowIndicatorPositionPx !== null && (
             <div 
               style={{ 
