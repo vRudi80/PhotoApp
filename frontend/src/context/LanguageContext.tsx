@@ -162,7 +162,7 @@ const translations = {
     typeBlitz: '🔴 Villámfutam',
     typeMaster: '🔵 Mesterfutam',
     typeWeekly: '🔵 Mesterfutam',
-    statusMaster: '🚀 Képmester vagy',
+    statusMaster: '🚀 Képmester',
     statusEntered: '🚀 Neveztél',
     statusNotEntered: '⏳ Még nem neveztél',
     timeLeft: '⏳ Hátralévő idő:',
