@@ -484,52 +484,94 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-  // ── 🎯 JAVÍTVA: SIKERES ASZINKRON OLVASÓ EGYSÉG A VALÓS IDEJŰ ARCHIVÁLÁSHOZ ──
+  // ====================================================================
+  // 📸 SIKERES FELTÖLTŐ ÉS EXIF-MENTŐ ÉLES VÉGPONT
+  // ====================================================================
   app.post('/api/weekly/upload', upload.single('photo'), async (req, res) => {
     const { userEmail, topicId, userName } = req.body;
+    const file = req.file;
     
-    let camera = null, lens = null, shutter = null, iso = null, aperture = null, software = null;
-
-    if (req.file && req.file.buffer) {
-      try {
-        // 🔥 EXTRA SEBÉSZI ÉS BIZTONSÁGOS ASZINKRON IMPORT A COMMONJS BELSŐ KÖRÉBEN
-        const { default: exifrModule } = await import('exifr');
-        const exif = await exifrModule.parse(req.file.buffer);
-        
-        if (exif) {
-          if (exif.Model) {
-            const makePrefix = exif.Make && !exif.Model.startsWith(exif.Make) ? `${exif.Make} ` : '';
-            camera = `${makePrefix}${exif.Model}`;
-          } else if (exif.Make) {
-            camera = exif.Make;
-          }
-          lens = exif.LensModel || null;
-          if (exif.ExposureTime) {
-            shutter = exif.ExposureTime < 1 ? `1/${Math.round(1 / exif.ExposureTime)}s` : `${exif.ExposureTime}s`;
-          }
-          iso = exif.ISO ? String(exif.ISO) : null;
-          aperture = exif.FNumber ? `f/${exif.FNumber}` : null;
-          software = exif.Software || null;
-        }
-      } catch (exifError) {
-        console.log("⚠️ Nem sikerült kinyerni az EXIF-et:", exifError.message);
-      }
+    if (!file) {
+      return res.status(400).json({ error: 'Nincs fájl kiválasztva!' });
     }
 
+    let camera = null;
+    let lens = null;
+    let shutter = null;
+    let iso = null;
+    let aperture = null;
+    let software = null;
+
+    // 1. EXIF KIOLVASÁSA A HELYI TEMP FÁJLÚTVONALBÓL (Mivel diskStorage-et használsz!)
     try {
+      const { default: exifrModule } = await import('exifr');
+      const exif = await exifrModule.parse(file.path);
+      
+      if (exif) {
+        if (exif.Model) {
+          const makePrefix = exif.Make && !exif.Model.startsWith(exif.Make) ? `${exif.Make} ` : '';
+          camera = `${makePrefix}${exif.Model}`;
+        } else if (exif.Make) {
+          camera = exif.Make;
+        }
+
+        lens = exif.LensModel || null;
+
+        if (exif.ExposureTime) {
+          shutter = exif.ExposureTime < 1 
+            ? `1/${Math.round(1 / exif.ExposureTime)}s` 
+            : `${exif.ExposureTime}s`;
+        }
+
+        iso = exif.ISO ? String(exif.ISO) : null;
+        aperture = exif.FNumber ? `f/${exif.FNumber}` : null;
+        software = exif.Software || null;
+      }
+    } catch (exifError) {
+      console.log("⚠️ Nem sikerült kinyerni az EXIF-et (ez nem hiba, pl. tisztított metaadat):", exifError.message);
+    }
+
+    // 2. KÉP FELTÖLTÉSE A CLOUDINARY FELHŐBE
+    try {
+      const result = await cloudinary.uploader.upload(file.path, {
+        folder: 'parbajok',
+        width: 1600,
+        height: 1600,
+        crop: "limit",
+        quality: "auto:good"
+      });
+
+      // Miután a felhőbe ért, a helyi ideiglenes felesleges fájlt azonnal letakarítjuk
+      if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+
+      // 3. MENTÉS AZ ADATBÁZISBA A VALÓDI CLOUDINARY URL-LEL ÉS A KINYERT EXIF ADATOKKAL
       const query = `
         INSERT INTO weekly_entries 
         (topic_id, user_email, user_name, file_url, drive_file_id, is_active, camera, lens, shutter, iso, aperture, software) 
-        VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, '', 1, ?, ?, ?, ?, ?, ?)
       `;
-      // Megjegyzés: Biztosítsd, hogy a generatedFileUrl / generatedDriveId változók léteznek a Cloudinary válaszod után!
-      const values = [topicId, userEmail, userName, req.body.fileUrl || '', '', camera, lens, shutter, iso, aperture, software];
+
+      const values = [
+        Number(topicId), 
+        userEmail, 
+        userName, 
+        result.secure_url, // 🎯 Ez a valódi, éles Cloudinary kép URL!
+        camera, 
+        lens, 
+        shutter, 
+        iso, 
+        aperture, 
+        software
+      ];
 
       await pool.query(query, values);
       res.json({ success: true, message: 'Sikeres nevezés rögzített EXIF adatokkal!' });
+
     } catch (err) {
-      console.error(err);
-      res.status(500).json({ error: 'Hiba történt a mentés során.' });
+      // Biztonsági takarítás, ha a feltöltés közben hasalna el a kód
+      if (file && fs.existsSync(file.path)) fs.unlinkSync(file.path);
+      console.error("Feltöltési hiba:", err);
+      res.status(500).json({ error: 'Hiba történt a feltöltés vagy mentés során: ' + err.message });
     }
   });
 
