@@ -36,7 +36,7 @@ const translations = {
   "roomInspectorAperture": "Rekeszérték / Aperture",
   "roomInspectorSoftware": "Feldolgozó Szoftver",
   "roomBatchAlertError": "Kérlek mind a {count} képet értékeld, mielőtt véglegesítenéd a szavazást!",
-  "roomBatchAlertSuccess": "🎉 A szavazatok sikeresen rögzítve és elmentve lettek az adatbázisban!"
+  "roomBatchAlertSuccess": "🎉 A szavazatok sikeresen rögzítve és elmentve lettek az adatbázisban!",
 
 
     mapSmartRadarTitle: 'INTELLIGENS HELYSZÍNFELISMERÉS AKTÍV:',
@@ -805,7 +805,7 @@ const translations = {
   "roomInspectorAperture": "Aperture Value",
   "roomInspectorSoftware": "Processing Software",
   "roomBatchAlertError": "Please vote for all {count} photos before finalizing!",
-  "roomBatchAlertSuccess": "🎉 All package votes successfully submitted and saved!"
+  "roomBatchAlertSuccess": "🎉 All package votes successfully submitted and saved!",
 
     
     // Pályázatok almenü
