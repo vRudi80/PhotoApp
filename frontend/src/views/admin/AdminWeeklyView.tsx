@@ -187,10 +187,10 @@ export default function AdminWeeklyView() {
     } catch (e) { alert(t('msgNetworkError')); }
   };
 
-  // ── 🎯 ÚJ: CSATABÍRÓ JELENTKEZÉS ELBÍRÁLÓ COUPLING ──
+  // ── 🎯 REAL ACTION: CSATABÍRÓ JELENTKEZÉS AUTOMATA ELBÍRÁLÓ COUPLING ──
   const handleMasterDecision = async (topicId: number, decision: 'approved' | 'rejected', email: string) => {
     const confirmMsg = decision === 'approved' 
-      ? `Biztosan kinevezed ${email}-t a kihívás Csatabírójának?` 
+      ? `Biztosan kinevezed ${email}-t a kihívás hivatalos Csatabírójának?` 
       : `Biztosan elutasítod ${email} Csatabírói jelentkezését?`;
     
     if (!window.confirm(confirmMsg)) return;
@@ -202,7 +202,7 @@ export default function AdminWeeklyView() {
         body: JSON.stringify({ topicId, decision })
       });
       if (res.ok) {
-        alert(decision === 'approved' ? '👑 Csatabíró sikeresen kinevezve!' : '✕ Jelentkezés elutasítva.');
+        alert(decision === 'approved' ? '👑 Csatabíró sikeresen kinevezve és csatasorba állítva!' : '✕ Jelentkezés elutasítva.');
         fetchTopics();
       } else {
         alert('Hiba történt a bírálat mentése során.');
@@ -661,7 +661,7 @@ export default function AdminWeeklyView() {
               return (
                 <div key={tData.id} style={{ display: 'grid', gridTemplateColumns: `460px ${ganttCalendarData.totalDays * 40}px`, alignItems: 'center', background: tData.isGanttModified ? '#10b98108' : '#0f172a30', borderRadius: '16px', border: tData.isGanttModified ? '1px solid #10b98150' : '1px solid #232f46', padding: '16px 0px', boxSizing: 'border-box' }}>
                   
-                  {/* JAVÍTVA: ÁTRENDEZETT, TISZTA ADATLAP SORONKÉNTI BONTÁSBAN */}
+                  {/* ÁTRENDEZETT, TISZTA ADATLAP SORONKÉNTI BONTÁSBAN */}
                   <div style={{ display: 'flex', gap: '16px', paddingLeft: '14px', paddingRight: '15px', minWidth: 0, boxSizing: 'border-box', alignItems: 'flex-start' }}>
                     
                     {/* Indexkép bal szélen, finoman felülre igazítva */}
@@ -705,6 +705,32 @@ export default function AdminWeeklyView() {
                         <strong style={{ color: '#94a3b8' }}>{lang === 'en' ? 'Cover by:' : 'Borítókép:'}</strong> 
                         <span>{tData.cover_author || (lang === 'en' ? 'Not specified' : 'Nincs megadva')}</span>
                       </div>
+
+                      {/* ── 👑 🎯 JAVÍTVA: INTERAKTÍV CSATABÍRÓ ELBÍRÁLÓ PANEL KÖZVETLENÜL AZ ADATLAPON! ── */}
+                      {tData.pending_master_email && (
+                        <div style={{ marginTop: '5px', padding: '10px 14px', background: '#eab30810', border: '1px solid #eab30840', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '8px', boxShadow: '0 4px 10px rgba(0,0,0,0.3)' }}>
+                          <span style={{ fontSize: '0.82rem', color: '#fde047', fontWeight: 'bold' }}>
+                            👑 Jelentkező Csatabíró:
+                          </span>
+                          <span style={{ fontSize: '0.8rem', color: '#fff', wordBreak: 'break-all', fontFamily: 'monospace' }}>
+                            {tData.pending_master_email}
+                          </span>
+                          <div style={{ display: 'flex', gap: '8px', marginTop: '2px' }}>
+                            <button 
+                              onClick={() => handleMasterDecision(tData.id, 'approved', tData.pending_master_email)} 
+                              style={{ flex: 1, background: '#10b981', color: '#0f172a', border: 'none', padding: '5px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 'bold' }}
+                            >
+                              ✓ Elfogad
+                            </button>
+                            <button 
+                              onClick={() => handleMasterDecision(tData.id, 'rejected', tData.pending_master_email)} 
+                              style={{ flex: 1, background: '#ef444420', color: '#f87171', border: '1px solid #ef444440', padding: '5px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 'bold' }}
+                            >
+                              ✕ Elutasít
+                            </button>
+                          </div>
+                        </div>
+                      )}
 
                       {/* 6. Sor: Akciógombok teljesen külön sorban, alul */}
                       <div style={{ display: 'flex', gap: '8px', marginTop: '8px', flexWrap: 'wrap' }}>
@@ -770,12 +796,6 @@ export default function AdminWeeklyView() {
                         }}
                       />
                     </div>
-
-                    {tData.pending_master_email && (
-                      <div style={{ position: 'absolute', bottom: '15px', left: `${visualLeftPx}px`, background: '#eab308', color: '#0f172a', fontSize: '0.62rem', padding: '2px 6px', borderRadius: '4px', fontWeight: 'black', zIndex: 3, boxShadow: '0 2px 4px rgba(0,0,0,0.4)' }}>
-                        👑 PENDING MASTER
-                      </div>
-                    )}
                   </div>
 
                 </div>
