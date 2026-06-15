@@ -75,7 +75,7 @@ interface ArenaActiveRoomProps {
   exposurePercentage: number;
   exposureLabel: string;
   myEntry: any;
-  voteEntry: any;
+  voteEntry: any; 
   noMoreEntries: boolean;
   masterVotesLeft: number;
   userPower: any;
@@ -115,7 +115,6 @@ export default function ArenaActiveRoom({
 
   const { t, lang } = useLanguage();
 
-  // ── 🧪 TESZT ÁLLAPOTOK A KÖTEGELT SZAVAZÁSHOZ ANONYM MÓDBAN ──
   const [pendingVotes, setPendingVotes] = useState<Record<number, 'pass' | 'super' | 'brilliant' | 'master'>>({});
   const [selectedExifPhoto, setSelectedExifPhoto] = useState<any | null>(null);
   const [isSubmittingBatch, setIsSubmittingBatch] = useState(false);
@@ -125,53 +124,38 @@ export default function ArenaActiveRoom({
   const safePastEntries = Array.isArray(myPastEntries) ? myPastEntries : [];
   const safeUserPower = userPower || { super: 1, brilliant: 2 };
 
-  // ── 🧪 INTELIGENS TESZT-KÖTEG GENERÁTOR (Biztonságos EXIF profilozással) ──
+  // ── 🧪 JAVÍTVA: CSAK AZOKAT ENGEDI BE, AMIKRE MÉG NEM SZAVAZTÁL (has_user_voted szűrés) ──
   const batchVoteEntries = useMemo(() => {
-    const list: any[] = [];
+    const eligibleEntries = safeLeaderboard.filter(item => 
+      item.user_email !== user?.email && 
+      Number(item.has_user_voted || 0) !== 1 // 🎯 Kiszűri a már elküldött szavazatokat!
+    );
     
-    // 1. Az első elem MINDIG a backend által küldött, még nem szavazott valós kép
-    if (voteEntry && voteEntry.file_url) {
-      list.push({
-        ...voteEntry,
-        file_url: getImageUrl(voteEntry.drive_file_id, voteEntry.file_url),
-        exif: {
-          camera: 'Sony ILCE-7M4',
-          lens: 'FE 24-70mm F2.8 GM II',
-          shutter: '1/250s', iso: '100', aperture: 'f/4.0',
-          software: 'Adobe Photoshop 25.1',
+    // Legfeljebb 10 darab feldolgozatlan képet jelenítünk meg egyszerre
+    return eligibleEntries.slice(0, 10).map((item, i) => {
+      // 🎯 JAVÍTVA: Nem ír ki mindenre AI gyanút! Biztosítunk egy szép, változatos, hiteles EXIF-et.
+      // Csak a 3. elemet (i === 2) állítjuk be szimulált AI-nak, hogy tudd tesztelni a piros panelt.
+      const mockAiSuspect = i === 2; 
+
+      return {
+        ...item,
+        file_url: getImageUrl(item.drive_file_id, item.file_url),
+        exif: mockAiSuspect ? {
+          camera: 'Nincs (Missing Hardware Signature)',
+          lens: 'Nincs (Missing Optical Profile)',
+          shutter: '-', iso: '-', aperture: '-',
+          software: 'Midjourney v6.0 Engine',
+          isAiSuspect: true
+        } : {
+          camera: i % 2 === 0 ? 'Sony ILCE-7M4' : 'Canon EOS R6',
+          lens: i % 2 === 0 ? 'FE 24-70mm F2.8 GM II' : 'RF 50mm F1.2L USM',
+          shutter: '1/250s', iso: '100', aperture: 'f/2.8',
+          software: 'Adobe Photoshop 25.1 (Windows)',
           isAiSuspect: false
         }
-      });
-    }
-
-    // 2. A többi helyet feltöltjük a ranglistából vett képekkel (a sajátunkat és a duplikációkat kiszűrve)
-    safeLeaderboard.forEach((item, idx) => {
-      if (list.length < 10 && item.user_email !== user?.email && (!voteEntry || item.id !== voteEntry.id)) {
-        // Csak a 3. és a 6. tesztképet jelöljük meg szimulált AI-nak, a többi tiszta marad!
-        const shouldBeAiSuspect = idx === 2 || idx === 5;
-
-        list.push({
-          ...item,
-          file_url: getImageUrl(item.drive_file_id, item.file_url),
-          exif: shouldBeAiSuspect ? {
-            camera: 'Nincs (Missing Hardware Signature)',
-            lens: 'Nincs (Missing Optical Profile)',
-            shutter: '-', iso: '-', aperture: '-',
-            software: 'Midjourney v6.0 Engine',
-            isAiSuspect: true
-          } : {
-            camera: idx % 2 === 0 ? 'Canon EOS R6' : 'Nikon Z6 II',
-            lens: idx % 2 === 0 ? 'RF 50mm F1.2L' : 'NIKKOR Z 24-70mm f/4 S',
-            shutter: '1/160s', iso: '400', aperture: 'f/2.8',
-            software: 'Lightroom Classic 13.2',
-            isAiSuspect: false
-          }
-        });
-      }
+      };
     });
-
-    return list;
-  }, [voteEntry, safeLeaderboard, user?.email]);
+  }, [safeLeaderboard, user?.email]);
 
   const getTranslatedExposureLabel = (label: string) => {
     if (lang === 'en') {
@@ -187,14 +171,22 @@ export default function ArenaActiveRoom({
   const displayRoomDesc = lang === 'en' && topic?.description_en ? topic.description_en : (topic?.description || '');
 
   const handleBatchSubmit = async () => {
+    const totalVoted = Object.keys(pendingVotes).length;
+    if (totalVoted < batchVoteEntries.length) {
+      alert(lang === 'en' ? `Please vote for all ${batchVoteEntries.length} photos before finalizing!` : `Kérlek mind a ${batchVoteEntries.length} képet értékeld, mielőtt véglegesítenéd a szavazást!`);
+      return;
+    }
+
     setIsSubmittingBatch(true);
     try {
-      // Itt futna a backend batch mentés
+      for (const [entryId, type] of Object.entries(pendingVotes)) {
+        // Ide fut be a backend tranzakció mentése
+      }
       alert(lang === 'en' ? '🎉 All package votes finalized!' : '🎉 A szavazatok sikeresen véglegesítve lettek!');
       setPendingVotes({});
     } catch (e) {
       console.error(e);
-    } finally {
+    } fillly: {
       setIsSubmittingBatch(false);
     }
   };
@@ -202,7 +194,7 @@ export default function ArenaActiveRoom({
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '30px', animation: 'fadeIn 0.4s ease-out' }}>
       
-      {/* ── BAL OLDALI OSZLOP (INFO ÉS MÉRŐK) ── */}
+      {/* ── BAL OLDALI OSZLOP ── */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
         
         {/* TÉMA INFÓ */}
@@ -325,12 +317,11 @@ export default function ArenaActiveRoom({
         </div>
       </div>
 
-      {/* ── ⚔️ JOBB OLDALI OSZLOP (KÖTEGELT TESZT MATRIX FELÜLET) ── */}
+      {/* ── KÖTEGELT ÉRTÉKELŐ PULT MÁTRIX ── */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
         
         <div style={{ background: '#1e293b', padding: '35px', borderRadius: '24px', border: '2px solid #38bdf8', boxShadow: '0 15px 35px rgba(0,0,0,0.4)' }}>
           
-          {/* EXIF VÉDELMI MODUL LEÍRÁSA */}
           <div style={{ background: 'rgba(56, 189, 248, 0.08)', borderLeft: '4px solid #38bdf8', padding: '15px 20px', borderRadius: '0 12px 12px 0', marginBottom: '25px', fontSize: '0.85rem', color: '#cbd5e1', lineHeight: '1.5' }}>
             <strong style={{ color: '#38bdf8', display: 'block', marginBottom: '4px', fontSize: '0.95rem' }}>
               🛡️ {lang === 'en' ? 'EXIF Diagnostics & AI Protection active' : 'EXIF Diagnosztika és AI Elleni Védelem'}
@@ -347,27 +338,26 @@ export default function ArenaActiveRoom({
             {lang === 'en' ? 'Review photos locally, then click Submit to finalize the package.' : 'Vizsgáld meg a képeket, válaszd ki a szavazatokat, majd az oldal alján véglegesítsd a csomagot!'}
           </p>
 
-          {/* SZAVAZÓ MATRIX LISTA */}
           {(!myEntry && !isMaster) ? (
-            <div style={{ padding: '40px 20px', textAlign: 'center', background: '#0f172a', borderRadius: '16px', border: '2px dashed #f59e0b' }}>
+            <div style={{ padding: '40px 20px', textAlign: 'center', background: '#0f172a', borderRadius: '16px', border: '2px dashed #f59e0b', marginTop: '15px' }}>
               <div style={{ fontSize: '3.5rem', marginBottom: '15px' }}>🛑</div>
               <h4 style={{ color: '#f59e0b', margin: '0 0 10px 0', fontSize: '1.3rem' }}>{t('roomNoVoteRight')}</h4>
               <p style={{ color: '#94a3b8', fontSize: '0.95rem', margin: 0, lineHeight: '1.5' }}>{t('roomNoVoteRightDesc')}</p>
             </div>
           ) : batchVoteEntries.length === 0 ? (
-            <div style={{ padding: '50px 20px', textAlign: 'center', background: 'linear-gradient(135deg, #0f172a, #1e293b)', borderRadius: '16px', border: '1px solid #10b981' }}>
+            <div style={{ padding: '50px 20px', textAlign: 'center', background: 'linear-gradient(135deg, #0f172a, #1e293b)', borderRadius: '16px', border: '1px solid #10b981', marginTop: '15px' }}>
               <div style={{ fontSize: '4rem', marginBottom: '15px' }}>🎉</div>
               <h4 style={{ color: '#10b981', margin: '0 0 10px 0', fontSize: '1.5rem' }}>{t('roomAllVoted')}</h4>
               <p style={{ color: '#94a3b8', fontSize: '0.95rem', margin: 0 }}>{t('roomAllVotedDesc')}</p>
             </div>
           ) : (
             <>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '25px', marginTop: '15px' }}>
                 {batchVoteEntries.map((entry, index) => {
                   const selectedVote = pendingVotes[entry.id];
                   
                   return (
-                    <div key={entry.id} style={{ background: '#0f172a', padding: '20px', borderRadius: '20px', border: selectedVote ? '1px solid #10b98150' : '1px solid #232f46', position: 'relative' }}>
+                    <div key={entry.id} style={{ background: '#0f172a', padding: '20px', borderRadius: '20px', border: selectedVote ? '1px solid #10b98150' : '1px solid #232f46', transition: 'all 0.2s', position: 'relative' }}>
                       
                       <div style={{ position: 'absolute', top: '15px', left: '15px', background: selectedVote ? '#10b981' : '#334155', color: 'white', padding: '4px 12px', borderRadius: '50px', fontSize: '0.85rem', fontWeight: 'black', zIndex: 5 }}>
                         #{index + 1}
@@ -375,7 +365,6 @@ export default function ArenaActiveRoom({
 
                       <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr', gap: '20px', alignItems: 'start' }}>
                         
-                        {/* Kép nagyítás opcióval */}
                         <div 
                           onClick={() => setSelectedExifPhoto(entry)}
                           style={{ width: '160px', height: '160px', backgroundColor: '#000', borderRadius: '12px', overflow: 'hidden', cursor: 'zoom-in', border: '1px solid #334155', position: 'relative', boxShadow: '0 4px 10px rgba(0,0,0,0.4)' }}
@@ -384,7 +373,6 @@ export default function ArenaActiveRoom({
                           <div style={{ position: 'absolute', bottom: '5px', right: '5px', background: 'rgba(0,0,0,0.6)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.65rem', color: 'white' }}>🔍 {lang === 'en' ? 'ZOOM' : 'NAGYÍT'}</div>
                         </div>
 
-                        {/* EXIF & GOMBSOR */}
                         <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%', minHeight: '160px' }}>
                           
                           <div style={{ fontSize: '0.8rem', color: '#cbd5e1', lineHeight: '1.4' }}>
@@ -402,15 +390,16 @@ export default function ArenaActiveRoom({
                             </div>
                           </div>
 
-                          {/* 🎯 JAVÍTVA: A szavazógombok most már dinamikusan jelzik a te szinted pontos PONTSZÁMAIT is a felirat alatt! */}
+                          {/* GOMBOK PONTSZÁMOKKAL */}
                           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '15px' }}>
                             {[
                               { type: 'pass', label: t('roomVotePass').split(' ')[0], score: lang === 'en' ? '0 pts' : '0 pont', bg: '#334155' },
                               { type: 'super', label: `✨ ${t('roomVoteSuper')}`, score: `+${safeUserPower.super} ${t('roomPoints').trim()}`, bg: '#1e3a8a' },
-                              { type: 'brilliant', label: `🔥 ${t('roomVoteBrilliant')}`, score: `+${safeUserPower.brilliant} ${t('roomPoints').trim()}`, bg: '#f97316' },
-                              ...(isMaster ? [{ type: 'master', label: '👑 Mester', score: `+10 ${t('roomPoints').trim()}`, bg: '#fbbf24' }] : [])
+                              { type: 'brilliant', label: `🔥 ${t('roomVoteBrilliant')}`, sub: `+${safeUserPower.brilliant} ${t('roomPoints').trim()}`, bg: '#f97316' },
+                              ...(isMaster ? [{ type: 'master', label: '👑 Mester', sub: `+10 ${t('roomPoints').trim()}`, bg: '#fbbf24' }] : [])
                             ].map(btn => {
                               const isCurrentActive = selectedVote === btn.type;
+                              const effectiveScore = btn.score || btn.sub;
                               
                               return (
                                 <button
@@ -419,7 +408,7 @@ export default function ArenaActiveRoom({
                                   style={{ padding: '6px 12px', borderRadius: '10px', border: isCurrentActive ? `2px solid white` : '1px solid #334155', background: isCurrentActive ? btn.bg : 'transparent', color: isCurrentActive ? 'white' : '#94a3b8', fontWeight: 'bold', fontSize: '0.84rem', cursor: 'pointer', transition: 'all 0.15s', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', minWidth: '85px' }}
                                 >
                                   <span>{btn.label}</span>
-                                  <span style={{ fontSize: '0.68rem', fontWeight: 'normal', opacity: 0.6 }}>{btn.score}</span>
+                                  <span style={{ fontSize: '0.68rem', fontWeight: 'normal', opacity: 0.6 }}>{effectiveScore}</span>
                                 </button>
                               );
                             })}
@@ -433,7 +422,6 @@ export default function ArenaActiveRoom({
                 })}
               </div>
 
-              {/* VÉGLEGESÍTŐ UTASÍTÁS */}
               <div style={{ marginTop: '35px', borderTop: '1px solid #334155', paddingTop: '25px', textAlign: 'center' }}>
                 <button
                   onClick={handleBatchSubmit}
@@ -467,8 +455,6 @@ export default function ArenaActiveRoom({
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                  
-                  {/* 🎯 BIZTOSÍTVA: Szigorúan rejtett szerzői adatok, a szavazás 100% anonim marad! */}
                   <div>
                     <span style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'block', fontWeight: 'bold', textTransform: 'uppercase' }}>{lang === 'en' ? 'Artist Profile' : 'Alkotó művész'}</span>
                     <span style={{ color: '#64748b', fontSize: '1.05rem', fontWeight: 'bold', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '5px', marginTop: '3px' }}>
