@@ -221,7 +221,7 @@ export default function AdminWeeklyView() {
     return new Date(dateStr);
   };
 
-  // ── 📊 GANTT IDŐVONAL NAPTÁR-MATEMATIKÁJA ──
+  // ── 📊 GANTT NAPTÁR-MATEMATIKA HATÁRAI ──
   const ganttCalendarData = useMemo(() => {
     if (topics.length === 0) {
       return { minTime: Date.now(), maxTime: Date.now() + 86400000 * 7, weeks: [], totalDays: 7, daysArray: [] };
@@ -249,14 +249,12 @@ export default function AdminWeeklyView() {
       absoluteMax = nowTs + 86400000 * 30;
     }
 
-    // Snap legrégebbi pont Hétfő 00:00-ra
     const minDate = new Date(absoluteMin);
     const dayOfMin = minDate.getDay();
     const diffToMonday = dayOfMin === 0 ? -6 : 1 - dayOfMin;
     minDate.setDate(minDate.getDate() + diffToMonday);
     minDate.setHours(0, 0, 0, 0);
 
-    // Snap legújabb pont Vasárnap 23:59-re
     const maxDate = new Date(absoluteMax);
     const dayOfMax = maxDate.getDay();
     const diffToSunday = dayOfMax === 0 ? 0 : 7 - dayOfMax;
@@ -275,13 +273,7 @@ export default function AdminWeeklyView() {
       weeks.push(daysArray.slice(i, i + 7));
     }
 
-    return {
-      minTime: minDate.getTime(),
-      maxTime: maxDate.getTime(),
-      weeks,
-      totalDays: daysArray.length,
-      daysArray
-    };
+    return { minTime: minDate.getTime(), maxTime: maxDate.getTime(), weeks, totalDays: daysArray.length, daysArray };
   }, [topics, timeWindow]);
 
   // Naptári hónap-agregátor tengely
@@ -451,14 +443,14 @@ export default function AdminWeeklyView() {
       <div style={{ background: '#1e293b', borderRadius: '24px', border: '1px solid #334155', padding: '25px', overflowX: 'auto', boxShadow: '0 15px 35px rgba(0,0,0,0.4)', boxSizing: 'border-box' }}>
         <div style={{ width: 'max-content', display: 'flex', flexDirection: 'column', gap: '15px', position: 'relative' }}>
           
-          {/* STICKY KÉTLÉPCSŐS NAPTÁR FEJLÉC (460px fix oldalsávval) */}
+          {/* STICKY KÉTLÉPCSŐS NAPTÁR FEJLÉC */}
           <div style={{ display: 'grid', gridTemplateColumns: `460px ${ganttCalendarData.totalDays * 40}px`, borderBottom: '2px solid #475569', paddingBottom: '12px' }}>
             <div style={{ color: '#38bdf8', fontWeight: '900', fontSize: '0.95rem', textTransform: 'uppercase', letterSpacing: '1px', display: 'flex', alignItems: 'center' }}>
               {t('adminGanttChallengeColumn')}
             </div>
             
             <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
-              {/* 1. Szint: Dinamikus Év és Hónap aggregáció */}
+              {/* 1. Szint: Dinamikus Hónap aggregáció */}
               <div style={{ display: 'flex', width: '100%', borderBottom: '1px solid rgba(71, 85, 105, 0.4)', paddingBottom: '6px' }}>
                 {monthsSpans.map((span, sIdx) => {
                   const monthNamesHu = ['Január', 'Február', 'Március', 'Április', 'Május', 'Június', 'Július', 'Augusztus', 'Szeptember', 'Október', 'November', 'December'];
@@ -471,7 +463,7 @@ export default function AdminWeeklyView() {
                   );
                 })}
               </div>
-              {/* 2. Szint: Pontos naptári napok gridje */}
+              {/* 2. Szint: Napok számai */}
               <div style={{ display: 'flex', width: '100%', paddingTop: '4px' }}>
                 {ganttCalendarData.daysArray.map((date, dIdx) => {
                   const isWeekend = date.getDay() === 0 || date.getDay() === 6;
@@ -497,7 +489,7 @@ export default function AdminWeeklyView() {
               return null;
             }
 
-            // 🎯 JAVÍTVA: Lineáris, kerekítés nélküli precíziós pixel-alapú sávszélesség-számítás
+            // ── 🎯 JAVÍTVA: PERCRE PONTOS, LEBEGŐPONTOS LINEÁRIS IDŐSÍK LEKÉPEZÉS ──
             const leftPx = ((startMillis - ganttCalendarData.minTime) / 86400000) * 40;
             const widthPx = ((endMillis - startMillis) / 86400000) * 40;
 
@@ -558,14 +550,14 @@ export default function AdminWeeklyView() {
                     })}
                   </div>
 
-                  {/* PROFI LINEÁRIS FOLYAMATSÁV */}
+                  {/* INTERAKTÍV FOLYAMATSÁV */}
                   <div 
                     title={tooltipText} 
                     style={{ 
                       position: 'absolute', left: `${leftPx}px`, width: `${widthPx}px`, height: '22px', 
-                      background: `linear-gradient(135deg, ${status.color}90, ${status.color})`,
-                      borderRadius: '6px', border: `1px solid ${status.color}`, boxSizing: 'border-box',
-                      boxShadow: `0 3px 8px ${status.color}25`, cursor: 'help', zIndex: 2, transition: 'all 0.15s ease'
+                      background: status.label === t('adminStatusEnded') ? 'linear-gradient(135deg, #475569, #64748b)' : `linear-gradient(135deg, ${status.color}90, ${status.color})`,
+                      borderRadius: '6px', border: status.label === t('adminStatusEnded') ? '1px solid #475569' : `1px solid ${status.color}`, boxSizing: 'border-box',
+                      boxShadow: `0 3px 8px ${status.color}25`, cursor: 'help', zIndex: 2, transition: 'transform 0.15s ease'
                     }}
                     onMouseEnter={e => e.currentTarget.style.transform = 'scaleY(1.08)'}
                     onMouseLeave={e => e.currentTarget.style.transform = 'none'}
@@ -586,7 +578,7 @@ export default function AdminWeeklyView() {
             <div 
               style={{ 
                 position: 'absolute', top: 0, bottom: 0, 
-                left: `${460 + nowIndicatorPositionPx}px`, // 460px fix oldalsáv eltolás + a pontos mai rácspixel!
+                left: `${460 + nowIndicatorPositionPx}px`, 
                 width: '2px', background: 'linear-gradient(180deg, #ef4444, #b91c1c)', zIndex: 99, pointerEvents: 'none',
                 boxShadow: '0 0 12px #ef4444, 0 0 4px #ef4444'
               }}
