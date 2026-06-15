@@ -34,8 +34,6 @@ const getLocalMySQLNow = () => {
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 };
 
-
-
 // 📊 JAVÍTVA: Teljesen hurokmentesített, magyar időzónára szinkronizált profil statisztika
 async function getUserLikesAndVictories(pool, email) {
   const currentNow = getLocalMySQLNow();
