@@ -212,8 +212,8 @@ const translations = {
     subSupport: '✉️ Support & Segítség',
     subLogout: '🚪 Kijelentkezés',
 
-    dashWelcome: 'Üdvözlünk,',
-    dashSupportNotice: 'Ha valami nem megfelelően működik, a support részen kapcsolatba léphetsz a fejlesztővel!',
+    dashWelcome: 'Üdvözlünk',
+    dashSupportNotice: 'Nézz szét, próbálj ki mindenfunkciót!',
     dashPremiumBadge: '⭐ Aktív Prémium Tag',
     dashAlertsTitle: '🔔 Aktuális Események & Értesítések',
     dashSyncing: '⏳ Adatok szinkronizálása a szerverrel...',
@@ -939,7 +939,7 @@ const translations = {
     msgTicketsSubmitError: 'An error occurred during submission.',
 
     dashWelcome: 'Welcome',
-    dashSupportNotice: 'If something is not working properly, you can contact the developer in the support section!',
+    dashSupportNotice: 'Look around and try everything!',
     dashPremiumBadge: '⭐ Active Premium Member',
     dashAlertsTitle: '🔔 Current Events & Notifications',
     dashSyncing: '⏳ Syncing data with the server...',
