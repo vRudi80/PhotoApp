@@ -318,7 +318,7 @@ export default function ArenaActiveRoom({
         {/* KLUBOK CSATÁJA */}
         <div style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #10b981', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-            <h3 style={{ margin 0, color: '#10b981', fontSize: '1.4rem' }}>{t('roomClubLeague')}</h3>
+            <h3 style={{ margin:0, color: '#10b981', fontSize: '1.4rem' }}>{t('roomClubLeague')}</h3>
             <span style={{ fontSize: '0.8rem', background: '#ef4444', color: 'white', padding: '3px 10px', borderRadius: '12px', fontWeight: 'bold', boxShadow: '0 0 10px rgba(239, 68, 68, 0.6)' }}>{t('roomLiveBadge')}</span>
           </div>
           <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 20px 0', lineHeight: '1.5' }}>{t('roomClubLeagueDesc')}</p>
