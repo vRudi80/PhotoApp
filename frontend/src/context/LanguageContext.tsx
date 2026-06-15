@@ -1,1568 +1,614 @@
-import React, { createContext, useState, useContext } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { BACKEND_URL } from '../../utils/constants';
 
-// 📊 A FELÜLET STATIKUS SZÓTÁRA
-// Ide gyűjtjük a gombok, feliratok fix szövegeit. Nyugodtan bővíthetjük később!
-const translations = {
-  hu: {
-    // Navigációs fülek (WeeklyChallengeView)
-    tabChallenges: '🏆 Kihívások',
-    tabUpcoming: '⏳ Közelgő ligák',
-    tabPast: '📜 Befejezett ligák',
-    tabAlbum: '🖼️ Képcsarnok',
-    tabStats: '🏆 Dicsőségfalam',
-    tabHof: '👑 Mesterek csarnoka',
-    btnRules: '📖 Játékszabályok & Rangok',
-    tileClubLifeTitle: 'Klubélet',
+// 🎯 Nyelvi kontextus betöltése
+import { useLanguage } from '../../context/LanguageContext';
 
-    "adminTitle": "⚔️ Kihívás kezelő központ",
-  "adminSubtitle": "A rendszer automatikusan indítja el az elfogadott kihívásokat, amint elérkezik a kezdő dátumuk!",
-  "adminSuspiciousDetected": "Gyanús Tevékenységek Detektálva!",
-  "adminSecurityOk": "Rendszerbiztonság rendben",
-  "adminSecurityBtn": "🔄 Ellenőrzés futtatása",
-  "adminSecurityClean": "Jelenleg minden tiszta.",
-  "adminConfirmDisqualify": "❗ Biztosan törlöd {name} ({email}) nevezését?",
-  "adminConfirmApproveIp": "✅ Biztosan elfogadod {name} ({email}) nevezését legitimként ezen az IP-címen?",
-  "adminIpResolvedSuccess": "🟢 Nevezés sikeresen jóváhagyva, az IP konfliktus feloldva!",
-  "adminConfirmApprovePlan": "⚔️ Biztosan ELFOGADOD és harcrendbe állítod ezt a beküldött haditervet?",
-  "adminConfirmRejectPlan": "⚔️ Biztosan ELUTASÍTOD ezt a beküldött haditervet?",
-  "adminDecisionSaved": "✓ A döntés sikeresen rögzítve a naptárban!",
-  "adminFormNew": "Új Kihívás Kiírása",
-  "adminFormEdit": "Kihívás Szerkesztése",
-  "adminMasterAssign": "⚖️ Kijelölt Képmester (Extra pontokat osztó főbíró)",
-  "adminMasterNone": "Nincs külön képmester kijelölve (Opcionális)",
-  "adminCoverLabel": "🖼️ Kihívás Vizuális Borítóképe (Automata tömörítéssel)",
-  "adminPreviewNew": "Új borítókép előnézet (Mentésre vár):",
-  "adminPreviewCurrent": "Jelenleg aktív borítókép:",
-  "adminDateStart": "Hadművelet Kezdete (Óra/Perc is)",
-  "adminDateEnd": "Hadművelet Vége (Óra/Perc is)",
-  "adminBtnUpdate": "Változtatások Mentése és Élesítés",
-  "adminBtnSave": "Kihívás Mentése",
-  "adminGanttTitle": "Kihívás Tervek & Gantt Idővonal",
-  "adminStatusPending": "BÍRÁLATRA VÁR ⏳",
-  "adminStatusRejected": "ELUTASÍTOD ❌",
-  "adminStatusEnded": "LEZÁRULT 📜",
-  "adminStatusScheduled": "BEÜTEMEZETT 📅",
-  "adminStatusLive": "ÉLŐ FUTAM ⚔️",
-  "adminProposedBy": "Beküldte:",
-  "adminMasterPending": "Képmesternek jelentkezett",
-  "adminConfirmAssignMaster": "Biztosan kinevezed őt Képmesternek: {email}?",
-  "adminMasterSuccess": "✓ Képmester sikeresen kinevezve!",
-  "adminConfirmRejectMaster": "Elutasítod a jelentkezést?",
-  "adminMasterRejected": "✕ Jelentkezés elutasítva.",
-  "adminBtnApprove": "Elfogad",
-  "adminBtnReject": "Elutasít",
-
-    "adminGanttChallengeColumn": "Kihívás haditerv",
-  "adminGanttTimeline": "Idővonal",
-  "adminWeekLabel": "hét",
-  "adminTooltipFrom": "Kezdet",
-  "adminTooltipTo": "Vége",
-  
-  "roomMatchClosed": "Futam Lezárult! 📜",
-  "roomTimeLeftLabel": "⏳ HÁTRALÉVŐ IDŐ:",
-  "roomZoomLabel": "🔍 NAGYÍT",
-  "roomShutterIso": "⏱️ Záridő / ISO:",
-  "roomSoftware": "💿 Szoftver:",
-  "roomExifShieldTitle": "🛡️ EXIF Diagnosztika és AI Elleni Védelem aktív",
-  "roomExifShieldDesc": "A verseny tisztaságának megőrzése érdekében minden kép alatt láthatóvá tettük a nyers fájl-metaadatokat. A generatív AI modellek nem rendelkeznek valódi fizikai gépvázzal, ISO profillal vagy záridő-ciklussal.",
-  "roomBatchTitle": "Kötegelt Értékelő Pult",
-  "roomBatchDesc": "Vizsgáld meg a képeket, válaszd ki a szavazatokat, majd az oldal alján véglegesítsd a csomagot!",
-  "roomBatchSubmitBtn": "📗 SZAVAZATOK VÉGLEGESÍTÉSE ÉS BEKÜLDÉSE",
-  "roomLegacyPhoto": "ℹ️ Exif hiányzik: korábban feltöltött kép",
-  "roomAiSuspect": "⚠️ AI GYANÚ: Hiányzó hardveres pecsét!",
-  "roomVerifiedHardware": "✓ Hardveresen igazolt: Hiteles fotó",
-  "roomInspectorTitle": "🔎 Képvizsgálat",
-  "roomInspectorArtist": "Alkotó művész",
-  "roomInspectorAnon": "🔒 Névtelen Alkotó (Titkosított)",
-  "roomInspectorShutter": "Záridő / Exposure",
-  "roomInspectorIso": "Érzékenység / ISO",
-  "roomInspectorAperture": "Rekeszérték / Aperture",
-  "roomInspectorSoftware": "Feldolgozó Szoftver",
-  "roomBatchAlertError": "Kérlek mind a {count} képet értékeld, mielőtt véglegesítenéd a szavazást!",
-  "roomBatchAlertSuccess": "🎉 A szavazatok sikeresen rögzítve és elmentve lettek az adatbázisban!",
-
-
-    mapSmartRadarTitle: 'INTELLIGENS HELYSZÍNFELISMERÉS AKTÍV:',
-  mapSmartRadarDesc: 'Kattints a térképre gombostűhöz, MAJD egyszerűen tallózz be egy fotót! Ha van benne EXIF GPS koordináta, a radar azonnal odateleportálja a térképet és odaszegezi a jelölőt!',
-  mapDashGlobalTitle: '🌍 Globális Térkép Adatbázis',
-  mapDashLocations: 'helyszín',
-  mapDashPraises: 'közösségi elismerés',
-  mapDashPioneersTitle: 'Top Térkép-Felfedezők',
-  mapDashSpots: 'hely',
-  mapDashNoData: 'Még nincs rögzített adat',
-  mapDashThankYou: '❤️ NAGYON KÖSZÖNJÜK!',
-  mapDashThankYouDesc: 'Hálásak vagyunk, hogy a helyszíneid megosztásával te is építed a közösségünk interaktív fotós térképét!',
-  mapDashYourContribution: 'Saját felfedezéseid:',
-  mapNotSpecified: 'Nincs megadva',
-
-
-    profStatusTitle: 'Fiókállapot és Használat',
-    profEmailLabel: 'REGISZTRÁLT E-MAIL CÍM (NEM MÓDOSÍTHATÓ)',
-    profSubLabel: 'ELŐFIZETÉSI SZINT',
-    profStorageLabel: '💾 Portfólió Tárhely',
-    profStorageSub: 'kép',
-    profAiLabel: '🤖 AI Képelemzés',
-    profAiSub: 'alkalom',
-    profAiDesc: 'Generált okos címkék száma',
-    profPremiumActive: 'Aktív prémium tagság',
-    profPremiumValid: 'Érvényes eddig',
-    profPremiumExpired: 'Tagság Lejárt',
-    profPremiumExpiredDesc: 'Visszaállítva ingyenes csomagra',
-    profPremiumExpiredOn: 'Lejárat dátuma',
-    profFreeTier: 'Ingyenes Alapfiók',
-    profFreeTierDesc: 'Korlátozott elérésű csomag',
-
-    ticketsStatusOpen: 'Új bejelentés',
-    ticketsStatusInProgress: 'Folyamatban',
-    ticketsStatusClosed: 'Lezárva',
-    ticketsNewTicketTitle: '🛠️ Új Segítségkérés indítása',
-    ticketsNewTicketDesc: 'Gondod akadt a fizetéssel, a Drive-feltöltéssel vagy hibát találtál? Írd meg bátran, és az Adminisztrátor hamarosan válaszol!',
-    ticketsSubjectPlaceholder: 'Hiba rövid megnevezése (Tárgy)...',
-    ticketsMessagePlaceholder: 'Részletes leírás, mi történt...',
-    ticketsSubmitBtn: 'Hibajegy Elküldése 🚀',
-    ticketsListTitleAdmin: '📂 Beérkezett Ügyfélszolgálati Jegyek',
-    ticketsListTitleUser: '📜 Korábbi Hibajegyeim',
-    ticketsEmptyList: 'Nincs aktív vagy korábbi bejelentésed.',
-    ticketsBadgeNewMessage: 'Új üzenet',
-    ticketsSenderLabel: 'Beküldő: ',
-    ticketsSupportLabel: 'Ügyfélszolgálat',
-    ticketsBackBtn: '← Vissza a listához',
-    ticketsUserLabel: 'Felhasználó: ',
-    ticketsOptOpen: 'Új / Nyitott',
-    ticketsOptInProgress: 'Folyamatban',
-    ticketsOptClosed: 'Lezárva ✓',
-    ticketsClosedNotice: '🔒 Ez a probléma sikeresen le lett zárva.',
-    ticketsReplyPlaceholder: 'Írd meg a választ ide...',
-    ticketsSendBtn: 'Küldés ✉️',
-    msgTicketsFillRequired: 'Kérlek töltsd ki a tárgyat és az üzenetet is!',
-    msgTicketsSubmitSuccess: '🚀 Hibajegy sikeresen elküldve! Hamarosan válaszolunk.',
-    msgTicketsSubmitError: 'Hiba történt a küldés során.',
-
-    sortLabel: 'RENDEZÉS:',
-    sortEndDate: 'Befejezési idő (hamarosan lejáró)',
-    sortStartDate: 'Indulási idő (legfrissebb)',
-
-    arenaAlbumLoading: '⏳ Képtárad rendezése...',
-    arenaAlbumEmptyTitle: 'A képcsarnokod még üres',
-    arenaAlbumEmptyDesc: 'Nevezz be a futó csaták egyikébe, és a fotóid automatikusan bekerülnek ide!',
-    arenaAlbumTitle: 'Képcsarnokod',
-    arenaAlbumSubtitle: 'Az összes képed eredménye, elért sikerei és történelme egyetlen helyen.',
-    arenaAlbumInBattle: '⚔️ Harcban',
-    arenaAlbumBtnDetails: '📊 Részletes Statisztika',
-    arenaAlbumModalTitle: '📊 Alkotás Életútja & Sikerei',
-    arenaAlbumModalUploaded: 'Feltöltve',
-    arenaAlbumFirstPlace: 'Első Helyezés',
-    arenaAlbumPodiumPlace: 'Dobogós (2-3. hely)',
-    arenaAlbumHistoryTitle: '⚔️ Részvételi Történet ({count} csata)',
-    arenaAlbumHistorySwapped: 'Lecserélve 🔄',
-    
-    // Kártya feliratok
-    typeBlitz: '🔴 Villámfutam',
-    typeMaster: '🔵 Mesterfutam',
-    typeWeekly: '🔵 Mesterfutam',
-    statusMaster: '🚀 Képmester vagy',
-    statusEntered: '🚀 Neveztél',
-    statusNotEntered: '⏳ Még nem neveztél',
-    timeLeft: '⏳ Hátralévő idő:',
-    photographers: 'fotós',
-    unvoted: 'értékelendő',
-    loading: '⏳ Betöltés...',
-
-    // FEJLÉC / MENÜPONTOK
-    navHome: '🏠 Főoldal',
-    navArena: '🏆 Mesterek ligája',
-    navContests: '📝 Pályázatok',
-    navClub: '👥 Fotóklub',
-    navInternational: '🌐 Nemzetközi szalonok',
-    navMap: '🌍 Helyszínek',
-    navAdmin: '⚙️ Admin',
-    
-    // Pályázatok almenü
-    subClubContests: 'Klubom aktív pályázatai',
-    subOpenContests: 'Nyílt aktív pályázatok',
-    subClosedContests: 'Lezárult pályázatok',
-    
-    // Fotóklub almenü
-    subClubNews: 'Klub Hírek',
-    subClubNights: 'Klubestek',
-    subClubHomeworks: 'Házi feladatok',
-    
-    // Nemzetközi almenü
-    subSalonsList: '🌐 Szalonok listája',
-    subFiap: '🏅 FIAP Követő',
-    subMafosz: 'MAFOSZ Követő',
-    
-    // Admin almenü
-    subLeaderClub: '🛡️ Klubom adatai',
-    subManageContests: 'Pályázatok kezelése',
-    subManageMeetings: 'Klubestek kezelése',
-    subManageHomeworks: 'Házi feladatok kezelése',
-    subManageWeekly: 'Kihívások kezelése',
-    subManageSettings: 'Kategóriák és Díjak',
-    subManageSalons: 'Szalonok kezelése',
-    subManageUsers: 'Felhasználók',
-    subManageClubs: 'Fotóklubok',
-    
-    // Felhasználói fiók almenü
-    subProfile: '👤 Profilom',
-    subPortfolio: '🖼️ Saját Portfólió',
-    subPackages: '💎 Tárhelycsomagom',
-    subSupport: '✉️ Support & Segítség',
-    subLogout: '🚪 Kijelentkezés',
-
-    dashWelcome: 'Üdvözlünk,',
-    dashSupportNotice: 'Ha valami nem megfelelően működik, a support részen kapcsolatba léphetsz a fejlesztővel!',
-    dashPremiumBadge: '⭐ Aktív Prémium Tag',
-    dashAlertsTitle: '🔔 Aktuális Események & Értesítések',
-    dashSyncing: '⏳ Adatok szinkronizálása a szerverrel...',
-    dashSyncNotice: '(Ha régen voltál itt, a szerver felébresztése eltarthat pár másodpercig)',
-    dashAlertsError: '❌ Nem sikerült betölteni az értesítéseket.',
-    dashReload: 'Újratöltés',
-    dashNewNews: 'Új Klub Hír!',
-    dashLocation: 'Helyszín',
-    dashHomework: 'Házi feladat',
-    dashActiveContest: 'Aktív Pályázat',
-    dashNoAlerts: 'Jelenleg nincs új értesítésed vagy határidős feladatod. Nyugalom van! ☕',
-
-    tileWeeklyTitle: 'Kihívások',
-    tileWeeklyDesc: 'Tölts fel az aktuális napi, vagy heti témában, szavazz mások képeire és kerülj a toplista élére!',
-    tileContestsTitle: 'Nyílt Pályázatok',
-    tileContestsDesc: 'Vegyél részt a közösségi vagy zártkörű házi fotópályázatokon.',
-    tilePortfolioTitle: 'Saját Portfólió',
-    tilePortfolioDesc: 'Töltsd fel és menedzseld a saját fotóidat, nézd meg az eredményeidet, vagy akár kérj AI elemzést.',
-    tileMapTitle: 'Fotós Helyszínek',
-    tileMapDesc: 'Fedezz fel új fotós helyeket a térképen, vagy oszd meg a sajátjaidat!',
-    tileProgressTitle: 'Minősítések (FIAP/MAFOSZ)',
-    tileProgressDesc: 'Kövesd nyomon az elfogadásaidat, generálj FIAP kompatibilis Excel táblát.',
-    tileSalonsTitle: 'Nemzetközi Szalonok',
-    tileSalonsDesc: 'Böngéssz az aktuális FIAP, MAFOSZ, PSA, vagy klub szalonok között, nevezd be a fotóidat pályázatokra.',
-    tileClubTitle: 'Fotóklub Élet',
-    tileClubDesc: 'Klubestek, találkozók, feladatok, vagy klub portfólió válogatás egy helyen.',
-    tileAdminTitle: 'Adminisztráció',
-    tileAdminDesc: 'Pályázatok, klubestek, felhasználók és szalonok kezelése.',
-
-    profTitle: '👤 Személyes adatok',
-    profNotice: 'Ez a név fog megjelenni a leadott pályaműveid mellett, a dicsőségfalon és az okleveleken is.',
-    profLabelName: 'Megjelenített név',
-    profPlaceholderName: 'Teljes neved',
-    profSaving: 'Módosítás mentése...',
-    profSaveBtn: 'Változtatások Mentése 💾',
-    profClubTitle: '🛡️ Fotóklub tagság beállítása',
-    profClubPending: 'Csatlakozási kérelem elküldve a(z) {club} klubhoz. A klub vezetőbéli vagy helyettesének jóváhagyására várunk. Addig a belső felületek zárolva maradnak.',
-    profClubActive: '✓ Aktív tagja vagy a(z) {club} fotóklubnak ({role} rangban).',
-    profClubNone: 'Jelenleg nem tartozol egyetlen klubhoz sem. Válassz az alábbi, aktív vezetőséggel rendelkező klubok közül!',
-    profSelectClub: '-- Válassz fotóklubot --',
-    profSendRequest: 'Csatlakozási kérelem elküldése ✉️',
-    profLeaderTitle: '👑 Tagfelvételi Kérelmek',
-    profLeaderNotice: 'Az alábbi fotósok szeretnének csatlakozni a klubodhoz. Az elbírálás után azonnali hozzáférést kapnak.',
-    profNoPending: 'Nincs függőben lévő jelentkezés.',
-    profApprove: 'Befogadás ✓',
-    profReject: 'Elutasítás',
-    roleLeader: 'Klubvezető',
-    roleDeputy: 'Helyettes',
-    roleMember: 'Klubtag',
-    
-    // Rendszerüzenetek
-    msgEmptyName: 'A név mező nem maradhat üresen!',
-    msgSameName: 'Ez a név megegyezik a jelenlegi neveddel.',
-    msgNameSuccess: '🎯 Megjelenített név sikeresen átírva!',
-    msgNameError: 'Hiba történt a név mentése közben.',
-    msgSelectClubError: 'Kérlek válassz egy fotóklubot!',
-    msgRequestSent: '✉️ Kérelem elküldve a vezetőségnek!',
-    msgApproveConfirm: 'Befogadod a tagot a klubba?',
-    msgRejectConfirm: 'Biztosan elutasítod a jelentkezést?',
-    msgApproveSuccess: '✅ Tag sikeresen felvéve!',
-    msgRejectSuccess: '❌ Jelentkezés elutasítva.',
-
-    helpTitle: '📖 Útmutató a Mesterek Ligájához',
-    helpExposureTitle: '⚡ Láthatósági Mérő (Az Expozíciós Energia)',
-    helpExposureDesc: 'Amikor feltöltöd a képed, expozíciós energiát kapsz. Valahányszor a gép megmutatja a fotódat valakinek értékelésre, ez az energia csökken. Új energiát úgy szerezhetsz, ha te is pontozol más alkotásokat. Tartsd a mérőt a Zöld zónában!',
-    helpJokerTitle: '🃏 Joker: Taktikai Képcsere',
-    helpJokerDesc: 'Úgy érzed, jobb fotót is tudnál mutatni az adott témában? Minden kihívásban ugyanazzal a Joker ponttal szabadon cserélgetheted a képeidet az Aréna Képtáradból vagy a galériádból! Az új fotód 0 pontról indul, de a régit bármikor büntetés nélkül visszahozhatod.',
-    helpMasterTitle: '👑 Ki az a Témavezető Képmester?',
-    helpMasterDesc: 'Minden kihívásnak van egy kijelölt Képmestere, aki a forduló szakmai házigazdája. Mivel ő felügyeli a válogatást, saját alkotással nem indulhat az adott futamban. Cserébe kap 5 darab exkluzív Mester-szavazatot, amelyek egyenként fixen +10 pontot érnek, így kiemelt szerepe van a legszebb képek felemelésében!',
-    helpRewardsTitle: '🏆 Dobogós Nyeremények & Extra Cserék',
-    helpRewardsDesc: 'A futamok lezárulásakor a mezőny legkiemelkedőbb fotóművészei értékes globális Joker cseréket és exkluzív hozzáférést kapnak jutalmul:',
-    helpReward1: '1. Helyezett (Győztes):',
-    helpReward1Bonus: '+3 db globális Joker csere + 1 HÉTTEL MEGHOSSZABBÍTOTT PRÉMIUM TAGSÁG teljesen ingyen!',
-    helpReward2: '2. Helyezett:',
-    helpReward2Bonus: '+2 db Joker csere',
-    helpReward3: '3. Helyezett:',
-    helpReward3Bonus: '+1 db Joker csere',
-    helpRanksTitle: '⭐ Ranglétra és Szavazati Erő',
-    helpRanksDesc: 'Ahogy fejlődik a látásmódod, úgy növekszik a szavazati erőd is! Minél magasabb rangot érsz el a pontjaid és győzelmeid alapján, annál nagyobb súllyal bír a szavazatod mások képein. 💡 Minden szintlépésért a rendszer azonnal +10 db ajándék Joker cserével jutalmaz meg!',
-    helpYou: 'TE VAGY',
-
-    roomChallengeRoom: 'Kihívás szoba',
-    roomMasterTitle: '👑 Képmester:',
-    roomMainPrize: 'FŐDÍJ AZ 1. HELYÉRT:',
-    roomFreePremium: '1 HÉTTEL MEGHOSSZABBÍTOTT PRÉMIUM TAGSÁG',
-    roomBonusSwaps: '+ 3 db Joker Csere! 💎',
-    roomTimeLeft: 'Hátralévő Idő',
-    roomCalculating: 'Számítás...',
-    roomExposureMeter: 'Láthatósági Mérő',
-    roomExpNoEntry: 'Töltsd fel a képedet az induláshoz, és kapsz 10 alap energiát!',
-    roomExpNewPhotos: '⚡ Új fotó érkezett az Arénába (vagy valaki Jokert használt)! Értékelj, hogy a mérőd újra maxon pörögjön!',
-    roomExpMaxed: '🔥 A képed a maximumon pörög! Jelenleg nincs több értékelhető kép az Arénában.',
-    roomVotingArena: '⚔️ Értékelő Aréna',
-    roomNoVoteRight: 'Nincs szavazati jogod!',
-    roomNoVoteRightDesc: 'A küzdelembe való belépéshez először be kell nevezned egy saját fotóval!',
-    roomAllVoted: 'Minden fotót értékeltél!',
-    roomAllVotedDesc: 'Várj, amíg a többiek is töltenek fel új képeket.',
-    roomOffTopicWarning: '⚠️ {count} játékos szerint ez a kép Off-Topic vagy AI generált!',
-    roomMasterVoteBtn: '👑 Képmester Különdíj (+10 pont)',
-    roomMasterVotesRemaining: 'Még {count} db szavazatod maradt',
-    roomVoteSuper: '✨ Szuper',
-    roomPoints: ' pont',
-    roomVoteBrilliant: '🔥 Zseniális',
-    roomVotePass: '⏭️ Nem tetszik (0 pont)',
-    roomReportBtn: '⚠️ Off-Topic/AI gyanús Jelentés',
-    roomLoadingPhoto: 'Kép betöltése...',
-    roomMyEntry: '📸 Saját Nevezésem',
-    roomJokerSwaps: 'Joker cserék: {count} db',
-    roomYouAreMaster: 'Te vagy a Képmester!',
-    roomYouAreMasterDesc: 'Ebben a futamban te lettél felkérve a képmesternek! Saját alkotással nem nevezhetsz, cserébe kapsz 5 darab, egyenként +10 pontot érő Különdíjat, amit a szavazás során oszthatsz szét a kedvenc képeid között.',
-    roomResult: 'Eredmény',
-    roomViews: 'Nézettség',
-    roomMyOffTopicTitle: '🚫 Figyelmeztetés: Tématévesztés gyanúja!',
-    roomMyOffTopicDesc: 'A képedet eddig {count} fotóstársad jelentette off-topicnak vagy gyanúsan AI-al generáltnak. Kérlek ügyelj a pontos témára, illetve ne használj AI fotót!',
-    roomSwapTitle: '🔄 Új Fotó Feltöltése & Csere',
-    roomSwapDesc: 'Rosszul megy a szekér? Tölts fel egy vadonatúj fotót 1 cserepontért! Az új kép 0 pontról indul, de a mostani képedet sem veszíted el.',
-    roomSwappingInProgress: 'Csere folyamatban...',
-    roomSwapBrowseBtn: 'Joker Elköltése Tallózással 🔄',
-    roomOrUseAlbum: 'VAGY elhasználhatsz 1 Jokert egy már meglévő albumképedre:',
-    roomLoadingGallery: '⏳ Képtár betöltése...',
-    roomSwapGalleryBtn: '🖼️ Joker Csere az Aréna Képtárból',
-    roomNoSwapsLeft: '🔒 Elfogytak a globális Joker cseréid! Teljesíts jól feladatokat extra pontokért.',
-    roomPastEntriesTitle: '↩️ Korábbi fotóid ebben a fordulóban',
-    roomPastSavedScore: 'Eltárolt korábbi állás:',
-    roomReactivateBtn: '↩️ Visszaaktiválás',
-    roomUploadingInProgress: 'Feltöltés...',
-    roomUploadSubmitBtn: 'Nevezés és Indulás 🚀',
-    roomOrChooseAlbumUpload: 'VAGY választhatsz egy meglévő fotót az albumodból:',
-    roomChooseGalleryUploadBtn: '🖼️ Választás az Aréna Képtárból',
-    roomClubLeague: '🛡️ Klubok Ligája',
-    roomLiveBadge: 'ÉLŐ',
-    roomClubLeagueDesc: 'A 3 legjobb klubtag megmérettetése alapján.',
-    roomNoClubsYet: 'Még nincs rangsorolt klub.',
-    roomActiveMembers: 'aktív tag',
-    roomBlindLeaderboard: '🏆 Vak Toplista',
-    roomBlindLeaderboardDesc: 'A taktikázás elkerülése végett az ellenfelek kiléte titkos!',
-    roomArenaEmpty: 'Még üres az Aréna.',
-    roomEncryptedOpponent: 'Titkosított ellenfél',
-    roomMe: 'Én',
-
-    planTitle: '📜 Új Kihívás Javaslata',
-    planDesc: 'Vázold fel a kihívást! Jóváhagyás után, a javaslatod bekerül a hivatalos közelgő kihívások közé.',
-    planLabelTitle: 'Kihívás megnevezése (Téma) *',
-    planPlaceholderTitle: 'Pl.: Vadvizek moraja, Városi sziluettek',
-    planLabelDesc: 'Leírás (Részletes leírás & Megkötések) *',
-    planPlaceholderDesc: 'Milyen kompozíciókat vársz? Mit tilos használni?',
-    planLabelStart: 'Kezdés dátuma *',
-    planLabelEnd: 'Zárás dátuma *',
-    planLabelMaster: 'Kijelölt Képmester',
-    planPlaceholderMaster: 'Pl.: Csontos Mária',
-    planLabelAuthor: 'Borítókép készítője',
-    planPlaceholderAuthor: 'Pl.: János Lakatos',
-    planLabelCover: 'Borítókép kiválasztása',
-    planPreviewAlt: 'Elölnézet',
-    planSubmitting: 'Haditerv küldése...',
-    planSubmitBtn: 'Haditerv beküldése Törzsi bírálatra ⚔️',
-    msgFillAllFields: 'Minden kötelező mezőt tölts ki!',
-    msgProposalSuccess: '⚔️ Haditerv sikeresen benyújtva bírálatra!',
-    msgProposalError: 'Hiba történt a küldés során.',
-    planCheckMasterMe: 'Képmester leszek',
-
-    hofLoading: '⏳ A pódium összeállítása...',
-    hofEmpty: 'Még egyetlen fotós sem gyűjtött pontot. Legyél te az első!',
-    hofTitle: '👑 Globális Fotós Dicsőségfal',
-    hofDesc: 'A közösség összesített ranglistája az éles és lezárult arénákban gyűjtött csillagok alapján.',
-    hofYou: 'TE VAGY',
-
-    archiveTitle: '📜 Befejezett Kihívások',
-    archiveNotice: 'Az eredményeknél a képre kattintva likeolhatod, vagy hozzászólhatsz a fotóhoz',
-    archiveEmpty: 'Nincs lezárt küzdelem.',
-    archiveCoverAuthor: '📸 Borítókép készítője: ',
-    archiveClubLeague: '🛡️ Klubok Ligája Eredmény',
-    archiveBlitz: 'Villámfutam',
-    archiveMaster: 'Mesterfutam',
-    archiveClubLeagueDesc: 'A 3 legjobb játékos teljesítménye alapján.',
-    archiveNoClubs: 'Ebben a futamban nem mérkőztek meg szövetségek.',
-    archiveSelectChallenge: 'Válassz egy futamot a bal oldali listából.',
-    archiveUnknownClub: 'Ismeretlen Klub',
-    archiveBasedOnPoints: ' fotós pontjai alapján',
-    archiveMemberIndividualScore: '📊 Klubjátékosok ({count} fő)',
-    archiveNoMemberPoints: 'Nem szerzett pontot senki ebből a klubból.',
-    archiveIndividualRanking: '🏅 Egyéni Rangsor',
-    archiveSelectMatch: 'Válassz egy futamot az eredmények megjelenítéséhez.',
-    archivePhotographer: 'Fotós',
-    archivePostPraises: ' utólagos dicséret',
-    archiveNomadWarrior: 'Nomád harcos',
-
-    trophyLoading: '⏳ Statisztikák betöltése...',
-    trophyError: 'Nem sikerült betölteni az adatokat.',
-    trophyCurrentStatus: 'Jelenleg Státuszod',
-    trophyLegendMax: 'Elérted a legmagasabb rangot! Te vagy a klub Vizuális Legendája! 👑',
-    trophyNextLevelPoints: 'Még {points} pont szükséges a következő szinthez!',
-    trophyNextLevelWins: '🔒 Megvannak a pontjaid, de még {wins} db Aréna Győzelem (🥇) szükséges a szintlépéshez!',
-    trophyNextLevelReady: 'Gratulálunk! Minden feltétel teljesítve a szintlépéshez!',
-    trophyPremiumActive: 'Aktív Győzelmi Prémium Tagság!',
-    trophyPremiumDesc: 'Az Aréna bajnokaként a korlátlan prémium kiváltságaid biztosítva vannak egészen eddig: ',
-    trophyPremiumNotice: ' (Nem igényel bankkártyát).',
-    trophyStatTotalPoints: 'Összes Szerzett Pont',
-    trophyStatWins: 'Aréna Győzelem (🥇)',
-    trophyStatPodiums: 'Dobogós (2-3. hely)',
-    trophyStatJokers: 'Elkölthető Joker Csere',
-    trophyStatViews: 'Összes Megtekintés',
-    trophyInviteTitle: '🎁 Hívj meg egy barátot!',
-    trophyInviteDesc: 'Oszd meg a kódodat egy fotós ismerősöddel! Ha regisztrál a portálra ÉS megadja a kódod, te azonnal +10 db Joker cserét kapsz a globális egyenlegedhez, ő pedig +5-öt.',
-    trophyInviteCode: 'KÓDOD:',
-    trophyCopy: 'Másolás',
-    trophyCopiedAlert: '📋 Meghívó kód a vágólapra másolva!',
-    trophyReferredTitle: '🤝 Téged ki hívott meg?',
-    trophyReferredDesc: 'Ha egy barátod ajánlására regisztráltál a Fotóklub Portálra, add meg az ő személyes kódját, hogy megkapja érte a megérdemelt jutalom cseréit, valamit Te is a tieid!',
-    trophyReferredSuccess: '✓ Sikeresen rögzítetted a meghívásodat! Köszönjük.',
-    trophySubmit: 'Beküldés',
-    trophyPlaceholderRef: 'Pl.: REF-A1B2C3',
-    trophyPastEntries: '📸 Korábbi Pályaművek ({count})',
-    trophyNoPastEntries: 'Még nincs befejezett kihívásod!',
-    trophyNoPastEntriesDesc: 'Vegyél részt a kihívásokban, és itt fognak megjelennen a korábbi eredményeid.',
-    trophyBadge1st: '🥇 1. Hely',
-    trophyBadgePodium: '🏆 Dobogós (2-3.)',
-    trophyField: 'Mezőny: {count} kép',
-    trophyRankLabel: 'Helyezés: ',
-    trophyShareBtn: '🚀 Eredmény megosztása',
-    trophyPointsUnit: ' pont',
-
-    modalUploadTitle: '🖼️ Nevezés az Aréna Képtáradból',
-    modalSwapTitle: '🃏 Válaszd ki a Joker Fotódat',
-    modalUploadDesc: 'Melyik meglévő galériás fotóddal szeretnél benevezni a mostani futamra?',
-    modalSwapDesc: 'Melyik galériás képedet küldöd harcba? A kék keretes Visszacserék megtartják a fordulóban korábban szerzett csillagaikat!',
-    modalBadgeSwapBack: '↩️ Visszacsere',
-    msgUploadConfirm: 'Biztosan ezzel a meglévő képeddel nevezel be a küzdelembe?',
-    msgUploadSuccess: '🎉 Sikeres nevezés az albumból!',
-    msgUploadError: 'Hiba a nevezés során.',
-
-    sharePreviewTitle: '📱 Trófeakártya Előnézet',
-    shareCancelBtn: 'Mégse ✕',
-    shareTrophySubtitle: 'FUTAMTRÓFEA',
-    sharePreparingImage: '⏳ Kép előkészítése...',
-    shareImageError: '⚠️ Kép betöltési hiba',
-    sharePhotographer: 'Fotóművész',
-    shareRankSuffix: '. HELYEZÉS',
-    shareTopicLabel: 'Kihívás témája:',
-    shareCommunityRating: 'Közösségi Értékelés',
-    shareTotalEntriesLabel: 'Összes Nevező',
-    sharePhotosCount: ' fotó',
-    sharePlayNext: 'Játssz Te is következő kihívásban:',
-    shareSavingTrophy: '⏳ Trófea mentése...',
-    shareSaveBtn: '📱 Kártya Megosztása / Mentése 🚀',
-
-    loginBadge: 'Vártunk már! 📸',
-    loginTitlePre: 'PhotAwesome ',
-    loginTitleGradient: 'A fotósok digitális otthona',
-    loginMainDesc: 'Lépj be a közösségbe! Fedezz fel új helyszíneket, versengj a heti kihívásokban, kövesd a nemzetközi FIAP/MAFOSZ sikereidet és kérj profi AI képelemzést a portfóliódra.',
-    loginBoxTitle: 'Lépj be a portálra',
-    loginBoxDesc: 'A belépéshez nincs szükség külön regisztrációra. Használd a meglévő, biztonságos Google fiókodat!',
-    loginSecureNotice: '🔒 100% Biztonságos Google azonosítás',
-    
-    // Bento-Rács Funkciók HU
-    loginFeatMatchTitle: 'Párbaj',
-    loginFeatMatchDesc: 'Fotós kihívások és toplisták.',
-    loginFeatFiapTitle: 'FIAP / MAFOSZ',
-    loginFeatFiapDesc: 'Nemzetközi minősítés követő.',
-    loginFeatMapTitle: 'Fotós Térkép',
-    loginFeatMapDesc: 'Közösségi helyszín megosztó.',
-    loginFeatAiTitle: 'AI Elemzés',
-    loginFeatAiDesc: 'Portfólió és okos képelemzés.',
-    loginFeatClubTitle: 'Fotóklub Élet',
-    loginFeatClubDesc: 'Hírek, klubestek és feladatok.',
-    loginFeatContestsTitle: 'Pályázatok',
-    loginFeatContestsDesc: 'Nyílt és zárt fotóversenyek.',
-
-    packTitle: 'Válaszd ki a számodra megfelelő csomagot',
-    packSubtitle: 'Aktiválj Prémium fiókot, hogy korlátlanul élvezhesd a platform összes funktionális előnyét!',
-    packCurrent: 'JELENLEGI CSOMAGOD',
-    packProBadge: 'PROFI FOTÓSOKNAK',
-    packMonth: ' / hó',
-    packActive: 'Aktív',
-    packSwitch: 'Váltás erre',
-    packSubscribe: 'Elöfizetés (7 nap ingyen)',
-    packUpgrade: 'Bővítés (Upgrade)',
-    packBasicTitle: 'Alap Prémium',
-    packBasicDesc: 'Tökéletes választás feltörekvő fotósoknak és hobbistáknak.',
-    packBasicF1: '1 GB Portfólió Tárhely (kb. 300 kép)',
-    packBasicF2: 'Mesterséges Intelligencia Zsűri (AI)',
-    packBasicF3: 'FIAP/MAFOSZ Statisztikák, szintek',
-    packBasicF4: 'FIAP excel export',
-    packBasicF5: 'Nemzetközi,- és hazai szalonok információi',
-    packProTitle: 'Pro Prémium',
-    packProDesc: 'Hatalmas tárhely aktívan szalonozó fotóművészek számára.',
-    packProF1: '5 GB Portfólió Tárhely (kb. 1500 kép)',
-    packProF2: 'Minden funkció az Alap csomagból',
-    packProF3: 'Nincs aggodalom a betelt tárhely miatt',
-    packProF4: 'Kiemelt technikai támogatás',
-    msgStripeError: 'Hiba történt a fizetés indításakor.',
-
-    mapLoading: '📡 Google Maps kapcsolat felépítése...',
-    mapTitle: '🌍 Fotós Helyszínek',
-    mapTipBadge: '💡 Tipp: Kattints a térképre bárhol egy új gombostű lehelyezéséhez!',
-    mapFilterLabel: '🔍 Meglévő fotós helyszínek szűrése',
-    mapFilterPlaceholder: 'Keresés névben, vázban, objektívben, hónapban...',
-    mapJumpLabel: '✈️ Ugrás településre / címre',
-    mapJumpPlaceholder: 'Város, utca (pl. Budapest)',
-    mapJumpBtn: 'Ugrás',
-    mapCloseResults: '✖ Bezárás',
-    mapFormEditTitle: '✏️ "{title}" szerkesztése',
-    mapFormNewTitle: '📍 Új Helyszín Rögzítése',
-    mapFormNamePlaceholder: 'Helyszín neve (pl. Prédikálószék kilátó)',
-    mapFormDescPlaceholder: 'Leírás: Miért jó ez a hely?',
-    mapFormMonthLabel: '📅 Készítés hónapja',
-    mapFormTimeLabel: '☀️ Készítés napszakja',
-    mapFormCameraLabel: '📷 Fényképezőgép váz',
-    mapFormLensLabel: '🔭 Használt Objektív',
-    mapFormCameraPlaceholder: 'pl. Sony A7 IV',
-    mapFormLensPlaceholder: 'pl. 16-35mm nagylátószög',
-    mapFormPhotoChange: 'Fotó cseréje (Opcionális)',
-    mapFormPhotoRequired: 'Helyszín fotója (Kötelező)',
-    mapFormSaving: 'Mentés...',
-    mapFormSaveBtn: 'Mentés 💾',
-    mapFormCreateBtn: 'Mentés 🚀',
-    mapBtnRoadmap: '🗺️ Utcatérkép',
-    mapBtnHybrid: '🛰️ Műholdas Hibrid',
-    mapExifCardTitle: '📸 Környezet & Exif tippek',
-    mapExifCamera: '📷 Gép: ',
-    mapExifLens: '🔭 Üveg: ',
-    mapLikesUnit: ' Kedvelés',
-    mapExplorerLabel: 'Felfedező:',
-    mapBtnEdit: 'Szerkesztés',
-    mapBtnDelete: 'Törlés',
-    mapCommentsTitle: '💬 Hozzászólások ',
-    mapCommentsEmpty: 'Még senki sem szólt hozzá.',
-    mapCommentPhotoTitle: 'Fotó csatolása',
-    mapCommentPlaceholderPhoto: 'Írj hozzá szöveget (opcionális)...',
-    mapCommentPlaceholderText: 'Írj egy tippet vagy kérdést...',
-    msgNoCityFound: 'Nem található ilyen hely!',
-    msgMapFillRequired: 'Kérlek adj meg címet és leírást!',
-    msgMapPhotoRequired: 'Fotó feltöltése kötelező új helyszínnél!',
-    msgMapUpdateSuccess: 'Helyszín frissítve!',
-    msgMapCreateSuccess: 'Helyszín rögzítve!',
-    msgMapMoveConfirm: 'Biztosan át szeretnéd mozgatni {title} gombostűjét az új koordinátákra?',
-    msgMapDeleteConfirm: 'Biztosan törölni szeretnéd ezt a fotós helyszínt?',
-    msgMapDeleteSuccess: 'Helyszín törölve!',
-    msgCommentError: 'Hiba a komment elküldésekor!',
-    msgSaveError: 'Mentés sikertelen!',
-
-    viewTimeCalc: 'Számítás...',
-    viewTimeError: 'Hibás dátum',
-    viewTimeEnded: 'Futam Lezárult!',
-    viewTimeDays: ' nap ',
-    viewCoverAuthor: 'Borítókép: ',
-    viewMasterLabel: '👑 Képmester: ',
-    viewActiveLeagues: '🔥 Aktuális Ligák',
-    viewActiveLeaguesDesc: 'Válassz egyet az alábbi futó ligák közül, és légy Te a legjobb!',
-    viewNoActiveLeagues: 'Jelenleg nincs egyetlen aktív liga sem!',
-    viewNoActiveLeaguesDesc: 'Pihenj meg, hamarosan új kihívás érkezik.',
-    viewLobbyTitle: 'Chat',
-    viewLobbyDesc: 'Köszöntsd a bent lévőket, beszéld meg a taktikákat, hívd meg az ismerőseidet éles küzdelmekre!',
-    viewLobbyTip: '💡 Hívd be a fotós ismerőseidet az Arénába a saját meghívó kódoddal +10 db ajándék Jokerért!',
-    viewLobbyEmpty: 'Csendes még a Lobbi... 🤫 Indítsd el Te a társalgást, szólítsd meg a klubtagokat!',
-    viewLobbyTyping: ' épp ír',
-    viewLobbyPlaceholder: 'Írj egy üzenetet...',
-    viewLobbySend: 'Küldés 🚀',
-    viewBackBtn: '⬅️ Vissza a kihívásokhoz',
-    viewPreparingRoom: '⏳ Aréna szoba előkészítése...',
-    msgNoPhotosInGallery: 'Még nincs kép az Aréna képtáradban!',
-    msgGalleryLoadError: 'Hiba az album betöltésekor.',
-    msgReportConfirm: 'Biztosan jelented ezt a képet, mert nem illik a témához?',
-    msgReportSuccess: '🚫 Jelentve! A kép eltűnt a futamodból.',
-    msgReportError: 'Hiba a jelentés során.',
-    msgReferralSuccess: '🎉 Sikeres érvényesítés! A meghívód megkapta a +10 db ajándék Joker cserét.',
-    msgUploadSuccessMain: '🎉 Sikeres nevezés! Irány szavazni!',
-    msgUploadErrorMain: 'Feltöltési hiba!',
-    msgSwapConfirm: '⚠️ Biztosan elhasználsz 1 Joker cserét? Az új képed 0 pontról fog indulni, de a korábbi képedet bármikor visszahozhatod!',
-    msgSwapSuccess: '🔄 Kép sikeresen lecserélve! Újra indul a harc!',
-    msgSwapErrorMain: 'Hiba a csere során!',
-    msgSwapBackConfirm: '⚠️ Biztosan visszatérsz ehhez a korábbi pályaművedhez? Ez 1 Joker pontodba fog kerülni, viszont visszakapod az akkori csillagaidat!',
-    msgSwapBackSuccess: '↩️ Sikeresen visszaaktiváltad a korábbi fotódat!',
-    msgSwapExistingConfirm: '⚠️ Biztosan elhasználsz 1 Joker cserére erre az albumképre? Ez a fotó most 0 pontról fog újrainduini ebben a fordulóban!',
-    msgSwapExistingSuccess: '🎉 Sikeres Joker képcsere az Aréna képtáradból!',
-    msgShareText: '🎉 Elértem a(z) {rank} helyezést a "{title}" fotós futamban! ⭐',
-    msgShareTitle: 'Fotóklub Futam Trófea',
-    msgGenerateImageError: 'Sajnos hiba történt a kép generálása közben.',
-
-    contNoClubTitle: '🔒 Nem vagy klubhoz rendelve',
-    contNoClubDesc: 'A belső klubpályázatok eléréséhez kérjük, először válassz egy fotóklubot a Profilom oldalon!',
-    contAdminCreateTitle: '⚙️ Globális Pályázat Kiírása (Admin)',
-    contClubCreateTitle: '📝 Új Belső Pályázat Indítása',
-    contPlaceholderTitle: 'Pályázat címe',
-    contPlaceholderDesc: 'Pályázati kiírás, részletes szabályzat...',
-    contLabelStart: '⏱️ Pályázat Kezdete',
-    contLabelEnd: '⌛ Nevezési Határidő',
-    contLabelFee: '🪙 Nevezési díj (0 = Ingyenes)',
-    contLabelCurrency: '💵 Pénznem',
-    contPlaceholderCats: 'Kategóriák (pl: Természet, Portré, Street) - vesszővel elválasztva',
-    contCatsSettingsTitle: '⚙️ Kategória Ponthatárok & Díjak',
-    contSectionTitle: ' kategória:',
-    contLabelAcceptScore: 'Elfogadási ponthatár',
-    contLabelAwardsStr: 'Díjak (1., 2., 3. hely - vesszővel elválasztva)',
-    contPlaceholderAwards: 'Pl: Arany Oklevél, Ezüst, Bronz',
-    contVisibilityLabel: '🔒 Pályázat Láthatósága / Elérése',
-    contVisibilityPublic: '🔓 Nyilvános pályázat (Bárki nevezhet)',
-    contVisibilityPrivate: '🔒 Zártkörű: ',
-    contSponsorLabel: '🏆 Szponzoráló Fotóklub (Oklevél logóhoz)',
-    contNoSponsor: '-- Nincs kiemelt szponzor klub --',
-    contCreateBtn: 'Pályázat Kiírása 🚀',
-    contTabAdminTitle: '📁 Összes Pályázat Kezelése',
-    contTabClubTitle: '🛡️ Klubom Aktív Pályázatai',
-    contTabClosedTitle: '📜 Lezárult Fotópályázatok',
-    contTabOpenTitle: '🌐 Nyílt Aktív Fotópályázatok',
-    contEmptyList: 'Jelenleg nincsenek pályázatok ebben a kategóriában.',
-    contBadgeOpen: 'Nevezés Nyitva',
-    contBadgeClosed: 'Lezárult',
-    contBadgeJudging: 'Zsűrizés folyamatban',
-    contBadgeSoon: 'Hamarosan indul',
-    contCardFee: '💎 NEVEZÉSI DÍJ: ',
-    contCardSponsor: '🛡️ Védnök / Szponzor:',
-    contBtnEntrants: '📊 Nevezők',
-    contBtnJuryProgress: '📈 Zsűri Állása',
-    contBtnEdit: 'Módosítás ✏️',
-    contBtnJury: 'Zsűri',
-    contBtnDelete: 'Törlés',
-    contBtnResults: '🏆 Eredményhirdetés',
-    contCardPeriod: '📅 Időszak: ',
-    contCardTotalImages: '📸 Összes kép: ',
-    contCardJuryList: '⚖️ Kijelölt Zsűri: ',
-    contJuryBannerTitle: '⚖️ Zsűritagként vagy kijelölve',
-    contJuryBannerSoon: 'A pontozás a nevezési határidő lejárta után élesedik.',
-    contJuryBannerReady: 'A nevezés lezárult, a bírálati pult készen áll.',
-    contJuryBannerDone: '✓ Minden fotót pontoztál, köszönjük!',
-    contJuryBannerNotStarted: 'A pályázat még nem indult el.',
-    contBtnOpenJudging: 'Értékelési pult megnyitása',
-    contBtnNewUpload: '+ Új Fotó Nevezése',
-    contUploadPanelTitle: 'Fotómű kiválasztása és feltöltése',
-    contUploadTitlePlaceholder: 'A mű pontos címe...',
-    contUploadCatPlaceholder: '-- Válassz kategóriát --',
-    contUploadCountSuffix: ' feltöltve)',
-    contUploadSaving: 'Fotó rögzítése a Drive-on...',
-    contUploadSubmitBtn: 'Feltöltés és Nevezés 🚀',
-    contCancel: 'Mégse',
-    contPayBannerTitle: '⚠️ Nevezési díj kiegyenlítése szükséges',
-    contPayBannerDesc: 'Feltöltött fotóid rögzítésre kerültek, ma bírálati szakaszba csak a tranzakció sikeres lezárása után kerülhetnek.',
-    contPayAmount: 'Fizetendő összeg: ',
-    contBtnPayStripe: '💳 Biztonságos Fizetés (Stripe)',
-    contPaySuccessNotice: '✓ Nevezési díj sikeresen rendezve a Stripe rendszerén keresztül. Fotóid érvényesek!',
-    contMyGalleryTitle: 'Saját Nevezett Alkotásaim',
-    contSectionUnit: ' szekció ',
-    contBtnEditTitle: 'Cím ✏️',
-    contSave: 'Mentés',
-    juryProgressTitle: '📈 Értékelési Folyamat állása',
-    juryProgressClose: 'Bezárás',
-    juryProgressTotal: 'Összes beérkezett pályamű: ',
-    juryProgressNoJury: 'Nincs hozzárendelve zsűritag.',
-    juryProgressRemaining: ' kép van hátra',
-    juryProgressDone: '✓ Kész',
-    juryProgressScoredUnit: ' fotó pontozva ',
-    juryManageTitle: '⚖️ Bírálóbizottság Összeállítása',
-    juryManageSelectPlaceholder: '-- Válassz tagot a listából --',
-    contAdd: 'Hozzáadás',
-    contRemove: 'Eltávolítás ✕',
-    contBack: 'Vissza',
-    entrantsRegistryTitle: '📊 Aktuális Jelentkezők Nyilvántartása',
-    entrantsRegistryEmpty: 'Még nem érkezett hivatalos nevezés.',
-    entrantsRegistryPaid: '✓ Nevezési díj rendezve',
-    entrantsRegistryPending: '⏳ Függőben lévő fizetés',
-    contFormEditParamTitle: 'Pályázat Paramétereinek Módosítása',
-    contFormEditStart: 'Kezdés',
-    contFormEditEnd: 'Befejezés',
-    contFormEditSettingsTitle: '⚙️ Kategória Ponthatárok & Díjak (Módosítás)',
-    contSaveChange: 'Változtatások mentése',
-    judgingConsoleTitle: '⚖️ Értékelő Pult: ',
-    judgingConsoleRemaining: 'Hátralévő fotók: ',
-    judgingConsoleClose: 'Bezárás / Kilépés',
-    judgingConsoleAnonymous: 'Névtelen pályamű',
-    judgingConsoleScorePlaceholder: 'Pont',
-    judgingConsoleScoredAllTitle: 'Minden fotót lepontoztál!',
-    judgingConsoleScoredAllDesc: 'A pontjaid rögzítésre kerültek, köszönjük az értékes munkád.',
-    judgingConsoleBackBtn: 'Vissza a listához',
-    resultsTitle: '🏆 Hivatalos Végeredmény Hirdetés',
-    resultsSectionUnit: ' szekció',
-    resultsAccepted: '✓ Elfogadva',
-    resultsVotesCount: ' bírálat',
-    resultsCertCompiling: '⏳ Oklevél összeállítása...',
-    resultsCertDownloadBtn: '📜 Hivatalos Oklevél Letöltése (PDF)',
-    msgMapMoveConfirmPlaceholder: 'Biztosan át szeretnéd mozgatni {title} gombostűjét az új koordinátákra?',
-
-    planLabelTitleEn: '🇬🇧 Kihívás címe (Angolul - Opcionális)',
-    planPlaceholderTitleEn: 'Pl.: Roar of Wild Waters',
-    planLabelDescEn: '🇬🇧 Részletes leírás (Angolul - Opcionális)',
-    planPlaceholderDescEn: 'What kind of photos are you looking for?...',
-
-    adminLabelTitleEn: '🇬🇧 Csata témája angolul (Opcionális)',
-    adminPlaceholderTitleEn: 'E.g., Spring Lights',
-    adminLabelDescEn: '🇬🇧 Hadparancs angolul (Opcionális)',
-    adminPlaceholderDescEn: 'Guideline and rules for photographers in English...',
-
-    upTitle: '🔮 Közelgő Kihívások Menetrendje',
-    upDesc: 'Már jóváhagyott, hamarosan élesedő kihívások.',
-    upClosePlanner: '✕ Tervező bezárása',
-    upOpenPlanner: '⚔️ Új kihívásterv benyújtása',
-    upEmpty: 'Nincs betárazva elkövetkező kihívás. Kattints a fenti gombra, és javasolj egy új témát!',
-    upDaily: '🔴 Villámfutam',
-    upWeekly: '🔵 Mesterfutam',
-    upCoverAuthor: '📸 Borítókép: ',
-    upMaster: '👑 Képmester:',
-    upPendingMe: '⏳ Jelentkezésed elbírálásra vár...',
-    upPendingOther: '⏳ Valaki már jelentkezett (Bírálatra vár)',
-    upApplyBtn: '👑 Jelentkezés Képmesternek',
-    upProcessing: 'Feldolgozás...',
-    upStart: 'Indulás',
-    upEnd: 'Zárás',
-    msgLoginRequired: '❌ A jelentkezéshez előbb be kell jelentkezned!',
-    msgApplyConfirm: '⚔️ Biztosan jelentkezel ennek a futamnak a Képmesterének?\n\nFigyelem: Képmesterként saját fotóval nem indulhatsz a futamban, viszont kapsz 5 darab exkluzív +10 pontot érő szavazatot!',
-    msgApplySuccess: '🎉 Jelentkezésed sikeresen elküldve! A főadmin hamarosan elbírálja a műszerfalon.',
-
-    // Album és Portfólió kulcsok
-    albumTitle: '🖼️ Saját Képalbum (Portfólió)',
-    albumLoading: 'Portfólió betöltése...',
-    albumPackageLabel: 'Csomagod: ',
-    albumPortfolioLabel: 'Portfólió: ',
-    albumTotalCloudLabel: 'Teljes felhő foglalásod: ',
-    albumStorageWarning: '⚠️ A portfólió tárhelyed majdnem betelt!',
-    albumAddPhotoTitle: '📤 Új fotó hozzáadása a portfólióhoz',
-    albumPhotoTitleLabel: 'Fénykép címe',
-    albumPhotoTitlePlaceholder: 'Pl. Magányos fa a ködben',
-    albumSelectFileLabel: 'Fájl kiválasztása',
-    albumUploading: 'Feltöltés...',
-    albumUploadBtn: 'Kép Feltöltése',
-    albumPreviewLabel: 'Kiválasztott kép előnézete:',
-    albumSearchResultLabel: 'Keresési találat',
-    albumSearchPlaceholder: '🔍 Keresés a képeid között...',
-    albumTotalEntriesTooltip: 'Összes nevezés',
-    albumAwardsTooltip: 'Díjak száma',
-    albumAcceptancesTooltip: 'Elfogadások száma',
-    albumAiEvaluationTitle: '🤖 AI Zsűri Értékelése',
-    albumAiAnalyzing: 'Elemzés folyamatban...',
-    albumAiReanalyzeBtn: 'AI Újraelemzés Kérése',
-    albumAiNotEvaluated: 'Ezt a képet még nem értékelte a mesterséges intelligencia.',
-    albumAiStartAnalyzeBtn: 'AI Elemzés Indítása',
-    albumSalonResultsTitle: 'Eredmények szalonokban',
-    albumNewTitlePlaceholder: 'Új cím...',
-    albumSaveBtn: 'Mentés',
-    albumCancelBtn: 'Mégse',
-    albumDownloadBtn: 'Letöltés',
-    albumEditBtn: 'Szerkeszt',
-    albumDeleteBtn: 'Törlés',
-    msgAlbumLegacyDownloadError: '⚠️ Ez egy korábbi rendszerből származó fotó, a letöltés nem lehetséges.',
-    msgAlbumTitleRequired: 'A cím nem lehet üres!',
-    msgAlbumStorageFullUpgrade: '⚠️ Megtelt a tárhelyed! Válts nagyobb csomagra.',
-    msgAlbumDeleteConfirm: 'Biztosan törlöd?',
-    msgAlbumDeleteError: 'Hiba a törlésnél.',
-    msgAlbumUploadRequired: 'Kép és cím megadása kötelező!',
-    msgAlbumStorageFull: '⚠️ Megtelt a tárhelyed ({size})!',
-    msgAlbumUploadError: 'Hiba történt a feltöltés közben.',
-    msgAlbumUploadNetworkError: 'Hiba a feltöltésnél.',
-    msgServerError: 'Szerver hiba',
-  },
-
-  en: {
-    // Navigációs fülek (WeeklyChallengeView)
-    tabChallenges: '🏆 Challenges',
-    tabUpcoming: '⏳ Upcoming Leagues',
-    tabPast: '📜 Past Leagues',
-    tabAlbum: '🖼️ Photo Arena',
-    tabStats: '🏆 My Trophies',
-    tabHof: '👑 Hall of Fame',
-    btnRules: '📖 Rules & Ranks',
-    tileClubLifeTitle: 'Club life',
-    
-    // Kártya feliratok
-    typeBlitz: '🔴 Blitz Match',
-    typeMaster: '🔵 Master Match',
-    typeWeekly: '🔵 Master Match',
-    statusMaster: '🚀 You are the Master',
-    statusEntered: '🚀 Entered',
-    statusNotEntered: '⏳ Not Entered Yet',
-    timeLeft: '⏳ Time Left:',
-    photographers: 'photographers',
-    unvoted: 'to review',
-    loading: '⏳ Loading...',
-
-    // FEJLÉC / MENÜPONTOK ANGOLUL
-    navHome: '🏠 Home',
-    navArena: '🏆 Masters League',
-    navContests: '📝 Contests',
-    navClub: '👥 Photo Club',
-    navInternational: '🌐 Intl. Salons',
-    navMap: '🌍 Map Spots',
-    navAdmin: '⚙️ Admin',
-
-    profStatusTitle: 'Account Status & Usage',
-    profEmailLabel: 'REGISTERED EMAIL ADDRESS (UNALTERABLE)',
-    profSubLabel: 'SUBSCRIPTION LEVEL',
-    profStorageLabel: '💾 Portfolio Storage',
-    profStorageSub: 'photos',
-    profAiLabel: '🤖 AI Analyses',
-    profAiSub: 'times',
-    profAiDesc: 'Smart tags generated',
-    profPremiumActive: 'Active subscription tier',
-    profPremiumValid: 'Valid Until',
-    profPremiumExpired: 'Subscription Expired',
-    profPremiumExpiredDesc: 'Standard free tier applied',
-    profPremiumExpiredOn: 'Expired On',
-    profFreeTier: 'Free Tier Account',
-    profFreeTierDesc: 'Limited features active',
-
-      mapSmartRadarTitle: 'SMART LOCATION RADAR ON:',
-  mapSmartRadarDesc: 'Click the map to pin manually, AND simply select a photo. If it contains EXIF GPS coordinates, the radar will instantly teleport the map and lock the anchor marker right there!',
-  mapDashGlobalTitle: '🌍 Global Map Database',
-  mapDashLocations: 'locations',
-  mapDashPraises: 'community praises',
-  mapDashPioneersTitle: 'Top Map Pioneers',
-  mapDashSpots: 'spots',
-  mapDashNoData: 'No data discovered yet',
-  mapDashThankYou: '❤️ THANK YOU!',
-  mapDashThankYouDesc: 'Thank you for tracking and sharing your photography spots, building this visual roadmap together!',
-  mapDashYourContribution: 'Your contribution:',
-  mapNotSpecified: 'Not specified',
-
-  
-  "roomMatchClosed": "Match Closed! 📜",
-  "roomTimeLeftLabel": "⏳ TIME LEFT:",
-  "roomZoomLabel": "🔍 ZOOM",
-  "roomShutterIso": "⏱️ Shutter / ISO:",
-  "roomSoftware": "💿 Software:",
-  "roomExifShieldTitle": "🛡️ EXIF Diagnostics & AI Protection active",
-  "roomExifShieldDesc": "To protect the purity of the competition, every photo displays raw hardware stamps. Generative AI models do not have true camera hardware signatures like physical lenses, ISO profiles, or shutter cycles.",
-  "roomBatchTitle": "Batch Evaluation Desk",
-  "roomBatchDesc": "Review photos locally, select your votes, and finalize the complete package at the bottom!",
-  "roomBatchSubmitBtn": "📗 FINALIZE AND SUBMIT PACK VOTES",
-  "roomLegacyPhoto": "ℹ️ Exif missing: previously uploaded image",
-  "roomAiSuspect": "⚠️ AI SUSPECT: Missing Hardware EXIF Signature!",
-  "roomVerifiedHardware": "✓ Hardware Verified: Authentic photo",
-  "roomInspectorTitle": "🔎 Image Inspector",
-  "roomInspectorArtist": "Artist Profile",
-  "roomInspectorAnon": "🔒 Anonymous Artist (Encrypted)",
-  "roomInspectorShutter": "Shutter / Exposure",
-  "roomInspectorIso": "Sensitivity / ISO",
-  "roomInspectorAperture": "Aperture Value",
-  "roomInspectorSoftware": "Processing Software",
-  "roomBatchAlertError": "Please vote for all {count} photos before finalizing!",
-  "roomBatchAlertSuccess": "🎉 All package votes successfully submitted and saved!",
-
-    
-    // Pályázatok almenü
-    subClubContests: 'My Club Active Contests',
-    subOpenContests: 'Open Active Contests',
-    subClosedContests: 'Closed Contests',
-    
-    // Fotóklub almenü
-    subClubNews: 'Club News',
-    subClubNights: 'Club Nights',
-    subClubHomeworks: 'Homeworks',
-    
-    // Nemzetközi almenü
-    subSalonsList: '🌐 Salons List',
-    subFiap: '🏅 FIAP Tracker',
-    subMafosz: 'MAFOSZ Tracker',
-    
-    // Admin almenü
-    subLeaderClub: '🛡️ My Club Data',
-    subManageContests: 'Manage Contests',
-    subManageMeetings: 'Manage Club Nights',
-    subManageHomeworks: 'Manage Homeworks',
-    subManageWeekly: 'Manage Challenges',
-    subManageSettings: 'Categories & Awards',
-    subManageSalons: 'Manage Salons',
-    subManageUsers: 'Users',
-    subManageClubs: 'Photo Clubs',
-    
-    // Felhasználói fiók almenü
-    subProfile: '👤 My Profile',
-    subPortfolio: '🖼️ My Portfolio',
-    subPackages: '💎 My Storage',
-    subSupport: '✉️ Support & Help',
-    subLogout: '🚪 Logout',
-
-    arenaAlbumLoading: '⏳ Arranging your gallery...',
-    arenaAlbumEmptyTitle: 'Your gallery is still empty',
-    arenaAlbumEmptyDesc: 'Enter one of the active battles, and your photos will automatically appear here!',
-    arenaAlbumTitle: 'Your Gallery',
-    arenaAlbumSubtitle: 'The results, achievements, and history of all your photos in one single place.',
-    arenaAlbumInBattle: '⚔️ In Battle',
-    arenaAlbumBtnDetails: '📊 Detailed Statistics',
-    arenaAlbumModalTitle: '📊 Artwork Journey & Achievements',
-    arenaAlbumModalUploaded: 'Uploaded',
-    arenaAlbumFirstPlace: 'First Place',
-    arenaAlbumPodiumPlace: 'Podium (2nd-3rd place)',
-    arenaAlbumHistoryTitle: '⚔️ Participation History ({count} matches)',
-    arenaAlbumHistorySwapped: 'Swapped 🔄',
-
-    sortLabel: 'SORT BY:',
-    sortEndDate: 'Closing time (soonest)',
-    sortStartDate: 'Starting time (newest)',
-
-    "adminGanttChallengeColumn": "Challenge Campaign",
-  "adminGanttTimeline": "Timeline",
-  "adminWeekLabel": "Week",
-  "adminTooltipFrom": "Start",
-  "adminTooltipTo": "End",
-
-    ticketsStatusOpen: 'New Ticket',
-    ticketsStatusInProgress: 'In Progress',
-    ticketsStatusClosed: 'Closed',
-    ticketsNewTicketTitle: '🛠️ Open New Support Ticket',
-    ticketsNewTicketDesc: 'Having issues with payment, Drive upload, or found a bug? Let us know, and the Administrator will reply shortly!',
-    ticketsSubjectPlaceholder: 'Short description of the error (Subject)...',
-    ticketsMessagePlaceholder: 'Detailed description of what happened...',
-    ticketsSubmitBtn: 'Submit Ticket 🚀',
-    ticketsListTitleAdmin: '📂 Received Support Tickets',
-    ticketsListTitleUser: '📜 My Past Tickets',
-    ticketsEmptyList: 'You have no active or past reports.',
-    ticketsBadgeNewMessage: 'New message',
-    ticketsSenderLabel: 'Sender: ',
-    ticketsSupportLabel: 'Support',
-    ticketsBackBtn: '← Back to list',
-    ticketsUserLabel: 'User: ',
-    ticketsOptOpen: 'New / Open',
-    ticketsOptInProgress: 'In Progress',
-    ticketsOptClosed: 'Closed ✓',
-    ticketsClosedNotice: '🔒 This issue has been successfully closed.',
-    ticketsReplyPlaceholder: 'Type your reply here...',
-    ticketsSendBtn: 'Send ✉️',
-    msgTicketsFillRequired: 'Please fill in both the subject and the message!',
-    msgTicketsSubmitSuccess: '🚀 Support ticket successfully sent! We will reply shortly.',
-    msgTicketsSubmitError: 'An error occurred during submission.',
-
-    dashWelcome: 'Welcome',
-    dashSupportNotice: 'If something is not working properly, you can contact the developer in the support section!',
-    dashPremiumBadge: '⭐ Active Premium Member',
-    dashAlertsTitle: '🔔 Current Events & Notifications',
-    dashSyncing: '⏳ Syncing data with the server...',
-    dashSyncNotice: '(If you haven\'t been here in a while, waking up the server might take a few seconds)',
-    dashAlertsError: '❌ Failed to load notifications.',
-    dashReload: 'Reload',
-    dashNewNews: 'New Club News!',
-    dashLocation: 'Location',
-    dashHomework: 'Homework',
-    dashActiveContest: 'Active Contest',
-    dashNoAlerts: 'You currently have no new notifications or deadline tasks. All quiet! ☕',
-
-    // Főoldal Csempék EN
-    tileWeeklyTitle: 'Challenges',
-    tileWeeklyDesc: 'Upload for the current daily or weekly theme, vote on others\' photos, and reach the top of the leaderboard!',
-    tileContestsTitle: 'Open Contests',
-    tileContestsDesc: 'Participate in community or private local photo contests.',
-    tilePortfolioTitle: 'My Portfolio',
-    tilePortfolioDesc: 'Upload and manage your own photos, view your results, or even request an AI analysis.',
-    tileMapTitle: 'Photo Locations',
-    tileMapDesc: 'Discover new photography spots on the map or share your own!',
-    tileProgressTitle: 'Distinctions (FIAP/MAFOSZ)',
-    tileProgressDesc: 'Track your acceptances and generate a FIAP-compatible Excel sheet.',
-    tileSalonsTitle: 'International Salons',
-    tileSalonsDesc: 'Browse through current FIAP, MAFOSZ, PSA, or club salons, and enter your photos into contests.',
-    tileClubTitle: 'Photo Club Life',
-    tileClubDesc: 'Club nights, meetings, tasks, or club portfolio selections all in one place.',
-    tileAdminTitle: 'Administration',
-    tileAdminDesc: 'Manage contests, club nights, users, and salons.',
-
-    profTitle: '👤 Personal Data',
-    profNotice: 'This name will appear next to your submitted entries, on the wall of fame, and on certificates as well.',
-    profLabelName: 'Display Name',
-    profPlaceholderName: 'Your full name',
-    profSaving: 'Saving changes...',
-    profSaveBtn: 'Save Changes 💾',
-    profClubTitle: '🛡️ Photo Club Membership Settings',
-    profClubPending: 'Join request sent to {club} photo club. Waiting for approval from the club leader or deputy. Until then, internal pages remain locked.',
-    profClubActive: '✓ You are an active member of {club} photo club (Role: {role}).',
-    profClubNone: 'You currently do not belong to any club. Choose from the active clubs below!',
-    profSelectClub: '-- Choose a photo club --',
-    profSendRequest: 'Send Join Request ✉️',
-    profLeaderTitle: '👑 Membership Applications',
-    profLeaderNotice: 'The photographers below want to join your club. They will get instant access after approval.',
-    profNoPending: 'No pending applications.',
-    profApprove: 'Accept ✓',
-    profReject: 'Reject',
-    roleLeader: 'Club Leader',
-    roleDeputy: 'Deputy',
-    roleMember: 'Club Member',
-    // System messages
-    msgEmptyName: 'The name field cannot be empty!',
-    msgSameName: 'This name is identical to your current name.',
-    msgNameSuccess: '🎯 Display name successfully updated!',
-    msgNameError: 'An error occurred while saving the name.',
-    msgNetworkError: 'A network error occurred.',
-    msgSelectClubError: 'Please select a photo club!',
-    msgRequestSent: '✉️ Request sent to the leadership!',
-    msgApproveConfirm: 'Do you want to accept this member into the club?',
-    msgRejectConfirm: 'Are you sure you want to reject this application?',
-    msgApproveSuccess: '✅ Member successfully accepted!',
-    msgRejectSuccess: '❌ Application rejected.',
-
-    helpTitle: '📖 Guide to the Masters League',
-    helpExposureTitle: '⚡ Guide to the Masters League',
-    helpExposureDesc: 'When you upload your photo, you receive exposure energy. Every time the system shows your photo to someone for review, this energy decreases. You can gain new energy by voting on others\' work. Keep the meter in the Green zone!',
-    helpJokerTitle: '🃏 Joker: Tactical Photo Swap',
-    helpJokerDesc: 'Feel like you could show a better photo for the given theme? In every challenge, you can freely swap your pictures from your Arena Gallery or device using the same Joker point! Your new photo starts from 0 points, but you can bring the old one back at any time without penalty.',
-    helpMasterTitle: '👑 Who is the Challenge Master?',
-    helpMasterDesc: 'Every challenge has a designated Challenge Master, who serves as the professional host of the round. Since they oversee the selection, they cannot participate with their own work in that specific match. In return, they receive 5 exclusive Master votes, each worth a fixed +10 points, playing a key role in elevating the most beautiful images!',
-    helpRewardsTitle: '🏆 Podium Prizes & Extra Swaps',
-    helpRewardsDesc: 'At the end of each match, the most outstanding photographers in the field receive valuable global Joker swaps and exclusive access as a reward:',
-    helpReward1: '1st Place (Winner):',
-    helpReward1Bonus: '+3 global Joker swaps + 1 WEEK EXTENDED PREMIUM MEMBERSHIP completely free!',
-    helpReward2: '2nd Place:',
-    helpReward2Bonus: '+2 Joker swaps',
-    helpReward3: '3rd Place:',
-    helpReward3Bonus: '+1 Joker swap',
-    helpRanksTitle: '⭐ Rank Ladder and Voting Power',
-    helpRanksDesc: 'As your vision develops, your voting power grows too! The higher rank you achieve based on your points and victories, the more weight your vote carries on others\' photos. 💡 For every level up, the system instantly rewards you with +10 free bonus Joker swaps!',
-    helpYou: 'YOU',
-
-    roomChallengeRoom: 'Challenge Room',
-    roomMasterTitle: '👑 Challenge Master:',
-    roomMainPrize: 'MAIN PRIZE FOR 1ST PLACE:',
-    roomFreePremium: '1 WEEK EXTENDED PREMIUM MEMBERSHIP',
-    roomBonusSwaps: '+ 3 Joker Swaps! 💎',
-    roomTimeLeft: 'Time Left',
-    roomCalculating: 'Calculating...',
-    roomExposureMeter: 'Exposure Meter',
-    roomExpNoEntry: 'Upload your photo to start and receive 10 baseline energy!',
-    roomExpNewPhotos: '⚡ New photo arrived in the Arena (or someone used a Joker)! Rate it to keep your meter maxed out!',
-    roomExpMaxed: '🔥 Your photo is at peak visibility! Currently no more images to review in the Arena.',
-    roomVotingArena: '⚔️ Review Arena',
-    roomNoVoteRight: 'No Voting Rights!',
-    roomNoVoteRightDesc: 'To enter the battle, you must first submit your own photo!',
-    roomAllVoted: 'You reviewed everything!',
-    roomAllVotedDesc: 'Wait for others to upload new pictures.',
-    roomOffTopicWarning: '⚠️ {count} players flag this image as Off-Topic or AI generated!',
-    roomMasterVoteBtn: '👑 Master Special Award (+10 points)',
-    roomMasterVotesRemaining: '{count} master votes remaining',
-    roomVoteSuper: '✨ Super',
-    roomPoints: ' points',
-    roomVoteBrilliant: '🔥 Brilliant',
-    roomVotePass: '⏭️ Skip (0 points)',
-    roomReportBtn: '⚠️ Report Off-Topic / AI Suspect',
-    roomLoadingPhoto: 'Loading photo...',
-    roomMyEntry: '📸 My Submission',
-    roomJokerSwaps: 'Joker swaps: {count}',
-    roomYouAreMaster: 'You are the Challenge Master!',
-    roomYouAreMasterDesc: 'You have been appointed Challenge Master for this match! You cannot compete with your own work, but you receive 5 exclusive Special Awards worth +10 points each to distribute among your favorite pictures.',
-    roomResult: 'Score',
-    roomViews: 'Views',
-    roomMyOffTopicTitle: '🚫 Warning: Off-Topic Suspect!',
-    roomMyOffTopicDesc: 'Your photo has been reported as off-topic or AI-generated by {count} of your peers. Please adhere strictly to the theme and avoid AI-generated images!',
-    roomSwapTitle: '🔄 Upload New Photo & Swap',
-    roomSwapDesc: 'Not going well? Upload a brand new photo for 1 swap point! Your new image starts at 0 points, but you won\'t lose your current one either.',
-    roomSwappingInProgress: 'Swapping...',
-    roomSwapBrowseBtn: 'Spend Joker by Browsing 🔄',
-    roomOrUseAlbum: 'OR use 1 Joker on an existing album photo:',
-    roomLoadingGallery: '⏳ Loading gallery...',
-    roomSwapGalleryBtn: '🖼️ Joker Swap from Arena Gallery',
-    roomNoSwapsLeft: '🔒 Out of global Joker swaps! Perform well in tasks for extra points.',
-    roomParentriesTitle: '↩️ Your previous entries in this round',
-    roomPastEntriesTitle: '↩️ Your previous entries in this round',
-    roomPastSavedScore: 'Saved previous standing:',
-    roomReactivateBtn: '↩️ Reactivate',
-    roomUploadingInProgress: 'Uploading...',
-    roomUploadSubmitBtn: 'Submit & Enter 🚀',
-    roomOrChooseAlbumUpload: 'OR choose an existing photo from your album:',
-    roomChooseGalleryUploadBtn: '🖼️ Choose from Arena Gallery',
-    roomClubLeague: '🛡️ Clubs League',
-    roomLiveBadge: 'LIVE',
-    roomClubLeagueDesc: 'Based on the performance of the top 3 club members.',
-    roomNoClubsYet: 'No clubs ranked yet.',
-    roomActiveMembers: 'active members',
-    roomBlindLeaderboard: '🏆 Blind Leaderboard',
-    roomBlindLeaderboardDesc: 'Opponent identities are hidden to prevent tactical voting!',
-    roomArenaEmpty: 'The Arena is currently empty.',
-    roomEncryptedOpponent: 'Encrypted Opponent',
-    roomMe: 'Me',
-
-    planTitle: '📜 Propose New Challenge',
-    planDesc: 'Outline the challenge! After approval, your proposal will be included in the official upcoming challenges.',
-    planLabelTitle: 'Challenge Name (Theme) *',
-    planPlaceholderTitle: 'E.g., Roar of Wild Waters, City Silhouettes',
-    planLabelDesc: 'Mission Orders (Detailed Description & Constraints) *',
-    planPlaceholderDesc: 'What kind of compositions are you expecting? What is forbidden to use?',
-    planLabelStart: 'Start Date *',
-    planLabelEnd: 'End Date *',
-    planLabelMaster: 'Designated Challenge Master',
-    planPlaceholderMaster: 'E.g., Mary Smith',
-    planLabelAuthor: 'Cover Photo Creator',
-    planPlaceholderAuthor: 'E.g., John Doe',
-    planLabelCover: 'Select Cover Photo',
-    planPreviewAlt: 'Preview',
-    planSubmitting: 'Submitting proposal...',
-    planSubmitBtn: 'Submit Proposal for Club Review ⚔️',
-    msgFillAllFields: 'Please fill in all required fields!',
-    msgProposalSuccess: '⚔️ Challenge proposal successfully submitted for review!',
-    msgProposalError: 'An error occurred during submission.',
-    planCheckMasterMe: 'I like to be the Master',
-
-    hofLoading: '⏳ Assembling the podium...',
-    hofEmpty: 'No photographers have earned points yet. Be the first!',
-    hofTitle: '👑 Global Photographers Hall of Fame',
-    hofDesc: 'The community\'s cumulative leaderboard based on stars earned in active and completed arenas.',
-    hofYou: 'YOU',
-
-    archiveTitle: '📜 Completed Challenges',
-    archiveNotice: 'Click on the photo in the results to like or comment',
-    archiveEmpty: 'No completed matches.',
-    archiveCoverAuthor: '📸 Cover photo by: ',
-    archiveClubLeague: '🛡️ Clubs League Results',
-    archiveBlitz: 'Blitz Match',
-    archiveMaster: 'Master Match',
-    archiveClubLeagueDesc: 'Based on the performance of the top 3 members.',
-    archiveNoClubs: 'No clubs competed in this match.',
-    archiveSelectChallenge: 'Select a challenge from the left sidebar.',
-    archiveUnknownClub: 'Unknown Club',
-    archiveBasedOnPoints: ' based on points of photographers',
-    archiveMemberIndividualScore: '📊 Members individual score ({count} people)',
-    archiveNoMemberPoints: 'No one earned points from this club.',
-    archiveIndividualRanking: '🏅 Individual Ranking',
-    archiveSelectMatch: 'Select a match to view results.',
-    archivePhotographer: 'Photographer',
-    archivePostPraises: ' post-match praises',
-    archiveNomadWarrior: 'Nomad warrior',
-
-    trophyLoading: '⏳ Loading statistics...',
-    trophyError: 'Failed to load data.',
-    trophyCurrentStatus: 'Your Current Status',
-    trophyLegendMax: 'You have reached the highest rank! You are the club\'s Visual Legend! 👑',
-    trophyNextLevelPoints: 'Another {points} points required for the next level!',
-    trophyNextLevelWins: '🔒 You have the points, but another {wins} Arena Victory (🥇) is required to level up!',
-    trophyNextLevelReady: 'Congratulations! All conditions met to level up!',
-    trophyPremiumActive: 'Active Victory Premium Membership!',
-    trophyPremiumDesc: 'As an Arena champion, your unlimited premium privileges are secured until: ',
-    trophyPremiumNotice: ' (No credit card required).',
-    trophyStatTotalPoints: 'Total Points Earned',
-    trophyStatWins: 'Arena Victories (🥇)',
-    trophyStatPodiums: 'Podium (2nd-3rd place)',
-    trophyStatJokers: 'Available Joker Swaps',
-    trophyStatViews: 'Total Views',
-    trophyInviteTitle: '🎁 Invite a Friend!',
-    // 🎯 FRISSÍTVE: Beletettem az angol leírásba is a +5 Joker bónuszt az ajánlott fél számára
-    trophyInviteDesc: 'Share your code with a fellow photographer! If they register on the portal AND enter your code, you instantly receive +10 global Joker swaps to your balance, and they receive +5.',
-    trophyInviteCode: 'YOUR CODE:',
-    trophyCopy: 'Copy',
-    trophyCopiedAlert: '📋 Invitation code copied to clipboard!',
-    trophyReferredTitle: '🤝 Who invited you?',
-    // 🎯 FRISSÍTVE: Kicsit finomítottam az angol megfogalmazáson is, hogy egyértelmű legyen a kétoldali bónusz
-    trophyReferredDesc: 'If you registered on the Photo Club Portal via a friend\'s recommendation, enter their personal code so they receive their well-deserved reward swaps, and you get yours too!',
-    trophyReferredSuccess: '✓ Successfully registered your invitation! Thank you.',
-    trophySubmit: 'Submit',
-    trophyPlaceholderRef: 'E.g., REF-A1B2C3',
-    trophyPastEntries: '📸 Past Submissions ({count})',
-    trophyNoPastEntries: 'No completed challenges yet!',
-    trophyNoPastEntriesDesc: 'Participate in challenges, and your past results will be displayed here.',
-    trophyBadge1st: '🥇 1st Place',
-    trophyBadgePodium: '🏆 Podium (2nd-3rd)',
-    trophyField: 'Field: {count} photos',
-    trophyRankLabel: 'Rank: ',
-    trophyShareBtn: '🚀 Share Result',
-    trophyPointsUnit: ' points',
-
-    modalUploadTitle: '🖼️ Entry from Arena Gallery',
-    modalSwapTitle: '🃏 Choose Your Joker Photo',
-    modalUploadDesc: 'Which existing gallery photo would you like to enter into the current match?',
-    modalSwapDesc: 'Which gallery image are you sending into battle? Blue-bordered rollbacks keep their previously earned stars in this round!',
-    modalBadgeSwapBack: '↩️ Rollback',
-    msgUploadConfirm: 'Are you sure you want to enter the match with this existing photo?',
-    msgUploadSuccess: '🎉 Successfully entered from album!',
-    msgUploadError: 'An error occurred during entry.',
-
-    sharePreviewTitle: '📱 Trophy Card Preview',
-    shareCancelBtn: 'Cancel ✕',
-    shareTrophySubtitle: 'MATCH TROPHY',
-    sharePreparingImage: '⏳ Preparing image...',
-    shareImageError: '⚠️ Image load error',
-    sharePhotographer: 'Photographer',
-    shareRankSuffix: ' PLACE',
-    shareTopicLabel: 'Challenge Theme:',
-    shareCommunityRating: 'Community Rating',
-    shareTotalEntriesLabel: 'Total Entries',
-    sharePhotosCount: ' photos',
-    sharePlayNext: 'Join the next challenge too:',
-    shareSavingTrophy: '⏳ Saving trophy...',
-    shareSaveBtn: '📱 Share / Save Card 🚀',
-
-    loginBadge: 'Welcome back! 📸',
-    loginTitlePre: 'PhotAwesome',
-    loginTitleGradient: 'The Digital Home of Photographers',
-    loginMainDesc: 'Join the community! Discover new locations, compete in weekly challenges, track your international FIAP/MAFOSZ success, and get professional AI feedback on your portfolio.',
-    loginBoxTitle: 'Sign in to the Portal',
-    loginBoxDesc: 'No separate registration is required. Use your existing, secure Google account!',
-    loginSecureNotice: '🔒 100% Secure Google Authentication',
-    
-    // Bento-Rács Funkciók EN
-    loginFeatMatchTitle: 'Arena Duel',
-    loginFeatMatchDesc: 'Photo challenges and live leaderboards.',
-    loginFeatFiapTitle: 'FIAP / MAFOSZ',
-    loginFeatFiapDesc: 'International distinction tracker.',
-    loginFeatMapTitle: 'Photo Map',
-    loginFeatMapDesc: 'Community spot sharing platform.',
-    loginFeatAiTitle: 'AI Analysis',
-    loginFeatAiDesc: 'Portfolio and smart image insights.',
-    loginFeatClubTitle: 'Photo Club Life',
-    loginFeatClubDesc: 'News, club nights, and assignments.',
-    loginFeatContestsTitle: 'Contests',
-    loginFeatContestsDesc: 'Open and private photo competitions.',
-
-    "adminTitle": "Challenge Management Desk",
-  "adminSubtitle": "The system automatically launches approved challenges as soon as their start date arrives!",
-  "adminSuspiciousDetected": "Suspicious Activities Detected!",
-  "adminSecurityOk": "System Security Clear",
-  "adminSecurityBtn": "Run Security Scan",
-  "adminSecurityClean": "Everything is currently clean.",
-  "adminConfirmDisqualify": "Are you sure you want to remove the entry from {name} ({email})?",
-  "adminConfirmApproveIp": "Are you sure you want to approve {name} ({email}) as legitimate on this IP address?",
-  "adminIpResolvedSuccess": "Submission successfully approved, IP conflict resolved!",
-  "adminConfirmApprovePlan": "Are you sure you want to APPROVE and schedule this proposed challenge?",
-  "adminConfirmRejectPlan": "Are you sure you want to REJECT this challenge proposal?",
-  "adminDecisionSaved": "Decision successfully recorded in the schedule!",
-  "adminFormNew": "Create New Challenge",
-  "adminFormEdit": "Edit Challenge Details",
-  "adminMasterAssign": "Assigned Match Master (Chief judge with bonus votes)",
-  "adminMasterNone": "No specific master assigned (Optional)",
-  "adminCoverLabel": "Challenge Visual Cover Image (Auto-compressed)",
-  "adminPreviewNew": "New cover preview (Pending save):",
-  "adminPreviewCurrent": "Currently active cover image:",
-  "adminDateStart": "Operation Start Time (Including Hour/Minute)",
-  "adminDateEnd": "Operation End Time (Including Hour/Minute)",
-  "adminBtnUpdate": "Save Changes & Deploy Live",
-  "adminBtnSave": "Save Challenge",
-  "adminGanttTitle": "Challenge Proposals & Gantt Schedule",
-  "adminStatusPending": "PENDING REVIEW ⏳",
-  "adminStatusRejected": "REJECTED ❌",
-  "adminStatusEnded": "ENDED 📜",
-  "adminStatusScheduled": "SCHEDULED 📅",
-  "adminStatusLive": "LIVE MATCH ⚔️",
-  "adminProposedBy": "Proposed by:",
-  "adminMasterPending": "Applied for Match Master",
-  "adminConfirmAssignMaster": "Are you sure you want to appoint {email} as Match Master?",
-  "adminMasterSuccess": "Match Master successfully appointed!",
-  "adminConfirmRejectMaster": "Reject this application?",
-  "adminMasterRejected": "Application rejected.",
-  "adminBtnApprove": "Approve",
-  "adminBtnReject": "Reject",
-
-    packTitle: 'Choose the perfect plan for you',
-    packSubtitle: 'Activate a Premium account to enjoy all features of the platform without limits!',
-    packCurrent: 'YOUR CURRENT PLAN',
-    packProBadge: 'FOR PROFESSIONAL PHOTOGRAPHERS',
-    packMonth: ' / mo',
-    packActive: 'Active',
-    packSwitch: 'Switch to this',
-    packSubscribe: 'Subscribe (7 days free trial)',
-    packUpgrade: 'Upgrade',
-    packBasicTitle: 'Basic Premium',
-    packBasicDesc: 'Perfect choice for emerging photographers and hobbyists.',
-    packBasicF1: '1 GB Portfolio Storage (approx. 300 photos)',
-    packBasicF2: 'Artificial Intelligence Jury (AI)',
-    packBasicF3: 'FIAP/MAFOSZ Statistics, ranks',
-    packBasicF4: 'FIAP excel export',
-    packBasicF5: 'International and domestic salon information',
-    packProTitle: 'Pro Premium',
-    packProDesc: 'Huge storage space for actively exhibiting fine art photographers.',
-    packProF1: '5 GB Portfolio Storage (approx. 1500 photos)',
-    packProF2: 'All features from the Basic plan',
-    packProF3: 'No worries about full storage space',
-    packProF4: 'Priority technical support',
-    msgStripeError: 'An error occurred while starting the checkout session.',
-
-    mapLoading: '📡 Establishing Google Maps connection...',
-    mapTitle: '🌍 Photography Spots',
-    mapTipBadge: '💡 Tip: Click anywhere on the map to drop a new pin!',
-    mapFilterLabel: '🔍 Filter existing photo locations',
-    mapFilterPlaceholder: 'Search name, body, lens, month...',
-    mapJumpLabel: '✈️ Jump to city / address',
-    mapJumpPlaceholder: 'City, street (e.g., London)',
-    mapJumpBtn: 'Go',
-    mapCloseResults: '✖ Close',
-    mapFormEditTitle: '✏️ Edit "{title}"',
-    mapFormNewTitle: '📍 Register New Location',
-    mapFormNamePlaceholder: 'Location name (e.g., Summit Viewpoint)',
-    mapFormDescPlaceholder: 'Description: What makes this place great?',
-    mapFormMonthLabel: '📅 Month taken',
-    mapFormTimeLabel: '☀️ Time of day',
-    mapFormCameraLabel: '📷 Camera Body',
-    mapFormLensLabel: '🔭 Lens Used',
-    mapFormCameraPlaceholder: 'e.g., Sony A7 IV',
-    mapFormLensPlaceholder: 'e.g., 16-35mm wide angle',
-    mapFormPhotoChange: 'Change Photo (Optional)',
-    mapFormPhotoRequired: 'Location Photo (Required)',
-    mapFormSaving: 'Saving...',
-    mapFormSaveBtn: 'Save 💾',
-    mapFormCreateBtn: 'Save 🚀',
-    mapBtnRoadmap: '🗺️ Roadmap',
-    mapBtnHybrid: '🛰️ Satellite Hybrid',
-    mapExifCardTitle: '📸 Environment & Exif tips',
-    mapExifCamera: '📷 Body: ',
-    mapExifLens: '🔭 Lens: ',
-    mapLikesUnit: ' Likes',
-    mapExplorerLabel: 'Discovered by:',
-    mapBtnEdit: 'Edit',
-    mapBtnDelete: 'Delete',
-    mapCommentsTitle: '💬 Comments ',
-    mapCommentsEmpty: 'No comments yet.',
-    mapCommentPhotoTitle: 'Attach photo',
-    mapCommentPlaceholderPhoto: 'Add a caption (optional)...',
-    mapCommentPlaceholderText: 'Write a tip or a question...',
-    msgNoCityFound: 'Location not found!',
-    msgMapFillRequired: 'Please enter a title and description!',
-    msgMapPhotoRequired: 'A photo upload is required for new locations!',
-    msgMapUpdateSuccess: 'Location updated!',
-    msgMapCreateSuccess: 'Location registered!',
-    msgMapMoveConfirm: 'Are you sure you want to move the pin of {title} to the new coordinates?',
-    msgMapDeleteConfirm: 'Are you sure you want to delete this photography spot?',
-    msgMapDeleteSuccess: 'Location deleted!',
-    msgCommentError: 'Error sending comment!',
-    msgSaveError: 'Save failed!',
-
-    viewTimeCalc: 'Calculating...',
-    viewTimeError: 'Invalid date',
-    viewTimeEnded: 'Match Closed!',
-    viewTimeDays: ' days ',
-    viewCoverAuthor: 'Cover by: ',
-    viewMasterLabel: '👑 Master: ',
-    viewActiveLeagues: '🔥 Active Leagues',
-    viewActiveLeaguesDesc: 'Choose one of the running leagues below and be the best!',
-    viewNoActiveLeagues: 'There are currently no active leagues!',
-    viewNoActiveLeaguesDesc: 'Take a break, a new challenge will arrive soon.',
-    viewLobbyTitle: 'Chat',
-    viewLobbyDesc: 'Greet those inside, discuss tactics, and invite your friends to live battles!',
-    viewLobbyTip: '💡 Invite your photographer friends to the Arena with your referral code for +10 bonus Jokers!',
-    viewLobbyEmpty: 'The Lobby is quiet... 🤫 Start the conversation and speak to fellow club members!',
-    viewLobbyTyping: ' is typing',
-    viewLobbyPlaceholder: 'Type a message...',
-    viewLobbySend: 'Send 🚀',
-    viewBackBtn: '⬅️ Back to challenges',
-    viewPreparingRoom: '⏳ Preparing arena room...',
-    msgNoPhotosInGallery: 'There are no photos in your Arena gallery yet!',
-    msgGalleryLoadError: 'Error loading album.',
-    msgReportConfirm: 'Are you sure you want to report this image for being off-topic?',
-    msgReportSuccess: '🚫 Reported! The image has been removed from your feed.',
-    msgReportError: 'An error occurred during reporting.',
-    msgReferralSuccess: '🎉 Success! Your inviter received +10 bonus Joker swaps.',
-    msgUploadSuccessMain: '🎉 Successfully entered! Time to vote!',
-    msgUploadErrorMain: 'Upload error!',
-    msgSwapConfirm: '⚠️ Are you sure you want to use 1 Joker swap? Your new image will start at 0 points, but you can bring your previous one back at any time!',
-    msgSwapSuccess: '🔄 Image successfully swapped! The battle resets!',
-    msgSwapErrorMain: 'Error during swap.',
-    msgSwapBackConfirm: '⚠️ Are you sure you want to return to this previous entry? This will cost 1 Joker point, but you will regain your stars from that time!',
-    msgSwapBackSuccess: '↩️ Successfully reactivated your previous photo!',
-    msgSwapExistingConfirm: '⚠️ Are you sure you want to spend 1 Joker swap on this album photo? This photo will restart at 0 points in this round!',
-    msgSwapExistingSuccess: '🎉 Successful Joker swap from your Arena gallery!',
-    msgShareText: '🎉 I achieved {rank} place in the "{title}" photography match! ⭐',
-    msgShareTitle: 'Photo Club Match Trophy',
-    msgGenerateImageError: 'Unfortunately, an error occurred while generating the image.',
-
-    contNoClubTitle: '🔒 Not Assigned to a Club',
-    contNoClubDesc: 'To access internal club contests, please select a photo club on your Profile page first!',
-    contAdminCreateTitle: '⚙️ Global Contest Announcement (Admin)',
-    contClubCreateTitle: '📝 Launch New Internal Contest',
-    contPlaceholderTitle: 'Contest title',
-    contPlaceholderDesc: 'Contest announcement, detailed rules...',
-    contLabelStart: '⏱️ Contest Start',
-    contLabelEnd: '⌛ Submission Deadline',
-    contLabelFee: '🪙 Entry Fee (0 = Free)',
-    contLabelCurrency: '💵 Currency',
-    contPlaceholderCats: 'Categories (e.g., Nature, Portrait, Street) - separated by commas',
-    contCatsSettingsTitle: '⚙️ Category Score Thresholds & Awards',
-    contSectionTitle: ' section:',
-    contLabelAcceptScore: 'Acceptance threshold',
-    contLabelAwardsStr: 'Awards (1st, 2nd, 3rd place - separated by commas)',
-    contPlaceholderAwards: 'E.g., Gold Certificate, Silver, Bronze',
-    contVisibilityLabel: '🔒 Contest Visibility / Access',
-    contVisibilityPublic: '🔓 Public contest (Anyone can enter)',
-    contVisibilityPrivate: '🔒 Private: ',
-    contSponsorLabel: '🏆 Sponsoring Photo Club (for certificate logo)',
-    contNoSponsor: '-- No primary sponsor club --',
-    contCreateBtn: 'Launch Contest 🚀',
-    contTabAdminTitle: '📁 Manage All Contests',
-    contTabClubTitle: '🛡️ My Club\'s Active Contests',
-    contTabClosedTitle: '📜 Closed Photo Contests',
-    contTabOpenTitle: '🌐 Active Open Photo Contests',
-    contEmptyList: 'There are currently no contests in this category.',
-    contBadgeOpen: 'Submissions Open',
-    contBadgeClosed: 'Closed',
-    contBadgeJudging: 'Judging in Progress',
-    contBadgeSoon: 'Starting Soon',
-    contCardFee: '💎 ENTRY FEE: ',
-    contCardSponsor: '🛡️ Patron / Sponsor:',
-    contBtnEntrants: '📊 Entrants',
-    contBtnJuryProgress: '📈 Jury Status',
-    contBtnEdit: 'Modify ✏️',
-    contBtnJury: 'Jury',
-    contBtnDelete: 'Delete',
-    contBtnResults: '🏆 Results',
-    contCardPeriod: '📅 Period: ',
-    contCardTotalImages: '📸 Total photos: ',
-    contCardJuryList: '⚖️ Assigned Jury: ',
-    contJuryBannerTitle: '⚖️ You are assigned as a jury member',
-    contJuryBannerSoon: 'Scoring will activate after the submission deadline expires.',
-    contJuryBannerReady: 'Submissions are closed, the judging panel is ready.',
-    contJuryBannerDone: '✓ You have scored all photos, thank you!',
-    contJuryBannerNotStarted: 'The contest has not started yet.',
-    contBtnOpenJudging: 'Open judging panel',
-    contBtnNewUpload: '+ Submit New Photo',
-    contUploadPanelTitle: 'Select and upload photo artwork',
-    contUploadTitlePlaceholder: 'Exact title of the artwork...',
-    contUploadCatPlaceholder: '-- Select category --',
-    contUploadCountSuffix: ' uploaded)',
-    contUploadSaving: 'Recording photo on Drive...',
-    contUploadSubmitBtn: 'Upload & Enter 🚀',
-    contCancel: 'Cancel',
-    contPayBannerTitle: '⚠️ Entry Fee Settlement Required',
-    contPayBannerDesc: 'Your uploaded photos have been recorded, but they can only enter the judging phase after successful transaction settlement.',
-    contPayAmount: 'Amount due: ',
-    contBtnPayStripe: '💳 Secure Payment (Stripe)',
-    contPaySuccessNotice: '✓ Entry fee successfully settled via Stripe. Your photos are valid!',
-    contMyGalleryTitle: 'My Submitted Artworks',
-    contSectionUnit: ' section ',
-    contBtnEditTitle: 'Title ✏️',
-    contSave: 'Save',
-    juryProgressTitle: '📈 Evaluation Process Status',
-    juryProgressClose: 'Close',
-    juryProgressTotal: 'Total submitted artworks: ',
-    juryProgressNoJury: 'No jury member assigned.',
-    juryProgressRemaining: ' photos remaining',
-    juryProgressDone: '✓ Done',
-    juryProgressScoredUnit: ' photos scored ',
-    juryManageTitle: '⚖️ Assembling Jury Committee',
-    juryManageSelectPlaceholder: '-- Select member from the list --',
-    contAdd: 'Add',
-    contRemove: 'Remove ✕',
-    contBack: 'Back',
-    entrantsRegistryTitle: '📊 Registry of Current Entrants',
-    entrantsRegistryEmpty: 'No official entries received yet.',
-    entrantsRegistryPaid: '✓ Entry fee settled',
-    entrantsRegistryPending: '⏳ Pending payment',
-    contFormEditParamTitle: 'Modify Contest Parameters',
-    contFormEditStart: 'Start',
-    contFormEditEnd: 'End',
-    contFormEditSettingsTitle: '⚙️ Category Score Thresholds & Awards (Modify)',
-    contSaveChange: 'Save changes',
-    judgingConsoleTitle: '⚖️ Judging Console: ',
-    judgingConsoleRemaining: 'Remaining photos: ',
-    judgingConsoleClose: 'Close / Exit',
-    judgingConsoleAnonymous: 'Anonymous artwork',
-    judgingConsoleScorePlaceholder: 'Score',
-    judgingConsoleScoredAllTitle: 'You have scored all photos!',
-    judgingConsoleScoredAllDesc: 'Your scores have been recorded, thank you for your valuable work.',
-    judgingConsoleBackBtn: 'Back to list',
-    resultsTitle: '🏆 Official Final Results Announcement',
-    resultsSectionUnit: ' section',
-    resultsAccepted: '✓ Accepted',
-    resultsVotesCount: ' reviews',
-    resultsCertCompiling: '⏳ Compiling certificate...',
-    resultsCertDownloadBtn: '📜 Download Official Certificate (PDF)',
-    msgMapMoveConfirmPlaceholder: 'Are you sure you want to move the pin of {title} to the new coordinates?',
-
-    planLabelTitleEn: '🇬🇧 Challenge Title (English - Optional)',
-    planPlaceholderTitleEn: 'E.g., Roar of Wild Waters',
-    planLabelDescEn: '🇬🇧 Detailed Description (English - Optional)',
-    planPlaceholderDescEn: 'What kind of photos are you looking for?...',
-
-    adminLabelTitleEn: '🇬🇧 Challenge Title in English (Optional)',
-    adminPlaceholderTitleEn: 'E.g., Spring Lights',
-    adminLabelDescEn: '🇬🇧 Command/Description in English (Optional)',
-    adminPlaceholderDescEn: 'Guideline and rules for photographers in English...',
-
-    upTitle: '🔮 Upcoming Challenges Schedule',
-    upDesc: 'Approved challenges that will go live soon.',
-    upClosePlanner: '✕ Close Planner',
-    upOpenPlanner: '⚔️ Propose New Challenge',
-    upEmpty: 'No upcoming challenges scheduled. Click the button above to propose a new theme!',
-    upDaily: '🔴 Blitz Match',
-    upWeekly: '🔵 Master Match',
-    upCoverAuthor: '📸 Cover by: ',
-    upMaster: '👑 Master:',
-    upPendingMe: '⏳ Your application is pending review...',
-    upPendingOther: '⏳ Someone has already applied (Pending review)',
-    upApplyBtn: '👑 Apply for Master',
-    upProcessing: 'Processing...',
-    upStart: 'Starts',
-    upEnd: 'Ends',
-    msgLoginRequired: '❌ You must log in first to apply!',
-    msgApplyConfirm: '⚔️ Are you sure you want to apply as the Master for this match?\n\nAttention: As a Master, you cannot enter the match with your own photo, but you will receive 5 exclusive votes worth +10 points each!',
-    msgApplySuccess: '🎉 Application successfully sent! The admin will review it on the dashboard shortly.',
-
-    // Album és Portfólió kulcsok
-    albumTitle: '🖼️ My Portfolio Album',
-    albumLoading: 'Loading portfolio...',
-    albumPackageLabel: 'Your plan: ',
-    albumPortfolioLabel: 'Portfolio: ',
-    albumTotalCloudLabel: 'Total cloud storage: ',
-    albumStorageWarning: '⚠️ Your portfolio storage space is almost full!',
-    albumAddPhotoTitle: '📤 Add new photo to your portfolio',
-    albumPhotoTitleLabel: 'Photo title',
-    albumPhotoTitlePlaceholder: 'E.g., Lonely tree in the fog',
-    albumSelectFileLabel: 'Select file',
-    albumUploading: 'Uploading...',
-    albumUploadBtn: 'Upload Image',
-    albumPreviewLabel: 'Selected photo preview:',
-    albumSearchResultLabel: 'Search result',
-    albumSearchPlaceholder: '🔍 Search your photos...',
-    albumTotalEntriesTooltip: 'Total entries',
-    albumAwardsTooltip: 'Number of awards',
-    albumAcceptancesTooltip: 'Number of acceptances',
-    albumAiEvaluationTitle: '🤖 AI Jury Evaluation',
-    albumAiAnalyzing: 'Analysis in progress...',
-    albumAiReanalyzeBtn: 'Request AI Re-analysis',
-    albumAiNotEvaluated: 'This photo has not been evaluated by AI yet.',
-    albumAiStartAnalyzeBtn: 'Start AI Analysis',
-    albumSalonResultsTitle: 'Salon results',
-    albumNewTitlePlaceholder: 'New title...',
-    albumSaveBtn: 'Save',
-    albumCancelBtn: 'Cancel',
-    albumDownloadBtn: 'Download',
-    albumEditBtn: 'Edit',
-    albumDeleteBtn: 'Delete',
-    msgAlbumLegacyDownloadError: '⚠️ This photo is from an older system, downloading is not possible.',
-    msgAlbumTitleRequired: 'Title cannot be empty!',
-    msgAlbumStorageFullUpgrade: '⚠️ Your storage is full! Please upgrade to a larger plan.',
-    msgAlbumDeleteConfirm: 'Are you sure you want to delete this photo?',
-    msgAlbumDeleteError: 'Error deleting photo.',
-    msgAlbumUploadRequired: 'Both image file and title are required!',
-    msgAlbumStorageFull: '⚠️ Your storage is full ({size})!',
-    msgAlbumUploadError: 'An error occurred during upload.',
-    msgAlbumUploadNetworkError: 'Network error during upload.',
-    msgServerError: 'Server error',
-  }
+const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+  e.currentTarget.src = 'https://via.placeholder.com/400x300/1e293b/64748b?text=Image+not+found';
 };
 
-type Language = 'hu' | 'en';
+const compressImageOnClient = (file: File): Promise<File> => {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        const MAX_SIZE = 1920;
 
-interface LanguageContextType {
-  lang: Language;
-  setLang: (lang: Language) => void;
-  t: (key: keyof typeof translations.hu) => string;
-}
+        if (width > height) {
+          if (width > MAX_SIZE) { height = Math.round((height * MAX_SIZE) / width); width = MAX_SIZE; }
+        } else {
+          if (height > MAX_SIZE) { width = Math.round((width * MAX_SIZE) / height); height = MAX_SIZE; }
+        }
 
-const LanguageContext = createContext<LanguageContextType>({} as LanguageContextType);
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
 
-export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [lang, setLangState] = useState<Language>(() => {
-    const saved = localStorage.getItem('app_lang');
-    if (saved === 'hu' || saved === 'en') return saved;
-    return 'hu'; 
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const compressedFile = new File([blob], file.name.replace(/\.[^/.]+$/, "") + ".jpg", {
+              type: 'image/jpeg',
+              lastModified: Date.now(),
+            });
+            resolve(compressedFile);
+          } else {
+            resolve(file); 
+          }
+        }, 'image/jpeg', 0.8); 
+      };
+    };
   });
+};
 
-  const setLang = (newLang: Language) => {
-    localStorage.setItem('app_lang', newLang);
-    setLangState(newLang);
+const formatDateTimeLocal = (dateStr: string) => {
+  if (!dateStr) return '';
+  return dateStr.replace(' ', 'T').slice(0, 16);
+};
+
+export default function AdminWeeklyView() {
+  const { t, lang } = useLanguage();
+
+  const [topics, setTopics] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>([]); 
+  const [editId, setEditId] = useState<number | null>(null);
+  
+  const [title, setTitle] = useState('');
+  const [titleEn, setTitleEn] = useState(''); 
+  const [desc, setDesc] = useState('');
+  const [descEn, setDescEn] = useState(''); 
+  
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [masterEmail, setMasterEmail] = useState(''); 
+
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string>(''); 
+  const [coverUrl, setCoverUrl] = useState('');
+  const [coverAuthor, setCoverAuthor] = useState('');
+
+  const [suspiciousActivities, setSuspiciousActivities] = useState<any[]>([]);
+  const [loadingSuspicious, setLoadingSuspicious] = useState(false);
+
+  // 🎯 ÚJ STATE: Idővonalszűrő ablak (Zoom alternatíva a jobb átláthatóságért)
+  const [timeWindow, setTimeWindow] = useState<'all' | 'current_month' | 'next_30'>('all');
+
+  const inputStyle = { width: '100%', padding: '10px', marginBottom: '10px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '6px', boxSizing: 'border-box' as const };
+
+  const fetchTopics = async () => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/admin/weekly-topics`);
+      if (res.ok) setTopics(await res.json());
+    } catch (e) { console.error(e); }
   };
 
-  const t = (key: keyof typeof translations.hu) => {
-    return translations[lang]?.[key] || translations['hu'][key] || key;
+  const fetchUsers = async () => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/admin/weekly/users`);
+      if (res.ok) setUsers(await res.json());
+    } catch (e) { console.error(e); }
   };
+
+  const fetchSuspicious = async () => {
+    setLoadingSuspicious(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/admin/weekly/suspicious`);
+      if (res.ok) setSuspiciousActivities(await res.json());
+    } catch (e) { console.error(e); } finally { setLoadingSuspicious(false); }
+  };
+
+  const handleDisqualify = async (topicId: number, userEmail: string, userName: string) => {
+    if (!window.confirm(t('adminConfirmDisqualify').replace('{name}', userName).replace('{email}', userEmail))) return;
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/admin/weekly/disqualify?topicId=${topicId}&userEmail=${userEmail}`, { method: 'DELETE' });
+      if (res.ok) { alert(t('msgMapDeleteSuccess')); fetchSuspicious(); fetchTopics(); }
+    } catch (e) { alert(t('msgNetworkError')); }
+  };
+
+  const handleApproveIp = async (topicId: number, userEmail: string, userName: string) => {
+    if (!window.confirm(t('adminConfirmApproveIp').replace('{name}', userName).replace('{email}', userEmail))) return;
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/admin/weekly/approve-ip`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topicId, userEmail })
+      });
+      if (res.ok) {
+        alert(t('adminIpResolvedSuccess'));
+        fetchSuspicious();
+      }
+    } catch (e) { alert(t('msgNetworkError')); }
+  };
+
+  const handleProposalDecision = async (topicId: number, decision: 'approved' | 'rejected') => {
+    if (!window.confirm(decision === 'approved' ? t('adminConfirmApprovePlan') : t('adminConfirmRejectPlan'))) return;
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/admin/decide-proposal`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topicId, decision })
+      });
+      if (res.ok) {
+        alert(t('adminDecisionSaved'));
+        fetchTopics();
+      }
+    } catch (e) { alert(t('msgNetworkError')); }
+  };
+  
+  useEffect(() => {
+    fetchTopics();
+    fetchUsers(); 
+    fetchSuspicious();
+  }, []);
+
+  const clearForm = () => {
+    setEditId(null); setTitle(''); setTitleEn(''); setDesc(''); setDescEn('');
+    setStartDate(''); setEndDate(''); setMasterEmail(''); setCoverFile(null);
+    setCoverUrl(''); setCoverAuthor('');
+    if (previewUrl) { URL.revokeObjectURL(previewUrl); setPreviewUrl(''); }
+    const fileInput = document.getElementById('cover-file-input') as HTMLInputElement;
+    if (fileInput) fileInput.value = '';
+  };
+
+  const startEdit = (tData: any) => {
+    setEditId(tData.id);
+    setTitle(tData.title);
+    setTitleEn(tData.title_en || '');
+    setDesc(tData.description || '');
+    setDescEn(tData.description_en || '');
+    setStartDate(tData.start_date ? formatDateTimeLocal(tData.start_date) : '');
+    setEndDate(tData.end_date ? formatDateTimeLocal(tData.end_date) : '');
+    setMasterEmail(tData.master_email || ''); 
+    setCoverUrl(tData.cover_url || '');
+    setCoverAuthor(tData.cover_author || '');
+    if (previewUrl) { URL.revokeObjectURL(previewUrl); setPreviewUrl(''); }
+    setCoverFile(null); 
+    window.scrollTo({ top: 300, behavior: 'smooth' });
+  };
+
+  const handleSave = async () => {
+    if (!title || !startDate || !endDate) return alert(t('mapFillRequired'));
+    try {
+      const url = editId ? `${BACKEND_URL}/api/admin/weekly-topics/${editId}` : `${BACKEND_URL}/api/admin/weekly-topics`;
+      const method = editId ? 'PUT' : 'POST';
+      
+      const formData = new FormData();
+      formData.append('title', title);
+      formData.append('title_en', titleEn); 
+      formData.append('description', desc);
+      formData.append('description_en', descEn); 
+      formData.append('startDate', startDate);
+      formData.append('endDate', endDate);
+      formData.append('masterEmail', masterEmail);
+      formData.append('coverAuthor', coverAuthor);
+      
+      if (coverUrl) formData.append('coverUrl', coverUrl);
+      if (coverFile) formData.append('cover', coverFile);
+
+      const res = await fetch(url, { method, body: formData });
+      if (res.ok) {
+        alert(t('msgMapUpdateSuccess'));
+        clearForm();
+        fetchTopics();
+        fetchSuspicious();
+      }
+    } catch (e) { alert(t('msgNetworkError')); }
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!window.confirm(t('msgMapDeleteConfirm'))) return;
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/admin/weekly-topics/${id}`, { method: 'DELETE' });
+      if (res.ok) { fetchTopics(); fetchSuspicious(); }
+    } catch (e) { alert(t('msgNetworkError')); }
+  };
+
+  const parseAdminDateSafe = (dateStr: string) => {
+    if (!dateStr) return new Date(0);
+    const parts = dateStr.split(/[- :T]/);
+    if (parts.length >= 5) {
+      return new Date(
+        parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]),
+        parseInt(parts[3]), parseInt(parts[4]), parts[5] ? parseInt(parts[5]) : 0
+      );
+    }
+    return new Date(dateStr);
+  };
+
+  const getTopicStatus = (statusStr: string, sDateStr: string, eDateStr: string) => {
+    if (statusStr === 'pending') return { label: t('adminStatusPending'), color: '#eab308' };
+    if (statusStr === 'rejected') return { label: t('adminStatusRejected'), color: '#ef4444' };
+
+    const today = new Date();
+    const start = parseAdminDateSafe(sDateStr);
+    const end = parseAdminDateSafe(eDateStr);
+    
+    if (today > end) return { label: t('adminStatusEnded'), color: '#94a3b8' };
+    if (today < start) return { label: t('adminStatusScheduled'), color: '#38bdf8' };
+    return { label: t('adminStatusLive'), color: '#10b981' };
+  };
+
+  // ── 📊 GANTT IDŐVONAL STRUKTURÁLT NAPTÁR-MATEMATIKÁJA ──
+  const ganttCalendarData = useMemo(() => {
+    if (topics.length === 0) {
+      return { minTime: Date.now(), maxTime: Date.now() + 86400000 * 7, weeks: [], totalDays: 7, daysArray: [] };
+    }
+    
+    let absoluteMin = Infinity;
+    let absoluteMax = 0;
+
+    topics.forEach(tData => {
+      const start = parseAdminDateSafe(tData.start_date).getTime();
+      const end = parseAdminDateSafe(tData.end_date).getTime();
+      if (start < absoluteMin) absoluteMin = start;
+      if (end > absoluteMax) absoluteMax = end;
+    });
+
+    if (absoluteMax <= absoluteMin) absoluteMax = absoluteMin + 86400000 * 7;
+
+    // Alkalmazzuk az időkeret szűrőt a naptár nézet határaihoz
+    const nowTs = Date.now();
+    if (timeWindow === 'current_month') {
+      const current = new Date();
+      absoluteMin = new Date(current.getFullYear(), current.getMonth(), 1).getTime();
+      absoluteMax = new Date(current.getFullYear(), current.getMonth() + 1, 0, 23, 59, 59).getTime();
+    } else if (timeWindow === 'next_30') {
+      absoluteMin = nowTs;
+      absoluteMax = nowTs + 86400000 * 30;
+    }
+
+    // Snap legrégebbi pont Hétfő 00:00-ra
+    const minDate = new Date(absoluteMin);
+    const dayOfMin = minDate.getDay();
+    const diffToMonday = dayOfMin === 0 ? -6 : 1 - dayOfMin;
+    minDate.setDate(minDate.getDate() + diffToMonday);
+    minDate.setHours(0, 0, 0, 0);
+
+    // Snap legújabb pont Vasárnap 23:59-re
+    const maxDate = new Date(absoluteMax);
+    const dayOfMax = maxDate.getDay();
+    const diffToSunday = dayOfMax === 0 ? 0 : 7 - dayOfMax;
+    maxDate.setDate(maxDate.getDate() + diffToSunday);
+    maxDate.setHours(23, 59, 59, 999);
+
+    const daysArray: Date[] = [];
+    let current = new Date(minDate);
+    while (current <= maxDate) {
+      daysArray.push(new Date(current));
+      current.setDate(current.getDate() + 1);
+    }
+
+    const weeks = [];
+    for (let i = 0; i < daysArray.length; i += 7) {
+      weeks.push(daysArray.slice(i, i + 7));
+    }
+
+    return {
+      minTime: minDate.getTime(),
+      maxTime: maxDate.getTime(),
+      weeks,
+      totalDays: daysArray.length,
+      daysArray
+    };
+  }, [topics, timeWindow]);
 
   return (
-    <LanguageContext.Provider value={{ lang, setLang, t }}>
-      {children}
-    </LanguageContext.Provider>
-  );
-};
+    <div style={{ animation: 'fadeIn 0.4s ease-out' }}>
+      <h2 style={{ fontSize: '2rem', marginBottom: '0.5rem', color: '#f59e0b', fontWeight: 'bold' }}>{t('adminTitle')}</h2>
+      <p style={{ color: '#94a3b8', marginBottom: '25px' }}>{t('adminSubtitle')}</p>
 
-export const useLanguage = () => useContext(LanguageContext);
+      {/* GYANÚS TEVÉKENYSÉGEK PANEL */}
+      <div style={{ backgroundColor: '#1e1b4b', padding: '1.5rem', borderRadius: '16px', marginBottom: '2.5rem', border: suspiciousActivities.length > 0 ? '2px solid #ef4444' : '1px solid #334155', boxShadow: '0 8px 25px rgba(0,0,0,0.4)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+          <h3 style={{ margin: 0, color: suspiciousActivities.length > 0 ? '#f87171' : '#10b981', fontWeight: 'bold', fontSize: '1.2rem' }}>
+            {suspiciousActivities.length > 0 ? `🚨 ${t('adminSuspiciousDetected')}` : `🛡️ ${t('adminSecurityOk')}`}
+          </h3>
+          <button onClick={fetchSuspicious} style={{ background: '#334155', color: '#cbd5e1', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>
+            {loadingSuspicious ? '...' : t('adminSecurityBtn')}
+          </button>
+        </div>
+        {suspiciousActivities.length === 0 ? (
+          <p style={{ color: '#94a3b8', margin: 0, fontSize: '0.9rem', fontStyle: 'italic' }}>{t('adminSecurityClean')}</p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {suspiciousActivities.map((act, index) => (
+              <div key={index} style={{ background: '#0f172a', padding: '15px', borderRadius: '10px', borderLeft: '4px solid #ef4444' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                  <span style={{ fontWeight: 'bold', color: '#f8fafc' }}>{act.topic_title}</span>
+                  <span style={{ color: '#64748b', fontSize: '0.8rem', background: '#1e293b', padding: '4px 10px', borderRadius: '6px' }}>IP: {act.ip_address}</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>
+                  {act.suspect_list.split(' || ').map((suspect: string, sIdx: number) => {
+                    const namePart = suspect.split(' (')[0];
+                    const emailPart = suspect.includes('(') ? suspect.split('(')[1].replace(')', '') : '';
+                    return (
+                      <div key={sIdx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#1e293b', padding: '8px 14px', borderRadius: '8px' }}>
+                        <span style={{ color: '#cbd5e1', fontSize: '0.85rem' }}>• {suspect}</span>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button onClick={() => handleApproveIp(act.topic_id, emailPart, namePart)} style={{ background: '#10b98120', color: '#4ade80', border: '1px solid #10b98140', padding: '5px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>{t('adminBtnApprove')}</button>
+                          <button onClick={() => handleDisqualify(act.topic_id, emailPart, namePart)} style={{ background: '#ef444420', color: '#f87171', border: '1px solid #ef444450', padding: '5px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>{t('mapBtnDelete')}</button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* LÉTREHOZÓ / SZERKESZTŐ ŰRLAP */}
+      <div style={{ backgroundColor: '#1e293b', padding: '2rem', borderRadius: '20px', marginBottom: '3rem', border: '1px solid #f97316', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <h3 style={{ margin: 0, color: '#f97316', fontWeight: 'bold', fontSize: '1.4rem' }}>
+            {editId ? `✏️ ${t('adminFormEdit')}` : `➕ ${t('adminFormNew')}`}
+          </h3>
+          {editId && <button onClick={clearForm} style={{ background: '#ef444420', color: '#f87171', border: '1px solid #ef444440', padding: '6px 14px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>{t('viewBackBtn')}</button>}
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+          <input placeholder="A kihívás témája magyarul (pl. Tavaszi Fények)" value={title} onChange={e => setTitle(e.target.value)} style={inputStyle} />
+          <input placeholder="Challenge topic in English (e.g., Spring Lights)" value={titleEn} onChange={e => setTitleEn(e.target.value)} style={{ ...inputStyle, borderColor: '#38bdf860' }} />
+        </div>
+        
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+          <textarea placeholder="Leírás magyarul (Útmutató és részletek a fotósoknak...)" value={desc} onChange={e => setDesc(e.target.value)} style={{...inputStyle, minHeight: '80px'}} />
+          <textarea placeholder="Description in English (Guidelines and room details...)" value={descEn} onChange={e => setDescEn(e.target.value)} style={{...inputStyle, minHeight: '80px', borderColor: '#38bdf860'}} />
+        </div>
+        
+        <div style={{ marginBottom: '15px' }}>
+          <label style={{ fontSize: '0.85rem', color: '#a78bfa', display: 'block', marginBottom: '6px', fontWeight: 'bold' }}>👑 {t('adminMasterAssign')}</label>
+          <select value={masterEmail} onChange={e => setMasterEmail(e.target.value)} style={inputStyle}>
+            <option value="">-- {t('adminMasterNone')} --</option>
+            {users.map(u => <option key={u.email} value={u.email}>{u.name} ({u.email})</option>)}
+          </select>
+        </div>
+
+        <div style={{ marginBottom: '20px', padding: '20px', background: '#0f172a50', borderRadius: '12px', border: '1px dashed #475569' }}>
+          <label style={{ fontSize: '0.85rem', color: '#38bdf8', display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>🖼️ {t('adminCoverLabel')}</label>
+          <input id="cover-file-input" type="file" accept="image/*" onChange={async e => { 
+            if(e.target.files?.[0]) {
+              const file = e.target.files[0];
+              let finalFile = file;
+              if (file.size > 2 * 1024 * 1024) {
+                finalFile = await compressImageOnClient(file);
+              }
+              setCoverFile(finalFile);
+              setPreviewUrl(URL.createObjectURL(finalFile)); 
+            }
+          }} style={inputStyle} />
+          
+          <input placeholder="Borítókép készítőjének neve (pl. Rudolf Kővári-Vágner)" value={coverAuthor} onChange={e => setCoverAuthor(e.target.value)} style={{...inputStyle, marginTop: '5px', marginBottom: '0'}} />
+          
+          {previewUrl && (
+            <div style={{ marginTop: '15px' }}>
+              <span style={{ color: '#ef4444', fontSize: '0.8rem', fontWeight: 'bold' }}>✨ {t('adminPreviewNew')}</span>
+              <img src={previewUrl} alt="" style={{ width: '100%', maxHeight: '140px', objectFit: 'cover', borderRadius: '10px', marginTop: '6px', border: '1px solid #ef4444' }} />
+            </div>
+          )}
+          
+          {coverUrl && !coverFile && (
+            <div style={{ marginTop: '15px' }}>
+              <span style={{ color: '#94a3b8', fontSize: '0.8rem' }}>🖼️ {t('adminPreviewCurrent')}</span>
+              <img src={coverUrl} alt="" style={{ width: '100%', maxHeight: '140px', objectFit: 'cover', borderRadius: '10px', marginTop: '6px', border: '1px solid #334155' }} />
+            </div>
+          )}
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '25px' }}>
+          <div>
+            <label style={{fontSize:'0.85rem', color:'#cbd5e1', fontWeight: 'bold', display: 'block', marginBottom: '5px'}}>{t('adminDateStart')}</label>
+            <input type="datetime-local" value={startDate} onChange={e => setStartDate(e.target.value)} style={inputStyle} />
+          </div>
+          <div>
+            <label style={{fontSize:'0.85rem', color:'#cbd5e1', fontWeight: 'bold', display: 'block', marginBottom: '5px'}}>{t('adminDateEnd')}</label>
+            <input type="datetime-local" value={endDate} onChange={e => setEndDate(e.target.value)} style={inputStyle} />
+          </div>
+        </div>
+        <button onClick={handleSave} style={{ background: '#10b981', color: 'white', border: 'none', padding: '14px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', width: '100%', fontSize: '1.05rem', boxShadow: '0 4px 12px rgba(16,185,129,0.2)' }}>
+          {editId ? t('adminBtnUpdate') : t('adminBtnSave')}
+        </button>
+      </div>
+
+      {/* ── 📊 PREMIUM GANTT ARCHITEKTÚRA SZŰRŐS FEJLÉCCEL ── */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '15px' }}>
+        <h3 style={{ color: '#f8fafc', margin: 0, fontSize: '1.4rem', fontWeight: 'bold' }}>
+          📅 {t('adminGanttTitle')}
+        </h3>
+        {/* 🔍 ZOOM / IDŐABLAK MEGVÁLASZTÓ KAPCSOLÓ */}
+        <div style={{ display: 'flex', gap: '5px', background: '#0f172a', padding: '4px', borderRadius: '10px', border: '1px solid #334155' }}>
+          <button onClick={() => setTimeWindow('all')} style={{ background: timeWindow === 'all' ? '#38bdf8' : 'transparent', color: timeWindow === 'all' ? '#0f172a' : '#94a3b8', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer' }}>{lang === 'en' ? 'Show All' : 'Mind'}</button>
+          <button onClick={() => setTimeWindow('current_month')} style={{ background: timeWindow === 'current_month' ? '#38bdf8' : 'transparent', color: timeWindow === 'current_month' ? '#0f172a' : '#94a3b8', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer' }}>{lang === 'en' ? 'This Month' : 'Aktuális hónap'}</button>
+          <button onClick={() => setTimeWindow('next_30')} style={{ background: timeWindow === 'next_30' ? '#38bdf8' : 'transparent', color: timeWindow === 'next_30' ? '#0f172a' : '#94a3b8', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer' }}>{lang === 'en' ? 'Next 30 Days' : 'Következő 30 nap'}</button>
+        </div>
+      </div>
+      
+      {/* NAPTÁR FŐ DOBOZ (Vízszintes görgetősávval ellátva) */}
+      <div style={{ background: '#1e293b', borderRadius: '24px', border: '1px solid #334155', padding: '25px', overflowX: 'auto', boxShadow: '0 15px 35px rgba(0,0,0,0.4)', boxSizing: 'border-box' }}>
+        <div style={{ width: 'max-content', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+          
+          {/* ── STICKY KÉTLÉPCSŐS NAPTÁR FEJLÉC GRID ── */}
+          <div style={{ display: 'grid', gridTemplateColumns: `380px ${ganttCalendarData.totalDays * 40}px`, borderBottom: '2px solid #475569', paddingBottom: '10px' }}>
+            <div style={{ color: '#38bdf8', fontWeight: 'black', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '1px', display: 'flex', alignItems: 'center' }}>
+              {t('adminGanttChallengeColumn')}
+            </div>
+            
+            {/* Vizuális skála rácshálója */}
+            <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
+              
+              {/* 1. Sor: Hetek blokkjai */}
+              <div style={{ display: 'flex', width: '100%', borderBottom: '1px solid rgba(71, 85, 105, 0.4)', paddingBottom: '4px' }}>
+                {ganttCalendarData.weeks.map((week, wIdx) => (
+                  <div key={wIdx} style={{ width: `${week.length * 40}px`, minWidth: `${week.length * 40}px`, textAlign: 'center', color: '#a78bfa', fontWeight: 'bold', fontSize: '0.85rem', borderLeft: '1px solid rgba(167, 139, 250, 0.3)', boxSizing: 'border-box' }}>
+                    {lang === 'en' ? `Week ${wIdx + 1}` : `${wIdx + 1}. ${t('adminWeekLabel')}`}
+                  </div>
+                ))}
+              </div>
+
+              {/* 2. Sor: Napok számai */}
+              <div style={{ display: 'flex', width: '100%' }}>
+                {ganttCalendarData.daysArray.map((date, dIdx) => {
+                  const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+                  const monthLabel = date.getDate() === 1 ? `${date.getMonth() + 1}/` : '';
+                  return (
+                    <div key={dIdx} style={{ width: '40px', minWidth: '40px', textAlign: 'center', fontSize: '0.78rem', fontWeight: 'bold', fontFamily: 'monospace', color: isWeekend ? '#f87171' : '#cbd5e1', background: isWeekend ? 'rgba(239, 68, 68, 0.08)' : 'transparent', padding: '4px 0', borderLeft: date.getDay() === 1 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
+                      <span style={{ fontSize: '0.65rem', opacity: 0.5, block: 'block' }}>{monthLabel}</span>{date.getDate()}
+                    </div>
+                  );
+                })}
+              </div>
+
+            </div>
+          </div>
+
+          {/* ── KIHÍVÁS CAMPAIGN SOROK ── */}
+          {topics.map((tData) => {
+            const status = getTopicStatus(tData.status, tData.start_date, tData.end_date);
+            const isPending = tData.status === 'pending';
+            
+            const startMillis = parseAdminDateSafe(tData.start_date).getTime();
+            const endMillis = parseAdminDateSafe(tData.end_date).getTime();
+            
+            // Rács-alapú abszolút pozíció számítás
+            const oneDayMs = 86400000;
+            const startOffsetDays = Math.floor((startMillis - ganttCalendarData.minTime) / oneDayMs);
+            const durationDays = Math.ceil((endMillis - startMillis) / oneDayMs);
+
+            // Kizárjuk azokat, amelyek teljesen kívül esnek az ablakon (Pl. ha Hónap szűrő van bekapcsolva)
+            if (timeWindow !== 'all' && (endMillis < ganttCalendarData.minTime || startMillis > ganttCalendarData.maxTime)) {
+              return null;
+            }
+
+            const leftPx = startOffsetDays * 40;
+            const widthPx = durationDays * 40;
+
+            const tooltipStart = new Date(tData.start_date).toLocaleString(lang === 'en' ? 'en-US' : 'hu-HU', { dateStyle: 'short', timeStyle: 'short', timeZone: 'UTC' });
+            const tooltipEnd = new Date(tData.end_date).toLocaleString(lang === 'en' ? 'en-US' : 'hu-HU', { dateStyle: 'short', timeStyle: 'short', timeZone: 'UTC' });
+            const tooltipText = `${t('adminTooltipFrom')}: ${tooltipStart} ➔ ${t('adminTooltipTo')}: ${tooltipEnd}`;
+
+            return (
+              <div key={tData.id} style={{ display: 'grid', gridTemplateColumns: `380px ${ganttCalendarData.totalDays * 40}px`, alignItems: 'center', background: '#0f172a40', borderRadius: '16px', border: '1px solid #232f46', padding: '12px', boxSizing: 'border-box' }}>
+                
+                {/* BAL CELLA: PROFI METADATA INFORMÁCIÓK */}
+                <div style={{ display: 'flex', gap: '12px', paddingRight: '15px', minWidth: 0, boxSizing: 'border-box' }}>
+                  <div style={{ width: '65px', height: '42px', backgroundColor: '#0f172a', borderRadius: '6px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #334155', flexShrink: 0 }}>
+                    {tData.cover_url ? (
+                      <img src={tData.cover_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={handleImageError} />
+                    ) : (
+                      <span style={{ fontSize: '1rem', opacity: 0.3 }}>🖼️</span>
+                    )}
+                  </div>
+
+                  <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                    <h4 style={{ margin: 0, fontWeight: 'bold', color: '#f8fafc', fontSize: '0.95rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tData.title}</h4>
+                    
+                    {tData.title_en && (
+                      <div style={{ fontSize: '0.78rem', color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <img src="https://flagcdn.com/w20/gb.png" alt="" style={{ width: '11px', height: 'auto', borderRadius: '1px' }} />
+                        <span style={{ fontStyle: 'italic' }}>{tData.title_en}</span>
+                      </div>
+                    )}
+
+                    <div style={{ fontSize: '0.72rem', color: '#64748b', display: 'flex', flexWrap: 'wrap', gap: '1px 6px' }}>
+                      <span style={{ color: status.color, fontWeight: 'bold' }}>{status.label}</span>
+                      {tData.proposed_by && <span style={{ color: '#f59e0b' }}>• 📜 {tData.proposed_by.split('@')[0]}</span>}
+                      {tData.master_email && <span style={{ color: '#a78bfa' }}>• 👑 {tData.master_email.split('@')[0]}</span>}
+                    </div>
+
+                    {/* Finom műveleti gombok */}
+                    <div style={{ display: 'flex', gap: '6px', marginTop: '2px' }}>
+                      <button onClick={() => startEdit(tData)} style={{ background: 'transparent', color: '#f59e0b', border: '1px solid #f59e0b40', padding: '1px 6px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.7rem', fontWeight: 'bold' }}>{t('mapBtnEdit')}</button>
+                      {isPending ? (
+                        <>
+                          <button onClick={() => handleProposalDecision(tData.id, 'approved')} style={{ background: '#10b981', color: '#0f172a', border: 'none', padding: '1px 6px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.7rem', fontWeight: 'bold' }}>{t('adminBtnApprove')}</button>
+                          <button onClick={() => handleProposalDecision(tData.id, 'rejected')} style={{ background: '#ef444420', color: '#f87171', border: '1px solid #ef444440', padding: '1px 6px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.7rem', fontWeight: 'bold' }}>{t('adminBtnReject')}</button>
+                        </>
+                      ) : (
+                        <button onClick={() => handleDelete(tData.id)} style={{ background: '#ef444415', color: '#ef4444', border: 'none', padding: '1px 6px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.7rem', fontWeight: 'bold' }}>{t('mapBtnDelete')}</button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* JOBB CELLA: INTERAKTÍV IDŐVONAL CANVAS (FIX ELTOLÁSSAL) */}
+                <div className="gantt-bar-container" style={{ position: 'relative', width: '100%', height: '40px', display: 'flex', alignItems: 'center', boxSizing: 'border-box' }}>
+                  
+                  {/* Függőleges vezető rácsvonalak */}
+                  <div style={{ position: 'absolute', inset: 0, display: 'grid', gridTemplateColumns: `repeat(${ganttCalendarData.totalDays}, 1fr)`, pointerEvents: 'none', zIndex: 1 }}>
+                    {ganttCalendarData.daysArray.map((date, rIdx) => {
+                      const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+                      return (
+                        <div key={rIdx} style={{ borderLeft: '1px solid rgba(51, 65, 85, 0.15)', height: '100%', background: isWeekend ? 'rgba(239, 68, 68, 0.015)' : 'transparent' }} />
+                      );
+                    })}
+                  </div>
+
+                  {/* ⚡ VALÓDI RÁCS-POZÍCIONÁLT FOLYAMATJELZŐ SÁV TOOLTIPPEL */}
+                  <div 
+                    title={tooltipText} 
+                    style={{ 
+                      position: 'absolute', 
+                      left: `${leftPx}px`, 
+                      width: `${widthPx}px`, 
+                      height: '22px', 
+                      background: `linear-gradient(135deg, ${status.color}90, ${status.color})`,
+                      borderRadius: '6px',
+                      border: `1px solid ${status.color}`,
+                      boxSizing: 'border-box',
+                      boxShadow: `0 3px 8px ${status.color}25`,
+                      cursor: 'help',
+                      zIndex: 2,
+                      transition: 'transform 0.15s ease'
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.transform = 'scaleY(1.08)'}
+                    onMouseLeave={e => e.currentTarget.style.transform = 'none'}
+                  />
+
+                  {/* CSATABÍRÓI JELENTKEZÉS ÉRTESÍTŐ */}
+                  {tData.pending_master_email && (
+                    <div style={{ position: 'absolute', bottom: '-10px', left: `${leftPx}px`, background: '#eab308', color: '#0f172a', fontSize: '0.62rem', padding: '1px 5px', borderRadius: '4px', fontWeight: 'black', zIndex: 3, boxShadow: '0 2px 4px rgba(0,0,0,0.4)', letterSpacing: '0.3px' }}>
+                      👑 PENDING MASTER
+                    </div>
+                  )}
+
+                </div>
+
+              </div>
+            );
+          })}
+
+        </div>
+      </div>
+
+      {/* MODÁLIS TOOLTIP CSS GENERÁTOR INJEKCIÓ */}
+      <style>{`
+        .gantt-bar-container div[title]:hover::after {
+          content: attr(title);
+          position: absolute;
+          bottom: 135%;
+          left: 50%;
+          transform: translateX(-50%);
+          background: #0f172a;
+          color: #f8fafc;
+          padding: 7px 14px;
+          border-radius: 8px;
+          font-size: 0.8rem;
+          font-family: monospace;
+          white-space: nowrap;
+          border: 1px solid #475569;
+          box-shadow: 0 8px 20px rgba(0,0,0,0.6);
+          zIndex: 99999;
+          pointer-events: none;
+        }
+      `}</style>
+    </div>
+  );
+}
