@@ -54,15 +54,17 @@ const formatDateTimeLocal = (dateStr: string) => {
 };
 
 const parseAdminDateSafe = (dateStr: string) => {
-  if (!dateStr) return new Date(0);
+  if (!dateStr) return new Date();
   const parts = dateStr.split(/[- :T]/);
   if (parts.length >= 5) {
-    return new Date(
+    const d = new Date(
       parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]),
       parseInt(parts[3]), parseInt(parts[4]), parts[5] ? parseInt(parts[5]) : 0
     );
+    if (!isNaN(d.getTime())) return d;
   }
-  return new Date(dateStr);
+  const fallback = new Date(dateStr);
+  return isNaN(fallback.getTime()) ? new Date() : fallback;
 };
 
 export default function AdminWeeklyView() {
@@ -84,7 +86,7 @@ export default function AdminWeeklyView() {
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string>(''); 
   const [coverUrl, setCoverUrl] = useState('');
-  const [coverAuthor, setCoverAuthor] = useState('');
+  const [coverUrlAuthor, setCoverAuthor] = useState('');
 
   const [suspiciousActivities, setSuspiciousActivities] = useState<any[]>([]);
   const [loadingSuspicious, setLoadingSuspicious] = useState(false);
@@ -166,6 +168,12 @@ export default function AdminWeeklyView() {
     } catch (e) { alert(t('msgNetworkError')); }
   };
   
+  useEffect(() => {
+    fetchTopics();
+    fetchUsers(); 
+    fetchSuspicious();
+  }, []);
+
   const clearForm = () => {
     setEditId(null); setTitle(''); setTitleEn(''); setDesc(''); setDescEn('');
     setStartDate(''); setEndDate(''); setMasterEmail(''); setCoverFile(null);
@@ -205,7 +213,7 @@ export default function AdminWeeklyView() {
       formData.append('startDate', startDate);
       formData.append('endDate', endDate);
       formData.append('masterEmail', masterEmail);
-      formData.append('coverAuthor', coverAuthor);
+      formData.append('coverAuthor', coverUrlAuthor);
       
       if (coverUrl) formData.append('coverUrl', coverUrl);
       if (coverFile) formData.append('cover', coverFile);
@@ -228,23 +236,27 @@ export default function AdminWeeklyView() {
     } catch (e) { alert(t('msgNetworkError')); }
   };
 
-  // ── 📊 GANTT NAPTÁR-MATEMATIKA ──
+  // ── 📊 INTELLIGENS NAPTÁR GENERÁTOR SAFE-GUARD MOTOR ──
   const ganttCalendarData = useMemo(() => {
-    if (topics.length === 0) {
-      return { minTime: Date.now(), maxTime: Date.now() + 86400000 * 7, weeks: [], totalDays: 7, daysArray: [] };
-    }
-    
     let absoluteMin = Infinity;
     let absoluteMax = 0;
 
+    // Kiszűrjük a hibás vagy üres dátumokat az adatbázisból
     topics.forEach(tData => {
+      if (!tData.start_date || !tData.end_date) return;
       const start = parseAdminDateSafe(tData.start_date).getTime();
       const end = parseAdminDateSafe(tData.end_date).getTime();
+      if (isNaN(start) || isNaN(end)) return;
       if (start < absoluteMin) absoluteMin = start;
       if (end > absoluteMax) absoluteMax = end;
     });
 
-    if (absoluteMax <= absoluteMin) absoluteMax = absoluteMin + 86400000 * 7;
+    // 🎯 FALLBACK: Ha üres a DB vagy még tölt, felépítünk egy intelligens 30 napos alapértelmezett ablakot
+    if (absoluteMin === Infinity || absoluteMax === 0) {
+      const current = new Date();
+      absoluteMin = new Date(current.getFullYear(), current.getMonth(), 1).getTime();
+      absoluteMax = new Date(current.getFullYear(), current.getMonth() + 1, 0, 23, 59, 59).getTime();
+    }
 
     const nowTs = Date.now();
     if (timeWindow === 'current_month') {
@@ -256,12 +268,14 @@ export default function AdminWeeklyView() {
       absoluteMax = nowTs + 86400000 * 30;
     }
 
+    // Igazítás a legelső Hétfőre
     const minDate = new Date(absoluteMin);
     const dayOfMin = minDate.getDay();
     const diffToMonday = dayOfMin === 0 ? -6 : 1 - dayOfMin;
     minDate.setDate(minDate.getDate() + diffToMonday);
     minDate.setHours(0, 0, 0, 0);
 
+    // Igazítás a legutolsó Vasárnapra
     const maxDate = new Date(absoluteMax);
     const dayOfMax = maxDate.getDay();
     const diffToSunday = dayOfMax === 0 ? 0 : 7 - dayOfMax;
@@ -270,9 +284,12 @@ export default function AdminWeeklyView() {
 
     const daysArray: Date[] = [];
     let current = new Date(minDate);
-    while (current <= maxDate) {
+    // Biztonsági gát végtelen ciklus ellen
+    let loopGuard = 0;
+    while (current <= maxDate && loopGuard < 365) {
       daysArray.push(new Date(current));
       current.setDate(current.getDate() + 1);
+      loopGuard++;
     }
 
     const weeks = [];
@@ -398,7 +415,7 @@ export default function AdminWeeklyView() {
             }
           }} style={inputStyle} />
           
-          <input placeholder="Borítókép készítőjének neve (pl. Rudolf Kővári-Vágner)" value={coverAuthor} onChange={e => setCoverAuthor(e.target.value)} style={{...inputStyle, marginTop: '5px', marginBottom: '0'}} />
+          <input placeholder="Borítókép készítőjének neve (pl. Rudolf Kővári-Vágner)" value={coverUrlAuthor} onChange={e => setCoverAuthor(e.target.value)} style={{...inputStyle, marginTop: '5px', marginBottom: '0'}} />
           
           {previewUrl && (
             <div style={{ marginTop: '15px' }}>
@@ -446,7 +463,7 @@ export default function AdminWeeklyView() {
       <div style={{ background: '#1e293b', borderRadius: '24px', border: '1px solid #334155', padding: '25px', overflowX: 'auto', boxShadow: '0 15px 35px rgba(0,0,0,0.4)', boxSizing: 'border-box' }}>
         <div style={{ width: 'max-content', display: 'flex', flexDirection: 'column', gap: '15px', position: 'relative' }}>
           
-          {/* 🎯 JAVÍTVA: NAPTÁR FEJLÉC GRID (Tökéletesen a 460px-es trackhatárhoz igazítva, nullázott belső paddinggal) */}
+          {/* STICKY KÉTLÉPCSŐS NAPTÁR FEJLÉC */}
           <div style={{ display: 'grid', gridTemplateColumns: `460px ${ganttCalendarData.totalDays * 40}px`, borderBottom: '2px solid #475569', paddingBottom: '12px' }}>
             <div style={{ color: '#38bdf8', fontWeight: '900', fontSize: '0.95rem', textTransform: 'uppercase', letterSpacing: '1px', display: 'flex', alignItems: 'center', paddingLeft: '14px', boxSizing: 'border-box' }}>
               {t('adminGanttChallengeColumn')}
@@ -492,12 +509,9 @@ export default function AdminWeeklyView() {
               return null;
             }
 
-            // Precíz, lebegőpontos lineáris idősík leképezés pixelben
             const leftPx = ((startMillis - ganttCalendarData.minTime) / 86400000) * 40;
             const widthPx = ((endMillis - startMillis) / 86400000) * 40;
 
-            // ── 🎯 JAVÍTVA: INTELLIGENS SÁV-VÁGÁS (Gantt-clipping) ──
-            // Ha a sáv a naptár látható határvonalán kívül indult, lehorgonyozzuk 0-nál, és levonjuk a kilógó részt
             const visualLeftPx = Math.max(0, leftPx);
             const visualWidthPx = leftPx < 0 ? Math.max(0, widthPx + leftPx) : widthPx;
 
@@ -506,10 +520,8 @@ export default function AdminWeeklyView() {
             const tooltipText = `${t('adminTooltipFrom')}: ${tooltipStart} ➔ ${t('adminTooltipTo')}: ${tooltipEnd}`;
 
             return (
-              /* JAVÍTVA: A külső grid row padding-ját 0-ra vettük, így a rácsok tökéletesen fedik egymást */
               <div key={tData.id} style={{ display: 'grid', gridTemplateColumns: `460px ${ganttCalendarData.totalDays * 40}px`, alignItems: 'center', background: '#0f172a30', borderRadius: '16px', border: '1px solid #232f46', padding: '14px 0px', boxSizing: 'border-box' }}>
                 
-                {/* BAL CELLA: PROFI ADATLAP (A padding-ot ide költöztettük, így nem tolja el a rácsot!) */}
                 <div style={{ display: 'flex', gap: '14px', paddingLeft: '14px', paddingRight: '15px', minWidth: 0, boxSizing: 'border-box', alignItems: 'center' }}>
                   <div style={{ width: '74px', height: '46px', backgroundColor: '#0f172a', borderRadius: '6px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #334155', flexShrink: 0 }}>
                     {tData.cover_url ? (
@@ -546,10 +558,9 @@ export default function AdminWeeklyView() {
                   </div>
                 </div>
 
-                {/* JOBB CELLA: IDŐVONAL CANVAS RÁCSOKKAL */}
+                {/* JOBB CELLA: RÁCSHÁLÓ ÉS LINEÁRIS SÁV */}
                 <div className="gantt-bar-container" style={{ position: 'relative', width: '100%', height: '40px', display: 'flex', alignItems: 'center', boxSizing: 'border-box' }}>
                   
-                  {/* Függőleges rácsvonalak a háttérben */}
                   <div style={{ position: 'absolute', inset: 0, display: 'grid', gridTemplateColumns: `repeat(${ganttCalendarData.totalDays}, 1fr)`, pointerEvents: 'none', zIndex: 1 }}>
                     {ganttCalendarData.daysArray.map((date, rIdx) => {
                       const isWeekend = date.getDay() === 0 || date.getDay() === 6;
@@ -559,22 +570,13 @@ export default function AdminWeeklyView() {
                     })}
                   </div>
 
-                  {/* KÉK/SZÜRKE IDŐSÁV CSÍK (Most már hajszálpontosan a lezárás percében végződik!) */}
                   <div 
                     title={tooltipText} 
                     style={{ 
-                      position: 'absolute', 
-                      left: `${visualLeftPx}px`, 
-                      width: `${visualWidthPx}px`, 
-                      height: '22px', 
+                      position: 'absolute', left: `${visualLeftPx}px`, width: `${visualWidthPx}px`, height: '22px', 
                       background: status.label === t('adminStatusEnded') ? 'linear-gradient(135deg, #475569, #64748b)' : `linear-gradient(135deg, ${status.color}90, ${status.color})`,
-                      borderRadius: '6px', 
-                      border: status.label === t('adminStatusEnded') ? '1px solid #475569' : `1px solid ${status.color}`, 
-                      boxSizing: 'border-box',
-                      boxShadow: `0 3px 8px ${status.color}25`, 
-                      cursor: 'help', 
-                      zIndex: 2, 
-                      transition: 'all 0.15s ease'
+                      borderRadius: '6px', border: status.label === t('adminStatusEnded') ? '1px solid #475569' : `1px solid ${status.color}`, boxSizing: 'border-box',
+                      boxShadow: `0 3px 8px ${status.color}25`, cursor: 'help', zIndex: 2, transition: 'all 0.15s ease'
                     }}
                     onMouseEnter={e => e.currentTarget.style.transform = 'scaleY(1.08)'}
                     onMouseLeave={e => e.currentTarget.style.transform = 'none'}
@@ -590,7 +592,7 @@ export default function AdminWeeklyView() {
             );
           })}
 
-          {/* FÜGGŐLEGES MAI NAP JELZŐ CSÍK NEON GLOW-VAL (Tökéletesen kalibrálva a 460px-es élhez!) */}
+          {/* FÜGGŐLEGES MAI JELZŐ CSÍK */}
           {nowIndicatorPositionPx !== null && (
             <div 
               style={{ 
