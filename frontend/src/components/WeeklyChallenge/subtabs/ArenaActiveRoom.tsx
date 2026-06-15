@@ -258,8 +258,8 @@ export default function ArenaActiveRoom({
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 15px', color: '#94a3b8' }}>
                               <div> {t('mapExifCamera')} <b style={{ color: entry.exif?.isLegacy ? '#475569' : '#f8fafc' }}>{entry.exif?.camera}</b></div>
                               <div> {t('mapExifLens')} <b style={{ color: entry.exif?.isLegacy ? '#475569' : '#f8fafc' }}>{entry.exif?.lens}</b></div>
-                              <div>⏱️ {t('roomShutterIso')} <b style={{ color: entry.exif?.isLegacy ? '#475569' : '#38bdf8' }}>{entry.exif?.shutter} / {entry.exif?.iso}</b></div>
-                              <div>💿 {t('roomSoftware')} <b style={{ color: entry.exif?.isLegacy ? '#475569' : '#a78bfa' }}>{entry.exif?.software}</b></div>
+                              <div> {t('roomShutterIso')} <b style={{ color: entry.exif?.isLegacy ? '#475569' : '#38bdf8' }}>{entry.exif?.shutter} / {entry.exif?.iso}</b></div>
+                              <div> {t('roomSoftware')} <b style={{ color: entry.exif?.isLegacy ? '#475569' : '#a78bfa' }}>{entry.exif?.software}</b></div>
                             </div>
                           </div>
 
