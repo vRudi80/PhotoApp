@@ -595,17 +595,29 @@ async function getUserLikesAndVictories(pool, email) {
   });
 
   app.post('/api/weekly/swap', upload.single('photo'), async (req, res) => {
-    const { topicId, userEmail, userName } = req.body;
+    // 🎯 JAVÍTVA: Kivesszük az EXIF adatokat is a kérés törzséből
+    const { topicId, userEmail, userName, camera, lens, shutter, iso, aperture, software } = req.body;
     const file = req.file;
     if (!file) return res.status(400).json({ error: 'Új fotó kötelező!' });
+    
     const ipAddress = req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : (req.ip || req.socket.remoteAddress);
     const conn = await pool.getConnection();
+    
     try {
       await conn.beginTransaction();
       const [userRows] = await conn.query('SELECT swap_balance FROM photo_users WHERE email = ?', [userEmail]);
-      if (!userRows[0] || userRows[0].swap_balance < 1) { if (fs.existsSync(file.path)) fs.unlinkSync(file.path); await conn.rollback(); return res.status(400).json({ error: 'Nincs elég Joker cseréd!' }); }
+      if (!userRows[0] || userRows[0].swap_balance < 1) { 
+        if (fs.existsSync(file.path)) fs.unlinkSync(file.path); 
+        await conn.rollback(); 
+        return res.status(400).json({ error: 'Nincs elég Joker cseréd!' }); 
+      }
+      
       const [existing] = await conn.query('SELECT id, swapped FROM weekly_entries WHERE topic_id = ? AND user_email = ? AND is_active = 1', [topicId, userEmail]);
-      if (existing.length === 0) { if (fs.existsSync(file.path)) fs.unlinkSync(file.path); await conn.rollback(); return res.status(400).json({ error: 'Még nincs aktív nevezésed!' }); }
+      if (existing.length === 0) { 
+        if (fs.existsSync(file.path)) fs.unlinkSync(file.path); 
+        await conn.rollback(); 
+        return res.status(400).json({ error: 'Még nincs aktív nevezésed!' }); 
+      }
 
       await conn.query('UPDATE weekly_entries SET is_active = 0 WHERE id = ?', [existing[0].id]);
 
@@ -626,11 +638,41 @@ async function getUserLikesAndVictories(pool, email) {
       }
 
       const nextSwapCount = existing[0].swapped + 1;
-      await conn.query('INSERT INTO weekly_entries (topic_id, user_email, user_name, file_url, drive_file_id, swapped, ip_address, is_active, likes_count, views_count) VALUES (?, ?, ?, ?, \'\', ?, ?, 1, 0, 0)', [topicId, userEmail, userName, finalFileUrl, nextSwapCount, ipAddress]);
+      
+      // 🎯 JAVÍTVA: kibővítettük az INSERT parancsot az EXIF oszlopokkal és a hozzájuk tartozó értékekkel
+      const insertQuery = `
+        INSERT INTO weekly_entries 
+        (topic_id, user_email, user_name, file_url, drive_file_id, swapped, ip_address, is_active, likes_count, views_count, camera, lens, shutter, iso, aperture, software) 
+        VALUES (?, ?, ?, ?, '', ?, ?, 1, 0, 0, ?, ?, ?, ?, ?, ?)
+      `;
+      
+      const insertValues = [
+        topicId, 
+        userEmail, 
+        userName, 
+        finalFileUrl, 
+        nextSwapCount, 
+        ipAddress,
+        camera || null, 
+        lens || null, 
+        shutter || null, 
+        iso || null, 
+        aperture || null, 
+        software || null
+      ];
+
+      await conn.query(insertQuery, insertValues);
       await conn.query('UPDATE photo_users SET swap_balance = swap_balance - 1 WHERE email = ?', [userEmail]);
+      
       await conn.commit();
       res.json({ success: true });
-    } catch (err) { await conn.rollback(); if (file && fs.existsSync(file.path)) fs.unlinkSync(file.path); res.status(500).json({ error: err.message }); } finally { conn.release(); }
+    } catch (err) { 
+      await conn.rollback(); 
+      if (file && fs.existsSync(file.path)) fs.unlinkSync(file.path); 
+      res.status(500).json({ error: err.message }); 
+    } finally { 
+      conn.release(); 
+    }
   });
 
   app.post('/api/weekly/swap-existing', async (req, res) => {
