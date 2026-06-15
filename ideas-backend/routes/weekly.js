@@ -527,8 +527,8 @@ async function getUserLikesAndVictories(pool, email) {
     }
   });
 
-  // ====================================================================
-  // 📸 JAVÍTVA: ATOMBIZTOS FELTÖLTŐ, EXIF-BÁNYÁSZ ÉS IP-RÖGZÍTŐ VÉGPONT
+// ====================================================================
+  // 📸 ÉLES EXIF-BÁNYÁSZ ÉS INTEGRÁLT SZERVERLOGOLÓ VÉGPONT
   // ====================================================================
   app.post('/api/weekly/upload', upload.single('photo'), async (req, res) => {
     const { userEmail, topicId, userName } = req.body;
@@ -538,7 +538,6 @@ async function getUserLikesAndVictories(pool, email) {
       return res.status(400).json({ error: 'Nincs fájl kiválasztva!' });
     }
 
-    // 🎯 1. IP-CÍM KINYERÉSE (Pontosan úgy, mint a swap végponton)
     const ipAddress = req.headers['x-forwarded-for'] 
       ? req.headers['x-forwarded-for'].split(',')[0].trim() 
       : (req.ip || req.socket.remoteAddress);
@@ -550,12 +549,15 @@ async function getUserLikesAndVictories(pool, email) {
     let aperture = null;
     let software = null;
 
-    // 🎯 2. EXIF KIBÁNYÁSZÁSA PUFFERBŐL (Így biztosan beolvassa a fájlt lezárás előtt)
+    // 🎯 EXIF KIOLVASÁSA KÖZVETLENÜL A FÁJLÚTVONALBÓL
     try {
       const exifr = require('exifr'); 
-      const fileBuffer = fs.readFileSync(file.path); // Beolvassuk a lemezről pufferbe
-      const exif = await exifr.parse(fileBuffer);
       
+      // Az exifr zseniálisan képes Node.js-ben közvetlenül a lokális elérési útból olvasni
+      const exif = await exifr.parse(file.path);
+      
+      console.log(`[EXIF RADAR] Fájl beolvasva: ${file.filename}. Talált metaadatok:`, exif);
+
       if (exif) {
         if (exif.Model) {
           const makePrefix = exif.Make && !exif.Model.startsWith(exif.Make) ? `${exif.Make} ` : '';
@@ -577,11 +579,13 @@ async function getUserLikesAndVictories(pool, email) {
         software = exif.Software || null;
       }
     } catch (exifError) {
-      console.log("⚠️ EXIF olvasási megjegyzés (AI kép vagy üres metaadat):", exifError.message);
+      // Ez a log fog élesben megjelenni a Render konzolodon, ha a könyvtár összeomlik valamin
+      console.error("❌ Súlyos hiba történt a szerveroldali EXIF olvasás közben:", exifError.message);
     }
 
-    // 3. FELTÖLTÉS A CLOUDINARY FELHŐBE
+    // FELTÖLTÉS A CLOUDINARY FELHŐBE
     try {
+      // Mivel az EXIF-et már kimentettük a lokális fájlból, most már biztonságosan feltölthetjük a felhőbe
       const result = await cloudinary.uploader.upload(file.path, {
         folder: 'parbajok',
         width: 1600,
@@ -590,10 +594,8 @@ async function getUserLikesAndVictories(pool, email) {
         quality: "auto:good"
       });
 
-      // Ideiglenes helyi fájl azonnali letakarítása
       if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
 
-      // 🎯 4. INZERTÁLÁS AZ IP, ALAPÉRTÉKEK (likes, views, swapped) ÉS EXIF MEZŐKKEL
       const query = `
         INSERT INTO weekly_entries 
         (topic_id, user_email, user_name, file_url, drive_file_id, swapped, ip_address, is_active, likes_count, views_count, camera, lens, shutter, iso, aperture, software) 
@@ -605,7 +607,7 @@ async function getUserLikesAndVictories(pool, email) {
         userEmail, 
         userName, 
         result.secure_url, 
-        ipAddress, // Azonosított IP cím mentése
+        ipAddress,
         camera, 
         lens, 
         shutter, 
@@ -619,7 +621,7 @@ async function getUserLikesAndVictories(pool, email) {
 
     } catch (err) {
       if (file && fs.existsSync(file.path)) fs.unlinkSync(file.path);
-      console.error("Feltöltési / Mentési hiba:", err);
+      console.error("Cloudinary / MySQL mentési hiba:", err);
       res.status(500).json({ error: 'Hiba történt a feldolgozás során: ' + err.message });
     }
   });
