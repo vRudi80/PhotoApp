@@ -96,12 +96,13 @@ export default function AdminWeeklyView() {
   const [suspiciousActivities, setSuspiciousActivities] = useState<any[]>([]);
   const [loadingSuspicious, setLoadingSuspicious] = useState(false);
 
-  // 🎯 EXPANDED STATE: Bővített időablak-kezelő és a hozzá tartozó egyéni dátumok
   const [timeWindow, setTimeWindow] = useState<'all' | 'current_month' | 'next_30' | 'custom_range'>('all');
   const [customRangeStart, setCustomRangeStart] = useState('');
   const [customRangeEnd, setCustomRangeEnd] = useState('');
-
   const [searchQuery, setSearchQuery] = useState('');
+
+  // 🎯 ÚJ: API diagnosztikai hibaállapot visszajelzéshez
+  const [apiError, setApiError] = useState<string | null>(null);
 
   const [activeDrag, setActiveDrag] = useState<{
     topicId: number;
@@ -128,9 +129,16 @@ export default function AdminWeeklyView() {
 
   const fetchTopics = async () => {
     try {
+      setApiError(null);
       const res = await fetch(`${BACKEND_URL}/api/admin/weekly-topics`);
-      if (res.ok) setTopics(await res.json());
-    } catch (e) { console.error(e); }
+      if (res.ok) {
+        setTopics(await res.json());
+      } else {
+        setApiError(`Szerver hiba (${res.status}): Nem sikerült betölteni az adatokat. Valószínűleg egy sérült sor van az adatbázisban.`);
+      }
+    } catch (e) { 
+      setApiError('Hálózati hiba: A backend szerver nem elérhető.');
+    }
   };
 
   const fetchUsers = async () => {
@@ -227,7 +235,6 @@ export default function AdminWeeklyView() {
       formData.append('endDate', tData.end_date);
       formData.append('masterEmail', tData.master_email || '');
       formData.append('coverAuthor', tData.cover_author || '');
-      
       if (tData.cover_url) { formData.append('coverUrl', tData.cover_url); }
 
       const res = await fetch(`${BACKEND_URL}/api/admin/weekly-topics/${tData.id}`, {
@@ -252,7 +259,7 @@ export default function AdminWeeklyView() {
     } catch (e) { alert(t('msgNetworkError')); }
   };
 
-  // ── 📊 GANTT NAPTÁR-MATEMATIKA RE-CALIBRATION MOTOR ──
+  // Gantt naptár tartomány matematikai motorja
   const ganttCalendarData = useMemo(() => {
     let absoluteMin = Infinity;
     let absoluteMax = 0;
@@ -280,9 +287,7 @@ export default function AdminWeeklyView() {
     } else if (timeWindow === 'next_30') {
       absoluteMin = nowTs;
       absoluteMax = nowTs + 86400000 * 30;
-    } 
-    // 🎯 ÚJ: Egyéni választó rácsháló horgony számítása
-    else if (timeWindow === 'custom_range') {
+    } else if (timeWindow === 'custom_range') {
       if (customRangeStart && customRangeEnd) {
         const parsedStart = new Date(customRangeStart).getTime();
         const parsedEnd = new Date(customRangeEnd).getTime();
@@ -347,13 +352,12 @@ export default function AdminWeeklyView() {
     return (elapsedMs / 86400000) * 40;
   }, [ganttCalendarData]);
 
-  // Globális kereső és szűrő mátrix összevonás
+  // Globális kereső-szűrő mátrix
   const filteredTopics = useMemo(() => {
     return topics.filter(tData => {
       const endMillis = parseAdminDateSafe(tData.end_date).getTime();
       const startMillis = parseAdminDateSafe(tData.start_date).getTime();
       
-      // Időablak check (az egyéni range-re is rávetítve)
       if (endMillis < ganttCalendarData.minTime || startMillis > ganttCalendarData.maxTime) {
         return false;
       }
@@ -371,7 +375,7 @@ export default function AdminWeeklyView() {
     });
   }, [topics, searchQuery, ganttCalendarData]);
 
-  // Drag & Drop / Resize egérkövető motor
+  // Drag & drop egérkövető
   useEffect(() => {
     if (!activeDrag) return;
 
@@ -414,10 +418,22 @@ export default function AdminWeeklyView() {
     };
   }, [activeDrag]);
 
+  // ── 🎯 EGYETLEN KÖZÖS INITIALIZATION HOOK A BETÖLTÉSHEZ ──
+  useEffect(() => {
+    fetchTopics(); fetchUsers(); fetchSuspicious();
+  }, []);
+
   return (
     <div style={{ animation: 'fadeIn 0.4s ease-out' }}>
       <h2 style={{ fontSize: '2rem', marginBottom: '0.5rem', color: '#f59e0b', fontWeight: 'bold' }}>{t('adminTitle')}</h2>
       <p style={{ color: '#94a3b8', marginBottom: '25px' }}>{t('adminSubtitle')}</p>
+
+      {/* API SERVER ERROR WARNING CONTAINER */}
+      {apiError && (
+        <div style={{ background: '#ef444415', border: '1px solid #ef444460', color: '#f87171', padding: '15px 20px', borderRadius: '12px', marginBottom: '25px', fontWeight: 'bold', fontSize: '0.95rem' }}>
+          🚨 {apiError} <span style={{ textDecoration: 'underline', cursor: 'pointer', marginLeft: '10px' }} onClick={fetchTopics}>[Újrapróbálkozás]</span>
+        </div>
+      )}
 
       {/* GYANÚS TEVÉKENYSÉGEK */}
       <div style={{ backgroundColor: '#1e1b4b', padding: '1.5rem', borderRadius: '16px', marginBottom: '2.5rem', border: suspiciousActivities.length > 0 ? '2px solid #ef4444' : '1px solid #334155', boxShadow: '0 8px 25px rgba(0,0,0,0.4)' }}>
@@ -527,13 +543,12 @@ export default function AdminWeeklyView() {
         </button>
       </div>
 
-      {/* GANTT TIMELINE FEJLÉC SZŰRŐKKEL */}
+      {/* GANTT TIMELINE CONTROL PANEL */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '15px' }}>
         <h3 style={{ color: '#f8fafc', margin: 0, fontSize: '1.4rem', fontWeight: 'bold' }}>📅 {t('adminGanttTitle')}</h3>
         
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
           
-          {/* ÉLŐ KERESŐ INPUT */}
           <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
             <span style={{ position: 'absolute', left: '12px', color: '#64748b', fontSize: '0.9rem' }}>🔍</span>
             <input 
@@ -546,7 +561,6 @@ export default function AdminWeeklyView() {
             {searchQuery && <button onClick={() => setSearchQuery('')} style={{ position: 'absolute', right: '10px', background: 'transparent', border: 'none', color: '#64748b', cursor: 'pointer' }}>✕</button>}
           </div>
 
-          {/* 🎯 JAVÍTVA: KOMBINOVÁLT SZŰRŐSÁV AZ ÚJ EGYÉNI RANGE IDŐPONTOKKAL */}
           <div style={{ display: 'flex', gap: '5px', background: '#0f172a', padding: '4px', borderRadius: '10px', border: '1px solid #334155', alignItems: 'center' }}>
             <button onClick={() => setTimeWindow('all')} style={{ background: timeWindow === 'all' ? '#38bdf8' : 'transparent', color: timeWindow === 'all' ? '#0f172a' : '#94a3b8', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer' }}>{lang === 'en' ? 'Show All' : 'Mind'}</button>
             <button onClick={() => setTimeWindow('current_month')} style={{ background: timeWindow === 'current_month' ? '#38bdf8' : 'transparent', color: timeWindow === 'current_month' ? '#0f172a' : '#94a3b8', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer' }}>{lang === 'en' ? 'This Month' : 'Aktuális hónap'}</button>
@@ -554,7 +568,6 @@ export default function AdminWeeklyView() {
             <button onClick={() => setTimeWindow('custom_range')} style={{ background: timeWindow === 'custom_range' ? '#f59e0b' : 'transparent', color: timeWindow === 'custom_range' ? '#0f172a' : '#94a3b8', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer' }}>{lang === 'en' ? 'Custom Window' : 'Egyéni range'}</button>
           </div>
 
-          {/* 🎯 KIGÖRDÜLŐ KÉTUTAS DÁTUMVÁLASZTÓ CONTAINER */}
           {timeWindow === 'custom_range' && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#1e293b', padding: '4px 14px', borderRadius: '10px', border: '1px solid #f59e0b50', animation: 'fadeIn 0.2s ease-out' }}>
               <input type="date" value={customRangeStart} onChange={e => setCustomRangeStart(e.target.value)} style={{ background: 'transparent', border: 'none', color: '#fff', fontSize: '0.82rem', outline: 'none', colorScheme: 'dark' }} />
@@ -566,11 +579,11 @@ export default function AdminWeeklyView() {
         </div>
       </div>
       
-      {/* GANTT CANVAS PLACEMENT */}
+      {/* NAPTÁR FŐ VÁZ */}
       <div style={{ background: '#1e293b', borderRadius: '24px', border: '1px solid #334155', padding: '25px', overflowX: 'auto', boxShadow: '0 15px 35px rgba(0,0,0,0.4)', boxSizing: 'border-box' }}>
         <div style={{ width: 'max-content', display: 'flex', flexDirection: 'column', gap: '15px', position: 'relative', userSelect: activeDrag ? 'none' : 'auto' }}>
           
-          {/* NAPTÁR FEJLÉC */}
+          {/* SKÁLA FEJLÉC */}
           <div style={{ display: 'grid', gridTemplateColumns: `460px ${ganttCalendarData.totalDays * 40}px`, borderBottom: '2px solid #475569', paddingBottom: '12px' }}>
             <div style={{ color: '#38bdf8', fontWeight: '900', fontSize: '0.95rem', textTransform: 'uppercase', letterSpacing: '1px', display: 'flex', alignItems: 'center', paddingLeft: '14px', boxSizing: 'border-box' }}>
               {t('adminGanttChallengeColumn')}
@@ -601,7 +614,7 @@ export default function AdminWeeklyView() {
             </div>
           </div>
 
-          {/* SOROK MAP-ELÉSE */}
+          {/* RENDERING MATRIX */}
           {filteredTopics.length === 0 ? (
             <div style={{ color: '#64748b', fontStyle: 'italic', padding: '40px 14px', fontSize: '0.95rem' }}>
               ⚠️ {lang === 'en' ? 'No active timelines found in the selected range...' : 'Nincs ütemezett kihívás a megadott szűrési feltételek mellett...'}
@@ -668,9 +681,8 @@ export default function AdminWeeklyView() {
                     </div>
                   </div>
 
-                  {/* JOBB RÁCS CELLA SÁVVAL */}
+                  {/* IDŐSÁV INTEGRÁCIÓ */}
                   <div className="gantt-bar-container" style={{ position: 'relative', width: '100%', height: '40px', display: 'flex', alignItems: 'center', boxSizing: 'border-box' }}>
-                    
                     <div style={{ position: 'absolute', inset: 0, display: 'grid', gridTemplateColumns: `repeat(${ganttCalendarData.totalDays}, 1fr)`, pointerEvents: 'none', zIndex: 1 }}>
                       {ganttCalendarData.daysArray.map((date, rIdx) => {
                         const isWeekend = date.getDay() === 0 || date.getDay() === 6;
@@ -722,7 +734,7 @@ export default function AdminWeeklyView() {
             })
           )}
 
-          {/* VÖRÖS JELZŐ CSÍK */}
+          {/* VÖRÖS IDŐVONAL CSÍK */}
           {nowIndicatorPositionPx !== null && (
             <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${460 + nowIndicatorPositionPx}px`, width: '2px', background: 'linear-gradient(180deg, #ef4444, #b91c1c)', zIndex: 99, pointerEvents: 'none', boxShadow: '0 0 12px #ef4444, 0 0 4px #ef4444' }}>
               <div style={{ position: 'absolute', top: '18px', left: '-5px', width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#ef4444', boxShadow: '0 0 10px #ef4444, inset 0 0 4px #fff' }} />
