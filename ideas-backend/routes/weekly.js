@@ -319,14 +319,13 @@ async function getUserLikesAndVictories(pool, email) {
     }
   });
 
-    // ====================================================================
-  // ⚔️ JAVÍTVA: AZONNALI LEZÁRÁSSAL ELLÁTOTT CSATATÉR FŐ VÉGPONT
+// ====================================================================
+  // ⚔️ JAVÍTVA: KÖTEGELT (BATCH) SZAVAZÁST TÁMOGATÓ CSATATÉR VÉGPONT
   // ====================================================================
   app.get('/api/weekly/current', async (req, res) => {
     const { userEmail, topicId } = req.query;
     try {
-      // 🎯 AZONNALI KIÉRTÉKELÉS: Kidobtuk a 15 perces gátat! 
-      // Amint lejár a futam, az első látogató kérésére azonnal lefut a lezáró motor.
+      // 🎯 AZONNALI KIÉRTÉKELÉS: Amint lejár a futam, az első látogató kérésére lefut.
       await processFinishedChallenges(pool);
 
       // Csak egyszer kérjük le a profil statisztikákat, megszüntetve a redundáns DB köröket!
@@ -344,7 +343,6 @@ async function getUserLikesAndVictories(pool, email) {
 
       // A) HA A FŐ LISTÁT TÖLTI BE A FRONTEND
       if (!topicId) {
-        // 🔥 JAVÍTVA: Bekérjük a teljes játékosszámot, a le nem szavazott fotókat és a pontos helyi időt!
         const [activeTopics] = await pool.query(`
           SELECT t.*, u.name AS master_name,
             IF(e.id IS NOT NULL, 1, 0) as hasEntered,
@@ -362,8 +360,8 @@ async function getUserLikesAndVictories(pool, email) {
           ...t,
           hasEntered: t.hasEntered === 1,
           isMaster: t.isMaster === 1,
-          totalEntries: Number(t.totalEntries || 0),     // 👥 Átalakítva számmá a frontendnek
-          unvotedEntries: Number(t.unvotedEntries || 0)   // 🗳️ Átalakítva számmá a frontendnek
+          totalEntries: Number(t.totalEntries || 0),
+          unvotedEntries: Number(t.unvotedEntries || 0)
         }));
 
         return res.json({ 
@@ -391,10 +389,15 @@ async function getUserLikesAndVictories(pool, email) {
       const totalEntries = allEntriesCount[0].total || 0;
       const votableEntries = isMasterUser ? totalEntries : Math.max(1, totalEntries - 1);
 
+      // 🎯 JAVÍTVA: Az EXISTS szűrő beépítve, a paraméterek sorrendje [userEmail, currentTopic.id] szinkronizálva!
       const [leaderboard] = await pool.query(`
-        SELECT e.id, e.user_name, e.user_email, e.file_url, e.drive_file_id, e.views_count, e.likes_count, u.club_name
-        FROM weekly_entries e LEFT JOIN photo_users u ON e.user_email = u.email WHERE e.topic_id = ? AND e.is_active = 1 ORDER BY e.likes_count DESC, e.views_count ASC
-      `, [currentTopic.id]);
+        SELECT e.id, e.user_name, e.user_email, e.file_url, e.drive_file_id, e.views_count, e.likes_count, u.club_name,
+               EXISTS(SELECT 1 FROM weekly_votes WHERE entry_id = e.id AND voter_email = ?) as has_user_voted
+        FROM weekly_entries e 
+        LEFT JOIN photo_users u ON e.user_email = u.email 
+        WHERE e.topic_id = ? AND e.is_active = 1 
+        ORDER BY e.likes_count DESC, e.views_count ASC
+      `, [userEmail, currentTopic.id]);
 
       const clubsData = {};
       leaderboard.forEach(entry => {
