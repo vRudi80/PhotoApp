@@ -71,7 +71,7 @@ interface ArenaActiveRoomProps {
   onOpenAlbumForUpload: () => void; onOpenAlbumForSwap: () => void; handleVote: (type: 'pass' | 'super' | 'brilliant' | 'master') => void;
   handleOffTopicReport: (id: number) => void; handleSwapBackSubmit: (id: number) => void; setFullscreenData: (data: any) => void;
   handleImageError: (e: React.SyntheticEvent<HTMLImageElement, Event>) => void;
-  fetchCurrentTopic: (isSilent?: boolean) => Promise<void>; // 🎯 ÚJ: Interface kiegészítés
+  fetchCurrentTopic: (isSilent?: boolean) => Promise<void>;
 }
 
 export default function ArenaActiveRoom({
@@ -81,7 +81,7 @@ export default function ArenaActiveRoom({
   handleFileSelect, handleUpload, isLoadingSwapAlbum, isSwapping, swapPreview,
   handleSwapFileSelect, handleSwapSubmit, onOpenAlbumForUpload, onOpenAlbumForSwap,
   handleVote, handleOffTopicReport, handleSwapBackSubmit, setFullscreenData, handleImageError,
-  fetchCurrentTopic // 🎯 ÚJ: Destrukturálva a beérkező propok között
+  fetchCurrentTopic
 }: ArenaActiveRoomProps) {
 
   const { t, lang } = useLanguage();
@@ -163,11 +163,8 @@ export default function ArenaActiveRoom({
 
       await Promise.all(votePromises);
       alert(t('roomBatchAlertSuccess'));
-      
-      // 🎯 JAVÍTVA: Ürítjük a lokális kijelöléseket, majd újra meghívjuk a szülő adatfrissítőjét!
       setPendingVotes({});
-      await fetchCurrentTopic(true); // Csendes frissítés, a szoba nyitva marad az új adatokkal!
-
+      await fetchCurrentTopic(true);
     } catch (e) {
       console.error(e);
       alert(t('msgNetworkError'));
@@ -179,7 +176,7 @@ export default function ArenaActiveRoom({
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '30px', animation: 'fadeIn 0.4s ease-out' }}>
       
-      {/* BAL OLDALI OSZLOP */}
+      {/* BAL OLDAL */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
         <div style={{ background: 'linear-gradient(135deg, #1e293b, #0f172a)', padding: '30px', borderRadius: '24px', border: '1px solid #334155', display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: '0 10px 30px rgba(0,0,0,0.5)', position: 'relative', overflow: 'hidden' }}>
           <div style={{ position: 'absolute', top: '-20px', right: '-20px', fontSize: '8rem', opacity: 0.05 }}>🔥</div>
@@ -201,6 +198,7 @@ export default function ArenaActiveRoom({
           </div>
         )}
 
+        {/* BATCH EVALUATION PULT */}
         <div style={{ background: '#1e293b', padding: '35px', borderRadius: '24px', border: '2px solid #38bdf8', boxShadow: '0 15px 35px rgba(0,0,0,0.4)' }}>
           <div style={{ background: 'rgba(56, 189, 248, 0.08)', borderLeft: '4px solid #38bdf8', padding: '15px 20px', borderRadius: '0 12px 12px 0', marginBottom: '25px', fontSize: '0.85rem', color: '#cbd5e1', lineHeight: '1.5' }}>
             <strong style={{ color: '#38bdf8', display: 'block', marginBottom: '4px', fontSize: '0.95rem' }}>
@@ -256,10 +254,10 @@ export default function ArenaActiveRoom({
                             ) : null}
 
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 15px', color: '#94a3b8' }}>
-                              <div> {t('mapExifCamera')} <b style={{ color: entry.exif?.isLegacy ? '#475569' : '#f8fafc' }}>{entry.exif?.camera}</b></div>
-                              <div> {t('mapExifLens')} <b style={{ color: entry.exif?.isLegacy ? '#475569' : '#f8fafc' }}>{entry.exif?.lens}</b></div>
-                              <div> {t('roomShutterIso')} <b style={{ color: entry.exif?.isLegacy ? '#475569' : '#38bdf8' }}>{entry.exif?.shutter} / {entry.exif?.iso}</b></div>
-                              <div> {t('roomSoftware')} <b style={{ color: entry.exif?.isLegacy ? '#475569' : '#a78bfa' }}>{entry.exif?.software}</b></div>
+                              <div>📷 {t('mapExifCamera')} <b style={{ color: entry.exif?.isLegacy ? '#475569' : '#f8fafc' }}>{entry.exif?.camera}</b></div>
+                              <div>🔭 {t('mapExifLens')} <b style={{ color: entry.exif?.isLegacy ? '#475569' : '#f8fafc' }}>{entry.exif?.lens}</b></div>
+                              <div>⏱️ {t('roomShutterIso')} <b style={{ color: entry.exif?.isLegacy ? '#475569' : '#38bdf8' }}>{entry.exif?.shutter} / {entry.exif?.iso}</b></div>
+                              <div>💿 {t('roomSoftware')} <b style={{ color: entry.exif?.isLegacy ? '#475569' : '#a78bfa' }}>{entry.exif?.software}</b></div>
                             </div>
                           </div>
 
@@ -312,7 +310,7 @@ export default function ArenaActiveRoom({
         </div>
       </div>
 
-      {/* ── JOBB OLDALI OSZLOP ── */}
+      {/* JOBB OLDAL */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
         <div style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #334155', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
@@ -462,38 +460,52 @@ export default function ArenaActiveRoom({
       </div>
 
       {/* ── 🔍 NAGYÍTÓ ÉS EXIF INSPECTOR MODÁL SZEKCIÓ ── */}
+      {/* JAVÍTVA: Mozi-stílusú elrendezés a lehető legnagyobb képméret érdekében! */}
       {selectedExifPhoto && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(9,13,22,0.95)', backdropFilter: 'blur(15px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '30px', boxSizing: 'border-box' }}>
-          <div style={{ background: '#1e293b', width: '100%', maxWidth: '1000px', borderRadius: '24px', border: '1px solid #475569', overflow: 'hidden', display: 'grid', gridTemplateColumns: '1fr 340px', boxShadow: '0 25px 60px rgba(0,0,0,0.6)' }}>
-            <div style={{ width: '100%', height: '650px', backgroundColor: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRight: '1px solid #334155' }}>
-              <img src={selectedExifPhoto.file_url} alt="" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(9,13,22,0.96)', backdropFilter: 'blur(20px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', boxSizing: 'border-box' }}>
+          <div style={{ background: '#1e293b', width: '100%', maxWidth: '1200px', maxHeight: '95vh', borderRadius: '24px', border: '1px solid #475569', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 30px 70px rgba(0,0,0,0.8)' }}>
+            
+            {/* MODÁL FEJLÉC */}
+            <div style={{ padding: '20px 30px', background: '#1e293b', borderBottom: '1px solid #334155', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                <h4 style={{ margin: 0, color: 'white', fontSize: '1.4rem', fontWeight: 'bold' }}>🔎 {t('roomInspectorTitle')}</h4>
+                <span style={{ color: '#64748b', fontSize: '0.85rem', fontWeight: 'bold', background: '#0f172a', padding: '4px 12px', borderRadius: '6px', border: '1px solid #334155' }}>
+                  🔒 {t('roomInspectorAnon')}
+                </span>
+              </div>
+              <button onClick={() => setSelectedExifPhoto(null)} style={{ background: '#334155', color: '#cbd5e1', border: 'none', width: '36px', height: '32px', borderRadius: '50%', cursor: 'pointer', fontWeight: 'bold', fontSize: '1.1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = '#ef4444'}>✕</button>
             </div>
 
-            <div style={{ padding: '30px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxSizing: 'border-box' }}>
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                  <h4 style={{ margin: 0, color: 'white', fontSize: '1.3rem', fontWeight: 'bold' }}>{t('roomInspectorTitle')}</h4>
-                  <button onClick={() => setSelectedExifPhoto(null)} style={{ background: '#334155', color: '#cbd5e1', border: 'none', width: '32px', height: '32px', borderRadius: '50%', cursor: 'pointer', fontWeight: 'bold' }}>✕</button>
-                </div>
+            {/* 🎯 MAXIMALIZÁLT KÉPMÉRETŰ SZÍNHÁZ DOBOZ (Függőlegesen nyúlik, amennyit csak tud) */}
+            <div style={{ flex: 1, backgroundColor: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', minHeight: 0, position: 'relative' }}>
+              <img 
+                src={selectedExifPhoto.file_url} 
+                alt="" 
+                style={{ width: '100%', height: '100%', maxWidth: '100%', maxHeight: '68vh', objectFit: 'contain' }} 
+              />
+            </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', fontSize: '0.9rem' }}>
-                  <div><span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 'bold', display: 'block' }}>{t('roomInspectorArtist')}</span><b style={{ color: '#94a3b8' }}>{t('roomInspectorAnon')}</b></div>
-                  <div style={{ height: '1px', background: '#334155', margin: '5px 0' }}></div>
-                  <div> {t('mapExifCamera')}: <b style={{ color: 'white', display: 'block' }}>{selectedExifPhoto.exif?.camera}</b></div>
-                  <div> {t('mapExifLens')}: <b style={{ color: 'white', display: 'block' }}>{selectedExifPhoto.exif?.lens}</b></div>
-                  <div>⏱️ {t('roomInspectorShutter')}: <b style={{ color: '#38bdf8', display: 'block' }}>{selectedExifPhoto.exif?.shutter}</b></div>
-                  <div>💎 {t('roomInspectorIso')}: <b style={{ color: '#38bdf8', display: 'block' }}>{selectedExifPhoto.exif?.iso}</b></div>
-                  <div>📐 {t('roomInspectorAperture')}: <b style={{ color: '#10b981', display: 'block' }}>{selectedExifPhoto.exif?.aperture}</b></div>
-                  <div>💻 {t('roomInspectorSoftware')}: <b style={{ color: '#a78bfa', display: 'block' }}>{selectedExifPhoto.exif?.software}</b></div>
-                </div>
+            {/* KOMPAKT HORIZONTÁLIS EXIF LÁBLÉC (Kép alá rejtve, nulla helyet vesz el oldalról) */}
+            <div style={{ padding: '20px 30px', background: '#0f172a', borderTop: '1px solid #334155', display: 'flex', flexDirection: 'column', gap: '15px', flexShrink: 0 }}>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px 25px', fontSize: '0.85rem', color: '#cbd5e1' }}>
+                <div>📷 <span style={{ color: '#64748b' }}>{t('mapExifCamera')}:</span> <b style={{ color: 'white' }}>{selectedExifPhoto.exif?.camera}</b></div>
+                <div>🔭 <span style={{ color: '#64748b' }}>{t('mapExifLens')}:</span> <b style={{ color: 'white' }}>{selectedExifPhoto.exif?.lens}</b></div>
+                <div>⏱️ <span style={{ color: '#64748b' }}>{t('roomInspectorShutter')}:</span> <b style={{ color: '#38bdf8' }}>{selectedExifPhoto.exif?.shutter}</b></div>
+                <div>💎 <span style={{ color: '#64748b' }}>{t('roomInspectorIso')}:</span> <b style={{ color: '#38bdf8' }}>{selectedExifPhoto.exif?.iso}</b></div>
+                <div>📐 <span style={{ color: '#64748b' }}>{t('roomInspectorAperture')}:</span> <b style={{ color: '#10b981' }}>{selectedExifPhoto.exif?.aperture}</b></div>
+                <div>💻 <span style={{ color: '#64748b' }}>{t('roomInspectorSoftware')}:</span> <b style={{ color: '#a78bfa' }}>{selectedExifPhoto.exif?.software}</b></div>
               </div>
 
-              <div style={{ background: selectedExifPhoto.exif?.isLegacy ? '#f59e0b15' : selectedExifPhoto.exif?.isAiSuspect ? '#ef444415' : '#10b98115', border: selectedExifPhoto.exif?.isLegacy ? '1px solid #fbbf2440' : selectedExifPhoto.exif?.isAiSuspect ? '1px solid #ef444440' : '1px solid #10b98140', padding: '15px', borderRadius: '12px', textAlign: 'center' }}>
-                <span style={{ color: selectedExifPhoto.exif?.isLegacy ? '#fbbf24' : selectedExifPhoto.exif?.isAiSuspect ? '#f87171' : '#4ade80', fontWeight: 'bold', display: 'block' }}>
+              {/* RADAR ÁLLAPOT JELZÉS */}
+              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', background: selectedExifPhoto.exif?.isLegacy ? '#f59e0b10' : selectedExifPhoto.exif?.isAiSuspect ? '#ef444410' : '#10b98110', border: selectedExifPhoto.exif?.isLegacy ? '1px solid #fbbf2430' : selectedExifPhoto.exif?.isAiSuspect ? '1px solid #ef444430' : '1px solid #10b98130', padding: '8px', borderRadius: '10px' }}>
+                <span style={{ color: selectedExifPhoto.exif?.isLegacy ? '#fbbf24' : selectedExifPhoto.exif?.isAiSuspect ? '#f87171' : '#4ade80', fontWeight: 'bold', fontSize: '0.9rem' }}>
                   {selectedExifPhoto.exif?.isLegacy ? t('roomLegacyPhoto') : selectedExifPhoto.exif?.isAiSuspect ? t('roomAiSuspect') : t('roomVerifiedHardware')}
                 </span>
               </div>
+
             </div>
+
           </div>
         </div>
       )}
