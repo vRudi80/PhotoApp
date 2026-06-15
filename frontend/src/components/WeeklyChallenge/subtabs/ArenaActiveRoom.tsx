@@ -4,7 +4,7 @@ import { getImageUrl } from '../../../utils/helpers';
 // 🎯 Nyelvi kontextus aktiválása
 import { useLanguage } from '../../../context/LanguageContext';
 
-// 🕒 1. FIXEN SZINKRONIZÁLT AKTIÓV SZŐBA VISSZASZÁMLÁLÓ
+// 🕒 1. FIXEN SZINKRONIZÁLT AKTÍV SZŐBA VISSZASZÁMLÁLÓ
 function ActiveRoomCountdown({ endDate, lang }: { endDate: string; lang: string }) {
   const elementRef = useRef<HTMLSpanElement>(null);
 
@@ -48,16 +48,9 @@ function ActiveRoomCountdown({ endDate, lang }: { endDate: string; lang: string 
 
   return (
     <div style={{ 
-      width: '100%',
-      display: 'flex', 
-      justifyContent: 'space-between', 
-      alignItems: 'center', 
-      background: '#f59e0b10', 
-      padding: '10px 14px', 
-      borderRadius: '10px', 
-      border: '1px solid #f59e0b30', 
-      boxSizing: 'border-box',
-      zIndex: 1
+      width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
+      background: '#f59e0b10', padding: '10px 14px', borderRadius: '10px', 
+      border: '1px solid #f59e0b30', boxSizing: 'border-box', zIndex: 1
     }}>
       <span style={{ fontSize: '0.8rem', color: '#f59e0b', fontWeight: 'bold', letterSpacing: '0.5px' }}>
         {lang === 'en' ? '⏳ TIME LEFT:' : '⏳ HÁTRALÉVŐ IDŐ:'}
@@ -68,49 +61,23 @@ function ActiveRoomCountdown({ endDate, lang }: { endDate: string; lang: string 
 }
 
 interface ArenaActiveRoomProps {
-  topic: any;
-  timeLeft: string;
-  isMaster: boolean;
-  exposureColor: string;
-  exposurePercentage: number;
-  exposureLabel: string;
-  myEntry: any;
-  voteEntry: any;
-  noMoreEntries: boolean;
-  masterVotesLeft: number;
-  userPower: any;
-  swapBalance: number;
-  myPastEntries: any[];
-  leaderboard: any[];
-  currentClubLeaderboard: any[];
-  user: any;
-  isUploading: boolean;
-  uploadPreview: string | null;
-  handleFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  handleUpload: () => void;
-  isLoadingSwapAlbum: boolean;
-  isSwapping: boolean;
-  swapPreview: string | null;
-  handleSwapFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  handleSwapSubmit: () => void;
-  onOpenAlbumForUpload: () => void;
-  onOpenAlbumForSwap: () => void;
-  handleVote: (type: 'pass' | 'super' | 'brilliant' | 'master') => void;
-  handleOffTopicReport: (id: number) => void;
-  handleSwapBackSubmit: (id: number) => void;
-  setFullscreenData: (data: any) => void;
+  topic: any; timeLeft: string; isMaster: boolean; exposureColor: string; exposurePercentage: number; exposureLabel: string;
+  myEntry: any; voteEntry: any; noMoreEntries: boolean; masterVotesLeft: number; userPower: any; swapBalance: number;
+  myPastEntries: any[]; leaderboard: any[]; currentClubLeaderboard: any[]; user: any; isUploading: boolean; uploadPreview: string | null;
+  handleFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void; handleUpload: () => void; isLoadingSwapAlbum: boolean; isSwapping: boolean;
+  swapPreview: string | null; handleSwapFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void; handleSwapSubmit: () => void;
+  onOpenAlbumForUpload: () => void; onOpenAlbumForSwap: () => void; handleVote: (type: 'pass' | 'super' | 'brilliant' | 'master') => void;
+  handleOffTopicReport: (id: number) => void; handleSwapBackSubmit: (id: number) => void; setFullscreenData: (data: any) => void;
   handleImageError: (e: React.SyntheticEvent<HTMLImageElement, Event>) => void;
 }
 
 export default function ArenaActiveRoom({
   topic, timeLeft, isMaster, exposureColor, exposurePercentage, exposureLabel,
   myEntry, voteEntry, noMoreEntries, masterVotesLeft, userPower, swapBalance,
-  myPastEntries, leaderboard, currentClubLeaderboard, user,
-  isUploading, uploadPreview, handleFileSelect, handleUpload, isLoadingSwapAlbum,
-  isSwapping, swapPreview, handleSwapFileSelect, handleSwapSubmit,
-  onOpenAlbumForUpload, onOpenAlbumForSwap,
-  handleVote, handleOffTopicReport, handleSwapBackSubmit,
-  setFullscreenData, handleImageError
+  myPastEntries, leaderboard, currentClubLeaderboard, user, isUploading, uploadPreview,
+  handleFileSelect, handleUpload, isLoadingSwapAlbum, isSwapping, swapPreview,
+  handleSwapFileSelect, handleSwapSubmit, onOpenAlbumForUpload, onOpenAlbumForSwap,
+  handleVote, handleOffTopicReport, handleSwapBackSubmit, setFullscreenData, handleImageError
 }: ArenaActiveRoomProps) {
 
   const { t, lang } = useLanguage();
@@ -141,85 +108,52 @@ export default function ArenaActiveRoom({
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '30px', animation: 'fadeIn 0.4s ease-out' }}>
       
-      {/* ── BAL OLDALI OSZLOP (INFO + SZAVAZÁS) ── */}
+      {/* ── BAL OLDALI OSZLOP (TÉMA + SZAVAZÓPULT) ── */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
         
         {/* TÉMA INFÓ */}
         <div style={{ background: 'linear-gradient(135deg, #1e293b, #0f172a)', padding: '30px', borderRadius: '24px', border: '1px solid #334155', display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: '0 10px 30px rgba(0,0,0,0.5)', position: 'relative', overflow: 'hidden' }}>
           <div style={{ position: 'absolute', top: '-20px', right: '-20px', fontSize: '8rem', opacity: 0.05 }}>🔥</div>
-          
           <h3 style={{ margin: '0 0 10px 0', color: '#f8fafc', fontSize: '1.8rem', textAlign: 'center', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', flexWrap: 'wrap' }}>
             <span>{displayRoomTitle}</span>
-            {(topic?.master_name || topic?.master_email) && (
-              <span style={{ fontSize: '0.85rem', color: '#a78bfa', background: '#a78bfa15', padding: '5px 14px', borderRadius: '10px', border: '1px solid #a78bfa30', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
-                {t('roomMasterTitle')} {topic.master_name || topic.master_email}
-              </span>
-            )}
           </h3>
-          
-          <p style={{ margin: '0 0 20px 0', color: '#cbd5e1', fontSize: '0.95rem', textAlign: 'center', zIndex: 1, lineHeight: '1.6' }}>{displayRoomDesc}</p>
-          
-          <div style={{ width: '100%', background: 'linear-gradient(135deg, rgba(251, 191, 36, 0.1), rgba(16, 185, 129, 0.05))', border: '1px solid rgba(251, 191, 36, 0.3)', padding: '12px 20px', borderRadius: '14px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'center', zIndex: 1, boxShadow: '0 4px 15px rgba(0,0,0,0.2)' }}>
-            <span style={{ fontSize: '1.3rem' }}>🏆</span>
-            <div style={{ textAlign: 'center', fontSize: '0.9rem', lineHeight: '1.4' }}>
-              <span style={{ color: '#fbbf24', fontWeight: 'bold' }}>{t('roomMainPrize')}</span>{' '}
-              <strong style={{ color: '#4ade80' }}>{t('roomFreePremium')}</strong>{' '}
-              <span style={{ color: '#cbd5e1' }}>{t('roomBonusSwaps')}</span>
-            </div>
-          </div>
-
+          <p style={{ margin: '0 0 20px 0', color: '#cbd5e1', fontSize: '0.95rem', textAlign: 'center', lineHeight: '1.6' }}>{displayRoomDesc}</p>
           <ActiveRoomCountdown endDate={topic?.end_date} lang={lang} />
         </div>
         
         {/* LÁTHATÓSÁGI MÉRŐ */}
         {!isMaster && (
-          <div style={{ width: '100%', boxSizing: 'border-box', background: '#0f172a', padding: '25px 15px', borderRadius: '24px', border: `1px solid ${exposureColor || '#ef4444'}40`, display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: `0 10px 40px -10px ${exposureColor || '#ef4444'}30`, transition: 'all 0.5s ease' }}>
-            <h4 style={{ color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '2px', margin: '0 0 15px 0', fontSize: '0.85rem', textAlign: 'center' }}>{t('roomExposureMeter')}</h4>
-            
-            <div style={{ position: 'relative', width: '100%', maxWidth: '240px', margin: '0 auto' }}>
-              <svg viewBox="0 0 200 120" style={{ width: '100%', height: 'auto', display: 'block', overflow: 'visible' }}>
-                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#1e293b" strokeWidth="16" strokeLinecap="round" />
-                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke={exposureColor || '#ef4444'} strokeWidth="16" strokeLinecap="round" pathLength="100" strokeDasharray="100" strokeDashoffset={100 - (exposurePercentage || 0)} />
-              </svg>
-              
-              <div style={{ position: 'absolute', bottom: '15px', left: '0', width: '100%', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <div style={{ fontSize: '2.8rem', fontWeight: '900', color: exposureColor || '#ef4444', lineHeight: '1' }}>
-                  {Math.round(exposurePercentage || 0)}<span style={{ fontSize: '1.2rem' }}>%</span>
-                </div>
-                <div style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#f8fafc', textTransform: 'uppercase', marginTop: '5px', letterSpacing: '2px' }}>
-                  {getTranslatedExposureLabel(exposureLabel)}
-                </div>
-              </div>
-            </div>
-            <p style={{ fontSize: '0.85rem', color: '#94a3b8', margin: '15px 0 0 0', textAlign: 'center', lineHeight: '1.6' }}>
-              {!myEntry ? t('roomExpNoEntry') : voteEntry ? t('roomExpNewPhotos') : t('roomExpMaxed')}
-            </p>
+          <div style={{ width: '100%', boxSizing: 'border-box', background: '#0f172a', padding: '25px 15px', borderRadius: '24px', border: `1px solid ${exposureColor || '#ef4444'}40`, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <svg viewBox="0 0 200 120" style={{ width: '100%', maxWidth: '240px', height: 'auto', display: 'block' }}>
+              <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#1e293b" strokeWidth="16" strokeLinecap="round" />
+              <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke={exposureColor || '#ef4444'} strokeWidth="16" strokeLinecap="round" pathLength="100" strokeDasharray="100" strokeDashoffset={100 - (exposurePercentage || 0)} />
+            </svg>
+            <div style={{ fontSize: '2rem', fontWeight: '900', color: exposureColor || '#ef4444', marginTop: '-40px' }}>{Math.round(exposurePercentage || 0)}%</div>
+            <div style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#cbd5e1', textTransform: 'uppercase', marginTop: '5px' }}>{getTranslatedExposureLabel(exposureLabel)}</div>
           </div>
         )}
 
-        {/* ÉRTÉKELŐ ARÉNA PULT (Eredeti, egyképes) */}
+        {/* SINGLE-VOTE ARENA INTERFACE */}
         <div style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #334155', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
           <h3 style={{ margin: '0 0 20px 0', color: '#f8fafc', fontSize: '1.4rem' }}>{t('roomVotingArena')}</h3>
           
           {(!myEntry && !isMaster) ? (
             <div style={{ padding: '40px 20px', textAlign: 'center', background: '#0f172a', borderRadius: '16px', border: '2px dashed #f59e0b' }}>
-              <div style={{ fontSize: '3.5rem', marginBottom: '15px' }}>🛑</div>
-              <h4 style={{ color: '#f59e0b', margin: '0 0 10px 0', fontSize: '1.3rem' }}>{t('roomNoVoteRight')}</h4>
-              <p style={{ color: '#94a3b8', fontSize: '0.95rem', margin: 0, lineHeight: '1.5' }}>{t('roomNoVoteRightDesc')}</p>
+              <h4 style={{ color: '#f59e0b', margin: '0 0 10px 0' }}>{t('roomNoVoteRight')}</h4>
+              <p style={{ color: '#94a3b8', fontSize: '0.95rem', margin: 0 }}>{t('roomNoVoteRightDesc')}</p>
             </div>
           ) : noMoreEntries ? (
             <div style={{ padding: '50px 20px', textAlign: 'center', background: 'linear-gradient(135deg, #0f172a, #1e293b)', borderRadius: '16px', border: '1px solid #10b981' }}>
-              <div style={{ fontSize: '4rem', marginBottom: '15px' }}>🎉</div>
-              <h4 style={{ color: '#10b981', margin: '0 0 10px 0', fontSize: '1.5rem' }}>{t('roomAllVoted')}</h4>
+              <h4 style={{ color: '#10b981', margin: '0 0 10px 0' }}>{t('roomAllVoted')}</h4>
               <p style={{ color: '#94a3b8', fontSize: '0.95rem', margin: 0 }}>{t('roomAllVotedDesc')}</p>
             </div>
           ) : voteEntry ? (
             <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <div onClick={() => setFullscreenData({url: getImageUrl(voteEntry?.drive_file_id, voteEntry?.file_url), title: 'Arena'})} style={{ width: '100%', height: '380px', backgroundColor: '#000', borderRadius: '16px', overflow: 'hidden', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-in', boxShadow: '0 10px 20px rgba(0,0,0,0.5)' }}>
+              <div onClick={() => setFullscreenData({url: getImageUrl(voteEntry?.drive_file_id, voteEntry?.file_url), title: 'Arena'})} style={{ width: '100%', height: '380px', backgroundColor: '#000', borderRadius: '16px', overflow: 'hidden', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-in' }}>
                 <img src={getImageUrl(voteEntry?.drive_file_id, voteEntry?.file_url)} alt="Vote" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} onError={handleImageError} />
               </div>
 
-              {/* ── 🎯 INTEGRÁLT, TISZTA ADATBÁZIS EXIF DIAGNOSZTIKAI MEGJELENÍTŐ KÁRTYA ── */}
+              {/* ── EXIF DIAGNOSZTIKAI MEGJELENÍTŐ KÁRTYA ── */}
               <div style={{ width: '100%', background: '#0f172a', padding: '15px', borderRadius: '14px', marginBottom: '20px', border: '1px solid #232f46', boxSizing: 'border-box' }}>
                 {isLegacyPhoto ? (
                   <div style={{ background: '#f59e0b15', color: '#fbbf24', padding: '6px 12px', borderRadius: '8px', border: '1px solid #fbbf2430', fontWeight: 'bold', marginBottom: '12px', fontSize: '0.8rem', textAlign: 'center' }}>
@@ -285,7 +219,7 @@ export default function ArenaActiveRoom({
                   onClick={() => handleOffTopicReport(voteEntry?.id)}
                   style={{ width: '100%', padding: '10px 20px', background: '#ef444410', color: '#ef4444', border: '1px solid #ef444430', borderRadius: '14px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem' }}
                 >
-                  {t('roomReportBtn')}
+                  ⚠️ {t('roomReportBtn')}
                 </button>
               </div>
             </div>
@@ -293,10 +227,10 @@ export default function ArenaActiveRoom({
         </div>
       </div>
 
-      {/* ── 👑 JOBB OLDALI OSZLOP (NEVEZÉS + RANGSOROK) ── */}
+      {/* ── JOBB OLDALI OSZLOP (SAJÁT JÁTÉK + RANGSOROK) ── */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
         
-        {/* SAJÁT NEVEZÉS PANEL */}
+        {/* SAJÁT NEVEZÉS */}
         <div style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #334155', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
             <h3 style={{ margin: 0, color: '#f8fafc', fontSize: '1.4rem' }}>{t('roomMyEntry')}</h3>
@@ -407,7 +341,7 @@ export default function ArenaActiveRoom({
           )}
         </div>
 
-        {/* KLUBOK CSATÁJA RANGSOR */}
+        {/* KLUBOK CSATÁJA */}
         <div style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #10b981', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
             <h3 style={{ margin: 0, color: '#10b981', fontSize: '1.4rem' }}>{t('roomClubLeague')}</h3>
@@ -431,7 +365,7 @@ export default function ArenaActiveRoom({
           )}
         </div>
 
-        {/* VAK TOPLISTA MEGJELENÍTŐ */}
+        {/* VAK TOPLISTA */}
         <div style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #f59e0b', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
           <h3 style={{ margin: '0 0 10px 0', color: '#f59e0b', fontSize: '1.4rem' }}>{t('roomBlindLeaderboard')}</h3>
           <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 20px 0', lineHeight: '1.5' }}>{t('roomBlindLeaderboardDesc')}</p>
