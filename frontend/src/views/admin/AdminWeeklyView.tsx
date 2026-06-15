@@ -92,7 +92,7 @@ export default function AdminWeeklyView() {
   const [previewUrl, setPreviewUrl] = useState<string>(''); 
   const [coverUrl, setCoverUrl] = useState('');
   
-  // 🎯 JAVÍTVA: Változónév visszaállítva coverAuthor-ra, hogy az űrlap bekötése újra működjön!
+  // 🎯 FIX: Változónév véglegesen stabilizálva, így nem dob többé ReferenceError-t a React!
   const [coverAuthor, setCoverAuthor] = useState('');
 
   const [suspiciousActivities, setSuspiciousActivities] = useState<any[]>([]);
@@ -213,7 +213,6 @@ export default function AdminWeeklyView() {
     } catch (e) { alert(t('msgNetworkError')); }
   };
 
-  // ── 🎯 JAVÍTVA: ATOMBIZTOS RE-PACK LOGIKA (Minden adatot megőriz, semmit nem töröl ki a DB-ből) ──
   const handleQuickGanttSave = async (tData: any) => {
     try {
       const formData = new FormData();
@@ -226,7 +225,6 @@ export default function AdminWeeklyView() {
       formData.append('masterEmail', tData.master_email || '');
       formData.append('coverAuthor', tData.cover_author || '');
       
-      // Fixen visszaküldjük a meglévő kép URL-t, így a backend nem írja felül ürességgel!
       if (tData.cover_url) {
         formData.append('coverUrl', tData.cover_url);
       }
@@ -253,7 +251,7 @@ export default function AdminWeeklyView() {
     } catch (e) { alert(t('msgNetworkError')); }
   };
 
-  // Gantt naptár számítások
+  // Gantt naptár számítások biztonsági fallbacekkel
   const ganttCalendarData = useMemo(() => {
     let absoluteMin = Infinity;
     let absoluteMax = 0;
@@ -337,7 +335,7 @@ export default function AdminWeeklyView() {
     return (elapsedMs / 86400000) * 40;
   }, [ganttCalendarData]);
 
-  // Egérmozgás figyelő
+  // Drag & Drop / Resize egérkövető motor
   useEffect(() => {
     if (!activeDrag) return;
 
@@ -379,6 +377,10 @@ export default function AdminWeeklyView() {
       window.removeEventListener('mouseup', handleGlobalMouseUp);
     };
   }, [activeDrag]);
+
+  useEffect(() => {
+    fetchTopics(); fetchUsers(); fetchSuspicious();
+  }, []);
 
   return (
     <div style={{ animation: 'fadeIn 0.4s ease-out' }}>
@@ -493,7 +495,7 @@ export default function AdminWeeklyView() {
         </button>
       </div>
 
-      {/* GANTT HEADER */}
+      {/* GANTT TIMELINE DASHBOARD */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '15px' }}>
         <h3 style={{ color: '#f8fafc', margin: 0, fontSize: '1.4rem', fontWeight: 'bold' }}>📅 {t('adminGanttTitle')}</h3>
         <div style={{ display: 'flex', gap: '5px', background: '#0f172a', padding: '4px', borderRadius: '10px', border: '1px solid #334155' }}>
@@ -503,10 +505,11 @@ export default function AdminWeeklyView() {
         </div>
       </div>
       
-      {/* NAPTÁR CANVASES RÉTEG */}
+      {/* NAPTÁR FŐ DOBOZ */}
       <div style={{ background: '#1e293b', borderRadius: '24px', border: '1px solid #334155', padding: '25px', overflowX: 'auto', boxShadow: '0 15px 35px rgba(0,0,0,0.4)', boxSizing: 'border-box' }}>
         <div style={{ width: 'max-content', display: 'flex', flexDirection: 'column', gap: '15px', position: 'relative', userSelect: activeDrag ? 'none' : 'auto' }}>
           
+          {/* STICKY FEJLÉC */}
           <div style={{ display: 'grid', gridTemplateColumns: `460px ${ganttCalendarData.totalDays * 40}px`, borderBottom: '2px solid #475569', paddingBottom: '12px' }}>
             <div style={{ color: '#38bdf8', fontWeight: '900', fontSize: '0.95rem', textTransform: 'uppercase', letterSpacing: '1px', display: 'flex', alignItems: 'center', paddingLeft: '14px', boxSizing: 'border-box' }}>
               {t('adminGanttChallengeColumn')}
@@ -537,7 +540,7 @@ export default function AdminWeeklyView() {
             </div>
           </div>
 
-          {/* SOROK KIRAKÁSA */}
+          {/* HADITERV SOROK LEKÉPEZÉSE */}
           {topics.map((tData) => {
             const status = getTopicStatus(tData.status, tData.start_date, tData.end_date);
             const isPending = tData.status === 'pending';
@@ -556,13 +559,10 @@ export default function AdminWeeklyView() {
             const visualWidthPx = leftPx < 0 ? Math.max(0, widthPx + leftPx) : widthPx;
             const isCurrentlyDragging = activeDrag?.topicId === tData.id;
 
-            const tooltipStart = new Date(tData.start_date).toLocaleString(lang === 'en' ? 'en-US' : 'hu-HU', { dateStyle: 'short', timeStyle: 'short', timeZone: 'UTC' });
-            const tooltipEnd = new Date(tData.end_date).toLocaleString(lang === 'en' ? 'en-US' : 'hu-HU', { dateStyle: 'short', timeStyle: 'short', timeZone: 'UTC' });
-            const tooltipText = `${t('adminTooltipFrom')}: ${tooltipStart} ➔ ${t('adminTooltipTo')}: ${tooltipEnd}`;
-
             return (
               <div key={tData.id} style={{ display: 'grid', gridTemplateColumns: `460px ${ganttCalendarData.totalDays * 40}px`, alignItems: 'center', background: tData.isGanttModified ? '#10b98108' : '#0f172a30', borderRadius: '16px', border: tData.isGanttModified ? '1px solid #10b98150' : '1px solid #232f46', padding: '14px 0px', boxSizing: 'border-box' }}>
                 
+                {/* BAL CELLA */}
                 <div style={{ display: 'flex', gap: '14px', paddingLeft: '14px', paddingRight: '15px', minWidth: 0, boxSizing: 'border-box', alignItems: 'center' }}>
                   <div style={{ width: '74px', height: '46px', backgroundColor: '#0f172a', borderRadius: '6px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #334155', flexShrink: 0 }}>
                     {tData.cover_url ? <img src={tData.cover_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={handleImageError} /> : <span style={{ fontSize: '1rem', opacity: 0.3 }}>🖼️</span>}
@@ -603,7 +603,7 @@ export default function AdminWeeklyView() {
                   </div>
                 </div>
 
-                {/* JOBB CELLA */}
+                {/* JOBB CELLA INTERAKTÍV SÁVVAL */}
                 <div className="gantt-bar-container" style={{ position: 'relative', width: '100%', height: '40px', display: 'flex', alignItems: 'center', boxSizing: 'border-box' }}>
                   <div style={{ position: 'absolute', inset: 0, display: 'grid', gridTemplateColumns: `repeat(${ganttCalendarData.totalDays}, 1fr)`, pointerEvents: 'none', zIndex: 1 }}>
                     {ganttCalendarData.daysArray.map((date, rIdx) => {
