@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BACKEND_URL } from '../../utils/constants';
 
-// 🎯 ÚJ IMPORT: Behozzuk a nyelvi kontextust a nemzetközi működéshez
+// 🎯 Nyelvi kontextus betöltése a nemzetközi működéshez
 import { useLanguage } from '../../context/LanguageContext';
 
 interface ArchiveDetailModalProps {
@@ -24,7 +24,7 @@ export default function ArchiveDetailModal({ entry, userEmail, userName, onClose
   const [newComment, setNewComment] = useState('');
   const [loadingComments, setLoadingComments] = useState(false);
 
-  // ⚡ JAVÍTVA: Kizárólag az archív szíveket (archive_likes) vesszük alapul, a verseny csillagok nem zavarnak be ide
+  // ⚡ LOKÁLIS MEMÓRIA: Szigorúan csak az archív szíveket (archive_likes) vesszük alapul
   const [likesCount, setLikesCount] = useState<number>(Number(entry?.archive_likes) || 0);
   const [isLiked, setIsLiked] = useState<boolean>(entry?.has_user_liked === 1 || entry?.has_user_liked === true);
 
@@ -49,7 +49,7 @@ export default function ArchiveDetailModal({ entry, userEmail, userName, onClose
 
   const handleLike = async () => {
     if (!userEmail) {
-      alert("❌ Hiba: A system nem azonosította a profilodat! Jelentkezz be újra.");
+      alert("❌ Hiba: A rendszer nem azonosította a profilodat! Jelentkezz be újra.");
       return;
     }
 
@@ -108,7 +108,7 @@ export default function ArchiveDetailModal({ entry, userEmail, userName, onClose
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(9, 13, 22, 0.95)', backdropFilter: 'blur(20px)', zIndex: 99999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px', boxSizing: 'border-box' }}>
       
-      {/* 🎯 LAPOS NATIVE CSS SZABÁLYOK A FÜGGŐLEGES SZÍNHÁZ STRUKTÚRÁHOZ */}
+      {/* 🎯 ULTRA-STABIL FÜGGŐLEGES SZÍNHÁZ SZELEKTOROK */}
       <style>{`
         .theater-modal-card {
           background: #1e293b;
@@ -126,7 +126,7 @@ export default function ArchiveDetailModal({ entry, userEmail, userName, onClose
 
         .theater-photo-section {
           background: #090d16;
-          flex: 1.5;
+          flex: 1.4;
           display: flex;
           justify-content: center;
           align-items: center;
@@ -161,44 +161,38 @@ export default function ArchiveDetailModal({ entry, userEmail, userName, onClose
           gap: 12px;
           background: #090d1620;
         }
-
-        @media (max-height: 700px) {
-          .theater-photo-section {
-            flex: 1.1;
-          }
-        }
       `}</style>
 
       {/* FŐ KÁRTYA CONTAINER */}
       <div className="theater-modal-card">
         
-        {/* 1. FELSŐ RÉSZ: FOTÓ PANEL (MOZI ÉLMÉNY) */}
+        {/* 1. FELSŐ RÉSZ: FOTÓ PANEL */}
         <div className="theater-photo-section">
           <button onClick={onClose} style={{ position: 'absolute', top: '20px', left: '20px', background: '#1e293b', border: '1px solid #334155', color: '#94a3b8', padding: '8px 18px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', zIndex: 10, transition: 'all 0.2s', fontSize: '0.85rem' }}>⬅️ Bezárás</button>
           <img className="theater-archive-img" src={entry.file_url} alt="" onError={handleImageError} />
         </div>
 
-        {/* 2. ALSÓ RÉSZ: INFORCIÓS ÉS MEGBESZÉLŐ PANEL */}
+        {/* 2. ALSÓ RÉSZ: ADATOK ÉS CSEVEGÉS */}
         <div className="theater-info-section">
           
-          {/* Alkotói adatok tágas, horizontális sora */}
+          {/* Fejléc sáv: tiszta elrendezésű, fix oszlopos törések nélkül */}
           <div style={{ padding: '20px 25px', borderBottom: '1px solid #223047', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '20px', flexShrink: 0 }}>
             
-            {/* JAVÍTVA: A belső blokk most már egy tiszta függőleges oszlop, így a klub a név alá kerül */}
-            <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {/* 💥 JAVÍTVA: Atombiztos függőleges rendezés, a klubnév fixen és torzításmentesen a név alatt nyúlik el */}
+            <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '6px' }}>
               <h3 style={{ color: 'white', margin: 0, fontSize: '1.35rem', fontWeight: 'bold', lineHeight: '1.2' }}>
                 Alkotó: <span style={{ color: '#38bdf8' }}>{entry.user_name}</span>
               </h3>
               
               {entry.club_name && (
-                <div style={{ display: 'flex' }}>
-                  <span style={{ color: '#10b981', fontSize: '0.82rem', fontWeight: 'bold', background: '#10b98115', padding: '5px 12px', borderRadius: '6px', border: '1px solid #10b98130', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                <div style={{ display: 'flex', width: 'auto', flexShrink: 0 }}>
+                  <span style={{ color: '#10b981', fontSize: '0.82rem', fontWeight: 'bold', background: '#10b98115', padding: '5px 12px', borderRadius: '6px', border: '1px solid #10b98130', display: 'inline-block', width: 'fit-content' }}>
                     🛡️ {entry.club_name}
                   </span>
                 </div>
               )}
               
-              <div style={{ color: '#64748b', fontSize: '0.9rem', fontWeight: 'bold', marginTop: '2px' }}>
+              <div style={{ color: '#64748b', fontSize: '0.88rem', fontWeight: 'bold', marginTop: '2px' }}>
                 Eredmény: <span style={{ color: '#f59e0b' }}>{entry.likes_count} ⭐</span>
               </div>
             </div>
