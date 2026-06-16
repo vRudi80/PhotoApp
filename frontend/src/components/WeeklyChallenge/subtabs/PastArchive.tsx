@@ -498,4 +498,3 @@ export default function PastArchive({
     </div>
   );
 }
-``` Deployold ezt a verziót, és mindkét felületed (a dobogó és a hatalmasra növelt fotónézegető is) tökéletesen fog működni!
