@@ -108,7 +108,7 @@ export default function ArchiveDetailModal({ entry, userEmail, userName, onClose
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(9, 13, 22, 0.95)', backdropFilter: 'blur(20px)', zIndex: 99999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px', boxSizing: 'border-box' }}>
       
-      {/* 🎯 ULTRA-STABIL FÜGGŐLEGES SZÍNHÁZ SZELEKTOROK */}
+      {/* 🎯 ULTRA-STABIL FÜGGŐLEGES SZÍNHÁZ SZELEKTOROK - JAVÍTVA KÓDÜTKÖZÉS ELLEN */}
       <style>{`
         .theater-modal-card {
           background: #1e293b;
@@ -126,7 +126,7 @@ export default function ArchiveDetailModal({ entry, userEmail, userName, onClose
 
         .theater-photo-section {
           background: #090d16;
-          flex: 1.4;
+          flex: 1.5;
           display: flex;
           justify-content: center;
           align-items: center;
@@ -152,6 +152,18 @@ export default function ArchiveDetailModal({ entry, userEmail, userName, onClose
           min-height: 0;
         }
 
+        .theater-header-row {
+          padding: 20px 25px;
+          border-bottom: 1px solid #223047;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 20px;
+          flex-shrink: 0;
+          width: 100%;
+          box-sizing: border-box;
+        }
+
         .theater-comments-flow {
           flex: 1;
           overflow-y: auto;
@@ -175,28 +187,33 @@ export default function ArchiveDetailModal({ entry, userEmail, userName, onClose
         {/* 2. ALSÓ RÉSZ: ADATOK ÉS CSEVEGÉS */}
         <div className="theater-info-section">
           
-          {/* Fejléc sáv: tiszta elrendezésű, fix oszlopos törések nélkül */}
-          <div style={{ padding: '20px 25px', borderBottom: '1px solid #223047', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '20px', flexShrink: 0 }}>
+          {/* Hivatalos reszponzív fejlécsor */}
+          <div className="theater-header-row">
             
-            {/* 💥 JAVÍTVA: Atombiztos függőleges rendezés, a klubnév fixen és torzításmentesen a név alatt nyúlik el */}
-            <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '6px' }}>
-              <h3 style={{ color: 'white', margin: 0, fontSize: '1.35rem', fontWeight: 'bold', lineHeight: '1.2' }}>
-                Alkotó: <span style={{ color: '#38bdf8' }}>{entry.user_name}</span>
+            {/* 💥 JAVÍTVA: Szigorú fentről lefelé építkező elrendezés (Név ➔ Klub ➔ Pontszám) */}
+            <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '8px' }}>
+              
+              {/* Név önállóan, fixen egy sorban, levágás-védelemmel */}
+              <h3 style={{ color: '#38bdf8', margin: 0, fontSize: '1.45rem', fontWeight: 'bold', lineHeight: '1.2', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>
+                {entry.user_name}
               </h3>
               
+              {/* Klubjelvény közvetlenül a név alatt */}
               {entry.club_name && (
                 <div style={{ display: 'flex', width: 'auto', flexShrink: 0 }}>
-                  <span style={{ color: '#10b981', fontSize: '0.82rem', fontWeight: 'bold', background: '#10b98115', padding: '5px 12px', borderRadius: '6px', border: '1px solid #10b98130', display: 'inline-block', width: 'fit-content' }}>
+                  <span style={{ color: '#10b981', fontSize: '0.85rem', fontWeight: 'bold', background: '#10b98115', padding: '5px 12px', borderRadius: '6px', border: '1px solid #10b98130', display: 'inline-block' }}>
                     🛡️ {entry.club_name}
                   </span>
                 </div>
               )}
               
+              {/* Versenyeredmény */}
               <div style={{ color: '#64748b', fontSize: '0.88rem', fontWeight: 'bold', marginTop: '2px' }}>
                 Eredmény: <span style={{ color: '#f59e0b' }}>{entry.likes_count} ⭐</span>
               </div>
             </div>
 
+            {/* Elismerés (Lájk) gomb a jobb szélen */}
             <button 
               onClick={handleLike}
               style={{ display: 'flex', alignItems: 'center', gap: '8px', background: isLiked ? 'rgba(239, 68, 68, 0.15)' : '#1e293b', border: isLiked ? '1px solid #ef4444' : '1px solid #334155', color: isLiked ? '#f87171' : '#cbd5e1', padding: '12px 20px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s', flexShrink: 0, fontSize: '0.92rem' }}
