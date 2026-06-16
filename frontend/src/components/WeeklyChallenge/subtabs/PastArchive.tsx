@@ -179,7 +179,7 @@ export default function PastArchive({
                   </div>
                 )}
 
-                {/* ── 🏆 🎯 ÚJ: MODERN 3D DOBOGÓ (PODIUM) SZERKEZET KÖZVETLENÜL A BANNER ALÁ ── */}
+                {/* ── 🏆 MODERN 3D DOBOGÓ (PODIUM) SZERKEZET KÖZVETLENÜL A BANNER ALÁ ── */}
                 {topThreeWinners.length > 0 && (
                   <div style={{ background: 'linear-gradient(180deg, #1e293b, #0f172a)', borderRadius: '24px', padding: '25px 15px', border: '1px solid #334155', boxShadow: '0 15px 35px rgba(0,0,0,0.4)', marginTop: '5px' }}>
                     <h4 style={{ color: '#fbbf24', fontSize: '1.1rem', fontWeight: 'bold', textAlign: 'center', margin: '0 0 25px 0', textTransform: 'uppercase', letterSpacing: '1px' }}>
@@ -444,41 +444,47 @@ export default function PastArchive({
         )}
       </div>
 
-      {/* ── 🎯 ⚡ ÚJ: INJEKTÁLT MOZI-ELRENDEZÉS CSS OVERRIDES A FINOMHANGOLÁSHOZ ── */}
+      {/* ── 🎯 ⚡ ÚJ: TISZTA, LAPOS (UNNESTED) SZELEKTOROK AZ ATOMBIZTOS MEGJELENÍTÉSHEZ ── */}
       <style>{`
-        /* Ha asztali gépen vagyunk, rákényszerítjük a modált a helyes térfelosztásra */
         @media (min-width: 1024px) {
-          /* Megkeressük az ArchiveDetailModal belső gridjét/flexboxát */
-          div[class*="modal"], div[style*="fixed"] {
-            /* Kiválasztjuk a belső tartalom hordozót */
-            .modal-content-wrapper, div[style*="max-width: 1200px"] {
-              max-width: 90vw !important; /* Szélesebb mozi pult */
-              width: 90vw !important;
-            }
-            
-            /* Rákényszerítjük a 70% kép - 30% chat arányt a belső osztott hasábra */
-            div[style*="grid-template-columns"], div[style*="display: flex"] {
-              display: grid !important;
-              grid-template-columns: 1fr 380px !important; /* Fixen csak 380px a chat, a többi a fotóé! */
-              width: 100% !important;
-            }
+          /* 1. Kiterjesztjük a modál tartalom hordozóját szélesebbre */
+          div[style*="position: fixed"] div[style*="max-width: 1200px"],
+          div[style*="position:fixed"] div[style*="maxWidth: '1200px'"] {
+            max-width: 90vw !important;
+            width: 90vw !important;
+          }
+          
+          /* 2. Fixen beállítjuk a pult felosztását: a kép megkapja a nagy teret, a chat pedig kényelmesen 400px lesz */
+          div[style*="position: fixed"] div[style*="grid-template-columns"],
+          div[style*="position: fixed"] div[style*="gridTemplateColumns"],
+          div[style*="position: fixed"] div[style*="display: flex"] {
+            display: grid !important;
+            grid-template-columns: 1fr 400px !important;
+            width: 100% !important;
+          }
 
-            /* A nagy színház doboz, ami a képet tartja */
-            div[style*="background-color: rgb(0, 0, 0)"], div[style*="backgroundColor: '#000'"] {
-              height: 75vh !important; /* Magasabb, monumentális képélmény */
-              max-height: 75vh !important;
-            }
+          /* 3. Kényszerítjük a fekete színház dobozt, hogy függőlegesen nyúljon el kényelmesen */
+          div[style*="position: fixed"] div[style*="background-color: #000"],
+          div[style*="position: fixed"] div[style*="background-color: rgb(0, 0, 0)"],
+          div[style*="position: fixed"] div[style*="backgroundColor: '#000'"] {
+            height: 75vh !important;
+            max-height: 75vh !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+          }
 
-            img[style*="max-height: 68vh"] {
-              max-height: 75vh !important;
-              width: 100% !important;
-              height: 100% !important;
-              object-fit: contain !important;
-            }
+          /* 4. A fotó most már 100%-ban kitölti a hordozóját a torzulásmentes contain megtartásával */
+          div[style*="position: fixed"] img[style*="max-height"] {
+            width: 100% !important;
+            height: 100% !important;
+            max-width: 100% !important;
+            max-height: 75vh !important;
+            object-fit: contain !important;
+            margin: 0 auto !important;
           }
         }
 
-        /* Fluid pódium reszponzivitás kicsi mobilokra */
         @media (max-width: 420px) {
           .past-archive-podium-container {
             flex-direction: column !important;
