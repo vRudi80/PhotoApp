@@ -4,7 +4,7 @@ import ArchiveDetailModal from '../ArchiveDetailModal';
 import { toPng } from 'html-to-image'; 
 import { BACKEND_URL, ADMIN_EMAIL } from '../../../utils/constants';
 
-// 🎯 ÚJ IMPORT: Behozzuk a nyelvi kontextust
+// 🎯 Nyelvi kontextus betöltése
 import { useLanguage } from '../../../context/LanguageContext';
 
 interface PastArchiveProps {
@@ -28,45 +28,36 @@ export default function PastArchive({
   const { t, lang } = useLanguage();
   const [activeArchiveEntry, setActiveArchiveEntry] = useState<any | null>(null);
 
+  // 👑 Képgeneráló állapotok az admin pódium-plakáthoz
   const [adminPosterData, setAdminPosterData] = useState<{ topic: any; entries: any[] } | null>(null);
   const [isAdminGeneratingPoster, setIsAdminGeneratingPoster] = useState(false);
 
-  // 🛡️ JAVÍTVA: Típusbiztos és időzóna-független dátum-sorompó
-  const isOldRound = useMemo(() => {
-    if (!selectedPastTopicId || !pastTopics) return true;
-    
-    // Stringgé alakítva hasonlítjuk össze az ID-kat, így kiküszöböljük a szám vs szöveg hibákat
-    const matchedTopic = pastTopics.find(x => String(x.id) === String(selectedPastTopicId));
-    if (!matchedTopic || !matchedTopic.end_date) return true;
-    
-    // Tiszta, karakteres dátum-összehasonlítás az időzóna-csúszások ellen
-    const dateStr = String(matchedTopic.end_date).replace('T', ' ');
-    return dateStr < '2026-06-16 00:00:00';
-  }, [selectedPastTopicId, pastTopics]);
-
-  // 💥 MATEMATIKAI MOTOR: Top 3 győztes kiszámítása az idővonal-súlyozott pontok szerint
+  // 💥 JAVÍTVA: A pódium sorrendjét is a dinamikus fair_score (vagy fallback csillag) vezérli
   const topThreeWinners = useMemo(() => {
     if (!pastLeaderboard || pastLeaderboard.length === 0) return [];
     return [...pastLeaderboard].sort((a, b) => {
-      const scoreA = isOldRound ? Number(a?.likes_count || 0) : Number(a?.fair_score !== undefined ? a.fair_score : a?.likes_count || 0);
-      const scoreB = isOldRound ? Number(b?.likes_count || 0) : Number(b?.fair_score !== undefined ? b.fair_score : b?.likes_count || 0);
+      const scoreA = a.fair_score !== undefined ? Number(a.fair_score) : Number(a?.likes_count || 0);
+      const scoreB = b.fair_score !== undefined ? Number(b.fair_score) : Number(b?.likes_count || 0);
+      
       if (scoreB !== scoreA) return scoreB - scoreA;
       return (Number(a?.views_count || 0)) - (Number(b?.views_count || 0));
     }).slice(0, 3);
-  }, [pastLeaderboard, isOldRound]);
+  }, [pastLeaderboard]);
 
   const currentModalEntry = activeArchiveEntry
     ? (pastLeaderboard.find(x => x.id === activeArchiveEntry.id) || activeArchiveEntry)
     : null;
 
+  // 👑 ADMIN FUNKCIÓ: Top 3 helyezett konverziója Base64-re az új Fair Score szerint
   const handleGenerateAdminPoster = async (matchedTopic: any) => {
     if (!matchedTopic || pastLeaderboard.length === 0) return;
     setIsAdminGeneratingPoster(true);
 
     try {
       const sortedWinners = [...pastLeaderboard].sort((a, b) => {
-        const scoreA = isOldRound ? Number(a?.likes_count || 0) : Number(a?.fair_score !== undefined ? a.fair_score : a?.likes_count || 0);
-        const scoreB = isOldRound ? Number(b?.likes_count || 0) : Number(b?.fair_score !== undefined ? b.fair_score : b?.likes_count || 0);
+        const scoreA = a.fair_score !== undefined ? Number(a.fair_score) : Number(a?.likes_count || 0);
+        const scoreB = b.fair_score !== undefined ? Number(b.fair_score) : Number(b?.likes_count || 0);
+        
         if (scoreB !== scoreA) return scoreB - scoreA;
         return (Number(a?.views_count || 0)) - (Number(b?.views_count || 0));
       }).slice(0, 3);
@@ -99,6 +90,7 @@ export default function PastArchive({
     }
   };
 
+  // 👑 ADMIN EFFECT: FB plakátkép letöltésindítás
   useEffect(() => {
     if (!adminPosterData) return;
     
@@ -146,10 +138,10 @@ export default function PastArchive({
                   onClick={() => loadPastHistoryList(tRow.id)} 
                   style={{ 
                     padding: '15px 20px', 
-                    background: String(selectedPastTopicId) === String(tRow.id) ? 'linear-gradient(90deg, #3b82f640, #0f172a)' : '#0f172a', 
-                    border: String(selectedPastTopicId) === String(tRow.id) ? '1px solid #3b82f6' : '1px solid #334155', 
+                    background: selectedPastTopicId === tRow.id ? 'linear-gradient(90deg, #3b82f640, #0f172a)' : '#0f172a', 
+                    border: selectedPastTopicId === tRow.id ? '1px solid #3b82f6' : '1px solid #334155', 
                     borderRadius: '12px', cursor: 'pointer', color: 'white', 
-                    fontWeight: String(selectedPastTopicId) === String(tRow.id) ? 'bold' : 'normal', transition: 'all 0.2s' 
+                    fontWeight: selectedPastTopicId === tRow.id ? 'bold' : 'normal', transition: 'all 0.2s' 
                   }}
                 >
                   {isDaily ? '🔴 ' : '🔵 '} {lang === 'en' && tRow.title_en ? tRow.title_en : tRow.title}
@@ -163,9 +155,9 @@ export default function PastArchive({
       {/* 📊 JOBB OLDALSÁV */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
         
-        {/* CSATA BORÍTÓKÉP BANNER */}
+        {/* BANNER ÉS ERDMÉNYPLAKÁT GOMB */}
         {selectedPastTopicId && (() => {
-          const matchedTopic = pastTopics.find(x => String(x.id) === String(selectedPastTopicId));
+          const matchedTopic = pastTopics.find(x => x.id === selectedPastTopicId);
           if (matchedTopic) {
             return (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
@@ -192,7 +184,7 @@ export default function PastArchive({
                     
                     <div className="past-archive-podium-container" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: '12px', width: '100%', minHeight: '230px' }}>
                       
-                      {/* 🥈 2. HELYEZETT */}
+                      {/* 🥈 2. HELYEZETT (BAL OLDAL) */}
                       {topThreeWinners[1] && (
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, minWidth: 0 }}>
                           <div style={{ position: 'relative', cursor: 'pointer', marginBottom: '8px' }} onClick={() => setActiveArchiveEntry(topThreeWinners[1])}>
@@ -200,15 +192,16 @@ export default function PastArchive({
                             <span style={{ position: 'absolute', bottom: '-4px', right: '-4px', background: '#cbd5e1', color: '#0f172a', width: '18px', height: '18px', borderRadius: '50%', fontSize: '0.7rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>2</span>
                           </div>
                           <div style={{ background: 'linear-gradient(180deg, #334155, #1e293b)', border: '1px solid #475569', width: '100%', height: '95px', borderRadius: '12px 12px 0 0', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '6px', boxSizing: 'border-box' }}>
+                            {/* JAVÍTVA: Kétsoros flexibilis név elrendezés levágás nélkül */}
                             <span style={{ color: '#cbd5e1', fontSize: '0.8rem', fontWeight: 'bold', width: '100%', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.2', textAlign: 'center' }}>{topThreeWinners[1].user_name}</span>
                             <span style={{ color: '#fbbf24', fontSize: '0.8rem', fontWeight: '900', marginTop: '4px' }}>
-                              {isOldRound ? `${topThreeWinners[1].likes_count} ⭐` : `${topThreeWinners[1].fair_score !== undefined ? topThreeWinners[1].fair_score : topThreeWinners[1].likes_count} FP`}
+                              {topThreeWinners[1].fair_score !== undefined ? `${topThreeWinners[1].fair_score} FP` : `${topThreeWinners[1].likes_count} ⭐`}
                             </span>
                           </div>
                         </div>
                       )}
 
-                      {/* 🥇 1. HELYEZETT */}
+                      {/* 🥇 1. HELYEZETT (KÖZÉP) */}
                       {topThreeWinners[0] && (
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1.1, minWidth: 0, zIndex: 2 }}>
                           <div style={{ fontSize: '1.4rem', marginBottom: '-6px', filter: 'drop-shadow(0 2px 6px rgba(251,191,36,0.4))' }}>👑</div>
@@ -217,15 +210,16 @@ export default function PastArchive({
                             <span style={{ position: 'absolute', bottom: '-2px', right: '-2px', background: '#fbbf24', color: '#0f172a', width: '22px', height: '22px', borderRadius: '50%', fontSize: '0.75rem', fontWeight: 'black', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 5px rgba(0,0,0,0.5)' }}>1</span>
                           </div>
                           <div style={{ background: 'linear-gradient(180deg, #fbbf24, #b45309)', width: '100%', height: '125px', borderRadius: '12px 12px 0 0', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '6px', boxSizing: 'border-box', boxShadow: '0 4px 15px rgba(0,0,0,0.3)' }}>
+                            {/* JAVÍTVA: Kétsoros flexibilis név elrendezés levágás nélkül */}
                             <span style={{ color: '#0f172a', fontSize: '0.85rem', fontWeight: '900', width: '100%', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.2', textAlign: 'center' }}>{topThreeWinners[0].user_name}</span>
                             <span style={{ color: '#ffffff', fontSize: '0.85rem', fontWeight: 'bold', marginTop: '4px', textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}>
-                              {isOldRound ? `${topThreeWinners[0].likes_count} ⭐` : `${topThreeWinners[0].fair_score !== undefined ? topThreeWinners[0].fair_score : topThreeWinners[0].likes_count} FP`}
+                              {topThreeWinners[0].fair_score !== undefined ? `${topThreeWinners[0].fair_score} FP` : `${topThreeWinners[0].likes_count} ⭐`}
                             </span>
                           </div>
                         </div>
                       )}
 
-                      {/* 🥉 3. HELYEZETT */}
+                      {/* 🥉 3. HELYEZETT (JOBB OLDAL) */}
                       {topThreeWinners[2] && (
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, minWidth: 0 }}>
                           <div style={{ position: 'relative', cursor: 'pointer', marginBottom: '8px' }} onClick={() => setActiveArchiveEntry(topThreeWinners[2])}>
@@ -233,9 +227,10 @@ export default function PastArchive({
                             <span style={{ position: 'absolute', bottom: '-4px', right: '-4px', background: '#b45309', color: '#ffffff', width: '18px', height: '18px', borderRadius: '50%', fontSize: '0.7rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>3</span>
                           </div>
                           <div style={{ background: 'linear-gradient(180deg, #7c2d12, #431407)', border: '1px solid #7c2d12', width: '100%', height: '80px', borderRadius: '12px 12px 0 0', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '6px', boxSizing: 'border-box' }}>
+                            {/* JAVÍTVA: Kétsoros flexibilis név elrendezés levágás nélkül */}
                             <span style={{ color: '#ffedd5', fontSize: '0.78rem', fontWeight: 'bold', width: '100%', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.2', textAlign: 'center' }}>{topThreeWinners[2].user_name}</span>
                             <span style={{ color: '#fdba74', fontSize: '0.78rem', fontWeight: '900', marginTop: '4px' }}>
-                              {isOldRound ? `${topThreeWinners[2].likes_count} ⭐` : `${topThreeWinners[2].fair_score !== undefined ? topThreeWinners[2].fair_score : topThreeWinners[2].likes_count} FP`}
+                              {topThreeWinners[2].fair_score !== undefined ? `${topThreeWinners[2].fair_score} FP` : `${topThreeWinners[2].likes_count} ⭐`}
                             </span>
                           </div>
                         </div>
@@ -268,7 +263,7 @@ export default function PastArchive({
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
             <h3 style={{ margin: 0, color: '#10b981', fontSize: '1.4rem', fontWeight: 'bold' }}>{t('archiveClubLeague')}</h3>
             {selectedPastTopicId && (() => {
-              const matchedTopic = pastTopics.find(x => String(x.id) === String(selectedPastTopicId));
+              const matchedTopic = pastTopics.find(x => x.id === selectedPastTopicId);
               if (!matchedTopic) return null;
               const isDaily = getTopicType(matchedTopic.start_date, matchedTopic.end_date) === 'daily';
               return (
@@ -287,10 +282,13 @@ export default function PastArchive({
             const clubMembers = pastLeaderboard
               .filter(entry => entry?.club_name === club?.club_name)
               .sort((a, b) => {
-                const scoreA = isOldRound ? Number(a?.likes_count || 0) : Number(a?.fair_score !== undefined ? a.fair_score : a?.likes_count || 0);
-                const scoreB = isOldRound ? Number(b?.likes_count || 0) : Number(b?.fair_score !== undefined ? b.fair_score : b?.likes_count || 0);
+                const scoreA = a.fair_score !== undefined ? Number(a.fair_score) : Number(a?.likes_count || 0);
+                const scoreB = b.fair_score !== undefined ? Number(b.fair_score) : Number(b?.likes_count || 0);
                 return scoreB - scoreA;
               });
+
+            const matchedTopic = pastTopics.find(x => x.id === selectedPastTopicId);
+            const isOldRound = matchedTopic?.end_date && new Date(matchedTopic.end_date.replace(' ', 'T')).getTime() < new Date('2026-06-16T00:00:00').getTime();
 
             return (
               <div key={index} style={{ display: 'flex', flexDirection: 'column', background: 'linear-gradient(135deg, #0f172a, #1e293b)', padding: '15px', borderRadius: '12px', marginBottom: '12px', border: '1px solid #059669' }}>
@@ -300,8 +298,7 @@ export default function PastArchive({
                     <div style={{ color: 'white', fontWeight: 'bold', fontSize: '1.1rem' }}>{club?.club_name || t('archiveUnknownClub')}</div>
                     <div style={{ color: '#64748b', fontSize: '0.8rem' }}>{club?.members_counted || 0}{t('archiveBasedOnPoints')}</div>
                   </div>
-                  {/* 💥 JAVÍTVA: A klubcsata pontja is dinamikusan vált az FP / Csillag egyenlet alapján */}
-                  <div style={{ color: '#10b981', fontWeight: '900', fontSize: '1.4rem', whiteSpace: 'nowrap' }}>
+                  <div style={{ color: '#10b981', fontWeight: '900', fontSize: '1.4rem' }}>
                     {club?.total_score || 0} {isOldRound ? '⭐' : 'FP'}
                   </div>
                 </div>
@@ -317,9 +314,8 @@ export default function PastArchive({
                       clubMembers.map((m, idx) => (
                         <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#cbd5e1' }}>
                           <span>👤 {m.user_name}</span>
-                          {/* 💥 JAVÍTVA: A legördülő egyéni klubtagok pontja is szinkronizálva */}
                           <span style={{ fontWeight: 'bold', color: '#fbbf24' }}>
-                            {isOldRound ? `${m.likes_count || 0} ⭐` : `${m.fair_score !== undefined ? m.fair_score : m.likes_count || 0} FP`}
+                            {m.fair_score !== undefined ? `${m.fair_score} FP` : `${m.likes_count || 0} ⭐`}
                           </span>
                         </div>
                       ))
@@ -338,8 +334,8 @@ export default function PastArchive({
           {!selectedPastTopicId && <div style={{ color: '#94a3b8', textAlign: 'center', padding: '10px' }}>{t('archiveSelectMatch')}</div>}
           
           {pastLeaderboard && [...pastLeaderboard].sort((a, b) => {
-            const scoreA = isOldRound ? Number(a?.likes_count || 0) : Number(a?.fair_score !== undefined ? a.fair_score : a?.likes_count || 0);
-            const scoreB = isOldRound ? Number(b?.likes_count || 0) : Number(b?.fair_score !== undefined ? b.fair_score : b?.likes_count || 0);
+            const scoreA = a.fair_score !== undefined ? Number(a.fair_score) : Number(a?.likes_count || 0);
+            const scoreB = b.fair_score !== undefined ? Number(b.fair_score) : Number(b?.likes_count || 0);
             if (scoreB !== scoreA) return scoreB - scoreA;
             return (Number(a?.views_count || 0)) - (Number(b?.views_count || 0));
           }).map((entry, index) => (
@@ -365,17 +361,16 @@ export default function PastArchive({
                 </div>
               </div>
               
-              {/* 💥 JAVÍTVA: Az alsó egyéni lista pontértéke is tökéletesen szinkronizált */}
-              <div style={{ textAlign: 'right', minWidth: '90px', flexShrink: 0 }}>
+              <div style={{ textAlign: 'right', minWidth: '80px', flexShrink: 0 }}>
                 <div style={{ color: '#f97316', fontWeight: '900', fontSize: '1.2rem' }}>
-                  {isOldRound ? `${entry?.likes_count || 0} ⭐` : `${entry?.fair_score !== undefined ? entry.fair_score : entry?.likes_count || 0} FP`}
+                  {entry?.fair_score !== undefined ? `${entry.fair_score} FP` : `${entry?.likes_count || 0} ⭐`}
                 </div>
-                {!isOldRound && (
+                {entry?.fair_score !== undefined && (
                   <small style={{ color: '#64748b', fontSize: '0.72rem', display: 'block', marginTop: '2px' }}>
                     {entry?.likes_count || 0} ⭐ | {entry?.views_count || 0} 👁️
                   </small>
                 )}
-                {isOldRound && (
+                {entry?.fair_score === undefined && (
                   <small style={{ color: '#475569', fontSize: '0.70rem' }}>{entry?.views_count || 0} 👁️</small>
                 )}
               </div>
@@ -431,9 +426,10 @@ export default function PastArchive({
                     <img src={adminPosterData.entries[1].base64Url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   </div>
                   <div style={{ background: 'linear-gradient(180deg, #334155 0%, #1e293b 100%)', width: '100%', height: '210px', borderRadius: '16px 16px 0 0', border: '1px solid #475569', borderBottom: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '15px', boxSizing: 'border-box' }}>
+                    {/* 💥 JAVÍTVA: Kétsoros wrapping támogatás levágás helyett */}
                     <div style={{ color: '#cbd5e1', fontSize: '24px', fontWeight: 'bold', width: '100%', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.2', textAlign: 'center', minHeight: '58px' }}>{adminPosterData.entries[1].user_name}</div>
                     <div style={{ color: '#94a3b8', fontSize: '22px', fontWeight: '900', marginTop: '4px' }}>
-                      {isOldRound ? `${adminPosterData.entries[1].likes_count} ⭐` : `${adminPosterData.entries[1].fair_score !== undefined ? adminPosterData.entries[1].fair_score : adminPosterData.entries[1].likes_count} FP`}
+                      {adminPosterData.entries[1].fair_score !== undefined ? `${adminPosterData.entries[1].fair_score} FP` : `${adminPosterData.entries[1].likes_count} ⭐`}
                     </div>
                     <div style={{ color: '#cbd5e1', fontSize: '28px', fontWeight: '900', marginTop: '15px', letterSpacing: '1px' }}>🥈 2. {lang === 'en' ? 'PLACE' : 'HELY'}</div>
                   </div>
@@ -448,9 +444,10 @@ export default function PastArchive({
                     <img src={adminPosterData.entries[0].base64Url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   </div>
                   <div style={{ background: 'linear-gradient(180deg, #fbbf24 0%, #b45309 100%)', width: '100%', height: '270px', borderRadius: '20px 24px 0 0', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '15px', boxSizing: 'border-box', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
+                    {/* 💥 JAVÍTVA: Kétsoros wrapping támogatás levágás helyett */}
                     <div style={{ color: '#0f172a', fontSize: '27px', fontWeight: '900', width: '100%', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.2', textAlign: 'center', minHeight: '64px' }}>{adminPosterData.entries[0].user_name}</div>
                     <div style={{ color: '#0f172a', fontSize: '24px', fontWeight: '900', marginTop: '4px', opacity: 0.9 }}>
-                      {isOldRound ? `${adminPosterData.entries[0].likes_count} ⭐` : `${adminPosterData.entries[0].fair_score !== undefined ? adminPosterData.entries[0].fair_score : adminPosterData.entries[0].likes_count} FP`}
+                      {adminPosterData.entries[0].fair_score !== undefined ? `${adminPosterData.entries[0].fair_score} FP` : `${adminPosterData.entries[0].likes_count} ⭐`}
                     </div>
                     <div style={{ color: '#ffffff', fontSize: '34px', fontWeight: '900', marginTop: '20px', letterSpacing: '1px', textShadow: '0 2px 10px rgba(0,0,0,0.4)' }}>🥇 1. {lang === 'en' ? 'PLACE' : 'HELY'}</div>
                   </div>
@@ -464,9 +461,10 @@ export default function PastArchive({
                     <img src={adminPosterData.entries[2].base64Url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   </div>
                   <div style={{ background: 'linear-gradient(180deg, #7c2d12 0%, #431407 100%)', width: '100%', height: '170px', borderRadius: '16px 16px 0 0', border: '1px solid #7c2d12', borderBottom: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '15px', boxSizing: 'border-box' }}>
+                    {/* 💥 JAVÍTVA: Kétsoros wrapping támogatás levágás helyett */}
                     <div style={{ color: '#ffedd5', fontSize: '22px', fontWeight: 'bold', width: '100%', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.2', textAlign: 'center', minHeight: '54px' }}>{adminPosterData.entries[2].user_name}</div>
                     <div style={{ color: '#fdba74', fontSize: '20px', fontWeight: '900', marginTop: '4px' }}>
-                      {isOldRound ? `${adminPosterData.entries[2].likes_count} ⭐` : `${adminPosterData.entries[2].fair_score !== undefined ? adminPosterData.entries[2].fair_score : adminPosterData.entries[2].likes_count} FP`}
+                      {adminPosterData.entries[2].fair_score !== undefined ? `${adminPosterData.entries[2].fair_score} FP` : `${adminPosterData.entries[2].likes_count} ⭐`}
                     </div>
                     <div style={{ color: '#fdba74', fontSize: '26px', fontWeight: '900', marginTop: '15px', letterSpacing: '1px' }}>🥉 3. {lang === 'en' ? 'PLACE' : 'HELY'}</div>
                   </div>
