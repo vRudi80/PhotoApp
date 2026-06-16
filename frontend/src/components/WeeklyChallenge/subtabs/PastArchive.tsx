@@ -48,6 +48,9 @@ export default function PastArchive({
     ? (pastLeaderboard.find(x => x.id === activeArchiveEntry.id) || activeArchiveEntry)
     : null;
 
+  // Jelzőfény a felületnek: Ha az első helyezettnek van fair_score-ja, akkor az egész szobában azt használjuk
+  const hasFairScore = pastLeaderboard.length > 0 && pastLeaderboard[0].fair_score !== undefined;
+
   // 👑 ADMIN FUNKCIÓ: Top 3 helyezett konverziója Base64-re az új Fair Score szerint
   const handleGenerateAdminPoster = async (matchedTopic: any) => {
     if (!matchedTopic || pastLeaderboard.length === 0) return;
@@ -192,7 +195,6 @@ export default function PastArchive({
                             <span style={{ position: 'absolute', bottom: '-4px', right: '-4px', background: '#cbd5e1', color: '#0f172a', width: '18px', height: '18px', borderRadius: '50%', fontSize: '0.7rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>2</span>
                           </div>
                           <div style={{ background: 'linear-gradient(180deg, #334155, #1e293b)', border: '1px solid #475569', width: '100%', height: '95px', borderRadius: '12px 12px 0 0', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '6px', boxSizing: 'border-box' }}>
-                            {/* JAVÍTVA: Kétsoros flexibilis név elrendezés levágás nélkül */}
                             <span style={{ color: '#cbd5e1', fontSize: '0.8rem', fontWeight: 'bold', width: '100%', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.2', textAlign: 'center' }}>{topThreeWinners[1].user_name}</span>
                             <span style={{ color: '#fbbf24', fontSize: '0.8rem', fontWeight: '900', marginTop: '4px' }}>
                               {topThreeWinners[1].fair_score !== undefined ? `${topThreeWinners[1].fair_score} FP` : `${topThreeWinners[1].likes_count} ⭐`}
@@ -210,7 +212,6 @@ export default function PastArchive({
                             <span style={{ position: 'absolute', bottom: '-2px', right: '-2px', background: '#fbbf24', color: '#0f172a', width: '22px', height: '22px', borderRadius: '50%', fontSize: '0.75rem', fontWeight: 'black', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 5px rgba(0,0,0,0.5)' }}>1</span>
                           </div>
                           <div style={{ background: 'linear-gradient(180deg, #fbbf24, #b45309)', width: '100%', height: '125px', borderRadius: '12px 12px 0 0', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '6px', boxSizing: 'border-box', boxShadow: '0 4px 15px rgba(0,0,0,0.3)' }}>
-                            {/* JAVÍTVA: Kétsoros flexibilis név elrendezés levágás nélkül */}
                             <span style={{ color: '#0f172a', fontSize: '0.85rem', fontWeight: '900', width: '100%', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.2', textAlign: 'center' }}>{topThreeWinners[0].user_name}</span>
                             <span style={{ color: '#ffffff', fontSize: '0.85rem', fontWeight: 'bold', marginTop: '4px', textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}>
                               {topThreeWinners[0].fair_score !== undefined ? `${topThreeWinners[0].fair_score} FP` : `${topThreeWinners[0].likes_count} ⭐`}
@@ -227,7 +228,6 @@ export default function PastArchive({
                             <span style={{ position: 'absolute', bottom: '-4px', right: '-4px', background: '#b45309', color: '#ffffff', width: '18px', height: '18px', borderRadius: '50%', fontSize: '0.7rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>3</span>
                           </div>
                           <div style={{ background: 'linear-gradient(180deg, #7c2d12, #431407)', border: '1px solid #7c2d12', width: '100%', height: '80px', borderRadius: '12px 12px 0 0', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '6px', boxSizing: 'border-box' }}>
-                            {/* JAVÍTVA: Kétsoros flexibilis név elrendezés levágás nélkül */}
                             <span style={{ color: '#ffedd5', fontSize: '0.78rem', fontWeight: 'bold', width: '100%', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.2', textAlign: 'center' }}>{topThreeWinners[2].user_name}</span>
                             <span style={{ color: '#fdba74', fontSize: '0.78rem', fontWeight: '900', marginTop: '4px' }}>
                               {topThreeWinners[2].fair_score !== undefined ? `${topThreeWinners[2].fair_score} FP` : `${topThreeWinners[2].likes_count} ⭐`}
@@ -279,6 +279,7 @@ export default function PastArchive({
           {!selectedPastTopicId && <div style={{ color: '#94a3b8', textAlign: 'center', padding: '10px' }}>{t('archiveSelectChallenge')}</div>}
           
           {pastClubLeaderboard && pastClubLeaderboard.map((club, index) => {
+            // 💥 KÓDMÓDOSÍTÁS: A belső tagokat is az új pontrendszer (fair_score) szerint rendezzük el, ha létezik
             const clubMembers = pastLeaderboard
               .filter(entry => entry?.club_name === club?.club_name)
               .sort((a, b) => {
@@ -286,9 +287,6 @@ export default function PastArchive({
                 const scoreB = b.fair_score !== undefined ? Number(b.fair_score) : Number(b?.likes_count || 0);
                 return scoreB - scoreA;
               });
-
-            const matchedTopic = pastTopics.find(x => x.id === selectedPastTopicId);
-            const isOldRound = matchedTopic?.end_date && new Date(matchedTopic.end_date.replace(' ', 'T')).getTime() < new Date('2026-06-16T00:00:00').getTime();
 
             return (
               <div key={index} style={{ display: 'flex', flexDirection: 'column', background: 'linear-gradient(135deg, #0f172a, #1e293b)', padding: '15px', borderRadius: '12px', marginBottom: '12px', border: '1px solid #059669' }}>
@@ -298,8 +296,9 @@ export default function PastArchive({
                     <div style={{ color: 'white', fontWeight: 'bold', fontSize: '1.1rem' }}>{club?.club_name || t('archiveUnknownClub')}</div>
                     <div style={{ color: '#64748b', fontSize: '0.8rem' }}>{club?.members_counted || 0}{t('archiveBasedOnPoints')}</div>
                   </div>
-                  <div style={{ color: '#10b981', fontWeight: '900', fontSize: '1.4rem' }}>
-                    {club?.total_score || 0} {isOldRound ? '⭐' : 'FP'}
+                  {/* 💥 KÓDMÓDOSÍTÁS: A klubcsata főszáma csillag helyett FP-t kap, ha elérhető az új pontrendszer */}
+                  <div style={{ color: '#10b981', fontWeight: '900', fontSize: '1.4rem', whiteSpace: 'nowrap' }}>
+                    {club?.total_score || 0} {hasFairScore ? 'FP' : '⭐'}
                   </div>
                 </div>
 
@@ -314,6 +313,7 @@ export default function PastArchive({
                       clubMembers.map((m, idx) => (
                         <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#cbd5e1' }}>
                           <span>👤 {m.user_name}</span>
+                          {/* 💥 KÓDMÓDOSÍTÁS: A legördülő tagok egyéni pontszámai is csillag helyett FP-re váltanak */}
                           <span style={{ fontWeight: 'bold', color: '#fbbf24' }}>
                             {m.fair_score !== undefined ? `${m.fair_score} FP` : `${m.likes_count || 0} ⭐`}
                           </span>
@@ -395,7 +395,7 @@ export default function PastArchive({
         />
       )}
 
-      {/* 👑 REJTETT PLAKÁT-GENERÁLÓ SABLON (Javítva névlevágás ellen) */}
+      {/* 👑 REJTETT PLAKÁT-GENERÁLÓ SABLON */}
       <div style={{ position: 'absolute', top: '-9999px', left: '-9999px', overflow: 'hidden', width: 0, height: 0 }}>
         {adminPosterData && (
           <div 
@@ -418,55 +418,48 @@ export default function PastArchive({
             </div>
 
             <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: '35px', width: '100%', padding: '0 20px', boxSizing: 'border-box' }}>
-              
-              {/* Plakát: 2. Helyezett box */}
               {adminPosterData.entries[1] && (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '290px' }}>
                   <div style={{ width: '240px', height: '240px', borderRadius: '16px', overflow: 'hidden', border: '6px solid #cbd5e1', boxShadow: '0 20px 45px rgba(0,0,0,0.6)', backgroundColor: '#000', marginBottom: '15px' }}>
                     <img src={adminPosterData.entries[1].base64Url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   </div>
-                  <div style={{ background: 'linear-gradient(180deg, #334155 0%, #1e293b 100%)', width: '100%', height: '210px', borderRadius: '16px 16px 0 0', border: '1px solid #475569', borderBottom: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '15px', boxSizing: 'border-box' }}>
-                    {/* 💥 JAVÍTVA: Kétsoros wrapping támogatás levágás helyett */}
-                    <div style={{ color: '#cbd5e1', fontSize: '24px', fontWeight: 'bold', width: '100%', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.2', textAlign: 'center', minHeight: '58px' }}>{adminPosterData.entries[1].user_name}</div>
+                  <div style={{ background: 'linear-gradient(180deg, #334155 0%, #1e293b 100%)', width: '100%', height: '200px', borderRadius: '16px 16px 0 0', border: '1px solid #475569', borderBottom: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '15px', boxSizing: 'border-box', textAlign: 'center' }}>
+                    <div style={{ color: '#cbd5e1', fontSize: '24px', fontWeight: 'bold', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{adminPosterData.entries[1].user_name}</div>
                     <div style={{ color: '#94a3b8', fontSize: '22px', fontWeight: '900', marginTop: '4px' }}>
                       {adminPosterData.entries[1].fair_score !== undefined ? `${adminPosterData.entries[1].fair_score} FP` : `${adminPosterData.entries[1].likes_count} ⭐`}
                     </div>
-                    <div style={{ color: '#cbd5e1', fontSize: '28px', fontWeight: '900', marginTop: '15px', letterSpacing: '1px' }}>🥈 2. {lang === 'en' ? 'PLACE' : 'HELY'}</div>
+                    <div style={{ color: '#cbd5e1', fontSize: '32px', fontWeight: '900', marginTop: '20px', letterSpacing: '1px' }}>🥈 2. {lang === 'en' ? 'PLACE' : 'HELY'}</div>
                   </div>
                 </div>
               )}
 
-              {/* Plakát: 1. Helyezett box */}
               {adminPosterData.entries[0] && (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '330px', zIndex: 10 }}>
                   <div style={{ fontSize: '70px', marginBottom: '-10px', filter: 'drop-shadow(0 4px 10px rgba(251,191,36,0.5))' }}>👑</div>
                   <div style={{ width: '290px', height: '290px', borderRadius: '24px', overflow: 'hidden', border: '8px solid #fbbf24', boxShadow: '0 25px 60px rgba(251,191,36,0.3)', backgroundColor: '#000', marginBottom: '15px' }}>
                     <img src={adminPosterData.entries[0].base64Url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   </div>
-                  <div style={{ background: 'linear-gradient(180deg, #fbbf24 0%, #b45309 100%)', width: '100%', height: '270px', borderRadius: '20px 24px 0 0', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '15px', boxSizing: 'border-box', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
-                    {/* 💥 JAVÍTVA: Kétsoros wrapping támogatás levágás helyett */}
-                    <div style={{ color: '#0f172a', fontSize: '27px', fontWeight: '900', width: '100%', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.2', textAlign: 'center', minHeight: '64px' }}>{adminPosterData.entries[0].user_name}</div>
-                    <div style={{ color: '#0f172a', fontSize: '24px', fontWeight: '900', marginTop: '4px', opacity: 0.9 }}>
+                  <div style={{ background: 'linear-gradient(180deg, #fbbf24 0%, #b45309 100%)', width: '100%', height: '270px', borderRadius: '20px 24px 0 0', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '15px', boxSizing: 'border-box', textAlign: 'center', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
+                    <div style={{ color: '#0f172a', fontSize: '28px', fontWeight: '900', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{adminPosterData.entries[0].user_name}</div>
+                    <div style={{ color: '#0f172a', fontSize: '26px', fontWeight: '900', marginTop: '4px', opacity: 0.9 }}>
                       {adminPosterData.entries[0].fair_score !== undefined ? `${adminPosterData.entries[0].fair_score} FP` : `${adminPosterData.entries[0].likes_count} ⭐`}
                     </div>
-                    <div style={{ color: '#ffffff', fontSize: '34px', fontWeight: '900', marginTop: '20px', letterSpacing: '1px', textShadow: '0 2px 10px rgba(0,0,0,0.4)' }}>🥇 1. {lang === 'en' ? 'PLACE' : 'HELY'}</div>
+                    <div style={{ color: '#ffffff', fontSize: '38px', fontWeight: '900', marginTop: '25px', letterSpacing: '1px', textShadow: '0 2px 10px rgba(0,0,0,0.4)' }}>🥇 1. {lang === 'en' ? 'PLACE' : 'HELY'}</div>
                   </div>
                 </div>
               )}
 
-              {/* Plakát: 3. Helyezett box */}
               {adminPosterData.entries[2] && (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '290px' }}>
                   <div style={{ width: '220px', height: '220px', borderRadius: '16px', overflow: 'hidden', border: '6px solid #b45309', boxShadow: '0 20px 45px rgba(0,0,0,0.6)', backgroundColor: '#000', marginBottom: '15px' }}>
                     <img src={adminPosterData.entries[2].base64Url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   </div>
-                  <div style={{ background: 'linear-gradient(180deg, #7c2d12 0%, #431407 100%)', width: '100%', height: '170px', borderRadius: '16px 16px 0 0', border: '1px solid #7c2d12', borderBottom: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '15px', boxSizing: 'border-box' }}>
-                    {/* 💥 JAVÍTVA: Kétsoros wrapping támogatás levágás helyett */}
-                    <div style={{ color: '#ffedd5', fontSize: '22px', fontWeight: 'bold', width: '100%', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.2', textAlign: 'center', minHeight: '54px' }}>{adminPosterData.entries[2].user_name}</div>
+                  <div style={{ background: 'linear-gradient(180deg, #7c2d12 0%, #431407 100%)', width: '100%', height: '150px', borderRadius: '16px 16px 0 0', border: '1px solid #7c2d12', borderBottom: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '15px', boxSizing: 'border-box', textAlign: 'center' }}>
+                    <div style={{ color: '#ffedd5', fontSize: '22px', fontWeight: 'bold', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{adminPosterData.entries[2].user_name}</div>
                     <div style={{ color: '#fdba74', fontSize: '20px', fontWeight: '900', marginTop: '4px' }}>
                       {adminPosterData.entries[2].fair_score !== undefined ? `${adminPosterData.entries[2].fair_score} FP` : `${adminPosterData.entries[2].likes_count} ⭐`}
                     </div>
-                    <div style={{ color: '#fdba74', fontSize: '26px', fontWeight: '900', marginTop: '15px', letterSpacing: '1px' }}>🥉 3. {lang === 'en' ? 'PLACE' : 'HELY'}</div>
+                    <div style={{ color: '#fdba74', fontSize: '28px', fontWeight: '900', marginTop: '15px', letterSpacing: '1px' }}>🥉 3. {lang === 'en' ? 'PLACE' : 'HELY'}</div>
                   </div>
                 </div>
               )}
@@ -479,59 +472,6 @@ export default function PastArchive({
           </div>
         )}
       </div>
-
-      {/* ── 🎯 ⚡ RESZPONZÍV MOTOR CSS INJEKTÁLÁSA ── */}
-      <style>{`
-        @media (min-width: 1024px) {
-          div[style*="position: fixed"] div[style*="max-width: 1200px"],
-          div[style*="position:fixed"] div[style*="maxWidth: '1200px'"] {
-            max-width: 90vw !important;
-            width: 90vw !important;
-          }
-          
-          div[style*="position: fixed"] div[style*="grid-template-columns"],
-          div[style*="position: fixed"] div[style*="gridTemplateColumns"],
-          div[style*="position: fixed"] div[style*="display: flex"] {
-            display: grid !important;
-            grid-template-columns: 1fr 400px !important;
-            width: 100% !important;
-          }
-
-          div[style*="position: fixed"] div[style*="background-color: #000"],
-          div[style*="position: fixed"] div[style*="background-color: rgb(0, 0, 0)"],
-          div[style*="position: fixed"] div[style*="backgroundColor: '#000'"] {
-            height: 75vh !important;
-            max-height: 75vh !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-          }
-
-          div[style*="position: fixed"] img[style*="max-height"] {
-            width: 100% !important;
-            height: 100% !important;
-            max-width: 100% !important;
-            max-height: 75vh !important;
-            object-fit: contain !important;
-            margin: 0 auto !important;
-          }
-        }
-
-        @media (max-width: 420px) {
-          .past-archive-podium-container {
-            flex-direction: column !important;
-            align-items: center !important;
-            gap: 20px !important;
-          }
-          .past-archive-podium-container > div {
-            width: 100% !important;
-            max-width: 200px;
-          }
-          .past-archive-podium-container div[style*="height"] {
-            height: 75px !important;
-          }
-        }
-      `}</style>
 
     </div>
   );
