@@ -16,6 +16,7 @@ export default function PastArchive({ topicId: externalTopicId, onOpenDetails }:
   const [pastLeaderboard, setPastLeaderboard] = useState<any[]>([]);
   const [clubLeaderboard, setClubLeaderboard] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [isGeneratingCard, setIsGeneratingCard] = useState(false);
 
   // 1. Múltbéli témák betöltése az archívum legördülő menühöz
   useEffect(() => {
@@ -77,100 +78,179 @@ export default function PastArchive({ topicId: externalTopicId, onOpenDetails }:
     });
   }, [pastLeaderboard]);
 
-  // 📊 ATOMBIZTOS FACEBOOK KÁRTYA GENERÁTOR MOTOR (NATIVE CANVAS)
-  const generateFacebookCard = () => {
+  // 📊 ASZINKRON, CORS-VÉDETT PRÉMIUM 1:1 FACEBOOK KÁRTYA GENERÁTOR MOTOR
+  const generateFacebookCard = async () => {
+    if (sortedEntries.length === 0) return;
+    setIsGeneratingCard(true);
+
     const currentTopic = pastTopics.find(t => t.id === selectedTopicId);
     const topicTitle = lang === 'en' && currentTopic?.title_en ? currentTopic.title_en : (currentTopic?.title || 'Kihívás');
     
     const canvas = document.createElement('canvas');
     canvas.width = 1200;
-    canvas.height = 630;
+    canvas.height = 1200; // Perfect 1:1 Square Aspect Ratio
     const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    if (!ctx) { setIsGeneratingCard(false); return; }
 
-    // Háttér Gradiens
-    const grad = ctx.createLinearGradient(0, 0, 1200, 630);
-    grad.addColorStop(0, '#0f172a');
-    grad.addColorStop(1, '#1e293b');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, 1200, 630);
-
-    // Díszítő keretek
-    ctx.strokeStyle = '#334155';
-    ctx.lineWidth = 10;
-    ctx.strokeRect(5, 5, 1190, 620);
-    ctx.strokeStyle = isNewSystem ? '#fbbf24' : '#38bdf8';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(15, 15, 1170, 600);
-
-    // Kis Antet
-    ctx.fillStyle = '#64748b';
-    ctx.font = 'bold 22px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('FOTÓKLUB ARÉNA — HETI KIHÍVÁS VÉGEREDMÉNY', 600, 65);
-
-    // Nagy Cím
-    ctx.fillStyle = '#ffffff';
-    ctx.font = '900 46px sans-serif';
-    ctx.fillText(`„${topicTitle.toUpperCase()}”`, 600, 125);
-
-    // Oszlop-rajzoló szubrutin
-    const drawCardColumn = (entry: any, rank: number, x: number, y: number, color: string, emoji: string) => {
-      if (!entry) return;
-      
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.65)';
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 3;
-      
-      ctx.beginPath();
-      ctx.roundRect(x - 160, y, 320, 330, 20);
-      ctx.fill();
-      ctx.stroke();
-
-      // Helyezés plecsni
-      ctx.fillStyle = color;
-      ctx.font = 'bold 26px sans-serif';
-      ctx.fillText(`${emoji} ${rank}. HELYEZETT`, x, y + 55);
-
-      // Alkotó neve
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 24px sans-serif';
-      let name = entry.user_name || 'Névtelen';
-      if (name.length > 18) name = name.substring(0, 16) + '...';
-      ctx.fillText(name, x, y + 125);
-
-      // Egyesület
-      ctx.fillStyle = '#10b981';
-      ctx.font = '600 16px sans-serif';
-      let club = entry.club_name ? `🛡️ ${entry.club_name}` : '';
-      if (club.length > 26) club = club.substring(0, 24) + '...';
-      ctx.fillText(club, x, y + 175);
-
-      // Fő Pontszám
-      ctx.fillStyle = '#fbbf24';
-      ctx.font = '900 40px sans-serif';
-      const scoreStr = entry.fair_score !== undefined ? `${entry.fair_score} FP` : `${entry.likes_count || 0} ⭐`;
-      ctx.fillText(scoreStr, x, y + 245);
-      
-      // Részletek
-      ctx.fillStyle = '#475569';
-      ctx.font = '14px monospace';
-      const subStr = entry.fair_score !== undefined ? `(${entry.likes_count || 0} ⭐ | ${entry.views_count || 0} 👁️)` : `(${entry.views_count || 0} nézettség)`;
-      ctx.fillText(subStr, x, y + 290);
+    // Kép-betöltő ígéret CORS védelemmel felszerelve
+    const loadImageAsync = (url: string): Promise<HTMLImageElement | null> => {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.src = url;
+        img.onload = () => resolve(img);
+        img.onerror = () => resolve(null);
+      });
     };
 
-    // 2. helyezett (Bal)
-    drawCardColumn(sortedEntries[1], 2, 240, 230, '#cbd5e1', '🥈');
-    // 1. helyezett (Közép)
-    drawCardColumn(sortedEntries[0], 1, 600, 200, '#fbbf24', '👑');
-    // 3. helyezett (Jobb)
-    drawCardColumn(sortedEntries[2], 3, 960, 240, '#cd7f32', '🥉');
+    // A top 3 helyezett fotóinak letöltése a háttérben
+    const [img1, img2, img3] = await Promise.all([
+      sortedEntries[0] ? loadImageAsync(getImageUrl(sortedEntries[0].drive_file_id, sortedEntries[0].file_url)) : Promise.resolve(null),
+      sortedEntries[1] ? loadImageAsync(getImageUrl(sortedEntries[1].drive_file_id, sortedEntries[1].file_url)) : Promise.resolve(null),
+      sortedEntries[2] ? loadImageAsync(getImageUrl(sortedEntries[2].drive_file_id, sortedEntries[2].file_url)) : Promise.resolve(null),
+    ]);
 
-    // Letöltési láncolás indítása
+    // 1. Alap háttér megrajzolása
+    ctx.fillStyle = '#0a0f1d';
+    ctx.fillRect(0, 0, 1200, 1200);
+
+    // Kétoldali masszív prémium arany sávok leképzése (image_2.png alapján)
+    ctx.fillStyle = '#fbbf24';
+    ctx.fillRect(0, 0, 35, 1200);
+    ctx.fillRect(1165, 0, 35, 1200);
+
+    // 2. FELSŐ REKLÁMSZÖVEGEK ÉS KIHÍVÁS CÍME
+    ctx.fillStyle = '#fbbf24';
+    ctx.font = 'bold 22px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.letterSpacing = '2px';
+    ctx.fillText('✨ PHOTAWESOME.COM KIHÍVÁS EREDMÉNYEK ✨', 600, 95);
+    ctx.letterSpacing = '0px'; // Reset
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '900 68px sans-serif';
+    ctx.fillText(topicTitle, 600, 185);
+
+    // „A GYŐZTESEK! 🏆” Kapszula plecsni megrajzolása
+    ctx.fillStyle = 'rgba(245, 158, 11, 0.08)';
+    ctx.strokeStyle = '#f59e0b';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(470, 225, 260, 48, 24);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = '#fbbf24';
+    ctx.font = 'bold 20px sans-serif';
+    ctx.fillText('A GYŐZTESEK! 🏆', 600, 256);
+
+    // 3. PODIUM OSZLOP ÉS FOTÓ RAJZOLÓ ENGINE
+    const drawPodiumColumn = (
+      entry: any, 
+      img: HTMLImageElement | null, 
+      rank: number, 
+      x: number, 
+      imgTopY: number, 
+      blockColors: { top: string; bottom: string; text: string; stroke: string },
+      emoji: string
+    ) => {
+      if (!entry) return;
+
+      const size = 260; // Fix fotó szélesség és magasság
+      const blockTopY = imgTopY + size + 15;
+      const blockHeight = 960 - blockTopY;
+
+      // A) Kirajzoljuk a lekerekített fotót
+      ctx.save();
+      ctx.beginPath();
+      ctx.roundRect(x - (size / 2), imgTopY, size, size, 24);
+      ctx.clip();
+      if (img) {
+        ctx.drawImage(img, x - (size / 2), imgTopY, size, size);
+      } else {
+        ctx.fillStyle = '#1e293b';
+        ctx.fillRect(x - (size / 2), imgTopY, size, size);
+        ctx.fillStyle = '#64748b';
+        ctx.font = 'bold 40px sans-serif';
+        ctx.fillText('📷', x, imgTopY + (size / 2) + 15);
+      }
+      ctx.restore();
+
+      // Fotó keretezése
+      ctx.strokeStyle = blockColors.stroke;
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.roundRect(x - (size / 2), imgTopY, size, size, 24);
+      ctx.stroke();
+
+      // B) Kirajzoljuk az alatta elhelyezkedő fizikai pultot/oszlopot
+      const grad = ctx.createLinearGradient(x, blockTopY, x, 960);
+      grad.addColorStop(0, blockColors.top);
+      grad.addColorStop(1, blockColors.bottom);
+      ctx.fillStyle = grad;
+      
+      ctx.beginPath();
+      ctx.roundRect(x - (size / 2), blockTopY, size, blockHeight, 20);
+      ctx.fill();
+
+      // Szövegezés az oszlop belsejében
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 26px sans-serif';
+      let name = entry.user_name || 'Alkotó';
+      if (name.length > 16) name = name.substring(0, 14) + '...';
+      ctx.fillText(name, x, blockTopY + 55);
+
+      // Pontszám
+      ctx.fillStyle = blockColors.text;
+      ctx.font = 'bold 22px sans-serif';
+      const scoreText = entry.fair_score !== undefined ? `${entry.fair_score} FP` : `${entry.likes_count || 0} ⭐`;
+      ctx.fillText(scoreText, x, blockTopY + 105);
+
+      // Helyezés sáv
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '900 28px sans-serif';
+      ctx.fillText(`${emoji} ${rank}. HELY`, x, blockTopY + blockHeight - 35);
+    };
+
+    // 🥈 2. HELYEZETT (BAL OLDAL - Közepesen magas)
+    drawPodiumColumn(sortedEntries[1], img2, 2, 260, 440, {
+      top: '#1e293b', bottom: '#0f172a', text: '#cbd5e1', stroke: '#cbd5e1'
+    }, '🥈');
+
+    // 👑 1. HELYEZETT (KÖZÉPSŐ OSZLOP - A legmagasabb + Korona)
+    if (sortedEntries[0]) {
+      ctx.fillStyle = '#fbbf24';
+      ctx.font = '50px sans-serif';
+      ctx.fillText('👑', 600, 320); // Lebegő korona az első helyezett felett
+      
+      drawPodiumColumn(sortedEntries[0], img1, 1, 600, 340, {
+        top: '#fbbf24', bottom: '#d97706', text: '#ffffff', stroke: '#fbbf24'
+      }, '🥇');
+    }
+
+    // 🥉 3. HELYEZETT (JOBB OLDAL - Alacsony)
+    drawPodiumColumn(sortedEntries[2], img3, 3, 940, 500, {
+      top: '#451a03', bottom: '#1c0d02', text: '#fca5a5', stroke: '#cd7f32'
+    }, '🥉');
+
+    // 4. ALSÓ FOOTER SÁV (Vizuális lezárás)
+    ctx.fillStyle = '#475569';
+    ctx.font = '500 18px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('Csatlakozz a kihívásokhoz: photawesome.com', 75, 1135);
+
+    ctx.fillStyle = '#fbbf24';
+    ctx.font = 'bold 20px sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText('✨ PhotAwesome Arena ✨', 1125, 1135);
+
+    // Kép letöltése kliensoldalon
     const link = document.createElement('a');
-    link.download = `arena_kihivas_${selectedTopicId}_eredmeny.jpg`;
-    link.href = canvas.toDataURL('image/jpeg', 0.92);
+    link.download = `arena_${selectedTopicId}_dobogo.jpg`;
+    link.href = canvas.toDataURL('image/jpeg', 0.95);
     link.click();
+    
+    setIsGeneratingCard(false);
   };
 
   return (
@@ -201,11 +281,10 @@ export default function PastArchive({ topicId: externalTopicId, onOpenDetails }:
         {sortedEntries.length > 0 && (
           <button 
             onClick={generateFacebookCard}
-            style={{ background: 'linear-gradient(135deg, #1877f2, #166fe5)', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '10px', fontWeight: 'bold', fontSize: '0.9rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 12px rgba(24,119,242,0.3)', transition: 'all 0.2s' }}
-            onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
-            onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
+            disabled={isGeneratingCard}
+            style={{ background: 'linear-gradient(135deg, #1877f2, #166fe5)', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '10px', fontWeight: 'bold', fontSize: '0.9rem', cursor: isGeneratingCard ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 12px rgba(24,119,242,0.3)', transition: 'all 0.2s', opacity: isGeneratingCard ? 0.6 : 1 }}
           >
-            📊 Kártya generálása Facebookra
+            {isGeneratingCard ? '⏳ Generálás...' : '📊 Kártya generálása Facebookra'}
           </button>
         )}
       </div>
@@ -215,7 +294,7 @@ export default function PastArchive({ topicId: externalTopicId, onOpenDetails }:
       ) : (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '30px', width: '100%' }}>
           
-          {/* BAL OLDAL: EGYÉNI DOBOZOK */}
+          {/* BAL OLDAL: EGYÉNI RANGSOR PANEL */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', flex: '1.8', minWidth: '280px' }}>
             <h3 style={{ margin: '0 0 5px 0', color: '#f8fafc', fontSize: '1.5rem', fontWeight: 'bold' }}>
               🏆 Egyéni Rangsor
@@ -227,7 +306,7 @@ export default function PastArchive({ topicId: externalTopicId, onOpenDetails }:
               </div>
             ) : (
               <>
-                {/* 👑 VISUÁLIS DOBOGÓ (PODIUM GERMAN SEQUENTIAL ORDER: 2 -> 1 -> 3) */}
+                {/* 👑 FEJLESZTETT VIZUÁLIS DOBOGÓ A KEZELŐFELÜLETEN */}
                 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-end', gap: '15px', background: 'rgba(15, 23, 42, 0.3)', padding: '25px 15px', borderRadius: '24px', border: '1px solid #334155', width: '100%', boxSizing: 'border-box', marginBottom: '5px', flexWrap: 'nowrap', overflowX: 'auto' }}>
                   
                   {/* 🥈 2. HELYEZETT */}
@@ -263,7 +342,7 @@ export default function PastArchive({ topicId: externalTopicId, onOpenDetails }:
 
                 </div>
 
-                {/* GÖRDÍTHETŐ LISTA ELEMEK */}
+                {/* GÖRDÍTHETŐ LISTASOROK */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   {sortedEntries.map((entry, index) => {
                     const rankColor = index === 0 ? '#fbbf24' : index === 1 ? '#cbd5e1' : index === 2 ? '#cd7f32' : '#64748b';
@@ -319,7 +398,7 @@ export default function PastArchive({ topicId: externalTopicId, onOpenDetails }:
             )}
           </div>
 
-          {/* JOBB OLDAL: KLUB PANEL */}
+          {/* JOBB OLDAL: KLUB RANGSOR PANEL */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', flex: '1', minWidth: '280px' }}>
             <h3 style={{ margin: '0 0 5px 0', color: '#10b981', fontSize: '1.5rem', fontWeight: 'bold' }}>
               🛡️ Klub Rangsor
