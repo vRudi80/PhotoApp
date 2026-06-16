@@ -318,13 +318,14 @@ export default function PastArchive({
           {!selectedPastTopicId && <div style={{ color: '#94a3b8', textAlign: 'center', padding: '10px' }}>{t('archiveSelectMatch')}</div>}
           
           {pastLeaderboard && [...pastLeaderboard].sort((a, b) => {
-            const likesA = Number(a?.likes_count || 0);
-            const likesB = Number(b?.likes_count || 0);
-            const viewsA = Number(a?.views_count || 0);
-            const viewsB = Number(b?.views_count || 0);
-            if (likesB !== likesA) return likesB - likesA;
-            return viewsA - viewsB;
-          }).map((entry, index) => (
+  // 🛡️ Ha van új fair_score, az dönt, ha nincs (régi kör), akkor a sima csillagok
+  const scoreA = a.fair_score !== undefined ? Number(a.fair_score) : Number(a?.likes_count || 0);
+  const scoreB = b.fair_score !== undefined ? Number(b.fair_score) : Number(b?.likes_count || 0);
+  
+  if (scoreB !== scoreA) return scoreB - scoreA;
+  return (Number(a?.views_count || 0)) - (Number(b?.views_count || 0));
+}).map((entry, index) => (
+  // ... a többi komponens-renderelés változatlan marad
             <div key={entry?.id || index} style={{ display: 'flex', alignItems: 'center', background: '#0f172a', padding: '12px', borderRadius: '12px', marginBottom: '12px', border: '1px solid #334155' }}>
               <div style={{ fontSize: '1.4rem', fontWeight: '900', width: '35px', color: index === 0 ? '#fbbf24' : index === 1 ? '#e2e8f0' : index === 2 ? '#cd7f32' : '#64748b', textAlign: 'center' }}>{index + 1}.</div>
               
