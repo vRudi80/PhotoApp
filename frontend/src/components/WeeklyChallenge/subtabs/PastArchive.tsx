@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { getImageUrl } from '../../../utils/helpers';
 import ArchiveDetailModal from '../ArchiveDetailModal';
 import { toPng } from 'html-to-image'; 
@@ -34,6 +34,19 @@ export default function PastArchive({
   const [adminPosterData, setAdminPosterData] = useState<{ topic: any; entries: any[] } | null>(null);
   const [isAdminGeneratingPoster, setIsAdminGeneratingPoster] = useState(false);
 
+  // 💥 MATEMATIKAI MOTOR: A Top 3 győztes kiszámítása szigorú rangsor alapján a pódiumhoz
+  const topThreeWinners = useMemo(() => {
+    if (!pastLeaderboard || pastLeaderboard.length === 0) return [];
+    return [...pastLeaderboard].sort((a, b) => {
+      const likesA = Number(a?.likes_count || 0);
+      const likesB = Number(b?.likes_count || 0);
+      const viewsA = Number(a?.views_count || 0);
+      const viewsB = Number(b?.views_count || 0);
+      if (likesB !== likesA) return likesB - likesA;
+      return viewsA - viewsB;
+    }).slice(0, 3);
+  }, [pastLeaderboard]);
+
   const currentModalEntry = activeArchiveEntry
     ? (pastLeaderboard.find(x => x.id === activeArchiveEntry.id) || activeArchiveEntry)
     : null;
@@ -44,7 +57,6 @@ export default function PastArchive({
     setIsAdminGeneratingPoster(true);
 
     try {
-      // Szigorú rangsorolás: Lájkok csökkenő, Megtekintések növekvő sorrendben
       const sortedWinners = [...pastLeaderboard].sort((a, b) => {
         const likesA = Number(a?.likes_count || 0);
         const likesB = Number(b?.likes_count || 0);
@@ -71,7 +83,6 @@ export default function PastArchive({
           }
         } catch (e) { console.error("Kép konvertálási hiba:", e); }
         
-        // 🎯 Ellenőrizve: Az eredeti entry minden adata (köztük az adatbázis alapú user_name) megőrződik
         processedEntries.push({ ...entry, base64Url, rank: i + 1 });
       }
 
@@ -168,6 +179,62 @@ export default function PastArchive({
                   </div>
                 )}
 
+                {/* ── 🏆 🎯 ÚJ: MODERN 3D DOBOGÓ (PODIUM) SZERKEZET KÖZVETLENÜL A BANNER ALÁ ── */}
+                {topThreeWinners.length > 0 && (
+                  <div style={{ background: 'linear-gradient(180deg, #1e293b, #0f172a)', borderRadius: '24px', padding: '25px 15px', border: '1px solid #334155', boxShadow: '0 15px 35px rgba(0,0,0,0.4)', marginTop: '5px' }}>
+                    <h4 style={{ color: '#fbbf24', fontSize: '1.1rem', fontWeight: 'bold', textAlign: 'center', margin: '0 0 25px 0', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                      🏆 {lang === 'en' ? 'Challenge Podium' : 'A Kihívás Dobogósai'}
+                    </h4>
+                    
+                    <div className="past-archive-podium-container" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: '12px', width: '100%', minHeight: '220px' }}>
+                      
+                      {/* 🥈 2. HELYEZETT (BAL OLDAL) */}
+                      {topThreeWinners[1] && (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, minWidth: 0 }}>
+                          <div style={{ position: 'relative', cursor: 'pointer', marginBottom: '8px' }} onClick={() => setActiveArchiveEntry(topThreeWinners[1])}>
+                            <img src={getImageUrl(topThreeWinners[1].drive_file_id, topThreeWinners[1].file_url)} alt="" style={{ width: '64px', height: '64px', borderRadius: '50%', objectFit: 'cover', border: '3px solid #cbd5e1', boxShadow: '0 8px 20px rgba(0,0,0,0.5)' }} onError={handleImageError} />
+                            <span style={{ position: 'absolute', bottom: '-4px', right: '-4px', background: '#cbd5e1', color: '#0f172a', width: '18px', height: '18px', borderRadius: '50%', fontSize: '0.7rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>2</span>
+                          </div>
+                          <div style={{ background: 'linear-gradient(180deg, #334155, #1e293b)', border: '1px solid #475569', width: '100%', height: '85px', borderRadius: '12px 12px 0 0', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '6px', boxSizing: 'border-box', textAlign: 'center' }}>
+                            <span style={{ color: '#cbd5e1', fontSize: '0.8rem', fontWeight: 'bold', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{topThreeWinners[1].user_name}</span>
+                            <span style={{ color: '#fbbf24', fontSize: '0.8rem', fontWeight: '900', marginTop: '2px' }}>{topThreeWinners[1].likes_count} ⭐</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 🥇 1. HELYEZETT (KÖZÉP - KIEMELKEDŐ) */}
+                      {topThreeWinners[0] && (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1.1, minWidth: 0, zIndex: 2 }}>
+                          <div style={{ fontSize: '1.4rem', marginBottom: '-6px', filter: 'drop-shadow(0 2px 6px rgba(251,191,36,0.4))' }}>👑</div>
+                          <div style={{ position: 'relative', cursor: 'pointer', marginBottom: '8px' }} onClick={() => setActiveArchiveEntry(topThreeWinners[0])}>
+                            <img src={getImageUrl(topThreeWinners[0].drive_file_id, topThreeWinners[0].file_url)} alt="" style={{ width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', border: '4px solid #fbbf24', boxShadow: '0 10px 25px rgba(251,191,36,0.3)' }} onError={handleImageError} />
+                            <span style={{ position: 'absolute', bottom: '-2px', right: '-2px', background: '#fbbf24', color: '#0f172a', width: '22px', height: '22px', borderRadius: '50%', fontSize: '0.75rem', fontWeight: 'black', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 5px rgba(0,0,0,0.5)' }}>1</span>
+                          </div>
+                          <div style={{ background: 'linear-gradient(180deg, #fbbf24, #b45309)', width: '100%', height: '115px', borderRadius: '12px 12px 0 0', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '6px', boxSizing: 'border-box', textAlign: 'center', boxShadow: '0 4px 15px rgba(0,0,0,0.3)' }}>
+                            <span style={{ color: '#0f172a', fontSize: '0.85rem', fontWeight: '900', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{topThreeWinners[0].user_name}</span>
+                            <span style={{ color: '#ffffff', fontSize: '0.85rem', fontWeight: 'bold', marginTop: '2px', textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}>{topThreeWinners[0].likes_count} ⭐</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 🥉 3. HELYEZETT (JOBB OLDAL) */}
+                      {topThreeWinners[2] && (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, minWidth: 0 }}>
+                          <div style={{ position: 'relative', cursor: 'pointer', marginBottom: '8px' }} onClick={() => setActiveArchiveEntry(topThreeWinners[2])}>
+                            <img src={getImageUrl(topThreeWinners[2].drive_file_id, topThreeWinners[2].file_url)} alt="" style={{ width: '60px', height: '64px', borderRadius: '50%', objectFit: 'cover', border: '3px solid #b45309', boxShadow: '0 8px 20px rgba(0,0,0,0.5)' }} onError={handleImageError} />
+                            <span style={{ position: 'absolute', bottom: '-4px', right: '-4px', background: '#b45309', color: '#ffffff', width: '18px', height: '18px', borderRadius: '50%', fontSize: '0.7rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>3</span>
+                          </div>
+                          <div style={{ background: 'linear-gradient(180deg, #7c2d12, #431407)', border: '1px solid #7c2d12', width: '100%', height: '70px', borderRadius: '12px 12px 0 0', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '6px', boxSizing: 'border-box', textAlign: 'center' }}>
+                            <span style={{ color: '#ffedd5', fontSize: '0.78rem', fontWeight: 'bold', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{topThreeWinners[2].user_name}</span>
+                            <span style={{ color: '#fdba74', fontSize: '0.78rem', fontWeight: '900', marginTop: '2px' }}>{topThreeWinners[2].likes_count} ⭐</span>
+                          </div>
+                        </div>
+                      )}
+
+                    </div>
+                  </div>
+                )}
+
                 {/* 👑 Adminisztrátori pódium-generáló gomb */}
                 {user?.email === ADMIN_EMAIL && pastLeaderboard.length > 0 && (
                   <button
@@ -232,7 +299,6 @@ export default function PastArchive({
                     ) : (
                       clubMembers.map((m, idx) => (
                         <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#cbd5e1' }}>
-                          {/* 🎯 Biztosítva: Klubtagok nevei is az aktuális user_name mezőből jönnek */}
                           <span>👤 {m.user_name}</span>
                           <span style={{ fontWeight: 'bold', color: '#fbbf24' }}>{m.likes_count || 0} ⭐</span>
                         </div>
@@ -272,7 +338,6 @@ export default function PastArchive({
               </div>
 
               <div style={{ flex: 1 }}>
-                {/* 🎯 MÓDOSÍTVA: Felhasználó neve garantáltan a frissített user_name mezőből húzódik ki */}
                 <div style={{ color: 'white', fontWeight: 'bold' }}>{entry?.user_name || t('archivePhotographer')}</div>
                 {entry?.club_name && <div style={{ color: '#10b981', fontSize: '0.75rem', fontWeight: 'bold' }}>🛡️ {entry.club_name}</div>}
                 
@@ -314,11 +379,9 @@ export default function PastArchive({
             id="admin-past-poster-node" 
             style={{ width: '1200px', height: '1200px', background: 'linear-gradient(135deg, #090d16 0%, #111827 100%)', padding: '60px', boxSizing: 'border-box', border: '16px solid #fbbf24', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between', fontFamily: 'Inter, sans-serif', position: 'relative' }}
           >
-            {/* Neon ködök */}
             <div style={{ position: 'absolute', top: '-100px', left: '-100px', width: '400px', height: '400px', background: '#fbbf24', filter: 'blur(180px)', opacity: 0.1, borderRadius: '50%' }}></div>
             <div style={{ position: 'absolute', bottom: '-100px', right: '-100px', width: '400px', height: '400px', background: '#38bdf8', filter: 'blur(180px)', opacity: 0.1, borderRadius: '50%' }}></div>
 
-            {/* Fejléc */}
             <div style={{ textAlign: 'center', width: '100%' }}>
               <div style={{ color: '#fbbf24', fontSize: '26px', fontWeight: '900', letterSpacing: '6px', textTransform: 'uppercase', marginBottom: '15px' }}>
                 ✨ {lang === 'en' ? 'PhotAwesome.com Challenge RESULTS' : 'PhotAwesome.com Kihívás EREDMÉNYEK'} ✨
@@ -331,17 +394,13 @@ export default function PastArchive({
               </div>
             </div>
 
-            {/* 3D Pódium Sor */}
             <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: '35px', width: '100%', padding: '0 20px', boxSizing: 'border-box' }}>
-              
-              {/* 🥈 2. HELYEZETT */}
               {adminPosterData.entries[1] && (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '290px' }}>
                   <div style={{ width: '240px', height: '240px', borderRadius: '16px', overflow: 'hidden', border: '6px solid #cbd5e1', boxShadow: '0 20px 45px rgba(0,0,0,0.6)', backgroundColor: '#000', marginBottom: '15px' }}>
                     <img src={adminPosterData.entries[1].base64Url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   </div>
                   <div style={{ background: 'linear-gradient(180deg, #334155 0%, #1e293b 100%)', width: '100%', height: '200px', borderRadius: '16px 16px 0 0', border: '1px solid #475569', borderBottom: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '15px', boxSizing: 'border-box', textAlign: 'center' }}>
-                    {/* 🎯 MÓDOSÍTVA: A plakáton is garantáltan az adatbázisból behúzott user_name jelenik meg */}
                     <div style={{ color: '#cbd5e1', fontSize: '24px', fontWeight: 'bold', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{adminPosterData.entries[1].user_name}</div>
                     <div style={{ color: '#94a3b8', fontSize: '22px', fontWeight: '900', marginTop: '4px' }}>{adminPosterData.entries[1].likes_count} ⭐</div>
                     <div style={{ color: '#cbd5e1', fontSize: '32px', fontWeight: '900', marginTop: '20px', letterSpacing: '1px' }}>🥈 2. {lang === 'en' ? 'PLACE' : 'HELY'}</div>
@@ -349,7 +408,6 @@ export default function PastArchive({
                 </div>
               )}
 
-              {/* 🥇 1. HELYEZETT */}
               {adminPosterData.entries[0] && (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '330px', zIndex: 10 }}>
                   <div style={{ fontSize: '70px', marginBottom: '-10px', filter: 'drop-shadow(0 4px 10px rgba(251,191,36,0.5))' }}>👑</div>
@@ -357,7 +415,6 @@ export default function PastArchive({
                     <img src={adminPosterData.entries[0].base64Url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   </div>
                   <div style={{ background: 'linear-gradient(180deg, #fbbf24 0%, #b45309 100%)', width: '100%', height: '270px', borderRadius: '20px 24px 0 0', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '15px', boxSizing: 'border-box', textAlign: 'center', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
-                    {/* 🎯 MÓDOSÍTVA: A plakáton is garantáltan az adatbázisból behúzott user_name jelenik meg */}
                     <div style={{ color: '#0f172a', fontSize: '28px', fontWeight: '900', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{adminPosterData.entries[0].user_name}</div>
                     <div style={{ color: '#0f172a', fontSize: '26px', fontWeight: '900', marginTop: '4px', opacity: 0.9 }}>{adminPosterData.entries[0].likes_count} ⭐</div>
                     <div style={{ color: '#ffffff', fontSize: '38px', fontWeight: '900', marginTop: '25px', letterSpacing: '1px', textShadow: '0 2px 10px rgba(0,0,0,0.4)' }}>🥇 1. {lang === 'en' ? 'PLACE' : 'HELY'}</div>
@@ -365,33 +422,80 @@ export default function PastArchive({
                 </div>
               )}
 
-              {/* 🥉 3. HELYEZETT */}
               {adminPosterData.entries[2] && (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '290px' }}>
                   <div style={{ width: '220px', height: '220px', borderRadius: '16px', overflow: 'hidden', border: '6px solid #b45309', boxShadow: '0 20px 45px rgba(0,0,0,0.6)', backgroundColor: '#000', marginBottom: '15px' }}>
                     <img src={adminPosterData.entries[2].base64Url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   </div>
                   <div style={{ background: 'linear-gradient(180deg, #7c2d12 0%, #431407 100%)', width: '100%', height: '150px', borderRadius: '16px 16px 0 0', border: '1px solid #7c2d12', borderBottom: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '15px', boxSizing: 'border-box', textAlign: 'center' }}>
-                    {/* 🎯 MÓDOSÍTVA: A plakáton is garantáltan az adatbázisból behúzott user_name jelenik meg */}
                     <div style={{ color: '#ffedd5', fontSize: '22px', fontWeight: 'bold', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{adminPosterData.entries[2].user_name}</div>
                     <div style={{ color: '#fdba74', fontSize: '20px', fontWeight: '900', marginTop: '4px' }}>{adminPosterData.entries[2].likes_count} ⭐</div>
                     <div style={{ color: '#fdba74', fontSize: '28px', fontWeight: '900', marginTop: '15px', letterSpacing: '1px' }}>🥉 3. {lang === 'en' ? 'PLACE' : 'HELY'}</div>
                   </div>
                 </div>
               )}
-
             </div>
 
-            {/* Lábléc */}
             <div style={{ width: '100%', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '25px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#64748b', fontSize: '18px', fontWeight: 'bold' }}>
               <div>{lang === 'en' ? 'Join the Arena Battle:' : 'Csatlakozz a kihívásokhoz:'} <span style={{ color: '#38bdf8' }}>photawesome.com</span></div>
               <div style={{ color: '#fbbf24', letterSpacing: '1px' }}>✨ PhotAwesome Arena ✨</div>
             </div>
-
           </div>
         )}
       </div>
 
+      {/* ── 🎯 ⚡ ÚJ: INJEKTÁLT MOZI-ELRENDEZÉS CSS OVERRIDES A FINOMHANGOLÁSHOZ ── */}
+      <style>{`
+        /* Ha asztali gépen vagyunk, rákényszerítjük a modált a helyes térfelosztásra */
+        @media (min-width: 1024px) {
+          /* Megkeressük az ArchiveDetailModal belső gridjét/flexboxát */
+          div[class*="modal"], div[style*="fixed"] {
+            /* Kiválasztjuk a belső tartalom hordozót */
+            .modal-content-wrapper, div[style*="max-width: 1200px"] {
+              max-width: 90vw !important; /* Szélesebb mozi pult */
+              width: 90vw !important;
+            }
+            
+            /* Rákényszerítjük a 70% kép - 30% chat arányt a belső osztott hasábra */
+            div[style*="grid-template-columns"], div[style*="display: flex"] {
+              display: grid !important;
+              grid-template-columns: 1fr 380px !important; /* Fixen csak 380px a chat, a többi a fotóé! */
+              width: 100% !important;
+            }
+
+            /* A nagy színház doboz, ami a képet tartja */
+            div[style*="background-color: rgb(0, 0, 0)"], div[style*="backgroundColor: '#000'"] {
+              height: 75vh !important; /* Magasabb, monumentális képélmény */
+              max-height: 75vh !important;
+            }
+
+            img[style*="max-height: 68vh"] {
+              max-height: 75vh !important;
+              width: 100% !important;
+              height: 100% !important;
+              object-fit: contain !important;
+            }
+          }
+        }
+
+        /* Fluid pódium reszponzivitás kicsi mobilokra */
+        @media (max-width: 420px) {
+          .past-archive-podium-container {
+            flex-direction: column !important;
+            align-items: center !important;
+            gap: 20px !important;
+          }
+          .past-archive-podium-container > div {
+            width: 100% !important;
+            max-width: 200px;
+          }
+          .past-archive-podium-container div[style*="height"] {
+            height: 75px !important;
+          }
+        }
+      `}</style>
+
     </div>
   );
 }
+``` Deployold ezt a verziót, és mindkét felületed (a dobogó és a hatalmasra növelt fotónézegető is) tökéletesen fog működni!
