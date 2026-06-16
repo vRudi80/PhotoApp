@@ -24,13 +24,13 @@ export default function ArchiveDetailModal({ entry, userEmail, userName, onClose
   const [newComment, setNewComment] = useState('');
   const [loadingComments, setLoadingComments] = useState(false);
 
-  // ⚡ LOKÁLIS MEMÓRIA: Azonnali vizuális visszajelzés a lájkokhoz
-  const [likesCount, setLikesCount] = useState<number>(Number(entry?.likes_count || entry?.archive_likes) || 0);
+  // ⚡ JAVÍTVA: Kizárólag az archív szíveket (archive_likes) vesszük alapul, a verseny csillagok nem zavarnak be ide
+  const [likesCount, setLikesCount] = useState<number>(Number(entry?.archive_likes) || 0);
   const [isLiked, setIsLiked] = useState<boolean>(entry?.has_user_liked === 1 || entry?.has_user_liked === true);
 
   // Biztonsági háló: Ha a beküldött entry megváltozik, szinkronizálunk
   useEffect(() => {
-    setLikesCount(Number(entry?.likes_count || entry?.archive_likes) || 0);
+    setLikesCount(Number(entry?.archive_likes) || 0);
     setIsLiked(entry?.has_user_liked === 1 || entry?.has_user_liked === true);
   }, [entry]);
 
@@ -108,7 +108,7 @@ export default function ArchiveDetailModal({ entry, userEmail, userName, onClose
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(9, 13, 22, 0.95)', backdropFilter: 'blur(20px)', zIndex: 99999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px', boxSizing: 'border-box' }}>
       
-      {/* 🎯 JAVÍTVA: LAPOS NATIVE CSS SZABÁLYOK A FÜGGŐLEGES SZÍNHÁZ STRUKTÚRÁHOZ */}
+      {/* 🎯 LAPOS NATIVE CSS SZABÁLYOK A FÜGGŐLEGES SZÍNHÁZ STRUKTÚRÁHOZ */}
       <style>{`
         .theater-modal-card {
           background: #1e293b;
@@ -126,26 +126,26 @@ export default function ArchiveDetailModal({ entry, userEmail, userName, onClose
 
         .theater-photo-section {
           background: #090d16;
-          flex: 1.4; /* 💥 A fotó kapja a nagyobb teret a pulton belül */
+          flex: 1.5;
           display: flex;
           justify-content: center;
           align-items: center;
           padding: 20px;
           position: relative;
-          min-height: 0; /* Megakadályozza a flexbox túlnyúlási anomáliáit */
+          min-height: 0;
           border-bottom: 1px solid #232f46;
         }
 
         .theater-archive-img {
           max-width: 100%;
           max-height: 100%;
-          object-fit: contain; /* 💥 Atombiztos védelem: a kép SOHA nem torzul el vagy esik szét */
+          object-fit: contain;
           border-radius: 12px;
           box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
 
         .theater-info-section {
-          flex: 1; /* 💥 Az adatok és kommentek panele alulra került */
+          flex: 1;
           display: flex;
           flex-direction: column;
           background: #0f172a;
@@ -162,7 +162,6 @@ export default function ArchiveDetailModal({ entry, userEmail, userName, onClose
           background: #090d1620;
         }
 
-        /* Mobil optimalizálás, ha nagyon pici lenne a kijelző vertikálisan */
         @media (max-height: 700px) {
           .theater-photo-section {
             flex: 1.1;
@@ -183,26 +182,32 @@ export default function ArchiveDetailModal({ entry, userEmail, userName, onClose
         <div className="theater-info-section">
           
           {/* Alkotói adatok tágas, horizontális sora */}
-          <div style={{ padding: '15px 25px', borderBottom: '1px solid #223047', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '20px', flexShrink: 0 }}>
-            <div style={{ minWidth: 0, flex: 1, display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
-              <h3 style={{ color: 'white', margin: 0, fontSize: '1.25rem', fontWeight: 'bold', lineHeight: '1.2' }}>
+          <div style={{ padding: '20px 25px', borderBottom: '1px solid #223047', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '20px', flexShrink: 0 }}>
+            
+            {/* JAVÍTVA: A belső blokk most már egy tiszta függőleges oszlop, így a klub a név alá kerül */}
+            <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <h3 style={{ color: 'white', margin: 0, fontSize: '1.35rem', fontWeight: 'bold', lineHeight: '1.2' }}>
                 Alkotó: <span style={{ color: '#38bdf8' }}>{entry.user_name}</span>
               </h3>
+              
               {entry.club_name && (
-                <span style={{ color: '#10b981', fontSize: '0.8rem', fontWeight: 'bold', background: '#10b98115', padding: '4px 10px', borderRadius: '6px', border: '1px solid #10b98130' }}>
-                  🛡️ {entry.club_name}
-                </span>
+                <div style={{ display: 'flex' }}>
+                  <span style={{ color: '#10b981', fontSize: '0.82rem', fontWeight: 'bold', background: '#10b98115', padding: '5px 12px', borderRadius: '6px', border: '1px solid #10b98130', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    🛡️ {entry.club_name}
+                  </span>
+                </div>
               )}
-              <div style={{ color: '#64748b', fontSize: '0.9rem', fontWeight: 'bold' }}>
+              
+              <div style={{ color: '#64748b', fontSize: '0.9rem', fontWeight: 'bold', marginTop: '2px' }}>
                 Eredmény: <span style={{ color: '#f59e0b' }}>{entry.likes_count} ⭐</span>
               </div>
             </div>
 
             <button 
               onClick={handleLike}
-              style={{ display: 'flex', alignItems: 'center', gap: '8px', background: isLiked ? 'rgba(239, 68, 68, 0.15)' : '#1e293b', border: isLiked ? '1px solid #ef4444' : '1px solid #334155', color: isLiked ? '#f87171' : '#cbd5e1', padding: '10px 18px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s', flexShrink: 0, fontSize: '0.9rem' }}
+              style={{ display: 'flex', alignItems: 'center', gap: '8px', background: isLiked ? 'rgba(239, 68, 68, 0.15)' : '#1e293b', border: isLiked ? '1px solid #ef4444' : '1px solid #334155', color: isLiked ? '#f87171' : '#cbd5e1', padding: '12px 20px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s', flexShrink: 0, fontSize: '0.92rem' }}
             >
-              <span style={{ fontSize: '1.1rem', lineHeight: 1 }}>{isLiked ? '❤️' : '🤍'}</span>
+              <span style={{ fontSize: '1.2rem', lineHeight: 1 }}>{isLiked ? '❤️' : '🤍'}</span>
               <span>{likesCount} elismerés</span>
             </button>
           </div>
