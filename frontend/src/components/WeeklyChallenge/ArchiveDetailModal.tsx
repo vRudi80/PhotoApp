@@ -108,7 +108,7 @@ export default function ArchiveDetailModal({ entry, userEmail, userName, onClose
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(9, 13, 22, 0.96)', backdropFilter: 'blur(20px)', zIndex: 99999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px', boxSizing: 'border-box' }}>
       
-      {/* 🎯 ULTRA-STABIL FÜGGŐLEGES ÓRIÁSMOZI ELRENDEZÉS SZELEKTOROK */}
+      {/* 🎯 TÖKÉLETESÍTETT ARÁNYÚ FÜGGŐLEGES SZÍNHÁZ SZELEKTOROK */}
       <style>{`
         .theater-modal-card {
           background: #1e293b;
@@ -126,7 +126,7 @@ export default function ArchiveDetailModal({ entry, userEmail, userName, onClose
 
         .theater-photo-section {
           background: #090d16;
-          flex: 2.8 !important; /* 💥 Kényszerített óriásméret: a fotó kapja a képernyő ~75%-át! */
+          flex: 1.2 !important; /* 💥 JAVÍTVA: Finomhangolt méret, a kép kényelmesen kitölti a szélességet */
           display: flex;
           justify-content: center;
           align-items: center;
@@ -145,7 +145,7 @@ export default function ArchiveDetailModal({ entry, userEmail, userName, onClose
         }
 
         .theater-info-section {
-          flex: 1 !important; /* 💥 A szöveges pult lekicsinyítve, hogy kevesebb helyet foglaljon */
+          flex: 1 !important; /* 💥 JAVÍTVA: Az alsó szekció több teret kap, így a chat hatalmasra tágul */
           display: flex;
           flex-direction: column;
           background: #0f172a;
@@ -167,53 +167,52 @@ export default function ArchiveDetailModal({ entry, userEmail, userName, onClose
         .theater-comments-flow {
           flex: 1;
           overflow-y: auto;
-          padding: 12px 25px;
+          padding: 16px 25px;
           display: flex;
           flex-direction: column;
-          gap: 10px;
+          gap: 12px;
           background: #090d1620;
+          min-height: 160px; /* 💥 BIZTONSÁGI PAJZS: Garantált minimum magasság a chatnek, nincs több levágás */
         }
       `}</style>
 
       {/* FŐ KÁRTYA CONTAINER */}
       <div className="theater-modal-card">
         
-        {/* 1. FELSŐ RÉSZ: FOTÓ PANEL (MAXIMALIZÁLT FOTÓ) */}
+        {/* 1. FELSŐ RÉSZ: FOTÓ PANEL */}
         <div className="theater-photo-section">
           <button onClick={onClose} style={{ position: 'absolute', top: '20px', left: '20px', background: '#1e293b', border: '1px solid #334155', color: '#94a3b8', padding: '8px 18px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', zIndex: 10, transition: 'all 0.2s', fontSize: '0.85rem' }}>⬅️ Bezárás</button>
           <img className="theater-archive-img" src={entry.file_url} alt="" onError={handleImageError} />
         </div>
 
-        {/* 2. ALSÓ RÉSZ: ADATOK ÉS CSEVEGÉS (MINIMALIZÁLT SZÖVEG) */}
+        {/* 2. ALSÓ RÉSZ: ADATOK ÉS JÓVAL NAGYOBB CHATABLAK */}
         <div className="theater-info-section">
           
-          {/* Hivatalos reszponzív fejlécsor */}
+          {/* Hivatalos fejlécsor */}
           <div className="theater-header-row">
-            
-            {/* 💥 JAVÍTVA: Szigorúan egymás alá (column) rendezett adatsorok, absolute védelemmel a hasábosodás ellen */}
             <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '6px' }}>
               
-              {/* Tisztán csak a név, előtag nélkül, fixen egyetlen sorban */}
+              {/* Név önállóan, egy sorban */}
               <h3 style={{ color: '#38bdf8', margin: 0, fontSize: '1.5rem', fontWeight: 'bold', lineHeight: '1.2', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>
                 {entry.user_name}
               </h3>
               
-              {/* 💥 JAVÍTVA: A klubnév fixen egysoros jelvényként nyúlik el a név alatt, nem törik 3 sorba */}
+              {/* Klubnév közvetlenül alatta */}
               {entry.club_name && (
                 <div style={{ display: 'flex', width: 'auto', flexShrink: 0, whiteSpace: 'nowrap' }}>
-                  <span style={{ color: '#10b981', fontSize: '0.85rem', fontWeight: 'bold', background: '#10b98115', padding: '4px 12px', borderRadius: '6px', border: '1px solid #10b98130', display: 'inline-block', whiteSpace: 'nowrap' }}>
+                  <span style={{ color: '#10b981', fontSize: '0.85rem', fontWeight: 'bold', background: '#10b98115', padding: '4px 12px', borderRadius: '6px', border: '1px solid #10b98130', display: 'inline-block' }}>
                     🛡️ {entry.club_name}
                   </span>
                 </div>
               )}
               
-              {/* Versenyeredmény */}
+              {/* Eredmény */}
               <div style={{ color: '#64748b', fontSize: '0.85rem', fontWeight: 'bold', marginTop: '1px' }}>
                 Eredmény: <span style={{ color: '#f59e0b' }}>{entry.likes_count} ⭐</span>
               </div>
             </div>
 
-            {/* Elismerések száma a jobb szélen */}
+            {/* Elismerések */}
             <button 
               onClick={handleLike}
               style={{ display: 'flex', alignItems: 'center', gap: '8px', background: isLiked ? 'rgba(239, 68, 68, 0.15)' : '#1e293b', border: isLiked ? '1px solid #ef4444' : '1px solid #334155', color: isLiked ? '#f87171' : '#cbd5e1', padding: '10px 18px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s', flexShrink: 0, fontSize: '0.9rem' }}
@@ -223,19 +222,19 @@ export default function ArchiveDetailModal({ entry, userEmail, userName, onClose
             </button>
           </div>
 
-          {/* Gördíthető kommentfolyam */}
+          {/* Bővített, kényelmesen gördíthető kommentfolyam */}
           <div className="theater-comments-flow">
             <h4 style={{ color: '#64748b', margin: '0 0 2px 0', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold' }}>⚔️ Eszmecsere</h4>
             
             {loadingComments && comments.length === 0 ? (
               <div style={{ color: '#64748b', textAlign: 'center', padding: '10px', fontSize: '0.85rem' }}>Gondolatok betöltése...</div>
             ) : comments.length === 0 ? (
-              <div style={{ color: '#475569', textAlign: 'center', padding: '20px', fontStyle: 'italic', fontSize: '0.9rem' }}>Írd le az első gondolatot a fotóról! 🪶</div>
+              <div style={{ color: '#475569', textAlign: 'center', padding: '30px 20px', margin: 'auto 0', fontStyle: 'italic', fontSize: '0.92rem' }}>Írd le az első gondolatot a fotóról! 🪶</div>
             ) : (
               comments.map((c) => {
                 const isMe = c.user_email === userEmail;
                 return (
-                  <div key={c.id} style={{ background: isMe ? '#1e293b' : '#1e293b50', padding: '8px 12px', borderRadius: '12px', border: isMe ? '1px solid #475569' : '1px solid #334155', alignSelf: isMe ? 'flex-end' : 'flex-start', maxWidth: '85%', width: 'fit-content', boxShadow: '0 2px 6px rgba(0,0,0,0.1)' }}>
+                  <div key={c.id} style={{ background: isMe ? '#1e293b' : '#1e293b50', padding: '8px 14px', borderRadius: '12px', border: isMe ? '1px solid #475569' : '1px solid #334155', alignSelf: isMe ? 'flex-end' : 'flex-start', maxWidth: '85%', width: 'fit-content', boxShadow: '0 2px 6px rgba(0,0,0,0.1)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: '25px', marginBottom: '2px', alignItems: 'center' }}>
                       <strong style={{ color: isMe ? '#f59e0b' : '#38bdf8', fontSize: '0.78rem', fontWeight: 'bold' }}>{c.user_name}</strong>
                       <small style={{ color: '#475569', fontSize: '0.68rem', fontFamily: 'monospace' }}>{new Date(c.created_at).toLocaleTimeString('hu-HU', {hour: '2-digit', minute:'2-digit'})}</small>
@@ -247,7 +246,7 @@ export default function ArchiveDetailModal({ entry, userEmail, userName, onClose
             )}
           </div>
 
-          {/* Kommentküldő űrlap legalsó fix sorban */}
+          {/* Kommentküldő form */}
           <form onSubmit={handleCommentSubmit} style={{ padding: '12px 20px', background: '#1e293b', borderTop: '1px solid #334155', display: 'flex', gap: '10px', flexShrink: 0 }}>
             <input 
               type="text" 
