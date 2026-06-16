@@ -395,17 +395,24 @@ async function processFinishedChallenges(pool) {
         ORDER BY fair_score DESC, e.likes_count DESC, e.views_count ASC
       `, [userEmail, currentTopic.id]);
 
+            // 🏆 JAVÍTVA: A klubbajnokságban is likes_count helyett az idővonal-védett fair_score-t összesítjük
       const clubsData = {};
       leaderboard.forEach(entry => {
         if (!entry.club_name || entry.club_name.trim() === '') return; 
         if (!clubsData[entry.club_name]) clubsData[entry.club_name] = [];
-        clubsData[entry.club_name].push(Number(entry.likes_count));
+        clubsData[entry.club_name].push(Number(entry.fair_score || 0));
       });
 
       const clubLeaderboard = [];
       for (const club in clubsData) {
         clubsData[club].sort((a, b) => b - a);
-        clubLeaderboard.push({ club_name: club, total_score: clubsData[club].slice(0, 3).reduce((sum, val) => sum + val, 0), members_counted: clubsData[club].slice(0, 3).length });
+        const top3 = clubsData[club].slice(0, 3);
+        clubLeaderboard.push({ 
+          club_name: club, 
+          // .toFixed(2) megvédi a rendszert a JS tizedestört-összeadási pontatlanságaitól
+          total_score: Number(top3.reduce((sum, val) => sum + val, 0).toFixed(2)), 
+          members_counted: top3.length 
+        });
       }
       clubLeaderboard.sort((a, b) => b.total_score - a.total_score);
 
@@ -1442,7 +1449,8 @@ async function processFinishedChallenges(pool) {
     }
   });
   
-app.get('/api/weekly/history/:topicId', async (req, res) => {
+  // 📜 JAVÍTVA: ARCHÍV TÖRTÉNELMI ADATOK INTEGRÁLT EGYÉNI ÉS KLUBOS FAIR_SCORE SZÁMÍTÁSSAL
+  app.get('/api/weekly/history/:topicId', async (req, res) => {
     const { topicId } = req.params;
     const userEmail = req.query.userEmail || '';
     try {
@@ -1451,7 +1459,7 @@ app.get('/api/weekly/history/:topicId', async (req, res) => {
           (SELECT COUNT(*) FROM weekly_votes WHERE entry_id = e.id AND vote_type = 'master') as archive_likes,
           EXISTS(SELECT 1 FROM weekly_votes WHERE entry_id = e.id AND voter_email = ?) as has_user_liked,
           
-          -- 🛡️ Történelmi dátumszűrő: a mai nap előtt lezárult szobák megmaradnak tiszta lájk alapúnak
+          -- 🛡️ Dátum-sorompó: a mai nap előtt lezárult szobák megmaradnak tiszta csillag alapúnak
           IF(t.end_date < '2026-06-16 00:00:00',
             e.likes_count,
             ROUND(
@@ -1470,16 +1478,33 @@ app.get('/api/weekly/history/:topicId', async (req, res) => {
         ORDER BY fair_score DESC, e.likes_count DESC, e.views_count ASC
       `, [userEmail, topicId]);
 
-      const [clubLeaderboard] = await pool.query(`
-        SELECT u.club_name, COUNT(DISTINCT e.user_email) as members_counted, SUM(e.likes_count) as total_score
-        FROM weekly_entries e JOIN photo_users u ON e.user_email = u.email
-        WHERE e.topic_id = ? AND e.is_active = 1 AND u.club_name IS NOT NULL AND u.club_name != ''
-        GROUP BY u.club_name ORDER BY total_score DESC
-      `, [topicId]);
+      // 🏆 JAVÍTVA: Egységesített, top 3-as klubrangsor számítás Fair Pontok alapján
+      const clubsData = {};
+      leaderboard.forEach(entry => {
+        if (!entry.club_name || entry.club_name.trim() === '') return; 
+        if (!clubsData[entry.club_name]) clubsData[entry.club_name] = [];
+        clubsData[entry.club_name].push(Number(entry.fair_score || 0));
+      });
+
+      const clubLeaderboard = [];
+      for (const club in clubsData) {
+        clubsData[club].sort((a, b) => b - a);
+        const top3 = clubsData[club].slice(0, 3);
+        clubLeaderboard.push({ 
+          club_name: club, 
+          total_score: Number(top3.reduce((sum, val) => sum + val, 0).toFixed(2)), 
+          members_counted: top3.length 
+        });
+      }
+      clubLeaderboard.sort((a, b) => b.total_score - a.total_score);
 
       res.json({ leaderboard, clubLeaderboard });
-    } catch (err) { res.status(500).json({ error: 'Hiba a történeti adatok lekérésekor.' }); }
+    } catch (err) { 
+      console.error(err);
+      res.status(500).json({ error: 'Hiba a történeti adatok lekérésekor.' }); 
+    }
   });
+
   // ====================================================================
   // 💬 ARÉNA LÍGA ÉLŐ CSEVEGŐ VÉGPONTOK (Típusbiztos, 0-ra optimalizált)
   // ====================================================================
