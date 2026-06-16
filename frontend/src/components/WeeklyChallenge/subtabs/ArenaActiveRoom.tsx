@@ -497,7 +497,7 @@ export default function ArenaActiveRoom({
                         <div style={{ flex: 1, marginLeft: '10px' }}>
                           <div style={{ fontSize: '0.9rem', color: '#fbbf24', fontWeight: 'bold' }}>{past?.likes_count || 0} ⭐</div>
                         </div>
-                        <button onClick={() => handleSwapBackSubmit(past.id)} disabled={swapBalance < 1} style={{ background: 'linear-gradient(135deg, #0284c7, #0369a1)', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', cursor: 'pointer' }}>
+                        <button onClick={{}} disabled={swapBalance < 1} style={{ background: 'linear-gradient(135deg, #0284c7, #0369a1)', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', cursor: 'pointer' }}>
                           {t('roomReactivateBtn')}
                         </button>
                       </div>
@@ -544,11 +544,9 @@ export default function ArenaActiveRoom({
                     <div style={{ color: 'white', fontWeight: 'bold', fontSize: '1.1rem' }}>{club?.club_name || 'Unknown Club'}</div>
                     <div style={{ color: '#64748b', fontSize: '0.8rem' }}>{club?.members_counted || 0} {t('roomActiveMembers')}</div>
                   </div>
-                 {/* JAVÍTVA: Ha a kihívás lejárata a mai nap utáni, akkor FP-t írunk ki, különben a régi csillagot */}
-<div style={{ color: '#10b981', fontWeight: '900', fontSize: '1.4rem', whiteSpace: 'nowrap' }}>
-  {club?.total_score || 0} {topic?.end_date && new Date(topic.end_date.replace(' ', 'T')).getTime() < new Date('2026-06-16T00:00:00').getTime() ? '⭐' : 'FP'}
-</div>
-
+                  <div style={{ color: '#10b981', fontWeight: '900', fontSize: '1.4rem', whiteSpace: 'nowrap' }}>
+                    {club?.total_score || 0} {topic?.end_date && new Date(topic.end_date.replace(' ', 'T')).getTime() < new Date('2026-06-16T00:00:00').getTime() ? '⭐' : 'FP'}
+                  </div>
                 </div>
               ))}
             </div>
@@ -586,7 +584,6 @@ export default function ArenaActiveRoom({
                       <div style={{ fontSize: '0.8rem', color: '#64748b' }}>{t('roomViews')}: {entry?.views_count || 0}</div>
                     </div>
                     
-                    {/* 💥 JAVÍTVA: A vak toplistán is a Fair Pont jelenik meg nagy sárga betűvel, alatta az összetétellel */}
                     <div style={{ textAlign: 'right', minWidth: '95px' }}>
                       <div style={{ fontSize: '1.3rem', fontWeight: 'bold', color: isMe ? '#f97316' : '#fbbf24' }}>
                         {entry.fair_score !== undefined ? `${entry.fair_score} FP` : `${entry.likes_count || 0} ⭐`}
