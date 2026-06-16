@@ -559,13 +559,16 @@ export default function ArenaActiveRoom({
           
           {safeLeaderboard.length === 0 ? <div style={{ color: '#94a3b8', textAlign: 'center', padding: '30px', background: '#0f172a', borderRadius: '16px' }}>{t('roomArenaEmpty')}</div> : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {[...safeLeaderboard].sort((a, b) => {
-                const likesA = Number(a?.likes_count || 0);
-                const likesB = Number(b?.likes_count || 0);
-                if (likesB !== likesA) return likesB - likesA;
-                return (Number(a?.views_count || 0)) - (Number(b?.views_count || 0));
-              }).map((entry, index) => {
-                const isMe = entry?.user_email === user?.email;
+             {[...safeLeaderboard].sort((a, b) => {
+  // 🛡️ Ha van új fair_score, az dönt, ha nincs (régi kör), akkor a sima csillagok
+  const scoreA = a.fair_score !== undefined ? Number(a.fair_score) : Number(a?.likes_count || 0);
+  const scoreB = b.fair_score !== undefined ? Number(b.fair_score) : Number(b?.likes_count || 0);
+  
+  if (scoreB !== scoreA) return scoreB - scoreA;
+  return (Number(a?.views_count || 0)) - (Number(b?.views_count || 0));
+}).map((entry, index) => {
+  const isMe = entry?.user_email === user?.email;
+  // ... a többi map rész változatlan marad
                 const rankColor = index === 0 ? '#fbbf24' : index === 1 ? '#e2e8f0' : index === 2 ? '#cd7f32' : '#64748b';
                 
                 return (
