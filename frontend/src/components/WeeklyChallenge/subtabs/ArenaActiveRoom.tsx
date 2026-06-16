@@ -299,7 +299,6 @@ export default function ArenaActiveRoom({
   };
 
   return (
-    // JAVÍTVA: minmax skálázás visszavéve 280px-re, hogy kisebb mobilokon se lógjon ki a fő keret
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '30px', animation: 'fadeIn 0.4s ease-out' }}>
       
       {/* BAL OLDAL */}
@@ -358,7 +357,6 @@ export default function ArenaActiveRoom({
                         #{index + 1}
                       </div>
 
-                      {/* JAVÍTVA: Inline stílusok helyett reszponzív CSS osztályokat adtam át a teljes mobilos fluiditásért! */}
                       <div className="batch-vote-responsive-card">
                         <div 
                           onClick={() => setSelectedExifPhoto(entry)}
@@ -425,6 +423,7 @@ export default function ArenaActiveRoom({
 
               <div style={{ marginTop: '35px', borderTop: '1px solid #334155', paddingTop: '25px', textAlign: 'center' }}>
                 <button
+                  network-status
                   onClick={handleBatchSubmit}
                   disabled={isSubmittingBatch || Object.keys(pendingVotes).length < batchVoteEntries.length}
                   style={{ width: '100%', padding: '16px', borderRadius: '16px', border: 'none', background: Object.keys(pendingVotes).length === batchVoteEntries.length ? 'linear-gradient(135deg, #10b981, #059669)' : '#334155', color: Object.keys(pendingVotes).length === batchVoteEntries.length ? 'white' : '#64748b', fontSize: '1.2rem', fontWeight: '900', cursor: Object.keys(pendingVotes).length === batchVoteEntries.length ? 'pointer' : 'not-allowed', boxShadow: Object.keys(pendingVotes).length === batchVoteEntries.length ? '0 10px 25px rgba(16,185,129,0.3)' : 'none', transition: 'all 0.3s' }}
@@ -498,7 +497,7 @@ export default function ArenaActiveRoom({
                         <div style={{ flex: 1, marginLeft: '10px' }}>
                           <div style={{ fontSize: '0.9rem', color: '#fbbf24', fontWeight: 'bold' }}>{past?.likes_count || 0} ⭐</div>
                         </div>
-                        <button onClick={{}} disabled={swapBalance < 1} style={{ background: 'linear-gradient(135deg, #0284c7, #0369a1)', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', cursor: 'pointer' }}>
+                        <button onClick={() => handleSwapBackSubmit(past.id)} disabled={swapBalance < 1} style={{ background: 'linear-gradient(135deg, #0284c7, #0369a1)', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', cursor: 'pointer' }}>
                           {t('roomReactivateBtn')}
                         </button>
                       </div>
@@ -559,16 +558,14 @@ export default function ArenaActiveRoom({
           
           {safeLeaderboard.length === 0 ? <div style={{ color: '#94a3b8', textAlign: 'center', padding: '30px', background: '#0f172a', borderRadius: '16px' }}>{t('roomArenaEmpty')}</div> : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-             {[...safeLeaderboard].sort((a, b) => {
-  // 🛡️ Ha van új fair_score, az dönt, ha nincs (régi kör), akkor a sima csillagok
-  const scoreA = a.fair_score !== undefined ? Number(a.fair_score) : Number(a?.likes_count || 0);
-  const scoreB = b.fair_score !== undefined ? Number(b.fair_score) : Number(b?.likes_count || 0);
-  
-  if (scoreB !== scoreA) return scoreB - scoreA;
-  return (Number(a?.views_count || 0)) - (Number(b?.views_count || 0));
-}).map((entry, index) => {
-  const isMe = entry?.user_email === user?.email;
-  // ... a többi map rész változatlan marad
+              {[...safeLeaderboard].sort((a, b) => {
+                const scoreA = a.fair_score !== undefined ? Number(a.fair_score) : Number(a?.likes_count || 0);
+                const scoreB = b.fair_score !== undefined ? Number(b.fair_score) : Number(b?.likes_count || 0);
+                
+                if (scoreB !== scoreA) return scoreB - scoreA;
+                return (Number(a?.views_count || 0)) - (Number(b?.views_count || 0));
+              }).map((entry, index) => {
+                const isMe = entry?.user_email === user?.email;
                 const rankColor = index === 0 ? '#fbbf24' : index === 1 ? '#e2e8f0' : index === 2 ? '#cd7f32' : '#64748b';
                 
                 return (
@@ -584,9 +581,19 @@ export default function ArenaActiveRoom({
                       </div>
                       <div style={{ fontSize: '0.8rem', color: '#64748b' }}>{t('roomViews')}: {entry?.views_count || 0}</div>
                     </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ color: isMe ? '#f97316' : '#94a3b8', fontWeight: '900', fontSize: '1.5rem' }}>{entry?.likes_count || 0} ⭐</div>
+                    
+                    {/* 💥 JAVÍTVA: A vak toplistán is a Fair Pont jelenik meg nagy sárga betűvel, alatta az összetétellel */}
+                    <div style={{ textAlign: 'right', minWidth: '95px' }}>
+                      <div style={{ fontSize: '1.3rem', fontWeight: 'bold', color: isMe ? '#f97316' : '#fbbf24' }}>
+                        {entry.fair_score !== undefined ? `${entry.fair_score} FP` : `${entry.likes_count || 0} ⭐`}
+                      </div>
+                      {entry.fair_score !== undefined && (
+                        <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 'normal', marginTop: '2px' }}>
+                          {entry.likes_count || 0} ⭐
+                        </div>
+                      )}
                     </div>
+
                   </div>
                 );
               }).slice(0, 15)}
@@ -645,7 +652,7 @@ export default function ArenaActiveRoom({
         </div>
       )}
 
-      {/* ── 🎯 ⚡ ÚJ: RESZPONZÍV MOTOR CSS INJEKTÁLÁSA ── */}
+      {/* ── 🎯 ⚡ RESZPONZÍV MOTOR CSS INJEKTÁLÁSA ── */}
       <style>{`
         .batch-vote-responsive-card {
           display: grid;
@@ -682,7 +689,6 @@ export default function ArenaActiveRoom({
           width: 100%;
         }
         
-        /* Mobil specifikus töréspont */
         @media (max-width: 580px) {
           .batch-vote-responsive-card {
             grid-template-columns: 1fr !important;
