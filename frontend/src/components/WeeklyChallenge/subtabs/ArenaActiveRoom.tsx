@@ -62,7 +62,7 @@ function ActiveRoomCountdown({ endDate, lang }: { endDate: string; lang: string 
   );
 }
 
-// ── 🎯 ⚡ ÚJ: SZABVÁNYOS HIERARCHIÁJÚ EXIF RE-INJECTOR MOTOR ──
+// ── 🎯 ⚡ BINÁRIS EXIF RE-INJECTOR MOTOR ──
 const insertExifToBlob = async (originalFile: File, compressedBlob: Blob): Promise<Blob> => {
   try {
     const origBuffer = await originalFile.arrayBuffer();
@@ -73,7 +73,6 @@ const insertExifToBlob = async (originalFile: File, compressedBlob: Blob): Promi
     if (origView.byteLength < 2 || compView.byteLength < 2) return compressedBlob;
     if (origView.getUint16(0) !== 0xFFD8 || compView.getUint16(0) !== 0xFFD8) return compressedBlob;
 
-    // 1. Megkeressük az eredeti képben az EXIF (APP1) szegmens helyét
     let origIdx = 2;
     let exifMarkerIdx = -1;
     let exifLength = 0;
@@ -93,7 +92,6 @@ const insertExifToBlob = async (originalFile: File, compressedBlob: Blob): Promi
     if (exifMarkerIdx === -1) return compressedBlob;
     const exifSlice = origBuffer.slice(exifMarkerIdx, exifMarkerIdx + exifLength);
 
-    // 2. Kiszámoljuk a Canvas kép APP0 (JFIF) blokkjának végét, hogy MEGTARTSUK azt a szabvány kedvéért
     let compIdx = 2;
     if (compIdx < compView.byteLength - 4 && compView.getUint16(compIdx) === 0xFFE0) {
       compIdx += compView.getUint16(compIdx + 2) + 2;
@@ -102,7 +100,6 @@ const insertExifToBlob = async (originalFile: File, compressedBlob: Blob): Promi
     const app0Slice = compBuffer.slice(2, compIdx);
     const remainderSlice = compBuffer.slice(compIdx);
 
-    // 3. Összefűzzük a legtökéletesebb struktúrát: SOI ➔ APP0 (JFIF) ➔ APP1 (EXIF) ➔ Pixelek
     return new Blob([
       new Uint8Array([0xFF, 0xD8]), 
       app0Slice, 
@@ -190,7 +187,6 @@ export default function ArenaActiveRoom({
   const safePastEntries = Array.isArray(myPastEntries) ? myPastEntries : [];
   const safeUserPower = userPower || { super: 1, brilliant: 2 };
 
-  // ── 🎯 JAVÍTVA: Mindkét célobjektumra (target & currentTarget) rákényszerítjük a fájlt, kiküszöbölve a React aszinkron szivárgásait
   const handleFileChangeWithCompression = async (
     e: React.ChangeEvent<HTMLInputElement>, 
     originalHandler: (e: React.ChangeEvent<HTMLInputElement>) => void
@@ -198,7 +194,6 @@ export default function ArenaActiveRoom({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Optimalizált 1 MB-os limit a konzisztens teszteléshez
     if (file.size > 1 * 1024 * 1024) {
       setIsCompressing(true);
       try {
@@ -304,7 +299,8 @@ export default function ArenaActiveRoom({
   };
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '30px', animation: 'fadeIn 0.4s ease-out' }}>
+    // JAVÍTVA: minmax skálázás visszavéve 280px-re, hogy kisebb mobilokon se lógjon ki a fő keret
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '30px', animation: 'fadeIn 0.4s ease-out' }}>
       
       {/* BAL OLDAL */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
@@ -329,8 +325,8 @@ export default function ArenaActiveRoom({
         )}
 
         {/* BATCH EVALUATION PULT */}
-        <div style={{ background: '#1e293b', padding: '35px', borderRadius: '24px', border: '2px solid #38bdf8', boxShadow: '0 15px 35px rgba(0,0,0,0.4)' }}>
-          <div style={{ background: 'rgba(56, 189, 248, 0.08)', borderLeft: '4px solid #38bdf8', padding: '15px 20px', borderRadius: '0 12px 12px 0', marginBottom: '25px', fontSize: '0.85rem', color: '#cbd5e1', lineHeight: '1.5' }}>
+        <div style={{ background: '#1e293b', padding: '25px 20px', borderRadius: '24px', border: '2px solid #38bdf8', boxShadow: '0 15px 35px rgba(0,0,0,0.4)', boxSizing: 'border-box' }}>
+          <div style={{ background: 'rgba(56, 189, 248, 0.08)', borderLeft: '4px solid #38bdf8', padding: '15px', borderRadius: '0 12px 12px 0', marginBottom: '25px', fontSize: '0.85rem', color: '#cbd5e1', lineHeight: '1.5' }}>
             <strong style={{ color: '#38bdf8', display: 'block', marginBottom: '4px', fontSize: '0.95rem' }}>
               {t('roomExifShieldTitle')}
             </strong>
@@ -362,17 +358,18 @@ export default function ArenaActiveRoom({
                         #{index + 1}
                       </div>
 
-                      <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr', gap: '20px', alignItems: 'start' }}>
+                      {/* JAVÍTVA: Inline stílusok helyett reszponzív CSS osztályokat adtam át a teljes mobilos fluiditásért! */}
+                      <div className="batch-vote-responsive-card">
                         <div 
                           onClick={() => setSelectedExifPhoto(entry)}
-                          style={{ width: '160px', height: '160px', backgroundColor: '#000', borderRadius: '12px', overflow: 'hidden', cursor: 'zoom-in', border: '1px solid #334155', position: 'relative', boxShadow: '0 4px 10px rgba(0,0,0,0.4)' }}
+                          className="batch-vote-responsive-imgbox"
                         >
                           <img src={entry.file_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={handleImageError} />
                           <div style={{ position: 'absolute', bottom: '5px', right: '5px', background: 'rgba(0,0,0,0.6)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.65rem', color: 'white' }}>{t('roomZoomLabel')}</div>
                         </div>
 
-                        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%', minHeight: '160px' }}>
-                          <div style={{ fontSize: '0.8rem', color: '#cbd5e1', lineHeight: '1.4' }}>
+                        <div className="batch-vote-responsive-content">
+                          <div style={{ fontSize: '0.8rem', color: '#cbd5e1', lineHeight: '1.4', width: '100%' }}>
                             {entry.exif?.isLegacy ? (
                               <div style={{ background: '#f59e0b15', color: '#fbbf24', padding: '4px 10px', borderRadius: '6px', border: '1px solid #fbbf2430', fontWeight: 'bold', fontStyle: 'normal', marginBottom: '8px', display: 'inline-block' }}>
                                 {t('roomLegacyPhoto')}
@@ -383,15 +380,15 @@ export default function ArenaActiveRoom({
                               </div>
                             ) : null}
 
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 15px', color: '#94a3b8' }}>
-                              <div> {t('mapExifCamera')} <b style={{ color: entry.exif?.isLegacy ? '#475569' : '#f8fafc' }}>{entry.exif?.camera}</b></div>
-                              <div> {t('mapExifLens')} <b style={{ color: entry.exif?.isLegacy ? '#475569' : '#f8fafc' }}>{entry.exif?.lens}</b></div>
-                              <div> {t('roomShutterIso')} <b style={{ color: entry.exif?.isLegacy ? '#475569' : '#38bdf8' }}>{entry.exif?.shutter} / {entry.exif?.iso}</b></div>
-                              <div> {t('roomSoftware')} <b style={{ color: entry.exif?.isLegacy ? '#475569' : '#a78bfa' }}>{entry.exif?.software}</b></div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 15px', color: '#94a3b8', width: '100%' }}>
+                              <div> {t('mapExifCamera')} <b style={{ color: entry.exif?.isLegacy ? '#475569' : '#f8fafc', display: 'block', overflowWrap: 'break-word' }}>{entry.exif?.camera}</b></div>
+                              <div> {t('mapExifLens')} <b style={{ color: entry.exif?.isLegacy ? '#475569' : '#f8fafc', display: 'block', overflowWrap: 'break-word' }}>{entry.exif?.lens}</b></div>
+                              <div> {t('roomShutterIso')} <b style={{ color: entry.exif?.isLegacy ? '#475569' : '#38bdf8', display: 'block' }}>{entry.exif?.shutter} / {entry.exif?.iso}</b></div>
+                              <div> {t('roomSoftware')} <b style={{ color: entry.exif?.isLegacy ? '#475569' : '#a78bfa', display: 'block', overflowWrap: 'break-word' }}>{entry.exif?.software}</b></div>
                             </div>
                           </div>
 
-                          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '15px', alignItems: 'center' }}>
+                          <div className="batch-vote-responsive-buttons">
                             {[
                               { type: 'pass', label: t('roomVotePass').split(' ')[0], score: '0 pont', bg: '#334155' },
                               { type: 'super', label: t('roomVoteSuper'), score: `+${safeUserPower.super} pont`, bg: '#1e3a8a' },
@@ -403,7 +400,7 @@ export default function ArenaActiveRoom({
                                 <button
                                   key={btn.type}
                                   onClick={() => setPendingVotes(prev => ({ ...prev, [entry.id]: btn.type as any }))}
-                                  style={{ padding: '6px 12px', borderRadius: '10px', border: isCurrentActive ? `2px solid white` : '1px solid #334155', background: isCurrentActive ? btn.bg : 'transparent', color: isCurrentActive ? 'white' : '#94a3b8', fontWeight: 'bold', fontSize: '0.84rem', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', minWidth: '85px', transition: 'all 0.1s' }}
+                                  style={{ padding: '6px 10px', borderRadius: '10px', border: isCurrentActive ? `2px solid white` : '1px solid #334155', background: isCurrentActive ? btn.bg : 'transparent', color: isCurrentActive ? 'white' : '#94a3b8', fontWeight: 'bold', fontSize: '0.82rem', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', minWidth: '80px', flex: '1 1 calc(33.33% - 8px)', transition: 'all 0.1s' }}
                                 >
                                   <span>{btn.label}</span>
                                   <span style={{ fontSize: '0.65rem', opacity: 0.6 }}>{btn.score}</span>
@@ -413,7 +410,7 @@ export default function ArenaActiveRoom({
 
                             <button
                               onClick={() => handleOffTopicReport(entry.id)}
-                              style={{ padding: '6px 12px', borderRadius: '10px', border: '1px solid rgba(239, 68, 68, 0.3)', background: 'transparent', color: '#ef4444', fontWeight: 'bold', fontSize: '0.84rem', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', minWidth: '85px' }}
+                              style={{ padding: '6px 10px', borderRadius: '10px', border: '1px solid rgba(239, 68, 68, 0.3)', background: 'transparent', color: '#ef4444', fontWeight: 'bold', fontSize: '0.82rem', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', minWidth: '80px', flex: '1 1 calc(100% - 8px)' }}
                             >
                               <span>{t('roomReportBtn').split(' ')[0]}</span>
                               <span style={{ fontSize: '0.65rem', opacity: 0.6 }}>AI / Off-Topic</span>
@@ -517,7 +514,7 @@ export default function ArenaActiveRoom({
                 <input type="file" accept="image/jpeg, image/png, image/webp" onChange={(e) => handleFileChangeWithCompression(e, handleFileSelect)} style={{ color: '#cbd5e1', marginBottom: '15px', width: '100%' }} disabled={isUploading || isCompressing} />
                 
                 {isCompressing && <div style={{ color: '#fbbf24', fontSize: '0.85rem', marginBottom: '15px', fontWeight: 'bold' }}>⏳ {lang === 'en' ? 'Compressing and migrating EXIF data...' : 'Kép tömörítése és EXIF adatok átmentése...'}</div>}
-                {uploadPreview && <div style={{marginBottom: '20px', display: 'flex', justifyContent: 'center設施'}}><img src={uploadPreview} alt="Preview" style={{maxHeight: '200px', borderRadius: '12px'}} /></div>}
+                {uploadPreview && <div style={{marginBottom: '20px', display: 'flex', justifyContent: 'center'}}><img src={uploadPreview} alt="Preview" style={{maxHeight: '200px', borderRadius: '12px'}} /></div>}
                 <button onClick={handleUpload} disabled={!uploadPreview || isUploading || isCompressing} style={{ width: '100%', background: 'linear-gradient(135deg, #0ea5e9, #2563eb)', color: 'white', border: 'none', padding: '14px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
                   {isUploading ? t('roomUploadingInProgress') : t('roomUploadSubmitBtn')}
                 </button>
@@ -644,6 +641,66 @@ export default function ArenaActiveRoom({
           </div>
         </div>
       )}
+
+      {/* ── 🎯 ⚡ ÚJ: RESZPONZÍV MOTOR CSS INJEKTÁLÁSA ── */}
+      <style>{`
+        .batch-vote-responsive-card {
+          display: grid;
+          grid-template-columns: 160px 1fr;
+          gap: 20px;
+          align-items: start;
+          width: 100%;
+        }
+        .batch-vote-responsive-imgbox {
+          width: 160px;
+          height: 160px;
+          background-color: #000;
+          border-radius: 12px;
+          overflow: hidden;
+          cursor: zoom-in;
+          border: 1px solid #334155;
+          position: relative;
+          box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+        }
+        .batch-vote-responsive-content {
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          height: 100%;
+          min-height: 160px;
+          width: 100%;
+        }
+        .batch-vote-responsive-buttons {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+          margin-top: 15px;
+          align-items: center;
+          width: 100%;
+        }
+        
+        /* Mobil specifikus töréspont */
+        @media (max-width: 580px) {
+          .batch-vote-responsive-card {
+            grid-template-columns: 1fr !important;
+            gap: 16px !important;
+          }
+          .batch-vote-responsive-imgbox {
+            width: 100% !important;
+            max-width: 280px !important;
+            height: 200px !important;
+            margin: 0 auto !important;
+          }
+          .batch-vote-responsive-content {
+            align-items: center !important;
+            text-align: center !important;
+          }
+          .batch-vote-responsive-buttons {
+            justify-content: center !important;
+            margin-top: 20px !important;
+          }
+        }
+      `}</style>
 
     </div>
   );
