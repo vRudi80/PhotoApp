@@ -12,6 +12,11 @@ interface ArchiveDetailModalProps {
   onLikeUpdate: () => void;
 }
 
+// ── 🛡️ JAVÍTVA: Globális kép-helyreállító motor a törések ellen ──
+const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+  e.currentTarget.src = 'https://via.placeholder.com/400x300/1e293b/64748b?text=Image+not+found';
+};
+
 export default function ArchiveDetailModal({ entry, userEmail, userName, onClose, onLikeUpdate }: ArchiveDetailModalProps) {
   const { t } = useLanguage();
 
@@ -44,7 +49,7 @@ export default function ArchiveDetailModal({ entry, userEmail, userName, onClose
 
   const handleLike = async () => {
     if (!userEmail) {
-      alert("❌ Hiba: A rendszer nem azonosította a profilodat! Jelentkezz be újra.");
+      alert("❌ Hiba: A system nem azonosította a profilodat! Jelentkezz be újra.");
       return;
     }
 
@@ -103,7 +108,7 @@ export default function ArchiveDetailModal({ entry, userEmail, userName, onClose
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(9, 13, 22, 0.95)', backdropFilter: 'blur(20px)', zIndex: 99999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px', boxSizing: 'border-box' }}>
       
-      {/* 🎯 JAVÍTVA: TÖKÉLETES RESZPONZÍV STYLING INJECTOR MOBILOKHOZ ÉS ASZTALRA */}
+      {/* 🎯 ULTRA RESZPONZÍV STYLING INJECTOR MOBILOKHOZ ÉS ASZTALRA */}
       <style>{`
         .responsive-archive-card {
           background: #1e293b;
@@ -113,7 +118,7 @@ export default function ArchiveDetailModal({ entry, userEmail, userName, onClose
           max-width: 1250px;
           height: 85vh;
           display: grid;
-          grid-template-columns: 1fr 400px; /* 💥 FIXEN 400px a jobb oldal, nincs több szövegtörés! */
+          grid-template-columns: 1fr 400px;
           overflow: hidden;
           box-shadow: 0 25px 50px -12px rgba(0,0,0,0.8);
         }
