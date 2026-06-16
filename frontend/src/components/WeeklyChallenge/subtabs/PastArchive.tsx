@@ -348,10 +348,17 @@ export default function PastArchive({
                 </div>
               </div>
               
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ color: '#f97316', fontWeight: '900', fontSize: '1.2rem' }}>{entry?.likes_count || 0} ⭐</div>
-                <small style={{ color: '#475569', fontSize: '0.70rem' }}>{entry?.views_count || 0} 👁️</small>
-              </div>
+              {/* JAVÍTVA: Ha van új fair_score, azt írjuk ki fő pontként, a csillagok pedig alá mennek részletként */}
+<div style={{ textAlign: 'right', minWidth: '80px' }}>
+  <div style={{ color: '#fbbf24', fontWeight: '900', fontSize: '1.2rem' }}>
+    {entry?.fair_score !== undefined ? `${entry.fair_score} FP` : `${entry?.likes_count || 0} ⭐`}
+  </div>
+  {entry?.fair_score !== undefined && (
+    <small style={{ color: '#64748b', fontSize: '0.72rem', display: 'block', marginTop: '2px' }}>
+      {entry?.likes_count || 0} ⭐ | {entry?.views_count || 0} 👁️
+    </small>
+  )}
+</div>
             </div>
           ))}
         </div>
