@@ -544,7 +544,11 @@ export default function ArenaActiveRoom({
                     <div style={{ color: 'white', fontWeight: 'bold', fontSize: '1.1rem' }}>{club?.club_name || 'Unknown Club'}</div>
                     <div style={{ color: '#64748b', fontSize: '0.8rem' }}>{club?.members_counted || 0} {t('roomActiveMembers')}</div>
                   </div>
-                  <div style={{ color: '#10b981', fontWeight: '900', fontSize: '1.4rem' }}>{club?.total_score || 0} ⭐</div>
+                 {/* JAVÍTVA: Ha a kihívás lejárata a mai nap utáni, akkor FP-t írunk ki, különben a régi csillagot */}
+<div style={{ color: '#10b981', fontWeight: '900', fontSize: '1.4rem', whiteSpace: 'nowrap' }}>
+  {club?.total_score || 0} {topic?.end_date && new Date(topic.end_date.replace(' ', 'T')).getTime() < new Date('2026-06-16T00:00:00').getTime() ? '⭐' : 'FP'}
+</div>
+
                 </div>
               ))}
             </div>
