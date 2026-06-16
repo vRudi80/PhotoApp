@@ -458,8 +458,8 @@ export default function ArenaActiveRoom({
                 <img src={getImageUrl(myEntry?.drive_file_id, myEntry?.file_url)} alt="My submission" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} onError={handleImageError} />
               </div>
               <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'space-between', background: '#0f172a', padding: '20px', borderRadius: '12px', borderLeft: `4px solid ${exposureColor || '#ef4444'}` }}>
-                <div style={{ textAlign: 'center' }}><div style={{ color: '#94a3b8', fontSize: '0.85rem', textTransform: 'uppercase', marginBottom: '5px' }}>{t('roomResult')}</div><div style={{ color: '#f59e0b', fontSize: '1.5rem', fontWeight: '900' }}>{myEntry?.likes_count || 0} ⭐</div></div>
-                <div style={{ textAlign: 'center' }}><div style={{ color: '#94a3b8', fontSize: '0.85rem', textTransform: 'uppercase', marginBottom: '5px' }}>{t('roomViews')}</div><div style={{ color: '#38bdf8', fontSize: '1.5rem', fontWeight: '900' }}>{myEntry?.views_count || 0} 👁️</div></div>
+                <div style={{ textAlign: 'center' }}><div style={{ color: '#f59e0b', fontSize: '1.5rem', fontWeight: '900' }}>{myEntry?.likes_count || 0} ⭐</div></div>
+                <div style={{ textAlign: 'center' }}><div style={{ color: '#38bdf8', fontSize: '1.5rem', fontWeight: '900' }}>{myEntry?.views_count || 0} 👁️</div></div>
               </div>
 
               {swapBalance > 0 ? (
@@ -568,18 +568,27 @@ export default function ArenaActiveRoom({
                 return (Number(a?.views_count || 0)) - (Number(b?.views_count || 0));
               }).map((entry, index) => {
                 const isMe = entry?.user_email === user?.email;
+                
+                // 🛡️ JAVÍTVA: Képmester privilégium. Ha te vagy a tulajdonos VAGY te vagy a Képmester, feloldódik a titkosítás!
+                const showUnblinded = isMe || isMaster; 
                 const rankColor = index === 0 ? '#fbbf24' : index === 1 ? '#e2e8f0' : index === 2 ? '#cd7f32' : '#64748b';
                 
                 return (
                   <div key={entry?.id || index} style={{ display: 'flex', alignItems: 'center', background: isMe ? 'linear-gradient(90deg, #f59e0b20, #0f172a)' : '#0f172a', border: isMe ? '1px solid #f59e0b50' : '1px solid #334155', padding: '12px', borderRadius: '12px' }}>
                     <div style={{ fontSize: '1.5rem', fontWeight: '900', width: '35px', color: rankColor, textAlign: 'center' }}>{index + 1}.</div>
-                    <div onClick={() => isMe ? setFullscreenData({url: getImageUrl(entry?.drive_file_id, entry?.file_url), title: entry?.user_name || ''}) : null} style={{ width: '55px', height: '55px', backgroundColor: '#000', borderRadius: '10px', overflow: 'hidden', margin: '0 15px', cursor: isMe ? 'zoom-in' : 'default', position: 'relative' }}>
-                      <img src={getImageUrl(entry?.drive_file_id, entry?.file_url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: isMe ? 'none' : 'blur(6px) contrast(120%)' }} onError={handleImageError} />
-                      {!isMe && <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>🔒</div>}
+                    
+                    {/* A kattintási nagyítás is engedélyezett a Képmesternek a showUnblinded alapján */}
+                    <div onClick={() => showUnblinded ? setFullscreenData({url: getImageUrl(entry?.drive_file_id, entry?.file_url), title: entry?.user_name || ''}) : null} style={{ width: '55px', height: '55px', backgroundColor: '#000', borderRadius: '10px', overflow: 'hidden', margin: '0 15px', cursor: showUnblinded ? 'zoom-in' : 'default', position: 'relative' }}>
+                      {/* A blur effektust kikapcsoljuk, ha showUnblinded igaz */}
+                      <img src={getImageUrl(entry?.drive_file_id, entry?.file_url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: showUnblinded ? 'none' : 'blur(6px) contrast(120%)' }} onError={handleImageError} />
+                      {/* A lakat ikont elrejtjük a Képmester elől */}
+                      {!showUnblinded && <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>🔒</div>}
                     </div>
+                    
                     <div style={{ flex: 1 }}>
                       <div style={{ color: isMe ? '#f8fafc' : '#94a3b8', fontWeight: 'bold', fontSize: '1.05rem' }}>
-                        {isMe ? (entry?.user_name || t('roomMe')) : t('roomEncryptedOpponent')}
+                        {/* A valós nevet írjuk ki, ha a Képmester nézi az oldalt */}
+                        {showUnblinded ? (entry?.user_name || '') : t('roomEncryptedOpponent')}
                       </div>
                       <div style={{ fontSize: '0.8rem', color: '#64748b' }}>{t('roomViews')}: {entry?.views_count || 0}</div>
                     </div>
