@@ -28,20 +28,23 @@ export default function PastArchive({
   const { t, lang } = useLanguage();
   const [activeArchiveEntry, setActiveArchiveEntry] = useState<any | null>(null);
 
-  // 👑 Képgeneráló állapotok az admin pódium-plakáthoz
   const [adminPosterData, setAdminPosterData] = useState<{ topic: any; entries: any[] } | null>(null);
   const [isAdminGeneratingPoster, setIsAdminGeneratingPoster] = useState(false);
 
-  // 🛡️ ATOMBIZTOS DÁTUMSZŰRŐ: Eldönti, hogy a kiválasztott kör a mai határnap előtti-e
+  // 🛡️ JAVÍTVA: Típusbiztos és időzóna-független dátum-sorompó
   const isOldRound = useMemo(() => {
     if (!selectedPastTopicId || !pastTopics) return true;
-    const matchedTopic = pastTopics.find(x => x.id === selectedPastTopicId);
+    
+    // Stringgé alakítva hasonlítjuk össze az ID-kat, így kiküszöböljük a szám vs szöveg hibákat
+    const matchedTopic = pastTopics.find(x => String(x.id) === String(selectedPastTopicId));
     if (!matchedTopic || !matchedTopic.end_date) return true;
-    const standardized = String(matchedTopic.end_date).replace(' ', 'T').split('.')[0];
-    return new Date(standardized).getTime() < new Date('2026-06-16T00:00:00').getTime();
+    
+    // Tiszta, karakteres dátum-összehasonlítás az időzóna-csúszások ellen
+    const dateStr = String(matchedTopic.end_date).replace('T', ' ');
+    return dateStr < '2026-06-16 00:00:00';
   }, [selectedPastTopicId, pastTopics]);
 
-  // 💥 MATEMATIKAI MOTOR: A Top 3 győztes kiszámítása az idővonal-súlyozott pontok szerint
+  // 💥 MATEMATIKAI MOTOR: Top 3 győztes kiszámítása az idővonal-súlyozott pontok szerint
   const topThreeWinners = useMemo(() => {
     if (!pastLeaderboard || pastLeaderboard.length === 0) return [];
     return [...pastLeaderboard].sort((a, b) => {
@@ -56,7 +59,6 @@ export default function PastArchive({
     ? (pastLeaderboard.find(x => x.id === activeArchiveEntry.id) || activeArchiveEntry)
     : null;
 
-  // 👑 ADMIN FUNKCIÓ: Top 3 helyezett kivonása és Base64 konverziója az új Fair Score szerint
   const handleGenerateAdminPoster = async (matchedTopic: any) => {
     if (!matchedTopic || pastLeaderboard.length === 0) return;
     setIsAdminGeneratingPoster(true);
@@ -97,7 +99,6 @@ export default function PastArchive({
     }
   };
 
-  // 👑 ADMIN EFFECT: FB plakátkép letöltésindítás
   useEffect(() => {
     if (!adminPosterData) return;
     
@@ -129,7 +130,7 @@ export default function PastArchive({
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '30px', animation: 'fadeIn 0.4s ease-out' }}>
       
-      {/* 📜 BAL OLDALSÁV: MENETREND */}
+      {/* 📜 BAL OLDALSÁV: BEFEJEZETT CSATÁK */}
       <div style={{ background: '#1e293b', borderRadius: '24px', padding: '25px', border: '1px solid #334155', boxShadow: '0 10px 30px rgba(0,0,0,0.2)', height: 'fit-content' }}>
         <h3 style={{ margin: '0 0 20px 0', color: '#60a5fa', fontSize: '1.4rem', fontWeight: 'bold' }}>{t('archiveTitle')}</h3>
         <p style={{ color: '#94a3b8', margin: 0, fontSize: '0.85rem', lineHeight: '1.4' }}>{t('archiveNotice')}</p>
@@ -145,10 +146,10 @@ export default function PastArchive({
                   onClick={() => loadPastHistoryList(tRow.id)} 
                   style={{ 
                     padding: '15px 20px', 
-                    background: selectedPastTopicId === tRow.id ? 'linear-gradient(90deg, #3b82f640, #0f172a)' : '#0f172a', 
-                    border: selectedPastTopicId === tRow.id ? '1px solid #3b82f6' : '1px solid #334155', 
+                    background: String(selectedPastTopicId) === String(tRow.id) ? 'linear-gradient(90deg, #3b82f640, #0f172a)' : '#0f172a', 
+                    border: String(selectedPastTopicId) === String(tRow.id) ? '1px solid #3b82f6' : '1px solid #334155', 
                     borderRadius: '12px', cursor: 'pointer', color: 'white', 
-                    fontWeight: selectedPastTopicId === tRow.id ? 'bold' : 'normal', transition: 'all 0.2s' 
+                    fontWeight: String(selectedPastTopicId) === String(tRow.id) ? 'bold' : 'normal', transition: 'all 0.2s' 
                   }}
                 >
                   {isDaily ? '🔴 ' : '🔵 '} {lang === 'en' && tRow.title_en ? tRow.title_en : tRow.title}
@@ -164,7 +165,7 @@ export default function PastArchive({
         
         {/* CSATA BORÍTÓKÉP BANNER */}
         {selectedPastTopicId && (() => {
-          const matchedTopic = pastTopics.find(x => x.id === selectedPastTopicId);
+          const matchedTopic = pastTopics.find(x => String(x.id) === String(selectedPastTopicId));
           if (matchedTopic) {
             return (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
@@ -182,7 +183,7 @@ export default function PastArchive({
                   </div>
                 )}
 
-                {/* ── 🏆 MODERN 3D DOBOGÓ SZERKEZET ── */}
+                {/* ── 🏆 MODERN WEB DOBOGÓ SZERKEZET ── */}
                 {topThreeWinners.length > 0 && (
                   <div style={{ background: 'linear-gradient(180deg, #1e293b, #0f172a)', borderRadius: '24px', padding: '25px 15px', border: '1px solid #334155', boxShadow: '0 15px 35px rgba(0,0,0,0.4)', marginTop: '5px' }}>
                     <h4 style={{ color: '#fbbf24', fontSize: '1.1rem', fontWeight: 'bold', textAlign: 'center', margin: '0 0 25px 0', textTransform: 'uppercase', letterSpacing: '1px' }}>
@@ -191,7 +192,7 @@ export default function PastArchive({
                     
                     <div className="past-archive-podium-container" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: '12px', width: '100%', minHeight: '230px' }}>
                       
-                      {/* 🥈 2. HELYEZETT (BAL OLDAL) */}
+                      {/* 🥈 2. HELYEZETT */}
                       {topThreeWinners[1] && (
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, minWidth: 0 }}>
                           <div style={{ position: 'relative', cursor: 'pointer', marginBottom: '8px' }} onClick={() => setActiveArchiveEntry(topThreeWinners[1])}>
@@ -207,7 +208,7 @@ export default function PastArchive({
                         </div>
                       )}
 
-                      {/* 🥇 1. HELYEZETT (KÖZÉP) */}
+                      {/* 🥇 1. HELYEZETT */}
                       {topThreeWinners[0] && (
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1.1, minWidth: 0, zIndex: 2 }}>
                           <div style={{ fontSize: '1.4rem', marginBottom: '-6px', filter: 'drop-shadow(0 2px 6px rgba(251,191,36,0.4))' }}>👑</div>
@@ -224,7 +225,7 @@ export default function PastArchive({
                         </div>
                       )}
 
-                      {/* 🥉 3. HELYEZETT (JOBB OLDAL) */}
+                      {/* 🥉 3. HELYEZETT */}
                       {topThreeWinners[2] && (
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, minWidth: 0 }}>
                           <div style={{ position: 'relative', cursor: 'pointer', marginBottom: '8px' }} onClick={() => setActiveArchiveEntry(topThreeWinners[2])}>
@@ -267,7 +268,7 @@ export default function PastArchive({
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
             <h3 style={{ margin: 0, color: '#10b981', fontSize: '1.4rem', fontWeight: 'bold' }}>{t('archiveClubLeague')}</h3>
             {selectedPastTopicId && (() => {
-              const matchedTopic = pastTopics.find(x => x.id === selectedPastTopicId);
+              const matchedTopic = pastTopics.find(x => String(x.id) === String(selectedPastTopicId));
               if (!matchedTopic) return null;
               const isDaily = getTopicType(matchedTopic.start_date, matchedTopic.end_date) === 'daily';
               return (
@@ -299,7 +300,7 @@ export default function PastArchive({
                     <div style={{ color: 'white', fontWeight: 'bold', fontSize: '1.1rem' }}>{club?.club_name || t('archiveUnknownClub')}</div>
                     <div style={{ color: '#64748b', fontSize: '0.8rem' }}>{club?.members_counted || 0}{t('archiveBasedOnPoints')}</div>
                   </div>
-                  {/* 💥 JAVÍTVA: A klubcsata főszáma is igazodik a Fair Ponthoz az idővonal alapján */}
+                  {/* 💥 JAVÍTVA: A klubcsata pontja is dinamikusan vált az FP / Csillag egyenlet alapján */}
                   <div style={{ color: '#10b981', fontWeight: '900', fontSize: '1.4rem', whiteSpace: 'nowrap' }}>
                     {club?.total_score || 0} {isOldRound ? '⭐' : 'FP'}
                   </div>
@@ -316,7 +317,7 @@ export default function PastArchive({
                       clubMembers.map((m, idx) => (
                         <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#cbd5e1' }}>
                           <span>👤 {m.user_name}</span>
-                          {/* 💥 JAVÍTVA: A legördülő klubtagok egyéni pontjai is dinamikusan FP-re váltanak */}
+                          {/* 💥 JAVÍTVA: A legördülő egyéni klubtagok pontja is szinkronizálva */}
                           <span style={{ fontWeight: 'bold', color: '#fbbf24' }}>
                             {isOldRound ? `${m.likes_count || 0} ⭐` : `${m.fair_score !== undefined ? m.fair_score : m.likes_count || 0} FP`}
                           </span>
@@ -364,7 +365,7 @@ export default function PastArchive({
                 </div>
               </div>
               
-              {/* 💥 JAVÍTVA: Az alsó egyéni toplista is dinamikusan vált FP és Csillag között */}
+              {/* 💥 JAVÍTVA: Az alsó egyéni lista pontértéke is tökéletesen szinkronizált */}
               <div style={{ textAlign: 'right', minWidth: '90px', flexShrink: 0 }}>
                 <div style={{ color: '#f97316', fontWeight: '900', fontSize: '1.2rem' }}>
                   {isOldRound ? `${entry?.likes_count || 0} ⭐` : `${entry?.fair_score !== undefined ? entry.fair_score : entry?.likes_count || 0} FP`}
@@ -399,7 +400,7 @@ export default function PastArchive({
         />
       )}
 
-      {/* 👑 REJTETT PLAKÁT-GENERÁLÓ SABLON */}
+      {/* 👑 REJTETT PLAKÁT-GENERÁLÓ SABLON (Javítva névlevágás ellen) */}
       <div style={{ position: 'absolute', top: '-9999px', left: '-9999px', overflow: 'hidden', width: 0, height: 0 }}>
         {adminPosterData && (
           <div 
@@ -423,7 +424,7 @@ export default function PastArchive({
 
             <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: '35px', width: '100%', padding: '0 20px', boxSizing: 'border-box' }}>
               
-              {/* Plakát: 2. Helyezett */}
+              {/* Plakát: 2. Helyezett box */}
               {adminPosterData.entries[1] && (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '290px' }}>
                   <div style={{ width: '240px', height: '240px', borderRadius: '16px', overflow: 'hidden', border: '6px solid #cbd5e1', boxShadow: '0 20px 45px rgba(0,0,0,0.6)', backgroundColor: '#000', marginBottom: '15px' }}>
@@ -439,7 +440,7 @@ export default function PastArchive({
                 </div>
               )}
 
-              {/* Plakát: 1. Helyezett */}
+              {/* Plakát: 1. Helyezett box */}
               {adminPosterData.entries[0] && (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '330px', zIndex: 10 }}>
                   <div style={{ fontSize: '70px', marginBottom: '-10px', filter: 'drop-shadow(0 4px 10px rgba(251,191,36,0.5))' }}>👑</div>
@@ -456,7 +457,7 @@ export default function PastArchive({
                 </div>
               )}
 
-              {/* Plakát: 3. Helyezett */}
+              {/* Plakát: 3. Helyezett box */}
               {adminPosterData.entries[2] && (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '290px' }}>
                   <div style={{ width: '220px', height: '220px', borderRadius: '16px', overflow: 'hidden', border: '6px solid #b45309', boxShadow: '0 20px 45px rgba(0,0,0,0.6)', backgroundColor: '#000', marginBottom: '15px' }}>
