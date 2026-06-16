@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { BACKEND_URL } from '../../utils/constants';
-import { getImageUrl } from '../../utils/helpers';
-import { useLanguage } from '../../context/LanguageContext';
+import { BACKEND_URL } from '../../../utils/constants';
+import { getImageUrl } from '../../../utils/helpers';
+import { useLanguage } from '../../../context/LanguageContext';
 
 interface PastArchiveProps {
   topicId?: number;
