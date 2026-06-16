@@ -286,7 +286,11 @@ export default function PastArchive({
                     <div style={{ color: 'white', fontWeight: 'bold', fontSize: '1.1rem' }}>{club?.club_name || t('archiveUnknownClub')}</div>
                     <div style={{ color: '#64748b', fontSize: '0.8rem' }}>{club?.members_counted || 0}{t('archiveBasedOnPoints')}</div>
                   </div>
-                  <div style={{ color: '#10b981', fontWeight: '900', fontSize: '1.4rem' }}>{club?.total_score || 0} ⭐</div>
+                 {/* JAVÍTVA: Az archívumban is dinamikusan váltja az egységet a dátumhatár alapján */}
+<div style={{ color: '#10b981', fontWeight: '900', fontSize: '1.3rem' }}>
+  {club?.total_score || 0} {selectedTopic?.end_date && new Date(selectedTopic.end_date.replace(' ', 'T')).getTime() < new Date('2026-06-16T00:00:00').getTime() ? '⭐' : 'FP'}
+</div>
+
                 </div>
 
                 <details style={{ marginTop: '10px', borderTop: '1px dashed #334155', paddingTop: '8px' }}>
