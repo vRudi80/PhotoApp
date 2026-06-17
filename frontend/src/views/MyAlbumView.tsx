@@ -12,31 +12,63 @@ interface MyAlbumViewProps {
 }
 
 export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProps) {
+  // 🎯 ÚJ: Nyelvi hookok aktiválása (t a fordításokhoz, lang a feltételes elágazásokhoz)
   const { t, lang } = useLanguage();
-  // ... a már meglévő useState-ek ...
-  const [editTitleHu, setEditTitleHu] = useState(''); // 🎯 ÚJ
 
-  // ... (fetchMyPhotos, handleUpload, stb változatlan) ...
+  const [photos, setPhotos] = useState<any[]>([]);
+  const [photoResults, setPhotoResults] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadTitle, setUploadTitle] = useState('');
+  const [uploadPreview, setUploadPreview] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
-  // 🎯 MÓDOSÍTOTT SZERKESZTŐ FUNKCIÓ
-  const handleUpdatePhoto = async (photoId: number) => {
-    if (!editTitle) return alert('A cím nem lehet üres!');
-    
-    setUpdatingPhotoId(photoId); 
+  const [editingPhotoId, setEditingPhotoId] = useState<number | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editFile, setEditFile] = useState<File | null>(null);
+  const [updatingPhotoId, setUpdatingPhotoId] = useState<number | null>(null);
+  const [analyzingPhotoId, setAnalyzingPhotoId] = useState<number | null>(null);
+  const [totalAccountBytes, setTotalAccountBytes] = useState(0);
+
+  const hasPremiumAccess = user && (user.isPremium || user.is_premium);
+
+  let premiumLevel = user?.premiumLevel || user?.premium_level || 0;
+  if (hasPremiumAccess && premiumLevel === 0) premiumLevel = 1; 
+  
+  const maxStorageBytes = premiumLevel >= 2 ? 5 * 1024 * 1024 * 1024 : 1 * 1024 * 1024 * 1024; 
+  
+  // 🎯 JAVÍTVA: Dinamikus, nyelvfüggő csomagnév hozzárendelés
+  const packageName = premiumLevel >= 2 
+    ? (lang === 'en' ? 'Pro Premium (5 GB)' : 'Pro Premium (5 GB)')
+    : (lang === 'en' ? 'Basic Premium (1 GB)' : 'Alap Premium (1 GB)');
+
+  const fetchMyPhotos = async () => {
+    if (!hasPremiumAccess) {
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      const formData = new FormData();
-      formData.append('title', editTitle);
-      formData.append('title_hu', editTitleHu); // 🎯 ÚJ MEZŐ KÜLDÉSE
-      formData.append('userEmail', user.email);
-      if (editFile) formData.append('photo', editFile);
-
-      const res = await fetch(`${BACKEND_URL}/api/my-album/${photoId}`, { method: 'PUT', body: formData });
+      const res = await fetch(`${BACKEND_URL}/api/my-album?userEmail=${user.email}`);
       if (res.ok) {
-        setEditingPhotoId(null);
-        setEditFile(null);
-        fetchMyPhotos();
+        setPhotos(await res.json());
+        const resResults = await fetch(`${BACKEND_URL}/api/my-portfolio-results?userEmail=${user.email}`);
+        if (resResults.ok) setPhotoResults(await resResults.json());
       }
-    } catch (e) { alert('Hálózati hiba!'); } finally { setUpdatingPhotoId(null); }
+
+      const resStats = await fetch(`${BACKEND_URL}/api/admin/user-storage-stats`);
+      if (resStats.ok) {
+        const stats = await resStats.json();
+        const myStat = stats.find((s: any) => s.user_email === user.email);
+        if (myStat) setTotalAccountBytes(Number(myStat.total_bytes));
+      }
+    } catch (e) {
+      console.error(e);
+    } finally { 
+      setIsLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -82,7 +114,29 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
     document.body.removeChild(link);
   };
 
-  
+  const handleUpdatePhoto = async (photoId: number) => {
+    if (!editTitle) return alert(t('msgAlbumTitleRequired') || 'A cím nem lehet üres!');
+    if (editFile && totalSizeInBytes + editFile.size > maxStorageBytes) {
+      alert(t('msgAlbumStorageFullUpgrade') || `⚠️ Megtelt a tárhelyed! Válts nagyobb csomagra.`);
+      return;
+    }
+
+    setUpdatingPhotoId(photoId); 
+    try {
+      const formData = new FormData();
+      formData.append('title', editTitle);
+      formData.append('userEmail', user.email);
+      if (editFile) formData.append('photo', editFile);
+
+      const res = await fetch(`${BACKEND_URL}/api/my-album/${photoId}`, { method: 'PUT', body: formData });
+      if (res.ok) {
+        setEditingPhotoId(null);
+        setEditFile(null);
+        fetchMyPhotos();
+      }
+    } catch (e) { alert(t('msgNetworkError') || 'Hálózati hiba!'); } finally { setUpdatingPhotoId(null); }
+  };
+
   const handleDelete = async (photoId: number) => {
     if (!window.confirm(t('msgAlbumDeleteConfirm') || "Biztosan törlöd?")) return;
     try {
@@ -393,19 +447,13 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
                   </details>
                 )}
                 
-               {editingPhotoId === photo.id ? (
+                {editingPhotoId === photo.id ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: 'auto' }}>
                     <input 
                       value={editTitle} 
                       onChange={e => setEditTitle(e.target.value)} 
-                      placeholder="Cím (Angol/Eredeti)"
                       style={{ width: '100%', padding: '8px', backgroundColor: '#0f172a', border: '1px solid #38bdf8', color: 'white', borderRadius: '4px' }} 
-                    />
-                    <input 
-                      value={editTitleHu} 
-                      onChange={e => setEditTitleHu(e.target.value)} 
-                      placeholder="Cím (Magyar)"
-                      style={{ width: '100%', padding: '8px', backgroundColor: '#0f172a', border: '1px solid #38bdf8', color: 'white', borderRadius: '4px' }} 
+                      placeholder={t('albumNewTitlePlaceholder') || "Új cím..."}
                     />
                     <input 
                       type="file" 
@@ -419,30 +467,10 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
                     </div>
                   </div>
                 ) : (
-                  <div style={{ marginTop: 'auto' }}>
-                    {/* Megjelenítés: Angol/Eredeti cím */}
-                    <div style={{ fontSize: '1rem', fontWeight: 'bold', color: '#f8fafc', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {photo.title || 'Untitled'}
-                    </div>
-                    {/* Megjelenítés: Magyar cím */}
-                    <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: '10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {photo.title_hu || '—'}
-                    </div>
-                    
-                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                      <button onClick={() => handleDownload(photo)} style={{ flex: '1 1 calc(33% - 8px)', background: '#10b98120', color: '#10b981', border: 'none', padding: '8px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>⬇️ {t('albumDownloadBtn') || 'Letöltés'}</button>
-                      <button 
-                        onClick={() => { 
-                          setEditingPhotoId(photo.id); 
-                          setEditTitle(photo.title || ''); 
-                          setEditTitleHu(photo.title_hu || ''); // 🎯 Fontos: betöltjük a magyar címet is szerkesztéshez
-                        }} 
-                        style={{ flex: '1 1 calc(33% - 8px)', background: '#38bdf820', color: '#38bdf8', border: 'none', padding: '8px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}
-                      >
-                        ✏️ {t('albumEditBtn') || 'Szerkeszt'}
-                      </button>
-                      <button onClick={() => handleDelete(photo.id)} style={{ flex: '1 1 calc(33% - 8px)', background: '#ef444420', color: '#ef4444', border: 'none', padding: '8px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>🗑️ {t('albumDeleteBtn') || 'Törlés'}</button>
-                    </div>
+                  <div style={{ marginTop: 'auto', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <button onClick={() => handleDownload(photo)} style={{ flex: '1 1 calc(33% - 8px)', background: '#10b98120', color: '#10b981', border: 'none', padding: '8px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>⬇️ {t('albumDownloadBtn') || 'Letöltés'}</button>
+                    <button onClick={() => { setEditingPhotoId(photo.id); setEditTitle(photo.title); }} style={{ flex: '1 1 calc(33% - 8px)', background: '#38bdf820', color: '#38bdf8', border: 'none', padding: '8px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>✏️ {t('albumEditBtn') || 'Szerkeszt'}</button>
+                    <button onClick={() => handleDelete(photo.id)} style={{ flex: '1 1 calc(33% - 8px)', background: '#ef444420', color: '#ef4444', border: 'none', padding: '8px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>🗑️ {t('albumDeleteBtn') || 'Törlés'}</button>
                   </div>
                 )}
               </div>
