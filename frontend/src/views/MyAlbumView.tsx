@@ -82,29 +82,7 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
     document.body.removeChild(link);
   };
 
-  const handleUpdatePhoto = async (photoId: number) => {
-    if (!editTitle) return alert(t('msgAlbumTitleRequired') || 'A cím nem lehet üres!');
-    if (editFile && totalSizeInBytes + editFile.size > maxStorageBytes) {
-      alert(t('msgAlbumStorageFullUpgrade') || `⚠️ Megtelt a tárhelyed! Válts nagyobb csomagra.`);
-      return;
-    }
-
-    setUpdatingPhotoId(photoId); 
-    try {
-      const formData = new FormData();
-      formData.append('title', editTitle);
-      formData.append('userEmail', user.email);
-      if (editFile) formData.append('photo', editFile);
-
-      const res = await fetch(`${BACKEND_URL}/api/my-album/${photoId}`, { method: 'PUT', body: formData });
-      if (res.ok) {
-        setEditingPhotoId(null);
-        setEditFile(null);
-        fetchMyPhotos();
-      }
-    } catch (e) { alert(t('msgNetworkError') || 'Hálózati hiba!'); } finally { setUpdatingPhotoId(null); }
-  };
-
+  
   const handleDelete = async (photoId: number) => {
     if (!window.confirm(t('msgAlbumDeleteConfirm') || "Biztosan törlöd?")) return;
     try {
