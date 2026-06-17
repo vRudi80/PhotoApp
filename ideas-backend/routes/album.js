@@ -180,8 +180,9 @@ module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, chec
   app.put('/api/my-album/:id', upload.single('photo'), checkPremium, async (req, res) => {
     const file = req.file;
     try {
-      const { title, userEmail } = req.body; 
+      const { title, title_hu, userEmail } = req.body; // 1. Kiolvassuk a title_hu-t is
       const [rows] = await pool.query('SELECT * FROM photo_portfolio WHERE id = ? AND user_email = ?', [req.params.id, userEmail]);
+      
       if (rows.length === 0) {
         cleanupTempFile(file);
         return res.status(403).json({ error: 'Nincs jogosultságod módosítani ezt a képet!' });
@@ -209,9 +210,14 @@ module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, chec
         
         cleanupTempFile(file);
         const fileSize = req.file.size;
-        await pool.query('UPDATE photo_portfolio SET title = ?, file_url = ?, drive_file_id = ?, file_size = ? WHERE id = ? AND user_email = ?', [title, driveRes.data.webViewLink, driveRes.data.id, fileSize, req.params.id, userEmail]);
+        
+        // 2. Frissítjük a lekérdezést title_hu-val
+        await pool.query('UPDATE photo_portfolio SET title = ?, title_hu = ?, file_url = ?, drive_file_id = ?, file_size = ? WHERE id = ? AND user_email = ?', 
+          [title, title_hu, driveRes.data.webViewLink, driveRes.data.id, fileSize, req.params.id, userEmail]);
       } else {
-        await pool.query('UPDATE photo_portfolio SET title = ? WHERE id = ? AND user_email = ?', [title, req.params.id, userEmail]);
+        // 3. Frissítjük a lekérdezést title_hu-val (fájlcsere nélkül)
+        await pool.query('UPDATE photo_portfolio SET title = ?, title_hu = ? WHERE id = ? AND user_email = ?', 
+          [title, title_hu, req.params.id, userEmail]);
       }
       res.json({ success: true });
     } catch (err) { 
