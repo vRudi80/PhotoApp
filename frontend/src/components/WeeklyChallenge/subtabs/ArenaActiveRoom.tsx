@@ -12,7 +12,7 @@ function ActiveRoomCountdown({ endDate, lang }: { endDate: string; lang: string 
 
   useEffect(() => {
     if (!endDate) return;
-    const standardized = String(endDate).replace(' ', 'T').split('.')[0];
+    const standardized = String(endDate).replace(' ', 'T').split('.',0)[0];
     const targetMillis = new Date(standardized).getTime();
 
     const updateTextDirectly = () => {
@@ -158,7 +158,7 @@ interface ArenaActiveRoomProps {
   myEntry: any; voteEntry: any; noMoreEntries: boolean; masterVotesLeft: number; userPower: any; swapBalance: number;
   myPastEntries: any[]; leaderboard: any[]; currentClubLeaderboard: any[]; user: any; isUploading: boolean; uploadPreview: string | null;
   handleFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void; handleUpload: () => void; isLoadingSwapAlbum: boolean; isSwapping: boolean;
-  swapPreview: string | null; handleSwapFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void; handleSwapSubmit: () => void;
+  swapPreview: string | null; deleteEntry?: any; handleSwapFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void; handleSwapSubmit: () => void;
   onOpenAlbumForUpload: () => void; onOpenAlbumForSwap: () => void; handleVote: (type: 'pass' | 'super' | 'brilliant' | 'master') => void;
   handleOffTopicReport: (id: number) => void; handleSwapBackSubmit: (id: number) => void; setFullscreenData: (data: any) => void;
   handleImageError: (e: React.SyntheticEvent<HTMLImageElement, Event>) => void;
@@ -299,11 +299,13 @@ export default function ArenaActiveRoom({
   };
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '30px', animation: 'fadeIn 0.4s ease-out' }}>
+    /* 🛡️ JAVÍTVA: Osztálynév hozzáadva a reszponzív folyékony elrendezéshez */
+    <div className="arena-main-layout-grid">
       
       {/* BAL OLDAL */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
-        <div style={{ background: 'linear-gradient(135deg, #1e293b, #0f172a)', padding: '30px', borderRadius: '24px', border: '1px solid #334155', display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: '0 10px 30px rgba(0,0,0,0.5)', position: 'relative', overflow: 'hidden' }}>
+        {/* 🛡️ JAVÍTVA: Kártyaosztályok kiosztva a mobil padding-korrekciókhoz */}
+        <div className="arena-responsive-card" style={{ background: 'linear-gradient(135deg, #1e293b, #0f172a)', padding: '30px', borderRadius: '24px', border: '1px solid #334155', display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: '0 10px 30px rgba(0,0,0,0.5)', position: 'relative', overflow: 'hidden' }}>
           <div style={{ position: 'absolute', top: '-20px', right: '-20px', fontSize: '8rem', opacity: 0.05 }}>🔥</div>
           <h3 style={{ margin: '0 0 10px 0', color: '#f8fafc', fontSize: '1.8rem', textAlign: 'center', zIndex: 1 }}>
             <span>{displayRoomTitle}</span>
@@ -313,7 +315,7 @@ export default function ArenaActiveRoom({
         </div>
         
         {!isMaster && (
-          <div style={{ width: '100%', boxSizing: 'border-box', background: '#0f172a', padding: '25px 15px', borderRadius: '24px', border: `1px solid ${exposureColor || '#ef4444'}40`, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <div className="arena-responsive-card" style={{ width: '100%', boxSizing: 'border-box', background: '#0f172a', padding: '25px 15px', borderRadius: '24px', border: `1px solid ${exposureColor || '#ef4444'}40`, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             <svg viewBox="0 0 200 120" style={{ width: '100%', maxWidth: '240px', height: 'auto', display: 'block' }}>
               <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#1e293b" strokeWidth="16" strokeLinecap="round" />
               <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke={exposureColor || '#ef4444'} strokeWidth="16" strokeLinecap="round" pathLength="100" strokeDasharray="100" strokeDashoffset={100 - (exposurePercentage || 0)} />
@@ -324,7 +326,7 @@ export default function ArenaActiveRoom({
         )}
 
         {/* BATCH EVALUATION PULT */}
-        <div style={{ background: '#1e293b', padding: '25px 20px', borderRadius: '24px', border: '2px solid #38bdf8', boxShadow: '0 15px 35px rgba(0,0,0,0.4)', boxSizing: 'border-box' }}>
+        <div className="arena-responsive-card" style={{ background: '#1e293b', padding: '25px 20px', borderRadius: '24px', border: '2px solid #38bdf8', boxShadow: '0 15px 35px rgba(0,0,0,0.4)', boxSizing: 'border-box' }}>
           <div style={{ background: 'rgba(56, 189, 248, 0.08)', borderLeft: '4px solid #38bdf8', padding: '15px', borderRadius: '0 12px 12px 0', marginBottom: '25px', fontSize: '0.85rem', color: '#cbd5e1', lineHeight: '1.5' }}>
             <strong style={{ color: '#38bdf8', display: 'block', marginBottom: '4px', fontSize: '0.95rem' }}>
               {t('roomExifShieldTitle')}
@@ -438,7 +440,7 @@ export default function ArenaActiveRoom({
 
       {/* JOBB OLDAL */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
-        <div style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #334155', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
+        <div className="arena-responsive-card" style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #334155', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
             <h3 style={{ margin: 0, color: '#f8fafc', fontSize: '1.4rem' }}>{t('roomMyEntry')}</h3>
             <span style={{ fontSize: '0.85rem', background: '#be123c30', color: '#fb7185', border: '1px solid #be123c60', padding: '4px 12px', borderRadius: '50px', fontWeight: 'bold' }}>
@@ -529,7 +531,7 @@ export default function ArenaActiveRoom({
         </div>
 
         {/* KLUBOK CSATÁJA RANGSOR */}
-        <div style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #10b981', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
+        <div className="arena-responsive-card" style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #10b981', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
             <h3 style={{ margin: 0, color: '#10b981', fontSize: '1.4rem' }}>{t('roomClubLeague')}</h3>
             <span style={{ fontSize: '0.8rem', background: '#ef4444', color: 'white', padding: '3px 10px', borderRadius: '12px', fontWeight: 'bold' }}>{t('roomLiveBadge')}</span>
@@ -554,7 +556,7 @@ export default function ArenaActiveRoom({
         </div>
 
         {/* VAK TOPLISTA MEGJELENÍTŐ */}
-        <div style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #f59e0b', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
+        <div className="arena-responsive-card" style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #f59e0b', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
           <h3 style={{ margin: '0 0 10px 0', color: '#f59e0b', fontSize: '1.4rem' }}>{t('roomBlindLeaderboard')}</h3>
           <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 20px 0', lineHeight: '1.5' }}>{t('roomBlindLeaderboardDesc')}</p>
           
@@ -568,8 +570,6 @@ export default function ArenaActiveRoom({
                 return (Number(a?.views_count || 0)) - (Number(b?.views_count || 0));
               }).map((entry, index) => {
                 const isMe = entry?.user_email === user?.email;
-                
-                // 🛡️ Képmester privilégium. Ha te vagy a tulajdonos VAGY te vagy a Képmester, feloldódik a titkosítás!
                 const showUnblinded = isMe || isMaster; 
                 const rankColor = index === 0 ? '#fbbf24' : index === 1 ? '#e2e8f0' : index === 2 ? '#cd7f32' : '#64748b';
                 
@@ -582,22 +582,15 @@ export default function ArenaActiveRoom({
                       {!showUnblinded && <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>🔒</div>}
                     </div>
                     
-                    <div style={{ flex: 1 }}>
-                      <div style={{ color: isMe ? '#f8fafc' : '#94a3b8', fontWeight: 'bold', fontSize: '1.05rem' }}>
+                    <div style={{ flex: 1, minWidth: 0 }}> {/* 🛡️ JAVÍTVA: minWidth: 0 megakadályozza a flex-text túlfolyást */}
+                      <div style={{ color: isMe ? '#f8fafc' : '#94a3b8', fontWeight: 'bold', fontSize: '1.05rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {showUnblinded ? (entry?.user_name || '') : t('roomEncryptedOpponent')}
                       </div>
-                      {/* 💥 MODOSÍTÁS: Ide fűzzük be pontszerűen, hogy hány képre rögzített szavazatot a háttérben */}
-                      <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
-                         {t('roomViews')}: {entry?.views_count || 0}
-                    {/* A feltételes operátorral biztosítjuk, hogy csak akkor jelenjen meg, ha létezik az érték */}
-                    {entry.votes_cast !== undefined && (
-                        <span style={{ marginLeft: '8px' }}> 
-                            • {lang === 'en' ? 'Voted' : 'Szavazott'}: 
-                            <strong style={{ color: Number(entry.votes_cast) === 0 ? '#ef4444' : '#38bdf8', marginLeft: '4px' }}>
-                                {entry.votes_cast} db
-                            </strong>
-                        </span>
-                    )}
+                      <div style={{ fontSize: '0.8rem', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {t('roomViews')}: {entry?.views_count || 0}
+                        {entry.votes_cast !== undefined && (
+                          <span> • {lang === 'en' ? 'Voted' : 'Szavazott'}: <strong style={{ color: Number(entry.votes_cast) === 0 ? '#ef4444' : '#38bdf8' }}>{entry.votes_cast} db</strong></span>
+                        )}
                       </div>
                     </div>
                     
@@ -670,8 +663,18 @@ export default function ArenaActiveRoom({
         </div>
       )}
 
-      {/* ── 🎯 ⚡ RESZPONZÍV MOTOR CSS INJEKTÁLÁSA ── */}
+      {/* ── 🎯 ⚡ RESZPONZÍV MOTOR CSS INJEKTÁLÁSA (BŐVÍTVE!) ── */}
       <style>{`
+        /* 🛡️ ÚJ: Reszponzív főkonténer, amely mobilokon egyetlen oszlopra kényszeríti a nézetet */
+        .arena-main-layout-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+          gap: 30px;
+          width: 100%;
+          max-width: 100%;
+          box-sizing: border-box;
+        }
+
         .batch-vote-responsive-card {
           display: grid;
           grid-template-columns: 160px 1fr;
@@ -707,6 +710,24 @@ export default function ArenaActiveRoom({
           width: 100%;
         }
         
+        /* 🛡️ ATOMBIZTOS MOBILOS MÉRET-KORREKCIÓS ZÓNA */
+        @media (max-width: 768px) {
+          .arena-main-layout-grid {
+            grid-template-columns: 1fr !important; /* Kényszerített egyetlen oszlop flexibilitás */
+            gap: 20px !important;
+          }
+
+          /* Lekerekítjük és szűkítjük a belső margókat, hogy több hely maradjon a szövegeknek */
+          .arena-responsive-card {
+            padding: 16px !important;
+            border-radius: 16px !important;
+          }
+
+          .arena-responsive-card h3 {
+            font-size: 1.4rem !important;
+          }
+        }
+
         @media (max-width: 580px) {
           .batch-vote-responsive-card {
             grid-template-columns: 1fr !important;
