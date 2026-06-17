@@ -80,7 +80,7 @@ module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, chec
   // ====================================================================
   // 1. KÉPEK ALAPADATAINAK LEKÉRÉSE
   // ====================================================================
-  app.get('/api/my-album', checkPremium, async (req, res) => {
+app.get('/api/my-album', checkPremium, async (req, res) => {
     try { 
       const query = `
         SELECT p.*, 
@@ -92,6 +92,8 @@ module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, chec
         GROUP BY p.id
         ORDER BY p.title ASC
       `;
+      // Megjegyzés: A 'SELECT p.*' automatikusan behozza a title_hu-t, 
+      // ha az oszlop már létezik a táblában.
       const [rows] = await pool.query(query, [req.query.userEmail]); 
       res.json(rows); 
     } catch (err) { 
