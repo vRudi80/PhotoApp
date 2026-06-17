@@ -309,24 +309,21 @@ async function processFinishedChallenges(pool) {
   // ====================================================================
   app.get('/api/weekly/current', async (req, res) => {
   const { userEmail, topicId } = req.query;
-
   try {
-    // 1. Háttérfolyamatok és alapértékek inicializálása
     await processFinishedChallenges(pool);
 
     const { totalLikes, victories } = await getUserLikesAndVictories(pool, userEmail);
     const userTotalLikes = totalLikes;
     const rankLevel = calculateRankLevel(totalLikes, victories);
-    const power = getVotePowerByLevel(rankLevel);
+    const power = getVotePowerByLevel(rankLevel); 
 
     const [userRows] = await pool.query('SELECT COALESCE(swap_balance, 0) as swap_balance FROM photo_users WHERE email = ?', [userEmail]);
     const swapBalance = userRows[0] ? userRows[0].swap_balance : 3;
-
+    
     const myReferralCode = await ensureReferralCode(pool, userEmail);
     const [referredCheck] = await pool.query('SELECT referred_by FROM photo_users WHERE email = ?', [userEmail]);
     const referredBy = referredCheck[0] ? referredCheck[0].referred_by : null;
 
-    // 2. Ág: Nincs megadott topicId -> Aktív témák listázása
     if (!topicId) {
       const [activeTopics] = await pool.query(`
         SELECT t.*, u.name AS master_name,
@@ -345,19 +342,17 @@ async function processFinishedChallenges(pool) {
         ...t,
         hasEntered: t.hasEntered === 1,
         isMaster: t.isMaster === 1,
-        totalEntries: Number(t.totalEntries || 0),
-        unvotedEntries: Number(t.unvotedEntries || 0)
+        totalEntries: Number(t.totalEntries || 0),     
+        unvotedEntries: Number(t.unvotedEntries || 0)   
       }));
 
-      return res.json({
-        activeTopics: mappedTopics, userTotalLikes, userVictories: victories, userPower: power, swapBalance, myReferralCode, referredBy, masterVotesLeft: 0, isMaster: false
+      return res.json({ 
+        activeTopics: mappedTopics, userTotalLikes, userVictories: victories, userPower: power, swapBalance, myReferralCode, referredBy, masterVotesLeft: 0, isMaster: false     
       });
     }
 
-    // 3. Ág: Konkrét topicId megadva -> Részletek és Leaderboard
     const [allTopics] = await pool.query('SELECT t.*, u.name AS master_name FROM weekly_topics t LEFT JOIN photo_users u ON t.master_email = u.email WHERE t.id = ?', [topicId]);
     const currentTopic = allTopics[0];
-    
     if (!currentTopic) return res.status(404).json({ error: 'Ez a kihívás nem található vagy már lezárult!' });
 
     const isMasterUser = currentTopic.master_email && userEmail && currentTopic.master_email.toLowerCase().trim() === userEmail.toLowerCase().trim();
@@ -375,15 +370,21 @@ async function processFinishedChallenges(pool) {
     const totalEntries = allEntriesCount[0].total || 0;
     const votableEntries = isMasterUser ? totalEntries : Math.max(1, totalEntries - 1);
 
-    // Fair score számítás (Database level)
+    // 💥 RANGSOR + JAVÍTVA: Bekötve a votes_cast számláló az SQL-be!
     const [leaderboard] = await pool.query(`
       SELECT e.id, e.user_name, e.user_email, e.file_url, e.drive_file_id, e.views_count, e.likes_count, u.club_name,
              e.camera, e.lens, e.shutter, e.iso, e.aperture, e.software,
              EXISTS(SELECT 1 FROM weekly_votes WHERE entry_id = e.id AND voter_email = ?) as has_user_voted,
+             
+             -- 📊 ÚJ: Kiszámoljuk, hogy az adott sor beküldője hány képre szavazott ebben a szobában
+             (SELECT COUNT(*) FROM weekly_votes WHERE voter_email = e.user_email AND entry_id IN (SELECT id FROM weekly_entries WHERE topic_id = e.topic_id AND is_active = 1)) as votes_cast,
+             
+             -- 🛡️ Időbélyeg alapú szűrő az élő felületen:
              IF(t.end_date < '2026-06-16 00:00:00',
                e.likes_count,
                ROUND(
-                 ((e.likes_count + 5.0) / (e.views_count + 5.0) * 10.0) * IF(
+                 ((e.likes_count + 5.0) / (e.views_count + 5.0) * 10.0) * 
+                 IF(
                    (SELECT COUNT(*) FROM weekly_entries WHERE topic_id = e.topic_id AND is_active = 1) <= 1, 
                    1.0, 
                    LEAST(1.0, (SELECT COUNT(*) FROM weekly_votes WHERE voter_email = e.user_email AND entry_id IN (SELECT id FROM weekly_entries WHERE topic_id = e.topic_id AND is_active = 1)) / LEAST(15.0, (SELECT COUNT(*) FROM weekly_entries WHERE topic_id = e.topic_id AND is_active = 1) - 1))
@@ -397,10 +398,9 @@ async function processFinishedChallenges(pool) {
       ORDER BY fair_score DESC, e.likes_count DESC, e.views_count ASC
     `, [userEmail, currentTopic.id]);
 
-    // Klub ranglista aggregáció
     const clubsData = {};
     leaderboard.forEach(entry => {
-      if (!entry.club_name || entry.club_name.trim() === '') return;
+      if (!entry.club_name || entry.club_name.trim() === '') return; 
       if (!clubsData[entry.club_name]) clubsData[entry.club_name] = [];
       clubsData[entry.club_name].push(Number(entry.fair_score || 0));
     });
@@ -409,37 +409,24 @@ async function processFinishedChallenges(pool) {
     for (const club in clubsData) {
       clubsData[club].sort((a, b) => b - a);
       const top3 = clubsData[club].slice(0, 3);
-      clubLeaderboard.push({
-        club_name: club,
-        total_score: Number(top3.reduce((sum, val) => sum + val, 0).toFixed(2)),
-        members_counted: top3.length
+      clubLeaderboard.push({ 
+        club_name: club, 
+        total_score: Number(top3.reduce((sum, val) => sum + val, 0).toFixed(2)), 
+        members_counted: top3.length 
       });
     }
     clubLeaderboard.sort((a, b) => b.total_score - a.total_score);
 
-    res.json({
-      topic: { ...currentTopic, isMaster: !!isMasterUser },
-      myEntry: myEntries.length > 0 ? myEntries[0] : null,
-      myPastEntries,
-      myVoteCount: myVotes[0]?.vote_count || 0,
-      votableEntries,
-      leaderboard,
-      clubLeaderboard,
-      userTotalLikes,
-      userVictories: victories,
-      userPower: power,
-      swapBalance,
-      myReferralCode,
-      referredBy,
-      masterVotesLeft,
-      isMaster: !!isMasterUser
+    res.json({ 
+      topic: { ...currentTopic, isMaster: !!isMasterUser }, myEntry: myEntries.length > 0 ? myEntries[0] : null, myPastEntries, myVoteCount: myVotes[0]?.vote_count || 0, votableEntries, leaderboard, clubLeaderboard, userTotalLikes, userVictories: victories, userPower: power, swapBalance, myReferralCode, referredBy, masterVotesLeft, isMaster: !!isMasterUser  
     });
 
-  } catch (err) {
-    console.error("❌ Kritikus hiba a weekly/current végpontban:", err);
-    res.status(500).json({ error: 'Szerveroldali hiba történt.' });
+  } catch (err) { 
+    console.error("❌ Kritikus hiba:", err);
+    res.status(500).json({ error: 'Szerveroldali hiba történt.' }); 
   }
 });
+
 
   // 🎯 JAVÍTVA: A galéria lekérdezés most már az egyéni kép-EXIF oszlopokat is visszaküldi a felületnek
   app.get('/api/weekly/my-album', async (req, res) => {
