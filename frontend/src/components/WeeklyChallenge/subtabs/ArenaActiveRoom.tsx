@@ -588,10 +588,16 @@ export default function ArenaActiveRoom({
                       </div>
                       {/* 💥 MODOSÍTÁS: Ide fűzzük be pontszerűen, hogy hány képre rögzített szavazatot a háttérben */}
                       <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
-                        {t('roomViews')}: {entry?.views_count || 0}
-                        {entry?.votes_cast !== undefined && (
-                          <span> • {lang === 'en' ? 'Voted' : 'Szavazott'}: <strong style={{ color: Number(entry.votes_cast) === 0 ? '#ef4444' : '#cbd5e1' }}>{entry.votes_cast} db</strong></span>
-                        )}
+                         {t('roomViews')}: {entry?.views_count || 0}
+                    {/* A feltételes operátorral biztosítjuk, hogy csak akkor jelenjen meg, ha létezik az érték */}
+                    {entry.votes_cast !== undefined && (
+                        <span style={{ marginLeft: '8px' }}> 
+                            • {lang === 'en' ? 'Voted' : 'Szavazott'}: 
+                            <strong style={{ color: Number(entry.votes_cast) === 0 ? '#ef4444' : '#38bdf8', marginLeft: '4px' }}>
+                                {entry.votes_cast} db
+                            </strong>
+                        </span>
+                    )}
                       </div>
                     </div>
                     
