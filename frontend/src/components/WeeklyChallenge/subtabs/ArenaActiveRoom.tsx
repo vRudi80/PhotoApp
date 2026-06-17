@@ -12,7 +12,7 @@ function ActiveRoomCountdown({ endDate, lang }: { endDate: string; lang: string 
 
   useEffect(() => {
     if (!endDate) return;
-    const standardized = String(endDate).replace(' ', 'T').split('.',0)[0];
+    const standardized = String(endDate).replace(' ', 'T').split('.')[0];⁠
     const targetMillis = new Date(standardized).getTime();
 
     const updateTextDirectly = () => {
