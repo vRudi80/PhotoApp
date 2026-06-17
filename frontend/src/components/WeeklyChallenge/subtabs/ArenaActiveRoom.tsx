@@ -5,7 +5,7 @@ import { BACKEND_URL } from '../../../utils/constants';
 // 🎯 Nyelvi kontextus aktiválása
 import { useLanguage } from '../../../context/LanguageContext';
 
-// 🕒 1. FIXEN SZINKRONIZÁLT AKTÍV SZŐBA VISSZASZÁMLÁLÓ
+// 🕒 1. FIXEN SZINKRONIZÁLT AKTÍV SZOBA VISSZASZÁMLÁLÓ
 function ActiveRoomCountdown({ endDate, lang }: { endDate: string; lang: string }) {
   const elementRef = useRef<HTMLSpanElement>(null);
   const { t } = useLanguage();
