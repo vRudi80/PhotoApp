@@ -211,8 +211,8 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
   return (
     <div>
       <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '15px', color: '#60a5fa' }}>
-  {t('albumTitle')}
-</h2>
+        {t('albumTitle')}
+      </h2>
 
       {/* --- FOLYAMATJELZŐ SÁV --- */}
       <div style={{ background: '#1e293b', padding: '20px', borderRadius: '12px', marginBottom: '25px', border: '1px solid #334155', boxShadow: '0 4px 6px rgba(0,0,0,0.2)' }}>
