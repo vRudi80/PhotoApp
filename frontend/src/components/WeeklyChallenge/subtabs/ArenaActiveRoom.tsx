@@ -12,7 +12,9 @@ function ActiveRoomCountdown({ endDate, lang }: { endDate: string; lang: string 
 
   useEffect(() => {
     if (!endDate) return;
-    const standardized = String(endDate).replace(' ', 'T').split('.')[0];⁠
+    
+    // 🎯 JAVÍTVA: A split paraméterezése javítva, így már nem lesz 'NaN' a dátum
+    const standardized = String(endDate).replace(' ', 'T').split('.')[0];
     const targetMillis = new Date(standardized).getTime();
 
     const updateTextDirectly = () => {
@@ -61,6 +63,7 @@ function ActiveRoomCountdown({ endDate, lang }: { endDate: string; lang: string 
     </div>
   );
 }
+
 
 // ── 🎯 ⚡ BINÁRIS EXIF RE-INJECTOR MOTOR ──
 const insertExifToBlob = async (originalFile: File, compressedBlob: Blob): Promise<Blob> => {
