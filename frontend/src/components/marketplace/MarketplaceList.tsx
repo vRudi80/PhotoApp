@@ -3,28 +3,25 @@ import axios from 'axios';
 import { BACKEND_URL } from '../../utils/constants';
 
 interface AdItem {
-  id: number;
-  _id?: string; // Biztonsági tartalék, ha keveredne a struktúra
+  _id: string;
+  id?: number; // MySQL ID esetén
   title: string;
   brand: string;
-  model_name?: string;  // MySQL szerinti mezőnév
-  modelName?: string;   // Frontend camelCase változat
+  modelName: string;
   price: number;
   currency: string;
   location: string;
   category: string;
-  condition_state?: string; // MySQL szerinti mezőnév
-  conditionState?: string;  // Frontend camelCase változat
-  images?: Array<{ url: string; public_id: string }>;
-  cover_image?: string;
-  advertiser_name?: string;
-  is_active?: number; // Eladott státusz követéséhez
+  conditionState: string;
+  images: Array<{ url: string; public_id: string }>;
+  createdAt: string;
+  advertiser_name?: string; // 👈 A backendről érkező hirdető neve
 }
 
 interface MarketplaceListProps {
   user: { email: string };
   onNavigateToCreate: () => void;
-  onNavigateToDetails: (id: string | number) => void;
+  onNavigateToDetails: (id: string | number) => void; // 👈 Új prop a megnyitáshoz
 }
 
 export default function MarketplaceList({ user, onNavigateToCreate, onNavigateToDetails }: MarketplaceListProps) {
@@ -37,23 +34,26 @@ export default function MarketplaceList({ user, onNavigateToCreate, onNavigateTo
     fetchAds();
   }, []);
 
-const fetchAds = async () => {
-    try {
-      setLoading(true);
-      const response = await axios.get(`${BACKEND_URL}/api/marketplace/ads`);
-      console.log("Szerver válasza:", response.data); 
-      setAds(response.data); 
-    } catch (error) {
-      console.error('Hiba a hirdetések lekérésekor:', error);
-    } finally { // <--- EZ VOLT ELGÉPÜLVE "file"-ra
-      setLoading(false);
-    }
-  };
-
+  const fetchAds = async () => {
+  try {
+    setLoading(true);
+    const response = await axios.get(`${BACKEND_URL}/api/marketplace/ads`);
+    
+    // DEBUG: Nézzük meg, mi jön a szervertől
+    console.log("Szerver válasza:", response.data); 
+    
+    // Feltételezve, hogy a szerver közvetlenül a hirdetések tömbjét küldi:
+    setAds(response.data); 
+  } catch (error) {
+    console.error('Hiba a hirdetések lekérésekor:', error);
+  } finally {
+    setLoading(false);
+  }
+};
   const filteredAds = ads.filter(ad => {
     const safeTitle = ad.title || '';
     const safeBrand = ad.brand || '';
-    const safeModelName = ad.model_name || ad.modelName || ''; // Mindkét variánst ellenőrzi
+    const safeModelName = ad.modelName || '';
 
     const matchesSearch = safeTitle.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           safeBrand.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -118,51 +118,42 @@ const fetchAds = async () => {
         </div>
       ) : (
         <div className="market-grid">
-          {filteredAds.map((ad) => {
-            const currentCondition = ad.condition_state || ad.conditionState || 'good';
-            const currentModel = ad.model_name || ad.modelName || '';
-            const isSold = ad.is_active === 0;
-
-            return (
-              <div key={ad.id || ad._id} className="market-card" onClick={() => onNavigateToDetails(ad.id || ad._id || '')} style={{ cursor: 'pointer', position: 'relative', opacity: isSold ? 0.6 : 1 }}>
-                <div className="card-image-wrapper">
-                  {isSold && (
-                    <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(15, 23, 42, 0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>
-                      <span style={{ background: '#f43f5e', color: 'white', padding: '8px 16px', borderRadius: '8px', fontWeight: 'bold', fontSize: '1.1rem', letterSpacing: '1px', transform: 'rotate(-5deg)' }}>ELADVA</span>
-                    </div>
-                  )}
-                  {ad.images && ad.images.length > 0 ? (
-                    <img src={ad.images[0].url} alt={ad.title} className="card-image" />
-                  ) : ad.cover_image ? (
-                    <img src={ad.cover_image} alt={ad.title} className="card-image" />
-                  ) : (
-                    <div className="no-image">📷 Nincs kép</div>
-                  )}
-                  <span className="card-badge">{getConditionLabel(currentCondition)}</span>
-                </div>
+          {filteredAds.map((ad) => (
+            /* 👈 IDE KERÜLT AZ ONCLICK KATTINTÁSRA VALÓ MEGNYITÁS (MySQL id vagy MongoDB _id támogatással) */
+            <div key={ad._id} className="market-card" onClick={() => onNavigateToDetails(ad.id || ad._id)} style={{ cursor: 'pointer' }}>
+             <div className="card-image-wrapper">
+  {/* Itt ellenőrizzük az images tömböt ÉS a cover_image stringet is */}
+  {(ad.images && ad.images.length > 0) ? (
+    <img src={ad.images[0].url} alt={ad.title} className="card-image" />
+  ) : (ad as any).cover_image ? (
+    <img src={(ad as any).cover_image} alt={ad.title} className="card-image" />
+  ) : (
+    <div className="no-image">📷 Nincs kép</div>
+  )}
+  <span className="card-badge">{getConditionLabel(ad.conditionState)}</span>
+</div>
+              <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '10px', flexGrow: 1 }}>
+                <span style={{ fontSize: '0.8rem', textTransform: 'uppercase', color: '#38bdf8', fontWeight: 'bold' }}>
+                  {ad.brand} {ad.modelName}
+                </span>
+                <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 600, color: '#f8fafc', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', height: '2.8rem' }}>
+                  {ad.title}
+                </h3>
                 
-                <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '10px', flexGrow: 1 }}>
-                  <span style={{ fontSize: '0.8rem', textTransform: 'uppercase', color: '#38bdf8', fontWeight: 'bold' }}>
-                    {ad.brand} {currentModel}
-                  </span>
-                  <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 600, color: '#f8fafc', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', height: '2.8rem' }}>
-                    {ad.title}
-                  </h3>
-                  
-                  <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: '5px' }}>
-                    👤 Hirdető: <span style={{ color: '#cbd5e1' }}>{ad.advertiser_name || 'Felhasználó'}</span>
-                  </div>
+                {/* 👈 KIÍRJUK A FELTÖLTŐ / HIRDETŐ NEVÉT */}
+                <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: '5px' }}>
+                  👤 Hirdető: <span style={{ color: '#cbd5e1' }}>{ad.advertiser_name || 'Felhasználó'}</span>
+                </div>
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', paddingTop: '10px', borderTop: '1px solid #1e293b' }}>
-                    <span style={{ fontSize: '1.3rem', fontWeight: 'bold', color: isSold ? '#94a3b8' : '#f43f5e', textDecoration: isSold ? 'line-through' : 'none' }}>
-                      {ad.price.toLocaleString()} {ad.currency}
-                    </span>
-                    <span style={{ fontSize: '0.85rem', color: '#94a3b8' }}>📍 {ad.location || 'Országos'}</span>
-                  </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', paddingTop: '10px', borderTop: '1px solid #1e293b' }}>
+                  <span style={{ fontSize: '1.3rem', fontWeight: 'bold', color: '#f43f5e' }}>
+                    {ad.price.toLocaleString()} {ad.currency}
+                  </span>
+                  <span style={{ fontSize: '0.85rem', color: '#94a3b8' }}>📍 {ad.location || 'Országos'}</span>
                 </div>
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
       )}
 
@@ -178,7 +169,7 @@ const fetchAds = async () => {
         .card-image-wrapper { position: relative; height: 180px; background: #0f172a; }
         .card-image { width: 100%; height: 100%; object-fit: cover; }
         .no-image { display: flex; align-items: center; justify-content: center; height: 100%; color: #475569; }
-        .card-badge { position: absolute; top: 12px; right: 12px; background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(4px); color: #f8fafc; padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: bold; border: 1px solid #334155; zIndex: 1; }
+        .card-badge { position: absolute; top: 12px; right: 12px; background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(4px); color: #f8fafc; padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: bold; border: 1px solid #334155; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
       `}</style>
     </div>
