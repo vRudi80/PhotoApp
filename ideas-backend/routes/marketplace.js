@@ -253,23 +253,24 @@ module.exports = function(app, pool, checkPremium, upload) {
   // ÚJ ÜZENET KÜLDÉSE (Belső levelezés)
   // ==========================================
   app.post('/api/marketplace/messages', checkPremium, async (req, res) => {
+  try {
     const { adId, receiverEmail, message } = req.body;
-    
-    // A checkPremium middleware-ből vagy a munkamenetből kinyerjük a küldőt
-    const senderEmail = req.user?.email || req.body.senderEmail;
+    const senderEmail = req.user.email; // Ez a middleware-ből jön!
 
-    try {
-      await pool.query(
-        'INSERT INTO photo_marketplace_messages (ad_id, sender_email, receiver_email, message) VALUES (?, ?, ?, ?)',
-        [adId, senderEmail, receiverEmail, message]
-      );
-
-      res.json({ success: true, message: 'Üzenet sikeresen elmentve!' });
-    } catch (err) {
-      console.error("Hiba az üzenetküldésnél:", err);
-      res.status(500).json({ error: err.message });
+    if (!adId || !receiverEmail || !message) {
+      return res.status(400).json({ error: "Hiányzó adatok: adId, receiverEmail vagy üzenet." });
     }
-  });
+
+    await pool.query(
+      'INSERT INTO photo_marketplace_messages (ad_id, sender_email, receiver_email, message) VALUES (?, ?, ?, ?)',
+      [adId, senderEmail, receiverEmail, message]
+    );
+
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
   // GET /api/marketplace/messages - Az aktuális felhasználó üzeneteinek lekérése
 app.get('/api/marketplace/messages', checkPremium, async (req, res) => {
