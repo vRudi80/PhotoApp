@@ -230,14 +230,24 @@ module.exports = function(app, pool, checkPremium, upload) {
   // HIRDETÉS ELADOTTNAK JELÖLÉSE
   // ==========================================
  app.put('/api/marketplace/ads/:id/sold', checkPremium, async (req, res) => {
-    try {
-      const adId = req.params.id;
-      await pool.query('UPDATE photo_marketplace_ads SET is_active = 0 WHERE id = ?', [adId]);
-      res.json({ success: true, message: 'Hirdetés lezárva! 🎉' });
-    } catch (err) {
-      res.status(500).json({ error: err.message });
-    }
-  });
+  try {
+    const adId = req.params.id;
+    
+    // 1. Lekérdezzük az aktuális állapotot
+    const [rows] = await pool.query('SELECT is_active FROM photo_marketplace_ads WHERE id = ?', [adId]);
+    const currentStatus = rows[0].is_active;
+
+    // 2. Megfordítjuk (ha 1 volt, 0 lesz; ha 0 volt, 1 lesz)
+    const newStatus = currentStatus === 1 ? 0 : 1;
+
+    // 3. Frissítjük
+    await pool.query('UPDATE photo_marketplace_ads SET is_active = ? WHERE id = ?', [newStatus, adId]);
+
+    res.json({ success: true, message: newStatus === 1 ? 'Hirdetés újra aktív! 🟢' : 'Hirdetés eladottnak jelölve! 🔴' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
   // ==========================================
   // ÚJ ÜZENET KÜLDÉSE (Belső levelezés)
