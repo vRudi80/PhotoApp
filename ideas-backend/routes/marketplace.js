@@ -169,20 +169,24 @@ module.exports = function(app, pool, checkPremium, upload) {
 
       // Összerakjuk a frontendnek szükséges struktúrát
       const responseData = {
-        id: adData.id,
-        title: adData.title,
-        brand: adData.brand,
-        modelName: adData.model_name || adData.modelName,
-        price: adData.price,
-        currency: adData.currency || 'HUF',
-        location: adData.location,
-        category: adData.category,
-        conditionState: adData.condition_state || adData.conditionState,
-        description: adData.description,
-        user_email: adData.user_email,
-        advertiser_name: advertiserName,
-        images: images
-      };
+  id: adData.id,
+  title: adData.title,
+  brand: adData.brand,
+  modelName: adData.model_name || adData.modelName,
+  price: adData.price,
+  currency: adData.currency || 'HUF',
+  location: adData.location,
+  category: adData.category,
+  conditionState: adData.condition_state || adData.conditionState,
+  description: adData.description,
+  user_email: adData.user_email,
+  advertiser_name: advertiserName,
+  images: images,
+  // 👈 EZ HIÁNYZOTT! Ettől fog újra megjelenni a rekesszámláló:
+  specific_attributes: typeof adData.specific_attributes === 'string' 
+    ? JSON.parse(adData.specific_attributes) 
+    : adData.specific_attributes
+};
 
       res.json(responseData);
 
@@ -215,6 +219,48 @@ module.exports = function(app, pool, checkPremium, upload) {
       res.status(500).json({ error: err.message });
     } finally {
       conn.release();
+    }
+  });
+
+  // ==========================================
+  // HIRDETÉS ELADOTTNAK JELÖLÉSE
+  // ==========================================
+  app.put('/api/marketplace/ads/:id/sold', checkPremium, async (req, res) => {
+    try {
+      const adId = req.params.id;
+
+      // Beállítjuk az is_active státuszt 0-ra, így eltűnik a listából
+      await pool.query(
+        'UPDATE photo_marketplace_ads SET is_active = 0 WHERE id = ?',
+        [adId]
+      );
+
+      res.json({ success: true, message: 'Hirdetés sikeresen lezárva! 🎉' });
+    } catch (err) {
+      console.error("Hiba a hirdetés lezárásakor:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ==========================================
+  // ÚJ ÜZENET KÜLDÉSE (Belső levelezés)
+  // ==========================================
+  app.post('/api/marketplace/messages', checkPremium, async (req, res) => {
+    const { adId, receiverEmail, message } = req.body;
+    
+    // A checkPremium middleware-ből vagy a munkamenetből kinyerjük a küldőt
+    const senderEmail = req.user?.email || req.body.senderEmail;
+
+    try {
+      await pool.query(
+        'INSERT INTO photo_marketplace_messages (ad_id, sender_email, receiver_email, message) VALUES (?, ?, ?, ?)',
+        [adId, senderEmail, receiverEmail, message]
+      );
+
+      res.json({ success: true, message: 'Üzenet sikeresen elmentve!' });
+    } catch (err) {
+      console.error("Hiba az üzenetküldésnél:", err);
+      res.status(500).json({ error: err.message });
     }
   });
 
