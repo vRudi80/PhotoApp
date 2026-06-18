@@ -1,6 +1,7 @@
 const cloudinary = require('cloudinary').v2;
-const crypto = require('crypto'); // Ezt a piactérnél is használnod kell az aláíráshoz!
-require('dotenv').config(); // Ez biztosítja, hogy a process.env értékek betöltődjenek
+const fs = require('fs'); // 👈 EGYIK HIÁNYZÓ IMPORT
+const path = require('path');
+require('dotenv').config();
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -8,33 +9,52 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-module.exports = function(app, pool, checkPremium) {
+module.exports = function(app, pool, checkPremium, upload) { // 👈 'upload' átadása kötelező!
 
   // ==========================================
   // ÚJ HIRDETÉS FELADÁSA
   // ==========================================
-app.post('/api/marketplace/ads', upload.array('images'), checkPremium, async (req, res) => {
-  const files = req.files; // Itt lesznek a feltöltött fájlok
-  const { userEmail, title, /* ... egyéb mezők */ } = req.body;
+  app.post('/api/marketplace/ads', upload.array('images'), checkPremium, async (req, res) => {
+    const { userEmail, category, title, brand, modelName, conditionState, price, currency, description, location, specificAttributes } = req.body;
+    const files = req.files;
 
-  try {
-    const uploadedImages = [];
-    
-    // Feltöltés Cloudinary-re ciklussal
-    for (const file of files) {
-      const result = await cloudinary.uploader.upload(file.path, { folder: 'marketplace' });
-      uploadedImages.push({ url: result.secure_url, public_id: result.public_id });
-      if (fs.existsSync(file.path)) fs.unlinkSync(file.path); // Törlés a temp-ből
+    const conn = await pool.getConnection();
+    try {
+      await conn.beginTransaction();
+
+      // 1. Képek feltöltése
+      const imageRecords = [];
+      for (const file of files) {
+        const result = await cloudinary.uploader.upload(file.path, { folder: 'marketplace' });
+        imageRecords.push({ url: result.secure_url, public_id: result.public_id });
+        if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+      }
+
+      // 2. Hirdetés mentése
+      const [adResult] = await conn.query(
+        `INSERT INTO photo_marketplace_ads (user_email, category, title, brand, model_name, condition_state, price, currency, description, location, specific_attributes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [userEmail, category, title, brand, modelName, conditionState, price, currency || 'HUF', description, location, JSON.stringify(specificAttributes || {})]
+      );
+
+      const newAdId = adResult.insertId;
+
+      // 3. Képek mentése DB-be
+      if (imageRecords.length > 0) {
+        const imageValues = imageRecords.map((img, idx) => [newAdId, img.url, img.public_id, idx === 0 ? 1 : 0]);
+        await conn.query('INSERT INTO photo_marketplace_images (ad_id, cloudinary_url, cloudinary_public_id, is_primary) VALUES ?', [imageValues]);
+      }
+
+      await conn.commit();
+      res.json({ success: true, adId: newAdId });
+    } catch (err) {
+      if (conn) await conn.rollback();
+      res.status(500).json({ error: 'Hiba a feltöltésben: ' + err.message });
+    } finally {
+      conn.release();
     }
+  });
 
-    // ADATBÁZIS MENTÉS:
-    // Itt használd az uploadedImages tömböt az INSERT-hez, ahogy eddig is tetted.
-    
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+  
 
 app.get('/api/marketplace/upload-signature', (req, res) => {
   const timestamp = Math.round(new Date().getTime() / 1000);
