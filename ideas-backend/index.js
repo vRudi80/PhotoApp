@@ -30,7 +30,12 @@ oauth2Client.setCredentials({ refresh_token: process.env.DRIVE_REFRESH_TOKEN });
 const drive = google.drive({ version: 'v3', auth: oauth2Client });
 
 const app = express();
-app.use(cors());
+
+// Konkrét domainek engedélyezése a biztonságos sütikezeléshez
+app.use(cors({
+  origin: ['https://photawesome.com', 'http://localhost:5173'], // Az éles oldalad és a helyi tesztkörnyezet
+  credentials: true                                            // 👑 Ez engedélyezi a withCredentials kéréseket!
+}));
 
 // ==========================================
 // 2. STRIPE WEBHOOK (KÖTELEZŐEN AZ express.json ELÉ!)
