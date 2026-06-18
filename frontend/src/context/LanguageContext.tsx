@@ -13,7 +13,7 @@ const translations = {
     tabHof: '👑 Mesterek csarnoka',
     btnRules: '📖 Játékszabályok & Rangok',
     tileClubLifeTitle: 'Klubélet',
-   
+   navMarketplace: 'Piac',
 
     "adminTitle": "⚔️ Kihívás kezelő központ",
   "adminSubtitle": "A rendszer automatikusan indítja el az elfogadott kihívásokat, amint elérkezik a kezdő dátumuk!",
@@ -853,6 +853,7 @@ const translations = {
   "roomBatchAlertError": "Please vote for all {count} photos before finalizing!",
   "roomBatchAlertSuccess": "🎉 All package votes successfully submitted and saved!",
         "roomBtnDelete": "Delete",
+    navMarketplace: 'Market',
 
     
     // Pályázatok almenü
