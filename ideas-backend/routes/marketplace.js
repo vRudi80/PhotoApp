@@ -252,13 +252,13 @@ module.exports = function(app, pool, checkPremium, upload) {
   // ==========================================
   // ÚJ ÜZENET KÜLDÉSE (Belső levelezés)
   // ==========================================
-  app.post('/api/marketplace/messages', checkPremium, async (req, res) => {
+app.post('/api/marketplace/messages', checkPremium, async (req, res) => {
   try {
     const { adId, receiverEmail, message } = req.body;
-    const senderEmail = req.user.email; // Ez a middleware-ből jön!
+    const senderEmail = req.user.email; // A middleware-ből jön
 
     if (!adId || !receiverEmail || !message) {
-      return res.status(400).json({ error: "Hiányzó adatok: adId, receiverEmail vagy üzenet." });
+      return res.status(400).json({ error: "Hiányzó mezők: adId, receiverEmail, vagy message." });
     }
 
     await pool.query(
@@ -266,12 +266,12 @@ module.exports = function(app, pool, checkPremium, upload) {
       [adId, senderEmail, receiverEmail, message]
     );
 
-    res.json({ success: true });
+    res.json({ success: true, message: "Üzenet elküldve!" });
   } catch (err) {
+    console.error("Backend hiba:", err);
     res.status(500).json({ error: err.message });
   }
 });
-
   // GET /api/marketplace/messages - Az aktuális felhasználó üzeneteinek lekérése
 app.get('/api/marketplace/messages', checkPremium, async (req, res) => {
   const userEmail = req.user?.email; // A middleware-ből jön a bejelentkezett user
