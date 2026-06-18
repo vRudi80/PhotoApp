@@ -100,22 +100,26 @@ module.exports = function(app, pool, checkPremium, upload) {
   });
 
   // HIRDETÉSEK LEKÉRÉSE (Most már hirdető nevével)
-  app.get('/api/marketplace/ads', async (req, res) => {
-    try {
-      const [ads] = await pool.query(`
-        SELECT a.*, u.name as advertiser_name,
-               (SELECT cloudinary_url FROM photo_marketplace_images WHERE ad_id = a.id AND is_primary = 1 LIMIT 1) as cover_image 
-        FROM photo_marketplace_ads a 
-        LEFT JOIN photo_users u ON a.user_email = u.email
-        WHERE a.is_active = 1 
-        ORDER BY a.created_at DESC
-      `);
-      res.json(ads);
-    } catch (err) {
-      res.status(500).json({ error: err.message });
-    }
-  });
-
+ app.get('/api/marketplace/ads', async (req, res) => {
+  try {
+    const [ads] = await pool.query(`
+      SELECT 
+        a.*, 
+        u.name as advertiser_name,
+        (SELECT cloudinary_url FROM photo_marketplace_images WHERE ad_id = a.id AND is_primary = 1 LIMIT 1) as cover_image 
+      FROM photo_marketplace_ads a 
+      LEFT JOIN photo_users u ON a.user_email = u.email
+      ORDER BY a.is_active DESC, a.created_at DESC
+    `);
+    
+    // Mivel a frontend a "success" objektumot várja a módosított List komponensben:
+    res.json({ success: true, data: ads });
+    
+  } catch (err) {
+    console.error("Hiba a hirdetések lekérésekor:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
   // EGY ADOTT HIRDETÉS ÉS ÖSSZES KÉPÉNEK LEKÉRÉSE (Hibabiztos verzió)
   app.get('/api/marketplace/ads/:id', async (req, res) => {
     try {
