@@ -1,3 +1,14 @@
+const cloudinary = require('cloudinary').v2;
+
+// Ha az index.js-ben még nincs konfigurálva a Cloudinary, akkor itt (vagy a főfájlban) tedd meg:
+/*
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
+*/
+
 module.exports = function(app, pool, checkPremium) {
 
   // ==========================================
@@ -52,20 +63,6 @@ module.exports = function(app, pool, checkPremium) {
       conn.release();
     }
   });
-const cloudinary = require('cloudinary').v2;
-
-// Ha az index.js-ben még nincs konfigurálva a Cloudinary, akkor itt (vagy a főfájlban) tedd meg:
-/*
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
-});
-*/
-
-module.exports = function(app, pool, checkPremium) {
-  
-  // ... (az előzőleg megírt POST és GET végpontok) ...
 
   // ==========================================
   // CLOUDINARY BIZTONSÁGI ALÁÍRÁS GENERÁLÁSA
@@ -89,9 +86,8 @@ module.exports = function(app, pool, checkPremium) {
     } catch (error) {
       res.status(500).json({ error: 'Hiba a Cloudinary aláírás generálásakor.' });
     }
-  });
+  }); // <-- ITT JAVÍTOTTAM: A hiányzó zárójel pótolva!
 
-};
   // ==========================================
   // HIRDETÉSEK LEKÉRÉSE (Előkészület a listázáshoz)
   // ==========================================
