@@ -52,26 +52,34 @@ export default function MarketplaceAdForm({ user, onCancel }: MarketplaceAdFormP
 
     setUploading(true);
     try {
-      const file = files[0];
-      // 🎯 JAVÍTVA: BACKEND_URL hozzáadva
-      const { data: sigData } = await axios.get(`${BACKEND_URL}/api/marketplace/upload-signature`);
+      // Végigmegyünk az összes kijelölt fájlon
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const { data: sigData } = await axios.get(`${BACKEND_URL}/api/marketplace/upload-signature`);
 
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('api_key', sigData.apiKey);
-      formData.append('timestamp', sigData.timestamp);
-      formData.append('signature', sigData.signature);
-      formData.append('folder', 'marketplace');
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('api_key', sigData.apiKey);
+        formData.append('timestamp', sigData.timestamp);
+        formData.append('signature', sigData.signature);
+        formData.append('folder', 'marketplace');
 
-      const uploadRes = await axios.post(`https://api.cloudinary.com/v1_1/${sigData.cloudName}/image/upload`, formData);
+        const uploadRes = await axios.post(`https://api.cloudinary.com/v1_1/${sigData.cloudName}/image/upload`, formData);
 
-      setImages(prev => [...prev, { url: uploadRes.data.secure_url, public_id: uploadRes.data.public_id }]);
+        // Hozzáadjuk a listához (nem felülírjuk!)
+        setImages(prev => [...prev, { url: uploadRes.data.secure_url, public_id: uploadRes.data.public_id }]);
+      }
     } catch (error) {
-      console.error('Képfeltöltési hiba:', error);
-      alert('Hiba történt a kép feltöltése közben.');
+      console.error('Hiba:', error);
+      alert('Sikertelen képfeltöltés');
     } finally {
       setUploading(false);
     }
+  };
+
+  // Kép törlése funkció (hogy ki lehessen venni, ha rosszat töltött fel)
+  const removeImage = (index: number) => {
+    setImages(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
