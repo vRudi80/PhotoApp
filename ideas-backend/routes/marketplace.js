@@ -15,35 +15,54 @@ module.exports = function(app, pool, checkPremium, upload) { // 👈 'upload' á
   // ÚJ HIRDETÉS FELADÁSA
   // ==========================================
 app.post('/api/marketplace/ads', upload.array('images'), checkPremium, async (req, res) => {
-  const { userEmail, title, /* ... */ } = req.body;
+  const { userEmail, category, title, brand, modelName, conditionState, price, currency, description, location, specificAttributes } = req.body;
   const files = req.files;
-
-  console.log("Megérkezett fájlok:", files); // 👈 EZT TEDD BE!
 
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
 
-    // ... feltöltés logika ...
+    // 1. Képek feltöltése Cloudinary-re
+    const imageRecords = [];
+    for (const file of files) {
+      const result = await cloudinary.uploader.upload(file.path, { folder: 'marketplace' });
+      imageRecords.push({ url: result.secure_url, public_id: result.public_id });
+      if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+    }
 
-    // HIRDETÉS MENTÉS
-    const [adResult] = await conn.query(...);
+    // 2. Hirdetés mentése az adatbázisba
+    const [adResult] = await conn.query(
+      `INSERT INTO photo_marketplace_ads 
+      (user_email, category, title, brand, model_name, condition_state, price, currency, description, location, specific_attributes) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        userEmail, category, title, brand, modelName, conditionState, price, 
+        currency || 'HUF', description, location, JSON.stringify(specificAttributes || {})
+      ]
+    );
+
     const newAdId = adResult.insertId;
-    console.log("Létrehozott hirdetés ID:", newAdId); // 👈 EZT IS!
 
-    // KÉPEK MENTÉSE
-    if (files && files.length > 0) {
-       // Itt nézd meg, hogy az 'imageValues' tömböd nem üres-e!
-       console.log("Mentendő képek:", imageValues); 
-       await conn.query('INSERT INTO photo_marketplace_images ...', [imageValues]);
+    // 3. Képek rögzítése az adatbázisban
+    if (imageRecords.length > 0) {
+      const imageValues = imageRecords.map((img, idx) => [
+        newAdId, 
+        img.url, 
+        img.public_id, 
+        idx === 0 ? 1 : 0
+      ]);
+      await conn.query(
+        'INSERT INTO photo_marketplace_images (ad_id, cloudinary_url, cloudinary_public_id, is_primary) VALUES ?', 
+        [imageValues]
+      );
     }
 
     await conn.commit();
     res.json({ success: true, adId: newAdId });
   } catch (err) {
-    console.error("Hiba a mentésben:", err); // 👈 A szerver logban ez fogja megmutatni a bajt!
-    await conn.rollback();
-    res.status(500).json({ error: err.message });
+    if (conn) await conn.rollback();
+    console.error("Hiba a hirdetés mentésekor:", err);
+    res.status(500).json({ error: 'Hiba a mentés során: ' + err.message });
   } finally {
     conn.release();
   }
