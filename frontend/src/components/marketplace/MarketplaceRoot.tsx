@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import MarketplaceList from './MarketplaceList';
 import MarketplaceAdForm from './MarketplaceAdForm';
+import { BACKEND_URL } from '../../utils/constants';
 
 type MarketplaceView = 'list' | 'create';
 
