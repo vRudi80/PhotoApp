@@ -1,12 +1,5 @@
 const cloudinary = require('cloudinary').v2;
 
-// Ha az index.js-ben még nincs konfigurálva a Cloudinary, akkor itt (vagy a főfájlban) tedd meg:
-
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
-});
 
 
 module.exports = function(app, pool, checkPremium) {
@@ -64,29 +57,22 @@ module.exports = function(app, pool, checkPremium) {
     }
   });
 
-  // ==========================================
-  // CLOUDINARY BIZTONSÁGI ALÁÍRÁS GENERÁLÁSA
-  // ==========================================
-  app.get('/api/marketplace/upload-signature', checkPremium, (req, res) => {
-    try {
-      const timestamp = Math.round((new Date).getTime() / 1000);
-      
-      // Megadjuk, hogy a 'marketplace' mappába kérjük a feltöltést
-      const signature = cloudinary.utils.api_sign_request({
-        timestamp: timestamp,
-        folder: 'marketplace'
-      }, process.env.CLOUDINARY_API_SECRET);
+ const cloudinary = require('cloudinary').v2;
 
-      res.json({ 
-        timestamp, 
-        signature, 
-        apiKey: process.env.CLOUDINARY_API_KEY,
-        cloudName: process.env.CLOUDINARY_CLOUD_NAME
-      });
-    } catch (error) {
-      res.status(500).json({ error: 'Hiba a Cloudinary aláírás generálásakor.' });
-    }
-  }); // <-- ITT JAVÍTOTTAM: A hiányzó zárójel pótolva!
+app.get('/api/marketplace/upload-signature', (req, res) => {
+  const timestamp = Math.round(new Date().getTime() / 1000);
+  const signature = cloudinary.utils.api_sign_request(
+    { timestamp: timestamp, folder: 'marketplace' },
+    process.env.CLOUDINARY_API_SECRET
+  );
+
+  res.json({
+    timestamp,
+    signature,
+    apiKey: process.env.CLOUDINARY_API_KEY,
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME
+  });
+});
 
   // HIRDETÉSEK LEKÉRÉSE (Most már hirdető nevével)
   app.get('/api/marketplace/ads', async (req, res) => {
