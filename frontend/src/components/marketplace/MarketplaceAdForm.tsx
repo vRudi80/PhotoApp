@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import { BACKEND_URL } from '../utils/constants'; // 🎯 ÚJ: Backend URL importálása
+import { BACKEND_URL } from '../../../utils/constants';
 
 type Category = 'camera' | 'lens' | 'lighting' | 'drone' | 'accessory' | '';
 type ConditionState = 'mint' | 'excellent' | 'good' | 'heavily_used' | 'for_parts';
