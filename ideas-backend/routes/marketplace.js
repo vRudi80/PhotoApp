@@ -1,13 +1,13 @@
 const cloudinary = require('cloudinary').v2;
 
 // Ha az index.js-ben még nincs konfigurálva a Cloudinary, akkor itt (vagy a főfájlban) tedd meg:
-/*
+
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
-*/
+
 
 module.exports = function(app, pool, checkPremium) {
 
