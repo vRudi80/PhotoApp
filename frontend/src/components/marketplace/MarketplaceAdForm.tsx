@@ -25,29 +25,33 @@ export default function MarketplaceAdForm({ user, onCancel, adId }: MarketplaceA
   const [submitting, setSubmitting] = useState(false);
 
   // 👈 SZERKESZTÉS: Ha van adId, betöltjük a meglévő hirdetés adatait a backendről
- useEffect(() => {
+useEffect(() => {
   if (adId) {
     const fetchAdForEdit = async () => {
       try {
         const response = await axios.get(`${BACKEND_URL}/api/marketplace/ads/${adId}`);
-        const ad = response.data; // Közvetlenül a hirdetés objektum
         
-        console.log("DEBUG - Betöltött hirdetés:", ad); // 👈 EZT NÉZD MEG A KONZOLBAN!
+        // A válasz egy tömb, aminek az első eleme a hirdetés
+        const ad = Array.isArray(response.data) ? response.data[0] : response.data;
+        
+        console.log("DEBUG - Adatok a formhoz:", ad); 
 
-        // Biztonságos értékadás:
-        setTitle(ad.title || '');
-        setBrand(ad.brand || '');
-        setModelName(ad.model_name || ad.modelName || ''); // Támogatja mindkét formátumot
-        setCategory(ad.category || 'camera');
-        setConditionState(ad.condition_state || ad.conditionState || 'good');
-        setPrice(ad.price ? ad.price.toString() : '');
-        setCurrency(ad.currency || 'HUF');
-        setLocation(ad.location || '');
-        setDescription(ad.description || '');
-        
-        // Képek betöltése (biztosítsd, hogy tömböt kapj)
-        setImages(Array.isArray(ad.images) ? ad.images : []); 
-        
+        if (ad) {
+          setTitle(ad.title || '');
+          setBrand(ad.brand || '');
+          setModelName(ad.model_name || ''); // A képen model_name látszik
+          setCategory(ad.category || 'camera');
+          setConditionState(ad.condition_state || 'good'); // A képen condition_state látszik
+          setPrice(ad.price ? ad.price.toString() : '');
+          setCurrency(ad.currency || 'HUF');
+          setLocation(ad.location || '');
+          setDescription(ad.description || '');
+          
+          // A képek kezelése: 
+          // Ha az ad.images egy URL sztring, alakítsd tömbbé. 
+          // Ha már tömb, használd azt.
+          setImages(ad.images || []); 
+        }
       } catch (error) {
         console.error('Hiba a hirdetés betöltésekor:', error);
       }
