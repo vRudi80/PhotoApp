@@ -225,19 +225,12 @@ module.exports = function(app, pool, checkPremium, upload) {
   // ==========================================
   // HIRDETÉS ELADOTTNAK JELÖLÉSE
   // ==========================================
-  app.put('/api/marketplace/ads/:id/sold', checkPremium, async (req, res) => {
+ app.put('/api/marketplace/ads/:id/sold', checkPremium, async (req, res) => {
     try {
       const adId = req.params.id;
-
-      // Beállítjuk az is_active státuszt 0-ra, így eltűnik a listából
-      await pool.query(
-        'UPDATE photo_marketplace_ads SET is_active = 0 WHERE id = ?',
-        [adId]
-      );
-
-      res.json({ success: true, message: 'Hirdetés sikeresen lezárva! 🎉' });
+      await pool.query('UPDATE photo_marketplace_ads SET is_active = 0 WHERE id = ?', [adId]);
+      res.json({ success: true, message: 'Hirdetés lezárva! 🎉' });
     } catch (err) {
-      console.error("Hiba a hirdetés lezárásakor:", err);
       res.status(500).json({ error: err.message });
     }
   });
