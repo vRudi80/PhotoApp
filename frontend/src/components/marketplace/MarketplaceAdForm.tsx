@@ -101,47 +101,45 @@ useEffect(() => {
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!title || !price) {
-      alert('A cím és az ár megadása kötelező!');
-      return;
-    }
+  e.preventDefault();
+  if (!title || !price) {
+    alert('A cím és az ár megadása kötelező!');
+    return;
+  }
 
-    setSubmitting(true);
-   // A MarketplaceAdForm.tsx handleSubmit függvényében:
-const payload = {
-  userEmail: user.email, // 👈 Ez hiányzott a PUT kérésből!
-  title,
-  brand,
-  modelName,
-  category,
-  conditionState,
-  price: Number(price),
-  currency,
-  location,
-  description,
-  images,
-  specificAttributes: {}
-};
-
-    try {
-      // PONTOSÍTOTT FELTÉTEL: Csak akkor küldünk PUT-ot, ha valós, létező ID-nk van
-      if (adId && adId !== '' && adId !== null) {
-        await axios.put(`${BACKEND_URL}/api/marketplace/ads/${adId}`, payload, { withCredentials: true });
-        alert('Hirdetés sikeresen frissítve! 🎉');
-      } else {
-        // Új hirdetés feladása mindig POST a gyökér útvonalra
-        await axios.post(`${BACKEND_URL}/api/marketplace/ads`, payload, { withCredentials: true });
-        alert('Hirdetés sikeresen feladva! 🎉');
-      }
-      onCancel();
-    } catch (error) {
-      console.error('Hiba a küldés során:', error);
-      alert('Hiba történt a mentéskor. Ellenőrizd a jogosultságokat!');
-    } finally {
-      setSubmitting(false);
-    }
+  setSubmitting(true);
+  
+  // Fontos: Itt a kulcsok pontosan egyezzenek meg az adatbázis oszlopneveivel!
+  const payload = {
+    userEmail: user.email,
+    title,
+    brand,
+    model_name: modelName, // 👈 EZT javítsd át: az adatbázisban model_name van
+    category,
+    condition_state: conditionState, // 👈 EZT is: condition_state
+    price: Number(price),
+    currency,
+    location,
+    description,
+    images,
   };
+
+  try {
+    if (adId) {
+      await axios.put(`${BACKEND_URL}/api/marketplace/ads/${adId}`, payload, { withCredentials: true });
+      alert('Hirdetés frissítve!');
+    } else {
+      await axios.post(`${BACKEND_URL}/api/marketplace/ads`, payload, { withCredentials: true });
+      alert('Hirdetés feladva!');
+    }
+    onCancel();
+  } catch (error) {
+    console.error('Mentési hiba:', error);
+    alert('Mentés sikertelen. Ellenőrizd a konzolt (F12)!');
+  } finally {
+    setSubmitting(false);
+  }
+};
 
   return (
     <div style={{ maxWidth: '800px', margin: '0 auto', color: '#f8fafc', padding: '20px', animation: 'fadeIn 0.4s ease-out' }}>
