@@ -1,5 +1,7 @@
 const express = require('express');
 const cors = require('cors');
+
+
 const mysql = require('mysql2/promise');
 const multer = require('multer');
 const { google } = require('googleapis');
@@ -30,7 +32,12 @@ oauth2Client.setCredentials({ refresh_token: process.env.DRIVE_REFRESH_TOKEN });
 const drive = google.drive({ version: 'v3', auth: oauth2Client });
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: ['https://photawesome.com', 'http://localhost:5173'], // Csak a megbízható domainek
+  credentials: true, // Ez elengedhetetlen a bejelentkezéshez/sütikhez
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 
 // ==========================================
 // 2. STRIPE WEBHOOK (KÖTELEZŐEN AZ express.json ELÉ!)
