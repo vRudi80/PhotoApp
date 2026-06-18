@@ -67,6 +67,7 @@ app.post('/api/marketplace/ads', upload.array('images'), checkPremium, async (re
       error: 'Hiba a mentés során', 
       details: err.message, // Ez segít a frontenden látni a konkrét SQL hibát
       sqlState: err.sqlState // Ez is hasznos
+  }
   });
 
 
