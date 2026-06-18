@@ -7,7 +7,13 @@ require('dotenv').config();
 const cheerio = require('cheerio');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const xlsx = require('xlsx');
-
+const cloudinary = require('cloudinary').v2; // 👈 Új import
+// 👑 CLOUDINARY KONFIGURÁCIÓ (Itt legyen a főfájlban!)
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -31,21 +37,12 @@ const drive = google.drive({ version: 'v3', auth: oauth2Client });
 
 const app = express();
 
-// ==========================================
-// CORS ÉS BIZTONSÁGI BEÁLLÍTÁSOK (JAVÍTVA)
-// ==========================================
+// 👑 CORS JAVÍTÁSA (Ez oldja meg a 400-as hibákat és a blokkolást)
 app.use(cors({
   origin: ['https://photawesome.com', 'http://localhost:5173'],
-  credentials: true
+  credentials: true 
 }));
 
-// Cloudinary konfiguráció (KÖTELEZŐ a piactér képfeltöltéséhez, különben elszáll a szerver!)
-const cloudinary = require('cloudinary').v2;
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
-});
 
 // Szükség esetén átpasszoljuk a cloudinary-t a globális objektumba, ha a marketplace.js használja
 app.set('cloudinary', cloudinary);
