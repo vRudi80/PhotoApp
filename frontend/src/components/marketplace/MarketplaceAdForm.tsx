@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import { BACKEND_URL } from '../utils/constants'; // 🎯 ÚJ: Backend URL importálása
 
 type Category = 'camera' | 'lens' | 'lighting' | 'drone' | 'accessory' | '';
 type ConditionState = 'mint' | 'excellent' | 'good' | 'heavily_used' | 'for_parts';
@@ -52,7 +53,8 @@ export default function MarketplaceAdForm({ user, onCancel }: MarketplaceAdFormP
     setUploading(true);
     try {
       const file = files[0];
-      const { data: sigData } = await axios.get('/api/marketplace/upload-signature');
+      // 🎯 JAVÍTVA: BACKEND_URL hozzáadva
+      const { data: sigData } = await axios.get(`${BACKEND_URL}/api/marketplace/upload-signature`);
 
       const formData = new FormData();
       formData.append('file', file);
@@ -81,7 +83,8 @@ export default function MarketplaceAdForm({ user, onCancel }: MarketplaceAdFormP
 
     setSubmitting(true);
     try {
-      const response = await axios.post('/api/marketplace/ads', {
+      // 🎯 JAVÍTVA: BACKEND_URL hozzáadva
+      const response = await axios.post(`${BACKEND_URL}/api/marketplace/ads`, {
         userEmail: user?.email,
         ...baseData,
         price: parseInt(baseData.price),
