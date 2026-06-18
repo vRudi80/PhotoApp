@@ -7,12 +7,28 @@ export default function MarketplaceDetails({ adId, currentUser, onBack, onEdit }
   const [activeImage, setActiveImage] = useState('');
 
   useEffect(() => {
-    axios.get(`${BACKEND_URL}/api/marketplace/ads/${adId}`).then(res => {
-      setAd(res.data);
-      if (res.data.images?.length > 0) setActiveImage(res.data.images[0].url);
-    });
+    const fetchAd = async () => {
+      try {
+        const res = await axios.get(`${BACKEND_URL}/api/marketplace/ads/${adId}`);
+        
+        // JAVÍTÁS: A szerver tömböt küld, ki kell választani az első elemet
+        const adData = Array.isArray(res.data) ? res.data[0] : res.data;
+        
+        console.log("DEBUG - Részletek betöltve:", adData);
+        
+        setAd(adData);
+        
+        // Biztonságos képbeállítás
+        if (adData && adData.images && adData.images.length > 0) {
+          setActiveImage(adData.images[0].url);
+        }
+      } catch (err) {
+        console.error("Hiba a részletek betöltésekor:", err);
+      }
+    };
+    
+    if (adId) fetchAd();
   }, [adId]);
-
   if (!ad) return <div style={{ color: 'white', textAlign: 'center', padding: '50px' }}>Betöltés...</div>;
 
   return (
