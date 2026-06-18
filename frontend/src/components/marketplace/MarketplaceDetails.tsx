@@ -58,13 +58,14 @@ export default function MarketplaceDetails({ adId, currentUser, onBack, onEdit }
             )}
           </div>
           <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#f43f5e', margin: '15px 0' }}>{ad.price.toLocaleString()} {ad.currency}</p>
-          <p style={{ color: '#94a3b8' }}>👤 Hirdető: <span style={{ color: 'white' }}>{ad.advertiser_name}</span></p>
-          <p style={{ color: '#94a3b8' }}>📍 Helyszín: <span style={{ color: 'white' }}>{ad.location}</span></p>
-          <p style={{ color: '#94a3b8' }}>✨ Állapot: <span style={{ color: 'white' }}>{ad.condition_state}</span></p>
-          <div style={{ marginTop: '20px', borderTop: '1px solid #334155', paddingTop: '20px' }}>
-            <h3 style={{ color: '#38bdf8' }}>Leírás</h3>
-            <p style={{ lineHeight: '1.6' }}>{ad.description}</p>
-          </div>
+          <p style={{ color: '#94a3b8' }}>👤 Hirdető: <span style={{ color: 'white' }}>{ad.advertiser_name || 'N/A'}</span></p>
+<p style={{ color: '#94a3b8' }}>📍 Helyszín: <span style={{ color: 'white' }}>{ad.location || 'N/A'}</span></p>
+<p style={{ color: '#94a3b8' }}>✨ Állapot: <span style={{ color: 'white' }}>{ad.conditionState || ad.condition_state || 'N/A'}</span></p>
+
+<div style={{ marginTop: '20px', borderTop: '1px solid #334155', paddingTop: '20px' }}>
+  <h3 style={{ color: '#38bdf8' }}>Leírás</h3>
+  <p style={{ lineHeight: '1.6' }}>{ad.description || 'Nincs leírás megadva.'}</p>
+</div>
         </div>
       </div>
     </div>
