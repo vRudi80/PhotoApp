@@ -67,12 +67,12 @@ const conditionMap: { [key: string]: string } = {
           <p style={{ color: '#94a3b8' }}>👤 Hirdető: <span style={{ color: 'white' }}>{ad.advertiser_name || 'N/A'}</span></p>
 <p style={{ color: '#94a3b8' }}>📍 Helyszín: <span style={{ color: 'white' }}>{ad.location || 'N/A'}</span></p>
 <p style={{ color: '#94a3b8' }}>
-      ✨ Állapot: 
-      <span style={{ color: 'white', marginLeft: '8px' }}>
-        {/* 2. Itt történik a megjelenítés: ha van a map-ben, kiírja, ha nincs, marad az eredeti */}
-        {conditionMap[ad.condition_state] || ad.condition_state}
-      </span>
-    </p>
+  ✨ Állapot: 
+  <span style={{ color: 'white', marginLeft: '8px' }}>
+    {/* Itt ellenőrizzük a két lehetséges kulcsot és a fordítást */}
+    {conditionMap[ad.condition_state] || conditionMap[ad.conditionState] || ad.condition_state || ad.conditionState || 'N/A'}
+  </span>
+</p>
 
 <div style={{ marginTop: '20px', borderTop: '1px solid #334155', paddingTop: '20px' }}>
   <h3 style={{ color: '#38bdf8' }}>Leírás</h3>
