@@ -25,31 +25,36 @@ export default function MarketplaceAdForm({ user, onCancel, adId }: MarketplaceA
   const [submitting, setSubmitting] = useState(false);
 
   // 👈 SZERKESZTÉS: Ha van adId, betöltjük a meglévő hirdetés adatait a backendről
-  useEffect(() => {
-    if (adId) {
-      const fetchAdForEdit = async () => {
-        try {
-          const response = await axios.get(`${BACKEND_URL}/api/marketplace/ads/${adId}`);
-          const ad = response.data.success ? response.data.data : response.data;
-          
-          setTitle(ad.title || '');
-          setBrand(ad.brand || '');
-          setModelName(ad.model_name || ad.modelName || '');
-          setCategory(ad.category || 'camera');
-          setConditionState(ad.condition_state || ad.conditionState || 'excellent');
-          setPrice(ad.price?.toString() || '');
-          setCurrency(ad.currency || 'HUF');
-          setLocation(ad.location || '');
-          setDescription(ad.description || '');
-          setImages(ad.images || []);
-        } catch (error) {
-          console.error('Hiba a hirdetés betöltésekor:', error);
-          alert('Nem sikerült betölteni a hirdetés adatait.');
-        }
-      };
-      fetchAdForEdit();
-    }
-  }, [adId]);
+ useEffect(() => {
+  if (adId) {
+    const fetchAdForEdit = async () => {
+      try {
+        const response = await axios.get(`${BACKEND_URL}/api/marketplace/ads/${adId}`);
+        const ad = response.data; // Közvetlenül a hirdetés objektum
+        
+        console.log("DEBUG - Betöltött hirdetés:", ad); // 👈 EZT NÉZD MEG A KONZOLBAN!
+
+        // Biztonságos értékadás:
+        setTitle(ad.title || '');
+        setBrand(ad.brand || '');
+        setModelName(ad.model_name || ad.modelName || ''); // Támogatja mindkét formátumot
+        setCategory(ad.category || 'camera');
+        setConditionState(ad.condition_state || ad.conditionState || 'excellent');
+        setPrice(ad.price ? ad.price.toString() : '');
+        setCurrency(ad.currency || 'HUF');
+        setLocation(ad.location || '');
+        setDescription(ad.description || '');
+        
+        // Képek betöltése (biztosítsd, hogy tömböt kapj)
+        setImages(Array.isArray(ad.images) ? ad.images : []); 
+        
+      } catch (error) {
+        console.error('Hiba a hirdetés betöltésekor:', error);
+      }
+    };
+    fetchAdForEdit();
+  }
+}, [adId]);
 
   // 👈 TÖBB KÉP FELTÖLTÉSE (Cloudinary)
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
