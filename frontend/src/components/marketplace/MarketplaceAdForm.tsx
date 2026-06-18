@@ -99,19 +99,21 @@ export default function MarketplaceAdForm({ user, onCancel, adId }: MarketplaceA
     }
 
     setSubmitting(true);
-    const payload = {
-      title,
-      brand,
-      modelName,
-      category,
-      conditionState,
-      price: Number(price),
-      currency,
-      location,
-      description,
-      images,
-      user_email: user.email
-    };
+   // A MarketplaceAdForm.tsx handleSubmit függvényében:
+const payload = {
+  userEmail: user.email, // 👈 Ez hiányzott a PUT kérésből!
+  title,
+  brand,
+  modelName,
+  category,
+  conditionState,
+  price: Number(price),
+  currency,
+  location,
+  description,
+  images,
+  specificAttributes: {}
+};
 
     try {
       // PONTOSÍTOTT FELTÉTEL: Csak akkor küldünk PUT-ot, ha valós, létező ID-nk van
