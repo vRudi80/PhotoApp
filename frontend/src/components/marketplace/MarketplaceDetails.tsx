@@ -55,18 +55,19 @@ const handleSendMessage = async () => {
   if (!messageBody.trim()) return;
   try {
     await axios.post(`${BACKEND_URL}/api/marketplace/messages`, {
-      adId: adId,
+      adId: ad.id,
       receiverEmail: ad.user_email,
-      message: messageBody
+      message: messageBody,
+      userEmail: activeUser?.email // 👈 EZT ADJA HOZZÁ! Ez fogja átvinni a checkPremium ellenőrzést!
     }, { 
-      withCredentials: true // EZ A LEGFONTOSABB!
+      withCredentials: true 
     });
     
-    alert('Üzenet elküldve!');
+    alert('Üzenet elküldve! 📩');
     setIsMessaging(false);
     setMessageBody('');
   } catch (err: any) {
-    console.error("Backend hiba:", err.response?.data);
+    console.error("Hiba részletei:", err.response?.data);
     alert('Hiba: ' + (err.response?.data?.error || 'Ismeretlen hiba'));
   }
 };
