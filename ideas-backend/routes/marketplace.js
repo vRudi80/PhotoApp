@@ -59,14 +59,16 @@ app.post('/api/marketplace/ads', upload.array('images'), checkPremium, async (re
 
     await conn.commit();
     res.json({ success: true, adId: newAdId });
-  } catch (err) {
-    if (conn) await conn.rollback();
-    console.error("Hiba a hirdetés mentésekor:", err);
-    res.status(500).json({ error: 'Hiba a mentés során: ' + err.message });
-  } finally {
-    conn.release();
-  }
-});
+ } catch (err) {
+  if (conn) await conn.rollback();
+  // Fontos: Itt a TELJES hibaobjektumot írjuk ki, ne csak az üzenetet!
+  console.error("DEBUG - Részletes hiba a hirdetés mentésekor:", err); 
+  res.status(500).json({ 
+      error: 'Hiba a mentés során', 
+      details: err.message, // Ez segít a frontenden látni a konkrét SQL hibát
+      sqlState: err.sqlState // Ez is hasznos
+  });
+}
 
   
 
