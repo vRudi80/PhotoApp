@@ -35,20 +35,21 @@ export default function MarketplaceList({ user, onNavigateToCreate, onNavigateTo
   }, []);
 
   const fetchAds = async () => {
-    try {
-      setLoading(true);
-      const response = await axios.get(`${BACKEND_URL}/api/marketplace/ads`);
-      const adData = response.data.success ? response.data.data : response.data;
-      if (Array.isArray(adData)) {
-        setAds(adData);
-      }
-    } catch (error) {
-      console.error('Hiba a hirdetések lekérésekor:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  try {
+    setLoading(true);
+    const response = await axios.get(`${BACKEND_URL}/api/marketplace/ads`);
+    
+    // DEBUG: Nézzük meg, mi jön a szervertől
+    console.log("Szerver válasza:", response.data); 
+    
+    // Feltételezve, hogy a szerver közvetlenül a hirdetések tömbjét küldi:
+    setAds(response.data); 
+  } catch (error) {
+    console.error('Hiba a hirdetések lekérésekor:', error);
+  } finally {
+    setLoading(false);
+  }
+};
   const filteredAds = ads.filter(ad => {
     const safeTitle = ad.title || '';
     const safeBrand = ad.brand || '';
@@ -120,14 +121,17 @@ export default function MarketplaceList({ user, onNavigateToCreate, onNavigateTo
           {filteredAds.map((ad) => (
             /* 👈 IDE KERÜLT AZ ONCLICK KATTINTÁSRA VALÓ MEGNYITÁS (MySQL id vagy MongoDB _id támogatással) */
             <div key={ad._id} className="market-card" onClick={() => onNavigateToDetails(ad.id || ad._id)} style={{ cursor: 'pointer' }}>
-              <div className="card-image-wrapper">
-                {ad.images && ad.images.length > 0 ? (
-                  <img src={ad.images[0].url} alt={ad.title} className="card-image" />
-                ) : (
-                  <div className="no-image">📷 Nincs kép</div>
-                )}
-                <span className="card-badge">{getConditionLabel(ad.conditionState)}</span>
-              </div>
+             <div className="card-image-wrapper">
+  {/* Itt ellenőrizzük az images tömböt ÉS a cover_image stringet is */}
+  {(ad.images && ad.images.length > 0) ? (
+    <img src={ad.images[0].url} alt={ad.title} className="card-image" />
+  ) : (ad as any).cover_image ? (
+    <img src={(ad as any).cover_image} alt={ad.title} className="card-image" />
+  ) : (
+    <div className="no-image">📷 Nincs kép</div>
+  )}
+  <span className="card-badge">{getConditionLabel(ad.conditionState)}</span>
+</div>
               <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '10px', flexGrow: 1 }}>
                 <span style={{ fontSize: '0.8rem', textTransform: 'uppercase', color: '#38bdf8', fontWeight: 'bold' }}>
                   {ad.brand} {ad.modelName}
