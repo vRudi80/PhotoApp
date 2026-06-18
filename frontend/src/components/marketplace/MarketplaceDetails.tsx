@@ -51,30 +51,23 @@ export default function MarketplaceDetails(props: any) {
     }
   };
 
-  const handleSendMessage = async () => {
+const handleSendMessage = async () => {
   if (!messageBody.trim()) return;
-  
-  // LOGOLJUK, MIT KÜLDÜNK
-  console.log("Küldött adatok:", {
-    adId,
-    receiverEmail: ad.user_email,
-    message: messageBody
-  });
-
   try {
-    const response = await axios.post(`${BACKEND_URL}/api/marketplace/messages`, {
+    await axios.post(`${BACKEND_URL}/api/marketplace/messages`, {
       adId: adId,
       receiverEmail: ad.user_email,
       message: messageBody
-    }, { withCredentials: true });
+    }, { 
+      withCredentials: true // EZ A LEGFONTOSABB!
+    });
     
     alert('Üzenet elküldve!');
     setIsMessaging(false);
     setMessageBody('');
   } catch (err: any) {
-    // ITT FOGJUK LÁTNI A PONTOS HIBAOKOT A KONZOLBAN
     console.error("Backend hiba:", err.response?.data);
-    alert('Hiba az üzenetküldésnél: ' + (err.response?.data?.error || 'Ismeretlen hiba'));
+    alert('Hiba: ' + (err.response?.data?.error || 'Ismeretlen hiba'));
   }
 };
 
