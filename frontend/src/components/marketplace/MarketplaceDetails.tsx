@@ -19,10 +19,9 @@ export default function MarketplaceDetails({ adId, currentUser, onBack, onEdit }
       try {
         const res = await axios.get(`${BACKEND_URL}/api/marketplace/ads/${adId}`);
         const adData = Array.isArray(res.data) ? res.data[0] : res.data;
+        console.log("DEBUG - Betöltött hirdetés:", adData);
         setAd(adData);
-        if (adData && adData.images && adData.images.length > 0) {
-          setActiveImage(adData.images[0].url);
-        }
+        if (adData?.images?.length > 0) setActiveImage(adData.images[0].url);
       } catch (err) {
         console.error("Hiba a részletek betöltésekor:", err);
       }
@@ -33,26 +32,18 @@ export default function MarketplaceDetails({ adId, currentUser, onBack, onEdit }
   const handleMarkAsSold = async () => {
     try {
       await axios.put(`${BACKEND_URL}/api/marketplace/ads/${adId}/sold`, {}, { withCredentials: true });
-      alert('Hirdetés eladottnak jelölve! 🎉');
+      alert('Hirdetés eladottnak jelölve!');
       window.location.reload();
-    } catch (err) {
-      alert('Hiba a státusz frissítésekor.');
-    }
+    } catch (err) { alert('Hiba a státusz frissítésekor.'); }
   };
 
   const sendMessage = async () => {
     const msg = prompt("Írj üzenetet az eladónak:");
     if (msg) {
       try {
-        await axios.post(`${BACKEND_URL}/api/marketplace/messages`, {
-          adId,
-          receiverEmail: ad.user_email,
-          message: msg
-        }, { withCredentials: true });
-        alert("Üzenet sikeresen elküldve!");
-      } catch (e) {
-        alert("Hiba az üzenetküldésnél.");
-      }
+        await axios.post(`${BACKEND_URL}/api/marketplace/messages`, { adId, receiverEmail: ad.user_email, message: msg }, { withCredentials: true });
+        alert("Üzenet elküldve!");
+      } catch (e) { alert("Hiba az üzenetküldésnél."); }
     }
   };
 
@@ -60,7 +51,7 @@ export default function MarketplaceDetails({ adId, currentUser, onBack, onEdit }
 
   return (
     <div style={{ maxWidth: '1000px', margin: '0 auto', color: 'white', animation: 'fadeIn 0.5s' }}>
-      <button onClick={onBack} style={{ background: '#334155', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', marginBottom: '20px' }}>⬅ Vissza a listához</button>
+      <button onClick={onBack} style={{ background: '#334155', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', marginBottom: '20px' }}>⬅ Vissza</button>
       
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px', background: '#1e293b', padding: '30px', borderRadius: '16px' }}>
         <div>
@@ -76,35 +67,29 @@ export default function MarketplaceDetails({ adId, currentUser, onBack, onEdit }
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <h1 style={{ margin: 0, color: '#38bdf8' }}>{ad.title}</h1>
-            <div style={{ display: 'flex', gap: '10px' }}>
-              {currentUser.email === ad.user_email ? (
-                <>
-                  <button onClick={onEdit} style={{ background: '#f59e0b', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '8px', cursor: 'pointer' }}>📝 Szerkesztés</button>
-                  {ad.is_active === 1 && <button onClick={handleMarkAsSold} style={{ background: '#10b981', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '8px', cursor: 'pointer' }}>✅ Eladva</button>}
-                </>
-              ) : (
-                <button onClick={sendMessage} style={{ background: '#38bdf8', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '8px', cursor: 'pointer' }}>📩 Üzenet küldése</button>
-              )}
-            </div>
+            {currentUser?.email === ad.user_email ? (
+              <div style={{ display: 'flex', gap: '5px' }}>
+                <button onClick={onEdit} style={{ background: '#f59e0b', color: 'white', border: 'none', padding: '8px', borderRadius: '8px', cursor: 'pointer' }}>📝</button>
+                {ad.is_active === 1 && <button onClick={handleMarkAsSold} style={{ background: '#10b981', color: 'white', border: 'none', padding: '8px', borderRadius: '8px', cursor: 'pointer' }}>✅</button>}
+              </div>
+            ) : (
+              <button onClick={sendMessage} style={{ background: '#38bdf8', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '8px', cursor: 'pointer' }}>📩 Üzenet</button>
+            )}
           </div>
           
           <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#f43f5e', margin: '15px 0' }}>{ad.price?.toLocaleString()} {ad.currency}</p>
-          <p style={{ color: '#94a3b8' }}>👤 Hirdető: <span style={{ color: 'white' }}>{ad.advertiser_name || 'N/A'}</span></p>
-          <p style={{ color: '#94a3b8' }}>📍 Helyszín: <span style={{ color: 'white' }}>{ad.location || 'N/A'}</span></p>
-          <p style={{ color: '#94a3b8' }}>✨ Állapot: <span style={{ color: 'white', marginLeft: '8px' }}>{conditionMap[ad.condition_state] || ad.condition_state || 'N/A'}</span></p>
-
-          {/* Technikai adatok megjelenítése */}
-          {ad.specific_attributes && typeof ad.specific_attributes === 'object' && Object.keys(ad.specific_attributes).length > 0 && (
-             <div style={{ margin: '20px 0', padding: '10px', background: '#0f172a', borderRadius: '8px' }}>
-               {Object.entries(ad.specific_attributes).map(([key, value]) => (
-                 <p key={key} style={{ color: '#94a3b8', margin: '5px 0' }}>{key}: <span style={{ color: 'white' }}>{String(value)}</span></p>
-               ))}
-             </div>
-          )}
+          
+          {/* Adatok listázása */}
+          <div style={{ color: '#94a3b8', fontSize: '0.95rem' }}>
+            <p>Márka: <span style={{ color: 'white' }}>{ad.brand || 'N/A'}</span></p>
+            <p>Modell: <span style={{ color: 'white' }}>{ad.model_name || 'N/A'}</span></p>
+            <p>Állapot: <span style={{ color: 'white' }}>{conditionMap[ad.condition_state] || ad.condition_state || 'N/A'}</span></p>
+            <p>Helyszín: <span style={{ color: 'white' }}>{ad.location || 'N/A'}</span></p>
+          </div>
 
           <div style={{ marginTop: '20px', borderTop: '1px solid #334155', paddingTop: '20px' }}>
             <h3 style={{ color: '#38bdf8' }}>Leírás</h3>
-            <p style={{ lineHeight: '1.6' }}>{ad.description || 'Nincs leírás megadva.'}</p>
+            <p style={{ lineHeight: '1.6' }}>{ad.description || 'Nincs leírás.'}</p>
           </div>
         </div>
       </div>
