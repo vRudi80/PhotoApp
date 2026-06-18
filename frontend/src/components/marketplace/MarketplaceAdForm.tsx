@@ -58,10 +58,14 @@ export default function MarketplaceAdForm({ user, onCancel, adId }: MarketplaceA
 
     setUploading(true);
     try {
-      // Végigmegyünk az összes kijelölt képen sorban
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        const { data: sigData } = await axios.get(`${BACKEND_URL}/api/marketplace/upload-signature`);
+        
+        // MÓDOSÍTÁS: átadjuk a hitelesítést (withCredentials), hogy a backend beengedje a kérést
+        const { data: sigData } = await axios.get(
+          `${BACKEND_URL}/api/marketplace/upload-signature`,
+          { withCredentials: true }
+        );
 
         const formData = new FormData();
         formData.append('file', file);
@@ -72,12 +76,11 @@ export default function MarketplaceAdForm({ user, onCancel, adId }: MarketplaceA
 
         const uploadRes = await axios.post(`https://api.cloudinary.com/v1_1/${sigData.cloudName}/image/upload`, formData);
 
-        // Hozzáadjuk az új képet a meglévő tömbhöz (nem írjuk felül!)
         setImages(prev => [...prev, { url: uploadRes.data.secure_url, public_id: uploadRes.data.public_id }]);
       }
     } catch (error) {
       console.error('Képfeltöltési hiba:', error);
-      alert('Sikertelen képfeltöltés.');
+      alert('Sikertelen képfeltöltés. Kérlek győződj meg róla, hogy be vagy jelentkezve!');
     } finally {
       setUploading(false);
     }
@@ -111,19 +114,19 @@ export default function MarketplaceAdForm({ user, onCancel, adId }: MarketplaceA
     };
 
     try {
-      if (adId) {
-        // 👈 SZERKESZTÉS ESETÉN: PUT kérés megy az adott ID-ra
-        await axios.put(`${BACKEND_URL}/api/marketplace/ads/${adId}`, payload);
+      // PONTOSÍTOTT FELTÉTEL: Csak akkor küldünk PUT-ot, ha valós, létező ID-nk van
+      if (adId && adId !== '' && adId !== null) {
+        await axios.put(`${BACKEND_URL}/api/marketplace/ads/${adId}`, payload, { withCredentials: true });
         alert('Hirdetés sikeresen frissítve! 🎉');
       } else {
-        // ÚJ HIRDETÉS ESETÉN: POST kérés megy
-        await axios.post(`${BACKEND_URL}/api/marketplace/ads`, payload);
+        // Új hirdetés feladása mindig POST a gyökér útvonalra
+        await axios.post(`${BACKEND_URL}/api/marketplace/ads`, payload, { withCredentials: true });
         alert('Hirdetés sikeresen feladva! 🎉');
       }
-      onCancel(); // Visszanavigálunk
+      onCancel();
     } catch (error) {
       console.error('Hiba a küldés során:', error);
-      alert('Hiba történt a mentéskor.');
+      alert('Hiba történt a mentéskor. Ellenőrizd a jogosultságokat!');
     } finally {
       setSubmitting(false);
     }
