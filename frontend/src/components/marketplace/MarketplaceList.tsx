@@ -37,7 +37,7 @@ export default function MarketplaceList({ user, onNavigateToCreate, onNavigateTo
     fetchAds();
   }, []);
 
-  const fetchAds = async () => {
+const fetchAds = async () => {
     try {
       setLoading(true);
       const response = await axios.get(`${BACKEND_URL}/api/marketplace/ads`);
@@ -45,7 +45,7 @@ export default function MarketplaceList({ user, onNavigateToCreate, onNavigateTo
       setAds(response.data); 
     } catch (error) {
       console.error('Hiba a hirdetések lekérésekor:', error);
-    } file {
+    } finally { // <--- EZ VOLT ELGÉPÜLVE "file"-ra
       setLoading(false);
     }
   };
