@@ -39,7 +39,11 @@ export default function MarketplaceDetails(props: any) {
 
   const handleMarkAsSold = async () => {
     try {
-      await axios.put(`${BACKEND_URL}/api/marketplace/ads/${adId}/sold`, {}, { withCredentials: true });
+      await axios.put(
+        `${BACKEND_URL}/api/marketplace/ads/${adId}/sold`, 
+        { userEmail: activeUser?.email }, // 👈 Üres {} helyett átadjuk a felhasználó emailjét!
+        { withCredentials: true }
+      );
       alert('Hirdetés eladottnak jelölve! 🎉');
       onBack(); // Visszalépünk a listához
     } catch (err) {
