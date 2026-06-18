@@ -35,8 +35,18 @@ export default function MarketplaceList({ user, onNavigateToCreate }: Marketplac
     try {
       setLoading(true);
       const response = await axios.get('/api/marketplace/ads');
-      if (response.data.success) {
+      
+      // 🔍 Kiírjuk a konzolba, hogy pontosan mit küld a backend (F12 -> Console)
+      console.log('Szerver válasza a hirdetésekre:', response.data); 
+
+      if (response.data.success && Array.isArray(response.data.data)) {
+        // 1. eset: Ha a backend { success: true, data: [...] } formátumot használ
         setAds(response.data.data);
+      } else if (Array.isArray(response.data)) {
+        // 2. eset: Ha a backend közvetlenül a tömböt küldi [...]
+        setAds(response.data);
+      } else {
+        console.error('Ismeretlen adatszerkezet érkezett:', response.data);
       }
     } catch (error) {
       console.error('Hiba a hirdetések lekérésekor:', error);
