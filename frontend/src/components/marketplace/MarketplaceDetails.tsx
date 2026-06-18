@@ -52,21 +52,31 @@ export default function MarketplaceDetails(props: any) {
   };
 
   const handleSendMessage = async () => {
-    if (!messageBody.trim()) return;
-    try {
-      await axios.post(`${BACKEND_URL}/api/marketplace/messages`, {
-        adId,
-        receiverEmail: ad.user_email,
-        message: messageBody
-      }, { withCredentials: true });
-      
-      alert('Üzenet elküldve!');
-      setIsMessaging(false);
-      setMessageBody('');
-    } catch (err) {
-      alert('Hiba az üzenetküldéskor.');
-    }
-  };
+  if (!messageBody.trim()) return;
+  
+  // LOGOLJUK, MIT KÜLDÜNK
+  console.log("Küldött adatok:", {
+    adId,
+    receiverEmail: ad.user_email,
+    message: messageBody
+  });
+
+  try {
+    const response = await axios.post(`${BACKEND_URL}/api/marketplace/messages`, {
+      adId: adId,
+      receiverEmail: ad.user_email,
+      message: messageBody
+    }, { withCredentials: true });
+    
+    alert('Üzenet elküldve!');
+    setIsMessaging(false);
+    setMessageBody('');
+  } catch (err: any) {
+    // ITT FOGJUK LÁTNI A PONTOS HIBAOKOT A KONZOLBAN
+    console.error("Backend hiba:", err.response?.data);
+    alert('Hiba az üzenetküldésnél: ' + (err.response?.data?.error || 'Ismeretlen hiba'));
+  }
+};
 
   if (!ad) return <div style={{ color: 'white', textAlign: 'center', padding: '50px' }}>Betöltés...</div>;
 
