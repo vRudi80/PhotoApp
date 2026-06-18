@@ -31,12 +31,24 @@ const drive = google.drive({ version: 'v3', auth: oauth2Client });
 
 const app = express();
 
-// Konkrét domainek engedélyezése a biztonságos sütikezeléshez
+// ==========================================
+// CORS ÉS BIZTONSÁGI BEÁLLÍTÁSOK (JAVÍTVA)
+// ==========================================
 app.use(cors({
-  origin: ['https://photawesome.com', 'http://localhost:5173'], // Az éles oldalad és a helyi tesztkörnyezet
-  credentials: true                                            // 👑 Ez engedélyezi a withCredentials kéréseket!
+  origin: ['https://photawesome.com', 'http://localhost:5173'],
+  credentials: true
 }));
 
+// Cloudinary konfiguráció (KÖTELEZŐ a piactér képfeltöltéséhez, különben elszáll a szerver!)
+const cloudinary = require('cloudinary').v2;
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
+
+// Szükség esetén átpasszoljuk a cloudinary-t a globális objektumba, ha a marketplace.js használja
+app.set('cloudinary', cloudinary);
 // ==========================================
 // 2. STRIPE WEBHOOK (KÖTELEZŐEN AZ express.json ELÉ!)
 // ==========================================
