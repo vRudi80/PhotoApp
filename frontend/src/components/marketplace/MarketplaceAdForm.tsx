@@ -1,58 +1,64 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { BACKEND_URL } from '../../utils/constants';
 
-type Category = 'camera' | 'lens' | 'lighting' | 'drone' | 'accessory' | '';
-type ConditionState = 'mint' | 'excellent' | 'good' | 'heavily_used' | 'for_parts';
-
-interface BaseData {
-  category: Category;
-  title: string;
-  brand: string;
-  modelName: string;
-  conditionState: ConditionState;
-  price: string;
-  currency: string;
-  location: string;
-  description: string;
-}
-
-interface CloudinaryImage {
-  url: string;
-  public_id: string;
-}
-
 interface MarketplaceAdFormProps {
   user: { email: string };
-  onCancel: () => void; // Kötelező visszaléptető függvény a szülőtől
+  onCancel: () => void;
+  adId?: string | number | null; // 👈 Opcionális adId a szerkesztéshez
 }
 
-export default function MarketplaceAdForm({ user, onCancel }: MarketplaceAdFormProps) {
-  const [baseData, setBaseData] = useState<BaseData>({
-    category: '', title: '', brand: '', modelName: '', conditionState: 'excellent', price: '', currency: 'HUF', location: '', description: ''
-  });
+export default function MarketplaceAdForm({ user, onCancel, adId }: MarketplaceAdFormProps) {
+  const [title, setTitle] = useState('');
+  const [brand, setBrand] = useState('');
+  const [modelName, setModelName] = useState('');
+  const [category, setCategory] = useState('camera');
+  const [conditionState, setConditionState] = useState('excellent');
+  const [price, setPrice] = useState('');
+  const [currency, setCurrency] = useState('HUF');
+  const [location, setLocation] = useState('');
+  const [description, setDescription] = useState('');
+  
+  // Több kép kezelése tömbként
+  const [images, setImages] = useState<Array<{ url: string; public_id: string }>>([]);
+  const [uploading, setUploading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-  const [specificAttributes, setSpecificAttributes] = useState<Record<string, any>>({});
-  const [images, setImages] = useState<CloudinaryImage[]>([]);
-  const [uploading, setUploading] = useState<boolean>(false);
-  const [submitting, setSubmitting] = useState<boolean>(false);
+  // 👈 SZERKESZTÉS: Ha van adId, betöltjük a meglévő hirdetés adatait a backendről
+  useEffect(() => {
+    if (adId) {
+      const fetchAdForEdit = async () => {
+        try {
+          const response = await axios.get(`${BACKEND_URL}/api/marketplace/ads/${adId}`);
+          const ad = response.data.success ? response.data.data : response.data;
+          
+          setTitle(ad.title || '');
+          setBrand(ad.brand || '');
+          setModelName(ad.model_name || ad.modelName || '');
+          setCategory(ad.category || 'camera');
+          setConditionState(ad.condition_state || ad.conditionState || 'excellent');
+          setPrice(ad.price?.toString() || '');
+          setCurrency(ad.currency || 'HUF');
+          setLocation(ad.location || '');
+          setDescription(ad.description || '');
+          setImages(ad.images || []);
+        } catch (error) {
+          console.error('Hiba a hirdetés betöltésekor:', error);
+          alert('Nem sikerült betölteni a hirdetés adatait.');
+        }
+      };
+      fetchAdForEdit();
+    }
+  }, [adId]);
 
-  const handleCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setBaseData({ ...baseData, category: e.target.value as Category });
-    setSpecificAttributes({});
-  };
-
-  const handleAttrChange = (key: string, value: any) => {
-    setSpecificAttributes(prev => ({ ...prev, [key]: value }));
-  };
-
+  // 👈 TÖBB KÉP FELTÖLTÉSE (Cloudinary)
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
     setUploading(true);
     try {
-      // Végigmegyünk az összes kijelölt fájlon
+      // Végigmegyünk az összes kijelölt képen sorban
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         const { data: sigData } = await axios.get(`${BACKEND_URL}/api/marketplace/upload-signature`);
@@ -66,252 +72,164 @@ export default function MarketplaceAdForm({ user, onCancel }: MarketplaceAdFormP
 
         const uploadRes = await axios.post(`https://api.cloudinary.com/v1_1/${sigData.cloudName}/image/upload`, formData);
 
-        // Hozzáadjuk a listához (nem felülírjuk!)
+        // Hozzáadjuk az új képet a meglévő tömbhöz (nem írjuk felül!)
         setImages(prev => [...prev, { url: uploadRes.data.secure_url, public_id: uploadRes.data.public_id }]);
       }
     } catch (error) {
-      console.error('Hiba:', error);
-      alert('Sikertelen képfeltöltés');
+      console.error('Képfeltöltési hiba:', error);
+      alert('Sikertelen képfeltöltés.');
     } finally {
       setUploading(false);
     }
   };
 
-  // Kép törlése funkció (hogy ki lehessen venni, ha rosszat töltött fel)
-  const removeImage = (index: number) => {
-    setImages(prev => prev.filter((_, i) => i !== index));
+  // Kép eltávolítása a listából
+  const removeImage = (indexToRemove: number) => {
+    setImages(prev => prev.filter((_, idx) => idx !== indexToRemove));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!baseData.category || !baseData.title || !baseData.price) {
-      alert('Kérjük, töltsd ki a kötelező mezőket (Kategória, Cím, Ár)!');
+    if (!title || !price) {
+      alert('A cím és az ár megadása kötelező!');
       return;
     }
 
     setSubmitting(true);
-    try {
-      // 🎯 JAVÍTVA: BACKEND_URL hozzáadva
-      const response = await axios.post(`${BACKEND_URL}/api/marketplace/ads`, {
-        userEmail: user?.email,
-        ...baseData,
-        price: parseInt(baseData.price),
-        specificAttributes,
-        images
-      });
+    const payload = {
+      title,
+      brand,
+      modelName,
+      category,
+      conditionState,
+      price: Number(price),
+      currency,
+      location,
+      description,
+      images,
+      user_email: user.email
+    };
 
-      if (response.data.success) {
-        alert('Hirdetés sikeresen feladva!');
-        onCancel(); // Sikeres feladás után visszavisz a listázáshoz
+    try {
+      if (adId) {
+        // 👈 SZERKESZTÉS ESETÉN: PUT kérés megy az adott ID-ra
+        await axios.put(`${BACKEND_URL}/api/marketplace/ads/${adId}`, payload);
+        alert('Hirdetés sikeresen frissítve! 🎉');
+      } else {
+        // ÚJ HIRDETÉS ESETÉN: POST kérés megy
+        await axios.post(`${BACKEND_URL}/api/marketplace/ads`, payload);
+        alert('Hirdetés sikeresen feladva! 🎉');
       }
+      onCancel(); // Visszanavigálunk
     } catch (error) {
-      console.error('Hirdetésfeladási hiba:', error);
-      alert('Nem sikerült menteni a hirdetést.');
+      console.error('Hiba a küldés során:', error);
+      alert('Hiba történt a mentéskor.');
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <div style={{ animation: 'fadeIn 0.5s ease-out', maxWidth: '800px', margin: '0 auto', color: '#f8fafc', padding: '0 20px' }}>
-      
-      {/* FEJLÉC VISSZA GOMBBAL */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
-        <h2 style={{ margin: 0, fontSize: '2rem', color: '#f8fafc' }}>➕ Új hirdetés feladása</h2>
-        <button type="button" onClick={onCancel} className="btn-cancel">
-          ⬅ Mégsem / Vissza
+    <div style={{ maxWidth: '800px', margin: '0 auto', color: '#f8fafc', padding: '20px', animation: 'fadeIn 0.4s ease-out' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
+        <h1 style={{ margin: 0, fontSize: '2rem', fontWeight: 700, color: '#38bdf8' }}>
+          {adId ? '📝 Hirdetés szerkesztése' : '➕ Új hirdetés feladása'}
+        </h1>
+        <button onClick={onCancel} style={{ background: '#334155', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
+          ← Mégsem / Vissza
         </button>
       </div>
 
-      <div style={{ background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)', padding: '30px', borderRadius: '16px', border: '1px solid #334155', boxShadow: '0 10px 30px rgba(0,0,0,0.2)' }}>
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
-          
-          {/* ALAPADATOK */}
-          <div className="form-grid">
-            <div>
-              <label className="market-label">Kategória *</label>
-              <select value={baseData.category} onChange={handleCategoryChange} className="market-input">
-                <option value="">Válassz kategóriát...</option>
-                <option value="camera">Fényképezőgép váz</option>
-                <option value="lens">Objektív</option>
-                <option value="lighting">Stúdiótechnika / Világítás</option>
-                <option value="drone">Drón / Stabilizátor</option>
-                <option value="accessory">Egyéb kiegészítő</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="market-label">Hirdetés címe *</label>
-              <input type="text" required value={baseData.title} onChange={e => setBaseData({...baseData, title: e.target.value})} placeholder="pl. Sony Alpha 7 IV megkímélt állapotban" className="market-input" />
-            </div>
-
-            <div>
-              <label className="market-label">Gyártó / Márka</label>
-              <input type="text" value={baseData.brand} onChange={e => setBaseData({...baseData, brand: e.target.value})} placeholder="pl. Canon, Nikon, Sony, Sigma" className="market-input" />
-            </div>
-
-            <div>
-              <label className="market-label">Pontos típus / Modell</label>
-              <input type="text" value={baseData.modelName} onChange={e => setBaseData({...baseData, modelName: e.target.value})} placeholder="pl. EOS R6 Mark II" className="market-input" />
-            </div>
-
-            <div>
-              <label className="market-label">Állapot</label>
-              <select value={baseData.conditionState} onChange={e => setBaseData({...baseData, conditionState: e.target.value as ConditionState})} className="market-input">
-                <option value="mint">Újszerű / Dobozos (Mint)</option>
-                <option value="excellent">Kiváló állapotú (Excellent)</option>
-                <option value="good">Megkímélt / Használt (Good)</option>
-                <option value="heavily_used">Erősen használt</option>
-                <option value="for_parts">Hibás / Alkatrésznek</option>
-              </select>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '15px' }}>
-              <div>
-                <label className="market-label">Ár *</label>
-                <input type="number" required value={baseData.price} onChange={e => setBaseData({...baseData, price: e.target.value})} placeholder="Összeg" className="market-input" />
-              </div>
-              <div>
-                <label className="market-label">Pénznem</label>
-                <select value={baseData.currency} onChange={e => setBaseData({...baseData, currency: e.target.value})} className="market-input">
-                  <option value="HUF">HUF</option>
-                  <option value="EUR">EUR</option>
-                </select>
-              </div>
-            </div>
-
-            <div style={{ gridColumn: '1 / -1' }}>
-              <label className="market-label">Helyszín / Átvétel helye</label>
-              <input type="text" value={baseData.location} onChange={e => setBaseData({...baseData, location: e.target.value})} placeholder="pl. Budapest, XI. kerület / Győr" className="market-input" />
-            </div>
+      <form onSubmit={handleSubmit} style={{ background: '#1e293b', padding: '30px', borderRadius: '16px', border: '1px solid #334155', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+          <div>
+            <label style={{ display: 'block', marginBottom: '8px', color: '#94a3b8' }}>Kategória *</label>
+            <select value={category} onChange={(e) => setCategory(e.target.value)} style={{ width: '100%', background: '#0f172a', border: '1px solid #334155', color: 'white', padding: '12px', borderRadius: '8px' }}>
+              <option value="camera">Fényképezőgép váz</option>
+              <option value="lens">Objektív</option>
+              <option value="lighting">Stúdiótechnika</option>
+              <option value="drone">Drón / Stabilizátor</option>
+              <option value="accessory">Egyéb kiegészítő</option>
+            </select>
           </div>
+          <div>
+            <label style={{ display: 'block', marginBottom: '8px', color: '#94a3b8' }}>Hirdetés címe *</label>
+            <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="pl. Eladó Canon 5D Mark III" style={{ width: '100%', background: '#0f172a', border: '1px solid #334155', color: 'white', padding: '12px', borderRadius: '8px' }} />
+          </div>
+        </div>
 
-          {/* DINAMIKUS FOTÓS MEZŐK */}
-          {baseData.category && (
-            <div style={{ background: 'rgba(15, 23, 42, 0.5)', padding: '20px', borderRadius: '12px', border: '1px dashed #475569' }}>
-              <h3 style={{ marginTop: 0, marginBottom: '15px', color: '#38bdf8', fontSize: '1.2rem', borderBottom: '1px solid #334155', paddingBottom: '10px' }}>
-                Technikai részletek ({baseData.category})
-              </h3>
-              
-              {baseData.category === 'camera' && (
-                <div className="form-grid">
-                  <div>
-                    <label className="market-label">Expószám</label>
-                    <input type="number" value={specificAttributes.shutter_count || ''} onChange={e => handleAttrChange('shutter_count', e.target.value)} placeholder="pl. 24150" className="market-input" />
-                  </div>
-                  <div>
-                    <label className="market-label">Szenzorméret</label>
-                    <select value={specificAttributes.sensor_size || ''} onChange={e => handleAttrChange('sensor_size', e.target.value)} className="market-input">
-                      <option value="">Válassz...</option>
-                      <option value="full-frame">Full-Frame</option>
-                      <option value="aps-c">APS-C</option>
-                      <option value="m43">Micro Four Thirds (M4/3)</option>
-                      <option value="medium-format">Középformátum</option>
-                    </select>
-                  </div>
-                </div>
-              )}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+          <div>
+            <label style={{ display: 'block', marginBottom: '8px', color: '#94a3b8' }}>Gyártó / Márka</label>
+            <input type="text" value={brand} onChange={(e) => setBrand(e.target.value)} placeholder="pl. Canon, Nikon, Sony" style={{ width: '100%', background: '#0f172a', border: '1px solid #334155', color: 'white', padding: '12px', borderRadius: '8px' }} />
+          </div>
+          <div>
+            <label style={{ display: 'block', marginBottom: '8px', color: '#94a3b8' }}>Pontos típus / Modell</label>
+            <input type="text" value={modelName} onChange={(e) => setModelName(e.target.value)} placeholder="pl. EOS R6 Mark II" style={{ width: '100%', background: '#0f172a', border: '1px solid #334155', color: 'white', padding: '12px', borderRadius: '8px' }} />
+          </div>
+        </div>
 
-              {baseData.category === 'lens' && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
-                  <div>
-                    <label className="market-label">Bajonett (Mount)</label>
-                    <input type="text" value={specificAttributes.mount || ''} onChange={e => handleAttrChange('mount', e.target.value)} placeholder="pl. Sony E" className="market-input" />
-                  </div>
-                  <div>
-                    <label className="market-label">Gyújtótávolság</label>
-                    <input type="text" value={specificAttributes.focal_length || ''} onChange={e => handleAttrChange('focal_length', e.target.value)} placeholder="pl. 50mm" className="market-input" />
-                  </div>
-                  <div>
-                    <label className="market-label">Szűrőmenet (mm)</label>
-                    <input type="number" value={specificAttributes.filter_size || ''} onChange={e => handleAttrChange('filter_size', e.target.value)} placeholder="pl. 77" className="market-input" />
-                  </div>
-                </div>
-              )}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px' }}>
+          <div>
+            <label style={{ display: 'block', marginBottom: '8px', color: '#94a3b8' }}>Állapot</label>
+            <select value={conditionState} onChange={(e) => setConditionState(e.target.value)} style={{ width: '100%', background: '#0f172a', border: '1px solid #334155', color: 'white', padding: '12px', borderRadius: '8px' }}>
+              <option value="mint">Újszerű (Mint)</option>
+              <option value="excellent">Kiváló állapotú (Excellent)</option>
+              <option value="good">Megkímélt (Good)</option>
+              <option value="heavily_used">Használt (Heavily Used)</option>
+              <option value="for_parts">Hibás / Alkatrésznek (For Parts)</option>
+            </select>
+          </div>
+          <div>
+            <label style={{ display: 'block', marginBottom: '8px', color: '#94a3b8' }}>Ár *</label>
+            <input type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="Összeg" style={{ width: '100%', background: '#0f172a', border: '1px solid #334155', color: 'white', padding: '12px', borderRadius: '8px' }} />
+          </div>
+          <div>
+            <label style={{ display: 'block', marginBottom: '8px', color: '#94a3b8' }}>Pénznem</label>
+            <select value={currency} onChange={(e) => setCurrency(e.target.value)} style={{ width: '100%', background: '#0f172a', border: '1px solid #334155', color: 'white', padding: '12px', borderRadius: '8px' }}>
+              <option value="HUF">HUF</option>
+              <option value="EUR">EUR</option>
+            </select>
+          </div>
+        </div>
 
-              {baseData.category === 'lighting' && (
-                <div className="form-grid">
-                  <div>
-                    <label className="market-label">Teljesítmény (W/GN)</label>
-                    <input type="text" value={specificAttributes.power || ''} onChange={e => handleAttrChange('power', e.target.value)} placeholder="pl. 400W" className="market-input" />
-                  </div>
-                  <div>
-                    <label className="market-label">Fényterelő csatlakozás</label>
-                    <input type="text" value={specificAttributes.modifier_mount || ''} onChange={e => handleAttrChange('modifier_mount', e.target.value)} placeholder="pl. Bowens" className="market-input" />
-                  </div>
-                </div>
-              )}
+        <div>
+          <label style={{ display: 'block', marginBottom: '8px', color: '#94a3b8' }}>📍 Helyszín (Város)</label>
+          <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="pl. Budapest, Szeged, Győr" style={{ width: '100%', background: '#0f172a', border: '1px solid #334155', color: 'white', padding: '12px', borderRadius: '8px' }} />
+        </div>
 
-              {baseData.category === 'drone' && (
-                <div className="form-grid">
-                  <div>
-                    <label className="market-label">Akku ciklusok</label>
-                    <input type="number" value={specificAttributes.battery_cycles || ''} onChange={e => handleAttrChange('battery_cycles', e.target.value)} placeholder="pl. 15" className="market-input" />
-                  </div>
-                  <div>
-                    <label className="market-label">Súly / EU Kat.</label>
-                    <input type="text" value={specificAttributes.drone_class || ''} onChange={e => handleAttrChange('drone_class', e.target.value)} placeholder="pl. 249g / C0" className="market-input" />
-                  </div>
+        <div>
+          <label style={{ display: 'block', marginBottom: '8px', color: '#94a3b8' }}>Részletes leírás</label>
+          <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={5} placeholder="Írd le a felszerelés részleteit, esetleges hibáit, tartozékait..." style={{ width: '100%', background: '#0f172a', border: '1px solid #334155', color: 'white', padding: '12px', borderRadius: '8px', resize: 'vertical', fontFamily: 'inherit' }} />
+        </div>
+
+        {/* 📷 KÉPFELTÖLTÉS SZEKCIÓ */}
+        <div>
+          <label style={{ display: 'block', marginBottom: '8px', color: '#94a3b8' }}>Képek feltöltése (Többet is kiválaszthatsz)</label>
+          <input type="file" accept="image/*" multiple onChange={handleImageUpload} disabled={uploading} style={{ display: 'block', color: '#94a3b8' }} />
+          {uploading && <p style={{ color: '#38bdf8', fontSize: '0.9rem', marginTop: '5px' }}>Képek feltöltése... ⏳</p>}
+          
+          {/* Előnézeti kis képek listája törlés gombbal */}
+          {images.length > 0 && (
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '15px' }}>
+              {images.map((img, idx) => (
+                <div key={idx} style={{ position: 'relative', width: '90px', height: '70px', borderRadius: '6px', overflow: 'hidden', border: '1px solid #334155' }}>
+                  <img src={img.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <button type="button" onClick={() => removeImage(idx)} style={{ position: 'absolute', top: '2px', right: '2px', background: 'rgba(244, 63, 94, 0.8)', color: 'white', border: 'none', borderRadius: '50%', width: '18px', height: '18px', fontSize: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
+                    ✕
+                  </button>
                 </div>
-              )}
+              ))}
             </div>
           )}
+        </div>
 
-          {/* LEÍRÁS */}
-          <div>
-            <label className="market-label">Részletes leírás</label>
-            <textarea rows={5} value={baseData.description} onChange={e => setBaseData({...baseData, description: e.target.value})} placeholder="Írd le a termék állapotát, tartozékait, esetleges hibáit..." className="market-input" style={{ resize: 'vertical' }} />
-          </div>
+        <button type="submit" disabled={submitting} style={{ background: 'linear-gradient(135deg, #38bdf8, #6366f1)', color: 'white', border: 'none', padding: '14px', borderRadius: '8px', fontSize: '1rem', fontWeight: 'bold', cursor: 'pointer', marginTop: '10px', transition: 'opacity 0.2s' }} >
+          {submitting ? 'Mentés... ⏳' : adId ? '💾 Módosítások mentése' : '🚀 Hirdetés élesítése'}
+        </button>
 
-          {/* KÉPFELTÖLTÉS */}
-          <div>
-            <label className="market-label">Termék fotók</label>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-              <label className="file-upload-btn">
-                <span>{uploading ? 'Feltöltés... ⏳' : '📷 Fájl kiválasztása'}</span>
-                <input type="file" accept="image/*" onChange={handleImageUpload} disabled={uploading} style={{ display: 'none' }} />
-              </label>
-              <span style={{ color: '#64748b', fontSize: '0.9rem' }}>Válassz képeket az eszközről</span>
-            </div>
-
-            {/* Kép előnézet */}
-            {images.length > 0 && (
-              <div style={{ display: 'flex', gap: '15px', marginTop: '15px', flexWrap: 'wrap' }}>
-                {images.map((img, idx) => (
-                  <div key={idx} style={{ position: 'relative', width: '100px', height: '100px', borderRadius: '8px', overflow: 'hidden', border: '2px solid #334155' }}>
-                    <img src={img.url} alt={`Preview ${idx}`} style={{ objectFit: 'cover', width: '100%', height: '100%' }} />
-                    {idx === 0 && (
-                      <div style={{ position: 'absolute', bottom: 0, width: '100%', background: 'rgba(16, 185, 129, 0.9)', color: 'white', fontSize: '0.7rem', textAlign: 'center', padding: '2px 0', fontWeight: 'bold' }}>Borítókép</div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* BEKÜLDÉS */}
-          <div>
-            <button type="submit" disabled={submitting || uploading} className="market-btn-submit">
-              {submitting ? 'Mentés folyamatban... ⏳' : '🚀 Hirdetés Feladása'}
-            </button>
-          </div>
-        </form>
-      </div>
-
-      <style>{`
-        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
-        .market-label { display: block; color: #94a3b8; font-size: 0.9rem; margin-bottom: 8px; font-weight: 600; }
-        .market-input { width: 100%; box-sizing: border-box; background: #0f172a; border: 1px solid #334155; color: #f8fafc; padding: 12px 15px; border-radius: 8px; font-size: 1rem; transition: all 0.2s; }
-        .market-input:focus { outline: none; border-color: #38bdf8; box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2); }
-        .market-input option { background: #0f172a; color: #f8fafc; }
-        .file-upload-btn { background: #334155; color: #f8fafc; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; border: 1px solid #475569; transition: all 0.2s; display: inline-block; }
-        .file-upload-btn:hover { background: #475569; border-color: #94a3b8; }
-        .market-btn-submit { width: 100%; background: linear-gradient(135deg, #ec4899, #be185d); color: white; border: none; padding: 15px 24px; border-radius: 12px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 15px rgba(236, 72, 153, 0.4); transition: all 0.2s; font-size: 1.1rem; }
-        .market-btn-submit:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(236, 72, 153, 0.6); }
-        .market-btn-submit:disabled { background: #475569; box-shadow: none; cursor: not-allowed; color: #94a3b8; }
-        .btn-cancel { background: transparent; color: #94a3b8; border: 1px solid #475569; padding: 8px 16px; border-radius: 8px; cursor: pointer; transition: all 0.2s; }
-        .btn-cancel:hover { color: #f8fafc; border-color: #94a3b8; background: #334155; }
-      `}</style>
+      </form>
     </div>
   );
 }
