@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { BACKEND_URL } from '../../utils/constants';
-
+console.log("DEBUG Render - User:", currentUser, "Ad:", ad);
 export default function MarketplaceDetails({ adId, currentUser, onBack, onEdit }: any) {
   const [ad, setAd] = useState<any>(null);
   const [activeImage, setActiveImage] = useState('');
