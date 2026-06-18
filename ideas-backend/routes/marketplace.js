@@ -57,23 +57,32 @@ module.exports = function(app, pool, checkPremium) {
     }
   });
 
- const cloudinary = require('cloudinary').v2;
-
 app.get('/api/marketplace/upload-signature', (req, res) => {
   const timestamp = Math.round(new Date().getTime() / 1000);
-  const signature = cloudinary.utils.api_sign_request(
-    { timestamp: timestamp, folder: 'marketplace' },
-    process.env.CLOUDINARY_API_SECRET
-  );
+  
+  // A Cloudinary-nek pontosan ezekre a paraméterekre van szüksége az aláíráshoz
+  const params = {
+    timestamp: timestamp,
+    folder: 'marketplace'
+  };
 
-  res.json({
-    timestamp,
-    signature,
-    apiKey: process.env.CLOUDINARY_API_KEY,
-    cloudName: process.env.CLOUDINARY_CLOUD_NAME
-  });
+  try {
+    const signature = cloudinary.utils.api_sign_request(
+      params,
+      process.env.CLOUDINARY_API_SECRET // Győződj meg róla, hogy ez be van állítva a Renderen!
+    );
+
+    res.json({
+      timestamp,
+      signature,
+      apiKey: process.env.CLOUDINARY_API_KEY,
+      cloudName: process.env.CLOUDINARY_CLOUD_NAME
+    });
+  } catch (err) {
+    console.error("Aláírás generálási hiba:", err);
+    res.status(500).json({ error: "Sikertelen aláírás generálás" });
+  }
 });
-
   // HIRDETÉSEK LEKÉRÉSE (Most már hirdető nevével)
   app.get('/api/marketplace/ads', async (req, res) => {
     try {
