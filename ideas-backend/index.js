@@ -7,13 +7,7 @@ require('dotenv').config();
 const cheerio = require('cheerio');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const xlsx = require('xlsx');
-const cloudinary = require('cloudinary').v2; // 👈 Új import
-// 👑 CLOUDINARY KONFIGURÁCIÓ (Itt legyen a főfájlban!)
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
-});
+
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -36,16 +30,8 @@ oauth2Client.setCredentials({ refresh_token: process.env.DRIVE_REFRESH_TOKEN });
 const drive = google.drive({ version: 'v3', auth: oauth2Client });
 
 const app = express();
+app.use(cors());
 
-// 👑 CORS JAVÍTÁSA (Ez oldja meg a 400-as hibákat és a blokkolást)
-app.use(cors({
-  origin: ['https://photawesome.com', 'http://localhost:5173'],
-  credentials: true 
-}));
-
-
-// Szükség esetén átpasszoljuk a cloudinary-t a globális objektumba, ha a marketplace.js használja
-app.set('cloudinary', cloudinary);
 // ==========================================
 // 2. STRIPE WEBHOOK (KÖTELEZŐEN AZ express.json ELÉ!)
 // ==========================================
