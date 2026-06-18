@@ -39,7 +39,7 @@ export default function MarketplaceAdForm({ user, onCancel, adId }: MarketplaceA
         setBrand(ad.brand || '');
         setModelName(ad.model_name || ad.modelName || ''); // Támogatja mindkét formátumot
         setCategory(ad.category || 'camera');
-        setConditionState(ad.condition_state || ad.conditionState || 'excellent');
+        setConditionState(ad.condition_state || ad.conditionState || 'good');
         setPrice(ad.price ? ad.price.toString() : '');
         setCurrency(ad.currency || 'HUF');
         setLocation(ad.location || '');
