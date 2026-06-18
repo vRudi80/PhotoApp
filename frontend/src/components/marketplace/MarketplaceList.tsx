@@ -55,14 +55,21 @@ export default function MarketplaceList({ user, onNavigateToCreate }: Marketplac
     }
   };
 
-  const filteredAds = ads.filter(ad => {
-    const matchesSearch = ad.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          ad.brand.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          ad.modelName.toLowerCase().includes(searchQuery.toLowerCase());
+ const filteredAds = ads.filter(ad => {
+    // Biztonságos ellenőrzés: ha a mező undefined, akkor egy üres stringet '' használunk
+    const safeTitle = ad.title || '';
+    const safeBrand = ad.brand || '';
+    const safeModelName = ad.modelName || '';
+
+    const matchesSearch = 
+      safeTitle.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      safeBrand.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      safeModelName.toLowerCase().includes(searchQuery.toLowerCase());
+      
     const matchesCategory = selectedCategory === '' || ad.category === selectedCategory;
+    
     return matchesSearch && matchesCategory;
   });
-
   const getConditionLabel = (state: string) => {
     const labels: Record<string, string> = {
       mint: 'Újszerű', excellent: 'Kiváló', good: 'Megkímélt', heavily_used: 'Használt', for_parts: 'Hibás'
