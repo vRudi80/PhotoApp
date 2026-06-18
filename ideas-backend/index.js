@@ -1,7 +1,5 @@
 const express = require('express');
 const cors = require('cors');
-
-
 const mysql = require('mysql2/promise');
 const multer = require('multer');
 const { google } = require('googleapis');
@@ -32,12 +30,7 @@ oauth2Client.setCredentials({ refresh_token: process.env.DRIVE_REFRESH_TOKEN });
 const drive = google.drive({ version: 'v3', auth: oauth2Client });
 
 const app = express();
-app.use(cors({
-  origin: ['https://photawesome.com', 'http://localhost:5173'], // Csak a megbízható domainek
-  credentials: true, // Ez elengedhetetlen a bejelentkezéshez/sütikhez
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
+app.use(cors());
 
 // ==========================================
 // 2. STRIPE WEBHOOK (KÖTELEZŐEN AZ express.json ELÉ!)
@@ -154,7 +147,6 @@ require('./routes/payments')(app, pool, stripe);
 require('./routes/clubs')(app, pool, drive, upload, cleanupTempFile);
 require('./routes/salons')(app, pool, checkPremium, genAI, xlsx, cheerio, upload, cleanupTempFile);
 require('./routes/tickets')(app, pool);
-require('./routes/marketplace')(app, pool, checkPremium, upload);
 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => console.log(`Szerver fut a ${PORT} porton`));
