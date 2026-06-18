@@ -271,4 +271,23 @@ module.exports = function(app, pool, checkPremium, upload) {
     }
   });
 
+  // GET /api/marketplace/messages - Az aktuális felhasználó üzeneteinek lekérése
+app.get('/api/marketplace/messages', checkPremium, async (req, res) => {
+  const userEmail = req.user?.email; // A middleware-ből jön a bejelentkezett user
+  
+  try {
+    const [messages] = await pool.query(`
+      SELECT m.*, a.title as ad_title 
+      FROM photo_marketplace_messages m
+      LEFT JOIN photo_marketplace_ads a ON m.ad_id = a.id
+      WHERE m.sender_email = ? OR m.receiver_email = ?
+      ORDER BY m.created_at DESC
+    `, [userEmail, userEmail]);
+    
+    res.json({ success: true, data: messages });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 };
