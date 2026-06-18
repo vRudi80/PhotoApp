@@ -196,6 +196,13 @@ export default function Header({
               </button>
           </div>
 
+          {/* === ÚJ: PIACTÉR GOMB === */}
+          <div className="nav-item-container" style={{ zIndex: 50 }}>
+              <button className={`nav-btn ${activeTab.startsWith('marketplace') ? 'active' : ''}`} style={{ color: '#ec4899' }} onClick={() => handleNavClick('marketplace/new')}>
+                <span>🛒 {t('navMarketplace') || 'Piactér'}</span>
+              </button>
+          </div>
+
           {(user?.email === ADMIN_EMAIL || isLeader) && (
             <div className="nav-item-container" style={{ zIndex: dropdownOpen === 'admin' ? 60 : 50 }}>
               <button className={`nav-btn ${dropdownOpen === 'admin' || activeTab.startsWith('admin_') || activeTab === 'leader_club' ? 'active' : ''}`} style={{ color: '#ef4444' }} onClick={() => setDropdownOpen(dropdownOpen === 'admin' ? null : 'admin')}>
