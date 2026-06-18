@@ -1,44 +1,61 @@
 import React, { useState } from 'react';
 import MarketplaceList from './MarketplaceList';
 import MarketplaceAdForm from './MarketplaceAdForm';
-import MarketplaceDetails from './MarketplaceDetails'; // Új komponens
+import MarketplaceDetails from './MarketplaceDetails';
 
 type MarketplaceView = 'list' | 'create' | 'details' | 'edit';
 
-export default function MarketplaceRoot({ user }: { user: any }) {
+interface MarketplaceRootProps {
+  user: {
+    email: string;
+    name?: string;
+    [key: string]: any;
+  } | null;
+}
+
+export default function MarketplaceRoot({ user }: MarketplaceRootProps) {
   const [view, setView] = useState<MarketplaceView>('list');
-  const [selectedAdId, setSelectedAdId] = useState<number | null>(null);
+  // Mivel a MySQL ID-k számok, de a korábbi felépítés miatt string is jöhet, támogatjuk mindkettőt
+  const [selectedAdId, setSelectedAdId] = useState<number | string | null>(null);
 
   return (
-    <div className="marketplace-root">
+    <div className="marketplace-system-root" style={{ minHeight: '100vh', backgroundColor: '#0b0f19', padding: '20px 0' }}>
+      
+      {/* 1. NÉZET: HIRDETÉSEK LISTÁJA */}
       {view === 'list' && (
         <MarketplaceList 
-          user={user} 
+          user={user || { email: '' }} 
           onNavigateToCreate={() => setView('create')} 
-          onNavigateToDetails={(id) => { setSelectedAdId(id); setView('details'); }}
+          onNavigateToDetails={(id: any) => { 
+            setSelectedAdId(id); 
+            setView('details'); 
+          }}
         />
       )}
 
+      {/* 2. NÉZET: ÚJ HIRDETÉS LÉTREHOZÁSA */}
       {view === 'create' && (
         <MarketplaceAdForm 
-          user={user} 
+          user={user || { email: '' }} 
           onCancel={() => setView('list')} 
         />
       )}
 
-      {view === 'details' && selectedAdId && (
+      {/* 3. NÉZET: RÉSZLETES ADATLAP */}
+      {view === 'details' && selectedAdId !== null && (
         <MarketplaceDetails 
           adId={selectedAdId} 
-          currentUser={user} 
+          currentUser={user || { email: '' }} 
           onBack={() => setView('list')}
           onEdit={() => setView('edit')}
         />
       )}
 
-      {view === 'edit' && selectedAdId && (
+      {/* 4. NÉZET: MEGLÉVŐ HIRDETÉS SZERKESZTÉSE */}
+      {view === 'edit' && selectedAdId !== null && (
         <MarketplaceAdForm 
-          user={user} 
-          adId={selectedAdId} // Átadjuk az ID-t, hogy tudja: SZERKESZTÉS van
+          user={user || { email: '' }} 
+          adId={selectedAdId} // Átadjuk a hirdetés ID-ját az űrlapnak szerkesztésre
           onCancel={() => setView('details')} 
         />
       )}
