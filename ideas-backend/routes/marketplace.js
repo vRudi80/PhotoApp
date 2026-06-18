@@ -1,3 +1,13 @@
+const cloudinary = require('cloudinary').v2;
+const crypto = require('crypto'); // Ezt a piactérnél is használnod kell az aláíráshoz!
+require('dotenv').config(); // Ez biztosítja, hogy a process.env értékek betöltődjenek
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
+
 module.exports = function(app, pool, checkPremium) {
 
   // ==========================================
@@ -56,17 +66,13 @@ module.exports = function(app, pool, checkPremium) {
 app.get('/api/marketplace/upload-signature', (req, res) => {
   const timestamp = Math.round(new Date().getTime() / 1000);
   
-  // A Cloudinary-nek pontosan ezekre a paraméterekre van szüksége az aláíráshoz
   const params = {
     timestamp: timestamp,
     folder: 'marketplace'
   };
 
   try {
-    const signature = cloudinary.utils.api_sign_request(
-      params,
-      process.env.CLOUDINARY_API_SECRET // Győződj meg róla, hogy ez be van állítva a Renderen!
-    );
+    const signature = cloudinary.utils.api_sign_request(params, process.env.CLOUDINARY_API_SECRET);
 
     res.json({
       timestamp,
