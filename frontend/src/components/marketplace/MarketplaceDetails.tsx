@@ -3,7 +3,6 @@ import axios from 'axios';
 import { BACKEND_URL } from '../../utils/constants';
 
 export default function MarketplaceDetails({ adId, currentUser, onBack, onEdit }: any) {
-  console.log("DEBUG Render - User:", currentUser, "Ad:", ad);
   const [ad, setAd] = useState<any>(null);
   const [activeImage, setActiveImage] = useState('');
 
@@ -21,7 +20,7 @@ export default function MarketplaceDetails({ adId, currentUser, onBack, onEdit }
         const res = await axios.get(`${BACKEND_URL}/api/marketplace/ads/${adId}`);
         const adData = Array.isArray(res.data) ? res.data[0] : res.data;
         setAd(adData);
-        if (adData && adData.images && adData.images.length > 0) {
+        if (adData?.images?.length > 0) {
           setActiveImage(adData.images[0].url);
         }
       } catch (err) {
@@ -43,7 +42,7 @@ export default function MarketplaceDetails({ adId, currentUser, onBack, onEdit }
 
   const sendMessage = async () => {
     const msg = prompt("Írj üzenetet az eladónak:");
-    if (msg) {
+    if (msg && ad) {
       try {
         await axios.post(`${BACKEND_URL}/api/marketplace/messages`, {
           adId,
@@ -57,7 +56,11 @@ export default function MarketplaceDetails({ adId, currentUser, onBack, onEdit }
     }
   };
 
+  // VÉDELMI VONAL: Ha nincs ad, ne fusson tovább a renderelés
   if (!ad) return <div style={{ color: 'white', textAlign: 'center', padding: '50px' }}>Betöltés...</div>;
+
+  // BIZTONSÁGOS TULAJDONOS ELLENŐRZÉS
+  const isOwner = currentUser?.email && ad?.user_email === currentUser.email;
 
   return (
     <div style={{ maxWidth: '1000px', margin: '0 auto', color: 'white', animation: 'fadeIn 0.5s' }}>
@@ -78,7 +81,7 @@ export default function MarketplaceDetails({ adId, currentUser, onBack, onEdit }
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <h1 style={{ margin: 0, color: '#38bdf8' }}>{ad.title}</h1>
             <div style={{ display: 'flex', gap: '10px' }}>
-              {currentUser.email === ad.user_email ? (
+              {isOwner ? (
                 <>
                   <button onClick={onEdit} style={{ background: '#f59e0b', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '8px', cursor: 'pointer' }}>📝 Szerkesztés</button>
                   {ad.is_active === 1 && <button onClick={handleMarkAsSold} style={{ background: '#10b981', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '8px', cursor: 'pointer' }}>✅ Eladva</button>}
@@ -94,7 +97,6 @@ export default function MarketplaceDetails({ adId, currentUser, onBack, onEdit }
           <p style={{ color: '#94a3b8' }}>📍 Helyszín: <span style={{ color: 'white' }}>{ad.location || 'N/A'}</span></p>
           <p style={{ color: '#94a3b8' }}>✨ Állapot: <span style={{ color: 'white', marginLeft: '8px' }}>{conditionMap[ad.condition_state] || ad.condition_state || 'N/A'}</span></p>
 
-          {/* Technikai adatok megjelenítése */}
           {ad.specific_attributes && typeof ad.specific_attributes === 'object' && Object.keys(ad.specific_attributes).length > 0 && (
              <div style={{ margin: '20px 0', padding: '10px', background: '#0f172a', borderRadius: '8px' }}>
                {Object.entries(ad.specific_attributes).map(([key, value]) => (
