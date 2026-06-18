@@ -34,7 +34,7 @@ export default function MarketplaceList({ user, onNavigateToCreate }: Marketplac
   const fetchAds = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('/api/marketplace/ads');
+      const response = await axios.get(`${BACKEND_URL}/api/marketplace/ads`);
       
       // 🔍 Kiírjuk a konzolba, hogy pontosan mit küld a backend (F12 -> Console)
       console.log('Szerver válasza a hirdetésekre:', response.data); 
