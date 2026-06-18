@@ -37,19 +37,18 @@ export default function MarketplaceDetails(props: any) {
     if (adId) fetchAd();
   }, [adId]);
 
-  const handleMarkAsSold = async () => {
-    try {
-      await axios.put(
-        `${BACKEND_URL}/api/marketplace/ads/${adId}/sold`, 
-        { userEmail: activeUser?.email }, // 👈 Üres {} helyett átadjuk a felhasználó emailjét!
-        { withCredentials: true }
-      );
-      alert('Hirdetés eladottnak jelölve! 🎉');
-      onBack(); // Visszalépünk a listához
-    } catch (err) {
-      alert('Hiba a státusz frissítésekor.');
-    }
-  };
+ const handleMarkAsSold = async () => {
+  try {
+    const res = await axios.put(`${BACKEND_URL}/api/marketplace/ads/${adId}/sold`, 
+      { userEmail: activeUser?.email }, 
+      { withCredentials: true }
+    );
+    alert(res.data.message); // Ez kiírja az új státuszt
+    window.location.reload(); // Frissítjük az oldalt a gomb feliratának frissítéséhez
+  } catch (err) {
+    alert('Hiba a státusz frissítésekor.');
+  }
+};
 
   const sendMessage = async () => {
     const msg = prompt("Írj üzenetet az eladónak:");
@@ -108,9 +107,15 @@ export default function MarketplaceDetails(props: any) {
                   <button onClick={onEdit} style={{ background: '#f59e0b', color: 'white', border: 'none', padding: '10px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
                     📝 Szerkesztés
                   </button>
-                  <button onClick={handleMarkAsSold} style={{ background: '#10b981', color: 'white', border: 'none', padding: '10px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
-                    ✅ Eladva
-                  </button>
+                  <button 
+  onClick={handleMarkAsSold} 
+  style={{ 
+    background: ad.is_active === 1 ? '#ef4444' : '#10b981', // Piros, ha eladva, Zöld, ha aktivál
+    color: 'white', border: 'none', padding: '10px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' 
+  }}
+>
+  {ad.is_active === 1 ? '🚫 Eladottnak jelöl' : '✅ Újra aktivál'}
+</button>
                 </>
               ) : (
                 activeUser?.email && (
