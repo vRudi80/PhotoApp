@@ -31,7 +31,9 @@ import ProfileView from './views/ProfileView';
 import { BrowserRouter, Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import TicketsView from './views/TicketsView';
 import LeaderClubView from './views/LeaderClubView';
-import MarketplaceAdForm from './views/MarketplaceAdForm';
+
+// 🎯 ÚJ PIACTÉR IMPORT (Módosítsd az útvonalat, ha a views mappába tetted a komponenst!)
+import MarketplaceRoot from './components/marketplace/MarketplaceRoot';
 
 import MafoszProgressView from './views/MafoszProgressView'; 
 import PackagesView from './components/PackagesView'; 
@@ -607,8 +609,10 @@ function MainContent() {
               <Route path="/profile" element={<ProfileView user={currentDbUser} setUser={setUser} fetchData={fetchData} />} />
               <Route path="/tickets" element={<TicketsView user={currentDbUser} />} />
               <Route path="/packages" element={<PackagesView user={user} />} />
-              <Route path="/marketplace/new" element={<MarketplaceAdForm user={headerUser} />} />
-              {/* <Route path="/marketplace" element={<MarketplaceListView user={headerUser} />} /> */}
+              
+              {/* 🎯 ÚJ PIACTÉR ÚTVONAL - Ez mostantól a MarketPlaceRoot-ot hívja be */}
+              <Route path="/marketplace" element={<MarketplaceRoot user={headerUser} />} />
+              
               <Route path="/map_spots" element={<MapSpotsView user={user} setFullscreenData={setFullscreenData} targetMapSpotId={targetMapSpotId} setTargetMapSpotId={setTargetMapSpotId} />} />
               <Route path="/club_news" element={<ClubNewsView user={user} currentDbUser={currentDbUser} />} />
               <Route path="/my_album" element={<MyAlbumView user={user} setFullscreenData={setFullscreenData} />} />
