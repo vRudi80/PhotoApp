@@ -79,7 +79,7 @@ export default function MarketplaceList({ user, onNavigateToCreate, onNavigateTo
           <h1 style={{ margin: 0, fontSize: '2.5rem', fontWeight: 800, background: 'linear-gradient(to right, #38bdf8, #818cf8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
             📸 Fotós Piactér
           </h1>
-          <p style={{ margin: '5px 0 0 0', color: '#94a3b8' }}>Böngéssz a prémium használt és új felszerelések között</p>
+          <p style={{ margin: '5px 0 0 0', color: '#94a3b8' }}>FEJLESZTÉS ALATT, még ne használd!!! Böngéssz a prémium használt és új felszerelések között</p>
         </div>
         
         <button onClick={onNavigateToCreate} className="market-btn-accent">
