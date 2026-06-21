@@ -13,13 +13,7 @@ import UpcomingChallenges from '../components/WeeklyChallenge/subtabs/UpcomingCh
 import ArenaActiveRoom from '../components/WeeklyChallenge/subtabs/ArenaActiveRoom';
 import exifr from 'exifr'; 
 
-// 🎯 Aktiváljuk a nyelvi kontextust
 import { useLanguage } from '../context/LanguageContext';
-
-interface WeeklyChallengeViewProps {
-  user: any;
-  setFullscreenData: (data: any) => void;
-}
 
 // ====================================================================
 // 📊 GLOBÁLIS SEGÉDFÜGGVÉNYEK
@@ -213,6 +207,10 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const [masterVotesLeft, setMasterVotesLeft] = useState<number>(0);
   const [isMaster, setIsMaster] = useState<boolean>(false);
 
+  // 🎯 Új UX állapot: Chat nyitva/csukva, és van-e olvasatlan üzenet
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [hasNewMessage, setHasNewMessage] = useState(false);
+
   // Új feltöltés adatai
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
@@ -225,7 +223,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const [uploadAperture, setUploadAperture] = useState('');
   const [uploadSoftware, setUploadSoftware] = useState('');
 
-  // 🎯 Csere (swap) metaadatok kezelése
   const [swapCamera, setSwapCamera] = useState('');
   const [swapLens, setSwapLens] = useState('');
   const [swapShutter, setSwapShutter] = useState('');
@@ -286,7 +283,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const [typedLobbyMsg, setTypedLobbyMsg] = useState('');
   const [isSendingLobbyMsg, setIsSendingLobbyMsg] = useState(false);
   
-  const lobbyChatBottomRef = useRef<HTMLDivElement>(null);
+  // 🎯 Új UX Ref: A lebegő chat görgetősávját kezelő ref
+  const chatScrollContainerRef = useRef<HTMLDivElement>(null);
   const lastTypingSignalSent = useRef<number>(0);
 
   const myOfficialNameRef = useRef<string>(lang === 'en' ? 'Me' : 'Én');
@@ -456,6 +454,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subTab, selectedTopicId]);
 
+  // 🎯 SZINKRONIZÁLT LOBBY CHAT ADATFOLYAM POLLING ENGINE
   useEffect(() => {
     if (subTab !== 'current' || selectedTopicId !== null) return;
 
@@ -475,7 +474,14 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         
         if (res.ok && isMounted) {
           const data = await res.json();
-          setLobbyMessages(data.messages || []);
+          const newMessages = data.messages || [];
+          
+          // 🎯 UX Értesítési pötty aktiválása, ha csukva van a chat és jön új üzenet
+          if (!isChatOpen && lobbyMessages.length > 0 && newMessages.length > lobbyMessages.length) {
+            setHasNewMessage(true);
+          }
+
+          setLobbyMessages(newMessages);
           const othersTyping = (data.typing || []).filter((name: string) => name !== myOfficialNameRef.current);
           setCurrentlyTyping(othersTyping);
         }
@@ -494,13 +500,14 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       isMounted = false;
       clearTimeout(timerId);
     };
-  }, [subTab, selectedTopicId]);
+  }, [subTab, selectedTopicId, isChatOpen, lobbyMessages.length]);
 
+  // 🎯 JAVÍTVA: A destabilizáló window scroll elkerülése érdekében közvetlenül a chat doboz belső koordinátáit toljuk el
   useEffect(() => {
-    if (selectedTopicId === null && subTab === 'current') {
-      lobbyChatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (selectedTopicId === null && subTab === 'current' && chatScrollContainerRef.current) {
+      chatScrollContainerRef.current.scrollTop = chatScrollContainerRef.current.scrollHeight;
     }
-  }, [lobbyMessages.length, selectedTopicId, subTab]);
+  }, [lobbyMessages.length, selectedTopicId, subTab, isChatOpen]);
 
   const handleSendLobbyMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -718,7 +725,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     }
   };
 
-  // ── 🎯 JAVÍTVA: A handleUpload nem frissíti a teljes oldalt, így a felhasználó a szobában marad! ──
   const handleUpload = async () => {
     if (!uploadFile) return alert("Nincs fájl kiválasztva!");
 
@@ -745,11 +751,9 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         alert("Sikeres nevezés rögzített EXIF adatokkal!");
         setUploadFile(null);
         if (uploadPreview) URL.revokeObjectURL(uploadPreview);
-        setUploadPreview(null); // Ürítjük az előnézetet
+        setUploadPreview(null);
         setUploadCamera(''); setUploadLens(''); setUploadShutter('');
         setUploadIso(''); setUploadAperture(''); setUploadSoftware('');
-        
-        // 👈 MEGOLDÁS: Teljes reload helyett csak csendben újra lekérjük a szoba adatait
         await fetchCurrentTopic(true); 
       }
     } catch (e) {
@@ -949,29 +953,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   });
   
   return (
-    <div style={{ animation: 'fadeIn 0.4s ease-out' }}>
-      
-      <style>{`
-        .arena-bento-grid {
-          display: grid;
-          grid-template-columns: 1fr 380px;
-          gap: 30px;
-          align-items: start;
-        }
-        @media (max-width: 1100px) {
-          .arena-bento-grid {
-            grid-template-columns: 1fr;
-            gap: 40px;
-          }
-          .arena-chat-sidebar {
-            height: 480px !important;
-          }
-        }
-        @keyframes bounce {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-4px); }
-        }
-      `}</style>
+    <div style={{ animation: 'fadeIn 0.4s ease-out', position: 'relative' }}>
       
       {/* TABS HEADER GOMBSOR */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', flexWrap: 'wrap', gap: '15px' }}>
@@ -991,9 +973,9 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       {subTab === 'current' && (
         <>
           {selectedTopicId === null ? (
-            <div className="arena-bento-grid">
+            <div className="arena-fluid-container">
               
-              {/* BAL HASÁB */}
+              {/* JAVÍTVA: A szobák most már 100% szélességet kapnak, a betöltés azonnali */}
               <div>
                 <div style={{ marginBottom: '25px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '15px' }}>
                   <div>
@@ -1027,7 +1009,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                     <p style={{ color: '#94a3b8' }}>{t('viewNoActiveLeaguesDesc')}</p>
                   </div>
                 ) : (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '25px' }}>
+                  <div className="arena-cards-grid">
                     {sortedActiveTopics.map((actTop) => (
                       <ChallengeCard 
                         key={actTop.id} 
@@ -1039,97 +1021,114 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                 )}
               </div>
 
-              {/* JOBB HASÁB */}
-              <div className="arena-chat-sidebar" style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: '24px', padding: '25px', boxShadow: '0 15px 35px rgba(0,0,0,0.4)', display: 'flex', flexDirection: 'column', gap: '15px', height: '580px', position: 'sticky', top: '20px' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <h3 style={{ margin: 0, color: '#38bdf8', fontSize: '1.3rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span>💬</span> {t('viewLobbyTitle')}
-                  </h3>
-                  <p style={{ margin: 0, color: '#64748b', fontSize: '0.8rem' }}>{t('viewLobbyDesc')}</p>
+              {/* 🎯 ÚJ ELRENDEZÉS: Modern, játék-stílusú lebegő/összecsukható Chat dokk */}
+              <div className={`arena-floating-chat-dock ${isChatOpen ? 'is-open' : 'is-closed'}`}>
+                
+                {/* CHAT FEJLÉC / TOGGLE KAPCSOLÓ */}
+                <div 
+                  onClick={() => {
+                    setIsChatOpen(!isChatOpen);
+                    if (!isChatOpen) setHasNewMessage(false);
+                  }}
+                  className="chat-dock-header"
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', position: 'relative' }}>
+                    <span style={{ fontSize: '1.2rem' }}>💬</span>
+                    <span style={{ fontWeight: 'bold', fontSize: '0.95rem' }}>{t('viewLobbyTitle')}</span>
+                    {hasNewMessage && <span className="chat-notification-badge" />}
+                  </div>
+                  <span style={{ transform: isChatOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.3s', fontWeight: 'bold' }}>▲</span>
                 </div>
 
-                <div style={{ background: '#0f172a', borderRadius: '16px', padding: '15px', flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', border: '1px solid #223147' }}>
-                  {lobbyMessages.length === 0 ? (
-                    <div style={{ color: '#475569', textAlign: 'center', margin: 'auto', fontStyle: 'italic', fontSize: '0.85rem' }}>
-                      {t('viewLobbyEmpty')}
-                    </div>
-                  ) : (
-                    lobbyMessages.map((msg, idx) => {
-                      const msgEmail = msg.user_email || msg.userEmail;
-                      const msgName = msg.user_name || msg.userName;
-                      const msgText = msg.message_text || msg.messageText;
-                      const isMsgMe = msgEmail === user?.email;
-                      
-                      return (
-                        <div 
-                          key={msg.id || idx} 
-                          style={{ 
-                            display: 'flex', 
-                            flexDirection: 'column', 
-                            alignItems: isMsgMe ? 'flex-end' : 'flex-start',
-                            maxWidth: '90%',
-                            alignSelf: isMsgMe ? 'flex-end' : 'flex-start'
-                          }}
-                        >
-                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginBottom: '2px', fontSize: '0.72rem', color: isMsgMe ? '#38bdf8' : '#94a3b8', fontWeight: 'bold' }}>
-                            <span>{msgName}</span>
-                            <span style={{ color: '#475569', fontWeight: 'normal' }}>
-                              • {new Date(msg.created_at).toLocaleTimeString(lang === 'en' ? 'en-US' : 'hu-HU', { hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                          </div>
-                          <div 
-                            style={{ 
-                              background: isMsgMe ? 'linear-gradient(135deg, #0284c7, #0369a1)' : '#1e293b', 
-                              color: '#f8fafc', 
-                              padding: '8px 14px', 
-                              borderRadius: isMsgMe ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
-                              fontSize: '0.88rem', 
-                              lineHeight: '1.4',
-                              wordBreak: 'break-word',
-                              boxShadow: '0 2px 6px rgba(0,0,0,0.12)',
-                              border: isMsgMe ? 'none' : '1px solid #334155'
-                            }}
-                          >
-                            {msgText}
-                          </div>
+                {/* CHAT BELSŐ TARTALOM */}
+                {isChatOpen && (
+                  <div className="chat-dock-body">
+                    <p style={{ margin: '0 0 10px 0', color: '#64748b', fontSize: '0.78rem' }}>{t('viewLobbyDesc')}</p>
+                    
+                    {/* BELSŐ KONTÉNER: A görgetés most már kizárólag itt történik, az anyaoldal stabil marad! */}
+                    <div ref={chatScrollContainerRef} className="chat-messages-scroll-area">
+                      {lobbyMessages.length === 0 ? (
+                        <div style={{ color: '#475569', textAlign: 'center', margin: 'auto', fontStyle: 'italic', fontSize: '0.85rem', padding: '20px 0' }}>
+                          {t('viewLobbyEmpty')}
                         </div>
-                      );
-                    })
-                  )}
-                  <div ref={lobbyChatBottomRef} />
-                </div>
+                      ) : (
+                        lobbyMessages.map((msg, idx) => {
+                          const msgEmail = msg.user_email || msg.userEmail;
+                          const msgName = msg.user_name || msg.userName;
+                          const msgText = msg.message_text || msg.messageText;
+                          const isMsgMe = msgEmail === user?.email;
+                          
+                          return (
+                            <div 
+                              key={msg.id || idx} 
+                              style={{ 
+                                display: 'flex', 
+                                flexDirection: 'column', 
+                                alignItems: isMsgMe ? 'flex-end' : 'flex-start',
+                                maxWidth: '92%',
+                                alignSelf: isMsgMe ? 'flex-end' : 'flex-start',
+                                marginBottom: '8px'
+                              }}
+                            >
+                              <div style={{ display: 'flex', gap: '5px', alignItems: 'center', marginBottom: '2px', fontSize: '0.7rem', color: isMsgMe ? '#38bdf8' : '#94a3b8', fontWeight: 'bold' }}>
+                                <span>{msgName}</span>
+                                <span style={{ color: '#475569', fontWeight: 'normal' }}>
+                                  • {new Date(msg.created_at).toLocaleTimeString(lang === 'en' ? 'en-US' : 'hu-HU', { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              </div>
+                              <div 
+                                style={{ 
+                                  background: isMsgMe ? 'linear-gradient(135deg, #f97316, #ef4444)' : '#1e293b', 
+                                  color: '#f8fafc', 
+                                  padding: '8px 12px', 
+                                  borderRadius: isMsgMe ? '12px 12px 2px 12px' : '12px 12px 12px 2px',
+                                  fontSize: '0.85rem', 
+                                  lineHeight: '1.4',
+                                  wordBreak: 'break-word',
+                                  border: isMsgMe ? 'none' : '1px solid #334155'
+                                }}
+                              >
+                                {msgText}
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
 
-                <div style={{ height: '16px', paddingLeft: '5px', fontSize: '0.78rem', color: '#38bdf8', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  {currentlyTyping.length > 0 && (
-                    <>
-                      <span>{currentlyTyping.join(', ')}{t('viewLobbyTyping')}</span>
-                      <span className="typing-dots" style={{ display: 'inline-flex', gap: '1px' }}>
-                        <span style={{ animation: 'bounce 1.4s infinite both', animationDelay: '0s' }}>•</span>
-                        <span style={{ animation: 'bounce 1.4s infinite both', animationDelay: '0.2s' }}>•</span>
-                        <span style={{ animation: 'bounce 1.4s infinite both', animationDelay: '0.4s' }}>•</span>
-                      </span>
-                    </>
-                  )}
-                </div>
+                    <div style={{ height: '14px', paddingLeft: '2px', fontSize: '0.75rem', color: '#38bdf8', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '5px' }}>
+                      {currentlyTyping.length > 0 && (
+                        <>
+                          <span>{currentlyTyping.join(', ')}{t('viewLobbyTyping')}</span>
+                          <span className="typing-dots">
+                            <span style={{ animationDelay: '0s' }}>•</span>
+                            <span style={{ animationDelay: '0.2s' }}>•</span>
+                            <span style={{ animationDelay: '0.4s' }}>•</span>
+                          </span>
+                        </>
+                      )}
+                    </div>
 
-                <form onSubmit={handleSendLobbyMessage} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  <input 
-                    type="text" 
-                    placeholder={t('viewLobbyPlaceholder')} 
-                    value={typedLobbyMsg}
-                    onChange={handleInputChange} 
-                    maxLength={500}
-                    disabled={isSendingLobbyMsg}
-                    style={{ flex: 1, padding: '12px 14px', background: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '12px', fontSize: '0.9rem', outline: 'none' }}
-                  />
-                  <button 
-                    type="submit"
-                    disabled={!typedLobbyMsg.trim() || isSendingLobbyMsg}
-                    style={{ background: (!typedLobbyMsg.trim() || isSendingLobbyMsg) ? '#334155' : 'linear-gradient(135deg, #0ea5e9, #2563eb)', color: (!typedLobbyMsg.trim() || isSendingLobbyMsg) ? '#64748b' : 'white', border: 'none', padding: '12px 20px', borderRadius: '12px', fontWeight: 'bold', fontSize: '0.9rem', cursor: 'pointer' }}
-                  >
-                    {isSendingLobbyMsg ? '...' : t('viewLobbySend')}
-                  </button>
-                </form>
+                    <form onSubmit={handleSendLobbyMessage} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <input 
+                        type="text" 
+                        placeholder={t('viewLobbyPlaceholder')} 
+                        value={typedLobbyMsg}
+                        onChange={handleInputChange} 
+                        maxLength={500}
+                        disabled={isSendingLobbyMsg}
+                        style={{ flex: 1, padding: '10px 12px', background: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '10px', fontSize: '0.85rem', outline: 'none' }}
+                      />
+                      <button 
+                        type="submit"
+                        disabled={!typedLobbyMsg.trim() || isSendingLobbyMsg}
+                        style={{ background: (!typedLobbyMsg.trim() || isSendingLobbyMsg) ? '#334155' : 'linear-gradient(135deg, #f97316, #ef4444)', color: (!typedLobbyMsg.trim() || isSendingLobbyMsg) ? '#64748b' : 'white', border: 'none', padding: '10px 16px', borderRadius: '10px', fontWeight: 'bold', fontSize: '0.85rem', cursor: 'pointer' }}
+                      >
+                        {t('viewLobbySend')}
+                      </button>
+                    </form>
+                  </div>
+                )}
               </div>
 
             </div>
@@ -1215,92 +1214,123 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       )}
 
       {subTab === 'upcoming' && (
-        <UpcomingChallenges
-          upcomingTopics={upcomingTopics}
-          getTopicType={getTopicType}
-          handleImageError={handleImageError}
-          user={user}
-        />
+        <UpcomingChallenges upcomingTopics={upcomingTopics} getTopicType={getTopicType} handleImageError={handleImageError} user={user} />
       )}
       
       {subTab === 'past' && (
-        <PastArchive
-          pastTopics={pastTopics}
-          selectedPastTopicId={selectedPastTopicId}
-          loadPastHistoryList={loadPastHistoryList}
-          pastClubLeaderboard={pastClubLeaderboard}
-          pastLeaderboard={pastLeaderboard}
-          getTopicType={getTopicType}
-          handleImageError={handleImageError}
-          setFullscreenData={setFullscreenData}
-          user={user}
-        />
+        <PastArchive pastTopics={pastTopics} selectedPastTopicId={selectedPastTopicId} loadPastHistoryList={loadPastHistoryList} pastClubLeaderboard={pastClubLeaderboard} pastLeaderboard={pastLeaderboard} getTopicType={getTopicType} handleImageError={handleImageError} setFullscreenData={setFullscreenData} user={user} />
       )}
 
       {subTab === 'my_stats' && (
-        <TrophyRoom
-          isLoadingStats={isLoadingStats}
-          myStats={myStats}
-          userTotalLikes={userTotalLikes}
-          userVictories={userVictories}
-          swapBalance={swapBalance}
-          myReferralCode={myReferralCode}
-          referredBy={referredBy}
-          referralInput={referralInput}
-          setReferralInput={setReferralInput}
-          isClaimingReferral={isClaimingReferral}
-          handleClaimReferral={handleClaimReferral}
-          setActiveShareData={setActiveShareData}
-          setFullscreenData={setFullscreenData}
-          getLevelDetails={getLevelDetails}
-          getTopicType={getTopicType}
-          handleImageError={handleImageError}
-        />
+        <TrophyRoom isLoadingStats={isLoadingStats} myStats={myStats} userTotalLikes={userTotalLikes} userVictories={userVictories} swapBalance={swapBalance} myReferralCode={myReferralCode} referredBy={referredBy} referralInput={referralInput} setReferralInput={setReferralInput} isClaimingReferral={isClaimingReferral} handleClaimReferral={handleClaimReferral} setActiveShareData={setActiveShareData} setFullscreenData={setFullscreenData} getLevelDetails={getLevelDetails} getTopicType={getTopicType} handleImageError={handleImageError} />
       )}
 
       {subTab === 'hall_of_fame' && (
-        <HallOfFame
-          isLoadingHof={isLoadingHof}
-          hallOfFame={hallOfFame}
-          user={user}
-          getLevelDetails={getLevelDetails}
-        />
+        <HallOfFame isLoadingHof={isLoadingHof} hallOfFame={hallOfFame} user={user} getLevelDetails={getLevelDetails} />
       )}
       
       {subTab === 'arena_album' && (
         <MyArenaAlbumView user={user} setFullscreenData={setFullscreenData} />
       )}
           
-      <HelpModal 
-        isOpen={showHelp} 
-        onClose={() => setShowHelp(false)} 
-        currentLevel={currentLevel} 
-      />
+      <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} currentLevel={currentLevel} />
 
-      <AlbumSelectionModal 
-        isOpen={showSwapAlbumModal}
-        onClose={() => setShowSwapAlbumModal(false)}
-        albumModalMode={albumModalMode}
-        swapAlbumPhotos={swapAlbumPhotos}
-        myPastEntries={myPastEntries}
-        topic={topic}
-        user={user}
-        setIsUploading={setIsUploading}
-        setIsSwapping={setIsSwapping}
-        fetchCurrentTopic={fetchCurrentTopic}
-        handleSwapBackSubmit={handleSwapBackSubmit}
-        handleSelectPhotoForSwap={handleSelectPhotoForSwap}
-      />
+      <AlbumSelectionModal isOpen={showSwapAlbumModal} onClose={() => setShowSwapAlbumModal(false)} albumModalMode={albumModalMode} swapAlbumPhotos={swapAlbumPhotos} myPastEntries={myPastEntries} topic={topic} user={user} setIsUploading={setIsUploading} setIsSwapping={setIsSwapping} fetchCurrentTopic={fetchCurrentTopic} handleSwapBackSubmit={handleSwapBackSubmit} handleSelectPhotoForSwap={handleSelectPhotoForSwap} />
 
-      <ShareCardModal 
-        activeShareData={activeShareData}
-        onClose={() => setActiveShareData(null)}
-        user={user}
-        shareBase64={shareBase64}
-        loadingShareImg={loadingShareImg}
-        isGeneratingImage={isGeneratingImage}
-        handleExecuteShare={handleExecuteShare}
-      />
+      <ShareCardModal activeShareData={activeShareData} onClose={() => setActiveShareData(null)} user={user} shareBase64={shareBase64} loadingShareImg={loadingShareImg} isGeneratingImage={isGeneratingImage} handleExecuteShare={handleExecuteShare} />
+
+      {/* ── 🎯 STYLING LAYER: Szupergyors és reszponzív Bento/Floating Engine ── */}
+      <style>{`
+        .arena-fluid-container {
+          width: 100%;
+          box-sizing: border-box;
+        }
+        .arena-cards-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+          gap: 25px;
+          width: 100%;
+        }
+
+        /* ── DOCK CHAT WIDGET ── */
+        .arena-floating-chat-dock {
+          position: fixed;
+          bottom: 0;
+          right: 30px;
+          width: 360px;
+          background: #1e293b;
+          border: 1px solid #334155;
+          border-bottom: none;
+          border-radius: 16px 16px 0 0;
+          box-shadow: 0 -10px 30px rgba(0,0,0,0.5);
+          z-index: 1000;
+          transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.1);
+        }
+        .arena-floating-chat-dock.is-closed {
+          transform: translateY(calc(100% - 50px));
+        }
+        .chat-dock-header {
+          padding: 14px 20px;
+          background: linear-gradient(90deg, #1e293b, #0f172a);
+          border-bottom: 1px solid #334155;
+          border-radius: 15px 15px 0 0;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          cursor: pointer;
+          user-select: none;
+        }
+        .chat-dock-header:hover {
+          background: #24334d;
+        }
+        .chat-dock-body {
+          padding: 15px;
+          height: 400px;
+          display: flex;
+          flex-direction: column;
+        }
+        .chat-messages-scroll-area {
+          background: #0f172a;
+          border: 1px solid #223147;
+          border-radius: 12px;
+          padding: 12px;
+          flex: 1;
+          overflow-y: auto;
+          display: flex;
+          flex-direction: column;
+        }
+        .chat-notification-badge {
+          position: absolute;
+          top: -2px;
+          left: -4px;
+          width: 8px;
+          height: 8px;
+          background: #f43f5e;
+          border-radius: 50%;
+          box-shadow: 0 0 8px #f43f5e;
+          animation: pulse 1.5s infinite;
+        }
+        .typing-dots span {
+          animation: bounce 1.4s infinite both;
+          font-weight: bold;
+          display: inline-block;
+        }
+        @keyframes pulse {
+          0% { transform: scale(0.9); opacity: 1; }
+          50% { transform: scale(1.2); opacity: 0.5; }
+          100% { transform: scale(0.9); opacity: 1; }
+        }
+        @keyframes bounce {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-4px); }
+        }
+        @media (max-width: 480px) {
+          .arena-floating-chat-dock {
+            right: 10px;
+            width: calc(100% - 20px);
+          }
+        }
+      `}</style>
 
     </div>
   );
