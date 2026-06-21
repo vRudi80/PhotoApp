@@ -90,7 +90,7 @@ const compressImageOnClient = (file: File): Promise<File> => {
 };
 
 // ====================================================================
-// ⏳ SELEKCIÓS KÁRTYA KOMPONENS
+// 📊 SELEKCIÓS KÁRTYA KOMPONENS
 // ====================================================================
 function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }) {
   const { t, lang } = useLanguage();
@@ -225,7 +225,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const [uploadAperture, setUploadAperture] = useState('');
   const [uploadSoftware, setUploadSoftware] = useState('');
 
-  // 🎯 ÚJ STATE: Csere (swap) metaadatok kezelése
+  // 🎯 Csere (swap) metaadatok kezelése
   const [swapCamera, setSwapCamera] = useState('');
   const [swapLens, setSwapLens] = useState('');
   const [swapShutter, setSwapShutter] = useState('');
@@ -668,7 +668,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     finally { setIsClaimingReferral(false); }
   };
 
-  // ── 📊 FILTÖLTÉSI EXIF-KIBÁNYÁSZ MOTOR ──
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const rawFile = e.target.files[0];
@@ -719,6 +718,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     }
   };
 
+  // ── 🎯 JAVÍTVA: A handleUpload nem frissíti a teljes oldalt, így a felhasználó a szobában marad! ──
   const handleUpload = async () => {
     if (!uploadFile) return alert("Nincs fájl kiválasztva!");
 
@@ -744,9 +744,13 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       if (res.ok) {
         alert("Sikeres nevezés rögzített EXIF adatokkal!");
         setUploadFile(null);
+        if (uploadPreview) URL.revokeObjectURL(uploadPreview);
+        setUploadPreview(null); // Ürítjük az előnézetet
         setUploadCamera(''); setUploadLens(''); setUploadShutter('');
         setUploadIso(''); setUploadAperture(''); setUploadSoftware('');
-        window.location.reload();
+        
+        // 👈 MEGOLDÁS: Teljes reload helyett csak csendben újra lekérjük a szoba adatait
+        await fetchCurrentTopic(true); 
       }
     } catch (e) {
       console.error("Feltöltési hiba:", e);
@@ -755,7 +759,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     }
   };
 
-  // ── 🎯 ÚJ: INTERAKTÍV EXIF-KIBÁNYÁSZ ÉS TÖMÖRÍTŐ CSATORNA KIFEJEZETTEN CSERÉHEZ (Swap) ──
   const handleFileSelectForSwap = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const rawFile = e.target.files[0];
@@ -806,7 +809,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     }
   };
 
-  // ── 🎯 JAVÍTVA: A handleSwapSubmit most már hibátlanul átadja a kibányászott EXIF csomagot a backendnek! ──
   const handleSwapSubmit = async () => {
     if (!swapFile || !topic) return;
     if (!window.confirm(t('msgSwapConfirm'))) return;
@@ -818,7 +820,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       formData.append('userEmail', user?.email || ''); 
       formData.append('userName', user?.name || '');
       
-      // EXIF adatok hozzáfűzése a csere kérés törzséhez
       formData.append('camera', swapCamera);
       formData.append('lens', swapLens);
       formData.append('shutter', swapShutter);
