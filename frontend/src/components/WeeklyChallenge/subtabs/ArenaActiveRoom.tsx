@@ -13,7 +13,6 @@ function ActiveRoomCountdown({ endDate, lang }: { endDate: string; lang: string 
   useEffect(() => {
     if (!endDate) return;
     
-    // 🎯 JAVÍTVA: A split paraméterezése javítva, így már nem lesz 'NaN' a dátum
     const standardized = String(endDate).replace(' ', 'T').split('.')[0];
     const targetMillis = new Date(standardized).getTime();
 
@@ -63,7 +62,6 @@ function ActiveRoomCountdown({ endDate, lang }: { endDate: string; lang: string 
     </div>
   );
 }
-
 
 // ── 🎯 ⚡ BINÁRIS EXIF RE-INJECTOR MOTOR ──
 const insertExifToBlob = async (originalFile: File, compressedBlob: Blob): Promise<Blob> => {
@@ -302,12 +300,10 @@ export default function ArenaActiveRoom({
   };
 
   return (
-    /* 🛡️ JAVÍTVA: Osztálynév hozzáadva a reszponzív folyékony elrendezéshez */
     <div className="arena-main-layout-grid">
       
       {/* BAL OLDAL */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
-        {/* 🛡️ JAVÍTVA: Kártyaosztályok kiosztva a mobil padding-korrekciókhoz */}
         <div className="arena-responsive-card" style={{ background: 'linear-gradient(135deg, #1e293b, #0f172a)', padding: '30px', borderRadius: '24px', border: '1px solid #334155', display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: '0 10px 30px rgba(0,0,0,0.5)', position: 'relative', overflow: 'hidden' }}>
           <div style={{ position: 'absolute', top: '-20px', right: '-20px', fontSize: '8rem', opacity: 0.05 }}>🔥</div>
           <h3 style={{ margin: '0 0 10px 0', color: '#f8fafc', fontSize: '1.8rem', textAlign: 'center', zIndex: 1 }}>
@@ -428,7 +424,6 @@ export default function ArenaActiveRoom({
 
               <div style={{ marginTop: '35px', borderTop: '1px solid #334155', paddingTop: '25px', textAlign: 'center' }}>
                 <button
-                  network-status
                   onClick={handleBatchSubmit}
                   disabled={isSubmittingBatch || Object.keys(pendingVotes).length < batchVoteEntries.length}
                   style={{ width: '100%', padding: '16px', borderRadius: '16px', border: 'none', background: Object.keys(pendingVotes).length === batchVoteEntries.length ? 'linear-gradient(135deg, #10b981, #059669)' : '#334155', color: Object.keys(pendingVotes).length === batchVoteEntries.length ? 'white' : '#64748b', fontSize: '1.2rem', fontWeight: '900', cursor: Object.keys(pendingVotes).length === batchVoteEntries.length ? 'pointer' : 'not-allowed', boxShadow: Object.keys(pendingVotes).length === batchVoteEntries.length ? '0 10px 25px rgba(16,185,129,0.3)' : 'none', transition: 'all 0.3s' }}
@@ -502,7 +497,8 @@ export default function ArenaActiveRoom({
                         <div style={{ flex: 1, marginLeft: '10px' }}>
                           <div style={{ fontSize: '0.9rem', color: '#fbbf24', fontWeight: 'bold' }}>{past?.likes_count || 0} ⭐</div>
                         </div>
-                        <button onClick={{}} disabled={swapBalance < 1} style={{ background: 'linear-gradient(135deg, #0284c7, #0369a1)', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', cursor: 'pointer' }}>
+                        {/* 🎯 JAVÍTVA: Az onClick objektum helyett most már a helyes újraaktiváló függvény fut le */}
+                        <button onClick={() => handleSwapBackSubmit(past.id || past._id)} disabled={swapBalance < 1} style={{ background: 'linear-gradient(135deg, #0284c7, #0369a1)', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', cursor: 'pointer' }}>
                           {t('roomReactivateBtn')}
                         </button>
                       </div>
@@ -582,10 +578,10 @@ export default function ArenaActiveRoom({
                     
                     <div onClick={() => showUnblinded ? setFullscreenData({url: getImageUrl(entry?.drive_file_id, entry?.file_url), title: entry?.user_name || ''}) : null} style={{ width: '55px', height: '55px', backgroundColor: '#000', borderRadius: '10px', overflow: 'hidden', margin: '0 15px', cursor: showUnblinded ? 'zoom-in' : 'default', position: 'relative' }}>
                       <img src={getImageUrl(entry?.drive_file_id, entry?.file_url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: showUnblinded ? 'none' : 'blur(6px) contrast(120%)' }} onError={handleImageError} />
-                      {!showUnblinded && <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>🔒</div>}
+                      {!showUnblinded && <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifycontent: 'center' }}>🔒</div>}
                     </div>
                     
-                    <div style={{ flex: 1, minWidth: 0 }}> {/* 🛡️ JAVÍTVA: minWidth: 0 megakadályozza a flex-text túlfolyást */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ color: isMe ? '#f8fafc' : '#94a3b8', fontWeight: 'bold', fontSize: '1.05rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {showUnblinded ? (entry?.user_name || '') : t('roomEncryptedOpponent')}
                       </div>
@@ -621,7 +617,6 @@ export default function ArenaActiveRoom({
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(9,13,22,0.96)', backdropFilter: 'blur(20px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', boxSizing: 'border-box' }}>
           <div style={{ background: '#1e293b', width: '100%', maxWidth: '1200px', maxHeight: '95vh', borderRadius: '24px', border: '1px solid #475569', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 30px 70px rgba(0,0,0,0.8)' }}>
             
-            {/* MODÁL FEJLÉC */}
             <div style={{ padding: '20px 30px', background: '#1e293b', borderBottom: '1px solid #334155', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                 <h4 style={{ margin: 0, color: 'white', fontSize: '1.4rem', fontWeight: 'bold' }}>🔎 {t('roomInspectorTitle')}</h4>
@@ -632,7 +627,6 @@ export default function ArenaActiveRoom({
               <button onClick={() => setSelectedExifPhoto(null)} style={{ background: '#334155', color: '#cbd5e1', border: 'none', width: '36px', height: '32px', borderRadius: '50%', cursor: 'pointer', fontWeight: 'bold', fontSize: '1.1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = '#ef4444'}>✕</button>
             </div>
 
-            {/* THEATER BOX */}
             <div style={{ flex: 1, backgroundColor: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', minHeight: 0, position: 'relative' }}>
               <img 
                 src={selectedExifPhoto.file_url} 
@@ -641,9 +635,7 @@ export default function ArenaActiveRoom({
               />
             </div>
 
-            {/* EXIF LÁBLÉC */}
             <div style={{ padding: '20px 30px', background: '#0f172a', borderTop: '1px solid #334155', display: 'flex', flexDirection: 'column', gap: '15px', flexShrink: 0 }}>
-              
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px 25px', fontSize: '0.85rem', color: '#cbd5e1' }}>
                 <div> <span style={{ color: '#64748b' }}>{t('mapExifCamera')}:</span> <b style={{ color: 'white' }}>{selectedExifPhoto.exif?.camera}</b></div>
                 <div> <span style={{ color: '#64748b' }}>{t('mapExifLens')}:</span> <b style={{ color: 'white' }}>{selectedExifPhoto.exif?.lens}</b></div>
@@ -653,22 +645,18 @@ export default function ArenaActiveRoom({
                 <div>💻 <span style={{ color: '#64748b' }}>{t('roomInspectorSoftware')}:</span> <b style={{ color: '#a78bfa' }}>{selectedExifPhoto.exif?.software}</b></div>
               </div>
 
-              {/* RADAR ÁLLAPOT */}
               <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', background: selectedExifPhoto.exif?.isLegacy ? '#f59e0b10' : selectedExifPhoto.exif?.isAiSuspect ? '#ef444410' : '#10b98110', border: selectedExifPhoto.exif?.isLegacy ? '1px solid #fbbf2430' : selectedExifPhoto.exif?.isAiSuspect ? '1px solid #ef444430' : '1px solid #10b98130', padding: '8px', borderRadius: '10px' }}>
                 <span style={{ color: selectedExifPhoto.exif?.isLegacy ? '#fbbf24' : selectedExifPhoto.exif?.isAiSuspect ? '#f87171' : '#4ade80', fontWeight: 'bold', fontSize: '0.9rem' }}>
                   {selectedExifPhoto.exif?.isLegacy ? t('roomLegacyPhoto') : selectedExifPhoto.exif?.isAiSuspect ? t('roomAiSuspect') : t('roomVerifiedHardware')}
                 </span>
               </div>
-
             </div>
 
           </div>
         </div>
       )}
 
-      {/* ── 🎯 ⚡ RESZPONZÍV MOTOR CSS INJEKTÁLÁSA (BŐVÍTVE!) ── */}
       <style>{`
-        /* 🛡️ ÚJ: Reszponzív főkonténer, amely mobilokon egyetlen oszlopra kényszeríti a nézetet */
         .arena-main-layout-grid {
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -677,7 +665,6 @@ export default function ArenaActiveRoom({
           max-width: 100%;
           box-sizing: border-box;
         }
-
         .batch-vote-responsive-card {
           display: grid;
           grid-template-columns: 160px 1fr;
@@ -712,25 +699,19 @@ export default function ArenaActiveRoom({
           align-items: center;
           width: 100%;
         }
-        
-        /* 🛡️ ATOMBIZTOS MOBILOS MÉRET-KORREKCIÓS ZÓNA */
         @media (max-width: 768px) {
           .arena-main-layout-grid {
-            grid-template-columns: 1fr !important; /* Kényszerített egyetlen oszlop flexibilitás */
+            grid-template-columns: 1fr !important;
             gap: 20px !important;
           }
-
-          /* Lekerekítjük és szűkítjük a belső margókat, hogy több hely maradjon a szövegeknek */
           .arena-responsive-card {
             padding: 16px !important;
             border-radius: 16px !important;
           }
-
           .arena-responsive-card h3 {
             font-size: 1.4rem !important;
           }
         }
-
         @media (max-width: 580px) {
           .batch-vote-responsive-card {
             grid-template-columns: 1fr !important;
