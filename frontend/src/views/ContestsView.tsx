@@ -221,7 +221,7 @@ export default function ContestsView(props: ContestsViewProps) {
     } catch (err) {
       alert(t('msgGenerateImageError'));
       console.error(err);
-    } finaly { 
+    } finally { 
       setGeneratingCertId(null);
     }
   };
