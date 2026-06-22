@@ -202,7 +202,8 @@ export default function ClubHomeworksView({
     } catch (e) { console.error('Hiba a kiválasztáskor:', e); }
   };
 
-  const handleDownloadAllSelected = (homeworkEntries: any[]) => {
+  const handleDownloadAllSelected = async (homeworkEntries: any[]) => {
+    // Kiszűrjük az admin által éppen kiválasztott képeket
     const selectedEntries = homeworkEntries.filter(entry => 
       localSelections[entry.id] !== undefined ? localSelections[entry.id] : (entry.is_selected === 1)
     );
@@ -212,32 +213,45 @@ export default function ClubHomeworksView({
       return;
     }
 
-    if (!window.confirm(`Biztosan le szeretnéd tölteni a feladat mind a(z) ${selectedEntries.length} db kiválasztott képét eredeti felbontásban?`)) return;
+    const confirmMessage = `Biztosan le szeretnéd tölteni a feladat mind a(z) ${selectedEntries.length} db kiválasztott képét egyetlen közös .ZIP fájlban?\n\n(A szerver a háttérben letölti és becsomagolja a képeket, ez eltarthat pár másodpercig.)`;
 
-    // 🎯 JAVÍTVA: Rejtett iframe-eket indítunk a háttérben a Google Drive Cross-Origin tiltásának áthidalására
-    selectedEntries.forEach((entry, idx) => {
-      setTimeout(() => {
-        // Létrehozunk egy láthatatlan iframe elemet
-        const iframe = document.createElement('iframe');
-        iframe.style.display = 'none';
-        
-        // Beállítjuk a Google Drive közvetlen letöltési útvonalát
-        iframe.src = entry.drive_file_id 
-          ? `https://docs.google.com/uc?export=download&id=${entry.drive_file_id}` 
-          : entry.file_url;
-        
-        // Bedobjuk a DOM-ba, ami azonnal elindítja a letöltést a háttérben
-        document.body.appendChild(iframe);
+    if (!window.confirm(confirmMessage)) return;
 
-        // 5 másodperc után feltakarítunk magunk után, hogy ne terheljük a memóriát
-        setTimeout(() => {
-          document.body.removeChild(iframe);
-        }, 5000);
+    try {
+      // Elküldjük a 24 vagy tetszőleges számú kijelölt rekordot a backendnek zippelésre
+      const res = await fetch(`${BACKEND_URL}/api/homework/download-zip`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          entries: selectedEntries,
+          topic: hw.topic
+        })
+      });
 
-      }, idx * 400); // 400 ms-os biztonsági szünetekkel indítjuk őket, hogy a Chrome kényelmesen feldolgozza
-    });
+      if (!res.ok) throw new Error("Szerveroldali hiba történt a tömörítés során.");
+
+      // Átkonvertáljuk a beérkező adatfolyamot egy letölthető memóriafájllá (Blob)
+      const blob = await res.blob();
+      const downloadUrl = URL.createObjectURL(blob);
+      
+      // Szabályos, egyetlen letöltést indítunk el, amit semmilyen böngésző nem blokkol
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.href = downloadUrl;
+      const safeTopic = (hw.topic || 'valogatas').replace(/[^a-zA-Z0-9-_]/g, '_');
+      downloadAnchor.setAttribute('download', `${safeTopic}_portfolio_valogatas.zip`);
+      
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      document.body.removeChild(downloadAnchor);
+      
+      // Felszabadítjuk a memóriát
+      URL.revokeObjectURL(downloadUrl);
+
+    } catch (e) {
+      alert("Hiba történt a tömeges ZIP letöltés közben. Kérlek ellenőrizd a szerver kapcsolatot!");
+      console.error(e);
+    }
   };
-
   const openGalleryModal = (clickedEntry: any, allEntries: any[], index: number) => {
     setFullscreenData({
       url: getImageUrl(clickedEntry.drive_file_id, clickedEntry.file_url),
