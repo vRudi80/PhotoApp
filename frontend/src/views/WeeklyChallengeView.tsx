@@ -177,7 +177,7 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
             <span style={{ color: '#e9d5ff' }}>{topic.master_name || topic.master_email}</span>
           </div>
         )}
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#38bdf8', fontSize: '0.8rem', fontWeight: 'bold', background: '#38bdf810', padding: '6px 10px', borderRadius: '10px', border: '1px solid #38bdf820', whiteSpace: 'nowrap' }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#38bdf8', fontSize: '0.8rem', fontWeight: 'bold', background: '#38bdf810', padding: '6px 10px', borderRadius: '10px', border: '#38bdf820', whiteSpace: 'nowrap' }}>
           <span>👥 {topic.totalEntries || 0} {t('photographers')}</span>
         </div>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: topic.unvotedEntries > 0 ? '#fb923c' : '#4ade80', fontSize: '0.8rem', fontWeight: 'bold', background: topic.unvotedEntries > 0 ? '#fb923c10' : '#4ade8010', padding: '6px 10px', borderRadius: '10px', border: topic.unvotedEntries > 0 ? '1px solid #fb923c20' : '1px solid #4ade8020', whiteSpace: 'nowrap' }}>
@@ -873,38 +873,22 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     }
   };
 
-  // EFFEKTUSOK
+  // EFFEKTUSOK: GÖRDÍTÉS ÉS IDŐZÍTŐK
+  // 🎯 JAVÍTVA: Kis időzítést adunk a görgetésnek, hogy a DOM-nak legyen ideje kiszámolni a scrollHeight-ot megnyitáskor!
   useEffect(() => {
-    if (!activeShareData) {
-      setShareBase64(null);
-      return;
-    }
-    let isMounted = true;
-    setLoadingShareImg(true);
-    
-    const fetchUrl = activeShareData.drive_file_id 
-      ? `${BACKEND_URL}/api/image-base64/${activeShareData.drive_file_id}`
-      : `${BACKEND_URL}/api/admin/base64-proxy?url=${encodeURIComponent(activeShareData.file_url)}`;
-
-    fetch(fetchUrl)
-      .then(res => res.json())
-      .then(data => {
-        if (isMounted) {
-          if (data.base64) setShareBase64(data.base64);
-          setLoadingShareImg(false);
+    if (selectedTopicId === null && subTab === 'current' && isChatOpen && chatScrollContainerRef.current) {
+      const timer = setTimeout(() => {
+        if (chatScrollContainerRef.current) {
+          chatScrollContainerRef.current.scrollTop = chatScrollContainerRef.current.scrollHeight;
         }
-      })
-      .catch(err => {
-        console.error("Error downloading proxy asset:", err);
-        if (isMounted) setLoadingShareImg(false);
-      });
-    return () => { isMounted = false; };
-  }, [activeShareData]);
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [lobbyMessages.length, selectedTopicId, subTab, isChatOpen]);
 
-  // 3. FUTÁSIDEJŰ RENDERELES KISZÁMÍTÁSOK
+  // FUTÁSIDEJŰ RENDERELES KISZÁMÍTÁSOK
   const currentLevel = getLevelDetails(userTotalLikes, userVictories);
 
-  // 🎯 HELYREÁLLÍTVA: A BASE_EXPOSURE konstans visszakerült a helyére, megszüntetve az image_62ed22.png-n lévő ReferenceError-t!
   const BASE_EXPOSURE = 10;
   const exposureEarned = BASE_EXPOSURE + (Number(myVoteCount || 0) * 2);
   const safeViewsCount = myEntry ? (Number(myEntry.views_count) || 0) : 0;
