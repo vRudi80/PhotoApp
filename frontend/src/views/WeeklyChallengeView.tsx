@@ -348,119 +348,25 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     setVoteEntry(null);
     setLeaderboard([]);
     setCurrentClubLeaderboard([]);
-    setNoMoreEntries(false);
     setTimeLeft('');
     setPastLeaderboard([]); 
     setPastClubLeaderboard([]);
     setMasterVotesLeft(0); 
     setIsMaster(false);     
-  }, [selectedTopicId]);
+    setHasNewMessage(false); // 👈 JAVÍTVA: User vagy szobaváltáskor alaphelyzetbe hozzuk a jelzőt
+  }, [selectedTopicId, user?.email]);
 
-  const fetchCurrentTopic = async (isSilent = false) => {
-    if (!isSilent) setLoading(true);
-    try {
-      const url = selectedTopicId 
-        ? `${BACKEND_URL}/api/weekly/current?userEmail=${user?.email || ''}&topicId=${selectedTopicId}`
-        : `${BACKEND_URL}/api/weekly/current?userEmail=${user?.email || ''}`;
-
-      const res = await fetch(url);
-      if (res.ok) {
-        const data = await res.json();
-        
-        if (data.userTotalLikes !== undefined) setUserTotalLikes(data.userTotalLikes);
-        if (data.userVictories !== undefined) setUserVictories(data.userVictories);
-        if (data.masterVotesLeft !== undefined) setMasterVotesLeft(data.masterVotesLeft); 
-        if (data.isMaster !== undefined) setIsMaster(data.isMaster);                      
-        if (data.myReferralCode !== undefined) setMyReferralCode(data.myReferralCode);
-        if (data.referredBy !== undefined) setReferredBy(data.referredBy);
-        if (data.userPower) setUserPower(data.userPower);
-        if (data.swapBalance !== undefined) setSwapBalance(data.swapBalance); 
-
-        if (!selectedTopicId) {
-          setActiveTopics(data.activeTopics || []);
-        } else {
-          if (data && data.topic) {
-            setTopic(data.topic);
-            setMyEntry(data.myEntry);
-            setMyPastEntries(data.myPastEntries || []); 
-            setMyVoteCount(Number(data.myVoteCount) || 0);
-            setVotableEntries(Number(data.votableEntries) || 1);
-            setLeaderboard(data.leaderboard || []);
-            setCurrentClubLeaderboard(data.clubLeaderboard || []);
-            if (!isSilent) fetchNextVote(data.topic.id);
-          }
-        }
-      }
-    } catch (e) { console.error(e); }
-    finally { if (!isSilent) setLoading(false); }
-  };
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setTypedLobbyMsg(e.target.value);
-
-    const now = Date.now();
-    if (now - lastTypingSignalSent.current > 3000) {
-      lastTypingSignalSent.current = now;
-      fetch(`${BACKEND_URL}/api/weekly/chat/typing`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          topicId: 0,
-          userEmail: user?.email,
-          userName: myOfficialNameRef.current
-        })
-      }).catch(() => {});
-    }
-  };
-
-  const fetchNextVote = async (topicId: number) => {
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/weekly/next-vote?topicId=${topicId}&userEmail=${user?.email || ''}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data && data.entry) { setVoteEntry(data.entry); setNoMoreEntries(false); } 
-        else { setVoteEntry(null); setNoMoreEntries(true); }
-      }
-    } catch (e) { console.error(e); }
-  };
-
-  const fetchMyStats = async () => {
-    setIsLoadingStats(true);
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/weekly/my-stats?userEmail=${user?.email || ''}`);
-      if (res.ok) {
-          const data = await res.json();
-          if (data && data.history && data.podiums) {
-             setMyStats(data);
-          } else {
-             setMyStats({ podiums: { first: 0, second: 0, third: 0 }, history: [] });
-          }
-      }
-    } catch (error) { console.error(error); } 
-    finally { setIsLoadingStats(false); }
-  };
-
-  const fetchHallOfFame = async () => {
-    setIsLoadingHof(true);
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/weekly/hall-of-fame`);
-      if (res.ok) {
-        setHallOfFame(await res.json());
-      }
-    } catch (e) { console.error(e); }
-    finally { setIsLoadingHof(false); }
-  };
-
+  // 🎯 ÚJ EFFECT: Ha megnyitják a chatet, vagy nyitott chat mellett új üzenet jön, elmentjük az utolsó ID-t olvasottnak
   useEffect(() => {
-    if (subTab === 'current') {
-      fetchCurrentTopic(false);
+    if (isChatOpen && lobbyMessages.length > 0 && user?.email) {
+      const lastMsg = lobbyMessages[lobbyMessages.length - 1];
+      const lastId = lastMsg.id || lastMsg._id;
+      if (lastId) {
+        localStorage.setItem(`arena_chat_last_read_${user.email}`, String(lastId));
+      }
+      setHasNewMessage(false);
     }
-    else if (subTab === 'upcoming') fetch(`${BACKEND_URL}/api/weekly/upcoming`).then(res => res.json()).then(data => setUpcomingTopics(data || [])).catch(console.error);
-    else if (subTab === 'past') fetch(`${BACKEND_URL}/api/weekly/past`).then(res => res.json()).then(data => setPastTopics(data || [])).catch(console.error);
-    else if (subTab === 'my_stats') fetchMyStats(); 
-    else if (subTab === 'hall_of_fame') fetchHallOfFame();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subTab, selectedTopicId]);
+  }, [isChatOpen, lobbyMessages, user?.email]);
 
   // 🎯 UNIVERZÁLIS CHAT POLLING ENGINE (Hurokmentesített, stabil verzió)
   useEffect(() => {
@@ -484,12 +390,24 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           const data = await res.json();
           const newMessages = data.messages || [];
           
-          // Biztonságos ref-alapú összehasonlítás a végtelen hurok elkerülésére
-          if (!isChatOpenRef.current && lobbyMessagesCountRef.current > 0 && newMessages.length > lobbyMessagesCountRef.current) {
+          // 🎯 JAVÍTVA: Felhasználóhoz kötött LocalStorage ID alapú unread-detektálás
+          if (newMessages.length > 0 && user?.email) {
             const lastMsg = newMessages[newMessages.length - 1];
             const lastMsgEmail = lastMsg?.user_email || lastMsg?.userEmail;
-            if (lastMsgEmail !== user?.email) {
-              setHasNewMessage(true);
+            const lastId = lastMsg.id || lastMsg._id;
+
+            // Csak akkor riasztunk, ha az utolsó üzenetet NEM mi magunk küldtük
+            if (lastMsgEmail !== user.email) {
+              if (isChatOpenRef.current) {
+                // Ha épp nyitva van az ablak, azonnal elmentjük olvasottnak
+                localStorage.setItem(`arena_chat_last_read_${user.email}`, String(lastId));
+              } else {
+                // Ha zárva van, összevetjük a LocalStorage-ban tárolttal
+                const storedId = localStorage.getItem(`arena_chat_last_read_${user.email}`);
+                if (!storedId || String(lastId) !== storedId) {
+                  setHasNewMessage(true);
+                }
+              }
             }
           }
 
