@@ -198,7 +198,7 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
 export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyChallengeViewProps) {
   const { t, lang } = useLanguage();
 
-  // 1. MINDEN ÁLLAPOT (STATES)
+  // 1. MINDEN ÁLLAPOT (STATES) ÚJRARENDEZVE
   const [subTab, setSubTab] = useState<'current' | 'upcoming' | 'past' | 'my_stats' | 'hall_of_fame' | 'arena_album'>('current');
   const [loading, setLoading] = useState(true);
   const [myReferralCode, setMyReferralCode] = useState<string>('');
@@ -285,7 +285,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const chatScrollContainerRef = useRef<HTMLDivElement>(null);
   const lastTypingSignalSent = useRef<number>(0);
 
-  // 2. REFS ÉS HOISTOLT ALAP-FÜGGVÉNYEK (Ide jöttek fel, hogy kiküszöböljük az inicializálási hibát)
+  // Referenciák a hurokmentes chat állapothoz
   const isChatOpenRef = useRef(isChatOpen);
   const lobbyMessagesCountRef = useRef(lobbyMessages.length);
 
@@ -294,6 +294,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     lobbyMessagesCountRef.current = lobbyMessages.length;
   }, [isChatOpen, lobbyMessages.length]);
 
+  // 2. ADATLETÖLTŐ FÜGGVÉNYEK (HOISTOLVA A BIZTONSÁGOS ÉLETCIKLUSHOZ)
   const fetchNextVote = async (topicId: number) => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/weekly/next-vote?topicId=${topicId}&userEmail=${user?.email || ''}`);
@@ -349,47 +350,18 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     myOfficialNameRef.current = myEntry?.user_name || user?.name || (lang === 'en' ? 'Me' : 'Én');
   }, [myEntry, user, lang]);
 
-  // 3. HORGOK (HOOKS) ÉS LOGIKAI SZEKCIÓK
+  // 3. REAKTÍV HORGOK (HOOKS) ÉS LOOP-BIZTONSÁGOS AUTOMATIZMUSOK
   useEffect(() => {
-    if (!activeShareData) {
-      setShareBase64(null);
-      return;
+    if (subTab === 'current') {
+      fetchCurrentTopic(false);
     }
-    let isMounted = true;
-    setLoadingShareImg(true);
-    
-    const fetchUrl = activeShareData.drive_file_id 
-      ? `${BACKEND_URL}/api/image-base64/${activeShareData.drive_file_id}`
-      : `${BACKEND_URL}/api/admin/base64-proxy?url=${encodeURIComponent(activeShareData.file_url)}`;
-
-    fetch(fetchUrl)
-      .then(res => res.json())
-      .then(data => {
-        if (isMounted) {
-          if (data.base64) setShareBase64(data.base64);
-          setLoadingShareImg(false);
-        }
-      })
-      .catch(err => {
-        console.error("Error downloading proxy asset:", err);
-        if (isMounted) setLoadingShareImg(false);
-      });
-    return () => { isMounted = false; };
-  }, [activeShareData]);
-
-  const currentLevel = getLevelDetails(userTotalLikes, userVictories);
-
-  const BASE_EXPOSURE = 10;
-  const exposureEarned = BASE_EXPOSURE + (Number(myVoteCount || 0) * 2);
-  const safeViewsCount = myEntry ? (Number(myEntry.views_count) || 0) : 0;
-  const viewsRemaining = myEntry ? (exposureEarned - safeViewsCount) : 0;
-  const rawPercentage = myEntry ? ((viewsRemaining / 15) * 100) : 0;
-  const exposurePercentage = isNaN(rawPercentage) || !isFinite(rawPercentage) ? 0 : Math.min(100, Math.max(0, rawPercentage));
-
-  let exposureColor = '#ef4444';
-  let exposureLabel = viewsRemaining <= 0 ? (lang === 'en' ? 'Invisible (0%)' : 'Láthatatlan (0%)') : (lang === 'en' ? 'Low' : 'Alacsony');
-  if (exposurePercentage >= 80) { exposureColor = '#10b981'; exposureLabel = lang === 'en' ? 'Maximum' : 'Maximális'; } 
-  else if (exposurePercentage >= 40) { exposureColor = '#f59e0b'; exposureLabel = lang === 'en' ? 'Medium' : 'Közepes'; }
+    else if (subTab === 'upcoming') fetch(`${BACKEND_URL}/api/weekly/upcoming`).then(res => res.json()).then(data => setUpcomingTopics(data || [])).catch(console.error);
+    else if (subTab === 'past') fetch(`${BACKEND_URL}/api/weekly/past`).then(res => res.json()).then(data => setPastTopics(data || [])).catch(console.error);
+    else if (subTab === 'my_stats') fetchMyStats(); 
+    else if (subTab === 'hall_of_fame') fetchHallOfFame();
+  // 🎯 JAVÍTVA: Figyeljük a user?.email-t is, így bejelentkezéskor azonnal feloldja a betöltőképernyőt!
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subTab, selectedTopicId, user?.email]);
 
   useEffect(() => {
     setTopic(null);
@@ -519,18 +491,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       }
     } catch (e) { console.error(e); }
     finally { setIsLoadingHof(false); }
-  };
-
-  const loadPastHistoryList = async (topicId: number) => {
-    setSelectedPastTopicId(topicId);
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/weekly/history/${topicId}?userEmail=${user?.email || ''}`);
-      if (res.ok) {
-        const data = await res.json();
-        setPastLeaderboard(data.leaderboard || []);
-        setPastClubLeaderboard(data.clubLeaderboard || []);
-      }
-    } catch (e) { console.error(e); }
   };
 
   const handleOffTopicReport = async (entryId: number) => {
@@ -870,69 +830,9 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     }
   }, [lobbyMessages.length, selectedTopicId, subTab, isChatOpen]);
 
-  useEffect(() => {
-    if (!topic || !topic.end_date) {
-      setTimeLeft(t('viewTimeError'));
-      return;
-    }
-
-    const calculateTimeLeft = () => {
-      const now = new Date().getTime();
-      const parts = topic.end_date.split(/[- :T]/);
-      const end = parts.length >= 5 
-        ? new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), parseInt(parts[3]), parseInt(parts[4]), parts[5] ? parseInt(parts[5]) : 0)
-        : new Date(topic.end_date);
-      
-      if (isNaN(end.getTime())) {
-        setTimeLeft(t('viewTimeError'));
-        return false;
-      }
-
-      const distance = end.getTime() - now;
-      if (distance < 0) {
-        setTimeLeft(t('viewTimeEnded'));
-        return false;
-      }
-
-      const days = Math.floor(distance / (1000 * 60 * 60 * 24));
-      const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)).toString().padStart(2, '0');
-      const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60)).toString().padStart(2, '0');
-      const seconds = Math.floor((distance % (1000 * 60)) / 1000).toString().padStart(2, '0');
-
-      if (days > 0) {
-        setTimeLeft(`${days}${t('viewTimeDays')}${hours}:${minutes}:${seconds}`);
-      } else {
-        setTimeLeft(`${hours}:${minutes}:${seconds}`);
-      }
-      return true;
-    };
-
-    const isActive = calculateTimeLeft();
-    if (!isActive) return;
-
-    const interval = setInterval(() => {
-      const stillActive = calculateTimeLeft();
-      if (!stillActive) clearInterval(interval);
-    }, 1000);
-    
-    return () => clearInterval(interval);
-  }, [topic, t]);
-
-  // 4. MEMOIZÁLT ÉRTÉKEK ÉS RENDER RENDELKEZÉSEK
-  const sortedActiveTopics = [...activeTopics].sort((a, b) => {
-    const dateStrA = String(sortBy === 'endDate' ? a.end_date : a.start_date).replace(' ', 'T').split('.')[0];
-    const dateStrB = String(sortBy === 'endDate' ? b.end_date : b.start_date).replace(' ', 'T').split('.')[0];
-    
-    const timeA = new Date(dateStrA).getTime() || 0;
-    const timeB = new Date(dateStrB).getTime() || 0;
-
-    if (sortBy === 'endDate') {
-      return timeA - timeB;
-    } else {
-      return timeB - timeA;
-    }
-  });
-  
+  // ====================================================================
+  // 4. RENDER STRUKTÚRA
+  // ====================================================================
   return (
     <div style={{ animation: 'fadeIn 0.4s ease-out', position: 'relative' }}>
       
