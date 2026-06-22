@@ -3,7 +3,7 @@ import { ADMIN_EMAIL, BACKEND_URL } from '../utils/constants';
 import { getImageUrl } from '../utils/helpers';
 import jsPDF from 'jspdf';
 
-// 🎯 ÚJ IMPORT: Behozzuk a nyelvi kontextust
+// 🎯 Nyelvi kontextus aktiválása
 import { useLanguage } from '../context/LanguageContext';
 
 interface ContestsViewProps {
@@ -95,7 +95,6 @@ interface ContestsViewProps {
 export default function ContestsView(props: ContestsViewProps) {
   const inputStyle = { width: '100%', padding: '12px', marginBottom: '12px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '10px', boxSizing: 'border-box' as const, fontSize: '0.95rem', outline: 'none' };
 
-  // 🎯 ÚJ: Aktiváljuk a fordítót (t) és a nyelvi kontextust (lang)
   const { t, lang } = useLanguage();
 
   const [isSubmittingVote, setIsSubmittingVote] = useState(false);
@@ -109,22 +108,19 @@ export default function ContestsView(props: ContestsViewProps) {
   const currentEditClubValue = props.clubs.find(c => String(c.id) === props.editRestrictedClub || c.name === props.editRestrictedClub)?.id || '';
 
   // ====================================================================
-  // 📜 JAVÍTVA: OKLEVÉL GENERÁLÓ LOGIKA NYELVILAG DIZÁJNOLVA
+  // 📜 OKLEVÉL GENERÁLÓ LOGIKA
   // ====================================================================
   const generateCertificate = async (contest: any, result: any, awardName: string, isAcceptance: boolean, contestJury: any[]) => {
     setGeneratingCertId(result.id);
     
-    console.log("=== 🛡️ CERTIFICATE GENERATION LOG ===");
     const targetSponsorId = contest.sponsor_club_id || contest.sponsorClubId;
     const sponsorClubObj = props.clubs.find(c => Number(c.id) === Number(targetSponsorId));
 
     try {
-      // 1. Alkotás képének letöltése
       const res = await fetch(`${BACKEND_URL}/api/image-base64/${result.drive_file_id}`);
       const data = await res.json();
-      if (!data.base64) throw new Error("Error loading certificate image background asset");
+      if (!data.base64) throw new Error("Error loading background asset");
 
-      // 2. Szponzor logóBase64 kikeresése
       let sponsorLogoBase64: string | null = null;
       if (sponsorClubObj && sponsorClubObj.drive_logo_id) {
         try {
@@ -133,9 +129,7 @@ export default function ContestsView(props: ContestsViewProps) {
           if (logoData.base64) {
             sponsorLogoBase64 = logoData.base64;
           }
-        } catch (e) { 
-          console.error("Error embedding sponsor logo asset:", e); 
-        }
+        } catch (e) { console.error("Logo error:", e); }
       }
 
       const img = new Image();
@@ -144,14 +138,11 @@ export default function ContestsView(props: ContestsViewProps) {
 
       const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
 
-      // Dinamikus karakter-szűrő a jsPDF korlátaihoz (magyar ékezetek Times-hoz igazítása szükség esetén)
       const fixHu = (str: string) => {
         if (!str) return '';
-        // A PDF generátornak teljesen mindegy a UI nyelv, a Times fontnak muszáj konvertálni!
         return str.replace(/ő/g, 'ö').replace(/ű/g, 'ü').replace(/Ő/g, 'Ö').replace(/Ű/g, 'Ü');
       };
 
-      // Díszkeret rajzolása
       doc.setDrawColor(217, 119, 6); 
       doc.setLineWidth(2);
       doc.rect(10, 10, 277, 190);
@@ -230,12 +221,21 @@ export default function ContestsView(props: ContestsViewProps) {
     } catch (err) {
       alert(t('msgGenerateImageError'));
       console.error(err);
-    } finally { 
+    } finaly { 
       setGeneratingCertId(null);
     }
   };
 
-  if (props.activeTab === 'contests_club_active' && !props.currentDbUser?.club_name) {
+  // 🎯 ÚJ / MODERNIZÁLT ELLENŐRZÉS: Megnézzük, hogy a bejelentkezett felhasználó felkért zsűritag-e legalább egy itteni pályázatban
+  const isUserJurySomewhereInList = useMemo(() => {
+    if (!Array.isArray(props.filteredContests) || !user?.email) return false;
+    return props.filteredContests.some(contest => 
+      props.juryList.some(j => j.contest_id === contest.id && j.user_email === props.user.email)
+    );
+  }, [props.filteredContests, props.juryList, props.user.email]);
+
+  // JAVÍTVA: Ha zsűritag az illető, akkor NE zárjuk ki a felületről külsős mivolta miatt!
+  if (props.activeTab === 'contests_club_active' && !props.currentDbUser?.club_name && !isUserJurySomewhereInList) {
     return (
       <div style={{ textAlign: 'center', padding: '5rem 2rem', background: 'linear-gradient(180deg, #1e293b, #0f172a)', borderRadius: '24px', border: '1px solid #ef444440', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
         <div style={{ fontSize: '4rem', marginBottom: '1.5rem' }}>🔒</div>
@@ -247,7 +247,6 @@ export default function ContestsView(props: ContestsViewProps) {
     );
   }
 
-  // Dinamikus címsor generátor a kiválasztott fül szerint
   const getHeaderMainTitle = () => {
     if (props.activeTab === 'admin_contests') return t('contTabAdminTitle');
     if (props.activeTab === 'contests_club_active') return t('contTabClubTitle');
@@ -329,7 +328,7 @@ export default function ContestsView(props: ContestsViewProps) {
             </div>
           )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px', marginBottom: '15px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '15px' }}>
             <div>
               <label style={{fontSize:'0.8rem', color:'#94a3b8', fontWeight: 'bold', display: 'block', marginBottom: '6px'}}>{t('contVisibilityLabel')}</label>
               {props.user.email === ADMIN_EMAIL ? (
@@ -361,7 +360,7 @@ export default function ContestsView(props: ContestsViewProps) {
             </div>
           </div>
           
-          <button onClick={props.handleCreateContest} style={{ background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', border: 'none', padding: '12px 30px', borderRadius: '12px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem', transition: 'all 0.3s', boxShadow: '0 4px 15px rgba(16,185,129,0.3)' }}>{t('contCreateBtn')}</button>
+          <button onClick={props.handleCreateContest} style={{ background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', border: 'none', padding: '12px 30px', borderRadius: '12px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem', transition: 'all 0.3s', boxShadow: '0 4px 15px rgba(16,185,129,0.3)', marginTop: '20px' }}>{t('contCreateBtn')}</button>
         </div>
       )}
 
@@ -610,7 +609,6 @@ export default function ContestsView(props: ContestsViewProps) {
                     </div>
                   </div>
                 ) : props.judgingContestId === contest.id ? (
-                  /* ÉRTÉKELŐ PULT RUGALMAS KÉPMÉRETEZÉSSEL */
                   <div style={{ position: 'fixed', inset: 0, backgroundColor: '#000000', zIndex: 10000, display: 'flex', flexDirection: 'column' }}>
                     <div style={{ padding: '15px 30px', background: '#0f172a', borderBottom: '1px solid #1e293b', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '15px', flexShrink: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '25px' }}>
@@ -783,6 +781,7 @@ export default function ContestsView(props: ContestsViewProps) {
                       </div>
                     )}
 
+                    {/* ZSŰRI PANEL */}
                     {isUserJury && (
                       <div style={{ background: 'linear-gradient(90deg, #f59e0b10, transparent)', borderLeft: '4px solid #f59e0b', color: '#f8fafc', padding: '15px', borderRadius: '0 12px 12px 0', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '25px', flexWrap: 'wrap' }}>
                         <div>
@@ -797,6 +796,7 @@ export default function ContestsView(props: ContestsViewProps) {
                       </div>
                     )}
 
+                    {/* NEVEZÉS INDÍTÁSA GOMB (Csak ha NEM zsűritag az illető) */}
                     {isActive && !isUserJury && props.activeUploadContest !== contest.id && (
                       <button onClick={() => { props.setActiveUploadContest(contest.id); props.setUploadCategory(''); }} style={{ background: 'linear-gradient(135deg, #38bdf8, #0284c7)', color: '#0f172a', border: 'none', padding: '10px 20px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem', marginBottom: '15px', transition: 'all 0.2s', boxShadow: '0 4px 15px rgba(56,189,248,0.3)' }}>{t('contBtnNewUpload')}</button>
                     )}
