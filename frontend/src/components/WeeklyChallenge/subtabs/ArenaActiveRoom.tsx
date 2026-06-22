@@ -166,8 +166,8 @@ export default function ArenaActiveRoom({
   return (
     <div className="arena-main-layout-grid">
       
-      {/* BAL HASÁB */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
+      {/* 🏛️ BAL HASÁB: FŐ TARTALOM (Kihívás adatok, Értékelő pult) */}
+      <div className="arena-layout-column-main">
         <div className="arena-responsive-card" style={{ background: 'linear-gradient(135deg, #1e293b, #0f172a)', padding: '30px', borderRadius: '24px', border: '1px solid #334155', display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: '0 10px 30px rgba(0,0,0,0.5)', position: 'relative', overflow: 'hidden' }}>
           <div style={{ position: 'absolute', top: '-20px', right: '-20px', fontSize: '8rem', opacity: 0.05 }}>🔥</div>
           <h3 style={{ margin: '0 0 10px 0', color: '#f8fafc', fontSize: '1.8rem', textAlign: 'center', zIndex: 1 }}>
@@ -176,20 +176,9 @@ export default function ArenaActiveRoom({
           <p style={{ margin: '0 0 20px 0', color: '#cbd5e1', fontSize: '0.95rem', textAlign: 'center', lineHeight: '1.6' }}>{displayRoomDesc}</p>
           <ActiveRoomCountdown endDate={topic?.end_date} lang={lang} />
         </div>
-        
-        {!isMaster && (
-          <div className="arena-responsive-card" style={{ width: '100%', boxSizing: 'border-box', background: '#0f172a', padding: '25px 15px', borderRadius: '24px', border: `1px solid ${exposureColor || '#ef4444'}40`, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <svg viewBox="0 0 200 120" style={{ width: '100%', maxWidth: '240px', height: 'auto', display: 'block' }}>
-              <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#1e293b" strokeWidth="16" strokeLinecap="round" />
-              <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke={exposureColor || '#ef4444'} strokeWidth="16" strokeLinecap="round" pathLength="100" strokeDasharray="100" strokeDashoffset={100 - (exposurePercentage || 0)} />
-            </svg>
-            <div style={{ fontSize: '2rem', fontWeight: '900', color: exposureColor || '#ef4444', marginTop: '-40px' }}>{Math.round(exposurePercentage || 0)}%</div>
-            <div style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#cbd5e1', textTransform: 'uppercase', marginTop: '5px' }}>{getTranslatedExposureLabel(exposureLabel)}</div>
-          </div>
-        )}
 
         {/* BATCH EVALUATION PULT */}
-        <div className="arena-responsive-card" style={{ background: '#1e293b', padding: '25px 20px', borderRadius: '24px', border: '2px solid #38bdf8', boxShadow: '0 15px 35px rgba(0,0,0,0.4)', boxSizing: 'border-box' }}>
+        <div className="arena-responsive-card" style={{ background: '#1e293b', padding: '25px 20px', borderRadius: '24px', border: '1px solid #334155', boxShadow: '0 15px 35px rgba(0,0,0,0.4)', boxSizing: 'border-box' }}>
           <div style={{ background: 'rgba(56, 189, 248, 0.08)', borderLeft: '4px solid #38bdf8', padding: '15px', borderRadius: '0 12px 12px 0', marginBottom: '25px', fontSize: '0.85rem', color: '#cbd5e1', lineHeight: '1.5' }}>
             <strong style={{ color: '#38bdf8', display: 'block', marginBottom: '4px', fontSize: '0.95rem' }}>{t('roomExifShieldTitle')}</strong>
             {t('roomExifShieldDesc')}
@@ -198,8 +187,8 @@ export default function ArenaActiveRoom({
           <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: '0 0 25px 0' }}>{t('roomBatchDesc')}</p>
 
           {(!myEntry && !isMaster) ? (
-            <div style={{ padding: '40px 20px', textAlign: 'center', background: '#0f172a', borderRadius: '16px', border: '2px dashed #f59e0b' }}>
-              <h4 style={{ color: '#f59e0b', margin: '0 0 10px 0' }}>{t('roomNoVoteRight')}</h4>
+            <div style={{ padding: '40px 20px', textAlign: 'center', background: '#0f172a', borderRadius: '16px', border: '2px dashed #fb923c' }}>
+              <h4 style={{ color: '#fb923c', margin: '0 0 10px 0', fontWeight: 'bold' }}>{t('roomNoVoteRight')}</h4>
               <p style={{ color: '#94a3b8', fontSize: '0.95rem', margin: 0 }}>{t('roomNoVoteRightDesc')}</p>
             </div>
           ) : batchVoteEntries.length === 0 ? (
@@ -272,11 +261,13 @@ export default function ArenaActiveRoom({
         </div>
       </div>
 
-      {/* JOBB HASÁB */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
+      {/* 🎚️ JOBB HASÁB: STATISZTIKÁK ÉS RANGSOROK (Kompakt Bento elrendezésben) */}
+      <div className="arena-layout-column-side">
+        
+        {/* SAJÁT NEVEZÉS SZEKCIÓ */}
         <div className="arena-responsive-card" style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #334155', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-            <h3 style={{ margin: 0, color: '#f8fafc', fontSize: '1.4rem' }}>{t('roomMyEntry')}</h3>
+            <h3 style={{ margin: 0, color: '#f8fafc', fontSize: '1.4rem', fontWeight: 'bold' }}>📸 {t('roomMyEntry')}</h3>
             <span style={{ fontSize: '0.85rem', background: '#be123c30', color: '#fb7185', border: '1px solid #be123c60', padding: '4px 12px', borderRadius: '50px', fontWeight: 'bold' }}>
               {t('roomJokerSwaps').replace('{count}', String(swapBalance))}
             </span>
@@ -298,12 +289,11 @@ export default function ArenaActiveRoom({
                 <div style={{ textAlign: 'center' }}><div style={{ color: '#38bdf8', fontSize: '1.5rem', fontWeight: '900' }}>{myEntry?.views_count || 0} 👁️</div></div>
               </div>
 
-              {/* 🔄 MODERNIZÁLT JOKER CSERE PANEL (Kizárólag a gyors modal felé terel) */}
               {swapBalance > 0 ? (
                 <div style={{ marginTop: '25px', background: 'linear-gradient(145deg, #4c1d9515, #be123c15)', padding: '20px', borderRadius: '18px', border: '1px solid #be123c30', textAlign: 'center' }}>
                   <h5 style={{ margin: '0 0 8px 0', color: '#f43f5e', fontSize: '1.1rem', fontWeight: 'bold' }}>{t('roomSwapTitle')}</h5>
                   <p style={{ color: '#94a3b8', fontSize: '0.82rem', margin: '0 0 15px 0', lineHeight: '1.4' }}>{t('roomSwapDesc')}</p>
-                  <button disabled={isSwapping || isLoadingSwapAlbum} onClick={onOpenAlbumForSwap} style={{ width: '100%', background: 'linear-gradient(135deg, #e11d48, #be123c)', color: 'white', border: 'none', padding: '12px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 15px rgba(225,29,72,0.2)', transition: 'transform 0.1s' }}>
+                  <button disabled={isSwapping || isLoadingSwapAlbum} onClick={onOpenAlbumForSwap} style={{ width: '100%', background: 'linear-gradient(135deg, #e11d48, #be123c)', color: 'white', border: 'none', padding: '12px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 15px rgba(225,29,72,0.2)' }}>
                     🔄 {t('roomSwapGalleryBtn') || 'Kép cseréje a Galériámból'}
                   </button>
                 </div>
@@ -329,34 +319,51 @@ export default function ArenaActiveRoom({
               )}
             </div>
           ) : (
-            /* 📸 PRÉMIUM KEZDŐ KÁRTYA: Kiváltja a régi lokális beviteli mezőket */
+            /* 📸 PRÉMIUM KEZDŐ KÁRTYA (Véglegesen lokalizálva és letisztítva) */
             <div style={{ background: '#0f172a', padding: '35px 20px', borderRadius: '20px', border: '1px dashed #38bdf840', textAlign: 'center' }}>
               <div style={{ fontSize: '3rem', marginBottom: '15px' }}>🏆</div>
-              <h4 style={{ color: 'white', margin: '0 0 8px 0', fontSize: '1.3rem', fontWeight: 'bold' }}>{t('roomJoinChallenge') || 'Nevezz a kihívásra!'}</h4>
-              <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 25px 0', lineHeight: '1.5' }}>{t('roomJoinDesc') || 'Válaszd ki a legjobban sikerült alkotásodat a galériádból, vagy tölts fel egy újat közvetlenül a folyamat során.'}</p>
-              <button disabled={isLoadingSwapAlbum} onClick={onOpenAlbumForUpload} style={{ width: '100%', background: 'linear-gradient(135deg, #0ea5e9, #2563eb)', color: 'white', border: 'none', padding: '14px', borderRadius: '12px', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer', boxShadow: '0 4px 15px rgba(37,99,235,0.25)', transition: 'all 0.2s' }} onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'} onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}>
-                ✨ {t('roomChooseGalleryUploadBtn') || 'Választás a galériámból'}
+              <h4 style={{ color: 'white', margin: '0 0 8px 0', fontSize: '1.3rem', fontWeight: 'bold' }}>
+                {t('roomJoinChallenge')}
+              </h4>
+              <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 25px 0', lineHeight: '1.5' }}>
+                {t('roomJoinDesc')}
+              </p>
+              {/* 🎯 JAVÍTVA: A feleslegesen hosszú szöveg helyett most már a letisztult, profi "Nevezés" felirat virít */}
+              <button disabled={isLoadingSwapAlbum} onClick={onOpenAlbumForUpload} style={{ width: '100%', background: 'linear-gradient(135deg, #2563eb, #3b82f6)', color: 'white', border: 'none', padding: '14px', borderRadius: '12px', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer', boxShadow: '0 4px 15px rgba(37,99,235,0.25)', transition: 'all 0.2s' }}>
+                ✨ {t('btnEntry')}
               </button>
             </div>
           )}
         </div>
 
+        {!isMaster && (
+          <div className="arena-responsive-card" style={{ background: '#0f172a', padding: '25px 20px', borderRadius: '24px', border: `1px solid ${exposureColor || '#ef4444'}30`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+              <div style={{ fontSize: '1.8rem', color: exposureColor }}>👁️‍🗨️</div>
+              <div>
+                <div style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 'bold', textTransform: 'uppercase' }}>Láthatósági Index</div>
+                <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#f8fafc' }}>{getTranslatedExposureLabel(exposureLabel)}</div>
+              </div>
+            </div>
+            <div style={{ fontSize: '1.8rem', fontWeight: '900', color: exposureColor }}>{Math.round(exposurePercentage || 0)}%</div>
+          </div>
+        )}
+
         {/* KLUBOK CSATÁJA RANGSOR */}
-        <div className="arena-responsive-card" style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #10b981', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-            <h3 style={{ margin: 0, color: '#10b981', fontSize: '1.4rem' }}>{t('roomClubLeague')}</h3>
-            <span style={{ fontSize: '0.8rem', background: '#ef4444', color: 'white', padding: '3px 10px', borderRadius: '12px', fontWeight: 'bold' }}>{t('roomLiveBadge')}</span>
+        <div className="arena-responsive-card" style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #1e293b', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+            <h3 style={{ margin: 0, color: '#10b981', fontSize: '1.3rem', fontWeight: 'bold' }}>🛡️ {t('roomClubLeague')}</h3>
+            <span style={{ fontSize: '0.75rem', background: '#ef4444', color: 'white', padding: '3px 10px', borderRadius: '12px', fontWeight: 'bold' }}>{t('roomLiveBadge')}</span>
           </div>
           {safeClubLeaderboard.length === 0 ? <div style={{ color: '#94a3b8', textAlign: 'center', padding: '20px', background: '#0f172a', borderRadius: '16px' }}>{t('roomNoClubsYet')}</div> : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {safeClubLeaderboard.map((club, index) => (
-                <div key={index} style={{ display: 'flex', alignItems: 'center', background: 'linear-gradient(135deg, #0f172a, #1e293b)', border: '1px solid #059669', padding: '12px', borderRadius: '12px' }}>
-                  <div style={{ fontSize: '1.5rem', fontWeight: '900', width: '35px', color: index === 0 ? '#fbbf24' : '#cbd5e1', textAlign: 'center' }}>{index + 1}.</div>
-                  <div style={{ flex: 1, marginLeft: '10px' }}>
-                    <div style={{ color: 'white', fontWeight: 'bold', fontSize: '1.1rem' }}>{club?.club_name || 'Unknown Club'}</div>
-                    <div style={{ color: '#64748b', fontSize: '0.8rem' }}>{club?.members_counted || 0} {t('roomActiveMembers')}</div>
+                <div key={index} style={{ display: 'flex', alignItems: 'center', background: '#0f172a', padding: '12px', borderRadius: '12px', border: '1px solid #223147' }}>
+                  <div style={{ fontSize: '1.2rem', fontWeight: '900', width: '25px', color: index === 0 ? '#fbbf24' : '#cbd5e1', textAlign: 'center' }}>{index + 1}</div>
+                  <div style={{ flex: 1, marginLeft: '10px', minWidth: 0 }}>
+                    <div style={{ color: 'white', fontWeight: 'bold', fontSize: '0.95rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{club?.club_name || 'Unknown Club'}</div>
                   </div>
-                  <div style={{ color: '#10b981', fontWeight: '900', fontSize: '1.4rem', whiteSpace: 'nowrap' }}>{club?.total_score || 0} FP</div>
+                  <div style={{ color: '#10b981', fontWeight: '900', fontSize: '1.1rem' }}>{club?.total_score || 0} FP</div>
                 </div>
               ))}
             </div>
@@ -364,32 +371,30 @@ export default function ArenaActiveRoom({
         </div>
 
         {/* VAK TOPLISTA MEGJELENÍTŐ */}
-        <div className="arena-responsive-card" style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #f59e0b', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
-          <h3 style={{ margin: '0 0 10px 0', color: '#f59e0b', fontSize: '1.4rem' }}>{t('roomBlindLeaderboard')}</h3>
-          <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 20px 0', lineHeight: '1.5' }}>{t('roomBlindLeaderboardDesc')}</p>
+        <div className="arena-responsive-card" style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #1e293b', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
+          <h3 style={{ margin: '0 0 5px 0', color: '#f59e0b', fontSize: '1.3rem', fontWeight: 'bold' }}>📊 {t('roomBlindLeaderboard')}</h3>
+          <p style={{ color: '#64748b', fontSize: '0.8rem', margin: '0 0 15px 0', lineHeight: '1.4' }}>{t('roomBlindLeaderboardDesc')}</p>
           {safeLeaderboard.length === 0 ? <div style={{ color: '#94a3b8', textAlign: 'center', padding: '30px', background: '#0f172a', borderRadius: '16px' }}>{t('roomArenaEmpty')}</div> : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {[...safeLeaderboard].sort((a, b) => (b.fair_score || b.likes_count || 0) - (a.fair_score || a.likes_count || 0)).map((entry, index) => {
                 const isMe = entry?.user_email === user?.email;
                 const showUnblinded = isMe || isMaster; 
-                const rankColor = index === 0 ? '#fbbf24' : index === 1 ? '#e2e8f0' : index === 2 ? '#cd7f32' : '#64748b';
+                const rankColor = index === 0 ? '#fbbf24' : index === 1 ? '#94a3b8' : index === 2 ? '#cd7f32' : '#475569';
                 return (
-                  <div key={entry?.id || index} style={{ display: 'flex', alignItems: 'center', background: isMe ? 'linear-gradient(90deg, #f59e0b20, #0f172a)' : '#0f172a', border: isMe ? '1px solid #f59e0b50' : '1px solid #334155', padding: '12px', borderRadius: '12px' }}>
-                    <div style={{ fontSize: '1.5rem', fontWeight: '900', width: '35px', color: rankColor, textAlign: 'center' }}>{index + 1}.</div>
-                    <div onClick={() => showUnblinded ? setFullscreenData({url: getImageUrl(entry?.drive_file_id, entry?.file_url), title: entry?.user_name || ''}) : null} style={{ width: '55px', height: '55px', backgroundColor: '#000', borderRadius: '10px', overflow: 'hidden', margin: '0 15px', cursor: showUnblinded ? 'zoom-in' : 'default', position: 'relative' }}>
-                      <img src={getImageUrl(entry?.drive_file_id, entry?.file_url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: showUnblinded ? 'none' : 'blur(6px) contrast(120%)' }} onError={handleImageError} />
-                      {!showUnblinded && <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>🔒</div>}
+                  <div key={entry?.id || index} style={{ display: 'flex', alignItems: 'center', background: '#0f172a', border: isMe ? '1px solid #f59e0b50' : '1px solid #223147', padding: '10px', borderRadius: '12px' }}>
+                    <div style={{ fontSize: '1.1rem', fontWeight: '900', width: '25px', color: rankColor, textAlign: 'center' }}>{index + 1}</div>
+                    <div onClick={() => showUnblinded ? setFullscreenData({url: getImageUrl(entry?.drive_file_id, entry?.file_url), title: entry?.user_name || ''}) : null} style={{ width: '40px', height: '40px', backgroundColor: '#000', borderRadius: '8px', overflow: 'hidden', margin: '0 10px', cursor: showUnblinded ? 'zoom-in' : 'default', position: 'relative' }}>
+                      <img src={getImageUrl(entry?.drive_file_id, entry?.file_url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: showUnblinded ? 'none' : 'blur(4px)' }} onError={handleImageError} />
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ color: isMe ? '#f8fafc' : '#94a3b8', fontWeight: 'bold', fontSize: '1.05rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{showUnblinded ? (entry?.user_name || '') : t('roomEncryptedOpponent')}</div>
-                      <div style={{ fontSize: '0.8rem', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t('roomViews')}: {entry?.views_count || 0}</div>
+                      <div style={{ color: isMe ? '#f8fafc' : '#94a3b8', fontWeight: 'bold', fontSize: '0.9rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{showUnblinded ? (entry?.user_name || '') : t('roomEncryptedOpponent')}</div>
                     </div>
-                    <div style={{ textAlign: 'right', minWidth: '95px' }}>
-                      <div style={{ fontSize: '1.3rem', fontWeight: 'bold', color: isMe ? '#f97316' : '#fbbf24' }}>{entry.fair_score !== undefined ? `${entry.fair_score} FP` : `${entry.likes_count || 0} ⭐`}</div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: '1.05rem', fontWeight: 'bold', color: isMe ? '#f97316' : '#fbbf24' }}>{entry.fair_score !== undefined ? `${entry.fair_score} FP` : `${entry.likes_count || 0} ⭐`}</div>
                     </div>
                   </div>
                 );
-              }).slice(0, 15)}
+              }).slice(0, 5)}
             </div>
           )}
         </div>
@@ -398,17 +403,73 @@ export default function ArenaActiveRoom({
       {/* INSPECTOR MODÁL */}
       {selectedExifPhoto && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(9,13,22,0.96)', backdropFilter: 'blur(20px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-          <div style={{ background: '#1e293b', width: '100%', maxWidth: '1200px', maxHeight: '95vh', borderRadius: '24px', border: '1px solid #475569', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ background: '#1e293b', width: '100%', maxWidth: '1000px', maxHeight: '90vh', borderRadius: '24px', border: '1px solid #475569', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
             <div style={{ padding: '20px 30px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h4 style={{ margin: 0, color: 'white', fontSize: '1.4rem', fontWeight: 'bold' }}>🔎 {t('roomInspectorTitle')}</h4>
+              <h4 style={{ margin: 0, color: 'white', fontSize: '1.3rem', fontWeight: 'bold' }}>🔎 {t('roomInspectorTitle')}</h4>
               <button onClick={() => setSelectedExifPhoto(null)} style={{ background: '#334155', color: '#cbd5e1', border: 'none', width: '36px', height: '32px', borderRadius: '50%', cursor: 'pointer' }}>✕</button>
             </div>
             <div style={{ flex: 1, backgroundColor: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-              <img src={selectedExifPhoto.file_url} alt="" style={{ width: '100%', height: '100%', maxWidth: '100%', maxHeight: '68vh', objectFit: 'contain' }} />
+              <img src={selectedExifPhoto.file_url} alt="" style={{ width: '100%', height: '100%', maxWidth: '100%', maxHeight: '65vh', objectFit: 'contain' }} />
             </div>
           </div>
         </div>
       )}
+
+      {/* ── 🎯 ASZTALI PREMIUM HASÁB STYLING RECEPTNEK GENERÁLÁSA ── */}
+      <style>{`
+        .arena-main-layout-grid {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 30px;
+          width: 100%;
+          box-sizing: border-box;
+        }
+        .arena-layout-column-main {
+          display: flex;
+          flex-direction: column;
+          gap: 25px;
+          width: 100%;
+        }
+        .arena-layout-column-side {
+          display: flex;
+          flex-direction: column;
+          gap: 25px;
+          width: 100%;
+        }
+        @media (min-width: 992px) {
+          .arena-main-layout-grid {
+            grid-template-columns: 1.6fr 1fr !important;
+          }
+        }
+        .batch-vote-responsive-card {
+          display: grid;
+          grid-template-columns: 140px 1fr;
+          gap: 20px;
+          align-items: start;
+        }
+        .batch-vote-responsive-imgbox {
+          width: 140px;
+          height: 140px;
+          background-color: #000;
+          border-radius: 12px;
+          overflow: hidden;
+          cursor: zoom-in;
+          border: 1px solid #334155;
+          position: relative;
+        }
+        .batch-vote-responsive-content {
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          min-height: 140px;
+        }
+        .batch-vote-responsive-buttons {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+          margin-top: 12px;
+        }
+      `}</style>
     </div>
   );
 }
