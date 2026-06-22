@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { getImageUrl } from '../../../utils/helpers';
+import VideoLoader from '../../../components/VideoLoader';
 
 // 🎯 ÚJ IMPORT: Behozzuk a nyelvi kontextust
 import { useLanguage } from '../../../context/LanguageContext';
@@ -52,7 +53,7 @@ export default function TrophyRoom({
   };
 
   if (isLoadingStats && (!myStats || myStats.history.length === 0)) {
-    return <div style={{ color: '#94a3b8', textAlign: 'center', padding: '50px' }}>{t('trophyLoading')}</div>;
+    return <VideoLoader />;
   }
 
   if (!myStats) {
