@@ -161,7 +161,7 @@ export default function ArenaActiveRoom({
     } catch (e) {
       console.error(e);
       alert(t('msgNetworkError'));
-    } finaly {
+    } finally {
       setIsSubmittingBatch(false);
     }
   };
