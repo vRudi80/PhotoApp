@@ -207,7 +207,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const [masterVotesLeft, setMasterVotesLeft] = useState<number>(0);
   const [isMaster, setIsMaster] = useState<boolean>(false);
 
-  // 🎯 Chat nyitva/csukva, és van-e olvasatlan üzenet állapota
+  // Chat nyitva/csukva, és van-e olvasatlan üzenet állapota
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [hasNewMessage, setHasNewMessage] = useState(false);
 
@@ -285,6 +285,15 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   
   const chatScrollContainerRef = useRef<HTMLDivElement>(null);
   const lastTypingSignalSent = useRef<number>(0);
+
+  // Referenciák a hurokmentes chat állapothoz
+  const isChatOpenRef = useRef(isChatOpen);
+  const lobbyMessagesCountRef = useRef(lobbyMessages.length);
+
+  useEffect(() => {
+    isChatOpenRef.current = isChatOpen;
+    lobbyMessagesCountRef.current = lobbyMessages.length;
+  }, [isChatOpen, lobbyMessages.length]);
 
   const myOfficialNameRef = useRef<string>(lang === 'en' ? 'Me' : 'Én');
   useEffect(() => {
@@ -442,7 +451,18 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     finally { setIsLoadingHof(false); }
   };
 
-  // 🎯 SZINKRONIZÁLT LOBBY CHAT ADATFOLYAM POLLING ENGINE
+  useEffect(() => {
+    if (subTab === 'current') {
+      fetchCurrentTopic(false);
+    }
+    else if (subTab === 'upcoming') fetch(`${BACKEND_URL}/api/weekly/upcoming`).then(res => res.json()).then(data => setUpcomingTopics(data || [])).catch(console.error);
+    else if (subTab === 'past') fetch(`${BACKEND_URL}/api/weekly/past`).then(res => res.json()).then(data => setPastTopics(data || [])).catch(console.error);
+    else if (subTab === 'my_stats') fetchMyStats(); 
+    else if (subTab === 'hall_of_fame') fetchHallOfFame();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subTab, selectedTopicId]);
+
+  // 🎯 UNIVERZÁLIS CHAT POLLING ENGINE (Hurokmentesített, stabil verzió)
   useEffect(() => {
     if (subTab !== 'current' || selectedTopicId !== null) return;
 
@@ -464,8 +484,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           const data = await res.json();
           const newMessages = data.messages || [];
           
-          // 🎯 ELLENŐRZÉS: Csak akkor jelez olvasatlan státuszt, ha az utolsó üzenet szerzője NEM te vagy
-          if (!isChatOpen && lobbyMessages.length > 0 && newMessages.length > lobbyMessages.length) {
+          // Biztonságos ref-alapú összehasonlítás a végtelen hurok elkerülésére
+          if (!isChatOpenRef.current && lobbyMessagesCountRef.current > 0 && newMessages.length > lobbyMessagesCountRef.current) {
             const lastMsg = newMessages[newMessages.length - 1];
             const lastMsgEmail = lastMsg?.user_email || lastMsg?.userEmail;
             if (lastMsgEmail !== user?.email) {
@@ -479,7 +499,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         }
       } catch (err) {
         console.error("Lobby chat synchronization anomaly:", err);
-      } finally {
+      } finally { 
         if (isMounted && subTab === 'current' && selectedTopicId === null) {
           timerId = setTimeout(fetchLobbyChat, 2500);
         }
@@ -492,9 +512,9 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       isMounted = false;
       clearTimeout(timerId);
     };
-  }, [subTab, selectedTopicId, isChatOpen, lobbyMessages.length, user?.email]);
+  }, [subTab, selectedTopicId, user?.email]);
 
-  // 🎯 Belső koordináták csendes eltolása az anyaoldal megzavarása nélkül
+  // Belső koordináták csendes eltolása az anyaoldal megzavarása nélkül
   useEffect(() => {
     if (selectedTopicId === null && subTab === 'current' && chatScrollContainerRef.current) {
       chatScrollContainerRef.current.scrollTop = chatScrollContainerRef.current.scrollHeight;
