@@ -3,7 +3,7 @@ import { ADMIN_EMAIL, BACKEND_URL } from '../utils/constants';
 import { getImageUrl } from '../utils/helpers';
 import jsPDF from 'jspdf';
 
-// 🎯 Nyelvi kontextus aktiválása
+// Nyelvi kontextus aktiválása
 import { useLanguage } from '../context/LanguageContext';
 
 interface ContestsViewProps {
@@ -85,7 +85,7 @@ interface ContestsViewProps {
   handleUpdateEntryTitle: (id: number) => void;
   handleDeleteEntry: (id: number) => void;
 
-  setActiveTab?: (tab: string) => void; // 👈 ÚJ: Opcionális navigáció átadás a gombokhoz
+  setActiveTab?: (tab: string) => void;
   setFullscreenData: (data: {url: string, title?: string} | null) => void;
 
   // Fizetések
@@ -111,7 +111,11 @@ export default function ContestsView(props: ContestsViewProps) {
     setIsLegalChecked(false);
   }, [props.activeUploadContest]);
 
-  // Biztonsági ellenőrzés: Megvannak-e a MAFOSZ által kért profil adatok?
+  // 🎯 JAVÍTVA: Visszakerültek a felületről hiányzó klubérték-számítások
+  const currentNewClubValue = props.clubs.find(c => String(c.id) === props.newRestrictedClub || c.name === props.newRestrictedClub)?.id || '';
+  const currentEditClubValue = props.clubs.find(c => String(c.id) === props.editRestrictedClub || c.name === props.editRestrictedClub)?.id || '';
+
+  // Biztonsági ellenőrzés a MAFOSZ adatokhoz
   const hasRequiredProfileData = useMemo(() => {
     if (!props.currentDbUser) return false;
     const hasPhone = !!(props.currentDbUser.phone_number || props.currentDbUser.phone);
@@ -222,7 +226,7 @@ export default function ContestsView(props: ContestsViewProps) {
   };
 
   // ====================================================================
-  // 📝 ÚJ: HIVATALOS MAFOSZ ZSŰRI JEGYZŐKÖNYV GENERÁLÁSA (PDF)
+  // 📝 MAFOSZ ZSŰRI JEGYZŐKÖNYV GENERÁLÁSA
   // ====================================================================
   const generateJuryReportPdf = (contest: any, results: any[], contestJury: any[]) => {
     setIsJuryDocCompiling(true);
@@ -230,7 +234,6 @@ export default function ContestsView(props: ContestsViewProps) {
       const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
       const fixHu = (str: string) => str ? str.replace(/ő/g, 'ö').replace(/ű/g, 'ü').replace(/Ő/g, 'Ö').replace(/Ű/g, 'Ü') : '';
 
-      // Címsor és fejlécek
       doc.setFont("times", "bold");
       doc.setFontSize(22);
       doc.text(fixHu("HIVATALOS ZSŰRI JEGYZŐKÖNYV"), 105, 25, { align: "center" });
@@ -240,7 +243,6 @@ export default function ContestsView(props: ContestsViewProps) {
       doc.text(fixHu(`Pályázat megnevezése: ${contest.title}`), 20, 40);
       doc.text(fixHu(`Lezárás dátuma: ${new Date(contest.end_date).toLocaleDateString('hu-HU')}`), 20, 47);
 
-      // Statisztikai Blokki adatok rögzítése
       doc.setFont("times", "bold");
       doc.text(fixHu("1. Pályázati Statisztikák:"), 20, 58);
       doc.setFont("times", "normal");
@@ -249,7 +251,6 @@ export default function ContestsView(props: ContestsViewProps) {
       doc.text(fixHu(`• Résztvevő alkotók száma: ${distinctAuthors} fő`), 25, 66);
       doc.text(fixHu(`• Összesen beküldött alkotás: ${contest.entry_count || results.length} db`), 25, 73);
 
-      // Zsűritagok felsorolása
       doc.setFont("times", "bold");
       doc.text(fixHu("2. A Hivatalos Szakmai Zsűri tagjai:"), 20, 85);
       doc.setFont("times", "normal");
@@ -260,7 +261,6 @@ export default function ContestsView(props: ContestsViewProps) {
         juryY += 7;
       });
 
-      // Eredmények listázása kategóriánként
       let currentY = juryY + 8;
       doc.setFont("times", "bold");
       doc.text(fixHu("3. Díjazások és Helyezések rangsora:"), 20, currentY);
@@ -278,7 +278,7 @@ export default function ContestsView(props: ContestsViewProps) {
         currentY += 7;
         doc.setFont("times", "normal");
 
-        const catResults = results.filter(r => r.category === cat).slice(0, 5); // Az első 5 helyezettet rakjuk a hivatalos jegyzőkönyvbe
+        const catResults = results.filter(r => r.category === cat).slice(0, 5);
         const awardsArr = ((catSettings[cat] || {}).awardsString || '').split(',').map((s: string) => s.trim()).filter(Boolean);
 
         if (catResults.length === 0) {
@@ -295,7 +295,6 @@ export default function ContestsView(props: ContestsViewProps) {
         currentY += 4;
       });
 
-      // Aláírás sáv a hitelesítéshez
       if (currentY > 240) { doc.addPage(); currentY = 30; }
       currentY += 15;
       doc.text(fixHu("Kelt: Budapest, " + new Date().toLocaleDateString('hu-HU')), 20, currentY);
@@ -616,7 +615,7 @@ export default function ContestsView(props: ContestsViewProps) {
                         <input type="number" min="0" value={props.editEntryFee} onChange={e => props.setEditEntryFee(e.target.value)} style={inputStyle} />
                       </div>
                       <div>
-                        <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>{t('contLabelCurrency')}</label>
+                        <label style={{fontSize:'0.8rem', color:'#94a3b8', display: 'block', marginBottom: '4px'}}>{t('contLabelCurrency')}</label>
                         <select value={props.editFeeCurrency} onChange={e => props.setEditFeeCurrency(e.target.value)} style={inputStyle}>
                           <option value="HUF">HUF</option>
                           <option value="EUR">EUR</option>
@@ -896,12 +895,11 @@ export default function ContestsView(props: ContestsViewProps) {
                       <button onClick={() => { props.setActiveUploadContest(contest.id); props.setUploadCategory(''); }} style={{ background: 'linear-gradient(135deg, #38bdf8, #0284c7)', color: '#0f172a', border: 'none', padding: '10px 20px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem', marginBottom: '15px', transition: 'all 0.2s', boxShadow: '0 4px 15px rgba(56,189,248,0.3)' }}>{t('contBtnNewUpload')}</button>
                     )}
 
-                    {/* ── 🎯 MODERNIZÁLT NEVEZÉSI PANEL: ELLENŐRZI A PROFIL ADATOKAT ── */}
+                    {/* MODERNIZÁLT NEVEZÉSI PANEL: ELLENŐRZI A PROFIL ADATOKAT */}
                     {props.activeUploadContest === contest.id && (
                       <div style={{ background: '#0f172a', padding: '25px', borderRadius: '16px', marginBottom: '20px', border: '1px solid #334155' }}>
                         
                         {!hasRequiredProfileData ? (
-                          /* 🔒 BLOKKOLÓ NÉZET: Ha hiányzik a lakcím vagy a telefon */
                           <div style={{ textAlign: 'center', padding: '15px 10px' }}>
                             <div style={{ fontSize: '2.5rem', marginBottom: '10px' }}>⚠️</div>
                             <h4 style={{ color: '#fb923c', margin: '0 0 8px 0', fontSize: '1.1rem', fontWeight: 'bold' }}>
@@ -910,7 +908,7 @@ export default function ContestsView(props: ContestsViewProps) {
                             <p style={{ color: '#94a3b8', fontSize: '0.85rem', lineHeight: '1.5', margin: '0 0 20px 0' }}>
                               {lang === 'en' 
                                 ? 'According to rules, you must provide your phone number and delivery address before submitting entries.' 
-                                : 'A hivatalos szabályzat értelmében a nevezés elindítása előtt meg kell adnod a telefonszámodat és a postázási címedet az esetleges nyeremények kiküldéséhez.'}
+                                : 'A hivatalos szabályzat értelmében a nevezés elindítása előtt meg kell adnod a telefonszámodat és a postázási cíbedet az esetleges nyeremények kiküldéséhez.'}
                             </p>
                             <button 
                               onClick={() => props.setActiveTab ? props.setActiveTab('profile') : window.location.href='/profile'}
@@ -921,7 +919,6 @@ export default function ContestsView(props: ContestsViewProps) {
                             <button onClick={() => props.setActiveUploadContest(null)} style={{ background: 'transparent', color: '#64748b', border: 'none', marginLeft: '15px', fontSize: '0.85rem', cursor: 'pointer' }}>{t('contCancel')}</button>
                           </div>
                         ) : (
-                          /* 🔓 STANDARD MEGENGEDETT FORM */
                           <>
                             <h4 style={{marginTop: 0, color: '#38bdf8', fontSize: '1.1rem', marginBottom: '15px'}}>{t('contUploadPanelTitle')}</h4>
                             
@@ -935,7 +932,6 @@ export default function ContestsView(props: ContestsViewProps) {
                               })}
                             </select>
                             
-                            {/* Technikai emlékeztető és RAW szabályzat */}
                             <div style={{ background: 'rgba(167, 139, 250, 0.04)', padding: '12px 15px', borderRadius: '10px', fontSize: '0.8rem', color: '#cbd5e1', marginBottom: '18px', border: '1px solid rgba(167,139,250,0.15)', lineHeight: '1.4' }}>
                               💡 <b>{lang === 'en' ? 'RAW Camera File Rule (2026):' : 'RAW Kamerafájl Szabályozás (2026):'}</b>{' '}
                               {lang === 'en'
