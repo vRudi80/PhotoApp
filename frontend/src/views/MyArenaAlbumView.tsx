@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BACKEND_URL } from '../utils/constants';
 import { getImageUrl } from '../utils/helpers';
-import VideoLoader from '../../components/VideoLoader'; // 👈 Figyelj a relatív útvonalra!
+import VideoLoader from '../components/VideoLoader'; // 👈 Figyelj a relatív útvonalra!
 
 // 🎯 ÚJ IMPORT: Behozzuk a nyelvi kontextust
 import { useLanguage } from '../context/LanguageContext';
