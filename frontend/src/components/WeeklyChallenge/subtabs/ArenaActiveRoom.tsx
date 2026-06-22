@@ -26,7 +26,7 @@ function ActiveRoomCountdown({ endDate, lang }: { endDate: string; lang: string 
       }
 
       const days = Math.floor(difference / (1000 * 60 * 60 * 24));
-      const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
       const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
       const seconds = Math.floor((difference % (1000 * 60)) / 1000);
 
@@ -319,6 +319,7 @@ export default function ArenaActiveRoom({
               )}
             </div>
           ) : (
+            /* 📸 PRÉMIUM KEZDŐ KÁRTYA (Esztétikus méretre húzva) */
             <div style={{ background: '#0f172a', padding: '35px 20px', borderRadius: '20px', border: '1px dashed #38bdf840', textAlign: 'center' }}>
               <div style={{ fontSize: '3rem', marginBottom: '15px' }}>🏆</div>
               <h4 style={{ color: 'white', margin: '0 0 8px 0', fontSize: '1.3rem', fontWeight: 'bold' }}>
@@ -327,8 +328,9 @@ export default function ArenaActiveRoom({
               <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 25px 0', lineHeight: '1.5' }}>
                 {t('roomJoinDesc')}
               </p>
+              {/* 🎯 JAVÍTVA: Szép, arányos asztali méretet kapott, nem nyúlik el mint a rétestészta */}
               <button disabled={isLoadingSwapAlbum} onClick={onOpenAlbumForUpload} style={{ width: '100%', maxWidth: '280px', margin: '0 auto', background: 'linear-gradient(135deg, #2563eb, #3b82f6)', color: 'white', border: 'none', padding: '14px', borderRadius: '12px', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer', boxShadow: '0 4px 15px rgba(37,99,235,0.25)', transition: 'all 0.2s', display: 'block' }}>
-                幕 {t('btnEntry')}
+                ✨ {t('btnEntry')}
               </button>
             </div>
           )}
@@ -384,34 +386,15 @@ export default function ArenaActiveRoom({
                     <div onClick={() => showUnblinded ? setFullscreenData({url: getImageUrl(entry?.drive_file_id, entry?.file_url), title: entry?.user_name || ''}) : null} style={{ width: '40px', height: '40px', backgroundColor: '#000', borderRadius: '8px', overflow: 'hidden', margin: '0 10px', cursor: showUnblinded ? 'zoom-in' : 'default', position: 'relative' }}>
                       <img src={getImageUrl(entry?.drive_file_id, entry?.file_url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: showUnblinded ? 'none' : 'blur(4px)' }} onError={handleImageError} loading="lazy" />
                     </div>
-                    
-                    {/* ── 🎯 RE-INTEGRÁLT EXIF METADATA INFORMÁCIÓS PANEL SZEKCIÓ ── */}
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ color: isMe ? '#f8fafc' : '#94a3b8', fontWeight: 'bold', fontSize: '0.95rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {showUnblinded ? (entry?.user_name || '') : t('roomEncryptedOpponent')}
-                      </div>
-                      <div style={{ fontSize: '0.8rem', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: '2px' }}>
-                        {t('roomViews') || 'Nézettség'}: {entry?.views_count || 0}
-                        {entry.votes_cast !== undefined && (
-                          <span> • {lang === 'en' ? 'Voted' : 'Szavazott'}: <strong style={{ color: Number(entry.votes_cast) === 0 ? '#ef4444' : '#38bdf8' }}>{entry.votes_cast} db</strong></span>
-                        )}
-                      </div>
+                      <div style={{ color: isMe ? '#f8fafc' : '#94a3b8', fontWeight: 'bold', fontSize: '0.9rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{showUnblinded ? (entry?.user_name || '') : t('roomEncryptedOpponent')}</div>
                     </div>
-                    
-                    <div style={{ textAlign: 'right', minWidth: '90px' }}>
-                      <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: isMe ? '#f97316' : '#fbbf24' }}>
-                        {entry.fair_score !== undefined ? `${entry.fair_score} FP` : `${entry.likes_count || 0} ⭐`}
-                      </div>
-                      {entry.fair_score !== undefined && (
-                        <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '1px' }}>
-                          {entry.likes_count || 0} ⭐
-                        </div>
-                      )}
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: '1.05rem', fontWeight: 'bold', color: isMe ? '#f97316' : '#fbbf24' }}>{entry.fair_score !== undefined ? `${entry.fair_score} FP` : `${entry.likes_count || 0} ⭐`}</div>
                     </div>
-
                   </div>
                 );
-              }).slice(0, 15)}
+              }).slice(0, 5)}
             </div>
           )}
         </div>
@@ -431,6 +414,62 @@ export default function ArenaActiveRoom({
           </div>
         </div>
       )}
+
+      {/* ── 🎯 ASZTALI BENTO GRID STYLING LAYER ── */}
+      <style>{`
+        .arena-main-layout-grid {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 30px;
+          width: 100%;
+          box-sizing: border-box;
+        }
+        .arena-layout-column-main {
+          display: flex;
+          flex-direction: column;
+          gap: 25px;
+          width: 100%;
+        }
+        .arena-layout-column-side {
+          display: flex;
+          flex-direction: column;
+          gap: 25px;
+          width: 100%;
+        }
+        @media (min-width: 992px) {
+          .arena-main-layout-grid {
+            grid-template-columns: 1.5fr 1fr !important;
+          }
+        }
+        .batch-vote-responsive-card {
+          display: grid;
+          grid-template-columns: 140px 1fr;
+          gap: 20px;
+          align-items: start;
+        }
+        .batch-vote-responsive-imgbox {
+          width: 140px;
+          height: 140px;
+          background-color: #000;
+          border-radius: 12px;
+          overflow: hidden;
+          cursor: zoom-in;
+          border: 1px solid #334155;
+          position: relative;
+        }
+        .batch-vote-responsive-content {
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          min-height: 140px;
+        }
+        .batch-vote-responsive-buttons {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+          margin-top: 12px;
+        }
+      `}</style>
     </div>
   );
 }
