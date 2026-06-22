@@ -216,7 +216,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const [isUploading, setIsUploading] = useState(false);
 
   const [uploadCamera, setUploadCamera] = useState('');
-  const [uploadLens, setUploadLens] = useState('');
+  const [uploadLens, setUploadCameraLens] = useState('');
   const [uploadShutter, setUploadShutter] = useState('');
   const [uploadIso, setUploadIso] = useState('');
   const [uploadAperture, setUploadAperture] = useState('');
@@ -294,7 +294,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     lobbyMessagesCountRef.current = lobbyMessages.length;
   }, [isChatOpen, lobbyMessages.length]);
 
-  // 2. MAGAS SZINTŰ HOISTOLT ALAP-FUNKCIÓK (A TDZ ÉS BUILD HIBÁK ELLEN)
+  // 2. MAGAS SZINTŰ HOISTOLT ALAP-FUNKCIÓK
   const fetchNextVote = async (topicId: number) => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/weekly/next-vote?topicId=${topicId}&userEmail=${user?.email || ''}`);
@@ -379,7 +379,12 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       const res = await fetch(`${BACKEND_URL}/api/weekly/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(msgPayload)
+        body: JSON.stringify({
+          topicId: 0,
+          userEmail: user?.email,
+          userName: user?.name || (lang === 'en' ? 'Anonymous Photographer' : 'Anonim Képolvasó'),
+          messageText: typedLobbyMsg
+        })
       });
       
       if (res.ok) {
@@ -407,7 +412,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     myOfficialNameRef.current = myEntry?.user_name || user?.name || (lang === 'en' ? 'Me' : 'Én');
   }, [myEntry, user, lang]);
 
-  // 3. REAKTÍV HORGOK (HOOKS) ÉS UNREAD LOGIKA
+  // REAKTÍV HORGOK (HOOKS)
   useEffect(() => {
     if (subTab === 'current') {
       fetchCurrentTopic(false);
@@ -418,6 +423,21 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     else if (subTab === 'hall_of_fame') fetchHallOfFame();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subTab, selectedTopicId, user?.email]);
+
+  useEffect(() => {
+    setTopic(null);
+    setMyEntry(null);
+    setMyPastEntries([]);
+    setVoteEntry(null);
+    setLeaderboard([]);
+    setCurrentClubLeaderboard([]);
+    setTimeLeft('');
+    setPastLeaderboard([]); 
+    setPastClubLeaderboard([]);
+    setMasterVotesLeft(0); 
+    setIsMaster(false);     
+    setHasNewMessage(false);
+  }, [selectedTopicId, user?.email]);
 
   useEffect(() => {
     if (isChatOpen && lobbyMessages.length > 0 && user?.email) {
@@ -656,7 +676,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     formData.append('userName', user.name || user.email);
     
     formData.append('camera', uploadCamera);
-    formData.append('lens', uploadLens);
+    formData.append('lens', uploadCameraLens);
     formData.append('shutter', uploadShutter);
     formData.append('iso', uploadIso);
     formData.append('aperture', uploadAperture);
@@ -858,7 +878,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     }
   };
 
-  // 🎯 AZ EGYETLEN, KONSZOLIDÁLT GÖRDÍTŐ EFFEKTUS: Kivárja a DOM kalkulációt, de kérésre azonnal is tol egyet
+  // 🎯 AZ EGYETLEN, KONSZOLIDÁLT GÖRDÍTŐ EFFEKTUS
   useEffect(() => {
     if (selectedTopicId === null && subTab === 'current' && isChatOpen) {
       const handleScrollToBottom = () => {
@@ -867,10 +887,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         }
       };
 
-      // Azonnali görgetési kísérlet a meglévő DOM-ra
       handleScrollToBottom();
 
-      // Biztonsági késleltetett igazítás (megvárja a komplexebb layout-shift lefutását élesben)
       const timer = setTimeout(handleScrollToBottom, 120);
       return () => clearTimeout(timer);
     }
@@ -1124,33 +1142,31 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   handleSwapFileSelect={handleFileSelectForSwap}
                   handleSwapSubmit={handleSwapSubmit}
                   onOpenAlbumForUpload={async () => {
-                    setIsLoadingSwapAlbum(true);
-                    try {
-                      const res = await fetch(`${BACKEND_URL}/api/weekly/my-album?userEmail=${user?.email}`);
-                      if (res.ok) {
-                        const albumPhotos = await res.json();
-                        if (albumPhotos.length === 0) return alert(t('msgNoPhotosInGallery'));
-                        setSwapAlbumPhotos(albumPhotos);
-                        setAlbumModalMode('upload');
-                        setShowSwapAlbumModal(true);
-                      }
-                    } catch (e) { alert(t('msgGalleryLoadError')); }
-                    finally { setIsLoadingSwapAlbum(false); }
-                  }}
-                  onOpenAlbumForSwap={async () => {
-                    setIsLoadingSwapAlbum(true);
-                    try {
-                      const res = await fetch(`${BACKEND_URL}/api/weekly/my-album?userEmail=${user?.email}`);
-                      if (res.ok) {
-                        const albumPhotos = await res.json();
-                        if (albumPhotos.length === 0) return alert(t('msgNoPhotosInGallery'));
-                        setSwapAlbumPhotos(albumPhotos);
-                        setAlbumModalMode('swap');
-                        setShowSwapAlbumModal(true);
-                      }
-                    } catch (e) { alert(t('msgGalleryLoadError')); }
-                    finally { setIsLoadingSwapAlbum(false); }
-                  }}
+                      setAlbumModalMode('upload');
+                      setShowSwapAlbumModal(true); 
+                      setIsLoadingSwapAlbum(true);
+                      try {
+                        const res = await fetch(`${BACKEND_URL}/api/weekly/my-album?userEmail=${user?.email}`);
+                        if (res.ok) {
+                          const albumPhotos = await res.json();
+                          setSwapAlbumPhotos(albumPhotos);
+                        }
+                      } catch (e) { alert(t('msgGalleryLoadError')); }
+                      finally { setIsLoadingSwapAlbum(false); }
+                    }}
+                    onOpenAlbumForSwap={async () => {
+                      setAlbumModalMode('swap');
+                      setShowSwapAlbumModal(true); 
+                      setIsLoadingSwapAlbum(true);
+                      try {
+                        const res = await fetch(`${BACKEND_URL}/api/weekly/my-album?userEmail=${user?.email}`);
+                        if (res.ok) {
+                          const albumPhotos = await res.json();
+                          setSwapAlbumPhotos(albumPhotos);
+                        }
+                      } catch (e) { alert(t('msgGalleryLoadError')); }
+                      finally { setIsLoadingSwapAlbum(false); }
+                    }}
                   handleVote={handleVote}
                   handleOffTopicReport={handleOffTopicReport}
                   handleSwapBackSubmit={handleSwapBackSubmit}
@@ -1186,7 +1202,22 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           
       <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} currentLevel={currentLevel} />
 
-      <AlbumSelectionModal isOpen={showSwapAlbumModal} onClose={() => setShowSwapAlbumModal(false)} albumModalMode={albumModalMode} swapAlbumPhotos={swapAlbumPhotos} myPastEntries={myPastEntries} topic={topic} user={user} setIsUploading={setIsUploading} setIsSwapping={setIsSwapping} fetchCurrentTopic={fetchCurrentTopic} handleSwapBackSubmit={handleSwapBackSubmit} handleSelectPhotoForSwap={handleSelectPhotoForSwap} />
+      {/* 🎯 JAVÍTVA: Az átadott paraméterek közé bekerült az isLoading={isLoadingSwapAlbum} szinkronizáció! */}
+      <AlbumSelectionModal 
+        isOpen={showSwapAlbumModal} 
+        onClose={() => setShowSwapAlbumModal(false)} 
+        albumModalMode={albumModalMode} 
+        swapAlbumPhotos={swapAlbumPhotos} 
+        myPastEntries={myPastEntries} 
+        topic={topic} 
+        user={user} 
+        isLoading={isLoadingSwapAlbum} 
+        setIsUploading={setIsUploading} 
+        setIsSwapping={setIsSwapping} 
+        fetchCurrentTopic={fetchCurrentTopic} 
+        handleSwapBackSubmit={handleSwapBackSubmit} 
+        handleSelectPhotoForSwap={handleSelectPhotoForSwap} 
+      />
 
       <ShareCardModal activeShareData={activeShareData} onClose={() => setActiveShareData(null)} user={user} shareBase64={shareBase64} loadingShareImg={loadingShareImg} isGeneratingImage={isGeneratingImage} handleExecuteShare={handleExecuteShare} />
 
