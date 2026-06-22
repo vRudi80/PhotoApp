@@ -181,6 +181,17 @@ export default function ArenaActiveRoom({
           <ActiveRoomCountdown endDate={topic?.end_date} lang={lang} />
         </div>
 
+         {/* 🎯 JAVÍTVA: Ide bekerült az elegáns Képmester jelvény, ami közvetlenül a topic-ból olvassa az adatot */}
+          {(topic?.master_name || topic?.master_email) && (
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#a78bfa', fontSize: '0.85rem', fontWeight: 'bold', background: '#a78bfa12', padding: '6px 14px', borderRadius: '10px', border: '1px solid #a78bfa25', marginBottom: '20px', zIndex: 1, whiteSpace: 'nowrap' }}>
+              <span>{t('viewMasterLabel') || 'Képmester:'}</span>
+              <span style={{ color: '#e9d5ff' }}>{topic.master_name || topic.master_email}</span>
+            </div>
+          )}
+
+          <ActiveRoomCountdown endDate={topic?.end_date} lang={lang} />
+        </div>
+
         {/* BATCH EVALUATION PULT */}
         <div className="arena-responsive-card" style={{ background: '#1e293b', padding: '25px 20px', borderRadius: '24px', border: '1px solid #334155', boxShadow: '0 15px 35px rgba(0,0,0,0.4)', boxSizing: 'border-box' }}>
           <div style={{ background: 'rgba(56, 189, 248, 0.08)', borderLeft: '4px solid #38bdf8', padding: '15px', borderRadius: '0 12px 12px 0', marginBottom: '25px', fontSize: '0.85rem', color: '#cbd5e1', lineHeight: '1.5' }}>
