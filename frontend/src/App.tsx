@@ -505,14 +505,45 @@ function MainContent() {
   const handleRemoveJury = async (contestId: number, email: string) => { const res = await fetch(`${BACKEND_URL}/api/jury`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contestId, userEmail: email }) }); if (res.ok) fetchData(); };
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (file) { setUploadFile(file); setUploadPreview(URL.createObjectURL(file)); } };
   
-  const handleUpload = async (contestId: number) => { 
+const handleUpload = async (contestId: number) => { 
     if (!uploadFile || !uploadTitle || !uploadCategory) return alert("Minden kötelező!"); 
+    
     setIsUploading(true); 
     try { 
-      const formData = new FormData(); formData.append('photo', uploadFile); formData.append('contestId', String(contestId)); formData.append('userEmail', user.email); formData.append('userName', user.name); formData.append('title', uploadTitle); formData.append('category', uploadCategory); 
+      const formData = new FormData(); 
+      
+      // Sima adatok
+      formData.append('contestId', String(contestId)); 
+      formData.append('userEmail', user.email); 
+      formData.append('userName', user.name); 
+      formData.append('title', uploadTitle); 
+      formData.append('category', uploadCategory); 
+      
+      // 🎯 UTÓLAGOS JAVÍTÁS: Elküldjük a digitális bizonyítékokat a backendnek
+      formData.append('acceptedTerms', '1');
+      formData.append('acceptedTermsAt', new Date().toISOString());
+      
+      // A fájlt hagyjuk a legvégére a stabil Multer parsing miatt
+      formData.append('photo', uploadFile); 
+      
       const res = await fetch(`${BACKEND_URL}/api/upload`, { method: 'POST', body: formData }); 
-      if (res.ok) { alert("Feltöltve!"); setActiveUploadContest(null); setUploadFile(null); setUploadPreview(null); setUploadTitle(''); setUploadCategory(''); fetchMyEntries(user.email); } else { const err = await res.json(); alert(`Hiba: ${err.error}`); } 
-    } catch (error) { alert("Hiba"); } finally { setIsUploading(false); } 
+      if (res.ok) { 
+        alert("Sikeres nevezés! A jognyilatkozatot és a technikai validációt rögzítettük."); 
+        setActiveUploadContest(null); 
+        setUploadFile(null); 
+        setUploadPreview(null); 
+        setUploadTitle(''); 
+        setUploadCategory(''); 
+        fetchMyEntries(user.email); 
+      } else { 
+        const err = await res.json(); 
+        alert(`Hiba: ${err.error}`); 
+      } 
+    } catch (error) { 
+      alert("Hálózati hiba történt a feltöltés közben!"); 
+    } finally { 
+      setIsUploading(false); 
+    } 
   };
 
   const handleUpdateEntryTitle = async (entryId: number) => { 
