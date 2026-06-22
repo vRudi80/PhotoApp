@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { getImageUrl } from '../../utils/helpers';
 import { BACKEND_URL } from '../../utils/constants';
 
-// 🎯 ÚJ IMPORT: Behozzuk a nyelvi kontextust
+// 🎯 Aktiváljuk a nyelvi kontextust
 import { useLanguage } from '../../context/LanguageContext';
 
 interface AlbumSelectionModalProps {
@@ -25,8 +25,32 @@ export default function AlbumSelectionModal({
   setIsUploading, setIsSwapping, fetchCurrentTopic, handleSwapBackSubmit, handleSelectPhotoForSwap
 }: AlbumSelectionModalProps) {
   
-  // 🎯 ÚJ: Aktiváljuk a fordítót (t)
   const { t } = useLanguage();
+
+  // 🏎️ 1. OPTIMALIZÁLÁS: Keresési Hash-Map építése ($O(1)$ konstans idejű lekéréshez)
+  // Ez megakadályozza, hogy a ciklus legbelül feleslegesen pörgesse a processzort.
+  const pastEntriesMap = useMemo(() => {
+    const map = new Map();
+    if (Array.isArray(myPastEntries)) {
+      myPastEntries.forEach(entry => {
+        if (entry.file_url) map.set(entry.file_url, entry);
+      });
+    }
+    return map;
+  }, [myPastEntries]);
+
+  // 🏎️ 2. OPTIMALIZÁLÁS: Dinamikus Cloudinary transzformációs motor
+  // Nem a nagy képet töltjük le, hanem megkérjük a Cloudinary-t, hogy küldjön egy pici,
+  // tömörített, modern WebP/AVIF formátumú előnézeti képet.
+  const getOptimizedThumbnail = (rawUrl: string) => {
+    const url = getImageUrl(null, rawUrl);
+    if (url && url.includes('cloudinary.com')) {
+      // Beékeljük az automatikus formátum (f_auto), automatikus minőség (q_auto) 
+      // és a fix 300px széles vágás (w_300,h_220,c_fill) paramétereit a URL-be
+      return url.replace('/upload/', '/upload/w_300,h_220,c_fill,g_auto,q_auto,f_auto/');
+    }
+    return url;
+  };
 
   if (!isOpen) return null;
 
@@ -45,7 +69,8 @@ export default function AlbumSelectionModal({
         
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '15px' }}>
           {swapAlbumPhotos.map((p, idx) => {
-            const pastMatch = albumModalMode === 'swap' ? myPastEntries.find(past => past.file_url === p.file_url) : null;
+            // Szupergyors térkép alapú egyezés-keresés
+            const pastMatch = albumModalMode === 'swap' ? pastEntriesMap.get(p.file_url) : null;
             
             return (
               <div 
@@ -75,7 +100,7 @@ export default function AlbumSelectionModal({
                   } else {
                     if (pastMatch) {
                       onClose(); 
-                      handleSwapBackSubmit(pastMatch.id); 
+                      handleSwapBackSubmit(pastMatch.id || pastMatch._id); 
                     } else {
                       handleSelectPhotoForSwap(p.file_url); 
                     }
@@ -90,7 +115,9 @@ export default function AlbumSelectionModal({
                 onMouseOut={(e) => { e.currentTarget.style.borderColor = pastMatch ? '#0284c7' : '#334155'; e.currentTarget.style.transform = 'scale(1)'; }}
               >
                 <div style={{ width: '100%', height: '115px', backgroundColor: '#000', overflow: 'hidden', position: 'relative' }}>
-                  <img src={getImageUrl(null, p.file_url)} alt="Gallery asset" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  {/* ⚡ JAVÍTVA: Itt már az optimalizált, pehelysúlyú thumbnail töltődik be! */}
+                  <img src={getOptimizedThumbnail(p.file_url)} alt="Gallery asset" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  
                   {pastMatch && (
                     <span style={{ position: 'absolute', top: '8px', left: '8px', background: 'linear-gradient(135deg, #0284c7, #0369a1)', color: 'white', fontWeight: 'bold', fontSize: '0.65rem', padding: '4px 8px', borderRadius: '6px', boxShadow: '0 4px 10px rgba(0,0,0,0.5)', border: '1px solid #38bdf840' }}>
                       {t('modalBadgeSwapBack')}
