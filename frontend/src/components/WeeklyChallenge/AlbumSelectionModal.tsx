@@ -65,17 +65,16 @@ export default function AlbumSelectionModal({
   const [isLocalProcessing, setIsLocalProcessing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // 🏎️ LUSTA BETÖLTÉS (LAZY RENDERING) MOTOR
+  // 🏎️ LUSTA LAPOZÓ RENDSZER (Fokozatos 12-es lépték)
   const [visibleCount, setVisibleCount] = useState(12);
 
-  // Alaphelyzetbe állítás bezáráskor / megnyitáskor
   useEffect(() => {
     if (isOpen) {
       setVisibleCount(12);
     }
   }, [isOpen]);
 
-  // 🛡️ BIZTONSÁGI RETESZ: Teljesen meggátoljuk, hogy az ESC billentyű bezárhassa a modalt
+  // 🛡️ SECURITY LOCK: ESC Letiltása
   useEffect(() => {
     if (!isOpen) return;
     const preventEscClose = (e: KeyboardEvent) => {
@@ -88,13 +87,18 @@ export default function AlbumSelectionModal({
     return () => window.removeEventListener('keydown', preventEscClose, true);
   }, [isOpen]);
 
-  // Görgetésfigyelő az automatikus lapozáshoz (Infinite Scroll)
+  // 🏎️ INTELILLIGENS GÖRDÍTÉS-DETEKTÁLÁS (Lazított pixelhatárral)
   const handleModalScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const target = e.currentTarget;
-    if (target.scrollHeight - target.scrollTop <= target.clientHeight + 40) {
-      if (visibleCount < swapAlbumPhotos.length) {
-        setVisibleCount(prev => prev + 12);
-      }
+    // Ha megközelítjük a modal alját 80 pixelen belülre, automatikusan rátöltünk
+    if (target.scrollHeight - target.scrollTop - target.clientHeight < 80) {
+      triggerLoadMore();
+    }
+  };
+
+  const triggerLoadMore = () => {
+    if (visibleCount < swapAlbumPhotos.length) {
+      setVisibleCount(prev => prev + 12);
     }
   };
 
@@ -135,7 +139,7 @@ export default function AlbumSelectionModal({
           aperture = exifData.FNumber ? `f/${exifData.FNumber}` : '-';
           software = exifData.Software || '-';
         }
-      } catch (err) { console.log("Nincs EXIF pecsét."); }
+      } catch (err) { console.log("EXIF hiba"); }
 
       let finalFile = rawFile;
       if (rawFile.size > 1.5 * 1024 * 1024) {
@@ -215,7 +219,6 @@ export default function AlbumSelectionModal({
 
   if (!isOpen) return null;
 
-  // Kivágjuk az aktuálisan látható szeletet az albumból
   const renderedPhotos = swapAlbumPhotos.slice(0, visibleCount);
 
   return (
@@ -226,7 +229,7 @@ export default function AlbumSelectionModal({
         style={{ background: '#0f172a', border: '1px solid #334155', borderRadius: '24px', width: '100%', maxWidth: '550px', maxHeight: '82vh', overflowY: 'auto', padding: '25px', position: 'relative', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.8)' }}
       >
         
-        <input type="file" ref={fileInputRef} accept="image/jpeg, image/png, image/webp" style={{ display: 'none' }} onChange={handleLocalFileSelect} />
+        <img src="" alt="" style={{ display: 'none' }} />
 
         {/* ── NÉZET A: THEATER / PREVIEW MODUS ── */}
         {previewPhoto ? (
@@ -247,7 +250,7 @@ export default function AlbumSelectionModal({
             )}
 
             <div style={{ display: 'flex', gap: '12px', marginTop: '10px' }}>
-              {/* 🎯 JAVÍTVA: A félrevezető szöveg helyett most már a kért "Vissza a képalbumhoz" gomb jelenik meg, és tisztán visszavisz a rácshoz */}
+              {/* 🎯 VISSZA A KÉPALBUMHOZ FELIRAT OK */}
               <button disabled={isSubmitting} onClick={() => setPreviewPhoto(null)} style={{ flex: 1, padding: '12px', borderRadius: '12px', background: '#1e293b', color: '#cbd5e1', border: '1px solid #334155', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.9rem' }}>
                 ⬅ {t('modalBackToAlbum')}
               </button>
@@ -257,7 +260,7 @@ export default function AlbumSelectionModal({
             </div>
           </div>
         ) : (
-          /* ── NÉZET B: ALBUM GRID (Biztonságos bezárással az alján) ── */
+          /* ── NÉZET B: ALBUM GRID ── */
           <>
             <h3 style={{ color: 'white', margin: '0 0 5px 0', fontSize: '1.5rem', fontWeight: 'bold' }}>
               {albumModalMode === 'upload' ? t('modalUploadTitle') : t('modalSwapTitle')}
@@ -275,7 +278,7 @@ export default function AlbumSelectionModal({
               <>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '15px' }}>
                   
-                  {/* TALLÓZÓ GOMB (Mindig az első elem) */}
+                  {/* TALLÓZÓ KÁRTYA */}
                   <div 
                     onClick={() => fileInputRef.current?.click()}
                     style={{ background: '#0f172a', borderRadius: '14px', border: '2px dashed #f59e0b50', height: '153px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px', cursor: 'pointer', transition: 'all 0.2s' }}
@@ -286,7 +289,7 @@ export default function AlbumSelectionModal({
                     <span style={{ color: '#fbbf24', fontSize: '0.78rem', fontWeight: 'bold', textAlign: 'center', padding: '0 10px' }}>Új kép tallózása</span>
                   </div>
 
-                  {/* LUSTÁN ELRENDEZETT KÉPEK */}
+                  {/* KÉPRÁCS HÁLÓ */}
                   {renderedPhotos.map((p, idx) => {
                     const pastMatch = albumModalMode === 'swap' ? pastEntriesMap.get(p.file_url) : null;
                     return (
@@ -308,7 +311,8 @@ export default function AlbumSelectionModal({
                         onMouseOut={(e) => { e.currentTarget.style.borderColor = pastMatch ? '#0284c7' : '#334155'; e.currentTarget.style.transform = 'scale(1)'; }}
                       >
                         <div style={{ width: '100%', height: '115px', backgroundColor: '#000', overflow: 'hidden', position: 'relative' }}>
-                          <img src={getOptimizedThumbnail(p.file_url)} alt="Gallery asset" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          {/* ⚡ JAVÍTVA: Elnyerték a képek a lazy-load védelmet a fagyások ellen */}
+                          <img src={getOptimizedThumbnail(p.file_url)} alt="Gallery asset" style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
                           {pastMatch && (
                             <span style={{ position: 'absolute', top: '8px', left: '8px', background: 'linear-gradient(135deg, #0284c7, #0369a1)', color: 'white', fontWeight: 'bold', fontSize: '0.65rem', padding: '4px 8px', borderRadius: '6px' }}>
                               {t('modalBadgeSwapBack')}
@@ -324,14 +328,19 @@ export default function AlbumSelectionModal({
                   })}
                 </div>
 
-                {/* Indikátor, ha van még mit betölteni lefelé görgetve */}
+                {/* 🎯 JAVÍTVA: A passzív feliratból egy interaktív, kattintható gombot formáltunk, ami áthidalja a böngészők hibáit! */}
                 {visibleCount < swapAlbumPhotos.length && (
-                  <div style={{ textAlign: 'center', color: '#64748b', fontSize: '0.75rem', padding: '15px 0', fontStyle: 'italic' }}>
-                    {t('modalLoadMore')}
+                  <div 
+                    onClick={triggerLoadMore}
+                    style={{ textAlign: 'center', color: '#38bdf8', fontSize: '0.85rem', padding: '16px 0', fontStyle: 'italic', fontWeight: 'bold', cursor: 'pointer', background: 'rgba(56,189,248,0.05)', borderRadius: '12px', marginTop: '15px', border: '1px solid rgba(56,189,248,0.15)', userSelect: 'none', transition: 'all 0.2s' }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(56,189,248,0.12)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'rgba(56,189,248,0.05)'}
+                  >
+                    ✨ {t('modalLoadMore') || 'További képek betöltése...'}
                   </div>
                 )}
 
-                {/* 🎯 TISZTA BEZÁRÓ PANEL: Mivel nincs hamis X, ez a gomb a tudatos kilépési pont */}
+                {/* BEZÁRÁS SÁV */}
                 <div style={{ marginTop: '25px', borderTop: '1px solid #223147', paddingTop: '15px' }}>
                   <button onClick={cleanAndClose} style={{ width: '100%', padding: '12px', borderRadius: '12px', background: '#1e293b', color: '#f43f5e', border: '1px solid #be123c40', fontWeight: 'bold', cursor: 'pointer' }}>
                     Mégse / Bezárás
