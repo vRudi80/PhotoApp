@@ -19,86 +19,85 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
   // 2. Új pályázat létrehozása (JAVÍTVA: Kettős írás ID és Név alapján!)
   app.post('/api/contests', async (req, res) => {
-  const { 
-    title, description, startDate, endDate, categories, 
-    restrictedClubId, sponsorClubId, entryFee, feeCurrency, categorySettings 
-  } = req.body;
+    const { 
+      title, description, startDate, endDate, categories, 
+      restrictedClubId, sponsorClubId, entryFee, feeCurrency, categorySettings 
+    } = req.body;
 
-  try { 
-    // 1. Háttérben lekérjük a klub nevét az ID alapján, ha klubhoz kötött a pályázat
-    let restrictedClubName = null;
-    if (restrictedClubId) {
-      const [clubRows] = await pool.query('SELECT name FROM photo_clubs WHERE id = ?', [restrictedClubId]);
-      if (clubRows.length > 0) restrictedClubName = clubRows[0].name;
+    try { 
+      // 1. Háttérben lekérjük a klub nevét az ID alapján, ha klubhoz kötött a pályázat
+      let restrictedClubName = null;
+      if (restrictedClubId) {
+        const [clubRows] = await pool.query('SELECT name FROM photo_clubs WHERE id = ?', [restrictedClubId]);
+        if (clubRows.length > 0) restrictedClubName = clubRows[0].name;
+      }
+
+      // 2. Elmentjük az összes oszlopot pontosan összehangolva (11 oszlop = 11 kérdőjel!)
+      const query = `
+        INSERT INTO photo_contests (
+          title, description, start_date, end_date, categories, 
+          restricted_club, restricted_club_id, sponsor_club_id, 
+          entry_fee, fee_currency, category_settings
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `;
+
+      await pool.query(query, [
+        title,
+        description,
+        startDate || null,
+        endDate || null,
+        categories,
+        restrictedClubName,          // -> restricted_club (szöveg)
+        restrictedClubId || null,    // -> restricted_club_id (szám)
+        sponsorClubId || null,       // -> sponsor_club_id (szám)
+        entryFee || 0,
+        feeCurrency || 'HUF',
+        categorySettings ? JSON.stringify(categorySettings) : null
+      ]); 
+
+      res.json({ success: true }); 
+    } catch (err) { 
+      console.error("❌ Hiba a pályázat mentésekor:", err);
+      res.status(500).json({ error: 'Hiba a mentés során' }); 
     }
-
-    // 2. Elmentjük az összes oszlopot pontosan összehangolva (11 oszlop = 11 kérdőjel!)
-    const query = `
-      INSERT INTO photo_contests (
-        title, description, start_date, end_date, categories, 
-        restricted_club, restricted_club_id, sponsor_club_id, 
-        entry_fee, fee_currency, category_settings
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `;
-
-    // JAVÍTVA: Beillesztve a hiányzó vessző a query után, és az értékek pontos sorrendbe rakva
-    await pool.query(query, [
-      title,
-      description,
-      startDate || null,
-      endDate || null,
-      categories,
-      restrictedClubName,          // -> restricted_club (szöveg)
-      restrictedClubId || null,    // -> restricted_club_id (szám)
-      sponsorClubId || null,       // -> sponsor_club_id (szám)
-      entryFee || 0,
-      feeCurrency || 'HUF',
-      categorySettings ? JSON.stringify(categorySettings) : null
-    ]); 
-
-    res.json({ success: true }); 
-  } catch (err) { 
-    console.error("❌ Hiba a pályázat mentésekor:", err); // Így a konzolon látod, ha elírtál egy oszlopnevet
-    res.status(500).json({ error: 'Hiba a mentés során' }); 
-  }
-});
+  });
 
   // 3. Pályázat módosítása (JAVÍTVA: Kettős írás frissítésnél is!)
   app.put('/api/contests/:id', async (req, res) => {
-  const { 
-    title, description, startDate, endDate, categories, 
-    restrictedClubId, sponsorClubId, entryFee, feeCurrency, categorySettings 
-  } = req.body;
+    const { 
+      title, description, startDate, endDate, categories, 
+      restrictedClubId, sponsorClubId, entryFee, feeCurrency, categorySettings 
+    } = req.body;
 
-  try {
-    let restrictedClubName = null;
-    if (restrictedClubId) {
-      const [clubRows] = await pool.query('SELECT name FROM photo_clubs WHERE id = ?', [restrictedClubId]);
-      if (clubRows.length > 0) restrictedClubName = clubRows[0].name;
+    try {
+      let restrictedClubName = null;
+      if (restrictedClubId) {
+        const [clubRows] = await pool.query('SELECT name FROM photo_clubs WHERE id = ?', [restrictedClubId]);
+        if (clubRows.length > 0) restrictedClubName = clubRows[0].name;
+      }
+
+      const query = `
+        UPDATE photo_contests SET 
+          title = ?, description = ?, start_date = ?, end_date = ?, categories = ?, 
+          restricted_club = ?, restricted_club_id = ?, sponsor_club_id = ?, 
+          entry_fee = ?, fee_currency = ?, category_settings = ? 
+        WHERE id = ?
+      `;
+
+      await pool.query(query, [
+        title, description, startDate || null, endDate || null, categories,
+        restrictedClubName, restrictedClubId || null, sponsorClubId || null,
+        entryFee || 0, feeCurrency || 'HUF', 
+        categorySettings ? JSON.stringify(categorySettings) : null,
+        req.params.id
+      ]);
+
+      res.json({ success: true });
+    } catch (err) {
+      console.error("❌ Hiba a pályázat frissítésekor:", err);
+      res.status(500).json({ error: 'Hiba a frissítés során' });
     }
-
-    const query = `
-      UPDATE photo_contests SET 
-        title = ?, description = ?, start_date = ?, end_date = ?, categories = ?, 
-        restricted_club = ?, restricted_club_id = ?, sponsor_club_id = ?, 
-        entry_fee = ?, fee_currency = ?, category_settings = ? 
-      WHERE id = ?
-    `;
-
-    await pool.query(query, [
-      title, description, startDate || null, endDate || null, categories,
-      restrictedClubName, restrictedClubId || null, sponsorClubId || null,
-      entryFee || 0, feeCurrency || 'HUF', 
-      categorySettings ? JSON.stringify(categorySettings) : null,
-      req.params.id // <-- A legvégén a WHERE feltételhez tartozó ID!
-    ]);
-
-    res.json({ success: true });
-  } catch (err) {
-    console.error("❌ Hiba a pályázat frissítésekor:", err);
-    res.status(500).json({ error: 'Hiba a frissítés során' });
-  }
-});
+  });
 
   // 4. Pályázat törlése
   app.delete('/api/contests/:id', async (req, res) => {
@@ -118,9 +117,10 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     try { const [rows] = await pool.query('SELECT * FROM photo_entries WHERE user_email = ? ORDER BY created_at DESC', [req.query.userEmail]); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
-  // 6. Kép feltöltése és nevezés
+  // 6. Kép feltöltése és nevezés (MÓDOSÍTVA: Elmenti a digitális jogi nyilatkozat pecsétjét)
   app.post('/api/upload', upload.single('photo'), async (req, res) => {
-    const { contestId, userEmail, userName, title, category } = req.body;
+    // 🎯 Beolvassuk a frontend App.tsx által küldött két új biztonsági változót
+    const { contestId, userEmail, userName, title, category, acceptedTerms, acceptedTermsAt } = req.body;
     const file = req.file;
     if (!file) return res.status(400).json({ error: 'Nincs fájl kiválasztva!' });
     
@@ -136,7 +136,27 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       const driveRes = await drive.files.create({ requestBody: { name: `Nevezes_${contestId}_${userName}_${Date.now()}${fileExt}`, parents: [process.env.DRIVE_MASTER_FOLDER_ID] }, media: { mimeType: file.mimetype, body: fileStream }, fields: 'id, webViewLink' });
 
       cleanupTempFile(file);
-      await pool.query('INSERT INTO photo_entries (contest_id, user_email, user_name, title, category, file_url, drive_file_id, file_size) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', [contestId, userEmail, userName, title, category, driveRes.data.webViewLink, driveRes.data.id, req.file.size]);
+
+      // 🎯 JAVÍTVA: Az új, kibővített 10 oszlopos táblázat-mentés fut le a bizonyíthatóságért
+      const queryStr = `
+        INSERT INTO photo_entries 
+        (contest_id, user_email, user_name, title, category, file_url, drive_file_id, file_size, accepted_terms, accepted_terms_at) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `;
+
+      await pool.query(queryStr, [
+        contestId, 
+        userEmail, 
+        userName, 
+        title, 
+        category, 
+        driveRes.data.webViewLink, 
+        driveRes.data.id, 
+        req.file.size,
+        acceptedTerms || 0,
+        acceptedTermsAt || null
+      ]);
+
       res.json({ success: true });
     } catch (err) { cleanupTempFile(file); res.status(500).json({ error: err.message }); }
   });
@@ -221,5 +241,31 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       const base64 = Buffer.from(driveRes.data).toString('base64');
       res.json({ base64: `data:image/jpeg;base64,${base64}` });
     } catch (err) { res.status(500).json({ error: 'Nem sikerült a képet betölteni az oklevélhez.' }); }
+  });
+
+  // ── 🎯 16. ÚJ: KÖTELEZŐ MAFOSZ PROFIL MENTÉSI ÚTVONAL ──
+  app.put('/api/users/:email/extended-profile', async (req, res) => {
+    const { email } = req.params;
+    const { name, phone_number, shipping_address, association_id } = req.body;
+
+    try {
+      // Tűpontosan a te 'photo_users' tábládra és oszlopneveidre igazítva
+      const query = `
+        UPDATE photo_users 
+        SET name = ?, phone_number = ?, shipping_address = ?, association_id = ? 
+        WHERE email = ?
+      `;
+      
+      const [result] = await pool.query(query, [name, phone_number, shipping_address, association_id, email]);
+      
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ error: "A megadott felhasználó nem létezik!" });
+      }
+
+      res.json({ success: true, message: "A MAFOSZ profil sikeresen frissítve!" });
+    } catch (err) {
+      console.error("❌ Szerver hiba a photo_users frissítésekor:", err);
+      res.status(500).json({ error: 'Hiba történt a profil adatok mentése közben.' });
+    }
   });
 };
