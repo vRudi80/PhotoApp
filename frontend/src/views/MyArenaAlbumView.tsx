@@ -36,8 +36,8 @@ export default function MyArenaAlbumView({ user, setFullscreenData }: MyArenaAlb
     fetchAlbum();
   }, [user]);
 
-  if (loading) {
-    <VideoLoader />
+ if (loading) {
+    return <VideoLoader />;
   }
 
   if (photos.length === 0) {
