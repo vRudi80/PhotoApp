@@ -216,7 +216,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const [isUploading, setIsUploading] = useState(false);
 
   const [uploadCamera, setUploadCamera] = useState('');
-  const [uploadLens, setUploadLens] = useState('');
+  const [uploadLens, setUploadCameraLens] = useState('');
   const [uploadShutter, setUploadShutter] = useState('');
   const [uploadIso, setUploadIso] = useState('');
   const [uploadAperture, setUploadAperture] = useState('');
@@ -294,6 +294,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     lobbyMessagesCountRef.current = lobbyMessages.length;
   }, [isChatOpen, lobbyMessages.length]);
 
+  // 2. ADATLETÖLTŐ ÉS CHAT FUNKCIÓK (HOISTOLVA A TDZ HIBÁK ELLEN)
   const fetchNextVote = async (topicId: number) => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/weekly/next-vote?topicId=${topicId}&userEmail=${user?.email || ''}`);
@@ -344,12 +345,70 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     finally { if (!isSilent) setLoading(false); }
   };
 
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setTypedLobbyMsg(e.target.value);
+
+    const now = Date.now();
+    if (now - lastTypingSignalSent.current > 3000) {
+      lastTypingSignalSent.current = now;
+      fetch(`${BACKEND_URL}/api/weekly/chat/typing`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          topicId: 0,
+          userEmail: user?.email,
+          userName: myOfficialNameRef.current
+        })
+      }).catch(() => {});
+    }
+  };
+
+  // 🎯 HELYREÁLLÍTVA ÉS FELHOZVA: Az üzenetküldésért felelős törzsfüggvény
+  const handleSendLobbyMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!typedLobbyMsg.trim() || isSendingLobbyMsg) return;
+
+    setIsSendingLobbyMsg(true);
+    const msgPayload = {
+      topicId: 0,
+      userEmail: user?.email,
+      userName: user?.name || (lang === 'en' ? 'Anonymous Photographer' : 'Anonim Képolvasó'),
+      messageText: typedLobbyMsg
+    };
+
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/weekly/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(msgPayload)
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        setTypedLobbyMsg('');
+        
+        setLobbyMessages(prev => [...prev, { 
+          id: Date.now(),
+          topic_id: 0,
+          user_email: user?.email,
+          user_name: data.user_name || user?.name || (lang === 'en' ? 'Anonymous Photographer' : 'Anonim Képolvasó'),
+          message_text: typedLobbyMsg,
+          created_at: new Date().toISOString() 
+        }]);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSendingLobbyMsg(false);
+    }
+  };
+
   const myOfficialNameRef = useRef<string>(lang === 'en' ? 'Me' : 'Én');
   useEffect(() => {
     myOfficialNameRef.current = myEntry?.user_name || user?.name || (lang === 'en' ? 'Me' : 'Én');
   }, [myEntry, user, lang]);
 
-  // REAKTÍV HORGOK (HOOKS) ÉS LOOP-BIZTONSÁGOS AUTOMATIZMUSOK
+  // REAKTÍV HORGOK (HOOKS)
   useEffect(() => {
     if (subTab === 'current') {
       fetchCurrentTopic(false);
@@ -360,21 +419,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     else if (subTab === 'hall_of_fame') fetchHallOfFame();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subTab, selectedTopicId, user?.email]);
-
-  useEffect(() => {
-    setTopic(null);
-    setMyEntry(null);
-    setMyPastEntries([]);
-    setVoteEntry(null);
-    setLeaderboard([]);
-    setCurrentClubLeaderboard([]);
-    setTimeLeft('');
-    setPastLeaderboard([]); 
-    setPastClubLeaderboard([]);
-    setMasterVotesLeft(0); 
-    setIsMaster(false);     
-    setHasNewMessage(false);
-  }, [selectedTopicId, user?.email]);
 
   useEffect(() => {
     if (isChatOpen && lobbyMessages.length > 0 && user?.email) {
@@ -445,24 +489,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       clearTimeout(timerId);
     };
   }, [subTab, selectedTopicId, user?.email]);
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setTypedLobbyMsg(e.target.value);
-
-    const now = Date.now();
-    if (now - lastTypingSignalSent.current > 3000) {
-      lastTypingSignalSent.current = now;
-      fetch(`${BACKEND_URL}/api/weekly/chat/typing`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          topicId: 0,
-          userEmail: user?.email,
-          userName: myOfficialNameRef.current
-        })
-      }).catch(() => {});
-    }
-  };
 
   const fetchMyStats = async () => {
     setIsLoadingStats(true);
@@ -587,7 +613,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
             setUploadCamera('');
           }
 
-          setUploadLens(exifData.LensModel || '');
+          setUploadCameraLens(exifData.LensModel || '');
 
           if (exifData.ExposureTime) {
             const shutterFraction = exifData.ExposureTime < 1 
@@ -604,7 +630,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         }
       } catch (exifError) {
         console.log("Nem található EXIF pecsét a képben.");
-        setUploadCamera(''); setUploadLens(''); setUploadShutter('');
+        setUploadCamera(''); setUploadCameraLens(''); setUploadShutter('');
         setUploadIso(''); setUploadAperture(''); setUploadSoftware('');
       }
 
@@ -647,7 +673,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         setUploadFile(null);
         if (uploadPreview) URL.revokeObjectURL(uploadPreview);
         setUploadPreview(null);
-        setUploadCamera(''); setUploadLens(''); setUploadShutter('');
+        setUploadCamera(''); setUploadCameraLens(''); setUploadShutter('');
         setUploadIso(''); setUploadAperture(''); setUploadSoftware('');
         await fetchCurrentTopic(true); 
       }
@@ -833,92 +859,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     }
   };
 
-  // EFFEKTUSOK: SUTIK / TRÓFEÁK / ANIMÁCIÓK
-  useEffect(() => {
-    if (!activeShareData) {
-      setShareBase64(null);
-      return;
-    }
-    let isMounted = true;
-    setLoadingShareImg(true);
-    
-    const fetchUrl = activeShareData.drive_file_id 
-      ? `${BACKEND_URL}/api/image-base64/${activeShareData.drive_file_id}`
-      : `${BACKEND_URL}/api/admin/base64-proxy?url=${encodeURIComponent(activeShareData.file_url)}`;
-
-    fetch(fetchUrl)
-      .then(res => res.json())
-      .then(data => {
-        if (isMounted) {
-          if (data.base64) setShareBase64(data.base64);
-          setLoadingShareImg(false);
-        }
-      })
-      .catch(err => {
-        console.error("Error downloading proxy asset:", err);
-        if (isMounted) setLoadingShareImg(false);
-      });
-    return () => { isMounted = false; };
-  }, [activeShareData]);
-
-  // EFFEKTUSOK: GÖRDÍTÉS ÉS IDŐZÍTŐK
-  useEffect(() => {
-    if (selectedTopicId === null && subTab === 'current' && chatScrollContainerRef.current) {
-      chatScrollContainerRef.current.scrollTop = chatScrollContainerRef.current.scrollHeight;
-    }
-  }, [lobbyMessages.length, selectedTopicId, subTab, isChatOpen]);
-
-  useEffect(() => {
-    if (!topic || !topic.end_date) {
-      setTimeLeft(t('viewTimeError'));
-      return;
-    }
-
-    const calculateTimeLeft = () => {
-      const now = new Date().getTime();
-      const parts = topic.end_date.split(/[- :T]/);
-      const end = parts.length >= 5 
-        ? new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), parseInt(parts[3]), parseInt(parts[4]), parts[5] ? parseInt(parts[5]) : 0)
-        : new Date(topic.end_date);
-      
-      if (isNaN(end.getTime())) {
-        setTimeLeft(t('viewTimeError'));
-        return false;
-      }
-
-      const distance = end.getTime() - now;
-      if (distance < 0) {
-        setTimeLeft(t('viewTimeEnded'));
-        return false;
-      }
-
-      const days = Math.floor(distance / (1000 * 60 * 60 * 24));
-      const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)).toString().padStart(2, '0');
-      const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60)).toString().padStart(2, '0');
-      const seconds = Math.floor((distance % (1000 * 60)) / 1000).toString().padStart(2, '0');
-
-      if (days > 0) {
-        setTimeLeft(`${days}${t('viewTimeDays')}${hours}:${minutes}:${seconds}`);
-      } else {
-        setTimeLeft(`${hours}:${minutes}:${seconds}`);
-      }
-      return true;
-    };
-
-    const isActive = calculateTimeLeft();
-    if (!isActive) return;
-
-    const interval = setInterval(() => {
-      const stillActive = calculateTimeLeft();
-      if (!stillActive) clearInterval(interval);
-    }, 1000);
-    
-    return () => clearInterval(interval);
-  }, [topic, t]);
-
-
-  // 🎯 4. SZÁMÍTOTT ÉRTÉKEK A RENDELÉSHEZ (Garantáltan definiálva a használat helye előtt)
-  // 🛡️ JAVÍTVA: A currentLevel és a hozzá tartozó expo változók most már biztosan beolvasásra kerülnek
+  // FUTÁSIDEJŰ RENDERELES KISZÁMÍTÁSOK
   const currentLevel = getLevelDetails(userTotalLikes, userVictories);
 
   const BASE_EXPOSURE = 10;
