@@ -535,7 +535,7 @@ function MainContent() {
       } 
     } catch (error) { 
       alert("Hálózati hiba történt a feltöltés közben!"); 
-    } finaly { 
+    } finally { 
       setIsUploading(false); 
     } 
   };
