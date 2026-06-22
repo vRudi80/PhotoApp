@@ -96,12 +96,10 @@ export default function ClubHomeworksView({
     } else alert('Hiba a cím frissítésekor!');
   };
 
-  // ÚJ LOKÁLIS JAVÍTÁS: Golyóálló törlés megerősítéssel és query-string fallback támogatással!
   const handleLocalDeleteHwEntry = async (entryId: number) => {
-    if (!window.confirm("Biztosan véglegesen törölni szeretnéd ezt a beküldött fotódat?")) return;
+    if (!window.confirm("Biztosan véglegen törölni szeretnéd ezt a beküldött fotódat?")) return;
     
     try {
-      // Az emailt elküldjük a biztonság kedvéért a törzsben ÉS URL paraméterként is!
       const res = await fetch(`${BACKEND_URL}/api/homework-entries/${entryId}?userEmail=${encodeURIComponent(user.email)}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
@@ -110,7 +108,7 @@ export default function ClubHomeworksView({
 
       if (res.ok) {
         alert("📸 Kép sikeresen eltávolítva a házi feladatból!");
-        fetchMyEntries(user.email); // Lista frissítése
+        fetchMyEntries(user.email); 
         const club = clubs.find(c => c.name === currentDbUser?.club_name); 
         if (club) fetchClubHomeworkEntries(club.id, user.email);
       } else {
@@ -130,6 +128,45 @@ export default function ClubHomeworksView({
         setLocalSelections(prev => ({ ...prev, [entryId]: data.is_selected === 1 }));
       }
     } catch (e) { console.error('Hiba a kiválasztáskor:', e); }
+  };
+
+  // 🎯 ÚJ: INTELIGENS KÉSLELTETETT BATCH LETÖLTŐ MOTOR VEZETŐKNEK
+  const handleDownloadAllSelected = (homeworkEntries: any[]) => {
+    // Kiszűrjük azokat a képeket, amik ki vannak választva (akár adatbázisban, akár lokálisan)
+    const selectedEntries = homeworkEntries.filter(entry => 
+      localSelections[entry.id] !== undefined ? localSelections[entry.id] : (entry.is_selected === 1)
+    );
+
+    if (selectedEntries.length === 0) {
+      alert("Nincs kiválasztott kép ebben a feladatban, amit le lehetne tölteni!");
+      return;
+    }
+
+    const confirmMessage = lang === 'en'
+      ? `Are you sure you want to download all ${selectedEntries.length} selected images?`
+      : `Biztosan le szeretnéd tölteni a feladat mind a(z) ${selectedEntries.length} db kiválasztott képét eredeti felbontásban?\n\n(Tipp: Első futtatáskor engedélyezd a böngészőnek a többszörös letöltést, ha rákérdez!)`;
+
+    if (!window.confirm(confirmMessage)) return;
+
+    // Biztonsági 400ms-os lépcsőzetes letöltési hurok a böngésző letiltásának kijátszására
+    selectedEntries.forEach((entry, idx) => {
+      setTimeout(() => {
+        const downloadAnchor = document.createElement('a');
+        downloadAnchor.href = entry.drive_file_id 
+          ? `https://docs.google.com/uc?export=download&id=${entry.drive_file_id}` 
+          : entry.file_url;
+        
+        // Letöltési fájlnév szabványosítása
+        const safeTitle = (entry.title || 'kep').replace(/[^a-zA-Z0-9-_]/g, '_');
+        const safeAuthor = (entry.user_name || 'szerzo').replace(/[^a-zA-Z0-9-_]/g, '_');
+        downloadAnchor.setAttribute('download', `${safeAuthor}_${safeTitle}.jpg`);
+        downloadAnchor.setAttribute('target', '_blank');
+        
+        document.body.appendChild(downloadAnchor);
+        downloadAnchor.click();
+        document.body.removeChild(downloadAnchor);
+      }, idx * 400); 
+    });
   };
 
   const openGalleryModal = (clickedEntry: any, allEntries: any[], index: number) => {
@@ -246,7 +283,17 @@ export default function ClubHomeworksView({
                     <div style={{ marginBottom: '20px', padding: '20px', background: '#0f172a', borderRadius: '12px', border: '1px solid #f59e0b50' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', flexWrap: 'wrap', gap: '10px' }}>
                         <h4 style={{ margin: 0, fontSize: '1rem', color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '1px' }}>📊 Klub Portfólió Válogatás (Vezetői Nézet)</h4>
-                        <div style={{ background: '#10b98120', color: '#10b981', border: '1px solid #10b98150', padding: '4px 12px', borderRadius: '100px', fontWeight: 'bold', fontSize: '0.85rem' }}>✅ Összes kiválasztva: {totalSelectedInHw} kép</div>
+                        
+                        {/* ── 🎯 ÚJ: TÖMEGES KIVÁLASZTOTT LETÖLTÉS GOMB VEZETŐKNEK ── */}
+                        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                          <button 
+                            onClick={() => handleDownloadAllSelected(hwEntriesForAllRaw)}
+                            style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#0f172a', border: 'none', padding: '6px 14px', borderRadius: '8px', fontWeight: 'bold', fontSize: '0.85rem', cursor: 'pointer', boxShadow: '0 4px 10px rgba(245,158,11,0.2)', transition: 'all 0.2s' }}
+                          >
+                            📦 Összes kiválasztott letöltése ({totalSelectedInHw})
+                          </button>
+                          <div style={{ background: '#10b98120', color: '#10b981', border: '1px solid #10b98150', padding: '4px 12px', borderRadius: '100px', fontWeight: 'bold', fontSize: '0.85rem' }}>✅ Összes kiválasztva: {totalSelectedInHw} kép</div>
+                        </div>
                       </div>
 
                       {sortedUploaders.length === 0 ? (
@@ -271,7 +318,7 @@ export default function ClubHomeworksView({
                                         {userEntries.map((entry, i) => (
                                           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '5px', background: entry.isSelected ? '#10b98120' : '#1e293b', border: entry.isSelected ? '1px solid #10b98150' : '1px solid #334155', padding: '4px 8px', borderRadius: '6px', fontSize: '0.8rem' }}>
                                             <span style={{ color: '#e2e8f0', maxWidth: '120px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{entry.title}</span>
-                                            <span style={{ color: '#ef4444', fontWeight: 'bold' }}>❤️ {entry.likes}</span>
+                                            <span style={{ color: '#doc-error', fontWeight: 'bold' }}>❤️ {entry.likes}</span>
                                             {entry.isSelected && <span title="Kiválasztva" style={{ color: '#10b981' }}>✅</span>}
                                           </div>
                                         ))}
@@ -335,7 +382,6 @@ export default function ClubHomeworksView({
                                   {!isPast && (
                                     <div style={{ display: 'flex', gap: '5px', marginTop: '12px', flexWrap: 'wrap' }}>
                                       <button onClick={() => { setEditingHwEntryId(entry.id); setEditHwEntryTitle(entry.title); }} style={{ flex: '1 1 45%', background: '#38bdf820', color: '#38bdf8', border: 'none', padding: '6px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>Szerkeszt</button>
-                                      {/* JAVÍTVA: A helyi, golyóálló törlő függvényt hívjuk meg! */}
                                       <button onClick={() => handleLocalDeleteHwEntry(entry.id)} style={{ flex: '1 1 45%', background: '#ef444420', color: '#ef4444', border: 'none', padding: '6px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>Törlés</button>
                                     </div>
                                   )}
@@ -399,7 +445,7 @@ export default function ClubHomeworksView({
                                   </div>
                                 )}
                               </div>
-                            )
+                            );
                           })}
                         </div>
                       )}
