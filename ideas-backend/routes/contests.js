@@ -130,9 +130,9 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     try { const [rows] = await pool.query('SELECT * FROM photo_entries WHERE user_email = ? ORDER BY created_at DESC', [req.query.userEmail]); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
-  // 6. Kép feltöltése és nevezés (MÓDOSÍTVA: Elmenti a digitális jogi nyilatkozat pecsétjét)
+// 6. Kép feltöltése és nevezés (JAVÍTVA: Időbélyeg formázási hiba kiküszöbölve!)
   app.post('/api/upload', upload.single('photo'), async (req, res) => {
-    const { contestId, userEmail, userName, title, category, acceptedTerms, acceptedTermsAt } = req.body;
+    const { contestId, userEmail, userName, title, category, acceptedTerms } = req.body;
     const file = req.file;
     if (!file) return res.status(400).json({ error: 'Nincs fájl kiválasztva!' });
     
@@ -149,12 +149,14 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
       cleanupTempFile(file);
 
+      // 🎯 JAVÍTVA: Az utolsó kérdőjel helyett a NOW() függvényt használjuk, így a MySQL magának generálja a tökéletes formátumot!
       const queryStr = `
         INSERT INTO photo_entries 
         (contest_id, user_email, user_name, title, category, file_url, drive_file_id, file_size, accepted_terms, accepted_terms_at) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
       `;
 
+      // 🎯 JAVÍTVA: Az acceptedTermsAt változót kivettük a tömbből, mert a NOW() automatikusan kitölti
       await pool.query(queryStr, [
         contestId, 
         userEmail, 
@@ -164,8 +166,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         driveRes.data.webViewLink, 
         driveRes.data.id, 
         req.file.size,
-        acceptedTerms || 0,
-        acceptedTermsAt || null
+        acceptedTerms || 0
       ]);
 
       res.json({ success: true });
