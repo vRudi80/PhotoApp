@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { getImageUrl } from '../../../utils/helpers';
+import VideoLoader from '../../../components/VideoLoader'; // 👈 Figyelj a relatív útvonalra!
 
 // 🎯 ÚJ IMPORT: Behozzuk a nyelvi kontextust
 import { useLanguage } from '../../../context/LanguageContext';
@@ -49,7 +50,7 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
   };
 
   if (isLoadingHof) {
-    return <div style={{ color: '#94a3b8', textAlign: 'center', padding: '40px' }}>{t('hofLoading')}</div>;
+    return <VideoLoader />;
   }
 
   if (!hallOfFame || hallOfFame.length === 0) {
