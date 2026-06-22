@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BACKEND_URL } from '../utils/constants';
 import { getImageUrl } from '../utils/helpers';
-import VideoLoader from '../components/VideoLoader';
 
 // 🎯 ÚJ IMPORT: Behozzuk a nyelvi kontextust
 import { useLanguage } from '../context/LanguageContext';
@@ -37,7 +36,7 @@ export default function MyArenaAlbumView({ user, setFullscreenData }: MyArenaAlb
   }, [user]);
 
   if (loading) {
-    <VideoLoader />
+    return <div style={{ color: '#94a3b8', textAlign: 'center', padding: '50px' }}>{t('arenaAlbumLoading')}</div>;
   }
 
   if (photos.length === 0) {
