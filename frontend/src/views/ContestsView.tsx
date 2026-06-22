@@ -85,6 +85,7 @@ interface ContestsViewProps {
   handleUpdateEntryTitle: (id: number) => void;
   handleDeleteEntry: (id: number) => void;
 
+  setActiveTab?: (tab: string) => void; // 👈 ÚJ: Opcionális navigáció átadás a gombokhoz
   setFullscreenData: (data: {url: string, title?: string} | null) => void;
 
   // Fizetések
@@ -99,28 +100,30 @@ export default function ContestsView(props: ContestsViewProps) {
 
   const [isSubmittingVote, setIsSubmittingVote] = useState(false);
   const [generatingCertId, setGeneratingCertId] = useState<number | null>(null);
-  
-  // 🎯 ÚJ: Reaktív állapot a jogi és szerzői checkbox biztonságos kezeléséhez
+  const [isJuryDocCompiling, setIsJuryDocCompiling] = useState(false);
   const [isLegalChecked, setIsLegalChecked] = useState(false);
 
   useEffect(() => {
     setIsSubmittingVote(false);
   }, [props.unvotedEntries, props.currentScore]);
 
-  // 🎯 ÚJ: Ha bezárják a panelt vagy váltanak, töröljük a pipát a visszaélések elkerülésére
   useEffect(() => {
     setIsLegalChecked(false);
   }, [props.activeUploadContest]);
 
-  const currentNewClubValue = props.clubs.find(c => String(c.id) === props.newRestrictedClub || c.name === props.newRestrictedClub)?.id || '';
-  const currentEditClubValue = props.clubs.find(c => String(c.id) === props.editRestrictedClub || c.name === props.editRestrictedClub)?.id || '';
+  // Biztonsági ellenőrzés: Megvannak-e a MAFOSZ által kért profil adatok?
+  const hasRequiredProfileData = useMemo(() => {
+    if (!props.currentDbUser) return false;
+    const hasPhone = !!(props.currentDbUser.phone_number || props.currentDbUser.phone);
+    const hasAddress = !!(props.currentDbUser.shipping_address || props.currentDbUser.address);
+    return hasPhone && hasAddress;
+  }, [props.currentDbUser]);
 
   // ====================================================================
   // 📜 OKLEVÉL GENERÁLÓ LOGIKA
   // ====================================================================
   const generateCertificate = async (contest: any, result: any, awardName: string, isAcceptance: boolean, contestJury: any[]) => {
     setGeneratingCertId(result.id);
-    
     const targetSponsorId = contest.sponsor_club_id || contest.sponsorClubId;
     const sponsorClubObj = props.clubs.find(c => Number(c.id) === Number(targetSponsorId));
 
@@ -134,9 +137,7 @@ export default function ContestsView(props: ContestsViewProps) {
         try {
           const logoRes = await fetch(`${BACKEND_URL}/api/image-base64/${sponsorClubObj.drive_logo_id}`);
           const logoData = await logoRes.json();
-          if (logoData.base64) {
-            sponsorLogoBase64 = logoData.base64;
-          }
+          if (logoData.base64) sponsorLogoBase64 = logoData.base64;
         } catch (e) { console.error("Logo error:", e); }
       }
 
@@ -145,7 +146,6 @@ export default function ContestsView(props: ContestsViewProps) {
       await new Promise((resolve) => { img.onload = resolve; });
 
       const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-
       const fixHu = (str: string) => {
         if (!str) return '';
         return str.replace(/ő/g, 'ö').replace(/ű/g, 'ü').replace(/Ő/g, 'Ö').replace(/Ű/g, 'Ü');
@@ -159,10 +159,7 @@ export default function ContestsView(props: ContestsViewProps) {
 
       if (sponsorLogoBase64) {
         let format = 'JPEG';
-        const lowerBase = sponsorLogoBase64.toLowerCase();
-        if (lowerBase.includes('image/png')) format = 'PNG';
-        if (lowerBase.includes('image/webp')) format = 'WEBP';
-        if (lowerBase.includes('image/gif')) format = 'GIF';
+        if (sponsorLogoBase64.toLowerCase().includes('image/png')) format = 'PNG';
         doc.addImage(sponsorLogoBase64, format, 252, 15, 22, 22);
       }
 
@@ -196,24 +193,17 @@ export default function ContestsView(props: ContestsViewProps) {
       const ratio = Math.min(maxW / imgW, maxH / imgH);
       imgW = imgW * ratio;
       imgH = imgH * ratio;
-      const imgX = (297 - imgW) / 2;
-      const imgY = 75;
-
-      doc.addImage(data.base64, 'JPEG', imgX, imgY, imgW, imgH);
+      doc.addImage(data.base64, 'JPEG', (297 - imgW) / 2, 75, imgW, imgH);
 
       doc.setFont("times", "bold");
       doc.setFontSize(18);
       doc.setTextColor(30, 41, 59);
-      doc.text(fixHu(`"${result.title}"`), 148.5, imgY + imgH + 12, { align: "center" });
+      doc.text(fixHu(`"${result.title}"`), 148.5, 75 + imgH + 12, { align: "center" });
 
       doc.setFont("times", "normal");
       doc.setFontSize(14);
-      doc.text(fixHu(`${lang === 'en' ? 'Created by' : 'Készítette'}: ${result.user_name}`), 148.5, imgY + imgH + 20, { align: "center" });
+      doc.text(fixHu(`${lang === 'en' ? 'Created by' : 'Készítette'}: ${result.user_name}`), 148.5, 75 + imgH + 20, { align: "center" });
 
-      doc.setFont("times", "normal");
-      doc.setFontSize(12);
-      doc.setTextColor(100, 116, 139);
-      
       const todayStr = new Date().toLocaleDateString(lang === 'en' ? 'en-US' : 'hu-HU', { year: 'numeric', month: 'long', day: 'numeric' });
       doc.text(fixHu(`${lang === 'en' ? 'Date' : 'Kelt'}: ${todayStr}`), 20, 192);
 
@@ -223,18 +213,103 @@ export default function ContestsView(props: ContestsViewProps) {
       doc.setTextColor(148, 163, 184);
       doc.text(fixHu(`${lang === 'en' ? 'Jury members' : 'A zsűri tagjai'}: ${juryNames}`), 148.5, 192, { align: "center" });
 
-      const safeFileName = `Certificate_${result.user_name}_${result.title}`.replace(/[^a-zA-Z0-9_]/g, '_');
-      doc.save(`${safeFileName}.pdf`);
-      
+      doc.save(`Certificate_${result.user_name}.pdf`);
     } catch (err) {
       alert(t('msgGenerateImageError'));
-      console.error(err);
     } finally { 
       setGeneratingCertId(null);
     }
   };
 
-  // 🎯 ÚJ / MODERNIZÁLT ELLENŐRZÉS: Megnézzük, hogy a bejelentkezett felhasználó felkért zsűritag-e legalább egy itteni pályázatban
+  // ====================================================================
+  // 📝 ÚJ: HIVATALOS MAFOSZ ZSŰRI JEGYZŐKÖNYV GENERÁLÁSA (PDF)
+  // ====================================================================
+  const generateJuryReportPdf = (contest: any, results: any[], contestJury: any[]) => {
+    setIsJuryDocCompiling(true);
+    try {
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      const fixHu = (str: string) => str ? str.replace(/ő/g, 'ö').replace(/ű/g, 'ü').replace(/Ő/g, 'Ö').replace(/Ű/g, 'Ü') : '';
+
+      // Címsor és fejlécek
+      doc.setFont("times", "bold");
+      doc.setFontSize(22);
+      doc.text(fixHu("HIVATALOS ZSŰRI JEGYZŐKÖNYV"), 105, 25, { align: "center" });
+      
+      doc.setFontSize(14);
+      doc.setFont("times", "normal");
+      doc.text(fixHu(`Pályázat megnevezése: ${contest.title}`), 20, 40);
+      doc.text(fixHu(`Lezárás dátuma: ${new Date(contest.end_date).toLocaleDateString('hu-HU')}`), 20, 47);
+
+      // Statisztikai Blokki adatok rögzítése
+      doc.setFont("times", "bold");
+      doc.text(fixHu("1. Pályázati Statisztikák:"), 20, 58);
+      doc.setFont("times", "normal");
+      
+      const distinctAuthors = new Set(results.map(r => r.user_email)).size;
+      doc.text(fixHu(`• Résztvevő alkotók száma: ${distinctAuthors} fő`), 25, 66);
+      doc.text(fixHu(`• Összesen beküldött alkotás: ${contest.entry_count || results.length} db`), 25, 73);
+
+      // Zsűritagok felsorolása
+      doc.setFont("times", "bold");
+      doc.text(fixHu("2. A Hivatalos Szakmai Zsűri tagjai:"), 20, 85);
+      doc.setFont("times", "normal");
+      let juryY = 93;
+      contestJury.forEach((j, idx) => {
+        const name = props.allUsers.find(u => u.email === j.user_email)?.name || j.user_email;
+        doc.text(fixHu(`${idx + 1}. ${name} (${j.user_email})`), 25, juryY);
+        juryY += 7;
+      });
+
+      // Eredmények listázása kategóriánként
+      let currentY = juryY + 8;
+      doc.setFont("times", "bold");
+      doc.text(fixHu("3. Díjazások és Helyezések rangsora:"), 20, currentY);
+      currentY += 8;
+
+      let catSettings: Record<string, any> = {};
+      try { catSettings = typeof contest.category_settings === 'string' ? JSON.parse(contest.category_settings) : (contest.category_settings || {}); } catch(e) {}
+
+      const categories = contest.categories ? contest.categories.split(',').map((c: string) => c.trim()).filter(Boolean) : [];
+      
+      categories.forEach((cat: string) => {
+        if (currentY > 260) { doc.addPage(); currentY = 25; }
+        doc.setFont("times", "bolditalic");
+        doc.text(fixHu(`Kategória: ${cat}`), 22, currentY);
+        currentY += 7;
+        doc.setFont("times", "normal");
+
+        const catResults = results.filter(r => r.category === cat).slice(0, 5); // Az első 5 helyezettet rakjuk a hivatalos jegyzőkönyvbe
+        const awardsArr = ((catSettings[cat] || {}).awardsString || '').split(',').map((s: string) => s.trim()).filter(Boolean);
+
+        if (catResults.length === 0) {
+          doc.text(fixHu("  Nincs beérkezett vagy értékelt pályamű."), 25, currentY);
+          currentY += 7;
+        } else {
+          catResults.forEach((res, rIdx) => {
+            if (currentY > 270) { doc.addPage(); currentY = 25; }
+            const awardLabel = awardsArr[rIdx] ? `[DÍJ: ${awardsArr[rIdx]}]` : '[Elfogadva]';
+            doc.text(fixHu(`  Hely #${rIdx + 1}: "${res.title}" - ${res.user_name} (${res.total_score} FP) ${awardLabel}`), 25, currentY);
+            currentY += 7;
+          });
+        }
+        currentY += 4;
+      });
+
+      // Aláírás sáv a hitelesítéshez
+      if (currentY > 240) { doc.addPage(); currentY = 30; }
+      currentY += 15;
+      doc.text(fixHu("Kelt: Budapest, " + new Date().toLocaleDateString('hu-HU')), 20, currentY);
+      doc.line(130, currentY, 190, currentY);
+      doc.text(fixHu("Rendező / Szövetségi képviselő"), 135, currentY + 5);
+
+      doc.save(`Zsurireport_${contest.title}.pdf`);
+    } catch (e) {
+      alert("Hiba a jegyzőkönyv összeállításakor.");
+    } finally {
+      setIsJuryDocCompiling(false);
+    }
+  };
+
   const isUserJurySomewhereInList = useMemo(() => {
     if (!Array.isArray(props.filteredContests) || !props.user?.email) return false;
     return props.filteredContests.some(contest => 
@@ -670,7 +745,20 @@ export default function ContestsView(props: ContestsViewProps) {
                   <div style={{ background: '#0f172a', padding: '25px', borderRadius: '16px', border: '1px solid #10b98140' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #334155', paddingBottom: '15px', marginBottom: '20px' }}>
                       <h3 style={{ margin: '0', color: '#10b981', fontSize: '1.3rem' }}>{t('resultsTitle')}</h3>
-                      <button onClick={() => props.setViewResultsContestId(null)} style={{ background: '#1e293b', color: '#94a3b8', border: 'none', padding: '6px 16px', borderRadius: '8px', cursor: 'pointer' }}>{t('juryProgressClose')}</button>
+                      
+                      {/* ── 🎯 ÚJ: JELENTÉS/JEGYZŐKÖNYV EXPORT GOMB VEZETŐKNEK ── */}
+                      <div style={{ display: 'flex', gap: '10px' }}>
+                        {canManageContest && (
+                          <button 
+                            onClick={() => generateJuryReportPdf(contest, props.contestResults, contestJury)} 
+                            disabled={isJuryDocCompiling}
+                            style={{ background: '#4c1d95', color: 'white', border: 'none', padding: '6px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}
+                          >
+                            {isJuryDocCompiling ? '⏳...' : '📄 MAFOSZ Jegyzőkönyv (.PDF)'}
+                          </button>
+                        )}
+                        <button onClick={() => props.setViewResultsContestId(null)} style={{ background: '#1e293b', color: '#94a3b8', border: 'none', padding: '6px 16px', borderRadius: '8px', cursor: 'pointer' }}>{t('juryProgressClose')}</button>
+                      </div>
                     </div>
                     
                     {(() => {
@@ -699,7 +787,7 @@ export default function ContestsView(props: ContestsViewProps) {
                                 else if (index === 2) { awardColor = '#d97706'; awardBg = '#d9770615'; awardBorder = '#d9770640'; awardIcon = '🥉'; }
 
                                 return (
-                                  <div key={res.id} style={{ display: 'flex', alignItems: 'center', background: '#1e293b', padding: '12px', borderRadius: '12px', border: awardName ? `1px solid ${awardBorder}` : isAcceptance ? '1px solid #10b98130' : '1px solid transparent', gap: '15px' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', background: '#1e293b', padding: '12px', borderRadius: '12px', border: awardName ? `1px solid ${awardBorder}` : isAcceptance ? '1px solid #10b98130' : '1px solid transparent', gap: '15px' }} key={res.id}>
                                     <div style={{ fontSize: '1.3rem', fontWeight: '900', width: '35px', color: awardColor }}>#{index + 1}</div>
                                     <img src={getImageUrl(res.drive_file_id, res.file_url)} alt="Artwork" style={{ width: '55px', height: '55px', objectFit: 'cover', borderRadius: '6px', cursor: 'pointer', background: '#0f172a' }} onClick={() => props.setFullscreenData({url: getImageUrl(res.drive_file_id, res.file_url), title: res.title})} />
                                     <div style={{ flex: 1 }}>
@@ -808,57 +896,85 @@ export default function ContestsView(props: ContestsViewProps) {
                       <button onClick={() => { props.setActiveUploadContest(contest.id); props.setUploadCategory(''); }} style={{ background: 'linear-gradient(135deg, #38bdf8, #0284c7)', color: '#0f172a', border: 'none', padding: '10px 20px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem', marginBottom: '15px', transition: 'all 0.2s', boxShadow: '0 4px 15px rgba(56,189,248,0.3)' }}>{t('contBtnNewUpload')}</button>
                     )}
 
+                    {/* ── 🎯 MODERNIZÁLT NEVEZÉSI PANEL: ELLENŐRZI A PROFIL ADATOKAT ── */}
                     {props.activeUploadContest === contest.id && (
                       <div style={{ background: '#0f172a', padding: '25px', borderRadius: '16px', marginBottom: '20px', border: '1px solid #334155' }}>
-                        <h4 style={{marginTop: 0, color: '#38bdf8', fontSize: '1.1rem', marginBottom: '15px'}}>{t('contUploadPanelTitle')}</h4>
                         
-                        <input placeholder={t('contUploadTitlePlaceholder')} value={props.uploadTitle} onChange={e => props.setUploadTitle(e.target.value)} style={inputStyle} disabled={props.isUploading} />
-                        
-                        <select value={props.uploadCategory} onChange={e => props.setUploadCategory(e.target.value)} style={inputStyle} disabled={props.isUploading}>
-                          <option value="">{t('contUploadCatPlaceholder')}</option>
-                          {categories.map((cat: string) => { 
-                            const count = categoryCounts[cat] || 0; 
-                            return <option key={cat} value={cat} disabled={count >= 4}>{cat} ({count}/4 {t('contUploadCountSuffix') || 'db fotó)'}</option>; 
-                          })}
-                        </select>
-                        
-                        {/* Technikai emlékeztető a MAFOSZ szabványról */}
-                        <div style={{ background: 'rgba(56, 189, 248, 0.05)', padding: '10px 14px', borderRadius: '8px', fontSize: '0.8rem', color: '#94a3b8', marginBottom: '15px', border: '1px solid rgba(56,189,248,0.1)' }}>
-                          ℹ️ <b>{lang === 'en' ? 'Technical Standard:' : 'Technikai Szabvány:'}</b> {lang === 'en' ? 'Images will be automatically optimized to 1600px sRGB JPEG standard.' : 'A képek automatikusan a MAFOSZ-szabványnak megfelelő 1600px hosszabbik oldalú sRGB JPEG formátumra lesznek optimalizálva.'}
-                        </div>
+                        {!hasRequiredProfileData ? (
+                          /* 🔒 BLOKKOLÓ NÉZET: Ha hiányzik a lakcím vagy a telefon */
+                          <div style={{ textAlign: 'center', padding: '15px 10px' }}>
+                            <div style={{ fontSize: '2.5rem', marginBottom: '10px' }}>⚠️</div>
+                            <h4 style={{ color: '#fb923c', margin: '0 0 8px 0', fontSize: '1.1rem', fontWeight: 'bold' }}>
+                              {lang === 'en' ? 'Incomplete Competition Profile' : 'Hiányos Pályázati Profil'}
+                            </h4>
+                            <p style={{ color: '#94a3b8', fontSize: '0.85rem', lineHeight: '1.5', margin: '0 0 20px 0' }}>
+                              {lang === 'en' 
+                                ? 'According to rules, you must provide your phone number and delivery address before submitting entries.' 
+                                : 'A hivatalos szabályzat értelmében a nevezés elindítása előtt meg kell adnod a telefonszámodat és a postázási címedet az esetleges nyeremények kiküldéséhez.'}
+                            </p>
+                            <button 
+                              onClick={() => props.setActiveTab ? props.setActiveTab('profile') : window.location.href='/profile'}
+                              style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#0f172a', border: 'none', padding: '10px 24px', borderRadius: '10px', fontWeight: 'bold', fontSize: '0.85rem', cursor: 'pointer' }}
+                            >
+                              ⚙️ {lang === 'en' ? 'Go to Profile Settings' : 'Profil adatok kitöltése'}
+                            </button>
+                            <button onClick={() => props.setActiveUploadContest(null)} style={{ background: 'transparent', color: '#64748b', border: 'none', marginLeft: '15px', fontSize: '0.85rem', cursor: 'pointer' }}>{t('contCancel')}</button>
+                          </div>
+                        ) : (
+                          /* 🔓 STANDARD MEGENGEDETT FORM */
+                          <>
+                            <h4 style={{marginTop: 0, color: '#38bdf8', fontSize: '1.1rem', marginBottom: '15px'}}>{t('contUploadPanelTitle')}</h4>
+                            
+                            <input placeholder={t('contUploadTitlePlaceholder')} value={props.uploadTitle} onChange={e => props.setUploadTitle(e.target.value)} style={inputStyle} disabled={props.isUploading} />
+                            
+                            <select value={props.uploadCategory} onChange={e => props.setUploadCategory(e.target.value)} style={inputStyle} disabled={props.isUploading}>
+                              <option value="">{t('contUploadCatPlaceholder')}</option>
+                              {categories.map((cat: string) => { 
+                                const count = categoryCounts[cat] || 0; 
+                                return <option key={cat} value={cat} disabled={count >= 4}>{cat} ({count}/4 {t('contUploadCountSuffix') || 'db fotó)'}</option>; 
+                              })}
+                            </select>
+                            
+                            {/* Technikai emlékeztető és RAW szabályzat */}
+                            <div style={{ background: 'rgba(167, 139, 250, 0.04)', padding: '12px 15px', borderRadius: '10px', fontSize: '0.8rem', color: '#cbd5e1', marginBottom: '18px', border: '1px solid rgba(167,139,250,0.15)', lineHeight: '1.4' }}>
+                              💡 <b>{lang === 'en' ? 'RAW Camera File Rule (2026):' : 'RAW Kamerafájl Szabályozás (2026):'}</b>{' '}
+                              {lang === 'en'
+                                ? 'The organizer reserves the right to request original RAW files to verify copyright authenticity.'
+                                : 'A pályázat rendezői a visszaélések elkerülése végett jogosultak bekérni az eredeti nyers kamerafájlokat (RAW). Nevezésével vállalja ezek megőrzését.'}
+                            </div>
 
-                        <input type="file" accept="image/jpeg, image/png, image/webp" onChange={props.handleFileSelect} style={{ color: '#94a3b8', marginBottom: '15px', width: '100%' }} disabled={props.isUploading} />
-                        
-                        {props.uploadPreview && <div style={{marginBottom: '20px', textAlign: 'center'}}><img src={props.uploadPreview} alt="Preview" style={{maxHeight: '260px', borderRadius: '12px', border: '2px solid #334155'}} /></div>}
-                        
-                        {/* ── 🎯 ÚJ: KÖTELEZŐ SZERZŐI JOGI ÉS GDPR NYILATKOZAT SÁV ── */}
-                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', background: '#090d16', padding: '15px', borderRadius: '10px', marginBottom: '20px', border: '1px solid #223147' }}>
-                          <input 
-                            type="checkbox" 
-                            id="legal-copyright-checkbox" 
-                            checked={isLegalChecked}
-                            onChange={(e) => setIsLegalChecked(e.target.checked)}
-                            style={{ marginTop: '3px', transform: 'scale(1.2)', accentColor: '#10b981', cursor: 'pointer' }} 
-                          />
-                          <label htmlFor="legal-copyright-checkbox" style={{ fontSize: '0.82rem', color: '#cbd5e1', lineHeight: '1.4', cursor: 'pointer', userSelect: 'none' }}>
-                            {lang === 'en' 
-                              ? 'I declare under penalty of perjury that the uploaded image is my own original creation, I hold all copyrights, it contains no uncredited AI assets, and I accept the terms of the competition.' 
-                              : 'Kijelentem és szavatolom, hogy a feltöltött fotó saját, eredeti alkotásom, amely felett kizárólagos szerzői joggal rendelkezem, nem tartalmaz engedély nélküli generatív AI elemeket, továbbá elfogadom a pályázati kiírás adatvédelmi feltételeit.'}
-                          </label>
-                        </div>
+                            <input type="file" accept="image/jpeg, image/png, image/webp" onChange={props.handleFileSelect} style={{ color: '#94a3b8', marginBottom: '15px', width: '100%' }} disabled={props.isUploading} />
+                            
+                            {props.uploadPreview && <div style={{marginBottom: '20px', textAlign: 'center'}}><img src={props.uploadPreview} alt="Preview" style={{maxHeight: '260px', borderRadius: '12px', border: '2px solid #334155'}} /></div>}
+                            
+                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', background: '#090d16', padding: '15px', borderRadius: '10px', marginBottom: '20px', border: '1px solid #223147' }}>
+                              <input 
+                                type="checkbox" 
+                                id="legal-copyright-checkbox" 
+                                checked={isLegalChecked}
+                                onChange={(e) => setIsLegalChecked(e.target.checked)}
+                                style={{ marginTop: '3px', transform: 'scale(1.2)', accentColor: '#10b981', cursor: 'pointer' }} 
+                              />
+                              <label htmlFor="legal-copyright-checkbox" style={{ fontSize: '0.82rem', color: '#cbd5e1', lineHeight: '1.4', cursor: 'pointer', userSelect: 'none' }}>
+                                {lang === 'en' 
+                                  ? 'I declare under penalty of perjury that the uploaded image is my own original creation, I hold all copyrights, it contains no uncredited AI assets, and I accept the terms of the competition.' 
+                                  : 'Kijelentem és szavatolom, hogy a feltöltött fotó saját, eredeti alkotásom, amely felett kizárólas szerzői joggal rendelkezem, nem tartalmaz engedély nélküli generatív AI elemeket, továbbá elfogadom a pályázati kiírás adatvédelmi feltételeit.'}
+                              </label>
+                            </div>
 
-                        <div style={{display: 'flex', gap: '10px'}}>
-                          {/* 🎯 JAVÍTVA: A gomb állapotát most már reaktív React állapottal kötjük le, nem törhető DevTools-ból */}
-                          <button 
-                            id="final-upload-submit-btn"
-                            onClick={() => props.handleUpload(contest.id)} 
-                            disabled={!isLegalChecked || props.isUploading} 
-                            style={{ flex: 1, background: (!isLegalChecked || props.isUploading) ? '#334155' : 'linear-gradient(135deg, #10b981, #059669)', color: (!isLegalChecked || props.isUploading) ? '#64748b' : 'white', border: 'none', padding: '12px', borderRadius: '10px', fontWeight: 'bold', cursor: (!isLegalChecked || props.isUploading) ? 'not-allowed' : 'pointer', transition: 'all 0.2s' }}
-                          >
-                            {props.isUploading ? t('contUploadSaving') : t('contUploadSubmitBtn')}
-                          </button>
-                          <button onClick={() => { props.setActiveUploadContest(null); props.setUploadPreview(null); }} disabled={props.isUploading} style={{ background: 'transparent', color: '#ef4444', border: '1px solid #ef444440', padding: '12px 20px', borderRadius: '10px', cursor: 'pointer' }}>{t('contCancel')}</button>
-                        </div>
+                            <div style={{display: 'flex', gap: '10px'}}>
+                              <button 
+                                id="final-upload-submit-btn"
+                                onClick={() => props.handleUpload(contest.id)} 
+                                disabled={!isLegalChecked || props.isUploading} 
+                                style={{ flex: 1, background: (!isLegalChecked || props.isUploading) ? '#334155' : 'linear-gradient(135deg, #10b981, #059669)', color: (!isLegalChecked || props.isUploading) ? '#64748b' : 'white', border: 'none', padding: '12px', borderRadius: '10px', fontWeight: 'bold', cursor: (!isLegalChecked || props.isUploading) ? 'not-allowed' : 'pointer', transition: 'all 0.2s' }}
+                              >
+                                {props.isUploading ? t('contUploadSaving') : t('contUploadSubmitBtn')}
+                              </button>
+                              <button onClick={() => { props.setActiveUploadContest(null); props.setUploadPreview(null); }} disabled={props.isUploading} style={{ background: 'transparent', color: '#ef4444', border: '1px solid #ef444440', padding: '12px 20px', borderRadius: '10px', cursor: 'pointer' }}>{t('contCancel')}</button>
+                            </div>
+                          </>
+                        )}
                       </div>
                     )}
 
@@ -903,7 +1019,7 @@ export default function ContestsView(props: ContestsViewProps) {
                                           <input value={props.editEntryTitle} onChange={e => props.setEditEntryTitle(e.target.value)} style={{ width: '100%', padding: '6px', marginBottom: '8px', backgroundColor: '#1e293b', border: '1px solid #38bdf8', color: 'white', borderRadius: '6px', fontSize: '0.85rem' }} />
                                           <div style={{ display: 'flex', gap: '4px' }}>
                                             <button onClick={() => props.handleUpdateEntryTitle(entry.id)} style={{ flex: 1, background: '#10b981', color: 'white', border: 'none', padding: '6px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold', cursor: 'pointer' }}>{t('contSave')}</button>
-                                            <button onClick={() => props.setEditingEntryId(null)} style={{ background: 'transparent', color: '#ef4444', border: '1px solid #ef444430', padding: '6px', borderRadius: '4px', fontSize: '0.75rem', cursor: 'pointer' }}>{t('contCancel')}</button>
+                                            <button onClick={() => props.setEditingEntryId(null)} style={{ background: 'transparent', color: '#ef4444', border: '1px solid #ef444440', padding: '6px', borderRadius: '4px', fontSize: '0.75rem', cursor: 'pointer' }}>{t('contCancel')}</button>
                                           </div>
                                         </div>
                                       ) : (
