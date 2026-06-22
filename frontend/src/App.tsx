@@ -36,7 +36,7 @@ import MarketplaceRoot from './components/marketplace/MarketplaceRoot';
 import MafoszProgressView from './views/MafoszProgressView'; 
 import PackagesView from './components/PackagesView'; 
 
-// Nyelvi provider környezet
+// 🎯 Nyelvi provider környezet behívása a Splash-hez
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
 
 function MainContent() {
@@ -313,9 +313,10 @@ function MainContent() {
         }
       } catch (e) { localStorage.removeItem('photoAppToken'); setIsAuthLoading(false); }
     } else setIsAuthLoading(false);
-  // eslint-disable-next-line react-hooks/exhaustive-disable
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // 🎯 KORSZERŰ SZINKRONIZÁCIÓS HOROG A LÁGY ELHALVÁNYULÁSHOZ
   useEffect(() => {
     if (!isInitialLoading && !isAuthLoading) {
       setAnimateOut(true);
@@ -336,7 +337,7 @@ function MainContent() {
       const club = clubs.find(c => c.name === currentDbUser.club_name);
       if (club) fetchClubHomeworkEntries(club.id, user.email);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-disable
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, currentDbUser, clubs, user]);
 
   const handleDeleteHwEntry = async (entryId: number) => {
@@ -504,20 +505,23 @@ function MainContent() {
   const handleRemoveJury = async (contestId: number, email: string) => { const res = await fetch(`${BACKEND_URL}/api/jury`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contestId, userEmail: email }) }); if (res.ok) fetchData(); };
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (file) { setUploadFile(file); setUploadPreview(URL.createObjectURL(file)); } };
   
-  // 🎯 JAVÍTVA: Form-data sorrend és a digitális pecsétek elküldése
+  // 🎯 KORREKT MENTŐ MOTOR: Elküldi a digitális sorszámokat a backendnek
   const handleUpload = async (contestId: number) => { 
     if (!uploadFile || !uploadTitle || !uploadCategory) return alert("Minden kötelező!"); 
     
     setIsUploading(true); 
     try { 
       const formData = new FormData(); 
+      
       formData.append('contestId', String(contestId)); 
       formData.append('userEmail', user.email); 
       formData.append('userName', user.name); 
       formData.append('title', uploadTitle); 
       formData.append('category', uploadCategory); 
+      
       formData.append('acceptedTerms', '1');
       formData.append('acceptedTermsAt', new Date().toISOString());
+      
       formData.append('photo', uploadFile); 
       
       const res = await fetch(`${BACKEND_URL}/api/upload`, { method: 'POST', body: formData }); 
@@ -624,10 +628,111 @@ function MainContent() {
       {selectedSalon && <SalonModal salon={selectedSalon} user={user} onClose={() => setSelectedSalon(null)} />}
       {activeVideo && <VideoModal videoUrl={activeVideo} onClose={() => setActiveVideo(null)} />}
 
+      {/* ── 🎯 DEDIKÁLT CINEMATIC MULTILANGUAGE SPLASH LAYER ── */}
       {showSplash ? (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: '#090d16', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyIntent: 'center', zIndex: 999999, opacity: animateOut ? 0 : 1, transition: 'opacity 0.6s cubic-bezier(0.25, 1, 0.5, 1)', pointerEvents: 'none' }}>
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: '#090d16', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 999999, opacity: animateOut ? 0 : 1, transition: 'opacity 0.6s cubic-bezier(0.25, 1, 0.5, 1)', pointerEvents: 'none' }}>
           <div style={{ width: '90%', maxWidth: '580px', aspectRatio: '16/9', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 25px 60px rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.06)', background: '#000', position: 'relative' }}>
             <video src={lang === 'en' ? '/splash_en.mp4' : '/splash_hu.mp4'} autoPlay muted playsInline loop style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
           <div style={{ marginTop: '30px', textAlign: 'center', animation: 'appSplashPulse 1.8s infinite' }}>
-            <h4 style={{ color: '#f8fafc', fontSize: '1.25rem', fontWeight: 'bold', margin: '0 0 6px 0', letterSpacing: '0.5px' }}>{lang === 'en' ? 'Launching System...' : 'R
+            <h4 style={{ color: '#f8fafc', fontSize: '1.25rem', fontWeight: 'bold', margin: '0 0 6px 0', letterSpacing: '0.5px' }}>{lang === 'en' ? 'Launching System...' : 'Rendszer indítása...'}</h4>
+            <p style={{ color: '#64748b', fontSize: '0.85rem', margin: 0 }}>{lang === 'en' ? 'Synchronizing database and global encryption keys' : 'Adatok és biztonságos munkamenetek szinkronizálása'}</p>
+          </div>
+          <style>{`@keyframes appSplashPulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }`}</style>
+        </div>
+      ) : null}
+
+      {!user ? (
+        <LoginScreen onLoginSuccess={handleLoginSuccess} />
+      ) : (
+        <div className="app-container" style={{ minHeight: '100vh', backgroundColor: '#0f172a', color: '#f8fafc', fontFamily: 'Inter, sans-serif' }}>
+          <Header user={headerUser} isLeader={!!isLeader} activeTab={activeTab} setActiveTab={setActiveTab} dropdownOpen={dropdownOpen} setDropdownOpen={setDropdownOpen} onLogout={() => { localStorage.removeItem('photoAppToken'); localStorage.removeItem('user'); setUser(null); }} />
+          <main className="app-main">
+            <Routes>
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/dashboard" element={<DashboardView user={user} isLeader={!!isLeader} setActiveTab={setActiveTab} setTargetMapSpotId={setTargetMapSpotId} />} />
+              <Route path="/weekly_challenge" element={<WeeklyChallengeView user={user} setFullscreenData={setFullscreenData} />} />
+              <Route path="/profile" element={<ProfileView user={currentDbUser} setUser={setUser} fetchData={fetchData} />} />
+              <Route path="/tickets" element={<TicketsView user={currentDbUser} />} />
+              <Route path="/packages" element={<PackagesView user={user} />} />
+              <Route path="/marketplace" element={<MarketplaceRoot user={headerUser} />} />
+              <Route path="/map_spots" element={<MapSpotsView user={user} setFullscreenData={setFullscreenData} targetMapSpotId={targetMapSpotId} setTargetMapSpotId={setTargetMapSpotId} />} />
+              <Route path="/club_news" element={<ClubNewsView user={user} currentDbUser={currentDbUser} />} />
+              <Route path="/my_album" element={<MyAlbumView user={user} setFullscreenData={setFullscreenData} />} />
+              <Route path="/arena_album" element={<MyArenaAlbumView user={user} setFullscreenData={setFullscreenData} />} /> 
+              <Route path="/fiap_progress" element={<FiapProgressView user={user} allUsers={allUsers} />} />
+              <Route path="/mafosz_progress" element={<MafoszProgressView user={user} allUsers={allUsers} />} />
+              <Route path="/salons" element={<SalonsView salonSearch={salonSearch} setSalonSearch={setSalonSearch} searchedSalons={sortedSalons} setSelectedSalon={setSelectedSalon} userEntrySalonIds={userEntrySalonIds} user={user} BACKEND_URL={BACKEND_URL} />} />
+              <Route path="/club_nights" element={<ClubNightsView currentDbUser={currentDbUser} meetingSearch={meetingSearch} setMeetingSearch={setMeetingSearch} searchedMeetings={searchedMeetings} setActiveVideo={setActiveVideo} />} />
+              <Route path="/leader_club" element={isLeader ? <LeaderClubView user={user} BACKEND_URL={BACKEND_URL} /> : <Navigate to="/dashboard" replace />} />
+
+              <Route path="/admin_clubs" element={user?.email === ADMIN_EMAIL ? <AdminClubsView clubs={clubs} newClubName={newClubName} setNewClubName={setNewClubName} handleAddClub={handleAddClub} handleDeleteClub={handleDeleteClub} handleUpdateClub={handleUpdateClub} /> : <Navigate to="/dashboard" />} />
+              <Route path="/admin_users" element={user?.email === ADMIN_EMAIL ? <AdminUsersView allUsers={allUsers} clubs={clubs} userClubEdits={userClubEdits} setUserClubEdits={setUserClubEdits} userRoleEdits={userRoleEdits} setUserRoleEdits={setUserRoleEdits} saveUserClub={saveUserClub} /> : <Navigate to="/dashboard" />} />
+              <Route path="/admin_weekly" element={user?.email === ADMIN_EMAIL ? <AdminWeeklyView /> : <Navigate to="/dashboard" />} />
+              <Route path="/admin_settings" element={user?.email === ADMIN_EMAIL ? <AdminSettingsView /> : <Navigate to="/dashboard" />} />
+              <Route path="/admin_salons" element={user?.email === ADMIN_EMAIL ? <AdminSalonsView salons={salons} countries={countries} allCategories={allCategories} patrons={patrons} BACKEND_URL={BACKEND_URL} fetchData={fetchData} setSelectedSalon={setSelectedSalon} /> : <Navigate to="/dashboard" />} />
+              <Route path="/admin_meetings" element={(user?.email === ADMIN_EMAIL || isLeader) ? <AdminMeetingsView user={user} currentDbUser={currentDbUser} clubs={clubs} meetings={meetings} allUsers={allUsers} adminMeetings={adminMeetings} fetchData={fetchData} /> : <Navigate to="/dashboard" replace />} />
+              <Route path="/admin_homeworks" element={(user?.email === ADMIN_EMAIL || isLeader) ? <AdminHomeworksView user={user} currentDbUser={currentDbUser} clubs={clubs} adminHomeworks={adminHomeworks} fetchData={fetchData} /> : <Navigate to="/dashboard" replace />} />
+
+              {['/contests_open_active', '/contests_club_active', '/contests_closed'].map(path => (
+                <Route key={path} path={path} element={
+                  <ContestsView activeTab={activeTab} user={user} currentDbUser={currentDbUser} isLeader={!!isLeader} clubs={clubs} allUsers={allUsers} filteredContests={filteredContests} myEntries={myEntries} juryList={juryList} newTitle={newTitle} setNewTitle={setNewTitle} newDesc={newDesc} setNewDesc={setNewDesc} newStart={newStart} setNewStart={setNewStart} newEnd={newEnd} setNewEnd={setNewEnd} newCats={newCats} setNewCats={setNewCats} newRestrictedClub={newRestrictedClub} setNewRestrictedClub={setNewRestrictedClub} myJudgedContests={myJudgedContests} newEntryFee={newEntryFee} setNewEntryFee={setNewEntryFee} newFeeCurrency={newFeeCurrency} setNewFeeCurrency={setNewFeeCurrency} editEntryFee={editEntryFee} setEditEntryFee={setEditEntryFee} editFeeCurrency={editFeeCurrency} setEditFeeCurrency={setEditFeeCurrency} contestPayments={contestPayments} handlePayContestFee={handlePayContestFee} handleCreateContest={handleCreateContest} editContestId={editContestId} setEditContestId={setEditContestId} editTitle={editTitle} setEditTitle={setEditTitle} editDesc={editDesc} setEditDesc={setEditDesc} editStart={editStart} setEditStart={setEditStart} editEnd={editEnd} setEditEnd={setEditEnd} editCats={editCats} setEditCats={setEditCats} editRestrictedClub={editRestrictedClub} setEditRestrictedClub={setEditRestrictedClub} startEdit={startEdit} handleUpdateContest={handleUpdateContest} handleDeleteContest={handleDeleteContest} viewStatsContestId={viewStatsContestId} setViewStatsContestId={setViewStatsContestId} contestStats={contestStats} loadStats={loadStats} viewJuryProgressId={viewJuryProgressId} setViewJuryProgressId={setViewJuryProgressId} juryProgressData={juryProgressData} loadJuryProgress={loadJuryProgress} manageJuryContestId={manageJuryContestId} setManageJuryContestId={setManageJuryContestId} selectedJuryEmail={selectedJuryEmail} setSelectedJuryEmail={setSelectedJuryEmail} handleAddJury={handleAddJury} handleRemoveJury={handleRemoveJury} viewResultsContestId={viewResultsContestId} setViewResultsContestId={setViewResultsContestId} contestResults={contestResults} loadResults={loadResults} activeUploadContest={activeUploadContest} setActiveUploadContest={setActiveUploadContest} uploadTitle={uploadTitle} setUploadTitle={setUploadTitle} uploadCategory={uploadCategory} setUploadCategory={setUploadCategory} uploadPreview={uploadPreview} setUploadPreview={setUploadPreview} isUploading={isUploading} handleFileSelect={handleFileSelect} handleUpload={handleUpload} judgingContestId={judgingContestId} setJudgingContestId={setJudgingContestId} unvotedEntries={unvotedEntries} currentScore={currentScore} setCurrentScore={setCurrentScore} startJudging={startJudging} submitVote={submitVote} editingEntryId={editingEntryId} setEditingEntryId={setEditingEntryId} editEntryTitle={editEntryTitle} setEditEntryTitle={setEditEntryTitle} handleUpdateEntryTitle={handleUpdateEntryTitle} handleDeleteEntry={handleDeleteEntry} setFullscreenData={setFullscreenData} newCategorySettings={newCategorySettings} setNewCategorySettings={setNewCategorySettings} editCategorySettings={editCategorySettings} setEditCategorySettings={setEditCategorySettings} 
+                  newSponsorClub={newSponsorClub} setNewSponsorClub={setNewSponsorClub} editSponsorClub={editSponsorClub} setEditSponsorClub={setEditSponsorClub}
+                  setActiveTab={setActiveTab}
+                  />
+                } />
+              ))}
+
+              <Route path="/admin_contests" element={
+                (user?.email === ADMIN_EMAIL || isLeader) ? (
+                  <ContestsView activeTab={activeTab} user={user} currentDbUser={currentDbUser} isLeader={!!isLeader} clubs={clubs} allUsers={allUsers} filteredContests={filteredContests} myEntries={myEntries} juryList={juryList} newTitle={newTitle} setNewTitle={setNewTitle} newDesc={newDesc} setNewDesc={setNewDesc} newStart={newStart} setNewStart={setNewStart} newEnd={newEnd} setNewEnd={setNewEnd} newCats={newCats} setNewCats={setNewCats} newRestrictedClub={newRestrictedClub} setNewRestrictedClub={setNewRestrictedClub} myJudgedContests={myJudgedContests} newEntryFee={newEntryFee} setNewEntryFee={setNewEntryFee} newFeeCurrency={newFeeCurrency} setNewFeeCurrency={setNewFeeCurrency} editEntryFee={editEntryFee} setEditEntryFee={setEditEntryFee} editFeeCurrency={editFeeCurrency} setEditFeeCurrency={setEditFeeCurrency} contestPayments={contestPayments} handlePayContestFee={handlePayContestFee} handleCreateContest={handleCreateContest} editContestId={editContestId} setEditContestId={setEditContestId} editTitle={editTitle} setEditTitle={setEditTitle} editDesc={editDesc} setEditDesc={setEditDesc} editStart={editStart} setEditStart={setEditStart} editEnd={editEnd} setEditEnd={setEditEnd} editCats={editCats} setEditCats={setEditCats} editRestrictedClub={editRestrictedClub} setEditRestrictedClub={setEditRestrictedClub} startEdit={startEdit} handleUpdateContest={handleUpdateContest} handleDeleteContest={handleDeleteContest} viewStatsContestId={viewStatsContestId} setViewStatsContestId={setViewStatsContestId} contestStats={contestStats} loadStats={loadStats} viewJuryProgressId={viewJuryProgressId} setViewJuryProgressId={setViewJuryProgressId} juryProgressData={juryProgressData} loadJuryProgress={loadJuryProgress} manageJuryContestId={manageJuryContestId} setManageJuryContestId={setManageJuryContestId} selectedJuryEmail={selectedJuryEmail} setSelectedJuryEmail={setSelectedJuryEmail} handleAddJury={handleAddJury} handleRemoveJury={handleRemoveJury} viewResultsContestId={viewResultsContestId} setViewResultsContestId={setViewResultsContestId} contestResults={contestResults} loadResults={loadResults} activeUploadContest={activeUploadContest} setActiveUploadContest={setActiveUploadContest} uploadTitle={uploadTitle} setUploadTitle={setUploadTitle} uploadCategory={uploadCategory} setUploadCategory={setUploadCategory} uploadPreview={uploadPreview} setUploadPreview={setUploadPreview} isUploading={isUploading} handleFileSelect={handleFileSelect} handleUpload={handleUpload} judgingContestId={judgingContestId} setJudgingContestId={setJudgingContestId} unvotedEntries={unvotedEntries} currentScore={currentScore} setCurrentScore={setCurrentScore} startJudging={startJudging} submitVote={submitVote} editingEntryId={editingEntryId} setEditingEntryId={setEditingEntryId} editEntryTitle={editEntryTitle} setEditEntryTitle={setEditEntryTitle} handleUpdateEntryTitle={handleUpdateEntryTitle} handleDeleteEntry={handleDeleteEntry} setFullscreenData={setFullscreenData} newCategorySettings={newCategorySettings} setNewCategorySettings={setNewCategorySettings} editCategorySettings={editCategorySettings} setEditCategorySettings={setEditCategorySettings} 
+                  newSponsorClub={newSponsorClub} setNewSponsorClub={setNewSponsorClub} editSponsorClub={editSponsorClub} setEditSponsorClub={setEditSponsorClub}
+                  setActiveTab={setActiveTab}
+                  />
+                ) : <Navigate to="/dashboard" replace />
+              } />
+
+              <Route path="/club_homeworks" element={
+                <ClubHomeworksView 
+                  user={user}
+                  currentDbUser={currentDbUser} 
+                  myClubHomeworks={myClubHomeworks} 
+                  myHomeworkEntries={myHomeworkEntries} 
+                  clubHomeworkEntries={clubHomeworkEntries} 
+                  isLeader={!!isLeader} 
+                  setFullscreenData={setFullscreenData} 
+                  fetchMyEntries={fetchMyEntries}
+                  fetchClubHomeworkEntries={fetchClubHomeworkEntries}
+                  clubs={clubs}
+                  onToggleLike={handleToggleLike}
+                  handleToggleLike={handleToggleLike}
+                />
+              } />
+
+              <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            </Routes>
+          </main>
+
+          <SessionGuard logoutUser={() => {
+            localStorage.removeItem('photoAppToken');
+            localStorage.removeItem('user');
+            setUser(null);
+          }} />
+          
+        </div>
+      )}
+    </>
+  );
+}
+
+export default function App() {
+  return (
+    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+      <LanguageProvider>
+        <BrowserRouter>
+          <MainContent />
+        </BrowserRouter>
+      </LanguageProvider>
+    </GoogleOAuthProvider>
+  );
+}
