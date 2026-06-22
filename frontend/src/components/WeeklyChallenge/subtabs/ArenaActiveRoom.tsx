@@ -5,7 +5,7 @@ import { BACKEND_URL } from '../../../utils/constants';
 import { useLanguage } from '../../../context/LanguageContext';
 
 // ====================================================================
-// 🕒 1. VISSZASZÁMLÁLÓ KOMPONENS (JAVÍTVA: 'distance' -> 'difference')
+// 🕒 1. VISSZASZÁMLÁLÓ KOMPONENS
 // ====================================================================
 function ActiveRoomCountdown({ endDate, lang }: { endDate: string; lang: string }) {
   const elementRef = useRef<HTMLSpanElement>(null);
@@ -29,7 +29,6 @@ function ActiveRoomCountdown({ endDate, lang }: { endDate: string; lang: string 
       }
 
       const days = Math.floor(difference / (1000 * 60 * 60 * 24));
-      // 🎯 FIXÁLVA: A hibás 'distance' átírva a korrekt 'difference' változóra!
       const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
       const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
       const seconds = Math.floor((difference % (1000 * 60)) / 1000);
@@ -177,11 +176,9 @@ export default function ArenaActiveRoom({
           <h3 style={{ margin: '0 0 10px 0', color: '#f8fafc', fontSize: '1.8rem', textAlign: 'center', zIndex: 1 }}>
             <span>{displayRoomTitle}</span>
           </h3>
-          <p style={{ margin: '0 0 20px 0', color: '#cbd5e1', fontSize: '0.95rem', textAlign: 'center', lineHeight: '1.6' }}>{displayRoomDesc}</p>
-          <ActiveRoomCountdown endDate={topic?.end_date} lang={lang} />
-        </div>
-
-         {/* 🎯 JAVÍTVA: Ide bekerült az elegáns Képmester jelvény, ami közvetlenül a topic-ból olvassa az adatot */}
+          <p style={{ margin: '0 0 15px 0', color: '#cbd5e1', fontSize: '0.95rem', textAlign: 'center', lineHeight: '1.6' }}>{displayRoomDesc}</p>
+          
+          {/* 🎯 JAVÍTVA: Ide bekerült az elegáns Képmester jelvény, ami közvetlenül a topic-ból olvassa az adatot */}
           {(topic?.master_name || topic?.master_email) && (
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#a78bfa', fontSize: '0.85rem', fontWeight: 'bold', background: '#a78bfa12', padding: '6px 14px', borderRadius: '10px', border: '1px solid #a78bfa25', marginBottom: '20px', zIndex: 1, whiteSpace: 'nowrap' }}>
               <span>{t('viewMasterLabel') || 'Képmester:'}</span>
