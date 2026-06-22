@@ -166,7 +166,7 @@ export default function ArenaActiveRoom({
   return (
     <div className="arena-main-layout-grid">
       
-      {/* 🏛️ BAL HASÁB: FŐ TARTALOM (Kihívás adatok, Értékelő pult) */}
+      {/* 🏛️ BAL HASÁB: FŐ TARTALOM */}
       <div className="arena-layout-column-main">
         <div className="arena-responsive-card" style={{ background: 'linear-gradient(135deg, #1e293b, #0f172a)', padding: '30px', borderRadius: '24px', border: '1px solid #334155', display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: '0 10px 30px rgba(0,0,0,0.5)', position: 'relative', overflow: 'hidden' }}>
           <div style={{ position: 'absolute', top: '-20px', right: '-20px', fontSize: '8rem', opacity: 0.05 }}>🔥</div>
@@ -208,7 +208,7 @@ export default function ArenaActiveRoom({
                       </div>
                       <div className="batch-vote-responsive-card">
                         <div onClick={() => setSelectedExifPhoto(entry)} className="batch-vote-responsive-imgbox">
-                          <img src={entry.file_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={handleImageError} />
+                          <img src={entry.file_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={handleImageError} loading="lazy" />
                           <div style={{ position: 'absolute', bottom: '5px', right: '5px', background: 'rgba(0,0,0,0.6)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.65rem', color: 'white' }}>{t('roomZoomLabel')}</div>
                         </div>
                         <div className="batch-vote-responsive-content">
@@ -261,7 +261,7 @@ export default function ArenaActiveRoom({
         </div>
       </div>
 
-      {/* 🎚️ JOBB HASÁB: STATISZTIKÁK ÉS RANGSOROK (Kompakt Bento elrendezésben) */}
+      {/* 🎚️ JOBB HASÁB: STATISZTIKÁK ÉS RANGSOROK */}
       <div className="arena-layout-column-side">
         
         {/* SAJÁT NEVEZÉS SZEKCIÓ */}
@@ -293,8 +293,8 @@ export default function ArenaActiveRoom({
                 <div style={{ marginTop: '25px', background: 'linear-gradient(145deg, #4c1d9515, #be123c15)', padding: '20px', borderRadius: '18px', border: '1px solid #be123c30', textAlign: 'center' }}>
                   <h5 style={{ margin: '0 0 8px 0', color: '#f43f5e', fontSize: '1.1rem', fontWeight: 'bold' }}>{t('roomSwapTitle')}</h5>
                   <p style={{ color: '#94a3b8', fontSize: '0.82rem', margin: '0 0 15px 0', lineHeight: '1.4' }}>{t('roomSwapDesc')}</p>
-                  <button disabled={isSwapping || isLoadingSwapAlbum} onClick={onOpenAlbumForSwap} style={{ width: '100%', background: 'linear-gradient(135deg, #e11d48, #be123c)', color: 'white', border: 'none', padding: '12px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 15px rgba(225,29,72,0.2)' }}>
-                    🔄 {t('roomSwapGalleryBtn') || 'Kép cseréje a Galériámból'}
+                  <button disabled={isSwapping || isLoadingSwapAlbum} onClick={onOpenAlbumForSwap} style={{ width: '100%', maxWidth: '280px', margin: '0 auto', background: 'linear-gradient(135deg, #e11d48, #be123c)', color: 'white', border: 'none', padding: '12px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 15px rgba(225,29,72,0.2)', display: 'block' }}>
+                    🔄 {t('roomSwapGalleryBtn')}
                   </button>
                 </div>
               ) : (
@@ -319,7 +319,7 @@ export default function ArenaActiveRoom({
               )}
             </div>
           ) : (
-            /* 📸 PRÉMIUM KEZDŐ KÁRTYA (Véglegesen lokalizálva és letisztítva) */
+            /* 📸 PRÉMIUM KEZDŐ KÁRTYA (Esztétikus méretre húzva) */
             <div style={{ background: '#0f172a', padding: '35px 20px', borderRadius: '20px', border: '1px dashed #38bdf840', textAlign: 'center' }}>
               <div style={{ fontSize: '3rem', marginBottom: '15px' }}>🏆</div>
               <h4 style={{ color: 'white', margin: '0 0 8px 0', fontSize: '1.3rem', fontWeight: 'bold' }}>
@@ -328,8 +328,8 @@ export default function ArenaActiveRoom({
               <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 25px 0', lineHeight: '1.5' }}>
                 {t('roomJoinDesc')}
               </p>
-              {/* 🎯 JAVÍTVA: A feleslegesen hosszú szöveg helyett most már a letisztult, profi "Nevezés" felirat virít */}
-              <button disabled={isLoadingSwapAlbum} onClick={onOpenAlbumForUpload} style={{ width: '100%', background: 'linear-gradient(135deg, #2563eb, #3b82f6)', color: 'white', border: 'none', padding: '14px', borderRadius: '12px', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer', boxShadow: '0 4px 15px rgba(37,99,235,0.25)', transition: 'all 0.2s' }}>
+              {/* 🎯 JAVÍTVA: Szép, arányos asztali méretet kapott, nem nyúlik el mint a rétestészta */}
+              <button disabled={isLoadingSwapAlbum} onClick={onOpenAlbumForUpload} style={{ width: '100%', maxWidth: '280px', margin: '0 auto', background: 'linear-gradient(135deg, #2563eb, #3b82f6)', color: 'white', border: 'none', padding: '14px', borderRadius: '12px', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer', boxShadow: '0 4px 15px rgba(37,99,235,0.25)', transition: 'all 0.2s', display: 'block' }}>
                 ✨ {t('btnEntry')}
               </button>
             </div>
@@ -384,7 +384,7 @@ export default function ArenaActiveRoom({
                   <div key={entry?.id || index} style={{ display: 'flex', alignItems: 'center', background: '#0f172a', border: isMe ? '1px solid #f59e0b50' : '1px solid #223147', padding: '10px', borderRadius: '12px' }}>
                     <div style={{ fontSize: '1.1rem', fontWeight: '900', width: '25px', color: rankColor, textAlign: 'center' }}>{index + 1}</div>
                     <div onClick={() => showUnblinded ? setFullscreenData({url: getImageUrl(entry?.drive_file_id, entry?.file_url), title: entry?.user_name || ''}) : null} style={{ width: '40px', height: '40px', backgroundColor: '#000', borderRadius: '8px', overflow: 'hidden', margin: '0 10px', cursor: showUnblinded ? 'zoom-in' : 'default', position: 'relative' }}>
-                      <img src={getImageUrl(entry?.drive_file_id, entry?.file_url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: showUnblinded ? 'none' : 'blur(4px)' }} onError={handleImageError} />
+                      <img src={getImageUrl(entry?.drive_file_id, entry?.file_url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: showUnblinded ? 'none' : 'blur(4px)' }} onError={handleImageError} loading="lazy" />
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ color: isMe ? '#f8fafc' : '#94a3b8', fontWeight: 'bold', fontSize: '0.9rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{showUnblinded ? (entry?.user_name || '') : t('roomEncryptedOpponent')}</div>
@@ -409,13 +409,13 @@ export default function ArenaActiveRoom({
               <button onClick={() => setSelectedExifPhoto(null)} style={{ background: '#334155', color: '#cbd5e1', border: 'none', width: '36px', height: '32px', borderRadius: '50%', cursor: 'pointer' }}>✕</button>
             </div>
             <div style={{ flex: 1, backgroundColor: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-              <img src={selectedExifPhoto.file_url} alt="" style={{ width: '100%', height: '100%', maxWidth: '100%', maxHeight: '65vh', objectFit: 'contain' }} />
+              <img src={selectedExifPhoto.file_url} alt="" style={{ width: '100%', height: '100%', maxWidth: '100%', maxHeight: '65vh', objectFit: 'contain' }} loading="lazy" />
             </div>
           </div>
         </div>
       )}
 
-      {/* ── 🎯 ASZTALI PREMIUM HASÁB STYLING RECEPTNEK GENERÁLÁSA ── */}
+      {/* ── 🎯 ASZTALI BENTO GRID STYLING LAYER ── */}
       <style>{`
         .arena-main-layout-grid {
           display: grid;
@@ -438,7 +438,7 @@ export default function ArenaActiveRoom({
         }
         @media (min-width: 992px) {
           .arena-main-layout-grid {
-            grid-template-columns: 1.6fr 1fr !important;
+            grid-template-columns: 1.5fr 1fr !important;
           }
         }
         .batch-vote-responsive-card {
