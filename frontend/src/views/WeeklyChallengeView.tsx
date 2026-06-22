@@ -177,7 +177,7 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
             <span style={{ color: '#e9d5ff' }}>{topic.master_name || topic.master_email}</span>
           </div>
         )}
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#38bdf8', fontSize: '0.8rem', fontWeight: 'bold', background: '#38bdf810', padding: '6px 10px', borderRadius: '10px', border: '1px solid #38bdf820', whiteSpace: 'nowrap' }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#38bdf8', fontSize: '0.8rem', fontWeight: 'bold', background: '#38bdf810', padding: '6px 10px', borderRadius: '10px', border: '#38bdf820', whiteSpace: 'nowrap' }}>
           <span>👥 {topic.totalEntries || 0} {t('photographers')}</span>
         </div>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: topic.unvotedEntries > 0 ? '#fb923c' : '#4ade80', fontSize: '0.8rem', fontWeight: 'bold', background: topic.unvotedEntries > 0 ? '#fb923c10' : '#4ade8010', padding: '6px 10px', borderRadius: '10px', border: topic.unvotedEntries > 0 ? '1px solid #fb923c20' : '1px solid #4ade8020', whiteSpace: 'nowrap' }}>
@@ -198,6 +198,7 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
 export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyChallengeViewProps) {
   const { t, lang } = useLanguage();
 
+  // 1. MINDEN ÁLLAPOT (STATES)
   const [subTab, setSubTab] = useState<'current' | 'upcoming' | 'past' | 'my_stats' | 'hall_of_fame' | 'arena_album'>('current');
   const [loading, setLoading] = useState(true);
   const [myReferralCode, setMyReferralCode] = useState<string>('');
@@ -207,11 +208,9 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const [masterVotesLeft, setMasterVotesLeft] = useState<number>(0);
   const [isMaster, setIsMaster] = useState<boolean>(false);
 
-  // Chat nyitva/csukva, és van-e olvasatlan üzenet állapota
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [hasNewMessage, setHasNewMessage] = useState(false);
 
-  // Új feltöltés adatai
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -286,7 +285,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const chatScrollContainerRef = useRef<HTMLDivElement>(null);
   const lastTypingSignalSent = useRef<number>(0);
 
-  // Referenciák a hurokmentes chat állapothoz
+  // 2. REFS ÉS HOISTOLT ALAP-FÜGGVÉNYEK (Ide jöttek fel, hogy kiküszöböljük az inicializálási hibát)
   const isChatOpenRef = useRef(isChatOpen);
   const lobbyMessagesCountRef = useRef(lobbyMessages.length);
 
@@ -295,11 +294,62 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     lobbyMessagesCountRef.current = lobbyMessages.length;
   }, [isChatOpen, lobbyMessages.length]);
 
+  const fetchNextVote = async (topicId: number) => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/weekly/next-vote?topicId=${topicId}&userEmail=${user?.email || ''}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.entry) { setVoteEntry(data.entry); setNoMoreEntries(false); } 
+        else { setVoteEntry(null); setNoMoreEntries(true); }
+      }
+    } catch (e) { console.error(e); }
+  };
+
+  const fetchCurrentTopic = async (isSilent = false) => {
+    if (!isSilent) setLoading(true);
+    try {
+      const url = selectedTopicId 
+        ? `${BACKEND_URL}/api/weekly/current?userEmail=${user?.email || ''}&topicId=${selectedTopicId}`
+        : `${BACKEND_URL}/api/weekly/current?userEmail=${user?.email || ''}`;
+
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        
+        if (data.userTotalLikes !== undefined) setUserTotalLikes(data.userTotalLikes);
+        if (data.userVictories !== undefined) setUserVictories(data.userVictories);
+        if (data.masterVotesLeft !== undefined) setMasterVotesLeft(data.masterVotesLeft); 
+        if (data.isMaster !== undefined) setIsMaster(data.isMaster);                      
+        if (data.myReferralCode !== undefined) setMyReferralCode(data.myReferralCode);
+        if (data.referredBy !== undefined) setReferredBy(data.referredBy);
+        if (data.userPower) setUserPower(data.userPower);
+        if (data.swapBalance !== undefined) setSwapBalance(data.swapBalance); 
+
+        if (!selectedTopicId) {
+          setActiveTopics(data.activeTopics || []);
+        } else {
+          if (data && data.topic) {
+            setTopic(data.topic);
+            setMyEntry(data.myEntry);
+            setMyPastEntries(data.myPastEntries || []); 
+            setMyVoteCount(Number(data.myVoteCount) || 0);
+            setVotableEntries(Number(data.votableEntries) || 1);
+            setLeaderboard(data.leaderboard || []);
+            setCurrentClubLeaderboard(data.clubLeaderboard || []);
+            if (!isSilent) fetchNextVote(data.topic.id);
+          }
+        }
+      }
+    } catch (e) { console.error(e); }
+    finally { if (!isSilent) setLoading(false); }
+  };
+
   const myOfficialNameRef = useRef<string>(lang === 'en' ? 'Me' : 'Én');
   useEffect(() => {
     myOfficialNameRef.current = myEntry?.user_name || user?.name || (lang === 'en' ? 'Me' : 'Én');
   }, [myEntry, user, lang]);
 
+  // 3. HORGOK (HOOKS) ÉS LOGIKAI SZEKCIÓK
   useEffect(() => {
     if (!activeShareData) {
       setShareBase64(null);
@@ -353,10 +403,9 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     setPastClubLeaderboard([]);
     setMasterVotesLeft(0); 
     setIsMaster(false);     
-    setHasNewMessage(false); // 👈 JAVÍTVA: User vagy szobaváltáskor alaphelyzetbe hozzuk a jelzőt
+    setHasNewMessage(false);
   }, [selectedTopicId, user?.email]);
 
-  // 🎯 ÚJ EFFECT: Ha megnyitják a chatet, vagy nyitott chat mellett új üzenet jön, elmentjük az utolsó ID-t olvasottnak
   useEffect(() => {
     if (isChatOpen && lobbyMessages.length > 0 && user?.email) {
       const lastMsg = lobbyMessages[lobbyMessages.length - 1];
@@ -368,7 +417,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     }
   }, [isChatOpen, lobbyMessages, user?.email]);
 
-  // 🎯 UNIVERZÁLIS CHAT POLLING ENGINE (Hurokmentesített, stabil verzió)
   useEffect(() => {
     if (subTab !== 'current' || selectedTopicId !== null) return;
 
@@ -390,19 +438,15 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           const data = await res.json();
           const newMessages = data.messages || [];
           
-          // 🎯 JAVÍTVA: Felhasználóhoz kötött LocalStorage ID alapú unread-detektálás
           if (newMessages.length > 0 && user?.email) {
             const lastMsg = newMessages[newMessages.length - 1];
             const lastMsgEmail = lastMsg?.user_email || lastMsg?.userEmail;
             const lastId = lastMsg.id || lastMsg._id;
 
-            // Csak akkor riasztunk, ha az utolsó üzenetet NEM mi magunk küldtük
             if (lastMsgEmail !== user.email) {
               if (isChatOpenRef.current) {
-                // Ha épp nyitva van az ablak, azonnal elmentjük olvasottnak
                 localStorage.setItem(`arena_chat_last_read_${user.email}`, String(lastId));
               } else {
-                // Ha zárva van, összevetjük a LocalStorage-ban tárolttal
                 const storedId = localStorage.getItem(`arena_chat_last_read_${user.email}`);
                 if (!storedId || String(lastId) !== storedId) {
                   setHasNewMessage(true);
@@ -432,99 +476,50 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     };
   }, [subTab, selectedTopicId, user?.email]);
 
-  // Belső koordináták csendes eltolása az anyaoldal megzavarása nélkül
-  useEffect(() => {
-    if (selectedTopicId === null && subTab === 'current' && chatScrollContainerRef.current) {
-      chatScrollContainerRef.current.scrollTop = chatScrollContainerRef.current.scrollHeight;
-    }
-  }, [lobbyMessages.length, selectedTopicId, subTab, isChatOpen]);
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setTypedLobbyMsg(e.target.value);
 
-  const handleSendLobbyMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!typedLobbyMsg.trim() || isSendingLobbyMsg) return;
-
-    setIsSendingLobbyMsg(true);
-    const msgPayload = {
-      topicId: 0,
-      userEmail: user?.email,
-      userName: user?.name || (lang === 'en' ? 'Anonymous Photographer' : 'Anonim Képolvasó'),
-      messageText: typedLobbyMsg
-    };
-
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/weekly/chat`, {
+    const now = Date.now();
+    if (now - lastTypingSignalSent.current > 3000) {
+      lastTypingSignalSent.current = now;
+      fetch(`${BACKEND_URL}/api/weekly/chat/typing`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(msgPayload)
-      });
-      
-      if (res.ok) {
-        const data = await res.json();
-        setTypedLobbyMsg('');
-        
-        setLobbyMessages(prev => [...prev, { 
-          id: Date.now(),
-          topic_id: 0,
-          user_email: user?.email,
-          user_name: data.user_name || user?.name || (lang === 'en' ? 'Anonymous Photographer' : 'Anonim Képolvasó'),
-          message_text: typedLobbyMsg,
-          created_at: new Date().toISOString() 
-        }]);
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsSendingLobbyMsg(false);
+        body: JSON.stringify({
+          topicId: 0,
+          userEmail: user?.email,
+          userName: myOfficialNameRef.current
+        })
+      }).catch(() => {});
     }
   };
 
-  useEffect(() => {
-    if (!topic || !topic.end_date) {
-      setTimeLeft(t('viewTimeError'));
-      return;
-    }
-
-    const calculateTimeLeft = () => {
-      const now = new Date().getTime();
-      const parts = topic.end_date.split(/[- :T]/);
-      const end = parts.length >= 5 
-        ? new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), parseInt(parts[3]), parseInt(parts[4]), parts[5] ? parseInt(parts[5]) : 0)
-        : new Date(topic.end_date);
-      
-      if (isNaN(end.getTime())) {
-        setTimeLeft(t('viewTimeError'));
-        return false;
+  const fetchMyStats = async () => {
+    setIsLoadingStats(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/weekly/my-stats?userEmail=${user?.email || ''}`);
+      if (res.ok) {
+          const data = await res.json();
+          if (data && data.history && data.podiums) {
+             setMyStats(data);
+          } else {
+             setMyStats({ podiums: { first: 0, second: 0, third: 0 }, history: [] });
+          }
       }
+    } catch (error) { console.error(error); } 
+    finally { setIsLoadingStats(false); }
+  };
 
-      const distance = end.getTime() - now;
-      if (distance < 0) {
-        setTimeLeft(t('viewTimeEnded'));
-        return false;
+  const fetchHallOfFame = async () => {
+    setIsLoadingHof(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/weekly/hall-of-fame`);
+      if (res.ok) {
+        setHallOfFame(await res.json());
       }
-
-      const days = Math.floor(distance / (1000 * 60 * 60 * 24));
-      const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)).toString().padStart(2, '0');
-      const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60)).toString().padStart(2, '0');
-      const seconds = Math.floor((distance % (1000 * 60)) / 1000).toString().padStart(2, '0');
-
-      if (days > 0) {
-        setTimeLeft(`${days}${t('viewTimeDays')}${hours}:${minutes}:${seconds}`);
-      } else {
-        setTimeLeft(`${hours}:${minutes}:${seconds}`);
-      }
-      return true;
-    };
-
-    const isActive = calculateTimeLeft();
-    if (!isActive) return;
-
-    const interval = setInterval(() => {
-      const stillActive = calculateTimeLeft();
-      if (!stillActive) clearInterval(interval);
-    }, 1000);
-    
-    return () => clearInterval(interval);
-  }, [topic, t]);
+    } catch (e) { console.error(e); }
+    finally { setIsLoadingHof(false); }
+  };
 
   const loadPastHistoryList = async (topicId: number) => {
     setSelectedPastTopicId(topicId);
@@ -868,6 +863,62 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     }
   };
 
+  // Belső koordináták csendes eltolása az anyaoldal megzavarása nélkül
+  useEffect(() => {
+    if (selectedTopicId === null && subTab === 'current' && chatScrollContainerRef.current) {
+      chatScrollContainerRef.current.scrollTop = chatScrollContainerRef.current.scrollHeight;
+    }
+  }, [lobbyMessages.length, selectedTopicId, subTab, isChatOpen]);
+
+  useEffect(() => {
+    if (!topic || !topic.end_date) {
+      setTimeLeft(t('viewTimeError'));
+      return;
+    }
+
+    const calculateTimeLeft = () => {
+      const now = new Date().getTime();
+      const parts = topic.end_date.split(/[- :T]/);
+      const end = parts.length >= 5 
+        ? new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), parseInt(parts[3]), parseInt(parts[4]), parts[5] ? parseInt(parts[5]) : 0)
+        : new Date(topic.end_date);
+      
+      if (isNaN(end.getTime())) {
+        setTimeLeft(t('viewTimeError'));
+        return false;
+      }
+
+      const distance = end.getTime() - now;
+      if (distance < 0) {
+        setTimeLeft(t('viewTimeEnded'));
+        return false;
+      }
+
+      const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)).toString().padStart(2, '0');
+      const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60)).toString().padStart(2, '0');
+      const seconds = Math.floor((distance % (1000 * 60)) / 1000).toString().padStart(2, '0');
+
+      if (days > 0) {
+        setTimeLeft(`${days}${t('viewTimeDays')}${hours}:${minutes}:${seconds}`);
+      } else {
+        setTimeLeft(`${hours}:${minutes}:${seconds}`);
+      }
+      return true;
+    };
+
+    const isActive = calculateTimeLeft();
+    if (!isActive) return;
+
+    const interval = setInterval(() => {
+      const stillActive = calculateTimeLeft();
+      if (!stillActive) clearInterval(interval);
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, [topic, t]);
+
+  // 4. MEMOIZÁLT ÉRTÉKEK ÉS RENDER RENDELKEZÉSEK
   const sortedActiveTopics = [...activeTopics].sort((a, b) => {
     const dateStrA = String(sortBy === 'endDate' ? a.end_date : a.start_date).replace(' ', 'T').split('.')[0];
     const dateStrB = String(sortBy === 'endDate' ? b.end_date : b.start_date).replace(' ', 'T').split('.')[0];
