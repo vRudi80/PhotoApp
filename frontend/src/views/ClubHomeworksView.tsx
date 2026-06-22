@@ -212,28 +212,29 @@ export default function ClubHomeworksView({
       return;
     }
 
-    const confirmMessage = lang === 'en'
-      ? `Are you sure you want to download all ${selectedEntries.length} selected images?`
-      : `Biztosan le szeretnéd tölteni a feladat mind a(z) ${selectedEntries.length} db kiválasztott képét eredeti felbontásban?\n\n(Tipp: Első futtatáskor engedélyezd a böngészőnek a többszörös letöltést, ha rákérdez!)`;
+    if (!window.confirm(`Biztosan le szeretnéd tölteni a feladat mind a(z) ${selectedEntries.length} db kiválasztott képét eredeti felbontásban?`)) return;
 
-    if (!window.confirm(confirmMessage)) return;
-
+    // 🎯 JAVÍTVA: Rejtett iframe-eket indítunk a háttérben a Google Drive Cross-Origin tiltásának áthidalására
     selectedEntries.forEach((entry, idx) => {
       setTimeout(() => {
-        const downloadAnchor = document.createElement('a');
-        downloadAnchor.href = entry.drive_file_id 
+        // Létrehozunk egy láthatatlan iframe elemet
+        const iframe = document.createElement('iframe');
+        iframe.style.display = 'none';
+        
+        // Beállítjuk a Google Drive közvetlen letöltési útvonalát
+        iframe.src = entry.drive_file_id 
           ? `https://docs.google.com/uc?export=download&id=${entry.drive_file_id}` 
           : entry.file_url;
         
-        const safeTitle = (entry.title || 'kep').replace(/[^a-zA-Z0-9-_]/g, '_');
-        const safeAuthor = (entry.user_name || 'szerzo').replace(/[^a-zA-Z0-9-_]/g, '_');
-        downloadAnchor.setAttribute('download', `${safeAuthor}_${safeTitle}.jpg`);
-        downloadAnchor.setAttribute('target', '_blank');
-        
-        document.body.appendChild(downloadAnchor);
-        downloadAnchor.click();
-        document.body.removeChild(downloadAnchor);
-      }, idx * 400); 
+        // Bedobjuk a DOM-ba, ami azonnal elindítja a letöltést a háttérben
+        document.body.appendChild(iframe);
+
+        // 5 másodperc után feltakarítunk magunk után, hogy ne terheljük a memóriát
+        setTimeout(() => {
+          document.body.removeChild(iframe);
+        }, 5000);
+
+      }, idx * 400); // 400 ms-os biztonsági szünetekkel indítjuk őket, hogy a Chrome kényelmesen feldolgozza
     });
   };
 
