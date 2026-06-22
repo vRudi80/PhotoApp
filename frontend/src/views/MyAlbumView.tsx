@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { BACKEND_URL } from '../utils/constants';
 import { getImageUrl } from '../utils/helpers';
 import PremiumPaywall from './PremiumPaywall';
+import VideoLoader from '../components/VideoLoader'; // 👈 Figyelj a relatív útvonalra!
 
 // 🎯 ÚJ IMPORT: Nyelvi környezet beemelése
 import { useLanguage } from '../context/LanguageContext';
@@ -211,7 +212,7 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
   }
 
   if (isLoading) {
-    return <div style={{ color: '#60a5fa', textAlign: 'center', padding: '2rem' }}>{t('albumLoading') || 'Portfólió betöltése...'}</div>;
+    return <VideoLoader />;
   }
 
   return (
