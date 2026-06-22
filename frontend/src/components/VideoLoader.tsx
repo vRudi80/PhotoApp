@@ -1,14 +1,36 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useLanguage } from '../context/LanguageContext';
 
 interface VideoLoaderProps {
-  fullPage?: boolean; // 👈 Opcionális kapcsoló: teljes képernyős vagy konténer-szintű legyen
+  fullPage?: boolean;
 }
 
 export default function VideoLoader({ fullPage = false }: VideoLoaderProps) {
   const { lang } = useLanguage();
+  
+  // 🎯 ÁLLAPOT A LASSULÁS ÉSZLELÉSÉHEZ
+  const [isTakingTooLong, setIsLoadingTooLong] = useState(false);
 
-  // Dinamikus stíluskezelés a rugalmas felhasználhatóságért
+  useEffect(() => {
+    // ⏰ 1. IDŐZÍTŐ: 5 másodperc után figyelmeztetjük a felhasználót, hogy valami akadozik
+    const warningTimer = setTimeout(() => {
+      setIsLoadingTooLong(true);
+    }, 5000);
+
+    // ⏰ 2. WATCHDOG IDŐZÍTŐ: Ha 8 másodpercig sem történik semmi, erőszakkal újratöltjük az oldalt
+    const watchdogTimer = setTimeout(() => {
+      console.warn("🚨 Watchdog kibiztosítva: A betöltés beragadt, tiszta lap újratöltése indítva...");
+      window.location.reload();
+    }, 8000);
+
+    // 🛡️ TAKARÍTÁS: Ha a betöltés sikeres és a komponens lekerül a képernyőről,
+    // azonnal megsemmisítjük az időzítőket, nehogy feleslegesen töltsön újra!
+    return () => {
+      clearTimeout(warningTimer);
+      clearTimeout(watchdogTimer);
+    };
+  }, []);
+
   const containerStyle: React.CSSProperties = fullPage
     ? {
         position: 'fixed',
@@ -57,11 +79,15 @@ export default function VideoLoader({ fullPage = false }: VideoLoaderProps) {
 
       {/* Finoman pulzáló státusz szöveg */}
       <div style={{ marginTop: '20px', textAlign: 'center', animation: 'loaderPulse 1.8s infinite' }}>
-        <h4 style={{ color: '#f8fafc', fontSize: fullPage ? '1.15rem' : '0.95rem', fontWeight: 'bold', margin: '0 0 4px 0', letterSpacing: '0.5px' }}>
-          {lang === 'en' ? 'Loading data...' : 'Adatok betöltése...'}
+        <h4 style={{ color: isTakingTooLong ? '#fb923c' : '#f8fafc', fontSize: fullPage ? '1.15rem' : '0.95rem', fontWeight: 'bold', margin: '0 0 6px 0', letterSpacing: '0.5px', transition: 'color 0.3s' }}>
+          {isTakingTooLong 
+            ? (lang === 'en' ? 'Connection unstable...' : 'A kapcsolat akadozik...') 
+            : (lang === 'en' ? 'Loading data...' : 'Adatok betöltése...')}
         </h4>
         <p style={{ color: '#64748b', fontSize: fullPage ? '0.85rem' : '0.75rem', margin: 0 }}>
-          {lang === 'en' ? 'Please wait a moment' : 'Kérlek várj egy pillanatot'}
+          {isTakingTooLong 
+            ? (lang === 'en' ? 'Attempting to revive session / auto-refreshing' : 'Munkamenet helyreállítása / Automatikus frissítés mindjárt')
+            : (lang === 'en' ? 'Please wait a moment' : 'Kérlek várj egy pillanatot')}
         </p>
       </div>
 
