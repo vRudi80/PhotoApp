@@ -369,10 +369,10 @@ export default function ClubHomeworksView({
                         
                         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                           <button 
-                            onClick={() => handleDownloadAllSelected(hwEntriesForAllRaw)}
-                            style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#0f172a', border: 'none', padding: '6px 14px', borderRadius: '8px', fontWeight: 'bold', fontSize: '0.85rem', cursor: 'pointer', boxShadow: '0 4px 10px rgba(245,158,11,0.2)', transition: 'all 0.2s' }}
-                          >
-                            📦 Összes kiválasztott letöltése ({totalSelectedInHw})
+  onClick={() => handleDownloadAllSelected(hwEntriesForAllRaw, hw)}
+  style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#0f172a', border: 'none', padding: '6px 14px', borderRadius: '8px', fontWeight: 'bold', fontSize: '0.85rem', cursor: 'pointer', boxShadow: '0 4px 10px rgba(245,158,11,0.2)', transition: 'all 0.2s' }}
+>
+  📦 Összes kiválasztott letöltése ({totalSelectedInHw})
                           </button>
                           <div style={{ background: '#10b98120', color: '#10b981', border: '1px solid #10b98150', padding: '4px 12px', borderRadius: '100px', fontWeight: 'bold', fontSize: '0.85rem' }}>✅ Összes kiválasztva: {totalSelectedInHw} kép</div>
                         </div>
