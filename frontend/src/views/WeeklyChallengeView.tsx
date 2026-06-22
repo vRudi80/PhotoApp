@@ -216,7 +216,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const [isUploading, setIsUploading] = useState(false);
 
   const [uploadCamera, setUploadCamera] = useState('');
-  const [uploadLens, setUploadCameraLens] = useState('');
+  const [uploadLens, setUploadLens] = useState('');
   const [uploadShutter, setUploadShutter] = useState('');
   const [uploadIso, setUploadIso] = useState('');
   const [uploadAperture, setUploadAperture] = useState('');
@@ -345,6 +345,18 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     finally { if (!isSilent) setLoading(false); }
   };
 
+  // 🎯 SILENT ALBUM PRE-FETCH ENGINE: A háttérben azonnal letölti az albumot betöltéskor
+  const fetchAlbumSilently = async () => {
+    if (!user?.email) return;
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/weekly/my-album?userEmail=${user.email}`);
+      if (res.ok) {
+        const albumPhotos = await res.json();
+        setSwapAlbumPhotos(albumPhotos || []);
+      }
+    } catch (e) { console.error("Silent prefetch failed:", e); }
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setTypedLobbyMsg(e.target.value);
 
@@ -416,6 +428,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   useEffect(() => {
     if (subTab === 'current') {
       fetchCurrentTopic(false);
+      fetchAlbumSilently(); // 👈 Elindítjuk a csendes háttér-letöltést
     }
     else if (subTab === 'upcoming') fetch(`${BACKEND_URL}/api/weekly/upcoming`).then(res => res.json()).then(data => setUpcomingTopics(data || [])).catch(console.error);
     else if (subTab === 'past') fetch(`${BACKEND_URL}/api/weekly/past`).then(res => res.json()).then(data => setPastTopics(data || [])).catch(console.error);
@@ -676,7 +689,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     formData.append('userName', user.name || user.email);
     
     formData.append('camera', uploadCamera);
-    formData.append('lens', uploadCameraLens);
+    formData.append('lens', uploadLens);
     formData.append('shutter', uploadShutter);
     formData.append('iso', uploadIso);
     formData.append('aperture', uploadAperture);
@@ -695,6 +708,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         setUploadCamera(''); setUploadCameraLens(''); setUploadShutter('');
         setUploadIso(''); setUploadAperture(''); setUploadSoftware('');
         await fetchCurrentTopic(true); 
+        fetchAlbumSilently(); // Frissítjük a hátteret is
       }
     } catch (e) {
       console.error("Feltöltési hiba:", e);
@@ -779,6 +793,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         setSwapCamera(''); setSwapLens(''); setSwapShutter('');
         setSwapIso(''); setSwapAperture(''); setSwapSoftware('');
         fetchCurrentTopic(false); 
+        fetchAlbumSilently();
       } 
       else { const err = await res.json(); alert(err.error); }
     } catch (e) { alert(t('msgSwapErrorMain')); }
@@ -797,6 +812,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       if (res.ok) {
         alert(t('msgSwapBackSuccess'));
         fetchCurrentTopic(false);
+        fetchAlbumSilently();
       } else {
         const err = await res.json();
         alert(err.error || t('msgSwapErrorMain'));
@@ -822,6 +838,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       if (swapRes.ok) {
         alert(t('msgSwapExistingSuccess'));
         fetchCurrentTopic(false);
+        fetchAlbumSilently();
       } else {
         const err = await swapRes.json(); 
         alert(err.error);
@@ -878,23 +895,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     }
   };
 
-  // 🎯 AZ EGYETLEN, KONSZOLIDÁLT GÖRDÍTŐ EFFEKTUS
-  useEffect(() => {
-    if (selectedTopicId === null && subTab === 'current' && isChatOpen) {
-      const handleScrollToBottom = () => {
-        if (chatScrollContainerRef.current) {
-          chatScrollContainerRef.current.scrollTop = chatScrollContainerRef.current.scrollHeight;
-        }
-      };
-
-      handleScrollToBottom();
-
-      const timer = setTimeout(handleScrollToBottom, 120);
-      return () => clearTimeout(timer);
-    }
-  }, [lobbyMessages.length, selectedTopicId, subTab, isChatOpen]);
-
-  // 4. FUTÁSIDEJŰ JELEN JELMZŐ SZÁMÍTÁSOK (A RENDER ELŐTT)
+  // FUTÁSIDEJŰ RENDERELES KISZÁMÍTÁSOK
   const currentLevel = getLevelDetails(userTotalLikes, userVictories);
 
   const BASE_EXPOSURE = 10;
@@ -976,7 +977,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   <div style={{ textAlign: 'center', padding: '5rem 2rem', background: 'linear-gradient(180deg, #1e293b, #0f172a)', borderRadius: '24px', border: '1px solid #334155' }}>
                     <div style={{ fontSize: '5rem', marginBottom: '1rem' }}>😴</div>
                     <h2 style={{ color: '#f59e0b', margin: '0 0 10px 0', fontSize: '2rem' }}>{t('viewNoActiveLeagues')}</h2>
-                    <p style={{ color: '#94a3b8' }}>{t('viewNoActiveLeaguesDesc')}</p>
+                    <p style={{ color: '#94a3b8') }}>{t('viewNoActiveLeaguesDesc')}</p>
                   </div>
                 ) : (
                   <div className="arena-cards-grid">
@@ -1141,32 +1142,14 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   swapPreview={swapPreview}
                   handleSwapFileSelect={handleFileSelectForSwap}
                   handleSwapSubmit={handleSwapSubmit}
-                  onOpenAlbumForUpload={async () => {
-                      setAlbumModalMode('upload');
-                      setShowSwapAlbumModal(true); 
-                      setIsLoadingSwapAlbum(true);
-                      try {
-                        const res = await fetch(`${BACKEND_URL}/api/weekly/my-album?userEmail=${user?.email}`);
-                        if (res.ok) {
-                          const albumPhotos = await res.json();
-                          setSwapAlbumPhotos(albumPhotos);
-                        }
-                      } catch (e) { alert(t('msgGalleryLoadError')); }
-                      finally { setIsLoadingSwapAlbum(false); }
-                    }}
-                    onOpenAlbumForSwap={async () => {
-                      setAlbumModalMode('swap');
-                      setShowSwapAlbumModal(true); 
-                      setIsLoadingSwapAlbum(true);
-                      try {
-                        const res = await fetch(`${BACKEND_URL}/api/weekly/my-album?userEmail=${user?.email}`);
-                        if (res.ok) {
-                          const albumPhotos = await res.json();
-                          setSwapAlbumPhotos(albumPhotos);
-                        }
-                      } catch (e) { alert(t('msgGalleryLoadError')); }
-                      finally { setIsLoadingSwapAlbum(false); }
-                    }}
+                  onOpenAlbumForUpload={() => {
+                    setAlbumModalMode('upload');
+                    setShowSwapAlbumModal(true); // 👈 AZONNAL megnyílik, nincs akadás!
+                  }}
+                  onOpenAlbumForSwap={() => {
+                    setAlbumModalMode('swap');
+                    setShowSwapAlbumModal(true); // 👈 AZONNAL megnyílik!
+                  }}
                   handleVote={handleVote}
                   handleOffTopicReport={handleOffTopicReport}
                   handleSwapBackSubmit={handleSwapBackSubmit}
@@ -1202,16 +1185,21 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           
       <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} currentLevel={currentLevel} />
 
-      {/* 🎯 JAVÍTVA: Az átadott paraméterek közé bekerült az isLoading={isLoadingSwapAlbum} szinkronizáció! */}
       <AlbumSelectionModal 
         isOpen={showSwapAlbumModal} 
-        onClose={() => setShowSwapAlbumModal(false)} 
+        onClose={(wasActionSubmitted) => {
+          setShowSwapAlbumModal(false);
+          // 🎯 UX FIX: Csak akkor frissítünk és villantunk teljes oldalt, ha sikeres akció történt. Mégse gombnál nem!
+          if (wasActionSubmitted === true) {
+            fetchCurrentTopic(false);
+          }
+        }} 
         albumModalMode={albumModalMode} 
         swapAlbumPhotos={swapAlbumPhotos} 
         myPastEntries={myPastEntries} 
         topic={topic} 
         user={user} 
-        isLoading={isLoadingSwapAlbum} 
+        isLoading={swapAlbumPhotos.length === 0} 
         setIsUploading={setIsUploading} 
         setIsSwapping={setIsSwapping} 
         fetchCurrentTopic={fetchCurrentTopic} 
