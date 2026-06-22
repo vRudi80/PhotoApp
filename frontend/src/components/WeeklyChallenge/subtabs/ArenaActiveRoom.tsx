@@ -161,7 +161,7 @@ export default function ArenaActiveRoom({
     } catch (e) {
       console.error(e);
       alert(t('msgNetworkError'));
-    } finally {
+    } finaly {
       setIsSubmittingBatch(false);
     }
   };
@@ -178,7 +178,6 @@ export default function ArenaActiveRoom({
           </h3>
           <p style={{ margin: '0 0 15px 0', color: '#cbd5e1', fontSize: '0.95rem', textAlign: 'center', lineHeight: '1.6' }}>{displayRoomDesc}</p>
           
-          {/* 🎯 JAVÍTVA: Ide bekerült az elegáns Képmester jelvény, ami közvetlenül a topic-ból olvassa az adatot */}
           {(topic?.master_name || topic?.master_email) && (
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#a78bfa', fontSize: '0.85rem', fontWeight: 'bold', background: '#a78bfa12', padding: '6px 14px', borderRadius: '10px', border: '1px solid #a78bfa25', marginBottom: '20px', zIndex: 1, whiteSpace: 'nowrap' }}>
               <span>{t('viewMasterLabel') || 'Képmester:'}</span>
@@ -346,16 +345,20 @@ export default function ArenaActiveRoom({
           )}
         </div>
 
+        {/* 🎯 JAVÍTVA: Ide került vissza a hardveresen gyorsított mérőórás radial SVG kártya! */}
         {!isMaster && (
-          <div className="arena-responsive-card" style={{ background: '#0f172a', padding: '25px 20px', borderRadius: '24px', border: `1px solid ${exposureColor || '#ef4444'}30`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-              <div style={{ fontSize: '1.8rem', color: exposureColor }}>👁️‍🗨️</div>
-              <div>
-                <div style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 'bold', textTransform: 'uppercase' }}>Láthatósági Index</div>
-                <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#f8fafc' }}>{getTranslatedExposureLabel(exposureLabel)}</div>
+          <div className="arena-responsive-card" style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #334155', display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
+            <h4 style={{ margin: '0 0 15px 0', color: '#94a3b8', fontSize: '0.8rem', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Láthatósági Index</h4>
+            <div style={{ position: 'relative', width: '100%', maxWidth: '180px', height: '105px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+              <svg viewBox="0 0 200 120" style={{ width: '100%', height: 'auto', display: 'block' }}>
+                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#0f172a" strokeWidth="16" strokeLinecap="round" />
+                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke={exposureColor || '#ef4444'} strokeWidth="16" strokeLinecap="round" pathLength="100" strokeDasharray="100" strokeDashoffset={100 - (exposurePercentage || 0)} style={{ transition: 'stroke-dashoffset 0.6s cubic-bezier(0.4, 0, 0.2, 1)' }} />
+              </svg>
+              <div style={{ position: 'absolute', bottom: '5px', textAlign: 'center' }}>
+                <div style={{ fontSize: '1.7rem', fontWeight: '900', color: '#f8fafc', letterSpacing: '-0.5px' }}>{Math.round(exposurePercentage || 0)}%</div>
+                <div style={{ fontSize: '0.72rem', fontWeight: 'bold', color: exposureColor, textTransform: 'uppercase', marginTop: '2px' }}>{getTranslatedExposureLabel(exposureLabel)}</div>
               </div>
             </div>
-            <div style={{ fontSize: '1.8rem', fontWeight: '900', color: exposureColor }}>{Math.round(exposurePercentage || 0)}%</div>
           </div>
         )}
 
