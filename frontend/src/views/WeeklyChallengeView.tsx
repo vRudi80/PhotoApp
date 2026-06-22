@@ -216,7 +216,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const [isUploading, setIsUploading] = useState(false);
 
   const [uploadCamera, setUploadCamera] = useState('');
-  const [uploadLens, setUploadCameraLens] = useState('');
+  const [uploadLens, setUploadLens] = useState('');
   const [uploadShutter, setUploadShutter] = useState('');
   const [uploadIso, setUploadIso] = useState('');
   const [uploadAperture, setUploadAperture] = useState('');
@@ -285,7 +285,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const chatScrollContainerRef = useRef<HTMLDivElement>(null);
   const lastTypingSignalSent = useRef<number>(0);
 
-  // REFS ÉS HOISTOLT ALAP-FÜGGVÉNYEK
+  // REFS ÉS UX SZINKRONIZÁLÓK
   const isChatOpenRef = useRef(isChatOpen);
   const lobbyMessagesCountRef = useRef(lobbyMessages.length);
 
@@ -294,7 +294,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     lobbyMessagesCountRef.current = lobbyMessages.length;
   }, [isChatOpen, lobbyMessages.length]);
 
-  // 2. ADATLETÖLTŐ ÉS CHAT FUNKCIÓK
+  // 2. MAGAS SZINTŰ HOISTOLT ALAP-FUNKCIÓK (A TDZ ÉS BUILD HIBÁK ELLEN)
   const fetchNextVote = async (topicId: number) => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/weekly/next-vote?topicId=${topicId}&userEmail=${user?.email || ''}`);
@@ -407,7 +407,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     myOfficialNameRef.current = myEntry?.user_name || user?.name || (lang === 'en' ? 'Me' : 'Én');
   }, [myEntry, user, lang]);
 
-  // REAKTÍV HORGOK (HOOKS)
+  // 3. REAKTÍV HORGOK (HOOKS) ÉS UNREAD LOGIKA
   useEffect(() => {
     if (subTab === 'current') {
       fetchCurrentTopic(false);
@@ -418,21 +418,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     else if (subTab === 'hall_of_fame') fetchHallOfFame();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subTab, selectedTopicId, user?.email]);
-
-  useEffect(() => {
-    setTopic(null);
-    setMyEntry(null);
-    setMyPastEntries([]);
-    setVoteEntry(null);
-    setLeaderboard([]);
-    setCurrentClubLeaderboard([]);
-    setTimeLeft('');
-    setPastLeaderboard([]); 
-    setPastClubLeaderboard([]);
-    setMasterVotesLeft(0); 
-    setIsMaster(false);     
-    setHasNewMessage(false);
-  }, [selectedTopicId, user?.email]);
 
   useEffect(() => {
     if (isChatOpen && lobbyMessages.length > 0 && user?.email) {
@@ -521,14 +506,14 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   };
 
   const fetchHallOfFame = async () => {
-    setIsLoadingHof(true);
+    setIsLoadingStats(true);
     try {
       const res = await fetch(`${BACKEND_URL}/api/weekly/hall-of-fame`);
       if (res.ok) {
         setHallOfFame(await res.json());
       }
     } catch (e) { console.error(e); }
-    finally { setIsLoadingHof(false); }
+    finally { setIsLoadingStats(false); }
   };
 
   const loadPastHistoryList = async (topicId: number) => {
@@ -873,20 +858,25 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     }
   };
 
-  // EFFEKTUSOK: GÖRDÍTÉS ÉS IDŐZÍTŐK
-  // 🎯 JAVÍTVA: Kis időzítést adunk a görgetésnek, hogy a DOM-nak legyen ideje kiszámolni a scrollHeight-ot megnyitáskor!
+  // 🎯 AZ EGYETLEN, KONSZOLIDÁLT GÖRDÍTŐ EFFEKTUS: Kivárja a DOM kalkulációt, de kérésre azonnal is tol egyet
   useEffect(() => {
-    if (selectedTopicId === null && subTab === 'current' && isChatOpen && chatScrollContainerRef.current) {
-      const timer = setTimeout(() => {
+    if (selectedTopicId === null && subTab === 'current' && isChatOpen) {
+      const handleScrollToBottom = () => {
         if (chatScrollContainerRef.current) {
           chatScrollContainerRef.current.scrollTop = chatScrollContainerRef.current.scrollHeight;
         }
-      }, 50);
+      };
+
+      // Azonnali görgetési kísérlet a meglévő DOM-ra
+      handleScrollToBottom();
+
+      // Biztonsági késleltetett igazítás (megvárja a komplexebb layout-shift lefutását élesben)
+      const timer = setTimeout(handleScrollToBottom, 120);
       return () => clearTimeout(timer);
     }
   }, [lobbyMessages.length, selectedTopicId, subTab, isChatOpen]);
 
-  // FUTÁSIDEJŰ RENDERELES KISZÁMÍTÁSOK
+  // 4. FUTÁSIDEJŰ JELEN JELMZŐ SZÁMÍTÁSOK (A RENDER ELŐTT)
   const currentLevel = getLevelDetails(userTotalLikes, userVictories);
 
   const BASE_EXPOSURE = 10;
