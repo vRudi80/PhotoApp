@@ -299,9 +299,6 @@ export default function AlbumSelectionModal({
             <h3 style={{ color: 'white', margin: '0 0 5px 0', fontSize: '1.5rem', fontWeight: 'bold' }}>
               {albumModalMode === 'upload' ? t('modalUploadTitle') : t('modalSwapTitle')}
             </h3>
-            <h3 style={{ color: 'white', margin: '0 0 5px 0', fontSize: '1.5rem', fontWeight: 'bold' }}>
-              {albumModalMode === 'upload' ? t('modalUploadTitle') : t('modalSwapTitle')}
-            </h3>
             <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 20px 0', lineHeight: '1.4' }}>
               Melyik meglévő galériás fotóddal szeretnél nevezni a mostani futamra?
             </p>
