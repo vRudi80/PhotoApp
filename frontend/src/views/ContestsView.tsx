@@ -802,24 +802,61 @@ export default function ContestsView(props: ContestsViewProps) {
                     )}
 
                     {props.activeUploadContest === contest.id && (
-                      <div style={{ background: '#0f172a', padding: '20px', borderRadius: '16px', marginBottom: '20px', border: '1px solid #334155' }}>
-                        <h4 style={{marginTop: 0, color: '#38bdf8', fontSize: '1.1rem', marginBottom: '15px'}}>{t('contUploadPanelTitle')}</h4>
-                        <input placeholder={t('contUploadTitlePlaceholder')} value={props.uploadTitle} onChange={e => props.setUploadTitle(e.target.value)} style={inputStyle} disabled={props.isUploading} />
-                        <select value={props.uploadCategory} onChange={e => props.setUploadCategory(e.target.value)} style={inputStyle} disabled={props.isUploading}>
-                          <option value="">{t('contUploadCatPlaceholder')}</option>
-                          {categories.map((cat: string) => { 
-                            const count = categoryCounts[cat] || 0; 
-                            return <option key={cat} value={cat} disabled={count >= 4}>{cat} ({count}/4{t('contUploadCountSuffix')}</option>; 
-                          })}
-                        </select>
-                        <input type="file" accept="image/jpeg, image/png, image/webp" onChange={props.handleFileSelect} style={{ color: '#94a3b8', marginBottom: '15px', width: '100%' }} disabled={props.isUploading} />
-                        {props.uploadPreview && <div style={{marginBottom: '20px', textAlign: 'center'}}><img src={props.uploadPreview} alt="Preview" style={{maxHeight: '260px', borderRadius: '12px', border: '2px solid #334155'}} /></div>}
-                        <div style={{display: 'flex', gap: '10px'}}>
-                          <button onClick={() => props.handleUpload(contest.id)} disabled={props.isUploading} style={{ flex: 1, background: props.isUploading ? '#334155' : 'linear-gradient(135deg, #10b981, #059669)', color: 'white', border: 'none', padding: '12px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold' }}>{props.isUploading ? t('contUploadSaving') : t('contUploadSubmitBtn')}</button>
-                          <button onClick={() => { props.setActiveUploadContest(null); props.setUploadPreview(null); }} disabled={props.isUploading} style={{ background: 'transparent', color: '#ef4444', border: '1px solid #ef444440', padding: '12px 20px', borderRadius: '10px', cursor: 'pointer' }}>{t('contCancel')}</button>
-                        </div>
-                      </div>
-                    )}
+  <div style={{ background: '#0f172a', padding: '25px', borderRadius: '16px', marginBottom: '20px', border: '1px solid #334155' }}>
+    <h4 style={{marginTop: 0, color: '#38bdf8', fontSize: '1.1rem', marginBottom: '15px'}}>{t('contUploadPanelTitle')}</h4>
+    
+    <input placeholder={t('contUploadTitlePlaceholder')} value={props.uploadTitle} onChange={e => props.setUploadTitle(e.target.value)} style={inputStyle} disabled={props.isUploading} />
+    
+    <select value={props.uploadCategory} onChange={e => props.setUploadCategory(e.target.value)} style={inputStyle} disabled={props.isUploading}>
+      <option value="">{t('contUploadCatPlaceholder')}</option>
+      {categories.map((cat: string) => { 
+        const count = categoryCounts[cat] || 0; 
+        return <option key={cat} value={cat} disabled={count >= 4}>{cat} ({count}/4 {t('contUploadCountSuffix') || 'db fotó)'}</option>; 
+      })}
+    </select>
+    
+    {/* Technikai emlékeztető a MAFOSZ szabványról */}
+    <div style={{ background: 'rgba(56, 189, 248, 0.05)', padding: '10px 14px', borderRadius: '8px', fontSize: '0.8rem', color: '#94a3b8', marginBottom: '15px', border: '1px solid rgba(56,189,248,0.1)' }}>
+      ℹ️ <b>{lang === 'en' ? 'Technical Standard:' : 'Technikai Szabvány:'}</b> {lang === 'en' ? 'Images will be automatically optimized to 1600px sRGB JPEG standard.' : 'A képek automatikusan a MAFOSZ-szabványnak megfelelő 1600px hosszabbik oldalú sRGB JPEG formátumra lesznek optimalizálva.'}
+    </div>
+
+    <input type="file" accept="image/jpeg" onChange={props.handleFileSelect} style={{ color: '#94a3b8', marginBottom: '15px', width: '100%' }} disabled={props.isUploading} />
+    
+    {props.uploadPreview && <div style={{marginBottom: '20px', textAlign: 'center'}}><img src={props.uploadPreview} alt="Preview" style={{maxHeight: '260px', borderRadius: '12px', border: '2px solid #334155'}} /></div>}
+    
+    {/* ── 🎯 ÚJ: KÖTELEZŐ SZERZŐI JOGI ÉS GDPR NYILATKOZAT SÁV ── */}
+    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', background: '#090d16', padding: '15px', borderRadius: '10px', marginBottom: '20px', border: '1px solid #223147' }}>
+      <input 
+        type="checkbox" 
+        id="legal-copyright-checkbox" 
+        onChange={(e) => {
+          // Elmentjük egy lokális HTML attribútumba a gomb feloldásához
+          const btn = document.getElementById('final-upload-submit-btn') as HTMLButtonElement;
+          if (btn) btn.disabled = !e.target.checked || props.isUploading;
+        }}
+        style={{ marginTop: '3px', transform: 'scale(1.2)', accentColor: '#10b981', cursor: 'pointer' }} 
+      />
+      <label htmlFor="legal-copyright-checkbox" style={{ fontSize: '0.82rem', color: '#cbd5e1', lineHeight: '1.4', cursor: 'pointer', userSelect: 'none' }}>
+        {lang === 'en' 
+          ? 'I declare under penalty of perjury that the uploaded image is my own original creation, I hold all copyrights, it contains no uncredited AI assets, and I accept the terms of the competition.' 
+          : 'Kijelentem és szavatolom, hogy a feltöltött fotó saját, eredeti alkotásom, amely felett kizárólagos szerzői joggal rendelkezem, nem tartalmaz engedély nélküli generatív AI elemeket, továbbá elfogadom a pályázati kiírás adatvédelmi feltételeit.'}
+      </label>
+    </div>
+
+    <div style={{display: 'flex', gap: '10px'}}>
+      {/* 🎯 JAVÍTVA: A gomb alapértelmezetten le van tiltva ('disabled'), amíg a fenti pipa be nem kerül */}
+      <button 
+        id="final-upload-submit-btn"
+        onClick={() => props.handleUpload(contest.id)} 
+        disabled={true} 
+        style={{ flex: 1, background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', border: 'none', padding: '12px', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }}
+      >
+        {props.isUploading ? t('contUploadSaving') : t('contUploadSubmitBtn')}
+      </button>
+      <button onClick={() => { props.setActiveUploadContest(null); props.setUploadPreview(null); }} disabled={props.isUploading} style={{ background: 'transparent', color: '#ef4444', border: '1px solid #ef444440', padding: '12px 20px', borderRadius: '10px', cursor: 'pointer' }}>{t('contCancel')}</button>
+    </div>
+  </div>
+)}
 
                     {myContestEntries.length > 0 && isFeeRequired && !hasPaid && (
                       <div style={{ background: 'linear-gradient(90deg, #f59e0b10, transparent)', border: '1px solid #f59e0b40', padding: '20px', borderRadius: '24px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
