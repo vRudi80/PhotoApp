@@ -202,8 +202,8 @@ export default function ClubHomeworksView({
     } catch (e) { console.error('Hiba a kiválasztáskor:', e); }
   };
 
-  const handleDownloadAllSelected = async (homeworkEntries: any[]) => {
-    // Kiszűrjük az admin által éppen kiválasztott képeket
+  const handleDownloadAllSelected = async (homeworkEntries: any[], currentHw: any) => {
+    // Kiszűrjük a kiválasztott képeket
     const selectedEntries = homeworkEntries.filter(entry => 
       localSelections[entry.id] !== undefined ? localSelections[entry.id] : (entry.is_selected === 1)
     );
@@ -218,33 +218,32 @@ export default function ClubHomeworksView({
     if (!window.confirm(confirmMessage)) return;
 
     try {
-      // Elküldjük a 24 vagy tetszőleges számú kijelölt rekordot a backendnek zippelésre
+      // 🎯 JAVÍTVA: A paraméterként kapott objektumból olvassuk ki a témát
       const res = await fetch(`${BACKEND_URL}/api/homework/download-zip`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           entries: selectedEntries,
-          topic: hw.topic
+          topic: currentHw.topic
         })
       });
 
       if (!res.ok) throw new Error("Szerveroldali hiba történt a tömörítés során.");
 
-      // Átkonvertáljuk a beérkező adatfolyamot egy letölthető memóriafájllá (Blob)
       const blob = await res.blob();
       const downloadUrl = URL.createObjectURL(blob);
       
-      // Szabályos, egyetlen letöltést indítunk el, amit semmilyen böngésző nem blokkol
       const downloadAnchor = document.createElement('a');
       downloadAnchor.href = downloadUrl;
-      const safeTopic = (hw.topic || 'valogatas').replace(/[^a-zA-Z0-9-_]/g, '_');
+      
+      // 🎯 JAVÍTVA: Itt is a biztonságos paramétert használjuk a fájlnévhez
+      const safeTopic = (currentHw.topic || 'valogatas').replace(/[^a-zA-Z0-9-_]/g, '_');
       downloadAnchor.setAttribute('download', `${safeTopic}_portfolio_valogatas.zip`);
       
       document.body.appendChild(downloadAnchor);
       downloadAnchor.click();
       document.body.removeChild(downloadAnchor);
       
-      // Felszabadítjuk a memóriát
       URL.revokeObjectURL(downloadUrl);
 
     } catch (e) {
@@ -252,6 +251,7 @@ export default function ClubHomeworksView({
       console.error(e);
     }
   };
+  
   const openGalleryModal = (clickedEntry: any, allEntries: any[], index: number) => {
     setFullscreenData({
       url: getImageUrl(clickedEntry.drive_file_id, clickedEntry.file_url),
