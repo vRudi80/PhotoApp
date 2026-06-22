@@ -35,13 +35,25 @@ module.exports = function(app, pool) {
     }
   });
   
-  // Felhasználók listázása
-  app.get('/api/users', async (req, res) => {
-    try { 
-      const [rows] = await pool.query(`SELECT u.email, u.name, u.club_name, u.club_role, u.last_login, u.is_premium, u.premium_until, (SELECT COUNT(*) FROM photo_portfolio p WHERE p.user_email = u.email AND p.ai_tags IS NOT NULL) as ai_usage_count FROM photo_users u ORDER BY u.last_login DESC`); 
-      res.json(rows); 
-    } catch (err) { res.status(500).json({ error: 'Hiba' }); }
-  });
+ // 🎯 JAVÍTVA: A te pontos 'photo_users' tábládból olvassuk ki az új MAFOSZ mezőket is!
+app.get('/api/users', async (req, res) => {
+  try {
+    // Ha korábban konkrét mezők voltak felsorolva, a SELECT * vagy a mezők bővítése azonnal megoldja
+    const [rows] = await pool.query(`
+      SELECT 
+        google_id, email, name, last_login, club_name, club_role, 
+        is_premium, premium_until, stripe_customer_id, premium_level, 
+        club_id, swap_balance, rank_level, referral_code, referred_by,
+        phone_number, shipping_address, association_id 
+      FROM photo_users
+    `);
+    
+    res.json(rows);
+  } catch (err) {
+    console.error("❌ Hiba a photo_users lekérésekor:", err);
+    res.status(500).json({ error: 'Nem sikerült betölteni a felhasználókat.' });
+  }
+});
   
   // Felhasználó klubjának és szerepkörének módosítása (Admin felület)
   app.put('/api/users/:email', async (req, res) => {
