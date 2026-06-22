@@ -294,7 +294,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     lobbyMessagesCountRef.current = lobbyMessages.length;
   }, [isChatOpen, lobbyMessages.length]);
 
-  // 2. ADATLETÖLTŐ ÉS CHAT FUNKCIÓK (HOISTOLVA A TDZ HIBÁK ELLEN)
+  // 2. ADATLETÖLTŐ ÉS CHAT FUNKCIÓK
   const fetchNextVote = async (topicId: number) => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/weekly/next-vote?topicId=${topicId}&userEmail=${user?.email || ''}`);
@@ -363,7 +363,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     }
   };
 
-  // 🎯 HELYREÁLLÍTVA ÉS FELHOZVA: Az üzenetküldésért felelős törzsfüggvény
   const handleSendLobbyMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!typedLobbyMsg.trim() || isSendingLobbyMsg) return;
@@ -419,6 +418,21 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     else if (subTab === 'hall_of_fame') fetchHallOfFame();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subTab, selectedTopicId, user?.email]);
+
+  useEffect(() => {
+    setTopic(null);
+    setMyEntry(null);
+    setMyPastEntries([]);
+    setVoteEntry(null);
+    setLeaderboard([]);
+    setCurrentClubLeaderboard([]);
+    setTimeLeft('');
+    setPastLeaderboard([]); 
+    setPastClubLeaderboard([]);
+    setMasterVotesLeft(0); 
+    setIsMaster(false);     
+    setHasNewMessage(false);
+  }, [selectedTopicId, user?.email]);
 
   useEffect(() => {
     if (isChatOpen && lobbyMessages.length > 0 && user?.email) {
@@ -657,7 +671,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     formData.append('userName', user.name || user.email);
     
     formData.append('camera', uploadCamera);
-    formData.append('lens', uploadLens);
+    formData.append('lens', uploadCameraLens);
     formData.append('shutter', uploadShutter);
     formData.append('iso', uploadIso);
     formData.append('aperture', uploadAperture);
@@ -693,7 +707,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         
         if (exifData) {
           if (exifData.Model) {
-            const makePrefix = exifData.Make && !exifData.Model.startsWith(exifData.Make) ? `${exifData.Make} ` : '';
+            const makePrefix = exifData.Make && !exifData.Model.startsWith(exifData.Make) ? `${makePrefix}${exifData.Model}` : '';
             setSwapCamera(`${makePrefix}${exifData.Model}`);
           } else if (exifData.Make) {
             setSwapCamera(exifData.Make);
@@ -859,10 +873,9 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     }
   };
 
-  // FUTÁSIDEJŰ RENDERELES KISZÁMÍTÁSOK
+  // 3. FUTÁSIDEJŰ RENDERELES KISZÁMÍTÁSOK
   const currentLevel = getLevelDetails(userTotalLikes, userVictories);
 
-  const BASE_EXPOSURE = 10;
   const exposureEarned = BASE_EXPOSURE + (Number(myVoteCount || 0) * 2);
   const safeViewsCount = myEntry ? (Number(myEntry.views_count) || 0) : 0;
   const viewsRemaining = myEntry ? (exposureEarned - safeViewsCount) : 0;
@@ -986,7 +999,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                           {t('viewLobbyEmpty')}
                         </div>
                       ) : (
-                        lobbyMessages.map((msg, idx) => {
+                        /* 🎯 JAVÍTVA: Csak az utolsó 100 üzenetet jelenítjük meg, így a betöltés és a görgetés örökké villámgyors marad! */
+                        lobbyMessages.slice(-100).map((msg, idx) => {
                           const msgEmail = msg.user_email || msg.userEmail;
                           const msgName = msg.user_name || msg.userName;
                           const msgText = msg.message_text || msg.messageText;
