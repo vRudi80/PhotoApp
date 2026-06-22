@@ -444,7 +444,7 @@ const translations = {
 
     modalUploadTitle: '🖼️ Nevezés az Aréna Képtáradból',
     modalSwapTitle: '🃏 Válaszd ki a Joker Fotódat',
-    modalUploadDesc: 'Melyik meglévő galériás fotóddal szeretnél benevezni a mostani futamra?',
+    modalUploadDesc: 'Válassz ki egy képet az albumból, vagy tölts fel új fotót!',
     modalSwapDesc: 'Melyik galériás képedet küldöd harcba? A kék keretes Visszacserék megtartják a fordulóban korábban szerzett csillagaikat!',
     modalBadgeSwapBack: '↩️ Visszacsere',
     msgUploadConfirm: 'Biztosan ezzel a meglévő képeddel nevezel be a küzdelembe?',
@@ -1181,7 +1181,7 @@ const translations = {
 
     modalUploadTitle: '🖼️ Entry from Arena Gallery',
     modalSwapTitle: '🃏 Choose Your Joker Photo',
-    modalUploadDesc: 'Which existing gallery photo would you like to enter into the current match?',
+    modalUploadDesc: 'Select a photo from your album, or upload a new one!',
     modalSwapDesc: 'Which gallery image are you sending into battle? Blue-bordered rollbacks keep their previously earned stars in this round!',
     modalBadgeSwapBack: '↩️ Rollback',
     msgUploadConfirm: 'Are you sure you want to enter the match with this existing photo?',
