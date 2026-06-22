@@ -14,7 +14,7 @@ const translations = {
     btnRules: '📖 Játékszabályok & Rangok',
     tileClubLifeTitle: 'Klubélet',
    navMarketplace: 'Piac',
-    contBadgeEditTitle: 'Szerkesztés',
+    contBagdeEditTitle: 'Szerkesztés',
 
     "roomJoinChallenge": "Nevezz a kihívásra!",
   "roomJoinDesc": "Válaszd ki a legjobban sikerült alkotásodat a galériádból, vagy tölts fel egy újat közvetlenül a folyamat során.",
@@ -983,7 +983,7 @@ const translations = {
     tileClubDesc: 'Club nights, meetings, tasks, or club portfolio selections all in one place.',
     tileAdminTitle: 'Administration',
     tileAdminDesc: 'Manage contests, club nights, users, and salons.',
-    contBadgeEditTitle: 'Edit',
+    contBagdeEditTitle: 'Edit',
 
     profTitle: '👤 Personal Data',
     profNotice: 'This name will appear next to your submitted entries, on the wall of fame, and on certificates as well.',
