@@ -1,6 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { getImageUrl } from '../utils/helpers';
 import { BACKEND_URL } from '../utils/constants';
+
+// 🎯 Nyelvi kontextus aktiválása
+import { useLanguage } from '../context/LanguageContext';
 
 interface ClubHomeworksViewProps {
   user: any; 
@@ -21,6 +24,9 @@ export default function ClubHomeworksView({
   isLeader, setFullscreenData, handleToggleLike, fetchMyEntries, fetchClubHomeworkEntries, clubs
 }: ClubHomeworksViewProps) {
   
+  // 🎯 JAVÍTVA: A hook-ot a komponens legtetejére tettem az early return elé, így a hatókör mindenki számára nyitott!
+  const { t, lang } = useLanguage();
+
   const inputStyle = { width: '100%', padding: '10px', marginBottom: '10px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '6px', boxSizing: 'border-box' as const };
 
   // ==============================================================
@@ -40,6 +46,72 @@ export default function ClubHomeworksView({
   
   const [editingHwEntryId, setEditingHwEntryId] = useState<number | null>(null);
   const [editHwEntryTitle, setEditHwEntryTitle] = useState('');
+
+  // Tárhely és AI használat követéséhez szükséges állapotok
+  const [userStorage, setUserStorage] = useState({ count: 0, bytes: 0 });
+  const [aiUsageCount, setAiUsageCount] = useState(0);
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
+
+  // 1. Csak a vezetővel rendelkező klubok betöltése a legördülő listába
+  useEffect(() => {
+    fetch(`${BACKEND_URL}/api/clubs/active-only`)
+      .then(res => res.json())
+      .then(data => setActiveClubs(data || []))
+      .catch(console.error);
+  }, []);
+
+  // 2. Felhasználó specifikus tárhely és AI statisztikák betöltése
+  useEffect(() => {
+    if (!user?.email) return;
+    
+    const fetchUserStats = async () => {
+      setIsLoadingStats(true);
+      try {
+        const resStorage = await fetch(`${BACKEND_URL}/api/admin/user-storage-stats`);
+        if (resStorage.ok) {
+          const allStats = await resStorage.json();
+          const myStats = allStats.find((s: any) => s.user_email === user.email);
+          if (myStats) {
+            setUserStorage({
+              count: myStats.total_photos || 0,
+              bytes: Number(myStats.total_bytes) || 0
+            });
+          }
+        }
+        
+        if (user.ai_usage_count !== undefined) {
+          setAiUsageCount(user.ai_usage_count);
+        }
+      } catch (e) {
+        console.error("Hiba a felhasználói statisztikák betöltésekor", e);
+      } finally {
+        setIsLoadingStats(false);
+      }
+    };
+
+    fetchUserStats();
+  }, [user]);
+
+  // 3. Függőben lévő tagok betöltése vezetőknek
+  const [activeClubs, setActiveClubs] = useState<any[]>([]);
+  const [selectedClubId, setSelectedClubId] = useState<string>('');
+  const [pendingMembers, setPendingMembers] = useState<any[]>([]);
+
+  const loadPendingMembers = () => {
+    const matchedClub = activeClubs.find(c => c.name === user?.club_name);
+    const effectiveClubId = user?.club_id || matchedClub?.id;
+
+    if (isLeader && effectiveClubId) {
+      fetch(`${BACKEND_URL}/api/clubs/pending-members?clubId=${effectiveClubId}`)
+        .then(res => res.json())
+        .then(data => setPendingMembers(data || []))
+        .catch(console.error);
+    }
+  };
+
+  useEffect(() => {
+    loadPendingMembers();
+  }, [user, isLeader, activeClubs]);
 
   if (!currentDbUser?.club_name) {
     return (
@@ -97,7 +169,7 @@ export default function ClubHomeworksView({
   };
 
   const handleLocalDeleteHwEntry = async (entryId: number) => {
-    if (!window.confirm("Biztosan véglegen törölni szeretnéd ezt a beküldött fotódat?")) return;
+    if (!window.confirm("Biztosan véglegesen törölni szeretnéd ezt a beküldött fotódat?")) return;
     
     try {
       const res = await fetch(`${BACKEND_URL}/api/homework-entries/${entryId}?userEmail=${encodeURIComponent(user.email)}`, {
@@ -130,9 +202,7 @@ export default function ClubHomeworksView({
     } catch (e) { console.error('Hiba a kiválasztáskor:', e); }
   };
 
-  // 🎯 ÚJ: INTELIGENS KÉSLELTETETT BATCH LETÖLTŐ MOTOR VEZETŐKNEK
   const handleDownloadAllSelected = (homeworkEntries: any[]) => {
-    // Kiszűrjük azokat a képeket, amik ki vannak választva (akár adatbázisban, akár lokálisan)
     const selectedEntries = homeworkEntries.filter(entry => 
       localSelections[entry.id] !== undefined ? localSelections[entry.id] : (entry.is_selected === 1)
     );
@@ -148,7 +218,6 @@ export default function ClubHomeworksView({
 
     if (!window.confirm(confirmMessage)) return;
 
-    // Biztonsági 400ms-os lépcsőzetes letöltési hurok a böngésző letiltásának kijátszására
     selectedEntries.forEach((entry, idx) => {
       setTimeout(() => {
         const downloadAnchor = document.createElement('a');
@@ -156,7 +225,6 @@ export default function ClubHomeworksView({
           ? `https://docs.google.com/uc?export=download&id=${entry.drive_file_id}` 
           : entry.file_url;
         
-        // Letöltési fájlnév szabványosítása
         const safeTitle = (entry.title || 'kep').replace(/[^a-zA-Z0-9-_]/g, '_');
         const safeAuthor = (entry.user_name || 'szerzo').replace(/[^a-zA-Z0-9-_]/g, '_');
         downloadAnchor.setAttribute('download', `${safeAuthor}_${safeTitle}.jpg`);
@@ -284,7 +352,6 @@ export default function ClubHomeworksView({
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', flexWrap: 'wrap', gap: '10px' }}>
                         <h4 style={{ margin: 0, fontSize: '1rem', color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '1px' }}>📊 Klub Portfólió Válogatás (Vezetői Nézet)</h4>
                         
-                        {/* ── 🎯 ÚJ: TÖMEGES KIVÁLASZTOTT LETÖLTÉS GOMB VEZETŐKNEK ── */}
                         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                           <button 
                             onClick={() => handleDownloadAllSelected(hwEntriesForAllRaw)}
@@ -318,7 +385,7 @@ export default function ClubHomeworksView({
                                         {userEntries.map((entry, i) => (
                                           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '5px', background: entry.isSelected ? '#10b98120' : '#1e293b', border: entry.isSelected ? '1px solid #10b98150' : '1px solid #334155', padding: '4px 8px', borderRadius: '6px', fontSize: '0.8rem' }}>
                                             <span style={{ color: '#e2e8f0', maxWidth: '120px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{entry.title}</span>
-                                            <span style={{ color: '#doc-error', fontWeight: 'bold' }}>❤️ {entry.likes}</span>
+                                            <span style={{ color: '#ef4444', fontWeight: 'bold' }}>❤️ {entry.likes}</span>
                                             {entry.isSelected && <span title="Kiválasztva" style={{ color: '#10b981' }}>✅</span>}
                                           </div>
                                         ))}
@@ -380,7 +447,7 @@ export default function ClubHomeworksView({
                                 <div style={{ padding: '12px' }}>
                                   <div style={{ fontSize: '0.9rem', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#f8fafc' }}>{entry.title}</div>
                                   {!isPast && (
-                                    <div style={{ display: 'flex', gap: '5px', marginTop: '12px', flexWrap: 'wrap' }}>
+                                    <div style={{ display: 'flex', gap: '6px', marginTop: '12px', flexWrap: 'wrap' }}>
                                       <button onClick={() => { setEditingHwEntryId(entry.id); setEditHwEntryTitle(entry.title); }} style={{ flex: '1 1 45%', background: '#38bdf820', color: '#38bdf8', border: 'none', padding: '6px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>Szerkeszt</button>
                                       <button onClick={() => handleLocalDeleteHwEntry(entry.id)} style={{ flex: '1 1 45%', background: '#ef444420', color: '#ef4444', border: 'none', padding: '6px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>Törlés</button>
                                     </div>
