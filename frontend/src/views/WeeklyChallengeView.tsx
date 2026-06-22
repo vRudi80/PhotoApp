@@ -216,7 +216,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const [isUploading, setIsUploading] = useState(false);
 
   const [uploadCamera, setUploadCamera] = useState('');
-  const [uploadLens, setUploadLens] = useState('');
+  const [uploadLens, setUploadCameraLens] = useState('');
   const [uploadShutter, setUploadShutter] = useState('');
   const [uploadIso, setUploadIso] = useState('');
   const [uploadAperture, setUploadAperture] = useState('');
@@ -345,7 +345,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     finally { if (!isSilent) setLoading(false); }
   };
 
-  // 🎯 SILENT ALBUM PRE-FETCH ENGINE: A háttérben azonnal letölti az albumot betöltéskor
   const fetchAlbumSilently = async () => {
     if (!user?.email) return;
     try {
@@ -380,12 +379,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     if (!typedLobbyMsg.trim() || isSendingLobbyMsg) return;
 
     setIsSendingLobbyMsg(true);
-    const msgPayload = {
-      topicId: 0,
-      userEmail: user?.email,
-      userName: user?.name || (lang === 'en' ? 'Anonymous Photographer' : 'Anonim Képolvasó'),
-      messageText: typedLobbyMsg
-    };
 
     try {
       const res = await fetch(`${BACKEND_URL}/api/weekly/chat`, {
@@ -400,14 +393,13 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       });
       
       if (res.ok) {
-        const data = await res.json();
         setTypedLobbyMsg('');
         
         setLobbyMessages(prev => [...prev, { 
           id: Date.now(),
           topic_id: 0,
           user_email: user?.email,
-          user_name: data.user_name || user?.name || (lang === 'en' ? 'Anonymous Photographer' : 'Anonim Képolvasó'),
+          user_name: user?.name || (lang === 'en' ? 'Anonymous Photographer' : 'Anonim Képolvasó'),
           message_text: typedLobbyMsg,
           created_at: new Date().toISOString() 
         }]);
@@ -428,7 +420,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   useEffect(() => {
     if (subTab === 'current') {
       fetchCurrentTopic(false);
-      fetchAlbumSilently(); // 👈 Elindítjuk a csendes háttér-letöltést
+      fetchAlbumSilently(); 
     }
     else if (subTab === 'upcoming') fetch(`${BACKEND_URL}/api/weekly/upcoming`).then(res => res.json()).then(data => setUpcomingTopics(data || [])).catch(console.error);
     else if (subTab === 'past') fetch(`${BACKEND_URL}/api/weekly/past`).then(res => res.json()).then(data => setPastTopics(data || [])).catch(console.error);
@@ -708,7 +700,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         setUploadCamera(''); setUploadCameraLens(''); setUploadShutter('');
         setUploadIso(''); setUploadAperture(''); setUploadSoftware('');
         await fetchCurrentTopic(true); 
-        fetchAlbumSilently(); // Frissítjük a hátteret is
+        fetchAlbumSilently(); 
       }
     } catch (e) {
       console.error("Feltöltési hiba:", e);
@@ -895,7 +887,22 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     }
   };
 
-  // FUTÁSIDEJŰ RENDERELES KISZÁMÍTÁSOK
+  useEffect(() => {
+    if (selectedTopicId === null && subTab === 'current' && isChatOpen) {
+      const handleScrollToBottom = () => {
+        if (chatScrollContainerRef.current) {
+          chatScrollContainerRef.current.scrollTop = chatScrollContainerRef.current.scrollHeight;
+        }
+      };
+
+      handleScrollToBottom();
+
+      const timer = setTimeout(handleScrollToBottom, 120);
+      return () => clearTimeout(timer);
+    }
+  }, [lobbyMessages.length, selectedTopicId, subTab, isChatOpen]);
+
+  // 4. FUTÁSIDEJŰ JELEN JELMZŐ SZÁMÍTÁSOK (A RENDER ELŐTT)
   const currentLevel = getLevelDetails(userTotalLikes, userVictories);
 
   const BASE_EXPOSURE = 10;
@@ -977,7 +984,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   <div style={{ textAlign: 'center', padding: '5rem 2rem', background: 'linear-gradient(180deg, #1e293b, #0f172a)', borderRadius: '24px', border: '1px solid #334155' }}>
                     <div style={{ fontSize: '5rem', marginBottom: '1rem' }}>😴</div>
                     <h2 style={{ color: '#f59e0b', margin: '0 0 10px 0', fontSize: '2rem' }}>{t('viewNoActiveLeagues')}</h2>
-                    <p style={{ color: '#94a3b8') }}>{t('viewNoActiveLeaguesDesc')}</p>
+                    {/* 🎯 JAVÍTVA: Itt volt a rakoncátlan bezáró kerek zárójel, amit most tiszta kapcsosra cseréltem! */}
+                    <p style={{ color: '#94a3b8' }}>{t('viewNoActiveLeaguesDesc')}</p>
                   </div>
                 ) : (
                   <div className="arena-cards-grid">
@@ -1144,11 +1152,11 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   handleSwapSubmit={handleSwapSubmit}
                   onOpenAlbumForUpload={() => {
                     setAlbumModalMode('upload');
-                    setShowSwapAlbumModal(true); // 👈 AZONNAL megnyílik, nincs akadás!
+                    setShowSwapAlbumModal(true); 
                   }}
                   onOpenAlbumForSwap={() => {
                     setAlbumModalMode('swap');
-                    setShowSwapAlbumModal(true); // 👈 AZONNAL megnyílik!
+                    setShowSwapAlbumModal(true); 
                   }}
                   handleVote={handleVote}
                   handleOffTopicReport={handleOffTopicReport}
@@ -1189,7 +1197,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         isOpen={showSwapAlbumModal} 
         onClose={(wasActionSubmitted) => {
           setShowSwapAlbumModal(false);
-          // 🎯 UX FIX: Csak akkor frissítünk és villantunk teljes oldalt, ha sikeres akció történt. Mégse gombnál nem!
           if (wasActionSubmitted === true) {
             fetchCurrentTopic(false);
           }
