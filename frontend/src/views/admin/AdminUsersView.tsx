@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { BACKEND_URL } from '../../utils/constants';
 
 interface AdminUsersViewProps {
@@ -61,12 +61,22 @@ export default function AdminUsersView({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  // Keresés szűrése
-  const filteredUsers = allUsers.filter(u => 
-    (u.name && u.name.toLowerCase().includes(searchTerm.toLowerCase())) || 
-    (u.email && u.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (u.club_name && u.club_name.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  // 🎯 ÚJ: INTELLIGENS KERESŐ ÉS UTOLSÓ BELÉPÉS SZERINTI CSÖKKENŐ RENDEZŐ MOTOR
+  const processedUsers = useMemo(() => {
+    // 1. Első lépésként lefuttatjuk a meglévő keresési szűrést
+    const filtered = allUsers.filter(u => 
+      (u.name && u.name.toLowerCase().includes(searchTerm.toLowerCase())) || 
+      (u.email && u.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (u.club_name && u.club_name.toLowerCase().includes(searchTerm.toLowerCase()))
+    );
+
+    // 2. Második lépésben időbélyeg alapján csökkenő sorrendbe (legfrissebb előre) rendezzük
+    return [...filtered].sort((a, b) => {
+      const timeA = a.last_login ? new Date(a.last_login).getTime() : 0;
+      const timeB = b.last_login ? new Date(b.last_login).getTime() : 0;
+      return timeB - timeA; // timeB - timeA = legújabb belépés kerül a lista tetejére
+    });
+  }, [allUsers, searchTerm]);
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return '-';
@@ -118,7 +128,8 @@ export default function AdminUsersView({
             </tr>
           </thead>
           <tbody>
-            {filteredUsers.map((u, index) => {
+            {/* 🎯 JAVÍTVA: Most már az intelligensen rendezett 'processedUsers' listát képezzük le */}
+            {processedUsers.map((u, index) => {
               const originalClub = u.club_name || '';
               const originalRole = u.club_role || 'member';
               const currentClubValue = userClubEdits[u.email] !== undefined ? userClubEdits[u.email] : originalClub;
@@ -226,7 +237,8 @@ export default function AdminUsersView({
               )
             })}
             
-            {filteredUsers.length === 0 && (
+            {/* 🎯 JAVÍTVA: A hosszt is a processedUsers alapján ellenőrizzük */}
+            {processedUsers.length === 0 && (
               <tr>
                 <td colSpan={5} style={{ padding: '30px', textAlign: 'center', color: '#94a3b8' }}>
                   Nincs találat a keresésre.
