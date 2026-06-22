@@ -196,16 +196,16 @@ export default function Header({
               </button>
           </div>
 
-          {/* === ÚJ: PIACTÉR GOMB === */}
-<div className="nav-item-container" style={{ zIndex: 50 }}>
-    <button 
-      className={`nav-btn ${activeTab.startsWith('marketplace') ? 'active' : ''}`} 
-      style={{ color: '#ec4899' }} 
-      onClick={() => handleNavClick('marketplace')}
-    >
-      <span>🛒 {t('navMarketplace') || 'Piactér'}</span>
-    </button>
-</div>
+          {/* === PIACTÉR GOMB === */}
+          <div className="nav-item-container" style={{ zIndex: 50 }}>
+              <button 
+                className={`nav-btn ${activeTab.startsWith('marketplace') ? 'active' : ''}`} 
+                style={{ color: '#ec4899' }} 
+                onClick={() => handleNavClick('marketplace')}
+              >
+                <span>🛒 {t('navMarketplace') || 'Piactér'}</span>
+              </button>
+          </div>
           {(user?.email === ADMIN_EMAIL || isLeader) && (
             <div className="nav-item-container" style={{ zIndex: dropdownOpen === 'admin' ? 60 : 50 }}>
               <button className={`nav-btn ${dropdownOpen === 'admin' || activeTab.startsWith('admin_') || activeTab === 'leader_club' ? 'active' : ''}`} style={{ color: '#ef4444' }} onClick={() => setDropdownOpen(dropdownOpen === 'admin' ? null : 'admin')}>
@@ -251,9 +251,8 @@ export default function Header({
               style={{ color: '#14b8a6', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}
               onClick={() => setDropdownOpen(dropdownOpen === 'user_account' ? null : 'user_account')}
             >
-              {/* 🎯 BIZTONSÁGI FALLBACK JAVÍTÁS: Ha a fentről jövő objektumban esetleg más elnevezés lenne */}
               <span>👤 {user?.name || user?.user_name || 'Fotós'}</span>
-              {(user?.isPremium || user?.is_premium) && <span title="Prémium Tag" style={{ fontSize: '1.1rem' }}>⭐</span>}
+              {!!(user?.isPremium || user?.is_premium) && <span title="Prémium Tag" style={{ fontSize: '1.1rem' }}>⭐</span>}
               {isLeader && (
                 <span style={{ fontSize: '0.65rem', background: '#f59e0b20', color: '#f59e0b', padding: '2px 6px', borderRadius: '4px', border: '1px solid #f59e0b50', fontWeight: 'bold' }}>
                   Vezetőség
@@ -277,7 +276,8 @@ export default function Header({
                   )}
                 </button>
 
-                {(user?.isPremium || user?.is_premium) && (
+                {/* 🎯 FIXÁLVA: Dupla felkiáltójellel kényszerítjük a tiszta logikai (boolean) kiértékelést */}
+                {!!(user?.isPremium || user?.is_premium) && (
                   <button onClick={handleManageSubscription} style={{ color: '#10b981', fontWeight: 'bold' }} className="drop-item">
                     💳 Stripe Ügyfélkapu
                   </button>
