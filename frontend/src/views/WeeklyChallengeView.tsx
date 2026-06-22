@@ -177,7 +177,7 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
             <span style={{ color: '#e9d5ff' }}>{topic.master_name || topic.master_email}</span>
           </div>
         )}
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#38bdf8', fontSize: '0.8rem', fontWeight: 'bold', background: '#38bdf810', padding: '6px 10px', borderRadius: '10px', border: '1px solid #38bdf820', whiteSpace: 'nowrap' }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#38bdf8', fontSize: '0.8rem', fontWeight: 'bold', background: '#38bdf810', padding: '6px 10px', borderRadius: '10px', border: '#38bdf820', whiteSpace: 'nowrap' }}>
           <span>👥 {topic.totalEntries || 0} {t('photographers')}</span>
         </div>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: topic.unvotedEntries > 0 ? '#fb923c' : '#4ade80', fontSize: '0.8rem', fontWeight: 'bold', background: topic.unvotedEntries > 0 ? '#fb923c10' : '#4ade8010', padding: '6px 10px', borderRadius: '10px', border: topic.unvotedEntries > 0 ? '1px solid #fb923c20' : '1px solid #4ade8020', whiteSpace: 'nowrap' }}>
@@ -198,6 +198,7 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
 export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyChallengeViewProps) {
   const { t, lang } = useLanguage();
 
+  // 1. MINDEN ÁLLAPOT (STATES)
   const [subTab, setSubTab] = useState<'current' | 'upcoming' | 'past' | 'my_stats' | 'hall_of_fame' | 'arena_album'>('current');
   const [loading, setLoading] = useState(true);
   const [myReferralCode, setMyReferralCode] = useState<string>('');
@@ -207,11 +208,9 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const [masterVotesLeft, setMasterVotesLeft] = useState<number>(0);
   const [isMaster, setIsMaster] = useState<boolean>(false);
 
-  // 🎯 Új UX állapot: Chat nyitva/csukva, és van-e olvasatlan üzenet
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [hasNewMessage, setHasNewMessage] = useState(false);
 
-  // Új feltöltés adatai
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -283,70 +282,28 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const [typedLobbyMsg, setTypedLobbyMsg] = useState('');
   const [isSendingLobbyMsg, setIsSendingLobbyMsg] = useState(false);
   
-  // 🎯 Új UX Ref: A lebegő chat görgetősávját kezelő ref
   const chatScrollContainerRef = useRef<HTMLDivElement>(null);
   const lastTypingSignalSent = useRef<number>(0);
 
-  const myOfficialNameRef = useRef<string>(lang === 'en' ? 'Me' : 'Én');
-  useEffect(() => {
-    myOfficialNameRef.current = myEntry?.user_name || user?.name || (lang === 'en' ? 'Me' : 'Én');
-  }, [myEntry, user, lang]);
+  // REFS ÉS HOISTOLT ALAP-FÜGGVÉNYEK
+  const isChatOpenRef = useRef(isChatOpen);
+  const lobbyMessagesCountRef = useRef(lobbyMessages.length);
 
   useEffect(() => {
-    if (!activeShareData) {
-      setShareBase64(null);
-      return;
-    }
-    let isMounted = true;
-    setLoadingShareImg(true);
-    
-    const fetchUrl = activeShareData.drive_file_id 
-      ? `${BACKEND_URL}/api/image-base64/${activeShareData.drive_file_id}`
-      : `${BACKEND_URL}/api/admin/base64-proxy?url=${encodeURIComponent(activeShareData.file_url)}`;
+    isChatOpenRef.current = isChatOpen;
+    lobbyMessagesCountRef.current = lobbyMessages.length;
+  }, [isChatOpen, lobbyMessages.length]);
 
-    fetch(fetchUrl)
-      .then(res => res.json())
-      .then(data => {
-        if (isMounted) {
-          if (data.base64) setShareBase64(data.base64);
-          setLoadingShareImg(false);
-        }
-      })
-      .catch(err => {
-        console.error("Error downloading proxy asset:", err);
-        if (isMounted) setLoadingShareImg(false);
-      });
-    return () => { isMounted = false; };
-  }, [activeShareData]);
-
-  const currentLevel = getLevelDetails(userTotalLikes, userVictories);
-
-  const BASE_EXPOSURE = 10;
-  const exposureEarned = BASE_EXPOSURE + (Number(myVoteCount || 0) * 2);
-  const safeViewsCount = myEntry ? (Number(myEntry.views_count) || 0) : 0;
-  const viewsRemaining = myEntry ? (exposureEarned - safeViewsCount) : 0;
-  const rawPercentage = myEntry ? ((viewsRemaining / 15) * 100) : 0;
-  const exposurePercentage = isNaN(rawPercentage) || !isFinite(rawPercentage) ? 0 : Math.min(100, Math.max(0, rawPercentage));
-
-  let exposureColor = '#ef4444';
-  let exposureLabel = viewsRemaining <= 0 ? (lang === 'en' ? 'Invisible (0%)' : 'Láthatatlan (0%)') : (lang === 'en' ? 'Low' : 'Alacsony');
-  if (exposurePercentage >= 80) { exposureColor = '#10b981'; exposureLabel = lang === 'en' ? 'Maximum' : 'Maximális'; } 
-  else if (exposurePercentage >= 40) { exposureColor = '#f59e0b'; exposureLabel = lang === 'en' ? 'Medium' : 'Közepes'; }
-
-  useEffect(() => {
-    setTopic(null);
-    setMyEntry(null);
-    setMyPastEntries([]);
-    setVoteEntry(null);
-    setLeaderboard([]);
-    setCurrentClubLeaderboard([]);
-    setNoMoreEntries(false);
-    setTimeLeft('');
-    setPastLeaderboard([]); 
-    setPastClubLeaderboard([]);
-    setMasterVotesLeft(0); 
-    setIsMaster(false);     
-  }, [selectedTopicId]);
+  const fetchNextVote = async (topicId: number) => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/weekly/next-vote?topicId=${topicId}&userEmail=${user?.email || ''}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.entry) { setVoteEntry(data.entry); setNoMoreEntries(false); } 
+        else { setVoteEntry(null); setNoMoreEntries(true); }
+      }
+    } catch (e) { console.error(e); }
+  };
 
   const fetchCurrentTopic = async (isSilent = false) => {
     if (!isSilent) setLoading(true);
@@ -387,6 +344,108 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     finally { if (!isSilent) setLoading(false); }
   };
 
+  const myOfficialNameRef = useRef<string>(lang === 'en' ? 'Me' : 'Én');
+  useEffect(() => {
+    myOfficialNameRef.current = myEntry?.user_name || user?.name || (lang === 'en' ? 'Me' : 'Én');
+  }, [myEntry, user, lang]);
+
+  // REAKTÍV HORGOK (HOOKS) ÉS LOOP-BIZTONSÁGOS AUTOMATIZMUSOK
+  useEffect(() => {
+    if (subTab === 'current') {
+      fetchCurrentTopic(false);
+    }
+    else if (subTab === 'upcoming') fetch(`${BACKEND_URL}/api/weekly/upcoming`).then(res => res.json()).then(data => setUpcomingTopics(data || [])).catch(console.error);
+    else if (subTab === 'past') fetch(`${BACKEND_URL}/api/weekly/past`).then(res => res.json()).then(data => setPastTopics(data || [])).catch(console.error);
+    else if (subTab === 'my_stats') fetchMyStats(); 
+    else if (subTab === 'hall_of_fame') fetchHallOfFame();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subTab, selectedTopicId, user?.email]);
+
+  useEffect(() => {
+    setTopic(null);
+    setMyEntry(null);
+    setMyPastEntries([]);
+    setVoteEntry(null);
+    setLeaderboard([]);
+    setCurrentClubLeaderboard([]);
+    setTimeLeft('');
+    setPastLeaderboard([]); 
+    setPastClubLeaderboard([]);
+    setMasterVotesLeft(0); 
+    setIsMaster(false);     
+    setHasNewMessage(false);
+  }, [selectedTopicId, user?.email]);
+
+  useEffect(() => {
+    if (isChatOpen && lobbyMessages.length > 0 && user?.email) {
+      const lastMsg = lobbyMessages[lobbyMessages.length - 1];
+      const lastId = lastMsg.id || lastMsg._id;
+      if (lastId) {
+        localStorage.setItem(`arena_chat_last_read_${user.email}`, String(lastId));
+      }
+      setHasNewMessage(false);
+    }
+  }, [isChatOpen, lobbyMessages, user?.email]);
+
+  useEffect(() => {
+    if (subTab !== 'current' || selectedTopicId !== null) return;
+
+    let timerId: NodeJS.Timeout;
+    let isMounted = true;
+
+    const fetchLobbyChat = async () => {
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/weekly/chat/0?t=${Date.now()}`, {
+          method: 'GET',
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+          }
+        });
+        
+        if (res.ok && isMounted) {
+          const data = await res.json();
+          const newMessages = data.messages || [];
+          
+          if (newMessages.length > 0 && user?.email) {
+            const lastMsg = newMessages[newMessages.length - 1];
+            const lastMsgEmail = lastMsg?.user_email || lastMsg?.userEmail;
+            const lastId = lastMsg.id || lastMsg._id;
+
+            if (lastMsgEmail !== user.email) {
+              if (isChatOpenRef.current) {
+                localStorage.setItem(`arena_chat_last_read_${user.email}`, String(lastId));
+              } else {
+                const storedId = localStorage.getItem(`arena_chat_last_read_${user.email}`);
+                if (!storedId || String(lastId) !== storedId) {
+                  setHasNewMessage(true);
+                }
+              }
+            }
+          }
+
+          setLobbyMessages(newMessages);
+          const othersTyping = (data.typing || []).filter((name: string) => name !== myOfficialNameRef.current);
+          setCurrentlyTyping(othersTyping);
+        }
+      } catch (err) {
+        console.error("Lobby chat synchronization anomaly:", err);
+      } finally { 
+        if (isMounted && subTab === 'current' && selectedTopicId === null) {
+          timerId = setTimeout(fetchLobbyChat, 2500);
+        }
+      }
+    };
+
+    fetchLobbyChat();
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timerId);
+    };
+  }, [subTab, selectedTopicId, user?.email]);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setTypedLobbyMsg(e.target.value);
 
@@ -403,17 +462,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         })
       }).catch(() => {});
     }
-  };
-
-  const fetchNextVote = async (topicId: number) => {
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/weekly/next-vote?topicId=${topicId}&userEmail=${user?.email || ''}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data && data.entry) { setVoteEntry(data.entry); setNoMoreEntries(false); } 
-        else { setVoteEntry(null); setNoMoreEntries(true); }
-      }
-    } catch (e) { console.error(e); }
   };
 
   const fetchMyStats = async () => {
@@ -442,159 +490,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     } catch (e) { console.error(e); }
     finally { setIsLoadingHof(false); }
   };
-
-  useEffect(() => {
-    if (subTab === 'current') {
-      fetchCurrentTopic(false);
-    }
-    else if (subTab === 'upcoming') fetch(`${BACKEND_URL}/api/weekly/upcoming`).then(res => res.json()).then(data => setUpcomingTopics(data || [])).catch(console.error);
-    else if (subTab === 'past') fetch(`${BACKEND_URL}/api/weekly/past`).then(res => res.json()).then(data => setPastTopics(data || [])).catch(console.error);
-    else if (subTab === 'my_stats') fetchMyStats(); 
-    else if (subTab === 'hall_of_fame') fetchHallOfFame();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subTab, selectedTopicId]);
-
-  // 🎯 SZINKRONIZÁLT LOBBY CHAT ADATFOLYAM POLLING ENGINE
-  useEffect(() => {
-    if (subTab !== 'current' || selectedTopicId !== null) return;
-
-    let timerId: NodeJS.Timeout;
-    let isMounted = true;
-
-    const fetchLobbyChat = async () => {
-      try {
-        const res = await fetch(`${BACKEND_URL}/api/weekly/chat/0?t=${Date.now()}`, {
-          method: 'GET',
-          headers: {
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            'Pragma': 'no-cache',
-            'Expires': '0'
-          }
-        });
-        
-        if (res.ok && isMounted) {
-          const data = await res.json();
-          const newMessages = data.messages || [];
-          
-          // 🎯 UX Értesítési pötty aktiválása, ha csukva van a chat és jön új üzenet
-          if (!isChatOpen && lobbyMessages.length > 0 && newMessages.length > lobbyMessages.length) {
-            setHasNewMessage(true);
-          }
-
-          setLobbyMessages(newMessages);
-          const othersTyping = (data.typing || []).filter((name: string) => name !== myOfficialNameRef.current);
-          setCurrentlyTyping(othersTyping);
-        }
-      } catch (err) {
-        console.error("Lobby chat synchronization anomaly:", err);
-      } finally {
-        if (isMounted && subTab === 'current' && selectedTopicId === null) {
-          timerId = setTimeout(fetchLobbyChat, 2500);
-        }
-      }
-    };
-
-    fetchLobbyChat();
-
-    return () => {
-      isMounted = false;
-      clearTimeout(timerId);
-    };
-  }, [subTab, selectedTopicId, isChatOpen, lobbyMessages.length]);
-
-  // 🎯 JAVÍTVA: A destabilizáló window scroll elkerülése érdekében közvetlenül a chat doboz belső koordinátáit toljuk el
-  useEffect(() => {
-    if (selectedTopicId === null && subTab === 'current' && chatScrollContainerRef.current) {
-      chatScrollContainerRef.current.scrollTop = chatScrollContainerRef.current.scrollHeight;
-    }
-  }, [lobbyMessages.length, selectedTopicId, subTab, isChatOpen]);
-
-  const handleSendLobbyMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!typedLobbyMsg.trim() || isSendingLobbyMsg) return;
-
-    setIsSendingLobbyMsg(true);
-    const msgPayload = {
-      topicId: 0,
-      userEmail: user?.email,
-      userName: user?.name || (lang === 'en' ? 'Anonymous Photographer' : 'Anonim Képolvasó'),
-      messageText: typedLobbyMsg
-    };
-
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/weekly/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(msgPayload)
-      });
-      
-      if (res.ok) {
-        const data = await res.json();
-        setTypedLobbyMsg('');
-        
-        setLobbyMessages(prev => [...prev, { 
-          id: Date.now(),
-          topic_id: 0,
-          user_email: user?.email,
-          user_name: data.user_name || user?.name || (lang === 'en' ? 'Anonymous Photographer' : 'Anonim Képolvasó'),
-          message_text: typedLobbyMsg,
-          created_at: new Date().toISOString() 
-        }]);
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsSendingLobbyMsg(false);
-    }
-  };
-
-  useEffect(() => {
-    if (!topic || !topic.end_date) {
-      setTimeLeft(t('viewTimeError'));
-      return;
-    }
-
-    const calculateTimeLeft = () => {
-      const now = new Date().getTime();
-      const parts = topic.end_date.split(/[- :T]/);
-      const end = parts.length >= 5 
-        ? new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), parseInt(parts[3]), parseInt(parts[4]), parts[5] ? parseInt(parts[5]) : 0)
-        : new Date(topic.end_date);
-      
-      if (isNaN(end.getTime())) {
-        setTimeLeft(t('viewTimeError'));
-        return false;
-      }
-
-      const distance = end.getTime() - now;
-      if (distance < 0) {
-        setTimeLeft(t('viewTimeEnded'));
-        return false;
-      }
-
-      const days = Math.floor(distance / (1000 * 60 * 60 * 24));
-      const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)).toString().padStart(2, '0');
-      const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60)).toString().padStart(2, '0');
-      const seconds = Math.floor((distance % (1000 * 60)) / 1000).toString().padStart(2, '0');
-
-      if (days > 0) {
-        setTimeLeft(`${days}${t('viewTimeDays')}${hours}:${minutes}:${seconds}`);
-      } else {
-        setTimeLeft(`${hours}:${minutes}:${seconds}`);
-      }
-      return true;
-    };
-
-    const isActive = calculateTimeLeft();
-    if (!isActive) return;
-
-    const interval = setInterval(() => {
-      const stillActive = calculateTimeLeft();
-      if (!stillActive) clearInterval(interval);
-    }, 1000);
-    
-    return () => clearInterval(interval);
-  }, [topic, t]);
 
   const loadPastHistoryList = async (topicId: number) => {
     setSelectedPastTopicId(topicId);
@@ -938,6 +833,106 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     }
   };
 
+  // EFFEKTUSOK: SUTIK / TRÓFEÁK / ANIMÁCIÓK
+  useEffect(() => {
+    if (!activeShareData) {
+      setShareBase64(null);
+      return;
+    }
+    let isMounted = true;
+    setLoadingShareImg(true);
+    
+    const fetchUrl = activeShareData.drive_file_id 
+      ? `${BACKEND_URL}/api/image-base64/${activeShareData.drive_file_id}`
+      : `${BACKEND_URL}/api/admin/base64-proxy?url=${encodeURIComponent(activeShareData.file_url)}`;
+
+    fetch(fetchUrl)
+      .then(res => res.json())
+      .then(data => {
+        if (isMounted) {
+          if (data.base64) setShareBase64(data.base64);
+          setLoadingShareImg(false);
+        }
+      })
+      .catch(err => {
+        console.error("Error downloading proxy asset:", err);
+        if (isMounted) setLoadingShareImg(false);
+      });
+    return () => { isMounted = false; };
+  }, [activeShareData]);
+
+  // EFFEKTUSOK: GÖRDÍTÉS ÉS IDŐZÍTŐK
+  useEffect(() => {
+    if (selectedTopicId === null && subTab === 'current' && chatScrollContainerRef.current) {
+      chatScrollContainerRef.current.scrollTop = chatScrollContainerRef.current.scrollHeight;
+    }
+  }, [lobbyMessages.length, selectedTopicId, subTab, isChatOpen]);
+
+  useEffect(() => {
+    if (!topic || !topic.end_date) {
+      setTimeLeft(t('viewTimeError'));
+      return;
+    }
+
+    const calculateTimeLeft = () => {
+      const now = new Date().getTime();
+      const parts = topic.end_date.split(/[- :T]/);
+      const end = parts.length >= 5 
+        ? new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), parseInt(parts[3]), parseInt(parts[4]), parts[5] ? parseInt(parts[5]) : 0)
+        : new Date(topic.end_date);
+      
+      if (isNaN(end.getTime())) {
+        setTimeLeft(t('viewTimeError'));
+        return false;
+      }
+
+      const distance = end.getTime() - now;
+      if (distance < 0) {
+        setTimeLeft(t('viewTimeEnded'));
+        return false;
+      }
+
+      const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)).toString().padStart(2, '0');
+      const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60)).toString().padStart(2, '0');
+      const seconds = Math.floor((distance % (1000 * 60)) / 1000).toString().padStart(2, '0');
+
+      if (days > 0) {
+        setTimeLeft(`${days}${t('viewTimeDays')}${hours}:${minutes}:${seconds}`);
+      } else {
+        setTimeLeft(`${hours}:${minutes}:${seconds}`);
+      }
+      return true;
+    };
+
+    const isActive = calculateTimeLeft();
+    if (!isActive) return;
+
+    const interval = setInterval(() => {
+      const stillActive = calculateTimeLeft();
+      if (!stillActive) clearInterval(interval);
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, [topic, t]);
+
+
+  // 🎯 4. SZÁMÍTOTT ÉRTÉKEK A RENDELÉSHEZ (Garantáltan definiálva a használat helye előtt)
+  // 🛡️ JAVÍTVA: A currentLevel és a hozzá tartozó expo változók most már biztosan beolvasásra kerülnek
+  const currentLevel = getLevelDetails(userTotalLikes, userVictories);
+
+  const BASE_EXPOSURE = 10;
+  const exposureEarned = BASE_EXPOSURE + (Number(myVoteCount || 0) * 2);
+  const safeViewsCount = myEntry ? (Number(myEntry.views_count) || 0) : 0;
+  const viewsRemaining = myEntry ? (exposureEarned - safeViewsCount) : 0;
+  const rawPercentage = myEntry ? ((viewsRemaining / 15) * 100) : 0;
+  const exposurePercentage = isNaN(rawPercentage) || !isFinite(rawPercentage) ? 0 : Math.min(100, Math.max(0, rawPercentage));
+
+  let exposureColor = '#ef4444';
+  let exposureLabel = viewsRemaining <= 0 ? (lang === 'en' ? 'Invisible (0%)' : 'Láthatatlan (0%)') : (lang === 'en' ? 'Low' : 'Alacsony');
+  if (exposurePercentage >= 80) { exposureColor = '#10b981'; exposureLabel = lang === 'en' ? 'Maximum' : 'Maximális'; } 
+  else if (exposurePercentage >= 40) { exposureColor = '#f59e0b'; exposureLabel = lang === 'en' ? 'Medium' : 'Közepes'; }
+
   const sortedActiveTopics = [...activeTopics].sort((a, b) => {
     const dateStrA = String(sortBy === 'endDate' ? a.end_date : a.start_date).replace(' ', 'T').split('.')[0];
     const dateStrB = String(sortBy === 'endDate' ? b.end_date : b.start_date).replace(' ', 'T').split('.')[0];
@@ -965,7 +960,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           <button onClick={() => { setSubTab('my_stats'); fetchMyStats(); }} style={{ padding: '10px 24px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: subTab === 'my_stats' ? 'linear-gradient(135deg, #8b5cf6, #6366f1)' : 'transparent', color: subTab === 'my_stats' ? 'white' : '#94a3b8', transition: 'all 0.3s', boxShadow: subTab === 'my_stats' ? '0 4px 15px rgba(139,92,246,0.4)' : 'none' }}>{t('tabStats')}</button>
           <button onClick={() => setSubTab('hall_of_fame')} style={{ padding: '10px 24px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: subTab === 'hall_of_fame' ? 'linear-gradient(135deg, #fbbf24, #d97706)' : 'transparent', color: subTab === '#0f172a' ? '#0f172a' : '#94a3b8', transition: 'all 0.3s', boxShadow: subTab === 'hall_of_fame' ? '0 4px 15px rgba(251,191,36,0.4)' : 'none' }}>{t('tabHof')}</button>
         </div>
-        <button onClick={() => setShowHelp(true)} style={{ padding: '12px 24px', borderRadius: '12px', border: '1px solid #38bdf8', cursor: 'pointer', fontWeight: 'bold', background: '#0f172a', color: '#38bdf8', transition: 'all 0.3s', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 15px rgba(56,189,248,0.2)' }}>
+        <button onClick={() => setShowHelp(true)} style={{ padding: '12px 24px', borderRadius: '12px', border: '1px solid #334155', cursor: 'pointer', fontWeight: 'bold', background: '#0f172a', color: '#38bdf8', transition: 'all 0.3s', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 15px rgba(56,189,248,0.2)' }}>
           {t('btnRules')}
         </button>
       </div>
@@ -975,7 +970,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           {selectedTopicId === null ? (
             <div className="arena-fluid-container">
               
-              {/* JAVÍTVA: A szobák most már 100% szélességet kapnak, a betöltés azonnali */}
               <div>
                 <div style={{ marginBottom: '25px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '15px' }}>
                   <div>
@@ -1021,10 +1015,9 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                 )}
               </div>
 
-              {/* 🎯 ÚJ ELRENDEZÉS: Modern, játék-stílusú lebegő/összecsukható Chat dokk */}
-              <div className={`arena-floating-chat-dock ${isChatOpen ? 'is-open' : 'is-closed'}`}>
+              {/* FLOATING CHAT WIDGET */}
+              <div className={`arena-floating-chat-dock ${isChatOpen ? 'is-open' : 'is-closed'} ${hasNewMessage ? 'has-unread' : ''}`}>
                 
-                {/* CHAT FEJLÉC / TOGGLE KAPCSOLÓ */}
                 <div 
                   onClick={() => {
                     setIsChatOpen(!isChatOpen);
@@ -1034,18 +1027,18 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', position: 'relative' }}>
                     <span style={{ fontSize: '1.2rem' }}>💬</span>
-                    <span style={{ fontWeight: 'bold', fontSize: '0.95rem' }}>{t('viewLobbyTitle')}</span>
+                    <span style={{ fontWeight: 'bold', fontSize: '0.95rem' }}>
+                      {t('viewLobbyTitle')} {hasNewMessage && <span style={{ color: '#f43f5e', fontSize: '0.8rem', marginLeft: '5px' }}>({lang === 'en' ? 'New!' : 'Új üzenet!'})</span>}
+                    </span>
                     {hasNewMessage && <span className="chat-notification-badge" />}
                   </div>
                   <span style={{ transform: isChatOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.3s', fontWeight: 'bold' }}>▲</span>
                 </div>
 
-                {/* CHAT BELSŐ TARTALOM */}
                 {isChatOpen && (
                   <div className="chat-dock-body">
                     <p style={{ margin: '0 0 10px 0', color: '#64748b', fontSize: '0.78rem' }}>{t('viewLobbyDesc')}</p>
                     
-                    {/* BELSŐ KONTÉNER: A görgetés most már kizárólag itt történik, az anyaoldal stabil marad! */}
                     <div ref={chatScrollContainerRef} className="chat-messages-scroll-area">
                       {lobbyMessages.length === 0 ? (
                         <div style={{ color: '#475569', textAlign: 'center', margin: 'auto', fontStyle: 'italic', fontSize: '0.85rem', padding: '20px 0' }}>
@@ -1239,7 +1232,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
 
       <ShareCardModal activeShareData={activeShareData} onClose={() => setActiveShareData(null)} user={user} shareBase64={shareBase64} loadingShareImg={loadingShareImg} isGeneratingImage={isGeneratingImage} handleExecuteShare={handleExecuteShare} />
 
-      {/* ── 🎯 STYLING LAYER: Szupergyors és reszponzív Bento/Floating Engine ── */}
+      {/* ── 🎯 STYLING LAYER ── */}
       <style>{`
         .arena-fluid-container {
           width: 100%;
@@ -1268,6 +1261,10 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         }
         .arena-floating-chat-dock.is-closed {
           transform: translateY(calc(100% - 50px));
+        }
+        .arena-floating-chat-dock.has-unread .chat-dock-header {
+          border-color: #f43f5e;
+          box-shadow: inset 0 0 10px rgba(244,63,94,0.2);
         }
         .chat-dock-header {
           padding: 14px 20px;
@@ -1301,8 +1298,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         }
         .chat-notification-badge {
           position: absolute;
-          top: -2px;
-          left: -4px;
+          top: -1px;
+          left: -3px;
           width: 8px;
           height: 8px;
           background: #f43f5e;
