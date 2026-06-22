@@ -93,6 +93,59 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { res.status(500).json({ error: 'Hiba a like-olásnál' }); }
   });
 
+  // ── 🎯 18. ÚJ: GOLYÓÁLLÓ SZERVEROLDALI MAFOSZ ZIP TÖMÖRÍTŐ MOTOR ──
+  const archiver = require('archiver');
+
+  app.post('/api/homework/download-zip', async (req, res) => {
+    const { entries, topic } = req.body;
+    if (!entries || entries.length === 0) {
+      return res.status(400).json({ error: 'Nincs kiválasztott kép a tömörítéshez.' });
+    }
+
+    try {
+      // Szabványosítjuk a fájlnevet a házi feladat témája alapján
+      const safeTopic = topic ? topic.replace(/[^a-zA-Z0-9-_]/g, '_') : 'valogatas';
+      
+      // Beállítjuk a HTTP fejléceket, hogy a böngésző tiszta ZIP letöltésként kezelje
+      res.attachment(`${safeTopic}_klub_valogatas.zip`);
+
+      // Elindítjuk a ZIP archívum streamelését
+      const archive = archiver('zip', { zlib: { level: 9 } }); // Maximális tömörítési szint
+      archive.pipe(res);
+
+      // Sorban végigmegyünk az admin által kijelölt képeken
+      for (const entry of entries) {
+        if (entry.drive_file_id) {
+          try {
+            // Letöltjük a képet a Google Drive-ból tiszta adatfolyamként (Stream)
+            const driveRes = await drive.files.get(
+              { fileId: entry.drive_file_id, alt: 'media' },
+              { responseType: 'stream' }
+            );
+
+            // Tisztítjuk a fájlneveket a speciális karakterektől
+            const safeTitle = (entry.title || 'kep').replace(/[^a-zA-Z0-9-_]/g, '_');
+            const safeAuthor = (entry.user_name || 'szerzo').replace(/[^a-zA-Z0-9-_]/g, '_');
+
+            // Becsomagoljuk a képet a ZIP-be "Szerzo_Kepcime.jpg" formátumban
+            archive.append(driveRes.data, { name: `${safeAuthor}_${safeTitle}.jpg` });
+          } catch (driveErr) {
+            console.error(`Hiba a(z) ${entry.id} kép letöltésekor Drive-ból:`, driveErr.message);
+          }
+        }
+      }
+
+      // Lezárjuk és véglegesítjük a ZIP fájlt, a szerver ekkor küldi el a kész csomagot
+      await archive.finalize();
+
+    } catch (err) {
+      console.error("❌ Kritikus hiba a ZIP generálása közben:", err);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Nem sikerült összeállítani a ZIP archívumot.' });
+      }
+    }
+  });
+
   app.post('/api/homework-entries/:id/toggle-select', async (req, res) => {
     try {
       const [rows] = await pool.query('SELECT is_selected FROM photo_homework_entries WHERE id = ?', [req.params.id]);
