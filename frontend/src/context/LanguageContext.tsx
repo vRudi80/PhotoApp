@@ -835,13 +835,7 @@ const translations = {
   mapDashYourContribution: 'Your contribution:',
   mapNotSpecified: 'Not specified',
 
-      "roomJoinChallenge": "Enter the Challenge!",
-  "roomJoinDesc": "Choose your best shot from your gallery or upload a brand new one right now.",
-  "btnEntry": "Enter Challenge",
-  "modalBackToAlbum": "Back to Album",
-  "modalLoadMore": "Loading more photos..."
-
-  
+    
   "roomMatchClosed": "Match Closed! 📜",
   "roomTimeLeftLabel": "⏳ TIME LEFT:",
   "roomZoomLabel": "🔍 ZOOM",
@@ -865,6 +859,12 @@ const translations = {
   "roomBatchAlertError": "Please vote for all {count} photos before finalizing!",
   "roomBatchAlertSuccess": "🎉 All package votes successfully submitted and saved!",
         "roomBtnDelete": "Delete",
+
+      "roomJoinChallenge": "Enter the Challenge!",
+  "roomJoinDesc": "Choose your best shot from your gallery or upload a brand new one right now.",
+  "btnEntry": "Enter Challenge",
+  "modalBackToAlbum": "Back to Album",
+  "modalLoadMore": "Loading more photos...",
     navMarketplace: 'Market',
 
     
