@@ -541,16 +541,34 @@ function MainContent() {
   const handleDeleteContest = async (id: number) => { if (!window.confirm("❗ BIZTOSAN TÖRLÖD ezt a pályázatot?")) return; const res = await fetch(`${BACKEND_URL}/api/contests/${id}`, { method: 'DELETE' }); if (res.ok) fetchData(); else alert("Hiba történt a törlés során!"); };
   const loadJuryProgress = async (contestId: number) => { const res = await fetch(`${BACKEND_URL}/api/admin/jury-stats/${contestId}`); if (res.ok) { setJuryProgressData(await res.json()); setViewJuryProgressId(contestId); } };
   
-  const filteredContests = contests.filter(contest => {
-    const isRestricted = contest.restricted_club && contest.restricted_club.trim() !== '';
-    const now = new Date(); const start = contest.start_date ? new Date(contest.start_date) : new Date(0); const end = contest.end_date ? new Date(contest.end_date) : new Date(0); const isEnded = now > end && start.getFullYear() > 1970;
+ const filteredContests = contests.filter(contest => {
+  const isRestricted = contest.restricted_club && contest.restricted_club.trim() !== '';
+  const now = new Date(); 
+  const start = contest.start_date ? new Date(contest.start_date) : new Date(0); 
+  const end = contest.end_date ? new Date(contest.end_date) : new Date(0); 
+  const isEnded = now > end && start.getFullYear() > 1970;
 
-    if (activeTab === 'admin_contests') return true; 
-    if (activeTab === 'contests_closed') { if (!isEnded) return false; if (isRestricted && contest.restricted_club !== currentDbUser?.club_name) return false; return true; }
-    if (activeTab === 'contests_club_active') return isRestricted && contest.restricted_club === currentDbUser?.club_name && !isEnded;
-    if (activeTab === 'contests_open_active') return !isRestricted && !isEnded;
-    return false;
-  });
+  // 🎯 ÚJ: Megnézzük, hogy a bejelentkezett felhasználó zsűritag-e ebben a konkrét pályázatban
+  const isUserJuryForThisContest = juryList.some(j => j.contest_id === contest.id && j.user_email === user?.email);
+
+  if (activeTab === 'admin_contests') return true; 
+  
+  if (activeTab === 'contests_closed') { 
+    if (!isEnded) return false; 
+    // Ha privát klubpályázat, akkor láthatja a saját klubtagja VAGY a felkért külsős zsűritag is!
+    if (isRestricted && contest.restricted_club !== currentDbUser?.club_name && !isUserJuryForThisContest) return false; 
+    return true; 
+  }
+  
+  if (activeTab === 'contests_club_active') {
+    if (isEnded) return false;
+    // Átengedjük, ha a felhasználó az adott klub tagja, VAGY ha ő a pályázat hivatalos zsűrije!
+    return (isRestricted && contest.restricted_club === currentDbUser?.club_name) || isUserJuryForThisContest;
+  }
+  
+  if (activeTab === 'contests_open_active') return !isRestricted && !isEnded;
+  return false;
+});
 
   const myClubMeetings = meetings.filter(m => m.club_name === currentDbUser?.club_name);
   const searchedMeetings = myClubMeetings.filter(m => {
