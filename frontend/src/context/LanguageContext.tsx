@@ -19,7 +19,7 @@ const translations = {
   "roomJoinDesc": "Válaszd ki a legjobban sikerült alkotásodat a galériádból, vagy tölts fel egy újat közvetlenül a folyamat során.",
   "btnEntry": "Nevezés",
   "modalBackToAlbum": "Vissza a képalbumhoz",
-  "modalLoadMore": "További képek betöltése..."
+  "modalLoadMore": "További képek betöltése...",
 
     "adminTitle": "⚔️ Kihívás kezelő központ",
   "adminSubtitle": "A rendszer automatikusan indítja el az elfogadott kihívásokat, amint elérkezik a kezdő dátumuk!",
