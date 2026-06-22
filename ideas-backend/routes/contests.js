@@ -2,6 +2,19 @@ const fs = require('fs');
 
 module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   
+  // ── 🎯 ÚJ: BIZTONSÁGI CORS KAPU (Megszünteti a piros letiltásos hibaüzenetet a konzolban!) ──
+  app.use((req, res, next) => {
+    res.header("Access-Control-Allow-Origin", "https://photawesome.com");
+    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
+    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    res.header("Access-Control-Allow-Credentials", "true");
+    
+    if (req.method === 'OPTIONS') {
+      return res.sendStatus(200);
+    }
+    next();
+  });
+  
   // 1. Pályázatok lekérése (c.* automatikusan hozza majd az új restricted_club_id-t is)
   app.get('/api/contests', async (req, res) => {
     try { 
@@ -119,7 +132,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
   // 6. Kép feltöltése és nevezés (MÓDOSÍTVA: Elmenti a digitális jogi nyilatkozat pecsétjét)
   app.post('/api/upload', upload.single('photo'), async (req, res) => {
-    // 🎯 Beolvassuk a frontend App.tsx által küldött két új biztonsági változót
     const { contestId, userEmail, userName, title, category, acceptedTerms, acceptedTermsAt } = req.body;
     const file = req.file;
     if (!file) return res.status(400).json({ error: 'Nincs fájl kiválasztva!' });
@@ -137,7 +149,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
       cleanupTempFile(file);
 
-      // 🎯 JAVÍTVA: Az új, kibővített 10 oszlopos táblázat-mentés fut le a bizonyíthatóságért
       const queryStr = `
         INSERT INTO photo_entries 
         (contest_id, user_email, user_name, title, category, file_url, drive_file_id, file_size, accepted_terms, accepted_terms_at) 
@@ -243,29 +254,41 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { res.status(500).json({ error: 'Nem sikerült a képet betölteni az oklevélhez.' }); }
   });
 
-  // ── 🎯 16. ÚJ: KÖTELEZŐ MAFOSZ PROFIL MENTÉSI ÚTVONAL ──
+  // 16. KÖTELEZŐ MAFOSZ PROFIL MENTÉSI ÚTVONAL
   app.put('/api/users/:email/extended-profile', async (req, res) => {
     const { email } = req.params;
     const { name, phone_number, shipping_address, association_id } = req.body;
 
     try {
-      // Tűpontosan a te 'photo_users' tábládra és oszlopneveidre igazítva
       const query = `
         UPDATE photo_users 
         SET name = ?, phone_number = ?, shipping_address = ?, association_id = ? 
         WHERE email = ?
       `;
-      
       const [result] = await pool.query(query, [name, phone_number, shipping_address, association_id, email]);
-      
-      if (result.affectedRows === 0) {
-        return res.status(404).json({ error: "A megadott felhasználó nem létezik!" });
-      }
-
+      if (result.affectedRows === 0) return res.status(404).json({ error: "A megadott felhasználó nem létezik!" });
       res.json({ success: true, message: "A MAFOSZ profil sikeresen frissítve!" });
     } catch (err) {
       console.error("❌ Szerver hiba a photo_users frissítésekor:", err);
       res.status(500).json({ error: 'Hiba történt a profil adatok mentése közben.' });
+    }
+  });
+
+  // ── 🎯 17. ÚJ: AZ ELVESZETT FELHASZNÁLÓI ADATOLVASÓ MOTOR (Átvezeti a mentett adatokat a frontendre!) ──
+  app.get('/api/users', async (req, res) => {
+    try {
+      const [rows] = await pool.query(`
+        SELECT 
+          google_id, email, name, last_login, club_name, club_role, 
+          is_premium, premium_until, stripe_customer_id, premium_level, 
+          club_id, swap_balance, rank_level, referral_code, referred_by,
+          phone_number, shipping_address, association_id 
+        FROM photo_users
+      `);
+      res.json(rows);
+    } catch (err) {
+      console.error("❌ Kritikus hiba a photo_users listázásakor:", err);
+      res.status(500).json({ error: 'Szerveroldali hiba a szinkronizáció alatt.' });
     }
   });
 };
