@@ -99,10 +99,18 @@ export default function ContestsView(props: ContestsViewProps) {
 
   const [isSubmittingVote, setIsSubmittingVote] = useState(false);
   const [generatingCertId, setGeneratingCertId] = useState<number | null>(null);
+  
+  // 🎯 ÚJ: Reaktív állapot a jogi és szerzői checkbox biztonságos kezeléséhez
+  const [isLegalChecked, setIsLegalChecked] = useState(false);
 
   useEffect(() => {
     setIsSubmittingVote(false);
   }, [props.unvotedEntries, props.currentScore]);
+
+  // 🎯 ÚJ: Ha bezárják a panelt vagy váltanak, töröljük a pipát a visszaélések elkerülésére
+  useEffect(() => {
+    setIsLegalChecked(false);
+  }, [props.activeUploadContest]);
 
   const currentNewClubValue = props.clubs.find(c => String(c.id) === props.newRestrictedClub || c.name === props.newRestrictedClub)?.id || '';
   const currentEditClubValue = props.clubs.find(c => String(c.id) === props.editRestrictedClub || c.name === props.editRestrictedClub)?.id || '';
@@ -409,7 +417,7 @@ export default function ContestsView(props: ContestsViewProps) {
             const sponsorClubObj = props.clubs.find(c => Number(c.id) === Number(contest.sponsor_club_id));
 
             return (
-              <div key={contest.id} style={{ backgroundColor: '#1e293b', padding: '25px', borderRadius: '24px', border: `1px solid ${badgeColor}40`, boxShadow: '0 10px 30px rgba(0,0,0,0.2)', position: 'relative', overflow: 'hidden' }}>
+              <div style={{ backgroundColor: '#1e293b', padding: '25px', borderRadius: '24px', border: `1px solid ${badgeColor}40`, boxShadow: '0 10px 30px rgba(0,0,0,0.2)', position: 'relative', overflow: 'hidden' }} key={contest.id}>
                 
                 {contest.restricted_club && (
                   <div style={{ position: 'absolute', top: 0, left: '25px', background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#0f172a', padding: '5px 14px', borderRadius: '0 0 10px 10px', fontSize: '0.75rem', fontWeight: 'bold', boxShadow: '0 4px 10px rgba(0,0,0,0.3)', letterSpacing: '0.5px' }}>
@@ -473,7 +481,7 @@ export default function ContestsView(props: ContestsViewProps) {
                       <button onClick={() => props.setManageJuryContestId(null)} style={{ background: '#334155', color: '#cbd5e1', border: 'none', padding: '8px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>{t('contBack')}</button>
                     </div>
                 ) : props.viewStatsContestId === contest.id ? (
-                  <div style={{ background: '#0f172a', padding: '20px', borderRadius: '16px', border: '1px solid #38bdf840' }}>
+                  <div style={{ background: '#0f172a', padding: '20px', borderRadius: '16px', border: '1px solid #334155' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #334155', paddingBottom: '15px', marginBottom: '20px' }}>
                       <h3 style={{ margin: 0, color: '#38bdf8', fontSize: '1.2rem' }}>{t('entrantsRegistryTitle')}</h3>
                       <button onClick={() => props.setViewStatsContestId(null)} style={{ background: '#1e293b', color: '#94a3b8', border: 'none', padding: '6px 16px', borderRadius: '8px', cursor: 'pointer' }}>{t('juryProgressClose')}</button>
@@ -819,7 +827,7 @@ export default function ContestsView(props: ContestsViewProps) {
                           ℹ️ <b>{lang === 'en' ? 'Technical Standard:' : 'Technikai Szabvány:'}</b> {lang === 'en' ? 'Images will be automatically optimized to 1600px sRGB JPEG standard.' : 'A képek automatikusan a MAFOSZ-szabványnak megfelelő 1600px hosszabbik oldalú sRGB JPEG formátumra lesznek optimalizálva.'}
                         </div>
 
-                        <input type="file" accept="image/jpeg" onChange={props.handleFileSelect} style={{ color: '#94a3b8', marginBottom: '15px', width: '100%' }} disabled={props.isUploading} />
+                        <input type="file" accept="image/jpeg, image/png, image/webp" onChange={props.handleFileSelect} style={{ color: '#94a3b8', marginBottom: '15px', width: '100%' }} disabled={props.isUploading} />
                         
                         {props.uploadPreview && <div style={{marginBottom: '20px', textAlign: 'center'}}><img src={props.uploadPreview} alt="Preview" style={{maxHeight: '260px', borderRadius: '12px', border: '2px solid #334155'}} /></div>}
                         
@@ -828,10 +836,8 @@ export default function ContestsView(props: ContestsViewProps) {
                           <input 
                             type="checkbox" 
                             id="legal-copyright-checkbox" 
-                            onChange={(e) => {
-                              const btn = document.getElementById('final-upload-submit-btn') as HTMLButtonElement;
-                              if (btn) btn.disabled = !e.target.checked || props.isUploading;
-                            }}
+                            checked={isLegalChecked}
+                            onChange={(e) => setIsLegalChecked(e.target.checked)}
                             style={{ marginTop: '3px', transform: 'scale(1.2)', accentColor: '#10b981', cursor: 'pointer' }} 
                           />
                           <label htmlFor="legal-copyright-checkbox" style={{ fontSize: '0.82rem', color: '#cbd5e1', lineHeight: '1.4', cursor: 'pointer', userSelect: 'none' }}>
@@ -842,11 +848,12 @@ export default function ContestsView(props: ContestsViewProps) {
                         </div>
 
                         <div style={{display: 'flex', gap: '10px'}}>
+                          {/* 🎯 JAVÍTVA: A gomb állapotát most már reaktív React állapottal kötjük le, nem törhető DevTools-ból */}
                           <button 
                             id="final-upload-submit-btn"
                             onClick={() => props.handleUpload(contest.id)} 
-                            disabled={true} 
-                            style={{ flex: 1, background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', border: 'none', padding: '12px', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }}
+                            disabled={!isLegalChecked || props.isUploading} 
+                            style={{ flex: 1, background: (!isLegalChecked || props.isUploading) ? '#334155' : 'linear-gradient(135deg, #10b981, #059669)', color: (!isLegalChecked || props.isUploading) ? '#64748b' : 'white', border: 'none', padding: '12px', borderRadius: '10px', fontWeight: 'bold', cursor: (!isLegalChecked || props.isUploading) ? 'not-allowed' : 'pointer', transition: 'all 0.2s' }}
                           >
                             {props.isUploading ? t('contUploadSaving') : t('contUploadSubmitBtn')}
                           </button>
