@@ -15,6 +15,12 @@ const translations = {
     tileClubLifeTitle: 'Klubélet',
    navMarketplace: 'Piac',
 
+    "roomJoinChallenge": "Nevezz a kihívásra!",
+  "roomJoinDesc": "Válaszd ki a legjobban sikerült alkotásodat a galériádból, vagy tölts fel egy újat közvetlenül a folyamat során.",
+  "btnEntry": "Nevezés",
+  "modalBackToAlbum": "Vissza a képalbumhoz",
+  "modalLoadMore": "További képek betöltése..."
+
     "adminTitle": "⚔️ Kihívás kezelő központ",
   "adminSubtitle": "A rendszer automatikusan indítja el az elfogadott kihívásokat, amint elérkezik a kezdő dátumuk!",
   "adminSuspiciousDetected": "Gyanús Tevékenységek Detektálva!",
@@ -828,6 +834,12 @@ const translations = {
   mapDashThankYouDesc: 'Thank you for tracking and sharing your photography spots, building this visual roadmap together!',
   mapDashYourContribution: 'Your contribution:',
   mapNotSpecified: 'Not specified',
+
+      "roomJoinChallenge": "Enter the Challenge!",
+  "roomJoinDesc": "Choose your best shot from your gallery or upload a brand new one right now.",
+  "btnEntry": "Enter Challenge",
+  "modalBackToAlbum": "Back to Album",
+  "modalLoadMore": "Loading more photos..."
 
   
   "roomMatchClosed": "Match Closed! 📜",
