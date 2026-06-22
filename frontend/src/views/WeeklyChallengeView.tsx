@@ -12,6 +12,7 @@ import PastArchive from '../components/WeeklyChallenge/subtabs/PastArchive';
 import UpcomingChallenges from '../components/WeeklyChallenge/subtabs/UpcomingChallenges';
 import ArenaActiveRoom from '../components/WeeklyChallenge/subtabs/ArenaActiveRoom';
 import exifr from 'exifr'; 
+import VideoLoader from '../components/VideoLoader'; // 👈 Figyelj a relatív útvonalra!
 
 import { useLanguage } from '../context/LanguageContext';
 
@@ -979,7 +980,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                 </div>
 
                 {loading ? (
-                  <div style={{ color: '#94a3b8', textAlign: 'center', padding: '50px' }}>{t('loading')}</div>
+                  <VideoLoader />
                 ) : activeTopics.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '5rem 2rem', background: 'linear-gradient(180deg, #1e293b, #0f172a)', borderRadius: '24px', border: '1px solid #334155' }}>
                     <div style={{ fontSize: '5rem', marginBottom: '1rem' }}>😴</div>
