@@ -177,7 +177,7 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
             <span style={{ color: '#e9d5ff' }}>{topic.master_name || topic.master_email}</span>
           </div>
         )}
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#38bdf8', fontSize: '0.8rem', fontWeight: 'bold', background: '#38bdf810', padding: '6px 10px', borderRadius: '10px', border: '#38bdf820', whiteSpace: 'nowrap' }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#38bdf8', fontSize: '0.8rem', fontWeight: 'bold', background: '#38bdf810', padding: '6px 10px', borderRadius: '10px', border: '1px solid #38bdf820', whiteSpace: 'nowrap' }}>
           <span>👥 {topic.totalEntries || 0} {t('photographers')}</span>
         </div>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: topic.unvotedEntries > 0 ? '#fb923c' : '#4ade80', fontSize: '0.8rem', fontWeight: 'bold', background: topic.unvotedEntries > 0 ? '#fb923c10' : '#4ade8010', padding: '6px 10px', borderRadius: '10px', border: topic.unvotedEntries > 0 ? '1px solid #fb923c20' : '1px solid #4ade8020', whiteSpace: 'nowrap' }}>
@@ -671,7 +671,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     formData.append('userName', user.name || user.email);
     
     formData.append('camera', uploadCamera);
-    formData.append('lens', uploadCameraLens);
+    formData.append('lens', uploadLens);
     formData.append('shutter', uploadShutter);
     formData.append('iso', uploadIso);
     formData.append('aperture', uploadAperture);
@@ -873,9 +873,39 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     }
   };
 
+  // EFFEKTUSOK
+  useEffect(() => {
+    if (!activeShareData) {
+      setShareBase64(null);
+      return;
+    }
+    let isMounted = true;
+    setLoadingShareImg(true);
+    
+    const fetchUrl = activeShareData.drive_file_id 
+      ? `${BACKEND_URL}/api/image-base64/${activeShareData.drive_file_id}`
+      : `${BACKEND_URL}/api/admin/base64-proxy?url=${encodeURIComponent(activeShareData.file_url)}`;
+
+    fetch(fetchUrl)
+      .then(res => res.json())
+      .then(data => {
+        if (isMounted) {
+          if (data.base64) setShareBase64(data.base64);
+          setLoadingShareImg(false);
+        }
+      })
+      .catch(err => {
+        console.error("Error downloading proxy asset:", err);
+        if (isMounted) setLoadingShareImg(false);
+      });
+    return () => { isMounted = false; };
+  }, [activeShareData]);
+
   // 3. FUTÁSIDEJŰ RENDERELES KISZÁMÍTÁSOK
   const currentLevel = getLevelDetails(userTotalLikes, userVictories);
 
+  // 🎯 HELYREÁLLÍTVA: A BASE_EXPOSURE konstans visszakerült a helyére, megszüntetve az image_62ed22.png-n lévő ReferenceError-t!
+  const BASE_EXPOSURE = 10;
   const exposureEarned = BASE_EXPOSURE + (Number(myVoteCount || 0) * 2);
   const safeViewsCount = myEntry ? (Number(myEntry.views_count) || 0) : 0;
   const viewsRemaining = myEntry ? (exposureEarned - safeViewsCount) : 0;
@@ -999,7 +1029,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                           {t('viewLobbyEmpty')}
                         </div>
                       ) : (
-                        /* 🎯 JAVÍTVA: Csak az utolsó 100 üzenetet jelenítjük meg, így a betöltés és a görgetés örökké villámgyors marad! */
                         lobbyMessages.slice(-100).map((msg, idx) => {
                           const msgEmail = msg.user_email || msg.userEmail;
                           const msgName = msg.user_name || msg.userName;
