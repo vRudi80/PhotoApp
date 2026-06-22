@@ -207,7 +207,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const [masterVotesLeft, setMasterVotesLeft] = useState<number>(0);
   const [isMaster, setIsMaster] = useState<boolean>(false);
 
-  // 🎯 Új UX állapot: Chat nyitva/csukva, és van-e olvasatlan üzenet
+  // 🎯 Chat nyitva/csukva, és van-e olvasatlan üzenet állapota
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [hasNewMessage, setHasNewMessage] = useState(false);
 
@@ -283,7 +283,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const [typedLobbyMsg, setTypedLobbyMsg] = useState('');
   const [isSendingLobbyMsg, setIsSendingLobbyMsg] = useState(false);
   
-  // 🎯 Új UX Ref: A lebegő chat görgetősávját kezelő ref
   const chatScrollContainerRef = useRef<HTMLDivElement>(null);
   const lastTypingSignalSent = useRef<number>(0);
 
@@ -443,17 +442,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     finally { setIsLoadingHof(false); }
   };
 
-  useEffect(() => {
-    if (subTab === 'current') {
-      fetchCurrentTopic(false);
-    }
-    else if (subTab === 'upcoming') fetch(`${BACKEND_URL}/api/weekly/upcoming`).then(res => res.json()).then(data => setUpcomingTopics(data || [])).catch(console.error);
-    else if (subTab === 'past') fetch(`${BACKEND_URL}/api/weekly/past`).then(res => res.json()).then(data => setPastTopics(data || [])).catch(console.error);
-    else if (subTab === 'my_stats') fetchMyStats(); 
-    else if (subTab === 'hall_of_fame') fetchHallOfFame();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subTab, selectedTopicId]);
-
   // 🎯 SZINKRONIZÁLT LOBBY CHAT ADATFOLYAM POLLING ENGINE
   useEffect(() => {
     if (subTab !== 'current' || selectedTopicId !== null) return;
@@ -476,9 +464,13 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           const data = await res.json();
           const newMessages = data.messages || [];
           
-          // 🎯 UX Értesítési pötty aktiválása, ha csukva van a chat és jön új üzenet
+          // 🎯 ELLENŐRZÉS: Csak akkor jelez olvasatlan státuszt, ha az utolsó üzenet szerzője NEM te vagy
           if (!isChatOpen && lobbyMessages.length > 0 && newMessages.length > lobbyMessages.length) {
-            setHasNewMessage(true);
+            const lastMsg = newMessages[newMessages.length - 1];
+            const lastMsgEmail = lastMsg?.user_email || lastMsg?.userEmail;
+            if (lastMsgEmail !== user?.email) {
+              setHasNewMessage(true);
+            }
           }
 
           setLobbyMessages(newMessages);
@@ -487,7 +479,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         }
       } catch (err) {
         console.error("Lobby chat synchronization anomaly:", err);
-      } finally {
+      } finaly {
         if (isMounted && subTab === 'current' && selectedTopicId === null) {
           timerId = setTimeout(fetchLobbyChat, 2500);
         }
@@ -500,9 +492,9 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       isMounted = false;
       clearTimeout(timerId);
     };
-  }, [subTab, selectedTopicId, isChatOpen, lobbyMessages.length]);
+  }, [subTab, selectedTopicId, isChatOpen, lobbyMessages.length, user?.email]);
 
-  // 🎯 JAVÍTVA: A destabilizáló window scroll elkerülése érdekében közvetlenül a chat doboz belső koordinátáit toljuk el
+  // 🎯 Belső koordináták csendes eltolása az anyaoldal megzavarása nélkül
   useEffect(() => {
     if (selectedTopicId === null && subTab === 'current' && chatScrollContainerRef.current) {
       chatScrollContainerRef.current.scrollTop = chatScrollContainerRef.current.scrollHeight;
@@ -965,7 +957,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           <button onClick={() => { setSubTab('my_stats'); fetchMyStats(); }} style={{ padding: '10px 24px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: subTab === 'my_stats' ? 'linear-gradient(135deg, #8b5cf6, #6366f1)' : 'transparent', color: subTab === 'my_stats' ? 'white' : '#94a3b8', transition: 'all 0.3s', boxShadow: subTab === 'my_stats' ? '0 4px 15px rgba(139,92,246,0.4)' : 'none' }}>{t('tabStats')}</button>
           <button onClick={() => setSubTab('hall_of_fame')} style={{ padding: '10px 24px', borderRadius: '10px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: subTab === 'hall_of_fame' ? 'linear-gradient(135deg, #fbbf24, #d97706)' : 'transparent', color: subTab === '#0f172a' ? '#0f172a' : '#94a3b8', transition: 'all 0.3s', boxShadow: subTab === 'hall_of_fame' ? '0 4px 15px rgba(251,191,36,0.4)' : 'none' }}>{t('tabHof')}</button>
         </div>
-        <button onClick={() => setShowHelp(true)} style={{ padding: '12px 24px', borderRadius: '12px', border: '1px solid #38bdf8', cursor: 'pointer', fontWeight: 'bold', background: '#0f172a', color: '#38bdf8', transition: 'all 0.3s', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 15px rgba(56,189,248,0.2)' }}>
+        <button onClick={() => setShowHelp(true)} style={{ padding: '12px 24px', borderRadius: '12px', border: '1px solid #334155', cursor: 'pointer', fontWeight: 'bold', background: '#0f172a', color: '#38bdf8', transition: 'all 0.3s', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 15px rgba(56,189,248,0.2)' }}>
           {t('btnRules')}
         </button>
       </div>
@@ -975,7 +967,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           {selectedTopicId === null ? (
             <div className="arena-fluid-container">
               
-              {/* JAVÍTVA: A szobák most már 100% szélességet kapnak, a betöltés azonnali */}
               <div>
                 <div style={{ marginBottom: '25px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '15px' }}>
                   <div>
@@ -1021,10 +1012,9 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                 )}
               </div>
 
-              {/* 🎯 ÚJ ELRENDEZÉS: Modern, játék-stílusú lebegő/összecsukható Chat dokk */}
-              <div className={`arena-floating-chat-dock ${isChatOpen ? 'is-open' : 'is-closed'}`}>
+              {/* FLOATING CHAT WIDGET */}
+              <div className={`arena-floating-chat-dock ${isChatOpen ? 'is-open' : 'is-closed'} ${hasNewMessage ? 'has-unread' : ''}`}>
                 
-                {/* CHAT FEJLÉC / TOGGLE KAPCSOLÓ */}
                 <div 
                   onClick={() => {
                     setIsChatOpen(!isChatOpen);
@@ -1034,18 +1024,18 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', position: 'relative' }}>
                     <span style={{ fontSize: '1.2rem' }}>💬</span>
-                    <span style={{ fontWeight: 'bold', fontSize: '0.95rem' }}>{t('viewLobbyTitle')}</span>
+                    <span style={{ fontWeight: 'bold', fontSize: '0.95rem' }}>
+                      {t('viewLobbyTitle')} {hasNewMessage && <span style={{ color: '#f43f5e', fontSize: '0.8rem', marginLeft: '5px' }}>({lang === 'en' ? 'New!' : 'Új üzenet!'})</span>}
+                    </span>
                     {hasNewMessage && <span className="chat-notification-badge" />}
                   </div>
                   <span style={{ transform: isChatOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.3s', fontWeight: 'bold' }}>▲</span>
                 </div>
 
-                {/* CHAT BELSŐ TARTALOM */}
                 {isChatOpen && (
                   <div className="chat-dock-body">
                     <p style={{ margin: '0 0 10px 0', color: '#64748b', fontSize: '0.78rem' }}>{t('viewLobbyDesc')}</p>
                     
-                    {/* BELSŐ KONTÉNER: A görgetés most már kizárólag itt történik, az anyaoldal stabil marad! */}
                     <div ref={chatScrollContainerRef} className="chat-messages-scroll-area">
                       {lobbyMessages.length === 0 ? (
                         <div style={{ color: '#475569', textAlign: 'center', margin: 'auto', fontStyle: 'italic', fontSize: '0.85rem', padding: '20px 0' }}>
@@ -1239,7 +1229,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
 
       <ShareCardModal activeShareData={activeShareData} onClose={() => setActiveShareData(null)} user={user} shareBase64={shareBase64} loadingShareImg={loadingShareImg} isGeneratingImage={isGeneratingImage} handleExecuteShare={handleExecuteShare} />
 
-      {/* ── 🎯 STYLING LAYER: Szupergyors és reszponzív Bento/Floating Engine ── */}
+      {/* ── 🎯 STYLING LAYER ── */}
       <style>{`
         .arena-fluid-container {
           width: 100%;
@@ -1268,6 +1258,10 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         }
         .arena-floating-chat-dock.is-closed {
           transform: translateY(calc(100% - 50px));
+        }
+        .arena-floating-chat-dock.has-unread .chat-dock-header {
+          border-color: #f43f5e;
+          box-shadow: inset 0 0 10px rgba(244,63,94,0.2);
         }
         .chat-dock-header {
           padding: 14px 20px;
@@ -1301,8 +1295,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         }
         .chat-notification-badge {
           position: absolute;
-          top: -2px;
-          left: -4px;
+          top: -1px;
+          left: -3px;
           width: 8px;
           height: 8px;
           background: #f43f5e;
