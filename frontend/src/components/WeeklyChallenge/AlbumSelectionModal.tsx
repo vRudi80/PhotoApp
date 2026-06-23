@@ -122,7 +122,6 @@ export default function AlbumSelectionModal({
 
   const handleModalScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const target = e.currentTarget;
-    // Ha az alja előtt vagyunk 120 pixellel, már engedjük a lapozást
     if (target.scrollHeight - target.scrollTop - target.clientHeight < 120) {
       triggerLoadMore();
     }
@@ -214,7 +213,7 @@ export default function AlbumSelectionModal({
         const res = await fetch(`${BACKEND_URL}/api/weekly/${endpoint}`, { method: 'POST', body: formData });
         if (res.ok) {
           alert(t('msgUploadSuccess') || "Sikeres mentés!");
-          cleanAndClose(true); // Sikeres akció: frissítünk
+          cleanAndClose(true); 
         } else {
           const err = await res.json(); alert(err.error || "Hiba");
           setIsSubmitting(false);
@@ -250,7 +249,7 @@ export default function AlbumSelectionModal({
       URL.revokeObjectURL(previewPhoto.file_url);
     }
     setPreviewPhoto(null);
-    onClose(wasActionSubmitted); // Átadjuk az állapotot a szülőnek
+    onClose(wasActionSubmitted); 
   };
 
   if (!isOpen) return null;
@@ -261,6 +260,7 @@ export default function AlbumSelectionModal({
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 99999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px', boxSizing: 'border-box' }}>
       <div 
         ref={scrollAreaRef}
+        className="modal-scroll-zone" // 👈 JAVÍTVA: Ide került a CSS osztály a láncolásmentes mobilgörgetéshez!
         onScroll={previewPhoto ? undefined : handleModalScroll}
         style={{ background: '#0f172a', border: '1px solid #334155', borderRadius: '24px', width: '100%', maxWidth: '550px', maxHeight: '82vh', overflowY: 'auto', padding: '25px', position: 'relative', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.8)' }}
       >
@@ -284,9 +284,8 @@ export default function AlbumSelectionModal({
             )}
 
             <div style={{ display: 'flex', gap: '12px', marginTop: '10px' }}>
-              {/* 🎯 JAVÍTVA: Visszavisz az albumba, nem zárja be a modalt! */}
               <button disabled={isSubmitting} onClick={() => setPreviewPhoto(null)} style={{ flex: 1, padding: '12px', borderRadius: '12px', background: '#1e293b', color: '#cbd5e1', border: '1px solid #334155', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.9rem' }}>
-                ⬅ {t('modalBackToAlbum')}
+                ⬅ {t('modalBackToAlbum', 'Vissza az albumba')}
               </button>
               <button disabled={isSubmitting} onClick={handleConfirmAction} style={{ flex: 1.6, padding: '12px', borderRadius: '12px', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', border: 'none', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 15px rgba(16,185,129,0.25)', fontSize: '0.9rem' }}>
                 {isSubmitting ? '⏳ Processing...' : 'Megerősítés ✔'}
@@ -297,7 +296,7 @@ export default function AlbumSelectionModal({
           /* ── NÉZET B: KÉPRÁCS LISTÁZÓ ── */
           <>
             <h3 style={{ color: 'white', margin: '0 0 5px 0', fontSize: '1.5rem', fontWeight: 'bold' }}>
-              {albumModalMode === 'upload' ? t('modalUploadTitle') : t('modalSwapTitle')}
+              {albumModalMode === 'upload' ? t('modalUploadTitle', 'Versenynevezés') : t('modalSwapTitle', 'Joker Csere')}
             </h3>
             <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 20px 0', lineHeight: '1.4' }}>
               Melyik meglévő galériás fotóddal szeretnél nevezni a mostani futamra?
@@ -306,7 +305,7 @@ export default function AlbumSelectionModal({
             {isLoading || isLocalProcessing ? (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 0', width: '100%' }}>
                 <div className="modal-data-spinner" />
-                <p style={{ color: '#64748b', fontSize: '0.85rem', marginTop: '15px', fontWeight: 'bold' }}>{isLocalProcessing ? 'Fájl elemzése és tömörítése...' : t('loading')}</p>
+                <p style={{ color: '#64748b', fontSize: '0.85rem', marginTop: '15px', fontWeight: 'bold' }}>{isLocalProcessing ? 'Fájl elemzése és tömörítése...' : t('loading', 'Betöltés...')}</p>
               </div>
             ) : (
               <>
@@ -349,12 +348,11 @@ export default function AlbumSelectionModal({
                         onMouseOut={(e) => { e.currentTarget.style.borderColor = pastMatch ? '#0284c7' : '#334155'; e.currentTarget.style.transform = 'scale(1)'; }}
                       >
                         <div style={{ width: '100%', height: '115px', backgroundColor: '#000', overflow: 'hidden', position: 'relative' }}>
-                          {/* ⚡ JAVÍTVA: Átadtuk az animált progresszív komponenst */}
                           <GridImage src={getOptimizedThumbnail(p.file_url)} alt="Gallery asset" />
                           
                           {pastMatch && (
                             <span style={{ position: 'absolute', top: '8px', left: '8px', background: 'linear-gradient(135deg, #0284c7, #0369a1)', color: 'white', fontWeight: 'bold', fontSize: '0.65rem', padding: '4px 8px', borderRadius: '6px' }}>
-                              {t('modalBadgeSwapBack')}
+                              {t('modalBadgeSwapBack', 'Visszacisere')}
                             </span>
                           )}
                         </div>
@@ -375,11 +373,11 @@ export default function AlbumSelectionModal({
                     onMouseEnter={e => e.currentTarget.style.background = 'rgba(56,189,248,0.12)'}
                     onMouseLeave={e => e.currentTarget.style.background = 'rgba(56,189,248,0.05)'}
                   >
-                    ✨ {t('modalLoadMore') || 'További képek betöltése...'}
+                    ✨ {t('modalLoadMore', 'További képek betöltése...')}
                   </div>
                 )}
 
-                {/* BEZÁRÁS GOMB (Tiszta bezárás, nem frissíti a főoldalt!) */}
+                {/* BEZÁRÁS GOMB */}
                 <div style={{ marginTop: '25px', borderTop: '1px solid #223147', paddingTop: '15px' }}>
                   <button onClick={() => cleanAndClose(false)} style={{ width: '100%', padding: '12px', borderRadius: '12px', background: '#1e293b', color: '#f43f5e', border: '1px solid #be123c40', fontWeight: 'bold', cursor: 'pointer' }}>
                     Mégse / Bezárás
@@ -391,24 +389,32 @@ export default function AlbumSelectionModal({
         )}
       </div>
 
-      <style>{`
-        .modal-data-spinner {
-          width: 40px;
-          height: 40px;
-          border: 4px solid rgba(56, 189, 248, 0.1);
-          border-left-color: #38bdf8;
-          border-radius: 50%;
-          animation: modalFloatCircle 0.8s linear infinite;
-        }
-        .upload-overlay-card-wrapper:hover {
-          background: #1e293b40 !important;
-          border-color: #f59e0b !important;
-        }
-        @keyframes modalFloatCircle {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-      `}</style>
+       <style>{`
+      /* 🎯 JAVÍTVA: Véglegesen stabilizálja az album modal független mobilgörgetését */
+      .modal-scroll-zone {
+        overflow-y: auto !important;
+        overscroll-behavior: contain !important;
+        -webkit-overflow-scrolling: touch !important;
+      }
+      
+      .modal-data-spinner {
+        width: 40px;
+        height: 40px;
+        border: 4px solid rgba(56, 189, 248, 0.1);
+        border-left-color: #38bdf8;
+        border-radius: 50%;
+        animation: modalFloatCircle 0.8s linear infinite;
+      }
+      .upload-overlay-card-wrapper:hover {
+        background: #1e293b40 !important;
+        border-color: #f59e0b !important;
+      }
+      @keyframes modalFloatCircle {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+    `}</style>
+
     </div>
   );
 }
