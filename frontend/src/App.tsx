@@ -195,6 +195,14 @@ function MainContent() {
 
   const [fullscreenData, setFullscreenData] = useState<any>(null);
 
+  if (window.location.hostname.includes('kepolvasok.guru')) {
+  // Karakterpontosan átvisszük az új domainre, megőrizve az aloldalt (pathname) és a paramétereket (search)
+  window.location.replace(
+    'https://photawesome.com' + window.location.pathname + window.location.search
+  );
+}
+
+  
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const successContest = urlParams.get('success_contest');
