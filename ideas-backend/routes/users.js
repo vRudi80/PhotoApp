@@ -35,27 +35,59 @@ module.exports = function(app, pool) {
     }
   });
   
- // 🎯 JAVÍTVA: A te pontos 'photo_users' tábládból olvassuk ki az új MAFOSZ mezőket is!
-app.get('/api/users', async (req, res) => {
-  try {
-    // Ha korábban konkrét mezők voltak felsorolva, a SELECT * vagy a mezők bővítése azonnal megoldja
-    const [rows] = await pool.query(`
-      SELECT 
-        google_id, email, name, last_login, club_name, club_role, 
-        is_premium, premium_until, stripe_customer_id, premium_level, 
-        club_id, swap_balance, rank_level, referral_code, referred_by,
-        phone_number, shipping_address, association_id 
-      FROM photo_users
-    `);
-    
-    res.json(rows);
-  } catch (err) {
-    console.error("❌ Hiba a photo_users lekérésekor:", err);
-    res.status(500).json({ error: 'Nem sikerült betölteni a felhasználókat.' });
-  }
-});
+  // ====================================================================
+  // 🎯 JAVÍTVA: Bekötve az avatar_url mező is a lekérdezésbe!
+  // ====================================================================
+  app.get('/api/users', async (req, res) => {
+    try {
+      const [rows] = await pool.query(`
+        SELECT 
+          google_id, email, name, last_login, club_name, club_role, 
+          is_premium, premium_until, stripe_customer_id, premium_level, 
+          club_id, swap_balance, rank_level, referral_code, referred_by,
+          phone_number, shipping_address, association_id, avatar_url 
+        FROM photo_users
+      `);
+      
+      res.json(rows);
+    } catch (err) {
+      console.error("❌ Hiba a photo_users lekérésekor:", err);
+      res.status(500).json({ error: 'Nem sikerült betölteni a felhasználókat.' });
+    }
+  });
+
+  // ====================================================================
+  // 👤 ÚJ: HIVATALOS MAFOSZ PROFIL ADATOK (Extended Profile) MENTÉSE
+  // ====================================================================
+  app.put('/api/users/:email/extended-profile', async (req, res) => {
+    const { email } = req.params;
+    const { name, phone_number, shipping_address, association_id } = req.body;
+
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: 'A hivatalos név megadása kötelező!' });
+    }
+
+    try {
+      await pool.query(
+        `UPDATE photo_users 
+         SET name = ?, phone_number = ?, shipping_address = ?, association_id = ? 
+         WHERE email = ?`,
+        [name.trim(), phone_number?.trim() || null, shipping_address?.trim() || null, association_id?.trim() || null, email]
+      );
+      
+      // Ha a nevet is módosította, akkor a futó versenyeket is szinkronizáljuk!
+      await pool.query('UPDATE weekly_entries SET user_name = ? WHERE user_email = ?', [name.trim(), email]);
+      
+      res.json({ success: true, message: 'Profil adatok sikeresen frissítve!' });
+    } catch (err) {
+      console.error("🔥 Hiba a hivatalos profil mentésekor:", err.message);
+      res.status(500).json({ error: 'Adatbázis hiba a profil mentése során.' });
+    }
+  });
   
-  // Felhasználó klubjának és szerepkörének módosítása (Admin felület)
+  // ====================================================================
+  // 🛡️ Felhasználó klubjának és szerepkörének módosítása (Admin felület)
+  // ====================================================================
   app.put('/api/users/:email', async (req, res) => {
     const { email } = req.params;
     const { clubName, clubRole, clubId } = req.body;
@@ -73,7 +105,9 @@ app.get('/api/users', async (req, res) => {
     }
   });
 
-  // Zsűri kezelő végpontok
+  // ====================================================================
+  // 👨‍⚖️ Zsűri kezelő végpontok
+  // ====================================================================
   app.get('/api/jury', async (req, res) => {
     try { const [rows] = await pool.query('SELECT * FROM photo_jury'); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
@@ -85,4 +119,5 @@ app.get('/api/users', async (req, res) => {
   app.delete('/api/jury', async (req, res) => {
     try { await pool.query('DELETE FROM photo_jury WHERE contest_id = ? AND user_email = ?', [req.body.contestId, req.body.userEmail]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
+
 };
