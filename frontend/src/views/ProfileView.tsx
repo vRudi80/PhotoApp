@@ -30,7 +30,7 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Tárhely és AI használat követéséhez szükséges állapotok (MEGMARADT ✔)
+  // Tárhely és AI használat követéséhez szükséges állapotok
   const [userStorage, setUserStorage] = useState({ count: 0, bytes: 0 });
   const [aiUsageCount, setAiUsageCount] = useState(0);
   const [isLoadingStats, setIsLoadingStats] = useState(true);
@@ -39,7 +39,7 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
 
   const isLeader = user?.club_role === 'leader' || user?.club_role === 'deputy';
 
-  // Alapadatok folyamatos szinkronizálása a belépett felhasználóval (BŐVÍTVE ✔)
+  // Alapadatok folyamatos szinkronizálása a belépett felhasználóval
   useEffect(() => {
     if (user) {
       setNameInput(user.name || '');
@@ -50,7 +50,7 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
     }
   }, [user]);
 
-  // 1. Csak a vezetővel rendelkező klubok betöltése (MEGMARADT ✔)
+  // Csak a vezetővel rendelkező klubok betöltése
   useEffect(() => {
     fetch(`${BACKEND_URL}/api/clubs/active-only`)
       .then(res => res.json())
@@ -58,7 +58,7 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
       .catch(console.error);
   }, []);
 
-  // 2. Felhasználó specifikus tárhely és AI statisztikák betöltése (MEGMARADT ✔)
+  // Felhasználó specifikus tárhely és AI statisztikák betöltése
   useEffect(() => {
     if (!user?.email) return;
     
@@ -90,7 +90,7 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
     fetchUserStats();
   }, [user]);
 
-  // 3. Függőben lévő tagok betöltése vezetőknek (MEGMARADT ✔)
+  // Függőben lévő tagok betöltése vezetőknek
   const loadPendingMembers = () => {
     const matchedClub = activeClubs.find(c => c.name === user?.club_name);
     const effectiveClubId = user?.club_id || matchedClub?.id;
@@ -107,7 +107,7 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
     loadPendingMembers();
   }, [user, isLeader, activeClubs]);
 
-  // 📸 PROFILKÉP AZONNALI HÁTTÉRBELI FELTÖLTÉSE UX MOTOR
+  // 📸 PROFILKÉP CLOUDINARY FELTÖLTŐ MOTOR
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
@@ -117,7 +117,7 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
       setIsUploadingAvatar(true);
 
       const formData = new FormData();
-      formData.append('avatar', file);
+      formData.append('avatar', file); // 👈 Egyezik a backend upload.single('avatar') horgával!
 
       try {
         const res = await fetch(`${BACKEND_URL}/api/users/${user.email}/avatar`, {
@@ -127,7 +127,7 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
 
         if (res.ok) {
           alert(lang === 'en' ? "Profile picture updated successfully!" : "Profilkép sikeresen frissítve! 📸");
-          fetchData(); // Globális állapotok újratöltése a friss kép-URL miatt
+          fetchData(); // 🔄 Frissítjük a globális App.tsx-es user állapotot, hogy az új Cloudinary URL bekerüljön
         } else {
           const err = await res.json();
           alert(err.error || "Hiba történt a profilkép feltöltése közben.");
@@ -140,7 +140,7 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
     }
   };
 
-  // 4. Teljes, egyesített profil mentés az új végpontra
+  // Teljes profil mentés
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nameInput.trim()) return alert(t('msgEmptyName') || "A név megadása kötelező!");
@@ -172,7 +172,7 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
     }
   };
 
-  // 5. Csatlakozási kérelem leadása (MEGMARADT ✔)
+  // Csatlakozási kérelem leadása
   const handleJoinClub = async () => {
     if (!selectedClubId) return alert(t('msgSelectClubError'));
     const targetClub = activeClubs.find(c => String(c.id) === selectedClubId);
@@ -193,7 +193,7 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
     finally { setIsSubmitting(false); }
   };
 
-  // 6. Kérelem elbírálása (MEGMARADT ✔)
+  // Kérelem elbírálása
   const handleDecision = async (targetEmail: string, action: 'approve' | 'reject') => {
     const confirmText = action === 'approve' ? t('msgApproveConfirm') : t('msgRejectConfirm');
     if (!window.confirm(confirmText)) return;
@@ -326,7 +326,7 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
         <h3 style={{ margin: '0 0 4px 0', color: '#f8fafc', fontSize: '1.25rem' }}>{t('profTitle')}</h3>
         <p style={{ color: '#64748b', fontSize: '0.85rem', margin: '0 0 20px 0' }}>{t('profNotice')}</p>
         
-        {/* 📸 INTERAKTÍV PROFILKÉP ZÓNA (ÚJ!) */}
+        {/* 📸 INTERAKTÍV PROFILKÉP ZÓNA */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '25px', position: 'relative' }}>
           <div 
             onClick={() => !isUploadingAvatar && fileInputRef.current?.click()}
@@ -354,7 +354,6 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
               <span style={{ fontSize: '2.5rem', color: '#475569' }}>👤</span>
             )}
 
-            {/* Lebegő réteg töltés vagy hover esetére */}
             <div style={{ 
               position: 'absolute', 
               inset: 0, 
@@ -404,7 +403,7 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
 
           {/* 💡 Kötelező MAFOSZ sáv */}
           <div style={{ background: 'rgba(245, 158, 11, 0.04)', borderLeft: '4px solid #f59e0b', padding: '14px', borderRadius: '0 10px 10px 0', marginBottom: '20px', fontSize: '0.82rem', color: '#cbd5e1', lineHeight: '1.5' }}>
-            		📌 <b>{lang === 'en' ? 'Official Requirement:' : 'Kötelező Pályázati Adatok:'}</b>
+            📌 <b>{lang === 'en' ? 'Official Requirement:' : 'Kötelező Pályázati Adatok:'}</b>
             <br />
             {lang === 'en' 
               ? 'A contact phone number and exact shipping address are required to receive awards, physical catalogs, and medals.' 
