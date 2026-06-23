@@ -107,17 +107,18 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
     loadPendingMembers();
   }, [user, isLeader, activeClubs]);
 
-  // 📸 PROFILKÉP CLOUDINARY FELTÖLTŐ MOTOR
+ // 📸 PROFILKÉP CLOUDINARY FELTÖLTŐ MOTOR
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
 
-      // Kliensoldali azonnali gyors előnézet generálása
-      setAvatarPreview(URL.createObjectURL(file));
+      // Kliensoldali azonnali gyors előnézet (ideiglenes)
+      const localPreviewUrl = URL.createObjectURL(file);
+      setAvatarPreview(localPreviewUrl);
       setIsUploadingAvatar(true);
 
       const formData = new FormData();
-      formData.append('avatar', file); // 👈 Egyezik a backend upload.single('avatar') horgával!
+      formData.append('avatar', file);
 
       try {
         const res = await fetch(`${BACKEND_URL}/api/users/${user.email}/avatar`, {
@@ -126,14 +127,21 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
         });
 
         if (res.ok) {
+          const responseData = await res.json();
+          // 🎯 JAVÍTVA: Azonnal beállítjuk a backendről kapott végleges Cloudinary URL-t!
+          if (responseData.avatar_url) {
+            setAvatarPreview(responseData.avatar_url);
+          }
           alert(lang === 'en' ? "Profile picture updated successfully!" : "Profilkép sikeresen frissítve! 📸");
-          fetchData(); // 🔄 Frissítjük a globális App.tsx-es user állapotot, hogy az új Cloudinary URL bekerüljön
+          fetchData(); // Globális adatok frissítése
         } else {
           const err = await res.json();
           alert(err.error || "Hiba történt a profilkép feltöltése közben.");
+          setAvatarPreview(user?.avatar_url || null); // Hiba esetén visszaállítjuk az eredetit
         }
       } catch (err) {
         alert(t('msgNetworkError') || "Hálózati kommunikációs hiba lépett fel.");
+        setAvatarPreview(user?.avatar_url || null);
       } finally {
         setIsUploadingAvatar(false);
       }
