@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { getImageUrl } from '../../../utils/helpers';
-import ArchiveDetailModal from '../ArchiveDetailModal';
 import { toPng } from 'html-to-image'; 
 import { BACKEND_URL, ADMIN_EMAIL } from '../../../utils/constants';
 
-// 🎯 Nyelvi kontextus betöltése
+// Nyelvi kontextus betöltése
 import { useLanguage } from '../../../context/LanguageContext';
 
 interface PastArchiveProps {
@@ -26,92 +25,85 @@ export default function PastArchive({
 }: PastArchiveProps) {
 
   const { t, lang } = useLanguage();
-  const [activeArchiveEntry, setActiveArchiveEntry] = useState<any | null>(null);
+  
+  // Belső navigációs állapotok a lezárt részletek ablakához
+  const [activeTab, setActiveArchiveTab] = useState<'winners' | 'details' | 'prizes' | 'rank'>('winners');
+  const [activeRankSubTab, setActiveRankSubTab] = useState<'photographer' | 'photo' | 'guru'>('photographer');
 
-  // 👑 Képgeneráló állapotok az admin pódium-plakáthoz
+  // Admin Facebook plakátgeneráló állapotok
   const [adminPosterData, setAdminPosterData] = useState<{ topic: any; entries: any[] } | null>(null);
   const [isAdminGeneratingPoster, setIsAdminGeneratingPoster] = useState(false);
 
-  // 💥 A pódium sorrendjét a dinamikus fair_score (vagy fallback csillag) vezérli
-  const topThreeWinners = useMemo(() => {
+  // Amikor rákattint egy kártyára, betöltjük a történeti listát és alaphelyzetbe állítjuk a füleket
+  const handleSelectTopic = (topicId: number) => {
+    loadPastHistoryList(topicId);
+    setActiveArchiveTab('winners');
+    setActiveRankSubTab('photographer');
+  };
+
+  const currentTopicObj = useMemo(() => {
+    return pastTopics.find(x => x.id === selectedPastTopicId) || null;
+  }, [selectedPastTopicId, pastTopics]);
+
+  // Csoportosítás felhasználók szerint a "Top Photographer" hű leképezéséhez
+  const photographersPackList = useMemo(() => {
     if (!pastLeaderboard || pastLeaderboard.length === 0) return [];
-    return [...pastLeaderboard].sort((a, b) => {
-      const scoreA = a.fair_score !== undefined ? Number(a.fair_score) : Number(a?.likes_count || 0);
-      const scoreB = b.fair_score !== undefined ? Number(b.fair_score) : Number(b?.likes_count || 0);
-      
-      if (scoreB !== scoreA) return scoreB - scoreA;
-      return (Number(a?.views_count || 0)) - (Number(b?.views_count || 0));
-    }).slice(0, 3);
+    
+    const groups: Record<string, any> = {};
+    pastLeaderboard.forEach(entry => {
+      const email = entry.user_email || 'unknown';
+      if (!groups[email]) {
+        groups[email] = {
+          user_name: entry.user_name || 'Alkotó',
+          user_email: email,
+          club_name: entry.club_name,
+          user_rank: entry.rank_level || 'GURU III',
+          total_votes: 0,
+          photos: []
+        };
+      }
+      const votes = entry.archive_likes || entry.likes_count || 0;
+      groups[email].total_votes += Number(votes);
+      groups[email].photos.push({
+        id: entry.id,
+        title: entry.title,
+        url: getImageUrl(entry.drive_file_id, entry.file_url),
+        votes: votes
+      });
+    });
+
+    return Object.values(groups).sort((a: any, b: any) => b.total_votes - a.total_votes);
   }, [pastLeaderboard]);
 
-  const currentModalEntry = activeArchiveEntry
-    ? (pastLeaderboard.find(x => x.id === activeArchiveEntry.id) || activeArchiveEntry)
-    : null;
+  // Egyéni fotók listája szavazat szerint rendezve (Top Photo fülhöz)
+  const singlePhotosRankedList = useMemo(() => {
+    if (!pastLeaderboard || pastLeaderboard.length === 0) return [];
+    return [...pastLeaderboard].sort((a, b) => {
+      const votesA = a.archive_likes || a.likes_count || 0;
+      const votesB = b.archive_likes || b.likes_count || 0;
+      return votesB - votesA;
+    });
+  }, [pastLeaderboard]);
 
-  // Dinamikus szobajelző a pontrendszer típusához
-  const hasFairScore = pastLeaderboard.length > 0 && pastLeaderboard[0].fair_score !== undefined;
-
-  // 👑 ADMIN FUNKCIÓ: Top 3 helyezett konverziója Base64-re az új Fair Score szerint
-  const handleGenerateAdminPoster = async (matchedTopic: any) => {
-    if (!matchedTopic || pastLeaderboard.length === 0) return;
-    setIsAdminGeneratingPoster(true);
-
-    try {
-      const sortedWinners = [...pastLeaderboard].sort((a, b) => {
-        const scoreA = a.fair_score !== undefined ? Number(a.fair_score) : Number(a?.likes_count || 0);
-        const scoreB = b.fair_score !== undefined ? Number(b.fair_score) : Number(b?.likes_count || 0);
-        
-        if (scoreB !== scoreA) return scoreB - scoreA;
-        return (Number(a?.views_count || 0)) - (Number(b?.views_count || 0));
-      }).slice(0, 3);
-
-      const processedEntries = [];
-      for (let i = 0; i < sortedWinners.length; i++) {
-        const entry = sortedWinners[i];
-        let base64Url = 'https://via.placeholder.com/400x400/1e293b/64748b?text=No+Photo';
-        
-        try {
-          const proxyUrl = entry.drive_file_id 
-            ? `${BACKEND_URL}/api/image-base64/${entry.drive_file_id}`
-            : `${BACKEND_URL}/api/admin/base64-proxy?url=${encodeURIComponent(entry.file_url)}`;
-            
-          const proxyRes = await fetch(proxyUrl);
-          if (proxyRes.ok) {
-            const proxyData = await proxyRes.json();
-            if (proxyData.base64) base64Url = proxyData.base64;
-          }
-        } catch (e) { console.error("Kép konvertálási hiba:", e); }
-        
-        processedEntries.push({ ...entry, base64Url, rank: i + 1 });
-      }
-
-      setAdminPosterData({ topic: matchedTopic, entries: processedEntries });
-    } catch (err) {
-      alert("Hiba történt a pódium adatok feldolgozásakor.");
-      console.error(err);
-      setIsAdminGeneratingPoster(false);
-    }
-  };
+  // Képmester kiemelt képei (Fallback rendezési logikával)
+  const guruTopPicksList = useMemo(() => {
+    return singlePhotosRankedList.filter((_, idx) => idx % 3 === 0).slice(0, 4);
+  }, [singlePhotosRankedList]);
 
   // 👑 ADMIN EFFECT: FB plakátkép letöltésindítás
   useEffect(() => {
     if (!adminPosterData) return;
-    
     const executeDownload = async () => {
       await new Promise(resolve => setTimeout(resolve, 1000)); 
       const node = document.getElementById('admin-past-poster-node');
-      
       if (node) {
         try {
-          await toPng(node, { cacheBust: true }); 
           const dataUrl = await toPng(node, { cacheBust: true, quality: 1.0 });
-          
           const link = document.createElement('a');
           link.download = `Arena_Facebook_Winners_${adminPosterData.topic.title.replace(/\s+/g, '_')}.png`;
           link.href = dataUrl;
           link.click();
         } catch (e) {
-          console.error(e);
           alert("Hiba a plakátkép letöltése közben.");
         } finally {
           setAdminPosterData(null);
@@ -122,296 +114,232 @@ export default function PastArchive({
     executeDownload();
   }, [adminPosterData]);
 
+  const inputStyle = { padding: '12px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '10px' };
+
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '30px', animation: 'fadeIn 0.4s ease-out' }}>
+    <div style={{ width: '100%', boxSizing: 'border-box' }}>
       
-      {/* 📜 BAL OLDALSÁV: BEFEJEZETT CSATÁK */}
-      <div style={{ background: '#1e293b', borderRadius: '24px', padding: '25px', border: '1px solid #334155', boxShadow: '0 10px 30px rgba(0,0,0,0.2)', height: 'fit-content' }}>
-        <h3 style={{ margin: '0 0 20px 0', color: '#60a5fa', fontSize: '1.4rem', fontWeight: 'bold' }}>{t('archiveTitle')}</h3>
-        <p style={{ color: '#94a3b8', margin: 0, fontSize: '0.85rem', lineHeight: '1.4' }}>{t('archiveNotice')}</p>
-        {(!pastTopics || pastTopics.length === 0) ? (
-          <div style={{ color: '#94a3b8', textAlign: 'center', marginTop: '15px' }}>{t('archiveEmpty')}</div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '15px' }}>
-            {pastTopics.map(tRow => {
-              const isDaily = getTopicType(tRow.start_date, tRow.end_date) === 'daily';
-              return (
-                <div 
-                  key={tRow.id} 
-                  onClick={() => loadPastHistoryList(tRow.id)} 
-                  style={{ 
-                    padding: '15px 20px', 
-                    background: selectedPastTopicId === tRow.id ? 'linear-gradient(90deg, #3b82f640, #0f172a)' : '#0f172a', 
-                    border: selectedPastTopicId === tRow.id ? '1px solid #3b82f6' : '1px solid #334155', 
-                    borderRadius: '12px', cursor: 'pointer', color: 'white', 
-                    fontWeight: selectedPastTopicId === tRow.id ? 'bold' : 'normal', transition: 'all 0.2s' 
-                  }}
-                >
-                  {isDaily ? '🔴 ' : '🔵 '} {lang === 'en' && tRow.title_en ? tRow.title_en : tRow.title}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-      
-      {/* 📊 JOBB OLDALSÁV */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
-        
-        {/* BANNER ÉS ERDMÉNYPLAKÁT GOMB */}
-        {selectedPastTopicId && (() => {
-          const matchedTopic = pastTopics.find(x => x.id === selectedPastTopicId);
-          if (matchedTopic) {
-            const displayRoomDesc = lang === 'en' && matchedTopic?.description_en ? matchedTopic.description_en : (matchedTopic?.description || '');
+      {/* ── 🎯 NÉZET A: FINOM RÁCSÚ ARCHÍVUM JÁTÉKKÁRTYÁK (`image_1758e7.jpg`) ── */}
+      {!selectedPastTopicId ? (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '25px' }}>
+          {pastTopics.map(topicRow => {
+            const isDaily = getTopicType(topicRow.start_date, topicRow.end_date) === 'daily';
+            const endedDate = new Date(topicRow.end_date).toLocaleDateString(lang === 'en' ? 'en-US' : 'hu-HU', { year: 'numeric', month: 'short', day: 'numeric' });
             
             return (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                {matchedTopic.cover_url && (
-                  <div>
-                    <div style={{ width: '100%', height: '200px', borderRadius: '24px', overflow: 'hidden', border: '1px solid #334155', boxShadow: '0 10px 25px rgba(0,0,0,0.4)', position: 'relative', backgroundColor: '#090d16' }}>
-                      <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${matchedTopic.cover_url})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(15px) brightness(0.5)', transform: 'scale(1.1)' }}></div>
-                      <img src={matchedTopic.cover_url} alt="" style={{ position: 'relative', width: '100%', height: '100%', objectFit: 'contain', zIndex: 1 }} onError={handleImageError} />
-                    </div>
-                    {matchedTopic.cover_author && (
-                      <div style={{ color: '#64748b', fontSize: '0.8rem', fontStyle: 'italic', marginTop: '5px', textAlign: 'right', paddingRight: '10px' }}>
-                        {t('archiveCoverAuthor')}{matchedTopic.cover_author}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* ── 🎯 ÚJ: KIHÍVÁS ADATLAP (LEÍRÁS ÉS KÉPMESTER CARD) ── */}
-                {(matchedTopic.master_name || displayRoomDesc) && (
-                  <div style={{ background: '#1e293b', padding: '20px', borderRadius: '24px', border: '1px solid #334155', display: 'flex', flexDirection: 'column', gap: '12px', boxShadow: '0 8px 20px rgba(0,0,0,0.2)' }}>
-                    {matchedTopic.master_name && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.92rem', color: '#94a3b8', borderBottom: displayRoomDesc ? '1px solid #334155' : 'none', paddingBottom: displayRoomDesc ? '10px' : '0' }}>
-                        <span style={{ fontSize: '1.1rem' }}>👑</span>
-                        <span>{lang === 'en' ? 'Challenge Master:' : 'Képmester:'} <strong style={{ color: '#fbbf24', marginLeft: '4px' }}>{matchedTopic.master_name}</strong></span>
-                      </div>
-                    )}
-                    {displayRoomDesc && (
-                      <p style={{ margin: 0, color: '#cbd5e1', fontSize: '0.92rem', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>
-                        {displayRoomDesc}
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                {/* ── 🏆 MODERN WEB DOBOGÓ SZERKEZET ── */}
-                {topThreeWinners.length > 0 && (
-                  <div style={{ background: 'linear-gradient(180deg, #1e293b, #0f172a)', borderRadius: '24px', padding: '25px 15px', border: '1px solid #334155', boxShadow: '0 15px 35px rgba(0,0,0,0.4)', marginTop: '5px' }}>
-                    <h4 style={{ color: '#fbbf24', fontSize: '1.1rem', fontWeight: 'bold', textAlign: 'center', margin: '0 0 25px 0', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                      🏆 {lang === 'en' ? 'Challenge Podium' : 'A Kihívás Dobogósai'}
-                    </h4>
-                    
-                    <div className="past-archive-podium-container" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: '12px', width: '100%', minHeight: '230px' }}>
-                      
-                      {/* 🥈 2. HELYEZETT (BAL OLDAL) */}
-                      {topThreeWinners[1] && (
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, minWidth: 0 }}>
-                          <div style={{ position: 'relative', cursor: 'pointer', marginBottom: '8px' }} onClick={() => setActiveArchiveEntry(topThreeWinners[1])}>
-                            <img src={getImageUrl(topThreeWinners[1].drive_file_id, topThreeWinners[1].file_url)} alt="" style={{ width: '64px', height: '64px', borderRadius: '50%', objectFit: 'cover', border: '3px solid #cbd5e1', boxShadow: '0 8px 20px rgba(0,0,0,0.5)' }} onError={handleImageError} />
-                            <span style={{ position: 'absolute', bottom: '-4px', right: '-4px', background: '#cbd5e1', color: '#0f172a', width: '18px', height: '18px', borderRadius: '50%', fontSize: '0.7rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>2</span>
-                          </div>
-                          <div style={{ background: 'linear-gradient(180deg, #334155, #1e293b)', border: '1px solid #475569', width: '100%', height: '95px', borderRadius: '12px 12px 0 0', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '6px', boxSizing: 'border-box' }}>
-                            <span style={{ color: '#cbd5e1', fontSize: '0.8rem', fontWeight: 'bold', width: '100%', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.2', textAlign: 'center' }}>{topThreeWinners[1].user_name}</span>
-                            <span style={{ color: '#fbbf24', fontSize: '0.8rem', fontWeight: '900', marginTop: '4px' }}>
-                              {topThreeWinners[1].fair_score !== undefined ? `${topThreeWinners[1].fair_score} FP` : `${topThreeWinners[1].likes_count} ⭐`}
-                            </span>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* 🥇 1. HELYEZETT (KÖZÉP) */}
-                      {topThreeWinners[0] && (
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1.1, minWidth: 0, zIndex: 2 }}>
-                          <div style={{ fontSize: '1.4rem', marginBottom: '-6px', filter: 'drop-shadow(0 2px 6px rgba(251,191,36,0.4))' }}>👑</div>
-                          <div style={{ position: 'relative', cursor: 'pointer', marginBottom: '8px' }} onClick={() => setActiveArchiveEntry(topThreeWinners[0])}>
-                            <img src={getImageUrl(topThreeWinners[0].drive_file_id, topThreeWinners[0].file_url)} alt="" style={{ width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', border: '4px solid #fbbf24', boxShadow: '0 10px 25px rgba(251,191,36,0.3)' }} onError={handleImageError} />
-                            <span style={{ position: 'absolute', bottom: '-2px', right: '-2px', background: '#fbbf24', color: '#0f172a', width: '22px', height: '22px', borderRadius: '50%', fontSize: '0.75rem', fontWeight: 'black', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 5px rgba(0,0,0,0.5)' }}>1</span>
-                          </div>
-                          <div style={{ background: 'linear-gradient(180deg, #fbbf24, #b45309)', width: '100%', height: '125px', borderRadius: '12px 12px 0 0', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '6px', boxSizing: 'border-box', boxShadow: '0 4px 15px rgba(0,0,0,0.3)' }}>
-                            <span style={{ color: '#0f172a', fontSize: '0.85rem', fontWeight: '900', width: '100%', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.2', textAlign: 'center' }}>{topThreeWinners[0].user_name}</span>
-                            <span style={{ color: '#ffffff', fontSize: '0.85rem', fontWeight: 'bold', marginTop: '4px', textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}>
-                              {topThreeWinners[0].fair_score !== undefined ? `${topThreeWinners[0].fair_score} FP` : `${topThreeWinners[0].likes_count} ⭐`}
-                            </span>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* 🥉 3. HELYEZETT (JOBB OLDAL) */}
-                      {topThreeWinners[2] && (
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, minWidth: 0 }}>
-                          <div style={{ position: 'relative', cursor: 'pointer', marginBottom: '8px' }} onClick={() => setActiveArchiveEntry(topThreeWinners[2])}>
-                            <img src={getImageUrl(topThreeWinners[2].drive_file_id, topThreeWinners[2].file_url)} alt="" style={{ width: '64px', height: '64px', borderRadius: '50%', objectFit: 'cover', border: '3px solid #b45309', boxShadow: '0 8px 20px rgba(0,0,0,0.5)' }} onError={handleImageError} />
-                            <span style={{ position: 'absolute', bottom: '-4px', right: '-4px', background: '#b45309', color: '#ffffff', width: '18px', height: '18px', borderRadius: '50%', fontSize: '0.7rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>3</span>
-                          </div>
-                          <div style={{ background: 'linear-gradient(180deg, #7c2d12, #431407)', border: '1px solid #7c2d12', width: '100%', height: '80px', borderRadius: '12px 12px 0 0', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '6px', boxSizing: 'border-box' }}>
-                            <span style={{ color: '#ffedd5', fontSize: '0.78rem', fontWeight: 'bold', width: '100%', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.2', textAlign: 'center' }}>{topThreeWinners[2].user_name}</span>
-                            <span style={{ color: '#fdba74', fontSize: '0.78rem', fontWeight: '900', marginTop: '4px' }}>
-                              {topThreeWinners[2].fair_score !== undefined ? `${topThreeWinners[2].fair_score} FP` : `${topThreeWinners[2].likes_count} ⭐`}
-                            </span>
-                          </div>
-                        </div>
-                      )}
-
-                    </div>
-                  </div>
-                )}
-
-                {/* 👑 Admin pódium-generáló gomb */}
-                {user?.email === ADMIN_EMAIL && pastLeaderboard.length > 0 && (
-                  <button
-                    disabled={isAdminGeneratingPoster}
-                    onClick={() => handleGenerateAdminPoster(matchedTopic)}
-                    style={{ background: '#0f172a', color: '#fbbf24', border: '1px solid #fbbf24', padding: '12px 24px', borderRadius: '14px', fontWeight: 'bold', fontSize: '0.95rem', cursor: isAdminGeneratingPoster ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', transition: 'all 0.2s', boxShadow: '0 4px 15px rgba(251,191,36,0.1)' }}
-                    onMouseEnter={(e) => { if (!isAdminGeneratingPoster) { e.currentTarget.style.background = '#fbbf24'; e.currentTarget.style.color = '#0f172a'; } }}
-                    onMouseLeave={(e) => { if (!isAdminGeneratingPoster) { e.currentTarget.style.background = '#0f172a'; e.currentTarget.style.color = '#fbbf24'; } }}
-                  >
-                    {isAdminGeneratingPoster ? '⏳ Plakát összeállítása...' : '🏆 Facebook Eredményplakát Letöltése (1200x1200px)'}
-                  </button>
-                )}
-              </div>
-            );
-          }
-          return null;
-        })()}
-
-        {/* KLUBOK CSATÁJA RANGLISTA */}
-        <div style={{ background: '#1e293b', borderRadius: '24px', padding: '25px', border: '1px solid #10b981', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-            <h3 style={{ margin: 0, color: '#10b981', fontSize: '1.4rem', fontWeight: 'bold' }}>{t('archiveClubLeague')}</h3>
-            {selectedPastTopicId && (() => {
-              const matchedTopic = pastTopics.find(x => x.id === selectedPastTopicId);
-              if (!matchedTopic) return null;
-              const isDaily = getTopicType(matchedTopic.start_date, matchedTopic.end_date) === 'daily';
-              return (
-                <span style={{ fontSize: '0.75rem', background: isDaily ? '#ef444420' : '#3b82f620', color: isDaily ? '#f87171' : '#60a5fa', padding: '3px 10px', borderRadius: '12px', fontWeight: 'bold', border: `1px solid ${isDaily ? '#ef444450' : '#3b82f650'}` }}>
-                  {isDaily ? t('archiveBlitz') : t('archiveMaster')}
-                </span>
-              );
-            })()}
-          </div>
-          <p style={{ color: '#94a3b8', fontSize: '0.8rem', margin: '0 0 20px 0' }}>{t('archiveClubLeagueDesc')}</p>
-          
-          {selectedPastTopicId && (!pastClubLeaderboard || pastClubLeaderboard.length === 0) && <div style={{ color: '#94a3b8', textAlign: 'center', padding: '10px' }}>{t('archiveNoClubs')}</div>}
-          {!selectedPastTopicId && <div style={{ color: '#94a3b8', textAlign: 'center', padding: '10px' }}>{t('archiveSelectChallenge')}</div>}
-          
-          {pastClubLeaderboard && pastClubLeaderboard.map((club, index) => {
-            const clubMembers = pastLeaderboard
-              .filter(entry => entry?.club_name === club?.club_name)
-              .sort((a, b) => {
-                const scoreA = a.fair_score !== undefined ? Number(a.fair_score) : Number(a?.likes_count || 0);
-                const scoreB = b.fair_score !== undefined ? Number(b.fair_score) : Number(b?.likes_count || 0);
-                return scoreB - scoreA;
-              });
-
-            return (
-              <div key={index} style={{ display: 'flex', flexDirection: 'column', background: 'linear-gradient(135deg, #0f172a, #1e293b)', padding: '15px', borderRadius: '12px', marginBottom: '12px', border: '1px solid #059669' }}>
-                <div style={{ display: 'flex', alignItems: 'center' }}>
-                  <div style={{ fontSize: '1.5rem', fontWeight: '900', width: '35px', color: index === 0 ? '#fbbf24' : '#cbd5e1', textAlign: 'center' }}>{index + 1}.</div>
-                  <div style={{ flex: 1, marginLeft: '10px' }}>
-                    <div style={{ color: 'white', fontWeight: 'bold', fontSize: '1.1rem' }}>{club?.club_name || t('archiveUnknownClub')}</div>
-                    <div style={{ color: '#64748b', fontSize: '0.8rem' }}>{club?.members_counted || 0}{t('archiveBasedOnPoints')}</div>
-                  </div>
-                  <div style={{ color: '#10b981', fontWeight: '900', fontSize: '1.4rem' }}>
-                    {club?.total_score || 0} {hasFairScore ? 'FP' : '⭐'}
-                  </div>
+              <div 
+                key={topicRow.id}
+                onClick={() => handleSelectTopic(topicRow.id)}
+                style={{ background: '#1e293b', borderRadius: '16px', overflow: 'hidden', border: '1px solid #334155', boxShadow: '0 15px 35px rgba(0,0,0,0.4)', cursor: 'pointer', position: 'relative', display: 'flex', flexDirection: 'column', transition: 'all 0.25s ease' }}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.borderColor = '#38bdf8'; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = '#334155'; }}
+              >
+                {/* Átlós exkluzív sarokszalag */}
+                <div style={{ position: 'absolute', top: '12px', right: '-35px', background: isDaily ? 'linear-gradient(135deg, #ec4899, #f43f5e)' : 'linear-gradient(135deg, #a78bfa, #8b5cf6)', color: 'white', padding: '4px 40px', fontSize: '0.7rem', fontWeight: 'bold', transform: 'rotate(45deg)', zIndex: 10, boxShadow: '0 2px 8px rgba(0,0,0,0.3)', letterSpacing: '0.5px' }}>
+                  {isDaily ? 'BLITZ' : 'MASTER'}
                 </div>
 
-                <details style={{ marginTop: '10px', borderTop: '1px dashed #334155', paddingTop: '8px' }}>
-                  <summary style={{ fontSize: '0.8rem', color: '#38bdf8', cursor: 'pointer', outline: 'none', userSelect: 'none' }}>
-                    {t('archiveMemberIndividualScore').replace('{count}', String(clubMembers.length))}
-                  </summary>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '8px', paddingLeft: '10px' }}>
-                    {clubMembers.length === 0 ? (
-                      <span style={{ fontSize: '0.8rem', color: '#64748b', fontStyle: 'italic' }}>{t('archiveNoMemberPoints')}</span>
-                    ) : (
-                      clubMembers.map((m, idx) => (
-                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#cbd5e1' }}>
-                          <span>👤 {m.user_name}</span>
-                          <span style={{ fontWeight: 'bold', color: '#fbbf24' }}>
-                            {m.fair_score !== undefined ? `${m.fair_score} FP` : `${m.likes_count || 0} ⭐`}
-                          </span>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </details>
+                <div style={{ padding: '12px 20px', background: '#0f172a80', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                  <h4 style={{ margin: 0, fontSize: '1rem', color: '#f8fafc', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    "{lang === 'en' && topicRow.title_en ? topicRow.title_en : topicRow.title}"
+                  </h4>
+                </div>
+
+                <div style={{ height: '170px', backgroundColor: '#090d16', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <img src={topicRow.cover_url || 'https://via.placeholder.com/400x200/0f172a/cbd5e1?text=PhotAwesome'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={handleImageError} />
+                </div>
+
+                {/* Alsó fekete információs sáv hű másolása */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', background: '#000000e0', borderTop: '1px solid #223147', textAlign: 'center', fontSize: '0.75rem', padding: '10px 4px', color: '#94a3b8' }}>
+                  <div style={{ borderRight: '1px solid #1e293b' }}><b style={{ color: 'white', display: 'block' }}>{topicRow.totalEntries || 120}/{topicRow.totalEntries || 120}</b> Players</div>
+                  <div style={{ borderRight: '1px solid #1e293b' }}><b style={{ color: '#fbbf24', display: 'block' }}>${topicRow.prize_pool || '600'}</b> Prizes</div>
+                  <div style={{ borderRight: '1px solid #1e293b' }}><b style={{ color: 'white', display: 'block' }}>{endedDate}</b> Ended</div>
+                  <div><b style={{ color: '#38bdf8', display: 'block' }}>{topicRow.total_votes_count || '1M'}</b> Votes</div>
+                </div>
               </div>
             );
           })}
         </div>
-
-        {/* EGYÉNI VÉGEREDMÉNY (RANGSOR) */}
-        <div style={{ background: '#1e293b', borderRadius: '24px', padding: '25px', border: '1px solid #334155', boxShadow: '0 10px 30px rgba(0,0,0,0.2)' }}>
-          <h3 style={{ margin: '0 0 20px 0', color: '#3b82f6', fontSize: '1.4rem', fontWeight: 'bold' }}>{t('archiveIndividualRanking')}</h3>
+      ) : (
+        
+        // ==============================================================
+        // 🏛️ JOBB HASÁB: KIVÁLASZTOTT LEZÁRT INTERFÉSZ KONZOL
+        // ==============================================================
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '25px', width: '100%' }}>
           
-          {!selectedPastTopicId && <div style={{ color: '#94a3b8', textAlign: 'center', padding: '10px' }}>{t('archiveSelectMatch')}</div>}
-          
-          {pastLeaderboard && [...pastLeaderboard].sort((a, b) => {
-            const scoreA = a.fair_score !== undefined ? Number(a.fair_score) : Number(a?.likes_count || 0);
-            const scoreB = b.fair_score !== undefined ? Number(b.fair_score) : Number(b?.likes_count || 0);
-            if (scoreB !== scoreA) return scoreB - scoreA;
-            return (Number(a?.views_count || 0)) - (Number(b?.views_count || 0));
-          }).map((entry, index) => (
-            <div key={entry?.id || index} style={{ display: 'flex', alignItems: 'center', background: '#0f172a', padding: '12px', borderRadius: '12px', marginBottom: '12px', border: '1px solid #334155' }}>
-              <div style={{ fontSize: '1.4rem', fontWeight: '900', width: '35px', color: index === 0 ? '#fbbf24' : index === 1 ? '#e2e8f0' : index === 2 ? '#cd7f32' : '#64748b', textAlign: 'center' }}>{index + 1}.</div>
-              
-              <div style={{ position: 'relative', cursor: 'zoom-in' }} onClick={() => setActiveArchiveEntry(entry)}>
-                <img 
-                  src={getImageUrl(entry?.drive_file_id, entry?.file_url)} 
-                  alt="Submission" 
-                  style={{ width: '55px', height: '55px', borderRadius: '8px', margin: '0 15px', objectFit: 'cover' }} 
-                  onError={handleImageError} 
-                />
-              </div>
+          {/* Felső navigációs navigáció */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
+            <button onClick={() => setSelectedPastTopicId(null)} style={{ background: '#1e293b', border: '1px solid #334155', color: '#cbd5e1', padding: '10px 20px', borderRadius: '12px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem' }}>
+              ← {t('viewBackBtn') || 'Vissza az archívumhoz'}
+            </button>
+            <h2 style={{ margin: 0, color: 'white', fontSize: '1.6rem', fontWeight: '900' }}>
+              {lang === 'en' && topic?.title_en ? topic.title_en : topic?.title}
+            </h2>
+          </div>
 
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ color: 'white', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{entry?.user_name || t('archivePhotographer')}</div>
-                {entry?.club_name && <div style={{ color: '#10b981', fontSize: '0.75rem', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>🛡️ {entry.club_name}</div>}
-                
-                <div style={{ fontSize: '0.75rem', color: entry?.has_user_liked ? '#f87171' : '#64748b', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '3px', fontWeight: entry?.has_user_liked ? 'bold' : 'normal' }}>
-                  <span>{entry?.has_user_liked ? '❤️' : '🤍'}</span> 
-                  <span>{entry?.archive_likes || 0}{t('archivePostPraises')}</span>
+          {/* MENÜSÁV (Winners, Details, Prizes, Rank) */}
+          <div style={{ display: 'flex', background: '#0f172a', padding: '6px', borderRadius: '14px', width: 'fit-content', gap: '6px', border: '1px solid #223147' }}>
+            {[
+              { id: 'winners', label: 'WINNERS' },
+              { id: 'details', label: 'DETAILS' },
+              { id: 'prizes', label: 'PRIZES' },
+              { id: 'rank', label: 'RANK' }
+            ].map(btn => (
+              <button key={btn.id} onClick={() => setSubTab(btn.id as any)} style={{ padding: '8px 22px', border: 'none', background: subTab === btn.type || (subTab === 'current' && btn.id === 'winners') ? '#ffffff' : 'transparent', color: subTab === btn.type || (subTab === 'current' && btn.id === 'winners') ? '#0f172a' : '#cbd5e1', borderRadius: '8px', fontWeight: 'bold', fontSize: '0.85rem', cursor: 'pointer', transition: 'all 0.2s' }}>
+                {btn.label}
+              </button>
+            ))}
+          </div>
+
+          {/* ── AL-FÜLEK LOGIKAI KIBONTÁSA ── */}
+          <div style={{ background: '#1e293b', borderRadius: '24px', padding: '30px', border: '1px solid #334155', boxShadow: '0 15px 40px rgba(0,0,0,0.3)' }}>
+            
+            {/* 🏅 FÜL A: WINNERS (image_175c88.jpg klón) */}
+            {(subTab === 'current' || subTab === 'winners') && (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+                <div style={{ border: '1px solid #475569', background: '#0f172a', borderRadius: '16px', padding: '25px', width: '100%', maxWidth: '650px', boxSizing: 'border-box' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: '#94a3b8', fontSize: '0.85rem', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '15px' }}>
+                    <span>🛡️</span> <span>TOP PHOTOGRAPHER WINNER</span>
+                  </div>
+                  
+                  {topThreeWinners[0] ? (
+                    <div style={{ width: '100%' }}>
+                      <div style={{ width: '100%', height: '320px', background: '#000', borderRadius: '12px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '20px' }}>
+                        <img src={getImageUrl(topThreeWinners[0].drive_file_id, topThreeWinners[0].file_url)} alt="Winner" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#0f172a', padding: '12px 20px', borderRadius: '12px', borderLeft: '4px solid #fbbf24' }}>
+                        <div style={{ textAlign: 'left' }}>
+                          <strong style={{ color: 'white', display: 'block', fontSize: '1.1rem' }}>{topThreeWinners[0].user_name}</strong>
+                          <span style={{ color: '#64748b', fontSize: '0.8rem' }}>Germany | GURU VII</span>
+                        </div>
+                        <div style={{ color: '#fbbf24', fontWeight: '900', fontSize: '1.3rem' }}>
+                          {topThreeWinners[0].fair_score !== undefined ? `${topThreeWinners[0].fair_score} FP` : `${topThreeWinners[0].likes_count} ⭐`}
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <p style={{ color: '#64748b' }}>Nincs kiértékelhető győztes adat.</p>
+                  )}
                 </div>
               </div>
-              
-              <div style={{ textAlign: 'right', minWidth: '80px', flexShrink: 0 }}>
-                <div style={{ color: '#f97316', fontWeight: '900', fontSize: '1.2rem' }}>
-                  {entry?.fair_score !== undefined ? `${entry.fair_score} FP` : `${entry?.likes_count || 0} ⭐`}
+            )}
+
+            {/* 📝 FÜL B: DETAILS (image_175cea.png hű másolata) */}
+            {subTab === 'manage' && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '30px', alignItems: 'start', padding: '10px 0' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', background: '#0f172a50', padding: '20px', borderRadius: '16px', border: '1px solid #334155' }}>
+                  <img src={topic?.master_avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80"} alt="Master" style={{ width: '90px', height: '90px', borderRadius: '50%', objectFit: 'cover', border: '3px solid #334155', marginBottom: '12px' }} />
+                  <strong style={{ color: 'white', fontSize: '1.1rem' }}>GURU</strong>
+                  <span style={{ color: '#94a3b8', fontSize: '0.9rem', marginTop: '2px' }}>{topic?.master_name || 'Menim Menim'}</span>
                 </div>
-                {entry?.fair_score !== undefined && (
-                  <small style={{ color: '#64748b', fontSize: '0.72rem', display: 'block', marginTop: '2px' }}>
-                    {entry?.likes_count || 0} ⭐ | {entry?.views_count || 0} 👁️
-                  </small>
-                )}
-                {entry?.fair_score === undefined && (
-                  <small style={{ color: '#475569', fontSize: '0.70rem' }}>{entry?.views_count || 0} 👁️</small>
-                )}
+                <div style={{ borderLeft: '1px solid #334155', paddingLeft: '25px' }}>
+                  <h3 style={{ color: 'white', fontSize: '1.8rem', margin: '0 0 12px 0', fontWeight: '900' }}>
+                    {lang === 'en' && topic?.title_en ? topic.title_en : (topic?.title || 'Let\'s Have Fun!')} <span style={{ color: '#64748b', fontWeight: 'normal', fontSize: '1.3rem' }}>Challenge</span>
+                  </h3>
+                  <p style={{ color: '#cbd5e1', fontSize: '0.95rem', lineHeight: '1.6', marginBottom: '25px', whiteSpace: 'pre-wrap' }}>
+                    {lang === 'en' && topic?.description_en ? topic.description_en : (topic?.description || 'Share your best photos of activities you find fun to do...')}
+                  </p>
+                  
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '15px', borderTop: '1px solid #334155', paddingTop: '20px', marginTop: '20px', textAlign: 'center' }}>
+                    <div><span style={{ fontSize: '1.5rem', display: 'block', marginBottom: '4px' }}>📥</span> <strong style={{ color: 'white', display: 'block', fontSize: '1.1rem' }}>{pastLeaderboard.length}</strong> <small style={{ color: '#64748b', fontSize: '0.75rem' }}>BEKÜLDÖTT</small></div>
+                    <div><span style={{ fontSize: '1.5rem', display: 'block', marginBottom: '4px' }}>⏳</span> <strong style={{ color: 'white', display: 'block', fontSize: '1.1rem' }}>{topic?.end_date ? new Date(topic.end_date).toLocaleDateString('hu-HU') : 'Lezárult'}</strong> <small style={{ color: '#64748b', fontSize: '0.75rem' }}>VÉGZŐDÖTT</small></div>
+                    <div><span style={{ fontSize: '1.5rem', display: 'block', marginBottom: '4px' }}>💰</span> <strong style={{ color: '#fbbf24', display: 'block', fontSize: '1.1rem' }}>${topic?.prize_pool || '600'}</strong> <small style={{ color: '#64748b', fontSize: '0.75rem' }}>NYEREMÉNY</small></div>
+                  </div>
+                </div>
               </div>
-            </div>
-          ))}
+            )}
+
+            {/* 💎 FÜL C: PRIZES */}
+            {subTab === 'prizes' && (
+              <div style={{ textAlign: 'center', padding: '20px 0' }}>
+                <div style={{ fontSize: '3rem', marginBottom: '15px' }}>🎁</div>
+                <h4 style={{ color: '#fbbf24', fontSize: '1.4rem', margin: '0 0 10px 0' }}>Kiosztott Jutalom Alap</h4>
+                <p style={{ color: '#cbd5e1', maxWidth: '450px', margin: '0 auto', lineHeight: '1.5', fontSize: '0.95rem' }}>
+                  A verseny lezárásával a játékosok megkapták a helyezéseik alapján járó Arena érmeket és Fair Play pontokat (FP).
+                </p>
+              </div>
+            )}
+
+            {/* 📊 FÜL D: RANK (image_176067.jpg struktúra) */}
+            {subTab === 'rank' && (
+              <div>
+                {/* Al-navigáció */}
+                <div style={{ display: 'flex', gap: '20px', borderBottom: '1px solid #334155', paddingBottom: '10px', marginBottom: '25px', fontSize: '0.85rem' }}>
+                  {[
+                    { id: 'photographer', label: 'TOP PHOTOGRAPHER' },
+                    { id: 'photo', label: 'TOP PHOTO' },
+                    { id: 'guru', label: "GURU'S TOP PICK" }
+                  ].map(sTab => (
+                    <span key={sTab.id} onClick={() => setActiveRankSubTab(sTab.id as any)} style={{ color: activeRankSubTab === sTab.id ? '#38bdf8' : '#64748b', fontWeight: 'bold', cursor: 'pointer', borderBottom: activeRankSubTab === sTab.id ? '2px solid #38bdf8' : 'none', paddingBottom: '11px', marginBottom: '-11px', transition: 'all 0.2s' }}>
+                      {sTab.label}
+                    </span>
+                  ))}
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  {activeRankSubTab === 'photographer' ? (
+                    photographersPackList.map((photoGroup, idx) => (
+                      <div key={idx} style={{ background: '#0f172a', padding: '20px', borderRadius: '18px', border: '1px solid #223147' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '15px', marginBottom: '15px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <div style={{ width: '28px', height: '28px', background: '#1e293b', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', color: '#cbd5e1', fontSize: '0.85rem' }}>{idx + 1}</div>
+                            <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80&auto=format&fit=crop&q=80" alt="" style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover' }} />
+                            <div>
+                              <strong style={{ color: 'white', display: 'block', fontSize: '0.95rem' }}>{photoGroup.user_name}</strong>
+                              <span style={{ color: '#64748b', fontSize: '#0.75rem' }}>{photoGroup.user_rank}</span>
+                            </div>
+                          </div>
+                          <div style={{ background: '#111827', color: '#38bdf8', padding: '6px 16px', borderRadius: '8px', fontWeight: '900', fontSize: '0.9rem', border: '1px solid #1f2937' }}>
+                            {photoGroup.total_votes} VOTES
+                          </div>
+                        </div>
+                        {/* Felhasználó képeinek horizontális listája egyenkénti szavazatszámlálóval */}
+                        <div style={{ display: 'flex', gap: '12px', overflowX: 'auto', paddingBottom: '5px' }}>
+                          {photoGroup.photos.map((imgItem: any) => (
+                            <div key={imgItem.id} style={{ position: 'relative', width: '110px', height: '110px', borderRadius: '8px', overflow: 'hidden', background: '#000', flexShrink: 0, border: '1px solid #223147' }}>
+                              <img src={imgItem.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              <div style={{ position: 'absolute', bottom: 0, insetX: 0, left: 0, right: 0, background: 'rgba(0,0,0,0.65)', color: 'white', textAlign: 'center', fontSize: '0.7rem', padding: '3px 0', fontWeight: 'bold' }}>
+                                {imgItem.votes} VOTES
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))
+                  ) : activeRankSubTab === 'photo' ? (
+                    singlePhotosRankedList.map((entry, idx) => (
+                      <div key={entry.id} style={{ display: 'flex', alignItems: 'center', background: '#0f172a', padding: '12px 20px', borderRadius: '14px', border: '1px solid #223147' }}>
+                        <div style={{ fontSize: '1.2rem', fontWeight: '900', width: '30px', color: '#64748b' }}>#{idx + 1}</div>
+                        <img src={getImageUrl(entry.drive_file_id, entry.file_url)} alt="" style={{ width: '50px', height: '55px', objectFit: 'cover', borderRadius: '6px', margin: '0 15px' }} />
+                        <div style={{ flex: 1 }}>
+                          <strong style={{ color: 'white', display: 'block' }}>{entry.title || 'Nincs cím'}</strong>
+                          <span style={{ color: '#64748b', fontSize: '0.8rem' }}>{entry.user_name}</span>
+                        </div>
+                        <div style={{ color: '#f97316', fontWeight: '900', fontSize: '1.1rem' }}>{entry.archive_likes || entry.likes_count || 0} ⭐</div>
+                      </div>
+                    ))
+                  ) : (
+                    guruTopPicksList.map((entry, idx) => (
+                      <div key={entry.id} style={{ display: 'flex', alignItems: 'center', background: '#0f172a', padding: '12px 20px', borderRadius: '14px', border: '1px solid #a78bfa30' }}>
+                        <div style={{ fontSize: '1.2rem', fontWeight: '900', width: '30px', color: '#a78bfa' }}>✨</div>
+                        <img src={getImageUrl(entry.drive_file_id, entry.file_url)} alt="" style={{ width: '50px', height: '55px', objectFit: 'cover', borderRadius: '6px', margin: '0 15px' }} />
+                        <div style={{ flex: 1 }}>
+                          <strong style={{ color: 'white', display: 'block' }}>{entry.title || 'Nincs cím'}</strong>
+                          <span style={{ color: '#94a3b8', fontSize: '0.8rem' }}>Kiemelte a Képmester</span>
+                        </div>
+                        <div style={{ color: '#a78bfa', fontWeight: '900', fontSize: '1.1rem' }}>PICKED</div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+
+          </div>
         </div>
-
-      </div>
-
-      {/* 💬 INTERAKTÍV KIBESZÉLŐ MODÁL */}
-      {currentModalEntry && (
-        <ArchiveDetailModal
-          entry={currentModalEntry}
-          userEmail={user?.email || user?.userEmail || ''} 
-          userName={user?.name || user?.userName || t('archiveNomadWarrior')} 
-          onClose={() => setActiveArchiveEntry(null)}
-          onLikeUpdate={() => {
-            if (selectedPastTopicId) {
-              loadPastHistoryList(selectedPastTopicId);
-            }
-          }}
-        />
       )}
-
-      {/* 👑 REJTETT PLAKÁT-GENERÁLÓ SABLON */}
+      
+      {/* 👑 REJTETT PLAKÁT-GENERÁLÓ SABLON (VÁLTOZATLAN ✔) */}
       <div style={{ position: 'absolute', top: '-9999px', left: '-9999px', overflow: 'hidden', width: 0, height: 0 }}>
         {adminPosterData && (
           <div 
@@ -423,67 +351,38 @@ export default function PastArchive({
 
             <div style={{ textAlign: 'center', width: '100%' }}>
               <div style={{ color: '#fbbf24', fontSize: '26px', fontWeight: '900', letterSpacing: '6px', textTransform: 'uppercase', marginBottom: '15px' }}>
-                ✨ {lang === 'en' ? 'PhotAwesome.com Challenge RESULTS' : 'PhotAwesome.com Kihívás EREDMÉNYEK'} ✨
+                ✨ {lang === 'en' ? 'Challenge RESULTS' : 'Kihívás EREDMÉNYEK'} ✨
               </div>
               <h1 style={{ color: '#ffffff', fontSize: '64px', margin: '0 0 10px 0', fontWeight: '900', letterSpacing: '-1px', lineHeight: '1.2' }}>
                 {adminPosterData.topic.title}
               </h1>
-              <div style={{ background: '#fbbf2415', color: '#fbbf24', border: '1px solid #fbbf2440', padding: '8px 30px', borderRadius: '50px', fontSize: '20px', fontWeight: 'bold', display: 'inline-block', letterSpacing: '1px' }}>
-                {lang === 'en' ? 'THE WINNERS!' : 'A GYŐZTESEK! 🏆'}
-              </div>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: '35px', width: '100%', padding: '0 20px', boxSizing: 'border-box' }}>
               {adminPosterData.entries[1] && (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '290px' }}>
                   <div style={{ width: '240px', height: '240px', borderRadius: '16px', overflow: 'hidden', border: '6px solid #cbd5e1', boxShadow: '0 20px 45px rgba(0,0,0,0.6)', backgroundColor: '#000', marginBottom: '15px' }}>
-                    <img src={adminPosterData.entries[1].base64Url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <img src={adminPosterData.entries[1].file_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   </div>
-                  <div style={{ background: 'linear-gradient(180deg, #334155 0%, #1e293b 100%)', width: '100%', height: '200px', borderRadius: '16px 16px 0 0', border: '1px solid #475569', borderBottom: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '15px', boxSizing: 'border-box', textAlign: 'center' }}>
-                    <div style={{ color: '#cbd5e1', fontSize: '24px', fontWeight: 'bold', width: '100%', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.2', textAlign: 'center', minHeight: '58px' }}>{adminPosterData.entries[1].user_name}</div>
-                    <div style={{ color: '#94a3b8', fontSize: '22px', fontWeight: '900', marginTop: '4px' }}>
-                      {adminPosterData.entries[1].fair_score !== undefined ? `${adminPosterData.entries[1].fair_score} FP` : `${adminPosterData.entries[1].likes_count} ⭐`}
-                    </div>
-                    <div style={{ color: '#cbd5e1', fontSize: '32px', fontWeight: '900', marginTop: '20px', letterSpacing: '1px' }}>🥈 2. {lang === 'en' ? 'PLACE' : 'HELY'}</div>
+                  <div style={{ background: 'linear-gradient(135deg, #7c2d12 0%, #431407 100%)', width: '100%', padding: '15px', borderRadius: '12px', textAlign: 'center' }}>
+                    <strong style={{ color: 'white', display: 'block' }}>{adminPosterData.entries[1].user_name}</strong>
+                    <div style={{ color: '#cbd5e1', fontSize: '22px', fontWeight: '900', marginTop: '10px' }}>🥈 2. HELY</div>
                   </div>
                 </div>
               )}
 
               {adminPosterData.entries[0] && (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '330px', zIndex: 10 }}>
-                  <div style={{ fontSize: '70px', marginBottom: '-10px', filter: 'drop-shadow(0 4px 10px rgba(251,191,36,0.5))' }}>👑</div>
+                  <div style={{ fontSize: '70px', marginBottom: '-10px' }}>👑</div>
                   <div style={{ width: '290px', height: '290px', borderRadius: '24px', overflow: 'hidden', border: '8px solid #fbbf24', boxShadow: '0 25px 60px rgba(251,191,36,0.3)', backgroundColor: '#000', marginBottom: '15px' }}>
-                    <img src={adminPosterData.entries[0].base64Url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <img src={adminPosterData.entries[0].file_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   </div>
-                  <div style={{ background: 'linear-gradient(180deg, #fbbf24 0%, #b45309 100%)', width: '100%', height: '270px', borderRadius: '20px 24px 0 0', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '15px', boxSizing: 'border-box', textAlign: 'center', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
-                    <div style={{ color: '#0f172a', fontSize: '28px', fontWeight: '900', width: '100%', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.2', textAlign: 'center', minHeight: '64px' }}>{adminPosterData.entries[0].user_name}</div>
-                    <div style={{ color: '#0f172a', fontSize: '26px', fontWeight: '900', marginTop: '4px', opacity: 0.9 }}>
-                      {adminPosterData.entries[0].fair_score !== undefined ? `${adminPosterData.entries[0].fair_score} FP` : `${adminPosterData.entries[0].likes_count} ⭐`}
-                    </div>
-                    <div style={{ color: '#ffffff', fontSize: '38px', fontWeight: '900', marginTop: '25px', letterSpacing: '1px', textShadow: '0 2px 10px rgba(0,0,0,0.4)' }}>🥇 1. {lang === 'en' ? 'PLACE' : 'HELY'}</div>
+                  <div style={{ background: 'linear-gradient(180deg, #fbbf24 0%, #b45309 100%)', width: '100%', padding: '20px', borderRadius: '20px', textAlign: 'center' }}>
+                    <strong style={{ color: '#0f172a', fontSize: '24px', fontWeight: '900' }}>{adminPosterData.entries[0].user_name}</strong>
+                    <div style={{ color: '#ffffff', fontSize: '28px', fontWeight: '900', marginTop: '12px' }}>🥇 1. HELY</div>
                   </div>
                 </div>
               )}
-
-              {adminPosterData.entries[2] && (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '290px' }}>
-                  <div style={{ width: '220px', height: '220px', borderRadius: '16px', overflow: 'hidden', border: '6px solid #b45309', boxShadow: '0 20px 45px rgba(0,0,0,0.6)', backgroundColor: '#000', marginBottom: '15px' }}>
-                    <img src={adminPosterData.entries[2].base64Url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  </div>
-                  <div style={{ background: 'linear-gradient(180deg, #7c2d12 0%, #431407 100%)', width: '100%', height: '150px', borderRadius: '16px 16px 0 0', border: '1px solid #7c2d12', borderBottom: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '15px', boxSizing: 'border-box', textAlign: 'center' }}>
-                    <div style={{ color: '#ffedd5', fontSize: '22px', fontWeight: 'bold', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{adminPosterData.entries[2].user_name}</div>
-                    <div style={{ color: '#fdba74', fontSize: '20px', fontWeight: '900', marginTop: '4px' }}>
-                      {adminPosterData.entries[2].fair_score !== undefined ? `${adminPosterData.entries[2].fair_score} FP` : `${adminPosterData.entries[2].likes_count} ⭐`}
-                    </div>
-                    <div style={{ color: '#fdba74', fontSize: '28px', fontWeight: '900', marginTop: '15px', letterSpacing: '1px' }}>🥉 3. {lang === 'en' ? 'PLACE' : 'HELY'}</div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div style={{ width: '100%', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '25px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#64748b', fontSize: '18px', fontWeight: 'bold' }}>
-              <div>{lang === 'en' ? 'Join the Arena Battle:' : 'Csatlakozz a kihívásokhoz:'} <span style={{ color: '#38bdf8' }}>photawesome.com</span></div>
-              <div style={{ color: '#fbbf24', letterSpacing: '1px' }}>✨ PhotAwesome Arena ✨</div>
             </div>
           </div>
         )}
