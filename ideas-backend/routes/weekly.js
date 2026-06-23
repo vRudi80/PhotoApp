@@ -927,7 +927,7 @@ async function processFinishedChallenges(pool) {
 app.get('/api/weekly/past', async (req, res) => {
   try {
     const [rows] = await pool.query(`
-      SELECT t.*, u.name as master_name,
+      SELECT t.*, u.name as master_name, u.avatar_url as master_avatar_url, -- 👈 Ezt a mezőt szúrd be ide!
              (SELECT COUNT(*) FROM weekly_entries WHERE topic_id = t.id) as entries_count,
              (SELECT COUNT(*) FROM weekly_votes WHERE entry_id IN (SELECT id FROM weekly_entries WHERE topic_id = t.id)) as total_votes
       FROM weekly_topics t
