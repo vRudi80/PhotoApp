@@ -33,10 +33,10 @@ export default function AdminUsersView({
 
   const silhouetteAvatar = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23475569'><circle cx='12' cy='8' r='4'/><path d='M12 14c-6.1 0-10 4-10 4v2h20v-2s-3.9-4-10-4z'/></svg>";
 
-  // Felhasználók közvetlen, tiszta lekérése profilképekkel együtt
+  // Felhasználók közvetlen lekérése az új, garantáltan tiszta exkluzív útvonalról
   const loadFreshUsersList = async () => {
     try {
-      const res = await fetch(`${BACKEND_URL}/api/users`);
+      const res = await fetch(`${BACKEND_URL}/api/admin/exclusive-users`); // 👈 Átírva az új exkluzív végpontra!
       if (res.ok) {
         const data = await res.json();
         setLocalUsers(data || []);
@@ -50,7 +50,6 @@ export default function AdminUsersView({
     }
   };
 
-  // 🎯 JAVÍTVA: A függőségi tömböt üresre ([]) cseréltük, elvágva a villogást okozó végtelen hurkot!
   useEffect(() => {
     loadFreshUsersList();
     
