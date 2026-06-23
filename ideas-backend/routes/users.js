@@ -57,6 +57,23 @@ module.exports = function(app, pool) {
   });
 
   // ====================================================================
+  // 👤 ÚJ VÉGPONT: Egy konkrét felhasználó teljes adatlapjának lekérése
+  // ====================================================================
+  app.get('/api/users/:email', async (req, res) => {
+    const { email } = req.params;
+    try {
+      const [rows] = await pool.query('SELECT * FROM photo_users WHERE email = ?', [email]);
+      if (rows.length === 0) {
+        return res.status(404).json({ error: 'Felhasználó nem található!' });
+      }
+      res.json(rows[0]); // Visszaadjuk a teljes sort, benne az avatar_url-lel!
+    } catch (err) {
+      console.error("❌ Hiba az egyéni profil lekérésekor:", err);
+      res.status(500).json({ error: 'Szerveroldali hiba történt.' });
+    }
+  });
+  
+  // ====================================================================
   // 👤 ÚJ: HIVATALOS MAFOSZ PROFIL ADATOK (Extended Profile) MENTÉSE
   // ====================================================================
   app.put('/api/users/:email/extended-profile', async (req, res) => {
