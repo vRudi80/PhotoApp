@@ -295,7 +295,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const [userTotalLikes, setUserTotalLikes] = useState<number>(0);
   const [userVictories, setUserVictories] = useState<number>(0); 
 
-  const [userPower, ...setUserPower] = useState([{ super: 1, brilliant: 2 }]); // adjusted for standard destructuring compatibility from raw code snippet
+  const [userPower, setUserPower] = useState<{ super: number; brilliant: number }>({ super: 1, brilliant: 2 });
+
   const [hallOfFame, setHallOfFame] = useState<any[]>([]);
 
   const [activeShareData, setActiveShareData] = useState<any | null>(null);
