@@ -1004,9 +1004,21 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           <UpcomingChallenges upcomingTopics={upcomingTopics} getTopicType={getTopicType} handleImageError={handleImageError} user={user} />
         )}
         
-        {subTab === 'past' && (
-          <PastArchive pastTopics={pastTopics} selectedPastTopicId={selectedPastTopicId} loadPastHistoryList={loadPastHistoryList} pastClubLeaderboard={pastClubLeaderboard} pastLeaderboard={pastLeaderboard} getTopicType={getTopicType} handleImageError={handleImageError} setFullscreenData={setFullscreenData} user={user} />
-        )}
+{subTab === 'past' && (
+  <PastArchive 
+    pastTopics={pastTopics} 
+    selectedPastTopicId={selectedPastTopicId} 
+    setSelectedPastTopicId={setSelectedPastTopicId} // 👈 EZT A HIÁNYZÓ SORT ADD HOZZÁ!
+    loadPastHistoryList={loadPastHistoryList} 
+    pastClubLeaderboard={pastClubLeaderboard} 
+    pastLeaderboard={pastLeaderboard} 
+    getTopicType={getTopicType} 
+    handleImageError={handleImageError} 
+    setFullscreenData={setFullscreenData} 
+    user={user} 
+  />
+)}
+
         
         {subTab === 'my_stats' && (
           <TrophyRoom isLoadingStats={isLoadingStats} myStats={myStats} userTotalLikes={userTotalLikes} userVictories={userVictories} swapBalance={swapBalance} myReferralCode={myReferralCode} referredBy={referredBy} referralInput={referralInput} setReferralInput={setReferralInput} isClaimingReferral={isClaimingReferral} handleClaimReferral={handleClaimReferral} setActiveShareData={setActiveShareData} setFullscreenData={setFullscreenData} getLevelDetails={getLevelDetails} getTopicType={getTopicType} handleImageError={handleImageError} />
