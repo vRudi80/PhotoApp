@@ -76,7 +76,6 @@ export default function PastArchive({
     return rankStr;
   };
 
-  // 🎯 JAVÍTVA: A dinamikus SVG helyettesítő szövege is megkapta a nyelvi fordítást!
   const handleLocalImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
     e.currentTarget.onerror = null; 
     e.currentTarget.src = `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 300' fill='%230f172a'><rect width='100%' height='100%'/><text x='50%' y='50%' fill='%23334155' font-family='sans-serif' font-size='14' text-anchor='middle'>${t('archiveImgNotAvailable', 'Kép nem elérhető')}</text></svg>`;
@@ -304,7 +303,8 @@ export default function PastArchive({
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#0f172a', padding: '12px 20px', borderRadius: '12px', borderLeft: '4px solid #fbbf24' }}>
                         <div style={{ display: 'flex', gap: '12px', alignItems: 'center', textAlign: 'left' }}>
-                          <img src={silhouetteAvatar} alt="" style={{ width: '38px', height: '38px' }} />
+                          {/* 🎯 JAVÍTVA: Fix sziluett helyett a győztes valós, adatbázisból érkező profilképe */}
+                          <img src={topThreeWinners[0].avatar_url || silhouetteAvatar} alt="" style={{ width: '38px', height: '38px', borderRadius: '50%', objectFit: 'cover' }} />
                           <div>
                             <strong style={{ color: 'white', display: 'block', fontSize: '1.1rem' }}>{topThreeWinners[0].user_name}</strong>
                             <span style={{ color: '#64748b', fontSize: '0.8rem', display: 'block' }}>{winnerLevelName}</span>
@@ -326,7 +326,8 @@ export default function PastArchive({
             {subTab === 'details' && (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '30px', alignItems: 'start', padding: '10px 0' }}>
                 <div style={{ background: '#0f172a', padding: '20px', borderRadius: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', border: '1px solid #334155' }}>
-                  <img src={silhouetteAvatar} alt="Master" style={{ width: '90px', height: '90px' }} />
+                  {/* 🎯 JAVÍTVA: Fix sziluett helyett a Képmester (Guru) valós, adatbázisból érkező profilképe */}
+                  <img src={currentTopicObj?.master_avatar_url || silhouetteAvatar} alt="Master" style={{ width: '90px', height: '90px', borderRadius: '50%', objectFit: 'cover' }} />
                   <strong style={{ color: 'white', fontSize: '1.1rem', marginTop: '10px' }}>KÉPMESTER</strong>
                   <span style={{ color: '#94a3b8', fontSize: '0.9rem', marginTop: '2px' }}>{currentTopicObj?.master_name || t('archiveUnknownMaster', 'Ismeretlen Képmester')}</span>
                 </div>
@@ -412,7 +413,7 @@ export default function PastArchive({
                           <strong style={{ color: 'white', display: 'block', fontSize: '1rem' }}>{entry.user_name}</strong>
                           <span style={{ color: '#94a3b8', fontSize: '0.8rem' }}>{t('archiveHighlightedByMaster', 'Kiemelte a Képmester')}</span>
                         </div>
-                        <div style={{ color: '#a78bfa', fontWeight: '900', fontSize: '1.1rem' }}>PICKED</div>
+                        <div style={{ color: '#a78bfa', fontWeight: '900', fontSize: '1.1rem' }}>Mesteri választás</div>
                       </div>
                     ))
                   )}
@@ -424,7 +425,7 @@ export default function PastArchive({
         </div>
       )}
       
-      {/* 👑 REJTETT PLAKÁT-GENERÁLÓ SABLON (Kétnyelvűsítve) */}
+      {/* 👑 REJTETT PLAKÁT-GENERÁLÓ SABLON */}
       <div style={{ position: 'absolute', top: '-9999px', left: '-9999px', overflow: 'hidden', width: 0, height: 0 }}>
         {adminPosterData && (
           <div 
