@@ -11,7 +11,7 @@ import HallOfFame from '../components/WeeklyChallenge/subtabs/HallOfFame';
 import PastArchive from '../components/WeeklyChallenge/subtabs/PastArchive';
 import UpcomingChallenges from '../components/WeeklyChallenge/subtabs/UpcomingChallenges';
 import ArenaActiveRoom from '../components/WeeklyChallenge/subtabs/ArenaActiveRoom';
-import BattlePlanner from '../components/WeeklyChallenge/subtabs/BattlePlanner'; // 👈 ÚJ: Beemelve a tervezőpult
+import BattlePlanner from '../components/WeeklyChallenge/subtabs/BattlePlanner';
 import exifr from 'exifr'; 
 import VideoLoader from '../components/VideoLoader';
 
@@ -210,15 +210,12 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
   );
 }
 
-interface WeeklyChallengeViewProps {
-  user: any;
-  setFullscreenData: (data: any) => void;
-}
-
+// ====================================================================
+// ⚔️ FŐ IRÁNYÍTÓKÖZPONT KOMPONENS
+// ====================================================================
 export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyChallengeViewProps) {
   const { t, lang } = useLanguage();
 
-  // 1. MINDEN LÉTEZŐ ÁLLAPOT (HIÁNYTALANUL MEGTARTVA ✔)
   const [subTab, setSubTab] = useState<'current' | 'manage' | 'past' | 'arena_album' | 'my_stats' | 'hall_of_fame'>('current');
   const [loading, setLoading] = useState(true);
   const [myReferralCode, setMyReferralCode] = useState<string>('');
@@ -425,7 +422,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       }
     } catch (err) {
       console.error(err);
-    } {
+    } finally {
       setIsSendingLobbyMsg(false);
     }
   };
@@ -673,7 +670,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     } catch (e) { alert(t('msgSwapErrorMain')); } finally { setIsSwapping(false); }
   };
 
-  // 🎯 JAVÍTVA: Elgépelés ('fillly:') megszüntetve a tiszta fordításért!
   const handleUpdateName = async (nameInput: string, setIsSavingName: (b: boolean) => void) => {
     if (!nameInput.trim()) return alert(t('msgEmptyName'));
     setIsSavingName(true);
@@ -706,7 +702,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ topicId: topic.id, userEmail: user.email, userName: user.name, fileUrl: photoUrl })
       });
       if (swapRes.ok) { alert(t('msgSwapExistingSuccess')); fetchCurrentTopic(false); fetchAlbumSilently(); } 
-      else { const err = await res.json(); alert(err.error); }
+      else { const err = await swapRes.json(); alert(err.error); }
     } catch (e) { alert(t('msgNetworkError')); } finally { setIsSwapping(false); }
   };
 
@@ -777,7 +773,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     <div style={{ animation: 'fadeIn 0.4s ease-out', position: 'relative' }}>
       
       {/* ==============================================================
-          🎯 EXKLUZÍV TABS ALMENÜ SÁV (image_0c6c5d.png klónozott struktúra)
+          🎯 EXKLUZÍV TABS ALMENÜ SÁV (image_0c6c5d.png hű másolata)
           ============================================================== */}
       <div style={{ background: '#0f172a', borderBottom: '1px solid #1e293b', marginBottom: '25px', borderRadius: '16px 16px 0 0' }}>
         <div style={{ display: 'flex', gap: '8px', padding: '15px 20px 0 20px', flexWrap: 'wrap' }}>
@@ -819,15 +815,15 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       </div>
 
       {/* ==============================================================
-          🎖️ RANG PROGRESSION TRACK BAR (Exkluzív mérőóra tooltippel)
+          🎖️ RANG PROGRESSION TRACK BAR (Kijavított Cross-Origin vágásmentes zóna! 🚀)
           ============================================================== */}
       <div style={{ background: '#1e293b', padding: '15px 20px', borderRadius: '16px', border: '1px solid #334155', marginBottom: '30px', boxShadow: '0 4px 15px rgba(0,0,0,0.2)' }}>
-        <div style={{ display: 'flex', width: '100%', borderRadius: '10px', overflow: 'hidden', border: '1px solid #0f172a' }}>
+        {/* 🎯 JAVÍTVA: Kivettem az overflow: 'hidden'-t erről a flex dobozról, hogy a tooltip fel tudjon ugrani! */}
+        <div style={{ display: 'flex', width: '100%', border: '1px solid #0f172a', position: 'relative' }}>
           {ARENA_LEVELS_REGISTRY.map((rank, idx) => {
             const isUnlocked = idx <= currentLevel.id;
             const isCurrent = idx === currentLevel.id;
             
-            // Számoljuk ki a hátralévő szinteket a tooltip feliratához
             const nextLvlObj = ARENA_LEVELS_REGISTRY[idx];
             const likesDiff = nextLvlObj.minLikes - userTotalLikes;
             const winsDiff = (nextLvlObj.minVictories || 0) - userVictories;
@@ -859,7 +855,12 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   borderRight: idx < ARENA_LEVELS_REGISTRY.length - 1 ? '1px solid rgba(15,23,42,0.3)' : 'none',
                   position: 'relative',
                   cursor: 'help',
-                  transition: 'all 0.2s ease'
+                  transition: 'all 0.2s ease',
+                  // 🎯 JAVÍTVA: Manuálisan kényszerítjük a sarok-lekerekítést, így nincs szükség overflow:hidden-re!
+                  borderTopLeftRadius: idx === 0 ? '8px' : '0',
+                  borderBottomLeftRadius: idx === 0 ? '8px' : '0',
+                  borderTopRightRadius: idx === ARENA_LEVELS_REGISTRY.length - 1 ? '8px' : '0',
+                  borderBottomRightRadius: idx === ARENA_LEVELS_REGISTRY.length - 1 ? '8px' : '0'
                 }}
               >
                 <span style={{ fontSize: '0.85rem' }}>{isUnlocked ? '🔓' : '🔒'}</span>
@@ -891,7 +892,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       </div>
 
       {/* ==============================================================
-          🎮 AZ ALMODULOK DINAMIKUS MEGJELENÍTÉSI ZÓNÁJA
+          🎮 ALMODULOK DINAMIKUS MEGJELENÍTÉSI ZÓNÁJA
           ============================================================== */}
       <div style={{ width: '100%' }}>
         
@@ -997,13 +998,9 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         )}
 
         {subTab === 'manage' && (
-          <BattlePlanner user={user} onSuccess={() => { setSubTab('current'); fetchWeeklyData(); }} />
+          <BattlePlanner user={user} onSuccess={() => { setSubTab('current'); fetchCurrentTopic(false); }} />
         )}
 
-        {subTab === 'upcoming' && (
-          <UpcomingChallenges upcomingTopics={upcomingTopics} getTopicType={getTopicType} handleImageError={handleImageError} user={user} />
-        )}
-        
         {subTab === 'past' && (
           <PastArchive pastTopics={pastTopics} selectedPastTopicId={selectedPastTopicId} loadPastHistoryList={loadPastHistoryList} pastClubLeaderboard={pastClubLeaderboard} pastLeaderboard={pastLeaderboard} getTopicType={getTopicType} handleImageError={handleImageError} setFullscreenData={setFullscreenData} user={user} />
         )}
@@ -1032,17 +1029,19 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
 
       <ShareCardModal activeShareData={activeShareData} onClose={() => setActiveShareData(null)} user={user} shareBase64={shareBase64} loadingShareImg={loadingShareImg} isGeneratingImage={isGeneratingImage} handleExecuteShare={handleExecuteShare} />
 
-      {/* ── 🎯 BRUTÁLIS HARDVERESEN GYORSÍTOTT STYLING LAYER ── */}
+      {/* ── 🎯 HARDVERESEN GYORSÍTOTT STYLING LAYER ── */}
       <style>{`
         .arena-fluid-container { width: 100%; box-sizing: border-box; }
         .arena-cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 25px; width: 100%; }
         .arena-rank-tooltip-container { position: relative; }
+        
+        /* 🎯 JAVÍTVA: A tooltip kártya doboza most már gond nélkül kiemelkedik, mert megszűnt a felette lévő vágási zóna! */
         .arena-rank-tooltip-box {
-          position: absolute; bottom: 130%; left: 50%; transform: translateX(-50%) translateY(8px);
+          position: absolute; bottom: 145%; left: 50%; transform: translateX(-50%) translateY(8px);
           background: #090d16; color: #f8fafc; border: 1px solid #334155; border-radius: 12px;
-          width: 230px; box-shadow: 0 15px 35px rgba(0,0,0,0.6); z-index: 99999;
+          width: 240px; box-shadow: 0 15px 35px rgba(0,0,0,0.7); z-index: 999999 !important;
           opacity: 0; pointer-events: none; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-          padding: 12px; text-align: center;
+          padding: 14px; text-align: center;
         }
         .arena-rank-tooltip-box::after {
           content: ""; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
