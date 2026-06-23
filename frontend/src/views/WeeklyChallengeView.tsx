@@ -9,7 +9,7 @@ import ShareCardModal from '../components/WeeklyChallenge/ShareCardModal';
 import TrophyRoom from '../components/WeeklyChallenge/subtabs/TrophyRoom';
 import HallOfFame from '../components/WeeklyChallenge/subtabs/HallOfFame';
 import PastArchive from '../components/WeeklyChallenge/subtabs/PastArchive';
-import UpcomingChallenges from '../components/WeeklyChallenge/subtabs/UpcomingChallenges';
+import UpcomingChallenges from '../components/WeeklyChallenge/subtabs/UpcomingChallenges'; // 👈 Visszakerült
 import ArenaActiveRoom from '../components/WeeklyChallenge/subtabs/ArenaActiveRoom';
 import BattlePlanner from '../components/WeeklyChallenge/subtabs/BattlePlanner';
 import exifr from 'exifr'; 
@@ -213,10 +213,16 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
 // ====================================================================
 // ⚔️ FŐ IRÁNYÍTÓKÖZPONT KOMPONENS
 // ====================================================================
+interface WeeklyChallengeViewProps {
+  user: any;
+  setFullscreenData: (data: any) => void;
+}
+
 export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyChallengeViewProps) {
   const { t, lang } = useLanguage();
 
-  const [subTab, setSubTab] = useState<'current' | 'manage' | 'past' | 'arena_album' | 'my_stats' | 'hall_of_fame'>('current');
+  // 1. MINDEN LÉTEZŐ ÁLLAPOT (ÚJRA BELETÉVE AZ UPCOMING IS! ✔)
+  const [subTab, setSubTab] = useState<'current' | 'upcoming' | 'manage' | 'past' | 'arena_album' | 'my_stats' | 'hall_of_fame'>('current');
   const [loading, setLoading] = useState(true);
   const [myReferralCode, setMyReferralCode] = useState<string>('');
   const [referredBy, setReferredBy] = useState<string | null>(null);
@@ -437,6 +443,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       fetchCurrentTopic(false);
       fetchAlbumSilently(); 
     }
+    // 🎯 JAVÍTVA: Visszakerült a közelgő ligák betöltése is!
+    else if (subTab === 'upcoming') fetch(`${BACKEND_URL}/api/weekly/upcoming`).then(res => res.json()).then(data => setUpcomingTopics(data || [])).catch(console.error);
     else if (subTab === 'past') fetch(`${BACKEND_URL}/api/weekly/past`).then(res => res.json()).then(data => setPastTopics(data || [])).catch(console.error);
     else if (subTab === 'my_stats') fetchMyStats(); 
     else if (subTab === 'hall_of_fame') fetchHallOfFame();
@@ -773,44 +781,55 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     <div style={{ animation: 'fadeIn 0.4s ease-out', position: 'relative' }}>
       
       {/* ==============================================================
-          🎯 EXKLUZÍV TABS ALMENÜ SÁV (image_0c6c5d.png hű másolata)
+          🎯 EXKLUZÍV TABS ALMENÜ SÁV (A cserék száma is felkerült ide!)
           ============================================================== */}
       <div style={{ background: '#0f172a', borderBottom: '1px solid #1e293b', marginBottom: '25px', borderRadius: '16px 16px 0 0' }}>
-        <div style={{ display: 'flex', gap: '8px', padding: '15px 20px 0 20px', flexWrap: 'wrap' }}>
-          {[
-            { id: 'current', label: lang === 'en' ? 'Active' : 'Aktív szobák' },
-            { id: 'manage', label: lang === 'en' ? 'Manage' : 'Tervezőpult (Manage)' },
-            { id: 'past', label: lang === 'en' ? 'Completed' : 'Lezárt Arénák' },
-            { id: 'arena_album', label: lang === 'en' ? 'My Arena Album' : 'Aréna Albumom' },
-            { id: 'my_stats', label: lang === 'en' ? 'Statistics' : 'Trófea statisztikák' },
-            { id: 'hall_of_fame', label: lang === 'en' ? 'Hall of Fame' : 'Dicsőségcsarnok' }
-          ].map((tab) => {
-            const isActive = subTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => { setSubTab(tab.id as any); setSelectedTopicId(null); }}
-                style={{
-                  padding: '12px 24px',
-                  background: isActive ? 'rgba(56, 189, 248, 0.08)' : 'transparent',
-                  color: isActive ? '#38bdf8' : '#94a3b8',
-                  border: 'none',
-                  borderBottom: isActive ? '3px solid #38bdf8' : '3px solid transparent',
-                  fontWeight: 'bold',
-                  fontSize: '0.95rem',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease',
-                  borderRadius: '8px 8px 0 0'
-                }}
-              >
-                {tab.label}
-              </button>
-            );
-          })}
+        <div style={{ display: 'flex', gap: '8px', padding: '15px 20px 0 20px', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            {[
+              { id: 'current', label: lang === 'en' ? 'Active' : 'Aktív szobák' },
+              { id: 'upcoming', label: lang === 'en' ? 'Upcoming' : 'Közelgő Ligák' }, // 👈 Visszakerült
+              { id: 'manage', label: lang === 'en' ? 'Manage' : 'Tervezőpult' },
+              { id: 'past', label: lang === 'en' ? 'Completed' : 'Lezárt Arénák' },
+              { id: 'arena_album', label: lang === 'en' ? 'My Arena Album' : 'Aréna Albumom' },
+              { id: 'my_stats', label: lang === 'en' ? 'Statistics' : 'Trófea statisztikák' },
+              { id: 'hall_of_fame', label: lang === 'en' ? 'Hall of Fame' : 'Dicsőségcsarnok' }
+            ].map((tab) => {
+              const isActive = subTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => { setSubTab(tab.id as any); setSelectedTopicId(null); }}
+                  style={{
+                    padding: '12px 24px',
+                    background: isActive ? 'rgba(56, 189, 248, 0.08)' : 'transparent',
+                    color: isActive ? '#38bdf8' : '#94a3b8',
+                    border: 'none',
+                    borderBottom: isActive ? '3px solid #38bdf8' : '3px solid transparent',
+                    fontWeight: 'bold',
+                    fontSize: '0.95rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    borderRadius: '8px 8px 0 0'
+                  }}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
           
-          <button onClick={() => setShowHelp(true)} style={{ marginLeft: 'auto', marginBottom: '10px', background: 'transparent', color: '#f59e0b', border: '1px solid #f59e0b40', padding: '6px 16px', borderRadius: '8px', fontWeight: 'bold', fontSize: '0.85rem', cursor: 'pointer' }}>
-            📜 {t('btnRules')}
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '10px' }}>
+            {/* 🎯 ÚJ: JOKER CSERÉK SZÁMA KIEMELVE A FELSŐ SÁVBAN */}
+            <div style={{ background: 'linear-gradient(135deg, #be123c20, #e11d4830)', color: '#fb7185', border: '1px solid #be123c50', padding: '6px 16px', borderRadius: '10px', fontWeight: 'bold', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 10px rgba(190, 18, 60, 0.15)' }}>
+              <span style={{ fontSize: '1rem' }}>🔄</span> 
+              <span>{swapBalance} {lang === 'en' ? 'Swaps left' : 'Joker Csere'}</span>
+            </div>
+
+            <button onClick={() => setShowHelp(true)} style={{ background: 'transparent', color: '#f59e0b', border: '1px solid #f59e0b40', padding: '6px 16px', borderRadius: '10px', fontWeight: 'bold', fontSize: '0.85rem', cursor: 'pointer' }}>
+              📜 {t('btnRules')}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -818,7 +837,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           🎖️ RANG PROGRESSION TRACK BAR (Kijavított Cross-Origin vágásmentes zóna! 🚀)
           ============================================================== */}
       <div style={{ background: '#1e293b', padding: '15px 20px', borderRadius: '16px', border: '1px solid #334155', marginBottom: '30px', boxShadow: '0 4px 15px rgba(0,0,0,0.2)' }}>
-        {/* 🎯 JAVÍTVA: Kivettem az overflow: 'hidden'-t erről a flex dobozról, hogy a tooltip fel tudjon ugrani! */}
         <div style={{ display: 'flex', width: '100%', border: '1px solid #0f172a', position: 'relative' }}>
           {ARENA_LEVELS_REGISTRY.map((rank, idx) => {
             const isUnlocked = idx <= currentLevel.id;
@@ -856,7 +874,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   position: 'relative',
                   cursor: 'help',
                   transition: 'all 0.2s ease',
-                  // 🎯 JAVÍTVA: Manuálisan kényszerítjük a sarok-lekerekítést, így nincs szükség overflow:hidden-re!
                   borderTopLeftRadius: idx === 0 ? '8px' : '0',
                   borderBottomLeftRadius: idx === 0 ? '8px' : '0',
                   borderTopRightRadius: idx === ARENA_LEVELS_REGISTRY.length - 1 ? '8px' : '0',
@@ -877,7 +894,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   {rank.name.split(' ')[0]}
                 </span>
 
-                {/* CSS ALAPÚ HARDVERESEN GYORSÍTOTT ABSZOLÚT TOOLTIP BOX */}
                 <div className="arena-rank-tooltip-box">
                   <div style={{ fontWeight: 'bold', color: '#fbbf24', marginBottom: '4px' }}>{rank.name}</div>
                   <div style={{ fontSize: '0.75rem', whiteSpace: 'pre-line', lineHeight: '1.4', color: '#e2e8f0' }}>{tooltipText}</div>
@@ -901,10 +917,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
             {selectedTopicId === null ? (
               <div className="arena-fluid-container">
                 <div style={{ marginBottom: '25px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '15px' }}>
-                  <div>
-                    <h2 style={{ color: 'white', margin: 0, fontSize: '1.8rem', fontWeight: '900' }}>{t('viewActiveLeagues')}</h2>
-                    <p style={{ color: '#94a3b8', margin: '5px 0 0 0', fontSize: '0.95rem' }}>{t('viewActiveLeaguesDesc')}</p>
-                  </div>
+                 
                   {activeTopics.length > 1 && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                       <span style={{ color: '#94a3b8', fontSize: '0.85rem', fontWeight: 'bold' }}>{t('sortLabel')}</span>
@@ -1001,6 +1014,11 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           <BattlePlanner user={user} onSuccess={() => { setSubTab('current'); fetchCurrentTopic(false); }} />
         )}
 
+        {/* 🎯 VISSZAKERÜLT: KÖZELGŐ LIGÁK */}
+        {subTab === 'upcoming' && (
+          <UpcomingChallenges upcomingTopics={upcomingTopics} getTopicType={getTopicType} handleImageError={handleImageError} user={user} />
+        )}
+        
         {subTab === 'past' && (
           <PastArchive pastTopics={pastTopics} selectedPastTopicId={selectedPastTopicId} loadPastHistoryList={loadPastHistoryList} pastClubLeaderboard={pastClubLeaderboard} pastLeaderboard={pastLeaderboard} getTopicType={getTopicType} handleImageError={handleImageError} setFullscreenData={setFullscreenData} user={user} />
         )}
@@ -1035,7 +1053,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         .arena-cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 25px; width: 100%; }
         .arena-rank-tooltip-container { position: relative; }
         
-        /* 🎯 JAVÍTVA: A tooltip kártya doboza most már gond nélkül kiemelkedik, mert megszűnt a felette lévő vágási zóna! */
         .arena-rank-tooltip-box {
           position: absolute; bottom: 145%; left: 50%; transform: translateX(-50%) translateY(8px);
           background: #090d16; color: #f8fafc; border: 1px solid #334155; border-radius: 12px;
