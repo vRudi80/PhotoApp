@@ -1836,6 +1836,47 @@ app.get('/api/weekly/past', async (req, res) => {
     }
   });
 
+  // ====================================================================
+  // 📸 ÚJ: Felhasználói profilkép feltöltése közvetlenül Cloudinary-re
+  // ====================================================================
+  app.post('/api/users/:email/avatar', upload.single('avatar'), async (req, res) => {
+    const { email } = req.params;
+    const file = req.file;
+
+    if (!file) {
+      return res.status(400).json({ error: 'Nem érkezett fájl a feltöltéshez!' });
+    }
+
+    try {
+      // ☁️ Feltöltés a már konfigurált Cloudinary-be, automatikus arcközpontosítással
+      const result = await cloudinary.uploader.upload(file.path, {
+        folder: 'felhasznaloi_avatarok',
+        width: 300,
+        height: 300,
+        crop: 'fill',       // Pontos négyzetre vágás
+        gravity: 'face',    // Intelligens fókusz az arcra, ha van a képen
+        quality: 'auto:good'
+      });
+
+      // 🧹 Ideiglenes helyi fájl azonnali törlése (pontosan úgy, ahogy a többi végpontodban van)
+      if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+
+      // 💾 Elmentjük a photo_users tábla avatar_url mezőjébe a biztonságos HTTPS linket
+      await pool.query('UPDATE photo_users SET avatar_url = ? WHERE email = ?', [result.secure_url, email]);
+
+      res.json({ 
+        success: true, 
+        avatar_url: result.secure_url, 
+        message: 'A profilkép sikeresen frissítve és elmentve a felhőbe! 📸' 
+      });
+    } catch (err) {
+      // Hiba esetén is takarítunk magunk után
+      if (file && fs.existsSync(file.path)) fs.unlinkSync(file.path);
+      console.error("❌ Hiba a profilkép felhőbe töltésekor:", err.message);
+      res.status(500).json({ error: 'Szerveroldali hiba történt a kép feltöltése közben: ' + err.message });
+    }
+  });
+
   app.post('/api/weekly/swap-back', async (req, res) => {
     const { topicId, userEmail, entryId } = req.body;
     const conn = await pool.getConnection();
