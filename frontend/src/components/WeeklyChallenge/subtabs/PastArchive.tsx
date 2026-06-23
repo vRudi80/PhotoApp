@@ -9,7 +9,7 @@ import { useLanguage } from '../../../context/LanguageContext';
 interface PastArchiveProps {
   pastTopics: any[];
   selectedPastTopicId: number | null;
-  setSelectedPastTopicId: (id: number | null) => void; // 🎯 JAVÍTVA: Beemelve a hiányzó prop definíció
+  setSelectedPastTopicId: (id: number | null) => void;
   loadPastHistoryList: (id: number) => void;
   pastClubLeaderboard: any[];
   pastLeaderboard: any[];
@@ -19,6 +19,24 @@ interface PastArchiveProps {
   user: any; 
 }
 
+// 🎯 ÚJ: Intelligens rang-konverter a nemzetközi GURU szintek magyarosításához
+const mapGuruToHungarianRank = (rankStr: string) => {
+  if (!rankStr) return 'Képvadász 📷';
+  const normalized = rankStr.toUpperCase().trim();
+  if (normalized === 'GURU') return 'Fényleső 🌱';
+  if (normalized === 'GURU I') return 'Megfigyelő 👁️';
+  if (normalized === 'GURU II') return 'Képvadász 📷';
+  if (normalized === 'GURU III') return 'Komponista 📐';
+  if (normalized === 'GURU IV') return 'Fényíró 🎞️';
+  if (normalized === 'GURU V') return 'Esztéta 💎';
+  if (normalized === 'GURU VI') return 'Szakértő 🎯';
+  if (normalized === 'GURU VII') return 'Képmester 🎨';
+  if (normalized === 'GURU VIII') return 'Nagymester 🌟';
+  if (normalized === 'GURU IX') return 'Virtuóz ⚡';
+  if (normalized === 'GURU X') return 'Fotóguru 🔥';
+  return rankStr; // Ha már eleve magyarul van, hagyja békén
+};
+
 export default function PastArchive({
   pastTopics, selectedPastTopicId, setSelectedPastTopicId, loadPastHistoryList,
   pastClubLeaderboard, pastLeaderboard, getTopicType,
@@ -27,15 +45,14 @@ export default function PastArchive({
 
   const { t, lang } = useLanguage();
   
-  // Magyarosított fülek alapértelmezése
   const [subTab, setSubTab] = useState<'winners' | 'details' | 'prizes' | 'rank'>('winners');
   const [activeRankSubTab, setActiveRankSubTab] = useState<'photo' | 'guru'>('photo');
 
   const [adminPosterData, setAdminPosterData] = useState<any | null>(null);
   const [isAdminGeneratingPoster, setIsAdminGeneratingPoster] = useState(false);
 
-  // Általános sötét tónusú fotós sziluett avatar placeholder
-  const silhouetteAvatar = "https://via.placeholder.com/150/0f172a/94a3b8?text=👤";
+  // 🎯 JAVÍTVA: Helyi, beágyazott SVG sziluett az ERR_CONNECTION_RESET hálózati hibák ellen!
+  const silhouetteAvatar = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2394a3b8'><path d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/></svg>";
 
   const handleSelectTopic = (topicId: number) => {
     loadPastHistoryList(topicId);
@@ -104,9 +121,8 @@ export default function PastArchive({
             const isDaily = getTopicType(topicRow.start_date, topicRow.end_date) === 'daily';
             const endedDate = new Date(topicRow.end_date).toLocaleDateString(lang === 'en' ? 'en-US' : 'hu-HU', { year: 'numeric', month: '2-digit', day: '2-digit' });
             
-            // 🎯 GOLYÓÁLLÓ ADATKÖTÉS: Fallback lánc a 0 db hiba elhárítására
-            const realEntriesCount = topicRow.entries_count ?? topicRow.entry_count ?? topicRow.totalEntries ?? 0;
-            const realVotesCount = topicRow.total_votes ?? topicRow.vote_count ?? topicRow.total_votes_count ?? 0;
+            const realEntriesCount = topicRow.entries_count ?? topicRow.entry_count ?? topicRow.totalEntries ?? topicRow.total_entries ?? 0;
+            const realVotesCount = topicRow.total_votes ?? topicRow.vote_count ?? topicRow.total_votes_count ?? topicRow.votes_count ?? 0;
 
             return (
               <div 
@@ -191,10 +207,12 @@ export default function PastArchive({
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#0f172a', padding: '12px 20px', borderRadius: '12px', borderLeft: '4px solid #fbbf24' }}>
                         <div style={{ display: 'flex', gap: '12px', alignItems: 'center', textAlign: 'left' }}>
-                          <img src={silhouetteAvatar} alt="" style={{ width: '38px', height: '38px', borderRadius: '50%' }} />
+                          <img src={silhouetteAvatar} alt="" style={{ width: '38px', height: '38px' }} />
                           <div>
                             <strong style={{ color: 'white', display: 'block', fontSize: '1.1rem' }}>{topThreeWinners[0].user_name}</strong>
-                            <span style={{ color: '#64748b', fontSize: '0.8rem', display: 'block' }}>{topThreeWinners[0].rank_level || 'Fotós'}</span>
+                            <span style={{ color: '#64748b', fontSize: '0.8rem', display: 'block' }}>
+                              {mapGuruToHungarianRank(topThreeWinners[0].rank_level || topThreeWinners[0].club_role)}
+                            </span>
                           </div>
                         </div>
                         <div style={{ color: '#fbbf24', fontWeight: '900', fontSize: '1.3rem' }}>
@@ -213,8 +231,8 @@ export default function PastArchive({
             {subTab === 'details' && (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '30px', alignItems: 'start', padding: '10px 0' }}>
                 <div style={{ background: '#0f172a', padding: '20px', borderRadius: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', border: '1px solid #334155' }}>
-                  <img src={silhouetteAvatar} alt="Master" style={{ width: '90px', height: '90px', borderRadius: '50%', objectFit: 'cover', border: '3px solid #334155', marginBottom: '12px' }} />
-                  <strong style={{ color: 'white', fontSize: '1.1rem' }}>GURU</strong>
+                  <img src={silhouetteAvatar} alt="Master" style={{ width: '90px', height: '90px' }} />
+                  <strong style={{ color: 'white', fontSize: '1.1rem', marginTop: '10px' }}>GURU</strong>
                   <span style={{ color: '#94a3b8', fontSize: '0.9rem', marginTop: '2px' }}>{currentTopicObj?.master_name || 'Ismeretlen Képmester'}</span>
                 </div>
                 <div style={{ borderLeft: '1px solid #334155', paddingLeft: '25px' }}>
@@ -268,36 +286,43 @@ export default function PastArchive({
                     </span>
                   ))}
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                   {activeRankSubTab === 'photo' ? (
                     singlePhotosRankedList.map((entry, idx) => (
                       <div key={entry.id} style={{ display: 'flex', alignItems: 'center', background: '#0f172a', padding: '12px 20px', borderRadius: '14px', border: '1px solid #223147' }}>
                         <div style={{ fontSize: '1.2rem', fontWeight: '900', width: '40px', color: '#64748b' }}>#{idx + 1}</div>
-                        <img src={getImageUrl(entry.drive_file_id, entry.file_url)} onClick={() => setFullscreenData({ url: getImageUrl(entry.drive_file_id, entry.file_url), title: `${entry.title || 'Kép'} (${entry.user_name})` })} style={{ width: '55px', height: '55px', objectFit: 'cover', borderRadius: '8px', margin: '0 15px', cursor: 'zoom-in' }} />
+                        <img src={getImageUrl(entry.drive_file_id, entry.file_url)} onClick={() => setFullscreenData({ url: getImageUrl(entry.drive_file_id, entry.file_url), title: `${entry.title || 'Kép'} (${entry.user_name})` })} alt="" style={{ width: '55px', height: '55px', objectFit: 'cover', borderRadius: '8px', margin: '0 15px', cursor: 'zoom-in' }} />
                         <div style={{ flex: 1 }}>
-                          {/* 🎯 JAVÍTVA: A „Nincs cím” helyett a játékos neve a főcím */}
+                          {/* 🎯 JAVÍTVA: Mindig a játékos neve a főcím */}
                           <strong style={{ color: 'white', display: 'block', fontSize: '1rem' }}>{entry.user_name}</strong>
-                          <span style={{ color: '#64748b', fontSize: '0.8rem' }}>{entry.rank_level || 'GURU III'} {entry.title ? `• "${entry.title}"` : ''}</span>
+                          <span style={{ color: '#64748b', fontSize: '0.8rem' }}>
+                            {mapGuruToHungarianRank(entry.rank_level || entry.club_role)} {entry.title ? `• "${entry.title}"` : ''}
+                          </span>
                         </div>
-                        <div style={{ color: '#f97316', fontWeight: '900' }}>{entry.fair_score !== undefined ? `${entry.fair_score} FP` : `${entry.likes_count} ⭐`}</div>
+                        <div style={{ color: '#f97316', fontWeight: '900', fontSize: '1.1rem' }}>
+                          {entry.fair_score !== undefined ? `${entry.fair_score} FP` : `${entry.likes_count} ⭐`}
+                        </div>
                       </div>
                     ))
                   ) : (
                     guruTopPicksList.map(entry => (
                       <div key={entry.id} style={{ display: 'flex', alignItems: 'center', background: '#0f172a', padding: '12px 20px', borderRadius: '14px', border: '1px solid #a78bfa30' }}>
-                        <div style={{ fontSize: '1.2rem', color: '#a78bfa', width: '30px' }}>✨</div>
-                        <img src={getImageUrl(entry.drive_file_id, entry.file_url)} onClick={() => setFullscreenData({ url: getImageUrl(entry.drive_file_id, entry.file_url), title: `${entry.title || 'Kép'} (${entry.user_name})` })} style={{ width: '55px', height: '55px', objectFit: 'cover', borderRadius: '6px', margin: '0 15px', cursor: 'zoom-in' }} />
+                        <div style={{ fontSize: '1.2rem', color: '#a78bfa', width: '30px', fontWeight: 'bold' }}>✨</div>
+                        <img src={getImageUrl(entry.drive_file_id, entry.file_url)} onClick={() => setFullscreenData({ url: getImageUrl(entry.drive_file_id, entry.file_url), title: `${entry.title || 'Kép'} (${entry.user_name})` })} alt="" style={{ width: '55px', height: '55px', objectFit: 'cover', borderRadius: '6px', margin: '0 15px', cursor: 'zoom-in' }} />
                         <div style={{ flex: 1 }}>
+                          {/* 🎯 JAVÍTVA: Mindig a játékos neve a főcím */}
                           <strong style={{ color: 'white', display: 'block', fontSize: '1rem' }}>{entry.user_name}</strong>
                           <span style={{ color: '#94a3b8', fontSize: '0.8rem' }}>Kiemelte a Képmester</span>
                         </div>
-                        <div style={{ color: '#a78bfa', fontWeight: '900' }}>PICKED</div>
+                        <div style={{ color: '#a78bfa', fontWeight: '900', fontSize: '1.1rem' }}>PICKED</div>
                       </div>
                     ))
                   )}
                 </div>
               </div>
             )}
+
           </div>
         </div>
       )}
