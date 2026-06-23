@@ -9,6 +9,7 @@ import { useLanguage } from '../../../context/LanguageContext';
 interface PastArchiveProps {
   pastTopics: any[];
   selectedPastTopicId: number | null;
+  setSelectedPastTopicId: (id: number | null) => void; // 🎯 JAVÍTVA: Beemelve a hiányzó prop definíció
   loadPastHistoryList: (id: number) => void;
   pastClubLeaderboard: any[];
   pastLeaderboard: any[];
@@ -18,36 +19,22 @@ interface PastArchiveProps {
   user: any; 
 }
 
-const getLevelDetails = (likes: number, victories: number) => {
-  if (likes < 30) return { name: 'Fényleső 🌱', color: '#94a3b8' };
-  if (likes < 100) return { name: 'Megfigyelő 👁️', color: '#cbd5e1' };
-  if (likes < 250) return { name: 'Képvadász 📷', color: '#38bdf8' };
-  if (likes < 500) return { name: 'Komponista 📐', color: '#60a5fa' };
-  if (likes < 800 || victories < 1) return { name: 'Fényíró 🎞️', color: '#10b981' };
-  if (likes < 1300 || victories < 2) return { name: 'Esztéta 💎', color: '#059669' };
-  if (likes < 2000 || victories < 3) return { name: 'Szakértő 🎯', color: '#a78bfa' };
-  if (likes < 3200 || victories < 5) return { name: 'Képmester 🎨', color: '#ec4899' };
-  if (likes < 4800 || victories < 7) return { name: 'Nagymester 🌟', color: '#f59e0b' };
-  if (likes < 7000 || victories < 9) return { name: 'Virtuóz ⚡', color: '#eab308' };
-  if (likes < 10000 || victories < 12) return { name: 'Fotóguru 🔥', color: '#ef4444' };
-  return { name: 'Vizuális Legenda 👑', color: '#fbbf24' };
-};
-
 export default function PastArchive({
-  pastTopics, selectedPastTopicId, loadPastHistoryList,
+  pastTopics, selectedPastTopicId, setSelectedPastTopicId, loadPastHistoryList,
   pastClubLeaderboard, pastLeaderboard, getTopicType,
   handleImageError, setFullscreenData, user
 }: PastArchiveProps) {
 
   const { t, lang } = useLanguage();
   
+  // Magyarosított fülek alapértelmezése
   const [subTab, setSubTab] = useState<'winners' | 'details' | 'prizes' | 'rank'>('winners');
   const [activeRankSubTab, setActiveRankSubTab] = useState<'photo' | 'guru'>('photo');
 
   const [adminPosterData, setAdminPosterData] = useState<any | null>(null);
   const [isAdminGeneratingPoster, setIsAdminGeneratingPoster] = useState(false);
 
-  // Általános sziluett avatar placeholder kép
+  // Általános sötét tónusú fotós sziluett avatar placeholder
   const silhouetteAvatar = "https://via.placeholder.com/150/0f172a/94a3b8?text=👤";
 
   const handleSelectTopic = (topicId: number) => {
@@ -70,15 +57,6 @@ export default function PastArchive({
       return (Number(a?.views_count || 0)) - (Number(b?.views_count || 0));
     }).slice(0, 3);
   }, [pastLeaderboard]);
-
-  // Dinamikus szint kiszámítása a győztesnek a pontjai alapján
-  const winnerLevelName = useMemo(() => {
-    if (!topThreeWinners[0]) return '';
-    const score = topThreeWinners[0].fair_score !== undefined 
-      ? topThreeWinners[0].fair_score 
-      : (topThreeWinners[0].archive_likes || topThreeWinners[0].likes_count || 0);
-    return getLevelDetails(Number(score), 0).name;
-  }, [topThreeWinners]);
 
   const singlePhotosRankedList = useMemo(() => {
     if (!pastLeaderboard || pastLeaderboard.length === 0) return [];
@@ -119,13 +97,14 @@ export default function PastArchive({
   return (
     <div style={{ width: '100%', boxSizing: 'border-box' }}>
       
-      {/* ── 🎯 LÁTVÁNYOS ARCHÍVUM KÁRTYA RÁCS ── */}
+      {/* ── 🎯 ARCHÍVUM KÁRTYA RÁCS ── */}
       {!selectedPastTopicId ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '25px' }}>
           {pastTopics.map(topicRow => {
             const isDaily = getTopicType(topicRow.start_date, topicRow.end_date) === 'daily';
             const endedDate = new Date(topicRow.end_date).toLocaleDateString(lang === 'en' ? 'en-US' : 'hu-HU', { year: 'numeric', month: '2-digit', day: '2-digit' });
             
+            // 🎯 GOLYÓÁLLÓ ADATKÖTÉS: Fallback lánc a 0 db hiba elhárítására
             const realEntriesCount = topicRow.entries_count ?? topicRow.entry_count ?? topicRow.totalEntries ?? 0;
             const realVotesCount = topicRow.total_votes ?? topicRow.vote_count ?? topicRow.total_votes_count ?? 0;
 
@@ -137,7 +116,7 @@ export default function PastArchive({
                 onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.borderColor = '#38bdf8'; }}
                 onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = '#334155'; }}
               >
-                <div style={{ position: 'absolute', top: '12px', right: '-35px', background: isDaily ? 'linear-gradient(135deg, #ec4899, #f43f5e)' : 'linear-gradient(135deg, #a78bfa, #8b5cf6)', color: 'white', padding: '4px 40px', fontSize: '0.7rem', fontWeight: 'bold', transform: 'rotate(45deg)', zIndex: 10, boxShadow: '0 2px 8px rgba(0,0,0,0.3)', letterSpacing: '0.5px' }}>
+                <div style={{ position: 'absolute', top: '12px', right: '-35px', background: isDaily ? 'linear-gradient(135deg, #ec4899, #f43f5e)' : 'linear-gradient(135deg, #a78bfa, #8b5cf6)', color: 'white', padding: '4px 40px', fontSize: '0.7rem', fontWeight: 'bold', transform: 'rotate(45deg)', zIndex: 10 }}>
                   {isDaily ? 'BLITZ' : 'MASTER'}
                 </div>
 
@@ -171,7 +150,7 @@ export default function PastArchive({
         </div>
       ) : (
         
-        // ── 🏛️ BELETLÉPETT ARÉNA RÉSZLETES NÉZET ──
+        // ── 🏛️ AL-ARÉNA RÉSZLETES PANEL ──
         <div style={{ display: 'flex', flexDirection: 'column', gap: '25px', width: '100%' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
             <button onClick={() => setSelectedPastTopicId(null)} style={{ background: '#1e293b', border: '1px solid #334155', color: '#cbd5e1', padding: '10px 20px', borderRadius: '12px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem' }}>
@@ -197,7 +176,7 @@ export default function PastArchive({
 
           <div style={{ background: '#1e293b', borderRadius: '24px', padding: '30px', border: '1px solid #334155', boxShadow: '0 15px 40px rgba(0,0,0,0.3)' }}>
             
-            {/* 🏅 GYŐZTESEK FÜL */}
+            {/* 🥇 GYŐZTESEK FÜL */}
             {subTab === 'winners' && ( 
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
                 <div style={{ border: '1px solid #475569', background: '#0f172a', borderRadius: '16px', padding: '25px', width: '100%', maxWidth: '650px', boxSizing: 'border-box' }}>
@@ -207,15 +186,15 @@ export default function PastArchive({
                   
                   {topThreeWinners[0] ? (
                     <div style={{ width: '100%' }}>
-                      <div style={{ width: '100%', height: '320px', background: '#000', borderRadius: '12px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '20px' }}>
-                        <img src={getImageUrl(topThreeWinners[0].drive_file_id, topThreeWinners[0].file_url)} alt="Winner" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', cursor: 'zoom-in' }} onClick={() => setFullscreenData({ url: getImageUrl(topThreeWinners[0].drive_file_id, topThreeWinners[0].file_url), title: topThreeWinners[0].user_name })} />
+                      <div style={{ width: '100%', height: '320px', background: '#000', borderRadius: '12px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '20px', cursor: 'zoom-in' }} onClick={() => setFullscreenData({ url: getImageUrl(topThreeWinners[0].drive_file_id, topThreeWinners[0].file_url), title: topThreeWinners[0].user_name })}>
+                        <img src={getImageUrl(topThreeWinners[0].drive_file_id, topThreeWinners[0].file_url)} alt="Winner" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#0f172a', padding: '12px 20px', borderRadius: '12px', borderLeft: '4px solid #fbbf24' }}>
                         <div style={{ display: 'flex', gap: '12px', alignItems: 'center', textAlign: 'left' }}>
                           <img src={silhouetteAvatar} alt="" style={{ width: '38px', height: '38px', borderRadius: '50%' }} />
                           <div>
                             <strong style={{ color: 'white', display: 'block', fontSize: '1.1rem' }}>{topThreeWinners[0].user_name}</strong>
-                            <span style={{ color: '#64748b', fontSize: '0.8rem', display: 'block' }}>{winnerLevelName}</span>
+                            <span style={{ color: '#64748b', fontSize: '0.8rem', display: 'block' }}>{topThreeWinners[0].rank_level || 'Fotós'}</span>
                           </div>
                         </div>
                         <div style={{ color: '#fbbf24', fontWeight: '900', fontSize: '1.3rem' }}>
@@ -230,7 +209,7 @@ export default function PastArchive({
               </div>
             )}
 
-            {/* 📝 RÉSZLETEK FÜL (600 dollár törölve, 2 oszlopos tiszta rács) */}
+            {/* 📝 RÉSZLETEK FÜL */}
             {subTab === 'details' && (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '30px', alignItems: 'start', padding: '10px 0' }}>
                 <div style={{ background: '#0f172a', padding: '20px', borderRadius: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', border: '1px solid #334155' }}>
@@ -253,10 +232,10 @@ export default function PastArchive({
               </div>
             )}
 
-            {/* 💎 NYEREMÉNYEK FÜL (A kért szövegezéssel) */}
+            {/* 💎 NYEREMÉNYEK FÜL */}
             {subTab === 'prizes' && (
               <div style={{ textAlign: 'left', maxWidth: '800px', margin: '0 auto' }}>
-                <h4 style={{ color: '#fbbf24', fontSize: '1.4rem', fontWeight: 'bold', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <h4 style={{ color: '#fbbf24', fontSize: '1.4rem', fontWeight: 'bold', marginBottom: '15px' }}>
                   🏆 Dobogós Nyeremények & Extra Cserék
                 </h4>
                 <p style={{ color: '#cbd5e1', lineHeight: '1.6', marginBottom: '20px', fontSize: '1rem' }}>
@@ -289,99 +268,39 @@ export default function PastArchive({
                     </span>
                   ))}
                 </div>
-                
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                   {activeRankSubTab === 'photo' ? (
-                    singlePhotosRankedList.map((entry, idx) => {
-                      const photoScore = entry.fair_score !== undefined ? entry.fair_score : (entry.archive_likes || entry.likes_count || 0);
-                      const userRankName = getLevelDetails(Number(photoScore), 0).name;
-                      
-                      return (
-                        <div key={entry.id} style={{ display: 'flex', alignItems: 'center', background: '#0f172a', padding: '12px 20px', borderRadius: '14px', border: '1px solid #223147' }}>
-                          <div style={{ fontSize: '1.2rem', fontWeight: '900', width: '40px', color: '#64748b' }}>#{idx + 1}</div>
-                          <img src={getImageUrl(entry.drive_file_id, entry.file_url)} onClick={() => setFullscreenData({ url: getImageUrl(entry.drive_file_id, entry.file_url), title: `${entry.title || 'Kép'} (${entry.user_name})` })} alt="" style={{ width: '55px', height: '55px', objectFit: 'cover', borderRadius: '8px', margin: '0 15px', cursor: 'zoom-in' }} />
-                          <div style={{ flex: 1 }}>
-                            {/* 🎯 JAVÍTVA: A cím helyett a játékos neve van a fő helyen */}
-                            <strong style={{ color: 'white', display: 'block', fontSize: '1rem' }}>{entry.user_name}</strong>
-                            <span style={{ color: '#64748b', fontSize: '0.8rem' }}>{userRankName} {entry.title ? `• "${entry.title}"` : ''}</span>
-                          </div>
-                          <div style={{ color: '#f97316', fontWeight: '900', fontSize: '1.1rem' }}>
-                            {entry.fair_score !== undefined ? `${entry.fair_score} FP` : `${entry.likes_count || 0} ⭐`}
-                          </div>
-                        </div>
-                      );
-                    })
-                  ) : (
-                    guruTopPicksList.map((entry, idx) => (
-                      <div key={entry.id} style={{ display: 'flex', alignItems: 'center', background: '#0f172a', padding: '12px 20px', borderRadius: '14px', border: '1px solid #a78bfa30' }}>
-                        <div style={{ fontSize: '1.2rem', color: '#a78bfa', width: '30px', fontWeight: 'bold' }}>✨</div>
-                        <img src={getImageUrl(entry.drive_file_id, entry.file_url)} onClick={() => setFullscreenData({ url: getImageUrl(entry.drive_file_id, entry.file_url), title: `${entry.title || 'Kép'} (${entry.user_name})` })} alt="" style={{ width: '55px', height: '55px', objectFit: 'cover', borderRadius: '6px', margin: '0 15px', cursor: 'zoom-in' }} />
+                    singlePhotosRankedList.map((entry, idx) => (
+                      <div key={entry.id} style={{ display: 'flex', alignItems: 'center', background: '#0f172a', padding: '12px 20px', borderRadius: '14px', border: '1px solid #223147' }}>
+                        <div style={{ fontSize: '1.2rem', fontWeight: '900', width: '40px', color: '#64748b' }}>#{idx + 1}</div>
+                        <img src={getImageUrl(entry.drive_file_id, entry.file_url)} onClick={() => setFullscreenData({ url: getImageUrl(entry.drive_file_id, entry.file_url), title: `${entry.title || 'Kép'} (${entry.user_name})` })} style={{ width: '55px', height: '55px', objectFit: 'cover', borderRadius: '8px', margin: '0 15px', cursor: 'zoom-in' }} />
                         <div style={{ flex: 1 }}>
-                          {/* 🎯 JAVÍTVA: A cím helyett a játékos neve van a fő helyen */}
-                          <strong style={{ color: 'white', display: 'block', fontSize: '1rem' }}>{entry.user_name || 'Ismeretlen fotós'}</strong>
+                          {/* 🎯 JAVÍTVA: A „Nincs cím” helyett a játékos neve a főcím */}
+                          <strong style={{ color: 'white', display: 'block', fontSize: '1rem' }}>{entry.user_name}</strong>
+                          <span style={{ color: '#64748b', fontSize: '0.8rem' }}>{entry.rank_level || 'GURU III'} {entry.title ? `• "${entry.title}"` : ''}</span>
+                        </div>
+                        <div style={{ color: '#f97316', fontWeight: '900' }}>{entry.fair_score !== undefined ? `${entry.fair_score} FP` : `${entry.likes_count} ⭐`}</div>
+                      </div>
+                    ))
+                  ) : (
+                    guruTopPicksList.map(entry => (
+                      <div key={entry.id} style={{ display: 'flex', alignItems: 'center', background: '#0f172a', padding: '12px 20px', borderRadius: '14px', border: '1px solid #a78bfa30' }}>
+                        <div style={{ fontSize: '1.2rem', color: '#a78bfa', width: '30px' }}>✨</div>
+                        <img src={getImageUrl(entry.drive_file_id, entry.file_url)} onClick={() => setFullscreenData({ url: getImageUrl(entry.drive_file_id, entry.file_url), title: `${entry.title || 'Kép'} (${entry.user_name})` })} style={{ width: '55px', height: '55px', objectFit: 'cover', borderRadius: '6px', margin: '0 15px', cursor: 'zoom-in' }} />
+                        <div style={{ flex: 1 }}>
+                          <strong style={{ color: 'white', display: 'block', fontSize: '1rem' }}>{entry.user_name}</strong>
                           <span style={{ color: '#94a3b8', fontSize: '0.8rem' }}>Kiemelte a Képmester</span>
                         </div>
-                        <div style={{ color: '#a78bfa', fontWeight: '900', fontSize: '1.1rem' }}>PICKED</div>
+                        <div style={{ color: '#a78bfa', fontWeight: '900' }}>PICKED</div>
                       </div>
                     ))
                   )}
                 </div>
               </div>
             )}
-
           </div>
         </div>
       )}
-      
-      {/* 👑 REJTETT PLAKÁT-GENERÁLÓ SABLON */}
-      <div style={{ position: 'absolute', top: '-9999px', left: '-9999px', overflow: 'hidden', width: 0, height: 0 }}>
-        {adminPosterData && (
-          <div 
-            id="admin-past-poster-node" 
-            style={{ width: '1200px', height: '1200px', background: 'linear-gradient(135deg, #090d16 0%, #111827 100%)', padding: '60px', boxSizing: 'border-box', border: '16px solid #fbbf24', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between', fontFamily: 'Inter, sans-serif', position: 'relative' }}
-          >
-            <div style={{ position: 'absolute', top: '-100px', left: '-100px', width: '400px', height: '400px', background: '#fbbf24', filter: 'blur(180px)', opacity: 0.1, borderRadius: '50%' }}></div>
-            <div style={{ position: 'absolute', bottom: '-100px', right: '-100px', width: '400px', height: '400px', background: '#38bdf8', filter: 'blur(180px)', opacity: 0.1, borderRadius: '50%' }}></div>
-
-            <div style={{ textAlign: 'center', width: '100%' }}>
-              <div style={{ color: '#fbbf24', fontSize: '26px', fontWeight: '900', letterSpacing: '6px', textTransform: 'uppercase', marginBottom: '15px' }}>
-                ✨ {lang === 'en' ? 'Challenge RESULTS' : 'Kihívás EREDMÉNYEK'} ✨
-              </div>
-              <h1 style={{ color: '#ffffff', fontSize: '64px', margin: '0 0 10px 0', fontWeight: '900', letterSpacing: '-1px', lineHeight: '1.2' }}>
-                {adminPosterData.topic.title}
-              </h1>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: '35px', width: '100%', padding: '0 20px', boxSizing: 'border-box' }}>
-              {adminPosterData.entries[1] && (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '290px' }}>
-                  <div style={{ width: '240px', height: '240px', borderRadius: '16px', overflow: 'hidden', border: '6px solid #cbd5e1', boxShadow: '0 20px 45px rgba(0,0,0,0.6)', backgroundColor: '#000', marginBottom: '15px' }}>
-                    <img src={adminPosterData.entries[1].file_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  </div>
-                  <div style={{ background: 'linear-gradient(135deg, #7c2d12 0%, #431407 100%)', width: '100%', padding: '15px', borderRadius: '12px', textAlign: 'center' }}>
-                    <strong style={{ color: 'white', display: 'block' }}>{adminPosterData.entries[1].user_name}</strong>
-                    <div style={{ color: '#cbd5e1', fontSize: '22px', fontWeight: '900', marginTop: '10px' }}>🥈 2. HELY</div>
-                  </div>
-                </div>
-              )}
-
-              {adminPosterData.entries[0] && (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '330px', zIndex: 10 }}>
-                  <div style={{ fontSize: '70px', marginBottom: '-10px' }}>👑</div>
-                  <div style={{ width: '290px', height: '290px', borderRadius: '24px', overflow: 'hidden', border: '8px solid #fbbf24', boxShadow: '0 25px 60px rgba(251,191,36,0.3)', backgroundColor: '#000', marginBottom: '15px' }}>
-                    <img src={adminPosterData.entries[0].file_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  </div>
-                  <div style={{ background: 'linear-gradient(180deg, #fbbf24 0%, #b45309 100%)', width: '100%', padding: '20px', borderRadius: '20px', textAlign: 'center' }}>
-                    <strong style={{ color: '#0f172a', fontSize: '24px', fontWeight: '900' }}>{adminPosterData.entries[0].user_name}</strong>
-                    <div style={{ color: '#ffffff', fontSize: '28px', fontWeight: '900', marginTop: '12px' }}>🥇 1. HELY</div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-
     </div>
   );
 }
