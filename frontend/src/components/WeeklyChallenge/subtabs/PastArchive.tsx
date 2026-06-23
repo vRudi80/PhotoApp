@@ -216,7 +216,7 @@ export default function PastArchive({
                           {topThreeWinners[0].fair_score !== undefined ? `${topThreeWinners[0].fair_score} FP` : `${topThreeWinners[0].likes_count} ⭐`}
                         </div>
                       </div>
-                    </>
+                    </div>
                   ) : (
                     <p style={{ color: '#64748b' }}>Nincs kiértékelhető győztes adat.</p>
                   )}
