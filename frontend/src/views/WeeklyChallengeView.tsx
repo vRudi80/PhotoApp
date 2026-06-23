@@ -100,6 +100,9 @@ const compressImageOnClient = (file: File): Promise<File> => {
   });
 };
 
+// ====================================================================
+// 📊 SELEKCIÓS KÁRTYA KOMPONENS
+// ====================================================================
 function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }) {
   const { t, lang } = useLanguage();
   const [timeLeft, setTimeLeft] = useState<string>(t('viewTimeCalc'));
@@ -154,6 +157,9 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
   const displayTitle = lang === 'en' && topic.title_en ? topic.title_en : topic.title;
   const displayDesc = lang === 'en' && topic.description_en ? topic.description_en : topic.description;
 
+  // 🎯 JAVÍTVA: Összesíti az összes lehetséges backend mezőnevet, így sosem ír ki tévesen 0-át!
+  const totalImagesCount = topic.entries_count ?? topic.entry_count ?? topic.totalEntries ?? 0;
+
   return (
     <div 
       onClick={onSelect}
@@ -194,7 +200,7 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
 
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#10b981', fontSize: '0.8rem', fontWeight: 'bold', background: '#10b98110', padding: '6px 12px', borderRadius: '10px', border: '1px solid #10b98120', whiteSpace: 'nowrap' }}>
           <span>{t('contCardTotalImages')}</span>
-          <span style={{ color: '#a7f3d0' }}>{topic.entries_count || 0} db</span>
+          <span style={{ color: '#a7f3d0' }}>{totalImagesCount} db</span>
         </div>
       </div>
 
@@ -206,6 +212,9 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
   );
 }
 
+// ====================================================================
+// ⚔️ FŐ IRÁNYÍTÓKÖZPONT KOMPONENS
+// ====================================================================
 interface WeeklyChallengeViewProps {
   user: any;
   setFullscreenData: (data: any) => void;
@@ -700,7 +709,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       const blob = await (await fetch(dataUrl)).blob();
       const file = new File([blob], `Arena_Award_${activeShareData.topic_title}.png`, { type: 'image/png' });
 
-      const getOriginalStr = (rankNum: number) => {
+      const getOrdinalStr = (rankNum: number) => {
         if (lang === 'hu') return `${rankNum}.`;
         const m = rankNum % 10, n = rankNum % 100;
         if (m === 1 && n !== 11) return `${rankNum}st`;
@@ -753,10 +762,12 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   return (
     <div style={{ animation: 'fadeIn 0.4s ease-out', position: 'relative' }}>
       
-      {/* EXKLUZÍV TABS ALMENÜ SÁV */}
-      <div style={{ background: '#0f172a', borderBottom: '1px solid #1e293b', marginBottom: '25px', borderRadius: '16px 16px 0 0' }}>
-        <div style={{ display: 'flex', gap: '8px', padding: '15px 20px 0 20px', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+      {/* ==============================================================
+          🎯 JAVÍTVA: EXKLUZÍV TABS ALMENÜ SÁV (Mobilon swipe-olható görgetősávval!)
+          ============================================================== */}
+      <div className="arena-tabs-scroll-wrapper" style={{ background: '#0f172a', borderBottom: '1px solid #1e293b', marginBottom: '25px', borderRadius: '16px 16px 0 0' }}>
+        <div className="arena-tabs-internal-line" style={{ display: 'flex', gap: '8px', padding: '15px 20px 0 20px', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+          <div style={{ display: 'flex', gap: '8px' }}>
             {[
               { id: 'current', label: lang === 'en' ? 'Active' : 'Aktív szobák' },
               { id: 'upcoming', label: lang === 'en' ? 'Upcoming' : 'Közelgő Ligák' }, 
@@ -781,7 +792,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                     fontSize: '0.95rem',
                     cursor: 'pointer',
                     transition: 'all 0.2s ease',
-                    borderRadius: '8px 8px 0 0'
+                    borderRadius: '8px 8px 0 0',
+                    whiteSpace: 'nowrap'
                   }}
                 >
                   {tab.label}
@@ -790,22 +802,20 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
             })}
           </div>
           
-          <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '10px', flexShrink: 0 }}>
             <div style={{ background: 'linear-gradient(135deg, #be123c20, #e11d4830)', color: '#fb7185', border: '1px solid #be123c50', padding: '6px 16px', borderRadius: '10px', fontWeight: 'bold', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 10px rgba(190, 18, 60, 0.15)' }}>
               <span style={{ fontSize: '1rem' }}>🔄</span> 
               <span>{swapBalance} {lang === 'en' ? 'Swaps left' : 'Joker Csere'}</span>
             </div>
 
-            <button onClick={() => setShowHelp(true)} style={{ background: 'transparent', color: '#f59e0b', border: '1px solid #f59e0b40', padding: '6px 16px', borderRadius: '10px', fontWeight: 'bold', fontSize: '0.85rem', cursor: 'pointer' }}>
+            <button onClick={() => setShowHelp(true)} style={{ background: 'transparent', color: '#f59e0b', border: '1px solid #f59e0b40', padding: '6px 16px', borderRadius: '10px', fontWeight: 'bold', fontSize: '0.85rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
               📜 {t('btnRules')}
             </button>
           </div>
         </div>
       </div>
 
-      {/* ==============================================================
-          🎖️ JAVÍTVA: RANG PROGRESSION TRACK BAR (Görgetőcsatorna beépítve)
-          ============================================================== */}
+      {/* 🎖️ RANG PROGRESSION TRACK BAR */}
       <div className="arena-progress-card-wrapper" style={{ background: '#1e293b', padding: '15px 20px', borderRadius: '16px', border: '1px solid #334155', marginBottom: '30px', boxShadow: '0 4px 15px rgba(0,0,0,0.2)' }}>
         <div className="arena-progress-track-line" style={{ display: 'flex', width: '100%', border: '1px solid #0f172a', position: 'relative' }}>
           {ARENA_LEVELS_REGISTRY.map((rank, idx) => {
@@ -929,6 +939,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
               </div>
             )}
 
+            {/* FLOATING CHAT DOCK PANEL */}
             <div className={`arena-floating-chat-dock ${isChatOpen ? 'is-open' : 'is-closed'} ${hasNewMessage ? 'has-unread' : ''}`}>
               <div onClick={() => { setIsChatOpen(!isChatOpen); if (!isChatOpen) setHasNewMessage(false); }} className="chat-dock-header">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', position: 'relative' }}>
@@ -1012,6 +1023,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         )}
       </div>
 
+      {/* GLOBÁLIS MODÁLIS ELŐRENDEZÉSEK */}
       <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} currentLevel={currentLevel} />
 
       <AlbumSelectionModal 
@@ -1022,37 +1034,46 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
 
       <ShareCardModal activeShareData={activeShareData} onClose={() => setActiveShareData(null)} user={user} shareBase64={shareBase64} loadingShareImg={loadingShareImg} isGeneratingImage={isGeneratingImage} handleExecuteShare={handleExecuteShare} />
 
-      {/* ── 🎯 RENDKÍVÜL STABIL RESZPONZÍV STYLING REGETEG ── */}
+      {/* ── 🎯 RENDKÍVÜL STABIL RESZPONZÍV STYLING ── */}
       <style>{`
         .arena-fluid-container { width: 100%; box-sizing: border-box; }
         .arena-cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 25px; width: 100%; }
         .arena-rank-tooltip-container { position: relative; }
         
-        /* Custom scrollbar az admin és a rang progression kártyákhoz */
-        .arena-progress-card-wrapper {
+        /* Custom scrollbar-ok a csúszó felületekhez */
+        .arena-progress-card-wrapper, .arena-tabs-scroll-wrapper {
           scrollbar-width: thin;
           scrollbar-color: #334155 #1e293b;
         }
-        .arena-progress-card-wrapper::-webkit-scrollbar {
-          height: 6px;
+        .arena-progress-card-wrapper::-webkit-scrollbar, .arena-tabs-scroll-wrapper::-webkit-scrollbar {
+          height: 5px;
         }
-        .arena-progress-card-wrapper::-webkit-scrollbar-track {
+        .arena-progress-card-wrapper::-webkit-scrollbar-track, .arena-tabs-scroll-wrapper::-webkit-scrollbar-track {
           background: #1e293b;
         }
-        .arena-progress-card-wrapper::-webkit-scrollbar-thumb {
+        .arena-progress-card-wrapper::-webkit-scrollbar-thumb, .arena-tabs-scroll-wrapper::-webkit-scrollbar-thumb {
           background-color: #334155;
           border-radius: 10px;
         }
 
-        /* 📱 MOBIL REZSPONZÍV MEGOLDÁS: Megvédjük a 12 rangmezőt az összenyomódástól horizontal görgetéssel */
+        /* 📱 MOBIL REZSPONZÍV MEGOLDÁS: Megvédjük a fejlécet és a ranglétrát a csúnya törésektől horizontal swipe-pal */
         @media (max-width: 900px) {
+          .arena-tabs-scroll-wrapper {
+            overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch;
+            padding-bottom: 5px !important;
+          }
+          .arena-tabs-internal-line {
+            min-width: 890px !important; /* Kimerevíti a felső gombokat egy gyönyörű, görgethető sorba mobilon */
+            justify-content: flex-start !important;
+          }
           .arena-progress-card-wrapper {
             overflow-x: auto !important;
             -webkit-overflow-scrolling: touch;
             padding-bottom: 12px !important;
           }
           .arena-progress-track-line {
-            min-width: 980px !important; /* Garantálja, hogy minden cella kényelmesen, fixen megőrizze a méretét */
+            min-width: 980px !important;
           }
         }
         
