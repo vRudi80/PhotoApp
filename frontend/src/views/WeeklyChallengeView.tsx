@@ -1019,9 +1019,21 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           <UpcomingChallenges upcomingTopics={upcomingTopics} getTopicType={getTopicType} handleImageError={handleImageError} user={user} />
         )}
         
-        {subTab === 'past' && (
-          <PastArchive pastTopics={pastTopics} selectedPastTopicId={selectedPastTopicId} loadPastHistoryList={loadPastHistoryList} pastClubLeaderboard={pastClubLeaderboard} pastLeaderboard={pastLeaderboard} getTopicType={getTopicType} handleImageError={handleImageError} setFullscreenData={setFullscreenData} user={user} />
-        )}
+       {/* 🎯 JAVÍTVA: Átadjuk a hiányzó setSelectedPastTopicId függvényt a szülőből! */}
+{subTab === 'past' && (
+  <PastArchive 
+    pastTopics={pastTopics} 
+    selectedPastTopicId={selectedPastTopicId} 
+    setSelectedPastTopicId={setSelectedPastTopicId} // 👈 Ezt a sort add hozzá!
+    loadPastHistoryList={loadPastHistoryList} 
+    pastClubLeaderboard={pastClubLeaderboard} 
+    pastLeaderboard={pastLeaderboard} 
+    getTopicType={getTopicType} 
+    handleImageError={handleImageError} 
+    setFullscreenData={setFullscreenData} 
+    user={user} 
+  />
+)}
 
         {subTab === 'my_stats' && (
           <TrophyRoom isLoadingStats={isLoadingStats} myStats={myStats} userTotalLikes={userTotalLikes} userVictories={userVictories} swapBalance={swapBalance} myReferralCode={myReferralCode} referredBy={referredBy} referralInput={referralInput} setReferralInput={setReferralInput} isClaimingReferral={isClaimingReferral} handleClaimReferral={handleClaimReferral} setActiveShareData={setActiveShareData} setFullscreenData={setFullscreenData} getLevelDetails={getLevelDetails} getTopicType={getTopicType} handleImageError={handleImageError} />
