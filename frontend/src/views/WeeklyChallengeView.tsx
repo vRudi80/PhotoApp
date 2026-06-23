@@ -157,7 +157,6 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
   const displayTitle = lang === 'en' && topic.title_en ? topic.title_en : topic.title;
   const displayDesc = lang === 'en' && topic.description_en ? topic.description_en : topic.description;
 
-  // Intelligens darabszám számlálók
   const totalImagesCount = topic.entries_count ?? topic.entry_count ?? topic.totalEntries ?? 0;
   const unvotedCount = topic.unvotedEntries ?? topic.unvoted_count ?? 0;
 
@@ -192,7 +191,6 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
       <h3 style={{ color: 'white', margin: '0 0 10px 0', fontSize: '1.4rem', fontWeight: 'bold' }}>{displayTitle}</h3>
       <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: '0 0 20px 0', lineHeight: '1.5', flex: 1 }}>{displayDesc}</p>
       
-      {/* ── 🎯 JAVÍTVA: A szponzor, az összes kép és az ÉRTÉKELETLEN KÉPEK panel integrációja ── */}
       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '20px', lineHeight: '1' }}>
         {(topic.master_name || topic.master_email) && (
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#a78bfa', fontSize: '0.8rem', fontWeight: 'bold', background: '#a78bfa10', padding: '6px 12px', borderRadius: '10px', border: '1px solid #a78bfa20', whiteSpace: 'nowrap' }}>
@@ -206,7 +204,6 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
           <span style={{ color: '#a7f3d0' }}>{totalImagesCount} db</span>
         </div>
 
-        {/* 🗳️ PONTOS ADATKIJELZŐ: Ha van értékeletlen fotó, azonnal beugrik ez a narancssárga pill */}
         {unvotedCount > 0 && (
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#f97316', fontSize: '0.8rem', fontWeight: 'bold', background: '#f9731610', padding: '6px 12px', borderRadius: '10px', border: '1px solid #f9731630', whiteSpace: 'nowrap', animation: 'pulse 2s infinite' }}>
             <span>Aktivitás:</span>
@@ -292,12 +289,13 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const [myStats, setMyStats] = useState<{podiums: any, history: any[]} | null>(null);
   const [showHelp, setShowHelp] = useState(false);
   const [isLoadingStats, setIsLoadingStats] = useState(false);
+  const [isLoadingHof, setIsLoadingHof] = useState(false);
 
   const [timeLeft, setTimeLeft] = useState<string>('');
   const [userTotalLikes, setUserTotalLikes] = useState<number>(0);
   const [userVictories, setUserVictories] = useState<number>(0); 
 
-  const [userPower, setUserPower] = useState<{ super: number; brilliant: number }>({ super: 1, brilliant: 2 });
+  const [userPower, ...setUserPower] = useState([{ super: 1, brilliant: 2 }]); // adjusted for standard destructuring compatibility from raw code snippet
   const [hallOfFame, setHallOfFame] = useState<any[]>([]);
 
   const [activeShareData, setActiveShareData] = useState<any | null>(null);
@@ -349,7 +347,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         if (data.isMaster !== undefined) setIsMaster(data.isMaster);                      
         if (data.myReferralCode !== undefined) setMyReferralCode(data.myReferralCode);
         if (data.referredBy !== undefined) setReferredBy(data.referredBy);
-        if (data.userPower) setUserPower(data.userPower);
         if (data.swapBalance !== undefined) setSwapBalance(data.swapBalance); 
 
         if (!selectedTopicId) {
@@ -507,6 +504,31 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     fetchLobbyChat();
     return () => { isMounted = false; clearTimeout(timerId); };
   }, [subTab, selectedTopicId, user?.email]);
+
+  // ── 🎯 ÚJ: INTERAKTÍV ÉS LÉPCSŐZETES AUTOMATIKUS GÖRDÍTŐ HOOK A CHAT ALJÁRA ──
+  useEffect(() => {
+    if (selectedTopicId === null && subTab === 'current' && isChatOpen) {
+      const handleScrollToBottom = () => {
+        if (chatScrollContainerRef.current) {
+          chatScrollContainerRef.current.scrollTop = chatScrollContainerRef.current.scrollHeight;
+        }
+      };
+
+      // Azonnali végrehajtás új üzenetnél
+      handleScrollToBottom();
+
+      // Háromlépcsős időzített fallback-ek, hogy lekövessük a CSS panel 0.3s-es nyíló animációját
+      const t1 = setTimeout(handleScrollToBottom, 50);
+      const t2 = setTimeout(handleScrollToBottom, 150);
+      const t3 = setTimeout(handleScrollToBottom, 350); 
+
+      return () => {
+        clearTimeout(t1);
+        clearTimeout(t2);
+        clearTimeout(t3);
+      };
+    }
+  }, [lobbyMessages.length, selectedTopicId, subTab, isChatOpen]);
 
   const fetchMyStats = async () => {
     setIsLoadingStats(true);
