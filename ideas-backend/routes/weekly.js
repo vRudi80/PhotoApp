@@ -1056,6 +1056,7 @@ app.get('/api/weekly/past', async (req, res) => {
           u.name as user_name, 
           u.email as user_email, 
           u.club_name,
+          u.avatar_url, -- 👈 BEKERÜLT A PROFILKÉP URL
           c.drive_logo_id, 
           c.logo_url,      
           COALESCE(SUM(IF(e.is_active = 1 OR t.end_date < ?, e.likes_count, 0)), 0) as total_likes,
@@ -1094,14 +1095,14 @@ app.get('/api/weekly/past', async (req, res) => {
         LEFT JOIN weekly_entries e ON u.email = e.user_email
         LEFT JOIN weekly_topics t ON e.topic_id = t.id
         LEFT JOIN photo_clubs c ON u.club_name = c.name
-        GROUP BY u.email, u.name, u.club_name, c.drive_logo_id, c.logo_url 
+        GROUP BY u.email, u.name, u.club_name, c.drive_logo_id, c.logo_url, u.avatar_url -- 👈 IDE IS KÖTELEZŐ BELEÍRNI
         HAVING total_likes > 0
         ORDER BY total_likes DESC, u.name ASC
       `, [currentNow, currentNow, currentNow]);
       
       res.json(rows);
     } catch (err) {
-      console.error("Hiba a dicsőségfal lekérésekor:", err.message);
+      console.error("Hiba a dicsőségfal lekérésekor, fallback indítása:", err.message);
       
       try {
         const currentNow = getLocalMySQLNow();
@@ -1110,6 +1111,7 @@ app.get('/api/weekly/past', async (req, res) => {
             u.name as user_name, 
             u.email as user_email, 
             u.club_name,
+            u.avatar_url, -- 👈 A BIZTONSÁGI LEKÉRDEZÉSBE IS BEILLESZTVE
             NULL as drive_logo_id,
             NULL as logo_url,
             COALESCE(SUM(IF(e.is_active = 1 OR t.end_date < ?, e.likes_count, 0)), 0) as total_likes,
@@ -1129,7 +1131,7 @@ app.get('/api/weekly/past', async (req, res) => {
           FROM photo_users u
           LEFT JOIN weekly_entries e ON u.email = e.user_email
           LEFT JOIN weekly_topics t ON e.topic_id = t.id
-          GROUP BY u.email, u.name, u.club_name
+          GROUP BY u.email, u.name, u.club_name, u.avatar_url -- 👈 IDE IS KÖTELEZŐ BELEÍRNI
           HAVING total_likes > 0
           ORDER BY total_likes DESC, u.name ASC
         `, [currentNow, currentNow, currentNow]);
