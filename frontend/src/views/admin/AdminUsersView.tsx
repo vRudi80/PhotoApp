@@ -22,6 +22,7 @@ export default function AdminUsersView({
 }: AdminUsersViewProps) {
   
   const [searchTerm, setSearchTerm] = useState('');
+  console.log("=== ADMIN USER ADATOK ===", allUsers);
   
   // Tárhely statisztikák állapota
   const [storageStats, setStorageStats] = useState<Record<string, { count: number, bytes: number }>>({});
