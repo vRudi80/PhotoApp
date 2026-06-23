@@ -194,13 +194,13 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '20px', lineHeight: '1' }}>
         {(topic.master_name || topic.master_email) && (
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#a78bfa', fontSize: '0.8rem', fontWeight: 'bold', background: '#a78bfa10', padding: '6px 12px', borderRadius: '10px', border: '1px solid #a78bfa20', whiteSpace: 'nowrap' }}>
-            <span>👑 {t('viewMasterLabel', 'Képmester')}:</span>
+            <span> {t('viewMasterLabel', 'Képmester')}:</span>
             <span style={{ color: '#e9d5ff' }}>{topic.master_name || topic.master_email}</span>
           </div>
         )}
 
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#10b981', fontSize: '0.8rem', fontWeight: 'bold', background: '#10b98110', padding: '6px 12px', borderRadius: '10px', border: '1px solid #10b98120', whiteSpace: 'nowrap' }}>
-          <span>📸 {t('contCardTotalImages', 'Összes kép')}:</span>
+          <span> {t('contCardTotalImages', 'Összes kép')}:</span>
           <span style={{ color: '#a7f3d0' }}>{totalImagesCount} db</span>
         </div>
 
