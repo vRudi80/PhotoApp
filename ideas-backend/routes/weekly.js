@@ -924,18 +924,22 @@ async function processFinishedChallenges(pool) {
     }
   });
 
-  app.get('/api/weekly/past', async (req, res) => {
-    try { 
-      const [rows] = await pool.query(`
-        SELECT t.*, u.name AS master_name 
-        FROM weekly_topics t
-        LEFT JOIN photo_users u ON t.master_email = u.email
-        WHERE t.end_date < ? AND t.status = 'approved'
-        ORDER BY t.end_date DESC
-      `, [getLocalMySQLNow()]); 
-      res.json(rows); 
-    } catch (err) { res.status(500).json({ error: 'Hiba' }); }
-  });
+app.get('/api/weekly/past', async (req, res) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT t.*, 
+             (SELECT COUNT(*) FROM photo_homework_entries WHERE homework_id = t.id) as entries_count,
+             (SELECT COUNT(*) FROM photo_homework_likes WHERE entry_id IN (SELECT id FROM photo_homework_entries WHERE homework_id = t.id)) as total_votes
+      FROM photo_weekly_topics t 
+      WHERE t.end_date < NOW() 
+      ORDER BY t.end_date DESC
+    `);
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Hiba az archívum lekérésekor' });
+  }
+});
 
   app.get('/api/weekly/my-stats', async (req, res) => {
     const { userEmail } = req.query;
