@@ -56,8 +56,7 @@ export default function PastArchive({
   const [subTab, setSubTab] = useState<'winners' | 'details' | 'prizes' | 'rank'>('winners');
   const [activeRankSubTab, setActiveRankSubTab] = useState<'photo' | 'guru'>('photo');
 
-  // 👑 Képgeneráló állapotok visszahozva az admin pódium-plakáthoz
-  const [adminPosterData, setAdminPosterData] = useState<{ topic: any; entries: any[] } | null>(null);
+  const [adminPosterData, setAdminPosterData] = useState<any | null>(null);
   const [isAdminGeneratingPoster, setIsAdminGeneratingPoster] = useState(false);
 
   const silhouetteAvatar = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23475569'><circle cx='12' cy='8' r='4'/><path d='M12 14c-6.1 0-10 4-10 4v2h20v-2s-3.9-4-10-4z'/></svg>";
@@ -110,7 +109,6 @@ export default function PastArchive({
     return singlePhotosRankedList.filter((_, idx) => idx % 3 === 0).slice(0, 4); 
   }, [singlePhotosRankedList]);
 
-  // 👑 ADMIN LOGIKA: Top 3 helyezett konverziója Base64-re a tiszta renderelésért (Nincs CORS hiba)
   const handleGenerateAdminPoster = async (matchedTopic: any) => {
     if (!matchedTopic || pastLeaderboard.length === 0) return;
     setIsAdminGeneratingPoster(true);
@@ -155,7 +153,6 @@ export default function PastArchive({
     }
   };
 
-  // 👑 ADMIN EFFECT: Kép letöltésének kikényszerítése ha összeállt az adminPosterData
   useEffect(() => {
     if (!adminPosterData) return;
     
@@ -246,7 +243,6 @@ export default function PastArchive({
               ← Vissza az archívumhoz
             </button>
             
-            {/* 👑 ADMIN FUNKCIÓ: Ha az admin van bent, kirakjuk a Facebook pódiumgeneráló gombot a sarokba */}
             {user?.email === ADMIN_EMAIL && pastLeaderboard.length > 0 && (
               <button
                 disabled={isAdminGeneratingPoster}
@@ -315,7 +311,6 @@ export default function PastArchive({
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '30px', alignItems: 'start', padding: '10px 0' }}>
                 <div style={{ background: '#0f172a', padding: '20px', borderRadius: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', border: '1px solid #334155' }}>
                   <img src={silhouetteAvatar} alt="Master" style={{ width: '90px', height: '90px' }} />
-                  <strong style={{ color: 'white', fontSize: '1.1rem', marginTop: '10px' }}>GURU</strong>
                   <span style={{ color: '#94a3b8', fontSize: '0.9rem', marginTop: '2px' }}>{currentTopicObj?.master_name || 'Ismeretlen Képmester'}</span>
                 </div>
                 <div style={{ borderLeft: '1px solid #334155', paddingLeft: '25px' }}>
@@ -432,30 +427,61 @@ export default function PastArchive({
             </div>
 
             <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: '35px', width: '100%', padding: '0 20px', boxSizing: 'border-box' }}>
+              
+              {/* 🥈 2. HELYEZETT */}
               {adminPosterData.entries[1] && (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '290px' }}>
                   <div style={{ width: '240px', height: '240px', borderRadius: '16px', overflow: 'hidden', border: '6px solid #cbd5e1', boxShadow: '0 20px 45px rgba(0,0,0,0.6)', backgroundColor: '#000', marginBottom: '15px' }}>
                     <img src={adminPosterData.entries[1].base64Url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   </div>
-                  <div style={{ background: 'linear-gradient(135deg, #7c2d12 0%, #431407 100%)', width: '100%', padding: '15px', borderRadius: '12px', textAlign: 'center' }}>
-                    <strong style={{ color: 'white', display: 'block' }}>{adminPosterData.entries[1].user_name}</strong>
-                    <div style={{ color: '#cbd5e1', fontSize: '22px', fontWeight: '900', marginTop: '10px' }}>🥈 2. HELY</div>
+                  <div style={{ background: 'linear-gradient(180deg, #334155 0%, #1e293b 100%)', width: '100%', height: '200px', borderRadius: '16px 16px 0 0', border: '1px solid #475569', borderBottom: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '15px', boxSizing: 'border-box', textAlign: 'center' }}>
+                    <div style={{ color: '#cbd5e1', fontSize: '24px', fontWeight: 'bold', width: '100%', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.2', textAlign: 'center', minHeight: '58px' }}>{adminPosterData.entries[1].user_name}</div>
+                    <div style={{ color: '#94a3b8', fontSize: '22px', fontWeight: '900', marginTop: '4px' }}>
+                      {adminPosterData.entries[1].fair_score !== undefined ? `${adminPosterData.entries[1].fair_score} FP` : `${adminPosterData.entries[1].likes_count} ⭐`}
+                    </div>
+                    <div style={{ color: '#cbd5e1', fontSize: '32px', fontWeight: '900', marginTop: '20px', letterSpacing: '1px' }}>🥈 2. HELY</div>
                   </div>
                 </div>
               )}
 
+              {/* 🥇 1. HELYEZETT */}
               {adminPosterData.entries[0] && (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '330px', zIndex: 10 }}>
-                  <div style={{ fontSize: '70px', marginBottom: '-10px' }}>👑</div>
+                  <div style={{ fontSize: '70px', marginBottom: '-10px', filter: 'drop-shadow(0 4px 10px rgba(251,191,36,0.5))' }}>👑</div>
                   <div style={{ width: '290px', height: '290px', borderRadius: '24px', overflow: 'hidden', border: '8px solid #fbbf24', boxShadow: '0 25px 60px rgba(251,191,36,0.3)', backgroundColor: '#000', marginBottom: '15px' }}>
                     <img src={adminPosterData.entries[0].base64Url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   </div>
-                  <div style={{ background: 'linear-gradient(180deg, #fbbf24 0%, #b45309 100%)', width: '100%', padding: '20px', borderRadius: '20px', textAlign: 'center' }}>
-                    <strong style={{ color: '#0f172a', fontSize: '24px', fontWeight: '900' }}>{adminPosterData.entries[0].user_name}</strong>
-                    <div style={{ color: '#ffffff', fontSize: '28px', fontWeight: '900', marginTop: '12px' }}>🥇 1. HELY</div>
+                  <div style={{ background: 'linear-gradient(180deg, #fbbf24 0%, #b45309 100%)', width: '100%', height: '270px', borderRadius: '20px 24px 0 0', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '15px', boxSizing: 'border-box', textAlign: 'center', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
+                    <div style={{ color: '#0f172a', fontSize: '28px', fontWeight: '900', width: '100%', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.2', textAlign: 'center', minHeight: '64px' }}>{adminPosterData.entries[0].user_name}</div>
+                    <div style={{ color: '#0f172a', fontSize: '26px', fontWeight: '900', marginTop: '4px', opacity: 0.9 }}>
+                      {adminPosterData.entries[0].fair_score !== undefined ? `${adminPosterData.entries[0].fair_score} FP` : `${adminPosterData.entries[0].likes_count} ⭐`}
+                    </div>
+                    <div style={{ color: '#ffffff', fontSize: '38px', fontWeight: '900', marginTop: '25px', letterSpacing: '1px', textShadow: '0 2px 10px rgba(0,0,0,0.4)' }}>🥇 1. HELY</div>
                   </div>
                 </div>
               )}
+
+              {/* 🥉 3. HELYEZETT (ÚJRA AKTIVÁLVA 🚀) */}
+              {adminPosterData.entries[2] && (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '290px' }}>
+                  <div style={{ width: '240px', height: '240px', borderRadius: '16px', overflow: 'hidden', border: '6px solid #b45309', boxShadow: '0 20px 45px rgba(0,0,0,0.6)', backgroundColor: '#000', marginBottom: '15px' }}>
+                    <img src={adminPosterData.entries[2].base64Url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  </div>
+                  <div style={{ background: 'linear-gradient(180deg, #7c2d12 0%, #431407 100%)', width: '100%', height: '200px', borderRadius: '16px 16px 0 0', border: '1px solid #7c2d12', borderBottom: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '15px', boxSizing: 'border-box', textAlign: 'center' }}>
+                    <div style={{ color: '#ffedd5', fontSize: '24px', fontWeight: 'bold', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{adminPosterData.entries[2].user_name}</div>
+                    <div style={{ color: '#fdba74', fontSize: '22px', fontWeight: '900', marginTop: '4px' }}>
+                      {adminPosterData.entries[2].fair_score !== undefined ? `${adminPosterData.entries[2].fair_score} FP` : `${adminPosterData.entries[2].likes_count} ⭐`}
+                    </div>
+                    <div style={{ color: '#fdba74', fontSize: '32px', fontWeight: '900', marginTop: '20px', letterSpacing: '1px' }}>🥉 3. HELY</div>
+                  </div>
+                </div>
+              )}
+
+            </div>
+
+            <div style={{ width: '100%', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '25px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#64748b', fontSize: '18px', fontWeight: 'bold' }}>
+              <div>{lang === 'en' ? 'Join the Arena Battle:' : 'Csatlakozz a kihívásokhoz:'} <span style={{ color: '#38bdf8' }}>photawesome.com</span></div>
+              <div style={{ color: '#fbbf24', letterSpacing: '1px' }}>✨ PhotAwesome Arena ✨</div>
             </div>
           </div>
         )}
