@@ -927,10 +927,11 @@ async function processFinishedChallenges(pool) {
 app.get('/api/weekly/past', async (req, res) => {
   try {
     const [rows] = await pool.query(`
-      SELECT t.*, 
-             (SELECT COUNT(*) FROM photo_weekly_entries WHERE topic_id = t.id) as entries_count,
-             (SELECT COUNT(*) FROM photo_weekly_votes WHERE entry_id IN (SELECT id FROM photo_weekly_entries WHERE topic_id = t.id)) as total_votes
-      FROM photo_weekly_topics t 
+      SELECT t.*, u.name as master_name,
+             (SELECT COUNT(*) FROM weekly_entries WHERE topic_id = t.id) as entries_count,
+             (SELECT COUNT(*) FROM weekly_votes WHERE entry_id IN (SELECT id FROM weekly_entries WHERE topic_id = t.id)) as total_votes
+      FROM weekly_topics t
+      LEFT JOIN photo_users u ON t.master_email = u.email
       WHERE t.end_date < NOW() 
       ORDER BY t.end_date DESC
     `);
