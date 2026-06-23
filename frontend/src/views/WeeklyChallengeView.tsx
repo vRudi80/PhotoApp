@@ -157,8 +157,10 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
   const displayTitle = lang === 'en' && topic.title_en ? topic.title_en : topic.title;
   const displayDesc = lang === 'en' && topic.description_en ? topic.description_en : topic.description;
 
-  // 🎯 JAVÍTVA: Összesíti az összes lehetséges backend mezőnevet, így sosem ír ki tévesen 0-át!
   const totalImagesCount = topic.entries_count ?? topic.entry_count ?? topic.totalEntries ?? 0;
+
+  // 🎯 ÚJ & GOLYÓÁLLÓ: Ellenőrzi az összes lehetséges backend jelzőt az új/szavazatlan képekre vonatkozóan
+  const hasUnvotedPhotos = topic.has_unvoted === true || topic.hasUnvoted === true || Number(topic.unvoted_count) > 0 || Number(topic.pending_votes) > 0;
 
   return (
     <div 
@@ -171,10 +173,20 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
         <span style={{ background: isDaily ? '#ef444420' : '#3b82f620', color: isDaily ? '#f87171' : '#60a5fa', border: `1px solid ${isDaily ? '#ef444450' : '#3b82f650'}`, padding: '4px 12px', borderRadius: '50px', fontSize: '0.8rem', fontWeight: 'bold' }}>
           {isDaily ? t('typeBlitz') : t('typeMaster')}
         </span>
-        <span style={{ color: statusColor, fontSize: '0.85rem', fontWeight: 'bold' }}>
-          {isMaster ? t('statusMaster') : topic.hasEntered ? t('statusEntered') : t('statusNotEntered')}
-        </span>
+        
+        {/* 🎯 JAVÍTVA: Ha van szavazatlan kép, kirakunk egy jól látható, egyedi piros jelvényt a státusz mellé */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          {hasUnvotedPhotos && (
+            <span style={{ background: '#ef444415', color: '#f87171', border: '1px solid #ef444440', padding: '3px 8px', borderRadius: '6px', fontSize: '0.72rem', fontWeight: 'bold', letterSpacing: '0.3px' }}>
+              🗳️ {lang === 'en' ? 'NEW VOTE' : 'ÚJ KÉP / SZAVAZÁS'}
+            </span>
+          )}
+          <span style={{ color: statusColor, fontSize: '0.85rem', fontWeight: 'bold' }}>
+            {isMaster ? t('statusMaster') : topic.hasEntered ? t('statusEntered') : t('statusNotEntered')}
+          </span>
+        </div>
       </div>
+      
       {topic.cover_url && (
         <div style={{ width: '100%', height: '160px', borderRadius: '14px', overflow: 'hidden', marginBottom: '15px', border: '1px solid #334155', position: 'relative', backgroundColor: '#090d16' }}>
           <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${topic.cover_url})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(12px) brightness(0.5)', transform: 'scale(1.1)' }}></div>
@@ -426,7 +438,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       }
     } catch (err) {
       console.error(err);
-    } finally {
+    } fill() {
       setIsSendingLobbyMsg(false);
     }
   };
@@ -762,9 +774,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   return (
     <div style={{ animation: 'fadeIn 0.4s ease-out', position: 'relative' }}>
       
-      {/* ==============================================================
-          🎯 JAVÍTVA: EXKLUZÍV TABS ALMENÜ SÁV (Mobilon swipe-olható görgetősávval!)
-          ============================================================== */}
+      {/* EXKLUZÍV TABS ALMENÜ SÁV */}
       <div className="arena-tabs-scroll-wrapper" style={{ background: '#0f172a', borderBottom: '1px solid #1e293b', marginBottom: '25px', borderRadius: '16px 16px 0 0' }}>
         <div className="arena-tabs-internal-line" style={{ display: 'flex', gap: '8px', padding: '15px 20px 0 20px', justifyContent: 'space-between', alignItems: 'flex-end' }}>
           <div style={{ display: 'flex', gap: '8px' }}>
@@ -933,13 +943,12 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   <div style={{ color: '#94a3b8', padding: '50px' }}>{t('viewPreparingRoom')}</div>
                 ) : (
                   <ArenaActiveRoom
-                    topic={topic} timeLeft={timeLeft} isMaster={isMaster} exposureColor={exposureColor} exposurePercentage={exposurePercentage} exposureLabel={exposureLabel} myEntry={myEntry} voteEntry={voteEntry} noMoreEntries={noMoreEntries} masterVotesLeft={masterVotesLeft} userPower={userPower} swapBalance={swapBalance} myPastEntries={myPastEntries} leaderboard={leaderboard} currentClubLeaderboard={currentClubLeaderboard} user={user} isUploading={isUploading} uploadPreview={uploadPreview} handleFileSelect={handleFileSelect} handleUpload={handleUpload} isLoadingSwapAlbum={isLoadingSwapAlbum} isSwapping={isSwapping} swapPreview={swapPreview} handleSwapFileSelect={handleFileSelectForSwap} handleSwapSubmit={handleSwapSubmit} onOpenAlbumForUpload={() => { setAlbumModalMode('upload'); setShowSwapAlbumModal(true); }} onOpenAlbumForSwap={() => { setAlbumModalMode('swap'); setShowSwapAlbumModal(true); }} handleVote={handleVote} handleOffTopicReport={handleOffTopicReport} handleSwapBackSubmit={handleSwapBackSubmit} setFullscreenData={setFullscreenData} handleImageError={handleImageError} fetchCurrentTopic={fetchCurrentTopic}
+                    topic={topic} timeLeft={timeLeft} isMaster={isMaster} exposureColor={exposureColor} exposurePercentage={exposurePercentage} exposureLabel={exposureLabel} myEntry={myEntry} voteEntry={voteEntry} noMoreEntries={noMoreEntries} masterVotesLeft={masterVotesLeft} userPower={userPower} swapBalance={swapBalance} myPastEntries={myPastEntries} leaderboard={leaderboard} currentClubLeaderboard={currentClubLeaderboard} user={user} isUploading={isUploading} uploadPreview={uploadPreview} handleFileSelect={handleFileSelect} handleUpload={handleUpload} isLoadingSwapAlbum={isLoadingSwapAlbum} isSwapping={isSwapping} swapPreview={swapPreview} handleFileSelectForSwap={handleFileSelectForSwap} handleSwapSubmit={handleSwapSubmit} onOpenAlbumForUpload={() => { setAlbumModalMode('upload'); setShowSwapAlbumModal(true); }} onOpenAlbumForSwap={() => { setAlbumModalMode('swap'); setShowSwapAlbumModal(true); }} handleVote={handleVote} handleOffTopicReport={handleOffTopicReport} handleSwapBackSubmit={handleSwapBackSubmit} setFullscreenData={setFullscreenData} handleImageError={handleImageError} fetchCurrentTopic={fetchCurrentTopic}
                   />
                 )}
               </div>
             )}
 
-            {/* FLOATING CHAT DOCK PANEL */}
             <div className={`arena-floating-chat-dock ${isChatOpen ? 'is-open' : 'is-closed'} ${hasNewMessage ? 'has-unread' : ''}`}>
               <div onClick={() => { setIsChatOpen(!isChatOpen); if (!isChatOpen) setHasNewMessage(false); }} className="chat-dock-header">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', position: 'relative' }}>
@@ -978,7 +987,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                     {currentlyTyping.length > 0 && <span>{currentlyTyping.join(', ')}{t('viewLobbyTyping')}...</span>}
                   </div>
                   <form onSubmit={handleSendLobbyMessage} style={{ display: 'flex', gap: '8px' }}>
-                    <input type="text" placeholder={t('viewLobbyPlaceholder')} value={typedLobbyMsg} onChange={handleInputChange} maxLength={500} disabled={isSendingLobbyMsg} style={{ flex: 1, padding: '10px 12px', background: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '10px', fontSize: '0.85rem' }} />
+                    <input type="text" placeholder={t('viewLobbyPlaceholder')} value={typedLobbyMsg} onChange={handleInputChange} maxLength={500} disabled={isSendingLobbyMsg} style={{ flex: 1, padding: '10px 12px', background: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '10px', fontSize: '0.95rem' }} />
                     <button type="submit" disabled={!typedLobbyMsg.trim() || isSendingLobbyMsg} style={{ background: (!typedLobbyMsg.trim() || isSendingLobbyMsg) ? '#334155' : 'linear-gradient(135deg, #f97316, #ef4444)', color: 'white', border: 'none', padding: '10px 16px', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>{t('viewLobbySend')}</button>
                   </form>
                 </div>
@@ -1011,7 +1020,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         )}
         
         {subTab === 'my_stats' && (
-          <TrophyRoom isLoadingStats={isLoadingStats} myStats={myStats} userTotalLikes={userTotalLikes} userVictories={userVictories} swapBalance={swapBalance} myReferralCode={myReferralCode} referredBy={referredBy} referralInput={referralInput} setReferralInput={setReferralInput} isClaimingReferral={isClaimingReferral} handleClaimReferral={handleClaimReferral} setActiveShareData={setActiveShareData} setFullscreenData={setFullscreenData} getLevelDetails={getLevelDetails} getTopicType={getTopicType} handleImageError={handleImageError} />
+          <TrophyRoom isLoadingStats={isLoadingStats} myStats={myStats} userTotalLikes={userTotalLikes} userVictories={userVictories} swapBalance={swapBalance} myReferralCode={myReferralCode} referredBy={referredBy} referralInput={referralInput} setRedirectInput={setReferralInput} isClaimingReferral={isClaimingReferral} handleClaimReferral={handleClaimReferral} setActiveShareData={setActiveShareData} setFullscreenData={setFullscreenData} getLevelDetails={getLevelDetails} getTopicType={getTopicType} handleImageError={handleImageError} />
         )}
 
         {subTab === 'hall_of_fame' && (
@@ -1023,7 +1032,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         )}
       </div>
 
-      {/* GLOBÁLIS MODÁLIS ELŐRENDEZÉSEK */}
       <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} currentLevel={currentLevel} />
 
       <AlbumSelectionModal 
@@ -1040,7 +1048,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         .arena-cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 25px; width: 100%; }
         .arena-rank-tooltip-container { position: relative; }
         
-        /* Custom scrollbar-ok a csúszó felületekhez */
         .arena-progress-card-wrapper, .arena-tabs-scroll-wrapper {
           scrollbar-width: thin;
           scrollbar-color: #334155 #1e293b;
@@ -1056,7 +1063,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           border-radius: 10px;
         }
 
-        /* 📱 MOBIL REZSPONZÍV MEGOLDÁS: Megvédjük a fejlécet és a ranglétrát a csúnya törésektől horizontal swipe-pal */
         @media (max-width: 900px) {
           .arena-tabs-scroll-wrapper {
             overflow-x: auto !important;
@@ -1064,7 +1070,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
             padding-bottom: 5px !important;
           }
           .arena-tabs-internal-line {
-            min-width: 890px !important; /* Kimerevíti a felső gombokat egy gyönyörű, görgethető sorba mobilon */
+            min-width: 890px !important; 
             justify-content: flex-start !important;
           }
           .arena-progress-card-wrapper {
