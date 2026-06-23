@@ -327,7 +327,7 @@ export default function PastArchive({
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '30px', alignItems: 'start', padding: '10px 0' }}>
                 <div style={{ background: '#0f172a', padding: '20px', borderRadius: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', border: '1px solid #334155' }}>
                   <img src={silhouetteAvatar} alt="Master" style={{ width: '90px', height: '90px' }} />
-                  <strong style={{ color: 'white', fontSize: '1.1rem', marginTop: '10px' }}>GURU</strong>
+                  <strong style={{ color: 'white', fontSize: '1.1rem', marginTop: '10px' }}>KÉPMESTER</strong>
                   <span style={{ color: '#94a3b8', fontSize: '0.9rem', marginTop: '2px' }}>{currentTopicObj?.master_name || t('archiveUnknownMaster', 'Ismeretlen Képmester')}</span>
                 </div>
                 <div style={{ borderLeft: '1px solid #334155', paddingLeft: '25px' }}>
