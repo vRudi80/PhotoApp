@@ -147,7 +147,7 @@ export default function PastArchive({
                 </div>
 
                 <div style={{ height: '170px', backgroundColor: '#090d16', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <img src={topicRow.cover_url || 'https://via.placeholder.com/400x200/0f172a/cbd5e1?text=PhotAwesome'} alt=\"\" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={handleImageError} />
+                  <img src={topicRow.cover_url || 'https://via.placeholder.com/400x200/0f172a/cbd5e1?text=PhotAwesome'} alt=\"\" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={handleImageError} }>
                 </div>
 
                 {/* 🎯 JAVÍTVA: 4 helyett 3 oszlop, Prizes törölve, dinamikus adatok bekötve! */}
