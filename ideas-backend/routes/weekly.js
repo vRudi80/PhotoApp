@@ -925,22 +925,22 @@ async function processFinishedChallenges(pool) {
   });
 
 app.get('/api/weekly/past', async (req, res) => {
-  try {
-    const [rows] = await pool.query(`
-      SELECT t.*, u.name as master_name, u.avatar_url as master_avatar_url, -- 👈 Ezt a mezőt szúrd be ide!
-             (SELECT COUNT(*) FROM weekly_entries WHERE topic_id = t.id) as entries_count,
-             (SELECT COUNT(*) FROM weekly_votes WHERE entry_id IN (SELECT id FROM weekly_entries WHERE topic_id = t.id)) as total_votes
-      FROM weekly_topics t
-      LEFT JOIN photo_users u ON t.master_email = u.email
-      WHERE t.end_date < NOW() 
-      ORDER BY t.end_date DESC
-    `);
-    res.json(rows);
-  } catch (err) {
-    console.error("❌ Hiba az archívum SQL lekérdezése közben:", err.message);
-    res.status(500).json({ error: 'Szerveroldali hiba az archívum összeállításakor.' });
-  }
-});
+    try {
+      const [rows] = await pool.query(`
+        SELECT t.*, u.name as master_name, u.avatar_url as master_avatar_url,
+               (SELECT COUNT(*) FROM weekly_entries WHERE topic_id = t.id) as entries_count,
+               (SELECT COUNT(*) FROM weekly_votes WHERE entry_id IN (SELECT id FROM weekly_entries WHERE topic_id = t.id)) as total_votes
+        FROM weekly_topics t
+        LEFT JOIN photo_users u ON t.master_email = u.email
+        WHERE t.end_date < NOW() 
+        ORDER BY t.end_date DESC
+      `);
+      res.json(rows);
+    } catch (err) {
+      console.error("❌ Hiba az archívum SQL lekérdezése közben:", err.message);
+      res.status(500).json({ error: 'Szerveroldali hiba az archívum összeállításakor.' });
+    }
+  });
 
   app.get('/api/weekly/my-stats', async (req, res) => {
     const { userEmail } = req.query;
@@ -1456,28 +1456,30 @@ app.get('/api/weekly/past', async (req, res) => {
     }
   });
   
-  // 📜 JAVÍTVA: ARCHÍV TÖRTÉNELMI ADATOK INTEGRÁLT EGYÉNI ÉS KLUBOS FAIR_SCORE SZÁMÍTÁSSAL
+  // 📜 ARCHÍV TÖRTÉNELMI ADATOK (Profilképekkel kiegészítve)
   app.get('/api/weekly/history/:topicId', async (req, res) => {
     const { topicId } = req.params;
     const userEmail = req.query.userEmail || '';
     try {
       const [leaderboard] = await pool.query(`
-        SELECT e.id, e.topic_id, e.user_email, COALESCE(u.name, e.user_name) as user_name, e.file_url, e.drive_file_id, e.likes_count, e.views_count, u.club_name,
-          (SELECT COUNT(*) FROM weekly_votes WHERE entry_id = e.id AND vote_type = 'master') as archive_likes,
-          EXISTS(SELECT 1 FROM weekly_votes WHERE entry_id = e.id AND voter_email = ?) as has_user_liked,
-          
-          -- 🛡️ Dátum-sorompó: a mai nap előtt lezárult szobák megmaradnak tiszta csillag alapúnak
-          IF(t.end_date < '2026-06-16 00:00:00',
-            e.likes_count,
-            ROUND(
-              ((e.likes_count + 5.0) / (e.views_count + 5.0) * 10.0) * 
-              IF(
-                (SELECT COUNT(*) FROM weekly_entries WHERE topic_id = e.topic_id AND is_active = 1) <= 1, 
-                1.0, 
-                LEAST(1.0, (SELECT COUNT(*) FROM weekly_votes WHERE voter_email = e.user_email AND entry_id IN (SELECT id FROM weekly_entries WHERE topic_id = e.topic_id AND is_active = 1)) / LEAST(15.0, (SELECT COUNT(*) FROM weekly_entries WHERE topic_id = e.topic_id AND is_active = 1) - 1))
-              ), 2
-            )
-          ) as fair_score
+        SELECT e.id, e.topic_id, e.user_email, COALESCE(u.name, e.user_name) as user_name, 
+               e.file_url, e.drive_file_id, e.likes_count, e.views_count, u.club_name, 
+               u.avatar_url, -- 👈 EZT A MEZŐT ADTUK HOZZÁ A GYŐZTES KÉPÉHEZ
+               (SELECT COUNT(*) FROM weekly_votes WHERE entry_id = e.id AND vote_type = 'master') as archive_likes,
+               EXISTS(SELECT 1 FROM weekly_votes WHERE entry_id = e.id AND voter_email = ?) as has_user_liked,
+               
+               -- 🛡️ Dátum-sorompó: a mai nap előtt lezárult szobák megmaradnak tiszta csillag alapúnak
+               IF(t.end_date < '2026-06-16 00:00:00',
+                 e.likes_count,
+                 ROUND(
+                   ((e.likes_count + 5.0) / (e.views_count + 5.0) * 10.0) * 
+                   IF(
+                     (SELECT COUNT(*) FROM weekly_entries WHERE topic_id = e.topic_id AND is_active = 1) <= 1, 
+                     1.0, 
+                     LEAST(1.0, (SELECT COUNT(*) FROM weekly_votes WHERE voter_email = e.user_email AND entry_id IN (SELECT id FROM weekly_entries WHERE topic_id = e.topic_id AND is_active = 1)) / LEAST(15.0, (SELECT COUNT(*) FROM weekly_entries WHERE topic_id = e.topic_id AND is_active = 1) - 1))
+                   ), 2
+                 )
+               ) as fair_score
         FROM weekly_entries e
         JOIN weekly_topics t ON e.topic_id = t.id
         LEFT JOIN photo_users u ON e.user_email = u.email
@@ -1485,7 +1487,7 @@ app.get('/api/weekly/past', async (req, res) => {
         ORDER BY fair_score DESC, e.likes_count DESC, e.views_count ASC
       `, [userEmail, topicId]);
 
-      // 🏆 JAVÍTVA: Egységesített, top 3-as klubrangsor számítás Fair Pontok alapján
+      // A klub-rangsoroló kódod ezután változatlanul mehet tovább...
       const clubsData = {};
       leaderboard.forEach(entry => {
         if (!entry.club_name || entry.club_name.trim() === '') return; 
