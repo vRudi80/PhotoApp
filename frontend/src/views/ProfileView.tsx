@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { BACKEND_URL } from '../utils/constants';
 
 // 🎯 Nyelvi kontextus aktiválása
@@ -18,12 +18,17 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
   const [pendingMembers, setPendingMembers] = useState<any[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // 🎯 KORSZERŰSÍTETT PROFIL ÁLLAPOTOK (Összehangolva az új photo_users oszlopokkal)
+  // 🎯 KORSZERŰSÍTETT PROFIL ÁLLAPOTOK
   const [nameInput, setNameInput] = useState<string>('');
   const [phone, setPhone] = useState<string>('');
   const [address, setAddress] = useState<string>('');
   const [associationId, setAssociationId] = useState<string>('');
   const [isSavingProfile, setIsSavingProfile] = useState(false);
+
+  // 📸 PROFILKÉP ÁLLAPOTOK
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Tárhely és AI használat követéséhez szükséges állapotok (MEGMARADT ✔)
   const [userStorage, setUserStorage] = useState({ count: 0, bytes: 0 });
@@ -41,6 +46,7 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
       setPhone(user.phone_number || user.phone || '');
       setAddress(user.shipping_address || user.address || '');
       setAssociationId(user.association_id || '');
+      setAvatarPreview(user.avatar_url || null);
     }
   }, [user]);
 
@@ -101,7 +107,40 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
     loadPendingMembers();
   }, [user, isLeader, activeClubs]);
 
-  // 4. MÓDOSÍTVA: Teljes, egyesített MAFOSZ-szabványú profil mentés az új végpontra
+  // 📸 PROFILKÉP AZONNALI HÁTTÉRBELI FELTÖLTÉSE UX MOTOR
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0];
+
+      // Kliensoldali azonnali gyors előnézet generálása
+      setAvatarPreview(URL.createObjectURL(file));
+      setIsUploadingAvatar(true);
+
+      const formData = new FormData();
+      formData.append('avatar', file);
+
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/users/${user.email}/avatar`, {
+          method: 'POST',
+          body: formData
+        });
+
+        if (res.ok) {
+          alert(lang === 'en' ? "Profile picture updated successfully!" : "Profilkép sikeresen frissítve! 📸");
+          fetchData(); // Globális állapotok újratöltése a friss kép-URL miatt
+        } else {
+          const err = await res.json();
+          alert(err.error || "Hiba történt a profilkép feltöltése közben.");
+        }
+      } catch (err) {
+        alert(t('msgNetworkError') || "Hálózati kommunikációs hiba lépett fel.");
+      } finally {
+        setIsUploadingAvatar(false);
+      }
+    }
+  };
+
+  // 4. Teljes, egyesített profil mentés az új végpontra
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nameInput.trim()) return alert(t('msgEmptyName') || "A név megadása kötelező!");
@@ -129,7 +168,6 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
     } catch (e) {
       alert(t('msgNetworkError'));
     } finally {
-      // 🎯 JAVÍTVA: Elgépelt 'fillly' átírva a szabályos finally kulcsszóra!
       setIsSavingProfile(false);
     }
   };
@@ -212,13 +250,13 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '30px', maxWidth: '600px', margin: '0 auto', animation: 'fadeIn 0.3s ease-out' }}>
       
-      {/* 🎯 SZEKCIÓ 1: DIAGNOSZTIKAI ÉS FINANCIÁLIS METRIKÁK KÁRTYÁJA (VÁLTOZATLAN ✔) */}
+      {/* ── SZEKCIÓ 1: DIAGNOSZTIKAI ÉS FINANCIÁLIS METRIKÁK KÁRTYÁJA ── */}
       <div style={{ backgroundColor: '#1e293b', padding: '30px', borderRadius: '24px', border: '1px solid #334155', boxShadow: '0 4px 20px rgba(0,0,0,0.15)' }}>
         <h3 style={{ margin: '0 0 15px 0', color: '#f8fafc', fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span>⚙️</span> {t('profStatusTitle')}
         </h3>
 
-        <div style={{ Richmond: 'transparent', marginBottom: '20px' }}>
+        <div style={{ marginBottom: '20px' }}>
           <label style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 'bold', display: 'block', marginBottom: '6px' }}>
             {t('profEmailLabel')}
           </label>
@@ -283,14 +321,76 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
         </div>
       </div>
       
-      {/* 👤 SZEKCIÓ 2: HIVATALOS ADATOK KÁRTYA (BŐVÍTVE AZ ÚJ JOGI MEZŐKKEL 🚀) */}
+      {/* ── SZEKCIÓ 2: HIVATALOS ADATOK KÁRTYA ÉS PROFILKÉP PANEL ── */}
       <div style={{ backgroundColor: '#1e293b', padding: '30px', borderRadius: '24px', border: '1px solid #334155', boxShadow: '0 4px 20px rgba(0,0,0,0.15)' }}>
         <h3 style={{ margin: '0 0 4px 0', color: '#f8fafc', fontSize: '1.25rem' }}>{t('profTitle')}</h3>
         <p style={{ color: '#64748b', fontSize: '0.85rem', margin: '0 0 20px 0' }}>{t('profNotice')}</p>
         
+        {/* 📸 INTERAKTÍV PROFILKÉP ZÓNA (ÚJ!) */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '25px', position: 'relative' }}>
+          <div 
+            onClick={() => !isUploadingAvatar && fileInputRef.current?.click()}
+            style={{ 
+              width: '110px', 
+              height: '110px', 
+              borderRadius: '50%', 
+              backgroundColor: '#090d16', 
+              border: isUploadingAvatar ? '3px dashed #38bdf8' : '3px solid #334155', 
+              overflow: 'hidden', 
+              cursor: isUploadingAvatar ? 'not-allowed' : 'pointer', 
+              position: 'relative',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+              transition: 'all 0.2s'
+            }}
+            onMouseEnter={e => { if(!isUploadingAvatar) e.currentTarget.style.borderColor = '#38bdf8'; }}
+            onMouseLeave={e => { if(!isUploadingAvatar) e.currentTarget.style.borderColor = '#334155'; }}
+          >
+            {avatarPreview ? (
+              <img src={avatarPreview} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : (
+              <span style={{ fontSize: '2.5rem', color: '#475569' }}>👤</span>
+            )}
+
+            {/* Lebegő réteg töltés vagy hover esetére */}
+            <div style={{ 
+              position: 'absolute', 
+              inset: 0, 
+              backgroundColor: isUploadingAvatar ? 'rgba(15,23,42,0.8)' : 'rgba(15,23,42,0.4)', 
+              opacity: isUploadingAvatar ? 1 : 0, 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              transition: 'opacity 0.2s',
+              color: 'white',
+              fontSize: '0.75rem',
+              fontWeight: 'bold'
+            }}
+            className="avatar-overlay"
+            onMouseEnter={e => { if(!isUploadingAvatar) e.currentTarget.style.opacity = '1'; }}
+            onMouseLeave={e => { if(!isUploadingAvatar) e.currentTarget.style.opacity = '0'; }}
+            >
+              {isUploadingAvatar ? '⏳...' : (lang === 'en' ? 'Change 📷' : 'Módosítás 📷')}
+            </div>
+          </div>
+          
+          <input 
+            type="file" 
+            ref={fileInputRef} 
+            onChange={handleAvatarChange} 
+            accept="image/*" 
+            style={{ display: 'none' }} 
+          />
+          <span style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '8px' }}>
+            {lang === 'en' ? 'Click on the avatar to upload picture' : 'Kattints a körre a kép feltöltéséhez'}
+          </span>
+        </div>
+
         <form onSubmit={handleSaveProfile}>
           {/* 1. Név mező */}
-          <div style={{ display: 'flex', displayDirection: 'column', flexDirection: 'column', gap: '4px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <label style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 'bold' }}>{t('profLabelName')}</label>
             <input 
               type="text" 
@@ -302,16 +402,16 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
             />
           </div>
 
-          {/* 💡 Kötelező MAFOSZ sáv sárga kerettel */}
+          {/* 💡 Kötelező MAFOSZ sáv */}
           <div style={{ background: 'rgba(245, 158, 11, 0.04)', borderLeft: '4px solid #f59e0b', padding: '14px', borderRadius: '0 10px 10px 0', marginBottom: '20px', fontSize: '0.82rem', color: '#cbd5e1', lineHeight: '1.5' }}>
-            📌 <b>{lang === 'en' ? 'Official Requirement:' : 'Kötelező Pályázati Adatok:'}</b>
+            		📌 <b>{lang === 'en' ? 'Official Requirement:' : 'Kötelező Pályázati Adatok:'}</b>
             <br />
             {lang === 'en' 
               ? 'A contact phone number and exact shipping address are required to receive awards, physical catalogs, and medals.' 
               : 'A pontos postázási cím és telefonszám megadása kötelező a kiállítási évkönyvek, érmek és nyomtatott oklevelek kézbesítéséhez.'}
           </div>
 
-          {/* 2. ÚJ: Telefonszám mező */}
+          {/* 2. Telefonszám mező */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <label style={{ fontSize: '0.8rem', color: '#f59e0b', fontWeight: 'bold' }}>{lang === 'en' ? 'Phone Number' : 'Telefonszám'}</label>
             <input 
@@ -324,7 +424,7 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
             />
           </div>
 
-          {/* 3. ÚJ: Postázási cím mező */}
+          {/* 3. Postázási cím mező */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <label style={{ fontSize: '0.8rem', color: '#f59e0b', fontWeight: 'bold' }}>{lang === 'en' ? 'Shipping / Postal Address' : 'Pontos Értesítési / Postázási Cím'}</label>
             <input 
@@ -337,7 +437,7 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
             />
           </div>
 
-          {/* 4. ÚJ: Igazolványszám mező */}
+          {/* 4. Igazolványszám mező */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <label style={{ fontSize: '0.8rem', color: '#a78bfa', fontWeight: 'bold' }}>{lang === 'en' ? 'Association Card ID (Optional)' : 'Fotóművészeti Tagsági Igazolvány Száma (Opcionális)'}</label>
             <input 
@@ -371,7 +471,7 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
         </form>
       </div>
 
-      {/* 🛡️ SZEKCIÓ 3: KLUB HOZZÁRENDELÉSI KÁRTYA (VÁLTOZATLAN ✔) */}
+      {/* 🛡️ SZEKCIÓ 3: KLUB HOZZÁRENDELÉSI KÁRTYA */}
       <div style={{ backgroundColor: '#1e293b', padding: '30px', borderRadius: '24px', border: '1px solid #334155' }}>
         <h3 style={{ margin: '0 0 15px 0', color: '#f8fafc', fontSize: '1.25rem' }}>{t('profClubTitle')}</h3>
         
@@ -397,7 +497,7 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
         )}
       </div>
 
-      {/* 👑 SZEKCIÓ 4: KLUBVEZETŐI JÓVÁHAGYÓ PANEL (VÁLTOZATLAN ✔) */}
+      {/* 👑 SZEKCIÓ 4: KLUBVEZETŐI JÓVÁHAGYÓ PANEL */}
       {isLeader && (
         <div style={{ backgroundColor: '#1e293b', padding: '30px', borderRadius: '24px', border: '1px solid #10b981', boxShadow: '0 10px 30px rgba(16,185,129,0.1)' }}>
           <h3 style={{ margin: '0 0 10px 0', color: '#10b981', fontSize: '1.25rem' }}>{t('profLeaderTitle')} ({user.club_name})</h3>
