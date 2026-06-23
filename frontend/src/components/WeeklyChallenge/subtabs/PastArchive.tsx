@@ -19,10 +19,27 @@ interface PastArchiveProps {
   user: any; 
 }
 
-// 🎯 ÚJ: Intelligens rang-konverter a nemzetközi GURU szintek magyarosításához
-const mapGuruToHungarianRank = (rankStr: string) => {
-  if (!rankStr) return 'Képvadász 📷';
-  const normalized = rankStr.toUpperCase().trim();
+const getLevelDetails = (likes: number, victories: number) => {
+  if (likes < 30) return { name: 'Fényleső 🌱', color: '#94a3b8' };
+  if (likes < 100) return { name: 'Megfigyelő 👁️', color: '#cbd5e1' };
+  if (likes < 250) return { name: 'Képvadász 📷', color: '#38bdf8' };
+  if (likes < 500) return { name: 'Komponista 📐', color: '#60a5fa' };
+  if (likes < 800 || victories < 1) return { name: 'Fényíró 🎞️', color: '#10b981' };
+  if (likes < 1300 || victories < 2) return { name: 'Esztéta 💎', color: '#059669' };
+  if (likes < 2000 || victories < 3) return { name: 'Szakértő 🎯', color: '#a78bfa' };
+  if (likes < 3200 || victories < 5) return { name: 'Képmester 🎨', color: '#ec4899' };
+  if (likes < 4800 || victories < 7) return { name: 'Nagymester 🌟', color: '#f59e0b' };
+  if (likes < 7000 || victories < 9) return { name: 'Virtuóz ⚡', color: '#eab308' };
+  if (likes < 10000 || victories < 12) return { name: 'Fotóguru 🔥', color: '#ef4444' };
+  return { name: 'Vizuális Legenda 👑', color: '#fbbf24' };
+};
+
+// 🎯 JAVÍTVA: Ha nincs rang, vagy alapértelmezett értéken van, kiszámoljuk a pontszáma alapján!
+const mapGuruToHungarianRank = (rankStr: string, score: number) => {
+  const normalized = rankStr ? rankStr.toUpperCase().trim() : '';
+  if (!normalized || normalized === 'FOTÓS' || normalized === 'MEMBER' || normalized === 'TAG') {
+    return getLevelDetails(Number(score), 0).name;
+  }
   if (normalized === 'GURU') return 'Fényleső 🌱';
   if (normalized === 'GURU I') return 'Megfigyelő 👁️';
   if (normalized === 'GURU II') return 'Képvadász 📷';
@@ -34,7 +51,7 @@ const mapGuruToHungarianRank = (rankStr: string) => {
   if (normalized === 'GURU VIII') return 'Nagymester 🌟';
   if (normalized === 'GURU IX') return 'Virtuóz ⚡';
   if (normalized === 'GURU X') return 'Fotóguru 🔥';
-  return rankStr; // Ha már eleve magyarul van, hagyja békén
+  return rankStr;
 };
 
 export default function PastArchive({
@@ -51,7 +68,7 @@ export default function PastArchive({
   const [adminPosterData, setAdminPosterData] = useState<any | null>(null);
   const [isAdminGeneratingPoster, setIsAdminGeneratingPoster] = useState(false);
 
-  // 🎯 JAVÍTVA: Helyi, beágyazott SVG sziluett az ERR_CONNECTION_RESET hálózati hibák ellen!
+  // Helyi SVG sziluett avatar
   const silhouetteAvatar = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2394a3b8'><path d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/></svg>";
 
   const handleSelectTopic = (topicId: number) => {
@@ -74,6 +91,14 @@ export default function PastArchive({
       return (Number(a?.views_count || 0)) - (Number(b?.views_count || 0));
     }).slice(0, 3);
   }, [pastLeaderboard]);
+
+  const winnerLevelName = useMemo(() => {
+    if (!topThreeWinners[0]) return '';
+    const score = topThreeWinners[0].fair_score !== undefined 
+      ? topThreeWinners[0].fair_score 
+      : (topThreeWinners[0].archive_likes || topThreeWinners[0].likes_count || 0);
+    return getLevelDetails(Number(score), 0).name;
+  }, [topThreeWinners]);
 
   const singlePhotosRankedList = useMemo(() => {
     if (!pastLeaderboard || pastLeaderboard.length === 0) return [];
@@ -114,15 +139,14 @@ export default function PastArchive({
   return (
     <div style={{ width: '100%', boxSizing: 'border-box' }}>
       
-      {/* ── 🎯 ARCHÍVUM KÁRTYA RÁCS ── */}
       {!selectedPastTopicId ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '25px' }}>
           {pastTopics.map(topicRow => {
             const isDaily = getTopicType(topicRow.start_date, topicRow.end_date) === 'daily';
             const endedDate = new Date(topicRow.end_date).toLocaleDateString(lang === 'en' ? 'en-US' : 'hu-HU', { year: 'numeric', month: '2-digit', day: '2-digit' });
             
-            const realEntriesCount = topicRow.entries_count ?? topicRow.entry_count ?? topicRow.totalEntries ?? topicRow.total_entries ?? 0;
-            const realVotesCount = topicRow.total_votes ?? topicRow.vote_count ?? topicRow.total_votes_count ?? topicRow.votes_count ?? 0;
+            const realEntriesCount = topicRow.entries_count ?? topicRow.totalEntries ?? topicRow.entry_count ?? 0;
+            const realVotesCount = topicRow.total_votes ?? topicRow.vote_count ?? topicRow.total_votes_count ?? 0;
 
             return (
               <div 
@@ -148,7 +172,7 @@ export default function PastArchive({
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', background: '#000000e0', borderTop: '1px solid #223147', textAlign: 'center', fontSize: '0.75rem', padding: '10px 4px', color: '#94a3b8' }}>
                   <div style={{ borderRight: '1px solid #1e293b' }}>
-                    <b style={{ color: 'white', display: 'block' }}>{realEntriesCount} db</b> 
+                    <b style={{ color: 'white', display: 'block' }}>{realEntriesCount > 0 ? `${realEntriesCount} db` : '- db'}</b> 
                     {lang === 'en' ? 'Photographers' : 'Fotós'}
                   </div>
                   <div style={{ borderRight: '1px solid #1e293b' }}>
@@ -156,7 +180,7 @@ export default function PastArchive({
                     {lang === 'en' ? 'Ended' : 'Lezárult'}
                   </div>
                   <div>
-                    <b style={{ color: '#38bdf8', display: 'block' }}>{realVotesCount} db</b> 
+                    <b style={{ color: '#38bdf8', display: 'block' }}>{realVotesCount > 0 ? `${realVotesCount} db` : '- db'}</b> 
                     {lang === 'en' ? 'Votes' : 'Szavazat'}
                   </div>
                 </div>
@@ -165,8 +189,6 @@ export default function PastArchive({
           })}
         </div>
       ) : (
-        
-        // ── 🏛️ AL-ARÉNA RÉSZLETES PANEL ──
         <div style={{ display: 'flex', flexDirection: 'column', gap: '25px', width: '100%' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
             <button onClick={() => setSelectedPastTopicId(null)} style={{ background: '#1e293b', border: '1px solid #334155', color: '#cbd5e1', padding: '10px 20px', borderRadius: '12px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem' }}>
@@ -203,16 +225,14 @@ export default function PastArchive({
                   {topThreeWinners[0] ? (
                     <div style={{ width: '100%' }}>
                       <div style={{ width: '100%', height: '320px', background: '#000', borderRadius: '12px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '20px', cursor: 'zoom-in' }} onClick={() => setFullscreenData({ url: getImageUrl(topThreeWinners[0].drive_file_id, topThreeWinners[0].file_url), title: topThreeWinners[0].user_name })}>
-                        <img src={getImageUrl(topThreeWinners[0].drive_file_id, topThreeWinners[0].file_url)} alt="Winner" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+                        <img src={getImageUrl(topThreeWinners[0].drive_file_id, topThreeWinners[0].file_url)} alt="Winner" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} onError={handleImageError} />
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#0f172a', padding: '12px 20px', borderRadius: '12px', borderLeft: '4px solid #fbbf24' }}>
                         <div style={{ display: 'flex', gap: '12px', alignItems: 'center', textAlign: 'left' }}>
                           <img src={silhouetteAvatar} alt="" style={{ width: '38px', height: '38px' }} />
                           <div>
                             <strong style={{ color: 'white', display: 'block', fontSize: '1.1rem' }}>{topThreeWinners[0].user_name}</strong>
-                            <span style={{ color: '#64748b', fontSize: '0.8rem', display: 'block' }}>
-                              {mapGuruToHungarianRank(topThreeWinners[0].rank_level || topThreeWinners[0].club_role)}
-                            </span>
+                            <span style={{ color: '#64748b', fontSize: '0.8rem', display: 'block' }}>{winnerLevelName}</span>
                           </div>
                         </div>
                         <div style={{ color: '#fbbf24', fontWeight: '900', fontSize: '1.3rem' }}>
@@ -289,29 +309,34 @@ export default function PastArchive({
                 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                   {activeRankSubTab === 'photo' ? (
-                    singlePhotosRankedList.map((entry, idx) => (
-                      <div key={entry.id} style={{ display: 'flex', alignItems: 'center', background: '#0f172a', padding: '12px 20px', borderRadius: '14px', border: '1px solid #223147' }}>
-                        <div style={{ fontSize: '1.2rem', fontWeight: '900', width: '40px', color: '#64748b' }}>#{idx + 1}</div>
-                        <img src={getImageUrl(entry.drive_file_id, entry.file_url)} onClick={() => setFullscreenData({ url: getImageUrl(entry.drive_file_id, entry.file_url), title: `${entry.title || 'Kép'} (${entry.user_name})` })} alt="" style={{ width: '55px', height: '55px', objectFit: 'cover', borderRadius: '8px', margin: '0 15px', cursor: 'zoom-in' }} />
-                        <div style={{ flex: 1 }}>
-                          {/* 🎯 JAVÍTVA: Mindig a játékos neve a főcím */}
-                          <strong style={{ color: 'white', display: 'block', fontSize: '1rem' }}>{entry.user_name}</strong>
-                          <span style={{ color: '#64748b', fontSize: '0.8rem' }}>
-                            {mapGuruToHungarianRank(entry.rank_level || entry.club_role)} {entry.title ? `• "${entry.title}"` : ''}
-                          </span>
+                    singlePhotosRankedList.map((entry, idx) => {
+                      const photoScore = entry.fair_score !== undefined ? entry.fair_score : (entry.archive_likes || entry.likes_count || 0);
+                      
+                      return (
+                        <div key={entry.id} style={{ display: 'flex', alignItems: 'center', background: '#0f172a', padding: '12px 20px', borderRadius: '14px', border: '1px solid #223147' }}>
+                          <div style={{ fontSize: '1.2rem', fontWeight: '900', width: '40px', color: '#64748b' }}>#{idx + 1}</div>
+                          {/* 🎯 JAVÍTVA: Elhelyezve az onError háló hiba esetére */}
+                          <img src={getImageUrl(entry.drive_file_id, entry.file_url)} onClick={() => setFullscreenData({ url: getImageUrl(entry.drive_file_id, entry.file_url), title: `${entry.title || 'Kép'} (${entry.user_name})` })} alt="" style={{ width: '55px', height: '55px', objectFit: 'cover', borderRadius: '8px', margin: '0 15px', cursor: 'zoom-in' }} onError={handleImageError} />
+                          <div style={{ flex: 1 }}>
+                            <strong style={{ color: 'white', display: 'block', fontSize: '1rem' }}>{entry.user_name}</strong>
+                            <span style={{ color: '#64748b', fontSize: '0.8rem' }}>
+                              {/* 🎯 JAVÍTVA: Ha üres a szerver rangja, kiszámoljuk a fotó pontszáma alapján */}
+                              {mapGuruToHungarianRank(entry.rank_level || entry.club_role, Number(photoScore))} {entry.title ? `• "${entry.title}"` : ''}
+                            </span>
+                          </div>
+                          <div style={{ color: '#f97316', fontWeight: '900', fontSize: '1.1rem' }}>
+                            {entry.fair_score !== undefined ? `${entry.fair_score} FP` : `${entry.likes_count} ⭐`}
+                          </div>
                         </div>
-                        <div style={{ color: '#f97316', fontWeight: '900', fontSize: '1.1rem' }}>
-                          {entry.fair_score !== undefined ? `${entry.fair_score} FP` : `${entry.likes_count} ⭐`}
-                        </div>
-                      </div>
-                    ))
+                      );
+                    })
                   ) : (
                     guruTopPicksList.map(entry => (
                       <div key={entry.id} style={{ display: 'flex', alignItems: 'center', background: '#0f172a', padding: '12px 20px', borderRadius: '14px', border: '1px solid #a78bfa30' }}>
                         <div style={{ fontSize: '1.2rem', color: '#a78bfa', width: '30px', fontWeight: 'bold' }}>✨</div>
-                        <img src={getImageUrl(entry.drive_file_id, entry.file_url)} onClick={() => setFullscreenData({ url: getImageUrl(entry.drive_file_id, entry.file_url), title: `${entry.title || 'Kép'} (${entry.user_name})` })} alt="" style={{ width: '55px', height: '55px', objectFit: 'cover', borderRadius: '6px', margin: '0 15px', cursor: 'zoom-in' }} />
+                        {/* 🎯 JAVÍTVA: Elhelyezve az onError háló hiba esetére */}
+                        <img src={getImageUrl(entry.drive_file_id, entry.file_url)} onClick={() => setFullscreenData({ url: getImageUrl(entry.drive_file_id, entry.file_url), title: `${entry.title || 'Kép'} (${entry.user_name})` })} alt="" style={{ width: '55px', height: '55px', objectFit: 'cover', borderRadius: '6px', margin: '0 15px', cursor: 'zoom-in' }} onError={handleImageError} />
                         <div style={{ flex: 1 }}>
-                          {/* 🎯 JAVÍTVA: Mindig a játékos neve a főcím */}
                           <strong style={{ color: 'white', display: 'block', fontSize: '1rem' }}>{entry.user_name}</strong>
                           <span style={{ color: '#94a3b8', fontSize: '0.8rem' }}>Kiemelte a Képmester</span>
                         </div>
