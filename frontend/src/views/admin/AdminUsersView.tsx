@@ -27,6 +27,9 @@ export default function AdminUsersView({
   const [storageStats, setStorageStats] = useState<Record<string, { count: number, bytes: number }>>({});
   const [isLoadingStats, setIsLoadingStats] = useState(true);
 
+  // Beágyazott biztonságos sziluett ikon az üres profilképek kezelésére
+  const silhouetteAvatar = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23475569'><circle cx='12' cy='8' r='4'/><path d='M12 14c-6.1 0-10 4-10 4v2h20v-2s-3.9-4-10-4z'/></svg>";
+
   // Adatok lekérése a backendről
   useEffect(() => {
     const fetchStorageStats = async () => {
@@ -61,20 +64,18 @@ export default function AdminUsersView({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  // 🎯 ÚJ: INTELLIGENS KERESŐ ÉS UTOLSÓ BELÉPÉS SZERINTI CSÖKKENŐ RENDEZŐ MOTOR
+  // INTELLIGENS KERESŐ ÉS UTOLSÓ BELÉPÉS SZERINTI CSÖKKENŐ RENDEZŐ MOTOR
   const processedUsers = useMemo(() => {
-    // 1. Első lépésként lefuttatjuk a meglévő keresési szűrést
     const filtered = allUsers.filter(u => 
       (u.name && u.name.toLowerCase().includes(searchTerm.toLowerCase())) || 
       (u.email && u.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (u.club_name && u.club_name.toLowerCase().includes(searchTerm.toLowerCase()))
     );
 
-    // 2. Második lépésben időbélyeg alapján csökkenő sorrendbe (legfrissebb előre) rendezzük
     return [...filtered].sort((a, b) => {
       const timeA = a.last_login ? new Date(a.last_login).getTime() : 0;
       const timeB = b.last_login ? new Date(b.last_login).getTime() : 0;
-      return timeB - timeA; // timeB - timeA = legújabb belépés kerül a lista tetejére
+      return timeB - timeA; 
     });
   }, [allUsers, searchTerm]);
 
@@ -91,7 +92,7 @@ export default function AdminUsersView({
 
   return (
     <div>
-      <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', color: '#f59e0b' }}>👥 Felhasználók és Tárhely Kezelése</h2>
+      <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', color: '#f59e0b' }}>Compartment Users Kezelése</h2>
       
       {/* Statisztika és Kereső sáv */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#1e293b', padding: '15px 20px', borderRadius: '12px', marginBottom: '20px', border: '1px solid #334155', flexWrap: 'wrap', gap: '15px' }}>
@@ -128,7 +129,6 @@ export default function AdminUsersView({
             </tr>
           </thead>
           <tbody>
-            {/* 🎯 JAVÍTVA: Most már az intelligensen rendezett 'processedUsers' listát képezzük le */}
             {processedUsers.map((u, index) => {
               const originalClub = u.club_name || '';
               const originalRole = u.club_role || 'member';
@@ -139,25 +139,36 @@ export default function AdminUsersView({
               const isPremium = u.is_premium === 1;
               const hasExpiredPremium = u.is_premium === 0 && u.premium_until;
 
-              // Tárhely adatok kiolvasása
               const userStats = storageStats[u.email] || { count: 0, bytes: 0 };
               const isHeavyUser = userStats.count > 50;
 
               return (
                 <tr key={index} style={{ borderBottom: '1px solid #334155', backgroundColor: index % 2 === 0 ? 'transparent' : '#0f172a50', transition: 'background 0.2s' }} onMouseOver={e => e.currentTarget.style.backgroundColor = '#33415550'} onMouseOut={e => e.currentTarget.style.backgroundColor = index % 2 === 0 ? 'transparent' : '#0f172a50'}>
                   
-                  {/* 1. Név és Email */}
+                  {/* 1. Név, Email és 📸 ÚJ: Profilkép elrendezés flexbox-szal */}
                   <td style={{ padding: '15px' }}>
-                    <div style={{ fontWeight: 'bold', color: '#f8fafc', marginBottom: '4px' }}>{u.name || 'Nincs név megadva'}</div>
-                    <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>{u.email}</div>
-                    <div style={{ marginTop: '8px' }}>
-                      {isPremium ? (
-                        <span style={{ background: '#10b98120', color: '#10b981', padding: '2px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 'bold' }}>👑 Prémium ({formatDate(u.premium_until)})</span>
-                      ) : hasExpiredPremium ? (
-                        <span style={{ background: '#ef444420', color: '#ef4444', padding: '2px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 'bold' }}>⏳ Lejárt</span>
-                      ) : (
-                        <span style={{ background: '#334155', color: '#94a3b8', padding: '2px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 'bold' }}>⚪ Ingyenes</span>
-                      )}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                      {/* Felhasználó kerek avatarja a felhőből származó URL-lel */}
+                      <img 
+                        src={u.avatar_url || silhouetteAvatar} 
+                        alt="" 
+                        style={{ width: '42px', height: '42px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #475569', backgroundColor: '#090d16', flexShrink: 0 }}
+                        onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = silhouetteAvatar; }}
+                      />
+                      
+                      <div>
+                        <div style={{ fontWeight: 'bold', color: '#f8fafc', marginBottom: '4px' }}>{u.name || 'Nincs név megadva'}</div>
+                        <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>{u.email}</div>
+                        <div style={{ marginTop: '8px' }}>
+                          {isPremium ? (
+                            <span style={{ background: '#10b98120', color: '#10b981', padding: '2px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 'bold' }}>👑 Prémium ({formatDate(u.premium_until)})</span>
+                          ) : hasExpiredPremium ? (
+                            <span style={{ background: '#ef444420', color: '#ef4444', padding: '2px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 'bold' }}>⏳ Lejárt</span>
+                          ) : (
+                            <span style={{ background: '#334155', color: '#94a3b8', padding: '2px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 'bold' }}>⚪ Ingyenes</span>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </td>
                   
@@ -224,7 +235,7 @@ export default function AdminUsersView({
                     {hasChanges && (
                       <button 
                         onClick={() => saveUserClub(u.email)} 
-                        style={{ background: '#f59e0b', color: '#0f172a', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem', transition: 'transform 0.1s' }}
+                        style={{ background: '#f59e0b', color: '#0f172a', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem', transition: 'transform(0.1s)' }}
                         onMouseDown={e => e.currentTarget.style.transform = 'scale(0.95)'}
                         onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
                       >
@@ -237,7 +248,6 @@ export default function AdminUsersView({
               )
             })}
             
-            {/* 🎯 JAVÍTVA: A hosszt is a processedUsers alapján ellenőrizzük */}
             {processedUsers.length === 0 && (
               <tr>
                 <td colSpan={5} style={{ padding: '30px', textAlign: 'center', color: '#94a3b8' }}>
