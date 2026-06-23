@@ -35,24 +35,32 @@ module.exports = function(app, pool) {
     }
   });
   
-  // ====================================================================
-  // 🎯 JAVÍTVA: Bekötve az avatar_url mező is a lekérdezésbe!
-  // ====================================================================
+  // 👥 FELHASZNÁLÓK LISTÁJA (ADMIN ÉS KLUBVEZETŐKNEK)
   app.get('/api/users', async (req, res) => {
     try {
       const [rows] = await pool.query(`
         SELECT 
-          google_id, email, name, last_login, club_name, club_role, 
-          is_premium, premium_until, stripe_customer_id, premium_level, 
-          club_id, swap_balance, rank_level, referral_code, referred_by,
-          phone_number, shipping_address, association_id, avatar_url 
-        FROM photo_users
+          u.email, u.name, u.association_id, u.club_id, u.club_name, u.club_role, u.is_premium, 
+          u.last_login, u.phone_number, u.premium_level, u.premium_until, u.rank_level, 
+          u.referral_code, u.referred_by, u.shipping_address, u.stripe_customer_id, 
+          u.swap_balance, u.ai_usage_count, 
+          u.avatar_url, -- 👈 EZT A MEZŐT ADTUK HOZZÁ A LEKÉRDEZÉSHEZ
+          COUNT(e.id) as total_entries,
+          MAX(e.created_at) as last_entry_date
+        FROM photo_users u
+        LEFT JOIN weekly_entries e ON u.email = e.user_email
+        GROUP BY 
+          u.email, u.name, u.association_id, u.club_id, u.club_name, u.club_role, 
+          u.is_premium, u.last_login, u.phone_number, u.premium_level, u.premium_until, 
+          u.rank_level, u.referral_code, u.referred_by, u.shipping_address, 
+          u.stripe_customer_id, u.swap_balance, u.ai_usage_count,
+          u.avatar_url -- 👈 IDE IS KÖTELEZŐ BELEÍRNI
+        ORDER BY u.name ASC
       `);
-      
       res.json(rows);
     } catch (err) {
-      console.error("❌ Hiba a photo_users lekérésekor:", err);
-      res.status(500).json({ error: 'Nem sikerült betölteni a felhasználókat.' });
+      console.error(err);
+      res.status(500).json({ error: 'Szerveroldali hiba a felhasználók lekérésekor.' });
     }
   });
 
