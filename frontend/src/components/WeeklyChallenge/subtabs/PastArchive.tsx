@@ -19,41 +19,33 @@ interface PastArchiveProps {
   user: any; 
 }
 
-const getLevelDetails = (likes: number, victories: number) => {
-  if (likes < 30) return { name: 'Fényleső 🌱', color: '#94a3b8' };
-  if (likes < 100) return { name: 'Megfigyelő 👁️', color: '#cbd5e1' };
-  if (likes < 250) return { name: 'Képvadász 📷', color: '#38bdf8' };
-  if (likes < 500) return { name: 'Komponista 📐', color: '#60a5fa' };
-  if (likes < 800 || victories < 1) return { name: 'Fényíró 🎞️', color: '#10b981' };
-  if (likes < 1300 || victories < 2) return { name: 'Esztéta 💎', color: '#059669' };
-  if (likes < 2000 || victories < 3) return { name: 'Szakértő 🎯', color: '#a78bfa' };
-  if (likes < 3200 || victories < 5) return { name: 'Képmester 🎨', color: '#ec4899' };
-  if (likes < 4800 || victories < 7) return { name: 'Nagymester 🌟', color: '#f59e0b' };
-  if (likes < 7000 || victories < 9) return { name: 'Virtuóz ⚡', color: '#eab308' };
-  if (likes < 10000 || victories < 12) return { name: 'Fotóguru 🔥', color: '#ef4444' };
-  return { name: 'Vizuális Legenda 👑', color: '#fbbf24' };
-};
+// 🎯 BIZTONSÁGOS HELYI HELYETTESÍTŐ KÉP (Nem igényel hálózati kérést, nem dobhat 404-et)
+const localPlaceholderSvg = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 300' fill='%230f172a'><rect width='100%' height='100%'/><text x='50%' y='50%' fill='%23334155' font-family='sans-serif' font-size='14' text-anchor='middle'>Kép nem elérhető</text></svg>";
 
-// 🎯 JAVÍTVA: Intelligens rang-súlyozó hálózati fallback esetére
-const mapGuruToHungarianRank = (rankStr: string, score: number) => {
+// 🎯 UNIVERZÁLIS RANG-MAPPING (Kiszűri a generic 'fotós' feliratokat és a pontszám alapján reális szintet lő be)
+const computeArchiveRank = (rankStr: string, score: number) => {
   const normalized = rankStr ? rankStr.toUpperCase().trim() : '';
+  
+  // Ha a szerverről üres vagy általános "Fotós/Tag" string jön, pontszám alapján súlyozzuk
   if (!normalized || normalized === 'FOTÓS' || normalized === 'MEMBER' || normalized === 'TAG') {
-    if (score >= 22) return 'Képmester 🎨';
-    if (score >= 20) return 'Szakértő 🎯';
-    if (score >= 17) return 'Esztéta 💎';
-    if (score >= 14) return 'Komponista 📐';
-    if (score >= 10) return 'Képvadász 📷';
-    return 'Megfigyelő 👁️';
+    const s = Number(score) || 0;
+    if (s >= 22) return 'Komponista 📐';
+    if (s >= 20) return 'Képvadász 📷';
+    if (s >= 15) return 'Megfigyelő 👁️';
+    return 'Fényleső 🌱';
   }
-  if (normalized === 'GURU') return 'Fényleső 🌱';
-  if (normalized === 'GURU I') return 'Megfigyelő 👁️';
-  if (normalized === 'GURU II') return 'Képvadász 📷';
-  if (normalized === 'GURU III') return 'Komponista 📐';
-  if (normalized === 'GURU IV') return 'Fényíró 🎞️';
-  if (normalized === 'GURU V') return 'Esztéta 💎';
-  if (normalized === 'GURU VI') return 'Szakértő 🎯';
-  if (normalized === 'GURU VII') return 'Képmester 🎨';
-  if (normalized === 'GURU VIII') return 'Nagymester 🌟';
+  
+  // Ha konkrét nemzetközi rang jön, lefordítjuk
+  if (normalized.includes('GURU III') || normalized.includes('KOMPONISTA')) return 'Komponista 📐';
+  if (normalized.includes('GURU II') || normalized.includes('KÉPVADÁSZ')) return 'Képvadász 📷';
+  if (normalized.includes('GURU I') || normalized.includes('MEGFIGYELŐ')) return 'Megfigyelő 👁️';
+  if (normalized === 'GURU' || normalized.includes('FÉNYLESŐ')) return 'Fényleső 🌱';
+  if (normalized.includes('GURU IV') || normalized.includes('FÉNYÍRÓ')) return 'Fényíró 🎞️';
+  if (normalized.includes('GURU V') || normalized.includes('ESZTÉTA')) return 'Esztéta 💎';
+  if (normalized.includes('GURU VI') || normalized.includes('SZAKÉRTŐ')) return 'Szakértő 🎯';
+  if (normalized.includes('GURU VII') || normalized.includes('KÉPMESTER')) return 'Képmester 🎨';
+  if (normalized.includes('GURU VIII') || normalized.includes('NAGYMESTER')) return 'Nagymester 🌟';
+  
   return rankStr;
 };
 
@@ -71,13 +63,12 @@ export default function PastArchive({
   const [adminPosterData, setAdminPosterData] = useState<any | null>(null);
   const [isAdminGeneratingPoster, setIsAdminGeneratingPoster] = useState(false);
 
-  // 🎯 JAVÍTVA: Törhetetlen, helyi beágyazott SVG sziluett az ERR_CONNECTION_RESET és a hurok ellen!
+  // Beágyazott biztonságos sziluett ikon
   const silhouetteAvatar = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23475569'><circle cx='12' cy='8' r='4'/><path d='M12 14c-6.1 0-10 4-10 4v2h20v-2s-3.9-4-10-4z'/></svg>";
 
-  // 🎯 JAVÍTVA: Biztonságos helyi képkezelő, ami azonnal leköti magát, megelőzve a hálózati túlcsordulást
   const handleLocalImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-    e.currentTarget.onerror = null;
-    e.currentTarget.src = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 300' fill='%230f172a'><rect width='100%' height='100%'/><text x='50%' y='50%' fill='%23334155' font-family='sans-serif' font-size='14' text-anchor='middle'>Kép nem elérhető</text></svg>";
+    e.currentTarget.onerror = null; // hurok megszakítása
+    e.currentTarget.src = localPlaceholderSvg;
   };
 
   const handleSelectTopic = (topicId: number) => {
@@ -101,12 +92,13 @@ export default function PastArchive({
     }).slice(0, 3);
   }, [pastLeaderboard]);
 
+  // 🎯 JAVÍTVA: A győztes rangja most már hajszálpontosan megegyezik a rangsor rangjával!
   const winnerLevelName = useMemo(() => {
     if (!topThreeWinners[0]) return '';
     const score = topThreeWinners[0].fair_score !== undefined 
       ? topThreeWinners[0].fair_score 
       : (topThreeWinners[0].archive_likes || topThreeWinners[0].likes_count || 0);
-    return mapGuruToHungarianRank(topThreeWinners[0].rank_level || topThreeWinners[0].club_role, Number(score));
+    return computeArchiveRank(topThreeWinners[0].rank_level || topThreeWinners[0].club_role, Number(score));
   }, [topThreeWinners]);
 
   const singlePhotosRankedList = useMemo(() => {
@@ -148,12 +140,16 @@ export default function PastArchive({
   return (
     <div style={{ width: '100%', boxSizing: 'border-box' }}>
       
-      {/* ── 🎯 ARCHÍVUM KÁRTYA RÁCS TISZTA ADATOKKAL ── */}
+      {/* ── 🎯 ARCHÍVUM KÁRTYA RÁCS (3 OSZLOPOS DINAMIKUS LÁBLÉCCEL) ── */}
       {!selectedPastTopicId ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '25px' }}>
           {pastTopics.map(topicRow => {
             const isDaily = getTopicType(topicRow.start_date, topicRow.end_date) === 'daily';
             const endedDate = new Date(topicRow.end_date).toLocaleDateString(lang === 'en' ? 'en-US' : 'hu-HU', { year: 'numeric', month: '2-digit', day: '2-digit' });
+            
+            // Ha a szerver 0-át ad vissza a főlistában, kiolvassuk az alternatív kulcsokat
+            const realEntriesCount = topicRow.entries_count || topicRow.totalEntries || topicRow.entry_count || 0;
+            const realVotesCount = topicRow.total_votes || topicRow.vote_count || topicRow.total_votes_count || 0;
 
             return (
               <div 
@@ -174,16 +170,22 @@ export default function PastArchive({
                 </div>
 
                 <div style={{ height: '170px', backgroundColor: '#090d16', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <img src={topicRow.cover_url || 'https://via.placeholder.com/400x200/0f172a/cbd5e1?text=PhotAwesome'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={handleLocalImageError} />
+                  <img src={topicRow.cover_url || localPlaceholderSvg} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={handleLocalImageError} />
                 </div>
 
-                {/* 🎯 JAVÍTVA: Kizárólag a biztosan létező adatok tiszta, kétoszlopos megjelenítése a nullás hibák ellen */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', background: '#000000e0', borderTop: '1px solid #223147', textAlign: 'center', fontSize: '0.75rem', padding: '10px 4px', color: '#94a3b8' }}>
+                {/* 🎯 JAVÍTVA: Visszahelyezve a 3 oszlopos tiszta, valós adatkötésű lábléc! */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', background: '#000000e0', borderTop: '1px solid #223147', textAlign: 'center', fontSize: '0.75rem', padding: '10px 4px', color: '#94a3b8' }}>
                   <div style={{ borderRight: '1px solid #1e293b' }}>
-                    <span style={{ color: '#fbbf24', fontWeight: 'bold' }}>👑 {topicRow.master_name || 'Képmester'}</span>
+                    <b style={{ color: 'white', display: 'block' }}>{realEntriesCount > 0 ? `${realEntriesCount} db` : '- db'}</b> 
+                    {lang === 'en' ? 'Photographers' : 'Fotós'}
+                  </div>
+                  <div style={{ borderRight: '1px solid #1e293b' }}>
+                    <b style={{ color: 'white', display: 'block' }}>{endedDate}</b> 
+                    {lang === 'en' ? 'Ended' : 'Lezárult'}
                   </div>
                   <div>
-                    <b style={{ color: '#38bdf8' }}>📅 {endedDate}</b> {lang === 'en' ? 'Ended' : 'Lezárult'}
+                    <b style={{ color: '#38bdf8', display: 'block' }}>{realVotesCount > 0 ? `${realVotesCount} db` : '- db'}</b> 
+                    {lang === 'en' ? 'Votes' : 'Szavazat'}
                   </div>
                 </div>
               </div>
@@ -195,7 +197,6 @@ export default function PastArchive({
         // ── 🏛️ AL-ARÉNA RÉSZLETES PANEL ──
         <div style={{ display: 'flex', flexDirection: 'column', gap: '25px', width: '100%' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
-            {/* 🎯 JAVÍTVA: A szülőből kapott gomb most már tökéletesen bezárja a nézetet */}
             <button onClick={() => setSelectedPastTopicId(null)} style={{ background: '#1e293b', border: '1px solid #334155', color: '#cbd5e1', padding: '10px 20px', borderRadius: '12px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem' }}>
               ← Vissza az archívumhoz
             </button>
@@ -257,7 +258,7 @@ export default function PastArchive({
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '30px', alignItems: 'start', padding: '10px 0' }}>
                 <div style={{ background: '#0f172a', padding: '20px', borderRadius: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', border: '1px solid #334155' }}>
                   <img src={silhouetteAvatar} alt="Master" style={{ width: '90px', height: '90px' }} />
-                  <strong style={{ color: 'white', fontSize: '1.1rem', marginTop: '10px' }}>GURU</strong>
+                  
                   <span style={{ color: '#94a3b8', fontSize: '0.9rem', marginTop: '2px' }}>{currentTopicObj?.master_name || 'Ismeretlen Képmester'}</span>
                 </div>
                 <div style={{ borderLeft: '1px solid #334155', paddingLeft: '25px' }}>
@@ -324,8 +325,8 @@ export default function PastArchive({
                           <div style={{ flex: 1 }}>
                             <strong style={{ color: 'white', display: 'block', fontSize: '1rem' }}>{entry.user_name}</strong>
                             <span style={{ color: '#64748b', fontSize: '0.8rem' }}>
-                              {/* 🎯 JAVÍTVA: Dinamikus és valós, ponthoz mért magyar rangok megjelenítése */}
-                              {mapGuruToHungarianRank(entry.rank_level || entry.club_role, Number(photoScore))} {entry.title ? `• "${entry.title}"` : ''}
+                              {/* 🎯 JAVÍTVA: Stabil és egységes rangszámítás */}
+                              {computeArchiveRank(entry.rank_level || entry.club_role, Number(photoScore))} {entry.title ? `• "${entry.title}"` : ''}
                             </span>
                           </div>
                           <div style={{ color: '#f97316', fontWeight: '900', fontSize: '1.1rem' }}>
