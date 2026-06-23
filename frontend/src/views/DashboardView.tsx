@@ -124,7 +124,7 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
       {/* ── 🎯 JAVÍTVA: ULTRA-KOMPAKT PRÉMIUM FEJLÉC (Helypazarlás kiküszöbölve!) ── */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px', paddingBottom: '15px', borderBottom: '1px solid #334155', flexWrap: 'wrap', gap: '15px' }}>
         <h1 style={{ margin: 0, fontSize: '1.8rem', color: '#f8fafc', fontWeight: '800' }}>
-          {t('dashWelcome', 'Üdvözlünk')}, <span style={{ color: '#38bdf8' }}>{user.name}</span>! 👋
+          {t('dashWelcome', 'Üdvözlünk')}, <span style={{ color: '#38bdf8' }}>{user.name}</span>!
         </h1>
         {(user?.isPremium || user?.is_premium) && (
           <div style={{ background: '#10b98120', border: '1px solid #10b98140', padding: '6px 16px', borderRadius: '100px', color: '#10b981', fontWeight: 'bold', fontSize: '0.85rem' }}>
@@ -199,7 +199,7 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
         <div className="dashboard-alerts-section">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
             <h2 style={{ fontSize: '1rem', color: '#94a3b8', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px', margin: 0 }}>
-              🔔 {t('dashAlertsTitle', 'Események & Értesítések')}
+               {t('dashAlertsTitle', 'Események & Értesítések')}
             </h2>
             {totalAlertsCount > 0 && (
               <span style={{ background: '#ef444420', color: '#f87171', fontSize: '0.75rem', fontWeight: 'bold', padding: '2px 8px', borderRadius: '100px' }}>
