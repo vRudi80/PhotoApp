@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { GoogleLogin } from '@react-oauth/google';
 
 // 🎯 ÚJ IMPORTOK: Helyes, egy mappán belüli relatív útvonalak
@@ -108,7 +108,6 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         {/* BAL OLDAL: Bemutatkozás és Funkciók */}
         <div style={{ flex: '1 1 500px', display: 'flex', flexDirection: 'column', gap: '1.5rem', animation: 'slideInLeft 0.8s ease-out' }}>
           
-          {/* 🎯 JAVÍTVA: Az új transzparens SVG-szűrő és lágy vetett árnyék rákötése a logóra */}
           <img 
             src={currentLogo} 
             alt="PhotAwesome" 
@@ -168,14 +167,13 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
 
         {/* JOBB OLDAL: Belépés Panel */}
         <div style={{ flex: '1 1 350px', maxWidth: '420px', width: '100%', animation: 'slideInRight 0.8s ease-out' }}>
-          <div className="login-panel" style={{
-            background: 'rgba(15, 23, 42, 0.6)', 
-            backdropFilter: 'blur(20px)', 
-            WebkitBackdropFilter: 'blur(20px)',
+          {/* 🎯 JAVÍTVA: Kivettük az ártalmas le-fel lebegő animációt és a backdrop szűrőket a bejelentkező kártyáról a zökkenőmentes gombnyomásért */}
+          <div className="login-panel-static" style={{
+            background: '#111827', 
             padding: '3.5rem 2.5rem', 
             borderRadius: '24px', 
-            border: '1px solid rgba(255, 255, 255, 0.1)', 
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255,255,255,0.1)',
+            border: '1px solid rgba(255, 255, 255, 0.08)', 
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.6)',
             textAlign: 'center', 
             display: 'flex', 
             flexDirection: 'column', 
@@ -193,7 +191,8 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
             </p>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%' }}>
-              <div className="google-btn-wrapper" style={{ padding: '4px', background: 'rgba(255,255,255,0.05)', borderRadius: '50px', border: '1px solid rgba(255,255,255,0.1)', transition: 'transform 0.2s', width: '100%', display: 'flex', justifyContent: 'center' }}>
+              {/* 🎯 JAVÍTVA: Letisztított, statikus wrapper a Google iframe zónájának */}
+              <div className="google-btn-wrapper-static" style={{ padding: '4px', background: 'rgba(255,255,255,0.02)', borderRadius: '50px', border: '1px solid rgba(255,255,255,0.06)', width: '100%', display: 'flex', justifyContent: 'center' }}>
                 <GoogleLogin 
                   onSuccess={(res) => onLoginSuccess(res.credential!)} 
                   shape="pill" 
@@ -201,6 +200,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                   theme="filled_black" 
                   text="continue_with"
                   locale={lang} 
+                  ux_mode="redirect" // 👈 UTOLÉRHETETLEN FIX: Felugró ablak helyett tiszta átirányítással azonnal megnyílik mobilon is!
                 />
               </div>
               <span style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '5px' }}>
@@ -218,18 +218,6 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
           background: rgba(30, 41, 59, 0.8) !important;
           border-color: rgba(255,255,255,0.15) !important;
           box-shadow: 0 10px 20px rgba(0,0,0,0.2);
-        }
-        .google-btn-wrapper:hover {
-          transform: scale(1.02);
-          background: rgba(255,255,255,0.1) !important;
-        }
-        .login-panel {
-          animation: float 6s ease-in-out infinite;
-        }
-        @keyframes float {
-          0% { transform: translateY(0px); }
-          50% { transform: translateY(-10px); }
-          100% { transform: translateY(0px); }
         }
         @keyframes slideInLeft {
           from { opacity: 0; transform: translateX(-30px); }
