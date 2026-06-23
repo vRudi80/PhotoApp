@@ -189,10 +189,11 @@ export default function ContestsView(props: ContestsViewProps) {
       doc.text(fixHu(`${lang === 'en' ? 'Category' : 'Kategória'}: ${result.category}`), 148.5, 68, { align: "center" });
 
       const maxW = 160;
+      const maxW_val = 160;
       const maxH = 90;
       let imgW = img.width;
       let imgH = img.height;
-      const ratio = Math.min(maxW / imgW, maxH / imgH);
+      const ratio = Math.min(maxW_val / imgW, maxH / imgH);
       imgW = imgW * ratio;
       imgH = imgH * ratio;
       doc.addImage(data.base64, 'JPEG', (297 - imgW) / 2, 75, imgW, imgH);
@@ -224,7 +225,7 @@ export default function ContestsView(props: ContestsViewProps) {
   };
 
   // ====================================================================
-  // 📝 JAVÍTVA: MAFOSZ ZSŰRI JEGYZŐKÖNYV GENERÁLÁSA (Tördelés- és túlfolyásbiztos)
+  // 📝 MAFOSZ ZSŰRI JEGYZŐKÖNYV GENERÁLÁSA (Védnök / Szponzor integrációval)
   // ====================================================================
   const generateJuryReportPdf = (contest: any, results: any[], contestJury: any[]) => {
     setIsJuryDocCompiling(true);
@@ -234,7 +235,7 @@ export default function ContestsView(props: ContestsViewProps) {
 
       doc.setFont("times", "bold");
       doc.setFontSize(22);
-      doc.text(fixHu("HIVATALOS ZSŰRI JEGYZŐKÖNYV"), 105, 25, { align: "center" });
+      doc.text(fixHu("HIVATALOS ZSŪRI JEGYZŐKÖNYV"), 105, 25, { align: "center" });
       
       let currentY = 40;
       doc.setFontSize(14);
@@ -247,12 +248,20 @@ export default function ContestsView(props: ContestsViewProps) {
         currentY += 7;
       });
 
-      // 🎯 ÚJ: Pályázat kiírója / Rendező egyesület kiírása
+      // Pályázat kiírója / Rendező egyesület kiírása
       const creatorEmail = contest.proposed_by || contest.master_email || '';
       const creatorUser = props.allUsers.find(u => u.email === creatorEmail);
       const creatorName = creatorUser ? creatorUser.name : creatorEmail;
       doc.text(fixHu(`Pályázat kiírója / Rendező: ${creatorName || 'FotóAwesome Rendszer'}`), 20, currentY);
       currentY += 7;
+
+      // 🎯 ÚJ: Hivatalos Védnök / Szponzor fotóklub dinamikus megjelenítése a PDF-en is!
+      const targetSponsorId = contest.sponsor_club_id || contest.sponsorClubId;
+      const sponsorClubObj = props.clubs.find(c => Number(c.id) === Number(targetSponsorId));
+      if (sponsorClubObj) {
+        doc.text(fixHu(`Védnök / Szponzor: ${sponsorClubObj.name}`), 20, currentY);
+        currentY += 7;
+      }
 
       doc.text(fixHu(`Lezárás dátuma: ${new Date(contest.end_date).toLocaleDateString('hu-HU')}`), 20, currentY);
       currentY += 11;
@@ -308,7 +317,6 @@ export default function ContestsView(props: ContestsViewProps) {
             const awardLabel = awardsArr[rIdx] ? `[DÍJ: ${awardsArr[rIdx]}]` : '[Elfogadva]';
             const fullResultText = `  Hely #${rIdx + 1}: "${res.title}" - ${res.user_name} (${res.total_score} FP) ${awardLabel}`;
             
-            // 🎯 JAVÍTVA: Szövegsorok szélességének ellenőrzése és tördelése a lefutás ellen
             const wrappedLines = doc.splitTextToSize(fixHu(fullResultText), 165);
             wrappedLines.forEach((line: string) => {
               if (currentY > 275) { doc.addPage(); currentY = 25; }
@@ -899,7 +907,7 @@ export default function ContestsView(props: ContestsViewProps) {
                       </div>
                     )}
 
-                    {/* ZSŰRI PANEL */}
+                    {/* ZSŪRI PANEL */}
                     {isUserJury && (
                       <div style={{ background: 'linear-gradient(90deg, #f59e0b10, transparent)', borderLeft: '4px solid #f59e0b', color: '#f8fafc', padding: '15px', borderRadius: '0 12px 12px 0', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '25px', flexWrap: 'wrap' }}>
                         <div>
