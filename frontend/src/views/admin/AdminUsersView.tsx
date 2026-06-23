@@ -23,7 +23,7 @@ export default function AdminUsersView({
   
   const [searchTerm, setSearchTerm] = useState('');
   
-  // 🎯 JAVÍTVA: Helyi felhasználói lista, ami garantáltan a legfrissebb adatbázis-állapotot tükrözi
+  // Helyi felhasználói lista
   const [localUsers, setLocalUsers] = useState<any[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
 
@@ -33,16 +33,15 @@ export default function AdminUsersView({
 
   const silhouetteAvatar = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23475569'><circle cx='12' cy='8' r='4'/><path d='M12 14c-6.1 0-10 4-10 4v2h20v-2s-3.9-4-10-4z'/></svg>";
 
-  // 🎯 ÚJ: Felhasználók közvetlen, tiszta lekérése profilképekkel együtt
+  // Felhasználók közvetlen, tiszta lekérése profilképekkel együtt
   const loadFreshUsersList = async () => {
-    setIsLoadingUsers(true);
     try {
       const res = await fetch(`${BACKEND_URL}/api/users`);
       if (res.ok) {
         const data = await res.json();
         setLocalUsers(data || []);
       } else {
-        setLocalUsers(allUsers || []); // Fallback ha a szerver nem válaszolna
+        setLocalUsers(allUsers || []);
       }
     } catch (e) {
       setLocalUsers(allUsers || []);
@@ -51,6 +50,7 @@ export default function AdminUsersView({
     }
   };
 
+  // 🎯 JAVÍTVA: A függőségi tömböt üresre ([]) cseréltük, elvágva a villogást okozó végtelen hurkot!
   useEffect(() => {
     loadFreshUsersList();
     
@@ -76,7 +76,7 @@ export default function AdminUsersView({
     };
     fetchStorageStats();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allUsers]);
+  }, []); 
 
   const formatExactStorage = (bytes: number) => {
     if (!bytes || bytes === 0) return '0 MB';
@@ -86,7 +86,7 @@ export default function AdminUsersView({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  // INTELLIGENS KERESŐ ÉS RENDEZŐ MOTOR (Most már a helyi listából dolgozik)
+  // INTELLIGENS KERESŐ ÉS RENDEZŐ MOTOR
   const processedUsers = useMemo(() => {
     const filtered = localUsers.filter(u => 
       (u.name && u.name.toLowerCase().includes(searchTerm.toLowerCase())) || 
@@ -112,7 +112,6 @@ export default function AdminUsersView({
     }
   };
 
-  // Egyedi burkoló a mentéshez, ami mentés után azonnal frissíti a helyi listát is
   const handleLocalSave = async (email: string) => {
     await saveUserClub(email);
     setTimeout(() => {
