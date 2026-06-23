@@ -120,8 +120,6 @@ export default function PastArchive({
 
   return (
     <div style={{ width: '100%', boxSizing: 'border-box' }}>
-      
-      {/* ── 🎯 ARCHÍVUM KÁRTYA RÁCS (FRISSÍTETT 3 OSZLOPOS LÁBLÉCCEL 🚀) ── */}
       {!selectedPastTopicId ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '25px' }}>
           {pastTopics.map(topicRow => {
@@ -147,10 +145,9 @@ export default function PastArchive({
                 </div>
 
                 <div style={{ height: '170px', backgroundColor: '#090d16', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <img src={topicRow.cover_url || 'https://via.placeholder.com/400x200/0f172a/cbd5e1?text=PhotAwesome'} alt=\"\" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={handleImageError} }>
+                  <img src={topicRow.cover_url || 'https://via.placeholder.com/400x200/0f172a/cbd5e1?text=PhotAwesome'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={handleImageError} />
                 </div>
 
-                {/* 🎯 JAVÍTVA: 4 helyett 3 oszlop, Prizes törölve, dinamikus adatok bekötve! */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', background: '#000000e0', borderTop: '1px solid #223147', textAlign: 'center', fontSize: '0.75rem', padding: '10px 4px', color: '#94a3b8' }}>
                   <div style={{ borderRight: '1px solid #1e293b' }}>
                     <b style={{ color: 'white', display: 'block' }}>{topicRow.entries_count || topicRow.totalEntries || 0} db</b> 
@@ -197,14 +194,14 @@ export default function PastArchive({
             {subTab === 'winners' && ( 
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
                 <div style={{ border: '1px solid #475569', background: '#0f172a', borderRadius: '16px', padding: '25px', width: '100%', maxWidth: '650px', boxSizing: 'border-box' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', center: 'center', justifyContent: 'center', gap: '8px', color: '#94a3b8', fontSize: '0.85rem', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '15px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: '#94a3b8', fontSize: '0.85rem', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '15px' }}>
                     <span>🛡️</span> <span>TOP PHOTOGRAPHER WINNER</span>
                   </div>
                   
                   {topThreeWinners[0] ? (
                     <div style={{ width: '100%' }}>
                       <div style={{ width: '100%', height: '320px', background: '#000', borderRadius: '12px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '20px' }}>
-                        <img src={getImageUrl(topThreeWinners[0].drive_file_id, topThreeWinners[0].file_url)} alt=\"Winner\" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+                        <img src={getImageUrl(topThreeWinners[0].drive_file_id, topThreeWinners[0].file_url)} alt="Winner" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#0f172a', padding: '12px 20px', borderRadius: '12px', borderLeft: '4px solid #fbbf24' }}>
                         <div style={{ textAlign: 'left' }}>
@@ -226,7 +223,7 @@ export default function PastArchive({
             {subTab === 'details' && (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '30px', alignItems: 'start', padding: '10px 0' }}>
                 <div style={{ background: '#0f172a', padding: '20px', borderRadius: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', border: '1px solid #334155' }}>
-                  <img src=\"https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80\" alt=\"Master\" style={{ width: '90px', height: '90px', borderRadius: '50%', objectFit: 'cover', border: '3px solid #334155', marginBottom: '12px' }} />
+                  <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80" alt="Master" style={{ width: '90px', height: '90px', borderRadius: '50%', objectFit: 'cover', border: '3px solid #334155', marginBottom: '12px' }} />
                   <strong style={{ color: 'white', fontSize: '1.1rem' }}>GURU</strong>
                   <span style={{ color: '#94a3b8', fontSize: '0.9rem', marginTop: '2px' }}>{currentTopicObj?.master_name || 'Menim Menim'}</span>
                 </div>
@@ -276,7 +273,7 @@ export default function PastArchive({
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '15px', marginBottom: '15px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                             <div style={{ width: '28px', height: '28px', background: '#1e293b', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', color: '#cbd5e1', fontSize: '0.85rem' }}>{idx + 1}</div>
-                            <img src=\"https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80&auto=format&fit=crop&q=80\" alt=\"\" style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover' }} />
+                            <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80&auto=format&fit=crop&q=80" alt="" style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover' }} />
                             <div>
                               <strong style={{ color: 'white', display: 'block', fontSize: '0.95rem' }}>{photoGroup.user_name}</strong>
                               <span style={{ color: '#64748b', fontSize: '0.75rem' }}>{photoGroup.user_rank}</span>
@@ -289,7 +286,7 @@ export default function PastArchive({
                         <div style={{ display: 'flex', gap: '12px', overflowX: 'auto', paddingBottom: '5px' }}>
                           {photoGroup.photos.map((imgItem: any) => (
                             <div key={imgItem.id} style={{ position: 'relative', width: '110px', height: '110px', borderRadius: '8px', overflow: 'hidden', background: '#000', flexShrink: 0, border: '1px solid #223147' }}>
-                              <img src={imgItem.url} alt=\"\" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              <img src={imgItem.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                               <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(0,0,0,0.65)', color: 'white', textAlign: 'center', fontSize: '0.7rem', padding: '3px 0', fontWeight: 'bold' }}>
                                 {imgItem.votes} VOTES
                               </div>
@@ -302,7 +299,7 @@ export default function PastArchive({
                     singlePhotosRankedList.map((entry, idx) => (
                       <div key={entry.id} style={{ display: 'flex', alignItems: 'center', background: '#0f172a', padding: '12px 20px', borderRadius: '14px', border: '1px solid #223147' }}>
                         <div style={{ fontSize: '1.2rem', fontWeight: '900', width: '30px', color: '#64748b' }}>#{idx + 1}</div>
-                        <img src={getImageUrl(entry.drive_file_id, entry.file_url)} alt=\"\" style={{ width: '50px', height: '55px', objectFit: 'cover', borderRadius: '6px', margin: '0 15px' }} />
+                        <img src={getImageUrl(entry.drive_file_id, entry.file_url)} alt="" style={{ width: '50px', height: '55px', objectFit: 'cover', borderRadius: '6px', margin: '0 15px' }} />
                         <div style={{ flex: 1 }}>
                           <strong style={{ color: 'white', display: 'block' }}>{entry.title || 'Nincs cím'}</strong>
                           <span style={{ color: '#64748b', fontSize: '0.8rem' }}>{entry.user_name}</span>
@@ -314,7 +311,7 @@ export default function PastArchive({
                     guruTopPicksList.map((entry, idx) => (
                       <div key={entry.id} style={{ display: 'flex', alignItems: 'center', background: '#0f172a', padding: '12px 20px', borderRadius: '14px', border: '1px solid #a78bfa30' }}>
                         <div style={{ fontSize: '1.2rem', fontWeight: '900', width: '30px', color: '#a78bfa' }}>✨</div>
-                        <img src={getImageUrl(entry.drive_file_id, entry.file_url)} alt=\"\" style={{ width: '50px', height: '55px', objectFit: 'cover', borderRadius: '6px', margin: '0 15px' }} />
+                        <img src={getImageUrl(entry.drive_file_id, entry.file_url)} alt="" style={{ width: '50px', height: '55px', objectFit: 'cover', borderRadius: '6px', margin: '0 15px' }} />
                         <div style={{ flex: 1 }}>
                           <strong style={{ color: 'white', display: 'block' }}>{entry.title || 'Nincs cím'}</strong>
                           <span style={{ color: '#94a3b8', fontSize: '0.8rem' }}>Kiemelte a Képmester</span>
@@ -334,7 +331,7 @@ export default function PastArchive({
       <div style={{ position: 'absolute', top: '-9999px', left: '-9999px', overflow: 'hidden', width: 0, height: 0 }}>
         {adminPosterData && (
           <div 
-            id=\"admin-past-poster-node\" 
+            id="admin-past-poster-node" 
             style={{ width: '1200px', height: '1200px', background: 'linear-gradient(135deg, #090d16 0%, #111827 100%)', padding: '60px', boxSizing: 'border-box', border: '16px solid #fbbf24', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between', fontFamily: 'Inter, sans-serif', position: 'relative' }}
           >
             <div style={{ position: 'absolute', top: '-100px', left: '-100px', width: '400px', height: '400px', background: '#fbbf24', filter: 'blur(180px)', opacity: 0.1, borderRadius: '50%' }}></div>
@@ -353,7 +350,7 @@ export default function PastArchive({
               {adminPosterData.entries[1] && (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '290px' }}>
                   <div style={{ width: '240px', height: '240px', borderRadius: '16px', overflow: 'hidden', border: '6px solid #cbd5e1', boxShadow: '0 20px 45px rgba(0,0,0,0.6)', backgroundColor: '#000', marginBottom: '15px' }}>
-                    <img src={adminPosterData.entries[1].file_url} alt=\"\" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <img src={adminPosterData.entries[1].file_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   </div>
                   <div style={{ background: 'linear-gradient(135deg, #7c2d12 0%, #431407 100%)', width: '100%', padding: '15px', borderRadius: '12px', textAlign: 'center' }}>
                     <strong style={{ color: 'white', display: 'block' }}>{adminPosterData.entries[1].user_name}</strong>
@@ -366,7 +363,7 @@ export default function PastArchive({
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '330px', zIndex: 10 }}>
                   <div style={{ fontSize: '70px', marginBottom: '-10px' }}>👑</div>
                   <div style={{ width: '290px', height: '290px', borderRadius: '24px', overflow: 'hidden', border: '8px solid #fbbf24', boxShadow: '0 25px 60px rgba(251,191,36,0.3)', backgroundColor: '#000', marginBottom: '15px' }}>
-                    <img src={adminPosterData.entries[0].file_url} alt=\"\" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <img src={adminPosterData.entries[0].file_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   </div>
                   <div style={{ background: 'linear-gradient(180deg, #fbbf24 0%, #b45309 100%)', width: '100%', padding: '20px', borderRadius: '20px', textAlign: 'center' }}>
                     <strong style={{ color: '#0f172a', fontSize: '24px', fontWeight: '900' }}>{adminPosterData.entries[0].user_name}</strong>
