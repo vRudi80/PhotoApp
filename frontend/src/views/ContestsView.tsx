@@ -224,7 +224,7 @@ export default function ContestsView(props: ContestsViewProps) {
   };
 
   // ====================================================================
-  // 📝 MAFOSZ ZSŰRI JEGYZŐKÖNYV GENERÁLÁSA (Tökéletesen összefűzött adatokkal)
+  // 📝 MAFOSZ ZSŰRI JEGYZŐKÖNYV GENERÁLÁSA (Javított, intelligens rendező sávval)
   // ====================================================================
   const generateJuryReportPdf = (contest: any, results: any[], contestJury: any[]) => {
     setIsJuryDocCompiling(true);
@@ -240,21 +240,26 @@ export default function ContestsView(props: ContestsViewProps) {
       doc.setFontSize(14);
       doc.setFont("times", "normal");
       
-      // 🎯 JAVÍTVA: Biztonságos string összefűzés a hibák elkerülésére
       const titleLines = doc.splitTextToSize(fixHu("Pályázat megnevezése: " + contest.title), 170);
       titleLines.forEach((line: string) => {
         doc.text(line, 20, currentY);
         currentY += 7;
       });
 
+      // Dinamikus szponzor és kiíró kereső motor
       const creatorEmail = contest.proposed_by || contest.master_email || '';
       const creatorUser = props.allUsers.find(u => u.email === creatorEmail);
-      const creatorName = creatorUser ? creatorUser.name : creatorEmail;
-      doc.text(fixHu("Pályázat kiírója / Rendező: " + (creatorName || 'FotóAwesome Rendszer')), 20, currentY);
-      currentY += 7;
+      const creatorName = creatorUser ? creatorUser.name : '';
 
       const targetSponsorId = contest.sponsor_club_id || contest.sponsorClubId;
       const sponsorClubObj = props.clubs.find(c => Number(c.id) === Number(targetSponsorId));
+
+      // 🎯 JAVÍTVA: Intelligens kiíró meghatározás (Zártkörű klub név -> Szponzor klub név -> Felhasználó neve)
+      const organizerName = contest.restricted_club || (sponsorClubObj ? sponsorClubObj.name : '') || creatorName || 'Országos Pályázati Bizottság';
+
+      doc.text(fixHu("Pályázat kiírója / Rendező: " + organizerName), 20, currentY);
+      currentY += 7;
+
       if (sponsorClubObj) {
         doc.text(fixHu("Védnök / Szponzor: " + sponsorClubObj.name), 20, currentY);
         currentY += 7;
@@ -312,8 +317,6 @@ export default function ContestsView(props: ContestsViewProps) {
         } else {
           catResults.forEach((res, rIdx) => {
             const awardLabel = awardsArr[rIdx] ? "[DÍJ: " + awardsArr[rIdx] + "]" : '[Elfogadva]';
-            
-            // 🎯 JAVÍTVA: A string-literálokat szétszedtük '+'-os összefűzésre, így garantáltan lefut és behelyettesít!
             const fullResultText = "  Hely #" + (rIdx + 1) + ": \"" + res.title + "\" - " + res.user_name + " (" + res.total_score + " pont) " + awardLabel;
             
             const wrappedLines = doc.splitTextToSize(fixHu(fullResultText), 165);
@@ -575,7 +578,7 @@ export default function ContestsView(props: ContestsViewProps) {
                     <div style={{ background: '#0f172a', padding: '20px', borderRadius: '16px', border: '1px solid #8b5cf640' }}>
                       <h4 style={{marginTop: 0, color: '#a78bfa', fontSize: '1.2rem', marginBottom: '15px'}}>{t('juryManageTitle')}</h4>
                       <div style={{display: 'flex', gap: '10px', marginBottom: '15px', flexWrap: 'wrap'}}>
-                        <select value={props.selectedJuryEmail} onChange={e => props.setSelectedJuryEmail(e.target.value)} style={{...inputStyle, marginBottom: 0, flex: '1 1 200px'}}>
+                        <select value={props.selectedJuryEmail} onChange={e => props.setSelectedJuryEmail(v => props.setSelectedJuryEmail(e.target.value))} style={{...inputStyle, marginBottom: 0, flex: '1 1 200px'}}>
                           <option value="">{t('juryManageSelectPlaceholder')}</option>
                           {props.allUsers.filter(u => !contestJury.some(j => j.user_email === u.email)).map(u => (<option key={u.email} value={u.email}>{u.name} ({u.email})</option>))}
                         </select>
