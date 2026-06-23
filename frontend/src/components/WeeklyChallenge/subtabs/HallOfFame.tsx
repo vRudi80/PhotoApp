@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { getImageUrl } from '../../../utils/helpers';
-import VideoLoader from '../../../components/VideoLoader'; // 👈 Figyelj a relatív útvonalra!
+import VideoLoader from '../../../components/VideoLoader';
 
-// 🎯 ÚJ IMPORT: Behozzuk a nyelvi kontextust
+// Nyelvi kontextus aktiválása
 import { useLanguage } from '../../../context/LanguageContext';
 
 interface HallOfFameProps {
@@ -12,7 +12,6 @@ interface HallOfFameProps {
   getLevelDetails: (likes: number, victories: number) => { name: string; color: string; bg: string };
 }
 
-// 🛡️ Biztonságos, virtuális DOM-barát klublogó kezelő
 function ClubLogo({ driveId, logoUrl }: { driveId: any; logoUrl: any }) {
   const [isError, setIsError] = useState(false);
   if (isError || (!driveId && !logoUrl)) {
@@ -30,10 +29,11 @@ function ClubLogo({ driveId, logoUrl }: { driveId: any; logoUrl: any }) {
 
 export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDetails }: HallOfFameProps) {
   
-  // 🎯 ÚJ: Aktiváljuk a fordítót (t) és a nyelvet (lang)
   const { t, lang } = useLanguage();
 
-  // 🇬🇧 ÚJ: Angol rangnév szótár a pódium kártyákhoz
+  // Biztonságos helyi sziluett avatar, ha valakinek nincs feltöltött profilképe
+  const silhouetteAvatar = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23475569'><circle cx='12' cy='8' r='4'/><path d='M12 14c-6.1 0-10 4-10 4v2h20v-2s-3.9-4-10-4z'/></svg>";
+
   const rankNamesEn: Record<string, string> = {
     'Fényleső 🌱': 'Light Seeker 🌱',
     'Megfigyelő 👁️': 'Observer 👁️',
@@ -69,7 +69,6 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
           const isMe = row.user_email === user?.email;
           const likes = Number(row.total_likes) || 0;
           
-          // 🎯 ÚJ: Kinyerjük a győzelmi és dobogós adatokat a sorból (0-s fallback-el, ha még nem frissült a backend)
           const firstPlaces = Number(row.first_places) || 0;
           const podiums = Number(row.podiums) || 0;
 
@@ -101,6 +100,16 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
                 {medal}
               </div>
 
+              {/* 📸 ÚJ: Dinamikus, kör alakú Felhasználói Profilkép az Aréna dicsőségfalán */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <img 
+                  src={row.avatar_url || silhouetteAvatar} 
+                  alt="" 
+                  style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover', border: isMe ? '2px solid #fbbf24' : '2px solid #334155', backgroundColor: '#090d16' }}
+                  onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = silhouetteAvatar; }}
+                />
+              </div>
+
               {/* Felhasználó adatai és a versenyeredmények */}
               <div style={{ flex: 1, minWidth: '200px' }}>
                 <div style={{ color: isMe ? '#fbbf24' : 'white', fontWeight: 'bold', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -114,7 +123,7 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
                   </div>
                 )}
 
-                {/* 🎯 ÚJ: Verseny statisztikai boxok (Első helyek és dobogók száma) */}
+                {/* Verseny statisztikai boxok */}
                 <div style={{ display: 'flex', gap: '8px', marginTop: '8px', flexWrap: 'wrap' }}>
                   <span style={{ fontSize: '0.75rem', color: '#fbbf24', background: '#fbbf2410', padding: '3px 10px', borderRadius: '6px', border: '1px solid #fbbf2420', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                     🥇 {firstPlaces} {lang === 'en' ? (firstPlaces === 1 ? 'Win' : 'Wins') : 'győzelem'}
