@@ -186,7 +186,7 @@ export default function ContestsView(props: ContestsViewProps) {
       doc.setFont("times", "italic");
       doc.setTextColor(100, 116, 139);
       doc.setFontSize(14);
-      doc.text(fixHu(`${lang === 'en' ? 'Category' : 'Kategória'}: ${result.category}`), 148.5, 68, { align: "center" });
+      doc.text(fixHu((lang === 'en' ? 'Category: ' : 'Kategória: ') + result.category), 148.5, 68, { align: "center" });
 
       const maxW_val = 160;
       const maxH = 90;
@@ -204,16 +204,16 @@ export default function ContestsView(props: ContestsViewProps) {
 
       doc.setFont("times", "normal");
       doc.setFontSize(14);
-      doc.text(fixHu(`${lang === 'en' ? 'Created by' : 'Készítette'}: ${result.user_name}`), 148.5, 75 + imgH + 20, { align: "center" });
+      doc.text(fixHu((lang === 'en' ? 'Created by: ' : 'Készítette: ') + result.user_name), 148.5, 75 + imgH + 20, { align: "center" });
 
       const todayStr = new Date().toLocaleDateString(lang === 'en' ? 'en-US' : 'hu-HU', { year: 'numeric', month: 'long', day: 'numeric' });
-      doc.text(fixHu(`${lang === 'en' ? 'Date' : 'Kelt'}: ${todayStr}`), 20, 192);
+      doc.text(fixHu((lang === 'en' ? 'Date: ' : 'Kelt: ') + todayStr), 20, 192);
 
       const juryNames = contestJury.map(j => props.allUsers.find(u => u.email === j.user_email)?.name || j.user_email).join(', ');
       doc.setFont("times", "italic");
       doc.setFontSize(12);
       doc.setTextColor(148, 163, 184);
-      doc.text(fixHu(`${lang === 'en' ? 'Jury members' : 'A zsűri tagjai'}: ${juryNames}`), 148.5, 192, { align: "center" });
+      doc.text(fixHu((lang === 'en' ? 'Jury members: ' : 'A zsűri tagjai: ') + juryNames), 148.5, 192, { align: "center" });
 
       doc.save(`Certificate_${result.user_name}.pdf`);
     } catch (err) {
@@ -224,7 +224,7 @@ export default function ContestsView(props: ContestsViewProps) {
   };
 
   // ====================================================================
-  // 📝 MAFOSZ ZSŰRI JEGYZŐKÖNYV GENERÁLÁSA (Javított cím és "pont" egység)
+  // 📝 MAFOSZ ZSŰRI JEGYZŐKÖNYV GENERÁLÁSA (Tökéletesen összefűzött adatokkal)
   // ====================================================================
   const generateJuryReportPdf = (contest: any, results: any[], contestJury: any[]) => {
     setIsJuryDocCompiling(true);
@@ -232,7 +232,6 @@ export default function ContestsView(props: ContestsViewProps) {
       const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
       const fixHu = (str: string) => str ? str.replace(/ő/g, 'ö').replace(/ű/g, 'ü').replace(/Ő/g, 'Ö').replace(/Ű/g, 'Ü') : '';
 
-      // 🎯 JAVÍTVA: Helyes 'Ű' karakter használata, így a fixHu tökéletes 'Ü'-vé alakítja, és hibátlanul középre zár
       doc.setFont("times", "bold");
       doc.setFontSize(20);
       doc.text(fixHu("HIVATALOS ZSŰRI JEGYZŐKÖNYV"), 105, 25, { align: "center" });
@@ -241,7 +240,8 @@ export default function ContestsView(props: ContestsViewProps) {
       doc.setFontSize(14);
       doc.setFont("times", "normal");
       
-      const titleLines = doc.splitTextToSize(fixHu(`Pályázat megnevezése: ${contest.title}`), 170);
+      // 🎯 JAVÍTVA: Biztonságos string összefűzés a hibák elkerülésére
+      const titleLines = doc.splitTextToSize(fixHu("Pályázat megnevezése: " + contest.title), 170);
       titleLines.forEach((line: string) => {
         doc.text(line, 20, currentY);
         currentY += 7;
@@ -250,17 +250,17 @@ export default function ContestsView(props: ContestsViewProps) {
       const creatorEmail = contest.proposed_by || contest.master_email || '';
       const creatorUser = props.allUsers.find(u => u.email === creatorEmail);
       const creatorName = creatorUser ? creatorUser.name : creatorEmail;
-      doc.text(fixHu(`Pályázat kiírója / Rendező: ${creatorName || 'FotóAwesome Rendszer'}`), 20, currentY);
+      doc.text(fixHu("Pályázat kiírója / Rendező: " + (creatorName || 'FotóAwesome Rendszer')), 20, currentY);
       currentY += 7;
 
       const targetSponsorId = contest.sponsor_club_id || contest.sponsorClubId;
       const sponsorClubObj = props.clubs.find(c => Number(c.id) === Number(targetSponsorId));
       if (sponsorClubObj) {
-        doc.text(fixHu(`Védnök / Szponzor: ${sponsorClubObj.name}`), 20, currentY);
+        doc.text(fixHu("Védnök / Szponzor: " + sponsorClubObj.name), 20, currentY);
         currentY += 7;
       }
 
-      doc.text(fixHu(`Lezárás dátuma: ${new Date(contest.end_date).toLocaleDateString('hu-HU')}`), 20, currentY);
+      doc.text(fixHu("Lezárás dátuma: " + new Date(contest.end_date).toLocaleDateString('hu-HU')), 20, currentY);
       currentY += 11;
 
       doc.setFont("times", "bold");
@@ -269,9 +269,9 @@ export default function ContestsView(props: ContestsViewProps) {
       currentY += 8;
       
       const distinctAuthors = new Set(results.map(r => r.user_email)).size;
-      doc.text(fixHu(`• Résztvevő alkotók száma: ${distinctAuthors} fő`), 25, currentY);
+      doc.text(fixHu("• Résztvevő alkotók száma: " + distinctAuthors + " fő"), 25, currentY);
       currentY += 7;
-      doc.text(fixHu(`• Összesen beküldött alkotás: ${contest.entry_count || results.length} db`), 25, currentY);
+      doc.text(fixHu("• Összesen beküldött alkotás: " + (contest.entry_count || results.length) + " db"), 25, currentY);
       currentY += 12;
 
       doc.setFont("times", "bold");
@@ -282,7 +282,7 @@ export default function ContestsView(props: ContestsViewProps) {
       contestJury.forEach((j, idx) => {
         if (currentY > 275) { doc.addPage(); currentY = 25; }
         const name = props.allUsers.find(u => u.email === j.user_email)?.name || j.user_email;
-        doc.text(fixHu(`${idx + 1}. ${name} (${j.user_email})`), 25, currentY);
+        doc.text(fixHu((idx + 1) + ". " + name + " (" + j.user_email + ")"), 25, currentY);
         currentY += 7;
       });
 
@@ -299,7 +299,7 @@ export default function ContestsView(props: ContestsViewProps) {
       categories.forEach((cat: string) => {
         if (currentY > 265) { doc.addPage(); currentY = 25; }
         doc.setFont("times", "bolditalic");
-        doc.text(fixHu(`Kategória: ${cat}`), 22, currentY);
+        doc.text(fixHu("Kategória: " + cat), 22, currentY);
         currentY += 7;
         doc.setFont("times", "normal");
 
@@ -311,10 +311,10 @@ export default function ContestsView(props: ContestsViewProps) {
           currentY += 7;
         } else {
           catResults.forEach((res, rIdx) => {
-            const awardLabel = awardsArr[rIdx] ? `[DÍJ: ${awardsArr[rIdx]}]` : '[Elfogadva]';
+            const awardLabel = awardsArr[rIdx] ? "[DÍJ: " + awardsArr[rIdx] + "]" : '[Elfogadva]';
             
-            // 🎯 JAVÍTVA: Az 'FP' utótag lecserélve a tiszta 'pont' szóra, ahogy kérted
-            const fullResultText = `  Hely #${rIdx + 1}: "\${res.title}" - \${res.user_name} (\${res.total_score} pont) \${awardLabel}`;
+            // 🎯 JAVÍTVA: A string-literálokat szétszedtük '+'-os összefűzésre, így garantáltan lefut és behelyettesít!
+            const fullResultText = "  Hely #" + (rIdx + 1) + ": \"" + res.title + "\" - " + res.user_name + " (" + res.total_score + " pont) " + awardLabel;
             
             const wrappedLines = doc.splitTextToSize(fixHu(fullResultText), 165);
             wrappedLines.forEach((line: string) => {
@@ -333,7 +333,7 @@ export default function ContestsView(props: ContestsViewProps) {
       doc.line(130, currentY, 190, currentY);
       doc.text(fixHu("Rendező / Szövetségi képviselő"), 135, currentY + 5);
 
-      doc.save(`Zsurireport_${contest.title}.pdf`);
+      doc.save("Zsurireport_" + contest.title + ".pdf");
     } catch (e) {
       alert("Hiba a jegyzőkönyv összeállításakor.");
     } finally {
