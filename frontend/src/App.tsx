@@ -317,6 +317,7 @@ function MainContent() {
   }, []);
 
   // 🎯 KORSZERŰ SZINKRONIZÁCIÓS HOROG A LÁGY ELHALVÁNYULÁSHOZ
+  // 1. Az eredeti, normál ügymenetért felelős szinkronizációs horog (Megmarad ✔)
   useEffect(() => {
     if (!isInitialLoading && !isAuthLoading) {
       setAnimateOut(true);
@@ -326,6 +327,20 @@ function MainContent() {
       return () => clearTimeout(timer);
     }
   }, [isInitialLoading, isAuthLoading]);
+
+  // ── 🎯 ÚJ: KÉNYSZERÍTETT BIZTONSÁGI VÉDŐHÁLÓ COLD START ESETÉRE ──
+  // Ha a hálózat vagy a lusta szerver miatt a fenti állapotok beragadnának, 
+  // 4 másodperc után akkor is kinyitjuk a kaput, így a betöltés sosem akad el!
+  useEffect(() => {
+    const backupFailSafeTimer = setTimeout(() => {
+      setAnimateOut(true);
+      setTimeout(() => {
+        setShowSplash(false);
+      }, 600);
+    }, 4000); // 4 másodperc maximális engedélyezett Splash élettartam
+
+    return () => clearTimeout(backupFailSafeTimer);
+  }, []);
 
   const currentDbUser = allUsers.find(u => u.email === user?.email);
   const isLeader = currentDbUser?.club_role === 'leader' || currentDbUser?.club_role === 'deputy';
