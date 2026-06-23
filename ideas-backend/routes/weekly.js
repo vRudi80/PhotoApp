@@ -1492,6 +1492,7 @@ app.get('/api/weekly/past', async (req, res) => {
         SELECT e.id, e.topic_id, e.user_email, COALESCE(u.name, e.user_name) as user_name, 
                e.file_url, e.drive_file_id, e.likes_count, e.views_count, u.club_name, 
                u.avatar_url, -- 👈 EZT A MEZŐT ADTUK HOZZÁ A GYŐZTES KÉPÉHEZ
+               u.rank_level,
                (SELECT COUNT(*) FROM weekly_votes WHERE entry_id = e.id AND vote_type = 'master') as archive_likes,
                EXISTS(SELECT 1 FROM weekly_votes WHERE entry_id = e.id AND voter_email = ?) as has_user_liked,
                
