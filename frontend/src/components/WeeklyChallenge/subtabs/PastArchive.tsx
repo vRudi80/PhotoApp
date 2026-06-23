@@ -219,7 +219,7 @@ export default function PastArchive({
                 onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = '#334155'; }}
               >
                 <div style={{ position: 'absolute', top: '12px', right: '-35px', background: isDaily ? 'linear-gradient(135deg, #ec4899, #f43f5e)' : 'linear-gradient(135deg, #a78bfa, #8b5cf6)', color: 'white', padding: '4px 40px', fontSize: '0.7rem', fontWeight: 'bold', transform: 'rotate(45deg)', zIndex: 10 }}>
-                  {isDaily ? 'BLITZ' : 'MASTER'}
+                  {isDaily ? 'VILLÁM' : 'MESTER'}
                 </div>
 
                 <div style={{ padding: '12px 20px', background: '#0f172a80', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
