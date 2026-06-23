@@ -19,21 +19,6 @@ interface PastArchiveProps {
   user: any; 
 }
 
-const getLevelDetails = (likes: number, victories: number) => {
-  if (likes < 30) return { name: 'Fényleső 🌱', color: '#94a3b8' };
-  if (likes < 100) return { name: 'Megfigyelő 👁️', color: '#cbd5e1' };
-  if (likes < 250) return { name: 'Képvadász 📷', color: '#38bdf8' };
-  if (likes < 500) return { name: 'Komponista 📐', color: '#60a5fa' };
-  if (likes < 800 || victories < 1) return { name: 'Fényíró 🎞️', color: '#10b981' };
-  if (likes < 1300 || victories < 2) return { name: 'Esztéta 💎', color: '#059669' };
-  if (likes < 2000 || victories < 3) return { name: 'Szakértő 🎯', color: '#a78bfa' };
-  if (likes < 3200 || victories < 5) return { name: 'Képmester 🎨', color: '#ec4899' };
-  if (likes < 4800 || victories < 7) return { name: 'Nagymester 🌟', color: '#f59e0b' };
-  if (likes < 7000 || victories < 9) return { name: 'Virtuóz ⚡', color: '#eab308' };
-  if (likes < 10000 || victories < 12) return { name: 'Fotóguru 🔥', color: '#ef4444' };
-  return { name: 'Vizuális Legenda 👑', color: '#fbbf24' };
-};
-
 export default function PastArchive({
   pastTopics, selectedPastTopicId, setSelectedPastTopicId, loadPastHistoryList,
   pastClubLeaderboard, pastLeaderboard, getTopicType,
@@ -48,13 +33,33 @@ export default function PastArchive({
   const [adminPosterData, setAdminPosterData] = useState<any | null>(null);
   const [isAdminGeneratingPoster, setIsAdminGeneratingPoster] = useState(false);
 
-  // Beágyazott biztonságos sziluett ikon
   const silhouetteAvatar = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23475569'><circle cx='12' cy='8' r='4'/><path d='M12 14c-6.1 0-10 4-10 4v2h20v-2s-3.9-4-10-4z'/></svg>";
 
-  // UNIVERZÁLIS RANG-MAPPING (Kétnyelvűsített, pontszám alapján igazított verzió)
-  const computeArchiveRank = (rankStr: string, score: number) => {
-    const normalized = rankStr ? rankStr.toUpperCase().trim() : '';
+  // 🎯 JAVÍTVA: Intelligens rang-dekóder a globális szintek (1-12) alapján
+  const computeArchiveRank = (rankLevel: any, score: number) => {
+    const lvl = Number(rankLevel);
     
+    // Ha a backendről megérkezik a photo_users-ben tárolt 1-12 közötti szintszám
+    if (!isNaN(lvl) && lvl >= 1 && lvl <= 12) {
+      const globalRankNames = [
+        t('rankScout', 'Fényleső 🌱'),
+        t('rankObserver', 'Megfigyelő 👁️'),
+        t('rankHunter', 'Képvadász 📷'),
+        t('rankComposer', 'Komponista 📐'),
+        t('rankWriter', 'Fényíró 🎞️'),
+        t('rankAesthete', 'Esztéta 💎'),
+        t('rankExpert', 'Szakértő 🎯'),
+        t('rankMaster', 'Képmester 🎨'),
+        t('rankGrandmaster', 'Nagymester 🌟'),
+        t('rankVirtuoso', 'Virtuóz ⚡'),
+        t('rankGuru', 'Fotóguru 🔥'),
+        t('rankLegend', 'Vizuális Legenda 👑')
+      ];
+      return globalRankNames[lvl - 1];
+    }
+
+    // Biztonsági tartalék (Fallback) régi adatokhoz vagy ha nincs belépve
+    const normalized = rankLevel ? String(rankLevel).toUpperCase().trim() : '';
     if (!normalized || normalized === 'FOTÓS' || normalized === 'MEMBER' || normalized === 'TAG') {
       const s = Number(score) || 0;
       if (s >= 22) return t('rankComposer', 'Komponista 📐');
@@ -63,17 +68,7 @@ export default function PastArchive({
       return t('rankScout', 'Fényleső 🌱');
     }
     
-    if (normalized.includes('GURU III') || normalized.includes('KOMPONISTA')) return t('rankComposer', 'Komponista 📐');
-    if (normalized.includes('GURU II') || normalized.includes('KÉPVADÁSZ')) return t('rankHunter', 'Képvadász 📷');
-    if (normalized.includes('GURU I') || normalized.includes('MEGFIGYELŐ')) return t('rankObserver', 'Megfigyelő 👁️');
-    if (normalized === 'GURU' || normalized.includes('FÉNYLESŐ')) return t('rankScout', 'Fényleső 🌱');
-    if (normalized.includes('GURU IV') || normalized.includes('FÉNYÍRÓ')) return t('rankWriter', 'Fényíró 🎞️');
-    if (normalized.includes('GURU V') || normalized.includes('ESZTÉTA')) return t('rankAesthete', 'Esztéta 💎');
-    if (normalized.includes('GURU VI') || normalized.includes('SZAKÉRTŐ')) return t('rankExpert', 'Szakértő 🎯');
-    if (normalized.includes('GURU VII') || normalized.includes('KÉPMESTER')) return t('rankMaster', 'Képmester 🎨');
-    if (normalized.includes('GURU VIII') || normalized.includes('NAGYMESTER')) return t('rankGrandmaster', 'Nagymester 🌟');
-    
-    return rankStr;
+    return String(rankLevel);
   };
 
   const handleLocalImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
@@ -108,7 +103,7 @@ export default function PastArchive({
     const score = topThreeWinners[0].fair_score !== undefined 
       ? topThreeWinners[0].fair_score 
       : (topThreeWinners[0].archive_likes || topThreeWinners[0].likes_count || 0);
-    return computeArchiveRank(topThreeWinners[0].rank_level || topThreeWinners[0].club_role, Number(score));
+    return computeArchiveRank(topThreeWinners[0].rank_level, Number(score));
   }, [topThreeWinners]);
 
   const singlePhotosRankedList = useMemo(() => {
@@ -217,7 +212,7 @@ export default function PastArchive({
                 onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.borderColor = '#38bdf8'; }}
                 onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = '#334155'; }}
               >
-                <div style={{ position: 'absolute', top: '12px', right: '-35px', background: isDaily ? 'linear-gradient(135deg, #ec4899, #f43f5e)' : 'linear-gradient(135deg, #a78bfa, #8b5cf6)', color: 'white', padding: '4px 40px', fontSize: '0.7rem', fontWeight: 'bold', transform: 'rotate(45deg)', zIndex: 10 }}>
+                <div style={{ position: 'absolute', top: '12px', right: '-35px', background: isDaily ? 'linear-gradient(135deg, #ec4899, #f43f5e)' : 'linear-gradient(135deg, #a78bfa, #8b5cf6)', color: 'white', padding: '4px 40px', fontSize: '0.7 glamorous-size', fontWeight: 'bold', transform: 'rotate(45deg)', zIndex: 10 }}>
                   {isDaily ? 'VILLÁM' : 'MESTER'}
                 </div>
 
@@ -303,7 +298,6 @@ export default function PastArchive({
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#0f172a', padding: '12px 20px', borderRadius: '12px', borderLeft: '4px solid #fbbf24' }}>
                         <div style={{ display: 'flex', gap: '12px', alignItems: 'center', textAlign: 'left' }}>
-                          {/* 🎯 JAVÍTVA: Fix sziluett helyett a győztes valós, adatbázisból érkező profilképe */}
                           <img src={topThreeWinners[0].avatar_url || silhouetteAvatar} alt="" style={{ width: '38px', height: '38px', borderRadius: '50%', objectFit: 'cover' }} />
                           <div>
                             <strong style={{ color: 'white', display: 'block', fontSize: '1.1rem' }}>{topThreeWinners[0].user_name}</strong>
@@ -326,7 +320,6 @@ export default function PastArchive({
             {subTab === 'details' && (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '30px', alignItems: 'start', padding: '10px 0' }}>
                 <div style={{ background: '#0f172a', padding: '20px', borderRadius: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', border: '1px solid #334155' }}>
-                  {/* 🎯 JAVÍTVA: Fix sziluett helyett a Képmester (Guru) valós, adatbázisból érkező profilképe */}
                   <img src={currentTopicObj?.master_avatar_url || silhouetteAvatar} alt="Master" style={{ width: '90px', height: '90px', borderRadius: '50%', objectFit: 'cover' }} />
                   <strong style={{ color: 'white', fontSize: '1.1rem', marginTop: '10px' }}>KÉPMESTER</strong>
                   <span style={{ color: '#94a3b8', fontSize: '0.9rem', marginTop: '2px' }}>{currentTopicObj?.master_name || t('archiveUnknownMaster', 'Ismeretlen Képmester')}</span>
@@ -395,11 +388,11 @@ export default function PastArchive({
                           <div style={{ flex: 1 }}>
                             <strong style={{ color: 'white', display: 'block', fontSize: '1rem' }}>{entry.user_name}</strong>
                             <span style={{ color: '#64748b', fontSize: '0.8rem' }}>
-                              {computeArchiveRank(entry.rank_level || entry.club_role, Number(photoScore))} {entry.title ? `• "${entry.title}"` : ''}
+                              {computeArchiveRank(entry.rank_level, Number(photoScore))} {entry.title ? `• "${entry.title}"` : ''}
                             </span>
                           </div>
                           <div style={{ color: '#f97316', fontWeight: '900', fontSize: '1.1rem' }}>
-                            {entry.fair_score !== undefined ? `${entry.fair_score} FP` : `${entry.likes_count} ⭐`}
+                            {entry.fair_score !== undefined ? `${entry.fair_score} pont` : `${entry.likes_count} ⭐`}
                           </div>
                         </div>
                       );
@@ -455,7 +448,7 @@ export default function PastArchive({
                   <div style={{ background: 'linear-gradient(180deg, #334155 0%, #1e293b 100%)', width: '100%', height: '200px', borderRadius: '16px 16px 0 0', border: '1px solid #475569', borderBottom: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '15px', boxSizing: 'border-box', textAlign: 'center' }}>
                     <div style={{ color: '#cbd5e1', fontSize: '24px', fontWeight: 'bold', width: '100%', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.2', textAlign: 'center', minHeight: '58px' }}>{adminPosterData.entries[1].user_name}</div>
                     <div style={{ color: '#94a3b8', fontSize: '22px', fontWeight: '900', marginTop: '4px' }}>
-                      {adminPosterData.entries[1].fair_score !== undefined ? `${adminPosterData.entries[1].fair_score} FP` : `${adminPosterData.entries[1].likes_count} ⭐`}
+                      {adminPosterData.entries[1].fair_score !== undefined ? `${adminPosterData.entries[1].fair_score} pont` : `${adminPosterData.entries[1].likes_count} ⭐`}
                     </div>
                     <div style={{ color: '#cbd5e1', fontSize: '32px', fontWeight: '900', marginTop: '20px', letterSpacing: '1px' }}>🥈 2. {t('archivePosterPlace', 'HELY')}</div>
                   </div>
@@ -472,7 +465,7 @@ export default function PastArchive({
                   <div style={{ background: 'linear-gradient(180deg, #fbbf24 0%, #b45309 100%)', width: '100%', height: '270px', borderRadius: '20px 24px 0 0', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '15px', boxSizing: 'border-box', textAlign: 'center', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
                     <div style={{ color: '#0f172a', fontSize: '28px', fontWeight: '900', width: '100%', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.2', textAlign: 'center', minHeight: '64px' }}>{adminPosterData.entries[0].user_name}</div>
                     <div style={{ color: '#0f172a', fontSize: '26px', fontWeight: '900', marginTop: '4px', opacity: 0.9 }}>
-                      {adminPosterData.entries[0].fair_score !== undefined ? `${adminPosterData.entries[0].fair_score} FP` : `${adminPosterData.entries[0].likes_count} ⭐`}
+                      {adminPosterData.entries[0].fair_score !== undefined ? `${adminPosterData.entries[0].fair_score} pont` : `${adminPosterData.entries[0].likes_count} ⭐`}
                     </div>
                     <div style={{ color: '#ffffff', fontSize: '38px', fontWeight: '900', marginTop: '25px', letterSpacing: '1px', textShadow: '0 2px 10px rgba(0,0,0,0.4)' }}>🥇 1. {t('archivePosterPlace', 'HELY')}</div>
                   </div>
@@ -488,7 +481,7 @@ export default function PastArchive({
                   <div style={{ background: 'linear-gradient(180deg, #7c2d12 0%, #431407 100%)', width: '100%', height: '200px', borderRadius: '16px 16px 0 0', border: '1px solid #7c2d12', borderBottom: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '15px', boxSizing: 'border-box', textAlign: 'center' }}>
                     <div style={{ color: '#ffedd5', fontSize: '24px', fontWeight: 'bold', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{adminPosterData.entries[2].user_name}</div>
                     <div style={{ color: '#fdba74', fontSize: '22px', fontWeight: '900', marginTop: '4px' }}>
-                      {adminPosterData.entries[2].fair_score !== undefined ? `${adminPosterData.entries[2].fair_score} FP` : `${adminPosterData.entries[2].likes_count} ⭐`}
+                      {adminPosterData.entries[2].fair_score !== undefined ? `${adminPosterData.entries[2].fair_score} pont` : `${adminPosterData.entries[2].likes_count} ⭐`}
                     </div>
                     <div style={{ color: '#fdba74', fontSize: '32px', fontWeight: '900', marginTop: '20px', letterSpacing: '1px' }}>🥉 3. {t('archivePosterPlace', 'HELY')}</div>
                   </div>
