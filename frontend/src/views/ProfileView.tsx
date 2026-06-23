@@ -18,7 +18,7 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
   const [pendingMembers, setPendingMembers] = useState<any[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // 🎯 KORSZERŰSÍTETT PROFIL ÁLLAPOTOK
+  // 🎯 PROFIL ÁLLAPOTOK
   const [nameInput, setNameInput] = useState<string>('');
   const [phone, setPhone] = useState<string>('');
   const [address, setAddress] = useState<string>('');
@@ -30,7 +30,7 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Tárhely és AI használat követéséhez szükséges állapotok
+  // Tárhely és AI használat követése
   const [userStorage, setUserStorage] = useState({ count: 0, bytes: 0 });
   const [aiUsageCount, setAiUsageCount] = useState(0);
   const [isLoadingStats, setIsLoadingStats] = useState(true);
@@ -39,21 +39,32 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
 
   const isLeader = user?.club_role === 'leader' || user?.club_role === 'deputy';
 
-  // Alapadatok folyamatos szinkronizálása a belépett felhasználóval
-  useEffect(() => {
-    if (user) {
-      setNameInput(user.name || '');
-      setPhone(user.phone_number || user.phone || '');
-      setAddress(user.shipping_address || user.address || '');
-      setAssociationId(user.association_id || '');
-      
-      // 🎯 JAVÍTVA & VÉDELEM: Csak akkor írjuk felül a helyi előnézetet a globális userből, 
-      // ha az valóban tartalmaz egy érvényes Cloudinary URL-t! Így a hiányos backend lekérdezések nem tudják törölni.
-      if (user.avatar_url) {
-        setAvatarPreview(user.avatar_url);
+  // 🎯 ÚJ & GOLYÓÁLLÓ: Profiladatok és a kép közvetlen betöltése a friss adatbázisból
+  const loadFreshProfile = async () => {
+    if (!user?.email) return;
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/users/${user.email}`);
+      if (res.ok) {
+        const freshData = await res.json();
+        setNameInput(freshData.name || '');
+        setPhone(freshData.phone_number || freshData.phone || '');
+        setAddress(freshData.shipping_address || freshData.address || '');
+        setAssociationId(freshData.association_id || '');
+        if (freshData.avatar_url) {
+          setAvatarPreview(freshData.avatar_url);
+        }
       }
+    } catch (e) {
+      console.error("Nem sikerült szinkronizálni a profilképet:", e);
     }
-  }, [user]);
+  };
+
+  // Oldalnyitáskor azonnal betöltjük a valós képet a dedikált API-ból
+  useEffect(() => {
+    if (user?.email) {
+      loadFreshProfile();
+    }
+  }, [user?.email]);
 
   // Csak a vezetővel rendelkező klubok betöltése
   useEffect(() => {
@@ -63,7 +74,7 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
       .catch(console.error);
   }, []);
 
-  // Felhasználó specifikus tárhely és AI statisztikák betöltése
+  // Tárhely és AI statisztikák betöltése
   useEffect(() => {
     if (!user?.email) return;
     
@@ -81,25 +92,21 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
             });
           }
         }
-        
         if (user.ai_usage_count !== undefined) {
           setAiUsageCount(user.ai_usage_count);
         }
       } catch (e) {
-        console.error("Hiba a felhasználói statisztikák betöltésekor", e);
+        console.error(e);
       } finally {
         setIsLoadingStats(false);
       }
     };
-
     fetchUserStats();
   }, [user]);
 
-  // Függőben lévő tagok betöltése vezetőknek
   const loadPendingMembers = () => {
     const matchedClub = activeClubs.find(c => c.name === user?.club_name);
     const effectiveClubId = user?.club_id || matchedClub?.id;
-
     if (isLeader && effectiveClubId) {
       fetch(`${BACKEND_URL}/api/clubs/pending-members?clubId=${effectiveClubId}`)
         .then(res => res.json())
@@ -117,7 +124,6 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
 
-      // Kliensoldali azonnali gyors előnézet generálása
       setAvatarPreview(URL.createObjectURL(file));
       setIsUploadingAvatar(true);
 
@@ -132,24 +138,21 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
 
         if (res.ok) {
           const responseData = await res.json();
-          
           if (responseData.avatar_url) {
-            // 🎯 JAVÍTVA: Azonnal beállítjuk a helyi állapothoz
             setAvatarPreview(responseData.avatar_url);
-            // 🎯 JAVÍTVA: Azonnal frissítjük a globális App.tsx szintű user állapotot is, mielőtt a fetchData lefutna!
             setUser({ ...user, avatar_url: responseData.avatar_url });
           }
-
           alert(lang === 'en' ? "Profile picture updated successfully!" : "Profilkép sikeresen frissítve! 📸");
+          loadFreshProfile();
           fetchData(); 
         } else {
           const err = await res.json();
           alert(err.error || "Hiba történt a profilkép feltöltése közben.");
-          setAvatarPreview(user?.avatar_url || null);
+          loadFreshProfile();
         }
       } catch (err) {
-        alert(t('msgNetworkError') || "Hálózati kommunikációs hiba lépett fel.");
-        setAvatarPreview(user?.avatar_url || null);
+        alert(t('msgNetworkError') || "Hálózati hiba lépett fel.");
+        loadFreshProfile();
       } finally {
         setIsUploadingAvatar(false);
       }
@@ -176,6 +179,7 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
 
       if (res.ok) {
         alert(lang === 'en' ? "Profile successfully updated!" : "Profil adatok sikeresen frissítve! 🚀");
+        loadFreshProfile();
         fetchData(); 
       } else {
         const err = await res.json();
@@ -188,7 +192,6 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
     }
   };
 
-  // Csatlakozási kérelem leadása
   const handleJoinClub = async () => {
     if (!selectedClubId) return alert(t('msgSelectClubError'));
     const targetClub = activeClubs.find(c => String(c.id) === selectedClubId);
@@ -209,7 +212,6 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
     finally { setIsSubmitting(false); }
   };
 
-  // Kérelem elbírálása
   const handleDecision = async (targetEmail: string, action: 'approve' | 'reject') => {
     const confirmText = action === 'approve' ? t('msgApproveConfirm') : t('msgRejectConfirm');
     if (!window.confirm(confirmText)) return;
@@ -233,11 +235,7 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
       return t('profClubPending').replace('{club}', user.club_name);
     }
     if (user?.club_name) {
-      const roleText = user.club_role === 'leader' 
-        ? t('roleLeader') 
-        : user.club_role === 'deputy' 
-          ? t('roleDeputy') 
-          : t('roleMember');
+      const roleText = user.club_role === 'leader' ? t('roleLeader') : user.club_role === 'deputy' ? t('roleDeputy') : t('roleMember');
       return t('profClubActive').replace('{club}', user.club_name).replace('{role}', roleText);
     }
     return t('profClubNone');
@@ -260,13 +258,10 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
     } catch (e) { return dateStr; }
   };
 
-  const isPremiumActive = user?.is_premium === 1;
-  const hasExpiredPremium = user?.is_premium === 0 && user?.premium_until;
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '30px', maxWidth: '600px', margin: '0 auto', animation: 'fadeIn 0.3s ease-out' }}>
       
-      {/* ── SZEKCIÓ 1: DIAGNOSZTIKAI ÉS FINANCIÁLIS METRIKÁK KÁRTYÁJA ── */}
+      {/* SZEKCIÓ 1: DIAGNOSZTIKAI ÉS FINANCIÁLIS METRIKÁK KÁRTYÁJA */}
       <div style={{ backgroundColor: '#1e293b', padding: '30px', borderRadius: '24px', border: '1px solid #334155', boxShadow: '0 4px 20px rgba(0,0,0,0.15)' }}>
         <h3 style={{ margin: '0 0 15px 0', color: '#f8fafc', fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span>⚙️</span> {t('profStatusTitle')}
