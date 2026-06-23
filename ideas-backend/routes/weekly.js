@@ -305,127 +305,152 @@ async function processFinishedChallenges(pool) {
   });
 
   // ====================================================================
-  // ⚔️ CSATATÉR FŐ VÉGPONT
+  // ⚔️ CSATATÉR FŐ VÉGPONT – JAVÍTVA: SVIP- ÉS SZÁMLÁLÓBIZTOS VERZIÓ
   // ====================================================================
   app.get('/api/weekly/current', async (req, res) => {
-  const { userEmail, topicId } = req.query;
-  try {
-    await processFinishedChallenges(pool);
+    const { userEmail, topicId } = req.query;
+    try {
+      await processFinishedChallenges(pool);
 
-    const { totalLikes, victories } = await getUserLikesAndVictories(pool, userEmail);
-    const userTotalLikes = totalLikes;
-    const rankLevel = calculateRankLevel(totalLikes, victories);
-    const power = getVotePowerByLevel(rankLevel); 
+      const { totalLikes, victories } = await getUserLikesAndVictories(pool, userEmail);
+      const userTotalLikes = totalLikes;
+      const rankLevel = calculateRankLevel(totalLikes, victories);
+      const power = getVotePowerByLevel(rankLevel); 
 
-    const [userRows] = await pool.query('SELECT COALESCE(swap_balance, 0) as swap_balance FROM photo_users WHERE email = ?', [userEmail]);
-    const swapBalance = userRows[0] ? userRows[0].swap_balance : 3;
-    
-    const myReferralCode = await ensureReferralCode(pool, userEmail);
-    const [referredCheck] = await pool.query('SELECT referred_by FROM photo_users WHERE email = ?', [userEmail]);
-    const referredBy = referredCheck[0] ? referredCheck[0].referred_by : null;
+      const [userRows] = await pool.query('SELECT COALESCE(swap_balance, 0) as swap_balance FROM photo_users WHERE email = ?', [userEmail]);
+      const swapBalance = userRows[0] ? userRows[0].swap_balance : 3;
+      
+      const myReferralCode = await ensureReferralCode(pool, userEmail);
+      const [referredCheck] = await pool.query('SELECT referred_by FROM photo_users WHERE email = ?', [userEmail]);
+      const referredBy = referredCheck[0] ? referredCheck[0].referred_by : null;
 
-    if (!topicId) {
-      const [activeTopics] = await pool.query(`
+      // ── 🅰️ ÁG: HA A LISTÁT KÉRI LE A FŐOLDAL ──
+      if (!topicId) {
+        const [activeTopics] = await pool.query(`
+          SELECT t.*, u.name AS master_name,
+            IF(e.id IS NOT NULL, 1, 0) as hasEntered,
+            IF(t.master_email IS NOT NULL AND LOWER(TRIM(t.master_email)) = LOWER(TRIM(?)), 1, 0) as isMaster,
+            (SELECT COUNT(*) FROM weekly_entries we WHERE we.topic_id = t.id AND we.is_active = 1) as totalEntries,
+            (SELECT COUNT(*) FROM weekly_entries we WHERE we.topic_id = t.id AND we.is_active = 1 AND LOWER(TRIM(we.user_email)) != LOWER(TRIM(?)) AND we.id NOT IN (SELECT entry_id FROM weekly_votes WHERE voter_email = ?)) as unvotedEntries
+          FROM weekly_topics t
+          LEFT JOIN photo_users u ON t.master_email = u.email
+          LEFT JOIN weekly_entries e ON e.topic_id = t.id AND LOWER(TRIM(e.user_email)) = LOWER(TRIM(?)) AND e.is_active = 1
+          WHERE ? BETWEEN t.start_date AND t.end_date AND (t.status = 'approved' OR t.status IS NULL)
+          ORDER BY t.id DESC
+        `, [userEmail || '', userEmail || '', userEmail || '', userEmail || '', getLocalMySQLNow()]);
+
+        // 🎯 JAVÍTVA: Minden lehetséges frontendes mezőnevet lefedünk a leképezésben
+        const mappedTopics = activeTopics.map(t => ({
+          ...t,
+          hasEntered: t.hasEntered === 1,
+          isMaster: t.isMaster === 1,
+          totalEntries: Number(t.totalEntries || 0),     
+          entry_count: Number(t.totalEntries || 0),     
+          entries_count: Number(t.totalEntries || 0),     
+          unvotedEntries: Number(t.unvotedEntries || 0),   
+          unvoted_count: Number(t.unvotedEntries || 0),   
+          hasUnvoted: Number(t.unvotedEntries || 0) > 0,
+          has_unvoted: Number(t.unvotedEntries || 0) > 0
+        }));
+
+        return res.json({ 
+          activeTopics: mappedTopics, userTotalLikes, userVictories: victories, userPower: power, swapBalance, myReferralCode, referredBy, masterVotesLeft: 0, isMaster: false     
+        });
+      }
+
+      // ── 🅱️ ÁG: HA EGY KONKRÉT SZÁMÚ SZOBÁT NYITUNK MEG ──
+      // 🎯 JAVÍTVA: Beépítettük a totalEntries és unvotedEntries al-lekérdezéseket a részletes nézetbe is!
+      const [allTopics] = await pool.query(`
         SELECT t.*, u.name AS master_name,
-          IF(e.id IS NOT NULL, 1, 0) as hasEntered,
-          IF(t.master_email IS NOT NULL AND LOWER(TRIM(t.master_email)) = LOWER(TRIM(?)), 1, 0) as isMaster,
-          (SELECT COUNT(*) FROM weekly_entries we WHERE we.topic_id = t.id AND we.is_active = 1) as totalEntries,
-          (SELECT COUNT(*) FROM weekly_entries we WHERE we.topic_id = t.id AND we.is_active = 1 AND LOWER(TRIM(we.user_email)) != LOWER(TRIM(?)) AND we.id NOT IN (SELECT entry_id FROM weekly_votes WHERE voter_email = ?)) as unvotedEntries
-        FROM weekly_topics t
-        LEFT JOIN photo_users u ON t.master_email = u.email
-        LEFT JOIN weekly_entries e ON e.topic_id = t.id AND LOWER(TRIM(e.user_email)) = LOWER(TRIM(?)) AND e.is_active = 1
-        WHERE ? BETWEEN t.start_date AND t.end_date AND (t.status = 'approved' OR t.status IS NULL)
-        ORDER BY t.id DESC
-      `, [userEmail || '', userEmail || '', userEmail || '', userEmail || '', getLocalMySQLNow()]);
+               (SELECT COUNT(*) FROM weekly_entries we WHERE we.topic_id = t.id AND we.is_active = 1) as totalEntries,
+               (SELECT COUNT(*) FROM weekly_entries we WHERE we.topic_id = t.id AND we.is_active = 1 AND LOWER(TRIM(we.user_email)) != LOWER(TRIM(?)) AND we.id NOT IN (SELECT entry_id FROM weekly_votes WHERE voter_email = ?)) as unvotedEntries
+        FROM weekly_topics t 
+        LEFT JOIN photo_users u ON t.master_email = u.email 
+        WHERE t.id = ?
+      `, [userEmail || '', userEmail || '', topicId]);
+      
+      const currentTopic = allTopics[0];
+      if (!currentTopic) return res.status(404).json({ error: 'Ez a kihívás nem található vagy már lezárult!' });
 
-      const mappedTopics = activeTopics.map(t => ({
-        ...t,
-        hasEntered: t.hasEntered === 1,
-        isMaster: t.isMaster === 1,
-        totalEntries: Number(t.totalEntries || 0),     
-        unvotedEntries: Number(t.unvotedEntries || 0)   
-      }));
+      const isMasterUser = currentTopic.master_email && userEmail && currentTopic.master_email.toLowerCase().trim() === userEmail.toLowerCase().trim();
 
-      return res.json({ 
-        activeTopics: mappedTopics, userTotalLikes, userVictories: victories, userPower: power, swapBalance, myReferralCode, referredBy, masterVotesLeft: 0, isMaster: false     
+      let masterVotesLeft = 0;
+      if (isMasterUser) {
+        const [masterVotesCount] = await pool.query("SELECT COUNT(*) as count FROM weekly_votes v JOIN weekly_entries e ON v.entry_id = e.id WHERE e.topic_id = ? AND v.voter_email = ? AND v.vote_type = 'master'", [currentTopic.id, userEmail]);
+        masterVotesLeft = Math.max(0, 5 - (masterVotesCount[0]?.count || 0));
+      }
+
+      const [myEntries] = await pool.query('SELECT * FROM weekly_entries WHERE topic_id = ? AND user_email = ? AND is_active = 1', [currentTopic.id, userEmail]);
+      const [myPastEntries] = await pool.query('SELECT * FROM weekly_entries WHERE topic_id = ? AND user_email = ? AND is_active = 0 ORDER BY id DESC', [currentTopic.id, userEmail]);
+      const [myVotes] = await pool.query('SELECT COUNT(*) as vote_count FROM weekly_votes v JOIN weekly_entries e ON v.entry_id = e.id WHERE e.topic_id = ? AND v.voter_email = ?', [currentTopic.id, userEmail]);
+      
+      const totalEntries = currentTopic.totalEntries || 0;
+      const votableEntries = isMasterUser ? totalEntries : Math.max(1, totalEntries - 1);
+
+      const [leaderboard] = await pool.query(`
+        SELECT e.id, e.user_name, e.user_email, e.file_url, e.drive_file_id, e.views_count, e.likes_count, u.club_name,
+               e.camera, e.lens, e.shutter, e.iso, e.aperture, e.software,
+               EXISTS(SELECT 1 FROM weekly_votes WHERE entry_id = e.id AND voter_email = ?) as has_user_voted,
+               (SELECT COUNT(*) FROM weekly_votes WHERE voter_email = e.user_email AND entry_id IN (SELECT id FROM weekly_entries WHERE topic_id = e.topic_id AND is_active = 1)) as votes_cast,
+               IF(t.end_date < '2026-06-16 00:00:00',
+                 e.likes_count,
+                 ROUND(
+                   ((e.likes_count + 5.0) / (e.views_count + 5.0) * 10.0) * IF(
+                     (SELECT COUNT(*) FROM weekly_entries WHERE topic_id = e.topic_id AND is_active = 1) <= 1, 
+                     1.0, 
+                     LEAST(1.0, (SELECT COUNT(*) FROM weekly_votes WHERE voter_email = e.user_email AND entry_id IN (SELECT id FROM weekly_entries WHERE topic_id = e.topic_id AND is_active = 1)) / LEAST(15.0, (SELECT COUNT(*) FROM weekly_entries WHERE topic_id = e.topic_id AND is_active = 1) - 1))
+                   ), 2
+                 )
+               ) as fair_score
+        FROM weekly_entries e 
+        JOIN weekly_topics t ON e.topic_id = t.id
+        LEFT JOIN photo_users u ON e.user_email = u.email 
+        WHERE e.topic_id = ? AND e.is_active = 1 
+        ORDER BY fair_score DESC, e.likes_count DESC, e.views_count ASC
+      `, [userEmail, currentTopic.id]);
+
+      const clubsData = {};
+      leaderboard.forEach(entry => {
+        if (!entry.club_name || entry.club_name.trim() === '') return; 
+        if (!clubsData[entry.club_name]) clubsData[entry.club_name] = [];
+        clubsData[entry.club_name].push(Number(entry.fair_score || 0));
       });
-    }
 
-    const [allTopics] = await pool.query('SELECT t.*, u.name AS master_name FROM weekly_topics t LEFT JOIN photo_users u ON t.master_email = u.email WHERE t.id = ?', [topicId]);
-    const currentTopic = allTopics[0];
-    if (!currentTopic) return res.status(404).json({ error: 'Ez a kihívás nem található vagy már lezárult!' });
+      const clubLeaderboard = [];
+      for (const club in clubsData) {
+        clubsData[club].sort((a, b) => b - a);
+        const top3 = clubsData[club].slice(0, 3);
+        clubLeaderboard.push({ 
+          club_name: club, 
+          total_score: Number(top3.reduce((sum, val) => sum + val, 0).toFixed(2)), 
+          members_counted: top3.length 
+        });
+      }
+      clubLeaderboard.sort((a, b) => b.total_score - a.total_score);
 
-    const isMasterUser = currentTopic.master_email && userEmail && currentTopic.master_email.toLowerCase().trim() === userEmail.toLowerCase().trim();
+      // 🎯 JAVÍTVA: A szoba visszaküldésekor is becsomagoljuk az összes számláló-mező variációt
+      const structuredTopic = {
+        ...currentTopic,
+        isMaster: !!isMasterUser,
+        totalEntries: Number(currentTopic.totalEntries || 0),
+        entry_count: Number(currentTopic.totalEntries || 0),
+        entries_count: Number(currentTopic.totalEntries || 0),
+        unvotedEntries: Number(currentTopic.unvotedEntries || 0),
+        unvoted_count: Number(currentTopic.unvotedEntries || 0),
+        hasUnvoted: Number(currentTopic.unvotedEntries || 0) > 0,
+        has_unvoted: Number(currentTopic.unvotedEntries || 0) > 0
+      };
 
-    let masterVotesLeft = 0;
-    if (isMasterUser) {
-      const [masterVotesCount] = await pool.query("SELECT COUNT(*) as count FROM weekly_votes v JOIN weekly_entries e ON v.entry_id = e.id WHERE e.topic_id = ? AND v.voter_email = ? AND v.vote_type = 'master'", [currentTopic.id, userEmail]);
-      masterVotesLeft = Math.max(0, 5 - (masterVotesCount[0]?.count || 0));
-    }
-
-    const [myEntries] = await pool.query('SELECT * FROM weekly_entries WHERE topic_id = ? AND user_email = ? AND is_active = 1', [currentTopic.id, userEmail]);
-    const [myPastEntries] = await pool.query('SELECT * FROM weekly_entries WHERE topic_id = ? AND user_email = ? AND is_active = 0 ORDER BY id DESC', [currentTopic.id, userEmail]);
-    const [myVotes] = await pool.query('SELECT COUNT(*) as vote_count FROM weekly_votes v JOIN weekly_entries e ON v.entry_id = e.id WHERE e.topic_id = ? AND v.voter_email = ?', [currentTopic.id, userEmail]);
-    const [allEntriesCount] = await pool.query('SELECT COUNT(*) as total FROM weekly_entries WHERE topic_id = ? AND is_active = 1', [currentTopic.id]);
-    const totalEntries = allEntriesCount[0].total || 0;
-    const votableEntries = isMasterUser ? totalEntries : Math.max(1, totalEntries - 1);
-
-    // 💥 RANGSOR + JAVÍTVA: Bekötve a votes_cast számláló az SQL-be!
-    const [leaderboard] = await pool.query(`
-      SELECT e.id, e.user_name, e.user_email, e.file_url, e.drive_file_id, e.views_count, e.likes_count, u.club_name,
-             e.camera, e.lens, e.shutter, e.iso, e.aperture, e.software,
-             EXISTS(SELECT 1 FROM weekly_votes WHERE entry_id = e.id AND voter_email = ?) as has_user_voted,
-             
-             -- 📊 ÚJ: Kiszámoljuk, hogy az adott sor beküldője hány képre szavazott ebben a szobában
-             (SELECT COUNT(*) FROM weekly_votes WHERE voter_email = e.user_email AND entry_id IN (SELECT id FROM weekly_entries WHERE topic_id = e.topic_id AND is_active = 1)) as votes_cast,
-             
-             -- 🛡️ Időbélyeg alapú szűrő az élő felületen:
-             IF(t.end_date < '2026-06-16 00:00:00',
-               e.likes_count,
-               ROUND(
-                 ((e.likes_count + 5.0) / (e.views_count + 5.0) * 10.0) * 
-                 IF(
-                   (SELECT COUNT(*) FROM weekly_entries WHERE topic_id = e.topic_id AND is_active = 1) <= 1, 
-                   1.0, 
-                   LEAST(1.0, (SELECT COUNT(*) FROM weekly_votes WHERE voter_email = e.user_email AND entry_id IN (SELECT id FROM weekly_entries WHERE topic_id = e.topic_id AND is_active = 1)) / LEAST(15.0, (SELECT COUNT(*) FROM weekly_entries WHERE topic_id = e.topic_id AND is_active = 1) - 1))
-                 ), 2
-               )
-             ) as fair_score
-      FROM weekly_entries e 
-      JOIN weekly_topics t ON e.topic_id = t.id
-      LEFT JOIN photo_users u ON e.user_email = u.email 
-      WHERE e.topic_id = ? AND e.is_active = 1 
-      ORDER BY fair_score DESC, e.likes_count DESC, e.views_count ASC
-    `, [userEmail, currentTopic.id]);
-
-    const clubsData = {};
-    leaderboard.forEach(entry => {
-      if (!entry.club_name || entry.club_name.trim() === '') return; 
-      if (!clubsData[entry.club_name]) clubsData[entry.club_name] = [];
-      clubsData[entry.club_name].push(Number(entry.fair_score || 0));
-    });
-
-    const clubLeaderboard = [];
-    for (const club in clubsData) {
-      clubsData[club].sort((a, b) => b - a);
-      const top3 = clubsData[club].slice(0, 3);
-      clubLeaderboard.push({ 
-        club_name: club, 
-        total_score: Number(top3.reduce((sum, val) => sum + val, 0).toFixed(2)), 
-        members_counted: top3.length 
+      res.json({ 
+        topic: structuredTopic, myEntry: myEntries.length > 0 ? myEntries[0] : null, myPastEntries, myVoteCount: myVotes[0]?.vote_count || 0, votableEntries, leaderboard, clubLeaderboard, userTotalLikes, userVictories: victories, userPower: power, swapBalance, myReferralCode, referredBy, masterVotesLeft, isMaster: !!isMasterUser  
       });
+
+    } catch (err) { 
+      console.error("❌ Kritikus hiba:", err);
+      res.status(500).json({ error: 'Szerveroldali hiba történt.' }); 
     }
-    clubLeaderboard.sort((a, b) => b.total_score - a.total_score);
+  });
 
-    res.json({ 
-      topic: { ...currentTopic, isMaster: !!isMasterUser }, myEntry: myEntries.length > 0 ? myEntries[0] : null, myPastEntries, myVoteCount: myVotes[0]?.vote_count || 0, votableEntries, leaderboard, clubLeaderboard, userTotalLikes, userVictories: victories, userPower: power, swapBalance, myReferralCode, referredBy, masterVotesLeft, isMaster: !!isMasterUser  
-    });
-
-  } catch (err) { 
-    console.error("❌ Kritikus hiba:", err);
-    res.status(500).json({ error: 'Szerveroldali hiba történt.' }); 
-  }
-});
 
 
   // 🎯 JAVÍTVA: A galéria lekérdezés most már az egyéni kép-EXIF oszlopokat is visszaküldi a felületnek
