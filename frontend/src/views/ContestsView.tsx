@@ -111,11 +111,9 @@ export default function ContestsView(props: ContestsViewProps) {
     setIsLegalChecked(false);
   }, [props.activeUploadContest]);
 
-  // 🎯 JAVÍTVA: Visszakerültek a felületről hiányzó klubérték-számítások
   const currentNewClubValue = props.clubs.find(c => String(c.id) === props.newRestrictedClub || c.name === props.newRestrictedClub)?.id || '';
   const currentEditClubValue = props.clubs.find(c => String(c.id) === props.editRestrictedClub || c.name === props.editRestrictedClub)?.id || '';
 
-  // Biztonsági ellenőrzés a MAFOSZ adatokhoz
   const hasRequiredProfileData = useMemo(() => {
     if (!props.currentDbUser) return false;
     const hasPhone = !!(props.currentDbUser.phone_number || props.currentDbUser.phone);
@@ -226,7 +224,7 @@ export default function ContestsView(props: ContestsViewProps) {
   };
 
   // ====================================================================
-  // 📝 MAFOSZ ZSŰRI JEGYZŐKÖNYV GENERÁLÁSA
+  // 📝 JAVÍTVA: MAFOSZ ZSŰRI JEGYZŐKÖNYV GENERÁLÁSA (Tördelés- és túlfolyásbiztos)
   // ====================================================================
   const generateJuryReportPdf = (contest: any, results: any[], contestJury: any[]) => {
     setIsJuryDocCompiling(true);
@@ -238,30 +236,51 @@ export default function ContestsView(props: ContestsViewProps) {
       doc.setFontSize(22);
       doc.text(fixHu("HIVATALOS ZSŰRI JEGYZŐKÖNYV"), 105, 25, { align: "center" });
       
+      let currentY = 40;
       doc.setFontSize(14);
       doc.setFont("times", "normal");
-      doc.text(fixHu(`Pályázat megnevezése: ${contest.title}`), 20, 40);
-      doc.text(fixHu(`Lezárás dátuma: ${new Date(contest.end_date).toLocaleDateString('hu-HU')}`), 20, 47);
-
-      doc.setFont("times", "bold");
-      doc.text(fixHu("1. Pályázati Statisztikák:"), 20, 58);
-      doc.setFont("times", "normal");
       
-      const distinctAuthors = new Set(results.map(r => r.user_email)).size;
-      doc.text(fixHu(`• Résztvevő alkotók száma: ${distinctAuthors} fő`), 25, 66);
-      doc.text(fixHu(`• Összesen beküldött alkotás: ${contest.entry_count || results.length} db`), 25, 73);
-
-      doc.setFont("times", "bold");
-      doc.text(fixHu("2. A Hivatalos Szakmai Zsűri tagjai:"), 20, 85);
-      doc.setFont("times", "normal");
-      let juryY = 93;
-      contestJury.forEach((j, idx) => {
-        const name = props.allUsers.find(u => u.email === j.user_email)?.name || j.user_email;
-        doc.text(fixHu(`${idx + 1}. ${name} (${j.user_email})`), 25, juryY);
-        juryY += 7;
+      // Cím intelligens tördelése lefutás ellen
+      const titleLines = doc.splitTextToSize(fixHu(`Pályázat megnevezése: ${contest.title}`), 170);
+      titleLines.forEach((line: string) => {
+        doc.text(line, 20, currentY);
+        currentY += 7;
       });
 
-      let currentY = juryY + 8;
+      // 🎯 ÚJ: Pályázat kiírója / Rendező egyesület kiírása
+      const creatorEmail = contest.proposed_by || contest.master_email || '';
+      const creatorUser = props.allUsers.find(u => u.email === creatorEmail);
+      const creatorName = creatorUser ? creatorUser.name : creatorEmail;
+      doc.text(fixHu(`Pályázat kiírója / Rendező: ${creatorName || 'FotóAwesome Rendszer'}`), 20, currentY);
+      currentY += 7;
+
+      doc.text(fixHu(`Lezárás dátuma: ${new Date(contest.end_date).toLocaleDateString('hu-HU')}`), 20, currentY);
+      currentY += 11;
+
+      doc.setFont("times", "bold");
+      doc.text(fixHu("1. Pályázati Statisztikák:"), 20, currentY);
+      doc.setFont("times", "normal");
+      currentY += 8;
+      
+      const distinctAuthors = new Set(results.map(r => r.user_email)).size;
+      doc.text(fixHu(`• Résztvevő alkotók száma: ${distinctAuthors} fő`), 25, currentY);
+      currentY += 7;
+      doc.text(fixHu(`• Összesen beküldött alkotás: ${contest.entry_count || results.length} db`), 25, currentY);
+      currentY += 12;
+
+      doc.setFont("times", "bold");
+      doc.text(fixHu("2. A Hivatalos Szakmai Zsűri tagjai:"), 20, currentY);
+      doc.setFont("times", "normal");
+      currentY += 8;
+
+      contestJury.forEach((j, idx) => {
+        if (currentY > 275) { doc.addPage(); currentY = 25; }
+        const name = props.allUsers.find(u => u.email === j.user_email)?.name || j.user_email;
+        doc.text(fixHu(`${idx + 1}. ${name} (${j.user_email})`), 25, currentY);
+        currentY += 7;
+      });
+
+      currentY += 4;
       doc.setFont("times", "bold");
       doc.text(fixHu("3. Díjazások és Helyezések rangsora:"), 20, currentY);
       currentY += 8;
@@ -272,7 +291,7 @@ export default function ContestsView(props: ContestsViewProps) {
       const categories = contest.categories ? contest.categories.split(',').map((c: string) => c.trim()).filter(Boolean) : [];
       
       categories.forEach((cat: string) => {
-        if (currentY > 260) { doc.addPage(); currentY = 25; }
+        if (currentY > 265) { doc.addPage(); currentY = 25; }
         doc.setFont("times", "bolditalic");
         doc.text(fixHu(`Kategória: ${cat}`), 22, currentY);
         currentY += 7;
@@ -286,10 +305,16 @@ export default function ContestsView(props: ContestsViewProps) {
           currentY += 7;
         } else {
           catResults.forEach((res, rIdx) => {
-            if (currentY > 270) { doc.addPage(); currentY = 25; }
             const awardLabel = awardsArr[rIdx] ? `[DÍJ: ${awardsArr[rIdx]}]` : '[Elfogadva]';
-            doc.text(fixHu(`  Hely #${rIdx + 1}: "${res.title}" - ${res.user_name} (${res.total_score} FP) ${awardLabel}`), 25, currentY);
-            currentY += 7;
+            const fullResultText = `  Hely #${rIdx + 1}: "${res.title}" - ${res.user_name} (${res.total_score} FP) ${awardLabel}`;
+            
+            // 🎯 JAVÍTVA: Szövegsorok szélességének ellenőrzése és tördelése a lefutás ellen
+            const wrappedLines = doc.splitTextToSize(fixHu(fullResultText), 165);
+            wrappedLines.forEach((line: string) => {
+              if (currentY > 275) { doc.addPage(); currentY = 25; }
+              doc.text(line, 25, currentY);
+              currentY += 6.5;
+            });
           });
         }
         currentY += 4;
@@ -745,7 +770,6 @@ export default function ContestsView(props: ContestsViewProps) {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #334155', paddingBottom: '15px', marginBottom: '20px' }}>
                       <h3 style={{ margin: '0', color: '#10b981', fontSize: '1.3rem' }}>{t('resultsTitle')}</h3>
                       
-                      {/* ── 🎯 ÚJ: JELENTÉS/JEGYZŐKÖNYV EXPORT GOMB VEZETŐKNEK ── */}
                       <div style={{ display: 'flex', gap: '10px' }}>
                         {canManageContest && (
                           <button 
@@ -895,7 +919,7 @@ export default function ContestsView(props: ContestsViewProps) {
                       <button onClick={() => { props.setActiveUploadContest(contest.id); props.setUploadCategory(''); }} style={{ background: 'linear-gradient(135deg, #38bdf8, #0284c7)', color: '#0f172a', border: 'none', padding: '10px 20px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem', marginBottom: '15px', transition: 'all 0.2s', boxShadow: '0 4px 15px rgba(56,189,248,0.3)' }}>{t('contBtnNewUpload')}</button>
                     )}
 
-                    {/* MODERNIZÁLT NEVEZÉSI PANEL: ELLENŐRZI A PROFIL ADATOKAT */}
+                    {/* MODERNIZÁLT NEVEZÉSI PANEL */}
                     {props.activeUploadContest === contest.id && (
                       <div style={{ background: '#0f172a', padding: '25px', borderRadius: '16px', marginBottom: '20px', border: '1px solid #334155' }}>
                         
