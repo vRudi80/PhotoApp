@@ -275,7 +275,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-  // ── 🎯 17. ÚJ: AZ ELVESZETT FELHASZNÁLÓI ADATOLVASÓ MOTOR (Átvezeti a mentett adatokat a frontendre!) ──
+
   app.get('/api/users', async (req, res) => {
     try {
       const [rows] = await pool.query(`
@@ -283,13 +283,15 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
           google_id, email, name, last_login, club_name, club_role, 
           is_premium, premium_until, stripe_customer_id, premium_level, 
           club_id, swap_balance, rank_level, referral_code, referred_by,
-          phone_number, shipping_address, association_id 
+          phone_number, shipping_address, association_id, avatar_url 
         FROM photo_users
+        ORDER BY name ASC
       `);
+      
       res.json(rows);
     } catch (err) {
-      console.error("❌ Kritikus hiba a photo_users listázásakor:", err);
-      res.status(500).json({ error: 'Szerveroldali hiba a szinkronizáció alatt.' });
+      console.error("❌ Hiba a photo_users lekérésekor:", err);
+      res.status(500).json({ error: 'Nem sikerült betölteni a felhasználókat.' });
     }
   });
 };
