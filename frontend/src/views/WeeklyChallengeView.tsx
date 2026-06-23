@@ -331,7 +331,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     } catch (e) { console.error(e); }
   };
 
-  const fetchCurrentTopic = async (isSilent = false) => {
+    const fetchCurrentTopic = async (isSilent = false) => {
     if (!isSilent) setLoading(true);
     try {
       const url = selectedTopicId 
@@ -349,6 +349,9 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         if (data.myReferralCode !== undefined) setMyReferralCode(data.myReferralCode);
         if (data.referredBy !== undefined) setReferredBy(data.referredBy);
         if (data.swapBalance !== undefined) setSwapBalance(data.swapBalance); 
+        
+        // ── 🎯 JAVÍTVA: Ez a sor hiányzott, most már a valós szavazóerődet menti el! ──
+        if (data.userPower !== undefined) setUserPower(data.userPower); 
 
         if (!selectedTopicId) {
           setActiveTopics(data.activeTopics || []);
@@ -368,6 +371,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     } catch (e) { console.error(e); }
     finally { if (!isSilent) setLoading(false); }
   };
+
 
   const fetchAlbumSilently = async () => {
     if (!user?.email) return;
