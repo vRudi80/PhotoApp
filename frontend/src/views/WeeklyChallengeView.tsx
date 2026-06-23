@@ -98,7 +98,7 @@ const compressImageOnClient = (file: File): Promise<File> => {
       };
     };
   });
-};
+});
 
 // ====================================================================
 // 📊 SELEKCIÓS KÁRTYA KOMPONENS
@@ -134,7 +134,7 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
       const seconds = Math.floor((distance % (1000 * 60)) / 1000).toString().padStart(2, '0');
 
       if (days > 0) {
-        setTimeLeft(`${days}${t('viewTimeDays')}${hours}:${minutes}:${seconds}`);
+        setTimeLeft(`${days}${t('viewTimeDays', ' nap ')}${hours}:${minutes}:${seconds}`);
       } else {
         setTimeLeft(`${hours}:${minutes}:${seconds}`);
       }
@@ -157,10 +157,9 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
   const displayTitle = lang === 'en' && topic.title_en ? topic.title_en : topic.title;
   const displayDesc = lang === 'en' && topic.description_en ? topic.description_en : topic.description;
 
+  // Intelligens darabszám számlálók
   const totalImagesCount = topic.entries_count ?? topic.entry_count ?? topic.totalEntries ?? 0;
-
-  // 🎯 ÚJ & GOLYÓÁLLÓ: Ellenőrzi az összes lehetséges backend jelzőt az új/szavazatlan képekre vonatkozóan
-  const hasUnvotedPhotos = topic.has_unvoted === true || topic.hasUnvoted === true || Number(topic.unvoted_count) > 0 || Number(topic.pending_votes) > 0;
+  const unvotedCount = topic.unvotedEntries ?? topic.unvoted_count ?? 0;
 
   return (
     <div 
@@ -171,22 +170,13 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
         <span style={{ background: isDaily ? '#ef444420' : '#3b82f620', color: isDaily ? '#f87171' : '#60a5fa', border: `1px solid ${isDaily ? '#ef444450' : '#3b82f650'}`, padding: '4px 12px', borderRadius: '50px', fontSize: '0.8rem', fontWeight: 'bold' }}>
-          {isDaily ? t('typeBlitz') : t('typeMaster')}
+          {isDaily ? t('typeBlitz', 'Villámfutam') : t('typeMaster', 'Mesterfutam')}
         </span>
-        
-        {/* 🎯 JAVÍTVA: Ha van szavazatlan kép, kirakunk egy jól látható, egyedi piros jelvényt a státusz mellé */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          {hasUnvotedPhotos && (
-            <span style={{ background: '#ef444415', color: '#f87171', border: '1px solid #ef444440', padding: '3px 8px', borderRadius: '6px', fontSize: '0.72rem', fontWeight: 'bold', letterSpacing: '0.3px' }}>
-              🗳️ {lang === 'en' ? 'NEW VOTE' : 'ÚJ KÉP / SZAVAZÁS'}
-            </span>
-          )}
-          <span style={{ color: statusColor, fontSize: '0.85rem', fontWeight: 'bold' }}>
-            {isMaster ? t('statusMaster') : topic.hasEntered ? t('statusEntered') : t('statusNotEntered')}
-          </span>
-        </div>
+        <span style={{ color: statusColor, fontSize: '0.85rem', fontWeight: 'bold' }}>
+          {isMaster ? t('statusMaster', 'Képmester 🚀') : topic.hasEntered ? (lang === 'en' ? 'Entered 🚀' : 'Neveztél 🚀') : t('statusNotEntered', 'Nyitott szoba')}
+        </span>
       </div>
-      
+
       {topic.cover_url && (
         <div style={{ width: '100%', height: '160px', borderRadius: '14px', overflow: 'hidden', marginBottom: '15px', border: '1px solid #334155', position: 'relative', backgroundColor: '#090d16' }}>
           <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${topic.cover_url})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(12px) brightness(0.5)', transform: 'scale(1.1)' }}></div>
@@ -195,30 +185,38 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
       )}
       {topic.cover_author && (
         <div style={{ color: '#64748b', fontSize: '0.75rem', fontStyle: 'italic', marginTop: '-10px', marginBottom: '15px', textAlign: 'right', paddingRight: '5px' }}>
-          {t('viewCoverAuthor')}{topic.cover_author}
+          {t('viewCoverAuthor', 'Borítókép: ')}{topic.cover_author}
         </div>
       )}
 
       <h3 style={{ color: 'white', margin: '0 0 10px 0', fontSize: '1.4rem', fontWeight: 'bold' }}>{displayTitle}</h3>
       <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: '0 0 20px 0', lineHeight: '1.5', flex: 1 }}>{displayDesc}</p>
       
+      {/* ── 🎯 JAVÍTVA: A szponzor, az összes kép és az ÉRTÉKELETLEN KÉPEK panel integrációja ── */}
       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '20px', lineHeight: '1' }}>
         {(topic.master_name || topic.master_email) && (
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#a78bfa', fontSize: '0.8rem', fontWeight: 'bold', background: '#a78bfa10', padding: '6px 10px', borderRadius: '10px', border: '1px solid #a78bfa20', whiteSpace: 'nowrap' }}>
-            <span>{t('viewMasterLabel')}</span>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#a78bfa', fontSize: '0.8rem', fontWeight: 'bold', background: '#a78bfa10', padding: '6px 12px', borderRadius: '10px', border: '1px solid #a78bfa20', whiteSpace: 'nowrap' }}>
+            <span>👑 {t('viewMasterLabel', 'Képmester')}:</span>
             <span style={{ color: '#e9d5ff' }}>{topic.master_name || topic.master_email}</span>
           </div>
         )}
 
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#10b981', fontSize: '0.8rem', fontWeight: 'bold', background: '#10b98110', padding: '6px 12px', borderRadius: '10px', border: '1px solid #10b98120', whiteSpace: 'nowrap' }}>
-          <span>{t('contCardTotalImages')}</span>
+          <span>📸 {t('contCardTotalImages', 'Összes kép')}:</span>
           <span style={{ color: '#a7f3d0' }}>{totalImagesCount} db</span>
         </div>
+
+        {/* 🗳️ PONTOS ADATKIJELZŐ: Ha van értékeletlen fotó, azonnal beugrik ez a narancssárga pill */}
+        {unvotedCount > 0 && (
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#f97316', fontSize: '0.8rem', fontWeight: 'bold', background: '#f9731610', padding: '6px 12px', borderRadius: '10px', border: '1px solid #f9731630', whiteSpace: 'nowrap', animation: 'pulse 2s infinite' }}>
+            <span>Aktivitás:</span>
+            <span style={{ color: '#ffedd5' }}>{unvotedCount} db szavazásra vár</span>
+          </div>
+        )}
       </div>
 
-      <div style={{ marginTop: 'auto', background: '#0f172a', padding: '10px 14px', borderRadius: '10px', border: '1px solid #223147', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 'bold' }}>⏰ {t('roomTimeLeftLabel')}</span>
-        <span style={{ fontSize: '0.85rem', color: isDaily ? '#ef4444' : '#38bdf8', fontFamily: 'monospace', fontWeight: 'bold' }}>{timeLeft}</span>
+      <div style={{ background: '#00000040', padding: '12px 15px', borderRadius: '12px', fontSize: '0.9rem', color: isDaily ? '#f87171' : '#38bdf8', textAlign: 'center', border: '1px solid #1e293b', fontWeight: 'bold', fontFamily: 'monospace', letterSpacing: '0.5px' }}>
+        {t('timeLeft', 'HÁTRALÉVŐ IDŐ:')} {timeLeft}
       </div>
     </div>
   );
@@ -227,11 +225,6 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
 // ====================================================================
 // ⚔️ FŐ IRÁNYÍTÓKÖZPONT KOMPONENS
 // ====================================================================
-interface WeeklyChallengeViewProps {
-  user: any;
-  setFullscreenData: (data: any) => void;
-}
-
 export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyChallengeViewProps) {
   const { t, lang } = useLanguage();
 
@@ -299,7 +292,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const [myStats, setMyStats] = useState<{podiums: any, history: any[]} | null>(null);
   const [showHelp, setShowHelp] = useState(false);
   const [isLoadingStats, setIsLoadingStats] = useState(false);
-  const [isLoadingHof, setIsLoadingHof] = useState(false);
 
   const [timeLeft, setTimeLeft] = useState<string>('');
   const [userTotalLikes, setUserTotalLikes] = useState<number>(0);
@@ -438,7 +430,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       }
     } catch (err) {
       console.error(err);
-    } fill() {
+    } finally {
       setIsSendingLobbyMsg(false);
     }
   };
@@ -529,15 +521,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     finally { setIsLoadingStats(false); }
   };
 
-  const fetchHallOfFame = async () => {
-    setIsLoadingHof(true);
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/weekly/hall-of-fame`);
-      if (res.ok) setHallOfFame(await res.json());
-    } catch (e) { console.error(e); }
-    finally { setIsLoadingHof(false); }
-  };
-
   const loadPastHistoryList = async (topicId: number) => {
     setSelectedPastTopicId(topicId);
     try {
@@ -570,7 +553,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     setVoteEntry(null); 
     try {
       const res = await fetch(`${BACKEND_URL}/api/weekly/vote`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ entryId: oldEntryId, userEmail: user?.email || '', voteType: type })
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entryId: oldEntryId, userEmail: user?.email || '', voteType: type })
       });
       if (res.ok) { setMyVoteCount(prev => prev + 1); fetchNextVote(topic.id); fetchCurrentTopic(true); }
     } catch (e) { if(topic) fetchNextVote(topic.id); }
@@ -581,7 +565,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     setIsClaimingReferral(true);
     try {
       const res = await fetch(`${BACKEND_URL}/api/weekly/claim-referral`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userEmail: user?.email, referralCode: referralInput.trim().toUpperCase() })
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userEmail: user?.email, referralCode: referralInput.trim().toUpperCase() })
       });
       if (res.ok) { alert(t('msgReferralSuccess')); setReferredBy(referralInput); fetchCurrentTopic(true); } 
       else { const err = await res.json(); alert(err.error || t('msgSwapErrorMain')); }
@@ -614,12 +599,9 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       } catch (exifError) {
         setUploadCamera(''); setUploadCameraLens(''); setUploadShutter(''); setUploadIso(''); setUploadAperture(''); setUploadSoftware('');
       }
-
       let finalFile = rawFile;
       if (rawFile.size > 2 * 1024 * 1024) finalFile = await compressImageOnClient(rawFile);
-      setUploadFile(finalFile); 
-      if (uploadPreview) URL.revokeObjectURL(uploadPreview); 
-      setUploadPreview(URL.createObjectURL(finalFile));
+      setUploadFile(finalFile); if (uploadPreview) URL.revokeObjectURL(uploadPreview); setUploadPreview(URL.createObjectURL(finalFile));
     }
   };
 
@@ -680,11 +662,13 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
 
       const res = await fetch(`${BACKEND_URL}/api/weekly/swap`, { method: 'POST', body: formData });
       if (res.ok) { 
-        alert(t('msgSwapSuccess')); setSwapFile(null); setSwapPreview(null);
+        alert(t('msgSwapSuccess')); setSwapFile(null); setSwapPreview(null); 
         setSwapCamera(''); setSwapLens(''); setSwapShutter(''); setSwapIso(''); setSwapAperture(''); setSwapSoftware('');
         fetchCurrentTopic(false); fetchAlbumSilently();
-      } else { const err = await res.json(); alert(err.error); }
-    } catch (e) { alert(t('msgSwapErrorMain')); } finally { setIsSwapping(false); }
+      } 
+      else { const err = await res.json(); alert(err.error); }
+    } catch (e) { alert(t('msgSwapErrorMain')); }
+    finally { setIsSwapping(false); }
   };
 
   const handleSwapBackSubmit = async (entryId: number) => {
@@ -696,7 +680,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       });
       if (res.ok) { alert(t('msgSwapBackSuccess')); fetchCurrentTopic(false); fetchAlbumSilently(); } 
       else { const err = await res.json(); alert(err.error || t('msgSwapErrorMain')); }
-    } catch (e) { alert(t('msgNetworkError')); } finally { setIsSwapping(false); }
+    } catch (e) { alert(t('msgNetworkError')); }
+    finally { setIsSwapping(false); }
   };
 
   const handleSelectPhotoForSwap = async (photoUrl: string) => {
@@ -708,7 +693,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       });
       if (swapRes.ok) { alert(t('msgSwapExistingSuccess')); fetchCurrentTopic(false); fetchAlbumSilently(); } 
       else { const err = await swapRes.json(); alert(err.error); }
-    } catch (e) { alert(t('msgNetworkError')); } finally { setIsSwapping(false); }
+    } catch (e) { alert(t('msgNetworkError')); } 
+    finally { setIsSwapping(false); }
   };
 
   const handleExecuteShare = async () => {
@@ -737,18 +723,9 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         const link = document.createElement('a'); link.download = `Arena_Trophy_${activeShareData.topic_title}.png`; link.href = dataUrl; link.click();
       }
       setActiveShareData(null);
-    } catch (e) { alert(t('msgGenerateImageError')); } finally { setIsGeneratingImage(false); }
+     } catch (e) { alert(t('msgGenerateImageError')); } 
+     finally { setIsGeneratingImage(false); }
   };
-
-  useEffect(() => {
-    if (selectedTopicId === null && subTab === 'current' && isChatOpen) {
-      if (chatScrollContainerRef.current) chatScrollContainerRef.current.scrollTop = chatScrollContainerRef.current.scrollHeight;
-      const timer = setTimeout(() => {
-        if (chatScrollContainerRef.current) chatScrollContainerRef.current.scrollTop = chatScrollContainerRef.current.scrollHeight;
-      }, 120);
-      return () => clearTimeout(timer);
-    }
-  }, [lobbyMessages.length, selectedTopicId, subTab, isChatOpen]);
 
   const currentLevel = getLevelDetails(userTotalLikes, userVictories);
 
@@ -770,11 +747,11 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     const timeA = new Date(dateStrA).getTime() || 0; const timeB = new Date(dateStrB).getTime() || 0;
     return sortBy === 'endDate' ? timeA - timeB : timeB - timeA;
   });
-
+  
   return (
     <div style={{ animation: 'fadeIn 0.4s ease-out', position: 'relative' }}>
       
-      {/* EXKLUZÍV TABS ALMENÜ SÁV */}
+      {/* TABS HEADER GOMBSOR */}
       <div className="arena-tabs-scroll-wrapper" style={{ background: '#0f172a', borderBottom: '1px solid #1e293b', marginBottom: '25px', borderRadius: '16px 16px 0 0' }}>
         <div className="arena-tabs-internal-line" style={{ display: 'flex', gap: '8px', padding: '15px 20px 0 20px', justifyContent: 'space-between', alignItems: 'flex-end' }}>
           <div style={{ display: 'flex', gap: '8px' }}>
@@ -943,12 +920,13 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   <div style={{ color: '#94a3b8', padding: '50px' }}>{t('viewPreparingRoom')}</div>
                 ) : (
                   <ArenaActiveRoom
-                    topic={topic} timeLeft={timeLeft} isMaster={isMaster} exposureColor={exposureColor} exposurePercentage={exposurePercentage} exposureLabel={exposureLabel} myEntry={myEntry} voteEntry={voteEntry} noMoreEntries={noMoreEntries} masterVotesLeft={masterVotesLeft} userPower={userPower} swapBalance={swapBalance} myPastEntries={myPastEntries} leaderboard={leaderboard} currentClubLeaderboard={currentClubLeaderboard} user={user} isUploading={isUploading} uploadPreview={uploadPreview} handleFileSelect={handleFileSelect} handleUpload={handleUpload} isLoadingSwapAlbum={isLoadingSwapAlbum} isSwapping={isSwapping} swapPreview={swapPreview} handleFileSelectForSwap={handleFileSelectForSwap} handleSwapSubmit={handleSwapSubmit} onOpenAlbumForUpload={() => { setAlbumModalMode('upload'); setShowSwapAlbumModal(true); }} onOpenAlbumForSwap={() => { setAlbumModalMode('swap'); setShowSwapAlbumModal(true); }} handleVote={handleVote} handleOffTopicReport={handleOffTopicReport} handleSwapBackSubmit={handleSwapBackSubmit} setFullscreenData={setFullscreenData} handleImageError={handleImageError} fetchCurrentTopic={fetchCurrentTopic}
+                    topic={topic} timeLeft={timeLeft} isMaster={isMaster} exposureColor={exposureColor} exposurePercentage={exposurePercentage} exposureLabel={exposureLabel} myEntry={myEntry} voteEntry={voteEntry} noMoreEntries={noMoreEntries} masterVotesLeft={masterVotesLeft} userPower={userPower} swapBalance={swapBalance} myPastEntries={myPastEntries} leaderboard={leaderboard} currentClubLeaderboard={currentClubLeaderboard} user={user} isUploading={isUploading} uploadPreview={uploadPreview} handleFileSelect={handleFileSelect} handleUpload={handleUpload} isLoadingSwapAlbum={isLoadingSwapAlbum} isSwapping={isSwapping} swapPreview={swapPreview} handleSwapFileSelect={handleFileSelectForSwap} handleSwapSubmit={handleSwapSubmit} onOpenAlbumForUpload={() => { setAlbumModalMode('upload'); setShowSwapAlbumModal(true); }} onOpenAlbumForSwap={() => { setAlbumModalMode('swap'); setShowSwapAlbumModal(true); }} handleVote={handleVote} handleOffTopicReport={handleOffTopicReport} handleSwapBackSubmit={handleSwapBackSubmit} setFullscreenData={setFullscreenData} handleImageError={handleImageError} fetchCurrentTopic={fetchCurrentTopic}
                   />
                 )}
               </div>
             )}
 
+            {/* FLOATING CHAT DOCK PANEL */}
             <div className={`arena-floating-chat-dock ${isChatOpen ? 'is-open' : 'is-closed'} ${hasNewMessage ? 'has-unread' : ''}`}>
               <div onClick={() => { setIsChatOpen(!isChatOpen); if (!isChatOpen) setHasNewMessage(false); }} className="chat-dock-header">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', position: 'relative' }}>
@@ -987,7 +965,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                     {currentlyTyping.length > 0 && <span>{currentlyTyping.join(', ')}{t('viewLobbyTyping')}...</span>}
                   </div>
                   <form onSubmit={handleSendLobbyMessage} style={{ display: 'flex', gap: '8px' }}>
-                    <input type="text" placeholder={t('viewLobbyPlaceholder')} value={typedLobbyMsg} onChange={handleInputChange} maxLength={500} disabled={isSendingLobbyMsg} style={{ flex: 1, padding: '10px 12px', background: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '10px', fontSize: '0.95rem' }} />
+                    <input type="text" placeholder={t('viewLobbyPlaceholder')} value={typedLobbyMsg} onChange={handleInputChange} maxLength={500} disabled={isSendingLobbyMsg} style={{ flex: 1, padding: '10px 12px', background: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '10px', fontSize: '0.85rem' }} />
                     <button type="submit" disabled={!typedLobbyMsg.trim() || isSendingLobbyMsg} style={{ background: (!typedLobbyMsg.trim() || isSendingLobbyMsg) ? '#334155' : 'linear-gradient(135deg, #f97316, #ef4444)', color: 'white', border: 'none', padding: '10px 16px', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>{t('viewLobbySend')}</button>
                   </form>
                 </div>
@@ -1005,22 +983,11 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         )}
         
         {subTab === 'past' && (
-          <PastArchive 
-            pastTopics={pastTopics} 
-            selectedPastTopicId={selectedPastTopicId} 
-            setSelectedPastTopicId={setSelectedPastTopicId} 
-            loadPastHistoryList={loadPastHistoryList} 
-            pastClubLeaderboard={pastClubLeaderboard} 
-            pastLeaderboard={pastLeaderboard} 
-            getTopicType={getTopicType} 
-            handleImageError={handleImageError} 
-            setFullscreenData={setFullscreenData} 
-            user={user} 
-          />
+          <PastArchive pastTopics={pastTopics} selectedPastTopicId={selectedPastTopicId} loadPastHistoryList={loadPastHistoryList} pastClubLeaderboard={pastClubLeaderboard} pastLeaderboard={pastLeaderboard} getTopicType={getTopicType} handleImageError={handleImageError} setFullscreenData={setFullscreenData} user={user} />
         )}
         
         {subTab === 'my_stats' && (
-          <TrophyRoom isLoadingStats={isLoadingStats} myStats={myStats} userTotalLikes={userTotalLikes} userVictories={userVictories} swapBalance={swapBalance} myReferralCode={myReferralCode} referredBy={referredBy} referralInput={referralInput} setRedirectInput={setReferralInput} isClaimingReferral={isClaimingReferral} handleClaimReferral={handleClaimReferral} setActiveShareData={setActiveShareData} setFullscreenData={setFullscreenData} getLevelDetails={getLevelDetails} getTopicType={getTopicType} handleImageError={handleImageError} />
+          <TrophyRoom isLoadingStats={isLoadingStats} myStats={myStats} userTotalLikes={userTotalLikes} userVictories={userVictories} swapBalance={swapBalance} myReferralCode={myReferralCode} referredBy={referredBy} referralInput={referralInput} setReferralInput={setReferralInput} isClaimingReferral={isClaimingReferral} handleClaimReferral={handleClaimReferral} setActiveShareData={setActiveShareData} setFullscreenData={setFullscreenData} getLevelDetails={getLevelDetails} getTopicType={getTopicType} handleImageError={handleImageError} />
         )}
 
         {subTab === 'hall_of_fame' && (
@@ -1042,7 +1009,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
 
       <ShareCardModal activeShareData={activeShareData} onClose={() => setActiveShareData(null)} user={user} shareBase64={shareBase64} loadingShareImg={loadingShareImg} isGeneratingImage={isGeneratingImage} handleExecuteShare={handleExecuteShare} />
 
-      {/* ── 🎯 RENDKÍVÜL STABIL RESZPONZÍV STYLING ── */}
+      {/* ── 🎯 RENDKÍVÜL STABIL RESZPONZÍV STYLING REGETEG ── */}
       <style>{`
         .arena-fluid-container { width: 100%; box-sizing: border-box; }
         .arena-cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 25px; width: 100%; }
