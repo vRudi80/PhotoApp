@@ -928,16 +928,16 @@ app.get('/api/weekly/past', async (req, res) => {
   try {
     const [rows] = await pool.query(`
       SELECT t.*, 
-             (SELECT COUNT(*) FROM photo_homework_entries WHERE homework_id = t.id) as entries_count,
-             (SELECT COUNT(*) FROM photo_homework_likes WHERE entry_id IN (SELECT id FROM photo_homework_entries WHERE homework_id = t.id)) as total_votes
+             (SELECT COUNT(*) FROM photo_weekly_entries WHERE topic_id = t.id) as entries_count,
+             (SELECT COUNT(*) FROM photo_weekly_votes WHERE entry_id IN (SELECT id FROM photo_weekly_entries WHERE topic_id = t.id)) as total_votes
       FROM photo_weekly_topics t 
       WHERE t.end_date < NOW() 
       ORDER BY t.end_date DESC
     `);
     res.json(rows);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Hiba az archívum lekérésekor' });
+    console.error("❌ Hiba az archívum SQL lekérdezése közben:", err.message);
+    res.status(500).json({ error: 'Szerveroldali hiba az archívum összeállításakor.' });
   }
 });
 
