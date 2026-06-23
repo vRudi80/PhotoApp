@@ -39,7 +39,7 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
 
   const isLeader = user?.club_role === 'leader' || user?.club_role === 'deputy';
 
-  // 🎯 ÚJ & GOLYÓÁLLÓ: Profiladatok és a kép közvetlen betöltése a friss adatbázisból
+  // Profiladatok és a kép közvetlen betöltése a friss adatbázisból
   const loadFreshProfile = async () => {
     if (!user?.email) return;
     try {
@@ -257,6 +257,10 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
       });
     } catch (e) { return dateStr; }
   };
+
+  // 🎯 JAVÍTVA: Visszakerültek a hiányzó hatóköri változók a renderelés elé!
+  const isPremiumActive = user?.is_premium === 1;
+  const hasExpiredPremium = user?.is_premium === 0 && user?.premium_until;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '30px', maxWidth: '600px', margin: '0 auto', animation: 'fadeIn 0.3s ease-out' }}>
