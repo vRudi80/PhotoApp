@@ -102,6 +102,20 @@ module.exports = function(app, pool) {
       res.status(500).json({ error: 'Adatbázis hiba a profil mentése során.' });
     }
   });
+
+  // ====================================================================
+  // 👑 UTALHATATLAN ADMIN VÉGPONT: Garantáltan mindent lekér (*) és nem ütközik semmivel
+  // ====================================================================
+  app.get('/api/admin/exclusive-users', async (req, res) => {
+    try {
+      // A SELECT * automatikusan áthúzza az avatar_url-t és minden jövőbeli oszlopot is!
+      const [rows] = await pool.query('SELECT * FROM photo_users ORDER BY name ASC');
+      res.json(rows);
+    } catch (err) {
+      console.error("❌ Hiba az exkluzív admin felhasználó listázásakor:", err);
+      res.status(500).json({ error: 'Szerveroldali hiba történt az admin lista lekérésekor.' });
+    }
+  });
   
   // ====================================================================
   // 🛡️ Felhasználó klubjának és szerepkörének módosítása (Admin felület)
