@@ -157,7 +157,6 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
   const displayTitle = lang === 'en' && topic.title_en ? topic.title_en : topic.title;
   const displayDesc = lang === 'en' && topic.description_en ? topic.description_en : topic.description;
 
-  // Intelligens darabszám számlálók
   const totalImagesCount = topic.entries_count ?? topic.entry_count ?? topic.totalEntries ?? 0;
   const unvotedCount = topic.unvotedEntries ?? topic.unvoted_count ?? 0;
 
@@ -192,7 +191,6 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
       <h3 style={{ color: 'white', margin: '0 0 10px 0', fontSize: '1.4rem', fontWeight: 'bold' }}>{displayTitle}</h3>
       <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: '0 0 20px 0', lineHeight: '1.5', flex: 1 }}>{displayDesc}</p>
       
-      {/* ── 🎯 JAVÍTVA: A szponzor, az összes kép és az ÉRTÉKELETLEN KÉPEK panel integrációja ── */}
       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '20px', lineHeight: '1' }}>
         {(topic.master_name || topic.master_email) && (
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#a78bfa', fontSize: '0.8rem', fontWeight: 'bold', background: '#a78bfa10', padding: '6px 12px', borderRadius: '10px', border: '1px solid #a78bfa20', whiteSpace: 'nowrap' }}>
@@ -206,9 +204,8 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
           <span style={{ color: '#a7f3d0' }}>{totalImagesCount} db</span>
         </div>
 
-        {/* 🗳️ PONTOS ADATKIJELZŐ: Ha van értékeletlen fotó, azonnal beugrik ez a narancssárga pill */}
         {unvotedCount > 0 && (
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#f97316', fontSize: '0.8rem', fontWeight: 'bold', background: '#f9731610', padding: '6px 12px', borderRadius: '10px', border: '1px solid #f9731630', whiteSpace: 'nowrap', animation: 'pulse 2s infinite' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#f97316', fontSize: '0.8rem', fontWeight: 'bold', background: '#f9731610', padding: '6px 12px', borderRadius: '10px', border: '1px solid #f9731630', whiteSpace: 'nowrap' }}>
             <span>Aktivitás:</span>
             <span style={{ color: '#ffedd5' }}>{unvotedCount} db szavazásra vár</span>
           </div>
@@ -292,6 +289,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const [myStats, setMyStats] = useState<{podiums: any, history: any[]} | null>(null);
   const [showHelp, setShowHelp] = useState(false);
   const [isLoadingStats, setIsLoadingStats] = useState(false);
+  const [isLoadingHof, setIsLoadingHof] = useState(false);
 
   const [timeLeft, setTimeLeft] = useState<string>('');
   const [userTotalLikes, setUserTotalLikes] = useState<number>(0);
@@ -465,48 +463,29 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     }
   }, [isChatOpen, lobbyMessages, user?.email]);
 
+  // ── 🎯 JAVÍTVA: AZ ULTRA-ROBUST LÉPCSŐZETES AUTOMATIKUS GÖRDÍTŐ RENDSZER INTEGRÁCIÓJA ──
   useEffect(() => {
-    if (subTab !== 'current' || selectedTopicId !== null) return;
-    let timerId: NodeJS.Timeout;
-    let isMounted = true;
-
-    const fetchLobbyChat = async () => {
-      try {
-        const res = await fetch(`${BACKEND_URL}/api/weekly/chat/0?t=${Date.now()}`, {
-          method: 'GET', headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate', 'Pragma': 'no-cache', 'Expires': '0' }
-        });
-        
-        if (res.ok && isMounted) {
-          const data = await res.json();
-          const newMessages = data.messages || [];
-          
-          if (newMessages.length > 0 && user?.email) {
-            const lastMsg = newMessages[newMessages.length - 1];
-            const lastMsgEmail = lastMsg?.user_email || lastMsg?.userEmail;
-            const lastId = lastMsg.id || lastMsg._id;
-
-            if (lastMsgEmail !== user.email) {
-              if (isChatOpenRef.current) {
-                localStorage.setItem(`arena_chat_last_read_${user.email}`, String(lastId));
-              } else {
-                const storedId = localStorage.getItem(`arena_chat_last_read_${user.email}`);
-                if (!storedId || String(lastId) !== storedId) setHasNewMessage(true);
-              }
-            }
-          }
-          setLobbyMessages(newMessages);
-          const othersTyping = (data.typing || []).filter((name: string) => name !== myOfficialNameRef.current);
-          setCurrentlyTyping(othersTyping);
+    if (selectedTopicId === null && subTab === 'current' && isChatOpen) {
+      const handleScrollToBottom = () => {
+        if (chatScrollContainerRef.current) {
+          chatScrollContainerRef.current.scrollTop = chatScrollContainerRef.current.scrollHeight;
         }
-      } catch (err) {
-        console.error("Lobby chat synchronization anomaly:", err);
-      } finally { 
-        if (isMounted && subTab === 'current' && selectedTopicId === null) timerId = setTimeout(fetchLobbyChat, 2500);
-      }
-    };
-    fetchLobbyChat();
-    return () => { isMounted = false; clearTimeout(timerId); };
-  }, [subTab, selectedTopicId, user?.email]);
+      };
+
+      handleScrollToBottom();
+
+      // Több lépcsőben görgetünk, hogy lekövessük a panel 0.3 másodperces nyíló animációját!
+      const t1 = setTimeout(handleScrollToBottom, 50);
+      const t2 = setTimeout(handleScrollToBottom, 150);
+      const t3 = setTimeout(handleScrollToBottom, 350); 
+
+      return () => {
+        clearTimeout(t1);
+        clearTimeout(t2);
+        clearTimeout(t3);
+      };
+    }
+  }, [lobbyMessages.length, selectedTopicId, subTab, isChatOpen]);
 
   const fetchMyStats = async () => {
     setIsLoadingStats(true);
@@ -519,6 +498,15 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       }
     } catch (error) { console.error(error); } 
     finally { setIsLoadingStats(false); }
+  };
+
+  const fetchHallOfFame = async () => {
+    setIsLoadingHof(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/weekly/hall-of-fame`);
+      if (res.ok) setHallOfFame(await res.json());
+    } catch (e) { console.error(e); }
+    finally { setIsLoadingHof(false); }
   };
 
   const loadPastHistoryList = async (topicId: number) => {
@@ -553,8 +541,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     setVoteEntry(null); 
     try {
       const res = await fetch(`${BACKEND_URL}/api/weekly/vote`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ entryId: oldEntryId, userEmail: user?.email || '', voteType: type })
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ entryId: oldEntryId, userEmail: user?.email || '', voteType: type })
       });
       if (res.ok) { setMyVoteCount(prev => prev + 1); fetchNextVote(topic.id); fetchCurrentTopic(true); }
     } catch (e) { if(topic) fetchNextVote(topic.id); }
@@ -565,8 +552,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     setIsClaimingReferral(true);
     try {
       const res = await fetch(`${BACKEND_URL}/api/weekly/claim-referral`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userEmail: user?.email, referralCode: referralInput.trim().toUpperCase() })
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userEmail: user?.email, referralCode: referralInput.trim().toUpperCase() })
       });
       if (res.ok) { alert(t('msgReferralSuccess')); setReferredBy(referralInput); fetchCurrentTopic(true); } 
       else { const err = await res.json(); alert(err.error || t('msgSwapErrorMain')); }
@@ -926,7 +912,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
               </div>
             )}
 
-            {/* FLOATING CHAT DOCK PANEL */}
             <div className={`arena-floating-chat-dock ${isChatOpen ? 'is-open' : 'is-closed'} ${hasNewMessage ? 'has-unread' : ''}`}>
               <div onClick={() => { setIsChatOpen(!isChatOpen); if (!isChatOpen) setHasNewMessage(false); }} className="chat-dock-header">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', position: 'relative' }}>
