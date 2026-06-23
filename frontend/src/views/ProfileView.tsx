@@ -46,7 +46,12 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
       setPhone(user.phone_number || user.phone || '');
       setAddress(user.shipping_address || user.address || '');
       setAssociationId(user.association_id || '');
-      setAvatarPreview(user.avatar_url || null);
+      
+      // 🎯 JAVÍTVA & VÉDELEM: Csak akkor írjuk felül a helyi előnézetet a globális userből, 
+      // ha az valóban tartalmaz egy érvényes Cloudinary URL-t! Így a hiányos backend lekérdezések nem tudják törölni.
+      if (user.avatar_url) {
+        setAvatarPreview(user.avatar_url);
+      }
     }
   }, [user]);
 
@@ -107,14 +112,13 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
     loadPendingMembers();
   }, [user, isLeader, activeClubs]);
 
- // 📸 PROFILKÉP CLOUDINARY FELTÖLTŐ MOTOR
+  // 📸 PROFILKÉP CLOUDINARY FELTÖLTŐ MOTOR
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
 
-      // Kliensoldali azonnali gyors előnézet (ideiglenes)
-      const localPreviewUrl = URL.createObjectURL(file);
-      setAvatarPreview(localPreviewUrl);
+      // Kliensoldali azonnali gyors előnézet generálása
+      setAvatarPreview(URL.createObjectURL(file));
       setIsUploadingAvatar(true);
 
       const formData = new FormData();
@@ -128,16 +132,20 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
 
         if (res.ok) {
           const responseData = await res.json();
-          // 🎯 JAVÍTVA: Azonnal beállítjuk a backendről kapott végleges Cloudinary URL-t!
+          
           if (responseData.avatar_url) {
+            // 🎯 JAVÍTVA: Azonnal beállítjuk a helyi állapothoz
             setAvatarPreview(responseData.avatar_url);
+            // 🎯 JAVÍTVA: Azonnal frissítjük a globális App.tsx szintű user állapotot is, mielőtt a fetchData lefutna!
+            setUser({ ...user, avatar_url: responseData.avatar_url });
           }
+
           alert(lang === 'en' ? "Profile picture updated successfully!" : "Profilkép sikeresen frissítve! 📸");
-          fetchData(); // Globális adatok frissítése
+          fetchData(); 
         } else {
           const err = await res.json();
           alert(err.error || "Hiba történt a profilkép feltöltése közben.");
-          setAvatarPreview(user?.avatar_url || null); // Hiba esetén visszaállítjuk az eredetit
+          setAvatarPreview(user?.avatar_url || null);
         }
       } catch (err) {
         alert(t('msgNetworkError') || "Hálózati kommunikációs hiba lépett fel.");
@@ -283,8 +291,8 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
                 <span style={{ color: '#10b981', fontWeight: 'bold', fontSize: '1.1rem', display: 'block' }}>👑 Premium Member</span>
                 <span style={{ color: '#94a3b8', fontSize: '0.8rem' }}>{t('profPremiumActive')}</span>
               </div>
-              <div style={{ textAlign: 'right' }}>
-                <span style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'block', textTransform: 'uppercase' }}>{t('profPremiumValid')}</span>
+              <div style={{ textTransform: 'uppercase', textAlign: 'right' }}>
+                <span style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'block' }}>{t('profPremiumValid')}</span>
                 <span style={{ color: '#f8fafc', fontWeight: 'bold', fontSize: '0.9rem' }}>{formatDate(user.premium_until)}</span>
               </div>
             </div>
@@ -294,8 +302,8 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
                 <span style={{ color: '#ef4444', fontWeight: 'bold', fontSize: '1.1rem', display: 'block' }}>⏳ {t('profPremiumExpired')}</span>
                 <span style={{ color: '#94a3b8', fontSize: '0.8rem' }}>{t('profPremiumExpiredDesc')}</span>
               </div>
-              <div style={{ textAlign: 'right' }}>
-                <span style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'block', textTransform: 'uppercase' }}>{t('profPremiumExpiredOn')}</span>
+              <div style={{ textTransform: 'uppercase', textAlign: 'right' }}>
+                <span style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'block' }}>{t('profPremiumExpiredOn')}</span>
                 <span style={{ color: '#f8fafc', fontWeight: 'bold', fontSize: '0.9rem' }}>{formatDate(user.premium_until)}</span>
               </div>
             </div>
