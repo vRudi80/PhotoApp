@@ -98,7 +98,7 @@ const compressImageOnClient = (file: File): Promise<File> => {
       };
     };
   });
-});
+};
 
 // ====================================================================
 // 📊 SELEKCIÓS KÁRTYA KOMPONENS
