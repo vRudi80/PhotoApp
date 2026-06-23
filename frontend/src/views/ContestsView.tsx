@@ -188,7 +188,6 @@ export default function ContestsView(props: ContestsViewProps) {
       doc.setFontSize(14);
       doc.text(fixHu(`${lang === 'en' ? 'Category' : 'Kategória'}: ${result.category}`), 148.5, 68, { align: "center" });
 
-      const maxW = 160;
       const maxW_val = 160;
       const maxH = 90;
       let imgW = img.width;
@@ -225,7 +224,7 @@ export default function ContestsView(props: ContestsViewProps) {
   };
 
   // ====================================================================
-  // 📝 MAFOSZ ZSŰRI JEGYZŐKÖNYV GENERÁLÁSA (Védnök / Szponzor integrációval)
+  // 📝 MAFOSZ ZSŰRI JEGYZŐKÖNYV GENERÁLÁSA (Javított cím és "pont" egység)
   // ====================================================================
   const generateJuryReportPdf = (contest: any, results: any[], contestJury: any[]) => {
     setIsJuryDocCompiling(true);
@@ -233,29 +232,27 @@ export default function ContestsView(props: ContestsViewProps) {
       const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
       const fixHu = (str: string) => str ? str.replace(/ő/g, 'ö').replace(/ű/g, 'ü').replace(/Ő/g, 'Ö').replace(/Ű/g, 'Ü') : '';
 
+      // 🎯 JAVÍTVA: Helyes 'Ű' karakter használata, így a fixHu tökéletes 'Ü'-vé alakítja, és hibátlanul középre zár
       doc.setFont("times", "bold");
-      doc.setFontSize(22);
-      doc.text(fixHu("HIVATALOS ZSŪRI JEGYZŐKÖNYV"), 105, 25, { align: "center" });
+      doc.setFontSize(20);
+      doc.text(fixHu("HIVATALOS ZSŰRI JEGYZŐKÖNYV"), 105, 25, { align: "center" });
       
       let currentY = 40;
       doc.setFontSize(14);
       doc.setFont("times", "normal");
       
-      // Cím intelligens tördelése lefutás ellen
       const titleLines = doc.splitTextToSize(fixHu(`Pályázat megnevezése: ${contest.title}`), 170);
       titleLines.forEach((line: string) => {
         doc.text(line, 20, currentY);
         currentY += 7;
       });
 
-      // Pályázat kiírója / Rendező egyesület kiírása
       const creatorEmail = contest.proposed_by || contest.master_email || '';
       const creatorUser = props.allUsers.find(u => u.email === creatorEmail);
       const creatorName = creatorUser ? creatorUser.name : creatorEmail;
       doc.text(fixHu(`Pályázat kiírója / Rendező: ${creatorName || 'FotóAwesome Rendszer'}`), 20, currentY);
       currentY += 7;
 
-      // 🎯 ÚJ: Hivatalos Védnök / Szponzor fotóklub dinamikus megjelenítése a PDF-en is!
       const targetSponsorId = contest.sponsor_club_id || contest.sponsorClubId;
       const sponsorClubObj = props.clubs.find(c => Number(c.id) === Number(targetSponsorId));
       if (sponsorClubObj) {
@@ -315,7 +312,9 @@ export default function ContestsView(props: ContestsViewProps) {
         } else {
           catResults.forEach((res, rIdx) => {
             const awardLabel = awardsArr[rIdx] ? `[DÍJ: ${awardsArr[rIdx]}]` : '[Elfogadva]';
-            const fullResultText = `  Hely #${rIdx + 1}: "${res.title}" - ${res.user_name} (${res.total_score} FP) ${awardLabel}`;
+            
+            // 🎯 JAVÍTVA: Az 'FP' utótag lecserélve a tiszta 'pont' szóra, ahogy kérted
+            const fullResultText = `  Hely #${rIdx + 1}: "\${res.title}" - \${res.user_name} (\${res.total_score} pont) \${awardLabel}`;
             
             const wrappedLines = doc.splitTextToSize(fixHu(fullResultText), 165);
             wrappedLines.forEach((line: string) => {
@@ -649,7 +648,7 @@ export default function ContestsView(props: ContestsViewProps) {
                       </div>
                       <div>
                         <label style={{fontSize:'0.8rem', color:'#94a3b8', display: 'block', marginBottom: '4px'}}>{t('contLabelCurrency')}</label>
-                        <select value={props.editFeeCurrency} onChange={e => props.setEditFeeCurrency(e.target.value)} style={inputStyle}>
+                        <select value={props.editFeeCurrency} onChange={e => props.editFeeCurrency(e.target.value)} style={inputStyle}>
                           <option value="HUF">HUF</option>
                           <option value="EUR">EUR</option>
                         </select>
