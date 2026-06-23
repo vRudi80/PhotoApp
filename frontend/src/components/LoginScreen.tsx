@@ -200,7 +200,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                   theme="filled_black" 
                   text="continue_with"
                   locale={lang} 
-                  ux_mode="redirect" // 👈 UTOLÉRHETETLEN FIX: Felugró ablak helyett tiszta átirányítással azonnal megnyílik mobilon is!
+                
                 />
               </div>
               <span style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '5px' }}>
