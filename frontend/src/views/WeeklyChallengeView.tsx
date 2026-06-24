@@ -919,9 +919,32 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   )}
                 </div>
 
-                {loading ? (
-                  <VideoLoader />
-                ) : activeTopics.length === 0 ? (
+            // 🎯 JAVÍTVA: Transzparens és pulzáló állapotjelző Cold Start esetére
+{loading ? (
+  <div style={{ 
+    display: 'flex', 
+    flexDirection: 'column', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    padding: '80px 20px', 
+    gap: '20px',
+    width: '100%' 
+  }}>
+    <VideoLoader />
+    <div style={{ textAlign: 'center', animation: 'arenaPulse 2s infinite' }}>
+      <h4 style={{ color: '#f59e0b', margin: '0 0 8px 0', fontSize: '1.1rem', fontWeight: 'bold', letterSpacing: '0.5px' }}>
+        {lang === 'en' ? '⚡ Server is waking up...' : '⚡ A szerver ébredezik...'}
+      </h4>
+      <p style={{ color: '#64748b', fontSize: '0.85rem', margin: 0, maxWidth: '320px', lineHeight: '1.4' }}>
+        {lang === 'en' 
+          ? 'The free tier hosting takes about 30-50 seconds to warm up after a period of inactivity.' 
+          : 'A rendszer tétlenség után 30-50 másodpercig melegszik be. Azonnal indulunk!'}
+      </p>
+    </div>
+    <style>{`@keyframes arenaPulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }`}</style>
+  </div>
+) : activeTopics.length === 0 ? (
+
                   <div style={{ textAlign: 'center', padding: '5rem 2rem', background: 'linear-gradient(180deg, #1e293b, #0f172a)', borderRadius: '24px', border: '1px solid #334155' }}>
                     <div style={{ fontSize: '5rem', marginBottom: '1rem' }}>😴</div>
                     <h2 style={{ color: '#f59e0b', margin: '0 0 10px 0', fontSize: '2rem' }}>{t('viewNoActiveLeagues')}</h2>
