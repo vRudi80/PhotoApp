@@ -643,7 +643,9 @@ function MainContent() {
           <main className="app-main">
             <Routes>
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
-              <Route path="/dashboard" element={<DashboardView user={user} isLeader={!!isLeader} setActiveTab={setActiveTab} setTargetMapSpotId={setTargetMapSpotId} />} />
+// 🎯 JAVÍTVA: Mostantól a headerUser-t adjuk át, amiben benne van a frissített klubnév is az adatbázisból!
+<Route path="/dashboard" element={<DashboardView user={headerUser} isLeader={!!isLeader} setActiveTab={setActiveTab} setTargetMapSpotId={setTargetMapSpotId} />} />
+
               <Route path="/weekly_challenge" element={<WeeklyChallengeView user={user} setFullscreenData={setFullscreenData} />} />
               <Route path="/profile" element={<ProfileView user={currentDbUser} setUser={setUser} fetchData={fetchData} />} />
               <Route path="/tickets" element={<TicketsView user={currentDbUser} />} />
