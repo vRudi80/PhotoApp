@@ -52,11 +52,11 @@ const getLevelDetails = (likes: number, victories: number) => {
   if (likes < 500) return { id: 3, name: 'Komponista 📐', color: '#60a5fa', bg: '#60a5fa15' };
   if (likes < 800 || victories < 1) return { id: 4, name: 'Fényíró 🎞️', color: '#10b981', bg: '#10b98115' };
   if (likes < 1300 || victories < 2) return { id: 5, name: 'Esztéta 💎', color: '#059669', bg: '#05966915' };
-  if (likes < 2000 || victories < 3) return { id: 6, name: 'Szakértő 🎯', color: '#a78bfa', bg: '#a78bfa15' };
-  if (likes < 3200 || victories < 5) return { id: 7, name: 'Képmester 🎨', color: '#ec4899', bg: '#ec489915' };
-  if (likes < 4800 || victories < 7) return { id: 8, name: 'Nagymester 🌟', color: '#f59e0b', bg: '#f59e0b15' };
-  if (likes < 7000 || victories < 9) return { id: 9, name: 'Virtuóz ⚡', color: '#eab308', bg: '#eab30815' };
-  if (likes < 10000 || victories < 12) return { id: 10, name: 'Fotóguru 🔥', color: '#ef4444', bg: '#ef444415' };
+  if (likes < 1300 || victories < 3) return { id: 6, name: 'Szakértő 🎯', color: '#a78bfa', bg: '#a78bfa15' };
+  if (likes < 2000 || victories < 5) return { id: 7, name: 'Képmester 🎨', color: '#ec4899', bg: '#ec489915' };
+  if (likes < 3200 || victories < 7) return { id: 8, name: 'Nagymester 🌟', color: '#f59e0b', bg: '#f59e0b15' };
+  if (likes < 4800 || victories < 9) return { id: 9, name: 'Virtuóz ⚡', color: '#eab308', bg: '#eab30815' };
+  if (likes < 7000 || victories < 12) return { id: 10, name: 'Fotóguru 🔥', color: '#ef4444', bg: '#ef444415' };
   return { id: 11, name: 'Vizuális Legenda 👑', color: '#fbbf24', bg: '#fbbf2420' };
 };
 
@@ -331,7 +331,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     } catch (e) { console.error(e); }
   };
 
-    const fetchCurrentTopic = async (isSilent = false) => {
+  const fetchCurrentTopic = async (isSilent = false) => {
     if (!isSilent) setLoading(true);
     try {
       const url = selectedTopicId 
@@ -349,8 +349,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         if (data.myReferralCode !== undefined) setMyReferralCode(data.myReferralCode);
         if (data.referredBy !== undefined) setReferredBy(data.referredBy);
         if (data.swapBalance !== undefined) setSwapBalance(data.swapBalance); 
-        
-        // ── 🎯 JAVÍTVA: Ez a sor hiányzott, most már a valós szavazóerődet menti el! ──
         if (data.userPower !== undefined) setUserPower(data.userPower); 
 
         if (!selectedTopicId) {
@@ -372,16 +370,24 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     finally { if (!isSilent) setLoading(false); }
   };
 
-
+  // 🎯 JAVÍTVA: A betöltést mostantól precízen az isLoadingSwapAlbum állapot kezeli és garantáltan lekapcsolja a végén!
   const fetchAlbumSilently = async () => {
     if (!user?.email) return;
+    setIsLoadingSwapAlbum(true); // Kapcsoljuk be a betöltést
     try {
       const res = await fetch(`${BACKEND_URL}/api/weekly/my-album?userEmail=${user.email}`);
       if (res.ok) {
         const albumPhotos = await res.json();
-        setSwapAlbumPhotos(albumPhotos || []);
+        setSwapAlbumPhotos(Array.isArray(albumPhotos) ? albumPhotos : []);
+      } else {
+        setSwapAlbumPhotos([]);
       }
-    } catch (e) { console.error("Silent prefetch failed:", e); }
+    } catch (e) { 
+      console.error("Silent prefetch failed:", e); 
+      setSwapAlbumPhotos([]);
+    } finally {
+      setIsLoadingSwapAlbum(false); // 👈 BÁRMI TÖRTÉNIK (0 képnél is), ezt kötelező leállítani!
+    }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -510,7 +516,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     return () => { isMounted = false; clearTimeout(timerId); };
   }, [subTab, selectedTopicId, user?.email]);
 
-  // ── 🎯 ÚJ: INTERAKTÍV ÉS LÉPCSŐZETES AUTOMATIKUS GÖRDÍTŐ HOOK A CHAT ALJÁRA ──
   useEffect(() => {
     if (selectedTopicId === null && subTab === 'current' && isChatOpen) {
       const handleScrollToBottom = () => {
@@ -518,19 +523,13 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           chatScrollContainerRef.current.scrollTop = chatScrollContainerRef.current.scrollHeight;
         }
       };
-
-      // Azonnali végrehajtás új üzenetnél
       handleScrollToBottom();
-
-      // Háromlépcsős időzített fallback-ek, hogy lekövessük a CSS panel 0.3s-es nyíló animációját
       const t1 = setTimeout(handleScrollToBottom, 50);
       const t2 = setTimeout(handleScrollToBottom, 150);
       const t3 = setTimeout(handleScrollToBottom, 350); 
 
       return () => {
-        clearTimeout(t1);
-        clearTimeout(t2);
-        clearTimeout(t3);
+        clearTimeout(t1); clearTimeout(t2); clearTimeout(t3);
       };
     }
   }, [lobbyMessages.length, selectedTopicId, subTab, isChatOpen]);
@@ -1009,22 +1008,21 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           <UpcomingChallenges upcomingTopics={upcomingTopics} getTopicType={getTopicType} handleImageError={handleImageError} user={user} />
         )}
         
-{subTab === 'past' && (
-  <PastArchive 
-    pastTopics={pastTopics} 
-    selectedPastTopicId={selectedPastTopicId} 
-    setSelectedPastTopicId={setSelectedPastTopicId} // 👈 EZT A HIÁNYZÓ SORT ADD HOZZÁ!
-    loadPastHistoryList={loadPastHistoryList} 
-    pastClubLeaderboard={pastClubLeaderboard} 
-    pastLeaderboard={pastLeaderboard} 
-    getTopicType={getTopicType} 
-    handleImageError={handleImageError} 
-    setFullscreenData={setFullscreenData} 
-    user={user} 
-  />
-)}
+        {subTab === 'past' && (
+          <PastArchive 
+            pastTopics={pastTopics} 
+            selectedPastTopicId={selectedPastTopicId} 
+            setSelectedPastTopicId={setSelectedPastTopicId} 
+            loadPastHistoryList={loadPastHistoryList} 
+            pastClubLeaderboard={pastClubLeaderboard} 
+            pastLeaderboard={pastLeaderboard} 
+            getTopicType={getTopicType} 
+            handleImageError={handleImageError} 
+            setFullscreenData={setFullscreenData} 
+            user={user} 
+          />
+        )}
 
-        
         {subTab === 'my_stats' && (
           <TrophyRoom isLoadingStats={isLoadingStats} myStats={myStats} userTotalLikes={userTotalLikes} userVictories={userVictories} swapBalance={swapBalance} myReferralCode={myReferralCode} referredBy={referredBy} referralInput={referralInput} setReferralInput={setReferralInput} isClaimingReferral={isClaimingReferral} handleClaimReferral={handleClaimReferral} setActiveShareData={setActiveShareData} setFullscreenData={setFullscreenData} getLevelDetails={getLevelDetails} getTopicType={getTopicType} handleImageError={handleImageError} />
         )}
@@ -1040,15 +1038,26 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
 
       <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} currentLevel={currentLevel} />
 
+      {/* ── 🎯 JAVÍTVA: A modal mostantól az isLoadingSwapAlbum állapottal van szinkronizálva a korábbi fix true állapot helyett! ── */}
       <AlbumSelectionModal 
         isOpen={showSwapAlbumModal} 
         onClose={(wasActionSubmitted) => { setShowSwapAlbumModal(false); if (wasActionSubmitted === true) fetchCurrentTopic(false); }} 
-        albumModalMode={albumModalMode} swapAlbumPhotos={swapAlbumPhotos} myPastEntries={myPastEntries} topic={topic} user={user} isLoading={swapAlbumPhotos.length === 0} setIsUploading={setIsUploading} setIsSwapping={setIsSwapping} fetchCurrentTopic={fetchCurrentTopic} handleSwapBackSubmit={handleSwapBackSubmit} handleSelectPhotoForSwap={handleSelectPhotoForSwap} 
+        albumModalMode={albumModalMode} 
+        swapAlbumPhotos={swapAlbumPhotos} 
+        myPastEntries={myPastEntries} 
+        topic={topic} 
+        user={user} 
+        isLoading={isLoadingSwapAlbum} // 👈 EZ VOLT A REJTETT GYILKOS, MOST MÁR TÖKÉLETES!
+        setIsUploading={setIsUploading} 
+        setIsSwapping={setIsSwapping} 
+        fetchCurrentTopic={fetchCurrentTopic} 
+        handleSwapBackSubmit={handleSwapBackSubmit} 
+        handleSelectPhotoForSwap={handleSelectPhotoForSwap} 
       />
 
       <ShareCardModal activeShareData={activeShareData} onClose={() => setActiveShareData(null)} user={user} shareBase64={shareBase64} loadingShareImg={loadingShareImg} isGeneratingImage={isGeneratingImage} handleExecuteShare={handleExecuteShare} />
 
-      {/* ── 🎯 RENDKÍVÜL STABIL RESZPONZÍV STYLING REGETEG ── */}
+      {/* ── RENDKÍVÜL STABIL RESZPONZÍV STYLING REGETEG ── */}
       <style>{`
         .arena-fluid-container { width: 100%; box-sizing: border-box; }
         .arena-cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 25px; width: 100%; }
