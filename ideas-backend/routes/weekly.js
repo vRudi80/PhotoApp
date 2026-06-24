@@ -967,6 +967,8 @@ app.get('/api/weekly/past', async (req, res) => {
     }
   });
 
+    // 📸 TRÓFEATEREM VÉGPONT – 🎯 JAVÍTVA AZ IDŐSZÁMÍTÁS SZERINTI PONTOSSÁG!
+  // ====================================================================
   app.get('/api/weekly/my-stats', async (req, res) => {
     const { userEmail } = req.query;
     try {
@@ -978,9 +980,23 @@ app.get('/api/weekly/past', async (req, res) => {
       let history = [];
 
       for (const topic of pastTopics) {
+        // 🎯 JAVÍTVA: Beépítettük a dátum-sorompót az egyéni statisztika rácsba is tizedes pontossággal!
         const [entries] = await pool.query(`
-          SELECT id, user_email, user_name, file_url, drive_file_id, likes_count, views_count
-          FROM weekly_entries WHERE topic_id = ? AND is_active = 1 ORDER BY likes_count DESC, views_count ASC
+          SELECT e.id, e.user_email, e.user_name, e.file_url, e.drive_file_id, e.likes_count, e.views_count,
+                 IF(t.end_date < '2026-06-16 00:00:00',
+                   e.likes_count,
+                   ROUND(
+                     ((e.likes_count + 5.0) / (e.views_count + 5.0) * 10.0) * IF(
+                       (SELECT COUNT(*) FROM weekly_entries WHERE topic_id = e.topic_id AND is_active = 1) <= 1, 
+                       1.0, 
+                       LEAST(1.0, (SELECT COUNT(*) FROM weekly_votes WHERE voter_email = e.user_email AND entry_id IN (SELECT id FROM weekly_entries WHERE topic_id = e.topic_id AND is_active = 1)) / LEAST(15.0, (SELECT COUNT(*) FROM weekly_entries WHERE topic_id = e.topic_id AND is_active = 1) - 1))
+                     ), 2
+                   )
+                 ) as fair_score
+          FROM weekly_entries e
+          JOIN weekly_topics t ON e.topic_id = t.id
+          WHERE e.topic_id = ? AND e.is_active = 1 
+          ORDER BY fair_score DESC, e.likes_count DESC, e.views_count ASC
         `, [topic.id]);
 
         const userIndex = entries.findIndex(e => e.user_email === userEmail);
@@ -998,14 +1014,17 @@ app.get('/api/weekly/past', async (req, res) => {
             total_entries: entries.length,
             file_url: entry.file_url,
             drive_file_id: entry.drive_file_id,
-            likes: entry.likes_count,
+            likes: entry.fair_score, // 👈 FIX: Mostantól a valós, tizedesjegyre pontos FP értéket adja át (17.69)!
             views: entry.views_count,
             user_name: entry.user_name 
           });
         }
       }
       res.json({ podiums, history });
-    } catch (err) { res.status(500).json({ error: 'Hiba' }); }
+    } catch (err) { 
+      console.error(err);
+      res.status(500).json({ error: 'Hiba a statisztikák összeállításakor.' }); 
+    }
   });
 
   app.get('/api/admin/weekly/suspicious', async (req, res) => {
