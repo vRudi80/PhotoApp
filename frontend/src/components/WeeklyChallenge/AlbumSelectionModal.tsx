@@ -137,7 +137,7 @@ export default function AlbumSelectionModal({
   };
 
   const triggerLoadMore = () => {
-    if (visibleCount < swapAlbumPhotos.length) {
+    if (Array.isArray(swapAlbumPhotos) && visibleCount < swapAlbumPhotos.length) {
       setVisibleCount(prev => prev + 12);
     }
   };
@@ -263,10 +263,10 @@ export default function AlbumSelectionModal({
 
   if (!isOpen) return null;
 
-  const renderedPhotos = swapAlbumPhotos.slice(0, visibleCount);
+  // 🎯 JAVÍTVA: Golyóállóvá téve az üres vagy lusta szerveroldali állapotokra
+  const renderedPhotos = Array.isArray(swapAlbumPhotos) ? swapAlbumPhotos.slice(0, visibleCount) : [];
 
   return (
-    /* ── 🎯 JAVÍTVA: Mostantól a legkülső fix sötét réteg kapta meg a görgetést és a scroll-zone osztályt! ── */
     <div 
       ref={scrollAreaRef}
       className="modal-scroll-zone"
@@ -279,14 +279,13 @@ export default function AlbumSelectionModal({
         zIndex: 99999, 
         display: 'flex', 
         justifyContent: 'center', 
-        alignItems: 'flex-start', // Fentről lefelé építkezik, ideális mobilra
+        alignItems: 'flex-start', 
         padding: '40px 16px', 
         boxSizing: 'border-box',
-        overflowY: 'auto', // Itt görgetünk natívan!
+        overflowY: 'auto', 
         WebkitOverflowScrolling: 'touch'
       }}
     >
-      {/* ── BELSŐ KÁRTYA TRUKK: Nem korlátozzuk a magasságát, hagyjuk természetesen nyúlni a görgetősávon belül ── */}
       <div 
         style={{ 
           background: '#0f172a', 
@@ -297,7 +296,7 @@ export default function AlbumSelectionModal({
           padding: '25px', 
           position: 'relative', 
           boxShadow: '0 25px 50px -12px rgba(0,0,0,0.8)',
-          margin: 'auto 0' // Ha rövid a tartalom függőlegesen középre teszi, ha hosszú, engedi felülről lefelé görgetni
+          margin: 'auto 0' 
         }}
       >
         
@@ -401,8 +400,16 @@ export default function AlbumSelectionModal({
                   })}
                 </div>
 
+                {/* 🎯 ÚJ JAVÍTVA: Barátságos üres állapot visszajelzés az új tagoknak */}
+                {renderedPhotos.length === 0 && (
+                  <div style={{ textAlign: 'center', color: '#64748b', padding: '35px 15px', fontSize: '0.9rem', fontStyle: 'italic', lineHeight: '1.5', background: 'rgba(255,255,255,0.02)', borderRadius: '16px', marginTop: '15px', border: '1px dashed rgba(255,255,255,0.05)' }}>
+                    📸 Még nincs kép a portfóliódban.<br />
+                    Kattints a fenti <b style={{ color: '#fbbf24' }}>"Új kép tallózása"</b> dobozra az első fotód feltöltéséhez!
+                  </div>
+                )}
+
                 {/* INTERAKTÍV TÖBBI BETÖLTÉSE GOMB */}
-                {visibleCount < swapAlbumPhotos.length && (
+                {Array.isArray(swapAlbumPhotos) && visibleCount < swapAlbumPhotos.length && (
                   <div 
                     onClick={triggerLoadMore}
                     style={{ textAlign: 'center', color: '#38bdf8', fontSize: '0.85rem', padding: '16px 0', fontStyle: 'italic', fontWeight: 'bold', cursor: 'pointer', background: 'rgba(56,189,248,0.05)', borderRadius: '12px', marginTop: '15px', border: '1px solid rgba(56,189,248,0.15)', userSelect: 'none', transition: 'all 0.2s' }}
