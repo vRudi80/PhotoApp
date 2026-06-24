@@ -31,7 +31,7 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
     const fetchAlerts = async () => {
       setIsLoadingAlerts(true);
       try {
-        const res = await fetch(`${BACKEND_URL}/api/dashboard-alerts?userEmail=${user.email}`);
+        const res = await fetch(`${BACKEND_URL}/api/dashboard-alerts?userEmail=${user?.email}`);
         if (res.ok && isMounted) {
           setAlerts(await res.json());
         } else if (isMounted) {
@@ -113,18 +113,31 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
   const visibleNews = alerts?.unreadNews?.filter((n: any) => !dismissedAlerts.includes(`news_${n.id}`)) || [];
   const visibleComments = alerts?.mapComments?.filter((c: any) => !dismissedAlerts.includes(`com_${c.comment_id}`)) || [];
   const visibleWeekly = Array.isArray(alerts?.weekly) ? alerts.weekly : [];
-  const visibleHomeworks = alerts?.homeworks || [];
-  const visibleContests = alerts?.contests || [];
+
+  // 🎯 JAVÍTVA: A házi feladatokat csak akkor mutatjuk, ha megegyezik a felhasználó klubjával
+  const visibleHomeworks = Array.isArray(alerts?.homeworks)
+    ? alerts.homeworks.filter((hw: any) => hw.club_name === user?.club_name)
+    : [];
+
+  // 🎯 JAVÍTVA: A fotópályázatokat szűrjük a restricted_club alapján (mint az App.tsx-ben)
+  const visibleContests = Array.isArray(alerts?.contests)
+    ? alerts.contests.filter((contest: any) => {
+        const isRestricted = contest.restricted_club && contest.restricted_club.trim() !== '';
+        if (isRestricted) {
+          return contest.restricted_club === user?.club_name;
+        }
+        return true;
+      })
+    : [];
 
   const totalAlertsCount = visibleNews.length + visibleComments.length + visibleWeekly.length + visibleHomeworks.length + visibleContests.length;
 
   return (
     <div style={{ animation: 'dashFadeIn 0.4s ease-out' }}>
       
-      {/* ── 🎯 JAVÍTVA: ULTRA-KOMPAKT PRÉMIUM FEJLÉC (Helypazarlás kiküszöbölve!) ── */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px', paddingBottom: '15px', borderBottom: '1px solid #334155', flexWrap: 'wrap', gap: '15px' }}>
         <h1 style={{ margin: 0, fontSize: '1.8rem', color: '#f8fafc', fontWeight: '800' }}>
-          {t('dashWelcome', 'Üdvözlünk')}, <span style={{ color: '#38bdf8' }}>{user.name}</span>!
+          {t('dashWelcome', 'Üdvözlünk')}, <span style={{ color: '#38bdf8' }}>{user?.name}</span>!
         </h1>
         {(user?.isPremium || user?.is_premium) && (
           <div style={{ background: '#10b98120', border: '1px solid #10b98140', padding: '6px 16px', borderRadius: '100px', color: '#10b981', fontWeight: 'bold', fontSize: '0.85rem' }}>
@@ -133,7 +146,6 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
         )}
       </div>
 
-      {/* ── 📊 ASZIMMETRIKUS KÉTHASÁBOS BENTO-GRID ELRENDEZÉS ── */}
       <div className="dashboard-flex-layout">
         
         {/* BAL OLDAL: NAVIGÁCIÓS CSEMPÉK */}
@@ -195,7 +207,7 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
           </div>
         </div>
 
-        {/* Hasáb elválasztó vagy jobb oldali panel: ÉRTESÍTÉSI KÖZPONT */}
+        {/* JOBB OLDAL: ÉRTESÍTÉSI KÖZPONT */}
         <div className="dashboard-alerts-section">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
             <h2 style={{ fontSize: '1rem', color: '#94a3b8', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px', margin: 0 }}>
@@ -305,121 +317,28 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
 
       </div>
 
-      {/* ── 🎨 STRUKTURÁLT STYLING BLOKK ── */}
       <style>{`
-        .dashboard-flex-layout {
-          display: grid;
-          grid-template-columns: repeat(12, 1fr);
-          gap: 20px;
-          width: 100%;
-        }
-        .dashboard-tiles-section {
-          grid-column: span 8;
-        }
-        .dashboard-alerts-section {
-          grid-column: span 4;
-          background: #1e293b;
-          border: 1px solid #334155;
-          border-radius: 20px;
-          padding: 20px;
-          box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-        }
-        .dashboard-bento-card:hover {
-          transform: translateY(-3px);
-          box-shadow: 0 12px 24px rgba(0,0,0,0.3);
-          border-color: #475569;
-          background: #233147 !important;
-        }
-        .admin-bento-card:hover {
-          border-color: #ef4444 !important;
-          background: rgba(239, 68, 68, 0.05) !important;
-        }
-
-        /* 🎯 JAVÍTVA: Modern, tördelésbiztos szöveges sor-értesítések */
-        .stream-alert-row {
-          background: #0f172a;
-          border: 1px solid #223147;
-          border-radius: 12px;
-          padding: 14px 16px;
-          cursor: pointer;
-          position: relative;
-          transition: all 0.15s ease-in-out;
-          display: flex;
-          align-items: start;
-        }
-        .stream-alert-row:hover {
-          transform: translateX(2px);
-          background: #141e33;
-          border-color: #334155;
-        }
-        .stream-alert-content {
-          flex: 1;
-          min-width: 0; /* 💥 KULCSFONTOSSÁGÚ: Megakadályozza a flex box összenyomódását mobilon! */
-        }
-        .stream-alert-header-meta {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          font-size: 0.68rem;
-          font-weight: 800;
-          color: #94a3b8;
-          margin-bottom: 6px;
-          letter-spacing: 0.5px;
-          flex-wrap: wrap;
-        }
-        .stream-alert-dot {
-          color: #334155;
-        }
-        .stream-alert-title {
-          margin: 0;
-          color: #f8fafc;
-          font-size: 0.92rem;
-          font-weight: 600;
-          line-height: 1.4;
-          white-space: normal !important; /* 💥 FIX: Engedi a szöveg természetes tördelését! */
-          word-break: break-word;
-        }
-        .stream-dismiss-cross {
-          position: absolute;
-          top: 12px;
-          right: 12px;
-          background: transparent;
-          border: none;
-          color: #475569;
-          cursor: pointer;
-          font-size: 0.8rem;
-          padding: 2px;
-          transition: color 0.1s;
-        }
-        .stream-dismiss-cross:hover {
-          color: #f8fafc;
-        }
-
-        @keyframes dashFadeIn {
-          from { opacity: 0; transform: translateY(8px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes dashPulse {
-          0% { opacity: 1; }
-          50% { opacity: 0.6; }
-          100% { opacity: 1; }
-        }
-
-        /* 📱 RESZPONZÍV MOBIL NÉZET: Automatikusan egyetlen tiszta oszloppá rendeződik */
+        .dashboard-flex-layout { display: grid; grid-template-columns: repeat(12, 1fr); gap: 20px; width: 100%; }
+        .dashboard-tiles-section { grid-column: span 8; }
+        .dashboard-alerts-section { grid-column: span 4; background: #1e293b; border: 1px solid #334155; border-radius: 20px; padding: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+        .dashboard-bento-card:hover { transform: translateY(-3px); box-shadow: 0 12px 24px rgba(0,0,0,0.3); border-color: #475569; background: #233147 !important; }
+        .admin-bento-card:hover { border-color: #ef4444 !important; background: rgba(239, 68, 68, 0.05) !important; }
+        .stream-alert-row { background: #0f172a; border: 1px solid #223147; border-radius: 12px; padding: 14px 16px; cursor: pointer; position: relative; transition: all 0.15s ease-in-out; display: flex; align-items: start; }
+        .stream-alert-row:hover { transform: translateX(2px); background: #141e33; border-color: #334155; }
+        .stream-alert-content { flex: 1; min-width: 0; }
+        .stream-alert-header-meta { display: flex; align-items: center; gap: 6px; font-size: 0.68rem; font-weight: 800; color: #94a3b8; margin-bottom: 6px; letter-spacing: 0.5px; flex-wrap: wrap; }
+        .stream-alert-dot { color: #334155; }
+        .stream-alert-title { margin: 0; color: #f8fafc; font-size: 0.92rem; font-weight: 600; line-height: 1.4; white-space: normal !important; word-break: break-word; }
+        .stream-dismiss-cross { position: absolute; top: 12px; right: 12px; background: transparent; border: none; color: #475569; cursor: pointer; font-size: 0.8rem; padding: 2px; transition: color 0.1s; }
+        .stream-dismiss-cross:hover { color: #f8fafc; }
+        @keyframes dashFadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes dashPulse { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
         @media (max-width: 1024px) {
-          .dashboard-flex-layout {
-            grid-template-columns: 1fr;
-          }
-          .dashboard-tiles-section, .dashboard-alerts-section {
-            grid-column: span 1fr;
-            width: 100%;
-          }
-          .dashboard-alerts-section {
-            order: -1; /* Mobilon az értesítések ugranak legfelülre a minimalista sáv alá */
-          }
+          .dashboard-flex-layout { grid-template-columns: 1fr; }
+          .dashboard-tiles-section, .dashboard-alerts-section { grid-column: span 1fr; width: 100%; }
+          .dashboard-alerts-section { order: -1; }
         }
       `}</style>
-
     </div>
   );
 }
