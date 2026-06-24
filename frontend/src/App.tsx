@@ -601,18 +601,20 @@ function MainContent() {
   const sortedSalons = Array.isArray(salons) ? [...salons].sort((a, b) => new Date(b.end_date).getTime() - new Date(a.end_date).getTime()) : [];
 
   const headerUser = useMemo(() => {
-    if (!user) return null;
-    if (!currentDbUser) return user;
-    return {
-      ...user,
-      name: currentDbUser.name || user.name,
-      is_premium: currentDbUser.is_premium,
-      isPremium: currentDbUser.is_premium === 1,
-      premium_until: currentDbUser.premium_until,
-      club_name: currentDbUser.club_name,
-      club_role: currentDbUser.club_role
-    };
-  }, [user, currentDbUser]);
+  if (!user) return null;
+  if (!currentDbUser) return user;
+  return {
+    ...user,
+    name: currentDbUser.name || user.name,
+    is_premium: currentDbUser.is_premium,
+    isPremium: currentDbUser.is_premium === 1,
+    premium_until: currentDbUser.premium_until,
+    club_name: currentDbUser.club_name,
+    club_id: currentDbUser.club_id, // 👈 EZT AZ EGY SORT ADD HOZZÁ!
+    club_role: currentDbUser.club_role
+  };
+}, [user, currentDbUser]);
+
 
   return (
     <>
