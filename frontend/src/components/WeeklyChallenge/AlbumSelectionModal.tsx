@@ -43,13 +43,12 @@ const compressImageOnClient = (file: File): Promise<File> => {
   });
 };
 
-// 🎯 DEDIKÁLT PROGRESSZÍV KÉP KOMPONENS: Egyesével jeleníti meg a képeket, amint letöltődtek
+// 🎯 DEDIKÁLT PROGRESSZÍV KÉP KOMPONENS
 function GridImage({ src, alt }: { src: string; alt: string }) {
   const [isLoaded, setIsLoaded] = useState(false);
 
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative', background: '#090d16' }}>
-      {/* Sötét skeleton/töltő felület, amíg a kép megérkezik */}
       {!isLoaded && (
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, #1e293b, #0f172a)', opacity: 0.6 }} />
       )}
@@ -57,13 +56,13 @@ function GridImage({ src, alt }: { src: string; alt: string }) {
         src={src} 
         alt={alt} 
         onLoad={() => setIsLoaded(true)}
-        loading="lazy" // 👈 Meggátoljuk a hálózati torlódást
+        loading="lazy"
         style={{ 
           width: '100%', 
           height: '100%', 
           objectFit: 'cover', 
           opacity: isLoaded ? 1 : 0, 
-          transition: 'opacity 0.4s ease-in-out' // 👈 Lágy feltűnés egyesével!
+          transition: 'opacity 0.4s ease-in-out'
         }} 
       />
     </div>
@@ -98,8 +97,27 @@ export default function AlbumSelectionModal({
   const [isLocalProcessing, setIsLocalProcessing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Fokozatos 12-es léptékű rácsállapot
   const [visibleCount, setVisibleCount] = useState(12);
+
+  // 🎯 ÚJ JAVÍTVA: Teljesen lezárjuk a háttér görgethetőségét, amíg a modal nyitva van!
+  // Ez megakadályozza, hogy az iOS Safari átvegye a fókuszt és elmozdítsa az alsó réteget.
+  useEffect(() => {
+    if (isOpen) {
+      const originalOverflow = document.body.style.overflow;
+      const originalHeight = document.body.style.height;
+      const originalTouchAction = document.body.style.touchAction;
+
+      document.body.style.overflow = 'hidden';
+      document.body.style.height = '100vh';
+      document.body.style.touchAction = 'none'; // Blokk minden külső csúszást
+
+      return () => {
+        document.body.style.overflow = originalOverflow;
+        document.body.style.height = originalHeight;
+        document.body.style.touchAction = originalTouchAction;
+      };
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen) {
@@ -260,7 +278,7 @@ export default function AlbumSelectionModal({
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 99999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px', boxSizing: 'border-box' }}>
       <div 
         ref={scrollAreaRef}
-        className="modal-scroll-zone" // 👈 JAVÍTVA: Ide került a CSS osztály a láncolásmentes mobilgörgetéshez!
+        className="modal-scroll-zone"
         onScroll={previewPhoto ? undefined : handleModalScroll}
         style={{ background: '#0f172a', border: '1px solid #334155', borderRadius: '24px', width: '100%', maxWidth: '550px', maxHeight: '82vh', overflowY: 'auto', padding: '25px', position: 'relative', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.8)' }}
       >
@@ -390,7 +408,6 @@ export default function AlbumSelectionModal({
       </div>
 
        <style>{`
-      /* 🎯 JAVÍTVA: Véglegesen stabilizálja az album modal független mobilgörgetését */
       .modal-scroll-zone {
         overflow-y: auto !important;
         overscroll-behavior: contain !important;
