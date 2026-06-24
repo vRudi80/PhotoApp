@@ -110,25 +110,30 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
 
   const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString(lang === 'en' ? 'en-US' : 'hu-HU', { month: 'short', day: 'numeric' });
 
-  const visibleNews = alerts?.unreadNews?.filter((n: any) => !dismissedAlerts.includes(`news_${n.id}`)) || [];
+  // ── 🎯 UNIVERZÁLIS KLUB-BIZTONSÁGI SZŰRŐ MOTOR ──
+  const checkClubAccess = (item: any) => {
+    const itemClubName = item.club_name || item.restricted_club;
+    const itemClubId = item.club_id || item.restricted_club_id;
+    
+    const hasRestriction = (itemClubName && itemClubName.trim() !== '') || (itemClubId && itemClubId !== 0);
+    if (!hasRestriction) return true; // Nyilvános tartalom, mindenki láthatja
+    
+    // Ha van korlátozás, de a felhasználónak nincs semmilyen klubja, azonnal elrejtjük
+    if (!user?.club_name && !user?.club_id) return false;
+    
+    // Ellenőrizzük az egyezést név vagy számszerű azonosító alapján is
+    const nameMatch = itemClubName && user?.club_name && itemClubName.trim() === user.club_name.trim();
+    const idMatch = itemClubId && user?.club_id && Number(itemClubId) === Number(user.club_id);
+    
+    return !!(nameMatch || idMatch);
+  };
+
+  // Alkalmazzuk a szűrőt az összes beérkező adatcsoportra
+  const visibleNews = alerts?.unreadNews?.filter((n: any) => !dismissedAlerts.includes(`news_${n.id}`) && checkClubAccess(n)) || [];
   const visibleComments = alerts?.mapComments?.filter((c: any) => !dismissedAlerts.includes(`com_${c.comment_id}`)) || [];
   const visibleWeekly = Array.isArray(alerts?.weekly) ? alerts.weekly : [];
-
-  // 🎯 JAVÍTVA: A házi feladatokat csak akkor mutatjuk, ha megegyezik a felhasználó klubjával
-  const visibleHomeworks = Array.isArray(alerts?.homeworks)
-    ? alerts.homeworks.filter((hw: any) => hw.club_name === user?.club_name)
-    : [];
-
-  // 🎯 JAVÍTVA: A fotópályázatokat szűrjük a restricted_club alapján (mint az App.tsx-ben)
-  const visibleContests = Array.isArray(alerts?.contests)
-    ? alerts.contests.filter((contest: any) => {
-        const isRestricted = contest.restricted_club && contest.restricted_club.trim() !== '';
-        if (isRestricted) {
-          return contest.restricted_club === user?.club_name;
-        }
-        return true;
-      })
-    : [];
+  const visibleHomeworks = alerts?.homeworks?.filter((hw: any) => checkClubAccess(hw)) || [];
+  const visibleContests = alerts?.contests?.filter((contest: any) => checkClubAccess(contest)) || [];
 
   const totalAlertsCount = visibleNews.length + visibleComments.length + visibleWeekly.length + visibleHomeworks.length + visibleContests.length;
 
