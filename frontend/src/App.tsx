@@ -28,7 +28,7 @@ import WeeklyChallengeView from './views/WeeklyChallengeView';
 import AdminWeeklyView from './views/admin/AdminWeeklyView';
 import ClubNewsView from './views/ClubNewsView';
 import ProfileView from './views/ProfileView';
-import { BrowserRouter, Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import TicketsView from './views/TicketsView';
 import LeaderClubView from './views/LeaderClubView';
 
@@ -36,8 +36,15 @@ import MarketplaceRoot from './components/marketplace/MarketplaceRoot';
 import MafoszProgressView from './views/MafoszProgressView'; 
 import PackagesView from './components/PackagesView'; 
 
-// 🎯 Nyelvi provider környezet behívása a Splash-hez
+// Nyelvi provider környezet behívása a Splash-hez
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
+
+// BIZTONSÁGI CSAPDA: Régi domain átirányítása a fájl legtetején
+if (typeof window !== 'undefined' && window.location.hostname.includes('kepolvasok.guru')) {
+  window.location.replace(
+    'https://photawesome.com' + window.location.pathname + window.location.search
+  );
+}
 
 function MainContent() {
   const [user, setUser] = useState<any>(null);
@@ -45,7 +52,7 @@ function MainContent() {
   const [targetMapSpotId, setTargetMapSpotId] = useState<number | null>(null);
   const [clubs, setClubs] = useState<any[]>([]);
 
-  // 🎯 CINEMATIC SPLASH SCREEN ÁLLAPOTOK
+  // CINEMATIC SPLASH SCREEN ÁLLAPOTOK
   const { lang, t } = useLanguage();
   const [showSplash, setShowSplash] = useState(true);
   const [animateOut, setAnimateOut] = useState(false);
@@ -87,7 +94,7 @@ function MainContent() {
         const usersRes = await fetch(`${BACKEND_URL}/api/users`);
         if (usersRes.ok) {
           const freshAllUsers = await usersRes.json();
-          setAllUsers(freshAllUsers); 
+          setAllUsers(Array.isArray(freshAllUsers) ? freshAllUsers : []); 
         }
 
       } catch (error) {
@@ -145,7 +152,6 @@ function MainContent() {
   const [newEnd, setNewEnd] = useState('');
   const [newCats, setNewCats] = useState('');
   const [newRestrictedClub, setNewRestrictedClub] = useState(''); 
-  
   const [newSponsorClub, setNewSponsorClub] = useState('');
 
   const [newEntryFee, setNewEntryFee] = useState<number | string>(0);
@@ -158,7 +164,6 @@ function MainContent() {
   const [editEnd, setEditEnd] = useState('');
   const [editCats, setEditCats] = useState('');
   const [editRestrictedClub, setEditRestrictedClub] = useState(''); 
-  
   const [editSponsorClub, setEditSponsorClub] = useState('');
 
   const [editEntryFee, setEditEntryFee] = useState<number | string>(0);
@@ -195,14 +200,6 @@ function MainContent() {
 
   const [fullscreenData, setFullscreenData] = useState<any>(null);
 
-  if (window.location.hostname.includes('kepolvasok.guru')) {
-  // Karakterpontosan átvisszük az új domainre, megőrizve az aloldalt (pathname) és a paramétereket (search)
-  window.location.replace(
-    'https://photawesome.com' + window.location.pathname + window.location.search
-  );
-}
-
-  
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const successContest = urlParams.get('success_contest');
@@ -213,6 +210,7 @@ function MainContent() {
     }
   }, []);
 
+  // 🎯 JAVÍTVA: Mindegyik setter megkapta az Array.isArray védelmet a futásidejű összeomlások ellen!
   const fetchData = async (retryCount = 0) => {
     if (retryCount === 0) setIsInitialLoading(true);
     try {
@@ -235,17 +233,17 @@ function MainContent() {
 
       if (!resUsers.ok || !resContests.ok || !resMeetings.ok || !resHw.ok) throw new Error("Hiba");
 
-      if (resUsers.ok) setAllUsers(await resUsers.json());
-      if (resClubs.ok) setClubs(await resClubs.json());
-      if (resContests.ok) setContests(await resContests.json());
-      if (resJury.ok) setJuryList(await resJury.json());
-      if (resMeetings.ok) setMeetings(await resMeetings.json());
-      if (resHw.ok) setHomeworks(await resHw.json());
-      if (resCountries.ok) setCountries(await resCountries.json());
-      if (resCats.ok) setAllCategories(await resCats.json());
-      if (resPatrons.ok) setPatrons(await resPatrons.json());
-      if (resSalons.ok) setSalons(await resSalons.json());
-      if (resPayments && resPayments.ok) setContestPayments(await resPayments.json());
+      if (resUsers.ok) { const d = await resUsers.json(); setAllUsers(Array.isArray(d) ? d : []); }
+      if (resClubs.ok) { const d = await resClubs.json(); setClubs(Array.isArray(d) ? d : []); }
+      if (resContests.ok) { const d = await resContests.json(); setContests(Array.isArray(d) ? d : []); }
+      if (resJury.ok) { const d = await resJury.json(); setJuryList(Array.isArray(d) ? d : []); }
+      if (resMeetings.ok) { const d = await resMeetings.json(); setMeetings(Array.isArray(d) ? d : []); }
+      if (resHw.ok) { const d = await resHw.json(); setHomeworks(Array.isArray(d) ? d : []); }
+      if (resCountries.ok) { const d = await resCountries.json(); setCountries(Array.isArray(d) ? d : []); }
+      if (resCats.ok) { const d = await resCats.json(); setAllCategories(Array.isArray(d) ? d : []); }
+      if (resPatrons.ok) { const d = await resPatrons.json(); setPatrons(Array.isArray(d) ? d : []); }
+      if (resSalons.ok) { const d = await resSalons.json(); setSalons(Array.isArray(d) ? d : []); }
+      if (resPayments && resPayments.ok) { const d = await resPayments.json(); setContestPayments(Array.isArray(d) ? d : []); }
 
       setIsInitialLoading(false); 
     } catch (e) { 
@@ -257,20 +255,20 @@ function MainContent() {
   const fetchMyEntries = async (email: string) => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/my-entries?userEmail=${email}`);
-      if (res.ok) setMyEntries(await res.json());
+      if (res.ok) { const d = await res.json(); setMyEntries(Array.isArray(d) ? d : []); }
       const resHw = await fetch(`${BACKEND_URL}/api/my-homework-entries?userEmail=${email}`);
-      if (resHw.ok) setMyHomeworkEntries(await resHw.json());
+      if (resHw.ok) { const d = await resHw.json(); setMyHomeworkEntries(Array.isArray(d) ? d : []); }
       const resSalons = await fetch(`${BACKEND_URL}/api/my-salon-entries-status?userEmail=${email}`);
-      if (resSalons.ok) setUserEntrySalonIds(await resSalons.json());
+      if (resSalons.ok) { const d = await resSalons.json(); setUserEntrySalonIds(Array.isArray(d) ? d : []); }
       const resJudged = await fetch(`${BACKEND_URL}/api/my-judged-contests?userEmail=${email}`);
-      if (resJudged.ok) setMyJudgedContests(await resJudged.json());
+      if (resJudged.ok) { const d = await resJudged.json(); setMyJudgedContests(Array.isArray(d) ? d : []); }
     } catch (e) { console.error(e); }
   };
   
   const fetchClubHomeworkEntries = async (clubId: number, email: string) => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/homework-entries/club/${clubId}?userEmail=${email}`);
-      if (res.ok) setClubHomeworkEntries(await res.json());
+      if (res.ok) { const d = await res.json(); setClubHomeworkEntries(Array.isArray(d) ? d : []); }
     } catch (e) { console.error(e); }
   };
 
@@ -324,8 +322,7 @@ function MainContent() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 🎯 KORSZERŰ SZINKRONIZÁCIÓS HOROG A LÁGY ELHALVÁNYULÁSHOZ
-  // 1. Az eredeti, normál ügymenetért felelős szinkronizációs horog (Megmarad ✔)
+  // KORSZERŰ SZINKRONIZÁCIÓS HOROG A LÁGY ELHALVÁNYULÁSHOZ
   useEffect(() => {
     if (!isInitialLoading && !isAuthLoading) {
       setAnimateOut(true);
@@ -336,28 +333,24 @@ function MainContent() {
     }
   }, [isInitialLoading, isAuthLoading]);
 
-  // ── 🎯 ÚJ: KÉNYSZERÍTETT BIZTONSÁGI VÉDŐHÁLÓ COLD START ESETÉRE ──
-  // Ha a hálózat vagy a lusta szerver miatt a fenti állapotok beragadnának, 
-  // 4 másodperc után akkor is kinyitjuk a kaput, így a betöltés sosem akad el!
+  // KÉNYSZERÍTETT BIZTONSÁGI VÉDŐHÁLÓ COLD START ESETÉRE
   useEffect(() => {
     const backupFailSafeTimer = setTimeout(() => {
       setAnimateOut(true);
       setTimeout(() => {
         setShowSplash(false);
       }, 600);
-    }, 4000); // 4 másodperc maximális engedélyezett Splash élettartam
+    }, 4000); 
 
     return () => clearTimeout(backupFailSafeTimer);
   }, []);
 
-  const currentDbUser = allUsers.find(u => u.email === user?.email);
+  const currentDbUser = Array.isArray(allUsers) ? allUsers.find(u => u.email === user?.email) : null;
   const isLeader = currentDbUser?.club_role === 'leader' || currentDbUser?.club_role === 'deputy';
-  const isPremium = currentDbUser?.stripe_status === 'active' || 
-    (currentDbUser?.premium_until && new Date(currentDbUser.premium_until) > new Date());
 
   useEffect(() => {
     if (activeTab === 'club_homeworks' && currentDbUser) {
-      const club = clubs.find(c => c.name === currentDbUser.club_name);
+      const club = Array.isArray(clubs) ? clubs.find(c => c.name === currentDbUser.club_name) : null;
       if (club) fetchClubHomeworkEntries(club.id, user.email);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -366,12 +359,12 @@ function MainContent() {
   const handleDeleteHwEntry = async (entryId: number) => {
     if (!window.confirm("Biztosan törlöd ezt a feltöltést?")) return;
     const res = await fetch(`${BACKEND_URL}/api/homework-entries/${entryId}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userEmail: user.email }) });
-    if (res.ok) { fetchMyEntries(user.email); const club = clubs.find(c => c.name === currentDbUser?.club_name); if (club) fetchClubHomeworkEntries(club.id, user.email); }
+    if (res.ok) { fetchMyEntries(user.email); const club = Array.isArray(clubs) ? clubs.find(c => c.name === currentDbUser?.club_name) : null; if (club) fetchClubHomeworkEntries(club.id, user.email); }
   };
 
   const handleToggleLike = async (entryId: number) => {
     const res = await fetch(`${BACKEND_URL}/api/homework-entries/${entryId}/like`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userEmail: user.email }) });
-    if (res.ok) { const club = clubs.find(c => c.name === currentDbUser?.club_name); if (club) fetchClubHomeworkEntries(club.id, user.email); }
+    if (res.ok) { const club = Array.isArray(clubs) ? clubs.find(c => c.name === currentDbUser?.club_name) : null; if (club) fetchClubHomeworkEntries(club.id, user.email); }
   };
 
   const handleLoginSuccess = async (credential: string) => {
@@ -438,10 +431,10 @@ function MainContent() {
   };
 
   const saveUserClub = async (email: string) => { 
-    const clubName = userClubEdits[email] !== undefined ? userClubEdits[email] : (allUsers.find(u => u.email === email)?.club_name || ''); 
-    const clubRole = userRoleEdits[email] !== undefined ? userRoleEdits[email] : (allUsers.find(u => u.email === email)?.club_role || 'member');
+    const clubName = userClubEdits[email] !== undefined ? userClubEdits[email] : (Array.isArray(allUsers) ? (allUsers.find(u => u.email === email)?.club_name || '') : ''); 
+    const clubRole = userRoleEdits[email] !== undefined ? userRoleEdits[email] : (Array.isArray(allUsers) ? (allUsers.find(u => u.email === email)?.club_role || 'member') : 'member');
     
-    const matchedClub = clubs.find(c => c.name === clubName);
+    const matchedClub = Array.isArray(clubs) ? clubs.find(c => c.name === clubName) : null;
     const clubId = matchedClub ? matchedClub.id : null;
 
     const res = await fetch(`${BACKEND_URL}/api/users/${email}`, { 
@@ -492,9 +485,7 @@ function MainContent() {
     setEditDesc(contest.description); 
     setEditCats(contest.categories || ''); 
     setEditRestrictedClub(contest.restricted_club_id ? String(contest.restricted_club_id) : ''); 
-    
     setEditSponsorClub(contest.sponsor_club_id ? String(contest.sponsor_club_id) : '');
-
     setEditEntryFee(contest.entry_fee || 0); 
     setEditFeeCurrency(contest.fee_currency || 'HUF');
     
@@ -528,37 +519,28 @@ function MainContent() {
   const handleRemoveJury = async (contestId: number, email: string) => { const res = await fetch(`${BACKEND_URL}/api/jury`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contestId, userEmail: email }) }); if (res.ok) fetchData(); };
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (file) { setUploadFile(file); setUploadPreview(URL.createObjectURL(file)); } };
   
-  // 🎯 KORREKT MENTŐ MOTOR: Elküldi a digitális sorszámokat a backendnek
   const handleUpload = async (contestId: number) => { 
     if (!uploadFile || !uploadTitle || !uploadCategory) return alert("Minden kötelező!"); 
     
     setIsUploading(true); 
     try { 
       const formData = new FormData(); 
-      
       formData.append('contestId', String(contestId)); 
       formData.append('userEmail', user.email); 
       formData.append('userName', user.name); 
       formData.append('title', uploadTitle); 
       formData.append('category', uploadCategory); 
-      
       formData.append('acceptedTerms', '1');
       formData.append('acceptedTermsAt', new Date().toISOString());
-      
       formData.append('photo', uploadFile); 
       
       const res = await fetch(`${BACKEND_URL}/api/upload`, { method: 'POST', body: formData }); 
       if (res.ok) { 
         alert("Sikeres nevezés! A jognyilatkozatot és a technikai validációt rögzítettük."); 
-        setActiveUploadContest(null); 
-        setUploadFile(null); 
-        setUploadPreview(null); 
-        setUploadTitle(''); 
-        setUploadCategory(''); 
+        setActiveUploadContest(null); setUploadFile(null); setUploadPreview(null); setUploadTitle(''); setUploadCategory(''); 
         fetchMyEntries(user.email); 
       } else { 
-        const err = await res.json(); 
-        alert(`Hiba: ${err.error}`); 
+        const err = await res.json(); alert(`Hiba: ${err.error}`); 
       } 
     } catch (error) { 
       alert("Hálózati hiba történt a feltöltés közben!"); 
@@ -593,41 +575,30 @@ function MainContent() {
   const handleDeleteContest = async (id: number) => { if (!window.confirm("❗ BIZTOSAN TÖRLÖD ezt a pályázatot?")) return; const res = await fetch(`${BACKEND_URL}/api/contests/${id}`, { method: 'DELETE' }); if (res.ok) fetchData(); else alert("Hiba történt a törlés során!"); };
   const loadJuryProgress = async (contestId: number) => { const res = await fetch(`${BACKEND_URL}/api/admin/jury-stats/${contestId}`); if (res.ok) { setJuryProgressData(await res.json()); setViewJuryProgressId(contestId); } };
   
-  // 🎯 MÓDOSÍTVA: Külsős zsűritagok intelligens visszamérése
-  const filteredContests = contests.filter(contest => {
+  const filteredContests = Array.isArray(contests) ? contests.filter(contest => {
     const isRestricted = contest.restricted_club && contest.restricted_club.trim() !== '';
     const now = new Date(); const start = contest.start_date ? new Date(contest.start_date) : new Date(0); const end = contest.end_date ? new Date(contest.end_date) : new Date(0); const isEnded = now > end && start.getFullYear() > 1970;
-    const isUserJuryForThisContest = juryList.some(j => j.contest_id === contest.id && j.user_email === user?.email);
+    const isUserJuryForThisContest = Array.isArray(juryList) ? juryList.some(j => j.contest_id === contest.id && j.user_email === user?.email) : false;
 
     if (activeTab === 'admin_contests') return true; 
     if (activeTab === 'contests_closed') { if (!isEnded) return false; if (isRestricted && contest.restricted_club !== currentDbUser?.club_name && !isUserJuryForThisContest) return false; return true; }
     if (activeTab === 'contests_club_active') return (isRestricted && contest.restricted_club === currentDbUser?.club_name && !isEnded) || isUserJuryForThisContest;
     if (activeTab === 'contests_open_active') return !isRestricted && !isEnded;
     return false;
-  });
+  }) : [];
 
-  const myClubMeetings = meetings.filter(m => m.club_name === currentDbUser?.club_name);
+  const myClubMeetings = Array.isArray(meetings) ? meetings.filter(m => m.club_name === currentDbUser?.club_name) : [];
   const searchedMeetings = myClubMeetings.filter(m => {
     if (!meetingSearch) return true;
     const q = meetingSearch.toLowerCase();
     return m.topic.toLowerCase().includes(q) || (m.description && m.description.toLowerCase().includes(q));
   });
-  const adminMeetings = user?.email === ADMIN_EMAIL ? meetings : meetings.filter(m => m.club_name === currentDbUser?.club_name);
+  const adminMeetings = user?.email === ADMIN_EMAIL ? (Array.isArray(meetings) ? meetings : []) : myClubMeetings;
 
-  const myClubHomeworks = homeworks.filter(h => h.club_name === currentDbUser?.club_name);
-  const adminHomeworks = user?.email === ADMIN_EMAIL ? homeworks : homeworks.filter(h => h.club_name === currentDbUser?.club_name);
+  const myClubHomeworks = Array.isArray(homeworks) ? homeworks.filter(h => h.club_name === currentDbUser?.club_name) : [];
+  const adminHomeworks = user?.email === ADMIN_EMAIL ? (Array.isArray(homeworks) ? homeworks : []) : myClubHomeworks;
 
-  const sortedSalons = [...salons].sort((a, b) => new Date(b.end_date).getTime() - new Date(a.end_date).getTime());
-
-  const searchedSalons = sortedSalons.filter(s => {
-    if (!salonSearch) return true;
-    const q = salonSearch.toLowerCase();
-    const matchName = s.name.toLowerCase().includes(q);
-    const matchPatron = s.patron_details && s.patron_details.some((p: any) => 
-      (p.name && p.name.toLowerCase().includes(q)) || (p.number && p.number.toLowerCase().includes(q))
-    );
-    return matchName || matchPatron;
-  });
+  const sortedSalons = Array.isArray(salons) ? [...salons].sort((a, b) => new Date(b.end_date).getTime() - new Date(a.end_date).getTime()) : [];
 
   const headerUser = useMemo(() => {
     if (!user) return null;
@@ -651,7 +622,6 @@ function MainContent() {
       {selectedSalon && <SalonModal salon={selectedSalon} user={user} onClose={() => setSelectedSalon(null)} />}
       {activeVideo && <VideoModal videoUrl={activeVideo} onClose={() => setActiveVideo(null)} />}
 
-      {/* ── 🎯 DEDIKÁLT CINEMATIC MULTILANGUAGE SPLASH LAYER ── */}
       {showSplash ? (
         <div style={{ position: 'fixed', inset: 0, backgroundColor: '#090d16', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 999999, opacity: animateOut ? 0 : 1, transition: 'opacity 0.6s cubic-bezier(0.25, 1, 0.5, 1)', pointerEvents: 'none' }}>
           <div style={{ width: '90%', maxWidth: '580px', aspectRatio: '16/9', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 25px 60px rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.06)', background: '#000', position: 'relative' }}>
