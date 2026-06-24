@@ -43,7 +43,7 @@ const compressImageOnClient = (file: File): Promise<File> => {
   });
 };
 
-// 🎯 DEDIKÁLT PROGRESSZÍV KÉP KOMPONENS
+// DEDIKÁLT PROGRESSZÍV KÉP KOMPONENS
 function GridImage({ src, alt }: { src: string; alt: string }) {
   const [isLoaded, setIsLoaded] = useState(false);
 
@@ -99,22 +99,13 @@ export default function AlbumSelectionModal({
 
   const [visibleCount, setVisibleCount] = useState(12);
 
-  // 🎯 ÚJ JAVÍTVA: Teljesen lezárjuk a háttér görgethetőségét, amíg a modal nyitva van!
-  // Ez megakadályozza, hogy az iOS Safari átvegye a fókuszt és elmozdítsa az alsó réteget.
+  // Háttér biztonságos lezárása a modal nyitásakor
   useEffect(() => {
     if (isOpen) {
       const originalOverflow = document.body.style.overflow;
-      const originalHeight = document.body.style.height;
-      const originalTouchAction = document.body.style.touchAction;
-
       document.body.style.overflow = 'hidden';
-      document.body.style.height = '100vh';
-      document.body.style.touchAction = 'none'; // Blokk minden külső csúszást
-
       return () => {
         document.body.style.overflow = originalOverflow;
-        document.body.style.height = originalHeight;
-        document.body.style.touchAction = originalTouchAction;
       };
     }
   }, [isOpen]);
@@ -275,12 +266,39 @@ export default function AlbumSelectionModal({
   const renderedPhotos = swapAlbumPhotos.slice(0, visibleCount);
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 99999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px', boxSizing: 'border-box' }}>
+    /* ── 🎯 JAVÍTVA: Mostantól a legkülső fix sötét réteg kapta meg a görgetést és a scroll-zone osztályt! ── */
+    <div 
+      ref={scrollAreaRef}
+      className="modal-scroll-zone"
+      onScroll={previewPhoto ? undefined : handleModalScroll}
+      style={{ 
+        position: 'fixed', 
+        inset: 0, 
+        background: 'rgba(0,0,0,0.85)', 
+        backdropFilter: 'blur(8px)', 
+        zIndex: 99999, 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'flex-start', // Fentről lefelé építkezik, ideális mobilra
+        padding: '40px 16px', 
+        boxSizing: 'border-box',
+        overflowY: 'auto', // Itt görgetünk natívan!
+        WebkitOverflowScrolling: 'touch'
+      }}
+    >
+      {/* ── BELSŐ KÁRTYA TRUKK: Nem korlátozzuk a magasságát, hagyjuk természetesen nyúlni a görgetősávon belül ── */}
       <div 
-        ref={scrollAreaRef}
-        className="modal-scroll-zone"
-        onScroll={previewPhoto ? undefined : handleModalScroll}
-        style={{ background: '#0f172a', border: '1px solid #334155', borderRadius: '24px', width: '100%', maxWidth: '550px', maxHeight: '82vh', overflowY: 'auto', padding: '25px', position: 'relative', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.8)' }}
+        style={{ 
+          background: '#0f172a', 
+          border: '1px solid #334155', 
+          borderRadius: '24px', 
+          width: '100%', 
+          maxWidth: '550px', 
+          padding: '25px', 
+          position: 'relative', 
+          boxShadow: '0 25px 50px -12px rgba(0,0,0,0.8)',
+          margin: 'auto 0' // Ha rövid a tartalom függőlegesen középre teszi, ha hosszú, engedi felülről lefelé görgetni
+        }}
       >
         
         {/* ── NÉZET A: THEATER / ELŐNÉZET ── */}
