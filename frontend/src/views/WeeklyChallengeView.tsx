@@ -919,7 +919,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   )}
                 </div>
 
-            // 🎯 JAVÍTVA: Transzparens és pulzáló állapotjelző Cold Start esetére
 {loading ? (
   <div style={{ 
     display: 'flex', 
