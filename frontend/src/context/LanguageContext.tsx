@@ -15,6 +15,8 @@ const translations = {
     tileClubLifeTitle: 'Klubélet',
    navMarketplace: 'Piac',
     contBagdeEditTitle: 'Szerkesztés',
+    tilePodcastTitle: 'Képolvasók Podcast',
+tilePodcastDesc: 'Hallgass bennünket aktuális fotós témákról',
 
     "archiveCountPhotographer": "Fotós",
   "archiveCountEnded": "Lezárult",
@@ -863,6 +865,9 @@ const translations = {
     profPremiumExpiredOn: 'Expired On',
     profFreeTier: 'Free Tier Account',
     profFreeTierDesc: 'Limited features active',
+
+    tilePodcastTitle: 'Képolvasók Podcast',
+tilePodcastDesc: 'Listen our podcast of fresh topics',
 
       mapSmartRadarTitle: 'SMART LOCATION RADAR ON:',
   mapSmartRadarDesc: 'Click the map to pin manually, AND simply select a photo. If it contains EXIF GPS coordinates, the radar will instantly teleport the map and lock the anchor marker right there!',
