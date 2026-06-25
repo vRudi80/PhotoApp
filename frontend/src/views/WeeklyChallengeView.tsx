@@ -1095,104 +1095,186 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         />
       )}
 
+      {/* ── RENDKÍVÜL STABIL RESZPONZÍV STYLING REGETEG ── */}
       <style>{`
-        .arena-main-layout-grid {
-          display: grid;
-          grid-template-columns: 1fr;
-          gap: 30px;
-          width: 100%;
-          box-sizing: border-box;
+        .arena-fluid-container { width: 100%; box-sizing: border-box; }
+        .arena-cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 25px; width: 100%; }
+        .arena-rank-tooltip-container { position: relative; }
+        
+        /* 🎯 ULTRASTABIL MODERN RANGSÁV JAVÍTÁS */
+        .arena-progress-card-wrapper {
+          background: #1e293b;
+          padding: 15px 20px;
+          border-radius: 16px;
+          border: '1px solid #334155';
+          margin-bottom: 30px;
+          box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+          overflow: visible !important; /* Biztosítja, hogy a tooltip ne vágódjon le */
         }
-        .arena-layout-column-main {
+        
+        .arena-progress-track-line {
           display: flex;
-          flex-direction: column;
-          gap: 25px;
           width: 100%;
+          border: 1px solid #0f172a;
+          border-radius: 8px;
+          overflow: hidden;
         }
-        .arena-layout-column-side {
-          display: flex;
-          flex-direction: column;
-          gap: 25px;
-          width: 100%;
+
+        .arena-rank-tooltip-container span {
+          transition: opacity 0.2s ease;
         }
-        @media (min-width: 992px) {
-          .arena-main-layout-grid {
-            grid-template-columns: 1.5fr 1fr !important;
+
+        /* 📱 MOBIL ELRENDEZÉS: Letisztult, kompakt Bento-csík */
+        @media (max-width: 768px) {
+          .arena-progress-card-wrapper {
+            padding: 12px 10px !important;
+          }
+          .arena-rank-tooltip-container {
+            padding: 15px 0 !important; /* Elég nagy érintési felület a mobil tooltiphez */
+          }
+          .arena-rank-tooltip-container span {
+            display: none !important; /* Mobilon elrejtjük a szövegeket és emojikat a sávból */
           }
         }
-        .batch-vote-responsive-card {
-          display: grid;
-          grid-template-columns: 140px 1fr;
-          gap: 20px;
-          align-items: start;
+
+        /* 💻 ASZTALI ELRENDEZÉS: Itt már minden kiírható */
+        @media (min-width: 769px) {
+          .arena-progress-track-line {
+            min-width: 100% !important;
+          }
         }
-        .batch-vote-responsive-imgbox {
-          width: 140px;
-          height: 140px;
-          background-color: #000;
-          border-radius: 12px;
-          overflow: hidden;
-          cursor: zoom-in;
-          border: 1px solid #334155;
-          position: relative;
+
+        .arena-progress-card-wrapper, .arena-tabs-scroll-wrapper {
+          scrollbar-width: thin;
+          scrollbar-color: #334155 #1e293b;
         }
-        .batch-vote-responsive-content {
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
-          min-height: 140px;
+        .arena-progress-card-wrapper::-webkit-scrollbar, .arena-tabs-scroll-wrapper::-webkit-scrollbar {
+          height: 5px;
         }
-        .batch-vote-responsive-buttons {
-          display: flex;
-          gap: 8px;
-          flex-wrap: wrap;
-          margin-top: 12px;
-        }
-        .arena-tabs-scroll-wrapper {
-          overflow-x: auto;
-        }
-        .arena-floating-chat-dock {
-          position: fixed;
-          bottom: 0;
-          right: 30px;
-          width: 360px;
+        .arena-progress-card-wrapper::-webkit-scrollbar-track, .arena-tabs-scroll-wrapper::-webkit-scrollbar-track {
           background: #1e293b;
-          border: 1px solid #334155;
-          border-radius: 16px 16px 0 0;
-          box-shadow: 0 -10px 30px rgba(0,0,0,0.5);
-          z-index: 1000;
-          transition: all 0.3s ease;
         }
-        .arena-floating-chat-dock.is-closed {
-          transform: translateY(calc(100% - 45px));
-        }
-        .chat-dock-header {
-          padding: 12px 20px;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          cursor: pointer;
-          background: #0f172a;
-          border-radius: 16px 16px 0 0;
-        }
-        .chat-dock-body {
-          padding: 15px;
-          height: 350px;
-          display: flex;
-          flex-direction: column;
-        }
-        .chat-messages-scroll-area {
-          flex: 1;
-          overflow-y: auto;
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-          margin-bottom: 10px;
-          background: #090d16;
-          padding: 10px;
+        .arena-progress-card-wrapper::-webkit-scrollbar-thumb, .arena-tabs-scroll-wrapper::-webkit-scrollbar-thumb {
+          background-color: #334155;
           border-radius: 10px;
         }
+
+        @media (max-width: 900px) {
+          .arena-tabs-scroll-wrapper {
+            overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch;
+            padding-bottom: 5px !important;
+          }
+          .arena-tabs-internal-line {
+            min-width: 890px !important;
+            justify-content: flex-start !important;
+          }
+        }
+        
+        /* 🎯 TOOLTIP POZÍCIONÁLÁS JAVÍTÁS MOBILRA IS */
+        .arena-rank-tooltip-box {
+          position: absolute;
+          bottom: 145%; 
+          left: 50%; 
+          transform: translateX(-50%) translateY(8px);
+          background: #090d16; 
+          color: #f8fafc; 
+          border: 1px solid #334155; 
+          border-radius: 12px;
+          width: 220px;
+          box-shadow: 0 15px 35px rgba(0,0,0,0.7); 
+          z-index: 999999 !important;
+          opacity: 0; 
+          pointer-events: none; 
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+          padding: 14px; 
+          text-align: center;
+        }
+        .arena-rank-tooltip-box::after {
+          content: "";
+          position: absolute; 
+          top: 100%; 
+          left: 50%; 
+          transform: translateX(-50%);
+          border-width: 6px; 
+          border-style: solid; 
+          border-color: #090d16 transparent transparent transparent;
+        }
+        
+        /* Aktív lebegő vagy érintési állapot */
+        .arena-rank-tooltip-container:hover .arena-rank-tooltip-box,
+        .arena-rank-tooltip-container:active .arena-rank-tooltip-box {
+          opacity: 1;
+          transform: translateX(-50%) translateY(0); 
+          pointer-events: auto;
+        }
+
+        .arena-floating-chat-dock { 
+          position: fixed; 
+          bottom: 0;
+          right: 30px; 
+          width: 360px; 
+          background: #1e293b; 
+          border: 1px solid #334155; 
+          border-bottom: none; 
+          border-radius: 16px 16px 0 0;
+          box-shadow: 0 -10px 30px rgba(0,0,0,0.5); 
+          z-index: 1000; 
+          transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.1);
+        }
+        .arena-floating-chat-dock.is-closed { 
+          transform: translateY(calc(100% - 45px));
+        }
+        .arena-floating-chat-dock.has-unread .chat-dock-header { 
+          border-color: #f43f5e; 
+          box-shadow: inset 0 0 10px rgba(244,63,94,0.2);
+        }
+        .chat-dock-header { 
+          padding: 12px 20px; 
+          background: linear-gradient(90deg, #1e293b, #0f172a);
+          border-bottom: 1px solid #334155; 
+          border-radius: 15px 15px 0 0; 
+          display: flex; 
+          justify-content: space-between; 
+          align-items: center; 
+          cursor: pointer; 
+          user-select: none;
+        }
+        .chat-dock-header:hover { background: #24334d; }
+        .chat-dock-body { padding: 15px; height: 350px; display: flex; flex-direction: column; }
+        .chat-messages-scroll-area { 
+          background: #090d16; 
+          border: 1px solid #223147; 
+          border-radius: 10px; 
+          padding: 10px;
+          flex: 1; 
+          overflow-y: auto; 
+          display: flex; 
+          flex-direction: column; 
+          gap: 10px;
+          margin-bottom: 10px;
+        }
+        .chat-notification-badge { 
+          position: absolute;
+          top: -1px; 
+          left: -3px; 
+          width: 8px; 
+          height: 8px; 
+          background: #f43f5e; 
+          border-radius: 50%; 
+          box-shadow: 0 0 8px #f43f5e;
+          animation: pulse 1.5s infinite; 
+        }
+        @keyframes pulse { 
+          0% { transform: scale(0.9); opacity: 1; } 
+          50% { transform: scale(1.2); opacity: 0.5; } 
+          100% { transform: scale(0.9); opacity: 1; } 
+        }
+        @media (max-width: 480px) { 
+          .arena-floating-chat-dock { right: 10px; width: calc(100% - 20px); } 
+        }
       `}</style>
+
     </div>
   );
 }
