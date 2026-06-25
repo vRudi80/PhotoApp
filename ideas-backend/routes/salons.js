@@ -147,10 +147,10 @@ module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload,
     } catch (err) { res.status(500).json({ error: 'Hiba a FIAP tételes lista lekérésekor' }); }
   });
 
-  app.get('/api/export-fiap-c', checkPremium, async (req, res) => {
+app.get('/api/export-fiap-c', checkPremium, async (req, res) => {
     const userEmail = req.query.userEmail;
     try {
-      // 🎯 JAVÍTVA: Lekérjük az e.submission_type mezőt is az adatbázisból
+      // 🎯 JAVÍTVA: s.submission_type-ot kérünk le (a szalonok táblájából), nem e.submission_type-ot!
       const [rows] = await pool.query(`
         SELECT 
           COALESCE(p.title, 'Ismeretlen / Törölt kép') as photo_title, 
@@ -158,7 +158,7 @@ module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload,
           c.country as country_eng, 
           sp.patron_number as fiap_number, 
           a.award_name as award,
-          e.submission_type
+          s.submission_type
         FROM photo_salon_entries e 
         JOIN photo_salons s ON e.salon_id = s.id 
         JOIN photo_awards a ON e.award_id = a.id 
@@ -180,7 +180,7 @@ module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload,
         if (t !== currentTitle) { titleNum++; currentTitle = t; }
         const finalAward = (row.award && row.award.toLowerCase() !== 'acceptance' && row.award.toLowerCase() !== 'elfogadás') ? row.award : '';
         
-        // 🎯 JAVÍTVA: Meghatározzuk, hogy online (digitális) vagy nyomtatott (print) a nevezés
+        // Súlyozzuk ki, hogy online (digitális) vagy nyomtatott (print) a nevezés
         const isDigital = row.submission_type && row.submission_type.toLowerCase() === 'online';
 
         exportData.push({ 
@@ -191,8 +191,8 @@ module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload,
           'Country': row.country_eng || '', 
           'Nr FIAP yyyy/xxx': row.fiap_number || '', 
           'Award': finalAward,
-          'Digital': isDigital ? 'x' : '', // 🎯 ÚJ OSZLOP
-          'Print': !isDigital ? 'x' : ''    // 🎯 ÚJ OSZLOP
+          'Digital': isDigital ? 'x' : '', // 🎯 Beteszi az x-et, ha digitális
+          'Print': !isDigital ? 'x' : ''    // 🎯 Beteszi az x-et, ha papírkép (print)
         });
       });
 
@@ -205,7 +205,7 @@ module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload,
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       res.send(excelBuffer);
     } catch (err) { 
-      console.error(err);
+      console.error("❌ Kritikus hiba az exportálás közben:", err);
       res.status(500).json({ error: 'Szerver hiba az Excel generálásakor' }); 
     }
 });
