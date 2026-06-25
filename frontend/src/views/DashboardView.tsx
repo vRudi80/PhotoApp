@@ -224,11 +224,31 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
               </span>
             )}
           </div>
-          
+
+         
           {isLoadingAlerts ? (
-            <div style={{ color: '#64748b', fontSize: '0.88rem', padding: '30px 15px', background: '#1e293b', borderRadius: '16px', border: '1px dashed #334155', textAlign: 'center', animation: 'dashPulse 2s infinite' }}>
-              {t('dashSyncing', 'Értesítések szinkronizálása...')}
-            </div>
+            <div style={{ 
+    display: 'flex', 
+    flexDirection: 'column', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    padding: '80px 20px', 
+    gap: '20px',
+    width: '100%' 
+  }}>
+    <VideoLoader />
+    <div style={{ textAlign: 'center', animation: 'arenaPulse 2s infinite' }}>
+      <h4 style={{ color: '#f59e0b', margin: '0 0 8px 0', fontSize: '1.1rem', fontWeight: 'bold', letterSpacing: '0.5px' }}>
+        {lang === 'en' ? '⚡ Server is waking up...' : '⚡ A szerver ébredezik...'}
+      </h4>
+      <p style={{ color: '#64748b', fontSize: '0.85rem', margin: 0, maxWidth: '320px', lineHeight: '1.4' }}>
+        {lang === 'en' 
+          ? 'The free tier hosting takes about 30-50 seconds to warm up after a period of inactivity.' 
+          : 'A rendszer tétlenség után 30-50 másodpercig melegszik be. Azonnal indulunk!'}
+      </p>
+    </div>
+    <style>{`@keyframes arenaPulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }`}</style>
+  </div>
           ) : !alerts ? (
             <div style={{ color: '#ef4444', fontSize: '0.88rem', padding: '20px', background: '#ef444405', borderRadius: '16px', border: '1px solid #ef444425', textAlign: 'center' }}>
               {t('dashAlertsError', 'Hiba történt a betöltéskor.')}
