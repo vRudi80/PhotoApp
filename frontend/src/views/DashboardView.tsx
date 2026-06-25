@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BACKEND_URL, ADMIN_EMAIL } from '../utils/constants';
+import VideoLoader from '../../../components/VideoLoader';
 
 // Nyelvi kontextus betöltése
 import { useLanguage } from '../context/LanguageContext';
