@@ -534,6 +534,26 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     }
   }, [lobbyMessages.length, selectedTopicId, subTab, isChatOpen]);
 
+
+  // 🏆 DICSŐSÉGCSARNOK ADATAINAK AUTOMATIKUS LEKÉRDEZÉSE
+  const fetchHallOfFame = async () => {
+    setIsLoadingHof(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/weekly/hall-of-fame`);
+      if (res.ok) {
+        const data = await res.json();
+        setHallOfFame(Array.isArray(data) ? data : []);
+      } else {
+        setHallOfFame([]);
+      }
+    } catch (err) {
+      console.error("Hiba a dicsőségcsarnok letöltésekor:", err);
+      setHallOfFame([]);
+    } finally {
+      setIsLoadingHof(false);
+    }
+  };
+  
   const fetchMyStats = async () => {
     setIsLoadingStats(true);
     try {
