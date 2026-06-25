@@ -26,9 +26,15 @@ export default function SalonsView({
   // Állapot a saját nevezések szűréséhez
   const [showOnlyMyEntries, setShowOnlyMyEntries] = useState(false);
 
+  // 🎯 TÍPUSBIZTONSÁGI JAVÍTÁS: Egységesítjük az ID-kat szám formátumra egy Set-ben,
+  // így a Vercel/Render közötti String/BigInt típuseltérések nem bénítják meg a szűrést.
+  const myEntryIdsSet = useMemo(() => {
+    return new Set((userEntrySalonIds || []).map(id => Number(id)));
+  }, [userEntrySalonIds]);
+
   // SZALON STATISZTIKA SZÁMÍTÁSA
   const stats = useMemo(() => {
-    const myParticipatedSalons = searchedSalons.filter(s => userEntrySalonIds.includes(s.id));
+    const myParticipatedSalons = searchedSalons.filter(s => myEntryIdsSet.has(Number(s.id)));
     let fiap = 0, psa = 0, club = 0;
     
     myParticipatedSalons.forEach(s => {
@@ -39,11 +45,11 @@ export default function SalonsView({
     });
 
     return { total: myParticipatedSalons.length, fiap, psa, club };
-  }, [searchedSalons, userEntrySalonIds]);
+  }, [searchedSalons, myEntryIdsSet]);
 
   // Szűrjük a listát a kapcsoló alapján is
   const displaySalons = searchedSalons.filter(s => {
-    if (showOnlyMyEntries && !userEntrySalonIds.includes(s.id)) return false;
+    if (showOnlyMyEntries && !myEntryIdsSet.has(Number(s.id))) return false;
     return true;
   });
 
@@ -61,7 +67,7 @@ export default function SalonsView({
     );
   }
 
-  // --- INNENTŐL CSAK A PRÉMIUM FELHASZNÁLÓK LÁTJÁK A TARTALMOT ---
+  // --- INNENTŐL CSAK A PRÉMIUM FELHASZNÁLÓK LÁTJÁA A TARTALMOT ---
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '15px' }}>
@@ -89,7 +95,7 @@ export default function SalonsView({
       </div>
       
       {/* RÉSZVÉTELI STATISZTIKA SÁV */}
-      {userEntrySalonIds.length > 0 && (
+      {userEntrySalonIds && userEntrySalonIds.length > 0 && (
         <div style={{ display: 'flex', gap: '15px', marginBottom: '20px', flexWrap: 'wrap' }}>
           <div style={{ background: '#0f172a', padding: '10px 20px', borderRadius: '10px', border: '1px solid #334155' }}>
             <span style={{ color: '#94a3b8', fontSize: '0.8rem', textTransform: 'uppercase', marginRight: '10px' }}>Részvételed:</span>
@@ -119,7 +125,7 @@ export default function SalonsView({
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
           {displaySalons.map((s) => {
             const isEnded = new Date(s.end_date) < new Date(new Date().setHours(0,0,0,0));
-            const hasEntered = userEntrySalonIds.includes(s.id);
+            const hasEntered = myEntryIdsSet.has(Number(s.id));
             
             return (
               <div 
@@ -152,28 +158,27 @@ export default function SalonsView({
                     </div>
                   </div>
 
-                 <h3 style={{ margin: '0 0 10px 0', fontSize: '1.3rem', color: hasEntered ? '#10b981' : '#f8fafc', lineHeight: '1.3' }}>
-  {s.name}
-</h3>
+                  <h3 style={{ margin: '0 0 10px 0', fontSize: '1.3rem', color: hasEntered ? '#10b981' : '#f8fafc', lineHeight: '1.3' }}>
+                    {s.name}
+                  </h3>
 
-<div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', color: '#94a3b8', marginBottom: '15px' }}>
-  {/* JAVÍTOTT RÉSZ: Szép, inline-flex elrendezés a kép alapú zászlóval */}
-  <span style={{ fontWeight: 'bold', color: '#cbd5e1', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-    {getFlagImageUrl(s.country_code) ? (
-      <img 
-        src={getFlagImageUrl(s.country_code)} 
-        alt={s.country_hun || 'Zászló'} 
-        style={{ width: '20px', height: 'auto', borderRadius: '2px', boxShadow: '0 1px 2px rgba(0,0,0,0.4)' }} 
-      />
-    ) : (
-      '🏳️'
-    )}
-    <span>{s.country_hun}</span>
-  </span>
-  
-  <span>•</span>
-  <span>{s.submission_type === 'online' ? '💻 Online leadás' : '🖼️ Papírkép'}</span>
-</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', color: '#94a3b8', marginBottom: '15px' }}>
+                    <span style={{ fontWeight: 'bold', color: '#cbd5e1', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                      {getFlagImageUrl(s.country_code) ? (
+                        <img 
+                          src={getFlagImageUrl(s.country_code)} 
+                          alt={s.country_hun || 'Zászló'} 
+                          style={{ width: '20px', height: 'auto', borderRadius: '2px', boxShadow: '0 1px 2px rgba(0,0,0,0.4)' }} 
+                        />
+                      ) : (
+                        '🏳️'
+                      )}
+                      <span>{s.country_hun}</span>
+                    </span>
+                    
+                    <span>•</span>
+                    <span>{s.submission_type === 'online' ? '💻 Online leadás' : '🖼️ Papírkép'}</span>
+                  </div>
                   {s.categories && s.categories.length > 0 && (
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginBottom: '15px' }}>
                       {s.categories.map((c: string) => (
