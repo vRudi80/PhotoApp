@@ -88,6 +88,7 @@ module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload,
   app.get('/api/salon-entries/:salonId', async (req, res) => {
     try { const [rows] = await pool.query(`SELECT e.id as entry_id, e.category, e.award_id, e.achieved_score, e.acceptance_score, p.*, a.award_name FROM photo_salon_entries e JOIN photo_portfolio p ON e.portfolio_id = p.id LEFT JOIN photo_awards a ON e.award_id = a.id WHERE e.salon_id = ? AND e.user_email = ?`, [req.params.salonId, req.query.userEmail]); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba a nevezések lekérésekor' }); }
   });
+  
   app.post('/api/salon-entries', async (req, res) => {
     const { salonId, userEmail, portfolioId, category } = req.body;
     try {
@@ -97,14 +98,30 @@ module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload,
       res.json({ success: true });
     } catch (err) { res.status(500).json({ error: 'Hiba a nevezésnél' }); }
   });
+
+  // 🎯 BIZTONSÁGOSAN FIXÁLVA: req.body helyett mostantól req.query-ből olvassa ki az emailt a törléshez!
   app.delete('/api/salon-entries/:id', async (req, res) => {
-    try { await pool.query('DELETE FROM photo_salon_entries WHERE id = ? AND user_email = ?', [req.params.id, req.body.userEmail]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: 'Hiba a nevezés visszavonásakor' }); }
+    const userEmail = req.query.userEmail;
+
+    if (!userEmail || userEmail === 'undefined' || userEmail.trim() === '') {
+      return res.status(400).json({ error: 'Hiányzó felhasználói e-mail a kérés URL-jéből!' });
+    }
+
+    try { 
+      await pool.query(
+        'DELETE FROM photo_salon_entries WHERE id = ? AND user_email = ?', 
+        [req.params.id, userEmail]
+      ); 
+      res.json({ success: true }); 
+    } catch (err) { 
+      console.error("❌ Hiba a nevezés törlésekor:", err.message);
+      res.status(500).json({ error: 'Hiba a nevezés visszavonásakor' }); 
+    }
   });
-    app.get('/api/my-salon-entries-status', async (req, res) => {
+
+  app.get('/api/my-salon-entries-status', async (req, res) => {
     const userEmail = req.query.userEmail;
     
-    // Biztonsági fék: Ha a frontend még nem töltötte be az emailt, 
-    // nem dobunk SQL hibát, hanem elegánsan visszaküldünk egy üres tömböt
     if (!userEmail || userEmail === 'undefined') {
       return res.json([]);
     }
@@ -115,10 +132,7 @@ module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload,
         [userEmail]
       ); 
       
-      // 🎯 KRITIKUS JAVÍTÁS: Minden ID-t explicit számmá (Number) alakítunk, 
-      // így a frontend .includes() metódusa azonnal meg fogja találni a szalonokat!
       const salonIds = rows.map(r => Number(r.salon_id));
-      
       res.json(salonIds); 
     } catch (err) { 
       console.error("❌ Hiba a saját nevezési státuszok lekérésekor:", err.message);
@@ -170,10 +184,9 @@ module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload,
     } catch (err) { res.status(500).json({ error: 'Hiba a FIAP tételes lista lekérésekor' }); }
   });
 
-app.get('/api/export-fiap-c', checkPremium, async (req, res) => {
+  app.get('/api/export-fiap-c', checkPremium, async (req, res) => {
     const userEmail = req.query.userEmail;
     try {
-      // 🎯 JAVÍTVA: s.submission_type-ot kérünk le (a szalonok táblájából), nem e.submission_type-ot!
       const [rows] = await pool.query(`
         SELECT 
           COALESCE(p.title, 'Ismeretlen / Törölt kép') as photo_title, 
@@ -203,7 +216,6 @@ app.get('/api/export-fiap-c', checkPremium, async (req, res) => {
         if (t !== currentTitle) { titleNum++; currentTitle = t; }
         const finalAward = (row.award && row.award.toLowerCase() !== 'acceptance' && row.award.toLowerCase() !== 'elfogadás') ? row.award : '';
         
-        // Súlyozzuk ki, hogy online (digitális) vagy nyomtatott (print) a nevezés
         const isDigital = row.submission_type && row.submission_type.toLowerCase() === 'online';
 
         exportData.push({ 
@@ -214,8 +226,8 @@ app.get('/api/export-fiap-c', checkPremium, async (req, res) => {
           'Country': row.country_eng || '', 
           'Nr FIAP yyyy/xxx': row.fiap_number || '', 
           'Award': finalAward,
-          'Digital': isDigital ? 'x' : '', // 🎯 Beteszi az x-et, ha digitális
-          'Print': !isDigital ? 'x' : ''    // 🎯 Beteszi az x-et, ha papírkép (print)
+          'Digital': isDigital ? 'x' : '', 
+          'Print': !isDigital ? 'x' : ''    
         });
       });
 
@@ -231,7 +243,7 @@ app.get('/api/export-fiap-c', checkPremium, async (req, res) => {
       console.error("❌ Kritikus hiba az exportálás közben:", err);
       res.status(500).json({ error: 'Szerver hiba az Excel generálásakor' }); 
     }
-});
+  });
 
   // AI ÉS EXCEL IMPORT 
   app.get('/api/admin/scrape-fiap', async (req, res) => {
@@ -264,9 +276,6 @@ app.get('/api/export-fiap-c', checkPremium, async (req, res) => {
     } catch (err) { res.status(500).json({ error: `Hálózati hiba: ${err.message}` }); }
   });
 
-  // ====================================================================
-  // 🤖 JAVÍTVA: AI ALAPÚ ÉLŐ KERESÉS KATEGÓRIA KIGYŰJTÉSSEL
-  // ====================================================================
   app.post('/api/admin/analyze-fiap-id', async (req, res) => {
     const { fiapNumber } = req.body;
     if (!fiapNumber) return res.status(400).json({ error: 'FIAP azonosító megadása kötelező!' });
@@ -308,9 +317,6 @@ app.get('/api/export-fiap-c', checkPremium, async (req, res) => {
       res.status(500).json({ error: 'Hiba az AI élő keresése során: ' + err.message });
     }
   });
-
-
-
 
   app.post('/api/admin/import-fiap', async (req, res) => {
     const { salonsToImport } = req.body;
@@ -392,9 +398,6 @@ app.get('/api/export-fiap-c', checkPremium, async (req, res) => {
     } catch (err) { cleanupTempFile(req.file); res.status(500).json({ error: 'Hiba történt az Excel elemzésekor: ' + err.message }); }
   });
   
- // ====================================================================
-  // 🤖 JAVÍTVA: DUPLIKÁCIÓSZŰRT, GOLYÓÁLLÓ EXCEL IMPORT VÉGREHAJTÓ MOTOR
-  // ====================================================================
   app.post('/api/import/execute', checkPremium, async (req, res) => {
     const { userEmail, userName, items } = req.body; 
     const conn = await pool.getConnection();
@@ -410,9 +413,6 @@ app.get('/api/export-fiap-c', checkPremium, async (req, res) => {
         const cleanTitle = item.title ? item.title.trim() : '';
         const cleanFiap = item.fiapNumber ? item.fiapNumber.trim() : '';
   
-        // ------------------------------------------------------------------
-        // 1. SZALON ELLENŐRZÉS: Ha nincs ID, megnézzük, hogy létezik-e már a FIAP szám alapján
-        // ------------------------------------------------------------------
         if (!finalSalonId && cleanFiap) {
           const [existingSalon] = await conn.query(
             'SELECT salon_id FROM photo_salon_patrons WHERE patron_number = ? AND patron_id = 1 LIMIT 1', 
@@ -423,7 +423,6 @@ app.get('/api/export-fiap-c', checkPremium, async (req, res) => {
           }
         }
   
-        // Ha még így sincs meg (teljesen új szalon), akkor és csak akkor hozzuk létre
         if (!finalSalonId) {
           const todayStr = new Date().toISOString().split('T')[0];
           const [insSalon] = await conn.query(
@@ -439,9 +438,6 @@ app.get('/api/export-fiap-c', checkPremium, async (req, res) => {
           }
         }
   
-        // ------------------------------------------------------------------
-        // 2. KÉP (PORTFÓLIÓ) ELLENŐRZÉS: Ha nincs ID, ellenőrizzük a címet a felhasználónál
-        // ------------------------------------------------------------------
         if (!finalPortfolioId && cleanTitle) {
           const [existingPhoto] = await conn.query(
             'SELECT id FROM photo_portfolio WHERE LOWER(TRIM(title)) = LOWER(TRIM(?)) AND user_email = ? LIMIT 1',
@@ -452,7 +448,6 @@ app.get('/api/export-fiap-c', checkPremium, async (req, res) => {
           }
         }
   
-        // Ha még így sincs meg, létrehozzuk üres Drive ID sztringgel (Fixálva a NULL hiba!)
         if (!finalPortfolioId) {
           const [insPhoto] = await conn.query(
             'INSERT INTO photo_portfolio (user_email, user_name, title, file_url, drive_file_id) VALUES (?, ?, ?, ?, ?)', 
@@ -461,9 +456,6 @@ app.get('/api/export-fiap-c', checkPremium, async (req, res) => {
           finalPortfolioId = insPhoto.insertId;
         }
   
-        // ------------------------------------------------------------------
-        // 3. DÍJ (AWARD) ID MEGHATÁROZÁSA
-        // ------------------------------------------------------------------
         let awardId = null;
         if (item.award) {
           const matchedAward = dbAwards.find(a => a.award_name.toLowerCase() === item.award.toLowerCase());
@@ -477,9 +469,6 @@ app.get('/api/export-fiap-c', checkPremium, async (req, res) => {
           }
         }
   
-        // ------------------------------------------------------------------
-        // 4. NEVEZÉS (ENTRY) MENTÉSE ÉS BIZTONSÁGI DUPLIKÁCIÓ SZŰRÉSE
-        // ------------------------------------------------------------------
         const [duplicateEntryCheck] = await conn.query(
           'SELECT id FROM photo_salon_entries WHERE salon_id = ? AND portfolio_id = ? AND user_email = ? LIMIT 1',
           [finalSalonId, finalPortfolioId, userEmail]
