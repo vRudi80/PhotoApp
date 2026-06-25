@@ -110,7 +110,8 @@ export default function FiapProgressView({ user, allUsers = [] }: FiapProgressVi
   const handleExportFiapC = async () => {
     setIsExporting(true);
     try {
-      const res = await fetch(`${BACKEND_URL}/api/export-fiap-c?userEmail=${user.email}`);
+      // 🎯 JAVÍTVA: user.email helyett mostantól a selectedEmail változót küldjük el a backendnek!
+      const res = await fetch(`${BACKEND_URL}/api/export-fiap-c?userEmail=${selectedEmail}`);
       if (!res.ok) {
         let errMsg = 'Ismeretlen szerverhiba történt.';
         try {
@@ -173,7 +174,6 @@ export default function FiapProgressView({ user, allUsers = [] }: FiapProgressVi
     if (!nextLevel || !nextLevel.portfolio) return 0;
     const rule = nextLevel.portfolio;
 
-    // Képek csoportosítása cím szerint az egyedi statisztikákhoz
     const photoGroups: { [title: string]: { totalAcceptances: number; totalAwards: number; acceptanceCountries: Set<string>; awardCountries: Set<string> } } = {};
 
     entries.forEach(entry => {
@@ -187,18 +187,15 @@ export default function FiapProgressView({ user, allUsers = [] }: FiapProgressVi
       const country = entry.country?.trim().toLowerCase() || 'unknown';
       const isAward = entry.award && entry.award.toLowerCase() !== 'acceptance';
 
-      // Elfogadások gyűjtése
       photoGroups[title].totalAcceptances += 1;
       photoGroups[title].acceptanceCountries.add(country);
 
-      // Díjak gyűjtése
       if (isAward) {
         photoGroups[title].totalAwards += 1;
         photoGroups[title].awardCountries.add(country);
       }
     });
 
-    // Megszámoljuk hány darab egyedi kép felel meg a következő FIAP szint kritériumainak
     return Object.values(photoGroups).filter(p => {
       if (rule.type === 'acceptance') {
         return p.totalAcceptances >= rule.minCount && p.acceptanceCountries.size >= rule.minCountries;
@@ -356,7 +353,6 @@ export default function FiapProgressView({ user, allUsers = [] }: FiapProgressVi
                 <ProgressBar label="Különböző Országok" current={stats.countries} required={nextLevel.req.countries} color="#a78bfa" />
                 <ProgressBar label="Különböző Művek" current={stats.works} required={nextLevel.req.works} color="#f472b6" />
                 
-                {/* 🎯 ÚJ JAVÍTÁS: A portfólió 5-képes szabályának élő vizuális kiértékelése */}
                 <div style={{ marginTop: '15px', paddingTop: '15px', borderTop: '1px dashed #475569' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', color: '#cbd5e1', fontWeight: 'bold', marginBottom: '4px' }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -382,14 +378,13 @@ export default function FiapProgressView({ user, allUsers = [] }: FiapProgressVi
             )}
           </div>
 
-          {/* 🎯 ÚJ INFÓ PANEL: Figyelmeztetés a 2026-os 10-es darabszámos korlátozásról */}
           <div style={{ background: '#1e293b', borderLeft: '4px solid #38bdf8', padding: '15px 20px', borderRadius: '0 12px 12px 0', marginBottom: '40px', fontSize: '0.85rem', color: '#cbd5e1', lineHeight: '1.5' }}>
             <strong style={{ color: '#38bdf8', display: 'block', marginBottom: '2px' }}>
               ⚠️ {lang === 'en' ? 'FIAP 2026 Regulation Notice:' : 'Hivatalos FIAP 2026-os Szabályzati Értesítés:'}
             </strong>
             {lang === 'en' 
               ? 'Starting from 2026, a single photo/work cannot have more than 10 acceptances or awards listed on the official application form. Excess acceptances for the same image will be ignored by judges.' 
-              : 'A 2026. január 1-je után kiírt szalonokból egyetlen fotóhoz/műhöz legfeljebb 10 elfogadás vagy díj listázható a hivatalos pályázati nyomtatványon. Az ezen felüli extra elfogadásokat a bíráló bizottság figyelmen kívül hagyja!'}
+              : 'A 2026. január 1-je után kiírt szalonokból egyetlen fotójoz/műhöz legfeljebb 10 elfogadás vagy díj listázható a hivatalos pályázati nyomtatványon. Az ezen felüli extra elfogadásokat a bíráló bizottság figyelmen kívül hagyja!'}
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', borderBottom: '1px solid #334155', paddingBottom: '15px', flexWrap: 'wrap', gap: '15px' }}>
