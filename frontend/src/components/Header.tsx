@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { googleLogout } from '@react-oauth/google';
 import { ADMIN_EMAIL, BACKEND_URL } from '../utils/constants';
 
-// 🎯 Behozzuk a kétnyelvű logókat a headerhez is
+// Behozzuk a kétnyelvű logókat a headerhez is
 import logoHu from './logo_hu2.png'; 
 import logoEn from './logo_en2.png';
 
@@ -32,11 +32,14 @@ export default function Header({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [unreadTicketsCount, setUnreadTicketsCount] = useState(0);
   const isAdminUser = user?.email === ADMIN_EMAIL;
+  
+  // 🎯 UX FIX: Referencia a teljes header-re a külső kattintások figyeléséhez
+  const headerRef = useRef<HTMLDivElement>(null);
 
   // Aktiváljuk a nyelvi kontextust és a t() fordító függvényt
   const { lang, setLang, t } = useLanguage();
 
-  // 🎯 Meghatározzuk, hogy épp melyik logót kell mutatni
+  // Meghatározzuk, hogy épp melyik logót kell mutatni
   const currentLogo = lang === 'en' ? logoEn : logoHu;
 
   // 10 percenként csendben leellenőrzi, van-e új üzenet
@@ -53,6 +56,17 @@ export default function Header({
     const interval = setInterval(checkUnread, 600000);
     return () => clearInterval(interval);
   }, [user, activeTab, isAdminUser]);
+
+  // 🎯 UX FIX: Ha máshova kattint a felhasználó, csukódjanak be a legördülő ablakok automatikusan!
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (headerRef.current && !headerRef.current.contains(event.target as Node)) {
+        setDropdownOpen(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [setDropdownOpen]);
   
   const handleNavClick = (tab: string) => {
     setActiveTab(tab);
@@ -78,7 +92,7 @@ export default function Header({
     }
   };
 
-  // 🎯 REUSABLE LOGO BLOCK
+  // REUSABLE LOGO BLOCK
   const LogoBrandBlock = () => (
     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
       <div style={{ 
@@ -104,7 +118,7 @@ export default function Header({
   );
 
   return (
-    <header className="app-header">
+    <header ref={headerRef} className="app-header">
       
       <style>{`
         .header-desktop-brand-wrapper {
@@ -116,6 +130,15 @@ export default function Header({
           .header-desktop-brand-wrapper {
             display: none !important;
           }
+        }
+        
+        /* UX FINOMÍTÁS: Finom, prémium hover átmenetek a gombokhoz */
+        .nav-btn {
+          transition: all 0.2s ease-in-out !important;
+        }
+        .nav-btn:hover {
+          background: rgba(255, 255, 255, 0.03) !important;
+          color: #f8fafc !important;
         }
       `}</style>
       
@@ -143,7 +166,7 @@ export default function Header({
           </div>
 
           <div className="nav-item-container" style={{ zIndex: 50 }}>
-            <button className={`nav-btn ${activeTab === 'weekly_challenge' ? 'active' : ''}`} style={{ color: '#f97316' }} onClick={() => handleNavClick('weekly_challenge')}>
+            <button className={`nav-btn ${activeTab === 'weekly_challenge' ? 'active' : ''}`} style={{ color: activeTab === 'weekly_challenge' ? '#f97316' : '#94a3b8' }} onClick={() => handleNavClick('weekly_challenge')}>
               <span>{t('navArena')}</span>
             </button>
           </div>
@@ -174,8 +197,15 @@ export default function Header({
             )}
           </div>
 
+          {/* === 🎙️ ÚJ: PODCAST FÜGGETLEN GYORSGOMB === */}
+          <div className="nav-item-container" style={{ zIndex: 50 }}>
+            <button className={`nav-btn ${activeTab === 'podcast' ? 'active' : ''}`} style={{ color: activeTab === 'podcast' ? '#f43f5e' : '#94a3b8' }} onClick={() => handleNavClick('podcast')}>
+              <span>🎙️ {lang === 'en' ? 'Podcast' : 'Podcast'}</span>
+            </button>
+          </div>
+
           <div className="nav-item-container" style={{ zIndex: dropdownOpen === 'international' ? 60 : 50 }}>
-            <button className={`nav-btn ${dropdownOpen === 'international' || ['salons', 'fiap_progress', 'mafosz_progress'].includes(activeTab) ? 'active' : ''}`} style={{ color: '#60a5fa' }} onClick={() => setDropdownOpen(dropdownOpen === 'international' ? null : 'international')}>
+            <button className={`nav-btn ${dropdownOpen === 'international' || ['salons', 'fiap_progress', 'mafosz_progress'].includes(activeTab) ? 'active' : ''}`} style={{ color: ['salons', 'fiap_progress', 'mafosz_progress'].includes(activeTab) ? '#60a5fa' : '#94a3b8' }} onClick={() => setDropdownOpen(dropdownOpen === 'international' ? null : 'international')}>
               <span>{t('navInternational')}</span> <span>▾</span>
             </button>
             {dropdownOpen === 'international' && (
@@ -191,7 +221,7 @@ export default function Header({
           </div>
 
           <div className="nav-item-container" style={{ zIndex: 50 }}>
-              <button className={`nav-btn ${activeTab === 'map_spots' ? 'active' : ''}`} style={{ color: '#10b981' }} onClick={() => handleNavClick('map_spots')}>
+              <button className={`nav-btn ${activeTab === 'map_spots' ? 'active' : ''}`} style={{ color: activeTab === 'map_spots' ? '#10b981' : '#94a3b8' }} onClick={() => handleNavClick('map_spots')}>
                 <span>{t('navMap')}</span>
               </button>
           </div>
@@ -200,12 +230,13 @@ export default function Header({
           <div className="nav-item-container" style={{ zIndex: 50 }}>
               <button 
                 className={`nav-btn ${activeTab.startsWith('marketplace') ? 'active' : ''}`} 
-                style={{ color: '#ec4899' }} 
+                style={{ color: activeTab.startsWith('marketplace') ? '#ec4899' : '#94a3b8' }} 
                 onClick={() => handleNavClick('marketplace')}
               >
                 <span>🛒 {t('navMarketplace') || 'Piactér'}</span>
               </button>
           </div>
+
           {(user?.email === ADMIN_EMAIL || isLeader) && (
             <div className="nav-item-container" style={{ zIndex: dropdownOpen === 'admin' ? 60 : 50 }}>
               <button className={`nav-btn ${dropdownOpen === 'admin' || activeTab.startsWith('admin_') || activeTab === 'leader_club' ? 'active' : ''}`} style={{ color: '#ef4444' }} onClick={() => setDropdownOpen(dropdownOpen === 'admin' ? null : 'admin')}>
@@ -276,7 +307,6 @@ export default function Header({
                   )}
                 </button>
 
-                {/* 🎯 FIXÁLVA: Dupla felkiáltójellel kényszerítjük a tiszta logikai (boolean) kiértékelést */}
                 {!!(user?.isPremium || user?.is_premium) && (
                   <button onClick={handleManageSubscription} style={{ color: '#10b981', fontWeight: 'bold' }} className="drop-item">
                     💳 Stripe Ügyfélkapu
