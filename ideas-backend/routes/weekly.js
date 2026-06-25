@@ -453,20 +453,26 @@ async function processFinishedChallenges(pool) {
 
 
 
-  // 🎯 JAVÍTVA: A galéria lekérdezés most már az egyéni kép-EXIF oszlopokat is visszaküldi a felületnek
+// ====================================================================
+  // 🖼️ ARÉNA ALBUM VÉGPONT – 🎯 JAVÍTVA AZ IDŐSZÁMÍTÁS SZERINTI PRECÍZ FP ÉS RANGSOR!
+  // ====================================================================
   app.get('/api/weekly/my-album', async (req, res) => {
     const { userEmail } = req.query;
     if (!userEmail) return res.status(400).json({ error: 'Hiányzó e-mail cím!' });
 
     try {
+      // 1. Lekérjük a felhasználó összes feltöltött képét
       const [photos] = await pool.query(
         "SELECT id, file_url, created_at, camera, lens, shutter, iso, aperture, software FROM user_photos WHERE user_email = ? ORDER BY created_at DESC",
         [userEmail]
       );
 
+      const nowMySQL = getLocalMySQLNow();
       const albumWithStats = [];
+
       for (const photo of photos) {
-        const [history] = await pool.query(`
+        // 2. Lekérjük, hogy az adott kép melyik heti kihívásokban (szobákban) vett részt
+        const [entries] = await pool.query(`
           SELECT 
             t.id AS topic_id,
             t.title AS topic_title, 
@@ -474,28 +480,60 @@ async function processFinishedChallenges(pool) {
             e.views_count, 
             e.is_active, 
             t.end_date,
-            IF(t.end_date >= ?, 1, 0) AS is_topic_live,
-            (
-              SELECT COUNT(*) + 1 
-              FROM weekly_entries e2 
-              WHERE e2.topic_id = e.topic_id 
-                AND e2.is_active = 1 
-                AND (e2.likes_count > e.likes_count OR (e2.likes_count = e.likes_count && e2.views_count < e.views_count))
-            ) AS entry_rank,
-            (
-              SELECT COUNT(*) 
-              FROM weekly_entries e3 
-              WHERE e3.topic_id = e.topic_id AND e3.is_active = 1
-            ) AS total_entries
+            IF(t.end_date >= ?, 1, 0) AS is_topic_live
           FROM weekly_entries e
           JOIN weekly_topics t ON e.topic_id = t.id
           WHERE e.file_url = ? AND e.user_email = ?
           ORDER BY t.end_date DESC
-        `, [getLocalMySQLNow(), photo.file_url, userEmail]);
+        `, [nowMySQL, photo.file_url, userEmail]);
 
+        const history = [];
+
+        // 3. Minden egyes részvételhez kiszámoljuk a valós, szobaszintű helyezést és pontszámot
+        for (const entry of entries) {
+          const [leaderboard] = await pool.query(`
+            SELECT e2.user_email, e2.likes_count, e2.views_count,
+                   IF(t2.end_date < '2026-06-16 00:00:00',
+                     e2.likes_count,
+                     ROUND(
+                       ((e2.likes_count + 5.0) / (e2.views_count + 5.0) * 10.0) * IF(
+                         (SELECT COUNT(*) FROM weekly_entries WHERE topic_id = e2.topic_id AND is_active = 1) <= 1, 
+                         1.0, 
+                         LEAST(1.0, (SELECT COUNT(*) FROM weekly_votes WHERE voter_email = e2.user_email AND entry_id IN (SELECT id FROM weekly_entries WHERE topic_id = e2.topic_id AND is_active = 1)) / LEAST(15.0, (SELECT COUNT(*) FROM weekly_entries WHERE topic_id = e2.topic_id AND is_active = 1) - 1))
+                       ), 2
+                     )
+                   ) as fair_score
+            FROM weekly_entries e2
+            JOIN weekly_topics t2 ON e2.topic_id = t2.id
+            WHERE e2.topic_id = ? AND e2.is_active = 1
+            ORDER BY fair_score DESC, e2.likes_count DESC, e2.views_count ASC
+          `, [entry.topic_id]);
+
+          // Megkeressük a felhasználót a szoba valós rangsorában
+          const userIndex = leaderboard.findIndex(l => l.user_email === userEmail);
+          const entryRank = userIndex !== -1 ? userIndex + 1 : leaderboard.length + 1;
+          
+          // Kiválasztjuk a dátumnak megfelelő pontszámot (régi darabszám vagy az új súlyozott FP)
+          const finalScore = userIndex !== -1 ? leaderboard[userIndex].fair_score : entry.likes_count;
+
+          history.push({
+            topic_id: entry.topic_id,
+            topic_title: entry.topic_title,
+            likes_count: finalScore, // 👈 Tizedesjegyre pontos FP érték (pl. 17.69)
+            views_count: entry.views_count,
+            is_active: entry.is_active,
+            end_date: entry.end_date,
+            is_topic_live: entry.is_topic_live,
+            entry_rank: entryRank,
+            total_entries: leaderboard.length
+          });
+        }
+
+        // Kiszámoljuk a kép összesített pontszámait a pontosított history alapján
         const totalLikes = history.reduce((sum, h) => sum + Number(h.likes_count), 0);
         const totalViews = history.reduce((sum, h) => sum + Number(h.views_count), 0);
         
+        // Csak a már lezárt (is_topic_live = 0) és aktívan befejezett (is_active = 1) helyezésekből számolunk plecsniket
         const firstPlaces = history.filter(h => Number(h.entry_rank) === 1 && h.is_topic_live === 0 && h.is_active === 1).length;
         const podiums = history.filter(h => Number(h.entry_rank) >= 2 && Number(h.entry_rank) <= 3 && h.is_topic_live === 0 && h.is_active === 1).length;
         
@@ -503,7 +541,7 @@ async function processFinishedChallenges(pool) {
 
         albumWithStats.push({
           ...photo,
-          totalLikes,
+          totalLikes: Number(totalLikes.toFixed(2)), // Szépen kerekítjük két tizedesjegyre a kártyákhoz is
           totalViews,
           firstPlaces,
           podiums,
@@ -514,7 +552,7 @@ async function processFinishedChallenges(pool) {
 
       res.json(albumWithStats);
     } catch (err) {
-      console.error(err);
+      console.error("❌ Kritikus hiba az Aréna album összeállításakor:", err);
       res.status(500).json({ error: 'Hiba az album lekérésekor.' });
     }
   });
