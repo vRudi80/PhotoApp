@@ -31,6 +31,7 @@ import ProfileView from './views/ProfileView';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import TicketsView from './views/TicketsView';
 import LeaderClubView from './views/LeaderClubView';
+import PodcastView from './views/PodcastView';
 
 import MarketplaceRoot from './components/marketplace/MarketplaceRoot';
 import MafoszProgressView from './views/MafoszProgressView'; 
@@ -662,6 +663,7 @@ function MainContent() {
               <Route path="/salons" element={<SalonsView salonSearch={salonSearch} setSalonSearch={setSalonSearch} searchedSalons={sortedSalons} setSelectedSalon={setSelectedSalon} userEntrySalonIds={userEntrySalonIds} user={user} BACKEND_URL={BACKEND_URL} />} />
               <Route path="/club_nights" element={<ClubNightsView currentDbUser={currentDbUser} meetingSearch={meetingSearch} setMeetingSearch={setMeetingSearch} searchedMeetings={searchedMeetings} setActiveVideo={setActiveVideo} />} />
               <Route path="/leader_club" element={isLeader ? <LeaderClubView user={user} BACKEND_URL={BACKEND_URL} /> : <Navigate to="/dashboard" replace />} />
+<Route path="/podcast" element={<PodcastView />} />
 
               <Route path="/admin_clubs" element={user?.email === ADMIN_EMAIL ? <AdminClubsView clubs={clubs} newClubName={newClubName} setNewClubName={setNewClubName} handleAddClub={handleAddClub} handleDeleteClub={handleDeleteClub} handleUpdateClub={handleUpdateClub} /> : <Navigate to="/dashboard" />} />
               <Route path="/admin_users" element={user?.email === ADMIN_EMAIL ? <AdminUsersView allUsers={allUsers} clubs={clubs} userClubEdits={userClubEdits} setUserClubEdits={setUserClubEdits} userRoleEdits={userRoleEdits} setUserRoleEdits={setUserRoleEdits} saveUserClub={saveUserClub} /> : <Navigate to="/dashboard" />} />
