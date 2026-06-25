@@ -144,29 +144,12 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
   const visibleWeekly = Array.isArray(alerts?.weekly) ? alerts.weekly : [];
   const visibleHomeworks = alerts?.homeworks?.filter((hw: any) => checkClubAccess(hw)) || [];
   
-  // 🎯 ULTRASTABIL JAVÍTVA: Minden lehetséges adatbázis-mezőnevet lefedünk (is_club, type, club_id, stbi.)
+  // 🎯 JAVÍTVA: A belső/bármilyen módon klubhoz kötött fotópályázatokat is szigorúan elrejtjük, ha nem tag az illető!
   const visibleContests = alerts?.contests?.filter((contest: any) => {
-    const isClubOrInternal = 
-      contest.is_club === 1 || 
-      contest.is_club === true ||
-      contest.is_club_contest === 1 ||
-      contest.is_club_contest === true ||
-      contest.club_contest === 1 ||
-      contest.is_internal === 1 ||
-      contest.is_internal === true ||
-      (contest.type && String(contest.type).toLowerCase().includes('club')) ||
-      (contest.category && String(contest.category).toLowerCase().includes('club')) ||
-      (contest.club_id && Number(contest.club_id) > 0);
-
-    // Ha belső/klubos a pályázat, de a testusernek se klubneve, se klub ID-ja nincs, azonnal elrejtjük
-    if (isClubOrInternal && !user?.club_name && !user?.club_id) {
-      return false;
-    }
-
-    // Ha van klubja, a biztonsági access ellenőrzést is lefuttatjuk (ha specifikus klubhoz van kötve)
+    const isInternal = contest.type?.toLowerCase().includes('club') || contest.is_internal || contest.is_club;
+    if (isInternal && !user?.club_name && !user?.club_id) return false;
     return checkClubAccess(contest);
   }) || [];
-
 
   // 🎯 JAVÍTVA: A számláló most már az összevont kihívás-blokkot számolja (ha van nyitott, az fixen 1 értesítési sornak számít)
   const totalAlertsCount = visibleNews.length + visibleComments.length + (visibleWeekly.length > 0 ? 1 : 0) + visibleHomeworks.length + visibleContests.length;
