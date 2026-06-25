@@ -421,7 +421,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       }
     } catch (err) {
       console.error(err);
-    } finaly {
+    } finally {
       setIsSendingLobbyMsg(false);
     }
   };
