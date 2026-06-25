@@ -150,23 +150,65 @@ module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload,
   app.get('/api/export-fiap-c', checkPremium, async (req, res) => {
     const userEmail = req.query.userEmail;
     try {
-      const [rows] = await pool.query(`SELECT COALESCE(p.title, 'Ismeretlen / Törölt kép') as photo_title, s.name as salon_name, c.country as country_eng, sp.patron_number as fiap_number, a.award_name as award FROM photo_salon_entries e JOIN photo_salons s ON e.salon_id = s.id JOIN photo_awards a ON e.award_id = a.id JOIN photo_salon_patrons sp ON sp.salon_id = s.id AND sp.patron_id = 1 LEFT JOIN photo_portfolio p ON e.portfolio_id = p.id LEFT JOIN photo_countries c ON s.host_country_id = c.id WHERE e.user_email = ? AND e.award_id IS NOT NULL AND e.award_id > 0 AND a.award_name IS NOT NULL AND TRIM(a.award_name) != '' ORDER BY photo_title ASC, s.name ASC`, [userEmail]);
+      // 🎯 JAVÍTVA: Lekérjük az e.submission_type mezőt is az adatbázisból
+      const [rows] = await pool.query(`
+        SELECT 
+          COALESCE(p.title, 'Ismeretlen / Törölt kép') as photo_title, 
+          s.name as salon_name, 
+          c.country as country_eng, 
+          sp.patron_number as fiap_number, 
+          a.award_name as award,
+          e.submission_type
+        FROM photo_salon_entries e 
+        JOIN photo_salons s ON e.salon_id = s.id 
+        JOIN photo_awards a ON e.award_id = a.id 
+        JOIN photo_salon_patrons sp ON sp.salon_id = s.id AND sp.patron_id = 1 
+        LEFT JOIN photo_portfolio p ON e.portfolio_id = p.id 
+        LEFT JOIN photo_countries c ON s.host_country_id = c.id 
+        WHERE e.user_email = ? 
+          AND e.award_id IS NOT NULL 
+          AND e.award_id > 0 
+          AND a.award_name IS NOT NULL 
+          AND TRIM(a.award_name) != '' 
+        ORDER BY photo_title ASC, s.name ASC
+      `, [userEmail]);
+
       let currentTitle = ''; let titleNum = 0; let accNum = 0; const exportData = [];
+
       rows.forEach(row => {
         accNum++; const t = row.photo_title.trim();
         if (t !== currentTitle) { titleNum++; currentTitle = t; }
         const finalAward = (row.award && row.award.toLowerCase() !== 'acceptance' && row.award.toLowerCase() !== 'elfogadás') ? row.award : '';
-        exportData.push({ 'Acc. N°': accNum, 'Title N°': titleNum, 'Title of the work': t, 'Salon': row.salon_name, 'Country': row.country_eng || '', 'Nr FIAP yyyy/xxx': row.fiap_number || '', 'Award': finalAward });
+        
+        // 🎯 JAVÍTVA: Meghatározzuk, hogy online (digitális) vagy nyomtatott (print) a nevezés
+        const isDigital = row.submission_type && row.submission_type.toLowerCase() === 'online';
+
+        exportData.push({ 
+          'Acc. N°': accNum, 
+          'Title N°': titleNum, 
+          'Title of the work': t, 
+          'Salon': row.salon_name, 
+          'Country': row.country_eng || '', 
+          'Nr FIAP yyyy/xxx': row.fiap_number || '', 
+          'Award': finalAward,
+          'Digital': isDigital ? 'x' : '', // 🎯 ÚJ OSZLOP
+          'Print': !isDigital ? 'x' : ''    // 🎯 ÚJ OSZLOP
+        });
       });
+
       const worksheet = xlsx.utils.json_to_sheet(exportData);
       const workbook = xlsx.utils.book_new();
       xlsx.utils.book_append_sheet(workbook, worksheet, "FIAP_Page_C_Data");
       const excelBuffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+      
       res.setHeader('Content-Disposition', 'attachment; filename="FIAP_Page_C_Export.xlsx"');
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       res.send(excelBuffer);
-    } catch (err) { res.status(500).json({ error: 'Szerver hiba az Excel generálásakor' }); }
-  });
+    } catch (err) { 
+      console.error(err);
+      res.status(500).json({ error: 'Szerver hiba az Excel generálásakor' }); 
+    }
+});
 
   // AI ÉS EXCEL IMPORT 
   app.get('/api/admin/scrape-fiap', async (req, res) => {
