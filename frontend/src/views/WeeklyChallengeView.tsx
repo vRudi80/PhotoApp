@@ -569,9 +569,11 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       });
       if (res.ok) {
         alert(t('msgReportSuccess')); setMyVoteCount(prev => prev + 1);
-        if (topic) { fetchNextVote(topic.id); fetchCurrentTopic(true); }
+        if (topic) { fetchNextVote(topic.id);
+        fetchCurrentTopic(true); }
       }
-    } catch (e) { alert(t('msgReportError')); if (topic) fetchNextVote(topic.id); }
+    } catch (e) { alert(t('msgReportError')); if (topic) fetchNextVote(topic.id);
+    }
   };
   
   const handleVote = async (type: 'pass' | 'super' | 'brilliant' | 'master') => {
@@ -584,7 +586,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         body: JSON.stringify({ entryId: oldEntryId, userEmail: user?.email || '', voteType: type })
       });
       if (res.ok) { setMyVoteCount(prev => prev + 1); fetchNextVote(topic.id); fetchCurrentTopic(true); }
-    } catch (e) { if(topic) fetchNextVote(topic.id); }
+    } catch (e) { if(topic) fetchNextVote(topic.id);
+    }
   };
 
   const handleClaimReferral = async () => {
@@ -596,9 +599,11 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         body: JSON.stringify({ userEmail: user?.email, referralCode: referralInput.trim().toUpperCase() })
       });
       if (res.ok) { alert(t('msgReferralSuccess')); setReferredBy(referralInput); fetchCurrentTopic(true); } 
-      else { const err = await res.json(); alert(err.error || t('msgSwapErrorMain')); }
+      else { const err = await res.json();
+      alert(err.error || t('msgSwapErrorMain')); }
     } catch (e) { alert(t('msgNetworkError')); }
-    finally { setIsClaimingReferral(false); }
+    finally { setIsClaimingReferral(false);
+    }
   };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -608,14 +613,16 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         const exifData = await exifr.parse(rawFile);
         if (exifData) {
           if (exifData.Model) {
-            const makePrefix = exifData.Make && !exifData.Model.startsWith(exifData.Make) ? `${exifData.Make} ` : '';
+            const makePrefix = exifData.Make && !exifData.Model.startsWith(exifData.Make) ?
+            `${exifData.Make} ` : '';
             setUploadCamera(`${makePrefix}${exifData.Model}`);
           } else if (exifData.Make) setUploadCamera(exifData.Make);
           else setUploadCamera('');
 
           setUploadCameraLens(exifData.LensModel || '');
           if (exifData.ExposureTime) {
-            const shutterFraction = exifData.ExposureTime < 1 ? `1/${Math.round(1 / exifData.ExposureTime)}s` : `${exifData.ExposureTime}s`;
+            const shutterFraction = exifData.ExposureTime < 1 ?
+            `1/${Math.round(1 / exifData.ExposureTime)}s` : `${exifData.ExposureTime}s`;
             setUploadShutter(shutterFraction);
           } else setUploadShutter('');
 
@@ -649,8 +656,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         setUploadCamera(''); setUploadCameraLens(''); setUploadShutter(''); setUploadIso(''); setUploadAperture(''); setUploadSoftware('');
         await fetchCurrentTopic(true); fetchAlbumSilently(); 
       }
-    } catch (e) { console.error(e); } 
-    finally { setIsUploading(false); }
+    } catch (e) { console.error(e);
+    } finally { setIsUploading(false); }
   };
 
   const handleFileSelectForSwap = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -660,15 +667,19 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         const exifData = await exifr.parse(rawFile);
         if (exifData) {
           if (exifData.Model) {
-            const makePrefix = exifData.Make && !exifData.Model.startsWith(exifData.Make) ? `${makePrefix}${exifData.Model}` : '';
-            setSwapCamera(exifData.Model);
-          }
-          setSwapLens(exifData.LensModel || '-');
+            const makePrefix = exifData.Make && !exifData.Model.startsWith(exifData.Make) ?
+            `${makePrefix}${exifData.Model}` : '';
+            setSwapCamera(`${makePrefix}${exifData.Model}`);
+          } else if (exifData.Make) setSwapCamera(exifData.Make);
+          else setSwapCamera('');
+
+          setSwapLens(exifData.LensModel || '');
           if (exifData.ExposureTime) {
-            setSwapShutter(exifData.ExposureTime < 1 ? `1/${Math.round(1 / exifData.ExposureTime)}s` : `${exifData.ExposureTime}s`);
-          }
-          setSwapIso(exifData.ISO ? String(exifData.ISO) : '');
-          setSwapAperture(exifData.FNumber ? `f/${exifData.FNumber}` : '');
+            const shutterFraction = exifData.ExposureTime < 1 ?
+            `1/${Math.round(1 / exifData.ExposureTime)}s` : `${exifData.ExposureTime}s`;
+            setSwapShutter(shutterFraction);
+          } else setSwapShutter('');
+          setSwapIso(exifData.ISO ? String(exifData.ISO) : ''); setSwapAperture(exifData.FNumber ? `f/${exifData.FNumber}` : '');
           setSwapSoftware(exifData.Software || '');
         }
       } catch (e) {
@@ -696,7 +707,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         setSwapCamera(''); setSwapLens(''); setSwapShutter(''); setSwapIso(''); setSwapAperture(''); setSwapSoftware('');
         fetchCurrentTopic(false); fetchAlbumSilently();
       } 
-      else { const err = await res.json(); alert(err.error); }
+      else { const err = await res.json(); alert(err.error);
+      }
     } catch (e) { alert(t('msgSwapErrorMain')); }
     finally { setIsSwapping(false); }
   };
@@ -709,9 +721,11 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ topicId: topic.id, userEmail: user?.email, entryId })
       });
       if (res.ok) { alert(t('msgSwapBackSuccess')); fetchCurrentTopic(false); fetchAlbumSilently(); } 
-      else { const err = await res.json(); alert(err.error || t('msgSwapErrorMain')); }
+      else { const err = await res.json();
+      alert(err.error || t('msgSwapErrorMain')); }
     } catch (e) { alert(t('msgNetworkError')); }
-    finally { setIsSwapping(false); }
+    finally { setIsSwapping(false);
+    }
   };
 
   const handleSelectPhotoForSwap = async (photoUrl: string) => {
@@ -722,9 +736,11 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ topicId: topic.id, userEmail: user.email, userName: user.name, fileUrl: photoUrl })
       });
       if (swapRes.ok) { alert(t('msgSwapExistingSuccess')); fetchCurrentTopic(false); fetchAlbumSilently(); } 
-      else { const err = await swapRes.json(); alert(err.error); }
+      else { const err = await swapRes.json();
+      alert(err.error); }
     } catch (e) { alert(t('msgNetworkError')); } 
-    finally { setIsSwapping(false); }
+    finally { setIsSwapping(false);
+    }
   };
 
   const handleExecuteShare = async () => {
@@ -752,21 +768,27 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         link.click();
       }
       setActiveShareData(null);
-     } catch (e) { alert(t('msgGenerateImageError')); } 
+     } catch (e) { alert(t('msgGenerateImageError'));
+     } 
      finally { setIsGeneratingImage(false); }
   };
 
   const currentLevel = getLevelDetails(userTotalLikes, userVictories);
   const BASE_EXPOSURE = 10;
   const exposureEarned = BASE_EXPOSURE + (Number(myVoteCount || 0) * 2);
-  const safeViewsCount = myEntry ? (Number(myEntry.views_count) || 0) : 0;
+  const safeViewsCount = myEntry ?
+  (Number(myEntry.views_count) || 0) : 0;
   const viewsRemaining = myEntry ? (exposureEarned - safeViewsCount) : 0;
-  const rawPercentage = myEntry ? ((viewsRemaining / 15) * 100) : 0;
+  const rawPercentage = myEntry ?
+  ((viewsRemaining / 15) * 100) : 0;
   const exposurePercentage = isNaN(rawPercentage) || !isFinite(rawPercentage) ? 0 : Math.min(100, Math.max(0, rawPercentage));
   let exposureColor = '#ef4444';
-  let exposureLabel = viewsRemaining <= 0 ? (lang === 'en' ? 'Invisible (0%)' : 'Láthatatlan (0%)') : (lang === 'en' ? 'Low' : 'Alacsony');
-  if (exposurePercentage >= 80) { exposureColor = '#10b981'; exposureLabel = lang === 'en' ? 'Maximum' : 'Maximális'; } 
-  else if (exposurePercentage >= 40) { exposureColor = '#f59e0b'; exposureLabel = lang === 'en' ? 'Medium' : 'Közepes'; }
+  let exposureLabel = viewsRemaining <= 0 ?
+  (lang === 'en' ? 'Invisible (0%)' : 'Láthatatlan (0%)') : (lang === 'en' ? 'Low' : 'Alacsony');
+  if (exposurePercentage >= 80) { exposureColor = '#10b981'; exposureLabel = lang === 'en' ? 'Maximum' : 'Maximális';
+  } 
+  else if (exposurePercentage >= 40) { exposureColor = '#f59e0b'; exposureLabel = lang === 'en' ?
+  'Medium' : 'Közepes'; }
 
   const sortedActiveTopics = [...activeTopics].sort((a, b) => {
     const dateStrA = String(sortBy === 'endDate' ? a.end_date : a.start_date).replace(' ', 'T').split('.')[0];
@@ -788,8 +810,10 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
               { id: 'manage', label: lang === 'en' ? 'Manage' : 'Tervezőpult' },
               { id: 'past', label: lang === 'en' ? 'Completed' : 'Lezárt Arénák' },
               { id: 'arena_album', label: lang === 'en' ? 'My Arena Album' : 'Aréna Albumom' },
-              { id: 'my_stats', label: lang === 'en' ? 'Statistics' : 'Trófea statisztikák' },
-              { id: 'hall_of_fame', label: lang === 'en' ? 'Hall of Fame' : 'Dicsőségcsarnok' }
+              { id: 'my_stats', label: lang === 'en' ?
+              'Statistics' : 'Trófea statisztikák' },
+              { id: 'hall_of_fame', label: lang === 'en' ?
+              'Hall of Fame' : 'Dicsőségcsarnok' }
             ].map((tab) => {
               const isActive = subTab === tab.id;
               return (
@@ -842,11 +866,12 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
 
             let requirementMessage = '';
             if (likesDiff > 0) requirementMessage += `${likesDiff} db Kedvelés (⭐) `;
-            if (winsDiff > 0) requirementMessage += `${requirementMessage ? 'és ' : ''}${winsDiff} db Aréna Győzelem (🥇)`;
+            if (winsDiff > 0) requirementMessage += `${requirementMessage ?
+            'és ' : ''}${winsDiff} db Aréna Győzelem (🥇)`;
 
             const tooltipText = isUnlocked 
               ? `${rank.name} - Sikeresen feloldva! ✔` 
-              : `Következő szint: ${rank.name}\nHátralévő feltétel: ${requirementMessage}`;
+              : `Következő szint: ${rank.name}\nHátratévő feltétel: ${requirementMessage}`;
             let segmentBg = '#0f172a'; 
             if (isUnlocked) segmentBg = '#0284c7'; 
             if (isCurrent) segmentBg = 'linear-gradient(90deg, #0284c7, #38bdf8)';
@@ -958,7 +983,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
             ) : (
               <div>
                 <div style={{ marginBottom: '20px' }}>
-                  <button onClick={() => { setSelectedTopicId(null); }} style={{ background: '#1e293b', border: '1px solid #334155', color: '#cbd5e1', padding: '8px 18px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem' }}>
+                  <button onClick={() => { setSelectedTopicId(null);
+                  }} style={{ background: '#1e293b', border: '1px solid #334155', color: '#cbd5e1', padding: '8px 18px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem' }}>
                     {t('viewBackBtn')}
                   </button>
                 </div>
@@ -967,23 +993,28 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                 ) : (
                   <ArenaActiveRoom
                     topic={topic} timeLeft={timeLeft} isMaster={isMaster} exposureColor={exposureColor} exposurePercentage={exposurePercentage} exposureLabel={exposureLabel} myEntry={myEntry} voteEntry={voteEntry} noMoreEntries={noMoreEntries} masterVotesLeft={masterVotesLeft} userPower={userPower} swapBalance={swapBalance} myPastEntries={myPastEntries} leaderboard={leaderboard} currentClubLeaderboard={currentClubLeaderboard} user={user} isUploading={isUploading} uploadPreview={uploadPreview} handleFileSelect={handleFileSelect} handleUpload={handleUpload} 
-                    isLoadingSwapAlbum={isLoadingSwapAlbum} isSwapping={isSwapping} swapPreview={swapPreview} handleSwapFileSelect={handleFileSelectForSwap} handleSwapSubmit={handleSwapSubmit} onOpenAlbumForUpload={() => { setAlbumModalMode('upload'); setShowSwapAlbumModal(true); }} onOpenAlbumForSwap={() => { setAlbumModalMode('swap'); setShowSwapAlbumModal(true); }} handleVote={handleVote} handleOffTopicReport={handleOffTopicReport} handleSwapBackSubmit={handleSwapBackSubmit} setFullscreenData={setFullscreenData} handleImageError={handleImageError} fetchCurrentTopic={fetchCurrentTopic}
+                    isLoadingSwapAlbum={isLoadingSwapAlbum} isSwapping={isSwapping} swapPreview={swapPreview} handleSwapFileSelect={handleFileSelectForSwap} handleSwapSubmit={handleSwapSubmit} onOpenAlbumForUpload={() => { setAlbumModalMode('upload'); setShowSwapAlbumModal(true); }} onOpenAlbumForSwap={() => { setAlbumModalMode('swap'); setShowSwapAlbumModal(true);
+                    }} handleVote={handleVote} handleOffTopicReport={handleOffTopicReport} handleSwapBackSubmit={handleSwapBackSubmit} setFullscreenData={setFullscreenData} handleImageError={handleImageError} fetchCurrentTopic={fetchCurrentTopic}
                   />
                 )}
               </div>
             )}
 
             {/* FLOATING CHAT DOCK PANEL */}
-            <div className={`arena-floating-chat-dock ${isChatOpen ? 'is-open' : 'is-closed'} ${hasNewMessage ? 'has-unread' : ''}`}>
-              <div onClick={() => { setIsChatOpen(!isChatOpen); if (!isChatOpen) setHasNewMessage(false); }} className="chat-dock-header">
+            <div className={`arena-floating-chat-dock ${isChatOpen ?
+            'is-open' : 'is-closed'} ${hasNewMessage ? 'has-unread' : ''}`}>
+              <div onClick={() => { setIsChatOpen(!isChatOpen);
+              if (!isChatOpen) setHasNewMessage(false); }} className="chat-dock-header">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', position: 'relative' }}>
                   <span style={{ fontSize: '1.2rem' }}>💬</span>
                   <span style={{ fontWeight: 'bold', fontSize: '0.95rem' }}>
-                    {t('viewLobbyTitle')} {hasNewMessage && <span style={{ color: '#f43f5e', fontSize: '0.8rem', marginLeft: '5px' }}>({lang === 'en' ? 'New!' : 'Új!'})</span>}
+                    {t('viewLobbyTitle')} {hasNewMessage && <span 
+                    style={{ color: '#f43f5e', fontSize: '0.8rem', marginLeft: '5px' }}>({lang === 'en' ? 'New!' : 'Új!'})</span>}
                   </span>
                   {hasNewMessage && <span className="chat-notification-badge" />}
                 </div>
-                <span style={{ transform: isChatOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.3s' }}>▲</span>
+                <span style={{ transform: isChatOpen ?
+                'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.3s' }}>▲</span>
               </div>
               {isChatOpen && (
                 <div className="chat-dock-body">
@@ -996,13 +1027,20 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                       lobbyMessages.slice(-100).map((msg, idx) => {
                         const isMsgMe = (msg.user_email || msg.userEmail) === user?.email;
                         return (
-                          <div key={msg.id || idx} style={{ display: 'flex', flexDirection: 'column', alignItems: isMsgMe ? 'flex-end' : 'flex-start', maxWidth: '92%', alignSelf: isMsgMe ? 'flex-end' : 'flex-start', marginBottom: '8px' }}>
-                            <div style={{ display: 'flex', gap: '5px', alignItems: 'center', marginBottom: '2px', fontSize: '0.7rem', color: isMsgMe ? '#38bdf8' : '#94a3b8', fontWeight: 'bold' }}>
-                              <span>{msg.user_name || msg.userName}</span>
+                          <div key={msg.id || idx} style={{ display: 'flex', flexDirection: 'column', alignItems: isMsgMe 
+                          ? 'flex-end' : 'flex-start', maxWidth: '92%', alignSelf: isMsgMe ? 'flex-end' : 'flex-start', marginBottom: '8px' }}>
+                            <div style={{ display: 'flex', gap: '5px', alignItems: 'center', marginBottom: '2px', fontSize: '0.7rem', color: isMsgMe ?
+                            '#38bdf8' : '#94a3b8', fontWeight: 'bold' }}>
+                              <span>{msg.user_name ||
+                              msg.userName}</span>
                               <span style={{ color: '#475569', fontWeight: 'normal' }}>• {new Date(msg.created_at).toLocaleTimeString(lang === 'en' ? 'en-US' : 'hu-HU', { hour: '2-digit', minute: '2-digit' })}</span>
                             </div>
-                            <div style={{ background: isMsgMe ? 'linear-gradient(135deg, #f97316, #ef4444)' : '#1e293b', color: '#f8fafc', padding: '8px 12px', borderRadius: isMsgMe ? '12px 12px 2px 12px' : '12px 12px 12px 2px', fontSize: '0.85rem', wordBreak: 'break-word', border: isMsgMe ? 'none' : '1px solid #334155' }}>
-                              {msg.message_text || msg.messageText}
+                            <div style={{ background: isMsgMe ?
+                            'linear-gradient(135deg, #f97316, #ef4444)' : '#1e293b', color: '#f8fafc', padding: '8px 12px', borderRadius: isMsgMe ?
+                            '12px 12px 2px 12px' : '12px 12px 12px 2px', fontSize: '0.85rem', wordBreak: 'break-word', border: isMsgMe ?
+                            'none' : '1px solid #334155' }}>
+                              {msg.message_text ||
+                              msg.messageText}
                             </div>
                           </div>
                         );
@@ -1014,7 +1052,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   </div>
                   <form onSubmit={handleSendLobbyMessage} style={{ display: 'flex', gap: '8px' }}>
                     <input type="text" placeholder={t('viewLobbyPlaceholder')} value={typedLobbyMsg} onChange={handleInputChange} maxLength={500} disabled={isSendingLobbyMsg} style={{ flex: 1, padding: '10px 12px', background: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '10px', fontSize: '0.85rem' }} />
-                    <button type="submit" disabled={!typedLobbyMsg.trim() || isSendingLobbyMsg} style={{ background: (!typedLobbyMsg.trim() || isSendingLobbyMsg) ? '#334155' : 'linear-gradient(135deg, #f97316, #ef4444)', color: 'white', border: 'none', padding: '10px 16px', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>{t('viewLobbySend')}</button>
+                    <button type="submit" disabled={!typedLobbyMsg.trim() || isSendingLobbyMsg} style={{ background: (!typedLobbyMsg.trim() || isSendingLobbyMsg) ?
+                    '#334155' : 'linear-gradient(135deg, #f97316, #ef4444)', color: 'white', border: 'none', padding: '10px 16px', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>{t('viewLobbySend')}</button>
                   </form>
                 </div>
               )}
@@ -1046,54 +1085,39 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         )}
 
         {subTab === 'my_stats' && (
-          <TrophyRoom isLoadingStats={isLoadingStats} myStats={myStats} userTotalLikes={userTotalLikes} userVictories={userVictories} swapBalance={swapBalance} myReferralCode={myReferralCode} referredBy={referredBy} referralInput={referralInput} setReferralInput={setReferralInput} isClaimingReferral={isClaimingReferral} handleClaimReferral={handleClaimReferral} setActiveShareData={setActiveShareData} />
+          <TrophyRoom isLoadingStats={isLoadingStats} myStats={myStats} userTotalLikes={userTotalLikes} userVictories={userVictories} swapBalance={swapBalance} myReferralCode={myReferralCode} referredBy={referredBy} referralInput={referralInput} setReferralInput={setReferralInput} isClaimingReferral={isClaimingReferral} handleClaimReferral={handleClaimReferral} setActiveShareData={setActiveShareData} setFullscreenData={setFullscreenData} getLevelDetails={getLevelDetails} getTopicType={getTopicType} handleImageError={handleImageError} />
         )}
 
         {subTab === 'hall_of_fame' && (
-          <HallOfFame user={user} />
+          <HallOfFame isLoadingHof={isLoadingHof} hallOfFame={hallOfFame} user={user} getLevelDetails={getLevelDetails} />
         )}
-
+        
         {subTab === 'arena_album' && (
           <MyArenaAlbumView user={user} setFullscreenData={setFullscreenData} />
         )}
       </div>
 
-      {/* COMPONENT MODALS */}
-      {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
-      
-      <AlbumSelectionModal
-        isOpen={showSwapAlbumModal}
-        onClose={(wasActionSubmitted) => {
-          setShowSwapAlbumModal(false);
-          if (wasActionSubmitted) fetchCurrentTopic(true);
-        }}
-        albumModalMode={albumModalMode}
-        swapAlbumPhotos={swapAlbumPhotos}
-        myPastEntries={myPastEntries}
-        topic={topic}
-        user={user}
-        isLoading={isLoadingSwapAlbum}
-        setIsUploading={setIsUploading}
-        setIsSwapping={setIsSwapping}
-        fetchCurrentTopic={fetchCurrentTopic}
-        handleSwapBackSubmit={handleSwapBackSubmit}
-        handleSelectPhotoForSwap={handleSelectPhotoForSwap}
+      <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} currentLevel={currentLevel} />
+
+      <AlbumSelectionModal 
+        isOpen={showSwapAlbumModal} 
+        onClose={(wasActionSubmitted) => { setShowSwapAlbumModal(false);
+        if (wasActionSubmitted === true) fetchCurrentTopic(false); }} 
+        albumModalMode={albumModalMode} 
+        swapAlbumPhotos={swapAlbumPhotos} 
+        myPastEntries={myPastEntries} 
+        topic={topic} 
+        user={user} 
+        isLoading={isLoadingSwapAlbum} 
+        setIsUploading={setIsUploading} 
+        setIsSwapping={setIsSwapping} 
+        fetchCurrentTopic={fetchCurrentTopic} 
+        handleSwapBackSubmit={handleSwapBackSubmit} 
+        handleSelectPhotoForSwap={handleSelectPhotoForSwap} 
         myEntry={myEntry} // 🎯 ÚJ: Átadjuk az éppen bent lévő képet is a szűréshez
       />
 
-      {activeShareData && (
-        <ShareCardModal 
-          data={activeShareData} 
-          user={user} 
-          onClose={() => { setActiveShareData(null); setShareBase64(null); }} 
-          isGeneratingImage={isGeneratingImage}
-          setIsGeneratingImage={setIsGeneratingImage}
-          shareBase64={shareBase64}
-          setShareBase64={setShareBase64}
-          loadingShareImg={loadingShareImg}
-          setLoadingShareImg={setLoadingShareImg}
-        />
-      )}
+      <ShareCardModal activeShareData={activeShareData} onClose={() => setActiveShareData(null)} user={user} shareBase64={shareBase64} loadingShareImg={loadingShareImg} isGeneratingImage={isGeneratingImage} handleExecuteShare={handleExecuteShare} />
 
       {/* ── RENDKÍVÜL STABIL RESZPONZÍV STYLING REGETEG ── */}
       <style>{`
@@ -1101,49 +1125,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         .arena-cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 25px; width: 100%; }
         .arena-rank-tooltip-container { position: relative; }
         
-        /* 🎯 ULTRASTABIL MODERN RANGSÁV JAVÍTÁS */
-        .arena-progress-card-wrapper {
-          background: #1e293b;
-          padding: 15px 20px;
-          border-radius: 16px;
-          border: '1px solid #334155';
-          margin-bottom: 30px;
-          box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-          overflow: visible !important; /* Biztosítja, hogy a tooltip ne vágódjon le */
-        }
-        
-        .arena-progress-track-line {
-          display: flex;
-          width: 100%;
-          border: 1px solid #0f172a;
-          border-radius: 8px;
-          overflow: hidden;
-        }
-
-        .arena-rank-tooltip-container span {
-          transition: opacity 0.2s ease;
-        }
-
-        /* 📱 MOBIL ELRENDEZÉS: Letisztult, kompakt Bento-csík */
-        @media (max-width: 768px) {
-          .arena-progress-card-wrapper {
-            padding: 12px 10px !important;
-          }
-          .arena-rank-tooltip-container {
-            padding: 15px 0 !important; /* Elég nagy érintési felület a mobil tooltiphez */
-          }
-          .arena-rank-tooltip-container span {
-            display: none !important; /* Mobilon elrejtjük a szövegeket és emojikat a sávból */
-          }
-        }
-
-        /* 💻 ASZTALI ELRENDEZÉS: Itt már minden kiírható */
-        @media (min-width: 769px) {
-          .arena-progress-track-line {
-            min-width: 100% !important;
-          }
-        }
-
         .arena-progress-card-wrapper, .arena-tabs-scroll-wrapper {
           scrollbar-width: thin;
           scrollbar-color: #334155 #1e293b;
@@ -1169,110 +1150,58 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
             min-width: 890px !important;
             justify-content: flex-start !important;
           }
+          .arena-progress-card-wrapper {
+            overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch;
+            padding-bottom: 12px !important;
+          }
+          .arena-progress-track-line {
+            min-width: 980px !important;
+          }
         }
         
-        /* 🎯 TOOLTIP POZÍCIONÁLÁS JAVÍTÁS MOBILRA IS */
         .arena-rank-tooltip-box {
           position: absolute;
-          bottom: 145%; 
-          left: 50%; 
-          transform: translateX(-50%) translateY(8px);
-          background: #090d16; 
-          color: #f8fafc; 
-          border: 1px solid #334155; 
-          border-radius: 12px;
-          width: 220px;
-          box-shadow: 0 15px 35px rgba(0,0,0,0.7); 
-          z-index: 999999 !important;
-          opacity: 0; 
-          pointer-events: none; 
-          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-          padding: 14px; 
-          text-align: center;
+          bottom: 145%; left: 50%; transform: translateX(-50%) translateY(8px);
+          background: #090d16; color: #f8fafc; border: 1px solid #334155; border-radius: 12px;
+          width: 240px;
+          box-shadow: 0 15px 35px rgba(0,0,0,0.7); z-index: 999999 !important;
+          opacity: 0; pointer-events: none; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+          padding: 14px; text-align: center;
         }
         .arena-rank-tooltip-box::after {
           content: "";
-          position: absolute; 
-          top: 100%; 
-          left: 50%; 
-          transform: translateX(-50%);
-          border-width: 6px; 
-          border-style: solid; 
-          border-color: #090d16 transparent transparent transparent;
+          position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+          border-width: 6px; border-style: solid; border-color: #090d16 transparent transparent transparent;
         }
-        
-        /* Aktív lebegő vagy érintési állapot */
-        .arena-rank-tooltip-container:hover .arena-rank-tooltip-box,
-        .arena-rank-tooltip-container:active .arena-rank-tooltip-box {
+        .arena-rank-tooltip-container:hover .arena-rank-tooltip-box {
           opacity: 1;
-          transform: translateX(-50%) translateY(0); 
-          pointer-events: auto;
+          transform: translateX(-50%) translateY(0); pointer-events: auto;
         }
-
-        .arena-floating-chat-dock { 
-          position: fixed; 
-          bottom: 0;
-          right: 30px; 
-          width: 360px; 
-          background: #1e293b; 
-          border: 1px solid #334155; 
-          border-bottom: none; 
-          border-radius: 16px 16px 0 0;
-          box-shadow: 0 -10px 30px rgba(0,0,0,0.5); 
-          z-index: 1000; 
-          transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.1);
+        .arena-floating-chat-dock { position: fixed; bottom: 0;
+        right: 30px; width: 360px; background: #1e293b; border: 1px solid #334155; border-bottom: none; border-radius: 16px 16px 0 0;
+        box-shadow: 0 -10px 30px rgba(0,0,0,0.5); z-index: 1000; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.1);
         }
-        .arena-floating-chat-dock.is-closed { 
-          transform: translateY(calc(100% - 45px));
+        .arena-floating-chat-dock.is-closed { transform: translateY(calc(100% - 50px));
         }
-        .arena-floating-chat-dock.has-unread .chat-dock-header { 
-          border-color: #f43f5e; 
-          box-shadow: inset 0 0 10px rgba(244,63,94,0.2);
+        .arena-floating-chat-dock.has-unread .chat-dock-header { border-color: #f43f5e; box-shadow: inset 0 0 10px rgba(244,63,94,0.2);
         }
-        .chat-dock-header { 
-          padding: 12px 20px; 
-          background: linear-gradient(90deg, #1e293b, #0f172a);
-          border-bottom: 1px solid #334155; 
-          border-radius: 15px 15px 0 0; 
-          display: flex; 
-          justify-content: space-between; 
-          align-items: center; 
-          cursor: pointer; 
-          user-select: none;
+        .chat-dock-header { padding: 14px 20px; background: linear-gradient(90deg, #1e293b, #0f172a);
+        border-bottom: 1px solid #334155; border-radius: 15px 15px 0 0; display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none;
         }
-        .chat-dock-header:hover { background: #24334d; }
-        .chat-dock-body { padding: 15px; height: 350px; display: flex; flex-direction: column; }
-        .chat-messages-scroll-area { 
-          background: #090d16; 
-          border: 1px solid #223147; 
-          border-radius: 10px; 
-          padding: 10px;
-          flex: 1; 
-          overflow-y: auto; 
-          display: flex; 
-          flex-direction: column; 
-          gap: 10px;
-          margin-bottom: 10px;
+        .chat-dock-header:hover { background: #24334d;
         }
-        .chat-notification-badge { 
-          position: absolute;
-          top: -1px; 
-          left: -3px; 
-          width: 8px; 
-          height: 8px; 
-          background: #f43f5e; 
-          border-radius: 50%; 
-          box-shadow: 0 0 8px #f43f5e;
-          animation: pulse 1.5s infinite; 
+        .chat-dock-body { padding: 15px; height: 400px; display: flex; flex-direction: column;
         }
-        @keyframes pulse { 
-          0% { transform: scale(0.9); opacity: 1; } 
-          50% { transform: scale(1.2); opacity: 0.5; } 
-          100% { transform: scale(0.9); opacity: 1; } 
-        }
-        @media (max-width: 480px) { 
-          .arena-floating-chat-dock { right: 10px; width: calc(100% - 20px); } 
-        }
+        .chat-messages-scroll-area { background: #0f172a; border: 1px solid #223147; border-radius: 12px; padding: 12px;
+        flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+        .chat-notification-badge { position: absolute;
+        top: -1px; left: -3px; width: 8px; height: 8px; background: #f43f5e; border-radius: 50%; box-shadow: 0 0 8px #f43f5e;
+        animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { transform: scale(0.9);
+        opacity: 1; } 50% { transform: scale(1.2); opacity: 0.5; } 100% { transform: scale(0.9); opacity: 1;
+        } }
+        @media (max-width: 480px) { .arena-floating-chat-dock { right: 10px; width: calc(100% - 20px); } }
       `}</style>
 
     </div>
