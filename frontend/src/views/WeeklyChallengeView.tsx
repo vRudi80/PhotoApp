@@ -14,7 +14,6 @@ import ArenaActiveRoom from '../components/WeeklyChallenge/subtabs/ArenaActiveRo
 import BattlePlanner from '../components/WeeklyChallenge/subtabs/BattlePlanner';
 import exifr from 'exifr'; 
 import VideoLoader from '../components/VideoLoader';
-
 import { useLanguage } from '../context/LanguageContext';
 
 // ====================================================================
@@ -92,7 +91,7 @@ const compressImageOnClient = (file: File): Promise<File> => {
             });
             resolve(compressedFile);
           } else {
-            resolve(file); 
+            resolve(file);
           }
         }, 'image/jpeg', 0.8); 
       };
@@ -132,7 +131,6 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
       const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)).toString().padStart(2, '0');
       const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60)).toString().padStart(2, '0');
       const seconds = Math.floor((distance % (1000 * 60)) / 1000).toString().padStart(2, '0');
-
       if (days > 0) {
         setTimeLeft(`${days}${t('viewTimeDays', ' nap ')}${hours}:${minutes}:${seconds}`);
       } else {
@@ -140,26 +138,22 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
       }
       return true;
     };
-
     calculateTimeLeft();
     const interval = setInterval(() => {
       const stillActive = calculateTimeLeft();
       if (!stillActive) clearInterval(interval);
     }, 1000);
-    
     return () => clearInterval(interval);
   }, [topic.id, topic.end_date, t]);
 
   const isDaily = getTopicType(topic.start_date, topic.end_date) === 'daily';
   const isMaster = topic.isMaster === true;
   const statusColor = isMaster ? '#a78bfa' : (topic.hasEntered ? '#10b981' : '#f59e0b');
-
   const displayTitle = lang === 'en' && topic.title_en ? topic.title_en : topic.title;
   const displayDesc = lang === 'en' && topic.description_en ? topic.description_en : topic.description;
 
   const totalImagesCount = topic.entries_count ?? topic.entry_count ?? topic.totalEntries ?? 0;
   const unvotedCount = topic.unvotedEntries ?? topic.unvoted_count ?? 0;
-
   return (
     <div 
       onClick={onSelect}
@@ -224,7 +218,6 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
 // ====================================================================
 export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyChallengeViewProps) {
   const { t, lang } = useLanguage();
-
   const [subTab, setSubTab] = useState<'current' | 'upcoming' | 'manage' | 'past' | 'arena_album' | 'my_stats' | 'hall_of_fame'>('current');
   const [loading, setLoading] = useState(true);
   const [myReferralCode, setMyReferralCode] = useState<string>('');
@@ -233,7 +226,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const [isClaimingReferral, setIsClaimingReferral] = useState<boolean>(false);
   const [masterVotesLeft, setMasterVotesLeft] = useState<number>(0);
   const [isMaster, setIsMaster] = useState<boolean>(false);
-
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [hasNewMessage, setHasNewMessage] = useState(false);
 
@@ -259,15 +251,13 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const [swapAlbumPhotos, setSwapAlbumPhotos] = useState<any[]>([]);
   const [isLoadingSwapAlbum, setIsLoadingSwapAlbum] = useState(false);
   const [albumModalMode, setAlbumModalMode] = useState<'upload' | 'swap'>('swap');
-
   const [activeTopics, setActiveTopics] = useState<any[]>([]);
   const [selectedTopicId, setSelectedTopicId] = useState<number | null>(null);
   const [sortBy, setSortBy] = useState<'endDate' | 'startDate'>('endDate');
-
   const [topic, setTopic] = useState<any>(null);
   const [myEntry, setMyEntry] = useState<any>(null);
   const [myPastEntries, setMyPastEntries] = useState<any[]>([]); 
-  const [swapBalance, setSwapBalance] = useState<number>(3);     
+  const [swapBalance, setSwapBalance] = useState<number>(3);
   const [myVoteCount, setMyVoteCount] = useState(0);
   const [votableEntries, setVotableEntries] = useState(1);
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
@@ -281,11 +271,9 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
 
   const [voteEntry, setVoteEntry] = useState<any>(null);
   const [noMoreEntries, setNoMoreEntries] = useState(false);
-
   const [swapFile, setSwapFile] = useState<File | null>(null);
   const [swapPreview, setSwapPreview] = useState<string | null>(null);
   const [isSwapping, setIsSwapping] = useState(false);
-
   const [myStats, setMyStats] = useState<{podiums: any, history: any[]} | null>(null);
   const [showHelp, setShowHelp] = useState(false);
   const [isLoadingStats, setIsLoadingStats] = useState(false);
@@ -293,12 +281,10 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
 
   const [timeLeft, setTimeLeft] = useState<string>('');
   const [userTotalLikes, setUserTotalLikes] = useState<number>(0);
-  const [userVictories, setUserVictories] = useState<number>(0); 
-
+  const [userVictories, setUserVictories] = useState<number>(0);
   const [userPower, setUserPower] = useState<{ super: number; brilliant: number }>({ super: 1, brilliant: 2 });
 
   const [hallOfFame, setHallOfFame] = useState<any[]>([]);
-
   const [activeShareData, setActiveShareData] = useState<any | null>(null);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [shareBase64, setShareBase64] = useState<string | null>(null);
@@ -349,8 +335,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         if (data.myReferralCode !== undefined) setMyReferralCode(data.myReferralCode);
         if (data.referredBy !== undefined) setReferredBy(data.referredBy);
         if (data.swapBalance !== undefined) setSwapBalance(data.swapBalance); 
-        if (data.userPower !== undefined) setUserPower(data.userPower); 
-
+        if (data.userPower !== undefined) setUserPower(data.userPower);
         if (!selectedTopicId) {
           setActiveTopics(data.activeTopics || []);
         } else {
@@ -370,10 +355,9 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     finally { if (!isSilent) setLoading(false); }
   };
 
-  // 🎯 JAVÍTVA: A betöltést mostantól precízen az isLoadingSwapAlbum állapot kezeli és garantáltan lekapcsolja a végén!
   const fetchAlbumSilently = async () => {
     if (!user?.email) return;
-    setIsLoadingSwapAlbum(true); // Kapcsoljuk be a betöltést
+    setIsLoadingSwapAlbum(true);
     try {
       const res = await fetch(`${BACKEND_URL}/api/weekly/my-album?userEmail=${user.email}`);
       if (res.ok) {
@@ -386,7 +370,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       console.error("Silent prefetch failed:", e); 
       setSwapAlbumPhotos([]);
     } finally {
-      setIsLoadingSwapAlbum(false); // 👈 BÁRMI TÖRTÉNIK (0 képnél is), ezt kötelező leállítani!
+      setIsLoadingSwapAlbum(false);
     }
   };
 
@@ -411,7 +395,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const handleSendLobbyMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!typedLobbyMsg.trim() || isSendingLobbyMsg) return;
-
     setIsSendingLobbyMsg(true);
     try {
       const res = await fetch(`${BACKEND_URL}/api/weekly/chat`, {
@@ -438,7 +421,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       }
     } catch (err) {
       console.error(err);
-    } finally {
+    } finaly {
       setIsSendingLobbyMsg(false);
     }
   };
@@ -534,8 +517,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     }
   }, [lobbyMessages.length, selectedTopicId, subTab, isChatOpen]);
 
-
-  // 🏆 DICSŐSÉGCSARNOK ADATAINAK AUTOMATIKUS LEKÉRDEZÉSE
   const fetchHallOfFame = async () => {
     setIsLoadingHof(true);
     try {
@@ -553,15 +534,15 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       setIsLoadingHof(false);
     }
   };
-  
+
   const fetchMyStats = async () => {
     setIsLoadingStats(true);
     try {
       const res = await fetch(`${BACKEND_URL}/api/weekly/my-stats?userEmail=${user?.email || ''}`);
       if (res.ok) {
-          const data = await res.json();
-          if (data && data.history && data.podiums) setMyStats(data);
-          else setMyStats({ podiums: { first: 0, second: 0, third: 0 }, history: [] });
+        const data = await res.json();
+        if (data && data.history && data.podiums) setMyStats(data);
+        else setMyStats({ podiums: { first: 0, second: 0, third: 0 }, history: [] });
       }
     } catch (error) { console.error(error); } 
     finally { setIsLoadingStats(false); }
@@ -643,7 +624,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           setUploadSoftware(exifData.Software || '');
         }
       } catch (exifError) {
-        setUploadCamera(''); setUploadCameraLens(''); setUploadShutter(''); setUploadIso(''); setUploadAperture(''); setUploadSoftware('');
+        setUploadCamera('');
+        setUploadCameraLens(''); setUploadShutter(''); setUploadIso(''); setUploadAperture(''); setUploadSoftware('');
       }
       let finalFile = rawFile;
       if (rawFile.size > 2 * 1024 * 1024) finalFile = await compressImageOnClient(rawFile);
@@ -656,7 +638,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     setIsUploading(true);
     const formData = new FormData();
     formData.append('photo', uploadFile); formData.append('userEmail', user.email); formData.append('topicId', topic.id); formData.append('userName', user.name || user.email);
-    formData.append('camera', uploadCamera); formData.append('lens', uploadLens); formData.append('shutter', uploadShutter); formData.append('iso', uploadIso); formData.append('aperture', uploadAperture); formData.append('software', uploadSoftware);
+    formData.append('camera', uploadCamera); formData.append('lens', uploadLens);
+    formData.append('shutter', uploadShutter); formData.append('iso', uploadIso); formData.append('aperture', uploadAperture); formData.append('software', uploadSoftware);
 
     try {
       const res = await fetch(`${BACKEND_URL}/api/weekly/upload`, { method: 'POST', body: formData });
@@ -666,7 +649,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         setUploadCamera(''); setUploadCameraLens(''); setUploadShutter(''); setUploadIso(''); setUploadAperture(''); setUploadSoftware('');
         await fetchCurrentTopic(true); fetchAlbumSilently(); 
       }
-    } catch (e) { console.error(e); } finally { setIsUploading(false); }
+    } catch (e) { console.error(e); } 
+    finally { setIsUploading(false); }
   };
 
   const handleFileSelectForSwap = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -677,19 +661,19 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         if (exifData) {
           if (exifData.Model) {
             const makePrefix = exifData.Make && !exifData.Model.startsWith(exifData.Make) ? `${makePrefix}${exifData.Model}` : '';
-            setSwapCamera(`${makePrefix}${exifData.Model}`);
-          } else if (exifData.Make) setSwapCamera(exifData.Make);
-          else setSwapCamera('');
-
-          setSwapLens(exifData.LensModel || '');
+            setSwapCamera(exifData.Model);
+          }
+          setSwapLens(exifData.LensModel || '-');
           if (exifData.ExposureTime) {
-            const shutterFraction = exifData.ExposureTime < 1 ? `1/${Math.round(1 / exifData.ExposureTime)}s` : `${exifData.ExposureTime}s`;
-            setSwapShutter(shutterFraction);
-          } else setSwapShutter('');
-          setSwapIso(exifData.ISO ? String(exifData.ISO) : ''); setSwapAperture(exifData.FNumber ? `f/${exifData.FNumber}` : ''); setSwapSoftware(exifData.Software || '');
+            setSwapShutter(exifData.ExposureTime < 1 ? `1/${Math.round(1 / exifData.ExposureTime)}s` : `${exifData.ExposureTime}s`);
+          }
+          setSwapIso(exifData.ISO ? String(exifData.ISO) : '');
+          setSwapAperture(exifData.FNumber ? `f/${exifData.FNumber}` : '');
+          setSwapSoftware(exifData.Software || '');
         }
       } catch (e) {
-        setSwapCamera(''); setSwapLens(''); setSwapShutter(''); setSwapIso(''); setSwapAperture(''); setSwapSoftware('');
+        setSwapCamera('');
+        setSwapLens(''); setSwapShutter(''); setSwapIso(''); setSwapAperture(''); setSwapSoftware('');
       }
       let finalFile = rawFile;
       if (rawFile.size > 2 * 1024 * 1024) finalFile = await compressImageOnClient(rawFile);
@@ -703,9 +687,9 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     setIsSwapping(true);
     try {
       const formData = new FormData();
-      formData.append('photo', swapFile); formData.append('topicId', topic.id.toString()); formData.append('userEmail', user?.email || ''); formData.append('userName', user?.name || '');
+      formData.append('photo', swapFile); formData.append('topicId', topic.id.toString()); formData.append('userEmail', user?.email || '');
+      formData.append('userName', user?.name || '');
       formData.append('camera', swapCamera); formData.append('lens', swapLens); formData.append('shutter', swapShutter); formData.append('iso', swapIso); formData.append('aperture', swapAperture); formData.append('software', swapSoftware);
-
       const res = await fetch(`${BACKEND_URL}/api/weekly/swap`, { method: 'POST', body: formData });
       if (res.ok) { 
         alert(t('msgSwapSuccess')); setSwapFile(null); setSwapPreview(null); 
@@ -732,7 +716,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
 
   const handleSelectPhotoForSwap = async (photoUrl: string) => {
     if (!window.confirm(t('msgSwapExistingConfirm'))) return;
-    setIsSwapping(true); setShowSwapAlbumModal(false); 
+    setIsSwapping(true); setShowSwapAlbumModal(false);
     try {
       const swapRes = await fetch(`${BACKEND_URL}/api/weekly/swap-existing`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ topicId: topic.id, userEmail: user.email, userName: user.name, fileUrl: photoUrl })
@@ -752,7 +736,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       const dataUrl = await toPng(node, { cacheBust: true, quality: 1.0 });
       const blob = await (await fetch(dataUrl)).blob();
       const file = new File([blob], `Arena_Award_${activeShareData.topic_title}.png`, { type: 'image/png' });
-
       const getOrdinalStr = (rankNum: number) => {
         if (lang === 'hu') return `${rankNum}.`;
         const m = rankNum % 10, n = rankNum % 100;
@@ -762,11 +745,11 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         return `${rankNum}th`;
       };
       const shareTextCompiled = t('msgShareText').replace('{rank}', lang === 'en' ? getOrdinalStr(activeShareData.rank) : String(activeShareData.rank)).replace('{title}', activeShareData.topic_title);
-
       if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({ files: [file], title: t('msgShareTitle'), text: shareTextCompiled });
       } else {
-        const link = document.createElement('a'); link.download = `Arena_Trophy_${activeShareData.topic_title}.png`; link.href = dataUrl; link.click();
+        const link = document.createElement('a'); link.download = `Arena_Trophy_${activeShareData.topic_title}.png`; link.href = dataUrl;
+        link.click();
       }
       setActiveShareData(null);
      } catch (e) { alert(t('msgGenerateImageError')); } 
@@ -774,14 +757,12 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   };
 
   const currentLevel = getLevelDetails(userTotalLikes, userVictories);
-
   const BASE_EXPOSURE = 10;
   const exposureEarned = BASE_EXPOSURE + (Number(myVoteCount || 0) * 2);
   const safeViewsCount = myEntry ? (Number(myEntry.views_count) || 0) : 0;
   const viewsRemaining = myEntry ? (exposureEarned - safeViewsCount) : 0;
   const rawPercentage = myEntry ? ((viewsRemaining / 15) * 100) : 0;
   const exposurePercentage = isNaN(rawPercentage) || !isFinite(rawPercentage) ? 0 : Math.min(100, Math.max(0, rawPercentage));
-
   let exposureColor = '#ef4444';
   let exposureLabel = viewsRemaining <= 0 ? (lang === 'en' ? 'Invisible (0%)' : 'Láthatatlan (0%)') : (lang === 'en' ? 'Low' : 'Alacsony');
   if (exposurePercentage >= 80) { exposureColor = '#10b981'; exposureLabel = lang === 'en' ? 'Maximum' : 'Maximális'; } 
@@ -793,7 +774,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     const timeA = new Date(dateStrA).getTime() || 0; const timeB = new Date(dateStrB).getTime() || 0;
     return sortBy === 'endDate' ? timeA - timeB : timeB - timeA;
   });
-  
+
   return (
     <div style={{ animation: 'fadeIn 0.4s ease-out', position: 'relative' }}>
       
@@ -866,11 +847,9 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
             const tooltipText = isUnlocked 
               ? `${rank.name} - Sikeresen feloldva! ✔` 
               : `Következő szint: ${rank.name}\nHátralévő feltétel: ${requirementMessage}`;
-
             let segmentBg = '#0f172a'; 
             if (isUnlocked) segmentBg = '#0284c7'; 
-            if (isCurrent) segmentBg = 'linear-gradient(90deg, #0284c7, #38bdf8)'; 
-
+            if (isCurrent) segmentBg = 'linear-gradient(90deg, #0284c7, #38bdf8)';
             return (
               <div
                 key={rank.id}
@@ -939,31 +918,30 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   )}
                 </div>
 
-{loading ? (
-  <div style={{ 
-    display: 'flex', 
-    flexDirection: 'column', 
-    alignItems: 'center', 
-    justifyContent: 'center', 
-    padding: '80px 20px', 
-    gap: '20px',
-    width: '100%' 
-  }}>
-    <VideoLoader />
-    <div style={{ textAlign: 'center', animation: 'arenaPulse 2s infinite' }}>
-      <h4 style={{ color: '#f59e0b', margin: '0 0 8px 0', fontSize: '1.1rem', fontWeight: 'bold', letterSpacing: '0.5px' }}>
-        {lang === 'en' ? '⚡ Server is waking up...' : '⚡ A szerver ébredezik...'}
-      </h4>
-      <p style={{ color: '#64748b', fontSize: '0.85rem', margin: 0, maxWidth: '320px', lineHeight: '1.4' }}>
-        {lang === 'en' 
-          ? 'The free tier hosting takes about 30-50 seconds to warm up after a period of inactivity.' 
-          : 'A rendszer tétlenség után 30-50 másodpercig melegszik be. Azonnal indulunk!'}
-      </p>
-    </div>
-    <style>{`@keyframes arenaPulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }`}</style>
-  </div>
-) : activeTopics.length === 0 ? (
-
+                {loading ? (
+                  <div style={{ 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    padding: '80px 20px', 
+                    gap: '20px',
+                    width: '100%' 
+                  }}>
+                    <VideoLoader />
+                    <div style={{ textAlign: 'center', animation: 'arenaPulse 2s infinite' }}>
+                      <h4 style={{ color: '#f59e0b', margin: '0 0 8px 0', fontSize: '1.1rem', fontWeight: 'bold', letterSpacing: '0.5px' }}>
+                        {lang === 'en' ? '⚡ Server is waking up...' : '⚡ A szerver ébredezik...'}
+                      </h4>
+                      <p style={{ color: '#64748b', fontSize: '0.85rem', margin: 0, maxWidth: '320px', lineHeight: '1.4' }}>
+                        {lang === 'en' 
+                          ? 'The free tier hosting takes about 30-50 seconds to warm up after a period of inactivity.' 
+                          : 'A rendszer tétlenség után 30-50 másodpercig melegszik be. Azonnal indulunk!'}
+                      </p>
+                    </div>
+                    <style>{`@keyframes arenaPulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }`}</style>
+                  </div>
+                ) : activeTopics.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '5rem 2rem', background: 'linear-gradient(180deg, #1e293b, #0f172a)', borderRadius: '24px', border: '1px solid #334155' }}>
                     <div style={{ fontSize: '5rem', marginBottom: '1rem' }}>😴</div>
                     <h2 style={{ color: '#f59e0b', margin: '0 0 10px 0', fontSize: '2rem' }}>{t('viewNoActiveLeagues')}</h2>
@@ -988,7 +966,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   <div style={{ color: '#94a3b8', padding: '50px' }}>{t('viewPreparingRoom')}</div>
                 ) : (
                   <ArenaActiveRoom
-                    topic={topic} timeLeft={timeLeft} isMaster={isMaster} exposureColor={exposureColor} exposurePercentage={exposurePercentage} exposureLabel={exposureLabel} myEntry={myEntry} voteEntry={voteEntry} noMoreEntries={noMoreEntries} masterVotesLeft={masterVotesLeft} userPower={userPower} swapBalance={swapBalance} myPastEntries={myPastEntries} leaderboard={leaderboard} currentClubLeaderboard={currentClubLeaderboard} user={user} isUploading={isUploading} uploadPreview={uploadPreview} handleFileSelect={handleFileSelect} handleUpload={handleUpload} isLoadingSwapAlbum={isLoadingSwapAlbum} isSwapping={isSwapping} swapPreview={swapPreview} handleSwapFileSelect={handleFileSelectForSwap} handleSwapSubmit={handleSwapSubmit} onOpenAlbumForUpload={() => { setAlbumModalMode('upload'); setShowSwapAlbumModal(true); }} onOpenAlbumForSwap={() => { setAlbumModalMode('swap'); setShowSwapAlbumModal(true); }} handleVote={handleVote} handleOffTopicReport={handleOffTopicReport} handleSwapBackSubmit={handleSwapBackSubmit} setFullscreenData={setFullscreenData} handleImageError={handleImageError} fetchCurrentTopic={fetchCurrentTopic}
+                    topic={topic} timeLeft={timeLeft} isMaster={isMaster} exposureColor={exposureColor} exposurePercentage={exposurePercentage} exposureLabel={exposureLabel} myEntry={myEntry} voteEntry={voteEntry} noMoreEntries={noMoreEntries} masterVotesLeft={masterVotesLeft} userPower={userPower} swapBalance={swapBalance} myPastEntries={myPastEntries} leaderboard={leaderboard} currentClubLeaderboard={currentClubLeaderboard} user={user} isUploading={isUploading} uploadPreview={uploadPreview} handleFileSelect={handleFileSelect} handleUpload={handleUpload} 
+                    isLoadingSwapAlbum={isLoadingSwapAlbum} isSwapping={isSwapping} swapPreview={swapPreview} handleSwapFileSelect={handleFileSelectForSwap} handleSwapSubmit={handleSwapSubmit} onOpenAlbumForUpload={() => { setAlbumModalMode('upload'); setShowSwapAlbumModal(true); }} onOpenAlbumForSwap={() => { setAlbumModalMode('swap'); setShowSwapAlbumModal(true); }} handleVote={handleVote} handleOffTopicReport={handleOffTopicReport} handleSwapBackSubmit={handleSwapBackSubmit} setFullscreenData={setFullscreenData} handleImageError={handleImageError} fetchCurrentTopic={fetchCurrentTopic}
                   />
                 )}
               </div>
@@ -1009,6 +988,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
               {isChatOpen && (
                 <div className="chat-dock-body">
                   <p style={{ margin: '0 0 10px 0', color: '#64748b', fontSize: '0.78rem' }}>{t('viewLobbyDesc')}</p>
+                  
                   <div ref={chatScrollContainerRef} className="chat-messages-scroll-area">
                     {lobbyMessages.length === 0 ? (
                       <div style={{ color: '#475569', textAlign: 'center', margin: 'auto', fontStyle: 'italic', fontSize: '0.85rem' }}>{t('viewLobbyEmpty')}</div>
@@ -1066,106 +1046,153 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         )}
 
         {subTab === 'my_stats' && (
-          <TrophyRoom isLoadingStats={isLoadingStats} myStats={myStats} userTotalLikes={userTotalLikes} userVictories={userVictories} swapBalance={swapBalance} myReferralCode={myReferralCode} referredBy={referredBy} referralInput={referralInput} setReferralInput={setReferralInput} isClaimingReferral={isClaimingReferral} handleClaimReferral={handleClaimReferral} setActiveShareData={setActiveShareData} setFullscreenData={setFullscreenData} getLevelDetails={getLevelDetails} getTopicType={getTopicType} handleImageError={handleImageError} />
+          <TrophyRoom isLoadingStats={isLoadingStats} myStats={myStats} userTotalLikes={userTotalLikes} userVictories={userVictories} swapBalance={swapBalance} myReferralCode={myReferralCode} referredBy={referredBy} referralInput={referralInput} setReferralInput={setReferralInput} isClaimingReferral={isClaimingReferral} handleClaimReferral={handleClaimReferral} setActiveShareData={setActiveShareData} />
         )}
 
         {subTab === 'hall_of_fame' && (
-          <HallOfFame isLoadingHof={isLoadingHof} hallOfFame={hallOfFame} user={user} getLevelDetails={getLevelDetails} />
+          <HallOfFame user={user} />
         )}
-        
+
         {subTab === 'arena_album' && (
           <MyArenaAlbumView user={user} setFullscreenData={setFullscreenData} />
         )}
       </div>
 
-      <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} currentLevel={currentLevel} />
-
-      {/* ── 🎯 JAVÍTVA: A modal mostantól az isLoadingSwapAlbum állapottal van szinkronizálva a korábbi fix true állapot helyett! ── */}
-      <AlbumSelectionModal 
-        isOpen={showSwapAlbumModal} 
-        onClose={(wasActionSubmitted) => { setShowSwapAlbumModal(false); if (wasActionSubmitted === true) fetchCurrentTopic(false); }} 
-        albumModalMode={albumModalMode} 
-        swapAlbumPhotos={swapAlbumPhotos} 
-        myPastEntries={myPastEntries} 
-        topic={topic} 
-        user={user} 
-        isLoading={isLoadingSwapAlbum} // 👈 EZ VOLT A REJTETT GYILKOS, MOST MÁR TÖKÉLETES!
-        setIsUploading={setIsUploading} 
-        setIsSwapping={setIsSwapping} 
-        fetchCurrentTopic={fetchCurrentTopic} 
-        handleSwapBackSubmit={handleSwapBackSubmit} 
-        handleSelectPhotoForSwap={handleSelectPhotoForSwap} 
+      {/* COMPONENT MODALS */}
+      {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
+      
+      <AlbumSelectionModal
+        isOpen={showSwapAlbumModal}
+        onClose={(wasActionSubmitted) => {
+          setShowSwapAlbumModal(false);
+          if (wasActionSubmitted) fetchCurrentTopic(true);
+        }}
+        albumModalMode={albumModalMode}
+        swapAlbumPhotos={swapAlbumPhotos}
+        myPastEntries={myPastEntries}
+        topic={topic}
+        user={user}
+        isLoading={isLoadingSwapAlbum}
+        setIsUploading={setIsUploading}
+        setIsSwapping={setIsSwapping}
+        fetchCurrentTopic={fetchCurrentTopic}
+        handleSwapBackSubmit={handleSwapBackSubmit}
+        handleSelectPhotoForSwap={handleSelectPhotoForSwap}
+        myEntry={myEntry} // 🎯 ÚJ: Átadjuk az éppen bent lévő képet is a szűréshez
       />
 
-      <ShareCardModal activeShareData={activeShareData} onClose={() => setActiveShareData(null)} user={user} shareBase64={shareBase64} loadingShareImg={loadingShareImg} isGeneratingImage={isGeneratingImage} handleExecuteShare={handleExecuteShare} />
+      {activeShareData && (
+        <ShareCardModal 
+          data={activeShareData} 
+          user={user} 
+          onClose={() => { setActiveShareData(null); setShareBase64(null); }} 
+          isGeneratingImage={isGeneratingImage}
+          setIsGeneratingImage={setIsGeneratingImage}
+          shareBase64={shareBase64}
+          setShareBase64={setShareBase64}
+          loadingShareImg={loadingShareImg}
+          setLoadingShareImg={setLoadingShareImg}
+        />
+      )}
 
-      {/* ── RENDKÍVÜL STABIL RESZPONZÍV STYLING REGETEG ── */}
       <style>{`
-        .arena-fluid-container { width: 100%; box-sizing: border-box; }
-        .arena-cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 25px; width: 100%; }
-        .arena-rank-tooltip-container { position: relative; }
-        
-        .arena-progress-card-wrapper, .arena-tabs-scroll-wrapper {
-          scrollbar-width: thin;
-          scrollbar-color: #334155 #1e293b;
+        .arena-main-layout-grid {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 30px;
+          width: 100%;
+          box-sizing: border-box;
         }
-        .arena-progress-card-wrapper::-webkit-scrollbar, .arena-tabs-scroll-wrapper::-webkit-scrollbar {
-          height: 5px;
+        .arena-layout-column-main {
+          display: flex;
+          flex-direction: column;
+          gap: 25px;
+          width: 100%;
         }
-        .arena-progress-card-wrapper::-webkit-scrollbar-track, .arena-tabs-scroll-wrapper::-webkit-scrollbar-track {
+        .arena-layout-column-side {
+          display: flex;
+          flex-direction: column;
+          gap: 25px;
+          width: 100%;
+        }
+        @media (min-width: 992px) {
+          .arena-main-layout-grid {
+            grid-template-columns: 1.5fr 1fr !important;
+          }
+        }
+        .batch-vote-responsive-card {
+          display: grid;
+          grid-template-columns: 140px 1fr;
+          gap: 20px;
+          align-items: start;
+        }
+        .batch-vote-responsive-imgbox {
+          width: 140px;
+          height: 140px;
+          background-color: #000;
+          border-radius: 12px;
+          overflow: hidden;
+          cursor: zoom-in;
+          border: 1px solid #334155;
+          position: relative;
+        }
+        .batch-vote-responsive-content {
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          min-height: 140px;
+        }
+        .batch-vote-responsive-buttons {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+          margin-top: 12px;
+        }
+        .arena-tabs-scroll-wrapper {
+          overflow-x: auto;
+        }
+        .arena-floating-chat-dock {
+          position: fixed;
+          bottom: 0;
+          right: 30px;
+          width: 360px;
           background: #1e293b;
+          border: 1px solid #334155;
+          border-radius: 16px 16px 0 0;
+          box-shadow: 0 -10px 30px rgba(0,0,0,0.5);
+          z-index: 1000;
+          transition: all 0.3s ease;
         }
-        .arena-progress-card-wrapper::-webkit-scrollbar-thumb, .arena-tabs-scroll-wrapper::-webkit-scrollbar-thumb {
-          background-color: #334155;
+        .arena-floating-chat-dock.is-closed {
+          transform: translateY(calc(100% - 45px));
+        }
+        .chat-dock-header {
+          padding: 12px 20px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          cursor: pointer;
+          background: #0f172a;
+          border-radius: 16px 16px 0 0;
+        }
+        .chat-dock-body {
+          padding: 15px;
+          height: 350px;
+          display: flex;
+          flex-direction: column;
+        }
+        .chat-messages-scroll-area {
+          flex: 1;
+          overflow-y: auto;
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          margin-bottom: 10px;
+          background: #090d16;
+          padding: 10px;
           border-radius: 10px;
         }
-
-        @media (max-width: 900px) {
-          .arena-tabs-scroll-wrapper {
-            overflow-x: auto !important;
-            -webkit-overflow-scrolling: touch;
-            padding-bottom: 5px !important;
-          }
-          .arena-tabs-internal-line {
-            min-width: 890px !important; 
-            justify-content: flex-start !important;
-          }
-          .arena-progress-card-wrapper {
-            overflow-x: auto !important;
-            -webkit-overflow-scrolling: touch;
-            padding-bottom: 12px !important;
-          }
-          .arena-progress-track-line {
-            min-width: 980px !important;
-          }
-        }
-        
-        .arena-rank-tooltip-box {
-          position: absolute; bottom: 145%; left: 50%; transform: translateX(-50%) translateY(8px);
-          background: #090d16; color: #f8fafc; border: 1px solid #334155; border-radius: 12px;
-          width: 240px; box-shadow: 0 15px 35px rgba(0,0,0,0.7); z-index: 999999 !important;
-          opacity: 0; pointer-events: none; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-          padding: 14px; text-align: center;
-        }
-        .arena-rank-tooltip-box::after {
-          content: ""; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
-          border-width: 6px; border-style: solid; border-color: #090d16 transparent transparent transparent;
-        }
-        .arena-rank-tooltip-container:hover .arena-rank-tooltip-box {
-          opacity: 1; transform: translateX(-50%) translateY(0); pointer-events: auto;
-        }
-        .arena-floating-chat-dock { position: fixed; bottom: 0; right: 30px; width: 360px; background: #1e293b; border: 1px solid #334155; border-bottom: none; border-radius: 16px 16px 0 0; box-shadow: 0 -10px 30px rgba(0,0,0,0.5); z-index: 1000; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.1); }
-        .arena-floating-chat-dock.is-closed { transform: translateY(calc(100% - 50px)); }
-        .arena-floating-chat-dock.has-unread .chat-dock-header { border-color: #f43f5e; box-shadow: inset 0 0 10px rgba(244,63,94,0.2); }
-        .chat-dock-header { padding: 14px 20px; background: linear-gradient(90deg, #1e293b, #0f172a); border-bottom: 1px solid #334155; border-radius: 15px 15px 0 0; display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; }
-        .chat-dock-header:hover { background: #24334d; }
-        .chat-dock-body { padding: 15px; height: 400px; display: flex; flex-direction: column; }
-        .chat-messages-scroll-area { background: #0f172a; border: 1px solid #223147; border-radius: 12px; padding: 12px; flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
-        .chat-notification-badge { position: absolute; top: -1px; left: -3px; width: 8px; height: 8px; background: #f43f5e; border-radius: 50%; box-shadow: 0 0 8px #f43f5e; animation: pulse 1.5s infinite; }
-        @keyframes pulse { 0% { transform: scale(0.9); opacity: 1; } 50% { transform: scale(1.2); opacity: 0.5; } 100% { transform: scale(0.9); opacity: 1; } }
-        @media (max-width: 480px) { .arena-floating-chat-dock { right: 10px; width: calc(100% - 20px); } }
       `}</style>
-
     </div>
   );
 }
