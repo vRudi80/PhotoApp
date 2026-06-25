@@ -369,6 +369,9 @@ app.get('/api/export-fiap-c', checkPremium, async (req, res) => {
     } catch (err) { cleanupTempFile(req.file); res.status(500).json({ error: 'Hiba történt az Excel elemzésekor: ' + err.message }); }
   });
   
+ // ====================================================================
+  // 🤖 JAVÍTVA: DUPLIKÁCIÓSZŰRT, GOLYÓÁLLÓ EXCEL IMPORT VÉGREHAJTÓ MOTOR
+  // ====================================================================
   app.post('/api/import/execute', checkPremium, async (req, res) => {
     const { userEmail, userName, items } = req.body; 
     const conn = await pool.getConnection();
@@ -378,34 +381,103 @@ app.get('/api/export-fiap-c', checkPremium, async (req, res) => {
   
       for (const item of items) {
         if (item.status === 'duplicate' || item.skip) continue; 
-        let finalSalonId = item.salonId; let finalPortfolioId = item.portfolioId;
+        let finalSalonId = item.salonId; 
+        let finalPortfolioId = item.portfolioId;
+        
+        const cleanTitle = item.title ? item.title.trim() : '';
+        const cleanFiap = item.fiapNumber ? item.fiapNumber.trim() : '';
   
-        if (!finalSalonId) {
-          const todayStr = new Date().toISOString().split('T')[0];
-          const [insSalon] = await conn.query('INSERT INTO photo_salons (name, start_date, end_date, submission_type) VALUES (?, ?, ?, ?)', [item.salonName || 'Importált Szalon', todayStr, todayStr, 'online']);
-          finalSalonId = insSalon.insertId;
-          if (item.fiapNumber) { await conn.query('INSERT INTO photo_salon_patrons (salon_id, patron_id, patron_number) VALUES (?, ?, ?)', [finalSalonId, 1, item.fiapNumber]); }
-        }
-  
-        if (!finalPortfolioId) {
-          const [insPhoto] = await conn.query('INSERT INTO photo_portfolio (user_email, user_name, title, file_url, drive_file_id) VALUES (?, ?, ?, ?, ?)', [userEmail, userName || 'Importált Felhasználó', item.title || 'Ismeretlen Kép', '', null]);
-          finalPortfolioId = insPhoto.insertId;
-        }
-  
-        let awardId = null;
-        if (item.award) {
-          const matchedAward = dbAwards.find(a => a.award_name.toLowerCase() === item.award.toLowerCase());
-          if (matchedAward) { awardId = matchedAward.id; } 
-          else {
-            const [[{ nextId }]] = await conn.query('SELECT COALESCE(MAX(id), 0) + 1 as nextId FROM photo_awards');
-            await conn.query('INSERT INTO photo_awards (id, award_name) VALUES (?, ?)', [nextId, item.award]);
-            awardId = nextId; dbAwards.push({ id: awardId, award_name: item.award }); 
+        // ------------------------------------------------------------------
+        // 1. SZALON ELLENŐRZÉS: Ha nincs ID, megnézzük, hogy létezik-e már a FIAP szám alapján
+        // ------------------------------------------------------------------
+        if (!finalSalonId && cleanFiap) {
+          const [existingSalon] = await conn.query(
+            'SELECT salon_id FROM photo_salon_patrons WHERE patron_number = ? AND patron_id = 1 LIMIT 1', 
+            [cleanFiap]
+          );
+          if (existingSalon.length > 0) {
+            finalSalonId = existingSalon[0].salon_id;
           }
         }
   
-        await conn.query('INSERT INTO photo_salon_entries (salon_id, user_email, portfolio_id, award_id, category) VALUES (?, ?, ?, ?, ?)', [finalSalonId, userEmail, finalPortfolioId, awardId, 'Importált']);
+        // Ha még így sincs meg (teljesen új szalon), akkor és csak akkor hozzuk létre
+        if (!finalSalonId) {
+          const todayStr = new Date().toISOString().split('T')[0];
+          const [insSalon] = await conn.query(
+            'INSERT INTO photo_salons (name, start_date, end_date, submission_type) VALUES (?, ?, ?, ?)', 
+            [item.salonName || 'Importált Szalon', todayStr, todayStr, 'online']
+          );
+          finalSalonId = insSalon.insertId;
+          if (cleanFiap) { 
+            await conn.query(
+              'INSERT INTO photo_salon_patrons (salon_id, patron_id, patron_number) VALUES (?, ?, ?)', 
+              [finalSalonId, 1, cleanFiap]
+            ); 
+          }
+        }
+  
+        // ------------------------------------------------------------------
+        // 2. KÉP (PORTFÓLIÓ) ELLENŐRZÉS: Ha nincs ID, ellenőrizzük a címet a felhasználónál
+        // ------------------------------------------------------------------
+        if (!finalPortfolioId && cleanTitle) {
+          const [existingPhoto] = await conn.query(
+            'SELECT id FROM photo_portfolio WHERE LOWER(TRIM(title)) = LOWER(TRIM(?)) AND user_email = ? LIMIT 1',
+            [cleanTitle, userEmail]
+          );
+          if (existingPhoto.length > 0) {
+            finalPortfolioId = existingPhoto[0].id;
+          }
+        }
+  
+        // Ha még így sincs meg, létrehozzuk üres Drive ID sztringgel (Fixálva a NULL hiba!)
+        if (!finalPortfolioId) {
+          const [insPhoto] = await conn.query(
+            'INSERT INTO photo_portfolio (user_email, user_name, title, file_url, drive_file_id) VALUES (?, ?, ?, ?, ?)', 
+            [userEmail, userName || 'Importált Felhasználó', cleanTitle || 'Ismeretlen Kép', '', '']
+          );
+          finalPortfolioId = insPhoto.insertId;
+        }
+  
+        // ------------------------------------------------------------------
+        // 3. DÍJ (AWARD) ID MEGHATÁROZÁSA
+        // ------------------------------------------------------------------
+        let awardId = null;
+        if (item.award) {
+          const matchedAward = dbAwards.find(a => a.award_name.toLowerCase() === item.award.toLowerCase());
+          if (matchedAward) { 
+            awardId = matchedAward.id; 
+          } else {
+            const [[{ nextId }]] = await conn.query('SELECT COALESCE(MAX(id), 0) + 1 as nextId FROM photo_awards');
+            await conn.query('INSERT INTO photo_awards (id, award_name) VALUES (?, ?)', [nextId, item.award]);
+            awardId = nextId; 
+            dbAwards.push({ id: awardId, award_name: item.award }); 
+          }
+        }
+  
+        // ------------------------------------------------------------------
+        // 4. NEVEZÉS (ENTRY) MENTÉSE ÉS BIZTONSÁGI DUPLIKÁCIÓ SZŰRÉSE
+        // ------------------------------------------------------------------
+        const [duplicateEntryCheck] = await conn.query(
+          'SELECT id FROM photo_salon_entries WHERE salon_id = ? AND portfolio_id = ? AND user_email = ? LIMIT 1',
+          [finalSalonId, finalPortfolioId, userEmail]
+        );
+  
+        if (duplicateEntryCheck.length === 0) {
+          await conn.query(
+            'INSERT INTO photo_salon_entries (salon_id, user_email, portfolio_id, award_id, category) VALUES (?, ?, ?, ?, ?)', 
+            [finalSalonId, userEmail, finalPortfolioId, awardId, 'Importált']
+          );
+        }
       }
-      await conn.commit(); res.json({ success: true });
-    } catch (e) { await conn.rollback(); res.status(500).json({ error: e.message }); } finally { conn.release(); }
+      
+      await conn.commit(); 
+      res.json({ success: true });
+    } catch (e) { 
+      await conn.rollback(); 
+      console.error("❌ Hiba az Excel mentése során:", e.message);
+      res.status(500).json({ error: e.message }); 
+    } finally { 
+      conn.release(); 
+    }
   });
 };
