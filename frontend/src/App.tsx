@@ -211,7 +211,6 @@ function MainContent() {
     }
   }, []);
 
-  // 🎯 JAVÍTVA: Mindegyik setter megkapta az Array.isArray védelmet a futásidejű összeomlások ellen!
   const fetchData = async (retryCount = 0) => {
     if (retryCount === 0) setIsInitialLoading(true);
     try {
@@ -253,17 +252,22 @@ function MainContent() {
     }
   };
   
+  // 🎯 JAVÍTVA: Típus- és karakterkódolás-biztos golyóálló lekérő motor
   const fetchMyEntries = async (email: string) => {
+    if (!email || email === 'undefined' || email === 'null' || email.trim() === '') return;
     try {
-      const res = await fetch(`${BACKEND_URL}/api/my-entries?userEmail=${email}`);
+      const res = await fetch(`${BACKEND_URL}/api/my-entries?userEmail=${encodeURIComponent(email)}`);
       if (res.ok) { const d = await res.json(); setMyEntries(Array.isArray(d) ? d : []); }
-      const resHw = await fetch(`${BACKEND_URL}/api/my-homework-entries?userEmail=${email}`);
+      
+      const resHw = await fetch(`${BACKEND_URL}/api/my-homework-entries?userEmail=${encodeURIComponent(email)}`);
       if (resHw.ok) { const d = await resHw.json(); setMyHomeworkEntries(Array.isArray(d) ? d : []); }
-      const resSalons = await fetch(`${BACKEND_URL}/api/my-salon-entries-status?userEmail=${email}`);
+      
+      const resSalons = await fetch(`${BACKEND_URL}/api/my-salon-entries-status?userEmail=${encodeURIComponent(email)}`);
       if (resSalons.ok) { const d = await resSalons.json(); setUserEntrySalonIds(Array.isArray(d) ? d : []); }
-      const resJudged = await fetch(`${BACKEND_URL}/api/my-judged-contests?userEmail=${email}`);
+      
+      const resJudged = await fetch(`${BACKEND_URL}/api/my-judged-contests?userEmail=${encodeURIComponent(email)}`);
       if (resJudged.ok) { const d = await resJudged.json(); setMyJudgedContests(Array.isArray(d) ? d : []); }
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error("Hiba a nevezések letöltésekor:", e); }
   };
   
   const fetchClubHomeworkEntries = async (clubId: number, email: string) => {
@@ -323,7 +327,15 @@ function MainContent() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // KORSZERŰ SZINKRONIZÁCIÓS HOROG A LÁGY ELHALVÁNYULÁSHOZ
+  // 🎯 ÚJ: REAKTÍV ASZINKRON SZINKRONIZÁCIÓS HOOK A VERCEL / RENDER ÉLETCILKUSOKHOZ
+  useEffect(() => {
+    if (user?.email) {
+      fetchMyEntries(user.email);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, user?.email]);
+
+  // KÖRNYEZETI SZINKRONIZÁCIÓS HOROG A LÁGY ELHALVÁNYULÁSHOZ
   useEffect(() => {
     if (!isInitialLoading && !isAuthLoading) {
       setAnimateOut(true);
@@ -602,20 +614,19 @@ function MainContent() {
   const sortedSalons = Array.isArray(salons) ? [...salons].sort((a, b) => new Date(b.end_date).getTime() - new Date(a.end_date).getTime()) : [];
 
   const headerUser = useMemo(() => {
-  if (!user) return null;
-  if (!currentDbUser) return user;
-  return {
-    ...user,
-    name: currentDbUser.name || user.name,
-    is_premium: currentDbUser.is_premium,
-    isPremium: currentDbUser.is_premium === 1,
-    premium_until: currentDbUser.premium_until,
-    club_name: currentDbUser.club_name,
-    club_id: currentDbUser.club_id, // 👈 EZT AZ EGY SORT ADD HOZZÁ!
-    club_role: currentDbUser.club_role
-  };
-}, [user, currentDbUser]);
-
+    if (!user) return null;
+    if (!currentDbUser) return user;
+    return {
+      ...user,
+      name: currentDbUser.name || user.name,
+      is_premium: currentDbUser.is_premium,
+      isPremium: currentDbUser.is_premium === 1,
+      premium_until: currentDbUser.premium_until,
+      club_name: currentDbUser.club_name,
+      club_id: currentDbUser.club_id,
+      club_role: currentDbUser.club_role
+    };
+  }, [user, currentDbUser]);
 
   return (
     <>
@@ -632,7 +643,7 @@ function MainContent() {
           </div>
           <div style={{ marginTop: '30px', textAlign: 'center', animation: 'appSplashPulse 1.8s infinite' }}>
             <h4 style={{ color: '#f8fafc', fontSize: '1.25rem', fontWeight: 'bold', margin: '0 0 6px 0', letterSpacing: '0.5px' }}>{lang === 'en' ? 'Launching System...' : 'Rendszer indítása...'}</h4>
-            <p style={{ color: '#64748b', fontSize: '0.85rem', margin: 0 }}>{lang === 'en' ? 'Synchronizing database and global encryption keys' : 'Adatok és biztonságos munkamenetek szinkronizálása'}</p>
+            <p style={{ color: '#64748b', fontSize: '0.85rem', margin: 0 }}>{lang === 'en' ? 'Launching System...' : 'Adatok és biztonságos munkamenetek szinkronizálása'}</p>
           </div>
           <style>{`@keyframes appSplashPulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }`}</style>
         </div>
@@ -646,9 +657,7 @@ function MainContent() {
           <main className="app-main">
             <Routes>
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
-// 🎯 JAVÍTVA: Mostantól a headerUser-t adjuk át, amiben benne van a frissített klubnév is az adatbázisból!
-<Route path="/dashboard" element={<DashboardView user={headerUser} isLeader={!!isLeader} setActiveTab={setActiveTab} setTargetMapSpotId={setTargetMapSpotId} />} />
-
+              <Route path="/dashboard" element={<DashboardView user={headerUser} isLeader={!!isLeader} setActiveTab={setActiveTab} setTargetMapSpotId={setTargetMapSpotId} />} />
               <Route path="/weekly_challenge" element={<WeeklyChallengeView user={user} setFullscreenData={setFullscreenData} />} />
               <Route path="/profile" element={<ProfileView user={currentDbUser} setUser={setUser} fetchData={fetchData} />} />
               <Route path="/tickets" element={<TicketsView user={currentDbUser} />} />
@@ -663,7 +672,7 @@ function MainContent() {
               <Route path="/salons" element={<SalonsView salonSearch={salonSearch} setSalonSearch={setSalonSearch} searchedSalons={sortedSalons} setSelectedSalon={setSelectedSalon} userEntrySalonIds={userEntrySalonIds} user={user} BACKEND_URL={BACKEND_URL} />} />
               <Route path="/club_nights" element={<ClubNightsView currentDbUser={currentDbUser} meetingSearch={meetingSearch} setMeetingSearch={setMeetingSearch} searchedMeetings={searchedMeetings} setActiveVideo={setActiveVideo} />} />
               <Route path="/leader_club" element={isLeader ? <LeaderClubView user={user} BACKEND_URL={BACKEND_URL} /> : <Navigate to="/dashboard" replace />} />
-<Route path="/podcast" element={<PodcastView />} />
+              <Route path="/podcast" element={<PodcastView />} />
 
               <Route path="/admin_clubs" element={user?.email === ADMIN_EMAIL ? <AdminClubsView clubs={clubs} newClubName={newClubName} setNewClubName={setNewClubName} handleAddClub={handleAddClub} handleDeleteClub={handleDeleteClub} handleUpdateClub={handleUpdateClub} /> : <Navigate to="/dashboard" />} />
               <Route path="/admin_users" element={user?.email === ADMIN_EMAIL ? <AdminUsersView allUsers={allUsers} clubs={clubs} userClubEdits={userClubEdits} setUserClubEdits={setUserClubEdits} userRoleEdits={userRoleEdits} setUserRoleEdits={setUserRoleEdits} saveUserClub={saveUserClub} /> : <Navigate to="/dashboard" />} />
