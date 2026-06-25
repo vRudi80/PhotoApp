@@ -247,30 +247,68 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // 🔔 DASHBOARD ALERTS (MEGLÉVŐ)
+  // 🔔 JAVÍTVA: DASHBOARD ALERTS (KLUBBIZTONSÁGOS FOTÓPÁLYÁZAT SZŰRÉSSEL)
   // ====================================================================
   app.get('/api/dashboard-alerts', async (req, res) => {
     const { userEmail } = req.query;
     try {
-      const [users] = await pool.query('SELECT club_name FROM photo_users WHERE email = ?', [userEmail]);
-      const clubName = users.length > 0 ? users[0].club_name : null;
-      const [contests] = await pool.query('SELECT id, title, end_date FROM photo_contests WHERE start_date <= CURRENT_DATE() AND end_date >= CURRENT_DATE() ORDER BY end_date ASC');
+      // 1. Lekérjük a felhasználó klubjának a nevét és belső ID-ját is (ha van neki)
+      const [users] = await pool.query('SELECT club_name, club_id FROM photo_users WHERE email = ?', [userEmail]);
+      const userClubName = users.length > 0 ? users[0].club_name : null;
+      let userClubId = users.length > 0 ? users[0].club_id : null;
+
+      // Biztonsági szinkronizáció: ha van név, de nincs ID, megkeressük az ID-t
+      if (userClubName && !userClubId) {
+        const [clubs] = await pool.query('SELECT id FROM photo_clubs WHERE name = ?', [userClubName]);
+        if (clubs.length > 0) {
+          userClubId = clubs[0].id;
+        }
+      }
+
+      // 🎯 2. JAVÍTVA: Csak azokat a pályázatokat kérjük le, amik vagy NYILVÁNOSAK, vagy a felhasználó SAJÁT KLUBJÁHOZ tartoznak!
+      // Feltételezzük, hogy a photo_contests tábládban a mező neve 'club_id' vagy 'restricted_club_id' (ha nem így van, igazítsd a nevet)
+      const [contests] = await pool.query(`
+        SELECT id, title, end_date 
+        FROM photo_contests 
+        WHERE start_date <= CURRENT_DATE() 
+          AND end_date >= CURRENT_DATE()
+          AND (
+            club_id IS NULL 
+            OR club_id = 0 
+            OR is_club = 0 
+            ${userClubId ? 'OR club_id = ?' : ''}
+          )
+        ORDER BY end_date ASC
+      `, userClubId ? [userClubId] : []);
+
       const [weekly] = await pool.query('SELECT id, title, end_date FROM weekly_topics WHERE start_date <= CURRENT_DATE() AND end_date >= CURRENT_DATE()');
 
-      let homeworks = []; let unreadNews = [];
-      if (clubName) {
-        const [clubs] = await pool.query('SELECT id FROM photo_clubs WHERE name = ?', [clubName]);
-        if (clubs.length > 0) {
-          const clubId = clubs[0].id;
-          const [hw] = await pool.query('SELECT id, topic, deadline FROM photo_homeworks WHERE club_id = ? AND deadline >= CURRENT_DATE() ORDER BY deadline ASC', [clubId]);
+      let homeworks = []; 
+      let unreadNews = [];
+
+      // 3. Házi feladatok és klubhírek kezelése a meglévő logika szerint
+      if (userClubId || userClubName) {
+        // Ha valamiért még nem lenne meg az ID, lekérjük a név alapján
+        if (!userClubId && userClubName) {
+          const [clubs] = await pool.query('SELECT id FROM photo_clubs WHERE name = ?', [userClubName]);
+          if (clubs.length > 0) userClubId = clubs[0].id;
+        }
+
+        if (userClubId) {
+          const [hw] = await pool.query('SELECT id, topic, deadline FROM photo_homeworks WHERE club_id = ? AND deadline >= CURRENT_DATE() ORDER BY deadline ASC', [userClubId]);
           homeworks = hw;
-          const [news] = await pool.query(`SELECT id, title, created_at FROM photo_club_news WHERE club_id = ? AND id NOT IN (SELECT news_id FROM photo_club_news_reads WHERE user_email = ?) ORDER BY created_at DESC`, [clubId, userEmail]);
+          const [news] = await pool.query(`SELECT id, title, created_at FROM photo_club_news WHERE club_id = ? AND id NOT IN (SELECT news_id FROM photo_club_news_reads WHERE user_email = ?) ORDER BY created_at DESC`, [userClubId, userEmail]);
           unreadNews = news;
         }
       }
 
       const [mapComments] = await pool.query(`SELECT c.id as comment_id, c.location_id, l.title as location_title, c.user_name, c.created_at FROM photo_location_comments c JOIN photo_locations l ON c.location_id = l.id WHERE l.user_email = ? AND c.user_email != ? AND c.created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY) AND c.id NOT IN (SELECT comment_id FROM photo_location_comment_reads WHERE user_email = ?) ORDER BY c.created_at DESC LIMIT 5`, [userEmail, userEmail, userEmail]);
+      
       res.json({ contests, weekly, homeworks, unreadNews, mapComments });
-    } catch (err) { res.status(500).json({ error: 'Hiba az értesítések betöltésekor' }); }
+    } catch (err) { 
+      console.error("❌ Hiba a Dashboard értesítések generálásakor:", err.message);
+      res.status(500).json({ error: 'Hiba az értesítések betöltésekor' }); 
+    }
   });
+
 };
