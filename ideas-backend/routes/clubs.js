@@ -265,8 +265,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         }
       }
 
-      // 🎯 2. JAVÍTVA: Csak azokat a pályázatokat kérjük le, amik vagy NYILVÁNOSAK, vagy a felhasználó SAJÁT KLUBJÁHOZ tartoznak!
-      // Feltételezzük, hogy a photo_contests tábládban a mező neve 'club_id' vagy 'restricted_club_id' (ha nem így van, igazítsd a nevet)
+      // 🎯 BIZTONSÁGOS LEKÉRDEZÉS: Fix paraméterezés a dinamikus SQL helyett
       const [contests] = await pool.query(`
         SELECT id, title, end_date 
         FROM photo_contests 
@@ -276,10 +275,10 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
             club_id IS NULL 
             OR club_id = 0 
             OR is_club = 0 
-            ${userClubId ? 'OR club_id = ?' : ''}
+            OR club_id = ?
           )
         ORDER BY end_date ASC
-      `, userClubId ? [userClubId] : []);
+      `, [userClubId || null]);
 
       const [weekly] = await pool.query('SELECT id, title, end_date FROM weekly_topics WHERE start_date <= CURRENT_DATE() AND end_date >= CURRENT_DATE()');
 
@@ -288,7 +287,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
       // 3. Házi feladatok és klubhírek kezelése a meglévő logika szerint
       if (userClubId || userClubName) {
-        // Ha valamiért még nem lenne meg az ID, lekérjük a név alapján
         if (!userClubId && userClubName) {
           const [clubs] = await pool.query('SELECT id FROM photo_clubs WHERE name = ?', [userClubName]);
           if (clubs.length > 0) userClubId = clubs[0].id;
@@ -310,5 +308,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       res.status(500).json({ error: 'Hiba az értesítések betöltésekor' }); 
     }
   });
+
 
 };
