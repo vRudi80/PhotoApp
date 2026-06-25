@@ -43,10 +43,8 @@ const compressImageOnClient = (file: File): Promise<File> => {
   });
 };
 
-// DEDIKÁLT PROGRESSZÍV KÉP KOMPONENS
 function GridImage({ src, alt }: { src: string; alt: string }) {
   const [isLoaded, setIsLoaded] = useState(false);
-
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative', background: '#090d16' }}>
       {!isLoaded && (
@@ -83,11 +81,13 @@ interface AlbumSelectionModalProps {
   fetchCurrentTopic: (isSilent: boolean) => void;
   handleSwapBackSubmit: (id: number) => void;
   handleSelectPhotoForSwap: (url: string) => void;
+  myEntry?: any; // 🎯 ÚJ: Megkapja az aktuálisan bent lévő nevezést is propként
 }
 
 export default function AlbumSelectionModal({
   isOpen, onClose, albumModalMode, swapAlbumPhotos, myPastEntries, topic, user, isLoading,
-  setIsUploading, setIsSwapping, fetchCurrentTopic, handleSwapBackSubmit, handleSelectPhotoForSwap
+  setIsUploading, setIsSwapping, fetchCurrentTopic, handleSwapBackSubmit, handleSelectPhotoForSwap,
+  myEntry // 🎯 ÚJ
 }: AlbumSelectionModalProps) {
   
   const { t } = useLanguage();
@@ -99,7 +99,6 @@ export default function AlbumSelectionModal({
 
   const [visibleCount, setVisibleCount] = useState(12);
 
-  // Háttér biztonságos lezárása a modal nyitásakor
   useEffect(() => {
     if (isOpen) {
       const originalOverflow = document.body.style.overflow;
@@ -116,7 +115,6 @@ export default function AlbumSelectionModal({
     }
   }, [isOpen]);
 
-  // 🛡️ SECURITY LOCK: ESC teljes blokkolása
   useEffect(() => {
     if (!isOpen) return;
     const preventEscClose = (e: KeyboardEvent) => {
@@ -129,6 +127,15 @@ export default function AlbumSelectionModal({
     return () => window.removeEventListener('keydown', preventEscClose, true);
   }, [isOpen]);
 
+  // 🎯 ÚJ JAVÍTVA: Kiszűrjük az aktuális képet, ha csere módban vagyunk
+  const filteredAlbumPhotos = useMemo(() => {
+    if (!Array.isArray(swapAlbumPhotos)) return [];
+    if (albumModalMode === 'swap' && myEntry?.file_url) {
+      return swapAlbumPhotos.filter(p => p.file_url !== myEntry.file_url);
+    }
+    return swapAlbumPhotos;
+  }, [swapAlbumPhotos, albumModalMode, myEntry?.file_url]);
+
   const handleModalScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const target = e.currentTarget;
     if (target.scrollHeight - target.scrollTop - target.clientHeight < 120) {
@@ -137,7 +144,7 @@ export default function AlbumSelectionModal({
   };
 
   const triggerLoadMore = () => {
-    if (Array.isArray(swapAlbumPhotos) && visibleCount < swapAlbumPhotos.length) {
+    if (visibleCount < filteredAlbumPhotos.length) {
       setVisibleCount(prev => prev + 12);
     }
   };
@@ -194,7 +201,6 @@ export default function AlbumSelectionModal({
         file_url: URL.createObjectURL(finalFile),
         exif: { camera, lens, shutter, iso, aperture, software }
       });
-      
       setIsLocalProcessing(false);
       e.target.value = '';
     }
@@ -222,7 +228,7 @@ export default function AlbumSelectionModal({
         const res = await fetch(`${BACKEND_URL}/api/weekly/${endpoint}`, { method: 'POST', body: formData });
         if (res.ok) {
           alert(t('msgUploadSuccess') || "Sikeres mentés!");
-          cleanAndClose(true); 
+          cleanAndClose(true);
         } else {
           const err = await res.json(); alert(err.error || "Hiba");
           setIsSubmitting(false);
@@ -263,8 +269,8 @@ export default function AlbumSelectionModal({
 
   if (!isOpen) return null;
 
-  // 🎯 JAVÍTVA: Golyóállóvá téve az üres vagy lusta szerveroldali állapotokra
-  const renderedPhotos = Array.isArray(swapAlbumPhotos) ? swapAlbumPhotos.slice(0, visibleCount) : [];
+  // 🎯 JAVÍTVA: A szűrt listából szeleteljük a megjelenítendő elemeket
+  const renderedPhotos = filteredAlbumPhotos.slice(0, visibleCount);
 
   return (
     <div 
@@ -387,7 +393,7 @@ export default function AlbumSelectionModal({
                           
                           {pastMatch && (
                             <span style={{ position: 'absolute', top: '8px', left: '8px', background: 'linear-gradient(135deg, #0284c7, #0369a1)', color: 'white', fontWeight: 'bold', fontSize: '0.65rem', padding: '4px 8px', borderRadius: '6px' }}>
-                              {t('modalBadgeSwapBack', 'Visszacisere')}
+                              {t('modalBadgeSwapBack', 'Visszacsere')}
                             </span>
                           )}
                         </div>
@@ -400,7 +406,7 @@ export default function AlbumSelectionModal({
                   })}
                 </div>
 
-                {/* 🎯 ÚJ JAVÍTVA: Barátságos üres állapot visszajelzés az új tagoknak */}
+                {/* Barátságos üres állapot visszajelzés az új tagoknak */}
                 {renderedPhotos.length === 0 && (
                   <div style={{ textAlign: 'center', color: '#64748b', padding: '35px 15px', fontSize: '0.9rem', fontStyle: 'italic', lineHeight: '1.5', background: 'rgba(255,255,255,0.02)', borderRadius: '16px', marginTop: '15px', border: '1px dashed rgba(255,255,255,0.05)' }}>
                     📸 Még nincs kép a portfóliódban.<br />
@@ -409,7 +415,7 @@ export default function AlbumSelectionModal({
                 )}
 
                 {/* INTERAKTÍV TÖBBI BETÖLTÉSE GOMB */}
-                {Array.isArray(swapAlbumPhotos) && visibleCount < swapAlbumPhotos.length && (
+                {filteredAlbumPhotos.length > visibleCount && (
                   <div 
                     onClick={triggerLoadMore}
                     style={{ textAlign: 'center', color: '#38bdf8', fontSize: '0.85rem', padding: '16px 0', fontStyle: 'italic', fontWeight: 'bold', cursor: 'pointer', background: 'rgba(56,189,248,0.05)', borderRadius: '12px', marginTop: '15px', border: '1px solid rgba(56,189,248,0.15)', userSelect: 'none', transition: 'all 0.2s' }}
