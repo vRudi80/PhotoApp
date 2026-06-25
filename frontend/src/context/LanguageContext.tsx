@@ -55,6 +55,7 @@ const translations = {
   "rankExpert": "Szakértő 🎯",
   "rankMaster": "Képmester 🎨",
   "rankGrandmaster": "Nagymester 🌟",
+    "roomPreviewLabel": "Új fotó feltöltése",
 
     "roomJoinChallenge": "Nevezz a kihívásra!",
   "roomJoinDesc": "Válaszd ki a legjobban sikerült alkotásodat a galériádból, vagy tölts fel egy újat közvetlenül a folyamat során.",
@@ -836,7 +837,7 @@ const translations = {
     photographers: 'photographers',
     unvoted: 'to review',
     loading: '⏳ Loading...',
-
+    "roomPreviewLabel": "Upload new photo",
 
     // FEJLÉC / MENÜPONTOK ANGOLUL
     navHome: '🏠 Home',
