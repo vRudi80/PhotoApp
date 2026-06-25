@@ -97,6 +97,7 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
     setActiveTab('map_spots');
   };
 
+  // 🎯 FRISSÍTVE: Bekerült a Podcast csempe a Bento elrendezés végére nyelvi fallback-ekkel
   const tiles = [
     { id: 'weekly_challenge', icon: '🔥', color: '#f97316', titleKey: 'tileWeeklyTitle', descKey: 'tileWeeklyDesc', tab: 'weekly_challenge' },
     { id: 'contests', icon: '📝', color: '#8b5cf6', titleKey: 'tileContestsTitle', descKey: 'tileContestsDesc', tab: 'contests_open_active' },
@@ -104,25 +105,33 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
     { id: 'map_spots', icon: '🌍', color: '#10b981', titleKey: 'tileMapTitle', descKey: 'tileMapDesc', tab: 'map_spots' },
     { id: 'progress', icon: '🏆', color: '#f43f5e', titleKey: 'tileProgressTitle', descKey: 'tileProgressDesc', tab: 'fiap_progress' },
     { id: 'salons', icon: '🌐', color: '#3b82f6', titleKey: 'tileSalonsTitle', descKey: 'tileSalonsDesc', tab: 'salons' },
-    { id: 'club', icon: '👥', color: '#06b6d4', titleKey: 'tileClubLifeTitle', descKey: 'tileClubDesc', tab: 'club_nights' }
+    { id: 'club', icon: '👥', color: '#06b6d4', titleKey: 'tileClubLifeTitle', descKey: 'tileClubDesc', tab: 'club_nights' },
+    { 
+      id: 'podcast', 
+      icon: '🎙️', 
+      color: '#f43f5e', 
+      titleKey: 'tilePodcastTitle', 
+      descKey: 'tilePodcastDesc', 
+      tab: 'podcast',
+      fallbackTitle: 'Podcast',
+      fallbackDesc: lang === 'en' ? 'Watch and listen to the latest media episodes!' : 'Nézd és hallgasd a legfrissebb adásokat közvetlenül itt!'
+    }
   ];
 
   const adminTile = { id: 'admin', icon: '⚙️', color: '#ef4444', titleKey: 'tileAdminTitle', descKey: 'tileAdminDesc', tab: (user?.email === ADMIN_EMAIL) ? 'admin_contests' : 'admin_meetings' };
 
   const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString(lang === 'en' ? 'en-US' : 'hu-HU', { month: 'short', day: 'numeric' });
 
-  // ── 🎯 UNIVERZÁLIS KLUB-BIZTONSÁGI SZŰRŐ MOTOR ──
+  // UNIVERZÁLIS KLUB-BIZTONSÁGI SZŰRŐ MOTOR
   const checkClubAccess = (item: any) => {
     const itemClubName = item.club_name || item.restricted_club;
     const itemClubId = item.club_id || item.restricted_club_id;
     
     const hasRestriction = (itemClubName && itemClubName.trim() !== '') || (itemClubId && itemClubId !== 0);
-    if (!hasRestriction) return true; // Nyilvános tartalom, mindenki láthatja
+    if (!hasRestriction) return true; 
     
-    // Ha van korlátozás, de a felhasználónak nincs semmilyen klubja, azonnal elrejtjük
     if (!user?.club_name && !user?.club_id) return false;
     
-    // Ellenőrizzük az egyezést név vagy számszerű azonosító alapján is
     const nameMatch = itemClubName && user?.club_name && itemClubName.trim() === user.club_name.trim();
     const idMatch = itemClubId && user?.club_id && Number(itemClubId) === Number(user.club_id);
     
@@ -134,9 +143,16 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
   const visibleComments = alerts?.mapComments?.filter((c: any) => !dismissedAlerts.includes(`com_${c.comment_id}`)) || [];
   const visibleWeekly = Array.isArray(alerts?.weekly) ? alerts.weekly : [];
   const visibleHomeworks = alerts?.homeworks?.filter((hw: any) => checkClubAccess(hw)) || [];
-  const visibleContests = alerts?.contests?.filter((contest: any) => checkClubAccess(contest)) || [];
+  
+  // 🎯 JAVÍTVA: A belső/bármilyen módon klubhoz kötött fotópályázatokat is szigorúan elrejtjük, ha nem tag az illető!
+  const visibleContests = alerts?.contests?.filter((contest: any) => {
+    const isInternal = contest.type?.toLowerCase().includes('club') || contest.is_internal || contest.is_club;
+    if (isInternal && !user?.club_name && !user?.club_id) return false;
+    return checkClubAccess(contest);
+  }) || [];
 
-  const totalAlertsCount = visibleNews.length + visibleComments.length + visibleWeekly.length + visibleHomeworks.length + visibleContests.length;
+  // 🎯 JAVÍTVA: A számláló most már az összevont kihívás-blokkot számolja (ha van nyitott, az fixen 1 értesítési sornak számít)
+  const totalAlertsCount = visibleNews.length + visibleComments.length + (visibleWeekly.length > 0 ? 1 : 0) + visibleHomeworks.length + visibleContests.length;
 
   return (
     <div style={{ animation: 'dashFadeIn 0.4s ease-out' }}>
@@ -178,10 +194,10 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
                   {tile.icon}
                 </div>
                 <h3 style={{ margin: '0 0 6px 0', fontSize: '1.2rem', color: '#f8fafc', fontWeight: 'bold' }}>
-                  {t(tile.titleKey as any)}
+                  {t(tile.titleKey as any) || (tile as any).fallbackTitle}
                 </h3>
                 <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.85rem', lineHeight: '1.4' }}>
-                  {t(tile.descKey as any)}
+                  {t(tile.descKey as any) || (tile as any).fallbackDesc}
                 </p>
               </div>
             ))}
@@ -226,30 +242,19 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
             )}
           </div>
 
-         
           {isLoadingAlerts ? (
-            <div style={{ 
-    display: 'flex', 
-    flexDirection: 'column', 
-    alignItems: 'center', 
-    justifyContent: 'center', 
-    padding: '80px 20px', 
-    gap: '20px',
-    width: '100%' 
-  }}>
-    <VideoLoader />
-    <div style={{ textAlign: 'center', animation: 'arenaPulse 2s infinite' }}>
-      <h4 style={{ color: '#f59e0b', margin: '0 0 8px 0', fontSize: '1.1rem', fontWeight: 'bold', letterSpacing: '0.5px' }}>
-        {lang === 'en' ? '⚡ Server is waking up...' : '⚡ A szerver ébredezik...'}
-      </h4>
-      <p style={{ color: '#64748b', fontSize: '0.85rem', margin: 0, maxWidth: '320px', lineHeight: '1.4' }}>
-        {lang === 'en' 
-          ? 'The free tier hosting takes about 30-50 seconds to warm up after a period of inactivity.' 
-          : 'A rendszer tétlenség után 30-50 másodpercig melegszik be. Azonnal indulunk!'}
-      </p>
-    </div>
-    <style>{`@keyframes arenaPulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }`}</style>
-  </div>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 20px', gap: '20px', width: '100%' }}>
+              <VideoLoader />
+              <div style={{ textAlign: 'center', animation: 'arenaPulse 2s infinite' }}>
+                <h4 style={{ color: '#f59e0b', margin: '0 0 8px 0', fontSize: '1.1rem', fontWeight: 'bold', letterSpacing: '0.5px' }}>
+                  {lang === 'en' ? '⚡ Server is waking up...' : '⚡ A szerver ébredezik...'}
+                </h4>
+                <p style={{ color: '#64748b', fontSize: '0.85rem', margin: 0, maxWidth: '320px', lineHeight: '1.4' }}>
+                  {lang === 'en' ? 'The free tier hosting takes a bit to warm up. We are starting right away!' : 'A rendszer tétlenség után kicsit melegszik be. Azonnal indulunk!'}
+                </p>
+              </div>
+              <style>{`@keyframes arenaPulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }`}</style>
+            </div>
           ) : !alerts ? (
             <div style={{ color: '#ef4444', fontSize: '0.88rem', padding: '20px', background: '#ef444405', borderRadius: '16px', border: '1px solid #ef444425', textAlign: 'center' }}>
               {t('dashAlertsError', 'Hiba történt a betöltéskor.')}
@@ -287,22 +292,23 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
                 </div>
               ))}
 
-              {/* ⚔️ ARÉNA AKTÍV LIGÁK */}
-              {visibleWeekly.map((w: any) => {
-                const displayWTitle = lang === 'en' && w.title_en ? w.title_en : w.title;
-                return (
-                  <div key={`weekly_${w.id}`} onClick={() => setActiveTab('weekly_challenge')} className="stream-alert-row" style={{ borderLeft: '4px solid #f97316' }}>
-                    <div className="stream-alert-content">
-                      <div className="stream-alert-header-meta">
-                        <span style={{ color: '#f97316' }}>⚔️ ARÉNA FUTAM</span>
-                        <span className="stream-alert-dot">•</span>
-                        <span style={{ color: '#64748b' }}>⏳ Zárlat: {formatDate(w.end_date)}</span>
-                      </div>
-                      <h4 className="stream-alert-title">{displayWTitle}</h4>
+              {/* 🎯 JAVÍTVA: AZ ÖSSZES ANNYI FUTAM HELYETT CSAK EGYETLEN ÖSSZEVONT SORSZÁMOLÓS BLOKK JELENIK MEG */}
+              {visibleWeekly.length > 0 && (
+                <div onClick={() => setActiveTab('weekly_challenge')} className="stream-alert-row" style={{ borderLeft: '4px solid #f97316' }}>
+                  <div className="stream-alert-content">
+                    <div className="stream-alert-header-meta">
+                      <span style={{ color: '#f97316' }}>🎙️ {lang === 'en' ? 'CHALLENGES' : 'KIHÍVÁSOK'}</span>
+                      <span className="stream-alert-dot">•</span>
+                      <span style={{ color: '#10b981' }}>{lang === 'en' ? 'Active Leagues' : 'Aktív futamok'}</span>
                     </div>
+                    <h4 className="stream-alert-title">
+                      {lang === 'en' 
+                        ? `There are ${visibleWeekly.length} active arena challenges open right now!` 
+                        : `Jelenleg ${visibleWeekly.length} db nyitott aréna kihívás várja a fotóidat!`}
+                    </h4>
                   </div>
-                );
-              })}
+                </div>
+              )}
 
               {/* 📸 HÁZI FELADATOK */}
               {visibleHomeworks.map((hw: any) => (
@@ -358,7 +364,6 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
         .stream-dismiss-cross { position: absolute; top: 12px; right: 12px; background: transparent; border: none; color: #475569; cursor: pointer; font-size: 0.8rem; padding: 2px; transition: color 0.1s; }
         .stream-dismiss-cross:hover { color: #f8fafc; }
         @keyframes dashFadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes dashPulse { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
         @media (max-width: 1024px) {
           .dashboard-flex-layout { grid-template-columns: 1fr; }
           .dashboard-tiles-section, .dashboard-alerts-section { grid-column: span 1fr; width: 100%; }
