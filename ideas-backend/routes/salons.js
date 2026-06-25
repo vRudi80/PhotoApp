@@ -100,9 +100,32 @@ module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload,
   app.delete('/api/salon-entries/:id', async (req, res) => {
     try { await pool.query('DELETE FROM photo_salon_entries WHERE id = ? AND user_email = ?', [req.params.id, req.body.userEmail]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: 'Hiba a nevezés visszavonásakor' }); }
   });
-  app.get('/api/my-salon-entries-status', async (req, res) => {
-    try { const [rows] = await pool.query('SELECT DISTINCT salon_id FROM photo_salon_entries WHERE user_email = ?', [req.query.userEmail]); res.json(rows.map(r => r.salon_id)); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
+    app.get('/api/my-salon-entries-status', async (req, res) => {
+    const userEmail = req.query.userEmail;
+    
+    // Biztonsági fék: Ha a frontend még nem töltötte be az emailt, 
+    // nem dobunk SQL hibát, hanem elegánsan visszaküldünk egy üres tömböt
+    if (!userEmail || userEmail === 'undefined') {
+      return res.json([]);
+    }
+
+    try { 
+      const [rows] = await pool.query(
+        'SELECT DISTINCT salon_id FROM photo_salon_entries WHERE LOWER(TRIM(user_email)) = LOWER(TRIM(?))', 
+        [userEmail]
+      ); 
+      
+      // 🎯 KRITIKUS JAVÍTÁS: Minden ID-t explicit számmá (Number) alakítunk, 
+      // így a frontend .includes() metódusa azonnal meg fogja találni a szalonokat!
+      const salonIds = rows.map(r => Number(r.salon_id));
+      
+      res.json(salonIds); 
+    } catch (err) { 
+      console.error("❌ Hiba a saját nevezési státuszok lekérésekor:", err.message);
+      res.status(500).json({ error: 'Hiba a nevezések státuszának ellenőrzésekor.' }); 
+    }
   });
+
   app.put('/api/salon-entries/:id/results', async (req, res) => {
     const { awardId, achievedScore, acceptanceScore, userEmail } = req.body;
     try { await pool.query('UPDATE photo_salon_entries SET award_id = ?, achieved_score = ?, acceptance_score = ? WHERE id = ? AND user_email = ?', [awardId || null, achievedScore || null, acceptanceScore || null, req.params.id, userEmail]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: 'Hiba az eredmények mentésekor' }); }
