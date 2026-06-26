@@ -664,7 +664,9 @@ function MainContent() {
               <Route path="/packages" element={<PackagesView user={user} />} />
               <Route path="/marketplace" element={<MarketplaceRoot user={headerUser} />} />
               <Route path="/map_spots" element={<MapSpotsView user={user} setFullscreenData={setFullscreenData} targetMapSpotId={targetMapSpotId} setTargetMapSpotId={setTargetMapSpotId} />} />
-              <Route path="/club_news" element={<ClubNewsView user={user} currentDbUser={currentDbUser} />} />
+              {/* 🎯 SZALON HÍREK ÉS NYILVÁNOS HÍREK ÁGAI */}
+              <Route path="/club_news" element={<ClubNewsView user={user} currentDbUser={currentDbUser} mode="club" />} />
+              <Route path="/public_news" element={<ClubNewsView user={user} currentDbUser={currentDbUser} mode="public" />} />
               <Route path="/my_album" element={<MyAlbumView user={user} setFullscreenData={setFullscreenData} />} />
               <Route path="/arena_album" element={<MyArenaAlbumView user={user} setFullscreenData={setFullscreenData} />} /> 
               <Route path="/fiap_progress" element={<FiapProgressView user={user} allUsers={allUsers} />} />
