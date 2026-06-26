@@ -4,7 +4,7 @@ import { BACKEND_URL, ADMIN_EMAIL } from '../utils/constants';
 interface ClubNewsViewProps {
   user: any;           
   currentDbUser: any;  
-  mode?: 'club' | 'public'; // 🎯 ÚJ: Prop az üzemmód elkülönítéséhez
+  mode?: 'club' | 'public'; 
 }
 
 export default function ClubNewsView({ user, currentDbUser, mode = 'club' }: ClubNewsViewProps) {
@@ -17,7 +17,7 @@ export default function ClubNewsView({ user, currentDbUser, mode = 'club' }: Clu
   const [isPosting, setIsPosting] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newContent, setNewContent] = useState('');
-  const [isPublicNews, setIsPublicNews] = useState(false); // 🎯 ÚJ: Checkbox állapota
+  const [isPublicNews, setIsPublicNews] = useState(false); 
 
   // Olvasók és Kommentek
   const [readers, setReaders] = useState<any[]>([]);
@@ -30,7 +30,7 @@ export default function ClubNewsView({ user, currentDbUser, mode = 'club' }: Clu
   const inputStyle = { width: '100%', padding: '12px', marginBottom: '15px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '8px', boxSizing: 'border-box' as const };
 
   useEffect(() => {
-    if (mode === 'public') return; // Nyilvános üzemmódban nincs szükség a saját klub-id lekérésére
+    if (mode === 'public') return; 
     
     const fetchClubId = async () => {
       if (!currentDbUser?.club_name) return;
@@ -48,23 +48,19 @@ export default function ClubNewsView({ user, currentDbUser, mode = 'club' }: Clu
     fetchClubId();
   }, [currentDbUser?.club_name, mode]);
 
-// 🎯 JAVÍTVA: Teljesen különválasztott és golyóálló lekérdező logika
   const fetchNews = async () => {
     try {
-      // Ha nyilvános módban vagyunk, azonnal hívhatjuk az API-t, nem kell clubId!
       if (mode === 'public') {
         const res = await fetch(`${BACKEND_URL}/api/news/public?userEmail=${user.email}`);
         if (res.ok) setNewsList(await res.json());
         return;
       }
 
-      // Ha klub módban vagyunk, de nincs klubja, akkor ürítjük a listát és megállunk
       if (mode === 'club' && !clubId) {
         setNewsList([]);
         return;
       }
 
-      // Egyébként lekérjük a belső klubhíreket
       const res = await fetch(`${BACKEND_URL}/api/clubs/${clubId}/news?userEmail=${user.email}`);
       if (res.ok) setNewsList(await res.json());
 
@@ -73,8 +69,6 @@ export default function ClubNewsView({ user, currentDbUser, mode = 'club' }: Clu
     }
   };
 
-  // 🎯 JAVÍTVA: A useEffect most már azonnal tüzel, ha nyilvános módra váltunk, 
-  // nem vár a nem létező klub-idra!
   useEffect(() => {
     if (mode === 'public' || (mode === 'club' && clubId !== null)) {
       fetchNews();
@@ -166,7 +160,6 @@ export default function ClubNewsView({ user, currentDbUser, mode = 'club' }: Clu
   return (
     <div style={{ animation: 'fadeIn 0.4s ease-out' }}>
       
-      {/* 🎯 JAVÍTVA: A zárt képernyőt kizárólag privát klub üzemmódban kényszerítjük ki */}
       {mode === 'club' && !currentDbUser?.club_name ? (
         <div style={{ textAlign: 'center', padding: '4rem 2rem', background: '#1e293b', borderRadius: '16px', border: '1px solid #334155' }}>
           <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🔒</div>
@@ -180,7 +173,6 @@ export default function ClubNewsView({ user, currentDbUser, mode = 'club' }: Clu
               <span style={{ fontSize: '2.5rem' }}>📰</span> {mode === 'public' ? 'Nyilvános Fotós Közlemények' : `Klub Hírek: ${currentDbUser.club_name}`}
             </h2>
 
-            {/* 🎯 JAVÍTVA: Posztoló gomb csak klubmódban jelenhet meg */}
             {mode === 'club' && isLeader && (
               <button 
                 onClick={() => setIsPosting(!isPosting)}
@@ -197,7 +189,6 @@ export default function ClubNewsView({ user, currentDbUser, mode = 'club' }: Clu
               <input placeholder="Hír címe (pl. Fontos változás a stúdió beosztásában!)" value={newTitle} onChange={e => setNewTitle(e.target.value)} style={inputStyle} />
               <textarea placeholder="Írd ide a részleteket..." value={newContent} onChange={e => setNewContent(e.target.value)} style={{...inputStyle, minHeight: '120px'}} />
               
-              {/* 🎯 ÚJ CHECKBOX: Nyilvános publikáláshoz */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px', userSelect: 'none' }}>
                 <input type="checkbox" id="publicNewsCheck" checked={isPublicNews} onChange={e => setIsPublicNews(e.target.checked)} style={{ width: '18px', height: '18px', cursor: 'pointer' }} />
                 <label htmlFor="publicNewsCheck" style={{ color: '#fbbf24', fontWeight: 'bold', fontSize: '0.95rem', cursor: 'pointer' }}>📢 Legyen ez a hír teljesen nyilvános (minden feliratkozott tag láthatja kívülről is)</label>
@@ -210,7 +201,7 @@ export default function ClubNewsView({ user, currentDbUser, mode = 'club' }: Clu
           )}
 
           {newsList.length === 0 ? (
-            <p style={{ color: '#94a3b8', fontSize: '1.1rem', textAlign: 'center', padding: '40px', background: '#1e293b', borderRadius: '12px' }}>
+            <p style={{ color: '#94a3b8', fontSize: '1.1rem', textAlign: 'center', padding: '40px', background: '#1e293b', borderRadius: '12px', border: '1px solid #334155' }}>
               {mode === 'public' ? 'Jelenleg nincsenek nyilvános közlemények a rendszerben.' : 'Jelenleg nincsenek aktív hírek ebben a klubban.'}
             </p>
           ) : (
@@ -257,34 +248,40 @@ export default function ClubNewsView({ user, currentDbUser, mode = 'club' }: Clu
                           {news.content}
                         </p>
 
-                        <div style={{ display: 'flex', gap: '10px', marginTop: '20px', paddingTop: '15px', borderTop: '1px dashed #334155' }}>
-                          <button onClick={() => fetchReaders(news.id)} style={{ background: '#3b82f620', color: '#3b82f6', border: '1px solid #3b82f650', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>
-                            👁️ {showReaders ? 'Olvasók elrejtése' : 'Kik olvasták el?'}
-                          </button>
-                          {mode === 'club' && isLeader && (
-                            <button onClick={() => handleDeleteNews(news.id)} style={{ background: '#ef444420', color: '#ef4444', border: '1px solid #ef444450', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>
-                              🗑️ Hír Törlése
-                            </button>
-                          )}
-                        </div>
+                        {/* 🎯 JAVÍTVA: Az egész gomb- és olvasó-szekciót elrejtjük a sima felhasználók elől */}
+                        {isLeader && (
+                          <>
+                            <div style={{ display: 'flex', gap: '10px', marginTop: '20px', paddingTop: '15px', borderTop: '1px dashed #334155' }}>
+                              <button onClick={() => fetchReaders(news.id)} style={{ background: '#3b82f620', color: '#3b82f6', border: '1px solid #3b82f650', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>
+                                👁️ {showReaders ? 'Olvasók elrejtése' : 'Kik olvasták el?'}
+                              </button>
+                              {mode === 'club' && (
+                                <button onClick={() => handleDeleteNews(news.id)} style={{ background: '#ef444420', color: '#ef4444', border: '1px solid #ef444450', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>
+                                  🗑️ Hír Törlése
+                                </button>
+                              )}
+                            </div>
 
-                        {showReaders && (
-                          <div style={{ marginTop: '15px', background: '#0f172a', padding: '15px', borderRadius: '8px', border: '1px solid #334155' }}>
-                            <h4 style={{ margin: '0 0 10px 0', color: '#3b82f6', fontSize: '0.9rem' }}>Ezt a hírt eddig {readers.length} tag olvasta el:</h4>
-                            {readers.length === 0 ? (
-                              <div style={{ color: '#64748b', fontSize: '0.85rem' }}>Még senki sem nyitotta meg.</div>
-                            ) : (
-                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-                                {readers.map((r, idx) => (
-                                  <span key={idx} style={{ background: '#1e293b', color: '#cbd5e1', padding: '4px 10px', borderRadius: '50px', fontSize: '0.8rem', border: '1px solid #475569' }}>
-                                    ✓ {r.name}
-                                  </span>
-                                ))}
+                            {showReaders && (
+                              <div style={{ marginTop: '15px', background: '#0f172a', padding: '15px', borderRadius: '8px', border: '1px solid #334155' }}>
+                                <h4 style={{ margin: '0 0 10px 0', color: '#3b82f6', fontSize: '0.9rem' }}>Ezt a hírt eddig {readers.length} tag olvasta el:</h4>
+                                {readers.length === 0 ? (
+                                  <div style={{ color: '#64748b', fontSize: '0.85rem' }}>Még senki sem nyitotta meg.</div>
+                                ) : (
+                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                                    {readers.map((r, idx) => (
+                                      <span key={idx} style={{ background: '#1e293b', color: '#cbd5e1', padding: '4px 10px', borderRadius: '50px', fontSize: '0.8rem', border: '1px solid #475569' }}>
+                                        ✓ {r.name}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
                             )}
-                          </div>
+                          </>
                         )}
 
+                        {/* HOZZÁSZÓLÁSOK (Mindenki számára elérhető) */}
                         <div style={{ background: '#0f172a', borderRadius: '12px', padding: '15px', marginTop: '25px', border: '1px solid #1e293b' }}>
                           <h4 style={{ margin: '0 0 15px 0', color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '8px' }}>
                             💬 Hozzászólások <span style={{ background: '#334155', padding: '2px 8px', borderRadius: '50px', fontSize: '0.75rem' }}>{comments.length}</span>
@@ -318,7 +315,7 @@ export default function ClubNewsView({ user, currentDbUser, mode = 'club' }: Clu
                             <button 
                               onClick={() => handlePostComment(news.id)}
                               disabled={!newComment.trim()}
-                              style={{ background: newComment.trim() ? '#38bdf8' : '#334155', color: '#0f172a', border: 'none', padding: '0 20px', borderRadius: '20px', cursor: newComment.trim() ? 'pointer' : 'not-allowed', fontWeight: 'bold', transition: 'background 0.2s' }}
+                              style={{ background: newComment.trim() ? '#38bdf8' : '#334155', color: '#0f172a', border: 'none', padding: '0 20px', borderRadius: '20px', cursor: 'pointer', fontWeight: 'bold', transition: 'background 0.2s' }}
                             >
                               Küldés
                             </button>
