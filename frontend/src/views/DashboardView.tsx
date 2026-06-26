@@ -144,11 +144,19 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
   const visibleWeekly = Array.isArray(alerts?.weekly) ? alerts.weekly : [];
   const visibleHomeworks = alerts?.homeworks?.filter((hw: any) => checkClubAccess(hw)) || [];
   
-  // 🎯 JAVÍTVA: A belső/bármilyen módon klubhoz kötött fotópályázatokat is szigorúan elrejtjük, ha nem tag az illető!
+  // 🎯 JAVÍTVA: Csak a nyilvános (restricted_club_id = 0/null) vagy a saját klubos pályázatok megjelenítése
   const visibleContests = alerts?.contests?.filter((contest: any) => {
-    const isInternal = contest.type?.toLowerCase().includes('club') || contest.is_internal || contest.is_club;
-    if (isInternal && !user?.club_name && !user?.club_id) return false;
-    return checkClubAccess(contest);
+    const contestClubId = contest.restricted_club_id ? Number(contest.restricted_club_id) : 0;
+
+    // 1. Ha a restricted_club_id 0, null vagy undefined, akkor a pályázat NYÍLT, mindenki láthatja
+    if (contestClubId === 0) {
+      return true;
+    }
+
+    // 2. Ha belső klubpályázat, ellenőrizzük, hogy a user klub ID-ja megegyezik-e vele
+    const userClubId = user?.club_id ? Number(user.club_id) : null;
+    
+    return contestClubId === userClubId;
   }) || [];
 
   // 🎯 JAVÍTVA: A számláló most már az összevont kihívás-blokkot számolja (ha van nyitott, az fixen 1 értesítési sornak számít)
