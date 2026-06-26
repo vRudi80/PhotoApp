@@ -185,13 +185,15 @@ module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload,
     } catch (err) { res.status(500).json({ error: 'Hiba a FIAP statisztika lekérésekor' }); }
   });
 
+ // 🎯 MÓDOSÍTVA: A felületi rács lekérdezése is megkapta a COALESCE egyedi díj ágat a szinkronitásért
   app.get('/api/fiap-entries', checkPremium, async (req, res) => {
     const userEmail = req.query.userEmail;
     try {
-      const [rows] = await pool.query(`SELECT COALESCE(p.title, 'Ismeretlen / Törölt kép') as photo_title, s.name as salon_name, c.country_hun as country, c.country_code as country_code, sp.patron_number as fiap_number, a.award_name as award, s.submission_type, p.drive_file_id, p.file_url FROM photo_salon_entries e JOIN photo_salons s ON e.salon_id = s.id JOIN photo_awards a ON e.award_id = a.id JOIN photo_salon_patrons sp ON sp.salon_id = s.id AND sp.patron_id = 1 LEFT JOIN photo_portfolio p ON e.portfolio_id = p.id LEFT JOIN photo_countries c ON s.host_country_id = c.id WHERE e.user_email = ? AND e.award_id IS NOT NULL AND e.award_id > 0 AND a.award_name IS NOT NULL AND TRIM(a.award_name) != '' ORDER BY s.name ASC, photo_title ASC`, [userEmail]);
+      const [rows] = await pool.query(`SELECT COALESCE(p.title, 'Ismeretlen / Törölt kép') as photo_title, s.name as salon_name, c.country_hun as country, c.country_code as country_code, sp.patron_number as fiap_number, COALESCE(NULLIF(e.custom_award, ''), a.award_name) as award, s.submission_type, p.drive_file_id, p.file_url FROM photo_salon_entries e JOIN photo_salons s ON e.salon_id = s.id JOIN photo_awards a ON e.award_id = a.id JOIN photo_salon_patrons sp ON sp.salon_id = s.id AND sp.patron_id = 1 LEFT JOIN photo_portfolio p ON e.portfolio_id = p.id LEFT JOIN photo_countries c ON s.host_country_id = c.id WHERE e.user_email = ? AND e.award_id IS NOT NULL AND e.award_id > 0 ORDER BY s.name ASC, photo_title ASC`, [userEmail]);
       res.json(rows);
     } catch (err) { res.status(500).json({ error: 'Hiba a FIAP tételes lista lekérésekor' }); }
   });
+
 
   // 🎯 MÓDOSÍTVA: Az Excel generátor mostantól az egyedi szöveges díjat (custom_award) részesíti előnyben!
   app.get('/api/export-fiap-c', checkPremium, async (req, res) => {
