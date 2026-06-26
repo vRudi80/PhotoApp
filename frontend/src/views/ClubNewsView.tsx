@@ -191,7 +191,7 @@ export default function ClubNewsView({ user, currentDbUser, mode = 'club' }: Clu
                   style={{ width: '18px', height: '18px', cursor: 'pointer' }} 
                 />
                 <label htmlFor="publicNewsCheckbox" style={{ color: '#fbbf24', fontWeight: 'bold', fontSize: '0.95rem', cursor: 'pointer' }}>
-                  📢 Legyen ez a hír teljesen nyilvános (minden törzstag láthatja a külső hírcsatornán is)
+                  📢 Legyen ez a hír teljesen nyilvános (mindenki láthatja a külső hírcsatornán is)
                 </label>
               </div>
 
