@@ -756,7 +756,7 @@ tilePodcastDesc: 'Hallgass bennünket aktuális fotós témákról',
     adminPlaceholderDescEn: 'Guideline and rules for photographers in English...',
 
     upTitle: '🔮 Közelgő Kihívások Menetrendje',
-    upDesc: 'Már jóváhagyott, hamarosan élesedő kihívások.',
+    upDesc: 'Már jóváhagyott, hamarosan élesedő kihívások. Jelentkezz Képmesternek!',
     upClosePlanner: '✕ Tervező bezárása',
     upOpenPlanner: '⚔️ Új kihívásterv benyújtása',
     upEmpty: 'Nincs betárazva elkövetkező kihívás. Kattints a fenti gombra, és javasolj egy új témát!',
