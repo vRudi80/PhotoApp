@@ -209,7 +209,7 @@ export default function Header({
             </button>
             {dropdownOpen === 'club' && (
               <div className="dropdown-menu">
-                <button className={`drop-item ${activeTab === 'public_news' ? 'active' : ''}`} style={{ color: '#38bdf8', fontWeight: 'bold' }} onClick={() => handleNavClick('public_news')}>📰 {lang === 'en' ? 'Global News' : 'Közös Hírek'}</button>
+               
                 <button className={`drop-item ${activeTab === 'club_news' ? 'active' : ''}`} onClick={() => handleNavClick('club_news')}>{t('subClubNews')}</button>
                 <button className={`drop-item ${activeTab === 'club_nights' ? 'active' : ''}`} onClick={() => handleNavClick('club_nights')}>{t('subClubNights')}</button>
                 <button className={`drop-item ${activeTab === 'club_homeworks' ? 'active' : ''}`} onClick={() => handleNavClick('club_homeworks')}>{t('subClubHomeworks')}</button>
@@ -235,6 +235,11 @@ export default function Header({
             )}
           </div>
 
+                    {/* 5.1. Hírek */}
+          <div className="nav-item-container" style={{ zIndex: 50 }}>
+            <button className={`nav-btn ${activeTab === 'public_news' ? 'active' : ''}`} style={{ color: '#38bdf8', fontWeight: 'bold' }} onClick={() => handleNavClick('public_news')}>📰 {lang === 'en' ? 'Global News' : 'Közös Hírek'}</button>
+          </div>
+          
           {/* 6. MODERÁTORI / VEZETŐSÉGI ADMIN PANEL */}
           {(user?.email === ADMIN_EMAIL || isLeader) && (
             <div className="nav-item-container" style={{ zIndex: dropdownOpen === 'admin' ? 60 : 50 }}>
