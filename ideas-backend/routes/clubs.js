@@ -76,9 +76,9 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // 📰 HÍREK SZEKCIÓ (MEGLÉVŐ)
+  // 📰 HÍREK SZEKCIÓ (KIBŐVÍTETT GLOBÁLIS ÉS ATOMIKUS NYILVÁNOS ÁGGAL)
   // ====================================================================
-
+  
   // ÚJ: Minden felhasználónak elérhető globális nyilvános hírek csatornája
   app.get('/api/news/public', async (req, res) => {
     const userEmail = req.query.userEmail;
@@ -94,8 +94,8 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       res.json(rows);
     } catch (err) { res.status(500).json({ error: 'Hiba a nyilvános hírek lekérésekor' }); }
   });
-  
-  app.get('app.get('/api/clubs/:clubId/news', async (req, res) => {
+
+  app.get('/api/clubs/:clubId/news', async (req, res) => {
     const userEmail = req.query.userEmail;
     try {
       const [rows] = await pool.query(`SELECT n.*, (SELECT COUNT(*) FROM photo_club_news_reads r WHERE r.news_id = n.id AND r.user_email = ?) as is_read FROM photo_club_news n WHERE n.club_id = ? ORDER BY n.created_at DESC`, [userEmail, req.params.clubId]);
@@ -103,15 +103,14 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { res.status(500).json({ error: 'Hiba a hírek lekérésekor' }); }
   });
 
-  // JAVÍTVA: Elmenti a req.body-ból érkező custom 'isPublic' jelölőt is
+  // JAVÍTVA: Atomikusan beszúrja az is_public mezőt is a megfelelő számú helyőrzővel
   app.post('/api/clubs/:clubId/news', async (req, res) => {
     const { title, content, userEmail, userName, isPublic } = req.body;
     try { 
-      await pool.query('INSERT INTO photo_club_news (club_id, author_email, author_name, title, content, is_club) VALUES (?, ?, ?, ?, ?)', [req.params.clubId, userEmail, userName, title, content]);
-      // Ha az isPublic igaz, beállítjuk a frissen beszúrt soron a jelölőt
-      if (isPublic) {
-        await pool.query('UPDATE photo_club_news SET is_public = 1 WHERE club_id = ? AND author_email = ? ORDER BY id DESC LIMIT 1', [req.params.clubId, userEmail]);
-      }
+      await pool.query(
+        'INSERT INTO photo_club_news (club_id, author_email, author_name, title, content, is_public) VALUES (?, ?, ?, ?, ?, ?)', 
+        [req.params.clubId, userEmail, userName, title, content, isPublic ? 1 : 0]
+      );
       res.json({ success: true }); 
     } catch (err) { res.status(500).json({ error: 'Hiba a hír posztolásakor' }); }
   });
