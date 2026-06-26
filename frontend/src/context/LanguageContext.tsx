@@ -241,7 +241,7 @@ tilePodcastDesc: 'Hallgass bennünket aktuális fotós témákról',
     
     // Nemzetközi almenü
     subSalonsList: 'Szalonok listája',
-    subFiap: '🏅 FIAP Követő',
+    subFiap: 'FIAP Követő',
     subMafosz: 'MAFOSZ Követő',
     
     // Admin almenü
