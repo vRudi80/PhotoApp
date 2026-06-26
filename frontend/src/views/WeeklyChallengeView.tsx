@@ -805,13 +805,13 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         <div className="arena-tabs-internal-line" style={{ display: 'flex', gap: '8px', padding: '15px 20px 0 20px', justifyContent: 'space-between', alignItems: 'flex-end' }}>
           <div style={{ display: 'flex', gap: '8px' }}>
             {[
-              { id: 'current', label: lang === 'en' ? 'Active' : 'Aktív szobák' },
-              { id: 'upcoming', label: lang === 'en' ? 'Upcoming' : 'Közelgő Ligák' }, 
+              { id: 'current', label: lang === 'en' ? 'Active' : 'Aktív' },
+              { id: 'past', label: lang === 'en' ? 'Completed' : 'Lezárt' },
+              { id: 'upcoming', label: lang === 'en' ? 'Upcoming' : 'Közelgő' }, 
               { id: 'manage', label: lang === 'en' ? 'Manage' : 'Tervezőpult' },
-              { id: 'past', label: lang === 'en' ? 'Completed' : 'Lezárt Arénák' },
-              { id: 'arena_album', label: lang === 'en' ? 'My Arena Album' : 'Aréna Albumom' },
+              { id: 'arena_album', label: lang === 'en' ? 'My Arena Album' : 'Albumom' },
               { id: 'my_stats', label: lang === 'en' ?
-              'Statistics' : 'Trófea statisztikák' },
+              'Statistics' : 'Statisztikák' },
               { id: 'hall_of_fame', label: lang === 'en' ?
               'Hall of Fame' : 'Dicsőségcsarnok' }
             ].map((tab) => {
