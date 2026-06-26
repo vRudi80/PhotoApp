@@ -16,7 +16,8 @@ export default function SalonModal({ salon, user, onClose }: SalonModalProps) {
   const [isLoading, setIsLoading] = useState(false);
   
   const [searchQuery, setSearchQuery] = useState('');
-  const [resultsEdit, setResultsEdit] = useState<Record<number, { awardId: string, achieved: string, acceptance: string }>>({});
+  // 🎯 MÓDOSÍTVA: A resultsEdit állapottípus kiegészítve customAward mezővel
+  const [resultsEdit, setResultsEdit] = useState<Record<number, { awardId: string, achieved: string, acceptance: string, customAward: string }>>({});
 
   const isPastDeadline = new Date(salon.end_date) < new Date(new Date().setHours(0,0,0,0));
 
@@ -33,10 +34,12 @@ export default function SalonModal({ salon, user, onClose }: SalonModalProps) {
         
         const initialEdits: any = {};
         entries.forEach((e: any) => {
+          // 🎯 MÓDOSÍTVA: Betöltjük a meglévő egyedi díjat (custom_award) is a háttérből
           initialEdits[e.entry_id] = {
             awardId: e.award_id ? String(e.award_id) : '',
             achieved: e.achieved_score !== null ? String(e.achieved_score) : '',
-            acceptance: e.acceptance_score !== null ? String(e.acceptance_score) : ''
+            acceptance: e.acceptance_score !== null ? String(e.acceptance_score) : '',
+            customAward: e.custom_award || ''
           };
         });
         setResultsEdit(initialEdits);
@@ -81,7 +84,8 @@ export default function SalonModal({ salon, user, onClose }: SalonModalProps) {
   };
 
   const handleSaveResult = async (entryId: number) => {
-    const edit = resultsEdit[entryId];
+    // Biztonsági mentés üres mezők esetére
+    const edit = resultsEdit[entryId] || { awardId: '', achieved: '', acceptance: '', customAward: '' };
     try {
       const res = await fetch(`${BACKEND_URL}/api/salon-entries/${entryId}/results`, {
         method: 'PUT',
@@ -90,6 +94,7 @@ export default function SalonModal({ salon, user, onClose }: SalonModalProps) {
           awardId: edit.awardId ? Number(edit.awardId) : null,
           achievedScore: edit.achieved ? Number(edit.achieved) : null,
           acceptanceScore: edit.acceptance ? Number(edit.acceptance) : null,
+          customAward: edit.customAward || null, // 🎯 ÚJ: Átküldjük az egyedi beírt díj nevét a backendnek
           userEmail: user.email
         })
       });
@@ -282,7 +287,8 @@ export default function SalonModal({ salon, user, onClose }: SalonModalProps) {
                   
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '15px' }}>
                     {sortedEntries.map(entry => {
-                      const editState = resultsEdit[entry.entry_id] || { awardId: '', achieved: '', acceptance: '' };
+                      // 🎯 MÓDOSÍTVA: Az editState-be bekerült az üres customAward alapállapot is
+                      const editState = resultsEdit[entry.entry_id] || { awardId: '', achieved: '', acceptance: '', customAward: '' };
                       const hasAward = entry.award_id !== null && entry.award_id !== undefined && Number(entry.award_id) !== 15 && Number(entry.award_id) !== 0;
 
                       return (
@@ -321,6 +327,17 @@ export default function SalonModal({ salon, user, onClose }: SalonModalProps) {
                                 <option value="">Nincs díj / Elutasítva</option>
                                 {awards.map(a => <option key={a.id} value={a.id}>{a.award_name}</option>)}
                               </select>
+
+                              {/* 🎯 ÚJ JAVÍTOTT BEVITELI MEZŐ: Csak akkor ugrik fel, ha a user díjat választ (nem üres, nem Acceptance [1] és nem Elutasított/Nincs díj [15]) */}
+                              {editState.awardId !== '' && editState.awardId !== '1' && editState.awardId !== '15' && (
+                                <input 
+                                  type="text" 
+                                  placeholder="Kézi díj név (pl. FIAP Gold Medal)" 
+                                  value={editState.customAward || ''}
+                                  onChange={e => setResultsEdit({...resultsEdit, [entry.entry_id]: {...editState, customAward: e.target.value}})}
+                                  style={{ width: '100%', padding: '5px', fontSize: '0.75rem', background: '#1e293b', border: '1px solid #334155', color: 'white', borderRadius: '4px', marginBottom: '8px', boxSizing: 'border-box' }}
+                                />
+                              )}
 
                               <button 
                                 onClick={() => handleSaveResult(entry.entry_id)}
