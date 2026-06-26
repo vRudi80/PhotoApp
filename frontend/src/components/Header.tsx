@@ -237,7 +237,7 @@ export default function Header({
 
                     {/* 5.1. Hírek */}
           <div className="nav-item-container" style={{ zIndex: 50 }}>
-            <button className={`nav-btn ${activeTab === 'public_news' ? 'active' : ''}`} style={{ color: '#38bdf8', fontWeight: 'bold' }} onClick={() => handleNavClick('public_news')}>📰 {lang === 'en' ? 'Global News' : 'Közös Hírek'}</button>
+            <button className={`nav-btn ${activeTab === 'public_news' ? 'active' : ''}`} style={{ color: '#38bdf8', fontWeight: 'bold' }} onClick={() => handleNavClick('public_news')}>📰 {lang === 'en' ? 'Global News' : 'Hírek'}</button>
           </div>
           
           {/* 6. MODERÁTORI / VEZETŐSÉGI ADMIN PANEL */}
