@@ -78,17 +78,44 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   // ====================================================================
   // 📰 HÍREK SZEKCIÓ (MEGLÉVŐ)
   // ====================================================================
-  app.get('/api/clubs/:clubId/news', async (req, res) => {
+
+  // ÚJ: Minden felhasználónak elérhető globális nyilvános hírek csatornája
+  app.get('/api/news/public', async (req, res) => {
+    const userEmail = req.query.userEmail;
+    try {
+      const [rows] = await pool.query(`
+        SELECT n.*, c.name as club_name,
+               (SELECT COUNT(*) FROM photo_club_news_reads r WHERE r.news_id = n.id AND r.user_email = ?) as is_read 
+        FROM photo_club_news n
+        JOIN photo_clubs c ON n.club_id = c.id
+        WHERE n.is_public = 1 
+        ORDER BY n.created_at DESC
+      `, [userEmail]);
+      res.json(rows);
+    } catch (err) { res.status(500).json({ error: 'Hiba a nyilvános hírek lekérésekor' }); }
+  });
+  
+  app.get('app.get('/api/clubs/:clubId/news', async (req, res) => {
     const userEmail = req.query.userEmail;
     try {
       const [rows] = await pool.query(`SELECT n.*, (SELECT COUNT(*) FROM photo_club_news_reads r WHERE r.news_id = n.id AND r.user_email = ?) as is_read FROM photo_club_news n WHERE n.club_id = ? ORDER BY n.created_at DESC`, [userEmail, req.params.clubId]);
       res.json(rows);
     } catch (err) { res.status(500).json({ error: 'Hiba a hírek lekérésekor' }); }
   });
+
+  // JAVÍTVA: Elmenti a req.body-ból érkező custom 'isPublic' jelölőt is
   app.post('/api/clubs/:clubId/news', async (req, res) => {
-    const { title, content, userEmail, userName } = req.body;
-    try { await pool.query('INSERT INTO photo_club_news (club_id, author_email, author_name, title, content) VALUES (?, ?, ?, ?, ?)', [req.params.clubId, userEmail, userName, title, content]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: 'Hiba a hír posztolásakor' }); }
+    const { title, content, userEmail, userName, isPublic } = req.body;
+    try { 
+      await pool.query('INSERT INTO photo_club_news (club_id, author_email, author_name, title, content, is_club) VALUES (?, ?, ?, ?, ?)', [req.params.clubId, userEmail, userName, title, content]);
+      // Ha az isPublic igaz, beállítjuk a frissen beszúrt soron a jelölőt
+      if (isPublic) {
+        await pool.query('UPDATE photo_club_news SET is_public = 1 WHERE club_id = ? AND author_email = ? ORDER BY id DESC LIMIT 1', [req.params.clubId, userEmail]);
+      }
+      res.json({ success: true }); 
+    } catch (err) { res.status(500).json({ error: 'Hiba a hír posztolásakor' }); }
   });
+
   app.delete('/api/news/:id', async (req, res) => {
     try {
       await pool.query('DELETE FROM photo_club_news_reads WHERE news_id = ?', [req.params.id]);
@@ -97,15 +124,19 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       res.json({ success: true });
     } catch (err) { res.status(500).json({ error: 'Hiba a hír törlésekor' }); }
   });
+
   app.post('/api/news/:id/read', async (req, res) => {
     try { await pool.query('INSERT IGNORE INTO photo_club_news_reads (news_id, user_email) VALUES (?, ?)', [req.params.id, req.body.userEmail]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: 'Hiba az olvasottság mentésekor' }); }
   });
+
   app.get('/api/news/:id/readers', async (req, res) => {
     try { const [rows] = await pool.query(`SELECT r.user_email, u.name, r.read_at FROM photo_club_news_reads r JOIN photo_users u ON r.user_email = u.email WHERE r.news_id = ? ORDER BY r.read_at DESC`, [req.params.id]); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba az olvasók lekérésekor' }); }
   });
+
   app.get('/api/news/:id/comments', async (req, res) => {
     try { const [rows] = await pool.query('SELECT * FROM photo_club_news_comments WHERE news_id = ? ORDER BY created_at ASC', [req.params.id]); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
+
   app.post('/api/news/:id/comments', async (req, res) => {
     const { userEmail, userName, commentText } = req.body;
     try { await pool.query('INSERT INTO photo_club_news_comments (news_id, user_email, user_name, comment_text) VALUES (?, ?, ?, ?)', [req.params.id, userEmail, userName, commentText]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
