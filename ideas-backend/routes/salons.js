@@ -193,6 +193,7 @@ module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload,
     } catch (err) { res.status(500).json({ error: 'Hiba a FIAP tételes lista lekérésekor' }); }
   });
 
+  // 🎯 MÓDOSÍTVA: Az Excel generátor mostantól az egyedi szöveges díjat (custom_award) részesíti előnyben!
   app.get('/api/export-fiap-c', checkPremium, async (req, res) => {
     const userEmail = req.query.userEmail;
     try {
@@ -202,7 +203,7 @@ module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload,
           s.name as salon_name, 
           c.country as country_eng, 
           sp.patron_number as fiap_number, 
-          a.award_name as award,
+          COALESCE(NULLIF(e.custom_award, ''), a.award_name) as award,
           s.submission_type
         FROM photo_salon_entries e 
         JOIN photo_salons s ON e.salon_id = s.id 
@@ -213,8 +214,6 @@ module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload,
         WHERE e.user_email = ? 
           AND e.award_id IS NOT NULL 
           AND e.award_id > 0 
-          AND a.award_name IS NOT NULL 
-          AND TRIM(a.award_name) != '' 
         ORDER BY photo_title ASC, s.name ASC
       `, [userEmail]);
 
@@ -224,7 +223,6 @@ module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload,
         accNum++; const t = row.photo_title.trim();
         if (t !== currentTitle) { titleNum++; currentTitle = t; }
         const finalAward = (row.award && row.award.toLowerCase() !== 'acceptance' && row.award.toLowerCase() !== 'elfogadás') ? row.award : '';
-        
         const isDigital = row.submission_type && row.submission_type.toLowerCase() === 'online';
 
         exportData.push({ 
@@ -234,7 +232,7 @@ module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload,
           'Salon': row.salon_name, 
           'Country': row.country_eng || '', 
           'Nr FIAP yyyy/xxx': row.fiap_number || '', 
-          'Award': finalAward,
+          'Award': finalAward, 
           'Digital': isDigital ? 'x' : '', 
           'Print': !isDigital ? 'x' : ''    
         });
@@ -253,6 +251,7 @@ module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload,
       res.status(500).json({ error: 'Szerver hiba az Excel generálásakor' }); 
     }
   });
+
 
   // AI ÉS EXCEL IMPORT 
   app.get('/api/admin/scrape-fiap', async (req, res) => {
