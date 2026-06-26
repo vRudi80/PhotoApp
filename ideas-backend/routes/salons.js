@@ -84,10 +84,15 @@ module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload,
     try { await pool.query('DELETE FROM photo_salons WHERE id = ?', [req.params.id]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
-  // SZALON NEVEZÉSEK
+ // SZALON NEVEZÉSEK
   app.get('/api/salon-entries/:salonId', async (req, res) => {
-    try { const [rows] = await pool.query(`SELECT e.id as entry_id, e.category, e.award_id, e.achieved_score, e.acceptance_score, p.*, a.award_name FROM photo_salon_entries e JOIN photo_portfolio p ON e.portfolio_id = p.id LEFT JOIN photo_awards a ON e.award_id = a.id WHERE e.salon_id = ? AND e.user_email = ?`, [req.params.salonId, req.query.userEmail]); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba a nevezések lekérésekor' }); }
+    try { 
+      // 🎯 ÚJ: Lekérjük a custom_award mezőt is az adatbázisból
+      const [rows] = await pool.query(`SELECT e.id as entry_id, e.category, e.award_id, e.achieved_score, e.acceptance_score, e.custom_award, p.*, a.award_name FROM photo_salon_entries e JOIN photo_portfolio p ON e.portfolio_id = p.id LEFT JOIN photo_awards a ON e.award_id = a.id WHERE e.salon_id = ? AND e.user_email = ?`, [req.params.salonId, req.query.userEmail]); 
+      res.json(rows); 
+    } catch (err) { res.status(500).json({ error: 'Hiba a nevezések lekérésekor' }); }
   });
+
   
   app.post('/api/salon-entries', async (req, res) => {
     const { salonId, userEmail, portfolioId, category } = req.body;
@@ -141,8 +146,12 @@ module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload,
   });
 
   app.put('/api/salon-entries/:id/results', async (req, res) => {
-    const { awardId, achievedScore, acceptanceScore, userEmail } = req.body;
-    try { await pool.query('UPDATE photo_salon_entries SET award_id = ?, achieved_score = ?, acceptance_score = ? WHERE id = ? AND user_email = ?', [awardId || null, achievedScore || null, acceptanceScore || null, req.params.id, userEmail]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: 'Hiba az eredmények mentésekor' }); }
+    const { awardId, achievedScore, acceptanceScore, customAward, userEmail } = req.body;
+    try { 
+      // 🎯 ÚJ: Elmentjük és frissítjük a custom_award szöveges mezőt is
+      await pool.query('UPDATE photo_salon_entries SET award_id = ?, achieved_score = ?, acceptance_score = ?, custom_award = ? WHERE id = ? AND user_email = ?', [awardId || null, achievedScore || null, acceptanceScore || null, customAward || null, req.params.id, userEmail]); 
+      res.json({ success: true }); 
+    } catch (err) { res.status(500).json({ error: 'Hiba az eredmények mentésekor' }); }
   });
 
   // STATISZTIKÁK ÉS EXPORT
