@@ -240,7 +240,7 @@ tilePodcastDesc: 'Hallgass bennünket aktuális fotós témákról',
     subClubHomeworks: 'Házi feladatok',
     
     // Nemzetközi almenü
-    subSalonsList: '🌐 Szalonok listája',
+    subSalonsList: 'Szalonok listája',
     subFiap: '🏅 FIAP Követő',
     subMafosz: 'MAFOSZ Követő',
     
