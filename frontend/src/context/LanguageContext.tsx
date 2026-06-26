@@ -222,11 +222,11 @@ tilePodcastDesc: 'Hallgass bennünket aktuális fotós témákról',
 
     // FEJLÉC / MENÜPONTOK
     navHome: '🏠 Főoldal',
-    navArena: '🏆 Mesterek ligája',
+    navArena: '🏆 Játék',
     navContests: '📝 Pályázatok',
-    navClub: '👥 Fotóklub',
+    navClub: '👥 Klub',
     navInternational: '🌐 Nemzetközi szalonok',
-    navMap: '🌍 Helyszínek',
+    navMap: '🌍 Térkép',
     navAdmin: '⚙️ Admin',
     
     // Pályázatok almenü
@@ -843,9 +843,9 @@ tilePodcastDesc: 'Hallgass bennünket aktuális fotós témákról',
 
     // FEJLÉC / MENÜPONTOK ANGOLUL
     navHome: '🏠 Home',
-    navArena: '🏆 Masters League',
+    navArena: '🏆 Game',
     navContests: '📝 Contests',
-    navClub: '👥 Photo Club',
+    navClub: '👥 Club',
     navInternational: '🌐 Intl. Salons',
     navMap: '🌍 Map Spots',
     navAdmin: '⚙️ Admin',
