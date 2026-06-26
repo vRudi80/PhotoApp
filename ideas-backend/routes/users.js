@@ -104,18 +104,34 @@ module.exports = function(app, pool) {
   });
 
   // ====================================================================
-  // 👑 UTALHATATLAN ADMIN VÉGPONT: Garantáltan mindent lekér (*) és nem ütközik semmivel
+  // 👑 JAVÍTVA: EXKLUZÍV ADMIN VÉGPONT (Dinamikus photo_portfolio AI számlálással)
   // ====================================================================
   app.get('/api/admin/exclusive-users', async (req, res) => {
     try {
-      // A SELECT * automatikusan áthúzza az avatar_url-t és minden jövőbeli oszlopot is!
-      const [rows] = await pool.query('SELECT * FROM photo_users ORDER BY name ASC');
+      // 🎯 Összekötjük a felhasználókat a portfólió táblával, és megszámoljuk az ai_tags-szel rendelkező képeket
+      const [rows] = await pool.query(`
+        SELECT 
+          u.*, 
+          COALESCE(p.ai_count, 0) AS ai_usage_count
+        FROM photo_users u
+        LEFT JOIN (
+          SELECT user_email, COUNT(*) AS ai_count 
+          FROM photo_portfolio 
+          WHERE ai_tags IS NOT NULL 
+            AND TRIM(ai_tags) != '' 
+            AND ai_tags != '[]'
+          GROUP BY user_email
+        ) p ON u.email = p.user_email
+        ORDER BY u.name ASC
+      `);
+      
       res.json(rows);
     } catch (err) {
       console.error("❌ Hiba az exkluzív admin felhasználó listázásakor:", err);
       res.status(500).json({ error: 'Szerveroldali hiba történt az admin lista lekérésekor.' });
     }
   });
+
   
   // ====================================================================
   // 🛡️ Felhasználó klubjának és szerepkörének módosítása (Admin felület)
