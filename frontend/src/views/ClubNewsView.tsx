@@ -48,22 +48,38 @@ export default function ClubNewsView({ user, currentDbUser, mode = 'club' }: Clu
     fetchClubId();
   }, [currentDbUser?.club_name, mode]);
 
-  // 🎯 JAVÍTVA: A kiválasztott mode alapján határozza meg a pontos API végpontot
+// 🎯 JAVÍTVA: Teljesen különválasztott és golyóálló lekérdező logika
   const fetchNews = async () => {
-    if (mode === 'club' && !clubId) return; // Privát klubmódban kötelező a clubId, különben megállunk
-    
     try {
-      const endpoint = mode === 'public'
-        ? `${BACKEND_URL}/api/news/public?userEmail=${user.email}`
-        : `${BACKEND_URL}/api/clubs/${clubId}/news?userEmail=${user.email}`;
+      // Ha nyilvános módban vagyunk, azonnal hívhatjuk az API-t, nem kell clubId!
+      if (mode === 'public') {
+        const res = await fetch(`${BACKEND_URL}/api/news/public?userEmail=${user.email}`);
+        if (res.ok) setNewsList(await res.json());
+        return;
+      }
 
-      const res = await fetch(endpoint);
+      // Ha klub módban vagyunk, de nincs klubja, akkor ürítjük a listát és megállunk
+      if (mode === 'club' && !clubId) {
+        setNewsList([]);
+        return;
+      }
+
+      // Egyébként lekérjük a belső klubhíreket
+      const res = await fetch(`${BACKEND_URL}/api/clubs/${clubId}/news?userEmail=${user.email}`);
       if (res.ok) setNewsList(await res.json());
-    } catch (e) { console.error(e); }
+
+    } catch (e) { 
+      console.error("Hiba a hírek frissítésekor:", e); 
+    }
   };
 
+  // 🎯 JAVÍTVA: A useEffect most már azonnal tüzel, ha nyilvános módra váltunk, 
+  // nem vár a nem létező klub-idra!
   useEffect(() => {
-    if (mode === 'public' || clubId) fetchNews();
+    if (mode === 'public' || (mode === 'club' && clubId !== null)) {
+      fetchNews();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clubId, mode]);
 
   const handleExpandNews = async (newsId: number) => {
