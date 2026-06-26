@@ -121,6 +121,12 @@ export default function Header({
     <header ref={headerRef} className="app-header">
       
       <style>{`
+        .header-nav-container {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          width: 100%;
+        }
         .header-desktop-brand-wrapper {
           display: flex;
           align-items: center;
@@ -132,7 +138,6 @@ export default function Header({
           }
         }
         
-        /* UX FINOMÍTÁS: Finom, prémium hover átmenetek a gombokhoz */
         .nav-btn {
           transition: all 0.2s ease-in-out !important;
         }
@@ -158,60 +163,37 @@ export default function Header({
         </div>
 
         <div className="nav-group">
-          {/* FŐ NAVIGÁCIÓ */}
+          {/* 1. KEZDŐLAP */}
           <div className="nav-item-container" style={{ zIndex: 50 }}>
             <button className={`nav-btn ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => handleNavClick('dashboard')}>
               <span>{t('navHome')}</span>
             </button>
           </div>
 
+          {/* 2. FOTÓS ARÉNA */}
           <div className="nav-item-container" style={{ zIndex: 50 }}>
             <button className={`nav-btn ${activeTab === 'weekly_challenge' ? 'active' : ''}`} style={{ color: activeTab === 'weekly_challenge' ? '#f97316' : '#94a3b8' }} onClick={() => handleNavClick('weekly_challenge')}>
               <span>{t('navArena')}</span>
             </button>
           </div>
 
+          {/* 3. ÖSSZEVONT PÁLYÁZATOK ÉS SZALONOK DROPDOWN */}
           <div className="nav-item-container" style={{ zIndex: dropdownOpen === 'contests' ? 60 : 50 }}>
-            <button className={`nav-btn ${dropdownOpen === 'contests' || activeTab.startsWith('contests_') ? 'active' : ''}`} onClick={() => setDropdownOpen(dropdownOpen === 'contests' ? null : 'contests')}>
-              <span>{t('navContests')}</span> <span>▾</span>
+            <button 
+              className={`nav-btn ${dropdownOpen === 'contests' || activeTab.startsWith('contests_') || ['salons', 'fiap_progress', 'mafosz_progress'].includes(activeTab) ? 'active' : ''}`} 
+              style={{ color: (activeTab.startsWith('contests_') || ['salons', 'fiap_progress', 'mafosz_progress'].includes(activeTab)) ? '#60a5fa' : '#94a3b8' }}
+              onClick={() => setDropdownOpen(dropdownOpen === 'contests' ? null : 'contests')}
+            >
+              <span>{t('navContests')} & {lang === 'en' ? 'Salons' : 'Szalonok'}</span> <span>▾</span>
             </button>
             {dropdownOpen === 'contests' && (
               <div className="dropdown-menu">
                 <button className={`drop-item ${activeTab === 'contests_club_active' ? 'active' : ''}`} onClick={() => handleNavClick('contests_club_active')}>{t('subClubContests')}</button>
                 <button className={`drop-item ${activeTab === 'contests_open_active' ? 'active' : ''}`} onClick={() => handleNavClick('contests_open_active')}>{t('subOpenContests')}</button>
+                <button className={`drop-item ${activeTab === 'salons' ? 'active' : ''}`} style={{ color: '#38bdf8' }} onClick={() => handleNavClick('salons')}>🌐 {t('subSalonsList')}</button>
                 <button className={`drop-item ${activeTab === 'contests_closed' ? 'active' : ''}`} onClick={() => handleNavClick('contests_closed')}>{t('subClosedContests')}</button>
-              </div>
-            )}
-          </div>
-          
-          <div className="nav-item-container" style={{ zIndex: dropdownOpen === 'club' ? 60 : 50 }}>
-            <button className={`nav-btn ${dropdownOpen === 'club' || activeTab.startsWith('club_') ? 'active' : ''}`} onClick={() => setDropdownOpen(dropdownOpen === 'club' ? null : 'club')}>
-              <span>{t('navClub')}</span> <span>▾</span>
-            </button>
-            {dropdownOpen === 'club' && (
-              <div className="dropdown-menu">
-                <button className={`drop-item ${activeTab === 'club_news' ? 'active' : ''}`} onClick={() => handleNavClick('club_news')}>{t('subClubNews')}</button>
-                <button className={`drop-item ${activeTab === 'club_nights' ? 'active' : ''}`} onClick={() => handleNavClick('club_nights')}>{t('subClubNights')}</button>
-                <button className={`drop-item ${activeTab === 'club_homeworks' ? 'active' : ''}`} onClick={() => handleNavClick('club_homeworks')}>{t('subClubHomeworks')}</button>
-              </div>
-            )}
-          </div>
-
-          {/* === 🎙️ ÚJ: PODCAST FÜGGETLEN GYORSGOMB === */}
-          <div className="nav-item-container" style={{ zIndex: 50 }}>
-            <button className={`nav-btn ${activeTab === 'podcast' ? 'active' : ''}`} style={{ color: activeTab === 'podcast' ? '#f43f5e' : '#94a3b8' }} onClick={() => handleNavClick('podcast')}>
-              <span>🎙️ {lang === 'en' ? 'Podcast' : 'Podcast'}</span>
-            </button>
-          </div>
-
-          <div className="nav-item-container" style={{ zIndex: dropdownOpen === 'international' ? 60 : 50 }}>
-            <button className={`nav-btn ${dropdownOpen === 'international' || ['salons', 'fiap_progress', 'mafosz_progress'].includes(activeTab) ? 'active' : ''}`} style={{ color: ['salons', 'fiap_progress', 'mafosz_progress'].includes(activeTab) ? '#60a5fa' : '#94a3b8' }} onClick={() => setDropdownOpen(dropdownOpen === 'international' ? null : 'international')}>
-              <span>{t('navInternational')}</span> <span>▾</span>
-            </button>
-            {dropdownOpen === 'international' && (
-              <div className="dropdown-menu">
-                <button className={`drop-item ${activeTab === 'salons' ? 'active' : ''}`} onClick={() => handleNavClick('salons')}>{t('subSalonsList')}</button>
-                <button className={`drop-item ${activeTab === 'fiap_progress' ? 'active' : ''}`} onClick={() => handleNavClick('fiap_progress')}>{t('subFiap')}</button>
+                <div style={{ height: '1px', backgroundColor: '#334155', margin: '5px 0' }}></div>
+                <button className={`drop-item ${activeTab === 'fiap_progress' ? 'active' : ''}`} onClick={() => handleNavClick('fiap_progress')}>🏅 {t('subFiap')}</button>
                 <button className={`drop-item ${activeTab === 'mafosz_progress' ? 'active' : ''}`} onClick={() => handleNavClick('mafosz_progress')}>
                   <img src="https://flagcdn.com/16x12/hu.png" width="16" height="12" alt="HU" style={{ marginRight: '8px', borderRadius: '2px', verticalAlign: 'middle', display: 'inline-block' }} />
                   {t('subMafosz')}
@@ -219,35 +201,41 @@ export default function Header({
               </div>
             )}
           </div>
-
-          <div className="nav-item-container" style={{ zIndex: 50 }}>
-              <button className={`nav-btn ${activeTab === 'map_spots' ? 'active' : ''}`} style={{ color: activeTab === 'map_spots' ? '#10b981' : '#94a3b8' }} onClick={() => handleNavClick('map_spots')}>
-                <span>{t('navMap')}</span>
-              </button>
-          </div>
-
-          {/* === PIACTÉR GOMB === */}
-          <div className="nav-item-container" style={{ zIndex: 50 }}>
-              <button 
-                className={`nav-btn ${activeTab.startsWith('marketplace') ? 'active' : ''}`} 
-                style={{ color: activeTab.startsWith('marketplace') ? '#ec4899' : '#94a3b8' }} 
-                onClick={() => handleNavClick('marketplace')}
-              >
-                <span>🛒 {t('navMarketplace') || 'Piactér'}</span>
-              </button>
-          </div>
-
-          {/* === 🎯 ÚJ: GLOBÁLIS NYILVÁNOS HÍREK GYORSGOMB === */}
-<div className="nav-item-container" style={{ zIndex: 50 }}>
-    <button 
-      className={`nav-btn ${activeTab === 'public_news' ? 'active' : ''}`} 
-      style={{ color: activeTab === 'public_news' ? '#38bdf8' : '#94a3b8', fontWeight: 'bold' }} 
-      onClick={() => handleNavClick('public_news')}
-    >
-      <span>📰 {lang === 'en' ? 'Global News' : 'Hírek'}</span>
-    </button>
-</div>
           
+          {/* 4. ÖSSZEVONT KLUBÉLET DROPDOWN */}
+          <div className="nav-item-container" style={{ zIndex: dropdownOpen === 'club' ? 60 : 50 }}>
+            <button className={`nav-btn ${dropdownOpen === 'club' || activeTab.startsWith('club_') || activeTab === 'public_news' ? 'active' : ''}`} onClick={() => setDropdownOpen(dropdownOpen === 'club' ? null : 'club')}>
+              <span>{t('navClub')}</span> <span>▾</span>
+            </button>
+            {dropdownOpen === 'club' && (
+              <div className="dropdown-menu">
+                <button className={`drop-item ${activeTab === 'public_news' ? 'active' : ''}`} style={{ color: '#38bdf8', fontWeight: 'bold' }} onClick={() => handleNavClick('public_news')}>📰 {lang === 'en' ? 'Global News' : 'Közös Hírek'}</button>
+                <button className={`drop-item ${activeTab === 'club_news' ? 'active' : ''}`} onClick={() => handleNavClick('club_news')}>{t('subClubNews')}</button>
+                <button className={`drop-item ${activeTab === 'club_nights' ? 'active' : ''}`} onClick={() => handleNavClick('club_nights')}>{t('subClubNights')}</button>
+                <button className={`drop-item ${activeTab === 'club_homeworks' ? 'active' : ''}`} onClick={() => handleNavClick('club_homeworks')}>{t('subClubHomeworks')}</button>
+              </div>
+            )}
+          </div>
+
+          {/* 5. ÖSSZEVONT FELFEDEZÉS DROPDOWN (PODCAST, PIACTÉR, TÉRKÉP) */}
+          <div className="nav-item-container" style={{ zIndex: dropdownOpen === 'explore' ? 60 : 50 }}>
+            <button 
+              className={`nav-btn ${dropdownOpen === 'explore' || ['podcast', 'map_spots'].includes(activeTab) || activeTab.startsWith('marketplace') ? 'active' : ''}`}
+              style={{ color: ['podcast', 'map_spots'].includes(activeTab) || activeTab.startsWith('marketplace') ? '#ec4899' : '#94a3b8' }}
+              onClick={() => setDropdownOpen(dropdownOpen === 'explore' ? null : 'explore')}
+            >
+              <span>{lang === 'en' ? 'Explore' : 'Felfedezés'}</span> <span>▾</span>
+            </button>
+            {dropdownOpen === 'explore' && (
+              <div className="dropdown-menu">
+                <button className={`drop-item ${activeTab === 'podcast' ? 'active' : ''}`} style={{ color: '#f43f5e' }} onClick={() => handleNavClick('podcast')}>🎙️ Podcast</button>
+                <button className={`drop-item ${activeTab.startsWith('marketplace') ? 'active' : ''}`} style={{ color: '#e0f2fe' }} onClick={() => handleNavClick('marketplace')}>🛒 {t('navMarketplace') || 'Piactér'}</button>
+                <button className={`drop-item ${activeTab === 'map_spots' ? 'active' : ''}`} style={{ color: '#10b981' }} onClick={() => handleNavClick('map_spots')}>🗺️ {t('navMap')}</button>
+              </div>
+            )}
+          </div>
+
+          {/* 6. MODERÁTORI / VEZETŐSÉGI ADMIN PANEL */}
           {(user?.email === ADMIN_EMAIL || isLeader) && (
             <div className="nav-item-container" style={{ zIndex: dropdownOpen === 'admin' ? 60 : 50 }}>
               <button className={`nav-btn ${dropdownOpen === 'admin' || activeTab.startsWith('admin_') || activeTab === 'leader_club' ? 'active' : ''}`} style={{ color: '#ef4444' }} onClick={() => setDropdownOpen(dropdownOpen === 'admin' ? null : 'admin')}>
@@ -272,7 +260,7 @@ export default function Header({
           )}
         </div> 
 
-        {/* FIÓK MENÜ (JOBB OLDAL) */}
+        {/* FIÓK MENÜ ÉS NYELVVÁLASZTÓ (JOBB OLDAL) */}
         <div className="user-group" style={{ display: 'flex', alignItems: 'center', gap: '15px', position: 'relative' }}>
           
           {/* Nyelvválasztó */}
@@ -287,7 +275,7 @@ export default function Header({
             </button>
           </div>
           
-          <div className="nav-item-container" style={{ zIndex: dropdownOpen === 'user_account' ? 70 : 50 }}>
+          <div className="nav-item-container" style={{ zIndex: 70 }}>
             <button 
               className={`nav-btn ${dropdownOpen === 'user_account' || ['profile', 'my_album', 'packages', 'tickets'].includes(activeTab) ? 'active' : ''}`} 
               style={{ color: '#14b8a6', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}
