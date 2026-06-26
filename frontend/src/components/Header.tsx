@@ -121,23 +121,28 @@ export default function Header({
     <header ref={headerRef} className="app-header">
       
       <style>{`
-        .header-nav-container {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          width: 100%;
+        /* 🎯 JAVÍTVA: Csak asztali nézetben kényszerítjük a flexbox elrendezést, így mobilon nem ragad be nyitva */
+        @media (min-width: 992px) {
+          .header-nav-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+          }
+          .header-desktop-brand-wrapper {
+            display: flex;
+            align-items: center;
+            margin-right: 20px;
+          }
         }
-        .header-desktop-brand-wrapper {
-          display: flex;
-          align-items: center;
-          margin-right: 20px;
-        }
+        
         @media (max-width: 991px) {
           .header-desktop-brand-wrapper {
             display: none !important;
           }
         }
         
+        /* UX FINOMÍTÁS: Finom, prémium hover átmenetek a gombokhoz */
         .nav-btn {
           transition: all 0.2s ease-in-out !important;
         }
@@ -184,7 +189,7 @@ export default function Header({
               style={{ color: (activeTab.startsWith('contests_') || ['salons', 'fiap_progress', 'mafosz_progress'].includes(activeTab)) ? '#60a5fa' : '#94a3b8' }}
               onClick={() => setDropdownOpen(dropdownOpen === 'contests' ? null : 'contests')}
             >
-              <span>{t('navContests')} </span> <span>▾</span>
+              <span>{t('navContests')}</span> <span>▾</span>
             </button>
             {dropdownOpen === 'contests' && (
               <div className="dropdown-menu">
@@ -209,7 +214,6 @@ export default function Header({
             </button>
             {dropdownOpen === 'club' && (
               <div className="dropdown-menu">
-               
                 <button className={`drop-item ${activeTab === 'club_news' ? 'active' : ''}`} onClick={() => handleNavClick('club_news')}>{t('subClubNews')}</button>
                 <button className={`drop-item ${activeTab === 'club_nights' ? 'active' : ''}`} onClick={() => handleNavClick('club_nights')}>{t('subClubNights')}</button>
                 <button className={`drop-item ${activeTab === 'club_homeworks' ? 'active' : ''}`} onClick={() => handleNavClick('club_homeworks')}>{t('subClubHomeworks')}</button>
@@ -235,7 +239,7 @@ export default function Header({
             )}
           </div>
 
-                    {/* 5.1. Hírek */}
+          {/* 5.1. HÍREK CSATORNA */}
           <div className="nav-item-container" style={{ zIndex: 50 }}>
             <button className={`nav-btn ${activeTab === 'public_news' ? 'active' : ''}`} style={{ color: '#38bdf8', fontWeight: 'bold' }} onClick={() => handleNavClick('public_news')}>📰 {lang === 'en' ? 'Global News' : 'Hírek'}</button>
           </div>
