@@ -237,6 +237,17 @@ export default function Header({
               </button>
           </div>
 
+          {/* === 🎯 ÚJ: GLOBÁLIS NYILVÁNOS HÍREK GYORSGOMB === */}
+<div className="nav-item-container" style={{ zIndex: 50 }}>
+    <button 
+      className={`nav-btn ${activeTab === 'public_news' ? 'active' : ''}`} 
+      style={{ color: activeTab === 'public_news' ? '#38bdf8' : '#94a3b8', fontWeight: 'bold' }} 
+      onClick={() => handleNavClick('public_news')}
+    >
+      <span>📰 {lang === 'en' ? 'Global News' : 'Hírek'}</span>
+    </button>
+</div>
+          
           {(user?.email === ADMIN_EMAIL || isLeader) && (
             <div className="nav-item-container" style={{ zIndex: dropdownOpen === 'admin' ? 60 : 50 }}>
               <button className={`nav-btn ${dropdownOpen === 'admin' || activeTab.startsWith('admin_') || activeTab === 'leader_club' ? 'active' : ''}`} style={{ color: '#ef4444' }} onClick={() => setDropdownOpen(dropdownOpen === 'admin' ? null : 'admin')}>
