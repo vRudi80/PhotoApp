@@ -184,7 +184,7 @@ export default function Header({
               style={{ color: (activeTab.startsWith('contests_') || ['salons', 'fiap_progress', 'mafosz_progress'].includes(activeTab)) ? '#60a5fa' : '#94a3b8' }}
               onClick={() => setDropdownOpen(dropdownOpen === 'contests' ? null : 'contests')}
             >
-              <span>{t('navContests')} & {lang === 'en' ? 'Salons' : 'Szalonok'}</span> <span>▾</span>
+              <span>{t('navContests')} </span> <span>▾</span>
             </button>
             {dropdownOpen === 'contests' && (
               <div className="dropdown-menu">
