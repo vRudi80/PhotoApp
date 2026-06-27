@@ -11,6 +11,24 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
+// ====================================================================
+// 🎯 A PONTRENDSZER EGYETLEN KÖZPONTOSÍTOTT FORRÁSA (Single Source of Truth)
+// ====================================================================
+const getFairScoreSql = (entryAlias = 'e', topicAlias = 't') => {
+  return `
+    IF(${topicAlias}.end_date < '2026-06-16 00:00:00',
+      ${entryAlias}.likes_count,
+      ROUND(
+        ((${entryAlias}.likes_count + 10.0) / (${entryAlias}.views_count + 10.0) * 10.0) - 
+        (GREATEST(0, 
+          LEAST(15.0, (SELECT COUNT(*) FROM weekly_entries WHERE topic_id = ${entryAlias}.topic_id AND is_active = 1) - 1) - 
+          (SELECT COUNT(*) FROM weekly_votes WHERE voter_email = ${entryAlias}.user_email AND entry_id IN (SELECT id FROM weekly_entries WHERE topic_id = ${entryAlias}.topic_id AND is_active = 1))
+        ) * 0.5), 2
+      )
+    )
+  `;
+};
+
 module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   
   let lastChallengeProcessTime = 0;
@@ -29,49 +47,41 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
   };
 
-async function getUserLikesAndVictories(pool, email) {
-  const currentNow = getLocalMySQLNow();
+  async function getUserLikesAndVictories(pool, email) {
+    const currentNow = getLocalMySQLNow();
 
-  const [likesRows] = await pool.query(`
-    SELECT COALESCE(SUM(e.likes_count), 0) as total 
-    FROM weekly_entries e
-    JOIN weekly_topics t ON e.topic_id = t.id
-    WHERE e.user_email = ? AND (e.is_active = 1 OR t.end_date < ?)
-  `, [email, currentNow]);
-  const totalLikes = likesRows[0].total || 0;
+    const [likesRows] = await pool.query(`
+      SELECT COALESCE(SUM(e.likes_count), 0) as total 
+      FROM weekly_entries e
+      JOIN weekly_topics t ON e.topic_id = t.id
+      WHERE e.user_email = ? AND (e.is_active = 1 OR t.end_date < ?)
+    `, [email, currentNow]);
+    const totalLikes = likesRows[0].total || 0;
 
-  const [victoryRows] = await pool.query(`
-    SELECT COUNT(*) as victories
-    FROM weekly_entries e1
-    WHERE e1.user_email = ? 
-      AND e1.is_active = 1
-      AND e1.topic_id IN (SELECT id FROM weekly_topics WHERE end_date < ?)
-      AND e1.id = (
-        SELECT e2.id 
-        FROM weekly_entries e2
-        JOIN weekly_topics t2 ON e2.topic_id = t2.id
-        WHERE e2.topic_id = e1.topic_id AND e2.is_active = 1
-        ORDER BY 
-          -- 🛡️ HA A LEJÁRAT KORÁBBI MINT A MAI DÁTUM, MARAD A RÉGI RENDSZER, EGYÉBKÉNT FAIR SCORE
-          IF(t2.end_date < '2026-06-16 00:00:00', 
-            e2.likes_count, 
-            (((e2.likes_count + 5.0) / (e2.views_count + 5.0) * 10.0) * 
-            IF(
-              (SELECT COUNT(*) FROM weekly_entries WHERE topic_id = e2.topic_id AND is_active = 1) <= 1, 
-              1.0, 
-              LEAST(1.0, (SELECT COUNT(*) FROM weekly_votes WHERE voter_email = e2.user_email AND entry_id IN (SELECT id FROM weekly_entries WHERE topic_id = e2.topic_id AND is_active = 1)) / LEAST(15.0, (SELECT COUNT(*) FROM weekly_entries WHERE topic_id = e2.topic_id AND is_active = 1) - 1))
-            ))
-          ) DESC,
-          e2.likes_count DESC, 
-          e2.views_count ASC
-        LIMIT 1
-      )
-  `, [email, currentNow]);
-  
-  const victories = victoryRows[0]?.victories || 0;
+    const [victoryRows] = await pool.query(`
+      SELECT COUNT(*) as victories
+      FROM weekly_entries e1
+      WHERE e1.user_email = ? 
+        AND e1.is_active = 1
+        AND e1.topic_id IN (SELECT id FROM weekly_topics WHERE end_date < ?)
+        AND e1.id = (
+          SELECT e2.id 
+          FROM weekly_entries e2
+          JOIN weekly_topics t2 ON e2.topic_id = t2.id
+          WHERE e2.topic_id = e1.topic_id AND e2.is_active = 1
+          ORDER BY 
+            ${getFairScoreSql('e2', 't2')} DESC,
+            e2.likes_count DESC, 
+            e2.views_count ASC
+          LIMIT 1
+        )
+    `, [email, currentNow]);
+    
+    const victories = victoryRows[0]?.victories || 0;
 
-  return { totalLikes, victories };
-}
+    return { totalLikes, victories };
+  }
+
   function calculateRankLevel(totalLikes, victories) {
     if (totalLikes < 30) return 1;                               
     if (totalLikes < 100) return 2;                              
@@ -116,7 +126,7 @@ async function getUserLikesAndVictories(pool, email) {
     const { totalLikes, victories } = await getUserLikesAndVictories(pool, email);
     const newLevel = calculateRankLevel(totalLikes, victories);
 
-    const [userRows] = await pool.query('SELECT rank_level FROM photo_users WHERE email = ?', [email]);
+    const [userRows] = await pool.query('SELECT rank_level FROM photo_users WHERE email = ?', [userEmail]);
     if (userRows.length > 0) {
       const oldLevel = userRows[0].rank_level;
       
@@ -133,76 +143,66 @@ async function getUserLikesAndVictories(pool, email) {
     return newLevel;
   }
 
-async function processFinishedChallenges(pool) {
-  try {
-    const currentNow = getLocalMySQLNow();
+  async function processFinishedChallenges(pool) {
+    try {
+      const currentNow = getLocalMySQLNow();
 
-    await pool.query(`
-      UPDATE photo_users 
-      SET premium_level = 0, 
-          is_premium = 0 
-      WHERE premium_until IS NOT NULL AND premium_until < ?
-    `, [currentNow]);
+      await pool.query(`
+        UPDATE photo_users 
+        SET premium_level = 0, 
+            is_premium = 0 
+        WHERE premium_until IS NOT NULL AND premium_until < ?
+      `, [currentNow]);
 
-    const [unfinished] = await pool.query(
-      'SELECT id FROM weekly_topics WHERE end_date < ? AND processed = 0',
-      [currentNow]
-    );
+      const [unfinished] = await pool.query(
+        'SELECT id FROM weekly_topics WHERE end_date < ? AND processed = 0',
+        [currentNow]
+      );
 
-    for (const topic of unfinished) {
-      const [entries] = await pool.query(`
-        SELECT e.user_email, e.likes_count, e.views_count,
-               -- 🛡️ Ha a lejárat korábbi mint a mai nap, a régi logikával zárja le, különben fair_score
-               IF(t.end_date < '2026-06-16 00:00:00',
-                 e.likes_count,
-                 ROUND(
-                   ((e.likes_count + 5.0) / (e.views_count + 5.0) * 10.0) * 
-                   IF(
-                     (SELECT COUNT(*) FROM weekly_entries WHERE topic_id = ? AND is_active = 1) <= 1, 
-                     1.0, 
-                     LEAST(1.0, (SELECT COUNT(*) FROM weekly_votes WHERE voter_email = e.user_email AND entry_id IN (SELECT id FROM weekly_entries WHERE topic_id = ? AND is_active = 1)) / LEAST(15.0, (SELECT COUNT(*) FROM weekly_entries WHERE topic_id = ? AND is_active = 1) - 1))
-                   ), 2
-                 )
-               ) as fair_score
-        FROM weekly_entries e
-        JOIN weekly_topics t ON e.topic_id = t.id
-        WHERE e.topic_id = ? AND e.is_active = 1 
-        ORDER BY fair_score DESC, e.likes_count DESC, e.views_count ASC
-      `, [topic.id, topic.id, topic.id, topic.id, topic.id]);
+      for (const topic of unfinished) {
+        const [entries] = await pool.query(`
+          SELECT e.user_email, e.likes_count, e.views_count,
+                 ${getFairScoreSql('e', 't')} as fair_score
+          FROM weekly_entries e
+          JOIN weekly_topics t ON e.topic_id = t.id
+          WHERE e.topic_id = ? AND e.is_active = 1 
+          ORDER BY fair_score DESC, e.likes_count DESC, e.views_count ASC
+        `, [topic.id]);
 
-      if (entries.length === 0) {
-        await pool.query('UPDATE weekly_topics SET processed = 1 WHERE id = ?', [topic.id]);
-        continue;
-      }
-
-      const score1 = entries[0].fair_score;
-      const score2 = entries[1] ? entries[1].fair_score : -1;
-      const score3 = entries[2] ? entries[2].fair_score : -1;
-
-      for (const entry of entries) {
-        if (entry.fair_score === score1) {
-          await pool.query('UPDATE photo_users SET swap_balance = swap_balance + 3 WHERE LOWER(TRIM(email)) = LOWER(TRIM(?))', [entry.user_email]);
-          await pool.query(`
-            UPDATE photo_users 
-            SET premium_level = 1, is_premium = 1,
-                premium_until = DATE_ADD(IF(premium_until IS NOT NULL AND premium_until > ?, premium_until, ?), INTERVAL 7 DAY) 
-            WHERE LOWER(TRIM(email)) = LOWER(TRIM(?))
-          `, [currentNow, currentNow, entry.user_email]);
-        } 
-        else if (entry.fair_score === score2) {
-          await pool.query('UPDATE photo_users SET swap_balance = swap_balance + 2 WHERE LOWER(TRIM(email)) = LOWER(TRIM(?))', [entry.user_email]);
-        } 
-        else if (entry.fair_score === score3) {
-          await pool.query('UPDATE photo_users SET swap_balance = swap_balance + 1 WHERE LOWER(TRIM(email)) = LOWER(TRIM(?))', [entry.user_email]);
+        if (entries.length === 0) {
+          await pool.query('UPDATE weekly_topics SET processed = 1 WHERE id = ?', [topic.id]);
+          continue;
         }
-      }
 
-      await pool.query('UPDATE weekly_topics SET processed = 1 WHERE id = ?', [topic.id]);
+        const score1 = entries[0].fair_score;
+        const score2 = entries[1] ? entries[1].fair_score : -1;
+        const score3 = entries[2] ? entries[2].fair_score : -1;
+
+        for (const entry of entries) {
+          if (entry.fair_score === score1) {
+            await pool.query('UPDATE photo_users SET swap_balance = swap_balance + 3 WHERE LOWER(TRIM(email)) = LOWER(TRIM(?))', [entry.user_email]);
+            await pool.query(`
+              UPDATE photo_users 
+              SET premium_level = 1, is_premium = 1,
+                  premium_until = DATE_ADD(IF(premium_until IS NOT NULL AND premium_until > ?, premium_until, ?), INTERVAL 7 DAY) 
+              WHERE LOWER(TRIM(email)) = LOWER(TRIM(?))
+            `, [currentNow, currentNow, entry.user_email]);
+          } 
+          else if (entry.fair_score === score2) {
+            await pool.query('UPDATE photo_users SET swap_balance = swap_balance + 2 WHERE LOWER(TRIM(email)) = LOWER(TRIM(?))', [entry.user_email]);
+          } 
+          else if (entry.fair_score === score3) {
+            await pool.query('UPDATE photo_users SET swap_balance = swap_balance + 1 WHERE LOWER(TRIM(email)) = LOWER(TRIM(?))', [entry.user_email]);
+          }
+        }
+
+        await pool.query('UPDATE weekly_topics SET processed = 1 WHERE id = ?', [topic.id]);
+      }
+    } catch (err) {
+      console.error("❌ Hiba a lezárt kihívások feldolgozásakor:", err.message);
     }
-  } catch (err) {
-    console.error("❌ Hiba a lezárt kihívások feldolgozásakor:", err.message);
   }
-}
+
   // ====================================================================
   // ⚙️ ADMINISZTRÁCIÓS VÉGPONTOK
   // ====================================================================
@@ -305,7 +305,7 @@ async function processFinishedChallenges(pool) {
   });
 
   // ====================================================================
-  // ⚔️ CSATATÉR FŐ VÉGPONT – JAVÍTVA: SVIP- ÉS SZÁMLÁLÓBIZTOS VERZIÓ
+  // ⚔️ CSATATÉR FŐ VÉGPONT – JAVÍTVA ÉS KÖZPONTOSÍTVA
   // ====================================================================
   app.get('/api/weekly/current', async (req, res) => {
     const { userEmail, topicId } = req.query;
@@ -339,7 +339,6 @@ async function processFinishedChallenges(pool) {
           ORDER BY t.id DESC
         `, [userEmail || '', userEmail || '', userEmail || '', userEmail || '', getLocalMySQLNow()]);
 
-        // 🎯 JAVÍTVA: Minden lehetséges frontendes mezőnevet lefedünk a leképezésben
         const mappedTopics = activeTopics.map(t => ({
           ...t,
           hasEntered: t.hasEntered === 1,
@@ -359,7 +358,6 @@ async function processFinishedChallenges(pool) {
       }
 
       // ── 🅱️ ÁG: HA EGY KONKRÉT SZÁMÚ SZOBÁT NYITUNK MEG ──
-      // 🎯 JAVÍTVA: Beépítettük a totalEntries és unvotedEntries al-lekérdezéseket a részletes nézetbe is!
       const [allTopics] = await pool.query(`
         SELECT t.*, u.name AS master_name,
                (SELECT COUNT(*) FROM weekly_entries we WHERE we.topic_id = t.id AND we.is_active = 1) as totalEntries,
@@ -392,16 +390,7 @@ async function processFinishedChallenges(pool) {
                e.camera, e.lens, e.shutter, e.iso, e.aperture, e.software,
                EXISTS(SELECT 1 FROM weekly_votes WHERE entry_id = e.id AND voter_email = ?) as has_user_voted,
                (SELECT COUNT(*) FROM weekly_votes WHERE voter_email = e.user_email AND entry_id IN (SELECT id FROM weekly_entries WHERE topic_id = e.topic_id AND is_active = 1)) as votes_cast,
-               IF(t.end_date < '2026-06-16 00:00:00',
-                 e.likes_count,
-                 ROUND(
-                   ((e.likes_count + 5.0) / (e.views_count + 5.0) * 10.0) * IF(
-                     (SELECT COUNT(*) FROM weekly_entries WHERE topic_id = e.topic_id AND is_active = 1) <= 1, 
-                     1.0, 
-                     LEAST(1.0, (SELECT COUNT(*) FROM weekly_votes WHERE voter_email = e.user_email AND entry_id IN (SELECT id FROM weekly_entries WHERE topic_id = e.topic_id AND is_active = 1)) / LEAST(15.0, (SELECT COUNT(*) FROM weekly_entries WHERE topic_id = e.topic_id AND is_active = 1) - 1))
-                   ), 2
-                 )
-               ) as fair_score
+               ${getFairScoreSql('e', 't')} as fair_score
         FROM weekly_entries e 
         JOIN weekly_topics t ON e.topic_id = t.id
         LEFT JOIN photo_users u ON e.user_email = u.email 
@@ -428,7 +417,6 @@ async function processFinishedChallenges(pool) {
       }
       clubLeaderboard.sort((a, b) => b.total_score - a.total_score);
 
-      // 🎯 JAVÍTVA: A szoba visszaküldésekor is becsomagoljuk az összes számláló-mező variációt
       const structuredTopic = {
         ...currentTopic,
         isMaster: !!isMasterUser,
@@ -451,17 +439,14 @@ async function processFinishedChallenges(pool) {
     }
   });
 
-
-
-// ====================================================================
-  // 🖼️ ARÉNA ALBUM VÉGPONT – 🎯 JAVÍTVA AZ IDŐSZÁMÍTÁS SZERINTI PRECÍZ FP ÉS RANGSOR!
+  // ====================================================================
+  // 🖼️ ARÉNA ALBUM VÉGPONT – KÖZPONTOSÍTVA
   // ====================================================================
   app.get('/api/weekly/my-album', async (req, res) => {
     const { userEmail } = req.query;
     if (!userEmail) return res.status(400).json({ error: 'Hiányzó e-mail cím!' });
 
     try {
-      // 1. Lekérjük a felhasználó összes feltöltött képét
       const [photos] = await pool.query(
         "SELECT id, file_url, created_at, camera, lens, shutter, iso, aperture, software FROM user_photos WHERE user_email = ? ORDER BY created_at DESC",
         [userEmail]
@@ -471,7 +456,6 @@ async function processFinishedChallenges(pool) {
       const albumWithStats = [];
 
       for (const photo of photos) {
-        // 2. Lekérjük, hogy az adott kép melyik heti kihívásokban (szobákban) vett részt
         const [entries] = await pool.query(`
           SELECT 
             t.id AS topic_id,
@@ -489,37 +473,24 @@ async function processFinishedChallenges(pool) {
 
         const history = [];
 
-        // 3. Minden egyes részvételhez kiszámoljuk a valós, szobaszintű helyezést és pontszámot
         for (const entry of entries) {
           const [leaderboard] = await pool.query(`
             SELECT e2.user_email, e2.likes_count, e2.views_count,
-                   IF(t2.end_date < '2026-06-16 00:00:00',
-                     e2.likes_count,
-                     ROUND(
-                       ((e2.likes_count + 5.0) / (e2.views_count + 5.0) * 10.0) * IF(
-                         (SELECT COUNT(*) FROM weekly_entries WHERE topic_id = e2.topic_id AND is_active = 1) <= 1, 
-                         1.0, 
-                         LEAST(1.0, (SELECT COUNT(*) FROM weekly_votes WHERE voter_email = e2.user_email AND entry_id IN (SELECT id FROM weekly_entries WHERE topic_id = e2.topic_id AND is_active = 1)) / LEAST(15.0, (SELECT COUNT(*) FROM weekly_entries WHERE topic_id = e2.topic_id AND is_active = 1) - 1))
-                       ), 2
-                     )
-                   ) as fair_score
+                   ${getFairScoreSql('e2', 't2')} as fair_score
             FROM weekly_entries e2
             JOIN weekly_topics t2 ON e2.topic_id = t2.id
             WHERE e2.topic_id = ? AND e2.is_active = 1
             ORDER BY fair_score DESC, e2.likes_count DESC, e2.views_count ASC
           `, [entry.topic_id]);
 
-          // Megkeressük a felhasználót a szoba valós rangsorában
           const userIndex = leaderboard.findIndex(l => l.user_email === userEmail);
           const entryRank = userIndex !== -1 ? userIndex + 1 : leaderboard.length + 1;
-          
-          // Kiválasztjuk a dátumnak megfelelő pontszámot (régi darabszám vagy az új súlyozott FP)
           const finalScore = userIndex !== -1 ? leaderboard[userIndex].fair_score : entry.likes_count;
 
           history.push({
             topic_id: entry.topic_id,
             topic_title: entry.topic_title,
-            likes_count: finalScore, // 👈 Tizedesjegyre pontos FP érték (pl. 17.69)
+            likes_count: finalScore, 
             views_count: entry.views_count,
             is_active: entry.is_active,
             end_date: entry.end_date,
@@ -529,11 +500,9 @@ async function processFinishedChallenges(pool) {
           });
         }
 
-        // Kiszámoljuk a kép összesített pontszámait a pontosított history alapján
         const totalLikes = history.reduce((sum, h) => sum + Number(h.likes_count), 0);
         const totalViews = history.reduce((sum, h) => sum + Number(h.views_count), 0);
         
-        // Csak a már lezárt (is_topic_live = 0) és aktívan befejezett (is_active = 1) helyezésekből számolunk plecsniket
         const firstPlaces = history.filter(h => Number(h.entry_rank) === 1 && h.is_topic_live === 0 && h.is_active === 1).length;
         const podiums = history.filter(h => Number(h.entry_rank) >= 2 && Number(h.entry_rank) <= 3 && h.is_topic_live === 0 && h.is_active === 1).length;
         
@@ -541,7 +510,7 @@ async function processFinishedChallenges(pool) {
 
         albumWithStats.push({
           ...photo,
-          totalLikes: Number(totalLikes.toFixed(2)), // Szépen kerekítjük két tizedesjegyre a kártyákhoz is
+          totalLikes: Number(totalLikes.toFixed(2)), 
           totalViews,
           firstPlaces,
           podiums,
@@ -557,7 +526,6 @@ async function processFinishedChallenges(pool) {
     }
   });
   
-  // ── 🎯 JAVÍTVA: Közvetlen galériás képfeltöltésnél is rögzítjük az EXIF pecsétet ──
   app.post('/api/weekly/my-album/upload', upload.single('photo'), async (req, res) => {
     const { userEmail, camera, lens, shutter, iso, aperture, software } = req.body;
     const file = req.file;
@@ -599,7 +567,6 @@ async function processFinishedChallenges(pool) {
     }
   });
 
-  // ── 🎯 JAVÍTVA: Új versenyző indulásakor a képet az összes EXIF-fel együtt az állandó albumba is elmentjük ──
   app.post('/api/weekly/upload', upload.single('photo'), async (req, res) => {
     const { userEmail, topicId, userName, camera, lens, shutter, iso, aperture, software } = req.body;
     const file = req.file;
@@ -636,7 +603,6 @@ async function processFinishedChallenges(pool) {
 
       await pool.query(query, values);
 
-      // Duplikáció szűrés után mentjük a user_photos táblába is
       const [albumDuplicate] = await pool.query("SELECT id FROM user_photos WHERE user_email = ? AND file_hash = ?", [userEmail, fileHash]);
       if (albumDuplicate.length === 0) {
         await pool.query(
@@ -654,7 +620,6 @@ async function processFinishedChallenges(pool) {
     }
   });
 
-  // ── 🎯 JAVÍTVA: Új fájllal történő cserénél (swap) is elmentjük az adatokat a versenybe és a képalbumba is ──
   app.post('/api/weekly/swap', upload.single('photo'), async (req, res) => {
     const { topicId, userEmail, userName, camera, lens, shutter, iso, aperture, software } = req.body;
     const file = req.file;
@@ -695,7 +660,6 @@ async function processFinishedChallenges(pool) {
         finalFileUrl = result.secure_url;
         if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
         
-        // Elmentjük a user_photos állandó albumba is
         await conn.query(
           "INSERT INTO user_photos (user_email, file_url, file_hash, camera, lens, shutter, iso, aperture, software) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", 
           [userEmail, finalFileUrl, fileHash, camera || null, lens || null, shutter || null, iso || null, aperture || null, software || null]
@@ -729,7 +693,6 @@ async function processFinishedChallenges(pool) {
     }
   });
 
-  // ── 🎯 ⚡ JAVÍTVA: ADAT-ÁTHÚZÁS ALBUMBÓL VALÓ CSEREKOR (Swap-Existing) ──
   app.post('/api/weekly/swap-existing', async (req, res) => {
     const { topicId, userEmail, userName, fileUrl } = req.body;
     if (!topicId || !userEmail || !fileUrl) return res.status(400).json({ error: 'Hiányzó adatok!' });
@@ -753,7 +716,6 @@ async function processFinishedChallenges(pool) {
 
       await conn.query('UPDATE weekly_entries SET is_active = 0 WHERE id = ?', [existing[0].id]);
 
-      // 💥 AUTOMATIKUS EXIF ÁTHÚZÁS: Kiolvassuk az album-bejegyzésből az adatokat
       const [photoExif] = await conn.query(
         "SELECT camera, lens, shutter, iso, aperture, software FROM user_photos WHERE user_email = ? AND file_url = ? LIMIT 1",
         [userEmail, fileUrl]
@@ -780,7 +742,6 @@ async function processFinishedChallenges(pool) {
     }
   });
   
-  // ── 🎯 ⚡ JAVÍTVA: ADAT-ÁTHÚZÁS ALBUMBÓL VALÓ ÚJ INDULÁSKOR (Upload-Existing) ──
   app.post('/api/weekly/upload-existing', async (req, res) => {
     const { topicId, userEmail, userName, fileUrl } = req.body;
     if (!topicId || !userEmail || !fileUrl) return res.status(400).json({ error: 'Hiányzó adatok!' });
@@ -796,7 +757,6 @@ async function processFinishedChallenges(pool) {
       const [existing] = await pool.query('SELECT id FROM weekly_entries WHERE topic_id = ? AND user_email = ?', [topicId, userEmail]);
       if (existing.length > 0) return res.status(400).json({ error: 'Már neveztél erre a kihívásra!' });
 
-      // 💥 AUTOMATIKUS EXIF ÁTHÚZÁS: Kiolvassuk az album-bejegyzésből az adatokat
       const [photoExif] = await pool.query(
         "SELECT camera, lens, shutter, iso, aperture, software FROM user_photos WHERE user_email = ? AND file_url = ? LIMIT 1",
         [userEmail, fileUrl]
@@ -807,7 +767,7 @@ async function processFinishedChallenges(pool) {
         `INSERT INTO weekly_entries 
          (topic_id, user_email, user_name, file_url, drive_file_id, swapped, ip_address, is_active, likes_count, views_count, camera, lens, shutter, iso, aperture, software) 
          VALUES (?, ?, ?, ?, '', 0, ?, 1, 0, 0, ?, ?, ?, ?, ?, ?)`, 
-        [topicId, userEmail, userName, fileUrl, ipAddress, exif.camera || null, exif.lens || null, exif.shutter || null, exif.iso || null, exif.aperture || null, exif.software || null]
+        [topicId, userEmail, userName, fileUrl, ipAddress, exif.camera || null, exif.lens || null, exif.shutter || null, exif.iso || null, aperture || null, software || null]
       );
       res.json({ success: true });
     } catch (err) {
@@ -988,13 +948,12 @@ async function processFinishedChallenges(pool) {
   });
 
   // ====================================================================
-  // 📜 LEZÁRT KIHÍVÁSOK ARCHÍVUMA - JAVÍTVA: JOKER CSERE (SWAP) BIZTOS DARABSZÁMLÁLÓ
+  // 📜 LEZÁRT KIHÍVÁSOK ARCHÍVUMA - JAVÍTVA: SWAP BIZTOS DARABSZÁMLÁLÓ
   // ====================================================================
   app.get('/api/weekly/past', async (req, res) => {
     try {
       const [rows] = await pool.query(`
         SELECT t.*, u.name as master_name, u.avatar_url as master_avatar_url,
-               -- 🎯 JAVÍTVA: Csak az aktív, versenyben maradt képeket számoljuk (is_active = 1)
                (SELECT COUNT(*) FROM weekly_entries WHERE topic_id = t.id AND is_active = 1) as entries_count,
                (SELECT COUNT(*) FROM weekly_votes WHERE entry_id IN (SELECT id FROM weekly_entries WHERE topic_id = t.id)) as total_votes
         FROM weekly_topics t
@@ -1009,8 +968,7 @@ async function processFinishedChallenges(pool) {
     }
   });
 
-
-    // 📸 TRÓFEATEREM VÉGPONT – 🎯 JAVÍTVA AZ IDŐSZÁMÍTÁS SZERINTI PONTOSSÁG!
+  // 📸 TRÓFEATEREM VÉGPONT – KÖZPONTOSÍTOTT PONTOSSÁG!
   // ====================================================================
   app.get('/api/weekly/my-stats', async (req, res) => {
     const { userEmail } = req.query;
@@ -1023,19 +981,9 @@ async function processFinishedChallenges(pool) {
       let history = [];
 
       for (const topic of pastTopics) {
-        // 🎯 JAVÍTVA: Beépítettük a dátum-sorompót az egyéni statisztika rácsba is tizedes pontossággal!
         const [entries] = await pool.query(`
           SELECT e.id, e.user_email, e.user_name, e.file_url, e.drive_file_id, e.likes_count, e.views_count,
-                 IF(t.end_date < '2026-06-16 00:00:00',
-                   e.likes_count,
-                   ROUND(
-                     ((e.likes_count + 5.0) / (e.views_count + 5.0) * 10.0) * IF(
-                       (SELECT COUNT(*) FROM weekly_entries WHERE topic_id = e.topic_id AND is_active = 1) <= 1, 
-                       1.0, 
-                       LEAST(1.0, (SELECT COUNT(*) FROM weekly_votes WHERE voter_email = e.user_email AND entry_id IN (SELECT id FROM weekly_entries WHERE topic_id = e.topic_id AND is_active = 1)) / LEAST(15.0, (SELECT COUNT(*) FROM weekly_entries WHERE topic_id = e.topic_id AND is_active = 1) - 1))
-                     ), 2
-                   )
-                 ) as fair_score
+                 ${getFairScoreSql('e', 't')} as fair_score
           FROM weekly_entries e
           JOIN weekly_topics t ON e.topic_id = t.id
           WHERE e.topic_id = ? AND e.is_active = 1 
@@ -1057,7 +1005,7 @@ async function processFinishedChallenges(pool) {
             total_entries: entries.length,
             file_url: entry.file_url,
             drive_file_id: entry.drive_file_id,
-            likes: entry.fair_score, // 👈 FIX: Mostantól a valós, tizedesjegyre pontos FP értéket adja át (17.69)!
+            likes: entry.fair_score, 
             views: entry.views_count,
             user_name: entry.user_name 
           });
@@ -1143,7 +1091,7 @@ async function processFinishedChallenges(pool) {
           u.name as user_name, 
           u.email as user_email, 
           u.club_name,
-          u.avatar_url, -- 👈 BEKERÜLT A PROFILKÉP URL
+          u.avatar_url, 
           c.drive_logo_id, 
           c.logo_url,      
           COALESCE(SUM(IF(e.is_active = 1 OR t.end_date < ?, e.likes_count, 0)), 0) as total_likes,
@@ -1182,7 +1130,7 @@ async function processFinishedChallenges(pool) {
         LEFT JOIN weekly_entries e ON u.email = e.user_email
         LEFT JOIN weekly_topics t ON e.topic_id = t.id
         LEFT JOIN photo_clubs c ON u.club_name = c.name
-        GROUP BY u.email, u.name, u.club_name, c.drive_logo_id, c.logo_url, u.avatar_url -- 👈 IDE IS KÖTELEZŐ BELEÍRNI
+        GROUP BY u.email, u.name, u.club_name, c.drive_logo_id, c.logo_url, u.avatar_url 
         HAVING total_likes > 0
         ORDER BY total_likes DESC, u.name ASC
       `, [currentNow, currentNow, currentNow]);
@@ -1198,7 +1146,7 @@ async function processFinishedChallenges(pool) {
             u.name as user_name, 
             u.email as user_email, 
             u.club_name,
-            u.avatar_url, -- 👈 A BIZTONSÁGI LEKÉRDEZÉSBE IS BEILLESZTVE
+            u.avatar_url, 
             NULL as drive_logo_id,
             NULL as logo_url,
             COALESCE(SUM(IF(e.is_active = 1 OR t.end_date < ?, e.likes_count, 0)), 0) as total_likes,
@@ -1218,7 +1166,7 @@ async function processFinishedChallenges(pool) {
           FROM photo_users u
           LEFT JOIN weekly_entries e ON u.email = e.user_email
           LEFT JOIN weekly_topics t ON e.topic_id = t.id
-          GROUP BY u.email, u.name, u.club_name, u.avatar_url -- 👈 IDE IS KÖTELEZŐ BELEÍRNI
+          GROUP BY u.email, u.name, u.club_name, u.avatar_url 
           HAVING total_likes > 0
           ORDER BY total_likes DESC, u.name ASC
         `, [currentNow, currentNow, currentNow]);
@@ -1431,151 +1379,45 @@ async function processFinishedChallenges(pool) {
   });
 
   app.post('/api/admin/decide-proposal', async (req, res) => {
-  const { topicId, decision } = req.body; 
-  
-  try {
-    if (decision === 'approved') {
-      // 1. Megkeressük a kihíváshoz rendelt Képmester e-mail címét (master_email)
-      const [topicRows] = await pool.query('SELECT master_email FROM weekly_topics WHERE id = ?', [topicId]);
-      const masterEmail = topicRows[0]?.master_email;
-
-      // 2. Elfogadjuk és aktiváljuk a kihívást
-      await pool.query(
-        "UPDATE weekly_topics SET status = 'approved' WHERE id = ?",
-        [topicId]
-      );
-
-      // 3. 🎯 JUTALMAZÁS: Ha van hozzárendelve érvényes Képmester, megkapja a +2 nap prémiumot
-      if (masterEmail && masterEmail.trim() !== '') {
-        await pool.query(`
-          UPDATE photo_users 
-          SET is_premium = 1, 
-              premium_level = 1,
-              premium_until = DATE_ADD(IF(premium_until IS NOT NULL AND premium_until > NOW(), premium_until, NOW()), INTERVAL 2 DAY) 
-          WHERE LOWER(TRIM(email)) = LOWER(TRIM(?))
-        `, [masterEmail]);
-
-        console.log(`🎉 KÉPMESTERI JUTALOM ELFOGADÁSKOR: ${masterEmail} +2 nap Prémiumot kapott a(z) ${topicId} ID-jú kihívásért!`);
-      }
-    } else {
-      // Ha nem elfogadás történt (pl. 'rejected'), akkor csak a státuszt frissítjük, mint régen
-      await pool.query(
-        "UPDATE weekly_topics SET status = ? WHERE id = ?",
-        [decision, topicId]
-      );
-    }
-    
-    // A frontend felé visszaadott sikerüzenet teljesen megegyezik az eredetivel
-    res.json({ success: `Sikeres bírálat: ${decision === 'approved' ? 'Elfogadva és csatasorba állítva!' : 'Elutasítva.'}` });
-  } catch (err) {
-    console.error("❌ Hiba a javaslat elbírálásakor:", err.message);
-    res.status(500).json({ error: 'Hiba az elbírálás során.' });
-  }
-});
-
-
-  // ====================================================================
-  // 💬 ESZMECSERE ÉS UTÓLAGOS ELISMERÉSEK KIBESZÉLŐ VÉGPONTJAI
-  // ====================================================================
-
-  app.get('/api/weekly/archive/comments/:entryId', async (req, res) => {
-    const { entryId } = req.params;
-    try {
-      const [comments] = await pool.query(
-        "SELECT id, user_name, user_email, comment_text, created_at FROM weekly_archive_comments WHERE entry_id = ? ORDER BY created_at ASC",
-        [entryId]
-      );
-      res.json(comments);
-    } catch (err) {
-      res.status(500).json({ error: 'Hiba a kommentek betöltésekor: ' + err.message });
-    }
-  });
-
-  app.post('/api/weekly/archive/comment', async (req, res) => {
-    const { entryId, userEmail, userName, commentText } = req.body;
-    
-    if (!entryId || !userEmail || !userName || !commentText?.trim()) {
-      return res.status(400).json({ 
-        error: `Hiányzó adatok a kommenthez!` 
-      });
-    }
-    try {
-      await pool.query(
-        "INSERT INTO weekly_archive_comments (entry_id, user_email, user_name, comment_text) VALUES (?, ?, ?, ?)",
-        [entryId, userEmail, userName, commentText.trim()]
-      );
-      res.json({ success: true });
-    } catch (err) {
-      res.status(500).json({ error: 'Hiba a komment mentésekor: ' + err.message });
-    }
-  });
-
-  app.post('/api/weekly/archive/like-toggle', async (req, res) => {
-    const { entryId, userEmail } = req.body;
-    
-    if (!entryId || !userEmail) {
-      return res.status(400).json({ 
-        error: `Hiányzó adatok a lájkoláshoz!` 
-      });
-    }
-
-    try {
-      const [existing] = await pool.query(
-        "SELECT id FROM weekly_archive_likes WHERE entry_id = ? AND user_email = ?",
-        [entryId, userEmail]
-      );
-
-      if (existing.length > 0) {
-        await pool.query("DELETE FROM weekly_archive_likes WHERE id = ?", [existing[0].id]);
-        res.json({ success: true, liked: false });
-      } else {
-        await pool.query("INSERT INTO weekly_archive_likes (entry_id, user_email) VALUES (?, ?)", [entryId, userEmail]);
-        res.json({ success: true, liked: true });
-      }
-    } catch (err) {
-      res.status(500).json({ error: 'Hiba a lájk kezelésekor: ' + err.message });
-    }
-  });
-
-  // ====================================================================
-  // 👑 JELENTKEZÉS CSATABÍRÓNAK (FELHASZNÁLÓI OLDAL)
-  // ====================================================================
-  app.post('/api/weekly/apply-master', async (req, res) => {
-    const { topicId, userEmail } = req.body;
-    try {
-      const [check] = await pool.query('SELECT master_email, pending_master_email FROM weekly_topics WHERE id = ?', [topicId]);
-      if (!check[0]) return res.status(404).json({ error: 'Ez a csata nem található!' });
-      if (check[0].master_email) return res.status(400).json({ error: 'Ekhöz a csatához már tartozik Csatabíró!' });
-      if (check[0].pending_master_email) return res.status(400).json({ error: 'Valaki már jelentkezett erre a pozícióra, elbírálásra vár!' });
-
-      await pool.query('UPDATE weekly_topics SET pending_master_email = ? WHERE id = ?', [userEmail, topicId]);
-      res.json({ success: true, message: 'Jelentkezés sikeresen regisztrálva, admin jóváhagyásra vár!' });
-    } catch (err) {
-      res.status(500).json({ error: 'Szerveroldali hiba: ' + err.message });
-    }
-  });
-
-  // ====================================================================
-  // 🔒 ADMINISZTRÁTORI DÖNTÉS A CSATABÍRÓRÓL
-  // ====================================================================
-  app.post('/api/admin/decide-master', async (req, res) => {
     const { topicId, decision } = req.body; 
+    
     try {
       if (decision === 'approved') {
+        const [topicRows] = await pool.query('SELECT master_email FROM weekly_topics WHERE id = ?', [topicId]);
+        const masterEmail = topicRows[0]?.master_email;
+
         await pool.query(
-          'UPDATE weekly_topics SET master_email = pending_master_email, pending_master_email = NULL WHERE id = ?',
+          "UPDATE weekly_topics SET status = 'approved' WHERE id = ?",
           [topicId]
         );
+
+        if (masterEmail && masterEmail.trim() !== '') {
+          await pool.query(`
+            UPDATE photo_users 
+            SET is_premium = 1, 
+                premium_level = 1,
+                premium_until = DATE_ADD(IF(premium_until IS NOT NULL AND premium_until > NOW(), premium_until, NOW()), INTERVAL 2 DAY) 
+              WHERE LOWER(TRIM(email)) = LOWER(TRIM(?))
+          `, [masterEmail]);
+
+          console.log(`🎉 KÉPMESTERI JUTALOM ELFOGADÁSKOR: ${masterEmail} +2 nap Képmesteri Prémiumot kapott.`);
+        }
       } else {
-        await pool.query('UPDATE weekly_topics SET pending_master_email = NULL WHERE id = ?', [topicId]);
+        await pool.query(
+          "UPDATE weekly_topics SET status = ? WHERE id = ?",
+          [decision, topicId]
+        );
       }
-      res.json({ success: true, message: `Bírálat rögzítve: ${decision}` });
+      
+      res.json({ success: `Sikeres bírálat: ${decision === 'approved' ? 'Elfogadva és csatasorba állítva!' : 'Elutasítva.'}` });
     } catch (err) {
-      res.status(500).json({ error: 'Szerveroldali hiba bírálatkor: ' + err.message });
+      console.error("❌ Hiba a javaslat elbírálásakor:", err.message);
+      res.status(500).json({ error: 'Hiba az elbírálás során.' });
     }
   });
-  
-  // 📜 ARCHÍV TÖRTÉNELMI ADATOK (Profilképekkel kiegészítve)
+
+  // 📜 ARCHÍV TÖRTÉNELMI ADATOK – KÖZPONTOSÍTVA
+  // ====================================================================
   app.get('/api/weekly/history/:topicId', async (req, res) => {
     const { topicId } = req.params;
     const userEmail = req.query.userEmail || '';
@@ -1583,23 +1425,12 @@ async function processFinishedChallenges(pool) {
       const [leaderboard] = await pool.query(`
         SELECT e.id, e.topic_id, e.user_email, COALESCE(u.name, e.user_name) as user_name, 
                e.file_url, e.drive_file_id, e.likes_count, e.views_count, u.club_name, 
-               u.avatar_url, -- 👈 EZT A MEZŐT ADTUK HOZZÁ A GYŐZTES KÉPÉHEZ
+               u.avatar_url, 
                u.rank_level,
                (SELECT COUNT(*) FROM weekly_votes WHERE entry_id = e.id AND vote_type = 'master') as archive_likes,
                EXISTS(SELECT 1 FROM weekly_votes WHERE entry_id = e.id AND voter_email = ?) as has_user_liked,
                
-               -- 🛡️ Dátum-sorompó: a mai nap előtt lezárult szobák megmaradnak tiszta csillag alapúnak
-               IF(t.end_date < '2026-06-16 00:00:00',
-                 e.likes_count,
-                 ROUND(
-                   ((e.likes_count + 5.0) / (e.views_count + 5.0) * 10.0) * 
-                   IF(
-                     (SELECT COUNT(*) FROM weekly_entries WHERE topic_id = e.topic_id AND is_active = 1) <= 1, 
-                     1.0, 
-                     LEAST(1.0, (SELECT COUNT(*) FROM weekly_votes WHERE voter_email = e.user_email AND entry_id IN (SELECT id FROM weekly_entries WHERE topic_id = e.topic_id AND is_active = 1)) / LEAST(15.0, (SELECT COUNT(*) FROM weekly_entries WHERE topic_id = e.topic_id AND is_active = 1) - 1))
-                   ), 2
-                 )
-               ) as fair_score
+               ${getFairScoreSql('e', 't')} as fair_score
         FROM weekly_entries e
         JOIN weekly_topics t ON e.topic_id = t.id
         LEFT JOIN photo_users u ON e.user_email = u.email
@@ -1607,7 +1438,6 @@ async function processFinishedChallenges(pool) {
         ORDER BY fair_score DESC, e.likes_count DESC, e.views_count ASC
       `, [userEmail, topicId]);
 
-      // A klub-rangsoroló kódod ezután változatlanul mehet tovább...
       const clubsData = {};
       leaderboard.forEach(entry => {
         if (!entry.club_name || entry.club_name.trim() === '') return; 
@@ -1635,7 +1465,7 @@ async function processFinishedChallenges(pool) {
   });
 
   // ====================================================================
-  // 💬 ARÉNA LÍGA ÉLŐ CSEVEGŐ VÉGPONTOK (Típusbiztos, 0-ra optimalizált)
+  // 💬 ARÉNA LÍGA ÉLŐ CSEVEGŐ VÉGPONTOK
   // ====================================================================
   app.get('/api/weekly/chat/:topicId', async (req, res) => {
     const parsedTopicId = Number(req.params.topicId); 
@@ -1717,317 +1547,5 @@ async function processFinishedChallenges(pool) {
       await pool.query("INSERT IGNORE INTO weekly_votes (entry_id, voter_email, vote_type) VALUES (?, ?, 'pass')", [entryId, userEmail]);
       res.json({ success: true });
     } catch (err) { res.status(500).json({ error: err.message }); }
-  });
-
-  // ====================================================================
-  // 📸 KLIENS-ALAPÚ ULTRASTABIL FELTÖLTŐ ÉS ADATBÁZIS-MENTŐ VÉGPONT
-  // ====================================================================
-  app.post('/api/weekly/upload', upload.single('photo'), async (req, res) => {
-    const { userEmail, topicId, userName, camera, lens, shutter, iso, aperture, software } = req.body;
-    const file = req.file;
-    
-    if (!file) {
-      return res.status(400).json({ error: 'Nincs fájl kiválasztva!' });
-    }
-
-    const ipAddress = req.headers['x-forwarded-for'] 
-      ? req.headers['x-forwarded-for'].split(',')[0].trim() 
-      : (req.ip || req.socket.remoteAddress);
-
-    try {
-      const fileBuffer = fs.readFileSync(file.path);
-      const fileHash = crypto.createHash('md5').update(fileBuffer).digest('hex');
-
-      const result = await cloudinary.uploader.upload(file.path, {
-        folder: 'parbajok',
-        width: 1600,
-        height: 1600,
-        crop: "limit",
-        quality: "auto:good"
-      });
-
-      if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
-
-      const query = `
-        INSERT INTO weekly_entries 
-        (topic_id, user_email, user_name, file_url, drive_file_id, swapped, ip_address, is_active, likes_count, views_count, camera, lens, shutter, iso, aperture, software) 
-        VALUES (?, ?, ?, ?, '', 0, ?, 1, 0, 0, ?, ?, ?, ?, ?, ?)
-      `;
-
-      const values = [
-        Number(topicId), 
-        userEmail, 
-        userName, 
-        result.secure_url, 
-        ipAddress,
-        camera || null, 
-        lens || null, 
-        shutter || null, 
-        iso || null, 
-        aperture || null, 
-        software || null
-      ];
-
-      await pool.query(query, values);
-
-      // ── 🎯 ⚡ ÚJ: AUTOMATIKUS EXIF MENTÉS AZ ÁLLANDÓ ALBUMBA (user_photos) IS INDULÁSKOR ──
-      const [albumDuplicate] = await pool.query("SELECT id FROM user_photos WHERE user_email = ? AND file_hash = ?", [userEmail, fileHash]);
-      if (albumDuplicate.length === 0) {
-        await pool.query(
-          "INSERT INTO user_photos (user_email, file_url, file_hash, camera, lens, shutter, iso, aperture, software) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-          [userEmail, result.secure_url, fileHash, camera || null, lens || null, shutter || null, iso || null, aperture || null, software || null]
-        );
-      }
-
-      res.json({ success: true, message: 'Sikeres nevezés rögzített EXIF adatokkal!' });
-
-    } catch (err) {
-      if (file && fs.existsSync(file.path)) fs.unlinkSync(file.path);
-      console.error("Szerveroldali mentési hiba:", err);
-      res.status(500).json({ error: 'Hiba történt a mentés során: ' + err.message });
-    }
-  });
-
-  app.post('/api/weekly/swap', upload.single('photo'), async (req, res) => {
-    const { topicId, userEmail, userName, camera, lens, shutter, iso, aperture, software } = req.body;
-    const file = req.file;
-    if (!file) return res.status(400).json({ error: 'Új fotó kötelező!' });
-    
-    const ipAddress = req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : (req.ip || req.socket.remoteAddress);
-    const conn = await pool.getConnection();
-    
-    try {
-      await conn.beginTransaction();
-      const [userRows] = await conn.query('SELECT swap_balance FROM photo_users WHERE email = ?', [userEmail]);
-      if (!userRows[0] || userRows[0].swap_balance < 1) { 
-        if (fs.existsSync(file.path)) fs.unlinkSync(file.path); 
-        await conn.rollback(); 
-        return res.status(400).json({ error: 'Nincs elég Joker cseréd!' }); 
-      }
-      
-      const [existing] = await conn.query('SELECT id, swapped FROM weekly_entries WHERE topic_id = ? AND user_email = ? AND is_active = 1', [topicId, userEmail]);
-      if (existing.length === 0) { 
-        if (fs.existsSync(file.path)) fs.unlinkSync(file.path); 
-        await conn.rollback(); 
-        return res.status(400).json({ error: 'Még nincs aktív nevezésed!' }); 
-      }
-
-      await conn.query('UPDATE weekly_entries SET is_active = 0 WHERE id = ?', [existing[0].id]);
-
-      const fileBuffer = fs.readFileSync(file.path);
-      const fileHash = crypto.createHash('md5').update(fileBuffer).digest('hex');
-      let finalFileUrl = '';
-      
-      const [duplicatePhoto] = await conn.query("SELECT file_url FROM user_photos WHERE user_email = ? AND file_hash = ?", [userEmail, fileHash]);
-
-      if (duplicatePhoto.length > 0) {
-        finalFileUrl = duplicatePhoto[0].file_url;
-        if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
-      } else {
-        const result = await cloudinary.uploader.upload(file.path, { folder: 'parbajok', width: 1600, height: 1600, crop: "limit", quality: "auto:good" });
-        finalFileUrl = result.secure_url;
-        if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
-        
-        // ── 🎯 ⚡ ÚJ: AUTOMATIKUS EXIF MENTÉS AZ ÁLLANDÓ ALBUMBA (user_photos) IS FRISS CSEREKOR ──
-        await conn.query(
-          "INSERT INTO user_photos (user_email, file_url, file_hash, camera, lens, shutter, iso, aperture, software) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-          [userEmail, finalFileUrl, fileHash, camera || null, lens || null, shutter || null, iso || null, aperture || null, software || null]
-        );
-      }
-
-      const nextSwapCount = existing[0].swapped + 1;
-      
-      const insertQuery = `
-        INSERT INTO weekly_entries 
-        (topic_id, user_email, user_name, file_url, drive_file_id, swapped, ip_address, is_active, likes_count, views_count, camera, lens, shutter, iso, aperture, software) 
-        VALUES (?, ?, ?, ?, '', ?, ?, 1, 0, 0, ?, ?, ?, ?, ?, ?)
-      `;
-      
-      const insertValues = [
-        topicId, 
-        userEmail, 
-        userName, 
-        finalFileUrl, 
-        nextSwapCount, 
-        ipAddress,
-        camera || null, 
-        lens || null, 
-        shutter || null, 
-        iso || null, 
-        aperture || null, 
-        software || null
-      ];
-
-      await conn.query(insertQuery, insertValues);
-      await conn.query('UPDATE photo_users SET swap_balance = swap_balance - 1 WHERE email = ?', [userEmail]);
-      
-      await conn.commit();
-      res.json({ success: true });
-    } catch (err) { 
-      await conn.rollback(); 
-      if (file && fs.existsSync(file.path)) fs.unlinkSync(file.path); 
-      res.status(500).json({ error: err.message }); 
-    } finally { 
-      conn.release(); 
-    }
-  });
-
-  // ── 🎯 ⚡ ÚJ: ADAT-ÁTHÚZÁS GALÉRIÁBÓL VALÓ CSEREKOR (Swap-Existing) ──
-  app.post('/api/weekly/swap-existing', async (req, res) => {
-    const { topicId, userEmail, userName, fileUrl } = req.body;
-    if (!topicId || !userEmail || !fileUrl) return res.status(400).json({ error: 'Hiányzó adatok!' });
-
-    const ipAddress = req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : (req.ip || req.socket.remoteAddress);
-    const conn = await pool.getConnection();
-    try {
-      await conn.beginTransaction();
-
-      const [userRows] = await conn.query('SELECT swap_balance FROM photo_users WHERE email = ?', [userEmail]);
-      if (!userRows[0] || userRows[0].swap_balance < 1) {
-        await conn.rollback();
-        return res.status(400).json({ error: 'Nincs elég Joker cseréd!' });
-      }
-
-      const [existing] = await conn.query('SELECT id, swapped FROM weekly_entries WHERE topic_id = ? AND user_email = ? AND is_active = 1', [topicId, userEmail]);
-      if (existing.length === 0) {
-        await conn.rollback();
-        return res.status(400).json({ error: 'Még nincs aktív nevezésed, amit lecserélhetnél!' });
-      }
-
-      await conn.query('UPDATE weekly_entries SET is_active = 0 WHERE id = ?', [existing[0].id]);
-
-      // 💥 AUTOMATIKUS EXIF ÁTHÚZÁS: Kiolvassuk az album-bejegyzésből a mentett metaadatokat
-      const [photoExif] = await conn.query(
-        "SELECT camera, lens, shutter, iso, aperture, software FROM user_photos WHERE user_email = ? AND file_url = ? LIMIT 1",
-        [userEmail, fileUrl]
-      );
-      const exif = photoExif[0] || {};
-
-      const nextSwapCount = existing[0].swapped + 1;
-      await conn.query(
-        `INSERT INTO weekly_entries 
-         (topic_id, user_email, user_name, file_url, drive_file_id, swapped, ip_address, is_active, likes_count, views_count, camera, lens, shutter, iso, aperture, software) 
-         VALUES (?, ?, ?, ?, \'\', ?, ?, 1, 0, 0, ?, ?, ?, ?, ?, ?)` ,
-        [topicId, userEmail, userName, fileUrl, nextSwapCount, ipAddress, exif.camera || null, exif.lens || null, exif.shutter || null, exif.iso || null, exif.aperture || null, exif.software || null]
-      );
-
-      await conn.query('UPDATE photo_users SET swap_balance = swap_balance - 1 WHERE email = ?', [userEmail]);
-
-      await conn.commit();
-      res.json({ success: true });
-    } catch (err) {
-      await conn.rollback();
-      res.status(500).json({ error: err.message });
-    } finally {
-      conn.release();
-    }
-  });
-  
-  // ── 🎯 ⚡ ÚJ: ADAT-ÁTHÚZÁS GALÉRIÁBÓL VALÓ ÚJ INDULÁSKOR (Upload-Existing) ──
-  app.post('/api/weekly/upload-existing', async (req, res) => {
-    const { topicId, userEmail, userName, fileUrl } = req.body;
-    if (!topicId || !userEmail || !fileUrl) return res.status(400).json({ error: 'Hiányzó adatok!' });
-    
-    const ipAddress = req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : (req.ip || req.socket.remoteAddress);
-
-    try {
-      const [topicCheck] = await pool.query('SELECT master_email FROM weekly_topics WHERE id = ?', [topicId]);
-      if (topicCheck[0] && topicCheck[0].master_email === userEmail) {
-        return res.status(400).json({ error: 'Csatabíróként nem nevezhetsz a saját csatádra!' });
-      }
-
-      const [existing] = await pool.query('SELECT id FROM weekly_entries WHERE topic_id = ? AND user_email = ?', [topicId, userEmail]);
-      if (existing.length > 0) return res.status(400).json({ error: 'Már neveztél erre a kihívásra!' });
-
-      // 💥 AUTOMATIKUS EXIF ÁTHÚZÁS: Kiolvassuk a felhasználó albumából az EXIF pecsétet
-      const [photoExif] = await pool.query(
-        "SELECT camera, lens, shutter, iso, aperture, software FROM user_photos WHERE user_email = ? AND file_url = ? LIMIT 1",
-        [userEmail, fileUrl]
-      );
-      const exif = photoExif[0] || {};
-
-      await pool.query(
-        `INSERT INTO weekly_entries 
-         (topic_id, user_email, user_name, file_url, drive_file_id, swapped, ip_address, is_active, likes_count, views_count, camera, lens, shutter, iso, aperture, software) 
-         VALUES (?, ?, ?, ?, \'\', 0, ?, 1, 0, 0, ?, ?, ?, ?, ?, ?)`, 
-        [topicId, userEmail, userName, fileUrl, ipAddress, exif.camera || null, exif.lens || null, exif.shutter || null, exif.iso || null, exif.aperture || null, exif.software || null]
-      );
-      res.json({ success: true });
-    } catch (err) {
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-  // ====================================================================
-  // 📸 ÚJ: Felhasználói profilkép feltöltése közvetlenül Cloudinary-re
-  // ====================================================================
-  app.post('/api/users/:email/avatar', upload.single('avatar'), async (req, res) => {
-    const { email } = req.params;
-    const file = req.file;
-
-    if (!file) {
-      return res.status(400).json({ error: 'Nem érkezett fájl a feltöltéshez!' });
-    }
-
-    try {
-      // ☁️ Feltöltés a már konfigurált Cloudinary-be, automatikus arcközpontosítással
-      const result = await cloudinary.uploader.upload(file.path, {
-        folder: 'felhasznaloi_avatarok',
-        width: 300,
-        height: 300,
-        crop: 'fill',       // Pontos négyzetre vágás
-        gravity: 'face',    // Intelligens fókusz az arcra, ha van a képen
-        quality: 'auto:good'
-      });
-
-      // 🧹 Ideiglenes helyi fájl azonnali törlése (pontosan úgy, ahogy a többi végpontodban van)
-      if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
-
-      // 💾 Elmentjük a photo_users tábla avatar_url mezőjébe a biztonságos HTTPS linket
-      await pool.query('UPDATE photo_users SET avatar_url = ? WHERE email = ?', [result.secure_url, email]);
-
-      res.json({ 
-        success: true, 
-        avatar_url: result.secure_url, 
-        message: 'A profilkép sikeresen frissítve és elmentve a felhőbe! 📸' 
-      });
-    } catch (err) {
-      // Hiba esetén is takarítunk magunk után
-      if (file && fs.existsSync(file.path)) fs.unlinkSync(file.path);
-      console.error("❌ Hiba a profilkép felhőbe töltésekor:", err.message);
-      res.status(500).json({ error: 'Szerveroldali hiba történt a kép feltöltése közben: ' + err.message });
-    }
-  });
-
-  app.post('/api/weekly/swap-back', async (req, res) => {
-    const { topicId, userEmail, entryId } = req.body;
-    const conn = await pool.getConnection();
-
-    try {
-      await conn.beginTransaction();
-
-      const [userRows] = await conn.query('SELECT swap_balance FROM photo_users WHERE email = ?', [userEmail]);
-      if (!userRows[0] || userRows[0].swap_balance < 1) {
-        await conn.rollback();
-        return res.status(400).json({ error: 'Nincs elég Joker cseréd a vissvaváltáshoz!' });
-      }
-
-      await conn.query('UPDATE weekly_entries SET is_active = 0 WHERE topic_id = ? AND user_email = ? AND is_active = 1', [topicId, userEmail]);
-
-      const [result] = await conn.query('UPDATE weekly_entries SET is_active = 1 WHERE id = ? AND topic_id = ? AND user_email = ?', [entryId, topicId, userEmail]);
-      
-      if (result.affectedRows === 0) {
-        await conn.rollback();
-        return res.status(404).json({ error: 'A kiválasztott korábbi kép nem található!' });
-      }
-
-      await conn.query('UPDATE photo_users SET swap_balance = swap_balance - 1 WHERE email = ?', [userEmail]);
-
-      await conn.commit();
-      res.json({ success: true });
-    } catch (err) { 
-      await conn.rollback(); 
-      res.status(500).json({ error: err.message }); 
-    } finally { conn.release(); }
   });
 };
