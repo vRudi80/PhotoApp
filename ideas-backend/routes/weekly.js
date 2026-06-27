@@ -20,14 +20,15 @@ const getFairScoreSql = (entryAlias = 'e', topicAlias = 't') => {
       ${entryAlias}.likes_count,
       ROUND(
         ((${entryAlias}.likes_count + 10.0) / (${entryAlias}.views_count + 10.0) * 10.0) - 
-        (GREATEST(0, 
+        (POW(GREATEST(0, 
           LEAST(15.0, (SELECT COUNT(*) FROM weekly_entries WHERE topic_id = ${entryAlias}.topic_id AND is_active = 1) - 1) - 
           (SELECT COUNT(*) FROM weekly_votes WHERE voter_email = ${entryAlias}.user_email AND entry_id IN (SELECT id FROM weekly_entries WHERE topic_id = ${entryAlias}.topic_id AND is_active = 1))
-        ) * 0.5), 2
+        ), 1.5) * 0.5), 2
       )
     )
   `;
 };
+
 
 module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   
