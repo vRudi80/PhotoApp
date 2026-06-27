@@ -1431,18 +1431,48 @@ async function processFinishedChallenges(pool) {
   });
 
   app.post('/api/admin/decide-proposal', async (req, res) => {
-    const { topicId, decision } = req.body; 
-    
-    try {
+  const { topicId, decision } = req.body; 
+  
+  try {
+    if (decision === 'approved') {
+      // 1. Megkeressük a kihíváshoz rendelt Képmester e-mail címét (master_email)
+      const [topicRows] = await pool.query('SELECT master_email FROM weekly_topics WHERE id = ?', [topicId]);
+      const masterEmail = topicRows[0]?.master_email;
+
+      // 2. Elfogadjuk és aktiváljuk a kihívást
+      await pool.query(
+        "UPDATE weekly_topics SET status = 'approved' WHERE id = ?",
+        [topicId]
+      );
+
+      // 3. 🎯 JUTALMAZÁS: Ha van hozzárendelve érvényes Képmester, megkapja a +2 nap prémiumot
+      if (masterEmail && masterEmail.trim() !== '') {
+        await pool.query(`
+          UPDATE photo_users 
+          SET is_premium = 1, 
+              premium_level = 1,
+              premium_until = DATE_ADD(IF(premium_until IS NOT NULL AND premium_until > NOW(), premium_until, NOW()), INTERVAL 2 DAY) 
+          WHERE LOWER(TRIM(email)) = LOWER(TRIM(?))
+        `, [masterEmail]);
+
+        console.log(`🎉 KÉPMESTERI JUTALOM ELFOGADÁSKOR: ${masterEmail} +2 nap Prémiumot kapott a(z) ${topicId} ID-jú kihívásért!`);
+      }
+    } else {
+      // Ha nem elfogadás történt (pl. 'rejected'), akkor csak a státuszt frissítjük, mint régen
       await pool.query(
         "UPDATE weekly_topics SET status = ? WHERE id = ?",
         [decision, topicId]
       );
-      res.json({ success: `Sikeres bírálat: ${decision === 'approved' ? 'Elfogadva és csatasorba állítva!' : 'Elutasítva.'}` });
-    } catch (err) {
-      res.status(500).json({ error: 'Hiba az elbírálás során.' });
     }
-  });
+    
+    // A frontend felé visszaadott sikerüzenet teljesen megegyezik az eredetivel
+    res.json({ success: `Sikeres bírálat: ${decision === 'approved' ? 'Elfogadva és csatasorba állítva!' : 'Elutasítva.'}` });
+  } catch (err) {
+    console.error("❌ Hiba a javaslat elbírálásakor:", err.message);
+    res.status(500).json({ error: 'Hiba az elbírálás során.' });
+  }
+});
+
 
   // ====================================================================
   // 💬 ESZMECSERE ÉS UTÓLAGOS ELISMERÉSEK KIBESZÉLŐ VÉGPONTJAI
