@@ -1,6 +1,6 @@
 import React from 'react';
 
-// 🎯 ÚJ IMPORT: Behozzuk a nyelvi kontextust
+// 🎯 Behozzuk a nyelvi kontextust
 import { useLanguage } from '../../context/LanguageContext';
 
 interface HelpModalProps {
@@ -10,7 +10,7 @@ interface HelpModalProps {
 }
 
 export default function HelpModal({ isOpen, onClose, currentLevel }: HelpModalProps) {
-  // 🎯 ÚJ: Aktiváljuk a fordítót és a nyelv-figyelőt
+  // Aktiváljuk a fordítót (t) és a nyelv-figyelőt (lang)
   const { t, lang } = useLanguage();
 
   if (!isOpen) return null;
@@ -31,7 +31,7 @@ export default function HelpModal({ isOpen, onClose, currentLevel }: HelpModalPr
     'Fejedelem 👑': 'Vizuális Legenda 👑'
   };
 
-  // 🇬🇧 ÚJ: Angol rangnév szótár a nemzetközi felülethez
+  // 🇬🇧 Angol rangnév szótár a nemzetközi felülethez
   const rankNamesEn: Record<string, string> = {
     'Fényleső 🌱': 'Light Seeker 🌱',
     'Megfigyelő 👁️': 'Observer 👁️',
@@ -77,6 +77,30 @@ export default function HelpModal({ isOpen, onClose, currentLevel }: HelpModalPr
         
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           
+          {/* ⚖️ KIEGYENSÚLYOZOTT PONTRENDSZER (FAIR SCORE) SZEKCIÓ */}
+          <div style={{ background: 'linear-gradient(145deg, #1e293b, #0f172a)', padding: '25px', borderRadius: '16px', border: '2px solid #38bdf8', boxShadow: '0 4px 15px rgba(56,189,248,0.05)' }}>
+            <h4 style={{ color: '#38bdf8', margin: '0 0 12px 0', fontSize: '1.2rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              ⚖️ {t('helpFairScoreTitle')}
+            </h4>
+            <div style={{ color: '#cbd5e1', fontSize: '0.9rem', lineHeight: '1.6', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <p style={{ margin: 0 }}>{t('helpFairScoreIntro')}</p>
+
+              <div style={{ background: '#0f172a', padding: '12px 15px', borderRadius: '8px', borderLeft: '3px solid #a78bfa' }}>
+                <b style={{ color: '#a78bfa', display: 'block', marginBottom: '4px' }}>{t('helpFairScoreAnchorTitle')}</b>
+                {t('helpFairScoreAnchorDesc')}
+              </div>
+
+              <div style={{ background: '#0f172a', padding: '12px 15px', borderRadius: '8px', borderLeft: '3px solid #f43f5e' }}>
+                <b style={{ color: '#f43f5e', display: 'block', marginBottom: '4px' }}>{t('helpFairScoreDisciplineTitle')}</b>
+                {t('helpFairScoreDisciplineDesc')}
+              </div>
+
+              <p style={{ fontStyle: 'italic', color: '#94a3b8', marginTop: '4px', borderTop: '1px dashed #334155', paddingTop: '10px', margin: 0 }}>
+                {t('helpFairScoreExample')}
+              </p>
+            </div>
+          </div>
+
           {/* Láthatósági mérő szekció */}
           <div style={{ background: '#1e293b', padding: '20px', borderRadius: '16px', borderLeft: '4px solid #f59e0b' }}>
             <h4 style={{ color: '#f59e0b', margin: '0 0 10px 0', fontSize: '1.1rem' }}>{t('helpExposureTitle')}</h4>
@@ -125,7 +149,7 @@ export default function HelpModal({ isOpen, onClose, currentLevel }: HelpModalPr
               {rankLadderData.map((rank, i) => {
                 const isMyRank = normalizedMyRankName === rank.name;
                 
-                // 🎯 ÚJ: Ha angol módban vagyunk, lefordítjuk a rang nevét és a feltételt is
+                // Ha angol módban vagyunk, lefordítjuk a rang nevét és a feltételt is
                 const displayName = lang === 'en' ? (rankNamesEn[rank.name] || rank.name) : rank.name;
                 const displayReq = lang === 'en' ? rank.reqEn : rank.reqHu;
 
