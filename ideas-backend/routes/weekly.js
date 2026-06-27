@@ -123,11 +123,12 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     return rows[0]?.referral_code || '';
   }
 
-  async function checkAndAwardLevelUp(pool, email) {
+    async function checkAndAwardLevelUp(pool, email) {
     const { totalLikes, victories } = await getUserLikesAndVictories(pool, email);
     const newLevel = calculateRankLevel(totalLikes, victories);
 
-    const [userRows] = await pool.query('SELECT rank_level FROM photo_users WHERE email = ?', [userEmail]);
+    // 🎯 JAVÍTVA: [userEmail] helyett szigorúan a függvény paramétereként érkező [email] kell!
+    const [userRows] = await pool.query('SELECT rank_level FROM photo_users WHERE email = ?', [email]);
     if (userRows.length > 0) {
       const oldLevel = userRows[0].rank_level;
       
@@ -143,6 +144,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
     return newLevel;
   }
+
 
   async function processFinishedChallenges(pool) {
     try {
@@ -825,7 +827,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { res.status(500).json({ error: 'Hiba a kép lekérésekor' }); }
   });
 
-  app.post('/api/weekly/vote', async (req, res) => {
+    app.post('/api/weekly/vote', async (req, res) => {
     const { entryId, userEmail, voteType } = req.body; 
     const conn = await pool.getConnection();
     try {
@@ -840,7 +842,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       const [entryTopicRows] = await conn.query('SELECT topic_id FROM weekly_entries WHERE id = ?', [entryId]);
       const topicId = entryTopicRows[0]?.topic_id;
 
-      const [topicRows] = await conn.query('SELECT master_email FROM weekly_topics WHERE id = ?', [topicId]);
+      const [topicRows] = await pool.query('SELECT master_email FROM weekly_topics WHERE id = ?', [topicId]);
       const assignedMasterEmail = topicRows[0]?.master_email;
       
       const isRealMasterOfThisRoom = 
@@ -894,11 +896,14 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       res.json({ success: true, savedAs: finalVoteType });
     } catch (err) { 
       await conn.rollback(); 
+      // 🎯 ÚJ: Kiíratjuk a konzolra a pontos hiba okát, ha valami elszállna
+      console.error("❌ Kritikus hiba a szavazat feldolgozásakor:", err);
       res.status(500).json({ error: 'Hiba a szavazat feldolgozásakor.' }); 
     } finally { 
       conn.release(); 
     }
   });
+
 
   app.post('/api/weekly/claim-referral', async (req, res) => {
     const { userEmail, referralCode } = req.body;
