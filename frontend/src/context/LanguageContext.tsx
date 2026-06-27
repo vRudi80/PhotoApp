@@ -15,6 +15,7 @@ const translations = {
     tileClubLifeTitle: 'Klubélet',
    navMarketplace: 'Piac',
     contBagdeEditTitle: 'Szerkesztés',
+    btnShareResult:'Megosztás',
     tilePodcastTitle: 'Képolvasók Podcast',
 tilePodcastDesc: 'Hallgass bennünket aktuális fotós témákról',
 
@@ -919,6 +920,7 @@ tilePodcastDesc: 'Listen our podcast of fresh topics',
     subClubContests: 'My Club Active Contests',
     subOpenContests: 'Open Active Contests',
     subClosedContests: 'Closed Contests',
+    btnShareResult:'Megosztás',
     
     // Fotóklub almenü
     subClubNews: 'Club News',
