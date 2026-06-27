@@ -1,6 +1,6 @@
 import React from 'react';
 
-// 🎯 ÚJ IMPORT: Behozzuk a nyelvi kontextust
+// 🎯 Behozzuk a nyelvi kontextust
 import { useLanguage } from '../../context/LanguageContext';
 
 interface ShareCardModalProps {
@@ -17,7 +17,7 @@ export default function ShareCardModal({
   activeShareData, onClose, user, shareBase64, loadingShareImg, isGeneratingImage, handleExecuteShare
 }: ShareCardModalProps) {
   
-  // 🎯 ÚJ: Aktiváljuk a fordítót (t) és a nyelvet (lang)
+  // Aktiváljuk a fordítót (t) és a nyelvet (lang)
   const { t, lang } = useLanguage();
 
   if (!activeShareData) return null;
@@ -39,6 +39,9 @@ export default function ShareCardModal({
   const displayTopicTitle = lang === 'en' && activeShareData.topic_title_en 
     ? activeShareData.topic_title_en 
     : activeShareData.topic_title;
+
+  // 🎯 DINAMIKUS KÉP-UTVONAL MEGHATÁROZÁS: Ha van base64 generálva (letöltéshez), azt használjuk, egyébként a nyers fotó URL-jét
+  const resolvedImageUrl = shareBase64 || activeShareData.file_url || activeShareData.imageUrl;
 
   return (
     <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 99999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px', overflowY: 'auto' }}>
@@ -64,15 +67,28 @@ export default function ShareCardModal({
           <div style={{ color: '#64748b', fontSize: '0.65rem', marginTop: '2px', letterSpacing: '1px' }}>{t('shareTrophySubtitle')}</div>
         </div>
 
+        {/* 🎯 JAVÍTVA: A képkeret most már rugalmasan beolvassa a resolvedImageUrl változót és egy HTML5 <img> taggel jeleníti meg a fotót */}
         <div style={{ 
           width: '100%', height: '200px', borderRadius: '16px', border: '2px solid #fbbf24', 
           boxShadow: '0 8px 25px rgba(0,0,0,0.5)', zIndex: 10, display: 'flex', alignItems: 'center', 
           justifyContent: 'center', position: 'relative', boxSizing: 'border-box', backgroundColor: '#000',
-          backgroundImage: shareBase64 ? `url(${shareBase64})` : 'none',
-          backgroundRepeat: 'no-repeat', backgroundPosition: 'center center', backgroundSize: 'contain'
+          overflow: 'hidden'
         }}>
-          {loadingShareImg && <div style={{ color: '#64748b', fontSize: '0.85rem' }}>{t('sharePreparingImage')}</div>}
-          {!shareBase64 && !loadingShareImg && <div style={{ color: '#ef4444', fontSize: '0.85rem' }}>{t('shareImageError')}</div>}
+          {loadingShareImg && (
+            <div style={{ position: 'absolute', color: '#64748b', fontSize: '0.85rem', zIndex: 5 }}>
+              {t('sharePreparingImage')}
+            </div>
+          )}
+          
+          {resolvedImageUrl ? (
+            <img 
+              src={resolvedImageUrl} 
+              alt="Trophy submission" 
+              style={{ width: '100%', height: '100%', objectFit: 'contain', zIndex: 2 }} 
+            />
+          ) : (
+            !loadingShareImg && <div style={{ color: '#ef4444', fontSize: '#0.85rem', zIndex: 5 }}>{t('shareImageError')}</div>
+          )}
         </div>
 
         <div style={{ textAlign: 'center', zIndex: 10 }}>
