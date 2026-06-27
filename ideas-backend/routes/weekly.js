@@ -954,25 +954,31 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // 📜 LEZÁRT KIHÍVÁSOK ARCHÍVUMA - JAVÍTVA: SWAP BIZTOS DARABSZÁMLÁLÓ
+  // 📜 LEZÁRT KIHÍVÁSOK ARCHÍVUMA - IDŐZÓNA- ÉS CSREBIZTOS DARABSZÁMLÁLÓ
   // ====================================================================
   app.get('/api/weekly/past', async (req, res) => {
     try {
+      // 🎯 JAVÍTVA: Elmentjük a pontos helyi időt, hogy szinkronban legyen a főoldallal
+      const currentNow = getLocalMySQLNow();
+
       const [rows] = await pool.query(`
         SELECT t.*, u.name as master_name, u.avatar_url as master_avatar_url,
                (SELECT COUNT(*) FROM weekly_entries WHERE topic_id = t.id AND is_active = 1) as entries_count,
                (SELECT COUNT(*) FROM weekly_votes WHERE entry_id IN (SELECT id FROM weekly_entries WHERE topic_id = t.id)) as total_votes
         FROM weekly_topics t
         LEFT JOIN photo_users u ON t.master_email = u.email
-        WHERE t.end_date < NOW() 
+        -- 🎯 JAVÍTVA: NOW() helyett a magyar időzónához igazított paramétert kapja meg
+        WHERE t.end_date < ? 
         ORDER BY t.end_date DESC
-      `);
+      `, [currentNow]); // 👈 Átadjuk a budapesti időt
+      
       res.json(rows);
     } catch (err) {
       console.error("❌ Hiba az archívum SQL lekérdezése közben:", err.message);
       res.status(500).json({ error: 'Szerveroldali hiba az archívum összeállításakor.' });
     }
   });
+
 
   // 📸 TRÓFEATEREM VÉGPONT – KÖZPONTOSÍTOTT PONTOSSÁG!
   // ====================================================================
