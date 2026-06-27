@@ -3,6 +3,9 @@ import { getImageUrl } from '../../../utils/helpers';
 import { toPng } from 'html-to-image'; 
 import { BACKEND_URL, ADMIN_EMAIL } from '../../../utils/constants';
 
+// 🎯 ÚJ IMPORT: Behozzuk a megosztó modált a megfelelő relatív útvonalról
+import ShareCardModal from '../ShareCardModal';
+
 // Nyelvi kontextus betöltése
 import { useLanguage } from '../../../context/LanguageContext';
 
@@ -33,13 +36,14 @@ export default function PastArchive({
   const [adminPosterData, setAdminPosterData] = useState<any | null>(null);
   const [isAdminGeneratingPoster, setIsAdminGeneratingPoster] = useState(false);
 
+  // 🎯 ÚJ ÁLLAPOTOK: A trófeakártya megosztásához szükséges lokális state-ek
+  const [activeShareData, setActiveShareData] = useState<any | null>(null);
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+
   const silhouetteAvatar = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23475569'><circle cx='12' cy='8' r='4'/><path d='M12 14c-6.1 0-10 4-10 4v2h20v-2s-3.9-4-10-4z'/></svg>";
 
-  // 🎯 JAVÍTVA: Intelligens rang-dekóder a globális szintek (1-12) alapján
   const computeArchiveRank = (rankLevel: any, score: number) => {
     const lvl = Number(rankLevel);
-    
-    // Ha a backendről megérkezik a photo_users-ben tárolt 1-12 közötti szintszám
     if (!isNaN(lvl) && lvl >= 1 && lvl <= 12) {
       const globalRankNames = [
         t('rankScout', 'Fényleső 🌱'),
@@ -58,7 +62,6 @@ export default function PastArchive({
       return globalRankNames[lvl - 1];
     }
 
-    // Biztonsági tartalék (Fallback) régi adatokhoz vagy ha nincs belépve
     const normalized = rankLevel ? String(rankLevel).toUpperCase().trim() : '';
     if (!normalized || normalized === 'FOTÓS' || normalized === 'MEMBER' || normalized === 'TAG') {
       const s = Number(score) || 0;
@@ -67,7 +70,6 @@ export default function PastArchive({
       if (s >= 15) return t('rankObserver', 'Megfigyelő 👁️');
       return t('rankScout', 'Fényleső 🌱');
     }
-    
     return String(rankLevel);
   };
 
@@ -92,7 +94,6 @@ export default function PastArchive({
     return [...pastLeaderboard].sort((a, b) => {
       const scoreA = a.fair_score !== undefined ? Number(a.fair_score) : Number(a?.likes_count || 0);
       const scoreB = b.fair_score !== undefined ? Number(b.fair_score) : Number(b?.likes_count || 0);
-      
       if (scoreB !== scoreA) return scoreB - scoreA;
       return (Number(a?.views_count || 0)) - (Number(b?.views_count || 0));
     }).slice(0, 3);
@@ -118,6 +119,34 @@ export default function PastArchive({
   const guruTopPicksList = useMemo(() => {
     return singlePhotosRankedList.filter((_, idx) => idx % 3 === 0).slice(0, 4); 
   }, [singlePhotosRankedList]);
+
+  // 🎯 ÚJ: Kliens-oldali trófeakártya PNG-vé alakító és natív megosztó motorja
+  const handleExecuteShare = async () => {
+    const node = document.getElementById('share-card-node');
+    if (!node || !activeShareData) return;
+    setIsGeneratingImage(true);
+    try {
+      await toPng(node, { cacheBust: true });
+      const dataUrl = await toPng(node, { cacheBust: true, quality: 1.0 });
+      const blob = await (await fetch(dataUrl)).blob();
+      const file = new File([blob], `Arena_Award_${activeShareData.topic_title.replace(/\s+/g, '_')}.png`, { type: 'image/png' });
+      
+      const shareTextCompiled = t('msgShareText', 'Megnyertem az első helyezést az arénában!').replace('{rank}', '1.').replace('{title}', activeShareData.topic_title);
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: t('msgShareTitle', 'Aréna Trófea'), text: shareTextCompiled });
+      } else {
+        const link = document.createElement('a'); 
+        link.download = `Arena_Trophy_${activeShareData.topic_title.replace(/\s+/g, '_')}.png`; 
+        link.href = dataUrl;
+        link.click();
+      }
+      setActiveShareData(null);
+    } catch (e) {
+      alert(t('msgGenerateImageError', 'Hiba történt a trófeakártya generálása közben.'));
+    } finally {
+      setIsGeneratingImage(false);
+    }
+  };
 
   const handleGenerateAdminPoster = async (matchedTopic: any) => {
     if (!matchedTopic || pastLeaderboard.length === 0) return;
@@ -151,10 +180,8 @@ export default function PastArchive({
         } catch (e) { 
           base64Url = getImageUrl(entry.drive_file_id, entry.file_url);
         }
-        
         processedEntries.push({ ...entry, base64Url, rank: i + 1 });
       }
-
       setAdminPosterData({ topic: matchedTopic, entries: processedEntries });
     } catch (err) {
       alert("Hiba történt a pódium adatok feldolgozásakor.");
@@ -165,16 +192,13 @@ export default function PastArchive({
 
   useEffect(() => {
     if (!adminPosterData) return;
-    
     const executeDownload = async () => {
       await new Promise(resolve => setTimeout(resolve, 1000)); 
       const node = document.getElementById('admin-past-poster-node');
-      
       if (node) {
         try {
           await toPng(node, { cacheBust: true }); 
           const dataUrl = await toPng(node, { cacheBust: true, quality: 1.0 });
-          
           const link = document.createElement('a');
           link.download = `Arena_Winners_Poster_${adminPosterData.topic.title.replace(/\s+/g, '_')}.png`;
           link.href = dataUrl;
@@ -212,7 +236,7 @@ export default function PastArchive({
                 onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.borderColor = '#38bdf8'; }}
                 onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = '#334155'; }}
               >
-                <div style={{ position: 'absolute', top: '12px', right: '-35px', background: isDaily ? 'linear-gradient(135deg, #ec4899, #f43f5e)' : 'linear-gradient(135deg, #a78bfa, #8b5cf6)', color: 'white', padding: '4px 40px', fontSize: '0.7 glamorous-size', fontWeight: 'bold', transform: 'rotate(45deg)', zIndex: 10 }}>
+                <div style={{ position: 'absolute', top: '12px', right: '-35px', background: isDaily ? 'linear-gradient(135deg, #ec4899, #f43f5e)' : 'linear-gradient(135deg, #a78bfa, #8b5cf6)', color: 'white', padding: '4px 40px', fontSize: '0.75rem', fontWeight: 'bold', transform: 'rotate(45deg)', zIndex: 10 }}>
                   {isDaily ? 'VILLÁM' : 'MESTER'}
                 </div>
 
@@ -308,6 +332,25 @@ export default function PastArchive({
                           {topThreeWinners[0].fair_score !== undefined ? `${topThreeWinners[0].fair_score} FP` : `${topThreeWinners[0].likes_count} ⭐`}
                         </div>
                       </div>
+
+                      {/* 🎯 ÚJ: Eredmény megosztása/letöltése gomb az első helyezett alá */}
+                      <button
+                        onClick={() => setActiveShareData({
+                          rank: 1,
+                          topic_title: currentTopicObj?.title || '',
+                          topic_title_en: currentTopicObj?.title_en || '',
+                          likes: topThreeWinners[0].fair_score !== undefined ? topThreeWinners[0].fair_score : topThreeWinners[0].likes_count,
+                          total_entries: pastLeaderboard.length,
+                          user_name: topThreeWinners[0].user_name,
+                          file_url: getImageUrl(topThreeWinners[0].drive_file_id, topThreeWinners[0].file_url)
+                        })}
+                        style={{ marginTop: '20px', width: '100%', background: 'linear-gradient(135deg, #fbbf24, #d97706)', color: '#0f172a', border: 'none', padding: '14px', borderRadius: '12px', fontWeight: 'bold', fontSize: '1.05rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', boxShadow: '0 4px 15px rgba(251,191,36,0.25)', transition: 'transform 0.15s ease' }}
+                        onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.02)'}
+                        onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                      >
+                        📢 {t('btnShareResult', 'Eredmény Megosztása / Trófeakártya Mentése 🚀')}
+                      </button>
+
                     </div>
                   ) : (
                     <p style={{ color: '#64748b' }}>{t('archiveNoWinnerData', 'Nincs kiértékelhető győztes adat.')}</p>
@@ -346,71 +389,41 @@ export default function PastArchive({
                   {t('archivePrizesTitle', '🏆 Dobogós Nyeremények & Extra Cserék')}
                 </h4>
                 <p style={{ color: '#cbd5e1', lineHeight: '1.6', marginBottom: '20px', fontSize: '1rem' }}>
-                  {t('archivePrizesDesc', 'A futamok lezárulásakor a mezőny legkiemelkedőbb fotóművészei értékes globális Joker cseréket és exkluzív hozzáférést kapnak jutalmul:')}
+                  {t('archivePrizesDesc', 'Tekintsd meg, milyen jutalmakban részesültek az aréna legjobbjai:')}
                 </p>
-                <ul style={{ padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <li style={{ background: '#0f172a', padding: '14px 18px', borderRadius: '10px', borderLeft: '4px solid #fbbf24' }}>
-                    <strong style={{ color: '#fbbf24' }}>{t('archiveRank1st', '🥇 1. Helyezett (Győztes):')}</strong> {t('archiveRank1stReward', '+3 db globális Joker csere + 1 HÉTTEL MEGHOSSZABBÍTOTT PRÉMIUM TAGSÁG teljesen ingyen!')}
-                  </li>
-                  <li style={{ background: '#0f172a', padding: '14px 18px', borderRadius: '10px', borderLeft: '4px solid #cbd5e1' }}>
-                    <strong style={{ color: '#cbd5e1' }}>{t('archiveRank2nd', '🥈 2. Helyezett:')}</strong> {t('archiveRank2ndReward', '+2 db Joker csere')}
-                  </li>
-                  <li style={{ background: '#0f172a', padding: '14px 18px', borderRadius: '10px', borderLeft: '4px solid #b45309' }}>
-                    <strong style={{ color: '#b45309' }}>{t('archiveRank3rd', '🥉 3. Helyezett:')}</strong> {t('archiveRank3rdReward', '+1 db Joker csere')}
-                  </li>
-                </ul>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div style={{ background: '#0f172a', padding: '12px 18px', borderRadius: '8px', borderLeft: '4px solid #fbbf24' }}><b style={{ color: '#fbbf24' }}>1. Helyezett:</b> +3 Joker csere kupon és 7 nap ingyen prémium tagság-hosszabbítás.</div>
+                  <div style={{ background: '#0f172a', padding: '12px 18px', borderRadius: '8px', borderLeft: '4px solid #cbd5e1' }}><b style={{ color: '#cbd5e1' }}>2. Helyezett:</b> +2 Joker csere kupon a következő futamokra.</div>
+                  <div style={{ background: '#0f172a', padding: '12px 18px', borderRadius: '8px', borderLeft: '4px solid #cd7f32' }}><b style={{ color: '#cd7f32' }}>3. Helyezett:</b> +1 Joker csere kupon.</div>
+                </div>
               </div>
             )}
 
             {/* 📊 RANGSOR FÜL */}
             {subTab === 'rank' && (
-              <div>
-                <div style={{ display: 'flex', gap: '20px', borderBottom: '1px solid #334155', paddingBottom: '10px', marginBottom: '25px', fontSize: '0.85rem' }}>
-                  {[
-                    { id: 'photo', label: t('archiveSubTabTopPhoto', 'TOP PHOTO') },
-                    { id: 'guru', label: t('archiveSubTabMasterPick', 'KÉPMESTER KIEMELÉS') }
-                  ].map(sTab => (
-                    <span key={sTab.id} onClick={() => setActiveRankSubTab(sTab.id as any)} style={{ color: activeRankSubTab === sTab.id ? '#38bdf8' : '#64748b', fontWeight: 'bold', cursor: 'pointer', borderBottom: activeRankSubTab === sTab.id ? '2px solid #38bdf8' : 'none', paddingBottom: '11px', marginBottom: '-11px', transition: 'all 0.2s' }}>
-                      {sTab.label}
-                    </span>
-                  ))}
-                </div>
-                
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                  {activeRankSubTab === 'photo' ? (
-                    singlePhotosRankedList.map((entry, idx) => {
-                      const photoScore = entry.fair_score !== undefined ? entry.fair_score : (entry.archive_likes || entry.likes_count || 0);
-                      
-                      return (
-                        <div key={entry.id} style={{ display: 'flex', alignItems: 'center', background: '#0f172a', padding: '12px 20px', borderRadius: '14px', border: '1px solid #223147' }}>
-                          <div style={{ fontSize: '1.2rem', fontWeight: '900', width: '40px', color: '#64748b' }}>#{idx + 1}</div>
-                          <img src={getImageUrl(entry.drive_file_id, entry.file_url)} onClick={() => setFullscreenData({ url: getImageUrl(entry.drive_file_id, entry.file_url), title: `${entry.title || 'Kép'} (${entry.user_name})` })} alt="" style={{ width: '55px', height: '55px', objectFit: 'cover', borderRadius: '8px', margin: '0 15px', cursor: 'zoom-in' }} onError={handleLocalImageError} />
-                          <div style={{ flex: 1 }}>
-                            <strong style={{ color: 'white', display: 'block', fontSize: '1rem' }}>{entry.user_name}</strong>
-                            <span style={{ color: '#64748b', fontSize: '0.8rem' }}>
-                              {computeArchiveRank(entry.rank_level, Number(photoScore))} {entry.title ? `• "${entry.title}"` : ''}
-                            </span>
-                          </div>
-                          <div style={{ color: '#f97316', fontWeight: '900', fontSize: '1.1rem' }}>
-                            {entry.fair_score !== undefined ? `${entry.fair_score} pont` : `${entry.likes_count} ⭐`}
-                          </div>
-                        </div>
-                      );
-                    })
-                  ) : (
-                    guruTopPicksList.map(entry => (
-                      <div key={entry.id} style={{ display: 'flex', alignItems: 'center', background: '#0f172a', padding: '12px 20px', borderRadius: '14px', border: '1px solid #a78bfa30' }}>
-                        <div style={{ fontSize: '1.2rem', color: '#a78bfa', width: '30px', fontWeight: 'bold' }}>✨</div>
-                        <img src={getImageUrl(entry.drive_file_id, entry.file_url)} onClick={() => setFullscreenData({ url: getImageUrl(entry.drive_file_id, entry.file_url), title: `${entry.title || 'Kép'} (${entry.user_name})` })} alt="" style={{ width: '55px', height: '55px', objectFit: 'cover', borderRadius: '6px', margin: '0 15px', cursor: 'zoom-in' }} onError={handleLocalImageError} />
-                        <div style={{ flex: 1 }}>
-                          <strong style={{ color: 'white', display: 'block', fontSize: '1rem' }}>{entry.user_name}</strong>
-                          <span style={{ color: '#94a3b8', fontSize: '0.8rem' }}>{t('archiveHighlightedByMaster', 'Kiemelte a Képmester')}</span>
-                        </div>
-                        <div style={{ color: '#a78bfa', fontWeight: '900', fontSize: '1.1rem' }}>Mesteri választás</div>
-                      </div>
-                    ))
-                  )}
-                </div>
+              <div style={{ overflowX: 'auto', background: '#0f172a', borderRadius: '12px', padding: '5px' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '600px' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid #334155', color: '#94a3b8', fontSize: '0.85rem' }}>
+                      <th style={{ padding: '12px' }}>Helyezés</th>
+                      <th style={{ padding: '12px' }}>Fotós</th>
+                      <th style={{ padding: '12px' }}>Klub</th>
+                      <th style={{ padding: '12px', textAlign: 'right' }}>Értékelés</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortedEntries.map((entry, idx) => (
+                      <tr key={entry.id} style={{ borderBottom: '1px solid #1e293b', color: '#cbd5e1', fontSize: '0.95rem' }}>
+                        <td style={{ padding: '12px', fontWeight: 'bold' }}>#{idx + 1}</td>
+                        <td style={{ padding: '12px', color: 'white', fontWeight: 'bold' }}>{entry.user_name}</td>
+                        <td style={{ padding: '12px' }}>{entry.club_name || '-'}</td>
+                        <td style={{ padding: '12px', textAlign: 'right', fontWeight: 'bold', color: idx === 0 ? '#fbbf24' : '#f97316' }}>
+                          {entry.fair_score !== undefined ? `${entry.fair_score} FP` : `${entry.likes_count} ⭐`}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
 
@@ -418,7 +431,18 @@ export default function PastArchive({
         </div>
       )}
       
-      {/* 👑 REJTETT PLAKÁT-GENERÁLÓ SABLON */}
+      {/* 👑 MODÁL RENDERELÉSI ZÓNA */}
+      <ShareCardModal 
+        activeShareData={activeShareData} 
+        onClose={() => setActiveShareData(null)} 
+        user={user} 
+        shareBase64={null} 
+        loadingShareImg={false} 
+        isGeneratingImage={isGeneratingImage} 
+        handleExecuteShare={handleExecuteShare} 
+      />
+
+      {/* 👑 REJTETT PLAKÁT-GENERÁLÓ SABLON ADMINOKNAK */}
       <div style={{ position: 'absolute', top: '-9999px', left: '-9999px', overflow: 'hidden', width: 0, height: 0 }}>
         {adminPosterData && (
           <div 
@@ -438,7 +462,6 @@ export default function PastArchive({
             </div>
 
             <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: '35px', width: '100%', padding: '0 20px', boxSizing: 'border-box' }}>
-              
               {/* 🥈 2. HELYEZETT */}
               {adminPosterData.entries[1] && (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '290px' }}>
@@ -487,7 +510,6 @@ export default function PastArchive({
                   </div>
                 </div>
               )}
-
             </div>
 
             <div style={{ width: '100%', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '25px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#64748b', fontSize: '18px', fontWeight: 'bold' }}>
