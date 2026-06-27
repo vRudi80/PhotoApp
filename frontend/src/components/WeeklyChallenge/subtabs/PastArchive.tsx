@@ -3,11 +3,11 @@ import { getImageUrl } from '../../../utils/helpers';
 import { toPng } from 'html-to-image'; 
 import { BACKEND_URL, ADMIN_EMAIL } from '../../../utils/constants';
 
-// 🎯 ÚJ IMPORT: Behozzuk a megosztó modált a megfelelő relatív útvonalról
-import ShareCardModal from '../ShareCardModal';
-
 // Nyelvi kontextus betöltése
 import { useLanguage } from '../../../context/LanguageContext';
+
+// 🎯 Behozzuk a megosztó modált a megfelelő relatív útvonalról
+import ShareCardModal from '../ShareCardModal';
 
 interface PastArchiveProps {
   pastTopics: any[];
@@ -36,7 +36,7 @@ export default function PastArchive({
   const [adminPosterData, setAdminPosterData] = useState<any | null>(null);
   const [isAdminGeneratingPoster, setIsAdminGeneratingPoster] = useState(false);
 
-  // 🎯 ÚJ ÁLLAPOTOK: A trófeakártya megosztásához szükséges lokális state-ek
+  // A trófeakártya megosztásához szükséges lokális state-ek
   const [activeShareData, setActiveShareData] = useState<any | null>(null);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
 
@@ -120,7 +120,6 @@ export default function PastArchive({
     return singlePhotosRankedList.filter((_, idx) => idx % 3 === 0).slice(0, 4); 
   }, [singlePhotosRankedList]);
 
-  // 🎯 ÚJ: Kliens-oldali trófeakártya PNG-vé alakító és natív megosztó motorja
   const handleExecuteShare = async () => {
     const node = document.getElementById('share-card-node');
     if (!node || !activeShareData) return;
@@ -130,10 +129,17 @@ export default function PastArchive({
       const dataUrl = await toPng(node, { cacheBust: true, quality: 1.0 });
       const blob = await (await fetch(dataUrl)).blob();
       const file = new File([blob], `Arena_Award_${activeShareData.topic_title.replace(/\s+/g, '_')}.png`, { type: 'image/png' });
-      
-      const shareTextCompiled = t('msgShareText', 'Megnyertem az első helyezést az arénában!').replace('{rank}', '1.').replace('{title}', activeShareData.topic_title);
+      const getOrdinalStr = (rankNum: number) => {
+        if (lang === 'hu') return `${rankNum}.`;
+        const m = rankNum % 10, n = rankNum % 100;
+        if (m === 1 && n !== 11) return `${rankNum}st`;
+        if (m === 2 && n !== 12) return `${rankNum}nd`;
+        if (m === 3 && n !== 13) return `${rankNum}rd`;
+        return `${rankNum}th`;
+      };
+      const shareTextCompiled = t('msgShareText').replace('{rank}', lang === 'en' ? getOrdinalStr(activeShareData.rank) : String(activeShareData.rank)).replace('{title}', activeShareData.topic_title);
       if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: t('msgShareTitle', 'Aréna Trófea'), text: shareTextCompiled });
+        await navigator.share({ files: [file], title: t('msgShareTitle'), text: shareTextCompiled });
       } else {
         const link = document.createElement('a'); 
         link.download = `Arena_Trophy_${activeShareData.topic_title.replace(/\s+/g, '_')}.png`; 
@@ -333,7 +339,7 @@ export default function PastArchive({
                         </div>
                       </div>
 
-                      {/* 🎯 ÚJ: Eredmény megosztása/letöltése gomb az első helyezett alá */}
+                      {/* Eredmény megosztása gomb */}
                       <button
                         onClick={() => setActiveShareData({
                           rank: 1,
@@ -401,29 +407,54 @@ export default function PastArchive({
 
             {/* 📊 RANGSOR FÜL */}
             {subTab === 'rank' && (
-              <div style={{ overflowX: 'auto', background: '#0f172a', borderRadius: '12px', padding: '5px' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '600px' }}>
-                  <thead>
-                    <tr style={{ borderBottom: '1px solid #334155', color: '#94a3b8', fontSize: '0.85rem' }}>
-                      <th style={{ padding: '12px' }}>Helyezés</th>
-                      <th style={{ padding: '12px' }}>Fotós</th>
-                      <th style={{ padding: '12px' }}>Klub</th>
-                      <th style={{ padding: '12px', textAlign: 'right' }}>Értékelés</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sortedEntries.map((entry, idx) => (
-                      <tr key={entry.id} style={{ borderBottom: '1px solid #1e293b', color: '#cbd5e1', fontSize: '0.95rem' }}>
-                        <td style={{ padding: '12px', fontWeight: 'bold' }}>#{idx + 1}</td>
-                        <td style={{ padding: '12px', color: 'white', fontWeight: 'bold' }}>{entry.user_name}</td>
-                        <td style={{ padding: '12px' }}>{entry.club_name || '-'}</td>
-                        <td style={{ padding: '12px', textAlign: 'right', fontWeight: 'bold', color: idx === 0 ? '#fbbf24' : '#f97316' }}>
-                          {entry.fair_score !== undefined ? `${entry.fair_score} FP` : `${entry.likes_count} ⭐`}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div>
+                <div style={{ display: 'flex', gap: '20px', borderBottom: '1px solid #334155', paddingBottom: '10px', marginBottom: '25px', fontSize: '0.85rem' }}>
+                  {[
+                    { id: 'photo', label: t('archiveSubTabTopPhoto', 'TOP PHOTO') },
+                    { id: 'guru', label: t('archiveSubTabMasterPick', 'KÉPMESTER KIEMELÉS') }
+                  ].map(sTab => (
+                    <span key={sTab.id} onClick={() => setActiveRankSubTab(sTab.id as any)} style={{ color: activeRankSubTab === sTab.id ? '#38bdf8' : '#64748b', fontWeight: 'bold', cursor: 'pointer', borderBottom: activeRankSubTab === sTab.id ? '2px solid #38bdf8' : 'none', paddingBottom: '11px', marginBottom: '-11px', transition: 'all 0.2s' }}>
+                      {sTab.label}
+                    </span>
+                  ))}
+                </div>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                  {/* 🎯 JAVÍTVA: Itt az eredeti sortedEntries hivatkozást átírtuk a useMemo-ban kiszámolt singlePhotosRankedList tömbre! */}
+                  {activeRankSubTab === 'photo' ? (
+                    singlePhotosRankedList.map((entry, idx) => {
+                      const photoScore = entry.fair_score !== undefined ? entry.fair_score : (entry.archive_likes || entry.likes_count || 0);
+                      
+                      return (
+                        <div key={entry.id} style={{ display: 'flex', alignItems: 'center', background: '#0f172a', padding: '12px 20px', borderRadius: '14px', border: '1px solid #223147' }}>
+                          <div style={{ fontSize: '1.2rem', fontWeight: '900', width: '40px', color: '#64748b' }}>#{idx + 1}</div>
+                          <img src={getImageUrl(entry.drive_file_id, entry.file_url)} onClick={() => setFullscreenData({ url: getImageUrl(entry.drive_file_id, entry.file_url), title: `${entry.title || 'Kép'} (${entry.user_name})` })} alt="" style={{ width: '55px', height: '55px', objectFit: 'cover', borderRadius: '8px', margin: '0 15px', cursor: 'zoom-in' }} onError={handleLocalImageError} />
+                          <div style={{ flex: 1 }}>
+                            <strong style={{ color: 'white', display: 'block', fontSize: '1rem' }}>{entry.user_name}</strong>
+                            <span style={{ color: '#64748b', fontSize: '0.8rem' }}>
+                              {computeArchiveRank(entry.rank_level, Number(photoScore))} {entry.title ? `• "${entry.title}"` : ''}
+                            </span>
+                          </div>
+                          <div style={{ color: '#f97316', fontWeight: '900', fontSize: '1.1rem' }}>
+                            {entry.fair_score !== undefined ? `${entry.fair_score} pont` : `${entry.likes_count} ⭐`}
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    guruTopPicksList.map(entry => (
+                      <div key={entry.id} style={{ display: 'flex', alignItems: 'center', background: '#0f172a', padding: '12px 20px', borderRadius: '14px', border: '1px solid #a78bfa30' }}>
+                        <div style={{ fontSize: '1.2rem', color: '#a78bfa', width: '30px', fontWeight: 'bold' }}>✨</div>
+                        <img src={getImageUrl(entry.drive_file_id, entry.file_url)} onClick={() => setFullscreenData({ url: getImageUrl(entry.drive_file_id, entry.file_url), title: `${entry.title || 'Kép'} (${entry.user_name})` })} alt="" style={{ width: '55px', height: '55px', objectFit: 'cover', borderRadius: '6px', margin: '0 15px', cursor: 'zoom-in' }} onError={handleLocalImageError} />
+                        <div style={{ flex: 1 }}>
+                          <strong style={{ color: 'white', display: 'block', fontSize: '1rem' }}>{entry.user_name}</strong>
+                          <span style={{ color: '#94a3b8', fontSize: '0.8rem' }}>{t('archiveHighlightedByMaster', 'Kiemelte a Képmester')}</span>
+                        </div>
+                        <div style={{ color: '#a78bfa', fontWeight: '900', fontSize: '1.1rem' }}>Mesteri választás</div>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
             )}
 
@@ -452,7 +483,7 @@ export default function PastArchive({
             <div style={{ position: 'absolute', top: '-100px', left: '-100px', width: '400px', height: '400px', background: '#fbbf24', filter: 'blur(180px)', opacity: 0.1, borderRadius: '50%' }}></div>
             <div style={{ position: 'absolute', bottom: '-100px', right: '-100px', width: '400px', height: '400px', background: '#38bdf8', filter: 'blur(180px)', opacity: 0.1, borderRadius: '50%' }}></div>
 
-            <div style={{ textAlign: 'center', width: '100%' }}>
+            <div style={{ textalign: 'center', width: '100%' }}>
               <div style={{ color: '#fbbf24', fontSize: '26px', fontWeight: '900', letterSpacing: '6px', textTransform: 'uppercase', marginBottom: '15px' }}>
                 ✨ {t('archivePosterHeader', 'Challenge RESULTS')} ✨
               </div>
@@ -462,7 +493,7 @@ export default function PastArchive({
             </div>
 
             <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: '35px', width: '100%', padding: '0 20px', boxSizing: 'border-box' }}>
-              {/* 🥈 2. HELYEZETT */}
+              {/* 2. HELYEZETT */}
               {adminPosterData.entries[1] && (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '290px' }}>
                   <div style={{ width: '240px', height: '240px', borderRadius: '16px', overflow: 'hidden', border: '6px solid #cbd5e1', boxShadow: '0 20px 45px rgba(0,0,0,0.6)', backgroundColor: '#000', marginBottom: '15px' }}>
@@ -478,7 +509,7 @@ export default function PastArchive({
                 </div>
               )}
 
-              {/* 🥇 1. HELYEZETT */}
+              {/* 1. HELYEZETT */}
               {adminPosterData.entries[0] && (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '330px', zIndex: 10 }}>
                   <div style={{ fontSize: '70px', marginBottom: '-10px', filter: 'drop-shadow(0 4px 10px rgba(251,191,36,0.5))' }}>👑</div>
@@ -495,7 +526,7 @@ export default function PastArchive({
                 </div>
               )}
 
-              {/* 🥉 3. HELYEZETT */}
+              {/* 3. HELYEZETT */}
               {adminPosterData.entries[2] && (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '290px' }}>
                   <div style={{ width: '240px', height: '240px', borderRadius: '16px', overflow: 'hidden', border: '6px solid #b45309', boxShadow: '0 20px 45px rgba(0,0,0,0.6)', backgroundColor: '#000', marginBottom: '15px' }}>
