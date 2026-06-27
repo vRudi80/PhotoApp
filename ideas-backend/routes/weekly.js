@@ -375,11 +375,11 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
       const isMasterUser = currentTopic.master_email && userEmail && currentTopic.master_email.toLowerCase().trim() === userEmail.toLowerCase().trim();
 
-      let masterVotesLeft = 0;
-      if (isMasterUser) {
-        const [masterVotesCount] = await pool.query("SELECT COUNT(*) as count FROM weekly_votes v JOIN weekly_entries e ON v.entry_id = e.id WHERE e.topic_id = ? AND v.voter_email = ? AND v.vote_type = 'master'", [currentTopic.id, userEmail]);
-        masterVotesLeft = Math.max(0, 5 - (masterVotesCount[0]?.count || 0));
-      }
+    
+
+      // 🎯 JAVÍTVA: Mivel nincs limit, fixen 999-et küldünk vissza, így a frontend sosem fogja letiltani a gombot
+      let masterVotesLeft = isMasterUser ? 999 : 0;
+
 
       const [myEntries] = await pool.query('SELECT * FROM weekly_entries WHERE topic_id = ? AND user_email = ? AND is_active = 1', [currentTopic.id, userEmail]);
       const [myPastEntries] = await pool.query('SELECT * FROM weekly_entries WHERE topic_id = ? AND user_email = ? AND is_active = 0 ORDER BY id DESC', [currentTopic.id, userEmail]);
@@ -827,22 +827,28 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { res.status(500).json({ error: 'Hiba a kép lekérésekor' }); }
   });
 
-    app.post('/api/weekly/vote', async (req, res) => {
+      // ====================================================================
+  // 🗳️ JAVÍTVA ÉS KORLÁTLANÍTVA: SZAVAZATOT FELDOLGOZÓ VÉGPONT
+  // ====================================================================
+  app.post('/api/weekly/vote', async (req, res) => {
     const { entryId, userEmail, voteType } = req.body; 
     const conn = await pool.getConnection();
     try {
       await conn.beginTransaction();
       
+      // 1. Duplikáció ellenőrzése
       const [existing] = await conn.query('SELECT id FROM weekly_votes WHERE entry_id = ? AND voter_email = ?', [entryId, userEmail]);
       if (existing.length > 0) { 
         await conn.rollback(); 
         return res.json({ success: false, message: 'Már szavaztál!' }); 
       }
 
+      // 2. Forduló (szoba) azonosító lekérése
       const [entryTopicRows] = await conn.query('SELECT topic_id FROM weekly_entries WHERE id = ?', [entryId]);
       const topicId = entryTopicRows[0]?.topic_id;
 
-      const [topicRows] = await pool.query('SELECT master_email FROM weekly_topics WHERE id = ?', [topicId]);
+      // 3. Csatabíró jogosultság ellenőrzése (pool helyett conn-al a tranzakció-biztonságért)
+      const [topicRows] = await conn.query('SELECT master_email FROM weekly_topics WHERE id = ?', [topicId]);
       const assignedMasterEmail = topicRows[0]?.master_email;
       
       const isRealMasterOfThisRoom = 
@@ -853,41 +859,35 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       const finalVoteType = voteType;
       let calculatedPoints = 0;
 
+      // 4. Pontszámok kalkulációja típus szerint
       if (finalVoteType === 'pass') {
         calculatedPoints = 0;
       } 
       else if (finalVoteType === 'master') {
+        // 🎯 JAVÍTVA: Az 5-ös limit számlálója és korlátozása örökre törölve!
         if (!isRealMasterOfThisRoom) {
           await conn.rollback();
           return res.status(403).json({ error: 'Nem te vagy a csata kijelölt Csatabírója!' });
         }
-
-        const [masterVotesCount] = await conn.query(`
-          SELECT COUNT(*) as count FROM weekly_votes v 
-          JOIN weekly_entries e ON v.entry_id = e.id 
-          WHERE e.topic_id = ? AND v.voter_email = ? AND v.vote_type = 'master'
-        `, [topicId, userEmail]);
-        
-        if ((masterVotesCount[0]?.count || 0) >= 5) {
-          await conn.rollback();
-          return res.status(400).json({ error: 'Már elhasználtad mind az 5 Csatabíró szavazatodat!' });
-        }
-
         calculatedPoints = 10; 
       } 
       else {
+        // Rang alapú szavazati erő lekérése
         const { totalLikes, victories } = await getUserLikesAndVictories(conn, userEmail);
         const level = calculateRankLevel(totalLikes, victories);
         const power = getVotePowerByLevel(level);
         calculatedPoints = finalVoteType === 'super' ? power.super : power.brilliant;
       }
 
+      // 5. Voks mentése és a kép számlálóinak frissítése
       await conn.query('INSERT INTO weekly_votes (entry_id, voter_email, vote_type) VALUES (?, ?, ?)', [entryId, userEmail, finalVoteType]);
       await conn.query('UPDATE weekly_entries SET views_count = views_count + 1, likes_count = likes_count + ? WHERE id = ?', [calculatedPoints, entryId]);
 
+      // 6. Ha a kép pontot kapott, ellenőrizzük, hogy a kép tulajdonosa szintet lépett-e
       if (calculatedPoints > 0) {
         const [entryRows] = await conn.query('SELECT user_email FROM weekly_entries WHERE id = ?', [entryId]);
         if (entryRows[0]?.user_email) {
+          // A checkAndAwardLevelUp belső scope-hibája javítva lett, így már sikeresen lefut
           await checkAndAwardLevelUp(conn, entryRows[0].user_email);
         }
       }
@@ -896,13 +896,13 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       res.json({ success: true, savedAs: finalVoteType });
     } catch (err) { 
       await conn.rollback(); 
-      // 🎯 ÚJ: Kiíratjuk a konzolra a pontos hiba okát, ha valami elszállna
       console.error("❌ Kritikus hiba a szavazat feldolgozásakor:", err);
       res.status(500).json({ error: 'Hiba a szavazat feldolgozásakor.' }); 
     } finally { 
       conn.release(); 
     }
   });
+
 
 
   app.post('/api/weekly/claim-referral', async (req, res) => {
