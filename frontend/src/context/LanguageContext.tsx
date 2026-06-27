@@ -66,6 +66,14 @@ tilePodcastDesc: 'Hallgass bennünket aktuális fotós témákról',
   "modalBackToAlbum": "Vissza a képalbumhoz",
   "modalLoadMore": "További képek betöltése...",
 
+    "helpFairScoreTitle": "Kiegyensúlyozott Pontrendszer (Fair Score)",
+"helpFairScoreIntro": "A maximális igazságosság érdekében az Aréna rangsorolása nem a puszta csillagok összegén, hanem az értékelések minőségi arányán alapul, amit két komoly védelmi vonal biztosít:",
+"helpFairScoreAnchorTitle": "1. A Biztonsági Horgony (+10 Laplace-simítás)",
+"helpFairScoreAnchorDesc": "Kiszűri az alacsony nézettségű képek szerencsefaktorát. Ha egy képet csak 1 ember látott és adott rá 3 pontot, az nem fogja megelőzni azt a stabil művet, ami 7 megtekintésből gyűjtött 31 pontot. Az algoritmus virtuálisan +10 megtekintést és +10 csillagot ad minden képhez alapként, kiegyenlítve a kezdeti ingadozásokat.",
+"helpFairScoreDisciplineTitle": "2. Szavazási Fegyelem (Progresszív büntetés)",
+"helpFairScoreDisciplineDesc": "A taktikázás elkerülése végett a szavazás kötelező. Egyetlen szavazat elszalasztása csak minimális levonással jár (-0.5 FP). Ha viszont valaki egyáltalán nem szavaz a többiekre (pl. 7 hiányzó szavazat), a büntetés hatványozottan megugrik (~9.26 pont levonás), ami kíméletlenül a szoba aljára veti vissza a képet.",
+"helpFairScoreExample": "Példa: Az 'A' kép 22 csillagot kap 7 nézettségből, de a tulajdonos egyet sem szavaz le. A 'B' kép 11 csillagot kap 7 nézettségből, és hibátlanul szavaz. A 'B' kép megelőzi az 'A'-t, mert a mulasztó fotós pontjait felemészti a hatványozott büntetés!",
+
     "adminTitle": "⚔️ Kihívás kezelő központ",
   "adminSubtitle": "A rendszer automatikusan indítja el az elfogadott kihívásokat, amint elérkezik a kezdő dátumuk!",
   "adminSuspiciousDetected": "Gyanús Tevékenységek Detektálva!",
@@ -866,6 +874,17 @@ tilePodcastDesc: 'Hallgass bennünket aktuális fotós témákról',
     profPremiumExpiredOn: 'Expired On',
     profFreeTier: 'Free Tier Account',
     profFreeTierDesc: 'Limited features active',
+
+    
+"helpFairScoreTitle": "Balanced Scoring System (Fair Score)",
+"helpFairScoreIntro": "To ensure maximum fairness, ranking points are not based on absolute stars, but rather on the quality ratio of the feedback, protected by two key mechanisms:",
+"helpFairScoreAnchorTitle": "1. The Safety Anchor (+10 Laplace Smoothing)",
+"helpFairScoreAnchorDesc": "Prevents luck-based spikes from low view counts. If a photo has been viewed only once and received 3 stars, it won't instantly beat a high-quality photo with 31 stars across 7 views. The algorithm adds an invisible 10 views and 10 stars to every entry, neutralizing early fluctuations.",
+"helpFairScoreDisciplineTitle": "2. Voting Discipline (Progressive Penalty)",
+"helpFairScoreDisciplineDesc": "To avoid tactical exploitation, voting is mandatory. Forgetting a single vote incurs a small penalty (-0.5 FP). However, ignoring all required votes triggers an exponential reduction (~9.26 points deduction), dropping the entry straight to the bottom of the room.",
+"helpFairScoreExample": "Example: Photo A gets 22 stars from 7 views but the owner skips voting. Photo B gets 11 stars from 7 views and votes cleanly. Photo B will rank higher because Photo A loses its edge due to the strict progressive penalty!",
+
+
 
     tilePodcastTitle: 'Képolvasók Podcast',
 tilePodcastDesc: 'Listen our podcast of fresh topics',
