@@ -1090,8 +1090,8 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   // ====================================================================
   app.get('/api/weekly/my-stats', async (req, res) => {
     try {
-      // Beolvassuk a paramétereket
-      let userEmail = req.query.userEmail || req.query.email;
+     // 🎯 CSERÉLD KI EZT AZ EGY SORT AZ EREDETI VÉGPONTOD TETEJÉN:
+const email = req.query.userEmail || req.query.email || req.user?.email;
 
       // 🎯 VÉDELEM: Ha a frontend hibásan az "undefined" vagy "null" szót küldte át sztringként,
       // vagy egyáltalán nem küldött semmit, akkor biztonságosan visszaesünk a bejelentkezett felhasználóra!
