@@ -1200,10 +1200,9 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // 🏆 POST ALAPÚ DEDIKÁLT VÉGPONT: KIZÁRÓLAG A DICSŐSÉGCSARNOKHOZ
+  // 🏆 SZUPEROPTIMALIZÁLT POST VÉGPONT: KIZÁRÓLAG A DICSŐSÉGCSARNOKHOZ
   // ====================================================================
   app.post('/api/weekly/hof-stats', async (req, res) => {
-    // A POST body-ból olvassuk ki, így garantáltan tiszta, kódolatlan stringet kapunk
     let userEmail = req.body.userEmail;
 
     if (!userEmail) {
@@ -1215,53 +1214,71 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     try {
       const currentNow = getLocalMySQLNow();
 
-      // Lekérjük a lezárt kihívásokat függetlenül a státuszuktól
-      const [pastTopics] = await pool.query(
-        "SELECT * FROM weekly_topics WHERE end_date < ? AND (status = 'approved' OR status IS NULL OR status = '') ORDER BY end_date DESC",
-        [currentNow]
-      );
-      
+      // 🎯 1. LÉPÉS: Lekérjük CSAK az adott felhasználó pályaműveit a lezárt futamokból (Villámgyors indexelt scan)
+      const [userEntries] = await pool.query(`
+        SELECT 
+          e.id, e.topic_id, e.file_url, e.drive_file_id, e.likes_count, e.views_count, e.user_name,
+          t.title AS topic_title,
+          COALESCE(t.title_en, t.title) AS topic_title_en,
+          t.start_date, t.end_date,
+          ${getFairScoreSql('e', 't')} AS fair_score
+        FROM weekly_entries e
+        JOIN weekly_topics t ON e.topic_id = t.id
+        WHERE LOWER(TRIM(e.user_email)) = LOWER(TRIM(?))
+          AND e.is_active = 1
+          AND t.end_date < ?
+        ORDER BY t.end_date DESC
+      `, [cleanEmail, currentNow]);
+
       let podiums = { first: 0, second: 0, third: 0 };
       let history = [];
 
-      for (const topic of pastTopics) {
-        // Letöltjük a szoba összes aktív nevezését a hivatalos sorrendben
-        const [entries] = await pool.query(`
-          SELECT e.id, e.user_email, e.user_name, e.file_url, e.drive_file_id, e.likes_count, e.views_count,
-                 ${getFairScoreSql('e', 't')} as fair_score
-          FROM weekly_entries e
-          JOIN weekly_topics t ON e.topic_id = t.id
-          WHERE e.topic_id = ? AND e.is_active = 1 
-          ORDER BY fair_score DESC, e.likes_count DESC, e.views_count ASC
-        `, [topic.id]);
+      // 🎯 2. LÉPÉS: Csak azokon a témákon megyünk végig, ahol a felhasználónak VALÓBAN van képe!
+      for (const entry of userEntries) {
+        
+        // Megszámoljuk, hányan értek el jobb eredményt nála ebben a konkrét szobában
+        const [rankRows] = await pool.query(`
+          SELECT COUNT(*) AS ahead
+          FROM weekly_entries e2
+          JOIN weekly_topics t2 ON e2.topic_id = t2.id
+          WHERE e2.topic_id = ? 
+            AND e2.is_active = 1
+            AND (
+              ${getFairScoreSql('e2', 't2')} > ?
+              OR (${getFairScoreSql('e2', 't2')} = ? AND e2.likes_count > ?)
+              OR (${getFairScoreSql('e2', 't2')} = ? AND e2.likes_count = ? AND e2.views_count < ?)
+            )
+        `, [entry.topic_id, entry.fair_score, entry.fair_score, entry.likes_count, entry.fair_score, entry.likes_count, entry.views_count]);
 
-        // Megkeressük a fotós helyezését (pontosan úgy, mint a Trophy Room-ban)
-        const userIndex = entries.findIndex(e => 
-          e.user_email && 
-          String(e.user_email).trim().toLowerCase() === cleanEmail
+        // Lekérjük a szoba teljes létszámát
+        const [totalRows] = await pool.query(
+          "SELECT COUNT(*) AS total FROM weekly_entries WHERE topic_id = ? AND is_active = 1",
+          [entry.topic_id]
         );
 
-        if (userIndex !== -1) {
-          const rank = userIndex + 1;
-          const entry = entries[userIndex];
-          if (rank === 1) podiums.first++; else if (rank === 2) podiums.second++; else if (rank === 3) podiums.third++;
+        const rank = (rankRows[0]?.ahead || 0) + 1;
+        const totalEntries = totalRows[0]?.total || 1;
 
-          history.push({
-            topic_title: topic.title,
-            topic_title_en: topic.title_en || topic.title, 
-            start_date: topic.start_date,
-            end_date: topic.end_date,
-            rank: rank,
-            total_entries: entries.length,
-            file_url: entry.file_url,
-            drive_file_id: entry.drive_file_id,
-            likes: entry.fair_score, 
-            views: entry.views_count,
-            user_name: entry.user_name 
-          });
-        }
+        if (rank === 1) podiums.first++;
+        else if (rank === 2) podiums.second++;
+        else if (rank === 3) podiums.third++;
+
+        history.push({
+          topic_title: entry.topic_title,
+          topic_title_en: entry.topic_title_en,
+          start_date: entry.start_date,
+          end_date: entry.end_date,
+          rank: rank,
+          total_entries: totalEntries,
+          file_url: entry.file_url,
+          drive_file_id: entry.drive_file_id,
+          likes: entry.fair_score,
+          views: entry.views_count,
+          user_name: entry.user_name
+        });
       }
 
+      // Visszaküldjük a tiszta adatokat a frontendnek
       res.json({
         podiums: podiums,
         history: history
@@ -1269,7 +1286,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
     } catch (err) {
       console.error("❌ Kritikus hiba a hof-stats lekérésekor:", err.message);
-      res.status(500).json({ error: 'Hiba a statisztikák összeállításakor.' }); 
+      res.status(500).json({ error: 'Hiba a statisztikák összeállításakor.' });
     }
   });
 
