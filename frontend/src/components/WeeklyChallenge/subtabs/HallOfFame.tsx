@@ -71,10 +71,11 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
   }
 
   const handleUserClick = async (row: any) => {
+    setSelectedUser(row);
     const targetEmail = selectedUser?.user_email || selectedUser?.email;
     if (!targetEmail) return;
 
-    setSelectedUser(row);
+    
     setStatsLoading(true);
     setPlayerStats(null);
     try {
