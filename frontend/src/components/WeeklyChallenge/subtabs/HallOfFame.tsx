@@ -32,7 +32,7 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
   
   const { t, lang } = useLanguage();
 
-  // Felugró ablak (Modal) állapotai
+  // 🎯 Állapotok a felugró ablakhoz (Modal)
   const [selectedUser, setSelectedUser] = useState<any | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [playerStats, setPlayerStats] = useState<any | null>(null);
@@ -64,7 +64,7 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
     return <div style={{ color: '#64748b', textAlign: 'center', padding: '20px' }}>{t('hofEmpty')}</div>;
   }
 
-  // Kattintáskor meghívódó statisztika-lekérő
+  // 🎯 Kattintáskor betöltjük a kiválasztott játékos trófeáit
   const handleUserClick = async (row: any) => {
     const targetEmail = row.user_email || row.email;
     if (!targetEmail) return;
@@ -77,7 +77,7 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
       const res = await axios.get(`/api/weekly/my-stats?userEmail=${encodeURIComponent(targetEmail)}`);
       setPlayerStats(res.data);
     } catch (err) {
-      console.error('Hiba a játékos adatainak letöltésekor:', err);
+      console.error('Hiba az adatok lekérésekor:', err);
     } finally {
       setStatsLoading(false);
     }
@@ -109,7 +109,7 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
           return (
             <div 
               key={rowEmail || index} 
-              onClick={() => handleUserClick(row)}
+              onClick={() => handleUserClick(row)} // 🎯 Kattinthatóvá tesszük a sort
               style={{ 
                 display: 'flex', 
                 alignItems: 'center', 
@@ -130,7 +130,7 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
               </div>
 
               {/* Felhasználói Profilkép */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyStyle: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <img 
                   src={row.avatar_url || silhouetteAvatar} 
                   alt="" 
@@ -180,12 +180,13 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
       </div>
 
       {/* ==================================================================== */}
-      {/* 🎯 JÁTÉKOS TRÓFEATEREM MODAL (MEGEGYEZIK A SAJÁT TRÓFEATEREM DIZÁJNJÁVAL) */}
+      {/* 🎯 JÁTÉKOS TRÓFEATEREM MODAL (HAJSZÁLPONTOSAN A TROPHYROOM MÁSOLATA) */}
       {/* ==================================================================== */}
       {modalOpen && selectedUser && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vw', minHeight: '100vh', background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(6px)', zIndex: 9999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px', boxSizing: 'border-box' }}>
-          <div style={{ background: '#0f172a', border: '1px solid #334155', borderRadius: '24px', width: '100%', maxWidth: '650px', maxHeight: '85vh', overflowY: 'auto', padding: '30px', position: 'relative' }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(6px)', zIndex: 9999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px', boxSizing: 'border-box' }}>
+          <div style={{ background: '#0f172a', border: '1px solid #334155', borderRadius: '24px', width: '100%', maxWidth: '620px', maxHeight: '85vh', overflowY: 'auto', padding: '30px', position: 'relative' }}>
             
+            {/* Bezárás gomb */}
             <button 
               onClick={() => { setModalOpen(false); setSelectedUser(null); setPlayerStats(null); }}
               style={{ position: 'absolute', top: '15px', right: '15px', background: '#1e293b', border: 'none', color: '#94a3b8', width: '35px', height: '35px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
@@ -193,20 +194,20 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
               ✖
             </button>
 
-            {/* Profil adatok */}
+            {/* Profil fejléc */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '15px', borderBottom: '1px solid #334155', paddingBottom: '15px', marginBottom: '20px' }}>
               <img 
                 src={selectedUser.avatar_url || silhouetteAvatar} 
                 alt="" 
-                style={{ width: '50px', height: '50px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #334155' }} 
+                style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #334155' }} 
               />
               <div>
-                <h3 style={{ color: 'white', margin: 0, fontSize: '1.3rem', fontWeight: 'bold' }}>{selectedUser.user_name}</h3>
+                <h3 style={{ color: 'white', margin: 0, fontSize: '1.2rem', fontWeight: 'bold' }}>{selectedUser.user_name}</h3>
                 <p style={{ color: '#10b981', margin: '4px 0 0 0', fontSize: '0.85rem', fontWeight: 'bold' }}>{selectedUser.club_name || (lang === 'en' ? 'Independent Photographer' : 'Független fotós')}</p>
               </div>
             </div>
 
-            {/* Tartalom */}
+            {/* Trófeaterem tartalom */}
             {statsLoading ? (
               <div style={{ textAlign: 'center', padding: '40px 0', color: '#94a3b8' }}>
                 {lang === 'en' ? 'Opening Trophy Room...' : 'Trófeaterem berendezése...'}
@@ -214,7 +215,7 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
             ) : playerStats ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                 
-                {/* Trófeák darabszáma */}
+                {/* 🥇 🥈 🥉 Trófea számlálók (A TrophyRoom mintájára) */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '12px', textAlign: 'center' }}>
                   <div style={{ background: '#1e293b', padding: '12px', borderRadius: '14px', border: '1px solid #fbbf2430' }}>
                     <div style={{ fontSize: '1.6rem' }}>🥇</div>
@@ -233,10 +234,10 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
                   </div>
                 </div>
 
-                {/* Korábbi pályaművek listája (Hajszálpontosan másolva a TrophyRoom dizájnból) */}
+                {/* 📷 Korábbi pályaművek listája (Tűpontos TrophyRoom logika másolat) */}
                 <div>
                   <h4 style={{ color: '#94a3b8', marginBottom: '12px', fontSize: '1rem', fontWeight: 'bold' }}>
-                    📸 {lang === 'en' ? `Past Submissions (${playerStats.history?.length || 0})` : `Korábbi pályaművek (${playerStats.history?.length || 0} db)`}
+                    {lang === 'en' ? `Past Submissions (${playerStats.history?.length || 0})` : `Korábbi pályaművek (${playerStats.history?.length || 0} db)`}
                   </h4>
                   
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '40vh', overflowY: 'auto', paddingRight: '4px' }}>
@@ -246,7 +247,7 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
                         const rank = Number(entry?.rank) || 0;
                         const percentile = rank / totalEntries;
 
-                        // Jelvény logika a Trófeateremből
+                        // Jelvény és színmeghatározás szóról szóra a te TrophyRoom.tsx fájlodból:
                         let badge = ''; let badgeColor = '#334155';
                         if (rank === 1) { badge = lang === 'en' ? '1st Place 🏆' : '1. Hely 🏆'; badgeColor = '#fbbf24'; }
                         else if (rank === 2) { badge = lang === 'en' ? '2nd Place 🥈' : '2. Hely 🥈'; badgeColor = '#cbd5e1'; }
@@ -260,7 +261,7 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
                               <img 
                                 src={getImageUrl(entry?.drive_file_id, entry?.file_url)} 
                                 alt="" 
-                                style={{ width: '45px', height: '45px', borderRadius: '8px', objectFit: 'cover' }} 
+                                style={{ width: '45px', height: '45px', borderRadius: '8px', objectFit: 'cover', border: '1px solid #334155' }} 
                               />
                               <div>
                                 <div style={{ fontSize: '0.85rem', color: '#f8fafc', fontWeight: 'bold' }}>{entry?.topic_title}</div>
@@ -272,6 +273,7 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
                               </div>
                             </div>
                             
+                            {/* Pontszámok (FP) kijelzése */}
                             <div style={{ textAlign: 'right', background: '#0f172a', padding: '6px 12px', borderRadius: '10px' }}>
                               <span style={{ color: '#f97316', fontWeight: '900', fontSize: '0.85rem' }}>⚡ {entry?.likes || 0} FP</span>
                             </div>
