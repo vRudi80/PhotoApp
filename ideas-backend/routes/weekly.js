@@ -1300,98 +1300,114 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   
+    // ====================================================================
+  // 🏆 SZUPERSTABIL ÉS HIVATALOS DICSŐSÉGCSARNOK RANGLISTA (GET)
+  // ====================================================================
   app.get('/api/weekly/hall-of-fame', async (req, res) => {
     try {
       const currentNow = getLocalMySQLNow();
 
-      const [rows] = await pool.query(`
-        SELECT 
-          u.name as user_name, 
-          u.email as user_email, 
-          u.club_name,
-          u.avatar_url, 
-          c.drive_logo_id, 
-          c.logo_url,      
-          COALESCE(SUM(IF(e.is_active = 1 OR t.end_date < ?, e.likes_count, 0)), 0) as total_likes,
-          
-          (
-            SELECT COUNT(*) 
-            FROM weekly_entries e1
-            WHERE e1.user_email = u.email 
-              AND e1.is_active = 1
-              AND e1.topic_id IN (SELECT id FROM weekly_topics WHERE end_date < ?)
-              AND e1.id = (
-                SELECT e2.id 
-                FROM weekly_entries e2
-                WHERE e2.topic_id = e1.topic_id AND e2.is_active = 1
-                ORDER BY e2.likes_count DESC, e2.views_count ASC
-                LIMIT 1
-              )
-          ) AS first_places,
+      // 1. Lekérjük kizárólag a hivatalosan jóváhagyott és lezárt kihívásokat
+      const [pastTopics] = await pool.query(
+        "SELECT id FROM weekly_topics WHERE end_date < ? AND status = 'approved'",
+        [currentNow]
+      );
 
-          (
-            SELECT COUNT(*)
-            FROM weekly_entries e1
-            WHERE e1.user_email = u.email
-              AND e1.is_active = 1
-              AND e1.topic_id IN (SELECT id FROM weekly_topics WHERE end_date < ?)
-              AND (
-                SELECT COUNT(*) 
-                FROM weekly_entries e2 
-                WHERE e2.topic_id = e1.topic_id 
-                  AND e2.is_active = 1 
-                  AND (e2.likes_count > e1.likes_count OR (e2.likes_count = e1.likes_count AND e2.views_count < e1.views_count))
-              ) < 3
-          ) AS podiums
-
-        FROM photo_users u
-        LEFT JOIN weekly_entries e ON u.email = e.user_email
-        LEFT JOIN weekly_topics t ON e.topic_id = t.id
-        LEFT JOIN photo_clubs c ON u.club_name = c.name
-        GROUP BY u.email, u.name, u.club_name, c.drive_logo_id, c.logo_url, u.avatar_url 
-        HAVING total_likes > 0
-        ORDER BY total_likes DESC, u.name ASC
-      `, [currentNow, currentNow, currentNow]);
-      
-      res.json(rows);
-    } catch (err) {
-      console.error("Hiba a dicsőségfal lekérésekor, fallback indítása:", err.message);
-      
-      try {
-        const currentNow = getLocalMySQLNow();
-        const [fallbackRows] = await pool.query(`
-          SELECT 
-            u.name as user_name, 
-            u.email as user_email, 
-            u.club_name,
-            u.avatar_url, 
-            NULL as drive_logo_id,
-            NULL as logo_url,
-            COALESCE(SUM(IF(e.is_active = 1 OR t.end_date < ?, e.likes_count, 0)), 0) as total_likes,
-            
-            (
-              SELECT COUNT(*) FROM weekly_entries e1 
-              WHERE e1.user_email = u.email AND e1.is_active = 1 AND e1.topic_id IN (SELECT id FROM weekly_topics WHERE end_date < ?)
-              AND e1.id = (SELECT e2.id FROM weekly_entries e2 WHERE e2.topic_id = e1.topic_id AND e2.is_active = 1 ORDER BY e2.likes_count DESC, e2.views_count ASC LIMIT 1)
-            ) AS first_places,
-            
-            (
-              SELECT COUNT(*) FROM weekly_entries e1
-              WHERE e1.user_email = u.email AND e1.is_active = 1 AND e1.topic_id IN (SELECT id FROM weekly_topics WHERE end_date < ?)
-              AND (SELECT COUNT(*) FROM weekly_entries e2 WHERE e2.topic_id = e1.topic_id AND e2.is_active = 1 AND (e2.likes_count > e1.likes_count OR (e2.likes_count = e1.likes_count AND e2.views_count < e1.views_count)))) < 3
-            ) AS podiums
-
-          FROM photo_users u
-          LEFT JOIN weekly_entries e ON u.email = e.user_email
-          LEFT JOIN weekly_topics t ON e.topic_id = t.id
-          GROUP BY u.email, u.name, u.club_name, u.avatar_url 
-          HAVING total_likes > 0
-          ORDER BY total_likes DESC, u.name ASC
-        `, [currentNow, currentNow, currentNow]);
-        res.json(fallbackRows);
-      } catch (fallbackErr) {
-        res.status(500).json({ error: 'Hiba a dicsőségcsarnok lekérésekor' });
+      if (pastTopics.length === 0) {
+        return res.json([]);
       }
+
+      const topicIds = pastTopics.map(t => t.id);
+
+      // 2. Lekérjük az összes aktív pályaművet a hivatalos Fair Score pontszámmal együtt
+      const [allEntries] = await pool.query(`
+        SELECT e.id, e.topic_id, e.user_email, e.likes_count, e.views_count,
+               ${getFairScoreSql('e', 't')} as fair_score
+        FROM weekly_entries e
+        JOIN weekly_topics t ON e.topic_id = t.id
+        WHERE e.topic_id IN (?) AND e.is_active = 1
+      `, [topicIds]);
+
+      // Csoportosítjuk a nevezéseket témák szerint a helyezések kiszámításához
+      const entriesByTopic = {};
+      allEntries.forEach(entry => {
+        if (!entriesByTopic[entry.topic_id]) {
+          entriesByTopic[entry.topic_id] = [];
+        }
+        entriesByTopic[entry.topic_id].push(entry);
+      });
+
+      const userStats = {};
+
+      // Minden témán belül meghatározzuk a tűpontos sorrendet
+      Object.keys(entriesByTopic).forEach(topicId => {
+        const entries = entriesByTopic[topicId];
+        
+        // Sorba rendezés a PhotAwesome hivatalos szabályzata szerint
+        entries.sort((a, b) => {
+          if (Number(b.fair_score) !== Number(a.fair_score)) return Number(b.fair_score) - Number(a.fair_score);
+          if (Number(b.likes_count) !== Number(a.likes_count)) return Number(b.likes_count) - Number(a.likes_count);
+          return Number(a.views_count) - Number(b.views_count);
+        });
+
+        // Helyezések kiosztása standard competition-ranking (1, 2, 2, 4) elv alapján
+        entries.forEach((entry, index) => {
+          let rank = index + 1;
+          
+          if (index > 0) {
+            const prev = entries[index - 1];
+            if (Number(entry.fair_score) === Number(prev.fair_score) &&
+                Number(entry.likes_count) === Number(prev.likes_count) &&
+                Number(entry.views_count) === Number(prev.views_count)) {
+              rank = prev.rank;
+            }
+          }
+
+          const email = String(entry.user_email).trim().toLowerCase();
+          if (!userStats[email]) {
+            userStats[email] = { total_likes: 0, first_places: 0, podiums: 0 };
+          }
+
+          // Összegezzük a teljesítményt
+          userStats[email].total_likes += Number(entry.fair_score || 0);
+          if (rank === 1) userStats[email].first_places++;
+          if (rank <= 3) userStats[email].podiums++;
+        });
+      });
+
+      // 3. Lekérjük a regisztrált felhasználók és klubjaik adatait
+      const [users] = await pool.query(`
+        SELECT u.name as user_name, u.email as user_email, u.club_name, u.avatar_url,
+               c.drive_logo_id, c.logo_url
+        FROM photo_users u
+        LEFT JOIN photo_clubs c ON u.club_name = c.name
+      `);
+
+      // Összefésüljük a profilokat a frissen kiszámított valós éremadatokkal
+      const leaderboard = users.map(u => {
+        const email = String(u.user_email).trim().toLowerCase();
+        const stats = userStats[email] || { total_likes: 0, first_places: 0, podiums: 0 };
+
+        return {
+          user_name: u.user_name,
+          user_email: u.user_email,
+          club_name: u.club_name,
+          avatar_url: u.avatar_url,
+          drive_logo_id: u.drive_logo_id,
+          logo_url: u.logo_url,
+          total_likes: Math.round(stats.total_likes * 100) / 100,
+          first_places: stats.first_places,
+          podiums: stats.podiums
+        };
+      })
+      .filter(u => u.total_likes > 0) // Csak azokat jelenítjük meg, akiknek van érvényes lezárt pontjuk
+      .sort((a, b) => b.total_likes - a.total_likes || a.user_name.localeCompare(b.user_name));
+
+      res.json(leaderboard);
+
+    } catch (err) {
+      console.error("❌ Kritikus hiba a dicsőségcsarnok generálásakor:", err.message);
+      res.status(500).json({ error: 'Hiba a dicsőségcsarnok lekérésekor' });
     }
   });
 
