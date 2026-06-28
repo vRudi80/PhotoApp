@@ -1200,27 +1200,22 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // 🏆 ÚJ, DEDIKÁLT VÉGPONT: KIZÁRÓLAG A DICSŐSÉGCSARNOK KÜLSŐ JÁTÉKOSAIHOZ
+  // 🏆 POST ALAPÚ DEDIKÁLT VÉGPONT: KIZÁRÓLAG A DICSŐSÉGCSARNOKHOZ
   // ====================================================================
-  app.get('/api/weekly/hof-stats', async (req, res) => {
-    let userEmail = req.query.userEmail;
+  app.post('/api/weekly/hof-stats', async (req, res) => {
+    // A POST body-ból olvassuk ki, így garantáltan tiszta, kódolatlan stringet kapunk
+    let userEmail = req.body.userEmail;
 
     if (!userEmail) {
       return res.status(400).json({ error: 'Hiányzó e-mail cím!' });
     }
 
-    // 🎯 URL-dekódolás és szabványosítás (kisbetűsítés, szóközmentesítés)
     let cleanEmail = String(userEmail).trim().toLowerCase();
-    if (cleanEmail.includes('%')) {
-      try { 
-        cleanEmail = decodeURIComponent(cleanEmail).trim().toLowerCase(); 
-      } catch(e) {}
-    }
 
     try {
       const currentNow = getLocalMySQLNow();
 
-      // Biztonságosan lekérjük a lezárt kihívásokat függetlenül a státuszuktól
+      // Lekérjük a lezárt kihívásokat függetlenül a státuszuktól
       const [pastTopics] = await pool.query(
         "SELECT * FROM weekly_topics WHERE end_date < ? AND (status = 'approved' OR status IS NULL OR status = '') ORDER BY end_date DESC",
         [currentNow]
@@ -1230,7 +1225,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       let history = [];
 
       for (const topic of pastTopics) {
-        // 🎯 PONTOSAN AZ A LEKÉRDEZÉS, AMI A TROPHY ROOMBAN IS SIKERESEN FUT
         // Letöltjük a szoba összes aktív nevezését a hivatalos sorrendben
         const [entries] = await pool.query(`
           SELECT e.id, e.user_email, e.user_name, e.file_url, e.drive_file_id, e.likes_count, e.views_count,
@@ -1241,8 +1235,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
           ORDER BY fair_score DESC, e.likes_count DESC, e.views_count ASC
         `, [topic.id]);
 
-        // 🎯 PONTOSAN AZ A .findIndex CSODA, AMI A TE OLDALADAT IS KISZOLGÁLJA
-        // Végigmegyünk a letöltött listán, és megkeressük a kiválasztott játékos helyezését
+        // Megkeressük a fotós helyezését (pontosan úgy, mint a Trophy Room-ban)
         const userIndex = entries.findIndex(e => 
           e.user_email && 
           String(e.user_email).trim().toLowerCase() === cleanEmail
@@ -1269,7 +1262,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         }
       }
 
-      // Visszaküldjük az adatokat a frontendnek
       res.json({
         podiums: podiums,
         history: history
@@ -1280,6 +1272,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       res.status(500).json({ error: 'Hiba a statisztikák összeállításakor.' }); 
     }
   });
+
 
   
   app.get('/api/weekly/hall-of-fame', async (req, res) => {
