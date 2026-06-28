@@ -32,11 +32,12 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
   
   const { t, lang } = useLanguage();
 
-  // Állapotok a külön statisztika oldalhoz
+  // Állapotok a külön statisztika oldalhoz (Nincs felugró ablak!)
   const [selectedUser, setSelectedUser] = useState<any | null>(null);
   const [playerStats, setPlayerStats] = useState<any | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
 
+  // Biztonságos helyi sziluett avatar, ha valakinek nincs feltöltött profilképe
   const silhouetteAvatar = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23475569'><circle cx='12' cy='8' r='4'/><path d='M12 14c-6.1 0-10 4-10 4v2h20v-2s-3.9-4-10-4z'/></svg>";
 
   const rankNamesEn: Record<string, string> = {
@@ -85,9 +86,13 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
   };
 
   // ====================================================================
-  // 📸 1. OLDALNÉZET: EGY JÁTÉKOS STATISZTIKAI ADATLAPJA (TROPHYROOM MÁSOLAT)
+  // 📸 1. OLDALNÉZET: A KIVÁLASZTOTT JÁTÉKOS TISZTA STATISZTIKAI ADATLAPJA
   // ====================================================================
   if (selectedUser) {
+    const totalLikes = Number(selectedUser.total_likes) || 0;
+    const currentLevel = getLevelDetails(totalLikes, Number(selectedUser.first_places) || 0);
+    const displayRankName = lang === 'en' ? (rankNamesEn[currentLevel.name] || currentLevel.name) : currentLevel.name;
+
     return (
       <div style={{ animation: 'fadeIn 0.4s ease-out' }}>
         
@@ -97,66 +102,79 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
             onClick={() => { setSelectedUser(null); setPlayerStats(null); }}
             style={{ background: '#1e293b', border: '1px solid #334155', color: '#fbbf24', padding: '12px 24px', borderRadius: '14px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.95rem' }}
           >
-            {lang === 'en' ? '⬅ Back to Hall of Fame' : '⬅ Vissza a dicsőségcsarnokba'}
+            {lang === 'en' ? '⬅ Back to Leaderboard' : '⬅ Vissza a dicsőségcsarnokba'}
           </button>
         </div>
 
-        {/* Játékos profil fejléce */}
-        <div style={{ background: 'linear-gradient(180deg, #1e293b, #0f172a)', padding: '30px', borderRadius: '24px', border: '1px solid #334155', marginBottom: '30px', display: 'flex', alignItems: 'center', gap: '20px' }}>
-          <img 
-            src={selectedUser.avatar_url || silhouetteAvatar} 
-            alt="" 
-            style={{ width: '64px', height: '64px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #fbbf24', backgroundColor: '#090d16' }} 
-          />
-          <div>
-            <h1 style={{ color: 'white', margin: 0, fontSize: '1.8rem', fontWeight: '900' }}>{selectedUser.user_name}</h1>
-            <p style={{ color: '#10b981', margin: '6px 0 0 0', fontSize: '1rem', fontWeight: 'bold' }}>
-              {selectedUser.club_name || (lang === 'en' ? 'Independent Photographer' : 'Független fotós')}
-            </p>
+        {/* Játékos szint progressziós banner (Hajszálpontos TrophyRoom másolat!) */}
+        <div style={{ background: 'linear-gradient(180deg, #1e293b, #0f172a)', padding: '40px 25px', borderRadius: '24px', border: `1px solid ${currentLevel.color}50`, marginBottom: '25px', textAlign: 'center', boxShadow: `0 10px 40px -10px ${currentLevel.color}40`, position: 'relative', overflow: 'hidden' }}>
+          <div style={{ position: 'absolute', top: '-50px', left: '50%', transform: 'translateX(-50%)', width: '300px', height: '300px', background: `${currentLevel.color}20`, filter: 'blur(80px)', borderRadius: '50%' }}></div>
+          
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '15px', position: 'relative', zIndex: 1 }}>
+            <img 
+              src={selectedUser.avatar_url || silhouetteAvatar} 
+              alt="" 
+              style={{ width: '60px', height: '60px', borderRadius: '50%', objectFit: 'cover', border: `2px solid ${currentLevel.color}` }} 
+            />
+          </div>
+          
+          <h1 style={{ color: 'white', margin: '0 0 5px 0', fontSize: '1.8rem', fontWeight: '900', position: 'relative', zIndex: 1 }}>{selectedUser.user_name}</h1>
+          <p style={{ color: '#10b981', margin: '0 0 20px 0', fontSize: '0.9rem', fontWeight: 'bold', position: 'relative', zIndex: 1 }}>
+            {selectedUser.club_name || (lang === 'en' ? 'Independent Photographer' : 'Független fotós')}
+          </p>
+
+          <h3 style={{ color: '#94a3b8', margin: '0 0 5px 0', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '2px', position: 'relative', zIndex: 1 }}>{lang === 'en' ? 'RANK TIER' : 'FOTÓSMESTERI RANG'}</h3>
+          <h2 style={{ color: currentLevel.color, margin: '0 0 10px 0', fontSize: '2.2rem', fontWeight: '900', position: 'relative', zIndex: 1 }}>{displayRankName}</h2>
+          
+          <div style={{ marginTop: '10px', fontSize: '0.85rem', color: '#64748b', position: 'relative', zIndex: 1, fontWeight: 'bold' }}>
+            {lang === 'en' ? `Total Score: ${totalLikes.toFixed(1)} FP` : `Összesített teljesítmény: ${totalLikes.toFixed(1)} FP`}
           </div>
         </div>
 
-        {/* Adatok betöltése */}
+        {/* Adat letöltés vagy eredményrács */}
         {statsLoading ? (
           <div style={{ textAlign: 'center', padding: '60px 0' }}>
             <VideoLoader />
           </div>
-        ) : playerStats ? (
+        ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '35px' }}>
             
-            {/* Érem számlálók */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '15px', textAlign: 'center' }}>
+            {/* 🥇 🥈 🥉 Trófeák (Garantáltan a dicsőségfal valós adataiból táplálkozik, így Rudolfnál sem lesz 0!) */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(100px, 1fr))', gap: '15px', textAlign: 'center' }}>
               <div style={{ background: '#0f172a', padding: '20px', borderRadius: '20px', border: '1px solid #fbbf2440' }}>
                 <div style={{ fontSize: '2.2rem' }}>🥇</div>
-                <div style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 'bold', marginTop: '4px' }}>{lang === 'en' ? '1st Places' : 'Aranyérmek'}</div>
-                <div style={{ fontSize: '1.5rem', fontWeight: '900', color: '#fbbf24', marginTop: '4px' }}>{playerStats.podiums?.first || 0}</div>
+                <div style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 'bold', marginTop: '4px' }}>{lang === 'en' ? '1st Places' : 'Győzelmek'}</div>
+                <div style={{ fontSize: '1.5rem', fontWeight: '900', color: '#fbbf24', marginTop: '4px' }}>{selectedUser.first_places || 0}</div>
               </div>
-              <div style={{ background: '#0f172a', padding: '20px', borderRadius: '20px', border: '1px solid #cbd5e140' }}>
-                <div style={{ fontSize: '2.2rem' }}>🥈</div>
-                <div style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 'bold', marginTop: '4px' }}>{lang === 'en' ? '2nd Places' : 'Ezüstérmek'}</div>
-                <div style={{ fontSize: '1.5rem', fontWeight: '900', color: '#cbd5e1', marginTop: '4px' }}>{playerStats.podiums?.second || 0}</div>
+              <div style={{ background: '#0f172a', padding: '20px', borderRadius: '20px', border: '1px solid #38bdf840' }}>
+                <div style={{ fontSize: '2.2rem' }}>🏆</div>
+                <div style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 'bold', marginTop: '4px' }}>{lang === 'en' ? 'Total Podiums' : 'Dobogós helyezések'}</div>
+                <div style={{ fontSize: '1.5rem', fontWeight: '900', color: '#38bdf8', marginTop: '4px' }}>{selectedUser.podiums || 0}</div>
               </div>
-              <div style={{ background: '#0f172a', padding: '20px', borderRadius: '20px', border: '1px solid #cd7f3240' }}>
-                <div style={{ fontSize: '2.2rem' }}>🥉</div>
-                <div style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 'bold', marginTop: '4px' }}>{lang === 'en' ? '3rd Places' : 'Bronzérmek'}</div>
-                <div style={{ fontSize: '1.5rem', fontWeight: '900', color: '#cd7f32', marginTop: '4px' }}>{playerStats.podiums?.third || 0}</div>
+              <div style={{ background: '#0f172a', padding: '20px', borderRadius: '20px', border: '1px solid #a855f740' }}>
+                <div style={{ fontSize: '2.2rem' }}>⭐</div>
+                <div style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 'bold', marginTop: '4px' }}>{lang === 'en' ? 'Fair Score' : 'Dicsőség Pont'}</div>
+                <div style={{ fontSize: '1.5rem', fontWeight: '900', color: '#a855f7', marginTop: '4px' }}>{totalLikes.toFixed(1)}</div>
               </div>
             </div>
 
-            {/* Pályaművek rácsa */}
+            {/* Korábbi pályaművek (TrophyRoom hű másolata) */}
             <div>
               <h3 style={{ color: '#f8fafc', marginBottom: '20px', fontSize: '1.5rem', fontWeight: '800' }}>
-                {lang === 'en' ? `Past Submissions (${playerStats.history?.length || 0})` : `Korábbi pályaművek (${playerStats.history?.length || 0} db)`}
+                {lang === 'en' ? `Past Submissions (${playerStats?.history?.length || 0})` : `Hivatalos pályaművek (${playerStats?.history?.length || 0} db)`}
               </h3>
               
-              {playerStats.history?.length === 0 ? (
+              {!playerStats || playerStats.history?.length === 0 ? (
                 <div style={{ color: '#94a3b8', background: '#1e293b', padding: '40px', borderRadius: '20px', textAlign: 'center', border: '1px dashed #334155' }}>
                   <div style={{ fontSize: '3rem', marginBottom: '15px' }}>📸</div>
-                  <h4 style={{ color: '#f8fafc', margin: '0' }}>{lang === 'en' ? 'No history found.' : 'Még nincs lezárt csatája.'}</h4>
+                  <h4 style={{ color: '#f8fafc', margin: '0 0 5px 0' }}>{lang === 'en' ? 'No finalized history available.' : 'Még nincs lezárt meccse.'}</h4>
+                  <p style={{ margin: 0, fontSize: '0.85rem', color: '#64748b' }}>
+                    {lang === 'en' ? 'Submissions appear here once the current rounds are finalized by the admin.' : 'A pályaművek itt jelennek meg, amint a futamok lezárulnak és jóváhagyásra kerülnek.'}
+                  </p>
                 </div>
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '25px' }}>
-                  {playerStats.history?.map((entry: any, idx: number) => {
+                  {playerStats.history.map((entry: any, idx: number) => {
                     const totalEntries = Number(entry?.total_entries) || 1;
                     const percentile = (Number(entry?.rank) || 1) / totalEntries;
                     const rank = Number(entry?.rank) || 0;
@@ -204,15 +222,13 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
               )}
             </div>
           </div>
-        ) : (
-          <div style={{ color: '#ef4444', textAlign: 'center', padding: '20px' }}>Hiba az adatok megjelenítésekor.</div>
         )}
       </div>
     );
   }
 
   // ====================================================================
-  // 🏆 2. OLDALNÉZET: DICSŐSÉGCSARNOK LISTA NÉZET
+  // 🏆 2. OLDALNÉZET: AZ EREDETI DICSŐSÉGCSARNOK LISTA NÉZET
   // ====================================================================
   return (
     <div style={{ background: '#1e293b', padding: '30px', borderRadius: '24px', border: '1px solid #fbbf2440', boxShadow: '0 10px 40px rgba(0,0,0,0.4)', animation: 'fadeIn 0.4s ease-out' }}>
