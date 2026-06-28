@@ -1104,9 +1104,10 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     try {
       // Biztonságosan lekérjük a lezárt és jóváhagyott szobákat
       const [pastTopics] = await pool.query(
-        "SELECT * FROM weekly_topics WHERE end_date < ? AND status = 'approved' ORDER BY end_date DESC",
-        [getLocalMySQLNow()]
-      );
+  "SELECT * FROM weekly_topics WHERE end_date < ? AND (status = 'approved' OR status IS NULL) ORDER BY end_date DESC",
+  [getLocalMySQLNow()]
+);
+
       
       let podiums = { first: 0, second: 0, third: 0 };
       let history = [];
