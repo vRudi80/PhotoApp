@@ -32,7 +32,7 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
   
   const { t, lang } = useLanguage();
 
-  // 🎯 ÚJ: Állapotok a játékos egyéni trófeaterem modaljához
+  // 🎯 ÚJ STATE-EK: Pop-up ablak kezeléséhez
   const [selectedUser, setSelectedUser] = useState<any | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [playerStats, setPlayerStats] = useState<any | null>(null);
@@ -64,17 +64,18 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
     return <div style={{ color: '#64748b', textAlign: 'center', padding: '20px' }}>{t('hofEmpty')}</div>;
   }
 
-  // 🎯 ÚJ: Játékos sorára kattintáskor lefutó statisztikai lekérés
+  // 🎯 ÚJ FÜGGVÉNY: Lekéri a kiválasztott játékos adatait
   const handleUserClick = async (row: any) => {
     setSelectedUser(row);
     setModalOpen(true);
     setStatsLoading(true);
     setPlayerStats(null);
     try {
-      const res = await axios.get(`/api/weekly/my-stats?userEmail=${encodeURIComponent(row.user_email)}`);
+      // Mindkét verziót elküldjük query-ben a maximális backend kompatibilitásért
+      const res = await axios.get(`/api/weekly/my-stats?userEmail=${encodeURIComponent(row.user_email)}&email=${encodeURIComponent(row.user_email)}`);
       setPlayerStats(res.data);
     } catch (err) {
-      console.error('Hiba a játékos statisztikáinak betöltésekor:', err);
+      console.error('Hiba a trófeaterem betöltésekor:', err);
     } finally {
       setStatsLoading(false);
     }
@@ -105,7 +106,7 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
           return (
             <div 
               key={row.user_email || index} 
-              onClick={() => handleUserClick(row)} // 🎯 ÚJ: Kattintás esemény hozzáadása a sorhoz
+              onClick={() => handleUserClick(row)} // 🎯 JAVÍTVA: Aktív kattintás esemény
               style={{ 
                 display: 'flex', 
                 alignItems: 'center', 
@@ -117,7 +118,7 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
                 transition: 'transform 0.2s',
                 flexWrap: 'wrap',
                 gap: '15px',
-                cursor: 'pointer' // 🎯 ÚJ: Jelzi a felhasználónak, hogy a sor kattintható
+                cursor: 'pointer' // 🎯 JAVÍTVA: Mutatja, hogy kattintható
               }}
             >
               {/* Érem / Helyezés */}
@@ -125,7 +126,7 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
                 {medal}
               </div>
 
-              {/* 📸 Felhasználói Profilkép */}
+              {/* Felhasználói Profilkép */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <img 
                   src={row.avatar_url || silhouetteAvatar} 
@@ -176,7 +177,7 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
       </div>
 
       {/* ==================================================================== */}
-      {/* 🎯 ÚJ: JÁTÉKOS TRÓFEATEREM FELUGRÓ MODAL – SZINKRONBAN A DIZÁJNNAL */}
+      {/* 🎯 ÚJ: JÁTÉKOS TRÓFEATEREM FELUGRÓ MODAL – SZINKRONBAN A TRÓFEATEREMMEK */}
       {/* ==================================================================== */}
       {modalOpen && selectedUser && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(6px)', zIndex: 9999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px', boxSizing: 'border-box' }}>
@@ -240,7 +241,12 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
                       playerStats.history.map((item: any, idx: number) => (
                         <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#0f172a', padding: '10px', borderRadius: '12px', border: '1px solid #1e293b' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                            <img src={item.file_url} alt="" style={{ width: '40px', height: '40px', borderRadius: '8px', objectFit: 'cover', border: '1px solid #334155' }} />
+                            {/* 🎯 JAVÍTVA: getImageUrl használata a drive_file_id-hoz, pont mint a TrophyRoom-ban! */}
+                            <img 
+                              src={getImageUrl(item.drive_file_id, item.file_url)} 
+                              alt="" 
+                              style={{ width: '40px', height: '40px', borderRadius: '8px', objectFit: 'cover', border: '1px solid #334155' }} 
+                            />
                             <div>
                               <div style={{ fontSize: '0.8rem', color: '#f8fafc', fontWeight: 'bold' }}>{item.topic_title}</div>
                               <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '2px' }}>
