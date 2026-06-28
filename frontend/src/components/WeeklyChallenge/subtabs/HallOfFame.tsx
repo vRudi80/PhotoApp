@@ -66,7 +66,7 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
     return VideoLoader ? <VideoLoader /> : <div>Loading...</div>;
   }
 
-    if (!hallOfFame || hallOfFame.length === 0) {
+  if (!hallOfFame || hallOfFame.length === 0) {
     return <div style={{ color: '#64748b', textAlign: 'center', padding: '20px' }}>{t ? t('hofEmpty') : 'Üres toplista'}</div>;
   }
 
@@ -91,11 +91,6 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
       setStatsLoading(false);
     }
   };
-
-
-
-
-
 
   // ====================================================================
   // 📸 1. OLDALNÉZET: AZ ADOTT JÁTÉKOS STATISZTIKAI ADATLAPJA (TROPHYROOM MÁSOLAT)
@@ -183,20 +178,33 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
                   <p style={{ margin: 0, fontSize: '0.85rem', color: '#64748b' }}>
                     {lang === 'en' ? 'Submissions appear here once the current rounds are finalized by the admin.' : 'A pályaművek itt jelennek meg, amint a futamok lezárulnak és jóváhagyásra kerülnek.'}
                   </p>
+
+                  {/* 🎯 IDE KERÜLT: ÉLŐ DIAGNOSZTIKAI MOTOR A KÉPERNYŐN */}
+                  <div style={{ background: '#0f172a', padding: '20px', marginTop: '20px', borderRadius: '12px', fontSize: '0.85rem', fontFamily: 'monospace', color: '#cbd5e1', textAlign: 'left', border: '1px solid #334155', lineHeight: '1.6' }}>
+                    <div style={{ color: '#fbbf24', marginBottom: '10px', fontWeight: 'bold', fontSize: '0.95rem' }}>🔍 SZERVEROLDALI FOLYAMAT-NAPLÓ:</div>
+                    <div>• Frontend által küldött email: <span style={{color: '#38bdf8'}}>"{selectedUser?.user_email || selectedUser?.email}"</span></div>
+                    <div>• Backendre megérkezett email: <span style={{color: '#38bdf8'}}>"{playerStats?.debugQueryEmail || 'NINCS VÁLASZ'}"</span></div>
+                    
+                    <div style={{ margin: '10px 0', borderTop: '1px dashed #334155', paddingTop: '10px' }}>
+                      {playerStats?.debugSteps && playerStats.debugSteps.map((step: string, i: number) => (
+                        <div key={i} style={{ color: step.startsWith('❌') ? '#f43f5e' : step.startsWith('✅') || step.includes('Találat') ? '#10b981' : '#cbd5e1', marginBottom: '4px' }}>
+                          {step}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
                 </div>
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '25px' }}>
                   {playerStats.history.map((entry: any, idx: number) => {
                     const totalEntries = Number(entry?.total_entries) || 1;
-                    const percentile = (Number(entry?.rank) || 1) / totalEntries;
                     const rank = Number(entry?.rank) || 0;
                     
                     let badge = ''; let badgeColor = '#334155';
                     if (rank === 1) { badge = lang === 'en' ? '1st Place 🏆' : '1. Hely 🏆'; badgeColor = '#fbbf24'; }
                     else if (rank === 2) { badge = lang === 'en' ? '2nd Place 🥈' : '2. Hely 🥈'; badgeColor = '#cbd5e1'; }
                     else if (rank === 3) { badge = lang === 'en' ? '3rd Place 🥉' : '3. Hely 🥉'; badgeColor = '#cd7f32'; }
-                    else if (percentile <= 0.1) { badge = '⭐ Top 10%'; badgeColor = '#a855f7'; }
-                    else if (percentile <= 0.2) { badge = '✨ Top 20%'; badgeColor = '#10b981'; }
 
                     const isDaily = getTopicType(entry?.start_date, entry?.end_date) === 'daily';
 
