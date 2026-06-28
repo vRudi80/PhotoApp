@@ -79,7 +79,10 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
     setStatsLoading(true);
     setPlayerStats(null);
     try {
-      const res = await axios.get(`/api/weekly/hof-stats?userEmail=${encodeURIComponent(targetEmail)}`);
+      // 🎯 A MEGOLDÁS: window.location.origin használatával kényszerítjük a teljes, abszolút URL-t!
+      // Így az Axios pontosan ugyanazt a hívást fogja intézni, amit te a böngészőben sikeresen leteszteltél.
+      const baseUrl = window.location.origin;
+      const res = await axios.get(`${baseUrl}/api/weekly/hof-stats?userEmail=${encodeURIComponent(targetEmail)}`);
       setPlayerStats(res.data);
     } catch (err) {
       console.error('Hiba az adatok letöltésekor:', err);
@@ -87,6 +90,7 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
       setStatsLoading(false);
     }
   };
+
 
   // ====================================================================
   // 📸 1. OLDALNÉZET: AZ ADOTT JÁTÉKOS STATISZTIKAI ADATLAPJA (TROPHYROOM MÁSOLAT)
