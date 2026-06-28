@@ -79,8 +79,8 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
     setStatsLoading(true);
     setPlayerStats(null);
     try {
-      // Biztonságos, tiszta POST kérés JSON body-val
-      const res = await axios.post('/api/weekly/hof-stats', { userEmail: targetEmail });
+      // Tiszta, szabványos GET kérés query paraméterrel, trükközések nélkül
+      const res = await axios.get(`/api/weekly/hof-stats?userEmail=${targetEmail}`);
       setPlayerStats(res.data);
     } catch (err) {
       console.error('Hiba az adatok letöltésekor:', err);
@@ -88,6 +88,7 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
       setStatsLoading(false);
     }
   };
+
 
 
 
