@@ -66,7 +66,7 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
     return VideoLoader ? <VideoLoader /> : <div>Loading...</div>;
   }
 
-  if (!hallOfFame || hallOfFame.length === 0) {
+    if (!hallOfFame || hallOfFame.length === 0) {
     return <div style={{ color: '#64748b', textAlign: 'center', padding: '20px' }}>{t ? t('hofEmpty') : 'Üres toplista'}</div>;
   }
 
@@ -79,7 +79,7 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
     setStatsLoading(true);
     setPlayerStats(null);
     try {
-      // Tiszta, szabványos GET kérés query paraméterrel, trükközések nélkül
+      // Tiszta, szabványos GET kérés query paraméterrel a dedikált API-hoz
       const res = await axios.get(`/api/weekly/hof-stats?userEmail=${targetEmail}`);
       setPlayerStats(res.data);
     } catch (err) {
