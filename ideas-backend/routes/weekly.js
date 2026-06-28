@@ -1085,81 +1085,87 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
 
-  // ====================================================================
-  // 📊 JAVÍTVA: TŰPONTOS VÁLTOZÓ-ILLprivate ÉS ERŐS BACKEND LOGIKA
-  // ====================================================================
-  app.get('/api/weekly/my-stats', async (req, res) => {
-    // 🎯 FIX: Egységesen a [userEmail] nevet használjuk, pont úgy, ahogy a kódod többi része elvárja!
-    let userEmail = req.query.userEmail || req.query.email || req.user?.email;
+// ====================================================================
+// 📊 JAVÍTVA: TŰPONTOS URL-DEKÓDOLÁS ÉS ERŐS BACKEND LOGIKA
+// ====================================================================
+app.get('/api/weekly/my-stats', async (req, res) => {
+  let userEmail = req.query.userEmail || req.query.email || req.user?.email;
 
-    // Ha a frontend véletlenül "undefined" vagy "null" szöveget küldene stringként, korrigáljuk
-    if (!userEmail || userEmail === 'undefined' || userEmail === 'null' || String(userEmail).trim() === '') {
-      userEmail = req.user?.email;
-    }
-
-    if (!userEmail) {
-      return res.status(400).json({ error: 'A felhasználó e-mail címe nem azonosítható.' });
-    }
-
+  // 🎯 BIZTONSÁGI JAVÍTVA: Explicit módon dekódoljuk az URL-ből érkező emailt, és levágjuk a felesleges szóközöket
+  if (userEmail) {
     try {
-      // Biztonságosan lekérjük a lezárt és jóváhagyott szobákat
-      const [pastTopics] = await pool.query(
-  "SELECT * FROM weekly_topics WHERE end_date < ? AND (status = 'approved' OR status IS NULL) ORDER BY end_date DESC",
-  [getLocalMySQLNow()]
-);
-
-      
-      let podiums = { first: 0, second: 0, third: 0 };
-      let history = [];
-
-      for (const topic of pastTopics) {
-        const [entries] = await pool.query(`
-          SELECT e.id, e.user_email, e.user_name, e.file_url, e.drive_file_id, e.likes_count, e.views_count,
-                 ${getFairScoreSql('e', 't')} as fair_score
-          FROM weekly_entries e
-          JOIN weekly_topics t ON e.topic_id = t.id
-          WHERE e.topic_id = ? AND e.is_active = 1 
-          ORDER BY fair_score DESC, e.likes_count DESC, e.views_count ASC
-        `, [topic.id]);
-
-        // Keresés kis- és nagybetűktől függetlenül (.toLowerCase())
-        const userIndex = entries.findIndex(e => 
-          e.user_email && userEmail &&
-          e.user_email.toLowerCase().trim() === userEmail.toLowerCase().trim()
-        );
-
-        if (userIndex !== -1) {
-          const rank = userIndex + 1;
-          const entry = entries[userIndex];
-          if (rank === 1) podiums.first++; else if (rank === 2) podiums.second++; else if (rank === 3) podiums.third++;
-
-          history.push({
-            topic_title: topic.title,
-            topic_title_en: topic.topic_title_en || topic.title, 
-            start_date: topic.start_date,
-            end_date: topic.end_date,
-            rank: rank,
-            total_entries: entries.length,
-            file_url: entry.file_url,
-            drive_file_id: entry.drive_file_id,
-            likes: entry.fair_score, 
-            views: entry.views_count,
-            user_name: entry.user_name 
-          });
-        }
-      }
-
-      // Visszaküldjük a tiszta adatokat
-      res.json({
-        podiums: podiums,
-        history: history
-      });
-
-    } catch (err) {
-      console.error("❌ Kritikus hiba a my-stats lekérésekor:", err.message);
-      res.status(500).json({ error: 'Hiba a statisztikák összeállításakor.' }); 
+      userEmail = decodeURIComponent(userEmail).trim();
+    } catch (e) {
+      userEmail = String(userEmail).trim();
     }
-  });
+  }
+
+  // Ha a frontend mégis "undefined" vagy "null" szöveget küldene stringként, korrigáljuk a bejelentkezett felhasználóra
+  if (!userEmail || userEmail === 'undefined' || userEmail === 'null' || userEmail === '') {
+    userEmail = req.user?.email;
+  }
+
+  if (!userEmail) {
+    return res.status(400).json({ error: 'A felhasználó e-mail címe nem azonosítható.' });
+  }
+
+  try {
+    // Nyugodtan maradhat a tiszta approved szűrés, mivel láttuk, hogy az adatbázisod naprakész
+    const [pastTopics] = await pool.query(
+      "SELECT * FROM weekly_topics WHERE end_date < ? AND status = 'approved' ORDER BY end_date DESC",
+      [getLocalMySQLNow()]
+    );
+    
+    let podiums = { first: 0, second: 0, third: 0 };
+    let history = [];
+
+    for (const topic of pastTopics) {
+      const [entries] = await pool.query(`
+        SELECT e.id, e.user_email, e.user_name, e.file_url, e.drive_file_id, e.likes_count, e.views_count,
+               ${getFairScoreSql('e', 't')} as fair_score
+        FROM weekly_entries e
+        JOIN weekly_topics t ON e.topic_id = t.id
+        WHERE e.topic_id = ? AND e.is_active = 1 
+        ORDER BY fair_score DESC, e.likes_count DESC, e.views_count ASC
+      `, [topic.id]);
+
+      const userIndex = entries.findIndex(e => 
+        e.user_email && userEmail &&
+        e.user_email.toLowerCase().trim() === userEmail.toLowerCase().trim()
+      );
+
+      if (userIndex !== -1) {
+        const rank = userIndex + 1;
+        const entry = entries[userIndex];
+        if (rank === 1) podiums.first++; else if (rank === 2) podiums.second++; else if (rank === 3) podiums.third++;
+
+        history.push({
+          topic_title: topic.title,
+          topic_title_en: topic.title_en || topic.title, // 🎯 Javítva a korábbi elírás (title_en)
+          start_date: topic.start_date,
+          end_date: topic.end_date,
+          rank: rank,
+          total_entries: entries.length,
+          file_url: entry.file_url,
+          drive_file_id: entry.drive_file_id,
+          likes: entry.fair_score, 
+          views: entry.views_count,
+          user_name: entry.user_name 
+        });
+      }
+    }
+
+    res.json({
+      podiums: podiums,
+      history: history
+    });
+
+  } catch (err) {
+    console.error("❌ Kritikus hiba a my-stats lekérésekor:", err.message);
+    res.status(500).json({ error: 'Hiba a statisztikák összeállításakor.' }); 
+  }
+});
+
 
 
 
