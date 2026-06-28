@@ -70,19 +70,16 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
     return <div style={{ color: '#64748b', textAlign: 'center', padding: '20px' }}>{t ? t('hofEmpty') : 'Üres toplista'}</div>;
   }
 
-  // Játékosra kattintás kezelése
   const handleUserClick = async (row: any) => {
-    const targetEmail = row?.user_email || row?.email;
+    const targetEmail = selectedUser?.user_email || selectedUser?.email;
     if (!targetEmail) return;
 
     setSelectedUser(row);
     setStatsLoading(true);
     setPlayerStats(null);
     try {
-      // 🎯 A MEGOLDÁS: window.location.origin használatával kényszerítjük a teljes, abszolút URL-t!
-      // Így az Axios pontosan ugyanazt a hívást fogja intézni, amit te a böngészőben sikeresen leteszteltél.
-      const baseUrl = window.location.origin;
-      const res = await axios.get(`${baseUrl}/api/weekly/hof-stats?userEmail=${encodeURIComponent(targetEmail)}`);
+      // 🎯 VISSZAÁLLÍTVA: Sima relatív hívás, ami az optimalizált backend miatt most már azonnal vissza fog térni!
+      const res = await axios.get(`/api/weekly/hof-stats?userEmail=${encodeURIComponent(targetEmail)}`);
       setPlayerStats(res.data);
     } catch (err) {
       console.error('Hiba az adatok letöltésekor:', err);
@@ -90,6 +87,7 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
       setStatsLoading(false);
     }
   };
+
 
 
   // ====================================================================
