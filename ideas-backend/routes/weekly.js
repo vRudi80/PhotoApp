@@ -1091,14 +1091,28 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 app.get('/api/weekly/my-stats', async (req, res) => {
   let userEmail = req.query.userEmail || req.query.email || req.user?.email;
 
-  // Ha a frontend véletlenül "undefined" vagy "null" szöveget küldene, korrigáljuk
-  if (!userEmail || userEmail === 'undefined' || userEmail === 'null' || String(userEmail).trim() === '') {
-    userEmail = req.user?.email;
+  // 🎯 A KULCS: Kényszerítjük, hogy ne objektum vagy kódolt string legyen, hanem tiszta natív szöveg
+  if (userEmail) {
+    userEmail = String(userEmail).trim();
+    if (userEmail.includes('%')) {
+      try { 
+        userEmail = decodeURIComponent(userEmail).trim(); 
+      } catch(e) {
+        // ha nem sikerülne a dekódolás, marad a tiszta string
+      }
+    }
+  }
+
+  if (!userEmail || userEmail === 'undefined' || userEmail === 'null' || userEmail === '') {
+    userEmail = req.user?.email ? String(req.user.email).trim() : null;
   }
 
   if (!userEmail) {
     return res.status(400).json({ error: 'A felhasználó e-mail címe nem azonosítható.' });
   }
+  
+  // Innentől jön az előzőleg megírt SQL lekérdezés változatlanul...
+
 
   try {
     const currentNow = getLocalMySQLNow();
