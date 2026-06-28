@@ -1200,84 +1200,99 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // 🏆 ÚJ, DEDIKÁLT ÉS GOLYÓÁLLÓ VÉGPONT A DICSŐSÉGCSARNOKHOZ (GET)
+  // 🔬 DIAGNOSZTIKAI VÉGPONT: ÉLŐ NYOMKÖVETÉSSEL A DICSŐSÉGCSARNOKHOZ
   // ====================================================================
   app.get('/api/weekly/hof-stats', async (req, res) => {
     let userEmail = req.query.userEmail;
-
-    if (!userEmail) {
-      return res.status(400).json({ error: 'Hiányzó e-mail cím!' });
-    }
+    if (!userEmail) return res.json({ history: [], podiums: {}, error: "Nincs email megadva!" });
 
     let cleanEmail = String(userEmail).trim().toLowerCase();
+    let currentNow = getLocalMySQLNow();
+    let debugSteps = []; // Ide gyűjtjük az élő futási adatokat
 
     try {
-      const currentNow = getLocalMySQLNow();
-
       // 1. Lekérjük az összes eddigi lezárt kihívást
       const [pastTopics] = await pool.query(
-        "SELECT id, title, title_en, start_date, end_date FROM weekly_topics WHERE end_date < ? AND (status = 'approved' OR status IS NULL OR status = '') ORDER BY end_date DESC",
+        "SELECT id, title, title_en, start_date, end_date FROM weekly_topics WHERE end_date < ? ORDER BY end_date DESC",
         [currentNow]
       );
-      
+
+      debugSteps.push(`1. Lezárt kihívások száma az adatbázisban: ${pastTopics.length} db.`);
+
       let podiums = { first: 0, second: 0, third: 0 };
       let history = [];
 
       for (const topic of pastTopics) {
-        // 2. Megnézzük, hogy az adott felhasználónak van-e aktív nevezése a témában
-        const [userEntries] = await pool.query(`
-          SELECT id, file_url, drive_file_id, likes_count, views_count, user_name
-          FROM weekly_entries
-          WHERE topic_id = ? AND is_active = 1 AND LOWER(TRIM(user_email)) = LOWER(TRIM(?))
-        `, [topic.id, cleanEmail]);
+        // 2. Lekérjük a szoba összes aktív képét pontosan úgy, mint a Trophy Room-ban
+        const [entries] = await pool.query(`
+          SELECT e.id, e.user_email, e.user_name, e.file_url, e.drive_file_id, e.likes_count, e.views_count,
+                 ${getFairScoreSql('e', 't')} as fair_score
+          FROM weekly_entries e
+          JOIN weekly_topics t ON e.topic_id = t.id
+          WHERE e.topic_id = ? AND e.is_active = 1 
+          ORDER BY fair_score DESC, e.likes_count DESC, e.views_count ASC
+        `, [topic.id]);
 
-        if (userEntries.length > 0) {
-          const entry = userEntries[0];
+        if (entries.length > 0) {
+          // 3. Megkeressük a fotóst e-mail egyezés alapján
+          const userIndex = entries.findIndex(e => 
+            e.user_email && 
+            String(e.user_email).trim().toLowerCase() === cleanEmail
+          );
 
-          // 3. Lekérjük a téma TELJES rangsorát - pontosan azzal a működő SQL-lel, mint a főoldaladon!
-          const [allEntries] = await pool.query(`
-            SELECT e.id, e.views_count, e.likes_count,
-                   ${getFairScoreSql('e', 't')} as fair_score
-            FROM weekly_entries e
-            JOIN weekly_topics t ON e.topic_id = t.id
-            WHERE e.topic_id = ? AND e.is_active = 1
-            ORDER BY fair_score DESC, e.likes_count DESC, e.views_count ASC
-          `, [topic.id]);
+          // Hogy ne legyen túl hosszú a napló, csak a legelső 2 talált meccsnél részletezzük a háttértitkokat
+          if (userIndex !== -1 && history.length < 2) {
+            debugSteps.push(`• Találat! "${topic.title}" szoba (ID: ${topic.id}), összesen ${entries.length} képből János a(z) ${userIndex + 1}. helyen áll.`);
+            debugSteps.push(`  - Adatbázisban lévő email formátum: "${entries[userIndex].user_email}"`);
+          }
 
-          // 4. A memóriában keressük meg a helyezést, így nincs adatbázis-szintű lebegőpontos hiba
-          const rank = allEntries.findIndex(item => item.id === entry.id) + 1;
-          const topicFairScore = allEntries[rank - 1]?.fair_score || entry.likes_count;
+          if (userIndex !== -1) {
+            const rank = userIndex + 1;
+            const entry = entries[userIndex];
+            if (rank === 1) podiums.first++; else if (rank === 2) podiums.second++; else if (rank === 3) podiums.third++;
 
-          if (rank === 1) podiums.first++;
-          else if (rank === 2) podiums.second++;
-          else if (rank === 3) podiums.third++;
-
-          history.push({
-            topic_title: topic.title,
-            topic_title_en: topic.title_en || topic.title,
-            start_date: topic.start_date,
-            end_date: topic.end_date,
-            rank: rank,
-            total_entries: allEntries.length,
-            file_url: entry.file_url,
-            drive_file_id: entry.drive_file_id,
-            likes: topicFairScore,
-            views: entry.views_count,
-            user_name: entry.user_name
-          });
+            history.push({
+              topic_title: topic.title,
+              topic_title_en: topic.title_en || topic.title, 
+              start_date: topic.start_date,
+              end_date: topic.end_date,
+              rank: rank,
+              total_entries: entries.length,
+              file_url: entry.file_url,
+              drive_file_id: entry.drive_file_id,
+              likes: entry.fair_score, 
+              views: entry.views_count,
+              user_name: entry.user_name 
+            });
+          }
         }
+      }
+
+      if (history.length === 0) {
+        debugSteps.push(`❌ VÉGEREDMÉNY: Egyetlen lezárt szobában sem sikerült egyezést találni erre az emailre: "${cleanEmail}"`);
+      } else {
+        debugSteps.push(`✅ VÉGEREDMÉNY: Sikeresen összeállt ${history.length} db pályamű.`);
       }
 
       res.json({
         podiums: podiums,
-        history: history
+        history: history,
+        debugQueryEmail: userEmail,
+        debugCleanEmail: cleanEmail,
+        debugSteps: debugSteps // Átadjuk a frontendnek a teljes naplót
       });
 
     } catch (err) {
-      console.error("❌ Kritikus hiba a hof-stats lekérésekor:", err.message);
-      res.status(500).json({ error: 'Hiba a statisztikák összeállításakor.' });
+      res.json({
+        podiums: { first: 0, second: 0, third: 0 },
+        history: [],
+        debugQueryEmail: userEmail,
+        debugCleanEmail: cleanEmail,
+        debugSteps: [`🔥 SZERVEROLDALI SQL HIBA: ${err.message}`]
+      });
     }
   });
+
 
 
   
