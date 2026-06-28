@@ -1085,73 +1085,62 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
 
-// ====================================================================
-// 📊 UTOLSÓ JAVÍTVA: SQL SZINTŰ GOLYÓÁLLÓ HITelesítés (MINDEN JÁTÉKOSRA)
-// ====================================================================
   // ====================================================================
-  // 📊 JAVÍTVA: HYBRID ADATBÁZIS-VEZÉRELT LOOP (SZUPERSTABIL ÉS GYORS)
+  // 📊 VISSZAÁLLÍTVA: A TROPHY ROOMBAN MŰKÖDŐ EREDETI TÖMBKERESÉSES LOGIKA
   // ====================================================================
   app.get('/api/weekly/my-stats', async (req, res) => {
+    // Alapértelmezetten pontosan ugyanúgy gyűjtjük be az emailt, mint az eredetiben
     let userEmail = req.query.userEmail || req.query.email || req.user?.email;
 
-    // Ha az URL-kódolás vagy az Express objektumként adta át a paramétert, kényszerítjük a tiszta String típust
-    if (userEmail) {
-      userEmail = String(userEmail).trim();
-      if (userEmail.includes('%')) {
-        try { 
-          userEmail = decodeURIComponent(userEmail).trim(); 
-        } catch(e) {}
-      }
-    }
-
-    if (!userEmail || userEmail === 'undefined' || userEmail === 'null' || userEmail === '') {
-      userEmail = req.user?.email ? String(req.user.email).trim() : null;
+    // Ha a frontend "undefined" vagy "null" szöveget küldene stringként, korrigáljuk
+    if (!userEmail || userEmail === 'undefined' || userEmail === 'null' || String(userEmail).trim() === '') {
+      userEmail = req.user?.email;
     }
 
     if (!userEmail) {
       return res.status(400).json({ error: 'A felhasználó e-mail címe nem azonosítható.' });
     }
 
-    try {
-      const currentNow = getLocalMySQLNow();
+    // 🎯 A BIZTONSÁGI KULCS: Teljesen letisztítjuk a beérkező emailt (kisbetűsítés, szóközmentesítés)
+    // Ez feloldja az URL-kódolásból vagy rejtett karakterekből adódó eltéréseket
+    let cleanUserEmail = String(userEmail).trim().toLowerCase();
+    if (cleanUserEmail.includes('%')) {
+      try { 
+        cleanUserEmail = decodeURIComponent(cleanUserEmail).trim().toLowerCase(); 
+      } catch(e) {}
+    }
 
-      // Biztonságosan lekérjük a lezárt kihívásokat függetlenül a státuszuktól (NULL, üres vagy approved)
+    try {
+      // Pontosan az a lekérdezés, ami az eredeti verziódban is szerepelt
       const [pastTopics] = await pool.query(
-        "SELECT * FROM weekly_topics WHERE end_date < ? AND (status = 'approved' OR status IS NULL OR status = '') ORDER BY end_date DESC",
-        [currentNow]
+        "SELECT * FROM weekly_topics WHERE end_date < ? AND status = 'approved' ORDER BY end_date DESC",
+        [getLocalMySQLNow()]
       );
       
       let podiums = { first: 0, second: 0, third: 0 };
       let history = [];
 
       for (const topic of pastTopics) {
-        // 🎯 1. LÉPÉS: Megkérdezzük a MySQL-t, hogy az adott fotós indult-e a szobában (LOWER/TRIM védelemmel)
-        const [userEntries] = await pool.query(`
+        const [entries] = await pool.query(`
           SELECT e.id, e.user_email, e.user_name, e.file_url, e.drive_file_id, e.likes_count, e.views_count,
                  ${getFairScoreSql('e', 't')} as fair_score
           FROM weekly_entries e
           JOIN weekly_topics t ON e.topic_id = t.id
-          WHERE e.topic_id = ? AND e.is_active = 1 AND LOWER(TRIM(e.user_email)) = LOWER(TRIM(?))
-        `, [topic.id, userEmail]);
+          WHERE e.topic_id = ? AND e.is_active = 1 
+          ORDER BY fair_score DESC, e.likes_count DESC, e.views_count ASC
+        `, [topic.id]);
 
-        if (userEntries.length > 0) {
-          const entry = userEntries[0];
-          
-          // 🎯 2. LÉPÉS: Lekérjük a szoba összes képét a hivatalos pontozási sorrendben
-          const [allEntries] = await pool.query(`
-            SELECT e.id, ${getFairScoreSql('e', 't')} as fair_score, e.likes_count, e.views_count
-            FROM weekly_entries e
-            JOIN weekly_topics t ON e.topic_id = t.id
-            WHERE e.topic_id = ? AND e.is_active = 1
-            ORDER BY fair_score DESC, e.likes_count DESC, e.views_count ASC
-          `, [topic.id]);
+        // 🎯 VISSZAÁLLÍTVA: Pontosan ugyanaz a .findIndex tömbkeresés, mint a Trophy Room-ban
+        // De a háttérben már a teljesen letisztított, kisbetűsített stringeket vetjük össze
+        const userIndex = entries.findIndex(e => 
+          e.user_email && 
+          String(e.user_email).trim().toLowerCase() === cleanUserEmail
+        );
 
-          // 🎯 3. LÉPÉS: Tűpontos helyezést számolunk ID egyezés alapján (Integereknél nincs kódolási hiba!)
-          const rank = allEntries.findIndex(item => item.id === entry.id) + 1;
-
-          if (rank === 1) podiums.first++; 
-          else if (rank === 2) podiums.second++; 
-          else if (rank === 3) podiums.third++;
+        if (userIndex !== -1) {
+          const rank = userIndex + 1;
+          const entry = entries[userIndex];
+          if (rank === 1) podiums.first++; else if (rank === 2) podiums.second++; else if (rank === 3) podiums.third++;
 
           history.push({
             topic_title: topic.title,
@@ -1159,7 +1148,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
             start_date: topic.start_date,
             end_date: topic.end_date,
             rank: rank,
-            total_entries: allEntries.length,
+            total_entries: entries.length,
             file_url: entry.file_url,
             drive_file_id: entry.drive_file_id,
             likes: entry.fair_score, 
@@ -1169,6 +1158,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         }
       }
 
+      // Visszaküldjük az adatokat abban a tiszta formátumban, amit a frontend elvár
       res.json({
         podiums: podiums,
         history: history
@@ -1179,7 +1169,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       res.status(500).json({ error: 'Hiba a statisztikák összeállításakor.' }); 
     }
   });
-
 
 
 
