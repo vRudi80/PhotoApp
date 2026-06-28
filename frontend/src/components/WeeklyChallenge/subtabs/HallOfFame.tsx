@@ -50,7 +50,7 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
     'Szakértő 🎯': 'Expert 🎯',
     'Képmester 🎨': 'Photo Master 🎨',
     'Nagymester 🌟': 'Grandmaster 🌟',
-    'Virtuóz ⚡': 'Virtuoso ⚡',
+    'Virtuóz ⚡': 'Visual Legend 👑', // Szinkronizálva a Vizuális Legendával
     'Fotóguru 🔥': 'Photo Guru 🔥',
     'Vizuális Legenda 👑': 'Visual Legend 👑'
   };
@@ -73,17 +73,13 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
   // Játékosra kattintás kezelése
   const handleUserClick = async (row: any) => {
     const targetEmail = row?.user_email || row?.email;
-    
-    // 🎯 1. TESZT: Felugró ablakban azonnal megmutatja, mit lát a frontend kattintáskor
-    alert("Frontend által észlelt email: '" + targetEmail + "'");
-
     if (!targetEmail) return;
 
     setSelectedUser(row);
     setStatsLoading(true);
     setPlayerStats(null);
     try {
-      const res = await axios.get(`/api/weekly/hof-stats?userEmail=${targetEmail}`);
+      const res = await axios.get(`/api/weekly/hof-stats?userEmail=${encodeURIComponent(targetEmail)}`);
       setPlayerStats(res.data);
     } catch (err) {
       console.error('Hiba az adatok letöltésekor:', err);
@@ -175,15 +171,12 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
                 <div style={{ color: '#94a3b8', background: '#1e293b', padding: '40px', borderRadius: '20px', textAlign: 'center', border: '1px dashed #334155' }}>
                   <div style={{ fontSize: '3rem', marginBottom: '15px' }}>📸</div>
                   <h4 style={{ color: '#f8fafc', margin: '0 0 5px 0' }}>{lang === 'en' ? 'No finalized history available.' : 'Még nincs lezárt meccse.'}</h4>
-                  <p style={{ margin: 0, fontSize: '0.85rem', color: '#64748b' }}>
-                    {lang === 'en' ? 'Submissions appear here once the current rounds are finalized by the admin.' : 'A pályaművek itt jelennek meg, amint a futamok lezárulnak és jóváhagyásra kerülnek.'}
-                  </p>
-
-                  {/* 🎯 IDE KERÜLT: ÉLŐ DIAGNOSZTIKAI MOTOR A KÉPERNYŐN */}
+                  
+                  {/* 🔬 ÉLŐ DIAGNOSZTIKAI MOTOR - BIZTONSÁGOSAN JAVÍTVA */}
                   <div style={{ background: '#0f172a', padding: '20px', marginTop: '20px', borderRadius: '12px', fontSize: '0.85rem', fontFamily: 'monospace', color: '#cbd5e1', textAlign: 'left', border: '1px solid #334155', lineHeight: '1.6' }}>
                     <div style={{ color: '#fbbf24', marginBottom: '10px', fontWeight: 'bold', fontSize: '0.95rem' }}>🔍 SZERVEROLDALI FOLYAMAT-NAPLÓ:</div>
-                    <div>• Frontend által küldött email: <span style={{color: '#38bdf8'}}>"{selectedUser?.user_email || selectedUser?.email}"</span></div>
-                    <div>• Backendre megérkezett email: <span style={{color: '#38bdf8'}}>"{playerStats?.debugQueryEmail || 'NINCS VÁLASZ'}"</span></div>
+                    <div>• Frontend email: <span style={{color: '#38bdf8'}}>"{selectedUser?.user_email || selectedUser?.email}"</span></div>
+                    <div>• Backend beérkezett email: <span style={{color: '#38bdf8'}}>"{playerStats?.debugQueryEmail || 'NINCS VÁLASZ (500-AS SZERVER HIBA)'}"</span></div>
                     
                     <div style={{ margin: '10px 0', borderTop: '1px dashed #334155', paddingTop: '10px' }}>
                       {playerStats?.debugSteps && playerStats.debugSteps.map((step: string, i: number) => (
@@ -194,6 +187,9 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
                     </div>
                   </div>
 
+                  <p style={{ margin: '15px 0 0 0', fontSize: '0.85rem', color: '#64748b' }}>
+                    {lang === 'en' ? 'Submissions appear here once the current rounds are finalized by the admin.' : 'A pályaművek itt jelennek meg, amint a futamok lezárulnak és jóváhagyásra kerülnek.'}
+                  </p>
                 </div>
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '25px' }}>
@@ -248,7 +244,7 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
   }
 
   // ====================================================================
-  // 🏆 2. OLDALNÉZET: AZ EREDETI DICSŐSÉGCSARNOK LISTA NÉZET
+  // 🏆 2. OLDALNÉZET: AZ EREDETI DICSŐGCSARNOK LISTA NÉZET
   // ====================================================================
   return (
     <div style={{ background: '#1e293b', padding: '30px', borderRadius: '24px', border: '1px solid #fbbf2440', boxShadow: '0 10px 40px rgba(0,0,0,0.4)', animation: 'fadeIn 0.4s ease-out' }}>
