@@ -235,7 +235,7 @@ tilePodcastDesc: 'Hallgass bennünket aktuális fotós témákról',
     navContests: '📝 Pályázatok',
     navClub: '👥 Klub',
     navInternational: '🌐 Nemzetközi szalonok',
-    navMap: '🌍 Térkép',
+    navMap: 'Térkép',
     navAdmin: '⚙️ Admin',
     
     // Pályázatok almenü
@@ -856,7 +856,7 @@ tilePodcastDesc: 'Hallgass bennünket aktuális fotós témákról',
     navContests: '📝 Contests',
     navClub: '👥 Club',
     navInternational: '🌐 Intl. Salons',
-    navMap: '🌍 Map Spots',
+    navMap: 'Map Spots',
     navAdmin: '⚙️ Admin',
 
     profStatusTitle: 'Account Status & Usage',
