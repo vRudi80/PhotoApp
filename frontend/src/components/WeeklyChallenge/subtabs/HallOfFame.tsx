@@ -67,7 +67,10 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
   }
 
   if (!hallOfFame || hallOfFame.length === 0) {
-    return <div style={{ color: '#64748b', textAlign: 'center', padding: '20px' }}>{t ? t('hofEmpty') : 'Üres toplista'}</  // Játékosra kattintás kezelése
+    return <div style={{ color: '#64748b', textAlign: 'center', padding: '20px' }}>{t ? t('hofEmpty') : 'Üres toplista'}</div>;
+  }
+
+  // Játékosra kattintás kezelése
   const handleUserClick = async (row: any) => {
     const targetEmail = row?.user_email || row?.email;
     if (!targetEmail) return;
@@ -76,7 +79,7 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
     setStatsLoading(true);
     setPlayerStats(null);
     try {
-      // 🎯 VÁLTOZTATÁS: GET helyezett POST kérést indítunk, és az emailt tiszta objektumként küldjük el
+      // Biztonságos, tiszta POST kérés JSON body-val
       const res = await axios.post('/api/weekly/hof-stats', { userEmail: targetEmail });
       setPlayerStats(res.data);
     } catch (err) {
@@ -85,6 +88,7 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
       setStatsLoading(false);
     }
   };
+
 
 
 
