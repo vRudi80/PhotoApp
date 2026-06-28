@@ -51,7 +51,7 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
     'Szakértő 🎯': 'Expert 🎯',
     'Képmester 🎨': 'Photo Master 🎨',
     'Nagymester 🌟': 'Grandmaster 🌟',
-    'Virtuóz ⚡': 'Visual Legend 👑', // Szinkronizálva a Vizuális Legendával
+    'Virtuóz ⚡': 'Visual Legend 👑',
     'Fotóguru 🔥': 'Photo Guru 🔥',
     'Vizuális Legenda 👑': 'Visual Legend 👑'
   };
@@ -71,17 +71,19 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
     return <div style={{ color: '#64748b', textAlign: 'center', padding: '20px' }}>{t ? t('hofEmpty') : 'Üres toplista'}</div>;
   }
 
+  // Játékosra kattintás kezelése
   const handleUserClick = async (row: any) => {
     setSelectedUser(row);
-    const targetEmail = selectedUser?.user_email || selectedUser?.email;
+    
+    // 🎯 JAVÍTVA: Közvetlenül a kattintásból érkező 'row' objektumból olvassuk ki, megkerülve a lassú React state-et!
+    const targetEmail = row?.user_email || row?.email;
     if (!targetEmail) return;
 
-    
     setStatsLoading(true);
     setPlayerStats(null);
     try {
-      // 🎯 VISSZAÁLLÍTVA: Sima relatív hívás, ami az optimalizált backend miatt most már azonnal vissza fog térni!
-      const res = await fetch(`${BACKEND_URL}/api/weekly/hof-stats?userEmail=${targetEmail}`);
+      // 🎯 JAVÍTVA: Az Axios-szal a BACKEND_URL és a res.data kombinációja tökéletesen és golyóállóan fog működni!
+      const res = await axios.get(`${BACKEND_URL}/api/weekly/hof-stats?userEmail=${encodeURIComponent(targetEmail)}`);
       setPlayerStats(res.data);
     } catch (err) {
       console.error('Hiba az adatok letöltésekor:', err);
@@ -89,8 +91,6 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
       setStatsLoading(false);
     }
   };
-
-
 
   // ====================================================================
   // 📸 1. OLDALNÉZET: AZ ADOTT JÁTÉKOS STATISZTIKAI ADATLAPJA (TROPHYROOM MÁSOLAT)
@@ -176,7 +176,7 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
                   <div style={{ fontSize: '3rem', marginBottom: '15px' }}>📸</div>
                   <h4 style={{ color: '#f8fafc', margin: '0 0 5px 0' }}>{lang === 'en' ? 'No finalized history available.' : 'Még nincs lezárt meccse.'}</h4>
                   
-                  {/* 🔬 ÉLŐ DIAGNOSZTIKAI MOTOR - BIZTONSÁGOSAN JAVÍTVA */}
+                  {/* 🔬 ÉLŐ DIAGNOSZTIKAI MOTOR */}
                   <div style={{ background: '#0f172a', padding: '20px', marginTop: '20px', borderRadius: '12px', fontSize: '0.85rem', fontFamily: 'monospace', color: '#cbd5e1', textAlign: 'left', border: '1px solid #334155', lineHeight: '1.6' }}>
                     <div style={{ color: '#fbbf24', marginBottom: '10px', fontWeight: 'bold', fontSize: '0.95rem' }}>🔍 SZERVEROLDALI FOLYAMAT-NAPLÓ:</div>
                     <div>• Frontend email: <span style={{color: '#38bdf8'}}>"{selectedUser?.user_email || selectedUser?.email}"</span></div>
