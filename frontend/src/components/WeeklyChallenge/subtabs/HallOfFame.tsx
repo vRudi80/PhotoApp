@@ -82,7 +82,7 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
       setPlayerStats(res.data);
     } catch (err) {
       console.error('Hiba a játékos adatainak lekérésekor:', err);
-    } finaly {
+    } finally {
       setStatsLoading(false);
     }
   };
