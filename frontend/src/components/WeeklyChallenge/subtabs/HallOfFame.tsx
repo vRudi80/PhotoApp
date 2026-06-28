@@ -32,12 +32,11 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
   
   const { t, lang } = useLanguage();
 
-  // 🎯 ÁLLAPOTOK A KÜLÖN STATISZTIKA OLDALHOZ (Nincs popup!)
+  // Állapotok a külön statisztika oldalhoz
   const [selectedUser, setSelectedUser] = useState<any | null>(null);
   const [playerStats, setPlayerStats] = useState<any | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
 
-  // Biztonságos helyi sziluett avatar, ha valakinek nincs feltöltött profilképe
   const silhouetteAvatar = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23475569'><circle cx='12' cy='8' r='4'/><path d='M12 14c-6.1 0-10 4-10 4v2h20v-2s-3.9-4-10-4z'/></svg>";
 
   const rankNamesEn: Record<string, string> = {
@@ -55,7 +54,6 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
     'Vizuális Legenda 👑': 'Visual Legend 👑'
   };
 
-  // Futam típus vizsgáló (A te TrophyRoom-odból)
   const getTopicType = (start: string, end: string) => {
     const diff = new Date(end).getTime() - new Date(start).getTime();
     return diff <= 25 * 60 * 60 * 1000 ? 'daily' : 'weekly';
@@ -69,7 +67,6 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
     return <div style={{ color: '#64748b', textAlign: 'center', padding: '20px' }}>{t('hofEmpty')}</div>;
   }
 
-  // Játékosra kattintás kezelése
   const handleUserClick = async (row: any) => {
     const targetEmail = row.user_email || row.email;
     if (!targetEmail) return;
@@ -81,14 +78,14 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
       const res = await axios.get(`/api/weekly/my-stats?userEmail=${encodeURIComponent(targetEmail)}`);
       setPlayerStats(res.data);
     } catch (err) {
-      console.error('Hiba a játékos adatainak lekérésekor:', err);
+      console.error('Hiba az adatok letöltésekor:', err);
     } finally {
       setStatsLoading(false);
     }
   };
 
   // ====================================================================
-  // 📸 1. OLDALNÉZET: EGY JÁTÉKOS STATISZTIKAI ADATLAPJA (TROPHYROOM RÁCS MÁSOLAT)
+  // 📸 1. OLDALNÉZET: EGY JÁTÉKOS STATISZTIKAI ADATLAPJA (TROPHYROOM MÁSOLAT)
   // ====================================================================
   if (selectedUser) {
     return (
@@ -98,9 +95,7 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
         <div style={{ marginBottom: '25px' }}>
           <button 
             onClick={() => { setSelectedUser(null); setPlayerStats(null); }}
-            style={{ background: '#1e293b', border: '1px solid #334155', color: '#fbbf24', padding: '12px 24px', borderRadius: '14px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.95rem', transition: 'all 0.2s' }}
-            onMouseOver={e => e.currentTarget.style.background = '#334155'}
-            onMouseOut={e => e.currentTarget.style.background = '#1e293b'}
+            style={{ background: '#1e293b', border: '1px solid #334155', color: '#fbbf24', padding: '12px 24px', borderRadius: '14px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.95rem' }}
           >
             {lang === 'en' ? '⬅ Back to Hall of Fame' : '⬅ Vissza a dicsőségcsarnokba'}
           </button>
@@ -121,7 +116,7 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
           </div>
         </div>
 
-        {/* Adat letöltés pörgettyű */}
+        {/* Adatok betöltése */}
         {statsLoading ? (
           <div style={{ textAlign: 'center', padding: '60px 0' }}>
             <VideoLoader />
@@ -148,7 +143,7 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
               </div>
             </div>
 
-            {/* Fotók rácsa (Hajszálpontos kártya-másolat a TrophyRoom.tsx fájlodból) */}
+            {/* Pályaművek rácsa */}
             <div>
               <h3 style={{ color: '#f8fafc', marginBottom: '20px', fontSize: '1.5rem', fontWeight: '800' }}>
                 {lang === 'en' ? `Past Submissions (${playerStats.history?.length || 0})` : `Korábbi pályaművek (${playerStats.history?.length || 0} db)`}
@@ -217,7 +212,7 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
   }
 
   // ====================================================================
-  // 🏆 2. OLDALNÉZET: AZ EREDETI, MEGSZOKOTT DICSŐSÉGCSARNOK LISTA
+  // 🏆 2. OLDALNÉZET: DICSŐSÉGCSARNOK LISTA NÉZET
   // ====================================================================
   return (
     <div style={{ background: '#1e293b', padding: '30px', borderRadius: '24px', border: '1px solid #fbbf2440', boxShadow: '0 10px 40px rgba(0,0,0,0.4)', animation: 'fadeIn 0.4s ease-out' }}>
