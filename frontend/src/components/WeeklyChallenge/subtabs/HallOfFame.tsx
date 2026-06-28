@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { getImageUrl } from '../../../utils/helpers';
 import VideoLoader from '../../../components/VideoLoader';
+import { BACKEND_URL } from '../../../utils/constants';
 
 // Nyelvi kontextus aktiválása
 import { useLanguage } from '../../../context/LanguageContext';
@@ -80,7 +81,7 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
     setPlayerStats(null);
     try {
       // 🎯 VISSZAÁLLÍTVA: Sima relatív hívás, ami az optimalizált backend miatt most már azonnal vissza fog térni!
-      const res = await axios.get(`/api/weekly/hof-stats?userEmail=${targetEmail}`);
+      const res = await fetch(`${BACKEND_URL}/api/weekly/hof-stats?userEmail=${targetEmail}`);
       setPlayerStats(res.data);
     } catch (err) {
       console.error('Hiba az adatok letöltésekor:', err);
