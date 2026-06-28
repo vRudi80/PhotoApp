@@ -1085,11 +1085,20 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
 
-  // 📸 TRÓFEATEREM VÉGPONT – KÖZPONTOSÍTOTT PONTOSSÁG!
+  // ====================================================================
+  // 📊 JAVÍTVA: 100% SAJÁT EREDETI LOGIKA + PARAMÉTERES TÁMOGATÁS
   // ====================================================================
   app.get('/api/weekly/my-stats', async (req, res) => {
-    const { userEmail } = req.query;
+    // 🎯 HAJZÁLPONTOSAN A TE KÓDOD: Ha a dicsőségfalról jön paraméter, azt nézi, 
+    // ha nem jön semmi (a saját szobád), akkor a bejelentkezett user emailjét!
+    let userEmail = req.query.userEmail || req.user?.email;
+
+    if (!userEmail || userEmail === 'undefined' || userEmail === 'null' || String(userEmail).trim() === '') {
+      userEmail = req.user?.email;
+    }
+
     try {
+      // Szigorúan a te időbélyeg-ellenőrzött lezárt szobáid
       const [pastTopics] = await pool.query(
         "SELECT * FROM weekly_topics WHERE end_date < ? AND status = 'approved' ORDER BY end_date DESC",
         [getLocalMySQLNow()]
@@ -1134,6 +1143,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       res.status(500).json({ error: 'Hiba a statisztikák összeállításakor.' }); 
     }
   });
+
 
   app.get('/api/admin/weekly/suspicious', async (req, res) => {
     try {
