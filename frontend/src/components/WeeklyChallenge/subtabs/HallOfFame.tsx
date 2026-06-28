@@ -70,7 +70,7 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
     return <div style={{ color: '#64748b', textAlign: 'center', padding: '20px' }}>{t ? t('hofEmpty') : 'Üres toplista'}</div>;
   }
 
-  // Játékosra kattintás kezelése
+   // Játékosra kattintás kezelése
   const handleUserClick = async (row: any) => {
     const targetEmail = row?.user_email || row?.email;
     if (!targetEmail) return;
@@ -79,14 +79,17 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
     setStatsLoading(true);
     setPlayerStats(null);
     try {
-      const res = await axios.get(`/api/weekly/my-stats?userEmail=${encodeURIComponent(targetEmail)}`);
+      // 🎯 ÁTÍRVA: Mostantól a külön dicsőségcsarnok-specifikus API-t hívjuk meg
+      const res = await axios.get(`/api/weekly/hof-stats?userEmail=${encodeURIComponent(targetEmail)}`);
       setPlayerStats(res.data);
     } catch (err) {
       console.error('Hiba az adatok letöltésekor:', err);
-    } {
+    } finally {
+      // Garantáltan megvárja az adatok betöltését, mielőtt eltünteti a pörgettyűt
       setStatsLoading(false);
     }
   };
+
 
   // ====================================================================
   // 📸 1. OLDALNÉZET: AZ ADOTT JÁTÉKOS STATISZTIKAI ADATLAPJA (TROPHYROOM MÁSOLAT)
