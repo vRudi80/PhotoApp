@@ -73,13 +73,16 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
   // Játékosra kattintás kezelése
   const handleUserClick = async (row: any) => {
     const targetEmail = row?.user_email || row?.email;
+    
+    // 🎯 1. TESZT: Felugró ablakban azonnal megmutatja, mit lát a frontend kattintáskor
+    alert("Frontend által észlelt email: '" + targetEmail + "'");
+
     if (!targetEmail) return;
 
     setSelectedUser(row);
     setStatsLoading(true);
     setPlayerStats(null);
     try {
-      // Tiszta, szabványos GET kérés query paraméterrel a dedikált API-hoz
       const res = await axios.get(`/api/weekly/hof-stats?userEmail=${targetEmail}`);
       setPlayerStats(res.data);
     } catch (err) {
@@ -88,6 +91,7 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
       setStatsLoading(false);
     }
   };
+
 
 
 
