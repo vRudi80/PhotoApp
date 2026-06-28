@@ -1086,33 +1086,82 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
 
 // ====================================================================
-// 📊 JAVÍTVA: TŰPONTOS URL-DEKÓDOLÁS ÉS ERŐS BACKEND LOGIKA
+// 📊 UTOLSÓ JAVÍTVA: SQL SZINTŰ GOLYÓÁLLÓ HITelesítés (MINDEN JÁTÉKOSRA)
 // ====================================================================
 app.get('/api/weekly/my-stats', async (req, res) => {
   let userEmail = req.query.userEmail || req.query.email || req.user?.email;
 
-  // 🎯 A KULCS: Kényszerítjük, hogy ne objektum vagy kódolt string legyen, hanem tiszta natív szöveg
-  if (userEmail) {
-    userEmail = String(userEmail).trim();
-    if (userEmail.includes('%')) {
-      try { 
-        userEmail = decodeURIComponent(userEmail).trim(); 
-      } catch(e) {
-        // ha nem sikerülne a dekódolás, marad a tiszta string
-      }
-    }
-  }
-
-  if (!userEmail || userEmail === 'undefined' || userEmail === 'null' || userEmail === '') {
-    userEmail = req.user?.email ? String(req.user.email).trim() : null;
+  // Ha a frontend véletlenül "undefined" vagy "null" szöveget küldene, korrigáljuk
+  if (!userEmail || userEmail === 'undefined' || userEmail === 'null' || String(userEmail).trim() === '') {
+    userEmail = req.user?.email;
   }
 
   if (!userEmail) {
     return res.status(400).json({ error: 'A felhasználó e-mail címe nem azonosítható.' });
   }
-  
-  // Innentől jön az előzőleg megírt SQL lekérdezés változatlanul...
 
+  try {
+    const currentNow = getLocalMySQLNow();
+
+    // 🎯 EGYETLEN OPTIMALIZÁLT SQL LEKÉRDEZÉS A BRITTEL JS CIKLUS HELYETT
+    // Közvetlenül az adatbázis végzi el a kis/nagybetű független (LOWER/TRIM) keresést
+    const [historyRows] = await pool.query(`
+      SELECT 
+        t.title AS topic_title,
+        COALESCE(t.title_en, t.title) AS topic_title_en,
+        t.start_date,
+        t.end_date,
+        e.file_url,
+        e.drive_file_id,
+        e.views_count AS views,
+        e.user_name,
+        ${getFairScoreSql('e', 't')} AS likes,
+        -- Tűpontos helyezés számítás al-lekérdezéssel a Fair Score alapján
+        (
+          SELECT COUNT(*) 
+          FROM weekly_entries e2
+          JOIN weekly_topics t2 ON e2.topic_id = t2.id
+          WHERE e2.topic_id = t.id AND e2.is_active = 1
+            AND (
+              ${getFairScoreSql('e2', 't2')} > ${getFairScoreSql('e', 't')}
+              OR (${getFairScoreSql('e2', 't2')} = ${getFairScoreSql('e', 't')} AND e2.likes_count > e.likes_count)
+              OR (${getFairScoreSql('e2', 't2')} = ${getFairScoreSql('e', 't')} AND e2.likes_count = e.likes_count AND e2.views_count < e.views_count)
+            )
+        ) + 1 AS rank,
+        -- Mezőny (összes kép a szobában)
+        (
+          SELECT COUNT(*) 
+          FROM weekly_entries e3 
+          WHERE e3.topic_id = t.id AND e3.is_active = 1
+        ) AS total_entries
+      FROM weekly_entries e
+      JOIN weekly_topics t ON e.topic_id = t.id
+      WHERE LOWER(TRIM(e.user_email)) = LOWER(TRIM(?))
+        AND e.is_active = 1
+        AND t.end_date < ?
+        AND t.status = 'approved'
+      ORDER BY t.end_date DESC
+    `, [userEmail, currentNow]);
+
+    // Dobogós helyezések gyors összesítése a visszakapott adatokból
+    let podiums = { first: 0, second: 0, third: 0 };
+    historyRows.forEach(row => {
+      if (row.rank === 1) podiums.first++;
+      else if (row.rank === 2) podiums.second++;
+      else if (row.rank === 3) podiums.third++;
+    });
+
+    // Pontosan a frontend által elvárt JSON struktúrát küldjük vissza
+    res.json({
+      podiums: podiums,
+      history: historyRows
+    });
+
+  } catch (err) {
+    console.error("❌ Kritikus hiba a my-stats lekérésekor:", err.message);
+    res.status(500).json({ error: 'Hiba a statisztikák összeállításakor.' }); 
+  }
+});
 
 
 
