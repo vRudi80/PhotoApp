@@ -32,7 +32,7 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
   
   const { t, lang } = useLanguage();
 
-  // 🎯 ÚJ STATE-EK: Pop-up ablak kezeléséhez
+  // Felugró ablak (Modal) állapotai
   const [selectedUser, setSelectedUser] = useState<any | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [playerStats, setPlayerStats] = useState<any | null>(null);
@@ -64,18 +64,20 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
     return <div style={{ color: '#64748b', textAlign: 'center', padding: '20px' }}>{t('hofEmpty')}</div>;
   }
 
-  // 🎯 ÚJ FÜGGVÉNY: Lekéri a kiválasztott játékos adatait
+  // Kattintáskor meghívódó statisztika-lekérő
   const handleUserClick = async (row: any) => {
+    const targetEmail = row.user_email || row.email;
+    if (!targetEmail) return;
+
     setSelectedUser(row);
     setModalOpen(true);
     setStatsLoading(true);
     setPlayerStats(null);
     try {
-      // Mindkét verziót elküldjük query-ben a maximális backend kompatibilitásért
-      const res = await axios.get(`/api/weekly/my-stats?userEmail=${encodeURIComponent(row.user_email)}&email=${encodeURIComponent(row.user_email)}`);
+      const res = await axios.get(`/api/weekly/my-stats?userEmail=${encodeURIComponent(targetEmail)}`);
       setPlayerStats(res.data);
     } catch (err) {
-      console.error('Hiba a trófeaterem betöltésekor:', err);
+      console.error('Hiba a játékos adatainak letöltésekor:', err);
     } finally {
       setStatsLoading(false);
     }
@@ -90,7 +92,8 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         {hallOfFame.map((row, index) => {
-          const isMe = row.user_email === user?.email;
+          const rowEmail = row.user_email || row.email;
+          const isMe = rowEmail === user?.email;
           const likes = Number(row.total_likes) || 0;
           
           const firstPlaces = Number(row.first_places) || 0;
@@ -105,8 +108,8 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
 
           return (
             <div 
-              key={row.user_email || index} 
-              onClick={() => handleUserClick(row)} // 🎯 JAVÍTVA: Aktív kattintás esemény
+              key={rowEmail || index} 
+              onClick={() => handleUserClick(row)}
               style={{ 
                 display: 'flex', 
                 alignItems: 'center', 
@@ -118,7 +121,7 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
                 transition: 'transform 0.2s',
                 flexWrap: 'wrap',
                 gap: '15px',
-                cursor: 'pointer' // 🎯 JAVÍTVA: Mutatja, hogy kattintható
+                cursor: 'pointer'
               }}
             >
               {/* Érem / Helyezés */}
@@ -127,7 +130,7 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
               </div>
 
               {/* Felhasználói Profilkép */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyStyle: 'center' }}>
                 <img 
                   src={row.avatar_url || silhouetteAvatar} 
                   alt="" 
@@ -177,92 +180,107 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
       </div>
 
       {/* ==================================================================== */}
-      {/* 🎯 ÚJ: JÁTÉKOS TRÓFEATEREM FELUGRÓ MODAL – SZINKRONBAN A TRÓFEATEREMMEK */}
+      {/* 🎯 JÁTÉKOS TRÓFEATEREM MODAL (MEGEGYEZIK A SAJÁT TRÓFEATEREM DIZÁJNJÁVAL) */}
       {/* ==================================================================== */}
       {modalOpen && selectedUser && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(6px)', zIndex: 9999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px', boxSizing: 'border-box' }}>
-          <div style={{ background: '#0f172a', border: '1px solid #334155', borderRadius: '24px', width: '100%', maxWidth: '580px', maxHeight: '85vh', overflowY: 'auto', padding: '25px', position: 'relative', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vw', minHeight: '100vh', background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(6px)', zIndex: 9999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px', boxSizing: 'border-box' }}>
+          <div style={{ background: '#0f172a', border: '1px solid #334155', borderRadius: '24px', width: '100%', maxWidth: '650px', maxHeight: '85vh', overflowY: 'auto', padding: '30px', position: 'relative' }}>
             
-            {/* Bezárás gomb */}
             <button 
               onClick={() => { setModalOpen(false); setSelectedUser(null); setPlayerStats(null); }}
-              style={{ position: 'absolute', top: '15px', right: '15px', background: '#1e293b', border: 'none', color: '#94a3b8', width: '35px', height: '35px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem' }}
+              style={{ position: 'absolute', top: '15px', right: '15px', background: '#1e293b', border: 'none', color: '#94a3b8', width: '35px', height: '35px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             >
               ✖
             </button>
 
-            {/* Fejléc: Játékos profil adatai */}
+            {/* Profil adatok */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '15px', borderBottom: '1px solid #334155', paddingBottom: '15px', marginBottom: '20px' }}>
               <img 
                 src={selectedUser.avatar_url || silhouetteAvatar} 
                 alt="" 
-                style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #334155', backgroundColor: '#090d16' }} 
+                style={{ width: '50px', height: '50px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #334155' }} 
               />
               <div>
-                <h3 style={{ color: 'white', margin: 0, fontSize: '1.2rem', fontWeight: 'bold' }}>{selectedUser.user_name}</h3>
-                <p style={{ color: '#38bdf8', margin: '4px 0 0 0', fontSize: '0.8rem', fontWeight: 'bold' }}>{selectedUser.club_name || (lang === 'en' ? 'Independent Photographer' : 'Független fotós')}</p>
+                <h3 style={{ color: 'white', margin: 0, fontSize: '1.3rem', fontWeight: 'bold' }}>{selectedUser.user_name}</h3>
+                <p style={{ color: '#10b981', margin: '4px 0 0 0', fontSize: '0.85rem', fontWeight: 'bold' }}>{selectedUser.club_name || (lang === 'en' ? 'Independent Photographer' : 'Független fotós')}</p>
               </div>
             </div>
 
-            {/* Betöltési állapot és adatok kirajzolása */}
+            {/* Tartalom */}
             {statsLoading ? (
-              <div style={{ textAlign: 'center', padding: '40px 0', color: '#94a3b8', fontSize: '0.9rem' }}>
+              <div style={{ textAlign: 'center', padding: '40px 0', color: '#94a3b8' }}>
                 {lang === 'en' ? 'Opening Trophy Room...' : 'Trófeaterem berendezése...'}
               </div>
             ) : playerStats ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                 
-                {/* 1. Trófeák (Podiums) Szekció */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '10px', textAlign: 'center' }}>
-                  <div style={{ background: '#1e293b50', padding: '12px', borderRadius: '12px', border: '1px solid #33415530' }}>
-                    <div style={{ fontSize: '1.5rem', marginBottom: '2px' }}>🥇</div>
-                    <div style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 'bold' }}>{lang === 'en' ? '1st Places' : 'Arany'}</div>
-                    <div style={{ fontSize: '1.2rem', fontWeight: '900', color: '#fbbf24', marginTop: '2px' }}>{playerStats.podiums?.first || 0}</div>
+                {/* Trófeák darabszáma */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '12px', textAlign: 'center' }}>
+                  <div style={{ background: '#1e293b', padding: '12px', borderRadius: '14px', border: '1px solid #fbbf2430' }}>
+                    <div style={{ fontSize: '1.6rem' }}>🥇</div>
+                    <div style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 'bold', marginTop: '2px' }}>{lang === 'en' ? '1st Places' : 'Arany'}</div>
+                    <div style={{ fontSize: '1.2rem', fontWeight: '900', color: '#fbbf24' }}>{playerStats.podiums?.first || 0}</div>
                   </div>
-                  <div style={{ background: '#1e293b50', padding: '12px', borderRadius: '12px', border: '1px solid #33415530' }}>
-                    <div style={{ fontSize: '1.5rem', marginBottom: '2px' }}>🥈</div>
-                    <div style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 'bold' }}>{lang === 'en' ? '2nd Places' : 'Ezüst'}</div>
-                    <div style={{ fontSize: '1.2rem', fontWeight: '900', color: '#cbd5e1', marginTop: '2px' }}>{playerStats.podiums?.second || 0}</div>
+                  <div style={{ background: '#1e293b', padding: '12px', borderRadius: '14px', border: '1px solid #cbd5e130' }}>
+                    <div style={{ fontSize: '1.6rem' }}>🥈</div>
+                    <div style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 'bold', marginTop: '2px' }}>{lang === 'en' ? '2nd Places' : 'Ezüst'}</div>
+                    <div style={{ fontSize: '1.2rem', fontWeight: '900', color: '#cbd5e1' }}>{playerStats.podiums?.second || 0}</div>
                   </div>
-                  <div style={{ background: '#1e293b50', padding: '12px', borderRadius: '12px', border: '1px solid #33415530' }}>
-                    <div style={{ fontSize: '1.5rem', marginBottom: '2px' }}>🥉</div>
-                    <div style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 'bold' }}>{lang === 'en' ? '3rd Places' : 'Bronz'}</div>
-                    <div style={{ fontSize: '1.2rem', fontWeight: '900', color: '#b45309', marginTop: '2px' }}>{playerStats.podiums?.third || 0}</div>
+                  <div style={{ background: '#1e293b', padding: '12px', borderRadius: '14px', border: '1px solid #cd7f3230' }}>
+                    <div style={{ fontSize: '1.6rem' }}>🥉</div>
+                    <div style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 'bold', marginTop: '2px' }}>{lang === 'en' ? '3rd Places' : 'Bronz'}</div>
+                    <div style={{ fontSize: '1.2rem', fontWeight: '900', color: '#cd7f32' }}>{playerStats.podiums?.third || 0}</div>
                   </div>
                 </div>
 
-                {/* 2. Csatatörténet és képek listája */}
+                {/* Korábbi pályaművek listája (Hajszálpontosan másolva a TrophyRoom dizájnból) */}
                 <div>
-                  <h4 style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: '10px', fontWeight: 'bold' }}>
-                    📷 {lang === 'en' ? 'Battle History' : 'Csaták krónikája'} ({playerStats.history?.length || 0})
+                  <h4 style={{ color: '#94a3b8', marginBottom: '12px', fontSize: '1rem', fontWeight: 'bold' }}>
+                    📸 {lang === 'en' ? `Past Submissions (${playerStats.history?.length || 0})` : `Korábbi pályaművek (${playerStats.history?.length || 0} db)`}
                   </h4>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '35vh', overflowY: 'auto', paddingRight: '4px' }}>
+                  
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '40vh', overflowY: 'auto', paddingRight: '4px' }}>
                     {playerStats.history && playerStats.history.length > 0 ? (
-                      playerStats.history.map((item: any, idx: number) => (
-                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#0f172a', padding: '10px', borderRadius: '12px', border: '1px solid #1e293b' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                            {/* 🎯 JAVÍTVA: getImageUrl használata a drive_file_id-hoz, pont mint a TrophyRoom-ban! */}
-                            <img 
-                              src={getImageUrl(item.drive_file_id, item.file_url)} 
-                              alt="" 
-                              style={{ width: '40px', height: '40px', borderRadius: '8px', objectFit: 'cover', border: '1px solid #334155' }} 
-                            />
-                            <div>
-                              <div style={{ fontSize: '0.8rem', color: '#f8fafc', fontWeight: 'bold' }}>{item.topic_title}</div>
-                              <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '2px' }}>
-                                {lang === 'en' ? 'Rank:' : 'Helyezés:'} <b style={{ color: item.rank === 1 ? '#fbbf24' : '#cbd5e1' }}>#{item.rank}</b> / {item.total_entries}
+                      playerStats.history.map((entry: any, idx: number) => {
+                        const totalEntries = Number(entry?.total_entries) || 1;
+                        const rank = Number(entry?.rank) || 0;
+                        const percentile = rank / totalEntries;
+
+                        // Jelvény logika a Trófeateremből
+                        let badge = ''; let badgeColor = '#334155';
+                        if (rank === 1) { badge = lang === 'en' ? '1st Place 🏆' : '1. Hely 🏆'; badgeColor = '#fbbf24'; }
+                        else if (rank === 2) { badge = lang === 'en' ? '2nd Place 🥈' : '2. Hely 🥈'; badgeColor = '#cbd5e1'; }
+                        else if (rank === 3) { badge = lang === 'en' ? '3rd Place 🥉' : '3. Hely 🥉'; badgeColor = '#cd7f32'; }
+                        else if (percentile <= 0.1) { badge = '⭐ Top 10%'; badgeColor = '#a855f7'; }
+                        else if (percentile <= 0.2) { badge = '✨ Top 20%'; badgeColor = '#10b981'; }
+
+                        return (
+                          <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#1e293b', padding: '12px', borderRadius: '16px', border: `1px solid ${badgeColor}50` }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                              <img 
+                                src={getImageUrl(entry?.drive_file_id, entry?.file_url)} 
+                                alt="" 
+                                style={{ width: '45px', height: '45px', borderRadius: '8px', objectFit: 'cover' }} 
+                              />
+                              <div>
+                                <div style={{ fontSize: '0.85rem', color: '#f8fafc', fontWeight: 'bold' }}>{entry?.topic_title}</div>
+                                <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>
+                                  <span style={{ color: badgeColor, fontWeight: 'bold', marginRight: '6px' }}>{badge || (lang === 'en' ? `Rank #${rank}` : `${rank}. Hely`)}</span>
+                                  <span>• {lang === 'en' ? `Field: ${totalEntries}` : `Mezőny: ${totalEntries}`}</span>
+                                  <span style={{ marginLeft: '6px' }}>👁️ {entry?.views || 0}</span>
+                                </div>
                               </div>
                             </div>
+                            
+                            <div style={{ textAlign: 'right', background: '#0f172a', padding: '6px 12px', borderRadius: '10px' }}>
+                              <span style={{ color: '#f97316', fontWeight: '900', fontSize: '0.85rem' }}>⚡ {entry?.likes || 0} FP</span>
+                            </div>
                           </div>
-                          <div style={{ textAlign: 'right', background: '#00000040', padding: '6px 10px', borderRadius: '8px', border: '1px solid #33415530' }}>
-                            <span style={{ color: '#38bdf8', fontWeight: '900', fontSize: '0.85rem' }}>{Number(item.likes || 0).toFixed(2)}</span>
-                            <span style={{ fontSize: '0.75rem', color: '#64748b', marginLeft: '2px' }}>FP</span>
-                          </div>
-                        </div>
-                      ))
+                        );
+                      })
                     ) : (
-                      <div style={{ fontSize: '0.75rem', color: '#64748b', textAlign: 'center', padding: '15px' }}>
-                        {lang === 'en' ? 'No battle history yet.' : 'Még nincs lezárt csatája.'}
+                      <div style={{ color: '#64748b', textAlign: 'center', padding: '20px', fontSize: '0.85rem' }}>
+                        {lang === 'en' ? 'No past submissions found.' : 'Még nincsenek lezárt versenyadatai.'}
                       </div>
                     )}
                   </div>
@@ -270,7 +288,7 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
 
               </div>
             ) : (
-              <div style={{ textAlign: 'center', padding: '20px', color: '#64748b', fontSize: '0.8rem' }}>
+              <div style={{ textAlign: 'center', padding: '20px', color: '#64748b', fontSize: '0.85rem' }}>
                 {lang === 'en' ? 'Failed to load statistics.' : 'Nem sikerült betölteni az adatokat.'}
               </div>
             )}
