@@ -1086,16 +1086,16 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
 
   // ====================================================================
-  // 📊 ULTRASTABIL ÉS VISSZAFELÉ KOMPATIBILIS STATISZTIKA VÉGPONT
+  // 📊 ULTRASTABIL ÉS BIZTONSÁGOS STATISZTIKA VÉGPONT
   // ====================================================================
   app.get('/api/weekly/my-stats', async (req, res) => {
     try {
-     // 🎯 CSERÉLD KI EZT AZ EGY SORT AZ EREDETI VÉGPONTOD TETEJÉN:
-const email = req.query.userEmail || req.query.email || req.user?.email;
+      // 🎯 JAVÍTVA: A változó neve szigorúan [userEmail] lett, hogy egyezzen a kód többi részével!
+      let userEmail = req.query.userEmail || req.query.email || req.user?.email;
 
       // 🎯 VÉDELEM: Ha a frontend hibásan az "undefined" vagy "null" szót küldte át sztringként,
       // vagy egyáltalán nem küldött semmit, akkor biztonságosan visszaesünk a bejelentkezett felhasználóra!
-      if (!userEmail || userEmail === 'undefined' || userEmail === 'null' || userEmail.trim() === '') {
+      if (!userEmail || userEmail === 'undefined' || userEmail === 'null' || String(userEmail).trim() === '') {
         userEmail = req.user?.email;
       }
 
@@ -1129,7 +1129,7 @@ const email = req.query.userEmail || req.query.email || req.user?.email;
         ORDER BY t.end_date DESC
       `;
 
-      const [historyRows] = await pool.query(query, [userEmail.trim()]);
+      const [historyRows] = await pool.query(query, [String(userEmail).trim()]);
 
       // 2. Kiszámoljuk a dobogós helyezések darabszámait (Podiums) az adatokból
       let first = 0;
@@ -1158,6 +1158,7 @@ const email = req.query.userEmail || req.query.email || req.user?.email;
       res.status(500).json({ error: 'Szerveroldali hiba történt a statisztikák összeállításakor.' });
     }
   });
+
 
 
   app.get('/api/admin/weekly/suspicious', async (req, res) => {
