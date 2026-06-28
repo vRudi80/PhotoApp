@@ -1085,38 +1085,15 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
 
-  // ====================================================================
-  // 📊 VISSZAÁLLÍTVA: A TROPHY ROOMBAN MŰKÖDŐ EREDETI TÖMBKERESÉSES LOGIKA
+  // 📸 TRÓFEATEREM VÉGPONT – KÖZPONTOSÍTOTT PONTOSSÁG!
   // ====================================================================
   app.get('/api/weekly/my-stats', async (req, res) => {
-    // Alapértelmezetten pontosan ugyanúgy gyűjtjük be az emailt, mint az eredetiben
-    let userEmail = req.query.userEmail || req.query.email || req.user?.email;
-
-    // Ha a frontend "undefined" vagy "null" szöveget küldene stringként, korrigáljuk
-    if (!userEmail || userEmail === 'undefined' || userEmail === 'null' || String(userEmail).trim() === '') {
-      userEmail = req.user?.email;
-    }
-
-    if (!userEmail) {
-      return res.status(400).json({ error: 'A felhasználó e-mail címe nem azonosítható.' });
-    }
-
-    // 🎯 A BIZTONSÁGI KULCS: Teljesen letisztítjuk a beérkező emailt (kisbetűsítés, szóközmentesítés)
-    // Ez feloldja az URL-kódolásból vagy rejtett karakterekből adódó eltéréseket
-    let cleanUserEmail = String(userEmail).trim().toLowerCase();
-    if (cleanUserEmail.includes('%')) {
-      try { 
-        cleanUserEmail = decodeURIComponent(cleanUserEmail).trim().toLowerCase(); 
-      } catch(e) {}
-    }
-
+    const { userEmail } = req.query;
     try {
-      // Pontosan az a lekérdezés, ami az eredeti verziódban is szerepelt
       const [pastTopics] = await pool.query(
         "SELECT * FROM weekly_topics WHERE end_date < ? AND status = 'approved' ORDER BY end_date DESC",
         [getLocalMySQLNow()]
       );
-      
       let podiums = { first: 0, second: 0, third: 0 };
       let history = [];
 
@@ -1130,13 +1107,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
           ORDER BY fair_score DESC, e.likes_count DESC, e.views_count ASC
         `, [topic.id]);
 
-        // 🎯 VISSZAÁLLÍTVA: Pontosan ugyanaz a .findIndex tömbkeresés, mint a Trophy Room-ban
-        // De a háttérben már a teljesen letisztított, kisbetűsített stringeket vetjük össze
-        const userIndex = entries.findIndex(e => 
-          e.user_email && 
-          String(e.user_email).trim().toLowerCase() === cleanUserEmail
-        );
-
+        const userIndex = entries.findIndex(e => e.user_email === userEmail);
         if (userIndex !== -1) {
           const rank = userIndex + 1;
           const entry = entries[userIndex];
@@ -1144,7 +1115,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
           history.push({
             topic_title: topic.title,
-            topic_title_en: topic.title_en || topic.title, 
+            topic_title_en: topic.title_en, 
             start_date: topic.start_date,
             end_date: topic.end_date,
             rank: rank,
@@ -1157,20 +1128,12 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
           });
         }
       }
-
-      // Visszaküldjük az adatokat abban a tiszta formátumban, amit a frontend elvár
-      res.json({
-        podiums: podiums,
-        history: history
-      });
-
-    } catch (err) {
-      console.error("❌ Kritikus hiba a my-stats lekérésekor:", err.message);
+      res.json({ podiums, history });
+    } catch (err) { 
+      console.error(err);
       res.status(500).json({ error: 'Hiba a statisztikák összeállításakor.' }); 
     }
   });
-
-
 
   app.get('/api/admin/weekly/suspicious', async (req, res) => {
     try {
@@ -1235,6 +1198,94 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       res.status(500).json({ error: 'Hiba a törlés során' });
     }
   });
+
+    // ====================================================================
+  // 🏆 ÚJ DEDIKÁLT VÉGPONT: KIZÁRÓLAG A DICSŐSÉGCSARNOK JÁTÉKOS STATISZTIKÁIHOZ
+  // ====================================================================
+  app.get('/api/weekly/hof-stats', async (req, res) => {
+    let userEmail = req.query.userEmail;
+
+    if (!userEmail) {
+      return res.status(400).json({ error: 'Hiányzó e-mail cím!' });
+    }
+
+    // 🎯 Maximális tisztítás az URL-kódolás és a rejtett karakterek ellen
+    let cleanEmail = String(userEmail).trim().toLowerCase();
+    if (cleanEmail.includes('%')) {
+      try { 
+        cleanEmail = decodeURIComponent(cleanEmail).trim().toLowerCase(); 
+      } catch(e) {}
+    }
+
+    try {
+      const currentNow = getLocalMySQLNow();
+
+      // Lekérjük az összes lezárt kihívást (bármilyen korábbi státusszal is szerepelnek)
+      const [pastTopics] = await pool.query(
+        "SELECT * FROM weekly_topics WHERE end_date < ? AND (status = 'approved' OR status IS NULL OR status = '') ORDER BY end_date DESC",
+        [currentNow]
+      );
+      
+      let podiums = { first: 0, second: 0, third: 0 };
+      let history = [];
+
+      for (const topic of pastTopics) {
+        // Megkérdezzük a MySQL-t, hogy az adott fotós indult-e az adott szobában
+        const [userEntries] = await pool.query(`
+          SELECT e.id, e.user_email, e.user_name, e.file_url, e.drive_file_id, e.likes_count, e.views_count,
+                 ${getFairScoreSql('e', 't')} as fair_score
+          FROM weekly_entries e
+          JOIN weekly_topics t ON e.topic_id = t.id
+          WHERE e.topic_id = ? AND e.is_active = 1 AND LOWER(TRIM(e.user_email)) = LOWER(TRIM(?))
+        `, [topic.id, cleanEmail]);
+
+        if (userEntries.length > 0) {
+          const entry = userEntries[0];
+          
+          // Lekérjük a szoba összes képét a hivatalos pontozási sorrendben
+          const [allEntries] = await pool.query(`
+            SELECT e.id, ${getFairScoreSql('e', 't')} as fair_score, e.likes_count, e.views_count
+            FROM weekly_entries e
+            JOIN weekly_topics t ON e.topic_id = t.id
+            WHERE e.topic_id = ? AND e.is_active = 1
+            ORDER BY fair_score DESC, e.likes_count DESC, e.views_count ASC
+          `, [topic.id]);
+
+          // Tűpontos helyezés számítás ID alapján (Integereknél nincs kódolási vagy karakteres hiba!)
+          const rank = allEntries.findIndex(item => item.id === entry.id) + 1;
+
+          if (rank === 1) podiums.first++; 
+          else if (rank === 2) podiums.second++; 
+          else if (rank === 3) podiums.third++;
+
+          history.push({
+            topic_title: topic.title,
+            topic_title_en: topic.title_en || topic.title, 
+            start_date: topic.start_date,
+            end_date: topic.end_date,
+            rank: rank,
+            total_entries: allEntries.length,
+            file_url: entry.file_url,
+            drive_file_id: entry.drive_file_id,
+            likes: entry.fair_score, 
+            views: entry.views_count,
+            user_name: entry.user_name 
+          });
+        }
+      }
+
+      // Pontosan azt a tiszta JSON struktúrát adjuk vissza, amit a frontend vár
+      res.json({
+        podiums: podiums,
+        history: history
+      });
+
+    } catch (err) {
+      console.error("❌ Kritikus hiba a hof-stats lekérésekor:", err.message);
+      res.status(500).json({ error: 'Hiba a statisztikák összeállításakor.' }); 
+    }
+  });
+
   
   app.get('/api/weekly/hall-of-fame', async (req, res) => {
     try {
