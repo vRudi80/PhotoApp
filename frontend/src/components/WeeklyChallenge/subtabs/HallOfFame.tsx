@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useLanguage } from '../../../context/LanguageContext';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface HallOfFameUser {
   user_name: string;
@@ -29,11 +29,11 @@ interface PlayerStats {
 }
 
 export default function HallOfFame() {
-  const { t, lang } = useLanguage();
+  const { lang } = useLanguage();
   const [users, setUsers] = useState<HallOfFameUser[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // 🎯 ÚJ STATE-EK A JÁTÉKOS STATISZTIKA MODALHOZ
+  // Állapotok a játékos statisztika modalhoz
   const [selectedUser, setSelectedUser] = useState<HallOfFameUser | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [playerStats, setPlayerStats] = useState<PlayerStats | null>(null);
@@ -54,14 +54,12 @@ export default function HallOfFame() {
     }
   };
 
-  // 🎯 ÚJ: Játékosra kattintáskor meghívódó statisztika-lekérő függvény
   const handleUserClick = async (user: HallOfFameUser) => {
     setSelectedUser(user);
     setModalOpen(true);
     setStatsLoading(true);
     setPlayerStats(null);
     try {
-      // Dinamikusan a kiválasztott játékos e-mail címét küldjük el a meglévő statisztikai API-nak!
       const res = await axios.get(`/api/weekly/my-stats?userEmail=${encodeURIComponent(user.user_email)}`);
       setPlayerStats(res.data);
     } catch (err) {
@@ -108,18 +106,19 @@ export default function HallOfFame() {
                 {user.avatar_url ? (
                   <img src={user.avatar_url} alt={user.user_name} className="w-full h-full object-cover" />
                 ) : (
-                  <span className="text-xl font-bold text-slate-500">{user.user_name[0].toUpperCase()}</span>
+                  // 🎯 JAVÍTVA: Ha a név üres vagy null, nem száll el a kód, hanem kap egy '?' jelet
+                  <span className="text-xl font-bold text-slate-500">{(user.user_name?.[0] || '?').toUpperCase()}</span>
                 )}
               </div>
 
               {/* Név és Klub */}
               <div>
-                <div className="font-bold text-slate-200 group-hover:text-white transition-colors">{user.user_name}</div>
+                <div className="font-bold text-slate-200 group-hover:text-white transition-colors">{user.user_name || 'Anonim Fotós'}</div>
                 <div className="text-xs text-slate-500">{user.club_name || (lang === 'en' ? 'No Club' : 'Nincs klubja')}</div>
               </div>
             </div>
 
-            {/* Összesített Pontszámok és Plecsnik gyorsnézete */}
+            {/* Összesített Pontszámok */}
             <div className="flex items-center gap-6">
               <div className="hidden sm:flex items-center gap-3 text-xs text-slate-400 bg-slate-950/40 px-3 py-1.5 rounded-xl border border-slate-800/50">
                 <span>🥇 {user.first_places}</span>
@@ -134,9 +133,7 @@ export default function HallOfFame() {
         ))}
       </div>
 
-      {/* ==================================================================== */}
-      // 🎯 ÚJ: DINAMIKUS JÁTÉKOS TRÓFEATEREM MODAL (POPUP)
-      {/* ==================================================================== */}
+      {/* 🎯 JAVÍTVA: SZABVÁNYOS JSX KOMMENT ÉS DINAMIKUS JÁTÉKOS TRÓFEATEREM MODAL */}
       {modalOpen && selectedUser && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[9999] flex justify-center items-center p-4 box-border animate-fade-in">
           <div className="bg-slate-950 border border-slate-800 rounded-3xl w-full max-w-2xl max-h-[85vh] overflow-y-auto p-6 relative shadow-2xl">
@@ -149,23 +146,24 @@ export default function HallOfFame() {
               ✖
             </button>
 
-            {/* Modal Fejléc: Profil adatai */}
+            {/* Modal Fejléc */}
             <div className="flex items-center gap-4 border-b border-slate-800 pb-5 mb-5">
               <div className="w-16 h-16 rounded-2xl bg-slate-900 border border-slate-700 overflow-hidden flex items-center justify-center">
                 {selectedUser.avatar_url ? (
                   <img src={selectedUser.avatar_url} alt={selectedUser.user_name} className="w-full h-full object-cover" />
                 ) : (
-                  <span className="text-2xl font-black text-slate-500">{selectedUser.user_name[0].toUpperCase()}</span>
+                  // 🎯 JAVÍTVA: Itt is védve van az első betű lekérése
+                  <span className="text-2xl font-black text-slate-500">{(selectedUser.user_name?.[0] || '?').toUpperCase()}</span>
                 )}
               </div>
               <div>
-                <h3 className="text-xl font-black text-white">{selectedUser.user_name}</h3>
+                <h3 className="text-xl font-black text-white">{selectedUser.user_name || 'Anonim Fotós'}</h3>
                 <p className="text-xs text-sky-400 font-medium">{selectedUser.club_name || (lang === 'en' ? 'Independent Photographer' : 'Független fotós')}</p>
                 <p className="text-[10px] text-slate-500 select-all mt-0.5">{selectedUser.user_email}</p>
               </div>
             </div>
 
-            {/* Modal Törzs: Töltés vagy Adatok kirajzolása */}
+            {/* Modal Törzs */}
             {statsLoading ? (
               <div className="flex flex-col justify-center items-center py-12 text-slate-400 gap-3">
                 <div className="animate-spin rounded-full h-8 w-8 border-2 border-sky-500 border-b-transparent"></div>
@@ -174,7 +172,7 @@ export default function HallOfFame() {
             ) : playerStats ? (
               <div className="flex flex-col gap-6">
                 
-                {/* 1. Trófeák (Podiums) Szekció */}
+                {/* Trófeák */}
                 <div className="grid grid-cols-3 gap-3 bg-slate-900/40 p-4 rounded-2xl border border-slate-900 text-center">
                   <div className="bg-slate-950/60 p-3 rounded-xl border border-amber-500/10">
                     <div className="text-2xl mb-1">🥇</div>
@@ -193,7 +191,7 @@ export default function HallOfFame() {
                   </div>
                 </div>
 
-                {/* 2. Történelem / Képek listája */}
+                {/* Történelem */}
                 <div>
                   <h4 className="text-sm font-bold text-slate-400 mb-3 flex items-center gap-1.5">
                     📷 {lang === 'en' ? 'Battle History' : 'Csaták krónikája'} ({playerStats.history.length})
@@ -208,11 +206,9 @@ export default function HallOfFame() {
                       {playerStats.history.map((item, idx) => (
                         <div key={idx} className="flex items-center justify-between p-3 bg-slate-900/30 border border-slate-900 hover:border-slate-800 rounded-xl gap-3">
                           <div className="flex items-center gap-3">
-                            {/* Csata képe */}
                             <div className="w-12 h-12 bg-slate-950 rounded-lg border border-slate-800 overflow-hidden flex-shrink-0 shadow">
                               <img src={item.file_url} alt={item.topic_title} className="w-full h-full object-cover hover:scale-110 transition-transform duration-300" />
                             </div>
-                            {/* Kihívás neve és helyezés */}
                             <div>
                               <div className="text-xs font-bold text-slate-200 line-clamp-1">{item.topic_title}</div>
                               <div className="text-[10px] text-slate-500 mt-0.5 flex items-center gap-1.5">
@@ -223,7 +219,6 @@ export default function HallOfFame() {
                             </div>
                           </div>
                           
-                          {/* Elért Fair Score pontszám */}
                           <div className="text-right flex-shrink-0 bg-slate-950/80 px-2.5 py-1.5 rounded-lg border border-slate-800/60">
                             <span className="text-sky-400 font-extrabold text-sm">{Number(item.likes).toFixed(2)}</span>
                             <span className="text-[9px] text-slate-500 font-bold ml-0.5">FP</span>
