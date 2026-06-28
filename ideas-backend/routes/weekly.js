@@ -528,6 +528,111 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       res.status(500).json({ error: 'Hiba az album lekérésekor.' });
     }
   });
+
+    // ====================================================================
+  // 👑 GOLYÓÁLLÓ JELENTKEZÉS CSATABÍRÓNAK (FELHASZNÁLÓI OLDAL)
+  // ====================================================================
+  app.post('/api/weekly/apply-master', async (req, res) => {
+    // Elfogadjuk a body-ból és a query-ből is az adatokat az ultrastabil működésért
+    const topicId = req.body.topicId || req.query.topicId;
+    const userEmail = req.body.userEmail || req.query.userEmail;
+
+    if (!topicId || !userEmail) {
+      return res.json({ 
+        success: false, 
+        message: 'Hiányzó adatok! A kihívás azonosítója vagy az e-mail cím nem érkezett meg.' 
+      });
+    }
+
+    try {
+      const parsedTopicId = Number(topicId);
+
+      // 1. Megnézzük, létezik-e a szoba
+      const [check] = await pool.query(
+        'SELECT master_email, pending_master_email FROM weekly_topics WHERE id = ?', 
+        [parsedTopicId]
+      );
+      
+      if (!check || check.length === 0) {
+        return res.json({ success: false, message: 'Ez a kihívás nem található az adatbázisban!' });
+      }
+
+      const room = check[0];
+
+      // 🎯 JAVÍTVA: String-kényszerítést használunk, így ha a mező értéke NULL a DB-ben, nem fog összeomlani a kód!
+      if (room.master_email && String(room.master_email).trim() !== '') {
+        return res.json({ success: false, message: 'Ehhez a csatához már tartozik jóváhagyott Csatabíró!' });
+      }
+
+      if (room.pending_master_email && String(room.pending_master_email).trim() !== '') {
+        return res.json({ success: false, message: 'Valaki már jelentkezett erre a pozícióra, az admin elbírálására vár!' });
+      }
+
+      // 2. Ha minden feltétel teljesül, rögzítjük a jelentkezést
+      await pool.query(
+        'UPDATE weekly_topics SET pending_master_email = ? WHERE id = ?', 
+        [userEmail.trim(), parsedTopicId]
+      );
+      
+      console.log(`📩 CSATABÍRÓ JELENTKEZÉS: ${userEmail} regisztrálva a(z) ${parsedTopicId} szobára.`);
+      
+      return res.json({ 
+        success: true, 
+        message: 'Jelentkezésedet sikeresen regisztráltuk, az admin jóváhagyása után élesedik! 👑' 
+      });
+
+    } catch (err) {
+      console.error("❌ Kritikus hiba a Csatabírói jelentkezés során:", err);
+      return res.json({ 
+        success: false, 
+        message: 'Szerveroldali hiba történt a jelentkezés mentésekor.' 
+      });
+    }
+  });
+
+    // ====================================================================
+  // 🔒 ADMINISZTRÁTORI DÖNTÉS A CSATABÍRÓRÓL (+2 NAP PRÉMIUMMAL)
+  // ====================================================================
+  app.post('/api/admin/decide-master', async (req, res) => {
+    const { topicId, decision } = req.body; 
+    try {
+      if (decision === 'approved') {
+        // 1. Lekérjük a jelentkező email címét a weekly_topics-ból
+        const [topicRows] = await pool.query('SELECT pending_master_email FROM weekly_topics WHERE id = ?', [topicId]);
+        const masterEmail = topicRows[0]?.pending_master_email;
+
+        if (masterEmail && masterEmail.trim() !== '') {
+          // 2. Frissítjük a kihívás adatlapját (kinevezzük hivatalos Képmesternek)
+          await pool.query(
+            'UPDATE weekly_topics SET master_email = pending_master_email, pending_master_email = NULL WHERE id = ?',
+            [topicId]
+          );
+
+          // 3. 🎯 JUTALMAZÁS: Hozzáadunk +2 nap Prémium időt a felhasználónak
+          await pool.query(`
+            UPDATE photo_users 
+            SET is_premium = 1, 
+                premium_level = 1,
+                premium_until = DATE_ADD(IF(premium_until IS NOT NULL AND premium_until > NOW(), premium_until, NOW()), INTERVAL 2 DAY) 
+            WHERE LOWER(TRIM(email)) = LOWER(TRIM(?))
+          `, [masterEmail]);
+
+          console.log(`👑 KÉPMESTERI JUTALOM: ${masterEmail} sikeresen kapott +2 nap Prémium tagságot.`);
+        } else {
+          return res.status(400).json({ error: 'Nem található aktív Csatabíró jelentkezés ehhez a kihíváshoz!' });
+        }
+      } else {
+        // Elutasítás esetén egyszerűen csak ürítjük a jelentkezőt
+        await pool.query('UPDATE weekly_topics SET pending_master_email = NULL WHERE id = ?', [topicId]);
+      }
+      
+      res.json({ success: true, message: `Bírálat rögzítve: ${decision}` });
+    } catch (err) {
+      console.error("❌ Hiba a Csatabíró döntés mentésekor:", err.message);
+      res.status(500).json({ error: 'Szerveroldali hiba bírálatkor: ' + err.message });
+    }
+  });
+
   
   app.post('/api/weekly/my-album/upload', upload.single('photo'), async (req, res) => {
     const { userEmail, camera, lens, shutter, iso, aperture, software } = req.body;
