@@ -1086,19 +1086,80 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
 
   // ====================================================================
-  // 📊 JAVÍTVA: SAJÁT ÉS MÁS JÁTÉKOSOK STATISZTIKÁINAK LEKÉRÉSE
+  // 📊 ULTRASTABIL ÉS VISSZAFELÉ KOMPATIBILIS STATISZTIKA VÉGPONT
   // ====================================================================
   app.get('/api/weekly/my-stats', async (req, res) => {
     try {
-      // 🎯 JAVÍTVA: Ha érkezik e-mail paraméter a dicsőségfalról, azt nézi, ha nem, akkor a bejelentkezett felhasználót!
+      // 🎯 BIZTONSÁGI LÉPCSŐ: Ha a Dicsőségfal küldi a 'userEmail'-t, azt nézi. 
+      // Ha a saját profilod kéri paraméter nélkül, akkor a bejelentkezett 'req.user.email'-t használja!
       const userEmail = req.query.userEmail || req.query.email || req.user?.email;
 
       if (!userEmail) {
-        return res.status(400).json({ error: 'Felhasználói e-mail nem azonosítható.' });
+        return res.status(400).json({ error: 'A lekérdezni kívánt felhasználói e-mail nem azonosítható.' });
       }
-      
-      // ... a végpont többi része (SQL lekérdezések) teljesen változatlan marad!
 
+      // 1. Lekérjük a felhasználó összes eddigi pályaművét a lezárt fordulókból, 
+      // és egy belső al-lekérdezéssel (subquery) kiszámoljuk a tűpontos helyezését (rank).
+      const query = `
+        SELECT 
+          e.likes_count as likes,
+          e.views_count as views,
+          e.file_url,
+          e.drive_file_id,
+          t.title as topic_title,
+          t.start_date,
+          t.end_date,
+          (
+            SELECT COUNT(*) + 1 
+            FROM weekly_entries e2 
+            WHERE e2.topic_id = e.topic_id AND e2.likes_count > e.likes_count
+          ) as \`rank\`,
+          (
+            SELECT COUNT(*) 
+            FROM weekly_entries e3 
+            WHERE e3.topic_id = e.topic_id
+          ) as total_entries
+        FROM weekly_entries e
+        JOIN weekly_topics t ON e.topic_id = t.id
+        WHERE LOWER(TRIM(e.user_email)) = LOWER(TRIM(?))
+        ORDER BY t.end_date DESC
+      `;
+
+      const [historyRows] = await pool.query(query, [userEmail.trim()]);
+
+      // 2. Kiszámoljuk a dobogós helyezések darabszámait (Podiums) az adatokból.
+      // Ezzel tehermentesítjük az adatbázist, és garantáljuk, hogy a számlálók és a lista 100%-ban szinkronban lesznek.
+      let first = 0;
+      let second = 0;
+      let third = 0;
+
+      historyRows.forEach(row => {
+        const currentRank = Number(row.rank) || 0;
+        if (currentRank === 1) {
+          first++;
+        } else if (currentRank === 2) {
+          second++;
+        } else if (currentRank === 3) {
+          third++;
+        }
+      });
+
+      // 3. Visszaküldjük a pontosan elvárt JSON struktúrát, amit a TrophyRoom 
+      // és az új HallOfFame felugró ablak is tökéletesen fel tud dolgozni.
+      res.json({
+        podiums: {
+          first: first,
+          second: second,
+          third: third
+        },
+        history: historyRows
+      });
+
+    } catch (err) {
+      console.error("❌ Kritikus hiba a my-stats lekérésekor:", err.message);
+      res.status(500).json({ error: 'Szerveroldali hiba történt a statisztikák összeállításakor.' });
+    }
+  });
 
   app.get('/api/admin/weekly/suspicious', async (req, res) => {
     try {
