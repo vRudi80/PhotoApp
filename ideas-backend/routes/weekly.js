@@ -1086,23 +1086,28 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
 
   // ====================================================================
-  // 📊 JAVÍTVA: 100% SAJÁT EREDETI LOGIKA + PARAMÉTERES TÁMOGATÁS
+  // 📊 JAVÍTVA: TŰPONTOS VÁLTOZÓ-ILLprivate ÉS ERŐS BACKEND LOGIKA
   // ====================================================================
   app.get('/api/weekly/my-stats', async (req, res) => {
-    // 🎯 HAJZÁLPONTOSAN A TE KÓDOD: Ha a dicsőségfalról jön paraméter, azt nézi, 
-    // ha nem jön semmi (a saját szobád), akkor a bejelentkezett user emailjét!
-    let userEmail = req.query.userEmail || req.user?.email;
+    // 🎯 FIX: Egységesen a [userEmail] nevet használjuk, pont úgy, ahogy a kódod többi része elvárja!
+    let userEmail = req.query.userEmail || req.query.email || req.user?.email;
 
+    // Ha a frontend véletlenül "undefined" vagy "null" szöveget küldene stringként, korrigáljuk
     if (!userEmail || userEmail === 'undefined' || userEmail === 'null' || String(userEmail).trim() === '') {
       userEmail = req.user?.email;
     }
 
+    if (!userEmail) {
+      return res.status(400).json({ error: 'A felhasználó e-mail címe nem azonosítható.' });
+    }
+
     try {
-      // Szigorúan a te időbélyeg-ellenőrzött lezárt szobáid
+      // Biztonságosan lekérjük a lezárt és jóváhagyott szobákat
       const [pastTopics] = await pool.query(
         "SELECT * FROM weekly_topics WHERE end_date < ? AND status = 'approved' ORDER BY end_date DESC",
         [getLocalMySQLNow()]
       );
+      
       let podiums = { first: 0, second: 0, third: 0 };
       let history = [];
 
@@ -1116,7 +1121,12 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
           ORDER BY fair_score DESC, e.likes_count DESC, e.views_count ASC
         `, [topic.id]);
 
-        const userIndex = entries.findIndex(e => e.user_email === userEmail);
+        // Keresés kis- és nagybetűktől függetlenül (.toLowerCase())
+        const userIndex = entries.findIndex(e => 
+          e.user_email && userEmail &&
+          e.user_email.toLowerCase().trim() === userEmail.toLowerCase().trim()
+        );
+
         if (userIndex !== -1) {
           const rank = userIndex + 1;
           const entry = entries[userIndex];
@@ -1124,7 +1134,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
           history.push({
             topic_title: topic.title,
-            topic_title_en: topic.title_en, 
+            topic_title_en: topic.topic_title_en || topic.title, 
             start_date: topic.start_date,
             end_date: topic.end_date,
             rank: rank,
@@ -1137,12 +1147,19 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
           });
         }
       }
-      res.json({ podiums, history });
-    } catch (err) { 
-      console.error(err);
+
+      // Visszaküldjük a tiszta adatokat
+      res.json({
+        podiums: podiums,
+        history: history
+      });
+
+    } catch (err) {
+      console.error("❌ Kritikus hiba a my-stats lekérésekor:", err.message);
       res.status(500).json({ error: 'Hiba a statisztikák összeállításakor.' }); 
     }
   });
+
 
 
   app.get('/api/admin/weekly/suspicious', async (req, res) => {
