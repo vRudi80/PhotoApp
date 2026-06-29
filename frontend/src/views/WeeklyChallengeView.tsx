@@ -155,29 +155,31 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
   const totalImagesCount = topic.entries_count ?? topic.entry_count ?? topic.totalEntries ?? 0;
   const unvotedCount = topic.unvotedEntries ?? topic.unvoted_count ?? 0;
 
-  // 🎯 ÚJ: Intelligens megosztó függvény
+  // 🎯 ÚJ: Intelligens, motiváló megosztó függvény
   const handleShare = (e: React.MouseEvent) => {
     e.stopPropagation(); // Fontos: megakadályozza, hogy a gombnyomásra belépjen a szobába
 
     const shareUrl = window.location.origin; 
+    
+    // Motiváló, többsoros szöveg összerakása a téma címével és leírásával
     const shareText = lang === 'en' 
-      ? `Join the "${displayTitle}" photo challenge on PhotAwesome!`
-      : `Gyere és indulj a(z) "${displayTitle}" fotós kihíváson a PhotAwesome oldalon!`;
+      ? `📸 Guess what! The "${displayTitle}" photo challenge is live on PhotAwesome!\n\n✨ Topic: ${displayDesc}\n\nCome show off your best shot, vote for others, and win trophies! 🏆 Click the link below to join the game:`
+      : `📸 Képzeld, elindult a(z) "${displayTitle}" fotós kihívás a PhotAwesome-on!\n\n✨ Téma: ${displayDesc}\n\nGyere, mutasd meg a legjobb fotódat, szavazz a többiekre, és zsebeld be a trófeákat! 🏆 Kattints a linkre és csatlakozz a játékhoz:`;
 
     // Natív megosztás mobilokra (Messenger, Insta, stb. támogatás)
     if (navigator.share) {
       navigator.share({
-        title: 'PhotAwesome Kihívás',
+        title: lang === 'en' ? 'PhotAwesome Challenge' : 'PhotAwesome Kihívás',
         text: shareText,
         url: shareUrl
       }).catch((err) => console.log('Megosztás megszakítva', err));
     } else {
-      // Fallback asztali gépekre: dedikált Facebook ablak
+      // Fallback asztali gépekre: dedikált Facebook ablak (a 'quote' paraméter viszi át a szöveget)
       const fbUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}&quote=${encodeURIComponent(shareText)}`;
-      window.open(fbUrl, 'facebook-share-dialog', 'width=600,height=400');
+      // Kicsit magasabb ablakot nyitunk (height=600), hogy kiférjen a hosszabb szöveg
+      window.open(fbUrl, 'facebook-share-dialog', 'width=600,height=600');
     }
   };
-
   return (
     <div 
       onClick={onSelect}
