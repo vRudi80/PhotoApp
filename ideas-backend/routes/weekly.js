@@ -31,7 +31,31 @@ const getFairScoreSql = (entryAlias = 'e', topicAlias = 't') => {
 
 
 module.exports = function(app, pool, drive, upload, cleanupTempFile) {
-  
+    // 🎯 AUTOPROVIZIÓS MOTOR: Ha nincsenek meg az archív lájk/komment táblák, magától létrehozza őket
+  (async () => {
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS weekly_archive_likes (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          entry_id INT NOT NULL,
+          user_email VARCHAR(255) NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE KEY unique_entry_archive_user (entry_id, user_email)
+        )
+      `);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS weekly_archive_comments (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          entry_id INT NOT NULL,
+          user_email VARCHAR(255) NOT NULL,
+          user_name VARCHAR(255) NOT NULL,
+          comment_text TEXT NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+    } catch (e) { console.error("⚠️ Archívum tábla ellenőrzési hiba:", e.message); }
+  })();
+
   let lastChallengeProcessTime = 0;
 
   const getLocalMySQLNow = () => {
@@ -1765,24 +1789,30 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
 // 📜 ARCHÍV TÖRTÉNELMI ADATOK – JAVÍTVA (GOLYÓÁLLÓ)
   // ====================================================================
+    // 📜 ARCHÍV TÖRTÉNELMI ADATOK – KÖZPONTOSÍTVA ÉS LÁJKBIZTOSAN
+  // ====================================================================
   app.get('/api/weekly/history/:topicId', async (req, res) => {
     const { topicId } = req.params;
     const userEmail = req.query.userEmail || '';
     try {
-      // 🎯 JAVÍTVA: currentTopic.id helyett a helyes topicId változót adjuk át a lekérdezésnek!
       const [leaderboard] = await pool.query(`
         SELECT e.id, e.user_name, e.user_email, e.file_url, e.drive_file_id, e.views_count, e.likes_count, u.club_name,
                e.camera, e.lens, e.shutter, e.iso, e.aperture, e.software,
                EXISTS(SELECT 1 FROM weekly_votes WHERE entry_id = e.id AND voter_email = ?) as has_user_voted,
                (SELECT COUNT(*) FROM weekly_votes WHERE voter_email = e.user_email AND entry_id IN (SELECT id FROM weekly_entries WHERE topic_id = e.topic_id AND is_active = 1)) as votes_cast,
                ${getFairScoreSql('e', 't')} as fair_score,
-               COALESCE((SELECT 1 FROM weekly_votes WHERE entry_id = e.id AND vote_type = 'master' LIMIT 1), 0) AS has_master_vote
+               COALESCE((SELECT 1 FROM weekly_votes WHERE entry_id = e.id AND vote_type = 'master' LIMIT 1), 0) AS has_master_vote,
+               
+               /* 🎯 ÚJ: Összeszámoljuk az archív dicséreteket és ellenőrizzük a bejelentkezett felhasználót */
+               (SELECT COUNT(*) FROM weekly_archive_likes WHERE entry_id = e.id) as archive_likes,
+               EXISTS(SELECT 1 FROM weekly_archive_likes WHERE entry_id = e.id AND LOWER(TRIM(user_email)) = LOWER(TRIM(?))) as has_user_liked
+               
         FROM weekly_entries e 
         JOIN weekly_topics t ON e.topic_id = t.id
         LEFT JOIN photo_users u ON e.user_email = u.email 
         WHERE e.topic_id = ? AND e.is_active = 1 
         ORDER BY fair_score DESC, e.likes_count DESC, e.views_count ASC
-      `, [userEmail, topicId]); // 👈 Itt lett kicserélve!
+      `, [userEmail, userEmail, topicId]); // 👈 userEmail kétszer lett átadva az új paraméter miatt!
       
       const clubsData = {};
       leaderboard.forEach(entry => {
@@ -1805,10 +1835,11 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
       res.json({ leaderboard, clubLeaderboard });
     } catch (err) { 
-      console.error("❌ Hiba a history lekérésekor:", err);
+      console.error(err);
       res.status(500).json({ error: 'Hiba a történeti adatok lekérésekor.' }); 
     }
   });
+
 
   // ====================================================================
   // 💬 ARÉNA LÍGA ÉLŐ CSEVEGŐ VÉGPONTOK
@@ -1870,6 +1901,54 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       res.status(500).json({ error: 'Hiba: ' + err.message });
     }
   });
+
+    // ====================================================================
+  // ❤️ ARCHÍVUM INTERAKTÍV MÓD: LÁJKOLÁS ÉS DICSERETEK (POST)
+  // ====================================================================
+  const handleArchiveLikeLogic = async (req, res) => {
+    const { entryId, userEmail } = req.body;
+    if (!entryId || !userEmail) return res.status(400).json({ error: 'Hiányzó adatok!' });
+    try {
+      const [existing] = await pool.query('SELECT id FROM weekly_archive_likes WHERE entry_id = ? AND user_email = ?', [entryId, userEmail]);
+      if (existing.length > 0) {
+        await pool.query('DELETE FROM weekly_archive_likes WHERE entry_id = ? AND user_email = ?', [entryId, userEmail]);
+        return res.json({ success: true, liked: false });
+      } else {
+        await pool.query('INSERT INTO weekly_archive_likes (entry_id, user_email) VALUES (?, ?)', [entryId, userEmail]);
+        return res.json({ success: true, liked: true });
+      }
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  };
+  app.post('/api/weekly/archive/like', handleArchiveLikeLogic);
+  app.post('/api/weekly/history/like', handleArchiveLikeLogic);
+
+  // ====================================================================
+  // 💬 ARCHÍVUM INTERAKTÍV MÓD: KOMMENTEK LEKÉRÉSE ÉS KÜLDÉSE
+  // ====================================================================
+  const handleGetComments = async (req, res) => {
+    try {
+      const [rows] = await pool.query('SELECT * FROM weekly_archive_comments WHERE entry_id = ? ORDER BY created_at ASC', [req.params.entryId]);
+      res.json(rows);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  };
+  app.get('/api/weekly/archive/comments/:entryId', handleGetComments);
+  app.get('/api/weekly/history/comments/:entryId', handleGetComments);
+
+  const handlePostComment = async (req, res) => {
+    const { entryId, userEmail, userName, commentText } = req.body;
+    if (!entryId || !userEmail || !commentText?.trim()) return res.status(400).json({ error: 'Hiányzó mezők!' });
+    try {
+      await pool.query(
+        'INSERT INTO weekly_archive_comments (entry_id, user_email, user_name, comment_text) VALUES (?, ?, ?, ?)',
+        [entryId, userEmail, userName || 'Anonim', commentText.trim()]
+      );
+      res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  };
+  app.post('/api/weekly/archive/comment', handlePostComment);
+  app.post('/api/weekly/history/comment', handlePostComment);
 
   app.post('/api/weekly/chat/typing', (req, res) => {
     const { topicId, userEmail, userName } = req.body;
