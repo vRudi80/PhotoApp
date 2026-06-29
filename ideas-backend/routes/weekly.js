@@ -1925,30 +1925,27 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   app.post('/api/weekly/history/like', handleArchiveLikeLogic);
 
   // ====================================================================
-  // 💬 ARCHÍVUM INTERAKTÍV MÓD: KOMMENTEK LEKÉRÉSE ÉS KÜLDÉSE
+  // ❤️ ARCHÍVUM INTERAKTÍV MÓD: LÁJKOLÁS ÉS DICSERETEK JAVÍTVA (-TOGGLE)
   // ====================================================================
-  const handleGetComments = async (req, res) => {
+  const handleArchiveLikeLogic = async (req, res) => {
+    const { entryId, userEmail } = req.body;
+    if (!entryId || !userEmail) return res.status(400).json({ error: 'Hiányzó adatok!' });
     try {
-      const [rows] = await pool.query('SELECT * FROM weekly_archive_comments WHERE entry_id = ? ORDER BY created_at ASC', [req.params.entryId]);
-      res.json(rows);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+      const [existing] = await pool.query('SELECT id FROM weekly_archive_likes WHERE entry_id = ? AND user_email = ?', [entryId, userEmail]);
+      if (existing.length > 0) {
+        await pool.query('DELETE FROM weekly_archive_likes WHERE entry_id = ? AND user_email = ?', [entryId, userEmail]);
+        return res.json({ success: true, liked: false });
+      } else {
+        await pool.query('INSERT INTO weekly_archive_likes (entry_id, user_email) VALUES (?, ?)', [entryId, userEmail]);
+        return res.json({ success: true, liked: true });
+      }
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
   };
-  app.get('/api/weekly/archive/comments/:entryId', handleGetComments);
-  app.get('/api/weekly/history/comments/:entryId', handleGetComments);
-
-  const handlePostComment = async (req, res) => {
-    const { entryId, userEmail, userName, commentText } = req.body;
-    if (!entryId || !userEmail || !commentText?.trim()) return res.status(400).json({ error: 'Hiányzó mezők!' });
-    try {
-      await pool.query(
-        'INSERT INTO weekly_archive_comments (entry_id, user_email, user_name, comment_text) VALUES (?, ?, ?, ?)',
-        [entryId, userEmail, userName || 'Anonim', commentText.trim()]
-      );
-      res.json({ success: true });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-  };
-  app.post('/api/weekly/archive/comment', handlePostComment);
-  app.post('/api/weekly/history/comment', handlePostComment);
+  // 🎯 Regisztráljuk pontosan azon a néven, amit a modál keres:
+  app.post('/api/weekly/archive/like-toggle', handleArchiveLikeLogic);
+  app.post('/api/weekly/history/like-toggle', handleArchiveLikeLogic);
 
   app.post('/api/weekly/chat/typing', (req, res) => {
     const { topicId, userEmail, userName } = req.body;
