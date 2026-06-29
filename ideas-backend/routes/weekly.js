@@ -1763,13 +1763,14 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-  // 📜 ARCHÍV TÖRTÉNELMI ADATOK – KÖZPONTOSÍTVA
+// 📜 ARCHÍV TÖRTÉNELMI ADATOK – JAVÍTVA (GOLYÓÁLLÓ)
   // ====================================================================
   app.get('/api/weekly/history/:topicId', async (req, res) => {
     const { topicId } = req.params;
     const userEmail = req.query.userEmail || '';
     try {
-const [leaderboard] = await pool.query(`
+      // 🎯 JAVÍTVA: currentTopic.id helyett a helyes topicId változót adjuk át a lekérdezésnek!
+      const [leaderboard] = await pool.query(`
         SELECT e.id, e.user_name, e.user_email, e.file_url, e.drive_file_id, e.views_count, e.likes_count, u.club_name,
                e.camera, e.lens, e.shutter, e.iso, e.aperture, e.software,
                EXISTS(SELECT 1 FROM weekly_votes WHERE entry_id = e.id AND voter_email = ?) as has_user_voted,
@@ -1781,7 +1782,7 @@ const [leaderboard] = await pool.query(`
         LEFT JOIN photo_users u ON e.user_email = u.email 
         WHERE e.topic_id = ? AND e.is_active = 1 
         ORDER BY fair_score DESC, e.likes_count DESC, e.views_count ASC
-      `, [userEmail, currentTopic.id]);
+      `, [userEmail, topicId]); // 👈 Itt lett kicserélve!
       
       const clubsData = {};
       leaderboard.forEach(entry => {
@@ -1804,7 +1805,7 @@ const [leaderboard] = await pool.query(`
 
       res.json({ leaderboard, clubLeaderboard });
     } catch (err) { 
-      console.error(err);
+      console.error("❌ Hiba a history lekérésekor:", err);
       res.status(500).json({ error: 'Hiba a történeti adatok lekérésekor.' }); 
     }
   });
