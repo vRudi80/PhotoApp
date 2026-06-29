@@ -15,6 +15,7 @@ import BattlePlanner from '../components/WeeklyChallenge/subtabs/BattlePlanner';
 import exifr from 'exifr'; 
 import VideoLoader from '../components/VideoLoader';
 import { useLanguage } from '../context/LanguageContext';
+import ChallengeShareModal from '../components/WeeklyChallenge/ChallengeShareModal';
 
 // ====================================================================
 // 📊 GLOBÁLIS SEGÉDFÜGGVÉNYEK
@@ -102,7 +103,7 @@ const compressImageOnClient = (file: File): Promise<File> => {
 // ====================================================================
 // 📊 SELEKCIÓS KÁRTYA KOMPONENS (BEÉPÍTETT MEGOSZTÁSSAL)
 // ====================================================================
-function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }) {
+function ChallengeCard({ topic, onSelect, onShare }: { topic: any; onSelect: () => void, onShare: () => void }) {
   const { t, lang } = useLanguage();
   const [timeLeft, setTimeLeft] = useState<string>(t('viewTimeCalc'));
 
@@ -155,27 +156,9 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
   const totalImagesCount = topic.entries_count ?? topic.entry_count ?? topic.totalEntries ?? 0;
   const unvotedCount = topic.unvotedEntries ?? topic.unvoted_count ?? 0;
 
-// 🎯 FRISSÍTVE: Intelligens megosztó függvény tiszta frontend domain maszkolással
-  const handleShare = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Ne lépjünk be a szobába gombnyomáskor
-
-    // 🔗 JAVÍTVA: Mostantól a hivatalos frontend domainedet osztjuk meg (pl. photawesome.com/share/challenge/31)
-    const cleanFrontendShareUrl = `${window.location.origin}/share/challenge/${topic.id}`; 
-    
-    const shareText = lang === 'en' 
-      ? `📸 Guess what! The "${displayTitle}" photo challenge is live on PhotAwesome!\n\n✨ Topic: ${displayDesc}\n\nClick the link below to join the game:`
-      : `📸 Képzeld, elindult a(z) "${displayTitle}" fotós kihívás a PhotAwesome-on!\n\n✨ Téma: ${displayDesc}\n\nKattints a linkre és csatlakozz a játékhoz:`;
-
-    if (navigator.share) {
-      navigator.share({
-        title: lang === 'en' ? 'PhotAwesome Challenge' : 'PhotAwesome Kihívás',
-        text: shareText,
-        url: cleanFrontendShareUrl
-      }).catch((err) => console.log('Megosztás megszakítva', err));
-    } else {
-      const fbUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(cleanFrontendShareUrl)}`;
-      window.open(fbUrl, 'facebook-share-dialog', 'width=600,height=600');
-    }
+const handleShare = (e: React.MouseEvent) => {
+    e.stopPropagation(); 
+    onShare(); // Itt nyitjuk meg a modalt!
   };
   
   return (
@@ -269,6 +252,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const [isMaster, setIsMaster] = useState<boolean>(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [hasNewMessage, setHasNewMessage] = useState(false);
+  const [topicToShare, setTopicToShare] = useState<any | null>(null);
 
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
@@ -1159,7 +1143,10 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       />
 
       <ShareCardModal activeShareData={activeShareData} onClose={() => setActiveShareData(null)} user={user} shareBase64={shareBase64} loadingShareImg={loadingShareImg} isGeneratingImage={isGeneratingImage} handleExecuteShare={handleExecuteShare} />
-
+      <ChallengeShareModal 
+        topic={topicToShare} 
+        onClose={() => setTopicToShare(null)} 
+      />
       {/* ── RENDKÍVÜL STABIL RESZPONZÍV STYLING REGETEG ── */}
       <style>{`
         .arena-fluid-container { width: 100%; box-sizing: border-box; }
