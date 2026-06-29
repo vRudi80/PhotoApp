@@ -18,6 +18,7 @@ const translations = {
     btnShareResult:'Megosztás',
     tilePodcastTitle: 'Képolvasók Podcast',
 tilePodcastDesc: 'Hallgass bennünket aktuális fotós témákról',
+    navExplore:'Felfedezés',
 
     "archiveCountPhotographer": "Fotós",
   "archiveCountEnded": "Lezárult",
@@ -1051,6 +1052,7 @@ tilePodcastDesc: 'Listen our podcast of fresh topics',
     tileAdminTitle: 'Administration',
     tileAdminDesc: 'Manage contests, club nights, users, and salons.',
     contBagdeEditTitle: 'Edit',
+    navExplore:'Explore',
 
     "archiveCountPhotographer": "Photographers",
   "archiveCountEnded": "Ended",
