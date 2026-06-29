@@ -998,9 +998,14 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                     <p style={{ color: '#94a3b8' }}>{t('viewNoActiveLeaguesDesc')}</p>
                   </div>
                 ) : (
-                  <div className="arena-cards-grid">
+                 <div className="arena-cards-grid">
                     {sortedActiveTopics.map((actTop) => (
-                      <ChallengeCard key={actTop.id} topic={actTop} onSelect={() => setSelectedTopicId(actTop.id)} />
+                      <ChallengeCard 
+                        key={actTop.id} 
+                        topic={actTop} 
+                        onSelect={() => setSelectedTopicId(actTop.id)} 
+                        onShare={() => setTopicToShare(actTop)}  /* 🎯 EZ HIÁNYZOTT! */
+                      />
                     ))}
                   </div>
                 )}
