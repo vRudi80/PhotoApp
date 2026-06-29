@@ -60,7 +60,7 @@ export default function ChallengeShareModal({ topic, onClose }: ChallengeShareMo
     }
   };
 
-  return (
+ return (
     <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 99999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px', overflowY: 'auto' }}>
       
       <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', maxWidth: '380px', marginBottom: '15px', alignItems: 'center' }}>
@@ -92,7 +92,6 @@ export default function ChallengeShareModal({ topic, onClose }: ChallengeShareMo
         </div>
 
         {/* Borítókép */}
-        {/* Borítókép */}
         <div style={{ 
           width: '100%', height: '180px', borderRadius: '16px', border: `2px solid ${isDaily ? '#ef4444' : '#3b82f6'}`, 
           boxShadow: '0 8px 25px rgba(0,0,0,0.5)', zIndex: 10, backgroundColor: '#000', overflow: 'hidden', marginBottom: '20px'
@@ -101,7 +100,7 @@ export default function ChallengeShareModal({ topic, onClose }: ChallengeShareMo
             <img 
               src={topic.cover_url} 
               alt="Cover" 
-              crossOrigin="anonymous" /* 🎯 EZ A KULCS A BIZTONSÁGI HIBA ELLEN! */
+              crossOrigin="anonymous" 
               style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
             />
           ) : (
@@ -127,13 +126,60 @@ export default function ChallengeShareModal({ topic, onClose }: ChallengeShareMo
         </div>
       </div>
 
-      <button 
-        onClick={handleGenerateAndShare}
-        disabled={isGenerating}
-        style={{ width: '100%', maxWidth: '380px', marginTop: '20px', background: isGenerating ? '#334155' : 'linear-gradient(135deg, #10b981, #059669)', color: isGenerating ? '#64748b' : 'white', border: 'none', padding: '16px', borderRadius: '14px', fontSize: '1.1rem', fontWeight: 'bold', cursor: isGenerating ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', boxShadow: '0 10px 25px rgba(16,185,129,0.3)' }}
-      >
-        {isGenerating ? '⏳ Generálás...' : (lang === 'en' ? '📲 Download & Share' : '📲 Kép Letöltése és Megosztás')}
-      </button>
+      {/* 🎯 ÚJ EGYÉRTELMŰ GOMBSOR */}
+      <div style={{ display: 'flex', gap: '10px', width: '100%', maxWidth: '380px', marginTop: '20px' }}>
+        
+        {/* 1. GOMB: Kép Letöltése */}
+        <button 
+          onClick={async () => {
+            const node = document.getElementById('challenge-invite-card');
+            if (!node) return;
+            setIsGenerating(true);
+            try {
+              const dataUrl = await toPng(node, { cacheBust: true, quality: 1.0, pixelRatio: 2, skipFonts: true, fetchRequestInit: { cache: 'no-cache' } });
+              const link = document.createElement('a');
+              link.download = `PhotAwesome_Challenge_${topic.id}.png`;
+              link.href = dataUrl;
+              link.click();
+              alert(lang === 'en' ? '✅ Image downloaded to your device! You can now upload it anywhere.' : '✅ A kép sikeresen letöltve az eszközödre! Most már feltöltheted képként bármelyik posztodba.');
+            } catch (e) {
+              alert('Hiba a letöltéskor.');
+            } finally {
+              setIsGenerating(false);
+            }
+          }}
+          disabled={isGenerating}
+          style={{ flex: 1, background: isGenerating ? '#334155' : '#10b981', color: isGenerating ? '#64748b' : 'white', border: 'none', padding: '14px', borderRadius: '12px', fontSize: '0.95rem', fontWeight: 'bold', cursor: isGenerating ? 'not-allowed' : 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px', boxShadow: '0 8px 15px rgba(16,185,129,0.3)' }}
+        >
+          <span style={{ fontSize: '1.2rem' }}>⬇️</span>
+          <span>{isGenerating ? '⏳...' : (lang === 'en' ? 'Download Image' : 'Kép Letöltése')}</span>
+        </button>
+
+        {/* 2. GOMB: Link Megosztása */}
+        <button 
+          onClick={() => {
+            const shareText = lang === 'en' 
+              ? `📸 Join the "${displayTitle}" photo challenge!\n\nClick here to play: ${window.location.origin}/weekly_challenge`
+              : `📸 Indulj te is a(z) "${displayTitle}" fotós kihíváson!\n\nKattints ide és játssz te is: ${window.location.origin}/weekly_challenge`;
+            
+            if (navigator.share) {
+              navigator.share({
+                title: 'PhotAwesome Kihívás',
+                text: shareText
+              }).catch(console.error);
+            } else {
+               const cleanFrontendShareUrl = `${window.location.origin}/share/challenge/${topic.id}`; 
+               const fbUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(cleanFrontendShareUrl)}`;
+               window.open(fbUrl, 'facebook-share-dialog', 'width=600,height=600');
+            }
+          }}
+          style={{ flex: 1, background: '#3b82f6', color: 'white', border: 'none', padding: '14px', borderRadius: '12px', fontSize: '0.95rem', fontWeight: 'bold', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px', boxShadow: '0 8px 15px rgba(59,130,246,0.3)' }}
+        >
+          <span style={{ fontSize: '1.2rem' }}>🔗</span>
+          <span>{lang === 'en' ? 'Share Link' : 'Link Megosztása'}</span>
+        </button>
+      </div>
+
     </div>
   );
 }
