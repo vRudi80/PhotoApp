@@ -7,10 +7,10 @@ interface VideoLoaderProps {
 
 export default function VideoLoader({ fullPage = false }: VideoLoaderProps) {
   const { lang } = useLanguage();
-  
-  // 🎯 ÁLLAPOT A LASSULÁS ÉSZLELÉSÉHEZ
   const [isTakingTooLong, setIsLoadingTooLong] = useState(false);
+  const [showReloadButton, setShowReloadButton] = useState(false); // Új állapot a kézi gombnak
   
+   
 useEffect(() => {
     // ⏰ 1. 5 másodperc után sárga figyelmeztetés
     const warningTimer = setTimeout(() => {
