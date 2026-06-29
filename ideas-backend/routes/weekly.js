@@ -1400,7 +1400,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   
-    // ====================================================================
+ // ====================================================================
   // 🏆 SZUPERSTABIL ÉS HIVATALOS DICSŐSÉGCSARNOK RANGLISTA (GET)
   // ====================================================================
   app.get('/api/weekly/hall-of-fame', async (req, res) => {
@@ -1475,6 +1475,21 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         });
       });
 
+      // 🎯 ÚJ LÉPÉS: Lekérjük, hogy ki hányszor volt Képmester
+      const [masterRows] = await pool.query(`
+        SELECT master_email, COUNT(*) AS master_count
+        FROM weekly_topics
+        WHERE master_email IS NOT NULL AND TRIM(master_email) != ''
+        GROUP BY master_email
+      `);
+
+      // Átrakjuk egy gyorsan kereshető szótárba (objektumba)
+      const masterStats = {};
+      masterRows.forEach(row => {
+        const email = String(row.master_email).trim().toLowerCase();
+        masterStats[email] = Number(row.master_count) || 0;
+      });
+
       // 3. Lekérjük a regisztrált felhasználók és klubjaik adatait
       const [users] = await pool.query(`
         SELECT u.name as user_name, u.email as user_email, u.club_name, u.avatar_url,
@@ -1483,10 +1498,11 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         LEFT JOIN photo_clubs c ON u.club_name = c.name
       `);
 
-      // Összefésüljük a profilokat a frissen kiszámított valós éremadatokkal
+      // Összefésüljük a profilokat a frissen kiszámított valós éremadatokkal ÉS a Képmesteri adattal
       const leaderboard = users.map(u => {
         const email = String(u.user_email).trim().toLowerCase();
         const stats = userStats[email] || { total_likes: 0, first_places: 0, podiums: 0 };
+        const mCount = masterStats[email] || 0; // 🎯 Képmester szám beillesztése
 
         return {
           user_name: u.user_name,
@@ -1497,10 +1513,12 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
           logo_url: u.logo_url,
           total_likes: Math.round(stats.total_likes * 100) / 100,
           first_places: stats.first_places,
-          podiums: stats.podiums
+          podiums: stats.podiums,
+          master_count: mCount // 🎯 Átadjuk a frontendnek!
         };
       })
-      .filter(u => u.total_likes > 0) // Csak azokat jelenítjük meg, akiknek van érvényes lezárt pontjuk
+      // Opcionális: Ha valaki csak képmester volt, de még nem játszott, ő is megjelenhet, ha a || mCount > 0 -t betesszük
+      .filter(u => u.total_likes > 0 || u.master_count > 0) 
       .sort((a, b) => b.total_likes - a.total_likes || a.user_name.localeCompare(b.user_name));
 
       res.json(leaderboard);
