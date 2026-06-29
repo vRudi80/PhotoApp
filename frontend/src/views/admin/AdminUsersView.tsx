@@ -31,12 +31,18 @@ export default function AdminUsersView({
   const [storageStats, setStorageStats] = useState<Record<string, { count: number, bytes: number }>>({});
   const [isLoadingStats, setIsLoadingStats] = useState(true);
 
+  // 📧 E-MAIL KÜLDŐ ÁLLAPOTOK
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+  const [emailSubject, setEmailSubject] = useState('');
+  const [emailBody, setEmailBody] = useState('');
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+
   const silhouetteAvatar = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23475569'><circle cx='12' cy='8' r='4'/><path d='M12 14c-6.1 0-10 4-10 4v2h20v-2s-3.9-4-10-4z'/></svg>";
 
-  // Felhasználók közvetlen lekérése az új, garantáltan tiszta exkluzív útvonalról
+  // Felhasználók közvetlen lekérése
   const loadFreshUsersList = async () => {
     try {
-      const res = await fetch(`${BACKEND_URL}/api/admin/exclusive-users`); // 👈 Átírva az új exkluzív végpontra!
+      const res = await fetch(`${BACKEND_URL}/api/admin/exclusive-users`);
       if (res.ok) {
         const data = await res.json();
         setLocalUsers(data || []);
@@ -118,16 +124,71 @@ export default function AdminUsersView({
     }, 400);
   };
 
+  // 📧 E-MAIL KÜLDŐ FÜGGVÉNY
+  const handleSendBulkEmail = async () => {
+    if (!emailSubject.trim() || !emailBody.trim()) {
+      return alert("Kérlek, töltsd ki a tárgyat és az üzenetet is!");
+    }
+
+    if (!window.confirm(`Biztosan elküldöd ezt az e-mailt a listában szereplő ${processedUsers.length} felhasználónak?`)) {
+      return;
+    }
+
+    setIsSendingEmail(true);
+    try {
+      // Csak az érvényes email címeket szedjük ki a JELENLEGI szűrt listából
+      const targetEmails = processedUsers.map(u => u.email).filter(Boolean);
+
+      const res = await fetch(`${BACKEND_URL}/api/admin/send-bulk-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          emails: targetEmails,
+          subject: emailSubject,
+          body: emailBody
+        })
+      });
+
+      if (res.ok) {
+        alert("🎉 Az e-mailek sikeresen elküldve!");
+        setIsEmailModalOpen(false);
+        setEmailSubject('');
+        setEmailBody('');
+      } else {
+        const err = await res.json();
+        alert(`❌ Hiba történt: ${err.error || 'Ismeretlen hiba'}`);
+      }
+    } catch (error) {
+      alert("❌ Hálózati hiba történt a küldés során!");
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
+
   return (
     <div>
-      <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', color: '#f59e0b' }}>👥 Felhasználók és Tárhely Kezelése</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+        <h2 style={{ fontSize: '2rem', margin: 0, color: '#f59e0b' }}>👥 Felhasználók és Tárhely Kezelése</h2>
+        
+        {/* ÚJ GOMB AZ E-MAIL KÜLDÉSHEZ */}
+        <button 
+          onClick={() => setIsEmailModalOpen(true)}
+          style={{ background: 'linear-gradient(135deg, #3b82f6, #2563eb)', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)' }}
+        >
+          📧 E-mail küldése
+        </button>
+      </div>
       
       {/* Statisztika és Kereső sáv */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#1e293b', padding: '15px 20px', borderRadius: '12px', marginBottom: '20px', border: '1px solid #334155', flexWrap: 'wrap', gap: '15px' }}>
         <div style={{ display: 'flex', gap: '20px' }}>
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#f59e0b' }}>{localUsers.length}</div>
-            <div style={{ fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase' }}>Regisztrált</div>
+            <div style={{ fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase' }}>Összes regisztrált</div>
+          </div>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#38bdf8' }}>{processedUsers.length}</div>
+            <div style={{ fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase' }}>Aktuális lista (címzettek)</div>
           </div>
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#10b981' }}>{localUsers.filter(u => u.is_premium === 1).length}</div>
@@ -137,7 +198,7 @@ export default function AdminUsersView({
         
         <input 
           type="text" 
-          placeholder="🔍 Keresés név, email vagy klub alapján..." 
+          placeholder="🔍 Szűrés név, email vagy klub alapján..." 
           value={searchTerm}
           onChange={e => setSearchTerm(e.target.value)}
           style={{ padding: '8px 15px', borderRadius: '8px', border: '1px solid #475569', background: '#0f172a', color: 'white', minWidth: '350px', outline: 'none' }}
@@ -291,6 +352,74 @@ export default function AdminUsersView({
           </tbody>
         </table>
       </div>
+
+      {/* 📧 E-MAIL KÜLDŐ FELUGRÓ ABLAK (MODAL) */}
+      {isEmailModalOpen && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999, padding: '20px' }}>
+          <div style={{ background: '#1e293b', width: '100%', maxWidth: '600px', borderRadius: '16px', border: '1px solid #334155', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', overflow: 'hidden', animation: 'fadeIn 0.2s ease-out' }}>
+            
+            {/* Fejléc */}
+            <div style={{ background: '#0f172a', padding: '20px', borderBottom: '1px solid #334155', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ color: 'white', margin: 0, fontSize: '1.25rem' }}>📧 Rendszer E-mail Küldése</h3>
+              <button 
+                onClick={() => setIsEmailModalOpen(false)}
+                style={{ background: 'transparent', border: 'none', color: '#94a3b8', fontSize: '1.5rem', cursor: 'pointer' }}
+              >
+                &times;
+              </button>
+            </div>
+
+            {/* Tartalom */}
+            <div style={{ padding: '25px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+              
+              <div style={{ background: '#3b82f615', border: '1px solid #3b82f630', padding: '12px', borderRadius: '8px', color: '#93c5fd', fontSize: '0.9rem' }}>
+                Az üzenetet a jelenleg leszűrt listában szereplő <b>{processedUsers.length} felhasználó</b> fogja megkapni rejtett másolatként (BCC).
+              </div>
+
+              <div>
+                <label style={{ display: 'block', color: '#cbd5e1', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem' }}>Tárgy:</label>
+                <input 
+                  type="text"
+                  placeholder="Pl.: Új funkciók az oldalon! / Fontos karbantartás"
+                  value={emailSubject}
+                  onChange={(e) => setEmailSubject(e.target.value)}
+                  style={{ width: '100%', padding: '12px', background: '#0f172a', border: '1px solid #475569', borderRadius: '8px', color: 'white', outline: 'none', boxSizing: 'border-box' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', color: '#cbd5e1', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem' }}>Üzenet (HTML engedélyezett):</label>
+                <textarea 
+                  placeholder="Írd ide az e-mail szövegét..."
+                  value={emailBody}
+                  onChange={(e) => setEmailBody(e.target.value)}
+                  style={{ width: '100%', padding: '12px', background: '#0f172a', border: '1px solid #475569', borderRadius: '8px', color: 'white', outline: 'none', minHeight: '200px', resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit' }}
+                />
+              </div>
+            </div>
+
+            {/* Lábjegyzet / Gombok */}
+            <div style={{ background: '#0f172a', padding: '20px', borderTop: '1px solid #334155', display: 'flex', justifyContent: 'flex-end', gap: '15px' }}>
+              <button 
+                onClick={() => setIsEmailModalOpen(false)}
+                style={{ padding: '10px 20px', background: 'transparent', border: '1px solid #475569', color: '#cbd5e1', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
+                disabled={isSendingEmail}
+              >
+                Mégse
+              </button>
+              <button 
+                onClick={handleSendBulkEmail}
+                disabled={isSendingEmail}
+                style={{ padding: '10px 20px', background: isSendingEmail ? '#475569' : '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', cursor: isSendingEmail ? 'not-allowed' : 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}
+              >
+                {isSendingEmail ? '⏳ Küldés folyamatban...' : '🚀 E-mailek elküldése'}
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
