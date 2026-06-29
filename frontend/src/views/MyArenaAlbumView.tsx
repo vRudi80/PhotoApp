@@ -18,23 +18,37 @@ export default function MyArenaAlbumView({ user, setFullscreenData }: MyArenaAlb
   const [photos, setPhotos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPhoto, setSelectedPhoto] = useState<any | null>(null);
+  
+ 
+ useEffect(() => {
+    let isMounted = true;
 
-  const fetchAlbum = async () => {
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/weekly/my-album?userEmail=${user?.email}`);
-      if (res.ok) {
-        setPhotos(await res.json());
+    const fetchAlbum = async () => {
+      // 1. Biztonsági fék: Ha még nincs betöltve a user, ne spammeljük a szervert!
+      if (!user?.email) return;
+
+      try {
+        setLoading(true); // Csak akkor töltünk, ha van kihez
+        const res = await fetch(`${BACKEND_URL}/api/weekly/my-album?userEmail=${user.email}`);
+        if (res.ok && isMounted) {
+          setPhotos(await res.json());
+        }
+      } catch (e) {
+        console.error("Hiba az album betöltésekor:", e);
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
       }
-    } catch (e) {
-      console.error("Hiba az album betöltésekor:", e);
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
 
-  useEffect(() => {
     fetchAlbum();
-  }, [user]);
+
+    // 2. Takarítás: Ha a felhasználó gyorsan elnavigál az oldalról, leállítjuk az állapotfrissítést
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.email]); // 🎯 3. JAVÍTVA: Csak akkor fut le újra, ha az email cím (string) ténylegesen megváltozik!
 
  if (loading) {
     return <VideoLoader />;
