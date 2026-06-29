@@ -100,7 +100,7 @@ const compressImageOnClient = (file: File): Promise<File> => {
 };
 
 // ====================================================================
-// 📊 SELEKCIÓS KÁRTYA KOMPONENS
+// 📊 SELEKCIÓS KÁRTYA KOMPONENS (BEÉPÍTETT MEGOSZTÁSSAL)
 // ====================================================================
 function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }) {
   const { t, lang } = useLanguage();
@@ -154,6 +154,30 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
 
   const totalImagesCount = topic.entries_count ?? topic.entry_count ?? topic.totalEntries ?? 0;
   const unvotedCount = topic.unvotedEntries ?? topic.unvoted_count ?? 0;
+
+  // 🎯 ÚJ: Intelligens megosztó függvény
+  const handleShare = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Fontos: megakadályozza, hogy a gombnyomásra belépjen a szobába
+
+    const shareUrl = window.location.origin; 
+    const shareText = lang === 'en' 
+      ? `Join the "${displayTitle}" photo challenge on PhotAwesome!`
+      : `Gyere és indulj a(z) "${displayTitle}" fotós kihíváson a PhotAwesome oldalon!`;
+
+    // Natív megosztás mobilokra (Messenger, Insta, stb. támogatás)
+    if (navigator.share) {
+      navigator.share({
+        title: 'PhotAwesome Kihívás',
+        text: shareText,
+        url: shareUrl
+      }).catch((err) => console.log('Megosztás megszakítva', err));
+    } else {
+      // Fallback asztali gépekre: dedikált Facebook ablak
+      const fbUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}&quote=${encodeURIComponent(shareText)}`;
+      window.open(fbUrl, 'facebook-share-dialog', 'width=600,height=400');
+    }
+  };
+
   return (
     <div 
       onClick={onSelect}
@@ -206,9 +230,26 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
         )}
       </div>
 
-      <div style={{ background: '#00000040', padding: '12px 15px', borderRadius: '12px', fontSize: '0.9rem', color: isDaily ? '#f87171' : '#38bdf8', textAlign: 'center', border: '1px solid #1e293b', fontWeight: 'bold', fontFamily: 'monospace', letterSpacing: '0.5px' }}>
-        {t('timeLeft', 'HÁTRALÉVŐ IDŐ:')} {timeLeft}
+      {/* 🎯 JAVÍTVA: Alsó sáv, Időzítő és Megosztás gomb egymás mellett */}
+      <div style={{ display: 'flex', gap: '10px', marginTop: 'auto' }}>
+        <div style={{ flex: 1, background: '#00000040', padding: '12px 15px', borderRadius: '12px', fontSize: '0.9rem', color: isDaily ? '#f87171' : '#38bdf8', textAlign: 'center', border: '1px solid #1e293b', fontWeight: 'bold', fontFamily: 'monospace', letterSpacing: '0.5px' }}>
+          {t('timeLeft', 'HÁTRALÉVŐ IDŐ:')} {timeLeft}
+        </div>
+        
+        {/* Facebook Megosztás Gomb */}
+        <button 
+          onClick={handleShare}
+          style={{ background: '#1877F2', color: 'white', border: 'none', borderRadius: '12px', padding: '0 15px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s', boxShadow: '0 4px 10px rgba(24, 119, 242, 0.2)' }}
+          onMouseEnter={e => e.currentTarget.style.background = '#166fe5'}
+          onMouseLeave={e => e.currentTarget.style.background = '#1877F2'}
+          title={lang === 'en' ? 'Share on Facebook' : 'Megosztás Facebookon'}
+        >
+          <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M9 8h-3v4h3v12h5v-12h3.642l.358-4h-4v-1.667c0-.955.192-1.333 1.115-1.333h2.885v-5h-3.808c-3.596 0-5.192 1.583-5.192 4.615v3.385z"/>
+          </svg>
+        </button>
       </div>
+
     </div>
   );
 }
