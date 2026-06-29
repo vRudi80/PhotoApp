@@ -328,12 +328,13 @@ function MainContent() {
   }, []);
 
   // 🎯 ÚJ: REAKTÍV ASZINKRON SZINKRONIZÁCIÓS HOOK A VERCEL / RENDER ÉLETCILKUSOKHOZ
-  useEffect(() => {
-    if (user?.email) {
-      fetchMyEntries(user.email);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, user?.email]);
+ useEffect(() => {
+  // Ha már van betöltött adatunk (pl. clubs), ne indítsuk újra a lekérdezéseket!
+  if (user?.email && !clubs) {
+    fetchData();
+  }
+// Itt is szigorúan primitiveket figyeljünk!
+}, [user?.email]);
 
   // KÖRNYEZETI SZINKRONIZÁCIÓS HOROG A LÁGY ELHALVÁNYULÁSHOZ
   useEffect(() => {
