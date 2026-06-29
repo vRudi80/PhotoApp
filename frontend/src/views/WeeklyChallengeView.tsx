@@ -155,31 +155,32 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
   const totalImagesCount = topic.entries_count ?? topic.entry_count ?? topic.totalEntries ?? 0;
   const unvotedCount = topic.unvotedEntries ?? topic.unvoted_count ?? 0;
 
-  // 🎯 ÚJ: Intelligens, motiváló megosztó függvény
+// 🎯 ÚJ: Intelligens, motiváló megosztó függvény (Dinamikus linkkel)
   const handleShare = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Fontos: megakadályozza, hogy a gombnyomásra belépjen a szobába
+    e.stopPropagation(); // Ne lépjünk be a szobába gombnyomáskor
 
-    const shareUrl = window.location.origin; 
+    // 🔗 EZ A LÉNYEG: A backend "okos" linkjét adjuk át a Facebooknak!
+    const dynamicShareUrl = `${BACKEND_URL}/api/share/challenge/${topic.id}`; 
     
-    // Motiváló, többsoros szöveg összerakása a téma címével és leírásával
+    // A mobilos natív megosztóhoz a szöveg
     const shareText = lang === 'en' 
-      ? `📸 Guess what! The "${displayTitle}" photo challenge is live on PhotAwesome!\n\n✨ Topic: ${displayDesc}\n\nCome show off your best shot, vote for others, and win trophies! 🏆 Click the link below to join the game:`
-      : `📸 Képzeld, elindult a(z) "${displayTitle}" fotós kihívás a PhotAwesome-on!\n\n✨ Téma: ${displayDesc}\n\nGyere, mutasd meg a legjobb fotódat, szavazz a többiekre, és zsebeld be a trófeákat! 🏆 Kattints a linkre és csatlakozz a játékhoz:`;
+      ? `📸 Guess what! The "${displayTitle}" photo challenge is live on PhotAwesome!\n\n✨ Topic: ${displayDesc}\n\nClick the link below to join the game:`
+      : `📸 Képzeld, elindult a(z) "${displayTitle}" fotós kihívás a PhotAwesome-on!\n\n✨ Téma: ${displayDesc}\n\nKattints a linkre és csatlakozz a játékhoz:`;
 
-    // Natív megosztás mobilokra (Messenger, Insta, stb. támogatás)
     if (navigator.share) {
+      // MOBIL: Beépített telefonos megosztó (WhatsApp, Insta, stb.)
       navigator.share({
         title: lang === 'en' ? 'PhotAwesome Challenge' : 'PhotAwesome Kihívás',
         text: shareText,
-        url: shareUrl
+        url: dynamicShareUrl // Itt is a dinamikus linket osztjuk meg
       }).catch((err) => console.log('Megosztás megszakítva', err));
     } else {
-      // Fallback asztali gépekre: dedikált Facebook ablak (a 'quote' paraméter viszi át a szöveget)
-      const fbUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}&quote=${encodeURIComponent(shareText)}`;
-      // Kicsit magasabb ablakot nyitunk (height=600), hogy kiférjen a hosszabb szöveg
+      // ASZTALI GÉP: Facebook ablak
+      const fbUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(dynamicShareUrl)}`;
       window.open(fbUrl, 'facebook-share-dialog', 'width=600,height=600');
     }
   };
+  
   return (
     <div 
       onClick={onSelect}
