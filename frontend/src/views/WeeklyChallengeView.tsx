@@ -155,28 +155,25 @@ function ChallengeCard({ topic, onSelect }: { topic: any; onSelect: () => void }
   const totalImagesCount = topic.entries_count ?? topic.entry_count ?? topic.totalEntries ?? 0;
   const unvotedCount = topic.unvotedEntries ?? topic.unvoted_count ?? 0;
 
-// 🎯 ÚJ: Intelligens, motiváló megosztó függvény (Dinamikus linkkel)
+// 🎯 FRISSÍTVE: Intelligens megosztó függvény tiszta frontend domain maszkolással
   const handleShare = (e: React.MouseEvent) => {
     e.stopPropagation(); // Ne lépjünk be a szobába gombnyomáskor
 
-    // 🔗 EZ A LÉNYEG: A backend "okos" linkjét adjuk át a Facebooknak!
-    const dynamicShareUrl = `${BACKEND_URL}/api/share/challenge/${topic.id}`; 
+    // 🔗 JAVÍTVA: Mostantól a hivatalos frontend domainedet osztjuk meg (pl. photawesome.com/share/challenge/31)
+    const cleanFrontendShareUrl = `${window.location.origin}/share/challenge/${topic.id}`; 
     
-    // A mobilos natív megosztóhoz a szöveg
     const shareText = lang === 'en' 
       ? `📸 Guess what! The "${displayTitle}" photo challenge is live on PhotAwesome!\n\n✨ Topic: ${displayDesc}\n\nClick the link below to join the game:`
       : `📸 Képzeld, elindult a(z) "${displayTitle}" fotós kihívás a PhotAwesome-on!\n\n✨ Téma: ${displayDesc}\n\nKattints a linkre és csatlakozz a játékhoz:`;
 
     if (navigator.share) {
-      // MOBIL: Beépített telefonos megosztó (WhatsApp, Insta, stb.)
       navigator.share({
         title: lang === 'en' ? 'PhotAwesome Challenge' : 'PhotAwesome Kihívás',
         text: shareText,
-        url: dynamicShareUrl // Itt is a dinamikus linket osztjuk meg
+        url: cleanFrontendShareUrl
       }).catch((err) => console.log('Megosztás megszakítva', err));
     } else {
-      // ASZTALI GÉP: Facebook ablak
-      const fbUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(dynamicShareUrl)}`;
+      const fbUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(cleanFrontendShareUrl)}`;
       window.open(fbUrl, 'facebook-share-dialog', 'width=600,height=600');
     }
   };
