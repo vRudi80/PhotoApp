@@ -54,8 +54,6 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
   // 🎯 KULCSFONTOSSÁGÚ: Itt NE a [user]-t figyeld, hanem a [user?.email]-t!
   }, [user?.email]);
 
-    return () => { isMounted = false; };
-  }, [user?.email]);
 
   const handleDismissAlert = (e: React.MouseEvent, alertKey: string, type?: string, id?: number) => {
     e.stopPropagation(); 
