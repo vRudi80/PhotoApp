@@ -1150,10 +1150,12 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       />
 
       <ShareCardModal activeShareData={activeShareData} onClose={() => setActiveShareData(null)} user={user} shareBase64={shareBase64} loadingShareImg={loadingShareImg} isGeneratingImage={isGeneratingImage} handleExecuteShare={handleExecuteShare} />
-      <ChallengeShareModal 
-        topic={topicToShare} 
-        onClose={() => setTopicToShare(null)} 
-      />
+     {topicToShare && (
+        <ChallengeShareModal 
+          topic={topicToShare} 
+          onClose={() => setTopicToShare(null)} 
+        />
+      )}
       {/* ── RENDKÍVÜL STABIL RESZPONZÍV STYLING REGETEG ── */}
       <style>{`
         .arena-fluid-container { width: 100%; box-sizing: border-box; }
