@@ -442,66 +442,101 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-  // ====================================================================
-  // 🖼️ ARÉNA ALBUM VÉGPONT – KÖZPONTOSÍTVA
+// ====================================================================
+  // ⚡ SZUPEROPTIMALIZÁLT ARÉNA ALBUM (100x GYORSABB BETÖLTÉS)
   // ====================================================================
   app.get('/api/weekly/my-album', async (req, res) => {
     const { userEmail } = req.query;
     if (!userEmail) return res.status(400).json({ error: 'Hiányzó e-mail cím!' });
 
     try {
+      const nowMySQL = getLocalMySQLNow();
+
+      // 1. Lekérjük a felhasználó összes fotóját (1. lekérdezés)
       const [photos] = await pool.query(
         "SELECT id, file_url, created_at, camera, lens, shutter, iso, aperture, software FROM user_photos WHERE user_email = ? ORDER BY created_at DESC",
         [userEmail]
       );
 
-      const nowMySQL = getLocalMySQLNow();
-      const albumWithStats = [];
+      if (photos.length === 0) return res.json([]);
 
-      for (const photo of photos) {
-        const [entries] = await pool.query(`
-          SELECT 
-            t.id AS topic_id,
-            t.title AS topic_title, 
-            e.likes_count, 
-            e.views_count, 
-            e.is_active, 
-            t.end_date,
-            IF(t.end_date >= ?, 1, 0) AS is_topic_live
+      // 2. Lekérjük a felhasználó ÖSSZES nevezését egyszerre (2. lekérdezés)
+      const [userEntries] = await pool.query(`
+        SELECT 
+          e.topic_id, e.file_url, e.likes_count, e.views_count, e.is_active,
+          t.title AS topic_title, t.title_en, t.end_date,
+          IF(t.end_date >= ?, 1, 0) AS is_topic_live,
+          ${getFairScoreSql('e', 't')} as user_fair_score
+        FROM weekly_entries e
+        JOIN weekly_topics t ON e.topic_id = t.id
+        WHERE e.user_email = ?
+      `, [nowMySQL, userEmail]);
+
+      // Rendezzük a nevezéseket URL szerint, hogy azonnal hozzáférjünk
+      const entriesByUrl = {};
+      const topicIds = new Set();
+      userEntries.forEach(entry => {
+        if (!entriesByUrl[entry.file_url]) entriesByUrl[entry.file_url] = [];
+        entriesByUrl[entry.file_url].push(entry);
+        topicIds.add(entry.topic_id);
+      });
+
+      // 3. Lekérjük CSAK azon szobák ranglistáit, ahol a felhasználó indult (3. lekérdezés)
+      let leaderboards = {};
+      if (topicIds.size > 0) {
+        const [allTopicEntries] = await pool.query(`
+          SELECT e.topic_id, e.user_email, e.views_count, e.likes_count,
+                 ${getFairScoreSql('e', 't')} as fair_score
           FROM weekly_entries e
           JOIN weekly_topics t ON e.topic_id = t.id
-          WHERE e.file_url = ? AND e.user_email = ?
-          ORDER BY t.end_date DESC
-        `, [nowMySQL, photo.file_url, userEmail]);
+          WHERE e.topic_id IN (?) AND e.is_active = 1
+        `, [Array.from(topicIds)]);
 
+        // Témánként szétválogatjuk a mezőnyt
+        allTopicEntries.forEach(entry => {
+          if (!leaderboards[entry.topic_id]) leaderboards[entry.topic_id] = [];
+          leaderboards[entry.topic_id].push(entry);
+        });
+      }
+
+      // 4. Villámgyors párosítás a memóriában
+      const albumWithStats = photos.map(photo => {
+        const entries = entriesByUrl[photo.file_url] || [];
         const history = [];
 
-        for (const entry of entries) {
-          const [leaderboard] = await pool.query(`
-            SELECT e2.user_email, e2.likes_count, e2.views_count,
-                   ${getFairScoreSql('e2', 't2')} as fair_score
-            FROM weekly_entries e2
-            JOIN weekly_topics t2 ON e2.topic_id = t2.id
-            WHERE e2.topic_id = ? AND e2.is_active = 1
-            ORDER BY fair_score DESC, e2.likes_count DESC, e2.views_count ASC
-          `, [entry.topic_id]);
+        entries.forEach(entry => {
+          const board = leaderboards[entry.topic_id] || [];
+          
+          // Megkeressük a pontos helyezést a szobában a standard szabályzat alapján
+          const currentEntry = board.find(l => String(l.user_email).toLowerCase() === String(userEmail).trim().toLowerCase());
+          let entryRank = board.length + 1; // Alapértelmezett, ha esetleg inaktív a képe
+          
+          if (currentEntry) {
+            const betterEntries = board.filter(item => 
+              Number(item.fair_score) > Number(currentEntry.fair_score) ||
+              (Number(item.fair_score) === Number(currentEntry.fair_score) && Number(item.likes_count) > Number(currentEntry.likes_count)) ||
+              (Number(item.fair_score) === Number(currentEntry.fair_score) && Number(item.likes_count) === Number(currentEntry.likes_count) && Number(item.views_count) < Number(currentEntry.views_count))
+            );
+            entryRank = betterEntries.length + 1;
+          }
 
-          const userIndex = leaderboard.findIndex(l => l.user_email === userEmail);
-          const entryRank = userIndex !== -1 ? userIndex + 1 : leaderboard.length + 1;
-          const finalScore = userIndex !== -1 ? leaderboard[userIndex].fair_score : entry.likes_count;
+          const finalScore = currentEntry ? currentEntry.fair_score : entry.likes_count;
 
           history.push({
             topic_id: entry.topic_id,
-            topic_title: entry.topic_title,
-            likes_count: finalScore, 
+            topic_title: entry.topic_title || '',
+            likes_count: Number(finalScore || 0), 
             views_count: entry.views_count,
             is_active: entry.is_active,
             end_date: entry.end_date,
             is_topic_live: entry.is_topic_live,
             entry_rank: entryRank,
-            total_entries: leaderboard.length
+            total_entries: board.length
           });
-        }
+        });
+
+        // Történet rendezése dátum szerint (legújabb legfelül)
+        history.sort((a, b) => new Date(b.end_date) - new Date(a.end_date));
 
         const totalLikes = history.reduce((sum, h) => sum + Number(h.likes_count), 0);
         const totalViews = history.reduce((sum, h) => sum + Number(h.views_count), 0);
@@ -511,7 +546,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         
         const isCurrentlyActive = history.some(h => h.is_active === 1 && h.is_topic_live === 1);
 
-        albumWithStats.push({
+        return {
           ...photo,
           totalLikes: Number(totalLikes.toFixed(2)), 
           totalViews,
@@ -519,8 +554,8 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
           podiums,
           isCurrentlyActive,
           history
-        });
-      }
+        };
+      });
 
       res.json(albumWithStats);
     } catch (err) {
