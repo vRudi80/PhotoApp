@@ -215,8 +215,39 @@ const handleShare = (e: React.MouseEvent) => {
 
       {/* 🎯 JAVÍTVA: Alsó sáv, Időzítő és Megosztás gomb egymás mellett */}
       <div style={{ display: 'flex', gap: '10px', marginTop: 'auto' }}>
-        <div style={{ flex: 1, background: '#00000040', padding: '12px 15px', borderRadius: '12px', fontSize: '0.9rem', color: isDaily ? '#f87171' : '#38bdf8', textAlign: 'center', border: '1px solid #1e293b', fontWeight: 'bold', fontFamily: 'monospace', letterSpacing: '0.5px' }}>
-          {t('timeLeft', 'HÁTRALÉVŐ IDŐ:')} {timeLeft}
+       <div style={{ 
+          flex: 1, 
+          background: '#00000040', 
+          padding: '12px 15px', 
+          borderRadius: '12px', 
+          border: '1px solid #1e293b', 
+          fontFamily: 'monospace', 
+          letterSpacing: '0.5px',
+          // 🎯 Elrendezés: Flexbox segítségével függőlegesen középre zárjuk őket egymás alá
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '4px' // A két sor közötti diszkrét távolság
+        }}>
+          {/* 1. SOR: A statikus felirat (kicsit kisebb, visszafogottabb színnel a jobb olvashatóságért) */}
+          <span style={{ 
+            fontSize: '0.75rem', 
+            color: '#64748b', 
+            fontWeight: 'bold',
+            textTransform: 'uppercase'
+          }}>
+            {t('timeLeft', 'HÁTRALÉVŐ IDŐ:')}
+          </span>
+
+          {/* 2. SOR: A konkrét visszaszámláló óra (szép nagy, és az eredeti futamszínedet használja) */}
+          <span style={{ 
+            fontSize: '1rem', 
+            color: isDaily ? '#f87171' : '#38bdf8', 
+            fontWeight: '900' 
+          }}>
+            {timeLeft}
+          </span>
         </div>
         
         {/* Facebook Megosztás Gomb */}
