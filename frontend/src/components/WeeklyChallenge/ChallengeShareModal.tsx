@@ -16,151 +16,152 @@ export default function ChallengeShareModal({ topic, onClose }: ChallengeShareMo
   const displayTitle = lang === 'en' && topic.title_en ? topic.title_en : topic.title;
   const isDaily = topic.topic_type === 'daily' || (topic.end_date && new Date(topic.end_date).getTime() - new Date(topic.start_date || Date.now()).getTime() <= 48 * 60 * 60 * 1000);
 
-  // 🎯 KORSZERŰSÍTETT MENTÉSI FUNKCIÓ (Minden hibalehetőséget kiküszöbölve)
-  const handleDownloadImage = async () => {
+  // 🎯 HAJSZÁLPONTOS MÁSOLAT: A ShareCardModal ultrastabil mentési és megosztási mechanizmusa
+  const handleExecuteShare = async () => {
     const node = document.getElementById('challenge-invite-card');
     if (!node) return;
 
     setIsGenerating(true);
     try {
-      // Magas minőségű renderelés fix paraméterekkel, betűtípus-szűréssel
-      const dataUrl = await toPng(node, { 
-        cacheBust: true, 
-        quality: 1.0, 
-        pixelRatio: 2,
-        skipFonts: true, 
-        fetchRequestInit: { cache: 'no-cache' } 
-      });
-
-      const link = document.createElement('a');
-      link.download = `PhotAwesome_Challenge_${topic.id}.png`;
-      link.href = dataUrl;
-      link.click();
+      // 1. DUPLA HÍVÁS TRÜKK (Ez javítja ki a mobil Chrome/Safari kép-elcsúszási hibáit!)
+      await toPng(node, { cacheBust: true });
+      const dataUrl = await toPng(node, { cacheBust: true, quality: 1.0 });
       
-      alert(lang === 'en' ? '✅ Image downloaded to your device!' : '✅ A meghívó kép sikeresen elmentve az eszközödre!');
+      // 2. Bináris fájl objektum létrehozása a letöltött képből
+      const blob = await (await fetch(dataUrl)).blob();
+      const file = new File([blob], `PhotAwesome_Challenge_${topic.id}.png`, { type: 'image/png' });
+      
+      const shareText = lang === 'en' 
+        ? `📸 Join the "${displayTitle}" photo challenge on PhotAwesome!`
+        : `📸 Indulj te is a(z) "${displayTitle}" fotós kihíváson a PhotAwesome-on!`;
+
+      // 3. MOBIL RENDZER-MEGOSZTÓ (Fájl átadással, amitől megjelenik a "Kép mentése" a telefonodon)
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: 'PhotAwesome Kihívás',
+          text: shareText
+        });
+      } else {
+        // 4. ASZTALI GÉP FALLBACK: Sima letöltés indítása
+        const link = document.createElement('a');
+        link.download = `PhotAwesome_Challenge_${topic.id}.png`;
+        link.href = dataUrl;
+        link.click();
+      }
+      onClose(); // Sikeres mentés után bezárjuk a modalt
     } catch (e) {
-      console.error("Képmentési hiba:", e);
-      alert('Hiba történt a kép elkészítésekor. Próbáld újra!');
+      console.error("Hiba a képkészítés során:", e);
+      alert('Hiba történt a meghívó kártya legenerálásakor.');
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  const handleShareLinkOnly = () => {
+    const cleanFrontendShareUrl = `${window.location.origin}/share/challenge/${topic.id}`; 
+    const shareText = lang === 'en' 
+      ? `📸 Join the "${displayTitle}" photo challenge!\n\nClick here to play: ${cleanFrontendShareUrl}`
+      : `📸 Indulj te is a(z) "${displayTitle}" fotós kihíváson!\n\nKattints ide és játssz te is: ${cleanFrontendShareUrl}`;
+    
+    if (navigator.share) {
+      navigator.share({
+        title: 'PhotAwesome Kihívás',
+        text: shareText
+      }).catch(console.error);
+    } else {
+       const fbUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(cleanFrontendShareUrl)}`;
+       window.open(fbUrl, 'facebook-share-dialog', 'width=600,height=600');
     }
   };
 
   return (
     <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 99999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px', overflowY: 'auto' }}>
       
-      {/* FEJLÉC PULT */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', maxWidth: '380px', marginBottom: '15px', alignItems: 'center' }}>
-        <span style={{ color: '#94a3b8', fontSize: '0.9rem', fontWeight: 'bold' }}>{lang === 'en' ? 'Challenge Invite Card' : 'Meghívó kártya generálása'}</span>
+      {/* MODAL VEZÉRLŐ FEJLÉC */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', maxWidth: '340px', marginBottom: '15px', alignItems: 'center' }}>
+        <span style={{ color: '#94a3b8', fontSize: '0.9rem', fontWeight: 'bold' }}>{lang === 'en' ? 'Challenge Preview' : 'Meghívó előnézete'}</span>
         <button onClick={onClose} style={{ background: '#1e293b', border: 'none', color: '#ef4444', padding: '6px 14px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>Mégse</button>
       </div>
 
-      {/* 📸 A GENERÁLÓDÓ KÁRTYA (Fixált, CSS-biztos struktúra) */}
+      {/* 📸 A GENERÁLÓDÓ KÁRTYA (A győztes trófeakártyád hajszálpontos stílus- és méretmásolata) */}
       <div 
         id="challenge-invite-card"
         style={{ 
-          width: '380px', 
-          height: '520px', 
-          // 🎯 JAVÍTVA: Elmosott háttér-blob helyett egy tiszta, beépített radiális fény-átmenetet használunk, amit a képmentő motor tökéletesen le tud renderelni
-          background: isDaily 
-            ? 'radial-gradient(circle at top, rgba(239, 68, 68, 0.15) 0%, #0f172a 70%)' 
-            : 'radial-gradient(circle at top, rgba(59, 130, 246, 0.15) 0%, #0f172a 70%)',
-          backgroundColor: '#0f172a',
-          borderRadius: '24px', 
-          padding: '30px 25px', 
-          boxSizing: 'border-box', 
-          display: 'flex', 
-          flexDirection: 'column', 
-          alignItems: 'center', 
-          justifyContent: 'space-between',
-          border: `3px solid ${isDaily ? '#ef4444' : '#3b82f6'}`, 
-          position: 'relative', 
-          overflow: 'hidden'
+          width: '340px', height: '580px', 
+          background: 'linear-gradient(145deg, #0b0f19, #1e1b4b)', 
+          borderRadius: '24px', padding: '25px 20px', boxSizing: 'border-box', display: 'flex', 
+          flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between', 
+          border: `3px solid ${isDaily ? '#ef4444' : '#fbbf24'}`, 
+          position: 'relative', overflow: 'hidden' 
         }}
       >
-        {/* Kártya Fejléce */}
-        <div style={{ textAlign: 'center', width: '100%' }}>
-          <div style={{ color: isDaily ? '#f87171' : '#60a5fa', fontSize: '0.75rem', fontWeight: '900', letterSpacing: '3px', textTransform: 'uppercase' }}>
-            PHOTAWESOME.COM
-          </div>
-          <div style={{ color: 'white', fontSize: '1.25rem', fontWeight: 'bold', marginTop: '4px' }}>
-            {lang === 'en' ? 'New Photo Challenge!' : 'Új Fotós Kihívás!'}
-          </div>
+        <div style={{ position: 'absolute', top: '-100px', width: '200px', height: '200px', background: isDaily ? '#ef444415' : '#fbbf2415', filter: 'blur(50px)', borderRadius: '50%' }}></div>
+
+        <div style={{ textAlign: 'center', zIndex: 10 }}>
+          <div style={{ color: isDaily ? '#ef4444' : '#fbbf24', fontSize: '0.75rem', fontWeight: '900', letterSpacing: '3px', textTransform: 'uppercase' }}>📸 PhotAwesome.com</div>
+          <div style={{ color: '#64748b', fontSize: '0.65rem', marginTop: '2px', letterSpacing: '1px' }}>{lang === 'en' ? 'NEW ARENA CHALLENGE' : 'ÚJ ARÉNA MEGHÍVÓ'}</div>
         </div>
 
-        {/* Borítókép Keret */}
+        {/* Borítókép flexibilis keret */}
         <div style={{ 
-          width: '100%', 
-          height: '190px', 
-          borderRadius: '16px', 
-          border: `2px solid ${isDaily ? '#ef444450' : '#3b82f650'}`, 
-          backgroundColor: '#000', 
-          overflow: 'hidden',
-          boxShadow: '0 10px 25px rgba(0,0,0,0.5)'
+          width: '100%', height: '200px', borderRadius: '16px', border: `2px solid ${isDaily ? '#ef4444' : '#fbbf24'}`, 
+          boxShadow: '0 8px 25px rgba(0,0,0,0.5)', zIndex: 10, display: 'flex', alignItems: 'center', 
+          justifyContent: 'center', position: 'relative', boxSizing: 'border-box', backgroundColor: '#000',
+          overflow: 'hidden'
         }}>
           {topic.cover_url ? (
             <img 
-              // 🎯 JAVÍTVA: A URL végére fűzött frissítési kulcs (?cb=...) kényszeríti a böngészőt, hogy a cache-t megkerülve, tiszta CORS engedélyekkel olvassa be a képet a mentéshez!
-              src={`${topic.cover_url}?cb=photawesome_share`} 
-              alt="" 
+              src={`${topic.cover_url}?cb=share_invite_card`} 
+              alt="Challenge Cover" 
               crossOrigin="anonymous"
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+              style={{ width: '100%', height: '100%', objectFit: 'cover', zIndex: 2 }} 
             />
           ) : (
-            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '3rem' }}>📸</div>
+            <div style={{ color: '#64748b', fontSize: '2.5rem', zIndex: 5 }}>📸</div>
           )}
         </div>
 
-        {/* Cím és Kategória szekció (Fix magasságú elrendezéssel a torzulások ellen) */}
-        <div style={{ textAlign: 'center', width: '100%', padding: '5px 0' }}>
-          <h2 style={{ color: 'white', fontSize: '1.5rem', fontWeight: '900', margin: '0 0 12px 0', lineHeight: '1.25', wordBreak: 'break-word' }}>
+        {/* Információs blokk középen */}
+        <div style={{ textAlign: 'center', zIndex: 10, width: '100%' }}>
+          <div style={{ fontSize: '2.5rem', margin: 0, lineHeight: 1 }}>⚔️</div>
+          <h2 style={{ color: 'white', fontSize: '1.4rem', fontWeight: '900', margin: '6px 0 6px 0', lineHeight: '1.3', wordBreak: 'break-word' }}>
             {displayTitle}
           </h2>
-          <div style={{ display: 'inline-block', background: isDaily ? 'rgba(239, 68, 68, 0.15)' : 'rgba(56, 189, 248, 0.15)', color: isDaily ? '#f87171' : '#38bdf8', padding: '6px 18px', borderRadius: '50px', fontWeight: 'bold', fontSize: '0.85rem', border: `1px solid ${isDaily ? '#ef444440' : '#38bdf840'}` }}>
-             {isDaily ? (lang === 'en' ? '🔴 Blitz Match' : '🔴 Villámfutam') : (lang === 'en' ? '🔵 Master Match' : '🔵 Mesterfutam')}
+          <div style={{ background: isDaily ? 'rgba(239, 68, 68, 0.2)' : 'rgba(251, 191, 36, 0.15)', color: isDaily ? '#f87171' : '#fbbf24', padding: '4px 20px', borderRadius: '4px', fontWeight: 'bold', fontSize: '1.05rem', letterSpacing: '1px', textTransform: 'uppercase' }}>
+             {isDaily ? (lang === 'en' ? 'Blitz Match' : 'Villámfutam') : (lang === 'en' ? 'Master Match' : 'Mesterfutam')}
           </div>
         </div>
 
-        {/* Alsó felirat sáv */}
-        <div style={{ width: '100%', background: 'rgba(0,0,0,0.35)', padding: '12px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', boxSizing: 'border-box', textAlign: 'center' }}>
-          <div style={{ fontSize: '0.85rem', color: '#f8fafc', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            {lang === 'en' ? 'Join the game now!' : 'Csatlakozz a játékhoz!'}
+        {/* Alsó leíró doboz */}
+        <div style={{ width: '100%', background: 'rgba(0,0,0,0.4)', padding: '12px', borderRadius: '14px', border: '1px solid #23293f', zIndex: 10, boxSizing: 'border-box', textAlign: 'center' }}>
+          <div style={{ fontSize: '0.85rem', color: '#f8fafc', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px' }}>
+            {lang === 'en' ? 'Tap to play & collect trophies!' : 'Csatlakozz és zsebeld be a trófeát!'}
           </div>
+        </div>
+
+        <div style={{ textAlign: 'center', zIndex: 10 }}>
+          <div style={{ color: '#38bdf8', fontWeight: 'bold', marginTop: '1px', fontSize: '0.8rem' }}>PhotAwesome.com</div>
         </div>
       </div>
 
-      {/* MŰVELETI GOMBOK PANELJE */}
-      <div style={{ display: 'flex', gap: '10px', width: '100%', maxWidth: '380px', marginTop: '20px' }}>
-        
-        {/* 1. Kép letöltése */}
+      {/* AKCIÓGOMBOK ALUL */}
+      <div style={{ display: 'flex', gap: '10px', width: '100%', maxWidth: '340px', marginTop: '15px' }}>
+        {/* Fájl megosztás / Letöltés */}
         <button 
-          onClick={handleDownloadImage}
+          onClick={handleExecuteShare}
           disabled={isGenerating}
-          style={{ flex: 1, background: isGenerating ? '#334155' : '#10b981', color: isGenerating ? '#64748b' : 'white', border: 'none', padding: '14px', borderRadius: '12px', fontSize: '0.95rem', fontWeight: 'bold', cursor: isGenerating ? 'not-allowed' : 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px', boxShadow: '0 8px 15px rgba(16,185,129,0.2)' }}
+          style={{ flex: 1, background: isGenerating ? '#334155' : 'linear-gradient(135deg, #3b82f6, #1d4ed8)', color: isGenerating ? '#64748b' : 'white', border: 'none', padding: '14px', borderRadius: '14px', fontSize: '1.1rem', fontWeight: 'bold', cursor: isGenerating ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', boxShadow: '0 10px 25px rgba(29,78,216,0.3)' }}
         >
-          <span style={{ fontSize: '1.2rem' }}>⬇️</span>
-          <span>{isGenerating ? '⏳...' : (lang === 'en' ? 'Download Image' : 'Kép Letöltése')}</span>
+          <span>{isGenerating ? '⏳...' : (lang === 'en' ? '📷 Save Image' : '📷 Kártya Mentése')}</span>
         </button>
 
-        {/* 2. Link megosztása */}
+        {/* Szöveges link */}
         <button 
-          onClick={() => {
-            const shareText = lang === 'en' 
-              ? `📸 Join the "${displayTitle}" photo challenge!\n\nClick here to play: ${window.location.origin}/weekly_challenge`
-              : `📸 Indulj te is a(z) "${displayTitle}" fotós kihíváson!\n\nKattints ide és játssz te is: ${window.location.origin}/weekly_challenge`;
-            
-            if (navigator.share) {
-              navigator.share({ title: 'PhotAwesome Kihívás', text: shareText }).catch(console.error);
-            } else {
-               const cleanFrontendShareUrl = `${window.location.origin}/share/challenge/${topic.id}`; 
-               const fbUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(cleanFrontendShareUrl)}`;
-               window.open(fbUrl, 'facebook-share-dialog', 'width=600,height=600');
-            }
-          }}
-          style={{ flex: 1, background: '#3b82f6', color: 'white', border: 'none', padding: '14px', borderRadius: '12px', fontSize: '0.95rem', fontWeight: 'bold', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px', boxShadow: '0 8px 15px rgba(59,130,246,0.2)' }}
+          onClick={handleShareLinkOnly}
+          style={{ flex: 1, background: '#1e293b', border: '1px solid #334155', color: '#cbd5e1', padding: '14px', borderRadius: '14px', fontSize: '1.1rem', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
         >
-          <span style={{ fontSize: '1.2rem' }}>🔗</span>
-          <span>{lang === 'en' ? 'Share Link' : 'Link Megosztása'}</span>
+          <span>{lang === 'en' ? '🔗 Link' : '🔗 Link'}</span>
         </button>
       </div>
 
