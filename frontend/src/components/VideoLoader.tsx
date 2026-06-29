@@ -10,24 +10,22 @@ export default function VideoLoader({ fullPage = false }: VideoLoaderProps) {
   
   // 🎯 ÁLLAPOT A LASSULÁS ÉSZLELÉSÉHEZ
   const [isTakingTooLong, setIsLoadingTooLong] = useState(false);
-
-  useEffect(() => {
-    // ⏰ 1. IDŐZÍTŐ: 5 másodperc után figyelmeztetjük a felhasználót, hogy valami akadozik
+  
+useEffect(() => {
+    // ⏰ 1. 5 másodperc után sárga figyelmeztetés
     const warningTimer = setTimeout(() => {
       setIsLoadingTooLong(true);
     }, 5000);
 
-    // ⏰ 2. WATCHDOG IDŐZÍTŐ: Ha 8 másodpercig sem történik semmi, erőszakkal újratöltjük az oldalt
-    const watchdogTimer = setTimeout(() => {
-      console.warn("🚨 Watchdog kibiztosítva: A betöltés beragadt, tiszta lap újratöltése indítva...");
-      window.location.reload();
-    }, 8000);
+    // ⏰ 2. 12 másodperc után felajánljuk a kézi újratöltést (NINCS AUTOMATIKUS RELOAD!)
+    const manualReloadTimer = setTimeout(() => {
+      console.warn("🚨 A szerver lassan válaszol (cold start).");
+      setShowReloadButton(true);
+    }, 12000);
 
-    // 🛡️ TAKARÍTÁS: Ha a betöltés sikeres és a komponens lekerül a képernyőről,
-    // azonnal megsemmisítjük az időzítőket, nehogy feleslegesen töltsön újra!
     return () => {
       clearTimeout(warningTimer);
-      clearTimeout(watchdogTimer);
+      clearTimeout(manualReloadTimer);
     };
   }, []);
 
@@ -53,20 +51,9 @@ export default function VideoLoader({ fullPage = false }: VideoLoaderProps) {
       };
 
   return (
-    <div style={containerStyle} className="video-loader-wrapper">
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: fullPage ? '100vh' : '200px', background: 'transparent' }}>
       
-      {/* Cinematic 16:9 arányú videó konténer */}
-      <div style={{ 
-        width: '90%', 
-        maxWidth: fullPage ? '540px' : '340px', 
-        aspectRatio: '16/9', 
-        borderRadius: '16px', 
-        overflow: 'hidden', 
-        boxShadow: '0 20px 50px rgba(0,0,0,0.6)', 
-        border: '1px solid rgba(255,255,255,0.06)', 
-        background: '#000', 
-        position: 'relative' 
-      }}>
+      <div style={{ width: fullPage ? '140px' : '80px', height: fullPage ? '140px' : '80px', borderRadius: '50%', overflow: 'hidden', boxShadow: '0 0 50px rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.06)', background: '#000', position: 'relative' }}>
         <video
           src={lang === 'en' ? '/splash_en.mp4' : '/splash_hu.mp4'}
           autoPlay
@@ -77,26 +64,23 @@ export default function VideoLoader({ fullPage = false }: VideoLoaderProps) {
         />
       </div>
 
-      {/* Finoman pulzáló státusz szöveg */}
       <div style={{ marginTop: '20px', textAlign: 'center', animation: 'loaderPulse 1.8s infinite' }}>
-        <h4 style={{ color: isTakingTooLong ? '#fb923c' : '#f8fafc', fontSize: fullPage ? '1.15rem' : '0.95rem', fontWeight: 'bold', margin: '0 0 6px 0', letterSpacing: '0.5px', transition: 'color 0.3s' }}>
+        <h4 style={{ color: isTakingTooLong ? '#fb923c' : '#f8fafc', fontSize: fullPage ? '1.15rem' : '0.95rem', fontWeight: 'bold', margin: '0 0 6px 0', transition: 'color 0.3s' }}>
           {isTakingTooLong 
-            ? (lang === 'en' ? 'Connection unstable...' : 'A kapcsolat akadozik...') 
+            ? (lang === 'en' ? 'Waking up the server...' : 'Szerver ébresztése (ez eltarthat pár másodpercig)...') 
             : (lang === 'en' ? 'Loading data...' : 'Adatok betöltése...')}
         </h4>
-        <p style={{ color: '#64748b', fontSize: fullPage ? '0.85rem' : '0.75rem', margin: 0 }}>
-          {isTakingTooLong 
-            ? (lang === 'en' ? 'Attempting to revive session / auto-refreshing' : 'Munkamenet helyreállítása / Automatikus frissítés mindjárt')
-            : (lang === 'en' ? 'Please wait a moment' : 'Kérlek várj egy pillanatot')}
-        </p>
       </div>
 
-      <style>{`
-        @keyframes loaderPulse {
-          0%, 100% { opacity: 0.5; }
-          50% { opacity: 1; }
-        }
-      `}</style>
+      {/* 🎯 BIZTONSÁGI GOMB: Csak akkor jelenik meg, ha nagyon lassan tölt */}
+      {showReloadButton && (
+        <button 
+          onClick={() => window.location.reload()}
+          style={{ marginTop: '20px', padding: '10px 20px', background: '#334155', color: '#f8fafc', border: '1px solid #475569', borderRadius: '8px', cursor: 'pointer', zIndex: 10 }}
+        >
+          {lang === 'en' ? 'Force Reload' : 'Kézi újratöltés'}
+        </button>
+      )}
     </div>
   );
 }
