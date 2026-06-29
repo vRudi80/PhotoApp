@@ -372,8 +372,8 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-  // ====================================================================
-  // ⚔️ CSATATÉR FŐ VÉGPONT – JAVÍTVA ÉS KÖZPONTOSÍTVA
+// ====================================================================
+  // ⚔️ CSATATÉR FŐ VÉGPONT – HIVATALOSAN JAVÍTVA A KÉPMESTERI JELZÉSSEL
   // ====================================================================
   app.get('/api/weekly/current', async (req, res) => {
     const { userEmail, topicId } = req.query;
@@ -440,11 +440,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
       const isMasterUser = currentTopic.master_email && userEmail && currentTopic.master_email.toLowerCase().trim() === userEmail.toLowerCase().trim();
 
-    
-
-      // 🎯 JAVÍTVA: Mivel nincs limit, fixen 999-et küldünk vissza, így a frontend sosem fogja letiltani a gombot
       let masterVotesLeft = isMasterUser ? 999 : 0;
-
 
       const [myEntries] = await pool.query('SELECT * FROM weekly_entries WHERE topic_id = ? AND user_email = ? AND is_active = 1', [currentTopic.id, userEmail]);
       const [myPastEntries] = await pool.query('SELECT * FROM weekly_entries WHERE topic_id = ? AND user_email = ? AND is_active = 0 ORDER BY id DESC', [currentTopic.id, userEmail]);
@@ -453,12 +449,14 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       const totalEntries = currentTopic.totalEntries || 0;
       const votableEntries = isMasterUser ? totalEntries : Math.max(1, totalEntries - 1);
 
+      // 🎯 JAVÍTVA: Beillesztve a has_master_vote ellenőrzés a SELECT végére!
       const [leaderboard] = await pool.query(`
         SELECT e.id, e.user_name, e.user_email, e.file_url, e.drive_file_id, e.views_count, e.likes_count, u.club_name,
                e.camera, e.lens, e.shutter, e.iso, e.aperture, e.software,
                EXISTS(SELECT 1 FROM weekly_votes WHERE entry_id = e.id AND voter_email = ?) as has_user_voted,
                (SELECT COUNT(*) FROM weekly_votes WHERE voter_email = e.user_email AND entry_id IN (SELECT id FROM weekly_entries WHERE topic_id = e.topic_id AND is_active = 1)) as votes_cast,
-               ${getFairScoreSql('e', 't')} as fair_score
+               ${getFairScoreSql('e', 't')} as fair_score,
+               IF((SELECT COUNT(*) FROM weekly_votes WHERE entry_id = e.id AND vote_type = 'master') > 0, 1, 0) AS has_master_vote
         FROM weekly_entries e 
         JOIN weekly_topics t ON e.topic_id = t.id
         LEFT JOIN photo_users u ON e.user_email = u.email 
