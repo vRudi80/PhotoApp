@@ -53,9 +53,13 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
         if (freshData.avatar_url) {
           setAvatarPreview(freshData.avatar_url);
         }
+        // 🎯 ÚJ: Közvetlenül a friss profiladatokból szedjük ki az AI statisztikát!
+        if (freshData.ai_usage_count !== undefined) {
+          setAiUsageCount(freshData.ai_usage_count);
+        }
       }
     } catch (e) {
-      console.error("Nem sikerült szinkronizálni a profilképet:", e);
+      console.error("Nem sikerült szinkronizálni a profilképet és adatokat:", e);
     }
   };
 
