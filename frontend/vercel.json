@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/share/challenge/:id",
+      "destination": "https://photoapp-backend-m4d1.onrender.com/api/share/challenge/:id"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
