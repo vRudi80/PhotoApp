@@ -30,23 +30,29 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
     let isMounted = true;
 
     const fetchAlerts = async () => {
+      // Ha nincs email, felesleges API hívást indítani
+      if (!user?.email) return; 
+
       setIsLoadingAlerts(true);
       try {
-        const res = await fetch(`${BACKEND_URL}/api/dashboard-alerts?userEmail=${user?.email}`);
+        const res = await fetch(`${BACKEND_URL}/api/dashboard-alerts?userEmail=${user.email}`);
         if (res.ok && isMounted) {
           setAlerts(await res.json());
-        } else if (isMounted) {
-          setAlerts(null);
         }
-      } catch (e) {
-        console.error("Hiba az értesítések lekérésekor", e);
-        if (isMounted) setAlerts(null);
+      } catch (err) {
+        console.error('Hiba az értesítések letöltésekor:', err);
       } finally {
         if (isMounted) setIsLoadingAlerts(false);
       }
     };
 
-    if (user?.email) fetchAlerts();
+    fetchAlerts();
+
+    return () => {
+      isMounted = false;
+    };
+  // 🎯 KULCSFONTOSSÁGÚ: Itt NE a [user]-t figyeld, hanem a [user?.email]-t!
+  }, [user?.email]);
 
     return () => { isMounted = false; };
   }, [user?.email]);
