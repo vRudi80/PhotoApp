@@ -228,7 +228,7 @@ export default function Header({
               style={{ color: ['podcast', 'map_spots'].includes(activeTab) || activeTab.startsWith('marketplace') ? '#ec4899' : '#94a3b8' }}
               onClick={() => setDropdownOpen(dropdownOpen === 'explore' ? null : 'explore')}
             >
-             <span>{t('navExplore')}</span>
+             <span>{t('navExplore')}</span>  <span>▾</span>
             </button>
             {dropdownOpen === 'explore' && (
               <div className="dropdown-menu">
