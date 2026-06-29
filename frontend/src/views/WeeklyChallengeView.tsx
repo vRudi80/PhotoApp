@@ -241,9 +241,11 @@ const handleShare = (e: React.MouseEvent) => {
 // ⚔️ FŐ IRÁNYÍTÓKÖZPONT KOMPONENS
 // ====================================================================
 export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyChallengeViewProps) {
-  const { t, lang } = useLanguage();
+ const { t, lang } = useLanguage();
   const [subTab, setSubTab] = useState<'current' | 'upcoming' | 'manage' | 'past' | 'arena_album' | 'my_stats' | 'hall_of_fame'>('current');
   const [loading, setLoading] = useState(true);
+  const [topicToShare, setTopicToShare] = useState<any | null>(null);
+
   const [myReferralCode, setMyReferralCode] = useState<string>('');
   const [referredBy, setReferredBy] = useState<string | null>(null);
   const [referralInput, setReferralInput] = useState<string>('');
@@ -252,7 +254,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const [isMaster, setIsMaster] = useState<boolean>(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [hasNewMessage, setHasNewMessage] = useState(false);
-  const [topicToShare, setTopicToShare] = useState<any | null>(null);
+
 
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
