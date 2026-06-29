@@ -1771,22 +1771,20 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     const { topicId } = req.params;
     const userEmail = req.query.userEmail || '';
     try {
-      const [leaderboard] = await pool.query(`
-        SELECT e.id, e.topic_id, e.user_email, COALESCE(u.name, e.user_name) as user_name, 
-               e.file_url, e.drive_file_id, e.likes_count, e.views_count, u.club_name, 
-               u.avatar_url, 
-               u.rank_level,
-               (SELECT COUNT(*) FROM weekly_votes WHERE entry_id = e.id AND vote_type = 'master') as archive_likes,
-               EXISTS(SELECT 1 FROM weekly_votes WHERE entry_id = e.id AND voter_email = ?) as has_user_liked,
-               
-               ${getFairScoreSql('e', 't')} as fair_score
-        FROM weekly_entries e
+const [leaderboard] = await pool.query(`
+        SELECT e.id, e.user_name, e.user_email, e.file_url, e.drive_file_id, e.views_count, e.likes_count, u.club_name,
+               e.camera, e.lens, e.shutter, e.iso, e.aperture, e.software,
+               EXISTS(SELECT 1 FROM weekly_votes WHERE entry_id = e.id AND voter_email = ?) as has_user_voted,
+               (SELECT COUNT(*) FROM weekly_votes WHERE voter_email = e.user_email AND entry_id IN (SELECT id FROM weekly_entries WHERE topic_id = e.topic_id AND is_active = 1)) as votes_cast,
+               ${getFairScoreSql('e', 't')} as fair_score,
+               COALESCE((SELECT 1 FROM weekly_votes WHERE entry_id = e.id AND vote_type = 'master' LIMIT 1), 0) AS has_master_vote
+        FROM weekly_entries e 
         JOIN weekly_topics t ON e.topic_id = t.id
-        LEFT JOIN photo_users u ON e.user_email = u.email
-        WHERE e.topic_id = ? AND e.is_active = 1
+        LEFT JOIN photo_users u ON e.user_email = u.email 
+        WHERE e.topic_id = ? AND e.is_active = 1 
         ORDER BY fair_score DESC, e.likes_count DESC, e.views_count ASC
-      `, [userEmail, topicId]);
-
+      `, [userEmail, currentTopic.id]);
+      
       const clubsData = {};
       leaderboard.forEach(entry => {
         if (!entry.club_name || entry.club_name.trim() === '') return; 
