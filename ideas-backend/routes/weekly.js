@@ -307,22 +307,25 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-  // ====================================================================
+ // ====================================================================
   // 🔗 ÚJ VÉGPONT: Facebook / Közösségi média meta-tag generáló és átirányító
   // ====================================================================
   app.get('/api/share/challenge/:id', async (req, res) => {
     const { id } = req.params;
     
     try {
-      // 1. Lekérjük a konkrét kihívás adatait
       const [rows] = await pool.query('SELECT * FROM weekly_topics WHERE id = ?', [id]);
       
-      // Ide írd be a TE EREDETI oldalad webcímét (pl. https://photawesome.com)
-      // Ahova a felhasználó érkezni fog, miután a Facebookon a linkre kattintott!
-      const FRONTEND_URL = process.env.FRONTEND_URL || 'https://te-oldalad-cime.com';
+      // 🎯 JAVÍTVA: A Játéktér pontos linkje!
+      const FRONTEND_URL = process.env.FRONTEND_URL || 'https://photawesome.com';
+      // Itt mondjuk meg, hova érkezzen a felhasználó a kattintás után:
+      const TARGET_URL = `${FRONTEND_URL}/weekly_challenge`; 
+      
+      // PRO TIPP: Ha később akarod, hogy a React magától kinyissa a szobát, 
+      // használhatsz ilyet is: `${FRONTEND_URL}/weekly_challenge?openTopic=${id}`
 
       if (rows.length === 0) {
-        return res.redirect(FRONTEND_URL); // Ha nincs ilyen kihívás, visszadobjuk a főoldalra
+        return res.redirect(TARGET_URL); 
       }
 
       const topic = rows[0];
@@ -330,11 +333,9 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       const desc = topic.description || 'Keresd a legjobb pillanatot!';
       const imageUrl = topic.cover_url || 'https://via.placeholder.com/1200x630/1e293b/fbbf24?text=PhotAwesome';
 
-      // 2. Összerakjuk a "motivációs" szöveget
       const fullDescription = `✨ Téma: ${desc} | Gyere, mutasd meg a legjobb fotódat, szavazz a többiekre, és zsebeld be a trófeákat! 🏆 Kattints a linkre és játssz te is!`;
 
-      // 3. Visszaküldjük a HTML-t, ami KIZÁRÓLAG a Facebook botoknak szól, 
-      // az embereket pedig egyből átirányítja (window.location.href)
+      // Visszaküldjük a HTML-t: a robotoknak Meta Tagek, az embereknek azonnali átirányítás a Játéktérre
       const html = `
         <!DOCTYPE html>
         <html lang="hu">
@@ -343,7 +344,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
           <title>${title} | PhotAwesome</title>
           
           <meta property="og:type" content="website" />
-          <meta property="og:url" content="${FRONTEND_URL}" />
+          <meta property="og:url" content="${FRONTEND_URL}/share/challenge/${id}" />
           <meta property="og:title" content="📸 ${title}" />
           <meta property="og:description" content="${fullDescription}" />
           <meta property="og:image" content="${imageUrl}" />
@@ -354,9 +355,9 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
           <meta name="twitter:image" content="${imageUrl}" />
         </head>
         <body>
-          <p>Átirányítás a PhotAwesome oldalára...</p>
           <script>
-            window.location.href = "${FRONTEND_URL}";
+            // Emberi látogatók azonnali átdobása a Játéktérre
+            window.location.href = "${TARGET_URL}";
           </script>
         </body>
         </html>
@@ -366,7 +367,8 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
     } catch (err) {
       console.error("Hiba a megosztó link generálásakor:", err);
-      res.redirect('https://te-oldalad-cime.com');
+      // Hiba esetén is a Játéktérre dobjuk
+      res.redirect('https://photawesome.com/weekly_challenge');
     }
   });
 
