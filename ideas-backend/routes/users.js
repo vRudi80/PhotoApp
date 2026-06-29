@@ -63,11 +63,33 @@ module.exports = function(app, pool) {
   app.get('/api/users/:email', async (req, res) => {
     const { email } = req.params;
     try {
-      const [rows] = await pool.query('SELECT * FROM photo_users WHERE email = ?', [email]);
+      // 🎯 JAVÍTVA: Beemeltük az AI portfólió számlálót, pont úgy, mint az adminnál!
+      const [rows] = await pool.query(`
+        SELECT 
+          u.*, 
+          COALESCE(p.ai_count, 0) AS ai_usage_count
+        FROM photo_users u
+        LEFT JOIN (
+          SELECT user_email, COUNT(*) AS ai_count 
+          FROM photo_portfolio 
+          WHERE ai_tags IS NOT NULL 
+            AND TRIM(ai_tags) != '' 
+            AND ai_tags != '[]'
+          GROUP BY user_email
+        ) p ON u.email = p.user_email
+        WHERE u.email = ?
+      `, [email]);
+      
       if (rows.length === 0) {
         return res.status(404).json({ error: 'Felhasználó nem található!' });
       }
-      res.json(rows[0]); // Visszaadjuk a teljes sort, benne az avatar_url-lel!
+
+      const userProfile = rows[0];
+
+      // Biztosítjuk a tiszta Number formátumot a frontend számára
+      userProfile.ai_usage_count = Number(userProfile.ai_usage_count) || 0;
+
+      res.json(userProfile);
     } catch (err) {
       console.error("❌ Hiba az egyéni profil lekérésekor:", err);
       res.status(500).json({ error: 'Szerveroldali hiba történt.' });
