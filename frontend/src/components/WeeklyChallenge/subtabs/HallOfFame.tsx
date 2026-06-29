@@ -75,14 +75,13 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
   const handleUserClick = async (row: any) => {
     setSelectedUser(row);
     
-    // 🎯 JAVÍTVA: Közvetlenül a kattintásból érkező 'row' objektumból olvassuk ki, megkerülve a lassú React state-et!
+    // Közvetlenül a kattintásból érkező 'row' objektumból olvassuk ki
     const targetEmail = row?.user_email || row?.email;
     if (!targetEmail) return;
 
     setStatsLoading(true);
     setPlayerStats(null);
     try {
-      // 🎯 JAVÍTVA: Az Axios-szal a BACKEND_URL és a res.data kombinációja tökéletesen és golyóállóan fog működni!
       const res = await axios.get(`${BACKEND_URL}/api/weekly/hof-stats?userEmail=${encodeURIComponent(targetEmail)}`);
       setPlayerStats(res.data);
     } catch (err) {
@@ -99,6 +98,9 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
     const totalLikes = Number(selectedUser?.total_likes) || 0;
     const currentLevel = getLevelDetails ? getLevelDetails(totalLikes, Number(selectedUser?.first_places) || 0) : { name: '', color: '#fbbf24', bg: '' };
     const displayRankName = lang === 'en' ? (rankNamesEn[currentLevel?.name || ''] || currentLevel?.name || '') : (currentLevel?.name || '');
+
+    // Képmester érték kiolvasása a backendről
+    const masterCount = Number(selectedUser?.master_count) || 0;
 
     return (
       <div style={{ animation: 'fadeIn 0.4s ease-out' }}>
@@ -146,23 +148,34 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '35px' }}>
             
-            {/* Érem számlálók */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(100px, 1fr))', gap: '15px', textAlign: 'center' }}>
+            {/* 🎯 JAVÍTVA: 4 oszlopos reszponzív Érem számláló rács, bekerült a Képmester */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '15px', textAlign: 'center' }}>
+              
               <div style={{ background: '#0f172a', padding: '20px', borderRadius: '20px', border: '1px solid #fbbf2440' }}>
                 <div style={{ fontSize: '2.2rem' }}>🥇</div>
                 <div style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 'bold', marginTop: '4px' }}>{lang === 'en' ? '1st Places' : 'Győzelmek'}</div>
                 <div style={{ fontSize: '1.5rem', fontWeight: '900', color: '#fbbf24', marginTop: '4px' }}>{selectedUser?.first_places || 0}</div>
               </div>
+              
               <div style={{ background: '#0f172a', padding: '20px', borderRadius: '20px', border: '1px solid #38bdf840' }}>
                 <div style={{ fontSize: '2.2rem' }}>🏆</div>
                 <div style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 'bold', marginTop: '4px' }}>{lang === 'en' ? 'Total Podiums' : 'Dobogós helyezések'}</div>
                 <div style={{ fontSize: '1.5rem', fontWeight: '900', color: '#38bdf8', marginTop: '4px' }}>{selectedUser?.podiums || 0}</div>
               </div>
+              
+              {/* ÚJ: Képmester kártya */}
+              <div style={{ background: '#0f172a', padding: '20px', borderRadius: '20px', border: '1px solid #ec489940' }}>
+                <div style={{ fontSize: '2.2rem' }}>🚀</div>
+                <div style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 'bold', marginTop: '4px' }}>{lang === 'en' ? 'Master' : 'Képmester'}</div>
+                <div style={{ fontSize: '1.5rem', fontWeight: '900', color: '#ec4899', marginTop: '4px' }}>{masterCount}</div>
+              </div>
+
               <div style={{ background: '#0f172a', padding: '20px', borderRadius: '20px', border: '1px solid #a855f740' }}>
                 <div style={{ fontSize: '2.2rem' }}>⭐</div>
                 <div style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 'bold', marginTop: '4px' }}>{lang === 'en' ? 'Fair Score' : 'Dicsőség Pont'}</div>
                 <div style={{ fontSize: '1.5rem', fontWeight: '900', color: '#a855f7', marginTop: '4px' }}>{totalLikes.toFixed(1)}</div>
               </div>
+              
             </div>
 
             {/* Pályaművek rácsa */}
@@ -265,6 +278,9 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
           
           const firstPlaces = Number(row?.first_places) || 0;
           const podiums = Number(row?.podiums) || 0;
+          
+          // 🎯 ÚJ: Képmester adat kiolvasása a sorból
+          const masterCount = Number(row?.master_count) || 0;
 
           const level = getLevelDetails ? getLevelDetails(likes, 0) : { name: '', color: '#fff', bg: '' }; 
           
@@ -319,13 +335,19 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
                   </div>
                 )}
 
-                {/* Statisztikai boxok */}
+                {/* 🎯 JAVÍTVA: Statisztikai boxok kiegészítve a Képmesterrel */}
                 <div style={{ display: 'flex', gap: '8px', marginTop: '8px', flexWrap: 'wrap' }}>
                   <span style={{ fontSize: '0.75rem', color: '#fbbf24', background: '#fbbf2410', padding: '3px 10px', borderRadius: '6px', border: '1px solid #fbbf2420', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                     🥇 {firstPlaces} {lang === 'en' ? (firstPlaces === 1 ? 'Win' : 'Wins') : 'győzelem'}
                   </span>
+                  
                   <span style={{ fontSize: '0.75rem', color: '#38bdf8', background: '#38bdf810', padding: '3px 10px', borderRadius: '6px', border: '1px solid #38bdf820', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                     🏆 {podiums} {lang === 'en' ? 'Podium' : 'dobogó'}
+                  </span>
+                  
+                  {/* ÚJ: Képmester jelvény */}
+                  <span style={{ fontSize: '0.75rem', color: '#ec4899', background: '#ec489910', padding: '3px 10px', borderRadius: '6px', border: '1px solid #ec489920', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    🚀 {masterCount} {lang === 'en' ? (masterCount === 1 ? 'Master' : 'Masters') : 'képmester'}
                   </span>
                 </div>
               </div>
