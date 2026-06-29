@@ -400,11 +400,41 @@ export default function ArenaActiveRoom({
                       <img src={getImageUrl(entry?.drive_file_id, entry?.file_url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: showUnblinded ? 'none' : 'blur(4px)' }} onError={handleImageError} loading="lazy" />
                     </div>
                     
-                    {/* INFÓ PANEL SZEKCIÓ */}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ color: isMe ? '#f8fafc' : '#94a3b8', fontWeight: 'bold', fontSize: '0.95rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {showUnblinded ? (entry?.user_name || '') : t('roomEncryptedOpponent')}
+{/* INFÓ PANEL SZEKCIÓ */}
+                    <div style={{ flex: 1, minWidth: 0, paddingLeft: '5px' }}>
+                      <div style={{ 
+                        color: isMe ? '#f8fafc' : '#94a3b8', 
+                        fontWeight: 'bold', 
+                        fontSize: '0.95rem', 
+                        overflow: 'hidden', 
+                        textOverflow: 'ellipsis', 
+                        whiteSpace: 'nowrap',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}>
+                        <span>{showUnblinded ? (entry?.user_name || '') : t('roomEncryptedOpponent')}</span>
+                        
+                        {/* 🚀 ÚJ: Képmesteri jelvény a név mellett, ha has_master_vote van */}
+                        {Number(entry?.has_master_vote) > 0 && (
+                          <span 
+                            title={lang === 'en' ? 'Received a Master Vote!' : 'Képmesteri szavazatot kapott!'}
+                            style={{ 
+                              background: 'linear-gradient(135deg, #c084fc, #9333ea)', 
+                              color: 'white', 
+                              fontSize: '0.65rem', 
+                              padding: '2px 6px', 
+                              borderRadius: '6px', 
+                              display: 'inline-flex', 
+                              alignItems: 'center',
+                              boxShadow: '0 0 8px rgba(168, 85, 247, 0.5)'
+                            }}
+                          >
+                            🚀
+                          </span>
+                        )}
                       </div>
+                      
                       <div style={{ fontSize: '0.8rem', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: '2px' }}>
                         {t('roomViews') || 'Nézettség'}: {entry?.views_count || 0}
                         {entry.votes_cast !== undefined && (
