@@ -1400,7 +1400,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   
- // ====================================================================
+// ====================================================================
   // 🏆 SZUPERSTABIL ÉS HIVATALOS DICSŐSÉGCSARNOK RANGLISTA (GET)
   // ====================================================================
   app.get('/api/weekly/hall-of-fame', async (req, res) => {
@@ -1428,7 +1428,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         WHERE e.topic_id IN (?) AND e.is_active = 1
       `, [topicIds]);
 
-      // Csoportosítjuk a nevezéseket témák szerint a helyezések kiszámításához
       const entriesByTopic = {};
       allEntries.forEach(entry => {
         if (!entriesByTopic[entry.topic_id]) {
@@ -1439,21 +1438,17 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
       const userStats = {};
 
-      // Minden témán belül meghatározzuk a tűpontos sorrendet
       Object.keys(entriesByTopic).forEach(topicId => {
         const entries = entriesByTopic[topicId];
         
-        // Sorba rendezés a PhotAwesome hivatalos szabályzata szerint
         entries.sort((a, b) => {
           if (Number(b.fair_score) !== Number(a.fair_score)) return Number(b.fair_score) - Number(a.fair_score);
           if (Number(b.likes_count) !== Number(a.likes_count)) return Number(b.likes_count) - Number(a.likes_count);
           return Number(a.views_count) - Number(b.views_count);
         });
 
-        // Helyezések kiosztása standard competition-ranking (1, 2, 2, 4) elv alapján
         entries.forEach((entry, index) => {
           let rank = index + 1;
-          
           if (index > 0) {
             const prev = entries[index - 1];
             if (Number(entry.fair_score) === Number(prev.fair_score) &&
@@ -1468,27 +1463,31 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
             userStats[email] = { total_likes: 0, first_places: 0, podiums: 0 };
           }
 
-          // Összegezzük a teljesítményt
           userStats[email].total_likes += Number(entry.fair_score || 0);
           if (rank === 1) userStats[email].first_places++;
           if (rank <= 3) userStats[email].podiums++;
         });
       });
 
-      // 🎯 ÚJ LÉPÉS: Lekérjük, hogy ki hányszor volt Képmester
+      // 🎯 ÚJ LÉPÉS: Képmesteri posztok leszámolása (CSAK a jóváhagyott és lezárt meccseknél!)
       const [masterRows] = await pool.query(`
         SELECT master_email, COUNT(*) AS master_count
         FROM weekly_topics
-        WHERE master_email IS NOT NULL AND TRIM(master_email) != ''
+        WHERE master_email IS NOT NULL 
+          AND master_email != ''
+          AND end_date < ? 
+          AND status = 'approved'
         GROUP BY master_email
-      `);
+      `, [currentNow]);
 
-      // Átrakjuk egy gyorsan kereshető szótárba (objektumba)
       const masterStats = {};
       masterRows.forEach(row => {
         const email = String(row.master_email).trim().toLowerCase();
         masterStats[email] = Number(row.master_count) || 0;
       });
+
+      // 💡 DEBUG LOG A RENDER.COM SZÁMÁRA - Itt látni fogod, hogy a MySQL mit hozott ki!
+      console.log("🔥 KÉPMESTER STATISZTIKA (Adatbázisból):", masterStats);
 
       // 3. Lekérjük a regisztrált felhasználók és klubjaik adatait
       const [users] = await pool.query(`
@@ -1498,11 +1497,10 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         LEFT JOIN photo_clubs c ON u.club_name = c.name
       `);
 
-      // Összefésüljük a profilokat a frissen kiszámított valós éremadatokkal ÉS a Képmesteri adattal
       const leaderboard = users.map(u => {
         const email = String(u.user_email).trim().toLowerCase();
         const stats = userStats[email] || { total_likes: 0, first_places: 0, podiums: 0 };
-        const mCount = masterStats[email] || 0; // 🎯 Képmester szám beillesztése
+        const mCount = masterStats[email] || 0; 
 
         return {
           user_name: u.user_name,
@@ -1514,10 +1512,9 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
           total_likes: Math.round(stats.total_likes * 100) / 100,
           first_places: stats.first_places,
           podiums: stats.podiums,
-          master_count: mCount // 🎯 Átadjuk a frontendnek!
+          master_count: mCount // 🎯 Átadjuk a frontendnek
         };
       })
-      // Opcionális: Ha valaki csak képmester volt, de még nem játszott, ő is megjelenhet, ha a || mCount > 0 -t betesszük
       .filter(u => u.total_likes > 0 || u.master_count > 0) 
       .sort((a, b) => b.total_likes - a.total_likes || a.user_name.localeCompare(b.user_name));
 
