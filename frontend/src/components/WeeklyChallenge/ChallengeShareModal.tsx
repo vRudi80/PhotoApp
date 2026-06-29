@@ -22,18 +22,22 @@ export default function ChallengeShareModal({ topic, onClose }: ChallengeShareMo
 
     setIsGenerating(true);
     try {
-      // Magas felbontású kép generálása
-      const dataUrl = await toPng(node, { cacheBust: true, quality: 1.0, pixelRatio: 2 });
+      // 🎯 Bővített paraméterek a CORS hibák és font összeomlások elkerülésére
+      const dataUrl = await toPng(node, { 
+        cacheBust: true, 
+        quality: 1.0, 
+        pixelRatio: 2,
+        skipFonts: true, // Megakadályozza a fontok miatti hibákat
+        fetchRequestInit: { cache: 'no-cache' } // Segít a képek friss letöltésében
+      });
       
       const blob = await (await fetch(dataUrl)).blob();
       const file = new File([blob], `PhotAwesome_Challenge_${topic.id}.png`, { type: 'image/png' });
       
-      // Motivációs szöveg
       const shareText = lang === 'en' 
         ? `📸 Join the "${displayTitle}" photo challenge!\n\nClick here to play: ${window.location.origin}/weekly_challenge`
         : `📸 Indulj te is a(z) "${displayTitle}" fotós kihíváson!\n\nKattints ide és játssz te is: ${window.location.origin}/weekly_challenge`;
 
-      // Mobilos natív megosztó
       if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({
           files: [file],
@@ -41,7 +45,6 @@ export default function ChallengeShareModal({ topic, onClose }: ChallengeShareMo
           text: shareText
         });
       } else {
-        // Asztali gépes fallback: Letöltés
         const link = document.createElement('a');
         link.download = `PhotAwesome_Challenge_${topic.id}.png`;
         link.href = dataUrl;
@@ -50,8 +53,8 @@ export default function ChallengeShareModal({ topic, onClose }: ChallengeShareMo
         alert(lang === 'en' ? 'Image downloaded! You can now attach it to your Facebook post.' : 'A meghívó kép letöltve! Most már csatolhatod a Facebook posztodhoz.');
       }
     } catch (e) {
-      console.error(e);
-      alert('Hiba történt a kép generálásakor.');
+      console.error("Kép generálási hiba:", e);
+      alert('Hiba történt a kép elkészítésekor. Ellenőrizd, hogy a böngésződ nem blokkolja-e a letöltéseket!');
     } finally {
       setIsGenerating(false);
     }
@@ -89,12 +92,18 @@ export default function ChallengeShareModal({ topic, onClose }: ChallengeShareMo
         </div>
 
         {/* Borítókép */}
+        {/* Borítókép */}
         <div style={{ 
           width: '100%', height: '180px', borderRadius: '16px', border: `2px solid ${isDaily ? '#ef4444' : '#3b82f6'}`, 
           boxShadow: '0 8px 25px rgba(0,0,0,0.5)', zIndex: 10, backgroundColor: '#000', overflow: 'hidden', marginBottom: '20px'
         }}>
           {topic.cover_url ? (
-            <img src={topic.cover_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <img 
+              src={topic.cover_url} 
+              alt="Cover" 
+              crossOrigin="anonymous" /* 🎯 EZ A KULCS A BIZTONSÁGI HIBA ELLEN! */
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+            />
           ) : (
             <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '3rem' }}>📸</div>
           )}
