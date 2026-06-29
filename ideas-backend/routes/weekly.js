@@ -31,7 +31,8 @@ const getFairScoreSql = (entryAlias = 'e', topicAlias = 't') => {
 
 
 module.exports = function(app, pool, drive, upload, cleanupTempFile) {
-    // 🎯 AUTOPROVIZIÓS MOTOR: Ha nincsenek meg az archív lájk/komment táblák, magától létrehozza őket
+  
+  // 🎯 AUTOPROVIZIÓS MOTOR: Ha nincsenek meg az archív lájk/komment táblák, magától létrehozza őket
   (async () => {
     try {
       await pool.query(`
@@ -147,11 +148,10 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     return rows[0]?.referral_code || '';
   }
 
-    async function checkAndAwardLevelUp(pool, email) {
+  async function checkAndAwardLevelUp(pool, email) {
     const { totalLikes, victories } = await getUserLikesAndVictories(pool, email);
     const newLevel = calculateRankLevel(totalLikes, victories);
 
-    // 🎯 JAVÍTVA: [userEmail] helyett szigorúan a függvény paramétereként érkező [email] kell!
     const [userRows] = await pool.query('SELECT rank_level FROM photo_users WHERE email = ?', [email]);
     if (userRows.length > 0) {
       const oldLevel = userRows[0].rank_level;
@@ -331,7 +331,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
- // ====================================================================
+  // ====================================================================
   // 🔗 ÚJ VÉGPONT: Facebook / Közösségi média meta-tag generáló és átirányító
   // ====================================================================
   app.get('/api/share/challenge/:id', async (req, res) => {
@@ -340,13 +340,8 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     try {
       const [rows] = await pool.query('SELECT * FROM weekly_topics WHERE id = ?', [id]);
       
-      // 🎯 JAVÍTVA: A Játéktér pontos linkje!
       const FRONTEND_URL = process.env.FRONTEND_URL || 'https://photawesome.com';
-      // Itt mondjuk meg, hova érkezzen a felhasználó a kattintás után:
       const TARGET_URL = `${FRONTEND_URL}/weekly_challenge`; 
-      
-      // PRO TIPP: Ha később akarod, hogy a React magától kinyissa a szobát, 
-      // használhatsz ilyet is: `${FRONTEND_URL}/weekly_challenge?openTopic=${id}`
 
       if (rows.length === 0) {
         return res.redirect(TARGET_URL); 
@@ -359,7 +354,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
       const fullDescription = `✨ Téma: ${desc} | Gyere, mutasd meg a legjobb fotódat, szavazz a többiekre, és zsebeld be a trófeákat! 🏆 Kattints a linkre és játssz te is!`;
 
-      // Visszaküldjük a HTML-t: a robotoknak Meta Tagek, az embereknek azonnali átirányítás a Játéktérre
       const html = `
         <!DOCTYPE html>
         <html lang="hu">
@@ -380,7 +374,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         </head>
         <body>
           <script>
-            // Emberi látogatók azonnali átdobása a Játéktérre
             window.location.href = "${TARGET_URL}";
           </script>
         </body>
@@ -391,12 +384,11 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
     } catch (err) {
       console.error("Hiba a megosztó link generálásakor:", err);
-      // Hiba esetén is a Játéktérre dobjuk
       res.redirect('https://photawesome.com/weekly_challenge');
     }
   });
 
-// ====================================================================
+  // ====================================================================
   // ⚔️ CSATATÉR FŐ VÉGPONT – HIVATALOSAN JAVÍTVA A KÉPMESTERI JELZÉSSEL
   // ====================================================================
   app.get('/api/weekly/current', async (req, res) => {
@@ -473,7 +465,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       const totalEntries = currentTopic.totalEntries || 0;
       const votableEntries = isMasterUser ? totalEntries : Math.max(1, totalEntries - 1);
 
-      // 🎯 JAVÍTVA: Beillesztve a has_master_vote ellenőrzés a SELECT végére!
       const [leaderboard] = await pool.query(`
         SELECT e.id, e.user_name, e.user_email, e.file_url, e.drive_file_id, e.views_count, e.likes_count, u.club_name,
                e.camera, e.lens, e.shutter, e.iso, e.aperture, e.software,
@@ -529,7 +520,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-// ====================================================================
+  // ====================================================================
   // ⚡ SZUPEROPTIMALIZÁLT ARÉNA ALBUM (100x GYORSABB BETÖLTÉS)
   // ====================================================================
   app.get('/api/weekly/my-album', async (req, res) => {
@@ -539,7 +530,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     try {
       const nowMySQL = getLocalMySQLNow();
 
-      // 1. Lekérjük a felhasználó összes fotóját (1. lekérdezés)
       const [photos] = await pool.query(
         "SELECT id, file_url, created_at, camera, lens, shutter, iso, aperture, software FROM user_photos WHERE user_email = ? ORDER BY created_at DESC",
         [userEmail]
@@ -547,7 +537,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
       if (photos.length === 0) return res.json([]);
 
-      // 2. Lekérjük a felhasználó ÖSSZES nevezését egyszerre (2. lekérdezés)
       const [userEntries] = await pool.query(`
         SELECT 
           e.topic_id, e.file_url, e.likes_count, e.views_count, e.is_active,
@@ -559,7 +548,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         WHERE e.user_email = ?
       `, [nowMySQL, userEmail]);
 
-      // Rendezzük a nevezéseket URL szerint, hogy azonnal hozzáférjünk
       const entriesByUrl = {};
       const topicIds = new Set();
       userEntries.forEach(entry => {
@@ -568,7 +556,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         topicIds.add(entry.topic_id);
       });
 
-      // 3. Lekérjük CSAK azon szobák ranglistáit, ahol a felhasználó indult (3. lekérdezés)
       let leaderboards = {};
       if (topicIds.size > 0) {
         const [allTopicEntries] = await pool.query(`
@@ -579,24 +566,20 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
           WHERE e.topic_id IN (?) AND e.is_active = 1
         `, [Array.from(topicIds)]);
 
-        // Témánként szétválogatjuk a mezőnyt
         allTopicEntries.forEach(entry => {
           if (!leaderboards[entry.topic_id]) leaderboards[entry.topic_id] = [];
           leaderboards[entry.topic_id].push(entry);
         });
       }
 
-      // 4. Villámgyors párosítás a memóriában
       const albumWithStats = photos.map(photo => {
         const entries = entriesByUrl[photo.file_url] || [];
         const history = [];
 
         entries.forEach(entry => {
           const board = leaderboards[entry.topic_id] || [];
-          
-          // Megkeressük a pontos helyezést a szobában a standard szabályzat alapján
           const currentEntry = board.find(l => String(l.user_email).toLowerCase() === String(userEmail).trim().toLowerCase());
-          let entryRank = board.length + 1; // Alapértelmezett, ha esetleg inaktív a képe
+          let entryRank = board.length + 1;
           
           if (currentEntry) {
             const betterEntries = board.filter(item => 
@@ -622,7 +605,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
           });
         });
 
-        // Történet rendezése dátum szerint (legújabb legfelül)
         history.sort((a, b) => new Date(b.end_date) - new Date(a.end_date));
 
         const totalLikes = history.reduce((sum, h) => sum + Number(h.likes_count), 0);
@@ -651,11 +633,10 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-    // ====================================================================
+  // ====================================================================
   // 👑 GOLYÓÁLLÓ JELENTKEZÉS CSATABÍRÓNAK (FELHASZNÁLÓI OLDAL)
   // ====================================================================
   app.post('/api/weekly/apply-master', async (req, res) => {
-    // Elfogadjuk a body-ból és a query-ből is az adatokat az ultrastabil működésért
     const topicId = req.body.topicId || req.query.topicId;
     const userEmail = req.body.userEmail || req.query.userEmail;
 
@@ -669,7 +650,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     try {
       const parsedTopicId = Number(topicId);
 
-      // 1. Megnézzük, létezik-e a szoba
       const [check] = await pool.query(
         'SELECT master_email, pending_master_email FROM weekly_topics WHERE id = ?', 
         [parsedTopicId]
@@ -681,7 +661,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
       const room = check[0];
 
-      // 🎯 JAVÍTVA: String-kényszerítést használunk, így ha a mező értéke NULL a DB-ben, nem fog összeomlani a kód!
       if (room.master_email && String(room.master_email).trim() !== '') {
         return res.json({ success: false, message: 'Ehhez a csatához már tartozik jóváhagyott Csatabíró!' });
       }
@@ -690,7 +669,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         return res.json({ success: false, message: 'Valaki már jelentkezett erre a pozícióra, az admin elbírálására vár!' });
       }
 
-      // 2. Ha minden feltétel teljesül, rögzítjük a jelentkezést
       await pool.query(
         'UPDATE weekly_topics SET pending_master_email = ? WHERE id = ?', 
         [userEmail.trim(), parsedTopicId]
@@ -712,25 +690,22 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-    // ====================================================================
+  // ====================================================================
   // 🔒 ADMINISZTRÁTORI DÖNTÉS A CSATABÍRÓRÓL (+2 NAP PRÉMIUMMAL)
   // ====================================================================
   app.post('/api/admin/decide-master', async (req, res) => {
     const { topicId, decision } = req.body; 
     try {
       if (decision === 'approved') {
-        // 1. Lekérjük a jelentkező email címét a weekly_topics-ból
         const [topicRows] = await pool.query('SELECT pending_master_email FROM weekly_topics WHERE id = ?', [topicId]);
         const masterEmail = topicRows[0]?.pending_master_email;
 
         if (masterEmail && masterEmail.trim() !== '') {
-          // 2. Frissítjük a kihívás adatlapját (kinevezzük hivatalos Képmesternek)
           await pool.query(
             'UPDATE weekly_topics SET master_email = pending_master_email, pending_master_email = NULL WHERE id = ?',
             [topicId]
           );
 
-          // 3. 🎯 JUTALMAZÁS: Hozzáadunk +2 nap Prémium időt a felhasználónak
           await pool.query(`
             UPDATE photo_users 
             SET is_premium = 1, 
@@ -744,7 +719,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
           return res.status(400).json({ error: 'Nem található aktív Csatabíró jelentkezés ehhez a kihíváshoz!' });
         }
       } else {
-        // Elutasítás esetén egyszerűen csak ürítjük a jelentkezőt
         await pool.query('UPDATE weekly_topics SET pending_master_email = NULL WHERE id = ?', [topicId]);
       }
       
@@ -755,7 +729,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-  
   app.post('/api/weekly/my-album/upload', upload.single('photo'), async (req, res) => {
     const { userEmail, camera, lens, shutter, iso, aperture, software } = req.body;
     const file = req.file;
@@ -1054,7 +1027,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { res.status(500).json({ error: 'Hiba a kép lekérésekor' }); }
   });
 
-      // ====================================================================
+  // ====================================================================
   // 🗳️ JAVÍTVA ÉS KORLÁTLANÍTVA: SZAVAZATOT FELDOLGOZÓ VÉGPONT
   // ====================================================================
   app.post('/api/weekly/vote', async (req, res) => {
@@ -1063,18 +1036,15 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     try {
       await conn.beginTransaction();
       
-      // 1. Duplikáció ellenőrzése
       const [existing] = await conn.query('SELECT id FROM weekly_votes WHERE entry_id = ? AND voter_email = ?', [entryId, userEmail]);
       if (existing.length > 0) { 
         await conn.rollback(); 
         return res.json({ success: false, message: 'Már szavaztál!' }); 
       }
 
-      // 2. Forduló (szoba) azonosító lekérése
       const [entryTopicRows] = await conn.query('SELECT topic_id FROM weekly_entries WHERE id = ?', [entryId]);
       const topicId = entryTopicRows[0]?.topic_id;
 
-      // 3. Csatabíró jogosultság ellenőrzése (pool helyett conn-al a tranzakció-biztonságért)
       const [topicRows] = await conn.query('SELECT master_email FROM weekly_topics WHERE id = ?', [topicId]);
       const assignedMasterEmail = topicRows[0]?.master_email;
       
@@ -1086,12 +1056,10 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       const finalVoteType = voteType;
       let calculatedPoints = 0;
 
-      // 4. Pontszámok kalkulációja típus szerint
       if (finalVoteType === 'pass') {
         calculatedPoints = 0;
       } 
       else if (finalVoteType === 'master') {
-        // 🎯 JAVÍTVA: Az 5-ös limit számlálója és korlátozása örökre törölve!
         if (!isRealMasterOfThisRoom) {
           await conn.rollback();
           return res.status(403).json({ error: 'Nem te vagy a csata kijelölt Csatabírója!' });
@@ -1099,22 +1067,18 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         calculatedPoints = 10; 
       } 
       else {
-        // Rang alapú szavazati erő lekérése
         const { totalLikes, victories } = await getUserLikesAndVictories(conn, userEmail);
         const level = calculateRankLevel(totalLikes, victories);
         const power = getVotePowerByLevel(level);
         calculatedPoints = finalVoteType === 'super' ? power.super : power.brilliant;
       }
 
-      // 5. Voks mentése és a kép számlálóinak frissítése
       await conn.query('INSERT INTO weekly_votes (entry_id, voter_email, vote_type) VALUES (?, ?, ?)', [entryId, userEmail, finalVoteType]);
       await conn.query('UPDATE weekly_entries SET views_count = views_count + 1, likes_count = likes_count + ? WHERE id = ?', [calculatedPoints, entryId]);
 
-      // 6. Ha a kép pontot kapott, ellenőrizzük, hogy a kép tulajdonosa szintet lépett-e
       if (calculatedPoints > 0) {
         const [entryRows] = await conn.query('SELECT user_email FROM weekly_entries WHERE id = ?', [entryId]);
         if (entryRows[0]?.user_email) {
-          // A checkAndAwardLevelUp belső scope-hibája javítva lett, így már sikeresen lefut
           await checkAndAwardLevelUp(conn, entryRows[0].user_email);
         }
       }
@@ -1129,8 +1093,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       conn.release(); 
     }
   });
-
-
 
   app.post('/api/weekly/claim-referral', async (req, res) => {
     const { userEmail, referralCode } = req.body;
@@ -1185,7 +1147,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   // ====================================================================
   app.get('/api/weekly/past', async (req, res) => {
     try {
-      // 🎯 JAVÍTVA: Elmentjük a pontos helyi időt, hogy szinkronban legyen a főoldallal
       const currentNow = getLocalMySQLNow();
 
       const [rows] = await pool.query(`
@@ -1194,10 +1155,9 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
                (SELECT COUNT(*) FROM weekly_votes WHERE entry_id IN (SELECT id FROM weekly_entries WHERE topic_id = t.id)) as total_votes
         FROM weekly_topics t
         LEFT JOIN photo_users u ON t.master_email = u.email
-        -- 🎯 JAVÍTVA: NOW() helyett a magyar időzónához igazított paramétert kapja meg
         WHERE t.end_date < ? 
         ORDER BY t.end_date DESC
-      `, [currentNow]); // 👈 Átadjuk a budapesti időt
+      `, [currentNow]);
       
       res.json(rows);
     } catch (err) {
@@ -1205,7 +1165,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       res.status(500).json({ error: 'Szerveroldali hiba az archívum összeállításakor.' });
     }
   });
-
 
   // 📸 TRÓFEATEREM VÉGPONT – KÖZPONTOSÍTOTT PONTOSSÁG!
   // ====================================================================
@@ -1321,7 +1280,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-   // ====================================================================
+  // ====================================================================
   // 🔬 CRASH-BIZTOS DIAGNOSZTIKAI VÉGPONT A DICSŐSÉGCSARNOKHOZ (GET)
   // ====================================================================
   app.get('/api/weekly/hof-stats', async (req, res) => {
@@ -1340,7 +1299,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       const currentNow = getLocalMySQLNow();
       let debugSteps = [`1. Keresett email letisztítva: "${cleanEmail}"`];
 
-      // Lekérjük a lezárt szobákat függetlenül a státuszuktól
       const [pastTopics] = await pool.query(
         "SELECT id, title, title_en, start_date, end_date FROM weekly_topics WHERE end_date < ? AND (status = 'approved' OR status IS NULL OR status = '') ORDER BY end_date DESC",
         [currentNow]
@@ -1352,7 +1310,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       let history = [];
 
       for (const topic of pastTopics) {
-        // Pontosan az a lekérdezés, ami a Trophy Room-ban is hibátlanul fut
         const [entries] = await pool.query(`
           SELECT e.id, e.user_email, e.user_name, e.file_url, e.drive_file_id, e.likes_count, e.views_count,
                  ${getFairScoreSql('e', 't')} as fair_score
@@ -1379,8 +1336,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
             debugSteps.push(`• Találat: "${topic.title}" -> ${rank}. hely a(z) ${entries.length} képből.`);
           }
 
-          // 🎯 A KULCS: Minden változót kényszerítünk primitív típusra (String, Number),
-          // így a JSON szerializáció garantáltan NEM tud 500-as hibával összeomlani!
           history.push({
             topic_title: String(topic.title || ''),
             topic_title_en: String(topic.title_en || topic.title || ''),
@@ -1399,7 +1354,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
       debugSteps.push(`✅ Sikeresen feldolgozva: ${history.length} db lezárt meccs.`);
 
-      // Visszaküldjük a tiszta adatokat
       return res.status(200).json({
         podiums: podiums,
         history: history,
@@ -1409,8 +1363,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       });
 
     } catch (err) {
-      // 🎯 HA BÁRMI SQL/JS HIBA TÖRTÉNIK, AKKOR IS 200 OK-VAL ADJUK VISSZA,
-      // így a frontend piros doboza ki tudja írni a pontos hibaüzenetet ahelyett, hogy elszállna 500-as hibával!
       return res.status(200).json({
         podiums: { first: 0, second: 0, third: 0 },
         history: [],
@@ -1429,7 +1381,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     try {
       const currentNow = getLocalMySQLNow();
 
-      // 1. Lekérjük kizárólag a hivatalosan jóváhagyott és lezárt kihívásokat
       const [pastTopics] = await pool.query(
         "SELECT id FROM weekly_topics WHERE end_date < ? AND status = 'approved'",
         [currentNow]
@@ -1441,7 +1392,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
       const topicIds = pastTopics.map(t => t.id);
 
-      // 2. Lekérjük az összes aktív pályaművet a hivatalos Fair Score pontszámmal együtt
       const [allEntries] = await pool.query(`
         SELECT e.id, e.topic_id, e.user_email, e.likes_count, e.views_count,
                ${getFairScoreSql('e', 't')} as fair_score
@@ -1491,7 +1441,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         });
       });
 
-      // 🎯 ÚJ LÉPÉS: Képmesteri posztok leszámolása (CSAK a jóváhagyott és lezárt meccseknél!)
       const [masterRows] = await pool.query(`
         SELECT master_email, COUNT(*) AS master_count
         FROM weekly_topics
@@ -1508,10 +1457,8 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         masterStats[email] = Number(row.master_count) || 0;
       });
 
-      // 💡 DEBUG LOG A RENDER.COM SZÁMÁRA - Itt látni fogod, hogy a MySQL mit hozott ki!
       console.log("🔥 KÉPMESTER STATISZTIKA (Adatbázisból):", masterStats);
 
-      // 3. Lekérjük a regisztrált felhasználók és klubjaik adatait
       const [users] = await pool.query(`
         SELECT u.name as user_name, u.email as user_email, u.club_name, u.avatar_url,
                c.drive_logo_id, c.logo_url
@@ -1534,7 +1481,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
           total_likes: Math.round(stats.total_likes * 100) / 100,
           first_places: stats.first_places,
           podiums: stats.podiums,
-          master_count: mCount // 🎯 Átadjuk a frontendnek
+          master_count: mCount 
         };
       })
       .filter(u => u.total_likes > 0 || u.master_count > 0) 
@@ -1787,9 +1734,8 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-// 📜 ARCHÍV TÖRTÉNELMI ADATOK – JAVÍTVA (GOLYÓÁLLÓ)
   // ====================================================================
-    // 📜 ARCHÍV TÖRTÉNELMI ADATOK – KÖZPONTOSÍTVA ÉS LÁJKBIZTOSAN
+  // 📜 ARCHÍV TÖRTÉNELMI ADATOK – KÖZPONTOSÍTVA ÉS LÁJKBIZTOSAN
   // ====================================================================
   app.get('/api/weekly/history/:topicId', async (req, res) => {
     const { topicId } = req.params;
@@ -1802,17 +1748,14 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
                (SELECT COUNT(*) FROM weekly_votes WHERE voter_email = e.user_email AND entry_id IN (SELECT id FROM weekly_entries WHERE topic_id = e.topic_id AND is_active = 1)) as votes_cast,
                ${getFairScoreSql('e', 't')} as fair_score,
                COALESCE((SELECT 1 FROM weekly_votes WHERE entry_id = e.id AND vote_type = 'master' LIMIT 1), 0) AS has_master_vote,
-               
-               /* 🎯 ÚJ: Összeszámoljuk az archív dicséreteket és ellenőrizzük a bejelentkezett felhasználót */
                (SELECT COUNT(*) FROM weekly_archive_likes WHERE entry_id = e.id) as archive_likes,
                EXISTS(SELECT 1 FROM weekly_archive_likes WHERE entry_id = e.id AND LOWER(TRIM(user_email)) = LOWER(TRIM(?))) as has_user_liked
-               
         FROM weekly_entries e 
         JOIN weekly_topics t ON e.topic_id = t.id
         LEFT JOIN photo_users u ON e.user_email = u.email 
         WHERE e.topic_id = ? AND e.is_active = 1 
         ORDER BY fair_score DESC, e.likes_count DESC, e.views_count ASC
-      `, [userEmail, userEmail, topicId]); // 👈 userEmail kétszer lett átadva az új paraméter miatt!
+      `, [userEmail, userEmail, topicId]);
       
       const clubsData = {};
       leaderboard.forEach(entry => {
@@ -1902,7 +1845,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-    // ====================================================================
+  // ====================================================================
   // ❤️ ARCHÍVUM INTERAKTÍV MÓD: LÁJKOLÁS ÉS DICSERETEK (POST)
   // ====================================================================
   const handleArchiveLikeLogic = async (req, res) => {
@@ -1924,28 +1867,36 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   app.post('/api/weekly/archive/like', handleArchiveLikeLogic);
   app.post('/api/weekly/history/like', handleArchiveLikeLogic);
 
-  // ====================================================================
-  // ❤️ ARCHÍVUM INTERAKTÍV MÓD: LÁJKOLÁS ÉS DICSERETEK JAVÍTVA (-TOGGLE)
-  // ====================================================================
-  const handleArchiveLikeLogic = async (req, res) => {
-    const { entryId, userEmail } = req.body;
-    if (!entryId || !userEmail) return res.status(400).json({ error: 'Hiányzó adatok!' });
-    try {
-      const [existing] = await pool.query('SELECT id FROM weekly_archive_likes WHERE entry_id = ? AND user_email = ?', [entryId, userEmail]);
-      if (existing.length > 0) {
-        await pool.query('DELETE FROM weekly_archive_likes WHERE entry_id = ? AND user_email = ?', [entryId, userEmail]);
-        return res.json({ success: true, liked: false });
-      } else {
-        await pool.query('INSERT INTO weekly_archive_likes (entry_id, user_email) VALUES (?, ?)', [entryId, userEmail]);
-        return res.json({ success: true, liked: true });
-      }
-    } catch (e) {
-      res.status(500).json({ error: e.message });
-    }
-  };
   // 🎯 Regisztráljuk pontosan azon a néven, amit a modál keres:
   app.post('/api/weekly/archive/like-toggle', handleArchiveLikeLogic);
   app.post('/api/weekly/history/like-toggle', handleArchiveLikeLogic);
+
+  // ====================================================================
+  // 💬 ARCHÍVUM INTERAKTÍV MÓD: KOMMENTEK LEKÉRÉSE ÉS KÜLDÉSE (VISSZATÉRT!)
+  // ====================================================================
+  const handleGetComments = async (req, res) => {
+    try {
+      const [rows] = await pool.query('SELECT * FROM weekly_archive_comments WHERE entry_id = ? ORDER BY created_at ASC', [req.params.entryId]);
+      res.json(rows);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  };
+  app.get('/api/weekly/archive/comments/:entryId', handleGetComments);
+  app.get('/api/weekly/history/comments/:entryId', handleGetComments);
+
+  const handlePostComment = async (req, res) => {
+    const { entryId, userEmail, userName, commentText } = req.body;
+    if (!entryId || !userEmail || !commentText?.trim()) return res.status(400).json({ error: 'Hiányzó mezők!' });
+    try {
+      await pool.query(
+        'INSERT INTO weekly_archive_comments (entry_id, user_email, user_name, comment_text) VALUES (?, ?, ?, ?)',
+        [entryId, userEmail, userName || 'Anonim', commentText.trim()]
+      );
+      res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  };
+  app.post('/api/weekly/archive/comment', handlePostComment);
+  app.post('/api/weekly/history/comment', handlePostComment);
+
 
   app.post('/api/weekly/chat/typing', (req, res) => {
     const { topicId, userEmail, userName } = req.body;
