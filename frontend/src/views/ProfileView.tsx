@@ -53,7 +53,6 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
         if (freshData.avatar_url) {
           setAvatarPreview(freshData.avatar_url);
         }
-        // 🎯 ÚJ: Közvetlenül a friss profiladatokból szedjük ki az AI statisztikát!
         if (freshData.ai_usage_count !== undefined) {
           setAiUsageCount(freshData.ai_usage_count);
         }
@@ -63,14 +62,12 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
     }
   };
 
-  // Oldalnyitáskor azonnal betöltjük a valós képet a dedikált API-ból
   useEffect(() => {
     if (user?.email) {
       loadFreshProfile();
     }
   }, [user?.email]);
 
-  // Csak a vezetővel rendelkező klubok betöltése
   useEffect(() => {
     fetch(`${BACKEND_URL}/api/clubs/active-only`)
       .then(res => res.json())
@@ -78,7 +75,6 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
       .catch(console.error);
   }, []);
 
-  // Tárhely és AI statisztikák betöltése
   useEffect(() => {
     if (!user?.email) return;
     
@@ -123,7 +119,6 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
     loadPendingMembers();
   }, [user, isLeader, activeClubs]);
 
-  // 📸 PROFILKÉP CLOUDINARY FELTÖLTŐ MOTOR
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
@@ -163,7 +158,6 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
     }
   };
 
-  // Teljes profil mentés
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nameInput.trim()) return alert(t('msgEmptyName') || "A név megadása kötelező!");
@@ -245,24 +239,6 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
     return t('profClubNone');
   };
 
-  const formatExactStorage = (bytes: number) => {
-    if (!bytes || bytes === 0) return '0 MB';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
-
-  const formatDate = (dateStr: string | null) => {
-    if (!dateStr) return '-';
-    try {
-      return new Date(dateStr).toLocaleString(lang === 'en' ? 'en-US' : 'hu-HU', { 
-        year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' 
-      });
-    } catch (e) { return dateStr; }
-  };
-
-  // 🎯 JAVÍTVA: Visszakerültek a hiányzó hatóköri változók a renderelés elé!
   const isPremiumActive = user?.is_premium === 1;
   const hasExpiredPremium = user?.is_premium === 0 && user?.premium_until;
 
@@ -340,7 +316,7 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
         </div>
       </div>
       
-      {/* ── SZEKCIÓ 2: HIVATALOS ADATOK KÁRTYA ÉS PROFILKÉP PANEL ── */}
+      {/* SZEKCIÓ 2: HIVATALOS ADATOK KÁRTYA ÉS PROFILKÉP PANEL */}
       <div style={{ backgroundColor: '#1e293b', padding: '30px', borderRadius: '24px', border: '1px solid #334155', boxShadow: '0 4px 20px rgba(0,0,0,0.15)' }}>
         <h3 style={{ margin: '0 0 4px 0', color: '#f8fafc', fontSize: '1.25rem' }}>{t('profTitle')}</h3>
         <p style={{ color: '#64748b', fontSize: '0.85rem', margin: '0 0 20px 0' }}>{t('profNotice')}</p>
@@ -422,7 +398,7 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
 
           {/* 💡 Kötelező MAFOSZ sáv */}
           <div style={{ background: 'rgba(245, 158, 11, 0.04)', borderLeft: '4px solid #f59e0b', padding: '14px', borderRadius: '0 10px 10px 0', marginBottom: '20px', fontSize: '0.82rem', color: '#cbd5e1', lineHeight: '1.5' }}>
-            📌 <b>{lang === 'en' ? 'Official Requirement:' : 'Kötelező Pályázati Adatok:'}</b>
+            <th>📌 <b>{lang === 'en' ? 'Official Requirement:' : 'Kötelező Pályázati Adatok:'}</b></th>
             <br />
             {lang === 'en' 
               ? 'A contact phone number and exact shipping address are required to receive awards, physical catalogs, and medals.' 
@@ -506,6 +482,7 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
           <>
             <select value={selectedClubId} onChange={e => setSelectedClubId(e.target.value)} style={inputStyle}>
               <option value="">{t('profSelectClub')}</option>
+              <option value="test_value">Fix Select Option</option>
               {activeClubs.map(c => <option key={c.id} value={String(c.id)}>{c.name}</option>)}
             </select>
             <button onClick={handleJoinClub} disabled={isSubmitting} style={{ width: '100%', background: 'linear-gradient(135deg, #38bdf8, #0284c7)', color: '#0f172a', border: 'none', padding: '12px', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>
@@ -515,8 +492,6 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
         )}
       </div>
 
-      
-      
       {/* 👑 SZEKCIÓ 4: KLUBVEZETŐI JÓVÁHAGYÓ PANEL */}
       {isLeader && (
         <div style={{ backgroundColor: '#1e293b', padding: '30px', borderRadius: '24px', border: '1px solid #10b981', boxShadow: '0 10px 30px rgba(16,185,129,0.1)' }}>
@@ -544,13 +519,20 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
         </div>
       )}
 
+      {/* 🎯 INTEGRÁLVA: Az új, történelmi tagdíjbefizetés panel meghívása */}
+      <UserMembershipAndPaymentsBlock userEmail={user?.email || ''} />
+
     </div>
   );
-  const UserMembershipAndPaymentsBlock = ({ userEmail }: { userEmail: string }) => {
+}
+
+// 💳 KÜLÖNÁLLÓ AL-KOMPONENS: ÉVES TAGDÍJAK ÉS HISTÓRIKUS BEFIZETÉSEK
+const UserMembershipAndPaymentsBlock = ({ userEmail }: { userEmail: string }) => {
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!userEmail) return;
     fetch(`${BACKEND_URL}/api/profile/my-payments?userEmail=${userEmail}`)
       .then(res => res.json())
       .then(data => {
@@ -563,7 +545,7 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
   if (loading) return <div style={{ color: '#64748b', fontSize: '0.85rem', padding: '10px' }}>⏳ Pénzügyi múlt betöltése...</div>;
 
   return (
-    <div style={{ background: '#1e293b', padding: '20px', borderRadius: '16px', border: '1px solid #334155', marginTop: '20px' }}>
+    <div style={{ background: '#1e293b', padding: '20px', borderRadius: '16px', border: '1px solid #334155' }}>
       <h3 style={{ margin: '0 0 15px 0', color: '#fbbf24', fontSize: '1.2rem' }}>💳 Tagdíj Befizetések Története (Összes klub)</h3>
       
       {history.length === 0 ? (
@@ -576,7 +558,6 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
               <div key={index} style={{ background: '#0f172a', padding: '12px 16px', borderRadius: '12px', border: `1px solid ${isSettled ? '#10b98130' : '#f9731630'}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                   <div style={{ fontWeight: 'bold', color: '#f8fafc' }}>{row.fiscal_year}. Évi Tagdíj</div>
-                  {/* 🎯 MEGJELENÍTÉS: Kiírjuk a klub nevét, ahova a pénz ment */}
                   <div style={{ fontSize: '0.8rem', color: '#38bdf8', fontWeight: 'bold', marginTop: '2px' }}>🏛️ {row.target_club_name}</div>
                   <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '2px' }}>{row.payment_date ? `Könyvelve: ${row.payment_date}` : 'Nincs dátum'}</div>
                 </div>
@@ -592,4 +573,3 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
     </div>
   );
 };
-}
