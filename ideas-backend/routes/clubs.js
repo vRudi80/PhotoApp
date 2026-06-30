@@ -3,7 +3,7 @@ const fs = require('fs');
 module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
   // ====================================================================
-  // 📁 KLUBOK ALAP KEZELÉSE (MEGLÉVŐ)
+  // 📁 KLUBOK ALAP KEZELÉSE – JAVÍTVA A TAGSZÁMLÁLÓVAL
   // ====================================================================
   app.get('/api/clubs', async (req, res) => {
     try {
@@ -20,9 +20,11 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       res.status(500).json({ error: 'Hiba a klubok lekérésekor' });
     }
   });
+
   app.post('/api/clubs', async (req, res) => {
     try { await pool.query('INSERT IGNORE INTO photo_clubs (name) VALUES (?)', [req.body.name]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
+
   app.delete('/api/clubs/:id', async (req, res) => {
     try { await pool.query('DELETE FROM photo_clubs WHERE id = ?', [req.params.id]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
@@ -33,6 +35,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   app.get('/api/meetings', async (req, res) => {
     try { const [rows] = await pool.query(`SELECT m.*, c.name as club_name FROM photo_club_meetings m JOIN photo_clubs c ON m.club_id = c.id ORDER BY m.meeting_date DESC, m.meeting_time DESC`); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
+
   app.post('/api/meetings', upload.single('coverPhoto'), async (req, res) => {
     const { clubId, date, time, topic, description, locationType, locationDetails, videoLink } = req.body;
     const file = req.file; let fileUrl = null; let driveFileId = null;
@@ -48,6 +51,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       res.json({ success: true });
     } catch (err) { cleanupTempFile(file); res.status(500).json({ error: err.message }); }
   });
+
   app.put('/api/meetings/:id', upload.single('coverPhoto'), async (req, res) => {
     const { date, time, topic, description, locationType, locationDetails, videoLink } = req.body;
     const file = req.file;
@@ -66,6 +70,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       res.json({ success: true });
     } catch (err) { cleanupTempFile(file); res.status(500).json({ error: 'Hálózati hiba a Google Drive feltöltésnél.' }); }
   });
+
   app.delete('/api/meetings/:id', async (req, res) => {
     try {
       const [rows] = await pool.query('SELECT drive_file_id FROM photo_club_meetings WHERE id = ?', [req.params.id]);
@@ -74,9 +79,11 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       res.json({ success: true });
     } catch (err) { res.status(500).json({ error: 'Hiba a törlésnél' }); }
   });
+
   app.get('/api/attendance/:meetingId', async (req, res) => {
     try { const [rows] = await pool.query('SELECT user_email FROM photo_meeting_attendance WHERE meeting_id = ?', [req.params.meetingId]); res.json(rows.map(r => r.user_email)); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
+
   app.post('/api/attendance/:meetingId', async (req, res) => {
     const { emails } = req.body; const conn = await pool.getConnection();
     try {
@@ -90,8 +97,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   // ====================================================================
   // 📰 HÍREK SZEKCIÓ (KIBŐVÍTETT GLOBÁLIS ÉS ATOMIKUS NYILVÁNOS ÁGGAL)
   // ====================================================================
-  
-  // ÚJ: Minden felhasználónak elérhető globális nyilvános hírek csatornája
   app.get('/api/news/public', async (req, res) => {
     const userEmail = req.query.userEmail;
     try {
@@ -115,7 +120,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { res.status(500).json({ error: 'Hiba a hírek lekérésekor' }); }
   });
 
-  // JAVÍTVA: Atomikusan beszúrja az is_public mezőt is a megfelelő számú helyőrzővel
   app.post('/api/clubs/:clubId/news', async (req, res) => {
     const { title, content, userEmail, userName, isPublic } = req.body;
     try { 
@@ -154,7 +158,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // 👥 TAGFELVÉTEL ÉS KÉRELMEK (MEGLÉVŐ)
+  // 2. KLUB NEVÉNEK GLOBÁLIS MÓDOSÍTÁSA (A tagoknál is átírja!)
   // ====================================================================
   app.get('/api/clubs/active-only', async (req, res) => {
     try {
@@ -201,8 +205,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   // ====================================================================
   // 🛡️ ÚJ VÉGPONTOK: VEZETŐI ÉS HELYETTESI MODULOK
   // ====================================================================
-
-  // 1. SAJÁT KLUB ADATAINAK ÉS TÉTELES TAGLISTÁJÁNAK LEKÉRÉSE
   app.get('/api/my-club', async (req, res) => {
     const { userEmail } = req.query;
     try {
@@ -231,7 +233,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-  // 2. KLUB NEVÉNEK GLOBÁLIS MÓDOSÍTÁSA (A tagoknál is átírja!)
   app.post('/api/my-club/update-name', async (req, res) => {
     const { clubId, newClubName, userEmail } = req.body;
     if (!clubId || !newClubName || !newClubName.trim()) return res.status(400).json({ error: 'A név nem lehet üres!' });
@@ -253,7 +254,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { res.status(500).json({ error: 'Hiba: ' + err.message }); }
   });
 
-  // 3. KLUB LOGÓ FELTÖLTÉSE GOOGLE DRIVE-RA
   app.post('/api/my-club/logo', upload.single('logo'), async (req, res) => {
     const file = req.file;
     const { clubId, userEmail } = req.body;
@@ -289,17 +289,15 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // 🔔 JAVÍTVA: DASHBOARD ALERTS (KLUBBIZTONSÁGOS FOTÓPÁLYÁZAT SZŰRÉSSEL)
+  // 🔔 DASHBOARD ALERTS (KLUBBIZTONSÁGOS FOTÓPÁLYÁZAT SZŰRÉSSEL)
   // ====================================================================
   app.get('/api/dashboard-alerts', async (req, res) => {
     const { userEmail } = req.query;
     try {
-      // 1. Felhasználó klub adatainak lekérése (ID és név közvetlenül a photo_users-ből)
       const [users] = await pool.query('SELECT club_name, club_id FROM photo_users WHERE email = ?', [userEmail]);
       const clubName = users.length > 0 ? users[0].club_name : null;
       let clubId = users.length > 0 ? users[0].club_id : null;
 
-      // Biztonsági szinkronizáció: ha van klubnév rögzítve, de a club_id valamiért null, megkeressük név alapján
       if (clubName && !clubId) {
         const [clubs] = await pool.query('SELECT id FROM photo_clubs WHERE name = ?', [clubName]);
         if (clubs.length > 0) {
@@ -307,8 +305,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         }
       }
 
-      // 🎯 2. PÁLYÁZATOK SZŰRÉSE: Csak a nyíltak (0 vagy NULL) VAGY a felhasználó saját klubjának belső pályázatai
-      // Beemeltük a restricted_club_id-t is a SELECT-be, hogy a frontend is lássa, ha szükséges
       const [contests] = await pool.query(`
         SELECT id, title, end_date, restricted_club_id 
         FROM photo_contests 
@@ -322,10 +318,8 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         ORDER BY end_date ASC
       `, [clubId || null]);
 
-      // 3. Globális heti témák lekérése
       const [weekly] = await pool.query('SELECT id, title, end_date FROM weekly_topics WHERE start_date <= CURRENT_DATE() AND end_date >= CURRENT_DATE()');
 
-      // 4. Házi feladatok és klubhírek lekérése (már a fent kinyert clubId-t használva, kiküszöbölve a felesleges SQL köröket)
       let homeworks = []; let unreadNews = [];
       if (clubId) {
         const [hw] = await pool.query('SELECT id, topic, deadline FROM photo_homeworks WHERE club_id = ? AND deadline >= CURRENT_DATE() ORDER BY deadline ASC', [clubId]);
@@ -341,10 +335,8 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         unreadNews = news;
       }
 
-      // 5. Térkép hozzászólások lekérése
       const [mapComments] = await pool.query(`SELECT c.id as comment_id, c.location_id, l.title as location_title, c.user_name, c.created_at FROM photo_location_comments c JOIN photo_locations l ON c.location_id = l.id WHERE l.user_email = ? AND c.user_email != ? AND c.created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY) AND c.id NOT IN (SELECT comment_id FROM photo_location_comment_reads WHERE user_email = ?) ORDER BY c.created_at DESC LIMIT 5`, [userEmail, userEmail, userEmail]);
       
-      // Küldjük az adatokat
       res.json({ contests, weekly, homeworks, unreadNews, mapComments });
 
     } catch (err) { 
