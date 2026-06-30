@@ -10,7 +10,6 @@ export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProp
   const [clubData, setClubData] = useState<any>(null);
   const [members, setMembers] = useState<any[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
-  // 🎯 KIBŐVÍTVE: Új 'report' fül hozzáadva az állapothoz
   const [activeTab, setActiveTab] = useState<'roster' | 'admin' | 'report' | 'settings'>('roster');
   const [loading, setLoading] = useState(true);
 
@@ -63,17 +62,17 @@ export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProp
     loadClubAndAdminRecords(); 
   }, [user?.email, BACKEND_URL]);
 
-  // 🎯 DINAMIKUS MÁTRIX MOTOR: Kigyűjti az összes egyedi tárgyévet növekvő sorrendben
+  // 🎯 Kigyűjti az összes egyedi tárgyévet növekvő sorrendben
   const uniqueFiscalYears = useMemo(() => {
     const years = payments.map(p => p.fiscal_year);
     const currentYear = new Date().getFullYear();
     if (!years.includes(currentYear)) {
-      years.push(currentYear); // Biztosítjuk, hogy az idei év mindig látszódjon
+      years.push(currentYear);
     }
     return Array.from(new Set(years)).sort((a, b) => a - b);
   }, [payments]);
 
-  // 🎯 ÉVES ÖSSZESÍTŐK SZÁMÍTÁSA: Kiszámolja a teljes oszlopösszegeket a táblázat aljára
+  // 🎯 ÉVES ÖSSZESÍTŐK SZÁMÍTÁSA
   const yearlyColumnTotals = useMemo(() => {
     const totals: { [year: number]: number } = {};
     uniqueFiscalYears.forEach(year => {
@@ -115,7 +114,7 @@ export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProp
   };
 
   const handleLogoUpload = async () => {
-    if (!logoFile) return alert('Kérlek, válassz ki egy fáljt előbb!');
+    if (!logoFile) return alert('Kérlek, válassz ki egy fájlt előbb!');
     setIsUploadingLogo(true);
     const formData = new FormData();
     formData.append('logo', logoFile);
@@ -190,7 +189,7 @@ export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProp
     <div style={{ padding: '20px', color: 'white', maxWidth: '1200px', margin: '0 auto' }}>
       <h2 style={{ margin: '0 0 20px 0', color: '#f59e0b' }}>🏰 {clubData.name} – Vezetői Adminisztráció</h2>
 
-      {/* 🧭 Navigációs fülek (Most már 4 füllel!) */}
+      {/* 🧭 Navigációs fülek */}
       <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', borderBottom: '1px solid #334155', paddingBottom: '10px', flexWrap: 'wrap' }}>
         <button onClick={() => setActiveTab('roster')} style={{ padding: '10px 20px', background: activeTab === 'roster' ? '#38bdf8' : 'transparent', color: activeTab === 'roster' ? '#0f172a' : 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>👥 Aktív Tagok</button>
         <button onClick={() => setActiveTab('admin')} style={{ padding: '10px 20px', background: activeTab === 'admin' ? '#f59e0b' : 'transparent', color: activeTab === 'admin' ? '#0f172a' : 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>💼 Tagnyilvántartás & Tagdíjak</button>
@@ -218,7 +217,7 @@ export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProp
         <div style={{ overflowX: 'auto', background: '#1e293b', borderRadius: '12px', border: '1px solid #334155', boxShadow: '0 4px 15px rgba(0,0,0,0.3)' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
             <thead>
-              <tr style={{ background: '#0f172a', color: '#94a3b8', fontSize: '0.85rem', textTransform: 'uppercase' }}>
+              <tr style={{ background: '#0f172a', color: '#94a3b8', fontSize: '0.85rem', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
                 <th style={{ padding: '12px' }}>Tag / Státusz</th>
                 <th style={{ padding: '12px' }}>Klubtagság Ideje</th>
                 <th style={{ padding: '12px', textAlign: 'center' }}>Idei Egyenleg ({new Date().getFullYear()})</th>
@@ -269,14 +268,14 @@ export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProp
                           <input type="date" value={endDateEdit} onChange={e => setEndDateEdit(e.target.value)} style={{ padding: '4px 8px', background: '#0f172a', color: 'white', border: '1px solid #475569', borderRadius: '4px', fontSize: '0.8rem' }} />
                         </div>
                       ) : (
-                        <div style={{ color: '#cbd5e1', lineHeight: '1.4' }}>
+                        <div style={{ color: '#cbd5e1', lineHeight: '1.4', whiteSpace: 'nowrap' }}>
                           <div>📅 Be: <b>{m.membership_start || 'Ismeretlen'}</b></div>
                           {m.membership_end && <div style={{ color: '#f87171', marginTop: '2px' }}>❌ Ki: <b>{m.membership_end}</b></div>}
                         </div>
                       )}
                     </td>
                     
-                    <td style={{ padding: '12px', textAlign: 'center' }}>
+                    <td style={{ padding: '12px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                       {userPay ? (
                         <span style={{ color: debt > 0 ? '#fb923c' : '#10b981', fontWeight: 'bold' }}>{userPay.paid_amount} / {userPay.fee_amount} Ft</span>
                       ) : (
@@ -305,28 +304,30 @@ export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProp
         </div>
       )}
 
-      {/* 📊 3. FÜL: PÉNZÜGYI KIMUTATÁS MATRIX (ÚJ SZEKCIÓ!) */}
+      {/* 📊 3. FÜL: PÉNZÜGYI KIMUTATÁS MATRIX (MÁR SCROLLOZHATÓAN!) */}
       {activeTab === 'report' && (
-        <div style={{ overflowX: 'auto', background: '#1e293b', borderRadius: '12px', border: '1px solid #334155', boxShadow: '0 4px 15px rgba(0,0,0,0.3)' }}>
+        // 🎯 JAVÍTVA: A táblázat konténere megkapta a kényszerített szélességet az overflowX mellé, így mobilra és sok évre is scrollozható
+        <div style={{ overflowX: 'auto', background: '#1e293b', borderRadius: '12px', border: '1px solid #334155', boxShadow: '0 4px 15px rgba(0,0,0,0.3)', width: '100%' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
             <thead>
-              <tr style={{ background: '#0f172a', color: '#94a3b8', fontSize: '0.85rem' }}>
-                <th style={{ padding: '15px', minWidth: '220px' }}>Klubtag Neve / Email címe</th>
+              {/* 🎯 JAVÍTVA: whiteSpace: 'nowrap' kényszeríti a fejlécet, hogy ne törje meg a szövegeket */}
+              <tr style={{ background: '#0f172a', color: '#94a3b8', fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
+                <th style={{ padding: '15px', minWidth: '240px' }}>Klubtag Neve / Email címe</th>
                 {uniqueFiscalYears.map(year => (
-                  <th key={year} style={{ padding: '15px', textAlign: 'center', minWidth: '110px', color: '#fbbf24' }}>
+                  <th key={year} style={{ padding: '15px', textAlign: 'center', minWidth: '120px', color: '#fbbf24' }}>
                     📅 {year}. Év
                   </th>
                 ))}
-                <th style={{ padding: '15px', textAlign: 'right', minWidth: '120px', color: '#38bdf8' }}>Tag Összesen</th>
+                <th style={{ padding: '15px', textAlign: 'right', minWidth: '130px', color: '#38bdf8' }}>Tag Összesen</th>
               </tr>
             </thead>
             <tbody>
               {members.map(m => {
                 let memberTotalRowSum = 0;
 
+                // 🎯 JAVÍTVA: whiteSpace: 'nowrap' megakadályozza, hogy az adatsorokat a böngésző összenyomja
                 return (
-                  <tr key={m.email} style={{ borderBottom: '1px solid #334155', background: m.is_currently_here === 1 ? 'transparent' : 'rgba(239, 68, 68, 0.02)' }}>
-                    {/* Tag neve és státusza */}
+                  <tr key={m.email} style={{ borderBottom: '1px solid #334155', background: m.is_currently_here === 1 ? 'transparent' : 'rgba(239, 68, 68, 0.02)', whiteSpace: 'nowrap' }}>
                     <td style={{ padding: '12px 15px' }}>
                       <div style={{ fontWeight: 'bold', color: m.is_currently_here === 1 ? '#f8fafc' : '#64748b' }}>
                         {m.name} {m.is_currently_here !== 1 && <span style={{ fontSize: '0.7rem', color: '#ef4444', fontStyle: 'italic' }}>(Kilépett)</span>}
@@ -334,7 +335,6 @@ export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProp
                       <small style={{ color: '#475569', fontSize: '0.75rem', fontFamily: 'monospace' }}>{m.email}</small>
                     </td>
 
-                    {/* Éves cellák értékei */}
                     {uniqueFiscalYears.map(year => {
                       const matchPayment = payments.find(p => p.user_email === m.email && p.fiscal_year === year);
                       const paidVal = matchPayment ? Number(matchPayment.paid_amount || 0) : 0;
@@ -347,7 +347,6 @@ export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProp
                       );
                     })}
 
-                    {/* Sor végi összesen (egyéni) */}
                     <td style={{ padding: '12px 15px', textAlign: 'right', fontWeight: 'bold', color: '#38bdf8', fontSize: '1rem' }}>
                       {memberTotalRowSum > 0 ? `${memberTotalRowSum.toLocaleString()} Ft` : '0 Ft'}
                     </td>
@@ -355,8 +354,8 @@ export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProp
                 );
               })}
 
-              {/* 📊 ALSÓ ÖSSZESÍTŐ SOR (TOTALS FOOTER) */}
-              <tr style={{ background: '#0f172a', borderTop: '2px solid #475569', fontWeight: '900', fontSize: '1.05rem' }}>
+              {/* ALSÓ ÖSSZESÍTŐ SOR */}
+              <tr style={{ background: '#0f172a', borderTop: '2px solid #475569', fontWeight: '900', fontSize: '1.05rem', whiteSpace: 'nowrap' }}>
                 <td style={{ padding: '16px 15px', color: '#fbbf24', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                   📈 Éves Befizetések Összesen:
                 </td>
@@ -368,7 +367,6 @@ export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProp
                     </td>
                   );
                 })}
-                {/* Minden év és minden tag összesített nagy egyenlege */}
                 <td style={{ padding: '16px 15px', textAlign: 'right', color: '#38bdf8', background: 'rgba(56, 189, 248, 0.05)' }}>
                   {Object.values(yearlyColumnTotals).reduce((a, b) => a + b, 0).toLocaleString()} Ft
                 </td>
@@ -393,7 +391,11 @@ export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProp
             <h4 style={{ margin: '0 0 4px 0', color: '#cbd5e1', fontSize: '1.1rem' }}>📸 Hivatalos Klub Logó</h4>
             <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '20px', marginTop: '15px' }}>
               <div style={{ width: '90px', height: '90px', backgroundColor: '#0f172a', borderRadius: '12px', border: '2px solid #334155', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                {currentEffectiveLogo ? <img src={currentEffectiveLogo} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <span>🛡️</span>}
+                {currentEffectiveLogo ? (
+                  <img src={currentEffectiveLogo} alt="Logo preview" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                ) : (
+                  <span style={{ fontSize: '2rem' }}>🛡️</span>
+                )}
               </div>
               <input type="file" accept="image/*" onChange={handleLogoChange} disabled={isUploadingLogo} />
             </div>
@@ -430,7 +432,7 @@ export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProp
             </div>
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '10px' }}>
               <button type="button" onClick={() => setPaymentModalUser(null)} style={{ padding: '10px 20px', background: 'transparent', border: '1px solid #475569', color: 'white', borderRadius: '6px', fontWeight: 'bold' }}>Mégse</button>
-              <button type="submit" style={{ padding: '10px 20px', background: '#10b981', color: '#0f172a', border: 'none', borderRadius: '6px', fontWeight: 'bold' }}>Mentés</button>
+              <button type="submit" style={{ background: '#10b981', color: '#0f172a', border: 'none', padding: '10px 20px', borderRadius: '6px', fontWeight: 'bold' }}>Mentés</button>
             </div>
           </form>
         </div>
