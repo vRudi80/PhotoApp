@@ -312,7 +312,11 @@ export default function ArenaActiveRoom({
                 <div style={{ marginTop: '25px', background: '#0f172a', padding: '15px', borderRadius: '12px', color: '#64748b', fontSize: '0.9rem', textAlign: 'center', border: '1px dashed #475569' }}>{t('roomNoSwapsLeft')}</div>
               )}
 
-{safePastEntries.map((past, pIdx) => (
+              {safePastEntries.length > 0 && (
+                <div style={{ marginTop: '25px', borderTop: '1px dashed #334155', paddingTop: '20px' }}>
+                  <h5 style={{ margin: '0 0 12px 0', color: '#38bdf8', fontSize: '1.05rem' }}>{t('roomPastEntriesTitle')}</h5>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {safePastEntries.map((past, pIdx) => (
                 <div key={pIdx} style={{ display: 'flex', alignItems: 'center', background: '#0f172a', padding: '10px', borderRadius: '12px', border: '1px solid #232f46' }}>
                   <img src={getImageUrl(past?.drive_file_id, past?.file_url)} alt="" style={{ width: '45px', height: '45px', objectFit: 'cover', borderRadius: '6px', flexShrink: 0 }} />
                   
