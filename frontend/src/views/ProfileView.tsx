@@ -41,10 +41,11 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
 
   const isLeader = user?.club_role === 'leader' || user?.club_role === 'deputy';
 
-  // Profiladatok és a kép közvetlen betöltése a friss adatbázisból
+  // 🔄 Profiladatok és a naplózott tagsági dátumok szinkronizálása
   const loadFreshProfile = async () => {
     if (!user?.email) return;
     try {
+      // 1. Felhasználói alapadatok lekérése
       const res = await fetch(`${BACKEND_URL}/api/users/${user.email}`);
       if (res.ok) {
         const freshData = await res.json();
@@ -52,8 +53,6 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
         setPhone(freshData.phone_number || freshData.phone || '');
         setAddress(freshData.shipping_address || freshData.address || '');
         setAssociationId(freshData.association_id || '');
-        setMembershipStart(freshData.membership_start || '');
-        setMembershipEnd(freshData.membership_end || '');
         if (freshData.avatar_url) {
           setAvatarPreview(freshData.avatar_url);
         }
@@ -61,6 +60,15 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
           setAiUsageCount(freshData.ai_usage_count);
         }
       }
+
+      // 2. 🎯 JAVÍTVA: Közvetlenül a tagsági napló API-ból húzzuk be a dátumokat!
+      const resDates = await fetch(`${BACKEND_URL}/api/profile/active-membership?userEmail=${user.email}`);
+      if (resDates.ok) {
+        const datesData = await resDates.json();
+        setMembershipStart(datesData.membership_start || '');
+        setMembershipEnd(datesData.membership_end || '');
+      }
+
     } catch (e) {
       console.error("Nem sikerült szinkronizálni a profilképet és adatokat:", e);
     }
@@ -357,7 +365,7 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', borderTop: '1px dashed #223147', paddingTop: '8px', marginTop: '4px' }}>
                   <span style={{ color: '#64748b' }}>Tagság ideje:</span>
                   <span style={{ color: '#10b981', fontWeight: 'bold' }}>
-                    {membershipStart || 'Nincs rögzítve'} — {membershipEnd || 'Jelenleg is aktív'}
+                    {membershipStart || 'Nincs rörgzítve'} — {membershipEnd || 'Folyamatos'}
                   </span>
                 </div>
               </div>
@@ -381,7 +389,7 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
             )}
           </div>
 
-          {/* 📊 MODUL: RENDSZER STATISZTIKÁK (TÁRHELY & AI) */}
+          {/* 📊 MODUL: RENDSZER STATISZTIKÁK */}
           <div style={{ backgroundColor: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #334155', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
             <div style={{ background: '#0f172a', padding: '14px', borderRadius: '12px', border: '1px solid #223147', display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 'bold', textTransform: 'uppercase' }}>{t('profStorageLabel')}</span>
@@ -406,7 +414,6 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
       {/* 👑 SZEKCIÓ 3: KLUBVEZETŐI JÓVÁHAGYÓ PANEL */}
       {isLeader && (
         <div style={{ backgroundColor: '#1e293b', padding: '25px 30px', borderRadius: '24px', border: '1px solid #10b981', boxShadow: '0 10px 30px rgba(16,185,129,0.08)' }}>
-          {/* 🎯 JAVÍTVA: Elhelyezésre került a hiányzó opcionális láncolás (?.) a fehér képernyő kivédésére */}
           <h3 style={{ margin: '0 0 10px 0', color: '#10b981', fontSize: '1.25rem', fontWeight: 'bold' }}>{t('profLeaderTitle')} ({user?.club_name || ''})</h3>
           <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 20px 0' }}>{t('profLeaderNotice')}</p>
           
