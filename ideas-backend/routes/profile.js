@@ -69,6 +69,26 @@ module.exports = function(app, pool) {
     }
   });
 
+    // 💳 SAJÁT HISTÓRIKUS BEFIZETÉSEK LEKÉRÉSE KLUBNEVEKKEL
+  app.get('/api/profile/my-payments', async (req, res) => {
+    const { userEmail } = req.query;
+    if (!userEmail) return res.status(400).json({ error: 'Hiányzó email!' });
+    try {
+      const [rows] = await pool.query(`
+        SELECT p.fiscal_year, p.fee_amount, p.paid_amount, DATE_FORMAT(p.payment_date, '%Y-%m-%d') as payment_date,
+               (p.fee_amount - p.paid_amount) as outstanding_balance,
+               c.name as target_club_name
+        FROM photo_club_payments p
+        JOIN photo_clubs c ON p.club_id = c.id
+        WHERE LOWER(TRIM(p.user_email)) = LOWER(TRIM(?))
+        ORDER BY p.fiscal_year DESC, p.payment_date DESC
+      `, [userEmail]);
+      res.json(rows);
+    } catch (err) {
+      res.status(500).json({ error: 'Nem sikerült lekérni a történeti egyenleget.' });
+    }
+  });
+    
   // ====================================================================
   // 3. Klub átnevezése az Admin felületen
   // ====================================================================
