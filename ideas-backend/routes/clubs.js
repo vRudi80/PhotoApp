@@ -172,6 +172,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { res.status(500).json({ error: err.message }); }
   });
 
+// 1. Jelentkezés leadása (Változatlanul a photo_users-be megy ideiglenesen)
   app.post('/api/clubs/join-request', async (req, res) => {
     const { userEmail, clubId, clubName } = req.body;
     if (!userEmail || !clubId || !clubName) return res.status(400).json({ error: 'Hiányzó adatok!' });
@@ -190,16 +191,38 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { res.status(500).json({ error: err.message }); }
   });
 
+ // 2. Jelentkezés elbírálása (Jóváhagyáskor beírjuk a photo_club_memberships-be is!)
   app.post('/api/clubs/handle-request', async (req, res) => {
-    const { targetEmail, action } = req.body;
+    const { targetEmail, action, clubId, clubName } = req.body; // <-- Biztosítjuk, hogy a frontend küldje a clubId-t és nevet
+    const conn = await pool.getConnection();
     try {
+      await conn.beginTransaction();
+
       if (action === 'approve') {
-        await pool.query("UPDATE photo_users SET club_role = 'member' WHERE email = ?", [targetEmail]);
+        // Átállítjuk a felhasználót aktívra
+        await conn.query("UPDATE photo_users SET club_role = 'member' WHERE email = ?", [targetEmail]);
+        
+        // Biztonsági törlés, ha esetleg lenne régi lezáratlan sora
+        await conn.query("UPDATE photo_club_memberships SET status = 'left', left_date = CURRENT_DATE() WHERE user_email = ? AND status = 'active'", [targetEmail]);
+
+        // Létrehozzuk a hivatalos tagsági naplóbejegyzést
+        await conn.query(
+          "INSERT INTO photo_club_memberships (club_id, club_name, user_email, club_role, joined_date, status) VALUES (?, ?, ?, 'member', CURRENT_DATE(), 'active')",
+          [clubId, clubName, targetEmail]
+        );
       } else {
-        await pool.query("UPDATE photo_users SET club_id = NULL, club_name = NULL, club_role = 'member' WHERE email = ?", [targetEmail]);
+        // Elutasítás vagy eltávolítás: ürítjük a klub adatokat
+        await conn.query("UPDATE photo_users SET club_id = NULL, club_name = NULL, club_role = 'member' WHERE email = ?", [targetEmail]);
+        // Ha már tag volt és most távolítjuk el, lezárjuk a múltját
+        await conn.query("UPDATE photo_club_memberships SET status = 'left', left_date = CURRENT_DATE() WHERE user_email = ? AND club_id = ? AND status = 'active'", [targetEmail, clubId]);
       }
+
+      await conn.commit();
       res.json({ success: true });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) {
+      await conn.rollback();
+      res.status(500).json({ error: err.message });
+    } finally { conn.release(); }
   });
 
   // ====================================================================
@@ -288,6 +311,71 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { cleanupTempFile(file); res.status(500).json({ error: err.message }); }
   });
 
+  // 3. Klubvezetői részletes lekérés (Aktív tagok, Ex-tagok és Befizetések)
+  app.get('/api/my-club/admin-records', async (req, res) => {
+    const { clubId, userEmail } = req.query;
+    try {
+      const [userRows] = await pool.query('SELECT club_role FROM photo_users WHERE email = ? AND club_id = ?', [userEmail, clubId]);
+      if (userRows.length === 0 || (userRows[0].club_role !== 'leader' && userRows[0].club_role !== 'deputy')) {
+        return res.status(403).json({ error: 'Nincs jogosultságod!' });
+      }
+
+      // AKCIÓ: Lekérünk MINDENKIT, aki jelenleg AKTÍV tag, VAGY valaha volt tagsági bejegyzése ebben a klubban
+      const [allTimeMembers] = await pool.query(`
+        SELECT DISTINCT 
+          u.name, 
+          u.email, 
+          COALESCE(h.club_role, u.club_role) as history_role,
+          u.shipping_address,
+          IF(u.club_id = ?, 1, 0) as is_currently_here,
+          DATE_FORMAT(h.joined_date, '%Y-%m-%d') as membership_start,
+          DATE_FORMAT(h.left_date, '%Y-%m-%d') as membership_end
+        FROM photo_club_memberships h
+        JOIN photo_users u ON h.user_email = u.email
+        WHERE h.club_id = ?
+        ORDER BY is_currently_here DESC, u.name ASC
+      `, [clubId, clubId]);
+
+      // Lekérjük az összes ehhez a klubhoz kapcsolódó fizetést (bárki is fizette)
+      const [payments] = await pool.query(`
+        SELECT id, user_email, fiscal_year, fee_amount, paid_amount, DATE_FORMAT(payment_date, '%Y-%m-%d') as payment_date 
+        FROM photo_club_payments 
+        WHERE club_id = ?
+        ORDER BY fiscal_year DESC, payment_date DESC
+      `, [clubId]);
+
+      res.json({ members: allTimeMembers, payments });
+    } catch (err) {
+      res.status(500).json({ error: 'Hiba az adminisztratív múlt lekérésekor.' });
+    }
+  });
+
+  // 4. Tagdíj rögzítése (Fixen a klub_id-hoz mentődik!)
+  app.post('/api/my-club/member/log-payment', async (req, res) => {
+    const { clubId, leaderEmail, targetEmail, fiscalYear, feeAmount, paidAmount, paymentDate } = req.body;
+    try {
+      const [userRows] = await pool.query('SELECT club_role FROM photo_users WHERE email = ? AND club_id = ?', [leaderEmail, clubId]);
+      if (userRows.length === 0 || (userRows[0].club_role !== 'leader' && userRows[0].club_role !== 'deputy')) {
+        return res.status(403).json({ error: 'Nincs jogosultságod!' });
+      }
+
+      const [existing] = await pool.query('SELECT id FROM photo_club_payments WHERE club_id = ? AND user_email = ? AND fiscal_year = ?', [clubId, targetEmail, fiscalYear]);
+
+      if (existing.length > 0) {
+        await pool.query(
+          'UPDATE photo_club_payments SET fee_amount = ?, paid_amount = ?, payment_date = ? WHERE id = ?',
+          [feeAmount, paidAmount, paymentDate || null, existing[0].id]
+        );
+      } else {
+        await pool.query(
+          'INSERT INTO photo_club_payments (club_id, user_email, fiscal_year, fee_amount, paid_amount, payment_date) VALUES (?, ?, ?, ?, ?, ?)',
+          [clubId, targetEmail, fiscalYear, feeAmount, paidAmount, paymentDate || null]
+        );
+      }
+      res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+  });
+  
   // ====================================================================
   // 🔔 DASHBOARD ALERTS (KLUBBIZTONSÁGOS FOTÓPÁLYÁZAT SZŰRÉSSEL)
   // ====================================================================
