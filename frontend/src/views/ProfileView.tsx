@@ -308,7 +308,7 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
             {isPremiumActive ? (
               <span style={{ background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', padding: '4px 14px', borderRadius: '50px', fontSize: '0.78rem', fontWeight: 'bold', boxShadow: '0 4px 10px rgba(16,185,129,0.3)' }}>👑 PRÉMIUM TAG ({formatDate(user?.premium_until)})</span>
             ) : hasExpiredPremium ? (
-              <span style={{ background: 'rgba(239,68,68,0.15)', color: '#f87171', border: '1px solid rgba(239,68,68,0.3)', padding: '4px 14px', borderRadius: '50px', fontSize: '0.78rem', fontWeight: 'bold' }}>⏳ LEJÁRT PREM ({formatDate(user?.premium_until).split(' ')[0]})</span>
+              <span style={{ background: 'rgba(239,68,68,0.15)', color: '#f87171', border: '1px solid rgba(239,68,68,0.3)', padding: '4px 14px', borderRadius: '50px', fontSize: '0.78rem', fontWeight: 'bold' }}>⏳ LEJÁRT PREM ({formatDate(user?.premium_until)})</span>
             ) : (
               <span style={{ background: '#334155', color: '#94a3b8', padding: '4px 14px', borderRadius: '50px', fontSize: '0.78rem', fontWeight: 'bold' }}>🌱 INGYENES HOZZÁFÉRÉS</span>
             )}
