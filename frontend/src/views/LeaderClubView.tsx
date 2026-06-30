@@ -114,7 +114,7 @@ export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProp
     finally { setIsUploadingLogo(false); }
   };
 
-  // 📅 3. Funkció: Tagsági dátumok inline mentése (HIBAKERESŐVEL MEGERŐSÍTVE)
+  // 📅 3. Funkció: Tagsági dátumok inline mentése
   const handleSaveDates = async (targetEmail: string) => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/my-club/member/update-dates`, {
@@ -133,12 +133,11 @@ export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProp
         setEditingEmail(null);
         loadClubAndAdminRecords();
       } else {
-        // 🎯 HA A RENDELES SZERVER HIBÁT DOB, EZ AZ ÁG AZONNAL KIÍRJA A PONTOS OKOT!
         const errData = await res.json().catch(() => ({}));
-        alert(`❌ Mentési hiba (Szerver kód: ${res.status}):\n${errData.error || 'A végpont nem található vagy az adatbázis elutasította a dátum formátumot.'}`);
+        alert(`❌ Mentési hiba (Szerver kód: ${res.status}):\n${errData.error || 'Hiba történt.'}`);
       }
     } catch (e) { 
-      alert("💥 Kritikus hálózati hiba: A szerver nem elérhető vagy megszakadt a kapcsolat."); 
+      alert("💥 Kritikus hálózati hiba: A szerver nem elérhető."); 
     }
   };
 
@@ -185,7 +184,7 @@ export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProp
         <button onClick={() => setActiveTab('settings')} style={{ padding: '10px 20px', background: activeTab === 'settings' ? '#a78bfa' : 'transparent', color: activeTab === 'settings' ? '#0f172a' : 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }}>⚙️ Klub Beállítások</button>
       </div>
 
-      {/* 1. FÜL: AKTÍV TAGLISTA */}
+      {/* 👥 1. FÜL: AKTÍV TAGLISTA */}
       {activeTab === 'roster' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {members.filter(m => m.is_currently_here === 1).map(m => (
@@ -200,7 +199,7 @@ export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProp
         </div>
       )}
 
-      {/* 2. FÜL: TAGNYILVÁNTARTÁS ÉS TAGDÍJAK */}
+      {/* 💼 2. FÜL: TAGNYILVÁNTARTÁS ÉS TAGDÍJAK */}
       {activeTab === 'admin' && (
         <div style={{ overflowX: 'auto', background: '#1e293b', borderRadius: '12px', border: '1px solid #334155', boxShadow: '0 4px 15px rgba(0,0,0,0.3)' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
@@ -219,6 +218,9 @@ export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProp
                 const userPay = payments.find(p => p.user_email === m.email && p.fiscal_year === currentYear);
                 const debt = userPay ? Number(userPay.fee_amount) - Number(userPay.paid_amount) : 0;
 
+                // 🎯 SZŰRÉS: Kiválogatjuk az ADOTT felhasználó ÖSSZES történeti befizetését ehhez a klubhoz
+                const userHistoryPayments = payments.filter(p => p.user_email === m.email);
+
                 return (
                   <tr key={m.email} style={{ borderBottom: '1px solid #334155', opacity: m.is_currently_here === 1 ? 1 : 0.6 }}>
                     <td style={{ padding: '12px' }}>
@@ -226,12 +228,36 @@ export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProp
                       <div style={{ fontSize: '0.8rem', color: '#64748b' }}>{m.email}</div>
                       <div style={{ marginTop: '4px' }}>
                         {m.is_currently_here === 1 ? (
-                          <span style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold' }}>AKTÍV TAG</span>
+                          <span style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', fontSize: '0.7rem', padding: '3px 8px', borderRadius: '4px', fontWeight: 'bold' }}>AKTÍV TAG</span>
                         ) : (
-                          <span style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#f87171', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold' }}>KILÉPETT / EX-TAG</span>
+                          <span style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#f87171', fontSize: '0.7rem', padding: '3px 8px', borderRadius: '4px', fontWeight: 'bold' }}>KILÉPETT / EX-TAG</span>
                         )}
                       </div>
                       <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '6px' }}>🏠 {m.shipping_address || 'Nincs postázási cím megadva'}</div>
+
+                      {/* 🎯 ÚJ: INTERAKTÍV COLLAPSIBLE TRANZAKCIÓS NAPLÓ A VEZETŐNEK */}
+                      {userHistoryPayments.length > 0 ? (
+                        <details style={{ marginTop: '12px', width: '100%', maxWidth: '320px' }}>
+                          <summary style={{ fontSize: '0.78rem', color: '#38bdf8', cursor: 'pointer', outline: 'none', userSelect: 'none', fontWeight: 'bold' }}>
+                            🕒 Tranzakciós Előzmények ({userHistoryPayments.length})
+                          </summary>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', marginTop: '6px', background: '#0f172a', padding: '10px', borderRadius: '8px', border: '1px solid #233047' }}>
+                            {userHistoryPayments.map(p => {
+                              const isSettled = (Number(p.fee_amount) - Number(p.paid_amount)) <= 0;
+                              return (
+                                <div key={p.id} style={{ fontSize: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#cbd5e1', borderBottom: '1px dashed #1e293b', paddingBottom: '4px' }}>
+                                  <span>📅 {p.fiscal_year}.-évi tagdíj:</span>
+                                  <span style={{ fontWeight: 'bold', color: isSettled ? '#10b981' : '#f97316' }}>
+                                    {p.paid_amount} / {p.fee_amount} Ft
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </details>
+                      ) : (
+                        <div style={{ fontSize: '0.74rem', color: '#475569', marginTop: '10px', fontStyle: 'italic' }}>Nincs korábbi pénzügyi bejegyzés.</div>
+                      )}
                     </td>
                     
                     <td style={{ padding: '12px', fontSize: '0.85rem' }}>
@@ -283,6 +309,7 @@ export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProp
       {activeTab === 'settings' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '30px', maxWidth: '600px' }}>
           
+          {/* Klub nevének átírása */}
           <div style={{ background: '#1e293b', padding: '25px', borderRadius: '16px', border: '1px solid #334155' }}>
             <h4 style={{ margin: '0 0 12px 0', color: '#cbd5e1', fontSize: '1.1rem' }}>✏️ Klub nevének megváltoztatása</h4>
             <input type="text" value={clubNameInput} onChange={e => setClubNameInput(e.target.value)} style={inputStyle} placeholder="Fotóklub neve..." disabled={isSavingName} />
@@ -291,6 +318,7 @@ export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProp
             </button>
           </div>
 
+          {/* Hivatalos Google Drive Logó feltöltő modul */}
           <div style={{ background: '#1e293b', padding: '25px', borderRadius: '16px', border: '1px solid #334155' }}>
             <h4 style={{ margin: '0 0 4px 0', color: '#cbd5e1', fontSize: '1.1rem' }}>📸 Hivatalos Klub Logó</h4>
             <p style={{ margin: '0 0 20px 0', color: '#64748b', fontSize: '0.82rem' }}>A logó a Google Drive tárhelyedre kerül feltöltésre, és megjelenik a dicsőségcsarnokban is.</p>
