@@ -253,6 +253,17 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
     } catch (e) { return dateStr; }
   };
 
+  const getClubStatusMessage = () => {
+    if (user?.club_role === 'pending') {
+      return t('profClubPending').replace('{club}', user?.club_name || '');
+    }
+    if (user?.club_name) {
+      const roleText = user?.club_role === 'leader' ? t('roleLeader') : user?.club_role === 'deputy' ? t('roleDeputy') : t('roleMember');
+      return t('profClubActive').replace('{club}', user.club_name).replace('{role}', roleText);
+    }
+    return t('profClubNone');
+  };
+
   const isPremiumActive = user?.is_premium === 1;
   const hasExpiredPremium = user?.is_premium === 0 && user?.premium_until;
 
@@ -297,10 +308,10 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
         </div>
       </div>
 
-      {/* 👥 KÉTOSZLOPOS BENTO-GRID LAYOUT (ASZTALI NÉZETBEN EGYMÁS MELLETT) */}
+      {/* 👥 KÉTOSZLOPOS BENTO-GRID LAYOUT */}
       <div className="profile-bento-grid">
         
-        {/* BAL OSZLOP: HIVATALOS MAFOSZ ADATLAP FORM */}
+        {/* BAL OSZLOP: HIVATALOS ADATLAP FORM */}
         <div style={{ backgroundColor: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #334155', display: 'flex', flexDirection: 'column' }}>
           <h3 style={{ margin: '0 0 15px 0', color: '#f8fafc', fontSize: '1.2rem', fontWeight: 'bold' }}>📝 Személyes Adatok Frissítése</h3>
           
@@ -328,7 +339,7 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
         {/* JOBB OSZLOP: KLUBTAGSÁG ÉS MŰSZAKI METRIKÁK */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
           
-          {/* 🏛️ MODUL: FOTÓKLUB TAGSÁGI ADATLAP (JAVÍTVA ÉS KIBŐVÍTVE!) */}
+          {/* 🏛️ MODUL: FOTÓKLUB TAGSÁGI ADATLAP */}
           <div style={{ backgroundColor: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #334155' }}>
             <h3 style={{ margin: '0 0 15px 0', color: '#38bdf8', fontSize: '1.2rem', fontWeight: 'bold' }}>🏛️ {t('profClubTitle')}</h3>
             
@@ -340,10 +351,9 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
                   <span style={{ color: '#64748b' }}>Beosztás:</span>
-                  <span style={{ background: '#38bdf820', color: '#38bdf8', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' }}>{getRoleText(user.club_role)}</span>
+                  <span style={{ background: '#38bdf820', color: '#38bdf8', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' }}>{getRoleText(user?.club_role || 'member')}</span>
                 </div>
                 
-                {/* 🎯 ÚJ: IDŐSZAK JELZÉSE METTŐL MEDDIG */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', borderTop: '1px dashed #223147', paddingTop: '8px', marginTop: '4px' }}>
                   <span style={{ color: '#64748b' }}>Tagság ideje:</span>
                   <span style={{ color: '#10b981', fontWeight: 'bold' }}>
@@ -393,10 +403,11 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
         </div>
       </div>
 
-      {/* 👑 SZEKCIÓ 3: KLUBVEZETŐI JÓVÁHAGYÓ PANEL (CSAK HA LEADER) */}
+      {/* 👑 SZEKCIÓ 3: KLUBVEZETŐI JÓVÁHAGYÓ PANEL */}
       {isLeader && (
         <div style={{ backgroundColor: '#1e293b', padding: '25px 30px', borderRadius: '24px', border: '1px solid #10b981', boxShadow: '0 10px 30px rgba(16,185,129,0.08)' }}>
-          <h3 style={{ margin: '0 0 4px 0', color: '#10b981', fontSize: '1.25rem', fontWeight: 'bold' }}>{t('profLeaderTitle')} ({user?.club_name || ''})</h3>
+          {/* 🎯 JAVÍTVA: Elhelyezésre került a hiányzó opcionális láncolás (?.) a fehér képernyő kivédésére */}
+          <h3 style={{ margin: '0 0 10px 0', color: '#10b981', fontSize: '1.25rem', fontWeight: 'bold' }}>{t('profLeaderTitle')} ({user?.club_name || ''})</h3>
           <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 20px 0' }}>{t('profLeaderNotice')}</p>
           
           {pendingMembers.length === 0 ? (
@@ -420,7 +431,7 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
         </div>
       )}
 
-      {/* 🎯 SZEKCIÓ 4: TÖRTÉNETI PÉNZÜGYI PANEL (A FÁJL ALJÁN) */}
+      {/* 🎯 SZEKCIÓ 4: TÖRTÉNETI PÉNZÜGYI PANEL */}
       <UserMembershipAndPaymentsBlock userEmail={user?.email || ''} />
 
       {/* ── 🎯 RESPONSIVE GRID CSS STYLING ── */}
