@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { BACKEND_URL } from '../../../utils/constants';
+// 🎯 JAVÍTVA: A Vercel által kért helyes relatív útvonal (csak egy szintet lépünk vissza)
+import { BACKEND_URL } from '../utils/constants';
 
 interface LeaderClubViewProps {
   userEmail: string;
@@ -59,7 +60,7 @@ export default function LeaderClubView({ userEmail }: LeaderClubViewProps) {
         setPaymentModalUser(null);
         loadClubAndAdminRecords();
       }
-    } catch (e) { alert("Hiba!"); }
+    } catch (e) { alert("Hiba a mentés során!"); }
   };
 
   if (loading) return <div style={{ color: 'white', padding: '20px' }}>⏳ Naplók betöltése...</div>;
@@ -132,7 +133,8 @@ export default function LeaderClubView({ userEmail }: LeaderClubViewProps) {
       {/* KÖNYVELŐ MODAL */}
       {paymentModalUser && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
-          <div style={{ background: '#1e293b', padding: '25px', borderRadius: '16px', border: '1px solid #334155', width: '100%', maxWidth: '400px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+          {/* 🎯 JAVÍTVA: handleCommentSubmit helyett a helyes handleLogPaymentSubmit hívódik meg */}
+          <form onSubmit={handleLogPaymentSubmit} style={{ background: '#1e293b', padding: '25px', borderRadius: '16px', border: '1px solid #334155', width: '100%', maxWidth: '400px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
             <h3 style={{ margin: 0, color: '#f59e0b' }}>Tagdíj Rögzítése</h3>
             <div style={{ fontSize: '0.85rem' }}>Tag: <b>{paymentModalUser.name}</b></div>
             <div>
@@ -153,9 +155,9 @@ export default function LeaderClubView({ userEmail }: LeaderClubViewProps) {
             </div>
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '10px' }}>
               <button type="button" onClick={() => setPaymentModalUser(null)} style={{ padding: '8px 16px', background: 'transparent', border: '1px solid #475569', color: 'white', borderRadius: '6px', cursor: 'pointer' }}>Mégse</button>
-              <button type="button" onClick={handleLogPaymentSubmit} style={{ padding: '8px 16px', background: '#10b981', color: 'black', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>Mentés</button>
+              <button type="submit" style={{ padding: '8px 16px', background: '#10b981', color: 'black', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>Mentés</button>
             </div>
-          </div>
+          </form>
         </div>
       )}
     </div>
