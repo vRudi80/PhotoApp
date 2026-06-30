@@ -92,7 +92,6 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
             });
           }
         }
-        // 🎯 JAVÍTVA: Opcionális láncolás használata a kezdeti null állapotok kivédésére
         if (user?.ai_usage_count !== undefined) {
           setAiUsageCount(user.ai_usage_count);
         }
@@ -219,7 +218,7 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
       const res = await fetch(`${BACKEND_URL}/api/clubs/handle-request`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ targetEmail, action })
+        body: JSON.stringify({ targetEmail, action, clubId: user?.club_id, clubName: user?.club_name })
       });
       if (res.ok) {
         alert(action === 'approve' ? t('msgApproveSuccess') : t('msgRejectSuccess'));
@@ -238,6 +237,24 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
       return t('profClubActive').replace('{club}', user.club_name).replace('{role}', roleText);
     }
     return t('profClubNone');
+  };
+
+  // 🎯 VISSZAKERÜLT: A hiányzó tárhelyformázó matematikai motor
+  const formatExactStorage = (bytes: number) => {
+    if (!bytes || bytes === 0) return '0 MB';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const formatDate = (dateStr: string | null) => {
+    if (!dateStr) return '-';
+    try {
+      return new Date(dateStr).toLocaleString(lang === 'en' ? 'en-US' : 'hu-HU', { 
+        year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' 
+      });
+    } catch (e) { return dateStr; }
   };
 
   const isPremiumActive = user?.is_premium === 1;
@@ -397,7 +414,7 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
             />
           </div>
 
-          {/* 💡 Kötelező MAFOSZ sáv (JAVÍTVA a felesleges th tagek eltávolításával) */}
+          {/* 💡 Kötelező MAFOSZ sáv */}
           <div style={{ background: 'rgba(245, 158, 11, 0.04)', borderLeft: '4px solid #f59e0b', padding: '14px', borderRadius: '0 10px 10px 0', marginBottom: '20px', fontSize: '0.82rem', color: '#cbd5e1', lineHeight: '1.5' }}>
             <span>📌 <b>{lang === 'en' ? 'Official Requirement:' : 'Kötelező Pályázati Adatok:'}</b></span>
             <br />
@@ -495,7 +512,6 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
       {/* 👑 SZEKCIÓ 4: KLUBVEZETŐI JÓVÁHAGYÓ PANEL */}
       {isLeader && (
         <div style={{ backgroundColor: '#1e293b', padding: '30px', borderRadius: '24px', border: '1px solid #10b981', boxShadow: '0 10px 30px rgba(16,185,129,0.1)' }}>
-          {/* 🎯 JAVÍTVA: Opcionális láncolás a klubnév elé, ha a user objektum null lenne */}
           <h3 style={{ margin: '0 0 10px 0', color: '#10b981', fontSize: '1.25rem' }}>{t('profLeaderTitle')} ({user?.club_name || ''})</h3>
           <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 20px 0' }}>{t('profLeaderNotice')}</p>
           
@@ -520,15 +536,15 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
         </div>
       )}
 
-      {/* 🎯 TÖRTÉNETI PENZÜGYI PANEL INTEGRÁLÁSA */}
+      {/* 🎯 INTEGRÁLVA: Történeti pénzügyi panel meghívása */}
       <UserMembershipAndPaymentsBlock userEmail={user?.email || ''} />
 
     </div>
   );
 }
 
-// ── 🛡️ BIZTONSÁGI HISTÓRIKUS BEFIZETÉS PANEL ──
-const UserMembershipAndPaymentsBlock = ({ userEmail }: { userEmail: string }) => {
+// 💳 HOISTED AL-KOMPONENS: ÉVES TAGDÍJAK ÉS HISTÓRIKUS BEFIZETÉSEK
+function UserMembershipAndPaymentsBlock({ userEmail }: { userEmail: string }) {
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -592,4 +608,4 @@ const UserMembershipAndPaymentsBlock = ({ userEmail }: { userEmail: string }) =>
       )}
     </div>
   );
-};
+}
