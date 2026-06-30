@@ -312,19 +312,30 @@ export default function ArenaActiveRoom({
                 <div style={{ marginTop: '25px', background: '#0f172a', padding: '15px', borderRadius: '12px', color: '#64748b', fontSize: '0.9rem', textAlign: 'center', border: '1px dashed #475569' }}>{t('roomNoSwapsLeft')}</div>
               )}
 
-              {safePastEntries.length > 0 && (
-                <div style={{ marginTop: '25px', borderTop: '1px dashed #334155', paddingTop: '20px' }}>
-                  <h5 style={{ margin: '0 0 12px 0', color: '#38bdf8', fontSize: '1.05rem' }}>{t('roomPastEntriesTitle')}</h5>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    {safePastEntries.map((past, pIdx) => (
-                      <div key={pIdx} style={{ display: 'flex', alignItems: 'center', background: '#0f172a', padding: '8px', borderRadius: '12px' }}>
-                        <img src={getImageUrl(past?.drive_file_id, past?.file_url)} alt="" style={{ width: '45px', height: '45px', objectFit: 'cover', borderRadius: '6px' }} />
-                        <div style={{ flex: 1, marginLeft: '10px' }}>
-                          <div style={{ fontSize: '0.9rem', color: '#fbbf24', fontWeight: 'bold' }}>{past?.likes_count || 0} ⭐</div>
-                        </div>
-                        <button onClick={() => handleSwapBackSubmit(past.id || past._id)} disabled={swapBalance < 1} style={{ background: 'linear-gradient(135deg, #0284c7, #0369a1)', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', cursor: 'pointer' }}>{t('roomReactivateBtn')}</button>
-                      </div>
-                    ))}
+{safePastEntries.map((past, pIdx) => (
+                <div key={pIdx} style={{ display: 'flex', alignItems: 'center', background: '#0f172a', padding: '10px', borderRadius: '12px', border: '1px solid #232f46' }}>
+                  <img src={getImageUrl(past?.drive_file_id, past?.file_url)} alt="" style={{ width: '45px', height: '45px', objectFit: 'cover', borderRadius: '6px', flexShrink: 0 }} />
+                  
+                  {/* 🎯 JAVÍTVA: Flex elrendezés a pontok és megtekintések tiszta, egymás melletti kijelzéséhez */}
+                  <div style={{ flex: 1, marginLeft: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '0.9rem', color: '#fbbf24', fontWeight: 'bold' }}>
+                      {past?.likes_count || 0} ⭐
+                    </span>
+                    <span style={{ color: '#334155', fontWeight: 'normal' }}>|</span>
+                    <span style={{ fontSize: '0.85rem', color: '#38bdf8', fontWeight: 'bold' }}>
+                      {past?.views_count || 0} 👁️
+                    </span>
+                  </div>
+
+                  <button 
+                    onClick={() => handleSwapBackSubmit(past.id || past._id)} 
+                    disabled={swapBalance < 1} 
+                    style={{ background: 'linear-gradient(135deg, #0284c7, #0369a1)', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 'bold', marginLeft: '10px' }}
+                  >
+                    {t('roomReactivateBtn')}
+                  </button>
+                </div>
+              ))}
                   </div>
                 </div>
               )}
