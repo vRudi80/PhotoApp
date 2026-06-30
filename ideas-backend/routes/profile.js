@@ -2,19 +2,7 @@ const fs = require('fs');
 
 module.exports = function(app, pool) {
   
-  // ====================================================================
-  // 1. JAVÍTVA: Most már az ÖSSZES mezőt (*) lekérjük a photo_clubs táblából,
-  // így a logó URL és a Drive ID is sértetlenül átmegy a frontendnek!
-  // ====================================================================
-  app.get('/api/clubs', async (req, res) => {
-    try {
-      const [rows] = await pool.query('SELECT * FROM photo_clubs ORDER BY name ASC');
-      res.json(rows);
-    } catch (err) {
-      console.error("Hiba a klubok lekérésekor:", err);
-      res.status(500).json({ error: 'Hiba a klubok lekérésekor' });
-    }
-  });
+
 
   // ====================================================================
   // 2. Felhasználó klubjának frissítése a "photo_users" táblában
