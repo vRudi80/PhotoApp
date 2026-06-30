@@ -118,10 +118,31 @@ export default function AdminUsersView({
   };
 
   const handleLocalSave = async (email: string) => {
-    await saveUserClub(email);
-    setTimeout(() => {
-      loadFreshUsersList();
-    }, 400);
+    try {
+      // 1. Elmentjük a módosításokat a backendre
+      await saveUserClub(email);
+      
+      // 2. Várunk egy minimális időt a backend adatbázis-írás miatt, majd frissítünk
+      setTimeout(async () => {
+        // Megvárjuk, amíg a friss adatok ténylegesen bekerülnek a localUsers állapotba
+        await loadFreshUsersList();
+        
+        // 3. 🎯 EZ A KULCS: Miután a nyers lista frissült, kipucoljuk az ideiglenes szerkesztő állapotokat!
+        setUserClubEdits((prev: any) => {
+          const next = { ...prev };
+          delete next[email];
+          return next;
+        });
+        
+        setUserRoleEdits((prev: any) => {
+          const next = { ...prev };
+          delete next[email];
+          return next;
+        });
+      }, 400);
+    } catch (error) {
+      console.error("Hiba történt a felhasználó mentése során:", error);
+    }
   };
 
   // 📧 E-MAIL KÜLDŐ FÜGGVÉNY
