@@ -3,11 +3,11 @@ const fs = require('fs');
 module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
   // ====================================================================
-  // 📁 KLUBOK ALAP KEZELÉSE – JAVÍTVA A TAGSZÁMLÁLÓVAL
+  // 📁 KLUBOK ALAP KEZELÉSE – JAVÍTVA A TAGSZÁMLÁLÓVAL (EGYSZERI DEKLARÁCIÓ)
   // ====================================================================
   app.get('/api/clubs', async (req, res) => {
     try {
-      // 🎯 JAVÍTVA: Dinamikusan összeszámoljuk a klubhoz tartozó aktív tagokat (a pending státuszúak nélkül)
+      // 🎯 DINAMIKUS TAGSZÁMLÁLÓ: Csak a tényleges tagokat számolja, a függőben lévőket nem
       const [rows] = await pool.query(`
         SELECT c.*, 
                (SELECT COUNT(*) FROM photo_users WHERE club_id = c.id AND club_role != 'pending') as member_count
@@ -30,7 +30,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // ⏳ KLUBESTEK (MEGLÉVŐ)
+  // ⏳ KLUBESTEK (MEGLÉVÕ)
   // ====================================================================
   app.get('/api/meetings', async (req, res) => {
     try { const [rows] = await pool.query(`SELECT m.*, c.name as club_name FROM photo_club_meetings m JOIN photo_clubs c ON m.club_id = c.id ORDER BY m.meeting_date DESC, m.meeting_time DESC`); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
@@ -95,7 +95,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // 📰 HÍREK SZEKCIÓ (KIBŐVÍTETT GLOBÁLIS ÉS ATOMIKUS NYILVÁNOS ÁGGAL)
+  // 📰 HÍREK SZEKCIÓ (KIBÕVÍTETT GLOBÁLIS ÉS ATOMIKUS NYILVÁNOS ÁGGAL)
   // ====================================================================
   app.get('/api/news/public', async (req, res) => {
     const userEmail = req.query.userEmail;
@@ -158,7 +158,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // 2. KLUB NEVÉNEK GLOBÁLIS MÓDOSÍTÁSA (A tagoknál is átírja!)
+  // 👥 TAGFELVÉTEL ÉS KÉRELMEK
   // ====================================================================
   app.get('/api/clubs/active-only', async (req, res) => {
     try {
