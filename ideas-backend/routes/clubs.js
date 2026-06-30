@@ -6,7 +6,19 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   // 📁 KLUBOK ALAP KEZELÉSE (MEGLÉVŐ)
   // ====================================================================
   app.get('/api/clubs', async (req, res) => {
-    try { const [rows] = await pool.query('SELECT * FROM photo_clubs ORDER BY name ASC'); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
+    try {
+      // 🎯 JAVÍTVA: Dinamikusan összeszámoljuk a klubhoz tartozó aktív tagokat (a pending státuszúak nélkül)
+      const [rows] = await pool.query(`
+        SELECT c.*, 
+               (SELECT COUNT(*) FROM photo_users WHERE club_id = c.id AND club_role != 'pending') as member_count
+        FROM photo_clubs c 
+        ORDER BY c.name ASC
+      `);
+      res.json(rows);
+    } catch (err) {
+      console.error("❌ Hiba a klubok lekérésekor:", err.message);
+      res.status(500).json({ error: 'Hiba a klubok lekérésekor' });
+    }
   });
   app.post('/api/clubs', async (req, res) => {
     try { await pool.query('INSERT IGNORE INTO photo_clubs (name) VALUES (?)', [req.body.name]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
