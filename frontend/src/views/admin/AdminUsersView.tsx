@@ -119,29 +119,49 @@ export default function AdminUsersView({
 
   const handleLocalSave = async (email: string) => {
     try {
-      // 1. Elmentjük a módosításokat a backendre
+      // 1. Biztonsági mentés: kimentjük a jelenleg kiválasztott új értékeket
+      const chosenClub = userClubEdits[email];
+      const chosenRole = userRoleEdits[email];
+
+      // 2. Elküldjük a mentést a szülő komponensnek (API hívás)
       await saveUserClub(email);
-      
-      // 2. Várunk egy minimális időt a backend adatbázis-írás miatt, majd frissítünk
-      setTimeout(async () => {
-        // Megvárjuk, amíg a friss adatok ténylegesen bekerülnek a localUsers állapotba
-        await loadFreshUsersList();
-        
-        // 3. 🎯 EZ A KULCS: Miután a nyers lista frissült, kipucoljuk az ideiglenes szerkesztő állapotokat!
-        setUserClubEdits((prev: any) => {
-          const next = { ...prev };
-          delete next[email];
-          return next;
-        });
-        
-        setUserRoleEdits((prev: any) => {
-          const next = { ...prev };
-          delete next[email];
-          return next;
-        });
-      }, 400);
+
+      // 3. 🎯 OPTIMISTA UI FRISSÍTÉS: Azonnal beírjuk az új adatokat a helyi listába,
+      // így a táblázat 'original' értékei azonnal frissülnek az új értékekre!
+      setLocalUsers(prevUsers => 
+        prevUsers.map(item => 
+          item.email === email 
+            ? { 
+                ...item, 
+                club_name: chosenClub !== undefined ? chosenClub : item.club_name, 
+                club_role: chosenRole !== undefined ? chosenRole : item.club_role 
+              }
+            : item
+        )
+      );
+
+      // 4. 🎯 ÁLLAPOT TÖRLÉSE: Most már biztonságosan kipucolhatjuk a szerkesztési fázist,
+      // mert a dropdown nem fog visszaugrani (mivel a 3. lépésben már frissítettük a hátteret)
+      setUserClubEdits((prev: any) => {
+        const next = { ...prev };
+        delete next[email];
+        return next;
+      });
+
+      setUserRoleEdits((prev: any) => {
+        const next = { ...prev };
+        delete next[email];
+        return next;
+      });
+
+      // 5. Háttér-szinkronizáció: Kis késleltetéssel frissítünk a szerverről is, biztos ami biztos
+      setTimeout(() => {
+        loadFreshUsersList();
+      }, 1000);
+
     } catch (error) {
       console.error("Hiba történt a felhasználó mentése során:", error);
+      alert("Nem sikerült elmenteni a módosításokat.");
     }
   };
 
