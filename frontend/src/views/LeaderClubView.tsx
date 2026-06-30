@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-// 🎯 KULCSFONTOSSÁGÚ: Visszahoztuk a Google Drive képeket feloldó segédfüggvényt!
 import { getImageUrl } from '../utils/helpers';
 
 interface LeaderClubViewProps {
@@ -35,7 +34,7 @@ export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProp
 
   const inputStyle = { width: '100%', padding: '12px', marginBottom: '12px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '8px', boxSizing: 'border-box' as const, outline: 'none', fontSize: '0.95rem' };
 
-  // 🔄 Központi adatletöltő motor
+  // 🔄 Adatletöltő motor
   const loadClubAndAdminRecords = async () => {
     if (!user?.email) return;
     try {
@@ -45,7 +44,6 @@ export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProp
         setClubData(d.club);
         setClubNameInput(d.club?.name || '');
         
-        // Részletes történelmi nyilvántartások és fizetések lekérése
         const resAdmin = await fetch(`${BACKEND_URL}/api/my-club/admin-records?clubId=${d.club.id}&userEmail=${user.email}`);
         if (resAdmin.ok) {
           const adminData = await resAdmin.json();
@@ -77,17 +75,20 @@ export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProp
       if (res.ok) {
         alert('Klub neve sikeresen frissítve! 🎉');
         loadClubAndAdminRecords();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(`Módosítás elutasítva (${res.status}): ${err.error || 'Ismeretlen hiba'}`);
       }
-    } catch (e) { alert('Hiba a név mentésekor!'); }
+    } catch (e) { alert('Hálózati hiba a név mentésekor!'); }
     finally { setIsSavingName(false); }
   };
 
-  // 📸 2. Funkció: Logó kiválasztása és feltöltése
+  // 📸 2. Funkció: Logó kezelése
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setLogoFile(file);
-      setLogoPreview(URL.createObjectURL(file)); // Ideiglenes helyi előnézet
+      setLogoPreview(URL.createObjectURL(file));
     }
   };
 
@@ -105,12 +106,15 @@ export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProp
         alert('Klub logó sikeresen feltöltve a Google Drive-ra! 📸');
         setLogoFile(null);
         loadClubAndAdminRecords();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(`Logó feltöltés sikertelen (${res.status}): ${err.error || 'Szerver hiba'}`);
       }
-    } catch (e) { alert('Hiba a logó feltöltésekor!'); }
+    } catch (e) { alert('Hálózati hiba a logó feltöltésekor!'); }
     finally { setIsUploadingLogo(false); }
   };
 
-  // 📅 3. Funkció: Tagsági dátumok inline mentése
+  // 📅 3. Funkció: Tagsági dátumok inline mentése (HIBAKERESŐVEL MEGERŐSÍTVE)
   const handleSaveDates = async (targetEmail: string) => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/my-club/member/update-dates`, {
@@ -120,15 +124,22 @@ export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProp
           clubId: clubData.id,
           leaderEmail: user.email,
           targetEmail,
-          membershipStart: startDateEdit,
-          membershipEnd: endDateEdit
+          membershipStart: startDateEdit || null,
+          membershipEnd: endDateEdit || null
         })
       });
+      
       if (res.ok) {
         setEditingEmail(null);
         loadClubAndAdminRecords();
+      } else {
+        // 🎯 HA A RENDELES SZERVER HIBÁT DOB, EZ AZ ÁG AZONNAL KIÍRJA A PONTOS OKOT!
+        const errData = await res.json().catch(() => ({}));
+        alert(`❌ Mentési hiba (Szerver kód: ${res.status}):\n${errData.error || 'A végpont nem található vagy az adatbázis elutasította a dátum formátumot.'}`);
       }
-    } catch (e) { alert("Hiba a dátumok mentésekor!"); }
+    } catch (e) { 
+      alert("💥 Kritikus hálózati hiba: A szerver nem elérhető vagy megszakadt a kapcsolat."); 
+    }
   };
 
   // 💵 4. Funkció: Tagdíj befizetés elküldése
@@ -151,11 +162,13 @@ export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProp
       if (res.ok) {
         setPaymentModalUser(null);
         loadClubAndAdminRecords();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(`Könyvelési hiba (${res.status}): ${err.error || 'Szerver elutasítás'}`);
       }
     } catch (e) { alert("Hiba a könyvelés során!"); }
   };
 
-  // 🎯 Logó URL intelligens feloldása: Ha épp választott ki fájlt, a helyi előnézetet mutatja, különben a Drive-os képet streameli
   const currentEffectiveLogo = logoFile ? logoPreview : getImageUrl(clubData?.drive_logo_id, clubData?.logo_url);
 
   if (loading) return <div style={{ color: 'white', padding: '20px' }}>⏳ Adatok és nyilvántartások egyeztetése...</div>;
@@ -165,14 +178,14 @@ export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProp
     <div style={{ padding: '20px', color: 'white', maxWidth: '1200px', margin: '0 auto' }}>
       <h2 style={{ margin: '0 0 20px 0', color: '#f59e0b' }}>🏰 {clubData.name} – Vezetői Adminisztráció</h2>
 
-      {/* 🧭 Navigációs fülek */}
+      {/* Navigációs fülek */}
       <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', borderBottom: '1px solid #334155', paddingBottom: '10px', flexWrap: 'wrap' }}>
         <button onClick={() => setActiveTab('roster')} style={{ padding: '10px 20px', background: activeTab === 'roster' ? '#38bdf8' : 'transparent', color: activeTab === 'roster' ? '#0f172a' : 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }}>👥 Aktív Tagok</button>
         <button onClick={() => setActiveTab('admin')} style={{ padding: '10px 20px', background: activeTab === 'admin' ? '#f59e0b' : 'transparent', color: activeTab === 'admin' ? '#0f172a' : 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }}>💼 Tagnyilvántartás & Tagdíjak</button>
         <button onClick={() => setActiveTab('settings')} style={{ padding: '10px 20px', background: activeTab === 'settings' ? '#a78bfa' : 'transparent', color: activeTab === 'settings' ? '#0f172a' : 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }}>⚙️ Klub Beállítások</button>
       </div>
 
-      {/* 👥 1. FÜL: SAJÁT AKTÍV TAGLISTA */}
+      {/* 1. FÜL: AKTÍV TAGLISTA */}
       {activeTab === 'roster' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {members.filter(m => m.is_currently_here === 1).map(m => (
@@ -187,7 +200,7 @@ export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProp
         </div>
       )}
 
-      {/* 💼 2. FÜL: RÉSZLETES TAGNYILVÁNTARTÁS ÉS TAGDÍJKÖNYV */}
+      {/* 2. FÜL: TAGNYILVÁNTARTÁS ÉS TAGDÍJAK */}
       {activeTab === 'admin' && (
         <div style={{ overflowX: 'auto', background: '#1e293b', borderRadius: '12px', border: '1px solid #334155', boxShadow: '0 4px 15px rgba(0,0,0,0.3)' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
@@ -230,7 +243,7 @@ export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProp
                       ) : (
                         <div style={{ color: '#cbd5e1', lineHeight: '1.4' }}>
                           <div>📅 Be: <b>{m.membership_start || 'Ismeretlen'}</b></div>
-                          {m.membership_end && <div style={{ color: '#f87171', marginTop: '2px' }}>❌ Ki: <b>{m.membership_end}</b></div>}
+                          {m.membership_end && <div style={{ color: '#f87171', marginTop: '4px' }}>❌ Ki: <b>{m.membership_end}</b></div>}
                         </div>
                       )}
                     </td>
@@ -270,7 +283,6 @@ export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProp
       {activeTab === 'settings' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '30px', maxWidth: '600px' }}>
           
-          {/* Klub nevének átírása */}
           <div style={{ background: '#1e293b', padding: '25px', borderRadius: '16px', border: '1px solid #334155' }}>
             <h4 style={{ margin: '0 0 12px 0', color: '#cbd5e1', fontSize: '1.1rem' }}>✏️ Klub nevének megváltoztatása</h4>
             <input type="text" value={clubNameInput} onChange={e => setClubNameInput(e.target.value)} style={inputStyle} placeholder="Fotóklub neve..." disabled={isSavingName} />
@@ -279,7 +291,6 @@ export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProp
             </button>
           </div>
 
-          {/* Hivatalos Google Drive Logó feltöltő modul */}
           <div style={{ background: '#1e293b', padding: '25px', borderRadius: '16px', border: '1px solid #334155' }}>
             <h4 style={{ margin: '0 0 4px 0', color: '#cbd5e1', fontSize: '1.1rem' }}>📸 Hivatalos Klub Logó</h4>
             <p style={{ margin: '0 0 20px 0', color: '#64748b', fontSize: '0.82rem' }}>A logó a Google Drive tárhelyedre kerül feltöltésre, és megjelenik a dicsőségcsarnokban is.</p>
