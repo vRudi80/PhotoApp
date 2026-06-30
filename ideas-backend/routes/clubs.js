@@ -396,6 +396,50 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       res.json({ success: true });
     } catch (err) { res.status(500).json({ error: err.message }); }
   });
+
+  // ====================================================================
+  // 📅 TAGSÁGI DÁTUMOK INLINE FRISSÍTÉSE ÉS NAPLÓZÁSA
+  // ====================================================================
+  app.post('/api/my-club/member/update-dates', async (req, res) => {
+    const { clubId, leaderEmail, targetEmail, membershipStart, membershipEnd } = req.body;
+    if (!targetEmail || !clubId) return res.status(400).json({ error: 'Hiányzó azonosítók!' });
+    
+    try {
+      // 1. Jogosultság ellenőrzése (csak a vezető vagy helyettes módosíthat)
+      const [userRows] = await pool.query('SELECT club_role FROM photo_users WHERE email = ? AND club_id = ?', [leaderEmail, clubId]);
+      if (userRows.length === 0 || (userRows[0].club_role !== 'leader' && userRows[0].club_role !== 'deputy')) {
+        return res.status(403).json({ error: 'Nincs jogosultságod a tag adatainak módosításához!' });
+      }
+
+      // Ha megadtak kilépési dátumot, a tagság státusza lezárt ('left') lesz, különben aktív
+      const status = membershipEnd ? 'left' : 'active';
+
+      // 2. Megnézzük, létezik-e már korábbi naplóbejegyzés az adott klubban ehhez a taghoz
+      const [existingLog] = await pool.query('SELECT id FROM photo_club_memberships WHERE user_email = ? AND club_id = ?', [targetEmail, clubId]);
+
+      if (existingLog.length > 0) {
+        await pool.query(
+          'UPDATE photo_club_memberships SET joined_date = ?, left_date = ?, status = ? WHERE id = ?',
+          [membershipStart, membershipEnd, status, existingLog[0].id]
+        );
+      } else {
+        await pool.query(
+          'INSERT INTO photo_club_memberships (club_id, club_name, user_email, club_role, joined_date, left_date, status) VALUES (?, (SELECT name FROM photo_clubs WHERE id = ?), ?, "member", ?, ?, ?)',
+          [clubId, clubId, targetEmail, membershipStart, membershipEnd, status]
+        );
+      }
+
+      // 3. Ha a klubvezető rögzítette a kilépés dátumát, leválasztjuk a tagot az élő photo_users táblából is
+      if (status === 'left') {
+        await pool.query("UPDATE photo_users SET club_id = NULL, club_name = NULL, club_role = 'member' WHERE email = ?", [targetEmail]);
+      }
+
+      res.json({ success: true });
+    } catch (err) {
+      console.error("❌ Hiba a tagsági dátumok frissítésekor:", err.message);
+      res.status(500).json({ error: 'Adatbázis hiba történt a mentés során: ' + err.message });
+    }
+  });
   
   // ====================================================================
   // 🔔 DASHBOARD ALERTS (KLUBBIZTONSÁGOS FOTÓPÁLYÁZAT SZŰRÉSSEL)
