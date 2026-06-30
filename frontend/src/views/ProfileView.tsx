@@ -11,7 +11,7 @@ interface ProfileViewProps {
 }
 
 export default function ProfileView({ user, setUser, fetchData }: ProfileViewProps) {
-  const inputStyle = { width: '100%', padding: '12px', marginBottom: '12px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '10px', boxSizing: 'border-box' as const, fontSize: '0.95rem', outline: 'none' };
+  const inputStyle = { width: '100%', padding: '12px', marginBottom: '12px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '10px', boxSizing: 'border-box' as const, fontSize: '0.95rem', outline: 'none', transition: 'border 0.2s' };
 
   const [activeClubs, setActiveClubs] = useState<any[]>([]);
   const [selectedClubId, setSelectedClubId] = useState<string>('');
@@ -23,6 +23,8 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
   const [phone, setPhone] = useState<string>('');
   const [address, setAddress] = useState<string>('');
   const [associationId, setAssociationId] = useState<string>('');
+  const [membershipStart, setMembershipStart] = useState<string>('');
+  const [membershipEnd, setMembershipEnd] = useState<string>('');
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
   // 📸 PROFILKÉP ÁLLAPOTOK
@@ -50,6 +52,8 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
         setPhone(freshData.phone_number || freshData.phone || '');
         setAddress(freshData.shipping_address || freshData.address || '');
         setAssociationId(freshData.association_id || '');
+        setMembershipStart(freshData.membership_start || '');
+        setMembershipEnd(freshData.membership_end || '');
         if (freshData.avatar_url) {
           setAvatarPreview(freshData.avatar_url);
         }
@@ -228,18 +232,10 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
     } catch (e) { console.error(e); }
   };
 
-  const getClubStatusMessage = () => {
-    if (user?.club_role === 'pending') {
-      return t('profClubPending').replace('{club}', user.club_name);
-    }
-    if (user?.club_name) {
-      const roleText = user.club_role === 'leader' ? t('roleLeader') : user.club_role === 'deputy' ? t('roleDeputy') : t('roleMember');
-      return t('profClubActive').replace('{club}', user.club_name).replace('{role}', roleText);
-    }
-    return t('profClubNone');
+  const getRoleText = (role: string) => {
+    return role === 'leader' ? t('roleLeader') : role === 'deputy' ? t('roleDeputy') : t('roleMember');
   };
 
-  // 🎯 VISSZAKERÜLT: A hiányzó tárhelyformázó matematikai motor
   const formatExactStorage = (bytes: number) => {
     if (!bytes || bytes === 0) return '0 MB';
     const k = 1024;
@@ -261,262 +257,150 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
   const hasExpiredPremium = user?.is_premium === 0 && user?.premium_until;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '30px', maxWidth: '600px', margin: '0 auto', animation: 'fadeIn 0.3s ease-out' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '25px', maxWidth: '900px', margin: '0 auto', animation: 'fadeIn 0.3s ease-out' }}>
       
-      {/* SZEKCIÓ 1: DIAGNOSZTIKAI ÉS FINANCIÁLIS METRIKÁK KÁRTYÁJA */}
-      <div style={{ backgroundColor: '#1e293b', padding: '30px', borderRadius: '24px', border: '1px solid #334155', boxShadow: '0 4px 20px rgba(0,0,0,0.15)' }}>
-        <h3 style={{ margin: '0 0 15px 0', color: '#f8fafc', fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span>⚙️</span> {t('profStatusTitle')}
-        </h3>
-
-        <div style={{ marginBottom: '20px' }}>
-          <label style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 'bold', display: 'block', marginBottom: '6px' }}>
-            {t('profEmailLabel')}
-          </label>
-          <div style={{ width: '100%', padding: '12px', backgroundColor: '#090d16', border: '1px solid #1e293b', color: '#64748b', borderRadius: '10px', fontSize: '0.95rem', fontWeight: 'bold', fontFamily: 'monospace' }}>
-            {user?.email}
-          </div>
-        </div>
-
-        <div style={{ marginBottom: '25px' }}>
-          <label style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 'bold', display: 'block', marginBottom: '6px' }}>
-            {t('profSubLabel')}
-          </label>
-          {isPremiumActive ? (
-            <div style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.15), transparent)', border: '1px solid #10b981', padding: '15px', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <span style={{ color: '#10b981', fontWeight: 'bold', fontSize: '1.1rem', display: 'block' }}>👑 Premium Member</span>
-                <span style={{ color: '#94a3b8', fontSize: '0.8rem' }}>{t('profPremiumActive')}</span>
-              </div>
-              <div style={{ textTransform: 'uppercase', textAlign: 'right' }}>
-                <span style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'block' }}>{t('profPremiumValid')}</span>
-                <span style={{ color: '#f8fafc', fontWeight: 'bold', fontSize: '0.9rem' }}>{formatDate(user?.premium_until)}</span>
-              </div>
-            </div>
-          ) : hasExpiredPremium ? (
-            <div style={{ background: 'linear-gradient(135deg, rgba(239,68,68,0.1), transparent)', border: '1px solid #ef4444', padding: '15px', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <span style={{ color: '#ef4444', fontWeight: 'bold', fontSize: '1.1rem', display: 'block' }}>⏳ {t('profPremiumExpired')}</span>
-                <span style={{ color: '#94a3b8', fontSize: '0.8rem' }}>{t('profPremiumExpiredDesc')}</span>
-              </div>
-              <div style={{ textTransform: 'uppercase', textAlign: 'right' }}>
-                <span style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'block' }}>{t('profPremiumExpiredOn')}</span>
-                <span style={{ color: '#f8fafc', fontWeight: 'bold', fontSize: '0.9rem' }}>{formatDate(user?.premium_until)}</span>
-              </div>
-            </div>
-          ) : (
-            <div style={{ background: '#0f172a', border: '1px solid #334155', padding: '15px', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <span style={{ color: '#cbd5e1', fontWeight: 'bold', fontSize: '1.1rem', display: 'block' }}>⚪ {t('profFreeTier')}</span>
-                <span style={{ color: '#64748b', fontSize: '0.8rem' }}>{t('profFreeTierDesc')}</span>
-              </div>
-              <span style={{ fontSize: '1.5rem' }}>🌱</span>
-            </div>
-          )}
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-          <div style={{ background: '#0f172a', padding: '15px', borderRadius: '12px', border: '1px solid #223147', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('profStorageLabel')}</span>
-            {isLoadingStats ? <span style={{ color: '#475569', fontSize: '0.9rem' }}>⏳...</span> : (
-              <>
-                <span style={{ color: '#38bdf8', fontSize: '1.3rem', fontWeight: '900' }}>{userStorage.count} <span style={{ fontSize: '0.85rem', fontWeight: 'normal', color: '#64748b' }}>{t('profStorageSub')}</span></span>
-                <span style={{ color: '#a78bfa', fontSize: '0.9rem', fontWeight: 'bold' }}>{formatExactStorage(userStorage.bytes)}</span>
-              </>
-            )}
-          </div>
-
-          <div style={{ background: '#0f172a', padding: '15px', borderRadius: '12px', border: '1px solid #223147', display: 'flex', flexDirection: 'column', gap: '4px', justifyContent: 'center' }}>
-            <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('profAiLabel')}</span>
-            <span style={{ color: aiUsageCount > 0 ? '#38bdf8' : '#64748b', fontSize: '1.3rem', fontWeight: '900', marginTop: '4px' }}>{aiUsageCount} <span style={{ fontSize: '0.85rem', fontWeight: 'normal', color: '#64748b' }}>{t('profAiSub')}</span></span>
-            <span style={{ fontSize: '0.75rem', color: '#475569', fontStyle: 'italic' }}>{t('profAiDesc')}</span>
-          </div>
-        </div>
-      </div>
-      
-      {/* SZEKCIÓ 2: HIVATALOS ADATOK KÁRTYA ÉS PROFILKÉP PANEL */}
-      <div style={{ backgroundColor: '#1e293b', padding: '30px', borderRadius: '24px', border: '1px solid #334155', boxShadow: '0 4px 20px rgba(0,0,0,0.15)' }}>
-        <h3 style={{ margin: '0 0 4px 0', color: '#f8fafc', fontSize: '1.25rem' }}>{t('profTitle')}</h3>
-        <p style={{ color: '#64748b', fontSize: '0.85rem', margin: '0 0 20px 0' }}>{t('profNotice')}</p>
+      {/* 👑 SZEKCIÓ 1: KIEMELT PROFIL KÁRTYA (FEJLÉC PANEL) */}
+      <div style={{ backgroundColor: '#1e293b', padding: '25px 30px', borderRadius: '24px', border: '1px solid #334155', boxShadow: '0 10px 25px rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', gap: '25px', flexWrap: 'wrap' }}>
         
-        {/* 📸 INTERAKTÍV PROFILKÉP ZÓNA */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '25px', position: 'relative' }}>
+        {/* Profilkép kör */}
+        <div style={{ position: 'relative', flexShrink: 0 }}>
           <div 
             onClick={() => !isUploadingAvatar && fileInputRef.current?.click()}
-            style={{ 
-              width: '110px', 
-              height: '110px', 
-              borderRadius: '50%', 
-              backgroundColor: '#090d16', 
-              border: isUploadingAvatar ? '3px dashed #38bdf8' : '3px solid #334155', 
-              overflow: 'hidden', 
-              cursor: isUploadingAvatar ? 'not-allowed' : 'pointer', 
-              position: 'relative',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
-              transition: 'all 0.2s'
-            }}
-            onMouseEnter={e => { if(!isUploadingAvatar) e.currentTarget.style.borderColor = '#38bdf8'; }}
-            onMouseLeave={e => { if(!isUploadingAvatar) e.currentTarget.style.borderColor = '#334155'; }}
+            style={{ width: '100px', height: '100px', borderRadius: '50%', backgroundColor: '#090d16', border: isUploadingAvatar ? '3px dashed #38bdf8' : '3px solid #475569', overflow: 'hidden', cursor: isUploadingAvatar ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 20px rgba(0,0,0,0.4)', position: 'relative' }}
           >
             {avatarPreview ? (
               <img src={avatarPreview} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             ) : (
-              <span style={{ fontSize: '2.5rem', color: '#475569' }}>👤</span>
+              <span style={{ fontSize: '2.2rem', color: '#475569' }}>👤</span>
             )}
-
-            <div style={{ 
-              position: 'absolute', 
-              inset: 0, 
-              backgroundColor: isUploadingAvatar ? 'rgba(15,23,42,0.8)' : 'rgba(15,23,42,0.4)', 
-              opacity: isUploadingAvatar ? 1 : 0, 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center',
-              transition: 'opacity 0.2s',
-              color: 'white',
-              fontSize: '0.75rem',
-              fontWeight: 'bold'
-            }}
-            className="avatar-overlay"
-            onMouseEnter={e => { if(!isUploadingAvatar) e.currentTarget.style.opacity = '1'; }}
-            onMouseLeave={e => { if(!isUploadingAvatar) e.currentTarget.style.opacity = '0'; }}
-            >
-              {isUploadingAvatar ? '⏳...' : (lang === 'en' ? 'Change 📷' : 'Módosítás 📷')}
+            <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(15,23,42,0.6)', opacity: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '0.7rem', fontWeight: 'bold', transition: 'all 0.2s' }} onMouseEnter={e => { if(!isUploadingAvatar) e.currentTarget.style.opacity = '1'; }} onMouseLeave={e => { if(!isUploadingAvatar) e.currentTarget.style.opacity = '0'; }}>
+              {isUploadingAvatar ? '⏳' : 'CSERE 📷'}
             </div>
           </div>
+          <input type="file" ref={fileInputRef} onChange={handleAvatarChange} accept="image/*" style={{ display: 'none' }} />
+        </div>
+
+        {/* Név, email és Prémium plecsni egymás alatt */}
+        <div style={{ flex: 1, minWidth: '200px' }}>
+          <h2 style={{ margin: '0 0 4px 0', fontSize: '1.7rem', color: '#f8fafc', fontWeight: '900' }}>{nameInput || user?.name || 'Anonim Tag'}</h2>
+          <div style={{ fontSize: '0.9rem', color: '#64748b', fontFamily: 'monospace', fontWeight: 'bold' }}>{user?.email}</div>
           
-          <input 
-            type="file" 
-            ref={fileInputRef} 
-            onChange={handleAvatarChange} 
-            accept="image/*" 
-            style={{ display: 'none' }} 
-          />
-          <span style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '8px' }}>
-            {lang === 'en' ? 'Click on the avatar to upload picture' : 'Kattints a körre a kép feltöltéséhez'}
-          </span>
+          <div style={{ marginTop: '12px' }}>
+            {isPremiumActive ? (
+              <span style={{ background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', padding: '4px 14px', borderRadius: '50px', fontSize: '0.78rem', fontWeight: 'bold', boxShadow: '0 4px 10px rgba(16,185,129,0.3)' }}>👑 PRÉMIUM TAG ({formatDate(user?.premium_until).split(' ')[0]})</span>
+            ) : hasExpiredPremium ? (
+              <span style={{ background: 'rgba(239,68,68,0.15)', color: '#f87171', border: '1px solid rgba(239,68,68,0.3)', padding: '4px 14px', borderRadius: '50px', fontSize: '0.78rem', fontWeight: 'bold' }}>⏳ LEJÁRT PREM ({formatDate(user?.premium_until).split(' ')[0]})</span>
+            ) : (
+              <span style={{ background: '#334155', color: '#94a3b8', padding: '4px 14px', borderRadius: '50px', fontSize: '0.78rem', fontWeight: 'bold' }}>🌱 INGYENES HOZZÁFÉRÉS</span>
+            )}
+          </div>
         </div>
-
-        <form onSubmit={handleSaveProfile}>
-          {/* 1. Név mező */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <label style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 'bold' }}>{t('profLabelName')}</label>
-            <input 
-              type="text" 
-              value={nameInput} 
-              onChange={e => setNameInput(e.target.value)} 
-              style={{ ...inputStyle, border: nameInput.trim() === user?.name ? '1px solid #334155' : '1px solid #38bdf8' }} 
-              placeholder={t('profPlaceholderName')}
-              disabled={isSavingProfile}
-            />
-          </div>
-
-          {/* 💡 Kötelező MAFOSZ sáv */}
-          <div style={{ background: 'rgba(245, 158, 11, 0.04)', borderLeft: '4px solid #f59e0b', padding: '14px', borderRadius: '0 10px 10px 0', marginBottom: '20px', fontSize: '0.82rem', color: '#cbd5e1', lineHeight: '1.5' }}>
-            <span>📌 <b>{lang === 'en' ? 'Official Requirement:' : 'Kötelező Pályázati Adatok:'}</b></span>
-            <br />
-            {lang === 'en' 
-              ? 'A contact phone number and exact shipping address are required to receive awards, physical catalogs, and medals.' 
-              : 'A pontos postázási cím és telefonszám megadása kötelező a kiállítási évkönyvek, érmek és nyomtatott oklevelek kézbesítéséhez.'}
-          </div>
-
-          {/* 2. Telefonszám mező */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <label style={{ fontSize: '0.8rem', color: '#f59e0b', fontWeight: 'bold' }}>{lang === 'en' ? 'Phone Number' : 'Telefonszám'}</label>
-            <input 
-              type="text" 
-              value={phone} 
-              onChange={e => setPhone(e.target.value)} 
-              style={inputStyle} 
-              placeholder="+36 30 123 4567"
-              disabled={isSavingProfile}
-            />
-          </div>
-
-          {/* 3. Postázási cím mező */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <label style={{ fontSize: '0.8rem', color: '#f59e0b', fontWeight: 'bold' }}>{lang === 'en' ? 'Shipping / Postal Address' : 'Pontos Értesítési / Postázási Cím'}</label>
-            <input 
-              type="text" 
-              value={address} 
-              onChange={e => setAddress(e.target.value)} 
-              style={inputStyle} 
-              placeholder="Irányítószám, Város, Utca, Házszám"
-              disabled={isSavingProfile}
-            />
-          </div>
-
-          {/* 4. Igazolványszám mező */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <label style={{ fontSize: '0.8rem', color: '#a78bfa', fontWeight: 'bold' }}>{lang === 'en' ? 'Association Card ID (Optional)' : 'Fotóművészeti Tagsági Igazolvány Száma (Opcionális)'}</label>
-            <input 
-              type="text" 
-              value={associationId} 
-              onChange={e => setAssociationId(e.target.value)} 
-              style={inputStyle} 
-              placeholder="Pl.: MAFOSZ-2026-XXXX"
-              disabled={isSavingProfile}
-            />
-          </div>
-
-          <button 
-            type="submit"
-            disabled={isSavingProfile || !nameInput.trim()} 
-            style={{ 
-              width: '100%', 
-              background: 'linear-gradient(135deg, #3b82f6, #2563eb)', 
-              color: 'white', 
-              border: 'none', 
-              padding: '12px', 
-              borderRadius: '10px', 
-              fontWeight: 'bold', 
-              cursor: isSavingProfile ? 'not-allowed' : 'pointer',
-              transition: 'all 0.2s',
-              marginTop: '5px'
-            }}
-          >
-            {isSavingProfile ? '⏳ ' + t('profSaving') : (lang === 'en' ? 'Save Official Profile' : 'Profil Adatok Mentése ✔')}
-          </button>
-        </form>
       </div>
 
-      {/* 🛡️ SZEKCIÓ 3: KLUB HOZZÁRENDELÉSI KÁRTYA */}
-      <div style={{ backgroundColor: '#1e293b', padding: '30px', borderRadius: '24px', border: '1px solid #334155' }}>
-        <h3 style={{ margin: '0 0 15px 0', color: '#f8fafc', fontSize: '1.25rem' }}>{t('profClubTitle')}</h3>
+      {/* 👥 KÉTOSZLOPOS BENTO-GRID LAYOUT (ASZTALI NÉZETBEN EGYMÁS MELLETT) */}
+      <div className="profile-bento-grid">
         
-        <div style={{ 
-          background: user?.club_role === 'pending' ? '#f59e0b15' : user?.club_name ? '#10b98115' : '#0f172a', 
-          color: user?.club_role === 'pending' ? '#f59e0b' : user?.club_name ? '#10b981' : '#94a3b8', 
-          border: user?.club_role === 'pending' ? '1px solid #f59e0b40' : user?.club_name ? '1px solid #10b98140' : 'none',
-          padding: '15px', borderRadius: '12px', lineHeight: '1.5', marginBottom: '15px', fontSize: '0.9rem' 
-        }}>
-          {getClubStatusMessage()}
+        {/* BAL OSZLOP: HIVATALOS MAFOSZ ADATLAP FORM */}
+        <div style={{ backgroundColor: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #334155', display: 'flex', flexDirection: 'column' }}>
+          <h3 style={{ margin: '0 0 15px 0', color: '#f8fafc', fontSize: '1.2rem', fontWeight: 'bold' }}>📝 Személyes Adatok Frissítése</h3>
+          
+          <form onSubmit={handleSaveProfile} style={{ display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'space-between' }}>
+            <div>
+              <label style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>{t('profLabelName')}</label>
+              <input type="text" value={nameInput} onChange={e => setNameInput(e.target.value)} style={inputStyle} placeholder={t('profPlaceholderName')} disabled={isSavingProfile} />
+
+              <label style={{ fontSize: '0.8rem', color: '#f59e0b', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Telefonszám</label>
+              <input type="text" value={phone} onChange={e => setPhone(e.target.value)} style={inputStyle} placeholder="+36 30 123 4567" disabled={isSavingProfile} />
+
+              <label style={{ fontSize: '0.8rem', color: '#f59e0b', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Értesítési / Postázási Cím</label>
+              <input type="text" value={address} onChange={e => setAddress(e.target.value)} style={inputStyle} placeholder="Irányítószám, Város, Utca, Házszám" disabled={isSavingProfile} />
+
+              <label style={{ fontSize: '0.8rem', color: '#a78bfa', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Igazolványszám (Opcionális)</label>
+              <input type="text" value={associationId} onChange={e => setAssociationId(e.target.value)} style={inputStyle} placeholder="MAFOSZ-2026-XXXX" disabled={isSavingProfile} />
+            </div>
+
+            <button type="submit" disabled={isSavingProfile || !nameInput.trim()} style={{ width: '100%', background: 'linear-gradient(135deg, #3b82f6, #2563eb)', color: 'white', border: 'none', padding: '12px', borderRadius: '10px', fontWeight: 'bold', cursor: isSavingProfile ? 'not-allowed' : 'pointer', transition: 'all 0.2s', marginTop: '10px' }}>
+              {isSavingProfile ? 'Mentés...' : 'Változtatások Mentése ✔'}
+            </button>
+          </form>
         </div>
 
-        {!user?.club_name && user?.club_role !== 'pending' && (
-          <>
-            <select value={selectedClubId} onChange={e => setSelectedClubId(e.target.value)} style={inputStyle}>
-              <option value="">{t('profSelectClub')}</option>
-              {activeClubs.map(c => <option key={c.id} value={String(c.id)}>{c.name}</option>)}
-            </select>
-            <button onClick={handleJoinClub} disabled={isSubmitting} style={{ width: '100%', background: 'linear-gradient(135deg, #38bdf8, #0284c7)', color: '#0f172a', border: 'none', padding: '12px', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>
-              {t('profSendRequest')}
-            </button>
-          </>
-        )}
+        {/* JOBB OSZLOP: KLUBTAGSÁG ÉS MŰSZAKI METRIKÁK */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
+          
+          {/* 🏛️ MODUL: FOTÓKLUB TAGSÁGI ADATLAP (JAVÍTVA ÉS KIBŐVÍTVE!) */}
+          <div style={{ backgroundColor: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #334155' }}>
+            <h3 style={{ margin: '0 0 15px 0', color: '#38bdf8', fontSize: '1.2rem', fontWeight: 'bold' }}>🏛️ {t('profClubTitle')}</h3>
+            
+            {user?.club_name ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', background: '#0f172a', padding: '15px', borderRadius: '14px', border: '1px solid rgba(56, 189, 248, 0.15)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
+                  <span style={{ color: '#64748b' }}>Fotóklub:</span>
+                  <strong style={{ color: 'white' }}>{user.club_name}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
+                  <span style={{ color: '#64748b' }}>Beosztás:</span>
+                  <span style={{ background: '#38bdf820', color: '#38bdf8', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' }}>{getRoleText(user.club_role)}</span>
+                </div>
+                
+                {/* 🎯 ÚJ: IDŐSZAK JELZÉSE METTŐL MEDDIG */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', borderTop: '1px dashed #223147', paddingTop: '8px', marginTop: '4px' }}>
+                  <span style={{ color: '#64748b' }}>Tagság ideje:</span>
+                  <span style={{ color: '#10b981', fontWeight: 'bold' }}>
+                    {membershipStart || 'Nincs rögzítve'} — {membershipEnd || 'Jelenleg is aktív'}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <div style={{ background: '#0f172a', padding: '12px', borderRadius: '10px', color: '#94a3b8', fontSize: '0.88rem', marginBottom: '15px', fontStyle: 'italic' }}>
+                  {getClubStatusMessage()}
+                </div>
+                {user?.club_role !== 'pending' && (
+                  <>
+                    <select value={selectedClubId} onChange={e => setSelectedClubId(e.target.value)} style={inputStyle}>
+                      <option value="">{t('profSelectClub')}</option>
+                      {activeClubs.map(c => <option key={c.id} value={String(c.id)}>{c.name}</option>)}
+                    </select>
+                    <button onClick={handleJoinClub} disabled={isSubmitting} style={{ width: '100%', background: 'linear-gradient(135deg, #38bdf8, #0284c7)', color: '#0f172a', border: 'none', padding: '12px', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>
+                      {t('profSendRequest')}
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* 📊 MODUL: RENDSZER STATISZTIKÁK (TÁRHELY & AI) */}
+          <div style={{ backgroundColor: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #334155', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+            <div style={{ background: '#0f172a', padding: '14px', borderRadius: '12px', border: '1px solid #223147', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 'bold', textTransform: 'uppercase' }}>{t('profStorageLabel')}</span>
+              {isLoadingStats ? <span style={{ color: '#475569', fontSize: '0.85rem' }}>⏳</span> : (
+                <>
+                  <span style={{ color: '#38bdf8', fontSize: '1.25rem', fontWeight: '900' }}>{userStorage.count} <span style={{ fontSize: '0.8rem', fontWeight: 'normal', color: '#64748b' }}>db kép</span></span>
+                  <span style={{ color: '#a78bfa', fontSize: '0.85rem', fontWeight: 'bold' }}>{formatExactStorage(userStorage.bytes)}</span>
+                </>
+              )}
+            </div>
+
+            <div style={{ background: '#0f172a', padding: '14px', borderRadius: '12px', border: '1px solid #223147', display: 'flex', flexDirection: 'column', gap: '4px', justifyContent: 'center' }}>
+              <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 'bold', textTransform: 'uppercase' }}>{t('profAiLabel')}</span>
+              <span style={{ color: aiUsageCount > 0 ? '#38bdf8' : '#64748b', fontSize: '1.25rem', fontWeight: '900' }}>{aiUsageCount} <span style={{ fontSize: '0.8rem', fontWeight: 'normal', color: '#64748b' }}>elemzés</span></span>
+              <span style={{ fontSize: '0.65rem', color: '#475569', fontStyle: 'italic', marginTop: '2px' }}>EXIF pajzs védelem</span>
+            </div>
+          </div>
+
+        </div>
       </div>
 
-      {/* 👑 SZEKCIÓ 4: KLUBVEZETŐI JÓVÁHAGYÓ PANEL */}
+      {/* 👑 SZEKCIÓ 3: KLUBVEZETŐI JÓVÁHAGYÓ PANEL (CSAK HA LEADER) */}
       {isLeader && (
-        <div style={{ backgroundColor: '#1e293b', padding: '30px', borderRadius: '24px', border: '1px solid #10b981', boxShadow: '0 10px 30px rgba(16,185,129,0.1)' }}>
-          <h3 style={{ margin: '0 0 10px 0', color: '#10b981', fontSize: '1.25rem' }}>{t('profLeaderTitle')} ({user?.club_name || ''})</h3>
+        <div style={{ backgroundColor: '#1e293b', padding: '25px 30px', borderRadius: '24px', border: '1px solid #10b981', boxShadow: '0 10px 30px rgba(16,185,129,0.08)' }}>
+          <h3 style={{ margin: '0 0 4px 0', color: '#10b981', fontSize: '1.25rem', fontWeight: 'bold' }}>{t('profLeaderTitle')} ({user?.club_name || ''})</h3>
           <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 20px 0' }}>{t('profLeaderNotice')}</p>
           
           {pendingMembers.length === 0 ? (
-            <div style={{ padding: '15px', background: '#0f172a', borderRadius: '12px', color: '#64748b', textAlign: 'center' }}>{t('profNoPending')}</div>
+            <div style={{ padding: '12px', background: '#0f172a', borderRadius: '12px', color: '#475569', textAlign: 'center', fontStyle: 'italic', fontSize: '0.9rem' }}>{t('profNoPending')}</div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {pendingMembers.map(m => (
@@ -536,8 +420,23 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
         </div>
       )}
 
-      {/* 🎯 INTEGRÁLVA: Történeti pénzügyi panel meghívása */}
+      {/* 🎯 SZEKCIÓ 4: TÖRTÉNETI PÉNZÜGYI PANEL (A FÁJL ALJÁN) */}
       <UserMembershipAndPaymentsBlock userEmail={user?.email || ''} />
+
+      {/* ── 🎯 RESPONSIVE GRID CSS STYLING ── */}
+      <style>{`
+        .profile-bento-grid {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 25px;
+          width: 100%;
+        }
+        @media (min-width: 768px) {
+          .profile-bento-grid {
+            grid-template-columns: 1.1fr 1fr !important;
+          }
+        }
+      `}</style>
 
     </div>
   );
@@ -560,16 +459,16 @@ function UserMembershipAndPaymentsBlock({ userEmail }: { userEmail: string }) {
   }, [userEmail]);
 
   if (!userEmail) return null;
-  if (loading) return <div style={{ color: '#64748b', fontSize: '0.85rem', padding: '10px', textAlign: 'center' }}>⏳ Pénzügyi múlt szinkronizálása...</div>;
+  if (loading) return <div style={{ color: '#64748b', fontSize: '0.85rem', padding: '15px', textAlign: 'center' }}>⏳ Pénzügyi múlt szinkronizálása...</div>;
 
   return (
-    <div style={{ background: '#1e293b', padding: '20px', borderRadius: '16px', border: '1px solid #334155', boxShadow: '0 4px 15px rgba(0,0,0,0.2)' }}>
+    <div style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #334155', boxShadow: '0 4px 15px rgba(0,0,0,0.2)' }}>
       <h3 style={{ margin: '0 0 15px 0', color: '#fbbf24', fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
         💳 Éves Tagdíjak & Befizetések Előzményei
       </h3>
       
       {history.length === 0 ? (
-        <div style={{ color: '#94a3b8', fontSize: '0.9rem', fontStyle: 'italic', padding: '10px 0' }}>
+        <div style={{ color: '#64748b', fontSize: '0.9rem', fontStyle: 'italic', padding: '10px 0' }}>
           Még nincs könyvelt tagdíj-befizetésed a rendszerben.
         </div>
       ) : (
