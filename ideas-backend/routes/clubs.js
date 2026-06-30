@@ -312,31 +312,51 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // 3. Klubvezetői részletes lekérés (Aktív tagok, Ex-tagok és Befizetések)
+  // ====================================================================
+  // 💰 KLUB PÉNZÜGYEK ÉS TAGNYILVÁNTARTÁS (KLUBVÁLTÁS-BIZTOS)
+  // ====================================================================
   app.get('/api/my-club/admin-records', async (req, res) => {
     const { clubId, userEmail } = req.query;
     try {
+      // 1. Vezetői jogosultság ellenőrzése
       const [userRows] = await pool.query('SELECT club_role FROM photo_users WHERE email = ? AND club_id = ?', [userEmail, clubId]);
       if (userRows.length === 0 || (userRows[0].club_role !== 'leader' && userRows[0].club_role !== 'deputy')) {
-        return res.status(403).json({ error: 'Nincs jogosultságod!' });
+        return res.status(403).json({ error: 'Nincs jogosultságod az adminisztrációs adatokhoz!' });
       }
 
-      // AKCIÓ: Lekérünk MINDENKIT, aki jelenleg AKTÍV tag, VAGY valaha volt tagsági bejegyzése ebben a klubban
+      // 🎯 JAVÍTVA: UNION lekérdezés. 
+      // Az első ág behúzza a jelenlegi tagokat a photo_users-ből (akkor is, ha üres a napló tábla!)
+      // A második ág pedig hozzácsapja azokat az ex-tagokat, akik már kiléptek ebből a klubból
       const [allTimeMembers] = await pool.query(`
-        SELECT DISTINCT 
+        SELECT 
           u.name, 
           u.email, 
-          COALESCE(h.club_role, u.club_role) as history_role,
+          u.club_role,
           u.shipping_address,
-          IF(u.club_id = ?, 1, 0) as is_currently_here,
-          DATE_FORMAT(h.joined_date, '%Y-%m-%d') as membership_start,
-          DATE_FORMAT(h.left_date, '%Y-%m-%d') as membership_end
-        FROM photo_club_memberships h
-        JOIN photo_users u ON h.user_email = u.email
-        WHERE h.club_id = ?
-        ORDER BY is_currently_here DESC, u.name ASC
-      `, [clubId, clubId]);
+          1 as is_currently_here,
+          COALESCE(DATE_FORMAT((SELECT joined_date FROM photo_club_memberships WHERE user_email = u.email AND club_id = u.club_id AND status = 'active' LIMIT 1), '%Y-%m-%d'), 'Ismeretlen') as membership_start,
+          NULL as membership_end
+        FROM photo_users u
+        WHERE u.club_id = ? AND u.club_role != 'pending'
 
-      // Lekérjük az összes ehhez a klubhoz kapcsolódó fizetést (bárki is fizette)
+        UNION ALL
+
+        SELECT 
+          u.name, 
+          u.email, 
+          m.club_role,
+          u.shipping_address,
+          0 as is_currently_here,
+          DATE_FORMAT(m.joined_date, '%Y-%m-%d') as membership_start,
+          DATE_FORMAT(m.left_date, '%Y-%m-%d') as membership_end
+        FROM photo_club_memberships m
+        JOIN photo_users u ON m.user_email = u.email
+        WHERE m.club_id = ? AND m.status = 'left' AND (u.club_id IS NULL OR u.club_id != ?)
+        
+        ORDER BY is_currently_here DESC, name ASC
+      `, [clubId, clubId, clubId]); // 👈 Háromszor adjuk át a klub ID-t a 3 db kérdőjel miatt
+
+      // 2. Lekérjük az összes ehhez a klubhoz kapcsolódó fizetést (bárki is fizette)
       const [payments] = await pool.query(`
         SELECT id, user_email, fiscal_year, fee_amount, paid_amount, DATE_FORMAT(payment_date, '%Y-%m-%d') as payment_date 
         FROM photo_club_payments 
@@ -346,7 +366,8 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
       res.json({ members: allTimeMembers, payments });
     } catch (err) {
-      res.status(500).json({ error: 'Hiba az adminisztratív múlt lekérésekor.' });
+      console.error("❌ Hiba az adminisztratív rekordok lekérésekor:", err.message);
+      res.status(500).json({ error: 'Szerveroldali hiba az admin adatok lekérésekor.' });
     }
   });
 
