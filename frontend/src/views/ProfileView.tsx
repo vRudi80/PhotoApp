@@ -335,7 +335,7 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
               <input type="text" value={address} onChange={e => setAddress(e.target.value)} style={inputStyle} placeholder="Irányítószám, Város, Utca, Házszám" disabled={isSavingProfile} />
 
               <label style={{ fontSize: '0.8rem', color: '#a78bfa', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Igazolványszám (Opcionális)</label>
-              <input type="text" value={associationId} onChange={e => setAssociationId(e.target.value)} style={inputStyle} placeholder="MAFOSZ-2026-XXXX" disabled={isSavingProfile} />
+              <input type="text" value={associationId} onChange={e => setAssociationId(e.target.value)} style={inputStyle} placeholder="FP-XXXX" disabled={isSavingProfile} />
             </div>
 
             <button type="submit" disabled={isSavingProfile || !nameInput.trim()} style={{ width: '100%', background: 'linear-gradient(135deg, #3b82f6, #2563eb)', color: 'white', border: 'none', padding: '12px', borderRadius: '10px', fontWeight: 'bold', cursor: isSavingProfile ? 'not-allowed' : 'pointer', transition: 'all 0.2s', marginTop: '10px' }}>
