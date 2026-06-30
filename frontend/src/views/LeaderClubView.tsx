@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+// 🎯 KULCSFONTOSSÁGÚ: Visszahoztuk a Google Drive képeket feloldó segédfüggvényt!
+import { getImageUrl } from '../utils/helpers';
 
 interface LeaderClubViewProps {
   user: any; // Az App.tsx-ből érkező bejelentkezett felhasználó objektum
@@ -33,7 +35,7 @@ export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProp
 
   const inputStyle = { width: '100%', padding: '12px', marginBottom: '12px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '8px', boxSizing: 'border-box' as const, outline: 'none', fontSize: '0.95rem' };
 
-  // 🔄 Központi adatletöltő motor (Mindent egyszerre húz be és frissít)
+  // 🔄 Központi adatletöltő motor
   const loadClubAndAdminRecords = async () => {
     if (!user?.email) return;
     try {
@@ -42,7 +44,6 @@ export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProp
         const d = await resData.json();
         setClubData(d.club);
         setClubNameInput(d.club?.name || '');
-        if (d.club?.logo_url) setLogoPreview(d.club.logo_url);
         
         // Részletes történelmi nyilvántartások és fizetések lekérése
         const resAdmin = await fetch(`${BACKEND_URL}/api/my-club/admin-records?clubId=${d.club.id}&userEmail=${user.email}`);
@@ -86,7 +87,7 @@ export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProp
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setLogoFile(file);
-      setLogoPreview(URL.createObjectURL(file));
+      setLogoPreview(URL.createObjectURL(file)); // Ideiglenes helyi előnézet
     }
   };
 
@@ -154,12 +155,15 @@ export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProp
     } catch (e) { alert("Hiba a könyvelés során!"); }
   };
 
+  // 🎯 Logó URL intelligens feloldása: Ha épp választott ki fájlt, a helyi előnézetet mutatja, különben a Drive-os képet streameli
+  const currentEffectiveLogo = logoFile ? logoPreview : getImageUrl(clubData?.drive_logo_id, clubData?.logo_url);
+
   if (loading) return <div style={{ color: 'white', padding: '20px' }}>⏳ Adatok és nyilvántartások egyeztetése...</div>;
   if (!clubData) return <div style={{ color: '#ef4444', padding: '20px' }}>❌ Nincs klubvezetői jogosultságod vagy nem tartozol fotóklubhoz.</div>;
 
   return (
     <div style={{ padding: '20px', color: 'white', maxWidth: '1200px', margin: '0 auto' }}>
-      <h2 style={{ margin: '0 0 20px 0', color: '#f59e0b' }}> castles {clubData.name} – Vezetői Adminisztráció</h2>
+      <h2 style={{ margin: '0 0 20px 0', color: '#f59e0b' }}>🏰 {clubData.name} – Vezetői Adminisztráció</h2>
 
       {/* 🧭 Navigációs fülek */}
       <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', borderBottom: '1px solid #334155', paddingBottom: '10px', flexWrap: 'wrap' }}>
@@ -183,7 +187,7 @@ export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProp
         </div>
       )}
 
-      {/* 💼 2. FÜL: RÉSZLETES TAGNYILVÁNTARTÁS ÉS TAGDÍJKÖNYV (Inline dátumszerkesztővel!) */}
+      {/* 💼 2. FÜL: RÉSZLETES TAGNYILVÁNTARTÁS ÉS TAGDÍJKÖNYV */}
       {activeTab === 'admin' && (
         <div style={{ overflowX: 'auto', background: '#1e293b', borderRadius: '12px', border: '1px solid #334155', boxShadow: '0 4px 15px rgba(0,0,0,0.3)' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
@@ -262,7 +266,7 @@ export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProp
         </div>
       )}
 
-      {/* ⚙️ 3. FÜL: KLUB BEÁLLÍTÁSOK (NÉV MÓDOSÍTÁSA ÉS LOGÓ KEZELÉSE) */}
+      {/* ⚙️ 3. FÜL: KLUB BEÁLLÍTÁSOK */}
       {activeTab === 'settings' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '30px', maxWidth: '600px' }}>
           
@@ -282,8 +286,8 @@ export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProp
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '20px', flexWrap: 'wrap' }}>
               <div style={{ width: '90px', height: '90px', backgroundColor: '#0f172a', borderRadius: '12px', border: '2px solid #334155', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                {logoPreview ? (
-                  <img src={logoPreview} alt="Logo preview" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                {currentEffectiveLogo ? (
+                  <img src={currentEffectiveLogo} alt="Logo preview" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                 ) : (
                   <span style={{ fontSize: '2rem' }}>🛡️</span>
                 )}
