@@ -515,6 +515,53 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
         )}
       </div>
 
+      const UserMembershipAndPaymentsBlock = ({ userEmail }: { userEmail: string }) => {
+  const [history, setHistory] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch(`${BACKEND_URL}/api/profile/my-payments?userEmail=${userEmail}`)
+      .then(res => res.json())
+      .then(data => {
+        setHistory(Array.isArray(data) ? data : []);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, [userEmail]);
+
+  if (loading) return <div style={{ color: '#64748b', fontSize: '0.85rem', padding: '10px' }}>⏳ Pénzügyi múlt betöltése...</div>;
+
+  return (
+    <div style={{ background: '#1e293b', padding: '20px', borderRadius: '16px', border: '1px solid #334155', marginTop: '20px' }}>
+      <h3 style={{ margin: '0 0 15px 0', color: '#fbbf24', fontSize: '1.2rem' }}>💳 Tagdíj Befizetések Története (Összes klub)</h3>
+      
+      {history.length === 0 ? (
+        <div style={{ color: '#94a3b8', fontSize: '0.9rem', fontStyle: 'italic' }}>Még nincs könyvelt tagdíj-befizetésed.</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {history.map((row, index) => {
+            const isSettled = Number(row.outstanding_balance) <= 0;
+            return (
+              <div key={index} style={{ background: '#0f172a', padding: '12px 16px', borderRadius: '12px', border: `1px solid ${isSettled ? '#10b98130' : '#f9731630'}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontWeight: 'bold', color: '#f8fafc' }}>{row.fiscal_year}. Évi Tagdíj</div>
+                  {/* 🎯 MEGJELENÍTÉS: Kiírjuk a klub nevét, ahova a pénz ment */}
+                  <div style={{ fontSize: '0.8rem', color: '#38bdf8', fontWeight: 'bold', marginTop: '2px' }}>🏛️ {row.target_club_name}</div>
+                  <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '2px' }}>{row.payment_date ? `Könyvelve: ${row.payment_date}` : 'Nincs dátum'}</div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '1.05rem', fontWeight: '900', color: isSettled ? '#10b981' : '#f97316' }}>{row.paid_amount} / {row.fee_amount} Ft</div>
+                  {!isSettled && <small style={{ color: '#ef4444', fontSize: '0.7rem', fontWeight: 'bold' }}>Hátralék: {row.outstanding_balance} Ft</small>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+      
       {/* 👑 SZEKCIÓ 4: KLUBVEZETŐI JÓVÁHAGYÓ PANEL */}
       {isLeader && (
         <div style={{ backgroundColor: '#1e293b', padding: '30px', borderRadius: '24px', border: '1px solid #10b981', boxShadow: '0 10px 30px rgba(16,185,129,0.1)' }}>
