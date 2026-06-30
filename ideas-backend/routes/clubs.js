@@ -440,6 +440,27 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       res.status(500).json({ error: 'Adatbázis hiba történt a mentés során: ' + err.message });
     }
   });
+
+  // ====================================================================
+  // 📅 SAJÁT AKTÍV TAGSÁGI DÁTUMOK LEKÉRÉSE A PROFILHOZ
+  // ====================================================================
+  app.get('/api/profile/active-membership', async (req, res) => {
+    const { userEmail } = req.query;
+    if (!userEmail) return res.status(400).json({ error: 'Hiányzó email!' });
+    try {
+      const [rows] = await pool.query(
+        "SELECT DATE_FORMAT(joined_date, '%Y-%m-%d') as membership_start, DATE_FORMAT(left_date, '%Y-%m-%d') as membership_end FROM photo_club_memberships WHERE user_email = ? AND status = 'active' LIMIT 1",
+        [userEmail]
+      );
+      if (rows.length > 0) {
+        res.json(rows[0]);
+      } else {
+        res.json({ membership_start: null, membership_end: null });
+      }
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
   
   // ====================================================================
   // 🔔 DASHBOARD ALERTS (KLUBBIZTONSÁGOS FOTÓPÁLYÁZAT SZŰRÉSSEL)
