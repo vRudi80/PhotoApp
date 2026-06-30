@@ -6,7 +6,7 @@ interface AdminClubsViewProps {
   setNewClubName: (name: string) => void;
   handleAddClub: () => void;
   handleDeleteClub: (id: number) => void;
-  handleUpdateClub: (id: number, name: string) => void; // <-- ÚJ PROP A MENTÉSHEZ
+  handleUpdateClub: (id: number, name: string) => void;
 }
 
 export default function AdminClubsView({
@@ -59,6 +59,9 @@ export default function AdminClubsView({
       <div style={{ background: '#1e293b', borderRadius: '12px', overflow: 'hidden', border: '1px solid #334155' }}>
         {clubs.map((c, index) => {
           const isEditing = editingId === c.id;
+          
+          // 🎯 KINYERÉS: Megnézzük melyik néven jön a számláló a backendről (Fallback: 0)
+          const memberCount = c.member_count ?? c.user_count ?? c.users_count ?? 0;
 
           return (
             <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px', borderBottom: index < clubs.length - 1 ? '1px solid #334155' : 'none', background: index % 2 === 0 ? '#0f172a' : 'transparent', gap: '15px' }}>
@@ -78,8 +81,31 @@ export default function AdminClubsView({
               ) : (
                 /* SIMA MEGJELENÍTÉSI MÓD */
                 <>
-                  <div style={{ fontWeight: 'bold', fontSize: '1.1rem', flex: 1 }}>{c.name}</div>
-                  <div style={{ display: 'flex', gap: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
+                    {/* Klub neve */}
+                    <div style={{ fontWeight: 'bold', fontSize: '1.1rem', color: '#f8fafc', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {c.name}
+                    </div>
+                    
+                    {/* 🎯 ÚJ: Tagok száma kis kapszula jelvényben */}
+                    <span style={{ 
+                      background: 'rgba(56, 189, 248, 0.1)', 
+                      color: '#38bdf8', 
+                      border: '1px solid rgba(56, 189, 248, 0.2)',
+                      fontSize: '0.78rem', 
+                      padding: '3px 10px', 
+                      borderRadius: '50px', 
+                      fontWeight: 'bold',
+                      whiteSpace: 'nowrap',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}>
+                      👥 {memberCount} tag
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '10px', flexShrink: 0 }}>
                     <button onClick={() => startEdit(c.id, c.name)} style={{ background: '#3b82f620', color: '#3b82f6', border: '1px solid #3b82f640', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Szerkesztés ✏️</button>
                     <button onClick={() => handleDeleteClub(c.id)} style={{ background: '#ef444420', color: '#ef4444', border: 'none', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer' }}>Törlés</button>
                   </div>
