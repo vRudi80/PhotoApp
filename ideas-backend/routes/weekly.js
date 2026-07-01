@@ -1118,7 +1118,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
       await conn.commit();
       res.json({ success: true, savedAs: finalVoteType });
-  } catch (err) {
+} catch (err) {
   // 🎯 JAVÍTVA: Megvédjük a szervert az összeomlástól egy belső try-catch-el!
   try {
     if (conn) {
@@ -1133,8 +1133,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   if (conn) {
     conn.release();
   }
-}
-);
+});
 
   app.post('/api/weekly/claim-referral', async (req, res) => {
     const { userEmail, referralCode } = req.body;
