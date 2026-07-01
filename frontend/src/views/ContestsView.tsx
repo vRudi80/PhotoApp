@@ -121,28 +121,26 @@ export default function ContestsView(props: ContestsViewProps) {
     return hasPhone && hasAddress;
   }, [props.currentDbUser]);
 
-// 🎯 KULCSFONTOSSÁGÚ JAVÍTÁS: Biztonságos szűrőmotor a hookok UTÁN.
-  // Ha a tag 'pending' vagy nincs klubja, a zárt klubpályázatokat láthatatlanná tesszük!
+// Biztonsági változók a klubtagság állapotához
+  const isPending = props.currentDbUser?.club_role === 'pending';
+  const hasNoActiveClub = !props.currentDbUser?.club_name || isPending;
+
+  // 🎯 Biztonságos szűrőmotor a zárt klubpályázatok elrejtésére
   const secureContests = useMemo(() => {
     if (!Array.isArray(props.filteredContests)) return [];
-    
-    const isPending = props.currentDbUser?.club_role === 'pending';
-    const hasNoActiveClub = !props.currentDbUser?.club_name || isPending;
 
     return props.filteredContests.filter(contest => {
-      // Ha számszerű ID alapján van korlátozva
       if (contest.restricted_club_id && Number(contest.restricted_club_id) !== 0) {
         if (hasNoActiveClub) return false;
         if (Number(props.currentDbUser?.club_id) !== Number(contest.restricted_club_id)) return false;
       }
-      // Ha szöveges klubnév alapján van korlátozva
       if (contest.restricted_club && contest.restricted_club.trim() !== '') {
         if (hasNoActiveClub) return false;
         if (props.currentDbUser?.club_name !== contest.restricted_club) return false;
       }
       return true;
     });
-  }, [props.filteredContests, props.currentDbUser]);
+  }, [props.filteredContests, props.currentDbUser, hasNoActiveClub]);
   // ====================================================================
   // 📜 OKLEVÉL GENERÁLÓ LOGIKA
   // ====================================================================
