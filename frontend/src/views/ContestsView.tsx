@@ -503,7 +503,7 @@ export default function ContestsView(props: ContestsViewProps) {
         <div style={{ color: '#94a3b8', background: '#1e293b', padding: '30px', borderRadius: '16px', textAlign: 'center', border: '1px solid #334155' }}>{t('contEmptyList')}</div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
-          {props.filteredContests.map(contest => {
+          {secureContests.map(contest => {
             const now = new Date();
             const start = contest.start_date ? new Date(contest.start_date) : new Date(0);
             const end = contest.end_date ? new Date(contest.end_date) : new Date(0);
