@@ -121,7 +121,7 @@ export default function ContestsView(props: ContestsViewProps) {
     return hasPhone && hasAddress;
   }, [props.currentDbUser]);
 
-// Biztonsági változók a klubtagság állapotához
+  // Biztonsági változók a klubtagság állapotához
   const isPending = props.currentDbUser?.club_role === 'pending';
   const hasNoActiveClub = !props.currentDbUser?.club_name || isPending;
 
@@ -141,6 +141,7 @@ export default function ContestsView(props: ContestsViewProps) {
       return true;
     });
   }, [props.filteredContests, props.currentDbUser, hasNoActiveClub]);
+
   // ====================================================================
   // 📜 OKLEVÉL GENERÁLÓ LOGIKA
   // ====================================================================
@@ -244,7 +245,7 @@ export default function ContestsView(props: ContestsViewProps) {
   };
 
   // ====================================================================
-  // 📝 MAFOSZ ZSŰRI JEGYZŐKÖNYV GENERÁLÁSA (Javított, intelligens rendező sávval)
+  // 📝 MAFOSZ ZSŰRI JEGYZŐKÖNYV GENERÁLÁSA
   // ====================================================================
   const generateJuryReportPdf = (contest: any, results: any[], contestJury: any[]) => {
     setIsJuryDocCompiling(true);
@@ -266,7 +267,6 @@ export default function ContestsView(props: ContestsViewProps) {
         currentY += 7;
       });
 
-      // Dinamikus szponzor és kiíró kereső motor
       const creatorEmail = contest.proposed_by || contest.master_email || '';
       const creatorUser = props.allUsers.find(u => u.email === creatorEmail);
       const creatorName = creatorUser ? creatorUser.name : '';
@@ -274,7 +274,6 @@ export default function ContestsView(props: ContestsViewProps) {
       const targetSponsorId = contest.sponsor_club_id || contest.sponsorClubId;
       const sponsorClubObj = props.clubs.find(c => Number(c.id) === Number(targetSponsorId));
 
-      // 🎯 JAVÍTVA: Intelligens kiíró meghatározás (Zártkörű klub név -> Szponzor klub név -> Felhasználó neve)
       const organizerName = contest.restricted_club || (sponsorClubObj ? sponsorClubObj.name : '') || creatorName || 'Országos Pályázati Bizottság';
 
       doc.text(fixHu("Pályázat kiírója / Rendező: " + organizerName), 20, currentY);
@@ -504,9 +503,40 @@ export default function ContestsView(props: ContestsViewProps) {
       <h2 style={{ fontSize: '2rem', marginBottom: '20px', color: '#f8fafc', fontWeight: '900', letterSpacing: '-0.5px' }}>
         {getHeaderMainTitle()}
       </h2>
+
+      {/* 🎯 ÚJ SZERKEZETI MODUL: DINAMIKUS STÁTUSZ FIGYELMEZTETŐ BANNER A NYÍLT / ZÁRT PÁLYÁZATOKHOZ */}
+      {hasNoActiveClub && props.activeTab !== 'admin_contests' && props.activeTab !== 'contests_closed' && (
+        <div style={{ 
+          background: isPending ? 'rgba(245, 158, 11, 0.05)' : 'rgba(56, 189, 248, 0.05)', 
+          borderLeft: isPending ? '4px solid #f59e0b' : '4px solid #38bdf8', 
+          padding: '16px 20px', 
+          borderRadius: '0 12px 12px 0', 
+          marginBottom: '25px', 
+          fontSize: '0.92rem', 
+          color: '#cbd5e1', 
+          lineHeight: '1.6',
+          boxShadow: '0 4px 15px rgba(0,0,0,0.15)'
+        }}>
+          {isPending ? (
+            <span>
+              ⏳ <b>{lang === 'en' ? 'Membership Pending:' : 'Tagfelvételi kérelmed jóváhagyásra vár:'}</b>{' '}
+              {lang === 'en'
+                ? 'Private club-exclusive contests are hidden until the club leader approves your request. You can participate in all open public contests in the meantime!'
+                : 'A zártkörű, klub-exkluzív pályázatok rejtve maradnak, amíg a klubvezetőd el nem fogadja a jelentkezésedet. A nyílt, országos kiírásokon azonban addig is zavartalanul indulhatsz!'}
+            </span>
+          ) : (
+            <span>
+              💡 <b>{lang === 'en' ? 'Independent Photographer Mode:' : 'Szabadúszó / Független fotós státusz:'}</b>{' '}
+              {lang === 'en'
+                ? 'You are not assigned to any photo club, so you can only see open public contests. To unlock club-restricted challenges, join a club on the Profile page!'
+                : 'Mivel nem vagy tagja egyetlen fotóklubnak sem, jelenleg kizárólag a nyilvános, országos kiírásokat látod. Ha egy fotóklub belső, zártkörű pályázatain is elindulnál, csatlakozz hozzájuk a Profil oldalon!'}
+            </span>
+          )}
+        </div>
+      )}
       
       {/* PÁLYÁZATOK LISTÁJA */}
-      {props.filteredContests.length === 0 ? (
+      {secureContests.length === 0 ? (
         <div style={{ color: '#94a3b8', background: '#1e293b', padding: '30px', borderRadius: '16px', textAlign: 'center', border: '1px solid #334155' }}>{t('contEmptyList')}</div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
@@ -598,7 +628,7 @@ export default function ContestsView(props: ContestsViewProps) {
                     <div style={{ background: '#0f172a', padding: '20px', borderRadius: '16px', border: '1px solid #8b5cf640' }}>
                       <h4 style={{marginTop: 0, color: '#a78bfa', fontSize: '1.2rem', marginBottom: '15px'}}>{t('juryManageTitle')}</h4>
                       <div style={{display: 'flex', gap: '10px', marginBottom: '15px', flexWrap: 'wrap'}}>
-                        <select value={props.selectedJuryEmail} onChange={e => props.setSelectedJuryEmail(v => props.setSelectedJuryEmail(e.target.value))} style={{...inputStyle, marginBottom: 0, flex: '1 1 200px'}}>
+                        <select value={props.selectedJuryEmail} onChange={e => props.setSelectedJuryEmail(e.target.value)} style={{...inputStyle, marginBottom: 0, flex: '1 1 200px'}}>
                           <option value="">{t('juryManageSelectPlaceholder')}</option>
                           {props.allUsers.filter(u => !contestJury.some(j => j.user_email === u.email)).map(u => (<option key={u.email} value={u.email}>{u.name} ({u.email})</option>))}
                         </select>
@@ -693,7 +723,7 @@ export default function ContestsView(props: ContestsViewProps) {
                                   type="number" 
                                   placeholder="Pl.: 24" 
                                   value={props.editCategorySettings[cat]?.acceptanceScore || ''} 
-                                  onChange={e => props.editCategorySettings[cat] ? props.setEditCategorySettings({...props.editCategorySettings, [cat]: { ...props.editCategorySettings[cat], acceptanceScore: e.target.value ? Number(e.target.value) : '' }}) : props.setEditCategorySettings({...props.editCategorySettings, [cat]: { acceptanceScore: e.target.value ? Number(e.target.value) : '' }})}
+                                  onChange={e => props.editCategorySettings[cat] ? props.setEditCategorySettings({...props.editCategorySettings, [cat]: { ...props.editCategorySettings[cat], acceptanceScore: e.target.value ? Number(e.target.value) : '' }}) : props.editCategorySettings({...props.editCategorySettings, [cat]: { acceptanceScore: e.target.value ? Number(e.target.value) : '' }})}
                                   style={{...inputStyle, marginBottom: 0, marginTop: '5px'}} 
                                 />
                               </div>
