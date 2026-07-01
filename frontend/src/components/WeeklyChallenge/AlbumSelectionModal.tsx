@@ -218,7 +218,6 @@ export default function AlbumSelectionModal({
         formData.append('userEmail', user?.email || '');
         formData.append('topicId', String(topic?.id || ''));
         formData.append('userName', user?.name || user?.email || 'Anonim');
-        formData.append('title', previewPhoto.title || `Foto_${Date.now()}`);
         formData.append('camera', previewPhoto.exif?.camera || '-');
         formData.append('lens', previewPhoto.exif?.lens || '-');
         formData.append('shutter', previewPhoto.exif?.shutter || '-');
@@ -243,22 +242,29 @@ export default function AlbumSelectionModal({
         } else {
           const endpoint = albumModalMode === 'upload' ? 'upload-existing' : 'swap-existing';
           
-          const urlFallbackTitle = previewPhoto.file_url ? previewPhoto.file_url.substring(previewPhoto.file_url.lastIndexOf('/') + 1).replace(/\.[^/.]+$/, "") : `Asset_${Date.now()}`;
-          const finalAssetTitle = previewPhoto.title || urlFallbackTitle;
-
-          // 🎯 JAVÍTVA: A meglévő kép adatait is FormData objektumba csomagoljuk JSON helyett!
-          // Ez garantálja, hogy a backend routerén lévő összes feltöltő motor hiba nélkül fel tudja dolgozni.
-          const existingFormData = new FormData();
-          existingFormData.append('topicId', String(topic?.id || 0));
-          existingFormData.append('userEmail', user?.email || '');
-          existingFormData.append('userName', user?.name || 'Anonim');
-          existingFormData.append('fileUrl', previewPhoto.file_url || '');
-          existingFormData.append('file_url', previewPhoto.file_url || '');
-          existingFormData.append('title', finalAssetTitle);
+          // 🎯 JAVÍTVA: Golyóálló, kétirányú szuper-payload összeállítása JSON formátumban.
+          // Minden létező adatbázis oszlopnevet elküldünk tevepúpos és aláhúzott módon is, az összes EXIF adattal együtt!
+          const jsonPayload = {
+            topicId: topic?.id || 0,
+            topic_id: topic?.id || 0,
+            userEmail: user?.email || '',
+            user_email: user?.email || '',
+            userName: user?.name || user?.email || 'Anonim',
+            user_name: user?.name || user?.email || 'Anonim',
+            fileUrl: previewPhoto.file_url || '',
+            file_url: previewPhoto.file_url || '',
+            camera: previewPhoto.exif?.camera || '-',
+            lens: previewPhoto.exif?.lens || '-',
+            shutter: previewPhoto.exif?.shutter || '-',
+            iso: previewPhoto.exif?.iso || '-',
+            aperture: previewPhoto.exif?.aperture || '-',
+            software: previewPhoto.exif?.software || '-'
+          };
 
           const res = await fetch(`${BACKEND_URL}/api/weekly/${endpoint}`, {
             method: 'POST',
-            body: existingFormData // 👈 Nem küldünk Content-Type fejlécet, a böngésző automatikusan beállítja a multipart határt!
+            headers: { 'Content-Type': 'application/json' }, // 👈 Visszaállítva a tiszta JSON fejléc
+            body: JSON.stringify(jsonPayload)
           });
           
           if (res.ok) {
@@ -390,13 +396,20 @@ export default function AlbumSelectionModal({
                     return (
                       <div 
                         key={p.id || idx} 
+                        // 🎯 JAVÍTVA: Közvetlenül kimentjük az albumfotó meglévő EXIF adatait a photo_users táblából
                         onClick={() => setPreviewPhoto({
                           isLocal: false,
                           file_url: p.file_url,
-                          title: p.title || '',
                           isPastMatch: !!pastMatch,
                           pastMatchId: pastMatch ? pastMatch.id : null,
-                          exif: p.camera ? { camera: p.camera, lens: p.lens || '-', shutter: p.shutter || '-', iso: p.iso || '-' } : null
+                          exif: {
+                            camera: p.camera || '-',
+                            lens: p.lens || '-',
+                            shutter: p.shutter || '-',
+                            iso: p.iso ? String(p.iso) : '-',
+                            aperture: p.aperture || '-',
+                            software: p.software || '-'
+                          }
                         })}
                         style={{ 
                           background: '#1e293b', borderRadius: '14px', overflow: 'hidden', 
