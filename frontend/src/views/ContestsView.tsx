@@ -5,20 +5,7 @@ import jsPDF from 'jspdf';
 
 // Nyelvi kontextus aktiválása
 import { useLanguage } from '../context/LanguageContext';
-// 🎯 KULCSFONTOSSÁGÚ JAVÍTÁS: Függőben lévő tagok kizárása a házi feladatokból
-  if (!currentDbUser?.club_name || currentDbUser?.club_role === 'pending') {
-    return (
-      <div style={{ textAlign: 'center', padding: '4rem 2rem', background: '#1e293b', borderRadius: '16px', border: '1px solid #334155' }}>
-        <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🔒</div>
-        <h2 style={{ color: '#f59e0b', margin: '0 0 10px 0' }}>
-          {currentDbUser?.club_role === 'pending' ? 'Jelentkezésed jóváhagyásra vár' : 'Nincs klubtagságod'}
-        </h2>
-        <p style={{ color: '#94a3b8', fontSize: '1.1rem' }}>
-          A klub belső fotós feladatainak eléréséhez és a képleadásokhoz meg kell várnod a vezető hivatalos visszaigazolását.
-        </p>
-      </div>
-    );
-  }
+
 interface ContestsViewProps {
   activeTab: string;
   user: any;
@@ -105,7 +92,20 @@ interface ContestsViewProps {
   contestPayments: any[];
   handlePayContestFee: (contestId: number) => void;
 }
-
+// 🎯 KULCSFONTOSSÁGÚ JAVÍTÁS: Függőben lévő tagok kizárása a házi feladatokból
+  if (!currentDbUser?.club_name || currentDbUser?.club_role === 'pending') {
+    return (
+      <div style={{ textAlign: 'center', padding: '4rem 2rem', background: '#1e293b', borderRadius: '16px', border: '1px solid #334155' }}>
+        <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🔒</div>
+        <h2 style={{ color: '#f59e0b', margin: '0 0 10px 0' }}>
+          {currentDbUser?.club_role === 'pending' ? 'Jelentkezésed jóváhagyásra vár' : 'Nincs klubtagságod'}
+        </h2>
+        <p style={{ color: '#94a3b8', fontSize: '1.1rem' }}>
+          A klub belső fotós feladatainak eléréséhez és a képleadásokhoz meg kell várnod a vezető hivatalos visszaigazolását.
+        </p>
+      </div>
+    );
+  }
 export default function ContestsView(props: ContestsViewProps) {
   const inputStyle = { width: '100%', padding: '12px', marginBottom: '12px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '10px', boxSizing: 'border-box' as const, fontSize: '0.95rem', outline: 'none' };
 
