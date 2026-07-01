@@ -193,10 +193,13 @@ export default function AlbumSelectionModal({
         }
       } catch (compressErr) { console.error("Tömörítés kihagyva."); }
 
+      const generatedTitle = rawFile.name.replace(/\.[^/.]+$/, "");
+
       setPreviewPhoto({
         isLocal: true,
         file: finalFile,
         file_url: URL.createObjectURL(finalFile),
+        title: generatedTitle,
         exif: { camera, lens, shutter, iso, aperture, software }
       });
       setIsLocalProcessing(false);
@@ -215,6 +218,7 @@ export default function AlbumSelectionModal({
         formData.append('userEmail', user?.email || '');
         formData.append('topicId', String(topic?.id || ''));
         formData.append('userName', user?.name || user?.email || 'Anonim');
+        formData.append('title', previewPhoto.title || `Foto_${Date.now()}`);
         formData.append('camera', previewPhoto.exif?.camera || '-');
         formData.append('lens', previewPhoto.exif?.lens || '-');
         formData.append('shutter', previewPhoto.exif?.shutter || '-');
@@ -239,17 +243,22 @@ export default function AlbumSelectionModal({
         } else {
           const endpoint = albumModalMode === 'upload' ? 'upload-existing' : 'swap-existing';
           
-          // 🎯 JAVÍTVA: Egyszerre elküldjük camelCase és snake_case formátumban is a linket a golyóálló kompatibilitásért!
+          const urlFallbackTitle = previewPhoto.file_url ? previewPhoto.file_url.substring(previewPhoto.file_url.lastIndexOf('/') + 1).replace(/\.[^/.]+$/, "") : `Asset_${Date.now()}`;
+          const finalAssetTitle = previewPhoto.title || urlFallbackTitle;
+
+          // 🎯 JAVÍTVA: A meglévő kép adatait is FormData objektumba csomagoljuk JSON helyett!
+          // Ez garantálja, hogy a backend routerén lévő összes feltöltő motor hiba nélkül fel tudja dolgozni.
+          const existingFormData = new FormData();
+          existingFormData.append('topicId', String(topic?.id || 0));
+          existingFormData.append('userEmail', user?.email || '');
+          existingFormData.append('userName', user?.name || 'Anonim');
+          existingFormData.append('fileUrl', previewPhoto.file_url || '');
+          existingFormData.append('file_url', previewPhoto.file_url || '');
+          existingFormData.append('title', finalAssetTitle);
+
           const res = await fetch(`${BACKEND_URL}/api/weekly/${endpoint}`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              topicId: topic?.id || 0, 
-              userEmail: user?.email || '', 
-              userName: user?.name || 'Anonim', 
-              fileUrl: previewPhoto.file_url,
-              file_url: previewPhoto.file_url // 👈 ÚJ BIZTONSÁGI KULCS SNEK_CASE STÍLUSBAN
-            })
+            body: existingFormData // 👈 Nem küldünk Content-Type fejlécet, a böngésző automatikusan beállítja a multipart határt!
           });
           
           if (res.ok) {
@@ -384,6 +393,7 @@ export default function AlbumSelectionModal({
                         onClick={() => setPreviewPhoto({
                           isLocal: false,
                           file_url: p.file_url,
+                          title: p.title || '',
                           isPastMatch: !!pastMatch,
                           pastMatchId: pastMatch ? pastMatch.id : null,
                           exif: p.camera ? { camera: p.camera, lens: p.lens || '-', shutter: p.shutter || '-', iso: p.iso || '-' } : null
@@ -466,7 +476,6 @@ export default function AlbumSelectionModal({
           100% { transform: rotate(360deg); }
         }
       `}</style>
-
     </div>
   );
 }
