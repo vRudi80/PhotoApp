@@ -36,7 +36,7 @@ const compressImageOnClient = (file: File): Promise<File> => {
             }, 'image/jpeg', 0.82);
           } catch (e) { resolve(file); }
         };
-        img.onerror = () => resolve(file);
+        img.onload = () => resolve(file);
       };
       reader.onerror = () => resolve(file);
     } catch (err) { resolve(file); }
@@ -81,13 +81,13 @@ interface AlbumSelectionModalProps {
   fetchCurrentTopic: (isSilent: boolean) => void;
   handleSwapBackSubmit: (id: number) => void;
   handleSelectPhotoForSwap: (url: string) => void;
-  myEntry?: any; // 🎯 ÚJ: Megkapja az aktuálisan bent lévő nevezést is propként
+  myEntry?: any;
 }
 
 export default function AlbumSelectionModal({
   isOpen, onClose, albumModalMode, swapAlbumPhotos, myPastEntries, topic, user, isLoading,
   setIsUploading, setIsSwapping, fetchCurrentTopic, handleSwapBackSubmit, handleSelectPhotoForSwap,
-  myEntry // 🎯 ÚJ
+  myEntry
 }: AlbumSelectionModalProps) {
   
   const { t } = useLanguage();
@@ -96,7 +96,6 @@ export default function AlbumSelectionModal({
   const [previewPhoto, setPreviewPhoto] = useState<any | null>(null);
   const [isLocalProcessing, setIsLocalProcessing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
   const [visibleCount, setVisibleCount] = useState(12);
 
   useEffect(() => {
@@ -127,7 +126,6 @@ export default function AlbumSelectionModal({
     return () => window.removeEventListener('keydown', preventEscClose, true);
   }, [isOpen]);
 
-  // 🎯 ÚJ JAVÍTVA: Kiszűrjük az aktuális képet, ha csere módban vagyunk
   const filteredAlbumPhotos = useMemo(() => {
     if (!Array.isArray(swapAlbumPhotos)) return [];
     if (albumModalMode === 'swap' && myEntry?.file_url) {
@@ -206,6 +204,7 @@ export default function AlbumSelectionModal({
     }
   };
 
+  // 🎯 KULCSFONTOSSÁGÚ JAVÍTÁS: Teljesen biztonságossá tettük az objektumok elérését
   const handleConfirmAction = async () => {
     if (!previewPhoto) return;
     setIsSubmitting(true);
@@ -214,15 +213,16 @@ export default function AlbumSelectionModal({
       if (previewPhoto.isLocal) {
         const formData = new FormData();
         formData.append('photo', previewPhoto.file);
-        formData.append('userEmail', user.email);
-        formData.append('topicId', topic.id.toString());
-        formData.append('userName', user.name || user.email);
-        formData.append('camera', previewPhoto.exif.camera);
-        formData.append('lens', previewPhoto.exif.lens);
-        formData.append('shutter', previewPhoto.exif.shutter);
-        formData.append('iso', previewPhoto.exif.iso);
-        formData.append('aperture', previewPhoto.exif.aperture);
-        formData.append('software', previewPhoto.exif.software);
+        // Opcionális láncolások (?.) és fallback sztringek beépítése a crash ellen
+        formData.append('userEmail', user?.email || '');
+        formData.append('topicId', String(topic?.id || ''));
+        formData.append('userName', user?.name || user?.email || 'Anonim');
+        formData.append('camera', previewPhoto.exif?.camera || '-');
+        formData.append('lens', previewPhoto.exif?.lens || '-');
+        formData.append('shutter', previewPhoto.exif?.shutter || '-');
+        formData.append('iso', previewPhoto.exif?.iso || '-');
+        formData.append('aperture', previewPhoto.exif?.aperture || '-');
+        formData.append('software', previewPhoto.exif?.software || '-');
 
         const endpoint = albumModalMode === 'upload' ? 'upload' : 'swap';
         const res = await fetch(`${BACKEND_URL}/api/weekly/${endpoint}`, { method: 'POST', body: formData });
@@ -230,7 +230,8 @@ export default function AlbumSelectionModal({
           alert(t('msgUploadSuccess') || "Sikeres mentés!");
           cleanAndClose(true);
         } else {
-          const err = await res.json(); alert(err.error || "Hiba");
+          const err = await res.json().catch(() => ({})); 
+          alert(err.error || "Szerveroldali hiba a kép mentésekor.");
           setIsSubmitting(false);
         }
       } else {
@@ -242,19 +243,25 @@ export default function AlbumSelectionModal({
           const res = await fetch(`${BACKEND_URL}/api/weekly/${endpoint}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ topicId: topic.id, userEmail: user.email, userName: user.name, fileUrl: previewPhoto.file_url })
+            body: JSON.stringify({ 
+              topicId: topic?.id || 0, 
+              userEmail: user?.email || '', 
+              userName: user?.name || 'Anonim', 
+              fileUrl: previewPhoto.file_url 
+            })
           });
           if (res.ok) {
             alert(t('msgUploadSuccess') || "Sikeres rögzítés!");
             cleanAndClose(true);
           } else {
-            const err = await res.json(); alert(err.error);
+            const err = await res.json().catch(() => ({})); 
+            alert(err.error || "Hiba az elmentett kép kiválasztásakor.");
             setIsSubmitting(false);
           }
         }
       }
     } catch (e) {
-      alert("Hálózati hiba!");
+      alert("Kritikus hálózati hiba lépett fel a küldés során.");
       setIsSubmitting(false);
     }
   };
@@ -269,7 +276,6 @@ export default function AlbumSelectionModal({
 
   if (!isOpen) return null;
 
-  // 🎯 JAVÍTVA: A szűrt listából szeleteljük a megjelenítendő elemeket
   const renderedPhotos = filteredAlbumPhotos.slice(0, visibleCount);
 
   return (
@@ -354,7 +360,7 @@ export default function AlbumSelectionModal({
                   
                   {/* TALLÓZÓ REKASZ */}
                   <div 
-                    style={{ position: 'relative', background: '#0f172a', borderRadius: '14px', border: '2px dashed #f59e0b50', height: '153px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px', overflow: 'hidden' }}
+                    style={{ position: 'relative', background: '#0f172a', borderRadius: '14px', border: '2px dashed #f59e0b50', height: '153px', display: 'flex', flexDirection: 'column', padding: '0 10px', alignItems: 'center', justifyContent: 'center', gap: '10px', overflow: 'hidden' }}
                     className="upload-overlay-card-wrapper"
                   >
                     <input 
@@ -364,7 +370,7 @@ export default function AlbumSelectionModal({
                       style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', zIndex: 10 }} 
                     />
                     <div style={{ fontSize: '1.8rem' }}>📁</div>
-                    <span style={{ color: '#fbbf24', fontSize: '0.78rem', fontWeight: 'bold', textAlign: 'center', padding: '0 10px' }}>Új kép tallózása</span>
+                    <span style={{ color: '#fbbf24', fontSize: '0.78rem', fontWeight: 'bold', textAlign: 'center' }}>Új kép tallózása</span>
                   </div>
 
                   {/* HALADÓ RÁCS */}
@@ -406,7 +412,6 @@ export default function AlbumSelectionModal({
                   })}
                 </div>
 
-                {/* Barátságos üres állapot visszajelzés az új tagoknak */}
                 {renderedPhotos.length === 0 && (
                   <div style={{ textAlign: 'center', color: '#64748b', padding: '35px 15px', fontSize: '0.9rem', fontStyle: 'italic', lineHeight: '1.5', background: 'rgba(255,255,255,0.02)', borderRadius: '16px', marginTop: '15px', border: '1px dashed rgba(255,255,255,0.05)' }}>
                     📸 Még nincs kép a portfóliódban.<br />
@@ -414,7 +419,6 @@ export default function AlbumSelectionModal({
                   </div>
                 )}
 
-                {/* INTERAKTÍV TÖBBI BETÖLTÉSE GOMB */}
                 {filteredAlbumPhotos.length > visibleCount && (
                   <div 
                     onClick={triggerLoadMore}
@@ -426,7 +430,6 @@ export default function AlbumSelectionModal({
                   </div>
                 )}
 
-                {/* BEZÁRÁS GOMB */}
                 <div style={{ marginTop: '25px', borderTop: '1px solid #223147', paddingTop: '15px' }}>
                   <button onClick={() => cleanAndClose(false)} style={{ width: '100%', padding: '12px', borderRadius: '12px', background: '#1e293b', color: '#f43f5e', border: '1px solid #be123c40', fontWeight: 'bold', cursor: 'pointer' }}>
                     Mégse / Bezárás
@@ -438,31 +441,29 @@ export default function AlbumSelectionModal({
         )}
       </div>
 
-       <style>{`
-      .modal-scroll-zone {
-        overflow-y: auto !important;
-        overscroll-behavior: contain !important;
-        -webkit-overflow-scrolling: touch !important;
-      }
-      
-      .modal-data-spinner {
-        width: 40px;
-        height: 40px;
-        border: 4px solid rgba(56, 189, 248, 0.1);
-        border-left-color: #38bdf8;
-        border-radius: 50%;
-        animation: modalFloatCircle 0.8s linear infinite;
-      }
-      .upload-overlay-card-wrapper:hover {
-        background: #1e293b40 !important;
-        border-color: #f59e0b !important;
-      }
-      @keyframes modalFloatCircle {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-      }
-    `}</style>
-
+      <style>{`
+        .modal-scroll-zone {
+          overflow-y: auto !important;
+          overscroll-behavior: contain !important;
+          -webkit-overflow-scrolling: touch !important;
+        }
+        .modal-data-spinner {
+          width: 40px;
+          height: 40px;
+          border: 4px solid rgba(56, 189, 248, 0.1);
+          border-left-color: #38bdf8;
+          border-radius: 50%;
+          animation: modalFloatCircle 0.8s linear infinite;
+        }
+        .upload-overlay-card-wrapper:hover {
+          background: #1e293b40 !important;
+          border-color: #f59e0b !important;
+        }
+        @keyframes modalFloatCircle {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 }
