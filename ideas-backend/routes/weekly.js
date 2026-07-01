@@ -1118,22 +1118,23 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
       await conn.commit();
       res.json({ success: true, savedAs: finalVoteType });
-} catch (err) {
-  // 🎯 JAVÍTVA: Megvédjük a szervert az összeomlástól egy belső try-catch-el!
-  try {
-    if (conn) {
-      await conn.rollback();
+    } catch (err) {
+      try {
+        if (conn) {
+          await conn.rollback();
+        }
+      } catch (rollbackErr) {
+        console.warn("⚠️ A rollback sikertelen (a kapcsolat valószínűleg már megszakadt):", rollbackErr.message);
+      }
+      
+      res.status(500).json({ error: err.message });
+    } {
+      if (conn) {
+        conn.release();
+      }
     }
-  } catch (rollbackErr) {
-    console.warn("⚠️ A rollback sikertelen (a kapcsolat valószínűleg már megszakadt):", rollbackErr.message);
-  }
-  
-  res.status(500).json({ error: err.message });
-} finally {
-  if (conn) {
-    conn.release();
-  }
-};
+  }); // 🎯 JAVÍTVA: Most már szabályosan le van zárva az Express router kérése!
+
 
   app.post('/api/weekly/claim-referral', async (req, res) => {
     const { userEmail, referralCode } = req.body;
