@@ -344,14 +344,15 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
           </form>
         </div>
 
-        {/* JOBB OSZLOP: KLUBTAGSÁG ÉS MŰSZAKI METRIKÁK */}
+       {/* JOBB OSZLOP: KLUBTAGSÁG ÉS MŰSZAKI METRIKÁK */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
           
           {/* 🏛️ MODUL: FOTÓKLUB TAGSÁGI ADATLAP */}
           <div style={{ backgroundColor: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #334155' }}>
             <h3 style={{ margin: '0 0 15px 0', color: '#38bdf8', fontSize: '1.2rem', fontWeight: 'bold' }}>🏛️ {t('profClubTitle')}</h3>
             
-            {user?.club_name ? (
+            {/* 🎯 JAVÍTVA: Csak akkor mutatjuk a teljes tagsági kártyát, ha a klub_role NEM pending! */}
+            {user?.club_name && user?.club_role !== 'pending' ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', background: '#0f172a', padding: '15px', borderRadius: '14px', border: '1px solid rgba(56, 189, 248, 0.15)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
                   <span style={{ color: '#64748b' }}>Fotóklub:</span>
@@ -365,12 +366,13 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', borderTop: '1px dashed #223147', paddingTop: '8px', marginTop: '4px' }}>
                   <span style={{ color: '#64748b' }}>Tagság ideje:</span>
                   <span style={{ color: '#10b981', fontWeight: 'bold' }}>
-                    {membershipStart || 'Nincs rörgzítve'} — {membershipEnd || 'Folyamatos'}
+                    {membershipStart || 'Nincs rögzítve'} — {membershipEnd || 'Folyamatos'}
                   </span>
                 </div>
               </div>
             ) : (
               <div>
+                {/* Itt most már tökéletesen lefut a függőben lévő kérelem üzenete! */}
                 <div style={{ background: '#0f172a', padding: '12px', borderRadius: '10px', color: '#94a3b8', fontSize: '0.88rem', marginBottom: '15px', fontStyle: 'italic' }}>
                   {getClubStatusMessage()}
                 </div>
