@@ -945,39 +945,72 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
   
+// ====================================================================
+  // 📸 JAVÍTOTT & BIZTONSÁGOS NEVEZÉS MEGLÉVŐ GALÉRIÁS KÉPPEL
+  // ====================================================================
   app.post('/api/weekly/upload-existing', async (req, res) => {
-    const { topicId, userEmail, userName, fileUrl } = req.body;
-    if (!topicId || !userEmail || !fileUrl) return res.status(400).json({ error: 'Hiányzó adatok!' });
+    // 🎯 Biztosítjuk, hogy a backend a tevepúpos és aláhúzott kulcsokat is megértse a frontendről
+    const topicId = req.body.topicId || req.body.topic_id;
+    const userEmail = req.body.userEmail || req.body.user_email;
+    const userName = req.body.userName || req.body.user_name;
+    const fileUrl = req.body.fileUrl || req.body.file_url;
+
+    if (!topicId || !userEmail || !fileUrl) {
+      return res.status(400).json({ error: 'Hiányzó adatok!' });
+    }
     
-    const ipAddress = req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : (req.ip || req.socket.remoteAddress);
+    // IP cím feloldása (Megtartva!)
+    const ipAddress = req.headers['x-forwarded-for'] 
+      ? req.headers['x-forwarded-for'].split(',')[0].trim() 
+      : (req.ip || req.socket.remoteAddress);
 
     try {
+      // 1. Csatabíró ellenőrzés (Megtartva!)
       const [topicCheck] = await pool.query('SELECT master_email FROM weekly_topics WHERE id = ?', [topicId]);
       if (topicCheck[0] && topicCheck[0].master_email === userEmail) {
         return res.status(400).json({ error: 'Csatabíróként nem nevezhetsz a saját csatádra!' });
       }
 
-      const [existing] = await pool.query('SELECT id FROM weekly_entries WHERE topic_id = ? AND user_email = ?', [topicId, userEmail]);
-      if (existing.length > 0) return res.status(400).json({ error: 'Már neveztél erre a kihívásra!' });
+      // 2. Duplikáció ellenőrzés (Megtartva!)
+      const [existing] = await pool.query('SELECT id FROM weekly_entries WHERE topic_id = ? AND user_email = ? AND is_active = 1', [topicId, userEmail]);
+      if (existing.length > 0) {
+        return res.status(400).json({ error: 'Már neveztél erre a kihívásra!' });
+      }
 
+      // 3. EXIF adatok átemelése a galéria táblából (Megtartva!)
       const [photoExif] = await pool.query(
         "SELECT camera, lens, shutter, iso, aperture, software FROM user_photos WHERE user_email = ? AND file_url = ? LIMIT 1",
         [userEmail, fileUrl]
       );
       const exif = photoExif[0] || {};
 
+      // 4. Biztonságos beszúrás a táblád pontos oszlopai alapján
+      // 👑 JAVÍTVA: Az utolsó két paraméter most már helyesen az 'exif.' objektumból olvassa ki az adatokat!
       await pool.query(
         `INSERT INTO weekly_entries 
          (topic_id, user_email, user_name, file_url, drive_file_id, swapped, ip_address, is_active, likes_count, views_count, camera, lens, shutter, iso, aperture, software) 
          VALUES (?, ?, ?, ?, '', 0, ?, 1, 0, 0, ?, ?, ?, ?, ?, ?)`, 
-        [topicId, userEmail, userName, fileUrl, ipAddress, exif.camera || null, exif.lens || null, exif.shutter || null, exif.iso || null, aperture || null, software || null]
+        [
+          topicId, 
+          userEmail, 
+          userName, 
+          fileUrl, 
+          ipAddress, 
+          exif.camera || null, 
+          exif.lens || null, 
+          exif.shutter || null, 
+          exif.iso || null, 
+          exif.aperture || null, // 👈 Javítva!
+          exif.software || null  // 👈 Javítva!
+        ]
       );
+
       res.json({ success: true });
     } catch (err) {
+      console.error("❌ Kritikus hiba az upload-existing végponton:", err.message);
       res.status(500).json({ error: err.message });
     }
   });
-
   app.post('/api/weekly/swap-back', async (req, res) => {
     const { topicId, userEmail, entryId } = req.body;
     const conn = await pool.getConnection();
