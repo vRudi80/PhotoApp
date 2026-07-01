@@ -36,7 +36,7 @@ const compressImageOnClient = (file: File): Promise<File> => {
             }, 'image/jpeg', 0.82);
           } catch (e) { resolve(file); }
         };
-        img.onload = () => resolve(file);
+        img.onerror = () => resolve(file);
       };
       reader.onerror = () => resolve(file);
     } catch (err) { resolve(file); }
@@ -204,7 +204,6 @@ export default function AlbumSelectionModal({
     }
   };
 
-  // 🎯 KULCSFONTOSSÁGÚ JAVÍTÁS: Teljesen biztonságossá tettük az objektumok elérését
   const handleConfirmAction = async () => {
     if (!previewPhoto) return;
     setIsSubmitting(true);
@@ -213,7 +212,6 @@ export default function AlbumSelectionModal({
       if (previewPhoto.isLocal) {
         const formData = new FormData();
         formData.append('photo', previewPhoto.file);
-        // Opcionális láncolások (?.) és fallback sztringek beépítése a crash ellen
         formData.append('userEmail', user?.email || '');
         formData.append('topicId', String(topic?.id || ''));
         formData.append('userName', user?.name || user?.email || 'Anonim');
@@ -231,7 +229,7 @@ export default function AlbumSelectionModal({
           cleanAndClose(true);
         } else {
           const err = await res.json().catch(() => ({})); 
-          alert(err.error || "Szerveroldali hiba a kép mentésekor.");
+          alert(err.error || `Szerveroldali hiba (${res.status}) a kép mentésekor.`);
           setIsSubmitting(false);
         }
       } else {
@@ -240,6 +238,8 @@ export default function AlbumSelectionModal({
           cleanAndClose(true);
         } else {
           const endpoint = albumModalMode === 'upload' ? 'upload-existing' : 'swap-existing';
+          
+          // 🎯 JAVÍTVA: Egyszerre elküldjük camelCase és snake_case formátumban is a linket a golyóálló kompatibilitásért!
           const res = await fetch(`${BACKEND_URL}/api/weekly/${endpoint}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -247,15 +247,17 @@ export default function AlbumSelectionModal({
               topicId: topic?.id || 0, 
               userEmail: user?.email || '', 
               userName: user?.name || 'Anonim', 
-              fileUrl: previewPhoto.file_url 
+              fileUrl: previewPhoto.file_url,
+              file_url: previewPhoto.file_url // 👈 ÚJ BIZTONSÁGI KULCS SNEK_CASE STÍLUSBAN
             })
           });
+          
           if (res.ok) {
             alert(t('msgUploadSuccess') || "Sikeres rögzítés!");
             cleanAndClose(true);
           } else {
             const err = await res.json().catch(() => ({})); 
-            alert(err.error || "Hiba az elmentett kép kiválasztásakor.");
+            alert(`Szerver elutasítás (${res.status}): ${err.error || 'A kép formátuma vagy elérése hibás.'}`);
             setIsSubmitting(false);
           }
         }
@@ -464,6 +466,7 @@ export default function AlbumSelectionModal({
           100% { transform: rotate(360deg); }
         }
       `}</style>
+
     </div>
   );
 }
