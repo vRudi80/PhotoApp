@@ -1133,7 +1133,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   if (conn) {
     conn.release();
   }
-});
+};
 
   app.post('/api/weekly/claim-referral', async (req, res) => {
     const { userEmail, referralCode } = req.body;
