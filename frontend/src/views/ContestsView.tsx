@@ -92,6 +92,16 @@ interface ContestsViewProps {
   contestPayments: any[];
   handlePayContestFee: (contestId: number) => void;
 }
+
+export default function ContestsView(props: ContestsViewProps) {
+  const inputStyle = { width: '100%', padding: '12px', marginBottom: '12px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '10px', boxSizing: 'border-box' as const, fontSize: '0.95rem', outline: 'none' };
+
+  const { t, lang } = useLanguage();
+
+  const [isSubmittingVote, setIsSubmittingVote] = useState(false);
+  const [generatingCertId, setGeneratingCertId] = useState<number | null>(null);
+  const [isJuryDocCompiling, setIsJuryDocCompiling] = useState(false);
+  const [isLegalChecked, setIsLegalChecked] = useState(false);
 // 🎯 KULCSFONTOSSÁGÚ JAVÍTÁS: Függőben lévő tagok kizárása a házi feladatokból
   if (!currentDbUser?.club_name || currentDbUser?.club_role === 'pending') {
     return (
@@ -106,16 +116,6 @@ interface ContestsViewProps {
       </div>
     );
   }
-export default function ContestsView(props: ContestsViewProps) {
-  const inputStyle = { width: '100%', padding: '12px', marginBottom: '12px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '10px', boxSizing: 'border-box' as const, fontSize: '0.95rem', outline: 'none' };
-
-  const { t, lang } = useLanguage();
-
-  const [isSubmittingVote, setIsSubmittingVote] = useState(false);
-  const [generatingCertId, setGeneratingCertId] = useState<number | null>(null);
-  const [isJuryDocCompiling, setIsJuryDocCompiling] = useState(false);
-  const [isLegalChecked, setIsLegalChecked] = useState(false);
-
   useEffect(() => {
     setIsSubmittingVote(false);
   }, [props.unvotedEntries, props.currentScore]);
