@@ -15,9 +15,13 @@ export default function ClubNightsView({
   searchedMeetings,
   setActiveVideo
 }: ClubNightsViewProps) {
+
+  // 🎯 JAVÍTVA: Ha nincs klubja, VAGY a tagsága még csak függőben (pending) van, lezárjuk a képernyőt!
+  const isPending = currentDbUser?.club_role === 'pending';
+  const hasNoClub = !currentDbUser?.club_name || isPending;
   return (
     <div>
-      {!currentDbUser?.club_name ? (
+       {hasNoClub ? (
         <div style={{ textAlign: 'center', padding: '4rem 2rem', background: '#1e293b', borderRadius: '16px', border: '1px solid #334155' }}>
           <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🔒</div>
           <h2 style={{ color: '#f59e0b', margin: '0 0 10px 0' }}>Nem vagy klubhoz rendelve</h2>
