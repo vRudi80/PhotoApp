@@ -1118,14 +1118,23 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
       await conn.commit();
       res.json({ success: true, savedAs: finalVoteType });
-    } catch (err) { 
-      await conn.rollback(); 
-      console.error("❌ Kritikus hiba a szavazat feldolgozásakor:", err);
-      res.status(500).json({ error: 'Hiba a szavazat feldolgozásakor.' }); 
-    } finally { 
-      conn.release(); 
+  } catch (err) {
+  // 🎯 JAVÍTVA: Megvédjük a szervert az összeomlástól egy belső try-catch-el!
+  try {
+    if (conn) {
+      await conn.rollback();
     }
-  });
+  } catch (rollbackErr) {
+    console.warn("⚠️ A rollback sikertelen (a kapcsolat valószínűleg már megszakadt):", rollbackErr.message);
+  }
+  
+  res.status(500).json({ error: err.message });
+} finally {
+  if (conn) {
+    conn.release();
+  }
+}
+);
 
   app.post('/api/weekly/claim-referral', async (req, res) => {
     const { userEmail, referralCode } = req.body;
