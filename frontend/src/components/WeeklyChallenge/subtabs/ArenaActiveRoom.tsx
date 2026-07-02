@@ -4,7 +4,7 @@ import { BACKEND_URL } from '../../../utils/constants';
 
 import { useLanguage } from '../../../context/LanguageContext';
 
-// 🎯 ÚJ: Lucide ikonok importálása a professzionális fotós szoftver érzetért
+// Professzionális Lucide ikonok importálása a fotós szoftver érzetért
 import { 
   Clock, 
   Flame, 
@@ -24,7 +24,9 @@ import {
   Zap, 
   Sparkles,
   Layers,
-  Sliders
+  Sliders,
+  BarChart3,
+  Info
 } from 'lucide-react';
 
 // ====================================================================
@@ -431,9 +433,8 @@ export default function ArenaActiveRoom({
                 const scoreB = Number(b.fair_score || b.likes_count || 0);
                 return scoreB - scoreA;
               }).map((actTop, index) => {
-                const isTop3 = index < 3;
                 return (
-                  <div key={actTop.id || index} style={{ display: 'flex', alignItems: 'center', background: '#0f172a', padding: '8px 12px', borderRadius: '6px', border: '1px solid #1e293b' }}>
+                  <div key={actTop.id || index} style={{ display: 'flex', alignItems: 'center', background: '#0f172a', padding: '8px 12px', borderRadius: '6px', border: actTop?.user_email === user?.email ? '1px solid rgba(245,158,11,0.3)' : '1px solid #1e293b' }}>
                     <div style={{ width: '22px', display: 'flex', alignItems: 'center' }}>
                       {index === 0 ? <Crown size={12} color="#fbbf24" fill="#fbbf24" /> :
                        index === 1 ? <Trophy size={12} color="#94a3b8" /> :
@@ -492,7 +493,7 @@ export default function ArenaActiveRoom({
         </div>
       )}
 
-      {/* ── 🎯 BRUTÁLISAN STABIL ASZTALI BENTO GRID STYLING LAYER ── */}
+      {/* ── 🎯 ASZTALI BENTO GRID STYLING LAYER ── */}
       <style>{`
         .arena-main-layout-grid {
           display: grid;
