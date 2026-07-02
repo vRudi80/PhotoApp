@@ -126,8 +126,8 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
           </button>
         </div>
 
-        {/* Játékos profil fejléce – 🎯 JAVÍTVA: justifyValue elírás teljesen kiirtva */}
-        <div style={{ background: '#131b2e', padding: '30px 20px', borderRadius: '8px', border: `1px solid #222f47`, marginBottom: '20px', textAlign: 'center', position: 'relative' }}>
+        {/* Játékos profil fejléce – 🎯 JAVÍTVA: Szabályos string szegély beállítva! */}
+        <div style={{ background: '#131b2e', padding: '30px 20px', borderRadius: '8px', border: '1px solid #222f47', marginBottom: '20px', textAlign: 'center', position: 'relative' }}>
           <div style={{ display: 'flex', marginBottom: '12px', justifyContent: 'center' }}>
             <img 
               src={selectedUser?.avatar_url || silhouetteAvatar} 
