@@ -29,7 +29,8 @@ import {
   Sparkles,
   Layers,
   Info,
-  Star 
+  Star,
+  Share2
 } from 'lucide-react';
 
 interface PastArchiveProps {
