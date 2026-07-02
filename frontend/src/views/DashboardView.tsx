@@ -21,6 +21,8 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
 
   // Memóriából betöltjük a bezárt értesítéseket
   useEffect(() => {
+    document.documentElement.style.backgroundColor = '#0f172a';
+    document.body.style.backgroundColor = '#0f172a';
     const stored = localStorage.getItem('dismissed_alerts');
     if (stored) setDismissedAlerts(JSON.parse(stored));
   }, []);
