@@ -389,23 +389,35 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
 // ====================================================================
-  // ⚔️ CSATATÉR FŐ VÉGPONT – 100% STABIL, KÖZVETLEN ADATBÁZIS ALAPÚ VERZIÓ
+  // ⚔️ CSATATÉR FŐ VÉGPONT – ⏱️ DIAGNOSZTIKAI MÉRŐÓRÁVAL FELSZERELVE
   // ====================================================================
   app.get('/api/weekly/current', async (req, res) => {
     const { userEmail, topicId } = req.query;
     if (!userEmail) return res.status(400).json({ error: 'Hiányzó e-mail cím!' });
 
-    try {
-      // 1. Háttérfolyamatok és lezárt meccsek ellenőrzése
-      await processFinishedChallenges(pool);
+    // 🚀 Diagnosztikai főóra indítása
+    const { performance } = require('perf_hooks');
+    console.log(`\n======================================================`);
+    console.log(`🚀 [DIAGNOSZTIKA] Csatatér lekérés indul: ${userEmail}`);
+    if (topicId) console.log(`🎯 Célzott Szoba ID: ${topicId}`);
+    const startTotal = performance.now();
 
-      // 2. Felhasználói globális metrikák kiszámítása közvetlenül az adatbázisból (Lájkok, győzelmek)
+    try {
+      // ⏱️ LÉPÉS 1 MÉRÉSE: Háttérfolyamatok és lezárt meccsek ellenőrzése
+      const startStep1 = performance.now();
+      await processFinishedChallenges(pool);
+      console.log(`  └─ ⏱️ Lépés 1 (Lezárt futamok ellenőrzése): ${(performance.now() - startStep1).toFixed(2)} ms`);
+
+      // ⏱️ LÉPÉS 2 MÉRÉSE: Globális metrikák (Lájkok, győzelmek kiszámítása)
+      const startStep2 = performance.now();
       const { totalLikes, victories } = await getUserLikesAndVictories(pool, userEmail);
       const userTotalLikes = totalLikes;
       const rankLevel = calculateRankLevel(totalLikes, victories);
       const power = getVotePowerByLevel(rankLevel); 
+      console.log(`  └─ ⏱️ Lépés 2 (Globális lájkok & Győzelmek kiszámítása): ${(performance.now() - startStep2).toFixed(2)} ms`);
 
-      // 3. Joker egyenleg és referál adatok lekérése egyetlen lépésben
+      // ⏱️ LÉPÉS 3 MÉRÉSE: Joker egyenleg és referál adatok lekérése egyetlen lépésben
+      const startStep3 = performance.now();
       const [userRows] = await pool.query('SELECT COALESCE(swap_balance, 0) as swap_balance, referral_code, referred_by FROM photo_users WHERE email = ?', [userEmail]);
       
       let swapBalance = 3;
@@ -421,11 +433,13 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       if (!myReferralCode) {
         myReferralCode = await ensureReferralCode(pool, userEmail);
       }
+      console.log(`  └─ ⏱️ Lépés 3 (Felhasználói fiók adatok lekérése): ${(performance.now() - startStep3).toFixed(2)} ms`);
 
       const mysqlNow = getLocalMySQLNow();
 
-      // ── 🅰️ ÁG: HA A LISTÁT KÉRI LE A FŐOLDAL ──
+      // ── 🅰️ ÁG: HA A LISTÁT KÉRI LE A FŐOLDAL (Nincs konkrét topicId) ──
       if (!topicId) {
+        const startStep4A = performance.now();
         const [activeTopics] = await pool.query(`
           SELECT t.*, u.name AS master_name,
             IF(e.id IS NOT NULL, 1, 0) as hasEntered,
@@ -452,20 +466,17 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
           has_unvoted: Number(t.unvotedEntries || 0) > 0
         }));
 
+        console.log(`  └─ ⏱️ Lépés 4A (Aktív témák listájának lekérése): ${(performance.now() - startStep4A).toFixed(2)} ms`);
+        console.log(`🏁 [DIAGNOSZTIKA] Teljes futási idő: ${(performance.now() - startTotal).toFixed(2)} ms`);
+        console.log(`======================================================\n`);
+
         return res.json({ 
-          activeTopics: mappedTopics, 
-          userTotalLikes, 
-          userVictories: victories, 
-          userPower: power, 
-          swapBalance, 
-          myReferralCode, 
-          referredBy, 
-          masterVotesLeft: 0, 
-          isMaster: false     
+          activeTopics: mappedTopics, userTotalLikes, userVictories: victories, userPower: power, swapBalance, myReferralCode, referredBy, masterVotesLeft: 0, isMaster: false     
         });
       }
 
       // ── 🅱️ ÁG: HA EGY KONKRÉT SZÁMÚ SZOBÁT NYITUNK MEG ──
+      const startStep4B = performance.now();
       const [allTopics] = await pool.query(`
         SELECT t.*, u.name AS master_name,
                (SELECT COUNT(*) FROM weekly_entries we WHERE we.topic_id = t.id AND we.is_active = 1) as totalEntries,
@@ -533,6 +544,10 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         has_unvoted: Number(currentTopic.unvotedEntries || 0) > 0
       };
 
+      console.log(`  └─ ⏱️ Lépés 4B (Konkrét szoba adatok + Komplett rangsor összeállítása): ${(performance.now() - startStep4B).toFixed(2)} ms`);
+      console.log(`🏁 [DIAGNOSZTIKA] Teljes futási idő: ${(performance.now() - startTotal).toFixed(2)} ms`);
+      console.log(`======================================================\n`);
+
       res.json({ 
         topic: structuredTopic, 
         myEntry: myEntries.length > 0 ? myEntries[0] : null, 
@@ -552,7 +567,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       });
 
     } catch (err) { 
-      console.error("❌ Kritikus hiba a current végponton:", err);
+      console.error("❌ Kritikus hiba a current diagnosztikai végponton:", err);
       res.status(500).json({ error: 'Szerveroldali hiba történt a csatatér betöltésekor.' }); 
     }
   });
