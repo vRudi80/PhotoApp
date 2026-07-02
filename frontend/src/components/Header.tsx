@@ -9,7 +9,7 @@ import logoEn from './logo_en2.png';
 // Behozzuk a nyelvi hookot
 import { useLanguage } from '../context/LanguageContext';
 
-// 🎯 ÚJ: Professzionális Lucide ikonok bevezetése (AI-sallangok ellen)
+// Professzionális Lucide ikonok bevezetése (AI-sallangok ellen)
 import { 
   Menu, 
   X, 
@@ -183,7 +183,7 @@ export default function Header({
           }
         }
         
-        /* ── 🎯 JAVÍTVA: ABSORÚT MOBIL RÉTEGELÉS A TORZULÁSOK ELLEN ── */
+        /* ── 🎯 JAVÍTVA: ABSZOLÚT FÜGGÖNY MECHANIZMUS MOBILRA ── */
         @media (max-width: 1059px) {
           .header-desktop-brand-wrapper {
             display: none !important;
@@ -195,7 +195,7 @@ export default function Header({
             width: 100%;
             padding: 0 20px;
             box-sizing: border-box;
-            height: 56px;
+            height: 56px !important; /* FIXED MAGASSÁG: Nem tud széttolódni */
             background: #131b2e;
           }
           .hamburger-btn {
@@ -208,11 +208,14 @@ export default function Header({
             display: flex;
             align-items: center;
             justify-content: center;
+            height: 32px;
+            width: 38px;
+            box-sizing: border-box;
           }
           .header-nav-container {
             display: none;
             flex-direction: column;
-            position: absolute; /* 🎯 MEGOLDÁS: Nem tolja el a layoutot, ráúszik a tartalomra */
+            position: absolute; /* RÁÚSZIK A TARTALOMRA: Nem torzítja a fejlécet */
             top: 56px;
             left: 0;
             right: 0;
@@ -232,6 +235,9 @@ export default function Header({
             flex-direction: column;
             width: 100%;
             gap: 6px;
+          }
+          .nav-item-container {
+            width: 100%;
           }
           .nav-btn {
             width: 100% !important;
@@ -257,7 +263,8 @@ export default function Header({
             box-shadow: none !important;
             margin-top: 4px;
             border-radius: 6px !important;
-            padding: 4px !box-sizing: border-box;
+            padding: 6px !important;
+            box-sizing: border-box;
             border: 1px solid #222f47;
           }
         }
@@ -309,7 +316,7 @@ export default function Header({
       <div className="mobile-header-top">
         <LogoBrandBlock />
         <button className="hamburger-btn" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
-          {isMobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
+          {isMobileMenuOpen ? <X size={16} /> : <Menu size={16} />}
         </button>
       </div>
 
@@ -412,7 +419,7 @@ export default function Header({
                   )}
                   {user?.email === ADMIN_EMAIL && <button className={`drop-item ${activeTab === 'admin_contests' ? 'active' : ''}`} style={{ color: activeTab === 'admin_contests' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_contests')}>{t('subManageContests')}</button>}
                   <button className={`drop-item ${activeTab === 'admin_meetings' ? 'active' : ''}`} style={{ color: activeTab === 'admin_meetings' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_meetings')}>{t('subManageMeetings')}</button>
-                  <button className={`drop-item ${activeTab === 'admin_homeworks' ? 'active' : ''}`} style={{ color: activeTab === 'admin_meetings' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_homeworks')}>{t('subManageHomeworks')}</button>
+                  <button className={`drop-item ${activeTab === 'admin_homeworks' ? 'active' : ''}`} style={{ color: activeTab === 'admin_weekly' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_homeworks')}>{t('subManageHomeworks')}</button>
                   {user?.email === ADMIN_EMAIL && <button className={`drop-item ${activeTab === 'admin_weekly' ? 'active' : ''}`} style={{ color: activeTab === 'admin_weekly' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_weekly')}>{t('subManageWeekly')}</button>}
                   {user?.email === ADMIN_EMAIL && <button className={`drop-item ${activeTab === 'admin_settings' ? 'active' : ''}`} style={{ color: '#ef4444' }} onClick={() => handleNavClick('admin_settings')}>{t('subManageSettings')}</button>}
                   {user?.email === ADMIN_EMAIL && <button className={`drop-item ${activeTab === 'admin_salons' ? 'active' : ''}`} style={{ color: activeTab === 'admin_salons' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_salons')}>{t('subManageSalons')}</button>}
@@ -427,7 +434,6 @@ export default function Header({
         {/* FIÓK MENÜ ÉS NYELVVÁLASZTÓ */}
         <div className="user-group" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
           
-          {/* Nyelvválasztó */}
           <div style={{ display: 'flex', gap: '2px', background: '#0f172a', padding: '3px', borderRadius: '6px', border: '1px solid #222f47' }}>
             <button onClick={() => setLang('hu')} style={{ background: lang === 'hu' ? '#223147' : 'transparent', color: lang === 'hu' ? 'white' : '#64748b', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
               <img src="https://flagcdn.com/16x12/hu.png" width="14" height="10" alt="HU" style={{ borderRadius: '1px', objectFit: 'cover' }} />
