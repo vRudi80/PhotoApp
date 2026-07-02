@@ -1,5 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
-import { BACKEND_URL } from '../utils/constants';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 interface UseFetchOptions {
   enabled?: boolean;
@@ -17,9 +16,8 @@ export function useFetch<T>(url: string, options: UseFetchOptions = {}) {
     setLoading(true);
     setError(null);
 
-    // Kényszerített hálózati lakat (Timeout) időzítő
+    // ⏰ Kényszerített hálózati lakat (Timeout) időzítő
     const timeoutId = setTimeout(() => {
-      // Ha lejár az idő, manuálisan megszakítjuk a kérést
       controllerRef.current?.abort();
     }, timeoutMs);
 
@@ -27,7 +25,6 @@ export function useFetch<T>(url: string, options: UseFetchOptions = {}) {
       const res = await fetch(url, { signal });
       clearTimeout(timeoutId);
 
-      // Ha nem 200 OK a válasz, elkapjuk a HTML hibaoldalakat is
       if (!res.ok) {
         throw new Error(`Szerver hiba: ${res.status}`);
       }
@@ -45,16 +42,15 @@ export function useFetch<T>(url: string, options: UseFetchOptions = {}) {
     }
   }, [url, timeoutMs]);
 
-  const controllerRef = React.useRef<AbortController | null>(null);
+  // 🎯 JAVÍTVA: React.useRef helyett a tiszta useRef-et hívjuk meg!
+  const controllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    // Ha a feltételek nem adottak (pl. nincs még email), leállítjuk a pörgést, nem hagyjuk lógni
     if (!enabled) {
       setLoading(false);
       return;
     }
 
-    // Ha fut egy régi kérés, azt azonnal elvágjuk (Race condition védelem)
     if (controllerRef.current) {
       controllerRef.current.abort();
     }
@@ -69,7 +65,6 @@ export function useFetch<T>(url: string, options: UseFetchOptions = {}) {
     };
   }, [enabled, executeFetch]);
 
-  // Manuális frissítési lehetőség (Refetch)
   const refetch = () => {
     if (enabled) {
       const controller = new AbortController();
