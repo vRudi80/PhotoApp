@@ -1282,50 +1282,49 @@ await pool.query('UPDATE weekly_entries SET final_fair_score = ?, final_rank = ?
 
   // 📸 TRÓFEATEREM VÉGPONT – KÖZPONTOSÍTOTT PONTOSSÁG!
   // ====================================================================
+ // ====================================================================
+  // 📸 TRÓFEATEREM VÉGPONT – KÖZPONTOSÍTOTT, FIX ADATOK ALAPJÁN
+  // ====================================================================
   app.get('/api/weekly/my-stats', async (req, res) => {
     const { userEmail } = req.query;
+    if (!userEmail) return res.status(400).json({ error: 'Hiányzó e-mail!' });
+
     try {
-      const [pastTopics] = await pool.query(
-        "SELECT * FROM weekly_topics WHERE end_date < ? AND status = 'approved' ORDER BY end_date DESC",
-        [getLocalMySQLNow()]
+      // 1. Dobogós helyezések azonnali lekérése a felhasználó fix adataiból
+      const [userStats] = await pool.query(
+        "SELECT victories FROM photo_users WHERE email = ?", [userEmail]
       );
-      let podiums = { first: 0, second: 0, third: 0 };
-      let history = [];
 
-      for (const topic of pastTopics) {
-        const [entries] = await pool.query(`
-          SELECT e.id, e.user_email, e.user_name, e.file_url, e.drive_file_id, e.likes_count, e.views_count,
-                 ${getFairScoreSql('e', 't')} as fair_score
-          FROM weekly_entries e
-          JOIN weekly_topics t ON e.topic_id = t.id
-          WHERE e.topic_id = ? AND e.is_active = 1 
-          ORDER BY fair_score DESC, e.likes_count DESC, e.views_count ASC
-        `, [topic.id]);
+      // Kiszámoljuk a 2. és 3. helyeket egy gyors, indexelt számlálással a lezárt futamokból
+      const [podiumRows] = await pool.query(`
+        SELECT 
+          COUNT(CASE WHEN final_rank = 1 THEN 1 END) as first,
+          COUNT(CASE WHEN final_rank = 2 THEN 1 END) as second,
+          COUNT(CASE WHEN final_rank = 3 THEN 1 END) as third
+        FROM weekly_entries 
+        WHERE LOWER(TRIM(user_email)) = LOWER(TRIM(?)) AND final_rank IS NOT NULL
+      `, [userEmail]);
 
-        const userIndex = entries.findIndex(e => e.user_email === userEmail);
-        if (userIndex !== -1) {
-          const rank = userIndex + 1;
-          const entry = entries[userIndex];
-          if (rank === 1) podiums.first++; else if (rank === 2) podiums.second++; else if (rank === 3) podiums.third++;
+      const podiums = {
+        first: podiumRows[0]?.first || 0,
+        second: podiumRows[0]?.second || 0,
+        third: podiumRows[0]?.third || 0
+      };
 
-          history.push({
-            topic_title: topic.title,
-            topic_title_en: topic.title_en, 
-            start_date: topic.start_date,
-            end_date: topic.end_date,
-            rank: rank,
-            total_entries: entries.length,
-            file_url: entry.file_url,
-            drive_file_id: entry.drive_file_id,
-            likes: entry.fair_score, 
-            views: entry.views_count,
-            user_name: entry.user_name 
-          });
-        }
-      }
-      res.json({ podiums, history });
+      // 2. A meccstörténet lekérése egyetlen egyszerű JOIN-nal, ciklusok NÉLKÜL!
+      const [historyRows] = await pool.query(`
+        SELECT t.title as topic_title, t.title_en as topic_title_en, 
+               t.start_date, t.end_date, e.file_url, e.drive_file_id,
+               e.final_rank as rank, e.views_count as views, e.final_fair_score as likes, e.user_name
+        FROM weekly_entries e
+        JOIN weekly_topics t ON e.topic_id = t.id
+        WHERE LOWER(TRIM(e.user_email)) = LOWER(TRIM(?)) AND e.final_rank IS NOT NULL
+        ORDER BY t.end_date DESC
+      `, [userEmail]);
+
+      res.json({ podiums, history: historyRows });
     } catch (err) { 
-      console.error(err);
+      console.error("❌ Hiba a statisztikák összeállításakor:", err.message);
       res.status(500).json({ error: 'Hiba a statisztikák összeállításakor.' }); 
     }
   });
