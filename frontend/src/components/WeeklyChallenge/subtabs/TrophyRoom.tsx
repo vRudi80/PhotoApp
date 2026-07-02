@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { getImageUrl } from '../../../utils/helpers';
 import VideoLoader from '../../../components/VideoLoader';
 
@@ -48,37 +48,7 @@ export default function TrophyRoom({
     'Nagymester 🌟': 'Grandmaster 🌟',
     'Virtuóz ⚡': 'Virtuoso ⚡',
     'Fotóguru 🔥': 'Photo Guru 🔥',
-    'Legenda 👑': 'Visual Legend 👑'
-  };
-
-  // Memóriából betöltjük a bezárt értesítéseket
-  useEffect(() => {
-    const stored = localStorage.getItem('dismissed_alerts');
-    if (stored) setDismissedAlerts(JSON.parse(stored));
-  }, []);
-
-  const [dismissedAlerts, setDismissedAlerts] = useState<string[]>([]);
-
-  const safeLeaderboard = Array.isArray(leaderboard) ? leaderboard : [];
-  const safeUserPower = userPower || { super: 1, brilliant: 2 };
-
-  const currentLevel = getLevelDetails(userTotalLikes, userVictories);
-
-  const displayRoomTitle = lang === 'en' && topic?.title_en ? topic.title_en : (topic?.title || t('roomChallengeRoom'));
-  const displayRoomDesc = lang === 'en' && topic?.description_en ? topic.description_en : (topic?.description || '');
-
-  // ... segédfüggvények ...
-  const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString(lang === 'en' ? 'en-US' : 'hu-HU', { month: 'short', day: 'numeric' });
-
-  const checkClubAccess = (item: any) => {
-    const itemClubName = item.club_name || item.restricted_club;
-    const itemClubId = item.club_id || item.restricted_club_id;
-    const hasRestriction = (itemClubName && itemClubName.trim() !== '') || (itemClubId && itemClubId !== 0);
-    if (!hasRestriction) return true; 
-    if (!user?.club_name && !user?.club_id) return false;
-    const nameMatch = itemClubName && user?.club_name && itemClubName.trim() === user.club_name.trim();
-    const idMatch = itemClubId && user?.club_id && Number(itemClubId) === Number(user.club_id);
-    return !!(nameMatch || idMatch);
+    'Vizuális Legenda 👑': 'Visual Legend 👑'
   };
 
   if (isLoadingStats && (!myStats || myStats.history.length === 0)) {
@@ -139,7 +109,7 @@ export default function TrophyRoom({
     progressPercent = Math.min(100, Math.max(0, (currentProgress / range) * 100));
 
     if (userTotalLikes < currentBracket.max) {
-      // 🎯 JAVÍTVA: Matematikai kerekítés maximum 2 tizedesjegyre a lebegőpontos lógás ellen
+      // 🎯 Matematikai kerekítés maximum 2 tizedesjegyre, lebegőpontos lógás nélkül
       const neededLikes = Math.round((currentBracket.max - userTotalLikes) * 100) / 100;
       levelHelpText = lang === 'en' 
         ? `${neededLikes} more FP points needed for the next level` 
@@ -190,7 +160,6 @@ export default function TrophyRoom({
         </div>
       </div>
 
-      {/* JÁTÉKBAN NYERT PRÉMIUM JUTALOM BANNER */}
       {isPremiumActive && (
         <div style={{ background: 'linear-gradient(90deg, #10b98115, #0f172a)', border: '1px solid #10b98140', borderLeft: '5px solid #10b981', padding: '18px 25px', borderRadius: '16px', marginBottom: '40px', display: 'flex', alignItems: 'center', gap: '15px', boxShadow: '0 0 30px rgba(16,185,129,0.05)' }}>
           <div style={{ fontSize: '2rem' }}>💎</div>
@@ -314,7 +283,7 @@ export default function TrophyRoom({
             return (
               <div key={idx} style={{ background: '#1e293b', borderRadius: '20px', overflow: 'hidden', border: `1px solid ${badgeColor}`, transition: 'transform 0.2s', boxShadow: '0 10px 20px rgba(0,0,0,0.3)', display: 'flex', flexDirection: 'column' }} onMouseOver={e => e.currentTarget.style.transform = 'translateY(-3px)'} onMouseOut={e => e.currentTarget.style.transform = 'none'}>
                 <div style={{ position: 'relative', height: '220px' }}>
-                  <img src={getImageUrl(entry?.drive_file_id, entry?.file_url)} alt="Submission" style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'zoom-in' }} onClick={() => setFullscreenData({url: getImageUrl(entry?.drive_file_id, entry?.file_url), title: entry?.topic_title || ''})} onError={handleImageError} />
+                  <img src={getImageUrl(entry?.drive_file_id, entry?.file_url)} alt=\"Submission\" style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'zoom-in' }} onClick={() => setFullscreenData({url: getImageUrl(entry?.drive_file_id, entry?.file_url), title: entry?.topic_title || ''})} onError={handleImageError} />
                   
                   <div style={{ position: 'absolute', top: '15px', left: '15px', background: badgeColor, color: ['#fbbf24', '#cbd5e1'].includes(badgeColor) ? 'black' : 'white', padding: '6px 16px', borderRadius: '100px', fontWeight: '900', fontSize: '0.9rem' }}>
                     {badge || (lang === 'en' ? `Rank ${entry?.rank}` : `${entry?.rank}. Hely`)}
