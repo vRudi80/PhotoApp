@@ -593,7 +593,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         }
       } catch (err) {
         console.error("Lobby chat synchronization anomaly:", err);
-      } finaly { 
+      } finally { 
         if (isMounted && subTab === 'current' && selectedTopicId === null) timerId = setTimeout(fetchLobbyChat, 2500);
       }
     };
