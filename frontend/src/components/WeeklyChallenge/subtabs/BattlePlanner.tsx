@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { BACKEND_URL } from '../../../utils/constants';
 
-// 🎯 ÚJ IMPORT: Behozzuk a nyelvi kontextust
+// Behozzuk a nyelvi kontextust
 import { useLanguage } from '../../../context/LanguageContext';
 
 interface BattlePlannerProps {
@@ -52,18 +52,18 @@ const compressImageOnClient = (file: File): Promise<File> => {
 
 export default function BattlePlanner({ user, onSuccess }: BattlePlannerProps) {
   const [title, setTitle] = useState('');
-  const [titleEn, setTitleEn] = useState(''); // 🎯 ÚJ STATE AZ ANGOL CÍMNEK
+  const [titleEn, setTitleEn] = useState(''); 
   const [description, setDescription] = useState('');
-  const [descriptionEn, setDescriptionEn] = useState(''); // 🎯 ÚJ STATE AZ ANGOL LEÍRÁSNAK
+  const [descriptionEn, setDescriptionEn] = useState(''); 
   const [coverAuthor, setCoverAuthor] = useState('');
-  const [isMaster, setIsMaster] = useState(false); // 🎯 JAVÍTVA: Szöveg helyett most már logikai állapot (true/false)
+  const [isMaster, setIsMaster] = useState(false); 
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // 🎯 Aktiváljuk a nyelvi hookot
+  // Aktiváljuk a nyelvi hookot
   const { t } = useLanguage();
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -78,7 +78,7 @@ export default function BattlePlanner({ user, onSuccess }: BattlePlannerProps) {
       }
 
       setCoverFile(finalFile);
-      preview && URL.revokeObjectURL(preview);
+      if (preview) URL.revokeObjectURL(preview);
       setPreview(URL.createObjectURL(finalFile));
     }
   };
@@ -90,12 +90,11 @@ export default function BattlePlanner({ user, onSuccess }: BattlePlannerProps) {
     setSubmitting(true);
     const formData = new FormData();
     formData.append('title', title);
-    formData.append('title_en', titleEn); // 🎯 ÚJ: Küldjük az angol címet
+    formData.append('title_en', titleEn); 
     formData.append('description', description);
-    formData.append('description_en', descriptionEn); // 🎯 ÚJ: Küldjük az angol leírást
+    formData.append('description_en', descriptionEn); 
     formData.append('cover_author', coverAuthor);
     
-    // 🎯 JAVÍTVA: Ha be van pipálva, automatikusan a beküldő user nevét (vagy emailjét) küldjük el képmesterként
     const computedMasterName = isMaster ? (user?.name || user?.email || '') : '';
     formData.append('master_name', computedMasterName);
     
@@ -112,7 +111,7 @@ export default function BattlePlanner({ user, onSuccess }: BattlePlannerProps) {
       if (res.ok) {
         alert(t('msgProposalSuccess'));
         setTitle(''); setTitleEn(''); setDescription(''); setDescriptionEn(''); setCoverAuthor(''); 
-        setIsMaster(false); // 🎯 JAVÍTVA: Pipát alaphelyzetbe állítjuk
+        setIsMaster(false); 
         setStartDate(''); setEndDate(''); setCoverFile(null); setPreview(null);
         onSuccess(); 
       } else {
@@ -126,81 +125,87 @@ export default function BattlePlanner({ user, onSuccess }: BattlePlannerProps) {
   };
 
   return (
-    <div style={{ maxWidth: '600px', margin: '0 auto', background: '#1e293b', padding: '30px', borderRadius: '24px', border: '1px solid #334155', boxShadow: '0 10px 30px rgba(0,0,0,0.4)', animation: 'fadeIn 0.3s ease-out' }}>
-      <h2 style={{ color: '#f59e0b', margin: '0 0 10px 0', fontSize: '1.6rem', fontWeight: 'bold' }}>{t('planTitle')}</h2>
-      <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: '0 0 25px 0', lineHeight: '1.5' }}>{t('planDesc')}</p>
+    <div style={{ maxWidth: '580px', margin: '0 auto', background: '#131b2e', padding: '24px', borderRadius: '8px', border: '1px solid #222f47', boxShadow: '0 4px 15px rgba(0,0,0,0.15)', animation: 'fadeIn 0.3s ease-out' }}>
+      <h2 style={{ color: '#fbbf24', margin: '0 0 4px 0', fontSize: '1.3rem', fontWeight: '700', letterSpacing: '-0.3px' }}>{t('planTitle')}</h2>
+      <p style={{ color: '#64748b', fontSize: '0.82rem', margin: '0 0 20px 0', lineHeight: '1.45' }}>{t('planDesc')}</p>
 
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
         <div>
-          <label style={{ color: '#cbd5e1', display: 'block', marginBottom: '6px', fontSize: '0.9rem', fontWeight: 'bold' }}>{t('planLabelTitle')}</label>
-          <input type="text" placeholder={t('planPlaceholderTitle')} value={title} onChange={e => setTitle(e.target.value)} required style={{ width: '100%', padding: '12px', background: '#0f172a', border: '1px solid #334155', borderRadius: '10px', color: 'white', outline: 'none' }} />
+          <label style={{ color: '#cbd5e1', display: 'block', marginBottom: '4px', fontSize: '0.82rem', fontWeight: '600' }}>{t('planLabelTitle')}</label>
+          <input type="text" placeholder={t('planPlaceholderTitle')} value={title} onChange={e => setTitle(e.target.value)} required style={{ width: '100%', padding: '10px 12px', background: '#0f172a', border: '1px solid #222f47', borderRadius: '4px', color: 'white', outline: 'none', fontSize: '0.88rem', boxSizing: 'border-box' }} />
         </div>
 
-        {/* 🎯 ÚJ MEZŐ: ANGOL CÍM (Kékebb kerettel vizuálisan elkülönítve) */}
+        {/* 🎯 ANGOL CÍM (Letisztult, professzionális szegélyhangolás) */}
         <div>
-          <label style={{ color: '#38bdf8', display: 'block', marginBottom: '6px', fontSize: '0.9rem', fontWeight: 'bold' }}>{t('planLabelTitleEn')}</label>
-          <input type="text" placeholder={t('planPlaceholderTitleEn')} value={titleEn} onChange={e => setTitleEn(e.target.value)} style={{ width: '100%', padding: '12px', background: '#0f172a', border: '1px solid #38bdf840', borderRadius: '10px', color: 'white', outline: 'none' }} />
+          <label style={{ color: '#38bdf8', display: 'block', marginBottom: '4px', fontSize: '0.82rem', fontWeight: '600' }}>{t('planLabelTitleEn')}</label>
+          <input type="text" placeholder={t('planPlaceholderTitleEn')} value={titleEn} onChange={e => setTitleEn(e.target.value)} style={{ width: '100%', padding: '10px 12px', background: '#0f172a', border: '1px solid rgba(56,189,248,0.25)', borderRadius: '4px', color: 'white', outline: 'none', fontSize: '0.88rem', boxSizing: 'border-box' }} />
         </div>
 
         <div>
-          <label style={{ color: '#cbd5e1', display: 'block', marginBottom: '6px', fontSize: '0.9rem', fontWeight: 'bold' }}>{t('planLabelDesc')}</label>
-          <textarea rows={4} placeholder={t('planPlaceholderDesc')} value={description} onChange={e => setDescription(e.target.value)} required style={{ width: '100%', padding: '12px', background: '#0f172a', border: '1px solid #334155', borderRadius: '10px', color: 'white', outline: 'none', resize: 'none' }} />
+          <label style={{ color: '#cbd5e1', display: 'block', marginBottom: '4px', fontSize: '0.82rem', fontWeight: '600' }}>{t('planLabelDesc')}</label>
+          <textarea rows={3} placeholder={t('planPlaceholderDesc')} value={description} onChange={e => setDescription(e.target.value)} required style={{ width: '100%', padding: '10px 12px', background: '#0f172a', border: '1px solid #222f47', borderRadius: '4px', color: 'white', outline: 'none', resize: 'none', fontSize: '0.88rem', boxSizing: 'border-box', lineHeight: '1.45' }} />
         </div>
 
-        {/* 🎯 ÚJ MEZŐ: ANGOL LEÍRÁS */}
+        {/* 🎯 ANGOL LEÍRÁS */}
         <div>
-          <label style={{ color: '#38bdf8', display: 'block', marginBottom: '6px', fontSize: '0.9rem', fontWeight: 'bold' }}>{t('planLabelDescEn')}</label>
-          <textarea rows={4} placeholder={t('planPlaceholderDescEn')} value={descriptionEn} onChange={e => setDescriptionEn(e.target.value)} style={{ width: '100%', padding: '12px', background: '#0f172a', border: '1px solid #38bdf840', borderRadius: '10px', color: 'white', outline: 'none', resize: 'none' }} />
+          <label style={{ color: '#38bdf8', display: 'block', marginBottom: '4px', fontSize: '0.82rem', fontWeight: '600' }}>{t('planLabelDescEn')}</label>
+          <textarea rows={3} placeholder={t('planPlaceholderDescEn')} value={descriptionEn} onChange={e => setDescriptionEn(e.target.value)} style={{ width: '100%', padding: '10px 12px', background: '#0f172a', border: '1px solid rgba(56,189,248,0.25)', borderRadius: '4px', color: 'white', outline: 'none', resize: 'none', fontSize: '0.88rem', boxSizing: 'border-box', lineHeight: '1.45' }} />
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
           <div>
-            <label style={{ color: '#cbd5e1', display: 'block', marginBottom: '6px', fontSize: '0.9rem', fontWeight: 'bold' }}>{t('planLabelStart')}</label>
-            <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} required style={{ width: '100%', padding: '12px', background: '#0f172a', border: '1px solid #334155', borderRadius: '10px', color: 'white', outline: 'none' }} />
+            <label style={{ color: '#cbd5e1', display: 'block', marginBottom: '4px', fontSize: '0.82rem', fontWeight: '600' }}>{t('planLabelStart')}</label>
+            <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} required style={{ width: '100%', padding: '10px 12px', background: '#0f172a', border: '1px solid #222f47', borderRadius: '4px', color: 'white', outline: 'none', fontSize: '0.88rem', boxSizing: 'border-box' }} />
           </div>
           <div>
-            <label style={{ color: '#cbd5e1', display: 'block', marginBottom: '6px', fontSize: '0.9rem', fontWeight: 'bold' }}>{t('planLabelEnd')}</label>
-            <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} required style={{ width: '100%', padding: '12px', background: '#0f172a', border: '1px solid #334155', borderRadius: '10px', color: 'white', outline: 'none' }} />
+            <label style={{ color: '#cbd5e1', display: 'block', marginBottom: '4px', fontSize: '0.82rem', fontWeight: '600' }}>{t('planLabelEnd')}</label>
+            <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} required style={{ width: '100%', padding: '10px 12px', background: '#0f172a', border: '1px solid #222f47', borderRadius: '4px', color: 'white', outline: 'none', fontSize: '0.88rem', boxSizing: 'border-box' }} />
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-          {/* 🎯 JAVÍTVA: Szövegbeviteli mező helyett most már egy elegáns checkbox van itt */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
           <div>
-            <label style={{ color: '#cbd5e1', display: 'block', marginBottom: '6px', fontSize: '0.9rem', fontWeight: 'bold' }}>{t('planLabelMaster')}</label>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px', background: '#0f172a', border: '1px solid #334155', borderRadius: '10px', height: '46px', boxSizing: 'border-box' }}>
+            <label style={{ color: '#cbd5e1', display: 'block', marginBottom: '4px', fontSize: '0.82rem', fontWeight: '600' }}>{t('planLabelMaster')}</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', background: '#0f172a', border: '1px solid #222f47', borderRadius: '4px', height: '40px', boxSizing: 'border-box' }}>
               <input 
                 type="checkbox" 
                 id="isMasterCheckbox"
                 checked={isMaster} 
                 onChange={e => setIsMaster(e.target.checked)} 
-                style={{ width: '18px', height: '18px', accentColor: '#f59e0b', cursor: 'pointer' }}
+                style={{ width: '16px', height: '16px', accentColor: '#f97316', cursor: 'pointer', margin: 0 }}
               />
-              <label htmlFor="isMasterCheckbox" style={{ color: '#94a3b8', fontSize: '0.85rem', cursor: 'pointer', userSelect: 'none', fontWeight: '500' }}>
+              <label htmlFor="isMasterCheckbox" style={{ color: '#64748b', fontSize: '0.82rem', cursor: 'pointer', userSelect: 'none', fontWeight: '500' }}>
                 {t('planCheckMasterMe') || 'Szeretnék én lenni'}
               </label>
             </div>
           </div>
           <div>
-            <label style={{ color: '#cbd5e1', display: 'block', marginBottom: '6px', fontSize: '0.9rem', fontWeight: 'bold' }}>{t('planLabelAuthor')}</label>
-            <input type="text" placeholder={t('planPlaceholderAuthor')} value={coverAuthor} onChange={e => setCoverAuthor(e.target.value)} style={{ width: '100%', padding: '12px', background: '#0f172a', border: '1px solid #334155', borderRadius: '10px', color: 'white', outline: 'none' }} />
+            <label style={{ color: '#cbd5e1', display: 'block', marginBottom: '4px', fontSize: '0.82rem', fontWeight: '600' }}>{t('planLabelAuthor')}</label>
+            <input type="text" placeholder={t('planPlaceholderAuthor')} value={coverAuthor} onChange={e => setCoverAuthor(e.target.value)} style={{ width: '100%', padding: '10px 12px', background: '#0f172a', border: '1px solid #222f47', borderRadius: '4px', color: 'white', outline: 'none', fontSize: '0.88rem', boxSizing: 'border-box' }} />
           </div>
         </div>
 
         <div>
-          <label style={{ color: '#cbd5e1', display: 'block', marginBottom: '6px', fontSize: '0.9rem', fontWeight: 'bold' }}>{t('planLabelCover')}</label>
-          <input type="file" accept="image/*" onChange={handleFileChange} style={{ color: '#94a3b8', fontSize: '0.9rem' }} />
+          <label style={{ color: '#cbd5e1', display: 'block', marginBottom: '6px', fontSize: '0.82rem', fontWeight: '600' }}>{t('planLabelCover')}</label>
+          <input type="file" accept="image/*" onChange={handleFileChange} style={{ color: '#64748b', fontSize: '0.82rem', display: 'block', cursor: 'pointer' }} />
           {preview && (
-            <div style={{ marginTop: '15px', height: '140px', borderRadius: '10px', overflow: 'hidden', border: '1px solid #334155' }}>
+            <div style={{ marginTop: '12px', height: '130px', borderRadius: '4px', overflow: 'hidden', border: '1px solid #222f47', backgroundColor: '#090d16' }}>
               <img src={preview} alt={t('planPreviewAlt')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             </div>
           )}
         </div>
 
-        <button type="submit" disabled={submitting} style={{ width: '100%', background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#0f172a', border: 'none', padding: '14px', borderRadius: '12px', fontSize: '1.05rem', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 15px rgba(245,158,11,0.3)', marginTop: '10px' }}>
+        {/* Teli szilárd narancssárga gomb színátmenetek helyett */}
+        <button type="submit" disabled={submitting} style={{ width: '100%', background: '#f97316', color: 'white', border: 'none', padding: '12px', borderRadius: '4px', fontSize: '0.95rem', fontWeight: 'bold', cursor: submitting ? 'not-allowed' : 'pointer', transition: 'background 0.15s ease', marginTop: '6px', boxSizing: 'border-box' }} className="battle-submit-btn">
           {submitting ? t('planSubmitting') : t('planSubmitBtn')}
         </button>
       </form>
+
+      <style>{`
+        .battle-submit-btn:hover {
+          background: #ea580c !important;
+        }
+      `}</style>
     </div>
   );
 }
