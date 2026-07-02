@@ -17,6 +17,11 @@ import VideoLoader from '../components/VideoLoader';
 import { useLanguage } from '../context/LanguageContext';
 import ChallengeShareModal from '../components/WeeklyChallenge/ChallengeShareModal';
 
+interface WeeklyChallengeViewProps {
+  user: any;
+  setFullscreenData: (data: { url: string; title?: string } | null) => void;
+}
+
 // ====================================================================
 // 📊 GLOBÁLIS SEGÉDFÜGGVÉNYEK
 // ====================================================================
@@ -156,9 +161,9 @@ function ChallengeCard({ topic, onSelect, onShare }: { topic: any; onSelect: () 
   const totalImagesCount = topic.entries_count ?? topic.entry_count ?? topic.totalEntries ?? 0;
   const unvotedCount = topic.unvotedEntries ?? topic.unvoted_count ?? 0;
 
-const handleShare = (e: React.MouseEvent) => {
+  const handleShare = (e: React.MouseEvent) => {
     e.stopPropagation(); 
-    onShare(); // Itt nyitjuk meg a modalt!
+    onShare(); 
   };
   
   return (
@@ -169,7 +174,7 @@ const handleShare = (e: React.MouseEvent) => {
       onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = '#334155'; }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-        <span style={{ background: isDaily ? '#ef444420' : '#3b82f620', color: isDaily ? '#f87171' : '#60a5fa', border: `1px solid ${isDaily ? '#ef444450' : '#3b82f650'}`, padding: '4px 12px', borderRadius: '50px', fontSize: '0.8rem', fontWeight: 'bold' }}>
+        <span style={{ background: isDaily ? '#ef444420' : '#3b82f620', color: isDaily ? '#f87171' : '#60a5fa', border: `1px solid ${isDaily ? '#ef444420' : '#3b82f650'}`, padding: '4px 12px', borderRadius: '50px', fontSize: '0.8rem', fontWeight: 'bold' }}>
           {isDaily ? t('typeBlitz', 'Villámfutam') : t('typeMaster', 'Mesterfutam')}
         </span>
         <span style={{ color: statusColor, fontSize: '0.85rem', fontWeight: 'bold' }}>
@@ -213,7 +218,6 @@ const handleShare = (e: React.MouseEvent) => {
         )}
       </div>
 
-      {/* 🎯 JAVÍTVA: Alsó sáv, Időzítő és Megosztás gomb egymás mellett */}
       <div style={{ display: 'flex', gap: '10px', marginTop: 'auto' }}>
        <div style={{ 
           flex: 1, 
@@ -223,14 +227,12 @@ const handleShare = (e: React.MouseEvent) => {
           border: '1px solid #1e293b', 
           fontFamily: 'monospace', 
           letterSpacing: '0.5px',
-          // 🎯 Elrendezés: Flexbox segítségével függőlegesen középre zárjuk őket egymás alá
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: '4px' // A két sor közötti diszkrét távolság
+          gap: '4px' 
         }}>
-          {/* 1. SOR: A statikus felirat (kicsit kisebb, visszafogottabb színnel a jobb olvashatóságért) */}
           <span style={{ 
             fontSize: '0.75rem', 
             color: '#64748b', 
@@ -240,7 +242,6 @@ const handleShare = (e: React.MouseEvent) => {
             {t('timeLeft', 'HÁTRALÉVŐ IDŐ:')}
           </span>
 
-          {/* 2. SOR: A konkrét visszaszámláló óra (szép nagy, és az eredeti futamszínedet használja) */}
           <span style={{ 
             fontSize: '1rem', 
             color: isDaily ? '#f87171' : '#38bdf8', 
@@ -250,7 +251,6 @@ const handleShare = (e: React.MouseEvent) => {
           </span>
         </div>
         
-        {/* Facebook Megosztás Gomb */}
         <button 
           onClick={handleShare}
           style={{ background: '#1877F2', color: 'white', border: 'none', borderRadius: '12px', padding: '0 15px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s', boxShadow: '0 4px 10px rgba(24, 119, 242, 0.2)' }}
@@ -275,6 +275,10 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
  const { t, lang } = useLanguage();
   const [subTab, setSubTab] = useState<'current' | 'upcoming' | 'manage' | 'past' | 'arena_album' | 'my_stats' | 'hall_of_fame'>('current');
   const [loading, setLoading] = useState(true);
+  
+  // 🎯 ÚJ: Biztonsági hiba állapot a VideoLoader beragadása ellen
+  const [fetchError, setFetchError] = useState<string | null>(null);
+
   const [topicToShare, setTopicToShare] = useState<any | null>(null);
 
   const [myReferralCode, setMyReferralCode] = useState<string>('');
@@ -375,42 +379,82 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     } catch (e) { console.error(e); }
   };
 
+  // 👑 JAVÍTVA: Törhetetlen, lógásbiztos letöltő motor
   const fetchCurrentTopic = async (isSilent = false) => {
-    if (!isSilent) setLoading(true);
+    if (!isSilent) {
+      setLoading(true);
+      setFetchError(null);
+    }
+
+    // Ha még nincs meg a user email címe, nem indítunk üres kérést és leállítjuk a töltést (Race condition védelem)
+    if (!user?.email) {
+      if (!isSilent) setLoading(false);
+      return;
+    }
+
+    // 🎯 HÁLÓZATI LAKAT: 5 másodperces kényszerített időtúllépés
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      controller.abort(); 
+    }, 5000);
+
     try {
       const url = selectedTopicId 
-        ? `${BACKEND_URL}/api/weekly/current?userEmail=${user?.email || ''}&topicId=${selectedTopicId}`
-        : `${BACKEND_URL}/api/weekly/current?userEmail=${user?.email || ''}`;
+        ? `${BACKEND_URL}/api/weekly/current?userEmail=${user.email}&topicId=${selectedTopicId}`
+        : `${BACKEND_URL}/api/weekly/current?userEmail=${user.email}`;
 
-      const res = await fetch(url);
-      if (res.ok) {
-        const data = await res.json();
-        
-        if (data.userTotalLikes !== undefined) setUserTotalLikes(data.userTotalLikes);
-        if (data.userVictories !== undefined) setUserVictories(data.userVictories);
-        if (data.masterVotesLeft !== undefined) setMasterVotesLeft(data.masterVotesLeft); 
-        if (data.isMaster !== undefined) setIsMaster(data.isMaster);                      
-        if (data.myReferralCode !== undefined) setMyReferralCode(data.myReferralCode);
-        if (data.referredBy !== undefined) setReferredBy(data.referredBy);
-        if (data.swapBalance !== undefined) setSwapBalance(data.swapBalance); 
-        if (data.userPower !== undefined) setUserPower(data.userPower);
-        if (!selectedTopicId) {
-          setActiveTopics(data.activeTopics || []);
-        } else {
-          if (data && data.topic) {
-            setTopic(data.topic);
-            setMyEntry(data.myEntry);
-            setMyPastEntries(data.myPastEntries || []); 
-            setMyVoteCount(Number(data.myVoteCount) || 0);
-            setVotableEntries(Number(data.votableEntries) || 1);
-            setLeaderboard(data.leaderboard || []);
-            setCurrentClubLeaderboard(data.clubLeaderboard || []);
-            if (!isSilent) fetchNextVote(data.topic.id);
-          }
+      const res = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeoutId);
+
+      // Elkapjuk a Render által visszaküldött HTML hibaoldalakat is
+      if (!res.ok) {
+        throw new Error(`Szerver hiba státusz: ${res.status}`);
+      }
+
+      const data = await res.json();
+      
+      if (data.userTotalLikes !== undefined) setUserTotalLikes(data.userTotalLikes);
+      if (data.userVictories !== undefined) setUserVictories(data.userVictories);
+      if (data.masterVotesLeft !== undefined) setMasterVotesLeft(data.masterVotesLeft); 
+      if (data.isMaster !== undefined) setIsMaster(data.isMaster);                      
+      if (data.myReferralCode !== undefined) setMyReferralCode(data.myReferralCode);
+      if (data.referredBy !== undefined) setReferredBy(data.referredBy);
+      if (data.swapBalance !== undefined) setSwapBalance(data.swapBalance); 
+      if (data.userPower !== undefined) setUserPower(data.userPower);
+      
+      if (!selectedTopicId) {
+        setActiveTopics(data.activeTopics || []);
+      } else {
+        if (data && data.topic) {
+          setTopic(data.topic);
+          setMyEntry(data.myEntry);
+          setMyPastEntries(data.myPastEntries || []); 
+          setMyVoteCount(Number(data.myVoteCount) || 0);
+          setVotableEntries(Number(data.votableEntries) || 1);
+          setLeaderboard(data.leaderboard || []);
+          setCurrentClubLeaderboard(data.clubLeaderboard || []);
+          if (!isSilent) fetchNextVote(data.topic.id);
         }
       }
-    } catch (e) { console.error(e); }
-    finally { if (!isSilent) setLoading(false); }
+    } catch (err: any) {
+      clearTimeout(timeoutId);
+      console.error("❌ Kritikus hiba az Aréna adatok szinkronizálásakor:", err);
+      
+      if (!isSilent) {
+        setFetchError(err.message || "Kapcsolati hiba");
+
+        // 🔄 ÖNGYÓGYÍTÓ AUTOMATIKUS ÚJRATÖLTÉS (Csak ha hiba van, és nem silent)
+        const lastAutoReload = sessionStorage.getItem('last_arena_auto_reload');
+        const now = Date.now();
+        if (!lastAutoReload || now - Number(lastAutoReload) > 10000) {
+          sessionStorage.setItem('last_arena_auto_reload', String(now));
+          window.location.reload();
+          return;
+        }
+      }
+    } finally { 
+      if (!isSilent) setLoading(false); 
+    }
   };
 
   const fetchAlbumSilently = async () => {
@@ -549,7 +593,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         }
       } catch (err) {
         console.error("Lobby chat synchronization anomaly:", err);
-      } finally { 
+      } finaly { 
         if (isMounted && subTab === 'current' && selectedTopicId === null) timerId = setTimeout(fetchLobbyChat, 2500);
       }
     };
@@ -1001,28 +1045,23 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   )}
                 </div>
 
+                {/* 🎯 JAVÍTVA: Ha tölt a szerver, vagy ha hiba történt, biztonságosan kezeljük */}
                 {loading ? (
-                  <div style={{ 
-                    display: 'flex', 
-                    flexDirection: 'column', 
-                    alignItems: 'center', 
-                    justifyContent: 'center', 
-                    padding: '80px 20px', 
-                    gap: '20px',
-                    width: '100%' 
-                  }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 20px', gap: '20px', width: '100%' }}>
                     <VideoLoader />
                     <div style={{ textAlign: 'center', animation: 'arenaPulse 2s infinite' }}>
                       <h4 style={{ color: '#f59e0b', margin: '0 0 8px 0', fontSize: '1.1rem', fontWeight: 'bold', letterSpacing: '0.5px' }}>
-                        {lang === 'en' ? '⚡ Server is waking up...' : '⚡ A szerver ébredezik...'}
+                        {lang === 'en' ? '⚡ Loading Arena...' : '⚡ Csatatér adatok letöltése...'}
                       </h4>
-                      <p style={{ color: '#64748b', fontSize: '0.85rem', margin: 0, maxWidth: '320px', lineHeight: '1.4' }}>
-                        {lang === 'en' 
-                          ? 'The free tier hosting takes about 30-50 seconds to warm up after a period of inactivity.' 
-                          : 'A rendszer tétlenség után 30-50 másodpercig melegszik be. Azonnal indulunk!'}
-                      </p>
                     </div>
                     <style>{`@keyframes arenaPulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }`}</style>
+                  </div>
+                ) : fetchError ? (
+                  <div style={{ color: '#ef4444', fontSize: '0.88rem', padding: '24px', background: 'rgba(239,68,68,0.05)', borderRadius: '16px', border: '1px solid rgba(239,68,68,0.2)', textAlign: 'center', maxWidth: '450px', margin: '40px auto' }}>
+                    <p style={{ margin: '0 0 12px 0', fontWeight: 'bold' }}>⚠️ Hálózati vagy időtúllépési hiba történt az Aréna szinkronizációjakor.</p>
+                    <button onClick={() => fetchCurrentTopic(false)} style={{ background: '#ef444420', color: '#f87171', border: '1px solid rgba(239,68,68,0.4)', padding: '8px 20px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }}>
+                      Újrapróbálkozás 🔄
+                    </button>
                   </div>
                 ) : activeTopics.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '5rem 2rem', background: 'linear-gradient(180deg, #1e293b, #0f172a)', borderRadius: '24px', border: '1px solid #334155' }}>
@@ -1037,7 +1076,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                         key={actTop.id} 
                         topic={actTop} 
                         onSelect={() => setSelectedTopicId(actTop.id)} 
-                        onShare={() => setTopicToShare(actTop)}  /* 🎯 EZ HIÁNYZOTT! */
+                        onShare={() => setTopicToShare(actTop)} 
                       />
                     ))}
                   </div>
@@ -1052,7 +1091,9 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   </button>
                 </div>
                 {(!topic || loading) ? (
-                  <div style={{ color: '#94a3b8', padding: '50px' }}>{t('viewPreparingRoom')}</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 20px', width: '100%' }}>
+                    <VideoLoader />
+                  </div>
                 ) : (
                   <ArenaActiveRoom
                     topic={topic} timeLeft={timeLeft} isMaster={isMaster} exposureColor={exposureColor} exposurePercentage={exposurePercentage} exposureLabel={exposureLabel} myEntry={myEntry} voteEntry={voteEntry} noMoreEntries={noMoreEntries} masterVotesLeft={masterVotesLeft} userPower={userPower} swapBalance={swapBalance} myPastEntries={myPastEntries} leaderboard={leaderboard} currentClubLeaderboard={currentClubLeaderboard} user={user} isUploading={isUploading} uploadPreview={uploadPreview} handleFileSelect={handleFileSelect} handleUpload={handleUpload} 
@@ -1177,7 +1218,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         fetchCurrentTopic={fetchCurrentTopic} 
         handleSwapBackSubmit={handleSwapBackSubmit} 
         handleSelectPhotoForSwap={handleSelectPhotoForSwap} 
-        myEntry={myEntry} // 🎯 ÚJ: Átadjuk az éppen bent lévő képet is a szűréshez
+        myEntry={myEntry} 
       />
 
       <ShareCardModal activeShareData={activeShareData} onClose={() => setActiveShareData(null)} user={user} shareBase64={shareBase64} loadingShareImg={loadingShareImg} isGeneratingImage={isGeneratingImage} handleExecuteShare={handleExecuteShare} />
@@ -1187,7 +1228,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           onClose={() => setTopicToShare(null)} 
         />
       )}
-      {/* ── RENDKÍVÜL STABIL RESZPONZÍV STYLING REGETEG ── */}
+      {/* ── STYLING REGETEG ── */}
       <style>{`
         .arena-fluid-container { width: 100%; box-sizing: border-box; }
         .arena-cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 25px; width: 100%; }
