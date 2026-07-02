@@ -757,7 +757,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         await fetchCurrentTopic(true); fetchAlbumSilently(); 
       }
     } catch (e) { console.error(e);
-    } finaly { setIsUploading(false); }
+    } finally { setIsUploading(false); }
   };
 
   const handleFileSelectForSwap = async (e: React.ChangeEvent<HTMLInputElement>) => {
