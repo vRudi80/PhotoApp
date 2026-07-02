@@ -17,7 +17,7 @@ import VideoLoader from '../components/VideoLoader';
 import { useLanguage } from '../context/LanguageContext';
 import ChallengeShareModal from '../components/WeeklyChallenge/ChallengeShareModal';
 
-// 🎯 ÚJ: Professzionális Lucide Ikonok importálása
+// Professzionális Lucide Ikonok importálása
 import { 
   Flame, 
   Zap, 
@@ -256,7 +256,8 @@ function ChallengeCard({ topic, onSelect, onShare }: { topic: any; onSelect: () 
           <span style={{ fontSize: '0.68rem', color: '#475569', fontWeight: 'bold', letterSpacing: '0.5px' }}>
             {t('timeLeft', 'HÁTRALÉVŐ IDŐ:')}
           </span>
-          <span style={{ fontSize: '0.92rem', color: isDaily ? '#f87171' : '#38bdf8', mountaineer: '900', fontWeight: 'bold' }}>
+          {/* 🎯 JAVÍTVA: Hegymászó törölve, szabályos fontWeight beállítva! */}
+          <span style={{ fontSize: '0.92rem', color: isDaily ? '#f87171' : '#38bdf8', fontWeight: '900' }}>
             {timeLeft}
           </span>
         </div>
@@ -1120,7 +1121,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                         const isMsgMe = (msg.user_email || msg.userEmail) === user?.email;
                         return (
                           <div key={msg.id || idx} style={{ display: 'flex', flexDirection: 'column', alignItems: isMsgMe ? 'flex-end' : 'flex-start', maxWidth: '92%', alignSelf: isMsgMe ? 'flex-end' : 'flex-start', marginBottom: '8px' }}>
-                            <div style={{ display: 'flex', gap: '4px', alignItems: 'center', marginBottom: '2px', fontSize: '0.68rem', color: isMsgMe ? '#38bdf8' : '#64748b', Hong-weight: 'bold' }}>
+                            <div style={{ display: 'flex', gap: '4px', alignItems: 'center', marginBottom: '2px', fontSize: '0.68rem', color: isMsgMe ? '#38bdf8' : '#64748b', fontWeight: 'bold' }}>
                               <span>{msg.user_name || msg.userName}</span>
                               <span style={{ color: '#223147' }}>• {new Date(msg.created_at).toLocaleTimeString(lang === 'en' ? 'en-US' : 'hu-HU', { hour: '2-digit', minute: '2-digit' })}</span>
                             </div>
