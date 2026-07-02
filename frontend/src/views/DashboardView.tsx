@@ -30,7 +30,6 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
     let isMounted = true;
 
     const fetchAlerts = async () => {
-      // 🎯 JAVÍTVA: Ha nincs email, leállítjuk a töltést, így nem akad be a videóloader az első pillanatban
       if (!user?.email) {
         if (isMounted) setIsLoadingAlerts(false);
         return;
@@ -38,7 +37,6 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
 
       setIsLoadingAlerts(true);
 
-      // 🎯 KÉNYSZERÍTETT IDŐTÚLLÉPÉS: Ha a hálózat vagy a szerver 5 másodpercig lógna, elvágjuk a fonalat
       const controller = new AbortController();
       const timeoutId = setTimeout(() => {
         controller.abort();
@@ -51,7 +49,6 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
         
         clearTimeout(timeoutId);
 
-        // Ha a szerver HTML hibaoldalt dobott vissza, átugrunk a catch ágban lévő auto-reloadra
         if (!res.ok) {
           throw new Error(`Szerver hiba státusz: ${res.status}`);
         }
@@ -63,19 +60,15 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
         clearTimeout(timeoutId);
         console.error('Hiba az értesítések letöltésekor:', err);
 
-        // 🎯 CSAK HIBÁRA FUTÁSKOR: Intelligens auto-reload motor végtelen ciklus elleni védelemmel
         if (isMounted) {
           const lastAutoReload = sessionStorage.getItem('last_dashboard_auto_reload');
           const now = Date.now();
 
-          // Ha az elmúlt 10 másodpercben még nem volt automatikus javítás, nyomunk egy csendes frissítést
           if (!lastAutoReload || now - Number(lastAutoReload) > 10000) {
             sessionStorage.setItem('last_dashboard_auto_reload', String(now));
             window.location.reload();
             return;
           }
-          
-          // Ha már próbálta és még mindig rossz, töröljük az alerts állapotot, hogy megjelenjen a kézi gomb
           setAlerts(null);
         }
       } finally {
@@ -158,22 +151,16 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
   ];
 
   const adminTile = { id: 'admin', icon: '⚙️', color: '#ef4444', titleKey: 'tileAdminTitle', descKey: 'tileAdminDesc', tab: (user?.email === ADMIN_EMAIL) ? 'admin_contests' : 'admin_meetings' };
-
-  // 🎯 EREDETI DÁTUMFORMÁZÁS MEGTARTVA:
   const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString(lang === 'en' ? 'en-US' : 'hu-HU', { month: 'short', day: 'numeric' });
 
   const checkClubAccess = (item: any) => {
     const itemClubName = item.club_name || item.restricted_club;
     const itemClubId = item.club_id || item.restricted_club_id;
-    
     const hasRestriction = (itemClubName && itemClubName.trim() !== '') || (itemClubId && itemClubId !== 0);
     if (!hasRestriction) return true; 
-    
     if (!user?.club_name && !user?.club_id) return false;
-    
     const nameMatch = itemClubName && user?.club_name && itemClubName.trim() === user.club_name.trim();
     const idMatch = itemClubId && user?.club_id && Number(itemClubId) === Number(user.club_id);
-    
     return !!(nameMatch || idMatch);
   };
 
@@ -192,14 +179,15 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
   const totalAlertsCount = visibleNews.length + visibleComments.length + (visibleWeekly.length > 0 ? 1 : 0) + visibleHomeworks.length + visibleContests.length;
 
   return (
-    <div style={{ animation: 'dashFadeIn 0.4s ease-out' }}>
+    <div className="dashboard-outer-container" style={{ animation: 'dashFadeIn 0.4s ease-out', width: '100%', maxWidth: '1180px', margin: '0 auto', boxSizing: 'border-box' }}>
       
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px', paddingBottom: '15px', borderBottom: '1px solid #334155', flexWrap: 'wrap', gap: '15px' }}>
-        <h1 style={{ margin: 0, fontSize: '1.8rem', color: '#f8fafc', fontWeight: '800' }}>
+      {/* FELSŐ ÜDVÖZLŐ SÁV */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', paddingBottom: '12px', borderBottom: '1px solid #334155', flexWrap: 'wrap', gap: '12px' }}>
+        <h1 style={{ margin: 0, fontSize: '1.6rem', color: '#f8fafc', fontWeight: '800', letterSpacing: '-0.5px' }}>
           {t('dashWelcome', 'Üdvözlünk')}, <span style={{ color: '#38bdf8' }}>{user?.name}</span>!
         </h1>
         {(user?.isPremium || user?.is_premium) && (
-          <div style={{ background: '#10b98120', border: '1px solid #10b98140', padding: '6px 16px', borderRadius: '100px', color: '#10b981', fontWeight: 'bold', fontSize: '0.85rem' }}>
+          <div style={{ background: '#10b98120', border: '1px solid #10b98140', padding: '5px 14px', borderRadius: '100px', color: '#10b981', fontWeight: 'bold', fontSize: '0.8rem', letterSpacing: '0.5px' }}>
             {t('dashPremiumBadge', '✨ PRÉMIUM')}
           </div>
         )}
@@ -209,7 +197,7 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
         
         {/* BAL OLDAL: NAVIGÁCIÓS CSEMPÉK */}
         <div className="dashboard-tiles-section">
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: '14px' }}>
             {tiles.map((tile) => (
               <div 
                 key={tile.id}
@@ -217,25 +205,30 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
                 onClick={() => setActiveTab(tile.tab)}
                 style={{ 
                   background: '#1e293b', 
-                  borderRadius: '16px', 
-                  padding: '20px', 
+                  borderRadius: '14px', 
+                  padding: '16px 18px', 
                   cursor: 'pointer', 
                   border: '1px solid #334155',
-                  transition: 'all 0.2s ease-in-out',
+                  transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
                   position: 'relative',
-                  overflow: 'hidden'
+                  overflow: 'hidden',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between'
                 }}
               >
-                <div style={{ position: 'absolute', top: '-20px', right: '-20px', width: '80px', height: '80px', background: tile.color, opacity: 0.06, filter: 'blur(25px)', borderRadius: '50%' }}></div>
-                <div style={{ fontSize: '2rem', marginBottom: '12px', display: 'inline-block', background: `${tile.color}15`, padding: '10px', borderRadius: '10px', border: `1px solid ${tile.color}25` }}>
-                  {tile.icon}
+                <div style={{ position: 'absolute', top: '-20px', right: '-20px', width: '70px', height: '70px', background: tile.color, opacity: 0.05, filter: 'blur(20px)', borderRadius: '50%' }}></div>
+                <div>
+                  <div style={{ fontSize: '1.6rem', marginBottom: '8px', display: 'inline-flex', background: `${tile.color}12`, padding: '8px', borderRadius: '10px', border: `1px solid ${tile.color}20` }}>
+                    {tile.icon}
+                  </div>
+                  <h3 style={{ margin: '0 0 4px 0', fontSize: '1.05rem', color: '#f8fafc', fontWeight: 'bold', letterSpacing: '-0.3px' }}>
+                    {t(tile.titleKey as any) || (tile as any).fallbackTitle}
+                  </h3>
+                  <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.82rem', lineHeight: '1.35' }}>
+                    {t(tile.descKey as any) || (tile as any).fallbackDesc}
+                  </p>
                 </div>
-                <h3 style={{ margin: '0 0 6px 0', fontSize: '1.2rem', color: '#f8fafc', fontWeight: 'bold' }}>
-                  {t(tile.titleKey as any) || (tile as any).fallbackTitle}
-                </h3>
-                <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.85rem', lineHeight: '1.4' }}>
-                  {t(tile.descKey as any) || (tile as any).fallbackDesc}
-                </p>
               </div>
             ))}
 
@@ -245,22 +238,27 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
                 onClick={() => setActiveTab(adminTile.tab)}
                 style={{ 
                   background: '#1e293b', 
-                  borderRadius: '16px', 
-                  padding: '20px', 
+                  borderRadius: '14px', 
+                  padding: '16px 18px', 
                   cursor: 'pointer', 
-                  border: `1px dashed ${adminTile.color}50`,
-                  transition: 'all 0.2s ease-in-out'
+                  border: `1px dashed ${adminTile.color}40`,
+                  transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between'
                 }}
               >
-                <div style={{ fontSize: '2rem', marginBottom: '12px', display: 'inline-block', background: `${adminTile.color}15`, padding: '10px', borderRadius: '10px', border: `1px solid ${adminTile.color}25` }}>
-                  {adminTile.icon}
+                <div>
+                  <div style={{ fontSize: '1.6rem', marginBottom: '8px', display: 'inline-flex', background: `${adminTile.color}12`, padding: '8px', borderRadius: '10px', border: `1px solid ${adminTile.color}20` }}>
+                    {adminTile.icon}
+                  </div>
+                  <h3 style={{ margin: '0 0 4px 0', fontSize: '1.05rem', color: adminTile.color, fontWeight: 'bold', letterSpacing: '-0.3px' }}>
+                    {t(adminTile.titleKey as any)}
+                  </h3>
+                  <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.82rem', lineHeight: '1.35' }}>
+                    {t(adminTile.descKey as any)}
+                  </p>
                 </div>
-                <h3 style={{ margin: '0 0 6px 0', fontSize: '1.2rem', color: adminTile.color, fontWeight: 'bold' }}>
-                  {t(adminTile.titleKey as any)}
-                </h3>
-                <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.85rem', lineHeight: '1.4' }}>
-                  {t(adminTile.descKey as any)}
-                </p>
               </div>
             )}
           </div>
@@ -268,38 +266,36 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
 
         {/* JOBB OLDAL: ÉRTESÍTÉSI KÖZPONT */}
         <div className="dashboard-alerts-section">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-            <h2 style={{ fontSize: '1rem', color: '#94a3b8', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px', margin: 0 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <h2 style={{ fontSize: '0.88rem', color: '#94a3b8', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px', margin: 0 }}>
                {t('dashAlertsTitle', 'Események & Értesítések')}
             </h2>
             {totalAlertsCount > 0 && (
-              <span style={{ background: '#ef444420', color: '#f87171', fontSize: '0.75rem', fontWeight: 'bold', padding: '2px 8px', borderRadius: '100px' }}>
-                {totalAlertsCount} új
+              <span style={{ background: '#ef444420', color: '#f87171', fontSize: '0.7rem', fontWeight: 'bold', padding: '2px 8px', borderRadius: '100px' }}>
+                {totalAlertsCount} {lang === 'en' ? 'new' : 'új'}
               </span>
             )}
           </div>
 
           {isLoadingAlerts ? (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 20px', gap: '20px', width: '100%' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '50px 10px', gap: '15px', width: '100%' }}>
               <VideoLoader />
               <div style={{ textAlign: 'center', animation: 'arenaPulse 2s infinite' }}>
-                <h4 style={{ color: '#f59e0b', margin: '0 0 8px 0', fontSize: '1.1rem', fontWeight: 'bold', letterSpacing: '0.5px' }}>
-                  {lang === 'en' ? '⚡ Loading Dashboard...' : '⚡ Adatok szinkronizálása...'}
+                <h4 style={{ color: '#f59e0b', margin: 0, fontSize: '0.95rem', fontWeight: 'bold' }}>
+                  {lang === 'en' ? '⚡ Synchronizing data...' : '⚡ Adatok szinkronizálása...'}
                 </h4>
               </div>
               <style>{`@keyframes arenaPulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }`}</style>
             </div>
           ) : !alerts ? (
-            <div style={{ color: '#ef4444', fontSize: '0.88rem', padding: '20px', background: '#ef444405', borderRadius: '16px', border: '1px solid #ef444425', textAlign: 'center' }}>
+            <div style={{ color: '#ef4444', fontSize: '0.85rem', padding: '15px', background: 'rgba(239,68,68,0.04)', borderRadius: '12px', border: '1px solid rgba(239,68,68,0.15)', textAlign: 'center' }}>
               {t('dashAlertsError', 'Hiba történt a betöltéskor.')}
-              <button onClick={() => window.location.reload()} style={{ background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', padding: '2px 8px', borderRadius: '6px', cursor: 'pointer', marginLeft: '10px', fontSize: '0.75rem' }}>
+              <button onClick={() => window.location.reload()} style={{ background: '#ef444415', color: '#f87171', border: '1px solid rgba(239,68,68,0.3)', padding: '3px 10px', borderRadius: '6px', cursor: 'pointer', marginLeft: '10px', fontSize: '0.72rem', fontWeight: 'bold' }}>
                 {t('dashReload', 'Frissítés')}
               </button>
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              
-              {/* 🎯 EREDETI HTML STRUKTÚRA ÉS PRÉMIUM OSZTÁLYOK HIÁNYTALANUL HELYREÁLLÍTVA */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               
               {/* 📰 CIKKEK ÉS HÍREK */}
               {visibleNews.map((news: any) => (
@@ -375,7 +371,7 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
               ))}
 
               {totalAlertsCount === 0 && (
-                <div style={{ color: '#64748b', fontSize: '0.88rem', fontStyle: 'italic', padding: '30px 10px', textAlign: 'center', background: '#1e293b40', borderRadius: '14px', border: '1px dashed #334155' }}>
+                <div style={{ color: '#64748b', fontSize: '0.85rem', fontStyle: 'italic', padding: '25px 10px', textAlign: 'center', background: '#1e293b40', borderRadius: '12px', border: '1px dashed #334155' }}>
                   {t('dashNoAlerts', 'Minden feladatod naprakész, nincs új értesítés.')}
                 </div>
               )}
@@ -385,25 +381,75 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
 
       </div>
 
+      {/* ── 🎯 BRUTÁLISAN BIZTOSÍTOTT RESZPONZÍV STYLING REGETEG ── */}
       <style>{`
-        .dashboard-flex-layout { display: grid; grid-template-columns: repeat(12, 1fr); gap: 20px; width: 100%; }
-        .dashboard-tiles-section { grid-column: span 8; }
-        .dashboard-alerts-section { grid-column: span 4; background: #1e293b; border: 1px solid #334155; border-radius: 20px; padding: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
-        .dashboard-bento-card:hover { transform: translateY(-3px); box-shadow: 0 12px 24px rgba(0,0,0,0.3); border-color: #475569; background: #233147 !important; }
-        .admin-bento-card:hover { border-color: #ef4444 !important; background: rgba(239, 68, 68, 0.05) !important; }
-        .stream-alert-row { background: #0f172a; border: 1px solid #223147; border-radius: 12px; padding: 14px 16px; cursor: pointer; position: relative; transition: all 0.15s ease-in-out; display: flex; align-items: start; }
-        .stream-alert-row:hover { transform: translateX(2px); background: #141e33; border-color: #334155; }
+        /* Globális Reset beépítése a fehér szélek ellen */
+        .dashboard-outer-container {
+          box-sizing: border-box;
+        }
+
+        /* Bento Grid 2-hasábos alap elrendezése */
+        .dashboard-flex-layout { 
+          display: grid; 
+          grid-template-columns: 1.4fr 1fr; 
+          gap: 16px; 
+          width: 100%; 
+        }
+        
+        .dashboard-tiles-section { width: 100%; }
+        .dashboard-alerts-section { 
+          background: #1e293b; 
+          border: 1px solid #334155; 
+          border-radius: 16px; 
+          padding: 16px; 
+          box-shadow: 0 4px 20px rgba(0,0,0,0.15); 
+          align-self: start;
+        }
+
+        .dashboard-bento-card:hover { 
+          transform: translateY(-3px); 
+          box-shadow: 0 8px 20px rgba(0,0,0,0.3); 
+          border-color: #475569; 
+          background: #223147 !important; 
+        }
+        
+        .admin-bento-card:hover { 
+          border-color: #ef4444 !important; 
+          background: rgba(239, 68, 68, 0.04) !important; 
+        }
+
+        .stream-alert-row { 
+          background: #0f172a; 
+          border: 1px solid #223147; 
+          border-radius: 10px; 
+          padding: 10px 14px; 
+          cursor: pointer; 
+          position: relative; 
+          transition: all 0.15s ease-in-out; 
+          display: flex; 
+          align-items: start; 
+        }
+        .stream-alert-row:hover { transform: translateX(2px); background: #131e33; border-color: #334155; }
         .stream-alert-content { flex: 1; min-width: 0; }
-        .stream-alert-header-meta { display: flex; align-items: center; gap: 6px; font-size: 0.68rem; font-weight: 800; color: #94a3b8; margin-bottom: 6px; letter-spacing: 0.5px; flex-wrap: wrap; }
-        .stream-alert-dot { color: #334155; }
-        .stream-alert-title { margin: 0; color: #f8fafc; font-size: 0.92rem; font-weight: 600; line-height: 1.4; white-space: normal !important; word-break: break-word; }
-        .stream-dismiss-cross { position: absolute; top: 12px; right: 12px; background: transparent; border: none; color: #475569; cursor: pointer; font-size: 0.8rem; padding: 2px; transition: color 0.1s; }
+        .stream-alert-header-meta { display: flex; align-items: center; gap: 6px; font-size: 0.65rem; font-weight: 800; color: #94a3b8; margin-bottom: 4px; letter-spacing: 0.5px; flex-wrap: wrap; }
+        .stream-alert-dot { color: #223147; }
+        .stream-alert-title { margin: 0; color: #f8fafc; font-size: 0.88rem; font-weight: 600; line-height: 1.35; white-space: normal !important; word-break: break-word; }
+        .stream-dismiss-cross { position: absolute; top: 10px; right: 10px; background: transparent; border: none; color: #475569; cursor: pointer; font-size: 0.75rem; padding: 2px; transition: color 0.1s; }
         .stream-dismiss-cross:hover { color: #f8fafc; }
-        @keyframes dashFadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-        @media (max-width: 1024px) {
-          .dashboard-flex-layout { display: grid; grid-template-columns: 1fr; }
-          .dashboard-tiles-section, .dashboard-alerts-section { grid-column: span 1fr; width: 100%; }
-          .dashboard-alerts-section { order: -1; }
+        
+        @keyframes dashFadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* 🎯 JAVÍTVA: Szabályos, törhetetlen reszponzív 1-hasábos nézet mobilra */
+        @media (max-width: 900px) {
+          .dashboard-flex-layout { 
+            grid-template-columns: 1fr !important; 
+            gap: 16px !important;
+          }
+          .dashboard-alerts-section { 
+            order: -1; /* Mobilnézetben az értesítések ugranak legfelülre */
+            width: 100%;
+            box-sizing: border-box;
+          }
         }
       `}</style>
     </div>
