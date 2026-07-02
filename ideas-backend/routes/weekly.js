@@ -1936,6 +1936,9 @@ await pool.query('UPDATE weekly_entries SET final_fair_score = ?, final_rank = ?
   // ====================================================================
   // ⚡ FRISSÍTETT MIGRÁCIÓ: HELYEZÉSEK (FINAL_RANK) BEÉGETÉSE IS!
   // ====================================================================
+ // ====================================================================
+  // ⚡ JAVÍTVA: TÖRTÉNELMI ADATOK ÉS HELYEZÉSEK (FINAL_RANK) BEÉGETÉSE
+  // ====================================================================
   app.get('/api/admin/rebuild-historical-facts', async (req, res) => {
     console.log("🛠️ Történelmi statisztikák és FINAL_RANK adatok végleges rögzítése indul...");
     try {
@@ -1943,7 +1946,7 @@ await pool.query('UPDATE weekly_entries SET final_fair_score = ?, final_rank = ?
 
       // 1. Teljes alaphelyzetbe állítás a duplázódások ellen
       await pool.query('UPDATE photo_users SET total_likes = 0, victories = 0');
-      await pool.query('UPDATE weekly_entries SET final_fair_score = NULL, final_rank = NULL WHERE final_rank IS NOT NULL OR final_fair_score IS NOT NULL');
+      await pool.query('UPDATE weekly_entries SET final_fair_score = NULL, final_rank = NULL');
 
       // 2. Lekérjük az összes eddigi LEZÁRT témát
       const [pastTopics] = await pool.query(
@@ -1968,31 +1971,13 @@ await pool.query('UPDATE weekly_entries SET final_fair_score = ?, final_rank = ?
         // Sorban végigmegyünk a szoba képein
         for (let i = 0; i < entries.length; i++) {
           const entry = entries[i];
-          const rank = i + 1; // 🎯 EZ A FIX HELYEZÉS (1., 2., 3., stb.)
+          const rank = i + 1; // 🎯 Ez a pontos helyezés (1., 2., 3., stb.)
           const finalScore = Number(entry.fair_score || 0);
 
-          // a) BEÉGETÉS: Elmentjük a fix pontszámot ÉS a pontos helyezést is a nevezéshez!
+          // a) 🎯 JAVÍTVA: Egyetlen tiszta parancs, pontosan 3 db placeholderrel és 3 db változóval!
           await pool.query(
-            'UPDATE weekly_entries SET final_fair_score = ?, final_fair_score = ?, final_fair_score = ? WHERE id = ?', 
-            [finalScore, entry.id] // Wait, let's make sure columns are set correctly:
-          );
-          
-          // Helyes UPDATE parancs az új oszlopoddal:
-          await pool.query(
-            'UPDATE weekly_entries SET final_fair_score = ?, final_fair_score = ?, final_fair_score = ? WHERE id = ?', // Wait let's just write a clean query
-            [finalScore, entry.id]
-          );
-          
-          // Tisztított, pontos SQL parancs a mentéshez:
-          await pool.query(
-            'UPDATE weekly_entries SET final_fair_score = ?, final_fair_score = ? WHERE id = ?', // wait let's use the actual column name
-            [finalScore, entry.id]
-          );
-
-          // Javított tiszta parancs az elírások elkerülésére:
-          await pool.query(
-            'UPDATE weekly_entries SET final_fair_score = ? WHERE id = ?', 
-            [finalScore, entry.id]
+            'UPDATE weekly_entries SET final_fair_score = ?, final_rank = ? WHERE id = ?', 
+            [finalScore, rank, entry.id]
           );
 
           // b) Hozzáadjuk a pontot a user globális élethosszig tartó lájkszámlálójához
@@ -2022,7 +2007,7 @@ await pool.query('UPDATE weekly_entries SET final_fair_score = ?, final_rank = ?
       });
 
     } catch (err) {
-      console.error("Migrációs hiba:", err);
+      console.error("❌ Migrációs hiba:", err);
       res.status(500).json({ error: err.message });
     }
   });
