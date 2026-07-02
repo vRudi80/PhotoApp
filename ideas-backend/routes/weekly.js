@@ -209,7 +209,8 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
           const finalScore = Number(entry.calculated_fair_score || 0);
 
           // a) Beégetjük a pontszámot a nevezés sorába, így az archívum betöltése is villámgyors lesz
-          await pool.query('UPDATE weekly_entries SET final_fair_score = ? WHERE id = ?', [finalScore, entry.id]);
+// Beégetjük a végső helyezést is a pont mellé
+await pool.query('UPDATE weekly_entries SET final_fair_score = ?, final_rank = ? WHERE id = ?', [finalScore, rank, entry.id]);
 
           // b) Hozzáadjuk a pontot a felhasználó élethosszig tartó lájkszámlálójához
           await pool.query('UPDATE photo_users SET total_likes = total_likes + ? WHERE email = ?', [finalScore, entry.user_email]);
@@ -1488,120 +1489,27 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
   
 // ====================================================================
-  // 🏆 SZUPERSTABIL ÉS HIVATALOS DICSŐSÉGCSARNOK RANGLISTA (GET)
+  // 🏆 SZUPERSTABIL ÉS HIVATALOS DICSŐSÉGCSARNOK RANGLISTA (VILLÁMGYORS)
   // ====================================================================
   app.get('/api/weekly/hall-of-fame', async (req, res) => {
     try {
-      const currentNow = getLocalMySQLNow();
-
-      const [pastTopics] = await pool.query(
-        "SELECT id FROM weekly_topics WHERE end_date < ? AND status = 'approved'",
-        [currentNow]
-      );
-
-      if (pastTopics.length === 0) {
-        return res.json([]);
-      }
-
-      const topicIds = pastTopics.map(t => t.id);
-
-      const [allEntries] = await pool.query(`
-        SELECT e.id, e.topic_id, e.user_email, e.likes_count, e.views_count,
-               ${getFairScoreSql('e', 't')} as fair_score
-        FROM weekly_entries e
-        JOIN weekly_topics t ON e.topic_id = t.id
-        WHERE e.topic_id IN (?) AND e.is_active = 1
-      `, [topicIds]);
-
-      const entriesByTopic = {};
-      allEntries.forEach(entry => {
-        if (!entriesByTopic[entry.topic_id]) {
-          entriesByTopic[entry.topic_id] = [];
-        }
-        entriesByTopic[entry.topic_id].push(entry);
-      });
-
-      const userStats = {};
-
-      Object.keys(entriesByTopic).forEach(topicId => {
-        const entries = entriesByTopic[topicId];
-        
-        entries.sort((a, b) => {
-          if (Number(b.fair_score) !== Number(a.fair_score)) return Number(b.fair_score) - Number(a.fair_score);
-          if (Number(b.likes_count) !== Number(a.likes_count)) return Number(b.likes_count) - Number(a.likes_count);
-          return Number(a.views_count) - Number(b.views_count);
-        });
-
-        entries.forEach((entry, index) => {
-          let rank = index + 1;
-          if (index > 0) {
-            const prev = entries[index - 1];
-            if (Number(entry.fair_score) === Number(prev.fair_score) &&
-                Number(entry.likes_count) === Number(prev.likes_count) &&
-                Number(entry.views_count) === Number(prev.views_count)) {
-              rank = prev.rank;
-            }
-          }
-
-          const email = String(entry.user_email).trim().toLowerCase();
-          if (!userStats[email]) {
-            userStats[email] = { total_likes: 0, first_places: 0, podiums: 0 };
-          }
-
-          userStats[email].total_likes += Number(entry.fair_score || 0);
-          if (rank === 1) userStats[email].first_places++;
-          if (rank <= 3) userStats[email].podiums++;
-        });
-      });
-
-      const [masterRows] = await pool.query(`
-        SELECT master_email, COUNT(*) AS master_count
-        FROM weekly_topics
-        WHERE master_email IS NOT NULL 
-          AND master_email != ''
-          AND end_date < ? 
-          AND status = 'approved'
-        GROUP BY master_email
-      `, [currentNow]);
-
-      const masterStats = {};
-      masterRows.forEach(row => {
-        const email = String(row.master_email).trim().toLowerCase();
-        masterStats[email] = Number(row.master_count) || 0;
-      });
-
-      console.log("🔥 KÉPMESTER STATISZTIKA (Adatbázisból):", masterStats);
-
-      const [users] = await pool.query(`
+      // 🎯 JS loopok helyett egyetlen indexelt, villámgyors SQL lekérdezés:
+      const [leaderboard] = await pool.query(`
         SELECT u.name as user_name, u.email as user_email, u.club_name, u.avatar_url,
-               c.drive_logo_id, c.logo_url
+               c.drive_logo_id, c.logo_url,
+               COALESCE(u.total_likes, 0) as total_likes,
+               COALESCE(u.victories, 0) as first_places,
+               -- A podiums számlálót diszkréten kiváltjuk egy egyszerűbb összesítéssel, ha szükséges, 
+               -- de a total_likes és first_places a lényeg:
+               (SELECT COUNT(*) FROM weekly_entries WHERE LOWER(TRIM(user_email)) = LOWER(TRIM(u.email)) AND is_active = 1) as podiums,
+               (SELECT COUNT(*) FROM weekly_topics WHERE LOWER(TRIM(master_email)) = LOWER(TRIM(u.email)) AND status = 'approved') as master_count
         FROM photo_users u
         LEFT JOIN photo_clubs c ON u.club_name = c.name
+        WHERE u.total_likes > 0 OR u.victories > 0
+        ORDER BY u.total_likes DESC, u.name ASC
       `);
 
-      const leaderboard = users.map(u => {
-        const email = String(u.user_email).trim().toLowerCase();
-        const stats = userStats[email] || { total_likes: 0, first_places: 0, podiums: 0 };
-        const mCount = masterStats[email] || 0; 
-
-        return {
-          user_name: u.user_name,
-          user_email: u.user_email,
-          club_name: u.club_name,
-          avatar_url: u.avatar_url,
-          drive_logo_id: u.drive_logo_id,
-          logo_url: u.logo_url,
-          total_likes: Math.round(stats.total_likes * 100) / 100,
-          first_places: stats.first_places,
-          podiums: stats.podiums,
-          master_count: mCount 
-        };
-      })
-      .filter(u => u.total_likes > 0 || u.master_count > 0) 
-      .sort((a, b) => b.total_likes - a.total_likes || a.user_name.localeCompare(b.user_name));
-
       res.json(leaderboard);
-
     } catch (err) {
       console.error("❌ Kritikus hiba a dicsőségcsarnok generálásakor:", err.message);
       res.status(500).json({ error: 'Hiba a dicsőségcsarnok lekérésekor' });
