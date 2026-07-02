@@ -12,7 +12,7 @@ import { useLanguage } from '../context/LanguageContext';
 // Behozzuk a téma környezetet
 import { useTheme } from '../context/ThemeContext';
 
-// 🎯 JAVÍTVA: 'Dun' kicserélve 'Sun'-ra!
+// Professzionális Lucide ikonok importálása
 import { 
   Menu, 
   X, 
@@ -64,9 +64,22 @@ export default function Header({
   
   const headerRef = useRef<HTMLDivElement>(null);
 
-  // Aktiváljuk a kontextusokat
+  // Aktiváljuk a nyelvi kontextust
   const { lang, setLang, t } = useLanguage();
-  const { theme, toggleTheme } = useTheme();
+
+  // 🎯 JAVÍTVA: Biztonsági fék, hogy ne omoljon össze az app, ha a Provider még nincs beállítva
+  let theme = 'dark';
+  let toggleTheme = () => {};
+  
+  try {
+    const themeContext = useTheme();
+    if (themeContext) {
+      theme = themeContext.theme;
+      toggleTheme = themeContext.toggleTheme;
+    }
+  } catch (e) {
+    // Ha nincs fent Provider, csendben sötét módon marad
+  }
 
   // Meghatározzuk, hogy épp melyik logót kell mutatni
   const currentLogo = lang === 'en' ? logoEn : logoHu;
@@ -124,13 +137,13 @@ export default function Header({
   const LogoBrandBlock = () => (
     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
       <div style={{ 
-        background: 'var(--bg-main)', 
+        background: 'var(--bg-main, #0f172a)', 
         padding: '5px 6px', 
         borderRadius: '6px', 
         display: 'flex', 
         alignItems: 'center', 
         justifyContent: 'center',
-        border: '1px solid var(--border-main)',
+        border: '1px solid var(--border-main, #222f47)',
         boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
       }}>
         <img 
@@ -139,14 +152,14 @@ export default function Header({
           style={{ height: '22px', width: 'auto', objectFit: 'contain' }} 
         />
       </div>
-      <div style={{ fontWeight: '800', color: 'var(--text-title)', fontSize: '1.25rem', letterSpacing: '-0.5px' }}>
+      <div style={{ fontWeight: '800', color: 'var(--text-title, #f8fafc)', fontSize: '1.25rem', letterSpacing: '-0.5px' }}>
         Phot<span style={{ background: 'linear-gradient(135deg, #38bdf8, #8b5cf6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Awesome</span>
       </div>
     </div>
   );
 
   return (
-    <header ref={headerRef} className="app-header" style={{ position: 'relative', zIndex: 1000, width: '100%', background: 'var(--bg-card)', borderBottom: '1px solid var(--border-main)', boxSizing: 'border-box' }}>
+    <header ref={headerRef} className="app-header" style={{ position: 'relative', zIndex: 1000, width: '100%', background: 'var(--bg-card, #131b2e)', borderBottom: '1px solid var(--border-main, #222f47)', boxSizing: 'border-box' }}>
       
       <style>{`
         /* ── 🎯 ASZTALI SZABÁLYZAT ── */
@@ -182,8 +195,8 @@ export default function Header({
             position: absolute;
             top: 100%;
             left: 0;
-            background: var(--bg-card);
-            border: 1px solid var(--border-main);
+            background: var(--bg-card, #131b2e);
+            border: 1px solid var(--border-main, #222f47);
             border-radius: 6px;
             padding: 4px;
             min-width: 190px;
@@ -204,12 +217,12 @@ export default function Header({
             padding: 0 20px;
             box-sizing: border-box;
             height: 56px !important;
-            background: var(--bg-card);
+            background: var(--bg-card, #131b2e);
           }
           .hamburger-btn {
-            background: var(--bg-main);
-            color: var(--text-body);
-            border: 1px solid var(--border-main);
+            background: var(--bg-main, #0f172a);
+            color: var(--text-body, #94a3b8);
+            border: 1px solid var(--border-main, #222f47);
             padding: 6px 10px;
             border-radius: 6px;
             cursor: pointer;
@@ -227,8 +240,8 @@ export default function Header({
             top: 56px;
             left: 0;
             right: 0;
-            background: var(--bg-card);
-            border-bottom: 1px solid var(--border-main);
+            background: var(--bg-card, #131b2e);
+            border-bottom: 1px solid var(--border-main, #222f47);
             padding: 16px 20px;
             box-sizing: border-box;
             gap: 12px;
@@ -252,8 +265,8 @@ export default function Header({
             text-align: left !important;
             justify-content: flex-start !important;
             padding: 10px 14px !important;
-            background: var(--bg-main) !important;
-            border: 1px solid var(--border-main) !important;
+            background: var(--bg-main, #0f172a) !important;
+            border: 1px solid var(--border-main, #222f47) !important;
             border-radius: 6px !important;
           }
           .user-group {
@@ -262,25 +275,25 @@ export default function Header({
             width: 100%;
             gap: 10px;
             padding-top: 14px;
-            border-top: 1px solid var(--border-main);
+            border-top: 1px solid var(--border-main, #222f47);
           }
           .dropdown-menu {
             position: static !important;
             width: 100% !important;
-            background: var(--bg-main) !important;
+            background: var(--bg-main, #0f172a) !important;
             box-shadow: none !important;
             margin-top: 4px;
             border-radius: 6px !important;
             padding: 6px !important;
             box-sizing: border-box;
-            border: 1px solid var(--border-main);
+            border: 1px solid var(--border-main, #222f47);
           }
         }
 
         .nav-btn {
           background: transparent;
           border: none;
-          color: var(--text-body);
+          color: var(--text-body, #94a3b8);
           padding: 8px 12px;
           border-radius: 4px;
           font-weight: 600;
@@ -294,14 +307,14 @@ export default function Header({
         }
         .nav-btn.active, .nav-btn:hover {
           background: rgba(255, 255, 255, 0.04);
-          color: var(--text-title);
+          color: var(--text-title, #f8fafc);
         }
         .drop-item {
           width: 100%;
           text-align: left;
           background: transparent;
           border: none;
-          color: var(--text-body);
+          color: var(--text-body, #94a3b8);
           padding: 8px 12px;
           border-radius: 4px;
           font-size: 0.85rem;
@@ -315,7 +328,7 @@ export default function Header({
         }
         .drop-item:hover, .drop-item.active {
           background: rgba(255, 255, 255, 0.04);
-          color: var(--text-title);
+          color: var(--text-title, #f8fafc);
         }
       `}</style>
       
@@ -363,7 +376,7 @@ export default function Header({
                 <button className={`drop-item ${activeTab === 'contests_club_active' ? 'active' : ''}`} onClick={() => handleNavClick('contests_club_active')}>{t('subClubContests')}</button>
                 <button className={`drop-item ${activeTab === 'contests_open_active' ? 'active' : ''}`} onClick={() => handleNavClick('contests_open_active')}>{t('subOpenContests')}</button>
                 <button className={`drop-item ${activeTab === 'contests_closed' ? 'active' : ''}`} onClick={() => handleNavClick('contests_closed')}>{t('subClosedContests')}</button>
-                <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }}></div>
+                <div style={{ height: '1px', backgroundColor: 'var(--border-main, #222f47)', margin: '4px 0' }}></div>
                 <button className={`drop-item ${activeTab === 'salons' ? 'active' : ''}`} style={{ color: '#38bdf8' }} onClick={() => handleNavClick('salons')}><Globe size={12} /> {t('subSalonsList')}</button>
                 <button className={`drop-item ${activeTab === 'fiap_progress' ? 'active' : ''}`} onClick={() => handleNavClick('fiap_progress')}><Award size={12} /> {t('subFiap')}</button>
                 <button className={`drop-item ${activeTab === 'mafosz_progress' ? 'active' : ''}`} onClick={() => handleNavClick('mafosz_progress')}>
@@ -446,8 +459,8 @@ export default function Header({
             onClick={toggleTheme}
             style={{
               background: 'transparent',
-              border: '1px solid var(--border-main)',
-              color: 'var(--text-body)',
+              border: '1px solid var(--border-main, #222f47)',
+              color: 'var(--text-body, #94a3b8)',
               padding: '6px 10px',
               borderRadius: '6px',
               cursor: 'pointer',
@@ -463,12 +476,12 @@ export default function Header({
             {theme === 'dark' ? <Sun size={14} color="#fbbf24" fill="#fbbf24" /> : <Moon size={14} color="#475569" />}
           </button>
 
-          <div style={{ display: 'flex', gap: '2px', background: 'var(--bg-main)', padding: '3px', borderRadius: '6px', border: '1px solid var(--border-main)' }}>
-            <button onClick={() => setLang('hu')} style={{ background: lang === 'hu' ? 'rgba(255,255,255,0.06)' : 'transparent', color: lang === 'hu' ? 'var(--text-title)' : '#64748b', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <div style={{ display: 'flex', gap: '2px', background: 'var(--bg-main, #0f172a)', padding: '3px', borderRadius: '6px', border: '1px solid var(--border-main, #222f47)' }}>
+            <button onClick={() => setLang('hu')} style={{ background: lang === 'hu' ? 'rgba(255,255,255,0.06)' : 'transparent', color: lang === 'hu' ? 'var(--text-title, #f8fafc)' : '#64748b', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
               <img src="https://flagcdn.com/16x12/hu.png" width="14" height="10" alt="HU" style={{ borderRadius: '1px', objectFit: 'cover' }} />
               <span>HU</span>
             </button>
-            <button onClick={() => setLang('en')} style={{ background: lang === 'en' ? 'rgba(255,255,255,0.06)' : 'transparent', color: lang === 'en' ? 'var(--text-title)' : '#64748b', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <button onClick={() => setLang('en')} style={{ background: lang === 'en' ? 'rgba(255,255,255,0.06)' : 'transparent', color: lang === 'en' ? 'var(--text-title, #f8fafc)' : '#64748b', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
               <img src="https://flagcdn.com/16x12/gb.png" width="14" height="10" alt="EN" style={{ borderRadius: '1px', objectFit: 'cover' }} />
               <span>EN</span>
             </button>
@@ -512,7 +525,7 @@ export default function Header({
                   </button>
                 )}
 
-                <div style={{ height: '1px', backgroundColor: 'var(--border-main)', margin: '4px 0' }}></div>
+                <div style={{ height: '1px', backgroundColor: 'var(--border-main, #222f47)', margin: '4px 0' }}></div>
 
                 <button className="drop-item" style={{ color: '#ef4444' }} onClick={() => { googleLogout(); onLogout(); }}>
                   <LogOut size={12} /> {t('subLogout')}
