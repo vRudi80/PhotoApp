@@ -30,17 +30,39 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
     let isMounted = true;
 
     const fetchAlerts = async () => {
-      // Ha nincs email, felesleges API hívást indítani
       if (!user?.email) return; 
 
       setIsLoadingAlerts(true);
       try {
         const res = await fetch(`${BACKEND_URL}/api/dashboard-alerts?userEmail=${user.email}`);
-        if (res.ok && isMounted) {
+        
+        // 🎯 JAVÍTVA: Ha nem 200 OK a válasz (hanem pl. Render hibaoldal HTML szövveggel), manuálisan hibát dobunk,
+        // így nem engedjük rá a res.json()-ra, ami lefagyasztaná a VideoLoadert
+        if (!res.ok) {
+          throw new Error(`Szerver hiba státusz: ${res.status}`);
+        }
+
+        if (isMounted) {
           setAlerts(await res.json());
         }
       } catch (err) {
         console.error('Hiba az értesítések letöltésekor:', err);
+
+        // 🎯 INTELLIGENS AUTOMATIKUS ÚJRATÖLTÉS VÉGTELEN CIKLUS ELLENI VÉDELEMMEL
+        const lastAutoReload = sessionStorage.getItem('last_dashboard_auto_reload');
+        const now = Date.now();
+
+        // Ha még nem volt automatikus frissítés az elmúlt 10 másodpercben, futtatunk egyet az öngyógyításért
+        if (!lastAutoReload || now - Number(lastAutoReload) > 10000) {
+          sessionStorage.setItem('last_dashboard_auto_reload', String(now));
+          console.log("🔄 Adatbetöltési deadlock észlelve, automatikus oldal-újratöltés indítása...");
+          window.location.reload();
+          return; // Megszakítjuk a futást, az oldal frissül
+        }
+        
+        // Ha 10 másodpercen belül már próbálta, akkor a szerver tartósan áll: megtörjük a ciklust,
+        // és engedjük, hogy a végén a 'finally' leállítsa a VideoLoadert, megjelenítve a kézi gombot.
+        console.warn("🛑 Az automatikus frissítés már megtörtént az imént, a ciklus leállítva a biztonság érdekében.");
       } finally {
         if (isMounted) setIsLoadingAlerts(false);
       }
@@ -51,7 +73,6 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
     return () => {
       isMounted = false;
     };
-  // 🎯 KULCSFONTOSSÁGÚ: Itt NE a [user]-t figyeld, hanem a [user?.email]-t!
   }, [user?.email]);
 
 
@@ -101,7 +122,6 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
     setActiveTab('map_spots');
   };
 
-  // 🎯 FRISSÍTVE: Bekerült a Podcast csempe a Bento elrendezés végére nyelvi fallback-ekkel
   const tiles = [
     { id: 'weekly_challenge', icon: '🔥', color: '#f97316', titleKey: 'tileWeeklyTitle', descKey: 'tileWeeklyDesc', tab: 'weekly_challenge' },
     { id: 'contests', icon: '📝', color: '#8b5cf6', titleKey: 'tileContestsTitle', descKey: 'tileContestsDesc', tab: 'contests_open_active' },
@@ -126,7 +146,6 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
 
   const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString(lang === 'en' ? 'en-US' : 'hu-HU', { month: 'short', day: 'numeric' });
 
-  // UNIVERZÁLIS KLUB-BIZTONSÁGI SZŰRŐ MOTOR
   const checkClubAccess = (item: any) => {
     const itemClubName = item.club_name || item.restricted_club;
     const itemClubId = item.club_id || item.restricted_club_id;
@@ -142,28 +161,18 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
     return !!(nameMatch || idMatch);
   };
 
-  // Alkalmazzuk a szűrőt az összes beérkező adatcsoportra
   const visibleNews = alerts?.unreadNews?.filter((n: any) => !dismissedAlerts.includes(`news_${n.id}`) && checkClubAccess(n)) || [];
   const visibleComments = alerts?.mapComments?.filter((c: any) => !dismissedAlerts.includes(`com_${c.comment_id}`)) || [];
   const visibleWeekly = Array.isArray(alerts?.weekly) ? alerts.weekly : [];
   const visibleHomeworks = alerts?.homeworks?.filter((hw: any) => checkClubAccess(hw)) || [];
   
-  // 🎯 JAVÍTVA: Csak a nyilvános (restricted_club_id = 0/null) vagy a saját klubos pályázatok megjelenítése
   const visibleContests = alerts?.contests?.filter((contest: any) => {
     const contestClubId = contest.restricted_club_id ? Number(contest.restricted_club_id) : 0;
-
-    // 1. Ha a restricted_club_id 0, null vagy undefined, akkor a pályázat NYÍLT, mindenki láthatja
-    if (contestClubId === 0) {
-      return true;
-    }
-
-    // 2. Ha belső klubpályázat, ellenőrizzük, hogy a user klub ID-ja megegyezik-e vele
+    if (contestClubId === 0) return true;
     const userClubId = user?.club_id ? Number(user.club_id) : null;
-    
     return contestClubId === userClubId;
   }) || [];
 
-  // 🎯 JAVÍTVA: A számláló most már az összevont kihívás-blokkot számolja (ha van nyitott, az fixen 1 értesítési sornak számít)
   const totalAlertsCount = visibleNews.length + visibleComments.length + (visibleWeekly.length > 0 ? 1 : 0) + visibleHomeworks.length + visibleContests.length;
 
   return (
@@ -255,17 +264,8 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
           </div>
 
           {isLoadingAlerts ? (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 20px', gap: '20px', width: '100%' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 20px', width: '100%' }}>
               <VideoLoader />
-              <div style={{ textAlign: 'center', animation: 'arenaPulse 2s infinite' }}>
-                <h4 style={{ color: '#f59e0b', margin: '0 0 8px 0', fontSize: '1.1rem', fontWeight: 'bold', letterSpacing: '0.5px' }}>
-                  {lang === 'en' ? '⚡ Server is waking up...' : '⚡ A szerver ébredezik...'}
-                </h4>
-                <p style={{ color: '#64748b', fontSize: '0.85rem', margin: 0, maxWidth: '320px', lineHeight: '1.4' }}>
-                  {lang === 'en' ? 'The free tier hosting takes a bit to warm up. We are starting right away!' : 'A rendszer tétlenség után kicsit melegszik be. Azonnal indulunk!'}
-                </p>
-              </div>
-              <style>{`@keyframes arenaPulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }`}</style>
             </div>
           ) : !alerts ? (
             <div style={{ color: '#ef4444', fontSize: '0.88rem', padding: '20px', background: '#ef444405', borderRadius: '16px', border: '1px solid #ef444425', textAlign: 'center' }}>
@@ -304,7 +304,7 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
                 </div>
               ))}
 
-              {/* 🎯 JAVÍTVA: AZ ÖSSZES ANNYI FUTAM HELYETT CSAK EGYETLEN ÖSSZEVONT SORSZÁMOLÓS BLOKK JELENIK MEG */}
+              {/* KIHÍVÁSOK */}
               {visibleWeekly.length > 0 && (
                 <div onClick={() => setActiveTab('weekly_challenge')} className="stream-alert-row" style={{ borderLeft: '4px solid #f97316' }}>
                   <div className="stream-alert-content">
