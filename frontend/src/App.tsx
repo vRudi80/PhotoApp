@@ -32,6 +32,7 @@ import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from
 import TicketsView from './views/TicketsView';
 import LeaderClubView from './views/LeaderClubView';
 import PodcastView from './views/PodcastView';
+import { ThemeProvider } from './context/ThemeContext'; // Figyelj a pontos relatív útvonalra!
 
 import MarketplaceRoot from './components/marketplace/MarketplaceRoot';
 import MafoszProgressView from './views/MafoszProgressView'; 
