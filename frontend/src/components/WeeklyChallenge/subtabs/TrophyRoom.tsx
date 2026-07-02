@@ -48,7 +48,37 @@ export default function TrophyRoom({
     'Nagymester 🌟': 'Grandmaster 🌟',
     'Virtuóz ⚡': 'Virtuoso ⚡',
     'Fotóguru 🔥': 'Photo Guru 🔥',
-    'Vizuális Legenda 👑': 'Visual Legend 👑'
+    'Legenda 👑': 'Visual Legend 👑'
+  };
+
+  // Memóriából betöltjük a bezárt értesítéseket
+  useEffect(() => {
+    const stored = localStorage.getItem('dismissed_alerts');
+    if (stored) setDismissedAlerts(JSON.parse(stored));
+  }, []);
+
+  const [dismissedAlerts, setDismissedAlerts] = useState<string[]>([]);
+
+  const safeLeaderboard = Array.isArray(leaderboard) ? leaderboard : [];
+  const safeUserPower = userPower || { super: 1, brilliant: 2 };
+
+  const currentLevel = getLevelDetails(userTotalLikes, userVictories);
+
+  const displayRoomTitle = lang === 'en' && topic?.title_en ? topic.title_en : (topic?.title || t('roomChallengeRoom'));
+  const displayRoomDesc = lang === 'en' && topic?.description_en ? topic.description_en : (topic?.description || '');
+
+  // ... segédfüggvények ...
+  const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString(lang === 'en' ? 'en-US' : 'hu-HU', { month: 'short', day: 'numeric' });
+
+  const checkClubAccess = (item: any) => {
+    const itemClubName = item.club_name || item.restricted_club;
+    const itemClubId = item.club_id || item.restricted_club_id;
+    const hasRestriction = (itemClubName && itemClubName.trim() !== '') || (itemClubId && itemClubId !== 0);
+    if (!hasRestriction) return true; 
+    if (!user?.club_name && !user?.club_id) return false;
+    const nameMatch = itemClubName && user?.club_name && itemClubName.trim() === user.club_name.trim();
+    const idMatch = itemClubId && user?.club_id && Number(itemClubId) === Number(user.club_id);
+    return !!(nameMatch || idMatch);
   };
 
   if (isLoadingStats && (!myStats || myStats.history.length === 0)) {
@@ -91,17 +121,15 @@ export default function TrophyRoom({
   };
 
   const currentBracket = getActualRankBracket(userTotalLikes, userVictories);
-  
-  // 🎯 JAVÍTVA: Átadjuk a valós győzelmek számát is, így nem ragad be a szintszámítás!
   const matchedLevel = getLevelDetails(userTotalLikes, userVictories);
   
-  const currentLevel = {
+  const currentLevelInfo = {
     name: lang === 'en' ? (rankNamesEn[matchedLevel.name] || matchedLevel.name) : matchedLevel.name,
     color: matchedLevel.color,
     bg: `${matchedLevel.color}15`
   };
 
-  // 📊 SZÁZALÉK ÉS UTASÍTÓ SZÖVEG SZÁMÍTÁSA VALÓS IDŐBEN (Golyóálló FP logika)
+  // 📊 SZÁZALÉK ÉS UTASÍTÓ SZÖVEG SZÁMÍTÁSA VALÓS IDŐBEN KEREKÍTÉSSEL
   let progressPercent = 100;
   let levelHelpText = lang === 'en' ? 'Maximum Visual Legend Tier reached! 👑' : 'Elérted a maximális Vizuális Legenda szintet! 👑';
 
@@ -111,9 +139,11 @@ export default function TrophyRoom({
     progressPercent = Math.min(100, Math.max(0, (currentProgress / range) * 100));
 
     if (userTotalLikes < currentBracket.max) {
+      // 🎯 JAVÍTVA: Matematikai kerekítés maximum 2 tizedesjegyre a lebegőpontos lógás ellen
+      const neededLikes = Math.round((currentBracket.max - userTotalLikes) * 100) / 100;
       levelHelpText = lang === 'en' 
-        ? `Még ${currentBracket.max - userTotalLikes} FP pont szükséges a következő szinthez` 
-        : `Még ${currentBracket.max - userTotalLikes} FP pont szükséges a következő szinthez`;
+        ? `${neededLikes} more FP points needed for the next level` 
+        : `Még ${neededLikes} FP pont szükséges a következő szinthez`;
     } else if (userVictories < currentBracket.vic) {
       levelHelpText = lang === 'en'
         ? `${currentBracket.vic - userVictories} more Arena victory needed for the next level`
@@ -143,20 +173,20 @@ export default function TrophyRoom({
     <div style={{ animation: 'fadeIn 0.5s ease-in-out' }}>
       
       {/* Szint progressziós banner */}
-      <div style={{ background: 'linear-gradient(180deg, #1e293b, #0f172a)', padding: '40px 25px', borderRadius: '24px', border: `1px solid ${currentLevel.color}50`, marginBottom: '25px', textAlign: 'center', boxShadow: `0 10px 40px -10px ${currentLevel.color}40`, position: 'relative', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', top: '-50px', left: '50%', transform: 'translateX(-50%)', width: '300px', height: '300px', background: `${currentLevel.color}20`, filter: 'blur(80px)', borderRadius: '50%' }}></div>
+      <div style={{ background: 'linear-gradient(180deg, #1e293b, #0f172a)', padding: '40px 25px', borderRadius: '24px', border: `1px solid ${currentLevelInfo.color}50`, marginBottom: '25px', textAlign: 'center', boxShadow: `0 10px 40px -10px ${currentLevelInfo.color}40`, position: 'relative', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', top: '-50px', left: '50%', transform: 'translateX(-50%)', width: '300px', height: '300px', background: `${currentLevelInfo.color}20`, filter: 'blur(80px)', borderRadius: '50%' }}></div>
         <h3 style={{ color: '#94a3b8', margin: '0 0 10px 0', fontSize: '1rem', textTransform: 'uppercase', letterSpacing: '3px', position: 'relative', zIndex: 1 }}>{t('trophyCurrentStatus')}</h3>
-        <h1 style={{ color: currentLevel.color, margin: '0 0 20px 0', fontSize: '3.5rem', fontWeight: '900', textShadow: `0 0 20px ${currentLevel.color}60`, position: 'relative', zIndex: 1 }}>{currentLevel.name}</h1>
+        <h1 style={{ color: currentLevelInfo.color, margin: '0 0 20px 0', fontSize: '3.5rem', fontWeight: '900', textShadow: `0 0 20px ${currentLevelInfo.color}60`, position: 'relative', zIndex: 1 }}>{currentLevelInfo.name}</h1>
         
         <div style={{ width: '100%', maxWidth: '600px', background: '#0f172a', height: '16px', borderRadius: '10px', margin: '0 auto', overflow: 'hidden', border: '1px solid #334155', position: 'relative', zIndex: 1 }}>
-          <div style={{ width: `${progressPercent}%`, background: `linear-gradient(90deg, transparent, ${currentLevel.color})`, height: '100%' }}></div>
+          <div style={{ width: `${progressPercent}%`, background: `linear-gradient(90deg, transparent, ${currentLevelInfo.color})`, height: '100%' }}></div>
         </div>
         
         <div style={{ color: matchedLevel.name === 'Vizuális Legenda 👑' ? '#fbbf24' : '#cbd5e1', fontSize: matchedLevel.name === 'Vizuális Legenda 👑' ? '1rem' : '0.9rem', marginTop: '15px', position: 'relative', zIndex: 1, fontWeight: matchedLevel.name === 'Vizuális Legenda 👑' ? 'bold' : 'normal' }}>
           {levelHelpText}
         </div>
         <div style={{ marginTop: '8px', fontSize: '0.75rem', color: '#64748b', position: 'relative', zIndex: 1 }}>
-          {lang === 'en' ? `Current stats: ${userTotalLikes} FP | ${userVictories} Victories` : `Saját statisztikád: ${userTotalLikes} FP | ${userVictories} Győzelem`}
+          {lang === 'en' ? `Current stats: ${userTotalLikes} FP | ${userVictories} victories` : `Saját statisztikád: ${userTotalLikes} FP | ${userVictories} Győzelem`}
         </div>
       </div>
 
@@ -175,7 +205,6 @@ export default function TrophyRoom({
 
       {/* Stat rács */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '20px', marginBottom: '40px' }}>
-        {/* 🎯 JAVÍTVA: Explicit módon kiírja, hogy FP Pont */}
         <div style={{ background: '#0f172a', padding: '25px', borderRadius: '20px', textAlign: 'center', border: '1px solid #334155', boxShadow: '0 10px 20px rgba(0,0,0,0.2)' }}>
           <div style={{ fontSize: '2.5rem', fontWeight: '900', color: '#f97316', marginBottom: '5px' }}>{userTotalLikes}</div>
           <div style={{ color: '#94a3b8', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold' }}>{lang === 'en' ? 'Total FP Points' : 'Összes FP Pont'}</div>
@@ -200,7 +229,7 @@ export default function TrophyRoom({
           <div style={{ fontSize: '2.5rem', fontWeight: '900', color: '#a855f7', marginBottom: '5px' }}>{top10Count}</div>
           <div style={{ color: '#a855f7', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold' }}>Top 10%</div>
         </div>
-        <div style={{ background: '#0f172a', padding: '25px', borderRadius: '20px', textAlign: 'center', border: '1px solid #10b981', boxShadow: '0 10px 20px rgba(16,185,129,0.1)' }}>
+        <div style={{ background: '#0f172a', padding: '25px', borderRadius: '20px', textAlign: 'center', border: '1px solid #10b981', boxShadow: '0 10px 20px rgba(16,165,129,0.1)' }}>
           <div style={{ fontSize: '2.5rem', fontWeight: '900', color: '#10b981', marginBottom: '5px' }}>{top20Count}</div>
           <div style={{ color: '#10b981', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold' }}>Top 20%</div>
         </div>
@@ -273,7 +302,6 @@ export default function TrophyRoom({
             const percentile = (Number(entry?.rank) || 1) / totalEntries;
             const rank = Number(entry?.rank) || 0;
             
-            // 🎯 JAVÍTVA: Tűpontos helyezés-kijelzés a Dobogós gyűjtőnév helyett!
             let badge = ''; let badgeColor = '#334155';
             if (rank === 1) { badge = lang === 'en' ? '1st Place 🏆' : '1. Hely 🏆'; badgeColor = '#fbbf24'; }
             else if (rank === 2) { badge = lang === 'en' ? '2nd Place 🥈' : '2. Hely 🥈'; badgeColor = '#cbd5e1'; }
@@ -303,7 +331,6 @@ export default function TrophyRoom({
                       <span>{lang === 'en' ? `Field: ${entry?.total_entries || 0} photos` : `Mezőny: ${entry?.total_entries || 0} kép`}</span>
                       <span style={{color: '#f8fafc'}}>{lang === 'en' ? 'Rank: ' : 'Helyezés: '}<b>{entry?.rank || 0}.</b></span>
                     </div>
-                    {/* 🎯 JAVÍTVA: A rács belsejében is stabilan FP pontok jelennek meg villám ikonnal */}
                     <div style={{ background: '#0f172a', padding: '15px', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', marginBottom: '15px' }}>
                       <span style={{color: '#f97316', fontWeight: '900'}}>⚡ {entry?.likes || 0} FP</span>
                       <span style={{color: '#38bdf8', fontWeight: 'bold'}}>👁️ {entry?.views || 0}</span>
