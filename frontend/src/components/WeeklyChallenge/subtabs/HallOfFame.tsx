@@ -100,7 +100,7 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
       setStatsLoading(false);
     }
   };
-const displayRankName = lang === 'en' ? (rankNamesEn[currentLevel?.name || ''] || currentLevel?.name || '') : (currentLevel?.name || '');
+
   // ====================================================================
   // 📸 1. OLDALNÉZET: JÁTÉKOS STATISZTIKAI ADATLAPJA (LETISZTÍTVA)
   // ====================================================================
@@ -108,6 +108,8 @@ const displayRankName = lang === 'en' ? (rankNamesEn[currentLevel?.name || ''] |
     const totalLikes = Number(selectedUser?.total_likes) || 0;
     const currentLevel = getLevelDetails ? getLevelDetails(totalLikes, Number(selectedUser?.first_places) || 0) : { name: '', color: '#fbbf24', bg: '' };
     
+    // 🎯 JAVÍTVA: Itt fent, a hatókörön belül is külön létrehozzuk a displayRankName változót!
+    const displayRankName = lang === 'en' ? (rankNamesEn[currentLevel?.name || ''] || currentLevel?.name || '') : (currentLevel?.name || '');
 
     const masterCount = Number(selectedUser?.master_count) || 0;
 
@@ -126,7 +128,7 @@ const displayRankName = lang === 'en' ? (rankNamesEn[currentLevel?.name || ''] |
           </button>
         </div>
 
-        {/* Játékos profil fejléce – 🎯 JAVÍTVA: Szabályos string szegély beállítva! */}
+        {/* Játékos profil fejléce */}
         <div style={{ background: '#131b2e', padding: '30px 20px', borderRadius: '8px', border: '1px solid #222f47', marginBottom: '20px', textAlign: 'center', position: 'relative' }}>
           <div style={{ display: 'flex', marginBottom: '12px', justifyContent: 'center' }}>
             <img 
@@ -291,6 +293,9 @@ const displayRankName = lang === 'en' ? (rankNamesEn[currentLevel?.name || ''] |
           
           const rankColor = index === 0 ? '#fbbf24' : index === 1 ? '#cbd5e1' : index === 2 ? '#b45309' : '#475569';
           
+          // 🎯 Hatókörön belül: Itt is tökéletesen definiálva van
+          const displayRankName = lang === 'en' ? (rankNamesEn[level?.name || ''] || level?.name || '') : (level?.name || '');
+
           return (
             <div 
               key={rowEmail || index} 
