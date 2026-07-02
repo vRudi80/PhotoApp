@@ -388,25 +388,41 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-  // ====================================================================
-  // ⚔️ CSATATÉR FŐ VÉGPONT – HIVATALOSAN JAVÍTVA A KÉPMESTERI JELZÉSSEL
+// ====================================================================
+  // ⚔️ CSATATÉR FŐ VÉGPONT – 100% STABIL, KÖZVETLEN ADATBÁZIS ALAPÚ VERZIÓ
   // ====================================================================
   app.get('/api/weekly/current', async (req, res) => {
     const { userEmail, topicId } = req.query;
+    if (!userEmail) return res.status(400).json({ error: 'Hiányzó e-mail cím!' });
+
     try {
+      // 1. Háttérfolyamatok és lezárt meccsek ellenőrzése
       await processFinishedChallenges(pool);
 
+      // 2. Felhasználói globális metrikák kiszámítása közvetlenül az adatbázisból (Lájkok, győzelmek)
       const { totalLikes, victories } = await getUserLikesAndVictories(pool, userEmail);
       const userTotalLikes = totalLikes;
       const rankLevel = calculateRankLevel(totalLikes, victories);
       const power = getVotePowerByLevel(rankLevel); 
 
-      const [userRows] = await pool.query('SELECT COALESCE(swap_balance, 0) as swap_balance FROM photo_users WHERE email = ?', [userEmail]);
-      const swapBalance = userRows[0] ? userRows[0].swap_balance : 3;
+      // 3. Joker egyenleg és referál adatok lekérése egyetlen lépésben
+      const [userRows] = await pool.query('SELECT COALESCE(swap_balance, 0) as swap_balance, referral_code, referred_by FROM photo_users WHERE email = ?', [userEmail]);
       
-      const myReferralCode = await ensureReferralCode(pool, userEmail);
-      const [referredCheck] = await pool.query('SELECT referred_by FROM photo_users WHERE email = ?', [userEmail]);
-      const referredBy = referredCheck[0] ? referredCheck[0].referred_by : null;
+      let swapBalance = 3;
+      let myReferralCode = '';
+      let referredBy = null;
+      
+      if (userRows[0]) {
+        swapBalance = userRows[0].swap_balance;
+        myReferralCode = userRows[0].referral_code;
+        referredBy = userRows[0].referred_by;
+      }
+
+      if (!myReferralCode) {
+        myReferralCode = await ensureReferralCode(pool, userEmail);
+      }
+
+      const mysqlNow = getLocalMySQLNow();
 
       // ── 🅰️ ÁG: HA A LISTÁT KÉRI LE A FŐOLDAL ──
       if (!topicId) {
@@ -419,9 +435,9 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
           FROM weekly_topics t
           LEFT JOIN photo_users u ON t.master_email = u.email
           LEFT JOIN weekly_entries e ON e.topic_id = t.id AND LOWER(TRIM(e.user_email)) = LOWER(TRIM(?)) AND e.is_active = 1
-          WHERE ? BETWEEN t.start_date AND t.end_date AND (t.status = 'approved' OR t.status IS NULL)
+          WHERE ? BETWEEN t.start_date AND t.end_date AND (t.status = 'approved' OR t.status IS NULL OR t.status = '')
           ORDER BY t.id DESC
-        `, [userEmail || '', userEmail || '', userEmail || '', userEmail || '', getLocalMySQLNow()]);
+        `, [userEmail, userEmail, userEmail, userEmail, mysqlNow]);
 
         const mappedTopics = activeTopics.map(t => ({
           ...t,
@@ -437,7 +453,15 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         }));
 
         return res.json({ 
-          activeTopics: mappedTopics, userTotalLikes, userVictories: victories, userPower: power, swapBalance, myReferralCode, referredBy, masterVotesLeft: 0, isMaster: false     
+          activeTopics: mappedTopics, 
+          userTotalLikes, 
+          userVictories: victories, 
+          userPower: power, 
+          swapBalance, 
+          myReferralCode, 
+          referredBy, 
+          masterVotesLeft: 0, 
+          isMaster: false     
         });
       }
 
@@ -449,13 +473,12 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         FROM weekly_topics t 
         LEFT JOIN photo_users u ON t.master_email = u.email 
         WHERE t.id = ?
-      `, [userEmail || '', userEmail || '', topicId]);
+      `, [userEmail, userEmail, topicId]);
       
       const currentTopic = allTopics[0];
       if (!currentTopic) return res.status(404).json({ error: 'Ez a kihívás nem található vagy már lezárult!' });
 
       const isMasterUser = currentTopic.master_email && userEmail && currentTopic.master_email.toLowerCase().trim() === userEmail.toLowerCase().trim();
-
       let masterVotesLeft = isMasterUser ? 999 : 0;
 
       const [myEntries] = await pool.query('SELECT * FROM weekly_entries WHERE topic_id = ? AND user_email = ? AND is_active = 1', [currentTopic.id, userEmail]);
@@ -511,12 +534,26 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       };
 
       res.json({ 
-        topic: structuredTopic, myEntry: myEntries.length > 0 ? myEntries[0] : null, myPastEntries, myVoteCount: myVotes[0]?.vote_count || 0, votableEntries, leaderboard, clubLeaderboard, userTotalLikes, userVictories: victories, userPower: power, swapBalance, myReferralCode, referredBy, masterVotesLeft, isMaster: !!isMasterUser  
+        topic: structuredTopic, 
+        myEntry: myEntries.length > 0 ? myEntries[0] : null, 
+        myPastEntries, 
+        myVoteCount: myVotes[0]?.vote_count || 0, 
+        votableEntries, 
+        leaderboard, 
+        clubLeaderboard, 
+        userTotalLikes, 
+        userVictories: victories, 
+        userPower: power, 
+        swapBalance, 
+        myReferralCode, 
+        referredBy, 
+        masterVotesLeft, 
+        isMaster: !!isMasterUser  
       });
 
     } catch (err) { 
-      console.error("❌ Kritikus hiba:", err);
-      res.status(500).json({ error: 'Szerveroldali hiba történt.' }); 
+      console.error("❌ Kritikus hiba a current végponton:", err);
+      res.status(500).json({ error: 'Szerveroldali hiba történt a csatatér betöltésekor.' }); 
     }
   });
 
