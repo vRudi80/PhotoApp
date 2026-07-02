@@ -32,7 +32,9 @@ import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from
 import TicketsView from './views/TicketsView';
 import LeaderClubView from './views/LeaderClubView';
 import PodcastView from './views/PodcastView';
-import { ThemeProvider } from './context/ThemeContext'; // Figyelj a pontos relatív útvonalra!
+
+// 🎯 Helyes importálás élesítve
+import { ThemeProvider } from './context/ThemeContext'; 
 
 import MarketplaceRoot from './components/marketplace/MarketplaceRoot';
 import MafoszProgressView from './views/MafoszProgressView'; 
@@ -253,7 +255,6 @@ function MainContent() {
     }
   };
   
-  // 🎯 JAVÍTVA: Típus- és karakterkódolás-biztos golyóálló lekérő motor
   const fetchMyEntries = async (email: string) => {
     if (!email || email === 'undefined' || email === 'null' || email.trim() === '') return;
     try {
@@ -325,19 +326,14 @@ function MainContent() {
         }
       } catch (e) { localStorage.removeItem('photoAppToken'); setIsAuthLoading(false); }
     } else setIsAuthLoading(false);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 🎯 ÚJ: REAKTÍV ASZINKRON SZINKRONIZÁCIÓS HOOK A VERCEL / RENDER ÉLETCILKUSOKHOZ
- useEffect(() => {
-  // Ha már van betöltött adatunk (pl. clubs), ne indítsuk újra a lekérdezéseket!
-  if (user?.email && !clubs) {
-    fetchData();
-  }
-// Itt is szigorúan primitiveket figyeljünk!
-}, [user?.email]);
+  useEffect(() => {
+    if (user?.email && !clubs) {
+      fetchData();
+    }
+  }, [user?.email]);
 
-  // KÖRNYEZETI SZINKRONIZÁCIÓS HOROG A LÁGY ELHALVÁNYULÁSHOZ
   useEffect(() => {
     if (!isInitialLoading && !isAuthLoading) {
       setAnimateOut(true);
@@ -348,7 +344,6 @@ function MainContent() {
     }
   }, [isInitialLoading, isAuthLoading]);
 
-  // KÉNYSZERÍTETT BIZTONSÁGI VÉDŐHÁLÓ COLD START ESETÉRE
   useEffect(() => {
     const backupFailSafeTimer = setTimeout(() => {
       setAnimateOut(true);
@@ -368,7 +363,6 @@ function MainContent() {
       const club = Array.isArray(clubs) ? clubs.find(c => c.name === currentDbUser.club_name) : null;
       if (club) fetchClubHomeworkEntries(club.id, user.email);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, currentDbUser, clubs, user]);
 
   const handleDeleteHwEntry = async (entryId: number) => {
@@ -654,7 +648,8 @@ function MainContent() {
       {!user ? (
         <LoginScreen onLoginSuccess={handleLoginSuccess} />
       ) : (
-        <div className="app-container" style={{ minHeight: '100vh', backgroundColor: '#0f172a', color: '#f8fafc', fontFamily: 'Inter, sans-serif' }}>
+        /* 🎯 JAVÍTVA: Fix sötétkék háttér kicserélve a dinamikus reaktív var(--bg-main) és var(--text-title) változókra! */
+        <div className="app-container" style={{ minHeight: '100vh', backgroundColor: 'var(--bg-main)', color: 'var(--text-title)', fontFamily: 'Inter, sans-serif' }}>
           <Header user={headerUser} isLeader={!!isLeader} activeTab={activeTab} setActiveTab={setActiveTab} dropdownOpen={dropdownOpen} setDropdownOpen={setDropdownOpen} onLogout={() => { localStorage.removeItem('photoAppToken'); localStorage.removeItem('user'); setUser(null); }} />
           <main className="app-main">
             <Routes>
@@ -666,7 +661,6 @@ function MainContent() {
               <Route path="/packages" element={<PackagesView user={user} />} />
               <Route path="/marketplace" element={<MarketplaceRoot user={headerUser} />} />
               <Route path="/map_spots" element={<MapSpotsView user={user} setFullscreenData={setFullscreenData} targetMapSpotId={targetMapSpotId} setTargetMapSpotId={setTargetMapSpotId} />} />
-              {/* 🎯 SZALON HÍREK ÉS NYILVÁNOS HÍREK ÁGAI */}
               <Route path="/club_news" element={<ClubNewsView user={user} currentDbUser={currentDbUser} mode="club" />} />
               <Route path="/public_news" element={<ClubNewsView user={user} currentDbUser={currentDbUser} mode="public" />} />
               <Route path="/my_album" element={<MyAlbumView user={user} setFullscreenData={setFullscreenData} />} />
@@ -737,14 +731,17 @@ function MainContent() {
   );
 }
 
+// 🎯 JAVÍTVA: A teljes gyökérstruktúra beburkolva a legkülső <ThemeProvider>-be!
 export default function App() {
   return (
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
-      <LanguageProvider>
-        <BrowserRouter>
-          <MainContent />
-        </BrowserRouter>
-      </LanguageProvider>
+      <ThemeProvider>
+        <LanguageProvider>
+          <BrowserRouter>
+            <MainContent />
+          </BrowserRouter>
+        </LanguageProvider>
+      </ThemeProvider>
     </GoogleOAuthProvider>
   );
 }
