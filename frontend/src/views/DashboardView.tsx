@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BACKEND_URL, ADMIN_EMAIL } from '../utils/constants';
 import VideoLoader from '../components/VideoLoader';
+import { useFetch } from '../hooks/useFetch'; // 👈 Beemeljük a törhetetlen motort
 
 // Nyelvi kontextus betöltése
 import { useLanguage } from '../context/LanguageContext';
@@ -13,77 +14,26 @@ interface DashboardViewProps {
 }
 
 export default function DashboardView({ user, isLeader, setActiveTab, setTargetMapSpotId }: DashboardViewProps) {
-  const [alerts, setAlerts] = useState<any>(null);
-  const [isLoadingAlerts, setIsLoadingAlerts] = useState(true);
   const [dismissedAlerts, setDismissedAlerts] = useState<string[]>([]);
-
   const { t, lang } = useLanguage();
+
+  // 👑 AZ ÚJ ADATLETÖLTŐ ARCHITEKTÚRA:
+  // Csak akkor indul el, ha a user.email már megérkezett (enabled: !!user?.email)
+  const { 
+    data: alerts, 
+    loading: isLoadingAlerts, 
+    error: fetchError, 
+    refetch 
+  } = useFetch<any>(`${BACKEND_URL}/api/dashboard-alerts?userEmail=${user?.email}`, {
+    enabled: !!user?.email,
+    timeoutMs: 5000 // 5 másodperc után kényszerített időtúllépés lógás ellen
+  });
 
   // Memóriából betöltjük a bezárt értesítéseket
   useEffect(() => {
     const stored = localStorage.getItem('dismissed_alerts');
     if (stored) setDismissedAlerts(JSON.parse(stored));
   }, []);
-
-  // Értesítések szinkronizálása
-  useEffect(() => {
-    let isMounted = true;
-
-    const fetchAlerts = async () => {
-      if (!user?.email) return; 
-
-      setIsLoadingAlerts(true);
-
-      // 🎯 BIZTONSÁGI HÁLÓZATI LAKAT: 5 másodperces kényszerített időtúllépés (Timeout)
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => {
-        controller.abort(); // 5 másodperc után könyörtelenül elvágjuk a lógó kérést
-      }, 5000);
-
-      try {
-        const res = await fetch(`${BACKEND_URL}/api/dashboard-alerts?userEmail=${user.email}`, {
-          signal: controller.signal // Átadjuk a megszakító jelet a fetch-nek
-        });
-        
-        // Ha sikeres a kérés, azonnal töröljük a biztonsági időzítőt, nehogy megszakítsa utólag
-        clearTimeout(timeoutId);
-
-        if (!res.ok) {
-          throw new Error(`Szerver hiba státusz: ${res.status}`);
-        }
-
-        if (isMounted) {
-          setAlerts(await res.json());
-        }
-      } catch (err: any) {
-        // Mindig kitakarítjuk az időzítőt hiba esetén is
-        clearTimeout(timeoutId);
-        console.error('Hiba vagy időtúllépés az értesítések letöltésekor:', err);
-
-        // INTELLIGENS AUTOMATIKUS ÚJRATÖLTÉS VÉGTELEN CIKLUS ELLENI VÉDELEMMEL
-        const lastAutoReload = sessionStorage.getItem('last_dashboard_auto_reload');
-        const now = Date.now();
-
-        if (!lastAutoReload || now - Number(lastAutoReload) > 10000) {
-          sessionStorage.setItem('last_dashboard_auto_reload', String(now));
-          console.log("🔄 Hálózati lógás/deadlock elhárítva, automatikus oldal-újratöltés...");
-          window.location.reload();
-          return;
-        }
-        
-        console.warn("🛑 Az automatikus frissítés már megtörtént az imént, a ciklus leállítva.");
-      } finally {
-        if (isMounted) setIsLoadingAlerts(false);
-      }
-    };
-
-    fetchAlerts();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [user?.email]);
-
 
   const handleDismissAlert = (e: React.MouseEvent, alertKey: string, type?: string, id?: number) => {
     e.stopPropagation(); 
@@ -147,26 +97,21 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
       descKey: 'tilePodcastDesc', 
       tab: 'podcast',
       fallbackTitle: 'Podcast',
-      fallbackDesc: lang === 'en' ? 'Watch and listen to the latest media episodes!' : 'Nézd és hallgasd a legfrissebb adásokat közvetlenül itt!'
+      fallbackDesc: lang === 'en' ? 'Watch and listen to the latest media episodes!' : 'Nézd és hallgasd a legfrissebb adásokat közvetlenül ici!'
     }
   ];
 
   const adminTile = { id: 'admin', icon: '⚙️', color: '#ef4444', titleKey: 'tileAdminTitle', descKey: 'tileAdminDesc', tab: (user?.email === ADMIN_EMAIL) ? 'admin_contests' : 'admin_meetings' };
-
   const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString(lang === 'en' ? 'en-US' : 'hu-HU', { month: 'short', day: 'numeric' });
 
   const checkClubAccess = (item: any) => {
     const itemClubName = item.club_name || item.restricted_club;
     const itemClubId = item.club_id || item.restricted_club_id;
-    
     const hasRestriction = (itemClubName && itemClubName.trim() !== '') || (itemClubId && itemClubId !== 0);
     if (!hasRestriction) return true; 
-    
     if (!user?.club_name && !user?.club_id) return false;
-    
     const nameMatch = itemClubName && user?.club_name && itemClubName.trim() === user.club_name.trim();
     const idMatch = itemClubId && user?.club_id && Number(itemClubId) === Number(user.club_id);
-    
     return !!(nameMatch || idMatch);
   };
 
@@ -265,22 +210,23 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
             <h2 style={{ fontSize: '1rem', color: '#94a3b8', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px', margin: 0 }}>
                {t('dashAlertsTitle', 'Események & Értesítések')}
             </h2>
-            {totalAlertsCount > 0 && (
+            {totalAlertsCount > 0 && !isLoadingAlerts && !fetchError && (
               <span style={{ background: '#ef444420', color: '#f87171', fontSize: '0.75rem', fontWeight: 'bold', padding: '2px 8px', borderRadius: '100px' }}>
                 {totalAlertsCount} új
               </span>
             )}
           </div>
 
+          {/* 🎯 JAVÍTVA: Ha tölt a hook, vagy ha hálózati / szerver hiba van, azonnal kezeljük */}
           {isLoadingAlerts ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 20px', width: '100%' }}>
               <VideoLoader />
             </div>
-          ) : !alerts ? (
-            <div style={{ color: '#ef4444', fontSize: '0.88rem', padding: '20px', background: '#ef444405', borderRadius: '16px', border: '1px solid #ef444425', textAlign: 'center' }}>
-              {t('dashAlertsError', 'Hiba történt a betöltéskor.')}
-              <button onClick={() => window.location.reload()} style={{ background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', padding: '2px 8px', borderRadius: '6px', cursor: 'pointer', marginLeft: '10px', fontSize: '0.75rem' }}>
-                {t('dashReload', 'Frissítés')}
+          ) : fetchError || !alerts ? (
+            <div style={{ color: '#ef4444', fontSize: '0.88rem', padding: '20px', background: 'rgba(239,68,68,0.05)', borderRadius: '16px', border: '1px solid rgba(239,68,68,0.2)', textAlign: 'center' }}>
+              <p style={{ margin: '0 0 10px 0', fontWeight: 'bold' }}>⚠️ Kapcsolati hiba történt.</p>
+              <button onClick={refetch} style={{ background: '#ef444420', color: '#f87171', border: '1px solid rgba(239,68,68,0.4)', padding: '6px 16px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>
+                {t('dashReload') || 'Frissítés 🔄'}
               </button>
             </div>
           ) : (
@@ -289,73 +235,37 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
               {/* 📰 CIKKEK ÉS HÍREK */}
               {visibleNews.map((news: any) => (
                 <div key={`news_${news.id}`} onClick={() => handleNewsClick(news.id)} className="stream-alert-row" style={{ borderLeft: '4px solid #ef4444' }}>
-                  <div className="stream-alert-content">
-                    <div className="stream-alert-header-meta">
-                      <span style={{ color: '#ef4444' }}>📰 HÍR</span>
-                    </div>
-                    <h4 className="stream-alert-title">{news.title}</h4>
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <span style={{ fontWeight: 'bold', color: 'white' }}>{news.title}</span>
                   </div>
                 </div>
               ))}
 
-              {/* 💬 HOZZÁSZÓLÁSOK */}
+              {/* 💬 KOMMENTEK */}
               {visibleComments.map((comment: any) => (
                 <div key={`com_${comment.comment_id}`} onClick={() => handleMapCommentClick(comment.location_id, comment.comment_id)} className="stream-alert-row" style={{ borderLeft: '4px solid #10b981' }}>
-                  <button className="stream-dismiss-cross" onClick={(e) => handleDismissAlert(e, `com_${comment.comment_id}`, 'map_comment', comment.comment_id)}>✖</button>
-                  <div className="stream-alert-content">
-                    <div className="stream-alert-header-meta">
-                      <span style={{ color: '#10b981' }}>💬 TÉRKÉP MEGJELENÉS</span>
-                      <span className="stream-alert-dot">•</span>
-                      <span>{comment.user_name}</span>
-                    </div>
-                    <h4 className="stream-alert-title">{t('dashLocation', 'Helyszín')}: {comment.location_title}</h4>
-                  </div>
+                  <span style={{ color: '#cbd5e1' }}>💬 <b>{comment.user_name}</b> új megjegyzést fűzött hozzá: <b style={{color: '#38bdf8'}}>{comment.location_title}</b></span>
                 </div>
               ))}
 
               {/* KIHÍVÁSOK */}
               {visibleWeekly.length > 0 && (
                 <div onClick={() => setActiveTab('weekly_challenge')} className="stream-alert-row" style={{ borderLeft: '4px solid #f97316' }}>
-                  <div className="stream-alert-content">
-                    <div className="stream-alert-header-meta">
-                      <span style={{ color: '#f97316' }}>🎙️ {lang === 'en' ? 'CHALLENGES' : 'KIHÍVÁSOK'}</span>
-                      <span className="stream-alert-dot">•</span>
-                      <span style={{ color: '#10b981' }}>{lang === 'en' ? 'Active Leagues' : 'Aktív futamok'}</span>
-                    </div>
-                    <h4 className="stream-alert-title">
-                      {lang === 'en' 
-                        ? `There are ${visibleWeekly.length} active arena challenges open right now!` 
-                        : `Jelenleg ${visibleWeekly.length} db nyitott aréna kihívás várja a fotóidat!`}
-                    </h4>
-                  </div>
+                  <span style={{ color: '#fbbf24' }}>⚔️ Aktív Aréna fordulók zajlanak! Kattints a leadáshoz vagy szavazáshoz.</span>
                 </div>
               )}
 
               {/* 📸 HÁZI FELADATOK */}
               {visibleHomeworks.map((hw: any) => (
                 <div key={`hw_${hw.id}`} onClick={() => setActiveTab('club_homeworks')} className="stream-alert-row" style={{ borderLeft: '4px solid #06b6d4' }}>
-                  <div className="stream-alert-content">
-                    <div className="stream-alert-header-meta">
-                      <span style={{ color: '#06b6d4' }}>📸 HÁZI FELADAT</span>
-                      <span className="stream-alert-dot">•</span>
-                      <span style={{ color: '#64748b' }}>⏳ {formatDate(hw.deadline)}</span>
-                    </div>
-                    <h4 className="stream-alert-title">{hw.topic}</h4>
-                  </div>
+                  <span style={{ color: '#cbd5e1' }}>📝 Új házi feladat: <b>{hw.topic}</b> (Határidő: {hw.deadline})</span>
                 </div>
               ))}
 
               {/* 🏆 HIVATALOS PÁLYÁZATOK */}
               {visibleContests.map((contest: any) => (
-                <div key={`cont_${contest.id}`} onClick={() => setActiveTab('contests_open_active')} className="stream-alert-row" style={{ borderLeft: '4px solid #8b5cf6' }}>
-                  <div className="stream-alert-content">
-                    <div className="stream-alert-header-meta">
-                      <span style={{ color: '#8b5cf6' }}>🏆 FOTÓPÁLYÁZAT</span>
-                      <span className="stream-alert-dot">•</span>
-                      <span style={{ color: '#64748b' }}>⏳ Lejár: {formatDate(contest.end_date)}</span>
-                    </div>
-                    <h4 className="stream-alert-title">{contest.title}</h4>
-                  </div>
+                <div key={`contest_${contest.id}`} onClick={() => setActiveTab('contests_open')} className="stream-alert-row" style={{ borderLeft: '4px solid #8b5cf6' }}>
+                  <span style={{ color: '#cbd5e1' }}>🏆 Új pályázat nyílt: <b>{contest.title}</b></span>
                 </div>
               ))}
 
@@ -376,18 +286,12 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
         .dashboard-alerts-section { grid-column: span 4; background: #1e293b; border: 1px solid #334155; border-radius: 20px; padding: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
         .dashboard-bento-card:hover { transform: translateY(-3px); box-shadow: 0 12px 24px rgba(0,0,0,0.3); border-color: #475569; background: #233147 !important; }
         .admin-bento-card:hover { border-color: #ef4444 !important; background: rgba(239, 68, 68, 0.05) !important; }
-        .stream-alert-row { background: #0f172a; border: 1px solid #223147; border-radius: 12px; padding: 14px 16px; cursor: pointer; position: relative; transition: all 0.15s ease-in-out; display: flex; align-items: start; }
-        .stream-alert-row:hover { transform: translateX(2px); background: #141e33; border-color: #334155; }
-        .stream-alert-content { flex: 1; min-width: 0; }
-        .stream-alert-header-meta { display: flex; align-items: center; gap: 6px; font-size: 0.68rem; font-weight: 800; color: #94a3b8; margin-bottom: 6px; letter-spacing: 0.5px; flex-wrap: wrap; }
-        .stream-alert-dot { color: #334155; }
-        .stream-alert-title { margin: 0; color: #f8fafc; font-size: 0.92rem; font-weight: 600; line-height: 1.4; white-space: normal !important; word-break: break-word; }
-        .stream-dismiss-cross { position: absolute; top: 12px; right: 12px; background: transparent; border: none; color: #475569; cursor: pointer; font-size: 0.8rem; padding: 2px; transition: color 0.1s; }
-        .stream-dismiss-cross:hover { color: #f8fafc; }
+        .stream-alert-row { background: #0f172a; border: 1px solid #223147; padding: 12px; borderRadius: '10px'; margin-bottom: 8px; cursor: pointer; transition: all 0.2s; }
+        .stream-alert-row:hover { background: #1e293b; border-color: #38bdf8; }
         @keyframes dashFadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
         @media (max-width: 1024px) {
           .dashboard-flex-layout { grid-template-columns: 1fr; }
-          .dashboard-tiles-section, .dashboard-alerts-section { grid-column: span 1fr; width: 100%; }
+          .dashboard-alerts-section { grid-column: span 1fr; width: 100%; }
           .dashboard-alerts-section { order: -1; }
         }
       `}</style>
