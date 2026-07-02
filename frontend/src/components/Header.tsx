@@ -30,8 +30,12 @@ import {
   Home,
   Flame,
   Users,
+  Dun,
+  Moon,
   Image as ImageIcon
 } from 'lucide-react';
+
+import { useTheme } from '../context/ThemeContext';
 
 interface HeaderProps {
   user: any;
@@ -114,6 +118,9 @@ export default function Header({
       alert('Hálózati hiba!');
     }
   };
+
+  const { theme, toggleTheme } = useTheme();
+
 
   const LogoBrandBlock = () => (
     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
@@ -463,6 +470,25 @@ export default function Header({
               )}
               <ChevronDown size={12} style={{ opacity: 0.6 }} />
             </button>
+{/* ☀️/🌑 TÉMAVÁLTÓ KAPCSOLÓ GOMB */}
+<button 
+  onClick={toggleTheme}
+  style={{
+    background: 'transparent',
+    border: '1px solid var(--border-main)',
+    color: 'var(--text-body)',
+    padding: '6px',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    transition: 'all 0.15s ease'
+  }}
+  title={theme === 'dark' ? 'Világos mód' : 'Sötét mód'}
+>
+  {theme === 'dark' ? <Sun size={14} color="#fbbf24" /> : <Moon size={14} color="#475569" />}
+</button>
 
             {dropdownOpen === 'user_account' && (
               <div className="dropdown-menu" style={{ right: 0, left: 'auto', minWidth: '210px' }}>
