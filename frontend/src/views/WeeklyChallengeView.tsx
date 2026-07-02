@@ -17,6 +17,28 @@ import VideoLoader from '../components/VideoLoader';
 import { useLanguage } from '../context/LanguageContext';
 import ChallengeShareModal from '../components/WeeklyChallenge/ChallengeShareModal';
 
+// 🎯 ÚJ: Professzionális Lucide Ikonok importálása
+import { 
+  Flame, 
+  Zap, 
+  Trophy, 
+  HelpCircle, 
+  RefreshCw, 
+  Lock, 
+  Unlock, 
+  Calendar, 
+  History, 
+  BarChart3, 
+  Award, 
+  MessageSquare, 
+  Send, 
+  ChevronUp, 
+  ChevronDown, 
+  Share2, 
+  Info,
+  BookOpen
+} from 'lucide-react';
+
 interface WeeklyChallengeViewProps {
   user: any;
   setFullscreenData: (data: { url: string; title?: string } | null) => void;
@@ -106,7 +128,7 @@ const compressImageOnClient = (file: File): Promise<File> => {
 };
 
 // ====================================================================
-// 📊 SELEKCIÓS KÁRTYA KOMPONENS (BEÉPÍTETT MEGOSZTÁSSAL)
+// 📊 SELEKCIÓS KÁRTYA KOMPONENS (LETISZTÍTOTT PREMIÚM DIZÁJN)
 // ====================================================================
 function ChallengeCard({ topic, onSelect, onShare }: { topic: any; onSelect: () => void, onShare: () => void }) {
   const { t, lang } = useLanguage();
@@ -169,98 +191,84 @@ function ChallengeCard({ topic, onSelect, onShare }: { topic: any; onSelect: () 
   return (
     <div 
       onClick={onSelect}
-      style={{ background: 'linear-gradient(145deg, #1e293b, #0f172a)', borderRadius: '24px', border: '1px solid #334155', padding: '25px', cursor: 'pointer', transition: 'all 0.3s ease', boxShadow: '0 10px 25px rgba(0,0,0,0.4)', display: 'flex', flexDirection: 'column', position: 'relative' }}
-      onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-5px)'; e.currentTarget.style.borderColor = isDaily ? '#ef4444' : '#3b82f6'; }}
-      onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = '#334155'; }}
+      style={{ background: '#131b2e', borderRadius: '10px', border: '1px solid #222f47', padding: '22px', cursor: 'pointer', transition: 'all 0.2s ease-in-out', display: 'flex', flexDirection: 'column', position: 'relative' }}
+      onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.borderColor = isDaily ? '#ef4444' : '#3b82f6'; }}
+      onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = '#222f47'; }}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-        <span style={{ background: isDaily ? '#ef444420' : '#3b82f620', color: isDaily ? '#f87171' : '#60a5fa', border: `1px solid ${isDaily ? '#ef444420' : '#3b82f650'}`, padding: '4px 12px', borderRadius: '50px', fontSize: '0.8rem', fontWeight: 'bold' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+        <span style={{ background: isDaily ? 'rgba(239,68,68,0.12)' : 'rgba(59,130,246,0.12)', color: isDaily ? '#f87171' : '#60a5fa', border: `1px solid ${isDaily ? 'rgba(239,68,68,0.2)' : 'rgba(59,130,246,0.2)'}`, padding: '3px 10px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' }}>
           {isDaily ? t('typeBlitz', 'Villámfutam') : t('typeMaster', 'Mesterfutam')}
         </span>
-        <span style={{ color: statusColor, fontSize: '0.85rem', fontWeight: 'bold' }}>
-          {isMaster ? t('statusMaster', 'Képmester 🚀') : topic.hasEntered ? (lang === 'en' ? 'Entered 🚀' : 'Neveztél 🚀') : t('statusNotEntered', 'Nyitott szoba')}
+        <span style={{ color: statusColor, fontSize: '0.8rem', fontWeight: 'bold' }}>
+          {isMaster ? t('statusMaster', 'Képmester') : topic.hasEntered ? (lang === 'en' ? 'Entered' : 'Neveztél') : t('statusNotEntered', 'Nyitott szoba')}
         </span>
       </div>
 
       {topic.cover_url && (
-        <div style={{ width: '100%', height: '160px', borderRadius: '14px', overflow: 'hidden', marginBottom: '15px', border: '1px solid #334155', position: 'relative', backgroundColor: '#090d16' }}>
-          <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${topic.cover_url})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(12px) brightness(0.5)', transform: 'scale(1.1)' }}></div>
-          <img src={topic.cover_url} alt="" style={{ position: 'relative', width: '100%', height: '100%', objectFit: 'contain', zIndex: 1 }} onError={handleImageError} />
+        <div style={{ width: '100%', height: '150px', borderRadius: '6px', overflow: 'hidden', marginBottom: '12px', border: '1px solid #1e293b', position: 'relative', backgroundColor: '#090d16' }}>
+          <img src={topic.cover_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={handleImageError} />
         </div>
       )}
       {topic.cover_author && (
-        <div style={{ color: '#64748b', fontSize: '0.75rem', fontStyle: 'italic', marginTop: '-10px', marginBottom: '15px', textAlign: 'right', paddingRight: '5px' }}>
+        <div style={{ color: '#475569', fontSize: '0.72rem', fontStyle: 'italic', marginTop: '-8px', marginBottom: '12px', textAlign: 'right', paddingRight: '2px' }}>
           {t('viewCoverAuthor', 'Borítókép: ')}{topic.cover_author}
         </div>
       )}
 
-      <h3 style={{ color: 'white', margin: '0 0 10px 0', fontSize: '1.4rem', fontWeight: 'bold' }}>{displayTitle}</h3>
-      <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: '0 0 20px 0', lineHeight: '1.5', flex: 1 }}>{displayDesc}</p>
+      <h3 style={{ color: 'white', margin: '0 0 8px 0', fontSize: '1.25rem', fontWeight: '600', letterSpacing: '-0.3px' }}>{displayTitle}</h3>
+      <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 16px 0', lineHeight: '1.45', flex: 1 }}>{displayDesc}</p>
       
-      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '20px', lineHeight: '1' }}>
+      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '16px', lineHeight: '1' }}>
         {(topic.master_name || topic.master_email) && (
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#a78bfa', fontSize: '0.8rem', fontWeight: 'bold', background: '#a78bfa10', padding: '6px 12px', borderRadius: '10px', border: '1px solid #a78bfa20', whiteSpace: 'nowrap' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: '#a78bfa', fontSize: '0.75rem', fontWeight: 'bold', background: 'rgba(167,139,250,0.08)', padding: '5px 10px', borderRadius: '6px', border: '1px solid rgba(167,139,250,0.15)', whiteSpace: 'nowrap' }}>
             <span> {t('viewMasterLabel', 'Képmester')}:</span>
             <span style={{ color: '#e9d5ff' }}>{topic.master_name || topic.master_email}</span>
           </div>
         )}
 
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#10b981', fontSize: '0.8rem', fontWeight: 'bold', background: '#10b98110', padding: '6px 12px', borderRadius: '10px', border: '1px solid #10b98120', whiteSpace: 'nowrap' }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: '#10b981', fontSize: '0.75rem', fontWeight: 'bold', background: 'rgba(16,185,129,0.08)', padding: '5px 10px', borderRadius: '6px', border: '1px solid rgba(16,185,129,0.15)', whiteSpace: 'nowrap' }}>
           <span> {t('contCardTotalImages', 'Összes kép')}:</span>
           <span style={{ color: '#a7f3d0' }}>{totalImagesCount} db</span>
         </div>
 
         {unvotedCount > 0 && (
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#f97316', fontSize: '0.8rem', fontWeight: 'bold', background: '#f9731610', padding: '6px 12px', borderRadius: '10px', border: '1px solid #f9731630', whiteSpace: 'nowrap', animation: 'pulse 2s infinite' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: '#f97316', fontSize: '0.75rem', fontWeight: 'bold', background: 'rgba(249,115,22,0.08)', padding: '5px 10px', borderRadius: '6px', border: '1px solid rgba(249,115,22,0.15)', whiteSpace: 'nowrap' }}>
             <span>Aktivitás:</span>
             <span style={{ color: '#ffedd5' }}>{unvotedCount} db szavazásra vár</span>
           </div>
         )}
       </div>
 
-      <div style={{ display: 'flex', gap: '10px', marginTop: 'auto' }}>
+      <div style={{ display: 'flex', gap: '8px', marginTop: 'auto' }}>
        <div style={{ 
           flex: 1, 
-          background: '#00000040', 
-          padding: '12px 15px', 
-          borderRadius: '12px', 
+          background: '#0f172a', 
+          padding: '10px 12px', 
+          borderRadius: '6px', 
           border: '1px solid #1e293b', 
           fontFamily: 'monospace', 
-          letterSpacing: '0.5px',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: '4px' 
+          gap: '2px'
         }}>
-          <span style={{ 
-            fontSize: '0.75rem', 
-            color: '#64748b', 
-            fontWeight: 'bold',
-            textTransform: 'uppercase'
-          }}>
+          <span style={{ fontSize: '0.68rem', color: '#475569', fontWeight: 'bold', letterSpacing: '0.5px' }}>
             {t('timeLeft', 'HÁTRALÉVŐ IDŐ:')}
           </span>
-
-          <span style={{ 
-            fontSize: '1rem', 
-            color: isDaily ? '#f87171' : '#38bdf8', 
-            fontWeight: '900' 
-          }}>
+          <span style={{ fontSize: '0.92rem', color: isDaily ? '#f87171' : '#38bdf8', mountaineer: '900', fontWeight: 'bold' }}>
             {timeLeft}
           </span>
         </div>
         
         <button 
           onClick={handleShare}
-          style={{ background: '#1877F2', color: 'white', border: 'none', borderRadius: '12px', padding: '0 15px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s', boxShadow: '0 4px 10px rgba(24, 119, 242, 0.2)' }}
-          onMouseEnter={e => e.currentTarget.style.background = '#166fe5'}
-          onMouseLeave={e => e.currentTarget.style.background = '#1877F2'}
-          title={lang === 'en' ? 'Share on Facebook' : 'Megosztás Facebookon'}
+          style={{ background: '#3b5998', color: 'white', border: 'none', borderRadius: '6px', padding: '0 14px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s' }}
+          onMouseEnter={e => e.currentTarget.style.background = '#2d4373'}
+          onMouseLeave={e => e.currentTarget.style.background = '#3b5998'}
+          title={lang === 'en' ? 'Share' : 'Megosztás'}
         >
-          <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M9 8h-3v4h3v12h5v-12h3.642l.358-4h-4v-1.667c0-.955.192-1.333 1.115-1.333h2.885v-5h-3.808c-3.596 0-5.192 1.583-5.192 4.615v3.385z"/>
-          </svg>
+          <Share2 size={16} />
         </button>
       </div>
 
@@ -377,7 +385,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     } catch (e) { console.error(e); }
   };
 
-  // 👑 Törhetetlen, lógásbiztos letöltő motor
   const fetchCurrentTopic = async (isSilent = false) => {
     if (!isSilent) {
       setLoading(true);
@@ -445,8 +452,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           window.location.reload();
           return;
         }
-        
-        // 🎯 JAVÍTVA: setAlerts helyett a saját activeTopics listát ürítjük ki hiba esetén!
         setActiveTopics([]);
       }
     } finally { 
@@ -591,7 +596,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       } catch (err) {
         console.error("Lobby chat synchronization anomaly:", err);
       } finally { 
-        // 🎯 JAVÍTVA: Elgépelt finaly -> szabályos finally kifejezésre javítva!
         if (isMounted && subTab === 'current' && selectedTopicId === null) timerId = setTimeout(fetchLobbyChat, 2500);
       }
     };
@@ -900,20 +904,18 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   return (
     <div style={{ animation: 'fadeIn 0.4s ease-out', position: 'relative' }}>
       
-      {/* TABS HEADER GOMBSOR */}
-      <div className="arena-tabs-scroll-wrapper" style={{ background: '#0f172a', borderBottom: '1px solid #1e293b', marginBottom: '25px', borderRadius: '16px 16px 0 0' }}>
-        <div className="arena-tabs-internal-line" style={{ display: 'flex', gap: '8px', padding: '15px 20px 0 20px', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-          <div style={{ display: 'flex', gap: '8px' }}>
+      {/* TABS HEADER GOMBSOR – MINIMALISTA PRO ELRENDEZÉS */}
+      <div className="arena-tabs-scroll-wrapper" style={{ background: '#131b2e', borderBottom: '1px solid #222f47', marginBottom: '20px', borderRadius: '8px 8px 0 0' }}>
+        <div className="arena-tabs-internal-line" style={{ display: 'flex', gap: '4px', padding: '12px 16px 0 16px', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+          <div style={{ display: 'flex', gap: '2px' }}>
             {[
               { id: 'current', label: lang === 'en' ? 'Active' : 'Aktív' },
               { id: 'past', label: lang === 'en' ? 'Completed' : 'Lezárt' },
               { id: 'upcoming', label: lang === 'en' ? 'Upcoming' : 'Közelgő' }, 
               { id: 'manage', label: lang === 'en' ? 'Manage' : 'Tervezőpult' },
               { id: 'arena_album', label: lang === 'en' ? 'My Arena Album' : 'Albumom' },
-              { id: 'my_stats', label: lang === 'en' ?
-              'Statistics' : 'Statisztikák' },
-              { id: 'hall_of_fame', label: lang === 'en' ?
-              'Hall of Fame' : 'Dicsőségcsarnok' }
+              { id: 'my_stats', label: lang === 'en' ? 'Statistics' : 'Statisztikák' },
+              { id: 'hall_of_fame', label: lang === 'en' ? 'Hall of Fame' : 'Dicsőségcsarnok' }
             ].map((tab) => {
               const isActive = subTab === tab.id;
               return (
@@ -921,16 +923,16 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   key={tab.id}
                   onClick={() => { setSubTab(tab.id as any); setSelectedTopicId(null); }}
                   style={{
-                    padding: '12px 24px',
-                    background: isActive ? 'rgba(56, 189, 248, 0.08)' : 'transparent',
-                    color: isActive ? '#38bdf8' : '#94a3b8',
+                    padding: '10px 18px',
+                    background: isActive ? 'rgba(56, 189, 248, 0.05)' : 'transparent',
+                    color: isActive ? '#38bdf8' : '#64748b',
                     border: 'none',
-                    borderBottom: isActive ? '3px solid #38bdf8' : '3px solid transparent',
-                    fontWeight: 'bold',
-                    fontSize: '0.95rem',
+                    borderBottom: isActive ? '2px solid #38bdf8' : '2px solid transparent',
+                    fontWeight: '600',
+                    fontSize: '0.9rem',
                     cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    borderRadius: '8px 8px 0 0',
+                    transition: 'all 0.15s ease',
+                    borderRadius: '4px 4px 0 0',
                     whiteSpace: 'nowrap'
                   }}
                 >
@@ -940,21 +942,21 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
             })}
           </div>
           
-          <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '10px', flexShrink: 0 }}>
-            <div style={{ background: 'linear-gradient(135deg, #be123c20, #e11d4830)', color: '#fb7185', border: '1px solid #be123c50', padding: '6px 16px', borderRadius: '10px', fontWeight: 'bold', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 10px rgba(190, 18, 60, 0.15)' }}>
-              <span style={{ fontSize: '1rem' }}>🔄</span> 
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px', flexShrink: 0 }}>
+            <div style={{ background: 'rgba(225,29,72,0.08)', color: '#fb7185', border: '1px solid rgba(225,29,72,0.2)', padding: '5px 12px', borderRadius: '4px', fontWeight: 'bold', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <RefreshCw size={12} />
               <span>{swapBalance} {lang === 'en' ? 'Swaps left' : 'Joker Csere'}</span>
             </div>
 
-            <button onClick={() => setShowHelp(true)} style={{ background: 'transparent', color: '#f59e0b', border: '1px solid #f59e0b40', padding: '6px 16px', borderRadius: '10px', fontWeight: 'bold', fontSize: '0.85rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-              📜 {t('btnRules')}
+            <button onClick={() => setShowHelp(true)} style={{ background: 'transparent', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)', padding: '5px 12px', borderRadius: '4px', fontWeight: 'bold', fontSize: '0.8rem', cursor: 'pointer', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+              <BookOpen size={12} /> {t('btnRules')}
             </button>
           </div>
         </div>
       </div>
 
       {/* 🎖️ RANG PROGRESSION TRACK BAR */}
-      <div className="arena-progress-card-wrapper" style={{ background: '#1e293b', padding: '15px 20px', borderRadius: '16px', border: '1px solid #334155', marginBottom: '30px', boxShadow: '0 4px 15px rgba(0,0,0,0.2)' }}>
+      <div className="arena-progress-card-wrapper" style={{ background: '#131b2e', padding: '12px 16px', borderRadius: '8px', border: '1px solid #222f47', marginBottom: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
         <div className="arena-progress-track-line" style={{ display: 'flex', width: '100%', border: '1px solid #0f172a', position: 'relative' }}>
           {ARENA_LEVELS_REGISTRY.map((rank, idx) => {
             const isUnlocked = idx <= currentLevel.id;
@@ -966,15 +968,14 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
 
             let requirementMessage = '';
             if (likesDiff > 0) requirementMessage += `${likesDiff} db Kedvelés (⭐) `;
-            if (winsDiff > 0) requirementMessage += `${requirementMessage ?
-            'és ' : ''}${winsDiff} db Aréna Győzelem (🥇)`;
+            if (winsDiff > 0) requirementMessage += `${requirementMessage ? 'és ' : ''}${winsDiff} db Aréna Győzelem (🥇)`;
 
             const tooltipText = isUnlocked 
               ? `${rank.name} - Sikeresen feloldva! ✔` 
               : `Következő szint: ${rank.name}\nHátratévő feltétel: ${requirementMessage}`;
             let segmentBg = '#0f172a'; 
             if (isUnlocked) segmentBg = '#0284c7'; 
-            if (isCurrent) segmentBg = 'linear-gradient(90deg, #0284c7, #38bdf8)';
+            if (isCurrent) segmentBg = '#38bdf8';
             return (
               <div
                 key={rank.id}
@@ -982,29 +983,25 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                 style={{
                   flex: 1,
                   background: segmentBg,
-                  padding: '12px 4px',
+                  padding: '10px 4px',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: '4px',
-                  borderRight: idx < ARENA_LEVELS_REGISTRY.length - 1 ? '1px solid rgba(15,23,42,0.3)' : 'none',
+                  borderRight: idx < ARENA_LEVELS_REGISTRY.length - 1 ? '1px solid rgba(15,23,42,0.2)' : 'none',
                   position: 'relative',
                   cursor: 'help',
-                  transition: 'all 0.2s ease',
-                  borderTopLeftRadius: idx === 0 ? '8px' : '0',
-                  borderBottomLeftRadius: idx === 0 ? '8px' : '0',
-                  borderTopRightRadius: idx === ARENA_LEVELS_REGISTRY.length - 1 ? '8px' : '0',
-                  borderBottomRightRadius: idx === ARENA_LEVELS_REGISTRY.length - 1 ? '8px' : '0'
+                  transition: 'all 0.15s ease'
                 }}
               >
-                <span style={{ fontSize: '0.85rem' }}>{isUnlocked ? '🔓' : '🔒'}</span>
+                {isUnlocked ? <Unlock size={10} color="#fff" /> : <Lock size={10} color="#475569" />}
                 <span style={{ 
-                  fontSize: '0.74rem', 
-                  fontWeight: '900', 
+                  fontSize: '0.7rem', 
+                  fontWeight: '700', 
                   color: isUnlocked ? '#ffffff' : '#475569',
-                  border: isCurrent ? '1px solid #ffffff80' : 'none',
-                  padding: isCurrent ? '1px 5px' : '0',
-                  borderRadius: '4px',
+                  border: isCurrent ? '1px solid #ffffff60' : 'none',
+                  padding: isCurrent ? '1px 4px' : '0',
+                  borderRadius: '2px',
                   whiteSpace: 'nowrap',
                   overflow: 'hidden'
                 }}>
@@ -1013,8 +1010,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
 
                 <div className="arena-rank-tooltip-box">
                   <div style={{ fontWeight: 'bold', color: '#fbbf24', marginBottom: '4px' }}>{rank.name}</div>
-                  <div style={{ fontSize: '0.75rem', whiteSpace: 'pre-line', lineHeight: '1.4', color: '#e2e8f0' }}>{tooltipText}</div>
-                  <div style={{ marginTop: '8px', fontSize: '0.7rem', color: '#64748b', borderTop: '1px solid #223147', paddingTop: '4px' }}>
+                  <div style={{ fontSize: '0.75rem', whiteSpace: 'pre-line', lineHeight: '1.4', color: '#cbd5e1' }}>{tooltipText}</div>
+                  <div style={{ marginTop: '8px', fontSize: '0.7rem', color: '#475569', borderTop: '1px solid #222f47', paddingTop: '4px' }}>
                     Saját statisztikád: {userTotalLikes} ⭐ | {userVictories} 🥇
                   </div>
                 </div>
@@ -1031,11 +1028,11 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           <>
             {selectedTopicId === null ? (
               <div className="arena-fluid-container">
-                <div style={{ marginBottom: '25px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '15px' }}>
+                <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '15px' }}>
                   {activeTopics.length > 1 && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <span style={{ color: '#94a3b8', fontSize: '0.85rem', fontWeight: 'bold' }}>{t('sortLabel')}</span>
-                      <select value={sortBy} onChange={(e) => setSortBy(e.target.value as any)} style={{ background: '#0f172a', color: 'white', border: '1px solid #334155', padding: '8px 14px', borderRadius: '10px', fontSize: '0.85rem', outline: 'none', cursor: 'pointer', fontWeight: 'bold' }}>
+                      <span style={{ color: '#64748b', fontSize: '0.8rem', fontWeight: 'bold' }}>{t('sortLabel')}</span>
+                      <select value={sortBy} onChange={(e) => setSortBy(e.target.value as any)} style={{ background: '#131b2e', color: 'white', border: '1px solid #222f47', padding: '6px 12px', borderRadius: '6px', fontSize: '0.82rem', outline: 'none', cursor: 'pointer', fontWeight: 'bold' }}>
                         <option value="endDate">{t('sortEndDate')}</option>
                         <option value="startDate">{t('sortStartDate')}</option>
                       </select>
@@ -1044,32 +1041,26 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                 </div>
 
                 {loading ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 20px', gap: '20px', width: '100%' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 20px', gap: '15px', width: '100%' }}>
                     <VideoLoader />
                     <div style={{ textAlign: 'center', animation: 'arenaPulse 2s infinite' }}>
-                      <h4 style={{ color: '#f59e0b', margin: '0 0 8px 0', fontSize: '1.1rem', fontWeight: 'bold', letterSpacing: '0.5px' }}>
-                        {lang === 'en' ? '⚡ Server is waking up...' : '⚡ A szerver ébredezik...'}
+                      <h4 style={{ color: '#64748b', margin: 0, fontSize: '0.9rem', fontWeight: 'bold' }}>
+                        {lang === 'en' ? '⚡ Synchronizing Arena...' : '⚡ Csatatér adatok letöltése...'}
                       </h4>
-                      <p style={{ color: '#64748b', fontSize: '0.85rem', margin: 0, maxWidth: '320px', lineHeight: '1.4' }}>
-                        {lang === 'en' 
-                          ? 'The free tier hosting takes about 30-50 seconds to warm up after a period of inactivity.' 
-                          : 'A rendszer tétlenség után 30-50 másodpercig melegszik be. Azonnal indulunk!'}
-                      </p>
                     </div>
-                    <style>{`@keyframes arenaPulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }`}</style>
                   </div>
                 ) : fetchError ? (
-                  <div style={{ color: '#ef4444', fontSize: '0.88rem', padding: '24px', background: 'rgba(239,68,68,0.05)', borderRadius: '16px', border: '1px solid rgba(239,68,68,0.2)', textAlign: 'center', maxWidth: '450px', margin: '40px auto' }}>
-                    <p style={{ margin: '0 0 12px 0', fontWeight: 'bold' }}>⚠️ Hálózati vagy belső hiba történt az Aréna adatok betöltésekor.</p>
-                    <button onClick={() => fetchCurrentTopic(false)} style={{ background: '#ef444420', color: '#f87171', border: '1px solid rgba(239,68,68,0.4)', padding: '8px 20px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }}>
-                      Újrapróbálkozás 🔄
+                  <div style={{ color: '#ef4444', fontSize: '0.85rem', padding: '20px', background: 'rgba(239,68,68,0.02)', borderRadius: '8px', border: '1px solid rgba(239,68,68,0.15)', textAlign: 'center', maxWidth: '450px', margin: '30px auto' }}>
+                    <p style={{ margin: '0 0 10px 0', fontWeight: 'bold' }}>⚠️ Hálózati vagy belső hiba történt az Aréna adatok betöltésekor.</p>
+                    <button onClick={() => fetchCurrentTopic(false)} style={{ background: 'transparent', color: '#f87171', border: '1px solid rgba(239,68,68,0.3)', padding: '6px 16px', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      <RefreshCw size={12} /> Újrapróbálkozás
                     </button>
                   </div>
                 ) : activeTopics.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '5rem 2rem', background: 'linear-gradient(180deg, #1e293b, #0f172a)', borderRadius: '24px', border: '1px solid #334155' }}>
-                    <div style={{ fontSize: '5rem', marginBottom: '1rem' }}>😴</div>
-                    <h2 style={{ color: '#f59e0b', margin: '0 0 10px 0', fontSize: '2rem' }}>{t('viewNoActiveLeagues')}</h2>
-                    <p style={{ color: '#94a3b8' }}>{t('viewNoActiveLeaguesDesc')}</p>
+                  <div style={{ textAlign: 'center', padding: '4rem 2rem', background: '#131b2e', borderRadius: '8px', border: '1px solid #222f47' }}>
+                    <Info size={36} color="#f59e0b" style={{ marginBottom: '12px' }} />
+                    <h2 style={{ color: '#f59e0b', margin: '0 0 6px 0', fontSize: '1.4rem', fontWeight: '600' }}>{t('viewNoActiveLeagues')}</h2>
+                    <p style={{ color: '#64748b', fontSize: '0.9rem', margin: 0 }}>{t('viewNoActiveLeaguesDesc')}</p>
                   </div>
                 ) : (
                  <div className="arena-cards-grid">
@@ -1087,13 +1078,12 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
             ) : (
               <div>
                 <div style={{ marginBottom: '20px' }}>
-                  <button onClick={() => { setSelectedTopicId(null);
-                  }} style={{ background: '#1e293b', border: '1px solid #334155', color: '#cbd5e1', padding: '8px 18px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem' }}>
+                  <button onClick={() => setSelectedTopicId(null)} style={{ background: '#131b2e', border: '1px solid #222f47', color: '#cbd5e1', padding: '6px 14px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>
                     {t('viewBackBtn')}
                   </button>
                 </div>
                 {(!topic || loading) ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 20px', width: '100%' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 20px', width: '100%' }}>
                     <VideoLoader />
                   </div>
                 ) : (
@@ -1106,60 +1096,50 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
               </div>
             )}
 
-            {/* FLOATING CHAT DOCK PANEL */}
-            <div className={`arena-floating-chat-dock ${isChatOpen ?
-            'is-open' : 'is-closed'} ${hasNewMessage ? 'has-unread' : ''}`}>
-              <div onClick={() => { setIsChatOpen(!isChatOpen);
-              if (!isChatOpen) setHasNewMessage(false); }} className="chat-dock-header">
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', position: 'relative' }}>
-                  <span style={{ fontSize: '1.2rem' }}>💬</span>
-                  <span style={{ fontWeight: 'bold', fontSize: '0.95rem' }}>
-                    {t('viewLobbyTitle')} {hasNewMessage && <span 
-                    style={{ color: '#f43f5e', fontSize: '0.8rem', marginLeft: '5px' }}>({lang === 'en' ? 'New!' : 'Új!'})</span>}
+            {/* FLOATING CHAT DOCK PANEL – LETISZTÍTOTT PRO DIZÁJN */}
+            <div className={`arena-floating-chat-dock ${isChatOpen ? 'is-open' : 'is-closed'} ${hasNewMessage ? 'has-unread' : ''}`}>
+              <div onClick={() => { setIsChatOpen(!isChatOpen); if (!isChatOpen) setHasNewMessage(false); }} className="chat-dock-header">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', position: 'relative' }}>
+                  <MessageSquare size={16} color={hasNewMessage ? '#f43f5e' : '#38bdf8'} />
+                  <span style={{ fontWeight: '600', fontSize: '0.88rem' }}>
+                    {t('viewLobbyTitle')} {hasNewMessage && <span style={{ color: '#f43f5e', fontSize: '0.75rem', marginLeft: '2px' }}>({lang === 'en' ? 'New!' : 'Új!'})</span>}
                   </span>
                   {hasNewMessage && <span className="chat-notification-badge" />}
                 </div>
-                <span style={{ transform: isChatOpen ?
-                'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.3s' }}>▲</span>
+                {isChatOpen ? <ChevronDown size={16} color="#64748b" /> : <ChevronUp size={16} color="#64748b" />}
               </div>
               {isChatOpen && (
                 <div className="chat-dock-body">
-                  <p style={{ margin: '0 0 10px 0', color: '#64748b', fontSize: '0.78rem' }}>{t('viewLobbyDesc')}</p>
+                  <p style={{ margin: '0 0 10px 0', color: '#475569', fontSize: '0.75rem' }}>{t('viewLobbyDesc')}</p>
                   
                   <div ref={chatScrollContainerRef} className="chat-messages-scroll-area">
                     {lobbyMessages.length === 0 ? (
-                      <div style={{ color: '#475569', textAlign: 'center', margin: 'auto', fontStyle: 'italic', fontSize: '0.85rem' }}>{t('viewLobbyEmpty')}</div>
+                      <div style={{ color: '#334155', textAlign: 'center', margin: 'auto', fontStyle: 'italic', fontSize: '0.8rem' }}>{t('viewLobbyEmpty')}</div>
                     ) : (
                       lobbyMessages.slice(-100).map((msg, idx) => {
                         const isMsgMe = (msg.user_email || msg.userEmail) === user?.email;
                         return (
-                          <div key={msg.id || idx} style={{ display: 'flex', flexDirection: 'column', alignItems: isMsgMe 
-                          ? 'flex-end' : 'flex-start', maxWidth: '92%', alignSelf: isMsgMe ? 'flex-end' : 'flex-start', marginBottom: '8px' }}>
-                            <div style={{ display: 'flex', gap: '5px', alignItems: 'center', marginBottom: '2px', fontSize: '0.7rem', color: isMsgMe ?
-                            '#38bdf8' : '#94a3b8', fontWeight: 'bold' }}>
-                              <span>{msg.user_name ||
-                              msg.userName}</span>
-                              <span style={{ color: '#475569', fontWeight: 'normal' }}>• {new Date(msg.created_at).toLocaleTimeString(lang === 'en' ? 'en-US' : 'hu-HU', { hour: '2-digit', minute: '2-digit' })}</span>
+                          <div key={msg.id || idx} style={{ display: 'flex', flexDirection: 'column', alignItems: isMsgMe ? 'flex-end' : 'flex-start', maxWidth: '92%', alignSelf: isMsgMe ? 'flex-end' : 'flex-start', marginBottom: '8px' }}>
+                            <div style={{ display: 'flex', gap: '4px', alignItems: 'center', marginBottom: '2px', fontSize: '0.68rem', color: isMsgMe ? '#38bdf8' : '#64748b', Hong-weight: 'bold' }}>
+                              <span>{msg.user_name || msg.userName}</span>
+                              <span style={{ color: '#223147' }}>• {new Date(msg.created_at).toLocaleTimeString(lang === 'en' ? 'en-US' : 'hu-HU', { hour: '2-digit', minute: '2-digit' })}</span>
                             </div>
-                            <div style={{ background: isMsgMe ?
-                            'linear-gradient(135deg, #f97316, #ef4444)' : '#1e293b', color: '#f8fafc', padding: '8px 12px', borderRadius: isMsgMe ?
-                            '12px 12px 2px 12px' : '12px 12px 12px 2px', fontSize: '0.85rem', wordBreak: 'break-word', border: isMsgMe ?
-                            'none' : '1px solid #334155' }}>
-                              {msg.message_text ||
-                              msg.messageText}
+                            <div style={{ background: isMsgMe ? '#f97316' : '#1e293b', color: '#f8fafc', padding: '6px 10px', borderRadius: isMsgMe ? '8px 8px 2px 8px' : '8px 8px 8px 2px', fontSize: '0.82rem', wordBreak: 'break-word', border: isMsgMe ? 'none' : '1px solid #223147' }}>
+                              {msg.message_text || msg.messageText}
                             </div>
                           </div>
                         );
                       })
                     )}
                   </div>
-                  <div style={{ height: '14px', fontSize: '0.75rem', color: '#38bdf8', fontStyle: 'italic', marginBottom: '5px' }}>
+                  <div style={{ height: '12px', fontSize: '0.7rem', color: '#38bdf8', fontStyle: 'italic', marginBottom: '4px', paddingLeft: '2px' }}>
                     {currentlyTyping.length > 0 && <span>{currentlyTyping.join(', ')}{t('viewLobbyTyping')}...</span>}
                   </div>
-                  <form onSubmit={handleSendLobbyMessage} style={{ display: 'flex', gap: '8px' }}>
-                    <input type="text" placeholder={t('viewLobbyPlaceholder')} value={typedLobbyMsg} onChange={handleInputChange} maxLength={500} disabled={isSendingLobbyMsg} style={{ flex: 1, padding: '10px 12px', background: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '10px', fontSize: '0.85rem' }} />
-                    <button type="submit" disabled={!typedLobbyMsg.trim() || isSendingLobbyMsg} style={{ background: (!typedLobbyMsg.trim() || isSendingLobbyMsg) ?
-                    '#334155' : 'linear-gradient(135deg, #f97316, #ef4444)', color: 'white', border: 'none', padding: '10px 16px', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>{t('viewLobbySend')}</button>
+                  <form onSubmit={handleSendLobbyMessage} style={{ display: 'flex', gap: '6px' }}>
+                    <input type="text" placeholder={t('viewLobbyPlaceholder')} value={typedLobbyMsg} onChange={handleInputChange} maxLength={500} disabled={isSendingLobbyMsg} style={{ flex: 1, padding: '8px 10px', background: '#0f172a', border: '1px solid #222f47', color: 'white', borderRadius: '6px', fontSize: '0.82rem', outline: 'none' }} />
+                    <button type="submit" disabled={!typedLobbyMsg.trim() || isSendingLobbyMsg} style={{ background: (!typedLobbyMsg.trim() || isSendingLobbyMsg) ? '#222f47' : '#f97316', color: (!typedLobbyMsg.trim() || isSendingLobbyMsg) ? '#475569' : 'white', border: 'none', padding: '8px 14px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.82rem' }}>
+                      <Send size={12} />
+                    </button>
                   </form>
                 </div>
               )}
@@ -1232,83 +1212,94 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       )}
       <style>{`
         .arena-fluid-container { width: 100%; box-sizing: border-box; }
-        .arena-cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 25px; width: 100%; }
+        .arena-cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; width: 100%; }
         .arena-rank-tooltip-container { position: relative; }
         
         .arena-progress-card-wrapper, .arena-tabs-scroll-wrapper {
           scrollbar-width: thin;
-          scrollbar-color: #334155 #1e293b;
+          scrollbar-color: #222f47 #131b2e;
         }
         .arena-progress-card-wrapper::-webkit-scrollbar, .arena-tabs-scroll-wrapper::-webkit-scrollbar {
-          height: 5px;
+          height: 4px;
         }
         .arena-progress-card-wrapper::-webkit-scrollbar-track, .arena-tabs-scroll-wrapper::-webkit-scrollbar-track {
-          background: #1e293b;
+          background: #131b2e;
         }
         .arena-progress-card-wrapper::-webkit-scrollbar-thumb, .arena-tabs-scroll-wrapper::-webkit-scrollbar-thumb {
-          background-color: #334155;
-          border-radius: 10px;
+          background-color: #222f47;
+          border-radius: 4px;
         }
 
         @media (max-width: 900px) {
           .arena-tabs-scroll-wrapper {
             overflow-x: auto !important;
             -webkit-overflow-scrolling: touch;
-            padding-bottom: 5px !important;
+            padding-bottom: 4px !important;
           }
           .arena-tabs-internal-line {
-            min-width: 890px !important;
+            min-width: 820px !important;
             justify-content: flex-start !important;
           }
           .arena-progress-card-wrapper {
             overflow-x: auto !important;
             -webkit-overflow-scrolling: touch;
-            padding-bottom: 12px !important;
+            padding-bottom: 8px !important;
           }
           .arena-progress-track-line {
-            min-width: 980px !important;
+            min-width: 920px !important;
           }
         }
         
         .arena-rank-tooltip-box {
           position: absolute;
-          bottom: 145%; left: 50%; transform: translateX(-50%) translateY(8px);
-          background: #090d16; color: #f8fafc; border: 1px solid #334155; border-radius: 12px;
-          width: 240px;
-          box-shadow: 0 15px 35px rgba(0,0,0,0.7); z-index: 999999 !important;
-          opacity: 0; pointer-events: none; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-          padding: 14px; text-align: center;
+          bottom: 145%; left: 50%; transform: translateX(-50%) translateY(4px);
+          background: #0f172a; color: #f8fafc; border: 1px solid #222f47; border-radius: 6px;
+          width: 230px;
+          box-shadow: 0 10px 20px rgba(0,0,0,0.6); z-index: 999999 !important;
+          opacity: 0; pointer-events: none; transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+          padding: 10px; text-align: center;
         }
         .arena-rank-tooltip-box::after {
           content: "";
           position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
-          border-width: 6px; border-style: solid; border-color: #090d16 transparent transparent transparent;
+          border-width: 5px; border-style: solid; border-color: #0f172a transparent transparent transparent;
         }
         .arena-rank-tooltip-container:hover .arena-rank-tooltip-box {
           opacity: 1;
           transform: translateX(-50%) translateY(0); pointer-events: auto;
         }
-        .arena-floating-chat-dock { position: fixed; bottom: 0;
-        right: 30px; width: 360px; background: #1e293b; border: 1px solid #334155; border-bottom: none; border-radius: 16px 16px 0 0;
-        box-shadow: 0 -10px 30px rgba(0,0,0,0.5); z-index: 1000; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.1);
+        .arena-floating-chat-dock { 
+          position: fixed; 
+          bottom: 0;
+          right: 30px; 
+          width: 340px; 
+          background: #131b2e; 
+          border: 1px solid #222f47; 
+          border-bottom: none; 
+          border-radius: 8px 8px 0 0;
+          box-shadow: 0 -8px 24px rgba(0,0,0,0.4); 
+          z-index: 1000; 
+          transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        .arena-floating-chat-dock.is-closed { transform: translateY(calc(100% - 50px));
+        .arena-floating-chat-dock.is-closed { transform: translateY(calc(100% - 44px)); }
+        .arena-floating-chat-dock.has-unread .chat-dock-header { border-color: #f43f5e; }
+        
+        .chat-dock-header { 
+          padding: 12px 16px; 
+          background: #131b2e;
+          border-bottom: 1px solid #222f47; 
+          border-radius: 7px 7px 0 0; 
+          display: flex; 
+          justify-content: space-between; 
+          align-items: center; 
+          cursor: pointer; 
+          user-select: none;
         }
-        .arena-floating-chat-dock.has-unread .chat-dock-header { border-color: #f43f5e; box-shadow: inset 0 0 10px rgba(244,63,94,0.2);
-        }
-        .chat-dock-header { padding: 14px 20px; background: linear-gradient(90deg, #1e293b, #0f172a);
-        border-bottom: 1px solid #334155; border-radius: 15px 15px 0 0; display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none;
-        }
-        .chat-dock-header:hover { background: #24334d;
-        }
-        .chat-dock-body { padding: 15px; height: 400px; display: flex; flex-direction: column;
-        }
-        .chat-messages-scroll-area { background: #0f172a; border: 1px solid #223147; border-radius: 12px; padding: 12px;
-        flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
-        .chat-notification-badge { position: absolute;
-        top: -1px; left: -3px; width: 8px; height: 8px; background: #f43f5e; border-radius: 50%; box-shadow: 0 0 8px #f43f5e;
-        animation: pulse 1.5s infinite; }
-        @keyframes pulse { 0% { transform: scale(0.9); opacity: 1; } 50% { transform: scale(1.2); opacity: 0.5; } 100% { transform: scale(0.9); opacity: 1; } }
+        .chat-dock-header:hover { background: #18253f; }
+        .chat-dock-body { padding: 12px; height: 380px; display: flex; flex-direction: column; }
+        .chat-messages-scroll-area { background: #0f172a; border: 1px solid #222f47; border-radius: 6px; padding: 10px; flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+        .chat-notification-badge { position: absolute; top: -1px; left: -2px; width: 6px; height: 6px; background: #ef4444; border-radius: 50%; }
+        @keyframes arenaPulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
         @media (max-width: 480px) { .arena-floating-chat-dock { right: 10px; width: calc(100% - 20px); } }
       `}</style>
 
