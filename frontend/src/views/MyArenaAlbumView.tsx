@@ -1,10 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { BACKEND_URL } from '../utils/constants';
 import { getImageUrl } from '../utils/helpers';
-import VideoLoader from '../components/VideoLoader'; // 👈 Figyelj a relatív útvonalra!
+import VideoLoader from '../components/VideoLoader';
 
-// 🎯 ÚJ IMPORT: Behozzuk a nyelvi kontextust
+// Nyelvi kontextus betöltése
 import { useLanguage } from '../context/LanguageContext';
+
+// 🎯 ÚJ: Professzionális Lucide Ikonok importálása az AI-sallangok ellen
+import { 
+  Image as ImageIcon, 
+  Sword, 
+  Crown, 
+  Trophy, 
+  Star, 
+  Eye, 
+  History, 
+  X, 
+  Calendar,
+  AlertCircle,
+  Layers
+} from 'lucide-react';
 
 interface MyArenaAlbumViewProps {
   user: any;
@@ -12,23 +27,21 @@ interface MyArenaAlbumViewProps {
 }
 
 export default function MyArenaAlbumView({ user, setFullscreenData }: MyArenaAlbumViewProps) {
-  // 🎯 ÚJ: Aktiváljuk a fordítót (t) és a nyelvi állapotot (lang)
+  // Aktiváljuk a fordítót (t) és a nyelvi állapotot (lang)
   const { t, lang } = useLanguage();
 
   const [photos, setPhotos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPhoto, setSelectedPhoto] = useState<any | null>(null);
   
- 
- useEffect(() => {
+  useEffect(() => {
     let isMounted = true;
 
     const fetchAlbum = async () => {
-      // 1. Biztonsági fék: Ha még nincs betöltve a user, ne spammeljük a szervert!
       if (!user?.email) return;
 
       try {
-        setLoading(true); // Csak akkor töltünk, ha van kihez
+        setLoading(true);
         const res = await fetch(`${BACKEND_URL}/api/weekly/my-album?userEmail=${user.email}`);
         if (res.ok && isMounted) {
           setPhotos(await res.json());
@@ -44,57 +57,56 @@ export default function MyArenaAlbumView({ user, setFullscreenData }: MyArenaAlb
 
     fetchAlbum();
 
-    // 2. Takarítás: Ha a felhasználó gyorsan elnavigál az oldalról, leállítjuk az állapotfrissítést
     return () => {
       isMounted = false;
     };
-  }, [user?.email]); // 🎯 3. JAVÍTVA: Csak akkor fut le újra, ha az email cím (string) ténylegesen megváltozik!
+  }, [user?.email]);
 
- if (loading) {
+  if (loading) {
     return <VideoLoader />;
   }
 
   if (photos.length === 0) {
     return (
-      <div style={{ textAlign: 'center', padding: '5rem 2rem', background: '#1e293b', borderRadius: '24px', border: '1px solid #334155' }}>
-        <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🖼️</div>
-        <h3 style={{ color: 'white', fontSize: '1.5rem', margin: '0 0 10px 0' }}>{t('arenaAlbumEmptyTitle')}</h3>
-        <p style={{ color: '#94a3b8', margin: 0 }}>{t('arenaAlbumEmptyDesc')}</p>
+      <div style={{ textAlign: 'center', padding: '4rem 2rem', background: '#131b2e', borderRadius: '8px', border: '1px solid #222f47' }}>
+        <ImageIcon size={32} color="#475569" style={{ marginBottom: '12px' }} />
+        <h3 style={{ color: 'white', fontSize: '1.2rem', margin: '0 0 6px 0', fontWeight: '600' }}>{t('arenaAlbumEmptyTitle')}</h3>
+        <p style={{ color: '#64748b', fontSize: '0.88rem', margin: 0 }}>{t('arenaAlbumEmptyDesc')}</p>
       </div>
     );
   }
 
   return (
     <div style={{ animation: 'fadeIn 0.4s ease-out' }}>
-      <div style={{ marginBottom: '25px' }}>
-        <h2 style={{ color: 'white', margin: 0, fontSize: '1.8rem', fontWeight: 'bold' }}>🖼️ {t('arenaAlbumTitle')}</h2>
-        <p style={{ color: '#94a3b8', margin: '5px 0 0 0' }}>{t('arenaAlbumSubtitle')}</p>
+      <div style={{ marginBottom: '20px' }}>
+        <h2 style={{ color: 'white', margin: 0, fontSize: '1.4rem', fontWeight: '700', letterSpacing: '-0.3px', display: 'flex', alignItems: 'center', gap: '8px' }}><ImageIcon size={18} color="#38bdf8" /> {t('arenaAlbumTitle')}</h2>
+        <p style={{ color: '#64748b', fontSize: '0.85rem', margin: '4px 0 0 0' }}>{t('arenaAlbumSubtitle')}</p>
       </div>
 
-      {/* FOTÓ RÁCS */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '20px' }}>
+      {/* FOTÓ MÁTRIX RÁCS */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: '16px' }}>
         {photos.map((photo) => (
           <div 
             key={photo.id}
-            style={{ background: '#1e293b', borderRadius: '16px', overflow: 'hidden', border: '1px solid #334155', boxShadow: '0 8px 20px rgba(0,0,0,0.3)', display: 'flex', flexDirection: 'column', position: 'relative', transition: 'transform 0.2s' }}
-            onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
-            onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+            style={{ background: '#131b2e', borderRadius: '8px', overflow: 'hidden', border: '1px solid #222f47', boxShadow: '0 4px 15px rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column', position: 'relative', transition: 'all 0.2s ease-in-out' }}
+            className="album-asset-card"
           >
+            {/* 🎯 MÓDOSÍTVA: Színátmenetes plecsni helyett letisztult outline csatamedál */}
             {photo.isCurrentlyActive && (
-              <span style={{ position: 'absolute', top: '12px', left: '12px', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', fontWeight: 'bold', fontSize: '0.75rem', padding: '5px 10px', borderRadius: '50px', zIndex: 10, boxShadow: '0 4px 12px rgba(16,185,129,0.5)', border: '1px solid #34d39940' }}>
-                {t('arenaAlbumInBattle')}
+              <span style={{ position: 'absolute', top: '10px', left: '10px', background: 'rgba(16,185,129,0.08)', color: '#10b981', fontWeight: 'bold', fontSize: '0.7rem', padding: '3px 8px', borderRadius: '4px', zIndex: 10, border: '1px solid rgba(16,185,129,0.2)', display: 'inline-flex', alignItems: 'center', gap: '4px', textTransform: 'uppercase', letterSpacing: '0.3px' }}>
+                <Sword size={10} /> {t('arenaAlbumInBattle')}
               </span>
             )}
 
-            {/* KÁRTYA BÉLYEGKÉP PLECSNIK */}
+            {/* KÁRTYA BÉLYEGKÉP DOBOGÓS JELZÉSEI */}
             {(photo.firstPlaces > 0 || photo.podiums > 0) && (
-              <div style={{ position: 'absolute', top: '12px', right: '12px', background: 'rgba(15,23,42,0.85)', backdropFilter: 'blur(4px)', padding: '4px 8px', borderRadius: '8px', zIndex: 10, display: 'flex', gap: '8px', fontSize: '0.8rem', fontWeight: 'bold', border: '1px solid #334155' }}>
-                {photo.firstPlaces > 0 && <span style={{ color: '#fbbf24' }}>🥇 {photo.firstPlaces}</span>}
-                {photo.podiums > 0 && <span style={{ color: '#cbd5e1' }}>🏆 {photo.podiums}</span>}
+              <div style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(9,13,22,0.85)', backdropFilter: 'blur(4px)', padding: '3px 8px', borderRadius: '4px', zIndex: 10, display: 'flex', gap: '6px', fontSize: '0.72rem', fontWeight: 'bold', border: '1px solid #222f47', alignItems: 'center' }}>
+                {photo.firstPlaces > 0 && <span style={{ color: '#fbbf24', display: 'inline-flex', alignItems: 'center', gap: '2px' }}><Crown size={10} /> {photo.firstPlaces}</span>}
+                {photo.podiums > 0 && <span style={{ color: '#cbd5e1', display: 'inline-flex', alignItems: 'center', gap: '2px' }}><Trophy size={10} /> {photo.podiums}</span>}
               </div>
             )}
 
-            <div style={{ width: '100%', height: '180px', backgroundColor: '#000', overflow: 'hidden', position: 'relative' }}>
+            <div style={{ width: '100%', height: '170px', backgroundColor: '#090d16', overflow: 'hidden', position: 'relative' }}>
               <img 
                 src={getImageUrl(null, photo.file_url)} 
                 alt="" 
@@ -103,102 +115,108 @@ export default function MyArenaAlbumView({ user, setFullscreenData }: MyArenaAlb
               />
             </div>
 
-            <div style={{ padding: '15px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', background: '#0f172a' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#cbd5e1', marginBottom: '12px', fontWeight: 'bold' }}>
-                <span style={{ color: '#f59e0b' }}>⭐ {photo.totalLikes || 0} {lang === 'en' ? 'pts' : 'pont'}</span>
-                <span style={{ color: '#38bdf8' }}>👁️ {photo.totalViews || 0} {lang === 'en' ? 'views' : 'megtek.'}</span>
+            <div style={{ padding: '14px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', background: '#0f172a', borderTop: '1px solid #222f47' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', color: '#cbd5e1', marginBottom: '10px', fontWeight: 'bold' }}>
+                <span style={{ color: '#f97316', display: 'inline-flex', alignItems: 'center', gap: '3px' }}><Star size={12} fill="#f97316" /> {photo.totalLikes || 0} {lang === 'en' ? 'pts' : 'pont'}</span>
+                <span style={{ color: '#38bdf8', display: 'inline-flex', alignItems: 'center', gap: '3px' }}><Eye size={12} /> {photo.totalViews || 0} {lang === 'en' ? 'views' : 'megtek.'}</span>
               </div>
 
               <button 
                 onClick={() => setSelectedPhoto(photo)}
-                style={{ width: '100%', background: '#1e293b', border: '1px solid #475569', color: '#cbd5e1', padding: '8px', borderRadius: '10px', fontWeight: 'bold', fontSize: '0.85rem', cursor: 'pointer', transition: 'all 0.2s' }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = '#334155'; e.currentTarget.style.borderColor = '#64748b'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = '#1e293b'; e.currentTarget.style.borderColor = '#475569'; }}
+                style={{ width: '100%', background: '#222f47', border: '1px solid #334155', color: '#cbd5e1', padding: '8px', borderRadius: '4px', fontWeight: 'bold', fontSize: '0.82rem', cursor: 'pointer', transition: 'all 0.15s', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                className="album-card-details-btn"
               >
-                {t('arenaAlbumBtnDetails')} ({photo.history?.length || 0})
+                <History size={12} />
+                <span>{t('arenaAlbumBtnDetails')} ({photo.history?.length || 0})</span>
               </button>
             </div>
           </div>
         ))}
       </div>
 
-      {/* 📊 RÉSZLETES MODAL */}
+      {/* 📊 RÉSZLETES IDŐVONAL MODAL */}
       {selectedPhoto && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 99999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
-          <div style={{ background: '#0f172a', border: '1px solid #334155', borderRadius: '24px', width: '100%', maxWidth: '550px', maxHeight: '85vh', overflowY: 'auto', padding: '25px', position: 'relative', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.8)' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(9,13,22,0.92)', backdropFilter: 'blur(10px)', zIndex: 99999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '16px' }}>
+          <div style={{ background: '#131b2e', border: '1px solid #222f47', borderRadius: '8px', width: '100%', maxWidth: '520px', maxHeight: '80vh', overflowY: 'auto', padding: '24px', position: 'relative', boxSizing: 'border-box', boxShadow: '0 12px 30px rgba(0,0,0,0.5)' }}>
             
-            <button onClick={() => setSelectedPhoto(null)} style={{ position: 'absolute', top: '20px', right: '20px', background: '#1e293b', border: 'none', color: '#94a3b8', fontSize: '1.2rem', width: '35px', height: '35px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+            <button 
+              onClick={() => setSelectedPhoto(null)} 
+              style={{ position: 'absolute', top: '16px', right: '16px', background: '#222f47', border: '1px solid #334155', color: '#94a3b8', width: '28px', height: '28px', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.1s' }}
+              className="album-modal-close-cross"
+            >
+              <X size={14} />
+            </button>
             
-            <h3 style={{ color: 'white', margin: '0 0 5px 0', fontSize: '1.4rem', fontWeight: 'bold' }}>{t('arenaAlbumModalTitle')}</h3>
-            <p style={{ color: '#64748b', fontSize: '0.8rem', margin: '0 0 20px 0' }}>{t('arenaAlbumModalUploaded')}: {new Date(selectedPhoto.created_at).toLocaleDateString(lang === 'en' ? 'en-US' : 'hu-HU')}</p>
+            <h3 style={{ color: 'white', margin: '0 0 4px 0', fontSize: '1.2rem', fontWeight: '600', letterSpacing: '-0.2px' }}>{t('arenaAlbumModalTitle')}</h3>
+            <p style={{ color: '#475569', fontSize: '0.78rem', margin: '0 0 16px 0', fontWeight: '500' }}>{t('arenaAlbumModalUploaded')}: {new Date(selectedPhoto.created_at).toLocaleDateString(lang === 'en' ? 'en-US' : 'hu-HU')}</p>
             
-            <div style={{ width: '100%', height: '220px', backgroundColor: '#000', borderRadius: '14px', overflow: 'hidden', marginBottom: '20px', border: '1px solid #334155' }}>
+            <div style={{ width: '100%', height: '200px', backgroundColor: '#090d16', borderRadius: '4px', overflow: 'hidden', marginBottom: '16px', border: '1px solid #222f47' }}>
               <img src={getImageUrl(null, selectedPhoto.file_url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
             </div>
 
-            {/* TITULUSOK PANELJE TISZTÁN */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px' }}>
-              <div style={{ background: '#1e293b', padding: '12px', borderRadius: '12px', border: '1px solid #fbbf2440', textAlign: 'center' }}>
-                <div style={{ fontSize: '1.5rem' }}>🥇</div>
-                <div style={{ color: 'white', fontWeight: 'bold', fontSize: '1.1rem', marginTop: '2px' }}>{selectedPhoto.firstPlaces} {lang === 'en' ? 'x' : 'db'}</div>
-                <div style={{ color: '#fbbf24', fontSize: '0.75rem', fontWeight: 'bold', textTransform: 'uppercase' }}>{t('arenaAlbumFirstPlace')}</div>
+            {/* DICSŐSÉG JELVÉNYEK PANELJE SZILÁRD SZOFTVERES VERZIÓBAN */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+              <div style={{ background: '#0f172a', padding: '10px', borderRadius: '4px', border: '1px solid rgba(251,191,36,0.2)', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                <Crown size={16} color="#fbbf24" fill="#fbbf24" />
+                <div style={{ color: 'white', fontWeight: '700', fontSize: '1.05rem', marginTop: '2px' }}>{selectedPhoto.firstPlaces} {lang === 'en' ? 'x' : 'db'}</div>
+                <div style={{ color: '#fbbf24', fontSize: '0.7rem', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('arenaAlbumFirstPlace')}</div>
               </div>
-              <div style={{ background: '#1e293b', padding: '12px', borderRadius: '12px', border: '1px solid #cbd5e140', textAlign: 'center' }}>
-                <div style={{ fontSize: '1.5rem' }}>🏆</div>
-                <div style={{ color: 'white', fontWeight: 'bold', fontSize: '1.1rem', marginTop: '2px' }}>{selectedPhoto.podiums} {lang === 'en' ? 'x' : 'db'}</div>
-                <div style={{ color: '#cbd5e1', fontSize: '0.75rem', fontWeight: 'bold', textTransform: 'uppercase' }}>{t('arenaAlbumPodiumPlace')}</div>
+              <div style={{ background: '#0f172a', padding: '10px', borderRadius: '4px', border: '1px solid rgba(56,189,248,0.2)', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                <Trophy size={16} color="#38bdf8" />
+                <div style={{ color: 'white', fontWeight: '700', fontSize: '1.05rem', marginTop: '2px' }}>{selectedPhoto.podiums} {lang === 'en' ? 'x' : 'db'}</div>
+                <div style={{ color: '#38bdf8', fontSize: '0.7rem', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('arenaAlbumPodiumPlace')}</div>
               </div>
             </div>
 
-            <h4 style={{ color: 'white', fontSize: '1rem', fontWeight: 'bold', marginBottom: '12px', borderBottom: '1px solid #1e293b', paddingBottom: '8px' }}>
-              {t('arenaAlbumHistoryTitle').replace('{count}', (selectedPhoto.history?.length || 0).toString())}
+            <h4 style={{ color: 'white', fontSize: '0.9rem', fontWeight: '600', marginBottom: '10px', borderBottom: '1px solid #222f47', paddingBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <History size={12} color="#64748b" /> {t('arenaAlbumHistoryTitle').replace('{count}', (selectedPhoto.history?.length || 0).toString())}
             </h4>
             
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {selectedPhoto.history.map((h: any, hIdx: number) => {
                 const isLive = h.is_topic_live === 1;
                 const isSwapped = h.is_active === 0;
                 const isWinner = Number(h.entry_rank) === 1;
                 const isPodium = Number(h.entry_rank) <= 3;
                 
-                let rowBorder = '1px solid #1e293b';
-                let rankBadgeColor = '#64748b';
+                let rowBorder = '1px solid #222f47';
+                let rankBadgeColor = '#475569';
                 let rankText = lang === 'en' ? `Rank ${h.entry_rank}` : `${h.entry_rank}. Hely`;
                 
                 if (isLive) {
-                  rowBorder = '1px solid #10b98140';
+                  rowBorder = '1px solid rgba(16,185,129,0.25)';
                   rankBadgeColor = '#10b981';
-                  rankText = lang === 'en' ? `Current ${h.entry_rank}` : `Jelenleg ${h.entry_rank}.`;
+                  rankText = lang === 'en' ? `Active #${h.entry_rank}` : `Aktív #${h.entry_rank}`;
                 } else if (isSwapped) {
-                  rowBorder = '1px dashed #ef444430';
+                  rowBorder = '1px dashed rgba(239,68,68,0.2)';
                   rankBadgeColor = '#ef4444';
                   rankText = t('arenaAlbumHistorySwapped');
                 } else if (isWinner) {
-                  rowBorder = '1px solid #fbbf24';
+                  rowBorder = '1px solid rgba(251,191,36,0.4)';
                   rankBadgeColor = '#fbbf24';
                 } else if (isPodium) {
-                  rowBorder = '1px solid #a855f7';
+                  rowBorder = '1px solid rgba(168,85,247,0.3)';
                   rankBadgeColor = '#a855f7';
                 }
 
                 return (
-                  <div key={hIdx} style={{ background: '#0f172a', border: rowBorder, padding: '12px 15px', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ flex: 1, marginRight: '10px' }}>
-                      <div style={{ color: 'white', fontWeight: 'bold', fontSize: '0.95rem' }}>{h.topic_title}</div>
-                      <div style={{ display: 'flex', gap: '15px', marginTop: '4px', fontSize: '0.8rem', color: '#64748b' }}>
-                        <span>⭐ <b style={{ color: '#cbd5e1' }}>{h.likes_count}</b> {lang === 'en' ? 'pts' : 'pont'}</span>
-                        <span>👁️ <b style={{ color: '#cbd5e1' }}>{h.views_count}</b> {lang === 'en' ? 'views' : 'nézettség'}</span>
+                  <div key={hIdx} style={{ background: '#0f172a', border: rowBorder, padding: '10px 12px', borderRadius: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxSizing: 'border-box' }}>
+                    <div style={{ flex: 1, marginRight: '8px', minWidth: 0 }}>
+                      <div style={{ color: 'white', fontWeight: '600', fontSize: '0.88rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.topic_title}</div>
+                      <div style={{ display: 'flex', gap: '10px', marginTop: '2px', fontSize: '0.75rem', color: '#475569' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px' }}><Star size={10} fill="#475569" /> <b>{h.likes_count}</b> {lang === 'en' ? 'pts' : 'pont'}</span>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px' }}><Eye size={10} /> <b>{h.views_count}</b> {lang === 'en' ? 'views' : 'nézet'}</span>
                       </div>
                     </div>
 
-                    <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
-                      <span style={{ background: `${rankBadgeColor}20`, color: rankBadgeColor, border: `1px solid ${rankBadgeColor}40`, padding: '4px 10px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 'bold', minWidth: '75px', display: 'inline-block', textAlign: 'center' }}>
+                    <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px', flexShrink: 0 }}>
+                      <span style={{ background: 'rgba(255,255,255,0.01)', color: rankBadgeColor, border: `1px solid ${rankBadgeColor}30`, padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold', minWidth: '70px', display: 'inline-block', textAlign: 'center' }}>
                         {rankText}
                       </span>
-                      <small style={{ color: '#475569', fontSize: '0.7rem' }}>
+                      <small style={{ color: '#475569', fontSize: '0.68rem' }}>
                         {isSwapped 
-                          ? (lang === 'en' ? 'Replaced by swap' : 'Kiesett a cserével') 
-                          : (lang === 'en' ? `out of ${h.total_entries} photos` : `/${h.total_entries} képből`)}
+                          ? (lang === 'en' ? 'Replaced' : 'Cserélve') 
+                          : (lang === 'en' ? `of ${h.total_entries}` : `/${h.total_entries} kép`)}
                       </small>
                     </div>
                   </div>
@@ -209,6 +227,22 @@ export default function MyArenaAlbumView({ user, setFullscreenData }: MyArenaAlb
           </div>
         </div>
       )}
+      
+      <style>{`
+        .album-asset-card:hover {
+          border-color: #475569 !important;
+          transform: translateY(-2px);
+        }
+        .album-card-details-btn:hover {
+          background: #2d3a54 !important;
+          border-color: #475569 !important;
+          color: white !important;
+        }
+        .album-modal-close-cross:hover {
+          background: #334155 !important;
+          color: white !important;
+        }
+      `}</style>
     </div>
   );
 }
