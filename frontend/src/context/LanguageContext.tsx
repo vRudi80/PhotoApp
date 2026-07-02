@@ -266,11 +266,11 @@ tilePodcastDesc: 'Hallgass bennünket aktuális fotós témákról',
     subManageClubs: 'Fotóklubok',
     
     // Felhasználói fiók almenü
-    subProfile: '👤 Profilom',
-    subPortfolio: '🖼️ Saját Portfólió',
-    subPackages: '💎 Tárhelycsomagom',
-    subSupport: '✉️ Support & Segítség',
-    subLogout: '🚪 Kijelentkezés',
+    subProfile: 'Profilom',
+    subPortfolio: 'Saját Portfólió',
+    subPackages: 'Tárhelycsomagom',
+    subSupport: 'Support & Segítség',
+    subLogout: 'Kijelentkezés',
 
     dashWelcome: 'Üdvözlünk',
     dashSupportNotice: 'Nézz szét, próbálj ki minden funkciót!',
@@ -964,11 +964,11 @@ tilePodcastDesc: 'Listen our podcast of fresh topics',
     subManageClubs: 'Photo Clubs',
     
     // Felhasználói fiók almenü
-    subProfile: '👤 My Profile',
-    subPortfolio: '🖼️ My Portfolio',
-    subPackages: '💎 My Storage',
-    subSupport: '✉️ Support & Help',
-    subLogout: '🚪 Logout',
+    subProfile: 'My Profile',
+    subPortfolio: 'My Portfolio',
+    subPackages: 'My Storage',
+    subSupport: 'Support & Help',
+    subLogout: 'Logout',
 
     arenaAlbumLoading: '⏳ Arranging your gallery...',
     arenaAlbumEmptyTitle: 'Your gallery is still empty',
