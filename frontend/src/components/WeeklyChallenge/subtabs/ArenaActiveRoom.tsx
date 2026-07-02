@@ -4,7 +4,6 @@ import { BACKEND_URL } from '../../../utils/constants';
 
 import { useLanguage } from '../../../context/LanguageContext';
 
-// Professzionális Lucide ikonok importálása a fotós szoftver érzetért
 import { 
   Clock, 
   Flame, 
