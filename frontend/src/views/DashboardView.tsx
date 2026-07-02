@@ -33,11 +33,21 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
       if (!user?.email) return; 
 
       setIsLoadingAlerts(true);
+
+      // 🎯 BIZTONSÁGI HÁLÓZATI LAKAT: 5 másodperces kényszerített időtúllépés (Timeout)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        controller.abort(); // 5 másodperc után könyörtelenül elvágjuk a lógó kérést
+      }, 5000);
+
       try {
-        const res = await fetch(`${BACKEND_URL}/api/dashboard-alerts?userEmail=${user.email}`);
+        const res = await fetch(`${BACKEND_URL}/api/dashboard-alerts?userEmail=${user.email}`, {
+          signal: controller.signal // Átadjuk a megszakító jelet a fetch-nek
+        });
         
-        // 🎯 JAVÍTVA: Ha nem 200 OK a válasz (hanem pl. Render hibaoldal HTML szövveggel), manuálisan hibát dobunk,
-        // így nem engedjük rá a res.json()-ra, ami lefagyasztaná a VideoLoadert
+        // Ha sikeres a kérés, azonnal töröljük a biztonsági időzítőt, nehogy megszakítsa utólag
+        clearTimeout(timeoutId);
+
         if (!res.ok) {
           throw new Error(`Szerver hiba státusz: ${res.status}`);
         }
@@ -45,24 +55,23 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
         if (isMounted) {
           setAlerts(await res.json());
         }
-      } catch (err) {
-        console.error('Hiba az értesítések letöltésekor:', err);
+      } catch (err: any) {
+        // Mindig kitakarítjuk az időzítőt hiba esetén is
+        clearTimeout(timeoutId);
+        console.error('Hiba vagy időtúllépés az értesítések letöltésekor:', err);
 
-        // 🎯 INTELLIGENS AUTOMATIKUS ÚJRATÖLTÉS VÉGTELEN CIKLUS ELLENI VÉDELEMMEL
+        // INTELLIGENS AUTOMATIKUS ÚJRATÖLTÉS VÉGTELEN CIKLUS ELLENI VÉDELEMMEL
         const lastAutoReload = sessionStorage.getItem('last_dashboard_auto_reload');
         const now = Date.now();
 
-        // Ha még nem volt automatikus frissítés az elmúlt 10 másodpercben, futtatunk egyet az öngyógyításért
         if (!lastAutoReload || now - Number(lastAutoReload) > 10000) {
           sessionStorage.setItem('last_dashboard_auto_reload', String(now));
-          console.log("🔄 Adatbetöltési deadlock észlelve, automatikus oldal-újratöltés indítása...");
+          console.log("🔄 Hálózati lógás/deadlock elhárítva, automatikus oldal-újratöltés...");
           window.location.reload();
-          return; // Megszakítjuk a futást, az oldal frissül
+          return;
         }
         
-        // Ha 10 másodpercen belül már próbálta, akkor a szerver tartósan áll: megtörjük a ciklust,
-        // és engedjük, hogy a végén a 'finally' leállítsa a VideoLoadert, megjelenítve a kézi gombot.
-        console.warn("🛑 Az automatikus frissítés már megtörtént az imént, a ciklus leállítva a biztonság érdekében.");
+        console.warn("🛑 Az automatikus frissítés már megtörtént az imént, a ciklus leállítva.");
       } finally {
         if (isMounted) setIsLoadingAlerts(false);
       }
