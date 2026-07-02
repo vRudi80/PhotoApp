@@ -7,7 +7,7 @@ import { BACKEND_URL } from '../../../utils/constants';
 // Nyelvi kontextus aktiválása
 import { useLanguage } from '../../../context/LanguageContext';
 
-// 🎯 ÚJ: Professzionális Lucide Ikonok importálása az AI-sallangok ellen
+// Professzionális Lucide Ikonok importálása az AI-sallangok ellen
 import { 
   ArrowLeft, 
   Crown, 
@@ -16,10 +16,10 @@ import {
   Trophy, 
   Medal, 
   Camera, 
-  Search, 
-  Clock, 
-  Eye, 
-  Star 
+  Star,
+  Eye,
+  Clock,
+  Layers
 } from 'lucide-react';
 
 interface HallOfFameProps {
@@ -38,7 +38,7 @@ function ClubLogo({ driveId, logoUrl }: { driveId: any; logoUrl: any }) {
     <img 
       src={getImageUrl ? getImageUrl(driveId, logoUrl) : ''} 
       alt="" 
-      style={{ width: '16px', height: '18px', borderRadius: '2px', objectFit: 'contain', backgroundColor: '#090d16', border: '1px solid rgba(16,185,129,0.2)', display: 'inline-block' }} 
+      style={{ width: '16px', height: '18px', borderRadius: '2px', objectFit: 'contain', backgroundColor: '#090d16', border: '1px solid #222f47', display: 'inline-block' }} 
       onError={() => setIsError(true)} 
     />
   );
@@ -126,9 +126,9 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
           </button>
         </div>
 
-        {/* Játékos profil fejléce – 🎯 JAVÍTVA: Neon és Glow törölve */}
+        {/* Játékos profil fejléce – 🎯 JAVÍTVA: justifyValue elírás teljesen kiirtva */}
         <div style={{ background: '#131b2e', padding: '30px 20px', borderRadius: '8px', border: `1px solid #222f47`, marginBottom: '20px', textAlign: 'center', position: 'relative' }}>
-          <div style={{ display: 'flex', justifyValue: 'center', marginBottom: '12px', justifyContent: 'center' }}>
+          <div style={{ display: 'flex', marginBottom: '12px', justifyContent: 'center' }}>
             <img 
               src={selectedUser?.avatar_url || silhouetteAvatar} 
               alt="" 
@@ -156,7 +156,7 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
             
-            {/* 🎯 JAVÍTVA: 4 oszlopos reszponzív Érem számláló rács Lucide ikonokkal */}
+            {/* 4 oszlopos reszponzív Érem számláló rács Lucide ikonokkal */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '12px', textAlign: 'center' }}>
               
               <div style={{ background: '#131b2e', padding: '16px', borderRadius: '8px', border: '1px solid #222f47', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
@@ -202,7 +202,7 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
                     <div>• Frontend email: <span>"{selectedUser?.user_email || selectedUser?.email}"</span></div>
                     <div>• Backend beérkezett email: <span>"{playerStats?.debugQueryEmail || 'NINCS VÁLASZ'}"</span></div>
                     
-                    <div style={{ margin: '8px 0', borderTop: '1px dashed #222f47', paddingTop: '8px' }}>
+                    <div style={{ margin: '8px 0', borderTop: '1px solid #222f47', paddingTop: '8px' }}>
                       {playerStats?.debugSteps && playerStats.debugSteps.map((step: string, i: number) => (
                         <div key={i} style={{ color: step.startsWith('❌') ? '#f43f5e' : step.startsWith('✅') || step.includes('Találat') ? '#10b981' : '#475569', marginBottom: '3px' }}>
                           {step}
@@ -384,7 +384,7 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
         }
         @media (max-width: 540px) {
           .hof-rank-badge-wrapper {
-            display: none !important; /* Mobilon elrejtjük a szöveges rangot a torzulások ellen */
+            display: none !important;
           }
         }
       `}</style>
