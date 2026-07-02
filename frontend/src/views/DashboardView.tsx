@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BACKEND_URL, ADMIN_EMAIL } from '../utils/constants';
 import VideoLoader from '../components/VideoLoader';
-import { useFetch } from '../hooks/useFetch'; // 👈 Beemeljük a törhetetlen motort
+import { useFetch } from '../hooks/useFetch';
 
 // Nyelvi kontextus betöltése
 import { useLanguage } from '../context/LanguageContext';
@@ -17,8 +17,7 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
   const [dismissedAlerts, setDismissedAlerts] = useState<string[]>([]);
   const { t, lang } = useLanguage();
 
-  // 👑 AZ ÚJ ADATLETÖLTŐ ARCHITEKTÚRA:
-  // Csak akkor indul el, ha a user.email már megérkezett (enabled: !!user?.email)
+  // 👑 Az új, stabil adatletöltő motor futtatása
   const { 
     data: alerts, 
     loading: isLoadingAlerts, 
@@ -26,7 +25,7 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
     refetch 
   } = useFetch<any>(`${BACKEND_URL}/api/dashboard-alerts?userEmail=${user?.email}`, {
     enabled: !!user?.email,
-    timeoutMs: 5000 // 5 másodperc után kényszerített időtúllépés lógás ellen
+    timeoutMs: 5000 
   });
 
   // Memóriából betöltjük a bezárt értesítéseket
@@ -97,7 +96,7 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
       descKey: 'tilePodcastDesc', 
       tab: 'podcast',
       fallbackTitle: 'Podcast',
-      fallbackDesc: lang === 'en' ? 'Watch and listen to the latest media episodes!' : 'Nézd és hallgasd a legfrissebb adásokat közvetlenül ici!'
+      fallbackDesc: lang === 'en' ? 'Watch and listen to the latest media episodes!' : 'Nézd és hallgasd a legfrissebb adásokat közvetlenül itt!'
     }
   ];
 
@@ -217,7 +216,6 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
             )}
           </div>
 
-          {/* 🎯 JAVÍTVA: Ha tölt a hook, vagy ha hálózati / szerver hiba van, azonnal kezeljük */}
           {isLoadingAlerts ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 20px', width: '100%' }}>
               <VideoLoader />
@@ -226,7 +224,7 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
             <div style={{ color: '#ef4444', fontSize: '0.88rem', padding: '20px', background: 'rgba(239,68,68,0.05)', borderRadius: '16px', border: '1px solid rgba(239,68,68,0.2)', textAlign: 'center' }}>
               <p style={{ margin: '0 0 10px 0', fontWeight: 'bold' }}>⚠️ Kapcsolati hiba történt.</p>
               <button onClick={refetch} style={{ background: '#ef444420', color: '#f87171', border: '1px solid rgba(239,68,68,0.4)', padding: '6px 16px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>
-                {t('dashReload') || 'Frissítés 🔄'}
+                Frissítés 🔄
               </button>
             </div>
           ) : (
@@ -286,7 +284,7 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
         .dashboard-alerts-section { grid-column: span 4; background: #1e293b; border: 1px solid #334155; border-radius: 20px; padding: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
         .dashboard-bento-card:hover { transform: translateY(-3px); box-shadow: 0 12px 24px rgba(0,0,0,0.3); border-color: #475569; background: #233147 !important; }
         .admin-bento-card:hover { border-color: #ef4444 !important; background: rgba(239, 68, 68, 0.05) !important; }
-        .stream-alert-row { background: #0f172a; border: 1px solid #223147; padding: 12px; borderRadius: '10px'; margin-bottom: 8px; cursor: pointer; transition: all 0.2s; }
+        .stream-alert-row { background: #0f172a; border: 1px solid #223147; padding: 12px; border-radius: 10px; margin-bottom: 8px; cursor: pointer; transition: all 0.2s; }
         .stream-alert-row:hover { background: #1e293b; border-color: #38bdf8; }
         @keyframes dashFadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
         @media (max-width: 1024px) {
