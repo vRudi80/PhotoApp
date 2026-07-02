@@ -6,6 +6,23 @@ import exifr from 'exifr';
 // Behozzuk a nyelvi kontextust
 import { useLanguage } from '../../context/LanguageContext';
 
+// 🎯 ÚJ: Professzionális Lucide Ikonok importálása az AI-sallangok ellen
+import { 
+  FolderPlus, 
+  Camera, 
+  Sliders, 
+  Clock, 
+  Zap, 
+  Star, 
+  Eye, 
+  Check, 
+  ArrowLeft, 
+  AlertCircle, 
+  Loader2, 
+  X,
+  Image as ImageIcon
+} from 'lucide-react';
+
 const compressImageOnClient = (file: File): Promise<File> => {
   return new Promise((resolve) => {
     try {
@@ -48,7 +65,7 @@ function GridImage({ src, alt }: { src: string; alt: string }) {
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative', background: '#090d16' }}>
       {!isLoaded && (
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, #1e293b, #0f172a)', opacity: 0.6 }} />
+        <div style={{ position: 'absolute', inset: 0, background: '#0f172a', opacity: 0.6 }} />
       )}
       <img 
         src={src} 
@@ -60,7 +77,7 @@ function GridImage({ src, alt }: { src: string; alt: string }) {
           height: '100%', 
           objectFit: 'cover', 
           opacity: isLoaded ? 1 : 0, 
-          transition: 'opacity 0.4s ease-in-out'
+          transition: 'opacity 0.3s ease-in-out'
         }} 
       />
     </div>
@@ -242,8 +259,6 @@ export default function AlbumSelectionModal({
         } else {
           const endpoint = albumModalMode === 'upload' ? 'upload-existing' : 'swap-existing';
           
-          // 🎯 JAVÍTVA: Golyóálló, kétirányú szuper-payload összeállítása JSON formátumban.
-          // Minden létező adatbázis oszlopnevet elküldünk tevepúpos és aláhúzott módon is, az összes EXIF adattal együtt!
           const jsonPayload = {
             topicId: topic?.id || 0,
             topic_id: topic?.id || 0,
@@ -263,7 +278,7 @@ export default function AlbumSelectionModal({
 
           const res = await fetch(`${BACKEND_URL}/api/weekly/${endpoint}`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' }, // 👈 Visszaállítva a tiszta JSON fejléc
+            headers: { 'Content-Type': 'application/json' }, 
             body: JSON.stringify(jsonPayload)
           });
           
@@ -303,8 +318,8 @@ export default function AlbumSelectionModal({
       style={{ 
         position: 'fixed', 
         inset: 0, 
-        background: 'rgba(0,0,0,0.85)', 
-        backdropFilter: 'blur(8px)', 
+        background: 'rgba(9,13,22,0.92)', 
+        backdropFilter: 'blur(6px)', 
         zIndex: 99999, 
         display: 'flex', 
         justifyContent: 'center', 
@@ -317,67 +332,68 @@ export default function AlbumSelectionModal({
     >
       <div 
         style={{ 
-          background: '#0f172a', 
-          border: '1px solid #334155', 
-          borderRadius: '24px', 
+          background: '#131b2e', 
+          border: '1px solid #222f47', 
+          borderRadius: '8px', 
           width: '100%', 
-          maxWidth: '550px', 
-          padding: '25px', 
+          maxWidth: '520px', 
+          padding: '24px', 
           position: 'relative', 
-          boxShadow: '0 25px 50px -12px rgba(0,0,0,0.8)',
+          boxShadow: '0 12px 30px rgba(0,0,0,0.5)',
           margin: 'auto 0' 
         }}
       >
         
-        {/* ── NÉZET A: THEATER / ELŐNÉZET ── */}
+        {/* ── NÉZET A: INTELIGENS FOTÓ ELŐNÉZET / INSPECTOR ── */}
         {previewPhoto ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', animation: 'fadeIn 0.15s ease' }}>
-            <h3 style={{ color: 'white', margin: 0, fontSize: '1.3rem', fontWeight: 'bold' }}>🔎 {t('roomPreviewLabel') || 'Nevezési előnézet'}</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', animation: 'fadeIn 0.15s ease' }}>
+            <h3 style={{ color: 'white', margin: 0, fontSize: '1.15rem', fontWeight: '600', letterSpacing: '-0.2px', display: 'flex', alignItems: 'center', gap: '8px' }}><ImageIcon size={16} color="#38bdf8" /> {t('roomPreviewLabel') || 'Nevezési előnézet'}</h3>
             
-            <div style={{ width: '100%', height: '260px', backgroundColor: '#000', borderRadius: '16px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #334155' }}>
+            <div style={{ width: '100%', height: '250px', backgroundColor: '#090d16', borderRadius: '4px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #222f47' }}>
               <img src={previewPhoto.isLocal ? previewPhoto.file_url : getImageUrl(null, previewPhoto.file_url)} alt="" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
             </div>
 
             {previewPhoto.exif && (
-              <div style={{ background: '#1e293b70', padding: '14px', borderRadius: '12px', border: '1px solid #334155', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '0.8rem', color: '#cbd5e1' }}>
-                <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>📷 Gép: <b>{previewPhoto.exif.camera}</b></div>
-                <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>📐 Optika: <b>{previewPhoto.exif.lens}</b></div>
-                <div>⏱️ Záridő: <b>{previewPhoto.exif.shutter}</b></div>
-                <div>💎 ISO: <b>{previewPhoto.exif.iso}</b></div>
+              <div style={{ background: '#0f172a', padding: '12px', borderRadius: '4px', border: '1px solid #222f47', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 12px', fontSize: '0.78rem', color: '#64748b' }}>
+                <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}><span style={{ fontWeight: 'bold', color: '#475569' }}>📷 Gép:</span> <b style={{ color: '#cbd5e1' }}>{previewPhoto.exif.camera}</b></div>
+                <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}><span style={{ fontWeight: 'bold', color: '#475569' }}>📐 Optika:</span> <b style={{ color: '#cbd5e1' }}>{previewPhoto.exif.lens}</b></div>
+                <div><span style={{ fontWeight: 'bold', color: '#475569' }}>⏱️ Záridő:</span> <b style={{ color: '#38bdf8' }}>{previewPhoto.exif.shutter}</b></div>
+                <div><span style={{ fontWeight: 'bold', color: '#475569' }}>💎 ISO:</span> <b style={{ color: '#a78bfa' }}>{previewPhoto.exif.iso}</b></div>
               </div>
             )}
 
-            <div style={{ display: 'flex', gap: '12px', marginTop: '10px' }}>
-              <button disabled={isSubmitting} onClick={() => setPreviewPhoto(null)} style={{ flex: 1, padding: '12px', borderRadius: '12px', background: '#1e293b', color: '#cbd5e1', border: '1px solid #334155', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.9rem' }}>
-                ⬅ {t('modalBackToAlbum', 'Vissza az albumba')}
+            <div style={{ display: 'flex', gap: '10px', marginTop: '6px' }}>
+              <button disabled={isSubmitting} onClick={() => setPreviewPhoto(null)} style={{ flex: 1, padding: '10px', borderRadius: '4px', background: '#222f47', color: '#cbd5e1', border: '1px solid #334155', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                <ArrowLeft size={14} /> {t('modalBackToAlbum', 'Vissza')}
               </button>
-              <button disabled={isSubmitting} onClick={handleConfirmAction} style={{ flex: 1.6, padding: '12px', borderRadius: '12px', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', border: 'none', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 15px rgba(16,185,129,0.25)', fontSize: '0.9rem' }}>
-                {isSubmitting ? '⏳ Processing...' : 'Megerősítés ✔'}
+              <button disabled={isSubmitting} onClick={handleConfirmAction} style={{ flex: 1.5, padding: '10px', borderRadius: '4px', background: '#10b981', color: 'white', border: 'none', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                {isSubmitting ? <Loader2 size={14} style={{ animation: 'modalFloatCircle 0.8s linear infinite' }} /> : <Check size={14} />}
+                <span>{isSubmitting ? 'Processing...' : 'Megerősítés ✔'}</span>
               </button>
             </div>
           </div>
         ) : (
-          /* ── NÉZET B: KÉPRÁCS LISTÁZÓ ── */
+          /* ── NÉZET B: PREMIÚM MÉDIA MÁTRIX RÁCS ── */
           <>
-            <h3 style={{ color: 'white', margin: '0 0 5px 0', fontSize: '1.5rem', fontWeight: 'bold' }}>
+            <h3 style={{ color: 'white', margin: '0 0 4px 0', fontSize: '1.3rem', fontWeight: '600', letterSpacing: '-0.3px' }}>
               {albumModalMode === 'upload' ? t('modalUploadTitle', 'Versenynevezés') : t('modalSwapTitle', 'Joker Csere')}
             </h3>
-            <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 20px 0', lineHeight: '1.4' }}>
+            <p style={{ color: '#64748b', fontSize: '0.82rem', margin: '0 0 20px 0', lineHeight: '1.45' }}>
               Melyik meglévő galériás fotóddal szeretnél nevezni a mostani futamra?
             </p>
             
-            {isLoading || isLocalProcessing ? (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 0', width: '100%' }}>
-                <div className="modal-data-spinner" />
-                <p style={{ color: '#64748b', fontSize: '0.85rem', marginTop: '15px', fontWeight: 'bold' }}>{isLocalProcessing ? 'Fájl elemzése és tömörítése...' : t('loading', 'Betöltés...')}</p>
+            {isLoading ? (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '50px 0', width: '100%', gap: '12px' }}>
+                <Loader2 size={24} color="#38bdf8" style={{ animation: 'modalFloatCircle 0.8s linear infinite' }} />
+                <p style={{ color: '#475569', fontSize: '0.82rem', fontWeight: 'bold', margin: 0 }}>{t('loading', 'Betöltés...')}</p>
               </div>
             ) : (
               <>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '15px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '12px' }}>
                   
-                  {/* TALLÓZÓ REKASZ */}
+                  {/* TALLÓZÓ REKASZ – Letisztult outline struktúra */}
                   <div 
-                    style={{ position: 'relative', background: '#0f172a', borderRadius: '14px', border: '2px dashed #f59e0b50', height: '153px', display: 'flex', flexDirection: 'column', padding: '0 10px', alignItems: 'center', justifyContent: 'center', gap: '10px', overflow: 'hidden' }}
+                    style={{ position: 'relative', background: '#0f172a', borderRadius: '4px', border: '1px dashed rgba(249,115,22,0.3)', height: '143px', display: 'flex', flexDirection: 'column', padding: '0 10px', alignItems: 'center', justifyContent: 'center', gap: '8px', overflow: 'hidden' }}
                     className="upload-overlay-card-wrapper"
                   >
                     <input 
@@ -386,17 +402,16 @@ export default function AlbumSelectionModal({
                       onChange={handleLocalFileSelect}
                       style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', zIndex: 10 }} 
                     />
-                    <div style={{ fontSize: '1.8rem' }}>📁</div>
-                    <span style={{ color: '#fbbf24', fontSize: '0.78rem', fontWeight: 'bold', textAlign: 'center' }}>Új kép tallózása</span>
+                    <FolderPlus size={20} color="#f97316" />
+                    <span style={{ color: '#f97316', fontSize: '0.75rem', fontWeight: 'bold', textAlign: 'center' }}>Új kép feltöltése</span>
                   </div>
 
-                  {/* HALADÓ RÁCS */}
+                  {/* KÉPMÁTRIX RÁCS */}
                   {renderedPhotos.map((p, idx) => {
                     const pastMatch = albumModalMode === 'swap' ? pastEntriesMap.get(p.file_url) : null;
                     return (
                       <div 
                         key={p.id || idx} 
-                        // 🎯 JAVÍTVA: Közvetlenül kimentjük az albumfotó meglévő EXIF adatait a photo_users táblából
                         onClick={() => setPreviewPhoto({
                           isLocal: false,
                           file_url: p.file_url,
@@ -412,25 +427,24 @@ export default function AlbumSelectionModal({
                           }
                         })}
                         style={{ 
-                          background: '#1e293b', borderRadius: '14px', overflow: 'hidden', 
-                          border: pastMatch ? '2px solid #0284c7' : '2px solid #334155', 
-                          cursor: 'pointer', transition: 'all 0.2s', display: 'flex', flexDirection: 'column', position: 'relative' 
+                          background: '#0f172a', borderRadius: '4px', overflow: 'hidden', 
+                          border: pastMatch ? '1px solid #0284c7' : '1px solid #222f47', 
+                          cursor: 'pointer', transition: 'all 0.15s ease-in-out', display: 'flex', flexDirection: 'column', position: 'relative' 
                         }}
-                        onMouseOver={(e) => { e.currentTarget.style.borderColor = pastMatch ? '#38bdf8' : '#f43f5e'; e.currentTarget.style.transform = 'scale(1.02)'; }}
-                        onMouseOut={(e) => { e.currentTarget.style.borderColor = pastMatch ? '#0284c7' : '#334155'; e.currentTarget.style.transform = 'scale(1)'; }}
+                        className="asset-matrix-item"
                       >
-                        <div style={{ width: '100%', height: '115px', backgroundColor: '#000', overflow: 'hidden', position: 'relative' }}>
+                        <div style={{ width: '100%', height: '110px', backgroundColor: '#000', overflow: 'hidden', position: 'relative' }}>
                           <GridImage src={getOptimizedThumbnail(p.file_url)} alt="Gallery asset" />
                           
                           {pastMatch && (
-                            <span style={{ position: 'absolute', top: '8px', left: '8px', background: 'linear-gradient(135deg, #0284c7, #0369a1)', color: 'white', fontWeight: 'bold', fontSize: '0.65rem', padding: '4px 8px', borderRadius: '6px' }}>
-                              {t('modalBadgeSwapBack', 'Visszacsere')}
+                            <span style={{ position: 'absolute', top: '6px', left: '6px', background: '#0284c7', color: 'white', fontWeight: 'bold', fontSize: '0.6rem', padding: '2px 6px', borderRadius: '2px', textTransform: 'uppercase', letterSpacing: '0.3px' }}>
+                              {t('modalBadgeSwapBack', 'RE-SWAP')}
                             </span>
                           )}
                         </div>
-                        <div style={{ padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', background: '#090d16', borderTop: '1px solid #232d3f', fontWeight: 'bold' }}>
-                          <span style={{ color: '#fbbf24' }}>⭐ {pastMatch ? pastMatch.likes_count : (p.totalLikes || 0)}</span>
-                          <span style={{ color: '#38bdf8' }}>👁️ {pastMatch ? pastMatch.views_count : (p.totalViews || 0)}</span>
+                        <div style={{ padding: '6px 10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', background: '#090d16', borderTop: '1px solid #222f47', fontWeight: 'bold' }}>
+                          <span style={{ color: '#fbbf24', display: 'inline-flex', alignItems: 'center', gap: '2px' }}><Star size={10} fill="#fbbf24" /> {pastMatch ? pastMatch.likes_count : (p.totalLikes || 0)}</span>
+                          <span style={{ color: '#38bdf8', display: 'inline-flex', alignItems: 'center', gap: '2px' }}><Eye size={10} /> {pastMatch ? pastMatch.views_count : (p.totalViews || 0)}</span>
                         </div>
                       </div>
                     );
@@ -438,26 +452,26 @@ export default function AlbumSelectionModal({
                 </div>
 
                 {renderedPhotos.length === 0 && (
-                  <div style={{ textAlign: 'center', color: '#64748b', padding: '35px 15px', fontSize: '0.9rem', fontStyle: 'italic', lineHeight: '1.5', background: 'rgba(255,255,255,0.02)', borderRadius: '16px', marginTop: '15px', border: '1px dashed rgba(255,255,255,0.05)' }}>
-                    📸 Még nincs kép a portfóliódban.<br />
-                    Kattints a fenti <b style={{ color: '#fbbf24' }}>"Új kép tallózása"</b> dobozra az első fotód feltöltéséhez!
+                  <div style={{ textAlign: 'center', color: '#475569', padding: '30px 15px', fontSize: '0.82rem', fontStyle: 'italic', lineHeight: '1.5', background: '#0f172a', borderRadius: '4px', marginTop: '12px', border: '1px dashed #222f47' }}>
+                    <AlertCircle size={20} color="#475569" style={{ margin: '0 auto 8px auto' }} />
+                    Még nincs kép a portfóliódban.<br />
+                    Kattints a bal oldali <b style={{ color: '#f97316' }}>"Új kép feltöltése"</b> dobozra az első fotód tallózásához!
                   </div>
                 )}
 
                 {filteredAlbumPhotos.length > visibleCount && (
                   <div 
                     onClick={triggerLoadMore}
-                    style={{ textAlign: 'center', color: '#38bdf8', fontSize: '0.85rem', padding: '16px 0', fontStyle: 'italic', fontWeight: 'bold', cursor: 'pointer', background: 'rgba(56,189,248,0.05)', borderRadius: '12px', marginTop: '15px', border: '1px solid rgba(56,189,248,0.15)', userSelect: 'none', transition: 'all 0.2s' }}
-                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(56,189,248,0.12)'}
-                    onMouseLeave={e => e.currentTarget.style.background = 'rgba(56,189,248,0.05)'}
+                    style={{ textAlign: 'center', color: '#38bdf8', fontSize: '0.8rem', padding: '10px 0', fontWeight: 'bold', cursor: 'pointer', background: 'rgba(56,189,248,0.03)', borderRadius: '4px', marginTop: '12px', border: '1px solid rgba(56,189,248,0.15)', userSelect: 'none', transition: 'all 0.1s' }}
+                    className="modal-load-more-btn"
                   >
-                    ✨ {t('modalLoadMore', 'További képek betöltése...')}
+                    {t('modalLoadMore', 'További képek betöltése...')}
                   </div>
                 )}
 
-                <div style={{ marginTop: '25px', borderTop: '1px solid #223147', paddingTop: '15px' }}>
-                  <button onClick={() => cleanAndClose(false)} style={{ width: '100%', padding: '12px', borderRadius: '12px', background: '#1e293b', color: '#f43f5e', border: '1px solid #be123c40', fontWeight: 'bold', cursor: 'pointer' }}>
-                    Mégse / Bezárás
+                <div style={{ marginTop: '20px', borderTop: '1px solid #222f47', paddingTop: '14px' }}>
+                  <button onClick={() => cleanAndClose(false)} style={{ width: '100%', padding: '10px', borderRadius: '4px', background: '#222f47', border: '1px solid #334155', color: '#f43f5e', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                    <X size={14} /> Mégse / Bezárás
                   </button>
                 </div>
               </>
@@ -472,17 +486,16 @@ export default function AlbumSelectionModal({
           overscroll-behavior: contain !important;
           -webkit-overflow-scrolling: touch !important;
         }
-        .modal-data-spinner {
-          width: 40px;
-          height: 40px;
-          border: 4px solid rgba(56, 189, 248, 0.1);
-          border-left-color: #38bdf8;
-          border-radius: 50%;
-          animation: modalFloatCircle 0.8s linear infinite;
-        }
         .upload-overlay-card-wrapper:hover {
-          background: #1e293b40 !important;
-          border-color: #f59e0b !important;
+          background: rgba(249,115,22,0.02) !important;
+          border-color: #f97316 !important;
+        }
+        .asset-matrix-item:hover {
+          border-color: #475569 !important;
+          transform: translateY(-1px);
+        }
+        .modal-load-more-btn:hover {
+          background: rgba(56,189,248,0.08) !important;
         }
         @keyframes modalFloatCircle {
           0% { transform: rotate(0deg); }
