@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BACKEND_URL, ADMIN_EMAIL } from '../utils/constants';
 import VideoLoader from '../components/VideoLoader';
-import { useFetch } from '../hooks/useFetch';
 
 // Nyelvi kontextus betöltése
 import { useLanguage } from '../context/LanguageContext';
@@ -14,25 +13,83 @@ interface DashboardViewProps {
 }
 
 export default function DashboardView({ user, isLeader, setActiveTab, setTargetMapSpotId }: DashboardViewProps) {
+  const [alerts, setAlerts] = useState<any>(null);
+  const [isLoadingAlerts, setIsLoadingAlerts] = useState(true);
   const [dismissedAlerts, setDismissedAlerts] = useState<string[]>([]);
-  const { t, lang } = useLanguage();
 
-  // 👑 Törhetetlen, lógásbiztos hálózati motor
-  const { 
-    data: alerts, 
-    loading: isLoadingAlerts, 
-    error: fetchError, 
-    refetch 
-  } = useFetch<any>(`${BACKEND_URL}/api/dashboard-alerts?userEmail=${user?.email}`, {
-    enabled: !!user?.email,
-    timeoutMs: 5000 
-  });
+  const { t, lang } = useLanguage();
 
   // Memóriából betöltjük a bezárt értesítéseket
   useEffect(() => {
     const stored = localStorage.getItem('dismissed_alerts');
     if (stored) setDismissedAlerts(JSON.parse(stored));
   }, []);
+
+  // Értesítések szinkronizálása hálózati lógás elleni védelemmel
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchAlerts = async () => {
+      // 🎯 JAVÍTVA: Ha nincs email, leállítjuk a töltést, így nem akad be a videóloader az első pillanatban
+      if (!user?.email) {
+        if (isMounted) setIsLoadingAlerts(false);
+        return;
+      } 
+
+      setIsLoadingAlerts(true);
+
+      // 🎯 KÉNYSZERÍTETT IDŐTÚLLÉPÉS: Ha a hálózat vagy a szerver 5 másodpercig lógna, elvágjuk a fonalat
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        controller.abort();
+      }, 5000);
+
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/dashboard-alerts?userEmail=${user.email}`, {
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+
+        // Ha a szerver HTML hibaoldalt dobott vissza, átugrunk a catch ágban lévő auto-reloadra
+        if (!res.ok) {
+          throw new Error(`Szerver hiba státusz: ${res.status}`);
+        }
+
+        if (isMounted) {
+          setAlerts(await res.json());
+        }
+      } catch (err) {
+        clearTimeout(timeoutId);
+        console.error('Hiba az értesítések letöltésekor:', err);
+
+        // 🎯 CSAK HIBÁRA FUTÁSKOR: Intelligens auto-reload motor végtelen ciklus elleni védelemmel
+        if (isMounted) {
+          const lastAutoReload = sessionStorage.getItem('last_dashboard_auto_reload');
+          const now = Date.now();
+
+          // Ha az elmúlt 10 másodpercben még nem volt automatikus javítás, nyomunk egy csendes frissítést
+          if (!lastAutoReload || now - Number(lastAutoReload) > 10000) {
+            sessionStorage.setItem('last_dashboard_auto_reload', String(now));
+            window.location.reload();
+            return;
+          }
+          
+          // Ha már próbálta és még mindig rossz, töröljük az alerts állapotot, hogy megjelenjen a kézi gomb
+          setAlerts(null);
+        }
+      } finally {
+        if (isMounted) setIsLoadingAlerts(false);
+      }
+    };
+
+    fetchAlerts();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.email]);
+
 
   const handleDismissAlert = (e: React.MouseEvent, alertKey: string, type?: string, id?: number) => {
     e.stopPropagation(); 
@@ -101,16 +158,22 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
   ];
 
   const adminTile = { id: 'admin', icon: '⚙️', color: '#ef4444', titleKey: 'tileAdminTitle', descKey: 'tileAdminDesc', tab: (user?.email === ADMIN_EMAIL) ? 'admin_contests' : 'admin_meetings' };
+
+  // 🎯 EREDETI DÁTUMFORMÁZÁS MEGTARTVA:
   const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString(lang === 'en' ? 'en-US' : 'hu-HU', { month: 'short', day: 'numeric' });
 
   const checkClubAccess = (item: any) => {
     const itemClubName = item.club_name || item.restricted_club;
     const itemClubId = item.club_id || item.restricted_club_id;
+    
     const hasRestriction = (itemClubName && itemClubName.trim() !== '') || (itemClubId && itemClubId !== 0);
     if (!hasRestriction) return true; 
+    
     if (!user?.club_name && !user?.club_id) return false;
+    
     const nameMatch = itemClubName && user?.club_name && itemClubName.trim() === user.club_name.trim();
     const idMatch = itemClubId && user?.club_id && Number(itemClubId) === Number(user.club_id);
+    
     return !!(nameMatch || idMatch);
   };
 
@@ -209,7 +272,7 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
             <h2 style={{ fontSize: '1rem', color: '#94a3b8', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px', margin: 0 }}>
                {t('dashAlertsTitle', 'Események & Értesítések')}
             </h2>
-            {totalAlertsCount > 0 && !isLoadingAlerts && !fetchError && (
+            {totalAlertsCount > 0 && (
               <span style={{ background: '#ef444420', color: '#f87171', fontSize: '0.75rem', fontWeight: 'bold', padding: '2px 8px', borderRadius: '100px' }}>
                 {totalAlertsCount} új
               </span>
@@ -217,20 +280,26 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
           </div>
 
           {isLoadingAlerts ? (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 20px', width: '100%' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 20px', gap: '20px', width: '100%' }}>
               <VideoLoader />
+              <div style={{ textAlign: 'center', animation: 'arenaPulse 2s infinite' }}>
+                <h4 style={{ color: '#f59e0b', margin: '0 0 8px 0', fontSize: '1.1rem', fontWeight: 'bold', letterSpacing: '0.5px' }}>
+                  {lang === 'en' ? '⚡ Loading Dashboard...' : '⚡ Adatok szinkronizálása...'}
+                </h4>
+              </div>
+              <style>{`@keyframes arenaPulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }`}</style>
             </div>
-          ) : fetchError || !alerts ? (
-            <div style={{ color: '#ef4444', fontSize: '0.88rem', padding: '20px', background: 'rgba(239,68,68,0.05)', borderRadius: '16px', border: '1px solid rgba(239,68,68,0.2)', textAlign: 'center' }}>
-              <p style={{ margin: '0 0 10px 0', fontWeight: 'bold' }}>⚠️ Kapcsolati hiba történt.</p>
-              <button onClick={refetch} style={{ background: '#ef444420', color: '#f87171', border: '1px solid rgba(239,68,68,0.4)', padding: '6px 16px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>
-                Frissítés 🔄
+          ) : !alerts ? (
+            <div style={{ color: '#ef4444', fontSize: '0.88rem', padding: '20px', background: '#ef444405', borderRadius: '16px', border: '1px solid #ef444425', textAlign: 'center' }}>
+              {t('dashAlertsError', 'Hiba történt a betöltéskor.')}
+              <button onClick={() => window.location.reload()} style={{ background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', padding: '2px 8px', borderRadius: '6px', cursor: 'pointer', marginLeft: '10px', fontSize: '0.75rem' }}>
+                {t('dashReload', 'Frissítés')}
               </button>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               
-              {/* 🎯 JAVÍTVA: Az összes alábbi blokk belső HTML elrendezése teljesen visszaállítva az eredeti, prémium formátumra! */}
+              {/* 🎯 EREDETI HTML STRUKTÚRA ÉS PRÉMIUM OSZTÁLYOK HIÁNYTALANUL HELYREÁLLÍTVA */}
               
               {/* 📰 CIKKEK ÉS HÍREK */}
               {visibleNews.map((news: any) => (
@@ -259,7 +328,7 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
                 </div>
               ))}
 
-              {/* KIHÍVÁSOK */}
+              {/* 🎙️ ARÉNA FUTAMOK SZÁMLÁLÓJA */}
               {visibleWeekly.length > 0 && (
                 <div onClick={() => setActiveTab('weekly_challenge')} className="stream-alert-row" style={{ borderLeft: '4px solid #f97316' }}>
                   <div className="stream-alert-content">
@@ -293,7 +362,7 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
 
               {/* 🏆 HIVATALOS PÁLYÁZATOK */}
               {visibleContests.map((contest: any) => (
-                <div key={`contest_${contest.id}`} onClick={() => setActiveTab('contests_open_active')} className="stream-alert-row" style={{ borderLeft: '4px solid #8b5cf6' }}>
+                <div key={`cont_${contest.id}`} onClick={() => setActiveTab('contests_open_active')} className="stream-alert-row" style={{ borderLeft: '4px solid #8b5cf6' }}>
                   <div className="stream-alert-content">
                     <div className="stream-alert-header-meta">
                       <span style={{ color: '#8b5cf6' }}>🏆 FOTÓPÁLYÁZAT</span>
@@ -332,7 +401,7 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
         .stream-dismiss-cross:hover { color: #f8fafc; }
         @keyframes dashFadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
         @media (max-width: 1024px) {
-          .dashboard-flex-layout { grid-template-columns: 1fr; }
+          .dashboard-flex-layout { display: grid; grid-template-columns: 1fr; }
           .dashboard-tiles-section, .dashboard-alerts-section { grid-column: span 1fr; width: 100%; }
           .dashboard-alerts-section { order: -1; }
         }
