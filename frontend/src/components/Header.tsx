@@ -33,16 +33,15 @@ export default function Header({
   const [unreadTicketsCount, setUnreadTicketsCount] = useState(0);
   const isAdminUser = user?.email === ADMIN_EMAIL;
   
-  // 🎯 UX FIX: Referencia a teljes header-re a külső kattintások figyeléséhez
   const headerRef = useRef<HTMLDivElement>(null);
 
-  // Aktiváljuk a nyelvi kontextust és a t() fordító függvényt
+  // Aktiváljuk a nyelvi kontextust
   const { lang, setLang, t } = useLanguage();
 
   // Meghatározzuk, hogy épp melyik logót kell mutatni
   const currentLogo = lang === 'en' ? logoEn : logoHu;
 
-  // 10 percenként csendben leellenőrzi, van-e új üzenet
+  // 10 percenként ellenőrzi az új üzeneteket
   useEffect(() => {
     if (!user?.email) return;
     const checkUnread = () => {
@@ -57,7 +56,7 @@ export default function Header({
     return () => clearInterval(interval);
   }, [user, activeTab, isAdminUser]);
 
-  // 🎯 UX FIX: Ha máshova kattint a felhasználó, csukódjanak be a legördülő ablakok automatikusan!
+  // Külső kattintásra bezáródó dropdown menük
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (headerRef.current && !headerRef.current.contains(event.target as Node)) {
@@ -92,9 +91,9 @@ export default function Header({
     }
   };
 
-  // REUSABLE LOGO BLOCK
+  // KÖZÖS LOGÓ BLOKK
   const LogoBrandBlock = () => (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
       <div style={{ 
         background: 'rgba(30, 41, 59, 0.7)', 
         padding: '5px 6px', 
@@ -108,51 +107,198 @@ export default function Header({
         <img 
           src={currentLogo} 
           alt="PhotAwesome" 
-          style={{ height: '24px', width: 'auto', objectFit: 'contain' }} 
+          style={{ height: '22px', width: 'auto', objectFit: 'contain' }} 
         />
       </div>
-      <div style={{ fontWeight: '900', color: '#f8fafc', fontSize: '1.3rem', letterSpacing: '-0.5px' }}>
+      <div style={{ fontWeight: '900', color: '#f8fafc', fontSize: '1.2rem', letterSpacing: '-0.5px' }}>
         Phot<span style={{ background: 'linear-gradient(135deg, #38bdf8, #8b5cf6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Awesome</span>
       </div>
     </div>
   );
 
   return (
-    <header ref={headerRef} className="app-header">
+    <header ref={headerRef} className="app-header" style={{ position: 'relative', zIndex: 1000, width: '100%', background: '#1e293b', borderBottom: '1px solid #334155', boxSizing: 'border-box' }}>
       
       <style>{`
-        /* 🎯 JAVÍTVA: Csak asztali nézetben kényszerítjük a flexbox elrendezést, így mobilon nem ragad be nyitva */
+        /* ── 🎯 FELSŐ KATEGÓRIÁS ASZTALI SZABÁLYZAT ── */
         @media (min-width: 992px) {
+          .app-header {
+            padding: 0 24px !important;
+            height: 64px;
+            display: flex !important;
+            align-items: center;
+          }
+          .mobile-header-top {
+            display: none !important; /* Asztali gépen elrejtjük a mobil fejlécet */
+          }
           .header-nav-container {
-            display: flex;
+            display: flex !important;
             align-items: center;
             justify-content: space-between;
             width: 100%;
+            gap: 15px;
           }
-          .header-desktop-brand-wrapper {
-            display: flex;
+          .nav-group {
+            display: flex !important;
             align-items: center;
-            margin-right: 20px;
+            gap: 6px;
+            flex: 1;
+            justify-content: center;
           }
-        }
-        
-        @media (max-width: 991px) {
           .header-desktop-brand-wrapper {
-            display: none !important;
+            display: flex !important;
+            align-items: center;
+          }
+          .dropdown-menu {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 12px;
+            padding: 6px;
+            min-width: 180px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+          }
+        }
+
+        /* ── 🎯 KEDVEZŐTLEN KÖZTES ZÓNA VÉDELME (992px - 1200px) ── */
+        @media (min-width: 992px) and (max-width: 1200px) {
+          .app-header {
+            padding: 0 12px !important;
+          }
+          .nav-group {
+            gap: 2px !important; /* Összehúzzuk a gombokat, hogy ne törjenek meg */
+          }
+          .nav-btn {
+            padding: 6px 8px !important;
+            font-size: 0.85rem !important;
+          }
+          .user-group {
+            gap: 8px !important;
           }
         }
         
-        /* UX FINOMÍTÁS: Finom, prémium hover átmenetek a gombokhoz */
-        .nav-btn {
-          transition: all 0.2s ease-in-out !important;
+        /* ── 🎯 GOLYÓÁLLÓ MOBIL NÉZET SZABÁLYZAT (max-width: 991px) ── */
+        @media (max-width: 991px) {
+          .mobile-header-top {
+            display: flex !important;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            padding: 12px 20px;
+            box-sizing: border-box;
+            height: 60px;
+            background: #1e293b;
+          }
+          .hamburger-btn {
+            background: #334155;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 1.2rem;
+            cursor: pointer;
+            font-weight: bold;
+          }
+          .header-nav-container {
+            display: none;
+            flex-direction: column;
+            width: 100%;
+            background: #1e293b;
+            border-top: 1px solid #334155;
+            padding: 15px 20px;
+            box-sizing: border-box;
+            gap: 15px;
+          }
+          .header-nav-container.mobile-open {
+            display: flex !important; /* Lenyílik, ha a hamburger gombra kattintanak */
+          }
+          .nav-group {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            gap: 8px;
+          }
+          .nav-item-container {
+            width: 100%;
+            position: relative;
+          }
+          .nav-btn {
+            width: 100% !important;
+            text-align: left !important;
+            justify-content: space-between;
+            padding: 12px 16px !important;
+            background: #0f172a !important;
+            border-radius: 10px !important;
+          }
+          .user-group {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            gap: 12px;
+            padding-top: 15px;
+            border-top: 1px solid #334155;
+          }
+          .dropdown-menu {
+            position: static !important;
+            width: 100% !important;
+            background: #0f172a !important;
+            box-shadow: none !important;
+            margin-top: 4px;
+            border-radius: 10px !important;
+            padding: 4px !important;
+            box-sizing: border-box;
+          }
         }
-        .nav-btn:hover {
-          background: rgba(255, 255, 255, 0.03) !important;
-          color: #f8fafc !important;
+        
+        /* Globális gomb finomítások */
+        .nav-btn {
+          background: transparent;
+          border: none;
+          color: #94a3b8;
+          padding: 8px 14px;
+          border-radius: 8px;
+          font-weight: 700;
+          font-size: 0.92rem;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          white-space: nowrap;
+          transition: all 0.2s ease-in-out;
+        }
+        .nav-btn.active, .nav-btn:hover {
+          background: rgba(255, 255, 255, 0.04);
+          color: #f8fafc;
+        }
+        .dropdown-menu {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          z-index: 99999;
+        }
+        .drop-item {
+          width: 100%;
+          text-align: left;
+          background: transparent;
+          border: none;
+          color: #94a3b8;
+          padding: 10px 14px;
+          border-radius: 8px;
+          font-size: 0.88rem;
+          font-weight: 600;
+          cursor: pointer;
+          white-space: nowrap;
+          transition: all 0.15s;
+        }
+        .drop-item:hover, .drop-item.active {
+          background: rgba(255, 255, 255, 0.05);
+          color: white;
         }
       `}</style>
       
-      {/* A: MOBIL FELÜLETŰ FELSŐ SÁV */}
+      {/* A: MOBIL MEGJELENÉSŰ FELSŐ FIX SÁV */}
       <div className="mobile-header-top">
         <LogoBrandBlock />
         <button className="hamburger-btn" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
@@ -169,27 +315,27 @@ export default function Header({
 
         <div className="nav-group">
           {/* 1. KEZDŐLAP */}
-          <div className="nav-item-container" style={{ zIndex: 50 }}>
+          <div className="nav-item-container">
             <button className={`nav-btn ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => handleNavClick('dashboard')}>
               <span>{t('navHome')}</span>
             </button>
           </div>
 
           {/* 2. FOTÓS ARÉNA */}
-          <div className="nav-item-container" style={{ zIndex: 50 }}>
+          <div className="nav-item-container">
             <button className={`nav-btn ${activeTab === 'weekly_challenge' ? 'active' : ''}`} style={{ color: activeTab === 'weekly_challenge' ? '#f97316' : '#94a3b8' }} onClick={() => handleNavClick('weekly_challenge')}>
               <span>{t('navArena')}</span>
             </button>
           </div>
 
-          {/* 3. ÖSSZEVONT PÁLYÁZATOK ÉS SZALONOK DROPDOWN */}
-          <div className="nav-item-container" style={{ zIndex: dropdownOpen === 'contests' ? 60 : 50 }}>
+          {/* 3. PÁLYÁZATOK DROPDOWN */}
+          <div className="nav-item-container">
             <button 
               className={`nav-btn ${dropdownOpen === 'contests' || activeTab.startsWith('contests_') || ['salons', 'fiap_progress', 'mafosz_progress'].includes(activeTab) ? 'active' : ''}`} 
               style={{ color: (activeTab.startsWith('contests_') || ['salons', 'fiap_progress', 'mafosz_progress'].includes(activeTab)) ? '#60a5fa' : '#94a3b8' }}
               onClick={() => setDropdownOpen(dropdownOpen === 'contests' ? null : 'contests')}
             >
-              <span>{t('navContests')}</span> <span>▾</span>
+              <span>{t('navContests')}</span> <span>▼</span>
             </button>
             {dropdownOpen === 'contests' && (
               <div className="dropdown-menu">
@@ -207,10 +353,10 @@ export default function Header({
             )}
           </div>
           
-          {/* 4. ÖSSZEVONT KLUBÉLET DROPDOWN */}
-          <div className="nav-item-container" style={{ zIndex: dropdownOpen === 'club' ? 60 : 50 }}>
+          {/* 4. KLUBÉLET DROPDOWN */}
+          <div className="nav-item-container">
             <button className={`nav-btn ${dropdownOpen === 'club' || activeTab.startsWith('club_') || activeTab === 'public_news' ? 'active' : ''}`} onClick={() => setDropdownOpen(dropdownOpen === 'club' ? null : 'club')}>
-              <span>{t('navClub')}</span> <span>▾</span>
+              <span>{t('navClub')}</span> <span>▼</span>
             </button>
             {dropdownOpen === 'club' && (
               <div className="dropdown-menu">
@@ -221,14 +367,14 @@ export default function Header({
             )}
           </div>
 
-          {/* 5. ÖSSZEVONT FELFEDEZÉS DROPDOWN (PODCAST, PIACTÉR, TÉRKÉP) */}
-          <div className="nav-item-container" style={{ zIndex: dropdownOpen === 'explore' ? 60 : 50 }}>
+          {/* 5. FELFEDEZÉS DROPDOWN */}
+          <div className="nav-item-container">
             <button 
               className={`nav-btn ${dropdownOpen === 'explore' || ['podcast', 'map_spots'].includes(activeTab) || activeTab.startsWith('marketplace') ? 'active' : ''}`}
               style={{ color: ['podcast', 'map_spots'].includes(activeTab) || activeTab.startsWith('marketplace') ? '#ec4899' : '#94a3b8' }}
               onClick={() => setDropdownOpen(dropdownOpen === 'explore' ? null : 'explore')}
             >
-             <span>{t('navExplore')}</span>  <span>▾</span>
+              <span>{t('navExplore')}</span>  <span>▼</span>
             </button>
             {dropdownOpen === 'explore' && (
               <div className="dropdown-menu">
@@ -240,15 +386,15 @@ export default function Header({
           </div>
 
           {/* 5.1. HÍREK CSATORNA */}
-          <div className="nav-item-container" style={{ zIndex: 50 }}>
+          <div className="nav-item-container">
             <button className={`nav-btn ${activeTab === 'public_news' ? 'active' : ''}`} style={{ color: '#38bdf8', fontWeight: 'bold' }} onClick={() => handleNavClick('public_news')}>📰 {lang === 'en' ? 'News' : 'Hírek'}</button>
           </div>
           
-          {/* 6. MODERÁTORI / VEZETŐSÉGI ADMIN PANEL */}
+          {/* 6. ADMIN PANEL */}
           {(user?.email === ADMIN_EMAIL || isLeader) && (
-            <div className="nav-item-container" style={{ zIndex: dropdownOpen === 'admin' ? 60 : 50 }}>
+            <div className="nav-item-container">
               <button className={`nav-btn ${dropdownOpen === 'admin' || activeTab.startsWith('admin_') || activeTab === 'leader_club' ? 'active' : ''}`} style={{ color: '#ef4444' }} onClick={() => setDropdownOpen(dropdownOpen === 'admin' ? null : 'admin')}>
-                <span>{t('navAdmin')}</span> <span>▾</span>
+                <span>{t('navAdmin')}</span> <span>▼</span>
               </button>
               {dropdownOpen === 'admin' && (
                 <div className="dropdown-menu">
@@ -269,10 +415,10 @@ export default function Header({
           )}
         </div> 
 
-        {/* FIÓK MENÜ ÉS NYELVVÁLASZTÓ (JOBB OLDAL) */}
-        <div className="user-group" style={{ display: 'flex', alignItems: 'center', gap: '15px', position: 'relative' }}>
+        {/* FIÓK MENÜ ÉS NYELVVÁLASZTÓ */}
+        <div className="user-group" style={{ display: 'flex', alignItems: 'center', gap: '15px', flexShrink: 0 }}>
           
-          {/* Nyelvválasztó */}
+          {/* Lenyitható Nyelvválasztó */}
           <div style={{ display: 'flex', gap: '4px', background: '#1e293b', padding: '3px', borderRadius: '10px', border: '1px solid #334155' }}>
             <button onClick={() => setLang('hu')} style={{ background: lang === 'hu' ? 'linear-gradient(135deg, #f97316, #ef4444)' : 'transparent', color: lang === 'hu' ? 'white' : '#94a3b8', border: 'none', padding: '6px 10px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '6px' }}>
               <img src="https://flagcdn.com/16x12/hu.png" width="16" height="12" alt="HU" style={{ borderRadius: '2px', display: 'block', objectFit: 'cover' }} />
@@ -284,7 +430,7 @@ export default function Header({
             </button>
           </div>
           
-          <div className="nav-item-container" style={{ zIndex: 70 }}>
+          <div className="nav-item-container">
             <button 
               className={`nav-btn ${dropdownOpen === 'user_account' || ['profile', 'my_album', 'packages', 'tickets'].includes(activeTab) ? 'active' : ''}`} 
               style={{ color: '#14b8a6', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}
@@ -297,16 +443,16 @@ export default function Header({
                   Vezetőség
                 </span>
               )}
-              <span>▾</span>
+              <span>▼</span>
             </button>
 
             {dropdownOpen === 'user_account' && (
               <div className="dropdown-menu" style={{ right: 0, left: 'auto', minWidth: '220px' }}>
-                <button className={`drop-item ${activeTab === 'profile' ? 'active' : ''}`} style={{ color: '#14b8a6' }} onClick={() => handleNavClick('profile')}>{t('subProfile')}</button>
-                <button className={`drop-item ${activeTab === 'my_album' ? 'active' : ''}`} style={{ color: '#f59e0b' }} onClick={() => handleNavClick('my_album')}>{t('subPortfolio')}</button>
-                <button className={`drop-item ${activeTab === 'packages' ? 'active' : ''}`} style={{ color: '#8b5cf6' }} onClick={() => handleNavClick('packages')}>{t('subPackages')}</button>
+                <button className="drop-item" style={{ color: '#14b8a6', backgroundColor: activeTab === 'profile' ? 'rgba(255,255,255,0.05)' : 'transparent' }} onClick={() => handleNavClick('profile')}>{t('subProfile')}</button>
+                <button className="drop-item" style={{ color: '#f59e0b', backgroundColor: activeTab === 'my_album' ? 'rgba(255,255,255,0.05)' : 'transparent' }} onClick={() => handleNavClick('my_album')}>{t('subPortfolio')}</button>
+                <button className="drop-item" style={{ color: '#8b5cf6', backgroundColor: activeTab === 'packages' ? 'rgba(255,255,255,0.05)' : 'transparent' }} onClick={() => handleNavClick('packages')}>{t('subPackages')}</button>
                 
-                <button className={`drop-item ${activeTab === 'tickets' ? 'active' : ''}`} style={{ color: '#f43f5e', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} onClick={() => handleNavClick('tickets')}>
+                <button className="drop-item" style={{ color: '#f43f5e', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: activeTab === 'tickets' ? 'rgba(255,255,255,0.05)' : 'transparent' }} onClick={() => handleNavClick('tickets')}>
                   <span>{t('subSupport')}</span>
                   {unreadTicketsCount > 0 && (
                     <span style={{ background: '#ef4444', color: 'white', fontSize: '0.7rem', padding: '2px 7px', borderRadius: '100px', fontWeight: 'bold', boxShadow: '0 0 8px #ef4444' }}>
