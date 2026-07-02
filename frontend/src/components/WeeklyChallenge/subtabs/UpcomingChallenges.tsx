@@ -5,7 +5,7 @@ import { BACKEND_URL } from '../../../utils/constants';
 // Behozzuk a nyelvi kontextust
 import { useLanguage } from '../../../context/LanguageContext';
 
-// 🎯 ÚJ: Professzionális Lucide ikonok importálása az AI-sallangok ellen
+// Professzionális Lucide ikonok importálása az AI-sallangok ellen
 import { 
   Calendar, 
   Clock, 
@@ -20,11 +20,12 @@ import {
   CheckCircle2
 } from 'lucide-react';
 
-// 🕒 1. ÖNÁLLÓ, ULTRASTABIL DOM-ALAPÚ VISSZASZÁMLÁLÓ (LETISZTÍTVA)
-function UpcomingCountdown({ startDate, lang }: { startDate: string; lang: string }) {
+// 🕒 1. ÖNÁLLÓ, ULTRASTABIL DOM-ALAPÚ VISSZASZÁMLÁLÓ (🎯 JAVÍTVA: Hatókörök és változók szinkronizálva)
+function UpcomingCountdown({ startDate, lang, t }: { startDate: string; lang: string; t: any }) {
   const elementRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
+    if (!startDate) return;
     const standardized = String(startDate).replace(' ', 'T').split('.')[0];
     const targetMillis = new Date(standardized).getTime();
 
@@ -59,7 +60,7 @@ function UpcomingCountdown({ startDate, lang }: { startDate: string; lang: strin
     const interval = setInterval(updateTextDirectly, 1000);
 
     return () => clearInterval(interval);
-  }, [endDate, lang]);
+  }, [startDate, lang]);
 
   return (
     <div style={{ 
@@ -68,7 +69,7 @@ function UpcomingCountdown({ startDate, lang }: { startDate: string; lang: strin
       border: '1px solid rgba(56,189,248,0.15)', boxSizing: 'border-box'
     }}>
       <span style={{ fontSize: '0.72rem', color: '#38bdf8', fontWeight: 'bold', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '5px', textTransform: 'uppercase' }}>
-        <Clock size={12} /> {t ? t('roomTimeLeftLabel') : 'INDULÁS:')}
+        <Clock size={12} /> {t ? t('roomTimeLeftLabel') : 'INDULÁS:'}
       </span>
       <span ref={elementRef} style={{ color: '#fff', fontFamily: 'monospace', fontSize: '0.9rem', fontWeight: 'bold' }}>---</span>
     </div>
@@ -107,7 +108,7 @@ export default function UpcomingChallenges({
 
   const handleApplyMaster = async (topicId: number) => {
     if (!user?.email) return alert(t('msgLoginRequired'));
-    if (!window.confirm(t('msgApplyConfirm')));
+    if (!window.confirm(t('msgApplyConfirm'))) return;
 
     setApplyingId(topicId);
     try {
@@ -134,7 +135,7 @@ export default function UpcomingChallenges({
   return (
     <div style={{ animation: 'fadeIn 0.4s ease-out', display: 'flex', flexDirection: 'column', gap: '20px' }}>
       
-      {/* 🧭 TOP IRÁNYÍTÓ SÁV – Letisztult szilárd keret emojik nélkül */}
+      {/* 🧭 TOP IRÁNYÍTÓ SÁV */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#131b2e', padding: '16px 20px', borderRadius: '8px', border: '1px solid #222f47', flexWrap: 'wrap', gap: '12px' }}>
         <div>
           <h3 style={{ color: 'white', margin: 0, fontSize: '1.1rem', fontWeight: '600', letterSpacing: '-0.2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -233,8 +234,8 @@ export default function UpcomingChallenges({
                     {/* 🕒 IDŐZÍTŐ PANEL */}
                     <div style={{ background: '#0f172a', padding: '12px', borderRadius: '6px', border: '1px solid #222f47', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                       
-                      {/* Visszaszámláló függöny */}
-                      <UpcomingCountdown startDate={tData.start_date} lang={lang} />
+                      {/* Visszaszámláló – 🎯 JAVÍTVA: Átadva a hiányzó t fordító függvény! */}
+                      <UpcomingCountdown startDate={tData.start_date} lang={lang} t={t} />
 
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem' }}>
                         <span style={{ color: '#475569', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 'bold' }}>{t('upStart')}</span>
