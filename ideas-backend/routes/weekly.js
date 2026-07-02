@@ -73,39 +73,27 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
   };
 
+  // ====================================================================
+  // ⚡ RADIKÁLISAN OPTIMALIZÁLT, AZONNALI ADATLEKÉRÉS (Számolás nélkül!)
+  // ====================================================================
   async function getUserLikesAndVictories(pool, email) {
-    const currentNow = getLocalMySQLNow();
-
-    const [likesRows] = await pool.query(`
-      SELECT COALESCE(SUM(e.likes_count), 0) as total 
-      FROM weekly_entries e
-      JOIN weekly_topics t ON e.topic_id = t.id
-      WHERE e.user_email = ? AND (e.is_active = 1 OR t.end_date < ?)
-    `, [email, currentNow]);
-    const totalLikes = likesRows[0].total || 0;
-
-    const [victoryRows] = await pool.query(`
-      SELECT COUNT(*) as victories
-      FROM weekly_entries e1
-      WHERE e1.user_email = ? 
-        AND e1.is_active = 1
-        AND e1.topic_id IN (SELECT id FROM weekly_topics WHERE end_date < ?)
-        AND e1.id = (
-          SELECT e2.id 
-          FROM weekly_entries e2
-          JOIN weekly_topics t2 ON e2.topic_id = t2.id
-          WHERE e2.topic_id = e1.topic_id AND e2.is_active = 1
-          ORDER BY 
-            ${getFairScoreSql('e2', 't2')} DESC,
-            e2.likes_count DESC, 
-            e2.views_count ASC
-          LIMIT 1
-        )
-    `, [email, currentNow]);
-    
-    const victories = victoryRows[0]?.victories || 0;
-
-    return { totalLikes, victories };
+    try {
+      const [rows] = await pool.query(
+        'SELECT COALESCE(total_likes, 0) as total_likes, COALESCE(victories, 0) as victories FROM photo_users WHERE email = ?', 
+        [email]
+      );
+      
+      if (rows[0]) {
+        return { 
+          totalLikes: Number(rows[0].total_likes), 
+          victories: Number(rows[0].victories) 
+        };
+      }
+      return { totalLikes: 0, victories: 0 };
+    } catch (err) {
+      console.error("❌ Hiba a denormalizált statisztikák kiolvasásakor:", err.message);
+      return { totalLikes: 0, victories: 0 };
+    }
   }
 
   function calculateRankLevel(totalLikes, victories) {
@@ -170,10 +158,14 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   }
 
 
+  // ====================================================================
+  // 🏆 MEGÚJULT FUTAMLEZÁRÓ MOTOR – HISTÓRIKUS ADATOK FIXÁLÁSÁVAL
+  // ====================================================================
   async function processFinishedChallenges(pool) {
     try {
       const currentNow = getLocalMySQLNow();
 
+      // Prémiumok lejárati ellenőrzése
       await pool.query(`
         UPDATE photo_users 
         SET premium_level = 0, 
@@ -181,19 +173,23 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         WHERE premium_until IS NOT NULL AND premium_until < ?
       `, [currentNow]);
 
+      // Megkeressük azokat a futamokat, amik lejártak, de még nincsenek feldolgozva
       const [unfinished] = await pool.query(
         'SELECT id FROM weekly_topics WHERE end_date < ? AND processed = 0',
         [currentNow]
       );
 
       for (const topic of unfinished) {
+        console.log(`🔒 [PERSISTENCE] ${topic.id} azonosítójú futam végleges lezárása és pontok beégetése indul...`);
+
+        // 1. Kiszámoljuk a végső sorrendet a Fair Score képlet alapján
         const [entries] = await pool.query(`
-          SELECT e.user_email, e.likes_count, e.views_count,
-                 ${getFairScoreSql('e', 't')} as fair_score
+          SELECT e.id, e.user_email, e.likes_count, e.views_count,
+                 ${getFairScoreSql('e', 't')} as calculated_fair_score
           FROM weekly_entries e
           JOIN weekly_topics t ON e.topic_id = t.id
           WHERE e.topic_id = ? AND e.is_active = 1 
-          ORDER BY fair_score DESC, e.likes_count DESC, e.views_count ASC
+          ORDER BY calculated_fair_score DESC, e.likes_count DESC, e.views_count ASC
         `, [topic.id]);
 
         if (entries.length === 0) {
@@ -201,29 +197,52 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
           continue;
         }
 
-        const score1 = entries[0].fair_score;
-        const score2 = entries[1] ? entries[1].fair_score : -1;
-        const score3 = entries[2] ? entries[2].fair_score : -1;
+        // Meghatározzuk a dobogós pontszámokat a bónuszokhoz
+        const score1 = entries[0].calculated_fair_score;
+        const score2 = entries[1] ? entries[1].calculated_fair_score : -1;
+        const score3 = entries[2] ? entries[2].calculated_fair_score : -1;
 
-        for (const entry of entries) {
-          if (entry.fair_score === score1) {
-            await pool.query('UPDATE photo_users SET swap_balance = swap_balance + 3 WHERE LOWER(TRIM(email)) = LOWER(TRIM(?))', [entry.user_email]);
+        // 2. Végigmegyünk a résztvevőkön és rögzítjük a statisztikákat tényként
+        for (let i = 0; i < entries.length; i++) {
+          const entry = entries[i];
+          const rank = i + 1;
+          const finalScore = Number(entry.calculated_fair_score || 0);
+
+          // a) Beégetjük a pontszámot a nevezés sorába, így az archívum betöltése is villámgyors lesz
+          await pool.query('UPDATE weekly_entries SET final_fair_score = ? WHERE id = ?', [finalScore, entry.id]);
+
+          // b) Hozzáadjuk a pontot a felhasználó élethosszig tartó lájkszámlálójához
+          await pool.query('UPDATE photo_users SET total_likes = total_likes + ? WHERE email = ?', [finalScore, entry.user_email]);
+
+          // c) Ha ő lett az első helyezett, növeljük a fix győzelmi számlálóját
+          if (rank === 1) {
+            await pool.query('UPDATE photo_users SET victories = victories + 1 WHERE email = ?', [entry.user_email]);
+          }
+
+          // d) Dobogós bónuszok (Joker és Prémium napok kiosztása)
+          if (entry.calculated_fair_score === score1) {
+            await pool.query('UPDATE photo_users SET swap_balance = swap_balance + 3 WHERE email = ?', [entry.user_email]);
             await pool.query(`
               UPDATE photo_users 
               SET premium_level = 1, is_premium = 1,
                   premium_until = DATE_ADD(IF(premium_until IS NOT NULL AND premium_until > ?, premium_until, ?), INTERVAL 7 DAY) 
-              WHERE LOWER(TRIM(email)) = LOWER(TRIM(?))
+              WHERE email = ?
             `, [currentNow, currentNow, entry.user_email]);
           } 
-          else if (entry.fair_score === score2) {
-            await pool.query('UPDATE photo_users SET swap_balance = swap_balance + 2 WHERE LOWER(TRIM(email)) = LOWER(TRIM(?))', [entry.user_email]);
+          else if (entry.calculated_fair_score === score2) {
+            await pool.query('UPDATE photo_users SET swap_balance = swap_balance + 2 WHERE email = ?', [entry.user_email]);
           } 
-          else if (entry.fair_score === score3) {
-            await pool.query('UPDATE photo_users SET swap_balance = swap_balance + 1 WHERE LOWER(TRIM(email)) = LOWER(TRIM(?))', [entry.user_email]);
+          else if (entry.calculated_fair_score === score3) {
+            await pool.query('UPDATE photo_users SET swap_balance = swap_balance + 1 WHERE email = ?', [entry.user_email]);
           }
+
+          // Szintlépés ellenőrzése az új fix értékek alapján
+          await checkAndAwardLevelUp(pool, entry.user_email);
         }
 
+        // A futamot feldolgozottnak jelöljük
         await pool.query('UPDATE weekly_topics SET processed = 1 WHERE id = ?', [topic.id]);
+        console.log(`✅ [PERSISTENCE] A(z) ${topic.id} szoba sikeresen lezárva, az adatok biztonságban archiválva.`);
       }
     } catch (err) {
       console.error("❌ Hiba a lezárt kihívások feldolgozásakor:", err.message);
@@ -2005,6 +2024,74 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     };
 
     res.json({ success: true });
+  });
+
+  // ====================================================================
+  // ⚡ EGYSZERI MÚLTBÉLI MIGRÁCIÓ: REJTETT GYORSÍTÓSÁV ÉLESÍTÉSE 
+  // ====================================================================
+  app.get('/api/admin/rebuild-historical-facts', async (req, res) => {
+    console.log("🛠️ Egyszeri múltbéli statisztika-beégetés elindult...");
+    try {
+      const currentNow = getLocalMySQLNow();
+
+      // 1. Alaphelyzetbe állítjuk az összes user számlálóját
+      await pool.query('UPDATE photo_users SET total_likes = 0, victories = 0');
+
+      // 2. Lekérjük az összes eddigi LEZÁRT témát
+      const [pastTopics] = await pool.query(
+        "SELECT id FROM weekly_topics WHERE end_date < ?",
+        [currentNow]
+      );
+
+      let processedEntriesCount = 0;
+
+      // 3. Végigmegyünk minden egyes múltbéli kihíváson
+      for (const topic of pastTopics) {
+        const [entries] = await pool.query(`
+          SELECT e.id, e.user_email,
+                 ${getFairScoreSql('e', 't')} as fair_score
+          FROM weekly_entries e
+          JOIN weekly_topics t ON e.topic_id = t.id
+          WHERE e.topic_id = ? AND e.is_active = 1 
+          ORDER BY fair_score DESC, e.likes_count DESC, e.views_count ASC
+        `, [topic.id]);
+
+        for (let i = 0; i < entries.length; i++) {
+          const entry = entries[i];
+          const rank = i + 1;
+          const finalScore = Number(entry.fair_score || 0);
+
+          // Beírjuk a fix pontot a nevezésbe
+          await pool.query('UPDATE weekly_entries SET final_fair_score = ? WHERE id = ?', [finalScore, entry.id]);
+
+          // Hozzáadjuk a user globális egyenlegéhez
+          await pool.query('UPDATE photo_users SET total_likes = total_likes + ? WHERE email = ?', [finalScore, entry.user_email]);
+
+          // Ha nyert, beírjuk a győzelmet
+          if (rank === 1) {
+            await pool.query('UPDATE photo_users SET victories = victories + 1 WHERE email = ?', [entry.user_email]);
+          }
+          processedEntriesCount++;
+        }
+      }
+
+      // 4. Frissítjük az összes user rang-szintjét a friss beégetett adatok alapján
+      const [allUsers] = await pool.query('SELECT email FROM photo_users');
+      for (const u of allUsers) {
+        const { totalLikes, victories } = await getUserLikesAndVictories(pool, u.email);
+        const newLevel = calculateRankLevel(totalLikes, victories);
+        await pool.query('UPDATE photo_users SET rank_level = ? WHERE email = ?', [newLevel, u.email]);
+      }
+
+      res.json({ 
+        success: true, 
+        message: `🎉 SIKER! ${pastTopics.length} lezárt futam és ${processedEntriesCount} nevezés hist客观 tényei sikeresen kiszámolva és véglegesen elmentve!` 
+      });
+
+    } catch (err) {
+      console.error("Migrációs hiba:", err);
+      res.status(500).json({ error: err.message });
+    }
   });
   
   app.post('/api/weekly/report-off-topic', async (req, res) => {
