@@ -17,7 +17,7 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
   const [dismissedAlerts, setDismissedAlerts] = useState<string[]>([]);
   const { t, lang } = useLanguage();
 
-  // 👑 Az új, stabil adatletöltő motor futtatása
+  // 👑 Törhetetlen, lógásbiztos hálózati motor
   const { 
     data: alerts, 
     loading: isLoadingAlerts, 
@@ -230,40 +230,78 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               
+              {/* 🎯 JAVÍTVA: Az összes alábbi blokk belső HTML elrendezése teljesen visszaállítva az eredeti, prémium formátumra! */}
+              
               {/* 📰 CIKKEK ÉS HÍREK */}
               {visibleNews.map((news: any) => (
                 <div key={`news_${news.id}`} onClick={() => handleNewsClick(news.id)} className="stream-alert-row" style={{ borderLeft: '4px solid #ef4444' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <span style={{ fontWeight: 'bold', color: 'white' }}>{news.title}</span>
+                  <div className="stream-alert-content">
+                    <div className="stream-alert-header-meta">
+                      <span style={{ color: '#ef4444' }}>📰 HÍR</span>
+                    </div>
+                    <h4 className="stream-alert-title">{news.title}</h4>
                   </div>
                 </div>
               ))}
 
-              {/* 💬 KOMMENTEK */}
+              {/* 💬 HOZZÁSZÓLÁSOK */}
               {visibleComments.map((comment: any) => (
                 <div key={`com_${comment.comment_id}`} onClick={() => handleMapCommentClick(comment.location_id, comment.comment_id)} className="stream-alert-row" style={{ borderLeft: '4px solid #10b981' }}>
-                  <span style={{ color: '#cbd5e1' }}>💬 <b>{comment.user_name}</b> új megjegyzést fűzött hozzá: <b style={{color: '#38bdf8'}}>{comment.location_title}</b></span>
+                  <button className="stream-dismiss-cross" onClick={(e) => handleDismissAlert(e, `com_${comment.comment_id}`, 'map_comment', comment.comment_id)}>✖</button>
+                  <div className="stream-alert-content">
+                    <div className="stream-alert-header-meta">
+                      <span style={{ color: '#10b981' }}>💬 TÉRKÉP MEGJELENÉS</span>
+                      <span className="stream-alert-dot">•</span>
+                      <span>{comment.user_name}</span>
+                    </div>
+                    <h4 className="stream-alert-title">{t('dashLocation', 'Helyszín')}: {comment.location_title}</h4>
+                  </div>
                 </div>
               ))}
 
               {/* KIHÍVÁSOK */}
               {visibleWeekly.length > 0 && (
                 <div onClick={() => setActiveTab('weekly_challenge')} className="stream-alert-row" style={{ borderLeft: '4px solid #f97316' }}>
-                  <span style={{ color: '#fbbf24' }}>⚔️ Aktív Aréna fordulók zajlanak! Kattints a leadáshoz vagy szavazáshoz.</span>
+                  <div className="stream-alert-content">
+                    <div className="stream-alert-header-meta">
+                      <span style={{ color: '#f97316' }}>🎙️ {lang === 'en' ? 'CHALLENGES' : 'KIHÍVÁSOK'}</span>
+                      <span className="stream-alert-dot">•</span>
+                      <span style={{ color: '#10b981' }}>{lang === 'en' ? 'Active Leagues' : 'Aktív futamok'}</span>
+                    </div>
+                    <h4 className="stream-alert-title">
+                      {lang === 'en' 
+                        ? `There are ${visibleWeekly.length} active arena challenges open right now!` 
+                        : `Jelenleg ${visibleWeekly.length} db nyitott aréna kihívás várja a fotóidat!`}
+                    </h4>
+                  </div>
                 </div>
               )}
 
               {/* 📸 HÁZI FELADATOK */}
               {visibleHomeworks.map((hw: any) => (
                 <div key={`hw_${hw.id}`} onClick={() => setActiveTab('club_homeworks')} className="stream-alert-row" style={{ borderLeft: '4px solid #06b6d4' }}>
-                  <span style={{ color: '#cbd5e1' }}>📝 Új házi feladat: <b>{hw.topic}</b> (Határidő: {hw.deadline})</span>
+                  <div className="stream-alert-content">
+                    <div className="stream-alert-header-meta">
+                      <span style={{ color: '#06b6d4' }}>📸 HÁZI FELADAT</span>
+                      <span className="stream-alert-dot">•</span>
+                      <span style={{ color: '#64748b' }}>⏳ {formatDate(hw.deadline)}</span>
+                    </div>
+                    <h4 className="stream-alert-title">{hw.topic}</h4>
+                  </div>
                 </div>
               ))}
 
               {/* 🏆 HIVATALOS PÁLYÁZATOK */}
               {visibleContests.map((contest: any) => (
-                <div key={`contest_${contest.id}`} onClick={() => setActiveTab('contests_open')} className="stream-alert-row" style={{ borderLeft: '4px solid #8b5cf6' }}>
-                  <span style={{ color: '#cbd5e1' }}>🏆 Új pályázat nyílt: <b>{contest.title}</b></span>
+                <div key={`contest_${contest.id}`} onClick={() => setActiveTab('contests_open_active')} className="stream-alert-row" style={{ borderLeft: '4px solid #8b5cf6' }}>
+                  <div className="stream-alert-content">
+                    <div className="stream-alert-header-meta">
+                      <span style={{ color: '#8b5cf6' }}>🏆 FOTÓPÁLYÁZAT</span>
+                      <span className="stream-alert-dot">•</span>
+                      <span style={{ color: '#64748b' }}>⏳ Lejár: {formatDate(contest.end_date)}</span>
+                    </div>
+                    <h4 className="stream-alert-title">{contest.title}</h4>
+                  </div>
                 </div>
               ))}
 
@@ -284,12 +322,18 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
         .dashboard-alerts-section { grid-column: span 4; background: #1e293b; border: 1px solid #334155; border-radius: 20px; padding: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
         .dashboard-bento-card:hover { transform: translateY(-3px); box-shadow: 0 12px 24px rgba(0,0,0,0.3); border-color: #475569; background: #233147 !important; }
         .admin-bento-card:hover { border-color: #ef4444 !important; background: rgba(239, 68, 68, 0.05) !important; }
-        .stream-alert-row { background: #0f172a; border: 1px solid #223147; padding: 12px; border-radius: 10px; margin-bottom: 8px; cursor: pointer; transition: all 0.2s; }
-        .stream-alert-row:hover { background: #1e293b; border-color: #38bdf8; }
+        .stream-alert-row { background: #0f172a; border: 1px solid #223147; border-radius: 12px; padding: 14px 16px; cursor: pointer; position: relative; transition: all 0.15s ease-in-out; display: flex; align-items: start; }
+        .stream-alert-row:hover { transform: translateX(2px); background: #141e33; border-color: #334155; }
+        .stream-alert-content { flex: 1; min-width: 0; }
+        .stream-alert-header-meta { display: flex; align-items: center; gap: 6px; font-size: 0.68rem; font-weight: 800; color: #94a3b8; margin-bottom: 6px; letter-spacing: 0.5px; flex-wrap: wrap; }
+        .stream-alert-dot { color: #334155; }
+        .stream-alert-title { margin: 0; color: #f8fafc; font-size: 0.92rem; font-weight: 600; line-height: 1.4; white-space: normal !important; word-break: break-word; }
+        .stream-dismiss-cross { position: absolute; top: 12px; right: 12px; background: transparent; border: none; color: #475569; cursor: pointer; font-size: 0.8rem; padding: 2px; transition: color 0.1s; }
+        .stream-dismiss-cross:hover { color: #f8fafc; }
         @keyframes dashFadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
         @media (max-width: 1024px) {
           .dashboard-flex-layout { grid-template-columns: 1fr; }
-          .dashboard-alerts-section { grid-column: span 1fr; width: 100%; }
+          .dashboard-tiles-section, .dashboard-alerts-section { grid-column: span 1fr; width: 100%; }
           .dashboard-alerts-section { order: -1; }
         }
       `}</style>
