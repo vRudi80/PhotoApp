@@ -100,14 +100,14 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
       setStatsLoading(false);
     }
   };
-
+const displayRankName = lang === 'en' ? (rankNamesEn[currentLevel?.name || ''] || currentLevel?.name || '') : (currentLevel?.name || '');
   // ====================================================================
   // 📸 1. OLDALNÉZET: JÁTÉKOS STATISZTIKAI ADATLAPJA (LETISZTÍTVA)
   // ====================================================================
   if (selectedUser) {
     const totalLikes = Number(selectedUser?.total_likes) || 0;
     const currentLevel = getLevelDetails ? getLevelDetails(totalLikes, Number(selectedUser?.first_places) || 0) : { name: '', color: '#fbbf24', bg: '' };
-    const displayRankName = lang === 'en' ? (rankNamesEn[currentLevel?.name || ''] || currentLevel?.name || '') : (currentLevel?.name || '');
+    
 
     const masterCount = Number(selectedUser?.master_count) || 0;
 
