@@ -28,7 +28,8 @@ import {
   Gift, 
   Sparkles,
   Layers,
-  Info
+  Info,
+  Star 
 } from 'lucide-react';
 
 interface PastArchiveProps {
