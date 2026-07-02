@@ -4,8 +4,31 @@ import { BACKEND_URL } from '../../../utils/constants';
 
 import { useLanguage } from '../../../context/LanguageContext';
 
+// 🎯 ÚJ: Lucide ikonok importálása a professzionális fotós szoftver érzetért
+import { 
+  Clock, 
+  Flame, 
+  Crown, 
+  Eye, 
+  Star, 
+  RefreshCw, 
+  X, 
+  ZoomIn, 
+  AlertTriangle, 
+  Camera, 
+  Cpu, 
+  Trophy, 
+  Award, 
+  Check, 
+  AlertCircle, 
+  Zap, 
+  Sparkles,
+  Layers,
+  Sliders
+} from 'lucide-react';
+
 // ====================================================================
-// 🕒 1. VISSZASZÁMLÁLÓ KOMPONENS
+// 🕒 1. VISSZASZÁMLÁLÓ KOMPONENS (LETISZTÍTVA)
 // ====================================================================
 function ActiveRoomCountdown({ endDate, lang }: { endDate: string; lang: string }) {
   const elementRef = useRef<HTMLSpanElement>(null);
@@ -53,13 +76,13 @@ function ActiveRoomCountdown({ endDate, lang }: { endDate: string; lang: string 
   return (
     <div style={{ 
       width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
-      background: '#f59e0b10', padding: '10px 14px', borderRadius: '10px', 
-      border: '1px solid #f59e0b30', boxSizing: 'border-box', zIndex: 1
+      background: 'rgba(245,158,11,0.05)', padding: '10px 14px', borderRadius: '6px', 
+      border: '1px solid rgba(245,158,11,0.2)', boxSizing: 'border-box', zIndex: 1
     }}>
-      <span style={{ fontSize: '0.8rem', color: '#f59e0b', fontWeight: 'bold', letterSpacing: '0.5px' }}>
-        {t('roomTimeLeftLabel')}
+      <span style={{ fontSize: '0.75rem', color: '#f59e0b', fontWeight: 'bold', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <Clock size={12} /> {t('roomTimeLeftLabel')}
       </span>
-      <span ref={elementRef} style={{ color: '#fff', fontFamily: 'monospace', fontSize: '1rem', fontWeight: 'bold', letterSpacing: '0.5px' }}>---</span>
+      <span ref={elementRef} style={{ color: '#fff', fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 'bold', letterSpacing: '0.5px' }}>---</span>
     </div>
   );
 }
@@ -169,17 +192,17 @@ export default function ArenaActiveRoom({
   return (
     <div className="arena-main-layout-grid">
       
-      {/* 🏛️ BAL HASÁB: FŐ TARTALOM */}
+      {/* 🏛️ BAL HASÁB: FŐ EVALUÁCIÓS PANEL */}
       <div className="arena-layout-column-main">
-        <div className="arena-responsive-card" style={{ background: 'linear-gradient(135deg, #1e293b, #0f172a)', padding: '30px', borderRadius: '24px', border: '1px solid #334155', display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: '0 10px 30px rgba(0,0,0,0.5)', position: 'relative', overflow: 'hidden' }}>
-          <div style={{ position: 'absolute', top: '-20px', right: '-20px', fontSize: '8rem', opacity: 0.05 }}>🔥</div>
-          <h3 style={{ margin: '0 0 10px 0', color: '#f8fafc', fontSize: '1.8rem', textAlign: 'center', zIndex: 1 }}>
+        <div className="arena-responsive-card" style={{ background: '#131b2e', padding: '24px', borderRadius: '8px', border: '1px solid #222f47', display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: '0 4px 15px rgba(0,0,0,0.2)', position: 'relative' }}>
+          <h3 style={{ margin: '0 0 6px 0', color: '#f8fafc', fontSize: '1.4rem', fontWeight: '700', letterSpacing: '-0.3px', textAlign: 'center' }}>
             <span>{displayRoomTitle}</span>
           </h3>
-          <p style={{ margin: '0 0 15px 0', color: '#cbd5e1', fontSize: '0.95rem', textAlign: 'center', lineHeight: '1.6' }}>{displayRoomDesc}</p>
+          <p style={{ margin: '0 0 14px 0', color: '#64748b', fontSize: '0.88rem', textAlign: 'center', lineHeight: '1.5' }}>{displayRoomDesc}</p>
           
           {(topic?.master_name || topic?.master_email) && (
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#a78bfa', fontSize: '0.85rem', fontWeight: 'bold', background: '#a78bfa12', padding: '6px 14px', borderRadius: '10px', border: '1px solid #a78bfa25', marginBottom: '20px', zIndex: 1, whiteSpace: 'nowrap' }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#a78bfa', fontSize: '0.78rem', fontWeight: 'bold', background: 'rgba(167,139,250,0.06)', padding: '5px 12px', borderRadius: '4px', border: '1px solid rgba(167,139,250,0.2)', marginBottom: '16px', whiteSpace: 'nowrap' }}>
+              <Crown size={12} />
               <span>{t('viewMasterLabel') || 'Képmester:'}</span>
               <span style={{ color: '#e9d5ff' }}>{topic.master_name || topic.master_email}</span>
             </div>
@@ -189,51 +212,51 @@ export default function ArenaActiveRoom({
         </div>
 
         {/* BATCH EVALUATION PULT */}
-        <div className="arena-responsive-card" style={{ background: '#1e293b', padding: '25px 20px', borderRadius: '24px', border: '1px solid #334155', boxShadow: '0 15px 35px rgba(0,0,0,0.4)', boxSizing: 'border-box' }}>
-          <div style={{ background: 'rgba(56, 189, 248, 0.08)', borderLeft: '4px solid #38bdf8', padding: '15px', borderRadius: '0 12px 12px 0', marginBottom: '25px', fontSize: '0.85rem', color: '#cbd5e1', lineHeight: '1.5' }}>
-            <strong style={{ color: '#38bdf8', display: 'block', marginBottom: '4px', fontSize: '0.95rem' }}>{t('roomExifShieldTitle')}</strong>
+        <div className="arena-responsive-card" style={{ background: '#131b2e', padding: '22px 18px', borderRadius: '8px', border: '1px solid #222f47', boxShadow: '0 4px 15px rgba(0,0,0,0.15)', boxSizing: 'border-box' }}>
+          <div style={{ background: 'rgba(56, 189, 248, 0.04)', borderLeft: '3px solid #38bdf8', padding: '12px 14px', borderRadius: '0 4px 4px 0', marginBottom: '20px', fontSize: '0.82rem', color: '#94a3b8', lineHeight: '1.45' }}>
+            <strong style={{ color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px', fontSize: '0.88rem' }}><Sliders size={14} /> {t('roomExifShieldTitle')}</strong>
             {t('roomExifShieldDesc')}
           </div>
-          <h3 style={{ margin: '0 0 5px 0', color: '#f8fafc', fontSize: '1.6rem', fontWeight: '900' }}>{t('roomBatchTitle')}</h3>
-          <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: '0 0 25px 0' }}>{t('roomBatchDesc')}</p>
+          <h3 style={{ margin: '0 0 4px 0', color: '#f8fafc', fontSize: '1.3rem', fontWeight: '700', letterSpacing: '-0.3px' }}>{t('roomBatchTitle')}</h3>
+          <p style={{ color: '#64748b', fontSize: '0.82rem', margin: '0 0 20px 0' }}>{t('roomBatchDesc')}</p>
 
           {(!myEntry && !isMaster) ? (
-            <div style={{ padding: '40px 20px', textAlign: 'center', background: '#0f172a', borderRadius: '16px', border: '2px dashed #fb923c' }}>
-              <h4 style={{ color: '#fb923c', margin: '0 0 10px 0', fontWeight: 'bold' }}>{t('roomNoVoteRight')}</h4>
-              <p style={{ color: '#94a3b8', fontSize: '0.95rem', margin: 0 }}>{t('roomNoVoteRightDesc')}</p>
+            <div style={{ padding: '30px 15px', textAlign: 'center', background: '#0f172a', borderRadius: '6px', border: '1px dashed #fb923c' }}>
+              <h4 style={{ color: '#fb923c', margin: '0 0 6px 0', fontSize: '0.95rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}><AlertCircle size={16} /> {t('roomNoVoteRight')}</h4>
+              <p style={{ color: '#64748b', fontSize: '0.85rem', margin: 0 }}>{t('roomNoVoteRightDesc')}</p>
             </div>
           ) : batchVoteEntries.length === 0 ? (
-            <div style={{ padding: '50px 20px', textAlign: 'center', background: 'linear-gradient(135deg, #0f172a, #1e293b)', borderRadius: '16px', border: '1px solid #10b981' }}>
-              <h4 style={{ color: '#10b981', margin: '0 0 10px 0' }}>{t('roomAllVoted')}</h4>
-              <p style={{ color: '#94a3b8', fontSize: '0.95rem', margin: 0 }}>{t('roomAllVotedDesc')}</p>
+            <div style={{ padding: '40px 15px', textAlign: 'center', background: '#0f172a', borderRadius: '6px', border: '1px solid #10b981' }}>
+              <h4 style={{ color: '#10b981', margin: '0 0 6px 0', fontSize: '0.95rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}><Check size={16} /> {t('roomAllVoted')}</h4>
+              <p style={{ color: '#64748b', fontSize: '0.85rem', margin: 0 }}>{t('roomAllVotedDesc')}</p>
             </div>
           ) : (
             <>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 {batchVoteEntries.map((entry, index) => {
                   const selectedVote = pendingVotes[entry.id];
                   return (
-                    <div key={entry.id} style={{ background: '#0f172a', padding: '20px', borderRadius: '20px', border: selectedVote ? '1px solid #10b98150' : '1px solid #232f46', position: 'relative' }}>
-                      <div style={{ position: 'absolute', top: '15px', left: '15px', background: selectedVote ? '#10b981' : '#334155', color: 'white', padding: '4px 12px', borderRadius: '50px', fontSize: '0.85rem', fontWeight: 'bold', zIndex: 5 }}>
+                    <div key={entry.id} style={{ background: '#0f172a', padding: '16px', borderRadius: '6px', border: selectedVote ? '1px solid rgba(16,185,129,0.3)' : '1px solid #222f47', position: 'relative' }}>
+                      <div style={{ position: 'absolute', top: '12px', left: '12px', background: selectedVote ? '#10b981' : '#1e293b', border: '1px solid #222f47', color: 'white', padding: '3px 10px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold', zIndex: 5 }}>
                         #{index + 1}
                       </div>
                       <div className="batch-vote-responsive-card">
-                        <div onClick={() => setSelectedExifPhoto(entry)} className="batch-vote-responsive-imgbox">
+                        <div onClick={() => setSelectedExifPhoto(entry)} className="batch-vote-responsive-imgbox" style={{ borderRadius: '4px', border: '1px solid #222f47' }}>
                           <img src={entry.file_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={handleImageError} loading="lazy" />
-                          <div style={{ position: 'absolute', bottom: '5px', right: '5px', background: 'rgba(0,0,0,0.6)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.65rem', color: 'white' }}>{t('roomZoomLabel')}</div>
+                          <div style={{ position: 'absolute', bottom: '5px', right: '5px', background: 'rgba(0,0,0,0.7)', padding: '3px 6px', borderRadius: '3px', fontSize: '0.62rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '4px' }}><ZoomIn size={10} /> {t('roomZoomLabel')}</div>
                         </div>
                         <div className="batch-vote-responsive-content">
                           <div style={{ fontSize: '0.8rem', color: '#cbd5e1', lineHeight: '1.4', width: '100%' }}>
                             {entry.exif?.isLegacy ? (
-                              <div style={{ background: '#f59e0b15', color: '#fbbf24', padding: '4px 10px', borderRadius: '6px', border: '1px solid #fbbf2430', fontWeight: 'bold', marginBottom: '8px', display: 'inline-block' }}>{t('roomLegacyPhoto')}</div>
+                              <div style={{ background: 'rgba(245,158,11,0.08)', color: '#fbbf24', padding: '3px 8px', borderRadius: '4px', border: '1px solid rgba(245,158,11,0.2)', fontSize: '0.72rem', fontWeight: 'bold', marginBottom: '8px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Layers size={10} /> {t('roomLegacyPhoto')}</div>
                             ) : entry.exif?.isAiSuspect ? (
-                              <div style={{ background: '#ef444415', color: '#f87171', padding: '4px 10px', borderRadius: '6px', border: '1px solid #ef444430', fontWeight: 'bold', marginBottom: '8px', display: 'inline-block' }}>{t('roomAiSuspect')}</div>
+                              <div style={{ background: 'rgba(239,68,68,0.08)', color: '#f87171', padding: '3px 8px', borderRadius: '4px', border: '1px solid rgba(239,68,68,0.2)', fontSize: '0.72rem', fontWeight: 'bold', marginBottom: '8px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}><AlertTriangle size={10} /> {t('roomAiSuspect')}</div>
                             ) : null}
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 15px', color: '#94a3b8', width: '100%' }}>
-                              <div> {t('mapExifCamera')} <b style={{ color: entry.exif?.isLegacy ? '#475569' : '#f8fafc', display: 'block', overflowWrap: 'break-word' }}>{entry.exif?.camera}</b></div>
-                              <div> {t('mapExifLens')} <b style={{ color: entry.exif?.isLegacy ? '#475569' : '#f8fafc', display: 'block', overflowWrap: 'break-word' }}>{entry.exif?.lens}</b></div>
-                              <div> {t('roomShutterIso')} <b style={{ color: entry.exif?.isLegacy ? '#475569' : '#38bdf8', display: 'block' }}>{entry.exif?.shutter} / {entry.exif?.iso}</b></div>
-                              <div> {t('roomSoftware')} <b style={{ color: entry.exif?.isLegacy ? '#475569' : '#a78bfa', display: 'block', overflowWrap: 'break-word' }}>{entry.exif?.software}</b></div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 12px', color: '#64748b', width: '100%', fontSize: '0.78rem' }}>
+                              <div><span style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}><Camera size={10} /> {t('mapExifCamera')}</span> <b style={{ color: entry.exif?.isLegacy ? '#334155' : '#cbd5e1', display: 'block', overflowWrap: 'break-word' }}>{entry.exif?.camera}</b></div>
+                              <div><span style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}><Cpu size={10} /> {t('mapExifLens')}</span> <b style={{ color: entry.exif?.isLegacy ? '#334155' : '#cbd5e1', display: 'block', overflowWrap: 'break-word' }}>{entry.exif?.lens}</b></div>
+                              <div><span style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}><Sliders size={10} /> {t('roomShutterIso')}</span> <b style={{ color: entry.exif?.isLegacy ? '#334155' : '#38bdf8', display: 'block' }}>{entry.exif?.shutter} / {entry.exif?.iso}</b></div>
+                              <div><span style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}><Layers size={10} /> {t('roomSoftware')}</span> <b style={{ color: entry.exif?.isLegacy ? '#334155' : '#a78bfa', display: 'block', overflowWrap: 'break-word' }}>{entry.exif?.software}</b></div>
                             </div>
                           </div>
                           <div className="batch-vote-responsive-buttons">
@@ -245,15 +268,15 @@ export default function ArenaActiveRoom({
                             ].map(btn => {
                               const isCurrentActive = selectedVote === btn.type;
                               return (
-                                <button key={btn.type} onClick={() => setPendingVotes(prev => ({ ...prev, [entry.id]: btn.type as any }))} style={{ padding: '6px 10px', borderRadius: '10px', border: isCurrentActive ? `2px solid white` : '1px solid #334155', background: isCurrentActive ? btn.bg : 'transparent', color: isCurrentActive ? 'white' : '#94a3b8', fontWeight: 'bold', fontSize: '0.82rem', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', minWidth: '80px', flex: '1 1 calc(33.33% - 8px)', transition: 'all 0.1s' }}>
+                                <button key={btn.type} onClick={() => setPendingVotes(prev => ({ ...prev, [entry.id]: btn.type as any }))} style={{ padding: '6px 8px', borderRadius: '4px', border: isCurrentActive ? `1px solid white` : '1px solid #222f47', background: isCurrentActive ? btn.bg : 'transparent', color: isCurrentActive ? 'white' : '#64748b', fontWeight: 'bold', fontSize: '0.8rem', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px', minWidth: '75px', flex: '1 1 calc(33.33% - 6px)', transition: 'all 0.1s' }}>
                                   <span>{btn.label}</span>
-                                  <span style={{ fontSize: '0.65rem', opacity: 0.6 }}>{btn.score}</span>
+                                  <span style={{ fontSize: '0.62rem', opacity: 0.5, fontWeight: 'normal' }}>{btn.score}</span>
                                 </button>
                               );
                             })}
-                            <button onClick={() => handleOffTopicReport(entry.id)} style={{ padding: '6px 10px', borderRadius: '10px', border: '1px solid rgba(239, 68, 68, 0.3)', background: 'transparent', color: '#ef4444', fontWeight: 'bold', fontSize: '0.82rem', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', minWidth: '80px', flex: '1 1 calc(100% - 8px)' }}>
+                            <button onClick={() => handleOffTopicReport(entry.id)} style={{ padding: '6px 8px', borderRadius: '4px', border: '1px solid rgba(239, 68, 68, 0.2)', background: 'transparent', color: '#ef4444', fontWeight: 'bold', fontSize: '0.8rem', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px', minWidth: '75px', flex: '1 1 calc(100% - 6px)' }}>
                               <span>{t('roomReportBtn').split(' ')[0]}</span>
-                              <span style={{ fontSize: '0.65rem', opacity: 0.6 }}>AI / Off-Topic</span>
+                              <span style={{ fontSize: '0.62rem', opacity: 0.5, fontWeight: 'normal' }}>AI / Off-Topic</span>
                             </button>
                           </div>
                         </div>
@@ -262,8 +285,8 @@ export default function ArenaActiveRoom({
                   );
                 })}
               </div>
-              <div style={{ marginTop: '35px', borderTop: '1px solid #334155', paddingTop: '25px', textAlign: 'center' }}>
-                <button onClick={handleBatchSubmit} disabled={isSubmittingBatch || Object.keys(pendingVotes).length < batchVoteEntries.length} style={{ width: '100%', padding: '16px', borderRadius: '16px', border: 'none', background: Object.keys(pendingVotes).length === batchVoteEntries.length ? 'linear-gradient(135deg, #10b981, #059669)' : '#334155', color: Object.keys(pendingVotes).length === batchVoteEntries.length ? 'white' : '#64748b', fontSize: '1.2rem', fontWeight: '900', cursor: Object.keys(pendingVotes).length === batchVoteEntries.length ? 'pointer' : 'not-allowed', boxShadow: Object.keys(pendingVotes).length === batchVoteEntries.length ? '0 10px 25px rgba(16,185,129,0.3)' : 'none', transition: 'all 0.3s' }}>
+              <div style={{ marginTop: '24px', borderTop: '1px solid #222f47', paddingTop: '18px', textAlign: 'center' }}>
+                <button onClick={handleBatchSubmit} disabled={isSubmittingBatch || Object.keys(pendingVotes).length < batchVoteEntries.length} style={{ width: '100%', padding: '14px', borderRadius: '6px', border: 'none', background: Object.keys(pendingVotes).length === batchVoteEntries.length ? '#10b981' : '#222f47', color: Object.keys(pendingVotes).length === batchVoteEntries.length ? 'white' : '#475569', fontSize: '1.05rem', fontWeight: '700', cursor: Object.keys(pendingVotes).length === batchVoteEntries.length ? 'pointer' : 'not-allowed', transition: 'all 0.2s' }}>
                   {isSubmittingBatch ? '⏳ Processing...' : `${t('roomBatchSubmitBtn')} (${Object.keys(pendingVotes).length} / ${batchVoteEntries.length})`}
                 </button>
               </div>
@@ -276,122 +299,121 @@ export default function ArenaActiveRoom({
       <div className="arena-layout-column-side">
         
         {/* SAJÁT NEVEZÉS SZEKCIÓ */}
-        <div className="arena-responsive-card" style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #334155', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-            <h3 style={{ margin: 0, color: '#f8fafc', fontSize: '1.4rem', fontWeight: 'bold' }}> {t('roomMyEntry')}</h3>
-            <span style={{ fontSize: '0.85rem', background: '#be123c30', color: '#fb7185', border: '1px solid #be123c60', padding: '4px 12px', borderRadius: '50px', fontWeight: 'bold' }}>
-              {t('roomJokerSwaps').replace('{count}', String(swapBalance))}
+        <div className="arena-responsive-card" style={{ background: '#131b2e', padding: '20px', borderRadius: '8px', border: '1px solid #222f47', boxShadow: '0 4px 15px rgba(0,0,0,0.15)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+            <h3 style={{ margin: 0, color: '#f8fafc', fontSize: '1.1rem', fontWeight: '600', letterSpacing: '-0.2px' }}> {t('roomMyEntry')}</h3>
+            <span style={{ fontSize: '0.75rem', background: 'rgba(225,29,72,0.08)', color: '#fb7185', border: '1px solid rgba(225,29,72,0.2)', padding: '3px 10px', borderRadius: '4px', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+              <RefreshCw size={10} /> {swapBalance}
             </span>
           </div>
 
           {isMaster ? (
-            <div style={{ padding: '30px 15px', background: 'linear-gradient(135deg, #4c1d9520, #1e1b4b40)', border: '1px solid #a78bfa40', borderRadius: '16px', textAlign: 'center' }}>
-              <div style={{ fontSize: '3.5rem', marginBottom: '10px' }}>👑</div>
-              <h4 style={{ color: '#a78bfa', margin: '0 0 8px 0', fontSize: '1.25rem', fontWeight: 'bold' }}>{t('roomYouAreMaster')}</h4>
-              <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: 0, lineHeight: '1.6' }}>{t('roomYouAreMasterDesc')}</p>
+            <div style={{ padding: '24px 12px', background: 'rgba(167,139,250,0.04)', border: '1px solid rgba(167,139,250,0.2)', borderRadius: '6px', textAlign: 'center' }}>
+              <Crown size={32} color="#a78bfa" style={{ marginBottom: '8px', margin: '0 auto 8px auto' }} />
+              <h4 style={{ color: '#a78bfa', margin: '0 0 4px 0', fontSize: '1.1rem', fontWeight: '600' }}>{t('roomYouAreMaster')}</h4>
+              <p style={{ color: '#64748b', fontSize: '0.8rem', margin: 0, lineHeight: '1.5' }}>{t('roomYouAreMasterDesc')}</p>
             </div>
           ) : myEntry ? (
             <div>
-              <div style={{ width: '100%', height: '220px', backgroundColor: '#000', borderRadius: '16px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 'inset 0 0 20px rgba(0,0,0,0.8)' }}>
+              <div style={{ width: '100%', height: '200px', backgroundColor: '#090d16', borderRadius: '6px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #222f47' }}>
                 <img src={getImageUrl(myEntry?.drive_file_id, myEntry?.file_url)} alt="My submission" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} onError={handleImageError} />
               </div>
-              <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'space-between', background: '#0f172a', padding: '20px', borderRadius: '12px', borderLeft: `4px solid ${exposureColor || '#ef4444'}` }}>
-                <div style={{ textAlign: 'center' }}><div style={{ color: '#f59e0b', fontSize: '1.5rem', fontWeight: '900' }}>{myEntry?.likes_count || 0} ⭐</div></div>
-                <div style={{ textAlign: 'center' }}><div style={{ color: '#38bdf8', fontSize: '1.5rem', fontWeight: '900' }}>{myEntry?.views_count || 0} 👁️</div></div>
+              <div style={{ marginTop: '12px', display: 'grid', gridTemplateColumns: '1fr 1fr', background: '#0f172a', padding: '12px', borderRadius: '6px', borderLeft: `3px solid ${exposureColor || '#ef4444'}`, border: '1px solid #222f47' }}>
+                <div style={{ textAlign: 'center', borderRight: '1px solid #222f47', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                  <span style={{ fontSize: '0.65rem', color: '#64748b', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '2px' }}>Pontszám</span>
+                  <div style={{ color: '#fbbf24', fontSize: '1.15rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '4px' }}><Star size={14} fill="#fbbf24" /> {myEntry?.likes_count || 0}</div>
+                </div>
+                <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                  <span style={{ fontSize: '0.65rem', color: '#64748b', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '2px' }}>Megtekintés</span>
+                  <div style={{ color: '#38bdf8', fontSize: '1.15rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '4px' }}><Eye size={14} /> {myEntry?.views_count || 0}</div>
+                </div>
               </div>
 
               {swapBalance > 0 ? (
-                <div style={{ marginTop: '25px', background: 'linear-gradient(145deg, #4c1d9515, #be123c15)', padding: '20px', borderRadius: '18px', border: '1px solid #be123c30', textAlign: 'center' }}>
-                  <h5 style={{ margin: '0 0 8px 0', color: '#f43f5e', fontSize: '1.1rem', fontWeight: 'bold' }}>{t('roomSwapTitle')}</h5>
-                  <p style={{ color: '#94a3b8', fontSize: '0.82rem', margin: '0 0 15px 0', lineHeight: '1.4' }}>{t('roomSwapDesc')}</p>
-                  <button disabled={isSwapping || isLoadingSwapAlbum} onClick={onOpenAlbumForSwap} style={{ width: '100%', maxWidth: '280px', margin: '0 auto', background: 'linear-gradient(135deg, #e11d48, #be123c)', color: 'white', border: 'none', padding: '12px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 15px rgba(225,29,72,0.2)', display: 'block' }}>
-                    🔄 {t('roomSwapGalleryBtn')}
+                <div style={{ marginTop: '16px', background: 'rgba(34,47,71,0.2)', padding: '14px', borderRadius: '6px', border: '1px solid #222f47', textAlign: 'center' }}>
+                  <h5 style={{ margin: '0 0 4px 0', color: '#cbd5e1', fontSize: '0.9rem', fontWeight: '600' }}>{t('roomSwapTitle')}</h5>
+                  <p style={{ color: '#64748b', fontSize: '0.78rem', margin: '0 0 12px 0', lineHeight: '1.4' }}>{t('roomSwapDesc')}</p>
+                  <button disabled={isSwapping || isLoadingSwapAlbum} onClick={onOpenAlbumForSwap} style={{ width: '100%', background: '#1e293b', color: 'white', border: '1px solid #475569', padding: '10px', borderRadius: '4px', fontWeight: '600', fontSize: '0.85rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', transition: 'all 0.15s' }}>
+                    <RefreshCw size={12} /> {t('roomSwapGalleryBtn')}
                   </button>
                 </div>
               ) : (
-                <div style={{ marginTop: '25px', background: '#0f172a', padding: '15px', borderRadius: '12px', color: '#64748b', fontSize: '0.9rem', textAlign: 'center', border: '1px dashed #475569' }}>{t('roomNoSwapsLeft')}</div>
+                <div style={{ marginTop: '16px', background: '#0f172a', padding: '12px', borderRadius: '6px', color: '#475569', fontSize: '0.8rem', textAlign: 'center', border: '1px dashed #222f47' }}>{t('roomNoSwapsLeft')}</div>
               )}
 
               {safePastEntries.length > 0 && (
-                <div style={{ marginTop: '25px', borderTop: '1px dashed #334155', paddingTop: '20px' }}>
-                  <h5 style={{ margin: '0 0 12px 0', color: '#38bdf8', fontSize: '1.05rem' }}>{t('roomPastEntriesTitle')}</h5>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ marginTop: '20px', borderTop: '1px dashed #222f47', paddingTop: '16px' }}>
+                  <h5 style={{ margin: '0 0 10px 0', color: '#38bdf8', fontSize: '0.9rem', fontWeight: '600' }}>{t('roomPastEntriesTitle')}</h5>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     {safePastEntries.map((past, pIdx) => (
-                <div key={pIdx} style={{ display: 'flex', alignItems: 'center', background: '#0f172a', padding: '10px', borderRadius: '12px', border: '1px solid #232f46' }}>
-                  <img src={getImageUrl(past?.drive_file_id, past?.file_url)} alt="" style={{ width: '45px', height: '45px', objectFit: 'cover', borderRadius: '6px', flexShrink: 0 }} />
-                  
-                  {/* 🎯 JAVÍTVA: Flex elrendezés a pontok és megtekintések tiszta, egymás melletti kijelzéséhez */}
-                  <div style={{ flex: 1, marginLeft: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '0.9rem', color: '#fbbf24', fontWeight: 'bold' }}>
-                      {past?.likes_count || 0} ⭐
-                    </span>
-                    <span style={{ color: '#334155', fontWeight: 'normal' }}>|</span>
-                    <span style={{ fontSize: '0.85rem', color: '#38bdf8', fontWeight: 'bold' }}>
-                      {past?.views_count || 0} 👁️
-                    </span>
-                  </div>
-
-                  <button 
-                    onClick={() => handleSwapBackSubmit(past.id || past._id)} 
-                    disabled={swapBalance < 1} 
-                    style={{ background: 'linear-gradient(135deg, #0284c7, #0369a1)', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 'bold', marginLeft: '10px' }}
-                  >
-                    {t('roomReactivateBtn')}
-                  </button>
-                </div>
-              ))}
+                      <div key={pIdx} style={{ display: 'flex', alignItems: 'center', background: '#0f172a', padding: '8px', borderRadius: '6px', border: '1px solid #222f47' }}>
+                        <img src={getImageUrl(past?.drive_file_id, past?.file_url)} alt="" style={{ width: '36px', height: '36px', objectFit: 'cover', borderRadius: '4px', flexShrink: 0 }} />
+                        <div style={{ flex: 1, marginLeft: '10px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem' }}>
+                          <span style={{ color: '#fbbf24', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '2px' }}><Star size={10} fill="#fbbf24" /> {past?.likes_count || 0}</span>
+                          <span style={{ color: '#223147' }}>|</span>
+                          <span style={{ color: '#38bdf8', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '2px' }}><Eye size={10} /> {past?.views_count || 0}</span>
+                        </div>
+                        <button 
+                          onClick={() => handleSwapBackSubmit(past.id || past._id)} 
+                          disabled={swapBalance < 1} 
+                          style={{ background: '#222f47', border: '1px solid #334155', color: 'white', padding: '4px 10px', borderRadius: '4px', fontSize: '0.75rem', cursor: 'pointer', fontWeight: '600' }}
+                        >
+                          {t('roomReactivateBtn')}
+                        </button>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
             </div>
           ) : (
-            <div style={{ background: '#0f172a', padding: '35px 20px', borderRadius: '20px', border: '1px dashed #38bdf840', textAlign: 'center' }}>
-              <div style={{ fontSize: '3rem', marginBottom: '15px' }}>🏆</div>
-              <h4 style={{ color: 'white', margin: '0 0 8px 0', fontSize: '1.3rem', fontWeight: 'bold' }}>
+            <div style={{ background: '#0f172a', padding: '24px 16px', borderRadius: '6px', border: '1px dashed #222f47', textAlign: 'center' }}>
+              <Trophy size={28} color="#64748b" style={{ marginBottom: '10px', margin: '0 auto 10px auto' }} />
+              <h4 style={{ color: 'white', margin: '0 0 4px 0', fontSize: '1.05rem', fontWeight: '600' }}>
                 {t('roomJoinChallenge')}
               </h4>
-              <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 25px 0', lineHeight: '1.5' }}>
+              <p style={{ color: '#64748b', fontSize: '0.8rem', margin: '0 0 16px 0', lineHeight: '1.45' }}>
                 {t('roomJoinDesc')}
               </p>
-              <button disabled={isLoadingSwapAlbum} onClick={onOpenAlbumForUpload} style={{ width: '100%', maxWidth: '280px', margin: '0 auto', background: 'linear-gradient(135deg, #2563eb, #3b82f6)', color: 'white', border: 'none', padding: '14px', borderRadius: '12px', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer', boxShadow: '0 4px 15px rgba(37,99,235,0.25)', transition: 'all 0.2s', display: 'block' }}>
-                ✨ {t('btnEntry')}
+              <button disabled={isLoadingSwapAlbum} onClick={onOpenAlbumForUpload} style={{ width: '100%', background: '#f97316', color: 'white', border: 'none', padding: '10px', borderRadius: '4px', fontWeight: '700', fontSize: '0.88rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', transition: 'all 0.15s' }}>
+                <Sparkles size={14} /> {t('btnEntry')}
               </button>
             </div>
           )}
         </div>
 
-        {/* 🎯 JAVÍTVA: Ide került vissza a hardveresen gyorsított mérőórás radial SVG kártya! */}
+        {/* LÁTHATÓSÁGI INDEX MÉRŐÓRA */}
         {!isMaster && (
-          <div className="arena-responsive-card" style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #334155', display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
-            <h4 style={{ margin: '0 0 15px 0', color: '#94a3b8', fontSize: '0.8rem', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Láthatósági Index</h4>
-            <div style={{ position: 'relative', width: '100%', maxWidth: '180px', height: '105px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+          <div className="arena-responsive-card" style={{ background: '#131b2e', padding: '20px', borderRadius: '8px', border: '1px solid #222f47', display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: '0 4px 15px rgba(0,0,0,0.1)' }}>
+            <h4 style={{ margin: '0 0 12px 0', color: '#64748b', fontSize: '0.72rem', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Láthatósági Index</h4>
+            <div style={{ position: 'relative', width: '100%', maxWidth: '160px', height: '95px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
               <svg viewBox="0 0 200 120" style={{ width: '100%', height: 'auto', display: 'block' }}>
-                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#0f172a" strokeWidth="16" strokeLinecap="round" />
-                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke={exposureColor || '#ef4444'} strokeWidth="16" strokeLinecap="round" pathLength="100" strokeDasharray="100" strokeDashoffset={100 - (exposurePercentage || 0)} style={{ transition: 'stroke-dashoffset 0.6s cubic-bezier(0.4, 0, 0.2, 1)' }} />
+                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#0f172a" strokeWidth="14" strokeLinecap="round" />
+                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke={exposureColor || '#ef4444'} strokeWidth="14" strokeLinecap="round" pathLength="100" strokeDasharray="100" strokeDashoffset={100 - (exposurePercentage || 0)} style={{ transition: 'stroke-dashoffset 0.6s cubic-bezier(0.4, 0, 0.2, 1)' }} />
               </svg>
               <div style={{ position: 'absolute', bottom: '5px', textAlign: 'center' }}>
-                <div style={{ fontSize: '1.7rem', fontWeight: '900', color: '#f8fafc', letterSpacing: '-0.5px' }}>{Math.round(exposurePercentage || 0)}%</div>
-                <div style={{ fontSize: '0.72rem', fontWeight: 'bold', color: exposureColor, textTransform: 'uppercase', marginTop: '2px' }}>{getTranslatedExposureLabel(exposureLabel)}</div>
+                <div style={{ fontSize: '1.4rem', fontWeight: '700', color: '#f8fafc', letterSpacing: '-0.5px' }}>{Math.round(exposurePercentage || 0)}%</div>
+                <div style={{ fontSize: '0.68rem', fontWeight: 'bold', color: exposureColor, textTransform: 'uppercase', marginTop: '1px' }}>{getTranslatedExposureLabel(exposureLabel)}</div>
               </div>
             </div>
           </div>
         )}
 
         {/* KLUBOK CSATÁJA RANGSOR */}
-        <div className="arena-responsive-card" style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #1e293b', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-            <h3 style={{ margin: 0, color: '#10b981', fontSize: '1.3rem', fontWeight: 'bold' }}> {t('roomClubLeague')}</h3>
-            <span style={{ fontSize: '0.75rem', background: '#ef4444', color: 'white', padding: '3px 10px', borderRadius: '12px', fontWeight: 'bold' }}>{t('roomLiveBadge')}</span>
+        <div className="arena-responsive-card" style={{ background: '#131b2e', padding: '20px', borderRadius: '8px', border: '1px solid #222f47', boxShadow: '0 4px 15px rgba(0,0,0,0.1)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <h3 style={{ margin: 0, color: '#10b981', fontSize: '1.05rem', fontWeight: '600', letterSpacing: '-0.2px' }}> {t('roomClubLeague')}</h3>
+            <span style={{ fontSize: '0.68rem', background: 'rgba(239,68,68,0.1)', color: '#f87171', border: '1px solid rgba(239,68,68,0.2)', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('roomLiveBadge')}</span>
           </div>
-          {safeClubLeaderboard.length === 0 ? <div style={{ color: '#94a3b8', textAlign: 'center', padding: '20px', background: '#0f172a', borderRadius: '16px' }}>{t('roomNoClubsYet')}</div> : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {safeClubLeaderboard.length === 0 ? <div style={{ color: '#475569', textAlign: 'center', padding: '16px', background: '#0f172a', borderRadius: '6px', fontSize: '0.8rem', fontStyle: 'italic' }}>{t('roomNoClubsYet')}</div> : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               {safeClubLeaderboard.map((club, index) => (
-                <div key={index} style={{ display: 'flex', alignItems: 'center', background: '#0f172a', padding: '12px', borderRadius: '12px', border: '1px solid #223147' }}>
-                  <div style={{ fontSize: '1.2rem', fontWeight: '900', width: '25px', color: index === 0 ? '#fbbf24' : '#cbd5e1', textAlign: 'center' }}>{index + 1}</div>
-                  <div style={{ flex: 1, marginLeft: '10px', minWidth: 0 }}>
-                    <div style={{ color: 'white', fontWeight: 'bold', fontSize: '0.95rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{club?.club_name || 'Unknown Club'}</div>
+                <div key={index} style={{ display: 'flex', alignItems: 'center', background: '#0f172a', padding: '10px 12px', borderRadius: '6px', border: '1px solid #1e293b' }}>
+                  <div style={{ fontSize: '0.9rem', fontWeight: '700', width: '20px', color: index === 0 ? '#fbbf24' : '#64748b', textAlign: 'left' }}>{index + 1}</div>
+                  <div style={{ flex: 1, minWidth: 0, paddingRight: '8px' }}>
+                    <div style={{ color: '#cbd5e1', fontWeight: '600', fontSize: '0.88rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{club?.club_name || 'Unknown Club'}</div>
                   </div>
-                  <div style={{ color: '#10b981', fontWeight: '900', fontSize: '1.1rem' }}>{club?.total_score || 0} FP</div>
+                  <div style={{ color: '#10b981', fontWeight: '700', fontSize: '0.9rem' }}>{club?.total_score || 0} FP</div>
                 </div>
               ))}
             </div>
@@ -399,76 +421,54 @@ export default function ArenaActiveRoom({
         </div>
 
         {/* VAK TOPLISTA MEGJELENÍTŐ */}
-        <div className="arena-responsive-card" style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #1e293b', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
-          <h3 style={{ margin: '0 0 5px 0', color: '#f59e0b', fontSize: '1.3rem', fontWeight: 'bold' }}>📊 {t('roomBlindLeaderboard')}</h3>
-          <p style={{ color: '#64748b', fontSize: '0.8rem', margin: '0 0 15px 0', lineHeight: '1.4' }}>{t('roomBlindLeaderboardDesc')}</p>
-          {safeLeaderboard.length === 0 ? <div style={{ color: '#94a3b8', textAlign: 'center', padding: '30px', background: '#0f172a', borderRadius: '16px' }}>{t('roomArenaEmpty')}</div> : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {[...safeLeaderboard].sort((a, b) => (b.fair_score || b.likes_count || 0) - (a.fair_score || a.likes_count || 0)).map((entry, index) => {
-                const isMe = entry?.user_email === user?.email;
-                const showUnblinded = isMe || isMaster; 
-                const rankColor = index === 0 ? '#fbbf24' : index === 1 ? '#94a3b8' : index === 2 ? '#cd7f32' : '#475569';
+        <div className="arena-responsive-card" style={{ background: '#131b2e', padding: '20px', borderRadius: '8px', border: '1px solid #222f47', boxShadow: '0 4px 15px rgba(0,0,0,0.1)' }}>
+          <h3 style={{ margin: '0 0 3px 0', color: '#f59e0b', fontSize: '1.05rem', fontWeight: '600', letterSpacing: '-0.2px', display: 'flex', alignItems: 'center', gap: '6px' }}><BarChart3 size={14} /> {t('roomBlindLeaderboard')}</h3>
+          <p style={{ color: '#475569', fontSize: '0.78rem', margin: '0 0 14px 0', lineHeight: '1.4' }}>{t('roomBlindLeaderboardDesc')}</p>
+          {safeLeaderboard.length === 0 ? <div style={{ color: '#475569', textAlign: 'center', padding: '20px', background: '#0f172a', borderRadius: '6px', fontSize: '0.8rem', fontStyle: 'italic' }}>{t('roomArenaEmpty')}</div> : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {[...safeLeaderboard].sort((a, b) => {
+                const scoreA = Number(a.fair_score || a.likes_count || 0);
+                const scoreB = Number(b.fair_score || b.likes_count || 0);
+                return scoreB - scoreA;
+              }).map((actTop, index) => {
+                const isTop3 = index < 3;
                 return (
-                  <div key={entry?.id || index} style={{ display: 'flex', alignItems: 'center', background: '#0f172a', border: isMe ? '1px solid #f59e0b50' : '1px solid #223147', padding: '10px', borderRadius: '12px' }}>
-                    <div style={{ fontSize: '1.1rem', fontWeight: '900', width: '25px', color: rankColor, textAlign: 'center' }}>{index + 1}</div>
-                    <div onClick={() => showUnblinded ? setFullscreenData({url: getImageUrl(entry?.drive_file_id, entry?.file_url), title: entry?.user_name || ''}) : null} style={{ width: '40px', height: '40px', backgroundColor: '#000', borderRadius: '8px', overflow: 'hidden', margin: '0 10px', cursor: showUnblinded ? 'zoom-in' : 'default', position: 'relative' }}>
-                      <img src={getImageUrl(entry?.drive_file_id, entry?.file_url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: showUnblinded ? 'none' : 'blur(4px)' }} onError={handleImageError} loading="lazy" />
+                  <div key={actTop.id || index} style={{ display: 'flex', alignItems: 'center', background: '#0f172a', padding: '8px 12px', borderRadius: '6px', border: '1px solid #1e293b' }}>
+                    <div style={{ width: '22px', display: 'flex', alignItems: 'center' }}>
+                      {index === 0 ? <Crown size={12} color="#fbbf24" fill="#fbbf24" /> :
+                       index === 1 ? <Trophy size={12} color="#94a3b8" /> :
+                       index === 2 ? <Trophy size={12} color="#b45309" /> :
+                       <span style={{ fontSize: '0.8rem', fontWeight: '600', color: '#475569' }}>{index + 1}</span>}
+                    </div>
+                    <div onClick={() => (actTop.user_email === user?.email || isMaster) ? setFullscreenData({url: getImageUrl(actTop?.drive_file_id, actTop?.file_url), title: actTop?.user_name || ''}) : null} style={{ width: '32px', height: '32px', backgroundColor: '#000', borderRadius: '4px', overflow: 'hidden', margin: '0 10px', cursor: (actTop.user_email === user?.email || isMaster) ? 'zoom-in' : 'default', position: 'relative', flexShrink: 0, border: '1px solid #222f47' }}>
+                      <img src={getImageUrl(actTop?.drive_file_id, actTop?.file_url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: (actTop.user_email === user?.email || isMaster) ? 'none' : 'blur(5px)' }} onError={handleImageError} loading="lazy" />
                     </div>
                     
-{/* INFÓ PANEL SZEKCIÓ */}
-                    <div style={{ flex: 1, minWidth: 0, paddingLeft: '5px' }}>
-                      <div style={{ 
-                        color: isMe ? '#f8fafc' : '#94a3b8', 
-                        fontWeight: 'bold', 
-                        fontSize: '0.95rem', 
-                        overflow: 'hidden', 
-                        textOverflow: 'ellipsis', 
-                        whiteSpace: 'nowrap',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px'
-                      }}>
-                        <span>{showUnblinded ? (entry?.user_name || '') : t('roomEncryptedOpponent')}</span>
-                        
-                        {/* 🚀 ÚJ: Képmesteri jelvény a név mellett, ha has_master_vote van */}
-                        {Number(entry?.has_master_vote) > 0 && (
-                          <span 
-                            title={lang === 'en' ? 'Received a Master Vote!' : 'Képmesteri szavazatot kapott!'}
-                            style={{ 
-                              background: 'linear-gradient(135deg, #c084fc, #9333ea)', 
-                              color: 'white', 
-                              fontSize: '0.65rem', 
-                              padding: '2px 6px', 
-                              borderRadius: '6px', 
-                              display: 'inline-flex', 
-                              alignItems: 'center',
-                              boxShadow: '0 0 8px rgba(168, 85, 247, 0.5)'
-                            }}
-                          >
-                            🚀
-                          </span>
+                    <div style={{ flex: 1, minWidth: 0, paddingRight: '6px' }}>
+                      <div style={{ color: actTop?.user_email === user?.email ? '#f8fafc' : '#94a3b8', fontWeight: '600', fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span>{(actTop.user_email === user?.email || isMaster) ? (actTop?.user_name || '') : t('roomEncryptedOpponent')}</span>
+                        {Number(actTop?.has_master_vote) > 0 && (
+                          <span title={lang === 'en' ? 'Received a Master Vote!' : 'Képmesteri szavazatot kapott!'} style={{ background: '#be123c', color: 'white', fontSize: '0.55rem', padding: '1px 4px', borderRadius: '3px', fontWeight: 'bold' }}>M</span>
                         )}
                       </div>
-                      
-                      <div style={{ fontSize: '0.8rem', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: '2px' }}>
-                        {t('roomViews') || 'Nézettség'}: {entry?.views_count || 0}
-                        {entry.votes_cast !== undefined && (
-                          <span> • {lang === 'en' ? 'Voted' : 'Szavazott'}: <strong style={{ color: Number(entry.votes_cast) === 0 ? '#ef4444' : '#38bdf8' }}>{entry.votes_cast} db</strong></span>
+                      <div style={{ fontSize: '0.72rem', color: '#475569', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: '1px' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px' }}><Eye size={9} /> {actTop?.views_count || 0}</span>
+                        {actTop.votes_cast !== undefined && (
+                          <span> • {lang === 'en' ? 'Voted' : 'Szv'}: <strong style={{ color: '#475569' }}>{actTop.votes_cast}</strong></span>
                         )}
                       </div>
                     </div>
                     
-                    <div style={{ textAlign: 'right', minWidth: '90px' }}>
-                      <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: isMe ? '#f97316' : '#fbbf24' }}>
-                        {entry.fair_score !== undefined ? `${entry.fair_score} FP` : `${entry.likes_count || 0} ⭐`}
+                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                      <div style={{ fontSize: '0.9rem', fontWeight: '700', color: actTop?.user_email === user?.email ? '#f97316' : '#cbd5e1' }}>
+                        {actTop.fair_score !== undefined ? `${actTop.fair_score} FP` : `${actTop.likes_count || 0} ⭐`}
                       </div>
-                      {entry.fair_score !== undefined && (
-                        <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '1px' }}>
-                          {entry.likes_count || 0} ⭐
+                      {actTop.fair_score !== undefined && (
+                        <div style={{ fontSize: '0.68rem', color: '#475569' }}>
+                          {actTop.likes_count || 0} ⭐
                         </div>
                       )}
                     </div>
-
                   </div>
                 );
               }).slice(0, 15)}
@@ -479,72 +479,79 @@ export default function ArenaActiveRoom({
 
       {/* INSPECTOR MODÁL */}
       {selectedExifPhoto && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(9,13,22,0.96)', backdropFilter: 'blur(20px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-          <div style={{ background: '#1e293b', width: '100%', maxWidth: '1000px', maxHeight: '90vh', borderRadius: '24px', border: '1px solid #475569', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ padding: '20px 30px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h4 style={{ margin: 0, color: 'white', fontSize: '1.3rem', fontWeight: 'bold' }}> {t('roomInspectorTitle')}</h4>
-              <button onClick={() => setSelectedExifPhoto(null)} style={{ background: '#334155', color: '#cbd5e1', border: 'none', width: '36px', height: '32px', borderRadius: '50%', cursor: 'pointer' }}>✕</button>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(9,13,22,0.92)', backdropFilter: 'blur(10px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+          <div style={{ background: '#131b2e', width: '100%', maxWidth: '900px', maxHeight: '85vh', borderRadius: '8px', border: '1px solid #222f47', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 40px rgba(0,0,0,0.6)' }}>
+            <div style={{ padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #222f47' }}>
+              <h4 style={{ margin: 0, color: 'white', fontSize: '1.1rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}><Camera size={16} /> {t('roomInspectorTitle')}</h4>
+              <button onClick={() => setSelectedExifPhoto(null)} style={{ background: '#222f47', color: '#94a3b8', border: 'none', width: '28px', height: '28px', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={14} /></button>
             </div>
-            <div style={{ flex: 1, backgroundColor: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-              <img src={selectedExifPhoto.file_url} alt="" style={{ width: '100%', height: '100%', maxWidth: '100%', maxHeight: '65vh', objectFit: 'contain' }} loading="lazy" />
+            <div style={{ flex: 1, backgroundColor: '#090d16', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', padding: '10px' }}>
+              <img src={selectedExifPhoto.file_url} alt="" style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '60vh', objectFit: 'contain' }} loading="lazy" />
             </div>
           </div>
         </div>
       )}
 
-      {/* ── 🎯 ASZTALI BENTO GRID STYLING LAYER ── */}
+      {/* ── 🎯 BRUTÁLISAN STABIL ASZTALI BENTO GRID STYLING LAYER ── */}
       <style>{`
         .arena-main-layout-grid {
           display: grid;
           grid-template-columns: 1fr;
-          gap: 30px;
+          gap: 20px;
           width: 100%;
           box-sizing: border-box;
         }
         .arena-layout-column-main {
           display: flex;
           flex-direction: column;
-          gap: 25px;
+          gap: 16px;
           width: 100%;
         }
         .arena-layout-column-side {
           display: flex;
           flex-direction: column;
-          gap: 25px;
+          gap: 16px;
           width: 100%;
         }
-        @media (min-width: 992px) {
+        @media (min-width: 1060px) {
           .arena-main-layout-grid {
-            grid-template-columns: 1.5fr 1fr !important;
+            grid-template-columns: 1.45fr 1fr !important;
           }
         }
         .batch-vote-responsive-card {
           display: grid;
-          grid-template-columns: 140px 1fr;
-          gap: 20px;
+          grid-template-columns: 120px 1fr;
+          gap: 16px;
           align-items: start;
         }
         .batch-vote-responsive-imgbox {
-          width: 140px;
-          height: 140px;
+          width: 120px;
+          height: 120px;
           background-color: #000;
-          border-radius: 12px;
           overflow: hidden;
           cursor: zoom-in;
-          border: 1px solid #334155;
           position: relative;
         }
         .batch-vote-responsive-content {
           display: flex;
           flex-direction: column;
           justify-content: space-between;
-          min-height: 140px;
+          min-height: 120px;
         }
         .batch-vote-responsive-buttons {
           display: flex;
-          gap: 8px;
+          gap: 6px;
           flex-wrap: wrap;
-          margin-top: 12px;
+          margin-top: 10px;
+        }
+        @media (max-width: 580px) {
+          .batch-vote-responsive-card {
+            grid-template-columns: 1fr !important;
+          }
+          .batch-vote-responsive-imgbox {
+            width: 100% !important;
+            height: 160px !important;
+          }
         }
       `}</style>
     </div>
