@@ -30,7 +30,8 @@ import {
   Layers,
   Info,
   Star,
-  Share2
+  Share2,
+  ImageIcon
 } from 'lucide-react';
 
 interface PastArchiveProps {
