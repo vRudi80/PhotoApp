@@ -11,6 +11,15 @@ interface AdminUsersViewProps {
   saveUserClub: (email: string) => void;
 }
 
+// 🎯 KÖZPONTI AUTH FEJLÉC GENERÁTOR ADMINISZTRÁCIÓS VÉGPONTOKHOZ
+const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
+  const token = localStorage.getItem('photoAppToken');
+  return {
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    ...extraHeaders
+  };
+};
+
 export default function AdminUsersView({ 
   allUsers, 
   clubs, 
@@ -39,10 +48,13 @@ export default function AdminUsersView({
 
   const silhouetteAvatar = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23475569'><circle cx='12' cy='8' r='4'/><path d='M12 14c-6.1 0-10 4-10 4v2h20v-2s-3.9-4-10-4z'/></svg>";
 
-  // Felhasználók közvetlen lekérése
+  // Felhasználók közvetlen lekérése hitelesítve
   const loadFreshUsersList = async () => {
     try {
-      const res = await fetch(`${BACKEND_URL}/api/admin/exclusive-users`);
+      // 🎯 JAVÍTVA: Az admin exkluzív felhasználói lista lekérése tokenesítve lett
+      const res = await fetch(`${BACKEND_URL}/api/admin/exclusive-users`, {
+        headers: getAuthHeaders()
+      });
       if (res.ok) {
         const data = await res.json();
         setLocalUsers(data || []);
@@ -51,7 +63,7 @@ export default function AdminUsersView({
       }
     } catch (e) {
       setLocalUsers(allUsers || []);
-    } finally {
+    } final {
       setIsLoadingUsers(false);
     }
   };
@@ -61,7 +73,10 @@ export default function AdminUsersView({
     
     const fetchStorageStats = async () => {
       try {
-        const res = await fetch(`${BACKEND_URL}/api/admin/user-storage-stats`);
+        // 🎯 JAVÍTVA: A tárhely-statisztikák lekérése megkapta a biztonsági tokent
+        const res = await fetch(`${BACKEND_URL}/api/admin/user-storage-stats`, {
+          headers: getAuthHeaders()
+        });
         if (res.ok) {
           const data = await res.json();
           const statsMap: Record<string, { count: number, bytes: number }> = {};
@@ -119,15 +134,11 @@ export default function AdminUsersView({
 
   const handleLocalSave = async (email: string) => {
     try {
-      // 1. Biztonsági mentés: kimentjük a jelenleg kiválasztott új értékeket
       const chosenClub = userClubEdits[email];
       const chosenRole = userRoleEdits[email];
 
-      // 2. Elküldjük a mentést a szülő komponensnek (API hívás)
       await saveUserClub(email);
 
-      // 3. 🎯 OPTIMISTA UI FRISSÍTÉS: Azonnal beírjuk az új adatokat a helyi listába,
-      // így a táblázat 'original' értékei azonnal frissülnek az új értékekre!
       setLocalUsers(prevUsers => 
         prevUsers.map(item => 
           item.email === email 
@@ -140,8 +151,6 @@ export default function AdminUsersView({
         )
       );
 
-      // 4. 🎯 ÁLLAPOT TÖRLÉSE: Most már biztonságosan kipucolhatjuk a szerkesztési fázist,
-      // mert a dropdown nem fog visszaugrani (mivel a 3. lépésben már frissítettük a hátteret)
       setUserClubEdits((prev: any) => {
         const next = { ...prev };
         delete next[email];
@@ -154,7 +163,6 @@ export default function AdminUsersView({
         return next;
       });
 
-      // 5. Háttér-szinkronizáció: Kis késleltetéssel frissítünk a szerverről is, biztos ami biztos
       setTimeout(() => {
         loadFreshUsersList();
       }, 1000);
@@ -177,12 +185,12 @@ export default function AdminUsersView({
 
     setIsSendingEmail(true);
     try {
-      // Csak az érvényes email címeket szedjük ki a JELENLEGI szűrt listából
       const targetEmails = processedUsers.map(u => u.email).filter(Boolean);
 
+      // 🎯 JAVÍTVA: A tömeges hírlevélküldés biztonságosan, hitelesített fejlécekkel fut ki
       const res = await fetch(`${BACKEND_URL}/api/admin/send-bulk-email`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           emails: targetEmails,
           subject: emailSubject,
@@ -211,7 +219,6 @@ export default function AdminUsersView({
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
         <h2 style={{ fontSize: '2rem', margin: 0, color: '#f59e0b' }}>👥 Felhasználók és Tárhely Kezelése</h2>
         
-        {/* ÚJ GOMB AZ E-MAIL KÜLDÉSHEZ */}
         <button 
           onClick={() => setIsEmailModalOpen(true)}
           style={{ background: 'linear-gradient(135deg, #3b82f6, #2563eb)', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)' }}
@@ -282,7 +289,7 @@ export default function AdminUsersView({
                 return (
                   <tr key={index} style={{ borderBottom: '1px solid #334155', backgroundColor: index % 2 === 0 ? 'transparent' : '#0f172a50', transition: 'background 0.2s' }} onMouseOver={e => e.currentTarget.style.backgroundColor = '#33415550'} onMouseOut={e => e.currentTarget.style.backgroundColor = index % 2 === 0 ? 'transparent' : '#0f172a50'}>
                     
-                    {/* 1. Név, Email és a felhős Profilkép */}
+                    {/* 1. Név, Email és Profilkép */}
                     <td style={{ padding: '15px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
                         <img 
@@ -356,7 +363,7 @@ export default function AdminUsersView({
                       )}
                     </td>
 
-                    {/* 4. Statisztikák (AI és Utolsó belépés) */}
+                    {/* 4. Statisztikák */}
                     <td style={{ padding: '15px' }}>
                       <div style={{ fontSize: '0.85rem', color: '#cbd5e1', marginBottom: '4px' }} title="Elemzett képek száma">
                         🤖 AI Elemzés: <span style={{ fontWeight: 'bold', color: u.ai_usage_count > 0 ? '#38bdf8' : '#64748b' }}>{u.ai_usage_count || 0} db</span>
@@ -379,7 +386,7 @@ export default function AdminUsersView({
                     </td>
 
                   </tr>
-                )
+                );
               })
             )}
             
@@ -394,7 +401,7 @@ export default function AdminUsersView({
         </table>
       </div>
 
-      {/* 📧 E-MAIL KÜLDŐ FELUGRÓ ABLAK (MODAL) */}
+      {/* 📧 E-MAIL KÜLDŐ MODAL */}
       {isEmailModalOpen && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999, padding: '20px' }}>
           <div style={{ background: '#1e293b', width: '100%', maxWidth: '600px', borderRadius: '16px', border: '1px solid #334155', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', overflow: 'hidden', animation: 'fadeIn 0.2s ease-out' }}>
@@ -439,7 +446,7 @@ export default function AdminUsersView({
               </div>
             </div>
 
-            {/* Lábjegyzet / Gombok */}
+            {/* Gombok */}
             <div style={{ background: '#0f172a', padding: '20px', borderTop: '1px solid #334155', display: 'flex', justifyContent: 'flex-end', gap: '15px' }}>
               <button 
                 onClick={() => setIsEmailModalOpen(false)}
