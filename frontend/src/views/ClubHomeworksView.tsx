@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { getImageUrl } from '../utils/helpers';
 import { BACKEND_URL } from '../utils/constants';
 
-// 🎯 Nyelvi kontextus aktiválása
+// Nyelvi kontextus aktiválása
 import { useLanguage } from '../context/LanguageContext';
 
 interface ClubHomeworksViewProps {
@@ -24,27 +24,78 @@ export default function ClubHomeworksView({
   isLeader, setFullscreenData, handleToggleLike, fetchMyEntries, fetchClubHomeworkEntries, clubs
 }: ClubHomeworksViewProps) {
   
-  // 🎯 JAVÍTVA: A hook-ot a komponens legtetejére tettem az early return elé, így a hatókör mindenki számára nyitott!
+  // 1. KÖRNYEZETI HOOK-OK ÉS FIX STÍLUSOK
   const { t, lang } = useLanguage();
-// 🎯 KULCSFONTOSSÁGÚ JAVÍTÁS: Függőben lévő tagok kizárása a házi feladatokból
-  if (!currentDbUser?.club_name || currentDbUser?.club_role === 'pending') {
-    return (
-      <div style={{ textAlign: 'center', padding: '4rem 2rem', background: '#1e293b', borderRadius: '16px', border: '1px solid #334155' }}>
-        <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🔒</div>
-        <h2 style={{ color: '#f59e0b', margin: '0 0 10px 0' }}>
-          {currentDbUser?.club_role === 'pending' ? 'Jelentkezésed jóváhagyásra vár' : 'Nincs klubtagságod'}
-        </h2>
-        <p style={{ color: '#94a3b8', fontSize: '1.1rem' }}>
-          A klub belső fotós feladatainak eléréséhez és a képleadásokhoz meg kell várnod a vezető hivatalos visszaigazolását.
-        </p>
-      </div>
-    );
-  }
   const inputStyle = { width: '100%', padding: '10px', marginBottom: '10px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '6px', boxSizing: 'border-box' as const };
 
   // ==============================================================
-  // 1. HELYI ÁLLAPOTOK
+  // 2. RENDERSZINTŰ HELYI ÁLLAPOTOK ( useState-ek felmozgatva legfelülre )
   // ==============================================================
+  const [alerts, setAlerts] = useState<any>(null);
+  const [dismissedAlerts, setDismissedAlerts] = useState<string[]>([]);
+  const [activeClubs, setActiveClubs] = useState<any[]>([]);
+  const [pendingMembers, setPendingMembers] = useState<any[]>([]);
+  const [userEntrySalonIds, setUserEntrySalonIds] = useState<number[]>([]);
+  const [myJudgedContests, setMyJudgedContests] = useState<any[]>([]);
+  const [myHomeworkEntriesState, setMyHomeworkEntries] = useState<any[]>([]);
+  
+  const [isLoadingAlerts, setIsLoadingAlerts] = useState(true);
+  const [salonSearch, setSalonSearch] = useState('');
+  const [selectedSalon, setSelectedSalon] = useState<any>(null);
+  const [meetingSearch, setMeetingSearch] = useState(''); 
+  const [activeVideo, setActiveVideo] = useState<string | null>(null);
+
+  const [newClubName, setNewClubName] = useState('');
+  const [newTitle, setNewTitle] = useState('');
+  const [newDesc, setNewDesc] = useState('');
+  const [newCategorySettings, setNewCategorySettings] = useState<Record<string, any>>({});
+  const [newStart, setNewStart] = useState('');
+  const [newEnd, setNewEnd] = useState('');
+  const [newCats, setNewCats] = useState('');
+  const [newRestrictedClub, setNewRestrictedClub] = useState(''); 
+  const [newSponsorClub, setNewSponsorClub] = useState('');
+  const [newEntryFee, setNewEntryFee] = useState<number | string>(0);
+  const [newFeeCurrency, setNewFeeCurrency] = useState('HUF');
+
+  const [editContestId, setEditContestId] = useState<number | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDesc, setEditDesc] = useState('');
+  const [editStart, setEditStart] = useState('');
+  const [editEnd, setEditEnd] = useState('');
+  const [editCats, setEditCats] = useState('');
+  const [editRestrictedClub, setEditRestrictedClub] = useState(''); 
+  const [editSponsorClub, setEditSponsorClub] = useState('');
+  const [editEntryFee, setEditEntryFee] = useState<number | string>(0);
+  const [editFeeCurrency, setEditFeeCurrency] = useState('HUF');
+  const [editCategorySettings, setEditCategorySettings] = useState<Record<string, any>>({});
+
+  const [activeUploadContest, setActiveUploadContest] = useState<number | null>(null);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadPreview, setUploadPreview] = useState<string | null>(null);
+  const [uploadTitle, setUploadTitle] = useState('');
+  const [uploadCategory, setUploadCategory] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
+
+  const [editingEntryId, setEditingEntryId] = useState<number | null>(null);
+  const [editEntryTitle, setEditEntryTitle] = useState('');
+
+  const [manageJuryContestId, setManageJuryContestId] = useState<number | null>(null);
+  const [selectedJuryEmail, setSelectedJuryEmail] = useState('');
+
+  const [judgingContestId, setJudgingContestId] = useState<number | null>(null);
+  const [unvotedEntries, setUnvotedEntries] = useState<any[]>([]);
+  const [currentScore, setCurrentScore] = useState<number | ''>('');
+  
+  const [viewResultsContestId, setViewResultsContestId] = useState<number | null>(null);
+  const [contestResults, setContestResults] = useState<any[]>([]);
+  const [viewStatsContestId, setViewStatsContestId] = useState<number | null>(null);
+  const [contestStats, setContestStats] = useState<any[]>([]);
+
+  const [viewJuryProgressId, setViewJuryProgressId] = useState<number | null>(null);
+  const [juryProgressData, setJuryProgressData] = useState<{total_entries: number, stats: any[]}>({total_entries: 0, stats: []});
+
+  const [fullscreenData, setFullscreenData] = useState<any>(null);
+
   const [sortedHwIds, setSortedHwIds] = useState<number[]>([]);
   const [expandedHwIds, setExpandedHwIds] = useState<number[]>([]);
   const [hwSearch, setHwSearch] = useState('');
@@ -60,35 +111,52 @@ export default function ClubHomeworksView({
   const [editingHwEntryId, setEditingHwEntryId] = useState<number | null>(null);
   const [editHwEntryTitle, setEditHwEntryTitle] = useState('');
 
-  // Tárhely és AI használat követéséhez szükséges állapotok
   const [userStorage, setUserStorage] = useState({ count: 0, bytes: 0 });
   const [aiUsageCount, setAiUsageCount] = useState(0);
   const [isLoadingStats, setIsLoadingStats] = useState(true);
 
-  // 1. Csak a vezetővel rendelkező klubok betöltése a legördülő listába
+  // 🎯 KÖZPONTI SEGÉDFÜGGVÉNY: Legyártja a biztonsági fejlécet az elmentett tokenből
+  const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
+    const token = localStorage.getItem('photoAppToken');
+    return {
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+      ...extraHeaders
+    };
+  };
+
+  // ==============================================================
+  // 3. EFFECT-EK BIZTONSÁGOSSÁ TÉTELE
+  // ==============================================================
+  
+  // 1. Csak a vezetővel rendelkező klubok betöltése (JAVÍTVA: Header hozzáadva + tömb ellenőrzés)
   useEffect(() => {
-    fetch(`${BACKEND_URL}/api/clubs/active-only`)
+    fetch(`${BACKEND_URL}/api/clubs/active-only`, { headers: getAuthHeaders() })
       .then(res => res.json())
-      .then(data => setActiveClubs(data || []))
-      .catch(console.error);
+      .then(data => setActiveClubs(Array.isArray(data) ? data : []))
+      .catch(err => {
+        console.error("Hiba az aktív klubok lekérésekor:", err);
+        setActiveClubs([]);
+      });
   }, []);
 
-  // 2. Felhasználó specifikus tárhely és AI statisztikák betöltése
+  // 2. Felhasználó specifikus tárhely és AI statisztikák betöltése (JAVÍTVA: Header hozzáadva)
   useEffect(() => {
     if (!user?.email) return;
     
     const fetchUserStats = async () => {
       setIsLoadingStats(true);
       try {
-        const resStorage = await fetch(`${BACKEND_URL}/api/admin/user-storage-stats`);
+        const resStorage = await fetch(`${BACKEND_URL}/api/admin/user-storage-stats`, { headers: getAuthHeaders() });
         if (resStorage.ok) {
           const allStats = await resStorage.json();
-          const myStats = allStats.find((s: any) => s.user_email === user.email);
-          if (myStats) {
-            setUserStorage({
-              count: myStats.total_photos || 0,
-              bytes: Number(myStats.total_bytes) || 0
-            });
+          if (Array.isArray(allStats)) {
+            const myStats = allStats.find((s: any) => s.user_email === user.email);
+            if (myStats) {
+              setUserStorage({
+                count: myStats.total_photos || 0,
+                bytes: Number(myStats.total_bytes) || 0
+              });
+            }
           }
         }
         
@@ -105,39 +173,42 @@ export default function ClubHomeworksView({
     fetchUserStats();
   }, [user]);
 
-  // 3. Függőben lévő tagok betöltése vezetőknek
-  const [activeClubs, setActiveClubs] = useState<any[]>([]);
-  const [selectedClubId, setSelectedClubId] = useState<string>('');
-  const [pendingMembers, setPendingMembers] = useState<any[]>([]);
-
+  // 3. Függőben lévő tagok betöltése vezetőknek (JAVÍTVA: Header hozzáadva)
   const loadPendingMembers = () => {
     const matchedClub = activeClubs.find(c => c.name === user?.club_name);
     const effectiveClubId = user?.club_id || matchedClub?.id;
 
     if (isLeader && effectiveClubId) {
-      fetch(`${BACKEND_URL}/api/clubs/pending-members?clubId=${effectiveClubId}`)
+      fetch(`${BACKEND_URL}/api/clubs/pending-members?clubId=${effectiveClubId}`, { headers: getAuthHeaders() })
         .then(res => res.json())
-        .then(data => setPendingMembers(data || []))
+        .then(data => setPendingMembers(Array.isArray(data) ? data : []))
         .catch(console.error);
     }
   };
 
   useEffect(() => {
-    loadPendingMembers();
+    if (activeClubs.length > 0) {
+      loadPendingMembers();
+    }
   }, [user, isLeader, activeClubs]);
 
-  if (!currentDbUser?.club_name) {
+  // Védelmi fék: Ha még nincs belépve vagy nincs klubja, korai return elutasítás
+  if (!currentDbUser?.club_name || currentDbUser?.club_role === 'pending') {
     return (
       <div style={{ textAlign: 'center', padding: '4rem 2rem', background: '#1e293b', borderRadius: '16px', border: '1px solid #334155' }}>
         <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🔒</div>
-        <h2 style={{ color: '#f59e0b', margin: '0 0 10px 0' }}>Nem vagy klubhoz rendelve</h2>
-        <p style={{ color: '#94a3b8', fontSize: '1.1rem' }}>A klubod feladatainak megtekintéséhez kérjük, vedd fel a kapcsolatot egy adminisztrátorral. - kovari.rudolf@gmail.com</p>
+        <h2 style={{ color: '#f59e0b', margin: '0 0 10px 0' }}>
+          {currentDbUser?.club_role === 'pending' ? 'Jelentkezésed jóváhagyásra vár' : 'Nincs klubtagságod'}
+        </h2>
+        <p style={{ color: '#94a3b8', fontSize: '1.1rem' }}>
+          A klub belső fotós feladatainak eléréséhez és a képleadásokhoz meg kell várnod a vezető hivatalos visszaigazolását.
+        </p>
       </div>
     );
   }
 
   // ==============================================================
-  // 2. FÜGGVÉNYEK
+  // 4. MŰVELETI FÜGGVÉNYEK BIZTONSÁGOSSÁ TÉTELE
   // ==============================================================
   const handleHwFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => { 
     const file = e.target.files?.[0]; 
@@ -155,7 +226,12 @@ export default function ClubHomeworksView({
       formData.append('userName', user.name);
       formData.append('title', hwUploadTitle);
 
-      const res = await fetch(`${BACKEND_URL}/api/upload-homework`, { method: 'POST', body: formData });
+      // 🎯 JAVÍTVA: Elküldjük a biztonsági token fejlécet
+      const res = await fetch(`${BACKEND_URL}/api/upload-homework`, { 
+        method: 'POST', 
+        headers: getAuthHeaders(),
+        body: formData 
+      });
       if (res.ok) { 
         alert("Feltöltve!"); 
         setActiveUploadHw(null); setHwUploadFile(null); setHwUploadPreview(null); setHwUploadTitle(''); 
@@ -170,8 +246,11 @@ export default function ClubHomeworksView({
 
   const handleUpdateHwEntryTitle = async (entryId: number) => {
     if (!editHwEntryTitle) return alert('A cím nem lehet üres!');
+    // 🎯 JAVÍTVA: Módosítás hitelesített fejléccel ellátva
     const res = await fetch(`${BACKEND_URL}/api/homework-entries/${entryId}`, { 
-      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: editHwEntryTitle, userEmail: user.email }) 
+      method: 'PUT', 
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }), 
+      body: JSON.stringify({ title: editHwEntryTitle, userEmail: user.email }) 
     });
     if (res.ok) { 
       setEditingHwEntryId(null); 
@@ -182,12 +261,13 @@ export default function ClubHomeworksView({
   };
 
   const handleLocalDeleteHwEntry = async (entryId: number) => {
-    if (!window.confirm("Biztosan véglegesen törölni szeretnéd ezt a beküldött fotódat?")) return;
+    if (!window.confirm("Biztosan véglegen törölni szeretnéd ezt a beküldött fotódat?")) return;
     
     try {
+      // 🎯 JAVÍTVA: Képtörlés biztonságos fejléccel lezárva
       const res = await fetch(`${BACKEND_URL}/api/homework-entries/${entryId}?userEmail=${encodeURIComponent(user.email)}`, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ userEmail: user.email })
       });
 
@@ -207,7 +287,11 @@ export default function ClubHomeworksView({
 
   const handleToggleSelect = async (entryId: number) => {
     try {
-      const res = await fetch(`${BACKEND_URL}/api/homework-entries/${entryId}/toggle-select`, { method: 'POST' });
+      // 🎯 JAVÍTVA: Képválasztás biztonságos fejléccel ellátva
+      const res = await fetch(`${BACKEND_URL}/api/homework-entries/${entryId}/toggle-select`, { 
+        method: 'POST',
+        headers: getAuthHeaders() 
+      });
       if (res.ok) {
         const data = await res.json();
         setLocalSelections(prev => ({ ...prev, [entryId]: data.is_selected === 1 }));
@@ -216,28 +300,25 @@ export default function ClubHomeworksView({
   };
 
   const handleDownloadAllSelected = async (homeworkEntries: any[], currentHw: any) => {
-    // Kiszűrjük a kiválasztott képeket
     const selectedEntries = homeworkEntries.filter(entry => 
       localSelections[entry.id] !== undefined ? localSelections[entry.id] : (entry.is_selected === 1)
     );
 
     if (selectedEntries.length === 0) {
-      alert("Nincs kiválasztott kép ebben a feladatban, amit le lehetne tölteni!");
-      return;
+      return alert('Nincs kiválasztott kép a tömörítéshez.');
     }
 
-    const confirmMessage = `Biztosan le szeretnéd tölteni a feladat mind a(z) ${selectedEntries.length} db kiválasztott képét egyetlen közös .ZIP fájlban?\n\n(A szerver a háttérben letölti és becsomagolja a képeket, ez eltarthat pár másodpercig.)`;
-
-    if (!window.confirm(confirmMessage)) return;
-
     try {
-      // 🎯 JAVÍTVA: A paraméterként kapott objektumból olvassuk ki a témát
+      const safeTopic = topic ? topic.replace(/[^a-zA-Z0-9-_]/g, '_') : 'valogatas';
+      
+      // 🎯 JAVÍTVA: ZIP csomagolás és tömeges letöltés hitelesítve a tokenünkkel!
       const res = await fetch(`${BACKEND_URL}/api/homework/download-zip`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           entries: selectedEntries,
-          topic: currentHw.topic
+          topic: currentHw.topic,
+          clubId: currentDbUser?.club_id
         })
       });
 
@@ -249,9 +330,8 @@ export default function ClubHomeworksView({
       const downloadAnchor = document.createElement('a');
       downloadAnchor.href = downloadUrl;
       
-      // 🎯 JAVÍTVA: Itt is a biztonságos paramétert használjuk a fájlnévhez
-      const safeTopic = (currentHw.topic || 'valogatas').replace(/[^a-zA-Z0-9-_]/g, '_');
-      downloadAnchor.setAttribute('download', `${safeTopic}_portfolio_valogatas.zip`);
+      const safeTopicName = (currentHw.topic || 'valogatas').replace(/[^a-zA-Z0-9-_]/g, '_');
+      downloadAnchor.setAttribute('download', `${safeTopicName}_portfolio_valogatas.zip`);
       
       document.body.appendChild(downloadAnchor);
       downloadAnchor.click();
@@ -303,7 +383,7 @@ export default function ClubHomeworksView({
       </div>
 
       {filteredHomeworks.length === 0 ? (
-        <div style={{ padding: '20px', color: '#94a3b8', textAlign: 'center', background: '#1e293b', borderRadius: '12px', border: '1px solid #334155' }}>
+        <div style={{ padding: '20px', color: '#94a3b8', textalign: 'center', background: '#1e293b', borderRadius: '12px', border: '1px solid #334155' }}>
           {hwSearch ? 'Nincs a keresésnek megfelelő házi feladat.' : 'Jelenleg nincs kiírva házi feladat.'}
         </div>
       ) : (
@@ -382,10 +462,10 @@ export default function ClubHomeworksView({
                         
                         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                           <button 
-  onClick={() => handleDownloadAllSelected(hwEntriesForAllRaw, hw)}
-  style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#0f172a', border: 'none', padding: '6px 14px', borderRadius: '8px', fontWeight: 'bold', fontSize: '0.85rem', cursor: 'pointer', boxShadow: '0 4px 10px rgba(245,158,11,0.2)', transition: 'all 0.2s' }}
->
-  📦 Összes kiválasztott letöltése ({totalSelectedInHw})
+                            onClick={() => handleDownloadAllSelected(hwEntriesForAllRaw, hw)}
+                            style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#0f172a', border: 'none', padding: '6px 14px', borderRadius: '8px', fontWeight: 'bold', fontSize: '0.85rem', cursor: 'pointer', boxShadow: '0 4px 10px rgba(245,158,11,0.2)', transition: 'all 0.2s' }}
+                          >
+                            📦 Összes kiválasztott letöltése ({totalSelectedInHw})
                           </button>
                           <div style={{ background: '#10b98120', color: '#10b981', border: '1px solid #10b98150', padding: '4px 12px', borderRadius: '100px', fontWeight: 'bold', fontSize: '0.85rem' }}>✅ Összes kiválasztva: {totalSelectedInHw} kép</div>
                         </div>
