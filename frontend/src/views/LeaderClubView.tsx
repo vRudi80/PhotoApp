@@ -6,6 +6,15 @@ interface LeaderClubViewProps {
   BACKEND_URL: string; // Az API kiszolgáló elérése
 }
 
+// 🎯 KÖZPONTI AUTH FEJLÉC GENERÁTOR VÉDETT VÉGPONTOKHOZ
+const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
+  const token = localStorage.getItem('photoAppToken');
+  return {
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    ...extraHeaders
+  };
+};
+
 export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProps) {
   const [clubData, setClubData] = useState<any>(null);
   const [members, setMembers] = useState<any[]>([]);
@@ -13,19 +22,19 @@ export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProp
   const [activeTab, setActiveTab] = useState<'roster' | 'admin' | 'report' | 'settings'>('roster');
   const [loading, setLoading] = useState(true);
 
-  // ✏️ Klub név és Logó állapotok
+  // Klub név és Logó állapotok
   const [clubNameInput, setClubNameInput] = useState('');
   const [isSavingName, setIsSavingName] = useState(false);
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
 
-  // 📅 Dátumszerkesztési állapotok
+  // Dátumszerkesztési állapotok
   const [editingEmail, setEditingEmail] = useState<string | null>(null);
   const [startDateEdit, setStartDateEdit] = useState('');
   const [endDateEdit, setEndDateEdit] = useState('');
 
-  // 💵 Tagdíj könyvelés állapotok
+  // Tagdíj könyvelés állapotok
   const [paymentModalUser, setPaymentModalUser] = useState<any | null>(null);
   const [payYear, setPayYear] = useState(new Date().getFullYear());
   const [payFee, setPayFee] = useState(12000);
@@ -34,17 +43,23 @@ export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProp
 
   const inputStyle = { width: '100%', padding: '12px', marginBottom: '12px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '8px', boxSizing: 'border-box' as const, outline: 'none', fontSize: '0.95rem' };
 
-  // 🔄 Adatletöltő motor
+  // 🔄 Adatletöltő motor hitelesített fejlécekkel
   const loadClubAndAdminRecords = async () => {
     if (!user?.email) return;
     try {
-      const resData = await fetch(`${BACKEND_URL}/api/my-club?userEmail=${user.email}`);
+      // 1. Saját klubadatok lekérése hitelesítve
+      const resData = await fetch(`${BACKEND_URL}/api/my-club?userEmail=${user.email}`, {
+        headers: getAuthHeaders()
+      });
       if (resData.ok) {
         const d = await resData.json();
         setClubData(d.club);
         setClubNameInput(d.club?.name || '');
         
-        const resAdmin = await fetch(`${BACKEND_URL}/api/my-club/admin-records?clubId=${d.club.id}&userEmail=${user.email}`);
+        // 2. Klubtagok és pénzügyi tranzakciók lekérése hitelesítve
+        const resAdmin = await fetch(`${BACKEND_URL}/api/my-club/admin-records?clubId=${d.club.id}&userEmail=${user.email}`, {
+          headers: getAuthHeaders()
+        });
         if (resAdmin.ok) {
           const adminData = await resAdmin.json();
           setMembers(adminData.members || []);
@@ -62,7 +77,7 @@ export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProp
     loadClubAndAdminRecords(); 
   }, [user?.email, BACKEND_URL]);
 
-  // 🎯 Kigyűjti az összes egyedi tárgyévet növekvő sorrendben
+  // Kigyűjti az összes egyedi tárgyévet növekvő sorrendben
   const uniqueFiscalYears = useMemo(() => {
     const years = payments.map(p => p.fiscal_year);
     const currentYear = new Date().getFullYear();
@@ -72,7 +87,7 @@ export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProp
     return Array.from(new Set(years)).sort((a, b) => a - b);
   }, [payments]);
 
-  // 🎯 ÉVES ÖSSZESÍTŐK SZÁMÍTÁSA
+  // ÉVES ÖSSZESÍTŐK SZÁMÍTÁSA
   const yearlyColumnTotals = useMemo(() => {
     const totals: { [year: number]: number } = {};
     uniqueFiscalYears.forEach(year => {
@@ -83,14 +98,14 @@ export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProp
     return totals;
   }, [uniqueFiscalYears, payments]);
 
-  // ✏️ Klub nevének mentése
+  // Klub nevének mentése
   const handleNameSave = async () => {
     if (!clubNameInput.trim()) return alert('A klub neve nem lehet üres!');
     setIsSavingName(true);
     try {
       const res = await fetch(`${BACKEND_URL}/api/my-club/update-name`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ clubId: clubData.id, newClubName: clubNameInput.trim(), userEmail: user.email })
       });
       if (res.ok) {
@@ -104,7 +119,7 @@ export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProp
     finally { setIsSavingName(false); }
   };
 
-  // 📸 Logó kezelése
+  // Logó kezelése
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
@@ -122,7 +137,12 @@ export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProp
     formData.append('userEmail', user.email);
 
     try {
-      const res = await fetch(`${BACKEND_URL}/api/my-club/logo`, { method: 'POST', body: formData });
+      // 🎯 JAVÍTVA: Logó feltöltése FormData alapon, Content-Type manuális megadása nélkül!
+      const res = await fetch(`${BACKEND_URL}/api/my-club/logo`, { 
+        method: 'POST', 
+        headers: getAuthHeaders(),
+        body: formData 
+      });
       if (res.ok) {
         alert('Klub logó sikeresen feltöltve a Google Drive-ra! 📸');
         setLogoFile(null);
@@ -132,12 +152,12 @@ export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProp
     finally { setIsUploadingLogo(false); }
   };
 
-  // 📅 Tagsági dátumok inline mentése
+  // Tagsági dátumok inline mentése
   const handleSaveDates = async (targetEmail: string) => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/my-club/member/update-dates`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           clubId: clubData.id,
           leaderEmail: user.email,
@@ -156,13 +176,13 @@ export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProp
     } catch (e) { alert("Hálózati hiba."); }
   };
 
-  // 💵 Tagdíj befizetés elküldése
+  // Tagdíj befizetés elküldése
   const handleLogPaymentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       const res = await fetch(`${BACKEND_URL}/api/my-club/member/log-payment`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           clubId: clubData.id,
           leaderEmail: user.email,
@@ -189,7 +209,7 @@ export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProp
     <div style={{ padding: '20px', color: 'white', maxWidth: '1200px', margin: '0 auto' }}>
       <h2 style={{ margin: '0 0 20px 0', color: '#f59e0b' }}>🏰 {clubData.name} – Vezetői Adminisztráció</h2>
 
-      {/* 🧭 Navigációs fülek */}
+      {/* Navigációs fülek */}
       <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', borderBottom: '1px solid #334155', paddingBottom: '10px', flexWrap: 'wrap' }}>
         <button onClick={() => setActiveTab('roster')} style={{ padding: '10px 20px', background: activeTab === 'roster' ? '#38bdf8' : 'transparent', color: activeTab === 'roster' ? '#0f172a' : 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>👥 Aktív Tagok</button>
         <button onClick={() => setActiveTab('admin')} style={{ padding: '10px 20px', background: activeTab === 'admin' ? '#f59e0b' : 'transparent', color: activeTab === 'admin' ? '#0f172a' : 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>💼 Tagnyilvántartás & Tagdíjak</button>
@@ -304,13 +324,11 @@ export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProp
         </div>
       )}
 
-      {/* 📊 3. FÜL: PÉNZÜGYI KIMUTATÁS MATRIX (MÁR SCROLLOZHATÓAN!) */}
+      {/* 📊 3. FÜL: PÉNZÜGYI KIMUTATÁS MATRIX */}
       {activeTab === 'report' && (
-        // 🎯 JAVÍTVA: A táblázat konténere megkapta a kényszerített szélességet az overflowX mellé, így mobilra és sok évre is scrollozható
-        <div style={{ overflowX: 'auto', background: '#1e293b', borderRadius: '12px', border: '1px solid #334155', boxShadow: '0 4px 15px rgba(0,0,0,0.3)', width: '100%' }}>
+        <div style={{ overflowX: 'auto', background: '#1e293b', borderRadius: '12px', border: '1px solid #334155', boxShadow: '0 4px 15px rgba(0,0,0,0.2)', width: '100%' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
             <thead>
-              {/* 🎯 JAVÍTVA: whiteSpace: 'nowrap' kényszeríti a fejlécet, hogy ne törje meg a szövegeket */}
               <tr style={{ background: '#0f172a', color: '#94a3b8', fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
                 <th style={{ padding: '15px', minWidth: '240px' }}>Klubtag Neve / Email címe</th>
                 {uniqueFiscalYears.map(year => (
@@ -325,7 +343,6 @@ export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProp
               {members.map(m => {
                 let memberTotalRowSum = 0;
 
-                // 🎯 JAVÍTVA: whiteSpace: 'nowrap' megakadályozza, hogy az adatsorokat a böngésző összenyomja
                 return (
                   <tr key={m.email} style={{ borderBottom: '1px solid #334155', background: m.is_currently_here === 1 ? 'transparent' : 'rgba(239, 68, 68, 0.02)', whiteSpace: 'nowrap' }}>
                     <td style={{ padding: '12px 15px' }}>
