@@ -47,7 +47,6 @@ export default function MafoszProgressView({ user, allUsers = [] }: MafoszProgre
     const fetchProgress = async () => {
       setIsLoading(true); 
       try {
-        // 🎯 JAVÍTVA: Mindkét API lekérés megkapta a hitelesítési Bearer fejlécet!
         const [resStats, resEntries] = await Promise.all([
           fetch(`${BACKEND_URL}/api/mafosz-progress?userEmail=${selectedEmail}`, {
             headers: getAuthHeaders()
@@ -79,7 +78,7 @@ export default function MafoszProgressView({ user, allUsers = [] }: MafoszProgre
       (entry.mafosz_number && entry.mafosz_number.toLowerCase().includes(lowerTerm)) ||
       (entry.award && entry.award.toLowerCase().includes(lowerTerm))
     );
-  }, [entries, searchQuery]); // Szinkronban tartott keresés
+  }, [entries, searchTerm]); // 🎯 JAVÍTVA: searchQuery lecserélve a valós searchTerm állapotra!
 
   if (!user || !user.is_premium) {
     return (
