@@ -40,8 +40,8 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      document.documentElement.style.backgroundColor = '#0f172a';
-      document.body.style.backgroundColor = '#0f172a';
+      document.documentElement.style.backgroundColor = 'var(--bg-main)';
+      document.body.style.backgroundColor = 'var(--bg-main)';
     }
     const stored = localStorage.getItem('dismissed_alerts');
     if (stored) setDismissedAlerts(JSON.parse(stored));
@@ -130,7 +130,7 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
   const tiles = [
     { id: 'weekly_challenge', icon: Flame, color: '#f97316', titleKey: 'tileWeeklyTitle', descKey: 'tileWeeklyDesc', tab: 'weekly_challenge' },
     { id: 'contests', icon: FileText, color: '#38bdf8', titleKey: 'tileContestsTitle', descKey: 'tileContestsDesc', tab: 'contests_open_active' },
-    { id: 'my_album', icon: ImageIcon, color: '#94a3b8', titleKey: 'tilePortfolioTitle', descKey: 'tilePortfolioDesc', tab: 'my_album' },
+    { id: 'my_album', icon: ImageIcon, color: 'var(--text-body)', titleKey: 'tilePortfolioTitle', descKey: 'tilePortfolioDesc', tab: 'my_album' },
     { id: 'map_spots', icon: MapPin, color: '#10b981', titleKey: 'tileMapTitle', descKey: 'tileMapDesc', tab: 'map_spots' },
     { id: 'progress', icon: Trophy, color: '#fbbf24', titleKey: 'tileProgressTitle', descKey: 'tileProgressDesc', tab: 'fiap_progress' },
     { id: 'salons', icon: Globe, color: '#8b5cf6', titleKey: 'tileSalonsTitle', descKey: 'tileSalonsDesc', tab: 'salons' },
@@ -161,11 +161,11 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
   const totalAlertsCount = visibleNews.length + visibleComments.length + (visibleWeekly.length > 0 ? 1 : 0) + visibleHomeworks.length + visibleContests.length;
 
   return (
-    <div className="dashboard-global-bleed-wrapper" style={{ width: '100%', minHeight: '100vh', backgroundColor: '#0f172a', padding: '15px', boxSizing: 'border-box' }}>
+    <div className="dashboard-global-bleed-wrapper" style={{ width: '100%', minHeight: '100vh', backgroundColor: 'var(--bg-main)', padding: '15px', boxSizing: 'border-box' }}>
       <div className="dashboard-outer-container" style={{ animation: 'dashFadeIn 0.4s ease-out', width: '100%', maxWidth: '1140px', margin: '0 auto', boxSizing: 'border-box' }}>
         
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', paddingBottom: '12px', borderBottom: '1px solid #1f2937', flexWrap: 'wrap', gap: '12px' }}>
-          <h1 style={{ margin: 0, fontSize: '1.5rem', color: '#f8fafc', fontWeight: '700', letterSpacing: '-0.5px' }}>
+          <h1 style={{ margin: 0, fontSize: '1.5rem', color: 'var(--text-title)', fontWeight: '700', letterSpacing: '-0.5px' }}>
             {t('dashWelcome', 'Üdvözlünk')}, <span style={{ color: '#38bdf8' }}>{user?.name}</span>!
           </h1>
           {(user?.isPremium || user?.is_premium) && (
@@ -180,12 +180,12 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
               {tiles.map((tile) => (
                 <div key={tile.id} className="dashboard-bento-card" onClick={() => setActiveTab(tile.tab)}
-                  style={{ background: '#131b2e', borderRadius: '8px', padding: '18px', cursor: 'pointer', border: '1px solid #222f47', transition: 'all 0.2s ease-in-out', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  style={{ background: 'var(--bg-card)', borderRadius: '8px', padding: '18px', cursor: 'pointer', border: '1px solid var(--border-main)', transition: 'all 0.2s ease-in-out', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   <div>
                     <div style={{ marginBottom: '10px' }}>
                       <tile.icon size={20} color={tile.color} strokeWidth={2.5} />
                     </div>
-                    <h3 style={{ margin: '0 0 4px 0', fontSize: '1rem', color: '#f8fafc', fontWeight: '600', letterSpacing: '-0.2px' }}>
+                    <h3 style={{ margin: '0 0 4px 0', fontSize: '1rem', color: 'var(--text-title)', fontWeight: '600', letterSpacing: '-0.2px' }}>
                       {t(tile.titleKey as any) || (tile as any).fallbackTitle}
                     </h3>
                     <p style={{ margin: 0, color: '#64748b', fontSize: '0.8rem', lineHeight: '1.4' }}>
@@ -197,7 +197,7 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
 
               {(user?.email === ADMIN_EMAIL || isLeader) && (
                 <div className="dashboard-bento-card admin-bento-card" onClick={() => setActiveTab(ADMIN_EMAIL === user?.email ? 'admin_contests' : 'admin_meetings')}
-                  style={{ background: '#131b2e', borderRadius: '8px', padding: '18px', cursor: 'pointer', border: `1px dashed rgba(239,68,68,0.4)`, transition: 'all 0.2s ease-in-out', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  style={{ background: 'var(--bg-card)', borderRadius: '8px', padding: '18px', cursor: 'pointer', border: `1px dashed rgba(239,68,68,0.4)`, transition: 'all 0.2s ease-in-out', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   <div>
                     <div style={{ marginBottom: '10px' }}>
                       <Settings size={20} color="#ef4444" strokeWidth={2.5} />
@@ -309,9 +309,9 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
       </div>
       <style>{`
         .dashboard-flex-layout { display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px; width: 100%; }
-        .dashboard-alerts-section { background: #131b2e; border: 1px solid #222f47; border-radius: 8px; padding: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); align-self: start; box-sizing: border-box; }
+        .dashboard-alerts-section { background: var(--bg-card); border: 1px solid var(--border-main); border-radius: 8px; padding: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); align-self: start; box-sizing: border-box; }
         .dashboard-bento-card:hover { border-color: #475569; background: #18253f !important; }
-        .stream-alert-row { background: #0f172a; border: 1px solid #1e293b; border-radius: 6px; padding: 10px 14px; cursor: pointer; position: relative; transition: all 0.1s ease-in-out; display: flex; align-items: start; }
+        .stream-alert-row { background: var(--bg-main); border: 1px solid var(--bg-card); border-radius: 6px; padding: 10px 14px; cursor: pointer; position: relative; transition: all 0.1s ease-in-out; display: flex; align-items: start; }
         .stream-alert-row:hover { background: #131e33; border-color: #222f47; }
         .stream-alert-content { flex: 1; min-width: 0; }
         .stream-alert-header-meta { display: flex; align-items: center; gap: 6px; font-size: 0.65rem; font-weight: 800; color: #475569; margin-bottom: 4px; letter-spacing: 0.5px; text-transform: uppercase; }
