@@ -393,7 +393,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     } catch (e) { console.error(e); }
   };
 
-  const fetchCurrentTopic = async (isSilent = false) => {
+const fetchCurrentTopic = async (isSilent = false) => {
     if (!isSilent) {
       setLoading(true);
       setFetchError(null);
@@ -414,7 +414,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         ? `${BACKEND_URL}/api/weekly/current?userEmail=${user.email}&topicId=${selectedTopicId}`
         : `${BACKEND_URL}/api/weekly/current?userEmail=${user.email}`;
 
-      // 🎯 JAVÍTVA: Hitelesített fejléc beillesztve
       const res = await fetch(url, { 
         signal: controller.signal,
         headers: getAuthHeaders()
@@ -434,11 +433,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       if (data.myReferralCode !== undefined) setMyReferralCode(data.myReferralCode);
       if (data.referredBy !== undefined) setReferredBy(data.referredBy);
       if (data.swapBalance !== undefined) setSwapBalance(data.swapBalance);
-
-      if (!data.myReferralCode && myReferralCode === '') {
-        const generatedCode = await ensureReferralCode(user.email);
-        if (generatedCode) setMyReferralCode(generatedCode);
-      }
+      if (data.userPower !== undefined) setUserPower(data.userPower);
       
       if (!selectedTopicId) {
         setActiveTopics(data.activeTopics || []);
@@ -470,7 +465,9 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         }
         setActiveTopics([]);
       }
-    } 
+    } finally { 
+      if (!isSilent) setLoading(false); 
+    }
   };
 
   const fetchAlbumSilently = async () => {
