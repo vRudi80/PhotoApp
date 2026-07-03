@@ -1,11 +1,52 @@
-const fs = require('fs');
+const { OAuth2Client } = require('google-auth-library');
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+// 🎯 JAVÍTVA: A te valódi admin e-mailedet állítottuk be biztonsági tartaléknak is!
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "kovari.rudolf@gmail.com";
+
+// ====================================================================
+// 🔒 GOLYÓÁLLÓ AUTHENTICATION MIDDLEWARE A PROFILE MODULHOZ
+// ====================================================================
+async function requireAuth(req, res, next) {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Hozzáférés megtagadva! Nincs hitelesítési token.' });
+    }
+
+    const token = authHeader.split(' ')[1];
+    
+    // Google OAuth IdToken hitelesítése
+    const ticket = await client.verifyIdToken({
+      idToken: token,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+    
+    const payload = ticket.getPayload();
+    if (!payload || !payload.email) {
+      return res.status(401).json({ error: 'Érvénytelen vagy sérült Google token.' });
+    }
+
+    // Biztonságosan injektáljuk a kérésbe a hitelesített entitást
+    req.user = {
+      email: payload.email,
+      name: payload.name,
+      isAdmin: payload.email === ADMIN_EMAIL
+    };
+
+    next();
+  } catch (error) {
+    console.error("🔒 Biztonsági őr hiba a profile modulban:", error.message);
+    return res.status(401).json({ error: 'Lejárt vagy érvénytelen munkamenet token!' });
+  }
+}
 
 module.exports = function(app, pool) {
-    // ====================================================================
-  // 1. JAVÍTVA: Most már az ÖSSZES mezőt (*) lekérjük a photo_clubs táblából,
-  // így a logó URL és a Drive ID is sértetlenül átmegy a frontendnek!
+  
   // ====================================================================
-  app.get('/api/clubsprofile', async (req, res) => {
+  // 1. Klubok listájának lekérése (VÉDETT)
+  // ====================================================================
+  app.get('/api/clubsprofile', requireAuth, async (req, res) => {
     try {
       const [rows] = await pool.query('SELECT * FROM photo_clubs ORDER BY name ASC');
       res.json(rows);
@@ -15,14 +56,18 @@ module.exports = function(app, pool) {
     }
   });
 
-
   // ====================================================================
-  // 2. Felhasználó klubjának frissítése a "photo_users" táblában
+  // 2. Felhasználó klubjának frissítése (VÉDETT - IDOR Védelemmel)
   // ====================================================================
-  app.put('/api/users/update-club', async (req, res) => {
-    const { email, clubId } = req.body; // clubName helyett clubId érkezik
+  app.put('/api/users/update-club', requireAuth, async (req, res) => {
+    const { email, clubId } = req.body;
     
     if (!email) return res.status(400).json({ error: 'Hiányzó email cím!' });
+
+    // 🔒 BIZTONSÁGI PAJZS: Megakadályozzuk, hogy valaki más felhasználó klubtagságát módosítsa
+    if (req.user.email !== email && !req.user.isAdmin) {
+      return res.status(403).json({ error: 'Hozzáférés megtagadva! Nem módosíthatod más felhasználó klubtagságát.' });
+    }
 
     try {
       if (!clubId) {
@@ -45,14 +90,20 @@ module.exports = function(app, pool) {
       res.status(500).json({ error: 'Hiba a mentés során' });
     }
   });
+
   // ====================================================================
-  // 👤 ÚJ VÉGPONT: Felhasználó nevének módosítása (táblák szinkronizálásával)
+  // 👤 Felhasználó nevének módosítása (VÉDETT - IDOR Védelemmel)
   // ====================================================================
-  app.put('/api/users/update-name', async (req, res) => {
+  app.put('/api/users/update-name', requireAuth, async (req, res) => {
     const { email, newName } = req.body;
 
     if (!email || !newName || !newName.trim()) {
       return res.status(400).json({ error: 'A név megadása kötelező!' });
+    }
+
+    // 🔒 BIZTONSÁGI PAJZS: Megakadályozzuk, hogy valaki más nevét írja át a rendszerben
+    if (req.user.email !== email && !req.user.isAdmin) {
+      return res.status(403).json({ error: 'Hozzáférés megtagadva! Nem módosíthatod más felhasználó nevét.' });
     }
 
     try {
@@ -69,10 +120,18 @@ module.exports = function(app, pool) {
     }
   });
 
-    // 💳 SAJÁT HISTÓRIKUS BEFIZETÉSEK LEKÉRÉSE KLUBNEVEKKEL
-  app.get('/api/profile/my-payments', async (req, res) => {
+  // ====================================================================
+  // 💳 SAJÁT HISTÓRIKUS BEFIZETÉSEK LEKÉRÉSE KLUBNEVEKKEL (VÉDETT - IDOR Védelemmel)
+  // ====================================================================
+  app.get('/api/profile/my-payments', requireAuth, async (req, res) => {
     const { userEmail } = req.query;
     if (!userEmail) return res.status(400).json({ error: 'Hiányzó email!' });
+
+    // 🔒 BIZTONSÁGI PAJZS: Csak a saját pénzügyi adataidat láthatod, vagy ha Admin vagy
+    if (req.user.email !== userEmail && !req.user.isAdmin) {
+      return res.status(403).json({ error: 'Hozzáférés megtagadva! Nincs jogosultságod más felhasználó befizetéseit megtekinteni.' });
+    }
+
     try {
       const [rows] = await pool.query(`
         SELECT p.fiscal_year, p.fee_amount, p.paid_amount, DATE_FORMAT(p.payment_date, '%Y-%m-%d') as payment_date,
@@ -90,11 +149,16 @@ module.exports = function(app, pool) {
   });
     
   // ====================================================================
-  // 3. Klub átnevezése az Admin felületen
+  // 3. Klub átnevezése az Admin felületen (VÉDETT - Szigorú Admin Kontroll)
   // ====================================================================
-  app.put('/api/clubs/:id', async (req, res) => {
+  app.put('/api/clubs/:id', requireAuth, async (req, res) => {
     const { id } = req.params;
     const { name } = req.body;
+
+    // 🔒 BIZTONSÁGI PAJZS: Kizárólag a hitelesített főadminisztrátor jogosult klubot átnevezni
+    if (!req.user.isAdmin) {
+      return res.status(403).json({ error: 'Hozzáférés megtagadva! Csak a rendszeradminisztrátor jogosult klubok szerkesztésére.' });
+    }
 
     if (!name) return res.status(400).json({ error: 'A név megadása kötelező!' });
 
