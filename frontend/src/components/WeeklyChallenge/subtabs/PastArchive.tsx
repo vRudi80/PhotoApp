@@ -317,7 +317,7 @@ export default function PastArchive({
                   </div>
                   <div style={{ borderRight: '1px solid var(--border-main)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
                     <Calendar size={12} color="var(--text-muted)" />
-                    <span style={{ color: 'var(--text-title)', fontWeight: '600' }}>{endedDate.split('.')[1] || endedDate}</span> 
+                    <span style={{ color: 'var(--text-title)', fontWeight: '600' }}>{endedDate || endedDate}</span> 
                     <span>{t('archiveCountEnded', 'Lezárult')}</span>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
