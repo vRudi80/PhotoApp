@@ -8,6 +8,15 @@ interface TicketsViewProps {
   user: any;
 }
 
+// 🎯 KÖZPONTI AUTH FEJLÉC GENERÁTOR HELYI RENDERSZINTRE
+const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
+  const token = localStorage.getItem('photoAppToken');
+  return {
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    ...extraHeaders
+  };
+};
+
 export default function TicketsView({ user }: TicketsViewProps) {
   // 🎯 ÚJ: Aktiváljuk a nyelvi hookokat
   const { t, lang } = useLanguage();
@@ -32,9 +41,18 @@ export default function TicketsView({ user }: TicketsViewProps) {
 
   // Ticketek betöltése
   const loadTickets = () => {
-    fetch(`${BACKEND_URL}/api/tickets?userEmail=${user.email}&isAdmin=${isAdmin}`)
+    const token = localStorage.getItem('photoAppToken');
+    if (!token) return;
+
+    // 🎯 JAVÍTVA: Hitelesített fejléc csatolva
+    fetch(`${BACKEND_URL}/api/tickets?userEmail=${user.email}&isAdmin=${isAdmin}`, {
+      headers: getAuthHeaders()
+    })
       .then(res => res.json())
-      .then(data => setTickets(data || []))
+      .then(data => {
+        // 🛡️ TÖRÉSGÁTLÓ SZŰRŐ: Ha nem tömb jön (hanem hibaobjektum), üres tömböt adunk át, nincs több s.map crash!
+        setTickets(Array.isArray(data) ? data : []);
+      })
       .catch(console.error);
   };
 
@@ -45,10 +63,16 @@ export default function TicketsView({ user }: TicketsViewProps) {
   // Válaszok betöltése egy kiválasztott tickethez
   useEffect(() => {
     if (selectedTicket) {
-      fetch(`${BACKEND_URL}/api/tickets/${selectedTicket.id}/replies?userEmail=${user.email}&isAdmin=${isAdmin}`)
+      const token = localStorage.getItem('photoAppToken');
+      if (!token) return;
+
+      // 🎯 JAVÍTVA: Hitelesített fejléc csatolva
+      fetch(`${BACKEND_URL}/api/tickets/${selectedTicket.id}/replies?userEmail=${user.email}&isAdmin=${isAdmin}`, {
+        headers: getAuthHeaders()
+      })
         .then(res => res.json())
         .then(data => {
-          setReplies(data || []);
+          setReplies(Array.isArray(data) ? data : []);
           setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
         })
         .catch(console.error);
@@ -60,9 +84,10 @@ export default function TicketsView({ user }: TicketsViewProps) {
     if (!subject.trim() || !initialMessage.trim()) return alert(t('msgTicketsFillRequired'));
     
     try {
+      // 🎯 JAVÍTVA: Hitelesített fejléc összeolvasztva a tartalomtípussal
       const res = await fetch(`${BACKEND_URL}/api/tickets`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ userEmail: user.email, userName: user.name, subject, message: initialMessage })
       });
       if (res.ok) {
@@ -80,9 +105,10 @@ export default function TicketsView({ user }: TicketsViewProps) {
     setIsSending(true);
 
     try {
+      // 🎯 JAVÍTVA: Hitelesített fejléc összeolvasztva a tartalomtípussal
       const res = await fetch(`${BACKEND_URL}/api/tickets/${selectedTicket.id}/replies`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ senderEmail: user.email, senderName: user.name, message: replyMessage })
       });
       if (res.ok) {
@@ -91,9 +117,12 @@ export default function TicketsView({ user }: TicketsViewProps) {
         if (isAdmin && selectedTicket.status === 'open') {
           handleUpdateStatus(selectedTicket.id, 'in_progress');
         }
-        // Frissítjük a chatet
-        const freshRepliesRes = await fetch(`${BACKEND_URL}/api/tickets/${selectedTicket.id}/replies`);
-        setReplies(await freshRepliesRes.json());
+        // Frissítjük a chatet hitelesített fejléccel
+        const freshRepliesRes = await fetch(`${BACKEND_URL}/api/tickets/${selectedTicket.id}/replies`, {
+          headers: getAuthHeaders()
+        });
+        const freshData = await freshRepliesRes.json();
+        setReplies(Array.isArray(freshData) ? freshData : []);
         setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
       }
     } catch (e) { console.error(e); } finally { setIsSending(false); }
@@ -102,9 +131,10 @@ export default function TicketsView({ user }: TicketsViewProps) {
   // Státusz frissítése (Admin)
   const handleUpdateStatus = async (ticketId: number, newStatus: string) => {
     try {
+      // 🎯 JAVÍTVA: Hitelesített fejléc összeolvasztva a tartalomtípussal
       const res = await fetch(`${BACKEND_URL}/api/tickets/${ticketId}/status`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ status: newStatus })
       });
       if (res.ok) {
@@ -149,7 +179,6 @@ export default function TicketsView({ user }: TicketsViewProps) {
               <p style={{ color: '#64748b', textAlign: 'center', margin: '20px 0' }}>{t('ticketsEmptyList')}</p>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {/* 🎯 JAVÍTVA: Átnevezve 'ticket'-re, hogy ne ütközzön a 't' fordítómotorral! */}
               {tickets.map(ticket => {
                 const isUnreadForMe = isAdmin ? ticket.admin_unread === 1 : ticket.user_unread === 1;
 
