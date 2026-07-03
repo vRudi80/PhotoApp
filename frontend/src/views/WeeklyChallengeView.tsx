@@ -127,6 +127,15 @@ const compressImageOnClient = (file: File): Promise<File> => {
   });
 };
 
+// 🎯 KÖZPONTI AUTH FEJLÉC GENERÁTOR HELYI RENDERSZINTRE
+const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
+  const token = localStorage.getItem('photoAppToken');
+  return {
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    ...extraHeaders
+  };
+};
+
 // ====================================================================
 // 📊 SELEKCIÓS KÁRTYA KOMPONENS (REAKTÍV SZÍNEKKEL)
 // ====================================================================
@@ -274,7 +283,7 @@ function ChallengeCard({ topic, onSelect, onShare }: { topic: any; onSelect: () 
 }
 
 // ====================================================================
-// ⚔️ FŐ IRÁNYÍTÓKÖZPONT KOMPONENS
+// 👑 FŐ IRÁNYÍTÓKÖZPONT KOMPONENS
 // ====================================================================
 export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyChallengeViewProps) {
   const { t, lang } = useLanguage();
@@ -360,8 +369,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const [isSendingLobbyMsg, setIsSendingLobbyMsg] = useState(false);
   
   const chatScrollContainerRef = useRef<HTMLDivElement>(null);
-  const lastTypingSignalSent = useRef<number>(0);
 
+  const isAdminUser = user?.email === ADMIN_EMAIL;
   const isChatOpenRef = useRef(isChatOpen);
   const lobbyMessagesCountRef = useRef(lobbyMessages.length);
 
@@ -372,7 +381,10 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
 
   const fetchNextVote = async (topicId: number) => {
     try {
-      const res = await fetch(`${BACKEND_URL}/api/weekly/next-vote?topicId=${topicId}&userEmail=${user?.email || ''}`);
+      // 🎯 JAVÍTVA: Hitelesített fejléc beillesztve
+      const res = await fetch(`${BACKEND_URL}/api/weekly/next-vote?topicId=${topicId}&userEmail=${user?.email || ''}`, {
+        headers: getAuthHeaders()
+      });
       if (res.ok) {
         const data = await res.json();
         if (data && data.entry) { setVoteEntry(data.entry); setNoMoreEntries(false); } 
@@ -402,7 +414,11 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         ? `${BACKEND_URL}/api/weekly/current?userEmail=${user.email}&topicId=${selectedTopicId}`
         : `${BACKEND_URL}/api/weekly/current?userEmail=${user.email}`;
 
-      const res = await fetch(url, { signal: controller.signal });
+      // 🎯 JAVÍTVA: Hitelesített fejléc beillesztve
+      const res = await fetch(url, { 
+        signal: controller.signal,
+        headers: getAuthHeaders()
+      });
       clearTimeout(timeoutId);
 
       if (!res.ok) {
@@ -417,8 +433,12 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       if (data.isMaster !== undefined) setIsMaster(data.isMaster);                      
       if (data.myReferralCode !== undefined) setMyReferralCode(data.myReferralCode);
       if (data.referredBy !== undefined) setReferredBy(data.referredBy);
-      if (data.swapBalance !== undefined) setSwapBalance(data.swapBalance); 
-      if (data.userPower !== undefined) setUserPower(data.userPower);
+      if (data.swapBalance !== undefined) setSwapBalance(data.swapBalance);
+
+      if (!data.myReferralCode && myReferralCode === '') {
+        const generatedCode = await ensureReferralCode(user.email);
+        if (generatedCode) setMyReferralCode(generatedCode);
+      }
       
       if (!selectedTopicId) {
         setActiveTopics(data.activeTopics || []);
@@ -450,6 +470,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         }
         setActiveTopics([]);
       }
+    } catch (err) {
+      clearTimeout(timeoutId);
     } finally { 
       if (!isSilent) setLoading(false); 
     }
@@ -459,7 +481,10 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     if (!user?.email) return;
     setIsLoadingSwapAlbum(true);
     try {
-      const res = await fetch(`${BACKEND_URL}/api/weekly/my-album?userEmail=${user.email}`);
+      // 🎯 JAVÍTVA: Hitelesített fejléc beillesztve
+      const res = await fetch(`${BACKEND_URL}/api/weekly/my-album?userEmail=${user.email}`, {
+        headers: getAuthHeaders()
+      });
       if (res.ok) {
         const albumPhotos = await res.json();
         setSwapAlbumPhotos(Array.isArray(albumPhotos) ? albumPhotos : []);
@@ -474,15 +499,23 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     }
   };
 
+  const ensureReferralCode = async (email: string) => {
+    try {
+      // Ez egy belső kliensoldali placeholder elkerülés, a backend valójában szinkronizálja automatikusan
+      return '';
+    } catch (e) { return ''; }
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setTypedLobbyMsg(e.target.value);
 
     const now = Date.now();
     if (now - lastTypingSignalSent.current > 3000) {
       lastTypingSignalSent.current = now;
+      // 🎯 JAVÍTVA: Gépelési állapot küldése hitelesített fejléccel lezárva
       fetch(`${BACKEND_URL}/api/weekly/chat/typing`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           topicId: 0,
           userEmail: user?.email,
@@ -497,9 +530,10 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     if (!typedLobbyMsg.trim() || isSendingLobbyMsg) return;
     setIsSendingLobbyMsg(true);
     try {
+      // 🎯 JAVÍTVA: Élő chat üzenet beküldése hitelesített fejléccel lezárva
       const res = await fetch(`${BACKEND_URL}/api/weekly/chat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           topicId: 0,
           userEmail: user?.email,
@@ -536,8 +570,9 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       fetchCurrentTopic(false);
       fetchAlbumSilently(); 
     }
-    else if (subTab === 'upcoming') fetch(`${BACKEND_URL}/api/weekly/upcoming`).then(res => res.json()).then(data => setUpcomingTopics(data || [])).catch(console.error);
-    else if (subTab === 'past') fetch(`${BACKEND_URL}/api/weekly/past`).then(res => res.json()).then(data => setPastTopics(data || [])).catch(console.error);
+    // 🎯 JAVÍTVA: Alábbi lekérések mind megkapták a getAuthHeaders() védelmet
+    else if (subTab === 'upcoming') fetch(`${BACKEND_URL}/api/weekly/upcoming`, { headers: getAuthHeaders() }).then(res => res.json()).then(data => setUpcomingTopics(data || [])).catch(console.error);
+    else if (subTab === 'past') fetch(`${BACKEND_URL}/api/weekly/past`, { headers: getAuthHeaders() }).then(res => res.json()).then(data => setPastTopics(data || [])).catch(console.error);
     else if (subTab === 'my_stats') fetchMyStats(); 
     else if (subTab === 'hall_of_fame') fetchHallOfFame();
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -554,23 +589,24 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       if (lastId) localStorage.setItem(`arena_chat_last_read_${user.email}`, String(lastId));
       setHasNewMessage(false);
     }
-  }, [isChatOpen, lobbyMessages, user?.email]);
+  }, [isChatOpen, lobbyMessages.length, user?.email]);
 
   useEffect(() => {
-    if (subTab !== 'current' || selectedTopicId !== null) return;
-    let timerId: NodeJS.Timeout;
-    let isMounted = true;
-
-    const fetchLobbyChat = async () => {
-      try {
-        const res = await fetch(`${BACKEND_URL}/api/weekly/chat/0?t=${Date.now()}`, {
-          method: 'GET', headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate', 'Pragma': 'no-cache', 'Expires': '0' }
-        });
-        
-        if (res.ok && isMounted) {
-          const data = await res.json();
+    if (subTab !== 'current') return;
+    
+    // 🎯 JAVÍTVA: Élő csevegés lekérdezése gyorsítótár-mentesen és hitelesített fejléccel ellátva
+    const fetchLobbyChat = () => {
+      fetch(`${BACKEND_URL}/api/weekly/chat/0?t=${Date.now()}`, {
+        method: 'GET',
+        headers: getAuthHeaders({
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        })
+      })
+        .then(res => res.json())
+        .then(data => {
           const newMessages = data.messages || [];
-          
           if (newMessages.length > 0 && user?.email) {
             const lastMsg = newMessages[newMessages.length - 1];
             const lastMsgEmail = lastMsg?.user_email || lastMsg?.userEmail;
@@ -588,16 +624,14 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           setLobbyMessages(newMessages);
           const othersTyping = (data.typing || []).filter((name: string) => name !== myOfficialNameRef.current);
           setCurrentlyTyping(othersTyping);
-        }
-      } catch (err) {
-        console.error("Lobby chat synchronization anomaly:", err);
-      } finally { 
-        if (isMounted && subTab === 'current' && selectedTopicId === null) timerId = setTimeout(fetchLobbyChat, 2500);
-      }
+        })
+        .catch(console.error);
     };
+
     fetchLobbyChat();
-    return () => { isMounted = false; clearTimeout(timerId); };
-  }, [subTab, selectedTopicId, user?.email]);
+    const interval = setInterval(fetchLobbyChat, 2500);
+    return () => clearInterval(interval);
+  }, [subTab, user?.email]);
 
   useEffect(() => {
     if (selectedTopicId === null && subTab === 'current' && isChatOpen) {
@@ -620,7 +654,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const fetchHallOfFame = async () => {
     setIsLoadingHof(true);
     try {
-      const res = await fetch(`${BACKEND_URL}/api/weekly/hall-of-fame`);
+      // 🎯 JAVÍTVA: Dicsőségcsarnok lekérése hitelesített fejléccel
+      const res = await fetch(`${BACKEND_URL}/api/weekly/hall-of-fame`, { headers: getAuthHeaders() });
       if (res.ok) {
         const data = await res.json();
         setHallOfFame(Array.isArray(data) ? data : []);
@@ -630,7 +665,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     } catch (err) {
       console.error("Hiba a dicsőségcsarnok letöltésekor:", err);
       setHallOfFame([]);
-    } finally {
+    } bits: {
       setIsLoadingHof(false);
     }
   };
@@ -638,7 +673,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const fetchMyStats = async () => {
     setIsLoadingStats(true);
     try {
-      const res = await fetch(`${BACKEND_URL}/api/weekly/my-stats?userEmail=${user?.email || ''}`);
+      // 🎯 JAVÍTVA: Statisztikák lekérése hitelesített fejléccel
+      const res = await fetch(`${BACKEND_URL}/api/weekly/my-stats?userEmail=${user?.email || ''}`, { headers: getAuthHeaders() });
       if (res.ok) {
         const data = await res.json();
         if (data && data.history && data.podiums) setMyStats(data);
@@ -651,7 +687,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const loadPastHistoryList = async (topicId: number) => {
     setSelectedPastTopicId(topicId);
     try {
-      const res = await fetch(`${BACKEND_URL}/api/weekly/history/${topicId}?userEmail=${user?.email || ''}`);
+      // 🎯 JAVÍTVA: Archív meccstörténet lekérése hitelesített fejléccel
+      const res = await fetch(`${BACKEND_URL}/api/weekly/history/${topicId}?userEmail=${user?.email || ''}`, { headers: getAuthHeaders() });
       if (res.ok) {
         const data = await res.json();
         setPastLeaderboard(data.leaderboard || []);
@@ -664,15 +701,22 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     if (!window.confirm(t('msgReportConfirm'))) return;
     setVoteEntry(null);
     try {
+      // 🎯 JAVÍTVA: Off-topic jelentés rögzítése hitelesített fejléccel
       const res = await fetch(`${BACKEND_URL}/api/weekly/report-off-topic`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ entryId, userEmail: user?.email || '' })
+        method: 'POST', 
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }), 
+        body: JSON.stringify({ entryId, userEmail: user?.email || '' })
       });
       if (res.ok) {
         alert(t('msgReportSuccess')); setMyVoteCount(prev => prev + 1);
-        if (topic) { fetchNextVote(topic.id);
-        fetchCurrentTopic(true); }
+        if (topic) { 
+          fetchNextVote(topic.id);
+          fetchCurrentTopic(true); 
+        }
       }
-    } catch (e) { alert(t('msgReportError')); if (topic) fetchNextVote(topic.id);
+    } catch (e) { 
+      alert(t('msgReportError')); 
+      if (topic) fetchNextVote(topic.id);
     }
   };
   
@@ -681,12 +725,15 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     const oldEntryId = voteEntry.id;
     setVoteEntry(null); 
     try {
+      // 🎯 JAVÍTVA: Szavazat leadása hitelesített fejléccel lezárva
       const res = await fetch(`${BACKEND_URL}/api/weekly/vote`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST', 
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ entryId: oldEntryId, userEmail: user?.email || '', voteType: type })
       });
       if (res.ok) { setMyVoteCount(prev => prev + 1); fetchNextVote(topic.id); fetchCurrentTopic(true); }
-    } catch (e) { if(topic) fetchNextVote(topic.id);
+    } catch (e) { 
+      if(topic) fetchNextVote(topic.id);
     }
   };
 
@@ -694,16 +741,19 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     if (!referralInput.trim()) return;
     setIsClaimingReferral(true);
     try {
+      // 🎯 JAVÍTVA: Referál kód beküldése hitelesített fejléccel lezárva
       const res = await fetch(`${BACKEND_URL}/api/weekly/claim-referral`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST', 
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ userEmail: user?.email, referralCode: referralInput.trim().toUpperCase() })
       });
       if (res.ok) { alert(t('msgReferralSuccess')); setReferredBy(referralInput); fetchCurrentTopic(true); } 
-      else { const err = await res.json();
-      alert(err.error || t('msgSwapErrorMain')); }
+      else { 
+        const err = await res.json();
+        alert(err.error || t('msgSwapErrorMain')); 
+      }
     } catch (e) { alert(t('msgNetworkError')); }
-    finally { setIsClaimingReferral(false);
-    }
+    finally { setIsClaimingReferral(false); }
   };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -713,16 +763,14 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         const exifData = await exifr.parse(rawFile);
         if (exifData) {
           if (exifData.Model) {
-            const makePrefix = exifData.Make && !exifData.Model.startsWith(exifData.Make) ?
-            `${exifData.Make} ` : '';
+            const makePrefix = exifData.Make && !exifData.Model.startsWith(exifData.Make) ? `${exifData.Make} ` : '';
             setUploadCamera(`${makePrefix}${exifData.Model}`);
           } else if (exifData.Make) setUploadCamera(exifData.Make);
           else setUploadCamera('');
 
           setUploadCameraLens(exifData.LensModel || '');
           if (exifData.ExposureTime) {
-            const shutterFraction = exifData.ExposureTime < 1 ?
-            `1/${Math.round(1 / exifData.ExposureTime)}s` : `${exifData.ExposureTime}s`;
+            const shutterFraction = exifData.ExposureTime < 1 ? `1/${Math.round(1 / exifData.ExposureTime)}s` : `${exifData.ExposureTime}s`;
             setUploadShutter(shutterFraction);
           } else setUploadShutter('');
 
@@ -731,8 +779,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           setUploadSoftware(exifData.Software || '');
         }
       } catch (exifError) {
-        setUploadCamera('');
-        setUploadCameraLens(''); setUploadShutter(''); setUploadIso(''); setUploadAperture(''); setUploadSoftware('');
+        setUploadCamera(''); setUploadCameraLens(''); setUploadShutter(''); setUploadIso(''); setUploadAperture(''); setUploadSoftware('');
       }
       let finalFile = rawFile;
       if (rawFile.size > 2 * 1024 * 1024) finalFile = await compressImageOnClient(rawFile);
@@ -749,15 +796,20 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     formData.append('shutter', uploadShutter); formData.append('iso', uploadIso); formData.append('aperture', uploadAperture); formData.append('software', uploadSoftware);
 
     try {
-      const res = await fetch(`${BACKEND_URL}/api/weekly/upload`, { method: 'POST', body: formData });
+      // 🎯 JAVÍTVA: Nevezési feltöltés hitelesített tokennel (Content-Type-ot a böngésző határozza meg!)
+      const res = await fetch(`${BACKEND_URL}/api/weekly/upload`, { 
+        method: 'POST', 
+        headers: getAuthHeaders(),
+        body: formData 
+      });
       if (res.ok) {
         alert("Sikeres nevezés rögzített EXIF adatokkal!");
         setUploadFile(null); if (uploadPreview) URL.revokeObjectURL(uploadPreview); setUploadPreview(null);
         setUploadCamera(''); setUploadCameraLens(''); setUploadShutter(''); setUploadIso(''); setUploadAperture(''); setUploadSoftware('');
         await fetchCurrentTopic(true); fetchAlbumSilently(); 
       }
-    } catch (e) { console.error(e);
-    } finally { setIsUploading(false); }
+    } catch (e) { console.error(e); } 
+    finally { setIsUploading(false); }
   };
 
   const handleFileSelectForSwap = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -767,24 +819,21 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         const exifData = await exifr.parse(rawFile);
         if (exifData) {
           if (exifData.Model) {
-            const makePrefix = exifData.Make && !exifData.Model.startsWith(exifData.Make) ?
-            `${makePrefix}${exifData.Model}` : '';
+            const makePrefix = exifData.Make && !exifData.Model.startsWith(exifData.Make) ? `${makePrefix}${exifData.Model}` : '';
             setSwapCamera(`${makePrefix}${exifData.Model}`);
           } else if (exifData.Make) setSwapCamera(exifData.Make);
           else setSwapCamera('');
 
           setSwapLens(exifData.LensModel || '');
           if (exifData.ExposureTime) {
-            const shutterFraction = exifData.ExposureTime < 1 ?
-            `1/${Math.round(1 / exifData.ExposureTime)}s` : `${exifData.ExposureTime}s`;
+            const shutterFraction = exifData.ExposureTime < 1 ? `1/${Math.round(1 / exifData.ExposureTime)}s` : `${exifData.ExposureTime}s`;
             setSwapShutter(shutterFraction);
           } else setSwapShutter('');
           setSwapIso(exifData.ISO ? String(exifData.ISO) : ''); setSwapAperture(exifData.FNumber ? `f/${exifData.FNumber}` : '');
           setSwapSoftware(exifData.Software || '');
         }
       } catch (e) {
-        setSwapCamera('');
-        setSwapLens(''); setSwapShutter(''); setSwapIso(''); setSwapAperture(''); setSwapSoftware('');
+        setSwapCamera(''); setSwapLens(''); setSwapShutter(''); setSwapIso(''); setSwapAperture(''); setSwapSoftware('');
       }
       let finalFile = rawFile;
       if (rawFile.size > 2 * 1024 * 1024) finalFile = await compressImageOnClient(rawFile);
@@ -796,18 +845,24 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     if (!swapFile || !topic) return;
     if (!window.confirm(t('msgSwapConfirm'))) return;
     setIsSwapping(true);
+    const formData = new FormData();
+    formData.append('photo', swapFile); formData.append('topicId', topic.id.toString()); formData.append('userEmail', user?.email || '');
+    formData.append('userName', user?.name || '');
+    formData.append('camera', swapCamera); formData.append('lens', swapLens); formData.append('shutter', swapShutter); formData.append('iso', swapIso); formData.append('aperture', swapAperture); formData.append('software', swapSoftware);
+
     try {
-      const formData = new FormData();
-      formData.append('photo', swapFile); formData.append('topicId', topic.id.toString()); formData.append('userEmail', user?.email || '');
-      formData.append('userName', user?.name || '');
-      formData.append('camera', swapCamera); formData.append('lens', swapLens); formData.append('shutter', swapShutter); formData.append('iso', swapIso); formData.append('aperture', swapAperture); formData.append('software', swapSoftware);
-      const res = await fetch(`${BACKEND_URL}/api/weekly/swap`, { method: 'POST', body: formData });
+      // 🎯 JAVÍTVA: Joker csere új képpel hitelesítve (Content-Type-ot békén hagyjuk!)
+      const res = await fetch(`${BACKEND_URL}/api/weekly/swap`, { 
+        method: 'POST', 
+        headers: getAuthHeaders(),
+        body: formData 
+      });
       if (res.ok) { 
         alert(t('msgSwapSuccess')); setSwapFile(null); setSwapPreview(null); 
         setSwapCamera(''); setSwapLens(''); setSwapShutter(''); setSwapIso(''); setSwapAperture(''); setSwapSoftware('');
         fetchCurrentTopic(false); fetchAlbumSilently();
-      } 
-      else { const err = await res.json(); alert(err.error);
+      } else { 
+        const err = await res.json(); alert(err.error);
       }
     } catch (e) { alert(t('msgSwapErrorMain')); }
     finally { setIsSwapping(false); }
@@ -817,30 +872,38 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     if (!window.confirm(t('msgSwapBackConfirm'))) return;
     setIsSwapping(true);
     try {
+      // 🎯 JAVÍTVA: Visszaváltás korábbi képre hitelesített fejléccel lezárva
       const res = await fetch(`${BACKEND_URL}/api/weekly/swap-back`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ topicId: topic.id, userEmail: user?.email, entryId })
+        method: 'POST', 
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }), 
+        body: JSON.stringify({ topicId: topic.id, userEmail: user?.email, entryId })
       });
       if (res.ok) { alert(t('msgSwapBackSuccess')); fetchCurrentTopic(false); fetchAlbumSilently(); } 
-      else { const err = await res.json();
-      alert(err.error || t('msgSwapErrorMain')); }
+      else { 
+        const err = await res.json();
+        alert(err.error || t('msgSwapErrorMain')); 
+      }
     } catch (e) { alert(t('msgNetworkError')); }
-    finally { setIsSwapping(false);
-    }
+    finally { setIsSwapping(false); }
   };
 
   const handleSelectPhotoForSwap = async (photoUrl: string) => {
     if (!window.confirm(t('msgSwapExistingConfirm'))) return;
     setIsSwapping(true); setShowSwapAlbumModal(false);
     try {
+      // 🎯 JAVÍTVA: Joker csere meglévő galériás képpel hitelesített fejléccel
       const swapRes = await fetch(`${BACKEND_URL}/api/weekly/swap-existing`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ topicId: topic.id, userEmail: user.email, userName: user.name, fileUrl: photoUrl })
+        method: 'POST', 
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }), 
+        body: JSON.stringify({ topicId: topic.id, userEmail: user.email, userName: user.name, fileUrl: photoUrl })
       });
       if (swapRes.ok) { alert(t('msgSwapExistingSuccess')); fetchCurrentTopic(false); fetchAlbumSilently(); } 
-      else { const err = await swapRes.json();
-      alert(err.error); }
+      else { 
+        const err = await swapRes.json();
+        alert(err.error); 
+      }
     } catch (e) { alert(t('msgNetworkError')); } 
-    finally { setIsSwapping(false);
-    }
+    finally { setIsSwapping(false); }
   };
 
   const handleExecuteShare = async () => {
@@ -868,27 +931,22 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         link.click();
       }
       setActiveShareData(null);
-     } catch (e) { alert(t('msgGenerateImageError'));
-     } 
+     } catch (e) { alert(t('msgGenerateImageError')); } 
      finally { setIsGeneratingImage(false); }
   };
 
   const currentLevel = getLevelDetails(userTotalLikes, userVictories);
   const BASE_EXPOSURE = 10;
   const exposureEarned = BASE_EXPOSURE + (Number(myVoteCount || 0) * 2);
-  const safeViewsCount = myEntry ?
-  (Number(myEntry.views_count) || 0) : 0;
+  const safeViewsCount = myEntry ? (Number(myEntry.views_count) || 0) : 0;
   const viewsRemaining = myEntry ? (exposureEarned - safeViewsCount) : 0;
-  const rawPercentage = myEntry ?
-  ((viewsRemaining / 15) * 100) : 0;
+  const rawPercentage = myEntry ? ((viewsRemaining / 15) * 100) : 0;
   const exposurePercentage = isNaN(rawPercentage) || !isFinite(rawPercentage) ? 0 : Math.min(100, Math.max(0, rawPercentage));
+  
   let exposureColor = '#ef4444';
-  let exposureLabel = viewsRemaining <= 0 ?
-  (lang === 'en' ? 'Invisible (0%)' : 'Láthatatlan (0%)') : (lang === 'en' ? 'Low' : 'Alacsony');
-  if (exposurePercentage >= 80) { exposureColor = '#10b981'; exposureLabel = lang === 'en' ? 'Maximum' : 'Maximális';
-  } 
-  else if (exposurePercentage >= 40) { exposureColor = '#f59e0b'; exposureLabel = lang === 'en' ?
-  'Medium' : 'Közepes'; }
+  let exposureLabel = viewsRemaining <= 0 ? (lang === 'en' ? 'Invisible (0%)' : 'Láthatatlan (0%)') : (lang === 'en' ? 'Low' : 'Alacsony');
+  if (exposurePercentage >= 80) { exposureColor = '#10b981'; exposureLabel = lang === 'en' ? 'Maximum' : 'Maximális'; } 
+  else if (exposurePercentage >= 40) { exposureColor = '#f59e0b'; exposureLabel = lang === 'en' ? 'Medium' : 'Közepes'; }
 
   const sortedActiveTopics = [...activeTopics].sort((a, b) => {
     const dateStrA = String(sortBy === 'endDate' ? a.end_date : a.start_date).replace(' ', 'T').split('.')[0];
@@ -1049,7 +1107,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   <div style={{ color: '#ef4444', fontSize: '0.85rem', padding: '20px', background: 'rgba(239,68,68,0.02)', borderRadius: '8px', border: '1px solid rgba(239,68,68,0.15)', textAlign: 'center', maxWidth: '450px', margin: '30px auto' }}>
                     <p style={{ margin: '0 0 10px 0', fontWeight: 'bold' }}>⚠️ Hálózati vagy belső hiba történt az Aréna adatok betöltésekor.</p>
                     <button onClick={() => fetchCurrentTopic(false)} style={{ background: 'transparent', color: '#f87171', border: '1px solid rgba(239,68,68,0.3)', padding: '6px 16px', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                      <RefreshCw size={12} /> Újrapróbálkozás
+                      <RefreshCw size={12} /> {t('dashReload', 'Frissítés')}
                     </button>
                   </div>
                 ) : activeTopics.length === 0 ? (
@@ -1085,8 +1143,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                 ) : (
                   <ArenaActiveRoom
                     topic={topic} timeLeft={timeLeft} isMaster={isMaster} exposureColor={exposureColor} exposurePercentage={exposurePercentage} exposureLabel={exposureLabel} myEntry={myEntry} voteEntry={voteEntry} noMoreEntries={noMoreEntries} masterVotesLeft={masterVotesLeft} userPower={userPower} swapBalance={swapBalance} myPastEntries={myPastEntries} leaderboard={leaderboard} currentClubLeaderboard={currentClubLeaderboard} user={user} isUploading={isUploading} uploadPreview={uploadPreview} handleFileSelect={handleFileSelect} handleUpload={handleUpload} 
-                    isLoadingSwapAlbum={isLoadingSwapAlbum} isSwapping={isSwapping} swapPreview={swapPreview} handleSwapFileSelect={handleFileSelectForSwap} handleSwapSubmit={handleSwapSubmit} onOpenAlbumForUpload={() => { setAlbumModalMode('upload'); setShowSwapAlbumModal(true); }} onOpenAlbumForSwap={() => { setAlbumModalMode('swap'); setShowSwapAlbumModal(true);
-                    }} handleVote={handleVote} handleOffTopicReport={handleOffTopicReport} handleSwapBackSubmit={handleSwapBackSubmit} setFullscreenData={setFullscreenData} handleImageError={handleImageError} fetchCurrentTopic={fetchCurrentTopic}
+                    isLoadingSwapAlbum={isLoadingSwapAlbum} isSwapping={isSwapping} swapPreview={swapPreview} handleSwapFileSelect={handleFileSelectForSwap} handleSwapSubmit={handleSwapSubmit} onOpenAlbumForUpload={() => { setAlbumModalMode('upload'); setShowSwapAlbumModal(true); }} onOpenAlbumForSwap={() => { setAlbumModalMode('swap'); setShowSwapAlbumModal(true); }} handleVote={handleVote} handleOffTopicReport={handleOffTopicReport} handleSwapBackSubmit={handleSwapBackSubmit} setFullscreenData={setFullscreenData} handleImageError={handleImageError} fetchCurrentTopic={fetchCurrentTopic}
                   />
                 )}
               </div>
@@ -1129,7 +1186,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                     )}
                   </div>
                   <div style={{ height: '12px', fontSize: '0.7rem', color: '#38bdf8', fontStyle: 'italic', marginBottom: '4px', paddingLeft: '2px' }}>
-                    {currentlyTyping.length > 0 && <span>{currentlyTyping.join(', ')}{t('viewLobbyTyping')}...</span>}
+                    {currentlyTyping.length > 0 && <span>{currentlyTyping.join(', ')} {t('viewLobbyTyping')}...</span>}
                   </div>
                   <form onSubmit={handleSendLobbyMessage} style={{ display: 'flex', gap: '6px' }}>
                     <input type="text" placeholder={t('viewLobbyPlaceholder')} value={typedLobbyMsg} onChange={handleInputChange} maxLength={500} disabled={isSendingLobbyMsg} style={{ flex: 1, padding: '8px 10px', background: 'var(--bg-main)', border: '1px solid var(--border-main)', color: 'var(--text-title)', borderRadius: '4px', fontSize: '0.82rem', outline: 'none' }} />
@@ -1183,8 +1240,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
 
       <AlbumSelectionModal 
         isOpen={showSwapAlbumModal} 
-        onClose={(wasActionSubmitted) => { setShowSwapAlbumModal(false);
-        if (wasActionSubmitted === true) fetchCurrentTopic(false); }} 
+        onClose={(wasActionSubmitted) => { setShowSwapAlbumModal(false); if (wasActionSubmitted === true) fetchCurrentTopic(false); }} 
         albumModalMode={albumModalMode} 
         swapAlbumPhotos={swapAlbumPhotos} 
         myPastEntries={myPastEntries} 
@@ -1200,7 +1256,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       />
 
       <ShareCardModal activeShareData={activeShareData} onClose={() => setActiveShareData(null)} user={user} shareBase64={shareBase64} loadingShareImg={loadingShareImg} isGeneratingImage={isGeneratingImage} handleExecuteShare={handleExecuteShare} />
-     {topicToShare && (
+      {topicToShare && (
         <ChallengeShareModal 
           topic={topicToShare} 
           onClose={() => setTopicToShare(null)} 
@@ -1277,6 +1333,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           z-index: 1000; 
           transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         }
+        .arena-floating-chat-dock.is-open { transform: translateY(0); }
         .arena-floating-chat-dock.is-closed { transform: translateY(calc(100% - 44px)); }
         .arena-floating-chat-dock.has-unread .chat-dock-header { border-color: #f43f5e; }
         
