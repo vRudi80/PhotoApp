@@ -1112,7 +1112,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                     {lobbyMessages.length === 0 ? (
                       <div style={{ color: 'var(--text-muted)', textAlign: 'center', margin: 'auto', fontStyle: 'italic', fontSize: '0.8rem' }}>{t('viewLobbyEmpty')}</div>
                     ) : (
-                      <lobbyMessages.slice(-100).map((msg, idx) => {
+                      lobbyMessages.slice(-100).map((msg, idx) => {
                         const isMsgMe = (msg.user_email || msg.userEmail) === user?.email;
                         return (
                           <div key={msg.id || idx} style={{ display: 'flex', flexDirection: 'column', alignItems: isMsgMe ? 'flex-end' : 'flex-start', maxWidth: '92%', alignSelf: isMsgMe ? 'flex-end' : 'flex-start', marginBottom: '8px' }}>
