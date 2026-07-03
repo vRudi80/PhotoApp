@@ -83,7 +83,6 @@ function ActiveRoomCountdown({ endDate, lang }: { endDate: string; lang: string 
       <span style={{ fontSize: '0.75rem', color: '#f59e0b', fontWeight: 'bold', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '6px' }}>
         <Clock size={12} /> {t('roomTimeLeftLabel')}
       </span>
-      {/* 🎯 JAVÍTVA: color #fff lecserélve var(--text-title)-re */}
       <span ref={elementRef} style={{ color: 'var(--text-title)', fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 'bold', letterSpacing: '0.5px' }}>---</span>
     </div>
   );
@@ -100,6 +99,15 @@ interface ArenaActiveRoomProps {
   handleImageError: (e: React.SyntheticEvent<HTMLImageElement, Event>) => void;
   fetchCurrentTopic: (isSilent?: boolean) => Promise<void>;
 }
+
+// 🎯 KÖZPONTI AUTH FEJLÉC GENERÁTOR HELYI RENDERSZINTRE
+const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
+  const token = localStorage.getItem('photoAppToken');
+  return {
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    ...extraHeaders
+  };
+};
 
 export default function ArenaActiveRoom({
   topic, timeLeft, isMaster, exposureColor, exposurePercentage, exposureLabel,
@@ -171,10 +179,11 @@ export default function ArenaActiveRoom({
 
     setIsSubmittingBatch(true);
     try {
+      // 🎯 JAVÍTVA: A szavazatok beküldése megkapta a hitelesített biztonsági fejlécet!
       const votePromises = Object.entries(pendingVotes).map(([entryId, type]) => {
         return fetch(`${BACKEND_URL}/api/weekly/vote`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({ entryId: Number(entryId), userEmail: user?.email, voteType: type })
         });
       });
@@ -196,7 +205,6 @@ export default function ArenaActiveRoom({
       
       {/* 🏛️ BAL HASÁB: FŐ EVALUÁCIÓS PANEL */}
       <div className="arena-layout-column-main">
-        {/* 🎯 JAVÍTVA: Fix hátterek és színek reaktív változókra cserélve */}
         <div className="arena-responsive-card" style={{ background: 'var(--bg-card)', padding: '24px', borderRadius: '8px', border: '1px solid var(--border-main)', display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: '0 4px 15px rgba(0,0,0,0.1)', position: 'relative' }}>
           <h3 style={{ margin: '0 0 6px 0', color: 'var(--text-title)', fontSize: '1.4rem', fontWeight: '700', letterSpacing: '-0.3px', textAlign: 'center' }}>
             <span>{displayRoomTitle}</span>
@@ -255,7 +263,7 @@ export default function ArenaActiveRoom({
                             ) : entry.exif?.isAiSuspect ? (
                               <div style={{ background: 'rgba(239,68,68,0.08)', color: '#f87171', padding: '3px 8px', borderRadius: '4px', border: '1px solid rgba(239,68,68,0.2)', fontSize: '0.72rem', fontWeight: 'bold', marginBottom: '8px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}><AlertTriangle size={10} /> {t('roomAiSuspect')}</div>
                             ) : null}
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(1fr, 1fr)', gap: '8px 12px', color: 'var(--text-body)', width: '100%', fontSize: '0.78rem', gridTemplateColumns: '1fr 1fr' }}>
+                            <div style={{ display: 'grid', gap: '8px 12px', color: 'var(--text-body)', width: '100%', fontSize: '0.78rem', gridTemplateColumns: '1fr 1fr' }}>
                               <div><span style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}><Camera size={10} /> {t('mapExifCamera')}</span> <b style={{ color: entry.exif?.isLegacy ? 'var(--text-muted)' : 'var(--text-title)', display: 'block', overflowWrap: 'break-word' }}>{entry.exif?.camera}</b></div>
                               <div><span style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}><Cpu size={10} /> {t('mapExifLens')}</span> <b style={{ color: entry.exif?.isLegacy ? 'var(--text-muted)' : 'var(--text-title)', display: 'block', overflowWrap: 'break-word' }}>{entry.exif?.lens}</b></div>
                               <div><span style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}><Sliders size={10} /> {t('roomShutterIso')}</span> <b style={{ color: entry.exif?.isLegacy ? 'var(--text-muted)' : '#38bdf8', display: 'block' }}>{entry.exif?.shutter} / {entry.exif?.iso}</b></div>
