@@ -1,20 +1,93 @@
+const { OAuth2Client } = require('google-auth-library');
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+// 🎯 JAVÍTVA: A te valódi admin e-mailedet állítottuk be biztonsági tartaléknak!
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "kovari.rudolf@gmail.com";
+
+// ====================================================================
+// 🔒 GOLYÓÁLLÓ AUTHENTICATION MIDDLEWARE A SALONS MODULHOZ
+// ====================================================================
+async function requireAuth(req, res, next) {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Hozzáférés megtagadva! Nincs hitelesítési token.' });
+    }
+
+    const token = authHeader.split(' ')[1];
+    
+    // Google OAuth IdToken hitelesítése
+    const ticket = await client.verifyIdToken({
+      idToken: token,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+    
+    const payload = ticket.getPayload();
+    if (!payload || !payload.email) {
+      return res.status(401).json({ error: 'Érvénytelen vagy sérült Google token.' });
+    }
+
+    // Biztonságosan injektáljuk a kérésbe a hitelesített entitást
+    req.user = {
+      email: payload.email,
+      name: payload.name,
+      isAdmin: payload.email === ADMIN_EMAIL
+    };
+
+    next();
+  } catch (error) {
+    console.error("🔒 Biztonsági őr hiba a salons modulban:", error.message);
+    return res.status(401).json({ error: 'Lejárt vagy érvénytelen munkamenet token!' });
+  }
+}
+
 module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload, cleanupTempFile) {
 
-  // ALAPADATOK
-  app.get('/api/countries', async (req, res) => { try { const [rows] = await pool.query('SELECT id, country, country_hun, country_code FROM photo_countries WHERE is_active = 1 ORDER BY country_hun ASC'); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba' }); } });
-  app.get('/api/categories', async (req, res) => { try { const [rows] = await pool.query('SELECT * FROM photo_categories ORDER BY hun_name ASC'); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba' }); } });
-  app.post('/api/categories', async (req, res) => { try { await pool.query('INSERT INTO photo_categories (name, hun_name) VALUES (?, ?)', [req.body.name, req.body.hunName]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: 'Hiba' }); } });
-  app.put('/api/categories/:id', async (req, res) => { try { await pool.query('UPDATE photo_categories SET name = ?, hun_name = ? WHERE id = ?', [req.body.name, req.body.hunName, req.params.id]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: 'Hiba' }); } });
-  app.delete('/api/categories/:id', async (req, res) => { try { await pool.query('DELETE FROM photo_categories WHERE id = ?', [req.params.id]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: 'Hiba' }); } });
-  app.get('/api/patrons', async (req, res) => { try { const [rows] = await pool.query('SELECT * FROM photo_patrons ORDER BY name ASC'); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba' }); } });
+  // ====================================================================
+  // 🏛️ ALAPADATOK LEKÉRÉSE ÉS KEZELÉSE (Módosítások szigorúan csak Adminnak!)
+  // ====================================================================
+  app.get('/api/countries', requireAuth, async (req, res) => { try { const [rows] = await pool.query('SELECT id, country, country_hun, country_code FROM photo_countries WHERE is_active = 1 ORDER BY country_hun ASC'); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba' }); } });
+  
+  app.get('/api/categories', requireAuth, async (req, res) => { try { const [rows] = await pool.query('SELECT * FROM photo_categories ORDER BY hun_name ASC'); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba' }); } });
+  
+  app.post('/api/categories', requireAuth, async (req, res) => { 
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Megtagadva! Csak adminisztrátor hozhat létre kategóriát.' });
+    try { await pool.query('INSERT INTO photo_categories (name, hun_name) VALUES (?, ?)', [req.body.name, req.body.hunName]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: 'Hiba' }); } 
+  });
+  
+  app.put('/api/categories/:id', requireAuth, async (req, res) => { 
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Megtagadva! Csak adminisztrátor módosíthat kategóriát.' });
+    try { await pool.query('UPDATE photo_categories SET name = ?, hun_name = ? WHERE id = ?', [req.body.name, req.body.hunName, req.params.id]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: 'Hiba' }); } 
+  });
+  
+  app.delete('/api/categories/:id', requireAuth, async (req, res) => { 
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Megtagadva! Csak adminisztrátor törölhet kategóriát.' });
+    try { await pool.query('DELETE FROM photo_categories WHERE id = ?', [req.params.id]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: 'Hiba' }); } 
+  });
+  
+  app.get('/api/patrons', requireAuth, async (req, res) => { try { const [rows] = await pool.query('SELECT * FROM photo_patrons ORDER BY name ASC'); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba' }); } });
 
-  app.get('/api/awards', async (req, res) => { try { const [rows] = await pool.query('SELECT * FROM photo_awards ORDER BY id ASC'); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba' }); } });
-  app.post('/api/awards', async (req, res) => { try { const [[{ nextId }]] = await pool.query('SELECT COALESCE(MAX(id), 0) + 1 as nextId FROM photo_awards'); await pool.query('INSERT INTO photo_awards (id, award_name) VALUES (?, ?)', [nextId, req.body.awardName]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: 'Hiba' }); } });
-  app.put('/api/awards/:id', async (req, res) => { try { await pool.query('UPDATE photo_awards SET award_name = ? WHERE id = ?', [req.body.awardName, req.params.id]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: 'Hiba' }); } });
-  app.delete('/api/awards/:id', async (req, res) => { try { await pool.query('DELETE FROM photo_awards WHERE id = ?', [req.params.id]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: 'Hiba' }); } });
+  app.get('/api/awards', requireAuth, async (req, res) => { try { const [rows] = await pool.query('SELECT * FROM photo_awards ORDER BY id ASC'); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba' }); } });
+  
+  app.post('/api/awards', requireAuth, async (req, res) => { 
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Megtagadva! Csak adminisztrátor rögzíthet új díjat.' });
+    try { const [[{ nextId }]] = await pool.query('SELECT COALESCE(MAX(id), 0) + 1 as nextId FROM photo_awards'); await pool.query('INSERT INTO photo_awards (id, award_name) VALUES (?, ?)', [nextId, req.body.awardName]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: 'Hiba' }); } 
+  });
+  
+  app.put('/api/awards/:id', requireAuth, async (req, res) => { 
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Megtagadva! Csak adminisztrátor módosíthatja a díjakat.' });
+    try { await pool.query('UPDATE photo_awards SET award_name = ? WHERE id = ?', [req.body.awardName, req.params.id]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: 'Hiba' }); } 
+  });
+  
+  app.delete('/api/awards/:id', requireAuth, async (req, res) => { 
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Megtagadva! Csak adminisztrátor törölhet ki díjat.' });
+    try { await pool.query('DELETE FROM photo_awards WHERE id = ?', [req.params.id]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: 'Hiba' }); } 
+  });
 
-  // SZALONOK
-  app.get('/api/salons', async (req, res) => {
+  // ====================================================================
+  // 🌍 NEMZETKÖZI SZALONOK KEZELÉSE
+  // ====================================================================
+  app.get('/api/salons', requireAuth, async (req, res) => {
     try {
       const [salons] = await pool.query(`SELECT s.*, c.country_hun, c.country_code FROM photo_salons s LEFT JOIN photo_countries c ON s.host_country_id = c.id ORDER BY s.end_date DESC`);
       const [patrons] = await pool.query(`SELECT sp.salon_id, p.name, sp.patron_number FROM photo_salon_patrons sp JOIN photo_patrons p ON sp.patron_id = p.id`);
@@ -27,7 +100,8 @@ module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload,
     } catch(err) { res.status(500).json({error: err.message}); }
   });
 
-  app.post('/api/salons', async (req, res) => {
+  app.post('/api/salons', requireAuth, async (req, res) => {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Hozzáférés megtagadva! Csak admin rögzíthet szalont.' });
     const { name, feeAmount, feeCurrency, startDate, endDate, website, resultsDate, isCircuit, awardsCount, cashPrize, circuitNumber, submissionType, hostCountryId, patronsData, categoryIds } = req.body;
     const conn = await pool.getConnection();
     try {
@@ -53,7 +127,8 @@ module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload,
     } catch (e) { await conn.rollback(); res.status(500).json({ error: e.message }); } finally { conn.release(); }
   });
 
-  app.put('/api/salons/:id', async (req, res) => {
+  app.put('/api/salons/:id', requireAuth, async (req, res) => {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Hozzáférés megtagadva!' });
     const { name, feeAmount, feeCurrency, startDate, endDate, website, resultsDate, isCircuit, awardsCount, cashPrize, circuitNumber, submissionType, hostCountryId, patronsData, categoryIds } = req.body;
     const conn = await pool.getConnection();
     try {
@@ -80,43 +155,59 @@ module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload,
     } catch (e) { await conn.rollback(); res.status(500).json({ error: e.message }); } finally { conn.release(); }
   });
 
-  app.delete('/api/salons/:id', async (req, res) => {
+  app.delete('/api/salons/:id', requireAuth, async (req, res) => {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Megtagadva!' });
     try { await pool.query('DELETE FROM photo_salons WHERE id = ?', [req.params.id]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
- // SZALON NEVEZÉSEK
-  app.get('/api/salon-entries/:salonId', async (req, res) => {
+  // ====================================================================
+  // 🎯 SZALON NEVEZÉSEK ÉS PRIVÁT EREDMÉNYEK VÉDELME
+  // ====================================================================
+  app.get('/api/salon-entries/:salonId', requireAuth, async (req, res) => {
+    const targetEmail = req.query.userEmail;
+    if (!targetEmail) return res.status(400).json({ error: 'Hiányzó email!' });
+
+    // 🔒 BIZTONSÁGI PAJZS: Megszünteti az IDOR-t, senki nem leshet bele más nevezési listájába
+    if (req.user.email !== targetEmail && !req.user.isAdmin) {
+      return res.status(403).json({ error: 'Hozzáférés megtagadva! Nem kérheted le más fotós szaloneredményeit.' });
+    }
+
     try { 
-      // 🎯 ÚJ: Lekérjük a custom_award mezőt is az adatbázisból
-      const [rows] = await pool.query(`SELECT e.id as entry_id, e.category, e.award_id, e.achieved_score, e.acceptance_score, e.custom_award, p.*, a.award_name FROM photo_salon_entries e JOIN photo_portfolio p ON e.portfolio_id = p.id LEFT JOIN photo_awards a ON e.award_id = a.id WHERE e.salon_id = ? AND e.user_email = ?`, [req.params.salonId, req.query.userEmail]); 
+      const [rows] = await pool.query(`SELECT e.id as entry_id, e.category, e.award_id, e.achieved_score, e.acceptance_score, e.custom_award, p.*, a.award_name FROM photo_salon_entries e JOIN photo_portfolio p ON e.portfolio_id = p.id LEFT JOIN photo_awards a ON e.award_id = a.id WHERE e.salon_id = ? AND e.user_email = ?`, [req.params.salonId, targetEmail]); 
       res.json(rows); 
     } catch (err) { res.status(500).json({ error: 'Hiba a nevezések lekérésekor' }); }
   });
 
-  
-  app.post('/api/salon-entries', async (req, res) => {
+  app.post('/api/salon-entries', requireAuth, async (req, res) => {
     const { salonId, userEmail, portfolioId, category } = req.body;
+    
+    // 🔒 BIZTONSÁGI PAJZS: Megakadályozzuk a fiókhullám-eltérítést
+    if (req.user.email !== userEmail) {
+      return res.status(403).json({ error: 'Hozzáférés megtagadva! Nem nevezhetsz más fiókjának nevében.' });
+    }
+
     try {
-      const [existing] = await pool.query('SELECT * FROM photo_salon_entries WHERE salon_id = ? AND portfolio_id = ? AND user_email = ?', [salonId, portfolioId, userEmail]);
+      const [existing] = await pool.query('SELECT * FROM photo_salon_entries WHERE salon_id = ? AND portfolio_id = ? AND user_email = ?', [salonId, portfolioId, req.user.email]);
       if (existing.length > 0) return res.status(400).json({ error: 'Ezt a képet már nevezted erre a szalonra!' });
-      await pool.query('INSERT INTO photo_salon_entries (salon_id, user_email, portfolio_id, category) VALUES (?, ?, ?, ?)', [salonId, userEmail, portfolioId, category]);
+      await pool.query('INSERT INTO photo_salon_entries (salon_id, user_email, portfolio_id, category) VALUES (?, ?, ?, ?)', [salonId, req.user.email, portfolioId, category]);
       res.json({ success: true });
     } catch (err) { res.status(500).json({ error: 'Hiba a nevezésnél' }); }
   });
 
-  // 🎯 BIZTONSÁGOSAN FIXÁLVA: req.body helyett mostantól req.query-ből olvassa ki az emailt a törléshez!
-  app.delete('/api/salon-entries/:id', async (req, res) => {
+  app.delete('/api/salon-entries/:id', requireAuth, async (req, res) => {
     const userEmail = req.query.userEmail;
 
     if (!userEmail || userEmail === 'undefined' || userEmail.trim() === '') {
-      return res.status(400).json({ error: 'Hiányzó felhasználói e-mail a kérés URL-jéből!' });
+      return res.status(400).json({ error: 'Hiányzó felhasználói e-mail!' });
+    }
+
+    // 🔒 BIZTONSÁGI PAJZS: Csak a saját nevezésedet vonhatod vissza
+    if (req.user.email !== userEmail && !req.user.isAdmin) {
+      return res.status(403).json({ error: 'Hozzáférés megtagadva! Nincs jogod más nevezését törölni.' });
     }
 
     try { 
-      await pool.query(
-        'DELETE FROM photo_salon_entries WHERE id = ? AND user_email = ?', 
-        [req.params.id, userEmail]
-      ); 
+      await pool.query('DELETE FROM photo_salon_entries WHERE id = ? AND user_email = ?', [req.params.id, userEmail]); 
       res.json({ success: true }); 
     } catch (err) { 
       console.error("❌ Hiba a nevezés törlésekor:", err.message);
@@ -124,39 +215,43 @@ module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload,
     }
   });
 
-  app.get('/api/my-salon-entries-status', async (req, res) => {
+  app.get('/api/my-salon-entries-status', requireAuth, async (req, res) => {
     const userEmail = req.query.userEmail;
-    
-    if (!userEmail || userEmail === 'undefined') {
-      return res.json([]);
+    if (!userEmail || userEmail === 'undefined') return res.json([]);
+
+    if (req.user.email !== userEmail && !req.user.isAdmin) {
+      return res.status(403).json({ error: 'Hozzáférés megtagadva!' });
     }
 
     try { 
-      const [rows] = await pool.query(
-        'SELECT DISTINCT salon_id FROM photo_salon_entries WHERE LOWER(TRIM(user_email)) = LOWER(TRIM(?))', 
-        [userEmail]
-      ); 
-      
-      const salonIds = rows.map(r => Number(r.salon_id));
-      res.json(salonIds); 
+      const [rows] = await pool.query('SELECT DISTINCT salon_id FROM photo_salon_entries WHERE LOWER(TRIM(user_email)) = LOWER(TRIM(?))', [userEmail]); 
+      res.json(rows.map(r => Number(r.salon_id))); 
     } catch (err) { 
-      console.error("❌ Hiba a saját nevezési státuszok lekérésekor:", err.message);
       res.status(500).json({ error: 'Hiba a nevezések státuszának ellenőrzésekor.' }); 
     }
   });
 
-  app.put('/api/salon-entries/:id/results', async (req, res) => {
+  app.put('/api/salon-entries/:id/results', requireAuth, async (req, res) => {
     const { awardId, achievedScore, acceptanceScore, customAward, userEmail } = req.body;
+    
+    // 🔒 BIZTONSÁGI PAJZS: Senki nem írhat be hamis kiállítási díjakat más nevében
+    if (req.user.email !== userEmail && !req.user.isAdmin) {
+      return res.status(403).json({ error: 'Nincs jogosultságod más eredményeit frissíteni.' });
+    }
+
     try { 
-      // 🎯 ÚJ: Elmentjük és frissítjük a custom_award szöveges mezőt is
       await pool.query('UPDATE photo_salon_entries SET award_id = ?, achieved_score = ?, acceptance_score = ?, custom_award = ? WHERE id = ? AND user_email = ?', [awardId || null, achievedScore || null, acceptanceScore || null, customAward || null, req.params.id, userEmail]); 
       res.json({ success: true }); 
     } catch (err) { res.status(500).json({ error: 'Hiba az eredmények mentésekor' }); }
   });
 
-  // STATISZTIKÁK ÉS EXPORT
-  app.get('/api/mafosz-progress', checkPremium, async (req, res) => {
+  // ====================================================================
+  // 🏛️ STATISZTIKÁK ÉS PRIVÁT EXPORT VÉDELME
+  // ====================================================================
+  app.get('/api/mafosz-progress', requireAuth, checkPremium, async (req, res) => {
     const userEmail = req.query.userEmail;
+    if (req.user.email !== userEmail && !req.user.isAdmin) return res.status(403).json({ error: 'Tiltott lekérés!' });
+
     try {
       const baseQuery = `FROM photo_salon_entries e JOIN photo_salons s ON e.salon_id = s.id JOIN photo_awards a ON e.award_id = a.id JOIN photo_salon_patrons sp ON sp.salon_id = s.id WHERE sp.patron_id = 3 AND e.user_email = ? AND e.award_id IS NOT NULL AND e.award_id > 0 AND a.award_name IS NOT NULL AND TRIM(a.award_name) != ''`;
       const [accRows] = await pool.query(`SELECT SUM(CASE WHEN LOWER(a.award_name) != 'acceptance' THEN 2 ELSE 1 END) as total_acceptances ${baseQuery}`, [userEmail]);
@@ -166,16 +261,20 @@ module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload,
     } catch (err) { res.status(500).json({ error: err.message }); }
   });
   
-  app.get('/api/mafosz-entries', checkPremium, async (req, res) => {
+  app.get('/api/mafosz-entries', requireAuth, checkPremium, async (req, res) => {
     const userEmail = req.query.userEmail;
+    if (req.user.email !== userEmail && !req.user.isAdmin) return res.status(403).json({ error: 'Tiltott lekérés!' });
+
     try {
       const [rows] = await pool.query(`SELECT COALESCE(port.title, 'Ismeretlen / Törölt kép') as photo_title, s.name as salon_name, sp.patron_number as mafosz_number, a.award_name as award, s.submission_type, port.drive_file_id, port.file_url FROM photo_salon_entries e JOIN photo_salons s ON e.salon_id = s.id JOIN photo_awards a ON e.award_id = a.id JOIN photo_salon_patrons sp ON sp.salon_id = s.id WHERE sp.patron_id = 3 AND e.user_email = ? AND e.award_id IS NOT NULL AND e.award_id > 0 AND a.award_name IS NOT NULL AND TRIM(a.award_name) != '' ORDER BY s.name ASC, photo_title ASC`, [userEmail]);
       res.json(rows);
     } catch (err) { res.status(500).json({ error: err.message }); }
   });
 
-  app.get('/api/fiap-progress', checkPremium, async (req, res) => {
+  app.get('/api/fiap-progress', requireAuth, checkPremium, async (req, res) => {
     const userEmail = req.query.userEmail;
+    if (req.user.email !== userEmail && !req.user.isAdmin) return res.status(403).json({ error: 'Tiltott lekérés!' });
+
     try {
       const baseWhere = `WHERE e.user_email = ? AND e.award_id IS NOT NULL AND e.award_id > 0 AND a.award_name IS NOT NULL AND TRIM(a.award_name) != '' AND EXISTS (SELECT 1 FROM photo_salon_patrons sp WHERE sp.salon_id = s.id AND sp.patron_id = 1)`;
       const [accRows] = await pool.query(`SELECT COALESCE(SUM(GREATEST(pre_2026_count, LEAST(pre_2026_count + post_2026_count, 10))), 0) as total_acceptances FROM (SELECT e.portfolio_id, SUM(CASE WHEN YEAR(s.end_date) < 2026 THEN 1 ELSE 0 END) as pre_2026_count, SUM(CASE WHEN YEAR(s.end_date) >= 2026 THEN 1 ELSE 0 END) as post_2026_count FROM photo_salon_entries e JOIN photo_salons s ON e.salon_id = s.id JOIN photo_awards a ON e.award_id = a.id ${baseWhere} GROUP BY e.portfolio_id) as sub`, [userEmail]);
@@ -185,19 +284,20 @@ module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload,
     } catch (err) { res.status(500).json({ error: 'Hiba a FIAP statisztika lekérésekor' }); }
   });
 
- // 🎯 MÓDOSÍTVA: A felületi rács lekérdezése is megkapta a COALESCE egyedi díj ágat a szinkronitásért
-  app.get('/api/fiap-entries', checkPremium, async (req, res) => {
+  app.get('/api/fiap-entries', requireAuth, checkPremium, async (req, res) => {
     const userEmail = req.query.userEmail;
+    if (req.user.email !== userEmail && !req.user.isAdmin) return res.status(403).json({ error: 'Tiltott lekérés!' });
+
     try {
       const [rows] = await pool.query(`SELECT COALESCE(p.title, 'Ismeretlen / Törölt kép') as photo_title, s.name as salon_name, c.country_hun as country, c.country_code as country_code, sp.patron_number as fiap_number, COALESCE(NULLIF(e.custom_award, ''), a.award_name) as award, s.submission_type, p.drive_file_id, p.file_url FROM photo_salon_entries e JOIN photo_salons s ON e.salon_id = s.id JOIN photo_awards a ON e.award_id = a.id JOIN photo_salon_patrons sp ON sp.salon_id = s.id AND sp.patron_id = 1 LEFT JOIN photo_portfolio p ON e.portfolio_id = p.id LEFT JOIN photo_countries c ON s.host_country_id = c.id WHERE e.user_email = ? AND e.award_id IS NOT NULL AND e.award_id > 0 ORDER BY s.name ASC, photo_title ASC`, [userEmail]);
       res.json(rows);
     } catch (err) { res.status(500).json({ error: 'Hiba a FIAP tételes lista lekérésekor' }); }
   });
 
-
-  // 🎯 MÓDOSÍTVA: Az Excel generátor mostantól az egyedi szöveges díjat (custom_award) részesíti előnyben!
-  app.get('/api/export-fiap-c', checkPremium, async (req, res) => {
+  app.get('/api/export-fiap-c', requireAuth, checkPremium, async (req, res) => {
     const userEmail = req.query.userEmail;
+    if (req.user.email !== userEmail && !req.user.isAdmin) return res.status(403).json({ error: 'Tiltott exportálás!' });
+
     try {
       const [rows] = await pool.query(`
         SELECT 
@@ -254,9 +354,12 @@ module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload,
     }
   });
 
+  // ====================================================================
+  // 🤖 AI ÉS KVÓTAVÉDETT EXKLUZÍV ADMIN IMPORT VÉGPONTOK
+  // ====================================================================
+  app.get('/api/admin/scrape-fiap', requireAuth, async (req, res) => {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Hozzáférés megtagadva! Ez egy exkluzív admin felület.' });
 
-  // AI ÉS EXCEL IMPORT 
-  app.get('/api/admin/scrape-fiap', async (req, res) => {
     try {
       const [existingPatrons] = await pool.query('SELECT patron_number FROM photo_salon_patrons WHERE patron_id = 1 AND patron_number IS NOT NULL');
       const existingFiapNumbers = existingPatrons.map(p => p.patron_number);
@@ -286,7 +389,10 @@ module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload,
     } catch (err) { res.status(500).json({ error: `Hálózati hiba: ${err.message}` }); }
   });
 
-  app.post('/api/admin/analyze-fiap-id', async (req, res) => {
+  app.post('/api/admin/analyze-fiap-id', requireAuth, async (req, res) => {
+    // 🔒 BIZTONSÁGI PAJZS: Megakadályozza a Gemini AI egyenleg lemerítését botok által!
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Hozzáférés megtagadva! Gemini elemzés csak az admin számára engedélyezett.' });
+
     const { fiapNumber } = req.body;
     if (!fiapNumber) return res.status(400).json({ error: 'FIAP azonosító megadása kötelező!' });
 
@@ -328,7 +434,8 @@ module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload,
     }
   });
 
-  app.post('/api/admin/import-fiap', async (req, res) => {
+  app.post('/api/admin/import-fiap', requireAuth, async (req, res) => {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Hozzáférés megtagadva!' });
     const { salonsToImport } = req.body;
     if (!salonsToImport || salonsToImport.length === 0) return res.json({ count: 0 });
     const conn = await pool.getConnection();
@@ -353,9 +460,18 @@ module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload,
     } catch (e) { await conn.rollback(); res.status(500).json({ error: e.message }); } finally { conn.release(); }
   });
 
-  app.post('/api/import/excel-analyze', upload.single('file'), checkPremium, async (req, res) => {
+  // ====================================================================
+  // 📊 EXCEL IMPORT MOTOR FELHASZNÁLÓKNAK (VÉDETT - Fiók-eltérítés gátolva)
+  // ====================================================================
+  app.post('/api/import/excel-analyze', requireAuth, upload.single('file'), checkPremium, async (req, res) => {
     const { userEmail } = req.body;
     if (!req.file) return res.status(400).json({ error: 'Nincs fájl feltöltve!' });
+    
+    // 🔒 BIZTONSÁGI PAJZS: Szigorúan a hitelesített req.user.email-hez kötjük az import elemzést
+    if (req.user.email !== userEmail) {
+      cleanupTempFile(req.file);
+      return res.status(403).json({ error: 'Hozzáférés megtagadva! Nem importálhatsz adatokat más fiókjába.' });
+    }
   
     try {
       const workbook = xlsx.readFile(req.file.path);
@@ -382,9 +498,9 @@ module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload,
       const normalizedArray = JSON.parse(text.substring(jsonStart, jsonEnd + 1));
   
       const processedResults = [];
-      const [dbPortfolio] = await pool.query('SELECT id, title FROM photo_portfolio WHERE user_email = ?', [userEmail]);
+      const [dbPortfolio] = await pool.query('SELECT id, title FROM photo_portfolio WHERE user_email = ?', [req.user.email]);
       const [dbSalons] = await pool.query('SELECT s.id, s.name, sp.patron_number FROM photo_salons s JOIN photo_salon_patrons sp ON s.id = sp.salon_id WHERE sp.patron_number IS NOT NULL AND sp.patron_number != ""');
-      const [dbEntries] = await pool.query('SELECT salon_id, portfolio_id FROM photo_salon_entries WHERE user_email = ?', [userEmail]);
+      const [dbEntries] = await pool.query('SELECT salon_id, portfolio_id FROM photo_salon_entries WHERE user_email = ?', [req.user.email]);
   
       for (const item of normalizedArray) {
         const itemTitle = item.title ? item.title.trim() : '';
@@ -408,8 +524,14 @@ module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload,
     } catch (err) { cleanupTempFile(req.file); res.status(500).json({ error: 'Hiba történt az Excel elemzésekor: ' + err.message }); }
   });
   
-  app.post('/api/import/execute', checkPremium, async (req, res) => {
+  app.post('/api/import/execute', requireAuth, checkPremium, async (req, res) => {
     const { userEmail, userName, items } = req.body; 
+    
+    // 🔒 BIZTONSÁGI PAJZS: Megakadályozzuk, hogy valaki egy scriptekkel mások profiljába töltsön be rekordokat
+    if (req.user.email !== userEmail) {
+      return res.status(403).json({ error: 'Hozzáférés megtagadva! Az eredmények mentése csak a saját fiókba lehetséges.' });
+    }
+
     const conn = await pool.getConnection();
     try {
       await conn.beginTransaction();
@@ -451,7 +573,7 @@ module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload,
         if (!finalPortfolioId && cleanTitle) {
           const [existingPhoto] = await conn.query(
             'SELECT id FROM photo_portfolio WHERE LOWER(TRIM(title)) = LOWER(TRIM(?)) AND user_email = ? LIMIT 1',
-            [cleanTitle, userEmail]
+            [cleanTitle, req.user.email]
           );
           if (existingPhoto.length > 0) {
             finalPortfolioId = existingPhoto[0].id;
@@ -461,7 +583,7 @@ module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload,
         if (!finalPortfolioId) {
           const [insPhoto] = await conn.query(
             'INSERT INTO photo_portfolio (user_email, user_name, title, file_url, drive_file_id) VALUES (?, ?, ?, ?, ?)', 
-            [userEmail, userName || 'Importált Felhasználó', cleanTitle || 'Ismeretlen Kép', '', '']
+            [req.user.email, userName || req.user.name || 'Importált Felhasználó', cleanTitle || 'Ismeretlen Kép', '', '']
           );
           finalPortfolioId = insPhoto.insertId;
         }
@@ -481,13 +603,13 @@ module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload,
   
         const [duplicateEntryCheck] = await conn.query(
           'SELECT id FROM photo_salon_entries WHERE salon_id = ? AND portfolio_id = ? AND user_email = ? LIMIT 1',
-          [finalSalonId, finalPortfolioId, userEmail]
+          [finalSalonId, finalPortfolioId, req.user.email]
         );
   
         if (duplicateEntryCheck.length === 0) {
           await conn.query(
             'INSERT INTO photo_salon_entries (salon_id, user_email, portfolio_id, award_id, category) VALUES (?, ?, ?, ?, ?)', 
-            [finalSalonId, userEmail, finalPortfolioId, awardId, 'Importált']
+            [finalSalonId, req.user.email, finalPortfolioId, awardId, 'Importált']
           );
         }
       }
