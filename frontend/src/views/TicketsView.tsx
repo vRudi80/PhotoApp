@@ -1,7 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ADMIN_EMAIL, BACKEND_URL } from '../utils/constants';
-
-// 🎯 Nyelvi környezet beemelése
 import { useLanguage } from '../context/LanguageContext';
 
 interface TicketsViewProps {
@@ -18,7 +16,6 @@ const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
 };
 
 export default function TicketsView({ user }: TicketsViewProps) {
-  // 🎯 Aktiváljuk a nyelvi hookokat
   const { t, lang } = useLanguage();
 
   const inputStyle = { width: '100%', padding: '12px', marginBottom: '12px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '10px', boxSizing: 'border-box' as const, fontSize: '0.95rem', outline: 'none' };
@@ -29,44 +26,29 @@ export default function TicketsView({ user }: TicketsViewProps) {
   const [selectedTicket, setSelectedTicket] = useState<any>(null);
   const [replies, setReplies] = useState<any[]>([]);
   
-  // Új ticket form state
   const [subject, setSubject] = useState('');
   const [initialMessage, setInitialMessage] = useState('');
-  
-  // Új válasz state
   const [replyMessage, setReplyMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
   
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  // Ticketek betöltése
   const loadTickets = () => {
-    const token = localStorage.getItem('photoAppToken');
-    // 🛡️ BIZTONSÁGI VÉDŐGÁT: Ha nincs még token vagy érvényes email, megszakítjuk a kérést (nincs több crash!)
-    if (!token || !user?.email) return;
-
-    fetch(`${BACKEND_URL}/api/tickets?userEmail=${user.email}&isAdmin=${isAdmin}`, {
+    fetch(`${BACKEND_URL}/api/tickets`, {
       headers: getAuthHeaders()
     })
       .then(res => res.json())
-      .then(data => {
-        setTickets(Array.isArray(data) ? data : []);
-      })
+      .then(data => setTickets(Array.isArray(data) ? data : []))
       .catch(console.error);
   };
 
   useEffect(() => {
-    if (!user?.email) return; // 🛡️ Megvárjuk, amíg a user objektum beérkezik
     loadTickets();
   }, [user]);
 
-  // Válaszok betöltése egy kiválasztott tickethez
   useEffect(() => {
-    if (selectedTicket && user?.email) {
-      const token = localStorage.getItem('photoAppToken');
-      if (!token) return;
-
-      fetch(`${BACKEND_URL}/api/tickets/${selectedTicket.id}/replies?userEmail=${user.email}&isAdmin=${isAdmin}`, {
+    if (selectedTicket) {
+      fetch(`${BACKEND_URL}/api/tickets/${selectedTicket.id}/replies`, {
         headers: getAuthHeaders()
       })
         .then(res => res.json())
@@ -76,18 +58,16 @@ export default function TicketsView({ user }: TicketsViewProps) {
         })
         .catch(console.error);
     }
-  }, [selectedTicket, user]);
+  }, [selectedTicket]);
 
-  // Új ticket beküldése (User)
   const handleCreateTicket = async () => {
-    if (!user?.email) return;
     if (!subject.trim() || !initialMessage.trim()) return alert(t('msgTicketsFillRequired'));
     
     try {
       const res = await fetch(`${BACKEND_URL}/api/tickets`, {
         method: 'POST',
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ userEmail: user.email, userName: user.name || 'Fotós', subject, message: initialMessage })
+        body: JSON.stringify({ userEmail: user.email, userName: user.name, subject, message: initialMessage })
       });
       if (res.ok) {
         alert(t('msgTicketsSubmitSuccess'));
@@ -98,23 +78,18 @@ export default function TicketsView({ user }: TicketsViewProps) {
     } catch (e) { alert(t('msgTicketsSubmitError')); }
   };
 
-  // Új válasz hozzáadása a beszélgetéshez
   const handleSendReply = async () => {
-    if (!user?.email || !replyMessage.trim()) return;
+    if (!replyMessage.trim() || isSending) return;
     setIsSending(true);
 
     try {
       const res = await fetch(`${BACKEND_URL}/api/tickets/${selectedTicket.id}/replies`, {
         method: 'POST',
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ senderEmail: user.email, senderName: user.name || 'Fotós', message: replyMessage })
+        body: JSON.stringify({ message: replyMessage })
       });
       if (res.ok) {
         setReplyMessage('');
-        if (isAdmin && selectedTicket.status === 'open') {
-          handleUpdateStatus(selectedTicket.id, 'in_progress');
-        }
-        
         const freshRepliesRes = await fetch(`${BACKEND_URL}/api/tickets/${selectedTicket.id}/replies`, {
           headers: getAuthHeaders()
         });
@@ -125,7 +100,6 @@ export default function TicketsView({ user }: TicketsViewProps) {
     } catch (e) { console.error(e); } finally { setIsSending(false); }
   };
 
-  // Státusz frissítése (Admin)
   const handleUpdateStatus = async (ticketId: number, newStatus: string) => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/tickets/${ticketId}/status`, {
@@ -153,10 +127,8 @@ export default function TicketsView({ user }: TicketsViewProps) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: selectedTicket ? '1fr' : 'repeat(auto-fit, minmax(320px, 1fr))', gap: '30px', alignItems: 'start' }}>
       
-      {/* BAL OLDAL: JELENTŐ PANEL VAGY TICKET LISTA */}
       {!selectedTicket && (
         <>
-          {/* USERNEK: ÚJ TICKET NYITÁSA */}
           {!isAdmin && (
             <div style={{ backgroundColor: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #334155', boxShadow: '0 10px 30px rgba(0,0,0,0.2)' }}>
               <h3 style={{ margin: '0 0 15px 0', color: '#38bdf8', fontSize: '1.3rem' }}>{t('ticketsNewTicketTitle')}</h3>
@@ -167,7 +139,6 @@ export default function TicketsView({ user }: TicketsViewProps) {
             </div>
           )}
 
-          {/* LISTA SZEKCIÓ */}
           <div style={{ backgroundColor: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #334155', boxShadow: '0 10px 30px rgba(0,0,0,0.2)', gridColumn: isAdmin ? '1 / -1' : 'auto' }}>
             <h3 style={{ margin: '0 0 20px 0', color: '#cbd5e1', fontSize: '1.3rem' }}>{isAdmin ? t('ticketsListTitleAdmin') : t('ticketsListTitleUser')}</h3>
             
@@ -179,11 +150,11 @@ export default function TicketsView({ user }: TicketsViewProps) {
                 const isUnreadForMe = isAdmin ? ticket.admin_unread === 1 : ticket.user_unread === 1;
 
                 return (
-                  <div key={ticket.id} onClick={() => setSelectedTicket(ticket)} style={{ background: '#0f172a', padding: '15px 20px', borderRadius: '14px', border: isUnreadForMe ? '1px solid #f43f5e80' : '1px solid #334155', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'transform 0.2s, border-color 0.2s', boxShadow: isUnreadForMe ? '0 0 15px rgba(244,63,94,0.05)' : 'none' }} onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-2px)'; }} onMouseOut={e => { e.currentTarget.style.transform = 'none'; }}>
+                  <div key={ticket.id} onClick={() => setSelectedTicket(ticket)} style={{ background: '#0f172a', padding: '15px 20px', borderRadius: '14px', border: isUnreadForMe ? '1px solid #f43f5e80' : '1px solid #334155', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'transform 0.2s, border-color 0.2s' }} onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-2px)'; }} onMouseOut={e => { e.currentTarget.style.transform = 'none'; }}>
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                         {isUnreadForMe && (
-                          <span style={{ background: '#f43f5e', color: 'white', fontSize: '0.7rem', fontWeight: 'bold', padding: '2px 8px', borderRadius: '6px', textTransform: 'uppercase', letterSpacing: '0.5px', animation: 'pulse 2s infinite' }}>{t('ticketsBadgeNewMessage')}</span>
+                          <span style={{ background: '#f43f5e', color: 'white', fontSize: '0.7rem', fontWeight: 'bold', padding: '2px 8px', borderRadius: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('ticketsBadgeNewMessage')}</span>
                         )}
                         <div style={{ fontWeight: 'bold', color: isUnreadForMe ? '#fff' : '#f8fafc', fontSize: '1rem' }}>{ticket.subject}</div>
                       </div>
@@ -201,11 +172,9 @@ export default function TicketsView({ user }: TicketsViewProps) {
         </>
       )}
 
-      {/* CHAT DIALÓGUS */}
       {selectedTicket && (
         <div style={{ backgroundColor: '#1e293b', borderRadius: '24px', border: '1px solid #334155', display: 'flex', flexDirection: 'column', height: '70vh', boxShadow: '0 15px 40px rgba(0,0,0,0.4)', animation: 'fadeIn 0.2s' }}>
           
-          {/* CHAT FEJLÉC */}
           <div style={{ padding: '20px 30px', borderBottom: '1px solid #334155', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#0f172a', borderRadius: '24px 24px 0 0' }}>
             <div>
               <button onClick={() => { setSelectedTicket(null); loadTickets(); }} style={{ background: 'transparent', color: '#38bdf8', border: 'none', cursor: 'pointer', padding: '0 0 5px 0', fontSize: '0.9rem', fontWeight: 'bold' }}>{t('ticketsBackBtn')}</button>
@@ -216,7 +185,6 @@ export default function TicketsView({ user }: TicketsViewProps) {
             <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
               {getStatusBadge(selectedTicket.status)}
               
-              {/* ADMIN VEZÉRLŐ GOMBOK */}
               {isAdmin && (
                 <select 
                   value={selectedTicket.status} 
@@ -231,7 +199,6 @@ export default function TicketsView({ user }: TicketsViewProps) {
             </div>
           </div>
 
-          {/* CHAT GÖRDÜLŐ ÜZENETEK */}
           <div style={{ flex: 1, padding: '30px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '15px', background: '#090d16' }}>
             {replies.map(r => {
               const isMe = r.sender_email === user?.email;
@@ -248,7 +215,6 @@ export default function TicketsView({ user }: TicketsViewProps) {
             <div ref={chatEndRef} />
           </div>
 
-          {/* CHAT BEVITELI MEZŐ ALUL */}
           {selectedTicket.status === 'closed' ? (
             <div style={{ padding: '20px', background: '#0f172a', color: '#10b981', fontWeight: 'bold', textAlign: 'center', borderRadius: '0 0 24px 24px', borderTop: '1px solid #334155' }}>
               {t('ticketsClosedNotice')}
