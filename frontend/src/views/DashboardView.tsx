@@ -47,6 +47,15 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
     if (stored) setDismissedAlerts(JSON.parse(stored));
   }, []);
 
+  // 🎯 Központi helper az érvényes biztonsági fejléc összeállításához
+  const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
+    const token = localStorage.getItem('photoAppToken');
+    return {
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+      ...extraHeaders
+    };
+  };
+
   useEffect(() => {
     let isMounted = true;
     const fetchAlerts = async () => {
@@ -59,8 +68,10 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
       const timeoutId = setTimeout(() => controller.abort(), 5000);
 
       try {
+        // 🎯 JAVÍTVA: Megkapta az igazoló fejlécet, a 401-es hiba megszűnik!
         const res = await fetch(`${BACKEND_URL}/api/dashboard-alerts?userEmail=${user.email}`, {
-          signal: controller.signal
+          signal: controller.signal,
+          headers: getAuthHeaders()
         });
         if (timeoutId) clearTimeout(timeoutId);
         if (!res.ok) throw new Error(`Szerver hiba: ${res.status}`);
@@ -94,9 +105,10 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
     localStorage.setItem('dismissed_alerts', JSON.stringify(newDismissed));
 
     if (type === 'map_comment' && id) {
+      // 🎯 JAVÍTVA: Olvasottá tétel biztonságos fejléccel ellátva
       fetch(`${BACKEND_URL}/api/locations/comments/${id}/read`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ userEmail: user.email })
       }).catch(err => console.error(err));
     }
@@ -107,9 +119,11 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
     const newDismissed = [...dismissedAlerts, alertKey];
     setDismissedAlerts(newDismissed);
     localStorage.setItem('dismissed_alerts', JSON.stringify(newDismissed));
+    
+    // 🎯 JAVÍTVA: Hírolvasottság küldése biztonságos fejléccel
     fetch(`${BACKEND_URL}/api/news/${newsId}/read`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ userEmail: user.email })
     }).catch(err => console.error(err));
     setActiveTab('club_news');
@@ -120,9 +134,11 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
     const newDismissed = [...dismissedAlerts, alertKey];
     setDismissedAlerts(newDismissed);
     localStorage.setItem('dismissed_alerts', JSON.stringify(newDismissed));
+    
+    // 🎯 JAVÍTVA: Térképkomment olvasás rögzítése biztonságos fejléccel
     fetch(`${BACKEND_URL}/api/locations/comments/${commentId}/read`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ userEmail: user.email })
     }).catch(err => console.error(err));
     if (setTargetMapSpotId) setTargetMapSpotId(locationId);
@@ -166,7 +182,6 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
     <div className="dashboard-global-bleed-wrapper" style={{ width: '100%', minHeight: '100vh', backgroundColor: 'var(--bg-main)', padding: '15px', boxSizing: 'border-box' }}>
       <div className="dashboard-outer-container" style={{ animation: 'dashFadeIn 0.4s ease-out', width: '100%', maxWidth: '1140px', margin: '0 auto', boxSizing: 'border-box' }}>
         
-        {/* 🎯 JAVÍTVA: Szegélykód var(--border-main)-re cserélve */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', paddingBottom: '12px', borderBottom: '1px solid var(--border-main)', flexWrap: 'wrap', gap: '12px' }}>
           <h1 style={{ margin: 0, fontSize: '1.4rem', color: 'var(--text-title)', fontWeight: '700', letterSpacing: '-0.5px' }}>
             {t('dashWelcome', 'Üdvözlünk')}, <span style={{ color: '#38bdf8' }}>{user?.name}</span>!
@@ -191,7 +206,6 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
                     <h3 style={{ margin: '0 0 4px 0', fontSize: '1rem', color: 'var(--text-title)', fontWeight: '600', letterSpacing: '-0.2px' }}>
                       {t(tile.titleKey as any) || (tile as any).fallbackTitle}
                     </h3>
-                    {/* 🎯 JAVÍTVA: Alapértelmezett szürke szín var(--text-body)-ra cserélve */}
                     <p style={{ margin: 0, color: 'var(--text-body)', fontSize: '0.8rem', lineHeight: '1.4' }}>
                       {t(tile.descKey as any) || (tile as any).fallbackDesc}
                     </p>
@@ -204,7 +218,7 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
                   style={{ background: 'var(--bg-card)', borderRadius: '8px', padding: '18px', cursor: 'pointer', border: `1px dashed rgba(239,68,68,0.3)`, transition: 'all 0.15s ease-in-out', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   <div>
                     <div style={{ marginBottom: '10px' }}>
-                      <Settings size={20} color="#ef4444" strokeWidth={2.5} />
+                      <settings size={20} color="#ef4444" strokeWidth={2.5} />
                     </div>
                     <h3 style={{ margin: '0 0 4px 0', fontSize: '1rem', color: '#ef4444', fontWeight: '600', letterSpacing: '-0.2px' }}>
                       {t('tileAdminTitle')}
@@ -220,7 +234,6 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
 
           <div className="dashboard-alerts-section">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-              {/* 🎯 JAVÍTVA: Fejléc szürkéje var(--text-body)-ra cserélve a jobb kontrasztért */}
               <h2 style={{ fontSize: '0.75rem', color: 'var(--text-body)', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
                  <Bell size={14} /> {t('dashAlertsTitle', 'Események & Értesítések')}
               </h2>
@@ -313,25 +326,15 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
         </div>
       </div>
       
-      {/* ── 🎯 CSS HOVER ÉS TEXT-COLOR BIRODALOM JAVÍTVA VÁLTOZÓKRA ── */}
       <style>{`
         .dashboard-flex-layout { display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px; width: 100%; }
         .dashboard-alerts-section { background: var(--bg-card); border: 1px solid var(--border-main); border-radius: 8px; padding: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); align-self: start; box-sizing: border-box; }
-        
-        /* 🎯 JAVÍTVA: Sötét beégetett hover helyett reaktív var(--hover-overlay) */
         .dashboard-bento-card:hover { border-color: #475569; background: var(--hover-overlay) !important; }
-        
         .stream-alert-row { background: var(--bg-main); border: 1px solid var(--border-main); border-radius: 6px; padding: 10px 14px; cursor: pointer; position: relative; transition: all 0.1s ease-in-out; display: flex; align-items: start; }
-        
-        /* 🎯 JAVÍTVA: Értesítési sáv hover színe is alkalmazkodik a témához */
         .stream-alert-row:hover { background: var(--hover-overlay); border-color: var(--border-main); }
         .stream-alert-content { flex: 1; min-width: 0; }
-        
         .stream-alert-header-meta { display: flex; align-items: center; gap: 6px; font-size: 0.65rem; font-weight: 800; color: var(--text-muted); margin-bottom: 4px; letter-spacing: 0.5px; text-transform: uppercase; }
-        
-        /* 🎯 ULTRA-JAVÍTVA: A hír/értesítés címe var(--text-title) lett, így azonnal fekete lesz világos módban! */
         .stream-alert-title { margin: 0; color: var(--text-title); font-size: 0.85rem; font-weight: 600; line-height: 1.35; white-space: normal !important; word-break: break-word; }
-        
         .stream-dismiss-cross { position: absolute; top: 10px; right: 10px; background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: 2px; }
         @keyframes dashFadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
         @media (max-width: 1060px) { .dashboard-flex-layout { grid-template-columns: 1fr !important; gap: 20px !important; } .dashboard-alerts-section { order: -1; width: 100% !important; } }
