@@ -104,6 +104,15 @@ interface AlbumSelectionModalProps {
   myEntry?: any;
 }
 
+// 🎯 KÖZPONTI AUTH FEJLÉC GENERÁTOR HELYI RENDERSZINTRE
+const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
+  const token = localStorage.getItem('photoAppToken');
+  return {
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    ...extraHeaders
+  };
+};
+
 export default function AlbumSelectionModal({
   isOpen, onClose, albumModalMode, swapAlbumPhotos, myPastEntries, topic, user, isLoading,
   setIsUploading, setIsSwapping, fetchCurrentTopic, handleSwapBackSubmit, handleSelectPhotoForSwap,
@@ -118,7 +127,7 @@ export default function AlbumSelectionModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [visibleCount, setVisibleCount] = useState(12);
 
-  // 🎯 BIZTONSÁGI VÉDŐHÁLÓ: Környezeti téma lekérése, hidegindítás-védelemmel
+  // BIZTONSÁGI VÉDŐHÁLÓ: Környezeti téma lekérése
   let isLight = false;
   try {
     const themeContext = useTheme();
@@ -255,7 +264,13 @@ export default function AlbumSelectionModal({
         formData.append('software', previewPhoto.exif?.software || '-');
 
         const endpoint = albumModalMode === 'upload' ? 'upload' : 'swap';
-        const res = await fetch(`${BACKEND_URL}/api/weekly/${endpoint}`, { method: 'POST', body: formData });
+        
+        // 🎯 JAVÍTVA: Helyi fájl feltöltése és csere hitelesített tokennel (Content-Type nélkül!)
+        const res = await fetch(`${BACKEND_URL}/api/weekly/${endpoint}`, { 
+          method: 'POST', 
+          headers: getAuthHeaders(),
+          body: formData 
+        });
         if (res.ok) {
           alert(t('msgUploadSuccess') || "Sikeres mentés!");
           cleanAndClose(true);
@@ -288,9 +303,10 @@ export default function AlbumSelectionModal({
             software: previewPhoto.exif?.software || '-'
           };
 
+          // 🎯 JAVÍTVA: Galériás fotó kiválasztása hitelesített tokennel és JSON fejléccel
           const res = await fetch(`${BACKEND_URL}/api/weekly/${endpoint}`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' }, 
+            headers: getAuthHeaders({ 'Content-Type': 'application/json' }), 
             body: JSON.stringify(jsonPayload)
           });
           
@@ -342,7 +358,6 @@ export default function AlbumSelectionModal({
         WebkitOverflowScrolling: 'touch'
       }}
     >
-      {/* 🎯 JAVÍTVA: Fix sötétkék háttér és szegély reaktív változókra cserélve */}
       <div 
         style={{ 
           background: 'var(--bg-card)', 
@@ -357,7 +372,7 @@ export default function AlbumSelectionModal({
         }}
       >
         
-        {/* 🎯 ÚJ UX IRÁNYTŰ: Felső abszolút bezárás gomb, görgetés-mentes azonnali eléréshez! */}
+        {/* Felső abszolút bezárás gomb */}
         <button 
           onClick={() => cleanAndClose(false)} 
           style={{ position: 'absolute', top: '16px', right: '16px', background: 'var(--bg-main)', border: '1px solid var(--border-main)', color: '#f43f5e', width: '28px', height: '28px', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.1s', zIndex: 110 }}
@@ -398,7 +413,6 @@ export default function AlbumSelectionModal({
         ) : (
           /* ── NÉZET B: PREMIÚM MÉDIA MÁTRIX RÁCS ── */
           <>
-            {/* 🎯 JAVÍTVA: Szöveg színe fehér helyett var(--text-title) */}
             <h3 style={{ color: 'var(--text-title)', margin: '0 0 4px 0', fontSize: '1.3rem', fontWeight: '600', letterSpacing: '-0.3px', paddingRight: '30px' }}>
               {albumModalMode === 'upload' ? t('modalUploadTitle', 'Versenynevezés') : t('modalSwapTitle', 'Joker Csere')}
             </h3>
@@ -466,7 +480,6 @@ export default function AlbumSelectionModal({
                             </span>
                           )}
                         </div>
-                        {/* 🎯 JAVÍTVA: Meta tónusok var(--bg-card) és var(--border-main) alapokra szinkronizálva */}
                         <div style={{ padding: '6px 10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', background: 'var(--bg-card)', borderTop: '1px solid var(--border-main)', fontWeight: 'bold' }}>
                           <span style={{ color: '#fbbf24', display: 'inline-flex', alignItems: 'center', gap: '2px' }}><Star size={10} fill="#fbbf24" /> {pastMatch ? pastMatch.likes_count : (p.totalLikes || 0)}</span>
                           <span style={{ color: '#38bdf8', display: 'inline-flex', alignItems: 'center', gap: '2px' }}><Eye size={10} /> {pastMatch ? pastMatch.views_count : (p.totalViews || 0)}</span>
@@ -477,7 +490,7 @@ export default function AlbumSelectionModal({
                 </div>
 
                 {renderedPhotos.length === 0 && (
-                  <div style={{ textAlign: 'center', color: 'var(--text-body)', padding: '30px 15px', fontSize: '0.82rem', fontStyle: 'italic', lineHeight: '1.5', background: 'var(--bg-main)', borderRadius: '4px', marginTop: '12px', border: '1px dashed var(--border-main)' }}>
+                  <div style={{ textAlign: 'center', color: 'var(--text-body)', padding: '30px 15px', fontSize: '0.82rem', fontStyle: 'italic', lineHeight: '1.45', background: 'var(--bg-main)', borderRadius: '4px', marginTop: '12px', border: '1px dashed var(--border-main)' }}>
                     <AlertCircle size={20} color="var(--text-muted)" style={{ margin: '0 auto 8px auto' }} />
                     Még nincs kép a portfóliódban.<br />
                     Kattints a bal oldali <b style={{ color: '#f97316' }}>"Új kép feltöltése"</b> dobozra az első fotód tallózásához!
