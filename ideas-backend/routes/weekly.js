@@ -805,14 +805,12 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
  app.get('/api/weekly/hall-of-fame', requireAuth, async (req, res) => {
     try {
-      // 🎯 JAVÍTVA: c.drive_file_id vissza lett cserélve a helyes c.drive_logo_id-ra!
+      // 🎯 JAVÍTVA: c.drive_file_id átírva a helyes c.drive_logo_id oszlopnévre!
       const [leaderboard] = await pool.query(`
         SELECT u.name as user_name, u.email as user_email, u.club_name, u.avatar_url,
                c.drive_logo_id, c.logo_url,
                COALESCE(u.total_likes, 0) as total_likes,
                COALESCE(u.victories, 0) as first_places,
-               -- A podiums számlálót diszkréten kiváltjuk egy egyszerűbb összesítéssel, ha szükséges, 
-               -- de a total_likes és first_places a lényeg:
                (SELECT COUNT(*) FROM weekly_entries WHERE LOWER(TRIM(user_email)) = LOWER(TRIM(u.email)) AND is_active = 1) as podiums,
                (SELECT COUNT(*) FROM weekly_topics WHERE LOWER(TRIM(master_email)) = LOWER(TRIM(u.email)) AND status = 'approved') as master_count
         FROM photo_users u
@@ -820,10 +818,11 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         WHERE u.total_likes > 0 OR u.victories > 0
         ORDER BY u.total_likes DESC, u.name ASC
       `);
+
       res.json(leaderboard);
-    } catch (err) { 
-      console.error("❌ Hiba a dicsőségcsarnok lekérésekor:", err.message);
-      res.status(500).json({ error: 'Hiba' }); 
+    } catch (err) {
+      console.error("❌ Kritikus hiba a dicsőségcsarnok generálásakor:", err.message);
+      res.status(500).json({ error: 'Szerveroldali adatbázis hiba történt.' });
     }
   });
 
