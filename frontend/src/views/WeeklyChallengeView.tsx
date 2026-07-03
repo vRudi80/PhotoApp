@@ -212,7 +212,6 @@ function ChallengeCard({ topic, onSelect, onShare }: { topic: any; onSelect: () 
         </div>
       )}
 
-      {/* 🎯 JAVÍTVA: Fix white kicserélve var(--text-title)-re */}
       <h3 style={{ color: 'var(--text-title)', margin: '0 0 8px 0', fontSize: '1.15rem', fontWeight: '600', letterSpacing: '-0.2px' }}>{displayTitle}</h3>
       <p style={{ color: 'var(--text-body)', fontSize: '0.85rem', margin: '0 0 16px 0', lineHeight: '1.45', flex: 1 }}>{displayDesc}</p>
       
@@ -261,7 +260,7 @@ function ChallengeCard({ topic, onSelect, onShare }: { topic: any; onSelect: () 
         
         <button 
           onClick={handleShare}
-          style={{ background: '#3b5998', color: 'white', border: 'none', borderRadius: '4px', padding: '0 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyValue: 'center', transition: 'background 0.15s ease', justifyContent: 'center' }}
+          style={{ background: '#3b5998', color: 'white', border: 'none', borderRadius: '4px', padding: '0 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', transition: 'background 0.15s ease', justifyContent: 'center' }}
           onMouseEnter={e => e.currentTarget.style.background = '#2d4373'}
           onMouseLeave={e => e.currentTarget.style.background = '#3b5998'}
           title={lang === 'en' ? 'Share' : 'Megosztás'}
@@ -451,6 +450,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         }
         setActiveTopics([]);
       }
+    } finally { 
+      if (!isSilent) setLoading(false); 
     }
   };
 
@@ -1027,7 +1028,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   {activeTopics.length > 1 && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                       <span style={{ color: 'var(--text-body)', fontSize: '0.8rem', fontWeight: 'bold' }}>{t('sortLabel')}</span>
-                      {/* 🎯 JAVÍTVA: color white átírva var(--text-title)-re a láthatóságért! */}
                       <select value={sortBy} onChange={(e) => setSortBy(e.target.value as any)} style={{ background: 'var(--bg-card)', color: 'var(--text-title)', border: '1px solid var(--border-main)', padding: '6px 12px', borderRadius: '4px', fontSize: '0.82rem', outline: 'none', cursor: 'pointer', fontWeight: 'bold' }}>
                         <option value="endDate" style={{ background: 'var(--bg-card)', color: 'var(--text-title)' }}>{t('sortEndDate')}</option>
                         <option value="startDate" style={{ background: 'var(--bg-card)', color: 'var(--text-title)' }}>{t('sortStartDate')}</option>
@@ -1116,11 +1116,10 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                         const isMsgMe = (msg.user_email || msg.userEmail) === user?.email;
                         return (
                           <div key={msg.id || idx} style={{ display: 'flex', flexDirection: 'column', alignItems: isMsgMe ? 'flex-end' : 'flex-start', maxWidth: '92%', alignSelf: isMsgMe ? 'flex-end' : 'flex-start', marginBottom: '8px' }}>
-                            <div style={{ display: 'flex', gap: '4px', alignItems: 'center', marginBottom: '2px', fontSize: '0.68rem', color: isMsgMe ? '#38bdf8' : 'var(--text-body)', fontWeight: 'bold' }}>
+                            <div style={{ display: 'flex', gap: '4px', alignItems: 'center', marginBottom: '2px', fontSize: '0.68rem', color: isMsgMe ? '#f97316' : 'var(--text-body)', fontWeight: 'bold' }}>
                               <span>{msg.user_name || msg.userName}</span>
                               <span style={{ color: 'var(--text-muted)' }}>• {new Date(msg.created_at).toLocaleTimeString(lang === 'en' ? 'en-US' : 'hu-HU', { hour: '2-digit', minute: '2-digit' })}</span>
                             </div>
-                            {/* 🎯 JAVÍTVA: Narancs buborékban a betűk fixen fehérre lettek állítva a tökéletes kontrasztért! */}
                             <div style={{ background: isMsgMe ? '#f97316' : 'var(--bg-card)', color: isMsgMe ? '#ffffff' : 'var(--text-title)', padding: '6px 10px', borderRadius: isMsgMe ? '8px 8px 2px 8px' : '8px 8px 8px 2px', fontSize: '0.82rem', wordBreak: 'break-word', border: isMsgMe ? 'none' : '1px solid var(--border-main)' }}>
                               {msg.message_text || msg.messageText}
                             </div>
@@ -1133,7 +1132,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                     {currentlyTyping.length > 0 && <span>{currentlyTyping.join(', ')}{t('viewLobbyTyping')}...</span>}
                   </div>
                   <form onSubmit={handleSendLobbyMessage} style={{ display: 'flex', gap: '6px' }}>
-                    {/* 🎯 JAVÍTVA: color white lecserélve var(--text-title)-re */}
                     <input type="text" placeholder={t('viewLobbyPlaceholder')} value={typedLobbyMsg} onChange={handleInputChange} maxLength={500} disabled={isSendingLobbyMsg} style={{ flex: 1, padding: '8px 10px', background: 'var(--bg-main)', border: '1px solid var(--border-main)', color: 'var(--text-title)', borderRadius: '4px', fontSize: '0.82rem', outline: 'none' }} />
                     <button type="submit" disabled={!typedLobbyMsg.trim() || isSendingLobbyMsg} style={{ background: (!typedLobbyMsg.trim() || isSendingLobbyMsg) ? 'var(--border-main)' : '#f97316', color: (!typedLobbyMsg.trim() || isSendingLobbyMsg) ? 'var(--text-muted)' : 'white', border: 'none', padding: '8px 14px', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.82rem' }}>
                       <Send size={12} />
@@ -1282,7 +1280,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         .arena-floating-chat-dock.is-closed { transform: translateY(calc(100% - 44px)); }
         .arena-floating-chat-dock.has-unread .chat-dock-header { border-color: #f43f5e; }
         
-        /* 🎯 JAVÍTVA: A chat-fejléc lebegő színe fix helyett a var(--hover-overlay)-re vált! */
         .chat-dock-header { 
           padding: 12px 16px; 
           background: var(--bg-card);
