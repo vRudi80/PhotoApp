@@ -170,10 +170,10 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // 👥 GDPR JAVÍTÁS: Jelenléti ívek védelme (Csak vezetőség láthatja!)
+  // 👥 Jelenléti ívek védelme (Csak vezetőség láthatja!)
   // ====================================================================
   app.get('/api/attendance/:meetingId', requireAuth, async (req, res) => {
-    const currentClubId = await getClubIdByMeeting(req.params.id || req.params.meetingId);
+    const currentClubId = await getClubIdByMeeting(req.params.meetingId);
     if (!currentClubId || !await isClubManagement(req.user.email, currentClubId)) {
       return res.status(403).json({ error: 'Hozzáférés megtagadva! Résztvevők listáját csak klubvezetők tölthetik le.' });
     }
@@ -209,7 +209,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         JOIN photo_clubs c ON n.club_id = c.id
         WHERE n.is_public = 1 
         ORDER BY n.created_at DESC
-      `, [req.user.email]); // Szigorúan a hitelesített emailt használjuk
+      `, [req.user.email]); 
       res.json(rows);
     } catch (err) { res.status(500).json({ error: 'Hiba a nyilvános hírek lekérésekor' }); }
   });
@@ -230,7 +230,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
 
     try { 
-      // Szigorúan a tokenből kibontott req.user adatokat mentjük, megakadályozva a névhamisítást
       await pool.query(
         'INSERT INTO photo_club_news (club_id, author_email, author_name, title, content, is_public) VALUES (?, ?, ?, ?, ?, ?)', 
         [clubId, req.user.email, req.user.name, title, content, isPublic ? 1 : 0]
@@ -294,7 +293,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     const { clubId, clubName } = req.body;
     if (!clubId || !clubName) return res.status(400).json({ error: 'Hiányzó adatok!' });
     try {
-      // Szigorúan a hitelesített req.user.email szoftveres beírása, nincs több fiók-eltérítés!
       await pool.query("UPDATE photo_users SET club_id = ?, club_name = ?, club_role = 'pending' WHERE email = ?", [clubId, clubName, req.user.email]);
       res.json({ success: true });
     } catch (err) { res.status(500).json({ error: err.message }); }
@@ -389,11 +387,134 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // 📅 MEGBÍZHATÓ SAJÁT AKTÍV TAGSÁGI DÁTUMOK LEKÉRÉSE
+  // 🎯 VISSZAÉPÍTVE ÉS JAVÍTVA: KLUB PÉNZÜGYEK ÉS TAGNYILVÁNTARTÁS VÉDELME
+  // ====================================================================
+  app.get('/api/my-club/admin-records', requireAuth, async (req, res) => {
+    const { clubId } = req.query;
+    if (!clubId) return res.status(400).json({ error: 'Hiányzó klub azonosító!' });
+
+    if (!await isClubManagement(req.user.email, clubId)) {
+      return res.status(403).json({ error: 'Hozzáférés megtagadva! Csak a klubvezetés láthatja a belső nyilvántartást.' });
+    }
+
+    try {
+      const [allTimeMembers] = await pool.query(`
+        SELECT 
+          u.name, 
+          u.email, 
+          u.club_role,
+          u.shipping_address,
+          1 as is_currently_here,
+          COALESCE(DATE_FORMAT((SELECT joined_date FROM photo_club_memberships WHERE user_email = u.email AND club_id = u.club_id AND status = 'active' LIMIT 1), '%Y-%m-%d'), 'Ismeretlen') as membership_start,
+          NULL as membership_end
+        FROM photo_users u
+        WHERE u.club_id = ? AND u.club_role != 'pending'
+
+        UNION ALL
+
+        SELECT 
+          u.name, 
+          u.email, 
+          m.club_role,
+          u.shipping_address,
+          0 as is_currently_here,
+          DATE_FORMAT(m.joined_date, '%Y-%m-%d') as membership_start,
+          DATE_FORMAT(m.left_date, '%Y-%m-%d') as membership_end
+        FROM photo_club_memberships m
+        JOIN photo_users u ON m.user_email = u.email
+        WHERE m.club_id = ? AND m.status = 'left' AND (u.club_id IS NULL OR u.club_id != ?)
+        
+        ORDER BY is_currently_here DESC, name ASC
+      `, [clubId, clubId, clubId]);
+
+      const [payments] = await pool.query(`
+        SELECT id, user_email, fiscal_year, fee_amount, paid_amount, DATE_FORMAT(payment_date, '%Y-%m-%d') as payment_date 
+        FROM photo_club_payments 
+        WHERE club_id = ?
+        ORDER BY fiscal_year DESC, payment_date DESC
+      `, [clubId]);
+
+      res.json({ members: allTimeMembers, payments });
+    } catch (err) {
+      console.error("❌ Hiba az adminisztratív rekordok lekérésekor:", err.message);
+      res.status(500).json({ error: 'Szerveroldali hiba történt.' });
+    }
+  });
+
+  // ====================================================================
+  // 🎯 VISSZAÉPÍTVE ÉS JAVÍTVA: Tagdíj rögzítése
+  // ====================================================================
+  app.post('/api/my-club/member/log-payment', requireAuth, async (req, res) => {
+    const { clubId, targetEmail, fiscalYear, feeAmount, paidAmount, paymentDate } = req.body;
+    
+    if (!await isClubManagement(req.user.email, clubId)) {
+      return res.status(403).json({ error: 'Hozzáférés megtagadva! Nincs jogod tagdíjat rögzíteni.' });
+    }
+
+    try {
+      const [existing] = await pool.query('SELECT id FROM photo_club_payments WHERE club_id = ? AND user_email = ? AND fiscal_year = ?', [clubId, targetEmail, fiscalYear]);
+
+      if (existing.length > 0) {
+        await pool.query(
+          'UPDATE photo_club_payments SET fee_amount = ?, paid_amount = ?, payment_date = ? WHERE id = ?',
+          [feeAmount, paidAmount, paymentDate || null, existing[0].id]
+        );
+      } else {
+        await pool.query(
+          'INSERT INTO photo_club_payments (club_id, user_email, fiscal_year, fee_amount, paid_amount, payment_date) VALUES (?, ?, ?, ?, ?, ?)',
+          [clubId, targetEmail, fiscalYear, feeAmount, paidAmount, paymentDate || null]
+        );
+      }
+      res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+  });
+
+  // ====================================================================
+  // 🎯 VISSZAÉPÍTVE ÉS JAVÍTVA: Tagsági dátumok naplózása
+  // ====================================================================
+  app.post('/api/my-club/member/update-dates', requireAuth, async (req, res) => {
+    const { clubId, targetEmail, membershipStart, membershipEnd } = req.body;
+    if (!targetEmail || !clubId) return res.status(400).json({ error: 'Hiányzó azonosítók!' });
+    
+    if (!await isClubManagement(req.user.email, clubId)) {
+      return res.status(403).json({ error: 'Hozzáférés megtagadva! Nincs jogod a tagsági viszonyok módosításához.' });
+    }
+
+    try {
+      const status = membershipEnd ? 'left' : 'active';
+      const [existingLog] = await pool.query('SELECT id FROM photo_club_memberships WHERE user_email = ? AND club_id = ?', [targetEmail, clubId]);
+
+      if (existingLog.length > 0) {
+        await pool.query(
+          'UPDATE photo_club_memberships SET joined_date = ?, left_date = ?, status = ? WHERE id = ?',
+          [membershipStart, membershipEnd, status, existingLog[0].id]
+        );
+      } else {
+        await pool.query(
+          'INSERT INTO photo_club_memberships (club_id, club_name, user_email, club_role, joined_date, left_date, status) VALUES (?, (SELECT name FROM photo_clubs WHERE id = ?), ?, "member", ?, ?, ?)',
+          [clubId, clubId, targetEmail, membershipStart, membershipEnd, status]
+        );
+      }
+
+      if (status === 'left') {
+        await pool.query("UPDATE photo_users SET club_id = NULL, club_name = NULL, club_role = 'member' WHERE email = ?", [targetEmail]);
+      }
+
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ error: 'Adatbázis hiba történt a mentés során: ' + err.message });
+    }
+  });
+
+  // ====================================================================
+  // 📅 SAJÁT AKTÍV TAGSÁGI DÁTUMOK LEKÉRÉSE A PROFILHOZ
   // ====================================================================
   app.get('/api/profile/active-membership', requireAuth, async (req, res) => {
     try {
-      const [rows] = await pool.query("SELECT DATE_FORMAT(joined_date, '%Y-%m-%d') as membership_start, DATE_FORMAT(left_date, '%Y-%m-%d') as membership_end FROM photo_club_memberships WHERE user_email = ? AND status = 'active' LIMIT 1", [req.user.email]);
+      const [rows] = await pool.query(
+        "SELECT DATE_FORMAT(joined_date, '%Y-%m-%d') as membership_start, DATE_FORMAT(left_date, '%Y-%m-%d') as membership_end FROM photo_club_memberships WHERE user_email = ? AND status = 'active' LIMIT 1",
+        [req.user.email]
+      );
       res.json(rows[0] || { membership_start: null, membership_end: null });
     } catch (err) { res.status(500).json({ error: err.message }); }
   });
