@@ -1,534 +1,541 @@
-const fs = require('fs');
-// 🎯 JAVÍTVA: Google Auth helyett a szabványos jsonwebtoken könyvtárat használjuk!
-const jwt = require('jsonwebtoken');
+import { useState, useEffect, useRef } from 'react';
+import { googleLogout } from '@react-oauth/google';
+import { ADMIN_EMAIL, BACKEND_URL } from '../utils/constants';
 
-// A te valódi admin e-mailed biztonsági tartaléknak
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "kovari.rudolf@gmail.com";
+// Behozzuk a kétnyelvű logókat a headerhez is
+import logoHu from './logo_hu2.png'; 
+import logoEn from './logo_en2.png';
 
-// ====================================================================
-// 🔒 GOLYÓÁLLÓ, PROJEKTSZINTŰ JWT AUTHENTICATION MIDDLEWARE
-// ====================================================================
-async function requireAuth(req, res, next) {
-  // Preflight kérések (OPTIONS) automatikus átengedése a CORS ütközések ellen
-  if (req.method === 'OPTIONS') {
-    return next();
-  }
+// Behozzuk a nyelvi kontextust
+import { useLanguage } from '../context/LanguageContext';
 
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Hozzáférés megtagadva! Nincs hitelesítési token.' });
-    }
+// Behozzuk a téma környezetet
+import { useTheme } from '../context/ThemeContext';
 
-    const token = authHeader.split(' ')[1];
-    
-    // 🎯 JAVÍTVA: A saját belső JWT tokenedet dekódoljuk a környezeti titkos kulccsal
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'photoapp_secret_fallback');
-    
-    if (!decoded || !decoded.email) {
-      return res.status(401).json({ error: 'Érvénytelen vagy sérült munkamenet token.' });
-    }
+// Professzionális Lucide ikonok importálása
+import { 
+  Menu, 
+  X, 
+  ChevronDown, 
+  Globe, 
+  Award, 
+  Mic, 
+  ShoppingBag, 
+  Map, 
+  Newspaper, 
+  User, 
+  Sparkles, 
+  Settings,
+  ShieldAlert,
+  LogOut,
+  CreditCard,
+  LifeBuoy,
+  Home,
+  Flame,
+  Users,
+  Sun,
+  Moon,
+  Image as ImageIcon
+} from 'lucide-react';
 
-    // Biztonságosan injektáljuk a kérésbe a hitelesített entitást
-    req.user = {
-      email: decoded.email,
-      name: decoded.name || decoded.username || 'Felhasználó',
-      isAdmin: decoded.email === ADMIN_EMAIL
-    };
-
-    next();
-  } catch (error) {
-    console.error("🔒 Biztonsági őr hiba a clubs modulban:", error.message);
-    return res.status(401).json({ error: 'Lejárt vagy érvénytelen munkamenet token!' });
-  }
+interface HeaderProps {
+  user: any;
+  isLeader: boolean;
+  activeTab: string;
+  setActiveTab: (tab: any) => void;
+  dropdownOpen: string | null; 
+  setDropdownOpen: (open: string | null) => void;
+  onLogout: () => void;
 }
 
-module.exports = function(app, pool, drive, upload, cleanupTempFile) {
-
-  // Helper funkció a klubvezetői/helyettesi jogosultság ellenőrzésére
-  async function isClubManagement(email, clubId) {
-    if (email === ADMIN_EMAIL) return true;
-    const [rows] = await pool.query('SELECT club_role FROM photo_users WHERE email = ? AND club_id = ?', [email, clubId]);
-    return rows.length > 0 && (rows[0].club_role === 'leader' || rows[0].club_role === 'deputy');
-  }
-
-  // Helper funkció egy találkozó klubazonosítójának kinyerésére
-  async function getClubIdByMeeting(meetingId) {
-    const [rows] = await pool.query('SELECT club_id FROM photo_club_meetings WHERE id = ?', [meetingId]);
-    return rows.length > 0 ? rows[0].club_id : null;
-  }
-
-  // Helper funkció egy hír klubazonosítójának kinyerésére
-  async function getClubIdByNews(newsId) {
-    const [rows] = await pool.query('SELECT club_id FROM photo_club_news WHERE id = ?', [newsId]);
-    return rows.length > 0 ? rows[0].club_id : null;
-  }
-
-  // ====================================================================
-  // 📁 KLUBOK ALAP KEZELÉSE (VÉDETT)
-  // ====================================================================
-  app.get('/api/clubs', requireAuth, async (req, res) => {
-    try {
-      const [rows] = await pool.query(`
-        SELECT c.*, 
-               (SELECT COUNT(*) FROM photo_users WHERE club_id = c.id AND club_role != 'pending') as member_count
-        FROM photo_clubs c 
-        ORDER BY c.name ASC
-      `);
-      res.json(rows);
-    } catch (err) {
-      console.error("❌ Hiba a klubok lekérésekor:", err.message);
-      res.status(500).json({ error: 'Hiba a klubok lekérésekor' });
-    }
-  });
-
-  app.post('/api/clubs', requireAuth, async (req, res) => {
-    if (!req.user.isAdmin) return res.status(403).json({ error: 'Csak admin hozhat létre klubot!' });
-    try { 
-      await pool.query('INSERT IGNORE INTO photo_clubs (name) VALUES (?)', [req.body.name]); 
-      res.json({ success: true }); 
-    } catch (err) { res.status(500).json({ error: 'Hiba' }); }
-  });
-
-  app.delete('/api/clubs/:id', requireAuth, async (req, res) => {
-    if (!req.user.isAdmin) return res.status(403).json({ error: 'Csak admin törölhet klubot!' });
-    try { 
-      await pool.query('DELETE FROM photo_clubs WHERE id = ?', [req.params.id]); 
-      res.json({ success: true }); 
-    } catch (err) { res.status(500).json({ error: 'Hiba' }); }
-  });
-
-  // ====================================================================
-  // ⏳ KLUBESTEK VÉDELME
-  // ====================================================================
-  app.get('/api/meetings', requireAuth, async (req, res) => {
-    try { 
-      const [rows] = await pool.query(`SELECT m.*, c.name as club_name FROM photo_club_meetings m JOIN photo_clubs c ON m.club_id = c.id ORDER BY m.meeting_date DESC, m.meeting_time DESC`); 
-      res.json(rows); 
-    } catch (err) { res.status(500).json({ error: 'Hiba' }); }
-  });
-
-  app.post('/api/meetings', upload.single('coverPhoto'), requireAuth, async (req, res) => {
-    const { clubId, date, time, topic, description, locationType, locationDetails, videoLink } = req.body;
-    const file = req.file; 
-    
-    if (!await isClubManagement(req.user.email, clubId)) {
-      if (file) cleanupTempFile(file);
-      return res.status(403).json({ error: 'Nincs jogosultságod ehhez a klubhoz eseményt rögzíteni!' });
-    }
-
-    let fileUrl = null; let driveFileId = null;
-    try {
-      if (file) {
-        const fileStream = fs.createReadStream(file.path);
-        const fileExt = file.originalname && file.originalname.includes('.') ? file.originalname.substring(file.originalname.lastIndexOf('.')).toLowerCase() : '.jpg';
-        const driveRes = await drive.files.create({ requestBody: { name: `Klubest_Cover_${Date.now()}${fileExt}`, parents: [process.env.DRIVE_MASTER_FOLDER_ID] }, media: { mimeType: file.mimetype, body: fileStream }, fields: 'id, webViewLink' });
-        fileUrl = driveRes.data.webViewLink; driveFileId = driveRes.data.id;
-        cleanupTempFile(file);
-      }
-      await pool.query('INSERT INTO photo_club_meetings (club_id, meeting_date, meeting_time, topic, description, location_type, location_details, file_url, drive_file_id, video_link) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [clubId, date, time, topic, description, locationType, locationDetails, fileUrl, driveFileId, videoLink || null]);
-      res.json({ success: true });
-    } catch (err) { cleanupTempFile(file); res.status(500).json({ error: err.message }); }
-  });
-
-  app.put('/api/meetings/:id', upload.single('coverPhoto'), requireAuth, async (req, res) => {
-    const file = req.file;
-    const currentClubId = await getClubIdByMeeting(req.params.id);
-    if (!currentClubId || !await isClubManagement(req.user.email, currentClubId)) {
-      if (file) cleanupTempFile(file);
-      return res.status(403).json({ error: 'Nincs jogosultságod eseményt szerkeszteni ebben a klubban!' });
-    }
-
-    const { date, time, topic, description, locationType, locationDetails, videoLink } = req.body;
-    try {
-      if (file) {
-        const [oldRows] = await pool.query('SELECT drive_file_id FROM photo_club_meetings WHERE id = ?', [req.params.id]);
-        if (oldRows.length > 0 && oldRows[0].drive_file_id) await drive.files.delete({ fileId: oldRows[0].drive_file_id }).catch(() => {});
-        const fileStream = fs.createReadStream(file.path);
-        const fileExt = file.originalname && file.originalname.includes('.') ? file.originalname.substring(file.originalname.lastIndexOf('.')).toLowerCase() : '.jpg';
-        const driveRes = await drive.files.create({ requestBody: { name: `Klubest_Cover_${Date.now()}${fileExt}`, parents: [process.env.DRIVE_MASTER_FOLDER_ID] }, media: { mimeType: file.mimetype, body: fileStream }, fields: 'id, webViewLink' });
-        cleanupTempFile(file);
-        await pool.query('UPDATE photo_club_meetings SET meeting_date=?, meeting_time=?, topic=?, description=?, location_type=?, location_details=?, file_url=?, drive_file_id=?, video_link=? WHERE id=?', [date, time, topic, description, locationType, locationDetails, driveRes.data.webViewLink, driveRes.data.id, videoLink || null, req.params.id]);
-      } else {
-        await pool.query('UPDATE photo_club_meetings SET meeting_date=?, meeting_time=?, topic=?, description=?, location_type=?, location_details=?, video_link=? WHERE id=?', [date, time, topic, description, locationType, locationDetails, videoLink || null, req.params.id]);
-      }
-      res.json({ success: true });
-    } catch (err) { cleanupTempFile(file); res.status(500).json({ error: 'Sikertelen Drive feltöltés.' }); }
-  });
-
-  app.delete('/api/meetings/:id', requireAuth, async (req, res) => {
-    const currentClubId = await getClubIdByMeeting(req.params.id);
-    if (!currentClubId || !await isClubManagement(req.user.email, currentClubId)) {
-      return res.status(403).json({ error: 'Nincs jogosultságod az esemény törléséhez!' });
-    }
-
-    try {
-      const [rows] = await pool.query('SELECT drive_file_id FROM photo_club_meetings WHERE id = ?', [req.params.id]);
-      if (rows.length > 0 && rows[0].drive_file_id) await drive.files.delete({ fileId: rows[0].drive_file_id }).catch(() => {});
-      await pool.query('DELETE FROM photo_club_meetings WHERE id = ?', [req.params.id]);
-      res.json({ success: true });
-    } catch (err) { res.status(500).json({ error: 'Hiba a törlésnél' }); }
-  });
-
-  // ====================================================================
-  // 👥 Jelenléti ívek védelme
-  // ====================================================================
-  app.get('/api/attendance/:meetingId', requireAuth, async (req, res) => {
-    const currentClubId = await getClubIdByMeeting(req.params.meetingId);
-    if (!currentClubId || !await isClubManagement(req.user.email, currentClubId)) {
-      return res.status(403).json({ error: 'Hozzáférés megtagadva! Résztvevők listáját csak klubvezetők tölthetik le.' });
-    }
-    try { 
-      const [rows] = await pool.query('SELECT user_email FROM photo_meeting_attendance WHERE meeting_id = ?', [req.params.meetingId]); 
-      res.json(rows.map(r => r.user_email)); 
-    } catch (err) { res.status(500).json({ error: 'Hiba' }); }
-  });
-
-  app.post('/api/attendance/:meetingId', requireAuth, async (req, res) => {
-    const currentClubId = await getClubIdByMeeting(req.params.meetingId);
-    if (!currentClubId || !await isClubManagement(req.user.email, currentClubId)) {
-      return res.status(403).json({ error: 'Nincs jogosultságod a jelenléti ív módosításához!' });
-    }
-    const { emails } = req.body; const conn = await pool.getConnection();
-    try {
-      await conn.beginTransaction();
-      await conn.query('DELETE FROM photo_meeting_attendance WHERE meeting_id = ?', [req.params.meetingId]);
-      if (emails && emails.length > 0) { const values = emails.map(email => [req.params.meetingId, email]); await conn.query('INSERT INTO photo_meeting_attendance (meeting_id, user_email) VALUES ?', [values]); }
-      await conn.commit(); res.json({ success: true });
-    } catch (e) { await conn.rollback(); res.status(500).json({ error: e.message }); } finally { conn.release(); }
-  });
-
-  // ====================================================================
-  // 📰 HÍREK SZEKCIÓ
-  // ====================================================================
-  app.get('/api/news/public', requireAuth, async (req, res) => {
-    try {
-      const [rows] = await pool.query(`
-        SELECT n.*, c.name as club_name,
-               (SELECT COUNT(*) FROM photo_club_news_reads r WHERE r.news_id = n.id AND r.user_email = ?) as is_read 
-        FROM photo_club_news n
-        JOIN photo_clubs c ON n.club_id = c.id
-        WHERE n.is_public = 1 
-        ORDER BY n.created_at DESC
-      `, [req.user.email]); 
-      res.json(rows);
-    } catch (err) { res.status(500).json({ error: 'Hiba a nyilvános hírek lekérésekor' }); }
-  });
-
-  app.get('/api/clubs/:clubId/news', requireAuth, async (req, res) => {
-    try { 
-      const [rows] = await pool.query(`SELECT n.*, (SELECT COUNT(*) FROM photo_club_news_reads r WHERE r.news_id = n.id AND r.user_email = ?) as is_read FROM photo_club_news n WHERE n.club_id = ? ORDER BY n.created_at DESC`, [req.user.email, req.params.clubId]);
-      res.json(rows);
-    } catch (err) { res.status(500).json({ error: 'Hiba a hírek lekérésekor' }); }
-  });
-
-  app.post('/api/clubs/:clubId/news', requireAuth, async (req, res) => {
-    const { title, content, isPublic } = req.body;
-    const { clubId } = req.params;
-
-    if (!await isClubManagement(req.user.email, clubId)) {
-      return res.status(403).json({ error: 'Nincs jogosultságod hír posztolásához ebben a klubban!' });
-    }
-
-    try { 
-      await pool.query(
-        'INSERT INTO photo_club_news (club_id, author_email, author_name, title, content, is_public) VALUES (?, ?, ?, ?, ?, ?)', 
-        [clubId, req.user.email, req.user.name, title, content, isPublic ? 1 : 0]
-      );
-      res.json({ success: true }); 
-    } catch (err) { res.status(500).json({ error: 'Hiba a hír posztolásakor' }); }
-  });
-
-  app.delete('/api/news/:id', requireAuth, async (req, res) => {
-    const currentClubId = await getClubIdByNews(req.params.id);
-    if (!currentClubId || !await isClubManagement(req.user.email, currentClubId)) {
-      return res.status(403).json({ error: 'Nincs jogosultságod a hír törléséhez!' });
-    }
-    try {
-      await pool.query('DELETE FROM photo_club_news_reads WHERE news_id = ?', [req.params.id]);
-      await pool.query('DELETE FROM photo_club_news_comments WHERE news_id = ?', [req.params.id]);
-      await pool.query('DELETE FROM photo_club_news WHERE id = ?', [req.params.id]);
-      res.json({ success: true });
-    } catch (err) { res.status(500).json({ error: 'Hiba a hír törlésekor' }); }
-  });
-
-  app.post('/api/news/:id/read', requireAuth, async (req, res) => {
-    try { await pool.query('INSERT IGNORE INTO photo_club_news_reads (news_id, user_email) VALUES (?, ?)', [req.params.id, req.user.email]); res.json({ success: true }); } 
-    catch (err) { res.status(500).json({ error: 'Hiba' }); }
-  });
-
-  app.get('/api/news/:id/readers', requireAuth, async (req, res) => {
-    const currentClubId = await getClubIdByNews(req.params.id);
-    if (!currentClubId || !await isClubManagement(req.user.email, currentClubId)) {
-      return res.status(403).json({ error: 'Csak klubvezetők ellenőrizhetik az olvasottsági listát.' });
-    }
-    try { const [rows] = await pool.query(`SELECT r.user_email, u.name, r.read_at FROM photo_club_news_reads r JOIN photo_users u ON r.user_email = u.email WHERE r.news_id = ? ORDER BY r.read_at DESC`, [req.params.id]); res.json(rows); } 
-    catch (err) { res.status(500).json({ error: 'Hiba' }); }
-  });
-
-  app.get('/api/news/:id/comments', requireAuth, async (req, res) => {
-    try { const [rows] = await pool.query('SELECT * FROM photo_club_news_comments WHERE news_id = ? ORDER BY created_at ASC', [req.params.id]); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
-  });
-
-  app.post('/api/news/:id/comments', requireAuth, async (req, res) => {
-    const { commentText } = req.body;
-    try { await pool.query('INSERT INTO photo_club_news_comments (news_id, user_email, user_name, comment_text) VALUES (?, ?, ?, ?)', [req.params.id, req.user.email, req.user.name, commentText]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
-  });
-
-  // ====================================================================
-  // 👥 TAGFELVÉTEL ÉS KÉRELMEK VÉDELME
-  // ====================================================================
-  app.get('/api/clubs/active-only', requireAuth, async (req, res) => {
-    try {
-      const [rows] = await pool.query(`
-        SELECT DISTINCT c.* FROM photo_clubs c
-        INNER JOIN photo_users u ON c.id = u.club_id
-        WHERE u.club_role IN ('leader', 'deputy')
-        ORDER BY c.name ASC
-      `);
-      res.json(rows);
-    } catch (err) { res.status(500).json({ error: err.message }); }
-  });
-
-  app.post('/api/clubs/join-request', requireAuth, async (req, res) => {
-    const { clubId, clubName } = req.body;
-    if (!clubId || !clubName) return res.status(400).json({ error: 'Hiányzó adatok!' });
-    try {
-      await pool.query("UPDATE photo_users SET club_id = ?, club_name = ?, club_role = 'pending' WHERE email = ?", [clubId, clubName, req.user.email]);
-      res.json({ success: true });
-    } catch (err) { res.status(500).json({ error: err.message }); }
-  });
-
-  app.get('/api/clubs/pending-members', requireAuth, async (req, res) => {
-    const { clubId } = req.query;
-    if (!clubId) return res.status(400).json({ error: 'Hiányzó klub azonosító!' });
-    if (!await isClubManagement(req.user.email, clubId)) return res.status(403).json({ error: 'Nincs jogosultságod a kérelmek megtekintéséhez!' });
-    
-    try {
-      const [rows] = await pool.query("SELECT email, name, club_name FROM photo_users WHERE club_id = ? AND club_role = 'pending'", [clubId]);
-      res.json(rows);
-    } catch (err) { res.status(500).json({ error: err.message }); }
-  });
-
-  app.post('/api/clubs/handle-request', requireAuth, async (req, res) => {
-    const { targetEmail, action, clubId, clubName } = req.body;
-    
-    if (!await isClubManagement(req.user.email, clubId)) {
-      return res.status(403).json({ error: 'Hozzáférés megtagadva! Csak a klub igazgatósága bírálhatja el a jelentkezéseket.' });
-    }
-
-    const conn = await pool.getConnection();
-    try {
-      await conn.beginTransaction();
-      if (action === 'approve') {
-        await conn.query("UPDATE photo_users SET club_role = 'member' WHERE email = ?", [targetEmail]);
-        await conn.query("UPDATE photo_club_memberships SET status = 'left', left_date = CURRENT_DATE() WHERE user_email = ? AND status = 'active'", [targetEmail]);
-        await conn.query("INSERT INTO photo_club_memberships (club_id, club_name, user_email, club_role, joined_date, status) VALUES (?, ?, ?, 'member', CURRENT_DATE(), 'active')", [clubId, clubName, targetEmail]);
-      } else {
-        await conn.query("UPDATE photo_users SET club_id = NULL, club_name = NULL, club_role = 'member' WHERE email = ?", [targetEmail]);
-        await conn.query("UPDATE photo_club_memberships SET status = 'left', left_date = CURRENT_DATE() WHERE user_email = ? AND club_id = ? AND status = 'active'", [targetEmail, clubId]);
-      }
-      await conn.commit(); res.json({ success: true });
-    } catch (err) { await conn.rollback(); res.status(500).json({ error: err.message }); } finally { conn.release(); }
-  });
-
-  // ====================================================================
-  // 🛡️ VEZETŐI ÉS HELYETTESI IRÁNYÍTÓPULT VÉGPONTOK
-  // ====================================================================
-  app.get('/api/my-club', requireAuth, async (req, res) => {
-    try {
-      const [userRows] = await pool.query('SELECT club_id, club_role FROM photo_users WHERE email = ?', [req.user.email]);
-      if (userRows.length === 0 || !userRows[0].club_id) {
-        return res.status(404).json({ error: 'Nem tartozol egyetlen regisztrált fotóklubhoz sem!' });
-      }
-
-      const { club_id, club_role } = userRows[0];
-      if (club_role !== 'leader' && club_role !== 'deputy' && req.user.email !== ADMIN_EMAIL) {
-        return res.status(403).json({ error: 'Nincs jogosultságod a klubvezetői adatok eléréséhez!' });
-      }
-
-      const [clubRows] = await pool.query('SELECT * FROM photo_clubs WHERE id = ?', [club_id]);
-      const [members] = await pool.query("SELECT name, email, club_role FROM photo_users WHERE club_id = ? AND club_role != 'pending' ORDER BY name ASC", [club_id]);
-      res.json({ club: clubRows[0], members });
-    } catch (err) { res.status(500).json({ error: 'Szerveroldali hiba' }); }
-  });
-
-  app.post('/api/my-club/update-name', requireAuth, async (req, res) => {
-    const { clubId, newClubName } = req.body;
-    if (!await isClubManagement(req.user.email, clubId)) return res.status(403).json({ error: 'Megtagadva!' });
-
-    const conn = await pool.getConnection();
-    try {
-      await conn.beginTransaction();
-      await conn.query('UPDATE photo_clubs SET name = ? WHERE id = ?', [newClubName.trim(), clubId]);
-      await conn.query('UPDATE photo_users SET club_name = ? WHERE club_id = ?', [newClubName.trim(), clubId]);
-      await conn.commit(); res.json({ success: true });
-    } catch (err) { await conn.rollback(); res.status(500).json({ error: 'Hiba' }); } finally { conn.release(); }
-  });
-
-  app.post('/api/my-club/logo', upload.single('logo'), requireAuth, async (req, res) => {
-    const file = req.file; if (!file) return res.status(400).json({ error: 'Fájl kötelező!' });
-    const { clubId } = req.body;
-
-    if (!await isClubManagement(req.user.email, clubId)) {
-      cleanupTempFile(file); return res.status(403).json({ error: 'Megtagadva!' });
-    }
-
-    try {
-      const [clubRows] = await pool.query('SELECT drive_logo_id FROM photo_clubs WHERE id = ?', [clubId]);
-      if (clubRows.length > 0 && clubRows[0].drive_logo_id) {
-        await drive.files.delete({ fileId: clubRows[0].drive_logo_id }).catch(() => {});
-      }
-      const fileExt = file.originalname.substring(file.originalname.lastIndexOf('.')).toLowerCase();
-      const driveRes = await drive.files.create({ requestBody: { name: `ClubLogo_${clubId}_${Date.now()}${fileExt}`, parents: [process.env.DRIVE_MASTER_FOLDER_ID] }, media: { mimeType: file.mimetype, body: fs.createReadStream(file.path) }, fields: 'id, webViewLink' });
-      cleanupTempFile(file);
-      await pool.query('UPDATE photo_clubs SET logo_url = ?, drive_logo_id = ? WHERE id = ?', [driveRes.data.webViewLink, driveRes.data.id, clubId]);
-      res.json({ success: true });
-    } catch (err) { cleanupTempFile(file); res.status(500).json({ error: err.message }); }
-  });
-
-  // ====================================================================
-  // 🎯 KLUB PÉNZÜGYEK ÉS TAGNYILVÁNTARTÁS VÉDELME
-  // ====================================================================
-  app.get('/api/my-club/admin-records', requireAuth, async (req, res) => {
-    const { clubId } = req.query;
-    if (!clubId) return res.status(400).json({ error: 'Hiányzó klub azonosító!' });
-
-    if (!await isClubManagement(req.user.email, clubId)) {
-      return res.status(403).json({ error: 'Hozzáférés megtagadva! Csak a klubvezetés láthatja a belső nyilvántartást.' });
-    }
-
-    try {
-      const [allTimeMembers] = await pool.query(`
-        SELECT 
-          u.name, 
-          u.email, 
-          u.club_role,
-          u.shipping_address,
-          1 as is_currently_here,
-          COALESCE(DATE_FORMAT((SELECT joined_date FROM photo_club_memberships WHERE user_email = u.email AND club_id = u.club_id AND status = 'active' LIMIT 1), '%Y-%m-%d'), 'Ismeretlen') as membership_start,
-          NULL as membership_end
-        FROM photo_users u
-        WHERE u.club_id = ? AND u.club_role != 'pending'
-
-        UNION ALL
-
-        SELECT 
-          u.name, 
-          u.email, 
-          m.club_role,
-          u.shipping_address,
-          0 as is_currently_here,
-          DATE_FORMAT(m.joined_date, '%Y-%m-%d') as membership_start,
-          DATE_FORMAT(m.left_date, '%Y-%m-%d') as membership_end
-        FROM photo_club_memberships m
-        JOIN photo_users u ON m.user_email = u.email
-        WHERE m.club_id = ? AND m.status = 'left' AND (u.club_id IS NULL OR u.club_id != ?)
-        
-        ORDER BY is_currently_here DESC, name ASC
-      `, [clubId, clubId, clubId]);
-
-      const [payments] = await pool.query(`
-        SELECT id, user_email, fiscal_year, fee_amount, paid_amount, DATE_FORMAT(payment_date, '%Y-%m-%d') as payment_date 
-        FROM photo_club_payments 
-        WHERE club_id = ?
-        ORDER BY fiscal_year DESC, payment_date DESC
-      `, [clubId]);
-
-      res.json({ members: allTimeMembers, payments });
-    } catch (err) {
-      console.error("❌ Hiba az adminisztratív rekordok lekérésekor:", err.message);
-      res.status(500).json({ error: 'Szerveroldali hiba történt.' });
-    }
-  });
-
-  app.post('/api/my-club/member/log-payment', requireAuth, async (req, res) => {
-    const { clubId, targetEmail, fiscalYear, feeAmount, paidAmount, paymentDate } = req.body;
-    
-    if (!await isClubManagement(req.user.email, clubId)) {
-      return res.status(403).json({ error: 'Hozzáférés megtagadva! Nincs jogod tagdíjat rögzíteni.' });
-    }
-
-    try {
-      const [existing] = await pool.query('SELECT id FROM photo_club_payments WHERE club_id = ? AND user_email = ? AND fiscal_year = ?', [clubId, targetEmail, fiscalYear]);
-
-      if (existing.length > 0) {
-        await pool.query(
-          'UPDATE photo_club_payments SET fee_amount = ?, paid_amount = ?, payment_date = ? WHERE id = ?',
-          [feeAmount, paidAmount, paymentDate || null, existing[0].id]
-        );
-      } else {
-        await pool.query(
-          'INSERT INTO photo_club_payments (club_id, user_email, fiscal_year, fee_amount, paid_amount, payment_date) VALUES (?, ?, ?, ?, ?, ?)',
-          [clubId, targetEmail, fiscalYear, feeAmount, paidAmount, paymentDate || null]
-        );
-      }
-      res.json({ success: true });
-    } catch (err) { res.status(500).json({ error: err.message }); }
-  });
-
-  app.post('/api/my-club/member/update-dates', requireAuth, async (req, res) => {
-    const { clubId, targetEmail, membershipStart, membershipEnd } = req.body;
-    if (!targetEmail || !clubId) return res.status(400).json({ error: 'Hiányzó azonosítók!' });
-    
-    if (!await isClubManagement(req.user.email, clubId)) {
-      return res.status(403).json({ error: 'Hozzáférés megtagadva! Nincs jogod a tagsági viszonyok módosításához.' });
-    }
-
-    try {
-      const status = membershipEnd ? 'left' : 'active';
-      const [existingLog] = await pool.query('SELECT id FROM photo_club_memberships WHERE user_email = ? AND club_id = ?', [targetEmail, clubId]);
-
-      if (existingLog.length > 0) {
-        await pool.query(
-          'UPDATE photo_club_memberships SET joined_date = ?, left_date = ?, status = ? WHERE id = ?',
-          [membershipStart, membershipEnd, status, existingLog[0].id]
-        );
-      } else {
-        await pool.query(
-          'INSERT INTO photo_club_memberships (club_id, club_name, user_email, club_role, joined_date, left_date, status) VALUES (?, (SELECT name FROM photo_clubs WHERE id = ?), ?, "member", ?, ?, ?)',
-          [clubId, clubId, targetEmail, membershipStart, membershipEnd, status]
-        );
-      }
-
-      if (status === 'left') {
-        await pool.query("UPDATE photo_users SET club_id = NULL, club_name = NULL, club_role = 'member' WHERE email = ?", [targetEmail]);
-      }
-
-      res.json({ success: true });
-    } catch (err) {
-      res.status(500).json({ error: 'Adatbázis hiba történt a mentés során: ' + err.message });
-    }
-  });
-
-  app.get('/api/profile/active-membership', requireAuth, async (req, res) => {
-    try {
-      const [rows] = await pool.query(
-        "SELECT DATE_FORMAT(joined_date, '%Y-%m-%d') as membership_start, DATE_FORMAT(left_date, '%Y-%m-%d') as membership_end FROM photo_club_memberships WHERE user_email = ? AND status = 'active' LIMIT 1",
-        [req.user.email]
-      );
-      res.json(rows[0] || { membership_start: null, membership_end: null });
-    } catch (err) { res.status(500).json({ error: err.message }); }
-  });
+export default function Header({ 
+  user, 
+  isLeader, 
+  activeTab, 
+  setActiveTab, 
+  dropdownOpen, 
+  setDropdownOpen, 
+  onLogout 
+}: HeaderProps) {
   
-  app.get('/api/dashboard-alerts', requireAuth, async (req, res) => {
-    try {
-      const [users] = await pool.query('SELECT club_name, club_id FROM photo_users WHERE email = ?', [req.user.email]);
-      let clubId = users.length > 0 ? users[0].club_id : null;
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [unreadTicketsCount, setUnreadTicketsCount] = useState(0);
+  const isAdminUser = user?.email === ADMIN_EMAIL;
+  
+  const headerRef = useRef<HTMLDivElement>(null);
 
-      const [contests] = await pool.query suicide(`SELECT id, title, end_date, restricted_club_id FROM photo_contests WHERE start_date <= CURRENT_DATE() AND end_date >= CURRENT_DATE() AND (restricted_club_id IS NULL OR restricted_club_id = 0 OR restricted_club_id = ?) ORDER BY end_date ASC`, [clubId || null]);
-      const [weekly] = await pool.query('SELECT id, title, end_date FROM weekly_topics WHERE start_date <= CURRENT_DATE() AND end_date >= CURRENT_DATE()');
+  // Aktiváljuk a nyelvi kontextust
+  const { lang, setLang, t } = useLanguage();
 
-      let homeworks = []; let unreadNews = [];
-      if (clubId) {
-        const [hw] = await pool.query('SELECT id, topic, deadline FROM photo_homeworks WHERE club_id = ? AND deadline >= CURRENT_DATE() ORDER BY deadline ASC', [clubId]);
-        homeworks = hw;
-        const [news] = await pool.query(`SELECT id, title, created_at FROM photo_club_news WHERE club_id = ? AND id NOT IN (SELECT news_id FROM photo_club_news_reads WHERE user_email = ?) ORDER BY created_at DESC`, [clubId, req.user.email]);
-        unreadNews = news;
+  // 🎯 JAVÍTVA: Biztonsági fék, hogy ne omoljon össze az app, ha a Provider még nincs beállítva
+  let theme = 'dark';
+  let toggleTheme = () => {};
+  
+  try {
+    const themeContext = useTheme();
+    if (themeContext) {
+      theme = themeContext.theme;
+      toggleTheme = themeContext.toggleTheme;
+    }
+  } catch (e) {
+    // Ha nincs fent Provider, csendben sötét módon marad
+  }
+
+  // Meghatározzuk, hogy épp melyik logót kell mutatni
+  const currentLogo = lang === 'en' ? logoEn : logoHu;
+
+  // 10 percenként ellenőrzi az olvasatlan üzeneteket
+  useEffect(() => {
+    if (!user?.email) return;
+    const checkUnread = () => {
+      fetch(`${BACKEND_URL}/api/tickets/unread-count?userEmail=${user.email}&isAdmin=${isAdminUser}`)
+        .then(res => res.json())
+        .then(data => setUnreadTicketsCount(data.count || 0))
+        .catch(console.error);
+    };
+    
+    checkUnread();
+    const interval = setInterval(checkUnread, 600000);
+    return () => clearInterval(interval);
+  }, [user, activeTab, isAdminUser]);
+
+  // Külső kattintásra bezáródó dropdown menük
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (headerRef.current && !headerRef.current.contains(event.target as Node)) {
+        setDropdownOpen(null);
       }
-      const [mapComments] = await pool.query(`SELECT c.id as comment_id, c.location_id, l.title as location_title, c.user_name, c.created_at FROM photo_location_comments c JOIN photo_locations l ON c.location_id = l.id WHERE l.user_email = ? AND c.user_email != ? AND c.created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY) AND c.id NOT IN (SELECT comment_id FROM photo_location_comment_reads WHERE user_email = ?) ORDER BY c.created_at DESC LIMIT 5`, [req.user.email, req.user.email, req.user.email]);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [setDropdownOpen]);
+  
+  const handleNavClick = (tab: string) => {
+    setActiveTab(tab);
+    setDropdownOpen(null);
+    setIsMobileMenuOpen(false); 
+  };
+
+  const handleManageSubscription = async () => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/create-portal-session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userEmail: user.email })
+      });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        alert(data.error || 'Hiba az ügyfélkapu megnyitásakor.');
+      }
+    } catch (e) {
+      alert('Hálózati hiba!');
+    }
+  };
+
+  const LogoBrandBlock = () => (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+      <div style={{ 
+        background: 'var(--bg-main, #0f172a)', 
+        padding: '5px 6px', 
+        borderRadius: '6px', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center',
+        border: '1px solid var(--border-main, #222f47)',
+        boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
+      }}>
+        <img 
+          src={currentLogo} 
+          alt="PhotAwesome" 
+          style={{ height: '22px', width: 'auto', objectFit: 'contain' }} 
+        />
+      </div>
+      <div style={{ fontWeight: '800', color: 'var(--text-title, #f8fafc)', fontSize: '1.25rem', letterSpacing: '-0.5px' }}>
+        Phot<span style={{ background: 'linear-gradient(135deg, #38bdf8, #8b5cf6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Awesome</span>
+      </div>
+    </div>
+  );
+
+  return (
+    <header ref={headerRef} className="app-header" style={{ position: 'relative', zIndex: 1000, width: '100%', background: 'var(--bg-card, #131b2e)', borderBottom: '1px solid var(--border-main, #222f47)', boxSizing: 'border-box' }}>
       
-      res.json({ contests, weekly, homeworks, unreadNews, mapComments });
-    } catch (err) { res.status(500).json({ error: 'Hiba' }); }
-  });
-};
+      <style>{`
+        /* ── 🎯 ASZTALI SZABÁLYZAT ── */
+        @media (min-width: 1060px) {
+          .app-header {
+            padding: 0 24px !important;
+            height: 56px;
+            display: flex !important;
+            align-items: center;
+          }
+          .mobile-header-top {
+            display: none !important;
+          }
+          .header-nav-container {
+            display: flex !important;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+          }
+          .header-desktop-brand-wrapper {
+            display: flex !important;
+            align-items: center;
+            margin-right: 16px;
+          }
+          .nav-group {
+            display: flex !important;
+            align-items: center;
+            gap: 4px;
+            flex: 1;
+            justify-content: center;
+          }
+          .dropdown-menu {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            background: var(--bg-card, #131b2e);
+            border: 1px solid var(--border-main, #222f47);
+            border-radius: 6px;
+            padding: 4px;
+            min-width: 190px;
+            box-shadow: 0 12px 30px rgba(0,0,0,0.15);
+          }
+        }
+        
+        /* ── 🎯 ABSZOLÚT FÜGGÖNY MECHANIZMUS MOBILRA ── */
+        @media (max-width: 1059px) {
+          .header-desktop-brand-wrapper {
+            display: none !important;
+          }
+          .mobile-header-top {
+            display: flex !important;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            padding: 0 20px;
+            box-sizing: border-box;
+            height: 56px !important;
+            background: var(--bg-card, #131b2e);
+          }
+          .hamburger-btn {
+            background: var(--bg-main, #0f172a);
+            color: var(--text-body, #94a3b8);
+            border: 1px solid var(--border-main, #222f47);
+            padding: 6px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 32px;
+            width: 38px;
+            box-sizing: border-box;
+          }
+          .header-nav-container {
+            display: none;
+            flex-direction: column;
+            position: absolute;
+            top: 56px;
+            left: 0;
+            right: 0;
+            background: var(--bg-card, #131b2e);
+            border-bottom: 1px solid var(--border-main, #222f47);
+            padding: 16px 20px;
+            box-sizing: border-box;
+            gap: 12px;
+            box-shadow: 0 15px 30px rgba(0,0,0,0.2);
+            z-index: 99999;
+          }
+          .header-nav-container.mobile-open {
+            display: flex !important;
+          }
+          .nav-group {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            gap: 6px;
+          }
+          .nav-item-container {
+            width: 100%;
+          }
+          .nav-btn {
+            width: 100% !important;
+            text-align: left !important;
+            justify-content: flex-start !important;
+            padding: 10px 14px !important;
+            background: var(--bg-main, #0f172a) !important;
+            border: 1px solid var(--border-main, #222f47) !important;
+            border-radius: 6px !important;
+          }
+          .user-group {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            gap: 10px;
+            padding-top: 14px;
+            border-top: 1px solid var(--border-main, #222f47);
+          }
+          .dropdown-menu {
+            position: static !important;
+            width: 100% !important;
+            background: var(--bg-main, #0f172a) !important;
+            box-shadow: none !important;
+            margin-top: 4px;
+            border-radius: 6px !important;
+            padding: 6px !important;
+            box-sizing: border-box;
+            border: 1px solid var(--border-main, #222f47);
+          }
+        }
+
+        .nav-btn {
+          background: transparent;
+          border: none;
+          color: var(--text-body, #94a3b8);
+          padding: 8px 12px;
+          border-radius: 4px;
+          font-weight: 600;
+          font-size: 0.88rem;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          white-space: nowrap;
+          transition: all 0.15s ease-in-out;
+        }
+        .nav-btn.active, .nav-btn:hover {
+          background: rgba(255, 255, 255, 0.04);
+          color: var(--text-title, #f8fafc);
+        }
+        .drop-item {
+          width: 100%;
+          text-align: left;
+          background: transparent;
+          border: none;
+          color: var(--text-body, #94a3b8);
+          padding: 8px 12px;
+          border-radius: 4px;
+          font-size: 0.85rem;
+          font-weight: 600;
+          cursor: pointer;
+          white-space: nowrap;
+          transition: all 0.1s;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .drop-item:hover, .drop-item.active {
+          background: rgba(255, 255, 255, 0.04);
+          color: var(--text-title, #f8fafc);
+        }
+      `}</style>
+      
+      {/* A: MOBIL MEGJELENÉSŰ FELSŐ FIX SÁV */}
+      <div className="mobile-header-top">
+        <LogoBrandBlock />
+        <button className="hamburger-btn" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
+          {isMobileMenuOpen ? <X size={16} /> : <Menu size={16} />}
+        </button>
+      </div>
+
+      {/* B: ASZTALI ÉS LENYÍLÓ NAVIGÁCIÓS PANEL */}
+      <div className={`header-nav-container ${isMobileMenuOpen ? 'mobile-open' : ''}`}>
+        
+        <div className="header-desktop-brand-wrapper">
+          <LogoBrandBlock />
+        </div>
+
+        <div className="nav-group">
+          {/* 1. KEZDŐLAP */}
+          <div className="nav-item-container">
+            <button className={`nav-btn ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => handleNavClick('dashboard')}>
+              <Home size={14} /> <span>{t('navHome')}</span>
+            </button>
+          </div>
+
+          {/* 2. FOTÓS ARÉNA */}
+          <div className="nav-item-container">
+            <button className={`nav-btn ${activeTab === 'weekly_challenge' ? 'active' : ''}`} style={{ color: activeTab === 'weekly_challenge' ? '#f97316' : '' }} onClick={() => handleNavClick('weekly_challenge')}>
+              <Flame size={14} /> <span>{t('navArena')}</span>
+            </button>
+          </div>
+
+          {/* 3. PÁLYÁZATOK DROPDOWN */}
+          <div className="nav-item-container">
+            <button 
+              className={`nav-btn ${dropdownOpen === 'contests' || activeTab.startsWith('contests_') || ['salons', 'fiap_progress', 'mafosz_progress'].includes(activeTab) ? 'active' : ''}`} 
+              style={{ color: (activeTab.startsWith('contests_') || ['salons', 'fiap_progress', 'mafosz_progress'].includes(activeTab)) ? '#38bdf8' : '' }}
+              onClick={() => setDropdownOpen(dropdownOpen === 'contests' ? null : 'contests')}
+            >
+              <Award size={14} /> <span>{t('navContests')}</span> <ChevronDown size={12} style={{ opacity: 0.6 }} />
+            </button>
+            {dropdownOpen === 'contests' && (
+              <div className="dropdown-menu">
+                <button className={`drop-item ${activeTab === 'contests_club_active' ? 'active' : ''}`} onClick={() => handleNavClick('contests_club_active')}>{t('subClubContests')}</button>
+                <button className={`drop-item ${activeTab === 'contests_open_active' ? 'active' : ''}`} onClick={() => handleNavClick('contests_open_active')}>{t('subOpenContests')}</button>
+                <button className={`drop-item ${activeTab === 'contests_closed' ? 'active' : ''}`} onClick={() => handleNavClick('contests_closed')}>{t('subClosedContests')}</button>
+                <div style={{ height: '1px', backgroundColor: 'var(--border-main, #222f47)', margin: '4px 0' }}></div>
+                <button className={`drop-item ${activeTab === 'salons' ? 'active' : ''}`} style={{ color: '#38bdf8' }} onClick={() => handleNavClick('salons')}><Globe size={12} /> {t('subSalonsList')}</button>
+                <button className={`drop-item ${activeTab === 'fiap_progress' ? 'active' : ''}`} onClick={() => handleNavClick('fiap_progress')}><Award size={12} /> {t('subFiap')}</button>
+                <button className={`drop-item ${activeTab === 'mafosz_progress' ? 'active' : ''}`} onClick={() => handleNavClick('mafosz_progress')}>
+                  <img src="https://flagcdn.com/16x12/hu.png" width="14" height="10" alt="HU" style={{ borderRadius: '1px', objectFit: 'cover' }} />
+                  {t('subMafosz')}
+                </button>
+              </div>
+            )}
+          </div>
+          
+          {/* 4. KLUBÉLET DROPDOWN */}
+          <div className="nav-item-container">
+            <button className={`nav-btn ${dropdownOpen === 'club' || activeTab.startsWith('club_') || activeTab === 'public_news' ? 'active' : ''}`} onClick={() => setDropdownOpen(dropdownOpen === 'club' ? null : 'club')}>
+              <Users size={14} /> <span>{t('navClub')}</span> <ChevronDown size={12} style={{ opacity: 0.6 }} />
+            </button>
+            {dropdownOpen === 'club' && (
+              <div className="dropdown-menu">
+                <button className={`drop-item ${activeTab === 'club_news' ? 'active' : ''}`} onClick={() => handleNavClick('club_news')}>{t('subClubNews')}</button>
+                <button className={`drop-item ${activeTab === 'club_nights' ? 'active' : ''}`} onClick={() => handleNavClick('club_nights')}>{t('subClubNights')}</button>
+                <button className={`drop-item ${activeTab === 'club_homeworks' ? 'active' : ''}`} onClick={() => handleNavClick('club_homeworks')}>{t('subClubHomeworks')}</button>
+              </div>
+            )}
+          </div>
+
+          {/* 5. FELFEDEZÉS DROPDOWN */}
+          <div className="nav-item-container">
+            <button 
+              className={`nav-btn ${dropdownOpen === 'explore' || ['podcast', 'map_spots'].includes(activeTab) || activeTab.startsWith('marketplace') ? 'active' : ''}`}
+              style={{ color: ['podcast', 'map_spots'].includes(activeTab) || activeTab.startsWith('marketplace') ? '#ec4899' : '' }}
+              onClick={() => setDropdownOpen(dropdownOpen === 'explore' ? null : 'explore')}
+            >
+              <Map size={14} /> <span>{t('navExplore')}</span> <ChevronDown size={12} style={{ opacity: 0.6 }} />
+            </button>
+            {dropdownOpen === 'explore' && (
+              <div className="dropdown-menu">
+                <button className={`drop-item ${activeTab === 'podcast' ? 'active' : ''}`} style={{ color: '#f43f5e' }} onClick={() => handleNavClick('podcast')}><Mic size={12} /> Podcast</button>
+                <button className={`drop-item ${activeTab.startsWith('marketplace') ? 'active' : ''}`} style={{ color: '#38bdf8' }} onClick={() => handleNavClick('marketplace')}><ShoppingBag size={12} /> {t('navMarketplace') || 'Piactér'}</button>
+                <button className={`drop-item ${activeTab === 'map_spots' ? 'active' : ''}`} style={{ color: '#10b981' }} onClick={() => handleNavClick('map_spots')}><Map size={12} /> {t('navMap')}</button>
+              </div>
+            )}
+          </div>
+
+          {/* 5.1. HÍREK CSATORNA */}
+          <div className="nav-item-container">
+            <button className={`nav-btn ${activeTab === 'public_news' ? 'active' : ''}`} style={{ color: '#38bdf8' }} onClick={() => handleNavClick('public_news')}>
+              <Newspaper size={14} /> <span>{lang === 'en' ? 'News' : 'Hírek'}</span>
+            </button>
+          </div>
+          
+          {/* 6. ADMIN PANEL */}
+          {(user?.email === ADMIN_EMAIL || isLeader) && (
+            <div className="nav-item-container">
+              <button className={`nav-btn ${dropdownOpen === 'admin' || activeTab.startsWith('admin_') || activeTab === 'leader_club' ? 'active' : ''}`} style={{ color: '#ef4444' }} onClick={() => setDropdownOpen(dropdownOpen === 'admin' ? null : 'admin')}>
+                <ShieldAlert size={14} /> <span>{t('navAdmin')}</span> <ChevronDown size={12} style={{ opacity: 0.6 }} />
+              </button>
+              {dropdownOpen === 'admin' && (
+                <div className="dropdown-menu">
+                  {isLeader && (
+                    <button className={`drop-item ${activeTab === 'leader_club' ? 'active' : ''}`} style={{ color: '#0ea5e9' }} onClick={() => handleNavClick('leader_club')}>{t('subLeaderClub')}</button>
+                  )}
+                  {user?.email === ADMIN_EMAIL && <button className={`drop-item ${activeTab === 'admin_contests' ? 'active' : ''}`} style={{ color: activeTab === 'admin_contests' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_contests')}>{t('subManageContests')}</button>}
+                  <button className={`drop-item ${activeTab === 'admin_meetings' ? 'active' : ''}`} style={{ color: activeTab === 'admin_meetings' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_meetings')}>{t('subManageMeetings')}</button>
+                  <button className={`drop-item ${activeTab === 'admin_homeworks' ? 'active' : ''}`} style={{ color: activeTab === 'admin_weekly' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_homeworks')}>{t('subManageHomeworks')}</button>
+                  {user?.email === ADMIN_EMAIL && <button className={`drop-item ${activeTab === 'admin_weekly' ? 'active' : ''}`} style={{ color: activeTab === 'admin_weekly' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_weekly')}>{t('subManageWeekly')}</button>}
+                  {user?.email === ADMIN_EMAIL && <button className={`drop-item ${activeTab === 'admin_settings' ? 'active' : ''}`} style={{ color: '#ef4444' }} onClick={() => handleNavClick('admin_settings')}>{t('subManageSettings')}</button>}
+                  {user?.email === ADMIN_EMAIL && <button className={`drop-item ${activeTab === 'admin_salons' ? 'active' : ''}`} style={{ color: activeTab === 'admin_salons' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_salons')}>{t('subManageSalons')}</button>}
+                  {user?.email === ADMIN_EMAIL && <button className={`drop-item ${activeTab === 'admin_users' ? 'active' : ''}`} style={{ color: activeTab === 'admin_users' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_users')}>{t('subManageUsers')}</button>}
+                  {user?.email === ADMIN_EMAIL && <button className={`drop-item ${activeTab === 'admin_clubs' ? 'active' : ''}`} style={{ color: activeTab === 'admin_clubs' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_clubs')}>{t('subManageClubs')}</button>}
+                </div>
+              )}
+            </div>
+          )}
+        </div> 
+
+        {/* FIÓK MENÜ ÉS NYELVVÁLASZTÓ */}
+        <div className="user-group" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+          
+          {/* ☀️/🌑 TÉMAVÁLTÓ KAPCSOLÓ GOMB INTEGRÁLVA A NYELVVÁLASZTÓ MELLÉ */}
+          <button 
+            onClick={toggleTheme}
+            style={{
+              background: 'transparent',
+              border: '1px solid var(--border-main, #222f47)',
+              color: 'var(--text-body, #94a3b8)',
+              padding: '6px 10px',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.15s ease',
+              height: '30px',
+              boxSizing: 'border-box'
+            }}
+            title={theme === 'dark' ? 'Világos mód' : 'Sötét mód'}
+          >
+            {theme === 'dark' ? <Sun size={14} color="#fbbf24" fill="#fbbf24" /> : <Moon size={14} color="#475569" />}
+          </button>
+
+          <div style={{ display: 'flex', gap: '2px', background: 'var(--bg-main, #0f172a)', padding: '3px', borderRadius: '6px', border: '1px solid var(--border-main, #222f47)' }}>
+            <button onClick={() => setLang('hu')} style={{ background: lang === 'hu' ? 'rgba(255,255,255,0.06)' : 'transparent', color: lang === 'hu' ? 'var(--text-title, #f8fafc)' : '#64748b', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <img src="https://flagcdn.com/16x12/hu.png" width="14" height="10" alt="HU" style={{ borderRadius: '1px', objectFit: 'cover' }} />
+              <span>HU</span>
+            </button>
+            <button onClick={() => setLang('en')} style={{ background: lang === 'en' ? 'rgba(255,255,255,0.06)' : 'transparent', color: lang === 'en' ? 'var(--text-title, #f8fafc)' : '#64748b', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <img src="https://flagcdn.com/16x12/gb.png" width="14" height="10" alt="EN" style={{ borderRadius: '1px', objectFit: 'cover' }} />
+              <span>EN</span>
+            </button>
+          </div>
+          
+          <div className="nav-item-container">
+            <button 
+              className={`nav-btn ${dropdownOpen === 'user_account' || ['profile', 'my_album', 'packages', 'tickets'].includes(activeTab) ? 'active' : ''}`} 
+              style={{ color: '#14b8a6', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}
+              onClick={() => setDropdownOpen(dropdownOpen === 'user_account' ? null : 'user_account')}
+            >
+              <User size={14} />
+              <span>{user?.name || user?.user_name || 'Fotós'}</span>
+              {!!(user?.isPremium || user?.is_premium) && <Sparkles size={12} color="#fbbf24" />}
+              {isLeader && (
+                <span style={{ fontSize: '0.65rem', background: 'rgba(245,158,11,0.1)', color: '#f59e0b', padding: '2px 6px', borderRadius: '4px', border: '1px solid rgba(245,158,11,0.3)', fontWeight: 'bold' }}>
+                  Vezetőség
+                </span>
+              )}
+              <ChevronDown size={12} style={{ opacity: 0.6 }} />
+            </button>
+
+            {dropdownOpen === 'user_account' && (
+              <div className="dropdown-menu" style={{ right: 0, left: 'auto', minWidth: '210px' }}>
+                <button className="drop-item" style={{ color: '#14b8a6', backgroundColor: activeTab === 'profile' ? 'rgba(255,255,255,0.04)' : 'transparent' }} onClick={() => handleNavClick('profile')}><User size={12} /> {t('subProfile')}</button>
+                <button className="drop-item" style={{ color: '#f59e0b', backgroundColor: activeTab === 'my_album' ? 'rgba(255,255,255,0.04)' : 'transparent' }} onClick={() => handleNavClick('my_album')}><ImageIcon size={12} /> {t('subPortfolio')}</button>
+                <button className="drop-item" style={{ color: '#8b5cf6', backgroundColor: activeTab === 'packages' ? 'rgba(255,255,255,0.04)' : 'transparent' }} onClick={() => handleNavClick('packages')}><Award size={12} /> {t('subPackages')}</button>
+                
+                <button className="drop-item" style={{ color: '#f43f5e', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: activeTab === 'tickets' ? 'rgba(255,255,255,0.04)' : 'transparent' }} onClick={() => handleNavClick('tickets')}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><LifeBuoy size={12} /> {t('subSupport')}</span>
+                  {unreadTicketsCount > 0 && (
+                    <span style={{ background: '#ef4444', color: 'white', fontSize: '0.68rem', padding: '1px 6px', borderRadius: '100px', fontWeight: 'bold' }}>
+                      {unreadTicketsCount}
+                    </span>
+                  )}
+                </button>
+
+                {!!(user?.isPremium || user?.is_premium) && (
+                  <button onClick={handleManageSubscription} style={{ color: '#10b981' }} className="drop-item">
+                    <CreditCard size={12} /> Stripe Ügyfélkapu
+                  </button>
+                )}
+
+                <div style={{ height: '1px', backgroundColor: 'var(--border-main, #222f47)', margin: '4px 0' }}></div>
+
+                <button className="drop-item" style={{ color: '#ef4444' }} onClick={() => { googleLogout(); onLogout(); }}>
+                  <LogOut size={12} /> {t('subLogout')}
+                </button>
+              </div>
+            )}
+          </div>
+
+        </div>
+      </div>
+    </header>
+  );
+}
