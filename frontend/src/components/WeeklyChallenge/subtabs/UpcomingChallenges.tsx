@@ -74,7 +74,6 @@ function UpcomingCountdown({ startDate, lang, t }: { startDate: string; lang: st
       <span style={{ fontSize: '0.72rem', color: '#38bdf8', fontWeight: 'bold', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '5px', textTransform: 'uppercase' }}>
         <Clock size={12} /> {t ? t('roomTimeLeftLabel') : 'INDULÁS:'}
       </span>
-      {/* 🎯 JAVÍTVA: color #fff átírva var(--text-title)-re a láthatóságért */}
       <span ref={elementRef} style={{ color: 'var(--text-title)', fontFamily: 'monospace', fontSize: '0.9rem', fontWeight: 'bold' }}>---</span>
     </div>
   );
@@ -86,6 +85,15 @@ interface UpcomingChallengesProps {
   handleImageError: (e: React.SyntheticEvent<HTMLImageElement, Event>) => void;
   user: any;
 }
+
+// 🎯 KÖZPONTI AUTH FEJLÉC GENERÁTOR VÉDETT VÉGPONTOKHOZ
+const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
+  const token = localStorage.getItem('photoAppToken');
+  return {
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    ...extraHeaders
+  };
+};
 
 // ⚡ 2. FŐKOMPONENS
 export default function UpcomingChallenges({
@@ -116,9 +124,10 @@ export default function UpcomingChallenges({
 
     setApplyingId(topicId);
     try {
+      // 🎯 JAVÍTVA: A Képmester/Csatabíró jelentkezés megkapta az érvényes Authorization tokent
       const res = await fetch(`${BACKEND_URL}/api/weekly/apply-master`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ topicId, userEmail: user.email })
       });
 
@@ -139,7 +148,7 @@ export default function UpcomingChallenges({
   return (
     <div style={{ animation: 'fadeIn 0.4s ease-out', display: 'flex', flexDirection: 'column', gap: '20px' }}>
       
-      {/* 🧭 TOP IRÁNYÍTÓ SÁV – Változókra cserélve */}
+      {/* 🧭 TOP IRÁNYÍTÓ SÁV */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-card)', padding: '16px 20px', borderRadius: '8px', border: '1px solid var(--border-main)', flexWrap: 'wrap', gap: '12px' }}>
         <div>
           <h3 style={{ color: 'var(--text-title)', margin: 0, fontSize: '1.1rem', fontWeight: '600', letterSpacing: '-0.2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -216,7 +225,6 @@ export default function UpcomingChallenges({
                       <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: '#a78bfa', fontSize: '0.75rem', fontWeight: 'bold', background: 'rgba(167,139,250,0.06)', padding: '5px 10px', borderRadius: '4px', border: '1px solid rgba(167,139,250,0.15)', marginBottom: '12px', width: 'fit-content' }}>
                         <User size={12} />
                         <span>{t('upMaster')}</span>
-                        {/* 🎯 JAVÍTVA: color e9d5ff lecserélve var(--text-title)-re a fehér lapon való olvashatóságért */}
                         <span style={{ color: 'var(--text-title)' }}>{tData.master_name || tData.master_email}</span>
                       </div>
                     ) : tData.pending_master_email ? (
