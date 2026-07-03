@@ -2,8 +2,7 @@
 const { OAuth2Client } = require('google-auth-library');
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-// Központi Admin email definíció (Ajánlott a process.env-be tenni, de hardcoded fallbackel is biztosított)
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@photawesome.com";
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'kovari.rudolf@gmail.com';
 
 // ====================================================================
 // 🔒 GOLYÓÁLLÓ AUTHENTICATIONS MIDDLEWARE
