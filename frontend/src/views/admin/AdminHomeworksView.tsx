@@ -9,6 +9,15 @@ interface AdminHomeworksViewProps {
   fetchData: () => void;
 }
 
+// 🎯 KÖZPONTI AUTH FEJLÉC GENERÁTOR VÉDETT VÉGPONTOKHOZ
+const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
+  const token = localStorage.getItem('photoAppToken');
+  return {
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    ...extraHeaders
+  };
+};
+
 export default function AdminHomeworksView({
   user, currentDbUser, clubs, adminHomeworks, fetchData
 }: AdminHomeworksViewProps) {
@@ -71,7 +80,7 @@ export default function AdminHomeworksView({
   };
 
   const handleSaveHw = async () => { 
-    // 🛡️ 3. VÉDELMI VONAL: Klub ID kényszerítése (preferálva a direkt ID-t a név alapú kereséssel szemben)
+    // 🛡️ 3. VÉDELMI VONAL: Klub ID kényszerítése
     const myClubId = currentDbUser?.club_id || clubs.find(c => c.name === currentDbUser?.club_name)?.id;
     const finalClubId = isGlobalAdmin ? hwClubId : myClubId; 
     
@@ -80,9 +89,11 @@ export default function AdminHomeworksView({
     try { 
       const url = editHwId ? `${BACKEND_URL}/api/homeworks/${editHwId}` : `${BACKEND_URL}/api/homeworks`; 
       const method = editHwId ? 'PUT' : 'POST'; 
+      
+      // 🎯 JAVÍTVA: A házi feladatok mentése és frissítése megkapta az Authorization tokent
       const res = await fetch(url, { 
         method, 
-        headers: { 'Content-Type': 'application/json' }, 
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }), 
         body: JSON.stringify({ clubId: finalClubId, topic: hwTopic, description: hwDesc, deadline: hwDeadline, maxImages: hwMaxImages }) 
       }); 
       
@@ -103,7 +114,11 @@ export default function AdminHomeworksView({
     if (!window.confirm("Biztosan törlöd ezt a házi feladatot? A hozzá tartozó összes kép is törlődik!")) return; 
     
     try {
-      const res = await fetch(`${BACKEND_URL}/api/homeworks/${h.id}`, { method: 'DELETE' }); 
+      // 🎯 JAVÍTVA: A házi feladat törlése megkapta az érvényes munkamenet-tokent
+      const res = await fetch(`${BACKEND_URL}/api/homeworks/${h.id}`, { 
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      }); 
       if (res.ok) {
         alert("Házi feladat sikeresen törölve!");
         fetchData(); 
@@ -187,7 +202,7 @@ export default function AdminHomeworksView({
               </div>
               <div style={{ display: 'flex', gap: '5px' }}>
                 <button onClick={() => startEditHw(h)} style={{ background: 'transparent', color: '#f59e0b', border: '1px solid #f59e0b', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer' }}>Szerkeszt</button>
-                <button onClick={() => handleDeleteHw(h)} style={{ background: '#ef444420', color: '#ef4444', border: 'none', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer' }}>Töröl</button>
+                <button onClick={() => handleDeleteHw(h)} style={{ background: '#ef444415', color: '#ef4444', border: 'none', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer' }}>Töröl</button>
               </div>
             </div>
           )
