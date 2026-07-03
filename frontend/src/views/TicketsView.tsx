@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ADMIN_EMAIL, BACKEND_URL } from '../utils/constants';
 
-// 🎯 ÚJ IMPORT: Nyelvi környezet beemelése
+// 🎯 Nyelvi környezet beemelése
 import { useLanguage } from '../context/LanguageContext';
 
 interface TicketsViewProps {
@@ -18,7 +18,7 @@ const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
 };
 
 export default function TicketsView({ user }: TicketsViewProps) {
-  // 🎯 ÚJ: Aktiváljuk a nyelvi hookokat
+  // 🎯 Aktiváljuk a nyelvi hookokat
   const { t, lang } = useLanguage();
 
   const inputStyle = { width: '100%', padding: '12px', marginBottom: '12px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '10px', boxSizing: 'border-box' as const, fontSize: '0.95rem', outline: 'none' };
@@ -42,31 +42,30 @@ export default function TicketsView({ user }: TicketsViewProps) {
   // Ticketek betöltése
   const loadTickets = () => {
     const token = localStorage.getItem('photoAppToken');
-    if (!token) return;
+    // 🛡️ BIZTONSÁGI VÉDŐGÁT: Ha nincs még token vagy érvényes email, megszakítjuk a kérést (nincs több crash!)
+    if (!token || !user?.email) return;
 
-    // 🎯 JAVÍTVA: Hitelesített fejléc csatolva
     fetch(`${BACKEND_URL}/api/tickets?userEmail=${user.email}&isAdmin=${isAdmin}`, {
       headers: getAuthHeaders()
     })
       .then(res => res.json())
       .then(data => {
-        // 🛡️ TÖRÉSGÁTLÓ SZŰRŐ: Ha nem tömb jön (hanem hibaobjektum), üres tömböt adunk át, nincs több s.map crash!
         setTickets(Array.isArray(data) ? data : []);
       })
       .catch(console.error);
   };
 
   useEffect(() => {
+    if (!user?.email) return; // 🛡️ Megvárjuk, amíg a user objektum beérkezik
     loadTickets();
   }, [user]);
 
   // Válaszok betöltése egy kiválasztott tickethez
   useEffect(() => {
-    if (selectedTicket) {
+    if (selectedTicket && user?.email) {
       const token = localStorage.getItem('photoAppToken');
       if (!token) return;
 
-      // 🎯 JAVÍTVA: Hitelesített fejléc csatolva
       fetch(`${BACKEND_URL}/api/tickets/${selectedTicket.id}/replies?userEmail=${user.email}&isAdmin=${isAdmin}`, {
         headers: getAuthHeaders()
       })
@@ -77,18 +76,18 @@ export default function TicketsView({ user }: TicketsViewProps) {
         })
         .catch(console.error);
     }
-  }, [selectedTicket]);
+  }, [selectedTicket, user]);
 
   // Új ticket beküldése (User)
   const handleCreateTicket = async () => {
+    if (!user?.email) return;
     if (!subject.trim() || !initialMessage.trim()) return alert(t('msgTicketsFillRequired'));
     
     try {
-      // 🎯 JAVÍTVA: Hitelesített fejléc összeolvasztva a tartalomtípussal
       const res = await fetch(`${BACKEND_URL}/api/tickets`, {
         method: 'POST',
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ userEmail: user.email, userName: user.name, subject, message: initialMessage })
+        body: JSON.stringify({ userEmail: user.email, userName: user.name || 'Fotós', subject, message: initialMessage })
       });
       if (res.ok) {
         alert(t('msgTicketsSubmitSuccess'));
@@ -101,23 +100,21 @@ export default function TicketsView({ user }: TicketsViewProps) {
 
   // Új válasz hozzáadása a beszélgetéshez
   const handleSendReply = async () => {
-    if (!replyMessage.trim()) return;
+    if (!user?.email || !replyMessage.trim()) return;
     setIsSending(true);
 
     try {
-      // 🎯 JAVÍTVA: Hitelesített fejléc összeolvasztva a tartalomtípussal
       const res = await fetch(`${BACKEND_URL}/api/tickets/${selectedTicket.id}/replies`, {
         method: 'POST',
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ senderEmail: user.email, senderName: user.name, message: replyMessage })
+        body: JSON.stringify({ senderEmail: user.email, senderName: user.name || 'Fotós', message: replyMessage })
       });
       if (res.ok) {
         setReplyMessage('');
-        // Ha admin válaszol, automatikusan "folyamatban"-ra állítjuk a státuszt
         if (isAdmin && selectedTicket.status === 'open') {
           handleUpdateStatus(selectedTicket.id, 'in_progress');
         }
-        // Frissítjük a chatet hitelesített fejléccel
+        
         const freshRepliesRes = await fetch(`${BACKEND_URL}/api/tickets/${selectedTicket.id}/replies`, {
           headers: getAuthHeaders()
         });
@@ -131,7 +128,6 @@ export default function TicketsView({ user }: TicketsViewProps) {
   // Státusz frissítése (Admin)
   const handleUpdateStatus = async (ticketId: number, newStatus: string) => {
     try {
-      // 🎯 JAVÍTVA: Hitelesített fejléc összeolvasztva a tartalomtípussal
       const res = await fetch(`${BACKEND_URL}/api/tickets/${ticketId}/status`, {
         method: 'PUT',
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
@@ -205,7 +201,7 @@ export default function TicketsView({ user }: TicketsViewProps) {
         </>
       )}
 
-      {/* JOBB OLDAL / TELJES ABALAK: A CHAT DIALÓGUS */}
+      {/* CHAT DIALÓGUS */}
       {selectedTicket && (
         <div style={{ backgroundColor: '#1e293b', borderRadius: '24px', border: '1px solid #334155', display: 'flex', flexDirection: 'column', height: '70vh', boxShadow: '0 15px 40px rgba(0,0,0,0.4)', animation: 'fadeIn 0.2s' }}>
           
@@ -238,7 +234,7 @@ export default function TicketsView({ user }: TicketsViewProps) {
           {/* CHAT GÖRDÜLŐ ÜZENETEK */}
           <div style={{ flex: 1, padding: '30px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '15px', background: '#090d16' }}>
             {replies.map(r => {
-              const isMe = r.sender_email === user.email;
+              const isMe = r.sender_email === user?.email;
               return (
                 <div key={r.id} style={{ display: 'flex', flexDirection: 'column', alignItems: isMe ? 'flex-end' : 'flex-start', maxWidth: '75%', alignSelf: isMe ? 'flex-end' : 'flex-start' }}>
                   <div style={{ fontSize: '0.75rem', color: '#475569', marginBottom: '4px', padding: '0 5px' }}>{r.sender_name}</div>
