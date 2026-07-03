@@ -11,6 +11,15 @@ interface AdminSalonsViewProps {
   setSelectedSalon: (salon: any) => void;
 }
 
+// 🎯 KÖZPONTI AUTH FEJLÉC GENERÁTOR ADMINISZTRÁCIÓS VÉGPONTOKHOZ
+const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
+  const token = localStorage.getItem('photoAppToken');
+  return {
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    ...extraHeaders
+  };
+};
+
 export default function AdminSalonsView({
   salons, countries, allCategories, patrons, BACKEND_URL, fetchData, setSelectedSalon
 }: AdminSalonsViewProps) {
@@ -46,7 +55,7 @@ export default function AdminSalonsView({
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aiDetectedCats, setAiDetectedCats] = useState<string>('');
 
-  // 👑 ÚJ: Inline kategória kreátor állapot
+  // Inline kategória kreátor állapot
   const [newCustomCatName, setNewCustomCatName] = useState('');
 
   useEffect(() => {
@@ -65,7 +74,7 @@ export default function AdminSalonsView({
   );
   const selectedCountryObj = countries.find(c => c.id.toString() === salonCountry);
 
-  // 🛡️ JAVÍTVA: Biztonsági tömb-ellenőrzés, hogy véletlenül se legyen undefined crash
+  // Biztonsági tömb-ellenőrzés, hogy véletlenül se legyen undefined crash
   const safeCategories = Array.isArray(allCategories) ? allCategories : [];
   const sortedCategories = [...safeCategories].sort((a, b) => {
     const nameA = a.hun_name || a.name || '';
@@ -110,7 +119,10 @@ export default function AdminSalonsView({
   const handleScrapeFiap = async () => {
     setIsScraping(true);
     try {
-      const res = await fetch(`${BACKEND_URL}/api/admin/scrape-fiap`); 
+      // 🎯 JAVÍTVA: A robot-kaparás futtatása megkapta a biztonsági tokent
+      const res = await fetch(`${BACKEND_URL}/api/admin/scrape-fiap`, {
+        headers: getAuthHeaders()
+      }); 
       if (res.ok) {
         const data = await res.json();
         setScrapedSalons(data);
@@ -128,7 +140,11 @@ export default function AdminSalonsView({
   const handleDeleteSalon = async (id: number) => {
     if (!window.confirm("Biztosan véglegesen törölni szeretnéd ezt a szalont?")) return;
     try {
-      const res = await fetch(`${BACKEND_URL}/api/salons/${id}`, { method: 'DELETE' });
+      // 🎯 JAVÍTVA: Szalon törlése hitelesített tokennel
+      const res = await fetch(`${BACKEND_URL}/api/salons/${id}`, { 
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
       if (res.ok) {
         alert("Szalon sikeresen törölve a jegyzékből!");
         fetchData();
@@ -140,19 +156,20 @@ export default function AdminSalonsView({
     }
   };
 
-  // 👑 ÚJ INLINE MOTOR: Új kategória létrehozása és azonnali betöltése a listába
+  // ÚJ INLINE MOTOR: Új kategória létrehozása és azonnali betöltése a listába
   const handleCreateNewCategoryInline = async () => {
     if (!newCustomCatName.trim()) return alert("Írj be egy kategória nevet!");
     try {
+      // 🎯 JAVÍTVA: Új globális kategória beküldése hitelesített tokennel
       const res = await fetch(`${BACKEND_URL}/api/categories`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ name: newCustomCatName.trim(), hun_name: newCustomCatName.trim() })
       });
       if (res.ok) {
         alert(`🎉 "${newCustomCatName}" sikeresen hozzáadva a globális listához!`);
         setNewCustomCatName('');
-        fetchData(); // Újratöltjük a szülő adatait, így frissül az allCategories prop!
+        fetchData(); 
       } else {
         alert("Nem sikerült menteni a kategóriát.");
       }
@@ -214,7 +231,13 @@ export default function AdminSalonsView({
       
       const url = editSalonId ? `${BACKEND_URL}/api/salons/${editSalonId}` : `${BACKEND_URL}/api/salons`;
       const method = editSalonId ? 'PUT' : 'POST';
-      const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); 
+
+      // 🎯 JAVÍTVA: Kézi mentés/módosítás végrehajtása érvényes tokennel és JSON fejléccel
+      const res = await fetch(url, { 
+        method, 
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }), 
+        body: JSON.stringify(payload) 
+      }); 
       
       if (res.ok) { 
         alert(editSalonId ? "Szalon sikeresen frissítve!" : "Szalon sikeresen hozzáadva!"); 
@@ -233,9 +256,10 @@ export default function AdminSalonsView({
     clearSalonForm();
 
     try {
+      // 🎯 JAVÍTVA: AI szalonelemzés indítása hitelesített munkamenet-tokennel
       const res = await fetch(`${BACKEND_URL}/api/admin/analyze-fiap-id`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ fiapNumber: specificFiapId.trim() })
       });
 
@@ -288,8 +312,11 @@ export default function AdminSalonsView({
     if (scrapedSalons.length === 0) return;
     setIsImporting(true);
     try {
+      // 🎯 JAVÍTVA: Bekészített robotizált szalonok tömeges importálása hitelesített tokennel
       const res = await fetch(`${BACKEND_URL}/api/admin/import-fiap`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ salonsToImport: scrapedSalons })
+        method: 'POST', 
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }), 
+        body: JSON.stringify({ salonsToImport: scrapedSalons })
       });
       if (res.ok) {
         const result = await res.json();
@@ -436,7 +463,7 @@ export default function AdminSalonsView({
           
           <div style={{flex: '1 1 200px', position: 'relative'}} ref={dropdownRef}>
             <label style={{fontSize:'0.8rem', color:'#94a3b8', display: 'block', marginBottom: '6px', fontWeight: 'bold'}}>Rendező Ország</label>
-            <div onClick={() => setIsCountryDropdownOpen(!isCountryDropdownOpen)} style={{ ...inputStyle, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div onClick={() => !isCountryDropdownOpen && setIsCountryDropdownOpen(true)} style={{ ...inputStyle, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px' }}>
               {selectedCountryObj ? (
                 <>
                   <img src={getFlagImageUrl(selectedCountryObj.country_code)} alt="Flag" style={{ width: '20px', height: '14px', objectFit: 'cover', borderRadius: '2px' }} />
@@ -503,7 +530,7 @@ export default function AdminSalonsView({
           <div style={{flex: '1 1 300px'}}><label style={{fontSize:'0.8rem', color:'#94a3b8', display: 'block', marginBottom: '6px'}}>Pénzjutalom (Különdíjak, ha vannak)</label><input placeholder="pl: 500 EUR a szalon legjobb kollekciójának" value={salonCash} onChange={e => setSalonCash(e.target.value)} style={inputStyle} /></div>
         </div>
 
-        {/* 🎨 KATEGÓRIÁK TÖBBSZÖRÖS VÁLASZTÓ PILLÉK - GOLYÓÁLLÓ FIXÁLÁSSAL */}
+        {/* 🎨 KATEGÓRIÁK TÖBBSZÖRÖS VÁLASZTÓ PILLÉK */}
         <div style={{ marginBottom: '15px', padding: '20px', background: '#0f172a', borderRadius: '16px', border: '1px solid #334155' }}>
           <label style={{fontSize:'0.9rem', color:'#38bdf8', fontWeight: 'bold', display: 'block', marginBottom: '12px'}}>Indított Szekciók / Kategóriák</label>
           
@@ -513,7 +540,6 @@ export default function AdminSalonsView({
             </div>
           )}
 
-          {/* Ha üres a lista, egy barátságos üzenetet adunk a kongó üresség helyett */}
           {sortedCategories.length === 0 ? (
             <div style={{ color: '#64748b', fontSize: '0.85rem', fontStyle: 'italic', marginBottom: '15px' }}>
               ⚠️ Nincsenek betöltött kategóriák a rendszerben. Hozz létre egyet alább!
@@ -532,7 +558,7 @@ export default function AdminSalonsView({
             </div>
           )}
 
-          {/* 👑 ÚJ EXTRA: Inline kategória kreátor gyors gomb */}
+          {/* Inline kategória kreátor gyors gomb */}
           <div style={{ display: 'flex', gap: '10px', marginTop: '20px', paddingTop: '15px', borderTop: '1px dashed #223147' }}>
             <input 
               type="text" 
