@@ -10,6 +10,15 @@ interface ProfileViewProps {
   fetchData: () => void;
 }
 
+// 🎯 KÖZPONTI AUTH FEJLÉC GENERÁTOR VÉDETT VÉGPONTOKHOZ
+const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
+  const token = localStorage.getItem('photoAppToken');
+  return {
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    ...extraHeaders
+  };
+};
+
 export default function ProfileView({ user, setUser, fetchData }: ProfileViewProps) {
   const inputStyle = { width: '100%', padding: '12px', marginBottom: '12px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '10px', boxSizing: 'border-box' as const, fontSize: '0.95rem', outline: 'none', transition: 'border 0.2s' };
 
@@ -45,8 +54,10 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
   const loadFreshProfile = async () => {
     if (!user?.email) return;
     try {
-      // 1. Felhasználói alapadatok lekérése
-      const res = await fetch(`${BACKEND_URL}/api/users/${user.email}`);
+      // 1. Felhasználói alapadatok lekérése hitelesítve
+      const res = await fetch(`${BACKEND_URL}/api/users/${user.email}`, {
+        headers: getAuthHeaders()
+      });
       if (res.ok) {
         const freshData = await res.json();
         setNameInput(freshData.name || '');
@@ -61,8 +72,10 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
         }
       }
 
-      // 2. 🎯 JAVÍTVA: Közvetlenül a tagsági napló API-ból húzzuk be a dátumokat!
-      const resDates = await fetch(`${BACKEND_URL}/api/profile/active-membership?userEmail=${user.email}`);
+      // 2. Tagsági napló lekérése hitelesítve
+      const resDates = await fetch(`${BACKEND_URL}/api/profile/active-membership?userEmail=${user.email}`, {
+        headers: getAuthHeaders()
+      });
       if (resDates.ok) {
         const datesData = await resDates.json();
         setMembershipStart(datesData.membership_start || '');
@@ -81,7 +94,9 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
   }, [user?.email]);
 
   useEffect(() => {
-    fetch(`${BACKEND_URL}/api/clubs/active-only`)
+    fetch(`${BACKEND_URL}/api/clubs/active-only`, {
+      headers: getAuthHeaders()
+    })
       .then(res => res.json())
       .then(data => setActiveClubs(data || []))
       .catch(console.error);
@@ -93,7 +108,9 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
     const fetchUserStats = async () => {
       setIsLoadingStats(true);
       try {
-        const resStorage = await fetch(`${BACKEND_URL}/api/admin/user-storage-stats`);
+        const resStorage = await fetch(`${BACKEND_URL}/api/admin/user-storage-stats`, {
+          headers: getAuthHeaders()
+        });
         if (resStorage.ok) {
           const allStats = await resStorage.json();
           const myStats = allStats.find((s: any) => s.user_email === user.email);
@@ -120,7 +137,9 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
     const matchedClub = activeClubs.find(c => c.name === user?.club_name);
     const effectiveClubId = user?.club_id || matchedClub?.id;
     if (isLeader && effectiveClubId) {
-      fetch(`${BACKEND_URL}/api/clubs/pending-members?clubId=${effectiveClubId}`)
+      fetch(`${BACKEND_URL}/api/clubs/pending-members?clubId=${effectiveClubId}`, {
+        headers: getAuthHeaders()
+      })
         .then(res => res.json())
         .then(data => setPendingMembers(data || []))
         .catch(console.error);
@@ -142,8 +161,10 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
       formData.append('avatar', file);
 
       try {
+        // 🎯 JAVÍTVA: Profilkép feltöltés FormData alapon, Content-Type manuális beállítása nélkül!
         const res = await fetch(`${BACKEND_URL}/api/users/${user.email}/avatar`, {
           method: 'POST',
+          headers: getAuthHeaders(),
           body: formData
         });
 
@@ -178,7 +199,7 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
     try {
       const res = await fetch(`${BACKEND_URL}/api/users/${user.email}/extended-profile`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           name: nameInput.trim(),
           phone_number: phone.trim(),
@@ -211,7 +232,7 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
     try {
       const res = await fetch(`${BACKEND_URL}/api/clubs/join-request`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ userEmail: user.email, clubId: targetClub.id, clubName: targetClub.name })
       });
       if (res.ok) {
@@ -229,7 +250,7 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
     try {
       const res = await fetch(`${BACKEND_URL}/api/clubs/handle-request`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ targetEmail, action, clubId: user?.club_id, clubName: user?.club_name })
       });
       if (res.ok) {
@@ -278,7 +299,7 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '25px', maxWidth: '900px', margin: '0 auto', animation: 'fadeIn 0.3s ease-out' }}>
       
-      {/* 👑 SZEKCIÓ 1: KIEMELT PROFIL KÁRTYA (FEJLÉC PANEL) */}
+      {/* SZEKCIÓ 1: KIEMELT PROFIL KÁRTYA */}
       <div style={{ backgroundColor: '#1e293b', padding: '25px 30px', borderRadius: '24px', border: '1px solid #334155', boxShadow: '0 10px 25px rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', gap: '25px', flexWrap: 'wrap' }}>
         
         {/* Profilkép kör */}
@@ -299,7 +320,7 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
           <input type="file" ref={fileInputRef} onChange={handleAvatarChange} accept="image/*" style={{ display: 'none' }} />
         </div>
 
-        {/* Név, email és Prémium plecsni egymás alatt */}
+        {/* Név, email és Prémium plecsni */}
         <div style={{ flex: 1, minWidth: '200px' }}>
           <h2 style={{ margin: '0 0 4px 0', fontSize: '1.7rem', color: '#f8fafc', fontWeight: '900' }}>{nameInput || user?.name || 'Anonim Tag'}</h2>
           <div style={{ fontSize: '0.9rem', color: '#64748b', fontFamily: 'monospace', fontWeight: 'bold' }}>{user?.email}</div>
@@ -316,7 +337,7 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
         </div>
       </div>
 
-      {/* 👥 KÉTOSZLOPOS BENTO-GRID LAYOUT */}
+      {/* KÉTOSZLOPOS BENTO-GRID LAYOUT */}
       <div className="profile-bento-grid">
         
         {/* BAL OSZLOP: HIVATALOS ADATLAP FORM */}
@@ -347,11 +368,10 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
        {/* JOBB OSZLOP: KLUBTAGSÁG ÉS MŰSZAKI METRIKÁK */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
           
-          {/* 🏛️ MODUL: FOTÓKLUB TAGSÁGI ADATLAP */}
+          {/* FOTÓKLUB TAGSÁGI ADATLAP */}
           <div style={{ backgroundColor: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #334155' }}>
             <h3 style={{ margin: '0 0 15px 0', color: '#38bdf8', fontSize: '1.2rem', fontWeight: 'bold' }}>🏛️ {t('profClubTitle')}</h3>
             
-            {/* 🎯 JAVÍTVA: Csak akkor mutatjuk a teljes tagsági kártyát, ha a klub_role NEM pending! */}
             {user?.club_name && user?.club_role !== 'pending' ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', background: '#0f172a', padding: '15px', borderRadius: '14px', border: '1px solid rgba(56, 189, 248, 0.15)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
@@ -372,7 +392,6 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
               </div>
             ) : (
               <div>
-                {/* Itt most már tökéletesen lefut a függőben lévő kérelem üzenete! */}
                 <div style={{ background: '#0f172a', padding: '12px', borderRadius: '10px', color: '#94a3b8', fontSize: '0.88rem', marginBottom: '15px', fontStyle: 'italic' }}>
                   {getClubStatusMessage()}
                 </div>
@@ -391,7 +410,7 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
             )}
           </div>
 
-          {/* 📊 MODUL: RENDSZER STATISZTIKÁK */}
+          {/* RENDSZER STATISZTIKÁK */}
           <div style={{ backgroundColor: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #334155', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
             <div style={{ background: '#0f172a', padding: '14px', borderRadius: '12px', border: '1px solid #223147', display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 'bold', textTransform: 'uppercase' }}>{t('profStorageLabel')}</span>
@@ -413,7 +432,7 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
         </div>
       </div>
 
-      {/* 👑 SZEKCIÓ 3: KLUBVEZETŐI JÓVÁHAGYÓ PANEL */}
+      {/* KLUBVEZETŐI JÓVÁHAGYÓ PANEL */}
       {isLeader && (
         <div style={{ backgroundColor: '#1e293b', padding: '25px 30px', borderRadius: '24px', border: '1px solid #10b981', boxShadow: '0 10px 30px rgba(16,185,129,0.08)' }}>
           <h3 style={{ margin: '0 0 10px 0', color: '#10b981', fontSize: '1.25rem', fontWeight: 'bold' }}>{t('profLeaderTitle')} ({user?.club_name || ''})</h3>
@@ -440,10 +459,9 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
         </div>
       )}
 
-      {/* 🎯 SZEKCIÓ 4: TÖRTÉNETI PÉNZÜGYI PANEL */}
+      {/* TÖRTÉNETI PÉNZÜGYI PANEL */}
       <UserMembershipAndPaymentsBlock userEmail={user?.email || ''} />
 
-      {/* ── 🎯 RESPONSIVE GRID CSS STYLING ── */}
       <style>{`
         .profile-bento-grid {
           display: grid;
@@ -462,14 +480,16 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
   );
 }
 
-// 💳 HOISTED AL-KOMPONENS: ÉVES TAGDÍJAK ÉS HISTÓRIKUS BEFIZETÉSEK
+// 💳 AL-KOMPONENS: ÉVES TAGDÍJAK ÉS HISTÓRIKUS BEFIZETÉSEK
 function UserMembershipAndPaymentsBlock({ userEmail }: { userEmail: string }) {
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!userEmail) return;
-    fetch(`${BACKEND_URL}/api/profile/my-payments?userEmail=${userEmail}`)
+    fetch(`${BACKEND_URL}/api/profile/my-payments?userEmail=${userEmail}`, {
+      headers: getAuthHeaders() // 🎯 JAVÍTVA: Hitelesített token rászerelve!
+    })
       .then(res => res.json())
       .then(data => {
         setHistory(Array.isArray(data) ? data : []);
