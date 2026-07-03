@@ -1,7 +1,25 @@
+const { OAuth2Client } = require('google-auth-library');
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "kovari.rudolf@gmail.com";
+
+async function requireAuth(req, res, next) {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) return res.status(401).json({ error: 'Token szükséges!' });
+    const token = authHeader.split(' ')[1];
+    const ticket = await client.verifyIdToken({ idToken: token, audience: process.env.GOOGLE_CLIENT_ID });
+    const payload = ticket.getPayload();
+    req.user = { email: payload.email, name: payload.name, isAdmin: payload.email === ADMIN_EMAIL };
+    next();
+  } catch (e) { return res.status(401).json({ error: 'Érvénytelen munkamenet!' }); }
+}
+
 module.exports = function(app, pool, stripe) {
 
-  app.post('/api/create-checkout-session', async (req, res) => {
+  app.post('/api/create-checkout-session', requireAuth, async (req, res) => {
     const { userEmail, tier } = req.body;
+    if (req.user.email !== userEmail) return res.status(403).json({ error: 'Csalás észlelve!' });
+    
     const isPro = tier === 'pro';
     const priceAmount = isPro ? 249000 : 100000;
     const productName = isPro ? 'Képolvasók Fotóklub Pro Prémium' : 'Képolvasók Fotóklub Alap Prémium';
@@ -27,15 +45,14 @@ module.exports = function(app, pool, stripe) {
     } catch (e) { res.status(500).json({ error: e.message }); }
   });
   
-  app.post('/api/create-contest-payment', async (req, res) => {
+  app.post('/api/create-contest-payment', requireAuth, async (req, res) => {
     const { userEmail, contestId, returnUrl } = req.body;
-    if (!contestId) return res.status(400).json({ error: 'Nem érkezett meg a pályázat azonosítója!' });
+    if (req.user.email !== userEmail) return res.status(403).json({ error: 'Nincs jogosultságod!' });
   
     try {
       const [contests] = await pool.query('SELECT title, entry_fee, fee_currency FROM photo_contests WHERE id = ?', [contestId]);
       if (contests.length === 0) return res.status(404).json({ error: 'A pályázat nem található!' });
       const contest = contests[0];
-      if (contest.entry_fee <= 0) return res.status(400).json({ error: 'Ez a pályázat ingyenes!' });
       const origin = returnUrl || req.headers.origin || 'https://kepolvasok.hu';
   
       const sessionConfig = {
@@ -49,18 +66,22 @@ module.exports = function(app, pool, stripe) {
   
       const session = await stripe.checkout.sessions.create(sessionConfig);
       res.json({ url: session.url });
-    } catch (e) { res.status(500).json({ error: `Stripe szerver hiba: ${e.message}` }); }
+    } catch (e) { res.status(500).json({ error: e.message }); }
   });
   
-  app.get('/api/contest-payments', async (req, res) => {
-    try { const [rows] = await pool.query('SELECT contest_id, user_email FROM photo_contest_payments WHERE status = "paid"'); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba a fizetések lekérésekor' }); }
+  // ZÁRT VÉGPONT: Csak az Admin láthatja a globális befizetési listát
+  app.get('/api/contest-payments', requireAuth, async (req, res) => {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Csak admin láthatja!' });
+    try { const [rows] = await pool.query('SELECT contest_id, user_email FROM photo_contest_payments WHERE status = "paid"'); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
-  app.post('/api/create-portal-session', async (req, res) => {
+  // GOLYÓÁLLÓ VÉDELEM: Senki nem léphet be más számlázási fiókjába
+  app.post('/api/create-portal-session', requireAuth, async (req, res) => {
     const { userEmail } = req.body;
+    if (req.user.email !== userEmail && !req.user.isAdmin) return res.status(403).json({ error: 'Megtagadva!' });
     try {
       const [rows] = await pool.query('SELECT stripe_customer_id FROM photo_users WHERE email = ?', [userEmail]);
-      if (rows.length === 0 || !rows[0].stripe_customer_id) return res.status(400).json({ error: 'Ehhez a felhasználóhoz nem tartozik Stripe előfizetés!' });
+      if (rows.length === 0 || !rows[0].stripe_customer_id) return res.status(400).json({ error: 'Nincs Stripe előfizetés!' });
   
       const session = await stripe.billingPortal.sessions.create({
         customer: rows[0].stripe_customer_id,
