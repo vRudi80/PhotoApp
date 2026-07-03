@@ -1,8 +1,33 @@
 import React, { useState, useEffect } from 'react';
-import { BACKEND_URL } from '../../utils/constants';
+import axios from 'axios';
+import { getImageUrl } from '../../../utils/helpers';
+import VideoLoader from '../../../components/VideoLoader';
+import { BACKEND_URL } from '../../../utils/constants';
 
-// 🎯 Nyelvi kontextus betöltése a nemzetközi működéshez
-import { useLanguage } from '../../context/LanguageContext';
+// Nyelvi kontextus betöltése a nemzetközi működéshez
+import { useLanguage } from '../../../context/LanguageContext';
+
+// Téma környezet betöltése a reaktív színváltáshoz
+import { useTheme } from '../../../context/ThemeContext';
+
+// Professzionális Lucide Ikonok importálása az AI-sallangok ellen
+import { 
+  ArrowLeft, 
+  Crown, 
+  Shield, 
+  Zap, 
+  Trophy, 
+  Medal, 
+  Camera, 
+  Star,
+  Eye,
+  Clock,
+  Layers,
+  X,
+  MessageSquare,
+  Send,
+  Heart
+} from 'lucide-react';
 
 interface ArchiveDetailModalProps {
   entry: any;
@@ -18,15 +43,24 @@ const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
 };
 
 export default function ArchiveDetailModal({ entry, userEmail, userName, onClose, onLikeUpdate }: ArchiveDetailModalProps) {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
 
   const [comments, setComments] = useState<any[]>([]);
   const [newComment, setNewComment] = useState('');
   const [loadingComments, setLoadingComments] = useState(false);
 
-  // ⚡ LOKÁLIS MEMÓRIA: Szigorúan csak az archív szíveket (archive_likes) vesszük alapul
+  // LOKÁLIS MEMÓRIA: Szigorúan csak az archív szíveket (archive_likes) vesszük alapul
   const [likesCount, setLikesCount] = useState<number>(Number(entry?.archive_likes) || 0);
   const [isLiked, setIsLiked] = useState<boolean>(entry?.has_user_liked === 1 || entry?.has_user_liked === true);
+
+  // 🎯 BIZTONSÁGI VÉDŐHÁLÓ: Lekérjük az aktuális témát, felkészülve a környezeti cold-startra
+  let isLight = false;
+  try {
+    const themeContext = useTheme();
+    if (themeContext) {
+      isLight = themeContext.theme === 'light';
+    }
+  } catch (e) {}
 
   // Biztonsági háló: Ha a beküldött entry megváltozik, szinkronizálunk
   useEffect(() => {
@@ -106,14 +140,14 @@ export default function ArchiveDetailModal({ entry, userEmail, userName, onClose
   };
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(9, 13, 22, 0.96)', backdropFilter: 'blur(20px)', zIndex: 99999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px', boxSizing: 'border-box' }}>
+    <div style={{ position: 'fixed', inset: 0, background: isLight ? 'rgba(240,244,248,0.95)' : 'rgba(9, 13, 22, 0.96)', backdropFilter: 'blur(16px)', zIndex: 99999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px', boxSizing: 'border-box' }}>
       
-      {/* 🎯 TÖKÉLETESÍTETT ARÁNYÚ FÜGGŐLEGES SZÍNHÁZ SZELEKTOROK */}
+      {/* ── 🎯 ARCHÍVUM KIÁLLÍTÓTEREM REAKTÍV CSS LAYOUT ── */}
       <style>{`
         .theater-modal-card {
-          background: #1e293b;
-          border: 1px solid #334155;
-          border-radius: 24px;
+          background: var(--bg-card);
+          border: 1px solid var(--border-main);
+          border-radius: 8px;
           width: 100%;
           max-width: 1000px;
           height: 92vh;
@@ -121,40 +155,40 @@ export default function ArchiveDetailModal({ entry, userEmail, userName, onClose
           display: flex;
           flex-direction: column;
           overflow: hidden;
-          box-shadow: 0 25px 50px -12px rgba(0,0,0,0.8);
+          box-shadow: 0 25px 50px -12px rgba(0,0,0,0.2);
         }
 
         .theater-photo-section {
-          background: #090d16;
-          flex: 1.2 !important; /* 💥 JAVÍTVA: Finomhangolt méret, a kép kényelmesen kitölti a szélességet */
+          background: #060912; /* Sötét stúdió doboz a fotó kiemeléséhez */
+          flex: 1.2 !important; 
           display: flex;
           justify-content: center;
           align-items: center;
           padding: 20px;
           position: relative;
           min-height: 0;
-          border-bottom: 1px solid #232f46;
+          border-bottom: 1px solid var(--border-main);
         }
 
         .theater-archive-img {
           max-width: 100%;
           max-height: 100%;
           object-fit: contain;
-          border-radius: 12px;
-          box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+          border-radius: 4px;
+          box-shadow: 0 10px 30px rgba(0,0,0,0.4);
         }
 
         .theater-info-section {
-          flex: 1 !important; /* 💥 JAVÍTVA: Az alsó szekció több teret kap, így a chat hatalmasra tágul */
+          flex: 1 !important; 
           display: flex;
           flex-direction: column;
-          background: #0f172a;
+          background: var(--bg-card);
           min-height: 0;
         }
 
         .theater-header-row {
           padding: 15px 25px;
-          border-bottom: 1px solid #223047;
+          border-bottom: 1px solid var(--border-main);
           display: flex;
           justify-content: space-between;
           align-items: center;
@@ -171,96 +205,101 @@ export default function ArchiveDetailModal({ entry, userEmail, userName, onClose
           display: flex;
           flex-direction: column;
           gap: 12px;
-          background: #090d1620;
-          min-height: 160px; /* 💥 BIZTONSÁGI PAJZS: Garantált minimum magasság a chatnek, nincs több levágás */
+          background: var(--bg-main);
+          min-height: 160px; 
         }
       `}</style>
 
       {/* FŐ KÁRTYA CONTAINER */}
       <div className="theater-modal-card">
         
-        {/* 1. FELSŐ RÉSZ: FOTÓ PANEL */}
+        {/* 1. FELSŐ RÉSZ: FOTÓ PANEL (Stúdió környezetben tartva) */}
         <div className="theater-photo-section">
-          <button onClick={onClose} style={{ position: 'absolute', top: '20px', left: '20px', background: '#1e293b', border: '1px solid #334155', color: '#94a3b8', padding: '8px 18px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', zIndex: 10, transition: 'all 0.2s', fontSize: '0.85rem' }}>⬅️ Bezárás</button>
+          <button onClick={onClose} style={{ position: 'absolute', top: '20px', left: '20px', background: '#222f47', border: '1px solid #334155', color: '#cbd5e1', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', zIndex: 10, transition: 'all 0.15s ease', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }} className="modal-top-close-cross">
+            <ArrowLeft size={14} /> {t('archiveBtnBack', 'Vissza')}
+          </button>
           <img className="theater-archive-img" src={entry.file_url} alt="" onError={handleImageError} />
         </div>
 
-        {/* 2. ALSÓ RÉSZ: ADATOK ÉS JÓVAL NAGYOBB CHATABLAK */}
+        {/* 2. ALSÓ RÉSZ: ADATOK ÉS ADAPTÍV KOMMENTÁR ZÓNA */}
         <div className="theater-info-section">
           
           {/* Hivatalos fejlécsor */}
           <div className="theater-header-row">
-            <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '6px' }}>
+            <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '4px' }}>
               
-              {/* Név önállóan, egy sorban */}
-              <h3 style={{ color: '#38bdf8', margin: 0, fontSize: '1.5rem', fontWeight: 'bold', lineHeight: '1.2', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>
+              {/* Név adaptív kiemelése témától függően */}
+              <h3 style={{ color: isLight ? '#0284c7' : '#38bdf8', margin: 0, fontSize: '1.3rem', fontWeight: '700', lineHeight: '1.2', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%', letterSpacing: '-0.3px' }}>
                 {entry.user_name}
               </h3>
               
-              {/* Klubnév közvetlenül alatta */}
+              {/* Klubnév szoftveres outline plecsnivel */}
               {entry.club_name && (
-                <div style={{ display: 'flex', width: 'auto', flexShrink: 0, whiteSpace: 'nowrap' }}>
-                  <span style={{ color: '#10b981', fontSize: '0.85rem', fontWeight: 'bold', background: '#10b98115', padding: '4px 12px', borderRadius: '6px', border: '1px solid #10b98130', display: 'inline-block' }}>
-                    🛡️ {entry.club_name}
+                <div style={{ display: 'flex', width: 'auto', flexShrink: 0, whiteSpace: 'nowrap', marginTop: '2px' }}>
+                  <span style={{ color: '#10b981', fontSize: '0.75rem', fontWeight: 'bold', background: 'rgba(16,185,129,0.06)', padding: '3px 10px', borderRadius: '4px', border: '1px solid rgba(16,185,129,0.2)', display: 'inline-block', textTransform: 'uppercase', letterSpacing: '0.3px' }}>
+                    {entry.club_name}
                   </span>
                 </div>
               )}
               
               {/* Eredmény */}
-              <div style={{ color: '#64748b', fontSize: '0.85rem', fontWeight: 'bold', marginTop: '1px' }}>
-                Eredmény: <span style={{ color: '#f59e0b' }}>{entry.likes_count} ⭐</span>
+              <div style={{ color: 'var(--text-muted)', fontSize: '0.82rem', fontWeight: 'bold', marginTop: '4px' }}>
+                {lang === 'en' ? 'Result: ' : 'Eredmény: '} <span style={{ color: '#f59e0b' }}>{entry.likes_count} ⭐</span>
               </div>
             </div>
 
-            {/* Elismerések */}
+            {/* Elismerések / Kedvelés gomb */}
             <button 
               onClick={handleLike}
-              style={{ display: 'flex', alignItems: 'center', gap: '8px', background: isLiked ? 'rgba(239, 68, 68, 0.15)' : '#1e293b', border: isLiked ? '1px solid #ef4444' : '1px solid #334155', color: isLiked ? '#f87171' : '#cbd5e1', padding: '10px 18px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s', flexShrink: 0, fontSize: '0.9rem' }}
+              style={{ display: 'flex', alignItems: 'center', gap: '8px', background: isLiked ? 'rgba(239, 68, 68, 0.08)' : 'var(--bg-main)', border: isLiked ? '1px solid #ef4444' : '1px solid var(--border-main)', color: isLiked ? '#f87171' : 'var(--text-body)', padding: '10px 16px', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.15s ease', flexShrink: 0, fontSize: '0.88rem' }}
             >
-              <span style={{ fontSize: '1.1rem', lineHeight: 1 }}>{isLiked ? '❤️' : '🤍'}</span>
-              <span>{likesCount} elismerés</span>
+              <Heart size={14} fill={isLiked ? '#f87171' : 'transparent'} color={isLiked ? '#f87171' : 'var(--text-body)'} />
+              <span>{likesCount} {lang === 'en' ? 'appreciations' : 'elismerés'}</span>
             </button>
           </div>
 
-          {/* Bővített, kényelmesen gördíthető kommentfolyam */}
+          {/* Gördíthető kommentfolyam */}
           <div className="theater-comments-flow">
-            <h4 style={{ color: '#64748b', margin: '0 0 2px 0', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold' }}>⚔️ Eszmecsere</h4>
+            <h4 style={{ color: 'var(--text-muted)', margin: '0 0 2px 0', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <MessageSquare size={12} /> {lang === 'en' ? 'DISCUSSION' : 'ESZMECSERE'}
+            </h4>
             
             {loadingComments && comments.length === 0 ? (
-              <div style={{ color: '#64748b', textAlign: 'center', padding: '10px', fontSize: '0.85rem' }}>Gondolatok betöltése...</div>
+              <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '10px', fontSize: '0.82rem', fontStyle: 'italic' }}>Gondolatok betöltése...</div>
             ) : comments.length === 0 ? (
-              <div style={{ color: '#475569', textAlign: 'center', padding: '30px 20px', margin: 'auto 0', fontStyle: 'italic', fontSize: '0.92rem' }}>Írd le az első gondolatot a fotóról! 🪶</div>
+              <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '30px 20px', margin: 'auto 0', fontStyle: 'italic', fontSize: '0.88rem' }}>{lang === 'en' ? 'Write the first thought about this photograph! 🪶' : 'Írd le az első gondolatot a fotóról! 🪶'}</div>
             ) : (
               comments.map((c) => {
                 const isMe = c.user_email === userEmail;
                 return (
-                  <div key={c.id} style={{ background: isMe ? '#1e293b' : '#1e293b50', padding: '8px 14px', borderRadius: '12px', border: isMe ? '1px solid #475569' : '1px solid #334155', alignSelf: isMe ? 'flex-end' : 'flex-start', maxWidth: '85%', width: 'fit-content', boxShadow: '0 2px 6px rgba(0,0,0,0.1)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '25px', marginBottom: '2px', alignItems: 'center' }}>
-                      <strong style={{ color: isMe ? '#f59e0b' : '#38bdf8', fontSize: '0.78rem', fontWeight: 'bold' }}>{c.user_name}</strong>
-                      <small style={{ color: '#475569', fontSize: '0.68rem', fontFamily: 'monospace' }}>{new Date(c.created_at).toLocaleTimeString('hu-HU', {hour: '2-digit', minute:'2-digit'})}</small>
+                  <div key={c.id} style={{ background: isMe ? 'var(--bg-card)' : 'var(--bg-main)', padding: '10px 14px', borderRadius: '4px', border: isMe ? '1px solid var(--text-muted)' : '1px solid var(--border-main)', alignSelf: isMe ? 'flex-end' : 'flex-start', maxWidth: '85%', width: 'fit-content', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '24px', marginBottom: '3px', alignItems: 'center' }}>
+                      <strong style={{ color: isMe ? '#f97316' : (isLight ? '#0284c7' : '#38bdf8'), fontSize: '0.78rem', fontWeight: 'bold' }}>{c.user_name}</strong>
+                      <small style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontFamily: 'monospace' }}>{new Date(c.created_at).toLocaleTimeString(lang === 'en' ? 'en-US' : 'hu-HU', {hour: '2-digit', minute:'2-digit'})}</small>
                     </div>
-                    <p style={{ color: '#cbd5e1', margin: 0, fontSize: '0.88rem', lineHeight: '1.4', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{c.comment_text}</p>
+                    <p style={{ color: 'var(--text-title)', margin: 0, fontSize: '0.85rem', lineHeight: '1.4', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{c.comment_text}</p>
                   </div>
                 );
               })
             )}
           </div>
 
-          {/* Kommentküldő form */}
-          <form onSubmit={handleCommentSubmit} style={{ padding: '12px 20px', background: '#1e293b', borderTop: '1px solid #334155', display: 'flex', gap: '10px', flexShrink: 0 }}>
+          {/* Hozzászólás beküldő űrlap */}
+          <form onSubmit={handleCommentSubmit} style={{ padding: '12px 20px', background: 'var(--bg-card)', borderTop: '1px solid var(--border-main)', display: 'flex', gap: '10px', flexShrink: 0, boxSizing: 'border-box' }}>
             <input 
               type="text" 
-              placeholder="Oszd meg a meglátásodat a fotóról..." 
+              placeholder={lang === 'en' ? 'Share your thoughts about this photo...' : 'Oszd meg a meglátásodat a fotóról...'} 
               value={newComment}
               onChange={e => setNewComment(e.target.value)}
-              style={{ flex: 1, padding: '10px 15px', background: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '10px', outline: 'none', fontSize: '0.9rem' }}
+              style={{ flex: 1, padding: '10px 12px', background: 'var(--bg-main)', border: '1px solid var(--border-main)', color: 'var(--text-title)', borderRadius: '4px', outline: 'none', fontSize: '0.88rem' }}
             />
             <button 
               type="submit" 
               disabled={!newComment.trim()}
-              style={{ background: !newComment.trim() ? '#334155' : 'linear-gradient(135deg, #38bdf8, #0284c7)', color: !newComment.trim() ? '#64748b' : 'white', border: 'none', padding: '0 25px', borderRadius: '10px', fontWeight: 'bold', cursor: !newComment.trim() ? 'not-allowed' : 'pointer', fontSize: '0.88rem', transition: 'all 0.2s' }}
+              style={{ background: !newComment.trim() ? 'var(--border-main)' : '#f97316', color: !newComment.trim() ? 'var(--text-muted)' : 'white', border: 'none', padding: '0 20px', borderRadius: '4px', fontWeight: 'bold', cursor: !newComment.trim() ? 'not-allowed' : 'pointer', fontSize: '0.85rem', transition: 'background 0.15s ease', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
             >
-              Küldés
+              <Send size={12} />
+              <span>{lang === 'en' ? 'Send' : 'Küldés'}</span>
             </button>
           </form>
         </div>
