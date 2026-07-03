@@ -1,8 +1,47 @@
 const fs = require('fs');
+const { OAuth2Client } = require('google-auth-library');
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@photawesome.com";
+
+// ====================================================================
+// 🔒 GOLYÓÁLLÓ AUTHENTICATION MIDDLEWARE A CONTESTS MODULHOZ
+// ====================================================================
+async function requireAuth(req, res, next) {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Hozzáférés megtagadva! Nincs hitelesítési token.' });
+    }
+
+    const token = authHeader.split(' ')[1];
+    
+    const ticket = await client.verifyIdToken({
+      idToken: token,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+    
+    const payload = ticket.getPayload();
+    if (!payload || !payload.email) {
+      return res.status(401).json({ error: 'Érvénytelen vagy sérült Google token.' });
+    }
+
+    req.user = {
+      email: payload.email,
+      name: payload.name,
+      isAdmin: payload.email === ADMIN_EMAIL
+    };
+
+    next();
+  } catch (error) {
+    console.error("🔒 Biztonsági őr hiba a contests modulban:", error.message);
+    return res.status(401).json({ error: 'Lejárt vagy érvénytelen munkamenet token!' });
+  }
+}
 
 module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   
-  // ── 🎯 ÚJ: BIZTONSÁGI CORS KAPU (Megszünteti a piros letiltásos hibaüzenetet a konzolban!) ──
+  // ── 🎯 BIZTONSÁGI CORS KAPU ──
   app.use((req, res, next) => {
     res.header("Access-Control-Allow-Origin", "https://photawesome.com");
     res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
@@ -15,7 +54,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     next();
   });
   
-  // 1. Pályázatok lekérése (c.* automatikusan hozza majd az új restricted_club_id-t is)
+  // 1. Pályázatok lekérése (Nyilvános)
   app.get('/api/contests', async (req, res) => {
     try { 
       const [rows] = await pool.query(`
@@ -30,22 +69,22 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
-  // 2. Új pályázat létrehozása (JAVÍTVA: Kettős írás ID és Név alapján!)
-  app.post('/api/contests', async (req, res) => {
+  // 2. Új pályázat létrehozása (VÉDETT: Csak Admin)
+  app.post('/api/contests', requireAuth, async (req, res) => {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Hozzáférés megtagadva! Csak admin hozhat létre pályázatot.' });
+    
     const { 
       title, description, startDate, endDate, categories, 
       restrictedClubId, sponsorClubId, entryFee, feeCurrency, categorySettings 
     } = req.body;
 
     try { 
-      // 1. Háttérben lekérjük a klub nevét az ID alapján, ha klubhoz kötött a pályázat
       let restrictedClubName = null;
       if (restrictedClubId) {
         const [clubRows] = await pool.query('SELECT name FROM photo_clubs WHERE id = ?', [restrictedClubId]);
         if (clubRows.length > 0) restrictedClubName = clubRows[0].name;
       }
 
-      // 2. Elmentjük az összes oszlopot pontosan összehangolva (11 oszlop = 11 kérdőjel!)
       const query = `
         INSERT INTO photo_contests (
           title, description, start_date, end_date, categories, 
@@ -55,16 +94,9 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       `;
 
       await pool.query(query, [
-        title,
-        description,
-        startDate || null,
-        endDate || null,
-        categories,
-        restrictedClubName,          // -> restricted_club (szöveg)
-        restrictedClubId || null,    // -> restricted_club_id (szám)
-        sponsorClubId || null,       // -> sponsor_club_id (szám)
-        entryFee || 0,
-        feeCurrency || 'HUF',
+        title, description, startDate || null, endDate || null, categories,
+        restrictedClubName, restrictedClubId || null, sponsorClubId || null,
+        entryFee || 0, feeCurrency || 'HUF',
         categorySettings ? JSON.stringify(categorySettings) : null
       ]); 
 
@@ -75,8 +107,10 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-  // 3. Pályázat módosítása (JAVÍTVA: Kettős írás frissítésnél is!)
-  app.put('/api/contests/:id', async (req, res) => {
+  // 3. Pályázat módosítása (VÉDETT: Csak Admin)
+  app.put('/api/contests/:id', requireAuth, async (req, res) => {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Hozzáférés megtagadva!' });
+    
     const { 
       title, description, startDate, endDate, categories, 
       restrictedClubId, sponsorClubId, entryFee, feeCurrency, categorySettings 
@@ -112,8 +146,9 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-  // 4. Pályázat törlése
-  app.delete('/api/contests/:id', async (req, res) => {
+  // 4. Pályázat törlése (VÉDETT: Csak Admin)
+  app.delete('/api/contests/:id', requireAuth, async (req, res) => {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Hozzáférés megtagadva!' });
     try {
       const [entries] = await pool.query('SELECT drive_file_id FROM photo_entries WHERE contest_id = ? AND drive_file_id IS NOT NULL', [req.params.id]);
       for (const entry of entries) { await drive.files.delete({ fileId: entry.drive_file_id }).catch(e => console.log('Drive törlési hiba:', e.message)); }
@@ -125,14 +160,26 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
-  // 5. Saját nevezések lekérése
-  app.get('/api/my-entries', async (req, res) => {
-    try { const [rows] = await pool.query('SELECT * FROM photo_entries WHERE user_email = ? ORDER BY created_at DESC', [req.query.userEmail]); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
+  // 5. Saját nevezések lekérése (VÉDETT: Biztonsági IDOR ellenőrzéssel)
+  app.get('/api/my-entries', requireAuth, async (req, res) => {
+    const targetEmail = req.query.userEmail;
+    if (req.user.email !== targetEmail && !req.user.isAdmin) {
+      return res.status(403).json({ error: 'Nincs jogosultságod más felhasználó nevezéseit lekérni!' });
+    }
+    try { 
+      const [rows] = await pool.query('SELECT * FROM photo_entries WHERE user_email = ? ORDER BY created_at DESC', [targetEmail]); 
+      res.json(rows); 
+    } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
-// 6. Kép feltöltése és nevezés (JAVÍTVA: Időbélyeg formázási hiba kiküszöbölve!)
-  app.post('/api/upload', upload.single('photo'), async (req, res) => {
+  // 6. Kép feltöltése és nevezés (VÉDETT)
+  app.post('/api/upload', requireAuth, upload.single('photo'), async (req, res) => {
     const { contestId, userEmail, userName, title, category, acceptedTerms } = req.body;
+    
+    if (req.user.email !== userEmail) {
+      return res.status(403).json({ error: 'Nem nevezhetsz más felhasználó nevében!' });
+    }
+
     const file = req.file;
     if (!file) return res.status(400).json({ error: 'Nincs fájl kiválasztva!' });
     
@@ -149,52 +196,46 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
       cleanupTempFile(file);
 
-      // 🎯 JAVÍTVA: Az utolsó kérdőjel helyett a NOW() függvényt használjuk, így a MySQL magának generálja a tökéletes formátumot!
       const queryStr = `
         INSERT INTO photo_entries 
         (contest_id, user_email, user_name, title, category, file_url, drive_file_id, file_size, accepted_terms, accepted_terms_at) 
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
       `;
 
-      // 🎯 JAVÍTVA: Az acceptedTermsAt változót kivettük a tömbből, mert a NOW() automatikusan kitölti
       await pool.query(queryStr, [
-        contestId, 
-        userEmail, 
-        userName, 
-        title, 
-        category, 
-        driveRes.data.webViewLink, 
-        driveRes.data.id, 
-        req.file.size,
-        acceptedTerms || 0
+        contestId, userEmail, userName, title, category, driveRes.data.webViewLink, driveRes.data.id, req.file.size, acceptedTerms || 0
       ]);
 
       res.json({ success: true });
     } catch (err) { cleanupTempFile(file); res.status(500).json({ error: err.message }); }
   });
 
-  // 7. Kép címének frissítése
-  app.put('/api/entries/:id', async (req, res) => {
+  // 7. Kép címének frissítése (VÉDETT: req.user.email-re cserélve a body helyett!)
+  app.put('/api/entries/:id', requireAuth, async (req, res) => {
     try {
-      const [result] = await pool.query('UPDATE photo_entries SET title = ? WHERE id = ? AND user_email = ?', [req.body.title, req.params.id, req.body.userEmail]);
+      const [result] = await pool.query('UPDATE photo_entries SET title = ? WHERE id = ? AND user_email = ?', [req.body.title, req.params.id, req.user.email]);
       if (result.affectedRows === 0) return res.status(403).json({ error: 'Nincs jogosultságod módosítani ezt a képet!' });
       res.json({ success: true });
     } catch (err) { res.status(500).json({ error: 'Hiba a cím frissítésekor' }); }
   });
 
-  // 8. Nevezés törlése
-  app.delete('/api/entries/:id', async (req, res) => {
+  // 8. Nevezés törlése (VÉDETT: req.user.email-re cserélve a body helyett!)
+  app.delete('/api/entries/:id', requireAuth, async (req, res) => {
     try {
-      const [rows] = await pool.query('SELECT * FROM photo_entries WHERE id = ? AND user_email = ?', [req.params.id, req.body.userEmail]);
-      if (rows.length === 0) return res.status(403).json({ error: 'Nincs jogod!' });
+      const [rows] = await pool.query('SELECT * FROM photo_entries WHERE id = ? AND user_email = ?', [req.params.id, req.user.email]);
+      if (rows.length === 0) return res.status(403).json({ error: 'Nincs jogod törölni ezt a képet!' });
       if (rows[0].drive_file_id) await drive.files.delete({ fileId: rows[0].drive_file_id }).catch(e => console.log(e.message));
       await pool.query('DELETE FROM photo_entries WHERE id = ?', [req.params.id]);
       res.json({ success: true });
     } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
-  // 9. Zsűrizett pályázataim
-  app.get('/api/my-judged-contests', async (req, res) => {
+  // 9. Zsűrizett pályázataim (VÉDETT)
+  app.get('/api/my-judged-contests', requireAuth, async (req, res) => {
+    const targetEmail = req.query.userEmail;
+    if (req.user.email !== targetEmail && !req.user.isAdmin) {
+      return res.status(403).json({ error: 'Nem kérheted le más zsűri statisztikáit!' });
+    }
     try {
       const query = `
         SELECT c.id as contest_id,
@@ -202,18 +243,20 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
           (SELECT COUNT(*) FROM photo_votes v JOIN photo_entries e ON v.entry_id = e.id WHERE e.contest_id = c.id AND v.jury_email = ?) as voted_count
         FROM photo_contests c JOIN photo_jury j ON c.id = j.contest_id WHERE j.user_email = ?
       `;
-      const [rows] = await pool.query(query, [req.query.userEmail, req.query.userEmail]);
+      const [rows] = await pool.query(query, [targetEmail, targetEmail]);
       res.json(rows);
     } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
-  // 10. Admin statisztikák
-  app.get('/api/admin/stats/:contestId', async (req, res) => {
+  // 10. Admin statisztikák (VÉDETT: Csak Admin)
+  app.get('/api/admin/stats/:contestId', requireAuth, async (req, res) => {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Hozzáférés megtagadva!' });
     try { const [rows] = await pool.query('SELECT user_name, user_email, category, COUNT(*) as image_count FROM photo_entries WHERE contest_id = ? GROUP BY user_email, user_name, category ORDER BY user_name ASC, category ASC', [req.params.contestId]); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
-  // 11. Admin zsűri statisztikák
-  app.get('/api/admin/jury-stats/:contestId', async (req, res) => {
+  // 11. Admin zsűri statisztikák (VÉDETT: Csak Admin)
+  app.get('/api/admin/jury-stats/:contestId', requireAuth, async (req, res) => {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Hozzáférés megtagadva!' });
     try {
       const contestId = req.params.contestId;
       const [[{ total_entries }]] = await pool.query('SELECT COUNT(*) as total_entries FROM photo_entries WHERE contest_id = ?', [contestId]);
@@ -222,32 +265,37 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
-  // 12. Zsűrizendő képek listája
-  app.get('/api/jury-entries/:contestId', async (req, res) => {
+  // 12. Zsűrizendő képek listája (VÉDETT)
+  app.get('/api/jury-entries/:contestId', requireAuth, async (req, res) => {
+    const targetEmail = req.query.userEmail;
+    if (req.user.email !== targetEmail && !req.user.isAdmin) {
+      return res.status(403).json({ error: 'Nem kérheted le más szavazólapját!' });
+    }
     try { 
       const query = `
         SELECT e.id, e.title, e.category, e.file_url, e.drive_file_id FROM photo_entries e JOIN photo_contests c ON e.contest_id = c.id
         LEFT JOIN photo_votes v ON e.id = v.entry_id AND v.jury_email = ? LEFT JOIN photo_contest_payments p ON e.contest_id = p.contest_id AND e.user_email = p.user_email
         WHERE e.contest_id = ? AND v.id IS NULL AND (c.entry_fee IS NULL OR c.entry_fee = 0 OR p.id IS NOT NULL)
       `;
-      const [rows] = await pool.query(query, [req.query.userEmail, req.params.contestId]); 
+      const [rows] = await pool.query(query, [targetEmail, req.params.contestId]); 
       res.json(rows); 
     } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
-  // 13. Zsűri szavazat leadása
-  app.post('/api/vote', async (req, res) => {
+  // 13. Zsűri szavazat leadása (VÉDETT)
+  app.post('/api/vote', requireAuth, async (req, res) => {
     if (req.body.score < 0 || req.body.score > 100) return res.status(400).json({ error: 'Érvénytelen pontszám!' });
+    if (req.user.email !== req.body.juryEmail) return res.status(403).json({ error: 'Nem szavazhatsz más nevében!' });
     try { await pool.query('INSERT INTO photo_votes (entry_id, jury_email, score) VALUES (?, ?, ?)', [req.body.entryId, req.body.juryEmail, req.body.score]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
-  // 14. Eredmények lekérése
+  // 14. Eredmények lekérése (Nyilvános / Lezárt eredmények)
   app.get('/api/results/:contestId', async (req, res) => {
     try { const [rows] = await pool.query(`SELECT e.id, e.title, e.category, e.file_url, e.drive_file_id, e.user_name, e.user_email, COALESCE(SUM(v.score), 0) as total_score, COUNT(v.id) as vote_count FROM photo_entries e LEFT JOIN photo_votes v ON e.id = v.entry_id WHERE e.contest_id = ? GROUP BY e.id ORDER BY e.category ASC, total_score DESC`, [req.params.contestId]); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
-  // 15. Oklevél Base64 kép letöltés
-  app.get('/api/image-base64/:fileId', async (req, res) => {
+  // 15. Oklevél Base64 kép letöltés (VÉDETT)
+  app.get('/api/image-base64/:fileId', requireAuth, async (req, res) => {
     try {
       const driveRes = await drive.files.get({ fileId: req.params.fileId, alt: 'media' }, { responseType: 'arraybuffer' });
       const base64 = Buffer.from(driveRes.data).toString('base64');
@@ -255,10 +303,14 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { res.status(500).json({ error: 'Nem sikerült a képet betölteni az oklevélhez.' }); }
   });
 
-  // 16. KÖTELEZŐ MAFOSZ PROFIL MENTÉSI ÚTVONAL
-  app.put('/api/users/:email/extended-profile', async (req, res) => {
+  // 16. KÖTELEZŐ MAFOSZ PROFIL MENTÉSI ÚTVONAL (VÉDETT - Összehangolva a users.js-sel!)
+  app.put('/api/users/:email/extended-profile', requireAuth, async (req, res) => {
     const { email } = req.params;
     const { name, phone_number, shipping_address, association_id } = req.body;
+
+    if (req.user.email !== email && !req.user.isAdmin) {
+      return res.status(403).json({ error: 'Hozzáférés megtagadva! Nem módosíthatod más felhasználó profilját.' });
+    }
 
     try {
       const query = `
@@ -275,23 +327,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
+  // ❌ JAVÍTVA / TÖRÖLVE: A legalsó, teljesen nyitott app.get('/api/users') adatbázis-szivárogtató kód teljesen el lett távolítva ebből a fájlból, 
+  // így az többé nem tudja felülírni a users.js biztonságos változatát!
 
-  app.get('/api/users', async (req, res) => {
-    try {
-      const [rows] = await pool.query(`
-        SELECT 
-          google_id, email, name, last_login, club_name, club_role, 
-          is_premium, premium_until, stripe_customer_id, premium_level, 
-          club_id, swap_balance, rank_level, referral_code, referred_by,
-          phone_number, shipping_address, association_id, avatar_url 
-        FROM photo_users
-        ORDER BY name ASC
-      `);
-      
-      res.json(rows);
-    } catch (err) {
-      console.error("❌ Hiba a photo_users lekérésekor:", err);
-      res.status(500).json({ error: 'Nem sikerült betölteni a felhasználókat.' });
-    }
-  });
 };
