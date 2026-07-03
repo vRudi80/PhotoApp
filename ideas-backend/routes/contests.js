@@ -2,7 +2,7 @@ const fs = require('fs');
 const { OAuth2Client } = require('google-auth-library');
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@photawesome.com";
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'kovari.rudolf@gmail.com';
 
 // ====================================================================
 // 🔒 GOLYÓÁLLÓ AUTHENTICATION MIDDLEWARE A CONTESTS MODULHOZ
