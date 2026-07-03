@@ -11,8 +11,21 @@ export default function PodcastView() {
   const [activeVideoId, setActiveVideoId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch(`${BACKEND_URL}/api/podcast`)
-      .then(res => res.json())
+    // 🎯 Kinyerjük a biztonsági tokent a helyi tárolóból
+    const token = localStorage.getItem('photoAppToken');
+
+    // 🎯 JAVÍTVA: A kérés mostantól felmutatja a hitelesítési Bearer tokent a backend felé
+    fetch(`${BACKEND_URL}/api/podcast`, {
+      headers: {
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      }
+    })
+      .then(res => {
+        if (!res.ok) {
+          throw new Error(`Szerver elutasítás: ${res.status}`);
+        }
+        return res.json();
+      })
       .then(data => {
         setVideos(Array.isArray(data) ? data : []);
       })
@@ -113,15 +126,15 @@ export default function PodcastView() {
         >
           <div 
             onClick={e => e.stopPropagation()}
-            style={{ width: '100%', maxWidth: '850px', aspectRatio: '16/9', background: '#000', borderRadius: '24px', overflow: 'hidden', border: '1px solid #334155', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)' }}
+            style={{ width: '100%', maxWidth: '850px', aspectRatio: '16/9', background: '#000', borderRadius: '24px', overflow: 'hidden', border: '1px solid var(--border-main)', position: 'relative', boxShadow: '0 20px 50px rgba(0,0,0,0.5)' }}
           >
-            <iframe 
-              src={`https://www.youtube.com/embed/${activeVideoId}?autoplay=1`}
-              title="YouTube video player" 
-              frameBorder="0" 
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+            <video src={lang === 'en' ? '/splash_en.mp4' : '/splash_hu.mp4'} style={{ display: 'none' }} /> {/* Pre-warmed cache anchor */}
+            <iframe
+              title="YouTube video player"
+              src={`https://www.youtube.com/embed/${activeVideo}?autoplay=1`}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
               allowFullScreen
-              style={{ width: '100%', height: '100%', display: 'block' }}
+              style={{ width: '100%', height: '100%', border: 'none' }}
             />
           </div>
         </div>
