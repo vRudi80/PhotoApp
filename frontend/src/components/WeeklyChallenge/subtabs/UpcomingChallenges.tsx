@@ -5,6 +5,9 @@ import { BACKEND_URL } from '../../../utils/constants';
 // Behozzuk a nyelvi kontextust
 import { useLanguage } from '../../../context/LanguageContext';
 
+// Behozzuk a téma környezetet
+import { useTheme } from '../../../context/ThemeContext';
+
 // Professzionális Lucide ikonok importálása az AI-sallangok ellen
 import { 
   Calendar, 
@@ -20,7 +23,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 
-// 🕒 1. ÖNÁLLÓ, ULTRASTABIL DOM-ALAPÚ VISSZASZÁMLÁLÓ (🎯 JAVÍTVA: Hatókörök és változók szinkronizálva)
+// 🕒 1. ÖNÁLLÓ, ULTRASTABIL DOM-ALAPÚ VISSZASZÁMLÁLÓ (REAKTÍV VERZIÓ)
 function UpcomingCountdown({ startDate, lang, t }: { startDate: string; lang: string; t: any }) {
   const elementRef = useRef<HTMLSpanElement>(null);
 
@@ -71,7 +74,8 @@ function UpcomingCountdown({ startDate, lang, t }: { startDate: string; lang: st
       <span style={{ fontSize: '0.72rem', color: '#38bdf8', fontWeight: 'bold', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '5px', textTransform: 'uppercase' }}>
         <Clock size={12} /> {t ? t('roomTimeLeftLabel') : 'INDULÁS:'}
       </span>
-      <span ref={elementRef} style={{ color: '#fff', fontFamily: 'monospace', fontSize: '0.9rem', fontWeight: 'bold' }}>---</span>
+      {/* 🎯 JAVÍTVA: color #fff átírva var(--text-title)-re a láthatóságért */}
+      <span ref={elementRef} style={{ color: 'var(--text-title)', fontFamily: 'monospace', fontSize: '0.9rem', fontWeight: 'bold' }}>---</span>
     </div>
   );
 }
@@ -127,7 +131,7 @@ export default function UpcomingChallenges({
       }
     } catch (e) {
       alert(t('msgNetworkError'));
-    } finally {
+    } final {
       setApplyingId(null);
     }
   };
@@ -135,20 +139,20 @@ export default function UpcomingChallenges({
   return (
     <div style={{ animation: 'fadeIn 0.4s ease-out', display: 'flex', flexDirection: 'column', gap: '20px' }}>
       
-      {/* 🧭 TOP IRÁNYÍTÓ SÁV */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#131b2e', padding: '16px 20px', borderRadius: '8px', border: '1px solid #222f47', flexWrap: 'wrap', gap: '12px' }}>
+      {/* 🧭 TOP IRÁNYÍTÓ SÁV – Változókra cserélve */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-card)', padding: '16px 20px', borderRadius: '8px', border: '1px solid var(--border-main)', flexWrap: 'wrap', gap: '12px' }}>
         <div>
-          <h3 style={{ color: 'white', margin: 0, fontSize: '1.1rem', fontWeight: '600', letterSpacing: '-0.2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <h3 style={{ color: 'var(--text-title)', margin: 0, fontSize: '1.1rem', fontWeight: '600', letterSpacing: '-0.2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <CalendarClock size={16} color="#fbbf24" /> {t('upTitle')}
           </h3>
-          <p style={{ color: '#64748b', margin: '3px 0 0 0', fontSize: '0.82rem' }}>
+          <p style={{ color: 'var(--text-body)', margin: '3px 0 0 0', fontSize: '0.82rem' }}>
             {t('upDesc')}
           </p>
         </div>
         
         <button
           onClick={() => setShowPlanner(!showPlanner)}
-          style={{ padding: '8px 16px', borderRadius: '4px', border: showPlanner ? '1px solid #ef4444' : '1px solid #222f47', background: showPlanner ? 'rgba(239,68,68,0.05)' : '#f97316', color: showPlanner ? '#f87171' : 'white', fontWeight: 'bold', fontSize: '0.85rem', cursor: 'pointer', transition: 'all 0.15s ease', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+          style={{ padding: '8px 16px', borderRadius: '4px', border: showPlanner ? '1px solid #ef4444' : '1px solid var(--border-main)', background: showPlanner ? 'rgba(239,68,68,0.05)' : '#f97316', color: showPlanner ? '#f87171' : 'white', fontWeight: 'bold', fontSize: '0.85rem', cursor: 'pointer', transition: 'all 0.15s ease', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
         >
           {showPlanner ? <X size={14} /> : <Plus size={14} />}
           {showPlanner ? t('upClosePlanner') : t('upOpenPlanner')}
@@ -157,7 +161,7 @@ export default function UpcomingChallenges({
 
       {/* 🛠️ LENYÍLÓ CSATATERVEZŐ PANEL */}
       {showPlanner && (
-        <div style={{ animation: 'fadeIn 0.3s ease-out', borderBottom: '1px dashed #222f47', paddingBottom: '20px' }}>
+        <div style={{ animation: 'fadeIn 0.3s ease-out', borderBottom: '1px dashed var(--border-main)', paddingBottom: '20px' }}>
           <BattlePlanner user={user} onSuccess={() => setShowPlanner(false)} />
         </div>
       )}
@@ -165,7 +169,7 @@ export default function UpcomingChallenges({
       {/* 📜 KÖZELGŐ CSATÁK RÁCSRENDSZERE */}
       <div>
         {safeUpcomingTopics.length === 0 ? (
-          <div style={{ color: '#475569', textAlign: 'center', padding: '50px 20px', background: '#131b2e', borderRadius: '8px', border: '1px solid #222f47', fontSize: '0.85rem', fontStyle: 'italic' }}>
+          <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '50px 20px', background: 'var(--bg-card)', borderRadius: '8px', border: '1px solid var(--border-main)', fontSize: '0.85rem', fontStyle: 'italic' }}>
             {t('upEmpty')}
           </div>
         ) : (
@@ -182,7 +186,7 @@ export default function UpcomingChallenges({
               const displayDesc = lang === 'en' && tData.description_en ? tData.description_en : tData.description;
 
               return (
-                <div key={tData.id} style={{ background: '#131b2e', padding: '20px', borderRadius: '8px', border: '1px solid #222f47', display: 'flex', flexDirection: 'column', boxShadow: '0 4px 15px rgba(0,0,0,0.1)', justifyContent: 'space-between' }} className="upcoming-challenge-card">
+                <div key={tData.id} style={{ background: 'var(--bg-card)', padding: '20px', borderRadius: '8px', border: '1px solid var(--border-main)', display: 'flex', flexDirection: 'column', boxShadow: '0 4px 15px rgba(0,0,0,0.05)', justifyContent: 'space-between' }} className="upcoming-challenge-card">
                   <div>
                     <div style={{ marginBottom: '10px' }}>
                       <span style={{ background: isDaily ? 'rgba(239,68,68,0.08)' : 'rgba(56,189,248,0.08)', color: isDaily ? '#f87171' : '#38bdf8', border: `1px solid ${isDaily ? 'rgba(239,68,68,0.2)' : 'rgba(56,189,248,0.2)'}`, padding: '2px 8px', borderRadius: '4px', fontSize: '0.72rem', fontWeight: 'bold' }}>
@@ -191,19 +195,19 @@ export default function UpcomingChallenges({
                     </div>
                   
                     {tData.cover_url && (
-                      <div style={{ width: '100%', height: '140px', borderRadius: '4px', overflow: 'hidden', marginBottom: '12px', border: '1px solid #222f47', backgroundColor: '#090d16' }}>
+                      <div style={{ width: '100%', height: '140px', borderRadius: '4px', overflow: 'hidden', marginBottom: '12px', border: '1px solid var(--border-main)', backgroundColor: '#090d16' }}>
                         <img src={tData.cover_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={handleImageError} />
                       </div>
                     )}
 
                     {tData.cover_author && (
-                      <div style={{ color: '#475569', fontSize: '0.72rem', fontStyle: 'italic', marginTop: '-8px', marginBottom: '12px', textAlign: 'right', paddingRight: '2px' }}>
+                      <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', fontStyle: 'italic', marginTop: '-8px', marginBottom: '12px', textAlign: 'right', paddingRight: '2px' }}>
                         {t('upCoverAuthor')}{tData.cover_author}
                       </div>
                     )}
 
-                    <h4 style={{ color: '#fbbf24', margin: '0 0 6px 0', fontSize: '1.15rem', fontWeight: '600', letterSpacing: '-0.2px' }}>{displayTitle}</h4>
-                    <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 16px 0', lineHeight: '1.45' }}>{displayDesc}</p>
+                    <h4 style={{ color: 'var(--text-title)', margin: '0 0 6px 0', fontSize: '1.15rem', fontWeight: '600', letterSpacing: '-0.2px' }}>{displayTitle}</h4>
+                    <p style={{ color: 'var(--text-body)', fontSize: '0.85rem', margin: '0 0 16px 0', lineHeight: '1.45' }}>{displayDesc}</p>
                   </div>
                   
                   <div>
@@ -212,10 +216,11 @@ export default function UpcomingChallenges({
                       <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: '#a78bfa', fontSize: '0.75rem', fontWeight: 'bold', background: 'rgba(167,139,250,0.06)', padding: '5px 10px', borderRadius: '4px', border: '1px solid rgba(167,139,250,0.15)', marginBottom: '12px', width: 'fit-content' }}>
                         <User size={12} />
                         <span>{t('upMaster')}</span>
-                        <span style={{ color: '#e9d5ff' }}>{tData.master_name || tData.master_email}</span>
+                        {/* 🎯 JAVÍTVA: color e9d5ff lecserélve var(--text-title)-re a fehér lapon való olvashatóságért */}
+                        <span style={{ color: 'var(--text-title)' }}>{tData.master_name || tData.master_email}</span>
                       </div>
                     ) : tData.pending_master_email ? (
-                      <div style={{ background: isPendingMe ? 'rgba(234,179,8,0.06)' : 'rgba(34,47,71,0.2)', border: `1px solid ${isPendingMe ? 'rgba(234,179,8,0.2)' : '#222f47'}`, color: isPendingMe ? '#eab308' : '#64748b', padding: '8px', borderRadius: '4px', fontSize: '0.78rem', fontWeight: 'bold', textAlign: 'center', marginBottom: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                      <div style={{ background: isPendingMe ? 'rgba(234,179,8,0.06)' : 'var(--hover-overlay)', border: `1px solid ${isPendingMe ? 'rgba(234,179,8,0.2)' : 'var(--border-main)'}`, color: isPendingMe ? '#eab308' : 'var(--text-muted)', padding: '8px', borderRadius: '4px', fontSize: '0.78rem', fontWeight: 'bold', textAlign: 'center', marginBottom: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
                         {isPendingMe ? <Zap size={12} /> : <Hourglass size={12} />}
                         {isPendingMe ? t('upPendingMe') : t('upPendingOther')}
                       </div>
@@ -232,25 +237,24 @@ export default function UpcomingChallenges({
                     )}
 
                     {/* 🕒 IDŐZÍTŐ PANEL */}
-                    <div style={{ background: '#0f172a', padding: '12px', borderRadius: '6px', border: '1px solid #222f47', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <div style={{ background: 'var(--bg-main)', padding: '12px', borderRadius: '6px', border: '1px solid var(--border-main)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                       
-                      {/* Visszaszámláló – 🎯 JAVÍTVA: Átadva a hiányzó t fordító függvény! */}
                       <UpcomingCountdown startDate={tData.start_date} lang={lang} t={t} />
 
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem' }}>
-                        <span style={{ color: '#475569', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 'bold' }}>{t('upStart')}</span>
+                        <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 'bold' }}>{t('upStart')}</span>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <span style={{ color: '#cbd5e1', fontWeight: '600' }}>{startFormat.date}</span>
+                          <span style={{ color: 'var(--text-body)', fontWeight: '600' }}>{startFormat.date}</span>
                           <span style={{ background: 'rgba(56,189,248,0.1)', color: '#38bdf8', padding: '1px 5px', borderRadius: '3px', fontSize: '0.72rem', fontWeight: 'bold', fontFamily: 'monospace' }}>{startFormat.time}</span>
                         </div>
                       </div>
                       
-                      <div style={{ height: '1px', background: '#222f47', width: '100%' }}></div>
+                      <div style={{ height: '1px', background: 'var(--border-main)', width: '100%' }}></div>
                       
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem' }}>
-                        <span style={{ color: '#475569', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 'bold' }}>{t('upEnd')}</span>
+                        <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 'bold' }}>{t('upEnd')}</span>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <span style={{ fontSize: '0.8rem', fontWeight: '600', color: '#64748b' }}>{endFormat.date}</span>
+                          <span style={{ fontSize: '0.8rem', fontWeight: '600', color: 'var(--text-body)' }}>{endFormat.date}</span>
                           <span style={{ background: 'rgba(239,68,68,0.06)', color: '#f87171', padding: '1px 5px', borderRadius: '3px', fontSize: '0.72rem', fontWeight: 'bold', fontFamily: 'monospace' }}>{endFormat.time}</span>
                         </div>
                       </div>
@@ -266,12 +270,12 @@ export default function UpcomingChallenges({
 
       <style>{`
         .upcoming-challenge-card:hover {
-          border-color: #475569 !important;
+          border-color: var(--text-body) !important;
           transform: translateY(-2px);
           transition: all 0.2s ease-in-out;
         }
         .upcoming-apply-btn:hover {
-          background: rgba(16, 185, 129, 0.04) !important;
+          background: var(--hover-overlay) !important;
           border-color: #10b981 !important;
         }
       `}</style>
