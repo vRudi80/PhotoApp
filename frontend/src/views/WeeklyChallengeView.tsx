@@ -73,18 +73,18 @@ const ARENA_LEVELS_REGISTRY = [
 ];
 
 const getLevelDetails = (likes: number, victories: number) => {
-  if (likes < 30) return { id: 0, name: 'Fényleső 🌱', color: 'var(--text-body)', bg: 'var(--text-body)15' };
-  if (likes < 100) return { id: 1, name: 'Megfigyelő 👁️', color: '#cbd5e1', bg: '#cbd5e115' };
-  if (likes < 250) return { id: 2, name: 'Képvadász 📷', color: '#38bdf8', bg: '#38bdf815' };
-  if (likes < 500) return { id: 3, name: 'Komponista 📐', color: '#60a5fa', bg: '#60a5fa15' };
-  if (likes < 800 || victories < 1) return { id: 4, name: 'Fényíró 🎞️', color: '#10b981', bg: '#10b98115' };
-  if (likes < 1300 || victories < 2) return { id: 5, name: 'Esztéta 💎', color: '#059669', bg: '#05966915' };
-  if (likes < 1300 || victories < 3) return { id: 6, name: 'Szakértő 🎯', color: '#a78bfa', bg: '#a78bfa15' };
-  if (likes < 2000 || victories < 5) return { id: 7, name: 'Képmester 🎨', color: '#ec4899', bg: '#ec489915' };
-  if (likes < 3200 || victories < 7) return { id: 8, name: 'Nagymester 🌟', color: '#f59e0b', bg: '#f59e0b15' };
-  if (likes < 4800 || victories < 9) return { id: 9, name: 'Virtuóz ⚡', color: '#eab308', bg: '#eab30815' };
-  if (likes < 7000 || victories < 12) return { id: 10, name: 'Fotóguru 🔥', color: '#ef4444', bg: '#ef444415' };
-  return { id: 11, name: 'Vizuális Legenda 👑', color: '#fbbf24', bg: '#fbbf2420' };
+  if (likes < 30) return { id: 0, name: 'Fényleső 🌱', color: '#64748b', bg: 'rgba(100,116,139,0.1)' };
+  if (likes < 100) return { id: 1, name: 'Megfigyelő 👁️', color: '#94a3b8', bg: 'rgba(148,163,184,0.1)' };
+  if (likes < 250) return { id: 2, name: 'Képvadász 📷', color: '#38bdf8', bg: 'rgba(56,189,248,0.1)' };
+  if (likes < 500) return { id: 3, name: 'Komponista 📐', color: '#60a5fa', bg: 'rgba(96,165,250,0.1)' };
+  if (likes < 800 || victories < 1) return { id: 4, name: 'Fényíró 🎞️', color: '#10b981', bg: 'rgba(16,185,129,0.1)' };
+  if (likes < 1300 || victories < 2) return { id: 5, name: 'Esztéta 💎', color: '#059669', bg: 'rgba(5,150,105,0.1)' };
+  if (likes < 1300 || victories < 3) return { id: 6, name: 'Szakértő 🎯', color: '#a78bfa', bg: 'rgba(167,139,250,0.1)' };
+  if (likes < 2000 || victories < 5) return { id: 7, name: 'Képmester 🎨', color: '#ec4899', bg: 'rgba(236,72,153,0.1)' };
+  if (likes < 3200 || victories < 7) return { id: 8, name: 'Nagymester 🌟', color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' };
+  if (likes < 4800 || victories < 9) return { id: 9, name: 'Virtuóz ⚡', color: '#eab308', bg: 'rgba(234,179,8,0.1)' };
+  if (likes < 7000 || victories < 12) return { id: 10, name: 'Fotóguru 🔥', color: '#ef4444', bg: 'rgba(239,68,68,0.1)' };
+  return { id: 11, name: 'Vizuális Legenda 👑', color: '#fbbf24', bg: 'rgba(251,191,36,0.15)' };
 };
 
 const compressImageOnClient = (file: File): Promise<File> => {
@@ -128,7 +128,7 @@ const compressImageOnClient = (file: File): Promise<File> => {
 };
 
 // ====================================================================
-// 📊 SELEKCIÓS KÁRTYA KOMPONENS (LETISZTÍTOTT PREMIÚM DIZÁJN)
+// 📊 SELEKCIÓS KÁRTYA KOMPONENS (REAKTÍV SZÍNEKKEL)
 // ====================================================================
 function ChallengeCard({ topic, onSelect, onShare }: { topic: any; onSelect: () => void, onShare: () => void }) {
   const { t, lang } = useLanguage();
@@ -167,10 +167,7 @@ function ChallengeCard({ topic, onSelect, onShare }: { topic: any; onSelect: () 
       return true;
     };
     calculateTimeLeft();
-    const interval = setInterval(() => {
-      const stillActive = calculateTimeLeft();
-      if (!stillActive) clearInterval(interval);
-    }, 1000);
+    const interval = setInterval(calculateTimeLeft, 1000);
     return () => clearInterval(interval);
   }, [topic.id, topic.end_date, t]);
 
@@ -191,12 +188,12 @@ function ChallengeCard({ topic, onSelect, onShare }: { topic: any; onSelect: () 
   return (
     <div 
       onClick={onSelect}
-      style={{ background: 'var(--bg-card)', borderRadius: '10px', border: '1px solid var(--border-main)', padding: '22px', cursor: 'pointer', transition: 'all 0.2s ease-in-out', display: 'flex', flexDirection: 'column', position: 'relative' }}
-      onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.borderColor = isDaily ? '#ef4444' : '#3b82f6'; }}
-      onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = '#222f47'; }}
+      style={{ background: 'var(--bg-card)', borderRadius: '8px', border: '1px solid var(--border-main)', padding: '22px', cursor: 'pointer', transition: 'all 0.2s ease-in-out', display: 'flex', flexDirection: 'column', position: 'relative' }}
+      onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.borderColor = isDaily ? '#ef4444' : '#3b82f6'; }}
+      onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = 'var(--border-main)'; }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-        <span style={{ background: isDaily ? 'rgba(239,68,68,0.12)' : 'rgba(59,130,246,0.12)', color: isDaily ? '#f87171' : '#60a5fa', border: `1px solid ${isDaily ? 'rgba(239,68,68,0.2)' : 'rgba(59,130,246,0.2)'}`, padding: '3px 10px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' }}>
+        <span style={{ background: isDaily ? 'rgba(239,68,68,0.08)' : 'rgba(59,130,246,0.08)', color: isDaily ? '#f87171' : '#60a5fa', border: `1px solid ${isDaily ? 'rgba(239,68,68,0.2)' : 'rgba(59,130,246,0.2)'}`, padding: '3px 10px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' }}>
           {isDaily ? t('typeBlitz', 'Villámfutam') : t('typeMaster', 'Mesterfutam')}
         </span>
         <span style={{ color: statusColor, fontSize: '0.8rem', fontWeight: 'bold' }}>
@@ -205,7 +202,7 @@ function ChallengeCard({ topic, onSelect, onShare }: { topic: any; onSelect: () 
       </div>
 
       {topic.cover_url && (
-        <div style={{ width: '100%', height: '150px', borderRadius: '6px', overflow: 'hidden', marginBottom: '12px', border: '1px solid var(--bg-card)', position: 'relative', backgroundColor: '#090d16' }}>
+        <div style={{ width: '100%', height: '140px', borderRadius: '4px', overflow: 'hidden', marginBottom: '12px', border: '1px solid var(--border-main)', position: 'relative', backgroundColor: '#090d16' }}>
           <img src={topic.cover_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={handleImageError} />
         </div>
       )}
@@ -215,24 +212,25 @@ function ChallengeCard({ topic, onSelect, onShare }: { topic: any; onSelect: () 
         </div>
       )}
 
-      <h3 style={{ color: 'white', margin: '0 0 8px 0', fontSize: '1.25rem', fontWeight: '600', letterSpacing: '-0.3px' }}>{displayTitle}</h3>
+      {/* 🎯 JAVÍTVA: Fix white kicserélve var(--text-title)-re */}
+      <h3 style={{ color: 'var(--text-title)', margin: '0 0 8px 0', fontSize: '1.15rem', fontWeight: '600', letterSpacing: '-0.2px' }}>{displayTitle}</h3>
       <p style={{ color: 'var(--text-body)', fontSize: '0.85rem', margin: '0 0 16px 0', lineHeight: '1.45', flex: 1 }}>{displayDesc}</p>
       
       <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '16px', lineHeight: '1' }}>
         {(topic.master_name || topic.master_email) && (
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: '#a78bfa', fontSize: '0.75rem', fontWeight: 'bold', background: 'rgba(167,139,250,0.08)', padding: '5px 10px', borderRadius: '6px', border: '1px solid rgba(167,139,250,0.15)', whiteSpace: 'nowrap' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: '#a78bfa', fontSize: '0.75rem', fontWeight: 'bold', background: 'rgba(167,139,250,0.06)', padding: '5px 10px', borderRadius: '4px', border: '1px solid rgba(167,139,250,0.15)', whiteSpace: 'nowrap' }}>
             <span> {t('viewMasterLabel', 'Képmester')}:</span>
             <span style={{ color: '#e9d5ff' }}>{topic.master_name || topic.master_email}</span>
           </div>
         )}
 
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: '#10b981', fontSize: '0.75rem', fontWeight: 'bold', background: 'rgba(16,185,129,0.08)', padding: '5px 10px', borderRadius: '6px', border: '1px solid rgba(16,185,129,0.15)', whiteSpace: 'nowrap' }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: '#10b981', fontSize: '0.75rem', fontWeight: 'bold', background: 'rgba(16,185,129,0.06)', padding: '5px 10px', borderRadius: '4px', border: '1px solid rgba(16,185,129,0.15)', whiteSpace: 'nowrap' }}>
           <span> {t('contCardTotalImages', 'Összes kép')}:</span>
           <span style={{ color: '#a7f3d0' }}>{totalImagesCount} db</span>
         </div>
 
         {unvotedCount > 0 && (
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: '#f97316', fontSize: '0.75rem', fontWeight: 'bold', background: 'rgba(249,115,22,0.08)', padding: '5px 10px', borderRadius: '6px', border: '1px solid rgba(249,115,22,0.15)', whiteSpace: 'nowrap' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: '#f97316', fontSize: '0.75rem', fontWeight: 'bold', background: 'rgba(249,115,22,0.06)', padding: '5px 10px', borderRadius: '4px', border: '1px solid rgba(249,115,22,0.15)', whiteSpace: 'nowrap' }}>
             <span>Aktivitás:</span>
             <span style={{ color: '#ffedd5' }}>{unvotedCount} db szavazásra vár</span>
           </div>
@@ -240,12 +238,12 @@ function ChallengeCard({ topic, onSelect, onShare }: { topic: any; onSelect: () 
       </div>
 
       <div style={{ display: 'flex', gap: '8px', marginTop: 'auto' }}>
-       <div style={{ 
+        <div style={{ 
           flex: 1, 
           background: 'var(--bg-main)', 
-          padding: '10px 12px', 
-          borderRadius: '6px', 
-          border: '1px solid var(--bg-card)', 
+          padding: '8px 12px', 
+          borderRadius: '4px', 
+          border: '1px solid var(--border-main)', 
           fontFamily: 'monospace', 
           display: 'flex',
           flexDirection: 'column',
@@ -253,23 +251,22 @@ function ChallengeCard({ topic, onSelect, onShare }: { topic: any; onSelect: () 
           justifyContent: 'center',
           gap: '2px'
         }}>
-          <span style={{ fontSize: '0.68rem', color: '#475569', fontWeight: 'bold', letterSpacing: '0.5px' }}>
+          <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 'bold', letterSpacing: '0.5px' }}>
             {t('timeLeft', 'HÁTRALÉVŐ IDŐ:')}
           </span>
-          {/* 🎯 JAVÍTVA: Hegymászó törölve, szabályos fontWeight beállítva! */}
-          <span style={{ fontSize: '0.92rem', color: isDaily ? '#f87171' : '#38bdf8', fontWeight: '900' }}>
+          <span style={{ fontSize: '0.88rem', color: isDaily ? '#f87171' : '#38bdf8', fontWeight: '700' }}>
             {timeLeft}
           </span>
         </div>
         
         <button 
           onClick={handleShare}
-          style={{ background: '#3b5998', color: 'white', border: 'none', borderRadius: '6px', padding: '0 14px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s' }}
+          style={{ background: '#3b5998', color: 'white', border: 'none', borderRadius: '4px', padding: '0 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyValue: 'center', transition: 'background 0.15s ease', justifyContent: 'center' }}
           onMouseEnter={e => e.currentTarget.style.background = '#2d4373'}
           onMouseLeave={e => e.currentTarget.style.background = '#3b5998'}
           title={lang === 'en' ? 'Share' : 'Megosztás'}
         >
-          <Share2 size={16} />
+          <Share2 size={14} />
         </button>
       </div>
 
@@ -281,7 +278,7 @@ function ChallengeCard({ topic, onSelect, onShare }: { topic: any; onSelect: () 
 // ⚔️ FŐ IRÁNYÍTÓKÖZPONT KOMPONENS
 // ====================================================================
 export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyChallengeViewProps) {
- const { t, lang } = useLanguage();
+  const { t, lang } = useLanguage();
   const [subTab, setSubTab] = useState<'current' | 'upcoming' | 'manage' | 'past' | 'arena_album' | 'my_stats' | 'hall_of_fame'>('current');
   const [loading, setLoading] = useState(true);
   
@@ -296,7 +293,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const [isMaster, setIsMaster] = useState<boolean>(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [hasNewMessage, setHasNewMessage] = useState(false);
-
 
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
@@ -455,6 +451,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         }
         setActiveTopics([]);
       }
+    } catch (e) {
+      // Catch empty block safety
     } finally { 
       if (!isSilent) setLoading(false); 
     }
@@ -905,7 +903,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   return (
     <div style={{ animation: 'fadeIn 0.4s ease-out', position: 'relative' }}>
       
-      {/* TABS HEADER GOMBSOR – MINIMALISTA PRO ELRENDEZÉS */}
+      {/* TABS HEADER GOMBSOR */}
       <div className="arena-tabs-scroll-wrapper" style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border-main)', marginBottom: '20px', borderRadius: '8px 8px 0 0' }}>
         <div className="arena-tabs-internal-line" style={{ display: 'flex', gap: '4px', padding: '12px 16px 0 16px', justifyContent: 'space-between', alignItems: 'flex-end' }}>
           <div style={{ display: 'flex', gap: '2px' }}>
@@ -925,8 +923,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   onClick={() => { setSubTab(tab.id as any); setSelectedTopicId(null); }}
                   style={{
                     padding: '10px 18px',
-                    background: isActive ? 'rgba(56, 189, 248, 0.05)' : 'transparent',
-                    color: isActive ? '#38bdf8' : '#64748b',
+                    background: isActive ? 'var(--hover-overlay)' : 'transparent',
+                    color: isActive ? '#38bdf8' : 'var(--text-body)',
                     border: 'none',
                     borderBottom: isActive ? '2px solid #38bdf8' : '2px solid transparent',
                     fontWeight: '600',
@@ -958,7 +956,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
 
       {/* 🎖️ RANG PROGRESSION TRACK BAR */}
       <div className="arena-progress-card-wrapper" style={{ background: 'var(--bg-card)', padding: '12px 16px', borderRadius: '8px', border: '1px solid var(--border-main)', marginBottom: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
-        <div className="arena-progress-track-line" style={{ display: 'flex', width: '100%', border: '1px solid #0f172a', position: 'relative' }}>
+        <div className="arena-progress-track-line" style={{ display: 'flex', width: '100%', border: '1px solid var(--border-main)', position: 'relative' }}>
           {ARENA_LEVELS_REGISTRY.map((rank, idx) => {
             const isUnlocked = idx <= currentLevel.id;
             const isCurrent = idx === currentLevel.id;
@@ -989,17 +987,17 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: '4px',
-                  borderRight: idx < ARENA_LEVELS_REGISTRY.length - 1 ? '1px solid rgba(15,23,42,0.2)' : 'none',
+                  borderRight: idx < ARENA_LEVELS_REGISTRY.length - 1 ? '1px solid rgba(15,23,42,0.1)' : 'none',
                   position: 'relative',
                   cursor: 'help',
                   transition: 'all 0.15s ease'
                 }}
               >
-                {isUnlocked ? <Unlock size={10} color="#fff" /> : <Lock size={10} color="#475569" />}
+                {isUnlocked ? <Unlock size={10} color="#fff" /> : <Lock size={10} color="var(--text-muted)" />}
                 <span style={{ 
                   fontSize: '0.7rem', 
                   fontWeight: '700', 
-                  color: isUnlocked ? '#ffffff' : '#475569',
+                  color: isUnlocked ? '#ffffff' : 'var(--text-muted)',
                   border: isCurrent ? '1px solid #ffffff60' : 'none',
                   padding: isCurrent ? '1px 4px' : '0',
                   borderRadius: '2px',
@@ -1022,7 +1020,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         </div>
       </div>
 
-      {/* 🎮 ALMODULOK DINAMIKUS MEGJELENÍTÉSI ZÓNÁJA */}
+      {/* 🎮 ALMODULOK MEGJELENÍTÉSI ZÓNÁJA */}
       <div style={{ width: '100%' }}>
         
         {subTab === 'current' && (
@@ -1032,10 +1030,11 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                 <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '15px' }}>
                   {activeTopics.length > 1 && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <span style={{ color: '#64748b', fontSize: '0.8rem', fontWeight: 'bold' }}>{t('sortLabel')}</span>
-                      <select value={sortBy} onChange={(e) => setSortBy(e.target.value as any)} style={{ background: 'var(--bg-card)', color: 'white', border: '1px solid var(--border-main)', padding: '6px 12px', borderRadius: '6px', fontSize: '0.82rem', outline: 'none', cursor: 'pointer', fontWeight: 'bold' }}>
-                        <option value="endDate">{t('sortEndDate')}</option>
-                        <option value="startDate">{t('sortStartDate')}</option>
+                      <span style={{ color: 'var(--text-body)', fontSize: '0.8rem', fontWeight: 'bold' }}>{t('sortLabel')}</span>
+                      {/* 🎯 JAVÍTVA: color white átírva var(--text-title)-re a láthatóságért! */}
+                      <select value={sortBy} onChange={(e) => setSortBy(e.target.value as any)} style={{ background: 'var(--bg-card)', color: 'var(--text-title)', border: '1px solid var(--border-main)', padding: '6px 12px', borderRadius: '4px', fontSize: '0.82rem', outline: 'none', cursor: 'pointer', fontWeight: 'bold' }}>
+                        <option value="endDate" style={{ background: 'var(--bg-card)', color: 'var(--text-title)' }}>{t('sortEndDate')}</option>
+                        <option value="startDate" style={{ background: 'var(--bg-card)', color: 'var(--text-title)' }}>{t('sortStartDate')}</option>
                       </select>
                     </div>
                   )}
@@ -1045,7 +1044,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 20px', gap: '15px', width: '100%' }}>
                     <VideoLoader />
                     <div style={{ textAlign: 'center', animation: 'arenaPulse 2s infinite' }}>
-                      <h4 style={{ color: '#64748b', margin: 0, fontSize: '0.9rem', fontWeight: 'bold' }}>
+                      <h4 style={{ color: 'var(--text-body)', margin: 0, fontSize: '0.9rem', fontWeight: 'bold' }}>
                         {lang === 'en' ? '⚡ Synchronizing Arena...' : '⚡ Csatatér adatok letöltése...'}
                       </h4>
                     </div>
@@ -1061,10 +1060,10 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   <div style={{ textAlign: 'center', padding: '4rem 2rem', background: 'var(--bg-card)', borderRadius: '8px', border: '1px solid var(--border-main)' }}>
                     <Info size={36} color="#f59e0b" style={{ marginBottom: '12px' }} />
                     <h2 style={{ color: '#f59e0b', margin: '0 0 6px 0', fontSize: '1.4rem', fontWeight: '600' }}>{t('viewNoActiveLeagues')}</h2>
-                    <p style={{ color: '#64748b', fontSize: '0.9rem', margin: 0 }}>{t('viewNoActiveLeaguesDesc')}</p>
+                    <p style={{ color: 'var(--text-body)', fontSize: '0.9rem', margin: 0 }}>{t('viewNoActiveLeaguesDesc')}</p>
                   </div>
                 ) : (
-                 <div className="arena-cards-grid">
+                  <div className="arena-cards-grid">
                     {sortedActiveTopics.map((actTop) => (
                       <ChallengeCard 
                         key={actTop.id} 
@@ -1079,7 +1078,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
             ) : (
               <div>
                 <div style={{ marginBottom: '20px' }}>
-                  <button onClick={() => setSelectedTopicId(null)} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', color: '#cbd5e1', padding: '6px 14px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>
+                  <button onClick={() => setSelectedTopicId(null)} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', color: 'var(--text-title)', padding: '6px 14px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>
                     {t('viewBackBtn')}
                   </button>
                 </div>
@@ -1097,35 +1096,36 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
               </div>
             )}
 
-            {/* FLOATING CHAT DOCK PANEL – LETISZTÍTOTT PRO DIZÁJN */}
+            {/* FLOATING CHAT DOCK PANEL */}
             <div className={`arena-floating-chat-dock ${isChatOpen ? 'is-open' : 'is-closed'} ${hasNewMessage ? 'has-unread' : ''}`}>
               <div onClick={() => { setIsChatOpen(!isChatOpen); if (!isChatOpen) setHasNewMessage(false); }} className="chat-dock-header">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', position: 'relative' }}>
                   <MessageSquare size={16} color={hasNewMessage ? '#f43f5e' : '#38bdf8'} />
-                  <span style={{ fontWeight: '600', fontSize: '0.88rem' }}>
+                  <span style={{ fontWeight: '600', fontSize: '0.88rem', color: 'var(--text-title)' }}>
                     {t('viewLobbyTitle')} {hasNewMessage && <span style={{ color: '#f43f5e', fontSize: '0.75rem', marginLeft: '2px' }}>({lang === 'en' ? 'New!' : 'Új!'})</span>}
                   </span>
                   {hasNewMessage && <span className="chat-notification-badge" />}
                 </div>
-                {isChatOpen ? <ChevronDown size={16} color="#64748b" /> : <ChevronUp size={16} color="#64748b" />}
+                {isChatOpen ? <ChevronDown size={16} color="var(--text-body)" /> : <ChevronUp size={16} color="var(--text-body)" />}
               </div>
               {isChatOpen && (
                 <div className="chat-dock-body">
-                  <p style={{ margin: '0 0 10px 0', color: '#475569', fontSize: '0.75rem' }}>{t('viewLobbyDesc')}</p>
+                  <p style={{ margin: '0 0 10px 0', color: 'var(--text-body)', fontSize: '0.75rem' }}>{t('viewLobbyDesc')}</p>
                   
                   <div ref={chatScrollContainerRef} className="chat-messages-scroll-area">
                     {lobbyMessages.length === 0 ? (
-                      <div style={{ color: '#334155', textAlign: 'center', margin: 'auto', fontStyle: 'italic', fontSize: '0.8rem' }}>{t('viewLobbyEmpty')}</div>
+                      <div style={{ color: 'var(--text-muted)', textAlign: 'center', margin: 'auto', fontStyle: 'italic', fontSize: '0.8rem' }}>{t('viewLobbyEmpty')}</div>
                     ) : (
-                      lobbyMessages.slice(-100).map((msg, idx) => {
+                      <lobbyMessages.slice(-100).map((msg, idx) => {
                         const isMsgMe = (msg.user_email || msg.userEmail) === user?.email;
                         return (
                           <div key={msg.id || idx} style={{ display: 'flex', flexDirection: 'column', alignItems: isMsgMe ? 'flex-end' : 'flex-start', maxWidth: '92%', alignSelf: isMsgMe ? 'flex-end' : 'flex-start', marginBottom: '8px' }}>
-                            <div style={{ display: 'flex', gap: '4px', alignItems: 'center', marginBottom: '2px', fontSize: '0.68rem', color: isMsgMe ? '#38bdf8' : '#64748b', fontWeight: 'bold' }}>
+                            <div style={{ display: 'flex', gap: '4px', alignItems: 'center', marginBottom: '2px', fontSize: '0.68rem', color: isMsgMe ? '#38bdf8' : 'var(--text-body)', fontWeight: 'bold' }}>
                               <span>{msg.user_name || msg.userName}</span>
-                              <span style={{ color: '#223147' }}>• {new Date(msg.created_at).toLocaleTimeString(lang === 'en' ? 'en-US' : 'hu-HU', { hour: '2-digit', minute: '2-digit' })}</span>
+                              <span style={{ color: 'var(--text-muted)' }}>• {new Date(msg.created_at).toLocaleTimeString(lang === 'en' ? 'en-US' : 'hu-HU', { hour: '2-digit', minute: '2-digit' })}</span>
                             </div>
-                            <div style={{ background: isMsgMe ? '#f97316' : 'var(--bg-card)', color: 'var(--text-title)', padding: '6px 10px', borderRadius: isMsgMe ? '8px 8px 2px 8px' : '8px 8px 8px 2px', fontSize: '0.82rem', wordBreak: 'break-word', border: isMsgMe ? 'none' : '1px solid #223147' }}>
+                            {/* 🎯 JAVÍTVA: Narancs buborékban a betűk fixen fehérre lettek állítva a tökéletes kontrasztért! */}
+                            <div style={{ background: isMsgMe ? '#f97316' : 'var(--bg-card)', color: isMsgMe ? '#ffffff' : 'var(--text-title)', padding: '6px 10px', borderRadius: isMsgMe ? '8px 8px 2px 8px' : '8px 8px 8px 2px', fontSize: '0.82rem', wordBreak: 'break-word', border: isMsgMe ? 'none' : '1px solid var(--border-main)' }}>
                               {msg.message_text || msg.messageText}
                             </div>
                           </div>
@@ -1137,8 +1137,9 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                     {currentlyTyping.length > 0 && <span>{currentlyTyping.join(', ')}{t('viewLobbyTyping')}...</span>}
                   </div>
                   <form onSubmit={handleSendLobbyMessage} style={{ display: 'flex', gap: '6px' }}>
-                    <input type="text" placeholder={t('viewLobbyPlaceholder')} value={typedLobbyMsg} onChange={handleInputChange} maxLength={500} disabled={isSendingLobbyMsg} style={{ flex: 1, padding: '8px 10px', background: 'var(--bg-main)', border: '1px solid var(--border-main)', color: 'white', borderRadius: '6px', fontSize: '0.82rem', outline: 'none' }} />
-                    <button type="submit" disabled={!typedLobbyMsg.trim() || isSendingLobbyMsg} style={{ background: (!typedLobbyMsg.trim() || isSendingLobbyMsg) ? '#222f47' : '#f97316', color: (!typedLobbyMsg.trim() || isSendingLobbyMsg) ? '#475569' : 'white', border: 'none', padding: '8px 14px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.82rem' }}>
+                    {/* 🎯 JAVÍTVA: color white lecserélve var(--text-title)-re */}
+                    <input type="text" placeholder={t('viewLobbyPlaceholder')} value={typedLobbyMsg} onChange={handleInputChange} maxLength={500} disabled={isSendingLobbyMsg} style={{ flex: 1, padding: '8px 10px', background: 'var(--bg-main)', border: '1px solid var(--border-main)', color: 'var(--text-title)', borderRadius: '4px', fontSize: '0.82rem', outline: 'none' }} />
+                    <button type="submit" disabled={!typedLobbyMsg.trim() || isSendingLobbyMsg} style={{ background: (!typedLobbyMsg.trim() || isSendingLobbyMsg) ? 'var(--border-main)' : '#f97316', color: (!typedLobbyMsg.trim() || isSendingLobbyMsg) ? 'var(--text-muted)' : 'white', border: 'none', padding: '8px 14px', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.82rem' }}>
                       <Send size={12} />
                     </button>
                   </form>
@@ -1218,7 +1219,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         
         .arena-progress-card-wrapper, .arena-tabs-scroll-wrapper {
           scrollbar-width: thin;
-          scrollbar-color: #222f47 var(--bg-card);
+          scrollbar-color: var(--border-main) var(--bg-card);
         }
         .arena-progress-card-wrapper::-webkit-scrollbar, .arena-tabs-scroll-wrapper::-webkit-scrollbar {
           height: 4px;
@@ -1227,7 +1228,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           background: var(--bg-card);
         }
         .arena-progress-card-wrapper::-webkit-scrollbar-thumb, .arena-tabs-scroll-wrapper::-webkit-scrollbar-thumb {
-          background-color: #222f47;
+          background-color: var(--border-main);
           border-radius: 4px;
         }
 
@@ -1256,7 +1257,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           bottom: 145%; left: 50%; transform: translateX(-50%) translateY(4px);
           background: var(--bg-main); color: var(--text-title); border: 1px solid var(--border-main); border-radius: 6px;
           width: 230px;
-          box-shadow: 0 10px 20px rgba(0,0,0,0.6); z-index: 999999 !important;
+          box-shadow: 0 10px 20px rgba(0,0,0,0.2); z-index: 999999 !important;
           opacity: 0; pointer-events: none; transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
           padding: 10px; text-align: center;
         }
@@ -1277,28 +1278,29 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           background: var(--bg-card); 
           border: 1px solid var(--border-main); 
           border-bottom: none; 
-          border-radius: 8px 8px 0 0;
-          box-shadow: 0 -8px 24px rgba(0,0,0,0.4); 
+          border-radius: 4px 4px 0 0;
+          box-shadow: 0 -8px 24px rgba(0,0,0,0.15); 
           z-index: 1000; 
           transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .arena-floating-chat-dock.is-closed { transform: translateY(calc(100% - 44px)); }
         .arena-floating-chat-dock.has-unread .chat-dock-header { border-color: #f43f5e; }
         
+        /* 🎯 JAVÍTVA: A chat-fejléc lebegő színe fix helyett a var(--hover-overlay)-re vált! */
         .chat-dock-header { 
           padding: 12px 16px; 
           background: var(--bg-card);
           border-bottom: 1px solid var(--border-main); 
-          border-radius: 7px 7px 0 0; 
+          border-radius: 3px 3px 0 0; 
           display: flex; 
           justify-content: space-between; 
           align-items: center; 
           cursor: pointer; 
           user-select: none;
         }
-        .chat-dock-header:hover { background: #18253f; }
+        .chat-dock-header:hover { background: var(--hover-overlay); }
         .chat-dock-body { padding: 12px; height: 380px; display: flex; flex-direction: column; }
-        .chat-messages-scroll-area { background: var(--bg-main); border: 1px solid var(--border-main); border-radius: 6px; padding: 10px; flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+        .chat-messages-scroll-area { background: var(--bg-main); border: 1px solid var(--border-main); border-radius: 4px; padding: 10px; flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
         .chat-notification-badge { position: absolute; top: -1px; left: -2px; width: 6px; height: 6px; background: #ef4444; border-radius: 50%; }
         @keyframes arenaPulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
         @media (max-width: 480px) { .arena-floating-chat-dock { right: 10px; width: calc(100% - 20px); } }
