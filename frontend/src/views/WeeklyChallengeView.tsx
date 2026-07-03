@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { BACKEND_URL } from '../utils/constants';
+import { BACKEND_URL, ADMIN_EMAIL } from '../utils/constants';
 import { getImageUrl } from '../utils/helpers';
 import { toPng } from 'html-to-image'; 
 import MyArenaAlbumView from './MyArenaAlbumView';
