@@ -69,7 +69,7 @@ export default function BattlePlanner({ user, onSuccess }: BattlePlannerProps) {
   // Aktiváljuk a nyelvi hookot
   const { t } = useLanguage();
 
-  // 🎯 BIZTONSÁGI VÉDŐHÁLÓ: Lekérjük az aktuális témát, de felkészülünk a cold-start esetekre is
+  // BIZTONSÁGI VÉDŐHÁLÓ: Lekérjük az aktuális témát
   let isLight = false;
   try {
     const themeContext = useTheme();
@@ -118,8 +118,15 @@ export default function BattlePlanner({ user, onSuccess }: BattlePlannerProps) {
     if (coverFile) formData.append('cover', coverFile);
 
     try {
+      const token = localStorage.getItem('photoAppToken');
+
+      // 🎯 JAVÍTVA: Megkapta a hitelesített biztonsági fejlécet!
       const res = await fetch(`${BACKEND_URL}/api/weekly/propose`, {
         method: 'POST',
+        headers: {
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          // FIGYELEM: FormData küldésekor a Content-Type-ot NEM állítjuk be manuálisan!
+        },
         body: formData
       });
       if (res.ok) {
@@ -129,17 +136,18 @@ export default function BattlePlanner({ user, onSuccess }: BattlePlannerProps) {
         setStartDate(''); setEndDate(''); setCoverFile(null); setPreview(null);
         onSuccess(); 
       } else {
-        alert(t('msgProposalError'));
+        const errData = await res.json();
+        alert(errData.error || t('msgProposalError'));
       }
     } catch (error) {
-      console.error(error);
+      console.error("Hiba a csatiterv beküldésekor:", error);
+      alert(t('msgNetworkError'));
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    /* 🎯 JAVÍTVA: Konténer háttér és szegély reaktív változókra cserélve */
     <div style={{ maxWidth: '580px', margin: '0 auto', background: 'var(--bg-card)', padding: '24px', borderRadius: '8px', border: '1px solid var(--border-main)', boxShadow: '0 4px 15px rgba(0,0,0,0.05)', animation: 'fadeIn 0.3s ease-out' }}>
       <h2 style={{ color: 'var(--text-title)', margin: '0 0 4px 0', fontSize: '1.3rem', fontWeight: '700', letterSpacing: '-0.3px' }}>{t('planTitle')}</h2>
       <p style={{ color: 'var(--text-body)', fontSize: '0.82rem', margin: '0 0 20px 0', lineHeight: '1.45' }}>{t('planDesc')}</p>
@@ -150,7 +158,6 @@ export default function BattlePlanner({ user, onSuccess }: BattlePlannerProps) {
           <input type="text" placeholder={t('planPlaceholderTitle')} value={title} onChange={e => setTitle(e.target.value)} required style={{ width: '100%', padding: '10px 12px', background: 'var(--bg-main)', border: '1px solid var(--border-main)', borderRadius: '4px', color: 'var(--text-title)', outline: 'none', fontSize: '0.88rem', boxSizing: 'border-box' }} />
         </div>
 
-        {/* 🎯 JAVÍTVA: Angol cím felirata és szegélye dinamikusan sötétedik világos módban az olvashatóságért */}
         <div>
           <label style={{ color: isLight ? '#0284c7' : '#38bdf8', display: 'block', marginBottom: '4px', fontSize: '0.82rem', fontWeight: '600' }}>{t('planLabelTitleEn')}</label>
           <input type="text" placeholder={t('planPlaceholderTitleEn')} value={titleEn} onChange={e => setTitleEn(e.target.value)} style={{ width: '100%', padding: '10px 12px', background: 'var(--bg-main)', border: isLight ? '1px solid rgba(2,132,199,0.3)' : '1px solid rgba(56,189,248,0.25)', borderRadius: '4px', color: 'var(--text-title)', outline: 'none', fontSize: '0.88rem', boxSizing: 'border-box' }} />
@@ -161,7 +168,6 @@ export default function BattlePlanner({ user, onSuccess }: BattlePlannerProps) {
           <textarea rows={3} placeholder={t('planPlaceholderDesc')} value={description} onChange={e => setDescription(e.target.value)} required style={{ width: '100%', padding: '10px 12px', background: 'var(--bg-main)', border: '1px solid var(--border-main)', borderRadius: '4px', color: 'var(--text-title)', outline: 'none', resize: 'none', fontSize: '0.88rem', boxSizing: 'border-box', lineHeight: '1.45' }} />
         </div>
 
-        {/* 🎯 JAVÍTVA: Angol leírás felirata és szegélye szintén adaptív */}
         <div>
           <label style={{ color: isLight ? '#0284c7' : '#38bdf8', display: 'block', marginBottom: '4px', fontSize: '0.82rem', fontWeight: '600' }}>{t('planLabelDescEn')}</label>
           <textarea rows={3} placeholder={t('planPlaceholderDescEn')} value={descriptionEn} onChange={e => setDescriptionEn(e.target.value)} style={{ width: '100%', padding: '10px 12px', background: 'var(--bg-main)', border: isLight ? '1px solid rgba(2,132,199,0.3)' : '1px solid rgba(56,189,248,0.25)', borderRadius: '4px', color: 'var(--text-title)', outline: 'none', resize: 'none', fontSize: '0.88rem', boxSizing: 'border-box', lineHeight: '1.45' }} />
