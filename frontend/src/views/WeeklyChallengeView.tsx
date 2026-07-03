@@ -73,7 +73,7 @@ const ARENA_LEVELS_REGISTRY = [
 ];
 
 const getLevelDetails = (likes: number, victories: number) => {
-  if (likes < 30) return { id: 0, name: 'Fényleső 🌱', color: '#94a3b8', bg: '#94a3b815' };
+  if (likes < 30) return { id: 0, name: 'Fényleső 🌱', color: 'var(--text-body)', bg: 'var(--text-body)15' };
   if (likes < 100) return { id: 1, name: 'Megfigyelő 👁️', color: '#cbd5e1', bg: '#cbd5e115' };
   if (likes < 250) return { id: 2, name: 'Képvadász 📷', color: '#38bdf8', bg: '#38bdf815' };
   if (likes < 500) return { id: 3, name: 'Komponista 📐', color: '#60a5fa', bg: '#60a5fa15' };
@@ -191,7 +191,7 @@ function ChallengeCard({ topic, onSelect, onShare }: { topic: any; onSelect: () 
   return (
     <div 
       onClick={onSelect}
-      style={{ background: '#131b2e', borderRadius: '10px', border: '1px solid #222f47', padding: '22px', cursor: 'pointer', transition: 'all 0.2s ease-in-out', display: 'flex', flexDirection: 'column', position: 'relative' }}
+      style={{ background: 'var(--bg-card)', borderRadius: '10px', border: '1px solid var(--border-main)', padding: '22px', cursor: 'pointer', transition: 'all 0.2s ease-in-out', display: 'flex', flexDirection: 'column', position: 'relative' }}
       onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.borderColor = isDaily ? '#ef4444' : '#3b82f6'; }}
       onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = '#222f47'; }}
     >
@@ -205,7 +205,7 @@ function ChallengeCard({ topic, onSelect, onShare }: { topic: any; onSelect: () 
       </div>
 
       {topic.cover_url && (
-        <div style={{ width: '100%', height: '150px', borderRadius: '6px', overflow: 'hidden', marginBottom: '12px', border: '1px solid #1e293b', position: 'relative', backgroundColor: '#090d16' }}>
+        <div style={{ width: '100%', height: '150px', borderRadius: '6px', overflow: 'hidden', marginBottom: '12px', border: '1px solid var(--bg-card)', position: 'relative', backgroundColor: '#090d16' }}>
           <img src={topic.cover_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={handleImageError} />
         </div>
       )}
@@ -216,7 +216,7 @@ function ChallengeCard({ topic, onSelect, onShare }: { topic: any; onSelect: () 
       )}
 
       <h3 style={{ color: 'white', margin: '0 0 8px 0', fontSize: '1.25rem', fontWeight: '600', letterSpacing: '-0.3px' }}>{displayTitle}</h3>
-      <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 16px 0', lineHeight: '1.45', flex: 1 }}>{displayDesc}</p>
+      <p style={{ color: 'var(--text-body)', fontSize: '0.85rem', margin: '0 0 16px 0', lineHeight: '1.45', flex: 1 }}>{displayDesc}</p>
       
       <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '16px', lineHeight: '1' }}>
         {(topic.master_name || topic.master_email) && (
@@ -242,10 +242,10 @@ function ChallengeCard({ topic, onSelect, onShare }: { topic: any; onSelect: () 
       <div style={{ display: 'flex', gap: '8px', marginTop: 'auto' }}>
        <div style={{ 
           flex: 1, 
-          background: '#0f172a', 
+          background: 'var(--bg-main)', 
           padding: '10px 12px', 
           borderRadius: '6px', 
-          border: '1px solid #1e293b', 
+          border: '1px solid var(--bg-card)', 
           fontFamily: 'monospace', 
           display: 'flex',
           flexDirection: 'column',
@@ -906,7 +906,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     <div style={{ animation: 'fadeIn 0.4s ease-out', position: 'relative' }}>
       
       {/* TABS HEADER GOMBSOR – MINIMALISTA PRO ELRENDEZÉS */}
-      <div className="arena-tabs-scroll-wrapper" style={{ background: '#131b2e', borderBottom: '1px solid #222f47', marginBottom: '20px', borderRadius: '8px 8px 0 0' }}>
+      <div className="arena-tabs-scroll-wrapper" style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border-main)', marginBottom: '20px', borderRadius: '8px 8px 0 0' }}>
         <div className="arena-tabs-internal-line" style={{ display: 'flex', gap: '4px', padding: '12px 16px 0 16px', justifyContent: 'space-between', alignItems: 'flex-end' }}>
           <div style={{ display: 'flex', gap: '2px' }}>
             {[
@@ -957,7 +957,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       </div>
 
       {/* 🎖️ RANG PROGRESSION TRACK BAR */}
-      <div className="arena-progress-card-wrapper" style={{ background: '#131b2e', padding: '12px 16px', borderRadius: '8px', border: '1px solid #222f47', marginBottom: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+      <div className="arena-progress-card-wrapper" style={{ background: 'var(--bg-card)', padding: '12px 16px', borderRadius: '8px', border: '1px solid var(--border-main)', marginBottom: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
         <div className="arena-progress-track-line" style={{ display: 'flex', width: '100%', border: '1px solid #0f172a', position: 'relative' }}>
           {ARENA_LEVELS_REGISTRY.map((rank, idx) => {
             const isUnlocked = idx <= currentLevel.id;
@@ -974,7 +974,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
             const tooltipText = isUnlocked 
               ? `${rank.name} - Sikeresen feloldva! ✔` 
               : `Következő szint: ${rank.name}\nHátratévő feltétel: ${requirementMessage}`;
-            let segmentBg = '#0f172a'; 
+            let segmentBg = 'var(--bg-main)'; 
             if (isUnlocked) segmentBg = '#0284c7'; 
             if (isCurrent) segmentBg = '#38bdf8';
             return (
@@ -1012,7 +1012,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                 <div className="arena-rank-tooltip-box">
                   <div style={{ fontWeight: 'bold', color: '#fbbf24', marginBottom: '4px' }}>{rank.name}</div>
                   <div style={{ fontSize: '0.75rem', whiteSpace: 'pre-line', lineHeight: '1.4', color: '#cbd5e1' }}>{tooltipText}</div>
-                  <div style={{ marginTop: '8px', fontSize: '0.7rem', color: '#475569', borderTop: '1px solid #222f47', paddingTop: '4px' }}>
+                  <div style={{ marginTop: '8px', fontSize: '0.7rem', color: '#475569', borderTop: '1px solid var(--border-main)', paddingTop: '4px' }}>
                     Saját statisztikád: {userTotalLikes} ⭐ | {userVictories} 🥇
                   </div>
                 </div>
@@ -1033,7 +1033,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   {activeTopics.length > 1 && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                       <span style={{ color: '#64748b', fontSize: '0.8rem', fontWeight: 'bold' }}>{t('sortLabel')}</span>
-                      <select value={sortBy} onChange={(e) => setSortBy(e.target.value as any)} style={{ background: '#131b2e', color: 'white', border: '1px solid #222f47', padding: '6px 12px', borderRadius: '6px', fontSize: '0.82rem', outline: 'none', cursor: 'pointer', fontWeight: 'bold' }}>
+                      <select value={sortBy} onChange={(e) => setSortBy(e.target.value as any)} style={{ background: 'var(--bg-card)', color: 'white', border: '1px solid var(--border-main)', padding: '6px 12px', borderRadius: '6px', fontSize: '0.82rem', outline: 'none', cursor: 'pointer', fontWeight: 'bold' }}>
                         <option value="endDate">{t('sortEndDate')}</option>
                         <option value="startDate">{t('sortStartDate')}</option>
                       </select>
@@ -1058,7 +1058,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                     </button>
                   </div>
                 ) : activeTopics.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '4rem 2rem', background: '#131b2e', borderRadius: '8px', border: '1px solid #222f47' }}>
+                  <div style={{ textAlign: 'center', padding: '4rem 2rem', background: 'var(--bg-card)', borderRadius: '8px', border: '1px solid var(--border-main)' }}>
                     <Info size={36} color="#f59e0b" style={{ marginBottom: '12px' }} />
                     <h2 style={{ color: '#f59e0b', margin: '0 0 6px 0', fontSize: '1.4rem', fontWeight: '600' }}>{t('viewNoActiveLeagues')}</h2>
                     <p style={{ color: '#64748b', fontSize: '0.9rem', margin: 0 }}>{t('viewNoActiveLeaguesDesc')}</p>
@@ -1079,7 +1079,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
             ) : (
               <div>
                 <div style={{ marginBottom: '20px' }}>
-                  <button onClick={() => setSelectedTopicId(null)} style={{ background: '#131b2e', border: '1px solid #222f47', color: '#cbd5e1', padding: '6px 14px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>
+                  <button onClick={() => setSelectedTopicId(null)} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', color: '#cbd5e1', padding: '6px 14px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>
                     {t('viewBackBtn')}
                   </button>
                 </div>
@@ -1125,7 +1125,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                               <span>{msg.user_name || msg.userName}</span>
                               <span style={{ color: '#223147' }}>• {new Date(msg.created_at).toLocaleTimeString(lang === 'en' ? 'en-US' : 'hu-HU', { hour: '2-digit', minute: '2-digit' })}</span>
                             </div>
-                            <div style={{ background: isMsgMe ? '#f97316' : '#1e293b', color: '#f8fafc', padding: '6px 10px', borderRadius: isMsgMe ? '8px 8px 2px 8px' : '8px 8px 8px 2px', fontSize: '0.82rem', wordBreak: 'break-word', border: isMsgMe ? 'none' : '1px solid #223147' }}>
+                            <div style={{ background: isMsgMe ? '#f97316' : 'var(--bg-card)', color: 'var(--text-title)', padding: '6px 10px', borderRadius: isMsgMe ? '8px 8px 2px 8px' : '8px 8px 8px 2px', fontSize: '0.82rem', wordBreak: 'break-word', border: isMsgMe ? 'none' : '1px solid #223147' }}>
                               {msg.message_text || msg.messageText}
                             </div>
                           </div>
@@ -1137,7 +1137,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                     {currentlyTyping.length > 0 && <span>{currentlyTyping.join(', ')}{t('viewLobbyTyping')}...</span>}
                   </div>
                   <form onSubmit={handleSendLobbyMessage} style={{ display: 'flex', gap: '6px' }}>
-                    <input type="text" placeholder={t('viewLobbyPlaceholder')} value={typedLobbyMsg} onChange={handleInputChange} maxLength={500} disabled={isSendingLobbyMsg} style={{ flex: 1, padding: '8px 10px', background: '#0f172a', border: '1px solid #222f47', color: 'white', borderRadius: '6px', fontSize: '0.82rem', outline: 'none' }} />
+                    <input type="text" placeholder={t('viewLobbyPlaceholder')} value={typedLobbyMsg} onChange={handleInputChange} maxLength={500} disabled={isSendingLobbyMsg} style={{ flex: 1, padding: '8px 10px', background: 'var(--bg-main)', border: '1px solid var(--border-main)', color: 'white', borderRadius: '6px', fontSize: '0.82rem', outline: 'none' }} />
                     <button type="submit" disabled={!typedLobbyMsg.trim() || isSendingLobbyMsg} style={{ background: (!typedLobbyMsg.trim() || isSendingLobbyMsg) ? '#222f47' : '#f97316', color: (!typedLobbyMsg.trim() || isSendingLobbyMsg) ? '#475569' : 'white', border: 'none', padding: '8px 14px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.82rem' }}>
                       <Send size={12} />
                     </button>
@@ -1218,13 +1218,13 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         
         .arena-progress-card-wrapper, .arena-tabs-scroll-wrapper {
           scrollbar-width: thin;
-          scrollbar-color: #222f47 #131b2e;
+          scrollbar-color: #222f47 var(--bg-card);
         }
         .arena-progress-card-wrapper::-webkit-scrollbar, .arena-tabs-scroll-wrapper::-webkit-scrollbar {
           height: 4px;
         }
         .arena-progress-card-wrapper::-webkit-scrollbar-track, .arena-tabs-scroll-wrapper::-webkit-scrollbar-track {
-          background: #131b2e;
+          background: var(--bg-card);
         }
         .arena-progress-card-wrapper::-webkit-scrollbar-thumb, .arena-tabs-scroll-wrapper::-webkit-scrollbar-thumb {
           background-color: #222f47;
@@ -1254,7 +1254,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         .arena-rank-tooltip-box {
           position: absolute;
           bottom: 145%; left: 50%; transform: translateX(-50%) translateY(4px);
-          background: #0f172a; color: #f8fafc; border: 1px solid #222f47; border-radius: 6px;
+          background: var(--bg-main); color: var(--text-title); border: 1px solid var(--border-main); border-radius: 6px;
           width: 230px;
           box-shadow: 0 10px 20px rgba(0,0,0,0.6); z-index: 999999 !important;
           opacity: 0; pointer-events: none; transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
@@ -1263,7 +1263,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         .arena-rank-tooltip-box::after {
           content: "";
           position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
-          border-width: 5px; border-style: solid; border-color: #0f172a transparent transparent transparent;
+          border-width: 5px; border-style: solid; border-color: var(--bg-main) transparent transparent transparent;
         }
         .arena-rank-tooltip-container:hover .arena-rank-tooltip-box {
           opacity: 1;
@@ -1274,8 +1274,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           bottom: 0;
           right: 30px; 
           width: 340px; 
-          background: #131b2e; 
-          border: 1px solid #222f47; 
+          background: var(--bg-card); 
+          border: 1px solid var(--border-main); 
           border-bottom: none; 
           border-radius: 8px 8px 0 0;
           box-shadow: 0 -8px 24px rgba(0,0,0,0.4); 
@@ -1287,8 +1287,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         
         .chat-dock-header { 
           padding: 12px 16px; 
-          background: #131b2e;
-          border-bottom: 1px solid #222f47; 
+          background: var(--bg-card);
+          border-bottom: 1px solid var(--border-main); 
           border-radius: 7px 7px 0 0; 
           display: flex; 
           justify-content: space-between; 
@@ -1298,7 +1298,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         }
         .chat-dock-header:hover { background: #18253f; }
         .chat-dock-body { padding: 12px; height: 380px; display: flex; flex-direction: column; }
-        .chat-messages-scroll-area { background: #0f172a; border: 1px solid #222f47; border-radius: 6px; padding: 10px; flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+        .chat-messages-scroll-area { background: var(--bg-main); border: 1px solid var(--border-main); border-radius: 6px; padding: 10px; flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
         .chat-notification-badge { position: absolute; top: -1px; left: -2px; width: 6px; height: 6px; background: #ef4444; border-radius: 50%; }
         @keyframes arenaPulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
         @media (max-width: 480px) { .arena-floating-chat-dock { right: 10px; width: calc(100% - 20px); } }
