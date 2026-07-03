@@ -4,6 +4,9 @@ import { BACKEND_URL } from '../../../utils/constants';
 // Behozzuk a nyelvi kontextust
 import { useLanguage } from '../../../context/LanguageContext';
 
+// Behozzuk a téma környezetet
+import { useTheme } from '../../../context/ThemeContext';
+
 interface BattlePlannerProps {
   user: any;
   onSuccess: () => void;
@@ -66,6 +69,17 @@ export default function BattlePlanner({ user, onSuccess }: BattlePlannerProps) {
   // Aktiváljuk a nyelvi hookot
   const { t } = useLanguage();
 
+  // 🎯 BIZTONSÁGI VÉDŐHÁLÓ: Lekérjük az aktuális témát, de felkészülünk a cold-start esetekre is
+  let isLight = false;
+  try {
+    const themeContext = useTheme();
+    if (themeContext) {
+      isLight = themeContext.theme === 'light';
+    }
+  } catch (e) {
+    // Failsafe fallback
+  }
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const rawFile = e.target.files[0];
@@ -125,48 +139,49 @@ export default function BattlePlanner({ user, onSuccess }: BattlePlannerProps) {
   };
 
   return (
-    <div style={{ maxWidth: '580px', margin: '0 auto', background: '#131b2e', padding: '24px', borderRadius: '8px', border: '1px solid #222f47', boxShadow: '0 4px 15px rgba(0,0,0,0.15)', animation: 'fadeIn 0.3s ease-out' }}>
-      <h2 style={{ color: '#fbbf24', margin: '0 0 4px 0', fontSize: '1.3rem', fontWeight: '700', letterSpacing: '-0.3px' }}>{t('planTitle')}</h2>
-      <p style={{ color: '#64748b', fontSize: '0.82rem', margin: '0 0 20px 0', lineHeight: '1.45' }}>{t('planDesc')}</p>
+    /* 🎯 JAVÍTVA: Konténer háttér és szegély reaktív változókra cserélve */
+    <div style={{ maxWidth: '580px', margin: '0 auto', background: 'var(--bg-card)', padding: '24px', borderRadius: '8px', border: '1px solid var(--border-main)', boxShadow: '0 4px 15px rgba(0,0,0,0.05)', animation: 'fadeIn 0.3s ease-out' }}>
+      <h2 style={{ color: 'var(--text-title)', margin: '0 0 4px 0', fontSize: '1.3rem', fontWeight: '700', letterSpacing: '-0.3px' }}>{t('planTitle')}</h2>
+      <p style={{ color: 'var(--text-body)', fontSize: '0.82rem', margin: '0 0 20px 0', lineHeight: '1.45' }}>{t('planDesc')}</p>
 
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
         <div>
-          <label style={{ color: '#cbd5e1', display: 'block', marginBottom: '4px', fontSize: '0.82rem', fontWeight: '600' }}>{t('planLabelTitle')}</label>
-          <input type="text" placeholder={t('planPlaceholderTitle')} value={title} onChange={e => setTitle(e.target.value)} required style={{ width: '100%', padding: '10px 12px', background: '#0f172a', border: '1px solid #222f47', borderRadius: '4px', color: 'white', outline: 'none', fontSize: '0.88rem', boxSizing: 'border-box' }} />
+          <label style={{ color: 'var(--text-title)', display: 'block', marginBottom: '4px', fontSize: '0.82rem', fontWeight: '600' }}>{t('planLabelTitle')}</label>
+          <input type="text" placeholder={t('planPlaceholderTitle')} value={title} onChange={e => setTitle(e.target.value)} required style={{ width: '100%', padding: '10px 12px', background: 'var(--bg-main)', border: '1px solid var(--border-main)', borderRadius: '4px', color: 'var(--text-title)', outline: 'none', fontSize: '0.88rem', boxSizing: 'border-box' }} />
         </div>
 
-        {/* 🎯 ANGOL CÍM (Letisztult, professzionális szegélyhangolás) */}
+        {/* 🎯 JAVÍTVA: Angol cím felirata és szegélye dinamikusan sötétedik világos módban az olvashatóságért */}
         <div>
-          <label style={{ color: '#38bdf8', display: 'block', marginBottom: '4px', fontSize: '0.82rem', fontWeight: '600' }}>{t('planLabelTitleEn')}</label>
-          <input type="text" placeholder={t('planPlaceholderTitleEn')} value={titleEn} onChange={e => setTitleEn(e.target.value)} style={{ width: '100%', padding: '10px 12px', background: '#0f172a', border: '1px solid rgba(56,189,248,0.25)', borderRadius: '4px', color: 'white', outline: 'none', fontSize: '0.88rem', boxSizing: 'border-box' }} />
+          <label style={{ color: isLight ? '#0284c7' : '#38bdf8', display: 'block', marginBottom: '4px', fontSize: '0.82rem', fontWeight: '600' }}>{t('planLabelTitleEn')}</label>
+          <input type="text" placeholder={t('planPlaceholderTitleEn')} value={titleEn} onChange={e => setTitleEn(e.target.value)} style={{ width: '100%', padding: '10px 12px', background: 'var(--bg-main)', border: isLight ? '1px solid rgba(2,132,199,0.3)' : '1px solid rgba(56,189,248,0.25)', borderRadius: '4px', color: 'var(--text-title)', outline: 'none', fontSize: '0.88rem', boxSizing: 'border-box' }} />
         </div>
 
         <div>
-          <label style={{ color: '#cbd5e1', display: 'block', marginBottom: '4px', fontSize: '0.82rem', fontWeight: '600' }}>{t('planLabelDesc')}</label>
-          <textarea rows={3} placeholder={t('planPlaceholderDesc')} value={description} onChange={e => setDescription(e.target.value)} required style={{ width: '100%', padding: '10px 12px', background: '#0f172a', border: '1px solid #222f47', borderRadius: '4px', color: 'white', outline: 'none', resize: 'none', fontSize: '0.88rem', boxSizing: 'border-box', lineHeight: '1.45' }} />
+          <label style={{ color: 'var(--text-title)', display: 'block', marginBottom: '4px', fontSize: '0.82rem', fontWeight: '600' }}>{t('planLabelDesc')}</label>
+          <textarea rows={3} placeholder={t('planPlaceholderDesc')} value={description} onChange={e => setDescription(e.target.value)} required style={{ width: '100%', padding: '10px 12px', background: 'var(--bg-main)', border: '1px solid var(--border-main)', borderRadius: '4px', color: 'var(--text-title)', outline: 'none', resize: 'none', fontSize: '0.88rem', boxSizing: 'border-box', lineHeight: '1.45' }} />
         </div>
 
-        {/* 🎯 ANGOL LEÍRÁS */}
+        {/* 🎯 JAVÍTVA: Angol leírás felirata és szegélye szintén adaptív */}
         <div>
-          <label style={{ color: '#38bdf8', display: 'block', marginBottom: '4px', fontSize: '0.82rem', fontWeight: '600' }}>{t('planLabelDescEn')}</label>
-          <textarea rows={3} placeholder={t('planPlaceholderDescEn')} value={descriptionEn} onChange={e => setDescriptionEn(e.target.value)} style={{ width: '100%', padding: '10px 12px', background: '#0f172a', border: '1px solid rgba(56,189,248,0.25)', borderRadius: '4px', color: 'white', outline: 'none', resize: 'none', fontSize: '0.88rem', boxSizing: 'border-box', lineHeight: '1.45' }} />
+          <label style={{ color: isLight ? '#0284c7' : '#38bdf8', display: 'block', marginBottom: '4px', fontSize: '0.82rem', fontWeight: '600' }}>{t('planLabelDescEn')}</label>
+          <textarea rows={3} placeholder={t('planPlaceholderDescEn')} value={descriptionEn} onChange={e => setDescriptionEn(e.target.value)} style={{ width: '100%', padding: '10px 12px', background: 'var(--bg-main)', border: isLight ? '1px solid rgba(2,132,199,0.3)' : '1px solid rgba(56,189,248,0.25)', borderRadius: '4px', color: 'var(--text-title)', outline: 'none', resize: 'none', fontSize: '0.88rem', boxSizing: 'border-box', lineHeight: '1.45' }} />
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
           <div>
-            <label style={{ color: '#cbd5e1', display: 'block', marginBottom: '4px', fontSize: '0.82rem', fontWeight: '600' }}>{t('planLabelStart')}</label>
-            <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} required style={{ width: '100%', padding: '10px 12px', background: '#0f172a', border: '1px solid #222f47', borderRadius: '4px', color: 'white', outline: 'none', fontSize: '0.88rem', boxSizing: 'border-box' }} />
+            <label style={{ color: 'var(--text-title)', display: 'block', marginBottom: '4px', fontSize: '0.82rem', fontWeight: '600' }}>{t('planLabelStart')}</label>
+            <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} required style={{ width: '100%', padding: '10px 12px', background: 'var(--bg-main)', border: '1px solid var(--border-main)', borderRadius: '4px', color: 'var(--text-title)', outline: 'none', fontSize: '0.88rem', boxSizing: 'border-box' }} />
           </div>
           <div>
-            <label style={{ color: '#cbd5e1', display: 'block', marginBottom: '4px', fontSize: '0.82rem', fontWeight: '600' }}>{t('planLabelEnd')}</label>
-            <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} required style={{ width: '100%', padding: '10px 12px', background: '#0f172a', border: '1px solid #222f47', borderRadius: '4px', color: 'white', outline: 'none', fontSize: '0.88rem', boxSizing: 'border-box' }} />
+            <label style={{ color: 'var(--text-title)', display: 'block', marginBottom: '4px', fontSize: '0.82rem', fontWeight: '600' }}>{t('planLabelEnd')}</label>
+            <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} required style={{ width: '100%', padding: '10px 12px', background: 'var(--bg-main)', border: '1px solid var(--border-main)', borderRadius: '4px', color: 'var(--text-title)', outline: 'none', fontSize: '0.88rem', boxSizing: 'border-box' }} />
           </div>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
           <div>
-            <label style={{ color: '#cbd5e1', display: 'block', marginBottom: '4px', fontSize: '0.82rem', fontWeight: '600' }}>{t('planLabelMaster')}</label>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', background: '#0f172a', border: '1px solid #222f47', borderRadius: '4px', height: '40px', boxSizing: 'border-box' }}>
+            <label style={{ color: 'var(--text-title)', display: 'block', marginBottom: '4px', fontSize: '0.82rem', fontWeight: '600' }}>{t('planLabelMaster')}</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', background: 'var(--bg-main)', border: '1px solid var(--border-main)', borderRadius: '4px', height: '40px', boxSizing: 'border-box' }}>
               <input 
                 type="checkbox" 
                 id="isMasterCheckbox"
@@ -174,28 +189,27 @@ export default function BattlePlanner({ user, onSuccess }: BattlePlannerProps) {
                 onChange={e => setIsMaster(e.target.checked)} 
                 style={{ width: '16px', height: '16px', accentColor: '#f97316', cursor: 'pointer', margin: 0 }}
               />
-              <label htmlFor="isMasterCheckbox" style={{ color: '#64748b', fontSize: '0.82rem', cursor: 'pointer', userSelect: 'none', fontWeight: '500' }}>
+              <label htmlFor="isMasterCheckbox" style={{ color: 'var(--text-body)', fontSize: '0.82rem', cursor: 'pointer', userSelect: 'none', fontWeight: '500' }}>
                 {t('planCheckMasterMe') || 'Szeretnék én lenni'}
               </label>
             </div>
           </div>
           <div>
-            <label style={{ color: '#cbd5e1', display: 'block', marginBottom: '4px', fontSize: '0.82rem', fontWeight: '600' }}>{t('planLabelAuthor')}</label>
-            <input type="text" placeholder={t('planPlaceholderAuthor')} value={coverAuthor} onChange={e => setCoverAuthor(e.target.value)} style={{ width: '100%', padding: '10px 12px', background: '#0f172a', border: '1px solid #222f47', borderRadius: '4px', color: 'white', outline: 'none', fontSize: '0.88rem', boxSizing: 'border-box' }} />
+            <label style={{ color: 'var(--text-title)', display: 'block', marginBottom: '4px', fontSize: '0.82rem', fontWeight: '600' }}>{t('planLabelAuthor')}</label>
+            <input type="text" placeholder={t('planPlaceholderAuthor')} value={coverAuthor} onChange={e => setCoverAuthor(e.target.value)} style={{ width: '100%', padding: '10px 12px', background: 'var(--bg-main)', border: '1px solid var(--border-main)', borderRadius: '4px', color: 'var(--text-title)', outline: 'none', fontSize: '0.88rem', boxSizing: 'border-box' }} />
           </div>
         </div>
 
         <div>
-          <label style={{ color: '#cbd5e1', display: 'block', marginBottom: '6px', fontSize: '0.82rem', fontWeight: '600' }}>{t('planLabelCover')}</label>
-          <input type="file" accept="image/*" onChange={handleFileChange} style={{ color: '#64748b', fontSize: '0.82rem', display: 'block', cursor: 'pointer' }} />
+          <label style={{ color: 'var(--text-title)', display: 'block', marginBottom: '6px', fontSize: '0.82rem', fontWeight: '600' }}>{t('planLabelCover')}</label>
+          <input type="file" accept="image/*" onChange={handleFileChange} style={{ color: 'var(--text-body)', fontSize: '0.82rem', display: 'block', cursor: 'pointer' }} />
           {preview && (
-            <div style={{ marginTop: '12px', height: '130px', borderRadius: '4px', overflow: 'hidden', border: '1px solid #222f47', backgroundColor: '#090d16' }}>
+            <div style={{ marginTop: '12px', height: '130px', borderRadius: '4px', overflow: 'hidden', border: '1px solid var(--border-main)', backgroundColor: 'var(--bg-main)' }}>
               <img src={preview} alt={t('planPreviewAlt')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             </div>
           )}
         </div>
 
-        {/* Teli szilárd narancssárga gomb színátmenetek helyett */}
         <button type="submit" disabled={submitting} style={{ width: '100%', background: '#f97316', color: 'white', border: 'none', padding: '12px', borderRadius: '4px', fontSize: '0.95rem', fontWeight: 'bold', cursor: submitting ? 'not-allowed' : 'pointer', transition: 'background 0.15s ease', marginTop: '6px', boxSizing: 'border-box' }} className="battle-submit-btn">
           {submitting ? t('planSubmitting') : t('planSubmitBtn')}
         </button>
