@@ -67,7 +67,7 @@ export default function Header({
   // Aktiváljuk a nyelvi kontextust
   const { lang, setLang, t } = useLanguage();
 
-  // 🎯 JAVÍTVA: Biztonsági fék, hogy ne omoljon össze az app, ha a Provider még nincs beállítva
+  // Biztonsági fék a témakezelőhöz
   let theme = 'dark';
   let toggleTheme = () => {};
   
@@ -77,18 +77,28 @@ export default function Header({
       theme = themeContext.theme;
       toggleTheme = themeContext.toggleTheme;
     }
-  } catch (e) {
-    // Ha nincs fent Provider, csendben sötét módon marad
-  }
+  } catch (e) {}
 
   // Meghatározzuk, hogy épp melyik logót kell mutatni
   const currentLogo = lang === 'en' ? logoEn : logoHu;
 
-  // 10 percenként ellenőrzi az olvasatlan üzeneteket
+  // 🎯 Központi helper az érvényes biztonsági fejléc összeállításához
+  const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
+    const token = localStorage.getItem('photoAppToken');
+    return {
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+      ...extraHeaders
+    };
+  };
+
+  // Ellenőrzi az olvasatlan üzeneteket biztonságos hitelesítéssel
   useEffect(() => {
     if (!user?.email) return;
     const checkUnread = () => {
-      fetch(`${BACKEND_URL}/api/tickets/unread-count?userEmail=${user.email}&isAdmin=${isAdminUser}`)
+      // 🎯 JAVÍTVA: Megkapta a getAuthHeaders() azonosítót, a 401-es hibák megszűnnek!
+      fetch(`${BACKEND_URL}/api/tickets/unread-count?userEmail=${user.email}&isAdmin=${isAdminUser}`, {
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' })
+      })
         .then(res => res.json())
         .then(data => setUnreadTicketsCount(data.count || 0))
         .catch(console.error);
@@ -118,9 +128,10 @@ export default function Header({
 
   const handleManageSubscription = async () => {
     try {
+      // 🎯 JAVÍTVA: A Stripe portál hívás is megkapta a biztonsági tokent
       const res = await fetch(`${BACKEND_URL}/api/create-portal-session`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ userEmail: user.email })
       });
       const data = await res.json();
@@ -454,7 +465,7 @@ export default function Header({
         {/* FIÓK MENÜ ÉS NYELVVÁLASZTÓ */}
         <div className="user-group" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
           
-          {/* ☀️/🌑 TÉMAVÁLTÓ KAPCSOLÓ GOMB INTEGRÁLVA A NYELVVÁLASZTÓ MELLÉ */}
+          {/* TÉMAVÁLTÓ KAPCSOLÓ GOMB */}
           <button 
             onClick={toggleTheme}
             style={{
