@@ -451,10 +451,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         }
         setActiveTopics([]);
       }
-    } catch (e) {
-      // Catch empty block safety
-    } finally { 
-      if (!isSilent) setLoading(false); 
     }
   };
 
