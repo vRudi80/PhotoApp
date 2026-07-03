@@ -63,7 +63,7 @@ export default function AdminUsersView({
       }
     } catch (e) {
       setLocalUsers(allUsers || []);
-    } final {
+    } finally {
       setIsLoadingUsers(false);
     }
   };
