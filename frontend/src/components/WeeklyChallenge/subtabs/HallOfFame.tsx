@@ -56,7 +56,7 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
   const [playerStats, setPlayerStats] = useState<any | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
 
-  // 🎯 BIZTONSÁGI VÉDŐHÁLÓ: Lekérjük a témát, de felkészülünk a cold-start esetekre is
+  // BIZTONSÁGI VÉDŐHÁLÓ: Lekérjük a témát
   let isLight = false;
   try {
     const themeContext = useTheme();
@@ -88,12 +88,11 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
     return diff <= 25 * 60 * 60 * 1000 ? 'daily' : 'weekly';
   };
 
-  // 🎯 ÚJ: Adaptív szint-színkezelő, ami világos módban mélyebb tónusokat ad az olvashatóságért
+  // Adaptív szint-színkezelő világos és sötét módhoz
   const getAdaptiveLevelDetails = (likes: number, victories: number) => {
     const lvl = getLevelDetails ? getLevelDetails(likes, victories) : { name: '', color: '#fbbf24', bg: '' };
     if (!isLight) return lvl;
     
-    // Világos módos kontrasztos szín-leképezések
     let adaptiveColor = lvl.color;
     if (lvl.name.includes('Megfigyelő')) adaptiveColor = '#475569';
     else if (lvl.name.includes('Képvadász')) adaptiveColor = '#0284c7';
@@ -125,7 +124,14 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
     setStatsLoading(true);
     setPlayerStats(null);
     try {
-      const res = await axios.get(`${BACKEND_URL}/api/weekly/hof-stats?userEmail=${encodeURIComponent(targetEmail)}`);
+      const token = localStorage.getItem('photoAppToken');
+      
+      // 🎯 JAVÍTVA: Az Axios kérés megkapta a hitelesítési fejléc objektumot!
+      const res = await axios.get(`${BACKEND_URL}/api/weekly/hof-stats?userEmail=${encodeURIComponent(targetEmail)}`, {
+        headers: {
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        }
+      });
       setPlayerStats(res.data);
     } catch (err) {
       console.error('Hiba az adatok letöltésekor:', err);
@@ -189,7 +195,7 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
             
-            {/* 4 oszlopos reszponzív Érem számláló rács */}
+            {/* Érem számláló rács */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '12px', textAlign: 'center' }}>
               
               <div style={{ background: 'var(--bg-card)', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-main)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
@@ -229,7 +235,7 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
                   <Camera size={24} style={{ margin: '0 auto 8px auto' }} />
                   <h4 style={{ color: 'var(--text-title)', margin: '0 0 4px 0', fontSize: '0.95rem' }}>{lang === 'en' ? 'No finalized history available.' : 'Még nincs lezárt meccse.'}</h4>
                   
-                  {/* ÉLŐ DIAGNOSZTIKAI MOTOR */}
+                  {/* DIAGNOSZTIKAI MOTOR */}
                   <div style={{ background: 'var(--bg-main)', padding: '14px', marginTop: '16px', borderRadius: '6px', fontSize: '0.78rem', fontFamily: 'monospace', color: 'var(--text-body)', textAlign: 'left', border: '1px solid var(--border-main)', lineHeight: '1.5' }}>
                     <div style={{ color: '#fb923c', marginBottom: '6px', fontWeight: 'bold' }}>🔍 SZERVEROLDALI FOLYAMAT-NAPLÓ:</div>
                     <div>• Frontend email: <span>"{selectedUser?.user_email || selectedUser?.email}"</span></div>
@@ -256,7 +262,6 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
                     
                     let badge = ''; let badgeColor = 'var(--border-main)'; let txtColor = 'var(--text-body)';
                     if (rank === 1) { badge = lang === 'en' ? '1st Place 🏆' : '1. Hely 🏆'; badgeColor = '#fbbf24'; txtColor = '#000'; }
-                    // Világos módhoz idomuló ezüst és bronz szövegszínek
                     else if (rank === 2) { badge = lang === 'en' ? '2nd Place 🥈' : '2. Hely 🥈'; badgeColor = '#cbd5e1'; txtColor = '#000'; }
                     else if (rank === 3) { badge = lang === 'en' ? '3rd Place 🥉' : '3. Hely 🥉'; badgeColor = '#b45309'; txtColor = '#fff'; }
 
@@ -302,7 +307,7 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
   }
 
   // ====================================================================
-  // 🏆 2. OLDALNÉZET: AZ EREDETI DICSŐGCSARNOK LISTA NÉZET
+  // 🏆 2. OLDALNÉZET: AZ EREDETI DICSŐSÉGCSARNOK LISTA NÉZET
   // ====================================================================
   return (
     <div style={{ background: 'var(--bg-card)', padding: '24px', borderRadius: '8px', border: '1px solid var(--border-main)', boxShadow: '0 4px 15px rgba(0,0,0,0.05)', animation: 'fadeIn 0.4s ease-out' }}>
@@ -323,7 +328,6 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
 
           const level = getAdaptiveLevelDetails(likes, 0); 
           
-          // Profil adat sorok reaktív név kiemelése
           const displayRankName = lang === 'en' ? (rankNamesEn[level?.name || ''] || level?.name || '') : (level?.name || '');
 
           return (
@@ -364,7 +368,6 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
 
               {/* Felhasználó adatai */}
               <div style={{ flex: 1, minWidth: '180px' }}>
-                {/* 🎯 JAVÍTVA: Szövegszín var(--text-title)-re cserélve, ha nem 'isMe', különben adaptív sötét narancs világos módban */}
                 <div style={{ color: isMe ? (isLight ? '#b45309' : '#fbbf24') : 'var(--text-title)', fontWeight: '600', fontSize: '0.98rem', display: 'flex', alignItems: 'center', gap: '6px', letterSpacing: '-0.2px' }}>
                   {row?.user_name} {isMe && <span style={{ fontSize: '0.65rem', background: '#fbbf24', color: '#0f172a', padding: '1px 6px', borderRadius: '3px', fontWeight: 'bold', textTransform: 'uppercase' }}>{t('hofYou')}</span>}
                 </div>
