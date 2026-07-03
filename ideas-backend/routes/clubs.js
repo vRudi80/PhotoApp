@@ -2,13 +2,18 @@ const fs = require('fs');
 const { OAuth2Client } = require('google-auth-library');
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-// 🎯 JAVÍTVA: A te valódi admin e-mailedet állítottuk be biztonsági tartaléknak!
+// 🎯 A te valódi admin e-mailed biztonsági tartaléknak
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "kovari.rudolf@gmail.com";
 
 // ====================================================================
 // 🔒 GOLYÓÁLLÓ AUTHENTICATION MIDDLEWARE A CLUBS MODULHOZ
 // ====================================================================
 async function requireAuth(req, res, next) {
+  // 🛡️ Preflight kérések (OPTIONS) automatikus átengedése a CORS ütközések ellen
+  if (req.method === 'OPTIONS') {
+    return next();
+  }
+
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -107,7 +112,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
-  // 🎯 JAVÍTVA: Az upload.single megelőzi a requireAuth-ot a stream-blokkolás ellen
+  // 🎯 JAVÍTVA: A fájl-tallózó (upload.single) mostantól megelőzi a biztonsági kaput a sikeres adatfolyamért!
   app.post('/api/meetings', upload.single('coverPhoto'), requireAuth, async (req, res) => {
     const { clubId, date, time, topic, description, locationType, locationDetails, videoLink } = req.body;
     const file = req.file; 
@@ -131,7 +136,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { cleanupTempFile(file); res.status(500).json({ error: err.message }); }
   });
 
-  // 🎯 JAVÍTVA: Az upload.single megelőzi a requireAuth-ot a stream-blokkolás ellen
+  // 🎯 JAVÍTVA: A szerkesztési fázisban is az upload.single került legelőre a fagyások ellen!
   app.put('/api/meetings/:id', upload.single('coverPhoto'), requireAuth, async (req, res) => {
     const file = req.file;
     const currentClubId = await getClubIdByMeeting(req.params.id);
@@ -281,7 +286,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   // ====================================================================
   app.get('/api/clubs/active-only', requireAuth, async (req, res) => {
     try {
-      const [rows] = await pool.query(`
+      const [rows] = await pool.query suicide(`
         SELECT DISTINCT c.* FROM photo_clubs c
         INNER JOIN photo_users u ON c.id = u.club_id
         WHERE u.club_role IN ('leader', 'deputy')
@@ -323,7 +328,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       await conn.beginTransaction();
       if (action === 'approve') {
         await conn.query("UPDATE photo_users SET club_role = 'member' WHERE email = ?", [targetEmail]);
-        await conn.query("UPDATE photo_club_memberships SET status = 'left', left_date = CURRENT_DATE() WHERE user_email = ? AND status = 'active'", [targetEmail]);
+        await conn.query("UPDATE photo_club_memberships SET status = 'left', left_date = CURRENT_DATE() WHERE user_email = ? AND status = 'active' WHERE user_email = ?", [targetEmail]);
         await conn.query("INSERT INTO photo_club_memberships (club_id, club_name, user_email, club_role, joined_date, status) VALUES (?, ?, ?, 'member', CURRENT_DATE(), 'active')", [clubId, clubName, targetEmail]);
       } else {
         await conn.query("UPDATE photo_users SET club_id = NULL, club_name = NULL, club_role = 'member' WHERE email = ?", [targetEmail]);
