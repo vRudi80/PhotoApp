@@ -5,10 +5,10 @@ import PremiumPaywall from './PremiumPaywall';
 import { getFlagImageUrl } from '../utils/helpers';
 import ExcelImportModal from '../components/ExcelImportModal';
 
-// 🎯 Aktiváljuk a nyelvi kontextust
+// Nyelvi kontextus aktiválása
 import { useLanguage } from '../context/LanguageContext';
 
-// 🏅 FRISSÍTVE: Kiegészítve a hivatalos 2026-os FIAP 1.2 f) pont szerinti 5-képes portfólió követelményekkel
+// 🏅 Hivatalos FIAP szintek és portfólió követelmények
 const FIAP_LEVELS = [
   { 
     id: 'NFIAP', 
@@ -74,10 +74,20 @@ export default function FiapProgressView({ user, allUsers = [] }: FiapProgressVi
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedEmail, setSelectedEmail] = useState(user?.email || '');
+  const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
     if (user?.email) setSelectedEmail(user.email);
   }, [user]);
+
+  // 🎯 Központi helper az érvényes biztonsági token fejléc felépítéséhez
+  const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
+    const token = localStorage.getItem('photoAppToken');
+    return {
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+      ...extraHeaders
+    };
+  };
 
   useEffect(() => {
     if (!user || !user.is_premium) {
@@ -88,15 +98,19 @@ export default function FiapProgressView({ user, allUsers = [] }: FiapProgressVi
     const fetchProgress = async () => {
       setIsLoading(true); 
       try {
+        // 🎯 JAVÍTVA: Mindkét háttér lekérés megkapta a biztonsági Bearer tokent!
         const [resStats, resEntries] = await Promise.all([
-          fetch(`${BACKEND_URL}/api/fiap-progress?userEmail=${selectedEmail}`),
-          fetch(`${BACKEND_URL}/api/fiap-entries?userEmail=${selectedEmail}`)
+          fetch(`${BACKEND_URL}/api/fiap-progress?userEmail=${selectedEmail}`, { headers: getAuthHeaders() }),
+          fetch(`${BACKEND_URL}/api/fiap-entries?userEmail=${selectedEmail}`, { headers: getAuthHeaders() })
         ]);
 
         if (resStats.ok) setStats(await resStats.json());
-        if (resEntries.ok) setEntries(await resEntries.json());
+        if (resEntries.ok) {
+          const entriesData = await resEntries.json();
+          setEntries(Array.isArray(entriesData) ? entriesData : []); // 🛡️ Törésgátló szűrő
+        }
       } catch (e) {
-        console.error(e);
+        console.error("Hiba a FIAP progress adatok letöltésekor:", e);
       } finally {
         setIsLoading(false);
       }
@@ -105,13 +119,13 @@ export default function FiapProgressView({ user, allUsers = [] }: FiapProgressVi
     fetchProgress();
   }, [user, selectedEmail]); 
 
-  const [isExporting, setIsExporting] = useState(false);
-
   const handleExportFiapC = async () => {
     setIsExporting(true);
     try {
-      // 🎯 JAVÍTVA: user.email helyett mostantól a selectedEmail változót küldjük el a backendnek!
-      const res = await fetch(`${BACKEND_URL}/api/export-fiap-c?userEmail=${selectedEmail}`);
+      // 🎯 JAVÍTVA: Az Excel exportáló motor hívása is biztonságosan felmutatja a tokent!
+      const res = await fetch(`${BACKEND_URL}/api/export-fiap-c?userEmail=${selectedEmail}`, {
+        headers: getAuthHeaders()
+      });
       if (!res.ok) {
         let errMsg = 'Ismeretlen szerverhiba történt.';
         try {
@@ -156,7 +170,6 @@ export default function FiapProgressView({ user, allUsers = [] }: FiapProgressVi
     );
   }, [entries, searchTerm]);
 
-  // 🧠 REKORD-MÁSOLAT SZŰRŐ MOTOR: Kiszámolja, hány darab kép alkalmas a beküldendő 5-ös portfólióba
   let currentLevel = null;
   let nextLevel = FIAP_LEVELS[0];
 
@@ -252,31 +265,6 @@ export default function FiapProgressView({ user, allUsers = [] }: FiapProgressVi
         )}
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '15px' }}>
-          <h3 style={{ margin: 0, color: '#f8fafc', fontSize: '1.5rem' }}>FIAP Tételes Eredménylista</h3>
-          
-          <button 
-            onClick={handleExportFiapC} 
-            disabled={isExporting}
-            style={{ 
-              background: isExporting ? '#475569' : '#10b981', 
-              color: '#0f172a', 
-              border: 'none', 
-              padding: '10px 20px', 
-              borderRadius: '8px', 
-              cursor: isExporting ? 'not-allowed' : 'pointer', 
-              fontWeight: 'bold',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              transition: 'background 0.2s',
-              boxShadow: '0 4px 6px rgba(16, 185, 129, 0.2)'
-            }}
-          >
-            {isExporting ? '⏳ Generálás...' : '📗 Excel Export (C Lap)'}
-          </button>
-        </div>
-      
       {/* --- ADMIN LEGÖRDÜLŐ MENÜ --- */}
       {user.email === ADMIN_EMAIL && allUsers.length > 0 && (
         <div style={{ marginBottom: '30px', padding: '20px', background: '#1e293b', borderRadius: '12px', border: '2px solid #f59e0b', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}>
@@ -384,7 +372,7 @@ export default function FiapProgressView({ user, allUsers = [] }: FiapProgressVi
             </strong>
             {lang === 'en' 
               ? 'Starting from 2026, a single photo/work cannot have more than 10 acceptances or awards listed on the official application form. Excess acceptances for the same image will be ignored by judges.' 
-              : 'A 2026. január 1-je után kiírt szalonokból egyetlen fotójoz/műhöz legfeljebb 10 elfogadás vagy díj listázható a hivatalos pályázati nyomtatványon. Az ezen felüli extra elfogadásokat a bíráló bizottság figyelmen kívül hagyja!'}
+              : 'A 2026. január 1-je után kiírt szalonokból egyetlen fotójoz/műhöz legfeljebb 10 elfogadás vagy díj listázható a hivatalos pályázati nyomtatványon. Az ezen felüli extra elfogadáskat a bíráló bizottság figyelmen kívül hagyja!'}
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', borderBottom: '1px solid #334155', paddingBottom: '15px', flexWrap: 'wrap', gap: '15px' }}>
@@ -404,6 +392,29 @@ export default function FiapProgressView({ user, allUsers = [] }: FiapProgressVi
               onChange={e => setSearchTerm(e.target.value)}
               style={{ padding: '10px 15px', borderRadius: '8px', border: '1px solid #475569', background: '#0f172a', color: 'white', minWidth: '320px', outline: 'none' }}
             />
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '15px' }}>
+            <button 
+              onClick={handleExportFiapC} 
+              disabled={isExporting}
+              style={{ 
+                background: isExporting ? '#475569' : '#10b981', 
+                color: '#0f172a', 
+                border: 'none', 
+                padding: '10px 20px', 
+                borderRadius: '8px', 
+                cursor: isExporting ? 'not-allowed' : 'pointer', 
+                fontWeight: 'bold',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                transition: 'background 0.2s',
+                boxShadow: '0 4px 6px rgba(16, 185, 129, 0.2)'
+              }}
+            >
+              {isExporting ? '⏳ Generálás...' : '📗 Excel Export (C Lap)'}
+            </button>
           </div>
 
           {entries.length === 0 ? (
@@ -431,10 +442,10 @@ export default function FiapProgressView({ user, allUsers = [] }: FiapProgressVi
                 </thead>
                 <tbody>
                   {filteredEntries.map((entry, idx) => {
-                    const isAcceptance = entry.award.toLowerCase() === 'acceptance';
+                    const isAcceptance = entry.award?.toLowerCase() === 'acceptance';
                     const isOnline = entry.submission_type === 'online';
                     
-                  return (
+                    return (
                       <tr key={idx} style={{ borderBottom: '1px solid #334155', transition: 'background 0.2s' }} onMouseOver={e => e.currentTarget.style.background = '#0f172a'} onMouseOut={e => e.currentTarget.style.background = 'transparent'}>
                         <td style={{ padding: '12px 15px', color: '#f8fafc', fontWeight: 'bold' }}>{entry.photo_title}</td>
                         <td style={{ padding: '12px 15px', color: '#cbd5e1' }}>{entry.salon_name}</td>
