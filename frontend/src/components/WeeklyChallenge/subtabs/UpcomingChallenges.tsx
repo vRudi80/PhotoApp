@@ -131,7 +131,7 @@ export default function UpcomingChallenges({
       }
     } catch (e) {
       alert(t('msgNetworkError'));
-    } final {
+    } finally {
       setApplyingId(null);
     }
   };
