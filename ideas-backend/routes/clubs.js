@@ -107,7 +107,8 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
-  app.post('/api/meetings', requireAuth, upload.single('coverPhoto'), async (req, res) => {
+  // 🎯 JAVÍTVA: Az upload.single megelőzi a requireAuth-ot a stream-blokkolás ellen
+  app.post('/api/meetings', upload.single('coverPhoto'), requireAuth, async (req, res) => {
     const { clubId, date, time, topic, description, locationType, locationDetails, videoLink } = req.body;
     const file = req.file; 
     
@@ -130,7 +131,8 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { cleanupTempFile(file); res.status(500).json({ error: err.message }); }
   });
 
-  app.put('/api/meetings/:id', requireAuth, upload.single('coverPhoto'), async (req, res) => {
+  // 🎯 JAVÍTVA: Az upload.single megelőzi a requireAuth-ot a stream-blokkolás ellen
+  app.put('/api/meetings/:id', upload.single('coverPhoto'), requireAuth, async (req, res) => {
     const file = req.file;
     const currentClubId = await getClubIdByMeeting(req.params.id);
     if (!currentClubId || !await isClubManagement(req.user.email, currentClubId)) {
@@ -198,7 +200,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // 📰 HÍREK SZEKCIÓ (VÉDETT - IDOR Hamisítás-biztosítva!)
+  // 📰 HÍREK SZEKCIÓ
   // ====================================================================
   app.get('/api/news/public', requireAuth, async (req, res) => {
     try {
@@ -365,7 +367,8 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { await conn.rollback(); res.status(500).json({ error: 'Hiba' }); } finally { conn.release(); }
   });
 
-  app.post('/api/my-club/logo', requireAuth, upload.single('logo'), async (req, res) => {
+  // 🎯 JAVÍTVA: A logó feltöltésnél is az upload.single megelőzi a requireAuth-ot
+  app.post('/api/my-club/logo', upload.single('logo'), requireAuth, async (req, res) => {
     const file = req.file; if (!file) return res.status(400).json({ error: 'Fájl kötelező!' });
     const { clubId } = req.body;
 
@@ -387,7 +390,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // 🎯 VISSZAÉPÍTVE ÉS JAVÍTVA: KLUB PÉNZÜGYEK ÉS TAGNYILVÁNTARTÁS VÉDELME
+  // 🎯 KLUB PÉNZÜGYEK ÉS TAGNYILVÁNTARTÁS VÉDELME
   // ====================================================================
   app.get('/api/my-club/admin-records', requireAuth, async (req, res) => {
     const { clubId } = req.query;
@@ -441,9 +444,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-  // ====================================================================
-  // 🎯 VISSZAÉPÍTVE ÉS JAVÍTVA: Tagdíj rögzítése
-  // ====================================================================
   app.post('/api/my-club/member/log-payment', requireAuth, async (req, res) => {
     const { clubId, targetEmail, fiscalYear, feeAmount, paidAmount, paymentDate } = req.body;
     
@@ -469,9 +469,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { res.status(500).json({ error: err.message }); }
   });
 
-  // ====================================================================
-  // 🎯 VISSZAÉPÍTVE ÉS JAVÍTVA: Tagsági dátumok naplózása
-  // ====================================================================
   app.post('/api/my-club/member/update-dates', requireAuth, async (req, res) => {
     const { clubId, targetEmail, membershipStart, membershipEnd } = req.body;
     if (!targetEmail || !clubId) return res.status(400).json({ error: 'Hiányzó azonosítók!' });
@@ -506,9 +503,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-  // ====================================================================
-  // 📅 SAJÁT AKTÍV TAGSÁGI DÁTUMOK LEKÉRÉSE A PROFILHOZ
-  // ====================================================================
   app.get('/api/profile/active-membership', requireAuth, async (req, res) => {
     try {
       const [rows] = await pool.query(
@@ -519,9 +513,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { res.status(500).json({ error: err.message }); }
   });
   
-  // ====================================================================
-  // 🔔 DASHBOARD ALERTS (VÉDETT)
-  // ====================================================================
   app.get('/api/dashboard-alerts', requireAuth, async (req, res) => {
     try {
       const [users] = await pool.query('SELECT club_name, club_id FROM photo_users WHERE email = ?', [req.user.email]);
