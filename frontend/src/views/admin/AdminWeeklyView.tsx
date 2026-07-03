@@ -72,6 +72,15 @@ const parseAdminDateSafe = (dateStr: string) => {
   return isNaN(fallback.getTime()) ? new Date() : fallback;
 };
 
+// 🎯 KÖZPONTI AUTH FEJLÉC GENERÁTOR ADMINISZTRÁCIÓS VÉGPONTOKHOZ
+const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
+  const token = localStorage.getItem('photoAppToken');
+  return {
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    ...extraHeaders
+  };
+};
+
 export default function AdminWeeklyView() {
   const { t, lang } = useLanguage();
 
@@ -129,7 +138,9 @@ export default function AdminWeeklyView() {
   const fetchTopics = async () => {
     try {
       setApiError(null);
-      const res = await fetch(`${BACKEND_URL}/api/admin/weekly-topics`);
+      const res = await fetch(`${BACKEND_URL}/api/admin/weekly-topics`, {
+        headers: getAuthHeaders()
+      });
       if (res.ok) {
         setTopics(await res.json());
       } else {
@@ -142,7 +153,9 @@ export default function AdminWeeklyView() {
 
   const fetchUsers = async () => {
     try {
-      const usersRes = await fetch(`${BACKEND_URL}/api/admin/weekly/users`);
+      const usersRes = await fetch(`${BACKEND_URL}/api/admin/weekly/users`, {
+        headers: getAuthHeaders()
+      });
       if (usersRes.ok) setUsers(await usersRes.json());
     } catch (e) { console.error(e); }
   };
@@ -150,7 +163,9 @@ export default function AdminWeeklyView() {
   const fetchSuspicious = async () => {
     setLoadingSuspicious(true);
     try {
-      const res = await fetch(`${BACKEND_URL}/api/admin/weekly/suspicious`);
+      const res = await fetch(`${BACKEND_URL}/api/admin/weekly/suspicious`, {
+        headers: getAuthHeaders()
+      });
       if (res.ok) setSuspiciousActivities(await res.json());
     } catch (e) { console.error(e); } finally { setLoadingSuspicious(false); }
   };
@@ -158,7 +173,10 @@ export default function AdminWeeklyView() {
   const handleDisqualify = async (topicId: number, userEmail: string, userName: string) => {
     if (!window.confirm(t('adminConfirmDisqualify').replace('{name}', userName).replace('{email}', userEmail))) return;
     try {
-      const res = await fetch(`${BACKEND_URL}/api/admin/weekly/disqualify?topicId=${topicId}&userEmail=${userEmail}`, { method: 'DELETE' });
+      const res = await fetch(`${BACKEND_URL}/api/admin/weekly/disqualify?topicId=${topicId}&userEmail=${userEmail}`, { 
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
       if (res.ok) { alert(t('msgMapDeleteSuccess')); fetchSuspicious(); fetchTopics(); }
     } catch (e) { alert(t('msgNetworkError')); }
   };
@@ -168,7 +186,7 @@ export default function AdminWeeklyView() {
     try {
       const res = await fetch(`${BACKEND_URL}/api/admin/weekly/approve-ip`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ topicId, userEmail })
       });
       if (res.ok) { alert(t('adminIpResolvedSuccess')); fetchSuspicious(); }
@@ -180,14 +198,13 @@ export default function AdminWeeklyView() {
     try {
       const res = await fetch(`${BACKEND_URL}/api/admin/decide-proposal`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ topicId, decision })
       });
       if (res.ok) { alert(t('adminDecisionSaved')); fetchTopics(); }
     } catch (e) { alert(t('msgNetworkError')); }
   };
 
-  // ── 🎯 REAL ACTION: CSATABÍRÓ JELENTKEZÉS AUTOMATA ELBÍRÁLÓ COUPLING ──
   const handleMasterDecision = async (topicId: number, decision: 'approved' | 'rejected', email: string) => {
     const confirmMsg = decision === 'approved' 
       ? `Biztosan kinevezed ${email}-t a kihívás hivatalos Csatabírójának?` 
@@ -198,7 +215,7 @@ export default function AdminWeeklyView() {
     try {
       const res = await fetch(`${BACKEND_URL}/api/admin/decide-master`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ topicId, decision })
       });
       if (res.ok) {
@@ -243,7 +260,11 @@ export default function AdminWeeklyView() {
       if (coverUrl) formData.append('coverUrl', coverUrl);
       if (coverFile) formData.append('cover', coverFile);
 
-      const res = await fetch(url, { method, body: formData });
+      const res = await fetch(url, { 
+        method, 
+        headers: getAuthHeaders(),
+        body: formData 
+      });
       if (res.ok) { alert(t('msgMapUpdateSuccess')); clearForm(); fetchTopics(); fetchSuspicious(); }
     } catch (e) { alert(t('msgNetworkError')); }
   };
@@ -263,6 +284,7 @@ export default function AdminWeeklyView() {
 
       const res = await fetch(`${BACKEND_URL}/api/admin/weekly-topics/${tData.id}`, {
         method: 'PUT',
+        headers: getAuthHeaders(),
         body: formData
       });
 
@@ -278,7 +300,10 @@ export default function AdminWeeklyView() {
   const handleDelete = async (id: number) => {
     if (!window.confirm(t('msgMapDeleteConfirm'))) return;
     try {
-      const res = await fetch(`${BACKEND_URL}/api/admin/weekly-topics/${id}`, { method: 'DELETE' });
+      const res = await fetch(`${BACKEND_URL}/api/admin/weekly-topics/${id}`, { 
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
       if (res.ok) { fetchTopics(); fetchSuspicious(); }
     } catch (e) { alert(t('msgNetworkError')); }
   };
@@ -515,7 +540,7 @@ export default function AdminWeeklyView() {
           <textarea placeholder="Description in English (Guidelines and room details...)" value={descEn} onChange={e => setDescEn(e.target.value)} style={{...inputStyle, minHeight: '80px', borderColor: '#38bdf860'}} />
         </div>
         
-        <div style={{ marginBottom: '15px' }}>
+        <div style={{ AppMarginBottom: '15px' }}>
           <label style={{ fontSize: '0.85rem', color: '#a78bfa', display: 'block', marginBottom: '6px', fontWeight: 'bold' }}>👑 {t('adminMasterAssign')}</label>
           <select value={masterEmail} onChange={e => setMasterEmail(e.target.value)} style={inputStyle}>
             <option value="">-- {t('adminMasterNone')} --</option>
@@ -661,23 +686,19 @@ export default function AdminWeeklyView() {
               return (
                 <div key={tData.id} style={{ display: 'grid', gridTemplateColumns: `460px ${ganttCalendarData.totalDays * 40}px`, alignItems: 'center', background: tData.isGanttModified ? '#10b98108' : '#0f172a30', borderRadius: '16px', border: tData.isGanttModified ? '1px solid #10b98150' : '1px solid #232f46', padding: '16px 0px', boxSizing: 'border-box' }}>
                   
-                  {/* ÁTRENDEZETT, TISZTA ADATLAP SORONKÉNTI BONTÁSBAN */}
+                  {/* ADATLAP SORONKÉNTI BONTÁSBAN */}
                   <div style={{ display: 'flex', gap: '16px', paddingLeft: '14px', paddingRight: '15px', minWidth: 0, boxSizing: 'border-box', alignItems: 'flex-start' }}>
                     
-                    {/* Indexkép bal szélen, finoman felülre igazítva */}
                     <div style={{ width: '80px', height: '52px', backgroundColor: '#0f172a', borderRadius: '6px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #334155', flexShrink: 0, marginTop: '4px' }}>
                       {tData.cover_url ? <img src={tData.cover_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={handleImageError} /> : <span style={{ fontSize: '1rem', opacity: 0.3 }}>🖼️</span>}
                     </div>
 
-                    {/* Adatok függőleges sorai törések és levágások nélkül */}
                     <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
                       
-                      {/* 1. Sor: Kihívás címe */}
                       <h4 style={{ margin: 0, fontWeight: 'bold', color: '#f8fafc', fontSize: '1.1rem', wordBreak: 'break-word' }}>
                         {tData.title}
                       </h4>
                       
-                      {/* 2. Sor: Angol címe */}
                       {tData.title_en && (
                         <div style={{ fontSize: '0.88rem', color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <img src="https://flagcdn.com/w20/gb.png" alt="" style={{ width: '14px', height: 'auto', borderRadius: '1px' }} />
@@ -685,28 +706,24 @@ export default function AdminWeeklyView() {
                         </div>
                       )}
 
-                      {/* 3. Sor: Státusz */}
                       <div style={{ fontSize: '0.8rem', marginTop: '1px' }}>
                         <span style={{ color: status.color, fontWeight: 'bold', background: `${status.color}10`, padding: '2px 8px', borderRadius: '4px', border: `1px solid ${status.color}20`, display: 'inline-block' }}>
                           {status.label}
                         </span>
                       </div>
 
-                      {/* 4. Sor: Képmester (Teljesen kiírva) */}
                       <div style={{ fontSize: '0.82rem', color: '#cbd5e1', display: 'flex', alignItems: 'center', gap: '6px', wordBreak: 'break-all', marginTop: '2px' }}>
                         <span style={{ color: '#a78bfa' }}>👑</span> 
                         <strong style={{ color: '#94a3b8' }}>{lang === 'en' ? 'Master:' : 'Képmester:'}</strong> 
                         <span>{tData.master_email || (lang === 'en' ? 'None assigned' : 'Nincs hozzárendelve')}</span>
                       </div>
 
-                      {/* 5. Sor: Borítókép készítője (Teljesen kiírva) */}
                       <div style={{ fontSize: '0.82rem', color: '#cbd5e1', display: 'flex', alignItems: 'center', gap: '6px', wordBreak: 'break-word' }}>
                         <span style={{ color: '#f59e0b' }}>📷</span> 
                         <strong style={{ color: '#94a3b8' }}>{lang === 'en' ? 'Cover by:' : 'Borítókép:'}</strong> 
                         <span>{tData.cover_author || (lang === 'en' ? 'Not specified' : 'Nincs megadva')}</span>
                       </div>
 
-                      {/* ── 👑 🎯 JAVÍTVA: INTERAKTÍV CSATABÍRÓ ELBÍRÁLÓ PANEL KÖZVETLENÜL AZ ADATLAPON! ── */}
                       {tData.pending_master_email && (
                         <div style={{ marginTop: '5px', padding: '10px 14px', background: '#eab30810', border: '1px solid #eab30840', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '8px', boxShadow: '0 4px 10px rgba(0,0,0,0.3)' }}>
                           <span style={{ fontSize: '0.82rem', color: '#fde047', fontWeight: 'bold' }}>
@@ -732,7 +749,6 @@ export default function AdminWeeklyView() {
                         </div>
                       )}
 
-                      {/* 6. Sor: Akciógombok teljesen külön sorban, alul */}
                       <div style={{ display: 'flex', gap: '8px', marginTop: '8px', flexWrap: 'wrap' }}>
                         {tData.isGanttModified ? (
                           <button onClick={() => handleQuickGanttSave(tData)} className="gantt-glow-save-btn" style={{ background: '#10b981', color: '#0f172a', border: 'none', padding: '4px 14px', borderRadius: '50px', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 'black', boxShadow: '0 0 10px #10b98180' }}>
