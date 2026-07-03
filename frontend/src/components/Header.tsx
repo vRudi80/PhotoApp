@@ -94,14 +94,19 @@ export default function Header({
   // Ellenőrzi az olvasatlan üzeneteket biztonságos hitelesítéssel
   useEffect(() => {
     if (!user?.email) return;
+    
     const checkUnread = () => {
-      // 🎯 JAVÍTVA: Megkapta a getAuthHeaders() azonosítót, a 401-es hibák megszűnnek!
-      fetch(`${BACKEND_URL}/api/tickets/unread-count?userEmail=${user.email}`, {
-  headers: {
-    'Authorization': `Bearer ${localStorage.getItem('photoAppToken')}`
-  }
-})
-        .then(res => res.json())
+      // 🔒 BIZTONSÁGI VÉDŐPAJZS: Ha nincs még token a tárolóban, meg sem kíséreljük a kérést!
+      const token = localStorage.getItem('photoAppToken');
+      if (!token) return;
+
+      fetch(`${BACKEND_URL}/api/tickets/unread-count?userEmail=${user.email}&isAdmin=${isAdminUser}`, {
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' })
+      })
+        .then(res => {
+          if (!res.ok) throw new Error("Unauthenticated call blocked.");
+          return res.json();
+        })
         .then(data => setUnreadTicketsCount(data.count || 0))
         .catch(console.error);
     };
@@ -130,7 +135,6 @@ export default function Header({
 
   const handleManageSubscription = async () => {
     try {
-      // 🎯 JAVÍTVA: A Stripe portál hívás is megkapta a biztonsági tokent
       const res = await fetch(`${BACKEND_URL}/api/create-portal-session`, {
         method: 'POST',
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
@@ -175,7 +179,6 @@ export default function Header({
     <header ref={headerRef} className="app-header" style={{ position: 'relative', zIndex: 1000, width: '100%', background: 'var(--bg-card, #131b2e)', borderBottom: '1px solid var(--border-main, #222f47)', boxSizing: 'border-box' }}>
       
       <style>{`
-        /* ── 🎯 ASZTALI SZABÁLYZAT ── */
         @media (min-width: 1060px) {
           .app-header {
             padding: 0 24px !important;
@@ -217,7 +220,6 @@ export default function Header({
           }
         }
         
-        /* ── 🎯 ABSZOLÚT FÜGGÖNY MECHANIZMUS MOBILRA ── */
         @media (max-width: 1059px) {
           .header-desktop-brand-wrapper {
             display: none !important;
@@ -361,21 +363,18 @@ export default function Header({
         </div>
 
         <div className="nav-group">
-          {/* 1. KEZDŐLAP */}
           <div className="nav-item-container">
             <button className={`nav-btn ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => handleNavClick('dashboard')}>
               <Home size={14} /> <span>{t('navHome')}</span>
             </button>
           </div>
 
-          {/* 2. FOTÓS ARÉNA */}
           <div className="nav-item-container">
             <button className={`nav-btn ${activeTab === 'weekly_challenge' ? 'active' : ''}`} style={{ color: activeTab === 'weekly_challenge' ? '#f97316' : '' }} onClick={() => handleNavClick('weekly_challenge')}>
               <Flame size={14} /> <span>{t('navArena')}</span>
             </button>
           </div>
 
-          {/* 3. PÁLYÁZATOK DROPDOWN */}
           <div className="nav-item-container">
             <button 
               className={`nav-btn ${dropdownOpen === 'contests' || activeTab.startsWith('contests_') || ['salons', 'fiap_progress', 'mafosz_progress'].includes(activeTab) ? 'active' : ''}`} 
@@ -386,13 +385,13 @@ export default function Header({
             </button>
             {dropdownOpen === 'contests' && (
               <div className="dropdown-menu">
-                <button className={`drop-item ${activeTab === 'contests_club_active' ? 'active' : ''}`} onClick={() => handleNavClick('contests_club_active')}>{t('subClubContests')}</button>
-                <button className={`drop-item ${activeTab === 'contests_open_active' ? 'active' : ''}`} onClick={() => handleNavClick('contests_open_active')}>{t('subOpenContests')}</button>
-                <button className={`drop-item ${activeTab === 'contests_closed' ? 'active' : ''}`} onClick={() => handleNavClick('contests_closed')}>{t('subClosedContests')}</button>
+                <button className="drop-item" onClick={() => handleNavClick('contests_club_active')}>{t('subClubContests')}</button>
+                <button className="drop-item" onClick={() => handleNavClick('contests_open_active')}>{t('subOpenContests')}</button>
+                <button className="drop-item" onClick={() => handleNavClick('contests_closed')}>{t('subClosedContests')}</button>
                 <div style={{ height: '1px', backgroundColor: 'var(--border-main, #222f47)', margin: '4px 0' }}></div>
-                <button className={`drop-item ${activeTab === 'salons' ? 'active' : ''}`} style={{ color: '#38bdf8' }} onClick={() => handleNavClick('salons')}><Globe size={12} /> {t('subSalonsList')}</button>
-                <button className={`drop-item ${activeTab === 'fiap_progress' ? 'active' : ''}`} onClick={() => handleNavClick('fiap_progress')}><Award size={12} /> {t('subFiap')}</button>
-                <button className={`drop-item ${activeTab === 'mafosz_progress' ? 'active' : ''}`} onClick={() => handleNavClick('mafosz_progress')}>
+                <button className="drop-item" style={{ color: '#38bdf8' }} onClick={() => handleNavClick('salons')}><Globe size={12} /> {t('subSalonsList')}</button>
+                <button className="drop-item" onClick={() => handleNavClick('fiap_progress')}><Award size={12} /> {t('subFiap')}</button>
+                <button className="drop-item" onClick={() => handleNavClick('mafosz_progress')}>
                   <img src="https://flagcdn.com/16x12/hu.png" width="14" height="10" alt="HU" style={{ borderRadius: '1px', objectFit: 'cover' }} />
                   {t('subMafosz')}
                 </button>
@@ -400,21 +399,19 @@ export default function Header({
             )}
           </div>
           
-          {/* 4. KLUBÉLET DROPDOWN */}
           <div className="nav-item-container">
             <button className={`nav-btn ${dropdownOpen === 'club' || activeTab.startsWith('club_') || activeTab === 'public_news' ? 'active' : ''}`} onClick={() => setDropdownOpen(dropdownOpen === 'club' ? null : 'club')}>
               <Users size={14} /> <span>{t('navClub')}</span> <ChevronDown size={12} style={{ opacity: 0.6 }} />
             </button>
             {dropdownOpen === 'club' && (
               <div className="dropdown-menu">
-                <button className={`drop-item ${activeTab === 'club_news' ? 'active' : ''}`} onClick={() => handleNavClick('club_news')}>{t('subClubNews')}</button>
-                <button className={`drop-item ${activeTab === 'club_nights' ? 'active' : ''}`} onClick={() => handleNavClick('club_nights')}>{t('subClubNights')}</button>
-                <button className={`drop-item ${activeTab === 'club_homeworks' ? 'active' : ''}`} onClick={() => handleNavClick('club_homeworks')}>{t('subClubHomeworks')}</button>
+                <button className="drop-item" onClick={() => handleNavClick('club_news')}>{t('subClubNews')}</button>
+                <button className="drop-item" onClick={() => handleNavClick('club_nights')}>{t('subClubNights')}</button>
+                <button className="drop-item" onClick={() => handleNavClick('club_homeworks')}>{t('subClubHomeworks')}</button>
               </div>
             )}
           </div>
 
-          {/* 5. FELFEDEZÉS DROPDOWN */}
           <div className="nav-item-container">
             <button 
               className={`nav-btn ${dropdownOpen === 'explore' || ['podcast', 'map_spots'].includes(activeTab) || activeTab.startsWith('marketplace') ? 'active' : ''}`}
@@ -425,21 +422,19 @@ export default function Header({
             </button>
             {dropdownOpen === 'explore' && (
               <div className="dropdown-menu">
-                <button className={`drop-item ${activeTab === 'podcast' ? 'active' : ''}`} style={{ color: '#f43f5e' }} onClick={() => handleNavClick('podcast')}><Mic size={12} /> Podcast</button>
-                <button className={`drop-item ${activeTab.startsWith('marketplace') ? 'active' : ''}`} style={{ color: '#38bdf8' }} onClick={() => handleNavClick('marketplace')}><ShoppingBag size={12} /> {t('navMarketplace') || 'Piactér'}</button>
-                <button className={`drop-item ${activeTab === 'map_spots' ? 'active' : ''}`} style={{ color: '#10b981' }} onClick={() => handleNavClick('map_spots')}><Map size={12} /> {t('navMap')}</button>
+                <button className="drop-item" style={{ color: '#f43f5e' }} onClick={() => handleNavClick('podcast')}><Mic size={12} /> Podcast</button>
+                <button className="drop-item" style={{ color: '#38bdf8' }} onClick={() => handleNavClick('marketplace')}><ShoppingBag size={12} /> {t('navMarketplace') || 'Piactér'}</button>
+                <button className="drop-item" style={{ color: '#10b981' }} onClick={() => handleNavClick('map_spots')}><Map size={12} /> {t('navMap')}</button>
               </div>
             )}
           </div>
 
-          {/* 5.1. HÍREK CSATORNA */}
           <div className="nav-item-container">
             <button className={`nav-btn ${activeTab === 'public_news' ? 'active' : ''}`} style={{ color: '#38bdf8' }} onClick={() => handleNavClick('public_news')}>
               <Newspaper size={14} /> <span>{lang === 'en' ? 'News' : 'Hírek'}</span>
             </button>
           </div>
           
-          {/* 6. ADMIN PANEL */}
           {(user?.email === ADMIN_EMAIL || isLeader) && (
             <div className="nav-item-container">
               <button className={`nav-btn ${dropdownOpen === 'admin' || activeTab.startsWith('admin_') || activeTab === 'leader_club' ? 'active' : ''}`} style={{ color: '#ef4444' }} onClick={() => setDropdownOpen(dropdownOpen === 'admin' ? null : 'admin')}>
@@ -448,26 +443,23 @@ export default function Header({
               {dropdownOpen === 'admin' && (
                 <div className="dropdown-menu">
                   {isLeader && (
-                    <button className={`drop-item ${activeTab === 'leader_club' ? 'active' : ''}`} style={{ color: '#0ea5e9' }} onClick={() => handleNavClick('leader_club')}>{t('subLeaderClub')}</button>
+                    <button className="drop-item" style={{ color: '#0ea5e9' }} onClick={() => handleNavClick('leader_club')}>{t('subLeaderClub')}</button>
                   )}
-                  {user?.email === ADMIN_EMAIL && <button className={`drop-item ${activeTab === 'admin_contests' ? 'active' : ''}`} style={{ color: activeTab === 'admin_contests' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_contests')}>{t('subManageContests')}</button>}
-                  <button className={`drop-item ${activeTab === 'admin_meetings' ? 'active' : ''}`} style={{ color: activeTab === 'admin_meetings' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_meetings')}>{t('subManageMeetings')}</button>
-                  <button className={`drop-item ${activeTab === 'admin_homeworks' ? 'active' : ''}`} style={{ color: activeTab === 'admin_weekly' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_homeworks')}>{t('subManageHomeworks')}</button>
-                  {user?.email === ADMIN_EMAIL && <button className={`drop-item ${activeTab === 'admin_weekly' ? 'active' : ''}`} style={{ color: activeTab === 'admin_weekly' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_weekly')}>{t('subManageWeekly')}</button>}
-                  {user?.email === ADMIN_EMAIL && <button className={`drop-item ${activeTab === 'admin_settings' ? 'active' : ''}`} style={{ color: '#ef4444' }} onClick={() => handleNavClick('admin_settings')}>{t('subManageSettings')}</button>}
-                  {user?.email === ADMIN_EMAIL && <button className={`drop-item ${activeTab === 'admin_salons' ? 'active' : ''}`} style={{ color: activeTab === 'admin_salons' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_salons')}>{t('subManageSalons')}</button>}
-                  {user?.email === ADMIN_EMAIL && <button className={`drop-item ${activeTab === 'admin_users' ? 'active' : ''}`} style={{ color: activeTab === 'admin_users' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_users')}>{t('subManageUsers')}</button>}
-                  {user?.email === ADMIN_EMAIL && <button className={`drop-item ${activeTab === 'admin_clubs' ? 'active' : ''}`} style={{ color: activeTab === 'admin_clubs' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_clubs')}>{t('subManageClubs')}</button>}
+                  {user?.email === ADMIN_EMAIL && <button className="drop-item" style={{ color: activeTab === 'admin_contests' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_contests')}>{t('subManageContests')}</button>}
+                  <button className="drop-item" style={{ color: activeTab === 'admin_meetings' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_meetings')}>{t('subManageMeetings')}</button>
+                  <button className="drop-item" style={{ color: activeTab === 'admin_homeworks' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_homeworks')}>{t('subManageHomeworks')}</button>
+                  {user?.email === ADMIN_EMAIL && <button className="drop-item" style={{ color: activeTab === 'admin_weekly' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_weekly')}>{t('subManageWeekly')}</button>}
+                  {user?.email === ADMIN_EMAIL && <button className="drop-item" style={{ color: '#ef4444' }} onClick={() => handleNavClick('admin_settings')}>{t('subManageSettings')}</button>}
+                  {user?.email === ADMIN_EMAIL && <button className="drop-item" style={{ color: activeTab === 'admin_salons' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_salons')}>{t('subManageSalons')}</button>}
+                  {user?.email === ADMIN_EMAIL && <button className="drop-item" style={{ color: activeTab === 'admin_users' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_users')}>{t('subManageUsers')}</button>}
+                  {user?.email === ADMIN_EMAIL && <button className="drop-item" style={{ color: activeTab === 'admin_clubs' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_clubs')}>{t('subManageClubs')}</button>}
                 </div>
               )}
             </div>
           )}
         </div> 
 
-        {/* FIÓK MENÜ ÉS NYELVVÁLASZTÓ */}
         <div className="user-group" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
-          
-          {/* TÉMAVÁLTÓ KAPCSOLÓ GOMB */}
           <button 
             onClick={toggleTheme}
             style={{
