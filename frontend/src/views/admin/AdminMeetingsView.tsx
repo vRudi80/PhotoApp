@@ -11,6 +11,15 @@ interface AdminMeetingsViewProps {
   fetchData: () => void;
 }
 
+// 🎯 KÖZPONTI AUTH FEJLÉC GENERÁTOR VÉDETT VÉGPONTOKHOZ (Pontosan úgy, mint a Házinál!)
+const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
+  const token = localStorage.getItem('photoAppToken');
+  return {
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    ...extraHeaders
+  };
+};
+
 export default function AdminMeetingsView({
   user, currentDbUser, clubs, meetings, allUsers, adminMeetings, fetchData
 }: AdminMeetingsViewProps) {
@@ -103,11 +112,19 @@ export default function AdminMeetingsView({
       
       const url = editMeetId ? `${BACKEND_URL}/api/meetings/${editMeetId}` : `${BACKEND_URL}/api/meetings`; 
       const method = editMeetId ? 'PUT' : 'POST'; 
-      const res = await fetch(url, { method, body: formData }); 
+      
+      // 🎯 JAVÍTVA: Bekötve a golyóálló tokenesítés pontosan a házifeladat mintájára!
+      // (Mivel FormData-t küldünk, a Content-Type-ot nem adjuk meg manuálisan, hogy a böngésző fűzhesse be a multipart boundary-kat)
+      const res = await fetch(url, { 
+        method, 
+        headers: getAuthHeaders(), 
+        body: formData 
+      }); 
       
       if (res.ok) { 
         alert(editMeetId ? "Klubest frissítve!" : "Klubest sikeresen létrehozva!"); 
         clearMeetingForm(); 
+        document.getElementById('meeting-file-input') ? ((document.getElementById('meeting-file-input') as HTMLInputElement).value = '') : null;
         fetchData(); 
       } else { 
         const err = await res.json(); alert(`Hiba: ${err.error}`); 
@@ -124,7 +141,11 @@ export default function AdminMeetingsView({
     if (!window.confirm("Biztosan törlöd ezt a klubestet?")) return; 
     
     try {
-      const res = await fetch(`${BACKEND_URL}/api/meetings/${m.id}`, { method: 'DELETE' }); 
+      // 🎯 JAVÍTVA: Biztonsági token csatolása törléshez
+      const res = await fetch(`${BACKEND_URL}/api/meetings/${m.id}`, { 
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      }); 
       if (res.ok) {
         alert("Klubest sikeresen törölve!");
         fetchData(); 
@@ -144,7 +165,10 @@ export default function AdminMeetingsView({
 
     setAttendanceMeetId(m.id); 
     try {
-      const res = await fetch(`${BACKEND_URL}/api/attendance/${m.id}`); 
+      // 🎯 JAVÍTVA: Biztonsági token csatolása jelenlét letöltéshez
+      const res = await fetch(`${BACKEND_URL}/api/attendance/${m.id}`, {
+        headers: getAuthHeaders()
+      }); 
       if (res.ok) setAttendanceList(await res.json()); 
     } catch (e) {
       console.error("Hiba a jelenléti ív letöltésekor:", e);
@@ -158,9 +182,10 @@ export default function AdminMeetingsView({
   const saveAttendance = async () => { 
     if (!attendanceMeetId) return; 
     try {
+      // 🎯 JAVÍTVA: Jelenlét mentése tokennel és Content-Type beállítással (Mivel ez JSON)
       const res = await fetch(`${BACKEND_URL}/api/attendance/${attendanceMeetId}`, { 
         method: 'POST', 
-        headers: { 'Content-Type': 'application/json' }, 
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }), 
         body: JSON.stringify({ emails: attendanceList }) 
       }); 
       if (res.ok) { alert("Jelenléti ív sikeresen mentve!"); setAttendanceMeetId(null); } 
@@ -261,7 +286,7 @@ export default function AdminMeetingsView({
             </div>
 
             <label style={{fontSize:'0.8rem', color:'#94a3b8'}}>Opcionális borítókép</label>
-            <input type="file" accept="image/jpeg, image/png, image/webp" onChange={handleMeetingCoverSelect} style={{ color: '#94a3b8', marginBottom: '15px', width: '100%' }} disabled={isMeetingUploading} />
+            <input id="meeting-file-input" type="file" accept="image/jpeg, image/png, image/webp" onChange={handleMeetingCoverSelect} style={{ color: '#94a3b8', marginBottom: '15px', width: '100%' }} disabled={isMeetingUploading} />
             {meetCoverPreview && <div style={{marginTop: '10px', marginBottom: '20px'}}><img src={meetCoverPreview} alt="Előnézet" style={{maxHeight: '150px', borderRadius: '8px', border: '1px solid #334155'}} /></div>}
 
             <button onClick={handleSaveMeeting} disabled={isMeetingUploading} style={{ background: isMeetingUploading ? '#475569' : '#10b981', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '6px', cursor: isMeetingUploading ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>
