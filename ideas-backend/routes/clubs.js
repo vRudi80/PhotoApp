@@ -328,7 +328,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       await conn.beginTransaction();
       if (action === 'approve') {
         await conn.query("UPDATE photo_users SET club_role = 'member' WHERE email = ?", [targetEmail]);
-        await conn.query("UPDATE photo_club_memberships SET status = 'left', left_date = CURRENT_DATE() WHERE user_email = ? AND status = 'active' WHERE user_email = ?", [targetEmail]);
+        await conn.query("UPDATE photo_club_memberships SET status = 'left', left_date = CURRENT_DATE() WHERE user_email = ? AND status = 'active' and user_email = ?", [targetEmail]);
         await conn.query("INSERT INTO photo_club_memberships (club_id, club_name, user_email, club_role, joined_date, status) VALUES (?, ?, ?, 'member', CURRENT_DATE(), 'active')", [clubId, clubName, targetEmail]);
       } else {
         await conn.query("UPDATE photo_users SET club_id = NULL, club_name = NULL, club_role = 'member' WHERE email = ?", [targetEmail]);
