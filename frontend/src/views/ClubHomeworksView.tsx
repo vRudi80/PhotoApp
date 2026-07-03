@@ -94,8 +94,6 @@ export default function ClubHomeworksView({
   const [viewJuryProgressId, setViewJuryProgressId] = useState<number | null>(null);
   const [juryProgressData, setJuryProgressData] = useState<{total_entries: number, stats: any[]}>({total_entries: 0, stats: []});
 
-  const [fullscreenData, setFullscreenData] = useState<any>(null);
-
   const [sortedHwIds, setSortedHwIds] = useState<number[]>([]);
   const [expandedHwIds, setExpandedHwIds] = useState<number[]>([]);
   const [hwSearch, setHwSearch] = useState('');
