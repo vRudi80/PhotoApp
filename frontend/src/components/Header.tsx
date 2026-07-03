@@ -96,9 +96,11 @@ export default function Header({
     if (!user?.email) return;
     const checkUnread = () => {
       // 🎯 JAVÍTVA: Megkapta a getAuthHeaders() azonosítót, a 401-es hibák megszűnnek!
-      fetch(`${BACKEND_URL}/api/tickets/unread-count?userEmail=${user.email}&isAdmin=${isAdminUser}`, {
-        headers: getAuthHeaders({ 'Content-Type': 'application/json' })
-      })
+      fetch(`${BACKEND_URL}/api/tickets/unread-count?userEmail=${user.email}`, {
+  headers: {
+    'Authorization': `Bearer ${localStorage.getItem('photoAppToken')}`
+  }
+})
         .then(res => res.json())
         .then(data => setUnreadTicketsCount(data.count || 0))
         .catch(console.error);
