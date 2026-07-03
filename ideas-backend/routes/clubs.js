@@ -1,15 +1,15 @@
 const fs = require('fs');
-// 🎯 JAVÍTVA: Google Auth helyett a projektszintű szabványos jsonwebtoken-t használjuk
-const jwt = require('jsonwebtoken');
+const { OAuth2Client } = require('google-auth-library');
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 // A te valódi admin e-mailed biztonsági tartaléknak
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "kovari.rudolf@gmail.com";
 
 // ====================================================================
-// 🔒 GOLYÓÁLLÓ, PROJEKTSZINTŰ JWT AUTHENTICATION MIDDLEWARE
+// 🔒 GOLYÓÁLLÓ AUTHENTICATION MIDDLEWARE A CLUBS MODULHOZ
 // ====================================================================
 async function requireAuth(req, res, next) {
-  // Preflight kérések (OPTIONS) automatikus átengedése a CORS ütközések ellen
+  // 🛡️ Preflight kérések (OPTIONS) automatikus átengedése a CORS ütközések ellen
   if (req.method === 'OPTIONS') {
     return next();
   }
@@ -22,18 +22,22 @@ async function requireAuth(req, res, next) {
 
     const token = authHeader.split(' ')[1];
     
-    // 🎯 JAVÍTVA: A saját belső JWT tokenedet ellenőrizzük a titkos kulccsal
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'photoapp_secret_fallback');
+    // Google OAuth IdToken hitelesítése
+    const ticket = await client.verifyIdToken({
+      idToken: token,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
     
-    if (!decoded || !decoded.email) {
-      return res.status(401).json({ error: 'Érvénytelen vagy sérült munkamenet token.' });
+    const payload = ticket.getPayload();
+    if (!payload || !payload.email) {
+      return res.status(401).json({ error: 'Érvénytelen vagy sérült Google token.' });
     }
 
     // Biztonságosan injektáljuk a kérésbe a hitelesített entitást
     req.user = {
-      email: decoded.email,
-      name: decoded.name || decoded.username || 'Felhasználó',
-      isAdmin: decoded.email === ADMIN_EMAIL
+      email: payload.email,
+      name: payload.name,
+      isAdmin: payload.email === ADMIN_EMAIL
     };
 
     next();
@@ -186,7 +190,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
   app.post('/api/attendance/:meetingId', requireAuth, async (req, res) => {
     const currentClubId = await getClubIdByMeeting(req.params.meetingId);
-    if (!currentClubId || !await isClubManagement(req.user.email, clubId)) {
+    if (!currentClubId || !await isClubManagement(req.user.email, currentClubId)) {
       return res.status(403).json({ error: 'Nincs jogosultságod a jelenléti ív módosításához!' });
     }
     const { emails } = req.body; const conn = await pool.getConnection();
