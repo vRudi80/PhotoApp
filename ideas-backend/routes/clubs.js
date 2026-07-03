@@ -112,7 +112,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
-  // 🎯 JAVÍTVA: A fájl-tallózó (upload.single) mostantól megelőzi a biztonsági kaput a sikeres adatfolyamért!
   app.post('/api/meetings', upload.single('coverPhoto'), requireAuth, async (req, res) => {
     const { clubId, date, time, topic, description, locationType, locationDetails, videoLink } = req.body;
     const file = req.file; 
@@ -136,7 +135,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { cleanupTempFile(file); res.status(500).json({ error: err.message }); }
   });
 
-  // 🎯 JAVÍTVA: A szerkesztési fázisban is az upload.single került legelőre a fagyások ellen!
   app.put('/api/meetings/:id', upload.single('coverPhoto'), requireAuth, async (req, res) => {
     const file = req.file;
     const currentClubId = await getClubIdByMeeting(req.params.id);
@@ -286,7 +284,8 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   // ====================================================================
   app.get('/api/clubs/active-only', requireAuth, async (req, res) => {
     try {
-      const [rows] = await pool.query suicide(`
+      // 🎯 JAVÍTVA: Megtisztítva és elírásoktól mentesítve!
+      const [rows] = await pool.query(`
         SELECT DISTINCT c.* FROM photo_clubs c
         INNER JOIN photo_users u ON c.id = u.club_id
         WHERE u.club_role IN ('leader', 'deputy')
@@ -328,7 +327,8 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       await conn.beginTransaction();
       if (action === 'approve') {
         await conn.query("UPDATE photo_users SET club_role = 'member' WHERE email = ?", [targetEmail]);
-        await conn.query("UPDATE photo_club_memberships SET status = 'left', left_date = CURRENT_DATE() WHERE user_email = ? AND status = 'active' and user_email = ?", [targetEmail]);
+        // 🎯 JAVÍTVA: Kigyomláltuk a korábbi duplázódott WHERE szintaktikai hibát!
+        await conn.query("UPDATE photo_club_memberships SET status = 'left', left_date = CURRENT_DATE() WHERE user_email = ? AND status = 'active'", [targetEmail]);
         await conn.query("INSERT INTO photo_club_memberships (club_id, club_name, user_email, club_role, joined_date, status) VALUES (?, ?, ?, 'member', CURRENT_DATE(), 'active')", [clubId, clubName, targetEmail]);
       } else {
         await conn.query("UPDATE photo_users SET club_id = NULL, club_name = NULL, club_role = 'member' WHERE email = ?", [targetEmail]);
@@ -372,7 +372,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { await conn.rollback(); res.status(500).json({ error: 'Hiba' }); } finally { conn.release(); }
   });
 
-  // 🎯 JAVÍTVA: A logó feltöltésnél is az upload.single megelőzi a requireAuth-ot
   app.post('/api/my-club/logo', upload.single('logo'), requireAuth, async (req, res) => {
     const file = req.file; if (!file) return res.status(400).json({ error: 'Fájl kötelező!' });
     const { clubId } = req.body;
