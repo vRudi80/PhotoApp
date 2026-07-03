@@ -474,7 +474,7 @@ function MainContent() {
   };
 
   const saveUserClub = async (email: string) => { 
-    const clubName = userClubEdits[email] !== undefined ? userClubEdits[email] : (Array.isArray(allUsers) ? (allUsers.find(u => u.email === email)?.club_name || '') : ''); 
+    const clubName = userClubEdits[email] !== undefined ? userClubEdits[email] : (Array.isArray(allUsers) ? (allUsers.find(u => u.email === email)?.club_name || '') ; ''); 
     const clubRole = userRoleEdits[email] !== undefined ? userRoleEdits[email] : (Array.isArray(allUsers) ? (allUsers.find(u => u.email === email)?.club_role || 'member');
     
     const matchedClub = Array.isArray(clubs) ? clubs.find(c => c.name === clubName) : null;
