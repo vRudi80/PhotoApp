@@ -17,6 +17,15 @@ interface MafoszProgressViewProps {
   allUsers?: any[]; 
 }
 
+// 🎯 KÖZPONTI AUTH FEJLÉC GENERÁTOR VÉDETT VÉGPONTOKHOZ
+const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
+  const token = localStorage.getItem('photoAppToken');
+  return {
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    ...extraHeaders
+  };
+};
+
 export default function MafoszProgressView({ user, allUsers = [] }: MafoszProgressViewProps) {
   const [stats, setStats] = useState({ acceptances: 0, works: 0, awards: 0 });
   const [entries, setEntries] = useState<any[]>([]);
@@ -38,15 +47,20 @@ export default function MafoszProgressView({ user, allUsers = [] }: MafoszProgre
     const fetchProgress = async () => {
       setIsLoading(true); 
       try {
+        // 🎯 JAVÍTVA: Mindkét API lekérés megkapta a hitelesítési Bearer fejlécet!
         const [resStats, resEntries] = await Promise.all([
-          fetch(`${BACKEND_URL}/api/mafosz-progress?userEmail=${selectedEmail}`),
-          fetch(`${BACKEND_URL}/api/mafosz-entries?userEmail=${selectedEmail}`)
+          fetch(`${BACKEND_URL}/api/mafosz-progress?userEmail=${selectedEmail}`, {
+            headers: getAuthHeaders()
+          }),
+          fetch(`${BACKEND_URL}/api/mafosz-entries?userEmail=${selectedEmail}`, {
+            headers: getAuthHeaders()
+          })
         ]);
 
         if (resStats.ok) setStats(await resStats.json());
         if (resEntries.ok) setEntries(await resEntries.json());
       } catch (e) {
-        console.error(e);
+        console.error("Hiba a MAFOSZ adatok lekérésekor:", e);
       } finally {
         setIsLoading(false);
       }
@@ -65,7 +79,7 @@ export default function MafoszProgressView({ user, allUsers = [] }: MafoszProgre
       (entry.mafosz_number && entry.mafosz_number.toLowerCase().includes(lowerTerm)) ||
       (entry.award && entry.award.toLowerCase().includes(lowerTerm))
     );
-  }, [entries, searchTerm]);
+  }, [entries, searchQuery]); // Szinkronban tartott keresés
 
   if (!user || !user.is_premium) {
     return (
@@ -243,7 +257,7 @@ export default function MafoszProgressView({ user, allUsers = [] }: MafoszProgre
                 </thead>
                 <tbody>
                   {filteredEntries.map((entry, idx) => {
-                    const isAcceptance = entry.award.toLowerCase() === 'acceptance';
+                    const isAcceptance = entry.award?.toLowerCase() === 'acceptance';
                     const isOnline = entry.submission_type === 'online';
                     
                   return (
