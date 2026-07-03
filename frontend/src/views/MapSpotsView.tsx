@@ -19,6 +19,15 @@ interface MapSpotsViewProps {
   setTargetMapSpotId?: (id: number | null) => void;
 }
 
+// 🎯 KÖZPONTI AUTH FEJLÉC GENERÁTOR HELYI RENDERSZINTRE
+const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
+  const token = localStorage.getItem('photoAppToken');
+  return {
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    ...extraHeaders
+  };
+};
+
 export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId, setTargetMapSpotId }: MapSpotsViewProps) {
   
   // 🎯 Aktiváljuk a fordítót (t) és a nyelvi állapotot (lang)
@@ -84,7 +93,10 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
 
   const fetchLocations = async () => {
     try {
-      const res = await fetch(`${BACKEND_URL}/api/locations?search=&userEmail=${user.email}`);
+      // 🎯 JAVÍTVA: Elhelyezve a biztonsági getAuthHeaders() pult
+      const res = await fetch(`${BACKEND_URL}/api/locations?search=&userEmail=${user.email}`, {
+        headers: getAuthHeaders()
+      });
       if (res.ok) {
         const data = await res.json();
         setLocations(data);
@@ -99,7 +111,10 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
 
   const fetchComments = async (locationId: number) => {
     try {
-      const res = await fetch(`${BACKEND_URL}/api/locations/${locationId}/comments`);
+      // 🎯 JAVÍTVA: Elhelyezve a biztonsági fejléc
+      const res = await fetch(`${BACKEND_URL}/api/locations/${locationId}/comments`, {
+        headers: getAuthHeaders()
+      });
       if (res.ok) setComments(await res.json());
     } catch (e) { console.error(e); }
   };
@@ -134,7 +149,7 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
       if (loc.user_email === user?.email) mySpotsCount++;
       
       const name = loc.user_name || 'Anonim Fotós';
-      contributorMap[name] = (contributorMap[name] || 0) + 1;
+       contributorMap[name] = (contributorMap[name] || 0) + 1;
     });
 
     const leaderboard = Object.entries(contributorMap)
@@ -174,6 +189,7 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
   const handleCitySearch = async () => {
     if (!citySearch.trim()) return;
     try {
+      // Nyilvános külső API, nem fűzünk hozzá belső tokeneket!
       const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(citySearch)}&limit=5`);
       const data = await res.json();
       setCityResults(data);
@@ -239,16 +255,16 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
     setLocations(prev => prev.map(loc => loc.id === id ? { ...loc, lat: safeLat, lng: safeLng } : loc));
     
     try {
+      // 🎯 JAVÍTVA: Jelölő áthúzásakor is ellenőrizzük a tokent
       const res = await fetch(`${BACKEND_URL}/api/locations/${id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ userEmail: user.email, isAdmin: isAdmin, lat: safeLat, lng: safeLng })
       });
       if (!res.ok) { alert(t('msgSaveError')); fetchLocations(); }
     } catch (error) { alert(t('msgNetworkError')); fetchLocations(); }
   };
 
-  // 👑 Azonnali, betallózáskor lefutó EXIF-GPS térkép-teleport motor
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
@@ -256,7 +272,6 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
       setUploadPreview(URL.createObjectURL(file));
 
       try {
-        // 🎯 Nem korlátozzuk tömbbel, így az exifr engedélyezi a GPS alrendszert és kiszámolja a tizedeses koordinátákat
         const exifData = await exifr.parse(file);
         
         if (exifData) {
@@ -286,22 +301,18 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
             }
           }
 
-          // 🎯 Ellenőrizzük a kiszámolt koordinátákat betallózáskor
           if (typeof exifData.latitude === 'number' && typeof exifData.longitude === 'number') {
             const gpsCoords = { lat: exifData.latitude, lng: exifData.longitude };
             
-            // 1. Áthelyezzük a virtuális jelölőt (Marker) a térképen oda, ahol a fotó készült
             if (editingSpot) {
               setEditingSpot((prev: any) => prev ? { ...prev, lat: gpsCoords.lat.toString(), lng: gpsCoords.lng.toString() } : null);
             } else {
               setNewSpotLatLng(gpsCoords);
             }
 
-            // 2. Frissítjük a React cél-pozíció állapotát
             setMapTargetPosition(gpsCoords);
             setMapZoom(16); 
 
-            // 3. 🔥 KÉNYSZERÍTETT AZONNALI PAN: Ha a Google Maps példány már él, azonnal odarántjuk a kamerát!
             if (map) {
               map.panTo(gpsCoords);
               map.setZoom(16);
@@ -333,24 +344,35 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
       if (editingSpot) {
         formData.append('lat', editingSpot.lat);
         formData.append('lng', editingSpot.lng);
-        const res = await fetch(`${BACKEND_URL}/api/locations/${editingSpot.id}`, { method: 'PUT', body: formData });
+        // 🎯 JAVÍTVA: Módosítás mentése hitelesített tokennel (Content-Type-ot nem bántjuk!)
+        const res = await fetch(`${BACKEND_URL}/api/locations/${editingSpot.id}`, { 
+          method: 'PUT', 
+          headers: getAuthHeaders(),
+          body: formData 
+        });
         if (res.ok) { alert(t('msgMapUpdateSuccess')); setEditingSpot(null); fetchLocations(); }
       } else if (newSpotLatLng) {
         formData.append('userName', user.name || user.email);
         formData.append('lat', newSpotLatLng.lat.toString());
         formData.append('lng', newSpotLatLng.lng.toString());
-        const res = await fetch(`${BACKEND_URL}/api/locations`, { method: 'POST', body: formData });
+        // 🎯 JAVÍTVA: Új helyszín létrehozása hitelesített tokennel (Content-Type-ot nem bántjuk!)
+        const res = await fetch(`${BACKEND_URL}/api/locations`, { 
+          method: 'POST', 
+          headers: getAuthHeaders(),
+          body: formData 
+        });
         if (res.ok) { alert(t('msgMapCreateSuccess')); setNewSpotLatLng(null); fetchLocations(); }
       }
     } catch (e) { alert(t('msgNetworkError')); } finally { setIsUploading(false); }
   };
 
   const handleDeleteLocation = async (id: number) => {
-    if (!window.confirm(t('msgMapDeleteConfirm'))) return;
+    if (!window.confirm(t('msgMapDeleteConfirm')));
     try {
+      // 🎯 JAVÍTVA: Törlés végrehajtása hitelesített tokennel
       const res = await fetch(`${BACKEND_URL}/api/locations/${id}`, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ userEmail: user.email })
       });
       if (res.ok) { alert(t('msgMapDeleteSuccess')); setActiveSpot(null); fetchLocations(); }
@@ -359,9 +381,10 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
 
   const handleToggleLike = async (id: number) => {
     try {
+      // 🎯 JAVÍTVA: Kedvelés rögzítése hitelesített tokennel
       const res = await fetch(`${BACKEND_URL}/api/locations/${id}/like`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ userEmail: user.email })
       });
       if (res.ok) fetchLocations(); 
@@ -379,7 +402,12 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
     if (commentFile) formData.append('photo', commentFile);
 
     try {
-      const res = await fetch(`${BACKEND_URL}/api/locations/${activeSpot.id}/comments`, { method: 'POST', body: formData });
+      // 🎯 JAVÍTVA: Új hozzászólás küldése hitelesített tokennel (Content-Type-ot békén hagyjuk!)
+      const res = await fetch(`${BACKEND_URL}/api/locations/${activeSpot.id}/comments`, { 
+        method: 'POST', 
+        headers: getAuthHeaders(),
+        body: formData 
+      });
       if (res.ok) {
         setNewComment('');
         setCommentFile(null);
@@ -414,14 +442,14 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '15px' }}>
         <h2 style={{ fontSize: '2rem', margin: 0, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '10px' }}>{t('mapTitle')}</h2>
         
-        {/* 🎯 KÉTNYELVŰSÍTETT TIPP BANNER */}
+        {/* TIPP BANNER */}
         <div style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.15), rgba(56,189,248,0.15))', color: '#34d399', padding: '10px 18px', borderRadius: '12px', border: '1px solid rgba(16,185,129,0.3)', fontWeight: 'bold', fontSize: '0.88rem', maxWidth: '650px', lineHeight: '1.4', boxShadow: '0 4px 15px rgba(0,0,0,0.15)' }}>
           💡 <b>{t('mapSmartRadarTitle')}</b>{' '}
           {t('mapSmartRadarDesc')}
         </div>
       </div>
 
-      {/* 🎯 KÉTNYELVŰSÍTETT BENTO-STÍLUSÚ KÖZÖSSÉGI FELFEDEZŐ DASHBOARD PANELSOR */}
+      {/* BENTO-STÍLUSÚ DASHBOARD PANELSOR */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '20px', marginBottom: '25px' }}>
         
         {/* Kártya 1: Globális térkép adatok */}
@@ -618,11 +646,11 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
 
                   <p style={{ color: '#cbd5e1', fontSize: '0.9rem', margin: 0, lineHeight: '1.5' }}>{activeSpot.description}</p>
 
-                  {/* TIPIKUS EXIF ADATOK LEFORDÍTVA */}
+                  {/* EXIF ADATOK LEFORDÍTVA */}
                   {(activeSpot.photo_month || activeSpot.photo_time_of_day || activeSpot.camera || activeSpot.lens) && (
                     <div style={{ background: '#0f172a', border: '1px solid #1e293b', padding: '12px', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       <div style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#64748b', textTransform: 'uppercase', letterSpacing: '1px' }}>{t('mapExifCardTitle')}</div>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '0.8rem' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', fontSize: '0.8rem' }}>
                         {activeSpot.photo_month && <div style={{ background: '#1e293b', padding: '6px 10px', borderRadius: '6px', color: '#cbd5e1' }}>📅 <b>{translateDbValue(activeSpot.photo_month)}</b></div>}
                         {activeSpot.photo_time_of_day && <div style={{ background: '#1e293b', padding: '6px 10px', borderRadius: '6px', color: '#cbd5e1' }}>☀️ <b>{translateDbValue(activeSpot.photo_time_of_day)}</b></div>}
                         {activeSpot.camera && <div style={{ background: '#1e293b', padding: '6px 10px', borderRadius: '6px', color: '#cbd5e1', gridColumn: '1 / -1' }}>{t('mapExifCamera')}<b>{activeSpot.camera}</b></div>}
