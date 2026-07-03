@@ -50,6 +50,15 @@ interface PastArchiveProps {
   user: any; 
 }
 
+// 🎯 KÖZPONTI AUTH FEJLÉC GENERÁTOR HELYI RENDERSZINTRE
+const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
+  const token = localStorage.getItem('photoAppToken');
+  return {
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    ...extraHeaders
+  };
+};
+
 export default function PastArchive({
   pastTopics, selectedPastTopicId, setSelectedPastTopicId, loadPastHistoryList,
   pastClubLeaderboard, pastLeaderboard, getTopicType,
@@ -71,7 +80,7 @@ export default function PastArchive({
   const [activeShareData, setActiveShareData] = useState<any | null>(null);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
 
-  // 🎯 BIZTONSÁGI VÉDŐHÁLÓ: Lekérjük az aktuális témát, felkészülve a környezeti cold-startra
+  // BIZTONSÁGI VÉDŐHÁLÓ: Lekérjük az aktuális témát
   let isLight = false;
   try {
     const themeContext = useTheme();
@@ -220,7 +229,8 @@ export default function PastArchive({
             ? `${BACKEND_URL}/api/image-base64/${entry.drive_file_id}`
             : `${BACKEND_URL}/api/admin/base64-proxy?url=${encodeURIComponent(entry.file_url)}`;
             
-          const proxyRes = await fetch(proxyUrl);
+          // 🎯 JAVÍTVA: Az adminisztrátori képproxy hívása megkapta a hitelesítő fejlécet!
+          const proxyRes = await fetch(proxyUrl, { headers: getAuthHeaders() });
           if (proxyRes.ok) {
             const proxyData = await proxyRes.json();
             if (proxyData.base64) base64Url = proxyData.base64;
@@ -268,7 +278,7 @@ export default function PastArchive({
   return (
     <div style={{ width: '100%', boxSizing: 'border-box' }}>
       
-      {/* ── 🎯 ARCHÍVUM KÁRTYA RÁCS – Szinkronizált színekkel ── */}
+      {/* ── 🎯 ARCHÍVUM KÁRTYA RÁCS ── */}
       {!selectedPastTopicId ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px' }}>
           {Array.isArray(pastTopics) && pastTopics.map(topicRow => {
@@ -287,7 +297,7 @@ export default function PastArchive({
                 onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = 'var(--border-main)'; }}
               >
                 <div style={{ padding: '12px 16px', background: 'var(--bg-card)', borderBottom: '1px solid var(--border-main)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
-                  <h4 style={{ margin: 0, fontSize: '0.95rem', color: 'var(--text-title)', _fontWeight: '600', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>
+                  <h4 style={{ margin: 0, fontSize: '0.95rem', color: 'var(--text-title)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>
                     {lang === 'en' && topicRow.title_en ? topicRow.title_en : topicRow.title}
                   </h4>
                   <span style={{ flexShrink: 0, fontSize: '0.68rem', fontWeight: 'bold', padding: '2px 8px', borderRadius: '4px', background: isDaily ? 'rgba(239,68,68,0.08)' : 'rgba(139,92,246,0.08)', color: isDaily ? '#f87171' : '#a78bfa', border: `1px solid ${isDaily ? 'rgba(239,68,68,0.2)' : 'rgba(139,92,246,0.2)'}` }}>
@@ -362,7 +372,7 @@ export default function PastArchive({
             
             {/* 🥇 GYŐZTESEK FÜL */}
             {subTab === 'winners' && ( 
-              <div style={{ display: 'flex', flexSpread: 'column', alignItems: 'center', textAlign: 'center', flexDirection: 'column' }}>
+              <div style={{ display: 'flex', alignItems: 'center', textAlign: 'center', flexDirection: 'column' }}>
                 <div style={{ border: '1px solid var(--border-main)', background: 'var(--bg-main)', borderRadius: '8px', padding: '20px', width: '100%', maxWidth: '600px', boxSizing: 'border-box' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', color: '#fbbf24', fontSize: '0.8rem', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '14px' }}>
                     <Crown size={14} /> <span>{t('archiveWinnerTitleCard', 'TOP PHOTOGRAPHER WINNER')}</span>
@@ -442,9 +452,9 @@ export default function PastArchive({
                   {t('archivePrizesDesc', 'Tekintsd meg, milyen jutalmakban részesültek az aréna legjobbjai:')}
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.85rem' }}>
-                  <div style={{ background: 'var(--bg-main)', padding: '10px 14px', borderRadius: '4px', borderLeft: '3px solid #fbbf24', border: '1px solid var(--border-main)', color: 'var(--text-title)' }}><b style={{ color: '#fbbf24' }}>1. Helyezett:</b> +3 Joker csere kupon és 7 nap ingyen prémium tagság.</div>
-                  <div style={{ background: 'var(--bg-main)', padding: '10px 14px', borderRadius: '4px', borderLeft: '3px solid #cbd5e1', border: '1px solid var(--border-main)', color: 'var(--text-title)' }}><b style={{ color: isLight ? '#475569' : '#cbd5e1' }}>2. Helyezett:</b> +2 Joker csere kupon a következő futamokra.</div>
-                  <div style={{ background: 'var(--bg-main)', padding: '10px 14px', borderRadius: '4px', borderLeft: '3px solid #b45309', border: '1px solid var(--border-main)', color: 'var(--text-title)' }}><b style={{ color: '#b45309' }}>3. Helyezett:</b> +1 Joker csere kupon.</div>
+                  <div style={{ background: 'var(--bg-main)', padding: '10px 14px', borderRadius: '4px', border: '1px solid var(--border-main)', color: 'var(--text-title)' }}><b style={{ color: '#fbbf24' }}>1. Helyezett:</b> +3 Joker csere kupon és 7 nap ingyen prémium tagság.</div>
+                  <div style={{ background: 'var(--bg-main)', padding: '10px 14px', borderRadius: '4px', border: '1px solid var(--border-main)', color: 'var(--text-title)' }}><b style={{ color: isLight ? '#475569' : '#cbd5e1' }}>2. Helyezett:</b> +2 Joker csere kupon a következő futamokra.</div>
+                  <div style={{ background: 'var(--bg-main)', padding: '10px 14px', borderRadius: '4px', border: '1px solid var(--border-main)', color: 'var(--text-title)' }}><b style={{ color: '#b45309' }}>3. Helyezett:</b> +1 Joker csere kupon.</div>
                 </div>
               </div>
             )}
@@ -575,7 +585,7 @@ export default function PastArchive({
                   </div>
                   <div style={{ background: 'linear-gradient(180deg, #334155 0%, #1e293b 100%)', width: '100%', height: '200px', borderRadius: '16px 16px 0 0', border: '1px solid #475569', borderBottom: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '15px', boxSizing: 'border-box', textAlign: 'center' }}>
                     <div style={{ color: '#cbd5e1', fontSize: '24px', fontWeight: 'bold', width: '100%', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.2', textAlign: 'center', minHeight: '58px' }}>{adminPosterData.entries[1].user_name}</div>
-                    <div style={{ color: '#94a3b8', fontSize: '22px', fontWeight: '900', marginTop: '4px' }}>
+                    <div style={{ color: '#fdba74', fontSize: '22px', fontWeight: '900', marginTop: '4px' }}>
                       {adminPosterData.entries[1].fair_score !== undefined ? `${adminPosterData.entries[1].fair_score} pont` : `${adminPosterData.entries[1].likes_count} pont`}
                     </div>
                     <div style={{ color: '#cbd5e1', fontSize: '32px', fontWeight: '900', marginTop: '20px', letterSpacing: '1px' }}>🥈 2. {t('archivePosterPlace', 'HELY')}</div>
@@ -606,8 +616,8 @@ export default function PastArchive({
                   <div style={{ width: '240px', height: '240px', borderRadius: '16px', overflow: 'hidden', border: '6px solid #b45309', boxShadow: '0 20px 45px rgba(0,0,0,0.6)', backgroundColor: '#000', marginBottom: '15px' }}>
                     <img src={adminPosterData.entries[2].base64Url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   </div>
-                  <div style={{ background: 'linear-gradient(180deg, #7c2d12 0%, #431407 100%)', width: '100%', height: '200px', borderRadius: '16px 16px 0 0', border: '1px solid #7c2d12', borderBottom: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '15px', boxSizing: 'border-box', textAlign: 'center' }}>
-                    <div style={{ color: '#ffedd5', fontSize: '24px', fontWeight: 'bold', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{adminPosterData.entries[2].user_name}</div>
+                  <div style={{ background: 'linear-gradient(180deg, #7c2d12 0%, #431407 100%)', width: '100%', height: '200px', borderRadius: '16px 16px 0 0', border: '1px solid #7c2d12', borderBottom: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '15px', boxSizing: 'border-box' }}>
+                    <div style={{ color: 'white', fontWeight: '600', fontSize: '0.88rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry?.topic_title}</div>
                     <div style={{ color: '#fdba74', fontSize: '22px', fontWeight: '900', marginTop: '4px' }}>
                       {adminPosterData.entries[2].fair_score !== undefined ? `${adminPosterData.entries[2].fair_score} pont` : `${adminPosterData.entries[2].likes_count} pont`}
                     </div>
