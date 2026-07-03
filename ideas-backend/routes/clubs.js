@@ -1,15 +1,15 @@
 const fs = require('fs');
-const { OAuth2Client } = require('google-auth-library');
-const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+// 🎯 JAVÍTVA: Google Auth helyett a szabványos jsonwebtoken könyvtárat használjuk!
+const jwt = require('jsonwebtoken');
 
-// 🎯 A te valódi admin e-mailed biztonsági tartaléknak
+// A te valódi admin e-mailed biztonsági tartaléknak
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "kovari.rudolf@gmail.com";
 
 // ====================================================================
-// 🔒 GOLYÓÁLLÓ AUTHENTICATION MIDDLEWARE A CLUBS MODULHOZ
+// 🔒 GOLYÓÁLLÓ, PROJEKTSZINTŰ JWT AUTHENTICATION MIDDLEWARE
 // ====================================================================
 async function requireAuth(req, res, next) {
-  // 🛡️ Preflight kérések (OPTIONS) automatikus átengedése a CORS ütközések ellen
+  // Preflight kérések (OPTIONS) automatikus átengedése a CORS ütközések ellen
   if (req.method === 'OPTIONS') {
     return next();
   }
@@ -22,22 +22,18 @@ async function requireAuth(req, res, next) {
 
     const token = authHeader.split(' ')[1];
     
-    // Google OAuth IdToken hitelesítése
-    const ticket = await client.verifyIdToken({
-      idToken: token,
-      audience: process.env.GOOGLE_CLIENT_ID,
-    });
+    // 🎯 JAVÍTVA: A saját belső JWT tokenedet dekódoljuk a környezeti titkos kulccsal
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'photoapp_secret_fallback');
     
-    const payload = ticket.getPayload();
-    if (!payload || !payload.email) {
-      return res.status(401).json({ error: 'Érvénytelen vagy sérült Google token.' });
+    if (!decoded || !decoded.email) {
+      return res.status(401).json({ error: 'Érvénytelen vagy sérült munkamenet token.' });
     }
 
     // Biztonságosan injektáljuk a kérésbe a hitelesített entitást
     req.user = {
-      email: payload.email,
-      name: payload.name,
-      isAdmin: payload.email === ADMIN_EMAIL
+      email: decoded.email,
+      name: decoded.name || decoded.username || 'Felhasználó',
+      isAdmin: decoded.email === ADMIN_EMAIL
     };
 
     next();
@@ -175,7 +171,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // 👥 Jelenléti ívek védelme (Csak vezetőség láthatja!)
+  // 👥 Jelenléti ívek védelme
   // ====================================================================
   app.get('/api/attendance/:meetingId', requireAuth, async (req, res) => {
     const currentClubId = await getClubIdByMeeting(req.params.meetingId);
@@ -284,7 +280,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   // ====================================================================
   app.get('/api/clubs/active-only', requireAuth, async (req, res) => {
     try {
-      // 🎯 JAVÍTVA: Megtisztítva és elírásoktól mentesítve!
       const [rows] = await pool.query(`
         SELECT DISTINCT c.* FROM photo_clubs c
         INNER JOIN photo_users u ON c.id = u.club_id
@@ -327,7 +322,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       await conn.beginTransaction();
       if (action === 'approve') {
         await conn.query("UPDATE photo_users SET club_role = 'member' WHERE email = ?", [targetEmail]);
-        // 🎯 JAVÍTVA: Kigyomláltuk a korábbi duplázódott WHERE szintaktikai hibát!
         await conn.query("UPDATE photo_club_memberships SET status = 'left', left_date = CURRENT_DATE() WHERE user_email = ? AND status = 'active'", [targetEmail]);
         await conn.query("INSERT INTO photo_club_memberships (club_id, club_name, user_email, club_role, joined_date, status) VALUES (?, ?, ?, 'member', CURRENT_DATE(), 'active')", [clubId, clubName, targetEmail]);
       } else {
@@ -522,7 +516,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       const [users] = await pool.query('SELECT club_name, club_id FROM photo_users WHERE email = ?', [req.user.email]);
       let clubId = users.length > 0 ? users[0].club_id : null;
 
-      const [contests] = await pool.query(`SELECT id, title, end_date, restricted_club_id FROM photo_contests WHERE start_date <= CURRENT_DATE() AND end_date >= CURRENT_DATE() AND (restricted_club_id IS NULL OR restricted_club_id = 0 OR restricted_club_id = ?) ORDER BY end_date ASC`, [clubId || null]);
+      const [contests] = await pool.query suicide(`SELECT id, title, end_date, restricted_club_id FROM photo_contests WHERE start_date <= CURRENT_DATE() AND end_date >= CURRENT_DATE() AND (restricted_club_id IS NULL OR restricted_club_id = 0 OR restricted_club_id = ?) ORDER BY end_date ASC`, [clubId || null]);
       const [weekly] = await pool.query('SELECT id, title, end_date FROM weekly_topics WHERE start_date <= CURRENT_DATE() AND end_date >= CURRENT_DATE()');
 
       let homeworks = []; let unreadNews = [];
