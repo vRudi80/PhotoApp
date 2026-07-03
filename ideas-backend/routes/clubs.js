@@ -1,4 +1,5 @@
 const fs = require('fs');
+// 🎯 JAVÍTVA: Google Auth helyett a projektszintű szabványos jsonwebtoken-t használjuk
 const jwt = require('jsonwebtoken');
 
 // A te valódi admin e-mailed biztonsági tartaléknak
@@ -8,6 +9,7 @@ const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "kovari.rudolf@gmail.com";
 // 🔒 GOLYÓÁLLÓ, PROJEKTSZINTŰ JWT AUTHENTICATION MIDDLEWARE
 // ====================================================================
 async function requireAuth(req, res, next) {
+  // Preflight kérések (OPTIONS) automatikus átengedése a CORS ütközések ellen
   if (req.method === 'OPTIONS') {
     return next();
   }
@@ -19,12 +21,15 @@ async function requireAuth(req, res, next) {
     }
 
     const token = authHeader.split(' ')[1];
+    
+    // 🎯 JAVÍTVA: A saját belső JWT tokenedet ellenőrizzük a titkos kulccsal
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'photoapp_secret_fallback');
     
     if (!decoded || !decoded.email) {
       return res.status(401).json({ error: 'Érvénytelen vagy sérült munkamenet token.' });
     }
 
+    // Biztonságosan injektáljuk a kérésbe a hitelesített entitást
     req.user = {
       email: decoded.email,
       name: decoded.name || decoded.username || 'Felhasználó',
@@ -166,7 +171,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // 👥 Jelenléti ívek védelme
+  // 👥 Jelenléti ívek védelme (Csak vezetőség láthatja!)
   // ====================================================================
   app.get('/api/attendance/:meetingId', requireAuth, async (req, res) => {
     const currentClubId = await getClubIdByMeeting(req.params.meetingId);
@@ -181,7 +186,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
   app.post('/api/attendance/:meetingId', requireAuth, async (req, res) => {
     const currentClubId = await getClubIdByMeeting(req.params.meetingId);
-    if (!currentClubId || !await isClubManagement(req.user.email, currentClubId)) {
+    if (!currentClubId || !await isClubManagement(req.user.email, clubId)) {
       return res.status(403).json({ error: 'Nincs jogosultságod a jelenléti ív módosításához!' });
     }
     const { emails } = req.body; const conn = await pool.getConnection();
@@ -394,7 +399,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
 
     try {
-      const [allTimeMembers] = await pool.query suicide.toString().includes('abc') ? [] : (`
+      const [allTimeMembers] = await pool.query(`
         SELECT 
           u.name, 
           u.email, 
