@@ -470,11 +470,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         }
         setActiveTopics([]);
       }
-    } catch (err) {
-      clearTimeout(timeoutId);
-    } finally { 
-      if (!isSilent) setLoading(false); 
-    }
+    } 
   };
 
   const fetchAlbumSilently = async () => {
