@@ -2,9 +2,9 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { BACKEND_URL } from '../utils/constants';
 import { getImageUrl } from '../utils/helpers';
 import PremiumPaywall from './PremiumPaywall';
-import VideoLoader from '../components/VideoLoader'; // 👈 Figyelj a relatív útvonalra!
+import VideoLoader from '../components/VideoLoader';
 
-// 🎯 ÚJ IMPORT: Nyelvi környezet beemelése
+// Nyelvi kontextus beemelése
 import { useLanguage } from '../context/LanguageContext';
 
 interface MyAlbumViewProps {
@@ -12,8 +12,17 @@ interface MyAlbumViewProps {
   setFullscreenData: (data: {url: string, title?: string}) => void;
 }
 
+// 🎯 KÖZPONTI AUTH FEJLÉC GENERÁTOR VÉDETT VÉGPONTOKHOZ
+const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
+  const token = localStorage.getItem('photoAppToken');
+  return {
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    ...extraHeaders
+  };
+};
+
 export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProps) {
-  // 🎯 ÚJ: Nyelvi hookok aktiválása (t a fordításokhoz, lang a feltételes elágazásokhoz)
+  // Nyelvi hookok aktiválása
   const { t, lang } = useLanguage();
 
   const [photos, setPhotos] = useState<any[]>([]);
@@ -23,13 +32,13 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
   
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadTitle, setUploadTitle] = useState('');
-  const [uploadTitleHu, setUploadTitleHu] = useState(''); // 🎯 ÚJ: Feltöltésnél is megadható a magyar cím
+  const [uploadTitleHu, setUploadTitleHu] = useState(''); 
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
   const [editingPhotoId, setEditingPhotoId] = useState<number | null>(null);
   const [editTitle, setEditTitle] = useState('');
-  const [editTitleHu, setEditTitleHu] = useState(''); // 🎯 ÚJ: Szerkesztésnél a magyar cím
+  const [editTitleHu, setEditTitleHu] = useState(''); 
   const [editFile, setEditFile] = useState<File | null>(null);
   const [updatingPhotoId, setUpdatingPhotoId] = useState<number | null>(null);
   const [analyzingPhotoId, setAnalyzingPhotoId] = useState<number | null>(null);
@@ -42,7 +51,6 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
   
   const maxStorageBytes = premiumLevel >= 2 ? 5 * 1024 * 1024 * 1024 : 1 * 1024 * 1024 * 1024; 
   
-  // 🎯 JAVÍTVA: Dinamikus, nyelvfüggő csomagnév hozzárendelés
   const packageName = premiumLevel >= 2 
     ? (lang === 'en' ? 'Pro Premium (5 GB)' : 'Pro Premium (5 GB)')
     : (lang === 'en' ? 'Basic Premium (1 GB)' : 'Alap Premium (1 GB)');
@@ -54,21 +62,31 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
     }
 
     try {
-      const res = await fetch(`${BACKEND_URL}/api/my-album?userEmail=${user.email}`);
+      // 🎯 JAVÍTVA: Az albumlista lekérése megkapta a biztonsági tokent
+      const res = await fetch(`${BACKEND_URL}/api/my-album?userEmail=${user.email}`, {
+        headers: getAuthHeaders()
+      });
       if (res.ok) {
         setPhotos(await res.json());
-        const resResults = await fetch(`${BACKEND_URL}/api/my-portfolio-results?userEmail=${user.email}`);
+        
+        // 🎯 JAVÍTVA: A szaloneredmények lekérése megkapta a biztonsági tokent
+        const resResults = await fetch(`${BACKEND_URL}/api/my-portfolio-results?userEmail=${user.email}`, {
+          headers: getAuthHeaders()
+        });
         if (resResults.ok) setPhotoResults(await resResults.json());
       }
 
-      const resStats = await fetch(`${BACKEND_URL}/api/admin/user-storage-stats`);
+      // 🎯 JAVÍTVA: A globális tárhelystatisztika lekérése megkapta a biztonsági tokent
+      const resStats = await fetch(`${BACKEND_URL}/api/admin/user-storage-stats`, {
+        headers: getAuthHeaders()
+      });
       if (resStats.ok) {
         const stats = await resStats.json();
         const myStat = stats.find((s: any) => s.user_email === user.email);
         if (myStat) setTotalAccountBytes(Number(myStat.total_bytes));
       }
     } catch (e) {
-      console.error(e);
+      console.error("Hiba az album betöltésekor:", e);
     } finally { 
       setIsLoading(false);
     }
@@ -83,7 +101,7 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
     const lowerTerm = searchTerm.toLowerCase();
     return photos.filter(p => {
       const matchTitle = p.title && p.title.toLowerCase().includes(lowerTerm);
-      const matchTitleHu = p.title_hu && p.title_hu.toLowerCase().includes(lowerTerm); // 🎯 Keresés a magyar címben is
+      const matchTitleHu = p.title_hu && p.title_hu.toLowerCase().includes(lowerTerm); 
       const matchAi = p.ai_tags && p.ai_tags.toLowerCase().includes(lowerTerm);
       return matchTitle || matchTitleHu || matchAi;
     });
@@ -129,11 +147,16 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
     try {
       const formData = new FormData();
       formData.append('title', editTitle);
-      formData.append('title_hu', editTitleHu); // 🎯 ÚJ MEZŐ KÜLDÉSE BACKENDRE
+      formData.append('title_hu', editTitleHu); 
       formData.append('userEmail', user.email);
       if (editFile) formData.append('photo', editFile);
 
-      const res = await fetch(`${BACKEND_URL}/api/my-album/${photoId}`, { method: 'PUT', body: formData });
+      // 🎯 JAVÍTVA: Kép adatainak módosítása hitelesített tokennel (Content-Type-ot a böngésző kezeli!)
+      const res = await fetch(`${BACKEND_URL}/api/my-album/${photoId}`, { 
+        method: 'PUT', 
+        headers: getAuthHeaders(),
+        body: formData 
+      });
       if (res.ok) {
         setEditingPhotoId(null);
         setEditFile(null);
@@ -145,7 +168,12 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
   const handleDelete = async (photoId: number) => {
     if (!window.confirm(t('msgAlbumDeleteConfirm') || "Biztosan törlöd?")) return;
     try {
-      const res = await fetch(`${BACKEND_URL}/api/my-album/${photoId}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userEmail: user.email }) });
+      // 🎯 JAVÍTVA: Fotó végleges törlése hitelesített tokennel és JSON tartalommal
+      const res = await fetch(`${BACKEND_URL}/api/my-album/${photoId}`, { 
+        method: 'DELETE', 
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }), 
+        body: JSON.stringify({ userEmail: user.email }) 
+      });
       if (res.ok) fetchMyPhotos();
     } catch (e) { alert(t('msgAlbumDeleteError') || "Hiba a törlésnél."); }
   };
@@ -153,7 +181,12 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
   const handleAnalyzePhoto = async (photoId: number) => {
     setAnalyzingPhotoId(photoId);
     try {
-      const res = await fetch(`${BACKEND_URL}/api/my-album/${photoId}/analyze`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userEmail: user.email }) });
+      // 🎯 JAVÍTVA: AI képértékelés kérése hitelesített tokennel
+      const res = await fetch(`${BACKEND_URL}/api/my-album/${photoId}/analyze`, { 
+        method: 'POST', 
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }), 
+        body: JSON.stringify({ userEmail: user.email }) 
+      });
       if (res.ok) fetchMyPhotos();
       else { 
         const data = await res.json(); 
@@ -184,9 +217,14 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
       formData.append('userEmail', user.email);
       formData.append('userName', user.name);
       formData.append('title', uploadTitle);
-      formData.append('title_hu', uploadTitleHu); // 🎯 ÚJ FELTÖLTŐ MEZŐ KÜLDÉSE BACKENDRE
+      formData.append('title_hu', uploadTitleHu); 
 
-      const res = await fetch(`${BACKEND_URL}/api/my-album/upload`, { method: 'POST', body: formData });
+      // 🎯 JAVÍTVA: Új portfólió fotó feltöltése érvényes tokennel (Content-Type nélkül!)
+      const res = await fetch(`${BACKEND_URL}/api/my-album/upload`, { 
+        method: 'POST', 
+        headers: getAuthHeaders(),
+        body: formData 
+      });
       if (res.ok) {
         setUploadFile(null);
         setUploadPreview(null);
@@ -262,7 +300,6 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
               onChange={e => setUploadTitle(e.target.value)} 
               style={{ width: '100%', padding: '10px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '6px', boxSizing: 'border-box', marginBottom: '8px' }}
             />
-            {/* 🎯 ÚJ MEZŐ FELTÖLTÉSNÉL */}
             <input 
               type="text" 
               placeholder="Magyar cím (Opcionális)" 
@@ -369,10 +406,8 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
                 {!hasAward && hasAcceptance && <div style={{ position: 'absolute', top: '10px', right: '10px', background: '#10b981', color: 'white', padding: '2px 8px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 'bold', zIndex: 5, boxShadow: '-2px 2px 5px rgba(0,0,0,0.4)' }}>ACC</div>}
               </div>
               
-              {/* 🎯 MINWIDTH 0 HOZZÁADVA: A text-overflow ellipsis csak akkor működik, ha a flex elemnek van min-width értéke */}
               <div style={{ padding: '15px', display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
                 
-                {/* 🎯 CÍMEK MEGJELENÍTÉSE (Kicsúszás gátló ellipsis beállításokkal) */}
                 <div 
                   title={photo.title}
                   style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#f8fafc', marginBottom: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
@@ -477,7 +512,6 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
                   </details>
                 )}
                 
-                {/* 🎯 SZERKESZTŐ FORM (Itt látszik mindkét input mező) */}
                 {editingPhotoId === photo.id ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: 'auto' }}>
                     <input 
@@ -510,7 +544,7 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
                       onClick={() => { 
                         setEditingPhotoId(photo.id); 
                         setEditTitle(photo.title || ''); 
-                        setEditTitleHu(photo.title_hu || ''); // Betöltjük a magyar címet is
+                        setEditTitleHu(photo.title_hu || ''); 
                       }} 
                       style={{ flex: '1 1 calc(33% - 8px)', background: '#38bdf820', color: '#38bdf8', border: 'none', padding: '8px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}
                     >
