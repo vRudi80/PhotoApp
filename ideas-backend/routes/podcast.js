@@ -1,12 +1,56 @@
 const axios = require('axios');
+const { OAuth2Client } = require('google-auth-library');
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+// 🎯 JAVÍTVA: A te valódi admin e-mailedet állítottuk be biztonsági tartaléknak!
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "kovari.rudolf@gmail.com";
+
+// ====================================================================
+// 🔒 GOLYÓÁLLÓ AUTHENTICATION MIDDLEWARE A PODCAST MODULHOZ
+// ====================================================================
+async function requireAuth(req, res, next) {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Hozzáférés megtagadva! Nincs hitelesítési token.' });
+    }
+
+    const token = authHeader.split(' ')[1];
+    
+    // Google OAuth IdToken hitelesítése
+    const ticket = await client.verifyIdToken({
+      idToken: token,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+    
+    const payload = ticket.getPayload();
+    if (!payload || !payload.email) {
+      return res.status(401).json({ error: 'Érvénytelen vagy sérült Google token.' });
+    }
+
+    // Biztonságosan injektáljuk a kérésbe a hitelesített entitást
+    req.user = {
+      email: payload.email,
+      name: payload.name,
+      isAdmin: payload.email === ADMIN_EMAIL
+    };
+
+    next();
+  } catch (error) {
+    console.error("🔒 Biztonsági őr hiba a podcast modulban:", error.message);
+    return res.status(401).json({ error: 'Lejárt vagy érvénytelen munkamenet token!' });
+  }
+}
 
 // Globális memóriatároló (Cache) a YouTube kvóta védelmében
 let podcastCache = { data: null, lastFetched: 0 };
 
 module.exports = function(app, pool) {
   
-  // 🎙️ YOUTUBE PODCAST AUTOMATIKUS LEKÉRDEZŐ VÉGPONT
-  app.get('/api/podcast', async (req, res) => {
+  // ====================================================================
+  // 🎙️ YOUTUBE PODCAST AUTOMATIKUS LEKÉRDEZŐ VÉGPONT (VÉDETT)
+  // ====================================================================
+  app.get('/api/podcast', requireAuth, async (req, res) => {
     const now = Date.now();
     const CACHE_DURATION = 3600000; // 1 óra ezredmásodpercben
 
