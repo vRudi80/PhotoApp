@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ADMIN_EMAIL, BACKEND_URL } from '../utils/constants';
+
+// Nyelvi környezet beemelése
 import { useLanguage } from '../context/LanguageContext';
 
 interface TicketsViewProps {
   user: any;
 }
 
-// 🎯 KÖZPONTI AUTH FEJLÉC GENERÁTOR HELYI RENDERSZINTRE
+// KÖZPONTI AUTH FEJLÉC GENERÁTOR HELYI RENDERSZINTRE
 const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
   const token = localStorage.getItem('photoAppToken');
   return {
@@ -26,6 +28,9 @@ export default function TicketsView({ user }: TicketsViewProps) {
   const [selectedTicket, setSelectedTicket] = useState<any>(null);
   const [replies, setReplies] = useState<any[]>([]);
   
+  // 🎯 ÚJ: Betöltési állapot a villódzás és a korai hibaüzenetek ellen
+  const [loading, setLoading] = useState(true);
+  
   const [subject, setSubject] = useState('');
   const [initialMessage, setInitialMessage] = useState('');
   const [replyMessage, setReplyMessage] = useState('');
@@ -33,21 +38,36 @@ export default function TicketsView({ user }: TicketsViewProps) {
   
   const chatEndRef = useRef<HTMLDivElement>(null);
 
+  // Ticketek betöltése
   const loadTickets = () => {
+    const token = localStorage.getItem('photoAppToken');
+    if (!token || !user?.email) return;
+
     fetch(`${BACKEND_URL}/api/tickets`, {
       headers: getAuthHeaders()
     })
       .then(res => res.json())
-      .then(data => setTickets(Array.isArray(data) ? data : []))
-      .catch(console.error);
+      .then(data => {
+        setTickets(Array.isArray(data) ? data : []);
+        setLoading(false); // 🎯 Betöltés sikeresen lezárult
+      })
+      .catch(err => {
+        console.error(err);
+        setLoading(false);
+      });
   };
 
   useEffect(() => {
+    if (!user?.email) {
+      setLoading(true);
+      return;
+    }
     loadTickets();
   }, [user]);
 
+  // Válaszok betöltése egy kiválasztott tickethez
   useEffect(() => {
-    if (selectedTicket) {
+    if (selectedTicket && user?.email) {
       fetch(`${BACKEND_URL}/api/tickets/${selectedTicket.id}/replies`, {
         headers: getAuthHeaders()
       })
@@ -58,9 +78,10 @@ export default function TicketsView({ user }: TicketsViewProps) {
         })
         .catch(console.error);
     }
-  }, [selectedTicket]);
+  }, [selectedTicket, user]);
 
   const handleCreateTicket = async () => {
+    if (!user?.email) return;
     if (!subject.trim() || !initialMessage.trim()) return alert(t('msgTicketsFillRequired'));
     
     try {
@@ -79,7 +100,7 @@ export default function TicketsView({ user }: TicketsViewProps) {
   };
 
   const handleSendReply = async () => {
-    if (!replyMessage.trim() || isSending) return;
+    if (!user?.email || !replyMessage.trim() || isSending) return;
     setIsSending(true);
 
     try {
@@ -123,6 +144,15 @@ export default function TicketsView({ user }: TicketsViewProps) {
     const s = config[status] || config.open;
     return <span style={{ background: s.bg, color: s.color, border: `1px solid ${s.color}30`, padding: '4px 10px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 'bold' }}>{s.text}</span>;
   };
+
+  // 🎯 ÚJ: Amíg nincs felhasználó vagy töltődnek a jegyek, tiszta és professzionális várakozás jön be
+  if (loading) {
+    return (
+      <div style={{ color: '#64748b', textAlign: 'center', padding: '60px 20px', fontStyle: 'italic' }}>
+        ⏳ {lang === 'en' ? 'Synchronizing tickets and secure session...' : 'Hibajegyek és biztonságos munkamenet szinkronizálása...'}
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: selectedTicket ? '1fr' : 'repeat(auto-fit, minmax(320px, 1fr))', gap: '30px', alignItems: 'start' }}>
