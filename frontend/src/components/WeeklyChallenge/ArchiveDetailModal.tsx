@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { getImageUrl } from '../../../utils/helpers';
-import VideoLoader from '../../../components/VideoLoader';
-import { BACKEND_URL } from '../../../utils/constants';
+import { getImageUrl } from '../../utils/helpers';
+import VideoLoader from '../../components/VideoLoader';
+import { BACKEND_URL } from '../../utils/constants';
 
-// Nyelvi kontextus betöltése a nemzetközi működéshez
-import { useLanguage } from '../../../context/LanguageContext';
+// Nyelvi kontextus aktiválása
+import { useLanguage } from '../../context/LanguageContext';
 
 // Téma környezet betöltése a reaktív színváltáshoz
-import { useTheme } from '../../../context/ThemeContext';
+import { useTheme } from '../../context/ThemeContext';
 
 // Professzionális Lucide Ikonok importálása az AI-sallangok ellen
 import { 
@@ -37,7 +37,6 @@ interface ArchiveDetailModalProps {
   onLikeUpdate: () => void;
 }
 
-// ── 🛡️ Globális kép-helyreállító motor a törések ellen ──
 const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
   e.currentTarget.src = 'https://via.placeholder.com/400x300/1e293b/64748b?text=Image+not+found';
 };
@@ -49,11 +48,9 @@ export default function ArchiveDetailModal({ entry, userEmail, userName, onClose
   const [newComment, setNewComment] = useState('');
   const [loadingComments, setLoadingComments] = useState(false);
 
-  // LOKÁLIS MEMÓRIA: Szigorúan csak az archív szíveket (archive_likes) vesszük alapul
   const [likesCount, setLikesCount] = useState<number>(Number(entry?.archive_likes) || 0);
   const [isLiked, setIsLiked] = useState<boolean>(entry?.has_user_liked === 1 || entry?.has_user_liked === true);
 
-  // 🎯 BIZTONSÁGI VÉDŐHÁLÓ: Lekérjük az aktuális témát, felkészülve a környezeti cold-startra
   let isLight = false;
   try {
     const themeContext = useTheme();
@@ -62,7 +59,6 @@ export default function ArchiveDetailModal({ entry, userEmail, userName, onClose
     }
   } catch (e) {}
 
-  // Biztonsági háló: Ha a beküldött entry megváltozik, szinkronizálunk
   useEffect(() => {
     setLikesCount(Number(entry?.archive_likes) || 0);
     setIsLiked(entry?.has_user_liked === 1 || entry?.has_user_liked === true);
@@ -142,7 +138,6 @@ export default function ArchiveDetailModal({ entry, userEmail, userName, onClose
   return (
     <div style={{ position: 'fixed', inset: 0, background: isLight ? 'rgba(240,244,248,0.95)' : 'rgba(9, 13, 22, 0.96)', backdropFilter: 'blur(16px)', zIndex: 99999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px', boxSizing: 'border-box' }}>
       
-      {/* ── 🎯 ARCHÍVUM KIÁLLÍTÓTEREM REAKTÍV CSS LAYOUT ── */}
       <style>{`
         .theater-modal-card {
           background: var(--bg-card);
@@ -159,7 +154,7 @@ export default function ArchiveDetailModal({ entry, userEmail, userName, onClose
         }
 
         .theater-photo-section {
-          background: #060912; /* Sötét stúdió doboz a fotó kiemeléséhez */
+          background: #060912;
           flex: 1.2 !important; 
           display: flex;
           justify-content: center;
@@ -210,10 +205,7 @@ export default function ArchiveDetailModal({ entry, userEmail, userName, onClose
         }
       `}</style>
 
-      {/* FŐ KÁRTYA CONTAINER */}
       <div className="theater-modal-card">
-        
-        {/* 1. FELSŐ RÉSZ: FOTÓ PANEL (Stúdió környezetben tartva) */}
         <div className="theater-photo-section">
           <button onClick={onClose} style={{ position: 'absolute', top: '20px', left: '20px', background: '#222f47', border: '1px solid #334155', color: '#cbd5e1', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', zIndex: 10, transition: 'all 0.15s ease', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }} className="modal-top-close-cross">
             <ArrowLeft size={14} /> {t('archiveBtnBack', 'Vissza')}
@@ -221,19 +213,12 @@ export default function ArchiveDetailModal({ entry, userEmail, userName, onClose
           <img className="theater-archive-img" src={entry.file_url} alt="" onError={handleImageError} />
         </div>
 
-        {/* 2. ALSÓ RÉSZ: ADATOK ÉS ADAPTÍV KOMMENTÁR ZÓNA */}
         <div className="theater-info-section">
-          
-          {/* Hivatalos fejlécsor */}
           <div className="theater-header-row">
             <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '4px' }}>
-              
-              {/* Név adaptív kiemelése témától függően */}
               <h3 style={{ color: isLight ? '#0284c7' : '#38bdf8', margin: 0, fontSize: '1.3rem', fontWeight: '700', lineHeight: '1.2', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%', letterSpacing: '-0.3px' }}>
                 {entry.user_name}
               </h3>
-              
-              {/* Klubnév szoftveres outline plecsnivel */}
               {entry.club_name && (
                 <div style={{ display: 'flex', width: 'auto', flexShrink: 0, whiteSpace: 'nowrap', marginTop: '2px' }}>
                   <span style={{ color: '#10b981', fontSize: '0.75rem', fontWeight: 'bold', background: 'rgba(16,185,129,0.06)', padding: '3px 10px', borderRadius: '4px', border: '1px solid rgba(16,185,129,0.2)', display: 'inline-block', textTransform: 'uppercase', letterSpacing: '0.3px' }}>
@@ -241,14 +226,11 @@ export default function ArchiveDetailModal({ entry, userEmail, userName, onClose
                   </span>
                 </div>
               )}
-              
-              {/* Eredmény */}
               <div style={{ color: 'var(--text-muted)', fontSize: '0.82rem', fontWeight: 'bold', marginTop: '4px' }}>
                 {lang === 'en' ? 'Result: ' : 'Eredmény: '} <span style={{ color: '#f59e0b' }}>{entry.likes_count} ⭐</span>
               </div>
             </div>
 
-            {/* Elismerések / Kedvelés gomb */}
             <button 
               onClick={handleLike}
               style={{ display: 'flex', alignItems: 'center', gap: '8px', background: isLiked ? 'rgba(239, 68, 68, 0.08)' : 'var(--bg-main)', border: isLiked ? '1px solid #ef4444' : '1px solid var(--border-main)', color: isLiked ? '#f87171' : 'var(--text-body)', padding: '10px 16px', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.15s ease', flexShrink: 0, fontSize: '0.88rem' }}
@@ -258,7 +240,6 @@ export default function ArchiveDetailModal({ entry, userEmail, userName, onClose
             </button>
           </div>
 
-          {/* Gördíthető kommentfolyam */}
           <div className="theater-comments-flow">
             <h4 style={{ color: 'var(--text-muted)', margin: '0 0 2px 0', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
               <MessageSquare size={12} /> {lang === 'en' ? 'DISCUSSION' : 'ESZMECSERE'}
@@ -267,7 +248,7 @@ export default function ArchiveDetailModal({ entry, userEmail, userName, onClose
             {loadingComments && comments.length === 0 ? (
               <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '10px', fontSize: '0.82rem', fontStyle: 'italic' }}>Gondolatok betöltése...</div>
             ) : comments.length === 0 ? (
-              <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '30px 20px', margin: 'auto 0', fontStyle: 'italic', fontSize: '0.88rem' }}>{lang === 'en' ? 'Write the first thought about this photograph! 🪶' : 'Írd le az első gondolatot a fotóról! 🪶'}</div>
+              <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '30px 20px', margin: 'auto 0', fontStyle: 'italic', fontSize: '0.88rem' }}>{lang === 'en' ? 'Write the first thought about this photo! 🪶' : 'Írd le az első gondolatot a fotóról! 🪶'}</div>
             ) : (
               comments.map((c) => {
                 const isMe = c.user_email === userEmail;
@@ -284,7 +265,6 @@ export default function ArchiveDetailModal({ entry, userEmail, userName, onClose
             )}
           </div>
 
-          {/* Hozzászólás beküldő űrlap */}
           <form onSubmit={handleCommentSubmit} style={{ padding: '12px 20px', background: 'var(--bg-card)', borderTop: '1px solid var(--border-main)', display: 'flex', gap: '10px', flexShrink: 0, boxSizing: 'border-box' }}>
             <input 
               type="text" 
@@ -303,7 +283,6 @@ export default function ArchiveDetailModal({ entry, userEmail, userName, onClose
             </button>
           </form>
         </div>
-
       </div>
     </div>
   );
