@@ -520,6 +520,61 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       res.json(rows[0] || { membership_start: null, membership_end: null });
     } catch (err) { res.status(500).json({ error: err.message }); }
   });
+
+  // ====================================================================
+  // 🚫 TILTÓLISTA KEZELÉSE (KIZÁRÓLAG GLOBÁLIS ADMINOKNAK)
+  // ====================================================================
+  
+  // 1. Tiltólista teljes lekérése
+  app.get('/api/admin/banned-emails', requireAuth, async (req, res) => {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Hozzáférés megtagadva!' });
+    try {
+      const [rows] = await pool.query('SELECT email, DATE_FORMAT(banned_at, "%Y-%m-%d %H:%i") as banned_at FROM photo_banned_emails ORDER BY banned_at DESC');
+      res.json(rows);
+    } catch (err) { 
+      console.error("❌ Hiba a tiltólista lekérésekor:", err.message);
+      res.status(500).json({ error: 'Szerveroldali hiba történt.' }); 
+    }
+  });
+
+  // 2. Új e-mail végleges kitiltása és az adatai azonnali takarítása
+  app.post('/api/admin/banned-emails', requireAuth, async (req, res) => {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Hozzáférés megtagadva!' });
+    const { email } = req.body;
+    if (!email || !email.includes('@')) return res.status(400).json({ error: 'Érvényes e-mail cím megadása kötelező!' });
+
+    const targetEmail = email.trim().toLowerCase();
+    const conn = await pool.getConnection();
+    try {
+      await conn.beginTransaction();
+      
+      // Elhelyezzük a feketelistában
+      await conn.query('INSERT IGNORE INTO photo_banned_emails (email) VALUES (?)', [targetEmail]);
+      
+      // GDPR takarítás: Töröljük az aktív felhasználók közül
+      await conn.query('DELETE FROM photo_users WHERE email = ?', [targetEmail]);
+      
+      await conn.commit();
+      res.json({ success: true, message: 'E-mail cím sikeresen tiltva, adatok törölve.' });
+    } catch (err) {
+      await conn.rollback();
+      res.status(500).json({ error: err.message });
+    } finally { 
+      conn.release(); 
+    }
+  });
+
+  // 3. Kitiltás feloldása (Unban)
+  app.delete('/api/admin/banned-emails/:email', requireAuth, async (req, res) => {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Hozzáférés megtagadva!' });
+    const targetEmail = req.params.email.trim().toLowerCase();
+    try {
+      await pool.query('DELETE FROM photo_banned_emails WHERE email = ?', [targetEmail]);
+      res.json({ success: true, message: 'A kitiltás sikeresen feloldva.' });
+    } catch (err) { 
+      res.status(500).json({ error: err.message }); 
+    }
+  });
   
   app.get('/api/dashboard-alerts', requireAuth, async (req, res) => {
     try {
