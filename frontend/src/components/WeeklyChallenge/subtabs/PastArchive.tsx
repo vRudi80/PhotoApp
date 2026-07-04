@@ -78,7 +78,7 @@ export default function PastArchive({
   const [activeShareData, setActiveShareData] = useState<any | null>(null);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
 
-  // 🎯 ÚJ HELYI ÁLLAPOT: Felhasználói profilkép-térkép a photo_users táblából
+  // Felhasználói profilkép-térkép a photo_users táblából
   const [userAvatars, setUserAvatars] = useState<Record<string, string>>({});
 
   let isLight = false;
@@ -91,7 +91,7 @@ export default function PastArchive({
 
   const silhouetteAvatar = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23475569'><circle cx='12' cy='8' r='4'/><path d='M12 14c-6.1 0-10 4-10 4v2h20v-2s-3.9-4-10-4z'/></svg>";
 
-  // 🎯 ÚJ AUTOMATA SZINKRONIZÁCIÓ: Betöltjük a photo_users tábla profilképeit név és email alapján
+  // Betöltjük a photo_users tábla profilképeit név és email alapján
   useEffect(() => {
     const loadRealPhotoUsersAvatars = async () => {
       try {
@@ -116,7 +116,7 @@ export default function PastArchive({
     loadRealPhotoUsersAvatars();
   }, [selectedPastTopicId]);
 
-  // 🎯 ÚJ ADAPTÍV PROFILKÉP MEGJELENÍTŐ (Keresztlekérdezés a letöltött photo_users jegyzékből)
+  // Adaptív profilkép megjelenítő
   const getProfileAvatar = (name: string, email?: string) => {
     if (name) {
       const keyName = name.toLowerCase().trim();
@@ -179,13 +179,19 @@ export default function PastArchive({
     return pastTopics.find(x => x.id === selectedPastTopicId) || null;
   }, [selectedPastTopicId, pastTopics]);
 
+  // 🎯 JAVÍTVA: Szigorúan szinkronizált, determinisztikus holtverseny-szűrő a dobogóhoz
   const topThreeWinners = useMemo(() => {
     if (!pastLeaderboard || pastLeaderboard.length === 0) return [];
     return [...pastLeaderboard].sort((a, b) => {
-      const scoreA = a.fair_score !== undefined ? Number(a.fair_score) : Number(a?.likes_count || 0);
-      const scoreB = b.fair_score !== undefined ? Number(b.fair_score) : Number(b?.likes_count || 0);
+      const scoreA = a.fair_score !== undefined ? Number(a.fair_score) : Number(a.archive_likes || a?.likes_count || 0);
+      const scoreB = b.fair_score !== undefined ? Number(b.fair_score) : Number(b.archive_likes || b?.likes_count || 0);
       if (scoreB !== scoreA) return scoreB - scoreA;
-      return (Number(a?.views_count || 0)) - (Number(b?.views_count || 0));
+
+      const likesA = Number(a.archive_likes || a?.likes_count || 0);
+      const likesB = Number(b.archive_likes || b?.likes_count || 0);
+      if (likesB !== likesA) return likesB - likesA;
+
+      return Number(a.id || 0) - Number(b.id || 0);
     }).slice(0, 3);
   }, [pastLeaderboard]);
 
@@ -197,12 +203,19 @@ export default function PastArchive({
     return computeArchiveRank(topThreeWinners[0].rank_level, Number(score));
   }, [topThreeWinners]);
 
+  // 🎯 JAVÍTVA: Hajszálpontosan ugyanaz a determinisztikus rendezési logika a teljes rangsorhoz is!
   const singlePhotosRankedList = useMemo(() => {
     if (!pastLeaderboard || pastLeaderboard.length === 0) return [];
     return [...pastLeaderboard].sort((a, b) => {
-      const votesA = a.fair_score !== undefined ? a.fair_score : (a.archive_likes || a.likes_count || 0);
-      const votesB = b.fair_score !== undefined ? b.fair_score : (b.archive_likes || b.likes_count || 0);
-      return votesB - votesA;
+      const scoreA = a.fair_score !== undefined ? Number(a.fair_score) : Number(a.archive_likes || a.likes_count || 0);
+      const scoreB = b.fair_score !== undefined ? Number(b.fair_score) : Number(b.archive_likes || b.likes_count || 0);
+      if (scoreB !== scoreA) return scoreB - scoreA;
+
+      const likesA = Number(a.archive_likes || a.likes_count || 0);
+      const likesB = Number(b.archive_likes || b.likes_count || 0);
+      if (likesB !== likesA) return likesB - likesA;
+
+      return Number(a.id || 0) - Number(b.id || 0);
     });
   }, [pastLeaderboard]);
 
@@ -251,7 +264,7 @@ export default function PastArchive({
   return (
     <div style={{ width: '100%', boxSizing: 'border-box' }}>
       
-      {/* ── 🎯 ARCHÍVUM KÁRTYA RÁCS – Teljesen reszponzív, téma-adaptív stíluslap ── */}
+      {/* ── ARCHÍVUM KÁRTYA RÁCS ── */}
       {!selectedPastTopicId ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px' }}>
           {Array.isArray(pastTopics) && pastTopics.map(topicRow => {
@@ -305,7 +318,7 @@ export default function PastArchive({
         </div>
       ) : (
         
-        // ── 🏛️ DETALIZÁLT AL-ARÉNA PANEL ──
+        {/* ── DETALIZÁLT AL-ARÉNA PANEL ── */}
         <div style={{ display: 'flex', background: 'transparent', flexDirection: 'column', gap: '20px', width: '100%' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
             <button onClick={() => setSelectedPastTopicId(null)} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', color: 'var(--text-title)', padding: '6px 14px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '6px', transition: 'all 0.15s' }}>
@@ -347,7 +360,6 @@ export default function PastArchive({
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-card)', padding: '12px 16px', borderRadius: '6px', borderLeft: '4px solid #fbbf24', border: '1px solid var(--border-main)' }}>
                         <div style={{ display: 'flex', gap: '10px', alignItems: 'center', textAlign: 'left' }}>
-                          {/* 🎯 JAVÍTVA: A győztes profilképe mostantól golyóállóan a photo_users belső szinkrontérképéből tölt be! */}
                           <img 
                             src={getProfileAvatar(topThreeWinners[0].user_name, topThreeWinners[0].user_email || topThreeWinners[0].email)} 
                             alt="" 
@@ -391,7 +403,6 @@ export default function PastArchive({
             {subTab === 'details' && (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '24px', alignItems: 'start' }}>
                 <div style={{ background: 'var(--bg-main)', padding: '16px', borderRadius: '6px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', border: '1px solid var(--border-main)' }}>
-                  {/* 🎯 JAVÍTVA: A Képmester profilképe szintén a photo_users belső szinkrontérképéből tölt be adaptívan! */}
                   <img 
                     src={getProfileAvatar(currentTopicObj?.master_name || '', currentTopicObj?.master_email || '')} 
                     alt="Master" 
