@@ -194,7 +194,7 @@ export default function PastArchive({
       setActiveShareData(null);
     } catch (e) {
       alert(t('msgGenerateImageError', 'Hiba történt a trófeakártya generálása közben.'));
-    } finaly {
+    } finally {
       setIsGeneratingImage(false);
     }
   };
