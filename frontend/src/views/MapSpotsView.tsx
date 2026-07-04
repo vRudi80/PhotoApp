@@ -380,7 +380,7 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
         });
         if (res.ok) { alert(t('msgMapCreateSuccess')); setNewSpotLatLng(null); fetchLocations(); }
       }
-    } catch (e) { alert(t('msgNetworkError')); } finaly { setIsUploading(false); }
+    } catch (e) { alert(t('msgNetworkError')); } finally { setIsUploading(false); }
   };
 
   const handleDeleteLocation = async (id: number) => {
