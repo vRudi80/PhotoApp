@@ -16,7 +16,7 @@ import AdminUsersView from './views/admin/AdminUsersView';
 import AdminMeetingsView from './views/admin/AdminMeetingsView';
 import AdminHomeworksView from './views/admin/AdminHomeworksView';
 import AdminSalonsView from './views/admin/AdminSalonsView';
-import AdminUsersView from './views/admin/AdminBannedEmailsView.tsx';
+import AdminBannedEmailsView  from './views/admin/AdminBannedEmailsView.tsx';
 import ContestsView from './views/ContestsView';
 import MyAlbumView from './views/MyAlbumView'; 
 import MyArenaAlbumView from './views/MyArenaAlbumView'; 
