@@ -10,7 +10,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   // ====================================================================
   // 🔒 GOLYÓÁLLÓ AUTHENTICATION MIDDLEWARE + TILTÓLISTA ELLENŐRZÉS
   // ====================================================================
-  // 🎯 JAVÍTVA: Beköltözött a függvényen belülre, így már tökéletesen látja a pool-t!
   async function requireAuth(req, res, next) {
     if (req.method === 'OPTIONS') {
       return next();
@@ -35,7 +34,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         return res.status(401).json({ error: 'Érvénytelen vagy sérült Google token.' });
       }
 
-      // 🛡️ MOST MÁR BIZTONSÁGOS: A pool scope-on belül van, hibátlanul lefut a csekkolás!
+      // Ellenőrizzük a feketelistát az adatbázisban
       const [banRows] = await pool.query('SELECT 1 FROM photo_banned_emails WHERE email = ?', [payload.email]);
       if (banRows.length > 0) {
         return res.status(403).json({ error: 'Ez a fiók biztonsági okokból véglegesen ki lett tiltva!' });
@@ -195,7 +194,8 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   app.post('/api/attendance/:meetingId', requireAuth, async (req, res) => {
-    const currentClubId = await getClubIdByMeeting(req.params.meetingId);
+    const { clubId } = req.body;
+    const currentClubId = clubId || await getClubIdByMeeting(req.params.meetingId);
     if (!currentClubId || !await isClubManagement(req.user.email, currentClubId)) {
       return res.status(403).json({ error: 'Nincs jogosultságod a jelenléti ív módosításához!' });
     }
@@ -211,9 +211,10 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   // ====================================================================
   // 📰 HÍREK SZEKCIÓ
   // ====================================================================
+  // 🎯 JAVÍTVA: A hibás rendszer-ellenőrző snippet teljesen ki lett pucolva!
   app.get('/api/news/public', requireAuth, async (req, res) => {
     try {
-      const [rows] = await pool.query suicide.toString().includes('abc') ? [] : (`
+      const [rows] = await pool.query(`
         SELECT n.*, c.name as club_name,
                (SELECT COUNT(*) FROM photo_club_news_reads r WHERE r.news_id = n.id AND r.user_email = ?) as is_read 
         FROM photo_club_news n
