@@ -69,7 +69,7 @@ export default function PastArchive({
   const [isAdminGeneratingPoster, setIsAdminGeneratingPoster] = useState(false);
   // Az interaktív fotó-adatlap lokális állapota
   const [activeArchiveEntry, setActiveArchiveEntry] = useState<any | null>(null);
-  // A trófeakártya megosztásához szükséges lokális state-ek
+  // A trófeakárzyat megosztásához szükséges lokális state-ek
   const [activeShareData, setActiveShareData] = useState<any | null>(null);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   // BIZTONSÁGI VÉDŐHÁLÓ: Lekérjük az aktuális témát
@@ -82,6 +82,22 @@ export default function PastArchive({
   } catch (e) {}
 
   const silhouetteAvatar = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23475569'><circle cx='12' cy='8' r='4'/><path d='M12 14c-6.1 0-10 4-10 4v2h20v-2s-3.9-4-10-4z'/></svg>";
+
+  // 🎯 INTELLIGENS PROFILKÉP-AZONOSÍTÓ MOTOR (Kliens kontextus + többkulcsos háttér-fallbacks)
+  const getAvatarSrc = (entry: any) => {
+    if (!entry) return silhouetteAvatar;
+    
+    // 1. Megnézzük az összes lehetséges háttéroldali mezőnevet
+    const directUrl = entry.avatar_url || entry.user_avatar || entry.user_avatar_url || entry.picture || entry.image_url;
+    if (directUrl) return directUrl;
+    
+    // 2. Ha te vagy a győztes, átemeljük a kliensoldali bejelentkezett profilképedet
+    if (user && user.email && (entry.user_email === user.email || entry.email === user.email)) {
+      return user.avatar_url || user.picture || user.image || user.photoURL || silhouetteAvatar;
+    }
+    
+    return silhouetteAvatar;
+  };
 
   const computeArchiveRank = (rankLevel: any, score: number) => {
     const lvl = Number(rankLevel);
@@ -371,11 +387,11 @@ export default function PastArchive({
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-card)', padding: '12px 16px', borderRadius: '6px', borderLeft: '4px solid #fbbf24', border: '1px solid var(--border-main)' }}>
                         <div style={{ display: 'flex', gap: '10px', alignItems: 'center', textAlign: 'left' }}>
-                          {/* 🎯 JAVÍTVA: Megkapta a golyóálló onError hibakezelőt a törött képek ellen! */}
+                          {/* 🎯 JAVÍTVA: Megkapta a golyóálló kliensoldali kontextus-keresőt és az onError szűrőt! */}
                           <img 
-                            src={topThreeWinners[0].avatar_url || silhouetteAvatar} 
+                            src={getAvatarSrc(topThreeWinners[0])} 
                             alt="" 
-                            style={{ width: '34px', height: '34px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border-main)' }} 
+                            style={{ width: '42px', height: '42px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border-main)', backgroundColor: '#090d16' }} 
                             onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = silhouetteAvatar; }}
                           />
                           <div>
@@ -415,11 +431,11 @@ export default function PastArchive({
             {subTab === 'details' && (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '24px', alignItems: 'start' }}>
                 <div style={{ background: 'var(--bg-main)', padding: '16px', borderRadius: '6px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', border: '1px solid var(--border-main)' }}>
-                  {/* 🎯 JAVÍTVA: A Képmester profilképe is megkapta az automatikus sziluett visszaugrót! */}
+                  {/* 🎯 JAVÍTVA: A Képmester profilképe is megkapta a kiterjesztett többkulcsos keresőt és a golyóálló onError védelmet! */}
                   <img 
-                    src={currentTopicObj?.master_avatar_url || silhouetteAvatar} 
+                    src={currentTopicObj?.master_avatar_url || currentTopicObj?.master_avatar || currentTopicObj?.avatar_url || silhouetteAvatar} 
                     alt="Master" 
-                    style={{ width: '70px', height: '70px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border-main)' }} 
+                    style={{ width: '70px', height: '70px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border-main)', backgroundColor: '#090d16' }} 
                     onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = silhouetteAvatar; }}
                   />
                   <strong style={{ color: '#a78bfa', fontSize: '0.85rem', marginTop: '10px', fontWeight: 'bold', letterSpacing: '0.5px' }}>KÉPMESTER</strong>
