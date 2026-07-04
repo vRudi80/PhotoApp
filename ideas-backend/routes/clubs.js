@@ -5,49 +5,55 @@ const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 // A te valódi admin e-mailed biztonsági tartaléknak
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "kovari.rudolf@gmail.com";
 
-// ====================================================================
-// 🔒 GOLYÓÁLLÓ AUTHENTICATION MIDDLEWARE A CLUBS MODULHOZ
-// ====================================================================
-async function requireAuth(req, res, next) {
-  // 🛡️ Preflight kérések (OPTIONS) automatikus átengedése a CORS ütközések ellen
-  if (req.method === 'OPTIONS') {
-    return next();
-  }
-
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Hozzáférés megtagadva! Nincs hitelesítési token.' });
-    }
-
-    const token = authHeader.split(' ')[1];
-    
-    // Google OAuth IdToken hitelesítése
-    const ticket = await client.verifyIdToken({
-      idToken: token,
-      audience: process.env.GOOGLE_CLIENT_ID,
-    });
-    
-    const payload = ticket.getPayload();
-    if (!payload || !payload.email) {
-      return res.status(401).json({ error: 'Érvénytelen vagy sérült Google token.' });
-    }
-
-    // Biztonságosan injektáljuk a kérésbe a hitelesített entitást
-    req.user = {
-      email: payload.email,
-      name: payload.name,
-      isAdmin: payload.email === ADMIN_EMAIL
-    };
-
-    next();
-  } catch (error) {
-    console.error("🔒 Biztonsági őr hiba a clubs modulban:", error.message);
-    return res.status(401).json({ error: 'Lejárt vagy érvénytelen munkamenet token!' });
-  }
-}
-
 module.exports = function(app, pool, drive, upload, cleanupTempFile) {
+
+  // ====================================================================
+  // 🔒 GOLYÓÁLLÓ AUTHENTICATION MIDDLEWARE + TILTÓLISTA ELLENŐRZÉS
+  // ====================================================================
+  // 🎯 JAVÍTVA: Beköltözött a függvényen belülre, így már tökéletesen látja a pool-t!
+  async function requireAuth(req, res, next) {
+    if (req.method === 'OPTIONS') {
+      return next();
+    }
+
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'Hozzáférés megtagadva! Nincs hitelesítési token.' });
+      }
+
+      const token = authHeader.split(' ')[1];
+      
+      // Google OAuth IdToken hitelesítése
+      const ticket = await client.verifyIdToken({
+        idToken: token,
+        audience: process.env.GOOGLE_CLIENT_ID,
+      });
+      
+      const payload = ticket.getPayload();
+      if (!payload || !payload.email) {
+        return res.status(401).json({ error: 'Érvénytelen vagy sérült Google token.' });
+      }
+
+      // 🛡️ MOST MÁR BIZTONSÁGOS: A pool scope-on belül van, hibátlanul lefut a csekkolás!
+      const [banRows] = await pool.query('SELECT 1 FROM photo_banned_emails WHERE email = ?', [payload.email]);
+      if (banRows.length > 0) {
+        return res.status(403).json({ error: 'Ez a fiók biztonsági okokból véglegesen ki lett tiltva!' });
+      }
+
+      // Biztonságosan injektáljuk a kérésbe a hitelesített entitást
+      req.user = {
+        email: payload.email,
+        name: payload.name,
+        isAdmin: payload.email === ADMIN_EMAIL
+      };
+
+      next();
+    } catch (error) {
+      console.error("🔒 Biztonsági őr hiba a clubs modulban:", error.message);
+      return res.status(401).json({ error: 'Lejárt vagy érvénytelen munkamenet token!' });
+    }
+  }
 
   // Helper funkció a klubvezetői/helyettesi jogosultság ellenőrzésére
   async function isClubManagement(email, clubId) {
@@ -207,7 +213,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   // ====================================================================
   app.get('/api/news/public', requireAuth, async (req, res) => {
     try {
-      const [rows] = await pool.query(`
+      const [rows] = await pool.query suicide.toString().includes('abc') ? [] : (`
         SELECT n.*, c.name as club_name,
                (SELECT COUNT(*) FROM photo_club_news_reads r WHERE r.news_id = n.id AND r.user_email = ?) as is_read 
         FROM photo_club_news n
@@ -534,5 +540,69 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       
       res.json({ contests, weekly, homeworks, unreadNews, mapComments });
     } catch (err) { res.status(500).json({ error: 'Hiba' }); }
+  });
+
+  // ====================================================================
+  // 🚫 TILTÓLISTA KEZELÉSE (KIZÁRÓLAG GLOBÁLIS ADMINOKNAK)
+  // ====================================================================
+  
+  // 1. Tiltólista teljes lekérése
+  app.get('/api/admin/banned-emails', requireAuth, async (req, res) => {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Hozzáférés megtagadva!' });
+    try {
+      const [rows] = await pool.query('SELECT email, DATE_FORMAT(banned_at, "%Y-%m-%d %H:%i") as banned_at FROM photo_banned_emails ORDER BY banned_at DESC');
+      res.json(rows);
+    } catch (err) { 
+      console.error("❌ Hiba a tiltólista lekérésekor:", err.message);
+      res.status(500).json({ error: 'Szerveroldali hiba történt a lekérés során.' }); 
+    }
+  });
+
+  // 2. Új e-mail végleges kitiltása és az adatok azonnali takarítása
+  app.post('/api/admin/banned-emails', requireAuth, async (req, res) => {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Hozzáférés megtagadva!' });
+    
+    try {
+      const { email } = req.body;
+      if (!email || !email.includes('@')) {
+        return res.status(400).json({ error: 'Érvényes e-mail cím megadása kötelező!' });
+      }
+
+      const targetEmail = email.trim().toLowerCase();
+      const conn = await pool.getConnection();
+      
+      try {
+        await conn.beginTransaction();
+        
+        // Elhelyezzük a feketelistában
+        await conn.query('INSERT IGNORE INTO photo_banned_emails (email) VALUES (?)', [targetEmail]);
+        
+        // GDPR takarítás: Töröljük az aktív felhasználók közül
+        await conn.query('DELETE FROM photo_users WHERE email = ?', [targetEmail]);
+        
+        await conn.commit();
+        res.json({ success: true, message: 'E-mail cím sikeresen tiltva, adatok törölve.' });
+      } catch (innerErr) {
+        await conn.rollback();
+        throw innerErr;
+      } finally { 
+        conn.release(); 
+      }
+    } catch (err) {
+      console.error("❌ Hiba a kitiltási folyamat során:", err.message);
+      res.status(500).json({ error: `Adatbázis hiba: ${err.message}` });
+    }
+  });
+
+  // 3. Kitiltás feloldása (Unban)
+  app.delete('/api/admin/banned-emails/:email', requireAuth, async (req, res) => {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Hozzáférés megtagadva!' });
+    try {
+      const targetEmail = req.params.email.trim().toLowerCase();
+      await pool.query('DELETE FROM photo_banned_emails WHERE email = ?', [targetEmail]);
+      res.json({ success: true, message: 'A kitiltás sikeresen feloldva.' });
+    } catch (err) { 
+      res.status(500).json({ error: `Hiba a feloldáskor: ${err.message}` }); 
+    }
   });
 };
