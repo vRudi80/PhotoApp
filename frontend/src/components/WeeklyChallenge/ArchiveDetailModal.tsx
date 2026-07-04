@@ -41,6 +41,15 @@ const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
   e.currentTarget.src = 'https://via.placeholder.com/400x300/1e293b/64748b?text=Image+not+found';
 };
 
+// 🎯 KÖZPONTI AUTH FEJLÉC GENERÁTOR A MODÁLON BELÜLI VÉDETT KÉRÉSEKHEZ
+const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
+  const token = localStorage.getItem('photoAppToken');
+  return {
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    ...extraHeaders
+  };
+};
+
 export default function ArchiveDetailModal({ entry, userEmail, userName, onClose, onLikeUpdate }: ArchiveDetailModalProps) {
   const { t, lang } = useLanguage();
 
@@ -67,7 +76,10 @@ export default function ArchiveDetailModal({ entry, userEmail, userName, onClose
   const fetchComments = async () => {
     setLoadingComments(true);
     try {
-      const res = await fetch(`${BACKEND_URL}/api/weekly/archive/comments/${entry.id}`);
+      // 🎯 JAVÍTVA: A kommentek lekérése is megkapta a biztonsági auth fejlécet
+      const res = await fetch(`${BACKEND_URL}/api/weekly/archive/comments/${entry.id}`, {
+        headers: getAuthHeaders()
+      });
       if (res.ok) setComments(await res.json());
     } catch (e) { console.error(e); }
     finally { setLoadingComments(false); }
@@ -84,9 +96,10 @@ export default function ArchiveDetailModal({ entry, userEmail, userName, onClose
     }
 
     try {
+      // 🎯 JAVÍTVA: A lájk-toggle megkapta a getAuthHeaders() kiegészítést!
       const res = await fetch(`${BACKEND_URL}/api/weekly/archive/like-toggle`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ entryId: entry.id, userEmail: userEmail })
       });
       
@@ -112,9 +125,10 @@ export default function ArchiveDetailModal({ entry, userEmail, userName, onClose
     if (!userEmail) return alert("❌ Hiba: Kommenteléshez be kell jelentkezned!");
 
     try {
+      // 🎯 JAVÍTVA: Az új hozzászólás küldése is megkapta a getAuthHeaders() kiegészítést!
       const res = await fetch(`${BACKEND_URL}/api/weekly/archive/comment`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           entryId: entry.id,
           userEmail: userEmail,
