@@ -28,6 +28,12 @@ async function requireAuth(req, res, next) {
       audience: process.env.GOOGLE_CLIENT_ID,
     });
     
+    / Ellenőrizzük, hogy az e-mail szerepel-e a tiltólistában
+    const [banRows] = await pool.query('SELECT 1 FROM photo_banned_emails WHERE email = ?', [payload.email]);
+    if (banRows.length > 0) {
+      return res.status(403).json({ error: 'Ez a fiók biztonsági okokból véglegesen ki lett tiltva!' });
+    }
+    
     const payload = ticket.getPayload();
     if (!payload || !payload.email) {
       return res.status(401).json({ error: 'Érvénytelen vagy sérült Google token.' });
