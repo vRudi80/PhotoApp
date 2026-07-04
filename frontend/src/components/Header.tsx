@@ -453,6 +453,7 @@ export default function Header({
                   {user?.email === ADMIN_EMAIL && <button className="drop-item" style={{ color: activeTab === 'admin_salons' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_salons')}>{t('subManageSalons')}</button>}
                   {user?.email === ADMIN_EMAIL && <button className="drop-item" style={{ color: activeTab === 'admin_users' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_users')}>{t('subManageUsers')}</button>}
                   {user?.email === ADMIN_EMAIL && <button className="drop-item" style={{ color: activeTab === 'admin_clubs' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_clubs')}>{t('subManageClubs')}</button>}
+                  {user?.email === ADMIN_EMAIL && <button className="drop-item" style={{ color: activeTab === 'admin_banned_emails' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_banned_emails')}>{t('subManageBanned')}</button>}
                 </div>
               )}
             </div>
