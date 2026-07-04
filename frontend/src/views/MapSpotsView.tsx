@@ -7,6 +7,9 @@ import exifr from 'exifr';
 // 🎯 Behozzuk a nyelvi kontextust
 import { useLanguage } from '../context/LanguageContext';
 
+// 🎯 Behozzuk a téma környezetet az adaptív világos módhoz
+import { useTheme } from '../context/ThemeContext';
+
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "";
 
 const containerStyle = { width: '100%', height: '100%' };
@@ -71,7 +74,27 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
   const [uploadCamera, setUploadCamera] = useState('');
   const [uploadLens, setUploadLens] = useState('');
 
-  const inputStyle = { width: '100%', padding: '10px', marginBottom: '10px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '6px', boxSizing: 'border-box' as const };
+  // 🎯 BIZTONSÁGI VÉDŐHÁLÓ: Lekérjük az aktuális témát a reszponzív színezéshez
+  let isLight = false;
+  try {
+    const themeContext = useTheme();
+    if (themeContext) {
+      isLight = themeContext.theme === 'light';
+    }
+  } catch (e) {}
+
+  const inputStyle = { 
+    width: '100%', 
+    padding: '10px', 
+    marginBottom: '10px', 
+    backgroundColor: 'var(--bg-main)', 
+    border: '1px solid var(--border-main)', 
+    color: 'var(--text-title)', 
+    borderRadius: '6px', 
+    boxSizing: 'border-box' as const,
+    outline: 'none'
+  };
+  
   const isAdmin = user?.email === ADMIN_EMAIL; 
 
   // 🎯 Adatbázisban tárolt fix magyar szövegek dinamikus oda-vissza fordító szótára
@@ -93,7 +116,6 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
 
   const fetchLocations = async () => {
     try {
-      // 🎯 JAVÍTVA: Elhelyezve a biztonsági getAuthHeaders() pult
       const res = await fetch(`${BACKEND_URL}/api/locations?search=&userEmail=${user.email}`, {
         headers: getAuthHeaders()
       });
@@ -111,7 +133,6 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
 
   const fetchComments = async (locationId: number) => {
     try {
-      // 🎯 JAVÍTVA: Elhelyezve a biztonsági fejléc
       const res = await fetch(`${BACKEND_URL}/api/locations/${locationId}/comments`, {
         headers: getAuthHeaders()
       });
@@ -189,7 +210,6 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
   const handleCitySearch = async () => {
     if (!citySearch.trim()) return;
     try {
-      // Nyilvános külső API, nem fűzünk hozzá belső tokeneket!
       const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(citySearch)}&limit=5`);
       const data = await res.json();
       setCityResults(data);
@@ -255,7 +275,6 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
     setLocations(prev => prev.map(loc => loc.id === id ? { ...loc, lat: safeLat, lng: safeLng } : loc));
     
     try {
-      // 🎯 JAVÍTVA: Jelölő áthúzásakor is ellenőrizzük a tokent
       const res = await fetch(`${BACKEND_URL}/api/locations/${id}`, {
         method: 'PUT',
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
@@ -344,7 +363,6 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
       if (editingSpot) {
         formData.append('lat', editingSpot.lat);
         formData.append('lng', editingSpot.lng);
-        // 🎯 JAVÍTVA: Módosítás mentése hitelesített tokennel (Content-Type-ot nem bántjuk!)
         const res = await fetch(`${BACKEND_URL}/api/locations/${editingSpot.id}`, { 
           method: 'PUT', 
           headers: getAuthHeaders(),
@@ -355,7 +373,6 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
         formData.append('userName', user.name || user.email);
         formData.append('lat', newSpotLatLng.lat.toString());
         formData.append('lng', newSpotLatLng.lng.toString());
-        // 🎯 JAVÍTVA: Új helyszín létrehozása hitelesített tokennel (Content-Type-ot nem bántjuk!)
         const res = await fetch(`${BACKEND_URL}/api/locations`, { 
           method: 'POST', 
           headers: getAuthHeaders(),
@@ -363,13 +380,12 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
         });
         if (res.ok) { alert(t('msgMapCreateSuccess')); setNewSpotLatLng(null); fetchLocations(); }
       }
-    } catch (e) { alert(t('msgNetworkError')); } finally { setIsUploading(false); }
+    } catch (e) { alert(t('msgNetworkError')); } finaly { setIsUploading(false); }
   };
 
   const handleDeleteLocation = async (id: number) => {
-    if (!window.confirm(t('msgMapDeleteConfirm')));
+    if (!window.confirm(t('msgMapDeleteConfirm'))) return;
     try {
-      // 🎯 JAVÍTVA: Törlés végrehajtása hitelesített tokennel
       const res = await fetch(`${BACKEND_URL}/api/locations/${id}`, {
         method: 'DELETE',
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
@@ -381,7 +397,6 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
 
   const handleToggleLike = async (id: number) => {
     try {
-      // 🎯 JAVÍTVA: Kedvelés rögzítése hitelesített tokennel
       const res = await fetch(`${BACKEND_URL}/api/locations/${id}/like`, {
         method: 'POST',
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
@@ -402,7 +417,6 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
     if (commentFile) formData.append('photo', commentFile);
 
     try {
-      // 🎯 JAVÍTVA: Új hozzászólás küldése hitelesített tokennel (Content-Type-ot békén hagyjuk!)
       const res = await fetch(`${BACKEND_URL}/api/locations/${activeSpot.id}/comments`, { 
         method: 'POST', 
         headers: getAuthHeaders(),
@@ -433,67 +447,67 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
   };
 
   if (!isLoaded) {
-    return <div style={{ color: '#94a3b8', padding: '40px', textAlign: 'center', background: '#1e293b', borderRadius: '12px' }}>{t('mapLoading')}</div>;
+    return <div style={{ color: 'var(--text-muted)', padding: '40px', textAlign: 'center', background: 'var(--bg-card)', borderRadius: '12px' }}>{t('mapLoading')}</div>;
   }
 
   return (
     <div>
       {/* CÍMSOR */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '15px' }}>
-        <h2 style={{ fontSize: '2rem', margin: 0, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '10px' }}>{t('mapTitle')}</h2>
+        <h2 style={{ fontSize: '2rem', margin: 0, color: 'var(--text-title)', display: 'flex', alignItems: 'center', gap: '10px' }}>{t('mapTitle')}</h2>
         
         {/* TIPP BANNER */}
-        <div style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.15), rgba(56,189,248,0.15))', color: '#34d399', padding: '10px 18px', borderRadius: '12px', border: '1px solid rgba(16,185,129,0.3)', fontWeight: 'bold', fontSize: '0.88rem', maxWidth: '650px', lineHeight: '1.4', boxShadow: '0 4px 15px rgba(0,0,0,0.15)' }}>
+        <div style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.12), rgba(56,189,248,0.12))', color: '#10b981', padding: '10px 18px', borderRadius: '12px', border: '1px solid rgba(16,185,129,0.25)', fontWeight: 'bold', fontSize: '0.88rem', maxWidth: '650px', lineHeight: '1.4', boxShadow: '0 4px 15px rgba(0,0,0,0.02)' }}>
           💡 <b>{t('mapSmartRadarTitle')}</b>{' '}
           {t('mapSmartRadarDesc')}
         </div>
       </div>
 
-      {/* BENTO-STÍLUSÚ DASHBOARD PANELSOR */}
+      {/* BENTO-STÍLUSÚ DASHBOARD PANELSOR – 🎯 JAVÍTVA: Áthangolva var() alapú CSS változókra */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '20px', marginBottom: '25px' }}>
         
         {/* Kártya 1: Globális térkép adatok */}
-        <div style={{ background: 'linear-gradient(145deg, #1e293b, #0f172a)', padding: '20px', borderRadius: '16px', border: '1px solid #334155', boxShadow: '0 4px 15px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-          <div style={{ color: '#94a3b8', fontSize: '0.75rem', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '6px' }}>
+        <div style={{ background: 'var(--bg-card)', padding: '20px', borderRadius: '16px', border: '1px solid var(--border-main)', boxShadow: '0 4px 15px rgba(0,0,0,0.03)', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '6px' }}>
             {t('mapDashGlobalTitle')}
           </div>
           <div style={{ fontSize: '1.8rem', fontWeight: '900', color: '#38bdf8', marginBottom: '2px' }}>
-            {mapStats.totalSpots} <span style={{ fontSize: '1rem', fontWeight: 'normal', color: '#64748b' }}>{t('mapDashLocations')}</span>
+            {mapStats.totalSpots} <span style={{ fontSize: '1rem', fontWeight: 'normal', color: 'var(--text-muted)' }}>{t('mapDashLocations')}</span>
           </div>
           <div style={{ color: '#f43f5e', fontWeight: 'bold', fontSize: '0.9rem' }}>
-            ❤️ {mapStats.totalLikes} <span style={{ color: '#94a3b8', fontWeight: 'normal', fontSize: '0.8rem' }}>{t('mapDashPraises')}</span>
+            ❤️ {mapStats.totalLikes} <span style={{ color: 'var(--text-muted)', fontWeight: 'normal', fontSize: '0.8rem' }}>{t('mapDashPraises')}</span>
           </div>
         </div>
 
         {/* Kártya 2: Felfedezők Dicsőségtáblája */}
-        <div style={{ background: 'linear-gradient(145deg, #1e293b, #0f172a)', padding: '20px', borderRadius: '16px', border: '1px solid #fbbf2440', boxShadow: '0 4px 15px rgba(0,0,0,0.2)' }}>
+        <div style={{ background: 'var(--bg-card)', padding: '20px', borderRadius: '16px', border: '1px solid var(--border-main)', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}>
           <div style={{ color: '#fbbf24', fontSize: '0.75rem', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>
             🏆 {t('mapDashPioneersTitle')}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             {mapStats.leaderboard.map((leader, i) => (
-              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#cbd5e1', borderBottom: i < 2 ? '1px dashed #334155' : 'none', paddingBottom: i < 2 ? '4px' : 0 }}>
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: 'var(--text-body)', borderBottom: i < 2 ? '1px dashed var(--border-main)' : 'none', paddingBottom: i < 2 ? '4px' : 0 }}>
                 <span>{i+1}. 👤 {leader.name}</span>
                 <b style={{ color: '#fbbf24' }}>{leader.count} {t('mapDashSpots')}</b>
               </div>
             ))}
             {mapStats.leaderboard.length === 0 && (
-              <span style={{ fontSize: '0.85rem', color: '#64748b', fontStyle: 'italic' }}>{t('mapDashNoData')}</span>
+              <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>{t('mapDashNoData')}</span>
             )}
           </div>
         </div>
 
         {/* Kártya 3: Köszönőlevél és Saját mérő */}
-        <div style={{ background: 'linear-gradient(145deg, #16a34a10, #0f172a)', padding: '20px', borderRadius: '16px', border: '1px solid #10b98140', boxShadow: '0 4px 15px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+        <div style={{ background: 'var(--bg-card)', padding: '20px', borderRadius: '16px', border: '1px solid var(--border-main)', boxShadow: '0 4px 15px rgba(0,0,0,0.03)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
           <div>
             <div style={{ color: '#10b981', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '4px' }}>
               {t('mapDashThankYou')}
             </div>
-            <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.8rem', lineHeight: '1.4' }}>
+            <p style={{ margin: 0, color: 'var(--text-body)', ... (isLight ? {color: 'var(--text-muted)'}: {}), fontSize: '0.8rem', lineHeight: '1.4' }}>
               {t('mapDashThankYouDesc')}
             </p>
           </div>
-          <div style={{ borderTop: '1px solid #10b98120', paddingTop: '6px', marginTop: '6px', fontSize: '0.85rem', color: '#cbd5e1', fontWeight: 'bold' }}>
+          <div style={{ borderTop: '1px solid var(--border-main)', paddingTop: '6px', marginTop: '6px', fontSize: '0.85rem', color: 'var(--text-title)', fontWeight: 'bold' }}>
             📸 {t('mapDashYourContribution')}{' '}
             <span style={{ color: '#10b981', fontSize: '1rem', fontWeight: '900' }}>{mapStats.mySpotsCount}</span> {t('mapDashSpots')}
           </div>
@@ -501,25 +515,25 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
 
       </div>
 
-      {/* SZŰRŐK ÉS KERESŐK */}
+      {/* SZŰRŐK ÉS KERESŐK – 🎯 JAVÍTVA: Reszponzív panelek háttérszínei és betűtípusai */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', marginBottom: '20px' }}>
-        <div style={{ background: '#1e293b', padding: '15px', borderRadius: '12px', border: '1px solid #334155' }}>
+        <div style={{ background: 'var(--bg-card)', padding: '15px', borderRadius: '12px', border: '1px solid var(--border-main)' }}>
           <label style={{ color: '#38bdf8', fontWeight: 'bold', display: 'block', marginBottom: '8px', fontSize: '0.9rem' }}>{t('mapFilterLabel')}</label>
-          <input type="text" placeholder={t('mapFilterPlaceholder')} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ width: '100%', padding: '10px 15px', borderRadius: '8px', border: '1px solid #475569', background: '#0f172a', color: 'white', outline: 'none', boxSizing: 'border-box' }} />
+          <input type="text" placeholder={t('mapFilterPlaceholder')} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ width: '100%', padding: '10px 15px', borderRadius: '8px', border: '1px solid var(--border-main)', background: 'var(--bg-main)', color: 'var(--text-title)', outline: 'none', boxSizing: 'border-box' }} />
         </div>
 
-        <div style={{ background: '#1e293b', padding: '15px', borderRadius: '12px', border: '1px solid #334155', position: 'relative' }}>
+        <div style={{ background: 'var(--bg-card)', padding: '15px', borderRadius: '12px', border: '1px solid var(--border-main)', position: 'relative' }}>
           <label style={{ color: '#f59e0b', fontWeight: 'bold', display: 'block', marginBottom: '8px', fontSize: '0.9rem' }}>{t('mapJumpLabel')}</label>
           <div style={{ display: 'flex', gap: '10px' }}>
-            <input type="text" placeholder={t('mapJumpPlaceholder')} value={citySearch} onChange={(e) => setCitySearch(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleCitySearch(); }} style={{ flex: 1, padding: '10px 15px', borderRadius: '8px', border: '1px solid #475569', background: '#0f172a', color: 'white', outline: 'none', boxSizing: 'border-box' }} />
+            <input type="text" placeholder={t('mapJumpPlaceholder')} value={citySearch} onChange={(e) => setCitySearch(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleCitySearch(); }} style={{ flex: 1, padding: '10px 15px', borderRadius: '8px', border: '1px solid var(--border-main)', background: 'var(--bg-main)', color: 'var(--text-title)', outline: 'none', boxSizing: 'border-box' }} />
             <button onClick={handleCitySearch} style={{ background: '#f59e0b', color: '#0f172a', border: 'none', padding: '0 20px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>{t('mapJumpBtn')}</button>
           </div>
           {cityResults.length > 0 && (
-            <div style={{ position: 'absolute', top: '100%', left: '15px', right: '15px', background: '#0f172a', border: '1px solid #475569', borderRadius: '8px', zIndex: 1000, marginTop: '5px', overflow: 'hidden', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}>
+            <div style={{ position: 'absolute', top: '100%', left: '15px', right: '15px', background: 'var(--bg-card)', border: '1px solid var(--border-main)', borderRadius: '8px', zIndex: 1000, marginTop: '5px', overflow: 'hidden', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}>
               {cityResults.map((res, i) => (
-                <div key={i} onClick={() => handleSelectCity(res.lat, res.lon)} style={{ padding: '10px 15px', borderBottom: '1px solid #1e293b', cursor: 'pointer', transition: 'background 0.2s', color: '#cbd5e1', fontSize: '0.9rem' }} onMouseOver={e => e.currentTarget.style.background = '#1e293b'} onMouseOut={e => e.currentTarget.style.background = 'transparent'}>📍 {res.display_name}</div>
+                <div key={i} onClick={() => handleSelectCity(res.lat, res.lon)} style={{ padding: '10px 15px', borderBottom: '1px solid var(--border-main)', cursor: 'pointer', transition: 'background 0.2s', color: 'var(--text-body)', fontSize: '0.9rem' }} onMouseOver={e => e.currentTarget.style.background = 'var(--hover-overlay)'} onMouseOut={e => e.currentTarget.style.background = 'transparent'}>📍 {res.display_name}</div>
               ))}
-              <div onClick={() => setCityResults([])} style={{ padding: '8px', textAlign: 'center', background: '#ef444420', color: '#ef4444', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>{t('mapCloseResults')}</div>
+              <div onClick={() => setCityResults([])} style={{ padding: '8px', textAlign: 'center', background: 'rgba(239,68,68,0.08)', color: '#ef4444', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>{t('mapCloseResults')}</div>
             </div>
           )}
         </div>
@@ -527,20 +541,20 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
 
       <div style={{ display: 'flex', gap: '20px', flexDirection: 'column' }}>
         
-        {/* FORM PANEL */}
+        {/* FORM PANEL – 🎯 JAVÍTVA: Adaptív panel és EXIF választó mezők */}
         {(newSpotLatLng || editingSpot) && (
-          <div style={{ background: '#0f172a', padding: '20px', borderRadius: '12px', border: editingSpot ? '2px solid #f59e0b' : '2px solid #38bdf8', animation: 'fadeIn 0.3s ease-out' }}>
+          <div style={{ background: 'var(--bg-card)', padding: '20px', borderRadius: '12px', border: editingSpot ? '2px solid #f59e0b' : '2px solid #38bdf8', animation: 'fadeIn 0.3s ease-out' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
               <h3 style={{ margin: 0, color: editingSpot ? '#f59e0b' : '#38bdf8' }}>
                 {editingSpot ? t('mapFormEditTitle').replace('{title}', editingSpot.title) : t('mapFormNewTitle')}
               </h3>
-              <button onClick={() => { setNewSpotLatLng(null); setEditingSpot(null); }} style={{ background: 'transparent', color: '#94a3b8', border: 'none', fontSize: '1.2rem', cursor: 'pointer' }}>✖</button>
+              <button onClick={() => { setNewSpotLatLng(null); setEditingSpot(null); }} style={{ background: 'transparent', color: 'var(--text-muted)', border: 'none', fontSize: '1.2rem', cursor: 'pointer' }}>✖</button>
             </div>
             
             <input placeholder={t('mapFormNamePlaceholder')} value={uploadTitle} onChange={e => setUploadTitle(e.target.value)} style={inputStyle} disabled={isUploading} />
             <textarea placeholder={t('mapFormDescPlaceholder')} value={uploadDesc} onChange={e => setUploadDesc(e.target.value)} style={{...inputStyle, minHeight: '80px'}} disabled={isUploading} />
             
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginBottom: '15px', background: '#1e293b30', padding: '15px', borderRadius: '8px', border: '1px solid #1e293b' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginBottom: '15px', background: 'var(--bg-main)', padding: '15px', borderRadius: '8px', border: '1px solid var(--border-main)' }}>
               <div>
                 <label style={{ fontSize: '0.8rem', color: '#38bdf8', fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>{t('mapFormMonthLabel')}</label>
                 <select value={uploadMonth} onChange={e => setUploadMonth(e.target.value)} style={{...inputStyle, marginBottom: 0}} disabled={isUploading}>
@@ -565,14 +579,14 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
               </div>
               <div>
                 <label style={{ fontSize: '0.8rem', color: '#a855f7', fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>{t('mapFormLensLabel')}</label>
-                <input placeholder={t('mapFormLensPlaceholder')} value={uploadLens} onChange={e => setUploadLens(e.target.value)} style={{...inputStyle, marginBottom: 0}} disabled={isUploading} />
+                <input placeholder={t('mapFormLensPlaceholder')} value={uploadLens} style={{...inputStyle, marginBottom: 0}} onChange={e => setUploadLens(e.target.value)} disabled={isUploading} />
               </div>
             </div>
 
-            <label style={{fontSize: '0.8rem', color: '#94a3b8', display: 'block', marginBottom: '5px'}}>{editingSpot ? t('mapFormPhotoChange') : t('mapFormPhotoRequired')}</label>
-            <input type="file" accept="image/jpeg, image/png, image/webp" onChange={handleFileSelect} style={{ color: '#94a3b8', marginBottom: '15px', width: '100%' }} disabled={isUploading} />
+            <label style={{fontSize: '0.8rem', color: 'var(--text-body)', display: 'block', marginBottom: '5px'}}>{editingSpot ? t('mapFormPhotoChange') : t('mapFormPhotoRequired')}</label>
+            <input type="file" accept="image/jpeg, image/png, image/webp" onChange={handleFileSelect} style={{ color: 'var(--text-muted)', marginBottom: '15px', width: '100%' }} disabled={isUploading} />
             {uploadPreview && (
-              <div style={{marginTop: '10px', marginBottom: '20px', textAlign: 'center'}}><img src={uploadPreview} alt={t('planPreviewAlt')} style={{maxHeight: '200px', borderRadius: '8px', border: '1px solid #334155'}} /></div>
+              <div style={{marginTop: '10px', marginBottom: '20px', textAlign: 'center'}}><img src={uploadPreview} alt={t('planPreviewAlt')} style={{maxHeight: '200px', borderRadius: '8px', border: '1px solid var(--border-main)'}} /></div>
             )}
             <button onClick={handleSaveSpot} disabled={isUploading} style={{ width: '100%', background: editingSpot ? '#f59e0b' : '#10b981', color: 'white', border: 'none', padding: '12px', borderRadius: '8px', cursor: isUploading ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>
               {isUploading ? t('mapFormSaving') : editingSpot ? t('mapFormSaveBtn') : t('mapFormCreateBtn')}
@@ -582,14 +596,14 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
 
         {/* TÉRKÉP MÓD VÁLTÓ */}
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '-10px', zIndex: 10 }}>
-          <div style={{ background: '#1e293b', padding: '4px', borderRadius: '8px', border: '1px solid #334155', display: 'flex', gap: '4px' }}>
-            <button onClick={() => setMapTheme('roadmap')} style={{ background: mapTheme === 'roadmap' ? '#0f172a' : 'transparent', color: mapTheme === 'roadmap' ? '#38bdf8' : '#64748b', border: 'none', padding: '6px 14px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem' }}>{t('mapBtnRoadmap')}</button>
-            <button onClick={() => setMapTheme('hybrid')} style={{ background: mapTheme === 'hybrid' ? '#f8fafc' : 'transparent', color: mapTheme === 'hybrid' ? '#0f172a' : '#64748b', border: 'none', padding: '6px 14px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem' }}>{t('mapBtnHybrid')}</button>
+          <div style={{ background: 'var(--bg-card)', padding: '4px', borderRadius: '8px', border: '1px solid var(--border-main)', display: 'flex', gap: '4px' }}>
+            <button onClick={() => setMapTheme('roadmap')} style={{ background: mapTheme === 'roadmap' ? 'var(--bg-main)' : 'transparent', color: mapTheme === 'roadmap' ? '#38bdf8' : 'var(--text-muted)', border: 'none', padding: '6px 14px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem' }}>{t('mapBtnRoadmap')}</button>
+            <button onClick={() => setMapTheme('hybrid')} style={{ background: mapTheme === 'hybrid' ? 'var(--text-title)' : 'transparent', color: mapTheme === 'hybrid' ? 'var(--bg-card)' : 'var(--text-muted)', border: 'none', padding: '6px 14px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem' }}>{t('mapBtnHybrid')}</button>
           </div>
         </div>
 
         {/* GOOGLE MAPS PANEL */}
-        <div style={{ position: 'relative', height: '650px', width: '100%', borderRadius: '12px', overflow: 'hidden', border: '1px solid #334155' }}>
+        <div style={{ position: 'relative', height: '650px', width: '100%', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--border-main)' }}>
           
           <GoogleMap
             mapContainerStyle={containerStyle}
@@ -625,71 +639,71 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
             })}
           </GoogleMap>
 
-          {/* LEBEGŐ SIDEBAR KÁRTYA */}
+          {/* LEBEGŐ SIDEBAR KÁRTYA – 🎯 JAVÍTVA: Reszponzív áttetsző maszkolás világos módhoz is! */}
           {activeSpot && (() => {
             const isOwnOrAdmin = activeSpot.user_email === user.email || isAdmin;
             const hasLiked = activeSpot.user_liked === 1;
             const imageUrl = getImageUrl(activeSpot.drive_file_id, activeSpot.file_url);
 
             return (
-              <div style={{ position: 'absolute', top: '15px', right: '15px', width: '340px', maxHeight: '620px', display: 'flex', flexDirection: 'column', background: 'rgba(15, 23, 42, 0.95)', backdropFilter: 'blur(10px)', border: '1px solid #334155', borderRadius: '16px', zIndex: 1000, boxShadow: '0 15px 30px rgba(0,0,0,0.5)', animation: 'slideIn 0.3s ease-out' }}>
+              <div style={{ position: 'absolute', top: '15px', right: '15px', width: '340px', maxHeight: '620px', display: 'flex', flexDirection: 'column', background: isLight ? 'rgba(255, 255, 255, 0.96)' : 'rgba(15, 23, 42, 0.96)', backdropFilter: 'blur(10px)', border: '1px solid var(--border-main)', borderRadius: '16px', zIndex: 1000, boxShadow: '0 15px 30px rgba(0,0,0,0.1)', animation: 'slideIn 0.3s ease-out' }}>
                 
                 <div style={{ padding: '15px 15px 0 15px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <h3 style={{ margin: '0 0 10px 0', color: '#f8fafc', fontSize: '1.2rem', lineHeight: '1.3', paddingRight: '10px' }}>{activeSpot.title}</h3>
-                  <button onClick={() => setActiveSpot(null)} style={{ background: '#334155', color: '#cbd5e1', border: 'none', width: '28px', height: '28px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>✖</button>
+                  <h3 style={{ margin: '0 0 10px 0', color: 'var(--text-title)', fontSize: '1.2rem', lineHeight: '1.3', paddingRight: '10px' }}>{activeSpot.title}</h3>
+                  <button onClick={() => setActiveSpot(null)} style={{ background: 'var(--bg-main)', color: 'var(--text-body)', border: 'none', width: '28px', height: '28px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>✖</button>
                 </div>
 
                 <div style={{ padding: '0 15px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <div onClick={() => setFullscreenData({url: imageUrl, title: activeSpot.title})} style={{ width: '100%', height: '160px', backgroundColor: '#000', borderRadius: '8px', overflow: 'hidden', cursor: 'zoom-in', flexShrink: 0, border: '1px solid #475569' }}>
+                  <div onClick={() => setFullscreenData({url: imageUrl, title: activeSpot.title})} style={{ width: '100%', height: '160px', backgroundColor: '#000', borderRadius: '8px', overflow: 'hidden', cursor: 'zoom-in', flexShrink: 0, border: '1px solid var(--border-main)' }}>
                     <img src={imageUrl} alt={activeSpot.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   </div>
 
-                  <p style={{ color: '#cbd5e1', fontSize: '0.9rem', margin: 0, lineHeight: '1.5' }}>{activeSpot.description}</p>
+                  <p style={{ color: 'var(--text-body)', fontSize: '0.9rem', margin: 0, lineHeight: '1.5' }}>{activeSpot.description}</p>
 
                   {/* EXIF ADATOK LEFORDÍTVA */}
                   {(activeSpot.photo_month || activeSpot.photo_time_of_day || activeSpot.camera || activeSpot.lens) && (
-                    <div style={{ background: '#0f172a', border: '1px solid #1e293b', padding: '12px', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <div style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#64748b', textTransform: 'uppercase', letterSpacing: '1px' }}>{t('mapExifCardTitle')}</div>
+                    <div style={{ background: 'var(--bg-main)', border: '1px solid var(--border-main)', padding: '12px', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>{t('mapExifCardTitle')}</div>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', fontSize: '0.8rem' }}>
-                        {activeSpot.photo_month && <div style={{ background: '#1e293b', padding: '6px 10px', borderRadius: '6px', color: '#cbd5e1' }}>📅 <b>{translateDbValue(activeSpot.photo_month)}</b></div>}
-                        {activeSpot.photo_time_of_day && <div style={{ background: '#1e293b', padding: '6px 10px', borderRadius: '6px', color: '#cbd5e1' }}>☀️ <b>{translateDbValue(activeSpot.photo_time_of_day)}</b></div>}
-                        {activeSpot.camera && <div style={{ background: '#1e293b', padding: '6px 10px', borderRadius: '6px', color: '#cbd5e1', gridColumn: '1 / -1' }}>{t('mapExifCamera')}<b>{activeSpot.camera}</b></div>}
-                        {activeSpot.lens && <div style={{ background: '#1e293b', padding: '6px 10px', borderRadius: '6px', color: '#cbd5e1', gridColumn: '1 / -1' }}>{t('mapExifLens')}<b>{activeSpot.lens}</b></div>}
+                        {activeSpot.photo_month && <div style={{ background: 'var(--bg-card)', padding: '6px 10px', borderRadius: '6px', color: 'var(--text-title)', border: '1px solid var(--border-main)' }}>📅 <b>{translateDbValue(activeSpot.photo_month)}</b></div>}
+                        {activeSpot.photo_time_of_day && <div style={{ background: 'var(--bg-card)', padding: '6px 10px', borderRadius: '6px', color: 'var(--text-title)', border: '1px solid var(--border-main)' }}>☀️ <b>{translateDbValue(activeSpot.photo_time_of_day)}</b></div>}
+                        {activeSpot.camera && <div style={{ background: 'var(--bg-card)', padding: '6px 10px', borderRadius: '6px', color: 'var(--text-title)', gridColumn: '1 / -1', border: '1px solid var(--border-main)' }}>{t('mapExifCamera')}<b>{activeSpot.camera}</b></div>}
+                        {activeSpot.lens && <div style={{ background: 'var(--bg-card)', padding: '6px 10px', borderRadius: '6px', color: 'var(--text-title)', gridColumn: '1 / -1', border: '1px solid var(--border-main)' }}>{t('mapExifLens')}<b>{activeSpot.lens}</b></div>}
                       </div>
                     </div>
                   )}
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#1e293b', padding: '10px', borderRadius: '8px' }}>
-                    <button onClick={() => handleToggleLike(activeSpot.id)} style={{ background: hasLiked ? '#ef444420' : '#334155', border: hasLiked ? '1px solid #ef444450' : '1px solid transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px', borderRadius: '50px', transition: 'all 0.2s' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-main)', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-main)' }}>
+                    <button onClick={() => handleToggleLike(activeSpot.id)} style={{ background: hasLiked ? '#ef444420' : 'var(--bg-card)', border: hasLiked ? '1px solid #ef444450' : '1px solid var(--border-main)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px', borderRadius: '50px', transition: 'all 0.2s' }}>
                       <span style={{ fontSize: '1.2rem' }}>{hasLiked ? '❤️' : '🤍'}</span>
-                      <span style={{ fontWeight: 'bold', color: hasLiked ? '#ef4444' : '#94a3b8' }}>{activeSpot.like_count || 0}{t('mapLikesUnit')}</span>
+                      <span style={{ fontWeight: 'bold', color: hasLiked ? '#ef4444' : 'var(--text-muted)' }}>{activeSpot.like_count || 0}{t('mapLikesUnit')}</span>
                     </button>
-                    <div style={{ fontSize: '0.75rem', color: '#64748b', textAlign: 'right', lineHeight: '1.2' }}>{t('mapExplorerLabel')}<br/><b style={{color: '#94a3b8'}}>{activeSpot.user_name}</b></div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'right', lineHeight: '1.2' }}>{t('mapExplorerLabel')}<br/><b style={{color: 'var(--text-title)'}}>{activeSpot.user_name}</b></div>
                   </div>
 
                   {isOwnOrAdmin && (
                     <div style={{ display: 'flex', gap: '10px' }}>
-                      <button onClick={() => handleStartEdit(activeSpot)} style={{ flex: 1, background: '#f59e0b20', color: '#f59e0b', border: '1px solid #f59e0b50', padding: '6px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>{t('mapBtnEdit')}</button>
-                      <button onClick={() => handleDeleteLocation(activeSpot.id)} style={{ flex: 1, background: '#ef444420', color: '#ef4444', border: '1px solid #ef444450', padding: '6px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>{t('mapBtnDelete')}</button>
+                      <button onClick={() => handleStartEdit(activeSpot)} style={{ flex: 1, background: 'rgba(245,158,11,0.08)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.25)', padding: '6px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>{t('mapBtnEdit')}</button>
+                      <button onClick={() => handleDeleteLocation(activeSpot.id)} style={{ flex: 1, background: 'rgba(239,68,68,0.08)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.25)', padding: '6px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>{t('mapBtnDelete')}</button>
                     </div>
                   )}
 
                   {/* HOZZÁSZÓLÁSOK LISTÁJA */}
-                  <div style={{ borderTop: '1px solid #334155', paddingTop: '12px' }}>
-                    <h4 style={{ margin: '0 0 10px 0', color: '#f8fafc', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '6px' }}>{t('mapCommentsTitle')}<span style={{ background: '#334155', padding: '2px 8px', borderRadius: '50px', fontSize: '0.75rem' }}>{comments.length}</span></h4>
+                  <div style={{ borderTop: '1px solid var(--border-main)', paddingTop: '12px' }}>
+                    <h4 style={{ margin: '0 0 10px 0', color: 'var(--text-title)', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '6px' }}>{t('mapCommentsTitle')}<span style={{ background: 'var(--bg-main)', padding: '2px 8px', borderRadius: '50px', fontSize: '0.75rem', border: '1px solid var(--border-main)' }}>{comments.length}</span></h4>
                     {comments.length === 0 ? (
-                      <div style={{ color: '#64748b', fontSize: '0.85rem', fontStyle: 'italic', marginBottom: '15px' }}>{t('mapCommentsEmpty')}</div>
+                      <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', fontStyle: 'italic', marginBottom: '15px' }}>{t('mapCommentsEmpty')}</div>
                     ) : (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '15px' }}>
                         {comments.map(c => (
-                          <div key={c.id} style={{ background: '#0f172a', padding: '10px', borderRadius: '8px', border: '1px solid #1e293b' }}>
+                          <div key={c.id} style={{ background: 'var(--bg-main)', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-main)' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
                               <b style={{ color: '#38bdf8', fontSize: '0.85rem' }}>{c.user_name}</b>
-                              <span style={{ color: '#64748b', fontSize: '0.7rem' }}>{new Date(c.created_at).toLocaleDateString(lang === 'en' ? 'en-US' : 'hu-HU')}</span>
+                              <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>{new Date(c.created_at).toLocaleDateString(lang === 'en' ? 'en-US' : 'hu-HU')}</span>
                             </div>
-                            <div style={{ color: '#cbd5e1', fontSize: '0.9rem', lineHeight: '1.4' }}>{c.comment_text}</div>
+                            <div style={{ color: 'var(--text-body)', fontSize: '0.9rem', lineHeight: '1.4' }}>{c.comment_text}</div>
                             {c.file_url && (
-                              <div onClick={() => setFullscreenData({url: getImageUrl(c.drive_file_id, c.file_url), title: `${c.user_name}`})} style={{ marginTop: '8px', width: '100%', maxHeight: '130px', backgroundColor: '#000', borderRadius: '6px', overflow: 'hidden', cursor: 'zoom-in', border: '1px solid #232f46' }}>
+                              <div onClick={() => setFullscreenData({url: getImageUrl(c.drive_file_id, c.file_url), title: `${c.user_name}`})} style={{ marginTop: '8px', width: '100%', maxHeight: '130px', backgroundColor: '#000', borderRadius: '6px', overflow: 'hidden', cursor: 'zoom-in', border: '1px solid var(--border-main)' }}>
                                 <img src={getImageUrl(c.drive_file_id, c.file_url)} alt="Comment media" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                               </div>
                             )}
@@ -701,7 +715,7 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
                 </div>
 
                 {/* ÚJ KOMMENT FELÜLET */}
-                <div style={{ padding: '15px', borderTop: '1px solid #1e293b', background: '#0f172a', borderBottomLeftRadius: '16px', borderBottomRightRadius: '16px' }}>
+                <div style={{ padding: '15px', borderTop: '1px solid var(--border-main)', background: 'var(--bg-main)', borderBottomLeftRadius: '16px', borderBottomRightRadius: '16px' }}>
                   {commentPreview && (
                     <div style={{ position: 'relative', display: 'inline-block', marginBottom: '10px', animation: 'fadeIn 0.2s' }}>
                       <img src={commentPreview} alt="Attached asset" style={{ maxHeight: '60px', borderRadius: '6px', border: '1px solid #38bdf850' }} />
@@ -710,7 +724,7 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
                   )}
 
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <label style={{ cursor: 'pointer', fontSize: '1.2rem', background: '#1e293b', padding: '6px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #334155', width: '36px', height: '36px', boxSizing: 'border-box' }} title={t('mapCommentPhotoTitle')}>
+                    <label style={{ cursor: 'pointer', fontSize: '1.2rem', background: 'var(--bg-card)', padding: '6px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border-main)', width: '36px', height: '36px', boxSizing: 'border-box' }} title={t('mapCommentPhotoTitle')}>
                       📷
                       <input type="file" accept="image/jpeg, image/png, image/webp" onChange={(e) => {
                         if (e.target.files && e.target.files.length > 0) {
@@ -719,8 +733,8 @@ export default function MapSpotsView({ user, setFullscreenData, targetMapSpotId,
                       }} style={{ display: 'none' }} disabled={isCommenting} />
                     </label>
 
-                    <input type="text" placeholder={commentFile ? t('mapCommentPlaceholderPhoto') : t('mapCommentPlaceholderText')} value={newComment} onChange={(e) => setNewComment(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handlePostComment(); }} style={{ flex: 1, padding: '8px 12px', borderRadius: '20px', border: '1px solid #334155', background: '#1e293b', color: 'white', outline: 'none', fontSize: '0.9rem' }} />
-                    <button onClick={handlePostComment} disabled={(!newComment.trim() && !commentFile) || isCommenting} style={{ background: (newComment.trim() || commentFile) ? '#38bdf8' : '#334155', color: '#0f172a', border: 'none', width: '36px', height: '36px', borderRadius: '50%', cursor: (newComment.trim() || commentFile) ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>➤</button>
+                    <input type="text" placeholder={commentFile ? t('mapCommentPlaceholderPhoto') : t('mapCommentPlaceholderText')} value={newComment} onChange={(e) => setNewComment(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handlePostComment(); }} style={{ flex: 1, padding: '8px 12px', borderRadius: '20px', border: '1px solid var(--border-main)', background: 'var(--bg-card)', color: 'var(--text-title)', outline: 'none', fontSize: '0.9rem' }} />
+                    <button onClick={handlePostComment} disabled={(!newComment.trim() && !commentFile) || isCommenting} style={{ background: (newComment.trim() || commentFile) ? '#38bdf8' : 'var(--border-main)', color: '#0f172a', border: 'none', width: '36px', height: '36px', borderRadius: '50%', cursor: (newComment.trim() || commentFile) ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>➤</button>
                   </div>
                 </div>
 
