@@ -1,9 +1,10 @@
 import React, { useState, useMemo } from 'react';
-import { getFlagEmoji } from '../utils/helpers';
 import PremiumPaywall from './PremiumPaywall'; 
-import { getFlagImageUrl } from '../utils/helpers';
 
-// 🎯 Behozzuk a téma környezetet a reaktív témakezeléshez
+// 🎯 JAVÍTVA: getImageUrl szabályosan beimportálva a többi helper mellé!
+import { getFlagEmoji, getFlagImageUrl, getImageUrl } from '../utils/helpers';
+
+// Behozzuk a téma környezetet a reaktív témakezeléshez
 import { useTheme } from '../context/ThemeContext';
 
 interface SalonsViewProps {
@@ -29,7 +30,7 @@ export default function SalonsView({
   // Állapot a saját nevezések szűréséhez
   const [showOnlyMyEntries, setShowOnlyMyEntries] = useState(false);
 
-  // 🎯 BIZTONSÁGI VÉDŐHÁLÓ: Lekérjük az aktuális témát a reszponzív stílusokhoz
+  // BIZTONSÁGI VÉDŐHÁLÓ: Lekérjük az aktuális témát a reszponzív stílusokhoz
   let isLight = false;
   try {
     const themeContext = useTheme();
@@ -105,7 +106,7 @@ export default function SalonsView({
         </div>
       </div>
       
-      {/* RÉSZVÉTELI STATISZTIKA SÁV – 🎯 JAVÍTVA: Áthangolva adaptív változókra */}
+      {/* RÉSZVÉTELI STATISZTIKA SÁV */}
       {userEntrySalonIds && userEntrySalonIds.length > 0 && (
         <div style={{ display: 'flex', gap: '15px', marginBottom: '20px', flexWrap: 'wrap' }}>
           <div style={{ background: 'var(--bg-main)', padding: '10px 20px', borderRadius: '10px', border: '1px solid var(--border-main)' }}>
@@ -160,8 +161,9 @@ export default function SalonsView({
                   )}
                 </div>
 
+                {/* 🎯 JAVÍTVA: A borítókép mostantól megkapta az intelligens Drive fallback támogatást is! */}
                 <div style={{ height: '160px', backgroundColor: '#090d16', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-                  <img src={sol.cover_url || `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 300' fill='%230f172a'><rect width='100%' height='100%'/></svg>`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: isEnded ? 0.5 : 1 }} />
+                  <img src={sol.cover_url || imageUrl || `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 300' fill='%230f172a'><rect width='100%' height='100%'/></svg>`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: isEnded ? 0.5 : 1 }} />
                 </div>
 
                 <div style={{ padding: '16px', flex: 1, display: 'flex', flexDirection: 'column' }}>
@@ -200,7 +202,7 @@ export default function SalonsView({
                   {sol.categories && sol.categories.length > 0 && (
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginBottom: '15px' }}>
                       {sol.categories.map((c: string) => (
-                        <span key={c} style={{ background: 'rgba(56,189,248,0.08)', color: isLight ? '#0284c7' : '#38bdf8', padding: '3px 8px', borderRadius: '100px', fontSize: '0.72rem', border: '1px solid rgba(56,189,248,0.15)' }}>
+                        <span key={c} style={{ background: 'rgba(56,189,248,0.08)', color: isLight ? '#0284c7' : '#38bdf8', padding: '3px 8px', borderRadius: '100px', fontSize: '0.75rem', border: '1px solid rgba(56,189,248,0.15)' }}>
                           {c}
                         </span>
                       ))}
@@ -209,7 +211,7 @@ export default function SalonsView({
 
                   <div style={{ flex: 1 }}></div>
 
-                  {/* HATÁRIDŐK PANEL – 🎯 JAVÍTVA: Adaptív belső sávok */}
+                  {/* HATÁRIDŐK PANEL */}
                   <div style={{ display: 'flex', background: 'var(--bg-main)', borderRadius: '8px', border: '1px solid var(--border-main)', padding: '10px', marginBottom: '12px' }}>
                     <div style={{ flex: 1, borderRight: '1px solid var(--border-main)' }}>
                       <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '2px' }}>Határidő</div>
