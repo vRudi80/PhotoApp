@@ -16,7 +16,7 @@ import AdminUsersView from './views/admin/AdminUsersView';
 import AdminMeetingsView from './views/admin/AdminMeetingsView';
 import AdminHomeworksView from './views/admin/AdminHomeworksView';
 import AdminSalonsView from './views/admin/AdminSalonsView';
-import AdminBannedEmailsView  from './views/admin/AdminBannedEmailsView';
+import AdminBannedEmailsView  from './views/admin/AdminBannedEmailsView'; 
 import ContestsView from './views/ContestsView';
 import MyAlbumView from './views/MyAlbumView'; 
 import MyArenaAlbumView from './views/MyArenaAlbumView'; 
@@ -160,7 +160,7 @@ function MainContent() {
 
   const [fullscreenData, setFullscreenData] = useState<any>(null);
 
-  // 🏛️ KÖZPONTI ADATLEKÉRŐ MOTOR
+  // 🏛️ KÖZPONTI ADATLEKÉRŐ MOTOR INTERCEPTORRAL
   const fetchData = async (retryCount = 0) => {
     const token = localStorage.getItem('photoAppToken');
     if (!token) {
@@ -185,6 +185,17 @@ function MainContent() {
         fetch(`${BACKEND_URL}/api/salons`, { headers: getAuthHeaders() }),
         fetch(`${BACKEND_URL}/api/contest-payments`, { headers: getAuthHeaders() })
       ]);
+
+      // 🛡️ ÚJ PANEL: Ha a backend 403 Forbidden (Kitiltva) választ ad vissza, azonnal megszakítjuk a hurkot
+      if (resUsers.status === 403 || resClubs.status === 403 || resMeetings.status === 403) {
+        localStorage.removeItem('photoAppToken');
+        localStorage.removeItem('user');
+        setUser(null);
+        setIsInitialLoading(false);
+        setIsAuthLoading(false);
+        alert("Ez a fiók biztonsági okokból véglegesen ki lett tiltva az Arénából!");
+        return;
+      }
 
       if (!resUsers.ok || !resContests.ok || !resMeetings.ok || !resHw.ok) throw new Error("Hiba");
 
@@ -231,7 +242,7 @@ function MainContent() {
     } catch (e) { console.error(e); }
   };
 
-  // 🛡️ SZIGORÍTOTT ÉS EGYESÍTETT AMBIENT AUTOSYNC MOTOR
+  // 🛡️ AUTOSYNC MOTOR INTEGRÁLT REAKTÍV TILTÁSSZŰRŐVEL
   useEffect(() => {
     const initializeAuth = async () => {
       const storedToken = localStorage.getItem('photoAppToken');
@@ -247,7 +258,6 @@ function MainContent() {
       try {
         const decoded: any = jwtDecode(storedToken);
         
-        // 🔒 Lejárt munkamenet kiszűrése azonnal
         if (decoded.exp * 1000 < Date.now()) {
           localStorage.removeItem('photoAppToken');
           localStorage.removeItem('user');
@@ -262,6 +272,17 @@ function MainContent() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email: decoded.email, name: decoded.name, sub: decoded.sub })
         });
+
+        // 🛡️ Ha már az auth sync is fennakad a tiltólistán
+        if (res.status === 403) {
+          localStorage.removeItem('photoAppToken');
+          localStorage.removeItem('user');
+          setUser(null);
+          setIsAuthLoading(false);
+          setIsInitialLoading(false);
+          alert("Ez a fiók biztonsági okokból véglegesen ki lett tiltva!");
+          return;
+        }
 
         if (res.ok) {
           const data = await res.json();
@@ -278,7 +299,6 @@ function MainContent() {
           setUser(fullUser);
           setIsAuthLoading(false);
           
-          // 🎯 Csak a sikeres validáció után engedjük ki a kritikus adatokat!
           await fetchData();
           await fetchMyEntries(decoded.email);
         } else {
@@ -300,11 +320,11 @@ function MainContent() {
     initializeAuth();
   }, []);
 
-  // ⚡ CSENDES HÁTTÉR-SZINKRONIZÁCIÓ BIZTONSÁGI VÉDŐPPALMÁVAL
+  // ⚡ CSENDES HÁTTÉR-SZINKRONIZÁCIÓ BIZTONSÁGI VÉDŐPAJZSZAL
   useEffect(() => {
     const silentAuthSync = async () => {
       const storedToken = localStorage.getItem('photoAppToken');
-      if (!storedToken) return; // 🔒 Nem hívunk háttér-szinkront érvényes token hiányában
+      if (!storedToken) return;
 
       try {
         const decoded: any = jwtDecode(storedToken);
@@ -315,6 +335,14 @@ function MainContent() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email: decoded.email, name: decoded.name, sub: decoded.sub })
         });
+
+        if (authRes.status === 403) {
+          localStorage.removeItem('photoAppToken');
+          localStorage.removeItem('user');
+          setUser(null);
+          window.location.reload();
+          return;
+        }
 
         if (authRes.ok) {
           const authData = await authRes.json();
@@ -329,8 +357,11 @@ function MainContent() {
         }
 
         const usersRes = await fetch(`${BACKEND_URL}/api/users`, {
-          headers: getAuthHeaders() // 🎯 JAVÍTVA: Megkapta az érvényes Authorization fejlécet!
+          headers: getAuthHeaders()
         });
+        
+        if (usersRes.status === 403) return;
+
         if (usersRes.ok) {
           const freshAllUsers = await usersRes.json();
           setAllUsers(Array.isArray(freshAllUsers) ? freshAllUsers : []); 
