@@ -179,7 +179,7 @@ export default function PastArchive({
     return pastTopics.find(x => x.id === selectedPastTopicId) || null;
   }, [selectedPastTopicId, pastTopics]);
 
-  // 🎯 JAVÍTVA: Szigorúan szinkronizált, determinisztikus holtverseny-szűrő a dobogóhoz
+  // Szigorúan szinkronizált, determinisztikus holtverseny-szűrő a dobogóhoz
   const topThreeWinners = useMemo(() => {
     if (!pastLeaderboard || pastLeaderboard.length === 0) return [];
     return [...pastLeaderboard].sort((a, b) => {
@@ -203,7 +203,7 @@ export default function PastArchive({
     return computeArchiveRank(topThreeWinners[0].rank_level, Number(score));
   }, [topThreeWinners]);
 
-  // 🎯 JAVÍTVA: Hajszálpontosan ugyanaz a determinisztikus rendezési logika a teljes rangsorhoz is!
+  // Hajszálpontosan ugyanaz a determinisztikus rendezési logika a teljes rangsorhoz is!
   const singlePhotosRankedList = useMemo(() => {
     if (!pastLeaderboard || pastLeaderboard.length === 0) return [];
     return [...pastLeaderboard].sort((a, b) => {
@@ -318,7 +318,7 @@ export default function PastArchive({
         </div>
       ) : (
         
-        {/* ── DETALIZÁLT AL-ARÉNA PANEL ── */}
+        /* ── 🎯 JAVÍTVA: A hibás JSX komment lecserélve tiszta JS kommentre! ── */
         <div style={{ display: 'flex', background: 'transparent', flexDirection: 'column', gap: '20px', width: '100%' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
             <button onClick={() => setSelectedPastTopicId(null)} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', color: 'var(--text-title)', padding: '6px 14px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '6px', transition: 'all 0.15s' }}>
@@ -552,7 +552,7 @@ export default function PastArchive({
             <div style={{ position: 'absolute', top: '-100px', left: '-100px', width: '400px', height: '400px', background: '#fbbf24', filter: 'blur(180px)', opacity: 0.1, borderRadius: '50%' }}></div>
             <div style={{ position: 'absolute', bottom: '-100px', right: '-100px', width: '400px', height: '400px', background: '#38bdf8', filter: 'blur(180px)', opacity: 0.1, borderRadius: '50%' }}></div>
 
-            <div style={{ textAlign: 'center', width: '100%' }}>
+            <div style={{ textHeading: 'center', width: '100%' }}>
               <div style={{ color: '#fbbf24', fontSize: '26px', fontWeight: '900', letterSpacing: '6px', textTransform: 'uppercase', marginBottom: '15px' }}>
                 {t('archivePosterHeader', 'Challenge RESULTS')}
               </div>
@@ -571,7 +571,7 @@ export default function PastArchive({
                   <div style={{ background: 'linear-gradient(180deg, #334155 0%, #1e293b 100%)', width: '100%', height: '200px', borderRadius: '16px 16px 0 0', border: '1px solid #475569', borderBottom: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '15px', boxSizing: 'border-box', textAlign: 'center' }}>
                     <div style={{ color: '#cbd5e1', fontSize: '24px', fontWeight: 'bold', width: '100%', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.2', textAlign: 'center', minHeight: '58px' }}>{adminPosterData.entries[1].user_name}</div>
                     <div style={{ color: '#94a3b8', fontSize: '22px', fontWeight: '900', marginTop: '4px' }}>
-                      {adminPosterData.entries[1].fair_score !== undefined ? `${adminPosterData.entries[1].fair_score} pont` : `${adminPosterData.entries[1].likes_count} pont`}
+                      {adminPosterData.entries[1].fair_score !== undefined ? `${adminPosterData.entries[1].fair_score` : `${adminPosterData.entries[1].likes_count} pont`}
                     </div>
                     <div style={{ color: '#cbd5e1', fontSize: '32px', fontWeight: '900', marginTop: '20px', letterSpacing: '1px' }}>🥈 2. {t('archivePosterPlace', 'HELY')}</div>
                   </div>
