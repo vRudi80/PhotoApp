@@ -2,6 +2,13 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { BACKEND_URL, ADMIN_EMAIL } from '../utils/constants';
 import { getImageUrl } from '../utils/helpers';
 import PremiumPaywall from './PremiumPaywall';
+import { getFlagImageUrl } from '../utils/helpers';
+
+// Nyelvi kontextus aktiválása
+import { useLanguage } from '../context/LanguageContext';
+
+// 🎯 Behozzuk a téma környezetet a reaktív témakezeléshez
+import { useTheme } from '../context/ThemeContext';
 
 const MAFOSZ_LEVELS = [
   { id: 'A-MAFOSZ', name: 'MAFOSZ Fotóművésze', req: { acceptances: 70, works: 20, awards: 1 }, color: '#10b981' },
@@ -27,12 +34,22 @@ const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
 };
 
 export default function MafoszProgressView({ user, allUsers = [] }: MafoszProgressViewProps) {
+  const { t, lang } = useLanguage();
   const [stats, setStats] = useState({ acceptances: 0, works: 0, awards: 0 });
   const [entries, setEntries] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedEmail, setSelectedEmail] = useState(user?.email || '');
+
+  // 🎯 BIZTONSÁGI VÉDŐHÁLÓ: Lekérjük az aktuális témát a reszponzív stílusokhoz
+  let isLight = false;
+  try {
+    const themeContext = useTheme();
+    if (themeContext) {
+      isLight = themeContext.theme === 'light';
+    }
+  } catch (e) {}
 
   useEffect(() => {
     if (user?.email) setSelectedEmail(user.email);
@@ -78,12 +95,12 @@ export default function MafoszProgressView({ user, allUsers = [] }: MafoszProgre
       (entry.mafosz_number && entry.mafosz_number.toLowerCase().includes(lowerTerm)) ||
       (entry.award && entry.award.toLowerCase().includes(lowerTerm))
     );
-  }, [entries, searchTerm]); // 🎯 JAVÍTVA: searchQuery lecserélve a valós searchTerm állapotra!
+  }, [entries, searchTerm]);
 
   if (!user || !user.is_premium) {
     return (
       <div>
-        <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '15px', color: '#60a5fa' }}>
+        <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '15px', color: isLight ? 'var(--text-title)' : '#60a5fa' }}>
           <span style={{ fontSize: '2.5rem' }}>🏆</span> MAFOSZ Minősítés
         </h2>
         <PremiumPaywall user={user} />
@@ -110,13 +127,13 @@ export default function MafoszProgressView({ user, allUsers = [] }: MafoszProgre
     
     return (
       <div style={{ marginBottom: '20px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '0.9rem', color: '#cbd5e1', fontWeight: 'bold' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '0.9rem', color: 'var(--text-body)', fontWeight: 'bold' }}>
           <span>{label}</span>
-          <span style={{ color: isCompleted ? '#10b981' : '#f8fafc' }}>
+          <span style={{ color: isCompleted ? '#10b981' : 'var(--text-title)' }}>
             {current} / {required} {isCompleted && '✅'}
           </span>
         </div>
-        <div style={{ width: '100%', height: '12px', background: '#334155', borderRadius: '100px', overflow: 'hidden' }}>
+        <div style={{ width: '100%', height: '12px', background: isLight ? 'rgba(0,0,0,0.06)' : '#334155', borderRadius: '100px', overflow: 'hidden' }}>
           <div style={{ height: '100%', width: `${percent}%`, background: isCompleted ? '#10b981' : color, transition: 'width 1s ease-in-out' }}></div>
         </div>
       </div>
@@ -125,25 +142,26 @@ export default function MafoszProgressView({ user, allUsers = [] }: MafoszProgre
 
   return (
     <div>
-      <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '15px', color: '#60a5fa' }}>
+      <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '15px', color: isLight ? 'var(--text-title)' : '#60a5fa' }}>
         <span style={{ fontSize: '2.5rem' }}>🏆</span> MAFOSZ Minősítés Követő
       </h2>
 
+      {/* --- ADMIN LEGÖRDÜLŐ MENÜ --- */}
       {user.email === ADMIN_EMAIL && allUsers.length > 0 && (
-        <div style={{ marginBottom: '30px', padding: '20px', background: '#1e293b', borderRadius: '12px', border: '2px solid #f59e0b', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}>
+        <div style={{ marginBottom: '30px', padding: '20px', background: 'var(--bg-card)', borderRadius: '12px', border: '2px solid #f59e0b', boxShadow: isLight ? '0 4px 15px rgba(0,0,0,0.04)' : '0 4px 6px rgba(0,0,0,0.3)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '10px' }}>
             <span style={{ fontSize: '1.5rem' }}>👑</span>
             <label style={{ color: '#f59e0b', fontWeight: 'bold', fontSize: '1.1rem' }}>
               Admin Nézet: Válassz felhasználót az adatok ellenőrzéséhez
             </label>
           </div>
-          <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: '15px', marginTop: 0 }}>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '15px', marginTop: 0 }}>
             Itt megtekintheted a migrált adatokat bármelyik fotós nevében anélkül, hogy be kellene jelentkezned a jelszavukkal.
           </p>
           <select 
             value={selectedEmail} 
             onChange={(e) => setSelectedEmail(e.target.value)}
-            style={{ width: '100%', padding: '12px 15px', borderRadius: '8px', background: '#0f172a', color: 'white', border: '1px solid #475569', fontSize: '1rem', cursor: 'pointer', outline: 'none' }}
+            style={{ width: '100%', padding: '12px 15px', borderRadius: '8px', background: 'var(--bg-main)', color: 'var(--text-title)', border: '1px solid var(--border-main)', fontSize: '1rem', cursor: 'pointer', outline: 'none' }}
           >
             <option value={user.email}>-- Saját adataim megtekintése --</option>
             {allUsers
@@ -159,47 +177,48 @@ export default function MafoszProgressView({ user, allUsers = [] }: MafoszProgre
       )}
 
       {isLoading ? (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '300px', color: '#60a5fa' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '300px', color: 'var(--text-title)' }}>
           <div style={{ fontSize: '3rem', marginBottom: '20px', animation: 'spin 2s linear infinite' }}>⏳</div>
           <h3>MAFOSZ statisztikák betöltése...</h3>
         </div>
       ) : (
         <>
-          <p style={{ color: '#94a3b8', fontSize: '1.1rem', marginBottom: '30px' }}>
+          <p style={{ color: 'var(--text-muted)', fontSize: '1.1rem', marginBottom: '30px' }}>
             {selectedEmail === user.email 
               ? 'Kövesd nyomon automatikusan, hogyan haladsz a MAFOSZ hivatalos minősítési rendszereiben! (1 Díj = 2 Elfogadás)' 
               : `Jelenleg ${allUsers.find(u => u.email === selectedEmail)?.name || selectedEmail} adatait vizsgálod.`}
           </p>
 
+          {/* DASHBOARD KÁRTYÁK */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '30px', marginBottom: '40px' }}>
-            <div style={{ background: 'linear-gradient(135deg, #1e293b, #0f172a)', padding: '30px', borderRadius: '16px', border: `2px solid ${currentLevel ? currentLevel.color : '#334155'}`, textAlign: 'center', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-              <div style={{ fontSize: '1rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '10px' }}>Jelenlegi Minősítésed</div>
-              <div style={{ fontSize: '3rem', fontWeight: '900', color: currentLevel ? currentLevel.color : '#cbd5e1', marginBottom: '10px' }}>
+            <div style={{ background: 'var(--bg-card)', padding: '30px', borderRadius: '16px', border: `2px solid ${currentLevel ? currentLevel.color : 'var(--border-main)'}`, textAlign: 'center', display: 'flex', flexDirection: 'column', justifyContent: 'center', boxShadow: isLight ? '0 4px 15px rgba(0,0,0,0.03)' : 'none' }}>
+              <div style={{ fontSize: '1rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '10px' }}>Jelenlegi Minősítésed</div>
+              <div style={{ fontSize: '3rem', fontWeight: '900', color: currentLevel ? currentLevel.color : 'var(--text-muted)', marginBottom: '10px' }}>
                 {currentLevel ? currentLevel.id : 'Még nincs'}
               </div>
-              <div style={{ fontSize: '1.2rem', color: '#f8fafc' }}>
+              <div style={{ fontSize: '1.2rem', color: 'var(--text-title)' }}>
                 {currentLevel ? currentLevel.name : 'Vágj bele a hazai pályázatokba!'}
               </div>
               
               <div style={{ display: 'flex', justifyContent: 'center', gap: '15px', marginTop: '30px' }}>
-                <div style={{ background: '#1e293b', padding: '10px 15px', borderRadius: '8px', border: '1px solid #475569', minWidth: '80px' }}>
+                <div style={{ background: 'var(--bg-main)', padding: '10px 15px', borderRadius: '8px', border: '1px solid var(--border-main)', minWidth: '80px' }}>
                   <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#38bdf8' }}>{stats.acceptances}</div>
-                  <div style={{ fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase' }}>Elfogadás</div>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Elfogadás</div>
                 </div>
-                <div style={{ background: '#1e293b', padding: '10px 15px', borderRadius: '8px', border: '1px solid #475569', minWidth: '80px' }}>
+                <div style={{ background: 'var(--bg-main)', padding: '10px 15px', borderRadius: '8px', border: '1px solid var(--border-main)', minWidth: '80px' }}>
                   <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#f472b6' }}>{stats.works}</div>
-                  <div style={{ fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase' }}>Különböző Mű</div>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Különböző Mű</div>
                 </div>
-                <div style={{ background: '#1e293b', padding: '10px 15px', borderRadius: '8px', border: '1px solid #475569', minWidth: '80px' }}>
+                <div style={{ background: 'var(--bg-main)', padding: '10px 15px', borderRadius: '8px', border: '1px solid var(--border-main)', minWidth: '80px' }}>
                   <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#f59e0b' }}>{stats.awards}</div>
-                  <div style={{ fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase' }}>Díjak száma</div>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Díjak száma</div>
                 </div>
               </div>
             </div>
 
             {nextLevel ? (
-              <div style={{ background: '#1e293b', padding: '30px', borderRadius: '16px', border: '1px solid #334155' }}>
-                <div style={{ fontSize: '1rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '20px' }}>Következő Cél: <span style={{ color: nextLevel.color, fontWeight: 'bold' }}>{nextLevel.id}</span></div>
+              <div style={{ background: 'var(--bg-card)', padding: '30px', borderRadius: '16px', border: '1px solid var(--border-main)', boxShadow: isLight ? '0 4px 15px rgba(0,0,0,0.03)' : 'none' }}>
+                <div style={{ fontSize: '1rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '20px' }}>Következő Cél: <span style={{ color: nextLevel.color, fontWeight: 'bold' }}>{nextLevel.id}</span></div>
                 <ProgressBar label="Összes Elfogadás" current={stats.acceptances} required={nextLevel.req.acceptances} color="#38bdf8" />
                 <ProgressBar label="Különböző Művek" current={stats.works} required={nextLevel.req.works} color="#f472b6" />
                 <ProgressBar label="Díjak száma" current={stats.awards} required={nextLevel.req.awards} color="#f59e0b" />
@@ -213,12 +232,13 @@ export default function MafoszProgressView({ user, allUsers = [] }: MafoszProgre
             )}
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', borderBottom: '1px solid #334155', paddingBottom: '15px', flexWrap: 'wrap', gap: '15px' }}>
+          {/* LISTA FEJLÉC ÉS KERESŐ */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', borderBottom: '1px solid var(--border-main)', paddingBottom: '15px', flexWrap: 'wrap', gap: '15px' }}>
             <div>
-              <h3 style={{ fontSize: '1.5rem', color: '#f8fafc', margin: '0 0 5px 0' }}>
+              <h3 style={{ fontSize: '1.5rem', color: 'var(--text-title)', margin: '0 0 5px 0' }}>
                 Tételes MAFOSZ Eredmények (Részletes lista)
               </h3>
-              <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>
+              <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                 {searchTerm ? `Keresési találat: ${filteredEntries.length} / ${entries.length} sor` : `Összesen: ${entries.length} sor`}
               </div>
             </div>
@@ -228,30 +248,30 @@ export default function MafoszProgressView({ user, allUsers = [] }: MafoszProgre
               placeholder="🔍 Keresés (cím, szalon, MAFOSZ szám, díj)..." 
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
-              style={{ padding: '10px 15px', borderRadius: '8px', border: '1px solid #475569', background: '#0f172a', color: 'white', minWidth: '320px', outline: 'none' }}
+              style={{ padding: '10px 15px', borderRadius: '8px', border: '1px solid var(--border-main)', background: 'var(--bg-card)', color: 'var(--text-title)', minWidth: '320px', outline: 'none' }}
             />
           </div>
 
           {entries.length === 0 ? (
-            <div style={{ padding: '20px', color: '#94a3b8', textAlign: 'center', background: '#1e293b', borderRadius: '12px', border: '1px solid #334155' }}>
+            <div style={{ padding: '20px', color: 'var(--text-muted)', textAlign: 'center', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-main)' }}>
               Még nincsenek hitelesített MAFOSZ eredmények ehhez a felhasználóhoz.
             </div>
           ) : filteredEntries.length === 0 ? (
-            <div style={{ padding: '40px', color: '#94a3b8', textAlign: 'center', background: '#0f172a', borderRadius: '12px', border: '1px dashed #334155' }}>
+            <div style={{ padding: '40px', color: 'var(--text-muted)', textAlign: 'center', background: 'var(--bg-main)', borderRadius: '12px', border: '1px dashed var(--border-main)' }}>
               Nincs a keresésnek megfelelő találat.
             </div>
           ) : (
-            <div style={{ overflowX: 'auto', background: '#1e293b', borderRadius: '12px', border: '1px solid #334155' }}>
+            <div style={{ overflowX: 'auto', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-main)' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '800px' }}>
                 <thead>
-                  <tr style={{ background: '#0f172a', borderBottom: '2px solid #334155' }}>
-                    <th style={{ padding: '15px', color: '#94a3b8', fontWeight: 'bold' }}>Kép címe</th>
-                    <th style={{ padding: '15px', color: '#94a3b8', fontWeight: 'bold' }}>Szalon neve</th>
-                    <th style={{ padding: '15px', color: '#94a3b8', fontWeight: 'bold' }}>MAFOSZ szám</th>
-                    <th style={{ padding: '15px', color: '#94a3b8', fontWeight: 'bold' }}>Eredmény</th>
-                    <th style={{ padding: '15px', color: '#94a3b8', fontWeight: 'bold', textAlign: 'center' }}>Digitális</th>
-                    <th style={{ padding: '15px', color: '#94a3b8', fontWeight: 'bold', textAlign: 'center' }}>Print</th>
-                    <th style={{ padding: '15px', color: '#94a3b8', fontWeight: 'bold', textAlign: 'center' }}>Fotó</th>
+                  <tr style={{ background: 'var(--bg-main)', borderBottom: '2px solid var(--border-main)' }}>
+                    <th style={{ padding: '15px', color: 'var(--text-muted)', fontWeight: 'bold' }}>Kép címe</th>
+                    <th style={{ padding: '15px', color: 'var(--text-muted)', fontWeight: 'bold' }}>Szalon neve</th>
+                    <th style={{ padding: '15px', color: 'var(--text-muted)', fontWeight: 'bold' }}>MAFOSZ szám</th>
+                    <th style={{ padding: '15px', color: 'var(--text-muted)', fontWeight: 'bold' }}>Eredmény</th>
+                    <th style={{ padding: '15px', color: 'var(--text-muted)', fontWeight: 'bold', textAlign: 'center' }}>Digitális</th>
+                    <th style={{ padding: '15px', color: 'var(--text-muted)', fontWeight: 'bold', textAlign: 'center' }}>Print</th>
+                    <th style={{ padding: '15px', color: 'var(--text-muted)', fontWeight: 'bold', textAlign: 'center' }}>Fotó</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -259,25 +279,25 @@ export default function MafoszProgressView({ user, allUsers = [] }: MafoszProgre
                     const isAcceptance = entry.award?.toLowerCase() === 'acceptance';
                     const isOnline = entry.submission_type === 'online';
                     
-                  return (
-                      <tr key={idx} style={{ borderBottom: '1px solid #334155', transition: 'background 0.2s' }} onMouseOver={e => e.currentTarget.style.background = '#0f172a'} onMouseOut={e => e.currentTarget.style.background = 'transparent'}>
-                        <td style={{ padding: '12px 15px', color: '#f8fafc', fontWeight: 'bold' }}>{entry.photo_title}</td>
-                        <td style={{ padding: '12px 15px', color: '#cbd5e1' }}>{entry.salon_name}</td>
+                    return (
+                      <tr key={idx} style={{ borderBottom: '1px solid var(--border-main)', transition: 'background 0.1s' }} onMouseOver={e => e.currentTarget.style.background = 'var(--hover-overlay)'} onMouseOut={e => e.currentTarget.style.background = 'transparent'}>
+                        <td style={{ padding: '12px 15px', color: 'var(--text-title)', fontWeight: 'bold' }}>{entry.photo_title}</td>
+                        <td style={{ padding: '12px 15px', color: 'var(--text-body)' }}>{entry.salon_name}</td>
                         <td style={{ padding: '12px 15px', color: '#10b981', fontWeight: 'bold', whiteSpace: 'nowrap' }}>{entry.mafosz_number}</td>
                         <td style={{ padding: '12px 15px', color: isAcceptance ? '#10b981' : '#f59e0b', fontWeight: isAcceptance ? 'normal' : 'bold' }}>
                           {entry.award}
                         </td>
-                        <td style={{ padding: '12px 15px', textAlign: 'center', color: isOnline ? '#10b981' : '#475569' }}>
+                        <td style={{ padding: '12px 15px', textAlign: 'center', color: isOnline ? '#10b981' : 'var(--text-muted)' }}>
                           {isOnline ? '✔️' : '-'}
                         </td>
-                        <td style={{ padding: '12px 15px', textAlign: 'center', color: !isOnline ? '#10b981' : '#475569' }}>
+                        <td style={{ padding: '12px 15px', textAlign: 'center', color: !isOnline ? '#10b981' : 'var(--text-muted)' }}>
                           {!isOnline ? '✔️' : '-'}
                         </td>
                         <td style={{ padding: '8px 15px', textAlign: 'center' }}>
                           <img 
                             src={getImageUrl(entry.drive_file_id, entry.file_url)} 
-                            alt={entry.photo_title} 
-                            style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #475569' }} 
+                            alt="" 
+                            style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '6px', border: '1px solid var(--border-main)' }} 
                           />
                         </td>
                       </tr>
