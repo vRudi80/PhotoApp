@@ -122,7 +122,7 @@ export default function FiapProgressView({ user, allUsers = [] }: FiapProgressVi
         }
       } catch (e) {
         console.error("Hiba a FIAP progress adatok letöltésekor:", e);
-      } finaly {
+      } finally {
         setIsLoading(false);
       }
     };
