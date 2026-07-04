@@ -19,6 +19,7 @@ const translations = {
     tilePodcastTitle: 'Képolvasók Podcast',
 tilePodcastDesc: 'Hallgass bennünket aktuális fotós témákról',
     navExplore:'Felfedezés',
+    submanagedBanned: 'Tiltott userek',
 
     "archiveCountPhotographer": "Fotós",
   "archiveCountEnded": "Lezárult",
@@ -1093,6 +1094,7 @@ tilePodcastDesc: 'Listen our podcast of fresh topics',
   "rankExpert": "Expert 🎯",
   "rankMaster": "Photo Master 🎨",
   "rankGrandmaster": "Grandmaster 🌟",
+    submanagedBanned: 'Banned users',
 
     profTitle: '👤 Personal Data',
     profNotice: 'This name will appear next to your submitted entries, on the wall of fame, and on certificates as well.',
