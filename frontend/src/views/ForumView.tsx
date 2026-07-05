@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { BACKEND_URL, ADMIN_EMAIL } from '../utils/constants';
+import { getImageUrl } from '../utils/helpers'; // 🎯 Beimportálva a Drive képmegjelenítő helper
 
 // Nyelvi és téma kontextusok aktiválása
 import { useLanguage } from '../context/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
 
-// Letisztult Lucide ikonok a modern fórum hangulathoz
+// Letisztult Lucide ikonok
 import { 
   MessageSquare, 
   Send, 
@@ -14,12 +15,13 @@ import {
   Trash2, 
   Plus, 
   Edit3, 
-  Folder, 
   ArrowLeft, 
   Lock, 
-  Globe, 
   User, 
-  Calendar 
+  Calendar,
+  Camera,
+  X,
+  ImageIcon
 } from 'lucide-react';
 
 interface ForumViewProps {
@@ -31,7 +33,6 @@ interface ForumViewProps {
 export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumViewProps) {
   const { t, lang } = useLanguage();
   
-  // Téma detektálása
   let isLight = false;
   try {
     const themeContext = useTheme();
@@ -39,7 +40,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
   } catch (e) {}
 
   // ==============================================================
-  // 1. ÁLLAPOTOK KEZELÉSE
+  // ÁLLAPOTOK KEZELÉSE
   // ==============================================================
   const [clubId, setClubId] = useState<number | null>(null);
   const [categories, setCategories] = useState<any[]>([]);
@@ -52,17 +53,23 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
   const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null);
   const [categoryNameInput, setCategoryNameInput] = useState('');
 
-  // Új poszt indítása
+  // Új poszt indítása + KÉP ÁLLAPOTOK
   const [isPosting, setIsPosting] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newContent, setNewContent] = useState('');
   const [isPublicPost, setIsPublicPost] = useState(false); 
+  const [postFile, setPostFile] = useState<File | null>(null);
+  const [postPreview, setPostPreview] = useState<string | null>(null);
+  const [isUploadingThread, setIsUploadingThread] = useState(false);
 
-  // Olvasók és kommentek
+  // Olvasók és kommentek + KÉP ÁLLAPOTOK
   const [readers, setReaders] = useState<any[]>([]);
   const [showReaders, setShowReaders] = useState(false);
   const [comments, setComments] = useState<any[]>([]);
   const [newComment, setNewComment] = useState('');
+  const [commentFile, setCommentFile] = useState<File | null>(null);
+  const [commentPreview, setCommentPreview] = useState<string | null>(null);
+  const [isCommenting, setIsCommenting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   const isAdmin = user?.email === ADMIN_EMAIL;
@@ -80,7 +87,6 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
     outline: 'none'
   };
 
-  // 🎯 JAVÍTVA: Mostantól szabályosan fogadja és fűzi össze az extra Content-Type fejléceket!
   const getLocalAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
     const token = localStorage.getItem('photoAppToken');
     return { 
@@ -90,10 +96,8 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
   };
 
   // ==============================================================
-  // 2. ADATOK SYNC MOTORJA
+  // ADATOK SYNC MOTORJA
   // ==============================================================
-  
-  // Klub ID szinkronizálása
   useEffect(() => {
     if (mode === 'public') return; 
     const fetchClubId = async () => {
@@ -112,7 +116,6 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
     fetchClubId();
   }, [currentDbUser?.club_name, mode]);
 
-  // Kategóriák betöltése
   const fetchCategories = async () => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/forum/categories`, { headers: getLocalAuthHeaders() });
@@ -124,15 +127,13 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
     fetchCategories();
   }, []);
 
-  // Bejegyzések betöltése kategória alapján
   const fetchPosts = async () => {
     if (!selectedCategoryId) return;
     setIsLoading(true);
     try {
       let url = `${BACKEND_URL}/api/forum/categories/${selectedCategoryId}/posts?mode=${mode}&userEmail=${user.email}`;
-      if (mode === 'club' && clubId) {
-        url += `&clubId=${clubId}`;
-      }
+      if (mode === 'club' && clubId) url += `&clubId=${clubId}`;
+      
       const res = await fetch(url, { headers: getLocalAuthHeaders() });
       if (res.ok) setPosts(await res.json());
     } catch (e) { console.error(e); }
@@ -146,7 +147,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
   }, [selectedCategoryId, clubId, mode]);
 
   // ==============================================================
-  // 3. ADMIN KATEGÓRIA MŰVELETEK
+  // MŰVELETEK (KATEGÓRIA, POSZT, KOMMENT)
   // ==============================================================
   const handleSaveCategory = async () => {
     if (!categoryNameInput.trim()) return alert("A név nem lehet üres!");
@@ -167,16 +168,10 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
         setIsAddingCategory(false);
         setEditingCategoryId(null);
         fetchCategories();
-      } else {
-        const errData = await res.json();
-        alert(errData.error || "Sikertelen kategória mentés.");
       }
-    } catch (e) { alert("Hiba a kategória mentésekor."); }
+    } catch (e) { alert("Hiba történt."); }
   };
 
-  // ==============================================================
-  // 4. FÓRUM BEJEGYZÉS ÉS KOMMENT MŰVELETEK
-  // ==============================================================
   const handleExpandPost = async (postId: number) => {
     if (expandedPostId === postId) {
       setExpandedPostId(null);
@@ -184,6 +179,8 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
     }
     setExpandedPostId(postId);
     setShowReaders(false);
+    setCommentFile(null);
+    setCommentPreview(null);
     setPosts(prev => prev.map(p => p.id === postId ? { ...p, is_read: 1 } : p));
 
     try {
@@ -197,50 +194,66 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
     } catch (e) { console.error(e); }
   };
 
+  // 🎯 JAVÍTVA: Témanyitás FormData alapon, képmelléklettel
   const handlePostThread = async () => {
     if (!selectedCategoryId) return;
     if (!newTitle.trim() || !newContent.trim()) return alert("Minden mező kitöltése kötelező!");
 
+    setIsUploadingThread(true);
+    const formData = new FormData();
+    formData.append('clubId', mode === 'club' ? String(clubId) : '');
+    formData.append('userEmail', user.email);
+    formData.append('userName', user.name);
+    formData.append('title', newTitle.trim());
+    formData.append('content', newContent.trim());
+    formData.append('isPublic', String(isPublicPost));
+    if (postFile) formData.append('photo', postFile);
+
     try {
       const res = await fetch(`${BACKEND_URL}/api/forum/categories/${selectedCategoryId}/posts`, {
         method: 'POST',
-        headers: getLocalAuthHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({
-          clubId: mode === 'club' ? clubId : null,
-          userEmail: user.email,
-          userName: user.name,
-          title: newTitle,
-          content: newContent,
-          isPublic: isPublicPost
-        })
+        headers: getLocalAuthHeaders(), // Content-Type-ot a böngésző teszi rá a FormData miatt!
+        body: formData
       });
 
       if (res.ok) {
         setNewTitle('');
         setNewContent('');
+        setPostFile(null);
+        setPostPreview(null);
         setIsPosting(false);
         fetchPosts();
-      } else {
-        const err = await res.json();
-        alert(err.error || "Hiba a posztolás során.");
       }
     } catch (e) { alert("Sikertelen közzététel."); }
+    finally { setIsUploadingThread(false); }
   };
 
+  // 🎯 JAVÍTVA: Hozzászólás küldése FormData alapon, képmelléklettel
   const handlePostComment = async (postId: number) => {
-    if (!newComment.trim()) return;
+    if (!newComment.trim() && !commentFile) return;
+    setIsCommenting(true);
+
+    const formData = new FormData();
+    formData.append('userEmail', user.email);
+    formData.append('userName', user.name);
+    formData.append('commentText', newComment.trim());
+    if (commentFile) formData.append('photo', commentFile);
+
     try {
       const res = await fetch(`${BACKEND_URL}/api/news/${postId}/comments`, {
         method: 'POST',
-        headers: getLocalAuthHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ userEmail: user.email, userName: user.name, commentText: newComment })
+        headers: getLocalAuthHeaders(),
+        body: formData
       });
       if (res.ok) {
         setNewComment('');
+        setCommentFile(null);
+        setCommentPreview(null);
         const cRes = await fetch(`${BACKEND_URL}/api/news/${postId}/comments`, { headers: getLocalAuthHeaders() });
         if (cRes.ok) setComments(await cRes.json());
       }
     } catch (e) { alert("Hiba a hozzászólásnál."); }
+    finally { setIsCommenting(false); }
   };
 
   const handleDeletePost = async (postId: number) => {
@@ -265,25 +278,8 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
     } catch (e) { console.error(e); }
   };
 
-  // ==============================================================
-  // 5. RENDERING SZŰRŐK ÉS NÉZETEK
-  // ==============================================================
-  if (mode === 'club' && (!currentDbUser?.club_name || currentDbUser?.club_role === 'pending')) {
-    return (
-      <div style={{ textAlign: 'center', padding: '4rem 2rem', background: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border-main)' }}>
-        <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🔒</div>
-        <h2 style={{ color: '#f59e0b', margin: '0 0 10px 0' }}>
-          {currentDbUser?.club_role === 'pending' ? 'Jelentkezésed jóváhagyásra vár' : 'Nincs klubtagságod'}
-        </h2>
-        <p style={{ color: 'var(--text-muted)', fontSize: '1.1rem' }}>
-          A belső klubfórum és bejelentések megtekintéséhez meg kell várnod, amíg a klubvezető jóváhagyja a tagságodat.
-        </p>
-      </div>
-    );
-  }
-
   return (
-    <div style={{ animation: 'fadeIn 0.4s ease-out' }}>
+    <div style={{ boxSizing: 'border-box' }}>
       
       {/* KATEGÓRIÁK FŐOLDAL */}
       {selectedCategoryId === null ? (
@@ -302,18 +298,16 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
             )}
           </div>
 
-          {/* Kategória hozzáadás/szerkesztés panel (Admin) */}
           {isAdmin && isAddingCategory && (
             <div style={{ background: 'var(--bg-card)', padding: '20px', borderRadius: '12px', border: '2px solid #10b981', marginBottom: '25px' }}>
               <h3 style={{ margin: '0 0 15px 0', color: '#10b981' }}>{editingCategoryId ? 'Fórumcsoport átnevezése' : 'Új fórumcsoport létrehozása'}</h3>
-              <input placeholder="Kategória neve (pl. Analóg Fotográfia, Technikai Segítség)..." value={categoryNameInput} onChange={e => setCategoryNameInput(e.target.value)} style={inputStyle} />
+              <input placeholder="Kategória neve..." value={categoryNameInput} onChange={e => setCategoryNameInput(e.target.value)} style={inputStyle} />
               <button onClick={handleSaveCategory} style={{ width: '100%', background: '#10b981', color: 'white', border: 'none', padding: '12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
                 💾 Mentés és Aktiválás
               </button>
             </div>
           )}
 
-          {/* Kategória lista */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
             {categories.map(cat => (
               <div 
@@ -334,56 +328,62 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
                     </p>
                   </div>
                 </div>
-
-                {isAdmin && (
-                  <div style={{ position: 'absolute', top: '15px', right: '15px', display: 'flex', gap: '8px' }} onClick={e => e.stopPropagation()}>
-                    <button onClick={() => { setEditingCategoryId(cat.id); setCategoryNameInput(cat.name); setIsAddingCategory(true); }} style={{ background: 'transparent', color: '#f59e0b', border: 'none', cursor: 'pointer' }}><Edit3 size={16} /></button>
-                  </div>
-                )}
               </div>
             ))}
           </div>
         </>
       ) : (
         
-        /* TÉMÁK ÉS POSZTOK LISTÁJA KATEGÓRIÁN BELÜL */
+        /* TÉMÁK ÉS POSZTOK LISTÁJA */
         <>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '15px' }}>
             <button 
-              onClick={() => { setSelectedCategoryId(null); setPosts([]); setExpandedPostId(null); setNewTitle(''); setNewContent(''); setIsPosting(false); }}
+              onClick={() => { setSelectedCategoryId(null); setPosts([]); setExpandedPostId(null); setIsPosting(false); }}
               style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', color: 'var(--text-title)', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}
             >
               <ArrowLeft size={16} /> Vissza a csoportokhoz
             </button>
 
-            {/* Írási jogok szűrése */}
             {(selectedCategoryId !== 1 || isLeader) && (
               <button 
                 onClick={() => setIsPosting(!isPosting)}
                 style={{ background: isPosting ? '#ef4444' : '#38bdf8', color: '#0f172a', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
               >
-                {isPosting ? '¼ Mégse' : '✍️ Új téma indítása'}
+                {isPosting ? '✖ Mégse' : '✍️ Új téma indítása'}
               </button>
             )}
           </div>
 
-          {/* Új téma beküldő panel */}
+          {/* Új téma beküldő panel KÉP OPCIÓVAL */}
           {isPosting && (
             <div style={{ background: 'var(--bg-card)', padding: '25px', borderRadius: '12px', border: '2px solid #38bdf8', marginBottom: '25px' }}>
               <h3 style={{ margin: '0 0 15px 0', color: '#38bdf8' }}>Új beszélgetés indítása</h3>
-              <input placeholder="A téma tömör címe..." value={newTitle} onChange={e => setNewTitle(e.target.value)} style={inputStyle} />
-              <textarea placeholder="Fejtsd ki a gondolataidat bővebben..." value={newContent} onChange={e => setNewContent(e.target.value)} style={{ ...inputStyle, minHeight: '140px' }} />
+              <input placeholder="A téma tömör címe..." value={newTitle} onChange={e => setNewTitle(e.target.value)} style={inputStyle} disabled={isUploadingThread} />
+              <textarea placeholder="Fejtsd ki a gondolataidat bővebben..." value={newContent} onChange={e => setNewContent(e.target.value)} style={{ ...inputStyle, minHeight: '140px' }} disabled={isUploadingThread} />
               
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ fontSize: '0.85rem', fontWeight: 'bold', display: 'block', marginBottom: '6px', color: 'var(--text-title)' }}>🏞️ Illusztráció vagy fotó csatolása (opcionális):</label>
+                <input type="file" accept="image/*" onChange={e => {
+                  const f = e.target.files?.[0];
+                  if(f) { setPostFile(f); setPostPreview(URL.createObjectURL(f)); }
+                }} style={{ color: 'var(--text-muted)' }} disabled={isUploadingThread} />
+                {postPreview && (
+                  <div style={{ marginTop: '10px', position: 'relative', display: 'inline-block' }}>
+                    <img src={postPreview} alt="" style={{ maxHeight: '150px', borderRadius: '8px', border: '1px solid var(--border-main)' }} />
+                    <button onClick={() => { setPostFile(null); setPostPreview(null); }} style={{ position: 'absolute', top: '-8px', right: '-8px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '50%', width: '22px', height: '22px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={12}/></button>
+                  </div>
+                )}
+              </div>
+
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px', userSelect: 'none' }}>
-                <input type="checkbox" id="publicPostCheck" checked={isPublicPost} onChange={e => setIsPublicPost(e.target.checked)} style={{ width: '18px', height: '18px', cursor: 'pointer' }} />
+                <input type="checkbox" id="publicPostCheck" checked={isPublicPost} onChange={e => setIsPublicPost(e.target.checked)} style={{ width: '18px', height: '18px', cursor: 'pointer' }} disabled={isUploadingThread} />
                 <label htmlFor="publicPostCheck" style={{ color: '#fbbf24', fontWeight: 'bold', fontSize: '0.95rem', cursor: 'pointer' }}>
-                  📢 Legyen nyilvános (mindenki láthatja, nem csak a saját klubtagok)
+                  📢 Legyen nyilvános (minden Aréna tag láthatja kívülről is)
                 </label>
               </div>
 
-              {/* 🎯 JAVÍTVA: handleThreadSubmit átírva a valódi handlePostThread belső függvényre! */}
-              <button onClick={handlePostThread} style={{ width: '100%', background: '#38bdf8', color: '#0f172a', border: 'none', padding: '12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1.1rem' }}>
-                🚀 Téma közzététele
+              <button onClick={handlePostThread} disabled={isUploadingThread} style={{ width: '100%', background: '#38bdf8', color: '#0f172a', border: 'none', padding: '12px', borderRadius: '8px', cursor: isUploadingThread ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '1.1rem' }}>
+                {isUploadingThread ? '⏳ Kép feltöltése a Drive-ra...' : '🚀 Téma közzététele'}
               </button>
             </div>
           )}
@@ -407,6 +407,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
                         <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                           {isUnread && <span style={{ background: '#ef4444', color: 'white', padding: '2px 8px', borderRadius: '12px', fontSize: '0.68rem', fontWeight: 'bold' }}>ÚJ</span>}
                           {post.is_public === 1 && <span style={{ background: 'rgba(245,158,11,0.08)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.2)', padding: '2px 8px', borderRadius: '12px', fontSize: '0.68rem', fontWeight: 'bold' }}>📢 NYILVÁNOS</span>}
+                          {post.file_url && <span style={{ background: 'rgba(16,185,129,0.08)', color: '#10b981', border: '1px solid rgba(16,185,129,0.2)', padding: '2px 8px', borderRadius: '12px', fontSize: '0.68rem', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '3px' }}><ImageIcon size={10}/> FOTÓVAL</span>}
                           <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Calendar size={12} /> {new Date(post.created_at).toLocaleDateString('hu-HU')}</span>
                           <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><User size={12} /> {post.author_name} {mode === 'public' && <b style={{ color: '#38bdf8' }}>(🏛️ {post.club_name})</b>}</span>
                         </div>
@@ -417,8 +418,15 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
 
                     {isExpanded && (
                       <div style={{ padding: '0 20px 20px 20px', borderTop: '1px solid var(--border-main)', animation: 'fadeIn 0.3s ease-out' }}>
-                        <p style={{ color: 'var(--text-body)', lineHeight: '1.6', fontSize: '1rem', whiteSpace: 'pre-wrap', marginTop: '20px' }}>{post.content}</p>
+                        <p style={{ color: 'var(--text-body)', lineHeight: '1.6', fontSize: '1rem', whiteSpace: 'pre-wrap', marginTop: '20px', marginBottom: '20px' }}>{post.content}</p>
                         
+                        {/* 🎯 ÚJ: Csatolt bejegyzés-kép kirajzolása */}
+                        {post.file_url && (
+                          <div style={{ maxWidth: '100%', maxHeight: '400px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-main)', marginBottom: '20px', width: 'fit-content', backgroundColor: '#000' }}>
+                            <img src={getImageUrl(post.drive_file_id, post.file_url)} alt="" style={{ maxWidth: '100%', maxHeight: '400px', objectFit: 'contain', display: 'block' }} />
+                          </div>
+                        )}
+
                         <div style={{ display: 'flex', gap: '10px', marginTop: '20px', paddingTop: '15px', borderTop: '1px dashed var(--border-main)' }}>
                           {isLeader && (
                             <button onClick={() => fetchReaders(post.id)} style={{ background: 'rgba(59,130,246,0.08)', color: '#3b82f6', border: '1px solid rgba(59,130,246,0.2)', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.82rem' }}>
@@ -442,40 +450,64 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
                           </div>
                         )}
 
-                        {/* HOZZÁSZÓLÁSOK */}
+                        {/* HOZZÁSZÓLÁSOK FOLYAM */}
                         <div style={{ background: 'var(--bg-main)', borderRadius: '12px', padding: '15px', marginTop: '25px', border: '1px solid var(--border-main)' }}>
                           <h4 style={{ margin: '0 0 15px 0', color: 'var(--text-title)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                             💬 Hozzászólások <span style={{ background: 'var(--bg-card)', padding: '2px 8px', borderRadius: '50px', fontSize: '0.75rem', border: '1px solid var(--border-main)' }}>{comments.length}</span>
                           </h4>
                           
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '15px', maxHeight: '300px', overflowY: 'auto' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '15px', maxHeight: '400px', overflowY: 'auto' }}>
                             {comments.map(c => (
                               <div key={c.id} style={{ background: 'var(--bg-card)', padding: '12px 15px', borderRadius: '8px', border: '1px solid var(--border-main)' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
                                   <b style={{ color: '#38bdf8', fontSize: '0.85rem' }}>{c.user_name}</b>
                                   <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>{new Date(c.created_at).toLocaleDateString('hu-HU')}</span>
                                 </div>
-                                <div style={{ color: 'var(--text-body)', fontSize: '0.95rem', lineHeight: '1.4' }}>{c.comment_text}</div>
+                                <div style={{ color: 'var(--text-body)', fontSize: '0.95rem', lineHeight: '1.4', marginBottom: c.file_url ? '10px' : 0 }}>{c.comment_text}</div>
+                                
+                                {/* 🎯 ÚJ: Csatolt hozzászólás-kép kirajzolása */}
+                                {c.file_url && (
+                                  <div style={{ maxWidth: '250px', maxHeight: '180px', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border-main)', backgroundColor: '#000' }}>
+                                    <img src={getImageUrl(c.drive_file_id, c.file_url)} alt="" style={{ maxWidth: '100%', maxHeight: '180px', objectFit: 'cover', display: 'block' }} />
+                                  </div>
+                                )}
                               </div>
                             ))}
                             {comments.length === 0 && <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', fontStyle: 'italic' }}>Még nincs hozzászólás. Indítsd el a vitát!</div>}
                           </div>
 
-                          <div style={{ display: 'flex', gap: '10px' }}>
+                          {/* 🎯 ÚJ JAVÍTOTT KOMMENT INPUT KÉPFELTÖLTŐ IKONNAL */}
+                          {commentPreview && (
+                            <div style={{ position: 'relative', display: 'inline-block', marginBottom: '10px' }}>
+                              <img src={commentPreview} alt="" style={{ maxHeight: '60px', borderRadius: '6px', border: '1px solid #38bdf850' }} />
+                              <button onClick={() => { setCommentFile(null); setCommentPreview(null); }} style={{ position: 'absolute', top: '-5px', right: '-5px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '50%', width: '18px', height: '18px', fontSize: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                            </div>
+                          )}
+
+                          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                            <label style={{ cursor: isCommenting ? 'not-allowed' : 'pointer', fontSize: '1.2rem', background: 'var(--bg-card)', padding: '8px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border-main)', width: '38px', height: '36px', boxSizing: 'border-box' }} title="Fotó csatolása">
+                              <Camera size={16} color="var(--text-title)" />
+                              <input type="file" accept="image/*" onChange={(e) => {
+                                const f = e.target.files?.[0];
+                                if (f) { setCommentFile(f); setCommentPreview(URL.createObjectURL(f)); }
+                              }} style={{ display: 'none' }} disabled={isCommenting} />
+                            </label>
+
                             <input 
                               type="text" 
-                              placeholder="Írd le a véleményed, meglátásod..." 
+                              placeholder={commentFile ? "Írj leírást a csatolt képhez..." : "Írd le a véleményed, meglátásod..."} 
                               value={newComment}
                               onChange={(e) => setNewComment(e.target.value)}
                               onKeyDown={(e) => { if (e.key === 'Enter') handlePostComment(post.id); }}
                               style={{ flex: 1, padding: '10px 15px', borderRadius: '20px', border: '1px solid var(--border-main)', background: 'var(--bg-card)', color: 'var(--text-title)', outline: 'none' }}
+                              disabled={isCommenting}
                             />
                             <button 
                               onClick={() => handlePostComment(post.id)}
-                              disabled={!newComment.trim()}
-                              style={{ background: newComment.trim() ? '#38bdf8' : 'var(--border-main)', color: '#0f172a', border: 'none', padding: '0 20px', borderRadius: '20px', cursor: 'pointer', fontWeight: 'bold' }}
+                              disabled={(!newComment.trim() && !commentFile) || isCommenting}
+                              style={{ background: (newComment.trim() || commentFile) ? '#38bdf8' : 'var(--border-main)', color: '#0f172a', border: 'none', padding: '0 20px', borderRadius: '20px', cursor: (newComment.trim() || commentFile) ? 'pointer' : 'not-allowed', fontWeight: 'bold', height: '38px' }}
                             >
-                              Küldés
+                              {isCommenting ? '⏳' : 'Küldés'}
                             </button>
                           </div>
                         </div>
