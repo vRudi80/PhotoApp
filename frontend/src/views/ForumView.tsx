@@ -209,13 +209,20 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
     } catch (e) { console.error(e); }
   };
 
-  const handlePostThread = async () => {
+    const handlePostThread = async () => {
     if (!selectedCategoryId) return;
     if (!newTitle.trim() || !newContent.trim()) return alert("Minden mező kitöltése kötelező!");
 
     setIsUploadingThread(true);
     const formData = new FormData();
-    formData.append('clubId', mode === 'club' ? String(clubId) : (isPublicPost ? '' : String(clubId)));
+    
+    // 🎯 JAVÍTVA: Csak akkor csatoljuk a clubId-t, ha az valóban létezik és érvényes szám, elkerülve a "null" szöveg elküldését
+    if (mode === 'club' && clubId) {
+      formData.append('clubId', String(clubId));
+    } else if (mode === 'public' && !isPublicPost && clubId) {
+      formData.append('clubId', String(clubId));
+    }
+
     formData.append('userEmail', user.email);
     formData.append('userName', user.name);
     formData.append('title', newTitle.trim());
@@ -237,10 +244,17 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
         setPostPreview(null);
         setIsPosting(false);
         fetchPosts();
+      } else {
+        // 🎯 ÚJ: Ha a szerver elutasítja, mostantól nem hallgat el, hanem kiírja a pontos hibaokot!
+        const errData = await res.json();
+        alert(errData.error || "Szerveroldali hiba történt a mentés során.");
       }
-    } catch (e) { alert("Sikertelen közzététel."); }
+    } catch (e) { 
+      alert("Sikertelen közzététel. Hálózati kommunikációs hiba lépett fel."); 
+    }
     finally { setIsUploadingThread(false); }
   };
+
 
   // 🎯 ÚJ: Szerkesztési mód inicializálása adatokkal feltöltve
   const handleStartEditPost = (post: any) => {
