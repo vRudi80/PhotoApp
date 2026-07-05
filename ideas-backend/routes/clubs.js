@@ -702,6 +702,35 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       res.status(500).json({ error: 'Hiba a téma létrehozásakor.' });
     }
   });
+  // 🎯 ÚJ: Fórumbejegyzés/Téma utólagos szerkesztése (Csak a szerző vagy Admin)
+  app.put('/api/forum/posts/:id', requireAuth, async (req, res) => {
+    const { title, content, isPublic } = req.body;
+    const postId = req.params.id;
+
+    try {
+      // 🔒 Első lépésként leellenőrizzük, létezik-e a poszt, és ki írta
+      const [rows] = await pool.query('SELECT author_email FROM photo_club_news WHERE id = ?', [postId]);
+      if (rows.length === 0) {
+        return res.status(404).json({ error: 'A keresett beszélgetés nem található!' });
+      }
+
+      const isOwnPost = rows[0].author_email === req.user.email;
+      if (!isOwnPost && !req.user.isAdmin) {
+        return res.status(403).json({ error: 'Nincs jogosultságod a bejegyzés módosításához!' });
+      }
+
+      // Frissítjük a címet, tartalmat és a láthatóságot
+      await pool.query(
+        'UPDATE photo_club_news SET title = ?, content = ?, is_public = ? WHERE id = ?',
+        [title, content, isPublic ? 1 : 0, postId]
+      );
+
+      res.json({ success: true });
+    } catch (err) {
+      console.error("❌ Fórum szerkesztési hiba:", err.message);
+      res.status(500).json({ error: 'Hiba történt a bejegyzés mentésekor.' });
+    }
+  });
 
   // 2. Új hozzászólás küldése KÉPFELTÖLTÉSSEL
   app.post('/api/news/:id/comments', upload.single('photo'), requireAuth, async (req, res) => {
