@@ -1,179 +1,303 @@
-const { OAuth2Client } = require('google-auth-library');
-const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import { getImageUrl } from '../../utils/helpers';
+import VideoLoader from '../../components/VideoLoader';
+import { BACKEND_URL } from '../../utils/constants';
 
-// 🎯 JAVÍTVA: A te valódi admin e-mailedet állítottuk be biztonsági tartaléknak is!
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "kovari.rudolf@gmail.com";
+// Nyelvi kontextus aktiválása
+import { useLanguage } from '../../context/LanguageContext';
 
-// ====================================================================
-// 🔒 GOLYÓÁLLÓ AUTHENTICATION MIDDLEWARE A PROFILE MODULHOZ
-// ====================================================================
-async function requireAuth(req, res, next) {
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Hozzáférés megtagadva! Nincs hitelesítési token.' });
-    }
+// Téma környezet betöltése a reaktív színváltáshoz
+import { useTheme } from '../../context/ThemeContext';
 
-    const token = authHeader.split(' ')[1];
-    
-    // Google OAuth IdToken hitelesítése
-    const ticket = await client.verifyIdToken({
-      idToken: token,
-      audience: process.env.GOOGLE_CLIENT_ID,
-    });
-    
-    const payload = ticket.getPayload();
-    if (!payload || !payload.email) {
-      return res.status(401).json({ error: 'Érvénytelen vagy sérült Google token.' });
-    }
+// Professzionális Lucide Ikonok importálása az AI-sallangok ellen
+import { 
+  ArrowLeft, 
+  Crown, 
+  Shield, 
+  Zap, 
+  Trophy, 
+  Medal, 
+  Camera, 
+  Star,
+  Eye,
+  Clock,
+  Layers,
+  X,
+  MessageSquare,
+  Send,
+  Heart
+} from 'lucide-react';
 
-    // Biztonságosan injektáljuk a kérésbe a hitelesített entitást
-    req.user = {
-      email: payload.email,
-      name: payload.name,
-      isAdmin: payload.email === ADMIN_EMAIL
-    };
-
-    next();
-  } catch (error) {
-    console.error("🔒 Biztonsági őr hiba a profile modulban:", error.message);
-    return res.status(401).json({ error: 'Lejárt vagy érvénytelen munkamenet token!' });
-  }
+interface ArchiveDetailModalProps {
+  entry: any;
+  userEmail: string;
+  userName: string;
+  onClose: () => void;
+  onLikeUpdate: () => void;
 }
 
-module.exports = function(app, pool) {
-  
-  // ====================================================================
-  // 1. Klubok listájának lekérése (VÉDETT)
-  // ====================================================================
-  app.get('/api/clubsprofile', requireAuth, async (req, res) => {
-    try {
-      const [rows] = await pool.query('SELECT * FROM photo_clubs ORDER BY name ASC');
-      res.json(rows);
-    } catch (err) {
-      console.error("Hiba a klubok lekérésekor:", err);
-      res.status(500).json({ error: 'Hiba a klubok lekérésekor' });
-    }
-  });
-
-  // ====================================================================
-  // 2. Felhasználó klubjának frissítése (VÉDETT - IDOR Védelemmel)
-  // ====================================================================
-  app.put('/api/users/update-club', requireAuth, async (req, res) => {
-    const { email, clubId } = req.body;
-    
-    if (!email) return res.status(400).json({ error: 'Hiányzó email cím!' });
-
-    // 🔒 BIZTONSÁGI PAJZS: Megakadályozzuk, hogy valaki más felhasználó klubtagságát módosítsa
-    if (req.user.email !== email && !req.user.isAdmin) {
-      return res.status(403).json({ error: 'Hozzáférés megtagadva! Nem módosíthatod más felhasználó klubtagságát.' });
-    }
-
-    try {
-      if (!clubId) {
-        // Ha nincs ID, akkor szabadúszó lett (Kettős törlés: mindkét mező NULL)
-        await pool.query('UPDATE photo_users SET club_id = NULL, club_name = NULL WHERE email = ?', [email]);
-        return res.json({ success: true, message: 'Sikeresen kiléptél a klubból!' });
-      }
-
-      // Megkeressük a klub nevét az ID alapján a kettős íráshoz
-      const [clubRows] = await pool.query('SELECT name FROM photo_clubs WHERE id = ?', [clubId]);
-      if (clubRows.length === 0) return res.status(404).json({ error: 'A választott klub nem létezik!' });
-      const clubName = clubRows[0].name;
-
-      // KETTŐS MENTÉS: Beírjuk a szám ID-t és a szöveges nevet is a biztonság kedvéért!
-      await pool.query('UPDATE photo_users SET club_id = ?, club_name = ? WHERE email = ?', [clubId, clubName, email]);
-      
-      res.json({ success: true, message: 'Klubtagság sikeresen frissítve!' });
-    } catch (err) {
-      console.error("Klub mentési hiba:", err);
-      res.status(500).json({ error: 'Hiba a mentés során' });
-    }
-  });
-
-  // ====================================================================
-  // 👤 Felhasználó nevének módosítása (VÉDETT - IDOR Védelemmel)
-  // ====================================================================
-  app.put('/api/users/update-name', requireAuth, async (req, res) => {
-    const { email, newName } = req.body;
-
-    if (!email || !newName || !newName.trim()) {
-      return res.status(400).json({ error: 'A név megadása kötelező!' });
-    }
-
-    // 🔒 BIZTONSÁGI PAJZS: Megakadályozzuk, hogy valaki más nevét írja át a rendszerben
-    if (req.user.email !== email && !req.user.isAdmin) {
-      return res.status(403).json({ error: 'Hozzáférés megtagadva! Nem módosíthatod más felhasználó nevét.' });
-    }
-
-    try {
-      // 1. Átírjuk a nevet a fő felhasználói táblában
-      await pool.query('UPDATE photo_users SET name = ? WHERE email = ?', [newName.trim(), email]);
-
-      // 2. Frissítjük az összes korábbi és jelenlegi heti nevezését is, hogy a toplisták ne szakadjanak el!
-      await pool.query('UPDATE weekly_entries SET user_name = ? WHERE user_email = ?', [newName.trim(), email]);
-
-      res.json({ success: true, message: 'Név sikeresen frissítve minden felületen!' });
-    } catch (err) {
-      console.error("Névmódosítási hiba az adatbázisban:", err);
-      res.status(500).json({ error: 'Szerveroldali hiba történt a név mentésekor.' });
-    }
-  });
-
-  // ====================================================================
-  // 💳 SAJÁT HISTÓRIKUS BEFIZETÉSEK LEKÉRÉSE KLUBNEVEKKEL (VÉDETT - IDOR Védelemmel)
-  // ====================================================================
-  app.get('/api/profile/my-payments', requireAuth, async (req, res) => {
-    const { userEmail } = req.query;
-    if (!userEmail) return res.status(400).json({ error: 'Hiányzó email!' });
-
-    // 🔒 BIZTONSÁGI PAJZS: Csak a saját pénzügyi adataidat láthatod, vagy ha Admin vagy
-    if (req.user.email !== userEmail && !req.user.isAdmin) {
-      return res.status(403).json({ error: 'Hozzáférés megtagadva! Nincs jogosultságod más felhasználó befizetéseit megtekinteni.' });
-    }
-
-    try {
-      const [rows] = await pool.query(`
-        SELECT p.fiscal_year, p.fee_amount, p.paid_amount, DATE_FORMAT(p.payment_date, '%Y-%m-%d') as payment_date,
-               (p.fee_amount - p.paid_amount) as outstanding_balance,
-               c.name as target_club_name
-        FROM photo_club_payments p
-        JOIN photo_clubs c ON p.club_id = c.id
-        WHERE LOWER(TRIM(p.user_email)) = LOWER(TRIM(?))
-        ORDER BY p.fiscal_year DESC, p.payment_date DESC
-      `, [userEmail]);
-      res.json(rows);
-    } catch (err) {
-      res.status(500).json({ error: 'Nem sikerült lekérni a történeti egyenleget.' });
-    }
-  });
-    
-  // ====================================================================
-  // 3. Klub átnevezése az Admin felületen (VÉDETT - Szigorú Admin Kontroll)
-  // ====================================================================
-  app.put('/api/clubs/:id', requireAuth, async (req, res) => {
-    const { id } = req.params;
-    const { name } = req.body;
-
-    // 🔒 BIZTONSÁGI PAJZS: Kizárólag a hitelesített főadminisztrátor jogosult klubot átnevezni
-    if (!req.user.isAdmin) {
-      return res.status(403).json({ error: 'Hozzáférés megtagadva! Csak a rendszeradminisztrátor jogosult klubok szerkesztésére.' });
-    }
-
-    if (!name) return res.status(400).json({ error: 'A név megadása kötelező!' });
-
-    try {
-      // 1. Átírjuk a nevet a photo_clubs táblában
-      await pool.query('UPDATE photo_clubs SET name = ? WHERE id = ?', [name, id]);
-
-      // 2. Frissítjük a szöveges nevet a felhasználóknál is az ID alapján (Dual-Write szinkron)
-      await pool.query('UPDATE photo_users SET club_name = ? WHERE club_id = ?', [name, id]);
-
-      res.json({ success: true, message: 'Klub sikeresen átnevezve!' });
-    } catch (err) {
-      console.error("Klub szerkesztési hiba:", err);
-      res.status(500).json({ error: err.message });
-    }
-  });
-
+const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+  e.currentTarget.src = 'https://via.placeholder.com/400x300/1e293b/64748b?text=Image+not+found';
 };
+
+// 🎯 KÖZPONTI AUTH FEJLÉC GENERÁTOR A MODÁLON BELÜLI VÉDETT KÉRÉSEKHEZ
+const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
+  const token = localStorage.getItem('photoAppToken');
+  return {
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    ...extraHeaders
+  };
+};
+
+export default function ArchiveDetailModal({ entry, userEmail, userName, onClose, onLikeUpdate }: ArchiveDetailModalProps) {
+  const { t, lang } = useLanguage();
+
+  const [comments, setComments] = useState<any[]>([]);
+  const [newComment, setNewComment] = useState('');
+  const [loadingComments, setLoadingComments] = useState(false);
+
+  const [likesCount, setLikesCount] = useState<number>(Number(entry?.archive_likes) || 0);
+  const [isLiked, setIsLiked] = useState<boolean>(entry?.has_user_liked === 1 || entry?.has_user_liked === true);
+
+  let isLight = false;
+  try {
+    const themeContext = useTheme();
+    if (themeContext) {
+      isLight = themeContext.theme === 'light';
+    }
+  } catch (e) {}
+
+  useEffect(() => {
+    setLikesCount(Number(entry?.archive_likes) || 0);
+    setIsLiked(entry?.has_user_liked === 1 || entry?.has_user_liked === true);
+  }, [entry]);
+
+  const fetchComments = async () => {
+    setLoadingComments(true);
+    try {
+      // 🎯 JAVÍTVA: A kommentek lekérése is megkapta a biztonsági auth fejlécet
+      const res = await fetch(`${BACKEND_URL}/api/weekly/archive/comments/${entry.id}`, {
+        headers: getAuthHeaders()
+      });
+      if (res.ok) setComments(await res.json());
+    } catch (e) { console.error(e); }
+    finally { setLoadingComments(false); }
+  };
+
+  useEffect(() => {
+    if (entry?.id) fetchComments();
+  }, [entry?.id]);
+
+  const handleLike = async () => {
+    if (!userEmail) {
+      alert("❌ Hiba: A system nem azonosította a profilodat! Jelentkezz be újra.");
+      return;
+    }
+
+    try {
+      // 🎯 JAVÍTVA: A lájk-toggle megkapta a getAuthHeaders() kiegészítést!
+      const res = await fetch(`${BACKEND_URL}/api/weekly/archive/like-toggle`, {
+        method: 'POST',
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ entryId: entry.id, userEmail: userEmail })
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          setIsLiked(data.liked);
+          setLikesCount(prev => data.liked ? prev + 1 : Math.max(0, prev - 1));
+          onLikeUpdate(); 
+        }
+      } else {
+        const errData = await res.json();
+        alert(errData.error || "Hiba történt a lájkolás közben.");
+      }
+    } catch (e) { 
+      alert("Hálózati hiba a lájk elküldésekor.");
+    }
+  };
+
+  const handleCommentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newComment.trim()) return;
+    if (!userEmail) return alert("❌ Hiba: Kommenteléshez be kell jelentkezned!");
+
+    try {
+      // 🎯 JAVÍTVA: Az új hozzászólás küldése is megkapta a getAuthHeaders() kiegészítést!
+      const res = await fetch(`${BACKEND_URL}/api/weekly/archive/comment`, {
+        method: 'POST',
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({
+          entryId: entry.id,
+          userEmail: userEmail,
+          userName: userName,
+          commentText: newComment
+        })
+      });
+      
+      if (res.ok) {
+        setNewComment('');
+        fetchComments(); 
+      } else {
+        const errData = await res.json();
+        alert(errData.error || "Hiba történt a komment elküldésekor.");
+      }
+    } catch (e) { 
+      alert("Hálózati hiba a komment elküldésekor.");
+    }
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: isLight ? 'rgba(240,244,248,0.95)' : 'rgba(9, 13, 22, 0.96)', backdropFilter: 'blur(16px)', zIndex: 99999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px', boxSizing: 'border-box' }}>
+      
+      <style>{`
+        .theater-modal-card {
+          background: var(--bg-card);
+          border: 1px solid var(--border-main);
+          border-radius: 8px;
+          width: 100%;
+          max-width: 1000px;
+          height: 92vh;
+          max-height: 92dvh;
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+          box-shadow: 0 25px 50px -12px rgba(0,0,0,0.2);
+        }
+
+        .theater-photo-section {
+          background: #060912;
+          flex: 1.2 !important; 
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          padding: 20px;
+          position: relative;
+          min-height: 0;
+          border-bottom: 1px solid var(--border-main);
+        }
+
+        .theater-archive-img {
+          max-width: 100%;
+          max-height: 100%;
+          object-fit: contain;
+          border-radius: 4px;
+          box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+        }
+
+        .theater-info-section {
+          flex: 1 !important; 
+          display: flex;
+          flex-direction: column;
+          background: var(--bg-card);
+          min-height: 0;
+        }
+
+        .theater-header-row {
+          padding: 15px 25px;
+          border-bottom: 1px solid var(--border-main);
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 20px;
+          flex-shrink: 0;
+          width: 100%;
+          box-sizing: border-box;
+        }
+
+        .theater-comments-flow {
+          flex: 1;
+          overflow-y: auto;
+          padding: 16px 25px;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          background: var(--bg-main);
+          min-height: 160px; 
+        }
+      `}</style>
+
+      <div className="theater-modal-card">
+        <div className="theater-photo-section">
+          <button onClick={onClose} style={{ position: 'absolute', top: '20px', left: '20px', background: '#222f47', border: '1px solid #334155', color: '#cbd5e1', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', zIndex: 10, transition: 'all 0.15s ease', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }} className="modal-top-close-cross">
+            <ArrowLeft size={14} /> {t('archiveBtnBack', 'Vissza')}
+          </button>
+          <img className="theater-archive-img" src={entry.file_url} alt="" onError={handleImageError} />
+        </div>
+
+        <div className="theater-info-section">
+          <div className="theater-header-row">
+            <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '4px' }}>
+              <h3 style={{ color: isLight ? '#0284c7' : '#38bdf8', margin: 0, fontSize: '1.3rem', fontWeight: '700', lineHeight: '1.2', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%', letterSpacing: '-0.3px' }}>
+                {entry.user_name}
+              </h3>
+              {entry.club_name && (
+                <div style={{ display: 'flex', width: 'auto', flexShrink: 0, whiteSpace: 'nowrap', marginTop: '2px' }}>
+                  <span style={{ color: '#10b981', fontSize: '0.75rem', fontWeight: 'bold', background: 'rgba(16,185,129,0.06)', padding: '3px 10px', borderRadius: '4px', border: '1px solid rgba(16,185,129,0.2)', display: 'inline-block', textTransform: 'uppercase', letterSpacing: '0.3px' }}>
+                    {entry.club_name}
+                  </span>
+                </div>
+              )}
+              <div style={{ color: 'var(--text-muted)', fontSize: '0.82rem', fontWeight: 'bold', marginTop: '4px' }}>
+                {lang === 'en' ? 'Result: ' : 'Eredmény: '} <span style={{ color: '#f59e0b' }}>{entry.likes_count} ⭐</span>
+              </div>
+            </div>
+
+            <button 
+              onClick={handleLike}
+              style={{ display: 'flex', alignItems: 'center', gap: '8px', background: isLiked ? 'rgba(239, 68, 68, 0.08)' : 'var(--bg-main)', border: isLiked ? '1px solid #ef4444' : '1px solid var(--border-main)', color: isLiked ? '#f87171' : 'var(--text-body)', padding: '10px 16px', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.15s ease', flexShrink: 0, fontSize: '0.88rem' }}
+            >
+              <Heart size={14} fill={isLiked ? '#f87171' : 'transparent'} color={isLiked ? '#f87171' : 'var(--text-body)'} />
+              <span>{likesCount} {lang === 'en' ? 'appreciations' : 'elismerés'}</span>
+            </button>
+          </div>
+
+          <div className="theater-comments-flow">
+            <h4 style={{ color: 'var(--text-muted)', margin: '0 0 2px 0', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <MessageSquare size={12} /> {lang === 'en' ? 'DISCUSSION' : 'ESZMECSERE'}
+            </h4>
+            
+            {loadingComments && comments.length === 0 ? (
+              <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '10px', fontSize: '0.82rem', fontStyle: 'italic' }}>Gondolatok betöltése...</div>
+            ) : comments.length === 0 ? (
+              <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '30px 20px', margin: 'auto 0', fontStyle: 'italic', fontSize: '0.88rem' }}>{lang === 'en' ? 'Write the first thought about this photo! 🪶' : 'Írd le az első gondolatot a fotóról! 🪶'}</div>
+            ) : (
+              comments.map((c) => {
+                const isMe = c.user_email === userEmail;
+                return (
+                  <div key={c.id} style={{ background: isMe ? 'var(--bg-card)' : 'var(--bg-main)', padding: '10px 14px', borderRadius: '4px', border: isMe ? '1px solid var(--text-muted)' : '1px solid var(--border-main)', alignSelf: isMe ? 'flex-end' : 'flex-start', maxWidth: '85%', width: 'fit-content', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '24px', marginBottom: '3px', alignItems: 'center' }}>
+                      <strong style={{ color: isMe ? '#f97316' : (isLight ? '#0284c7' : '#38bdf8'), fontSize: '0.78rem', fontWeight: 'bold' }}>{c.user_name}</strong>
+                      <small style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontFamily: 'monospace' }}>{new Date(c.created_at).toLocaleTimeString(lang === 'en' ? 'en-US' : 'hu-HU', {hour: '2-digit', minute:'2-digit'})}</small>
+                    </div>
+                    <p style={{ color: 'var(--text-title)', margin: 0, fontSize: '0.85rem', lineHeight: '1.4', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{c.comment_text}</p>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          <form onSubmit={handleCommentSubmit} style={{ padding: '12px 20px', background: 'var(--bg-card)', borderTop: '1px solid var(--border-main)', display: 'flex', gap: '10px', flexShrink: 0, boxSizing: 'border-box' }}>
+            <input 
+              type="text" 
+              placeholder={lang === 'en' ? 'Share your thoughts about this photo...' : 'Oszd meg a meglátásodat a fotóról...'} 
+              value={newComment}
+              onChange={e => setNewComment(e.target.value)}
+              style={{ flex: 1, padding: '10px 12px', background: 'var(--bg-main)', border: '1px solid var(--border-main)', color: 'var(--text-title)', borderRadius: '4px', outline: 'none', fontSize: '0.88rem' }}
+            />
+            <button 
+              type="submit" 
+              disabled={!newComment.trim()}
+              style={{ background: !newComment.trim() ? 'var(--border-main)' : '#f97316', color: !newComment.trim() ? 'var(--text-muted)' : 'white', border: 'none', padding: '0 20px', borderRadius: '4px', fontWeight: 'bold', cursor: !newComment.trim() ? 'not-allowed' : 'pointer', fontSize: '0.85rem', transition: 'background 0.15s ease', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            >
+              <Send size={12} />
+              <span>{lang === 'en' ? 'Send' : 'Küldés'}</span>
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+}
