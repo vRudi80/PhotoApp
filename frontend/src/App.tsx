@@ -33,6 +33,8 @@ import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from
 import TicketsView from './views/TicketsView';
 import LeaderClubView from './views/LeaderClubView';
 import PodcastView from './views/PodcastView';
+// Töröld a régi ClubNewsView importot, és tedd be az újat:
+import ForumView from './views/ForumView'; 
 
 // Témakezelő környezet
 import { ThemeProvider } from './context/ThemeContext'; 
@@ -588,8 +590,9 @@ function MainContent() {
               <Route path="/packages" element={<PackagesView user={user} />} />
               <Route path="/marketplace" element={<MarketplaceRoot user={headerUser} />} />
               <Route path="/map_spots" element={<MapSpotsView user={user} setFullscreenData={setFullscreenData} targetMapSpotId={targetMapSpotId} setTargetMapSpotId={setTargetMapSpotId} />} />
-              <Route path="/club_news" element={<ClubNewsView user={user} currentDbUser={currentDbUser} mode="club" />} />
-              <Route path="/public_news" element={<ClubNewsView user={user} currentDbUser={currentDbUser} mode="public" />} />
+<Route path="/club_news" element={<ForumView user={user} currentDbUser={currentDbUser} mode="club" />} />
+<Route path="/public_news" element={<ForumView user={user} currentDbUser={currentDbUser} mode="public" />} />
+
               <Route path="/my_album" element={<MyAlbumView user={user} setFullscreenData={setFullscreenData} />} />
               <Route path="/arena_album" element={<MyArenaAlbumView user={user} setFullscreenData={setFullscreenData} />} /> 
               <Route path="/fiap_progress" element={<FiapProgressView user={user} allUsers={allUsers} />} />
