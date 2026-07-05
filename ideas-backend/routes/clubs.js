@@ -512,11 +512,48 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   // ====================================================================
   
   // 1. Kategóriák listázása (Minden bejelentkezett tagnak elérhető)
+    // 🎯 FRISSÍTVE: Kategóriák listázása intelligens olvasatlan-számlálóval
   app.get('/api/forum/categories', requireAuth, async (req, res) => {
+    const { mode, clubId } = req.query;
+    
     try {
-      const [rows] = await pool.query('SELECT * FROM photo_forum_categories ORDER BY id ASC');
+      let query = '';
+      let params = [];
+
+      if (mode === 'public') {
+        // Nyilvános mód: Azokat a nyilvános posztokat számoljuk, amik nincsenek benne a felhasználó olvasási naplójában
+        query = `
+          SELECT c.*, 
+            (SELECT COUNT(*) 
+             FROM photo_club_news n 
+             WHERE n.category_id = c.id 
+               AND n.is_public = 1 
+               AND n.id NOT IN (SELECT news_id FROM photo_club_news_reads WHERE user_email = ?)
+            ) as unread_count
+          FROM photo_forum_categories c
+          ORDER BY c.id ASC
+        `;
+        params = [req.user.email];
+      } else {
+        // Klub mód: Csak a felhasználó saját klubjának belső, olvasatlan posztjait számoljuk
+        query = `
+          SELECT c.*, 
+            (SELECT COUNT(*) 
+             FROM photo_club_news n 
+             WHERE n.category_id = c.id 
+               AND n.club_id = ? 
+               AND n.id NOT IN (SELECT news_id FROM photo_club_news_reads WHERE user_email = ?)
+            ) as unread_count
+          FROM photo_forum_categories c
+          ORDER BY c.id ASC
+        `;
+        params = [clubId || null, req.user.email];
+      }
+
+      const [rows] = await pool.query(query, params);
       res.json(rows);
     } catch (err) {
+      console.error("❌ Fórum számláló hiba:", err.message);
       res.status(500).json({ error: 'Hiba a kategóriák lekérésekor.' });
     }
   });
