@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { BACKEND_URL, ADMIN_EMAIL } from '../utils/constants';
 import VideoLoader from '../components/VideoLoader';
 
@@ -68,7 +68,6 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
       const timeoutId = setTimeout(() => controller.abort(), 5000);
 
       try {
-        // 🎯 JAVÍTVA: Megkapta az igazoló fejlécet, a 401-es hiba megszűnik!
         const res = await fetch(`${BACKEND_URL}/api/dashboard-alerts?userEmail=${user.email}`, {
           signal: controller.signal,
           headers: getAuthHeaders()
@@ -99,13 +98,12 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
   }, [user?.email]);
 
   const handleDismissAlert = (e: React.MouseEvent, alertKey: string, type?: string, id?: number) => {
-    e.stopPropagation(); 
+    e.stopPropagation();
     const newDismissed = [...dismissedAlerts, alertKey];
     setDismissedAlerts(newDismissed);
     localStorage.setItem('dismissed_alerts', JSON.stringify(newDismissed));
 
     if (type === 'map_comment' && id) {
-      // 🎯 JAVÍTVA: Olvasottá tétel biztonságos fejléccel ellátva
       fetch(`${BACKEND_URL}/api/locations/comments/${id}/read`, {
         method: 'POST',
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
@@ -114,19 +112,36 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
     }
   };
 
-  const handleNewsClick = (newsId: number) => {
+  // 🎯 FRISSÍTVE: Intelligens kattintáskezelő, ami figyelembe veszi a láthatóságot (Nyilvános vs Klub)
+  const handleNewsClick = (newsId: number, isPublic?: number) => {
     const alertKey = `news_${newsId}`;
     const newDismissed = [...dismissedAlerts, alertKey];
     setDismissedAlerts(newDismissed);
     localStorage.setItem('dismissed_alerts', JSON.stringify(newDismissed));
     
-    // 🎯 JAVÍTVA: Hírolvasottság küldése biztonságos fejléccel
     fetch(`${BACKEND_URL}/api/news/${newsId}/read`, {
       method: 'POST',
       headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ userEmail: user.email })
     }).catch(err => console.error(err));
-    setActiveTab('club_news');
+    
+    setActiveTab(isPublic === 1 ? 'public_news' : 'club_news');
+  };
+
+  // 🎯 ÚJ: Kifejezett kattintáskezelő, ha a backend külön fórumtömbként küldené le az adatokat
+  const handleForumClick = (postId: number, isPublic?: number) => {
+    const alertKey = `forum_${postId}`;
+    const newDismissed = [...dismissedAlerts, alertKey];
+    setDismissedAlerts(newDismissed);
+    localStorage.setItem('dismissed_alerts', JSON.stringify(newDismissed));
+    
+    fetch(`${BACKEND_URL}/api/news/${postId}/read`, {
+      method: 'POST',
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ userEmail: user.email })
+    }).catch(err => console.error(err));
+    
+    setActiveTab(isPublic === 1 ? 'public_news' : 'club_news');
   };
 
   const handleMapCommentClick = (locationId: number, commentId: number) => {
@@ -135,7 +150,6 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
     setDismissedAlerts(newDismissed);
     localStorage.setItem('dismissed_alerts', JSON.stringify(newDismissed));
     
-    // 🎯 JAVÍTVA: Térképkomment olvasás rögzítése biztonságos fejléccel
     fetch(`${BACKEND_URL}/api/locations/comments/${commentId}/read`, {
       method: 'POST',
       headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
@@ -157,17 +171,19 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
   ];
 
   const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString(lang === 'en' ? 'en-US' : 'hu-HU', { month: 'short', day: 'numeric' });
-
+  
   const checkClubAccess = (item: any) => {
     const itemClubName = item.club_name || item.restricted_club;
     const itemClubId = item.club_id || item.restricted_club_id;
-    if (!(itemClubName?.trim() || (itemClubId && itemClubId !== 0))) return true; 
+    if (!(itemClubName?.trim() || (itemClubId && itemClubId !== 0))) return true;
     const nameMatch = itemClubName && user?.club_name && itemClubName.trim() === user.club_name.trim();
     const idMatch = itemClubId && user?.club_id && Number(itemClubId) === Number(user.club_id);
     return !!(nameMatch || idMatch);
   };
 
   const visibleNews = alerts?.unreadNews?.filter((n: any) => !dismissedAlerts.includes(`news_${n.id}`) && checkClubAccess(n)) || [];
+  // 🎯 ÚJ: Összekötés a potenciális önálló fórum-tömbbel a jövőbeli backend-fejlesztésekhez
+  const visibleForum = alerts?.unreadForum?.filter((f: any) => !dismissedAlerts.includes(`forum_${f.id}`) && checkClubAccess(f)) || [];
   const visibleComments = alerts?.mapComments?.filter((c: any) => !dismissedAlerts.includes(`com_${c.comment_id}`)) || [];
   const visibleWeekly = Array.isArray(alerts?.weekly) ? alerts.weekly : [];
   const visibleHomeworks = alerts?.homeworks?.filter((hw: any) => checkClubAccess(hw)) || [];
@@ -176,7 +192,8 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
     return contestClubId === 0 || contestClubId === Number(user?.club_id);
   }) || [];
 
-  const totalAlertsCount = visibleNews.length + visibleComments.length + (visibleWeekly.length > 0 ? 1 : 0) + visibleHomeworks.length + visibleContests.length;
+  // 🎯 FRISSÍTVE: A fórumbejegyzések száma is hozzáadódik az összesítőhöz
+  const totalAlertsCount = visibleNews.length + visibleForum.length + visibleComments.length + (visibleWeekly.length > 0 ? 1 : 0) + visibleHomeworks.length + visibleContests.length;
 
   return (
     <div className="dashboard-global-bleed-wrapper" style={{ width: '100%', minHeight: '100vh', backgroundColor: 'var(--bg-main)', padding: '15px', boxSizing: 'border-box' }}>
@@ -218,7 +235,8 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
                   style={{ background: 'var(--bg-card)', borderRadius: '8px', padding: '18px', cursor: 'pointer', border: `1px dashed rgba(239,68,68,0.3)`, transition: 'all 0.15s ease-in-out', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   <div>
                     <div style={{ marginBottom: '10px' }}>
-                      <settings size={20} color="#ef4444" strokeWidth={2.5} />
+                      {/* 🎯 JAVÍTVA: Nagy kezdőbetűs <Settings /> komponens, a rejtett hiba kiküszöbölve! */}
+                      <Settings size={20} color="#ef4444" strokeWidth={2.5} />
                     </div>
                     <h3 style={{ margin: '0 0 4px 0', fontSize: '1rem', color: '#ef4444', fontWeight: '600', letterSpacing: '-0.2px' }}>
                       {t('tileAdminTitle')}
@@ -262,16 +280,35 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {visibleNews.map((news: any) => (
-                  <div key={`news_${news.id}`} onClick={() => handleNewsClick(news.id)} className="stream-alert-row" style={{ borderLeft: '3px solid #ef4444' }}>
+                
+                {/* 🎯 FRISSÍTVE: Intelligens hír vs fórumposzt szétválasztás a közös adatbázis-tömb alapján */}
+                {visibleNews.map((news: any) => {
+                  const isForumPost = news.category_id && Number(news.category_id) > 1;
+                  return (
+                    <div key={`news_${news.id}`} onClick={() => handleNewsClick(news.id, news.is_public)} className="stream-alert-row" style={{ borderLeft: isForumPost ? '3px solid #38bdf8' : '3px solid #ef4444' }}>
+                      <div className="stream-alert-content">
+                        <div className="stream-alert-header-meta">
+                          {isForumPost ? <MessageSquare size={10} /> : <Newspaper size={10} />}
+                          <span>{isForumPost ? 'FÓRUM' : 'HÍR'}</span>
+                        </div>
+                        <h4 className="stream-alert-title">{news.title}</h4>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* 🎯 ÚJ: Kifejezett fórum-renderelő, ha a backend teljesen különvágva küldené el az adatot */}
+                {visibleForum.map((post: any) => (
+                  <div key={`forum_${post.id}`} onClick={() => handleForumClick(post.id, post.is_public)} className="stream-alert-row" style={{ borderLeft: '3px solid #38bdf8' }}>
                     <div className="stream-alert-content">
                       <div className="stream-alert-header-meta">
-                        <Newspaper size={10} /> <span>HÍR</span>
+                        <MessageSquare size={10} /> <span>FÓRUM</span>
                       </div>
-                      <h4 className="stream-alert-title">{news.title}</h4>
+                      <h4 className="stream-alert-title">{post.title}</h4>
                     </div>
                   </div>
                 ))}
+
                 {visibleComments.map((comment: any) => (
                   <div key={`com_${comment.comment_id}`} onClick={() => handleMapCommentClick(comment.location_id, comment.comment_id)} className="stream-alert-row" style={{ borderLeft: '3px solid #10b981' }}>
                     <button className="stream-dismiss-cross" onClick={(e) => handleDismissAlert(e, `com_${comment.comment_id}`, 'map_comment', comment.comment_id)}><X size={14} /></button>
@@ -283,6 +320,7 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
                     </div>
                   </div>
                 ))}
+
                 {visibleWeekly.length > 0 && (
                   <div onClick={() => setActiveTab('weekly_challenge')} className="stream-alert-row" style={{ borderLeft: '3px solid #f97316' }}>
                     <div className="stream-alert-content">
@@ -295,16 +333,16 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
                     </div>
                   </div>
                 )}
+                
                 {visibleHomeworks.map((hw: any) => (
                   <div key={`hw_${hw.id}`} onClick={() => setActiveTab('club_homeworks')} className="stream-alert-row" style={{ borderLeft: '3px solid #06b6d4' }}>
                     <div className="stream-alert-content">
-                      <div className="stream-alert-header-meta">
-                        <Clock size={10} /> <span>HÁZI FELADAT</span> • <span>{formatDate(hw.deadline)}</span>
-                      </div>
-                      <h4 className="stream-alert-title">{hw.topic}</h4>
+                      <Clock size={10} /> <span>HÁZI FELADAT</span> • <span>{formatDate(hw.deadline)}</span>
                     </div>
+                    <h4 className="stream-alert-title">{hw.topic}</h4>
                   </div>
                 ))}
+
                 {visibleContests.map((contest: any) => (
                   <div key={`cont_${contest.id}`} onClick={() => setActiveTab('contests_open_active')} className="stream-alert-row" style={{ borderLeft: '3px solid #38bdf8' }}>
                     <div className="stream-alert-content">
@@ -315,6 +353,7 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
                     </div>
                   </div>
                 ))}
+
                 {totalAlertsCount === 0 && (
                   <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontStyle: 'italic', padding: '20px 10px', textAlign: 'center', background: 'var(--hover-overlay)', borderRadius: '4px', border: '1px dashed var(--border-main)' }}>
                     {t('dashNoAlerts', 'Minden feladatod naprakész.')}
