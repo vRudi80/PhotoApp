@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { BACKEND_URL, ADMIN_EMAIL } from '../utils/constants';
-import { getImageUrl } from '../utils/helpers'; // 🎯 Beimportálva a Drive képmegjelenítő helper
+import { getImageUrl } from '../utils/helpers';
 
 // Nyelvi és téma kontextusok aktiválása
 import { useLanguage } from '../context/LanguageContext';
@@ -11,7 +11,6 @@ import {
   MessageSquare, 
   Send, 
   Heart, 
-  Eye, 
   Trash2, 
   Plus, 
   Edit3, 
@@ -53,7 +52,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
   const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null);
   const [categoryNameInput, setCategoryNameInput] = useState('');
 
-  // Új poszt indítása + KÉP ÁLLAPOTOK
+  // Új poszt indítása
   const [isPosting, setIsPosting] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newContent, setNewContent] = useState('');
@@ -62,7 +61,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
   const [postPreview, setPostPreview] = useState<string | null>(null);
   const [isUploadingThread, setIsUploadingThread] = useState(false);
 
-  // Olvasók és kommentek + KÉP ÁLLAPOTOK
+  // Olvasók és kommentek
   const [readers, setReaders] = useState<any[]>([]);
   const [showReaders, setShowReaders] = useState(false);
   const [comments, setComments] = useState<any[]>([]);
@@ -116,16 +115,23 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
     fetchClubId();
   }, [currentDbUser?.club_name, mode]);
 
+  // 🎯 FRISSÍTVE: Kategóriák betöltése paraméterezve a pontos számláláshoz
   const fetchCategories = async () => {
     try {
-      const res = await fetch(`${BACKEND_URL}/api/forum/categories`, { headers: getLocalAuthHeaders() });
+      let url = `${BACKEND_URL}/api/forum/categories?mode=${mode}&userEmail=${user.email}`;
+      if (mode === 'club' && clubId) url += `&clubId=${clubId}`;
+      
+      const res = await fetch(url, { headers: getLocalAuthHeaders() });
       if (res.ok) setCategories(await res.json());
     } catch (e) { console.error(e); }
   };
 
+  // 🎯 FRISSÍTVE: Reaktív betöltés a clubId feloldása után
   useEffect(() => {
-    fetchCategories();
-  }, []);
+    if (mode === 'public' || (mode === 'club' && clubId !== null)) {
+      fetchCategories();
+    }
+  }, [clubId, mode]);
 
   const fetchPosts = async () => {
     if (!selectedCategoryId) return;
@@ -194,7 +200,6 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
     } catch (e) { console.error(e); }
   };
 
-  // 🎯 JAVÍTVA: Témanyitás FormData alapon, képmelléklettel
   const handlePostThread = async () => {
     if (!selectedCategoryId) return;
     if (!newTitle.trim() || !newContent.trim()) return alert("Minden mező kitöltése kötelező!");
@@ -212,7 +217,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
     try {
       const res = await fetch(`${BACKEND_URL}/api/forum/categories/${selectedCategoryId}/posts`, {
         method: 'POST',
-        headers: getLocalAuthHeaders(), // Content-Type-ot a böngésző teszi rá a FormData miatt!
+        headers: getLocalAuthHeaders(),
         body: formData
       });
 
@@ -228,7 +233,6 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
     finally { setIsUploadingThread(false); }
   };
 
-  // 🎯 JAVÍTVA: Hozzászólás küldése FormData alapon, képmelléklettel
   const handlePostComment = async (postId: number) => {
     if (!newComment.trim() && !commentFile) return;
     setIsCommenting(true);
@@ -322,7 +326,15 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
                     {cat.id === 1 ? <Lock size={24} /> : <MessageSquare size={24} />}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'var(--text-title)', fontWeight: '700', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{cat.name}</h3>
+                    {/* 🎯 JAVÍTVA: Beágyazva a reaktív olvasatlan-jelvény a kategória neve mellé! */}
+                    <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'var(--text-title)', fontWeight: '700', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span>{cat.name}</span>
+                      {Number(cat.unread_count) > 0 && (
+                        <span style={{ background: '#ef4444', color: 'white', fontSize: '0.68rem', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold', display: 'inline-block', lineHeight: '1.2' }}>
+                          {cat.unread_count} új
+                        </span>
+                      )}
+                    </h3>
                     <p style={{ margin: '4px 0 0 0', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
                       {cat.id === 1 ? 'Kizárólag vezetőségi hirdetmények' : 'Szabad eszmecsere és témanyitás'}
                     </p>
@@ -337,8 +349,9 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
         /* TÉMÁK ÉS POSZTOK LISTÁJA */
         <>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '15px' }}>
+            {/* 🎯 JAVÍTVA: Visszalépéskor azonnal meghívjuk a fetchCategories() függvényt, így azonnal frissül a főoldali számláló! */}
             <button 
-              onClick={() => { setSelectedCategoryId(null); setPosts([]); setExpandedPostId(null); setIsPosting(false); }}
+              onClick={() => { setSelectedCategoryId(null); setPosts([]); setExpandedPostId(null); setIsPosting(false); fetchCategories(); }}
               style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', color: 'var(--text-title)', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}
             >
               <ArrowLeft size={16} /> Vissza a csoportokhoz
@@ -354,7 +367,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
             )}
           </div>
 
-          {/* Új téma beküldő panel KÉP OPCIÓVAL */}
+          {/* Új téma beküldő panel */}
           {isPosting && (
             <div style={{ background: 'var(--bg-card)', padding: '25px', borderRadius: '12px', border: '2px solid #38bdf8', marginBottom: '25px' }}>
               <h3 style={{ margin: '0 0 15px 0', color: '#38bdf8' }}>Új beszélgetés indítása</h3>
@@ -420,7 +433,6 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
                       <div style={{ padding: '0 20px 20px 20px', borderTop: '1px solid var(--border-main)', animation: 'fadeIn 0.3s ease-out' }}>
                         <p style={{ color: 'var(--text-body)', lineHeight: '1.6', fontSize: '1rem', whiteSpace: 'pre-wrap', marginTop: '20px', marginBottom: '20px' }}>{post.content}</p>
                         
-                        {/* 🎯 ÚJ: Csatolt bejegyzés-kép kirajzolása */}
                         {post.file_url && (
                           <div style={{ maxWidth: '100%', maxHeight: '400px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-main)', marginBottom: '20px', width: 'fit-content', backgroundColor: '#000' }}>
                             <img src={getImageUrl(post.drive_file_id, post.file_url)} alt="" style={{ maxWidth: '100%', maxHeight: '400px', objectFit: 'contain', display: 'block' }} />
@@ -465,7 +477,6 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
                                 </div>
                                 <div style={{ color: 'var(--text-body)', fontSize: '0.95rem', lineHeight: '1.4', marginBottom: c.file_url ? '10px' : 0 }}>{c.comment_text}</div>
                                 
-                                {/* 🎯 ÚJ: Csatolt hozzászólás-kép kirajzolása */}
                                 {c.file_url && (
                                   <div style={{ maxWidth: '250px', maxHeight: '180px', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border-main)', backgroundColor: '#000' }}>
                                     <img src={getImageUrl(c.drive_file_id, c.file_url)} alt="" style={{ maxWidth: '100%', maxHeight: '180px', objectFit: 'cover', display: 'block' }} />
@@ -476,7 +487,6 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
                             {comments.length === 0 && <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', fontStyle: 'italic' }}>Még nincs hozzászólás. Indítsd el a vitát!</div>}
                           </div>
 
-                          {/* 🎯 ÚJ JAVÍTOTT KOMMENT INPUT KÉPFELTÖLTŐ IKONNAL */}
                           {commentPreview && (
                             <div style={{ position: 'relative', display: 'inline-block', marginBottom: '10px' }}>
                               <img src={commentPreview} alt="" style={{ maxHeight: '60px', borderRadius: '6px', border: '1px solid #38bdf850' }} />
