@@ -63,7 +63,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
   const [postPreview, setPostPreview] = useState<string | null>(null);
   const [isUploadingThread, setIsUploadingThread] = useState(false);
 
-  // Poszt inline szerkesztése
+  // Meglévő poszt inline szerkesztése
   const [editingPostId, setEditingPostId] = useState<number | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [editContent, setEditContent] = useState('');
@@ -79,6 +79,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
   const [isCommenting, setIsCommenting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  // 🎯 VISSZAÁLLÍTVA: Az eredeti, jól működő fix ellenőrzések
   const isAdmin = user?.email === ADMIN_EMAIL;
   const isLeader = currentDbUser?.club_role === 'leader' || currentDbUser?.club_role === 'deputy' || isAdmin;
 
@@ -204,7 +205,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
         headers: getLocalAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ userEmail: user.email })
       });
-      const res = await fetch(`${BACKEND_URL}/api/news/${postId}/comments`, { headers: getLocalAuthHeaders() });
+      const res = await fetch(`${BACKEND_URL}/api/news/${postId}/comments hobbies`, { headers: getLocalAuthHeaders() });
       if (res.ok) setComments(await res.json());
     } catch (e) { console.error(e); }
   };
@@ -216,7 +217,6 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
     setIsUploadingThread(true);
     const formData = new FormData();
     
-    // 🎯 JAVÍTVA: Mindig elküldjük a user saját belső clubId-ját, hogy a backend SQL-je sose kapjon üres értéket!
     const finalClubValue = clubId ? String(clubId) : (currentDbUser?.club_id ? String(currentDbUser.club_id) : '');
     formData.append('clubId', finalClubValue);
     
@@ -389,7 +389,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
 
                 {isAdmin && (
                   <div style={{ position: 'absolute', top: '24px', right: '20px', display: 'flex', gap: '8px' }} onClick={e => e.stopPropagation()}>
-                    <button onClick={() => { setEditingCategoryId(cat.id); setCategoryNameInput(cat.name); setCategoryDescInput(cat.description || ''); setIsAddingCategory(true); }} style={{ background: 'transparent', color: 'var(--text-muted)', border: 'none', cursor: 'pointer' }}><Edit3 size={16} /></button>
+                    <button onClick={() => { setEditingCategoryId(cat.id); setCategoryNameInput(cat.name); setCategoryDescInput(cat.description || ''); setIsAddingCategory(true); }} style={{ background: 'rgba(245,158,11,0.06)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.25)', padding: '6px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Edit3 size={16} /></button>
                   </div>
                 )}
               </div>
@@ -463,10 +463,13 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
               {posts.map(post => {
                 const isExpanded = expandedPostId === post.id;
                 const isUnread = !post.is_read || post.is_read === 0;
+                const isEditingThis = editingPostId === post.id;
 
                 return (
                   <div key={post.id} style={{ background: 'var(--bg-card)', borderRadius: '12px', border: isExpanded ? '1px solid #38bdf8' : (isUnread ? '1px solid #ef444450' : '1px solid var(--border-main)'), overflow: 'hidden', transition: 'all 0.2s' }}>
-                    <div onClick={() => handleExpandPost(post.id)} style={{ padding: '20px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: isExpanded ? 'var(--bg-main)' : 'transparent' }}>
+                    
+                    {/* FEJLÉC SZEKCIÓ */}
+                    <div onClick={() => !isEditingThis && handleExpandPost(post.id)} style={{ padding: '20px', cursor: isEditingThis ? 'default' : 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: isExpanded ? 'var(--bg-main)' : 'transparent' }}>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                           {isUnread && <span style={{ background: '#ef4444', color: 'white', padding: '2px 8px', borderRadius: '12px', fontSize: '0.68rem', fontWeight: 'bold' }}>ÚJ</span>}
@@ -481,14 +484,31 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
                           <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Calendar size={12} /> {new Date(post.created_at).toLocaleDateString('hu-HU')}</span>
                           <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><User size={12} /> {post.author_name} {mode === 'public' && <b style={{ color: '#38bdf8' }}>(🏛️ {post.club_name || 'Független'})</b>}</span>
                         </div>
-                        <h3 style={{ margin: 0, color: isExpanded ? '#38bdf8' : 'var(--text-title)', fontSize: '1.15rem', fontWeight: '700' }}>{post.title}</h3>
+
+                        {isEditingThis ? (
+                          <input value={editTitle} onChange={e => setEditTitle(e.target.value)} style={{ ...inputStyle, marginBottom: 0, padding: '8px 12px' }} onClick={e => e.stopPropagation()} />
+                        ) : (
+                          <h3 style={{ margin: 0, color: isExpanded ? '#38bdf8' : 'var(--text-title)', fontSize: '1.15rem', fontWeight: '700' }}>{post.title}</h3>
+                        )}
                       </div>
-                      <div style={{ fontSize: '1.2rem', color: isUnread ? '#ef4444' : 'var(--text-muted)', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }}>▼</div>
+                      <div style={{ fontSize: '1.2rem', color: isUnread ? '#ef4444' : 'var(--text-muted)', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s', display: isEditingThis ? 'none' : 'block' }}>▼</div>
                     </div>
 
+                    {/* LENYITOTT RÉSZ */}
                     {isExpanded && (
                       <div style={{ padding: '0 20px 20px 20px', borderTop: '1px solid var(--border-main)', animation: 'fadeIn 0.3s ease-out' }}>
-                        <p style={{ color: 'var(--text-body)', lineHeight: '1.6', fontSize: '1rem', whiteSpace: 'pre-wrap', marginTop: '20px', marginBottom: '20px' }}>{post.content}</p>
+                        
+                        {isEditingThis ? (
+                          <div style={{ marginTop: '20px' }}>
+                            <textarea value={editContent} onChange={e => setEditContent(e.target.value)} style={{ ...inputStyle, minHeight: '120px' }} />
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '15px', userSelect: 'none' }}>
+                              <input type="checkbox" id={`editPublicCheck-${post.id}`} checked={editIsPublic} onChange={e => setEditIsPublic(e.target.checked)} style={{ width: '16px', height: '16px', cursor: 'pointer' }} />
+                              <label htmlFor={`editPublicCheck-${post.id}`} style={{ color: '#fbbf24', fontSize: '0.88rem', fontWeight: 'bold', cursor: 'pointer' }}>Legyen nyilvános (külsősök is láthatják)</label>
+                            </div>
+                          </div>
+                        ) : (
+                          <p style={{ color: 'var(--text-body)', lineHeight: '1.6', fontSize: '1rem', whiteSpace: 'pre-wrap', marginTop: '20px', marginBottom: '20px' }}>{post.content}</p>
+                        )}
                         
                         {post.file_url && (
                           <div style={{ maxWidth: '100%', maxHeight: '400px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-main)', marginBottom: '20px', width: 'fit-content', backgroundColor: '#000' }}>
@@ -496,16 +516,40 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
                           </div>
                         )}
 
-                        <div style={{ display: 'flex', gap: '10px', marginTop: '20px', paddingTop: '15px', borderTop: '1px dashed var(--border-main)' }}>
-                          {isLeader && (
-                            <button onClick={() => fetchReaders(post.id)} style={{ background: 'rgba(59,130,246,0.08)', color: '#3b82f6', border: '1px solid rgba(59,130,246,0.2)', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.82rem' }}>
-                              👁️ {showReaders ? 'Olvasók elrejtése' : 'Kik olvasták el?'}
-                            </button>
-                          )}
-                          {(isAdmin || post.author_email === user.email) && (
-                            <button onClick={() => handleDeletePost(post.id)} style={{ background: 'rgba(239,68,68,0.08)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              <Trash2 size={12} /> Törlés
-                            </button>
+                        {/* INTERAKTÍV AKCIÓGOMBOK PANELSORA */}
+                        <div style={{ display: 'flex', gap: '10px', marginTop: '20px', paddingTop: '15px', borderTop: '1px dashed var(--border-main)', flexWrap: 'wrap' }}>
+                          {isEditingThis ? (
+                            <>
+                              <button onClick={() => handleSavePostEdit(post.id)} style={{ background: '#10b981', color: 'white', border: 'none', padding: '6px 14px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                <Save size={14} /> Módosítás Mentése
+                              </button>
+                              <button onClick={() => setEditingPostId(null)} style={{ background: 'var(--bg-main)', color: 'var(--text-title)', border: '1px solid var(--border-main)', padding: '6px 14px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.82rem' }}>
+                                Mégse
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              {isLeader && (
+                                <button onClick={() => fetchReaders(post.id)} style={{ background: 'rgba(59,130,246,0.08)', color: '#3b82f6', border: '1px solid rgba(59,130,246,0.2)', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.82rem' }}>
+                                  👁️ {showReaders ? 'Olvasók elrejtése' : 'Kik olvasták el?'}
+                                </button>
+                              )}
+                              
+                              {/* 🎯 VISSZAÁLLÍTVA: Az eredeti, jól működő, letisztult direkt azonosítás */}
+                              {(isAdmin || post.author_email === user?.email) && (
+                                <button 
+                                  onClick={() => handleStartEditPost(post)} 
+                                  style={{ background: 'rgba(245,158,11,0.08)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.2)', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                >
+                                  <Edit3 size={12} /> Szerkesztés
+                                </button>
+                              )}
+                              {(isAdmin || post.author_email === user?.email) && (
+                                <button onClick={() => handleDeletePost(post.id)} style={{ background: 'rgba(239,68,68,0.08)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                  <Trash2 size={12} /> Törlés
+                                </button>
+                              )}
+                            </>
                           )}
                         </div>
 
@@ -520,7 +564,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
                         )}
 
                         {/* HOZZÁSZÓLÁSOK FOLYAM */}
-                        <div style={{ background: 'var(--bg-main)', borderRadius: '12px', padding: '15px', marginTop: '25px', border: '1px solid var(--border-main)' }}>
+                        <div style={{ background: 'var(--bg-main)', borderRadius: '12px', padding: '15px', marginTop: '25px', border: '1px solid var(--border-main)', display: isEditingThis ? 'none' : 'block' }}>
                           <h4 style={{ margin: '0 0 15px 0', color: 'var(--text-title)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                             💬 Hozzászólások <span style={{ background: 'var(--bg-card)', padding: '2px 8px', borderRadius: '50px', fontSize: '0.75rem', border: '1px solid var(--border-main)' }}>{comments.length}</span>
                           </h4>
@@ -547,7 +591,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
                           {commentPreview && (
                             <div style={{ position: 'relative', display: 'inline-block', marginBottom: '10px' }}>
                               <img src={commentPreview} alt="" style={{ maxHeight: '60px', borderRadius: '6px', border: '1px solid #38bdf850' }} />
-                              <button onClick={() => { setCommentFile(null); setCommentPreview(null); }} style={{ position: 'absolute', top: '-5px', right: '-5px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '50%', width: '18px', height: '18px', fontSize: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', center: 'center' }}>✕</button>
+                              <button onClick={() => { setCommentFile(null); setCommentPreview(null); }} style={{ position: 'absolute', top: '-5px', right: '-5px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '50%', width: '18px', height: '18px', fontSize: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
                             </div>
                           )}
 
