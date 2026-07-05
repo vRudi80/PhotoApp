@@ -446,7 +446,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
               </div>
 
               <button onClick={handlePostThread} disabled={isUploadingThread} style={{ width: '100%', background: '#38bdf8', color: '#0f172a', border: 'none', padding: '12px', borderRadius: '8px', cursor: isUploadingThread ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '1.1rem' }}>
-                {isUploadingThread ? '⏳ Kép feltöltése a Drive-ra...' : '🚀 Téma közzététele'}
+                {isUploadingThread ? '⏳ Kép feltöltése...' : '🚀 Téma közzététele'}
               </button>
             </div>
           )}
