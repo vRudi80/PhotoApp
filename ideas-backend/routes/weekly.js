@@ -920,9 +920,24 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   // ====================================================================
   // 💬 ARÉNA LÍGA ÉLŐ CSEVEGŐ (VÉDETT)
   // ====================================================================
+    // 🎯 FRISSÍTVE: Aréna Liga élő csevegő profilkép (avatar_url) támogatással
   app.get('/api/weekly/chat/:topicId', requireAuth, async (req, res) => {
     try {
-      const [messages] = await pool.query(`SELECT c.id, COALESCE(u.name, c.user_name) AS user_name, c.user_email, c.message_text, c.created_at FROM weekly_chat c LEFT JOIN photo_users u ON c.user_email = u.email WHERE c.topic_id = ? ORDER BY c.created_at ASC LIMIT 100`, [Number(req.params.topicId)]);
+      const [messages] = await pool.query(`
+        SELECT 
+          c.id, 
+          COALESCE(u.name, c.user_name) AS user_name, 
+          c.user_email, 
+          u.avatar_url, 
+          c.message_text, 
+          c.created_at 
+        FROM weekly_chat c 
+        LEFT JOIN photo_users u ON c.user_email = u.email 
+        WHERE c.topic_id = ? 
+        ORDER BY c.created_at ASC 
+        LIMIT 100
+      `, [Number(req.params.topicId)]);
+      
       const currentTypers = []; const now = Date.now();
       if (typingStatus[req.params.topicId]) {
         for (const email in typingStatus[req.params.topicId]) {
@@ -933,6 +948,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       res.json({ messages, typing: currentTypers });
     } catch (err) { res.status(500).json({ error: err.message }); }
   });
+
 
   app.post('/api/weekly/chat', requireAuth, async (req, res) => {
     const { topicId, userEmail, userName, messageText } = req.body;
