@@ -777,25 +777,38 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
   
   app.get('/api/dashboard-alerts', requireAuth, async (req, res) => {
-    try {
-      const [users] = await pool.query('SELECT club_name, club_id FROM photo_users WHERE email = ?', [req.user.email]);
-      let clubId = users.length > 0 ? users[0].club_id : null;
+  try {
+    const [users] = await pool.query('SELECT club_name, club_id FROM photo_users WHERE email = ?', [req.user.email]);
+    let clubId = users.length > 0 ? users[0].club_id : null;
 
-      const [contests] = await pool.query(`SELECT id, title, end_date, restricted_club_id FROM photo_contests WHERE start_date <= CURRENT_DATE() AND end_date >= CURRENT_DATE() AND (restricted_club_id IS NULL OR restricted_club_id = 0 OR restricted_club_id = ?) ORDER BY end_date ASC`, [clubId || null]);
-      const [weekly] = await pool.query('SELECT id, title, end_date FROM weekly_topics WHERE start_date <= CURRENT_DATE() AND end_date >= CURRENT_DATE()');
+    const [contests] = await pool.query(`SELECT id, title, end_date, restricted_club_id FROM photo_contests WHERE start_date <= CURRENT_DATE() AND end_date >= CURRENT_DATE() AND (restricted_club_id IS NULL OR restricted_club_id = 0 OR restricted_club_id = ?) ORDER BY end_date ASC`, [clubId || null]);
+    const [weekly] = await pool.query('SELECT id, title, end_date FROM weekly_topics WHERE start_date <= CURRENT_DATE() AND end_date >= CURRENT_DATE()');
 
-      let homeworks = []; let unreadNews = [];
-      if (clubId) {
-        const [hw] = await pool.query('SELECT id, topic, deadline FROM photo_homeworks WHERE club_id = ? AND deadline >= CURRENT_DATE() ORDER BY deadline ASC', [clubId]);
-        homeworks = hw;
-        const [news] = await pool.query(`SELECT id, title, created_at FROM photo_club_news WHERE club_id = ? AND id NOT IN (SELECT news_id FROM photo_club_news_reads WHERE user_email = ?) ORDER BY created_at DESC`, [clubId, req.user.email]);
-        unreadNews = news;
-      }
-      const [mapComments] = await pool.query(`SELECT c.id as comment_id, c.location_id, l.title as location_title, c.user_name, c.created_at FROM photo_location_comments c JOIN photo_locations l ON c.location_id = l.id WHERE l.user_email = ? AND c.user_email != ? AND c.created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY) AND c.id NOT IN (SELECT comment_id FROM photo_location_comment_reads WHERE user_email = ?) ORDER BY c.created_at DESC LIMIT 5`, [req.user.email, req.user.email, req.user.email]);
-      
-      res.json({ contests, weekly, homeworks, unreadNews, mapComments });
-    } catch (err) { res.status(500).json({ error: 'Hiba' }); }
-  });
+    let homeworks = []; 
+    if (clubId) {
+      const [hw] = await pool.query('SELECT id, topic, deadline FROM photo_homeworks WHERE club_id = ? AND deadline >= CURRENT_DATE() ORDER BY deadline ASC', [clubId]);
+      homeworks = hw;
+    }
+
+    // 🎯 JAVÍTVA: Kivettük a zárt if(clubId) blokkból, így mindenki látja a csoportokat!
+    // Kibővítettük a kijelölt mezőket a (category_id, is_public) oszlopokkal a frontend bento-kártya számára.
+    const [unreadNews] = await pool.query(`
+      SELECT id, title, created_at, category_id, is_public 
+      FROM photo_club_news 
+      WHERE (is_public = 1 OR (club_id IS NOT NULL AND club_id = ?))
+        AND id NOT IN (SELECT news_id FROM photo_club_news_reads WHERE user_email = ?)
+      ORDER BY created_at DESC
+    `, [clubId || 0, req.user.email]);
+
+    const [mapComments] = await pool.query(`SELECT c.id as comment_id, c.location_id, l.title as location_title, c.user_name, c.created_at FROM photo_location_comments c JOIN photo_locations l ON c.location_id = l.id WHERE l.user_email = ? AND c.user_email != ? AND c.created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY) AND c.id NOT IN (SELECT comment_id FROM photo_location_comment_reads WHERE user_email = ?) ORDER BY c.created_at DESC LIMIT 5`, [req.user.email, req.user.email, req.user.email]);
+    
+    res.json({ contests, weekly, homeworks, unreadNews, mapComments });
+  } catch (err) { 
+    console.error("❌ Dashboard összesítési hiba:", err);
+    res.status(500).json({ error: 'Hiba az értesítések betöltésekor.' }); 
+  }
+});
+
 
   // ====================================================================
   // 🚫 TILTÓLISTA KEZELÉSE (KIZÁRÓLAG GLOBÁLIS ADMINOKNAK)
