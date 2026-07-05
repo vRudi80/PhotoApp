@@ -377,7 +377,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px', userSelect: 'none' }}>
                 <input type="checkbox" id="publicPostCheck" checked={isPublicPost} onChange={e => setIsPublicPost(e.target.checked)} style={{ width: '18px', height: '18px', cursor: 'pointer' }} />
                 <label htmlFor="publicPostCheck" style={{ color: '#fbbf24', fontWeight: 'bold', fontSize: '0.95rem', cursor: 'pointer' }}>
-                  📢 Legyen nyilvános (minden Aréna tag láthatja kívülről is)
+                  📢 Legyen nyilvános (mindenki láthatja, nem csak a saját klubtagok)
                 </label>
               </div>
 
