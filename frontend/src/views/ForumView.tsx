@@ -47,7 +47,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
   const [posts, setPosts] = useState<any[]>([]);
   const [expandedPostId, setExpandedPostId] = useState<number | null>(null);
   
-  // Kategória menedzsment (Admin) + 🎯 ÚJ leírás állapot
+  // Kategória menedzsment (Admin)
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null);
   const [categoryNameInput, setCategoryNameInput] = useState('');
@@ -98,8 +98,10 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
   // ==============================================================
   // ADATOK SYNC MOTORJA
   // ==============================================================
+  
+  // 🎯 JAVÍTVA: Eltávolítottuk az 'if (mode === 'public') return;' letiltást! 
+  // Így a public oldalon is lekérjük a tag saját klub-azonosítóját az összevont adatokhoz.
   useEffect(() => {
-    if (mode === 'public') return; 
     const fetchClubId = async () => {
       if (!currentDbUser?.club_name) return;
       try {
@@ -114,12 +116,13 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
       } catch (e) { console.error(e); }
     };
     fetchClubId();
-  }, [currentDbUser?.club_name, mode]);
+  }, [currentDbUser?.club_name]);
 
+  // Kategóriák betöltése (Mindig megvárja a klubszinkront, ha az illető klubtag)
   const fetchCategories = async () => {
     try {
       let url = `${BACKEND_URL}/api/forum/categories?mode=${mode}&userEmail=${user.email}`;
-      if (mode === 'club' && clubId) url += `&clubId=${clubId}`;
+      if (clubId) url += `&clubId=${clubId}`;
       
       const res = await fetch(url, { headers: getLocalAuthHeaders() });
       if (res.ok) setCategories(await res.json());
@@ -127,17 +130,16 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
   };
 
   useEffect(() => {
-    if (mode === 'public' || (mode === 'club' && clubId !== null)) {
-      fetchCategories();
-    }
-  }, [clubId, mode]);
+    if (currentDbUser?.club_name && clubId === null) return;
+    fetchCategories();
+  }, [clubId, mode, currentDbUser?.club_name]);
 
   const fetchPosts = async () => {
     if (!selectedCategoryId) return;
     setIsLoading(true);
     try {
       let url = `${BACKEND_URL}/api/forum/categories/${selectedCategoryId}/posts?mode=${mode}&userEmail=${user.email}`;
-      if (mode === 'club' && clubId) url += `&clubId=${clubId}`;
+      if (clubId) url += `&clubId=${clubId}`; // 🎯 JAVÍTVA: Public oldalon is átküldjük a belső posztok behúzásához!
       
       const res = await fetch(url, { headers: getLocalAuthHeaders() });
       if (res.ok) setPosts(await res.json());
@@ -146,7 +148,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
   };
 
   useEffect(() => {
-    if (selectedCategoryId && (mode === 'public' || (mode === 'club' && clubId !== null))) {
+    if (selectedCategoryId && (currentDbUser?.club_name && clubId === null ? false : true)) {
       fetchPosts();
     }
   }, [selectedCategoryId, clubId, mode]);
@@ -162,7 +164,6 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
         ? `${BACKEND_URL}/api/forum/categories/${editingCategoryId}`
         : `${BACKEND_URL}/api/forum/categories`;
 
-      // 🎯 JAVÍTVA: A kérés testébe beágyazva a leírás (description) oszlop is!
       const res = await fetch(url, {
         method,
         headers: getLocalAuthHeaders({ 'Content-Type': 'application/json' }),
@@ -210,7 +211,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
 
     setIsUploadingThread(true);
     const formData = new FormData();
-    formData.append('clubId', mode === 'club' ? String(clubId) : '');
+    formData.append('clubId', mode === 'club' ? String(clubId) : (isPublicPost ? '' : String(clubId)));
     formData.append('userEmail', user.email);
     formData.append('userName', user.name);
     formData.append('title', newTitle.trim());
@@ -306,11 +307,10 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
             )}
           </div>
 
-          {/* Kategória hozzáadás/szerkesztés panel (Admin) – 🎯 FRISSÍTVE: Kétmezős beviteli panel */}
           {isAdmin && isAddingCategory && (
             <div style={{ background: 'var(--bg-card)', padding: '20px', borderRadius: '12px', border: '2px solid #10b981', marginBottom: '25px' }}>
               <h3 style={{ margin: '0 0 15px 0', color: '#10b981' }}>{editingCategoryId ? 'Fórumcsoport szerkesztése' : 'Új fórumcsoport létrehozása'}</h3>
-              <input placeholder="Fórumcsoport neve (pl. Analóg sarok)..." value={categoryNameInput} onChange={e => setCategoryNameInput(e.target.value)} style={inputStyle} />
+              <input placeholder="Fórumcsoport neve..." value={categoryNameInput} onChange={e => setCategoryNameInput(e.target.value)} style={inputStyle} />
               <input placeholder="Rövid egyéni magyarázat szövege..." value={categoryDescInput} onChange={e => setCategoryDescInput(e.target.value)} style={inputStyle} />
               <button onClick={handleSaveCategory} style={{ width: '100%', background: '#10b981', color: 'white', border: 'none', padding: '12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
                 💾 Mentés és Aktiválás
@@ -318,7 +318,6 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
             </div>
           )}
 
-          {/* Kategória lista */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
             {categories.map(cat => (
               <div 
@@ -341,7 +340,6 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
                         </span>
                       )}
                     </h3>
-                    {/* 🎯 JAVÍTVA: A beégetett magyarázat helyett az adatbázisból behúzott dinamikus leírást rendereljük ki! */}
                     <p style={{ margin: '4px 0 0 0', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
                       {cat.description || 'Szabad eszmecsere és témanyitás'}
                     </p>
@@ -402,7 +400,6 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px', userSelect: 'none' }}>
                 <input type="checkbox" id="publicPostCheck" checked={isPublicPost} onChange={e => setIsPublicPost(e.target.checked)} style={{ width: '18px', height: '18px', cursor: 'pointer' }} disabled={isUploadingThread} />
-                {/* 🎯 JAVÍTVA: Az "Aréna" szó eltávolítva, kifejezve a külsős/nem klubtag jogosultságot */}
                 <label htmlFor="publicPostCheck" style={{ color: '#fbbf24', fontWeight: 'bold', fontSize: '0.95rem', cursor: 'pointer' }}>
                   📢 Legyen nyilvános (nem klubtagok és külső látogatók is olvashatják a közlemények között)
                 </label>
@@ -417,7 +414,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
           {isLoading ? (
             <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '40px' }}>Témák rendezése folyamatban...</div>
           ) : posts.length === 0 ? (
-            <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '40px', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid #334155' }}>
+            <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '40px', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-main)' }}>
               Ebben a kategóriában még senki sem indított beszélgetést. Legyél te az első!
             </p>
           ) : (
@@ -432,10 +429,17 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                           {isUnread && <span style={{ background: '#ef4444', color: 'white', padding: '2px 8px', borderRadius: '12px', fontSize: '0.68rem', fontWeight: 'bold' }}>ÚJ</span>}
-                          {post.is_public === 1 && <span style={{ background: 'rgba(245,158,11,0.08)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.2)', padding: '2px 8px', borderRadius: '12px', fontSize: '0.68rem', fontWeight: 'bold' }}>📢 NYILVÁNOS</span>}
+                          
+                          {/* 🎯 ÚJ BADGE-EK: Ha nyilvános oldalon vagyunk, vizuálisan különválasztjuk a nyilvános posztokat és a zárt saját klub posztokat */}
+                          {post.is_public === 1 ? (
+                            <span style={{ background: 'rgba(245,158,11,0.08)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.2)', padding: '2px 8px', borderRadius: '12px', fontSize: '0.68rem', fontWeight: 'bold' }}>📢 NYILVÁNOS</span>
+                          ) : (
+                            <span style={{ background: 'rgba(16,185,129,0.08)', color: '#10b981', border: '1px solid rgba(16,185,129,0.2)', padding: '2px 8px', borderRadius: '12px', fontSize: '0.68rem', fontWeight: 'bold' }}>🔒 SAJÁT KLUB</span>
+                          )}
+                          
                           {post.file_url && <span style={{ background: 'rgba(16,185,129,0.08)', color: '#10b981', border: '1px solid rgba(16,185,129,0.2)', padding: '2px 8px', borderRadius: '12px', fontSize: '0.68rem', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '3px' }}><ImageIcon size={10}/> FOTÓVAL</span>}
                           <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Calendar size={12} /> {new Date(post.created_at).toLocaleDateString('hu-HU')}</span>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><User size={12} /> {post.author_name} {mode === 'public' && <b style={{ color: '#38bdf8' }}>(🏛️ {post.club_name})</b>}</span>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><User size={12} /> {post.author_name} {mode === 'public' && <b style={{ color: '#38bdf8' }}>(🏛️ {post.club_name || 'Független'})</b>}</span>
                         </div>
                         <h3 style={{ margin: 0, color: isExpanded ? '#38bdf8' : 'var(--text-title)', fontSize: '1.15rem', fontWeight: '700' }}>{post.title}</h3>
                       </div>
