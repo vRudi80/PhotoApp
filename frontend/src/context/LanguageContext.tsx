@@ -246,7 +246,7 @@ tilePodcastDesc: 'Hallgass bennünket aktuális fotós témákról',
     subClosedContests: 'Lezárult pályázatok',
     
     // Fotóklub almenü
-    subClubNews: 'Klub Hírek',
+    subClubNews: 'Klub Fórum',
     subClubNights: 'Klubestek',
     subClubHomeworks: 'Házi feladatok',
     
@@ -539,7 +539,7 @@ tilePodcastDesc: 'Hallgass bennünket aktuális fotós témákról',
     loginFeatAiTitle: 'AI Elemzés',
     loginFeatAiDesc: 'Portfólió és okos képelemzés.',
     loginFeatClubTitle: 'Fotóklub Élet',
-    loginFeatClubDesc: 'Hírek, klubestek és feladatok.',
+    loginFeatClubDesc: 'Fórum, klubestek és feladatok.',
     loginFeatContestsTitle: 'Pályázatok',
     loginFeatContestsDesc: 'Nyílt és zárt fotóversenyek.',
 
