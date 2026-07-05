@@ -511,6 +511,108 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       res.status(500).json({ error: 'Adatbázis hiba történt a mentés során: ' + err.message });
     }
   });
+  // ====================================================================
+  // 🏛️ FÓRUM KATEGÓRIÁK KEZELÉSE
+  // ====================================================================
+  
+  // 1. Kategóriák listázása (Minden bejelentkezett tagnak elérhető)
+  app.get('/api/forum/categories', requireAuth, async (req, res) => {
+    try {
+      const [rows] = await pool.query('SELECT * FROM photo_forum_categories ORDER BY id ASC');
+      res.json(rows);
+    } catch (err) {
+      res.status(500).json({ error: 'Hiba a kategóriák lekérésekor.' });
+    }
+  });
+
+  // 2. Új kategória létrehozása (KIZÁRÓLAG GLOBÁLIS ADMINNAK)
+  app.post('/api/forum/categories', requireAuth, async (req, res) => {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Csak a főadminisztrátor hozhat létre új fórumcsoportot!' });
+    const { name } = req.body;
+    try {
+      await pool.query('INSERT INTO photo_forum_categories (name) VALUES (?)', [name]);
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ error: 'Hiba a mentés során.' });
+    }
+  });
+
+  // 3. Kategória szerkesztése (KIZÁRÓLAG GLOBÁLIS ADMINNAK)
+  app.put('/api/forum/categories/:id', requireAuth, async (req, res) => {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Csak a főadminisztrátor szerkesztheti a fórumcsoportokat!' });
+    const { name } = req.body;
+    try {
+      await pool.query('UPDATE photo_forum_categories SET name = ? WHERE id = ?', [name, req.params.id]);
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ error: 'Hiba a frissítés során.' });
+    }
+  });
+
+  // ====================================================================
+  // 📝 FÓRUM BEJEGYZÉSEK (POSTS) SZŰRT LEKÉRÉSE ÉS MENTÉSE
+  // ====================================================================
+
+  // 4. Témák listázása kategória, mód és klub ID alapján
+  app.get('/api/forum/categories/:categoryId/posts', requireAuth, async (req, res) => {
+    const { categoryId } = req.params;
+    const { mode, clubId } = req.query;
+
+    try {
+      if (mode === 'public') {
+        // Nyilvános posztok az adott kategóriában
+        const [rows] = await pool.query(`
+          SELECT n.*, c.name as club_name,
+                 (SELECT COUNT(*) FROM photo_club_news_reads r WHERE r.news_id = n.id AND r.user_email = ?) as is_read 
+          FROM photo_club_news n
+          LEFT JOIN photo_clubs c ON n.club_id = c.id
+          WHERE n.category_id = ? AND n.is_public = 1 
+          ORDER BY n.created_at DESC
+        `, [req.user.email, categoryId]);
+        return res.json(rows);
+      } else {
+        // Klub-specifikus posztok (csak a saját klub posztjai)
+        if (!clubId) return res.status(400).json({ error: 'Hiányzó klub azonosító!' });
+        const [rows] = await pool.query(`
+          SELECT n.*, c.name as club_name,
+                 (SELECT COUNT(*) FROM photo_club_news_reads r WHERE r.news_id = n.id AND r.user_email = ?) as is_read 
+          FROM photo_club_news n
+          LEFT JOIN photo_clubs c ON n.club_id = c.id
+          WHERE n.category_id = ? AND n.club_id = ?
+          ORDER BY n.created_at DESC
+        `, [req.user.email, categoryId, clubId]);
+        return res.json(rows);
+      }
+    } catch (err) {
+      res.status(500).json({ error: 'Hiba a fórumbejegyzések lekérésekor.' });
+    }
+  });
+
+  // 5. Új téma/beszélgetés indítása
+  app.post('/api/forum/categories/:categoryId/posts', requireAuth, async (req, res) => {
+    const { categoryId } = req.params;
+    const { clubId, title, content, isPublic } = req.body;
+
+    // 🔒 BIZTONSÁGI SZŰRŐ: Az 1-es (Hírek) kategóriába CSAK admin vagy klubvezető írhat!
+    if (Number(categoryId) === 1 && !req.user.isAdmin) {
+      // Megnézzük, hogy az illető vezetője-e a beküldött klubnak
+      const [rows] = await pool.query('SELECT club_role FROM photo_users WHERE email = ? AND club_id = ?', [req.user.email, clubId]);
+      const userRole = rows[0]?.club_role;
+      if (userRole !== 'leader' && userRole !== 'deputy') {
+        return res.status(403).json({ error: 'A Hírek kategóriába kizárólag a vezetőség posztolhat hirdetményt!' });
+      }
+    }
+
+    try {
+      await pool.query(
+        'INSERT INTO photo_club_news (category_id, club_id, author_email, author_name, title, content, is_public) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [categoryId, clubId || null, req.user.email, req.user.name, title, content, isPublic ? 1 : 0]
+      );
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ error: 'Hiba a téma létrehozásakor.' });
+    }
+  });
 
   app.get('/api/profile/active-membership', requireAuth, async (req, res) => {
     try {
