@@ -372,7 +372,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
                 </label>
               </div>
 
-              <button onClick={handleThreadSubmit} style={{ width: '100%', background: '#38bdf8', color: '#0f172a', border: 'none', padding: '12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1.1rem' }}>
+              <button onClick={handlePostThread} style={{ width: '100%', background: '#38bdf8', color: '#0f172a', border: 'none', padding: '12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1.1rem' }}>
                 🚀 Téma közzététele
               </button>
             </div>
