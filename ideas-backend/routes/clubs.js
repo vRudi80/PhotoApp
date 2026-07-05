@@ -662,19 +662,18 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   // 5. Új téma/beszélgetés indítása
     // 1. Új téma/beszélgetés indítása KÉPFELTÖLTÉSSEL
     // 🎯 VÉGLEGES FIX: Fórumposzt-mentő végpont natív fájltörléssel
+    // 🎯 JAVÍTVA: Intelligens klub-azonosító kezelés a null értékek kivédésére
   app.post('/api/forum/categories/:categoryId/posts', upload.single('photo'), requireAuth, async (req, res) => {
     const { categoryId } = req.params;
     const { clubId, title, content, isPublic } = req.body;
     const file = req.file;
 
-    const cleanClubId = (clubId && clubId !== 'null' && clubId !== 'undefined' && clubId !== '') ? Number(clubId) : null;
-
+    // Vezetőségi ellenőrzés az 1-es kategóriához
     if (Number(categoryId) === 1 && !req.user.isAdmin) {
-      const [rows] = await pool.query('SELECT club_role FROM photo_users WHERE email = ? AND club_id = ?', [req.user.email, cleanClubId]);
+      const [rows] = await pool.query('SELECT club_role FROM photo_users WHERE email = ? AND club_id = ?', [req.user.email, clubId]);
       const userRole = rows[0]?.club_role;
       if (userRole !== 'leader' && userRole !== 'deputy') {
-        // 🎯 JAVÍTVA: Natív Node.js törlésre cserélve
-        if (file && fs.existsSync(file.path)) fs.unlinkSync(file.path);
+        if (file) cleanupTempFile(file);
         return res.status(403).json({ error: 'A Hírek kategóriába kizárólag a vezetőség posztolhat!' });
       }
     }
@@ -686,32 +685,36 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       if (file) {
         const fileStream = fs.createReadStream(file.path);
         const fileExt = file.originalname && file.originalname.includes('.') ? file.originalname.substring(file.originalname.lastIndexOf('.')).toLowerCase() : '.jpg';
-        
         const driveRes = await drive.files.create({
           requestBody: { name: `Forum_Post_${Date.now()}${fileExt}`, parents: [process.env.DRIVE_MASTER_FOLDER_ID] },
           media: { mimeType: file.mimetype, body: fileStream },
           fields: 'id, webViewLink'
         });
-        
         fileUrl = driveRes.data.webViewLink; 
         driveFileId = driveRes.data.id;
-        
-        // 🎯 JAVÍTVA: Natív Node.js törlésre cserélve
-        if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+        cleanupTempFile(file);
+      }
+
+      // 🎯 BIZTONSÁGI FIX: Ha a beküldött clubId üres vagy "null" string, megpróbáljuk a bejelentkezett user saját klubját használni, különben 0-át vagy NULL-t adunk át
+      let finalClubId = null;
+      if (clubId && clubId !== 'null' && clubId !== 'undefined' && String(clubId).trim() !== '') {
+        finalClubId = Number(clubId);
+      } else if (req.user.club_id) {
+        finalClubId = Number(req.user.club_id);
       }
 
       await pool.query(
         'INSERT INTO photo_club_news (category_id, club_id, author_email, author_name, title, content, is_public, file_url, drive_file_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [categoryId, cleanClubId, req.user.email, req.user.name, title, content, isPublic === 'true' || isPublic === true ? 1 : 0, fileUrl, driveFileId]
+        [categoryId, finalClubId, req.user.email, req.user.name, title, content, isPublic === 'true' || isPublic === true ? 1 : 0, fileUrl, driveFileId]
       );
       res.json({ success: true });
     } catch (err) {
-      // 🎯 JAVÍTVA: Natív Node.js törlésre cserélve
-      if (file && fs.existsSync(file.path)) fs.unlinkSync(file.path);
-      console.error("❌ Kritikus hiba a fórum mentésekor:", err.message);
-      res.status(500).json({ error: 'Adatbázis vagy Drive hiba történt a téma rögzítésekor.' });
+      if (file) cleanupTempFile(file);
+      console.error("❌ Fórum mentési hiba:", err.message);
+      res.status(500).json({ error: 'Hiba a téma létrehozásakor az adatbázisban.' });
     }
   });
+
 
   // 🎯 ÚJ: Fórumbejegyzés/Téma utólagos szerkesztése (Csak a szerző vagy Admin)
   app.put('/api/forum/posts/:id', requireAuth, async (req, res) => {
