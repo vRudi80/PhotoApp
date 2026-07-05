@@ -79,7 +79,6 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
   const [isCommenting, setIsCommenting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  // 🎯 VISSZAÁLLÍTVA: Az eredeti, jól működő fix ellenőrzések
   const isAdmin = user?.email === ADMIN_EMAIL;
   const isLeader = currentDbUser?.club_role === 'leader' || currentDbUser?.club_role === 'deputy' || isAdmin;
 
@@ -205,7 +204,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
         headers: getLocalAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ userEmail: user.email })
       });
-      const res = await fetch(`${BACKEND_URL}/api/news/${postId}/comments hobbies`, { headers: getLocalAuthHeaders() });
+      const res = await fetch(`${BACKEND_URL}/api/news/${postId}/comments`, { headers: getLocalAuthHeaders() });
       if (res.ok) setComments(await res.json());
     } catch (e) { console.error(e); }
   };
@@ -471,7 +470,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
                     {/* FEJLÉC SZEKCIÓ */}
                     <div onClick={() => !isEditingThis && handleExpandPost(post.id)} style={{ padding: '20px', cursor: isEditingThis ? 'default' : 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: isExpanded ? 'var(--bg-main)' : 'transparent' }}>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                        <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                           {isUnread && <span style={{ background: '#ef4444', color: 'white', padding: '2px 8px', borderRadius: '12px', fontSize: '0.68rem', fontWeight: 'bold' }}>ÚJ</span>}
                           
                           {post.is_public === 1 ? (
@@ -482,7 +481,16 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
                           
                           {post.file_url && <span style={{ background: 'rgba(16,185,129,0.08)', color: '#10b981', border: '1px solid rgba(16,185,129,0.2)', padding: '2px 8px', borderRadius: '12px', fontSize: '0.68rem', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '3px' }}><ImageIcon size={10}/> FOTÓVAL</span>}
                           <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Calendar size={12} /> {new Date(post.created_at).toLocaleDateString('hu-HU')}</span>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><User size={12} /> {post.author_name} {mode === 'public' && <b style={{ color: '#38bdf8' }}>(🏛️ {post.club_name || 'Független'})</b>}</span>
+                          
+                          {/* 🎯 ÚJ: Szerző profilképének kirajzolása a poszt fejlécében */}
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            {post.author_avatar ? (
+                              <img src={post.author_avatar} alt="" style={{ width: '18px', height: '18px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border-main)' }} />
+                            ) : (
+                              <User size={12} />
+                            )}
+                            {post.author_name} {mode === 'public' && <b style={{ color: '#38bdf8' }}>(🏛️ {post.club_name || 'Független'})</b>}
+                          </span>
                         </div>
 
                         {isEditingThis ? (
@@ -535,7 +543,6 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
                                 </button>
                               )}
                               
-                              {/* 🎯 VISSZAÁLLÍTVA: Az eredeti, jól működő, letisztult direkt azonosítás */}
                               {(isAdmin || post.author_email === user?.email) && (
                                 <button 
                                   onClick={() => handleStartEditPost(post)} 
@@ -572,14 +579,24 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '15px', maxHeight: '400px', overflowY: 'auto' }}>
                             {comments.map(c => (
                               <div key={c.id} style={{ background: 'var(--bg-card)', padding: '12px 15px', borderRadius: '8px', border: '1px solid var(--border-main)' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
-                                  <b style={{ color: '#38bdf8', fontSize: '0.85rem' }}>{c.user_name}</b>
+                                
+                                {/* 🎯 ÚJ: Szerző profilképének beágyazása a kommentek elé */}
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    {c.avatar_url ? (
+                                      <img src={c.avatar_url} alt="" style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border-main)' }} />
+                                    ) : (
+                                      <div style={{ width: '22px', height: '22px', borderRadius: '50%', backgroundColor: 'var(--bg-main)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px' }}>👤</div>
+                                    )}
+                                    <b style={{ color: '#38bdf8', fontSize: '0.85rem' }}>{c.user_name}</b>
+                                  </div>
                                   <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>{new Date(c.created_at).toLocaleDateString('hu-HU')}</span>
                                 </div>
-                                <div style={{ color: 'var(--text-body)', fontSize: '0.95rem', lineHeight: '1.4', marginBottom: c.file_url ? '10px' : 0 }}>{c.comment_text}</div>
+                                
+                                <div style={{ color: 'var(--text-body)', fontSize: '0.95rem', lineHeight: '1.4', marginBottom: c.file_url ? '10px' : 0, paddingLeft: '30px' }}>{c.comment_text}</div>
                                 
                                 {c.file_url && (
-                                  <div style={{ maxWidth: '250px', maxHeight: '180px', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border-main)', backgroundColor: '#000' }}>
+                                  <div style={{ maxWidth: '250px', maxHeight: '180px', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border-main)', backgroundColor: '#000', marginLeft: '30px' }}>
                                     <img src={getImageUrl(c.drive_file_id, c.file_url)} alt="" style={{ maxWidth: '100%', maxHeight: '180px', objectFit: 'cover', display: 'block' }} />
                                   </div>
                                 )}
@@ -589,13 +606,22 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
                           </div>
 
                           {commentPreview && (
-                            <div style={{ position: 'relative', display: 'inline-block', marginBottom: '10px' }}>
+                            <div style={{ position: 'relative', display: 'inline-block', marginBottom: '10px', marginLeft: '38px' }}>
                               <img src={commentPreview} alt="" style={{ maxHeight: '60px', borderRadius: '6px', border: '1px solid #38bdf850' }} />
                               <button onClick={() => { setCommentFile(null); setCommentPreview(null); }} style={{ position: 'absolute', top: '-5px', right: '-5px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '50%', width: '18px', height: '18px', fontSize: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
                             </div>
                           )}
 
+                          {/* INPUT MEZŐ KIEGÉSZÍTVE A BEJELENTKEZETT USER KÉPÉVEL */}
                           <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                            
+                            {/* Aktuális bejelentkezett felhasználó miniatűrje a gépelés előtt */}
+                            {currentDbUser?.avatar_url ? (
+                              <img src={currentDbUser.avatar_url} alt="" style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border-main)', flexShrink: 0 }} />
+                            ) : (
+                              <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', border: '1px solid var(--border-main)', flexShrink: 0 }}>👤</div>
+                            )}
+
                             <label style={{ cursor: isCommenting ? 'not-allowed' : 'pointer', fontSize: '1.2rem', background: 'var(--bg-card)', padding: '8px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border-main)', width: '38px', height: '36px', boxSizing: 'border-box' }} title="Fotó csatolása">
                               <Camera size={16} color="var(--text-title)" />
                               <input type="file" accept="image/*" onChange={(e) => {
