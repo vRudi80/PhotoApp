@@ -431,7 +431,7 @@ export default function Header({
 
           <div className="nav-item-container">
             <button className={`nav-btn ${activeTab === 'public_news' ? 'active' : ''}`} style={{ color: '#38bdf8' }} onClick={() => handleNavClick('public_news')}>
-              <Newspaper size={14} /> <span>{lang === 'en' ? 'News' : 'Hírek'}</span>
+              <Newspaper size={14} /> <span>{lang === 'en' ? 'Forum' : 'Fórum'}</span>
             </button>
           </div>
           
