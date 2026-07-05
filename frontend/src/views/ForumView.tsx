@@ -20,7 +20,8 @@ import {
   Calendar,
   Camera,
   X,
-  ImageIcon
+  ImageIcon,
+  Save
 } from 'lucide-react';
 
 interface ForumViewProps {
@@ -62,6 +63,12 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
   const [postPreview, setPostPreview] = useState<string | null>(null);
   const [isUploadingThread, setIsUploadingThread] = useState(false);
 
+  // 🎯 ÚJ ÁLLAPOTOK: Meglévő poszt inline szerkesztéséhez
+  const [editingPostId, setEditingPostId] = useState<number | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editContent, setEditContent] = useState('');
+  const [editIsPublic, setEditIsPublic] = useState(false);
+
   // Olvasók és kommentek
   const [readers, setReaders] = useState<any[]>([]);
   const [showReaders, setShowReaders] = useState(false);
@@ -98,9 +105,6 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
   // ==============================================================
   // ADATOK SYNC MOTORJA
   // ==============================================================
-  
-  // 🎯 JAVÍTVA: Eltávolítottuk az 'if (mode === 'public') return;' letiltást! 
-  // Így a public oldalon is lekérjük a tag saját klub-azonosítóját az összevont adatokhoz.
   useEffect(() => {
     const fetchClubId = async () => {
       if (!currentDbUser?.club_name) return;
@@ -118,7 +122,6 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
     fetchClubId();
   }, [currentDbUser?.club_name]);
 
-  // Kategóriák betöltése (Mindig megvárja a klubszinkront, ha az illető klubtag)
   const fetchCategories = async () => {
     try {
       let url = `${BACKEND_URL}/api/forum/categories?mode=${mode}&userEmail=${user.email}`;
@@ -139,7 +142,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
     setIsLoading(true);
     try {
       let url = `${BACKEND_URL}/api/forum/categories/${selectedCategoryId}/posts?mode=${mode}&userEmail=${user.email}`;
-      if (clubId) url += `&clubId=${clubId}`; // 🎯 JAVÍTVA: Public oldalon is átküldjük a belső posztok behúzásához!
+      if (clubId) url += `&clubId=${clubId}`;
       
       const res = await fetch(url, { headers: getLocalAuthHeaders() });
       if (res.ok) setPosts(await res.json());
@@ -186,13 +189,14 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
   const handleExpandPost = async (postId: number) => {
     if (expandedPostId === postId) {
       setExpandedPostId(null);
+      setEditingPostId(null); // Bezáráskor reseteljük a szerkesztést is
       return;
     }
     setExpandedPostId(postId);
+    setEditingPostId(null);
     setShowReaders(false);
     setCommentFile(null);
     setCommentPreview(null);
-    setPosts(prev => prev.map(p => p.id === postId ? { ...p, is_read: 1 } : p));
 
     try {
       await fetch(`${BACKEND_URL}/api/news/${postId}/read`, {
@@ -236,6 +240,38 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
       }
     } catch (e) { alert("Sikertelen közzététel."); }
     finally { setIsUploadingThread(false); }
+  };
+
+  // 🎯 ÚJ: Szerkesztési mód inicializálása adatokkal feltöltve
+  const handleStartEditPost = (post: any) => {
+    setEditingPostId(post.id);
+    setEditTitle(post.title);
+    setEditContent(post.content);
+    setEditIsPublic(post.is_public === 1);
+  };
+
+  // 🎯 ÚJ: Szerkesztés mentésének elküldése a backendnek
+  const handleSavePostEdit = async (postId: number) => {
+    if (!editTitle.trim() || !editContent.trim()) return alert("A cím és a leírás sem lehet üres!");
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/forum/posts/${postId}`, {
+        method: 'PUT',
+        headers: getLocalAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({
+          title: editTitle.trim(),
+          content: editContent.trim(),
+          isPublic: editIsPublic
+        })
+      });
+
+      if (res.ok) {
+        setEditingPostId(null);
+        fetchPosts();
+      } else {
+        const err = await res.json();
+        alert(err.error || "Hiba történt a mentés során.");
+      }
+    } catch (e) { alert("Hálózati hiba a módosítás mentésekor."); }
   };
 
   const handlePostComment = async (postId: number) => {
@@ -422,15 +458,18 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
               {posts.map(post => {
                 const isExpanded = expandedPostId === post.id;
                 const isUnread = !post.is_read || post.is_read === 0;
+                const isEditingThis = editingPostId === post.id;
 
                 return (
                   <div key={post.id} style={{ background: 'var(--bg-card)', borderRadius: '12px', border: isExpanded ? '1px solid #38bdf8' : (isUnread ? '1px solid #ef444450' : '1px solid var(--border-main)'), overflow: 'hidden', transition: 'all 0.2s' }}>
-                    <div onClick={() => handleExpandPost(post.id)} style={{ padding: '20px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: isExpanded ? 'var(--bg-main)' : 'transparent' }}>
+                    
+                    {/* FEJLÉC SZEKCIÓ */}
+                    <div onClick={() => !isEditingThis && handleExpandPost(post.id)} style={{ padding: '20px', cursor: isEditingThis ? 'default' : 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: isExpanded ? 'var(--bg-main)' : 'transparent' }}>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                           {isUnread && <span style={{ background: '#ef4444', color: 'white', padding: '2px 8px', borderRadius: '12px', fontSize: '0.68rem', fontWeight: 'bold' }}>ÚJ</span>}
                           
-                          {/* 🎯 ÚJ BADGE-EK: Ha nyilvános oldalon vagyunk, vizuálisan különválasztjuk a nyilvános posztokat és a zárt saját klub posztokat */}
+                          {/* Dinamikus nyilvános/klubos badge */}
                           {post.is_public === 1 ? (
                             <span style={{ background: 'rgba(245,158,11,0.08)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.2)', padding: '2px 8px', borderRadius: '12px', fontSize: '0.68rem', fontWeight: 'bold' }}>📢 NYILVÁNOS</span>
                           ) : (
@@ -441,31 +480,71 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
                           <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Calendar size={12} /> {new Date(post.created_at).toLocaleDateString('hu-HU')}</span>
                           <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><User size={12} /> {post.author_name} {mode === 'public' && <b style={{ color: '#38bdf8' }}>(🏛️ {post.club_name || 'Független'})</b>}</span>
                         </div>
-                        <h3 style={{ margin: 0, color: isExpanded ? '#38bdf8' : 'var(--text-title)', fontSize: '1.15rem', fontWeight: '700' }}>{post.title}</h3>
+
+                        {/* Cím szekció: ha szerkesztjük, beviteli mező jelenik meg */}
+                        {isEditingThis ? (
+                          <input value={editTitle} onChange={e => setEditTitle(e.target.value)} style={{ ...inputStyle, marginBottom: 0, padding: '8px 12px' }} onClick={e => e.stopPropagation()} />
+                        ) : (
+                          <h3 style={{ margin: 0, color: isExpanded ? '#38bdf8' : 'var(--text-title)', fontSize: '1.15rem', fontWeight: '700' }}>{post.title}</h3>
+                        )}
                       </div>
-                      <div style={{ fontSize: '1.2rem', color: isUnread ? '#ef4444' : 'var(--text-muted)', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }}>▼</div>
+                      <div style={{ fontSize: '1.2rem', color: isUnread ? '#ef4444' : 'var(--text-muted)', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s', display: isEditingThis ? 'none' : 'block' }}>▼</div>
                     </div>
 
+                    {/* LENYITOTT RÉSZ */}
                     {isExpanded && (
                       <div style={{ padding: '0 20px 20px 20px', borderTop: '1px solid var(--border-main)', animation: 'fadeIn 0.3s ease-out' }}>
-                        <p style={{ color: 'var(--text-body)', lineHeight: '1.6', fontSize: '1rem', whiteSpace: 'pre-wrap', marginTop: '20px', marginBottom: '20px' }}>{post.content}</p>
                         
+                        {/* Leírás szekció: ha szerkesztjük, nagy textarea mező jelenik meg */}
+                        {isEditingThis ? (
+                          <div style={{ marginTop: '20px' }}>
+                            <textarea value={editContent} onChange={e => setEditContent(e.target.value)} style={{ ...inputStyle, minHeight: '120px' }} />
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '15px', userSelect: 'none' }}>
+                              <input type="checkbox" id={`editPublicCheck-${post.id}`} checked={editIsPublic} onChange={e => setEditIsPublic(e.target.checked)} style={{ width: '16px', height: '16px', cursor: 'pointer' }} />
+                              <label htmlFor={`editPublicCheck-${post.id}`} style={{ color: '#fbbf24', fontSize: '0.88rem', fontWeight: 'bold', cursor: 'pointer' }}>Legyen nyilvános (külsősök is láthatják)</label>
+                            </div>
+                          </div>
+                        ) : (
+                          <p style={{ color: 'var(--text-body)', lineHeight: '1.6', fontSize: '1rem', whiteSpace: 'pre-wrap', marginTop: '20px', marginBottom: '20px' }}>{post.content}</p>
+                        )}
+                        
+                        {/* Csatolt bejegyzés-kép */}
                         {post.file_url && (
                           <div style={{ maxWidth: '100%', maxHeight: '400px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-main)', marginBottom: '20px', width: 'fit-content', backgroundColor: '#000' }}>
                             <img src={getImageUrl(post.drive_file_id, post.file_url)} alt="" style={{ maxWidth: '100%', maxHeight: '400px', objectFit: 'contain', display: 'block' }} />
                           </div>
                         )}
 
-                        <div style={{ display: 'flex', gap: '10px', marginTop: '20px', paddingTop: '15px', borderTop: '1px dashed var(--border-main)' }}>
-                          {isLeader && (
-                            <button onClick={() => fetchReaders(post.id)} style={{ background: 'rgba(59,130,246,0.08)', color: '#3b82f6', border: '1px solid rgba(59,130,246,0.2)', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.82rem' }}>
-                              👁️ {showReaders ? 'Olvasók elrejtése' : 'Kik olvasták el?'}
-                            </button>
-                          )}
-                          {(isAdmin || post.author_email === user.email) && (
-                            <button onClick={() => handleDeletePost(post.id)} style={{ background: 'rgba(239,68,68,0.08)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              <Trash2 size={12} /> Törlés
-                            </button>
+                        {/* INTERAKTÍV AKCIÓGOMBOK PANELSORA */}
+                        <div style={{ display: 'flex', gap: '10px', marginTop: '20px', paddingTop: '15px', borderTop: '1px dashed var(--border-main)', flexWrap: 'wrap' }}>
+                          {isEditingThis ? (
+                            <>
+                              <button onClick={() => handleSavePostEdit(post.id)} style={{ background: '#10b981', color: 'white', border: 'none', padding: '6px 14px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                <Save size={14} /> Módosítás Mentése
+                              </button>
+                              <button onClick={() => setEditingPostId(null)} style={{ background: 'var(--bg-main)', color: 'var(--text-title)', border: '1px solid var(--border-main)', padding: '6px 14px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.82rem' }}>
+                                Mégse
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              {isLeader && (
+                                <button onClick={() => fetchReaders(post.id)} style={{ background: 'rgba(59,130,246,0.08)', color: '#3b82f6', border: '1px solid rgba(59,130,246,0.2)', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.82rem' }}>
+                                  👁️ {showReaders ? 'Olvasók elrejtése' : 'Kik olvasták el?'}
+                                </button>
+                              )}
+                              {/* 🎯 JAVÍTVA: Ha a user a téma szerzője vagy főadmin, kirakjuk a "Szerkesztés" gombot */}
+                              {(isAdmin || post.author_email === user.email) && (
+                                <button onClick={() => handleStartEditPost(post)} style={{ background: 'rgba(245,158,11,0.08)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.2)', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                  <Edit3 size={12} /> Szerkesztés
+                                </button>
+                              )}
+                              {(isAdmin || post.author_email === user.email) && (
+                                <button onClick={() => handleDeletePost(post.id)} style={{ background: 'rgba(239,68,68,0.08)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                  <Trash2 size={12} /> Törlés
+                                </button>
+                              )}
+                            </>
                           )}
                         </div>
 
@@ -480,7 +559,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
                         )}
 
                         {/* HOZZÁSZÓLÁSOK FOLYAM */}
-                        <div style={{ background: 'var(--bg-main)', borderRadius: '12px', padding: '15px', marginTop: '25px', border: '1px solid var(--border-main)' }}>
+                        <div style={{ background: 'var(--bg-main)', borderRadius: '12px', padding: '15px', marginTop: '25px', border: '1px solid var(--border-main)', display: isEditingThis ? 'none' : 'block' }}>
                           <h4 style={{ margin: '0 0 15px 0', color: 'var(--text-title)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                             💬 Hozzászólások <span style={{ background: 'var(--bg-card)', padding: '2px 8px', borderRadius: '50px', fontSize: '0.75rem', border: '1px solid var(--border-main)' }}>{comments.length}</span>
                           </h4>
