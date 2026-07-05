@@ -47,10 +47,11 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
   const [posts, setPosts] = useState<any[]>([]);
   const [expandedPostId, setExpandedPostId] = useState<number | null>(null);
   
-  // Kategória menedzsment (Admin)
+  // Kategória menedzsment (Admin) + 🎯 ÚJ leírás állapot
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null);
   const [categoryNameInput, setCategoryNameInput] = useState('');
+  const [categoryDescInput, setCategoryDescInput] = useState('');
 
   // Új poszt indítása
   const [isPosting, setIsPosting] = useState(false);
@@ -115,7 +116,6 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
     fetchClubId();
   }, [currentDbUser?.club_name, mode]);
 
-  // 🎯 FRISSÍTVE: Kategóriák betöltése paraméterezve a pontos számláláshoz
   const fetchCategories = async () => {
     try {
       let url = `${BACKEND_URL}/api/forum/categories?mode=${mode}&userEmail=${user.email}`;
@@ -126,7 +126,6 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
     } catch (e) { console.error(e); }
   };
 
-  // 🎯 FRISSÍTVE: Reaktív betöltés a clubId feloldása után
   useEffect(() => {
     if (mode === 'public' || (mode === 'club' && clubId !== null)) {
       fetchCategories();
@@ -163,14 +162,19 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
         ? `${BACKEND_URL}/api/forum/categories/${editingCategoryId}`
         : `${BACKEND_URL}/api/forum/categories`;
 
+      // 🎯 JAVÍTVA: A kérés testébe beágyazva a leírás (description) oszlop is!
       const res = await fetch(url, {
         method,
         headers: getLocalAuthHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ name: categoryNameInput.trim() })
+        body: JSON.stringify({ 
+          name: categoryNameInput.trim(),
+          description: categoryDescInput.trim() || 'Szabad eszmecsere és témanyitás'
+        })
       });
 
       if (res.ok) {
         setCategoryNameInput('');
+        setCategoryDescInput('');
         setIsAddingCategory(false);
         setEditingCategoryId(null);
         fetchCategories();
@@ -294,7 +298,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
             </h2>
             {isAdmin && (
               <button 
-                onClick={() => { setIsAddingCategory(!isAddingCategory); setEditingCategoryId(null); setCategoryNameInput(''); }}
+                onClick={() => { setIsAddingCategory(!isAddingCategory); setEditingCategoryId(null); setCategoryNameInput(''); setCategoryDescInput(''); }}
                 style={{ background: '#10b981', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}
               >
                 <Plus size={16} /> Új Fórumcsoport
@@ -302,16 +306,19 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
             )}
           </div>
 
+          {/* Kategória hozzáadás/szerkesztés panel (Admin) – 🎯 FRISSÍTVE: Kétmezős beviteli panel */}
           {isAdmin && isAddingCategory && (
             <div style={{ background: 'var(--bg-card)', padding: '20px', borderRadius: '12px', border: '2px solid #10b981', marginBottom: '25px' }}>
-              <h3 style={{ margin: '0 0 15px 0', color: '#10b981' }}>{editingCategoryId ? 'Fórumcsoport átnevezése' : 'Új fórumcsoport létrehozása'}</h3>
-              <input placeholder="Kategória neve..." value={categoryNameInput} onChange={e => setCategoryNameInput(e.target.value)} style={inputStyle} />
+              <h3 style={{ margin: '0 0 15px 0', color: '#10b981' }}>{editingCategoryId ? 'Fórumcsoport szerkesztése' : 'Új fórumcsoport létrehozása'}</h3>
+              <input placeholder="Fórumcsoport neve (pl. Analóg sarok)..." value={categoryNameInput} onChange={e => setCategoryNameInput(e.target.value)} style={inputStyle} />
+              <input placeholder="Rövid egyéni magyarázat szövege..." value={categoryDescInput} onChange={e => setCategoryDescInput(e.target.value)} style={inputStyle} />
               <button onClick={handleSaveCategory} style={{ width: '100%', background: '#10b981', color: 'white', border: 'none', padding: '12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
                 💾 Mentés és Aktiválás
               </button>
             </div>
           )}
 
+          {/* Kategória lista */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
             {categories.map(cat => (
               <div 
@@ -326,7 +333,6 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
                     {cat.id === 1 ? <Lock size={24} /> : <MessageSquare size={24} />}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    {/* 🎯 JAVÍTVA: Beágyazva a reaktív olvasatlan-jelvény a kategória neve mellé! */}
                     <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'var(--text-title)', fontWeight: '700', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span>{cat.name}</span>
                       {Number(cat.unread_count) > 0 && (
@@ -335,11 +341,18 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
                         </span>
                       )}
                     </h3>
+                    {/* 🎯 JAVÍTVA: A beégetett magyarázat helyett az adatbázisból behúzott dinamikus leírást rendereljük ki! */}
                     <p style={{ margin: '4px 0 0 0', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                      {cat.id === 1 ? 'Kizárólag vezetőségi hirdetmények' : 'Szabad eszmecsere és témanyitás'}
+                      {cat.description || 'Szabad eszmecsere és témanyitás'}
                     </p>
                   </div>
                 </div>
+
+                {isAdmin && (
+                  <div style={{ position: 'absolute', top: '24px', right: '20px', display: 'flex', gap: '8px' }} onClick={e => e.stopPropagation()}>
+                    <button onClick={() => { setEditingCategoryId(cat.id); setCategoryNameInput(cat.name); setCategoryDescInput(cat.description || ''); setIsAddingCategory(true); }} style={{ background: 'transparent', color: 'var(--text-muted)', border: 'none', cursor: 'pointer' }}><Edit3 size={16} /></button>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -349,7 +362,6 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
         /* TÉMÁK ÉS POSZTOK LISTÁJA */
         <>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '15px' }}>
-            {/* 🎯 JAVÍTVA: Visszalépéskor azonnal meghívjuk a fetchCategories() függvényt, így azonnal frissül a főoldali számláló! */}
             <button 
               onClick={() => { setSelectedCategoryId(null); setPosts([]); setExpandedPostId(null); setIsPosting(false); fetchCategories(); }}
               style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', color: 'var(--text-title)', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}
@@ -390,8 +402,9 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px', userSelect: 'none' }}>
                 <input type="checkbox" id="publicPostCheck" checked={isPublicPost} onChange={e => setIsPublicPost(e.target.checked)} style={{ width: '18px', height: '18px', cursor: 'pointer' }} disabled={isUploadingThread} />
+                {/* 🎯 JAVÍTVA: Az "Aréna" szó eltávolítva, kifejezve a külsős/nem klubtag jogosultságot */}
                 <label htmlFor="publicPostCheck" style={{ color: '#fbbf24', fontWeight: 'bold', fontSize: '0.95rem', cursor: 'pointer' }}>
-                  📢 Legyen nyilvános (mindenki láthatja klubon kívülről is)
+                  📢 Legyen nyilvános (nem klubtagok és külső látogatók is olvashatják a közlemények között)
                 </label>
               </div>
 
@@ -404,7 +417,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
           {isLoading ? (
             <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '40px' }}>Témák rendezése folyamatban...</div>
           ) : posts.length === 0 ? (
-            <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '40px', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-main)' }}>
+            <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '40px', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid #334155' }}>
               Ebben a kategóriában még senki sem indított beszélgetést. Legyél te az első!
             </p>
           ) : (
