@@ -281,10 +281,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     try { const [rows] = await pool.query('SELECT * FROM photo_club_news_comments WHERE news_id = ? ORDER BY created_at ASC', [req.params.id]); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
-  app.post('/api/news/:id/comments', requireAuth, async (req, res) => {
-    const { commentText } = req.body;
-    try { await pool.query('INSERT INTO photo_club_news_comments (news_id, user_email, user_name, comment_text) VALUES (?, ?, ?, ?)', [req.params.id, req.user.email, req.user.name, commentText]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
-  });
 
   // ====================================================================
   // 👥 TAGFELVÉTEL ÉS KÉRELMEK VÉDELME
@@ -589,28 +585,80 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // 5. Új téma/beszélgetés indítása
-  app.post('/api/forum/categories/:categoryId/posts', requireAuth, async (req, res) => {
+    // 1. Új téma/beszélgetés indítása KÉPFELTÖLTÉSSEL
+  app.post('/api/forum/categories/:categoryId/posts', upload.single('photo'), requireAuth, async (req, res) => {
     const { categoryId } = req.params;
     const { clubId, title, content, isPublic } = req.body;
+    const file = req.file;
 
-    // 🔒 BIZTONSÁGI SZŰRŐ: Az 1-es (Hírek) kategóriába CSAK admin vagy klubvezető írhat!
     if (Number(categoryId) === 1 && !req.user.isAdmin) {
-      // Megnézzük, hogy az illető vezetője-e a beküldött klubnak
       const [rows] = await pool.query('SELECT club_role FROM photo_users WHERE email = ? AND club_id = ?', [req.user.email, clubId]);
       const userRole = rows[0]?.club_role;
       if (userRole !== 'leader' && userRole !== 'deputy') {
-        return res.status(403).json({ error: 'A Hírek kategóriába kizárólag a vezetőség posztolhat hirdetményt!' });
+        if (file) cleanupTempFile(file);
+        return res.status(403).json({ error: 'A Hírek kategóriába kizárólag a vezetőség posztolhat!' });
       }
     }
 
+    let fileUrl = null; 
+    let driveFileId = null;
+
     try {
+      if (file) {
+        const fileStream = fs.createReadStream(file.path);
+        const fileExt = file.originalname && file.originalname.includes('.') ? file.originalname.substring(file.originalname.lastIndexOf('.')).toLowerCase() : '.jpg';
+        const driveRes = await drive.files.create({
+          requestBody: { name: `Forum_Post_${Date.now()}${fileExt}`, parents: [process.env.DRIVE_MASTER_FOLDER_ID] },
+          media: { mimeType: file.mimetype, body: fileStream },
+          fields: 'id, webViewLink'
+        });
+        fileUrl = driveRes.data.webViewLink; 
+        driveFileId = driveRes.data.id;
+        cleanupTempFile(file);
+      }
+
       await pool.query(
-        'INSERT INTO photo_club_news (category_id, club_id, author_email, author_name, title, content, is_public) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [categoryId, clubId || null, req.user.email, req.user.name, title, content, isPublic ? 1 : 0]
+        'INSERT INTO photo_club_news (category_id, club_id, author_email, author_name, title, content, is_public, file_url, drive_file_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [categoryId, clubId || null, req.user.email, req.user.name, title, content, isPublic === 'true' || isPublic === true ? 1 : 0, fileUrl, driveFileId]
       );
       res.json({ success: true });
     } catch (err) {
+      if (file) cleanupTempFile(file);
       res.status(500).json({ error: 'Hiba a téma létrehozásakor.' });
+    }
+  });
+
+  // 2. Új hozzászólás küldése KÉPFELTÖLTÉSSEL
+  app.post('/api/news/:id/comments', upload.single('photo'), requireAuth, async (req, res) => {
+    const { commentText } = req.body;
+    const newsId = req.params.id;
+    const file = req.file;
+
+    let fileUrl = null; 
+    let driveFileId = null;
+
+    try {
+      if (file) {
+        const fileStream = fs.createReadStream(file.path);
+        const fileExt = file.originalname && file.originalname.includes('.') ? file.originalname.substring(file.originalname.lastIndexOf('.')).toLowerCase() : '.jpg';
+        const driveRes = await drive.files.create({
+          requestBody: { name: `Forum_Comment_${Date.now()}${fileExt}`, parents: [process.env.DRIVE_MASTER_FOLDER_ID] },
+          media: { mimeType: file.mimetype, body: fileStream },
+          fields: 'id, webViewLink'
+        });
+        fileUrl = driveRes.data.webViewLink; 
+        driveFileId = driveRes.data.id;
+        cleanupTempFile(file);
+      }
+
+      await pool.query(
+        'INSERT INTO photo_club_news_comments (news_id, user_email, user_name, comment_text, file_url, drive_file_id) VALUES (?, ?, ?, ?, ?, ?)', 
+        [newsId, req.user.email, req.user.name, commentText || '', fileUrl, driveFileId]
+      );
+      res.json({ success: true });
+    } catch (err) { 
+      if (file) cleanupTempFile(file);
+      res.status(500).json({ error: 'Hiba a kommentelés során.' }); 
     }
   });
 
