@@ -127,7 +127,6 @@ const compressImageOnClient = (file: File): Promise<File> => {
   });
 };
 
-// 🎯 KÖZPONTI AUTH FEJLÉC GENERÁTOR HELYI RENDERSZINTRE
 const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
   const token = localStorage.getItem('photoAppToken');
   return {
@@ -188,12 +187,12 @@ function ChallengeCard({ topic, onSelect, onShare }: { topic: any; onSelect: () 
 
   const totalImagesCount = topic.entries_count ?? topic.entry_count ?? topic.totalEntries ?? 0;
   const unvotedCount = topic.unvotedEntries ?? topic.unvoted_count ?? 0;
-
+  
   const handleShare = (e: React.MouseEvent) => {
     e.stopPropagation(); 
     onShare(); 
   };
-  
+
   return (
     <div 
       onClick={onSelect}
@@ -246,19 +245,7 @@ function ChallengeCard({ topic, onSelect, onShare }: { topic: any; onSelect: () 
       </div>
 
       <div style={{ display: 'flex', gap: '8px', marginTop: 'auto' }}>
-        <div style={{ 
-          flex: 1, 
-          background: 'var(--bg-main)', 
-          padding: '8px 12px', 
-          borderRadius: '4px', 
-          border: '1px solid var(--border-main)', 
-          fontFamily: 'monospace', 
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: '2px'
-        }}>
+        <div style={{ flex: 1, background: 'var(--bg-main)', padding: '8px 12px', borderRadius: '4px', border: '1px solid var(--border-main)', fontFamily: 'monospace', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '2px' }}>
           <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 'bold', letterSpacing: '0.5px' }}>
             {t('timeLeft', 'HÁTRALÉVŐ IDŐ:')}
           </span>
@@ -277,7 +264,6 @@ function ChallengeCard({ topic, onSelect, onShare }: { topic: any; onSelect: () 
           <Share2 size={14} />
         </button>
       </div>
-
     </div>
   );
 }
@@ -292,7 +278,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [topicToShare, setTopicToShare] = useState<any | null>(null);
-
   const [myReferralCode, setMyReferralCode] = useState<string>('');
   const [referredBy, setReferredBy] = useState<string | null>(null);
   const [referralInput, setReferralInput] = useState<string>('');
@@ -373,6 +358,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const isAdminUser = user?.email === ADMIN_EMAIL;
   const isChatOpenRef = useRef(isChatOpen);
   const lobbyMessagesCountRef = useRef(lobbyMessages.length);
+  const lastTypingSignalSent = useRef<number>(0);
 
   useEffect(() => {
     isChatOpenRef.current = isChatOpen;
@@ -381,7 +367,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
 
   const fetchNextVote = async (topicId: number) => {
     try {
-      // 🎯 JAVÍTVA: Hitelesített fejléc beillesztve
       const res = await fetch(`${BACKEND_URL}/api/weekly/next-vote?topicId=${topicId}&userEmail=${user?.email || ''}`, {
         headers: getAuthHeaders()
       });
@@ -393,7 +378,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     } catch (e) { console.error(e); }
   };
 
-const fetchCurrentTopic = async (isSilent = false) => {
+  const fetchCurrentTopic = async (isSilent = false) => {
     if (!isSilent) {
       setLoading(true);
       setFetchError(null);
@@ -413,7 +398,6 @@ const fetchCurrentTopic = async (isSilent = false) => {
       const url = selectedTopicId 
         ? `${BACKEND_URL}/api/weekly/current?userEmail=${user.email}&topicId=${selectedTopicId}`
         : `${BACKEND_URL}/api/weekly/current?userEmail=${user.email}`;
-
       const res = await fetch(url, { 
         signal: controller.signal,
         headers: getAuthHeaders()
@@ -434,7 +418,6 @@ const fetchCurrentTopic = async (isSilent = false) => {
       if (data.referredBy !== undefined) setReferredBy(data.referredBy);
       if (data.swapBalance !== undefined) setSwapBalance(data.swapBalance);
       if (data.userPower !== undefined) setUserPower(data.userPower);
-      
       if (!selectedTopicId) {
         setActiveTopics(data.activeTopics || []);
       } else {
@@ -455,7 +438,6 @@ const fetchCurrentTopic = async (isSilent = false) => {
       
       if (!isSilent) {
         setFetchError(err.message || "Kapcsolati hiba");
-
         const lastAutoReload = sessionStorage.getItem('last_arena_auto_reload');
         const now = Date.now();
         if (!lastAutoReload || now - Number(lastAutoReload) > 10000) {
@@ -474,7 +456,6 @@ const fetchCurrentTopic = async (isSilent = false) => {
     if (!user?.email) return;
     setIsLoadingSwapAlbum(true);
     try {
-      // 🎯 JAVÍTVA: Hitelesített fejléc beillesztve
       const res = await fetch(`${BACKEND_URL}/api/weekly/my-album?userEmail=${user.email}`, {
         headers: getAuthHeaders()
       });
@@ -492,20 +473,11 @@ const fetchCurrentTopic = async (isSilent = false) => {
     }
   };
 
-  const ensureReferralCode = async (email: string) => {
-    try {
-      // Ez egy belső kliensoldali placeholder elkerülés, a backend valójában szinkronizálja automatikusan
-      return '';
-    } catch (e) { return ''; }
-  };
-
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setTypedLobbyMsg(e.target.value);
-
     const now = Date.now();
     if (now - lastTypingSignalSent.current > 3000) {
       lastTypingSignalSent.current = now;
-      // 🎯 JAVÍTVA: Gépelési állapot küldése hitelesített fejléccel lezárva
       fetch(`${BACKEND_URL}/api/weekly/chat/typing`, {
         method: 'POST',
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
@@ -523,7 +495,6 @@ const fetchCurrentTopic = async (isSilent = false) => {
     if (!typedLobbyMsg.trim() || isSendingLobbyMsg) return;
     setIsSendingLobbyMsg(true);
     try {
-      // 🎯 JAVÍTVA: Élő chat üzenet beküldése hitelesített fejléccel lezárva
       const res = await fetch(`${BACKEND_URL}/api/weekly/chat`, {
         method: 'POST',
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
@@ -534,7 +505,6 @@ const fetchCurrentTopic = async (isSilent = false) => {
           messageText: typedLobbyMsg
         })
       });
-      
       if (res.ok) {
         setTypedLobbyMsg('');
         setLobbyMessages(prev => [...prev, { 
@@ -554,6 +524,7 @@ const fetchCurrentTopic = async (isSilent = false) => {
   };
 
   const myOfficialNameRef = useRef<string>(lang === 'en' ? 'Me' : 'Én');
+  
   useEffect(() => {
     myOfficialNameRef.current = myEntry?.user_name || user?.name || (lang === 'en' ? 'Me' : 'Én');
   }, [myEntry, user, lang]);
@@ -563,7 +534,6 @@ const fetchCurrentTopic = async (isSilent = false) => {
       fetchCurrentTopic(false);
       fetchAlbumSilently(); 
     }
-    // 🎯 JAVÍTVA: Alábbi lekérések mind megkapták a getAuthHeaders() védelmet
     else if (subTab === 'upcoming') fetch(`${BACKEND_URL}/api/weekly/upcoming`, { headers: getAuthHeaders() }).then(res => res.json()).then(data => setUpcomingTopics(data || [])).catch(console.error);
     else if (subTab === 'past') fetch(`${BACKEND_URL}/api/weekly/past`, { headers: getAuthHeaders() }).then(res => res.json()).then(data => setPastTopics(data || [])).catch(console.error);
     else if (subTab === 'my_stats') fetchMyStats(); 
@@ -587,7 +557,6 @@ const fetchCurrentTopic = async (isSilent = false) => {
   useEffect(() => {
     if (subTab !== 'current') return;
     
-    // 🎯 JAVÍTVA: Élő csevegés lekérdezése gyorsítótár-mentesen és hitelesített fejléccel ellátva
     const fetchLobbyChat = () => {
       fetch(`${BACKEND_URL}/api/weekly/chat/0?t=${Date.now()}`, {
         method: 'GET',
@@ -647,7 +616,6 @@ const fetchCurrentTopic = async (isSilent = false) => {
   const fetchHallOfFame = async () => {
     setIsLoadingHof(true);
     try {
-      // 🎯 JAVÍTVA: Dicsőségcsarnok lekérése hitelesített fejléccel
       const res = await fetch(`${BACKEND_URL}/api/weekly/hall-of-fame`, { headers: getAuthHeaders() });
       if (res.ok) {
         const data = await res.json();
@@ -658,7 +626,7 @@ const fetchCurrentTopic = async (isSilent = false) => {
     } catch (err) {
       console.error("Hiba a dicsőségcsarnok letöltésekor:", err);
       setHallOfFame([]);
-    } bits: {
+    } finally {
       setIsLoadingHof(false);
     }
   };
@@ -666,7 +634,6 @@ const fetchCurrentTopic = async (isSilent = false) => {
   const fetchMyStats = async () => {
     setIsLoadingStats(true);
     try {
-      // 🎯 JAVÍTVA: Statisztikák lekérése hitelesített fejléccel
       const res = await fetch(`${BACKEND_URL}/api/weekly/my-stats?userEmail=${user?.email || ''}`, { headers: getAuthHeaders() });
       if (res.ok) {
         const data = await res.json();
@@ -680,7 +647,6 @@ const fetchCurrentTopic = async (isSilent = false) => {
   const loadPastHistoryList = async (topicId: number) => {
     setSelectedPastTopicId(topicId);
     try {
-      // 🎯 JAVÍTVA: Archív meccstörténet lekérése hitelesített fejléccel
       const res = await fetch(`${BACKEND_URL}/api/weekly/history/${topicId}?userEmail=${user?.email || ''}`, { headers: getAuthHeaders() });
       if (res.ok) {
         const data = await res.json();
@@ -694,7 +660,6 @@ const fetchCurrentTopic = async (isSilent = false) => {
     if (!window.confirm(t('msgReportConfirm'))) return;
     setVoteEntry(null);
     try {
-      // 🎯 JAVÍTVA: Off-topic jelentés rögzítése hitelesített fejléccel
       const res = await fetch(`${BACKEND_URL}/api/weekly/report-off-topic`, {
         method: 'POST', 
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }), 
@@ -704,11 +669,11 @@ const fetchCurrentTopic = async (isSilent = false) => {
         alert(t('msgReportSuccess')); setMyVoteCount(prev => prev + 1);
         if (topic) { 
           fetchNextVote(topic.id);
-          fetchCurrentTopic(true); 
+          fetchCurrentTopic(true);
         }
       }
     } catch (e) { 
-      alert(t('msgReportError')); 
+      alert(t('msgReportError'));
       if (topic) fetchNextVote(topic.id);
     }
   };
@@ -718,7 +683,6 @@ const fetchCurrentTopic = async (isSilent = false) => {
     const oldEntryId = voteEntry.id;
     setVoteEntry(null); 
     try {
-      // 🎯 JAVÍTVA: Szavazat leadása hitelesített fejléccel lezárva
       const res = await fetch(`${BACKEND_URL}/api/weekly/vote`, {
         method: 'POST', 
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
@@ -734,7 +698,6 @@ const fetchCurrentTopic = async (isSilent = false) => {
     if (!referralInput.trim()) return;
     setIsClaimingReferral(true);
     try {
-      // 🎯 JAVÍTVA: Referál kód beküldése hitelesített fejléccel lezárva
       const res = await fetch(`${BACKEND_URL}/api/weekly/claim-referral`, {
         method: 'POST', 
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
@@ -772,7 +735,8 @@ const fetchCurrentTopic = async (isSilent = false) => {
           setUploadSoftware(exifData.Software || '');
         }
       } catch (exifError) {
-        setUploadCamera(''); setUploadCameraLens(''); setUploadShutter(''); setUploadIso(''); setUploadAperture(''); setUploadSoftware('');
+        setUploadCamera('');
+        setUploadCameraLens(''); setUploadShutter(''); setUploadIso(''); setUploadAperture(''); setUploadSoftware('');
       }
       let finalFile = rawFile;
       if (rawFile.size > 2 * 1024 * 1024) finalFile = await compressImageOnClient(rawFile);
@@ -789,7 +753,6 @@ const fetchCurrentTopic = async (isSilent = false) => {
     formData.append('shutter', uploadShutter); formData.append('iso', uploadIso); formData.append('aperture', uploadAperture); formData.append('software', uploadSoftware);
 
     try {
-      // 🎯 JAVÍTVA: Nevezési feltöltés hitelesített tokennel (Content-Type-ot a böngésző határozza meg!)
       const res = await fetch(`${BACKEND_URL}/api/weekly/upload`, { 
         method: 'POST', 
         headers: getAuthHeaders(),
@@ -826,7 +789,8 @@ const fetchCurrentTopic = async (isSilent = false) => {
           setSwapSoftware(exifData.Software || '');
         }
       } catch (e) {
-        setSwapCamera(''); setSwapLens(''); setSwapShutter(''); setSwapIso(''); setSwapAperture(''); setSwapSoftware('');
+        setSwapCamera('');
+        setSwapLens(''); setSwapShutter(''); setSwapIso(''); setSwapAperture(''); setSwapSoftware('');
       }
       let finalFile = rawFile;
       if (rawFile.size > 2 * 1024 * 1024) finalFile = await compressImageOnClient(rawFile);
@@ -841,10 +805,9 @@ const fetchCurrentTopic = async (isSilent = false) => {
     const formData = new FormData();
     formData.append('photo', swapFile); formData.append('topicId', topic.id.toString()); formData.append('userEmail', user?.email || '');
     formData.append('userName', user?.name || '');
-    formData.append('camera', swapCamera); formData.append('lens', swapLens); formData.append('shutter', swapShutter); formData.append('iso', swapIso); formData.append('aperture', swapAperture); formData.append('software', swapSoftware);
-
+    formData.append('camera', swapCamera);
+    formData.append('lens', swapLens); formData.append('shutter', swapShutter); formData.append('iso', swapIso); formData.append('aperture', swapAperture); formData.append('software', swapSoftware);
     try {
-      // 🎯 JAVÍTVA: Joker csere új képpel hitelesítve (Content-Type-ot békén hagyjuk!)
       const res = await fetch(`${BACKEND_URL}/api/weekly/swap`, { 
         method: 'POST', 
         headers: getAuthHeaders(),
@@ -865,7 +828,6 @@ const fetchCurrentTopic = async (isSilent = false) => {
     if (!window.confirm(t('msgSwapBackConfirm'))) return;
     setIsSwapping(true);
     try {
-      // 🎯 JAVÍTVA: Visszaváltás korábbi képre hitelesített fejléccel lezárva
       const res = await fetch(`${BACKEND_URL}/api/weekly/swap-back`, {
         method: 'POST', 
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }), 
@@ -884,7 +846,6 @@ const fetchCurrentTopic = async (isSilent = false) => {
     if (!window.confirm(t('msgSwapExistingConfirm'))) return;
     setIsSwapping(true); setShowSwapAlbumModal(false);
     try {
-      // 🎯 JAVÍTVA: Joker csere meglévő galériás képpel hitelesített fejléccel
       const swapRes = await fetch(`${BACKEND_URL}/api/weekly/swap-existing`, {
         method: 'POST', 
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }), 
@@ -935,7 +896,6 @@ const fetchCurrentTopic = async (isSilent = false) => {
   const viewsRemaining = myEntry ? (exposureEarned - safeViewsCount) : 0;
   const rawPercentage = myEntry ? ((viewsRemaining / 15) * 100) : 0;
   const exposurePercentage = isNaN(rawPercentage) || !isFinite(rawPercentage) ? 0 : Math.min(100, Math.max(0, rawPercentage));
-  
   let exposureColor = '#ef4444';
   let exposureLabel = viewsRemaining <= 0 ? (lang === 'en' ? 'Invisible (0%)' : 'Láthatatlan (0%)') : (lang === 'en' ? 'Low' : 'Alacsony');
   if (exposurePercentage >= 80) { exposureColor = '#10b981'; exposureLabel = lang === 'en' ? 'Maximum' : 'Maximális'; } 
@@ -1008,7 +968,6 @@ const fetchCurrentTopic = async (isSilent = false) => {
           {ARENA_LEVELS_REGISTRY.map((rank, idx) => {
             const isUnlocked = idx <= currentLevel.id;
             const isCurrent = idx === currentLevel.id;
-            
             const nextLvlObj = ARENA_LEVELS_REGISTRY[idx];
             const likesDiff = nextLvlObj.minLikes - userTotalLikes;
             const winsDiff = (nextLvlObj.minVictories || 0) - userVictories;
@@ -1165,14 +1124,41 @@ const fetchCurrentTopic = async (isSilent = false) => {
                       lobbyMessages.slice(-100).map((msg, idx) => {
                         const isMsgMe = (msg.user_email || msg.userEmail) === user?.email;
                         return (
-                          <div key={msg.id || idx} style={{ display: 'flex', flexDirection: 'column', alignItems: isMsgMe ? 'flex-end' : 'flex-start', maxWidth: '92%', alignSelf: isMsgMe ? 'flex-end' : 'flex-start', marginBottom: '8px' }}>
-                            <div style={{ display: 'flex', gap: '4px', alignItems: 'center', marginBottom: '2px', fontSize: '0.68rem', color: isMsgMe ? '#f97316' : 'var(--text-body)', fontWeight: 'bold' }}>
-                              <span>{msg.user_name || msg.userName}</span>
-                              <span style={{ color: 'var(--text-muted)' }}>• {new Date(msg.created_at).toLocaleTimeString(lang === 'en' ? 'en-US' : 'hu-HU', { hour: '2-digit', minute: '2-digit' })}</span>
+                          /* 🎯 JAVÍTVA: Az Aréna élő csevegés kibővítve a bal/jobb oldali lekerekített profilképekkel */
+                          <div key={msg.id || idx} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', justifyContent: isMsgMe ? 'flex-end' : 'flex-start', marginBottom: '10px', width: '100%' }}>
+                            
+                            {/* Külsős vagy más tag képe a bal oldalon */}
+                            {!isMsgMe && (
+                              <div style={{ flexShrink: 0, marginTop: '2px' }}>
+                                {msg.avatar_url ? (
+                                  <img src={msg.avatar_url} alt="" style={{ width: '26px', height: '26px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border-main)' }} />
+                                ) : (
+                                  <div style={{ width: '26px', height: '26px', borderRadius: '50%', backgroundColor: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', border: '1px solid var(--border-main)', color: 'var(--text-muted)' }}>👤</div>
+                                )}
+                              </div>
+                            )}
+
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: isMsgMe ? 'flex-end' : 'flex-start', maxWidth: '75%' }}>
+                              <div style={{ display: 'flex', gap: '4px', alignItems: 'center', marginBottom: '2px', fontSize: '0.68rem', color: isMsgMe ? '#f97316' : 'var(--text-body)', fontWeight: 'bold' }}>
+                                <span>{msg.user_name || msg.userName}</span>
+                                <span style={{ color: 'var(--text-muted)' }}>• {new Date(msg.created_at).toLocaleTimeString(lang === 'en' ? 'en-US' : 'hu-HU', { hour: '2-digit', minute: '2-digit' })}</span>
+                              </div>
+                              <div style={{ background: isMsgMe ? '#f97316' : 'var(--bg-card)', color: isMsgMe ? '#ffffff' : 'var(--text-title)', padding: '6px 10px', borderRadius: isMsgMe ? '8px 8px 2px 8px' : '8px 8px 8px 2px', fontSize: '0.82rem', wordBreak: 'break-word', border: isMsgMe ? 'none' : '1px solid var(--border-main)' }}>
+                                {msg.message_text || msg.messageText}
+                              </div>
                             </div>
-                            <div style={{ background: isMsgMe ? '#f97316' : 'var(--bg-card)', color: isMsgMe ? '#ffffff' : 'var(--text-title)', padding: '6px 10px', borderRadius: isMsgMe ? '8px 8px 2px 8px' : '8px 8px 8px 2px', fontSize: '0.82rem', wordBreak: 'break-word', border: isMsgMe ? 'none' : '1px solid var(--border-main)' }}>
-                              {msg.message_text || msg.messageText}
-                            </div>
+
+                            {/* Te magad (Saját képed) a jobb oldalon */}
+                            {isMsgMe && (
+                              <div style={{ flexShrink: 0, marginTop: '2px' }}>
+                                {msg.avatar_url ? (
+                                  <img src={msg.avatar_url} alt="" style={{ width: '26px', height: '26px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border-main)' }} />
+                                ) : (
+                                  <div style={{ width: '26px', height: '26px', borderRadius: '50%', backgroundColor: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', border: '1px solid var(--border-main)', color: 'var(--text-muted)' }}>👤</div>
+                                )}
+                              </div>
+                            )}
+
                           </div>
                         );
                       })
@@ -1259,88 +1245,24 @@ const fetchCurrentTopic = async (isSilent = false) => {
         .arena-fluid-container { width: 100%; box-sizing: border-box; }
         .arena-cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; width: 100%; }
         .arena-rank-tooltip-container { position: relative; }
-        
-        .arena-progress-card-wrapper, .arena-tabs-scroll-wrapper {
-          scrollbar-width: thin;
-          scrollbar-color: var(--border-main) var(--bg-card);
-        }
-        .arena-progress-card-wrapper::-webkit-scrollbar, .arena-tabs-scroll-wrapper::-webkit-scrollbar {
-          height: 4px;
-        }
-        .arena-progress-card-wrapper::-webkit-scrollbar-track, .arena-tabs-scroll-wrapper::-webkit-scrollbar-track {
-          background: var(--bg-card);
-        }
-        .arena-progress-card-wrapper::-webkit-scrollbar-thumb, .arena-tabs-scroll-wrapper::-webkit-scrollbar-thumb {
-          background-color: var(--border-main);
-          border-radius: 4px;
-        }
-
+        .arena-progress-card-wrapper, .arena-tabs-scroll-wrapper { scrollbar-width: thin; scrollbar-color: var(--border-main) var(--bg-card); }
+        .arena-progress-card-wrapper::-webkit-scrollbar, .arena-tabs-scroll-wrapper::-webkit-scrollbar { height: 4px; }
+        .arena-progress-card-wrapper::-webkit-scrollbar-track, .arena-tabs-scroll-wrapper::-webkit-scrollbar-track { background: var(--bg-card); }
+        .arena-progress-card-wrapper::-webkit-scrollbar-thumb, .arena-tabs-scroll-wrapper::-webkit-scrollbar-thumb { background-color: var(--border-main); border-radius: 4px; }
         @media (max-width: 900px) {
-          .arena-tabs-scroll-wrapper {
-            overflow-x: auto !important;
-            -webkit-overflow-scrolling: touch;
-            padding-bottom: 4px !important;
-          }
-          .arena-tabs-internal-line {
-            min-width: 820px !important;
-            justify-content: flex-start !important;
-          }
-          .arena-progress-card-wrapper {
-            overflow-x: auto !important;
-            -webkit-overflow-scrolling: touch;
-            padding-bottom: 8px !important;
-          }
-          .arena-progress-track-line {
-            min-width: 920px !important;
-          }
+          .arena-tabs-scroll-wrapper { overflow-x: auto !important; -webkit-overflow-scrolling: touch; padding-bottom: 4px !important; }
+          .arena-tabs-internal-line { min-width: 820px !important; justify-content: flex-start !important; }
+          .arena-progress-card-wrapper { overflow-x: auto !important; -webkit-overflow-scrolling: touch; padding-bottom: 8px !important; }
+          .arena-progress-track-line { min-width: 920px !important; }
         }
-        
-        .arena-rank-tooltip-box {
-          position: absolute;
-          bottom: 145%; left: 50%; transform: translateX(-50%) translateY(4px);
-          background: var(--bg-main); color: var(--text-title); border: 1px solid var(--border-main); border-radius: 6px;
-          width: 230px;
-          box-shadow: 0 10px 20px rgba(0,0,0,0.2); z-index: 999999 !important;
-          opacity: 0; pointer-events: none; transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-          padding: 10px; text-align: center;
-        }
-        .arena-rank-tooltip-box::after {
-          content: "";
-          position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
-          border-width: 5px; border-style: solid; border-color: var(--bg-main) transparent transparent transparent;
-        }
-        .arena-rank-tooltip-container:hover .arena-rank-tooltip-box {
-          opacity: 1;
-          transform: translateX(-50%) translateY(0); pointer-events: auto;
-        }
-        .arena-floating-chat-dock { 
-          position: fixed; 
-          bottom: 0;
-          right: 30px; 
-          width: 340px; 
-          background: var(--bg-card); 
-          border: 1px solid var(--border-main); 
-          border-bottom: none; 
-          border-radius: 4px 4px 0 0;
-          box-shadow: 0 -8px 24px rgba(0,0,0,0.15); 
-          z-index: 1000; 
-          transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-        }
+        .arena-rank-tooltip-box { position: absolute; bottom: 145%; left: 50%; transform: translateX(-50%) translateY(4px); background: var(--bg-main); color: var(--text-title); border: 1px solid var(--border-main); border-radius: 6px; width: 230px; box-shadow: 0 10px 20px rgba(0,0,0,0.2); z-index: 999999 !important; opacity: 0; pointer-events: none; transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1); padding: 10px; text-align: center; }
+        .arena-rank-tooltip-box::after { content: ""; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); border-width: 5px; border-style: solid; border-color: var(--bg-main) transparent transparent transparent; }
+        .arena-rank-tooltip-container:hover .arena-rank-tooltip-box { opacity: 1; transform: translateX(-50%) translateY(0); pointer-events: auto; }
+        .arena-floating-chat-dock { position: fixed; bottom: 0; right: 30px; width: 340px; background: var(--bg-card); border: 1px solid var(--border-main); border-bottom: none; border-radius: 4px 4px 0 0; box-shadow: 0 -8px 24px rgba(0,0,0,0.15); z-index: 1000; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
         .arena-floating-chat-dock.is-open { transform: translateY(0); }
         .arena-floating-chat-dock.is-closed { transform: translateY(calc(100% - 44px)); }
         .arena-floating-chat-dock.has-unread .chat-dock-header { border-color: #f43f5e; }
-        
-        .chat-dock-header { 
-          padding: 12px 16px; 
-          background: var(--bg-card);
-          border-bottom: 1px solid var(--border-main); 
-          border-radius: 3px 3px 0 0; 
-          display: flex; 
-          justify-content: space-between; 
-          align-items: center; 
-          cursor: pointer; 
-          user-select: none;
-        }
+        .chat-dock-header { padding: 12px 16px; background: var(--bg-card); border-bottom: 1px solid var(--border-main); border-radius: 3px 3px 0 0; display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; }
         .chat-dock-header:hover { background: var(--hover-overlay); }
         .chat-dock-body { padding: 12px; height: 380px; display: flex; flex-direction: column; }
         .chat-messages-scroll-area { background: var(--bg-main); border: 1px solid var(--border-main); border-radius: 4px; padding: 10px; flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
