@@ -513,6 +513,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   
   // 1. Kategóriák listázása (Minden bejelentkezett tagnak elérhető)
     // 🎯 FRISSÍTVE: Kategóriák listázása intelligens olvasatlan-számlálóval
+    // 🎯 REAKTÍV ÖSSZEVONT SZÁMLÁLÓ: Kategóriák listázása olvasatlan-számlálóval
   app.get('/api/forum/categories', requireAuth, async (req, res) => {
     const { mode, clubId } = req.query;
     
@@ -520,8 +521,22 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       let query = '';
       let params = [];
 
-      if (mode === 'public') {
-        // Nyilvános mód: Azokat a nyilvános posztokat számoljuk, amik nincsenek benne a felhasználó olvasási naplójában
+      if (mode === 'public' && clubId) {
+        // Nyilvános oldal + Bejelentkezett klubtag: Látja a nyilvánosat ÉS a saját belső klubos posztjait is!
+        query = `
+          SELECT c.*, 
+            (SELECT COUNT(*) 
+             FROM photo_club_news n 
+             WHERE n.category_id = c.id 
+               AND (n.is_public = 1 OR n.club_id = ?) 
+               AND n.id NOT IN (SELECT news_id FROM photo_club_news_reads WHERE user_email = ?)
+            ) as unread_count
+          FROM photo_forum_categories c
+          ORDER BY c.id ASC
+        `;
+        params = [clubId, req.user.email];
+      } else if (mode === 'public') {
+        // Nyilvános oldal + Külsős látogató (nincs klubja): Csak a teljesen nyilvános posztok olvasatlanságát számoljuk
         query = `
           SELECT c.*, 
             (SELECT COUNT(*) 
@@ -535,7 +550,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         `;
         params = [req.user.email];
       } else {
-        // Klub mód: Csak a felhasználó saját klubjának belső, olvasatlan posztjait számoljuk
+        // Tisztán belső Klub Fórum oldal: Csak a saját klub belső posztjait számoljuk
         query = `
           SELECT c.*, 
             (SELECT COUNT(*) 
@@ -553,10 +568,64 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       const [rows] = await pool.query(query, params);
       res.json(rows);
     } catch (err) {
-      console.error("❌ Fórum számláló hiba:", err.message);
       res.status(500).json({ error: 'Hiba a kategóriák lekérésekor.' });
     }
   });
+
+  // 🎯 REAKTÍV ÖSSZEVONT HÍRFOLYAM: Témák listázása kategória és jogosultság szerint
+  app.get('/api/forum/categories/:categoryId/posts', requireAuth, async (req, res) => {
+    const { categoryId } = req.params;
+    const { mode, clubId } = req.query;
+
+    try {
+      if (mode === 'public') {
+        let query = '';
+        let params = [];
+
+        if (clubId) {
+          // Ha van klubja, láthatja a nyilvános bejegyzéseket VAGY a saját belső klubos bejegyzéseit is!
+          query = `
+            SELECT n.*, c.name as club_name,
+                   (SELECT COUNT(*) FROM photo_club_news_reads r WHERE r.news_id = n.id AND r.user_email = ?) as is_read 
+            FROM photo_club_news n
+            LEFT JOIN photo_clubs c ON n.club_id = c.id
+            WHERE n.category_id = ? AND (n.is_public = 1 OR n.club_id = ?)
+            ORDER BY n.created_at DESC
+          `;
+          params = [req.user.email, categoryId, clubId];
+        } else {
+          // Ha nincs klubja (külsős), szigorúan csak az is_public = 1 jöhet le
+          query = `
+            SELECT n.*, c.name as club_name,
+                   (SELECT COUNT(*) FROM photo_club_news_reads r WHERE r.news_id = n.id AND r.user_email = ?) as is_read 
+            FROM photo_club_news n
+            LEFT JOIN photo_clubs c ON n.club_id = c.id
+            WHERE n.category_id = ? AND n.is_public = 1
+            ORDER BY n.created_at DESC
+          `;
+          params = [req.user.email, categoryId];
+        }
+        
+        const [rows] = await pool.query(query, params);
+        return res.json(rows);
+      } else {
+        // Sima zárt kluboldal: csak az adott klub belső anyagai
+        if (!clubId) return res.status(400).json({ error: 'Hiányzó klub azonosító!' });
+        const [rows] = await pool.query(`
+          SELECT n.*, c.name as club_name,
+                 (SELECT COUNT(*) FROM photo_club_news_reads r WHERE r.news_id = n.id AND r.user_email = ?) as is_read 
+          FROM photo_club_news n
+          LEFT JOIN photo_clubs c ON n.club_id = c.id
+          WHERE n.category_id = ? AND n.club_id = ?
+          ORDER BY n.created_at DESC
+        `, [req.user.email, categoryId, clubId]);
+        return res.json(rows);
+      }
+    } catch (err) {
+      res.status(500).json({ error: 'Hiba a fórumbejegyzések lekérésekor.' });
+    }
+  });
+
 
   // 2. Új kategória létrehozása (KIZÁRÓLAG GLOBÁLIS ADMINNAK)
     // 1. Új kategória létrehozása leírással (Admin)
@@ -588,40 +657,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   // 📝 FÓRUM BEJEGYZÉSEK (POSTS) SZŰRT LEKÉRÉSE ÉS MENTÉSE
   // ====================================================================
 
-  // 4. Témák listázása kategória, mód és klub ID alapján
-  app.get('/api/forum/categories/:categoryId/posts', requireAuth, async (req, res) => {
-    const { categoryId } = req.params;
-    const { mode, clubId } = req.query;
-
-    try {
-      if (mode === 'public') {
-        // Nyilvános posztok az adott kategóriában
-        const [rows] = await pool.query(`
-          SELECT n.*, c.name as club_name,
-                 (SELECT COUNT(*) FROM photo_club_news_reads r WHERE r.news_id = n.id AND r.user_email = ?) as is_read 
-          FROM photo_club_news n
-          LEFT JOIN photo_clubs c ON n.club_id = c.id
-          WHERE n.category_id = ? AND n.is_public = 1 
-          ORDER BY n.created_at DESC
-        `, [req.user.email, categoryId]);
-        return res.json(rows);
-      } else {
-        // Klub-specifikus posztok (csak a saját klub posztjai)
-        if (!clubId) return res.status(400).json({ error: 'Hiányzó klub azonosító!' });
-        const [rows] = await pool.query(`
-          SELECT n.*, c.name as club_name,
-                 (SELECT COUNT(*) FROM photo_club_news_reads r WHERE r.news_id = n.id AND r.user_email = ?) as is_read 
-          FROM photo_club_news n
-          LEFT JOIN photo_clubs c ON n.club_id = c.id
-          WHERE n.category_id = ? AND n.club_id = ?
-          ORDER BY n.created_at DESC
-        `, [req.user.email, categoryId, clubId]);
-        return res.json(rows);
-      }
-    } catch (err) {
-      res.status(500).json({ error: 'Hiba a fórumbejegyzések lekérésekor.' });
-    }
-  });
+ 
 
   // 5. Új téma/beszélgetés indítása
     // 1. Új téma/beszélgetés indítása KÉPFELTÖLTÉSSEL
