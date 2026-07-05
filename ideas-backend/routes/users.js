@@ -1,11 +1,15 @@
 // A modul elejére beemeljük a szükséges biztonsági csomagot a tokengeneráláshoz/ellenőrzéshez
 const { OAuth2Client } = require('google-auth-library');
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+const multer = require('multer'); 
+const upload = multer({ dest: 'uploads/' }); // Átmeneti mappa a feltöltött fájlnak
+const fs = require('fs'); 
+const cloudinary = require('cloudinary').v2; // 🎯 ÚJ: Cloudinary integráció behúzása
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'kovari.rudolf@gmail.com';
 
 // ====================================================================
-// 🔒 GOLYÓÁLLÓ AUTHENTICATIONS MIDDLEWARE
+// 🔒 GOLYÓÁLLÓ AUTHENTICATION MIDDLEWARE
 // ====================================================================
 async function requireAuth(req, res, next) {
   try {
@@ -44,6 +48,43 @@ async function requireAuth(req, res, next) {
 module.exports = function(app, pool) {
   
   // ====================================================================
+  // 📸 ÚJ VÉGPONT: Profilkép feltöltése CLOUDINARY-RA (IDOR & GDPR védett)
+  // ====================================================================
+  app.post('/api/users/:email/avatar', requireAuth, upload.single('avatar'), async (req, res) => {
+    const { email } = req.params;
+    const file = req.file;
+
+    // Biztonsági ellenőrzés: csak a saját képedet cserélheted, kivéve ha Admin vagy
+    if (req.user.email !== email && !req.user.isAdmin) {
+      if (file && fs.existsSync(file.path)) fs.unlinkSync(file.path);
+      return res.status(403).json({ error: 'Hozzáférés megtagadva! Nem módosíthatod más profilképét.' });
+    }
+
+    if (!file) return res.status(400).json({ error: 'Nem választottál ki fájlt a feltöltéshez!' });
+
+    try {
+      // 🎯 Kép feltöltése a Cloudinary tárhelyedre egy dedikált mappába
+      const result = await cloudinary.uploader.upload(file.path, {
+        folder: 'photawesome_avatars',
+        resource_type: 'image'
+      });
+
+      // Átmeneti helyi fájl azonnali törlése a Node szerverről a feltöltés után
+      if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+
+      // Elmentjük a biztonságos HTTPS Cloudinary linket az 'avatar_url' oszlopba
+      await pool.query('UPDATE photo_users SET avatar_url = ? WHERE email = ?', [result.secure_url, email]);
+
+      // Visszaküldjük a frontendnek pontosan azt a mezőt, amit vár
+      res.json({ success: true, avatar_url: result.secure_url });
+    } catch (err) {
+      if (file && fs.existsSync(file.path)) fs.unlinkSync(file.path);
+      console.error("❌ Hiba a profilkép Cloudinary-ra mentésekor:", err);
+      res.status(500).json({ error: 'Nem sikerült feltölteni a profilképet a Cloudinary rendszerébe.' });
+    }
+  });
+
+  // ====================================================================
   // 🔐 PRÉMIUM AJÁNDÉKKAL ELLÁTOTT AUTH SZINKRONIZÁCIÓS VÉGPONT (Nyitott)
   // ====================================================================
   app.post('/api/auth/sync', async (req, res) => {
@@ -77,11 +118,10 @@ module.exports = function(app, pool) {
   });
   
   // ====================================================================
-  // 🎯 JAVÍTVA / GDPR-FOLTOZVA: Felhasználók listája (Intelligens szűréssel!)
+  // 🎯 Felhasználók listája (Intelligens szűréssel!)
   // ====================================================================
   app.get('/api/users', requireAuth, async (req, res) => {
     try {
-      // 1. Ha az Admin kéri, megkaphatja az összes érzékeny mezőt (Cím, telefon, Stripe ID)
       if (req.user.isAdmin) {
         const [rows] = await pool.query(`
           SELECT 
@@ -95,7 +135,6 @@ module.exports = function(app, pool) {
         return res.json(rows);
       }
 
-      // 2. Ha sima tag kéri (Pl. dicsőségcsarnokhoz): Csak a GDPR-biztos, publikus profiladatokat adjuk ki!
       const [publicRows] = await pool.query(`
         SELECT 
           email, name, club_name, club_role, 
@@ -113,12 +152,11 @@ module.exports = function(app, pool) {
   });
 
   // ====================================================================
-  // 👤 JAVÍTVA / VÉDETT: Egy konkrét felhasználó adatlapjának lekérése
+  // 👤 Egy konkrét felhasználó adatlapjának lekérése
   // ====================================================================
   app.get('/api/users/:email', requireAuth, async (req, res) => {
     const { email } = req.params;
     
-    // JOGOSULTSÁG-ELLENŐRZÉS: Csak a saját adatlapodat kérheted le, vagy ha Admin vagy!
     if (req.user.email !== email && !req.user.isAdmin) {
       return res.status(403).json({ error: 'Hozzáférés megtagadva! Mások részletes profilja nem kérhető le.' });
     }
@@ -147,7 +185,6 @@ module.exports = function(app, pool) {
       const userProfile = rows[0];
       userProfile.ai_usage_count = Number(userProfile.ai_usage_count) || 0;
 
-      // Ha sima felhasználó kéri önmagát (és nem az admin), a biztonság kedvéért töröljük a Stripe ügyfélkulcsot a válaszból
       if (!req.user.isAdmin) {
         delete userProfile.stripe_customer_id;
       }
@@ -160,13 +197,12 @@ module.exports = function(app, pool) {
   });
   
   // ====================================================================
-  // 👤 JAVÍTVA / VÉDETT: HIVATALOS MAFOSZ PROFIL ADATOK MENTÉSE (IDOR Fix)
+  // 👤 HIVATALOS MAFOSZ PROFIL ADATOK MENTÉSE (IDOR Fix)
   // ====================================================================
   app.put('/api/users/:email/extended-profile', requireAuth, async (req, res) => {
     const { email } = req.params;
     const { name, phone_number, shipping_address, association_id } = req.body;
 
-    // JOGOSULTSÁG-ELLENŐRZÉS: Megakadályozzuk, hogy valaki átírja az emailt az URL-ben és más profilját módosítsa!
     if (req.user.email !== email && !req.user.isAdmin) {
       return res.status(403).json({ error: 'Hozzáférés megtagadva! Nem módosíthatod más felhasználó profilját.' });
     }
@@ -192,10 +228,9 @@ module.exports = function(app, pool) {
   });
 
   // ====================================================================
-  // 👑 JAVÍTVA / BIZTONSÁGOS: EXKLUZÍV ADMIN VÉGPONT
+  // 👑 EXKLUZÍV ADMIN VÉGPONT
   // ====================================================================
   app.get('/api/admin/exclusive-users', requireAuth, async (req, res) => {
-    // Csak és kizárólag az Adminisztrátor láthatja ezt a listát
     if (!req.user.isAdmin) {
       return res.status(403).json({ error: 'Hozzáférés megtagadva! Ez egy exkluzív adminisztrátori végpont.' });
     }
@@ -225,13 +260,12 @@ module.exports = function(app, pool) {
   });
 
   // ====================================================================
-  // 🛡️ JAVÍTVA / VÉDETT: Felhasználó klubjának és szerepkörének módosítása (Admin felület)
+  // 🛡️ Felhasználó klubjának és szerepkörének módosítása (Admin felület)
   // ====================================================================
   app.put('/api/users/:email', requireAuth, async (req, res) => {
     const { email } = req.params;
     const { clubName, clubRole, clubId } = req.body;
 
-    // Szigorú Admin check, senki más nem szabhatja át a klubokat és szerepköröket
     if (!req.user.isAdmin) {
       return res.status(403).json({ error: 'Hozzáférés megtagadva! Csak adminisztrátor módosíthatja a tagsági szerepköröket.' });
     }
@@ -250,7 +284,7 @@ module.exports = function(app, pool) {
   });
 
   // ====================================================================
-  // 👨‍⚖️ JAVÍTVA / VÉDETT: Zsűri kezelő végpontok
+  // 👨‍⚖️ Zsűri kezelő végpontok
   // ====================================================================
   app.get('/api/jury', requireAuth, async (req, res) => {
     try { 
