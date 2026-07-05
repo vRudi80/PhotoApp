@@ -1141,7 +1141,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: isMsgMe ? 'flex-end' : 'flex-start', maxWidth: '75%' }}>
                               <div style={{ display: 'flex', gap: '4px', alignItems: 'center', marginBottom: '2px', fontSize: '0.68rem', color: isMsgMe ? '#f97316' : 'var(--text-body)', fontWeight: 'bold' }}>
                                 <span>{msg.user_name || msg.userName}</span>
-                                <span style={{ color: 'var(--text-muted)' }}>• {new Date(msg.created_at).toLocaleTimeString(lang === 'en' ? 'en-US' : 'hu-HU', { hour: '2-digit', minute: '2-digit' })}</span>
+                              <span style={{ color: 'var(--text-muted)' }}>• {new Date(msg.created_at).toLocaleString(lang === 'en' ? 'en-US' : 'hu-HU', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+
                               </div>
                               <div style={{ background: isMsgMe ? '#f97316' : 'var(--bg-card)', color: isMsgMe ? '#ffffff' : 'var(--text-title)', padding: '6px 10px', borderRadius: isMsgMe ? '8px 8px 2px 8px' : '8px 8px 8px 2px', fontSize: '0.82rem', wordBreak: 'break-word', border: isMsgMe ? 'none' : '1px solid var(--border-main)' }}>
                                 {msg.message_text || msg.messageText}
