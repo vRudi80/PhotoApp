@@ -559,28 +559,30 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // 2. Új kategória létrehozása (KIZÁRÓLAG GLOBÁLIS ADMINNAK)
+    // 1. Új kategória létrehozása leírással (Admin)
   app.post('/api/forum/categories', requireAuth, async (req, res) => {
     if (!req.user.isAdmin) return res.status(403).json({ error: 'Csak a főadminisztrátor hozhat létre új fórumcsoportot!' });
-    const { name } = req.body;
+    const { name, description } = req.body;
     try {
-      await pool.query('INSERT INTO photo_forum_categories (name) VALUES (?)', [name]);
+      await pool.query('INSERT INTO photo_forum_categories (name, description) VALUES (?, ?)', [name, description || 'Szabad eszmecsere és témanyitás']);
       res.json({ success: true });
     } catch (err) {
       res.status(500).json({ error: 'Hiba a mentés során.' });
     }
   });
 
-  // 3. Kategória szerkesztése (KIZÁRÓLAG GLOBÁLIS ADMINNAK)
+  // 2. Kategória szerkesztése leírással (Admin)
   app.put('/api/forum/categories/:id', requireAuth, async (req, res) => {
     if (!req.user.isAdmin) return res.status(403).json({ error: 'Csak a főadminisztrátor szerkesztheti a fórumcsoportokat!' });
-    const { name } = req.body;
+    const { name, description } = req.body;
     try {
-      await pool.query('UPDATE photo_forum_categories SET name = ? WHERE id = ?', [name, req.params.id]);
+      await pool.query('UPDATE photo_forum_categories SET name = ?, description = ? WHERE id = ?', [name, description, req.params.id]);
       res.json({ success: true });
     } catch (err) {
       res.status(500).json({ error: 'Hiba a frissítés során.' });
     }
   });
+
 
   // ====================================================================
   // 📝 FÓRUM BEJEGYZÉSEK (POSTS) SZŰRT LEKÉRÉSE ÉS MENTÉSE
