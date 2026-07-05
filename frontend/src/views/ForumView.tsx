@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { BACKEND_URL, ADMIN_EMAIL } from '../utils/constants';
-import { getAuthHeaders } from '../utils/helpers'; // 🎯 Központi helper feltételezve, vagy használhatod a helyit
 
 // Nyelvi és téma kontextusok aktiválása
 import { useLanguage } from '../context/LanguageContext';
@@ -81,9 +80,13 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
     outline: 'none'
   };
 
-  const getLocalAuthHeaders = () => {
+  // 🎯 JAVÍTVA: Mostantól szabályosan fogadja és fűzi össze az extra Content-Type fejléceket!
+  const getLocalAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
     const token = localStorage.getItem('photoAppToken');
-    return { ...(token ? { 'Authorization': `Bearer ${token}` } : {}) };
+    return { 
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+      ...extraHeaders 
+    };
   };
 
   // ==============================================================
@@ -164,6 +167,9 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
         setIsAddingCategory(false);
         setEditingCategoryId(null);
         fetchCategories();
+      } else {
+        const errData = await res.json();
+        alert(errData.error || "Sikertelen kategória mentés.");
       }
     } catch (e) { alert("Hiba a kategória mentésekor."); }
   };
@@ -205,7 +211,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
           userName: user.name,
           title: newTitle,
           content: newContent,
-          isPublic: selectedCategoryId === 1 ? isPublicPost : isPublicPost
+          isPublic: isPublicPost
         })
       });
 
@@ -214,6 +220,9 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
         setNewContent('');
         setIsPosting(false);
         fetchPosts();
+      } else {
+        const err = await res.json();
+        alert(err.error || "Hiba a posztolás során.");
       }
     } catch (e) { alert("Sikertelen közzététel."); }
   };
@@ -341,19 +350,19 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
         <>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '15px' }}>
             <button 
-              onClick={() => { setSelectedCategoryId(null); setPosts([]); setExpandedPostId(null); setIsPosting(false); }}
+              onClick={() => { setSelectedCategoryId(null); setPosts([]); setExpandedPostId(null); setNewTitle(''); setNewContent(''); setIsPosting(false); }}
               style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', color: 'var(--text-title)', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}
             >
               <ArrowLeft size={16} /> Vissza a csoportokhoz
             </button>
 
-            {/* Írási jogok szűrése: Az 1-es (Hírek) csoportba csak vezetők írhatnak, a többibe bárki */}
+            {/* Írási jogok szűrése */}
             {(selectedCategoryId !== 1 || isLeader) && (
               <button 
                 onClick={() => setIsPosting(!isPosting)}
                 style={{ background: isPosting ? '#ef4444' : '#38bdf8', color: '#0f172a', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
               >
-                {isPosting ? '✖ Mégse' : '✍️ Új téma indítása'}
+                {isPosting ? '¼ Mégse' : '✍️ Új téma indítása'}
               </button>
             )}
           </div>
@@ -372,6 +381,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
                 </label>
               </div>
 
+              {/* 🎯 JAVÍTVA: handleThreadSubmit átírva a valódi handlePostThread belső függvényre! */}
               <button onClick={handlePostThread} style={{ width: '100%', background: '#38bdf8', color: '#0f172a', border: 'none', padding: '12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1.1rem' }}>
                 🚀 Téma közzététele
               </button>
@@ -432,7 +442,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
                           </div>
                         )}
 
-                        {/* HOZZÁSZÓLÁSOK / HOZZÁSZÓLÁS FOLYAM */}
+                        {/* HOZZÁSZÓLÁSOK */}
                         <div style={{ background: 'var(--bg-main)', borderRadius: '12px', padding: '15px', marginTop: '25px', border: '1px solid var(--border-main)' }}>
                           <h4 style={{ margin: '0 0 15px 0', color: 'var(--text-title)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                             💬 Hozzászólások <span style={{ background: 'var(--bg-card)', padding: '2px 8px', borderRadius: '50px', fontSize: '0.75rem', border: '1px solid var(--border-main)' }}>{comments.length}</span>
