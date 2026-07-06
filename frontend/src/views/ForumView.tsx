@@ -256,7 +256,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
     } catch (e) {} finally { setIsCommenting(false); }
   };
 
-  const fetchCategories = () => { fetchCategoriesOnly(); };
+
   const setLoadingUsers = (val: boolean) => { setIsLoading(val); };
   const getAdminAuthHeaders = (extra: any = {}) => getLocalAuthHeaders(extra);
 
