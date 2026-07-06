@@ -259,10 +259,14 @@ export default function TrophyRoom({
       </div>
 
       {/* MEGHÍVÓ PANEL ZÓNA */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '24px' }}>
         <div style={{ background: 'var(--bg-card)', padding: '20px', borderRadius: '8px', border: '1px solid var(--border-main)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <h4 style={{ margin: 0, color: '#38bdf8', fontSize: '1.05rem', fontWeight: '600', letterSpacing: '-0.2px' }}>{t('trophyInviteTitle')}</h4>
-          <p style={{ color: 'var(--text-body)', fontSize: '0.8rem', margin: 0, lineHeight: '1.4' }}>{t('trophyInviteDesc')}</p>
+          <p style={{ color: 'var(--text-body)', fontSize: '0.8rem', margin: 0, lineHeight: '1.4' }}>
+            {lang === 'en' 
+              ? 'Invite your photographer friends! Share your unique code, and when they register and claim it, you both receive +200 Global Points immediately!' 
+              : 'Hívd meg fotós barátaidat! Oszd meg az egyedi kódodat, és amint érvényesítik azt, mindketten azonnal +200 Globális Pontot kaptok a számlátokra!'}
+          </p>
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center', background: 'var(--bg-main)', padding: '10px 14px', borderRadius: '4px', border: '1px dashed var(--border-main)', marginTop: 'auto' }}>
             <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem', fontWeight: 'bold' }}>{t('trophyInviteCode')}</span>
             <strong style={{ color: 'var(--text-title)', fontSize: '1.15rem', fontFamily: 'monospace', letterSpacing: '0.5px', flex: 1 }}>{myReferralCode}</strong>
@@ -278,7 +282,11 @@ export default function TrophyRoom({
         <div style={{ background: 'var(--bg-card)', padding: '20px', borderRadius: '8px', border: '1px solid var(--border-main)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '10px' }}>
           <div>
             <h4 style={{ margin: 0, color: '#10b981', fontSize: '1.05rem', fontWeight: '600', letterSpacing: '-0.2px' }}>{t('trophyReferredTitle')}</h4>
-            <p style={{ color: 'var(--text-body)', fontSize: '0.8rem', margin: 0, lineHeight: '1.4' }}>{t('trophyReferredDesc')}</p>
+            <p style={{ color: 'var(--text-body)', fontSize: '0.8rem', margin: 0, lineHeight: '1.4' }}>
+              {lang === 'en'
+                ? 'Have an invitation code from a friend? Enter it below to unlock your starting +200 Global Points bonus!'
+                : 'Kaptál egy meghívó kódot egy ismerősödtől? Írd be alább, és aktiváld az induló +200 Globális Pont bónuszodat!'}
+            </p>
           </div>
           
           {!referredBy ? ( 
