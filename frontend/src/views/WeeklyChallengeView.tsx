@@ -395,6 +395,24 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       setFetchError(null);
     }
 
+    // 🪙 ÚJ: Golyóálló pontszám-szinkronizáció közvetlenül az adatbázisból
+  const fetchFreshPointsBalance = async () => {
+    if (!user?.email) return;
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/users/${user.email}`, {
+        headers: getAuthHeaders()
+      });
+      if (res.ok) {
+        const freshData = await res.json();
+        if (freshData.points_balance !== undefined) {
+          setPointsBalance(freshData.points_balance);
+        }
+      }
+    } catch (e) {
+      console.error("Nem sikerült az Aréna pontszámot közvetlenül szinkronizálni:", e);
+    }
+  };
+    
     if (!user?.email) {
       if (!isSilent) setLoading(false);
       return;
@@ -547,6 +565,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     if (subTab === 'current') {
       fetchCurrentTopic(false);
       fetchAlbumSilently(); 
+      fetchFreshPointsBalance(); // 🎯 ÚJ: Azonnal lekérjük a legfrissebb pontokat az adatbázisból, ha ide lép a user!
     }
     else if (subTab === 'upcoming') fetch(`${BACKEND_URL}/api/weekly/upcoming`, { headers: getAuthHeaders() }).then(res => res.json()).then(data => setUpcomingTopics(data || [])).catch(console.error);
     else if (subTab === 'past') fetch(`${BACKEND_URL}/api/weekly/past`, { headers: getAuthHeaders() }).then(res => res.json()).then(data => setPastTopics(data || [])).catch(console.error);
