@@ -49,7 +49,6 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
   const [expandedPostId, setExpandedPostId] = useState<number | null>(null);
   
   // Kategória menedzsment (Admin)
-  
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null);
   const [categoryNameInput, setCategoryNameInput] = useState('');
@@ -194,9 +193,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
       return;
     }
 
-    // 🎯 JAVÍTVA: Azonnal kiürítjük a helyi komment memóriát, így nem szivárog át az előző poszt adata
     setComments([]);
-
     setExpandedPostId(postId);
     setEditingPostId(null);
     setShowReaders(false);
@@ -204,12 +201,16 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
     setCommentPreview(null);
 
     try {
-      await fetch(`${BACKEND_URL}/api/news/${postId}/read`, {
-        method: 'POST',
-        headers: getLocalAuthHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ userEmail: user.email })
-      });
-      const res = await fetch(`${BACKEND_URL}/api/news/${postId}/comments`, { headers: getLocalAuthHeaders() });
+      // 🎯 OPTIMALIZÁLVA: A megnyitás rögzítését és a kommentek letöltését egyszerre indítjuk el!
+      const [_, res] = await Promise.all([
+        fetch(`${BACKEND_URL}/api/news/${postId}/read`, {
+          method: 'POST',
+          headers: getLocalAuthHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ userEmail: user.email })
+        }),
+        fetch(`${BACKEND_URL}/api/news/${postId}/comments`, { headers: getLocalAuthHeaders() })
+      ]);
+
       if (res.ok) setComments(await res.json());
     } catch (e) { console.error(e); }
   };
@@ -275,7 +276,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
 
       if (res.ok) {
         setEditingPostId(null);
-        fetchPosts(true); // Csendes frissítés ugrálás nélkül
+        fetchPosts(true); 
       } else {
         const err = await res.json();
         alert(err.error || "Hiba történt.");
@@ -558,7 +559,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
                     {isExpanded && (
                       <div style={{ padding: '0 20px 20px 20px', borderTop: '1px solid var(--border-main)', animation: 'fadeIn 0.3s ease-out' }}>
                         
-                        {/* 🎯 JAVÍTVA: Feltételes szerkesztő felület beépítése az inline módhoz */}
+                        {/* Feltételes szerkesztő felület beépítése az inline módhoz */}
                         {editingPostId === post.id ? (
                           <div style={{ marginTop: '15px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                             <textarea 
