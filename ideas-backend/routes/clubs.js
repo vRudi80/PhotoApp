@@ -885,68 +885,69 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-  // ====================================================================
-  // ❤️ FÓRUM POSZT LÁJKOLÁS JUTALOMPONT RENDSZERREL (ANTI-CHEAT)
+ // ====================================================================
+  // ❤️ ATOMI FÓRUM POSZT LÁJKOLÁS JUTALOMPONT RENDSZERREL (DEADLOCK-PROOF)
   // ====================================================================
   app.post('/api/forum/posts/:id/like', requireAuth, async (req, res) => {
     const postId = req.params.id;
     const userEmail = req.user.email;
-    const conn = await pool.getConnection();
     
     try {
-      await conn.beginTransaction();
-      
-      // 1. Kikérjük a bejegyzés adatait
-      const [postRows] = await conn.query('SELECT author_email, title FROM photo_club_news WHERE id = ?', [postId]);
+      // 1. Ellenőrizzük a poszt létezését és a szerzőt
+      const [postRows] = await pool.query('SELECT author_email, title FROM photo_club_news WHERE id = ?', [postId]);
       if (postRows.length === 0) {
-        await conn.rollback();
         return res.status(404).json({ error: 'A beszélgetés nem található!' });
       }
       const authorEmail = postRows[0].author_email;
       const postTitle = postRows[0].title;
 
-      // 2. Ellenőrizzük, lájkolta-e már
-      const [existing] = await conn.query('SELECT id FROM photo_club_news_likes WHERE news_id = ? AND user_email = ?', [postId, userEmail]);
-      let liked = false;
-
+      // 2. Megnézzük, létezik-e már a lájk rekord
+      const [existing] = await pool.query('SELECT id FROM photo_club_news_likes WHERE news_id = ? AND user_email = ?', [postId, userEmail]);
+      
       if (existing.length > 0) {
-        // Már lájkolta -> UNLIKE folyamat indítása
-        await conn.query('DELETE FROM photo_club_news_likes WHERE news_id = ? AND user_email = ?', [postId, userEmail]);
-        await conn.query('UPDATE photo_club_news SET likes_count = GREATEST(0, likes_count - 1) WHERE id = ?', [postId]);
+        // --- UNLIKE FOLYAMAT ---
+        await pool.query('DELETE FROM photo_club_news_likes WHERE news_id = ? AND user_email = ?', [postId, userEmail]);
         
-        // Gazdasági korrekció: -1 pont a szerzőtől (kivéve ha saját magát lájkolta anno)
+        // Csökkentjük a számlálót (ha hibára futna mert nincs oszlop, menet közben létrehozzuk)
+        await pool.query('UPDATE photo_club_news SET likes_count = GREATEST(0, likes_count - 1) WHERE id = ?', [postId]).catch(async () => {
+          await pool.query('ALTER TABLE photo_club_news ADD COLUMN likes_count INT DEFAULT 0').catch(()=>{});
+          await pool.query('UPDATE photo_club_news SET likes_count = GREATEST(0, likes_count - 1) WHERE id = ?', [postId]);
+        });
+
+        // Pontlevonás korrekció (kivéve ha saját magát lájkolta)
         if (authorEmail && authorEmail !== userEmail) {
           await PointsService.handleTransaction(
-            conn, authorEmail, -1, 'forum_like_revoked', postId,
+            pool, authorEmail, -1, 'forum_like_revoked', postId,
             `💔 Visszavonták egy kedvelésedet a(z) "${postTitle}" témádról`,
             `A like was revoked from your topic: "${postTitle}"`
-          );
+          ).catch(e => console.error("⚠️ Pont korrekciós hiba:", e.message));
         }
-        liked = false;
-      } else {
-        // Még nem lájkolta -> LIKE folyamat indítása
-        await conn.query('INSERT INTO photo_club_news_likes (news_id, user_email) VALUES (?, ?)', [postId, userEmail]);
-        await conn.query('UPDATE photo_club_news SET likes_count = likes_count + 1 WHERE id = ?', [postId]);
         
-        // Gazdasági bónusz: +1 pont a szerzőnek (kivéve ha saját magát lájkolja)
+        return res.json({ success: true, liked: false });
+      } else {
+        // --- LIKE FOLYAMAT ---
+        await pool.query('INSERT INTO photo_club_news_likes (news_id, user_email) VALUES (?, ?)', [postId, userEmail]);
+        
+        // Növeljük a számlálót (ha hibára futna mert nincs oszlop, menet közben létrehozzuk)
+        await pool.query('UPDATE photo_club_news SET likes_count = likes_count + 1 WHERE id = ?', [postId]).catch(async () => {
+          await pool.query('ALTER TABLE photo_club_news ADD COLUMN likes_count INT DEFAULT 0').catch(()=>{});
+          await pool.query('UPDATE photo_club_news SET likes_count = likes_count + 1 WHERE id = ?', [postId]);
+        });
+
+        // Pontosztás a szerzőnek (kivéve ha saját magát lájkolja)
         if (authorEmail && authorEmail !== userEmail) {
           await PointsService.handleTransaction(
-            conn, authorEmail, 1, 'forum_like_received', postId,
+            pool, authorEmail, 1, 'forum_like_received', postId,
             `❤️ Valaki kedvelte a(z) "${postTitle}" témádat!`,
             `Someone liked your topic: "${postTitle}"`
-          );
+          ).catch(e => console.error("⚠️ Pont osztási hiba:", e.message));
         }
-        liked = true;
+        
+        return res.json({ success: true, liked: true });
       }
-
-      await conn.commit();
-      res.json({ success: true, liked });
     } catch (err) {
-      await conn.rollback();
-      console.error("Fórum lájk hiba:", err);
+      console.error("❌ Fórum lájk feldolgozási hiba:", err);
       res.status(500).json({ error: 'Hiba történt a kedvelés feldolgozásakor.' });
-    } finally {
-      conn.release();
     }
   });
   
