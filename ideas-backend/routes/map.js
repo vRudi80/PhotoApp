@@ -1,8 +1,9 @@
 const fs = require('fs');
 const { OAuth2Client } = require('google-auth-library');
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+const PointsService = require('../PointsService'); // 🎯 ÚJ: A gyökérmappába áthelyezett központi pontkezelő beemelése
 
-// 🎯 JAVÍTVA: A te valódi admin e-mailedet állítottuk be biztonsági tartaléknak!
+// A te valódi admin e-mailedet állítottuk be biztonsági tartaléknak!
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "kovari.rudolf@gmail.com";
 
 // ====================================================================
@@ -56,13 +57,10 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
                (SELECT COUNT(*) FROM photo_location_likes WHERE location_id = l.id AND user_email = ?) as user_liked
         FROM photo_locations l
       `;
-      // 🔒 BIZTONSÁGI JAVÍTVA: A kliensoldali query paraméter helyett a hitelesített req.user.email-t küldjük a MySQL-nek
       let params = [req.user.email];
       
       if (search) {
-        // Kitakarítjuk a mobilok által generált rejtett hibákat (szóközök + iPhone NFD kódolás)
         const cleanSearch = String(search).trim().normalize('NFC');
-
         query += ' WHERE l.title LIKE ? OR l.description LIKE ? OR l.user_name LIKE ?';
         params.push(`%${cleanSearch}%`, `%${cleanSearch}%`, `%${cleanSearch}%`);
       }
@@ -77,7 +75,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // 2. Új helyszín felvitele (VÉDETT - Hamisítás-biztosítva)
+  // 2. Új helyszín felvitele (VÉDETT - INTEGRÁLT JUTALOMPONT MOTORRAL)
   // ====================================================================
   app.post('/api/locations', requireAuth, upload.single('photo'), async (req, res) => {
     const file = req.file;
@@ -89,7 +87,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       const fileStream = fs.createReadStream(file.path);
       const fileExt = file.originalname && file.originalname.includes('.') ? file.originalname.substring(file.originalname.lastIndexOf('.')).toLowerCase() : '.jpg';
       
-      // Szigorúan a hitelesített req.user.name alapján nevezzük el a fájlt a Drive-on
       const driveRes = await drive.files.create({ 
         requestBody: { name: `Location_${req.user.name}_${Date.now()}${fileExt}`, parents: [process.env.DRIVE_MASTER_FOLDER_ID] }, 
         media: { mimeType: file.mimetype, body: fileStream }, 
@@ -97,11 +94,30 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       });
       cleanupTempFile(file);
 
-      // 🔒 BIZTONSÁGI JAVÍTVA: Elvetjük a req.body-ból érkező emailt/nevet, és a védett req.user adatokat írjuk az adatbázisba
-      await pool.query(
+      // 🎯 MODOSÍTVA: Kimentjük a mentési eredményt, hogy megkapjuk a generált helyszín ID-t (insertId)
+      const [result] = await pool.query(
         'INSERT INTO photo_locations (user_email, user_name, lat, lng, title, description, file_url, drive_file_id, photo_month, photo_time_of_day, camera, lens) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 
         [req.user.email, req.user.name, lat, lng, title, description, driveRes.data.webViewLink, driveRes.data.id, photoMonth || null, photoTimeOfDay || null, camera || null, lens || null]
       );
+
+      // 🪙 ÚJ: Jutalompontok automatikus lekönyvelése és tranzakciós naplózása a sikeres mentés után
+      if (result && result.insertId) {
+        try {
+          await PointsService.handleTransaction(
+            pool,
+            req.user.email,
+            PointsService.CONSTANTS.EARN_MAP_UPLOAD, // +20 pont
+            'map_upload',
+            result.insertId, // A kapcsolódó térkép marker egyedi ID-ja
+            `🗺️ Új fotós helyszín feltöltése a térképre: "${title.trim()}"`,
+            `Uploaded a new photo location to the map: "${title.trim()}"`
+          );
+        } catch (pointsErr) {
+          // Ha a pontkönyvelés valamiért elbukna, a térkép marker sikeres mentését nem szakítjuk meg, csak logoljuk
+          console.error("⚠️ Hiba történt a térképbónusz pontok jóváírásakor:", pointsErr.message);
+        }
+      }
+
       res.json({ success: true });
     } catch (err) { 
       cleanupTempFile(file);
@@ -111,7 +127,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // 3. Helyszín szerkesztése és mozgatása (VÉDETT - Admin-hamisítás felszámolva)
+  // 3. Helyszín szerkesztése és mozgatása (VÉDETT)
   // ====================================================================
   app.put('/api/locations/:id', requireAuth, upload.single('photo'), async (req, res) => {
     const file = req.file;
@@ -124,7 +140,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         return res.status(404).json({ error: 'Helyszín nem található' });
       }
 
-      // 🔒 BIZTONSÁGI PAJZS: Kizárólag a helyszín eredeti tulajdonosa VAGY a hitelesített főadminisztrátor módosíthat!
       if (rows[0].user_email !== req.user.email && !req.user.isAdmin) {
         if (file) cleanupTempFile(file);
         return res.status(403).json({ error: 'Nincs jogosultságod módosítani ezt a helyszínt!' });
@@ -165,14 +180,13 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // 4. Helyszín törlése (VÉDETT - Illetéktelen törlés kivédve)
+  // 4. Helyszín törlése (VÉDETT)
   // ====================================================================
   app.delete('/api/locations/:id', requireAuth, async (req, res) => {
     try {
       const [rows] = await pool.query('SELECT * FROM photo_locations WHERE id = ?', [req.params.id]);
       if (rows.length === 0) return res.status(404).json({ error: 'Helyszín nem található' });
 
-      // 🔒 BIZTONSÁGI PAJZS: Csak a tulajdonos vagy a főadminisztrátor törölhet!
       if (rows[0].user_email !== req.user.email && !req.user.isAdmin) {
         return res.status(403).json({ error: 'Nincs jogosultságod törölni ezt a helyszínt!' });
       }
@@ -191,12 +205,11 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // 5. Lájkolás (VÉDETT - Dupla lájk / Email-hamisítás kizárva)
+  // 5. Lájkolás (VÉDETT)
   // ====================================================================
   app.post('/api/locations/:id/like', requireAuth, async (req, res) => {
     const locationId = req.params.id;
     try {
-      // 🔒 BIZTONSÁGI JAVÍTVA: Szigorúan a hitelesített req.user.email-lel dolgozunk
       const [existing] = await pool.query('SELECT * FROM photo_location_likes WHERE location_id = ? AND user_email = ?', [locationId, req.user.email]);
       if (existing.length > 0) {
         await pool.query('DELETE FROM photo_location_likes WHERE location_id = ? AND user_email = ?', [locationId, req.user.email]);
@@ -222,7 +235,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // 7. Komment beküldése (VÉDETT - Név- és fiók-eltérítés gátolva)
+  // 7. Komment beküldése (VÉDETT)
   // ====================================================================
   app.post('/api/locations/:id/comments', requireAuth, upload.single('photo'), async (req, res) => {
     const { commentText } = req.body;
@@ -240,7 +253,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         const fileStream = fs.createReadStream(file.path);
         const fileExt = file.originalname && file.originalname.includes('.') ? file.originalname.substring(file.originalname.lastIndexOf('.')).toLowerCase() : '.jpg';
         
-        // Fájlnév szabványosítása a hitelesített adatok alapján
         const driveRes = await drive.files.create({ 
           requestBody: { name: `Comment_${req.user.name}_${Date.now()}${fileExt}`, parents: [process.env.DRIVE_MASTER_FOLDER_ID] }, 
           media: { mimeType: file.mimetype, body: fileStream }, 
@@ -251,7 +263,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         cleanupTempFile(file);
       }
 
-      // 🔒 BIZTONSÁGI JAVÍTVA: Kizárólag a tokenből visszafejtett nevet és emailt írjuk a kommentek táblába!
       await pool.query(
         'INSERT INTO photo_location_comments (location_id, user_email, user_name, comment_text, file_url, drive_file_id) VALUES (?, ?, ?, ?, ?, ?)', 
         [req.params.id, req.user.email, req.user.name, commentText?.trim() || '', fileUrl, driveFileId]
@@ -270,7 +281,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   // ====================================================================
   app.post('/api/locations/comments/:commentId/read', requireAuth, async (req, res) => {
     try {
-      // 🔒 BIZTONSÁGI JAVÍTVA: A kliens által beküldött body helyett a req.user.email-lel naplózunk
       await pool.query(
         'INSERT IGNORE INTO photo_location_comment_reads (comment_id, user_email) VALUES (?, ?)',
         [req.params.commentId, req.user.email]
