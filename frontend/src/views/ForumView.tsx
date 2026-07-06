@@ -149,12 +149,11 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
     } catch (e) {
       console.error("Nem sikerült betölteni az admin listát:", e);
     } finally {
-      setLoadingUsers(false); // custom flag handling secure wrapper
-      setPosts([]); // Biztonsági takarítás hiba esetén
+      setLoadingUsers(false); 
+      setPosts([]); 
     }
   };
 
-  // Statikus belső szinkronizáló a meglévő állapothoz
   const syncCurrentPosts = async () => {
     if (!selectedCategoryId) return;
     try {
@@ -173,7 +172,6 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
     }
   }, [selectedCategoryId]);
 
-  // Kategória menedzsment (Admin)
   const handleCategorySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!categoryNameInput.trim()) return alert("A név kötelező!");
@@ -293,17 +291,16 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
             </div>
           )}
 
-          {/* 🎯 TÖKÉLETESÍTETT CSEMPERÁCS ELRENDEZÉS - FLEXBOX INTEGRÁCIÓVAL */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
             {categories.map(cat => (
               <div 
                 key={cat.id} 
                 onClick={() => setSelectedCategoryId(cat.id)}
+                title={cat.description || 'Szabad eszmecsere és témanyitás'} // 🎯 ÚJ: Natív HTML Tooltip támogatás lebegéskor
                 style={{ background: 'var(--bg-card)', borderRadius: '12px', padding: '24px', border: '1px solid var(--border-main)', boxShadow: '0 4px 15px rgba(0,0,0,0.02)', cursor: 'pointer', transition: 'all 0.2s ease-in-out' }}
                 onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
                 onMouseLeave={e => e.currentTarget.style.transform = 'none'}
               >
-                {/* Biztonságos zár láncolat elcsúszás ellen */}
                 <div style={{ display: 'flex', gap: '15px', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
                   
                   <div style={{ display: 'flex', gap: '15px', alignItems: 'center', flex: 1, minWidth: 0 }}>
@@ -312,7 +309,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
                       {cat.id === 1 ? <Lock size={24} /> : <MessageSquare size={24} />}
                     </div>
                     
-                    {/* Középső oszlop: Szöveges blokk önálló töréssel */}
+                    {/* Középső oszlop: Szöveges blokk reszponzív töréssel */}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'var(--text-title)', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}>
                         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>
@@ -324,13 +321,14 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
                           </span>
                         )}
                       </h3>
-                      <p style={{ margin: '4px 0 0 0', fontSize: '0.82rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {/* 🎯 JAVÍTVA: No-wrap helyett maximum 2 soros intelligens CSS törés (WebkitLineClamp) */}
+                      <p style={{ margin: '4px 0 0 0', fontSize: '0.82rem', color: 'var(--text-muted)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: '1.4' }}>
                         {cat.description || 'Szabad eszmecsere és témanyitás'}
                       </p>
                     </div>
                   </div>
 
-                  {/* Jobb oszlop: Adminisztrátori zóna, ami sosem csúszik rá a szövegre */}
+                  {/* Jobb oszlop: Adminisztrátori zóna */}
                   {isAdmin && (
                     <div style={{ marginLeft: '10px', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
                       <button 
@@ -397,8 +395,11 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
             </div>
           )}
 
+          {/* 🎯 JAVÍTVA: loading helyett az isLoading állapotváltozóra lett cserélve a hiba kiküszöbölésére */}
           {isLoading ? (
-            <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '40px' }}>Témák rendezése folyamatban...</div>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 20px', width: '100%' }}>
+              <div style={{ color: 'var(--text-muted)' }}>Fórum szálak betöltése... ⏳</div>
+            </div>
           ) : posts.length === 0 ? (
             <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '40px', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-main)' }}>
               Ebben a kategóriában még senki sem indított beszélgetést. Legyél te az első!
@@ -468,6 +469,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
       )}
 
       <style>{`
+        .forum-posts-flow { width: 100%; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
       `}</style>
     </div>
