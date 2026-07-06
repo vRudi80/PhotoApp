@@ -49,6 +49,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
   const [expandedPostId, setExpandedPostId] = useState<number | null>(null);
   
   // Kategória menedzsment (Admin)
+  
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null);
   const [categoryNameInput, setCategoryNameInput] = useState('');
@@ -192,6 +193,10 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
       setEditingPostId(null);
       return;
     }
+
+    // 🎯 JAVÍTVA: Azonnal kiürítjük a helyi komment memóriát, így nem szivárog át az előző poszt adata
+    setComments([]);
+
     setExpandedPostId(postId);
     setEditingPostId(null);
     setShowReaders(false);
@@ -602,6 +607,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
 
                             {/* INTERAKTÍV AKCIÓGOMBOK PANELSORA */}
                             <div style={{ display: 'flex', gap: '10px', marginTop: '20px', paddingTop: '15px', borderTop: '1px dashed var(--border-main)', flexWrap: 'wrap', alignItems: 'center' }}>
+                              
                               <button 
                                 onClick={() => handleLikePost(post.id)} 
                                 style={{ background: 'transparent', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', fontWeight: 'bold' }}
