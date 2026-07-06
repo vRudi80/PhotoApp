@@ -193,10 +193,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
       return;
     }
 
-    // 🎯 JAVÍTVA: Azonnal ürítjük a komment-állapotot, mielőtt lenyílna a kártya!
-    // Ez megakadályozza, hogy az előző poszt kommentjei „szivárogjanak” át az új dobozba.
     setComments([]); 
-
     setExpandedPostId(postId);
     setEditingPostId(null);
     setShowReaders(false);
