@@ -57,6 +57,7 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
   const isLeader = user?.club_role === 'leader' || user?.club_role === 'deputy';
 
   // 🔄 Profiladatok és a naplózott tagsági dátumok szinkronizálása
+  // 🔄 Profiladatok és a naplózott tagsági dátumok szinkronizálása
   const loadFreshProfile = async () => {
     if (!user?.email) return;
     try {
@@ -76,6 +77,10 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
         if (freshData.ai_usage_count !== undefined) {
           setAiUsageCount(freshData.ai_usage_count);
         }
+
+        // 🎯 EZT AZ EGYETLEN SORT KELL ITT HOZZÁADNOD:
+        // Frissítjük a globális felhasználói objektumot, így a pontegyenleg is átfolyik a Boltba!
+        setUser(freshData);
       }
 
       // 2. Tagsági napló lekérése hitelesítve
