@@ -185,7 +185,7 @@ export default function PointsWalletAndStore({ user, currentDbUser, refreshUserO
                 <Crown size={16} color="#fbbf24" fill="#fbbf24" />
                 <strong style={{ color: 'var(--text-title)', fontSize: '0.95rem' }}>7 Napos Prémium Tagság</strong>
               </div>
-              <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: '1.3' }}>Teljes hozzáférés a korlátlan AI képelemzésekhez, extra tárhelyhez és exkluzív toplistákhoz.</p>
+              <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: '1.3' }}>Teljes hozzáférés a korlátlan AI képelemzésekhez, extra tárhelyhez és Szalonokhoz, elemzésekhez.</p>
             </div>
             <button 
               onClick={() => handlePurchase('buy-premium', 'premium')}
