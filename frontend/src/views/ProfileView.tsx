@@ -51,7 +51,7 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
   const [userStorage, setUserStorage] = useState({ count: 0, bytes: 0 });
   const [aiUsageCount, setAiUsageCount] = useState(0);
   const [isLoadingStats, setIsLoadingStats] = useState(true);
-  const [pointsBalance, setPointsBalance] = useState<number>(0); // 🪙 ÚJ: Helyi pontszámláló állapot
+  const [pointsBalance, setPointsBalance] = useState<number>(0); 
 
   const { t, lang } = useLanguage();
 
@@ -78,15 +78,15 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
           setAiUsageCount(freshData.ai_usage_count);
         }
 
-        // 🎯 ÚJ: Beolvassuk a pontokat közvetlenül a friss adatbázis-rekordból
         if (freshData.points_balance !== undefined) {
           setPointsBalance(freshData.points_balance);
         }
 
         setUser(freshData);
       }
-      // 2. Tagsági napló lekérése hitelesítve (A konzolos 404-et ez okozza, ha nincs rá szükség, ki is törölhető)
-      const resDates = await fetch(`${BACKEND_URL}/api/profile/active-membership?userEmail=${user.email}`, {
+      
+      // 2. 🎯 JAVÍTVA: A tagsági napló lekérdezése a helyes /api/clubs végpontra irányítva
+      const resDates = await fetch(`${BACKEND_URL}/api/clubs/active-membership?userEmail=${user.email}`, {
         headers: getAuthHeaders()
       });
       if (resDates.ok) {
@@ -96,7 +96,7 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
       }
 
     } catch (e) {
-      console.error("Nem sikerült szinkronizálni a profilképet és adatokat:", e);
+      console.error("Nem sikerült szinkronizálni a profiladatokat:", e);
     }
   };
 
@@ -506,7 +506,9 @@ function UserMembershipAndPaymentsBlock({ userEmail }: { userEmail: string }) {
 
   useEffect(() => {
     if (!userEmail) return;
-    fetch(`${BACKEND_URL}/api/profile/my-payments?userEmail=${userEmail}`, {
+    
+    // 🎯 JAVÍTVA: Az eltévedt végpont áthelyezve a helyes /api/clubs/my-payments útvonalra
+    fetch(`${BACKEND_URL}/api/clubs/my-payments?userEmail=${userEmail}`, {
       headers: getAuthHeaders()
     })
       .then(res => res.json())
