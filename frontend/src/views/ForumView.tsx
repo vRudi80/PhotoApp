@@ -49,6 +49,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
   const [expandedPostId, setExpandedPostId] = useState<number | null>(null);
   
   // Kategória menedzsment (Admin)
+  const [isAddingCategory(false)];
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null);
   const [categoryNameInput, setCategoryNameInput] = useState('');
@@ -193,7 +194,9 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
       return;
     }
 
-    setComments([]); 
+    // 🎯 JAVÍTVA: Azonnal kiürítjük a helyi komment memóriát, így nem szivárog át az előző poszt adata
+    setComments([]);
+
     setExpandedPostId(postId);
     setEditingPostId(null);
     setShowReaders(false);
@@ -206,9 +209,6 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
         headers: getLocalAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ userEmail: user.email })
       });
-      
-      fetchPosts(true);
-
       const res = await fetch(`${BACKEND_URL}/api/news/${postId}/comments`, { headers: getLocalAuthHeaders() });
       if (res.ok) setComments(await res.json());
     } catch (e) { console.error(e); }
@@ -275,7 +275,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
 
       if (res.ok) {
         setEditingPostId(null);
-        fetchPosts(true); 
+        fetchPosts(true); // Csendes frissítés ugrálás nélkül
       } else {
         const err = await res.json();
         alert(err.error || "Hiba történt.");
@@ -330,7 +330,6 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
         setCommentPreview(null);
         const cRes = await fetch(`${BACKEND_URL}/api/news/${postId}/comments`, { headers: getLocalAuthHeaders() });
         if (cRes.ok) setComments(await cRes.json());
-        fetchPosts(true); 
       }
     } catch (e) { alert("Hiba a hozzászólásnál."); }
     finally { setIsCommenting(false); }
@@ -411,16 +410,9 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
                         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>
                           {cat.name}
                         </span>
-                        
                         {Number(cat.unread_count) > 0 && (
                           <span style={{ background: '#ef4444', color: 'white', fontSize: '0.68rem', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold', flexShrink: 0, lineHeight: '1.2' }}>
-                            {cat.unread_count} új téma
-                          </span>
-                        )}
-
-                        {Number(cat.unread_comments_count) > 0 && (
-                          <span style={{ background: '#3b82f6', color: 'white', fontSize: '0.68rem', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold', flexShrink: 0, lineHeight: '1.2' }}>
-                            {cat.unread_comments_count} új komment
+                            {cat.unread_count} új
                           </span>
                         )}
                       </h3>
@@ -524,12 +516,6 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
                         <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                           {isUnread && <span style={{ background: '#ef4444', color: 'white', padding: '2px 8px', borderRadius: '12px', fontSize: '0.68rem', fontWeight: 'bold' }}>ÚJ</span>}
                           
-                          {Number(post.unread_comments_count) > 0 && (
-                            <span style={{ background: '#3b82f6', color: 'white', padding: '2px 8px', borderRadius: '12px', fontSize: '0.68rem', fontWeight: 'bold' }}>
-                              {post.unread_comments_count} ÚJ KOMMENT
-                            </span>
-                          )}
-
                           {post.is_public === 1 ? (
                             <span style={{ background: 'rgba(245,158,11,0.08)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.2)', padding: '2px 8px', borderRadius: '12px', fontSize: '0.68rem', fontWeight: 'bold' }}>📢 NYILVÁNOS</span>
                           ) : (
@@ -550,6 +536,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
                           </span>
                         </div>
 
+                        {/* Feltételes cím megjelenítés szerkesztéskor */}
                         {editingPostId === post.id ? (
                           <div style={{ paddingRight: '20px' }}>
                             <input 
@@ -571,6 +558,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
                     {isExpanded && (
                       <div style={{ padding: '0 20px 20px 20px', borderTop: '1px solid var(--border-main)', animation: 'fadeIn 0.3s ease-out' }}>
                         
+                        {/* 🎯 JAVÍTVA: Feltételes szerkesztő felület beépítése az inline módhoz */}
                         {editingPostId === post.id ? (
                           <div style={{ marginTop: '15px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                             <textarea 
