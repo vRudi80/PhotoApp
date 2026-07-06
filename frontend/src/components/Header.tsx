@@ -454,8 +454,9 @@ export default function Header({
 
           <div className="nav-item-container">
             <button className={`nav-btn ${activeTab === 'public_news' ? 'active' : ''}`} style={{ color: '#38bdf8' }} onClick={() => handleNavClick('public_news')}>
-              <Newspaper size={14} /> <span>{lang === 'en' ? 'Forum' : 'Fórum'}
-{unreadForumCount > 0 && (
+              <Newspaper size={14} /> <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+    Fórum
+    {unreadForumCount > 0 && (
       <span style={{
         background: '#ef4444', // Feltűnő piros szín
         color: 'white',
@@ -468,8 +469,9 @@ export default function Header({
         animation: 'pulse 2s infinite' // Opcionális: finom lüktetés
       }}>
         {unreadForumCount}
-                
-              </span>
+      </span>
+    )}
+  </span>
             </button>
           </div>
           
