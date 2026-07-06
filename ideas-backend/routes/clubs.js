@@ -797,7 +797,9 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-  // 2. Új hozzászólás küldése KÉPFELTÖLTÉSSEL
+// ====================================================================
+  // 💬 ÚJ HOZZÁSZÓLÁS KÜLDÉSE INTEGRÁLT PONTRENDSZERREL
+  // ====================================================================
   app.post('/api/news/:id/comments', upload.single('photo'), requireAuth, async (req, res) => {
     const { commentText } = req.body;
     const newsId = req.params.id;
@@ -820,10 +822,34 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         cleanupTempFile(file);
       }
 
-      await pool.query(
+      // 🎯 MODOSÍTVA: Kimentjük a komment mentésének eredményét a [result] változóba
+      const [result] = await pool.query(
         'INSERT INTO photo_club_news_comments (news_id, user_email, user_name, comment_text, file_url, drive_file_id) VALUES (?, ?, ?, ?, ?, ?)', 
         [newsId, req.user.email, req.user.name, commentText || '', fileUrl, driveFileId]
       );
+
+      // 🪙 JUTALOMPONT: Ha a komment bekerült az adatbázisba, kap +5 pontot a felhasználó
+      if (result && result.insertId) {
+        try {
+          // Lekérjük a főbejegyzés címét, hogy a pontnaplóban szépen jelenjen meg a kontextus
+          const [postRows] = await pool.query('SELECT title FROM photo_club_news WHERE id = ?', [newsId]);
+          const postTitle = postRows[0]?.title || 'Fórum beszélgetés';
+          
+          await PointsService.handleTransaction(
+            pool, 
+            req.user.email, 
+            5, // +5 pont jár érte
+            'forum_comment', 
+            result.insertId, // Összekötjük a tranzakciót a komment egyedi ID-jával
+            `💬 Hozzászóltál a(z) "${postTitle.trim()}" témához`,
+            `Commented on topic: "${postTitle.trim()}"`
+          );
+        } catch (pe) {
+          // Ha a pontozó modul hibázna, naplózzuk, de a kommentet nem bántjuk
+          console.error("❌ Fórum komment pontozási hiba:", pe.message);
+        }
+      }
+
       res.json({ success: true });
     } catch (err) { 
       if (file) cleanupTempFile(file);
@@ -831,6 +857,71 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
+  // ====================================================================
+  // ❤️ FÓRUM POSZT LÁJKOLÁS JUTALOMPONT RENDSZERREL (ANTI-CHEAT)
+  // ====================================================================
+  app.post('/api/forum/posts/:id/like', requireAuth, async (req, res) => {
+    const postId = req.params.id;
+    const userEmail = req.user.email;
+    const conn = await pool.getConnection();
+    
+    try {
+      await conn.beginTransaction();
+      
+      // 1. Kikérjük a bejegyzés adatait
+      const [postRows] = await conn.query('SELECT author_email, title FROM photo_club_news WHERE id = ?', [postId]);
+      if (postRows.length === 0) {
+        await conn.rollback();
+        return res.status(404).json({ error: 'A beszélgetés nem található!' });
+      }
+      const authorEmail = postRows[0].author_email;
+      const postTitle = postRows[0].title;
+
+      // 2. Ellenőrizzük, lájkolta-e már
+      const [existing] = await conn.query('SELECT id FROM photo_club_news_likes WHERE news_id = ? AND user_email = ?', [postId, userEmail]);
+      let liked = false;
+
+      if (existing.length > 0) {
+        // Már lájkolta -> UNLIKE folyamat indítása
+        await conn.query('DELETE FROM photo_club_news_likes WHERE news_id = ? AND user_email = ?', [postId, userEmail]);
+        await conn.query('UPDATE photo_club_news SET likes_count = GREATEST(0, likes_count - 1) WHERE id = ?', [postId]);
+        
+        // Gazdasági korrekció: -1 pont a szerzőtől (kivéve ha saját magát lájkolta anno)
+        if (authorEmail && authorEmail !== userEmail) {
+          await PointsService.handleTransaction(
+            conn, authorEmail, -1, 'forum_like_revoked', postId,
+            `💔 Visszavonták egy kedvelésedet a(z) "${postTitle}" témádról`,
+            `A like was revoked from your topic: "${postTitle}"`
+          );
+        }
+        liked = false;
+      } else {
+        // Még nem lájkolta -> LIKE folyamat indítása
+        await conn.query('INSERT INTO photo_club_news_likes (news_id, user_email) VALUES (?, ?)', [postId, userEmail]);
+        await conn.query('UPDATE photo_club_news SET likes_count = likes_count + 1 WHERE id = ?', [postId]);
+        
+        // Gazdasági bónusz: +1 pont a szerzőnek (kivéve ha saját magát lájkolja)
+        if (authorEmail && authorEmail !== userEmail) {
+          await PointsService.handleTransaction(
+            conn, authorEmail, 1, 'forum_like_received', postId,
+            `❤️ Valaki kedvelte a(z) "${postTitle}" témádat!`,
+            `Someone liked your topic: "${postTitle}"`
+          );
+        }
+        liked = true;
+      }
+
+      await conn.commit();
+      res.json({ success: true, liked });
+    } catch (err) {
+      await conn.rollback();
+      console.error("Fórum lájk hiba:", err);
+      res.status(500).json({ error: 'Hiba történt a kedvelés feldolgozásakor.' });
+    } finally {
+      conn.release();
+    }
+  });
+  
   app.get('/api/clubs/active-membership', requireAuth, async (req, res) => {
     try {
       const [rows] = await pool.query(
