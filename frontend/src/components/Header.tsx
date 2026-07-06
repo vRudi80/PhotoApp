@@ -64,6 +64,30 @@ export default function Header({
   
   const headerRef = useRef<HTMLDivElement>(null);
 
+  const [unreadForumCount, setUnreadForumCount] = useState<number>(0);
+
+  useEffect(() => {
+    const fetchUnreadForumTotal = async () => {
+      try {
+        const token = localStorage.getItem('photoAppToken');
+        if (!token) return;
+
+        const res = await fetch(`${BACKEND_URL}/api/forum/unread-total`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setUnreadForumCount(data.totalUnread);
+        }
+      } catch (e) { console.error("Nem sikerült lekérni a fórum jelvényt:", e); }
+    };
+
+    fetchUnreadForumTotal();
+
+    // 🔄 2 percenként (120000 ms) csendben frissítjük a hátteret, ha a user épp az oldalon van
+    const interval = setInterval(fetchUnreadForumTotal, 120000);
+    return () => clearInterval(interval);
+  }, [user]); // vagy amilyen auth változót használ a Header a belépés követésére
   // Aktiváljuk a nyelvi kontextust
   const { lang, setLang, t } = useLanguage();
 
@@ -430,7 +454,22 @@ export default function Header({
 
           <div className="nav-item-container">
             <button className={`nav-btn ${activeTab === 'public_news' ? 'active' : ''}`} style={{ color: '#38bdf8' }} onClick={() => handleNavClick('public_news')}>
-              <Newspaper size={14} /> <span>{lang === 'en' ? 'Forum' : 'Fórum'}</span>
+              <Newspaper size={14} /> <span>{lang === 'en' ? 'Forum' : 'Fórum'}
+{unreadForumCount > 0 && (
+      <span style={{
+        background: '#ef4444', // Feltűnő piros szín
+        color: 'white',
+        fontSize: '0.68rem',
+        padding: '2px 6px',
+        borderRadius: '50px',
+        fontWeight: 'bold',
+        lineHeight: '1',
+        display: 'inline-block',
+        animation: 'pulse 2s infinite' // Opcionális: finom lüktetés
+      }}>
+        {unreadForumCount}
+                
+              </span>
             </button>
           </div>
           
