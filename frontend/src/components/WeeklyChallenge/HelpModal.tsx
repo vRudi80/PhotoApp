@@ -128,6 +128,9 @@ export default function HelpModal({ isOpen, onClose, currentLevel }: HelpModalPr
                     <li>{lang === 'en' ? 'Arena Victory: +100 / +50 / +25 pts' : 'Aréna dobogó: +100 / +50 / +25 pont'}</li>
                     <li>{lang === 'en' ? 'Full Arena Voting: +10 pts' : 'Teljes Aréna szavazás leadása: +10 pont'}</li>
                     <li>{lang === 'en' ? 'Upload new Map Location: +20 pts' : 'Új fotós helyszín a térképre: +20 pont'}</li>
+                    <li>{lang === 'en' ? 'New Forum post: +10 pts' : 'Új poszt a fórumon: +10 pont'}</li>
+                    <li>{lang === 'en' ? 'Comment on a post: +5 pts' : 'Hozzászólás egy poszthoz: +5 pont'}</li>
+                    <li>{lang === 'en' ? 'Like a post or comment: +1 pts' : 'Poszt vagy hozzászólás kedvelése: +1 pont'}</li>
                   </ul>
                 </div>
                 <div style={{ background: 'var(--bg-card)', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-main)' }}>
