@@ -17,7 +17,7 @@ import VideoLoader from '../components/VideoLoader';
 import { useLanguage } from '../context/LanguageContext';
 import ChallengeShareModal from '../components/WeeklyChallenge/ChallengeShareModal';
 
-// Professzionális Lucide Ikonok importálása
+// Professzionális Lucide Ikonok importálása (Coins hozzáadva)
 import { 
   Flame, 
   Zap, 
@@ -36,7 +36,8 @@ import {
   ChevronDown, 
   Share2, 
   Info,
-  BookOpen
+  BookOpen,
+  Coins
 } from 'lucide-react';
 
 interface WeeklyChallengeViewProps {
@@ -136,7 +137,7 @@ const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
 };
 
 // ====================================================================
-// 📊 SELEKCIÓS KÁRTYA KOMPONENS (REAKTÍV SZÍNEKKEL)
+// 📊 SELEKCIÓS KÁRTYA KOMPONENS
 // ====================================================================
 function ChallengeCard({ topic, onSelect, onShare }: { topic: any; onSelect: () => void, onShare: () => void }) {
   const { t, lang } = useLanguage();
@@ -342,6 +343,9 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const [userVictories, setUserVictories] = useState<number>(0);
   const [userPower, setUserPower] = useState<{ super: number; brilliant: number }>({ super: 1, brilliant: 2 });
 
+  // 🪙 Helyi pontegyenleg állapot az Arénán belüli kijelzéshez
+  const [pointsBalance, setPointsBalance] = useState<number>(user?.points_balance || 0);
+
   const [hallOfFame, setHallOfFame] = useState<any[]>([]);
   const [activeShareData, setActiveShareData] = useState<any | null>(null);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
@@ -359,6 +363,13 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const isChatOpenRef = useRef(isChatOpen);
   const lobbyMessagesCountRef = useRef(lobbyMessages.length);
   const lastTypingSignalSent = useRef<number>(0);
+
+  // Szinkronizáljuk az egyenleget, ha a szülő komponens vagy a profil frissül
+  useEffect(() => {
+    if (user?.points_balance !== undefined) {
+      setPointsBalance(user.points_balance);
+    }
+  }, [user?.points_balance]);
 
   useEffect(() => {
     isChatOpenRef.current = isChatOpen;
@@ -418,6 +429,9 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       if (data.referredBy !== undefined) setReferredBy(data.referredBy);
       if (data.swapBalance !== undefined) setSwapBalance(data.swapBalance);
       if (data.userPower !== undefined) setUserPower(data.userPower);
+      if (data.points_balance !== undefined) setPointsBalance(data.points_balance);
+      if (data.pointsBalance !== undefined) setPointsBalance(data.pointsBalance);
+
       if (!selectedTopicId) {
         setActiveTopics(data.activeTopics || []);
       } else {
@@ -712,7 +726,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     finally { setIsClaimingReferral(false); }
   };
 
-  // 🎯 ÚJ: Gyors Joker Csere vásárlás közvetlenül az Aréna felületéről
+  // 🎯 ÚJ: Gyors Joker Csere vásárlás közvetlenül az Aréna felületéről (Pontszinkronizáció hozzáadva)
   const handleQuickBuySwap = async () => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/store/buy-swap`, {
@@ -723,7 +737,10 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
 
       if (res.ok) {
         alert(data.message);
-        setSwapBalance(data.newSwapBalance); // Azonnal frissítjük az Aréna számlálóját a képernyőn!
+        setSwapBalance(data.newSwapBalance); 
+        if (data.newPointsBalance !== undefined) {
+          setPointsBalance(data.newPointsBalance); // Valós időben frissítjük a kijelzőt
+        }
       } else {
         alert(data.error || "Sikertelen vásárlás.");
       }
@@ -969,12 +986,22 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
             })}
           </div>
           
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px', flexShrink: 0 }}>
+          {/* 🎯 INTEGRÁLT PONTTÁRCA ÉS JOKER SZÁMLÁLÓ CSOPORT */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexShrink: 0 }}>
+            
+            {/* 🪙 ÚJ: Aktuális pontegyenleg elegáns arany plecsnije az Arénában */}
+            <div style={{ background: 'rgba(251,191,36,0.08)', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.2)', padding: '5px 12px', borderRadius: '4px', fontWeight: 'bold', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Coins size={12} color="#fbbf24" />
+              <span>{pointsBalance} {lang === 'en' ? 'Points' : 'Pont'}</span>
+            </div>
+
+            {/* Megmaradt Joker cserék számlálója */}
             <div style={{ background: 'rgba(225,29,72,0.08)', color: '#fb7185', border: '1px solid rgba(225,29,72,0.2)', padding: '5px 12px', borderRadius: '4px', fontWeight: 'bold', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
               <RefreshCw size={12} />
               <span>{swapBalance} {lang === 'en' ? 'Swaps left' : 'Joker Csere'}</span>
             </div>
-{/* 🎯 ÚJ: Gyorsvásárlás gomb az Aréna Liga fejlécében */}
+
+            {/* Gyorsvásárlás gomb */}
             <button 
               onClick={handleQuickBuySwap}
               style={{ background: 'rgba(56,189,248,0.1)', color: '#38bdf8', border: '1px solid rgba(56,189,248,0.3)', padding: '5px 12px', borderRadius: '4px', fontWeight: 'bold', fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', transition: 'all 0.15s', whiteSpace: 'nowrap' }}
@@ -984,6 +1011,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
             >
               + 🃏 {lang === 'en' ? 'Buy Swap (50p)' : 'Csere vásárlása (50p)'}
             </button>
+
             <button onClick={() => setShowHelp(true)} style={{ background: 'transparent', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)', padding: '5px 12px', borderRadius: '4px', fontWeight: 'bold', fontSize: '0.8rem', cursor: 'pointer', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
               <BookOpen size={12} /> {t('btnRules')}
             </button>
@@ -1153,10 +1181,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                       lobbyMessages.slice(-100).map((msg, idx) => {
                         const isMsgMe = (msg.user_email || msg.userEmail) === user?.email;
                         return (
-                          /* 🎯 JAVÍTVA: Az Aréna élő csevegés kibővítve a bal/jobb oldali lekerekített profilképekkel */
                           <div key={msg.id || idx} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', justifyContent: isMsgMe ? 'flex-end' : 'flex-start', marginBottom: '10px', width: '100%' }}>
                             
-                            {/* Külsős vagy más tag képe a bal oldalon */}
                             {!isMsgMe && (
                               <div style={{ flexShrink: 0, marginTop: '2px' }}>
                                 {msg.avatar_url ? (
@@ -1170,15 +1196,13 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: isMsgMe ? 'flex-end' : 'flex-start', maxWidth: '75%' }}>
                               <div style={{ display: 'flex', gap: '4px', alignItems: 'center', marginBottom: '2px', fontSize: '0.68rem', color: isMsgMe ? '#f97316' : 'var(--text-body)', fontWeight: 'bold' }}>
                                 <span>{msg.user_name || msg.userName}</span>
-                              <span style={{ color: 'var(--text-muted)' }}>• {new Date(msg.created_at).toLocaleString(lang === 'en' ? 'en-US' : 'hu-HU', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
-
+                                <span style={{ color: 'var(--text-muted)' }}>• {new Date(msg.created_at).toLocaleString(lang === 'en' ? 'en-US' : 'hu-HU', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
                               </div>
                               <div style={{ background: isMsgMe ? '#f97316' : 'var(--bg-card)', color: isMsgMe ? '#ffffff' : 'var(--text-title)', padding: '6px 10px', borderRadius: isMsgMe ? '8px 8px 2px 8px' : '8px 8px 8px 2px', fontSize: '0.82rem', wordBreak: 'break-word', border: isMsgMe ? 'none' : '1px solid var(--border-main)' }}>
                                 {msg.message_text || msg.messageText}
                               </div>
                             </div>
 
-                            {/* Te magad (Saját képed) a jobb oldalon */}
                             {isMsgMe && (
                               <div style={{ flexShrink: 0, marginTop: '2px' }}>
                                 {msg.avatar_url ? (
