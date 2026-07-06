@@ -599,18 +599,24 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-  // 🎯 REAKTÍV ÖSSZEVONT HÍRFOLYAM: Témák listázása kategória és jogosultság szerint
-    // 🎯 FRISSÍTVE: Fórumposztok listázása profilkép (avatar_url) támogatással
+// ====================================================================
+  // 🏛️ FÓRUM POSZTOK LEKÉRÉSE AVATAR TÁMOGATÁSSAL ÉS SZINTAKTIKAI JAVÍTÁSSAL
+  // ====================================================================
   app.get('/api/forum/categories/:categoryId/posts', requireAuth, async (req, res) => {
     const { categoryId } = req.params;
     const { mode, clubId } = req.query;
+    const userEmail = req.user.email;
 
     try {
-      if (mode === 'public') {
-        let query = '';
-        let params = [];
+      let query = '';
+      let params = [];
 
-        if (clubId) {
+      // Megtisztítjuk a beérkező clubId-t a frontend stringes "null/undefined" anomáliáitól
+      const cleanClubId = (clubId && clubId !== 'null' && clubId !== 'undefined' && String(clubId).trim() !== '') ? Number(clubId) : null;
+
+      if (mode === 'public') {
+        if (cleanClubId) {
+          // Nyilvános mód + Klubtag: Látja a nyilvános posztokat ÉS a saját belső klubja posztjait is
           query = `
             SELECT n.*, c.name as club_name, u.avatar_url,
                    (SELECT COUNT(*) FROM photo_club_news_reads r WHERE r.news_id = n.id AND r.user_email = ?) as is_read 
@@ -620,36 +626,41 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
             WHERE n.category_id = ? AND (n.is_public = 1 OR n.club_id = ?)
             ORDER BY n.created_at DESC
           `;
-          params = [req.user.email, categoryId, clubId];
+          params = [userEmail, categoryId, cleanClubId];
         } else {
+          // 🎯 JAVÍTVA: Nyilvános mód + Külsős/Testuser (nincs klubja): Csak a teljesen publikus posztok jönnek le
+          // Kiküszöböltük a hiányzó 'AND' miatti 500-as adatbázis hibát, és hozzáfűztük az u.avatar_url-t!
           query = `
-            SELECT n.*, c.name as club_name,
+            SELECT n.*, c.name as club_name, u.avatar_url,
                    (SELECT COUNT(*) FROM photo_club_news_reads r WHERE r.news_id = n.id AND r.user_email = ?) as is_read 
             FROM photo_club_news n
             LEFT JOIN photo_clubs c ON n.club_id = c.id
-            LEFT JOIN photo_users u ON n.author_email = u.email
-            WHERE n.category_id = ? n.is_public = 1
+            LEFT JOIN photo_users u ON LOWER(TRIM(n.author_email)) = LOWER(TRIM(u.email))
+            WHERE n.category_id = ? AND n.is_public = 1
             ORDER BY n.created_at DESC
           `;
-          params = [req.user.email, categoryId];
+          params = [userEmail, categoryId];
         }
-        
-        const [rows] = await pool.query(query, params);
-        return res.json(rows);
       } else {
-        if (!clubId) return res.status(400).json({ error: 'Hiányzó klub azonosító!' });
-        const [rows] = await pool.query(`
-          SELECT n.*, c.name as club_name,
+        // Tisztán zárt Klub Fórum nézet
+        if (!cleanClubId) return res.status(400).json({ error: 'Ehhez a nézethez be kell lépned egy klubba!' });
+        
+        query = `
+          SELECT n.*, c.name as club_name, u.avatar_url,
                  (SELECT COUNT(*) FROM photo_club_news_reads r WHERE r.news_id = n.id AND r.user_email = ?) as is_read 
           FROM photo_club_news n
           LEFT JOIN photo_clubs c ON n.club_id = c.id
-          LEFT JOIN photo_users u ON n.author_email = u.email
+          LEFT JOIN photo_users u ON LOWER(TRIM(n.author_email)) = LOWER(TRIM(u.email))
           WHERE n.category_id = ? AND n.club_id = ?
           ORDER BY n.created_at DESC
-        `, [req.user.email, categoryId, clubId]);
-        return res.json(rows);
+        `;
+        params = [userEmail, categoryId, cleanClubId];
       }
+
+      const [rows] = await pool.query(query, params);
+      res.json(rows);
     } catch (err) {
+      console.error("❌ Fórum posztok lekérdezési hiba:", err.message);
       res.status(500).json({ error: 'Hiba a fórumbejegyzések lekérésekor.' });
     }
   });
