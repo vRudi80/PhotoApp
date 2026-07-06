@@ -447,7 +447,7 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
       {/* 🪙 ÚJ: TRANZAKCIÓS TÁRCA ÉS PONTBOLT INTEGRÁCIÓ */}
       <PointsWalletAndStore 
         user={user} 
-        currentDbUser={user} 
+        currentDbUser={{ ...user, points_balance: pointsBalance }} 
         refreshUserObj={() => { loadFreshProfile(); fetchData(); }} 
       />
 
