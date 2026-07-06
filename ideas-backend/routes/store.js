@@ -129,6 +129,52 @@ module.exports = function(app, pool) {
   });
 
   // ====================================================================
+  // 👑 4. ADMINISZTRÁTORI PONTKORREKCIÓ (GOD MODE)
+  // ====================================================================
+  app.post('/api/admin/adjust-points', requireAuth, async (req, res) => {
+    // 🔒 SZIGORÚ BIZTONSÁGI PAJZS: Csak a hitelesített főadminisztrátor léphet be!
+    if (!req.user.isAdmin) {
+      return res.status(403).json({ error: 'Hozzáférés megtagadva! Ez a művelet kizárólag a Főadminisztrátornak engedélyezett.' });
+    }
+
+    const { targetEmail, amount, reasonHu, reasonEn } = req.body;
+
+    // Alapvető adatellenőrzések
+    if (!targetEmail || amount === undefined) {
+      return res.status(400).json({ error: 'Hiányzó paraméterek! A célszemély email címe és a pontmennyiség megadása kötelező.' });
+    }
+
+    const pointsAmount = Number(amount);
+    if (isNaN(pointsAmount) || pointsAmount === 0) {
+      return res.status(400).json({ error: 'Érvénytelen pontmennyiség! Nullától eltérő számot kell megadnod.' });
+    }
+
+    try {
+      // A központi bankmotorunk (PointsService) segítségével tranzakcióbiztosan végrehajtjuk
+      const txResult = await PointsService.handleTransaction(
+        pool,
+        targetEmail.trim().toLowerCase(), // Szabványosítjuk az emailt
+        pointsAmount,
+        'admin_adjustment',
+        null, // Nincs közvetlen entitás ID
+        reasonHu?.trim() || 'Adminisztrátori pontmódosítás',
+        reasonEn?.trim() || 'Admin point adjustment'
+      );
+
+      res.json({
+        success: true,
+        message: `👑 Pontmódosítás sikeres! ${targetEmail} számlájára ${pointsAmount > 0 ? '+' : ''}${pointsAmount} pont felírva.`,
+        newPointsBalance: txResult.newBalance
+      });
+
+    } catch (err) {
+      console.error("❌ Hiba az adminisztrátori pontmódosítás során:", err.message);
+      // Ha a PointsService dob hibát (pl. lecsúszna a user egyenlege nulla alá a levonástól), azt kulturáltan továbbítjuk
+      res.status(400).json({ error: err.message || 'Sikertelen adminisztrátori művelet.' });
+    }
+  });
+
+  // ====================================================================
   // 📜 3. FELHASZNÁLÓ SAJÁT TRANZAKCIÓS NAPLÓJÁNAK LEKÉRÉSE
   // ====================================================================
   app.get('/api/store/my-ledger', requireAuth, async (req, res) => {
