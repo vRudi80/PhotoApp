@@ -278,10 +278,26 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
+// ====================================================================
+  // 💬 HOZZÁSZÓLÁSOK LEKÉRÉSE PROFILKÉP (AVATAR) TÁMOGATÁSSAL
+  // ====================================================================
   app.get('/api/news/:id/comments', requireAuth, async (req, res) => {
-    try { const [rows] = await pool.query('SELECT * FROM photo_club_news_comments WHERE news_id = ? ORDER BY created_at ASC', [req.params.id]); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
+    try {
+      // 🎯 JAVÍTVA: Összekötjük a kommenteket a photo_users táblával, így a frontend azonnal látni fogja a képeket!
+      const [rows] = await pool.query(`
+        SELECT c.*, u.avatar_url 
+        FROM photo_club_news_comments c
+        LEFT JOIN photo_users u ON LOWER(TRIM(c.user_email)) = LOWER(TRIM(u.email))
+        WHERE c.news_id = ? 
+        ORDER BY c.created_at ASC
+      `, [req.params.id]);
+      
+      res.json(rows);
+    } catch (err) {
+      console.error("❌ Hiba a kommentek lekérésekor:", err.message);
+      res.status(500).json({ error: 'Hiba a hozzászólások betöltésekor.' });
+    }
   });
-
 
   // ====================================================================
   // 👥 TAGFELVÉTEL ÉS KÉRELMEK VÉDELME
