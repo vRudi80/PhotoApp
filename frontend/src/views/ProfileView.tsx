@@ -4,6 +4,12 @@ import { BACKEND_URL } from '../utils/constants';
 // 🎯 Nyelvi kontextus aktiválása
 import { useLanguage } from '../context/LanguageContext';
 
+// Téma környezet betöltése
+import { useTheme } from '../context/ThemeContext';
+
+// 🎯 ÚJ: A Pontbolt és Tárca felületi komponensének beemelése
+import PointsWalletAndStore from './PointsWalletAndStore';
+
 interface ProfileViewProps {
   user: any; // Ez az adatbázisból jövő currentDbUser az App.tsx-ből
   setUser: (u: any) => void;
@@ -161,7 +167,6 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
       formData.append('avatar', file);
 
       try {
-        // 🎯 JAVÍTVA: Profilkép feltöltés FormData alapon, Content-Type manuális beállítása nélkül!
         const res = await fetch(`${BACKEND_URL}/api/users/${user.email}/avatar`, {
           method: 'POST',
           headers: getAuthHeaders(),
@@ -432,6 +437,13 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
         </div>
       </div>
 
+      {/* 🪙 ÚJ: TRANZAKCIÓS TÁRCA ÉS PONTBOLT INTEGRÁCIÓ */}
+      <PointsWalletAndStore 
+        user={user} 
+        currentDbUser={user} 
+        refreshUserObj={() => { loadFreshProfile(); fetchData(); }} 
+      />
+
       {/* KLUBVEZETŐI JÓVÁHAGYÓ PANEL */}
       {isLeader && (
         <div style={{ backgroundColor: '#1e293b', padding: '25px 30px', borderRadius: '24px', border: '1px solid #10b981', boxShadow: '0 10px 30px rgba(16,185,129,0.08)' }}>
@@ -488,7 +500,7 @@ function UserMembershipAndPaymentsBlock({ userEmail }: { userEmail: string }) {
   useEffect(() => {
     if (!userEmail) return;
     fetch(`${BACKEND_URL}/api/profile/my-payments?userEmail=${userEmail}`, {
-      headers: getAuthHeaders() // 🎯 JAVÍTVA: Hitelesített token rászerelve!
+      headers: getAuthHeaders()
     })
       .then(res => res.json())
       .then(data => {
