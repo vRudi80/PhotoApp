@@ -1056,25 +1056,55 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { res.status(500).json({ error: err.message }); }
   });
 
-   app.get('/api/weekly/hof-stats', requireAuth, async (req, res) => {
+   // ====================================================================
+  // ⚡ ULTRA-OPTIMALIZÁLT DICSŐSÉGCSARNOK JÁTÉKOS STATISZTIKÁK
+  // ====================================================================
+  app.get('/api/weekly/hof-stats', requireAuth, async (req, res) => {
     const { userEmail } = req.query;
+    if (!userEmail) return res.status(400).json({ error: 'Hiányzó e-mail cím!' });
     if (req.user.email !== userEmail && !req.user.isAdmin) return res.status(403).json({ error: 'Megtagadva!' });
+    
     try {
-      let cleanEmail = String(userEmail).trim().toLowerCase();
-      const [pastTopics] = await pool.query("SELECT id, title, title_en, start_date, end_date FROM weekly_topics WHERE end_date < ? AND (status = 'approved' OR status IS NULL OR status = '') ORDER BY end_date DESC", [getLocalMySQLNow()]);
-      let podiums = { first: 0, second: 0, third: 0 }; let history = [];
+      const cleanEmail = String(userEmail).trim().toLowerCase();
+      const currentNow = getLocalMySQLNow();
 
-      for (const topic of pastTopics) {
-        const [entries] = await pool.query(`SELECT e.id, e.user_email, e.user_name, e.file_url, e.drive_file_id, e.likes_count, e.views_count, ${getFairScoreSql('e', 't')} as fair_score FROM weekly_entries e JOIN weekly_topics t ON e.topic_id = t.id WHERE e.topic_id = ? AND e.is_active = 1 ORDER BY fair_score DESC, e.likes_count DESC, e.views_count ASC`, [topic.id]);
-        const userIndex = entries.findIndex(e => e.user_email && String(e.user_email).trim().toLowerCase() === cleanEmail);
-        if (userIndex !== -1) {
-          const rank = userIndex + 1; const entry = entries[userIndex];
-          if (rank === 1) podiums.first++; else if (rank === 2) podiums.second++; else if (rank === 3) podiums.third++;
-          history.push({ topic_title: String(topic.title || ''), topic_title_en: String(topic.title_en || topic.title || ''), start_date: topic.start_date, end_date: topic.end_date, rank: Number(rank), total_entries: Number(entries.length), file_url: String(entry.file_url || ''), drive_file_id: String(entry.drive_file_id || ''), likes: Number(entry.fair_score || 0), views: Number(entry.views_count || 0), user_name: String(entry.user_name || '') });
-        }
-      }
-      res.json({ podiums, history });
-    } catch (err) { res.status(500).json({ error: 'Hiba' }); }
+      // 🎯 JAVÍTVA: 1 db villámgyors lekérdezés a ciklus helyett. 
+      // A lezáráskor már elmentett final_rank és final_fair_score mezőkből dolgozunk!
+      const [rows] = await pool.query(`
+        SELECT 
+          t.title as topic_title, 
+          COALESCE(t.title_en, t.title) as topic_title_en, 
+          t.start_date, 
+          t.end_date, 
+          e.file_url, 
+          e.drive_file_id, 
+          COALESCE(e.final_fair_score, 0) as likes, 
+          e.views_count as views,
+          COALESCE(e.final_rank, 0) as rank,
+          e.user_name,
+          (SELECT COUNT(*) FROM weekly_entries WHERE topic_id = t.id AND is_active = 1) as total_entries
+        FROM weekly_entries e
+        JOIN weekly_topics t ON e.topic_id = t.id
+        WHERE LOWER(TRIM(e.user_email)) = LOWER(TRIM(?))
+          AND t.end_date < ?
+          AND (t.status = 'approved' OR t.status IS NULL OR t.status = '')
+        ORDER BY t.end_date DESC
+      `, [cleanEmail, currentNow]);
+
+      // A dobogós helyezéseket villámgyorsan összesítjük a lekért tömbből a szerver memóriájában
+      let podiums = { first: 0, second: 0, third: 0 };
+      rows.forEach(entry => {
+        const r = Number(entry.rank);
+        if (r === 1) podiums.first++;
+        else if (r === 2) podiums.second++;
+        else if (r === 3) podiums.third++;
+      });
+
+      res.json({ podiums, history: rows });
+    } catch (err) {
+      console.error("❌ Hiba a HoF részletek lekérésekor:", err.message);
+      res.status(500).json({ error: 'Szerveroldali hiba történt.' });
+    }
   });
   
   app.post('/api/weekly/chat', requireAuth, async (req, res) => {
