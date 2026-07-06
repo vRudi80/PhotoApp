@@ -4,8 +4,6 @@ import { getImageUrl } from '../utils/helpers';
 
 // Nyelvi és téma kontextusok aktiválása
 import { useLanguage } from '../context/LanguageContext';
-
-// Téma környezet betöltése
 import { useTheme } from '../context/ThemeContext';
 
 // Letisztult Lucide ikonok
@@ -38,13 +36,11 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
   let isLight = false;
   try {
     const themeContext = useTheme();
-    if (themeContext) {
-      isLight = themeContext.theme === 'light';
-    }
+    if (themeContext) isLight = themeContext.theme === 'light';
   } catch (e) {}
 
   // ==============================================================
-  // ÁLLAPOTOK KEZELÉSE (ORIGINAL)
+  // ÁLLAPOTOK KEZELÉSE
   // ==============================================================
   const [clubId, setClubId] = useState<number | null>(null);
   const [categories, setCategories] = useState<any[]>([]);
@@ -107,7 +103,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
   };
 
   // ==============================================================
-  // ADATOK SYNC MOTORJA (RESTORED ORIGINAL)
+  // ADATOK SYNC MOTORJA
   // ==============================================================
   useEffect(() => {
     const fetchClubId = async () => {
@@ -150,7 +146,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
       
       const res = await fetch(url, { headers: getLocalAuthHeaders() });
       if (res.ok) setPosts(await res.json());
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error("Fórum posztok letöltési hiba:", e); }
     finally { setIsLoading(false); }
   };
 
@@ -160,6 +156,9 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
     }
   }, [selectedCategoryId, clubId, mode]);
 
+  // ==============================================================
+  // MŰVELETEK
+  // ==============================================================
   const handleSaveCategory = async () => {
     if (!categoryNameInput.trim()) return alert("A név nem lehet üres!");
     try {
@@ -173,7 +172,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
         headers: getLocalAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ 
           name: categoryNameInput.trim(),
-          description: categoryDescInput.trim()
+          description: categoryDescInput.trim() || 'Szabad eszmecsere és témanyitás'
         })
       });
 
@@ -224,7 +223,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
     formData.append('userName', user.name);
     formData.append('title', newTitle.trim());
     formData.append('content', newContent.trim());
-    formData.append('isPublic', String(mode === 'public'));
+    formData.append('isPublic', String(isPublicPost));
     if (postFile) formData.append('photo', postFile);
 
     try {
@@ -242,8 +241,8 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
         setIsPosting(false);
         fetchPosts();
       } else {
-        const data = await res.json();
-        alert(data.error || "Sikertelen mentés.");
+        const err = await res.json();
+        alert(err.error || "Sikertelen mentés.");
       }
     } catch (e) { alert("Sikertelen közzététel."); }
     finally { setIsUploadingThread(false); }
@@ -276,14 +275,26 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
         const err = await res.json();
         alert(err.error || "Hiba történt.");
       }
-    } catch (error) {
-      alert("Hálózati hiba.");
-    }
+    } catch (e) { alert("Hálózati hiba."); }
+  };
+
+  // 🎯 RAKÖTVE AZ ÚJ VÉGPOUNTRA: Lájk és pontkezelő hívás a fórumban
+  const handleLikePost = async (postId: number) => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/forum/posts/${postId}/like`, {
+        method: 'POST',
+        headers: getLocalAuthHeaders({ 'Content-Type': 'application/json' })
+      });
+      if (res.ok) {
+        fetchPosts(); // 🔄 Sikeres könyvelés után azonnal frissítjük a posztok számlálóit!
+      }
+    } catch (e) { console.error("Lájk hálózati hiba:", e); }
   };
 
   const handlePostComment = async (postId: number) => {
     if (!newComment.trim() && !commentFile) return;
     setIsCommenting(true);
+
     const formData = new FormData();
     formData.append('userEmail', user.email);
     formData.append('userName', user.name);
@@ -291,31 +302,31 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
     if (commentFile) formData.append('photo', commentFile);
 
     try {
-      const res = await fetch(`${BACKEND_URL}/api/news/${postId}/comments`, { 
-        method: 'POST', 
-        headers: getLocalAuthHeaders(), 
-        body: formData 
+      const res = await fetch(`${BACKEND_URL}/api/news/${postId}/comments`, {
+        method: 'POST',
+        headers: getLocalAuthHeaders(),
+        body: formData
       });
       if (res.ok) {
-        setNewComment(''); setCommentFile(null); setCommentPreview(null);
+        setNewComment('');
+        setCommentFile(null);
+        setCommentPreview(null);
         const cRes = await fetch(`${BACKEND_URL}/api/news/${postId}/comments`, { headers: getLocalAuthHeaders() });
         if (cRes.ok) setComments(await cRes.json());
       }
-    } catch (e) {} finally { setIsCommenting(false); }
+    } catch (e) { alert("Hiba a hozzászólásnál."); }
+    finally { setIsCommenting(false); }
   };
 
   const handleDeletePost = async (postId: number) => {
-    if (!window.confirm("Biztosan törlöd ezt a témát?")) return;
+    if (!window.confirm("Biztosan törlöd ezt a témát? Minden hozzászólás törlődni fog!")) return;
     try {
-      const res = await fetch(`${BACKEND_URL}/api/news/${postId}`, { 
-        method: 'DELETE', 
-        headers: getLocalAuthHeaders() 
-      });
+      const res = await fetch(`${BACKEND_URL}/api/news/${postId}`, { method: 'DELETE', headers: getLocalAuthHeaders() });
       if (res.ok) {
         setExpandedPostId(null);
         fetchPosts();
       }
-    } catch (e) {}
+    } catch (e) { alert("Törlési hiba."); }
   };
 
   const fetchReaders = async (postId: number) => {
@@ -360,13 +371,12 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
             </div>
           )}
 
-          {/* 🎯 KATEGÓRIA CSEMPERÁCS SZIKLASZILÁRD FLEXBOX STRUKTÚRÁBAN */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
             {categories.map(cat => (
               <div 
                 key={cat.id} 
                 onClick={() => setSelectedCategoryId(cat.id)}
-                title={cat.description || 'Szabad eszmecsere és témanyitás'} // ✨ ÚJ: Lebegő Tooltip a teljes leíráshoz
+                title={cat.description || 'Szabad eszmecsere és témanyitás'} 
                 style={{ background: 'var(--bg-card)', borderRadius: '12px', padding: '24px', border: '1px solid var(--border-main)', boxShadow: '0 4px 15px rgba(0,0,0,0.02)', cursor: 'pointer', transition: 'all 0.2s ease-in-out' }}
                 onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
                 onMouseLeave={e => e.currentTarget.style.transform = 'none'}
@@ -374,12 +384,12 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
                 <div style={{ display: 'flex', gap: '15px', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
                   
                   <div style={{ display: 'flex', gap: '15px', alignItems: 'center', flex: 1, minWidth: 0 }}>
-                    {/* Bal oszlop: Ikon */}
+                    {/* Bal oszlop: Fix Ikon */}
                     <div style={{ background: cat.id === 1 ? 'rgba(245,158,11,0.1)' : 'rgba(56,189,248,0.1)', color: cat.id === 1 ? '#f59e0b' : '#38bdf8', padding: '12px', borderRadius: '10px', flexShrink: 0 }}>
                       {cat.id === 1 ? <Lock size={24} /> : <MessageSquare size={24} />}
                     </div>
                     
-                    {/* Középső oszlop: Szöveges adatok törésbiztos elrendezésben */}
+                    {/* Középső oszlop: Szöveges blokk reszponzív töréssel */}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'var(--text-title)', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}>
                         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>
@@ -391,14 +401,13 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
                           </span>
                         )}
                       </h3>
-                      {/* ✨ ÚJ: 2 soros intelligens CSS szövegvágás (WebkitLineClamp) */}
                       <p style={{ margin: '4px 0 0 0', fontSize: '0.82rem', color: 'var(--text-muted)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: '1.4' }}>
                         {cat.description || 'Szabad eszmecsere és témanyitás'}
                       </p>
                     </div>
                   </div>
 
-                  {/* Jobb oszlop: Admin szerkesztő gomb, ami elkülönítve áll */}
+                  {/* Jobb oszlop: Adminisztrátori zóna */}
                   {isAdmin && (
                     <div style={{ marginLeft: '10px', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
                       <button 
@@ -419,7 +428,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
         </>
       ) : (
         
-        /* TÉMÁK ÉS POSZTOK LISTÁJA ORIGINAL STILUSHOZ HŰEN */
+        /* TÉMÁK ÉS POSZTOK LISTÁJA */
         <>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '15px' }}>
             <button 
@@ -439,6 +448,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
             )}
           </div>
 
+          {/* Új téma beküldő panel */}
           {isPosting && (
             <div style={{ background: 'var(--bg-card)', padding: '25px', borderRadius: '12px', border: '2px solid #38bdf8', marginBottom: '25px' }}>
               <h3 style={{ margin: '0 0 15px 0', color: '#38bdf8' }}>Új beszélgetés indítása</h3>
@@ -472,7 +482,6 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
             </div>
           )}
 
-          {/* 🎯 JAVÍTVA: A felesleges loading változó lecserélve a deklarált isLoading-ra */}
           {isLoading ? (
             <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '40px' }}>Témák rendezése folyamatban... ⏳</div>
           ) : posts.length === 0 ? (
@@ -532,7 +541,16 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
                         )}
 
                         {/* INTERAKTÍV AKCIÓGOMBOK PANELSORA */}
-                        <div style={{ display: 'flex', gap: '10px', marginTop: '20px', paddingTop: '15px', borderTop: '1px dashed var(--border-main)', flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', gap: '10px', marginTop: '20px', paddingTop: '15px', borderTop: '1px dashed var(--border-main)', flexWrap: 'wrap', alignItems: 'center' }}>
+                          
+                          {/* 🎯 JAVÍTVA: Dinamikus lájk gomb integráció, ami meghívja a pontozó modult */}
+                          <button 
+                            onClick={() => handleLikePost(post.id)} 
+                            style={{ background: 'transparent', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', fontWeight: 'bold' }}
+                          >
+                            <Heart size={12} fill="#ef4444" /> {post.likes_count || 0} Kedvelés
+                          </button>
+
                           {isLeader && (
                             <button onClick={() => fetchReaders(post.id)} style={{ background: 'rgba(59,130,246,0.08)', color: '#3b82f6', border: '1px solid rgba(59,130,246,0.2)', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.82rem' }}>
                               👁️ {showReaders ? 'Olvasók elrejtése' : 'Kik olvasták el?'}
