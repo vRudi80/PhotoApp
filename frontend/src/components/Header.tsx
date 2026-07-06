@@ -39,7 +39,7 @@ import {
 } from 'lucide-react';
 
 interface HeaderProps {
-  user: any;
+  user = any;
   isLeader: boolean;
   activeTab: string;
   setActiveTab: (tab: any) => void;
@@ -96,7 +96,6 @@ export default function Header({
     if (!user?.email) return;
     
     const checkUnread = () => {
-      // 🔒 BIZTONSÁGI VÉDŐPAJZS: Ha nincs még token a tárolóban, meg sem kíséreljük a kérést!
       const token = localStorage.getItem('photoAppToken');
       if (!token) return;
 
@@ -453,7 +452,17 @@ export default function Header({
                   {user?.email === ADMIN_EMAIL && <button className="drop-item" style={{ color: activeTab === 'admin_salons' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_salons')}>{t('subManageSalons')}</button>}
                   {user?.email === ADMIN_EMAIL && <button className="drop-item" style={{ color: activeTab === 'admin_users' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_users')}>{t('subManageUsers')}</button>}
                   
-                  {/* 🎯 ÚJ: Rendszerszintű tiltólista gomb hozzáadva */}
+                  {/* 🎯 ÚJ: Globális Pontrendszer menedzsment gomb az adminisztrátornak */}
+                  {user?.email === ADMIN_EMAIL && (
+                    <button 
+                      className="drop-item" 
+                      style={{ color: activeTab === 'admin_points' ? '#ef4444' : '#fbbf24', fontWeight: 'bold' }} 
+                      onClick={() => handleNavClick('admin_points')}
+                    >
+                      🪙 {lang === 'en' ? 'Points Control' : 'Pontrendszer'}
+                    </button>
+                  )}
+
                   {user?.email === ADMIN_EMAIL && (
                     <button className="drop-item" style={{ color: activeTab === 'admin_banned_emails' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_banned_emails')}>
                       {lang === 'en' ? 'Banned Emails' : 'Tiltólista'}
