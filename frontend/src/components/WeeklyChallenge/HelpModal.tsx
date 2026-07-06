@@ -6,7 +6,7 @@ import { useLanguage } from '../../context/LanguageContext';
 // Téma környezet betöltése
 import { useTheme } from '../../context/ThemeContext';
 
-// 🎯 ÚJ: Professzionális Lucide Ikonok importálása az AI-sallangok ellen
+// 🎯 Professzionális Lucide Ikonok importálása
 import { 
   X, 
   Scale, 
@@ -16,7 +16,9 @@ import {
   Gift, 
   Award, 
   BookOpen,
-  Sparkles
+  Sparkles,
+  Coins,
+  MapPin
 } from 'lucide-react';
 
 interface HelpModalProps {
@@ -26,10 +28,8 @@ interface HelpModalProps {
 }
 
 export default function HelpModal({ isOpen, onClose, currentLevel }: HelpModalProps) {
-  // Aktiváljuk a fordítót (t) és a nyelv-figyelőt (lang)
   const { t, lang } = useLanguage();
 
-  // 🎯 BIZTONSÁGI VÉDŐHÁLÓ: Lekérjük az aktuális témát, felkészülve a környezeti cold-startra
   let isLight = false;
   try {
     const themeContext = useTheme();
@@ -40,7 +40,7 @@ export default function HelpModal({ isOpen, onClose, currentLevel }: HelpModalPr
 
   if (!isOpen) return null;
 
-  // 🔄 RÉGI ÉS ÚJ RANGOK KÖZÖTTI INTELIGENS HÍD (Átmeneti névfordító)
+  // 🔄 Rangfordító híd
   const nameMap: Record<string, string> = {
     'Újonc 🌱': 'Fényleső 🌱',
     'Bojtár 🪶': 'Megfigyelő 👁️',
@@ -56,7 +56,7 @@ export default function HelpModal({ isOpen, onClose, currentLevel }: HelpModalPr
     'Fejedelem 👑': 'Vizuális Legenda 👑'
   };
 
-  // 🇬🇧 Angol rangnév szótár a nemzetközi felülethez
+  // 🇬🇧 Angol rangnév szótár
   const rankNamesEn: Record<string, string> = {
     'Fényleső 🌱': 'Light Seeker 🌱',
     'Megfigyelő 👁️': 'Observer 👁️',
@@ -74,31 +74,31 @@ export default function HelpModal({ isOpen, onClose, currentLevel }: HelpModalPr
 
   const normalizedMyRankName = nameMap[currentLevel?.name] || currentLevel?.name;
 
-  // Statikus ranglétra adatsor lefordított követelmény-szövegekkel
+  // 🪙 A ranglétra követelményei most már tisztán a Globális Pontok egyenlegére mutatnak
   const rankLadderData = [
-    { name: 'Fényleső 🌱', reqHu: '0 - 29 pont', reqEn: '0 - 29 points', power: '✨ +1 / 🔥 +2', color: '#94a3b8' },
-    { name: 'Megfigyelő 👁️', reqHu: '30 - 99 pont', reqEn: '30 - 99 points', power: '✨ +2 / 🔥 +3', color: '#cbd5e1' },
-    { name: 'Képvadász 📷', reqHu: '100 - 249 pont', reqEn: '100 - 249 points', power: '✨ +2 / 🔥 +4', color: '#38bdf8' },
-    { name: 'Komponista 📐', reqHu: '250 - 499 pont', reqEn: '250 - 499 points', power: '✨ +3 / 🔥 +5', color: '#60a5fa' },
-    { name: 'Fényíró 🎞️', reqHu: '500 - 799 pont ÉS 1+ győzelem', reqEn: '500 - 799 points AND 1+ win', power: '✨ +3 / 🔥 +6', color: '#10b981' },
-    { name: 'Esztéta 💎', reqHu: '800 - 1299 pont ÉS 2+ győzelem', reqEn: '800 - 1299 points AND 2+ wins', power: '✨ +4 / 🔥 +7', color: '#059669' },
-    { name: 'Szakértő 🎯', reqHu: '1300 - 1999 pont ÉS 3+ győzelem', reqEn: '1300 - 1999 points AND 3+ wins', power: '✨ +4 / 🔥 +8', color: '#a78bfa' },
-    { name: 'Képmester 🎨', reqHu: '2000 - 3199 pont ÉS 5+ győzelem', reqEn: '2000 - 3199 points AND 5+ wins', power: '✨ +5 / 🔥 +10', color: '#ec4899' },
-    { name: 'Nagymester 🌟', reqHu: '3200 - 4799 pont ÉS 7+ győzelem', reqEn: '3200 - 4799 points AND 7+ wins', power: '✨ +5 / 🔥 +12', color: '#f59e0b' },
-    { name: 'Virtuóz ⚡', reqHu: '4800 - 6999 pont ÉS 9+ győzelem', reqEn: '4800 - 6999 points AND 9+ wins', power: '✨ +6 / 🔥 +14', color: '#eab308' },
-    { name: 'Fotóguru 🔥', reqHu: '7000 - 9999 pont ÉS 12+ győzelem', reqEn: '7000 - 9999 points AND 12+ wins', power: '✨ +7 / 🔥 +17', color: '#ef4444' },
-    { name: 'Vizuális Legenda 👑', reqHu: '10000+ pont ÉS 15+ győzelem', reqEn: '10000+ points AND 15+ wins', power: '✨ +8 / 🔥 +20', color: '#fbbf24' }
+    { name: 'Fényleső 🌱', reqHu: '0 - 29 globális pont', reqEn: '0 - 29 global points', power: '✨ +1 / 🔥 +2', color: '#94a3b8' },
+    { name: 'Megfigyelő 👁️', reqHu: '30 - 99 globális pont', reqEn: '30 - 99 global points', power: '✨ +2 / 🔥 +3', color: '#cbd5e1' },
+    { name: 'Képvadász 📷', reqHu: '100 - 249 globális pont', reqEn: '100 - 249 global points', power: '✨ +2 / 🔥 +4', color: '#38bdf8' },
+    { name: 'Komponista 📐', reqHu: '250 - 499 globális pont', reqEn: '250 - 499 global points', power: '✨ +3 / 🔥 +5', color: '#60a5fa' },
+    { name: 'Fényíró 🎞️', reqHu: '500 - 799 pont ÉS 1+ győzelem', reqEn: '500 - 799 pts AND 1+ win', power: '✨ +3 / 🔥 +6', color: '#10b981' },
+    { name: 'Esztéta 💎', reqHu: '800 - 1299 pont ÉS 2+ győzelem', reqEn: '800 - 1299 pts AND 2+ wins', power: '✨ +4 / 🔥 +7', color: '#059669' },
+    { name: 'Szakértő 🎯', reqHu: '1300 - 1999 pont ÉS 3+ győzelem', reqEn: '1300 - 1999 pts AND 3+ wins', power: '✨ +4 / 🔥 +8', color: '#a78bfa' },
+    { name: 'Képmester 🎨', reqHu: '2000 - 3199 pont ÉS 5+ győzelem', reqEn: '2000 - 3199 pts AND 5+ wins', power: '✨ +5 / 🔥 +10', color: '#ec4899' },
+    { name: 'Nagymester 🌟', reqHu: '3200 - 4799 pont ÉS 7+ győzelem', reqEn: '3200 - 4799 pts AND 7+ wins', power: '✨ +5 / 🔥 +12', color: '#f59e0b' },
+    { name: 'Virtuóz ⚡', reqHu: '4800 - 6999 pont ÉS 9+ győzelem', reqEn: '4800 - 6999 pts AND 9+ wins', power: '✨ +6 / 🔥 +14', color: '#eab308' },
+    { name: 'Fotóguru 🔥', reqHu: '7000 - 9999 pont ÉS 12+ győzelem', reqEn: '7000 - 9999 pts AND 12+ wins', power: '✨ +7 / 🔥 +17', color: '#ef4444' },
+    { name: 'Vizuális Legenda 👑', reqHu: '10000+ pont ÉS 15+ győzelem', reqEn: '10000+ pts AND 15+ wins', power: '✨ +8 / 🔥 +20', color: '#fbbf24' }
   ];
 
   return (
     <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: isLight ? 'rgba(240,244,248,0.92)' : 'rgba(9,13,22,0.92)', backdropFilter: 'blur(6px)', zIndex: 9999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '16px', boxSizing: 'border-box', animation: 'fadeIn 0.2s ease-out' }}>
-      {/* 🎯 JAVÍTVA: Konténer háttere és szegélye var() alapú lett */}
+      
       <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', borderRadius: '8px', width: '100%', maxWidth: '680px', maxHeight: '85vh', overflowY: 'auto', padding: '24px', position: 'relative', boxSizing: 'border-box', boxShadow: '0 12px 30px rgba(0,0,0,0.1)' }}>
         
         {/* Bezárás gomb */}
         <button 
           onClick={onClose} 
-          style={{ position: 'absolute', top: '16px', right: '16px', background: 'var(--bg-main)', border: '1px solid var(--border-main)', color: 'var(--text-body)', width: '28px', height: '28px', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyValue: 'center', transition: 'all 0.1s', justifyContent: 'center' }}
+          style={{ position: 'absolute', top: '16px', right: '16px', background: 'var(--bg-main)', border: '1px solid var(--border-main)', color: 'var(--text-body)', width: '28px', height: '28px', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', transition: 'all 0.1s', justifyContent: 'center' }}
           className="help-close-cross"
         >
           <X size={14} />
@@ -110,6 +110,38 @@ export default function HelpModal({ isOpen, onClose, currentLevel }: HelpModalPr
         
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           
+          {/* 🪙 ÚJ: KÖZPONTI GLOBÁLIS PONTRENDSZER ÉS BOLT SZABÁLYZAT */}
+          <div style={{ background: 'var(--bg-main)', padding: '20px', borderRadius: '6px', border: '1px solid var(--border-main)', borderLeft: '4px solid #fbbf24' }}>
+            <h4 style={{ color: '#fbbf24', margin: '0 0 10px 0', fontSize: '1.05rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px', letterSpacing: '-0.2px' }}>
+              <Coins size={16} /> {lang === 'en' ? 'Global Points Economy' : 'Globális Pontrendszer & Tárca'}
+            </h4>
+            <div style={{ color: 'var(--text-body)', fontSize: '0.85rem', lineHeight: '1.55', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <p style={{ margin: 0 }}>
+                {lang === 'en' 
+                  ? 'PhotAwesome rewards your community activity with Global Points! Points are pooled into your account and can be spent across the entire application on premium features or tools.' 
+                  : 'A PhotAwesome virtuális pontokkal jutalmazza a közösségi aktivitásodat! A megszerzett pontjaid egy központi tárcában gyűlnek, amit az alkalmazás bármely pontján beválthatsz prémium előnyökre vagy digitális eszközökre.'}
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '5px' }}>
+                <div style={{ background: 'var(--bg-card)', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-main)' }}>
+                  <b style={{ color: '#10b981', display: 'block', fontSize: '0.82rem', marginBottom: '4px' }}>📥 {lang === 'en' ? 'HOW TO EARN:' : 'PONTKERESÉS:'}</b>
+                  <ul style={{ margin: 0, paddingLeft: '14px', fontSize: '0.78rem', lineHeight: '1.4' }}>
+                    <li>{lang === 'en' ? 'Arena Victory: +100 / +50 / +25 pts' : 'Aréna dobogó: +100 / +50 / +25 pont'}</li>
+                    <li>{lang === 'en' ? 'Full Arena Voting: +10 pts' : 'Teljes Aréna szavazás leadása: +10 pont'}</li>
+                    <li>{lang === 'en' ? 'Upload new Map Location: +20 pts' : 'Új fotós helyszín a térképre: +20 pont'}</li>
+                  </ul>
+                </div>
+                <div style={{ background: 'var(--bg-card)', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-main)' }}>
+                  <b style={{ color: '#ef4444', display: 'block', fontSize: '0.82rem', marginBottom: '4px' }}>📤 {lang === 'en' ? 'HOW TO SPEND:' : 'PONTBEVÁLTÁS:'}</b>
+                  <ul style={{ margin: 0, paddingLeft: '14px', fontSize: '0.78rem', lineHeight: '1.4' }}>
+                    <li>{lang === 'en' ? '1x Joker Swap item: 50 points' : '1 db Joker Csere kupon: 50 pont'}</li>
+                    <li>{lang === 'en' ? '7 Days Premium Access: 200 points' : '7 napos Prémium tagság: 200 pont'}</li>
+                    <li>{lang === 'en' ? 'More rewards coming soon!' : 'Hamarosan: AI elemzések, egyedi keretek!'}</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* ⚖️ KIEGYENSÚLYOZOTT PONTRENDSZER (FAIR SCORE) SZEKCIÓ */}
           <div style={{ background: 'var(--bg-main)', padding: '20px', borderRadius: '6px', border: '1px solid var(--border-main)' }}>
             <h4 style={{ color: isLight ? '#0284c7' : '#38bdf8', margin: '0 0 10px 0', fontSize: '1.05rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px', letterSpacing: '-0.2px' }}>
@@ -158,16 +190,19 @@ export default function HelpModal({ isOpen, onClose, currentLevel }: HelpModalPr
             </p>
           </div>
 
-          {/* Nyeremények szekció */}
+          {/* 🎯 FRISSÍTVE: Pontrendszer-alapú Aréna nyereményjáték leírások */}
           <div style={{ background: 'var(--bg-main)', padding: '16px', borderRadius: '6px', border: '1px solid var(--border-main)', borderLeft: `3px solid ${isLight ? '#b45309' : '#fbbf24'}` }}>
             <h4 style={{ color: isLight ? '#b45309' : '#fbbf24', margin: '0 0 8px 0', fontSize: '0.95rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}><Gift size={14} /> {t('helpRewardsTitle')}</h4>
             <p style={{ color: 'var(--text-body)', fontSize: '0.85rem', lineHeight: '1.5', margin: 0 }}>
-              {t('helpRewardsDesc')}
+              {lang === 'en'
+                ? 'At the closing of the Arena room, players receive the following Global Points automatically added to their wallet based on their final rank:'
+                : 'A futamok lezárásakor a végső sorrend alapján a rendszer automatikusan az alábbi Globális Pontokat írja jóvá a fotósok számláján:'}
             </p>
             <ul style={{ color: 'var(--text-title)', fontSize: '0.85rem', margin: '8px 0 0 0', paddingLeft: '16px', lineHeight: '1.7', listStyleType: 'none' }}>
-              <li style={{ display: 'flex', gap: '6px', alignItems: 'start' }}><span>🥇</span> <span><b>{t('helpReward1')}</b> {lang === 'en' ? <><span style={{ color: isLight ? '#b45309' : '#fbbf24', fontWeight: 'bold' }}>+3</span> global Joker swaps <span style={{ color: '#10b981', fontWeight: '700' }}>+ 1 Week Extended Premium Membership</span></> : <><span style={{ color: isLight ? '#b45309' : '#fbbf24', fontWeight: 'bold' }}>+3 db</span> globális Joker csere <span style={{ color: '#10b981', fontWeight: '700' }}>+ 1 héttel meghosszabbított prémium tagság</span></>}</span></li>
-              <li style={{ display: 'flex', gap: '6px', alignItems: 'start', marginTop: '4px' }}><span>🥈</span> <span><b>{t('helpReward2')}</b> {lang === 'en' ? <><span style={{ color: 'var(--text-body)', fontWeight: 'bold' }}>+2</span> Joker swaps</> : <><span style={{ color: 'var(--text-body)', fontWeight: 'bold' }}>+2 db</span> Joker csere</>}</span></li>
-              <li style={{ display: 'flex', gap: '6px', alignItems: 'start', marginTop: '4px' }}><span>🥉</span> <span><b>{t('helpReward3')}</b> {lang === 'en' ? <><span style={{ color: '#b45309', fontWeight: 'bold' }}>+1</span> Joker swap</> : <><span style={{ color: '#b45309', fontWeight: 'bold' }}>+1 db</span> Joker csere</>}</span></li>
+              <li style={{ display: 'flex', gap: '6px', alignItems: 'center' }}><span>🥇</span> <span><b>1. {lang === 'en' ? 'Place' : 'Helyezett'}:</b> <span style={{ color: '#10b981', fontWeight: '800' }}>+100 {lang === 'en' ? 'Global Points' : 'Globális pont'}</span></span></li>
+              <li style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '4px' }}><span>🥈</span> <span><b>2. {lang === 'en' ? 'Place' : 'Helyezett'}:</b> <span style={{ color: '#38bdf8', fontWeight: '800' }}>+50 {lang === 'en' ? 'Global Points' : 'Globális pont'}</span></span></li>
+              <li style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '4px' }}><span>🥉</span> <span><b>3. {lang === 'en' ? 'Place' : 'Helyezett'}:</b> <span style={{ color: '#f59e0b', fontWeight: '800' }}>+25 {lang === 'en' ? 'Global Points' : 'Globális pont'}</span></span></li>
+              <li style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '4px', borderTop: '1px dashed var(--border-main)', paddingTop: '6px' }}><span>⚡</span> <span><b>{lang === 'en' ? 'Full Voting Bonus' : 'Szavazási bónusz'}:</b> <span style={{ color: '#fbbf24', fontWeight: '800' }}>+10 {lang === 'en' ? 'Points' : 'Pont'}</span> ({lang === 'en' ? 'For rating all available photos' : 'Ha az összes elérhető képet elbíráltad'})</span></li>
             </ul>
           </div>
           
@@ -185,7 +220,6 @@ export default function HelpModal({ isOpen, onClose, currentLevel }: HelpModalPr
                 const displayName = lang === 'en' ? (rankNamesEn[rank.name] || rank.name) : rank.name;
                 const displayReq = lang === 'en' ? rank.reqEn : rank.reqHu;
 
-                // 🎯 JAVÍTVA: Adaptív kontrasztos színválasztó a listaelemekhez világos mód esetén
                 let adaptiveColor = rank.color;
                 if (isLight) {
                   if (rank.name.includes('Fényleső')) adaptiveColor = '#64748b';
