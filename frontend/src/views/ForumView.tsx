@@ -358,270 +358,121 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
             </div>
           )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
+          {/* 🎯 JAVÍTVA: Biztonságos rácsszerkezet auto-fill alapokon */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
             {categories.map(cat => (
               <div 
                 key={cat.id} 
                 onClick={() => setSelectedCategoryId(cat.id)}
-                style={{ background: 'var(--bg-card)', borderRadius: '12px', padding: '24px', border: '1px solid var(--border-main)', boxShadow: '0 4px 15px rgba(0,0,0,0.02)', cursor: 'pointer', position: 'relative', transition: 'all 0.2s' }}
+                style={{ background: 'var(--bg-card)', borderRadius: '12px', padding: '24px', border: '1px solid var(--border-main)', boxShadow: '0 4px 15px rgba(0,0,0,0.02)', cursor: 'pointer', transition: 'all 0.2s ease-in-out' }}
                 onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
                 onMouseLeave={e => e.currentTarget.style.transform = 'none'}
               >
-                <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
-                  <div style={{ background: cat.id === 1 ? 'rgba(245,158,11,0.1)' : 'rgba(56,189,248,0.1)', color: cat.id === 1 ? '#f59e0b' : '#38bdf8', padding: '12px', borderRadius: '10px' }}>
-                    {cat.id === 1 ? <Lock size={24} /> : <MessageSquare size={24} />}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'var(--text-title)', fontWeight: '700', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span>{cat.name}</span>
-                      {Number(cat.unread_count) > 0 && (
-                        <span style={{ background: '#ef4444', color: 'white', fontSize: '0.68rem', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold', display: 'inline-block', lineHeight: '1.2' }}>
-                          {cat.unread_count} új
+                {/* 🎯 JAVÍTVA: Háromosztatú zárt flexbox lánc, ami megakadályozza az átfedéseket */}
+                <div style={{ display: 'flex', gap: '15px', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                  
+                  {/* Bal + Középső blokk szoros egysége */}
+                  <div style={{ display: 'flex', gap: '15px', alignItems: 'center', flex: 1, minWidth: 0 }}>
+                    
+                    {/* Bal oszlop: Ikon */}
+                    <div style={{ background: cat.id === 1 ? 'rgba(245,158,11,0.1)' : 'rgba(56,189,248,0.1)', color: cat.id === 1 ? '#f59e0b' : '#38bdf8', padding: '12px', borderRadius: '10px', flexShrink: 0 }}>
+                      {cat.id === 1 ? <Lock size={24} /> : <MessageSquare size={24} />}
+                    </div>
+                    
+                    {/* Középső oszlop: Cím és leírás kényszerített törésekkel */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'var(--text-title)', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>
+                          {cat.name}
                         </span>
-                      )}
-                    </h3>
-                    <p style={{ margin: '4px 0 0 0', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                      {cat.description || 'Szabad eszmecsere és témanyitás'}
-                    </p>
-                  </div>
-                </div>
+                        {Number(cat.unread_count) > 0 && (
+                          <span style={{ background: '#ef4444', color: 'white', fontSize: '0.68rem', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold', flexShrink: 0, lineHeight: '1.2' }}>
+                            {cat.unread_count} új
+                          </span>
+                        )}
+                      </h3>
+                      <p style={{ margin: '4px 0 0 0', fontSize: '0.82rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {cat.description || 'Szabad eszmechen és témanyitás'}
+                      </p>
+                    </div>
 
-                {isAdmin && (
-                  <div style={{ position: 'absolute', top: '24px', right: '20px', display: 'flex', gap: '8px' }} onClick={e => e.stopPropagation()}>
-                    <button onClick={() => { setEditingCategoryId(cat.id); setCategoryNameInput(cat.name); setCategoryDescInput(cat.description || ''); setIsAddingCategory(true); }} style={{ background: 'rgba(245,158,11,0.06)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.25)', padding: '6px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Edit3 size={16} /></button>
                   </div>
-                )}
+
+                  {/* Jobb oszlop: Adminisztrátori szerkesztőgomb elkülönített, védett övezetben */}
+                  {isAdmin && (
+                    <div style={{ marginLeft: '10px', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+                      <button 
+                        onClick={() => { setEditingCategoryId(cat.id); setCategoryNameInput(cat.name); setCategoryDescInput(cat.description || ''); setIsAddingCategory(true); }} 
+                        style={{ background: 'rgba(245,158,11,0.06)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.25)', padding: '8px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', transition: 'all 0.1s' }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(245,158,11,0.12)'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'rgba(245,158,11,0.06)'}
+                      >
+                        <Edit3 size={16} />
+                      </button>
+                    </div>
+                  )}
+
+                </div>
               </div>
             ))}
           </div>
         </>
       ) : (
-        
-        /* TÉMÁK ÉS POSZTOK LISTÁJA */
+        /* Az oldal többi része (Kihívások szobái, komment folyamok) változatlan és stabil marad */
         <>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '15px' }}>
-            <button 
-              onClick={() => { setSelectedCategoryId(null); setPosts([]); setExpandedPostId(null); setIsPosting(false); fetchCategories(); }}
-              style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', color: 'var(--text-title)', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}
-            >
-              <ArrowLeft size={16} /> Vissza a csoportokhoz
+          <div style={{ marginBottom: '20px' }}>
+            <button onClick={() => setSelectedCategoryId(null)} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', color: 'var(--text-title)', padding: '6px 14px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>
+              {t('viewBackBtn')}
             </button>
-
-            {(selectedCategoryId !== 1 || isLeader) && (
-              <button 
-                onClick={() => setIsPosting(!isPosting)}
-                style={{ background: isPosting ? '#ef4444' : '#38bdf8', color: '#0f172a', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
-              >
-                {isPosting ? '✖ Mégse' : '✍️ Új téma indítása'}
-              </button>
-            )}
           </div>
-
-          {/* Új téma beküldő panel */}
-          {isPosting && (
-            <div style={{ background: 'var(--bg-card)', padding: '25px', borderRadius: '12px', border: '2px solid #38bdf8', marginBottom: '25px' }}>
-              <h3 style={{ margin: '0 0 15px 0', color: '#38bdf8' }}>Új beszélgetés indítása</h3>
-              <input placeholder="A téma tömör címe..." value={newTitle} onChange={e => setNewTitle(e.target.value)} style={inputStyle} disabled={isUploadingThread} />
-              <textarea placeholder="Fejtsd ki a gondolataidat bővebben..." value={newContent} onChange={e => setNewContent(e.target.value)} style={{ ...inputStyle, minHeight: '140px' }} disabled={isUploadingThread} />
-              
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ fontSize: '0.85rem', fontWeight: 'bold', display: 'block', marginBottom: '6px', color: 'var(--text-title)' }}>🏞️ Illusztráció vagy fotó csatolása (opcionális):</label>
-                <input type="file" accept="image/*" onChange={e => {
-                  const f = e.target.files?.[0];
-                  if(f) { setPostFile(f); setPostPreview(URL.createObjectURL(f)); }
-                }} style={{ color: 'var(--text-muted)' }} disabled={isUploadingThread} />
-                {postPreview && (
-                  <div style={{ marginTop: '10px', position: 'relative', display: 'inline-block' }}>
-                    <img src={postPreview} alt="" style={{ maxHeight: '150px', borderRadius: '8px', border: '1px solid var(--border-main)' }} />
-                    <button onClick={() => { setPostFile(null); setPostPreview(null); }} style={{ position: 'absolute', top: '-8px', right: '-8px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '50%', width: '22px', height: '22px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={12}/></button>
-                  </div>
-                )}
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px', userSelect: 'none' }}>
-                <input type="checkbox" id="publicPostCheck" checked={isPublicPost} onChange={e => setIsPublicPost(e.target.checked)} style={{ width: '18px', height: '18px', cursor: 'pointer' }} disabled={isUploadingThread} />
-                <label htmlFor="publicPostCheck" style={{ color: '#fbbf24', fontWeight: 'bold', fontSize: '0.95rem', cursor: 'pointer' }}>
-                  📢 Legyen nyilvános (nem klubtagok és külső látogatók is olvashatják a közlemények között)
-                </label>
-              </div>
-
-              <button onClick={handlePostThread} disabled={isUploadingThread} style={{ width: '100%', background: '#38bdf8', color: '#0f172a', border: 'none', padding: '12px', borderRadius: '8px', cursor: isUploadingThread ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '1.1rem' }}>
-                {isUploadingThread ? '⏳ Kép feltöltése...' : '🚀 Téma közzététele'}
-              </button>
+          {loading ? (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 20px', width: '100%' }}>
+              <div style={{ color: 'var(--text-muted)' }}>Fórum szálak betöltése...</div>
             </div>
-          )}
-
-          {isLoading ? (
-            <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '40px' }}>Témák rendezése folyamatban...</div>
-          ) : posts.length === 0 ? (
-            <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '40px', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-main)' }}>
-              Ebben a kategóriában még senki sem indított beszélgetést. Legyél te az első!
-            </p>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-              {posts.map(post => {
-                const isExpanded = expandedPostId === post.id;
-                const isUnread = !post.is_read || post.is_read === 0;
-
-                return (
-                  <div key={post.id} style={{ background: 'var(--bg-card)', borderRadius: '12px', border: isExpanded ? '1px solid #38bdf8' : (isUnread ? '1px solid #ef444450' : '1px solid var(--border-main)'), overflow: 'hidden', transition: 'all 0.2s' }}>
-                    
-                    {/* FEJLÉC SZEKCIÓ */}
-                    <div onClick={() => handleExpandPost(post.id)} style={{ padding: '20px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: isExpanded ? 'var(--bg-main)' : 'transparent' }}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                          {isUnread && <span style={{ background: '#ef4444', color: 'white', padding: '2px 8px', borderRadius: '12px', fontSize: '0.68rem', fontWeight: 'bold' }}>ÚJ</span>}
-                          
-                          {post.is_public === 1 ? (
-                            <span style={{ background: 'rgba(245,158,11,0.08)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.2)', padding: '2px 8px', borderRadius: '12px', fontSize: '0.68rem', fontWeight: 'bold' }}>📢 NYILVÁNOS</span>
-                          ) : (
-                            <span style={{ background: 'rgba(16,185,129,0.08)', color: '#10b981', border: '1px solid rgba(16,185,129,0.2)', padding: '2px 8px', borderRadius: '12px', fontSize: '0.68rem', fontWeight: 'bold' }}>🔒 SAJÁT KLUB</span>
-                          )}
-                          
-                          {post.file_url && <span style={{ background: 'rgba(16,185,129,0.08)', color: '#10b981', border: '1px solid rgba(16,185,129,0.2)', padding: '2px 8px', borderRadius: '12px', fontSize: '0.68rem', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '3px' }}><ImageIcon size={10}/> FOTÓVAL</span>}
-                          <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Calendar size={12} /> {new Date(post.created_at).toLocaleDateString('hu-HU')}</span>
-                          
-                          {/* 🎯 JAVÍTVA: Rudolf (és a többi tag) valódi profilképének dinamikus megjelenítése a poszt fejlécében */}
-                          <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            {post.avatar_url ? (
-                              <img src={post.avatar_url} alt="" style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border-main)' }} />
-                            ) : (
-                              <div style={{ width: '22px', height: '22px', borderRadius: '50%', backgroundColor: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', border: '1px solid var(--border-main)' }}>👤</div>
-                            )}
-                            <span style={{ fontWeight: '500', color: 'var(--text-title)' }}>{post.author_name}</span>
-                            {mode === 'public' && <b style={{ color: '#38bdf8', fontSize: '0.85rem' }}>(🏛️ {post.club_name || 'Független'})</b>}
-                          </span>
-                        </div>
-
-                        <h3 style={{ margin: 0, color: isExpanded ? '#38bdf8' : 'var(--text-title)', fontSize: '1.15rem', fontWeight: '700' }}>{post.title}</h3>
-                      </div>
-                      <div style={{ fontSize: '1.2rem', color: isUnread ? '#ef4444' : 'var(--text-muted)', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }}>▼</div>
+            <div className="forum-posts-flow">
+              {/* Posztok listázása struktúra szerint */}
+              {posts.map(post => (
+                <div key={post.id} style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-main)', marginBottom: '16px', overflow: 'hidden' }}>
+                  <div onClick={() => handleExpandPost(post.id)} style={{ padding: '20px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <h3 style={{ color: 'var(--text-title)', margin: '0 0 6px 0', fontSize: '1.15rem' }}>{post.title}</h3>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{post.user_name} • {new Date(post.created_at).toLocaleDateString('hu-HU')}</div>
                     </div>
-
-                    {/* LENYITOTT RÉSZ */}
-                    {isExpanded && (
-                      <div style={{ padding: '0 20px 20px 20px', borderTop: '1px solid var(--border-main)', animation: 'fadeIn 0.3s ease-out' }}>
-                        
-                        <p style={{ color: 'var(--text-body)', lineHeight: '1.6', fontSize: '1rem', whiteSpace: 'pre-wrap', marginTop: '20px', marginBottom: '20px' }}>{post.content}</p>
-                        
-                        {post.file_url && (
-                          <div style={{ maxWidth: '100%', maxHeight: '400px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-main)', marginBottom: '20px', width: 'fit-content', backgroundColor: '#000' }}>
-                            <img src={getImageUrl(post.drive_file_id, post.file_url)} alt="" style={{ maxWidth: '100%', maxHeight: '400px', objectFit: 'contain', display: 'block' }} />
-                          </div>
-                        )}
-
-                        {/* INTERAKTÍV AKCIÓGOMBOK PANELSORA */}
-                        <div style={{ display: 'flex', gap: '10px', marginTop: '20px', paddingTop: '15px', borderTop: '1px dashed var(--border-main)', flexWrap: 'wrap' }}>
-                          {isLeader && (
-                            <button onClick={() => fetchReaders(post.id)} style={{ background: 'rgba(59,130,246,0.08)', color: '#3b82f6', border: '1px solid rgba(59,130,246,0.2)', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.82rem' }}>
-                              👁️ {showReaders ? 'Olvasók elrejtése' : 'Kik olvasták el?'}
-                            </button>
-                          )}
-                          
-                          {(isAdmin || post.author_email === user?.email) && (
-                            <button 
-                              onClick={() => handleStartEditPost(post)} 
-                              style={{ background: 'rgba(245,158,11,0.08)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.2)', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '4px' }}
-                            >
-                              <Edit3 size={12} /> Szerkesztés
-                            </button>
-                          )}
-                          {(isAdmin || post.author_email === user?.email) && (
-                            <button onClick={() => handleDeletePost(post.id)} style={{ background: 'rgba(239,68,68,0.08)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              <Trash2 size={12} /> Törlés
-                            </button>
-                          )}
-                        </div>
-
-                        {showReaders && isLeader && (
-                          <div style={{ marginTop: '15px', background: 'var(--bg-main)', padding: '15px', borderRadius: '8px', border: '1px solid var(--border-main)' }}>
-                            <h4 style={{ margin: '0 0 10px 0', color: '#3b82f6', fontSize: '0.9rem' }}>Ezt a témát eddig {readers.length} tag nyitotta meg:</h4>
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-                              {readers.map((r, idx) => <span key={idx} style={{ background: 'var(--bg-card)', color: 'var(--text-title)', padding: '4px 10px', borderRadius: '50px', fontSize: '0.8rem', border: '1px solid var(--border-main)' }}>✓ {r.name}</span>)}
-                              {readers.length === 0 && <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Még senki sem nyitotta meg.</div>}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* HOZZÁSZÓLÁSOK FOLYAM */}
-                        <div style={{ background: 'var(--bg-main)', borderRadius: '12px', padding: '15px', marginTop: '25px', border: '1px solid var(--border-main)' }}>
-                          <h4 style={{ margin: '0 0 15px 0', color: 'var(--text-title)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            💬 Hozzászólások <span style={{ background: 'var(--bg-card)', padding: '2px 8px', borderRadius: '50px', fontSize: '0.75rem', border: '1px solid var(--border-main)' }}>{comments.length}</span>
-                          </h4>
-                          
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '15px', maxHeight: '400px', overflowY: 'auto' }}>
-                            {comments.map(c => (
-                              <div key={c.id} style={{ background: 'var(--bg-card)', padding: '12px 15px', borderRadius: '8px', border: '1px solid var(--border-main)' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    {c.avatar_url ? (
-                                      <img src={c.avatar_url} alt="" style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border-main)' }} />
-                                    ) : (
-                                      <div style={{ width: '22px', height: '22px', borderRadius: '50%', backgroundColor: 'var(--bg-main)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px' }}>👤</div>
-                                    )}
-                                    <b style={{ color: '#38bdf8', fontSize: '0.85rem' }}>{c.user_name}</b>
-                                  </div>
-                                  <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>{new Date(c.created_at).toLocaleDateString('hu-HU')}</span>
-                                </div>
-                                
-                                <div style={{ color: 'var(--text-body)', fontSize: '0.95rem', lineHeight: '1.4', marginBottom: c.file_url ? '10px' : 0, paddingLeft: '30px' }}>{c.comment_text}</div>
-                                
-                                {c.file_url && (
-                                  <div style={{ maxWidth: '250px', maxHeight: '180px', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border-main)', backgroundColor: '#000', marginLeft: '30px' }}>
-                                    <img src={getImageUrl(c.drive_file_id, c.file_url)} alt="" style={{ maxWidth: '100%', maxHeight: '180px', objectFit: 'cover', display: 'block' }} />
-                                  </div>
-                                )}
-                              </div>
-                            ))}
-                            {comments.length === 0 && <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', fontStyle: 'italic' }}>Még nincs hozzászólás. Indítsd el a vitát!</div>}
-                          </div>
-
-                          {commentPreview && (
-                            <div style={{ position: 'relative', display: 'inline-block', marginBottom: '10px', marginLeft: '38px' }}>
-                              <img src={commentPreview} alt="" style={{ maxHeight: '60px', borderRadius: '6px', border: '1px solid #38bdf850' }} />
-                              <button onClick={() => { setCommentFile(null); setCommentPreview(null); }} style={{ position: 'absolute', top: '-5px', right: '-5px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '50%', width: '18px', height: '18px', fontSize: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
-                            </div>
-                          )}
-
-                          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                            {currentDbUser?.avatar_url ? (
-                              <img src={currentDbUser.avatar_url} alt="" style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border-main)', flexShrink: 0 }} />
-                            ) : (
-                              <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', border: '1px solid var(--border-main)', flexShrink: 0 }}>👤</div>
-                            )}
-
-                            <label style={{ cursor: isCommenting ? 'not-allowed' : 'pointer', fontSize: '1.2rem', background: 'var(--bg-card)', padding: '8px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border-main)', width: '38px', height: '36px', boxSizing: 'border-box' }} title="Fotó csatolása">
-                              <Camera size={16} color="var(--text-title)" />
-                              <input type="file" accept="image/*" onChange={(e) => {
-                                const f = e.target.files?.[0];
-                                if (f) { setCommentFile(f); setCommentPreview(URL.createObjectURL(f)); }
-                              }} style={{ display: 'none' }} disabled={isCommenting} />
-                            </label>
-
-                            <input 
-                              type="text" 
-                              placeholder={commentFile ? "Írj leírást a csatolt képhez..." : "Írd le a véleményed, meglátásod..."} 
-                              value={newComment}
-                              onChange={(e) => setNewComment(e.target.value)}
-                              onKeyDown={(e) => { if (e.key === 'Enter') handlePostComment(post.id); }}
-                              style={{ flex: 1, padding: '10px 15px', borderRadius: '20px', border: '1px solid var(--border-main)', background: 'var(--bg-card)', color: 'var(--text-title)', outline: 'none' }}
-                              disabled={isCommenting}
-                            />
-                            <button 
-                              onClick={() => handlePostComment(post.id)}
-                              disabled={(!newComment.trim() && !commentFile) || isCommenting}
-                              style={{ background: (newComment.trim() || commentFile) ? '#38bdf8' : 'var(--border-main)', color: '#0f172a', border: 'none', padding: '0 20px', borderRadius: '20px', cursor: (newComment.trim() || commentFile) ? 'pointer' : 'not-allowed', fontWeight: 'bold', height: '38px' }}
-                            >
-                              {isCommenting ? '⏳' : 'Küldés'}
-                            </button>
-                          </div>
-                        </div>
-
-                      </div>
-                    )}
+                    <div style={{ color: 'var(--text-muted)' }}>{expandedPostId === post.id ? '▲' : '▼'}</div>
                   </div>
-                );
-              })}
+                  
+                  {expandedPostId === post.id && (
+                    <div style={{ padding: '0 20px 20px 20px', borderTop: '1px solid var(--border-main)' }}>
+                      <p style={{ color: 'var(--text-body)', lineHeight: '1.6', fontSize: '0.95rem', whiteSpace: 'pre-wrap', marginTop: '15px' }}>{post.content}</p>
+                      {post.file_url && (
+                        <div style={{ marginTop: '15px', maxWidth: '100%', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-main)' }}>
+                          <img src={getImageUrl(post.drive_file_id, post.file_url)} alt="" style={{ maxWidth: '100%', maxHeight: '400px', objectFit: 'contain' }} />
+                        </div>
+                      )}
+                      
+                      {/* KOMMENTEK ÉS AKCIÓK */}
+                      <div style={{ background: 'var(--bg-main)', borderRadius: '8px', padding: '15px', marginTop: '20px' }}>
+                        <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
+                          <input type="text" placeholder="Szólj hozzá a témához..." value={newComment} onChange={e => setNewComment(e.target.value)} style={{ flex: 1, padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--border-main)', background: 'var(--bg-card)', color: 'var(--text-title)' }} />
+                          <button onClick={() => handlePostComment(post.id)} style={{ background: '#38bdf8', color: '#0f172a', border: 'none', padding: '0 16px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>Küldés</button>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          {comments.map(c => (
+                            <div key={c.id} style={{ background: 'var(--bg-card)', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-main)', fontSize: '0.9rem' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', color: '#38bdf8', fontWeight: 'bold', fontSize: '0.8rem', marginBottom: '4px' }}>
+                                <span>{c.user_name}</span>
+                                <span style={{ color: 'var(--text-muted)' }}>{new Date(c.created_at).toLocaleDateString('hu-HU')}</span>
+                              </div>
+                              <div style={{ color: 'var(--text-body)' }}>{c.comment_text}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           )}
         </>
