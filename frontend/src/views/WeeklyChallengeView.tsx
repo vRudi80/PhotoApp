@@ -712,6 +712,26 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     finally { setIsClaimingReferral(false); }
   };
 
+  // 🎯 ÚJ: Gyors Joker Csere vásárlás közvetlenül az Aréna felületéről
+  const handleQuickBuySwap = async () => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/store/buy-swap`, {
+        method: 'POST',
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' })
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        alert(data.message);
+        setSwapBalance(data.newSwapBalance); // Azonnal frissítjük az Aréna számlálóját a képernyőn!
+      } else {
+        alert(data.error || "Sikertelen vásárlás.");
+      }
+    } catch (e) {
+      alert("Hálózati hiba lépett fel.");
+    }
+  };
+
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const rawFile = e.target.files[0];
@@ -954,7 +974,16 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
               <RefreshCw size={12} />
               <span>{swapBalance} {lang === 'en' ? 'Swaps left' : 'Joker Csere'}</span>
             </div>
-
+{/* 🎯 ÚJ: Gyorsvásárlás gomb az Aréna Liga fejlécében */}
+            <button 
+              onClick={handleQuickBuySwap}
+              style={{ background: 'rgba(56,189,248,0.1)', color: '#38bdf8', border: '1px solid rgba(56,189,248,0.3)', padding: '5px 12px', borderRadius: '4px', fontWeight: 'bold', fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', transition: 'all 0.15s', whiteSpace: 'nowrap' }}
+              onMouseEnter={e => e.currentTarget.style.background = 'rgba(56,189,248,0.2)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'rgba(56,189,248,0.1)'}
+              title={lang === 'en' ? 'Buy 1 Joker Swap for 50 points' : '1 db Joker csere vásárlása 50 pontért'}
+            >
+              + 🃏 {lang === 'en' ? 'Buy Swap (50p)' : 'Csere vásárlása (50p)'}
+            </button>
             <button onClick={() => setShowHelp(true)} style={{ background: 'transparent', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)', padding: '5px 12px', borderRadius: '4px', fontWeight: 'bold', fontSize: '0.8rem', cursor: 'pointer', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
               <BookOpen size={12} /> {t('btnRules')}
             </button>
