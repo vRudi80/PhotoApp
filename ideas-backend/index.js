@@ -149,6 +149,7 @@ require('./routes/salons')(app, pool, checkPremium, genAI, xlsx, cheerio, upload
 require('./routes/tickets')(app, pool);
 require('./routes/podcast')(app, pool);
 require('./routes/admin')(app, pool);
+require('./routes/store')(app, pool);
 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => console.log(`Szerver fut a ${PORT} porton`));
