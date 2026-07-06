@@ -56,7 +56,6 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
   const [playerStats, setPlayerStats] = useState<any | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
 
-  // BIZTONSÁGI VÉDŐHÁLÓ: Lekérjük a témát
   let isLight = false;
   try {
     const themeContext = useTheme();
@@ -88,7 +87,6 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
     return diff <= 25 * 60 * 60 * 1000 ? 'daily' : 'weekly';
   };
 
-  // Adaptív szint-színkezelő világos és sötét módhoz
   const getAdaptiveLevelDetails = (likes: number, victories: number) => {
     const lvl = getLevelDetails ? getLevelDetails(likes, victories) : { name: '', color: '#fbbf24', bg: '' };
     if (!isLight) return lvl;
@@ -125,8 +123,6 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
     setPlayerStats(null);
     try {
       const token = localStorage.getItem('photoAppToken');
-      
-      // 🎯 JAVÍTVA: Az Axios kérés megkapta a hitelesítési fejléc objektumot!
       const res = await axios.get(`${BACKEND_URL}/api/weekly/hof-stats?userEmail=${encodeURIComponent(targetEmail)}`, {
         headers: {
           ...(token ? { 'Authorization': `Bearer ${token}` } : {})
@@ -146,14 +142,12 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
   if (selectedUser) {
     const totalLikes = Number(selectedUser?.total_likes) || 0;
     const currentLevel = getAdaptiveLevelDetails(totalLikes, Number(selectedUser?.first_places) || 0);
-    
     const displayRankName = lang === 'en' ? (rankNamesEn[currentLevel?.name || ''] || currentLevel?.name || '') : (currentLevel?.name || '');
     const masterCount = Number(selectedUser?.master_count) || 0;
 
     return (
       <div style={{ animation: 'fadeIn 0.4s ease-out' }}>
         
-        {/* Vissza a listához gomb */}
         <div style={{ marginBottom: '20px' }}>
           <button 
             onClick={() => { setSelectedUser(null); setPlayerStats(null); }}
@@ -165,7 +159,6 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
           </button>
         </div>
 
-        {/* Játékos profil fejléce */}
         <div style={{ background: 'var(--bg-card)', padding: '30px 20px', borderRadius: '8px', border: '1px solid var(--border-main)', marginBottom: '20px', textAlign: 'center', position: 'relative' }}>
           <div style={{ display: 'flex', marginBottom: '12px', justifyContent: 'center' }}>
             <img 
@@ -195,28 +188,28 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
             
-            {/* Érem számláló rács */}
+            {/* 🎯 JAVÍTVA: Bento statisztikai rács nyelvhelyes magyarázó tooltipekkel */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '12px', textAlign: 'center' }}>
               
-              <div style={{ background: 'var(--bg-card)', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-main)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
+              <div title={lang === 'en' ? 'First Places in Arena challenges' : 'Első helyezések száma az Aréna kihívásokban'} style={{ background: 'var(--bg-card)', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-main)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
                 <Crown size={16} color="#fbbf24" />
                 <div style={{ fontSize: '0.72rem', color: 'var(--text-body)', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{lang === 'en' ? '1st Places' : 'Győzelmek'}</div>
                 <div style={{ fontSize: '1.3rem', fontWeight: '700', color: '#fbbf24' }}>{selectedUser?.first_places || 0}</div>
               </div>
               
-              <div style={{ background: 'var(--bg-card)', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-main)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
+              <div title={lang === 'en' ? 'Podium finishes (1st, 2nd, or 3rd place)' : 'Dobogós helyezések száma összesen (1-3. hely)'} style={{ background: 'var(--bg-card)', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-main)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
                 <Trophy size={16} color="#38bdf8" />
                 <div style={{ fontSize: '0.72rem', color: 'var(--text-body)', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{lang === 'en' ? 'Total Podiums' : 'Dobogók'}</div>
                 <div style={{ fontSize: '1.3rem', fontWeight: '700', color: '#38bdf8' }}>{selectedUser?.podiums || 0}</div>
               </div>
               
-              <div style={{ background: 'var(--bg-card)', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-main)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
+              <div title={lang === 'en' ? 'Times approved as Arena Judge / Master' : 'Jóváhagyott Csatabíró / Képmester alkalmak száma'} style={{ background: 'var(--bg-card)', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-main)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
                 <Zap size={14} color="#ec4899" />
                 <div style={{ fontSize: '0.72rem', color: 'var(--text-body)', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{lang === 'en' ? 'Master' : 'Képmester'}</div>
                 <div style={{ fontSize: '1.3rem', fontWeight: '700', color: '#ec4899' }}>{masterCount}</div>
               </div>
 
-              <div style={{ background: 'var(--bg-card)', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-main)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
+              <div title={lang === 'en' ? 'Total accumulative Performance Points' : 'Összesített Fotós dicsőségpont egyenleg'} style={{ background: 'var(--bg-card)', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-main)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
                 <Star size={14} color="#a855f7" />
                 <div style={{ fontSize: '0.72rem', color: 'var(--text-body)', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{lang === 'en' ? 'Fair Score' : 'Dicsőség Pont'}</div>
                 <div style={{ fontSize: '1.3rem', fontWeight: '700', color: '#a855f7' }}>{totalLikes.toFixed(1)}</div>
@@ -234,22 +227,6 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
                 <div style={{ color: 'var(--text-body)', background: 'var(--bg-card)', padding: '30px', borderRadius: '8px', textAlign: 'center', border: '1px dashed var(--border-main)' }}>
                   <Camera size={24} style={{ margin: '0 auto 8px auto' }} />
                   <h4 style={{ color: 'var(--text-title)', margin: '0 0 4px 0', fontSize: '0.95rem' }}>{lang === 'en' ? 'No finalized history available.' : 'Még nincs lezárt meccse.'}</h4>
-                  
-                  {/* DIAGNOSZTIKAI MOTOR */}
-                  <div style={{ background: 'var(--bg-main)', padding: '14px', marginTop: '16px', borderRadius: '6px', fontSize: '0.78rem', fontFamily: 'monospace', color: 'var(--text-body)', textAlign: 'left', border: '1px solid var(--border-main)', lineHeight: '1.5' }}>
-                    <div style={{ color: '#fb923c', marginBottom: '6px', fontWeight: 'bold' }}>🔍 SZERVEROLDALI FOLYAMAT-NAPLÓ:</div>
-                    <div>• Frontend email: <span>"{selectedUser?.user_email || selectedUser?.email}"</span></div>
-                    <div>• Backend beérkezett email: <span>"{playerStats?.debugQueryEmail || 'NINCS VÁLASZ'}"</span></div>
-                    
-                    <div style={{ margin: '8px 0', borderTop: '1px solid var(--border-main)', paddingTop: '8px' }}>
-                      {playerStats?.debugSteps && playerStats.debugSteps.map((step: string, i: number) => (
-                        <div key={i} style={{ color: step.startsWith('❌') ? '#f43f5e' : step.startsWith('✅') || step.includes('Találat') ? '#10b981' : 'var(--text-muted)', marginBottom: '3px' }}>
-                          {step}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
                   <p style={{ margin: '12px 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                     {lang === 'en' ? 'Submissions appear here once the current rounds are finalized by the admin.' : 'A pályaművek itt jelennek meg, amint a futamok lezárulnak és jóváhagyásra kerülnek.'}
                   </p>
@@ -276,7 +253,7 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
                             {badge || (lang === 'en' ? `Rank ${entry?.rank}` : `${entry?.rank}. Hely`)}
                           </div>
                           
-                          <div style={{ position: 'absolute', top: '12px', right: '12px', background: 'rgba(9,13,22,0.82)', color: isDaily ? '#f87171' : '#60a5fa', padding: '3px 10px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 'bold', border: `1px solid ${isDaily ? 'rgba(239,68,68,0.2)' : 'rgba(59,130,246,0.2)'}` }}>
+                          <div style={{ position: 'absolute', top: '12px', right: '12px', background: 'rgba(9,13,22,0.82)', color: isDaily ? '#f87171' : '#60a5fa', padding: '3px 10px', borderRadius: '4px', fontSize: '0.7 hydrodynamic', fontWeight: 'bold', border: `1px solid ${isDaily ? 'rgba(239,68,68,0.2)' : 'rgba(59,130,246,0.2)'}` }}>
                             {isDaily ? (lang === 'en' ? 'Blitz' : 'Villámfutam') : (lang === 'en' ? 'Master' : 'Mesterfutam')}
                           </div>
                         </div>
@@ -307,7 +284,7 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
   }
 
   // ====================================================================
-  // 🏆 2. OLDALNÉZET: AZ EREDETI DICSŐSÉGCSARNOK LISTA NÉZET
+  // 🏆 2. OLDALNÉZET: AZ EREDETI DICSŐGCSARNOK LISTA NÉZET
   // ====================================================================
   return (
     <div style={{ background: 'var(--bg-card)', padding: '24px', borderRadius: '8px', border: '1px solid var(--border-main)', boxShadow: '0 4px 15px rgba(0,0,0,0.05)', animation: 'fadeIn 0.4s ease-out' }}>
@@ -327,7 +304,6 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
           const masterCount = Number(row?.master_count) || 0;
 
           const level = getAdaptiveLevelDetails(likes, 0); 
-          
           const displayRankName = lang === 'en' ? (rankNamesEn[level?.name || ''] || level?.name || '') : (level?.name || '');
 
           return (
@@ -379,17 +355,17 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
                   </div>
                 )}
 
-                {/* Statisztikai címkék */}
+                {/* 🎯 JAVÍTVA: Statisztikai címkék reszponzív, nyelvhelyes lebegő magyarázatokkal (Tooltipek) */}
                 <div style={{ display: 'flex', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: '0.7rem', color: '#fbbf24', background: 'rgba(251,191,36,0.06)', padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(251,191,36,0.12)', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                  <span title={lang === 'en' ? 'Arena Victories (1st Places)' : 'Aréna győzelmek száma (1. helyezések)'} style={{ fontSize: '0.7rem', color: '#fbbf24', background: 'rgba(251,191,36,0.06)', padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(251,191,36,0.12)', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
                     🥇 {firstPlaces}
                   </span>
                   
-                  <span style={{ fontSize: '0.7rem', color: '#38bdf8', background: 'rgba(56,189,248,0.06)', padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(56,189,248,0.12)', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                  <span title={lang === 'en' ? 'Podium finishes (1st, 2nd, or 3rd place)' : 'Dobogós helyezések száma (1., 2. és 3. helyek)'} style={{ fontSize: '0.7rem', color: '#38bdf8', background: 'rgba(56,189,248,0.06)', padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(56,189,248,0.12)', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
                     🏆 {podiums}
                   </span>
                   
-                  <span style={{ fontSize: '0.7rem', color: '#ec4899', background: 'rgba(236,72,153,0.06)', padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(236,72,153,0.12)', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                  <span title={lang === 'en' ? 'Times approved as Arena Judge / Master' : 'Csatabíróként / Képmesterként vezetett Aréna futamok száma'} style={{ fontSize: '0.7rem', color: '#ec4899', background: 'rgba(236,72,153,0.06)', padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(236,72,153,0.12)', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
                     <Zap size={10} /> {masterCount}
                   </span>
                 </div>
