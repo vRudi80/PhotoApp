@@ -95,25 +95,40 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       cleanupTempFile(file);
 
       // 🎯 MODOSÍTVA: Kimentjük a mentési eredményt, hogy megkapjuk a generált helyszín ID-t (insertId)
+      // Kimentjük a mentési eredményt, hogy megkapjuk a generált helyszín ID-t (insertId)
       const [result] = await pool.query(
         'INSERT INTO photo_locations (user_email, user_name, lat, lng, title, description, file_url, drive_file_id, photo_month, photo_time_of_day, camera, lens) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 
         [req.user.email, req.user.name, lat, lng, title, description, driveRes.data.webViewLink, driveRes.data.id, photoMonth || null, photoTimeOfDay || null, camera || null, lens || null]
       );
 
-      // 🪙 ÚJ: Jutalompontok automatikus lekönyvelése és tranzakciós naplózása a sikeres mentés után
+      // 🪙 JUTALOMPONT KIOSZTÁS SPAM VÉDELEMMEL
       if (result && result.insertId) {
         try {
-          await PointsService.handleTransaction(
-            pool,
-            req.user.email,
-            PointsService.CONSTANTS.EARN_MAP_UPLOAD, // +20 pont
-            'map_upload',
-            result.insertId, // A kapcsolódó térkép marker egyedi ID-ja
-            `🗺️ Új fotós helyszín feltöltése a térképre: "${title.trim()}"`,
-            `Uploaded a new photo location to the map: "${title.trim()}"`
+          // 🛡️ ANTI-FRAUD ELLENŐRZÉS: Megszámoljuk, hányszor kapott ma térkép bónuszt a user
+          const [dailySpamCheck] = await pool.query(
+            "SELECT COUNT(*) as count FROM photo_points_ledger WHERE user_email = ? AND reason_key = 'map_upload' AND DATE(created_at) = CURDATE()",
+            [req.user.email]
           );
+
+          const todayUploadsCount = dailySpamCheck[0]?.count || 0;
+
+          if (todayUploadsCount < 2) { 
+            // 🎯 Max 2 alkalommal kaphat pontot egy nap (szabadon állítható 1-re vagy 3-ra is)
+            await PointsService.handleTransaction(
+              pool,
+              req.user.email,
+              PointsService.CONSTANTS.EARN_MAP_UPLOAD, // +20 pont
+              'map_upload',
+              result.insertId,
+              `🗺️ Új fotós helyszín feltöltése a térképre: "${title.trim()}"`,
+              `Uploaded a new photo location to the map: "${title.trim()}"`
+            );
+          } else {
+            // Ha elérte a limitet, a pont kimarad, de a konzolra kiírjuk biztonsági naplózásként
+            console.log(`ℹ️ Spam Shield aktív: ${req.user.email} elérte a napi térképfeltöltési pontlimitét. A helyszín mentve, bónuszpont elvetve.`);
+          }
+
         } catch (pointsErr) {
-          // Ha a pontkönyvelés valamiért elbukna, a térkép marker sikeres mentését nem szakítjuk meg, csak logoljuk
           console.error("⚠️ Hiba történt a térképbónusz pontok jóváírásakor:", pointsErr.message);
         }
       }
