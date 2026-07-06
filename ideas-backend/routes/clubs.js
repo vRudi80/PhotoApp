@@ -691,6 +691,9 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     // 1. Új téma/beszélgetés indítása KÉPFELTÖLTÉSSEL
     // 🎯 VÉGLEGES FIX: Fórumposzt-mentő végpont natív fájltörléssel
     // 🎯 JAVÍTVA: Intelligens klub-azonosító kezelés a null értékek kivédésére
+// ====================================================================
+  // 📝 ÚJ TÉMA INDÍTÁSA INTEGRÁLT PONTRENDSZERREL
+  // ====================================================================
   app.post('/api/forum/categories/:categoryId/posts', upload.single('photo'), requireAuth, async (req, res) => {
     const { categoryId } = req.params;
     const { clubId, title, content, isPublic } = req.body;
@@ -731,10 +734,30 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         finalClubId = Number(req.user.club_id);
       }
 
-      await pool.query(
+      // 🎯 MODOSÍTVA: Kimentjük a mentés eredményét a [result] tömbbe
+      const [result] = await pool.query(
         'INSERT INTO photo_club_news (category_id, club_id, author_email, author_name, title, content, is_public, file_url, drive_file_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
         [categoryId, finalClubId, req.user.email, req.user.name, title, content, isPublic === 'true' || isPublic === true ? 1 : 0, fileUrl, driveFileId]
       );
+
+      // 🪙 JUTALOMPONT: Ha a mentés sikeres volt, azonnal kiosztunk +10 bónuszpontot a szerzőnek
+      if (result && result.insertId) {
+        try {
+          await PointsService.handleTransaction(
+            pool, 
+            req.user.email, 
+            10, // +10 pont jár érte
+            'forum_post', 
+            result.insertId, // Összekötjük a pontot a poszt ID-jával
+            `📝 Új témát indítottál a fórumban: "${title.trim()}"`,
+            `Started a new topic in the forum: "${title.trim()}"`
+          );
+        } catch (pe) {
+          // Ha a pontozás valamiért hibára futna, a konzolra kiírjuk, de a posztot nem engedjük elveszni!
+          console.error("❌ Fórum poszt pontozási hiba:", pe.message);
+        }
+      }
+
       res.json({ success: true });
     } catch (err) {
       if (file) cleanupTempFile(file);
