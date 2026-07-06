@@ -474,6 +474,32 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { res.status(500).json({ error: err.message }); }
   });
 
+  // 🎯 ÚJ: RENDESZETT INTERFÉSZ A HISTÓRIKUS TAGDÍJAKHOZ (ÁTHELYEZVE /api/clubs/ my-payments ALÁ)
+  app.get('/api/clubs/my-payments', requireAuth, async (req, res) => {
+    const { userEmail } = req.query;
+    if (!userEmail) return res.status(400).json({ error: 'Hiányzó e-mail cím!' });
+    if (req.user.email !== userEmail && !req.user.isAdmin) return res.status(403).json({ error: 'Megtagadva!' });
+    try {
+      const [rows] = await pool.query(
+        `SELECT 
+          p.fiscal_year, 
+          p.fee_amount, 
+          p.paid_amount, 
+          (p.fee_amount - p.paid_amount) AS outstanding_balance, 
+          DATE_FORMAT(p.payment_date, '%Y-%m-%d') AS payment_date, 
+          COALESCE(c.name, 'Klubtagság') AS target_club_name 
+         FROM photo_club_payments p 
+         LEFT JOIN photo_clubs c ON p.club_id = c.id 
+         WHERE LOWER(TRIM(p.user_email)) = LOWER(TRIM(?)) 
+         ORDER BY p.fiscal_year DESC`,
+        [userEmail]
+      );
+      res.json(rows);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+  
   app.post('/api/my-club/member/update-dates', requireAuth, async (req, res) => {
     const { clubId, targetEmail, membershipStart, membershipEnd } = req.body;
     if (!targetEmail || !clubId) return res.status(400).json({ error: 'Hiányzó azonosítók!' });
@@ -782,7 +808,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-  app.get('/api/profile/active-membership', requireAuth, async (req, res) => {
+  app.get('/api/clubs/active-membership', requireAuth, async (req, res) => {
     try {
       const [rows] = await pool.query(
         "SELECT DATE_FORMAT(joined_date, '%Y-%m-%d') as membership_start, DATE_FORMAT(left_date, '%Y-%m-%d') as membership_end FROM photo_club_memberships WHERE user_email = ? AND status = 'active' LIMIT 1",
