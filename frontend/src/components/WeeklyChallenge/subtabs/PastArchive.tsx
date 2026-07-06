@@ -228,7 +228,7 @@ export default function PastArchive({
     return singlePhotosRankedList.filter((_, idx) => idx % 3 === 0).slice(0, 4); 
   }, [singlePhotosRankedList]);
 
-  // 🎯 RE-INTEGRÁLT ÉS JAVÍTVA: Szerveroldali Base64 proxy-t használó, golyóálló Plakátgeneráló motor
+  // 🎯 JAVÍTVA: Szerveroldali Base64 proxy-t használó, golyóálló Plakátgeneráló motor
   const handleGenerateAdminPoster = async () => {
     if (!topThreeWinners.length) return alert("Nincs elegendő dobogós adat a plakát elkészítéséhez!");
     setIsAdminGeneratingPoster(true);
@@ -256,7 +256,7 @@ export default function PastArchive({
         entries: entriesWithBase64
       });
 
-      // Várunk egy picit, amíg a React felépíti a rejtett DOM fát
+      // Várunk egy picit, amíg a React felépíti az off-screen DOM fát
       setTimeout(async () => {
         const node = document.getElementById('admin-past-poster-node');
         if (!node) {
@@ -359,7 +359,7 @@ export default function PastArchive({
                     <span style={{ color: 'var(--text-title)', fontWeight: '600' }}>{endedDate}</span> 
                     <span>{t('archiveCountEnded', 'Lezárult')}</span>
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', itemsCenter: 'center', gap: '2px' }}>
                     <Vote size={12} color="#38bdf8" />
                     <span style={{ color: '#38bdf8', fontWeight: '600' }}>{realVotesCount > 0 ? `${realVotesCount} db` : '- db'}</span> 
                     <span>{t('archiveCountVotes', 'Szavazat')}</span>
@@ -445,7 +445,6 @@ export default function PastArchive({
                           <Share2 size={14} /> {t('btnShareResult', 'Trófeakártya Mentése')}
                         </button>
 
-                        {/* 🎯 JAVÍTVA: Visszatettük az adminisztrátori plakátletöltő gombot a felületre! */}
                         {isAdminUser && (
                           <button
                             onClick={handleGenerateAdminPoster}
@@ -609,7 +608,9 @@ export default function PastArchive({
       )}
 
       {/* REJTETT PLAKÁT-GENERÁLÓ SABLON ADMINOKNAK */}
-      <div style={{ position: 'absolute', top: '-9999px', left: '-9999px', overflow: 'hidden', width: 0, height: 0 }}>
+      {/* 🎯 JAVÍTVA: Megváltoztatott off-screen elhelyezés! width: 1200, height: 1200-as fizikai mérettel rendelkezik, de kitolva a viewportból. */}
+      {/* Ez kényszeríti ki a böngészőből az assetek (képek) háttérbéli teljes lerajzolását és memóriába dekódolását! */}
+      <div style={{ position: 'fixed', top: 0, left: 0, width: '1200px', height: '1200px', transform: 'translate(-200vw, -200vh)', overflow: 'hidden', pointerEvents: 'none', zIndex: -9999 }}>
         {adminPosterData && (
           <div 
             id="admin-past-poster-node" 
@@ -628,17 +629,18 @@ export default function PastArchive({
             </div>
 
             <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: '35px', width: '100%', padding: '0 20px', boxSizing: 'border-box' }}>
+              
               {/* 2. HELYEZETT */}
               {adminPosterData.entries[1] && (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '290px' }}>
                   <div style={{ width: '240px', height: '240px', borderRadius: '16px', overflow: 'hidden', border: '6px solid #cbd5e1', boxShadow: '0 20px 45px rgba(0,0,0,0.6)', backgroundColor: '#000', marginBottom: '15px' }}>
-                    {/* 🎯 JAVÍTVA: crossOrigin hozzáadva a külső CORS tiltás ellen */}
-                    <img src={adminPosterData.entries[1].base64Url} alt="" crossOrigin="anonymous" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    {/* 🎯 JAVÍTVA: crossOrigin kizárólag akkor kap anonymous értéket, ha nem éles inline base64 stringről beszélünk */}
+                    <img src={adminPosterData.entries[1].base64Url} alt="" crossOrigin={adminPosterData.entries[1].base64Url.startsWith('data:') ? undefined : 'anonymous'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   </div>
                   <div style={{ background: 'linear-gradient(180deg, #334155 0%, #1e293b 100%)', width: '100%', height: '200px', borderRadius: '16px 16px 0 0', border: '1px solid #475569', borderBottom: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '15px', boxSizing: 'border-box', textAlign: 'center' }}>
                     <div style={{ color: '#cbd5e1', fontSize: '24px', fontWeight: 'bold', width: '100%', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.2', textAlign: 'center', minHeight: '58px' }}>{adminPosterData.entries[1].user_name}</div>
                     <div style={{ color: '#94a3b8', fontSize: '22px', fontWeight: '900', marginTop: '4px' }}>
-                      {/* 🎯 JAVÍTVA: Az elírt, lezáratlan template literal szintaxis korrigálva! */}
+                      {/* 🎯 JAVÍTVA: Az elírt, hiányos string literál lezárása pontosítva */}
                       {adminPosterData.entries[1].fair_score !== undefined ? `${adminPosterData.entries[1].fair_score} pont` : `${adminPosterData.entries[1].likes_count} pont`}
                     </div>
                     <div style={{ color: '#cbd5e1', fontSize: '32px', fontWeight: '900', marginTop: '20px', letterSpacing: '1px' }}>🥈 2. {t('archivePosterPlace', 'HELY')}</div>
@@ -651,8 +653,7 @@ export default function PastArchive({
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '330px', zIndex: 10 }}>
                   <div style={{ fontSize: '70px', marginBottom: '-10px', filter: 'drop-shadow(0 4px 10px rgba(251,191,36,0.5))' }}>👑</div>
                   <div style={{ width: '290px', height: '290px', borderRadius: '24px', overflow: 'hidden', border: '8px solid #fbbf24', boxShadow: '0 25px 60px rgba(251,191,36,0.3)', backgroundColor: '#000', marginBottom: '15px' }}>
-                    {/* 🎯 JAVÍTVA: crossOrigin hozzáadva a külső CORS tiltás ellen */}
-                    <img src={adminPosterData.entries[0].base64Url} alt="" crossOrigin="anonymous" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <img src={adminPosterData.entries[0].base64Url} alt="" crossOrigin={adminPosterData.entries[0].base64Url.startsWith('data:') ? undefined : 'anonymous'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   </div>
                   <div style={{ background: 'linear-gradient(180deg, #fbbf24 0%, #b45309 100%)', width: '100%', height: '270px', borderRadius: '20px 24px 0 0', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '15px', boxSizing: 'border-box', textAlign: 'center', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
                     <div style={{ color: '#0f172a', fontSize: '28px', fontWeight: '900', width: '100%', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.2', textAlign: 'center', minHeight: '64px' }}>{adminPosterData.entries[0].user_name}</div>
@@ -668,11 +669,9 @@ export default function PastArchive({
               {adminPosterData.entries[2] && (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '290px' }}>
                   <div style={{ width: '240px', height: '240px', borderRadius: '16px', overflow: 'hidden', border: '6px solid #b45309', boxShadow: '0 20px 45px rgba(0,0,0,0.6)', backgroundColor: '#000', marginBottom: '15px' }}>
-                    {/* 🎯 JAVÍTVA: crossOrigin hozzáadva a külső CORS tiltás ellen */}
-                    <img src={adminPosterData.entries[2].base64Url} alt="" crossOrigin="anonymous" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <img src={adminPosterData.entries[2].base64Url} alt="" crossOrigin={adminPosterData.entries[2].base64Url.startsWith('data:') ? undefined : 'anonymous'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   </div>
                   <div style={{ background: 'linear-gradient(180deg, #7c2d12 0%, #431407 100%)', width: '100%', height: '200px', borderRadius: '16px 16px 0 0', border: '1px solid #7c2d12', borderBottom: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '15px', boxSizing: 'border-box', textAlign: 'center' }}>
-                    {/* 🎯 JAVÍTVA: Az elírt, funkcióként renderelődő zombi kód lecserélve a tiszta reaktív adatra! */}
                     <div style={{ color: '#ffedd5', fontSize: '24px', fontWeight: 'bold', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{adminPosterData.entries[2].user_name}</div>
                     <div style={{ color: '#fdba74', fontSize: '22px', fontWeight: '900', marginTop: '4px' }}>
                       {adminPosterData.entries[2].fair_score !== undefined ? `${adminPosterData.entries[2].fair_score} pont` : `${adminPosterData.entries[2].likes_count} pont`}
