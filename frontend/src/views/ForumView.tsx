@@ -201,7 +201,6 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
     setCommentPreview(null);
 
     try {
-      // 🎯 OPTIMALIZÁLVA: A megnyitás rögzítését és a kommentek letöltését egyszerre indítjuk el!
       const [_, res] = await Promise.all([
         fetch(`${BACKEND_URL}/api/news/${postId}/read`, {
           method: 'POST',
@@ -212,6 +211,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
       ]);
 
       if (res.ok) setComments(await res.json());
+      fetchPosts(true); // 🔄 Frissítjük a listát csendben, hogy az olvasott komment jelvény eltűnjön!
     } catch (e) { console.error(e); }
   };
 
@@ -331,6 +331,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
         setCommentPreview(null);
         const cRes = await fetch(`${BACKEND_URL}/api/news/${postId}/comments`, { headers: getLocalAuthHeaders() });
         if (cRes.ok) setComments(await cRes.json());
+        fetchPosts(true); 
       }
     } catch (e) { alert("Hiba a hozzászólásnál."); }
     finally { setIsCommenting(false); }
@@ -413,7 +414,13 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
                         </span>
                         {Number(cat.unread_count) > 0 && (
                           <span style={{ background: '#ef4444', color: 'white', fontSize: '0.68rem', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold', flexShrink: 0, lineHeight: '1.2' }}>
-                            {cat.unread_count} új
+                            {cat.unread_count} új téma
+                          </span>
+                        )}
+                        {/* 🎯 JAVÍTVA: Kirajzoljuk a főoldalon a csoporton belüli olvasatlan komment plecsnit */}
+                        {Number(cat.unread_comments_count) > 0 && (
+                          <span style={{ background: '#3b82f6', color: 'white', fontSize: '0.68rem', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold', flexShrink: 0, lineHeight: '1.2' }}>
+                            {cat.unread_comments_count} új komment
                           </span>
                         )}
                       </h3>
@@ -515,8 +522,15 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
                     <div onClick={() => handleExpandPost(post.id)} style={{ padding: '20px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: isExpanded ? 'var(--bg-main)' : 'transparent' }}>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                          {isUnread && <span style={{ background: '#ef4444', color: 'white', padding: '2px 8px', borderRadius: '12px', fontSize: '0.68rem', fontWeight: 'bold' }}>ÚJ</span>}
+                          {isUnread && <span style={{ background: '#ef4444', color: 'white', padding: '2px 8px', borderRadius: '12px', fontSize: '0.68rem', fontWeight: 'bold' }}>ÚJ TÉMA</span>}
                           
+                          {/* 🎯 JAVÍTVA: Kirajzoljuk a poszt fejlécében az új olvasatlan komment jelvényt */}
+                          {Number(post.unread_comments_count) > 0 && (
+                            <span style={{ background: '#3b82f6', color: 'white', padding: '2px 8px', borderRadius: '12px', fontSize: '0.68rem', fontWeight: 'bold' }}>
+                              {post.unread_comments_count} ÚJ KOMMENT
+                            </span>
+                          )}
+
                           {post.is_public === 1 ? (
                             <span style={{ background: 'rgba(245,158,11,0.08)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.2)', padding: '2px 8px', borderRadius: '12px', fontSize: '0.68rem', fontWeight: 'bold' }}>📢 NYILVÁNOS</span>
                           ) : (
@@ -537,7 +551,6 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
                           </span>
                         </div>
 
-                        {/* Feltételes cím megjelenítés szerkesztéskor */}
                         {editingPostId === post.id ? (
                           <div style={{ paddingRight: '20px' }}>
                             <input 
@@ -552,14 +565,13 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
                           <h3 style={{ margin: 0, color: isExpanded ? '#38bdf8' : 'var(--text-title)', fontSize: '1.15rem', fontWeight: '700' }}>{post.title}</h3>
                         )}
                       </div>
-                      <div style={{ fontSize: '1.2rem', color: isUnread ? '#ef4444' : 'var(--text-muted)', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }}>▼</div>
+                      <div style={{ fontSize: '1.2rem', color: isExpanded ? '#38bdf8' : 'var(--text-muted)', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }}>▼</div>
                     </div>
 
                     {/* LENYITOTT RÉSZ */}
                     {isExpanded && (
                       <div style={{ padding: '0 20px 20px 20px', borderTop: '1px solid var(--border-main)', animation: 'fadeIn 0.3s ease-out' }}>
                         
-                        {/* Feltételes szerkesztő felület beépítése az inline módhoz */}
                         {editingPostId === post.id ? (
                           <div style={{ marginTop: '15px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                             <textarea 
