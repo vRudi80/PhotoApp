@@ -1040,6 +1040,8 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   };
   app.post('/api/weekly/archive/like', requireAuth, handleArchiveLikeLogic);
   app.post('/api/weekly/history/like', requireAuth, handleArchiveLikeLogic);
+  app.post('/api/weekly/archive/like-toggle', requireAuth, handleArchiveLikeLogic);
+  app.post('/api/weekly/history/like-toggle', requireAuth, handleArchiveLikeLogic);
 
   const handleGetComments = async (req, res) => {
     try { res.json((await pool.query('SELECT * FROM weekly_archive_comments WHERE entry_id = ? ORDER BY created_at ASC', [req.params.entryId]))[0]); } catch (e) { res.status(500).json({ error: e.message }); }
