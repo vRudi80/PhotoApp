@@ -389,13 +389,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     } catch (e) { console.error(e); }
   };
 
-  const fetchCurrentTopic = async (isSilent = false) => {
-    if (!isSilent) {
-      setLoading(true);
-      setFetchError(null);
-    }
-
-    // 🪙 ÚJ: Golyóálló pontszám-szinkronizáció közvetlenül az adatbázisból
+      // 🪙 ÚJ: Golyóálló pontszám-szinkronizáció közvetlenül az adatbázisból
   const fetchFreshPointsBalance = async () => {
     if (!user?.email) return;
     try {
@@ -412,6 +406,14 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       console.error("Nem sikerült az Aréna pontszámot közvetlenül szinkronizálni:", e);
     }
   };
+  
+  const fetchCurrentTopic = async (isSilent = false) => {
+    if (!isSilent) {
+      setLoading(true);
+      setFetchError(null);
+    }
+
+
     
     if (!user?.email) {
       if (!isSilent) setLoading(false);
