@@ -459,7 +459,7 @@ export default function Header({
                       style={{ color: activeTab === 'admin_points' ? '#ef4444' : '#fbbf24', fontWeight: 'bold' }} 
                       onClick={() => handleNavClick('admin_points')}
                     >
-                      🪙 {lang === 'en' ? 'Points Control' : 'Pontrendszer'}
+                      {lang === 'en' ? 'Points Control' : 'Pontrendszer'}
                     </button>
                   )}
 
