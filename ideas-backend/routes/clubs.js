@@ -996,6 +996,43 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
+  // ====================================================================
+  // 🏛️ GLOBALIS OLVASATLAN FÓRUM DARABSZÁM A HEADER PLECSNIHEZ
+  // ====================================================================
+  app.get('/api/forum/unread-total', requireAuth, async (req, res) => {
+    const userEmail = req.user.email;
+    const clubId = req.user.club_id ? Number(req.user.club_id) : null;
+    
+    try {
+      // 1. Összeszámoljuk azokat a posztokat, amiket a user még egyáltalán nem nyitott meg
+      const [postRows] = await pool.query(`
+        SELECT COUNT(*) as count 
+        FROM photo_club_news n
+        WHERE (n.is_public = 1 OR n.club_id = ?)
+          AND n.id NOT IN (SELECT news_id FROM photo_club_news_reads WHERE user_email = ?)
+      `, [clubId, userEmail]);
+
+      // 2. Összeszámoljuk azokat az új kommenteket, amik azóta érkeztek, mióta a user utoljára látta az adott posztot
+      const [commentRows] = await pool.query(`
+        SELECT COUNT(*) as count 
+        FROM photo_club_news_comments cc 
+        JOIN photo_club_news nn ON cc.news_id = nn.id 
+        WHERE (nn.is_public = 1 OR nn.club_id = ?) 
+          AND cc.user_email != ? 
+          AND cc.created_at > COALESCE(
+            (SELECT rr.read_at FROM photo_club_news_reads rr WHERE rr.news_id = nn.id AND rr.user_email = ?), 
+            '1970-01-01 00:00:00'
+          )
+      `, [clubId, userEmail, userEmail]);
+
+      const totalUnread = (postRows[0]?.count || 0) + (commentRows[0]?.count || 0);
+      res.json({ totalUnread });
+    } catch (err) {
+      console.error("❌ Header badge számítási hiba:", err.message);
+      res.json({ totalUnread: 0 }); // Hiba esetén 0-át adunk vissza, hogy ne omoljon össze a menü
+    }
+  });
+  
  // ====================================================================
   // ❤️ HOZZÁSZÓLÁS LÁJKOLÁS ÖNMŰKÖDŐ ADATBÁZIS-VÉDELEMMEL (500 FIX)
   // ====================================================================
