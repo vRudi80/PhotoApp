@@ -5,7 +5,7 @@ const crypto = require('crypto');
 const { OAuth2Client } = require('google-auth-library');
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const axios = require('axios'); // 🎯 EZ A SOR HIÁNYZOTT A PROXY MŰKÖDÉSÉHEZ!
-const PointsService = require('./PointsService');
+const PointsService = require('../PointsService');
 
 // 🎯 JAVÍTVA: A te valódi admin e-mailedet állítottuk be biztonsági tartaléknak!
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "kovari.rudolf@gmail.com";
