@@ -217,6 +217,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         const score2 = entries[1] ? entries[1].calculated_fair_score : -1;
         const score3 = entries[2] ? entries[2].calculated_fair_score : -1;
 
+        // 🎯 FRISSÍTVE: A lezárult Aréna kihívások pontalapú kiértékelése
         for (let i = 0; i < entries.length; i++) {
           const entry = entries[i];
           const rank = i + 1;
@@ -229,14 +230,33 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
             await pool.query('UPDATE photo_users SET victories = victories + 1 WHERE email = ?', [entry.user_email]);
           }
 
+          // 🪙 PONTOK KIOSZTÁSA A HELYEZÉSEK ALAPJÁN A JAVÍTOTT MOTORRAL:
           if (entry.calculated_fair_score === score1) {
-            await pool.query('UPDATE photo_users SET swap_balance = swap_balance + 3 WHERE email = ?', [entry.user_email]);
-            await pool.query(`UPDATE photo_users SET premium_level = 1, is_premium = 1, premium_until = DATE_ADD(IF(premium_until IS NOT NULL AND premium_until > ?, premium_until, ?), INTERVAL 7 DAY) WHERE email = ?`, [currentNow, currentNow, entry.user_email]);
+            // 1. Helyezett (+100 pont)
+            await PointsService.handleTransaction(
+              pool, entry.user_email, PointsService.CONSTANTS.EARN_ARENA_1ST, 'arena_1st', topic.id,
+              `🏆 1. helyezés az Arénában: "${topic.title}"`, `1st place in the Arena: "${topic.title}"`
+            );
           } else if (entry.calculated_fair_score === score2) {
-            await pool.query('UPDATE photo_users SET swap_balance = swap_balance + 2 WHERE email = ?', [entry.user_email]);
+            // 2. Helyezett (+50 pont)
+            await PointsService.handleTransaction(
+              pool, entry.user_email, PointsService.CONSTANTS.EARN_ARENA_2ND, 'arena_2nd', topic.id,
+              `🥈 2. helyezés az Arénában: "${topic.title}"`, `2nd place in the Arena: "${topic.title}"`
+            );
           } else if (entry.calculated_fair_score === score3) {
-            await pool.query('UPDATE photo_users SET swap_balance = swap_balance + 1 WHERE email = ?', [entry.user_email]);
+            // 3. Helyezett (+25 pont)
+            await PointsService.handleTransaction(
+              pool, entry.user_email, PointsService.CONSTANTS.EARN_ARENA_3RD, 'arena_3rd', topic.id,
+              `🥉 3. helyezés az Arénában: "${topic.title}"`, `3rd place in the Arena: "${topic.title}"`
+            );
+          } else {
+            // Minden egyéb aktív résztvevő vigaszpontot kap (+5 pont), mert küldött be képet!
+            await PointsService.handleTransaction(
+              pool, entry.user_email, 5, 'arena_participant', topic.id,
+              `🌱 Aréna részvételi pont: "${topic.title}"`, `Arena participation point: "${topic.title}"`
+            );
           }
+
           await checkAndAwardLevelUp(pool, entry.user_email);
         }
         await pool.query('UPDATE weekly_topics SET processed = 1 WHERE id = ?', [topic.id]);
@@ -653,10 +673,17 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
+  // ====================================================================
+  // 🗳️ FRISSÍTVE: SZAVAZÁSI VÉGPONT INTEGRÁLT BÓNUSZPONT MOTORRAL
+  // ====================================================================
   app.post('/api/weekly/vote', requireAuth, async (req, res) => {
     const { entryId, userEmail, voteType } = req.body; 
     if (req.user.email !== userEmail) return res.status(403).json({ error: 'Tiltott manipuláció!' });
+    
     const conn = await pool.getConnection();
+    let awardVoteBonus = false;
+    let targetTopicId = null;
+
     try {
       await conn.beginTransaction();
       const [existing] = await conn.query('SELECT id FROM weekly_votes WHERE entry_id = ? AND voter_email = ?', [entryId, userEmail]);
@@ -664,6 +691,8 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
       const [entryTopicRows] = await conn.query('SELECT topic_id FROM weekly_entries WHERE id = ?', [entryId]);
       const topicId = entryTopicRows[0]?.topic_id;
+      targetTopicId = topicId; // Kimentjük a globális változóba, hogy a commit után elérjük
+
       const [topicRows] = await conn.query('SELECT master_email FROM weekly_topics WHERE id = ?', [topicId]);
       
       const isRealMasterOfThisRoom = userEmail && topicRows[0]?.master_email && userEmail.toLowerCase().trim() === topicRows[0].master_email.toLowerCase().trim();
@@ -687,8 +716,67 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         if (entryRows[0]?.user_email) await checkAndAwardLevelUp(conn, entryRows[0].user_email);
       }
 
-      await conn.commit(); res.json({ success: true, savedAs: voteType });
-    } catch (err) { await conn.rollback(); res.status(500).json({ error: err.message }); } finally { conn.release(); }
+      // 🎯 ÚJ: JÁTÉKOS AKTIVITÁS ELLENŐRZŐ (BÓNUSZPONT MOTOR)
+      if (topicId) {
+        // 1. Lekérjük a szobában lévő összes többi aktív kép számát (kivéve a sajátját!)
+        const [totalEntriesRows] = await conn.query(
+          'SELECT COUNT(*) as total FROM weekly_entries WHERE topic_id = ? AND is_active = 1 AND LOWER(TRIM(user_email)) != LOWER(TRIM(?))',
+          [topicId, userEmail]
+        );
+        const totalVotable = Number(totalEntriesRows[0]?.total || 0);
+
+        // 2. Megszámoljuk, hogy a user eddig hány képre szavazott ebben az Aréna szobában
+        const [userVotesRows] = await conn.query(
+          `SELECT COUNT(*) as votes FROM weekly_votes v 
+           JOIN weekly_entries e ON v.entry_id = e.id 
+           WHERE e.topic_id = ? AND v.voter_email = ?`,
+          [topicId, userEmail]
+        );
+        // Mivel ezt a mostani szavazatot az SQL-be már beszúrtuk, a userVotesCount pontosan az aktuális állapotot fogja tükrözni
+        const userVotesCount = Number(userVotesRows[0]?.votes || 0);
+
+        // Ha minden elérhető képet elbírált, ellenőrizzük, hogy kapott-e már érte bónuszt korábban
+        if (totalVotable > 0 && userVotesCount === totalVotable) {
+          const [alreadyAwarded] = await conn.query(
+            "SELECT id FROM photo_points_ledger WHERE user_email = ? AND reason_key = 'arena_vote_bonus' AND related_id = ?",
+            [userEmail, topicId]
+          );
+          
+          // Ha még szűz a szoba pontnaplója ehhez a meccshez, felkapcsoljuk a pontszerző zászlót!
+          if (alreadyAwarded.length === 0) {
+            awardVoteBonus = true;
+          }
+        }
+      }
+
+      await conn.commit();
+    } catch (err) { 
+      await conn.rollback(); 
+      res.status(500).json({ error: err.message }); 
+      return;
+    } finally { 
+      conn.release(); 
+    }
+
+    // 🪙 Biztonsági okokból a főtranzakció commitja UTÁN futtatjuk a pontszervizt,
+    // így elkerüljük az adatbázis-zárolásokat (deadlock) és holtversenyeket!
+    if (awardVoteBonus && targetTopicId) {
+      try {
+        await PointsService.handleTransaction(
+          pool, 
+          userEmail, 
+          PointsService.CONSTANTS.EARN_ARENA_VOTE_BONUS, // +10 pont
+          'arena_vote_bonus', 
+          targetTopicId,
+          'Minden szavazat sikeresen leadva a szobában! ⚡', 
+          'All votes successfully cast in the room!'
+        );
+      } catch (e) {
+        console.error("⚠️ Nem sikerült a szavazási bónuszt lekönyvelni:", e.message);
+      }
+    }
+
+    res.json({ success: true, savedAs: voteType, voteBonusAwarded: awardVoteBonus });
   });
 
   app.post('/api/weekly/claim-referral', requireAuth, async (req, res) => {
