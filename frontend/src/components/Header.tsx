@@ -39,7 +39,7 @@ import {
 } from 'lucide-react';
 
 interface HeaderProps {
-  user = any;
+  user : any;
   isLeader: boolean;
   activeTab: string;
   setActiveTab: (tab: any) => void;
