@@ -49,7 +49,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
   const [expandedPostId, setExpandedPostId] = useState<number | null>(null);
   
   // Kategória menedzsment (Admin)
-  const [isAddingCategory(false)];
+  
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null);
   const [categoryNameInput, setCategoryNameInput] = useState('');
