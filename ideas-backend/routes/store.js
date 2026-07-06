@@ -173,6 +173,48 @@ module.exports = function(app, pool) {
       res.status(400).json({ error: err.message || 'Sikertelen adminisztrátori művelet.' });
     }
   });
+  // ====================================================================
+  // 👑 UTILS A: ÖSSZES USER EGYSZERŰSÍTETT PONTLISTÁJA (CSAK ADMIN)
+  // ====================================================================
+  app.get('/api/admin/users-points', requireAuth, async (req, res) => {
+    if (!req.user.isAdmin) {
+      return res.status(403).json({ error: 'Hozzáférés megtagadva!' });
+    }
+    try {
+      // Lekérjük az összes felhasználót a pontjaikkal együtt, a leggazdagabbal kezdve
+      const [rows] = await pool.query(
+        'SELECT email, name, points_balance, avatar_url FROM photo_users ORDER BY points_balance DESC'
+      );
+      res.json(rows);
+    } catch (err) {
+      console.error("Hiba az admin user-pontok lekérésekor:", err.message);
+      res.status(500).json({ error: 'Adatbázis hiba történt.' });
+    }
+  });
+
+  // ====================================================================
+  // 👑 UTILS B: EGY ADOTT USER TRANZAKCIÓS NAPLÓJA (CSAK ADMIN)
+  // ====================================================================
+  app.get('/api/admin/user-ledger', requireAuth, async (req, res) => {
+    if (!req.user.isAdmin) {
+      return res.status(403).json({ error: 'Hozzáférés megtagadva!' });
+    }
+    const { targetEmail } = req.query;
+    if (!targetEmail) {
+      return res.status(400).json({ error: 'A célszemély email címe kötelező!' });
+    }
+    try {
+      // Lekérjük a kiválasztott felhasználó teljes pontmúltját időrendben visszafelé
+      const [rows] = await pool.query(
+        'SELECT *, DATE_FORMAT(created_at, "%Y-%m-%d %H:%i") as date FROM photo_points_ledger WHERE user_email = ? ORDER BY created_at DESC',
+        [targetEmail.trim().toLowerCase()]
+      );
+      res.json(rows);
+    } catch (err) {
+      console.error("Hiba az admin ledger lekérésekor:", err.message);
+      res.status(500).json({ error: 'Adatbázis hiba történt.' });
+    }
+  });
 
   // ====================================================================
   // 📜 3. FELHASZNÁLÓ SAJÁT TRANZAKCIÓS NAPLÓJÁNAK LEKÉRÉSE
