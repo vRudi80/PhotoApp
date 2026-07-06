@@ -959,25 +959,25 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-  // 🎯 FRISSÍTVE: A javasolt szobák jóváhagyásakor kivettük a +2 napos ingyen prémium osztást
-  app.post('/api/admin/decide-master', requireAuth, async (req, res) => {
-    if (!req.user.isAdmin) return res.status(403).json({ error: 'Megtagadva!' });
-    const { topicId, decision } = req.body; 
-    try {
-      if (decision === 'approved') {
-        const [topicRows] = await pool.query('SELECT pending_master_email FROM weekly_topics WHERE id = ?', [topicId]);
-        const masterEmail = topicRows[0]?.pending_master_email;
-        if (masterEmail) {
-          await pool.query('UPDATE weekly_topics SET master_email = pending_master_email, pending_master_email = NULL WHERE id = ?', [topicId]);
-          // 🛑 AZ INGYEN PRÉMIUM TÖRLÉSRE KERÜLT - Innentől pontért veheti meg a boltban
-        } else return res.status(400).json({ error: 'Nincs jelentkező!' });
-      } else {
-        await pool.query('UPDATE weekly_topics SET pending_master_email = NULL WHERE id = ?', [topicId]);
-      }
-      res.json({ success: true });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+  app.get('/api/admin/proposals', requireAuth, async (req, res) => {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Hozzáférés megtagadva!' });
+    try { res.json((await pool.query("SELECT * FROM weekly_topics WHERE status = 'pending' ORDER BY start_date ASC"))[0]); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
+  // 🎯 JAVÍTVA: A helyes végpont név visszaállítva, Prémium adományozás nélkül!
+  app.post('/api/admin/decide-proposal', requireAuth, async (req, res) => {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Hozzáférés megtagadva!' });
+    const { topicId, decision } = req.body;
+    try {
+      if (decision === 'approved') {
+        await pool.query("UPDATE weekly_topics SET status = 'approved' WHERE id = ?", [topicId]);
+        // 🛑 AZ INGYEN PRÉMIUM TÖRLÉSRE KERÜLT - Innentől pontért veheti meg a boltban
+      } else {
+        await pool.query("UPDATE weekly_topics SET status = ? WHERE id = ?", [decision, topicId]);
+      }
+      res.json({ success: 'Sikeres bírálat!' });
+    } catch (err) { res.status(500).json({ error: 'Hiba.' }); }
+  });
   app.delete('/api/admin/weekly-topics/:id', requireAuth, async (req, res) => {
     if (!req.user.isAdmin) return res.status(403).json({ error: 'Megtagadva!' });
     try {
