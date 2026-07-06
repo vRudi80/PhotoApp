@@ -1056,8 +1056,8 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { res.status(500).json({ error: err.message }); }
   });
 
-   // ====================================================================
-  // ⚡ ULTRA-OPTIMALIZÁLT DICSŐSÉGCSARNOK JÁTÉKOS STATISZTIKÁK
+ // ====================================================================
+  // ⚡ ULTRA-OPTIMALIZÁLT DICSŐSÉGCSARNOK JÁTÉKOS STATISZTIKÁK (JAVÍTVA)
   // ====================================================================
   app.get('/api/weekly/hof-stats', requireAuth, async (req, res) => {
     const { userEmail } = req.query;
@@ -1068,8 +1068,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       const cleanEmail = String(userEmail).trim().toLowerCase();
       const currentNow = getLocalMySQLNow();
 
-      // 🎯 JAVÍTVA: 1 db villámgyors lekérdezés a ciklus helyett. 
-      // A lezáráskor már elmentett final_rank és final_fair_score mezőkből dolgozunk!
       const [rows] = await pool.query(`
         SELECT 
           t.title as topic_title, 
@@ -1086,12 +1084,12 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         FROM weekly_entries e
         JOIN weekly_topics t ON e.topic_id = t.id
         WHERE LOWER(TRIM(e.user_email)) = LOWER(TRIM(?))
+          AND e.is_active = 1 -- 🎯 ÚJ: Kizárólag a hivatalos, élesített képeket hozzuk el, a lecserélteket eldobjuk!
           AND t.end_date < ?
           AND (t.status = 'approved' OR t.status IS NULL OR t.status = '')
         ORDER BY t.end_date DESC
       `, [cleanEmail, currentNow]);
 
-      // A dobogós helyezéseket villámgyorsan összesítjük a lekért tömbből a szerver memóriájában
       let podiums = { first: 0, second: 0, third: 0 };
       rows.forEach(entry => {
         const r = Number(entry.rank);
