@@ -1047,6 +1047,62 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
+  // ====================================================================
+  // ❤️ HOZZÁSZÓLÁS LÁJKOLÁS JUTALOMPONT RENDSZERREL (ANTI-CHEAT)
+  // ====================================================================
+  app.post('/api/forum/comments/:id/like', requireAuth, async (req, res) => {
+    const commentId = req.params.id;
+    const userEmail = req.user.email;
+    
+    try {
+      // 1. Ellenőrizzük a hozzászólás létezését
+      const [commentRows] = await pool.query('SELECT user_email, news_id FROM photo_club_news_comments WHERE id = ?', [commentId]);
+      if (commentRows.length === 0) {
+        return res.status(404).json({ error: 'A hozzászólás nem található!' });
+      }
+      const authorEmail = commentRows[0].user_email;
+      const newsId = commentRows[0].news_id;
+
+      // 2. Megnézzük, lájkolta-e már
+      const [existing] = await pool.query('SELECT id FROM photo_club_news_comment_likes WHERE comment_id = ? AND user_email = ?', [commentId, userEmail]);
+      
+      if (existing.length > 0) {
+        // --- UNLIKE FOLYAMAT ---
+        await pool.query('DELETE FROM photo_club_news_comment_likes WHERE comment_id = ? AND user_email = ?', [commentId, userEmail]);
+        await pool.query('UPDATE photo_club_news_comments SET likes_count = GREATEST(0, likes_count - 1) WHERE id = ?', [commentId]);
+
+        // -1 pont levonás a komment írójától (ha nem önlájk volt)
+        if (authorEmail && authorEmail !== userEmail) {
+          await PointsService.handleTransaction(
+            pool, authorEmail, -1, 'forum_comment_like_revoked', commentId,
+            `💔 Visszavonták egy kedvelésedet a hozzászólásodról`,
+            `A like was revoked from your comment`
+          ).catch(e => console.error("⚠️ Komment pontlevonási hiba:", e.message));
+        }
+        
+        return res.json({ success: true, liked: false });
+      } else {
+        // --- LIKE FOLYAMAT ---
+        await pool.query('INSERT INTO photo_club_news_comment_likes (comment_id, user_email) VALUES (?, ?)', [commentId, userEmail]);
+        await pool.query('UPDATE photo_club_news_comments SET likes_count = likes_count + 1 WHERE id = ?', [commentId]);
+
+        // +1 pont kiosztása a komment írójának (ha nem önlájk)
+        if (authorEmail && authorEmail !== userEmail) {
+          await PointsService.handleTransaction(
+            pool, authorEmail, 1, 'forum_comment_like_received', commentId,
+            `❤️ Valaki kedvelte a hozzászólásodat egy fórumbeszélgetésben!`,
+            `Someone liked your comment in a forum topic`
+          ).catch(e => console.error("⚠️ Komment pontozási hiba:", e.message));
+        }
+        
+        return res.json({ success: true, liked: true });
+      }
+    } catch (err) {
+      console.error("❌ Komment lájk feldolgozási hiba:", err);
+      res.status(500).json({ error: 'Hiba történt a hozzászólás kedvelésekor.' });
+    }
+  });
+  
   // 3. Kitiltás feloldása (Unban)
   app.delete('/api/admin/banned-emails/:email', requireAuth, async (req, res) => {
     if (!req.user.isAdmin) return res.status(403).json({ error: 'Hozzáférés megtagadva!' });
