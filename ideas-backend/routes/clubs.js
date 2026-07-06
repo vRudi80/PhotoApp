@@ -264,9 +264,18 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { res.status(500).json({ error: 'Hiba a hír törlésekor' }); }
   });
 
-  app.post('/api/news/:id/read', requireAuth, async (req, res) => {
-    try { await pool.query('INSERT IGNORE INTO photo_club_news_reads (news_id, user_email) VALUES (?, ?)', [req.params.id, req.user.email]); res.json({ success: true }); } 
-    catch (err) { res.status(500).json({ error: 'Hiba' }); }
+ app.post('/api/news/:id/read', requireAuth, async (req, res) => {
+    try {
+      // 🎯 MODOSÍTVA: Minden megnyitáskor felülírjuk az időbélyeget a legfrissebbre, így tudjuk az utolsó olvasás idejét!
+      await pool.query(`
+        INSERT INTO photo_club_news_reads (news_id, user_email, read_at)
+        VALUES (?, ?, CURRENT_TIMESTAMP())
+        ON DUPLICATE KEY UPDATE read_at = CURRENT_TIMESTAMP()
+      `, [req.params.id, req.user.email]);
+      res.json({ success: true });
+    } catch (err) { 
+      res.status(500).json({ error: 'Hiba az olvasottság rögzítésekor' }); 
+    }
   });
 
   app.get('/api/news/:id/readers', requireAuth, async (req, res) => {
@@ -554,134 +563,74 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   // 🏛️ FÓRUM KATEGÓRIÁK KEZELÉSE
   // ====================================================================
   
-  // 1. Kategóriák listázása (Minden bejelentkezett tagnak elérhető)
-    // 🎯 FRISSÍTVE: Kategóriák listázása intelligens olvasatlan-számlálóval
-    // 🎯 REAKTÍV ÖSSZEVONT SZÁMLÁLÓ: Kategóriák listázása olvasatlan-számlálóval
+// 🎯 FRISSÍTVE: Összetett számláló, ami összesíti a csoporton belüli olvasatlan kommenteket is
   app.get('/api/forum/categories', requireAuth, async (req, res) => {
     const { mode, clubId } = req.query;
-    
-    try {
-      let query = '';
-      let params = [];
-
-      if (mode === 'public' && clubId) {
-        // Nyilvános oldal + Bejelentkezett klubtag: Látja a nyilvánosat ÉS a saját belső klubos posztjait is!
-        query = `
-          SELECT c.*, 
-            (SELECT COUNT(*) 
-             FROM photo_club_news n 
-             WHERE n.category_id = c.id 
-               AND (n.is_public = 1 OR n.club_id = ?) 
-               AND n.id NOT IN (SELECT news_id FROM photo_club_news_reads WHERE user_email = ?)
-            ) as unread_count
-          FROM photo_forum_categories c
-          ORDER BY c.id ASC
-        `;
-        params = [clubId, req.user.email];
-      } else if (mode === 'public') {
-        // Nyilvános oldal + Külsős látogató (nincs klubja): Csak a teljesen nyilvános posztok olvasatlanságát számoljuk
-        query = `
-          SELECT c.*, 
-            (SELECT COUNT(*) 
-             FROM photo_club_news n 
-             WHERE n.category_id = c.id 
-               AND n.is_public = 1 
-               AND n.id NOT IN (SELECT news_id FROM photo_club_news_reads WHERE user_email = ?)
-            ) as unread_count
-          FROM photo_forum_categories c
-          ORDER BY c.id ASC
-        `;
-        params = [req.user.email];
-      } else {
-        // Tisztán belső Klub Fórum oldal: Csak a saját klub belső posztjait számoljuk
-        query = `
-          SELECT c.*, 
-            (SELECT COUNT(*) 
-             FROM photo_club_news n 
-             WHERE n.category_id = c.id 
-               AND n.club_id = ? 
-               AND n.id NOT IN (SELECT news_id FROM photo_club_news_reads WHERE user_email = ?)
-            ) as unread_count
-          FROM photo_forum_categories c
-          ORDER BY c.id ASC
-        `;
-        params = [clubId || null, req.user.email];
-      }
-
-      const [rows] = await pool.query(query, params);
-      res.json(rows);
-    } catch (err) {
-      res.status(500).json({ error: 'Hiba a kategóriák lekérésekor.' });
-    }
-  });
-
-// ====================================================================
-  // 🏛️ FÓRUM POSZTOK LEKÉRÉSE AVATAR TÁMOGATÁSSAL ÉS SZINTAKTIKAI JAVÍTÁSSAL
-  // ====================================================================
-  app.get('/api/forum/categories/:categoryId/posts', requireAuth, async (req, res) => {
-    const { categoryId } = req.params;
-    const { mode, clubId } = req.query;
     const userEmail = req.user.email;
-
     try {
-      let query = '';
-      let params = [];
+      let query = ''; let params = [];
+      const cleanClubId = (clubId && clubId !== 'null' && clubId !== 'undefined' && String(clubId).trim() !== '') ? Number(clubId) : null;
 
-      // Megtisztítjuk a beérkező clubId-t a frontend stringes "null/undefined" anomáliáitól
+      if (mode === 'public' && cleanClubId) {
+        query = `
+          SELECT c.*, 
+            (SELECT COUNT(*) FROM photo_club_news n WHERE n.category_id = c.id AND (n.is_public = 1 OR n.club_id = ?) AND n.id NOT IN (SELECT news_id FROM photo_club_news_reads WHERE user_email = ?)) as unread_count,
+            (SELECT COUNT(*) FROM photo_club_news_comments cc JOIN photo_club_news nn ON cc.news_id = nn.id WHERE nn.category_id = c.id AND (nn.is_public = 1 OR nn.club_id = ?) AND cc.user_email != ? AND cc.created_at > COALESCE((SELECT rr.read_at FROM photo_club_news_reads rr WHERE rr.news_id = nn.id AND rr.user_email = ?), '1970-01-01 00:00:00')) as unread_comments_count
+          FROM photo_forum_categories c ORDER BY c.id ASC`;
+        params = [cleanClubId, userEmail, cleanClubId, userEmail, userEmail];
+      } else if (mode === 'public') {
+        query = `
+          SELECT c.*, 
+            (SELECT COUNT(*) FROM photo_club_news n WHERE n.category_id = c.id AND n.is_public = 1 AND n.id NOT IN (SELECT news_id FROM photo_club_news_reads WHERE user_email = ?)) as unread_count,
+            (SELECT COUNT(*) FROM photo_club_news_comments cc JOIN photo_club_news nn ON cc.news_id = nn.id WHERE nn.category_id = c.id AND nn.is_public = 1 AND cc.user_email != ? AND cc.created_at > COALESCE((SELECT rr.read_at FROM photo_club_news_reads rr WHERE rr.news_id = nn.id AND rr.user_email = ?), '1970-01-01 00:00:00')) as unread_comments_count
+          FROM photo_forum_categories c ORDER BY c.id ASC`;
+        params = [userEmail, userEmail, userEmail];
+      } else {
+        query = `
+          SELECT c.*, 
+            (SELECT COUNT(*) FROM photo_club_news n WHERE n.category_id = c.id AND n.club_id = ? AND n.id NOT IN (SELECT news_id FROM photo_club_news_reads WHERE user_email = ?)) as unread_count,
+            (SELECT COUNT(*) FROM photo_club_news_comments cc JOIN photo_club_news nn ON cc.news_id = nn.id WHERE nn.category_id = c.id AND nn.club_id = ? AND cc.user_email != ? AND cc.created_at > COALESCE((SELECT rr.read_at FROM photo_club_news_reads rr WHERE rr.news_id = nn.id AND rr.user_email = ?), '1970-01-01 00:00:00')) as unread_comments_count
+          FROM photo_forum_categories c ORDER BY c.id ASC`;
+        params = [cleanClubId, userEmail, cleanClubId, userEmail, userEmail];
+      }
+      const [rows] = await pool.query(query, params); res.json(rows);
+    } catch (err) { res.status(500).json({ error: 'Hiba' }); }
+  });
+// 🎯 FRISSÍTVE: Minden poszt mellé kiszámoljuk a kifejezetten azóta érkezett kommentek számát, amióta a user utoljára megnyitotta a szálat
+  app.get('/api/forum/categories/:categoryId/posts', requireAuth, async (req, res) => {
+    const { categoryId } = req.params; const { mode, clubId } = req.query; const userEmail = req.user.email;
+    try {
+      let query = ''; let params = [];
       const cleanClubId = (clubId && clubId !== 'null' && clubId !== 'undefined' && String(clubId).trim() !== '') ? Number(clubId) : null;
 
       if (mode === 'public') {
         if (cleanClubId) {
-          // Nyilvános mód + Klubtag: Látja a nyilvános posztokat ÉS a saját belső klubja posztjait is
           query = `
             SELECT n.*, c.name as club_name, u.avatar_url,
-                   (SELECT COUNT(*) FROM photo_club_news_reads r WHERE r.news_id = n.id AND r.user_email = ?) as is_read 
-            FROM photo_club_news n
-            LEFT JOIN photo_clubs c ON n.club_id = c.id
-            LEFT JOIN photo_users u ON LOWER(TRIM(n.author_email)) = LOWER(TRIM(u.email))
-            WHERE n.category_id = ? AND (n.is_public = 1 OR n.club_id = ?)
-            ORDER BY n.created_at DESC
-          `;
-          params = [userEmail, categoryId, cleanClubId];
+                   (SELECT COUNT(*) FROM photo_club_news_reads r WHERE r.news_id = n.id AND r.user_email = ?) as is_read,
+                   (SELECT COUNT(*) FROM photo_club_news_comments cc WHERE cc.news_id = n.id AND cc.user_email != ? AND cc.created_at > COALESCE((SELECT rr.read_at FROM photo_club_news_reads rr WHERE rr.news_id = n.id AND rr.user_email = ?), '1970-01-01 00:00:00')) as unread_comments_count
+            FROM photo_club_news n LEFT JOIN photo_clubs c ON n.club_id = c.id LEFT JOIN photo_users u ON LOWER(TRIM(n.author_email)) = LOWER(TRIM(u.email)) WHERE n.category_id = ? AND (n.is_public = 1 OR n.club_id = ?) ORDER BY n.created_at DESC`;
+          params = [userEmail, userEmail, userEmail, categoryId, cleanClubId];
         } else {
-          // 🎯 JAVÍTVA: Nyilvános mód + Külsős/Testuser (nincs klubja): Csak a teljesen publikus posztok jönnek le
-          // Kiküszöböltük a hiányzó 'AND' miatti 500-as adatbázis hibát, és hozzáfűztük az u.avatar_url-t!
           query = `
             SELECT n.*, c.name as club_name, u.avatar_url,
-                   (SELECT COUNT(*) FROM photo_club_news_reads r WHERE r.news_id = n.id AND r.user_email = ?) as is_read 
-            FROM photo_club_news n
-            LEFT JOIN photo_clubs c ON n.club_id = c.id
-            LEFT JOIN photo_users u ON LOWER(TRIM(n.author_email)) = LOWER(TRIM(u.email))
-            WHERE n.category_id = ? AND n.is_public = 1
-            ORDER BY n.created_at DESC
-          `;
-          params = [userEmail, categoryId];
+                   (SELECT COUNT(*) FROM photo_club_news_reads r WHERE r.news_id = n.id AND r.user_email = ?) as is_read,
+                   (SELECT COUNT(*) FROM photo_club_news_comments cc WHERE cc.news_id = n.id AND cc.user_email != ? AND cc.created_at > COALESCE((SELECT rr.read_at FROM photo_club_news_reads rr WHERE rr.news_id = n.id AND rr.user_email = ?), '1970-01-01 00:00:00')) as unread_comments_count
+            FROM photo_club_news n LEFT JOIN photo_clubs c ON n.club_id = c.id LEFT JOIN photo_users u ON LOWER(TRIM(n.author_email)) = LOWER(TRIM(u.email)) WHERE n.category_id = ? AND n.is_public = 1 ORDER BY n.created_at DESC`;
+          params = [userEmail, userEmail, userEmail, categoryId];
         }
       } else {
-        // Tisztán zárt Klub Fórum nézet
-        if (!cleanClubId) return res.status(400).json({ error: 'Ehhez a nézethez be kell lépned egy klubba!' });
-        
+        if (!cleanClubId) return res.status(400).json({ error: 'Hiányzó klub!' });
         query = `
           SELECT n.*, c.name as club_name, u.avatar_url,
-                 (SELECT COUNT(*) FROM photo_club_news_reads r WHERE r.news_id = n.id AND r.user_email = ?) as is_read 
-          FROM photo_club_news n
-          LEFT JOIN photo_clubs c ON n.club_id = c.id
-          LEFT JOIN photo_users u ON LOWER(TRIM(n.author_email)) = LOWER(TRIM(u.email))
-          WHERE n.category_id = ? AND n.club_id = ?
-          ORDER BY n.created_at DESC
-        `;
-        params = [userEmail, categoryId, cleanClubId];
+                 (SELECT COUNT(*) FROM photo_club_news_reads r WHERE r.news_id = n.id AND r.user_email = ?) as is_read,
+                 (SELECT COUNT(*) FROM photo_club_news_comments cc WHERE cc.news_id = n.id AND cc.user_email != ? AND cc.created_at > COALESCE((SELECT rr.read_at FROM photo_club_news_reads rr WHERE rr.news_id = n.id AND rr.user_email = ?), '1970-01-01 00:00:00')) as unread_comments_count
+          FROM photo_club_news n LEFT JOIN photo_clubs c ON n.club_id = c.id LEFT JOIN photo_users u ON LOWER(TRIM(n.author_email)) = LOWER(TRIM(u.email)) WHERE n.category_id = ? AND n.club_id = ? ORDER BY n.created_at DESC`;
+        params = [userEmail, userEmail, userEmail, categoryId, cleanClubId];
       }
-
-      const [rows] = await pool.query(query, params);
-      res.json(rows);
-    } catch (err) {
-      console.error("❌ Fórum posztok lekérdezési hiba:", err.message);
-      res.status(500).json({ error: 'Hiba a fórumbejegyzések lekérésekor.' });
-    }
+      const [rows] = await pool.query(query, params); res.json(rows);
+    } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
-
-
 
   // 2. Új kategória létrehozása (KIZÁRÓLAG GLOBÁLIS ADMINNAK)
     // 1. Új kategória létrehozása leírással (Admin)
