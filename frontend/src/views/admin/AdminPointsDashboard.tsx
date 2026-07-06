@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BACKEND_URL } from '../utils/constants';
+import { BACKEND_URL, ADMIN_EMAIL } from '../../utils/constants';
 
 // Letisztult Lucide ikonok az admin panelhez
 import { ShieldAlert, User, Coins, FileText, Sparkles } from 'lucide-react';
