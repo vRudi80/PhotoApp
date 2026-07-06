@@ -137,7 +137,6 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
     fetchCategories();
   }, [clubId, mode, currentDbUser?.club_name]);
 
-  // 🎯 JAVÍTVA: Opcionális silent paraméter az ugrálások és villanások megszüntetésére
   const fetchPosts = async (silent = false) => {
     if (!selectedCategoryId) return;
     if (!silent) setIsLoading(true);
@@ -271,7 +270,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
 
       if (res.ok) {
         setEditingPostId(null);
-        fetchPosts(true);
+        fetchPosts(true); // Csendes frissítés ugrálás nélkül
       } else {
         const err = await res.json();
         alert(err.error || "Hiba történt.");
@@ -279,7 +278,6 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
     } catch (e) { alert("Hálózati hiba."); }
   };
 
-  // 🎯 JAVÍTVA: Csendes frissítés (true) a témalájkok villanásmentesítésére
   const handleLikePost = async (postId: number) => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/forum/posts/${postId}/like`, {
@@ -292,7 +290,6 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
     } catch (e) { console.error("Lájk hálózati hiba:", e); }
   };
 
-  // 🎯 ÚJ: Villanásmentes komment-lájkolás kezelő
   const handleLikeComment = async (commentId: number, postId: number) => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/forum/comments/${commentId}/like`, {
@@ -300,7 +297,6 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
         headers: getLocalAuthHeaders({ 'Content-Type': 'application/json' })
       });
       if (res.ok) {
-        // Csendben, ugrálás nélkül újratöltjük csak a hozzászólás folyamot
         const cRes = await fetch(`${BACKEND_URL}/api/news/${postId}/comments`, { headers: getLocalAuthHeaders() });
         if (cRes.ok) setComments(await cRes.json());
       }
@@ -364,7 +360,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
         <>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '15px' }}>
             <h2 style={{ fontSize: '2rem', margin: 0, display: 'flex', alignItems: 'center', gap: '15px', color: 'var(--text-title)' }}>
-              <span style={{ fontSize: '2.5rem' }}></span> {mode === 'public' ? 'Nyilvános Fotós Fórum' : `Klub Fórum: ${currentDbUser?.club_name}`}
+              <span style={{ fontSize: '2.5rem' }}>🏛️</span> {mode === 'public' ? 'Nyilvános Fotós Fórum' : `Klub Fórum: ${currentDbUser?.club_name}`}
             </h2>
             {isAdmin && (
               <button 
@@ -400,12 +396,10 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
                 <div style={{ display: 'flex', gap: '15px', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
                   
                   <div style={{ display: 'flex', gap: '15px', alignItems: 'center', flex: 1, minWidth: 0 }}>
-                    {/* Bal oszlop: Fix Ikon */}
                     <div style={{ background: cat.id === 1 ? 'rgba(245,158,11,0.1)' : 'rgba(56,189,248,0.1)', color: cat.id === 1 ? '#f59e0b' : '#38bdf8', padding: '12px', borderRadius: '10px', flexShrink: 0 }}>
                       {cat.id === 1 ? <Lock size={24} /> : <MessageSquare size={24} />}
                     </div>
                     
-                    {/* Középső oszlop: Szöveges blokk reszponzív töréssel */}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'var(--text-title)', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}>
                         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>
@@ -423,7 +417,6 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
                     </div>
                   </div>
 
-                  {/* Jobb oszlop: Adminisztrátori zóna */}
                   {isAdmin && (
                     <div style={{ marginLeft: '10px', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
                       <button 
@@ -464,7 +457,6 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
             )}
           </div>
 
-          {/* Új téma beküldő panel */}
           {isPosting && (
             <div style={{ background: 'var(--bg-card)', padding: '25px', borderRadius: '12px', border: '2px solid #38bdf8', marginBottom: '25px' }}>
               <h3 style={{ margin: '0 0 15px 0', color: '#38bdf8' }}>Új beszélgetés indítása</h3>
@@ -539,7 +531,20 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
                           </span>
                         </div>
 
-                        <h3 style={{ margin: 0, color: isExpanded ? '#38bdf8' : 'var(--text-title)', fontSize: '1.15rem', fontWeight: '700' }}>{post.title}</h3>
+                        {/* Feltételes cím megjelenítés szerkesztéskor */}
+                        {editingPostId === post.id ? (
+                          <div style={{ paddingRight: '20px' }}>
+                            <input 
+                              type="text" 
+                              value={editTitle} 
+                              onChange={e => setEditTitle(e.target.value)} 
+                              style={{ ...inputStyle, marginBottom: 0, padding: '6px 12px' }} 
+                              onClick={e => e.stopPropagation()}
+                            />
+                          </div>
+                        ) : (
+                          <h3 style={{ margin: 0, color: isExpanded ? '#38bdf8' : 'var(--text-title)', fontSize: '1.15rem', fontWeight: '700' }}>{post.title}</h3>
+                        )}
                       </div>
                       <div style={{ fontSize: '1.2rem', color: isUnread ? '#ef4444' : 'var(--text-muted)', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }}>▼</div>
                     </div>
@@ -548,44 +553,84 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
                     {isExpanded && (
                       <div style={{ padding: '0 20px 20px 20px', borderTop: '1px solid var(--border-main)', animation: 'fadeIn 0.3s ease-out' }}>
                         
-                        <p style={{ color: 'var(--text-body)', lineHeight: '1.6', fontSize: '0.95rem', whiteSpace: 'pre-wrap', marginTop: '15px' }}>{post.content}</p>
-                        
-                        {post.file_url && (
-                          <div style={{ maxWidth: '100%', maxHeight: '400px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-main)', marginBottom: '20px', width: 'fit-content', backgroundColor: '#000' }}>
-                            <img src={getImageUrl(post.drive_file_id, post.file_url)} alt="" style={{ maxWidth: '100%', maxHeight: '400px', objectFit: 'contain', display: 'block' }} />
+                        {/* 🎯 JAVÍTVA: Feltételes szerkesztő felület beépítése az inline módhoz */}
+                        {editingPostId === post.id ? (
+                          <div style={{ marginTop: '15px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            <textarea 
+                              value={editContent} 
+                              onChange={e => setEditContent(e.target.value)} 
+                              style={{ ...inputStyle, minHeight: '120px', marginBottom: 0 }} 
+                            />
+                            
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', userSelect: 'none' }}>
+                              <input 
+                                type="checkbox" 
+                                id={`inline-edit-public-${post.id}`} 
+                                checked={editIsPublic} 
+                                onChange={e => setEditIsPublic(e.target.checked)} 
+                                style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                              />
+                              <label htmlFor={`inline-edit-public-${post.id}`} style={{ color: '#fbbf24', fontWeight: 'bold', fontSize: '0.88rem', cursor: 'pointer' }}>
+                                📢 Legyen nyilvános közlemény
+                              </label>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '10px', marginTop: '5px' }}>
+                              <button 
+                                onClick={() => handleSavePostEdit(post.id)} 
+                                style={{ background: '#10b981', color: 'white', border: 'none', padding: '6px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.82rem' }}
+                              >
+                                💾 Mentés
+                              </button>
+                              <button 
+                                onClick={() => setEditingPostId(null)} 
+                                style={{ background: 'var(--bg-main)', color: 'var(--text-title)', border: '1px solid var(--border-main)', padding: '6px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.82rem' }}
+                              >
+                                ✖ Mégse
+                              </button>
+                            </div>
                           </div>
+                        ) : (
+                          <>
+                            <p style={{ color: 'var(--text-body)', lineHeight: '1.6', fontSize: '0.95rem', whiteSpace: 'pre-wrap', marginTop: '15px' }}>{post.content}</p>
+                            
+                            {post.file_url && (
+                              <div style={{ maxWidth: '100%', maxHeight: '400px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-main)', marginBottom: '20px', width: 'fit-content', backgroundColor: '#000' }}>
+                                <img src={getImageUrl(post.drive_file_id, post.file_url)} alt="" style={{ maxWidth: '100%', maxHeight: '400px', objectFit: 'contain', display: 'block' }} />
+                              </div>
+                            )}
+
+                            {/* INTERAKTÍV AKCIÓGOMBOK PANELSORA */}
+                            <div style={{ display: 'flex', gap: '10px', marginTop: '20px', paddingTop: '15px', borderTop: '1px dashed var(--border-main)', flexWrap: 'wrap', alignItems: 'center' }}>
+                              <button 
+                                onClick={() => handleLikePost(post.id)} 
+                                style={{ background: 'transparent', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', fontWeight: 'bold' }}
+                              >
+                                <Heart size={12} fill="#ef4444" /> {post.likes_count || 0} Kedvelés
+                              </button>
+
+                              {isLeader && (
+                                <button onClick={() => fetchReaders(post.id)} style={{ background: 'rgba(59,130,246,0.08)', color: '#3b82f6', border: '1px solid rgba(59,130,246,0.2)', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.82rem' }}>
+                                  👁️ {showReaders ? 'Olvasók elrejtése' : 'Kik olvasták el?'}
+                                </button>
+                              )}
+                              
+                              {(isAdmin || post.author_email === user?.email || post.user_email === user?.email) && (
+                                <button 
+                                  onClick={() => handleStartEditPost(post)} 
+                                  style={{ background: 'rgba(245,158,11,0.08)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.2)', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                >
+                                  <Edit3 size={12} /> Szerkesztés
+                                </button>
+                              )}
+                              {(isAdmin || post.author_email === user?.email || post.user_email === user?.email) && (
+                                <button onClick={() => handleDeletePost(post.id)} style={{ background: 'rgba(239,68,68,0.08)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                  <Trash2 size={12} /> Törlés
+                                </button>
+                              )}
+                            </div>
+                          </>
                         )}
-
-                        {/* INTERAKTÍV AKCIÓGOMBOK PANELSORA */}
-                        <div style={{ display: 'flex', gap: '10px', marginTop: '20px', paddingTop: '15px', borderTop: '1px dashed var(--border-main)', flexWrap: 'wrap', alignItems: 'center' }}>
-                          
-                          <button 
-                            onClick={() => handleLikePost(post.id)} 
-                            style={{ background: 'transparent', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', fontWeight: 'bold' }}
-                          >
-                            <Heart size={12} fill="#ef4444" /> {post.likes_count || 0} Kedvelés
-                          </button>
-
-                          {isLeader && (
-                            <button onClick={() => fetchReaders(post.id)} style={{ background: 'rgba(59,130,246,0.08)', color: '#3b82f6', border: '1px solid rgba(59,130,246,0.2)', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.82rem' }}>
-                              👁️ {showReaders ? 'Olvasók elrejtése' : 'Kik olvasták el?'}
-                            </button>
-                          )}
-                          
-                          {(isAdmin || post.author_email === user?.email || post.user_email === user?.email) && (
-                            <button 
-                              onClick={() => handleStartEditPost(post)} 
-                              style={{ background: 'rgba(245,158,11,0.08)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.2)', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '4px' }}
-                            >
-                              <Edit3 size={12} /> Szerkesztés
-                            </button>
-                          )}
-                          {(isAdmin || post.author_email === user?.email || post.user_email === user?.email) && (
-                            <button onClick={() => handleDeletePost(post.id)} style={{ background: 'rgba(239,68,68,0.08)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              <Trash2 size={12} /> Törlés
-                            </button>
-                          )}
-                        </div>
 
                         {showReaders && isLeader && (
                           <div style={{ marginTop: '15px', background: 'var(--bg-main)', padding: '15px', borderRadius: '8px', border: '1px solid var(--border-main)' }}>
@@ -626,7 +671,6 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
                                   </div>
                                 )}
 
-                                {/* 🎯 ÚJ: Villanásmentes lájk gomb integráció a hozzászólásokhoz */}
                                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '6px' }}>
                                   <button 
                                     onClick={() => handleLikeComment(c.id, post.id)}
