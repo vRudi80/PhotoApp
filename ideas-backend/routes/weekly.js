@@ -759,6 +759,9 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     res.json({ success: true, savedAs: voteType, voteBonusAwarded: awardVoteBonus });
   });
 
+  // ====================================================================
+  // 👥 AJÁNLÓRENDSZER ÉRVÉNYESÍTÉSE (MÓDOSÍTVA: 200-200 GLOBÁLIS PONT)
+  // ====================================================================
   app.post('/api/weekly/claim-referral', requireAuth, async (req, res) => {
     const { userEmail, referralCode } = req.body;
     if (req.user.email !== userEmail) return res.status(403).json({ error: 'Munkamenet hiba!' });
@@ -769,7 +772,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
       const cleanCode = referralCode.trim().toUpperCase();
       const [referrerRows] = await pool.query('SELECT email FROM photo_users WHERE referral_code = ?', [cleanCode]);
-      if (referrerRows.length === 0) return res.status(400).json({ error: 'A kód nem léexistál!' });
+      if (referrerRows.length === 0) return res.status(400).json({ error: 'A kód nem létezik!' });
 
       const referrerEmail = referrerRows[0].email;
       if (referrerEmail === userEmail) return res.status(400).json({ error: 'Saját magad kódja nem ér!' });
@@ -777,12 +780,43 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       const conn = await pool.getConnection();
       try {
         await conn.beginTransaction();
-        await conn.query('UPDATE photo_users SET swap_balance = swap_balance + 10 WHERE email = ?', [referrerEmail]);
-        await conn.query('UPDATE photo_users SET swap_balance = swap_balance + 5 WHERE email = ?', [userEmail]);
+
+        // 🪙 Cserék helyett tranzakcióbiztosan lekönyveljük a 200 pontot az Ajánlónak
+        await PointsService.handleTransaction(
+          conn, 
+          referrerEmail, 
+          200, 
+          'referral_reward', 
+          null,
+          `👥 Sikeres meghívás! Regisztrált tag: ${userEmail}`, 
+          `Successful referral! Registered member: ${userEmail}`
+        );
+
+        // 🎁 És lekönyveljük a 200 pontot a kódot beíró új felhasználónak is
+        await PointsService.handleTransaction(
+          conn, 
+          userEmail, 
+          200, 
+          'referred_bonus', 
+          null,
+          `🎁 Meghívó kód érvényesítve (+200p bónusz!)`, 
+          `Referral code claimed (+200p bonus!)`
+        );
+
+        // Elmentjük az érvényesítést a felhasználó profiljába, hogy többször ne tudja kijátszani
         await conn.query('UPDATE photo_users SET referred_by = ? WHERE email = ?', [cleanCode, userEmail]);
-        await conn.commit(); res.json({ success: true });
-      } catch (e) { await conn.rollback(); throw e; } finally { conn.release(); }
-    } catch (err) { res.status(500).json({ error: 'Hiba' }); }
+        await conn.commit(); 
+        
+        res.json({ success: true });
+      } catch (e) { 
+        await conn.rollback(); 
+        throw e; 
+      } finally { 
+        conn.release(); 
+      }
+    } catch (err) { 
+      res.status(500).json({ error: 'Hiba az ajánlás feldolgozásakor.' }); 
+    }
   });
 
   // ====================================================================
