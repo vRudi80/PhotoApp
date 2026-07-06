@@ -78,11 +78,13 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
           setAiUsageCount(freshData.ai_usage_count);
         }
 
-        // 🎯 EZT A SORT ILLESZD BE IDE:
-        // Átadjuk a friss adatokat a szülőnek, így az egyenleg azonnal átfolyik a Pontboltba!
+        // 🎯 ÚJ: Beolvassuk a pontokat közvetlenül a friss adatbázis-rekordból
+        if (freshData.points_balance !== undefined) {
+          setPointsBalance(freshData.points_balance);
+        }
+
         setUser(freshData);
       }
-
       // 2. Tagsági napló lekérése hitelesítve (A konzolos 404-et ez okozza, ha nincs rá szükség, ki is törölhető)
       const resDates = await fetch(`${BACKEND_URL}/api/profile/active-membership?userEmail=${user.email}`, {
         headers: getAuthHeaders()
