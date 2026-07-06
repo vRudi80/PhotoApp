@@ -137,9 +137,10 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
     fetchCategories();
   }, [clubId, mode, currentDbUser?.club_name]);
 
-  const fetchPosts = async () => {
+  // 🎯 JAVÍTVA: Opcionális silent paraméter az ugrálások és villanások megszüntetésére
+  const fetchPosts = async (silent = false) => {
     if (!selectedCategoryId) return;
-    setIsLoading(true);
+    if (!silent) setIsLoading(true);
     try {
       let url = `${BACKEND_URL}/api/forum/categories/${selectedCategoryId}/posts?mode=${mode}&userEmail=${user.email}`;
       if (clubId) url += `&clubId=${clubId}`;
@@ -147,12 +148,12 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
       const res = await fetch(url, { headers: getLocalAuthHeaders() });
       if (res.ok) setPosts(await res.json());
     } catch (e) { console.error("Fórum posztok letöltési hiba:", e); }
-    finally { setIsLoading(false); }
+    finally { if (!silent) setIsLoading(false); }
   };
 
   useEffect(() => {
     if (selectedCategoryId && (currentDbUser?.club_name && clubId === null ? false : true)) {
-      fetchPosts();
+      fetchPosts(false);
     }
   }, [selectedCategoryId, clubId, mode]);
 
@@ -239,7 +240,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
         setPostFile(null);
         setPostPreview(null);
         setIsPosting(false);
-        fetchPosts();
+        fetchPosts(false);
       } else {
         const err = await res.json();
         alert(err.error || "Sikertelen mentés.");
@@ -270,7 +271,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
 
       if (res.ok) {
         setEditingPostId(null);
-        fetchPosts();
+        fetchPosts(true);
       } else {
         const err = await res.json();
         alert(err.error || "Hiba történt.");
@@ -278,7 +279,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
     } catch (e) { alert("Hálózati hiba."); }
   };
 
-  // 🎯 RAKÖTVE AZ ÚJ VÉGPOUNTRA: Lájk és pontkezelő hívás a fórumban
+  // 🎯 JAVÍTVA: Csendes frissítés (true) a témalájkok villanásmentesítésére
   const handleLikePost = async (postId: number) => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/forum/posts/${postId}/like`, {
@@ -286,9 +287,24 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
         headers: getLocalAuthHeaders({ 'Content-Type': 'application/json' })
       });
       if (res.ok) {
-        fetchPosts(); // 🔄 Sikeres könyvelés után azonnal frissítjük a posztok számlálóit!
+        fetchPosts(true); 
       }
     } catch (e) { console.error("Lájk hálózati hiba:", e); }
+  };
+
+  // 🎯 ÚJ: Villanásmentes komment-lájkolás kezelő
+  const handleLikeComment = async (commentId: number, postId: number) => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/forum/comments/${commentId}/like`, {
+        method: 'POST',
+        headers: getLocalAuthHeaders({ 'Content-Type': 'application/json' })
+      });
+      if (res.ok) {
+        // Csendben, ugrálás nélkül újratöltjük csak a hozzászólás folyamot
+        const cRes = await fetch(`${BACKEND_URL}/api/news/${postId}/comments`, { headers: getLocalAuthHeaders() });
+        if (cRes.ok) setComments(await cRes.json());
+      }
+    } catch (e) { console.error("Komment lájk hiba:", e); }
   };
 
   const handlePostComment = async (postId: number) => {
@@ -324,7 +340,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
       const res = await fetch(`${BACKEND_URL}/api/news/${postId}`, { method: 'DELETE', headers: getLocalAuthHeaders() });
       if (res.ok) {
         setExpandedPostId(null);
-        fetchPosts();
+        fetchPosts(false);
       }
     } catch (e) { alert("Törlési hiba."); }
   };
@@ -543,7 +559,6 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
                         {/* INTERAKTÍV AKCIÓGOMBOK PANELSORA */}
                         <div style={{ display: 'flex', gap: '10px', marginTop: '20px', paddingTop: '15px', borderTop: '1px dashed var(--border-main)', flexWrap: 'wrap', alignItems: 'center' }}>
                           
-                          {/* 🎯 JAVÍTVA: Dinamikus lájk gomb integráció, ami meghívja a pontozó modult */}
                           <button 
                             onClick={() => handleLikePost(post.id)} 
                             style={{ background: 'transparent', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', fontWeight: 'bold' }}
@@ -610,6 +625,19 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
                                     <img src={getImageUrl(c.drive_file_id, c.file_url)} alt="" style={{ maxWidth: '100%', maxHeight: '180px', objectFit: 'cover', display: 'block' }} />
                                   </div>
                                 )}
+
+                                {/* 🎯 ÚJ: Villanásmentes lájk gomb integráció a hozzászólásokhoz */}
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '6px' }}>
+                                  <button 
+                                    onClick={() => handleLikeComment(c.id, post.id)}
+                                    title={lang === 'en' ? 'Like this comment (+1 point to author)' : 'Kedvelem ezt a hozzászólást (+1 pont a szerzőnek)'}
+                                    style={{ background: 'transparent', color: '#ef4444', border: '1px solid rgba(239,68,68,0.15)', padding: '3px 8px', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.72rem', fontWeight: 'bold', transition: 'all 0.1s' }}
+                                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(239,68,68,0.04)'}
+                                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                  >
+                                    <Heart size={10} fill="#ef4444" /> {c.likes_count || 0}
+                                  </button>
+                                </div>
                               </div>
                             ))}
                             {comments.length === 0 && <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', fontStyle: 'italic' }}>Még nincs hozzászólás. Indítsd el a vitát!</div>}
