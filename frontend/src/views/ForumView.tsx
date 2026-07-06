@@ -192,6 +192,11 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
       setEditingPostId(null);
       return;
     }
+
+    // 🎯 JAVÍTVA: Azonnal ürítjük a komment-állapotot, mielőtt lenyílna a kártya!
+    // Ez megakadályozza, hogy az előző poszt kommentjei „szivárogjanak” át az új dobozba.
+    setComments([]); 
+
     setExpandedPostId(postId);
     setEditingPostId(null);
     setShowReaders(false);
@@ -205,7 +210,6 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
         body: JSON.stringify({ userEmail: user.email })
       });
       
-      // 🔄 Csendben frissítjük a posztok listáját, hogy a kék új komment számláló azonnal eltűnjön, hiszen elolvastuk
       fetchPosts(true);
 
       const res = await fetch(`${BACKEND_URL}/api/news/${postId}/comments`, { headers: getLocalAuthHeaders() });
@@ -329,7 +333,7 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
         setCommentPreview(null);
         const cRes = await fetch(`${BACKEND_URL}/api/news/${postId}/comments`, { headers: getLocalAuthHeaders() });
         if (cRes.ok) setComments(await cRes.json());
-        fetchPosts(true); // Újrakérjük a poszt adatokat csendben a komment számláló miatt
+        fetchPosts(true); 
       }
     } catch (e) { alert("Hiba a hozzászólásnál."); }
     finally { setIsCommenting(false); }
@@ -411,14 +415,12 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
                           {cat.name}
                         </span>
                         
-                        {/* 1. SZINTŰ JELZÉS: Olvasatlan posztok száma */}
                         {Number(cat.unread_count) > 0 && (
                           <span style={{ background: '#ef4444', color: 'white', fontSize: '0.68rem', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold', flexShrink: 0, lineHeight: '1.2' }}>
                             {cat.unread_count} új téma
                           </span>
                         )}
 
-                        {/* 🎯 ÚJ JELZÉS: Olvasatlan hozzászólások összesített darabszáma a csoporton belül */}
                         {Number(cat.unread_comments_count) > 0 && (
                           <span style={{ background: '#3b82f6', color: 'white', fontSize: '0.68rem', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold', flexShrink: 0, lineHeight: '1.2' }}>
                             {cat.unread_comments_count} új komment
@@ -525,7 +527,6 @@ export default function ForumView({ user, currentDbUser, mode = 'club' }: ForumV
                         <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                           {isUnread && <span style={{ background: '#ef4444', color: 'white', padding: '2px 8px', borderRadius: '12px', fontSize: '0.68rem', fontWeight: 'bold' }}>ÚJ</span>}
                           
-                          {/* 🎯 ÚJ JELZÉS: Ha van olvasatlan komment ezen a poszton, diszkrét kék plecsnivel jelezzük a fejlécben */}
                           {Number(post.unread_comments_count) > 0 && (
                             <span style={{ background: '#3b82f6', color: 'white', padding: '2px 8px', borderRadius: '12px', fontSize: '0.68rem', fontWeight: 'bold' }}>
                               {post.unread_comments_count} ÚJ KOMMENT
