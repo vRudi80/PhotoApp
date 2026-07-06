@@ -51,12 +51,12 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
   const [userStorage, setUserStorage] = useState({ count: 0, bytes: 0 });
   const [aiUsageCount, setAiUsageCount] = useState(0);
   const [isLoadingStats, setIsLoadingStats] = useState(true);
+  const [pointsBalance, setPointsBalance] = useState<number>(0); // 🪙 ÚJ: Helyi pontszámláló állapot
 
   const { t, lang } = useLanguage();
 
   const isLeader = user?.club_role === 'leader' || user?.club_role === 'deputy';
 
-  // 🔄 Profiladatok és a naplózott tagsági dátumok szinkronizálása
   // 🔄 Profiladatok és a naplózott tagsági dátumok szinkronizálása
   const loadFreshProfile = async () => {
     if (!user?.email) return;
@@ -78,12 +78,12 @@ export default function ProfileView({ user, setUser, fetchData }: ProfileViewPro
           setAiUsageCount(freshData.ai_usage_count);
         }
 
-        // 🎯 EZT AZ EGYETLEN SORT KELL ITT HOZZÁADNOD:
-        // Frissítjük a globális felhasználói objektumot, így a pontegyenleg is átfolyik a Boltba!
+        // 🎯 EZT A SORT ILLESZD BE IDE:
+        // Átadjuk a friss adatokat a szülőnek, így az egyenleg azonnal átfolyik a Pontboltba!
         setUser(freshData);
       }
 
-      // 2. Tagsági napló lekérése hitelesítve
+      // 2. Tagsági napló lekérése hitelesítve (A konzolos 404-et ez okozza, ha nincs rá szükség, ki is törölhető)
       const resDates = await fetch(`${BACKEND_URL}/api/profile/active-membership?userEmail=${user.email}`, {
         headers: getAuthHeaders()
       });
