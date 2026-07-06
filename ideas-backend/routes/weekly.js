@@ -217,7 +217,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         const score2 = entries[1] ? entries[1].calculated_fair_score : -1;
         const score3 = entries[2] ? entries[2].calculated_fair_score : -1;
 
-        // 🎯 FRISSÍTVE: A lezárult Aréna kihívások pontalapú kiértékelése
         for (let i = 0; i < entries.length; i++) {
           const entry = entries[i];
           const rank = i + 1;
@@ -230,27 +229,22 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
             await pool.query('UPDATE photo_users SET victories = victories + 1 WHERE email = ?', [entry.user_email]);
           }
 
-          // 🪙 PONTOK KIOSZTÁSA A HELYEZÉSEK ALAPJÁN A JAVÍTOTT MOTORRAL:
           if (entry.calculated_fair_score === score1) {
-            // 1. Helyezett (+100 pont)
             await PointsService.handleTransaction(
               pool, entry.user_email, PointsService.CONSTANTS.EARN_ARENA_1ST, 'arena_1st', topic.id,
               `🏆 1. helyezés az Arénában: "${topic.title}"`, `1st place in the Arena: "${topic.title}"`
             );
           } else if (entry.calculated_fair_score === score2) {
-            // 2. Helyezett (+50 pont)
             await PointsService.handleTransaction(
               pool, entry.user_email, PointsService.CONSTANTS.EARN_ARENA_2ND, 'arena_2nd', topic.id,
               `🥈 2. helyezés az Arénában: "${topic.title}"`, `2nd place in the Arena: "${topic.title}"`
             );
           } else if (entry.calculated_fair_score === score3) {
-            // 3. Helyezett (+25 pont)
             await PointsService.handleTransaction(
               pool, entry.user_email, PointsService.CONSTANTS.EARN_ARENA_3RD, 'arena_3rd', topic.id,
               `🥉 3. helyezés az Arénában: "${topic.title}"`, `3rd place in the Arena: "${topic.title}"`
             );
           } else {
-            // Minden egyéb aktív résztvevő vigaszpontot kap (+5 pont), mert küldött be képet!
             await PointsService.handleTransaction(
               pool, entry.user_email, 5, 'arena_participant', topic.id,
               `🌱 Aréna részvételi pont: "${topic.title}"`, `Arena participation point: "${topic.title}"`
@@ -337,7 +331,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // 🔗 PUBLIC SHARE REDIRECTOR (Nyilvános - Meta-tag generáláshoz nem kell token)
+  // 1. PUBLIC SHARE REDIRECTOR
   // ====================================================================
   app.get('/api/share/challenge/:id', async (req, res) => {
     const { id } = req.params;
@@ -370,19 +364,15 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // ⚔️ CSATATÉR FŐ VÉGPONT (VÉDETT - Személyazonosság-ellenőrzéssel)
+  // ⚔️ CSATATÉR FŐ VÉGPONT
   // ====================================================================
   app.get('/api/weekly/current', requireAuth, async (req, res) => {
     const { userEmail, topicId } = req.query;
     if (!userEmail) return res.status(400).json({ error: 'Hiányzó e-mail cím!' });
 
-    // 🔒 BIZTONSÁGI PAJZS: Megakadályozzuk, hogy más nevében töltsék le a csatatér állapotát
     if (req.user.email !== userEmail && !req.user.isAdmin) {
       return res.status(403).json({ error: 'Hozzáférés megtagadva! Token eltérés.' });
     }
-
-    const { performance } = require('perf_hooks');
-    const startTotal = performance.now();
 
     try {
       await processFinishedChallenges(pool);
@@ -440,7 +430,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // ⚡ ARÉNA ALBUM (VÉDETT - IDOR Védelemmel)
+  // ⚡ ARÉNA ALBUM
   // ====================================================================
   app.get('/api/weekly/my-album', requireAuth, async (req, res) => {
     const { userEmail } = req.query;
@@ -484,7 +474,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // 👑 JELENTKEZÉS CSATABÍRÓNAK (VÉDETT)
+  // 👑 JELENTKEZÉS CSATABÍRÓNAK
   // ====================================================================
   app.post('/api/weekly/apply-master', requireAuth, async (req, res) => {
     const { topicId, userEmail } = req.body;
@@ -502,6 +492,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { res.status(500).json({ error: 'Hiba.' }); }
   });
 
+  // 🎯 MODOSÍTVA: Képmester jóváhagyásakor kivettük a +2 nap ingyen prémium adományozást
   app.post('/api/admin/decide-master', requireAuth, async (req, res) => {
     if (!req.user.isAdmin) return res.status(403).json({ error: 'Megtagadva!' });
     const { topicId, decision } = req.body; 
@@ -511,7 +502,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         const masterEmail = topicRows[0]?.pending_master_email;
         if (masterEmail) {
           await pool.query('UPDATE weekly_topics SET master_email = pending_master_email, pending_master_email = NULL WHERE id = ?', [topicId]);
-          await pool.query(`UPDATE photo_users SET is_premium = 1, premium_level = 1, premium_until = DATE_ADD(IF(premium_until IS NOT NULL AND premium_until > NOW(), premium_until, NOW()), INTERVAL 2 DAY) WHERE email = ?`, [masterEmail]);
+          // 🛑 AZ AJÁNDÉK PRÉMIUM TÖRLÉSRE KERÜLT - Innentől pontért veheti meg a boltban
         } else return res.status(400).json({ error: 'Nincs jelentkező!' });
       } else {
         await pool.query('UPDATE weekly_topics SET pending_master_email = NULL WHERE id = ?', [topicId]);
@@ -521,7 +512,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // 📸 ARÉNA KÉPFELTÖLTÉSEK (VÉDETT)
+  // 📸 ARÉNA KÉPFELTÖLTÉSEK
   // ====================================================================
   app.post('/api/weekly/my-album/upload', requireAuth, upload.single('photo'), async (req, res) => {
     const file = req.file; const { userEmail, camera, lens, shutter, iso, aperture, software } = req.body;
@@ -662,7 +653,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // 🗳️ SZAVAZÁSI VÉGPONTOK (VÉDETT - Szavazat-hamisítás letiltva)
+  // 🗳️ SZAVAZÁSI VÉGPONTOK
   // ====================================================================
   app.get('/api/weekly/next-vote', requireAuth, async (req, res) => {
     const { topicId, userEmail } = req.query;
@@ -673,9 +664,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
-  // ====================================================================
-  // 🗳️ FRISSÍTVE: SZAVAZÁSI VÉGPONT INTEGRÁLT BÓNUSZPONT MOTORRAL
-  // ====================================================================
   app.post('/api/weekly/vote', requireAuth, async (req, res) => {
     const { entryId, userEmail, voteType } = req.body; 
     if (req.user.email !== userEmail) return res.status(403).json({ error: 'Tiltott manipuláció!' });
@@ -691,7 +679,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
       const [entryTopicRows] = await conn.query('SELECT topic_id FROM weekly_entries WHERE id = ?', [entryId]);
       const topicId = entryTopicRows[0]?.topic_id;
-      targetTopicId = topicId; // Kimentjük a globális változóba, hogy a commit után elérjük
+      targetTopicId = topicId; 
 
       const [topicRows] = await conn.query('SELECT master_email FROM weekly_topics WHERE id = ?', [topicId]);
       
@@ -716,33 +704,27 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         if (entryRows[0]?.user_email) await checkAndAwardLevelUp(conn, entryRows[0].user_email);
       }
 
-      // 🎯 ÚJ: JÁTÉKOS AKTIVITÁS ELLENŐRZŐ (BÓNUSZPONT MOTOR)
       if (topicId) {
-        // 1. Lekérjük a szobában lévő összes többi aktív kép számát (kivéve a sajátját!)
         const [totalEntriesRows] = await conn.query(
           'SELECT COUNT(*) as total FROM weekly_entries WHERE topic_id = ? AND is_active = 1 AND LOWER(TRIM(user_email)) != LOWER(TRIM(?))',
           [topicId, userEmail]
         );
         const totalVotable = Number(totalEntriesRows[0]?.total || 0);
 
-        // 2. Megszámoljuk, hogy a user eddig hány képre szavazott ebben az Aréna szobában
         const [userVotesRows] = await conn.query(
           `SELECT COUNT(*) as votes FROM weekly_votes v 
            JOIN weekly_entries e ON v.entry_id = e.id 
            WHERE e.topic_id = ? AND v.voter_email = ?`,
           [topicId, userEmail]
         );
-        // Mivel ezt a mostani szavazatot az SQL-be már beszúrtuk, a userVotesCount pontosan az aktuális állapotot fogja tükrözni
         const userVotesCount = Number(userVotesRows[0]?.votes || 0);
 
-        // Ha minden elérhető képet elbírált, ellenőrizzük, hogy kapott-e már érte bónuszt korábban
         if (totalVotable > 0 && userVotesCount === totalVotable) {
           const [alreadyAwarded] = await conn.query(
             "SELECT id FROM photo_points_ledger WHERE user_email = ? AND reason_key = 'arena_vote_bonus' AND related_id = ?",
             [userEmail, topicId]
           );
           
-          // Ha még szűz a szoba pontnaplója ehhez a meccshez, felkapcsoljuk a pontszerző zászlót!
           if (alreadyAwarded.length === 0) {
             awardVoteBonus = true;
           }
@@ -758,14 +740,12 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       conn.release(); 
     }
 
-    // 🪙 Biztonsági okokból a főtranzakció commitja UTÁN futtatjuk a pontszervizt,
-    // így elkerüljük az adatbázis-zárolásokat (deadlock) és holtversenyeket!
     if (awardVoteBonus && targetTopicId) {
       try {
         await PointsService.handleTransaction(
           pool, 
           userEmail, 
-          PointsService.CONSTANTS.EARN_ARENA_VOTE_BONUS, // +10 pont
+          PointsService.CONSTANTS.EARN_ARENA_VOTE_BONUS, 
           'arena_vote_bonus', 
           targetTopicId,
           'Minden szavazat sikeresen leadva a szobában! ⚡', 
@@ -789,7 +769,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
       const cleanCode = referralCode.trim().toUpperCase();
       const [referrerRows] = await pool.query('SELECT email FROM photo_users WHERE referral_code = ?', [cleanCode]);
-      if (referrerRows.length === 0) return res.status(400).json({ error: 'A kód nem létezik!' });
+      if (referrerRows.length === 0) return res.status(400).json({ error: 'A kód nem léexistál!' });
 
       const referrerEmail = referrerRows[0].email;
       if (referrerEmail === userEmail) return res.status(400).json({ error: 'Saját magad kódja nem ér!' });
@@ -806,7 +786,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // 📰 HISTÓRIKUS ÉS NYILVÁNOS ADATOK (VÉDETT)
+  // 📰 HISTÓRIKUS ÉS NYILVÁNOS ADATOK
   // ====================================================================
   app.get('/api/weekly/upcoming', requireAuth, async (req, res) => {
     try {
@@ -834,7 +814,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // 🛡️ ANTI-FRAUD ÉS MONITORING VÉGPONTOK (SZIGORÚ ADMIN EXKLUZÍV)
+  // 🛡️ ANTI-FRAUD ÉS MONITORING VÉGPONTOK
   // ====================================================================
   app.get('/api/admin/weekly/suspicious', requireAuth, async (req, res) => {
     if (!req.user.isAdmin) return res.status(403).json({ error: 'Hozzáférés megtagadva!' });
@@ -872,7 +852,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
-  app.get('/api/weekly/hof-stats', requireAuth, async (req, res) => {
+  app.get('/api/weekly/report-hof-stats', requireAuth, async (req, res) => {
     const { userEmail } = req.query;
     if (req.user.email !== userEmail && !req.user.isAdmin) return res.status(403).json({ error: 'Megtagadva!' });
     try {
@@ -895,7 +875,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
  app.get('/api/weekly/hall-of-fame', requireAuth, async (req, res) => {
     try {
-      // 🎯 JAVÍTVA: c.drive_file_id vissza lett cserélve a helyes c.drive_logo_id-ra!
       const [leaderboard] = await pool.query(`SELECT u.name as user_name, u.email as user_email, u.club_name, u.avatar_url, c.drive_logo_id, c.logo_url, COALESCE(u.total_likes, 0) as total_likes, COALESCE(u.victories, 0) as first_places, (SELECT COUNT(*) FROM weekly_entries WHERE LOWER(TRIM(user_email)) = LOWER(TRIM(u.email)) AND is_active = 1) as podiums, (SELECT COUNT(*) FROM weekly_topics WHERE LOWER(TRIM(master_email)) = LOWER(TRIM(u.email)) AND status = 'approved') as master_count FROM photo_users u LEFT JOIN photo_clubs c ON u.club_name = c.name WHERE u.total_likes > 0 OR u.victories > 0 ORDER BY u.total_likes DESC, u.name ASC`);
       res.json(leaderboard);
     } catch (err) { 
@@ -903,8 +882,9 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       res.status(500).json({ error: 'Hiba' }); 
     }
   });
+
   // ====================================================================
-  // ☁️ CLOUDINARY ADAT-MIGRÁCIÓS ÉS PROXY PANEL (SZIGORÚ ADMIN ONLY)
+  // ☁️ CLOUDINARY ADAT-MIGRÁCIÓS ÉS PROXY PANEL
   // ====================================================================
   app.post('/api/admin/test-cloudinary', requireAuth, upload.single('photo'), async (req, res) => {
     if (!req.user.isAdmin) return res.status(403).json({ error: 'Hozzáférés megtagadva!' });
@@ -958,7 +938,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // 💡 JAVASLATOK ÉS ARCHÍVUM CSERÉK (VÉDETT)
+  // 💡 JAVASLATOK ÉS ARCHÍVUM CSERÉK
   // ====================================================================
   app.post('/api/weekly/propose', requireAuth, upload.single('cover'), async (req, res) => {
     const { title, title_en, description, description_en, cover_author, master_name, start_date, end_date, userEmail } = req.body;
@@ -968,64 +948,53 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       let coverUrl = null;
       if (req.file) {
         const result = await cloudinary.uploader.upload(req.file.path, { folder: 'parbaj_boritokepek', width: 1200, height: 600, crop: "limit", quality: "auto:good" });
-        coverUrl = result.secure_url; if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+        coverUrl = result.secure_url;
+        if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
       }
-      await pool.query(`INSERT INTO weekly_topics (title, title_en, description, description_en, cover_url, cover_author, master_email, start_date, end_date, status, proposed_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)`, [title, title_en || null, description, description_en || null, coverUrl, cover_author, master_name || null, start_date, end_date, userEmail]);
-      res.json({ success: '⚔️ A csatitervedet sikeresen elmentettük!' });
-    } catch (err) { if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path); res.status(500).json({ error: err.message }); }
+      await pool.query('INSERT INTO weekly_topics (title, title_en, description, description_en, start_date, end_date, master_email, cover_url, cover_author) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [title, title_en || null, description, description_en || null, start_date, end_date, master_name || null, coverUrl, cover_author || null]);
+      res.json({ success: true });
+    } catch (err) {
+      if (file && fs.existsSync(file.path)) fs.unlinkSync(file.path);
+      res.status(500).json({ error: err.message });
+    }
   });
 
-  app.get('/api/admin/proposals', requireAuth, async (req, res) => {
-    if (!req.user.isAdmin) return res.status(403).json({ error: 'Hozzáférés megtagadva!' });
-    try { res.json((await pool.query("SELECT * FROM weekly_topics WHERE status = 'pending' ORDER BY start_date ASC"))[0]); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
-  });
-
-  app.post('/api/admin/decide-proposal', requireAuth, async (req, res) => {
-    if (!req.user.isAdmin) return res.status(403).json({ error: 'Hozzáférés megtagadva!' });
-    const { topicId, decision } = req.body;
+  // 🎯 FRISSÍTVE: A javasolt szobák jóváhagyásakor kivettük a +2 napos ingyen prémium osztást
+  app.post('/api/admin/decide-master', requireAuth, async (req, res) => {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Megtagadva!' });
+    const { topicId, decision } = req.body; 
     try {
       if (decision === 'approved') {
-        const [topicRows] = await pool.query('SELECT master_email FROM weekly_topics WHERE id = ?', [topicId]);
-        await pool.query("UPDATE weekly_topics SET status = 'approved' WHERE id = ?", [topicId]);
-        if (topicRows[0]?.master_email) {
-          await pool.query(`UPDATE photo_users SET is_premium = 1, premium_level = 1, premium_until = DATE_ADD(IF(premium_until IS NOT NULL AND premium_until > NOW(), premium_until, NOW()), INTERVAL 2 DAY) WHERE email = ?`, [topicRows[0].master_email]);
-        }
-      } else await pool.query("UPDATE weekly_topics SET status = ? WHERE id = ?", [decision, topicId]);
-      res.json({ success: 'Sikeres bírálat!' });
-    } catch (err) { res.status(500).json({ error: 'Hiba.' }); }
+        const [topicRows] = await pool.query('SELECT pending_master_email FROM weekly_topics WHERE id = ?', [topicId]);
+        const masterEmail = topicRows[0]?.pending_master_email;
+        if (masterEmail) {
+          await pool.query('UPDATE weekly_topics SET master_email = pending_master_email, pending_master_email = NULL WHERE id = ?', [topicId]);
+          // 🛑 AZ INGYEN PRÉMIUM TÖRLÉSRE KERÜLT - Innentől pontért veheti meg a boltban
+        } else return res.status(400).json({ error: 'Nincs jelentkező!' });
+      } else {
+        await pool.query('UPDATE weekly_topics SET pending_master_email = NULL WHERE id = ?', [topicId]);
+      }
+      res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
   });
 
-  app.get('/api/weekly/history/:topicId', requireAuth, async (req, res) => {
-    const userEmail = req.query.userEmail || '';
-    if (req.user.email !== userEmail && !req.user.isAdmin) return res.status(403).json({ error: 'Munkamenet hiba!' });
+  app.delete('/api/admin/weekly-topics/:id', requireAuth, async (req, res) => {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Megtagadva!' });
     try {
-      const [leaderboard] = await pool.query(`SELECT e.id, e.user_name, e.user_email, e.file_url, e.drive_file_id, e.views_count, e.likes_count, u.club_name, e.camera, e.lens, e.shutter, e.iso, e.aperture, e.software, EXISTS(SELECT 1 FROM weekly_votes WHERE entry_id = e.id AND voter_email = ?) as has_user_voted, (SELECT COUNT(*) FROM weekly_votes WHERE voter_email = e.user_email AND entry_id IN (SELECT id FROM weekly_entries WHERE topic_id = e.topic_id AND is_active = 1)) as votes_cast, ${getFairScoreSql('e', 't')} as fair_score, COALESCE((SELECT 1 FROM weekly_votes WHERE entry_id = e.id AND vote_type = 'master' LIMIT 1), 0) AS has_master_vote, (SELECT COUNT(*) FROM weekly_archive_likes WHERE entry_id = e.id) as archive_likes, EXISTS(SELECT 1 FROM weekly_archive_likes WHERE entry_id = e.id AND LOWER(TRIM(user_email)) = LOWER(TRIM(?))) as has_user_liked FROM weekly_entries e JOIN weekly_topics t ON e.topic_id = t.id LEFT JOIN photo_users u ON e.user_email = u.email WHERE e.topic_id = ? AND e.is_active = 1 ORDER BY fair_score DESC, e.likes_count DESC, e.views_count ASC`, [userEmail, userEmail, req.params.topicId]);
-      const clubsData = {};
-      leaderboard.forEach(entry => { if (entry.club_name?.trim()) { if (!clubsData[entry.club_name]) clubsData[entry.club_name] = []; clubsData[entry.club_name].push(Number(entry.fair_score || 0)); } });
-      const clubLeaderboard = Object.keys(clubsData).map(club => { clubsData[club].sort((a, b) => b - a); return { club_name: club, total_score: Number(clubsData[club].slice(0, 3).reduce((sum, val) => sum + val, 0).toFixed(2)), members_counted: clubsData[club].slice(0, 3).length }; }).sort((a, b) => b.total_score - a.total_score);
-      res.json({ leaderboard, clubLeaderboard });
+      await pool.query('DELETE FROM weekly_topics WHERE id = ?', [req.params.id]);
+      res.json({ success: true });
     } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
   // ====================================================================
-  // 💬 ARÉNA LÍGA ÉLŐ CSEVEGŐ (VÉDETT)
+  // 💬 ÉLŐ ARÉNA CSEVEGÉS PROXY MOTORJA
   // ====================================================================
-    // 🎯 FRISSÍTVE: Aréna Liga élő csevegő profilkép (avatar_url) támogatással
   app.get('/api/weekly/chat/:topicId', requireAuth, async (req, res) => {
     try {
       const [messages] = await pool.query(`
-        SELECT 
-          c.id, 
-          COALESCE(u.name, c.user_name) AS user_name, 
-          c.user_email, 
-          u.avatar_url, 
-          c.message_text, 
-          c.created_at 
-        FROM weekly_chat c 
-        LEFT JOIN photo_users u ON c.user_email = u.email 
-        WHERE c.topic_id = ? 
-        ORDER BY c.created_at ASC 
-        LIMIT 100
+        SELECT c.id, COALESCE(u.name, c.user_name) AS user_name, c.user_email, u.avatar_url, c.message_text, c.created_at 
+        FROM weekly_chat c LEFT JOIN photo_users u ON c.user_email = u.email 
+        WHERE c.topic_id = ? ORDER BY c.created_at ASC LIMIT 100
       `, [Number(req.params.topicId)]);
       
       const currentTypers = []; const now = Date.now();
@@ -1038,7 +1007,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       res.json({ messages, typing: currentTypers });
     } catch (err) { res.status(500).json({ error: err.message }); }
   });
-
 
   app.post('/api/weekly/chat', requireAuth, async (req, res) => {
     const { topicId, userEmail, userName, messageText } = req.body;
@@ -1054,7 +1022,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // ❤️ ARCHÍVUM INTERAKTÍV MÓD (VÉDETT)
+  // ❤️ ARCHÍVUM INTERAKTÍV MÓD
   // ====================================================================
   const handleArchiveLikeLogic = async (req, res) => {
     const { entryId, userEmail } = req.body;
@@ -1072,8 +1040,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   };
   app.post('/api/weekly/archive/like', requireAuth, handleArchiveLikeLogic);
   app.post('/api/weekly/history/like', requireAuth, handleArchiveLikeLogic);
-  app.post('/api/weekly/archive/like-toggle', requireAuth, handleArchiveLikeLogic);
-  app.post('/api/weekly/history/like-toggle', requireAuth, handleArchiveLikeLogic);
 
   const handleGetComments = async (req, res) => {
     try { res.json((await pool.query('SELECT * FROM weekly_archive_comments WHERE entry_id = ? ORDER BY created_at ASC', [req.params.entryId]))[0]); } catch (e) { res.status(500).json({ error: e.message }); }
@@ -1101,7 +1067,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // ⚡ HISTÓRIKUS ADAT-ÚJRAÉPÍTŐ MOTOR (SZIGORÚ ADMIN ONLY)
+  // ⚡ HISTÓRIKUS ADAT-ÚJRAÉPÍTŐ MOTOR
   // ====================================================================
   app.get('/api/admin/rebuild-historical-facts', requireAuth, async (req, res) => {
     if (!req.user.isAdmin) return res.status(403).json({ error: 'Hozzáférés megtagadva!' });
