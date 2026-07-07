@@ -927,6 +927,17 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     return sortBy === 'endDate' ? timeA - timeB : timeB - timeA;
   });
 
+  const BASE_EXPOSURE = 10;
+  const exposureEarned = BASE_EXPOSURE + (Number(myVoteCount || 0) * 2);
+  const safeViewsCount = myEntry ? (Number(myEntry.views_count) || 0) : 0;
+  const viewsRemaining = myEntry ? (exposureEarned - safeViewsCount) : 0;
+  const rawPercentage = myEntry ? ((viewsRemaining / 15) * 100) : 0;
+  const exposurePercentage = isNaN(rawPercentage) || !isFinite(rawPercentage) ? 0 : Math.min(100, Math.max(0, rawPercentage));
+  let exposureColor = '#ef4444';
+  let exposureLabel = viewsRemaining <= 0 ? (lang === 'en' ? 'Invisible (0%)' : 'Láthatatlan (0%)') : (lang === 'en' ? 'Low' : 'Alacsony');
+  if (exposurePercentage >= 80) { exposureColor = '#10b981'; exposureLabel = lang === 'en' ? 'Maximum' : 'Maximális'; } 
+  else if (exposurePercentage >= 40) { exposureColor = '#f59e0b'; exposureLabel = lang === 'en' ? 'Medium' : 'Közepes'; }
+  
   const currentLevel = getLevelDetails(userTotalLikes, userVictories);
 
   return (
