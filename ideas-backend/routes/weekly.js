@@ -1113,27 +1113,30 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       const cleanEmail = String(userEmail).trim().toLowerCase();
       const currentNow = getLocalMySQLNow();
 
-      const [rows] = await pool.query(`
-        SELECT 
-          t.title as topic_title, 
-          COALESCE(t.title_en, t.title) as topic_title_en, 
-          t.start_date, 
-          t.end_date, 
-          e.file_url, 
-          e.drive_file_id, 
-          COALESCE(e.final_fair_score, 0) as likes, 
-          e.views_count as views,
-          COALESCE(e.final_rank, 0) as rank,
-          e.user_name,
-          (SELECT COUNT(*) FROM weekly_entries WHERE topic_id = t.id AND is_active = 1) as total_entries
-        FROM weekly_entries e
-        JOIN weekly_topics t ON e.topic_id = t.id
-        WHERE LOWER(TRIM(e.user_email)) = LOWER(TRIM(?))
-          AND e.is_active = 1 -- 🎯 ÚJ: Kizárólag a hivatalos, élesített képeket hozzuk el, a lecserélteket eldobjuk!
-          AND t.end_date < ?
-          AND (t.status = 'approved' OR t.status IS NULL OR t.status = '')
-        ORDER BY t.end_date DESC
-      `, [cleanEmail, currentNow]);
+      // Keresd meg ezt a SQL részt a hof-stats végpontban, és egészítsd ki így:
+const [rows] = await pool.query(`
+  SELECT 
+    e.id, -- 🎯 EZ KELL A KOMMENTEK ÉS LÁJKOK AZONOSÍTÁSÁHOZ!
+    t.title as topic_title, 
+    COALESCE(t.title_en, t.title) as topic_title_en, 
+    t.start_date, 
+    t.end_date, 
+    e.file_url, 
+    e.drive_file_id, 
+    COALESCE(e.final_fair_score, 0) as likes, 
+    e.views_count as views,
+    COALESCE(e.final_rank, 0) as rank,
+    e.user_name,
+    (SELECT COUNT(*) FROM weekly_archive_likes WHERE entry_id = e.id) as archive_likes, -- 🎯 Archív dicséretek száma
+    (SELECT COUNT(*) FROM weekly_entries WHERE topic_id = t.id AND is_active = 1) as total_entries
+  FROM weekly_entries e
+  JOIN weekly_topics t ON e.topic_id = t.id
+  WHERE LOWER(TRIM(e.user_email)) = LOWER(TRIM(?))
+    AND e.is_active = 1
+    AND t.end_date < ?
+    AND (t.status = 'approved' OR t.status IS NULL OR t.status = '')
+  ORDER BY t.end_date DESC
+`, [cleanEmail, currentNow]);
 
       let podiums = { first: 0, second: 0, third: 0 };
       rows.forEach(entry => {
