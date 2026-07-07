@@ -13,7 +13,8 @@ import {
   Share2, 
   Download,
   Sparkles,
-  Camera
+  Camera,
+  Loader2
 } from 'lucide-react';
 
 interface ShareCardModalProps {
@@ -53,8 +54,12 @@ export default function ShareCardModal({
     ? activeShareData.topic_title_en 
     : activeShareData.topic_title;
 
-  // DINAMIKUS KÉP-UTVONAL MEGHATÁROZÁS
-  const resolvedImageUrl = shareBase64 || activeShareData.file_url || activeShareData.imageUrl;
+  // 🎯 JAVÍTVA: KIZÁRÓLAG a base64-esített képet engedjük a kártyába — a korábbi
+  // `shareBase64 || activeShareData.file_url || activeShareData.imageUrl` lánc a nyers, cross-origin
+  // URL-re esett vissza, amitől a toPng "szennyezett vászon" (tainted canvas) hibát dobott, vagy a
+  // legenerált kép a fotó helyén üres maradt. Ha nincs base64, inkább a hibaüzenetet mutatjuk a
+  // kártyán, mint egy garantáltan hibás exportot.
+  const resolvedImageUrl = shareBase64;
 
   return (
     <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(9,13,22,0.92)', backdropFilter: 'blur(10px)', zIndex: 99999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px', overflowY: 'auto' }}>
