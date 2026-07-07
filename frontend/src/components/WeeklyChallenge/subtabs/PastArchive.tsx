@@ -322,6 +322,18 @@ export default function PastArchive({
     if (!node || !activeShareData) return;
     setIsGeneratingImage(true);
     try {
+      // 🎯 JAVÍTVA: megvárjuk, hogy a kártyán belüli fotó <img> ténylegesen dekódolva legyen, különben
+      // a toPng a kép betöltése előtt készíthet pillanatképet, és a mentett PNG-n üres marad a fotó helye.
+      const photoImgEl = node.querySelector('img') as HTMLImageElement | null;
+      if (photoImgEl && !photoImgEl.complete) {
+        await new Promise<void>((resolve) => {
+          photoImgEl.onload = () => resolve();
+          photoImgEl.onerror = () => resolve();
+        });
+      } else if (photoImgEl && typeof photoImgEl.decode === 'function') {
+        try { await photoImgEl.decode(); } catch (e) { /* ignore, folytatjuk */ }
+      }
+
       // 🎯 MOBIL JAVÍTVA: Trófeakártya megosztásánál is aktiváltuk a pixelRatio: 1 korlátozást a fagyások ellen!
       await toPng(node, { cacheBust: true, pixelRatio: 1 });
       const dataUrl = await toPng(node, { cacheBust: true, quality: 1.0, pixelRatio: 1 });
