@@ -836,17 +836,82 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
+  // ====================================================================
+  // 📊 ULTRA-OPTIMALIZÁLT FELHASZNÁLÓI STATISZTIKÁK (TOP 10% & 20% FIX)
+  // ====================================================================
   app.get('/api/weekly/my-stats', requireAuth, async (req, res) => {
     const { userEmail } = req.query;
     if (req.user.email !== userEmail && !req.user.isAdmin) return res.status(403).json({ error: 'Megtagadva!' });
+    
     try {
+      // 1. Lekérjük a győzelmek tiszta darabszámát
       const [userStats] = await pool.query("SELECT victories FROM photo_users WHERE email = ?", [userEmail]);
-      const [podiumRows] = await pool.query(`SELECT COUNT(CASE WHEN final_rank = 1 THEN 1 END) as first, COUNT(CASE WHEN final_rank = 2 THEN 1 END) as second, COUNT(CASE WHEN final_rank = 3 THEN 1 END) as third FROM weekly_entries WHERE LOWER(TRIM(user_email)) = LOWER(TRIM(?)) AND final_rank IS NOT NULL`, [userEmail]);
-      const [historyRows] = await pool.query(`SELECT t.title as topic_title, t.title_en as topic_title_en, t.start_date, t.end_date, e.file_url, e.drive_file_id, e.final_rank as rank, e.views_count as views, e.final_fair_score as likes, e.user_name FROM weekly_entries e JOIN weekly_topics t ON e.topic_id = t.id WHERE LOWER(TRIM(e.user_email)) = LOWER(TRIM(?)) AND e.final_rank IS NOT NULL ORDER BY t.end_date DESC`, [userEmail]);
-      res.json({ podiums: { first: podiumRows[0]?.first || 0, second: podiumRows[0]?.second || 0, third: podiumRows[0]?.third || 0 }, history: historyRows });
-    } catch (err) { res.status(500).json({ error: 'Hiba' }); }
-  });
+      
+      // 2. Kigyűjtjük a hagyományos 1., 2. és 3. helyezéseket a dobogóhoz
+      const [podiumRows] = await pool.query(`
+        SELECT COUNT(CASE WHEN final_rank = 1 THEN 1 END) as first, 
+               COUNT(CASE WHEN final_rank = 2 THEN 1 END) as second, 
+               COUNT(CASE WHEN final_rank = 3 THEN 1 END) as third 
+        FROM weekly_entries 
+        WHERE LOWER(TRIM(user_email)) = LOWER(TRIM(?)) AND final_rank IS NOT NULL
+      `, [userEmail]);
 
+      // 3. Lekérjük az aréna történetet az adott szobák akkori TELJES taglétszámával együtt
+      const [historyRows] = await pool.query(`
+        SELECT 
+          t.title as topic_title, 
+          t.title_en as topic_title_en, 
+          t.start_date, 
+          t.end_date, 
+          e.file_url, 
+          e.drive_file_id, 
+          COALESCE(e.final_rank, 0) as rank, 
+          e.views_count as views, 
+          e.final_fair_score as likes, 
+          e.user_name,
+          (SELECT COUNT(*) FROM weekly_entries WHERE topic_id = t.id AND is_active = 1) as total_entries
+        FROM weekly_entries e 
+        JOIN weekly_topics t ON e.topic_id = t.id 
+        WHERE LOWER(TRIM(e.user_email)) = LOWER(TRIM(?)) AND e.final_rank IS NOT NULL 
+        ORDER BY t.end_date DESC
+      `, [userEmail]);
+
+      // 4. Élőben kiszámoljuk a Top 10% és Top 20% mérőszámokat a mezőnyarányok alapján
+      let top10Count = 0;
+      let top20Count = 0;
+
+      historyRows.forEach(entry => {
+        const currentRank = Number(entry.rank || 0);
+        const totalParticipants = Number(entry.total_entries || 0);
+
+        if (totalParticipants > 0 && currentRank > 0) {
+          const percentileRatio = currentRank / totalParticipants;
+          
+          if (percentileRatio <= 0.10) {
+            top10Count++;
+          }
+          if (percentileRatio <= 0.20) {
+            top20Count++;
+          }
+        }
+      });
+
+      // 5. Visszaküldjük a frontendnek a kibővített adatcsomagot
+      res.json({ 
+        podiums: { 
+          first: podiumRows[0]?.first || 0, 
+          second: podiumRows[0]?.second || 0, 
+          third: podiumRows[0]?.third || 0 
+        }, 
+        top10Count, 
+        top20Count, 
+        history: historyRows 
+      });
+    } catch (err) { 
+      console.error("❌ Hiba az egyéni statisztikák számításakor:", err.message);
+      res.status(500).json({ error: 'Szerveroldali hiba történt.' }); 
+    }
+  });
   // ====================================================================
   // 🛡️ ANTI-FRAUD ÉS MONITORING VÉGPONTOK
   // ====================================================================
