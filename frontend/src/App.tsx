@@ -54,10 +54,28 @@ if (typeof window !== 'undefined' && window.location.hostname.includes('kepolvas
 }
 
 // ====================================================================
-// 🚀 GLOBÁLIS ANTI-FREEZE & AUTO-RETRY MOTOR (Minden oldalra kiterjedően)
+// 🚀 GLOBÁLIS ANTI-FREEZE & AUTO-RETRY MOTOR MENTŐÖV FUNKCIÓVAL
 // ====================================================================
 if (typeof window !== 'undefined') {
   const originalFetch = window.fetch;
+
+  // Központi mentőöv: Átirányít a dashboardra és kényszeríti a frissítést
+  const triggerDashboardFallback = () => {
+    if (window.location.pathname !== '/dashboard' && window.location.pathname !== '/') {
+      console.error("🔄 Kritikus szerverhiba észlelve. Automatikus kényszerített kimenekítés a Dashboardra...");
+      window.location.href = '/dashboard';
+    } else {
+      // Ha már a dashboardon vagyunk és ott akad meg a kapcsolat, nyomunk egy tiszta reloadot.
+      // Maximum 10 másodpercenként egyszer engedjük lefutni, nehogy végtelen hurokba pörgesse a böngészőt!
+      const lastReload = sessionStorage.getItem('last_fallback_reload');
+      const now = Date.now();
+      if (!lastReload || now - Number(lastReload) > 10000) {
+        sessionStorage.setItem('last_fallback_reload', String(now));
+        console.error("🔄 Főoldali hálózati hiba, teljes felület kényszerített újraindítása...");
+        window.location.reload();
+      }
+    }
+  };
 
   window.fetch = async function (input, init) {
     let retries = 3;     // Maximum 3 próbálkozás, mielőtt hibát dobna
@@ -67,25 +85,35 @@ if (typeof window !== 'undefined') {
       try {
         const response = await originalFetch(input, init);
         
-        // Ha a szerver 500-as belső hibát dob (pl. éppen ébred az adatbázis pool)
-        if (response.status >= 500 && retries > 1) {
-          retries--;
-          console.warn(`⚠️ Időleges szerverhiba (${response.status}). Automatikus újrapróbálkozás... Hátralévő kísérlet: ${retries}`);
-          await new Promise(resolve => setTimeout(resolve, delay));
-          continue; // Ugorjunk a következő próbálkozásra a loopban
+        // Ha a szerver 500-as vagy nagyobb belső hibát dob (pl. Pool Timeout az ébredő DB miatt)
+        if (response.status >= 500) {
+          if (retries > 1) {
+            retries--;
+            console.warn(`⚠️ Időleges szerverhiba (${response.status}). Automatikus újrapróbálkozás... Hátralévő kísérlet: ${retries}`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            continue; // Ugorjunk a következő próbálkozásra
+          } else {
+            // 🎯 JAVÍTVA: Mind a 3 próbálkozás elfogyott és a szerver még mindig halott. Mentőöv aktiválása!
+            triggerDashboardFallback();
+            return response;
+          }
         }
         
-        return response; // Ha minden rendben, visszaadjuk a sikeres választ
+        return response; // Sikeres kérés esetén visszaadjuk az adatokat
       } catch (error) {
         retries--;
-        if (retries === 0) throw error; // Ha elfogytak a kísérletek, elengedjük a hibát
+        if (retries === 0) {
+          // 🎯 JAVÍTVA: Totális hálózati összeomlás (pl. megszakadt net) 3 kísérlet után. Mentőöv aktiválása!
+          triggerDashboardFallback();
+          throw error;
+        }
         
         console.warn(`⚠️ Hálózati hiba lépett fel. Újrapróbálkozás... Hátralévő kísérlet: ${retries}`);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
     
-    return originalFetch(input, init); // Végső biztonsági fallback
+    return originalFetch(input, init);
   };
 }
 
@@ -364,13 +392,13 @@ function MainContent() {
         const decoded: any = jwtDecode(storedToken);
         if (decoded.exp * 1000 < Date.now()) return;
 
-        const authRes = await fetch(`${BACKEND_URL}/api/auth/sync`, {
+        const res = await fetch(`${BACKEND_URL}/api/auth/sync`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email: decoded.email, name: decoded.name, sub: decoded.sub })
         });
 
-        if (authRes.status === 403) {
+        if (res.status === 403) {
           localStorage.removeItem('photoAppToken');
           localStorage.removeItem('user');
           setUser(null);
@@ -378,8 +406,8 @@ function MainContent() {
           return;
         }
 
-        if (authRes.ok) {
-          const authData = await authRes.json();
+        if (res.ok) {
+          const authData = await res.json();
           setUser((prev: any) => prev ? {
             ...prev,
             isPremium: authData.isPremium,
