@@ -222,13 +222,15 @@ export default function BattlePlanner({ user, onSuccess }: BattlePlannerProps) {
             <label style={labelStyle}>
               <Calendar size={14} color="var(--text-muted)" /> {t('planLabelStart')}
             </label>
-            <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} required style={inputStyle} />
+            {/* 🎯 JAVÍTVA: type="datetime-local" beállítva a pontos óra és perc kiválasztásához */}
+            <input type="datetime-local" value={startDate} onChange={e => setStartDate(e.target.value)} required style={inputStyle} />
           </div>
           <div>
             <label style={labelStyle}>
               <Calendar size={14} color="var(--text-muted)" /> {t('planLabelEnd')}
             </label>
-            <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} required style={inputStyle} />
+            {/* 🎯 JAVÍTVA: type="datetime-local" beállítva a pontos óra és perc kiválasztásához */}
+            <input type="datetime-local" value={endDate} onChange={e => setEndDate(e.target.value)} required style={inputStyle} />
           </div>
         </div>
 
