@@ -886,27 +886,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
-  app.get('/api/weekly/report-hof-stats', requireAuth, async (req, res) => {
-    const { userEmail } = req.query;
-    if (req.user.email !== userEmail && !req.user.isAdmin) return res.status(403).json({ error: 'Megtagadva!' });
-    try {
-      let cleanEmail = String(userEmail).trim().toLowerCase();
-      const [pastTopics] = await pool.query("SELECT id, title, title_en, start_date, end_date FROM weekly_topics WHERE end_date < ? AND (status = 'approved' OR status IS NULL OR status = '') ORDER BY end_date DESC", [getLocalMySQLNow()]);
-      let podiums = { first: 0, second: 0, third: 0 }; let history = [];
-
-      for (const topic of pastTopics) {
-        const [entries] = await pool.query(`SELECT e.id, e.user_email, e.user_name, e.file_url, e.drive_file_id, e.likes_count, e.views_count, ${getFairScoreSql('e', 't')} as fair_score FROM weekly_entries e JOIN weekly_topics t ON e.topic_id = t.id WHERE e.topic_id = ? AND e.is_active = 1 ORDER BY fair_score DESC, e.likes_count DESC, e.views_count ASC`, [topic.id]);
-        const userIndex = entries.findIndex(e => e.user_email && String(e.user_email).trim().toLowerCase() === cleanEmail);
-        if (userIndex !== -1) {
-          const rank = userIndex + 1; const entry = entries[userIndex];
-          if (rank === 1) podiums.first++; else if (rank === 2) podiums.second++; else if (rank === 3) podiums.third++;
-          history.push({ topic_title: String(topic.title || ''), topic_title_en: String(topic.title_en || topic.title || ''), start_date: topic.start_date, end_date: topic.end_date, rank: Number(rank), total_entries: Number(entries.length), file_url: String(entry.file_url || ''), drive_file_id: String(entry.drive_file_id || ''), likes: Number(entry.fair_score || 0), views: Number(entry.views_count || 0), user_name: String(entry.user_name || '') });
-        }
-      }
-      res.json({ podiums, history });
-    } catch (err) { res.status(500).json({ error: 'Hiba' }); }
-  });
-
+ 
  // ====================================================================
   // 🏆 GLOBÁLIS DICSŐSÉGCSARNOK LEKÉRDEZÉS (JAVÍTVA: VALÓDI DOBOGÓK SZÁMÍTÁSA)
   // ====================================================================
