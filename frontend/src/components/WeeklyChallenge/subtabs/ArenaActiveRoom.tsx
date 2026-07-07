@@ -3,7 +3,6 @@ import { getImageUrl } from '../../../utils/helpers';
 import { BACKEND_URL } from '../../../utils/constants';
 
 import { useLanguage } from '../../../context/LanguageContext';
-
 import { 
   Clock, 
   Flame, 
@@ -90,17 +89,20 @@ function ActiveRoomCountdown({ endDate, lang }: { endDate: string; lang: string 
 
 interface ArenaActiveRoomProps {
   topic: any; timeLeft: string; isMaster: boolean; exposureColor: string; exposurePercentage: number; exposureLabel: string;
-  myEntry: any; voteEntry: any; noMoreEntries: boolean; masterVotesLeft: number; userPower: any; swapBalance: number;
-  myPastEntries: any[]; leaderboard: any[]; currentClubLeaderboard: any[]; user: any; isUploading: boolean; uploadPreview: string | null;
+  myEntry: any; voteEntry: any;
+  noMoreEntries: boolean; masterVotesLeft: number; userPower: any; swapBalance: number;
+  myPastEntries: any[]; leaderboard: any[]; currentClubLeaderboard: any[]; user: any; isUploading: boolean;
+  uploadPreview: string | null;
   handleFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void; handleUpload: () => void; isLoadingSwapAlbum: boolean; isSwapping: boolean;
   swapPreview: string | null; deleteEntry?: any; handleSwapFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void; handleSwapSubmit: () => void;
-  onOpenAlbumForUpload: () => void; onOpenAlbumForSwap: () => void; handleVote: (type: 'pass' | 'super' | 'brilliant' | 'master') => void;
-  handleOffTopicReport: (id: number) => void; handleSwapBackSubmit: (id: number) => void; setFullscreenData: (data: any) => void;
+  onOpenAlbumForUpload: () => void; onOpenAlbumForSwap: () => void;
+  handleVote: (type: 'pass' | 'super' | 'brilliant' | 'master') => void;
+  handleOffTopicReport: (id: number) => void;
+  handleSwapBackSubmit: (id: number) => void; setFullscreenData: (data: any) => void;
   handleImageError: (e: React.SyntheticEvent<HTMLImageElement, Event>) => void;
   fetchCurrentTopic: (isSilent?: boolean) => Promise<void>;
 }
 
-// 🎯 KÖZPONTI AUTH FEJLÉC GENERÁTOR HELYI RENDERSZINTRE
 const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
   const token = localStorage.getItem('photoAppToken');
   return {
@@ -115,7 +117,9 @@ export default function ArenaActiveRoom({
   myPastEntries, leaderboard, currentClubLeaderboard, user, isUploading, uploadPreview,
   isLoadingSwapAlbum, isSwapping, swapPreview, onOpenAlbumForUpload, onOpenAlbumForSwap,
   handleVote, handleOffTopicReport, handleSwapBackSubmit, setFullscreenData, handleImageError,
-  fetchCurrentTopic
+  fetchCurrentTopic,
+  // 🎯 JAVÍTVA: Sikeresen destrukturálva a korábban bent felejtett feltöltési és csere funkciók!
+  handleFileSelect, handleUpload, handleSwapFileSelect, handleSwapSubmit
 }: ArenaActiveRoomProps) {
 
   const { t, lang } = useLanguage();
@@ -179,7 +183,6 @@ export default function ArenaActiveRoom({
 
     setIsSubmittingBatch(true);
     try {
-      // 🎯 JAVÍTVA: A szavazatok beküldése megkapta a hitelesített biztonsági fejlécet!
       const votePromises = Object.entries(pendingVotes).map(([entryId, type]) => {
         return fetch(`${BACKEND_URL}/api/weekly/vote`, {
           method: 'POST',
@@ -187,7 +190,6 @@ export default function ArenaActiveRoom({
           body: JSON.stringify({ entryId: Number(entryId), userEmail: user?.email, voteType: type })
         });
       });
-
       await Promise.all(votePromises);
       alert(t('roomBatchAlertSuccess'));
       setPendingVotes({});
@@ -285,7 +287,7 @@ export default function ArenaActiveRoom({
                                 </button>
                               );
                             })}
-                            <button onClick={() => handleOffTopicReport(entry.id)} style={{ padding: '6px 8px', borderRadius: '4px', border: '1px solid rgba(239, 68, 68, 0.2)', background: 'transparent', color: '#ef4444', fontWeight: 'bold', fontSize: '0.8rem', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px', minWidth: '75px', flex: '1 1 calc(100% - 6px)' }}>
+                            <button onClick={() => handleOffTopicReport(entry.id)} style={{ padding: '6px 8px', borderRadius: '4px', border: '1px solid rgba(239, 68, 68, 0.2)', background: 'transparent', color: '#ef4444', border: 'none', padding: '3px 8px', borderRadius: '4px', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px', minWidth: '75px', flex: '1 1 calc(100% - 6px)' }}>
                               <span>{t('roomReportBtn').split(' ')[0]}</span>
                               <span style={{ fontSize: '0.62rem', opacity: 0.5, fontWeight: 'normal' }}>AI / Off-Topic</span>
                             </button>
@@ -329,7 +331,7 @@ export default function ArenaActiveRoom({
               <div style={{ width: '100%', height: '200px', backgroundColor: 'var(--bg-main)', borderRadius: '6px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border-main)' }}>
                 <img src={getImageUrl(myEntry?.drive_file_id, myEntry?.file_url)} alt="My submission" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} onError={handleImageError} />
               </div>
-              <div style={{ marginTop: '12px', display: 'grid', gridTemplateColumns: '1fr 1fr', background: 'var(--bg-main)', padding: '12px', borderRadius: '6px', borderLeft: `3px solid ${exposureColor || '#ef4444'}`, border: '1px solid var(--border-main)' }}>
+              <div style={{ marginTop: '12px', display: 'grid', gridTemplateColumns: '1fr 1fr', background: 'var(--bg-main)', padding: '12px', borderRadius: '6px', border_left: `3px solid ${exposureColor || '#ef4444'}`, border: '1px solid var(--border-main)' }}>
                 <div style={{ textAlign: 'center', borderRight: '1px solid var(--border-main)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                   <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '2px' }}>Pontszám</span>
                   <div style={{ color: '#fbbf24', fontSize: '1.15rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '4px' }}><Star size={14} fill="#fbbf24" /> {myEntry?.likes_count || 0}</div>
@@ -364,11 +366,7 @@ export default function ArenaActiveRoom({
                           <span style={{ color: 'var(--border-main)' }}>|</span>
                           <span style={{ color: '#38bdf8', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '2px' }}><Eye size={10} /> {past?.views_count || 0}</span>
                         </div>
-                        <button 
-                          onClick={() => handleSwapBackSubmit(past.id || past._id)} 
-                          disabled={swapBalance < 1} 
-                          style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', color: 'var(--text-title)', padding: '4px 10px', borderRadius: '4px', fontSize: '0.75rem', cursor: 'pointer', fontWeight: '600' }}
-                        >
+                        <button onClick={() => handleSwapBackSubmit(past.id || past._id)} disabled={swapBalance < 1} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', color: 'var(--text-title)', padding: '4px 10px', borderRadius: '4px', fontSize: '0.75rem', cursor: 'pointer', fontWeight: '600' }}>
                           {t('roomReactivateBtn')}
                         </button>
                       </div>
@@ -378,17 +376,36 @@ export default function ArenaActiveRoom({
               )}
             </div>
           ) : (
+            /* 🎯 JAVÍTVA: A Nevezési panel visszakapta a teljes feltöltési és előnézeti logikát! */
             <div style={{ background: 'var(--bg-main)', padding: '24px 16px', borderRadius: '6px', border: '1px dashed var(--border-main)', textAlign: 'center' }}>
               <Trophy size={28} color="var(--text-muted)" style={{ marginBottom: '10px', margin: '0 auto 10px auto' }} />
-              <h4 style={{ color: 'var(--text-title)', margin: '0 0 4px 0', fontSize: '1.05rem', fontWeight: '600' }}>
-                {t('roomJoinChallenge')}
-              </h4>
-              <p style={{ color: 'var(--text-body)', fontSize: '0.8rem', margin: '0 0 16px 0', lineHeight: '1.45' }}>
-                {t('roomJoinDesc')}
-              </p>
-              <button disabled={isLoadingSwapAlbum} onClick={onOpenAlbumForUpload} style={{ width: '100%', background: '#f97316', color: 'white', border: 'none', padding: '10px', borderRadius: '4px', fontWeight: '700', fontSize: '0.88rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', transition: 'all 0.15s' }}>
-                <Sparkles size={14} /> {t('btnEntry')}
-              </button>
+              <h4 style={{ color: 'var(--text-title)', margin: '0 0 4px 0', fontSize: '1.05rem', fontWeight: '600' }}>{t('roomJoinChallenge')}</h4>
+              <p style={{ color: 'var(--text-body)', fontSize: '0.8rem', margin: '0 0 16px 0', lineHeight: '1.45' }}>{t('roomJoinDesc')}</p>
+              
+              {uploadPreview ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', width: '100%' }}>
+                  <div style={{ width: '100%', height: '180px', backgroundColor: '#000', borderRadius: '6px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border-main)' }}>
+                    <img src={uploadPreview} alt="Preview" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+                  </div>
+                  <button 
+                    onClick={handleUpload} 
+                    disabled={isUploading}
+                    style={{ width: '100%', background: '#10b981', color: 'white', border: 'none', padding: '12px', borderRadius: '4px', fontWeight: '700', fontSize: '0.88rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                  >
+                    {isUploading ? '⏳ Processing...' : '🚀 Nevezés Beküldése'}
+                  </button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%' }}>
+                  <label style={{ width: '100%', background: '#f97316', color: 'white', border: 'none', padding: '12px', borderRadius: '4px', fontWeight: '700', fontSize: '0.88rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', transition: 'all 0.15s', boxSizing: 'border-box' }}>
+                    <Camera size={14} /> {lang === 'en' ? 'Upload from Device' : 'Feltöltés Eszközről'}
+                    <input type="file" accept="image/*" onChange={handleFileSelect} style={{ display: 'none' }} />
+                  </label>
+                  <button disabled={isLoadingSwapAlbum} onClick={onOpenAlbumForUpload} style={{ width: '100%', background: 'var(--bg-card)', color: 'var(--text-title)', border: '1px solid var(--border-main)', padding: '12px', borderRadius: '4px', fontWeight: '700', fontSize: '0.88rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', transition: 'all 0.15s' }}>
+                    <Sparkles size={14} /> {t('btnEntry')}
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -416,7 +433,9 @@ export default function ArenaActiveRoom({
             <h3 style={{ margin: 0, color: '#10b981', fontSize: '1.05rem', fontWeight: '600', letterSpacing: '-0.2px' }}> {t('roomClubLeague')}</h3>
             <span style={{ fontSize: '0.68rem', background: 'rgba(239,68,68,0.1)', color: '#f87171', border: '1px solid rgba(239,68,68,0.2)', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('roomLiveBadge')}</span>
           </div>
-          {safeClubLeaderboard.length === 0 ? <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '16px', background: 'var(--bg-main)', borderRadius: '6px', fontSize: '0.8rem', fontStyle: 'italic' }}>{t('roomNoClubsYet')}</div> : (
+          {safeClubLeaderboard.length === 0 ? (
+            <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '16px', background: 'var(--bg-main)', borderRadius: '6px', fontSize: '0.8rem', fontStyle: 'italic' }}>{t('roomNoClubsYet')}</div>
+          ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               {safeClubLeaderboard.map((club, index) => (
                 <div key={index} style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-main)', padding: '10px 12px', borderRadius: '6px', border: '1px solid var(--border-main)' }}>
@@ -435,7 +454,9 @@ export default function ArenaActiveRoom({
         <div className="arena-responsive-card" style={{ background: 'var(--bg-card)', padding: '20px', borderRadius: '8px', border: '1px solid var(--border-main)', boxShadow: '0 4px 15px rgba(0,0,0,0.1)' }}>
           <h3 style={{ margin: '0 0 3px 0', color: '#f59e0b', fontSize: '1.05rem', fontWeight: '600', letterSpacing: '-0.2px', display: 'flex', alignItems: 'center', gap: '6px' }}><BarChart3 size={14} /> {t('roomBlindLeaderboard')}</h3>
           <p style={{ color: 'var(--text-body)', fontSize: '0.78rem', margin: '0 0 14px 0', lineHeight: '1.4' }}>{t('roomBlindLeaderboardDesc')}</p>
-          {safeLeaderboard.length === 0 ? <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '20px', background: 'var(--bg-main)', borderRadius: '6px', fontSize: '0.8rem', fontStyle: 'italic' }}>{t('roomArenaEmpty')}</div> : (
+          {safeLeaderboard.length === 0 ? (
+            <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '20px', background: 'var(--bg-main)', borderRadius: '6px', fontSize: '0.8rem', fontStyle: 'italic' }}>{t('roomArenaEmpty')}</div>
+          ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               {[...safeLeaderboard].sort((a, b) => {
                 const scoreA = Number(a.fair_score || a.likes_count || 0);
@@ -503,7 +524,7 @@ export default function ArenaActiveRoom({
         </div>
       )}
 
-      {/* ── 🎯 ASZTALI BENTO GRID STYLING LAYER ── */}
+      {/* STYLING LAYER */}
       <style>{`
         .arena-main-layout-grid {
           display: grid;
