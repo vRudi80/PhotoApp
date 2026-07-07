@@ -1,27 +1,37 @@
 import React, { useState, useEffect } from 'react';
 import { toPng } from 'html-to-image';
 import { useLanguage } from '../../context/LanguageContext';
+import { BACKEND_URL } from '../../utils/constants';
 
 interface ChallengeShareModalProps {
   topic: any;
   onClose: () => void;
 }
 
-// 🎯 BIZTONSÁGOS UTILS: Letölti a Cloudinary képet és tiszta Base64 stringgé alakítja.
-// Ez teljesen kijátssza a böngészők szigorú CORS/Canvas korlátozásait!
-const safeImageToBase64 = async (imageUrl: string): Promise<string> => {
+const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
+  const token = localStorage.getItem('photoAppToken');
+  return {
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    ...extraHeaders
+  };
+};
+
+// 🎯 JAVÍTVA: A borítókép Base64 konverzióját mostantól a saját backend proxy végzi (nem a böngésző fetch-eli
+// közvetlenül CORS módban a Cloudinary/Drive szervert). Ez azért kellett, mert mobil böngészőkön (elsősorban iOS
+// Safari-n) a közvetlen cross-origin fetch gyakran elhasal ITP/hálózati okokból, ami után a régi kód csendben
+// visszaesett a nyers URL-re -> az így "szennyezett" (tainted) vászon miatt a legenerált megosztó kép a borítókép
+// helyén üres/fekete lett, VAGY a toPng hívás egy SecurityError-ral teljesen elhasalt mobilon.
+const safeImageToBase64 = async (imageUrl: string): Promise<string | null> => {
   try {
-    const response = await fetch(imageUrl, { mode: 'cors' });
-    const blob = await response.blob();
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
+    const res = await fetch(`${BACKEND_URL}/api/weekly/image-proxy?url=${encodeURIComponent(imageUrl)}`, {
+      headers: getAuthHeaders()
     });
+    if (!res.ok) throw new Error('Proxy hiba');
+    const data = await res.json();
+    return data.base64 as string;
   } catch (e) {
-    console.error("Nem sikerült a képet Base64-re alakítani, fallback az url-re:", e);
-    return imageUrl; // Hiba esetén visszaugrunk a nyers linkre
+    console.error("Nem sikerült a képet Base64-re alakítani a proxyn keresztül:", e);
+    return null; // 🎯 FONTOS: nem esünk vissza a nyers (cross-origin) URL-re, mert az a generált képet elrontaná
   }
 };
 
@@ -44,6 +54,7 @@ export default function ChallengeShareModal({ topic, onClose }: ChallengeShareMo
   const { t, lang } = useLanguage();
   const [isGenerating, setIsGenerating] = useState(false);
   const [base64CoverUrl, setBase64CoverUrl] = useState<string | null>(null);
+  const [coverLoadFailed, setCoverLoadFailed] = useState(false);
 
   if (!topic) return null;
 
@@ -51,10 +62,16 @@ export default function ChallengeShareModal({ topic, onClose }: ChallengeShareMo
   const isDaily = topic.topic_type === 'daily' ||
     (topic.end_date && new Date(topic.end_date).getTime() - new Date(topic.start_date || Date.now()).getTime() <= 48 * 60 * 60 * 1000);
 
-  // 🎯 JAVÍTVA: Időbélyeg alapú cache-busting kényszeríti ki a tiszta CORS kérést a poisoned böngésző-gyorsítótár ellen
+  // 🎯 JAVÍTVA: Időbélyeg alapú cache-busting kényszeríti ki a friss proxy-kérést, plusz most már azt is
+  // kezeljük, ha a topic-nak nincs cover_url-je: ilyenkor nem is próbálkozunk konverzióval.
   useEffect(() => {
+    setBase64CoverUrl(null);
+    setCoverLoadFailed(false);
     if (topic && topic.cover_url) {
-      safeImageToBase64(`${topic.cover_url}?arenaCacheBust=${Date.now()}`).then(setBase64CoverUrl);
+      safeImageToBase64(`${topic.cover_url}?arenaCacheBust=${Date.now()}`).then((b64) => {
+        if (b64) setBase64CoverUrl(b64);
+        else setCoverLoadFailed(true);
+      });
     }
   }, [topic]);
 
@@ -127,6 +144,12 @@ export default function ChallengeShareModal({ topic, onClose }: ChallengeShareMo
     }
   };
 
+  // 🎯 coverReady: akkor is igaz, ha a borítókép betöltése VÉGLEGESEN elhasalt (coverLoadFailed) —
+  // így a "Kártya Mentése" gomb nem ragad be örökre "Loading..." állapotban, csak a kártya a
+  // fallback ikonnal készül el borítókép nélkül.
+  const coverReady = !topic.cover_url || !!base64CoverUrl || coverLoadFailed;
+  const coverBackground = base64CoverUrl || (topic.cover_url && !coverLoadFailed ? topic.cover_url : undefined);
+
   return (
     <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 99999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px', overflowY: 'auto' }}>
       
@@ -162,19 +185,21 @@ export default function ChallengeShareModal({ topic, onClose }: ChallengeShareMo
           justifyContent: 'center', position: 'relative', boxSizing: 'border-box', backgroundColor: '#000',
           overflow: 'hidden'
         }}>
-          {topic.cover_url ? (
+          {topic.cover_url && coverBackground ? (
             <div 
               style={{
                 width: '100%',
                 height: '100%',
-                backgroundImage: `url(${base64CoverUrl || topic.cover_url})`,
+                backgroundImage: `url(${coverBackground})`,
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
                 zIndex: 2
               }}
             />
           ) : (
-            <div style={{ color: '#64748b', fontSize: '2.5rem', zIndex: 5 }}>📸</div>
+            <div style={{ color: '#64748b', fontSize: '2.5rem', zIndex: 5 }}>
+              {topic.cover_url && !coverReady ? '⏳' : '📸'}
+            </div>
           )}
         </div>
 
@@ -206,10 +231,10 @@ export default function ChallengeShareModal({ topic, onClose }: ChallengeShareMo
         <button 
           type="button"
           onClick={handleExecuteShare}
-          disabled={isGenerating || !base64CoverUrl}
-          style={{ flex: 1, background: (isGenerating || !base64CoverUrl) ? '#334155' : 'linear-gradient(135deg, #3b82f6, #1d4ed8)', color: (isGenerating || !base64CoverUrl) ? '#64748b' : 'white', border: 'none', padding: '14px', borderRadius: '14px', fontSize: '1.1rem', fontWeight: 'bold', cursor: (isGenerating || !base64CoverUrl) ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', boxShadow: '0 10px 25px rgba(29,78,216,0.3)' }}
+          disabled={isGenerating || !coverReady}
+          style={{ flex: 1, background: (isGenerating || !coverReady) ? '#334155' : 'linear-gradient(135deg, #3b82f6, #1d4ed8)', color: (isGenerating || !coverReady) ? '#64748b' : 'white', border: 'none', padding: '14px', borderRadius: '14px', fontSize: '1.1rem', fontWeight: 'bold', cursor: (isGenerating || !coverReady) ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', boxShadow: '0 10px 25px rgba(29,78,216,0.3)' }}
         >
-          <span>{!base64CoverUrl ? '⏳ Loading...' : (isGenerating ? '⏳...' : (lang === 'en' ? '📷 Save Image' : '📷 Kártya Mentése'))}</span>
+          <span>{!coverReady ? '⏳ Loading...' : (isGenerating ? '⏳...' : (lang === 'en' ? '📷 Save Image' : '📷 Kártya Mentése'))}</span>
         </button>
 
         <button 
@@ -220,6 +245,14 @@ export default function ChallengeShareModal({ topic, onClose }: ChallengeShareMo
           <span>🔗 Link</span>
         </button>
       </div>
+
+      {coverLoadFailed && (
+        <div style={{ color: '#f87171', fontSize: '0.8rem', marginTop: '10px', maxWidth: '340px', textAlign: 'center' }}>
+          {lang === 'en' 
+            ? '⚠️ Cover image could not be loaded — the card will be generated without it.' 
+            : '⚠️ A borítóképet nem sikerült betölteni — a kártya kép nélkül készül el.'}
+        </div>
+      )}
 
     </div>
   );
