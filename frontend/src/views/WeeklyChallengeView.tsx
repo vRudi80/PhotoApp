@@ -389,7 +389,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     } catch (e) { console.error(e); }
   };
 
-      // 🪙 ÚJ: Golyóálló pontszám-szinkronizáció közvetlenül az adatbázisból
+  // 🪙 ÚJ: Golyóálló pontszám-szinkronizáció közvetlenül az adatbázisból
   const fetchFreshPointsBalance = async () => {
     if (!user?.email) return;
     try {
@@ -412,8 +412,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       setLoading(true);
       setFetchError(null);
     }
-
-
     
     if (!user?.email) {
       if (!isSilent) setLoading(false);
@@ -567,7 +565,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     if (subTab === 'current') {
       fetchCurrentTopic(false);
       fetchAlbumSilently(); 
-      fetchFreshPointsBalance(); // 🎯 ÚJ: Azonnal lekérjük a legfrissebb pontokat az adatbázisból, ha ide lép a user!
+      fetchFreshPointsBalance(); 
     }
     else if (subTab === 'upcoming') fetch(`${BACKEND_URL}/api/weekly/upcoming`, { headers: getAuthHeaders() }).then(res => res.json()).then(data => setUpcomingTopics(data || [])).catch(console.error);
     else if (subTab === 'past') fetch(`${BACKEND_URL}/api/weekly/past`, { headers: getAuthHeaders() }).then(res => res.json()).then(data => setPastTopics(data || [])).catch(console.error);
@@ -579,6 +577,11 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   useEffect(() => {
     setTopic(null); setMyEntry(null); setMyPastEntries([]); setVoteEntry(null); setLeaderboard([]); setCurrentClubLeaderboard([]); setTimeLeft(''); setPastLeaderboard([]); setPastClubLeaderboard([]); setMasterVotesLeft(0); setIsMaster(false); setHasNewMessage(false);
   }, [selectedTopicId, user?.email]);
+
+  useEffect(() => {
+    isChatOpenRef.current = isChatOpen;
+    lobbyMessagesCountRef.current = lobbyMessages.length;
+  }, [isChatOpen, lobbyMessages.length]);
 
   useEffect(() => {
     if (isChatOpen && lobbyMessages.length > 0 && user?.email) {
@@ -747,7 +750,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     finally { setIsClaimingReferral(false); }
   };
 
-  // 🎯 ÚJ: Gyors Joker Csere vásárlás közvetlenül az Aréna felületéről (Pontszinkronizáció hozzáadva)
   const handleQuickBuySwap = async () => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/store/buy-swap`, {
@@ -760,7 +762,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         alert(data.message);
         setSwapBalance(data.newSwapBalance); 
         if (data.newPointsBalance !== undefined) {
-          setPointsBalance(data.newPointsBalance); // Valós időben frissítjük a kijelzőt
+          setPointsBalance(data.newPointsBalance); 
         }
       } else {
         alert(data.error || "Sikertelen vásárlás.");
@@ -918,47 +920,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     finally { setIsSwapping(false); }
   };
 
-  const handleExecuteShare = async () => {
-    const node = document.getElementById('share-card-node');
-    if (!node || !activeShareData) return;
-    setIsGeneratingImage(true);
-    try {
-      await toPng(node, { cacheBust: true });
-      const dataUrl = await toPng(node, { cacheBust: true, quality: 1.0 });
-      const blob = await (await fetch(dataUrl)).blob();
-      const file = new File([blob], `Arena_Award_${activeShareData.topic_title}.png`, { type: 'image/png' });
-      const getOrdinalStr = (rankNum: number) => {
-        if (lang === 'hu') return `${rankNum}.`;
-        const m = rankNum % 10, n = rankNum % 100;
-        if (m === 1 && n !== 11) return `${rankNum}st`;
-        if (m === 2 && n !== 12) return `${rankNum}nd`;
-        if (m === 3 && n !== 13) return `${rankNum}rd`;
-        return `${rankNum}th`;
-      };
-      const shareTextCompiled = t('msgShareText').replace('{rank}', lang === 'en' ? getOrdinalStr(activeShareData.rank) : String(activeShareData.rank)).replace('{title}', activeShareData.topic_title);
-      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: t('msgShareTitle'), text: shareTextCompiled });
-      } else {
-        const link = document.createElement('a'); link.download = `Arena_Trophy_${activeShareData.topic_title}.png`; link.href = dataUrl;
-        link.click();
-      }
-      setActiveShareData(null);
-     } catch (e) { alert(t('msgGenerateImageError')); } 
-     finally { setIsGeneratingImage(false); }
-  };
-
-  const currentLevel = getLevelDetails(userTotalLikes, userVictories);
-  const BASE_EXPOSURE = 10;
-  const exposureEarned = BASE_EXPOSURE + (Number(myVoteCount || 0) * 2);
-  const safeViewsCount = myEntry ? (Number(myEntry.views_count) || 0) : 0;
-  const viewsRemaining = myEntry ? (exposureEarned - safeViewsCount) : 0;
-  const rawPercentage = myEntry ? ((viewsRemaining / 15) * 100) : 0;
-  const exposurePercentage = isNaN(rawPercentage) || !isFinite(rawPercentage) ? 0 : Math.min(100, Math.max(0, rawPercentage));
-  let exposureColor = '#ef4444';
-  let exposureLabel = viewsRemaining <= 0 ? (lang === 'en' ? 'Invisible (0%)' : 'Láthatatlan (0%)') : (lang === 'en' ? 'Low' : 'Alacsony');
-  if (exposurePercentage >= 80) { exposureColor = '#10b981'; exposureLabel = lang === 'en' ? 'Maximum' : 'Maximális'; } 
-  else if (exposurePercentage >= 40) { exposureColor = '#f59e0b'; exposureLabel = lang === 'en' ? 'Medium' : 'Közepes'; }
-
   const sortedActiveTopics = [...activeTopics].sort((a, b) => {
     const dateStrA = String(sortBy === 'endDate' ? a.end_date : a.start_date).replace(' ', 'T').split('.')[0];
     const dateStrB = String(sortBy === 'endDate' ? b.end_date : b.start_date).replace(' ', 'T').split('.')[0];
@@ -966,8 +927,10 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     return sortBy === 'endDate' ? timeA - timeB : timeB - timeA;
   });
 
+  const currentLevel = getLevelDetails(userTotalLikes, userVictories);
+
   return (
-    <div style={{ animation: 'fadeIn 0.4s ease-out', position: 'relative' }}>
+    <div style={{ width: '100%', boxSizing: 'border-box' }}>
       
       {/* TABS HEADER GOMBSOR */}
       <div className="arena-tabs-scroll-wrapper" style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border-main)', marginBottom: '20px', borderRadius: '8px 8px 0 0' }}>
@@ -1007,22 +970,17 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
             })}
           </div>
           
-          {/* 🎯 INTEGRÁLT PONTTÁRCA ÉS JOKER SZÁMLÁLÓ CSOPORT */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexShrink: 0 }}>
-            
-            {/* 🪙 ÚJ: Aktuális pontegyenleg elegáns arany plecsnije az Arénában */}
             <div style={{ background: 'rgba(251,191,36,0.08)', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.2)', padding: '5px 12px', borderRadius: '4px', fontWeight: 'bold', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
               <Coins size={12} color="#fbbf24" />
               <span>{pointsBalance} {lang === 'en' ? 'Points' : 'Pont'}</span>
             </div>
 
-            {/* Megmaradt Joker cserék számlálója */}
             <div style={{ background: 'rgba(225,29,72,0.08)', color: '#fb7185', border: '1px solid rgba(225,29,72,0.2)', padding: '5px 12px', borderRadius: '4px', fontWeight: 'bold', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
               <RefreshCw size={12} />
               <span>{swapBalance} {lang === 'en' ? 'Swaps left' : 'Joker Csere'}</span>
             </div>
 
-            {/* Gyorsvásárlás gomb */}
             <button 
               onClick={handleQuickBuySwap}
               style={{ background: 'rgba(56,189,248,0.1)', color: '#38bdf8', border: '1px solid rgba(56,189,248,0.3)', padding: '5px 12px', borderRadius: '4px', fontWeight: 'bold', fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', transition: 'all 0.15s', whiteSpace: 'nowrap' }}
@@ -1041,13 +999,30 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       </div>
 
       {/* 🎖️ RANG PROGRESSION TRACK BAR */}
-      <div className="arena-progress-card-wrapper" style={{ background: 'var(--bg-card)', padding: '12px 16px', borderRadius: '8px', border: '1px solid var(--border-main)', marginBottom: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+      {/* 🎯 JAVÍTVA: pointer-events lekapcsolva és áttetszőség beállítva töltés közben, */}
+      {/* így nem villan fel korán a tooltip hibás, félig betöltött adatokkal, amíg a videó pörög! */}
+      <div 
+        className="arena-progress-card-wrapper" 
+        style={{ 
+          background: 'var(--bg-card)', 
+          padding: '12px 16px', 
+          borderRadius: '8px', 
+          border: '1px solid var(--border-main)', 
+          marginBottom: '24px', 
+          boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+          pointerEvents: loading ? 'none' : 'auto',
+          opacity: loading ? 0.4 : 1,
+          transition: 'opacity 0.2s ease-in-out'
+        }}
+      >
         <div className="arena-progress-track-line" style={{ display: 'flex', width: '100%', border: '1px solid var(--border-main)', position: 'relative' }}>
           {ARENA_LEVELS_REGISTRY.map((rank, idx) => {
             const isUnlocked = idx <= currentLevel.id;
             const isCurrent = idx === currentLevel.id;
             const nextLvlObj = ARENA_LEVELS_REGISTRY[idx];
-            const likesDiff = nextLvlObj.minLikes - userTotalLikes;
+            
+            // 🎯 JAVÍTVA: A lebegőpontos bináris pontatlanság (IEEE 754) kiküszöbölésére hajszálpontosan 2 tizedesjegyre kerekítjük az értéket!
+            const likesDiff = Math.max(0, Math.round((nextLvlObj.minLikes - userTotalLikes) * 100) / 100);
             const winsDiff = (nextLvlObj.minVictories || 0) - userVictories;
 
             let requirementMessage = '';
@@ -1078,7 +1053,9 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   transition: 'all 0.15s ease'
                 }}
               >
-                {isUnlocked ? <Unlock size={10} color="#fff" /> : <Lock size={10} color="var(--text-muted)" />}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {isUnlocked ? <Unlock size={10} color="#fff" /> : <Lock size={10} color="var(--text-muted)" />}
+                </div>
                 <span style={{ 
                   fontSize: '0.7rem', 
                   fontWeight: '700', 
@@ -1128,7 +1105,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 20px', gap: '15px', width: '100%' }}>
                     <VideoLoader />
                     <div style={{ textAlign: 'center', animation: 'arenaPulse 2s infinite' }}>
-                      <h4 style={{ color: 'var(--text-body)', margin: 0, fontSize: '0.9rem', fontWeight: 'bold' }}>
+                      <h4 style={{ color: 'var(--text-body)', margin: 0, fontSize: '0.9', fontWeight: 'bold' }}>
                         {lang === 'en' ? '⚡ Synchronizing Arena...' : '⚡ Csatatér adatok letöltése...'}
                       </h4>
                     </div>
@@ -1219,7 +1196,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                                 <span>{msg.user_name || msg.userName}</span>
                                 <span style={{ color: 'var(--text-muted)' }}>• {new Date(msg.created_at).toLocaleString(lang === 'en' ? 'en-US' : 'hu-HU', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
                               </div>
-                              <div style={{ background: isMsgMe ? '#f97316' : 'var(--bg-card)', color: isMsgMe ? '#ffffff' : 'var(--text-title)', padding: '6px 10px', borderRadius: isMsgMe ? '8px 8px 2px 8px' : '8px 8px 8px 2px', fontSize: '0.82rem', wordBreak: 'break-word', border: isMsgMe ? 'none' : '1px solid var(--border-main)' }}>
+                              <div style={{ background: isMsgMe ? '#f97316' : 'var(--bg-card)', color: isMsgMe ? '#ffffff' : 'var(--text-title)', padding: '6px 10px', borderRadius: isMsgMe ? '8px 8px 2px 8px' : '8px 8px 8px 2px', fontSize: '0.82rem', wordBreak: 'break-word', border: msg.avatar_url ? 'none' : '1px solid var(--border-main)' }}>
                                 {msg.message_text || msg.messageText}
                               </div>
                             </div>
@@ -1290,32 +1267,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         )}
       </div>
 
-      <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} currentLevel={currentLevel} />
-
-      <AlbumSelectionModal 
-        isOpen={showSwapAlbumModal} 
-        onClose={(wasActionSubmitted) => { setShowSwapAlbumModal(false); if (wasActionSubmitted === true) fetchCurrentTopic(false); }} 
-        albumModalMode={albumModalMode} 
-        swapAlbumPhotos={swapAlbumPhotos} 
-        myPastEntries={myPastEntries} 
-        topic={topic} 
-        user={user} 
-        isLoading={isLoadingSwapAlbum} 
-        setIsUploading={setIsUploading} 
-        setIsSwapping={setIsSwapping} 
-        fetchCurrentTopic={fetchCurrentTopic} 
-        handleSwapBackSubmit={handleSwapBackSubmit} 
-        handleSelectPhotoForSwap={handleSelectPhotoForSwap} 
-        myEntry={myEntry} 
-      />
-
-      <ShareCardModal activeShareData={activeShareData} onClose={() => setActiveShareData(null)} user={user} shareBase64={shareBase64} loadingShareImg={loadingShareImg} isGeneratingImage={isGeneratingImage} handleExecuteShare={handleExecuteShare} />
-      {topicToShare && (
-        <ChallengeShareModal 
-          topic={topicToShare} 
-          onClose={() => setTopicToShare(null)} 
-        />
-      )}
       <style>{`
         .arena-fluid-container { width: 100%; box-sizing: border-box; }
         .arena-cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; width: 100%; }
