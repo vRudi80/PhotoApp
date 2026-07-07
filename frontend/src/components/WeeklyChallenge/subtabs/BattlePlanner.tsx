@@ -7,6 +7,16 @@ import { useLanguage } from '../../../context/LanguageContext';
 // Behozzuk a téma környezetet
 import { useTheme } from '../../../context/ThemeContext';
 
+// 🎯 ÚJ: Lucide ikonok importálása a modern, scannolható felületért
+import { 
+  Swords, 
+  FileText, 
+  Calendar, 
+  User, 
+  Image, 
+  Upload 
+} from 'lucide-react';
+
 interface BattlePlannerProps {
   user: any;
   onSuccess: () => void;
@@ -99,7 +109,11 @@ export default function BattlePlanner({ user, onSuccess }: BattlePlannerProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !description || !startDate || !endDate) return alert(t('msgFillAllFields'));
+    
+    // 🎯 JAVÍTVA: A coverFile ellenőrzése most már szigorúan kötelező elemként beépítve!
+    if (!title || !description || !startDate || !endDate || !coverFile) {
+      return alert(t('msgFillAllFields'));
+    }
 
     setSubmitting(true);
     const formData = new FormData();
@@ -115,17 +129,15 @@ export default function BattlePlanner({ user, onSuccess }: BattlePlannerProps) {
     formData.append('start_date', startDate);
     formData.append('end_date', endDate);
     formData.append('userEmail', user?.email || '');
-    if (coverFile) formData.append('cover', coverFile);
+    formData.append('cover', coverFile);
 
     try {
       const token = localStorage.getItem('photoAppToken');
 
-      // 🎯 JAVÍTVA: Megkapta a hitelesített biztonsági fejlécet!
       const res = await fetch(`${BACKEND_URL}/api/weekly/propose`, {
         method: 'POST',
         headers: {
           ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-          // FIGYELEM: FormData küldésekor a Content-Type-ot NEM állítjuk be manuálisan!
         },
         body: formData
       });
@@ -147,46 +159,84 @@ export default function BattlePlanner({ user, onSuccess }: BattlePlannerProps) {
     }
   };
 
+  const labelStyle = {
+    color: 'var(--text-title)',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
+    marginBottom: '6px',
+    fontSize: '0.82rem',
+    fontWeight: '600'
+  };
+
+  const inputStyle = {
+    width: '100%',
+    padding: '10px 12px',
+    background: 'var(--bg-main)',
+    border: '1px solid var(--border-main)',
+    borderRadius: '4px',
+    color: 'var(--text-title)',
+    outline: 'none',
+    fontSize: '0.88rem',
+    boxSizing: 'border-box' as const
+  };
+
   return (
     <div style={{ maxWidth: '580px', margin: '0 auto', background: 'var(--bg-card)', padding: '24px', borderRadius: '8px', border: '1px solid var(--border-main)', boxShadow: '0 4px 15px rgba(0,0,0,0.05)', animation: 'fadeIn 0.3s ease-out' }}>
-      <h2 style={{ color: 'var(--text-title)', margin: '0 0 4px 0', fontSize: '1.3rem', fontWeight: '700', letterSpacing: '-0.3px' }}>{t('planTitle')}</h2>
+      <h2 style={{ color: 'var(--text-title)', margin: '0 0 4px 0', fontSize: '1.3rem', fontWeight: '700', letterSpacing: '-0.3px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <Swords size={22} color="#f97316" /> {t('planTitle')}
+      </h2>
       <p style={{ color: 'var(--text-body)', fontSize: '0.82rem', margin: '0 0 20px 0', lineHeight: '1.45' }}>{t('planDesc')}</p>
 
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
         <div>
-          <label style={{ color: 'var(--text-title)', display: 'block', marginBottom: '4px', fontSize: '0.82rem', fontWeight: '600' }}>{t('planLabelTitle')}</label>
-          <input type="text" placeholder={t('planPlaceholderTitle')} value={title} onChange={e => setTitle(e.target.value)} required style={{ width: '100%', padding: '10px 12px', background: 'var(--bg-main)', border: '1px solid var(--border-main)', borderRadius: '4px', color: 'var(--text-title)', outline: 'none', fontSize: '0.88rem', boxSizing: 'border-box' }} />
+          <label style={labelStyle}>
+            <FileText size={14} color="var(--text-muted)" /> {t('planLabelTitle')}
+          </label>
+          <input type="text" placeholder={t('planPlaceholderTitle')} value={title} onChange={e => setTitle(e.target.value)} required style={inputStyle} />
         </div>
 
         <div>
-          <label style={{ color: isLight ? '#0284c7' : '#38bdf8', display: 'block', marginBottom: '4px', fontSize: '0.82rem', fontWeight: '600' }}>{t('planLabelTitleEn')}</label>
-          <input type="text" placeholder={t('planPlaceholderTitleEn')} value={titleEn} onChange={e => setTitleEn(e.target.value)} style={{ width: '100%', padding: '10px 12px', background: 'var(--bg-main)', border: isLight ? '1px solid rgba(2,132,199,0.3)' : '1px solid rgba(56,189,248,0.25)', borderRadius: '4px', color: 'var(--text-title)', outline: 'none', fontSize: '0.88rem', boxSizing: 'border-box' }} />
+          <label style={{ ...labelStyle, color: isLight ? '#0284c7' : '#38bdf8' }}>
+            <FileText size={14} /> {t('planLabelTitleEn')}
+          </label>
+          <input type="text" placeholder={t('planPlaceholderTitleEn')} value={titleEn} onChange={e => setTitleEn(e.target.value)} style={{ ...inputStyle, border: isLight ? '1px solid rgba(2,132,199,0.3)' : '1px solid rgba(56,189,248,0.25)' }} />
         </div>
 
         <div>
-          <label style={{ color: 'var(--text-title)', display: 'block', marginBottom: '4px', fontSize: '0.82rem', fontWeight: '600' }}>{t('planLabelDesc')}</label>
-          <textarea rows={3} placeholder={t('planPlaceholderDesc')} value={description} onChange={e => setDescription(e.target.value)} required style={{ width: '100%', padding: '10px 12px', background: 'var(--bg-main)', border: '1px solid var(--border-main)', borderRadius: '4px', color: 'var(--text-title)', outline: 'none', resize: 'none', fontSize: '0.88rem', boxSizing: 'border-box', lineHeight: '1.45' }} />
+          <label style={labelStyle}>
+            <FileText size={14} color="var(--text-muted)" /> {t('planLabelDesc')}
+          </label>
+          <textarea rows={3} placeholder={t('planPlaceholderDesc')} value={description} onChange={e => setDescription(e.target.value)} required style={{ ...inputStyle, resize: 'none', lineHeight: '1.45' }} />
         </div>
 
         <div>
-          <label style={{ color: isLight ? '#0284c7' : '#38bdf8', display: 'block', marginBottom: '4px', fontSize: '0.82rem', fontWeight: '600' }}>{t('planLabelDescEn')}</label>
-          <textarea rows={3} placeholder={t('planPlaceholderDescEn')} value={descriptionEn} onChange={e => setDescriptionEn(e.target.value)} style={{ width: '100%', padding: '10px 12px', background: 'var(--bg-main)', border: isLight ? '1px solid rgba(2,132,199,0.3)' : '1px solid rgba(56,189,248,0.25)', borderRadius: '4px', color: 'var(--text-title)', outline: 'none', resize: 'none', fontSize: '0.88rem', boxSizing: 'border-box', lineHeight: '1.45' }} />
+          <label style={{ ...labelStyle, color: isLight ? '#0284c7' : '#38bdf8' }}>
+            <FileText size={14} /> {t('planLabelDescEn')}
+          </label>
+          <textarea rows={3} placeholder={t('planPlaceholderDescEn')} value={descriptionEn} onChange={e => setDescriptionEn(e.target.value)} style={{ ...inputStyle, border: isLight ? '1px solid rgba(2,132,199,0.3)' : '1px solid rgba(56,189,248,0.25)', resize: 'none', lineHeight: '1.45' }} />
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
           <div>
-            <label style={{ color: 'var(--text-title)', display: 'block', marginBottom: '4px', fontSize: '0.82rem', fontWeight: '600' }}>{t('planLabelStart')}</label>
-            <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} required style={{ width: '100%', padding: '10px 12px', background: 'var(--bg-main)', border: '1px solid var(--border-main)', borderRadius: '4px', color: 'var(--text-title)', outline: 'none', fontSize: '0.88rem', boxSizing: 'border-box' }} />
+            <label style={labelStyle}>
+              <Calendar size={14} color="var(--text-muted)" /> {t('planLabelStart')}
+            </label>
+            <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} required style={inputStyle} />
           </div>
           <div>
-            <label style={{ color: 'var(--text-title)', display: 'block', marginBottom: '4px', fontSize: '0.82rem', fontWeight: '600' }}>{t('planLabelEnd')}</label>
-            <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} required style={{ width: '100%', padding: '10px 12px', background: 'var(--bg-main)', border: '1px solid var(--border-main)', borderRadius: '4px', color: 'var(--text-title)', outline: 'none', fontSize: '0.88rem', boxSizing: 'border-box' }} />
+            <label style={labelStyle}>
+              <Calendar size={14} color="var(--text-muted)" /> {t('planLabelEnd')}
+            </label>
+            <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} required style={inputStyle} />
           </div>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
           <div>
-            <label style={{ color: 'var(--text-title)', display: 'block', marginBottom: '4px', fontSize: '0.82rem', fontWeight: '600' }}>{t('planLabelMaster')}</label>
+            <label style={labelStyle}>
+              <User size={14} color="var(--text-muted)" /> {t('planLabelMaster')}
+            </label>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', background: 'var(--bg-main)', border: '1px solid var(--border-main)', borderRadius: '4px', height: '40px', boxSizing: 'border-box' }}>
               <input 
                 type="checkbox" 
@@ -201,14 +251,19 @@ export default function BattlePlanner({ user, onSuccess }: BattlePlannerProps) {
             </div>
           </div>
           <div>
-            <label style={{ color: 'var(--text-title)', display: 'block', marginBottom: '4px', fontSize: '0.82rem', fontWeight: '600' }}>{t('planLabelAuthor')}</label>
-            <input type="text" placeholder={t('planPlaceholderAuthor')} value={coverAuthor} onChange={e => setCoverAuthor(e.target.value)} style={{ width: '100%', padding: '10px 12px', background: 'var(--bg-main)', border: '1px solid var(--border-main)', borderRadius: '4px', color: 'var(--text-title)', outline: 'none', fontSize: '0.88rem', boxSizing: 'border-box' }} />
+            <label style={labelStyle}>
+              <User size={14} color="var(--text-muted)" /> {t('planLabelAuthor')}
+            </label>
+            <input type="text" placeholder={t('planPlaceholderAuthor')} value={coverAuthor} onChange={e => setCoverAuthor(e.target.value)} style={inputStyle} />
           </div>
         </div>
 
         <div>
-          <label style={{ color: 'var(--text-title)', display: 'block', marginBottom: '6px', fontSize: '0.82rem', fontWeight: '600' }}>{t('planLabelCover')}</label>
-          <input type="file" accept="image/*" onChange={handleFileChange} style={{ color: 'var(--text-body)', fontSize: '0.82rem', display: 'block', cursor: 'pointer' }} />
+          {/* 🎯 JAVÍTVA: Piros kötelező csillag hozzáadva a vizuális visszajelzésért */}
+          <label style={labelStyle}>
+            <Image size={14} color="var(--text-muted)" /> {t('planLabelCover')} <span style={{ color: '#ef4444', marginLeft: '2px' }}>*</span>
+          </label>
+          <input type="file" accept="image/*" onChange={handleFileChange} required style={{ color: 'var(--text-body)', fontSize: '0.82rem', display: 'block', cursor: 'pointer' }} />
           {preview && (
             <div style={{ marginTop: '12px', height: '130px', borderRadius: '4px', overflow: 'hidden', border: '1px solid var(--border-main)', backgroundColor: 'var(--bg-main)' }}>
               <img src={preview} alt={t('planPreviewAlt')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -216,8 +271,9 @@ export default function BattlePlanner({ user, onSuccess }: BattlePlannerProps) {
           )}
         </div>
 
-        <button type="submit" disabled={submitting} style={{ width: '100%', background: '#f97316', color: 'white', border: 'none', padding: '12px', borderRadius: '4px', fontSize: '0.95rem', fontWeight: 'bold', cursor: submitting ? 'not-allowed' : 'pointer', transition: 'background 0.15s ease', marginTop: '6px', boxSizing: 'border-box' }} className="battle-submit-btn">
-          {submitting ? t('planSubmitting') : t('planSubmitBtn')}
+        <button type="submit" disabled={submitting} style={{ width: '100%', background: '#f97316', color: 'white', border: 'none', padding: '12px', borderRadius: '4px', fontSize: '0.95rem', fontWeight: 'bold', cursor: submitting ? 'not-allowed' : 'pointer', transition: 'background 0.15s ease', marginTop: '6px', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }} className="battle-submit-btn">
+          <Upload size={16} />
+          <span>{submitting ? t('planSubmitting') : t('planSubmitBtn')}</span>
         </button>
       </form>
 
