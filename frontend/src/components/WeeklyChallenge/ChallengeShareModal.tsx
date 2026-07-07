@@ -81,11 +81,25 @@ export default function ChallengeShareModal({ topic, onClose }: ChallengeShareMo
 
     setIsGenerating(true);
     try {
+      // 🎯 JAVÍTVA: Mielőtt lefotóznánk a kártyát, megvárjuk, hogy a borítókép <img> ténylegesen
+      // dekódolva/kirajzolva legyen. Enélkül elő tudott fordulni, hogy a toPng épp akkor kapott
+      // pillanatképet, amikor a kép még nem készült el, és a mentett PNG-n üres maradt a helye.
+      const coverImgEl = node.querySelector('img') as HTMLImageElement | null;
+      if (coverImgEl && !coverImgEl.complete) {
+        await new Promise<void>((resolve) => {
+          coverImgEl.onload = () => resolve();
+          coverImgEl.onerror = () => resolve();
+        });
+      } else if (coverImgEl && typeof coverImgEl.decode === 'function') {
+        try { await coverImgEl.decode(); } catch (e) { /* ignore, folytatjuk */ }
+      }
+
       // Villámgyors hívás skipFonts jelzővel, hogy a mobil böngésző ne tiltsa le a folyamatot időtúllépés miatt
       const dataUrl = await toPng(node, { 
         quality: 0.98,
         skipFonts: true,
-        cacheBust: true
+        cacheBust: true,
+        pixelRatio: 1
       });
 
       const blob = safeDataURLtoBlob(dataUrl);
@@ -113,7 +127,7 @@ export default function ChallengeShareModal({ topic, onClose }: ChallengeShareMo
     } catch (e) {
       console.error("Hiba a képkészítés során, biztonsági mentés indítása:", e);
       try {
-        const fallbackUrl = await toPng(node, { skipFonts: true });
+        const fallbackUrl = await toPng(node, { skipFonts: true, pixelRatio: 1 });
         const link = document.createElement('a');
         link.download = `PhotAwesome_Challenge_${topic.id}.png`;
         link.href = fallbackUrl;
@@ -178,7 +192,9 @@ export default function ChallengeShareModal({ topic, onClose }: ChallengeShareMo
           <div style={{ color: '#64748b', fontSize: '0.65rem', marginTop: '2px', letterSpacing: '1px' }}>{lang === 'en' ? 'NEW ARENA CHALLENGE' : 'ÚJ ARÉNA MEGHÍVÓ'}</div>
         </div>
 
-        {/* 🎯 JAVÍTVA: Nyers img tag helyett inline CSS háttérképes div-et használunk, mert az html-to-image ezt 100%-os stabilitással fotózza le mobilon is */}
+        {/* 🎯 JAVÍTVA: CSS háttérkép helyett valódi <img> tag! A html-to-image (kiváltképp mobil Safarin)
+            nem fotózza le megbízhatóan a CSS background-image-et — csak az élőnézetben látszott a kép,
+            a legenerált/mentett PNG-n viszont üresen maradt a helye. Valódi <img>-gel ez már 100%-ban stabil. */}
         <div style={{ 
           width: '100%', height: '200px', borderRadius: '16px', border: `2px solid ${isDaily ? '#ef4444' : '#fbbf24'}`, 
           boxShadow: '0 8px 25px rgba(0,0,0,0.5)', zIndex: 10, display: 'flex', alignItems: 'center', 
@@ -186,14 +202,15 @@ export default function ChallengeShareModal({ topic, onClose }: ChallengeShareMo
           overflow: 'hidden'
         }}>
           {topic.cover_url && coverBackground ? (
-            <div 
+            <img
+              src={coverBackground}
+              alt=""
               style={{
                 width: '100%',
                 height: '100%',
-                backgroundImage: `url(${coverBackground})`,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-                zIndex: 2
+                objectFit: 'cover',
+                zIndex: 2,
+                display: 'block'
               }}
             />
           ) : (
