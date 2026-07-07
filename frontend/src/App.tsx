@@ -33,7 +33,7 @@ import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from
 import TicketsView from './views/TicketsView';
 import LeaderClubView from './views/LeaderClubView';
 import PodcastView from './views/PodcastView';
-import AdminPointsDashboard from './views/admin/AdminPointsDashboard'; // 🎯 Igazítsd az útvonalat, ha máshová tetted a fájlt
+import AdminPointsDashboard from './views/admin/AdminPointsDashboard'; 
 import ForumView from './views/ForumView'; 
 
 // Témakezelő környezet
@@ -51,6 +51,42 @@ if (typeof window !== 'undefined' && window.location.hostname.includes('kepolvas
   window.location.replace(
     'https://photawesome.com' + window.location.pathname + window.location.search
   );
+}
+
+// ====================================================================
+// 🚀 GLOBÁLIS ANTI-FREEZE & AUTO-RETRY MOTOR (Minden oldalra kiterjedően)
+// ====================================================================
+if (typeof window !== 'undefined') {
+  const originalFetch = window.fetch;
+
+  window.fetch = async function (input, init) {
+    let retries = 3;     // Maximum 3 próbálkozás, mielőtt hibát dobna
+    let delay = 600;     // 600ms várakozás az újrapróbálkozások között
+
+    while (retries > 0) {
+      try {
+        const response = await originalFetch(input, init);
+        
+        // Ha a szerver 500-as belső hibát dob (pl. éppen ébred az adatbázis pool)
+        if (response.status >= 500 && retries > 1) {
+          retries--;
+          console.warn(`⚠️ Időleges szerverhiba (${response.status}). Automatikus újrapróbálkozás... Hátralévő kísérlet: ${retries}`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue; // Ugorjunk a következő próbálkozásra a loopban
+        }
+        
+        return response; // Ha minden rendben, visszaadjuk a sikeres választ
+      } catch (error) {
+        retries--;
+        if (retries === 0) throw error; // Ha elfogytak a kísérletek, elengedjük a hibát
+        
+        console.warn(`⚠️ Hálózati hiba lépett fel. Újrapróbálkozás... Hátralévő kísérlet: ${retries}`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+    
+    return originalFetch(input, init); // Végső biztonsági fallback
+  };
 }
 
 // 🎯 KÖZPONTI AUTH FEJLÉC GENERÁTOR VÉDETT VÉGPONTOKHOZ
@@ -162,7 +198,7 @@ function MainContent() {
 
   const [fullscreenData, setFullscreenData] = useState<any>(null);
 
-  // 🏛️ KÖZPONTI ADATLEKÉRŐ MOTOR INTERCEPTORRAL
+  // 🏛️ KÖZPONTI ADATLEKÉRŐ MOTOR
   const fetchData = async (retryCount = 0) => {
     const token = localStorage.getItem('photoAppToken');
     if (!token) {
@@ -188,7 +224,6 @@ function MainContent() {
         fetch(`${BACKEND_URL}/api/contest-payments`, { headers: getAuthHeaders() })
       ]);
 
-      // 🛡️ ÚJ PANEL: Ha a backend 403 Forbidden (Kitiltva) választ ad vissza, azonnal megszakítjuk a hurkot
       if (resUsers.status === 403 || resClubs.status === 403 || resMeetings.status === 403) {
         localStorage.removeItem('photoAppToken');
         localStorage.removeItem('user');
@@ -244,7 +279,6 @@ function MainContent() {
     } catch (e) { console.error(e); }
   };
 
-  // 🛡️ AUTOSYNC MOTOR INTEGRÁLT REAKTÍV TILTÁSSZŰRŐVEL
   useEffect(() => {
     const initializeAuth = async () => {
       const storedToken = localStorage.getItem('photoAppToken');
@@ -275,7 +309,6 @@ function MainContent() {
           body: JSON.stringify({ email: decoded.email, name: decoded.name, sub: decoded.sub })
         });
 
-        // 🛡️ Ha már az auth sync is fennakad a tiltólistán
         if (res.status === 403) {
           localStorage.removeItem('photoAppToken');
           localStorage.removeItem('user');
@@ -322,7 +355,6 @@ function MainContent() {
     initializeAuth();
   }, []);
 
-  // ⚡ CSENDES HÁTTÉR-SZINKRONIZÁCIÓ BIZTONSÁGI VÉDŐPAJZSZAL
   useEffect(() => {
     const silentAuthSync = async () => {
       const storedToken = localStorage.getItem('photoAppToken');
@@ -590,8 +622,8 @@ function MainContent() {
               <Route path="/packages" element={<PackagesView user={user} />} />
               <Route path="/marketplace" element={<MarketplaceRoot user={headerUser} />} />
               <Route path="/map_spots" element={<MapSpotsView user={user} setFullscreenData={setFullscreenData} targetMapSpotId={targetMapSpotId} setTargetMapSpotId={setTargetMapSpotId} />} />
-<Route path="/club_news" element={<ForumView user={user} currentDbUser={currentDbUser} mode="club" />} />
-<Route path="/public_news" element={<ForumView user={user} currentDbUser={currentDbUser} mode="public" />} />
+              <Route path="/club_news" element={<ForumView user={user} currentDbUser={currentDbUser} mode="club" />} />
+              <Route path="/public_news" element={<ForumView user={user} currentDbUser={currentDbUser} mode="public" />} />
 
               <Route path="/my_album" element={<MyAlbumView user={user} setFullscreenData={setFullscreenData} />} />
               <Route path="/arena_album" element={<MyArenaAlbumView user={user} setFullscreenData={setFullscreenData} />} /> 
@@ -603,7 +635,7 @@ function MainContent() {
               <Route path="/podcast" element={<PodcastView />} />
 
               <Route path="/admin_clubs" element={user?.email === ADMIN_EMAIL ? <AdminClubsView clubs={clubs} newClubName={newClubName} setNewClubName={setNewClubName} handleAddClub={handleAddClub} handleDeleteClub={handleDeleteClub} handleUpdateClub={handleUpdateClub} /> : <Navigate to="/dashboard" />} />
-              <Route path="/admin_users" element={user?.email === ADMIN_EMAIL ? <AdminUsersView allUsers={allUsers} clubs={clubs} userClubEdits={userClubEdits} setUserClubEdits={setUserClubEdits} userRoleEdits={userRoleEdits} setUserRoleEdits={setUserRoleEdits} saveUserClub={saveUserClub} /> : <Navigate to="/dashboard" />} />
+              <Route path="/admin_users" element={user?.email === ADMIN_EMAIL ? <AdminUsersView allUsers={allUsers} clubs={clubs} userClubEdits={userClubEdits} setNewClubName={setNewClubName} userRoleEdits={userRoleEdits} setUserRoleEdits={setUserRoleEdits} saveUserClub={saveUserClub} /> : <Navigate to="/dashboard" />} />
               <Route path="/admin_weekly" element={user?.email === ADMIN_EMAIL ? <AdminWeeklyView /> : <Navigate to="/dashboard" />} />
               <Route path="/admin_weekly" element={user?.email === ADMIN_EMAIL ? <AdminWeeklyView /> : <Navigate to="/dashboard" />} />
               <Route path="/admin_points" element={user?.email === ADMIN_EMAIL ? <AdminPointsDashboard /> : <Navigate to="/dashboard" />} />
