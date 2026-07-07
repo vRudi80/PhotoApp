@@ -927,6 +927,35 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     return sortBy === 'endDate' ? timeA - timeB : timeB - timeA;
   });
 
+  const handleExecuteShare = async () => {
+    const node = document.getElementById('share-card-node');
+    if (!node || !activeShareData) return;
+    setIsGeneratingImage(true);
+    try {
+      await toPng(node, { cacheBust: true });
+      const dataUrl = await toPng(node, { cacheBust: true, quality: 1.0 });
+      const blob = await (await fetch(dataUrl)).blob();
+      const file = new File([blob], `Arena_Award_${activeShareData.topic_title}.png`, { type: 'image/png' });
+      const getOrdinalStr = (rankNum: number) => {
+        if (lang === 'hu') return `${rankNum}.`;
+        const m = rankNum % 10, n = rankNum % 100;
+        if (m === 1 && n !== 11) return `${rankNum}st`;
+        if (m === 2 && n !== 12) return `${rankNum}nd`;
+        if (m === 3 && n !== 13) return `${rankNum}rd`;
+        return `${rankNum}th`;
+      };
+      const shareTextCompiled = t('msgShareText').replace('{rank}', lang === 'en' ? getOrdinalStr(activeShareData.rank) : String(activeShareData.rank)).replace('{title}', activeShareData.topic_title);
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: t('msgShareTitle'), text: shareTextCompiled });
+      } else {
+        const link = document.createElement('a'); link.download = `Arena_Trophy_${activeShareData.topic_title}.png`; link.href = dataUrl;
+        link.click();
+      }
+      setActiveShareData(null);
+     } catch (e) { alert(t('msgGenerateImageError')); } 
+     finally { setIsGeneratingImage(false); }
+  };
+  
   const BASE_EXPOSURE = 10;
   const exposureEarned = BASE_EXPOSURE + (Number(myVoteCount || 0) * 2);
   const safeViewsCount = myEntry ? (Number(myEntry.views_count) || 0) : 0;
@@ -1277,7 +1306,32 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           <MyArenaAlbumView user={user} setFullscreenData={setFullscreenData} />
         )}
       </div>
+<HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} currentLevel={currentLevel} />
 
+      <AlbumSelectionModal 
+        isOpen={showSwapAlbumModal} 
+        onClose={(wasActionSubmitted) => { setShowSwapAlbumModal(false); if (wasActionSubmitted === true) fetchCurrentTopic(false); }} 
+        albumModalMode={albumModalMode} 
+        swapAlbumPhotos={swapAlbumPhotos} 
+        myPastEntries={myPastEntries} 
+        topic={topic} 
+        user={user} 
+        isLoading={isLoadingSwapAlbum} 
+        setIsUploading={setIsUploading} 
+        setIsSwapping={setIsSwapping} 
+        fetchCurrentTopic={fetchCurrentTopic} 
+        handleSwapBackSubmit={handleSwapBackSubmit} 
+        handleSelectPhotoForSwap={handleSelectPhotoForSwap} 
+        myEntry={myEntry} 
+      />
+
+      <ShareCardModal activeShareData={activeShareData} onClose={() => setActiveShareData(null)} user={user} shareBase64={shareBase64} loadingShareImg={loadingShareImg} isGeneratingImage={isGeneratingImage} handleExecuteShare={handleExecuteShare} />
+      {topicToShare && (
+        <ChallengeShareModal 
+          topic={topicToShare} 
+          onClose={() => setTopicToShare(null)} 
+        />
+      )}
       <style>{`
         .arena-fluid-container { width: 100%; box-sizing: border-box; }
         .arena-cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; width: 100%; }
