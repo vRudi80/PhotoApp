@@ -125,8 +125,9 @@ export default function HelpModal({ isOpen, onClose, currentLevel }: HelpModalPr
                 <div style={{ background: 'var(--bg-card)', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-main)' }}>
                   <b style={{ color: '#10b981', display: 'block', fontSize: '0.82rem', marginBottom: '4px' }}>📥 {lang === 'en' ? 'HOW TO EARN:' : 'PONTKERESÉS:'}</b>
                   <ul style={{ margin: 0, paddingLeft: '14px', fontSize: '0.78rem', lineHeight: '1.4' }}>
-                    <li>{lang === 'en' ? 'Arena Victory: +100 / +50 / +25 pts' : 'Aréna dobogó: +100 / +50 / +25 pont'}</li>
-                    <li>{lang === 'en' ? 'Full Arena Voting: +10 pts' : 'Teljes Aréna szavazás leadása: +10 pont'}</li>
+                    <li>{lang === 'en' ? 'Game Victory: +100 / +50 / +25 pts' : 'Játék dobogó: +100 / +50 / +25 pont'}</li>
+                    <li>{lang === 'en' ? 'Game participating: +5 pts' : 'Játék egyéb helyezés: +100 / +50 / +25 pont'}</li>
+                    <li>{lang === 'en' ? 'Full game Voting: +10 pts' : 'Teljes játék szavazás leadása: +10 pont'}</li>
                     <li>{lang === 'en' ? 'Upload new Map Location: +20 pts' : 'Új fotós helyszín a térképre: +20 pont'}</li>
                     <li>{lang === 'en' ? 'New Forum post: +10 pts' : 'Új poszt a fórumon: +10 pont'}</li>
                     <li>{lang === 'en' ? 'Comment on a post: +5 pts' : 'Hozzászólás egy poszthoz: +5 pont'}</li>
@@ -198,7 +199,7 @@ export default function HelpModal({ isOpen, onClose, currentLevel }: HelpModalPr
             <h4 style={{ color: isLight ? '#b45309' : '#fbbf24', margin: '0 0 8px 0', fontSize: '0.95rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}><Gift size={14} /> {t('helpRewardsTitle')}</h4>
             <p style={{ color: 'var(--text-body)', fontSize: '0.85rem', lineHeight: '1.5', margin: 0 }}>
               {lang === 'en'
-                ? 'At the closing of the Arena room, players receive the following Global Points automatically added to their wallet based on their final rank:'
+                ? 'At the closing of the Game room, players receive the following Global Points automatically added to their wallet based on their final rank:'
                 : 'A futamok lezárásakor a végső sorrend alapján a rendszer automatikusan az alábbi Globális Pontokat írja jóvá a fotósok számláján:'}
             </p>
             <ul style={{ color: 'var(--text-title)', fontSize: '0.85rem', margin: '8px 0 0 0', paddingLeft: '16px', lineHeight: '1.7', listStyleType: 'none' }}>
