@@ -78,6 +78,37 @@ export default function PastArchive({
   const [activeShareData, setActiveShareData] = useState<any | null>(null);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
 
+  // 🎯 JAVÍTVA: eddig ide null/false volt hardkódolva a ShareCardModal hívásnál, emiatt a kártya
+  // mindig a nyers (cross-origin) fotó URL-t próbálta lefotózni -> "szennyezett vászon" hiba,
+  // az eredmény-trófeakártya mentése/megosztása nem működött. Most a nem-admin image-proxy
+  // végponton keresztül base64-esítjük a fotót, mielőtt a felhasználó exportálná a kártyát.
+  const [shareBase64, setShareBase64] = useState<string | null>(null);
+  const [loadingShareImg, setLoadingShareImg] = useState(false);
+
+  useEffect(() => {
+    setShareBase64(null);
+    const sourceImageUrl = activeShareData?.file_url || activeShareData?.imageUrl;
+    if (!sourceImageUrl) { setLoadingShareImg(false); return; }
+    let cancelled = false;
+    setLoadingShareImg(true);
+    (async () => {
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/weekly/image-proxy?url=${encodeURIComponent(sourceImageUrl)}`, {
+          headers: getAuthHeaders()
+        });
+        if (!res.ok) throw new Error('proxy hiba');
+        const data = await res.json();
+        if (!cancelled) setShareBase64(data.base64);
+      } catch (e) {
+        console.error('Nem sikerült a trófeakép base64 konverziója:', e);
+        if (!cancelled) setShareBase64(null);
+      } finally {
+        if (!cancelled) setLoadingShareImg(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [activeShareData]);
+
   // Felhasználói profilkép-térkép a photo_users táblából
   const [userAvatars, setUserAvatars] = useState<Record<string, string>>({});
 
@@ -598,8 +629,8 @@ export default function PastArchive({
         activeShareData={activeShareData} 
         onClose={() => setActiveShareData(null)} 
         user={user} 
-        shareBase64={null} 
-        loadingShareImg={false} 
+        shareBase64={shareBase64} 
+        loadingShareImg={loadingShareImg} 
         isGeneratingImage={isGeneratingImage} 
         handleExecuteShare={handleExecuteShare} 
       />
