@@ -8,7 +8,7 @@ interface ChallengeShareModalProps {
 }
 
 // 🎯 ULTRA-STABIL UTILS: Kézzel alakítja át a base64-et Blobbá fetch() hívás nélkül.
-// Ez 100%-ban megakadályozza a mobil Safari/Chrome "WebContent crash -> oldal újratöltés" hibáját!
+// Ez 100%-ban megakadályozza a mobil Safari/Chrome összeomlását.
 const safeDataURLtoBlob = (dataUrl: string) => {
   const arr = dataUrl.split(',');
   const mimeMatch = arr[0].match(/:(.*?);/);
@@ -38,11 +38,13 @@ export default function ChallengeShareModal({ topic, onClose }: ChallengeShareMo
 
     setIsGenerating(true);
     try {
-      // 1. DUPLA HÍVÁS TRÜKK (Ez javítja ki a mobil Chrome/Safari kép-elcsúszási hibáit!)
-      await toPng(node, { cacheBust: true });
-      const dataUrl = await toPng(node, { cacheBust: true, quality: 1.0 });
+      // 🎯 OPTIMALIZÁLVA: Csak egyetlen gyors hívás skipFonts jelzővel, hogy ne járjon le a mobil felhasználói gesztus!
+      const dataUrl = await toPng(node, { 
+        quality: 0.98,
+        skipFonts: true,
+        cacheBust: true
+      });
 
-      // 2. BIZTONSÁGOS KONVERZIÓ: Kiváltjuk a fetch(dataUrl) hívást a stabil saját dekóderünkre!
       const blob = safeDataURLtoBlob(dataUrl);
       const file = new File([blob], `PhotAwesome_Challenge_${topic.id}.png`, { type: 'image/png' });
       
@@ -50,7 +52,7 @@ export default function ChallengeShareModal({ topic, onClose }: ChallengeShareMo
         ? `📸 Join the "${displayTitle}" photo challenge on PhotAwesome!`
         : `📸 Indulj te is a(z) "${displayTitle}" fotós kihíváson a PhotAwesome-on!`;
 
-      // 3. MOBIL RENDSZER-MEGOSZTÓ
+      // MOBIL RENDSZER-MEGOSZTÓ INDÍTÁSA
       if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({
           files: [file],
@@ -58,7 +60,7 @@ export default function ChallengeShareModal({ topic, onClose }: ChallengeShareMo
           text: shareText
         });
       } else {
-        // 4. ASZTALI GÉP FALLBACK: Sima letöltés indítása
+        // ASZTALI GÉP VAGY LEJÁRT GESZTUS FALLBACK: Sima letöltés indítása
         const link = document.createElement('a');
         link.download = `PhotAwesome_Challenge_${topic.id}.png`;
         link.href = dataUrl;
@@ -66,8 +68,18 @@ export default function ChallengeShareModal({ topic, onClose }: ChallengeShareMo
       }
       onClose();
     } catch (e) {
-      console.error("Hiba a képkészítés során:", e);
-      alert('Hiba történt a meghívó kártya legenerálásakor.');
+      console.error("Hiba a képkészítés során, biztonsági mentés indítása:", e);
+      // Ha a megosztó teljesen lefagyna, végső mentési mentőövként megpróbáljuk simán letölteni
+      try {
+        const fallbackUrl = await toPng(node, { skipFonts: true });
+        const link = document.createElement('a');
+        link.download = `PhotAwesome_Challenge_${topic.id}.png`;
+        link.href = fallbackUrl;
+        link.click();
+        onClose();
+      } catch (err) {
+        alert('Nem sikerült legenerálni a meghívót a telefon korlátozásai miatt.');
+      }
     } finally {
       setIsGenerating(false);
     }
@@ -113,7 +125,8 @@ export default function ChallengeShareModal({ topic, onClose }: ChallengeShareMo
       >
         <div style={{ position: 'absolute', top: '-100px', width: '200px', height: '200px', background: isDaily ? '#ef444415' : '#fbbf2415', filter: 'blur(50px)', borderRadius: '50%' }}></div>
 
-        <div style={{ textAlignment: 'center', zIndex: 10 }}>
+        {/* 🎯 JAVÍTVA: textAlignment lecserélve a szabványos textAlign-ra */}
+        <div style={{ textAlign: 'center', zIndex: 10 }}>
           <div style={{ color: isDaily ? '#ef4444' : '#fbbf24', fontSize: '0.75rem', fontWeight: '900', letterSpacing: '3px', textTransform: 'uppercase' }}>📸 PhotAwesome.com</div>
           <div style={{ color: '#64748b', fontSize: '0.65rem', marginTop: '2px', letterSpacing: '1px' }}>{lang === 'en' ? 'NEW ARENA CHALLENGE' : 'ÚJ ARÉNA MEGHÍVÓ'}</div>
         </div>
@@ -156,7 +169,7 @@ export default function ChallengeShareModal({ topic, onClose }: ChallengeShareMo
         </div>
 
         <div style={{ textAlign: 'center', zIndex: 10 }}>
-          <div style={{ color: '#38bdf8', fontWeight: 'bold', marginTop: '1px', fontSize: '0.8rem' }}>PhótAwesome.com</div>
+          <div style={{ color: '#38bdf8', fontWeight: 'bold', marginTop: '1px', fontSize: '0.8rem' }}>PhotAwesome.com</div>
         </div>
       </div>
 
