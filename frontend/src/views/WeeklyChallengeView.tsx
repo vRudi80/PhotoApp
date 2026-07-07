@@ -352,6 +352,36 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const [shareBase64, setShareBase64] = useState<string | null>(null);
   const [loadingShareImg, setLoadingShareImg] = useState(false);
 
+  // 🎯 JAVÍTVA: Eddig ez a két state SOHA nem lett feltöltve, így a ShareCardModal mindig a nyers
+  // (cross-origin) fotó URL-re esett vissza -> "szennyezett vászon" (tainted canvas) hiba a toPng-nél,
+  // vagyis az eredmény-trófeakártya megosztása/mentése nem működött. Most a kártya megnyitásakor a
+  // szerver oldali /api/weekly/image-proxy végponton keresztül base64-esítjük a fotót, mielőtt a
+  // felhasználó exportálná a kártyát.
+  useEffect(() => {
+    setShareBase64(null);
+    const sourceImageUrl = activeShareData?.file_url || activeShareData?.imageUrl;
+    if (!sourceImageUrl) { setLoadingShareImg(false); return; }
+    let cancelled = false;
+    setLoadingShareImg(true);
+    (async () => {
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/weekly/image-proxy?url=${encodeURIComponent(sourceImageUrl)}`, {
+          headers: getAuthHeaders()
+        });
+        if (!res.ok) throw new Error('proxy hiba');
+        const data = await res.json();
+        if (!cancelled) setShareBase64(data.base64);
+      } catch (e) {
+        console.error('Nem sikerült a trófeakép base64 konverziója:', e);
+        if (!cancelled) setShareBase64(null);
+      } finally {
+        if (!cancelled) setLoadingShareImg(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [activeShareData]);
+
+
   const [lobbyMessages, setLobbyMessages] = useState<any[]>([]);
   const [currentlyTyping, setCurrentlyTyping] = useState<string[]>([]);
   const [typedLobbyMsg, setTypedLobbyMsg] = useState('');
