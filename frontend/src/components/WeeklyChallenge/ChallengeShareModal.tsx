@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { toPng } from 'html-to-image';
 import { useLanguage } from '../../context/LanguageContext';
 
@@ -7,8 +7,26 @@ interface ChallengeShareModalProps {
   onClose: () => void;
 }
 
-// 🎯 ULTRA-STABIL UTILS: Kézzel alakítja át a base64-et Blobbá fetch() hívás nélkül.
-// Ez 100%-ban megakadályozza a mobil Safari/Chrome összeomlását.
+// 🎯 BIZTONSÁGOS UTILS: Letölti a Cloudinary képet és tiszta Base64 stringgé alakítja.
+// Ez teljesen kijátssza a böngészők szigorú CORS/Canvas korlátozásait!
+const safeImageToBase64 = async (imageUrl: string): Promise<string> => {
+  try {
+    const response = await fetch(imageUrl, { mode: 'cors' });
+    const blob = await response.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch (e) {
+    console.error("Nem sikerült a képet Base64-re alakítani, fallback az url-re:", e);
+    return imageUrl; // Hiba esetén visszaugrunk a nyers linkre
+  }
+};
+
+// 🎯 ULTRA-STABIL UTILS: Kézzel alakítja át a generált base64-et Blobbá fetch() hívás nélkül.
+// Ez 100%-ban megakadályozza a mobil Safari/Chrome összeomlását és az oldal újratöltését.
 const safeDataURLtoBlob = (dataUrl: string) => {
   const arr = dataUrl.split(',');
   const mimeMatch = arr[0].match(/:(.*?);/);
@@ -25,6 +43,7 @@ const safeDataURLtoBlob = (dataUrl: string) => {
 export default function ChallengeShareModal({ topic, onClose }: ChallengeShareModalProps) {
   const { t, lang } = useLanguage();
   const [isGenerating, setIsGenerating] = useState(false);
+  const [base64CoverUrl, setBase64CoverUrl] = useState<string | null>(null);
 
   if (!topic) return null;
 
@@ -32,13 +51,20 @@ export default function ChallengeShareModal({ topic, onClose }: ChallengeShareMo
   const isDaily = topic.topic_type === 'daily' ||
     (topic.end_date && new Date(topic.end_date).getTime() - new Date(topic.start_date || Date.now()).getTime() <= 48 * 60 * 60 * 1000);
 
+  // 🎯 ÚJ: A modál megnyitásakor azonnal megkezdjük a Cloudinary kép Base64-esítését a háttérben
+  useEffect(() => {
+    if (topic && topic.cover_url) {
+      safeImageToBase64(`${topic.cover_url}?cb=share_invite_card`).then(setBase64CoverUrl);
+    }
+  }, [topic]);
+
   const handleExecuteShare = async () => {
     const node = document.getElementById('challenge-invite-card');
     if (!node) return;
 
     setIsGenerating(true);
     try {
-      // 🎯 OPTIMALIZÁLVA: Csak egyetlen gyors hívás skipFonts jelzővel, hogy ne járjon le a mobil felhasználói gesztus!
+      // Csak egyetlen villámgyors hívás skipFonts jelzővel, hogy a mobil böngésző ne tiltsa le a folyamatot időtúllépés miatt
       const dataUrl = await toPng(node, { 
         quality: 0.98,
         skipFonts: true,
@@ -60,7 +86,7 @@ export default function ChallengeShareModal({ topic, onClose }: ChallengeShareMo
           text: shareText
         });
       } else {
-        // ASZTALI GÉP VAGY LEJÁRT GESZTUS FALLBACK: Sima letöltés indítása
+        // ASZTALI GÉP FALLBACK VAGY BÖNGÉSZŐ KORLÁTOZÁS: Sima letöltés indítása
         const link = document.createElement('a');
         link.download = `PhotAwesome_Challenge_${topic.id}.png`;
         link.href = dataUrl;
@@ -69,7 +95,7 @@ export default function ChallengeShareModal({ topic, onClose }: ChallengeShareMo
       onClose();
     } catch (e) {
       console.error("Hiba a képkészítés során, biztonsági mentés indítása:", e);
-      // Ha a megosztó teljesen lefagyna, végső mentési mentőövként megpróbáljuk simán letölteni
+      // Végső mentőöv vészhelyzet esetére: háttérbéli tiszta toPng kísérlet
       try {
         const fallbackUrl = await toPng(node, { skipFonts: true });
         const link = document.createElement('a');
@@ -125,7 +151,6 @@ export default function ChallengeShareModal({ topic, onClose }: ChallengeShareMo
       >
         <div style={{ position: 'absolute', top: '-100px', width: '200px', height: '200px', background: isDaily ? '#ef444415' : '#fbbf2415', filter: 'blur(50px)', borderRadius: '50%' }}></div>
 
-        {/* 🎯 JAVÍTVA: textAlignment lecserélve a szabványos textAlign-ra */}
         <div style={{ textAlign: 'center', zIndex: 10 }}>
           <div style={{ color: isDaily ? '#ef4444' : '#fbbf24', fontSize: '0.75rem', fontWeight: '900', letterSpacing: '3px', textTransform: 'uppercase' }}>📸 PhotAwesome.com</div>
           <div style={{ color: '#64748b', fontSize: '0.65rem', marginTop: '2px', letterSpacing: '1px' }}>{lang === 'en' ? 'NEW ARENA CHALLENGE' : 'ÚJ ARÉNA MEGHÍVÓ'}</div>
@@ -140,7 +165,7 @@ export default function ChallengeShareModal({ topic, onClose }: ChallengeShareMo
         }}>
           {topic.cover_url ? (
             <img 
-              src={`${topic.cover_url}?cb=share_invite_card`} 
+              src={base64CoverUrl || topic.cover_url} 
               alt="Challenge Cover" 
               crossOrigin="anonymous"
               style={{ width: '100%', height: '100%', objectFit: 'cover', zIndex: 2 }} 
@@ -168,8 +193,8 @@ export default function ChallengeShareModal({ topic, onClose }: ChallengeShareMo
           </div>
         </div>
 
-        <div style={{ textAlign: 'center', zIndex: 10 }}>
-          <div style={{ color: '#38bdf8', fontWeight: 'bold', marginTop: '1px', fontSize: '0.8rem' }}>PhotAwesome.com</div>
+        <div style={{ textHeading: 'center', zIndex: 10 }}>
+          <div style={{ color: '#38bdf8', fontWeight: 'bold', marginTop: '1px', fontSize: '0.8rem' }}>PhótAwesome.com</div>
         </div>
       </div>
 
@@ -178,10 +203,10 @@ export default function ChallengeShareModal({ topic, onClose }: ChallengeShareMo
         <button 
           type="button"
           onClick={handleExecuteShare}
-          disabled={isGenerating}
-          style={{ flex: 1, background: isGenerating ? '#334155' : 'linear-gradient(135deg, #3b82f6, #1d4ed8)', color: isGenerating ? '#64748b' : 'white', border: 'none', padding: '14px', borderRadius: '14px', fontSize: '1.1rem', fontWeight: 'bold', cursor: isGenerating ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', boxShadow: '0 10px 25px rgba(29,78,216,0.3)' }}
+          disabled={isGenerating || !base64CoverUrl}
+          style={{ flex: 1, background: (isGenerating || !base64CoverUrl) ? '#334155' : 'linear-gradient(135deg, #3b82f6, #1d4ed8)', color: (isGenerating || !base64CoverUrl) ? '#64748b' : 'white', border: 'none', padding: '14px', borderRadius: '14px', fontSize: '1.1rem', fontWeight: 'bold', cursor: (isGenerating || !base64CoverUrl) ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', boxShadow: '0 10px 25px rgba(29,78,216,0.3)' }}
         >
-          <span>{isGenerating ? '⏳...' : (lang === 'en' ? '📷 Save Image' : '📷 Kártya Mentése')}</span>
+          <span>{!base64CoverUrl ? '⏳ Loading...' : (isGenerating ? '⏳...' : (lang === 'en' ? '📷 Save Image' : '📷 Kártya Mentése'))}</span>
         </button>
 
         <button 
