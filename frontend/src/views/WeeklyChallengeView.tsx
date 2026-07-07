@@ -579,15 +579,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   }, [selectedTopicId, user?.email]);
 
   useEffect(() => {
-    if (isChatOpen && lobbyMessages.length > 0 && user?.email) {
-      const lastMsg = lobbyMessages[lobbyMessages.length - 1];
-      const lastId = lastMsg.id || lastMsg._id;
-      if (lastId) localStorage.setItem(`arena_chat_last_read_${user.email}`, String(lastId));
-      setHasNewMessage(false);
-    }
-  }, [isChatOpen, lobbyMessages.length, user?.email]);
-
-  useEffect(() => {
     if (subTab !== 'current') return;
     
     const fetchLobbyChat = () => {
@@ -1075,7 +1066,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                 <div className="arena-rank-tooltip-box">
                   <div style={{ fontWeight: 'bold', color: '#fbbf24', marginBottom: '4px' }}>{rank.name}</div>
                   <div style={{ fontSize: '0.75rem', whiteSpace: 'pre-line', lineHeight: '1.4', color: '#cbd5e1' }}>{tooltipText}</div>
-                  <div style={{ marginTop: '8px', fontSize: '0.7_rem', color: '#475569', borderTop: '1px solid var(--border-main)', paddingTop: '4px' }}>
+                  <div style={{ marginTop: '8px', fontSize: '0.7rem', color: '#475569', borderTop: '1px solid var(--border-main)', paddingTop: '4px' }}>
                     Saját statisztikád: {userTotalLikes} ⭐ | {userVictories} 🥇
                   </div>
                 </div>
@@ -1272,6 +1263,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
 
       <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} currentLevel={currentLevel} />
 
+      {/* 🎯 TŰPONTOSAN HELYREÁLLÍTVA: Az összes elengedhetetlen felugró modál ablak tárolója visszaillesztve az állomány aljára! */}
       <AlbumSelectionModal 
         isOpen={showSwapAlbumModal} 
         onClose={(wasActionSubmitted) => { setShowSwapAlbumModal(false); if (wasActionSubmitted === true) fetchCurrentTopic(false); }} 
@@ -1290,18 +1282,20 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       />
 
       <ShareCardModal activeShareData={activeShareData} onClose={() => setActiveShareData(null)} user={user} shareBase64={shareBase64} loadingShareImg={loadingShareImg} isGeneratingImage={isGeneratingImage} handleExecuteShare={handleExecuteShare} />
+      
       {topicToShare && (
         <ChallengeShareModal 
           topic={topicToShare} 
           onClose={() => setTopicToShare(null)} 
         />
       )}
+
       <style>{`
         .arena-fluid-container { width: 100%; box-sizing: border-box; }
         .arena-cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; width: 100%; }
         .arena-rank-tooltip-container { position: relative; }
         .arena-progress-card-wrapper, .arena-tabs-scroll-wrapper { scrollbar-width: thin; scrollbar-color: var(--border-main) var(--bg-card); }
-        .arena-progress-card-wrapper://-webkit-scrollbar, .arena-tabs-scroll-wrapper::-webkit-scrollbar { height: 4px; }
+        .arena-progress-card-wrapper::-webkit-scrollbar, .arena-tabs-scroll-wrapper::-webkit-scrollbar { height: 4px; }
         .arena-progress-card-wrapper::-webkit-scrollbar-track, .arena-tabs-scroll-wrapper::-webkit-scrollbar-track { background: var(--bg-card); }
         .arena-progress-card-wrapper::-webkit-scrollbar-thumb, .arena-tabs-scroll-wrapper::-webkit-scrollbar-thumb { background-color: var(--border-main); border-radius: 4px; }
         @media (max-width: 900px) {
