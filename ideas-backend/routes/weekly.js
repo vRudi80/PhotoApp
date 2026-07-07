@@ -1030,6 +1030,29 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (e) { res.status(500).json({ error: e.message }); }
   });
 
+  // 🎯 ÚJ: NEM ADMIN KÉPPROXY a megosztó kártyákhoz (kihívás meghívó, eredmény trófea).
+  // Ok: a böngészőből közvetlenül (fetch mode:'cors') lekért Cloudinary/Drive kép mobilon (főleg iOS Safari-n)
+  // gyakran elhasal ITP / hálózati okok miatt, emiatt a html-to-image "tainted canvas" hibát dob, és a legenerált
+  // megosztó képen a borítókép/eredményfotó helye üres marad. A szerver oldali letöltés kiiktatja ezt a CORS-problémát.
+  // Bármely bejelentkezett felhasználó hívhatja (nem csak admin), de csak ismert, megbízható domainekről engedünk át
+  // képet, hogy ne válhasson nyílt SSRF proxyvá.
+  app.get('/api/weekly/image-proxy', requireAuth, async (req, res) => {
+    const imageUrl = req.query.url;
+    if (!imageUrl || typeof imageUrl !== 'string') return res.status(400).json({ error: 'Hiányzó url paraméter!' });
+
+    const allowedHosts = ['res.cloudinary.com', 'lh3.googleusercontent.com', 'drive.google.com'];
+    let parsedUrl;
+    try { parsedUrl = new URL(imageUrl); } catch (e) { return res.status(400).json({ error: 'Érvénytelen URL!' }); }
+    if (parsedUrl.protocol !== 'https:' || !allowedHosts.some(host => parsedUrl.hostname === host || parsedUrl.hostname.endsWith(`.${host}`))) {
+      return res.status(403).json({ error: 'Nem engedélyezett kép forrás!' });
+    }
+
+    try {
+      const response = await axios.get(imageUrl, { responseType: 'arraybuffer', timeout: 10000 });
+      res.json({ base64: `data:${response.headers['content-type']};base64,${Buffer.from(response.data).toString('base64')}` });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
   // ====================================================================
   // 💡 JAVASLATOK ÉS ARCHÍVUM CSERÉK
   // ====================================================================
