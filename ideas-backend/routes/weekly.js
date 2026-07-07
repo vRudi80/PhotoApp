@@ -197,7 +197,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     try {
       const currentNow = getLocalMySQLNow();
       await pool.query(`UPDATE photo_users SET premium_level = 0, is_premium = 0 WHERE premium_until IS NOT NULL AND premium_until < ?`, [currentNow]);
-      const [unfinished] = await pool.query('SELECT id FROM weekly_topics WHERE end_date < ? AND processed = 0', [currentNow]);
+      const [unfinished] = await pool.query('SELECT id, title FROM weekly_topics WHERE end_date < ? AND processed = 0', [currentNow]);
 
       for (const topic of unfinished) {
         console.log(`🔒 [PERSISTENCE] ${topic.id} azonosítójú futam végleges lezárása...`);
