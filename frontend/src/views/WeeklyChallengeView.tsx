@@ -17,7 +17,7 @@ import VideoLoader from '../components/VideoLoader';
 import { useLanguage } from '../context/LanguageContext';
 import ChallengeShareModal from '../components/WeeklyChallenge/ChallengeShareModal';
 
-// Professzionális Lucide Ikonok importálása
+// Professzionális Lucide Ikonok importálása (Coins hozzáadva)
 import { 
   Flame, 
   Zap, 
@@ -389,7 +389,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     } catch (e) { console.error(e); }
   };
 
-  // 🪙 ÚJ: Golyóálló pontszám-szinkronizáció közvetlenül az adatbázisból
+      // 🪙 ÚJ: Golyóálló pontszám-szinkronizáció közvetlenül az adatbázisból
   const fetchFreshPointsBalance = async () => {
     if (!user?.email) return;
     try {
@@ -412,6 +412,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       setLoading(true);
       setFetchError(null);
     }
+
+
     
     if (!user?.email) {
       if (!isSilent) setLoading(false);
@@ -565,7 +567,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     if (subTab === 'current') {
       fetchCurrentTopic(false);
       fetchAlbumSilently(); 
-      fetchFreshPointsBalance(); 
+      fetchFreshPointsBalance(); // 🎯 ÚJ: Azonnal lekérjük a legfrissebb pontokat az adatbázisból, ha ide lép a user!
     }
     else if (subTab === 'upcoming') fetch(`${BACKEND_URL}/api/weekly/upcoming`, { headers: getAuthHeaders() }).then(res => res.json()).then(data => setUpcomingTopics(data || [])).catch(console.error);
     else if (subTab === 'past') fetch(`${BACKEND_URL}/api/weekly/past`, { headers: getAuthHeaders() }).then(res => res.json()).then(data => setPastTopics(data || [])).catch(console.error);
@@ -577,6 +579,15 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   useEffect(() => {
     setTopic(null); setMyEntry(null); setMyPastEntries([]); setVoteEntry(null); setLeaderboard([]); setCurrentClubLeaderboard([]); setTimeLeft(''); setPastLeaderboard([]); setPastClubLeaderboard([]); setMasterVotesLeft(0); setIsMaster(false); setHasNewMessage(false);
   }, [selectedTopicId, user?.email]);
+
+  useEffect(() => {
+    if (isChatOpen && lobbyMessages.length > 0 && user?.email) {
+      const lastMsg = lobbyMessages[lobbyMessages.length - 1];
+      const lastId = lastMsg.id || lastMsg._id;
+      if (lastId) localStorage.setItem(`arena_chat_last_read_${user.email}`, String(lastId));
+      setHasNewMessage(false);
+    }
+  }, [isChatOpen, lobbyMessages.length, user?.email]);
 
   useEffect(() => {
     if (subTab !== 'current') return;
@@ -736,6 +747,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     finally { setIsClaimingReferral(false); }
   };
 
+  // 🎯 ÚJ: Gyors Joker Csere vásárlás közvetlenül az Aréna felületéről (Pontszinkronizáció hozzáadva)
   const handleQuickBuySwap = async () => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/store/buy-swap`, {
@@ -748,7 +760,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         alert(data.message);
         setSwapBalance(data.newSwapBalance); 
         if (data.newPointsBalance !== undefined) {
-          setPointsBalance(data.newPointsBalance); 
+          setPointsBalance(data.newPointsBalance); // Valós időben frissítjük a kijelzőt
         }
       } else {
         alert(data.error || "Sikertelen vásárlás.");
@@ -935,6 +947,18 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
      finally { setIsGeneratingImage(false); }
   };
 
+  const currentLevel = getLevelDetails(userTotalLikes, userVictories);
+  const BASE_EXPOSURE = 10;
+  const exposureEarned = BASE_EXPOSURE + (Number(myVoteCount || 0) * 2);
+  const safeViewsCount = myEntry ? (Number(myEntry.views_count) || 0) : 0;
+  const viewsRemaining = myEntry ? (exposureEarned - safeViewsCount) : 0;
+  const rawPercentage = myEntry ? ((viewsRemaining / 15) * 100) : 0;
+  const exposurePercentage = isNaN(rawPercentage) || !isFinite(rawPercentage) ? 0 : Math.min(100, Math.max(0, rawPercentage));
+  let exposureColor = '#ef4444';
+  let exposureLabel = viewsRemaining <= 0 ? (lang === 'en' ? 'Invisible (0%)' : 'Láthatatlan (0%)') : (lang === 'en' ? 'Low' : 'Alacsony');
+  if (exposurePercentage >= 80) { exposureColor = '#10b981'; exposureLabel = lang === 'en' ? 'Maximum' : 'Maximális'; } 
+  else if (exposurePercentage >= 40) { exposureColor = '#f59e0b'; exposureLabel = lang === 'en' ? 'Medium' : 'Közepes'; }
+
   const sortedActiveTopics = [...activeTopics].sort((a, b) => {
     const dateStrA = String(sortBy === 'endDate' ? a.end_date : a.start_date).replace(' ', 'T').split('.')[0];
     const dateStrB = String(sortBy === 'endDate' ? b.end_date : b.start_date).replace(' ', 'T').split('.')[0];
@@ -943,7 +967,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   });
 
   return (
-    <div style={{ width: '100%', boxSizing: 'border-box' }}>
+    <div style={{ animation: 'fadeIn 0.4s ease-out', position: 'relative' }}>
       
       {/* TABS HEADER GOMBSOR */}
       <div className="arena-tabs-scroll-wrapper" style={{ background: 'var(--bg-card)', borderBottom: '1px solid var(--border-main)', marginBottom: '20px', borderRadius: '8px 8px 0 0' }}>
@@ -983,17 +1007,22 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
             })}
           </div>
           
+          {/* 🎯 INTEGRÁLT PONTTÁRCA ÉS JOKER SZÁMLÁLÓ CSOPORT */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexShrink: 0 }}>
+            
+            {/* 🪙 ÚJ: Aktuális pontegyenleg elegáns arany plecsnije az Arénában */}
             <div style={{ background: 'rgba(251,191,36,0.08)', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.2)', padding: '5px 12px', borderRadius: '4px', fontWeight: 'bold', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
               <Coins size={12} color="#fbbf24" />
               <span>{pointsBalance} {lang === 'en' ? 'Points' : 'Pont'}</span>
             </div>
 
+            {/* Megmaradt Joker cserék számlálója */}
             <div style={{ background: 'rgba(225,29,72,0.08)', color: '#fb7185', border: '1px solid rgba(225,29,72,0.2)', padding: '5px 12px', borderRadius: '4px', fontWeight: 'bold', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
               <RefreshCw size={12} />
               <span>{swapBalance} {lang === 'en' ? 'Swaps left' : 'Joker Csere'}</span>
             </div>
 
+            {/* Gyorsvásárlás gomb */}
             <button 
               onClick={handleQuickBuySwap}
               style={{ background: 'rgba(56,189,248,0.1)', color: '#38bdf8', border: '1px solid rgba(56,189,248,0.3)', padding: '5px 12px', borderRadius: '4px', fontWeight: 'bold', fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', transition: 'all 0.15s', whiteSpace: 'nowrap' }}
@@ -1263,7 +1292,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
 
       <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} currentLevel={currentLevel} />
 
-      {/* 🎯 TŰPONTOSAN HELYREÁLLÍTVA: Az összes elengedhetetlen felugró modál ablak tárolója visszaillesztve az állomány aljára! */}
       <AlbumSelectionModal 
         isOpen={showSwapAlbumModal} 
         onClose={(wasActionSubmitted) => { setShowSwapAlbumModal(false); if (wasActionSubmitted === true) fetchCurrentTopic(false); }} 
@@ -1282,14 +1310,12 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       />
 
       <ShareCardModal activeShareData={activeShareData} onClose={() => setActiveShareData(null)} user={user} shareBase64={shareBase64} loadingShareImg={loadingShareImg} isGeneratingImage={isGeneratingImage} handleExecuteShare={handleExecuteShare} />
-      
       {topicToShare && (
         <ChallengeShareModal 
           topic={topicToShare} 
           onClose={() => setTopicToShare(null)} 
         />
       )}
-
       <style>{`
         .arena-fluid-container { width: 100%; box-sizing: border-box; }
         .arena-cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; width: 100%; }
