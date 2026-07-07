@@ -659,7 +659,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     } catch (err) {
       console.error("Hiba a dicsőségcsarnok letöltésekor:", err);
       setHallOfFame([]);
-    } fillalys {
+    } finally {
       setIsLoadingHof(false);
     }
   };
