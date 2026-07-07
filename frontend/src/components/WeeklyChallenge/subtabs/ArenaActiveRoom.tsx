@@ -29,7 +29,7 @@ import {
 } from 'lucide-react';
 
 // ====================================================================
-// 🕒 VISSZASZÁMLÁLÓ KOMPONENS (REAKTÍV SZÍNEKKEL)
+// 🕒 1. VISSZASZÁMLÁLÓ KOMPONENS (REAKTÍV SZÍNEKKEL)
 // ====================================================================
 function ActiveRoomCountdown({ endDate, lang }: { endDate: string; lang: string }) {
   const elementRef = useRef<HTMLSpanElement>(null);
@@ -89,8 +89,7 @@ function ActiveRoomCountdown({ endDate, lang }: { endDate: string; lang: string 
 }
 
 interface ArenaActiveRoomProps {
-  topic: any; timeLeft: string; isMaster: boolean; 
-  exposureColor?: string; exposurePercentage?: number; exposureLabel?: string; // 🎯 Opcionálissá téve a szülő leválasztásához
+  topic: any; timeLeft: string; isMaster: boolean; exposureColor: string; exposurePercentage: number; exposureLabel: string;
   myEntry: any; voteEntry: any; noMoreEntries: boolean; masterVotesLeft: number; userPower: any; swapBalance: number;
   myPastEntries: any[]; leaderboard: any[]; currentClubLeaderboard: any[]; user: any; isUploading: boolean; uploadPreview: string | null;
   handleFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void; handleUpload: () => void; isLoadingSwapAlbum: boolean; isSwapping: boolean;
@@ -101,6 +100,7 @@ interface ArenaActiveRoomProps {
   fetchCurrentTopic: (isSilent?: boolean) => Promise<void>;
 }
 
+// 🎯 KÖZPONTI AUTH FEJLÉC GENERÁTOR HELYI RENDERSZINTRE
 const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
   const token = localStorage.getItem('photoAppToken');
   return {
@@ -127,29 +127,6 @@ export default function ArenaActiveRoom({
   const safeClubLeaderboard = Array.isArray(currentClubLeaderboard) ? currentClubLeaderboard : [];
   const safePastEntries = Array.isArray(myPastEntries) ? myPastEntries : [];
   const safeUserPower = userPower || { super: 1, brilliant: 2 };
-
-  // 🎯 ÚJ: Belső autonóm láthatósági index kalkuláció, hogy a külső hivatkozási hiba megszűnjön!
-  const derivedExposurePercentage = useMemo(() => {
-    if (exposurePercentage !== undefined) return exposurePercentage;
-    if (!myEntry) return 0;
-    const safeViews = Number(myEntry.views_count) || 0;
-    return Math.min(100, Math.max(0, Math.round((safeViews / 15) * 100)));
-  }, [exposurePercentage, myEntry]);
-
-  const derivedExposureColor = useMemo(() => {
-    if (exposureColor) return exposureColor;
-    if (derivedExposurePercentage >= 80) return '#10b981';
-    if (derivedExposurePercentage >= 40) return '#f59e0b';
-    return '#ef4444';
-  }, [exposureColor, derivedExposurePercentage]);
-
-  const derivedExposureLabel = useMemo(() => {
-    if (exposureLabel) return exposureLabel;
-    if (derivedExposurePercentage >= 80) return lang === 'en' ? 'Maximum' : 'Maximális';
-    if (derivedExposurePercentage >= 40) return lang === 'en' ? 'Medium' : 'Közepes';
-    if (derivedExposurePercentage > 0) return lang === 'en' ? 'Low' : 'Alacsony';
-    return lang === 'en' ? 'Invisible (0%)' : 'Láthatatlan (0%)';
-  }, [exposureLabel, derivedExposurePercentage, lang]);
 
   const batchVoteEntries = useMemo(() => {
     const eligibleEntries = safeLeaderboard.filter(item => {
@@ -180,12 +157,18 @@ export default function ArenaActiveRoom({
     });
   }, [safeLeaderboard, user?.email]);
 
+  const getTranslatedExposureLabel = (label: string) => {
+    if (lang === 'en') {
+      if (label === 'Alacsony') return 'Low';
+      if (label === 'Közepes') return 'Medium';
+      if (label === 'Maximális') return 'Maximum';
+      if (label?.includes('Láthatatlan')) return 'Invisible (0%)';
+    }
+    return label;
+  };
+
   const displayRoomTitle = lang === 'en' && topic?.title_en ? topic.title_en : (topic?.title || t('roomChallengeRoom'));
   const displayRoomDesc = lang === 'en' && topic?.description_en ? topic.description_en : (topic?.description || '');
-
-  const handleShare = (e: React.MouseEvent) => {
-    e.stopPropagation();
-  };
 
   const handleBatchSubmit = async () => {
     const totalVoted = Object.keys(pendingVotes).length;
@@ -196,6 +179,7 @@ export default function ArenaActiveRoom({
 
     setIsSubmittingBatch(true);
     try {
+      // 🎯 JAVÍTVA: A szavazatok beküldése megkapta a hitelesített biztonsági fejlécet!
       const votePromises = Object.entries(pendingVotes).map(([entryId, type]) => {
         return fetch(`${BACKEND_URL}/api/weekly/vote`, {
           method: 'POST',
@@ -219,7 +203,7 @@ export default function ArenaActiveRoom({
   return (
     <div className="arena-main-layout-grid">
       
-      {/* BAL HASÁB: FŐ EVALUÁCIÓS PANEL */}
+      {/* 🏛️ BAL HASÁB: FŐ EVALUÁCIÓS PANEL */}
       <div className="arena-layout-column-main">
         <div className="arena-responsive-card" style={{ background: 'var(--bg-card)', padding: '24px', borderRadius: '8px', border: '1px solid var(--border-main)', display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: '0 4px 15px rgba(0,0,0,0.1)', position: 'relative' }}>
           <h3 style={{ margin: '0 0 6px 0', color: 'var(--text-title)', fontSize: '1.4rem', fontWeight: '700', letterSpacing: '-0.3px', textAlign: 'center' }}>
@@ -228,7 +212,7 @@ export default function ArenaActiveRoom({
           <p style={{ margin: '0 0 14px 0', color: 'var(--text-body)', fontSize: '0.88rem', textAlign: 'center', lineHeight: '1.5' }}>{displayRoomDesc}</p>
           
           {(topic?.master_name || topic?.master_email) && (
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#a78bfa', fontSize: '0.78rem', fontWeight: 'bold', background: 'rgba(167,139,250,0.06)', padding: '5px 12px', borderRadius: '4px', border: '1px solid rgba(167,139,250,0.2)', marginBottom: '166px', whiteSpace: 'nowrap' }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#a78bfa', fontSize: '0.78rem', fontWeight: 'bold', background: 'rgba(167,139,250,0.06)', padding: '5px 12px', borderRadius: '4px', border: '1px solid rgba(167,139,250,0.2)', marginBottom: '16px', whiteSpace: 'nowrap' }}>
               <Crown size={12} />
               <span>{t('viewMasterLabel') || 'Képmester:'}</span>
               <span style={{ color: 'var(--text-title)' }}>{topic.master_name || topic.master_email}</span>
@@ -322,7 +306,7 @@ export default function ArenaActiveRoom({
         </div>
       </div>
 
-      {/* JÁTÉKOS STATISZTIKÁK ÉS RANGSOROK */}
+      {/* 🎚️ JOBB HASÁB: STATISZTIKÁK ÉS RANGSOROK */}
       <div className="arena-layout-column-side">
         
         {/* SAJÁT NEVEZÉS SZEKCIÓ */}
@@ -345,7 +329,7 @@ export default function ArenaActiveRoom({
               <div style={{ width: '100%', height: '200px', backgroundColor: 'var(--bg-main)', borderRadius: '6px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border-main)' }}>
                 <img src={getImageUrl(myEntry?.drive_file_id, myEntry?.file_url)} alt="My submission" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} onError={handleImageError} />
               </div>
-              <div style={{ marginTop: '12px', display: 'grid', gridTemplateColumns: '1fr 1fr', background: 'var(--bg-main)', padding: '12px', borderRadius: '6px', borderLeft: `3px solid ${derivedExposureColor || '#ef4444'}`, border: '1px solid var(--border-main)' }}>
+              <div style={{ marginTop: '12px', display: 'grid', gridTemplateColumns: '1fr 1fr', background: 'var(--bg-main)', padding: '12px', borderRadius: '6px', borderLeft: `3px solid ${exposureColor || '#ef4444'}`, border: '1px solid var(--border-main)' }}>
                 <div style={{ textAlign: 'center', borderRight: '1px solid var(--border-main)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                   <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '2px' }}>Pontszám</span>
                   <div style={{ color: '#fbbf24', fontSize: '1.15rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '4px' }}><Star size={14} fill="#fbbf24" /> {myEntry?.likes_count || 0}</div>
@@ -416,13 +400,11 @@ export default function ArenaActiveRoom({
             <div style={{ position: 'relative', width: '100%', maxWidth: '160px', height: '95px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
               <svg viewBox="0 0 200 120" style={{ width: '100%', height: 'auto', display: 'block' }}>
                 <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="var(--bg-main)" strokeWidth="14" strokeLinecap="round" />
-                {/* 🎯 JAVÍTVA: A szülőtől kapott, érvénytelen exposureColor helyett a belső derivedExposureColor-t alkalmazzuk! */}
-                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke={derivedExposureColor || '#ef4444'} strokeWidth="14" strokeLinecap="round" pathLength="100" strokeDasharray="100" strokeDashoffset={100 - (derivedExposurePercentage || 0)} style={{ transition: 'stroke-dashoffset 0.6s cubic-bezier(0.4, 0, 0.2, 1)' }} />
+                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke={exposureColor || '#ef4444'} strokeWidth="14" strokeLinecap="round" pathLength="100" strokeDasharray="100" strokeDashoffset={100 - (exposurePercentage || 0)} style={{ transition: 'stroke-dashoffset 0.6s cubic-bezier(0.4, 0, 0.2, 1)' }} />
               </svg>
               <div style={{ position: 'absolute', bottom: '5px', textAlign: 'center' }}>
-                <div style={{ fontSize: '1.4rem', fontWeight: '700', color: 'var(--text-title)', letterSpacing: '-0.5px' }}>{Math.round(derivedExposurePercentage || 0)}%</div>
-                {/* 🎯 JAVÍTVA: Szintén a belső derivedExposureColor és derivedExposureLabel értékeket rajzoljuk ki */}
-                <div style={{ fontSize: '0.68rem', fontWeight: 'bold', color: derivedExposureColor, textTransform: 'uppercase', marginTop: '1px' }}>{derivedExposureLabel}</div>
+                <div style={{ fontSize: '1.4rem', fontWeight: '700', color: 'var(--text-title)', letterSpacing: '-0.5px' }}>{Math.round(exposurePercentage || 0)}%</div>
+                <div style={{ fontSize: '0.68rem', fontWeight: 'bold', color: exposureColor, textTransform: 'uppercase', marginTop: '1px' }}>{getTranslatedExposureLabel(exposureLabel)}</div>
               </div>
             </div>
           </div>
@@ -470,7 +452,7 @@ export default function ArenaActiveRoom({
                        <span style={{ fontSize: '0.8rem', fontWeight: '600', color: 'var(--text-muted)' }}>{index + 1}</span>}
                     </div>
                     <div onClick={() => (actTop.user_email === user?.email || isMaster) ? setFullscreenData({url: getImageUrl(actTop?.drive_file_id, actTop?.file_url), title: actTop?.user_name || ''}) : null} style={{ width: '32px', height: '32px', backgroundColor: '#000', borderRadius: '4px', overflow: 'hidden', margin: '0 10px', cursor: (actTop.user_email === user?.email || isMaster) ? 'zoom-in' : 'default', position: 'relative', flexShrink: 0, border: '1px solid var(--border-main)' }}>
-                      <img src={getImageUrl(actTop?.drive_file_id, actTop?.file_url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: (actTop.user_email === user?.email || isMaster) ? 'none' : 'blur(5px)' }} onError={handleImageError} />
+                      <img src={getImageUrl(actTop?.drive_file_id, actTop?.file_url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: (actTop.user_email === user?.email || isMaster) ? 'none' : 'blur(5px)' }} onError={handleImageError} loading="lazy" />
                     </div>
                     
                     <div style={{ flex: 1, minWidth: 0, paddingRight: '6px' }}>
@@ -521,7 +503,7 @@ export default function ArenaActiveRoom({
         </div>
       )}
 
-      {/* STYLING LAYER */}
+      {/* ── 🎯 ASZTALI BENTO GRID STYLING LAYER ── */}
       <style>{`
         .arena-main-layout-grid {
           display: grid;
