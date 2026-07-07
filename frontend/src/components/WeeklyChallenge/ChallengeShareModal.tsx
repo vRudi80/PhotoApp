@@ -51,10 +51,10 @@ export default function ChallengeShareModal({ topic, onClose }: ChallengeShareMo
   const isDaily = topic.topic_type === 'daily' ||
     (topic.end_date && new Date(topic.end_date).getTime() - new Date(topic.start_date || Date.now()).getTime() <= 48 * 60 * 60 * 1000);
 
-  // 🎯 ÚJ: A modál megnyitásakor azonnal megkezdjük a Cloudinary kép Base64-esítését a háttérben
+  // 🎯 JAVÍTVA: Időbélyeg alapú cache-busting kényszeríti ki a tiszta CORS kérést a poisoned böngésző-gyorsítótár ellen
   useEffect(() => {
     if (topic && topic.cover_url) {
-      safeImageToBase64(`${topic.cover_url}?cb=share_invite_card`).then(setBase64CoverUrl);
+      safeImageToBase64(`${topic.cover_url}?arenaCacheBust=${Date.now()}`).then(setBase64CoverUrl);
     }
   }, [topic]);
 
@@ -64,7 +64,7 @@ export default function ChallengeShareModal({ topic, onClose }: ChallengeShareMo
 
     setIsGenerating(true);
     try {
-      // Csak egyetlen villámgyors hívás skipFonts jelzővel, hogy a mobil böngésző ne tiltsa le a folyamatot időtúllépés miatt
+      // Villámgyors hívás skipFonts jelzővel, hogy a mobil böngésző ne tiltsa le a folyamatot időtúllépés miatt
       const dataUrl = await toPng(node, { 
         quality: 0.98,
         skipFonts: true,
@@ -95,7 +95,6 @@ export default function ChallengeShareModal({ topic, onClose }: ChallengeShareMo
       onClose();
     } catch (e) {
       console.error("Hiba a képkészítés során, biztonsági mentés indítása:", e);
-      // Végső mentőöv vészhelyzet esetére: háttérbéli tiszta toPng kísérlet
       try {
         const fallbackUrl = await toPng(node, { skipFonts: true });
         const link = document.createElement('a');
@@ -156,7 +155,7 @@ export default function ChallengeShareModal({ topic, onClose }: ChallengeShareMo
           <div style={{ color: '#64748b', fontSize: '0.65rem', marginTop: '2px', letterSpacing: '1px' }}>{lang === 'en' ? 'NEW ARENA CHALLENGE' : 'ÚJ ARÉNA MEGHÍVÓ'}</div>
         </div>
 
-        {/* Borítókép flexibilis keret */}
+        {/* 🎯 JAVÍTVA: Nyers img tag helyett inline CSS háttérképes div-et használunk, mert az html-to-image ezt 100%-os stabilitással fotózza le mobilon is */}
         <div style={{ 
           width: '100%', height: '200px', borderRadius: '16px', border: `2px solid ${isDaily ? '#ef4444' : '#fbbf24'}`, 
           boxShadow: '0 8px 25px rgba(0,0,0,0.5)', zIndex: 10, display: 'flex', alignItems: 'center', 
@@ -164,11 +163,15 @@ export default function ChallengeShareModal({ topic, onClose }: ChallengeShareMo
           overflow: 'hidden'
         }}>
           {topic.cover_url ? (
-            <img 
-              src={base64CoverUrl || topic.cover_url} 
-              alt="Challenge Cover" 
-              crossOrigin="anonymous"
-              style={{ width: '100%', height: '100%', objectFit: 'cover', zIndex: 2 }} 
+            <div 
+              style={{
+                width: '100%',
+                height: '100%',
+                backgroundImage: `url(${base64CoverUrl || topic.cover_url})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                zIndex: 2
+              }}
             />
           ) : (
             <div style={{ color: '#64748b', fontSize: '2.5rem', zIndex: 5 }}>📸</div>
@@ -193,8 +196,8 @@ export default function ChallengeShareModal({ topic, onClose }: ChallengeShareMo
           </div>
         </div>
 
-        <div style={{ textHeading: 'center', zIndex: 10 }}>
-          <div style={{ color: '#38bdf8', fontWeight: 'bold', marginTop: '1px', fontSize: '0.8rem' }}>PhótAwesome.com</div>
+        <div style={{ textAlign: 'center', zIndex: 10 }}>
+          <div style={{ color: '#38bdf8', fontWeight: 'bold', marginTop: '1px', fontSize: '0.8rem' }}>PhotAwesome.com</div>
         </div>
       </div>
 
