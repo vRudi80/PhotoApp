@@ -962,8 +962,20 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     if (!node || !activeShareData) return;
     setIsGeneratingImage(true);
     try {
-      await toPng(node, { cacheBust: true });
-      const dataUrl = await toPng(node, { cacheBust: true, quality: 1.0 });
+      // 🎯 JAVÍTVA: megvárjuk, hogy a kártyán belüli fotó <img> ténylegesen dekódolva legyen, különben
+      // a toPng a kép betöltése előtt készíthet pillanatképet, és a mentett PNG-n üres marad a fotó helye.
+      const photoImgEl = node.querySelector('img') as HTMLImageElement | null;
+      if (photoImgEl && !photoImgEl.complete) {
+        await new Promise<void>((resolve) => {
+          photoImgEl.onload = () => resolve();
+          photoImgEl.onerror = () => resolve();
+        });
+      } else if (photoImgEl && typeof photoImgEl.decode === 'function') {
+        try { await photoImgEl.decode(); } catch (e) { /* ignore, folytatjuk */ }
+      }
+
+      await toPng(node, { cacheBust: true, pixelRatio: 1 });
+      const dataUrl = await toPng(node, { cacheBust: true, quality: 1.0, pixelRatio: 1 });
       const blob = await (await fetch(dataUrl)).blob();
       const file = new File([blob], `Arena_Award_${activeShareData.topic_title}.png`, { type: 'image/png' });
       const getOrdinalStr = (rankNum: number) => {
