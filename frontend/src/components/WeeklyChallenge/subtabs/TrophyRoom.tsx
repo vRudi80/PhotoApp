@@ -368,7 +368,7 @@ export default function TrophyRoom({
                   </div>
 
                   <button 
-                    onClick={() => setActiveShareData(entry)}
+                    onClick={() => setActiveShareData({ ...entry, file_url: getImageUrl(entry?.drive_file_id, entry?.file_url) })}
                     style={{ width: '100%', background: 'var(--bg-main)', border: '1px solid var(--border-main)', color: 'var(--text-title)', padding: '8px', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '0.82rem', transition: 'all 0.15s' }}
                     className="trophy-share-btn"
                   >
