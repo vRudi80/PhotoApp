@@ -1277,7 +1277,32 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           <MyArenaAlbumView user={user} setFullscreenData={setFullscreenData} />
         )}
       </div>
+<HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} currentLevel={currentLevel} />
 
+      <AlbumSelectionModal 
+        isOpen={showSwapAlbumModal} 
+        onClose={(wasActionSubmitted) => { setShowSwapAlbumModal(false); if (wasActionSubmitted === true) fetchCurrentTopic(false); }} 
+        albumModalMode={albumModalMode} 
+        swapAlbumPhotos={swapAlbumPhotos} 
+        myPastEntries={myPastEntries} 
+        topic={topic} 
+        user={user} 
+        isLoading={isLoadingSwapAlbum} 
+        setIsUploading={setIsUploading} 
+        setIsSwapping={setIsSwapping} 
+        fetchCurrentTopic={fetchCurrentTopic} 
+        handleSwapBackSubmit={handleSwapBackSubmit} 
+        handleSelectPhotoForSwap={handleSelectPhotoForSwap} 
+        myEntry={myEntry} 
+      />
+
+      <ShareCardModal activeShareData={activeShareData} onClose={() => setActiveShareData(null)} user={user} shareBase64={shareBase64} loadingShareImg={loadingShareImg} isGeneratingImage={isGeneratingImage} handleExecuteShare={handleExecuteShare} />
+      {topicToShare && (
+        <ChallengeShareModal 
+          topic={topicToShare} 
+          onClose={() => setTopicToShare(null)} 
+        />
+      )}
       <style>{`
         .arena-fluid-container { width: 100%; box-sizing: border-box; }
         .arena-cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; width: 100%; }
