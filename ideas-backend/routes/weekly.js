@@ -897,7 +897,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
         SELECT u.name as user_name, u.email as user_email, u.club_name, u.avatar_url, c.drive_logo_id, c.logo_url, 
                COALESCE(u.total_likes, 0) as total_likes, 
                COALESCE(u.victories, 0) as first_places, 
-               (SELECT COUNT(*) FROM weekly_entries WHERE LOWER(TRIM(user_email)) = LOWER(TRIM(u.email)) AND final_rank IN (1, 2, 3)) as podiums, 
+               (SELECT COUNT(*) FROM weekly_entries WHERE LOWER(TRIM(user_email)) = LOWER(TRIM(u.email)) AND final_rank IN (2, 3)) as podiums, 
                (SELECT COUNT(*) FROM weekly_topics WHERE LOWER(TRIM(master_email)) = LOWER(TRIM(u.email)) AND status = 'approved') as master_count 
         FROM photo_users u 
         LEFT JOIN photo_clubs c ON u.club_name = c.name 
