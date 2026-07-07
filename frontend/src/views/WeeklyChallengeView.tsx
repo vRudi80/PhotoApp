@@ -17,7 +17,7 @@ import VideoLoader from '../components/VideoLoader';
 import { useLanguage } from '../context/LanguageContext';
 import ChallengeShareModal from '../components/WeeklyChallenge/ChallengeShareModal';
 
-// Professzionális Lucide Ikonok importálása (Coins hozzáadva)
+// Professzionális Lucide Ikonok importálása
 import { 
   Flame, 
   Zap, 
@@ -579,11 +579,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   }, [selectedTopicId, user?.email]);
 
   useEffect(() => {
-    isChatOpenRef.current = isChatOpen;
-    lobbyMessagesCountRef.current = lobbyMessages.length;
-  }, [isChatOpen, lobbyMessages.length]);
-
-  useEffect(() => {
     if (isChatOpen && lobbyMessages.length > 0 && user?.email) {
       const lastMsg = lobbyMessages[lobbyMessages.length - 1];
       const lastId = lastMsg.id || lastMsg._id;
@@ -664,7 +659,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     } catch (err) {
       console.error("Hiba a dicsőségcsarnok letöltésekor:", err);
       setHallOfFame([]);
-    } finally {
+    } fillalys {
       setIsLoadingHof(false);
     }
   };
@@ -920,13 +915,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     finally { setIsSwapping(false); }
   };
 
-  const sortedActiveTopics = [...activeTopics].sort((a, b) => {
-    const dateStrA = String(sortBy === 'endDate' ? a.end_date : a.start_date).replace(' ', 'T').split('.')[0];
-    const dateStrB = String(sortBy === 'endDate' ? b.end_date : b.start_date).replace(' ', 'T').split('.')[0];
-    const timeA = new Date(dateStrA).getTime() || 0; const timeB = new Date(dateStrB).getTime() || 0;
-    return sortBy === 'endDate' ? timeA - timeB : timeB - timeA;
-  });
-
   const handleExecuteShare = async () => {
     const node = document.getElementById('share-card-node');
     if (!node || !activeShareData) return;
@@ -955,19 +943,13 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
      } catch (e) { alert(t('msgGenerateImageError')); } 
      finally { setIsGeneratingImage(false); }
   };
-  
-  const BASE_EXPOSURE = 10;
-  const exposureEarned = BASE_EXPOSURE + (Number(myVoteCount || 0) * 2);
-  const safeViewsCount = myEntry ? (Number(myEntry.views_count) || 0) : 0;
-  const viewsRemaining = myEntry ? (exposureEarned - safeViewsCount) : 0;
-  const rawPercentage = myEntry ? ((viewsRemaining / 15) * 100) : 0;
-  const exposurePercentage = isNaN(rawPercentage) || !isFinite(rawPercentage) ? 0 : Math.min(100, Math.max(0, rawPercentage));
-  let exposureColor = '#ef4444';
-  let exposureLabel = viewsRemaining <= 0 ? (lang === 'en' ? 'Invisible (0%)' : 'Láthatatlan (0%)') : (lang === 'en' ? 'Low' : 'Alacsony');
-  if (exposurePercentage >= 80) { exposureColor = '#10b981'; exposureLabel = lang === 'en' ? 'Maximum' : 'Maximális'; } 
-  else if (exposurePercentage >= 40) { exposureColor = '#f59e0b'; exposureLabel = lang === 'en' ? 'Medium' : 'Közepes'; }
-  
-  const currentLevel = getLevelDetails(userTotalLikes, userVictories);
+
+  const sortedActiveTopics = [...activeTopics].sort((a, b) => {
+    const dateStrA = String(sortBy === 'endDate' ? a.end_date : a.start_date).replace(' ', 'T').split('.')[0];
+    const dateStrB = String(sortBy === 'endDate' ? b.end_date : b.start_date).replace(' ', 'T').split('.')[0];
+    const timeA = new Date(dateStrA).getTime() || 0; const timeB = new Date(dateStrB).getTime() || 0;
+    return sortBy === 'endDate' ? timeA - timeB : timeB - timeA;
+  });
 
   return (
     <div style={{ width: '100%', boxSizing: 'border-box' }}>
@@ -1039,30 +1021,13 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       </div>
 
       {/* 🎖️ RANG PROGRESSION TRACK BAR */}
-      {/* 🎯 JAVÍTVA: pointer-events lekapcsolva és áttetszőség beállítva töltés közben, */}
-      {/* így nem villan fel korán a tooltip hibás, félig betöltött adatokkal, amíg a videó pörög! */}
-      <div 
-        className="arena-progress-card-wrapper" 
-        style={{ 
-          background: 'var(--bg-card)', 
-          padding: '12px 16px', 
-          borderRadius: '8px', 
-          border: '1px solid var(--border-main)', 
-          marginBottom: '24px', 
-          boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-          pointerEvents: loading ? 'none' : 'auto',
-          opacity: loading ? 0.4 : 1,
-          transition: 'opacity 0.2s ease-in-out'
-        }}
-      >
+      <div className="arena-progress-card-wrapper" style={{ background: 'var(--bg-card)', padding: '12px 16px', borderRadius: '8px', border: '1px solid var(--border-main)', marginBottom: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
         <div className="arena-progress-track-line" style={{ display: 'flex', width: '100%', border: '1px solid var(--border-main)', position: 'relative' }}>
           {ARENA_LEVELS_REGISTRY.map((rank, idx) => {
             const isUnlocked = idx <= currentLevel.id;
             const isCurrent = idx === currentLevel.id;
             const nextLvlObj = ARENA_LEVELS_REGISTRY[idx];
-            
-            // 🎯 JAVÍTVA: A lebegőpontos bináris pontatlanság (IEEE 754) kiküszöbölésére hajszálpontosan 2 tizedesjegyre kerekítjük az értéket!
-            const likesDiff = Math.max(0, Math.round((nextLvlObj.minLikes - userTotalLikes) * 100) / 100);
+            const likesDiff = nextLvlObj.minLikes - userTotalLikes;
             const winsDiff = (nextLvlObj.minVictories || 0) - userVictories;
 
             let requirementMessage = '';
@@ -1093,9 +1058,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   transition: 'all 0.15s ease'
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {isUnlocked ? <Unlock size={10} color="#fff" /> : <Lock size={10} color="var(--text-muted)" />}
-                </div>
+                {isUnlocked ? <Unlock size={10} color="#fff" /> : <Lock size={10} color="var(--text-muted)" />}
                 <span style={{ 
                   fontSize: '0.7rem', 
                   fontWeight: '700', 
@@ -1112,7 +1075,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                 <div className="arena-rank-tooltip-box">
                   <div style={{ fontWeight: 'bold', color: '#fbbf24', marginBottom: '4px' }}>{rank.name}</div>
                   <div style={{ fontSize: '0.75rem', whiteSpace: 'pre-line', lineHeight: '1.4', color: '#cbd5e1' }}>{tooltipText}</div>
-                  <div style={{ marginTop: '8px', fontSize: '0.7rem', color: '#475569', borderTop: '1px solid var(--border-main)', paddingTop: '4px' }}>
+                  <div style={{ marginTop: '8px', fontSize: '0.7_rem', color: '#475569', borderTop: '1px solid var(--border-main)', paddingTop: '4px' }}>
                     Saját statisztikád: {userTotalLikes} ⭐ | {userVictories} 🥇
                   </div>
                 </div>
@@ -1145,7 +1108,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 20px', gap: '15px', width: '100%' }}>
                     <VideoLoader />
                     <div style={{ textAlign: 'center', animation: 'arenaPulse 2s infinite' }}>
-                      <h4 style={{ color: 'var(--text-body)', margin: 0, fontSize: '0.9', fontWeight: 'bold' }}>
+                      <h4 style={{ color: 'var(--text-body)', margin: 0, fontSize: '0.9rem', fontWeight: 'bold' }}>
                         {lang === 'en' ? '⚡ Synchronizing Arena...' : '⚡ Csatatér adatok letöltése...'}
                       </h4>
                     </div>
@@ -1236,7 +1199,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                                 <span>{msg.user_name || msg.userName}</span>
                                 <span style={{ color: 'var(--text-muted)' }}>• {new Date(msg.created_at).toLocaleString(lang === 'en' ? 'en-US' : 'hu-HU', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
                               </div>
-                              <div style={{ background: isMsgMe ? '#f97316' : 'var(--bg-card)', color: isMsgMe ? '#ffffff' : 'var(--text-title)', padding: '6px 10px', borderRadius: isMsgMe ? '8px 8px 2px 8px' : '8px 8px 8px 2px', fontSize: '0.82rem', wordBreak: 'break-word', border: msg.avatar_url ? 'none' : '1px solid var(--border-main)' }}>
+                              <div style={{ background: isMsgMe ? '#f97316' : 'var(--bg-card)', color: isMsgMe ? '#ffffff' : 'var(--text-title)', padding: '6px 10px', borderRadius: isMsgMe ? '8px 8px 2px 8px' : '8px 8px 8px 2px', fontSize: '0.82rem', wordBreak: 'break-word', border: isMsgMe ? 'none' : '1px solid var(--border-main)' }}>
                                 {msg.message_text || msg.messageText}
                               </div>
                             </div>
@@ -1306,7 +1269,8 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           <MyArenaAlbumView user={user} setFullscreenData={setFullscreenData} />
         )}
       </div>
-<HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} currentLevel={currentLevel} />
+
+      <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} currentLevel={currentLevel} />
 
       <AlbumSelectionModal 
         isOpen={showSwapAlbumModal} 
@@ -1337,7 +1301,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
         .arena-cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; width: 100%; }
         .arena-rank-tooltip-container { position: relative; }
         .arena-progress-card-wrapper, .arena-tabs-scroll-wrapper { scrollbar-width: thin; scrollbar-color: var(--border-main) var(--bg-card); }
-        .arena-progress-card-wrapper::-webkit-scrollbar, .arena-tabs-scroll-wrapper::-webkit-scrollbar { height: 4px; }
+        .arena-progress-card-wrapper://-webkit-scrollbar, .arena-tabs-scroll-wrapper::-webkit-scrollbar { height: 4px; }
         .arena-progress-card-wrapper::-webkit-scrollbar-track, .arena-tabs-scroll-wrapper::-webkit-scrollbar-track { background: var(--bg-card); }
         .arena-progress-card-wrapper::-webkit-scrollbar-thumb, .arena-tabs-scroll-wrapper::-webkit-scrollbar-thumb { background-color: var(--border-main); border-radius: 4px; }
         @media (max-width: 900px) {
