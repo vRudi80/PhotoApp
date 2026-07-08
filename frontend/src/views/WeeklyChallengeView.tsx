@@ -1188,7 +1188,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
                     <VideoLoader />
                     <div style={{ textAlign: 'center', animation: 'arenaPulse 2s infinite' }}>
                       <h4 style={{ color: 'var(--text-body)', margin: 0, fontSize: '0.9', fontWeight: 'bold' }}>
-                        {lang === 'en' ? '⚡ Synchronizing Arena...' : '⚡ Csatatér adatok letöltése...'}
+                        {lang === 'en' ? '⚡ Synchronizing Arena...' : '⚡ Adatok letöltése...'}
                       </h4>
                     </div>
                   </div>
