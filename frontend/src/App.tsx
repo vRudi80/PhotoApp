@@ -33,7 +33,7 @@ import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from
 import TicketsView from './views/TicketsView';
 import LeaderClubView from './views/LeaderClubView';
 import PodcastView from './views/PodcastView';
-import AdminPointsDashboard from './views/admin/AdminPointsDashboard'; // 🎯 Igazítsd az útvonalat, ha máshová tetted a fájlt
+import AdminPointsDashboard from './views/admin/AdminPointsDashboard'; 
 import ForumView from './views/ForumView'; 
 
 // Témakezelő környezet
@@ -54,32 +54,16 @@ if (typeof window !== 'undefined' && window.location.hostname.includes('kepolvas
 }
 
 // ====================================================================
-// 🚀 GLOBÁLIS ANTI-FREEZE & AUTO-RETRY MOTOR MENTŐÖV FUNKCIÓVAL
+// 🚀 GLOBÁLIS ANTI-FREEZE & AUTO-RETRY MOTOR INTELLIGENS ADAT-SZŰRŐVEL
 // ====================================================================
-// 🎯 JAVÍTVA: az eredeti verzió MINDEN fetch hívásra ráengedte a retry+kényszerített
-// dashboard-redirect/reload mentőövet, ha a válasz >=500 volt. Emiatt egy olyan, eleve
-// "best-effort" és a hívó oldalon már szépen kezelt hiba is (pl. a trófeakártya megosztásnál
-// a /api/weekly/image-proxy egy le nem tölthető Drive-képre 502-t ad vissza) az EGÉSZ appot
-// kidobta a dashboardra / újratöltötte az oldalt — a ShareCardModal helyi piros hibaüzenete
-// helyett. Ezért itt egy kizárási listával (NON_CRITICAL_FETCH_PATTERNS) explicit kivesszük
-// ezeket a "opcionális/segéd" végpontokat a mentőöv alól: ezeknél a hívó saját try/catch-e
-// intézi a hibát, a globális motor nem nyúl bele.
-const NON_CRITICAL_FETCH_PATTERNS = [
-  '/api/weekly/image-proxy',
-  '/api/admin/base64-proxy'
-];
-
 if (typeof window !== 'undefined') {
   const originalFetch = window.fetch;
 
-  // Központi mentőöv: Átirányít a dashboardra és kényszeríti a frissítést
   const triggerDashboardFallback = () => {
     if (window.location.pathname !== '/dashboard' && window.location.pathname !== '/') {
-      console.error("🔄 Kritikus szerverhiba észlelve. Automatikus kényszerített kimenekítés a Dashboardra...");
+      console.error("🔄 Kritikus szerverhiba észlelve. Kimenekítés a Dashboardra...");
       window.location.href = '/dashboard';
     } else {
-      // Ha már a dashboardon vagyunk és ott akad meg a kapcsolat, nyomunk egy tiszta reloadot.
-      // Maximum 10 másodpercenként egyszer engedjük lefutni, nehogy végtelen hurokba pörgesse a böngészőt!
       const lastReload = sessionStorage.getItem('last_fallback_reload');
       const now = Date.now();
       if (!lastReload || now - Number(lastReload) > 10000) {
@@ -91,39 +75,49 @@ if (typeof window !== 'undefined') {
   };
 
   window.fetch = async function (input, init) {
-    // 🎯 JAVÍTVA: nem-kritikus (opcionális) végpontoknál teljesen megkerüljük a retry+fallback
-    // motort — egyenesen az eredeti fetch-et hívjuk, a hívó komponens saját hibakezelése fut le.
-    const urlStr = typeof input === 'string' ? input : (input instanceof URL ? input.href : (input as Request)?.url || '');
-    if (NON_CRITICAL_FETCH_PATTERNS.some(p => urlStr.includes(p))) {
+    // Kinyerjük a kérés pontos URL címét stringként
+    let requestUrl = '';
+    if (typeof input === 'string') {
+      requestUrl = input;
+    } else if (input instanceof URL) {
+      requestUrl = input.href;
+    } else if (input && (input as any).url) {
+      requestUrl = (input as any).url;
+    }
+
+    // 🎯 CRITICAL MOBIL JAVÍTÁS: Csak a saját backend API hívásainkat interceptáljuk!
+    // Ha a kérés külső assetre, harmadik félre (pl. Google GSI stíluslapra) irányul, 
+    // teljesen békén hagyjuk, így az html-to-image hibái nem fagyasztják le az alkalmazást.
+    const isBackendCall = requestUrl.includes('/api/') || requestUrl.includes(BACKEND_URL) || requestUrl.startsWith('/');
+    const isGoogleAuthAsset = requestUrl.includes('google.com') || requestUrl.includes('accounts.google.com');
+
+    if (!isBackendCall || isGoogleAuthAsset) {
       return originalFetch(input, init);
     }
 
-    let retries = 3;     // Maximum 3 próbálkozás, mielőtt hibát dobna
-    let delay = 600;     // 600ms várakozás az újrapróbálkozások között
+    let retries = 3;     
+    let delay = 600;     
 
     while (retries > 0) {
       try {
         const response = await originalFetch(input, init);
         
-        // Ha a szerver 500-as vagy nagyobb belső hibát dob (pl. Pool Timeout az ébredő DB miatt)
         if (response.status >= 500) {
           if (retries > 1) {
             retries--;
-            console.warn(`⚠️ Időleges szerverhiba (${response.status}). Automatikus újrapróbálkozás... Hátralévő kísérlet: ${retries}`);
+            console.warn(`⚠️ Időleges szerverhiba (${response.status}). Újrapróbálkozás... Hátralévő kísérlet: ${retries}`);
             await new Promise(resolve => setTimeout(resolve, delay));
-            continue; // Ugorjunk a következő próbálkozásra
+            continue; 
           } else {
-            // 🎯 JAVÍTVA: Mind a 3 próbálkozás elfogyott és a szerver még mindig halott. Mentőöv aktiválása!
             triggerDashboardFallback();
             return response;
           }
         }
         
-        return response; // Sikeres kérés esetén visszaadjuk az adatokat
+        return response; 
       } catch (error) {
         retries--;
         if (retries === 0) {
-          // 🎯 JAVÍTVA: Totális hálózati összeomlás (pl. megszakadt net) 3 kísérlet után. Mentőöv aktiválása!
           triggerDashboardFallback();
           throw error;
         }
@@ -246,7 +240,6 @@ function MainContent() {
 
   const [fullscreenData, setFullscreenData] = useState<any>(null);
 
-  // 🏛️ KÖZPONTI ADATLEKÉRŐ MOTOR INTERCEPTORRAL
   const fetchData = async (retryCount = 0) => {
     const token = localStorage.getItem('photoAppToken');
     if (!token) {
@@ -272,7 +265,6 @@ function MainContent() {
         fetch(`${BACKEND_URL}/api/contest-payments`, { headers: getAuthHeaders() })
       ]);
 
-      // 🛡️ ÚJ PANEL: Ha a backend 403 Forbidden (Kitiltva) választ ad vissza, azonnal megszakítjuk a hurkot
       if (resUsers.status === 403 || resClubs.status === 403 || resMeetings.status === 403) {
         localStorage.removeItem('photoAppToken');
         localStorage.removeItem('user');
@@ -328,7 +320,6 @@ function MainContent() {
     } catch (e) { console.error(e); }
   };
 
-  // 🛡️ AUTOSYNC MOTOR INTEGRÁLT REAKTÍV TILTÁSSZŰRŐVEL
   useEffect(() => {
     const initializeAuth = async () => {
       const storedToken = localStorage.getItem('photoAppToken');
@@ -359,7 +350,6 @@ function MainContent() {
           body: JSON.stringify({ email: decoded.email, name: decoded.name, sub: decoded.sub })
         });
 
-        // 🛡️ Ha már az auth sync is fennakad a tiltólistán
         if (res.status === 403) {
           localStorage.removeItem('photoAppToken');
           localStorage.removeItem('user');
@@ -406,7 +396,6 @@ function MainContent() {
     initializeAuth();
   }, []);
 
-  // ⚡ CSENDES HÁTTÉR-SZINKRONIZÁCIÓ BIZTONSÁGI VÉDŐPAJZSZAL
   useEffect(() => {
     const silentAuthSync = async () => {
       const storedToken = localStorage.getItem('photoAppToken');
@@ -416,13 +405,13 @@ function MainContent() {
         const decoded: any = jwtDecode(storedToken);
         if (decoded.exp * 1000 < Date.now()) return;
 
-        const authRes = await fetch(`${BACKEND_URL}/api/auth/sync`, {
+        const res = await fetch(`${BACKEND_URL}/api/auth/sync`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email: decoded.email, name: decoded.name, sub: decoded.sub })
         });
 
-        if (authRes.status === 403) {
+        if (res.status === 403) {
           localStorage.removeItem('photoAppToken');
           localStorage.removeItem('user');
           setUser(null);
@@ -430,8 +419,8 @@ function MainContent() {
           return;
         }
 
-        if (authRes.ok) {
-          const authData = await authRes.json();
+        if (res.ok) {
+          const authData = await res.json();
           setUser((prev: any) => prev ? {
             ...prev,
             isPremium: authData.isPremium,
@@ -674,8 +663,8 @@ function MainContent() {
               <Route path="/packages" element={<PackagesView user={user} />} />
               <Route path="/marketplace" element={<MarketplaceRoot user={headerUser} />} />
               <Route path="/map_spots" element={<MapSpotsView user={user} setFullscreenData={setFullscreenData} targetMapSpotId={targetMapSpotId} setTargetMapSpotId={setTargetMapSpotId} />} />
-<Route path="/club_news" element={<ForumView user={user} currentDbUser={currentDbUser} mode="club" />} />
-<Route path="/public_news" element={<ForumView user={user} currentDbUser={currentDbUser} mode="public" />} />
+              <Route path="/club_news" element={<ForumView user={user} currentDbUser={currentDbUser} mode="club" />} />
+              <Route path="/public_news" element={<ForumView user={user} currentDbUser={currentDbUser} mode="public" />} />
 
               <Route path="/my_album" element={<MyAlbumView user={user} setFullscreenData={setFullscreenData} />} />
               <Route path="/arena_album" element={<MyArenaAlbumView user={user} setFullscreenData={setFullscreenData} />} /> 
@@ -694,8 +683,8 @@ function MainContent() {
               <Route path="/admin_settings" element={user?.email === ADMIN_EMAIL ? <AdminSettingsView /> : <Navigate to="/dashboard" />} />
               <Route path="/admin_salons" element={user?.email === ADMIN_EMAIL ? <AdminSalonsView salons={salons} countries={countries} allCategories={allCategories} patrons={patrons} BACKEND_URL={BACKEND_URL} fetchData={fetchData} setSelectedSalon={setSelectedSalon} /> : <Navigate to="/dashboard" />} />
               <Route path="/admin_banned_emails" element={user?.email === ADMIN_EMAIL ? <AdminBannedEmailsView /> : <Navigate to="/dashboard" />} /> 
-              <Route path="/admin_meetings" element={(user?.email === ADMIN_EMAIL || isLeader) ? <AdminMeetingsView user={user} currentDbUser={currentDbUser} clubs={clubs} meetings={meetings} allUsers={allUsers} adminMeetings={adminMeetings} fetchData={fetchData} /> : <Navigate to="/dashboard" replace />} />
-              <Route path="/admin_homeworks" element={(user?.email === ADMIN_EMAIL || isLeader) ? <AdminHomeworksView user={user} currentDbUser={currentDbUser} clubs={clubs} adminHomeworks={adminHomeworks} fetchData={fetchData} /> : <Navigate to="/dashboard" replace />} />
+              <Route path="/admin_meetings" element={(user?.email === ADMIN_EMAIL || isLeader) ? <AdminMeetingsView user={user} currentDbUser={currentDbUser} clubs={clubs} meetings={meetings} allUsers={allUsers} adminMeetings={adminMeetings} fetchData={fetchData} /> : <Navigate to="/dashboard replace" />} />
+              <Route path="/admin_homeworks" element={(user?.email === ADMIN_EMAIL || isLeader) ? <AdminHomeworksView user={user} currentDbUser={currentDbUser} clubs={clubs} adminHomeworks={adminHomeworks} fetchData={fetchData} /> : <Navigate to="/dashboard replace" />} />
 
               {['/contests_open_active', '/contests_club_active', '/contests_closed'].map(path => (
                 <Route key={path} path={path} element={
