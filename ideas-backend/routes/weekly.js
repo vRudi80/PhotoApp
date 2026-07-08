@@ -1040,17 +1040,46 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     const imageUrl = req.query.url;
     if (!imageUrl || typeof imageUrl !== 'string') return res.status(400).json({ error: 'Hiányzó url paraméter!' });
 
-    const allowedHosts = ['res.cloudinary.com', 'lh3.googleusercontent.com', 'drive.google.com'];
+    // 🎯 JAVÍTVA: bővített whitelist. A korábbi lista csak a klasszikus
+    // 'lh3.googleusercontent.com' + 'drive.google.com' párost engedte át, de a Google időközben
+    // több nevezett fotó/kép URL-jét más aldomainen (pl. drive.usercontent.google.com,
+    // lh3.google.com, googleusercontent.com egyéb lh-alnéven) szolgálja ki. Emiatt egy teljesen
+    // jogos, nem admin által feltöltött Drive-kép is 403-at kapott a proxyn, ami a
+    // ShareCardModal-ban a "Nem sikerült betölteni a képet" hibát okozta.
+    const allowedHosts = [
+      'res.cloudinary.com',
+      'googleusercontent.com',      // fedi: lh3.googleusercontent.com, lh4/5/6, stb.
+      'drive.google.com',
+      'drive.usercontent.google.com',
+      'docs.google.com'
+    ];
     let parsedUrl;
     try { parsedUrl = new URL(imageUrl); } catch (e) { return res.status(400).json({ error: 'Érvénytelen URL!' }); }
     if (parsedUrl.protocol !== 'https:' || !allowedHosts.some(host => parsedUrl.hostname === host || parsedUrl.hostname.endsWith(`.${host}`))) {
-      return res.status(403).json({ error: 'Nem engedélyezett kép forrás!' });
+      console.warn(`🚫 image-proxy: nem engedélyezett host (${parsedUrl.hostname}) - user: ${req.user.email} - url: ${imageUrl}`);
+      return res.status(403).json({ error: 'Nem engedélyezett kép forrás!', host: parsedUrl.hostname });
     }
 
     try {
-      const response = await axios.get(imageUrl, { responseType: 'arraybuffer', timeout: 10000 });
-      res.json({ base64: `data:${response.headers['content-type']};base64,${Buffer.from(response.data).toString('base64')}` });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+      const response = await axios.get(imageUrl, {
+        responseType: 'arraybuffer',
+        timeout: 10000,
+        maxRedirects: 5,
+        // Néhány Drive/Cloudinary végpont User-Agent nélkül HTML "consent" oldalt vagy 403-at ad kép helyett
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; PhotAwesomeBot/1.0)' }
+      });
+      const contentType = response.headers['content-type'] || '';
+      if (!contentType.startsWith('image/')) {
+        // Tipikusan akkor fordul elő, ha a Drive egy HTML "megerősítő" oldalt küldött kép helyett
+        // (pl. mert a fájl nincs publikusan megosztva, vagy a link formátuma nem támogatott letöltésre)
+        console.warn(`⚠️ image-proxy: nem kép content-type (${contentType}) érkezett - url: ${imageUrl}`);
+        return res.status(502).json({ error: 'A forrás nem képet adott vissza (lehet, hogy a fájl nincs publikusan megosztva).', contentType });
+      }
+      res.json({ base64: `data:${contentType};base64,${Buffer.from(response.data).toString('base64')}` });
+    } catch (e) {
+      console.error(`❌ image-proxy hiba - user: ${req.user.email} - url: ${imageUrl} - `, e.message);
+      res.status(502).json({ error: 'Nem sikerült letölteni a képet a forrásról.', detail: e.message, status: e.response?.status || null });
+    }
   });
 
   // ====================================================================
