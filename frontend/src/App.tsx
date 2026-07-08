@@ -53,6 +53,90 @@ if (typeof window !== 'undefined' && window.location.hostname.includes('kepolvas
   );
 }
 
+// ====================================================================
+// 🚀 GLOBÁLIS ANTI-FREEZE & AUTO-RETRY MOTOR MENTŐÖV FUNKCIÓVAL
+// ====================================================================
+// 🎯 JAVÍTVA: az eredeti verzió MINDEN fetch hívásra ráengedte a retry+kényszerített
+// dashboard-redirect/reload mentőövet, ha a válasz >=500 volt. Emiatt egy olyan, eleve
+// "best-effort" és a hívó oldalon már szépen kezelt hiba is (pl. a trófeakártya megosztásnál
+// a /api/weekly/image-proxy egy le nem tölthető Drive-képre 502-t ad vissza) az EGÉSZ appot
+// kidobta a dashboardra / újratöltötte az oldalt — a ShareCardModal helyi piros hibaüzenete
+// helyett. Ezért itt egy kizárási listával (NON_CRITICAL_FETCH_PATTERNS) explicit kivesszük
+// ezeket a "opcionális/segéd" végpontokat a mentőöv alól: ezeknél a hívó saját try/catch-e
+// intézi a hibát, a globális motor nem nyúl bele.
+const NON_CRITICAL_FETCH_PATTERNS = [
+  '/api/weekly/image-proxy',
+  '/api/admin/base64-proxy'
+];
+
+if (typeof window !== 'undefined') {
+  const originalFetch = window.fetch;
+
+  // Központi mentőöv: Átirányít a dashboardra és kényszeríti a frissítést
+  const triggerDashboardFallback = () => {
+    if (window.location.pathname !== '/dashboard' && window.location.pathname !== '/') {
+      console.error("🔄 Kritikus szerverhiba észlelve. Automatikus kényszerített kimenekítés a Dashboardra...");
+      window.location.href = '/dashboard';
+    } else {
+      // Ha már a dashboardon vagyunk és ott akad meg a kapcsolat, nyomunk egy tiszta reloadot.
+      // Maximum 10 másodpercenként egyszer engedjük lefutni, nehogy végtelen hurokba pörgesse a böngészőt!
+      const lastReload = sessionStorage.getItem('last_fallback_reload');
+      const now = Date.now();
+      if (!lastReload || now - Number(lastReload) > 10000) {
+        sessionStorage.setItem('last_fallback_reload', String(now));
+        console.error("🔄 Főoldali hálózati hiba, teljes felület kényszerített újraindítása...");
+        window.location.reload();
+      }
+    }
+  };
+
+  window.fetch = async function (input, init) {
+    // 🎯 JAVÍTVA: nem-kritikus (opcionális) végpontoknál teljesen megkerüljük a retry+fallback
+    // motort — egyenesen az eredeti fetch-et hívjuk, a hívó komponens saját hibakezelése fut le.
+    const urlStr = typeof input === 'string' ? input : (input instanceof URL ? input.href : (input as Request)?.url || '');
+    if (NON_CRITICAL_FETCH_PATTERNS.some(p => urlStr.includes(p))) {
+      return originalFetch(input, init);
+    }
+
+    let retries = 3;     // Maximum 3 próbálkozás, mielőtt hibát dobna
+    let delay = 600;     // 600ms várakozás az újrapróbálkozások között
+
+    while (retries > 0) {
+      try {
+        const response = await originalFetch(input, init);
+        
+        // Ha a szerver 500-as vagy nagyobb belső hibát dob (pl. Pool Timeout az ébredő DB miatt)
+        if (response.status >= 500) {
+          if (retries > 1) {
+            retries--;
+            console.warn(`⚠️ Időleges szerverhiba (${response.status}). Automatikus újrapróbálkozás... Hátralévő kísérlet: ${retries}`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            continue; // Ugorjunk a következő próbálkozásra
+          } else {
+            // 🎯 JAVÍTVA: Mind a 3 próbálkozás elfogyott és a szerver még mindig halott. Mentőöv aktiválása!
+            triggerDashboardFallback();
+            return response;
+          }
+        }
+        
+        return response; // Sikeres kérés esetén visszaadjuk az adatokat
+      } catch (error) {
+        retries--;
+        if (retries === 0) {
+          // 🎯 JAVÍTVA: Totális hálózati összeomlás (pl. megszakadt net) 3 kísérlet után. Mentőöv aktiválása!
+          triggerDashboardFallback();
+          throw error;
+        }
+        
+        console.warn(`⚠️ Hálózati hiba lépett fel. Újrapróbálkozás... Hátralévő kísérlet: ${retries}`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+    
+    return originalFetch(input, init);
+  };
+}
+
 // 🎯 KÖZPONTI AUTH FEJLÉC GENERÁTOR VÉDETT VÉGPONTOKHOZ
 const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
   const token = localStorage.getItem('photoAppToken');
