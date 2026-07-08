@@ -62,6 +62,12 @@ export default function ChallengeShareModal({ topic, onClose }: ChallengeShareMo
   const isDaily = topic.topic_type === 'daily' ||
     (topic.end_date && new Date(topic.end_date).getTime() - new Date(topic.start_date || Date.now()).getTime() <= 48 * 60 * 60 * 1000);
 
+  // 🎯 coverReady: akkor is igaz, ha a borítókép betöltése VÉGLEGESEN elhasalt (coverLoadFailed) —
+  // így a "Kártya Mentése" gomb nem ragad be örökre "Loading..." állapotban, csak a kártya a
+  // fallback ikonnal készül el borítókép nélkül.
+  const coverReady = !topic.cover_url || !!base64CoverUrl || coverLoadFailed;
+  const coverBackground = base64CoverUrl || (topic.cover_url && !coverLoadFailed ? topic.cover_url : undefined);
+
   // 🎯 JAVÍTVA: Időbélyeg alapú cache-busting kényszeríti ki a friss proxy-kérést, plusz most már azt is
   // kezeljük, ha a topic-nak nincs cover_url-je: ilyenkor nem is próbálkozunk konverzióval.
   useEffect(() => {
@@ -75,67 +81,124 @@ export default function ChallengeShareModal({ topic, onClose }: ChallengeShareMo
     }
   }, [topic]);
 
-  const handleExecuteShare = async () => {
-    const node = document.getElementById('challenge-invite-card');
-    if (!node) return;
+  // 🎯 JAVÍTVA: a kártyát előre, a "Mentés" gombra kattintás ELŐTT legeneráljuk (amint a borítókép
+  // készen áll), nem a kattintás pillanatában. Ok: a navigator.share()-nek Safari-n a felhasználói
+  // gesztus ("tap") még érvényben kell legyen, amikor meghívjuk. Ha a toPng()+dekódolás a kattintás
+  // UTÁN fut le (ez akár fél-egy másodpercig is eltarthat), mire a kód a navigator.share()-hez érne,
+  // a gesztus already lejárhat -> a share() csendben elhasal (NotAllowedError), a kód pedig egy
+  // törött, DOM-hoz nem csatolt <a download> linkre esik vissza, ami iOS Safarin gyakran egyszerűen
+  // semmit sem csinál — sem hibaüzenetet, sem letöltést. Kívülről ez úgy nézett ki, mintha a modál
+  // csak "kilépett" volna mentés nélkül.
+  const [preparedShare, setPreparedShare] = useState<{ dataUrl: string; blob: Blob; file: File } | null>(null);
+  const [isPreparingShare, setIsPreparingShare] = useState(false);
 
+  useEffect(() => {
+    setPreparedShare(null);
+    if (!coverReady) return;
+    let cancelled = false;
+    (async () => {
+      const node = document.getElementById('challenge-invite-card');
+      if (!node) return;
+      setIsPreparingShare(true);
+      try {
+        const coverImgEl = node.querySelector('img') as HTMLImageElement | null;
+        if (coverImgEl && !coverImgEl.complete) {
+          await new Promise<void>((resolve) => {
+            coverImgEl.onload = () => resolve();
+            coverImgEl.onerror = () => resolve();
+          });
+        } else if (coverImgEl && typeof coverImgEl.decode === 'function') {
+          try { await coverImgEl.decode(); } catch (e) { /* ignore */ }
+        }
+        const dataUrl = await toPng(node, { quality: 0.98, skipFonts: true, cacheBust: true, pixelRatio: 1 });
+        const blob = safeDataURLtoBlob(dataUrl);
+        const file = new File([blob], `PhotAwesome_Challenge_${topic.id}.png`, { type: 'image/png' });
+        if (!cancelled) setPreparedShare({ dataUrl, blob, file });
+      } catch (e) {
+        console.error('Nem sikerült előre legenerálni a megosztó kártyát:', e);
+      } finally {
+        if (!cancelled) setIsPreparingShare(false);
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [coverReady, base64CoverUrl]);
+
+  // 🎯 JAVÍTVA: megbízható letöltés-indítás — Blob URL-t használunk (nem a hatalmas data: URI-t),
+  // és az <a> elemet ténylegesen a DOM-hoz csatoljuk kattintás előtt, mert több iOS/WebView verzió
+  // csendben semmit sem csinál egy DOM-hoz nem csatolt linkkel.
+  const triggerDownload = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+  };
+
+  const handleExecuteShare = async () => {
     setIsGenerating(true);
     try {
-      // 🎯 JAVÍTVA: Mielőtt lefotóznánk a kártyát, megvárjuk, hogy a borítókép <img> ténylegesen
-      // dekódolva/kirajzolva legyen. Enélkül elő tudott fordulni, hogy a toPng épp akkor kapott
-      // pillanatképet, amikor a kép még nem készült el, és a mentett PNG-n üres maradt a helye.
-      const coverImgEl = node.querySelector('img') as HTMLImageElement | null;
-      if (coverImgEl && !coverImgEl.complete) {
-        await new Promise<void>((resolve) => {
-          coverImgEl.onload = () => resolve();
-          coverImgEl.onerror = () => resolve();
-        });
-      } else if (coverImgEl && typeof coverImgEl.decode === 'function') {
-        try { await coverImgEl.decode(); } catch (e) { /* ignore, folytatjuk */ }
+      let share = preparedShare;
+      // Ha a felhasználó gyorsabban kattintott, mint ahogy az előkészítés lefutott volna, most generáljuk le
+      if (!share) {
+        const node = document.getElementById('challenge-invite-card');
+        if (!node) { setIsGenerating(false); return; }
+        const coverImgEl = node.querySelector('img') as HTMLImageElement | null;
+        if (coverImgEl && !coverImgEl.complete) {
+          await new Promise<void>((resolve) => {
+            coverImgEl.onload = () => resolve();
+            coverImgEl.onerror = () => resolve();
+          });
+        } else if (coverImgEl && typeof coverImgEl.decode === 'function') {
+          try { await coverImgEl.decode(); } catch (e) { /* ignore */ }
+        }
+        const dataUrl = await toPng(node, { quality: 0.98, skipFonts: true, cacheBust: true, pixelRatio: 1 });
+        const blob = safeDataURLtoBlob(dataUrl);
+        const file = new File([blob], `PhotAwesome_Challenge_${topic.id}.png`, { type: 'image/png' });
+        share = { dataUrl, blob, file };
       }
 
-      // Villámgyors hívás skipFonts jelzővel, hogy a mobil böngésző ne tiltsa le a folyamatot időtúllépés miatt
-      const dataUrl = await toPng(node, { 
-        quality: 0.98,
-        skipFonts: true,
-        cacheBust: true,
-        pixelRatio: 1
-      });
-
-      const blob = safeDataURLtoBlob(dataUrl);
-      const file = new File([blob], `PhotAwesome_Challenge_${topic.id}.png`, { type: 'image/png' });
-      
       const shareText = lang === 'en' 
         ? `📸 Join the "${displayTitle}" photo challenge on PhotAwesome!`
         : `📸 Indulj te is a(z) "${displayTitle}" fotós kihíváson a PhotAwesome-on!`;
 
-      // MOBIL RENDSZER-MEGOSZTÓ INDÍTÁSA
-      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          files: [file],
-          title: 'PhotAwesome Kihívás',
-          text: shareText
-        });
-      } else {
-        // ASZTALI GÉP FALLBACK VAGY BÖNGÉSZŐ KORLÁTOZÁS: Sima letöltés indítása
-        const link = document.createElement('a');
-        link.download = `PhotAwesome_Challenge_${topic.id}.png`;
-        link.href = dataUrl;
-        link.click();
+      let handled = false;
+
+      // MOBIL RENDSZER-MEGOSZTÓ INDÍTÁSA — mivel a kép már elő volt készítve, ez most közvetlenül
+      // a kattintás után fut le, így a Safari user-gesztus még biztosan érvényes.
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [share.file] })) {
+        try {
+          await navigator.share({ files: [share.file], title: 'PhotAwesome Kihívás', text: shareText });
+          handled = true;
+        } catch (shareErr: any) {
+          if (shareErr && shareErr.name === 'AbortError') {
+            // A felhasználó saját maga zárta be a rendszer megosztó lapot — ez nem hiba, nem kell fallback.
+            setIsGenerating(false);
+            return;
+          }
+          console.error('navigator.share elhasalt, letöltéses fallback indítása:', shareErr);
+        }
       }
+
+      if (!handled) {
+        triggerDownload(share.blob, `PhotAwesome_Challenge_${topic.id}.png`);
+        // 🎯 Végső biztonsági háló: ha a letöltés-attribútumot a böngésző mégis figyelmen kívül hagyná,
+        // nyissuk meg a képet egy új fülön is, hogy a felhasználó hosszan nyomva legalább el tudja menteni.
+        setTimeout(() => {
+          try { window.open(share!.dataUrl, '_blank'); } catch (e) { /* ignore */ }
+        }, 400);
+      }
+
       onClose();
     } catch (e) {
-      console.error("Hiba a képkészítés során, biztonsági mentés indítása:", e);
-      try {
-        const fallbackUrl = await toPng(node, { skipFonts: true, pixelRatio: 1 });
-        const link = document.createElement('a');
-        link.download = `PhotAwesome_Challenge_${topic.id}.png`;
-        link.href = fallbackUrl;
-        link.click();
-        onClose();
-      } catch (err) {
-        alert('Nem sikerült legenerálni a meghívót a telefon korlátozásai miatt.');
-      }
+      console.error('Hiba a megosztás során:', e);
+      alert(lang === 'en' 
+        ? 'Could not generate the invite card due to phone restrictions.' 
+        : 'Nem sikerült legenerálni a meghívót a telefon korlátozásai miatt.');
     } finally {
       setIsGenerating(false);
     }
@@ -157,12 +220,6 @@ export default function ChallengeShareModal({ topic, onClose }: ChallengeShareMo
        window.open(fbUrl, 'facebook-share-dialog', 'width=600,height=600');
     }
   };
-
-  // 🎯 coverReady: akkor is igaz, ha a borítókép betöltése VÉGLEGESEN elhasalt (coverLoadFailed) —
-  // így a "Kártya Mentése" gomb nem ragad be örökre "Loading..." állapotban, csak a kártya a
-  // fallback ikonnal készül el borítókép nélkül.
-  const coverReady = !topic.cover_url || !!base64CoverUrl || coverLoadFailed;
-  const coverBackground = base64CoverUrl || (topic.cover_url && !coverLoadFailed ? topic.cover_url : undefined);
 
   return (
     <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 99999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px', overflowY: 'auto' }}>
