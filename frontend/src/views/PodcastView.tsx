@@ -11,10 +11,8 @@ export default function PodcastView() {
   const [activeVideoId, setActiveVideoId] = useState<string | null>(null);
 
   useEffect(() => {
-    // 🎯 Kinyerjük a biztonsági tokent a helyi tárolóból
     const token = localStorage.getItem('photoAppToken');
 
-    // 🎯 JAVÍTVA: A kérés mostantól felmutatja a hitelesítési Bearer tokent a backend felé
     fetch(`${BACKEND_URL}/api/podcast`, {
       headers: {
         ...(token ? { 'Authorization': `Bearer ${token}` } : {})
@@ -77,7 +75,7 @@ export default function PodcastView() {
 
       {/* CSODÁS BENTO GALÉRIA RÁCS */}
       {filteredVideos.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '60px 20px', color: '#64748b', fontStyle: 'italic' }}>
+        <div style={{ textHeading: 'center', padding: '60px 20px', color: '#64748b', fontStyle: 'italic' }}>
           🔍 {lang === 'en' ? 'No episodes found matching this query.' : 'Nem találtunk adást ezzel a kifejezéssel.'}
         </div>
       ) : (
@@ -131,7 +129,8 @@ export default function PodcastView() {
             <video src={lang === 'en' ? '/splash_en.mp4' : '/splash_hu.mp4'} style={{ display: 'none' }} /> {/* Pre-warmed cache anchor */}
             <iframe
               title="YouTube video player"
-              src={`https://www.youtube.com/embed/${activeVideo}?autoplay=1`}
+              /* 🎯 JAVÍTVA: activeVideo átírva a pontos helyi state változóra: activeVideoId */
+              src={`https://www.youtube.com/embed/${activeVideoId}?autoplay=1`}
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
               allowFullScreen
               style={{ width: '100%', height: '100%', border: 'none' }}
