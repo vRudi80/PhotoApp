@@ -3,15 +3,13 @@ import { googleLogout } from '@react-oauth/google';
 import { ADMIN_EMAIL, BACKEND_URL } from '../utils/constants';
 
 // Behozzuk a kétnyelvű logókat a headerhez is
-import logoHu from './logo_hu2.png'; 
+import logoHu from './logo_hu2.png';
 import logoEn from './logo_en2.png';
 
 // Behozzuk a nyelvi kontextust
 import { useLanguage } from '../context/LanguageContext';
-
 // Behozzuk a téma környezetet
 import { useTheme } from '../context/ThemeContext';
-
 // Professzionális Lucide ikonok importálása
 import { 
   Menu, 
@@ -43,10 +41,182 @@ interface HeaderProps {
   isLeader: boolean;
   activeTab: string;
   setActiveTab: (tab: any) => void;
-  dropdownOpen: string | null; 
+  dropdownOpen: string | null;
   setDropdownOpen: (open: string | null) => void;
   onLogout: () => void;
 }
+
+// 🎯 JAVÍTVA: A stílusokat kiemeltük a komponensből a globális memóriatérbe.
+// Ez megakadályozza, hogy a böngésző a háttérben futó renderelések alatt újraértelmezze a CSS-t,
+// így a logó és a brand szöveg villogása teljesen megszűnik!
+const HEADER_STYLES = `
+  @media (min-width: 1060px) {
+    .app-header {
+      padding: 0 24px !important;
+      height: 56px;
+      display: flex !important;
+      align-items: center;
+    }
+    .mobile-header-top {
+      display: none !important;
+    }
+    .header-nav-container {
+      display: flex !important;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+    }
+    .header-desktop-brand-wrapper {
+      display: flex !important;
+      align-items: center;
+      margin-right: 16px;
+    }
+    .nav-group {
+      display: flex !important;
+      align-items: center;
+      gap: 4px;
+      flex: 1;
+      justify-content: center;
+    }
+    .dropdown-menu {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      background: var(--bg-card, #131b2e);
+      border: 1px solid var(--border-main, #222f47);
+      border-radius: 6px;
+      padding: 4px;
+      min-width: 190px;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.15);
+    }
+  }
+  
+  @media (max-width: 1059px) {
+    .header-desktop-brand-wrapper {
+      display: none !important;
+    }
+    .mobile-header-top {
+      display: flex !important;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      padding: 0 20px;
+      box-sizing: border-box;
+      height: 56px !important;
+      background: var(--bg-card, #131b2e);
+    }
+    .hamburger-btn {
+      background: var(--bg-main, #0f172a);
+      color: var(--text-body, #94a3b8);
+      border: 1px solid var(--border-main, #222f47);
+      padding: 6px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 32px;
+      width: 38px;
+      box-sizing: border-box;
+    }
+    .header-nav-container {
+      display: none;
+      flex-direction: column;
+      position: absolute;
+      top: 56px;
+      left: 0;
+      right: 0;
+      background: var(--bg-card, #131b2e);
+      border-bottom: 1px solid var(--border-main, #222f47);
+      padding: 16px 20px;
+      box-sizing: border-box;
+      gap: 12px;
+      box-shadow: 0 15px 30px rgba(0,0,0,0.2);
+      z-index: 99999;
+    }
+    .header-nav-container.mobile-open {
+      display: flex !important;
+    }
+    .nav-group {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      gap: 6px;
+    }
+    .nav-item-container {
+      width: 100%;
+    }
+    .nav-btn {
+      width: 100% !important;
+      text-align: left !important;
+      justify-content: flex-start !important;
+      padding: 10px 14px !important;
+      background: var(--bg-main, #0f172a) !important;
+      border: 1px solid var(--border-main, #222f47) !important;
+      border-radius: 6px !important;
+    }
+    .user-group {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      gap: 10px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border-main, #222f47);
+    }
+    .dropdown-menu {
+      position: static !important;
+      width: 100% !important;
+      background: var(--bg-main, #0f172a) !important;
+      box-shadow: none !important;
+      margin-top: 4px;
+      border-radius: 6px !important;
+      padding: 6px !important;
+      box-sizing: border-box;
+      border: 1px solid var(--border-main, #222f47);
+    }
+  }
+
+  .nav-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-body, #94a3b8);
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 0.88rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    transition: all 0.15s ease-in-out;
+  }
+  .nav-btn.active, .nav-btn:hover {
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-title, #f8fafc);
+  }
+  .drop-item {
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border: none;
+    color: var(--text-body, #94a3b8);
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.1s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .drop-item:hover, .drop-item.active {
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-title, #f8fafc);
+  }
+`;
 
 export default function Header({ 
   user, 
@@ -58,13 +228,34 @@ export default function Header({
   onLogout 
 }: HeaderProps) {
   
+  const { lang, setLang, t } = useLanguage();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [unreadTicketsCount, setUnreadTicketsCount] = useState(0);
-  const isAdminUser = user?.email === ADMIN_EMAIL;
+  const [unreadForumCount, setUnreadForumCount] = useState<number>(0);
   
+  const isAdminUser = user?.email === ADMIN_EMAIL;
   const headerRef = useRef<HTMLDivElement>(null);
 
-  const [unreadForumCount, setUnreadForumCount] = useState<number>(0);
+  // Biztonsági fék a témakezelőhöz
+  let theme = 'dark';
+  let toggleTheme = () => {};
+  try {
+    const themeContext = useTheme();
+    if (themeContext) {
+      theme = themeContext.theme;
+      toggleTheme = themeContext.toggleTheme;
+    }
+  } catch (e) {}
+
+  const currentLogo = lang === 'en' ? logoEn : logoHu;
+
+  const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
+    const token = localStorage.getItem('photoAppToken');
+    return {
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+      ...extraHeaders
+    };
+  };
 
   useEffect(() => {
     const fetchUnreadForumTotal = async () => {
@@ -83,39 +274,10 @@ export default function Header({
     };
 
     fetchUnreadForumTotal();
-
-    // 🔄 2 percenként (120000 ms) csendben frissítjük a hátteret, ha a user épp az oldalon van
     const interval = setInterval(fetchUnreadForumTotal, 120000);
     return () => clearInterval(interval);
-  }, [user]); // vagy amilyen auth változót használ a Header a belépés követésére
-  // Aktiváljuk a nyelvi kontextust
-  const { lang, setLang, t } = useLanguage();
+  }, [user]);
 
-  // Biztonsági fék a témakezelőhöz
-  let theme = 'dark';
-  let toggleTheme = () => {};
-  
-  try {
-    const themeContext = useTheme();
-    if (themeContext) {
-      theme = themeContext.theme;
-      toggleTheme = themeContext.toggleTheme;
-    }
-  } catch (e) {}
-
-  // Meghatározzuk, hogy épp melyik logót kell mutatni
-  const currentLogo = lang === 'en' ? logoEn : logoHu;
-
-  // 🎯 Központi helper az érvényes biztonsági fejléc összeállításához
-  const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
-    const token = localStorage.getItem('photoAppToken');
-    return {
-      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-      ...extraHeaders
-    };
-  };
-
-  // Ellenőrzi az olvasatlan üzeneteket biztonságos hitelesítéssel
   useEffect(() => {
     if (!user?.email) return;
     
@@ -139,7 +301,6 @@ export default function Header({
     return () => clearInterval(interval);
   }, [user, activeTab, isAdminUser]);
 
-  // Külső kattintásra bezáródó dropdown menük
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (headerRef.current && !headerRef.current.contains(event.target as Node)) {
@@ -149,7 +310,7 @@ export default function Header({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [setDropdownOpen]);
-  
+
   const handleNavClick = (tab: string) => {
     setActiveTab(tab);
     setDropdownOpen(null);
@@ -201,174 +362,7 @@ export default function Header({
   return (
     <header ref={headerRef} className="app-header" style={{ position: 'relative', zIndex: 1000, width: '100%', background: 'var(--bg-card, #131b2e)', borderBottom: '1px solid var(--border-main, #222f47)', boxSizing: 'border-box' }}>
       
-      <style>{`
-        @media (min-width: 1060px) {
-          .app-header {
-            padding: 0 24px !important;
-            height: 56px;
-            display: flex !important;
-            align-items: center;
-          }
-          .mobile-header-top {
-            display: none !important;
-          }
-          .header-nav-container {
-            display: flex !important;
-            align-items: center;
-            justify-content: space-between;
-            width: 100%;
-          }
-          .header-desktop-brand-wrapper {
-            display: flex !important;
-            align-items: center;
-            margin-right: 16px;
-          }
-          .nav-group {
-            display: flex !important;
-            align-items: center;
-            gap: 4px;
-            flex: 1;
-            justify-content: center;
-          }
-          .dropdown-menu {
-            position: absolute;
-            top: 100%;
-            left: 0;
-            background: var(--bg-card, #131b2e);
-            border: 1px solid var(--border-main, #222f47);
-            border-radius: 6px;
-            padding: 4px;
-            min-width: 190px;
-            box-shadow: 0 12px 30px rgba(0,0,0,0.15);
-          }
-        }
-        
-        @media (max-width: 1059px) {
-          .header-desktop-brand-wrapper {
-            display: none !important;
-          }
-          .mobile-header-top {
-            display: flex !important;
-            justify-content: space-between;
-            align-items: center;
-            width: 100%;
-            padding: 0 20px;
-            box-sizing: border-box;
-            height: 56px !important;
-            background: var(--bg-card, #131b2e);
-          }
-          .hamburger-btn {
-            background: var(--bg-main, #0f172a);
-            color: var(--text-body, #94a3b8);
-            border: 1px solid var(--border-main, #222f47);
-            padding: 6px 10px;
-            border-radius: 6px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 32px;
-            width: 38px;
-            box-sizing: border-box;
-          }
-          .header-nav-container {
-            display: none;
-            flex-direction: column;
-            position: absolute;
-            top: 56px;
-            left: 0;
-            right: 0;
-            background: var(--bg-card, #131b2e);
-            border-bottom: 1px solid var(--border-main, #222f47);
-            padding: 16px 20px;
-            box-sizing: border-box;
-            gap: 12px;
-            box-shadow: 0 15px 30px rgba(0,0,0,0.2);
-            z-index: 99999;
-          }
-          .header-nav-container.mobile-open {
-            display: flex !important;
-          }
-          .nav-group {
-            display: flex;
-            flex-direction: column;
-            width: 100%;
-            gap: 6px;
-          }
-          .nav-item-container {
-            width: 100%;
-          }
-          .nav-btn {
-            width: 100% !important;
-            text-align: left !important;
-            justify-content: flex-start !important;
-            padding: 10px 14px !important;
-            background: var(--bg-main, #0f172a) !important;
-            border: 1px solid var(--border-main, #222f47) !important;
-            border-radius: 6px !important;
-          }
-          .user-group {
-            display: flex;
-            flex-direction: column;
-            width: 100%;
-            gap: 10px;
-            padding-top: 14px;
-            border-top: 1px solid var(--border-main, #222f47);
-          }
-          .dropdown-menu {
-            position: static !important;
-            width: 100% !important;
-            background: var(--bg-main, #0f172a) !important;
-            box-shadow: none !important;
-            margin-top: 4px;
-            border-radius: 6px !important;
-            padding: 6px !important;
-            box-sizing: border-box;
-            border: 1px solid var(--border-main, #222f47);
-          }
-        }
-
-        .nav-btn {
-          background: transparent;
-          border: none;
-          color: var(--text-body, #94a3b8);
-          padding: 8px 12px;
-          border-radius: 4px;
-          font-weight: 600;
-          font-size: 0.88rem;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          white-space: nowrap;
-          transition: all 0.15s ease-in-out;
-        }
-        .nav-btn.active, .nav-btn:hover {
-          background: rgba(255, 255, 255, 0.04);
-          color: var(--text-title, #f8fafc);
-        }
-        .drop-item {
-          width: 100%;
-          text-align: left;
-          background: transparent;
-          border: none;
-          color: var(--text-body, #94a3b8);
-          padding: 8px 12px;
-          border-radius: 4px;
-          font-size: 0.85rem;
-          font-weight: 600;
-          cursor: pointer;
-          white-space: nowrap;
-          transition: all 0.1s;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-        .drop-item:hover, .drop-item.active {
-          background: rgba(255, 255, 255, 0.04);
-          color: var(--text-title, #f8fafc);
-        }
-      `}</style>
+      <style>{HEADER_STYLES}</style>
       
       {/* A: MOBIL MEGJELENÉSŰ FELSŐ FIX SÁV */}
       <div className="mobile-header-top">
@@ -455,23 +449,22 @@ export default function Header({
           <div className="nav-item-container">
             <button className={`nav-btn ${activeTab === 'public_news' ? 'active' : ''}`} style={{ color: '#38bdf8' }} onClick={() => handleNavClick('public_news')}>
               <Newspaper size={14} /> <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-    Fórum
-    {unreadForumCount > 0 && (
-      <span style={{
-        background: '#ef4444', // Feltűnő piros szín
-        color: 'white',
-        fontSize: '0.68rem',
-        padding: '2px 6px',
-        borderRadius: '50px',
-        fontWeight: 'bold',
-        lineHeight: '1',
-        display: 'inline-block',
-        animation: 'pulse 2s infinite' // Opcionális: finom lüktetés
-      }}>
-        {unreadForumCount}
-      </span>
-    )}
-  </span>
+                Fórum
+                {unreadForumCount > 0 && (
+                  <span style={{
+                    background: '#ef4444',
+                    color: 'white',
+                    fontSize: '0.68rem',
+                    padding: '2px 6px',
+                    borderRadius: '50px',
+                    fontWeight: 'bold',
+                    lineHeight: '1',
+                    display: 'inline-block'
+                  }}>
+                    {unreadForumCount}
+                  </span>
+                )}
+              </span>
             </button>
           </div>
           
@@ -493,7 +486,6 @@ export default function Header({
                   {user?.email === ADMIN_EMAIL && <button className="drop-item" style={{ color: activeTab === 'admin_salons' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_salons')}>{t('subManageSalons')}</button>}
                   {user?.email === ADMIN_EMAIL && <button className="drop-item" style={{ color: activeTab === 'admin_users' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_users')}>{t('subManageUsers')}</button>}
                   
-                  {/* 🎯 ÚJ: Globális Pontrendszer menedzsment gomb az adminisztrátornak */}
                   {user?.email === ADMIN_EMAIL && (
                     <button 
                       className="drop-item" 
