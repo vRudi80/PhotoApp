@@ -432,7 +432,7 @@ export default function Header({
               </div>
             )}
           </div>
-
+    <button className="drop-item" style={{ color: activeTab === 'quiz' ? '#ef4444' : '#f59e0b', fontWeight: 'bold' }} onClick={() => handleNavClick('quiz')}><Sparkles size={12} color="#f59e0b" fill="#f59e0b" /> LensMaster Kvíz</button>
           <div className="nav-item-container">
             <button 
               className={`nav-btn ${dropdownOpen === 'explore' || ['podcast', 'map_spots'].includes(activeTab) || activeTab.startsWith('marketplace') ? 'active' : ''}`}
