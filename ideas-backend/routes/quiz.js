@@ -1,9 +1,17 @@
 const fs = require('fs');
+const cloudinary = require('cloudinary').v2;
 const { OAuth2Client } = require('google-auth-library');
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const PointsService = require('../PointsService');
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "kovari.rudolf@gmail.com";
+
+// Felhős képkezelő konfigurációja
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
 
 // ====================================================================
 // 🔒 BIZTONSÁGI KAPU (MIDDLEWARE) A KVÍZ VÉGPONTOKHOZ
@@ -44,7 +52,6 @@ module.exports = function(app, pool, upload) {
   // 📡 1. NAPI VÉLETLENSZERŰ KVÍZ KÉRDÉSEK LEKÉRÉSE (VÉDETT + CHEAT-PROTECTION)
   app.get('/api/quiz/questions', requireAuth, async (req, res) => {
     try {
-      // Ellenőrizzük a mai napot az indexelt completed_at mező alapján
       const [attempts] = await pool.query(
         `SELECT id FROM quiz_attempts 
          WHERE user_email = ? AND DATE(completed_at) = CURDATE()`,
@@ -55,7 +62,6 @@ module.exports = function(app, pool, upload) {
         return res.json({ alreadyPlayed: true, questions: [] });
       }
 
-      // Véletlenszerű kérdések összeállítása
       const [questions] = await pool.query(
         `SELECT id, type, image_url, question_hu, question_en, options_hu, options_en 
          FROM quiz_questions 
@@ -88,8 +94,6 @@ module.exports = function(app, pool, upload) {
     try {
       await conn.beginTransaction();
 
-      // Minden helyes válasz 100 pont (Max 1000). 
-      // 20 pontonként adunk 1 Aréna pontot jutalmul a gazdasági egyensúly megtartásához (Max 50 pont).
       const pointsToAward = Math.min(50, Math.floor(score / 20));
 
       if (pointsToAward > 0) {
@@ -99,7 +103,6 @@ module.exports = function(app, pool, upload) {
         );
       }
 
-      // Rögzítjük a független naplóbejegyzést
       await conn.query(
         'INSERT INTO quiz_attempts (user_email, score, points_awarded, completed_at) VALUES (?, ?, ?, NOW())',
         [req.user.email, score, pointsToAward]
@@ -120,24 +123,44 @@ module.exports = function(app, pool, upload) {
     }
   });
 
-  // 📡 3. ÚJ KÉRDÉS HOZZÁADÁSA (KIZÁRÓLAG ADMINOKNAK)
-  app.post('/api/admin/quiz/add', requireAuth, async (req, res) => {
+  // 📡 3. ÚJ KÉRDÉS HOZZÁADÁSA MULTIPART KÉPFELTÖLTÉSSEL (KIZÁRÓLAG ADMINOKNAK)
+  // JAVÍTVA: JSON body helyett multer fájlfolyamot fogad, amit feltölt Cloudinary-be
+  app.post('/api/admin/quiz/add', requireAuth, upload.single('photo'), async (req, res) => {
     if (!req.user.isAdmin) {
       return res.status(403).json({ error: 'Ehhez a művelethez Adminisztrátori jog szükséges!' });
     }
 
-    const { type, imageUrl, questionHu, questionEn, optionsHu, optionsEn, correctOption, exifTarget } = req.body;
+    const file = req.file;
+    if (!file) return res.status(400).json({ error: 'A kvízkérdéshez kötelező képet feltölteni!' });
+
+    const { type, questionHu, questionEn, optionsHu, optionsEn, correctOption, exifTarget } = req.body;
 
     try {
+      // Kép biztonságos feltöltése a Cloudinary 'arena_kviz' mappájába
+      const result = await cloudinary.uploader.upload(file.path, { 
+        folder: 'arena_kviz', 
+        width: 1200, 
+        height: 900, 
+        crop: "limit", 
+        quality: "auto:good" 
+      });
+
+      // Töröljük az átmeneti helyi fájlt a szerverről
+      if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+
+      // Elmentjük a végleges rekordot a generált felhős kép-linkkel
       await pool.query(
         `INSERT INTO quiz_questions 
          (type, image_url, question_hu, question_en, options_hu, options_en, correct_option, exif_target_value) 
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [type, imageUrl, questionHu, questionEn, JSON.stringify(optionsHu), JSON.stringify(optionsEn), correctOption, exifTarget || null]
+        [type, result.secure_url, questionHu, questionEn, optionsHu, optionsEn, correctOption, exifTarget || null]
       );
-      res.json({ success: true, message: 'Kérdés sikeresen hozzáadva a kvízbázishoz!' });
+
+      res.json({ success: true, message: 'Kérdés és fotó sikeresen hozzáadva a kvízbázishoz!' });
     } catch (err) {
-      res.status(500).json({ error: 'Nem sikerült elmenteni a kérdést.' });
+      if (file && fs.existsSync(file.path)) fs.unlinkSync(file.path);
+      console.error("❌ Kvíz mentési hiba:", err.message);
+      res.status(500).json({ error: 'Nem sikerült elmenteni a kérdést és a fotót.' });
     }
   });
 };
