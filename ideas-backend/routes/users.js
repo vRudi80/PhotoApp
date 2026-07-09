@@ -92,9 +92,12 @@ module.exports = function(app, pool) {
     if (!email) return res.status(400).json({ error: 'Email megadása kötelező.' });
     
     try {
+      // 🎯 JAVÍTVA: Beillesztettük a registered_at oszlopot és a NOW() értéket.
+      // Új felhasználónál a registered_at és a last_login is NOW() lesz.
+      // Visszatérő felhasználónál csak az UPDATE ág fut le, így a registered_at érintetlen marad!
       await pool.query(
-        `INSERT INTO photo_users (google_id, email, name, last_login, is_premium, premium_level, premium_until) 
-         VALUES (?, ?, ?, NOW(), 1, 1, DATE_ADD(NOW(), INTERVAL 7 DAY)) 
+        `INSERT INTO photo_users (google_id, email, name, last_login, registered_at, is_premium, premium_level, premium_until) 
+         VALUES (?, ?, ?, NOW(), NOW(), 1, 1, DATE_ADD(NOW(), INTERVAL 7 DAY)) 
          ON DUPLICATE KEY UPDATE last_login = NOW()`, 
         [sub, email, name]
       );
@@ -116,6 +119,7 @@ module.exports = function(app, pool) {
       res.status(500).json({ error: 'Adatbázis hiba az auth szinkronizációnál' }); 
     }
   });
+
   
   // ====================================================================
   // 🎯 Felhasználók listája (Intelligens szűréssel!)
