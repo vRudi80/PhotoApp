@@ -6,7 +6,6 @@ const PointsService = require('../PointsService');
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "kovari.rudolf@gmail.com";
 
-// Felhős képkezelő konfigurációja
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
@@ -49,7 +48,7 @@ async function requireAuth(req, res, next) {
 
 module.exports = function(app, pool, upload) {
 
-  // 📡 1. NAPI VÉLETLENSZERŰ KVÍZ KÉRDÉSEK LEKÉRÉSE (VÉDETT + CHEAT-PROTECTION)
+  // 📡 1. NAPI VÉLETLENSZERŰ KVÍZ KÉRDÉSEK LEKÉRÉSE A JÁTÉKOSOKNAK (VÉDETT)
   app.get('/api/quiz/questions', requireAuth, async (req, res) => {
     try {
       const [attempts] = await pool.query(
@@ -123,44 +122,85 @@ module.exports = function(app, pool, upload) {
     }
   });
 
-  // 📡 3. ÚJ KÉRDÉS HOZZÁADÁSA MULTIPART KÉPFELTÖLTÉSSEL (KIZÁRÓLAG ADMINOKNAK)
-  // JAVÍTVA: JSON body helyett multer fájlfolyamot fogad, amit feltölt Cloudinary-be
+  // 📡 3. ÚJ KÉRDÉS HOZZÁADÁSA (KIZÁRÓLAG ADMINOKNAK)
   app.post('/api/admin/quiz/add', requireAuth, upload.single('photo'), async (req, res) => {
-    if (!req.user.isAdmin) {
-      return res.status(403).json({ error: 'Ehhez a művelethez Adminisztrátori jog szükséges!' });
-    }
-
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Adminisztrátori jog szükséges!' });
     const file = req.file;
     if (!file) return res.status(400).json({ error: 'A kvízkérdéshez kötelező képet feltölteni!' });
 
     const { type, questionHu, questionEn, optionsHu, optionsEn, correctOption, exifTarget } = req.body;
 
     try {
-      // Kép biztonságos feltöltése a Cloudinary 'arena_kviz' mappájába
       const result = await cloudinary.uploader.upload(file.path, { 
-        folder: 'arena_kviz', 
-        width: 1200, 
-        height: 900, 
-        crop: "limit", 
-        quality: "auto:good" 
+        folder: 'arena_kviz', width: 1200, height: 900, crop: "limit", quality: "auto:good" 
       });
-
-      // Töröljük az átmeneti helyi fájlt a szerverről
       if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
 
-      // Elmentjük a végleges rekordot a generált felhős kép-linkkel
       await pool.query(
         `INSERT INTO quiz_questions 
          (type, image_url, question_hu, question_en, options_hu, options_en, correct_option, exif_target_value) 
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [type, result.secure_url, questionHu, questionEn, optionsHu, optionsEn, correctOption, exifTarget || null]
       );
-
-      res.json({ success: true, message: 'Kérdés és fotó sikeresen hozzáadva a kvízbázishoz!' });
+      res.json({ success: true });
     } catch (err) {
       if (file && fs.existsSync(file.path)) fs.unlinkSync(file.path);
-      console.error("❌ Kvíz mentési hiba:", err.message);
-      res.status(500).json({ error: 'Nem sikerült elmenteni a kérdést és a fotót.' });
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // 📡 4. 🗂️ ÚJ: ÖSSZES KÉRDÉS LEKÉRÉSE LISTÁHOZ (KIZÁRÓLAG ADMINOKNAK)
+  app.get('/api/admin/quiz/questions', requireAuth, async (req, res) => {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Adminisztrátori jog szükséges!' });
+    try {
+      const [rows] = await pool.query('SELECT * FROM quiz_questions ORDER BY id DESC');
+      res.json(rows);
+    } catch (err) {
+      res.status(500).json({ error: 'Nem sikerült lekérni a kérdésbankot.' });
+    }
+  });
+
+  // 📡 5. 🗂️ ÚJ: LÉTEZŐ KÉRDÉS MÓDOSÍTÁSA (KIZÁRÓLAG ADMINOKNAK)
+  app.put('/api/admin/quiz/update/:id', requireAuth, upload.single('photo'), async (req, res) => {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Adminisztrátori jog szükséges!' });
+    const { id } = req.params;
+    const file = req.file;
+    const { type, questionHu, questionEn, optionsHu, optionsEn, correctOption, exifTarget, currentImageUrl } = req.body;
+
+    try {
+      let finalImageUrl = currentImageUrl;
+
+      // Ha az admin új fotót küldött be, lecseréljük Cloudinary-ben
+      if (file) {
+        const result = await cloudinary.uploader.upload(file.path, { 
+          folder: 'arena_kviz', width: 1200, height: 900, crop: "limit", quality: "auto:good" 
+        });
+        finalImageUrl = result.secure_url;
+        if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+      }
+
+      await pool.query(
+        `UPDATE quiz_questions 
+         SET type = ?, image_url = ?, question_hu = ?, question_en = ?, options_hu = ?, options_en = ?, correct_option = ?, exif_target_value = ? 
+         WHERE id = ?`,
+        [type, finalImageUrl, questionHu, questionEn, optionsHu, optionsEn, correctOption, exifTarget || null, id]
+      );
+      res.json({ success: true, message: 'Kérdés sikeresen frissítve!' });
+    } catch (err) {
+      if (file && fs.existsSync(file.path)) fs.unlinkSync(file.path);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // 📡 6. 🗂️ ÚJ: KÉRDÉS VÉGLEGES TÖRLÉSE (KIZÁRÓLAG ADMINOKNAK)
+  app.delete('/api/admin/quiz/delete/:id', requireAuth, async (req, res) => {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Adminisztrátori jog szükséges!' });
+    const { id } = req.params;
+    try {
+      await pool.query('DELETE FROM quiz_questions WHERE id = ?', [id]);
+      res.json({ success: true, message: 'Kérdés sikeresen törölve!' });
+    } catch (err) {
+      res.status(500).json({ error: 'Nem sikerült törölni a kérdést.' });
     }
   });
 };
