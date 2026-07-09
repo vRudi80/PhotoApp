@@ -15,12 +15,21 @@ const path = require('path');
 // ==========================================
 // 1. INICIALIZÁLÁSOK ÉS KAPCSOLATOK
 // ==========================================
+// 🎯 ULTRA-STABIL JAVÍTVA: Beépítettük a Keep-Alive és Idle-Timeout védelmi pajzsot!
+// Ez a konfiguráció 10 másodpercenként automatikusan pingeli az adatbázist, az elhalt szálakat 
+// pedig 30 másodperc után csendben kitakarítja a memóriából, felszámolva az ECONNRESET hibákat.
 const pool = mysql.createPool({
   host: process.env.DB_HOST,
-  port: process.env.DB_PORT,
+  port: process.env.DB_PORT || 3306,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
+  waitForConnections: true,
+  connectionLimit: 10,
+  maxIdle: 10,
+  idleTimeout: 30000,        // 30 másodperc tétlenség után automatikusan lezárja és tisztítja az alvó kapcsolatot
+  enableKeepAlive: true,     // Bekapcsolja a TCP Keep-Alive-ot a háttérben
+  keepAliveInitialDelay: 10000 // 10 másodpercenként küld egy pinget az adatbázisnak, hogy életben tartsa
 });
 
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
@@ -71,15 +80,11 @@ app.post('/api/webhook', express.raw({type: 'application/json'}), async (req, re
   if (event.type === 'invoice.paid') {
     const invoice = event.data.object;
     
-    // Csak a feliratkozáshoz tartozó számlákkal foglalkozunk (az egyszeri pályázati díjaknak nincs subscription-je)
     if (invoice.subscription) {
       const customerId = invoice.customer;
-      
-      // A Stripe másodpercben küldi a lejárati dátumot, a JS Date viszont ezredmásodpercet vár, ezért szorozzuk 1000-rel!
       const periodEnd = new Date(invoice.lines.data[0].period.end * 1000);
       
       try {
-        // Frissítjük a felhasználót: aktív státuszban tartjuk, és beírjuk a Stripe által diktált hivatalos lejárati dátumot!
         await pool.query(
           'UPDATE photo_users SET is_premium = 1, premium_until = ? WHERE stripe_customer_id = ?', 
           [periodEnd, customerId]
@@ -92,11 +97,9 @@ app.post('/api/webhook', express.raw({type: 'application/json'}), async (req, re
   }
 
   // --- 3. ESEMÉNY: Lemondott / Megszakadt előfizetés ---
-  // --- 3. ESEMÉNY: Lemondott / Megszakadt előfizetés ---
   if (event.type === 'customer.subscription.deleted') {
     const customerId = event.data.object.customer;
     try { 
-      // 👑 JAVÍTVA: Nemcsak az is_premium-ot nullázzuk, hanem a lejárati dátumot is teljesen kiürítjük, így láncreakcióként minden kapu bezárul!
       await pool.query(
         'UPDATE photo_users SET is_premium = 0, premium_until = NULL WHERE stripe_customer_id = ?', 
         [customerId]
