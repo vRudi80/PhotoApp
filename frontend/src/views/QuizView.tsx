@@ -58,25 +58,9 @@ export default function QuizView({ user }: { user: any }) {
     }
   };
 
-  // ⏱️ 2. IDŐZÍTŐ MOTOR
-  useEffect(() => {
-    if (quizState !== 'playing' || isAnswered) return;
-
-    if (timeLeft === 0) {
-      handleOptionClick('');
-      return;
-    }
-
-    const timer = setInterval(() => {
-      setTimeLeft(prev => prev - 1);
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [timeLeft, quizState, isAnswered]);
-
   const currentQuestion = questions[currentIdx];
 
-  // 🎯 JAVÍTVA: Totális adatvédelmi pajzs null/undefined értékek ellen a futside összeomlások kiküszöbölésére!
+  // Adatvédelmi pajzs a kérdések parzolásához
   const parsedQuestion = useMemo(() => {
     if (!currentQuestion) return null;
     const title = lang === 'en' ? currentQuestion.question_en : currentQuestion.question_hu;
@@ -90,10 +74,9 @@ export default function QuizView({ user }: { user: any }) {
         opts = rawOpts;
       }
     } catch (e) {
-      console.error("JSON parzolási hiba, fallback aktív", e);
+      console.error("JSON parzolási hiba", e);
     }
 
-    // Biztonsági háló: Ha a parzolás sikeres volt, de nem tömböt kaptunk vissza
     if (!Array.isArray(opts) || opts.length === 0) {
       opts = ['A', 'B', 'C', 'D'];
     }
@@ -101,7 +84,25 @@ export default function QuizView({ user }: { user: any }) {
     return { title, opts, correct: currentQuestion.correct_option };
   }, [currentQuestion, lang]);
 
-  // 📡 4. JÁTÉK VÉGE: Pontok biztonságos beküldése közvetlen paraméterezéssel
+  // 🎯 2/A LÉPÉS: ZAVARTALAN BELSŐ ÓRAJEL (Nincs benne a timeLeft függőségként, nem akad el!)
+  useEffect(() => {
+    if (quizState !== 'playing' || isAnswered) return;
+
+    const timer = setInterval(() => {
+      setTimeLeft(prev => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [quizState, isAnswered, currentIdx]);
+
+  // 🎯 2/B LÉPÉS: REAKTÍV IDŐTÚLLÉPÉS FIGYELŐ
+  useEffect(() => {
+    if (quizState === 'playing' && timeLeft === 0 && !isAnswered) {
+      handleOptionClick(''); // Kényszerített továbbléptetés üres válasszal
+    }
+  }, [timeLeft, quizState, isAnswered]);
+
+  // 📡 3. JÁTÉK VÉGE: Pontok biztonságos beküldése
   const handleSubmitResults = async (finalScore: number) => {
     setQuizState('loading');
     setIsSubmitting(true);
@@ -131,7 +132,7 @@ export default function QuizView({ user }: { user: any }) {
     }
   };
 
-  // 🎯 JAVÍTVA: Teljesen átépített, closure-mentes funkcionális léptető motor!
+  // 🎮 4. VÁLASZ KATTINTÁS KEZELŐ
   const handleOptionClick = (optionLetter: string) => {
     if (isAnswered) return;
     
@@ -141,11 +142,9 @@ export default function QuizView({ user }: { user: any }) {
     const isCorrect = optionLetter === parsedQuestion?.correct;
     const addedScore = isCorrect ? 100 : 0;
     
-    // A pontszámot funkcionálisan növeljük, így garantáltan friss marad
     setScore(prev => prev + addedScore);
 
     setTimeout(() => {
-      // Szigorú funkcionális index-léptetés, ami immunis az aszinkron fagyásokra
       setCurrentIdx(prevIdx => {
         const nextIdx = prevIdx + 1;
         if (nextIdx < questions.length) {
@@ -154,7 +153,6 @@ export default function QuizView({ user }: { user: any }) {
           setTimeLeft(20);
           return nextIdx;
         } else {
-          // Ha ez volt az utolsó kérdés, a friss pontszámot azonnal átadjuk a beküldőnek
           setScore(finalScore => {
             handleSubmitResults(finalScore);
             return finalScore;
@@ -213,12 +211,11 @@ export default function QuizView({ user }: { user: any }) {
           </div>
 
           <div style={{ width: '100%', height: '4px', background: '#1e293b', borderRadius: '2px', overflow: 'hidden' }}>
-            <div style={{ width: `${(timeLeft / 20) * 100}%`, height: '100%', background: timeLeft <= 5 ? '#ef4444' : 'linear-gradient(90deg, #38bdf8, #10b981)', transition: 'width 1s linear' }} />
+            <div style={{ width: `${(timeLeft / 20) * 100}%`, height: '100%', background: timeLeft <= 5 ? '#ef4444' : 'linear-gradient(90deg, #38bdf8, #10b981)' }} />
           </div>
 
           <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', borderRadius: '12px', overflow: 'hidden' }}>
             <div style={{ width: '100%', height: '260px', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', borderBottom: '1px solid var(--border-main)' }}>
-              {/* 🎯 JAVÍTVA: Ha a kép hibás vagy elérhetetlen, egy szép üres SVG-re váltunk át, megakadályozva a törött ikonokat */}
               <img 
                 src={currentQuestion.image_url} 
                 alt="Quiz illustration" 
