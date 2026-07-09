@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { BACKEND_URL } from '../utils/constants';
 import VideoLoader from '../components/VideoLoader';
 import { useLanguage } from '../context/LanguageContext';
-import { Trophy, Star, Timer, HelpCircle, ArrowRight, RefreshCw, Sparkles } from 'lucide-react';
+import { Trophy, Star, Timer, Sparkles } from 'lucide-react';
 
 const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
   const token = localStorage.getItem('photoAppToken');
@@ -19,7 +19,7 @@ export default function QuizView({ user }: { user: any }) {
   const [questions, setQuestions] = useState<any[]>([]);
   const [currentIdx, setCurrentIdx] = useState(0);
   
-  // Játékmenet állapotai
+  // Játékmenet tiszta állapotai
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [isAnswered, setIsAnswered] = useState(false);
   const [score, setScore] = useState(0);
@@ -60,7 +60,7 @@ export default function QuizView({ user }: { user: any }) {
 
   const currentQuestion = questions[currentIdx];
 
-  // Adatvédelmi pajzs a kérdések parzolásához
+  // Adatvédelmi védőpajzs a kérdések parzolásához
   const parsedQuestion = useMemo(() => {
     if (!currentQuestion) return null;
     const title = lang === 'en' ? currentQuestion.question_en : currentQuestion.question_hu;
@@ -84,25 +84,24 @@ export default function QuizView({ user }: { user: any }) {
     return { title, opts, correct: currentQuestion.correct_option };
   }, [currentQuestion, lang]);
 
-  // 🎯 2/A LÉPÉS: ZAVARTALAN BELSŐ ÓRAJEL (Nincs benne a timeLeft függőségként, nem akad el!)
+  // 🎯 2. ATOMBIZTOS ÖNÜTEMEZŐ IDŐZÍTŐ (Felszámolja a beragadást és a fagyást)
   useEffect(() => {
     if (quizState !== 'playing' || isAnswered) return;
 
-    const timer = setInterval(() => {
-      setTimeLeft(prev => (prev > 0 ? prev - 1 : 0));
+    // Ha lejár az idő, automatikusan elsütjük az időtúllépést üres válasszal
+    if (timeLeft <= 0) {
+      handleOptionClick('');
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setTimeLeft(prev => prev - 1);
     }, 1000);
 
-    return () => clearInterval(timer);
-  }, [quizState, isAnswered, currentIdx]);
+    return () => clearTimeout(timer);
+  }, [quizState, isAnswered, timeLeft]);
 
-  // 🎯 2/B LÉPÉS: REAKTÍV IDŐTÚLLÉPÉS FIGYELŐ
-  useEffect(() => {
-    if (quizState === 'playing' && timeLeft === 0 && !isAnswered) {
-      handleOptionClick(''); // Kényszerített továbbléptetés üres válasszal
-    }
-  }, [timeLeft, quizState, isAnswered]);
-
-  // 📡 3. JÁTÉK VÉGE: Pontok biztonságos beküldése
+  // 📡 3. JÁTÉK VÉGE: Eredmények beküldése
   const handleSubmitResults = async (finalScore: number) => {
     setQuizState('loading');
     setIsSubmitting(true);
@@ -121,7 +120,7 @@ export default function QuizView({ user }: { user: any }) {
         setResultData(data);
         setQuizState('ended');
       } else {
-        alert("Hiba történt az eredmények beküldésekor, de a kísérletedet rögzítettük.");
+        alert("Hiba történt az eredmények beküldésekor.");
         setQuizState('intro');
       }
     } catch (e) {
@@ -132,34 +131,36 @@ export default function QuizView({ user }: { user: any }) {
     }
   };
 
-  // 🎮 4. VÁLASZ KATTINTÁS KEZELŐ
+  // 🎯 4. KÖZPONTI LÉPTETŐ MOTOR (Side-effect mentes, teljesen lineáris struktúra)
+  const moveToNextQuestion = (currentCalculatedScore: number) => {
+    const nextIndex = currentIdx + 1;
+    if (nextIndex < questions.length) {
+      setCurrentIdx(nextIndex);
+      setSelectedOption(null);
+      setIsAnswered(false);
+      setTimeLeft(20);
+    } else {
+      handleSubmitResults(currentCalculatedScore);
+    }
+  };
+
+  // 🎮 5. VÁLASZ KATTINTÁS KEZELŐ
   const handleOptionClick = (optionLetter: string) => {
     if (isAnswered) return;
     
-    setSelectedOption(optionLetter);
     setIsAnswered(true);
+    setSelectedOption(optionLetter);
 
     const isCorrect = optionLetter === parsedQuestion?.correct;
     const addedScore = isCorrect ? 100 : 0;
+    const nextScore = score + addedScore;
     
-    setScore(prev => prev + addedScore);
+    // Azonnal frissítjük a helyi pontszámot
+    setScore(nextScore);
 
+    // 1.5 másodpercig villogtatjuk a neon keretet, majd robogunk tovább
     setTimeout(() => {
-      setCurrentIdx(prevIdx => {
-        const nextIdx = prevIdx + 1;
-        if (nextIdx < questions.length) {
-          setSelectedOption(null);
-          setIsAnswered(false);
-          setTimeLeft(20);
-          return nextIdx;
-        } else {
-          setScore(finalScore => {
-            handleSubmitResults(finalScore);
-            return finalScore;
-          });
-          return prevIdx;
-        }
-      });
+      moveToNextQuestion(nextScore);
     }, 1500);
   };
 
@@ -211,7 +212,7 @@ export default function QuizView({ user }: { user: any }) {
           </div>
 
           <div style={{ width: '100%', height: '4px', background: '#1e293b', borderRadius: '2px', overflow: 'hidden' }}>
-            <div style={{ width: `${(timeLeft / 20) * 100}%`, height: '100%', background: timeLeft <= 5 ? '#ef4444' : 'linear-gradient(90deg, #38bdf8, #10b981)' }} />
+            <div style={{ width: `${(timeLeft / 20) * 100}%`, height: '100%', background: timeLeft <= 5 ? '#ef4444' : 'linear-gradient(90deg, #38bdf8, #10b981)', transition: 'width 0.1s linear' }} />
           </div>
 
           <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', borderRadius: '12px', overflow: 'hidden' }}>
