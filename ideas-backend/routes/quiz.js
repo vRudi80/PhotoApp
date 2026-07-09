@@ -75,12 +75,16 @@ module.exports = function(app, pool, upload) {
   });
 
   // 📡 2. KVÍZ EREDMÉNYEK LEADÁSA ÉS PONTOSZTÁS (VÉDETT)
+    // 📡 2. KVÍZ EREDMÉNYEK LEADÁSA ÉS PONTOSZTÁS (MÓDOSÍTVA)
   app.post('/api/quiz/submit', requireAuth, async (req, res) => {
     const { score, userEmail } = req.body;
-    if (req.user.email !== userEmail.toLowerCase().trim()) {
+    
+    // Biztonsági szoftveres szűrő elírások és hiányzó paraméterek ellen
+    if (!userEmail || req.user.email !== userEmail.toLowerCase().trim()) {
       return res.status(403).json({ error: 'Munkamenet biztonsági eltérés!' });
     }
 
+    // Ellenőrizzük mégegyszer a napi duplázást
     const [checkAttempt] = await pool.query(
       'SELECT id FROM quiz_attempts WHERE user_email = ? AND DATE(completed_at) = CURDATE()',
       [req.user.email]
@@ -88,6 +92,7 @@ module.exports = function(app, pool, upload) {
     if (checkAttempt.length > 0) {
       return res.status(400).json({ error: 'Ma már leadtad a napi kvíz eredményedet!' });
     }
+    
 
     const conn = await pool.getConnection();
     try {
