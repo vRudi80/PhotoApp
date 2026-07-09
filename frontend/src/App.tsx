@@ -35,6 +35,7 @@ import LeaderClubView from './views/LeaderClubView';
 import PodcastView from './views/PodcastView';
 import AdminPointsDashboard from './views/admin/AdminPointsDashboard'; 
 import ForumView from './views/ForumView'; 
+import AdminQuizView from './views/admin/AdminQuizView';
 
 // Témakezelő környezet
 import { ThemeProvider } from './context/ThemeContext'; 
@@ -674,6 +675,7 @@ function MainContent() {
               <Route path="/club_nights" element={<ClubNightsView currentDbUser={currentDbUser} meetingSearch={meetingSearch} setMeetingSearch={setMeetingSearch} searchedMeetings={searchedMeetings} setActiveVideo={setActiveVideo} />} />
               <Route path="/leader_club" element={isLeader ? <LeaderClubView user={user} BACKEND_URL={BACKEND_URL} /> : <Navigate to="/dashboard" replace />} />
               <Route path="/podcast" element={<PodcastView />} />
+              <Route path="/admin_quiz" element={user?.email === ADMIN_EMAIL ? <AdminQuizView /> : <Navigate to="/dashboard" />} />
 
               <Route path="/admin_clubs" element={user?.email === ADMIN_EMAIL ? <AdminClubsView clubs={clubs} newClubName={newClubName} setNewClubName={setNewClubName} handleAddClub={handleAddClub} handleDeleteClub={handleDeleteClub} handleUpdateClub={handleUpdateClub} /> : <Navigate to="/dashboard" />} />
               <Route path="/admin_users" element={user?.email === ADMIN_EMAIL ? <AdminUsersView allUsers={allUsers} clubs={clubs} userClubEdits={userClubEdits} setUserClubEdits={setUserClubEdits} userRoleEdits={userRoleEdits} setUserRoleEdits={setUserRoleEdits} saveUserClub={saveUserClub} /> : <Navigate to="/dashboard" />} />
