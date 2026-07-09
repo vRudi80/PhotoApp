@@ -27,7 +27,7 @@ export default function AdminQuizView() {
   
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // 🎯 ÚJ: Szerkesztési üzemmód állapotai
+  // Szerkesztési üzemmód állapotai
   const [editingId, setEditingId] = useState<number | null>(null);
   const [existingQuestions, setExistingQuestions] = useState<any[]>([]);
   const [currentQuestionsImageUrl, setCurrentImageUrl] = useState('');
@@ -89,7 +89,7 @@ export default function AdminQuizView() {
     }
   };
 
-  // 🎯 ÚJ: SZERKESZTÉSI MÓD ELINDÍTÁSA (Adatok betöltése a formba)
+  // 🎯 JAVÍTVA: Tiszta, zavartalan adatbetöltés a szerkesztő formba!
   const handleStartEdit = (q: any) => {
     setEditingId(q.id);
     setType(q.type);
@@ -98,8 +98,8 @@ export default function AdminQuizView() {
     setCorrectOption(q.correct_option);
     setExifTarget(q.exif_target_value || '');
     setCurrentImageUrl(q.image_url);
-    setPreviewUrl(q.image_url); // Megjelenítjük a meglévő képet előnézetként
-    setSelectedFile(null); // Nem kötelező új fájlt választani
+    setPreviewUrl(q.image_url); 
+    setSelectedFile(null); 
 
     try {
       setOptionsHu(typeof q.options_hu === 'string' ? JSON.parse(q.options_hu) : q.options_hu);
@@ -108,7 +108,7 @@ export default function AdminQuizView() {
       setOptionsHu(['', '', '', '']);
       setOptionsEn(['', '', '', '']);
     }
-    window.scrollTo({ top: 0, behavior: 'smooth' }); // Felgördítünk az űrlaphoz
+    window.scrollTo({ top: 0, behavior: 'smooth' }); 
   };
 
   const handleCancelEdit = () => {
@@ -119,9 +119,8 @@ export default function AdminQuizView() {
     setPreviewUrl(null); setExifTarget(''); setCurrentImageUrl('');
   };
 
-  // 🎯 ÚJ: KÉRDÉS TÖRÖLVE A RENDZERBŐL
   const handleDeleteQuestion = async (id: number) => {
-    if (!window.confirm("Biztosan véglegesen törlöd ezt a kérdést és a hozzá tartozó fotót?")) return;
+    if (!window.confirm("Biztosan véglegesen törlöd ezt a kérdést?")) return;
     try {
       const res = await fetch(`${BACKEND_URL}/api/admin/quiz/delete/${id}`, {
         method: 'DELETE',
@@ -184,7 +183,7 @@ export default function AdminQuizView() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '30px', maxWidth: '1000px', margin: '0 auto' }}>
       
-      {/* 🛠️ PANEL 1: ADATBEVITELI ŰRLAP (ADD / EDIT) */}
+      {/* ── PANEL 1: ADATBEVITELI ŰRLAP (ADD / EDIT) ── */}
       <div style={{ background: '#1e293b', padding: '30px', borderRadius: '12px', border: editingId ? '2px solid #f59e0b' : '1px solid #334155', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}>
         <h2 style={{ color: editingId ? '#f59e0b' : '#38bdf8', margin: '0 0 20px 0', fontSize: '1.6rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
           {editingId ? `📝 Kérdés Szerkesztése (ID: #${editingId})` : '✨ Új Kérdés és Fotó Feltöltése'}
@@ -239,7 +238,7 @@ export default function AdminQuizView() {
 
           {type === 'exif' && (
             <div>
-              <label style={{ display: 'block', color: '#cbd5e1', marginBottom: '6px', fontWeight: 'bold', fontSize: '0.9rem' }}>Helyes EXIF Karakterlánc:</label>
+              <label style={{ display: 'block', color: '#cbd5e1', marginBottom: '6px', fontWeight: 'bold', fontSize: '0.9rem' }}>Helyes EXIF Karakterláng:</label>
               <input type="text" value={exifTarget} onChange={e => setExifTarget(e.target.value)} placeholder="Pl.: f/1.4" style={{ width: '100%', padding: '10px', background: '#0f172a', border: '1px solid #475569', borderRadius: '8px', color: 'white', outline: 'none', boxSizing: 'border-box' }} />
             </div>
           )}
@@ -257,7 +256,7 @@ export default function AdminQuizView() {
         </form>
       </div>
 
-      {/* 📊 PANEL 2: MEGLÉVŐ KÉRDÉSEK TÁBLÁZATOS LISTÁJA */}
+      {/* ── PANEL 2: MEGLÉVŐ KÉRDÉSEK TÁBLÁZATOS LISTÁJA ── */}
       <div style={{ background: '#1e293b', padding: '24px', borderRadius: '12px', border: '1px solid #334155', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}>
         <h3 style={{ margin: '0 0 16px 0', fontSize: '1.2rem', color: '#cbd5e1' }}>📋 Jelenlegi Kérdésbank ({existingQuestions.length} db feladvány)</h3>
         
@@ -291,7 +290,8 @@ export default function AdminQuizView() {
                   </td>
                   <td style={{ padding: '12px', textAlign: 'right' }}>
                     <div style={{ display: 'inline-flex', gap: '8px' }}>
-                      <button onClick={() => handleLocalSave ? handleStartEdit(q) : null} style={{ background: '#3b82f620', color: '#38bdf8', border: '1px solid #3b82f640', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem' }}>
+                      {/* 🎯 JAVÍTVA: A handleLocalSave törölve, most már közvetlenül és hibátlanul fut le az edit! */}
+                      <button onClick={() => handleStartEdit(q)} style={{ background: '#3b82f620', color: '#38bdf8', border: '1px solid #3b82f640', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem' }}>
                         Szerkesztés
                       </button>
                       <button onClick={() => handleDeleteQuestion(q.id)} style={{ background: '#ef444420', color: '#f87171', border: '1px solid #ef444440', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem' }}>
