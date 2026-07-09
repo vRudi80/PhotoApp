@@ -47,8 +47,6 @@ interface HeaderProps {
 }
 
 // 🎯 JAVÍTVA: A stílusokat kiemeltük a komponensből a globális memóriatérbe.
-// Ez megakadályozza, hogy a böngésző a háttérben futó renderelések alatt újraértelmezze a CSS-t,
-// így a logó és a brand szöveg villogása teljesen megszűnik!
 const HEADER_STYLES = `
   @media (min-width: 1060px) {
     .app-header {
@@ -218,6 +216,34 @@ const HEADER_STYLES = `
   }
 `;
 
+// 🎯 JAVÍTVA: Kivettük a belső függvényt és áthelyeztük egy önálló felső szintű komponensbe.
+// Ez garantálja, hogy a React fókuszváltáskor ne törölje le és építse újra a logót a DOM fában.
+function LogoBrandBlock({ logo } : { logo: string }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+      <div style={{ 
+        background: 'var(--bg-main, #0f172a)', 
+        padding: '5px 6px', 
+        borderRadius: '6px', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center',
+        border: '1px solid var(--border-main, #222f47)',
+        boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
+      }}>
+        <img 
+          src={logo} 
+          alt="PhotAwesome" 
+          style={{ height: '22px', width: 'auto', objectFit: 'contain' }} 
+        />
+      </div>
+      <div style={{ fontWeight: '800', color: 'var(--text-title, #f8fafc)', fontSize: '1.25rem', letterSpacing: '-0.5px' }}>
+        Phot<span style={{ background: 'linear-gradient(135deg, #38bdf8, #8b5cf6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Awesome</span>
+      </div>
+    </div>
+  );
+}
+
 export default function Header({ 
   user, 
   isLeader, 
@@ -257,6 +283,7 @@ export default function Header({
     };
   };
 
+  // 🎯 JAVÍTVA: A teljes user objektum helyett csak a user?.email-t figyeljük, megvédve a felesleges hálózati kérésektől
   useEffect(() => {
     const fetchUnreadForumTotal = async () => {
       try {
@@ -276,8 +303,9 @@ export default function Header({
     fetchUnreadForumTotal();
     const interval = setInterval(fetchUnreadForumTotal, 120000);
     return () => clearInterval(interval);
-  }, [user]);
+  }, [user?.email]);
 
+  // 🎯 JAVÍTVA: Itt is bekapcsoltuk auser?.email alapú atomszerű függőségkezelést
   useEffect(() => {
     if (!user?.email) return;
     
@@ -299,7 +327,7 @@ export default function Header({
     checkUnread();
     const interval = setInterval(checkUnread, 600000);
     return () => clearInterval(interval);
-  }, [user, activeTab, isAdminUser]);
+  }, [user?.email, activeTab, isAdminUser]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -335,30 +363,6 @@ export default function Header({
     }
   };
 
-  const LogoBrandBlock = () => (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
-      <div style={{ 
-        background: 'var(--bg-main, #0f172a)', 
-        padding: '5px 6px', 
-        borderRadius: '6px', 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'center',
-        border: '1px solid var(--border-main, #222f47)',
-        boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
-      }}>
-        <img 
-          src={currentLogo} 
-          alt="PhotAwesome" 
-          style={{ height: '22px', width: 'auto', objectFit: 'contain' }} 
-        />
-      </div>
-      <div style={{ fontWeight: '800', color: 'var(--text-title, #f8fafc)', fontSize: '1.25rem', letterSpacing: '-0.5px' }}>
-        Phot<span style={{ background: 'linear-gradient(135deg, #38bdf8, #8b5cf6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Awesome</span>
-      </div>
-    </div>
-  );
-
   return (
     <header ref={headerRef} className="app-header" style={{ position: 'relative', zIndex: 1000, width: '100%', background: 'var(--bg-card, #131b2e)', borderBottom: '1px solid var(--border-main, #222f47)', boxSizing: 'border-box' }}>
       
@@ -366,7 +370,7 @@ export default function Header({
       
       {/* A: MOBIL MEGJELENÉSŰ FELSŐ FIX SÁV */}
       <div className="mobile-header-top">
-        <LogoBrandBlock />
+        <LogoBrandBlock logo={currentLogo} />
         <button className="hamburger-btn" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
           {isMobileMenuOpen ? <X size={16} /> : <Menu size={16} />}
         </button>
@@ -376,7 +380,7 @@ export default function Header({
       <div className={`header-nav-container ${isMobileMenuOpen ? 'mobile-open' : ''}`}>
         
         <div className="header-desktop-brand-wrapper">
-          <LogoBrandBlock />
+          <LogoBrandBlock logo={currentLogo} />
         </div>
 
         <div className="nav-group">
