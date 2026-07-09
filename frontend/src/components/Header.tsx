@@ -499,6 +499,15 @@ export default function Header({
                       {lang === 'en' ? 'Points Control' : 'Pontrendszer'}
                     </button>
                   )}
+                  {user?.email === ADMIN_EMAIL && (
+  <button 
+    className="drop-item" 
+    style={{ color: activeTab === 'admin_quiz' ? '#ef4444' : '#f59e0b', fontWeight: 'bold' }} 
+    onClick={() => handleNavClick('admin_quiz')}
+  >
+    {lang === 'en' ? 'Quiz Control' : 'Kvíz Kezelése'}
+  </button>
+)}
 
                   {user?.email === ADMIN_EMAIL && (
                     <button className="drop-item" style={{ color: activeTab === 'admin_banned_emails' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_banned_emails')}>
