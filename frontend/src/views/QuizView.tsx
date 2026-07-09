@@ -19,7 +19,7 @@ export default function QuizView({ user }: { user: any }) {
   const [questions, setQuestions] = useState<any[]>([]);
   const [currentIdx, setCurrentIdx] = useState(0);
   
-  // Játékmenet tiszta állapotai
+  // Játékmenet tiszta, lineáris állapotai
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [isAnswered, setIsAnswered] = useState(false);
   const [score, setScore] = useState(0);
@@ -84,13 +84,12 @@ export default function QuizView({ user }: { user: any }) {
     return { title, opts, correct: currentQuestion.correct_option };
   }, [currentQuestion, lang]);
 
-  // 🎯 2. ATOMBIZTOS ÖNÜTEMEZŐ IDŐZÍTŐ (Felszámolja a beragadást és a fagyást)
+  // ⏱️ 2. LEGEGYSZERŰBB, MEGBÍZHATÓ IDŐZÍTŐ
   useEffect(() => {
     if (quizState !== 'playing' || isAnswered) return;
 
-    // Ha lejár az idő, automatikusan elsütjük az időtúllépést üres válasszal
     if (timeLeft <= 0) {
-      handleOptionClick('');
+      handleOptionClick(''); // Időtúllépés üres válasszal
       return;
     }
 
@@ -101,7 +100,7 @@ export default function QuizView({ user }: { user: any }) {
     return () => clearTimeout(timer);
   }, [quizState, isAnswered, timeLeft]);
 
-  // 📡 3. JÁTÉK VÉGE: Eredmények beküldése
+  // 📡 3. JÁTÉK VÉGE: Eredmények biztonságos beküldése
   const handleSubmitResults = async (finalScore: number) => {
     setQuizState('loading');
     setIsSubmitting(true);
@@ -111,7 +110,7 @@ export default function QuizView({ user }: { user: any }) {
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           score: finalScore,
-          userEmail: user?.email
+          userEmail: user?.email || ''
         })
       });
 
@@ -131,20 +130,7 @@ export default function QuizView({ user }: { user: any }) {
     }
   };
 
-  // 🎯 4. KÖZPONTI LÉPTETŐ MOTOR (Side-effect mentes, teljesen lineáris struktúra)
-  const moveToNextQuestion = (currentCalculatedScore: number) => {
-    const nextIndex = currentIdx + 1;
-    if (nextIndex < questions.length) {
-      setCurrentIdx(nextIndex);
-      setSelectedOption(null);
-      setIsAnswered(false);
-      setTimeLeft(20);
-    } else {
-      handleSubmitResults(currentCalculatedScore);
-    }
-  };
-
-  // 🎮 5. VÁLASZ KATTINTÁS KEZELŐ
+  // 🎮 4. VÁLASZ KATTINTÁS KEZELŐ (Tisztán szekvenciális, fagyásmentes motor)
   const handleOptionClick = (optionLetter: string) => {
     if (isAnswered) return;
     
@@ -155,12 +141,21 @@ export default function QuizView({ user }: { user: any }) {
     const addedScore = isCorrect ? 100 : 0;
     const nextScore = score + addedScore;
     
-    // Azonnal frissítjük a helyi pontszámot
+    // Azonnal elmentjük a friss részeredményt
     setScore(nextScore);
 
-    // 1.5 másodpercig villogtatjuk a neon keretet, majd robogunk tovább
+    // 1.5 másodpercig megmutatjuk a visszajelzést, majd ugrunk a következőre vagy a zárásra
     setTimeout(() => {
-      moveToNextQuestion(nextScore);
+      const nextIndex = currentIdx + 1;
+      if (nextIndex < questions.length) {
+        setCurrentIdx(nextIndex);
+        setSelectedOption(null);
+        setIsAnswered(false);
+        setTimeLeft(20);
+      } else {
+        // Elértük a végét (akár 1 kérdésnél is!) -> Közvetlenül indítjuk a mentést a pontos pontszámmal
+        handleSubmitResults(nextScore);
+      }
     }, 1500);
   };
 
