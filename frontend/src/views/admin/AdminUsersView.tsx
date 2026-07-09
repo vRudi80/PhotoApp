@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { BACKEND_URL } from '../../utils/constants';
 
 interface AdminUsersViewProps {
-  allUsers: any[]; // Megmarad a prop kompatibilitás miatt
+  allUsers: any[];
+  // Megmarad a prop kompatibilitás miatt
   clubs: any[];
   userClubEdits: Record<string, string>;
   setUserClubEdits: (edits: any) => void;
@@ -31,11 +32,9 @@ export default function AdminUsersView({
 }: AdminUsersViewProps) {
   
   const [searchTerm, setSearchTerm] = useState('');
-  
   // Helyi felhasználói lista
   const [localUsers, setLocalUsers] = useState<any[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
-
   // Tárhely statisztikák állapota
   const [storageStats, setStorageStats] = useState<Record<string, { count: number, bytes: number }>>({});
   const [isLoadingStats, setIsLoadingStats] = useState(true);
@@ -45,13 +44,11 @@ export default function AdminUsersView({
   const [emailSubject, setEmailSubject] = useState('');
   const [emailBody, setEmailBody] = useState('');
   const [isSendingEmail, setIsSendingEmail] = useState(false);
-
   const silhouetteAvatar = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23475569'><circle cx='12' cy='8' r='4'/><path d='M12 14c-6.1 0-10 4-10 4v2h20v-2s-3.9-4-10-4z'/></svg>";
 
   // Felhasználók közvetlen lekérése hitelesítve
   const loadFreshUsersList = async () => {
     try {
-      // 🎯 JAVÍTVA: Az admin exkluzív felhasználói lista lekérése tokenesítve lett
       const res = await fetch(`${BACKEND_URL}/api/admin/exclusive-users`, {
         headers: getAuthHeaders()
       });
@@ -73,7 +70,6 @@ export default function AdminUsersView({
     
     const fetchStorageStats = async () => {
       try {
-        // 🎯 JAVÍTVA: A tárhely-statisztikák lekérése megkapta a biztonsági tokent
         const res = await fetch(`${BACKEND_URL}/api/admin/user-storage-stats`, {
           headers: getAuthHeaders()
         });
@@ -96,7 +92,7 @@ export default function AdminUsersView({
     };
     fetchStorageStats();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); 
+  }, []);
 
   const formatExactStorage = (bytes: number) => {
     if (!bytes || bytes === 0) return '0 MB';
@@ -120,6 +116,43 @@ export default function AdminUsersView({
       return timeB - timeA; 
     });
   }, [localUsers, searchTerm]);
+
+  // 🎯 ÚJ: IDŐRENDI REGISZTRÁCIÓS STATISZTIKA SZÁMÍTÁSA A CHART-HOZ
+  const chartData = useMemo(() => {
+    if (!localUsers || localUsers.length === 0) return [];
+    
+    const monthlyGroups: Record<string, number> = {};
+    
+    localUsers.forEach(u => {
+      const dateRaw = u.registered_at || u.created_at || u.last_login;
+      if (!dateRaw) return;
+      
+      const d = new Date(dateRaw);
+      if (isNaN(d.getTime())) return;
+      
+      // Csoportosítás Év-Hónap szerint (Pl.: "2026. 03.")
+      const label = d.toLocaleDateString('hu-HU', { year: 'numeric', month: '2-digit' });
+      monthlyGroups[label] = (monthlyGroups[label] || 0) + 1;
+    });
+
+    // Időrendi sorrendbe rendezzük a kulcsokat
+    return Object.entries(monthlyGroups)
+      .map(([date, count]) => ({ date, count }))
+      .sort((a, b) => {
+        const parseDate = (s: string) => {
+          const parts = s.replace(/\s/g, '').split('.');
+          return new Date(Number(parts[0]), Number(parts[1]) - 1).getTime();
+        };
+        return parseDate(a.date) - parseDate(b.date);
+      })
+      .slice(-8); // Az utolsó 8 aktív hónap megjelenítése a túlnyúlás ellen
+  }, [localUsers]);
+
+  // Legmagasabb regisztrációs érték megkeresése a chart skálázásához
+  const maxChartValue = useMemo(() => {
+    const counts = chartData.map(d => d.count);
+    return counts.length > 0 ? Math.max(...counts, 5) : 5;
+  }, [chartData]);
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return '-';
@@ -150,23 +183,19 @@ export default function AdminUsersView({
             : item
         )
       );
-
       setUserClubEdits((prev: any) => {
         const next = { ...prev };
         delete next[email];
         return next;
       });
-
       setUserRoleEdits((prev: any) => {
         const next = { ...prev };
         delete next[email];
         return next;
       });
-
       setTimeout(() => {
         loadFreshUsersList();
       }, 1000);
-
     } catch (error) {
       console.error("Hiba történt a felhasználó mentése során:", error);
       alert("Nem sikerült elmenteni a módosításokat.");
@@ -186,8 +215,6 @@ export default function AdminUsersView({
     setIsSendingEmail(true);
     try {
       const targetEmails = processedUsers.map(u => u.email).filter(Boolean);
-
-      // 🎯 JAVÍTVA: A tömeges hírlevélküldés biztonságosan, hitelesített fejlécekkel fut ki
       const res = await fetch(`${BACKEND_URL}/api/admin/send-bulk-email`, {
         method: 'POST',
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
@@ -197,7 +224,6 @@ export default function AdminUsersView({
           body: emailBody
         })
       });
-
       if (res.ok) {
         alert("🎉 Az e-mailek sikeresen elküldve!");
         setIsEmailModalOpen(false);
@@ -252,6 +278,65 @@ export default function AdminUsersView({
           style={{ padding: '8px 15px', borderRadius: '8px', border: '1px solid #475569', background: '#0f172a', color: 'white', minWidth: '350px', outline: 'none' }}
         />
       </div>
+
+      {/* 🎯 ÚJ: NATÍV RESPONSIVE SVG REGISZTRÁCIÓS CHART PANEL */}
+      {chartData.length > 0 && (
+        <div style={{ background: '#1e293b', border: '1px solid #334155', padding: '20px 24px', borderRadius: '12px', marginBottom: '20px', boxShadow: '0 4px 6px rgba(0,0,0,0.2)' }}>
+          <h4 style={{ margin: '0 0 16px 0', fontSize: '0.9rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            📈 Regisztrációs Trendek (Havi bontás)
+          </h4>
+          
+          <div style={{ width: '100%', height: '180px', position: 'relative' }}>
+            <svg viewBox="0 0 800 180" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
+              {/* Vízszintes háttér rácsvonalak */}
+              <line x1="0" y1="20" x2="800" y2="20" stroke="#334155" strokeWidth="1" strokeDasharray="4" />
+              <line x1="0" y1="70" x2="800" y2="70" stroke="#334155" strokeWidth="1" strokeDasharray="4" />
+              <line x1="0" y1="120" x2="800" y2="120" stroke="#334155" strokeWidth="1" strokeDasharray="4" />
+              <line x1="0" y1="150" x2="800" y2="150" stroke="#475569" strokeWidth="1" />
+
+              {/* Oszlopok kirajzolása és skálázása */}
+              {chartData.map((data, idx) => {
+                const totalBars = chartData.length;
+                const spacing = 800 / totalBars;
+                const barWidth = Math.min(45, spacing * 0.5);
+                const x = idx * spacing + (spacing - barWidth) / 2;
+                
+                // Magasság kalkuláció (maximum 130px magas lehet az oszlop)
+                const barHeight = (data.count / maxChartValue) * 130;
+                const y = 150 - barHeight;
+
+                return (
+                  <g key={idx} style={{ transition: 'all 0.3s' }}>
+                    {/* Gradiens neon oszlop */}
+                    <defs>
+                      <linearGradient id={`barGrad-${idx}`} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#38bdf8" />
+                        <stop offset="100%" stopColor="#2563eb" stopOpacity="0.2" />
+                      </linearGradient>
+                    </defs>
+                    
+                    {/* Interaktív háttér ütköző a könnyebb leolvasáshoz */}
+                    <rect x={x - 10} y="10" width={barWidth + 20} height="140" fill="transparent" style={{ cursor: 'pointer' }} />
+                    
+                    {/* Valódi adat oszlop */}
+                    <rect x={x} y={y} width={barWidth} height={barHeight} fill={`url(#barGrad-${idx})`} rx="4" stroke="#38bdf8" strokeWidth="1" />
+                    
+                    {/* Darabszám számláló az oszlop tetején */}
+                    <text x={x + barWidth / 2} y={y - 8} fill="#f8fafc" fontSize="11" fontWeight="bold" textAnchor="middle">
+                      {data.count} fő
+                    </text>
+
+                    {/* Hónap felirat az X tengely alatt */}
+                    <text x={x + barWidth / 2} y="170" fill="#94a3b8" fontSize="10" fontWeight="600" textAnchor="middle">
+                      {data.date}
+                    </text>
+                  </g>
+                );
+              })}
+            </svg>
+          </div>
+        </div>
+      )}
 
       {/* Felhasználók táblázata */}
       <div style={{ overflowX: 'auto', background: '#1e293b', borderRadius: '12px', border: '1px solid #334155', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}>
@@ -363,13 +448,17 @@ export default function AdminUsersView({
                       )}
                     </td>
 
-                    {/* 4. Statisztikák */}
+                    {/* 4. Statisztikák & Regisztrációs idő */}
                     <td style={{ padding: '15px' }}>
                       <div style={{ fontSize: '0.85rem', color: '#cbd5e1', marginBottom: '4px' }} title="Elemzett képek száma">
                         🤖 AI Elemzés: <span style={{ fontWeight: 'bold', color: u.ai_usage_count > 0 ? '#38bdf8' : '#64748b' }}>{u.ai_usage_count || 0} db</span>
                       </div>
+                      {/* 🎯 ÚJ: Regisztrációs idő beillesztése a táblázatba */}
+                      <div style={{ fontSize: '0.75rem', color: '#38bdf8', fontWeight: '500', marginBottom: '2px' }}>
+                        🌱 Regisztrált: {formatDate(u.registered_at || u.created_at)}
+                      </div>
                       <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                        Belépett:<br/>{formatDate(u.last_login)}
+                        Belépett: {formatDate(u.last_login)}
                       </div>
                     </td>
 
