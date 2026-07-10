@@ -129,6 +129,43 @@ module.exports = function(app, pool) {
   });
 
   // ====================================================================
+  // 🪙 🎯 ÚJ: EXTRA KVÍZ KUPON VÁSÁRLÁSA 5 PONTÉRT
+  // ====================================================================
+  app.post('/api/quiz/buy-token', requireAuth, async (req, res) => {
+    try {
+      const cost = -5; // Szigorúan 5 pont levonás
+
+      // Tranzakcióbiztos könyvelés a központi bankmotoroddal
+      const txResult = await PointsService.handleTransaction(
+        pool,
+        req.user.email,
+        cost,
+        'buy_quiz_token',
+        null,
+        '1 db Extra Kvíz Kupon vásárlása',
+        'Purchased 1 Extra Quiz Coupon'
+      );
+
+      // Jóváírjuk a Kvíz Kupon egyenleget a felhasználónál
+      await pool.query(
+        'UPDATE photo_users SET quiz_balance = quiz_balance + 1 WHERE email = ?',
+        [req.user.email]
+      );
+
+      const [userRows] = await pool.query('SELECT quiz_balance FROM photo_users WHERE email = ?', [req.user.email]);
+
+      res.json({
+        success: true,
+        newPointsBalance: txResult.newBalance,
+        newQuizBalance: userRows[0]?.quiz_balance || 0
+      });
+    } catch (err) {
+      console.error("❌ Hiba a kvízkupon vásárlásakor:", err.message);
+      res.status(400).json({ error: err.message || 'Sikertelen kupon vásárlás.' });
+    }
+  });
+  
+  // ====================================================================
   // 👑 4. ADMINISZTRÁTORI PONTKORREKCIÓ (GOD MODE)
   // ====================================================================
   app.post('/api/admin/adjust-points', requireAuth, async (req, res) => {
