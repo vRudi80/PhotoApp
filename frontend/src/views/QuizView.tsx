@@ -12,22 +12,25 @@ const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
   };
 };
 
-// 🎯 MATEMATIKAI FÁZISOK ÁLLAPOTGÉPE
 type QuizPhase = 'INTRO' | 'LOADING' | 'PLAYING' | 'SUMMARY' | 'ALREADY_PLAYED';
 
 export default function QuizView({ user }: { user: any }) {
   const { lang, t } = useLanguage();
   
+  // Központi State Machine
   const [phase, setPhase] = useState<QuizPhase>('INTRO');
   const [questions, setQuestions] = useState<any[]>([]);
   const [currentIdx, setCurrentIdx] = useState(0);
   
-  // Felhasználó által választott opciók gyűjtőtára: { [questionId]: 'A' }
+  // Felhasználó által választott opciók: { [questionId]: 'A' }
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>({});
   const [timeLeft, setTimeLeft] = useState(20); 
   const [rewardData, setResultData] = useState<{ pointsAwarded: number; score: number } | null>(null);
 
-  // ⏱️ UNIX IDŐBÉLYEG REFERENCIA HELYI REFRESH PAJZSNAK
+  // 🎯 JAVÍTVA: Az isSubmitting állapotváltozó és a hozzá tartozó setter sikeresen visszahelyezve!
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Unix időbélyeg referencia az órajelhez
   const targetEndTimeRef = useRef<number>(0);
 
   // 📡 JÁTÉK INDÍTÁSA
@@ -46,7 +49,6 @@ export default function QuizView({ user }: { user: any }) {
           setCurrentIdx(0);
           setSelectedAnswers({});
           
-          // Beállítjuk a precíz lejárati időbélyeget: Jelenlegi pillanat + 20.5 másodperc puffer
           targetEndTimeRef.current = Date.now() + 20500;
           setTimeLeft(20);
           setPhase('PLAYING');
@@ -63,7 +65,7 @@ export default function QuizView({ user }: { user: any }) {
 
   const currentQuestion = questions[currentIdx];
 
-  // Biztonságos nyelvi kérdésparzer
+  // Kérdésparzer biztonsági pajzzsal
   const parsedQuestion = useMemo(() => {
     if (!currentQuestion) return null;
     const title = lang === 'en' ? currentQuestion.question_en : currentQuestion.question_hu;
@@ -79,11 +81,10 @@ export default function QuizView({ user }: { user: any }) {
     return { title, opts };
   }, [currentQuestion, lang]);
 
-  // 🎯 GOLYÓÁLLÓ IDŐBÉLYEG ALAPÚ VISSZASZÁMLÁLÓ (Kiküszöböli a háttér-fagyásokat)
+  // IDŐBÉLYEG ALAPÚ VISSZASZÁMLÁLÓ
   useEffect(() => {
     if (phase !== 'PLAYING') return;
 
-    // Minden kérdésváltáskor élesítjük a céldátumot
     targetEndTimeRef.current = Date.now() + 20500;
     setTimeLeft(20);
 
@@ -96,17 +97,17 @@ export default function QuizView({ user }: { user: any }) {
 
       if (remaining <= 0) {
         clearInterval(interval);
-        // Időtúllépés esetén üres stringet küldünk be válaszként automatikusan
         handleSelectOption('');
       }
-    }, 250); // 4Hz-es mintavételezés a tökéletesen egyenletes működésért
+    }, 250);
 
     return () => clearInterval(interval);
   }, [phase, currentIdx]);
 
-  // 📡 JÁTÉK LEZÁRÁSA ÉS SZERVEROLDALI KIÉRTÉKELÉS INDÍTÁSA
+  // 📡 EREDMÉNYEK BEKÜLDÉSE A VÉDETT BACKENDRE
   const handleFinalSubmit = async (finalAnswers: Record<number, string>) => {
     setPhase('LOADING');
+    setIsSubmitting(true);
     try {
       const res = await fetch(`${BACKEND_URL}/api/quiz/submit`, {
         method: 'POST',
@@ -127,23 +128,22 @@ export default function QuizView({ user }: { user: any }) {
       }
     } catch (e) {
       setPhase('INTRO');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  // 🎮 AZONNALI, AKASZTÁSMENTES OPCIÓ-KIVÁLASZTÓ LÉPTETŐ
+  // 🎮 AZONNALI OPCIÓ-KIVÁLASZTÓ LÉPTETŐ
   const handleSelectOption = (letter: string) => {
     if (phase !== 'PLAYING' || isSubmitting) return;
 
-    // Elmentjük a válaszát az aktuális kép ID-jéhez rendelve
     const nextAnswers = { ...selectedAnswers, [currentQuestion.id]: letter };
     setSelectedAnswers(nextAnswers);
 
-    // Azonnali ugrás a következő kérdésre, nincsenek késleltető Timeoutok!
     const nextIndex = currentIdx + 1;
     if (nextIndex < questions.length) {
       setCurrentIdx(nextIndex);
     } else {
-      // Ez volt az utolsó feladvány, indítjuk a szerveroldali biztonságos feldolgozást
       handleFinalSubmit(nextAnswers);
     }
   };
@@ -174,7 +174,7 @@ export default function QuizView({ user }: { user: any }) {
         <div style={{ padding: '60px 0', textAlign: 'center' }}>
           <VideoLoader />
           <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginTop: '15px', animation: 'arenaPulse 2s infinite' }}>
-            {lang === 'en' ? 'Analyzing Submissions Secrely...' : 'Biztonságos kiértékelés folyamatban...'}
+            {lang === 'en' ? 'Analyzing Submissions Securely...' : 'Biztonságos kiértékelés folyamatban...'}
           </p>
         </div>
       )}
