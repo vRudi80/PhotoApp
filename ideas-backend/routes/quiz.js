@@ -265,36 +265,55 @@ module.exports = function(app, pool, upload) {
   // ====================================================================
   // 🏆 JAVÍTVA: KVÍZ DICSŐSÉGLISTA (ATOMBUTOS RANGLISTA LEKÉRDEZÉS)
   // ====================================================================
+ // ====================================================================
+  // 🏆 JAVÍTVA: CALENDAR-ALAPÚ KVÍZ RANGLISTA VISSZAMENŐLEGES SZŰRÉSSEL
+  // ====================================================================
   app.get('/api/quiz/leaderboard', requireAuth, async (req, res) => {
-    const { period } = req.query;
-    let whereClause = 'WHERE 1=1';
+    const { period, year, month } = req.query;
     
+    let sql = `
+      SELECT 
+        u.name, 
+        u.avatar_url, 
+        u.club_name,
+        MAX(a.score) as best_score
+      FROM quiz_attempts a
+      JOIN photo_users u ON LOWER(TRIM(a.user_email)) = LOWER(TRIM(u.email))
+    `;
+    
+    let whereClause = 'WHERE 1=1';
+    let params = [];
+
     if (period === 'daily') {
+      // Szigorúan a mai naptári nap
       whereClause = 'WHERE DATE(a.completed_at) = CURDATE()';
     } else if (period === 'weekly') {
-      whereClause = 'WHERE a.completed_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)';
+      // Szigorúan az aktuális naptári hét (hétfőtől indítva a YEARWEEK(..., 1) paranccsal)
+      whereClause = 'WHERE YEARWEEK(a.completed_at, 1) = YEARWEEK(NOW(), 1)';
     } else if (period === 'monthly') {
-      whereClause = 'WHERE a.completed_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)';
+      if (year && month) {
+        // Visszamenőleges szűrés konkrét évre és hónapra
+        whereClause = 'WHERE YEAR(a.completed_at) = ? AND MONTH(a.completed_at) = ?';
+        params.push(Number(year), Number(month));
+      } else {
+        // Alapértelmezetten az aktuális naptári hónap
+        whereClause = 'WHERE YEAR(a.completed_at) = YEAR(NOW()) AND MONTH(a.completed_at) = MONTH(NOW())';
+      }
     }
 
+    sql += `
+      ${whereClause}
+      GROUP BY u.name, u.avatar_url, u.club_name
+      ORDER BY MAX(a.score) DESC, MAX(a.completed_at) ASC
+      LIMIT 50
+    `;
+
     try {
-      const [rows] = await pool.query(`
-        SELECT 
-          u.name, 
-          u.avatar_url, 
-          u.club_name,
-          MAX(a.score) as best_score
-        FROM quiz_attempts a
-        JOIN photo_users u ON LOWER(TRIM(a.user_email)) = LOWER(TRIM(u.email))
-        ${whereClause}
-        GROUP BY u.email, u.name, u.avatar_url, u.club_name
-        ORDER BY MAX(a.score) DESC, MAX(a.completed_at) ASC
-        LIMIT 50
-      `);
+      const [rows] = await pool.query(sql, params);
       res.json(rows);
     } catch (err) {
       console.error("❌ Kvíz toplista lekérési hiba:", err.message);
-      res.status(500).json({ error: 'Nem sikerült betölteni a dicsőséglistát.' });
+      res.status(500).json({ error: 'Nem sikerült lekérni a ranglistát.' });
     }
   });
   
