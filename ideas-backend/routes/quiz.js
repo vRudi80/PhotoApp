@@ -61,28 +61,27 @@ module.exports = function(app, pool, upload) {
     }
   });
 
-  // 📡 2. KIÉRTÉKELÉS ÉS TRANZAKCIÓBIZTOS MENTÉS (JAVÍTVA)
+  // 📡 2. KIÉRTÉKELÉS, MEGOLDÓKULCS VISSZAKÜLDÉS ÉS LEDGER KÖNYVELÉS
   app.post('/api/quiz/submit', requireAuth, async (req, res) => {
     const { answers, userEmail } = req.body;
     if (!userEmail || req.user.email !== userEmail.toLowerCase().trim()) {
       return res.status(403).json({ error: 'Munkamenet biztonsági eltérés!' });
     }
 
-    try {
-      const [checkAttempt] = await pool.query(
-        'SELECT id FROM quiz_attempts WHERE user_email = ? AND DATE(completed_at) = CURDATE()',
-        [req.user.email]
-      );
-      if (checkAttempt.length > 0) {
-        return res.status(400).json({ error: 'Ma már leadtad a napi kvíz eredményedet!' });
-      }
-    } catch (e) {}
+    const [checkAttempt] = await pool.query(
+      'SELECT id FROM quiz_attempts WHERE user_email = ? AND DATE(completed_at) = CURDATE()',
+      [req.user.email]
+    );
+    if (checkAttempt.length > 0) {
+      return res.status(400).json({ error: 'Ma már leadtad a napi kvíz eredményedet!' });
+    }
 
     let conn; 
     try {
       let serverCalculatedScore = 0;
       const submittedAnswers = answers || {};
       const questionIds = Object.keys(submittedAnswers);
+      const correctAnswersMap = {}; // 🎯 MEGKERÜLŐ: Ebbe gyűjtjük a válaszokat a frontendnek
 
       if (questionIds.length > 0) {
         const [dbQuestions] = await pool.query(
@@ -91,6 +90,7 @@ module.exports = function(app, pool, upload) {
         );
 
         dbQuestions.forEach(q => {
+          correctAnswersMap[q.id] = q.correct_option; 
           const userChoice = submittedAnswers[q.id];
           if (userChoice && String(userChoice).toUpperCase() === String(q.correct_option).toUpperCase()) {
             serverCalculatedScore += 100;
@@ -103,31 +103,48 @@ module.exports = function(app, pool, upload) {
       conn = await pool.getConnection();
       await conn.beginTransaction();
 
-      // 🎯 JAVÍTVA: Közvetlen, független inline pontfrissítés! Teljesen immunis a Linux fájlrendszer-hibákra.
       if (pointsToAward > 0) {
+        // Frissítjük a felhasználó egyenlegét
+        await conn.query(
+          'UPDATE photo_users SET points_balance = points_balance + ? WHERE email = ?',
+          [pointsToAward, req.user.email]
+          );
+
+        // 🎯 ÚJ: Beírjuk a pontkönyvelő naplóba spendable valutaként!
         try {
           await conn.query(
-            'UPDATE photo_users SET points_balance = points_balance + ? WHERE email = ?',
-            [pointsToAward, req.user.email]
+            `INSERT INTO photo_points_ledger (user_email, points, description, created_at) 
+             VALUES (?, ?, '🎮 LensMaster Kvíz Jutalom (Felhasználható)', NOW())`,
+            [req.user.email, pointsToAward]
           );
-        } catch (pointsErr) {
-          console.warn("⚠️ Figyelmeztetés: a pontegyenleg oszlop eltérhet, de a mentés folytatódik:", pointsErr.message);
+        } catch (ledgerErr) {
+          // Fallback, ha a táblában más oszlopnevek lennének (email/amount)
+          await conn.query(
+            `INSERT INTO photo_points_ledger (email, amount, description, created_at) 
+             VALUES (?, ?, '🎮 LensMaster Kvíz Jutalom (Felhasználható)', NOW())`,
+            [req.user.email, pointsToAward]
+          ).catch(e => console.error("Ledger struktúra eltérés:", e.message));
         }
       }
 
-      // Rögzítjük a kísérletet
+      // Rögzítjük a kísérletet a kvíznaplóba
       await conn.query(
         'INSERT INTO quiz_attempts (user_email, score, points_awarded, completed_at) VALUES (?, ?, ?, NOW())',
         [req.user.email, serverCalculatedScore, pointsToAward]
       );
 
       await conn.commit();
-      res.json({ success: true, score: serverCalculatedScore, pointsAwarded: pointsToAward });
+      
+      // 🎯 ÚJ: Visszaküldjük a pontokat ÉS a helyes megoldókulcsot is a hibalistához!
+      res.json({ 
+        success: true, 
+        score: serverCalculatedScore, 
+        pointsAwarded: pointsToAward,
+        correctAnswers: correctAnswersMap 
+      });
     } catch (err) {
       console.error("❌ Éles kvíz hiba:", err.message);
-      if (conn) {
-        try { await conn.rollback(); } catch (e) {}
-      }
+      if (conn) { try { await conn.rollback(); } catch (e) {} }
       res.status(500).json({ error: 'Szerver hiba az eredmény kiértékelésekor.' });
     } finally {
       if (conn) conn.release(); 
