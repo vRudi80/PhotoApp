@@ -40,7 +40,7 @@ async function requireAuth(req, res, next) {
 
 module.exports = function(app, pool, upload) {
 
-  // 📡 1. NAPI KVÍZ KÉRDÉSEK LEKÉRÉSE (BIZTONSÁGOS: A helyes opció rejtve marad!)
+  // 📡 1. NAPI KVÍZ KÉRDÉSEK LEKÉRÉSE (VÉDETT)
   app.get('/api/quiz/questions', requireAuth, async (req, res) => {
     try {
       const [attempts] = await pool.query(
@@ -51,7 +51,6 @@ module.exports = function(app, pool, upload) {
         return res.json({ alreadyPlayed: true, questions: [] });
       }
 
-      // Szigorúan kihagyjuk a correct_option-t, hogy ne lehessen ellopni a kliensoldalon
       const [questions] = await pool.query(
         `SELECT id, type, image_url, question_hu, question_en, options_hu, options_en 
          FROM quiz_questions 
@@ -63,9 +62,9 @@ module.exports = function(app, pool, upload) {
     }
   });
 
-  // 📡 2. KIÉRTÉKELÉS ÉS PONTOSZTÁS (SZERVEROLDALI BIZTONSÁGI JAVÍTÁS)
+  // 📡 2. KIÉRTÉKELÉS ÉS PONTOSZTÁS (VÉDETT ÉS JAVÍTVA)
   app.post('/api/quiz/submit', requireAuth, async (req, res) => {
-    const { answers, userEmail } = req.body; // answers: { [questionId]: 'A' } formátumú objektum
+    const { answers, userEmail } = req.body;
     if (!userEmail || req.user.email !== userEmail.toLowerCase().trim()) {
       return res.status(403).json({ error: 'Munkamenet biztonsági eltérés!' });
     }
@@ -75,15 +74,16 @@ module.exports = function(app, pool, upload) {
       [req.user.email]
     );
     if (checkAttempt.length > 0) {
-      return res.status(400).json({ error: 'Ma már játszottál!' });
+      return res.status(400).json({ error: 'Ma már leadtad a napi kvíz eredményedet!' });
     }
 
+    // 🎯 JAVÍTVA: Előre deklaráljuk a változót, hogy elérhető legyen a végén is!
+    let conn; 
     try {
       let serverCalculatedScore = 0;
       const submittedAnswers = answers || {};
-
-      // Végigmegyünk a beküldött válaszokon és az adatbázis alapján hitelesítjük őket
       const questionIds = Object.keys(submittedAnswers);
+
       if (questionIds.length > 0) {
         const [dbQuestions] = await pool.query(
           'SELECT id, correct_option FROM quiz_questions WHERE id IN (?)',
@@ -98,10 +98,9 @@ module.exports = function(app, pool, upload) {
         });
       }
 
-      // Pontszámítás: max 50 pont osztható ki
       const pointsToAward = Math.min(50, Math.floor(serverCalculatedScore / 20));
 
-      const conn = await pool.getConnection();
+      conn = await pool.getConnection();
       await conn.beginTransaction();
 
       if (pointsToAward > 0) {
@@ -117,12 +116,18 @@ module.exports = function(app, pool, upload) {
       );
 
       await conn.commit();
-      conn.release();
-
       res.json({ success: true, score: serverCalculatedScore, pointsAwarded: pointsToAward });
     } catch (err) {
-      console.error("🔥 Szerveroldali kvízhiba:", err.message);
-      res.status(500).json({ error: 'Szerveroldali hiba a kiértékeléskor.' });
+      console.error("❌ Kvíz mentési hiba:", err.message);
+      try {
+        if (conn && conn.connection && !conn.connection._closing && !conn.connection._fatalError) {
+          await conn.rollback();
+        }
+      } catch (e) {}
+      res.status(500).json({ error: 'Szerver hiba az eredmény kiértékelésekor.' });
+    } finally {
+      // 🎯 JAVÍTVA: Biztonságos szál-visszaadás a medencébe
+      if (conn) conn.release(); 
     }
   });
 
@@ -179,5 +184,3 @@ module.exports = function(app, pool, upload) {
     try { await pool.query('DELETE FROM quiz_questions WHERE id = ?', [req.params.id]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 };
-
- 
