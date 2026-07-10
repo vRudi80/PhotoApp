@@ -259,8 +259,8 @@ module.exports = function(app, pool, upload) {
       res.status(500).json({ error: 'Nem sikerült betölteni a kvíztörténetet.' });
     }
   });
- // ====================================================================
-  // 🏆 ÚJRA JAVÍTVA: KVÍZ RANGLISTA (COLLATION MIX HIBA ELHÁRÍTVA)
+// ====================================================================
+  // 🏆 ÚJ: KUMULATÍV KVÍZ RANGLISTA (ÖSSZES KÉRDÉS ÉS HELYES VÁLASZ ALAPJÁN)
   // ====================================================================
   app.get('/api/quiz/leaderboard', requireAuth, async (req, res) => {
     const { period, year, month } = req.query;
@@ -270,9 +270,12 @@ module.exports = function(app, pool, upload) {
         u.name, 
         u.club_name,
         u.avatar_url,
-        MAX(a.score) as best_score
+        /* 1 kísérlet = 10 kérdés. A helyes válaszok száma = score / 100 */
+        CAST(SUM(a.score) / 100 AS UNSIGNED) as total_correct,
+        CAST(COUNT(a.id) * 10 AS UNSIGNED) as total_questions,
+        /* Összesített százalék kiszámítása */
+        ROUND((SUM(a.score) / (COUNT(a.id) * 100)) * 100) as percentage
       FROM quiz_attempts a
-      /* 🎯 KORREKCIÓ: Kényszerített collation egyezőség az '=' művelethez */
       JOIN photo_users u ON a.user_email = u.email COLLATE utf8mb4_general_ci
     `;
     
@@ -292,10 +295,11 @@ module.exports = function(app, pool, upload) {
       }
     }
 
+    /* Csoportosítás és sorrendbe rakás az összesített százalékos arány alapján */
     sql += `
       ${whereClause}
       GROUP BY u.email, u.name, u.club_name, u.avatar_url
-      ORDER BY best_score DESC
+      ORDER BY (SUM(a.score) / COUNT(a.id)) DESC
       LIMIT 50
     `;
 
