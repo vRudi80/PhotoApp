@@ -39,7 +39,6 @@ export default function QuizView({ user }: { user: any }) {
   const [leaderboardData, setLeaderboardData] = useState<any[]>([]);
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
 
-  // Alapértelmezett naptári horgonyok (Aktuális év és hónap)
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth() + 1;
   const [selectedYear, setSelectedYear] = useState(currentYear);
@@ -59,7 +58,6 @@ export default function QuizView({ user }: { user: any }) {
     } catch (e) { console.error(e); }
   };
 
-  // 🎯 MÓDOSÍTVA: URL paraméteres visszamenőleges adatlekérés havi bontás esetén
   const fetchLeaderboard = async (period: LeaderboardPeriod, y: number, m: number) => {
     setLoadingLeaderboard(true);
     try {
@@ -81,14 +79,13 @@ export default function QuizView({ user }: { user: any }) {
     }
   }, [phase]);
 
-  // Ranglista figyelő: újra lő, ha változik a periódus, az év vagy a kiválasztott hónap
   useEffect(() => {
     if (phase === 'INTRO' && showLeaderboard) {
       fetchLeaderboard(leaderboardPeriod, selectedYear, selectedMonth);
     }
   }, [showLeaderboard, leaderboardPeriod, selectedYear, selectedMonth, phase]);
 
-  // rAF ALAPÚ ZAVARTALAN ÓRAMOTOR
+  // rAF ALAPÚ MEGSZAKÍTHATATLAN ÓRAMOTOR
   useEffect(() => {
     if (phase !== 'PLAYING' || !currentQuestion) return;
 
@@ -318,7 +315,6 @@ export default function QuizView({ user }: { user: any }) {
                 </div>
               </div>
 
-              {/* 🎯 ÚJ: DINAMIKUS VISSZAMENŐLEGES HISTÓRIA-SZŰRŐ (Kizárólag ha a 'Havi' fül aktív) */}
               {leaderboardPeriod === 'monthly' && (
                 <div style={{ display: 'flex', gap: '10px', alignItems: 'center', background: '#0f172a50', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-main)', flexWrap: 'wrap' }}>
                   <span style={{ color: '#94a3b8', fontSize: '0.8rem', fontWeight: 'bold' }}>📅 IDŐSZAK KIVÁLASZTÁSA:</span>
@@ -340,9 +336,6 @@ export default function QuizView({ user }: { user: any }) {
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {leaderboardData.map((row, index) => {
-                    const correctCount = Math.round(row.best_score / 100);
-                    const percentage = Math.round(row.best_score / 10);
-                    
                     return (
                       <div key={index} style={{ display: 'flex', alignItems: 'center', gap: '12px', background: '#0f172a30', border: '1px solid var(--border-main)', padding: '10px 14px', borderRadius: '8px', fontSize: '0.88rem' }}>
                         <span style={{ width: '24px', textAlign: 'center', fontWeight: 'bold', color: index === 0 ? '#fbbf24' : index === 1 ? '#cbd5e1' : index === 2 ? '#d97706' : '#475569' }}>
@@ -358,9 +351,14 @@ export default function QuizView({ user }: { user: any }) {
                           {row.club_name && <small style={{ color: '#64748b', fontSize: '0.75rem', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>🏰 {row.club_name}</small>}
                         </div>
 
+                        {/* 🎯 MÓDOSÍTVA: Teljesen dinamikus, összesített darabszámok és backend-alapú százalék */}
                         <div style={{ textAlign: 'right', flexShrink: 0, display: 'flex', alignItems: 'center', gap: '15px' }}>
-                          <span style={{ color: '#cbd5e1', fontSize: '0.82rem', fontFamily: 'monospace' }}>{correctCount} / 10</span>
-                          <span style={{ color: '#38bdf8', fontWeight: 'bold', minWidth: '45px', textAlign: 'right' }}>{percentage}%</span>
+                          <span style={{ color: '#cbd5e1', fontSize: '0.82rem', fontFamily: 'monospace' }}>
+                            {row.total_correct} / {row.total_questions}
+                          </span>
+                          <span style={{ color: '#38bdf8', fontWeight: 'bold', minWidth: '45px', textAlign: 'right' }}>
+                            {row.percentage}%
+                          </span>
                         </div>
                       </div>
                     );
