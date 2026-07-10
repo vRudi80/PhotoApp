@@ -348,7 +348,7 @@ export default function QuizView({ user }: { user: any }) {
 
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <strong style={{ display: 'block', color: '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{row.name}</strong>
-                          {row.club_name && <small style={{ color: '#64748b', fontSize: '0.75rem', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>🏰 {row.club_name}</small>}
+                          {row.club_name && <small style={{ color: '#64748b', fontSize: '0.75rem', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}> {row.club_name}</small>}
                         </div>
 
                         {/* 🎯 MÓDOSÍTVA: Teljesen dinamikus, összesített darabszámok és backend-alapú százalék */}
