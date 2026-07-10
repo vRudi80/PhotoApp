@@ -3,9 +3,10 @@ const cloudinary = require('cloudinary').v2;
 const { OAuth2Client } = require('google-auth-library');
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-// 🎯 KÖZPONTI BANKMOTOR BEÉPÍTÉSE (Pontosan úgy, ahogy a store.js-ben használtad)
+// 🎯 KÖZPONTI BANKMOTOR BEÉPÍTÉSE
 const PointsService = require('../PointsService'); 
 
+// 🎯 BIZTONSÁGI TARTALÉK EMAIL - Pontosan megegyezik a weekly.js konfigurációjával
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "kovari.rudolf@gmail.com";
 
 cloudinary.config({
@@ -15,7 +16,7 @@ cloudinary.config({
 });
 
 // ====================================================================
-// 🔒 BIZTONSÁGIŐR MIDDLEWARE
+// 🔒 HITELESÍTÉSI MIDDLEWARE (Pontos másolata a weekly.js logikájának)
 // ====================================================================
 async function requireAuth(req, res, next) {
   try {
@@ -23,30 +24,35 @@ async function requireAuth(req, res, next) {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return res.status(401).json({ error: 'Hozzáférés megtagadva! Token hiányzik.' });
     }
+
     const token = authHeader.split(' ')[1];
     const ticket = await client.verifyIdToken({
       idToken: token,
       audience: process.env.GOOGLE_CLIENT_ID,
     });
+    
     const payload = ticket.getPayload();
     if (!payload || !payload.email) {
-      return res.status(401).json({ error: 'Érvénytelen munkamenet token.' });
+      return res.status(401).json({ error: 'Érvénytelen vagy sérült Google token.' });
     }
+
     req.user = {
-      email: payload.email.toLowerCase().trim(),
+      email: payload.email,
       name: payload.name,
-      isAdmin: payload.email.toLowerCase().trim() === ADMIN_EMAIL.toLowerCase().trim()
+      isAdmin: payload.email === ADMIN_EMAIL
     };
+
     next();
   } catch (error) {
-    return res.status(401).json({ error: 'Lejárt vagy hibás hitelesítés!' });
+    console.error("🔒 Biztonsági őr hiba a kvíz modulban:", error.message);
+    return res.status(401).json({ error: 'Lejárt vagy érvénytelen munkamenet token!' });
   }
 }
 
 module.exports = function(app, pool, upload) {
 
   // ====================================================================
-  // 📡 1. NAPI KVÍZ KÉRDÉSEK LEKÉRÉSE A JÁTÉKOSOKNAK (VÉDETT)
+  // 📡 1. NAPI KVÍZ KÉRDÉSEK LEKÉRÉSE A JÁTÉKOSOKNAK
   // ====================================================================
   app.get('/api/quiz/questions', requireAuth, async (req, res) => {
     try {
@@ -70,24 +76,23 @@ module.exports = function(app, pool, upload) {
   });
 
   // ====================================================================
-  // 📡 2. KIÉRTÉKELÉS ÉS KÖZPONTI LEDGER PONTKÖNYVELÉS (INTEGRÁLVA!)
+  // 📡 2. KIÉRTÉKELÉS ÉS KÖZPONTI LEDGER PONTKÖNYVELÉS (STRUKTÚRA FIXALVA)
   // ====================================================================
   app.post('/api/quiz/submit', requireAuth, async (req, res) => {
     const { answers, userEmail } = req.body;
-    if (!userEmail || req.user.email !== userEmail.toLowerCase().trim()) {
+    if (!userEmail || req.user.email !== userEmail) {
       return res.status(403).json({ error: 'Munkamenet biztonsági eltérés!' });
     }
 
-    const [checkAttempt] = await pool.query(
-      'SELECT id FROM quiz_attempts WHERE user_email = ? AND DATE(completed_at) = CURDATE()',
-      [req.user.email]
-    );
-    if (checkAttempt.length > 0) {
-      return res.status(400).json({ error: 'Ma már leadtad a napi kvíz eredményedet!' });
-    }
-
-    let conn; 
     try {
+      const [checkAttempt] = await pool.query(
+        'SELECT id FROM quiz_attempts WHERE user_email = ? AND DATE(completed_at) = CURDATE()',
+        [req.user.email]
+      );
+      if (checkAttempt.length > 0) {
+        return res.status(400).json({ error: 'Ma már leadtad a napi kvíz eredményedet!' });
+      }
+
       let serverCalculatedScore = 0;
       const submittedAnswers = answers || {};
       const questionIds = Object.keys(submittedAnswers);
@@ -108,35 +113,31 @@ module.exports = function(app, pool, upload) {
         });
       }
 
-      // Minden 20 elért kvízpont után adunk 1 levásárolható Aréna pontot (Max 50p)
       const pointsToAward = Math.min(50, Math.floor(serverCalculatedScore / 20));
 
-      conn = await pool.getConnection();
-      await conn.beginTransaction();
-
-      if (pointsToAward > 0) {
-        // 🎯 KÖZPONTI BANKMOTOR MEGHÍVÁSA: A meglévő kapcsolatfolyamot (conn) adjuk át neki,
-        // így tökéletesen beírja a photo_points_ledger táblába az összes szükséges metaadatot!
-        await PointsService.handleTransaction(
-          conn,
-          req.user.email,
-          pointsToAward,
-          'quiz_reward',
-          null, // related_id opcionális
-          `🎮 LensMaster Kvíz jutalom (+${pointsToAward}p)`,
-          `LensMaster Quiz reward (+${pointsToAward}p)`
-        );
-
-        // A PointsService belsőleg elintézi a photo_users egyenleg frissítését is!
-      }
-
-      // Rögzítjük a független kvízkísérletet a statisztikákhoz
-      await conn.query(
+      // 1. Első lépésként elmentjük a kísérletet a kvíznaplóba
+      await pool.query(
         'INSERT INTO quiz_attempts (user_email, score, points_awarded, completed_at) VALUES (?, ?, ?, NOW())',
         [req.user.email, serverCalculatedScore, pointsToAward]
       );
 
-      await conn.commit();
+      // 2. 🎯 JAVÍTVA: Közvetlenül a 'pool' objektumot adjuk át a PointsService-nek, 
+      // pontosan úgy, ahogy a weekly.js (314. sor) teszi a szavazási bónusznál!
+      if (pointsToAward > 0) {
+        try {
+          await PointsService.handleTransaction(
+            pool,
+            req.user.email,
+            pointsToAward,
+            'quiz_reward',
+            null, 
+            `🎮 LensMaster Kvíz jutalom (+${pointsToAward}p)`,
+            `LensMaster Quiz reward (+${pointsToAward}p)`
+          );
+        } catch (pointsErr) {
+          console.error("⚠️ Hiba a PointsService könyvelése közben:", pointsErr.message);
+        }
+      }
       
       res.json({ 
         success: true, 
@@ -144,12 +145,10 @@ module.exports = function(app, pool, upload) {
         pointsAwarded: pointsToAward,
         correctAnswers: correctAnswersMap 
       });
+
     } catch (err) {
       console.error("❌ Éles központi kvíz hiba:", err.message);
-      if (conn) { try { await conn.rollback(); } catch (e) {} }
       res.status(500).json({ error: 'Szerver hiba az eredmény kiértékelésekor.' });
-    } finally {
-      if (conn) conn.release(); 
     }
   });
 
