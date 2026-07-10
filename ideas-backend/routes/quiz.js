@@ -80,7 +80,9 @@ module.exports = function(app, pool, upload) {
     }
   });
 
-  // 🎯 MÓDOSÍTVA: SUBMIT ÉS AUTOMATIKUS KUPON-LEVONÁS RÁADÁS KÖR ESETÉN
+ // ====================================================================
+  // 📡 2. KIÉRTÉKELÉS ÉS KÖZPONTI LEDGER PONTKÖNYVELÉS (TRANZAKCIÓ FIX)
+  // ====================================================================
   app.post('/api/quiz/submit', requireAuth, async (req, res) => {
     const { answers, userEmail } = req.body;
     if (!userEmail || req.user.email !== userEmail) {
@@ -121,41 +123,48 @@ module.exports = function(app, pool, upload) {
 
       const pointsToAward = Math.min(50, Math.floor(serverCalculatedScore / 20));
 
-      // Szigorú egyedi szálkapcsolat a belső tranzakció kezeléséhez
-      const conn = await pool.getConnection();
-      await conn.beginTransaction();
+      // 1. Ha kuponos kör volt, levonjuk a ráadás kupont közvetlenül
+      if (usesToken) {
+        await pool.query('UPDATE photo_users SET quiz_balance = quiz_balance - 1 WHERE email = ?', [req.user.email]);
+      }
 
-      try {
-        if (usesToken) {
-          await conn.query('UPDATE photo_users SET quiz_balance = quiz_balance - 1 WHERE email = ?', [req.user.email]);
-        }
+      // 2. Elmentjük a független kísérletet a kvíznaplóba
+      await pool.query(
+        'INSERT INTO quiz_attempts (user_email, score, points_awarded, completed_at) VALUES (?, ?, ?, NOW())',
+        [req.user.email, serverCalculatedScore, pointsToAward]
+      );
 
-        await conn.query(
-          'INSERT INTO quiz_attempts (user_email, score, points_awarded, completed_at) VALUES (?, ?, ?, NOW())',
-          [req.user.email, serverCalculatedScore, pointsToAward]
-        );
-
-        if (pointsToAward > 0) {
+      // 3. 🎯 JAVÍTVA: Közvetlenül a 'pool' objektumot adjuk át a belső bankmotornak,
+      // pontosan úgy, ahogy a weekly.js is teszi szavazáskor! Nincs többé egymásnak feszülő tranzakció.
+      if (pointsToAward > 0) {
+        try {
           await PointsService.handleTransaction(
-            conn, req.user.email, pointsToAward, 'quiz_reward', null,
-            `🎮 LensMaster Kvíz jutalom (+${pointsToAward}p)`, `LensMaster Quiz reward (+${pointsToAward}p)`
+            pool,
+            req.user.email,
+            pointsToAward,
+            'quiz_reward',
+            null, 
+            `🎮 LensMaster Kvíz jutalom (+${pointsToAward}p)`,
+            `LensMaster Quiz reward (+${pointsToAward}p)`
           );
+        } catch (pointsErr) {
+          console.error("⚠️ Hiba a PointsService könyvelése közben:", pointsErr.message);
         }
-
-        await conn.commit();
-      } catch (txErr) {
-        await conn.rollback();
-        throw txErr;
-      } finally {
-        conn.release();
       }
       
-      res.json({ success: true, score: serverCalculatedScore, pointsAwarded: pointsToAward, correctAnswers: correctAnswersMap });
+      res.json({ 
+        success: true, 
+        score: serverCalculatedScore, 
+        pointsAwarded: pointsToAward,
+        correctAnswers: correctAnswersMap 
+      });
+
     } catch (err) {
+      console.error("❌ Éles központi kvíz submit hiba:", err.message);
       res.status(500).json({ error: 'Szerver hiba az eredmény kiértékelésekor.' });
     }
   });
-
+  
   // ====================================================================
   // 📡 3. ADMINISZTRÁCIÓS MENTÉS (HIÁNYTALAN + MAGYARÁZATOK)
   // ====================================================================
