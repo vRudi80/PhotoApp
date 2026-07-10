@@ -21,7 +21,6 @@ export default function QuizView({ user }: { user: any }) {
   const [questions, setQuestions] = useState<any[]>([]);
   const [currentIdx, setCurrentIdx] = useState(0);
   
-  // Kiválasztott válaszok gyűjtőtára: { [questionId]: 'A' }
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>({});
   const [timeLeft, setTimeLeft] = useState(20); 
   const [rewardData, setResultData] = useState<{ pointsAwarded: number; score: number } | null>(null);
@@ -57,7 +56,6 @@ export default function QuizView({ user }: { user: any }) {
 
   const currentQuestion = questions[currentIdx];
 
-  // Kérdések nyelvi elemzője biztonsági hálóval
   const parsedQuestion = useMemo(() => {
     if (!currentQuestion) return null;
     const title = lang === 'en' ? currentQuestion.question_en : currentQuestion.question_hu;
@@ -73,18 +71,16 @@ export default function QuizView({ user }: { user: any }) {
     return { title, opts };
   }, [currentQuestion, lang]);
 
-  // 🎯 JAVÍTVA: Golyóálló 1 másodperces relatív órajel-effektus.
-  // Kizárólag a kérdés indexének és a fázis változásakor indul újra, immunis a szülő komponensek rángatásaira!
+  // 🎯 TISZTA RELATÍV VISSZASZÁMLÁLÓ
   useEffect(() => {
     if (phase !== 'PLAYING') return;
 
-    setTimeLeft(20); // Minden kérdés betöltésekor pontosan 20-ra állítjuk a számlálót
+    setTimeLeft(20); 
 
     const interval = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) {
           clearInterval(interval);
-          // Időtúllépés esetén azonnali automatikus léptetés üres válasszal a következő tick-en
           setTimeout(() => handleSelectOption(''), 0);
           return 0;
         }
@@ -95,7 +91,7 @@ export default function QuizView({ user }: { user: any }) {
     return () => clearInterval(interval);
   }, [phase, currentIdx]);
 
-  // 📡 KVÍZ LEZÁRÁSA ÉS SZERVEROLDALI KIÉRTÉKELÉS INDÍTÁSA
+  // 📡 FINAL SUBMIT
   const handleFinalSubmit = async (finalAnswers: Record<number, string>) => {
     setPhase('LOADING');
     setIsSubmitting(true);
@@ -114,7 +110,7 @@ export default function QuizView({ user }: { user: any }) {
         setResultData(data);
         setPhase('SUMMARY');
       } else {
-        alert("Sikertelen beküldés.");
+        alert("Sikertelen beküldés a szerveroldali hiba miatt.");
         setPhase('INTRO');
       }
     } catch (e) {
@@ -124,7 +120,6 @@ export default function QuizView({ user }: { user: any }) {
     }
   };
 
-  // 🎮 AKASZTÁSMENTES LÉPTETŐ MOTOR
   const handleSelectOption = (letter: string) => {
     if (phase !== 'PLAYING' || isSubmitting) return;
 
@@ -142,7 +137,6 @@ export default function QuizView({ user }: { user: any }) {
   return (
     <div style={{ width: '100%', maxWidth: '800px', margin: '0 auto', boxSizing: 'border-box', padding: '10px' }}>
       
-      {/* ── A: INTRO PANEL ── */}
       {phase === 'INTRO' && (
         <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', padding: '40px 30px', borderRadius: '12px', textAlign: 'center', boxShadow: '0 10px 25px rgba(0,0,0,0.3)' }}>
           <Trophy size={48} color="#f59e0b" style={{ margin: '0 auto 15px auto', display: 'block' }} />
@@ -160,7 +154,6 @@ export default function QuizView({ user }: { user: any }) {
         </div>
       )}
 
-      {/* ── B: LOADING PANEL ── */}
       {phase === 'LOADING' && (
         <div style={{ padding: '60px 0', textAlign: 'center' }}>
           <VideoLoader />
@@ -170,7 +163,6 @@ export default function QuizView({ user }: { user: any }) {
         </div>
       )}
 
-      {/* ── C: AKTÍV JÁTÉKTÉR ── */}
       {phase === 'PLAYING' && parsedQuestion && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           
@@ -232,7 +224,6 @@ export default function QuizView({ user }: { user: any }) {
         </div>
       )}
 
-      {/* ── D: JUTALOMÖSSZEGZŐ SUMMARY PANEL ── */}
       {phase === 'SUMMARY' && rewardData && (
         <div style={{ background: 'var(--bg-card)', border: '1px solid #fbbf24', padding: '40px 30px', borderRadius: '12px', textAlign: 'center', boxShadow: '0px 10px 30px rgba(251,191,36,0.15)' }}>
           <Sparkles size={48} color="#fbbf24" style={{ margin: '0 auto 15px auto', display: 'block' }} />
@@ -252,12 +243,11 @@ export default function QuizView({ user }: { user: any }) {
           </div>
 
           <button onClick={() => setPhase('INTRO')} style={{ width: '100%', background: 'transparent', border: '1px solid var(--border-main)', color: 'var(--text-title)', padding: '12px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>
-            {lang === 'en' ? 'Close Portal' : 'Kvízpult Bezárása'}
+            {lang === 'en' ? 'Close Panel' : 'Kvízpult Bezárása'}
           </button>
         </div>
       )}
 
-      {/* ── E: CHEAT PROTECTION KAPU ── */}
       {phase === 'ALREADY_PLAYED' && (
         <div style={{ background: 'var(--bg-card)', border: '1px solid #ef4444', padding: '40px 30px', borderRadius: '12px', textAlign: 'center', boxShadow: '0 10px 25px rgba(239,68,68,0.1)' }}>
           <div style={{ fontSize: '3rem', marginBottom: '10px' }}>⏳</div>
