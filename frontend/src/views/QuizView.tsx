@@ -299,7 +299,15 @@ export default function QuizView({ user }: { user: any }) {
           <button onClick={() => setPhase('INTRO')} style={{ background: '#222f47', border: '1px solid var(--border-main)', color: 'white', padding: '10px 24px', borderRadius: '6px', cursor: 'pointer', marginTop: '15px' }}>Bezárás</button>
         </div>
       )}
-
+<div 
+                      onClick={() => setLightboxImage(q.image_url)}
+                      style={{ width: '60px', height: '60px', background: '#000', borderRadius: '6px', overflow: 'hidden', flexShrink: 0, cursor: 'pointer', transition: 'transform 0.1s' }}
+                      onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'}
+                      onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                      title="Kattints a nagyításhoz"
+                    >
+                      <img src={q.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    </div>
     </div>
   );
 }
