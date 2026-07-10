@@ -11,6 +11,49 @@ const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
 
 type QuizPhase = 'INTRO' | 'LOADING' | 'PLAYING' | 'SUMMARY' | 'ALREADY_PLAYED';
 
+// ====================================================================
+// 🎯 IZOLÁLT ÓRA- ÉS HALADÁSI SÁV KOMPONENS (IMMUNIS AZ EGÉRMOZGÁSRA)
+// ====================================================================
+function QuizTimerBlock({ currentIdx, totalQuestions, onTimeout }: { currentIdx: number; totalQuestions: number; onTimeout: () => void }) {
+  const [timeLeft, setTimeLeft] = useState(20);
+
+  useEffect(() => {
+    setTimeLeft(20); // Alaphelyzetbe állítás a felcsatoláskor
+
+    const interval = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          setTimeout(() => onTimeout(), 0);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []); // Az üres tömb garantálja, hogy egérmozgásra SOHA nem indul újra!
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-card)', padding: '12px 20px', borderRadius: '8px', border: '1px solid var(--border-main)' }}>
+        <span style={{ color: '#94a3b8', fontSize: '0.85rem', fontWeight: 'bold' }}>
+          📋 Kérdés: <span style={{ color: '#38bdf8' }}>{currentIdx + 1} / {totalQuestions}</span>
+        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: timeLeft <= 5 ? '#ef4444' : '#10b981', fontSize: '0.9rem', fontWeight: 'bold' }}>
+          <Timer size={14} /> <span>{timeLeft}s</span>
+        </div>
+      </div>
+      <div style={{ width: '100%', height: '4px', background: '#1e293b', borderRadius: '2px', overflow: 'hidden' }}>
+        <div style={{ width: `${(timeLeft / 20) * 100}%`, height: '100%', background: timeLeft <= 5 ? '#ef4444' : 'linear-gradient(90deg, #38bdf8, #10b981)', transition: 'width 1s linear' }} />
+      </div>
+    </div>
+  );
+}
+
+// ====================================================================
+// FŐ KVÍZ MODUL NÉZET
+// ====================================================================
 export default function QuizView({ user }: { user: any }) {
   const { lang, t } = useLanguage();
   
@@ -20,7 +63,6 @@ export default function QuizView({ user }: { user: any }) {
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>({});
-  const [timeLeft, setTimeLeft] = useState(20); 
   const [rewardData, setResultData] = useState<{ pointsAwarded: number; score: number } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [correctAnswers, setCorrectAnswers] = useState<Record<number, string>>({});
@@ -52,31 +94,6 @@ export default function QuizView({ user }: { user: any }) {
       fetchMyHistory();
     }
   }, [phase]);
-
-  // 🎯 JAVÍTVA: Önkalibráló, nagyfrekvenciás (200ms) Unix időbélyeg alapú óramotor.
-  // Teljesen kiküszöböli az egérmozgás okozta szál-éheztetést és UI fagyásokat!
-  useEffect(() => {
-    if (phase !== 'PLAYING' || !currentQuestion) return;
-
-    // Beállítjuk a szigorú jövőbeli végpontot (Most + 20 másodperc és egy kis puffer)
-    const endTime = Date.now() + 20500;
-    setTimeLeft(20); 
-
-    const interval = setInterval(() => {
-      const now = Date.now();
-      const remaining = Math.max(0, Math.ceil((endTime - now) / 1000) - 1);
-      
-      // Csak akkor kényszerítünk re-rendert, ha ténylegesen fordult a másodperc kerekítése
-      setTimeLeft(prev => (prev !== remaining ? remaining : prev));
-
-      if (remaining <= 0) {
-        clearInterval(interval);
-        setTimeout(() => handleSelectOption(''), 0);
-      }
-    }, 200); // Sűrűn mintavételez, így azonnal korrigálja magát, ha az egér lefoglalná a főszálat
-
-    return () => clearInterval(interval);
-  }, [phase, currentIdx, currentQuestion?.id]);
 
   // KUPON VÁSÁRLÁSA 5 PONTÉRT
   const handleBuyToken = async () => {
@@ -112,7 +129,7 @@ export default function QuizView({ user }: { user: any }) {
           setPhase('ALREADY_PLAYED'); 
         } else {
           setQuestions(data.questions || []);
-          setCurrentIdx(0); setSelectedAnswers({}); setCorrectAnswers({}); setTimeLeft(20);
+          setCurrentIdx(0); setSelectedAnswers({}); setCorrectAnswers({});
           setPhase('PLAYING');
         }
       } else { setPhase('INTRO'); }
@@ -183,7 +200,7 @@ export default function QuizView({ user }: { user: any }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
           <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', padding: '40px 30px', borderRadius: '12px', textAlign: 'center', boxShadow: '0 10px 25px rgba(0,0,0,0.3)' }}>
             <Trophy size={48} color="#f59e0b" style={{ margin: '0 auto 15px auto', display: 'block' }} />
-            <h2 style={{ color: '#f8fafc', fontSize: '1.75rem', fontWeight: '800', margin: '0 0 10px 0' }}>{lang === 'en' ? 'Daily Quiz' : 'Napi Kvíz'}</h2>
+            <h2 style={{ color: '#f8fafc', fontSize: '1.75rem', fontWeight: '800', margin: '0 0 10px 0' }}>{lang === 'en' ? 'LensMaster Daily Quiz' : 'LensMaster Napi Kvíz'}</h2>
             <p style={{ color: '#94a3b8', fontSize: '0.95rem', marginBottom: '20px' }}>
               {lang === 'en' ? 'Test your photography knowledge! Earn up to 50 spendable Arena Points daily!' : 'Tedd próbára a fotós tudásod és gyűjts akár 50 elkölthető Aréna pontot naponta!'}
             </p>
@@ -256,16 +273,18 @@ export default function QuizView({ user }: { user: any }) {
         </div>
       )}
 
-      {/* ── C: AKTÍV JÁTÉKTÉR ── */}
+      {/* ── C: AKTÍV JÁTÉKTÉR (🎯 KÜLÖNÁLLÓ BIZTONSÁGOS IDŐZÍTŐ BLOKKAL) ── */}
       {phase === 'PLAYING' && parsedQuestion && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-card)', padding: '12px 20px', borderRadius: '8px', border: '1px solid var(--border-main)' }}>
-            <span style={{ color: '#94a3b8', fontSize: '0.85rem', fontWeight: 'bold' }}>📋 Kérdés: <span style={{ color: '#38bdf8' }}>{currentIdx + 1} / {questions.length}</span></span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: timeLeft <= 5 ? '#ef4444' : '#10b981', fontSize: '0.9rem', fontWeight: 'bold' }}><Timer size={14} /> <span>{timeLeft}s</span></div>
-          </div>
-          <div style={{ width: '100%', height: '4px', background: '#1e293b', borderRadius: '2px', overflow: 'hidden' }}>
-            <div style={{ width: `${(timeLeft / 20) * 100}%`, height: '100%', background: timeLeft <= 5 ? '#ef4444' : 'linear-gradient(90deg, #38bdf8, #10b981)', transition: 'width 1s linear' }} />
-          </div>
+          
+          {/* 🎯 KULCSFONTOSSÁGÚ FIX: A key={currentIdx} garantálja a fagyásmentes és automata re-mount órajelet! */}
+          <QuizTimerBlock 
+            key={currentIdx} 
+            currentIdx={currentIdx} 
+            totalQuestions={questions.length} 
+            onTimeout={() => handleSelectOption('')} 
+          />
+
           <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', borderRadius: '12px', overflow: 'hidden' }}>
             <div style={{ width: '100%', height: '260px', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><img src={currentQuestion.image_url} alt="" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} /></div>
             <div style={{ padding: '24px 20px' }}>
