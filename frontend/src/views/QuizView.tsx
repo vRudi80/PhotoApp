@@ -94,7 +94,7 @@ export default function QuizView({ user }: { user: any }) {
       }
     } catch (e) {
       alert("Hálózati hiba történt.");
-    } finaly {
+    } finally {
       setIsBuying(false);
     }
   };
