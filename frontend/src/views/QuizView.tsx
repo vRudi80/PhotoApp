@@ -53,20 +53,27 @@ export default function QuizView({ user }: { user: any }) {
     }
   }, [phase]);
 
-  // IDŐZÍTŐ MOTOR
+  // 🎯 JAVÍTVA: Tiszta, 1 másodperces funkcionális visszaszámláló motor!
+  // Szigorúan a fázis vagy a kérdés indexének változásakor indul újra, teljesen fagyásbiztos.
   useEffect(() => {
-    if (phase !== 'PLAYING' || !currentQuestion) return;
-    const timerKey = `photo_quiz_target_${currentQuestion.id}`;
-    let targetTime = Number(sessionStorage.getItem(timerKey));
-    if (!targetTime) { targetTime = Date.now() + 20500; sessionStorage.setItem(timerKey, String(targetTime)); }
+    if (phase !== 'PLAYING') return;
+
+    setTimeLeft(20); // Minden kérdés betöltésekor kényszerített 20 másodperc
 
     const interval = setInterval(() => {
-      const remaining = Math.max(0, Math.round((targetTime - Date.now()) / 1000));
-      setTimeLeft(remaining);
-      if (remaining <= 0) { clearInterval(interval); sessionStorage.removeItem(timerKey); handleSelectOption(''); }
-    }, 250);
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          // Időtúllépés esetén azonnali automatikus léptetés üres válasszal
+          setTimeout(() => handleSelectOption(''), 0);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
     return () => clearInterval(interval);
-  }, [phase, currentIdx, currentQuestion?.id]);
+  }, [phase, currentIdx]);
 
   // KUPON VÁSÁRLÁSA 5 PONTÉRT
   const handleBuyToken = async () => {
@@ -87,7 +94,7 @@ export default function QuizView({ user }: { user: any }) {
       }
     } catch (e) {
       alert("Hálózati hiba történt.");
-    } finally {
+    } finaly {
       setIsBuying(false);
     }
   };
@@ -143,14 +150,16 @@ export default function QuizView({ user }: { user: any }) {
 
   const handleSelectOption = (letter: string) => {
     if (phase !== 'PLAYING' || isSubmitting) return;
-    if (currentQuestion) sessionStorage.removeItem(`photo_quiz_target_${currentQuestion.id}`);
     
     const nextAnswers = { ...selectedAnswers, [currentQuestion.id]: letter };
     setSelectedAnswers(nextAnswers);
 
     const nextIndex = currentIdx + 1;
-    if (nextIndex < questions.length) setCurrentIdx(nextIndex);
-    else handleFinalSubmit(nextAnswers);
+    if (nextIndex < questions.length) {
+      setCurrentIdx(nextIndex);
+    } else {
+      handleFinalSubmit(nextAnswers);
+    }
   };
 
   const getReadableOptionText = (letter: string, rawOptions: any) => {
@@ -176,17 +185,16 @@ export default function QuizView({ user }: { user: any }) {
               {lang === 'en' ? 'Test your photography knowledge! Earn up to 50 spendable Arena Points daily!' : 'Tedd próbára a fotós tudásod és gyűjts akár 50 elkölthető Aréna pontot naponta!'}
             </p>
 
-            {/* Vizuális Kupon pult információk */}
             <div style={{ display: 'flex', justifyContent: 'center', gap: '15px', marginBottom: '30px', flexWrap: 'wrap' }}>
               <span style={{ padding: '6px 14px', borderRadius: '20px', background: alreadyPlayedToday ? 'rgba(239,68,68,0.08)' : 'rgba(16,185,129,0.08)', color: alreadyPlayedToday ? '#f87171' : '#34d399', fontSize: '0.85rem', fontWeight: 'bold', border: alreadyPlayedToday ? '1px solid #ef444430' : '1px solid #10b98130' }}>
-                {alreadyPlayedToday ? (lang === 'en' ? 'Free daily: Claimed ❌' : 'Mai ingyenes kör: Felhasználva ❌') : (lang === 'en' ? 'Free daily: Available  🟢' : 'Mai ingyenes kör: Elérhető 🟢')}
+                {alreadyPlayedToday ? (lang === 'en' ? 'Free daily: Claimed ❌' : 'Mai ingyenes kör: Felhasználva ❌') : (lang === 'en' ? 'Free daily: Available 🟢' : 'Mai ingyenes kör: Elérhető 🟢')}
               </span>
               <span style={{ padding: '6px 14px', borderRadius: '20px', background: 'rgba(245,158,11,0.08)', color: '#fbbf24', fontSize: '0.85rem', fontWeight: 'bold', border: '1px solid #f59e0b30', display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <Ticket size={14} /> {lang === 'en' ? `Extra Coupons: ${quizBalance} db` : `Ráadás Kuponjaid: ${quizBalance} db`}
               </span>
             </div>
             
-            <div style={{ display: 'flex', flexDirection: 'column', smDirection: 'row', justifyContent: 'center', gap: '12px', maxWidth: '500px', margin: '0 auto' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '12px', maxWidth: '500px', margin: '0 auto' }}>
               <div style={{ display: 'grid', gridTemplateColumns: historyList.length > 0 ? '1fr 1.2fr' : '1fr', gap: '12px', width: '100%' }}>
                 {historyList.length > 0 && (
                   <button onClick={() => setShowHistory(!showHistory)} style={{ background: '#1e293b', color: '#cbd5e1', border: '1px solid #334155', padding: '12px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
@@ -194,7 +202,6 @@ export default function QuizView({ user }: { user: any }) {
                   </button>
                 )}
                 
-                {/* Dinamikus indító-vásárló gomb */}
                 {alreadyPlayedToday && quizBalance === 0 ? (
                   <button onClick={handleBuyToken} disabled={isBuying} style={{ background: 'linear-gradient(135deg, #3b82f6, #2563eb)', color: 'white', border: 'none', padding: '12px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', boxShadow: '0 4px 15px rgba(37,99,235,0.2)' }}>
                     <ShoppingCart size={16} /> {isBuying ? 'Vásárlás... ⏳' : (lang === 'en' ? 'Buy Kupon (5p) 🪙' : 'Kupon vásárlása (5 pont) 🪙')}
@@ -214,7 +221,7 @@ export default function QuizView({ user }: { user: any }) {
             </div>
           </div>
 
-          {/* SAJÁT HISTÓRIA TÁBLÁZAT */}
+          {/* HISTÓRIA LISTA */}
           {showHistory && historyList.length > 0 && (
             <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', padding: '25px', borderRadius: '12px' }}>
               <h3 style={{ margin: '0 0 16px 0', color: '#f1f5f9', fontSize: '1.1rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -254,7 +261,7 @@ export default function QuizView({ user }: { user: any }) {
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: timeLeft <= 5 ? '#ef4444' : '#10b981', fontSize: '0.9rem', fontWeight: 'bold' }}><Timer size={14} /> <span>{timeLeft}s</span></div>
           </div>
           <div style={{ width: '100%', height: '4px', background: '#1e293b', borderRadius: '2px', overflow: 'hidden' }}>
-            <div style={{ width: `${(timeLeft / 20) * 100}%`, height: '100%', background: timeLeft <= 5 ? '#ef4444' : 'linear-gradient(90deg, #38bdf8, #10b981)' }} />
+            <div style={{ width: `${(timeLeft / 20) * 100}%`, height: '100%', background: timeLeft <= 5 ? '#ef4444' : 'linear-gradient(90deg, #38bdf8, #10b981)', transition: 'width 1s linear' }} />
           </div>
           <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', borderRadius: '12px', overflow: 'hidden' }}>
             <div style={{ width: '100%', height: '260px', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><img src={currentQuestion.image_url} alt="" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} /></div>
@@ -287,16 +294,9 @@ export default function QuizView({ user }: { user: any }) {
               {lang === 'en' ? 'Your Score' : 'Elért eredményed'}: <strong style={{ color: '#38bdf8' }}>{rewardData.score} / 1000 pont</strong>
             </div>
 
-            <div style={{ background: '#0f172a', border: '1px solid var(--border-main)', borderRadius: '10px', padding: '18px', maxWidth: '500px', margin: '0 auto 25px auto', textAlign: 'left', fontSize: '0.88rem', lineHeight: '1.6' }}>
-              <h4 style={{ margin: '0 0 10px 0', color: '#38bdf8', fontWeight: '800', textTransform: 'uppercase', fontSize: '0.78rem' }}>📊 Eredményed részletes összetétele:</h4>
-              <div style={{ color: '#cbd5e1', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>🎯 Találati arány:</span><strong style={{ color: '#10b981' }}>{rewardData.score / 100} / {questions.length} helyes</strong></div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>✨ Kvíz alappontszám:</span><strong style={{ color: '#f8fafc' }}>{rewardData.score} pont</strong></div>
-                <div style={{ width: '100%', height: '1px', background: '#334155', margin: '4px 0' }} />
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#fbbf24', fontSize: '1rem', fontWeight: 'bold' }}>
-                  <span>🪙 Levásárolható jutalom:</span><span>+{rewardData.pointsAwarded}p</span>
-                </div>
-              </div>
+            <div style={{ background: '#0f172a', padding: '20px', borderRadius: '12px', border: '1px solid #fbbf2450', display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: '8px', marginBottom: '25px' }}>
+              <span style={{ color: '#fbbf24', fontWeight: '900', fontSize: '1.4rem' }}>+{rewardData.pointsAwarded} Elkölthető Aréna Pont</span>
+              <span style={{ color: '#10b981', fontSize: '0.8rem', fontWeight: 'bold' }}>🟢 SIKERESEN JÓVÁÍRVA A JOKER CSERÉKHEZ!</span>
             </div>
 
             <button onClick={() => setPhase('INTRO')} style={{ width: '100%', maxWidth: '300px', margin: '0 auto', background: 'transparent', border: '1px solid var(--border-main)', color: 'var(--text-title)', padding: '12px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>Bezárás és Visszatérés</button>
