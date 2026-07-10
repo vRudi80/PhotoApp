@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { BACKEND_URL } from '../utils/constants';
 import VideoLoader from '../components/VideoLoader';
 import { useLanguage } from '../context/LanguageContext';
-import { Trophy, Star, Timer, HelpCircle, ArrowRight, RefreshCw, Sparkles } from 'lucide-react';
+import { Trophy, Star, Timer, Sparkles } from 'lucide-react';
 
 const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
   const token = localStorage.getItem('photoAppToken');
@@ -19,16 +19,16 @@ export default function QuizView({ user }: { user: any }) {
   const [questions, setQuestions] = useState<any[]>([]);
   const [currentIdx, setCurrentIdx] = useState(0);
   
-  // Játékmenet állapotai
+  // Játékmenet tiszta, független állapotai
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [isAnswered, setIsAnswered] = useState(false);
   const [score, setScore] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(20); // 20 másodperc kérdésenként
+  const [timeLeft, setTimeLeft] = useState(20); 
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [rewardData, setResultData] = useState<{ pointsAwarded: number; score: number } | null>(null);
 
-  // 📡 1. JÁTÉK INDÍTÁSA: Kérdések letöltése a védett backendről
+  // 📡 1. JÁTÉK INDÍTÁSA
   const handleStartQuiz = async () => {
     setQuizState('loading');
     try {
@@ -58,78 +58,63 @@ export default function QuizView({ user }: { user: any }) {
     }
   };
 
-  // ⏱️ 2. IDŐZÍTŐ ÉLETCIKLUS MOTOR
-  useEffect(() => {
-    if (quizState !== 'playing' || isAnswered) return;
-
-    if (timeLeft === 0) {
-      // Lejárt az idő, automatikus továbblépés kényszerítése veszteségként
-      handleOptionClick('');
-      return;
-    }
-
-    const timer = setInterval(() => {
-      setTimeLeft(prev => prev - 1);
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [timeLeft, quizState, isAnswered]);
-
   const currentQuestion = questions[currentIdx];
 
-  // Kérdések és opciók dinamikus nyelvi parse-olása JSON-ből
+  // Adatvédelmi védőpajzs a kérdések parzolásához
   const parsedQuestion = useMemo(() => {
     if (!currentQuestion) return null;
     const title = lang === 'en' ? currentQuestion.question_en : currentQuestion.question_hu;
-    let opts: string[] = [];
+    let opts: string[] = ['A', 'B', 'C', 'D'];
+    
     try {
       const rawOpts = lang === 'en' ? currentQuestion.options_en : currentQuestion.options_hu;
-      opts = typeof rawOpts === 'string' ? JSON.parse(rawOpts) : rawOpts;
+      if (typeof rawOpts === 'string') {
+        opts = JSON.parse(rawOpts);
+      } else if (Array.isArray(rawOpts)) {
+        opts = rawOpts;
+      }
     } catch (e) {
+      console.error("JSON parzolási hiba", e);
+    }
+
+    if (!Array.isArray(opts) || opts.length === 0) {
       opts = ['A', 'B', 'C', 'D'];
     }
+
     return { title, opts, correct: currentQuestion.correct_option };
   }, [currentQuestion, lang]);
 
-  // 🎯 3. VÁLASZ KIÉRTÉKELÉS ÉS ANIMÁLT IDŐ-FAGYASZTÁS
-  const handleOptionClick = (optionLetter: string) => {
-    if (isAnswered) return;
-    
-    setSelectedOption(optionLetter);
-    setIsAnswered(true);
+  // 🎯 2. FIX, EGYEDI INDÍTÁSÚ IDŐZÍTŐ INTERVAL
+  // Nem figyel a timeLeft változásra, így külső renderelések nem tudják alaphelyzetbe állítani vagy kilőni!
+  useEffect(() => {
+    if (quizState !== 'playing' || isAnswered) return;
 
-    // Ha eltalálta, adunk 100 pontot
-    if (optionLetter === parsedQuestion?.correct) {
-      setScore(prev => prev + 100);
-    }
+    const interval = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          // Biztonságos időtúllépés indítás a renderelési cikluson kívül
+          setTimeout(() => handleOptionClick(''), 0);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
 
-    // 1.5 másodpercig megmutatjuk a helyes/helytelen neon villanást, majd léptetünk
-    setTimeout(() => {
-      if (currentIdx + 1 < questions.length) {
-        setCurrentIdx(prev => prev + 1);
-        setSelectedOption(null);
-        setIsAnswered(false);
-        setTimeLeft(20);
-      } else {
-        // Elértük az utolsó kérdést, beküldjük az eredményt
-        handleSubmitResults();
-      }
-    }, 1500);
-  };
+    return () => clearInterval(interval);
+  }, [quizState, isAnswered, currentIdx]);
 
-  // 📡 4. JÁTÉK VÉGE: Pontok tranzakcióbiztos beküldése
-  const handleSubmitResults = async () => {
+  // 📡 3. EREDMÉNYEK BEKÜLDÉSE A VÉDETT BACKENDRE
+  const handleQuizFinished = async (finalScore: number) => {
     setQuizState('loading');
     setIsSubmitting(true);
     try {
-      const finalScore = score + (selectedOption === parsedQuestion?.correct ? 100 : 0); // Beszámítjuk az utolsó kört is
-
       const res = await fetch(`${BACKEND_URL}/api/quiz/submit`, {
         method: 'POST',
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           score: finalScore,
-          userEmail: user?.email
+          userEmail: user?.email || ''
         })
       });
 
@@ -138,7 +123,7 @@ export default function QuizView({ user }: { user: any }) {
         setResultData(data);
         setQuizState('ended');
       } else {
-        alert("Hiba történt az eredmények beküldésekor, de a kísérletedet rögzítettük.");
+        alert("Hiba történt az eredmények beküldésekor.");
         setQuizState('intro');
       }
     } catch (e) {
@@ -149,10 +134,36 @@ export default function QuizView({ user }: { user: any }) {
     }
   };
 
+  // 🎮 4. TISZTA, SZEKVENCIÁLIS VÁLASZ KATTINTÁS KEZELŐ (Mellékhatásoktól mentes)
+  const handleOptionClick = (optionLetter: string) => {
+    if (isAnswered) return;
+    
+    setIsAnswered(true);
+    setSelectedOption(optionLetter);
+
+    // Kiszámoljuk a pontokat azonnal, tiszta változókkal
+    const isCorrect = optionLetter === parsedQuestion?.correct;
+    const nextScore = score + (isCorrect ? 100 : 0);
+    setScore(nextScore);
+
+    // 1.5 másodperces vizuális neon-visszajelzés, majd léptetés
+    setTimeout(() => {
+      if (currentIdx + 1 < questions.length) {
+        setSelectedOption(null);
+        setIsAnswered(false);
+        setTimeLeft(20);
+        setCurrentIdx(prev => prev + 1);
+      } else {
+        // Véget ért a játék (akár 1 kérdés esetén is működik)
+        handleQuizFinished(nextScore);
+      }
+    }, 1500);
+  };
+
   return (
     <div style={{ width: '100%', maxWidth: '800px', margin: '0 auto', boxSizing: 'border-box', padding: '10px' }}>
       
-      {/* ── A: INTRO / KEZDŐ KÉPERNYŐ ── */}
+      {/* ── A: INTRO KÉPERNYŐ ── */}
       {quizState === 'intro' && (
         <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', padding: '40px 30px', borderRadius: '12px', textAlign: 'center', boxShadow: '0 10px 25px rgba(0,0,0,0.3)' }}>
           <Trophy size={48} color="#f59e0b" style={{ margin: '0 auto 15px auto', display: 'block' }} />
@@ -170,7 +181,7 @@ export default function QuizView({ user }: { user: any }) {
         </div>
       )}
 
-      {/* ── B: LOADING TÖLTŐKÉPERNYŐ ── */}
+      {/* ── B: TÖLTŐKÉPERNYŐ ── */}
       {quizState === 'loading' && (
         <div style={{ padding: '60px 0', textAlign: 'center' }}>
           <VideoLoader />
@@ -180,14 +191,13 @@ export default function QuizView({ user }: { user: any }) {
         </div>
       )}
 
-      {/* ── C: JÁTÉK TÉR (KÉRDÉSEK PÖRGÉSE) ── */}
+      {/* ── C: JÁTÉKTÉR ── */}
       {quizState === 'playing' && parsedQuestion && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           
-          {/* Felső információs sáv */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-card)', padding: '12px 20px', borderRadius: '8px', border: '1px solid var(--border-main)' }}>
             <span style={{ color: '#94a3b8', fontSize: '0.85rem', fontWeight: 'bold' }}>
-              📋 {lang === 'en' ? 'Question' : 'Kérdés'}: <span style={{ color: '#38bdf8' }}>{currentIdx + 1} / 10</span>
+              📋 {lang === 'en' ? 'Question' : 'Kérdés'}: <span style={{ color: '#38bdf8' }}>{currentIdx + 1} / {questions.length}</span>
             </span>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#fbbf24', fontSize: '0.9rem', fontWeight: '700' }}>
               <Star size={14} fill="#fbbf24" /> <span>{score} pont</span>
@@ -197,15 +207,21 @@ export default function QuizView({ user }: { user: any }) {
             </div>
           </div>
 
-          {/* ⏱️ Időcsík haladási sáv */}
           <div style={{ width: '100%', height: '4px', background: '#1e293b', borderRadius: '2px', overflow: 'hidden' }}>
-            <div style={{ width: `${(timeLeft / 20) * 100}%`, height: '100%', background: timeLeft <= 5 ? '#ef4444' : 'linear-gradient(90deg, #38bdf8, #10b981)', transition: 'width 1s linear' }} />
+            <div style={{ width: `${(timeLeft / 20) * 100}%`, height: '100%', background: timeLeft <= 5 ? '#ef4444' : 'linear-gradient(90deg, #38bdf8, #10b981)', transition: 'width 0.2s ease' }} />
           </div>
 
-          {/* Központi kártya a fotóval és kérdéssel */}
           <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', borderRadius: '12px', overflow: 'hidden' }}>
             <div style={{ width: '100%', height: '260px', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', borderBottom: '1px solid var(--border-main)' }}>
-              <img src={currentQuestion.image_url} alt="Quiz illustration" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+              <img 
+                src={currentQuestion.image_url} 
+                alt="Quiz illustration" 
+                style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} 
+                onError={(e) => {
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 300' fill='%230f172a'><rect width='100%' height='100%'/><text x='50%' y='50%' fill='%23334155' font-family='sans-serif' font-size='14' text-anchor='middle'>📸 PhotAwesome Arena Quiz</text></svg>`;
+                }}
+              />
             </div>
             
             <div style={{ padding: '24px 20px' }}>
@@ -213,32 +229,25 @@ export default function QuizView({ user }: { user: any }) {
                 {parsedQuestion.title}
               </h3>
 
-              {/* Opciógombok (A, B, C, D) */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {['A', 'B', 'C', 'D'].map((letter, i) => {
                   const optionText = parsedQuestion.opts[i];
                   if (!optionText) return null;
 
-                  // Dinamikus neon színek gombállapot szerint
                   let btnBg = 'rgba(255,255,255,0.02)';
                   let btnBorder = 'var(--border-main)';
                   let textColor = 'var(--text-body)';
 
                   if (isAnswered) {
                     if (letter === parsedQuestion.correct) {
-                      // Ez a helyes megoldás -> Neon Zöld villanás
                       btnBg = 'rgba(16,185,129,0.12)';
                       btnBorder = '#10b981';
                       textColor = '#34d399';
                     } else if (letter === selectedOption) {
-                      // Ezt jelölte meg de rossz -> Neon Piros villanás
                       btnBg = 'rgba(239,68,68,0.12)';
                       btnBorder = '#ef4444';
                       textColor = '#f87171';
                     }
-                  } else {
-                    // Alap állapot lebegtetéshez
-                    btnBg = '#0f172a50';
                   }
 
                   return (
@@ -246,7 +255,7 @@ export default function QuizView({ user }: { user: any }) {
                       key={letter}
                       disabled={isAnswered}
                       onClick={() => handleOptionClick(letter)}
-                      style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 18px', background: btnBg, border: `1px solid ${btnBorder}`, borderRadius: '8px', color: textColor, fontSize: '0.92rem', fontWeight: '600', textAlignment: 'left', cursor: isAnswered ? 'not-allowed' : 'pointer', transition: 'all 0.15s ease' }}
+                      style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 18px', background: btnBg, border: `1px solid ${btnBorder}`, borderRadius: '8px', color: textColor, fontSize: '0.92rem', fontWeight: '600', cursor: isAnswered ? 'not-allowed' : 'pointer', transition: 'all 0.15s ease' }}
                     >
                       <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '26px', height: '26px', borderRadius: '6px', background: isAnswered && letter === parsedQuestion.correct ? '#10b981' : (isAnswered && letter === selectedOption ? '#ef4444' : '#1e293b'), color: 'white', fontSize: '0.8rem', fontWeight: 'bold' }}>
                         {letter}
@@ -262,9 +271,9 @@ export default function QuizView({ user }: { user: any }) {
         </div>
       )}
 
-      {/* ── D: ERTMÉNYHIRDETŐ KÁRTYA (FINISH) ── */}
+      {/* ── D: ÖSSZEGZŐ KÁRTYA ── */}
       {quizState === 'ended' && rewardData && (
-        <div style={{ background: 'var(--bg-card)', border: '1px solid #fbbf24', padding: '40px 30px', borderRadius: '12px', textAlign: 'center', boxShadow: '0px 10px 30px rgba(251,191,36,0.15)', animation: 'fadeIn 0.4s' }}>
+        <div style={{ background: 'var(--bg-card)', border: '1px solid #fbbf24', padding: '40px 30px', borderRadius: '12px', textAlign: 'center', boxShadow: '0px 10px 30px rgba(251,191,36,0.15)' }}>
           <Sparkles size={48} color="#fbbf24" style={{ margin: '0 auto 15px auto', display: 'block' }} />
           <h2 style={{ color: '#ffffff', fontSize: '1.8rem', fontWeight: '900', margin: '0 0 5px 0' }}>
             {lang === 'en' ? 'Quiz Completed!' : 'Gratulálunk, Kvíz Teljesítve!'}
@@ -287,7 +296,7 @@ export default function QuizView({ user }: { user: any }) {
         </div>
       )}
 
-      {/* ── E: CHEAT PROTECTION PANEL (MÁR JÁTSZOTT MA) ── */}
+      {/* ── E: CHEAT PROTECTION PANEL ── */}
       {quizState === 'already_played' && (
         <div style={{ background: 'var(--bg-card)', border: '1px solid #ef4444', padding: '40px 30px', borderRadius: '12px', textAlign: 'center', boxShadow: '0 10px 25px rgba(239,68,68,0.1)' }}>
           <div style={{ fontSize: '3rem', marginBottom: '10px' }}>⏳</div>
