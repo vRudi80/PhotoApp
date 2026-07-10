@@ -131,8 +131,8 @@ module.exports = function(app, pool, upload) {
             pointsToAward,
             'quiz_reward',
             null, 
-            `🎮 LensMaster Kvíz jutalom (+${pointsToAward}p)`,
-            `LensMaster Quiz reward (+${pointsToAward}p)`
+            `Kvíz jutalom (+${pointsToAward}p)`,
+            `Quiz reward (+${pointsToAward}p)`
           );
         } catch (pointsErr) {
           console.error("⚠️ Figyelmeztetés a PointsService könyvelése közben:", pointsErr.message);
@@ -190,6 +190,25 @@ module.exports = function(app, pool, upload) {
     } catch (err) { res.status(500).json({ error: 'Hiba a kérdések betöltésekor.' }); }
   });
 
+  // ====================================================================
+  // 🎯 ÚJ: JÁTÉKOS SAJÁT HISTÓRIKUS KVÍZTÖRTÉNETÉNEK LEKÉRÉSE
+  // ====================================================================
+  app.get('/api/quiz/my-history', requireAuth, async (req, res) => {
+    try {
+      const [rows] = await pool.query(
+        `SELECT id, score, points_awarded, DATE_FORMAT(completed_at, '%Y-%m-%d %H:%i') as date 
+         FROM quiz_attempts 
+         WHERE user_email = ? 
+         ORDER BY completed_at DESC LIMIT 40`,
+        [req.user.email]
+      );
+      res.json(rows);
+    } catch (err) {
+      console.error("❌ Kvíztörténet lekérési hiba:", err.message);
+      res.status(500).json({ error: 'Nem sikerült betölteni a korábbi kvíztörténetet.' });
+    }
+  });
+  
   // ====================================================================
   // 📡 4. ADMINISZTRÁCIÓS MODOSÍTÁS (HIÁNYTALAN + MAGYARÁZATOK)
   // ====================================================================
