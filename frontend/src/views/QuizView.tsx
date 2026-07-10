@@ -11,14 +11,6 @@ const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
 
 type QuizPhase = 'INTRO' | 'LOADING' | 'PLAYING' | 'SUMMARY' | 'ALREADY_PLAYED';
 
-// ====================================================================
-// 👑 GLOBÁLIS MODUL-SZINTŰ VÉDŐPAJZS (A REACT ÉLETCIKLUSON KÍVÜL)
-// Ennek köszönhetően a szülő re-renderelései képtelenek megakasztani az órát!
-// ====================================================================
-let quizGlobalInterval: any = null;
-let quizGlobalEndTime = 0;
-let quizGlobalLastId: number | null = null;
-
 export default function QuizView({ user }: { user: any }) {
   const { lang, t } = useLanguage();
   
@@ -61,56 +53,62 @@ export default function QuizView({ user }: { user: any }) {
     }
   }, [phase]);
 
-  // ── 🎯 IPARI MEGOLDÁS: UNMOUNT-RESISTANT IDŐZÍTŐ ──
-  useEffect(() => {
-    if (phase !== 'PLAYING' || !currentQuestion) return;
+useEffect(() => {
+  if (phase !== 'PLAYING' || !currentQuestion) return;
 
-    // Ha új kérdésre léptünk, rögzítjük az abszolút lejárati Unix időbélyeget
-    if (quizGlobalLastId !== currentQuestion.id) {
-      quizGlobalLastId = currentQuestion.id;
-      quizGlobalEndTime = Date.now() + 20400; // 20 másodperc + kis puffer
+  const timerKey = `photo_quiz_end_${currentQuestion.id}`;
+  let targetTime = Number(sessionStorage.getItem(timerKey));
+
+  if (!targetTime) {
+    targetTime = Date.now() + 20400;
+    sessionStorage.setItem(timerKey, String(targetTime));
+  }
+
+  let rafId: number;
+  let intervalId: ReturnType<typeof setInterval>;
+  let finished = false;
+
+  const updateClock = () => {
+    const now = Date.now();
+    const diff = targetTime - now;
+    const remaining = Math.max(0, Math.ceil(diff / 1000));
+
+    setTimeLeft(remaining);
+
+    if (diff <= 0 && !finished) {
+      finished = true;
+      sessionStorage.removeItem(timerKey);
+      handleSelectOption('');
     }
+  };
 
-    // Biztonsági takarítás a duplikációk ellen
-    if (quizGlobalInterval) clearInterval(quizGlobalInterval);
+  // rAF-alapú fő motor: minden kirajzolt képkockán frissít, ezt egérmozgatás
+  // vagy natív UI (drag, select, context menu) nem tudja megállítani
+  const tick = () => {
+    updateClock();
+    if (!finished) rafId = requestAnimationFrame(tick);
+  };
+  rafId = requestAnimationFrame(tick);
 
-    const tick = () => {
-      const now = Date.now();
-      const diff = quizGlobalEndTime - now;
-      const remaining = Math.max(0, Math.ceil(diff / 1000));
-      
-      // 1. Frissítjük a React lokális állapotát
-      setTimeLeft(remaining);
+  // Tartalék motor, ha a rAF háttérbe kerülne (inaktív fül)
+  intervalId = setInterval(updateClock, 250);
 
-      // 2. KÖZVETLEN IDŐZÍTŐ INJEKCIÓ: Ha a komponens épp megsemmisülne az egérmozgástól,
-      // a háttérszálon futó motor közvetlenül a böngésző HTML-be írja bele az adatot!
-      const textEl = document.getElementById('stable-quiz-timer-text');
-      const barEl = document.getElementById('stable-quiz-progress-bar');
-      if (textEl) textEl.innerText = `${remaining}s`;
-      if (barEl) {
-        barEl.style.width = `${(remaining / 20) * 100}%`;
-        barEl.style.background = remaining <= 5 ? '#ef4444' : 'linear-gradient(90deg, #38bdf8, #10b981)';
-      }
+  // Erős szinkron visszatéréskor (fül/ablak fókusz), hogy sose ragadjon be
+  const forceSync = () => updateClock();
+  document.addEventListener('visibilitychange', forceSync);
+  window.addEventListener('focus', forceSync);
 
-      // Ha lejárt az idő
-      if (diff <= 0) {
-        clearInterval(quizGlobalInterval);
-        quizGlobalInterval = null;
-        handleSelectOption('');
-      }
-    };
+  // Első szinkron kirajzoláskor — csak MIUTÁN a rAF/interval már létrejött
+  updateClock();
 
-    // Azonnali szinkronizáció a felcsatoláskor
-    tick();
-
-    // Elindítjuk a globális háttéridőzítőt
-    quizGlobalInterval = setInterval(tick, 250);
-
-    return () => {
-      // ❗ SZÁNDÉKOSAN ÜRES: Nem töröljük az időzítőt unmount-kor! 
-      // Így ha az App.tsx újraépíti a felületet, az óra megszakítás nélkül ketyeg tovább a háttérben.
-    };
-  }, [phase, currentIdx, currentQuestion?.id]);
+  return () => {
+    finished = true;
+    cancelAnimationFrame(rafId);
+    clearInterval(intervalId);
+    document.removeEventListener('visibilitychange', forceSync);
+    window.removeEventListener('focus', forceSync);
+  };
+}, [phase, currentIdx, currentQuestion?.id]);
 
   // KUPON VÁSÁRLÁSA 5 PONTÉRT
   const handleBuyToken = async () => {
@@ -145,12 +143,8 @@ export default function QuizView({ user }: { user: any }) {
         if (data.alreadyPlayed) { 
           setPhase('ALREADY_PLAYED'); 
         } else {
-          // Reseteljük a globális horgonyokat új játék indításakor
-          quizGlobalEndTime = 0;
-          quizGlobalLastId = null;
-          if (quizGlobalInterval) clearInterval(quizGlobalInterval);
-          quizGlobalInterval = null;
-
+          // Takarítunk magunk után korábbi böngészőmaradványokat az indításkor
+          try { Object.keys(sessionStorage).forEach(k => { if(k.startsWith('photo_quiz_end_')) sessionStorage.removeItem(k); }); } catch(e){}
           setQuestions(data.questions || []);
           setCurrentIdx(0); setSelectedAnswers({}); setCorrectAnswers({}); setTimeLeft(20);
           setPhase('PLAYING');
@@ -196,9 +190,9 @@ export default function QuizView({ user }: { user: any }) {
   const handleSelectOption = (letter: string) => {
     if (phase !== 'PLAYING' || isSubmitting) return;
 
-    // Ha gombra kattintott, töröljük az aktuális kérdés óráját, hogy a következő tisztán induljon
-    if (quizGlobalInterval) clearInterval(quizGlobalInterval);
-    quizGlobalInterval = null;
+    if (currentQuestion) {
+      sessionStorage.removeItem(`photo_quiz_end_${currentQuestion.id}`);
+    }
     
     const nextAnswers = { ...selectedAnswers, [currentQuestion.id]: letter };
     setSelectedAnswers(nextAnswers);
@@ -238,7 +232,7 @@ export default function QuizView({ user }: { user: any }) {
               <span style={{ padding: '6px 14px', borderRadius: '20px', background: alreadyPlayedToday ? 'rgba(239,68,68,0.08)' : 'rgba(16,185,129,0.08)', color: alreadyPlayedToday ? '#f87171' : '#34d399', fontSize: '0.85rem', fontWeight: 'bold', border: alreadyPlayedToday ? '1px solid #ef444430' : '1px solid #10b98130' }}>
                 {alreadyPlayedToday ? (lang === 'en' ? 'Free daily: Claimed ❌' : 'Mai ingyenes kör: Felhasználva ❌') : (lang === 'en' ? 'Free daily: Available 🟢' : 'Mai ingyenes kör: Elérhető 🟢')}
               </span>
-              <span style={{ padding: '6px 14px', borderRadius: '20px', background: 'rgba(245,158,11,0.08)', color: '#fbbf24', fontSize: '0.85rem', fontWeight: 'bold', border: '1px solid #fbbf2430', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <span style={{ padding: '6px 14px', borderRadius: '20px', background: 'rgba(245,158,11,0.08)', color: '#fbbf24', fontSize: '0.85rem', fontWeight: 'bold', border: '1px solid #f59e0b30', display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <Ticket size={14} /> {lang === 'en' ? `Extra Coupons: ${quizBalance} db` : `Ráadás Kuponjaid: ${quizBalance} db`}
               </span>
             </div>
@@ -270,7 +264,7 @@ export default function QuizView({ user }: { user: any }) {
             </div>
           </div>
 
-          {/* HISTÓRIA LISTA */}
+          {/* HISTÓRIA LISTA (🎯 JAVÍTVA: Csak a tiszta dátumot mutatja szóköz-vágással) */}
           {showHistory && historyList.length > 0 && (
             <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', padding: '25px', borderRadius: '12px' }}>
               <h3 style={{ margin: '0 0 16px 0', color: '#f1f5f9', fontSize: '1.1rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -307,15 +301,10 @@ export default function QuizView({ user }: { user: any }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-card)', padding: '12px 20px', borderRadius: '8px', border: '1px solid var(--border-main)' }}>
             <span style={{ color: '#94a3b8', fontSize: '0.85rem', fontWeight: 'bold' }}>📋 Kérdés: <span style={{ color: '#38bdf8' }}>{currentIdx + 1} / {questions.length}</span></span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: timeLeft <= 5 ? '#ef4444' : '#10b981', fontSize: '0.9rem', fontWeight: 'bold' }}>
-              <Timer size={14} /> 
-              {/* 🎯 ID-val ellátott statikus DOM tag horgony az egér-fagyások ellen */}
-              <span id="stable-quiz-timer-text">{timeLeft}s</span>
-            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: timeLeft <= 5 ? '#ef4444' : '#10b981', fontSize: '0.9rem', fontWeight: 'bold' }}><Timer size={14} /> <span>{timeLeft}s</span></div>
           </div>
           <div style={{ width: '100%', height: '4px', background: '#1e293b', borderRadius: '2px', overflow: 'hidden' }}>
-            {/* 🎯 ID-val ellátott statikus haladási sáv horgony az egér-fagyások ellen */}
-            <div id="stable-quiz-progress-bar" style={{ width: `${(timeLeft / 20) * 100}%`, height: '100%', background: timeLeft <= 5 ? '#ef4444' : 'linear-gradient(90deg, #38bdf8, #10b981)' }} />
+            <div style={{ width: `${(timeLeft / 20) * 100}%`, height: '100%', background: timeLeft <= 5 ? '#ef4444' : 'linear-gradient(90deg, #38bdf8, #10b981)' }} />
           </div>
           <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', borderRadius: '12px', overflow: 'hidden' }}>
             <div style={{ width: '100%', height: '260px', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><img src={currentQuestion.image_url} alt="" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} /></div>
