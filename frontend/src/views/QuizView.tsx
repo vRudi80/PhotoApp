@@ -218,22 +218,26 @@ export default function QuizView({ user }: { user: any }) {
         </div>
       )}
 
-          {/* ── D: JUTALOM ÉS SZAKMAI ELLENŐRZŐ PANEL ── */}
+ {/* ── D: JUTALOM ÉS SZAKMAI ELLENŐRZŐ PANEL ── */}
       {phase === 'SUMMARY' && rewardData && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
-          <div style={{ background: 'var(--bg-card)', border: '1px solid #fbbf24', padding: '40px 30px', borderRadius: '12px', textAlign: 'center', boxShadow: '0px 10px 30px rgba(251,191,36,0.15)' }}>
-            <Sparkles size={48} color="#fbbf24" style={{ margin: '0 auto 15px auto', display: 'block' }} />
-            <h2 style={{ color: '#ffffff', fontSize: '1.8rem', fontWeight: '900' }}>{lang === 'en' ? 'Quiz Completed!' : 'Gratulálunk, Kvíz Teljesítve!'}</h2>
-            <div style={{ fontSize: '1.1rem', color: '#94a3b8', marginBottom: '25px' }}>
-              {lang === 'en' ? 'Your Score' : 'Elért eredményed'}: <strong style={{ color: '#38bdf8' }}>{rewardData.score} / 1000 pont</strong>
+          <div style={{ background: 'var(--bg-card)', border: '1px solid #fbbf24', padding: '35px 25px', borderRadius: '12px', textAlign: 'center', boxShadow: '0px 10px 30px rgba(251,191,36,0.15)' }}>
+            <Sparkles size={44} color="#fbbf24" style={{ margin: '0 auto 12px auto', display: 'block' }} />
+            <h2 style={{ color: '#ffffff', fontSize: '1.75rem', fontWeight: '900' }}>{lang === 'en' ? 'Quiz Completed!' : 'Kvíz Sikeresen Teljesítve!'}</h2>
+            
+            <div style={{ background: '#0f172a', border: '1px solid var(--border-main)', borderRadius: '10px', padding: '18px', maxWidth: '500px', margin: '0 auto 25px auto', textAlign: 'left', fontSize: '0.88rem', lineHeight: '1.6' }}>
+              <h4 style={{ margin: '0 0 10px 0', color: '#38bdf8', fontWeight: '800', textTransform: 'uppercase', fontSize: '0.78rem' }}>📊 Eredményed részletes összetétele:</h4>
+              <div style={{ color: '#cbd5e1', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>🎯 Találati arány:</span><strong style={{ color: '#10b981' }}>{rewardData.score / 100} / {questions.length} helyes</strong></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>✨ Elért pontszám:</span><strong style={{ color: '#f8fafc' }}>{rewardData.score} pont</strong></div>
+                <div style={{ width: '100%', height: '1px', background: '#334155', margin: '4px 0' }} />
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#fbbf24', fontSize: '1rem', fontWeight: 'bold' }}>
+                  <span>🪙 Jóváírt pont:</span><span>+{rewardData.pointsAwarded}p</span>
+                </div>
+              </div>
             </div>
 
-            <div style={{ background: '#0f172a', padding: '20px', borderRadius: '12px', border: '1px solid #fbbf2450', display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: '8px', marginBottom: '25px' }}>
-              <span style={{ color: '#fbbf24', fontWeight: '900', fontSize: '1.4rem' }}>+{rewardData.pointsAwarded} Elkölthető Aréna Pont</span>
-              <span style={{ color: '#10b981', fontSize: '0.8rem', fontWeight: 'bold' }}>🟢 SIKERESEN JÓVÁÍRVA A JOKER CSERÉKHEZ!</span>
-            </div>
-
-            <button onClick={() => setPhase('INTRO')} style={{ width: '100%', maxWidth: '300px', margin: '0 auto', background: 'transparent', border: '1px solid var(--border-main)', color: 'var(--text-title)', padding: '12px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>Bezárás és Visszatérés</button>
+            <button onClick={() => setPhase('INTRO')} style={{ width: '100%', maxWidth: '260px', background: 'transparent', border: '1px solid var(--border-main)', color: 'var(--text-title)', padding: '11px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>Bezárás és Visszatérés</button>
           </div>
 
           {/* SZAKMAI KIÉRTÉKELŐ TUDÁSTÁR */}
