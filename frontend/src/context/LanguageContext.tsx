@@ -20,6 +20,7 @@ const translations = {
 tilePodcastDesc: 'Hallgass bennünket aktuális fotós témákról',
     navExplore:'Felfedezés',
     submanagedBanned: 'Tiltott userek',
+    navQuiz: 'Kvíz (Fejlesztés alatt)',
 
     "archiveCountPhotographer": "Fotós",
   "archiveCountEnded": "Lezárult",
