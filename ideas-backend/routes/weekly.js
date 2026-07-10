@@ -1134,12 +1134,22 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   // ====================================================================
   // 💬 ÉLŐ ARÉNA CSEVEGÉS PROXY MOTORJA
   // ====================================================================
+    // ====================================================================
+  // 💬 VÉGLEG JAVÍTVA: ÉLŐ ARÉNA CSEVEGÉS (100-AS PLAFON + COLLATION FIX)
+  // ====================================================================
   app.get('/api/weekly/chat/:topicId', requireAuth, async (req, res) => {
     try {
       const [messages] = await pool.query(`
-        SELECT c.id, COALESCE(u.name, c.user_name) AS user_name, c.user_email, u.avatar_url, c.message_text, c.created_at 
-        FROM weekly_chat c LEFT JOIN photo_users u ON c.user_email = u.email 
-        WHERE c.topic_id = ? ORDER BY c.created_at ASC LIMIT 100
+        SELECT * FROM (
+          SELECT c.id, COALESCE(u.name, c.user_name) AS user_name, c.user_email, u.avatar_url, c.message_text, c.created_at 
+          FROM weekly_chat c 
+          LEFT JOIN photo_users u ON c.user_email = u.email COLLATE utf8mb4_general_ci
+          WHERE c.topic_id = ? 
+          /* 1. Először kiszedjük a legutolsó 100 üzenetet */
+          ORDER BY c.created_at DESC LIMIT 100
+        ) sub
+        /* 2. Majd visszafordítjuk őket a helyes olvasási sorrendbe */
+        ORDER BY created_at ASC
       `, [Number(req.params.topicId)]);
       
       const currentTypers = []; const now = Date.now();
@@ -1152,6 +1162,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       res.json({ messages, typing: currentTypers });
     } catch (err) { res.status(500).json({ error: err.message }); }
   });
+
 
  // ====================================================================
   // ⚡ ULTRA-OPTIMALIZÁLT DICSŐSÉGCSARNOK JÁTÉKOS STATISZTIKÁK (JAVÍTVA)
