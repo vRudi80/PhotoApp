@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { BACKEND_URL } from '../utils/constants';
 import VideoLoader from '../components/VideoLoader';
 import { useLanguage } from '../context/LanguageContext';
@@ -14,19 +14,31 @@ const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
 
 export default function QuizView({ user }: { user: any }) {
   const { lang, t } = useLanguage();
-  
+
   const [quizState, setQuizState] = useState<'intro' | 'loading' | 'playing' | 'ended' | 'already_played'>('intro');
   const [questions, setQuestions] = useState<any[]>([]);
   const [currentIdx, setCurrentIdx] = useState(0);
-  
+
   // Játékmenet tiszta, független állapotai
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [isAnswered, setIsAnswered] = useState(false);
   const [score, setScore] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(20); 
-  
+  const [timeLeft, setTimeLeft] = useState(20);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [rewardData, setResultData] = useState<{ pointsAwarded: number; score: number } | null>(null);
+
+  // 🔒 Szinkron "válaszolva" zár. Ez FONTOS: a React state (isAnswered) csak a
+  // következő renderelésnél frissül, ezért ha egyszerre érkezik egy kattintás
+  // ÉS az időzítő lejárta, mindkettő még a régi isAnswered=false értéket
+  // látná a closure-ben, és mindkettő átmenne a védelmen. A ref viszont
+  // AZONNAL, szinkron módon frissül, így csak az első hívás fut le ténylegesen.
+  const answeredRef = useRef(false);
+  const currentIdxRef = useRef(0);
+
+  useEffect(() => {
+    currentIdxRef.current = currentIdx;
+  }, [currentIdx]);
 
   // 📡 1. JÁTÉK INDÍTÁSA
   const handleStartQuiz = async () => {
@@ -42,10 +54,12 @@ export default function QuizView({ user }: { user: any }) {
         } else {
           setQuestions(data.questions || []);
           setCurrentIdx(0);
+          currentIdxRef.current = 0;
           setScore(0);
           setTimeLeft(20);
           setSelectedOption(null);
           setIsAnswered(false);
+          answeredRef.current = false;
           setQuizState('playing');
         }
       } else {
@@ -65,7 +79,7 @@ export default function QuizView({ user }: { user: any }) {
     if (!currentQuestion) return null;
     const title = lang === 'en' ? currentQuestion.question_en : currentQuestion.question_hu;
     let opts: string[] = ['A', 'B', 'C', 'D'];
-    
+
     try {
       const rawOpts = lang === 'en' ? currentQuestion.options_en : currentQuestion.options_hu;
       if (typeof rawOpts === 'string') {
@@ -85,24 +99,30 @@ export default function QuizView({ user }: { user: any }) {
   }, [currentQuestion, lang]);
 
   // 🎯 2. FIX, EGYEDI INDÍTÁSÚ IDŐZÍTŐ INTERVAL
-  // Nem figyel a timeLeft változásra, így külső renderelések nem tudják alaphelyzetbe állítani vagy kilőni!
+  // FONTOS: az updater-függvény (setTimeLeft(prev => ...)) mostantól KIZÁRÓLAG
+  // számol, semmilyen side effectet (setTimeout, handleOptionClick hívás) nem
+  // indít belülről. React (pl. StrictMode-ban, de bizonyos esetekben élesben
+  // is) néha kétszer futtatja le az updatereket, ezért egy updaterből indított
+  // side effect könnyen duplán tüzelhet - pont ez okozta az elakadást.
   useEffect(() => {
     if (quizState !== 'playing' || isAnswered) return;
 
     const interval = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          // Biztonságos időtúllépés indítás a renderelési cikluson kívül
-          setTimeout(() => handleOptionClick(''), 0);
-          return 0;
-        }
-        return prev - 1;
-      });
+      setTimeLeft(prev => (prev > 0 ? prev - 1 : 0));
     }, 1000);
 
     return () => clearInterval(interval);
   }, [quizState, isAnswered, currentIdx]);
+
+  // 🎯 2b. KÜLÖN EFFECT FIGYELI AZ IDŐTÚLLÉPÉST
+  // Ez a normál React render-ciklusban fut, nem egy setState updaterben,
+  // így biztonságosan hívhat side effectet (handleOptionClick).
+  useEffect(() => {
+    if (quizState === 'playing' && timeLeft === 0 && !answeredRef.current) {
+      handleOptionClick('');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeLeft, quizState]);
 
   // 📡 3. EREDMÉNYEK BEKÜLDÉSE A VÉDETT BACKENDRE
   const handleQuizFinished = async (finalScore: number) => {
@@ -134,10 +154,14 @@ export default function QuizView({ user }: { user: any }) {
     }
   };
 
-  // 🎮 4. TISZTA, SZEKVENCIÁLIS VÁLASZ KATTINTÁS KEZELŐ (Mellékhatásoktól mentes)
+  // 🎮 4. TISZTA, SZEKVENCIÁLIS VÁLASZ KATTINTÁS KEZELŐ
+  // A answeredRef.current-et AZONNAL, szinkron módon true-ra állítjuk, mielőtt
+  // bármi más futna. Így ha kattintás és timeout egyszerre érkezik, csak az
+  // első "nyer" - nem duplázódik a currentIdx léptetése.
   const handleOptionClick = (optionLetter: string) => {
-    if (isAnswered) return;
-    
+    if (answeredRef.current) return;
+    answeredRef.current = true;
+
     setIsAnswered(true);
     setSelectedOption(optionLetter);
 
@@ -148,11 +172,15 @@ export default function QuizView({ user }: { user: any }) {
 
     // 1.5 másodperces vizuális neon-visszajelzés, majd léptetés
     setTimeout(() => {
-      if (currentIdx + 1 < questions.length) {
+      const nextIdx = currentIdxRef.current + 1;
+      answeredRef.current = false;
+
+      if (nextIdx < questions.length) {
         setSelectedOption(null);
         setIsAnswered(false);
         setTimeLeft(20);
-        setCurrentIdx(prev => prev + 1);
+        setCurrentIdx(nextIdx);
+        currentIdxRef.current = nextIdx;
       } else {
         // Véget ért a játék (akár 1 kérdés esetén is működik)
         handleQuizFinished(nextScore);
@@ -162,7 +190,7 @@ export default function QuizView({ user }: { user: any }) {
 
   return (
     <div style={{ width: '100%', maxWidth: '800px', margin: '0 auto', boxSizing: 'border-box', padding: '10px' }}>
-      
+
       {/* ── A: INTRO KÉPERNYŐ ── */}
       {quizState === 'intro' && (
         <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', padding: '40px 30px', borderRadius: '12px', textAlign: 'center', boxShadow: '0 10px 25px rgba(0,0,0,0.3)' }}>
@@ -171,8 +199,8 @@ export default function QuizView({ user }: { user: any }) {
             {lang === 'en' ? 'Daily Quiz' : 'Napi Kvíz'}
           </h2>
           <p style={{ color: '#94a3b8', fontSize: '0.95rem', lineHeight: '1.6', maxWidth: '500px', margin: '0 auto 25px auto' }}>
-            {lang === 'en' 
-              ? 'Test your photography knowledge! 10 questions, 20 seconds each. Earn up to 50 Arena Points daily!' 
+            {lang === 'en'
+              ? 'Test your photography knowledge! 10 questions, 20 seconds each. Earn up to 50 Arena Points daily!'
               : 'Tedd próbára a fotós és technikai tudásod! 10 kérdés, kérdésenként 20 másodperc. Gyűjts akár 50 Aréna pontot naponta!'}
           </p>
           <button onClick={handleStartQuiz} style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#0f172a', border: 'none', padding: '12px 32px', borderRadius: '8px', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer', boxShadow: '0 4px 15px rgba(245,158,11,0.3)', transition: 'all 0.15s' }}>
@@ -194,7 +222,7 @@ export default function QuizView({ user }: { user: any }) {
       {/* ── C: JÁTÉKTÉR ── */}
       {quizState === 'playing' && parsedQuestion && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          
+
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-card)', padding: '12px 20px', borderRadius: '8px', border: '1px solid var(--border-main)' }}>
             <span style={{ color: '#94a3b8', fontSize: '0.85rem', fontWeight: 'bold' }}>
               📋 {lang === 'en' ? 'Question' : 'Kérdés'}: <span style={{ color: '#38bdf8' }}>{currentIdx + 1} / {questions.length}</span>
@@ -213,17 +241,17 @@ export default function QuizView({ user }: { user: any }) {
 
           <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', borderRadius: '12px', overflow: 'hidden' }}>
             <div style={{ width: '100%', height: '260px', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', borderBottom: '1px solid var(--border-main)' }}>
-              <img 
-                src={currentQuestion.image_url} 
-                alt="Quiz illustration" 
-                style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} 
+              <img
+                src={currentQuestion.image_url}
+                alt="Quiz illustration"
+                style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
                 onError={(e) => {
                   e.currentTarget.onerror = null;
                   e.currentTarget.src = `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 300' fill='%230f172a'><rect width='100%' height='100%'/><text x='50%' y='50%' fill='%23334155' font-family='sans-serif' font-size='14' text-anchor='middle'>📸 PhotAwesome Arena Quiz</text></svg>`;
                 }}
               />
             </div>
-            
+
             <div style={{ padding: '24px 20px' }}>
               <h3 style={{ margin: '0 0 20px 0', color: '#f8fafc', fontSize: '1.2rem', fontWeight: '700', lineHeight: '1.4' }}>
                 {parsedQuestion.title}
@@ -304,8 +332,8 @@ export default function QuizView({ user }: { user: any }) {
             {lang === 'en' ? 'Challenge Already Completed' : 'A mai kihívást már teljesítetted!'}
           </h3>
           <p style={{ color: 'var(--text-body)', fontSize: '0.88rem', lineHeight: '1.5', maxWidth: '450px', margin: '0 auto 20px auto' }}>
-            {lang === 'en' 
-              ? 'To keep the competition fair, the LensMaster Quiz can only be played once a day for points. Come back tomorrow for a fresh set of questions!' 
+            {lang === 'en'
+              ? 'To keep the competition fair, the LensMaster Quiz can only be played once a day for points. Come back tomorrow for a fresh set of questions!'
               : 'A verseny tisztaságának megőrzése érdekében a napi kvízt naponta csak egyszer játszhatod le pontokért. Várunk vissza holnap egy teljesen friss kérdéscsomaggal!'}
           </p>
           <button onClick={() => setQuizState('intro')} style={{ background: '#222f47', border: '1px solid var(--border-main)', color: 'white', padding: '10px 24px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
