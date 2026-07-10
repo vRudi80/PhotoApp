@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { BACKEND_URL } from '../utils/constants';
 import VideoLoader from '../components/VideoLoader';
 import { useLanguage } from '../context/LanguageContext';
@@ -20,6 +20,7 @@ export default function QuizView({ user }: { user: any }) {
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>({});
+  const [timeLeft, setTimeLeft] = useState(20); 
   const [rewardData, setResultData] = useState<{ pointsAwarded: number; score: number } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [correctAnswers, setCorrectAnswers] = useState<Record<number, string>>({});
@@ -30,11 +31,6 @@ export default function QuizView({ user }: { user: any }) {
   const [quizBalance, setQuizBalance] = useState(0);
   const [alreadyPlayedToday, setAlreadyPlayedToday] = useState(false);
   const [isBuying, setIsBuying] = useState(false);
-
-  // ── 🎯 DIRECT DOM BINDING VÉDŐPAJZS VÁLTOZÓK ──
-  const timerTextRef = useRef<HTMLSpanElement>(null);
-  const progressBarRef = useRef<HTMLDivElement>(null);
-  const timerIntervalRef = useRef<any>(null);
 
   const currentQuestion = questions[currentIdx];
 
@@ -57,45 +53,41 @@ export default function QuizView({ user }: { user: any }) {
     }
   }, [phase]);
 
-  // ── 🎯 ATOMBIZTOS REAT-BYPASS IDŐZÍTŐ MOTOR ──
-  // Közvetlenül a DOM-ot manipulálja, így az egérmozgás okozta App.tsx re-renderek nem tudják megállítani!
+  // ── 🎯 JAVÍTVA: HORGONYZOTT, EGÉRMOZGÁS-BIZTOS IDŐZÍTŐ MOTOR ──
   useEffect(() => {
     if (phase !== 'PLAYING' || !currentQuestion) return;
 
-    // Fix jövőbeli lejárati időpont kiszámítása delta-időhöz
-    const targetEndTime = Date.now() + 20300;
+    // Kikeressük vagy rögzítjük az abszolút végpontot a kérdés egyedi ID-ja alapján
+    const timerKey = `photo_quiz_end_${currentQuestion.id}`;
+    let targetTime = Number(sessionStorage.getItem(timerKey));
+    
+    if (!targetTime) {
+      targetTime = Date.now() + 20400; // 20 másodperc + minimális puffer a betöltéshez
+      sessionStorage.setItem(timerKey, String(targetTime));
+    }
 
-    const runClockTick = () => {
+    const updateClock = () => {
       const now = Date.now();
-      const diff = targetEndTime - now;
+      const diff = targetTime - now;
       const remaining = Math.max(0, Math.ceil(diff / 1000));
+      
+      setTimeLeft(remaining);
 
-      // Natívan, injektálva frissítjük a kijelzőt, teljesen megkerülve a React State-et
-      if (timerTextRef.current) {
-        timerTextRef.current.innerText = `${remaining}s`;
-      }
-      if (progressBarRef.current) {
-        progressBarRef.current.style.width = `${(remaining / 20) * 100}%`;
-        progressBarRef.current.style.background = remaining <= 5 ? '#ef4444' : 'linear-gradient(90deg, #38bdf8, #10b981)';
-      }
-
-      // Ha lejárt az idő, leállítjuk a szálat és kényszerítjük a továbblépést
       if (diff <= 0) {
-        if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+        clearInterval(interval);
+        sessionStorage.removeItem(timerKey);
         handleSelectOption('');
       }
     };
 
-    // Azonnali első indítás, hogy ne álljon 20 másodpercen egy villanásra sem
-    runClockTick();
+    // Azonnali szinkronizálás a kirajzolás pillanatában
+    updateClock();
 
-    // 200ms-os sűrű mintavételezés a tökéletes, akadásmentes időkövetésért
-    timerIntervalRef.current = setInterval(runClockTick, 200);
+    // 250ms-os sűrű mintavétel: ha a SessionGuard re-rendert kényszerít ki, az óra akkor sem akad meg
+    const interval = setInterval(updateClock, 250);
 
-    return () => {
-      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
-    };
-  }, [phase, currentIdx]);
+    return () => clearInterval(interval);
+  }, [phase, currentIdx, currentQuestion?.id]);
 
   // KUPON VÁSÁRLÁSA 5 PONTÉRT
   const handleBuyToken = async () => {
@@ -130,8 +122,10 @@ export default function QuizView({ user }: { user: any }) {
         if (data.alreadyPlayed) { 
           setPhase('ALREADY_PLAYED'); 
         } else {
+          // Takarítunk magunk után korábbi böngészőmaradványokat az indításkor
+          try { Object.keys(sessionStorage).forEach(k => { if(k.startsWith('photo_quiz_end_')) sessionStorage.removeItem(k); }); } catch(e){}
           setQuestions(data.questions || []);
-          setCurrentIdx(0); setSelectedAnswers({}); setCorrectAnswers({});
+          setCurrentIdx(0); setSelectedAnswers({}); setCorrectAnswers({}); setTimeLeft(20);
           setPhase('PLAYING');
         }
       } else { setPhase('INTRO'); }
@@ -175,8 +169,9 @@ export default function QuizView({ user }: { user: any }) {
   const handleSelectOption = (letter: string) => {
     if (phase !== 'PLAYING' || isSubmitting) return;
 
-    // Azonnal kitakarítjuk az aktív időzítőt az új kérdés előtt
-    if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+    if (currentQuestion) {
+      sessionStorage.removeItem(`photo_quiz_end_${currentQuestion.id}`);
+    }
     
     const nextAnswers = { ...selectedAnswers, [currentQuestion.id]: letter };
     setSelectedAnswers(nextAnswers);
@@ -207,7 +202,7 @@ export default function QuizView({ user }: { user: any }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
           <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', padding: '40px 30px', borderRadius: '12px', textAlign: 'center', boxShadow: '0 10px 25px rgba(0,0,0,0.3)' }}>
             <Trophy size={48} color="#f59e0b" style={{ margin: '0 auto 15px auto', display: 'block' }} />
-            <h2 style={{ color: '#f8fafc', fontSize: '1.75rem', fontWeight: '800', margin: '0 0 10px 0' }}>{lang === 'en' ? 'Daily Quiz' : 'Napi Kvíz'}</h2>
+            <h2 style={{ color: '#f8fafc', fontSize: '1.75rem', fontWeight: '800', margin: '0 0 10px 0' }}>{lang === 'en' ? 'LensMaster Daily Quiz' : 'LensMaster Napi Kvíz'}</h2>
             <p style={{ color: '#94a3b8', fontSize: '0.95rem', marginBottom: '20px' }}>
               {lang === 'en' ? 'Test your photography knowledge! Earn up to 50 spendable Arena Points daily!' : 'Tedd próbára a fotós tudásod és gyűjts akár 50 elkölthető Aréna pontot naponta!'}
             </p>
@@ -248,7 +243,7 @@ export default function QuizView({ user }: { user: any }) {
             </div>
           </div>
 
-          {/* HISTÓRIA LISTA */}
+          {/* HISTÓRIA LISTA (🎯 JAVÍTVA: Csak a tiszta dátumot mutatja szóköz-vágással) */}
           {showHistory && historyList.length > 0 && (
             <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', padding: '25px', borderRadius: '12px' }}>
               <h3 style={{ margin: '0 0 16px 0', color: '#f1f5f9', fontSize: '1.1rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -283,21 +278,13 @@ export default function QuizView({ user }: { user: any }) {
       {/* ── C: AKTÍV JÁTÉKTÉR ── */}
       {phase === 'PLAYING' && parsedQuestion && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-card)', padding: '12px 20px', borderRadius: '8px', border: '1px solid var(--border-main)' }}>
             <span style={{ color: '#94a3b8', fontSize: '0.85rem', fontWeight: 'bold' }}>📋 Kérdés: <span style={{ color: '#38bdf8' }}>{currentIdx + 1} / {questions.length}</span></span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#10b981', fontSize: '0.9rem', fontWeight: 'bold' }}>
-              <Timer size={14} /> 
-              {/* 🎯 Natív statikus tag: az órajel közvetlenül ide ír, nincs React re-render akadás */}
-              <span ref={timerTextRef}>20s</span>
-            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: timeLeft <= 5 ? '#ef4444' : '#10b981', fontSize: '0.9rem', fontWeight: 'bold' }}><Timer size={14} /> <span>{timeLeft}s</span></div>
           </div>
-          
           <div style={{ width: '100%', height: '4px', background: '#1e293b', borderRadius: '2px', overflow: 'hidden' }}>
-            {/* 🎯 Natív haladási sáv: a stílust közvetlenül a DOM referencián keresztül toljuk neki */}
-            <div ref={progressBarRef} style={{ width: '100%', height: '100%', background: 'linear-gradient(90deg, #38bdf8, #10b981)' }} />
+            <div style={{ width: `${(timeLeft / 20) * 100}%`, height: '100%', background: timeLeft <= 5 ? '#ef4444' : 'linear-gradient(90deg, #38bdf8, #10b981)' }} />
           </div>
-
           <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', borderRadius: '12px', overflow: 'hidden' }}>
             <div style={{ width: '100%', height: '260px', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><img src={currentQuestion.image_url} alt="" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} /></div>
             <div style={{ padding: '24px 20px' }}>
