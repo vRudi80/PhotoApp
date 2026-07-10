@@ -131,8 +131,8 @@ module.exports = function(app, pool, upload) {
             pointsToAward,
             'quiz_reward',
             null, 
-            `🎮 LensMaster Kvíz jutalom (+${pointsToAward}p)`,
-            `LensMaster Quiz reward (+${pointsToAward}p)`
+            `Kvíz jutalom (+${pointsToAward}p)`,
+            `Quiz reward (+${pointsToAward}p)`
           );
         } catch (pointsErr) {
           console.error("⚠️ Hiba a PointsService könyvelése közben:", pointsErr.message);
