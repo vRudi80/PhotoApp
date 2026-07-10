@@ -357,7 +357,7 @@ export default function QuizView({ user }: { user: any }) {
                             {row.total_correct} / {row.total_questions}
                           </span>
                           <span style={{ color: '#38bdf8', fontWeight: 'bold', minWidth: '45px', textAlign: 'right' }}>
-                            {row.percentage}/10%
+                            {row.percentage}/{10} %
                           </span>
                         </div>
                       </div>
