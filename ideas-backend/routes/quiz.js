@@ -6,7 +6,7 @@ const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 // 🎯 KÖZPONTI BANKMOTOR BEÉPÍTÉSE
 const PointsService = require('../PointsService'); 
 
-// 🎯 BIZTONSÁGI TARTALÉK EMAIL - Pontosan megegyezik a weekly.js konfigurációjával
+// 🎯 BIZTONSÁGI TARTALÉK EMAIL
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "kovari.rudolf@gmail.com";
 
 cloudinary.config({
@@ -16,7 +16,7 @@ cloudinary.config({
 });
 
 // ====================================================================
-// 🔒 HITELESÍTÉSI MIDDLEWARE (Pontos másolata a weekly.js logikájának)
+// 🔒 HITELESÍTÉSI MIDDLEWARE (weekly.js alapú)
 // ====================================================================
 async function requireAuth(req, res, next) {
   try {
@@ -52,7 +52,7 @@ async function requireAuth(req, res, next) {
 module.exports = function(app, pool, upload) {
 
   // ====================================================================
-  // 📡 1. NAPI KVÍZ KÉRDÉSEK LEKÉRÉSE A JÁTÉKOSOKNAK
+  // 📡 1. NAPI KVÍZ KÉRDÉSEK LEKÉRÉSE A JÁTÉKOSOKNAK (HIÁNYTALAN)
   // ====================================================================
   app.get('/api/quiz/questions', requireAuth, async (req, res) => {
     try {
@@ -64,8 +64,9 @@ module.exports = function(app, pool, upload) {
         return res.json({ alreadyPlayed: true, questions: [] });
       }
 
+      // 🎯 JAVÍTVA: Beemelve az explanation_hu és explanation_en mezők a lekérdezésbe!
       const [questions] = await pool.query(
-        `SELECT id, type, image_url, question_hu, question_en, options_hu, options_en 
+        `SELECT id, type, image_url, question_hu, question_en, options_hu, options_en, explanation_hu, explanation_en 
          FROM quiz_questions 
          ORDER BY RAND() LIMIT 10`
       );
@@ -76,7 +77,7 @@ module.exports = function(app, pool, upload) {
   });
 
   // ====================================================================
-  // 📡 2. KIÉRTÉKELÉS ÉS KÖZPONTI LEDGER PONTKÖNYVELÉS (STRUKTÚRA FIXALVA)
+  // 📡 2. KIÉRTÉKELÉS ÉS KÖZPONTI LEDGER PONTKÖNYVELÉS (HIÁNYTALAN)
   // ====================================================================
   app.post('/api/quiz/submit', requireAuth, async (req, res) => {
     const { answers, userEmail } = req.body;
@@ -115,14 +116,13 @@ module.exports = function(app, pool, upload) {
 
       const pointsToAward = Math.min(50, Math.floor(serverCalculatedScore / 20));
 
-      // 1. Első lépésként elmentjük a kísérletet a kvíznaplóba
+      // Kísérlet naplózása
       await pool.query(
         'INSERT INTO quiz_attempts (user_email, score, points_awarded, completed_at) VALUES (?, ?, ?, NOW())',
         [req.user.email, serverCalculatedScore, pointsToAward]
       );
 
-      // 2. 🎯 JAVÍTVA: Közvetlenül a 'pool' objektumot adjuk át a PointsService-nek, 
-      // pontosan úgy, ahogy a weekly.js (314. sor) teszi a szavazási bónusznál!
+      // 🎯 JAVÍTVA: Közvetlen és hivatalos könyvelés a belső bankmotoron keresztül!
       if (pointsToAward > 0) {
         try {
           await PointsService.handleTransaction(
@@ -131,11 +131,11 @@ module.exports = function(app, pool, upload) {
             pointsToAward,
             'quiz_reward',
             null, 
-            `Kvíz jutalom (+${pointsToAward}p)`,
-            `Quiz reward (+${pointsToAward}p)`
+            `🎮 LensMaster Kvíz jutalom (+${pointsToAward}p)`,
+            `LensMaster Quiz reward (+${pointsToAward}p)`
           );
         } catch (pointsErr) {
-          console.error("⚠️ Hiba a PointsService könyvelése közben:", pointsErr.message);
+          console.error("⚠️ Figyelmeztetés a PointsService könyvelése közben:", pointsErr.message);
         }
       }
       
@@ -153,23 +153,27 @@ module.exports = function(app, pool, upload) {
   });
 
   // ====================================================================
-  // 📡 3. ADMINISZTRÁCIÓS VÉGPONTOK (CRUD)
+  // 📡 3. ADMINISZTRÁCIÓS MENTÉS (HIÁNYTALAN + MAGYARÁZATOK)
   // ====================================================================
   app.post('/api/admin/quiz/add', requireAuth, upload.single('photo'), async (req, res) => {
     if (!req.user.isAdmin) return res.status(403).json({ error: 'Adminisztrátori jog szükséges!' });
     const file = req.file;
     if (!file) return res.status(400).json({ error: 'A kvízkérdéshez kötelező képet feltölteni!' });
-    const { type, questionHu, questionEn, optionsHu, optionsEn, correctOption, exifTarget } = req.body;
+    
+    // 🎯 JAVÍTVA: Az explanationHu és explanationEn bekerült a destructuringbe!
+    const { type, questionHu, questionEn, optionsHu, optionsEn, correctOption, exifTarget, explanationHu, explanationEn } = req.body;
     try {
       const result = await cloudinary.uploader.upload(file.path, { 
         folder: 'arena_kviz', width: 1200, height: 900, crop: "limit", quality: "auto:good" 
       });
       if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+      
+      // 🎯 JAVÍTVA: Az új mezők mentésre kerülnek az adatbázisba!
       await pool.query(
         `INSERT INTO quiz_questions 
-         (type, image_url, question_hu, question_en, options_hu, options_en, correct_option, exif_target_value) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [type, result.secure_url, questionHu, questionEn, optionsHu, optionsEn, correctOption, exifTarget || null]
+         (type, image_url, question_hu, question_en, options_hu, options_en, correct_option, exif_target_value, explanation_hu, explanation_en) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [type, result.secure_url, questionHu, questionEn, optionsHu, optionsEn, correctOption, exifTarget || null, explanationHu || null, explanationEn || null]
       );
       res.json({ success: true });
     } catch (err) {
@@ -186,10 +190,15 @@ module.exports = function(app, pool, upload) {
     } catch (err) { res.status(500).json({ error: 'Hiba a kérdések betöltésekor.' }); }
   });
 
+  // ====================================================================
+  // 📡 4. ADMINISZTRÁCIÓS MODOSÍTÁS (HIÁNYTALAN + MAGYARÁZATOK)
+  // ====================================================================
   app.put('/api/admin/quiz/update/:id', requireAuth, upload.single('photo'), async (req, res) => {
     if (!req.user.isAdmin) return res.status(403).json({ error: 'Adminisztrátori jog szükséges!' });
     const { id } = req.params; const file = req.file;
-    const { type, questionHu, questionEn, optionsHu, optionsEn, correctOption, exifTarget, currentImageUrl } = req.body;
+    
+    // 🎯 JAVÍTVA: Az explanationHu és explanationEn bekerült a módosítási folyamatba!
+    const { type, questionHu, questionEn, optionsHu, optionsEn, correctOption, exifTarget, currentImageUrl, explanationHu, explanationEn } = req.body;
     try {
       let finalImageUrl = currentImageUrl;
       if (file) {
@@ -197,7 +206,14 @@ module.exports = function(app, pool, upload) {
         finalImageUrl = result.secure_url;
         if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
       }
-      await pool.query(`UPDATE quiz_questions SET type = ?, image_url = ?, question_hu = ?, question_en = ?, options_hu = ?, options_en = ?, correct_option = ?, exif_target_value = ? WHERE id = ?`, [type, finalImageUrl, questionHu, questionEn, optionsHu, optionsEn, correctOption, exifTarget || null, id]);
+      
+      // 🎯 JAVÍTVA: Az SQL parancs most már az új edukációs mezőket is frissíti!
+      await pool.query(
+        `UPDATE quiz_questions 
+         SET type = ?, image_url = ?, question_hu = ?, question_en = ?, options_hu = ?, options_en = ?, correct_option = ?, exif_target_value = ?, explanation_hu = ?, explanation_en = ? 
+         WHERE id = ?`, 
+        [type, finalImageUrl, questionHu, questionEn, optionsHu, optionsEn, correctOption, exifTarget || null, explanationHu || null, explanationEn || null, id]
+      );
       res.json({ success: true });
     } catch (err) { if (file && fs.existsSync(file.path)) fs.unlinkSync(file.path); res.status(500).json({ error: err.message }); }
   });
