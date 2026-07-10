@@ -260,7 +260,7 @@ module.exports = function(app, pool, upload) {
     }
   });
  // ====================================================================
-  // 🏆 JAVÍTVA: CALENDAR RANGLISTA (AVATAR_URL + STRICT SQL JAVÍTÁS)
+  // 🏆 ÚJRA JAVÍTVA: KVÍZ RANGLISTA (COLLATION MIX HIBA ELHÁRÍTVA)
   // ====================================================================
   app.get('/api/quiz/leaderboard', requireAuth, async (req, res) => {
     const { period, year, month } = req.query;
@@ -272,34 +272,29 @@ module.exports = function(app, pool, upload) {
         u.avatar_url,
         MAX(a.score) as best_score
       FROM quiz_attempts a
-      JOIN photo_users u ON LOWER(TRIM(a.user_email)) = LOWER(TRIM(u.email))
+      /* 🎯 KORREKCIÓ: Kényszerített collation egyezőség az '=' művelethez */
+      JOIN photo_users u ON a.user_email = u.email COLLATE utf8mb4_general_ci
     `;
     
     let whereClause = 'WHERE 1=1';
     let params = [];
 
     if (period === 'daily') {
-      // Szigorúan a mai naptári nap
       whereClause = 'WHERE DATE(a.completed_at) = CURDATE()';
     } else if (period === 'weekly') {
-      // Szigorúan az aktuális naptári hét (hétfőtől indítva)
       whereClause = 'WHERE YEARWEEK(a.completed_at, 1) = YEARWEEK(NOW(), 1)';
     } else if (period === 'monthly') {
       if (year && month) {
-        // Visszamenőleges naptári szűrés évre és hónapra
         whereClause = 'WHERE YEAR(a.completed_at) = ? AND MONTH(a.completed_at) = ?';
         params.push(Number(year), Number(month));
       } else {
-        // Alapértelmezetten az aktuális naptári hónap
         whereClause = 'WHERE YEAR(a.completed_at) = YEAR(NOW()) AND MONTH(a.completed_at) = MONTH(NOW())';
       }
     }
 
-    // 🎯 STRICT SQL FIX: Csak olyan oszlop szerint rendezünk, ami szerepel a SELECT-ben is,
-    // így az ONLY_FULL_GROUP_BY mód nem dob többet 500-as belső hibát, az avatar_url pedig él!
     sql += `
       ${whereClause}
-      GROUP BY u.name, u.club_name, u.avatar_url
+      GROUP BY u.email, u.name, u.club_name, u.avatar_url
       ORDER BY best_score DESC
       LIMIT 50
     `;
