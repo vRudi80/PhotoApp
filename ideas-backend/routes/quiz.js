@@ -80,9 +80,7 @@ module.exports = function(app, pool, upload) {
     }
   });
 
-  // ====================================================================
-  // 📡 2. KIÉRTÉKELÉS ÉS KÖZPONTI LEDGER PONTKÖNYVELÉS (HIÁNYTALAN)
-  // ====================================================================
+  // 🎯 MÓDOSÍTVA: SUBMIT ÉS AUTOMATIKUS KUPON-LEVONÁS RÁADÁS KÖR ESETÉN
   app.post('/api/quiz/submit', requireAuth, async (req, res) => {
     const { answers, userEmail } = req.body;
     if (!userEmail || req.user.email !== userEmail) {
@@ -94,8 +92,15 @@ module.exports = function(app, pool, upload) {
         'SELECT id FROM quiz_attempts WHERE user_email = ? AND DATE(completed_at) = CURDATE()',
         [req.user.email]
       );
+      
+      let usesToken = false;
       if (checkAttempt.length > 0) {
-        return res.status(400).json({ error: 'Ma már leadtad a napi kvíz eredményedet!' });
+        const [userRows] = await pool.query('SELECT quiz_balance FROM photo_users WHERE email = ?', [req.user.email]);
+        const quizBalance = userRows[0]?.quiz_balance || 0;
+        if (quizBalance <= 0) {
+          return res.status(400).json({ error: 'Nincs több Kvíz Kuponod a mai ráadás körhöz!' });
+        }
+        usesToken = true;
       }
 
       let serverCalculatedScore = 0;
@@ -104,11 +109,7 @@ module.exports = function(app, pool, upload) {
       const correctAnswersMap = {}; 
 
       if (questionIds.length > 0) {
-        const [dbQuestions] = await pool.query(
-          'SELECT id, correct_option FROM quiz_questions WHERE id IN (?)',
-          [questionIds.map(Number)]
-        );
-
+        const [dbQuestions] = await pool.query('SELECT id, correct_option FROM quiz_questions WHERE id IN (?)', [questionIds.map(Number)]);
         dbQuestions.forEach(q => {
           correctAnswersMap[q.id] = q.correct_option; 
           const userChoice = submittedAnswers[q.id];
@@ -120,38 +121,37 @@ module.exports = function(app, pool, upload) {
 
       const pointsToAward = Math.min(50, Math.floor(serverCalculatedScore / 20));
 
-      // Kísérlet naplózása
-      await pool.query(
-        'INSERT INTO quiz_attempts (user_email, score, points_awarded, completed_at) VALUES (?, ?, ?, NOW())',
-        [req.user.email, serverCalculatedScore, pointsToAward]
-      );
+      // Szigorú egyedi szálkapcsolat a belső tranzakció kezeléséhez
+      const conn = await pool.getConnection();
+      await conn.beginTransaction();
 
-      // 🎯 JAVÍTVA: Közvetlen és hivatalos könyvelés a belső bankmotoron keresztül!
-      if (pointsToAward > 0) {
-        try {
-          await PointsService.handleTransaction(
-            pool,
-            req.user.email,
-            pointsToAward,
-            'quiz_reward',
-            null, 
-            `Kvíz jutalom (+${pointsToAward}p)`,
-            `Quiz reward (+${pointsToAward}p)`
-          );
-        } catch (pointsErr) {
-          console.error("⚠️ Figyelmeztetés a PointsService könyvelése közben:", pointsErr.message);
+      try {
+        if (usesToken) {
+          await conn.query('UPDATE photo_users SET quiz_balance = quiz_balance - 1 WHERE email = ?', [req.user.email]);
         }
+
+        await conn.query(
+          'INSERT INTO quiz_attempts (user_email, score, points_awarded, completed_at) VALUES (?, ?, ?, NOW())',
+          [req.user.email, serverCalculatedScore, pointsToAward]
+        );
+
+        if (pointsToAward > 0) {
+          await PointsService.handleTransaction(
+            conn, req.user.email, pointsToAward, 'quiz_reward', null,
+            `🎮 LensMaster Kvíz jutalom (+${pointsToAward}p)`, `LensMaster Quiz reward (+${pointsToAward}p)`
+          );
+        }
+
+        await conn.commit();
+      } catch (txErr) {
+        await conn.rollback();
+        throw txErr;
+      } finally {
+        conn.release();
       }
       
-      res.json({ 
-        success: true, 
-        score: serverCalculatedScore, 
-        pointsAwarded: pointsToAward,
-        correctAnswers: correctAnswersMap 
-      });
-
+      res.json({ success: true, score: serverCalculatedScore, pointsAwarded: pointsToAward, correctAnswers: correctAnswersMap });
     } catch (err) {
-      console.error("❌ Éles központi kvíz hiba:", err.message);
       res.status(500).json({ error: 'Szerver hiba az eredmény kiértékelésekor.' });
     }
   });
@@ -194,25 +194,7 @@ module.exports = function(app, pool, upload) {
     } catch (err) { res.status(500).json({ error: 'Hiba a kérdések betöltésekor.' }); }
   });
 
-  // ====================================================================
-  // 🎯 ÚJ: JÁTÉKOS SAJÁT HISTÓRIKUS KVÍZTÖRTÉNETÉNEK LEKÉRÉSE
-  // ====================================================================
-  app.get('/api/quiz/my-history', requireAuth, async (req, res) => {
-    try {
-      const [rows] = await pool.query(
-        `SELECT id, score, points_awarded, DATE_FORMAT(completed_at, '%Y-%m-%d %H:%i') as date 
-         FROM quiz_attempts 
-         WHERE user_email = ? 
-         ORDER BY completed_at DESC LIMIT 40`,
-        [req.user.email]
-      );
-      res.json(rows);
-    } catch (err) {
-      console.error("❌ Kvíztörténet lekérési hiba:", err.message);
-      res.status(500).json({ error: 'Nem sikerült betölteni a korábbi kvíztörténetet.' });
-    }
-  });
-  
+ 
   // ====================================================================
   // 📡 4. ADMINISZTRÁCIÓS MODOSÍTÁS (HIÁNYTALAN + MAGYARÁZATOK)
   // ====================================================================
