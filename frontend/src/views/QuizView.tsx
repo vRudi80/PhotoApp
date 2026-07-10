@@ -33,15 +33,20 @@ export default function QuizView({ user }: { user: any }) {
   const [alreadyPlayedToday, setAlreadyPlayedToday] = useState(false);
   const [isBuying, setIsBuying] = useState(false);
 
-  // 🎯 ÚJ: Ranglista állapotok
+  // Ranglista és Visszamenőleges szűrők állapotai
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [leaderboardPeriod, setLeaderboardPeriod] = useState<LeaderboardPeriod>('daily');
   const [leaderboardData, setLeaderboardData] = useState<any[]>([]);
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
 
+  // Alapértelmezett naptári horgonyok (Aktuális év és hónap)
+  const currentYear = new Date().getFullYear();
+  const currentMonth = new Date().getMonth() + 1;
+  const [selectedYear, setSelectedYear] = useState(currentYear);
+  const [selectedMonth, setSelectedMonth] = useState(currentMonth);
+
   const currentQuestion = questions[currentIdx];
 
-  // Alapadatok szinkronizálása
   const fetchMyThemeData = async () => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/quiz/my-history`, { headers: getAuthHeaders() });
@@ -54,11 +59,15 @@ export default function QuizView({ user }: { user: any }) {
     } catch (e) { console.error(e); }
   };
 
-  // 🎯 ÚJ: Ranglista adatok lekérése a szerverről
-  const fetchLeaderboard = async (period: LeaderboardPeriod) => {
+  // 🎯 MÓDOSÍTVA: URL paraméteres visszamenőleges adatlekérés havi bontás esetén
+  const fetchLeaderboard = async (period: LeaderboardPeriod, y: number, m: number) => {
     setLoadingLeaderboard(true);
     try {
-      const res = await fetch(`${BACKEND_URL}/api/quiz/leaderboard?period=${period}`, { headers: getAuthHeaders() });
+      let url = `${BACKEND_URL}/api/quiz/leaderboard?period=${period}`;
+      if (period === 'monthly') {
+        url += `&year=${y}&month=${m}`;
+      }
+      const res = await fetch(url, { headers: getAuthHeaders() });
       if (res.ok) {
         setLeaderboardData(await res.json());
       }
@@ -72,13 +81,14 @@ export default function QuizView({ user }: { user: any }) {
     }
   }, [phase]);
 
+  // Ranglista figyelő: újra lő, ha változik a periódus, az év vagy a kiválasztott hónap
   useEffect(() => {
     if (phase === 'INTRO' && showLeaderboard) {
-      fetchLeaderboard(leaderboardPeriod);
+      fetchLeaderboard(leaderboardPeriod, selectedYear, selectedMonth);
     }
-  }, [showLeaderboard, leaderboardPeriod, phase]);
+  }, [showLeaderboard, leaderboardPeriod, selectedYear, selectedMonth, phase]);
 
-  // rAF ALAPÚ MEGSZAKÍTHATATLAN ÓRAMOTOR
+  // rAF ALAPÚ ZAVARTALAN ÓRAMOTOR
   useEffect(() => {
     if (phase !== 'PLAYING' || !currentQuestion) return;
 
@@ -130,7 +140,6 @@ export default function QuizView({ user }: { user: any }) {
     };
   }, [phase, currentIdx, currentQuestion?.id]);
 
-  // KUPON VÁSÁRLÁSA
   const handleBuyToken = async () => {
     if (isBuying) return;
     setIsBuying(true);
@@ -247,7 +256,6 @@ export default function QuizView({ user }: { user: any }) {
                   <History size={16} /> {showHistory ? 'Bezárás' : 'Kvíznaplóm'}
                 </button>
                 
-                {/* 🎯 ÚJ: Ranglista váltó gomb */}
                 <button onClick={() => { setShowLeaderboard(!showLeaderboard); setShowHistory(false); }} style={{ flex: 1, minWidth: '130px', background: '#1e293b', color: '#fbbf24', border: '1px solid #b4530940', padding: '12px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                   <Award size={16} /> {showLeaderboard ? 'Bezárás' : 'Dicsőséglista'}
                 </button>
@@ -275,7 +283,7 @@ export default function QuizView({ user }: { user: any }) {
           {showHistory && historyList.length > 0 && (
             <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', padding: '25px', borderRadius: '12px' }}>
               <h3 style={{ margin: '0 0 16px 0', color: '#f1f5f9', fontSize: '1.1rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <History size={18} color="#38bdf8" /> Szaját Kvíz Teljesítmény-Napló
+                <History size={18} color="#38bdf8" /> Saját Kvíz Teljesítmény-Napló
               </h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {historyList.map(item => (
@@ -293,15 +301,14 @@ export default function QuizView({ user }: { user: any }) {
             </div>
           )}
 
-          {/* 🎯 ÚJ: STRUKTURÁLT, IDŐZÍTETT DICSŐSÉGLISTA PANEL */}
+          {/* DICSŐSÉGLISTA PANEL */}
           {showLeaderboard && (
             <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', padding: '25px', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', borderBottom: '1px solid var(--border-main)', paddingBottom: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px', borderBottom: '1px solid var(--border-main)', paddingBottom: '12px' }}>
                 <h3 style={{ margin: 0, color: '#fbbf24', fontSize: '1.1rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <Award size={18} /> Toplista
                 </h3>
                 
-                {/* Al-idősáv választó fülek */}
                 <div style={{ display: 'inline-flex', background: '#0f172a', padding: '4px', borderRadius: '8px', border: '1px solid var(--border-main)' }}>
                   {(['daily', 'weekly', 'monthly'] as const).map(p => (
                     <button key={p} onClick={() => setLeaderboardPeriod(p)} style={{ padding: '6px 14px', background: leaderboardPeriod === p ? 'var(--bg-card)' : 'transparent', color: leaderboardPeriod === p ? '#fbbf24' : '#64748b', border: 'none', borderRadius: '6px', fontSize: '0.82rem', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.1s' }}>
@@ -310,6 +317,23 @@ export default function QuizView({ user }: { user: any }) {
                   ))}
                 </div>
               </div>
+
+              {/* 🎯 ÚJ: DINAMIKUS VISSZAMENŐLEGES HISTÓRIA-SZŰRŐ (Kizárólag ha a 'Havi' fül aktív) */}
+              {leaderboardPeriod === 'monthly' && (
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', background: '#0f172a50', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-main)', flexWrap: 'wrap' }}>
+                  <span style={{ color: '#94a3b8', fontSize: '0.8rem', fontWeight: 'bold' }}>📅 IDŐSZAK KIVÁLASZTÁSA:</span>
+                  <select value={selectedYear} onChange={e => setSelectedYear(Number(e.target.value))} style={{ padding: '6px 10px', background: 'var(--bg-card)', color: 'white', border: '1px solid var(--border-main)', borderRadius: '6px', cursor: 'pointer', outline: 'none', fontSize: '0.85rem' }}>
+                    {[2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}
+                  </select>
+                  <select value={selectedMonth} onChange={e => setSelectedMonth(Number(e.target.value))} style={{ padding: '6px 10px', background: 'var(--bg-card)', color: 'white', border: '1px solid var(--border-main)', borderRadius: '6px', cursor: 'pointer', outline: 'none', fontSize: '0.85rem' }}>
+                    {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                      <option key={m} value={m}>
+                        {lang === 'en' ? new Date(2000, m - 1).toLocaleString('en', { month: 'long' }) : `${m}. hónap`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               {loadingLeaderboard ? (
                 <div style={{ padding: '20px 0', textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem' }}>Betöltés... ⏳</div>
@@ -321,23 +345,19 @@ export default function QuizView({ user }: { user: any }) {
                     
                     return (
                       <div key={index} style={{ display: 'flex', alignItems: 'center', gap: '12px', background: '#0f172a30', border: '1px solid var(--border-main)', padding: '10px 14px', borderRadius: '8px', fontSize: '0.88rem' }}>
-                        {/* Helyezés */}
                         <span style={{ width: '24px', textAlign: 'center', fontWeight: 'bold', color: index === 0 ? '#fbbf24' : index === 1 ? '#cbd5e1' : index === 2 ? '#d97706' : '#475569' }}>
                           #{index + 1}
                         </span>
                         
-                        {/* Avatar */}
                         <div style={{ width: '32px', height: '32px', borderRadius: '50%', overflow: 'hidden', background: '#1e293b', flexShrink: 0, border: '1px solid var(--border-main)' }}>
                           <img src={row.avatar_url || `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' fill='%23475569'><circle cx='16' cy='16' r='16'/></svg>`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
                         </div>
 
-                        {/* Név és Klub */}
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <strong style={{ display: 'block', color: '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{row.name}</strong>
                           {row.club_name && <small style={{ color: '#64748b', fontSize: '0.75rem', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>🏰 {row.club_name}</small>}
                         </div>
 
-                        {/* Arány és Százalék */}
                         <div style={{ textAlign: 'right', flexShrink: 0, display: 'flex', alignItems: 'center', gap: '15px' }}>
                           <span style={{ color: '#cbd5e1', fontSize: '0.82rem', fontFamily: 'monospace' }}>{correctCount} / 10</span>
                           <span style={{ color: '#38bdf8', fontWeight: 'bold', minWidth: '45px', textAlign: 'right' }}>{percentage}%</span>
@@ -346,7 +366,7 @@ export default function QuizView({ user }: { user: any }) {
                     );
                   })}
                   {leaderboardData.length === 0 && (
-                    <div style={{ padding: '20px 0', textAlign: 'center', color: '#64748b', fontStyle: 'italic', fontSize: '0.85rem' }}>Ebben az időszakban még senki sem küldött be kvízt. Legyél te az első!</div>
+                    <div style={{ padding: '20px 0', textAlign: 'center', color: '#64748b', fontStyle: 'italic', fontSize: '0.85rem' }}>Ebben az időszakban még senki sem küldött be kvízt.</div>
                   )}
                 </div>
               )}
