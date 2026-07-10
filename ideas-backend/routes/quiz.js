@@ -144,8 +144,8 @@ module.exports = function(app, pool, upload) {
             pointsToAward,
             'quiz_reward',
             null, 
-            `🎮 LensMaster Kvíz jutalom (+${pointsToAward}p)`,
-            `LensMaster Quiz reward (+${pointsToAward}p)`
+            `Kvíz jutalom (+${pointsToAward}p)`,
+            `Quiz reward (+${pointsToAward}p)`
           );
         } catch (pointsErr) {
           console.error("⚠️ Hiba a PointsService könyvelése közben:", pointsErr.message);
@@ -262,11 +262,13 @@ module.exports = function(app, pool, upload) {
   // ====================================================================
   // 🏆 ÚJ: KVÍZ DICSŐSÉGLISTA (NAPI, HETI, HAVI GLOBÁLIS RANGLISTA)
   // ====================================================================
+  // ====================================================================
+  // 🏆 JAVÍTVA: KVÍZ DICSŐSÉGLISTA (ATOMBUTOS RANGLISTA LEKÉRDEZÉS)
+  // ====================================================================
   app.get('/api/quiz/leaderboard', requireAuth, async (req, res) => {
     const { period } = req.query;
     let whereClause = 'WHERE 1=1';
     
-    // Szigorú időbélyeg-szűrések a gördülő idősávokhoz
     if (period === 'daily') {
       whereClause = 'WHERE DATE(a.completed_at) = CURDATE()';
     } else if (period === 'weekly') {
@@ -286,7 +288,7 @@ module.exports = function(app, pool, upload) {
         JOIN photo_users u ON LOWER(TRIM(a.user_email)) = LOWER(TRIM(u.email))
         ${whereClause}
         GROUP BY u.email, u.name, u.avatar_url, u.club_name
-        ORDER BY best_score DESC, MAX(a.completed_at) ASC
+        ORDER BY MAX(a.score) DESC, MAX(a.completed_at) ASC
         LIMIT 50
       `);
       res.json(rows);
@@ -295,6 +297,7 @@ module.exports = function(app, pool, upload) {
       res.status(500).json({ error: 'Nem sikerült betölteni a dicsőséglistát.' });
     }
   });
+  
   app.delete('/api/admin/quiz/delete/:id', requireAuth, async (req, res) => {
     if (!req.user.isAdmin) return res.status(403).json({ error: 'Adminisztrátori jog szükséges!' });
     try { await pool.query('DELETE FROM quiz_questions WHERE id = ?', [req.params.id]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: 'Hiba a törlés közben.' }); }
