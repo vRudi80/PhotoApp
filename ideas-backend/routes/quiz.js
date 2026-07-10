@@ -3,6 +3,9 @@ const cloudinary = require('cloudinary').v2;
 const { OAuth2Client } = require('google-auth-library');
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
+// 🎯 KÖZPONTI BANKMOTOR BEÉPÍTÉSE (Pontosan úgy, ahogy a store.js-ben használtad)
+const PointsService = require('../PointsService'); 
+
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "kovari.rudolf@gmail.com";
 
 cloudinary.config({
@@ -11,6 +14,9 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
+// ====================================================================
+// 🔒 BIZTONSÁGIŐR MIDDLEWARE
+// ====================================================================
 async function requireAuth(req, res, next) {
   try {
     const authHeader = req.headers.authorization;
@@ -39,7 +45,9 @@ async function requireAuth(req, res, next) {
 
 module.exports = function(app, pool, upload) {
 
-  // 📡 1. NAPI KVÍZ KÉRDÉSEK LEKÉRÉSE
+  // ====================================================================
+  // 📡 1. NAPI KVÍZ KÉRDÉSEK LEKÉRÉSE A JÁTÉKOSOKNAK (VÉDETT)
+  // ====================================================================
   app.get('/api/quiz/questions', requireAuth, async (req, res) => {
     try {
       const [attempts] = await pool.query(
@@ -61,7 +69,9 @@ module.exports = function(app, pool, upload) {
     }
   });
 
-  // 📡 2. KIÉRTÉKELÉS, MEGOLDÓKULCS VISSZAKÜLDÉS ÉS LEDGER KÖNYVELÉS
+  // ====================================================================
+  // 📡 2. KIÉRTÉKELÉS ÉS KÖZPONTI LEDGER PONTKÖNYVELÉS (INTEGRÁLVA!)
+  // ====================================================================
   app.post('/api/quiz/submit', requireAuth, async (req, res) => {
     const { answers, userEmail } = req.body;
     if (!userEmail || req.user.email !== userEmail.toLowerCase().trim()) {
@@ -81,7 +91,7 @@ module.exports = function(app, pool, upload) {
       let serverCalculatedScore = 0;
       const submittedAnswers = answers || {};
       const questionIds = Object.keys(submittedAnswers);
-      const correctAnswersMap = {}; // 🎯 MEGKERÜLŐ: Ebbe gyűjtjük a válaszokat a frontendnek
+      const correctAnswersMap = {}; 
 
       if (questionIds.length > 0) {
         const [dbQuestions] = await pool.query(
@@ -98,36 +108,29 @@ module.exports = function(app, pool, upload) {
         });
       }
 
+      // Minden 20 elért kvízpont után adunk 1 levásárolható Aréna pontot (Max 50p)
       const pointsToAward = Math.min(50, Math.floor(serverCalculatedScore / 20));
 
       conn = await pool.getConnection();
       await conn.beginTransaction();
 
       if (pointsToAward > 0) {
-        // Frissítjük a felhasználó egyenlegét
-        await conn.query(
-          'UPDATE photo_users SET points_balance = points_balance + ? WHERE email = ?',
-          [pointsToAward, req.user.email]
-          );
+        // 🎯 KÖZPONTI BANKMOTOR MEGHÍVÁSA: A meglévő kapcsolatfolyamot (conn) adjuk át neki,
+        // így tökéletesen beírja a photo_points_ledger táblába az összes szükséges metaadatot!
+        await PointsService.handleTransaction(
+          conn,
+          req.user.email,
+          pointsToAward,
+          'quiz_reward',
+          null, // related_id opcionális
+          `🎮 LensMaster Kvíz jutalom (+${pointsToAward}p)`,
+          `LensMaster Quiz reward (+${pointsToAward}p)`
+        );
 
-        // 🎯 ÚJ: Beírjuk a pontkönyvelő naplóba spendable valutaként!
-        try {
-          await conn.query(
-            `INSERT INTO photo_points_ledger (user_email, points, description, created_at) 
-             VALUES (?, ?, '🎮 LensMaster Kvíz Jutalom (Felhasználható)', NOW())`,
-            [req.user.email, pointsToAward]
-          );
-        } catch (ledgerErr) {
-          // Fallback, ha a táblában más oszlopnevek lennének (email/amount)
-          await conn.query(
-            `INSERT INTO photo_points_ledger (email, amount, description, created_at) 
-             VALUES (?, ?, '🎮 LensMaster Kvíz Jutalom (Felhasználható)', NOW())`,
-            [req.user.email, pointsToAward]
-          ).catch(e => console.error("Ledger struktúra eltérés:", e.message));
-        }
+        // A PointsService belsőleg elintézi a photo_users egyenleg frissítését is!
       }
 
-      // Rögzítjük a kísérletet a kvíznaplóba
+      // Rögzítjük a független kvízkísérletet a statisztikákhoz
       await conn.query(
         'INSERT INTO quiz_attempts (user_email, score, points_awarded, completed_at) VALUES (?, ?, ?, NOW())',
         [req.user.email, serverCalculatedScore, pointsToAward]
@@ -135,7 +138,6 @@ module.exports = function(app, pool, upload) {
 
       await conn.commit();
       
-      // 🎯 ÚJ: Visszaküldjük a pontokat ÉS a helyes megoldókulcsot is a hibalistához!
       res.json({ 
         success: true, 
         score: serverCalculatedScore, 
@@ -143,7 +145,7 @@ module.exports = function(app, pool, upload) {
         correctAnswers: correctAnswersMap 
       });
     } catch (err) {
-      console.error("❌ Éles kvíz hiba:", err.message);
+      console.error("❌ Éles központi kvíz hiba:", err.message);
       if (conn) { try { await conn.rollback(); } catch (e) {} }
       res.status(500).json({ error: 'Szerver hiba az eredmény kiértékelésekor.' });
     } finally {
@@ -151,7 +153,9 @@ module.exports = function(app, pool, upload) {
     }
   });
 
-  // 📡 3. ADMINISZTRÁCIÓS VÉGPONTOK
+  // ====================================================================
+  // 📡 3. ADMINISZTRÁCIÓS VÉGPONTOK (CRUD)
+  // ====================================================================
   app.post('/api/admin/quiz/add', requireAuth, upload.single('photo'), async (req, res) => {
     if (!req.user.isAdmin) return res.status(403).json({ error: 'Adminisztrátori jog szükséges!' });
     const file = req.file;
@@ -180,7 +184,7 @@ module.exports = function(app, pool, upload) {
     try {
       const [rows] = await pool.query('SELECT * FROM quiz_questions ORDER BY id DESC');
       res.json(rows);
-    } catch (err) { res.status(500).json({ error: 'Hiba.' }); }
+    } catch (err) { res.status(500).json({ error: 'Hiba a kérdések betöltésekor.' }); }
   });
 
   app.put('/api/admin/quiz/update/:id', requireAuth, upload.single('photo'), async (req, res) => {
@@ -201,6 +205,6 @@ module.exports = function(app, pool, upload) {
 
   app.delete('/api/admin/quiz/delete/:id', requireAuth, async (req, res) => {
     if (!req.user.isAdmin) return res.status(403).json({ error: 'Adminisztrátori jog szükséges!' });
-    try { await pool.query('DELETE FROM quiz_questions WHERE id = ?', [req.params.id]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
+    try { await pool.query('DELETE FROM quiz_questions WHERE id = ?', [req.params.id]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: 'Hiba a törlés közben.' }); }
   });
 };
