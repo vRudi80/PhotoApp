@@ -218,28 +218,6 @@ export default function QuizView({ user }: { user: any }) {
         </div>
       )}
 
-      {/* ── D: JUTALOM ÉS SZAKMAI ELLENŐRZŐ PANEL ── */}
-      {phase === 'SUMMARY' && rewardData && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
-          <div style={{ background: 'var(--bg-card)', border: '1px solid #fbbf24', padding: '35px 25px', borderRadius: '12px', textAlign: 'center', boxShadow: '0px 10px 30px rgba(251,191,36,0.15)' }}>
-            <Sparkles size={44} color="#fbbf24" style={{ margin: '0 auto 12px auto', display: 'block' }} />
-            <h2 style={{ color: '#ffffff', fontSize: '1.75rem', fontWeight: '900' }}>{lang === 'en' ? 'Quiz Completed!' : 'Kvíz Sikeresen Teljesítve!'}</h2>
-            
-            <div style={{ background: '#0f172a', border: '1px solid var(--border-main)', borderRadius: '10px', padding: '18px', maxWidth: '500px', margin: '0 auto 25px auto', textAlign: 'left', fontSize: '0.88rem', lineHeight: '1.6' }}>
-              <h4 style={{ margin: '0 0 10px 0', color: '#38bdf8', fontWeight: '800', textTransform: 'uppercase', fontSize: '0.78rem' }}>📊 Eredményed részletes összetétele:</h4>
-              <div style={{ color: '#cbd5e1', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>🎯 Találati arány:</span><strong style={{ color: '#10b981' }}>{rewardData.score / 100} / {questions.length} helyes</strong></div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>✨ Kvíz alappontszám:</span><strong style={{ color: '#f8fafc' }}>{rewardData.score} pont</strong></div>
-                <div style={{ width: '100%', height: '1px', background: '#334155', margin: '4px 0' }} />
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#fbbf24', fontSize: '1rem', fontWeight: 'bold' }}>
-                  <span>🪙 Levásárolható egyenleg:</span><span>+{rewardData.pointsAwarded}p</span>
-                </div>
-              </div>
-            </div>
-
-            <button onClick={() => setPhase('INTRO')} style={{ width: '100%', maxWidth: '260px', background: 'transparent', border: '1px solid var(--border-main)', color: 'var(--text-title)', padding: '11px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>Bezárás és Visszatérés</button>
-          </div>
-
           {/* ── D: JUTALOM ÉS SZAKMAI ELLENŐRZŐ PANEL ── */}
       {phase === 'SUMMARY' && rewardData && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
