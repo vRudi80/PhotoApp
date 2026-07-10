@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { BACKEND_URL } from '../utils/constants';
 import VideoLoader from '../components/VideoLoader';
 import { useLanguage } from '../context/LanguageContext';
@@ -17,21 +17,15 @@ type QuizPhase = 'INTRO' | 'LOADING' | 'PLAYING' | 'SUMMARY' | 'ALREADY_PLAYED';
 export default function QuizView({ user }: { user: any }) {
   const { lang, t } = useLanguage();
   
-  // Központi State Machine
   const [phase, setPhase] = useState<QuizPhase>('INTRO');
   const [questions, setQuestions] = useState<any[]>([]);
   const [currentIdx, setCurrentIdx] = useState(0);
   
-  // Felhasználó által választott opciók: { [questionId]: 'A' }
+  // Kiválasztott válaszok gyűjtőtára: { [questionId]: 'A' }
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>({});
   const [timeLeft, setTimeLeft] = useState(20); 
   const [rewardData, setResultData] = useState<{ pointsAwarded: number; score: number } | null>(null);
-
-  // 🎯 JAVÍTVA: Az isSubmitting állapotváltozó és a hozzá tartozó setter sikeresen visszahelyezve!
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Unix időbélyeg referencia az órajelhez
-  const targetEndTimeRef = useRef<number>(0);
 
   // 📡 JÁTÉK INDÍTÁSA
   const handleStartQuiz = async () => {
@@ -48,8 +42,6 @@ export default function QuizView({ user }: { user: any }) {
           setQuestions(data.questions || []);
           setCurrentIdx(0);
           setSelectedAnswers({});
-          
-          targetEndTimeRef.current = Date.now() + 20500;
           setTimeLeft(20);
           setPhase('PLAYING');
         }
@@ -65,7 +57,7 @@ export default function QuizView({ user }: { user: any }) {
 
   const currentQuestion = questions[currentIdx];
 
-  // Kérdésparzer biztonsági pajzzsal
+  // Kérdések nyelvi elemzője biztonsági hálóval
   const parsedQuestion = useMemo(() => {
     if (!currentQuestion) return null;
     const title = lang === 'en' ? currentQuestion.question_en : currentQuestion.question_hu;
@@ -81,30 +73,29 @@ export default function QuizView({ user }: { user: any }) {
     return { title, opts };
   }, [currentQuestion, lang]);
 
-  // IDŐBÉLYEG ALAPÚ VISSZASZÁMLÁLÓ
+  // 🎯 JAVÍTVA: Golyóálló 1 másodperces relatív órajel-effektus.
+  // Kizárólag a kérdés indexének és a fázis változásakor indul újra, immunis a szülő komponensek rángatásaira!
   useEffect(() => {
     if (phase !== 'PLAYING') return;
 
-    targetEndTimeRef.current = Date.now() + 20500;
-    setTimeLeft(20);
+    setTimeLeft(20); // Minden kérdés betöltésekor pontosan 20-ra állítjuk a számlálót
 
     const interval = setInterval(() => {
-      const now = Date.now();
-      const diff = targetEndTimeRef.current - now;
-      const remaining = Math.max(0, Math.ceil(diff / 1000));
-      
-      setTimeLeft(remaining);
-
-      if (remaining <= 0) {
-        clearInterval(interval);
-        handleSelectOption('');
-      }
-    }, 250);
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          // Időtúllépés esetén azonnali automatikus léptetés üres válasszal a következő tick-en
+          setTimeout(() => handleSelectOption(''), 0);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
 
     return () => clearInterval(interval);
   }, [phase, currentIdx]);
 
-  // 📡 EREDMÉNYEK BEKÜLDÉSE A VÉDETT BACKENDRE
+  // 📡 KVÍZ LEZÁRÁSA ÉS SZERVEROLDALI KIÉRTÉKELÉS INDÍTÁSA
   const handleFinalSubmit = async (finalAnswers: Record<number, string>) => {
     setPhase('LOADING');
     setIsSubmitting(true);
@@ -133,7 +124,7 @@ export default function QuizView({ user }: { user: any }) {
     }
   };
 
-  // 🎮 AZONNALI OPCIÓ-KIVÁLASZTÓ LÉPTETŐ
+  // 🎮 AKASZTÁSMENTES LÉPTETŐ MOTOR
   const handleSelectOption = (letter: string) => {
     if (phase !== 'PLAYING' || isSubmitting) return;
 
@@ -193,7 +184,7 @@ export default function QuizView({ user }: { user: any }) {
           </div>
 
           <div style={{ width: '100%', height: '4px', background: '#1e293b', borderRadius: '2px', overflow: 'hidden' }}>
-            <div style={{ width: `${(timeLeft / 20) * 100}%`, height: '100%', background: timeLeft <= 5 ? '#ef4444' : 'linear-gradient(90deg, #38bdf8, #10b981)', transition: 'width 0.25s linear' }} />
+            <div style={{ width: `${(timeLeft / 20) * 100}%`, height: '100%', background: timeLeft <= 5 ? '#ef4444' : 'linear-gradient(90deg, #38bdf8, #10b981)', transition: 'width 1s linear' }} />
           </div>
 
           <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', borderRadius: '12px', overflow: 'hidden' }}>
@@ -261,7 +252,7 @@ export default function QuizView({ user }: { user: any }) {
           </div>
 
           <button onClick={() => setPhase('INTRO')} style={{ width: '100%', background: 'transparent', border: '1px solid var(--border-main)', color: 'var(--text-title)', padding: '12px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>
-            {lang === 'en' ? 'Close Panel' : 'Kvízpult Bezárása'}
+            {lang === 'en' ? 'Close Portal' : 'Kvízpult Bezárása'}
           </button>
         </div>
       )}
