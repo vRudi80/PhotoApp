@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { BACKEND_URL } from '../utils/constants';
 import VideoLoader from '../components/VideoLoader';
 import { useLanguage } from '../context/LanguageContext';
-import { Trophy, Star, Timer, Sparkles, CheckCircle2, XCircle, AlertCircle, HelpCircle, History, Calendar } from 'lucide-react';
+import { Trophy, Star, Timer, Sparkles, CheckCircle2, XCircle, AlertCircle, HelpCircle, History, Calendar, ShoppingCart, Ticket } from 'lucide-react';
 
 const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
   const token = localStorage.getItem('photoAppToken');
@@ -25,17 +25,25 @@ export default function QuizView({ user }: { user: any }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [correctAnswers, setCorrectAnswers] = useState<Record<number, string>>({});
 
-  // 🎯 ÚJ: Felhasználói kvíztörténet állapotai
+  // Kvíztörténet és Kuponrendszer állapotai
   const [historyList, setHistoryList] = useState<any[]>([]);
   const [showHistory, setShowHistory] = useState(false);
+  const [quizBalance, setQuizBalance] = useState(0);
+  const [alreadyPlayedToday, setAlreadyPlayedToday] = useState(false);
+  const [isBuying, setIsBuying] = useState(false);
 
   const currentQuestion = questions[currentIdx];
 
-  // 🎯 ÚJ: Betöltjük a történetet közvetlenül az INTRO képernyő megjelenésekor
+  // Szinkronizáljuk az összes adatot a belépő pultnál
   const fetchMyHistory = async () => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/quiz/my-history`, { headers: getAuthHeaders() });
-      if (res.ok) setHistoryList(await res.json());
+      if (res.ok) {
+        const data = await res.json();
+        setHistoryList(data.history || []);
+        setQuizBalance(data.quizBalance || 0);
+        setAlreadyPlayedToday(data.alreadyPlayedToday || false);
+      }
     } catch (e) { console.error(e); }
   };
 
@@ -45,7 +53,7 @@ export default function QuizView({ user }: { user: any }) {
     }
   }, [phase]);
 
-  // IDŐZÍTŐ
+  // IDŐZÍTŐ MOTOR
   useEffect(() => {
     if (phase !== 'PLAYING' || !currentQuestion) return;
     const timerKey = `photo_quiz_target_${currentQuestion.id}`;
@@ -60,14 +68,39 @@ export default function QuizView({ user }: { user: any }) {
     return () => clearInterval(interval);
   }, [phase, currentIdx, currentQuestion?.id]);
 
+  // KUPON VÁSÁRLÁSA 5 PONTÉRT
+  const handleBuyToken = async () => {
+    if (isBuying) return;
+    setIsBuying(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/quiz/buy-token`, {
+        method: 'POST',
+        headers: getAuthHeaders()
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setQuizBalance(data.newQuizBalance);
+        alert("🎉 Sikeres vásárlás! 1 db Extra Kvíz Kupon hozzáadva a tárcádhoz.");
+      } else {
+        const err = await res.json();
+        alert(`❌ Sikertelen vásárlás: ${err.error || 'Nincs elég pontod.'}`);
+      }
+    } catch (e) {
+      alert("Hálózati hiba történt.");
+    } finally {
+      setIsBuying(false);
+    }
+  };
+
   const handleStartQuiz = async () => {
     setPhase('LOADING');
     try {
       const res = await fetch(`${BACKEND_URL}/api/quiz/questions`, { headers: getAuthHeaders() });
       if (res.ok) {
         const data = await res.json();
-        if (data.alreadyPlayed) { setPhase('ALREADY_PLAYED'); } 
-        else {
+        if (data.alreadyPlayed) { 
+          setPhase('ALREADY_PLAYED'); 
+        } else {
           setQuestions(data.questions || []);
           setCurrentIdx(0); setSelectedAnswers({}); setCorrectAnswers({}); setTimeLeft(20);
           setPhase('PLAYING');
@@ -133,33 +166,59 @@ export default function QuizView({ user }: { user: any }) {
   return (
     <div style={{ width: '100%', maxWidth: '850px', margin: '0 auto', boxSizing: 'border-box', padding: '10px', display: 'flex', flexDirection: 'column', gap: '25px' }}>
       
-      {/* ── A: INTRO PANEL + LEGÖRDÜLŐ HISTÓRIA NÉZET ── */}
+      {/* ── A: INTRO PANEL + SMART KUPON RENDSZER ── */}
       {phase === 'INTRO' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
           <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', padding: '40px 30px', borderRadius: '12px', textAlign: 'center', boxShadow: '0 10px 25px rgba(0,0,0,0.3)' }}>
             <Trophy size={48} color="#f59e0b" style={{ margin: '0 auto 15px auto', display: 'block' }} />
-            <h2 style={{ color: '#f8fafc', fontSize: '1.75rem', fontWeight: '800', margin: '0 0 10px 0' }}>{lang === 'en' ? 'Daily Quiz' : 'Napi Kvíz'}</h2>
-            <p style={{ color: '#94a3b8', fontSize: '0.95rem', marginBottom: '25px' }}>
+            <h2 style={{ color: '#f8fafc', fontSize: '1.75rem', fontWeight: '800', margin: '0 0 10px 0' }}>{lang === 'en' ? 'LensMaster Daily Quiz' : 'LensMaster Napi Kvíz'}</h2>
+            <p style={{ color: '#94a3b8', fontSize: '0.95rem', marginBottom: '20px' }}>
               {lang === 'en' ? 'Test your photography knowledge! Earn up to 50 spendable Arena Points daily!' : 'Tedd próbára a fotós tudásod és gyűjts akár 50 elkölthető Aréna pontot naponta!'}
             </p>
+
+            {/* Vizuális Kupon pult információk */}
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '15px', marginBottom: '30px', flexWrap: 'wrap' }}>
+              <span style={{ padding: '6px 14px', borderRadius: '20px', background: alreadyPlayedToday ? 'rgba(239,68,68,0.08)' : 'rgba(16,185,129,0.08)', color: alreadyPlayedToday ? '#f87171' : '#34d399', fontSize: '0.85rem', fontWeight: 'bold', border: alreadyPlayedToday ? '1px solid #ef444430' : '1px solid #10b98130' }}>
+                {alreadyPlayedToday ? (lang === 'en' ? 'Free daily: Claimed ❌' : 'Mai ingyenes kör: Felhasználva ❌') : (lang === 'en' ? 'Free daily: Available  🟢' : 'Mai ingyenes kör: Elérhető 🟢')}
+              </span>
+              <span style={{ padding: '6px 14px', borderRadius: '20px', background: 'rgba(245,158,11,0.08)', color: '#fbbf24', fontSize: '0.85rem', fontWeight: 'bold', border: '1px solid #f59e0b30', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <Ticket size={14} /> {lang === 'en' ? `Extra Coupons: ${quizBalance} db` : `Ráadás Kuponjaid: ${quizBalance} db`}
+              </span>
+            </div>
             
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', maxWidth: '400px', margin: '0 auto' }}>
-              {historyList.length > 0 && (
-                <button onClick={() => setShowHistory(!showHistory)} style={{ flex: 1, background: '#1e293b', color: '#cbd5e1', border: '1px solid #334155', padding: '12px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-                  <History size={16} /> {showHistory ? (lang === 'en' ? 'Hide Log' : 'Napló elrejtése') : (lang === 'en' ? 'My History' : 'Kvíznaplóm')}
+            <div style={{ display: 'flex', flexDirection: 'column', smDirection: 'row', justifyContent: 'center', gap: '12px', maxWidth: '500px', margin: '0 auto' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: historyList.length > 0 ? '1fr 1.2fr' : '1fr', gap: '12px', width: '100%' }}>
+                {historyList.length > 0 && (
+                  <button onClick={() => setShowHistory(!showHistory)} style={{ background: '#1e293b', color: '#cbd5e1', border: '1px solid #334155', padding: '12px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                    <History size={16} /> {showHistory ? (lang === 'en' ? 'Hide Log' : 'Napló bezárása') : (lang === 'en' ? 'My History' : 'Kvíznaplóm')}
+                  </button>
+                )}
+                
+                {/* Dinamikus indító-vásárló gomb */}
+                {alreadyPlayedToday && quizBalance === 0 ? (
+                  <button onClick={handleBuyToken} disabled={isBuying} style={{ background: 'linear-gradient(135deg, #3b82f6, #2563eb)', color: 'white', border: 'none', padding: '12px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', boxShadow: '0 4px 15px rgba(37,99,235,0.2)' }}>
+                    <ShoppingCart size={16} /> {isBuying ? 'Vásárlás... ⏳' : (lang === 'en' ? 'Buy Kupon (5p) 🪙' : 'Kupon vásárlása (5 pont) 🪙')}
+                  </button>
+                ) : (
+                  <button onClick={handleStartQuiz} style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#0f172a', border: 'none', padding: '12px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 15px rgba(245,158,11,0.2)' }}>
+                    {alreadyPlayedToday ? (lang === 'en' ? 'Play Extra Round 🚀' : 'Ráadás kör indítása 🚀') : (lang === 'en' ? 'Start Free Quiz 🚀' : 'Kihívás Indítása 🚀')}
+                  </button>
+                )}
+              </div>
+
+              {alreadyPlayedToday && quizBalance > 0 && (
+                <button onClick={handleBuyToken} disabled={isBuying} style={{ background: 'transparent', color: '#94a3b8', border: '1px solid #334155', padding: '10px', borderRadius: '8px', fontWeight: '600', fontSize: '0.85rem', cursor: 'pointer', marginTop: '5px' }}>
+                  ➕ {lang === 'en' ? 'Buy another Coupon (+1 Kupon / 5p)' : 'További Kupon vásárlása (+1 Kupon / 5 pont)'}
                 </button>
               )}
-              <button onClick={handleStartQuiz} style={{ flex: historyList.length > 0 ? 1.3 : 1, background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#0f172a', border: 'none', padding: '12px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 15px rgba(245,158,11,0.2)' }}>
-                {lang === 'en' ? 'Start Challenge 🚀' : 'Kihívás Indítása 🚀'}
-              </button>
             </div>
           </div>
 
-          {/* 🎯 ÚJ: DINAMIKUS HISTÓRIA LISTA PANEL */}
+          {/* SAJÁT HISTÓRIA TÁBLÁZAT */}
           {showHistory && historyList.length > 0 && (
             <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', padding: '25px', borderRadius: '12px' }}>
               <h3 style={{ margin: '0 0 16px 0', color: '#f1f5f9', fontSize: '1.1rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <History size={18} color="#38bdf8" /> {lang === 'en' ? 'Your Quiz Performance History' : 'Saját Kvíz Teljesítmény-Napló'}
+                <History size={18} color="#38bdf8" /> {lang === 'en' ? 'Your Quiz Log' : 'Saját Kvíz Teljesítmény-Napló'}
               </h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {historyList.map(item => (
@@ -169,7 +228,7 @@ export default function QuizView({ user }: { user: any }) {
                     </div>
                     <div style={{ display: 'flex', gap: '20px', fontWeight: 'bold' }}>
                       <span style={{ color: '#38bdf8' }}>🎯 {item.score} pont</span>
-                      <span style={{ color: '#fbbf24' }}>🪙 +{item.points_awarded}p</span>
+                      <span style={{ color: '#10b981' }}>🪙 +{item.points_awarded}p</span>
                     </div>
                   </div>
                 ))}
@@ -218,26 +277,29 @@ export default function QuizView({ user }: { user: any }) {
         </div>
       )}
 
- {/* ── D: JUTALOM ÉS SZAKMAI ELLENŐRZŐ PANEL ── */}
+      {/* ── D: JUTALOM ÉS SZAKMAI ELLENŐRZŐ PANEL ── */}
       {phase === 'SUMMARY' && rewardData && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
-          <div style={{ background: 'var(--bg-card)', border: '1px solid #fbbf24', padding: '35px 25px', borderRadius: '12px', textAlign: 'center', boxShadow: '0px 10px 30px rgba(251,191,36,0.15)' }}>
-            <Sparkles size={44} color="#fbbf24" style={{ margin: '0 auto 12px auto', display: 'block' }} />
-            <h2 style={{ color: '#ffffff', fontSize: '1.75rem', fontWeight: '900' }}>{lang === 'en' ? 'Quiz Completed!' : 'Kvíz Sikeresen Teljesítve!'}</h2>
-            
+          <div style={{ background: 'var(--bg-card)', border: '1px solid #fbbf24', padding: '40px 30px', borderRadius: '12px', textAlign: 'center', boxShadow: '0px 10px 30px rgba(251,191,36,0.15)' }}>
+            <Sparkles size={48} color="#fbbf24" style={{ margin: '0 auto 15px auto', display: 'block' }} />
+            <h2 style={{ color: '#ffffff', fontSize: '1.8rem', fontWeight: '900' }}>{lang === 'en' ? 'Quiz Completed!' : 'Gratulálunk, Kvíz Teljesítve!'}</h2>
+            <div style={{ fontSize: '1.1rem', color: '#94a3b8', marginBottom: '25px' }}>
+              {lang === 'en' ? 'Your Score' : 'Elért eredményed'}: <strong style={{ color: '#38bdf8' }}>{rewardData.score} / 1000 pont</strong>
+            </div>
+
             <div style={{ background: '#0f172a', border: '1px solid var(--border-main)', borderRadius: '10px', padding: '18px', maxWidth: '500px', margin: '0 auto 25px auto', textAlign: 'left', fontSize: '0.88rem', lineHeight: '1.6' }}>
               <h4 style={{ margin: '0 0 10px 0', color: '#38bdf8', fontWeight: '800', textTransform: 'uppercase', fontSize: '0.78rem' }}>📊 Eredményed részletes összetétele:</h4>
               <div style={{ color: '#cbd5e1', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>🎯 Találati arány:</span><strong style={{ color: '#10b981' }}>{rewardData.score / 100} / {questions.length} helyes</strong></div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>✨ Elért pontszám:</span><strong style={{ color: '#f8fafc' }}>{rewardData.score} pont</strong></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>✨ Kvíz alappontszám:</span><strong style={{ color: '#f8fafc' }}>{rewardData.score} pont</strong></div>
                 <div style={{ width: '100%', height: '1px', background: '#334155', margin: '4px 0' }} />
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: '#fbbf24', fontSize: '1rem', fontWeight: 'bold' }}>
-                  <span>🪙 Jóváírt pont:</span><span>+{rewardData.pointsAwarded}p</span>
+                  <span>🪙 Levásárolható jutalom:</span><span>+{rewardData.pointsAwarded}p</span>
                 </div>
               </div>
             </div>
 
-            <button onClick={() => setPhase('INTRO')} style={{ width: '100%', maxWidth: '260px', background: 'transparent', border: '1px solid var(--border-main)', color: 'var(--text-title)', padding: '11px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>Bezárás és Visszatérés</button>
+            <button onClick={() => setPhase('INTRO')} style={{ width: '100%', maxWidth: '300px', margin: '0 auto', background: 'transparent', border: '1px solid var(--border-main)', color: 'var(--text-title)', padding: '12px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>Bezárás és Visszatérés</button>
           </div>
 
           {/* SZAKMAI KIÉRTÉKELŐ TUDÁSTÁR */}
@@ -300,17 +362,13 @@ export default function QuizView({ user }: { user: any }) {
         </div>
       )}
 
-      {/* ── 🎯 BEÉPÍTVE: NAGYÍTÁST VÉGZŐ LIGHTBOX MODAL OVERLAY ── */}
+      {/* NAGYÍTÁST VÉGZŐ LIGHTBOX MODAL OVERLAY */}
       {lightboxImage && (
         <div 
           onClick={() => setLightboxImage(null)}
           style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0, 0, 0, 0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999, cursor: 'zoom-out' }}
         >
-          <img 
-            src={lightboxImage} 
-            alt="Large preview" 
-            style={{ maxWidth: '90%', maxHeight: '90%', objectFit: 'contain', borderRadius: '8px', boxShadow: '0 20px 50px rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.1)' }} 
-          />
+          <img src={lightboxImage} alt="Large preview" style={{ maxWidth: '90%', maxHeight: '90%', objectFit: 'contain', borderRadius: '8px', boxShadow: '0 20px 50px rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.1)' }} />
         </div>
       )}
 
