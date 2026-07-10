@@ -165,7 +165,7 @@ export default function QuizView({ user }: { user: any }) {
                 {historyList.map(item => (
                   <div key={item.id} style={{ background: '#0f172a50', border: '1px solid var(--border-main)', padding: '14px 18px', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.88rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#94a3b8' }}>
-                      <Calendar size={14} color="#64748b" /> <span>{item.date}</span>
+                      <Calendar size={14} color="#64748b" /> <span>{item.date?.split(' ')[0]}</span>
                     </div>
                     <div style={{ display: 'flex', gap: '20px', fontWeight: 'bold' }}>
                       <span style={{ color: '#38bdf8' }}>🎯 {item.score} pont</span>
