@@ -32,7 +32,7 @@ import {
   Flame,
   Users,
   Sun,
-  MessageCircleQuestionMmark,
+  MessageCircleQuestion,
   Moon,
   Image as ImageIcon
 } from 'lucide-react';
@@ -399,7 +399,7 @@ export default function Header({
 
           <div className="nav-item-container">
             <button className={`nav-btn ${activeTab === 'quiz' ? 'active' : ''}`} style={{ color: activeTab === 'quiz' ? '#f97316' : '' }} onClick={() => handleNavClick('quiz')}>
-              <MessageCircleQuestionMmark size={14} /> <span>{t('navQuiz')}</span>
+              <MessageCircleQuestion size={14} /> <span>{t('navQuiz')}</span>
             </button>
           </div>
 
