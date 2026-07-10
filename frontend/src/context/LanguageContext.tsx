@@ -20,7 +20,7 @@ const translations = {
 tilePodcastDesc: 'Hallgass bennünket aktuális fotós témákról',
     navExplore:'Felfedezés',
     submanagedBanned: 'Tiltott userek',
-    navQuiz: 'Kvíz (Fejlesztés alatt)',
+    navQuiz: 'Kvíz',
 
     "archiveCountPhotographer": "Fotós",
   "archiveCountEnded": "Lezárult",
@@ -985,6 +985,7 @@ tilePodcastDesc: 'Listen our podcast of fresh topics',
     arenaAlbumPodiumPlace: 'Podium (2nd-3rd place)',
     arenaAlbumHistoryTitle: '⚔️ Participation History ({count} matches)',
     arenaAlbumHistorySwapped: 'Swapped 🔄',
+    navQuiz: 'Quiz',
 
     sortLabel: 'SORT BY:',
     sortEndDate: 'Closing time (soonest)',
