@@ -53,27 +53,30 @@ export default function QuizView({ user }: { user: any }) {
     }
   }, [phase]);
 
-  // 🎯 JAVÍTVA: Tiszta, 1 másodperces funkcionális visszaszámláló motor!
-  // Szigorúan a fázis vagy a kérdés indexének változásakor indul újra, teljesen fagyásbiztos.
+  // 🎯 JAVÍTVA: Önkalibráló, nagyfrekvenciás (200ms) Unix időbélyeg alapú óramotor.
+  // Teljesen kiküszöböli az egérmozgás okozta szál-éheztetést és UI fagyásokat!
   useEffect(() => {
-    if (phase !== 'PLAYING') return;
+    if (phase !== 'PLAYING' || !currentQuestion) return;
 
-    setTimeLeft(20); // Minden kérdés betöltésekor kényszerített 20 másodperc
+    // Beállítjuk a szigorú jövőbeli végpontot (Most + 20 másodperc és egy kis puffer)
+    const endTime = Date.now() + 20500;
+    setTimeLeft(20); 
 
     const interval = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          // Időtúllépés esetén azonnali automatikus léptetés üres válasszal
-          setTimeout(() => handleSelectOption(''), 0);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+      const now = Date.now();
+      const remaining = Math.max(0, Math.ceil((endTime - now) / 1000) - 1);
+      
+      // Csak akkor kényszerítünk re-rendert, ha ténylegesen fordult a másodperc kerekítése
+      setTimeLeft(prev => (prev !== remaining ? remaining : prev));
+
+      if (remaining <= 0) {
+        clearInterval(interval);
+        setTimeout(() => handleSelectOption(''), 0);
+      }
+    }, 200); // Sűrűn mintavételez, így azonnal korrigálja magát, ha az egér lefoglalná a főszálat
 
     return () => clearInterval(interval);
-  }, [phase, currentIdx]);
+  }, [phase, currentIdx, currentQuestion?.id]);
 
   // KUPON VÁSÁRLÁSA 5 PONTÉRT
   const handleBuyToken = async () => {
@@ -180,7 +183,7 @@ export default function QuizView({ user }: { user: any }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
           <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', padding: '40px 30px', borderRadius: '12px', textAlign: 'center', boxShadow: '0 10px 25px rgba(0,0,0,0.3)' }}>
             <Trophy size={48} color="#f59e0b" style={{ margin: '0 auto 15px auto', display: 'block' }} />
-            <h2 style={{ color: '#f8fafc', fontSize: '1.75rem', fontWeight: '800', margin: '0 0 10px 0' }}>{lang === 'en' ? 'LensMaster Daily Quiz' : 'LensMaster Napi Kvíz'}</h2>
+            <h2 style={{ color: '#f8fafc', fontSize: '1.75rem', fontWeight: '800', margin: '0 0 10px 0' }}>{lang === 'en' ? 'Daily Quiz' : 'Napi Kvíz'}</h2>
             <p style={{ color: '#94a3b8', fontSize: '0.95rem', marginBottom: '20px' }}>
               {lang === 'en' ? 'Test your photography knowledge! Earn up to 50 spendable Arena Points daily!' : 'Tedd próbára a fotós tudásod és gyűjts akár 50 elkölthető Aréna pontot naponta!'}
             </p>
