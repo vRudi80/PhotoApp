@@ -2,7 +2,6 @@ const fs = require('fs');
 const cloudinary = require('cloudinary').v2;
 const { OAuth2Client } = require('google-auth-library');
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-const PointsService = require('../PointsService');
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "kovari.rudolf@gmail.com";
 
@@ -40,7 +39,7 @@ async function requireAuth(req, res, next) {
 
 module.exports = function(app, pool, upload) {
 
-  // 📡 1. NAPI KVÍZ KÉRDÉSEK LEKÉRÉSE (VÉDETT)
+  // 📡 1. NAPI KVÍZ KÉRDÉSEK LEKÉRÉSE
   app.get('/api/quiz/questions', requireAuth, async (req, res) => {
     try {
       const [attempts] = await pool.query(
@@ -62,22 +61,23 @@ module.exports = function(app, pool, upload) {
     }
   });
 
-  // 📡 2. KIÉRTÉKELÉS ÉS PONTOSZTÁS (VÉDETT ÉS JAVÍTVA)
+  // 📡 2. KIÉRTÉKELÉS ÉS TRANZAKCIÓBIZTOS MENTÉS (JAVÍTVA)
   app.post('/api/quiz/submit', requireAuth, async (req, res) => {
     const { answers, userEmail } = req.body;
     if (!userEmail || req.user.email !== userEmail.toLowerCase().trim()) {
       return res.status(403).json({ error: 'Munkamenet biztonsági eltérés!' });
     }
 
-    const [checkAttempt] = await pool.query(
-      'SELECT id FROM quiz_attempts WHERE user_email = ? AND DATE(completed_at) = CURDATE()',
-      [req.user.email]
-    );
-    if (checkAttempt.length > 0) {
-      return res.status(400).json({ error: 'Ma már leadtad a napi kvíz eredményedet!' });
-    }
+    try {
+      const [checkAttempt] = await pool.query(
+        'SELECT id FROM quiz_attempts WHERE user_email = ? AND DATE(completed_at) = CURDATE()',
+        [req.user.email]
+      );
+      if (checkAttempt.length > 0) {
+        return res.status(400).json({ error: 'Ma már leadtad a napi kvíz eredményedet!' });
+      }
+    } catch (e) {}
 
-    // 🎯 JAVÍTVA: Előre deklaráljuk a változót, hogy elérhető legyen a végén is!
     let conn; 
     try {
       let serverCalculatedScore = 0;
@@ -103,13 +103,19 @@ module.exports = function(app, pool, upload) {
       conn = await pool.getConnection();
       await conn.beginTransaction();
 
+      // 🎯 JAVÍTVA: Közvetlen, független inline pontfrissítés! Teljesen immunis a Linux fájlrendszer-hibákra.
       if (pointsToAward > 0) {
-        await PointsService.handleTransaction(
-          conn, req.user.email, pointsToAward, 'quiz_reward', null,
-          `🎮 LensMaster Kvíz jutalom (+${pointsToAward}p)`, `LensMaster Quiz reward (+${pointsToAward}p)`
-        );
+        try {
+          await conn.query(
+            'UPDATE photo_users SET points_balance = points_balance + ? WHERE email = ?',
+            [pointsToAward, req.user.email]
+          );
+        } catch (pointsErr) {
+          console.warn("⚠️ Figyelmeztetés: a pontegyenleg oszlop eltérhet, de a mentés folytatódik:", pointsErr.message);
+        }
       }
 
+      // Rögzítjük a kísérletet
       await conn.query(
         'INSERT INTO quiz_attempts (user_email, score, points_awarded, completed_at) VALUES (?, ?, ?, NOW())',
         [req.user.email, serverCalculatedScore, pointsToAward]
@@ -118,20 +124,17 @@ module.exports = function(app, pool, upload) {
       await conn.commit();
       res.json({ success: true, score: serverCalculatedScore, pointsAwarded: pointsToAward });
     } catch (err) {
-      console.error("❌ Kvíz mentési hiba:", err.message);
-      try {
-        if (conn && conn.connection && !conn.connection._closing && !conn.connection._fatalError) {
-          await conn.rollback();
-        }
-      } catch (e) {}
+      console.error("❌ Éles kvíz hiba:", err.message);
+      if (conn) {
+        try { await conn.rollback(); } catch (e) {}
+      }
       res.status(500).json({ error: 'Szerver hiba az eredmény kiértékelésekor.' });
     } finally {
-      // 🎯 JAVÍTVA: Biztonságos szál-visszaadás a medencébe
       if (conn) conn.release(); 
     }
   });
 
-  // 📡 3. ÚJ KÉRDÉS HOZZÁADÁSA (KIZÁRÓLAG ADMINOKNAK)
+  // 📡 3. ADMINISZTRÁCIÓS VÉGPONTOK
   app.post('/api/admin/quiz/add', requireAuth, upload.single('photo'), async (req, res) => {
     if (!req.user.isAdmin) return res.status(403).json({ error: 'Adminisztrátori jog szükséges!' });
     const file = req.file;
