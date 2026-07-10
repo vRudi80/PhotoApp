@@ -259,14 +259,8 @@ module.exports = function(app, pool, upload) {
       res.status(500).json({ error: 'Nem sikerült betölteni a kvíztörténetet.' });
     }
   });
-  // ====================================================================
-  // 🏆 ÚJ: KVÍZ DICSŐSÉGLISTA (NAPI, HETI, HAVI GLOBÁLIS RANGLISTA)
-  // ====================================================================
-  // ====================================================================
-  // 🏆 JAVÍTVA: KVÍZ DICSŐSÉGLISTA (ATOMBUTOS RANGLISTA LEKÉRDEZÉS)
-  // ====================================================================
  // ====================================================================
-  // 🏆 JAVÍTVA: CALENDAR-ALAPÚ KVÍZ RANGLISTA VISSZAMENŐLEGES SZŰRÉSSEL
+  // 🏆 JAVÍTVA: CALENDAR RANGLISTA (AVATAR_URL + STRICT SQL JAVÍTÁS)
   // ====================================================================
   app.get('/api/quiz/leaderboard', requireAuth, async (req, res) => {
     const { period, year, month } = req.query;
@@ -274,8 +268,8 @@ module.exports = function(app, pool, upload) {
     let sql = `
       SELECT 
         u.name, 
-        u.avatar_url, 
         u.club_name,
+        u.avatar_url,
         MAX(a.score) as best_score
       FROM quiz_attempts a
       JOIN photo_users u ON LOWER(TRIM(a.user_email)) = LOWER(TRIM(u.email))
@@ -288,11 +282,11 @@ module.exports = function(app, pool, upload) {
       // Szigorúan a mai naptári nap
       whereClause = 'WHERE DATE(a.completed_at) = CURDATE()';
     } else if (period === 'weekly') {
-      // Szigorúan az aktuális naptári hét (hétfőtől indítva a YEARWEEK(..., 1) paranccsal)
+      // Szigorúan az aktuális naptári hét (hétfőtől indítva)
       whereClause = 'WHERE YEARWEEK(a.completed_at, 1) = YEARWEEK(NOW(), 1)';
     } else if (period === 'monthly') {
       if (year && month) {
-        // Visszamenőleges szűrés konkrét évre és hónapra
+        // Visszamenőleges naptári szűrés évre és hónapra
         whereClause = 'WHERE YEAR(a.completed_at) = ? AND MONTH(a.completed_at) = ?';
         params.push(Number(year), Number(month));
       } else {
@@ -301,10 +295,12 @@ module.exports = function(app, pool, upload) {
       }
     }
 
+    // 🎯 STRICT SQL FIX: Csak olyan oszlop szerint rendezünk, ami szerepel a SELECT-ben is,
+    // így az ONLY_FULL_GROUP_BY mód nem dob többet 500-as belső hibát, az avatar_url pedig él!
     sql += `
       ${whereClause}
-      GROUP BY u.name, u.avatar_url, u.club_name
-      ORDER BY MAX(a.score) DESC, MAX(a.completed_at) ASC
+      GROUP BY u.name, u.club_name, u.avatar_url
+      ORDER BY best_score DESC
       LIMIT 50
     `;
 
