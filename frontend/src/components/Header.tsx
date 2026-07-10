@@ -397,6 +397,12 @@ export default function Header({
           </div>
 
           <div className="nav-item-container">
+            <button className={`nav-btn ${activeTab === 'quiz' ? 'active' : ''}`} style={{ color: activeTab === 'quiz' ? '#f97316' : '' }} onClick={() => handleNavClick('quiz')}>
+              <Flame size={14} /> <span>{t('navQuiz')}</span>
+            </button>
+          </div>
+
+          <div className="nav-item-container">
             <button 
               className={`nav-btn ${dropdownOpen === 'contests' || activeTab.startsWith('contests_') || ['salons', 'fiap_progress', 'mafosz_progress'].includes(activeTab) ? 'active' : ''}`} 
               style={{ color: (activeTab.startsWith('contests_') || ['salons', 'fiap_progress', 'mafosz_progress'].includes(activeTab)) ? '#38bdf8' : '' }}
@@ -432,7 +438,7 @@ export default function Header({
               </div>
             )}
           </div>
-    <button className="drop-item" style={{ color: activeTab === 'quiz' ? '#ef4444' : '#f59e0b', fontWeight: 'bold' }} onClick={() => handleNavClick('quiz')}><Sparkles size={12} color="#f59e0b" fill="#f59e0b" /> Kvíz (fejlesztés alatt)</button>
+        
           <div className="nav-item-container">
             <button 
               className={`nav-btn ${dropdownOpen === 'explore' || ['podcast', 'map_spots'].includes(activeTab) || activeTab.startsWith('marketplace') ? 'active' : ''}`}
@@ -500,14 +506,14 @@ export default function Header({
                     </button>
                   )}
                   {user?.email === ADMIN_EMAIL && (
-  <button 
-    className="drop-item" 
-    style={{ color: activeTab === 'admin_quiz' ? '#ef4444' : '#f59e0b', fontWeight: 'bold' }} 
-    onClick={() => handleNavClick('admin_quiz')}
-  >
-    {lang === 'en' ? 'Quiz Control' : 'Kvíz Kezelése'}
-  </button>
-)}
+                      <button 
+                        className="drop-item" 
+                        style={{ color: activeTab === 'admin_quiz' ? '#ef4444' : '#f59e0b', fontWeight: 'bold' }} 
+                        onClick={() => handleNavClick('admin_quiz')}
+                      >
+                        {lang === 'en' ? 'Quiz Control' : 'Kvíz Kezelése'}
+                      </button>
+                    )}
 
                   {user?.email === ADMIN_EMAIL && (
                     <button className="drop-item" style={{ color: activeTab === 'admin_banned_emails' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_banned_emails')}>
