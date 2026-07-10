@@ -51,20 +51,24 @@ async function requireAuth(req, res, next) {
 
 module.exports = function(app, pool, upload) {
 
-  // ====================================================================
-  // 📡 1. NAPI KVÍZ KÉRDÉSEK LEKÉRÉSE A JÁTÉKOSOKNAK (HIÁNYTALAN)
-  // ====================================================================
+// 🎯 MÓDOSÍTVA: KÉRDÉSEK GENERÁLÁSA KUPON-ELLENŐRZÉSSEL
   app.get('/api/quiz/questions', requireAuth, async (req, res) => {
     try {
       const [attempts] = await pool.query(
         'SELECT id FROM quiz_attempts WHERE user_email = ? AND DATE(completed_at) = CURDATE()',
         [req.user.email]
       );
-      if (attempts.length > 0) {
+      const [userRows] = await pool.query(
+        'SELECT quiz_balance FROM photo_users WHERE email = ?',
+        [req.user.email]
+      );
+      const quizBalance = userRows[0]?.quiz_balance || 0;
+
+      // Ha már játszott ma ÉS egyetlen kuponja sincs, akkor tiltjuk le
+      if (attempts.length > 0 && quizBalance === 0) {
         return res.json({ alreadyPlayed: true, questions: [] });
       }
 
-      // 🎯 JAVÍTVA: Beemelve az explanation_hu és explanation_en mezők a lekérdezésbe!
       const [questions] = await pool.query(
         `SELECT id, type, image_url, question_hu, question_en, options_hu, options_en, explanation_hu, explanation_en 
          FROM quiz_questions 
@@ -237,6 +241,34 @@ module.exports = function(app, pool, upload) {
     } catch (err) { if (file && fs.existsSync(file.path)) fs.unlinkSync(file.path); res.status(500).json({ error: err.message }); }
   });
 
+  // 🎯 MÓDOSÍTVA: JÁTÉKOS HISTÓRIÁJA + AKTUÁLIS KUPON ÉS NAPI STÁTUSZ KIOLVASÁS
+  app.get('/api/quiz/my-history', requireAuth, async (req, res) => {
+    try {
+      const [attempts] = await pool.query(
+        'SELECT id FROM quiz_attempts WHERE user_email = ? AND DATE(completed_at) = CURDATE()',
+        [req.user.email]
+      );
+      const [userRows] = await pool.query(
+        'SELECT quiz_balance FROM photo_users WHERE email = ?',
+        [req.user.email]
+      );
+      const [history] = await pool.query(
+        `SELECT id, score, points_awarded, DATE_FORMAT(completed_at, '%Y-%m-%d %H:%i') as date 
+         FROM quiz_attempts 
+         WHERE user_email = ? 
+         ORDER BY completed_at DESC LIMIT 40`,
+        [req.user.email]
+      );
+      res.json({
+        history,
+        alreadyPlayedToday: attempts.length > 0,
+        quizBalance: userRows[0]?.quiz_balance || 0
+      });
+    } catch (err) {
+      res.status(500).json({ error: 'Nem sikerült betölteni a kvíztörténetet.' });
+    }
+  });
+  
   app.delete('/api/admin/quiz/delete/:id', requireAuth, async (req, res) => {
     if (!req.user.isAdmin) return res.status(403).json({ error: 'Adminisztrátori jog szükséges!' });
     try { await pool.query('DELETE FROM quiz_questions WHERE id = ?', [req.params.id]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: 'Hiba a törlés közben.' }); }
