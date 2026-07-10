@@ -17,6 +17,7 @@ export default function QuizView({ user }: { user: any }) {
   const [phase, setPhase] = useState<QuizPhase>('INTRO');
   const [questions, setQuestions] = useState<any[]>([]);
   const [currentIdx, setCurrentIdx] = useState(0);
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>({});
   const [timeLeft, setTimeLeft] = useState(20); 
@@ -253,7 +254,15 @@ export default function QuizView({ user }: { user: any }) {
                 return (
                   <div key={q.id} style={{ background: '#0f172a50', padding: '18px', borderRadius: '10px', border: `1px solid ${isCorrect ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)'}` }}>
                     <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
-                      <div style={{ width: '60px', height: '60px', background: '#000', borderRadius: '6px', overflow: 'hidden', flexShrink: 0 }}><img src={q.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /></div>
+                      <div 
+                      onClick={() => setLightboxImage(q.image_url)}
+                      style={{ width: '60px', height: '60px', background: '#000', borderRadius: '6px', overflow: 'hidden', flexShrink: 0, cursor: 'pointer', transition: 'transform 0.1s' }}
+                      onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'}
+                      onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                      title="Kattints a nagyításhoz"
+                    >
+                      <img src={q.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    </div>
                       <div style={{ flex: 1 }}>
                         <h4 style={{ margin: '0 0 6px 0', color: '#f8fafc', fontSize: '0.92rem', fontWeight: '700' }}>{idx + 1}. {lang === 'en' ? q.question_en : q.question_hu}</h4>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.85rem' }}>
