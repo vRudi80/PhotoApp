@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { BACKEND_URL } from '../utils/constants';
 import VideoLoader from '../components/VideoLoader';
 import { useLanguage } from '../context/LanguageContext';
-import { Trophy, Star, Timer, Sparkles, CheckCircle2, XCircle, AlertCircle, HelpCircle, History, Calendar, ShoppingCart, Ticket, Award } from 'lucide-react';
+import { Trophy, Star, Timer, Sparkles, CheckCircle2, XCircle, AlertCircle, HelpCircle, History, Calendar, ShoppingCart, Ticket, Award, ChevronDown, ChevronUp } from 'lucide-react';
 
 const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
   const token = localStorage.getItem('photoAppToken');
@@ -44,6 +44,11 @@ export default function QuizView({ user }: { user: any }) {
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
 
+  // ── 🎯 ÚJ: INTERAKTÍV HISTÓRIA RÉSZLETEZŐ ÁLLAPOTOK ──
+  const [expandedAttemptId, setExpandedAttemptId] = useState<number | null>(null);
+  const [historyDetailQuestions, setHistoryDetailQuestions] = useState<any[]>([]);
+  const [loadingDetailId, setLoadingDetailId] = useState<number | null>(null);
+
   const currentQuestion = questions[currentIdx];
 
   const fetchMyThemeData = async () => {
@@ -71,6 +76,26 @@ export default function QuizView({ user }: { user: any }) {
       }
     } catch (e) { console.error(e); }
     finally { setLoadingLeaderboard(false); }
+  };
+
+  // ── 🎯 ÚJ: INTERAKTÍV MÚLTBÉLI KÖR LEKÉRDEZŐ FÜGGVÉNY ──
+  const handleToggleAttemptDetail = async (attemptId: number) => {
+    if (expandedAttemptId === attemptId) {
+      setExpandedAttemptId(null);
+      setHistoryDetailQuestions([]);
+      return;
+    }
+    setLoadingDetailId(attemptId);
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/quiz/attempt/${attemptId}`, { headers: getAuthHeaders() });
+      if (res.ok) {
+        setHistoryDetailQuestions(await res.json());
+        setExpandedAttemptId(attemptId);
+      } else {
+        alert("Ez a kvízkör még az archívum-frissítés előtt futott, így a részletes adatai nem elérhetőek.");
+      }
+    } catch (e) { console.error(e); }
+    finally { setLoadingDetailId(null); }
   };
 
   useEffect(() => {
@@ -249,11 +274,11 @@ export default function QuizView({ user }: { user: any }) {
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div style={{ display: 'flex', gap: '10px', width: '100%', flexWrap: 'wrap' }}>
-                <button onClick={() => { setShowHistory(!showHistory); setShowLeaderboard(false); }} style={{ flex: 1, minWidth: '130px', background: 'var(--bg-main)', color: 'var(--text-title)', border: '1px solid var(--border-main)', padding: '12px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', transition: 'background 0.2s' }}>
+                <button onClick={() => { setShowHistory(!showHistory); setShowLeaderboard(false); }} style={{ flex: 1, minWidth: '130px', background: 'var(--bg-main)', color: 'var(--text-title)', border: '1px solid var(--border-main)', padding: '12px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                   <History size={16} /> {showHistory ? 'Bezárás' : 'Kvíznaplóm'}
                 </button>
                 
-                <button onClick={() => { setShowLeaderboard(!showLeaderboard); setShowHistory(false); }} style={{ flex: 1, minWidth: '130px', background: 'var(--bg-main)', color: '#fbbf24', border: '1px solid var(--border-main)', padding: '12px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', transition: 'background 0.2s' }}>
+                <button onClick={() => { setShowLeaderboard(!showLeaderboard); setShowHistory(false); }} style={{ flex: 1, minWidth: '130px', background: 'var(--bg-main)', color: '#fbbf24', border: '1px solid var(--border-main)', padding: '12px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                   <Award size={16} /> {showLeaderboard ? 'Bezárás' : 'Dicsőséglista'}
                 </button>
 
@@ -276,24 +301,87 @@ export default function QuizView({ user }: { user: any }) {
             </div>
           </div>
 
-          {/* HISTÓRIA LISTA */}
+          {/* ── 🎯 MÓDOSÍTVA: INTERAKTÍV, LENYÍLÓS HISTÓRIA LISTA ── */}
           {showHistory && historyList.length > 0 && (
             <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', padding: '25px', borderRadius: '12px' }}>
               <h3 style={{ margin: '0 0 16px 0', color: 'var(--text-title)', fontSize: '1.1rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <History size={18} color="#38bdf8" /> Saját Kvíz Teljesítmény-Napló
               </h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {historyList.map(item => (
-                  <div key={item.id} style={{ background: 'var(--bg-main)', border: '1px solid var(--border-main)', padding: '14px 18px', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.88rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-body)' }}>
-                      <Calendar size={14} color="var(--text-muted)" /> <span>{item.date?.split(' ')[0]}</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {historyList.map(item => {
+                  const isExpanded = expandedAttemptId === item.id;
+                  const isItemLoading = loadingDetailId === item.id;
+                  
+                  return (
+                    <div key={item.id} style={{ display: 'flex', flexDirection: 'column', background: 'var(--bg-main)', border: '1px solid var(--border-main)', borderRadius: '8px', overflow: 'hidden' }}>
+                      
+                      {/* Kattintható fejléc fősor */}
+                      <div 
+                        onClick={() => handleToggleAttemptDetail(item.id)}
+                        style={{ padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.88rem', cursor: 'pointer', userSelect: 'none', transition: 'background 0.2s' }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'var(--hover-overlay)'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--text-body)' }}>
+                          <Calendar size={14} color="var(--text-muted)" /> 
+                          <span style={{ fontWeight: '600' }}>{item.date?.split(' ')[0]}</span>
+                          {isItemLoading && <small style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>(Betöltés... ⏳)</small>}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '20px', fontWeight: 'bold' }}>
+                          <span style={{ color: '#38bdf8' }}>🎯 {item.score} pont</span>
+                          <span style={{ color: '#10b981' }}>🪙 +{item.points_awarded}p</span>
+                          {isExpanded ? <ChevronUp size={16} color="var(--text-muted)" /> : <ChevronDown size={16} color="var(--text-muted)" />}
+                        </div>
+                      </div>
+
+                      {/* Lenyíló részletes tudástár szakasz */}
+                      {isExpanded && historyDetailQuestions.length > 0 && (
+                        <div style={{ padding: '15px', borderTop: '1px solid var(--border-main)', background: 'var(--bg-card)', display: 'flex', flexDirection: 'column', gap: '15px', animation: 'fadeIn 0.2s ease-out' }}>
+                          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 'bold', borderBottom: '1px solid var(--border-main)', paddingBottom: '6px', textTransform: 'uppercase' }}>🔍 A KÖR SZAKMAI ELLENŐRZŐ LAPJA:</div>
+                          {historyDetailQuestions.map((q, idx) => {
+                            const isCorrect = String(q.user_picked_letter).toUpperCase() === String(q.correct_option).toUpperCase();
+                            const rawOptions = lang === 'en' ? q.options_en : q.options_hu;
+                            const explanationText = lang === 'en' ? q.explanation_en : q.explanation_hu;
+
+                            return (
+                              <div key={q.id} style={{ background: 'var(--bg-main)', padding: '14px', borderRadius: '8px', border: `1px solid ${isCorrect ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)'}` }}>
+                                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                                  <div 
+                                    onClick={() => setLightboxImage(q.image_url)}
+                                    style={{ width: '48px', height: '48px', background: '#000', borderRadius: '6px', overflow: 'hidden', flexShrink: 0, cursor: 'pointer' }}
+                                    title="Nagyítás"
+                                  >
+                                    <img src={q.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                  </div>
+                                  <div style={{ flex: 1, minWidth: 0 }}>
+                                    <h5 style={{ margin: '0 0 4px 0', color: 'var(--text-title)', fontSize: '0.85rem', fontWeight: '700' }}>{idx + 1}. {lang === 'en' ? q.question_en : q.question_hu}</h5>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '0.8rem' }}>
+                                      <span style={{ color: isCorrect ? '#10b981' : '#f87171', display: 'flex', alignItems: 'center', gap: '5px', fontWeight: '600' }}>
+                                        {isCorrect ? <CheckCircle2 size={12} /> : <XCircle size={12} />} Te tipped: {getReadableOptionText(q.user_picked_letter, rawOptions)}
+                                      </span>
+                                      {!isCorrect && (
+                                        <span style={{ color: '#38bdf8', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                          <AlertCircle size={12} /> Megoldás: {getReadableOptionText(q.correct_option, rawOptions)}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                                {explanationText && explanationText.trim() !== '' && (
+                                  <div style={{ marginTop: '10px', background: 'var(--bg-card)', borderLeft: '3px solid #f59e0b', padding: '8px 12px', borderRadius: '0 6px 6px 0', fontSize: '0.8rem', lineHeight: '1.4', color: 'var(--text-body)' }}>
+                                    <div style={{ color: '#fbbf24', fontWeight: 'bold', marginBottom: '2px', fontSize: '0.75rem', textTransform: 'uppercase' }}>💡 Szakmai háttér:</div>
+                                    {explanationText}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
                     </div>
-                    <div style={{ display: 'flex', gap: '20px', fontWeight: 'bold' }}>
-                      <span style={{ color: '#38bdf8' }}>🎯 {item.score} pont</span>
-                      <span style={{ color: '#10b981' }}>🪙 +{item.points_awarded}p</span>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -351,7 +439,6 @@ export default function QuizView({ user }: { user: any }) {
                           {row.club_name && <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>🏰 {row.club_name}</small>}
                         </div>
 
-                        {/* 🎯 JAVÍTVA: Tizedes- és százalékarány kerekítés téma-adaptív nézetben */}
                         <div style={{ textAlign: 'right', flexShrink: 0, display: 'flex', alignItems: 'center', gap: '15px' }}>
                           <span style={{ color: 'var(--text-body)', fontSize: '0.82rem', fontFamily: 'monospace' }}>
                             {row.total_correct} / {row.total_questions}
