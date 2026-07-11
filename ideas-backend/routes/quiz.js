@@ -203,7 +203,41 @@ module.exports = function(app, pool, upload) {
     } catch (err) { res.status(500).json({ error: 'Hiba a kérdések betöltésekor.' }); }
   });
 
- 
+   // ====================================================================
+  // 🔍 ÚJ: EGY ADOTT MÚLTBÉLI KVÍZKÍSÉRLET RÉSZLETES ADATAINAK LEKÉRÉSE
+  // ====================================================================
+  app.get('/api/quiz/attempt/:id', requireAuth, async (req, res) => {
+    try {
+      const [attempts] = await pool.query(
+        'SELECT answers_json FROM quiz_attempts WHERE id = ? AND user_email = ?',
+        [req.params.id, req.user.email]
+      );
+      if (attempts.length === 0) return res.status(404).json({ error: 'A keresett kvízkör nem található.' });
+      
+      const answersMap = JSON.parse(attempts[0].answers_json || '{}');
+      const questionIds = Object.keys(answersMap).map(Number);
+      
+      if (questionIds.length === 0) return res.json([]);
+      
+      const [questions] = await pool.query(`
+        SELECT id, type, image_url, question_hu, question_en, options_hu, options_en, explanation_hu, explanation_en, correct_option 
+        FROM quiz_questions 
+        WHERE id IN (?)
+      `, [questionIds]);
+      
+      // Összefésüljük a kérdéseket azzal, amit a felhasználó ténylegesen válaszolt rájuk
+      const enrichedQuestions = questions.map(q => ({
+        ...q,
+        user_picked_letter: answersMap[q.id] || ''
+      }));
+      
+      res.json(enrichedQuestions);
+    } catch (err) {
+      console.error("❌ Kvízkör részletező hiba:", err.message);
+      res.status(500).json({ error: 'Nem sikerült betölteni a kör szakmai adatait.' });
+    }
+  });
+
   // ====================================================================
   // 📡 4. ADMINISZTRÁCIÓS MODOSÍTÁS (HIÁNYTALAN + MAGYARÁZATOK)
   // ====================================================================
