@@ -13,7 +13,6 @@ const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
 type QuizPhase = 'INTRO' | 'LOADING' | 'PLAYING' | 'SUMMARY' | 'ALREADY_PLAYED';
 type LeaderboardPeriod = 'daily' | 'weekly' | 'monthly';
 
-// ── 🎯 KLUB LOGÓ GENERÁTOR ALKOMPONENS A HALL OF FAME MINTÁJÁRA ──
 function ClubLogo({ driveId, logoUrl }: { driveId: any; logoUrl: any }) {
   const [isError, setIsError] = useState(false);
   if (isError || (!driveId && !logoUrl)) {
@@ -66,8 +65,11 @@ export default function QuizView({ user }: { user: any }) {
   const [historyDetailQuestions, setHistoryDetailQuestions] = useState<any[]>([]);
   const [loadingDetailId, setLoadingDetailId] = useState<number | null>(null);
 
-  // ── 🎯 KÉRDÉSBANK GLOBÁLIS DARABSZÁMÁNAK ÁLLAPOTA ──
+  // Kérdésbank globális darabszámának állapota
   const [questionCounts, setQuestionCounts] = useState({ total: 0, exif: 0, composition: 0, history: 0 });
+
+  // ── 🎯 ÚJ: JÁTÉK INDULÁSI IDŐBÉLYEG ÁLLAPOT ──
+  const [quizStartTime, setQuizStartTime] = useState<number | null>(null);
 
   const currentQuestion = questions[currentIdx];
 
@@ -79,7 +81,6 @@ export default function QuizView({ user }: { user: any }) {
         setHistoryList(data.history || []);
         setQuizBalance(data.quizBalance || 0);
         setAlreadyPlayedToday(data.alreadyPlayedToday || false);
-        // 🎯 Számlálók kinyerése a kombinált válaszból
         if (data.questionCounts) {
           setQuestionCounts(data.questionCounts);
         }
@@ -213,6 +214,8 @@ export default function QuizView({ user }: { user: any }) {
           try { Object.keys(sessionStorage).forEach(k => { if(k.startsWith('photo_quiz_end_')) sessionStorage.removeItem(k); }); } catch(e){}
           setQuestions(data.questions || []);
           setCurrentIdx(0); setSelectedAnswers({}); setCorrectAnswers({}); setTimeLeft(20);
+          // 🎯 ÚJ: Rögzítjük a játék elindításának abszolút időpontját
+          setQuizStartTime(Date.now());
           setPhase('PLAYING');
         }
       } else { setPhase('INTRO'); }
@@ -235,11 +238,16 @@ export default function QuizView({ user }: { user: any }) {
   const handleFinalSubmit = async (finalAnswers: Record<number, string>) => {
     setPhase('LOADING');
     setIsSubmitting(true);
+
+    // 🎯 ÚJ: Kiszámoljuk a teljes kvízzel eltöltött nettó másodperceket
+    const durationSeconds = quizStartTime ? Math.round((Date.now() - quizStartTime) / 1000) : 0;
+
     try {
       const res = await fetch(`${BACKEND_URL}/api/quiz/submit`, {
         method: 'POST',
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ answers: finalAnswers, userEmail: user?.email || '' })
+        // 🎯 ÚJ: Elküldjük a durationSeconds értéket a backendnek
+        body: JSON.stringify({ answers: finalAnswers, userEmail: user?.email || '', durationSeconds })
       });
       if (res.ok) {
         const data = await res.json();
@@ -286,7 +294,7 @@ export default function QuizView({ user }: { user: any }) {
               {lang === 'en' ? 'Test your photography knowledge! Earn up to 50 spendable Arena Points daily!' : 'Tedd próbára a fotós tudásod és gyűjts akár 50 elkölthető Aréna pontot naponta!'}
             </p>
 
-            {/* ── 🎯 ÚJ: DINAMIKUS ADATBÁZIS KÉRDÉSBANK PANEL ── */}
+            {/* Dinamikus adatbázis kérdésbank panel */}
             {questionCounts.total > 0 && (
               <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginBottom: '22px', flexWrap: 'wrap', fontSize: '0.8rem', color: 'var(--text-body)' }}>
                 <span style={{ padding: '5px 12px', background: 'var(--bg-main)', border: '1px solid var(--border-main)', borderRadius: '6px' }}>
@@ -481,7 +489,11 @@ export default function QuizView({ user }: { user: any }) {
                           )}
                         </div>
 
+                        {/* 🎯 MÓDOSÍTVA: Megjelenítjük az átlagos kitöltési időt tizedes pontossággal a százalék mellett */}
                         <div style={{ textAlign: 'right', flexShrink: 0, display: 'flex', alignItems: 'center', gap: '15px' }}>
+                          <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '3px', fontFamily: 'monospace' }} title="Átlagos kitöltési idő">
+                            ⏱️ {row.avg_duration || 0}s
+                          </span>
                           <span style={{ color: 'var(--text-body)', fontSize: '0.82rem', fontFamily: 'monospace' }}>
                             {row.total_correct} / {row.total_questions}
                           </span>
