@@ -2,6 +2,47 @@ import React, { useState, useEffect } from 'react';
 import exifr from 'exifr';
 import { BACKEND_URL } from '../../utils/constants';
 
+// 🎯 ÚJ: Kliensoldali képoptimalizáló és tömörítő függvény a Weekly mintájára
+const compressImageOnClient = (file: File): Promise<File> => {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        const MAX_SIZE = 1920;
+
+        if (width > height) {
+          if (width > MAX_SIZE) { height = Math.round((height * MAX_SIZE) / width); width = MAX_SIZE; }
+        } else {
+          if (height > MAX_SIZE) { width = Math.round((width * MAX_SIZE) / height); height = MAX_SIZE; }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const compressedFile = new File([blob], file.name.replace(/\.[^/.]+$/, "") + ".jpg", {
+              type: 'image/jpeg',
+              lastModified: Date.now(),
+            });
+            resolve(compressedFile);
+          } else {
+            resolve(file);
+          }
+        }, 'image/jpeg', 0.8); 
+      };
+    };
+  });
+};
+
 const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
   const token = localStorage.getItem('photoAppToken');
   return {
@@ -12,23 +53,18 @@ const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
 
 export default function AdminQuizView() {
   const [type, setType] = useState<'exif' | 'composition' | 'history'>('exif');
-  
   // Fájl és előnézet állapotok
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-
   const [questionHu, setQuestionHu] = useState('');
   const [questionEn, setQuestionEn] = useState('');
-  
-  // 🎯 HELYREÁLLÍTVA: Kétnyelvű edukációs magyarázatok
+  // Kétnyelvű edukációs magyarázatok
   const [explanationHu, setExplanationHu] = useState('');
   const [explanationEn, setExplanationEn] = useState('');
-
   const [optionsHu, setOptionsHu] = useState<string[]>(['', '', '', '']);
   const [optionsEn, setOptionsEn] = useState<string[]>(['', '', '', '']);
   const [correctOption, setCorrectOption] = useState<'A' | 'B' | 'C' | 'D'>('A');
   const [exifTarget, setExifTarget] = useState('');
-  
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Szerkesztési üzemmód állapotai
@@ -54,15 +90,12 @@ export default function AdminQuizView() {
     fetchAllQuestions();
   }, []);
 
-  // 🎯 HELYREÁLLÍTVA: Teljes körű automata EXIF elemzés (Rekesz f-szám ÉS Záridő törtszámítás!)
+  // 🎯 MÓDOSÍTVA: Automata tömörítéssel kiegészített fájlkezelő modul
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      setSelectedFile(file);
       
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
-      setPreviewUrl(URL.createObjectURL(file));
-
+      // Először kinyerjük az EXIF adatokat a nyers, eredeti fájlból (mielőtt a canvas letörölné)
       if (type === 'exif') {
         try {
           const exifData = await exifr.parse(file);
@@ -88,6 +121,17 @@ export default function AdminQuizView() {
           console.warn("Nem sikerült beágyazott metaadatot kiolvasni.");
         }
       }
+
+      // ⚡ INTELLIGENS SZŰRŐ: Ha a fájl nagyobb mint 2MB, a háttérben átméretezzük feltöltés előtt
+      let finalFile = file;
+      if (file.size > 2 * 1024 * 1024) {
+        finalFile = await compressImageOnClient(file);
+      }
+
+      setSelectedFile(finalFile);
+      
+      if (previewUrl && !currentQuestionsImageUrl) URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(URL.createObjectURL(finalFile));
     }
   };
 
@@ -108,7 +152,6 @@ export default function AdminQuizView() {
     }
   };
 
-  // 🎯 HELYREÁLLÍTVA: Minden adatmező, magyarázatok és képek hibátlan betöltése szerkesztéskor
   const handleStartEdit = (q: any) => {
     setEditingId(q.id);
     setType(q.type);
@@ -136,7 +179,8 @@ export default function AdminQuizView() {
     setEditingId(null);
     setQuestionHu(''); setQuestionEn('');
     setExplanationHu(''); setExplanationEn('');
-    setOptionsHu(['', '', '', '']); setOptionsEn(['', '', '', '']);
+    setOptionsHu(['', '', '', '']);
+    setOptionsEn(['', '', '', '']);
     setSelectedFile(null); if (previewUrl && !currentQuestionsImageUrl) URL.revokeObjectURL(previewUrl);
     setPreviewUrl(null); setExifTarget(''); setCurrentImageUrl('');
   };
@@ -162,7 +206,6 @@ export default function AdminQuizView() {
     e.preventDefault();
     if (!editingId && !selectedFile) return alert("Kérlek, válassz ki egy fotót!");
     if (!questionHu || !questionEn) return alert("Minden kérdés mezőt tölts ki!");
-
     setIsSubmitting(true);
 
     const formData = new FormData();
@@ -188,7 +231,6 @@ export default function AdminQuizView() {
         headers: getAuthHeaders(), 
         body: formData
       });
-
       if (res.ok) {
         alert(editingId ? "🎉 Módosítások sikeresen elmentve!" : "🎉 Új kérdés sikeresen hozzáadva!");
         handleCancelEdit();
@@ -248,7 +290,6 @@ export default function AdminQuizView() {
             </div>
           </div>
 
-          {/* 🎯 HELYREÁLLÍTVA: Edukációs háttérleírások beviteli mezői */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
             <div>
               <label style={{ display: 'block', color: '#fbbf24', marginBottom: '6px', fontWeight: 'bold', fontSize: '0.9rem' }}>💡 Edukációs háttérinfó / Kontextus (HU):</label>
