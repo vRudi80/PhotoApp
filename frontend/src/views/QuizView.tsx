@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { BACKEND_URL } from '../utils/constants';
 import VideoLoader from '../components/VideoLoader';
 import { useLanguage } from '../context/LanguageContext';
-import { Trophy, Star, Timer, Sparkles, CheckCircle2, XCircle, AlertCircle, HelpCircle, History, Calendar, ShoppingCart, Ticket, Award, ChevronDown, ChevronUp } from 'lucide-react';
+import { getImageUrl } from '../utils/helpers';
+import { Trophy, Star, Timer, Sparkles, CheckCircle2, XCircle, AlertCircle, HelpCircle, History, Calendar, ShoppingCart, Ticket, Award, ChevronDown, ChevronUp, Shield } from 'lucide-react';
 
 const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
   const token = localStorage.getItem('photoAppToken');
@@ -11,6 +12,22 @@ const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
 
 type QuizPhase = 'INTRO' | 'LOADING' | 'PLAYING' | 'SUMMARY' | 'ALREADY_PLAYED';
 type LeaderboardPeriod = 'daily' | 'weekly' | 'monthly';
+
+// ── 🎯 ÚJ: KLUB LOGÓ GENERÁTOR ALKOMPONENS A HALL OF FAME MINTÁJÁRA ──
+function ClubLogo({ driveId, logoUrl }: { driveId: any; logoUrl: any }) {
+  const [isError, setIsError] = useState(false);
+  if (isError || (!driveId && !logoUrl)) {
+    return <Shield size={12} color="var(--text-muted)" style={{ display: 'inline-block', marginRight: '4px' }} />;
+  }
+  return (
+    <img 
+      src={getImageUrl ? getImageUrl(driveId, logoUrl) : ''} 
+      alt="" 
+      style={{ width: '15px', height: '16px', borderRadius: '2px', objectFit: 'contain', backgroundColor: '#090d16', border: '1px solid var(--border-main)', display: 'inline-block', marginRight: '4px', verticalAlign: 'middle' }} 
+      onError={() => setIsError(true)} 
+    />
+  );
+}
 
 export default function QuizView({ user }: { user: any }) {
   const { lang, t } = useLanguage();
@@ -44,7 +61,7 @@ export default function QuizView({ user }: { user: any }) {
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
 
-  // ── 🎯 ÚJ: INTERAKTÍV HISTÓRIA RÉSZLETEZŐ ÁLLAPOTOK ──
+  // Interaktív história részletező állapotok
   const [expandedAttemptId, setExpandedAttemptId] = useState<number | null>(null);
   const [historyDetailQuestions, setHistoryDetailQuestions] = useState<any[]>([]);
   const [loadingDetailId, setLoadingDetailId] = useState<number | null>(null);
@@ -78,7 +95,6 @@ export default function QuizView({ user }: { user: any }) {
     finally { setLoadingLeaderboard(false); }
   };
 
-  // ── 🎯 ÚJ: INTERAKTÍV MÚLTBÉLI KÖR LEKÉRDEZŐ FÜGGVÉNY ──
   const handleToggleAttemptDetail = async (attemptId: number) => {
     if (expandedAttemptId === attemptId) {
       setExpandedAttemptId(null);
@@ -301,7 +317,7 @@ export default function QuizView({ user }: { user: any }) {
             </div>
           </div>
 
-          {/* ── 🎯 MÓDOSÍTVA: INTERAKTÍV, LENYÍLÓS HISTÓRIA LISTA ── */}
+          {/* HISTÓRIA LISTA */}
           {showHistory && historyList.length > 0 && (
             <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', padding: '25px', borderRadius: '12px' }}>
               <h3 style={{ margin: '0 0 16px 0', color: 'var(--text-title)', fontSize: '1.1rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -314,8 +330,6 @@ export default function QuizView({ user }: { user: any }) {
                   
                   return (
                     <div key={item.id} style={{ display: 'flex', flexDirection: 'column', background: 'var(--bg-main)', border: '1px solid var(--border-main)', borderRadius: '8px', overflow: 'hidden' }}>
-                      
-                      {/* Kattintható fejléc fősor */}
                       <div 
                         onClick={() => handleToggleAttemptDetail(item.id)}
                         style={{ padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.88rem', cursor: 'pointer', userSelect: 'none', transition: 'background 0.2s' }}
@@ -334,7 +348,6 @@ export default function QuizView({ user }: { user: any }) {
                         </div>
                       </div>
 
-                      {/* Lenyíló részletes tudástár szakasz */}
                       {isExpanded && historyDetailQuestions.length > 0 && (
                         <div style={{ padding: '15px', borderTop: '1px solid var(--border-main)', background: 'var(--bg-card)', display: 'flex', flexDirection: 'column', gap: '15px', animation: 'fadeIn 0.2s ease-out' }}>
                           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 'bold', borderBottom: '1px solid var(--border-main)', paddingBottom: '6px', textTransform: 'uppercase' }}>🔍 A KÖR SZAKMAI ELLENŐRZŐ LAPJA:</div>
@@ -378,7 +391,6 @@ export default function QuizView({ user }: { user: any }) {
                           })}
                         </div>
                       )}
-
                     </div>
                   );
                 })}
@@ -436,7 +448,13 @@ export default function QuizView({ user }: { user: any }) {
 
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <strong style={{ display: 'block', color: 'var(--text-title)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{row.name}</strong>
-                          {row.club_name && <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>🏰 {row.club_name}</small>}
+                          {/* 🎯 MÓDOSÍTVA: A statikus 🏰 helyett mostantól az egyedi ClubLogo komponens rajzolódik ki flex elrendezésben */}
+                          {row.club_name && (
+                            <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '2px', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              <ClubLogo driveId={row.drive_logo_id} logoUrl={row.logo_url} />
+                              <span>{row.club_name}</span>
+                            </small>
+                          )}
                         </div>
 
                         <div style={{ textAlign: 'right', flexShrink: 0, display: 'flex', alignItems: 'center', gap: '15px' }}>
