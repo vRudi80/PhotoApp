@@ -22,7 +22,7 @@ tilePodcastDesc: 'Hallgass bennünket aktuális fotós témákról',
     submanagedBanned: 'Tiltott userek',
     navQuiz: 'Kvíz',
     titleQuiz: 'Kvíz',
-    titlQuizDesc: 'Tanulj játékosan! Naponta kitölthető fotós kvíz segít megtanulni sok érdekes dolgot. A kérdések végén mindenre megkapod a helyes választ, plusz érdekességeket az adott kérdéssel kapcsolatban.',
+    titleQuizDesc: 'Tanulj játékosan! Naponta kitölthető fotós kvíz segít megtanulni sok érdekes dolgot. A kérdések végén mindenre megkapod a helyes választ, plusz érdekességeket az adott kérdéssel kapcsolatban.',
     
 
     "archiveCountPhotographer": "Fotós",
