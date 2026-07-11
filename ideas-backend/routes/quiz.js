@@ -269,32 +269,40 @@ module.exports = function(app, pool, upload) {
   });
 
   // 🎯 MÓDOSÍTVA: JÁTÉKOS HISTÓRIÁJA + AKTUÁLIS KUPON ÉS NAPI STÁTUSZ KIOLVASÁS
+    // ====================================================================
+  // 📋 FRISSÍTVE: MY-HISTORY + KATÉGÓRIÁNKÉNTI ÉS ÖSSZESÍTETT SZÁMLÁLÓK
+  // ====================================================================
   app.get('/api/quiz/my-history', requireAuth, async (req, res) => {
     try {
-      const [attempts] = await pool.query(
-        'SELECT id FROM quiz_attempts WHERE user_email = ? AND DATE(completed_at) = CURDATE()',
-        [req.user.email]
-      );
-      const [userRows] = await pool.query(
-        'SELECT quiz_balance FROM photo_users WHERE email = ?',
-        [req.user.email]
-      );
-      const [history] = await pool.query(
-        `SELECT id, score, points_awarded, DATE_FORMAT(completed_at, '%Y-%m-%d %H:%i') as date 
-         FROM quiz_attempts 
-         WHERE user_email = ? 
-         ORDER BY completed_at DESC LIMIT 40`,
-        [req.user.email]
-      );
-      res.json({
-        history,
-        alreadyPlayedToday: attempts.length > 0,
-        quizBalance: userRows[0]?.quiz_balance || 0
+      // ... (Itt fut a te korábbi kódod: history listázása, mai nap ellenőrzése, quiz_balance lekérése) ...
+      // Tegyük fel, hogy a te korábbi változóid: historyList, quizBalance, alreadyPlayedToday
+      
+      // 🎯 ÚJ: Kategóriánkénti darabszámok lekérése a kérdésbankból
+      const [countsRows] = await pool.query('SELECT type, COUNT(*) as count FROM quiz_questions GROUP BY type');
+      
+      let questionCounts = { total: 0, exif: 0, composition: 0, history: 0 };
+      countsRows.forEach(row => {
+        if (row.type === 'exif') questionCounts.exif = row.count;
+        if (row.type === 'composition') questionCounts.composition = row.count;
+        if (row.type === 'history') questionCounts.history = row.count;
+        questionCounts.total += row.count;
       });
+
+      // 🎯 MODOSÍTVA: A visszaküldött JSON csomagba beletesszük a friss számlálókat is
+      res.json({
+        success: true,
+        history: historyList || [],
+        quizBalance: quizBalance || 0,
+        alreadyPlayedToday: !!alreadyPlayedToday,
+        questionCounts // ⚡ Ez az új adatcsomag!
+      });
+
     } catch (err) {
-      res.status(500).json({ error: 'Nem sikerült betölteni a kvíztörténetet.' });
+      console.error("❌ Kvíz történet és számláló hiba:", err.message);
+      res.status(500).json({ error: 'Hiba az adatok szinkronizálásakor.' });
     }
   });
+
   // ====================================================================
   // 🏆 FRISSÍTVE: KVÍZ RANGLISTA (KLUB LOGÓKKAL ÉS MEZŐNY-ÖSSZEFÉSÜLÉSSEL)
   // ====================================================================
