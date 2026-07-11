@@ -231,10 +231,10 @@ export default function QuizView({ user }: { user: any }) {
       {/* ── A: INTRO PANEL ── */}
       {phase === 'INTRO' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
-          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', padding: '40px 30px', borderRadius: '12px', textAlign: 'center', boxShadow: '0 10px 25px rgba(0,0,0,0.3)' }}>
+          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', padding: '40px 30px', borderRadius: '12px', textAlign: 'center', boxShadow: '0 10px 25px rgba(0,0,0,0.15)' }}>
             <Trophy size={48} color="#f59e0b" style={{ margin: '0 auto 15px auto', display: 'block' }} />
-            <h2 style={{ color: '#f8fafc', fontSize: '1.75rem', fontWeight: '800', margin: '0 0 10px 0' }}>{lang === 'en' ? 'Daily Quiz' : 'Napi Kvíz'}</h2>
-            <p style={{ color: '#94a3b8', fontSize: '0.95rem', marginBottom: '20px' }}>
+            <h2 style={{ color: 'var(--text-title)', fontSize: '1.75rem', fontWeight: '800', margin: '0 0 10px 0' }}>{lang === 'en' ? 'Daily Quiz' : 'Napi Kvíz'}</h2>
+            <p style={{ color: 'var(--text-body)', fontSize: '0.95rem', marginBottom: '20px' }}>
               {lang === 'en' ? 'Test your photography knowledge! Earn up to 50 spendable Arena Points daily!' : 'Tedd próbára a fotós tudásod és gyűjts akár 50 elkölthető Aréna pontot naponta!'}
             </p>
 
@@ -249,11 +249,11 @@ export default function QuizView({ user }: { user: any }) {
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div style={{ display: 'flex', gap: '10px', width: '100%', flexWrap: 'wrap' }}>
-                <button onClick={() => { setShowHistory(!showHistory); setShowLeaderboard(false); }} style={{ flex: 1, minWidth: '130px', background: '#1e293b', color: '#cbd5e1', border: '1px solid #334155', padding: '12px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                <button onClick={() => { setShowHistory(!showHistory); setShowLeaderboard(false); }} style={{ flex: 1, minWidth: '130px', background: 'var(--bg-main)', color: 'var(--text-title)', border: '1px solid var(--border-main)', padding: '12px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', transition: 'background 0.2s' }}>
                   <History size={16} /> {showHistory ? 'Bezárás' : 'Kvíznaplóm'}
                 </button>
                 
-                <button onClick={() => { setShowLeaderboard(!showLeaderboard); setShowHistory(false); }} style={{ flex: 1, minWidth: '130px', background: '#1e293b', color: '#fbbf24', border: '1px solid #b4530940', padding: '12px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                <button onClick={() => { setShowLeaderboard(!showLeaderboard); setShowHistory(false); }} style={{ flex: 1, minWidth: '130px', background: 'var(--bg-main)', color: '#fbbf24', border: '1px solid var(--border-main)', padding: '12px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', transition: 'background 0.2s' }}>
                   <Award size={16} /> {showLeaderboard ? 'Bezárás' : 'Dicsőséglista'}
                 </button>
 
@@ -269,7 +269,7 @@ export default function QuizView({ user }: { user: any }) {
               </div>
 
               {alreadyPlayedToday && quizBalance > 0 && (
-                <button onClick={handleBuyToken} disabled={isBuying} style={{ background: 'transparent', color: '#94a3b8', border: '1px solid #334155', padding: '8px', borderRadius: '8px', fontWeight: '600', fontSize: '0.82rem', cursor: 'pointer', marginTop: '4px' }}>
+                <button onClick={handleBuyToken} disabled={isBuying} style={{ background: 'transparent', color: 'var(--text-body)', border: '1px solid var(--border-main)', padding: '8px', borderRadius: '8px', fontWeight: '600', fontSize: '0.82rem', cursor: 'pointer', marginTop: '4px' }}>
                   ➕ Újabb Kupon vásárlása (5 pont)
                 </button>
               )}
@@ -279,14 +279,14 @@ export default function QuizView({ user }: { user: any }) {
           {/* HISTÓRIA LISTA */}
           {showHistory && historyList.length > 0 && (
             <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', padding: '25px', borderRadius: '12px' }}>
-              <h3 style={{ margin: '0 0 16px 0', color: '#f1f5f9', fontSize: '1.1rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <h3 style={{ margin: '0 0 16px 0', color: 'var(--text-title)', fontSize: '1.1rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <History size={18} color="#38bdf8" /> Saját Kvíz Teljesítmény-Napló
               </h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {historyList.map(item => (
-                  <div key={item.id} style={{ background: '#0f172a50', border: '1px solid var(--border-main)', padding: '14px 18px', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.88rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#94a3b8' }}>
-                      <Calendar size={14} color="#64748b" /> <span>{item.date}</span>
+                  <div key={item.id} style={{ background: 'var(--bg-main)', border: '1px solid var(--border-main)', padding: '14px 18px', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.88rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-body)' }}>
+                      <Calendar size={14} color="var(--text-muted)" /> <span>{item.date?.split(' ')[0]}</span>
                     </div>
                     <div style={{ display: 'flex', gap: '20px', fontWeight: 'bold' }}>
                       <span style={{ color: '#38bdf8' }}>🎯 {item.score} pont</span>
@@ -303,12 +303,12 @@ export default function QuizView({ user }: { user: any }) {
             <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', padding: '25px', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px', borderBottom: '1px solid var(--border-main)', paddingBottom: '12px' }}>
                 <h3 style={{ margin: 0, color: '#fbbf24', fontSize: '1.1rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Award size={18} /> Toplista
+                  <Award size={18} /> LensMaster Toplista
                 </h3>
                 
-                <div style={{ display: 'inline-flex', background: '#0f172a', padding: '4px', borderRadius: '8px', border: '1px solid var(--border-main)' }}>
+                <div style={{ display: 'inline-flex', background: 'var(--bg-main)', padding: '4px', borderRadius: '8px', border: '1px solid var(--border-main)' }}>
                   {(['daily', 'weekly', 'monthly'] as const).map(p => (
-                    <button key={p} onClick={() => setLeaderboardPeriod(p)} style={{ padding: '6px 14px', background: leaderboardPeriod === p ? 'var(--bg-card)' : 'transparent', color: leaderboardPeriod === p ? '#fbbf24' : '#64748b', border: 'none', borderRadius: '6px', fontSize: '0.82rem', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.1s' }}>
+                    <button key={p} onClick={() => setLeaderboardPeriod(p)} style={{ padding: '6px 14px', background: leaderboardPeriod === p ? 'var(--bg-card)' : 'transparent', color: leaderboardPeriod === p ? '#fbbf24' : 'var(--text-muted)', border: 'none', borderRadius: '6px', fontSize: '0.82rem', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.1s' }}>
                       {p === 'daily' ? 'Napi' : p === 'weekly' ? 'Heti' : 'Havi'}
                     </button>
                   ))}
@@ -316,12 +316,12 @@ export default function QuizView({ user }: { user: any }) {
               </div>
 
               {leaderboardPeriod === 'monthly' && (
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', background: '#0f172a50', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-main)', flexWrap: 'wrap' }}>
-                  <span style={{ color: '#94a3b8', fontSize: '0.8rem', fontWeight: 'bold' }}>📅 IDŐSZAK KIVÁLASZTÁSA:</span>
-                  <select value={selectedYear} onChange={e => setSelectedYear(Number(e.target.value))} style={{ padding: '6px 10px', background: 'var(--bg-card)', color: 'white', border: '1px solid var(--border-main)', borderRadius: '6px', cursor: 'pointer', outline: 'none', fontSize: '0.85rem' }}>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', background: 'var(--bg-main)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-main)', flexWrap: 'wrap' }}>
+                  <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 'bold' }}>📅 IDŐSZAK KIVÁLASZTÁSA:</span>
+                  <select value={selectedYear} onChange={e => setSelectedYear(Number(e.target.value))} style={{ padding: '6px 10px', background: 'var(--bg-card)', color: 'var(--text-title)', border: '1px solid var(--border-main)', borderRadius: '6px', cursor: 'pointer', outline: 'none', fontSize: '0.85rem' }}>
                     {[2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}
                   </select>
-                  <select value={selectedMonth} onChange={e => setSelectedMonth(Number(e.target.value))} style={{ padding: '6px 10px', background: 'var(--bg-card)', color: 'white', border: '1px solid var(--border-main)', borderRadius: '6px', cursor: 'pointer', outline: 'none', fontSize: '0.85rem' }}>
+                  <select value={selectedMonth} onChange={e => setSelectedMonth(Number(e.target.value))} style={{ padding: '6px 10px', background: 'var(--bg-card)', color: 'var(--text-title)', border: '1px solid var(--border-main)', borderRadius: '6px', cursor: 'pointer', outline: 'none', fontSize: '0.85rem' }}>
                     {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
                       <option key={m} value={m}>
                         {lang === 'en' ? new Date(2000, m - 1).toLocaleString('en', { month: 'long' }) : `${m}. hónap`}
@@ -332,39 +332,39 @@ export default function QuizView({ user }: { user: any }) {
               )}
 
               {loadingLeaderboard ? (
-                <div style={{ padding: '20px 0', textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem' }}>Betöltés... ⏳</div>
+                <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>Betöltés... ⏳</div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {leaderboardData.map((row, index) => {
                     return (
-                      <div key={index} style={{ display: 'flex', alignItems: 'center', gap: '12px', background: '#0f172a30', border: '1px solid var(--border-main)', padding: '10px 14px', borderRadius: '8px', fontSize: '0.88rem' }}>
-                        <span style={{ width: '24px', textAlign: 'center', fontWeight: 'bold', color: index === 0 ? '#fbbf24' : index === 1 ? '#cbd5e1' : index === 2 ? '#d97706' : '#475569' }}>
+                      <div key={index} style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'var(--bg-main)', border: '1px solid var(--border-main)', padding: '10px 14px', borderRadius: '8px', fontSize: '0.88rem' }}>
+                        <span style={{ width: '24px', textAlign: 'center', fontWeight: 'bold', color: index === 0 ? '#fbbf24' : index === 1 ? 'var(--text-title)' : index === 2 ? '#d97706' : 'var(--text-muted)' }}>
                           #{index + 1}
                         </span>
                         
-                        <div style={{ width: '32px', height: '32px', borderRadius: '50%', overflow: 'hidden', background: '#1e293b', flexShrink: 0, border: '1px solid var(--border-main)' }}>
+                        <div style={{ width: '32px', height: '32px', borderRadius: '50%', overflow: 'hidden', background: 'var(--bg-card)', flexShrink: 0, border: '1px solid var(--border-main)' }}>
                           <img src={row.avatar_url || `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' fill='%23475569'><circle cx='16' cy='16' r='16'/></svg>`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
                         </div>
 
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <strong style={{ display: 'block', color: '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{row.name}</strong>
-                          {row.club_name && <small style={{ color: '#64748b', fontSize: '0.75rem', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}> {row.club_name}</small>}
+                          <strong style={{ display: 'block', color: 'var(--text-title)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{row.name}</strong>
+                          {row.club_name && <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>🏰 {row.club_name}</small>}
                         </div>
 
-                        {/* 🎯 MÓDOSÍTVA: Teljesen dinamikus, összesített darabszámok és backend-alapú százalék */}
+                        {/* 🎯 JAVÍTVA: Tizedes- és százalékarány kerekítés téma-adaptív nézetben */}
                         <div style={{ textAlign: 'right', flexShrink: 0, display: 'flex', alignItems: 'center', gap: '15px' }}>
-                          <span style={{ color: '#cbd5e1', fontSize: '0.82rem', fontFamily: 'monospace' }}>
+                          <span style={{ color: 'var(--text-body)', fontSize: '0.82rem', fontFamily: 'monospace' }}>
                             {row.total_correct} / {row.total_questions}
                           </span>
                           <span style={{ color: '#38bdf8', fontWeight: 'bold', minWidth: '45px', textAlign: 'right' }}>
-                            {row.percentage/10} %
+                            {Math.round(row.percentage / 10)}%
                           </span>
                         </div>
                       </div>
                     );
                   })}
                   {leaderboardData.length === 0 && (
-                    <div style={{ padding: '20px 0', textAlign: 'center', color: '#64748b', fontStyle: 'italic', fontSize: '0.85rem' }}>Ebben az időszakban még senki sem küldött be kvízt.</div>
+                    <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--text-muted)', fontStyle: 'italic', fontSize: '0.85rem' }}>Ebben az időszakban még senki sem küldött be kvízt.</div>
                   )}
                 </div>
               )}
@@ -377,7 +377,7 @@ export default function QuizView({ user }: { user: any }) {
       {phase === 'LOADING' && (
         <div style={{ padding: '60px 0', textAlign: 'center' }}>
           <VideoLoader />
-          <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginTop: '15px' }}>Tranzakció biztosítása és kiértékelés...</p>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '15px' }}>Tranzakció biztosítása és kiértékelés...</p>
         </div>
       )}
 
@@ -385,23 +385,23 @@ export default function QuizView({ user }: { user: any }) {
       {phase === 'PLAYING' && parsedQuestion && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-card)', padding: '12px 20px', borderRadius: '8px', border: '1px solid var(--border-main)' }}>
-            <span style={{ color: '#94a3b8', fontSize: '0.85rem', fontWeight: 'bold' }}>📋 Kérdés: <span style={{ color: '#38bdf8' }}>{currentIdx + 1} / {questions.length}</span></span>
+            <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 'bold' }}>📋 Kérdés: <span style={{ color: '#38bdf8' }}>{currentIdx + 1} / {questions.length}</span></span>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: timeLeft <= 5 ? '#ef4444' : '#10b981', fontSize: '0.9rem', fontWeight: 'bold' }}><Timer size={14} /> <span>{timeLeft}s</span></div>
           </div>
-          <div style={{ width: '100%', height: '4px', background: '#1e293b', borderRadius: '2px', overflow: 'hidden' }}>
+          <div style={{ width: '100%', height: '4px', background: 'var(--border-main)', borderRadius: '2px', overflow: 'hidden' }}>
             <div style={{ width: `${(timeLeft / 20) * 100}%`, height: '100%', background: timeLeft <= 5 ? '#ef4444' : 'linear-gradient(90deg, #38bdf8, #10b981)' }} />
           </div>
           <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', borderRadius: '12px', overflow: 'hidden' }}>
             <div style={{ width: '100%', height: '260px', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><img src={currentQuestion.image_url} alt="" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} /></div>
             <div style={{ padding: '24px 20px' }}>
-              <h3 style={{ margin: '0 0 20px 0', color: '#f8fafc', fontSize: '1.2rem', fontWeight: '700' }}>{parsedQuestion.title}</h3>
+              <h3 style={{ margin: '0 0 20px 0', color: 'var(--text-title)', fontSize: '1.2rem', fontWeight: '700' }}>{parsedQuestion.title}</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {['A', 'B', 'C', 'D'].map((letter, i) => {
                   const optionText = parsedQuestion.opts[i];
                   if (!optionText) return null;
                   return (
-                    <button key={letter} onClick={() => handleSelectOption(letter)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 18px', background: '#0f172a50', border: '1px solid var(--border-main)', borderRadius: '8px', color: 'var(--text-body)', fontWeight: '600', cursor: 'pointer' }}>
-                      <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '26px', height: '26px', borderRadius: '6px', background: '#1e293b', color: 'white', fontSize: '0.8rem', fontWeight: 'bold' }}>{letter}</span>
+                    <button key={letter} onClick={() => handleSelectOption(letter)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 18px', background: 'var(--bg-main)', border: '1px solid var(--border-main)', borderRadius: '8px', color: 'var(--text-title)', fontWeight: '600', cursor: 'pointer', transition: 'background 0.2s' }}>
+                      <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '26px', height: '26px', borderRadius: '6px', background: 'var(--bg-card)', border: '1px solid var(--border-main)', color: 'var(--text-body)', fontSize: '0.8rem', fontWeight: 'bold' }}>{letter}</span>
                       <span style={{ flex: 1, textAlign: 'left' }}>{optionText}</span>
                     </button>
                   );
@@ -415,15 +415,15 @@ export default function QuizView({ user }: { user: any }) {
       {/* ── D: JUTALOM ÉS SZAKMAI ELLENŐRZŐ PANEL ── */}
       {phase === 'SUMMARY' && rewardData && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
-          <div style={{ background: 'var(--bg-card)', border: '1px solid #fbbf24', padding: '40px 30px', borderRadius: '12px', textAlign: 'center', boxShadow: '0px 10px 30px rgba(251,191,36,0.15)' }}>
+          <div style={{ background: 'var(--bg-card)', border: '1px solid #fbbf24', padding: '40px 30px', borderRadius: '12px', textAlign: 'center', boxShadow: '0px 10px 30px rgba(251,191,36,0.1)' }}>
             <Sparkles size={48} color="#fbbf24" style={{ margin: '0 auto 15px auto', display: 'block' }} />
-            <h2 style={{ color: '#ffffff', fontSize: '1.8rem', fontWeight: '900' }}>Gratulálunk, Kvíz Teljesítve!</h2>
-<div style={{ background: '#0f172a', border: '1px solid var(--border-main)', borderRadius: '10px', padding: '18px', maxWidth: '500px', margin: '0 auto 25px auto', textAlign: 'left', fontSize: '0.88rem', lineHeight: '1.6' }}>
+            <h2 style={{ color: 'var(--text-title)', fontSize: '1.8rem', fontWeight: '900' }}>Gratulálunk, Kvíz Teljesítve!</h2>
+            <div style={{ background: 'var(--bg-main)', border: '1px solid var(--border-main)', borderRadius: '10px', padding: '18px', maxWidth: '500px', margin: '0 auto 25px auto', textAlign: 'left', fontSize: '0.88rem', lineHeight: '1.6' }}>
               <h4 style={{ margin: '0 0 10px 0', color: '#38bdf8', fontWeight: '800', textTransform: 'uppercase', fontSize: '0.78rem' }}>📊 Eredményed részletes összetétele:</h4>
-              <div style={{ color: '#cbd5e1', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <div style={{ color: 'var(--text-body)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>🎯 Találati arány:</span><strong style={{ color: '#10b981' }}>{rewardData.score / 100} / {questions.length} helyes</strong></div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>✨ Elért pontszám:</span><strong style={{ color: '#f8fafc' }}>{rewardData.score} pont</strong></div>
-                <div style={{ width: '100%', height: '1px', background: '#334155', margin: '4px 0' }} />
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>✨ Elért pontszám:</span><strong style={{ color: 'var(--text-title)' }}>{rewardData.score} pont</strong></div>
+                <div style={{ width: '100%', height: '1px', background: 'var(--border-main)', margin: '4px 0' }} />
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: '#fbbf24', fontSize: '1rem', fontWeight: 'bold' }}>
                   <span>🪙 Jóváírt pont:</span><span>+{rewardData.pointsAwarded}p</span>
                 </div>
@@ -435,7 +435,7 @@ export default function QuizView({ user }: { user: any }) {
 
           {/* SZAKMAI KIÉRTÉKELŐ TUDÁSTÁR */}
           <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', padding: '30px', borderRadius: '12px' }}>
-            <h3 style={{ margin: '0 0 20px 0', color: '#f1f5f9', fontSize: '1.2rem', fontWeight: '800', borderBottom: '1px solid var(--border-main)', paddingBottom: '12px' }}>🔍 Szakmai Értékelő & Hibajegyzék</h3>
+            <h3 style={{ margin: '0 0 20px 0', color: 'var(--text-title)', fontSize: '1.2rem', fontWeight: '800', borderBottom: '1px solid var(--border-main)', paddingBottom: '12px' }}>🔍 Szakmai Értékelő & Hibajegyzék</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
               {questions.map((q, idx) => {
                 const userAnsLetter = selectedAnswers[q.id] || '';
@@ -445,7 +445,7 @@ export default function QuizView({ user }: { user: any }) {
                 const explanationText = lang === 'en' ? q.explanation_en : q.explanation_hu;
 
                 return (
-                  <div key={q.id} style={{ background: '#0f172a50', padding: '18px', borderRadius: '10px', border: `1px solid ${isCorrect ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)'}` }}>
+                  <div key={q.id} style={{ background: 'var(--bg-main)', padding: '18px', borderRadius: '10px', border: `1px solid ${isCorrect ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)'}` }}>
                     <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
                       <div 
                         onClick={() => setLightboxImage(q.image_url)}
@@ -457,7 +457,7 @@ export default function QuizView({ user }: { user: any }) {
                         <img src={q.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       </div>
                       <div style={{ flex: 1 }}>
-                        <h4 style={{ margin: '0 0 6px 0', color: '#f8fafc', fontSize: '0.92rem', fontWeight: '700' }}>{idx + 1}. {lang === 'en' ? q.question_en : q.question_hu}</h4>
+                        <h4 style={{ margin: '0 0 6px 0', color: 'var(--text-title)', fontSize: '0.92rem', fontWeight: '700' }}>{idx + 1}. {lang === 'en' ? q.question_en : q.question_hu}</h4>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.85rem' }}>
                           <span style={{ color: isCorrect ? '#10b981' : '#f87171', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '600' }}>
                             {isCorrect ? <CheckCircle2 size={13} /> : <XCircle size={13} />} Te tipped: {getReadableOptionText(userAnsLetter, rawOptions)}
@@ -472,7 +472,7 @@ export default function QuizView({ user }: { user: any }) {
                     </div>
 
                     {explanationText && explanationText.trim() !== '' && (
-                      <div style={{ marginTop: '14px', background: 'rgba(245,158,11,0.04)', borderLeft: '3px solid #f59e0b', padding: '10px 14px', borderRadius: '0 6px 6px 0', fontSize: '0.84rem', lineHeight: '1.5', color: '#cbd5e1' }}>
+                      <div style={{ marginTop: '14px', background: 'rgba(245,158,11,0.04)', borderLeft: '3px solid #f59e0b', padding: '10px 14px', borderRadius: '0 6px 6px 0', fontSize: '0.84rem', lineHeight: '1.5', color: 'var(--text-body)' }}>
                         <div style={{ color: '#fbbf24', fontWeight: 'bold', marginBottom: '4px', fontSize: '0.78rem', textTransform: 'uppercase' }}>💡 Szakmai háttér & Kontextus:</div>
                         {explanationText}
                       </div>
@@ -489,7 +489,7 @@ export default function QuizView({ user }: { user: any }) {
         <div style={{ background: 'var(--bg-card)', border: '1px solid #ef4444', padding: '40px 30px', borderRadius: '12px', textAlign: 'center' }}>
           <div style={{ fontSize: '3rem', marginBottom: '10px' }}>⏳</div>
           <h3 style={{ color: '#f87171', fontSize: '1.3rem', fontWeight: 'bold' }}>A mai kihívást már teljesítetted!</h3>
-          <button onClick={() => setPhase('INTRO')} style={{ background: '#222f47', border: '1px solid var(--border-main)', color: 'white', padding: '10px 24px', borderRadius: '6px', cursor: 'pointer', marginTop: '15px' }}>Bezárás</button>
+          <button onClick={() => setPhase('INTRO')} style={{ background: 'var(--bg-main)', border: '1px solid var(--border-main)', color: 'var(--text-title)', padding: '10px 24px', borderRadius: '6px', cursor: 'pointer', marginTop: '15px' }}>Bezárás</button>
         </div>
       )}
 
@@ -499,7 +499,7 @@ export default function QuizView({ user }: { user: any }) {
           onClick={() => setLightboxImage(null)}
           style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0, 0, 0, 0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999, cursor: 'zoom-out' }}
         >
-          <img src={lightboxImage} alt="Large preview" style={{ maxWidth: '90%', maxHeight: '90%', objectFit: 'contain', borderRadius: '8px', boxShadow: '0 20px 50px rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.1)' }} />
+          <img src={lightboxImage} alt="Large preview" style={{ maxWidth: '90%', maxHeight: '90%', objectFit: 'contain', borderRadius: '8px', boxShadow: '0 20px 50px rgba(0, 0, 0, 0.6)', border: '1px solid rgba(255,255,255,0.1)' }} />
         </div>
       )}
 
