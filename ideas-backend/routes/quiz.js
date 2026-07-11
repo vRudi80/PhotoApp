@@ -80,11 +80,12 @@ module.exports = function(app, pool, upload) {
     }
   });
 
- // ====================================================================
-  // 📡 2. KIÉRTÉKELÉS ÉS KÖZPONTI LEDGER PONTKÖNYVELÉS (TRANZAKCIÓ FIX)
+  // ====================================================================
+  // 📡 KIÉRTÉKELÉS, IDŐMÉRÉS ÉS KÖZPONTI LEDGER PONTKÖNYVELÉS (TELJES)
   // ====================================================================
   app.post('/api/quiz/submit', requireAuth, async (req, res) => {
-    const { answers, userEmail } = req.body;
+    // 🎯 INTEGRÁLVA: durationSeconds (időtartam) kicsomagolása a kérés törzséből
+    const { answers, userEmail, durationSeconds } = req.body;
     if (!userEmail || req.user.email !== userEmail) {
       return res.status(403).json({ error: 'Munkamenet biztonsági eltérés!' });
     }
@@ -129,15 +130,19 @@ module.exports = function(app, pool, upload) {
       }
 
       // 2. Elmentjük a független kísérletet a kvíznaplóba
-            // Elmentjük a független kísérletet a kvíznaplóba (kiegészítve a válaszok JSON blokkjával)
+      // 🎯 MÓDOSÍTVA: Az SQL lekérdezés kiterjesztve a duration_seconds oszloppal és értékével!
       await pool.query(
-        'INSERT INTO quiz_attempts (user_email, score, points_awarded, completed_at, answers_json) VALUES (?, ?, ?, NOW(), ?)',
-        [req.user.email, serverCalculatedScore, pointsToAward, JSON.stringify(submittedAnswers)]
+        'INSERT INTO quiz_attempts (user_email, score, points_awarded, completed_at, answers_json, duration_seconds) VALUES (?, ?, ?, NOW(), ?, ?)',
+        [
+          req.user.email, 
+          serverCalculatedScore, 
+          pointsToAward, 
+          JSON.stringify(submittedAnswers), 
+          Number(durationSeconds || 0) // Biztonsági fallback 0-ra, ha üresen jönne át
+        ]
       );
 
-
-      // 3. 🎯 JAVÍTVA: Közvetlenül a 'pool' objektumot adjuk át a belső bankmotornak,
-      // pontosan úgy, ahogy a weekly.js is teszi szavazáskor! Nincs többé egymásnak feszülő tranzakció.
+      // 3. Közvetlenül a 'pool' objektumot adjuk át a belső bankmotornak (Deadlock védelem)
       if (pointsToAward > 0) {
         try {
           await PointsService.handleTransaction(
@@ -146,8 +151,8 @@ module.exports = function(app, pool, upload) {
             pointsToAward,
             'quiz_reward',
             null, 
-            `Kvíz jutalom (+${pointsToAward}p)`,
-            `Quiz reward (+${pointsToAward}p)`
+            `🎮 LensMaster Kvíz jutalom (+${pointsToAward}p)`,
+            `LensMaster Quiz reward (+${pointsToAward}p)`
           );
         } catch (pointsErr) {
           console.error("⚠️ Hiba a PointsService könyvelése közben:", pointsErr.message);
@@ -166,6 +171,7 @@ module.exports = function(app, pool, upload) {
       res.status(500).json({ error: 'Szerver hiba az eredmény kiértékelésekor.' });
     }
   });
+
   
   // ====================================================================
   // 📡 3. ADMINISZTRÁCIÓS MENTÉS (HIÁNYTALAN + MAGYARÁZATOK)
@@ -325,7 +331,7 @@ module.exports = function(app, pool, upload) {
   // ====================================================================
   // 🏆 FRISSÍTVE: KVÍZ RANGLISTA (KLUB LOGÓKKAL ÉS MEZŐNY-ÖSSZEFÉSÜLÉSSEL)
   // ====================================================================
-  app.get('/api/quiz/leaderboard', requireAuth, async (req, res) => {
+    app.get('/api/quiz/leaderboard', requireAuth, async (req, res) => {
     const { period, year, month } = req.query;
     
     let sql = `
@@ -333,15 +339,15 @@ module.exports = function(app, pool, upload) {
         u.name, 
         u.club_name,
         u.avatar_url,
-        /* 🎯 ÚJ: Klub logó linkek és Drive azonosítók lekérése a photo_clubs táblából */
         c.drive_logo_id,
         c.logo_url,
         CAST(SUM(a.score) / 100 AS UNSIGNED) as total_correct,
         CAST(COUNT(a.id) * 10 AS UNSIGNED) as total_questions,
-        ROUND((SUM(a.score) / (COUNT(a.id) * 100)) * 100) as percentage
+        ROUND((SUM(a.score) / (COUNT(a.id) * 100)) * 100) as percentage,
+        /* 🎯 ÚJ: Kiszámoljuk a userek átlagos kitöltési idejét az adott időszakban */
+        ROUND(AVG(a.duration_seconds), 1) as avg_duration
       FROM quiz_attempts a
       JOIN photo_users u ON a.user_email = u.email COLLATE utf8mb4_general_ci
-      /* 🎯 ÚJ: Összekapcsolás a klubok adattáblájával a név alapján */
       LEFT JOIN photo_clubs c ON u.club_name = c.name
     `;
     
@@ -361,11 +367,12 @@ module.exports = function(app, pool, upload) {
       }
     }
 
-    /* 🎯 JAVÍTVA: A csoportosítást kiterjesztettük a klub-logó mezőkre is a Strict SQL mód miatt */
     sql += `
       ${whereClause}
       GROUP BY u.email, u.name, u.club_name, u.avatar_url, c.drive_logo_id, c.logo_url
-      ORDER BY (SUM(a.score) / COUNT(a.id)) DESC
+      /* 🎯 ÚJ HOLTVERSENY-TÖRŐ REND EZÉS: Elsőként az elért százalék dönt, */
+      /* egyenlőség esetén a kisebb átlagos kitöltési idő (AVG duration ASC) kap elsőbbséget! */
+      ORDER BY (SUM(a.score) / COUNT(a.id)) DESC, AVG(a.duration_seconds) ASC
       LIMIT 50
     `;
 
@@ -373,8 +380,7 @@ module.exports = function(app, pool, upload) {
       const [rows] = await pool.query(sql, params);
       res.json(rows);
     } catch (err) {
-      console.error("❌ Kvíz toplista lekérési hiba:", err.message);
-      res.status(500).json({ error: 'Nem sikerült lekérni a ranglistát.' });
+      res.status(500).json({ error: 'Hiba' });
     }
   });
 
