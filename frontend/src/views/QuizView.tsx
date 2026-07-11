@@ -10,7 +10,7 @@ const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
   return { ...(token ? { 'Authorization': `Bearer ${token}` } : {}), ...extraHeaders };
 };
 
-// ── 🎯 ÚJ: PROFESSZIONÁLIS MAGYAR HELYI IDŐFORMÁZÓ MOTOR ──
+// Professzionális magyar helyi időformázó motor
 const formatQuizDate = (dateStr: string) => {
   if (!dateStr) return '';
   try {
@@ -256,7 +256,8 @@ export default function QuizView({ user }: { user: any }) {
       const res = await fetch(`${BACKEND_URL}/api/quiz/submit`, {
         method: 'POST',
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ answers: finalAnswers, userEmail: user?.email || '' ?? '', durationSeconds })
+        // 🎯 JAVÍTVA: Kivágva a hibás és felesleges operator-mix lánc
+        body: JSON.stringify({ answers: finalAnswers, userEmail: user?.email || '', durationSeconds })
       });
       if (res.ok) {
         const data = await res.json();
@@ -380,7 +381,6 @@ export default function QuizView({ user }: { user: any }) {
                       >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--text-body)' }}>
                           <Calendar size={14} color="var(--text-muted)" /> 
-                          {/* 🎯 JAVÍTVA: A nyers ISO lánc helyett mostantól a golyóálló helyi időformázó fut le */}
                           <span style={{ fontWeight: '600' }}>{formatQuizDate(item.date)}</span>
                           {isItemLoading && <small style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>(Betöltés... ⏳)</small>}
                         </div>
