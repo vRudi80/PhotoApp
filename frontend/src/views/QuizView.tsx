@@ -10,6 +10,19 @@ const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
   return { ...(token ? { 'Authorization': `Bearer ${token}` } : {}), ...extraHeaders };
 };
 
+// ── 🎯 ÚJ: PROFESSZIONÁLIS MAGYAR HELYI IDŐFORMÁZÓ MOTOR ──
+const formatQuizDate = (dateStr: string) => {
+  if (!dateStr) return '';
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    const pad = (num: number) => String(num).padStart(2, '0');
+    return `${d.getFullYear()}. ${pad(d.getMonth() + 1)}. ${pad(d.getDate())}. ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  } catch (e) {
+    return dateStr;
+  }
+};
+
 type QuizPhase = 'INTRO' | 'LOADING' | 'PLAYING' | 'SUMMARY' | 'ALREADY_PLAYED';
 type LeaderboardPeriod = 'daily' | 'weekly' | 'monthly';
 
@@ -68,7 +81,7 @@ export default function QuizView({ user }: { user: any }) {
   // Kérdésbank globális darabszámának állapota
   const [questionCounts, setQuestionCounts] = useState({ total: 0, exif: 0, composition: 0, history: 0 });
 
-  // ── 🎯 ÚJ: JÁTÉK INDULÁSI IDŐBÉLYEG ÁLLAPOT ──
+  // Játék indulási időbélyeg állapot
   const [quizStartTime, setQuizStartTime] = useState<number | null>(null);
 
   const currentQuestion = questions[currentIdx];
@@ -214,7 +227,6 @@ export default function QuizView({ user }: { user: any }) {
           try { Object.keys(sessionStorage).forEach(k => { if(k.startsWith('photo_quiz_end_')) sessionStorage.removeItem(k); }); } catch(e){}
           setQuestions(data.questions || []);
           setCurrentIdx(0); setSelectedAnswers({}); setCorrectAnswers({}); setTimeLeft(20);
-          // 🎯 ÚJ: Rögzítjük a játék elindításának abszolút időpontját
           setQuizStartTime(Date.now());
           setPhase('PLAYING');
         }
@@ -238,16 +250,13 @@ export default function QuizView({ user }: { user: any }) {
   const handleFinalSubmit = async (finalAnswers: Record<number, string>) => {
     setPhase('LOADING');
     setIsSubmitting(true);
-
-    // 🎯 ÚJ: Kiszámoljuk a teljes kvízzel eltöltött nettó másodperceket
     const durationSeconds = quizStartTime ? Math.round((Date.now() - quizStartTime) / 1000) : 0;
 
     try {
       const res = await fetch(`${BACKEND_URL}/api/quiz/submit`, {
         method: 'POST',
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-        // 🎯 ÚJ: Elküldjük a durationSeconds értéket a backendnek
-        body: JSON.stringify({ answers: finalAnswers, userEmail: user?.email || '', durationSeconds })
+        body: JSON.stringify({ answers: finalAnswers, userEmail: user?.email || '' ?? '', durationSeconds })
       });
       if (res.ok) {
         const data = await res.json();
@@ -371,7 +380,8 @@ export default function QuizView({ user }: { user: any }) {
                       >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--text-body)' }}>
                           <Calendar size={14} color="var(--text-muted)" /> 
-                          <span style={{ fontWeight: '600' }}>{item.date?.split(' ')[0]}</span>
+                          {/* 🎯 JAVÍTVA: A nyers ISO lánc helyett mostantól a golyóálló helyi időformázó fut le */}
+                          <span style={{ fontWeight: '600' }}>{formatQuizDate(item.date)}</span>
                           {isItemLoading && <small style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>(Betöltés... ⏳)</small>}
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '20px', fontWeight: 'bold' }}>
@@ -489,7 +499,6 @@ export default function QuizView({ user }: { user: any }) {
                           )}
                         </div>
 
-                        {/* 🎯 MÓDOSÍTVA: Megjelenítjük az átlagos kitöltési időt tizedes pontossággal a százalék mellett */}
                         <div style={{ textAlign: 'right', flexShrink: 0, display: 'flex', alignItems: 'center', gap: '15px' }}>
                           <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '3px', fontFamily: 'monospace' }} title="Átlagos kitöltési idő">
                             ⏱️ {row.avg_duration || 0}s
