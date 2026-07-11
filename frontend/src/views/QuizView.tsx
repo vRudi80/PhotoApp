@@ -13,7 +13,7 @@ const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
 type QuizPhase = 'INTRO' | 'LOADING' | 'PLAYING' | 'SUMMARY' | 'ALREADY_PLAYED';
 type LeaderboardPeriod = 'daily' | 'weekly' | 'monthly';
 
-// ── 🎯 ÚJ: KLUB LOGÓ GENERÁTOR ALKOMPONENS A HALL OF FAME MINTÁJÁRA ──
+// ── 🎯 KLUB LOGÓ GENERÁTOR ALKOMPONENS A HALL OF FAME MINTÁJÁRA ──
 function ClubLogo({ driveId, logoUrl }: { driveId: any; logoUrl: any }) {
   const [isError, setIsError] = useState(false);
   if (isError || (!driveId && !logoUrl)) {
@@ -66,6 +66,9 @@ export default function QuizView({ user }: { user: any }) {
   const [historyDetailQuestions, setHistoryDetailQuestions] = useState<any[]>([]);
   const [loadingDetailId, setLoadingDetailId] = useState<number | null>(null);
 
+  // ── 🎯 KÉRDÉSBANK GLOBÁLIS DARABSZÁMÁNAK ÁLLAPOTA ──
+  const [questionCounts, setQuestionCounts] = useState({ total: 0, exif: 0, composition: 0, history: 0 });
+
   const currentQuestion = questions[currentIdx];
 
   const fetchMyThemeData = async () => {
@@ -76,6 +79,10 @@ export default function QuizView({ user }: { user: any }) {
         setHistoryList(data.history || []);
         setQuizBalance(data.quizBalance || 0);
         setAlreadyPlayedToday(data.alreadyPlayedToday || false);
+        // 🎯 Számlálók kinyerése a kombinált válaszból
+        if (data.questionCounts) {
+          setQuestionCounts(data.questionCounts);
+        }
       }
     } catch (e) { console.error(e); }
   };
@@ -275,9 +282,27 @@ export default function QuizView({ user }: { user: any }) {
           <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', padding: '40px 30px', borderRadius: '12px', textAlign: 'center', boxShadow: '0 10px 25px rgba(0,0,0,0.15)' }}>
             <Trophy size={48} color="#f59e0b" style={{ margin: '0 auto 15px auto', display: 'block' }} />
             <h2 style={{ color: 'var(--text-title)', fontSize: '1.75rem', fontWeight: '800', margin: '0 0 10px 0' }}>{lang === 'en' ? 'Daily Quiz' : 'Napi Kvíz'}</h2>
-            <p style={{ color: 'var(--text-body)', fontSize: '0.95rem', marginBottom: '20px' }}>
+            <p style={{ color: 'var(--text-body)', fontSize: '0.95rem', marginBottom: '18px' }}>
               {lang === 'en' ? 'Test your photography knowledge! Earn up to 50 spendable Arena Points daily!' : 'Tedd próbára a fotós tudásod és gyűjts akár 50 elkölthető Aréna pontot naponta!'}
             </p>
+
+            {/* ── 🎯 ÚJ: DINAMIKUS ADATBÁZIS KÉRDÉSBANK PANEL ── */}
+            {questionCounts.total > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginBottom: '22px', flexWrap: 'wrap', fontSize: '0.8rem', color: 'var(--text-body)' }}>
+                <span style={{ padding: '5px 12px', background: 'var(--bg-main)', border: '1px solid var(--border-main)', borderRadius: '6px' }}>
+                  📚 Kérdésbank: <strong style={{ color: 'var(--text-title)' }}>{questionCounts.total} db</strong>
+                </span>
+                <span style={{ padding: '5px 12px', background: 'var(--bg-main)', border: '1px solid var(--border-main)', borderRadius: '6px' }}>
+                  📸 EXIF: <strong style={{ color: '#38bdf8' }}>{questionCounts.exif} db</strong>
+                </span>
+                <span style={{ padding: '5px 12px', background: 'var(--bg-main)', border: '1px solid var(--border-main)', borderRadius: '6px' }}>
+                  📐 Kompozíció: <strong style={{ color: '#10b981' }}>{questionCounts.composition} db</strong>
+                </span>
+                <span style={{ padding: '5px 12px', background: 'var(--bg-main)', border: '1px solid var(--border-main)', borderRadius: '6px' }}>
+                  📜 Történet: <strong style={{ color: '#a78bfa' }}>{questionCounts.history} db</strong>
+                </span>
+              </div>
+            )}
 
             <div style={{ display: 'flex', justifyContent: 'center', gap: '15px', marginBottom: '30px', flexWrap: 'wrap' }}>
               <span style={{ padding: '6px 14px', borderRadius: '20px', background: alreadyPlayedToday ? 'rgba(239,68,68,0.08)' : 'rgba(16,185,129,0.08)', color: alreadyPlayedToday ? '#f87171' : '#34d399', fontSize: '0.85rem', fontWeight: 'bold', border: alreadyPlayedToday ? '1px solid #ef444430' : '1px solid #10b98130' }}>
@@ -448,7 +473,6 @@ export default function QuizView({ user }: { user: any }) {
 
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <strong style={{ display: 'block', color: 'var(--text-title)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{row.name}</strong>
-                          {/* 🎯 MÓDOSÍTVA: A statikus 🏰 helyett mostantól az egyedi ClubLogo komponens rajzolódik ki flex elrendezésben */}
                           {row.club_name && (
                             <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '2px', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                               <ClubLogo driveId={row.drive_logo_id} logoUrl={row.logo_url} />
