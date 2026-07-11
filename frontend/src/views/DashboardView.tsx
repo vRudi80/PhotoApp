@@ -18,6 +18,7 @@ import {
   RefreshCw,
   MessageSquare,
   Newspaper,
+  MessageCircleQuestion,
   Clock
 } from 'lucide-react';
 
@@ -161,6 +162,7 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
 
   const tiles = [
     { id: 'weekly_challenge', icon: Flame, color: '#f97316', titleKey: 'tileWeeklyTitle', descKey: 'tileWeeklyDesc', tab: 'weekly_challenge' },
+    { id: 'quiz', icon: MessageCircleQuestion, color: '#f97382', titleKey: 'titleQuiz', descKey: 'titleQuizDesc', tab: 'quiz' },
     { id: 'contests', icon: FileText, color: '#38bdf8', titleKey: 'tileContestsTitle', descKey: 'tileContestsDesc', tab: 'contests_open_active' },
     { id: 'my_album', icon: ImageIcon, color: 'var(--text-body)', titleKey: 'tilePortfolioTitle', descKey: 'tilePortfolioDesc', tab: 'my_album' },
     { id: 'map_spots', icon: MapPin, color: '#10b981', titleKey: 'tileMapTitle', descKey: 'tileMapDesc', tab: 'map_spots' },
