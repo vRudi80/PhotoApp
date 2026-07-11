@@ -295,8 +295,8 @@ module.exports = function(app, pool, upload) {
       res.status(500).json({ error: 'Nem sikerült betölteni a kvíztörténetet.' });
     }
   });
-// ====================================================================
-  // 🏆 ÚJ: KUMULATÍV KVÍZ RANGLISTA (ÖSSZES KÉRDÉS ÉS HELYES VÁLASZ ALAPJÁN)
+  // ====================================================================
+  // 🏆 FRISSÍTVE: KVÍZ RANGLISTA (KLUB LOGÓKKAL ÉS MEZŐNY-ÖSSZEFÉSÜLÉSSEL)
   // ====================================================================
   app.get('/api/quiz/leaderboard', requireAuth, async (req, res) => {
     const { period, year, month } = req.query;
@@ -306,13 +306,16 @@ module.exports = function(app, pool, upload) {
         u.name, 
         u.club_name,
         u.avatar_url,
-        /* 1 kísérlet = 10 kérdés. A helyes válaszok száma = score / 100 */
+        /* 🎯 ÚJ: Klub logó linkek és Drive azonosítók lekérése a photo_clubs táblából */
+        c.drive_logo_id,
+        c.logo_url,
         CAST(SUM(a.score) / 100 AS UNSIGNED) as total_correct,
         CAST(COUNT(a.id) * 10 AS UNSIGNED) as total_questions,
-        /* Összesített százalék kiszámítása */
         ROUND((SUM(a.score) / (COUNT(a.id) * 100)) * 100) as percentage
       FROM quiz_attempts a
       JOIN photo_users u ON a.user_email = u.email COLLATE utf8mb4_general_ci
+      /* 🎯 ÚJ: Összekapcsolás a klubok adattáblájával a név alapján */
+      LEFT JOIN photo_clubs c ON u.club_name = c.name
     `;
     
     let whereClause = 'WHERE 1=1';
@@ -331,10 +334,10 @@ module.exports = function(app, pool, upload) {
       }
     }
 
-    /* Csoportosítás és sorrendbe rakás az összesített százalékos arány alapján */
+    /* 🎯 JAVÍTVA: A csoportosítást kiterjesztettük a klub-logó mezőkre is a Strict SQL mód miatt */
     sql += `
       ${whereClause}
-      GROUP BY u.email, u.name, u.club_name, u.avatar_url
+      GROUP BY u.email, u.name, u.club_name, u.avatar_url, c.drive_logo_id, c.logo_url
       ORDER BY (SUM(a.score) / COUNT(a.id)) DESC
       LIMIT 50
     `;
@@ -347,6 +350,7 @@ module.exports = function(app, pool, upload) {
       res.status(500).json({ error: 'Nem sikerült lekérni a ranglistát.' });
     }
   });
+
   
   app.delete('/api/admin/quiz/delete/:id', requireAuth, async (req, res) => {
     if (!req.user.isAdmin) return res.status(403).json({ error: 'Adminisztrátori jog szükséges!' });
