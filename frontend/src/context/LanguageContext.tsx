@@ -21,6 +21,8 @@ tilePodcastDesc: 'Hallgass bennünket aktuális fotós témákról',
     navExplore:'Felfedezés',
     submanagedBanned: 'Tiltott userek',
     navQuiz: 'Kvíz',
+    titleQuiz: 'Kvíz',
+    
 
     "archiveCountPhotographer": "Fotós",
   "archiveCountEnded": "Lezárult",
