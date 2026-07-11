@@ -129,10 +129,12 @@ module.exports = function(app, pool, upload) {
       }
 
       // 2. Elmentjük a független kísérletet a kvíznaplóba
+            // Elmentjük a független kísérletet a kvíznaplóba (kiegészítve a válaszok JSON blokkjával)
       await pool.query(
-        'INSERT INTO quiz_attempts (user_email, score, points_awarded, completed_at) VALUES (?, ?, ?, NOW())',
-        [req.user.email, serverCalculatedScore, pointsToAward]
+        'INSERT INTO quiz_attempts (user_email, score, points_awarded, completed_at, answers_json) VALUES (?, ?, ?, NOW(), ?)',
+        [req.user.email, serverCalculatedScore, pointsToAward, JSON.stringify(submittedAnswers)]
       );
+
 
       // 3. 🎯 JAVÍTVA: Közvetlenül a 'pool' objektumot adjuk át a belső bankmotornak,
       // pontosan úgy, ahogy a weekly.js is teszi szavazáskor! Nincs többé egymásnak feszülő tranzakció.
