@@ -22,7 +22,7 @@ tilePodcastDesc: 'Hallgass bennünket aktuális fotós témákról',
     submanagedBanned: 'Tiltott userek',
     navQuiz: 'Kvíz',
     titleQuiz: 'Kvíz',
-    titleQuizDesc: 'Tanulj játékosan! Naponta kitölthető fotós kvíz segít megtanulni sok érdekes dolgot. A kérdések végén mindenre megkapod a helyes választ, plusz érdekességeket az adott kérdéssel kapcsolatban.',
+    titleQuizDesc: 'Bővítsd fotós ismereteidet egy naponta kitölthető kvízzel! Minden nap új kérdések várnak, amelyek segítségével szórakoztató módon fedezheted fel a fotózás világát. A kvíz végén nemcsak a helyes válaszokat ismerheted meg, hanem érdekes háttérinformációkat és hasznos tudnivalókat is olvashatsz az adott témáról.',
     
 
     "archiveCountPhotographer": "Fotós",
@@ -907,7 +907,9 @@ tilePodcastDesc: 'Listen our podcast of fresh topics',
   mapDashThankYouDesc: 'Thank you for tracking and sharing your photography spots, building this visual roadmap together!',
   mapDashYourContribution: 'Your contribution:',
   mapNotSpecified: 'Not specified',
-
+titleQuiz: 'Quiz',
+    titleQuizDesc: 'Expand your photography knowledge with a daily quiz! Each day brings a fresh set of questions designed to help you explore the world of photography in a fun and engaging way. At the end of every quiz, you’ll discover the correct answers along with fascinating facts and useful insights related to each question.',
+    
     
   "roomMatchClosed": "Match Closed! 📜",
   "roomTimeLeftLabel": "TIME LEFT:",
