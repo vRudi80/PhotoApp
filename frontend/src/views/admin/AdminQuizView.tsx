@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import exifr from 'exifr';
 import { BACKEND_URL } from '../../utils/constants';
 
-// 🎯 ÚJ: Kliensoldali képoptimalizáló és tömörítő függvény a Weekly mintájára
 const compressImageOnClient = (file: File): Promise<File> => {
   return new Promise((resolve) => {
     const reader = new FileReader();
@@ -53,12 +52,10 @@ const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
 
 export default function AdminQuizView() {
   const [type, setType] = useState<'exif' | 'composition' | 'history'>('exif');
-  // Fájl és előnézet állapotok
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [questionHu, setQuestionHu] = useState('');
   const [questionEn, setQuestionEn] = useState('');
-  // Kétnyelvű edukációs magyarázatok
   const [explanationHu, setExplanationHu] = useState('');
   const [explanationEn, setExplanationEn] = useState('');
   const [optionsHu, setOptionsHu] = useState<string[]>(['', '', '', '']);
@@ -67,12 +64,13 @@ export default function AdminQuizView() {
   const [exifTarget, setExifTarget] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Szerkesztési üzemmód állapotai
+  // ── 🎯 ÚJ: AI ROBOT GENERÁLÓ ÁLLAPOT ──
+  const [isAiLoading, setIsAiLoading] = useState(false);
+
   const [editingId, setEditingId] = useState<number | null>(null);
   const [existingQuestions, setExistingQuestions] = useState<any[]>([]);
   const [currentQuestionsImageUrl, setCurrentImageUrl] = useState('');
 
-  // Kérdésbank szinkronizálása a háttérből
   const fetchAllQuestions = async () => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/admin/quiz/questions`, {
@@ -90,24 +88,20 @@ export default function AdminQuizView() {
     fetchAllQuestions();
   }, []);
 
-  // 🎯 MÓDOSÍTVA: Automata tömörítéssel kiegészített fájlkezelő modul
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       
-      // Először kinyerjük az EXIF adatokat a nyers, eredeti fájlból (mielőtt a canvas letörölné)
       if (type === 'exif') {
         try {
           const exifData = await exifr.parse(file);
           if (exifData) {
-            // A: Rekeszérték detektálása
             if (exifData.FNumber) {
               const detectedAperture = `f/${exifData.FNumber}`;
               setExifTarget(detectedAperture);
               setOptionsHu([detectedAperture, 'f/2.8', 'f/5.6', 'f/11']);
               setOptionsEn([detectedAperture, 'f/2.8', 'f/5.6', 'f/11']);
             } 
-            // B: Záridő detektálása és automatikus tiszta törtté alakítása (pl. 1/250s)
             else if (exifData.ExposureTime) {
               const shutterFraction = exifData.ExposureTime < 1 
                 ? `1/${Math.round(1 / exifData.ExposureTime)}s` 
@@ -122,16 +116,49 @@ export default function AdminQuizView() {
         }
       }
 
-      // ⚡ INTELLIGENS SZŰRŐ: Ha a fájl nagyobb mint 2MB, a háttérben átméretezzük feltöltés előtt
       let finalFile = file;
       if (file.size > 2 * 1024 * 1024) {
         finalFile = await compressImageOnClient(file);
       }
 
       setSelectedFile(finalFile);
-      
       if (previewUrl && !currentQuestionsImageUrl) URL.revokeObjectURL(previewUrl);
       setPreviewUrl(URL.createObjectURL(finalFile));
+    }
+  };
+
+  // ── 🎯 ÚJ: INTERAKTÍV AI GENERÁLÓ MOTOR KLIKK KEZELŐ ──
+  const handleAiGenerate = async () => {
+    if (!selectedFile) return alert("Kérlek, előbb válassz ki egy fotót a számítógépedről!");
+    setIsAiLoading(true);
+    
+    const formData = new FormData();
+    formData.append('photo', selectedFile);
+
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/admin/quiz/analyze-image`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: formData
+      });
+
+      if (res.ok) {
+        const item = await res.json();
+        setQuestionHu(item.questionHu || '');
+        setQuestionEn(item.questionEn || '');
+        setExplanationHu(item.explanationHu || '');
+        setExplanationEn(item.explanationEn || '');
+        setCorrectOption(item.correctOption || 'A');
+        if (item.optionsHu) setOptionsHu(item.optionsHu);
+        if (item.optionsEn) setOptionsEn(item.optionsEn);
+        alert("🤖 Az AI sikeresen azonosította a történelmi fotót! Minden adatmező és edukációs magyarázat kitöltve.");
+      } else {
+        alert("Az AI-nak nem sikerült pontosan azonosítania a képet. Kérlek töltsd ki kézzel.");
+      }
+    } catch (e) {
+      alert("Hálózati hiba történt az AI szinkronizálása közben.");
+    } finally {
+      setIsAiLoading(false);
     }
   };
 
@@ -271,6 +298,19 @@ export default function AdminQuizView() {
             </label>
             <div style={{ background: '#0f172a', padding: '15px', borderRadius: '8px', border: '1px solid #475569', display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center' }}>
               <input type="file" accept="image/*" onChange={handleFileChange} style={{ color: '#94a3b8', fontSize: '0.9rem', width: '100%' }} />
+              
+              {/* ── 🎯 ÚJ: AUTOMATA AI KVÍZGENERÁTOR NYOMÓGOMB ── */}
+              {type === 'history' && selectedFile && !editingId && (
+                <button
+                  type="button"
+                  onClick={handleAiGenerate}
+                  disabled={isAiLoading}
+                  style={{ width: '100%', marginTop: '5px', background: isAiLoading ? '#334155' : 'linear-gradient(135deg, #a78bfa, #7c3aed)', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', fontWeight: 'bold', cursor: isAiLoading ? 'not-allowed' : 'pointer', fontSize: '0.88rem', transition: 'all 0.2s' }}
+                >
+                  {isAiLoading ? '⏳ AI elemzés és feladvány generálása folyamatban...' : '🤖 AI Feladvány Automata Generálása'}
+                </button>
+              )}
+
               {previewUrl && (
                 <div style={{ width: '100%', height: '160px', borderRadius: '6px', overflow: 'hidden', border: '1px solid #334155', background: '#000' }}>
                   <img src={previewUrl} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
@@ -326,8 +366,8 @@ export default function AdminQuizView() {
                 Mégse / Elvetés
               </button>
             )}
-            <button type="submit" disabled={isSubmitting} style={{ flex: 2, background: editingId ? '#f59e0b' : 'linear-gradient(135deg, #38bdf8, #2563eb)', color: editingId ? '#0f172a' : 'white', border: 'none', padding: '12px', borderRadius: '8px', fontWeight: 'bold', cursor: isSubmitting ? 'not-allowed' : 'pointer' }}>
-              {isSubmitting ? 'Mentés... ⏳' : (editingId ? '💾 Módosítások Véglegesítése' : '🚀 Kérdés Mentése')}
+            <button type="submit" disabled={isSubmitting || isAiLoading} style={{ flex: 2, background: editingId ? '#f59e0b' : 'linear-gradient(135deg, #38bdf8, #2563eb)', color: editingId ? '#0f172a' : 'white', border: 'none', padding: '12px', borderRadius: '8px', fontWeight: 'bold', cursor: (isSubmitting || isAiLoading) ? 'not-allowed' : 'pointer' }}>
+              {isSubmitting ? 'Mentés... ⏳' : (editingId ? '💾 Módosítások Véglegenítése' : '🚀 Kérdés Mentése')}
             </button>
           </div>
         </form>
