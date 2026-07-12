@@ -49,8 +49,8 @@ async function requireAuth(req, res, next) {
   }
 }
 
-// 🎯 JAVÍTVA: A genAI objektum bekerült a modul argumentumai közé!
-module.exports = function(app, pool, genAI, upload) {
+// 🎯 BIZTONSÁGI KORREKCIÓ: Az upload maradt a 3. helyen, a genAI pedig a biztonságos 4. helyre került!
+module.exports = function(app, pool, upload, genAI) {
 
   // ====================================================================
   // 📋 KÉRDÉSEK GENERÁLÁSA KUPON-ELLENŐRZÉSSEL
@@ -67,7 +67,6 @@ module.exports = function(app, pool, genAI, upload) {
       );
       const quizBalance = userRows[0]?.quiz_balance || 0;
 
-      // Ha már játszott ma ÉS egyetlen kuponja sincs, akkor tiltjuk le
       if (attempts.length > 0 && quizBalance === 0) {
         return res.json({ alreadyPlayed: true, questions: [] });
       }
@@ -192,16 +191,21 @@ module.exports = function(app, pool, genAI, upload) {
     }
   });
 
+  // ====================================================================
+  // 📁 ADMINISZTRÁCIÓS KÉRDÉSLISTA
+  // ====================================================================
   app.get('/api/admin/quiz/questions', requireAuth, async (req, res) => {
     if (!req.user.isAdmin) return res.status(403).json({ error: 'Adminisztrátori jog szükséges!' });
     try {
       const [rows] = await pool.query('SELECT * FROM quiz_questions ORDER BY id DESC');
       res.json(rows);
-    } catch (err) { res.status(500).json({ error: 'Hiba a kérdések betöltésekor.' }); }
+    } catch (err) { 
+      res.status(500).json({ error: 'Hiba a kérdések betöltésekor.' }); 
+    }
   });
 
   // ====================================================================
-  // 🔍 ÚJ: EGY ADOTT MÚLTBÉLI KVÍZKÍSÉRLET RÉSZLETES ADATAINAK LEKÉRÉSE
+  // 🔍 MÚLTBÉLI KVÍZKÍSÉRLET RÉSZLETES ADATAINAK LEKÉRÉSE
   // ====================================================================
   app.get('/api/quiz/attempt/:id', requireAuth, async (req, res) => {
     try {
@@ -239,9 +243,10 @@ module.exports = function(app, pool, genAI, upload) {
   // ====================================================================
   app.put('/api/admin/quiz/update/:id', requireAuth, upload.single('photo'), async (req, res) => {
     if (!req.user.isAdmin) return res.status(403).json({ error: 'Adminisztrátori jog szükséges!' });
-    const { id } = req.params; const file = req.file;
-    
+    const { id } = req.params; 
+    const file = req.file;
     const { type, questionHu, questionEn, optionsHu, optionsEn, correctOption, exifTarget, currentImageUrl, explanationHu, explanationEn } = req.body;
+    
     try {
       let finalImageUrl = currentImageUrl;
       if (file) {
@@ -257,7 +262,10 @@ module.exports = function(app, pool, genAI, upload) {
         [type, finalImageUrl, questionHu, questionEn, optionsHu, optionsEn, correctOption, exifTarget || null, explanationHu || null, explanationEn || null, id]
       );
       res.json({ success: true });
-    } catch (err) { if (file && fs.existsSync(file.path)) fs.unlinkSync(file.path); res.status(500).json({ error: err.message }); }
+    } catch (err) { 
+      if (file && fs.existsSync(file.path)) fs.unlinkSync(file.path); 
+      res.status(500).json({ error: err.message }); 
+    }
   });
 
   // ====================================================================
@@ -265,7 +273,6 @@ module.exports = function(app, pool, genAI, upload) {
   // ====================================================================
   app.post('/api/admin/quiz/analyze-image', requireAuth, upload.single('photo'), async (req, res) => {
     if (!req.user.isAdmin) return res.status(403).json({ error: 'Hozzáférés megtagadva!' });
-    
     const file = req.file;
     if (!file) return res.status(400).json({ error: 'Nincs fájl kiválasztva az AI elemzéshez!' });
 
@@ -290,7 +297,7 @@ module.exports = function(app, pool, genAI, upload) {
         "optionsHu": ["Ide jön a tökéletes helyes válasz", "Rossz válaszlehetőség 1", "Rossz válaszlehetőség 2", "Rossz válaszlehetőség 3"],
         "optionsEn": ["Helyes válasz angolul", "Rossz válaszlehetőség 1 angolul", "Rossz válaszlehetőség 2 angolul", "Rossz válaszlehetőség 3 angolul"]
       }
-      Megkötés: Az optionsHu[0] és optionsEn[0] mindig a valós helyes válasz legyen, a correctOption értéke pedig fixen 'A'!`;
+      Megkötés: Az optionsHu[0] and optionsEn[0] mindig a valós helyes válasz legyen, a correctOption értéke pedig fixen 'A'!`;
 
       const imagePart = { inlineData: { data: base64Image, mimeType: file.mimetype } };
       const result = await model.generateContent([prompt, imagePart]);
@@ -306,7 +313,6 @@ module.exports = function(app, pool, genAI, upload) {
 
       if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
       res.json(parsedQuizData);
-
     } catch (err) {
       if (file && fs.existsSync(file.path)) fs.unlinkSync(file.path);
       console.error("❌ Éles belső Gemini Kvízgenerátor hiba:", err.message);
@@ -320,16 +326,11 @@ module.exports = function(app, pool, genAI, upload) {
   app.get('/api/quiz/my-history', requireAuth, async (req, res) => {
     try {
       const userEmail = req.user.email;
-
       const [historyRows] = await pool.query(
         'SELECT id, score, points_awarded, completed_at AS date FROM quiz_attempts WHERE user_email = ? ORDER BY completed_at DESC',
         [userEmail]
       );
-
-      const [userRows] = await pool.query(
-        'SELECT quiz_balance FROM photo_users WHERE email = ?',
-        [userEmail]
-      );
+      const [userRows] = await pool.query('SELECT quiz_balance FROM photo_users WHERE email = ?', [userEmail]);
       const quizBalance = userRows[0]?.quiz_balance || 0;
 
       const [todayRows] = await pool.query(
@@ -339,7 +340,6 @@ module.exports = function(app, pool, genAI, upload) {
       const alreadyPlayedToday = todayRows.length > 0;
 
       const [countsRows] = await pool.query('SELECT type, COUNT(*) as count FROM quiz_questions GROUP BY type');
-      
       let questionCounts = { total: 0, exif: 0, composition: 0, history: 0 };
       countsRows.forEach(row => {
         if (row.type === 'exif') questionCounts.exif = row.count;
@@ -355,7 +355,6 @@ module.exports = function(app, pool, genAI, upload) {
         alreadyPlayedToday: alreadyPlayedToday,
         questionCounts
       });
-
     } catch (err) {
       console.error("❌ Kvíz történet és számláló éles hiba:", err.message);
       res.status(500).json({ error: 'Nem sikerült betölteni a kvíznapló adatait.' });
@@ -367,7 +366,6 @@ module.exports = function(app, pool, genAI, upload) {
   // ====================================================================
   app.get('/api/quiz/leaderboard', requireAuth, async (req, res) => {
     const { period, year, month } = req.query;
-    
     let sql = `
       SELECT 
         u.name, 
@@ -411,12 +409,21 @@ module.exports = function(app, pool, genAI, upload) {
       const [rows] = await pool.query(sql, params);
       res.json(rows);
     } catch (err) {
-      res.status(500).json({ error: 'Hiba' });
+      res.status(500).json({ error: 'Hiba a ranglista lekérésekor.' });
     }
   });
   
+  // ====================================================================
+  // 🗑️ ADMINISZTRÁCIÓS TÖRLES
+  // ====================================================================
   app.delete('/api/admin/quiz/delete/:id', requireAuth, async (req, res) => {
     if (!req.user.isAdmin) return res.status(403).json({ error: 'Adminisztrátori jog szükséges!' });
-    try { await pool.query('DELETE FROM quiz_questions WHERE id = ?', [req.params.id]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: 'Hiba a törlés közben.' }); }
+    try { 
+      await pool.query('DELETE FROM quiz_questions WHERE id = ?', [req.params.id]); 
+      res.json({ success: true }); 
+    } catch (err) { 
+      res.status(500).json({ error: 'Hiba a törlés közben.' }); 
+    }
   });
+
 };
