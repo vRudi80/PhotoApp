@@ -286,7 +286,10 @@ module.exports = function(app, pool, upload, genAI) {
       });
 
       // 🎯 MÓDOSÍTVA: A prompt most már kikényszeríti a véletlenszerű betűválasztást (A, B, C vagy D)
-      const prompt = `Elemezd ezt a fotótörténeti vagy híres fotográfiai képet, azonosítsd be a készítőjét, a keletkezési körülményeit, és generálj belőle egy kvízkérdést.
+            const prompt = `Elemezd ezt a fotótörténeti vagy híres fotográfiai képet, azonosítsd be a készítőjét, a keletkezési körülményeit, és generálj belőle egy kvízkérdést.
+      
+      ⚠️ SZIGORÚ FIGYELMEZTETÉS: Kerüld el az azonos eseményen készült, hasonló témájú ikonikus képek összekeverését! (Például az 1967-es Pentagon-tüntetésen Bernie Boston és Marc Riboud is fotózott virágos jelenetet, de a kompozíciójuk teljesen más. Nézd meg alaposan a szereplőket, ruhákat, fegyvereket és a kép pontos részleteit, mielőtt rávágnád a fotós nevét!). Ha nem vagy 100%-ig biztos a szerzőben, ne találgass!
+      
       KIZÁRÓLAG egy érvényes JSON objektumot adj vissza, markdown kódblokk és egyéb szöveges sallangok nélkül!
       A JSON pontos struktúrája ez legyen:
       {
@@ -298,7 +301,7 @@ module.exports = function(app, pool, upload, genAI) {
         "optionsHu": ["Válaszlehetőség A", "Válaszlehetőség B", "Válaszlehetőség C", "Válaszlehetőség D"],
         "optionsEn": ["Option A", "Option B", "Option C", "Option D"]
       }
-      Szigorú megkötés: A correctOption kulcsban általad választott betűhöz tartozó indexre (A=0, B=1, C=2, D=3) tedd a valós, igaz helyes választ mind a magyar, mind az angol tömbben! A maradék három üresen maradt helyre generálj megtévesztő, meggyőző, de hibás válaszokat.`;
+      Megkötés: A correctOption kulcsban általad választott betűhöz tartozó indexre (A=0, B=1, C=2, D=3) tedd a valós, igaz helyes választ mind a magyar, mind az angol tömbben! A maradék három helyre generálj megtévesztő, meggyőző, de egyértelműen hibás válaszokat.`;
 
       const imagePart = { inlineData: { data: base64Image, mimeType: file.mimetype } };
       const result = await model.generateContent([prompt, imagePart]);
