@@ -274,7 +274,7 @@ module.exports = function(app, pool, upload) {
     } catch (err) { if (file && fs.existsSync(file.path)) fs.unlinkSync(file.path); res.status(500).json({ error: err.message }); }
   });
   // ====================================================================
-  // 🤖 ÉLES AI: VISION-ALAPÚ FOTÓTÖRTÉNETI KVÍZGENERÁTOR (GEMINI 1.5 FLASH)
+  // 🤖 ÉLES BELSŐ AI: VISION-ALAPÚ FOTÓTÖRTÉNETI KVÍZGENERÁTOR (GEMINI)
   // ====================================================================
   app.post('/api/admin/quiz/analyze-image', requireAuth, upload.single('photo'), async (req, res) => {
     if (!req.user.isAdmin) return res.status(403).json({ error: 'Hozzáférés megtagadva!' });
@@ -282,78 +282,59 @@ module.exports = function(app, pool, upload) {
     const file = req.file;
     if (!file) return res.status(400).json({ error: 'Nincs fájl kiválasztva az AI elemzéshez!' });
 
-    // Biztonsági ellenőrzés: Csak érvényes API kulccsal indulunk el
-    const GEMINI_KEY = process.env.GEMINI_API_KEY;
-    if (!GEMINI_KEY) {
-      if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
-      return res.status(500).json({ error: 'Szerveroldali konfigurációs hiba: A GEMINI_API_KEY hiányzik a környezeti változók közül!' });
-    }
-
     try {
-      // 1. Beolvassuk az ideiglenesen feltöltött képet tiszta Base64 karakterlánccá
+      // 1. A feltöltött kép beolvasása tiszta Base64 karakterlánccá (mint az album.js-ben)
       const imageBuffer = fs.readFileSync(file.path);
       const base64Image = imageBuffer.toString('base64');
 
-      // 2. Meghívjuk a Google Gemini 1.5 Flash Vision neurális hálóját az axios motoron keresztül
-      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`;
-      
-      const response = await axios.post(geminiUrl, {
-        contents: [
-          {
-            parts: [
-              {
-                text: `Elemezd ezt a fotótörténeti vagy híres fotográfiai képet, azonosítsd be a készítőjét, a keletkezési körülményeit, és generálj belőle egy izgalmas, professzionális kvízkérdést. 
-                
-                A válaszod kizárólag egyetlen tiszta JSON objektum lehet, markdown kódblokk (\`\`\`json) és egyéb sallangok nélkül, pontosan az alábbi kulcsokkal és felépítéssel:
-                {
-                  "questionHu": "A kérdés magyarul (pl. Ki készítette ezt a híres felvételt?)",
-                  "questionEn": "A kérdés angolul",
-                  "explanationHu": "Részletes, több mondatos szakmai edukációs háttéranyag magyarul a kép kontextusáról, művészeti vagy történelmi jelentőségéről a fotósok számára.",
-                  "explanationEn": "Ugyanez a részletes szakmai edukációs magyarázat angol nyelven.",
-                  "correctOption": "A",
-                  "optionsHu": ["Ide jön a tökéletes helyes válasz", "Rossz válaszlehetőség 1", "Rossz válaszlehetőség 2", "Rossz válaszlehetőség 3"],
-                  "optionsEn": ["Helyes válasz angolul", "Rossz válaszlehetőség 1 angolul", "Rossz válaszlehetőség 2 angolul", "Rossz válaszlehetőség 3 angolul"]
-                }
-                
-                Szigorú megkötés: Az optionsHu[0] és optionsEn[0] (vagyis az első index) mindig a valós helyes válasz legyen, a correctOption értéke pedig fixen 'A', mert a frontend felületünk bekészített keverőmotorja automatikusan megbolondítja majd a sorrendet a játékosok előtt!`
-              },
-              {
-                inlineData: {
-                  mimeType: file.mimetype, // Dinamikusan alkalmazkodik (image/jpeg, image/png, stb.)
-                  data: base64Image
-                }
-              }
-            ]
-          }
-        ],
-        generationConfig: {
-          responseMimeType: "application/json", // Kikényszerítjük a strukturált JSON kimenetet
-          temperature: 0.4
-        }
-      }, {
-        headers: { 'Content-Type': 'application/json' },
-        timeout: 25000 // 25 másodperces hálózati időkorlát a lassabb elemzésekhez
+      // 2. A már létező, projekt szintű Gemini Vision modell előkészítése JSON kimenettel
+      const model = genAI.getGenerativeModel({ 
+        model: "gemini-2.5-flash",
+        generationConfig: { responseMimeType: "application/json" } 
       });
 
-      // 3. Kicsomagoljuk és parszoljuk a Gemini-től kapott tiszta text-választ
-      const rawJsonText = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!rawJsonText) {
-        throw new Error("Az AI Vision válasza üres vagy sérült volt.");
+      // Kvíz-specifikus prompt a kétnyelvű struktúra és frontend-keverő kiszolgálására
+      const prompt = `Elemezd ezt a fotótörténeti vagy híres fotográfiai képet, azonosítsd be a készítőjét, a keletkezési körülményeit, és generálj belőle egy izgalmas, professzionális kvízkérdést.
+      
+      KIZÁRÓLAG egy érvényes JSON objektumot adj vissza, markdown kódblokk (\`\`\`json) és egyéb szöveges sallangok nélkül!
+      A JSON pontos struktúrája ez legyen:
+      {
+        "questionHu": "A kérdés magyarul (pl. Ki készítette ezt a híres felvételt?)",
+        "questionEn": "A kérdés angolul",
+        "explanationHu": "Részletes, több mondatos szakmai edukációs háttéranyag magyarul a kép kontextusáról, művészeti vagy történelmi jelentőségéről a fotósok számára.",
+        "explanationEn": "Ugyanez a részletes szakmai edukációs magyarázat angol nyelven.",
+        "correctOption": "A",
+        "optionsHu": ["Ide jön a tökéletes helyes válasz", "Rossz válaszlehetőség 1", "Rossz válaszlehetőség 2", "Rossz válaszlehetőség 3"],
+        "optionsEn": ["Helyes válasz angolul", "Rossz válaszlehetőség 1 angolul", "Rossz válaszlehetőség 2 angolul", "Rossz válaszlehetőség 3 angolul"]
       }
+      
+      Szigorú megkötés: Az optionsHu[0] és optionsEn[0] mindig a valós helyes válasz legyen, a correctOption értéke pedig fixen 'A', mert a frontend felületünk bekészített keverőmotorja automatikusan megbolondítja majd a sorrendet a játékosok előtt!`;
 
-      const parsedQuizData = JSON.parse(rawJsonText.trim());
+      // 3. Elemzés indítása a nyers kép- és promt-adatok átadásával
+      const imagePart = { inlineData: { data: base64Image, mimeType: file.mimetype } };
+      const result = await model.generateContent([prompt, imagePart]);
+      const response = await result.response;
+      let text = response.text();
 
-      // 4. Sikeres elemzés után letakarítjuk a lokális tárhelyről a temp fájlt
+      // 4. Golyóálló JSON-kivágó és tisztító szűrő lefuttatása (mint az album.js-ben)
+      const jsonStart = text.indexOf('{');
+      const jsonEnd = text.lastIndexOf('}');
+      if (jsonStart === -1 || jsonEnd === -1) throw new Error("Sérült vagy hibás JSON struktúra érkezett az AI-tól.");
+
+      text = text.substring(jsonStart, jsonEnd + 1);
+      const parsedQuizData = JSON.parse(text); // Biztonsági parszolás az integritás ellenőrzésére
+
+      // 5. Sikeres generálás után az ideiglenes kép letakarítása a háttértárról
       if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
 
-      // Visszaadjuk a kész, kétnyelvű feladványcsomagot az Admin felületnek
+      // Küldjük az adatcsomagot egyenesen az Admin űrlap mezőibe!
       res.json(parsedQuizData);
 
     } catch (err) {
-      // Biztonsági takarítás hiba esetén is, hogy ne teljen meg a szerver
+      // Biztonsági takarítás hiba esetén is
       if (file && fs.existsSync(file.path)) fs.unlinkSync(file.path);
-      console.error("❌ Éles Gemini Kvízgenerátor hiba:", err.message);
-      res.status(502).json({ error: 'Az AI Vision szerver nem tudta feldolgozni vagy beazonosítani a képet. Kérlek, próbáld újra egy tisztább verzióval!' });
+      console.error("❌ Éles belső Gemini Kvízgenerátor hiba:", err.message);
+      res.status(502).json({ error: 'A belső AI motor nem tudta feldolgozni vagy beazonosítani a képet. Próbáld újra később!' });
     }
   });
 
