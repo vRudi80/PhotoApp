@@ -200,7 +200,12 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       const [unfinished] = await pool.query('SELECT id, title FROM weekly_topics WHERE end_date < ? AND processed = 0', [currentNow]);
 
       for (const topic of unfinished) {
-        console.log(`🔒 [PERSISTENCE] ${topic.id} azonosítójú futam végleges lezárása...`);
+  // 🎯 AZONNALI ZÁROLÁS: Így a többi párhuzamos kérés már nem fogja feldolgozatlannak látni!
+  await pool.query('UPDATE weekly_topics SET processed = 1 WHERE id = ?', [topic.id]);
+  
+  console.log(`🔒 [PERSISTENCE] ${topic.id} azonosítójú futam végleges lezárása...`);
+  // ... az entries lekérése és a PointsService loop mehet tovább változatlanul ...
+
         const [entries] = await pool.query(`
           SELECT e.id, e.user_email, e.likes_count, e.views_count, ${getFairScoreSql('e', 't')} as calculated_fair_score
           FROM weekly_entries e JOIN weekly_topics t ON e.topic_id = t.id
