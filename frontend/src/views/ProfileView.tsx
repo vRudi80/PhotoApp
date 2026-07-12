@@ -1,636 +1,571 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { BACKEND_URL } from '../utils/constants';
-import VideoLoader from '../components/VideoLoader';
+
+// 🎯 Nyelvi kontextus aktiválása
 import { useLanguage } from '../context/LanguageContext';
-import { getImageUrl } from '../utils/helpers';
-import { Trophy, Star, Timer, Sparkles, CheckCircle2, XCircle, AlertCircle, HelpCircle, History, Calendar, ShoppingCart, Ticket, Award, ChevronDown, ChevronUp, Shield } from 'lucide-react';
 
-const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
-  const token = localStorage.getItem('photoAppToken');
-  return { ...(token ? { 'Authorization': `Bearer ${token}` } : {}), ...extraHeaders };
-};
+// Téma környezet betöltése
+import { useTheme } from '../context/ThemeContext';
 
-type QuizPhase = 'INTRO' | 'LOADING' | 'PLAYING' | 'SUMMARY' | 'ALREADY_PLAYED';
-type LeaderboardPeriod = 'daily' | 'weekly' | 'monthly';
+// 🎯 ÚJ: A Pontbolt és Tárca felületi komponensének beemelése
+import PointsWalletAndStore from './PointsWalletAndStore';
 
-function ClubLogo({ driveId, logoUrl }: { driveId: any; logoUrl: any }) {
-  const [isError, setIsError] = useState(false);
-  if (isError || (!driveId && !logoUrl)) {
-    return <Shield size={12} color="var(--text-muted)" style={{ display: 'inline-block', marginRight: '4px' }} />;
-  }
-  return (
-    <img 
-      src={getImageUrl ? getImageUrl(driveId, logoUrl) : ''} 
-      alt="" 
-      style={{ width: '15px', height: '16px', borderRadius: '2px', objectFit: 'contain', backgroundColor: '#090d16', border: '1px solid var(--border-main)', display: 'inline-block', marginRight: '4px', verticalAlign: 'middle' }} 
-      onError={() => setIsError(true)} 
-    />
-  );
+interface ProfileViewProps {
+  user: any; // Ez az adatbázisból jövő currentDbUser az App.tsx-ből
+  setUser: (u: any) => void;
+  fetchData: () => void;
 }
 
-export default function QuizView({ user }: { user: any }) {
-  const { lang, t } = useLanguage();
-  
-  const [phase, setPhase] = useState<QuizPhase>('INTRO');
-  const [questions, setQuestions] = useState<any[]>([]);
-  const [currentIdx, setCurrentIdx] = useState(0);
-  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
-  
-  const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>({});
-  const [timeLeft, setTimeLeft] = useState(20); 
-  const [rewardData, setResultData] = useState<{ pointsAwarded: number; score: number } | null>(null);
+// 🎯 KÖZPONTI AUTH FEJLÉC GENERÁTOR VÉDETT VÉGPONTOKHOZ
+const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
+  const token = localStorage.getItem('photoAppToken');
+  return {
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    ...extraHeaders
+  };
+};
+
+export default function ProfileView({ user, setUser, fetchData }: ProfileViewProps) {
+  const inputStyle = { width: '100%', padding: '12px', marginBottom: '12px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '10px', boxSizing: 'border-box' as const, fontSize: '0.95rem', outline: 'none', transition: 'border 0.2s' };
+
+  const [activeClubs, setActiveClubs] = useState<any[]>([]);
+  const [selectedClubId, setSelectedClubId] = useState<string>('');
+  const [pendingMembers, setPendingMembers] = useState<any[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [correctAnswers, setCorrectAnswers] = useState<Record<number, string>>({});
+  
+  // 🎯 PROFIL ÁLLAPOTOK
+  const [nameInput, setNameInput] = useState<string>('');
+  const [phone, setPhone] = useState<string>('');
+  const [address, setAddress] = useState<string>('');
+  const [associationId, setAssociationId] = useState<string>('');
+  const [membershipStart, setMembershipStart] = useState<string>('');
+  const [membershipEnd, setMembershipEnd] = useState<string>('');
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
 
-  // Kvíztörténet és Kuponrendszer állapotai
-  const [historyList, setHistoryList] = useState<any[]>([]);
-  const [showHistory, setShowHistory] = useState(false);
-  const [quizBalance, setQuizBalance] = useState(0);
-  const [alreadyPlayedToday, setAlreadyPlayedToday] = useState(false);
-  const [isBuying, setIsBuying] = useState(false);
+  // 📸 PROFILKÉP ÁLLAPOTOK
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Ranglista és Visszamenőleges szűrők állapotai
-  const [showLeaderboard, setShowLeaderboard] = useState(false);
-  const [leaderboardPeriod, setLeaderboardPeriod] = useState<LeaderboardPeriod>('daily');
-  const [leaderboardData, setLeaderboardData] = useState<any[]>([]);
-  const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
+  // Tárhely és AI használat követése
+  const [userStorage, setUserStorage] = useState({ count: 0, bytes: 0 });
+  const [aiUsageCount, setAiUsageCount] = useState(0);
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
+  const [pointsBalance, setPointsBalance] = useState<number>(0); 
 
-  const currentYear = new Date().getFullYear();
-  const currentMonth = new Date().getMonth() + 1;
-  const [selectedYear, setSelectedYear] = useState(currentYear);
-  const [selectedMonth, setSelectedMonth] = useState(currentMonth);
+  const { t, lang } = useLanguage();
 
-  // Interaktív história részletező állapotok
-  const [expandedAttemptId, setExpandedAttemptId] = useState<number | null>(null);
-  const [historyDetailQuestions, setHistoryDetailQuestions] = useState<any[]>([]);
-  const [loadingDetailId, setLoadingDetailId] = useState<number | null>(null);
+  const isLeader = user?.club_role === 'leader' || user?.club_role === 'deputy';
 
-  // ── 🎯 ÚJ: LOKÁLIS KÉRDÉS-SZÁMLÁLÓ ÁLLAPOT ──
-  const [questionCounts, setQuestionCounts] = useState({ total: 0, exif: 0, composition: 0, history: 0 });
-
-  const currentQuestion = questions[currentIdx];
-
-  const fetchMyThemeData = async () => {
+  // 🔄 Profiladatok és a naplózott tagsági dátumok szinkronizálása
+  const loadFreshProfile = async () => {
+    if (!user?.email) return;
     try {
-      const res = await fetch(`${BACKEND_URL}/api/quiz/my-history`, { headers: getAuthHeaders() });
-      if (res.ok) {
-        const data = await res.json();
-        setHistoryList(data.history || []);
-        setQuizBalance(data.quizBalance || 0);
-        setAlreadyPlayedToday(data.alreadyPlayedToday || false);
-        // 🎯 ÚJ: Számlálók fogadása az API válaszból
-        if (data.questionCounts) {
-          setQuestionCounts(data.questionCounts);
-        }
-      }
-    } catch (e) { console.error(e); }
-  };
-
-  const fetchLeaderboard = async (period: LeaderboardPeriod, y: number, m: number) => {
-    setLoadingLeaderboard(true);
-    try {
-      let url = `${BACKEND_URL}/api/quiz/leaderboard?period=${period}`;
-      if (period === 'monthly') {
-        url += `&year=${y}&month=${m}`;
-      }
-      const res = await fetch(url, { headers: getAuthHeaders() });
-      if (res.ok) {
-        setLeaderboardData(await res.json());
-      }
-    } catch (e) { console.error(e); }
-    finally { setLoadingLeaderboard(false); }
-  };
-
-  const handleToggleAttemptDetail = async (attemptId: number) => {
-    if (expandedAttemptId === attemptId) {
-      setExpandedAttemptId(null);
-      setHistoryDetailQuestions([]);
-      return;
-    }
-    setLoadingDetailId(attemptId);
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/quiz/attempt/${attemptId}`, { headers: getAuthHeaders() });
-      if (res.ok) {
-        setHistoryDetailQuestions(await res.json());
-        setExpandedAttemptId(attemptId);
-      } else {
-        alert("Ez a kvízkör még az archívum-frissítés előtt futott, így a részletes adatai nem elérhetőek.");
-      }
-    } catch (e) { console.error(e); }
-    finally { setLoadingDetailId(null); }
-  };
-
-  useEffect(() => {
-    if (phase === 'INTRO') {
-      fetchMyThemeData();
-    }
-  }, [phase]);
-
-  useEffect(() => {
-    if (phase === 'INTRO' && showLeaderboard) {
-      fetchLeaderboard(leaderboardPeriod, selectedYear, selectedMonth);
-    }
-  }, [showLeaderboard, leaderboardPeriod, selectedYear, selectedMonth, phase]);
-
-  // rAF ALAPÚ MEGSZAKÍTHATATLAN ÓRAMOTOR
-  useEffect(() => {
-    if (phase !== 'PLAYING' || !currentQuestion) return;
-
-    const timerKey = `photo_quiz_end_${currentQuestion.id}`;
-    let targetTime = Number(sessionStorage.getItem(timerKey));
-
-    if (!targetTime) {
-      targetTime = Date.now() + 20400;
-      sessionStorage.setItem(timerKey, String(targetTime));
-    }
-
-    let rafId: number;
-    let intervalId: ReturnType<typeof setInterval>;
-    let finished = false;
-
-    const updateClock = () => {
-      const now = Date.now();
-      const diff = targetTime - now;
-      const remaining = Math.max(0, Math.ceil(diff / 1000));
-
-      setTimeLeft(remaining);
-
-      if (diff <= 0 && !finished) {
-        finished = true;
-        sessionStorage.removeItem(timerKey);
-        handleSelectOption('');
-      }
-    };
-
-    const tick = () => {
-      updateClock();
-      if (!finished) rafId = requestAnimationFrame(tick);
-    };
-    rafId = requestAnimationFrame(tick);
-    intervalId = setInterval(updateClock, 250);
-
-    const forceSync = () => updateClock();
-    document.addEventListener('visibilitychange', forceSync);
-    window.addEventListener('focus', forceSync);
-
-    updateClock();
-
-    return () => {
-      finished = true;
-      cancelAnimationFrame(rafId);
-      clearInterval(intervalId);
-      document.removeEventListener('visibilitychange', forceSync);
-      window.removeEventListener('focus', forceSync);
-    };
-  }, [phase, currentIdx, currentQuestion?.id]);
-
-  const handleBuyToken = async () => {
-    if (isBuying) return;
-    setIsBuying(true);
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/quiz/buy-token`, { method: 'POST', headers: getAuthHeaders() });
-      if (res.ok) {
-        const data = await res.json();
-        setQuizBalance(data.newQuizBalance);
-        alert("🎉 Sikeres vásárlás! 1 db Extra Kvíz Kupon jóváírva.");
-      } else {
-        const err = await res.json();
-        alert(`❌ Sikertelen vásárlás: ${err.error || 'Fedezethiány.'}`);
-      }
-    } catch (e) { alert("Hálózati hiba."); }
-    finally { setIsBuying(false); }
-  };
-
-  const handleStartQuiz = async () => {
-    setPhase('LOADING');
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/quiz/questions`, { headers: getAuthHeaders() });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.alreadyPlayed) { setPhase('ALREADY_PLAYED'); } 
-        else {
-          try { Object.keys(sessionStorage).forEach(k => { if(k.startsWith('photo_quiz_end_')) sessionStorage.removeItem(k); }); } catch(e){}
-          setQuestions(data.questions || []);
-          setCurrentIdx(0); setSelectedAnswers({}); setCorrectAnswers({}); setTimeLeft(20);
-          setPhase('PLAYING');
-        }
-      } else { setPhase('INTRO'); }
-    } catch (e) { setPhase('INTRO'); }
-  };
-
-  const parsedQuestion = useMemo(() => {
-    if (!currentQuestion) return null;
-    const title = lang === 'en' ? currentQuestion.question_en : currentQuestion.question_hu;
-    let opts: string[] = ['A', 'B', 'C', 'D'];
-    try {
-      const rawOpts = lang === 'en' ? currentQuestion.options_en : currentQuestion.options_hu;
-      if (typeof rawOpts === 'string') opts = JSON.parse(rawOpts);
-      else if (Array.isArray(rawOpts)) opts = rawOpts;
-    } catch (e) {}
-    if (!Array.isArray(opts) || opts.length === 0) opts = ['A', 'B', 'C', 'D'];
-    return { title, opts };
-  }, [currentQuestion, lang]);
-
-  const handleFinalSubmit = async (finalAnswers: Record<number, string>) => {
-    setPhase('LOADING');
-    setIsSubmitting(true);
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/quiz/submit`, {
-        method: 'POST',
-        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ answers: finalAnswers, userEmail: user?.email || '' })
+      // 1. Felhasználói alapadatok lekérése hitelesítve
+      const res = await fetch(`${BACKEND_URL}/api/users/${user.email}`, {
+        headers: getAuthHeaders()
       });
       if (res.ok) {
-        const data = await res.json();
-        setResultData(data);
-        setCorrectAnswers(data.correctAnswers || {});
-        setPhase('SUMMARY');
-      } else { alert("Hiba a mentés közben."); setPhase('INTRO'); }
-    } catch (e) { setPhase('INTRO'); } 
+        const freshData = await res.json();
+        setNameInput(freshData.name || '');
+        setPhone(freshData.phone_number || freshData.phone || '');
+        setAddress(freshData.shipping_address || freshData.address || '');
+        setAssociationId(freshData.association_id || '');
+        if (freshData.avatar_url) {
+          setAvatarPreview(freshData.avatar_url);
+        }
+        if (freshData.ai_usage_count !== undefined) {
+          setAiUsageCount(freshData.ai_usage_count);
+        }
+
+        if (freshData.points_balance !== undefined) {
+          setPointsBalance(freshData.points_balance);
+        }
+
+        setUser(freshData);
+      }
+      
+      // 2. 🎯 JAVÍTVA: A tagsági napló lekérdezése a helyes /api/clubs végpontra irányítva
+      const resDates = await fetch(`${BACKEND_URL}/api/clubs/active-membership?userEmail=${user.email}`, {
+        headers: getAuthHeaders()
+      });
+      if (resDates.ok) {
+        const datesData = await resDates.json();
+        setMembershipStart(datesData.membership_start || '');
+        setMembershipEnd(datesData.membership_end || '');
+      }
+
+    } catch (e) {
+      console.error("Nem sikerült szinkronizálni a profiladatokat:", e);
+    }
+  };
+
+  useEffect(() => {
+    if (user?.email) {
+      loadFreshProfile();
+    }
+  }, [user?.email]);
+
+  useEffect(() => {
+    fetch(`${BACKEND_URL}/api/clubs/active-only`, {
+      headers: getAuthHeaders()
+    })
+      .then(res => res.json())
+      .then(data => setActiveClubs(data || []))
+      .catch(console.error);
+  }, []);
+
+  useEffect(() => {
+    if (!user?.email) return;
+    
+    const fetchUserStats = async () => {
+      setIsLoadingStats(true);
+      try {
+        const resStorage = await fetch(`${BACKEND_URL}/api/admin/user-storage-stats`, {
+          headers: getAuthHeaders()
+        });
+        if (resStorage.ok) {
+          const allStats = await resStorage.json();
+          const myStats = allStats.find((s: any) => s.user_email === user.email);
+          if (myStats) {
+            setUserStorage({
+              count: myStats.total_photos || 0,
+              bytes: Number(myStats.total_bytes) || 0
+            });
+          }
+        }
+        if (user?.ai_usage_count !== undefined) {
+          setAiUsageCount(user.ai_usage_count);
+        }
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setIsLoadingStats(false);
+      }
+    };
+    fetchUserStats();
+  }, [user]);
+
+  const loadPendingMembers = () => {
+    const matchedClub = activeClubs.find(c => c.name === user?.club_name);
+    const effectiveClubId = user?.club_id || matchedClub?.id;
+    if (isLeader && effectiveClubId) {
+      fetch(`${BACKEND_URL}/api/clubs/pending-members?clubId=${effectiveClubId}`, {
+        headers: getAuthHeaders()
+      })
+        .then(res => res.json())
+        .then(data => setPendingMembers(data || []))
+        .catch(console.error);
+    }
+  };
+
+  useEffect(() => {
+    loadPendingMembers();
+  }, [user, isLeader, activeClubs]);
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0];
+
+      setAvatarPreview(URL.createObjectURL(file));
+      setIsUploadingAvatar(true);
+
+      const formData = new FormData();
+      formData.append('avatar', file);
+
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/users/${user.email}/avatar`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: formData
+        });
+
+        if (res.ok) {
+          const responseData = await res.json();
+          if (responseData.avatar_url) {
+            setAvatarPreview(responseData.avatar_url);
+            setUser({ ...user, avatar_url: responseData.avatar_url });
+          }
+          alert(lang === 'en' ? "Profile picture updated successfully!" : "Profilkép sikeresen frissítve! 📸");
+          loadFreshProfile();
+          fetchData(); 
+        } else {
+          const err = await res.json();
+          alert(err.error || "Hiba történt a profilkép feltöltése közben.");
+          loadFreshProfile();
+        }
+      } catch (err) {
+        alert(t('msgNetworkError') || "Hálózati hiba lépett fel.");
+        loadFreshProfile();
+      } finally {
+        setIsUploadingAvatar(false);
+      }
+    }
+  };
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!nameInput.trim()) return alert(t('msgEmptyName') || "A név megadása kötelező!");
+
+    setIsSavingProfile(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/users/${user.email}/extended-profile`, {
+        method: 'PUT',
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({
+          name: nameInput.trim(),
+          phone_number: phone.trim(),
+          shipping_address: address.trim(),
+          association_id: associationId.trim()
+        })
+      });
+
+      if (res.ok) {
+        alert(lang === 'en' ? "Profile successfully updated!" : "Profil adatok sikeresen frissítve! 🚀");
+        loadFreshProfile();
+        fetchData(); 
+      } else {
+        const err = await res.json();
+        alert(err.error || "Hiba a mentés során");
+      }
+    } catch (e) {
+      alert(t('msgNetworkError'));
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
+
+  const handleJoinClub = async () => {
+    if (!selectedClubId) return alert(t('msgSelectClubError'));
+    const targetClub = activeClubs.find(c => String(c.id) === selectedClubId);
+    if (!targetClub) return;
+
+    setIsSubmitting(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/clubs/join-request`, {
+        method: 'POST',
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ userEmail: user.email, clubId: targetClub.id, clubName: targetClub.name })
+      });
+      if (res.ok) {
+        alert(lang === 'en' ? `✉️ Request sent to the leadership of "${targetClub.name}"!` : `✉️ Kérelem elküldve a(z) "${targetClub.name}" vezetőségének!`);
+        fetchData();
+      }
+    } catch (e) { alert(t('msgNetworkError')); }
     finally { setIsSubmitting(false); }
   };
 
-  const handleSelectOption = (letter: string) => {
-    if (phase !== 'PLAYING' || isSubmitting) return;
-    if (currentQuestion) sessionStorage.removeItem(`photo_quiz_end_${currentQuestion.id}`);
-    
-    const nextAnswers = { ...selectedAnswers, [currentQuestion.id]: letter };
-    setSelectedAnswers(nextAnswers);
+  const handleDecision = async (targetEmail: string, action: 'approve' | 'reject') => {
+    const confirmText = action === 'approve' ? t('msgApproveConfirm') : t('msgRejectConfirm');
+    if (!window.confirm(confirmText)) return;
 
-    const nextIndex = currentIdx + 1;
-    if (nextIndex < questions.length) setCurrentIdx(nextIndex);
-    else handleFinalSubmit(nextAnswers);
-  };
-
-  const getReadableOptionText = (letter: string, rawOptions: any) => {
-    if (!letter || letter === '') return lang === 'en' ? 'Timeout' : 'Időtúllépés';
     try {
-      const opts = typeof rawOptions === 'string' ? JSON.parse(rawOptions) : rawOptions;
-      const idx = letter.charCodeAt(0) - 65;
-      if (Array.isArray(opts) && opts[idx]) return `${letter}: ${opts[idx]}`;
-    } catch(e){}
-    return letter;
+      const res = await fetch(`${BACKEND_URL}/api/clubs/handle-request`, {
+        method: 'POST',
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ targetEmail, action, clubId: user?.club_id, clubName: user?.club_name })
+      });
+      if (res.ok) {
+        alert(action === 'approve' ? t('msgApproveSuccess') : t('msgRejectSuccess'));
+        loadPendingMembers();
+        fetchData();
+      }
+    } catch (e) { console.error(e); }
   };
+
+  const getRoleText = (role: string) => {
+    return role === 'leader' ? t('roleLeader') : role === 'deputy' ? t('roleDeputy') : t('roleMember');
+  };
+
+  const formatExactStorage = (bytes: number) => {
+    if (!bytes || bytes === 0) return '0 MB';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const formatDate = (dateStr: string | null) => {
+    if (!dateStr) return '-';
+    try {
+      return new Date(dateStr).toLocaleString(lang === 'en' ? 'en-US' : 'hu-HU', { 
+        year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' 
+      });
+    } catch (e) { return dateStr; }
+  };
+
+  const getClubStatusMessage = () => {
+    if (user?.club_role === 'pending') {
+      return t('profClubPending').replace('{club}', user?.club_name || '');
+    }
+    if (user?.club_name) {
+      const roleText = user?.club_role === 'leader' ? t('roleLeader') : user?.club_role === 'deputy' ? t('roleDeputy') : t('roleMember');
+      return t('profClubActive').replace('{club}', user.club_name).replace('{role}', roleText);
+    }
+    return t('profClubNone');
+  };
+
+  const isPremiumActive = user?.is_premium === 1;
+  const hasExpiredPremium = user?.is_premium === 0 && user?.premium_until;
 
   return (
-    <div style={{ width: '100%', maxWidth: '850px', margin: '0 auto', boxSizing: 'border-box', padding: '10px', display: 'flex', flexDirection: 'column', gap: '25px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '25px', maxWidth: '900px', margin: '0 auto', animation: 'fadeIn 0.3s ease-out' }}>
       
-      {/* ── A: INTRO PANEL ── */}
-      {phase === 'INTRO' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
-          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', padding: '40px 30px', borderRadius: '12px', textAlign: 'center', boxShadow: '0 10px 25px rgba(0,0,0,0.15)' }}>
-            <Trophy size={48} color="#f59e0b" style={{ margin: '0 auto 15px auto', display: 'block' }} />
-            <h2 style={{ color: 'var(--text-title)', fontSize: '1.75rem', fontWeight: '800', margin: '0 0 10px 0' }}>{lang === 'en' ? 'Daily Quiz' : 'Napi Kvíz'}</h2>
-            <p style={{ color: 'var(--text-body)', fontSize: '0.95rem', marginBottom: '18px' }}>
-              {lang === 'en' ? 'Test your photography knowledge! Earn up to 50 spendable Arena Points daily!' : 'Tedd próbára a fotós tudásod és gyűjts akár 50 elkölthető Aréna pontot naponta!'}
-            </p>
-
-            {/* ── 🎯 ÚJ: DINAMIKUS ADATBÁZIS-KAPACITÁS JELZŐ PANEL ── */}
-            {questionCounts.total > 0 && (
-              <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginBottom: '22px', flexWrap: 'wrap', fontSize: '0.8rem', color: 'var(--text-body)' }}>
-                <span style={{ padding: '5px 12px', background: 'var(--bg-main)', border: '1px solid var(--border-main)', borderRadius: '6px' }}>
-                  📚 {lang === 'en' ? 'Total Bank:' : 'Kérdésbank:'} <strong style={{ color: 'var(--text-title)' }}>{questionCounts.total} db</strong>
-                </span>
-                <span style={{ padding: '5px 12px', background: 'var(--bg-main)', border: '1px solid var(--border-main)', borderRadius: '6px' }}>
-                  📸 EXIF: <strong style={{ color: '#38bdf8' }}>{questionCounts.exif} db</strong>
-                </span>
-                <span style={{ padding: '5px 12px', background: 'var(--bg-main)', border: '1px solid var(--border-main)', borderRadius: '6px' }}>
-                  📐 {lang === 'en' ? 'Composition:' : 'Kompozíció:'} <strong style={{ color: '#10b981' }}>{questionCounts.composition} db</strong>
-                </span>
-                <span style={{ padding: '5px 12px', background: 'var(--bg-main)', border: '1px solid var(--border-main)', borderRadius: '6px' }}>
-                  📜 {lang === 'en' ? 'History:' : 'Történet:'} <strong style={{ color: '#a78bfa' }}>{questionCounts.history} db</strong>
-                </span>
-              </div>
+      {/* SZEKCIÓ 1: KIEMELT PROFIL KÁRTYA */}
+      <div style={{ backgroundColor: '#1e293b', padding: '25px 30px', borderRadius: '24px', border: '1px solid #334155', boxShadow: '0 10px 25px rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', gap: '25px', flexWrap: 'wrap' }}>
+        
+        {/* Profilkép kör */}
+        <div style={{ position: 'relative', flexShrink: 0 }}>
+          <div 
+            onClick={() => !isUploadingAvatar && fileInputRef.current?.click()}
+            style={{ width: '100px', height: '100px', borderRadius: '50%', backgroundColor: '#090d16', border: isUploadingAvatar ? '3px dashed #38bdf8' : '3px solid #475569', overflow: 'hidden', cursor: isUploadingAvatar ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 20px rgba(0,0,0,0.4)', position: 'relative' }}
+          >
+            {avatarPreview ? (
+              <img src={avatarPreview} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : (
+              <span style={{ fontSize: '2.2rem', color: '#475569' }}>👤</span>
             )}
-
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '15px', marginBottom: '30px', flexWrap: 'wrap' }}>
-              <span style={{ padding: '6px 14px', borderRadius: '20px', background: alreadyPlayedToday ? 'rgba(239,68,68,0.08)' : 'rgba(16,185,129,0.08)', color: alreadyPlayedToday ? '#f87171' : '#34d399', fontSize: '0.85rem', fontWeight: 'bold', border: alreadyPlayedToday ? '1px solid #ef444430' : '1px solid #10b98130' }}>
-                {alreadyPlayedToday ? (lang === 'en' ? 'Free daily: Claimed ❌' : 'Mai ingyenes kör: Felhasználva ❌') : (lang === 'en' ? 'Free daily: Available 🟢' : 'Mai ingyenes kör: Elérhető 🟢')}
-              </span>
-              <span style={{ padding: '6px 14px', borderRadius: '20px', background: 'rgba(245,158,11,0.08)', color: '#fbbf24', fontSize: '0.85rem', fontWeight: 'bold', border: '1px solid #f59e0b30', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <Ticket size={14} /> {lang === 'en' ? `Extra Coupons: ${quizBalance} db` : `Ráadás Kuponjaid: ${quizBalance} db`}
-              </span>
+            <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(15,23,42,0.6)', opacity: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '0.7rem', fontWeight: 'bold', transition: 'all 0.2s' }} onMouseEnter={e => { if(!isUploadingAvatar) e.currentTarget.style.opacity = '1'; }} onMouseLeave={e => { if(!isUploadingAvatar) e.currentTarget.style.opacity = '0'; }}>
+              {isUploadingAvatar ? '⏳' : 'CSERE 📷'}
             </div>
-            
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div style={{ display: 'flex', gap: '10px', width: '100%', flexWrap: 'wrap' }}>
-                <button onClick={() => { setShowHistory(!showHistory); setShowLeaderboard(false); }} style={{ flex: 1, minWidth: '130px', background: 'var(--bg-main)', color: 'var(--text-title)', border: '1px solid var(--border-main)', padding: '12px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-                  <History size={16} /> {showHistory ? 'Bezárás' : 'Kvíznaplóm'}
-                </button>
-                
-                <button onClick={() => { setShowLeaderboard(!showLeaderboard); setShowHistory(false); }} style={{ flex: 1, minWidth: '130px', background: 'var(--bg-main)', color: '#fbbf24', border: '1px solid var(--border-main)', padding: '12px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-                  <Award size={16} /> {showLeaderboard ? 'Bezárás' : 'Dicsőséglista'}
-                </button>
+          </div>
+          <input type="file" ref={fileInputRef} onChange={handleAvatarChange} accept="image/*" style={{ display: 'none' }} />
+        </div>
 
-                {alreadyPlayedToday && quizBalance === 0 ? (
-                  <button onClick={handleBuyToken} disabled={isBuying} style={{ flex: 1.5, minWidth: '180px', background: 'linear-gradient(135deg, #3b82f6, #2563eb)', color: 'white', border: 'none', padding: '12px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-                    <ShoppingCart size={16} /> {isBuying ? 'Vásárlás...' : 'Kupon vásárlása (5p) 🪙'}
-                  </button>
-                ) : (
-                  <button onClick={handleStartQuiz} style={{ flex: 1.5, minWidth: '180px', background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#0f172a', border: 'none', padding: '12px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>
-                    {alreadyPlayedToday ? 'Ráadás kör indítása 🚀' : 'Kihívás Indítása 🚀'}
-                  </button>
+        {/* Név, email és Prémium plecsni */}
+        <div style={{ flex: 1, minWidth: '200px' }}>
+          <h2 style={{ margin: '0 0 4px 0', fontSize: '1.7rem', color: '#f8fafc', fontWeight: '900' }}>{nameInput || user?.name || 'Anonim Tag'}</h2>
+          <div style={{ fontSize: '0.9rem', color: '#64748b', fontFamily: 'monospace', fontWeight: 'bold' }}>{user?.email}</div>
+          
+          <div style={{ marginTop: '12px' }}>
+            {isPremiumActive ? (
+              <span style={{ background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', padding: '4px 14px', borderRadius: '50px', fontSize: '0.78rem', fontWeight: 'bold', boxShadow: '0 4px 10px rgba(16,185,129,0.3)' }}>👑 PRÉMIUM TAG ({formatDate(user?.premium_until)})</span>
+            ) : hasExpiredPremium ? (
+              <span style={{ background: 'rgba(239,68,68,0.15)', color: '#f87171', border: '1px solid rgba(239,68,68,0.3)', padding: '4px 14px', borderRadius: '50px', fontSize: '0.78rem', fontWeight: 'bold' }}>⏳ LEJÁRT PREM ({formatDate(user?.premium_until)})</span>
+            ) : (
+              <span style={{ background: '#334155', color: '#94a3b8', padding: '4px 14px', borderRadius: '50px', fontSize: '0.78rem', fontWeight: 'bold' }}>🌱 INGYENES HOZZÁFÉRÉS</span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* KÉTOSZLOPOS BENTO-GRID LAYOUT */}
+      <div className="profile-bento-grid">
+        
+        {/* BAL OSZLOP: HIVATALOS ADATLAP FORM */}
+        <div style={{ backgroundColor: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #334155', display: 'flex', flexDirection: 'column' }}>
+          <h3 style={{ margin: '0 0 15px 0', color: '#f8fafc', fontSize: '1.2rem', fontWeight: 'bold' }}>📝 Személyes Adatok Frissítése</h3>
+          
+          <form onSubmit={handleSaveProfile} style={{ display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'space-between' }}>
+            <div>
+              <label style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>{t('profLabelName')}</label>
+              <input type="text" value={nameInput} onChange={e => setNameInput(e.target.value)} style={inputStyle} placeholder={t('profPlaceholderName')} disabled={isSavingProfile} />
+
+              <label style={{ fontSize: '0.8rem', color: '#f59e0b', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Telefonszám</label>
+              <input type="text" value={phone} onChange={e => setPhone(e.target.value)} style={inputStyle} placeholder="+36 30 123 4567" disabled={isSavingProfile} />
+
+              <label style={{ fontSize: '0.8rem', color: '#f59e0b', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Értesítési / Postázási Cím</label>
+              <input type="text" value={address} onChange={e => setAddress(e.target.value)} style={inputStyle} placeholder="Irányítószám, Város, Utca, Házszám" disabled={isSavingProfile} />
+
+              <label style={{ fontSize: '0.8rem', color: '#a78bfa', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Igazolványszám (Opcionális)</label>
+              <input type="text" value={associationId} onChange={e => setAssociationId(e.target.value)} style={inputStyle} placeholder="FP-XXXX" disabled={isSavingProfile} />
+            </div>
+
+            <button type="submit" disabled={isSavingProfile || !nameInput.trim()} style={{ width: '100%', background: 'linear-gradient(135deg, #3b82f6, #2563eb)', color: 'white', border: 'none', padding: '12px', borderRadius: '10px', fontWeight: 'bold', cursor: isSavingProfile ? 'not-allowed' : 'pointer', transition: 'all 0.2s', marginTop: '10px' }}>
+              {isSavingProfile ? 'Mentés...' : 'Változtatások Mentése ✔'}
+            </button>
+          </form>
+        </div>
+
+       {/* JOBB OSZLOP: KLUBTAGSÁG ÉS MŰSZAKI METRIKÁK */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
+          
+          {/* FOTÓKLUB TAGSÁGI ADATLAP */}
+          <div style={{ backgroundColor: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #334155' }}>
+            <h3 style={{ margin: '0 0 15px 0', color: '#38bdf8', fontSize: '1.2rem', fontWeight: 'bold' }}>🏛️ {t('profClubTitle')}</h3>
+            
+            {user?.club_name && user?.club_role !== 'pending' ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', background: '#0f172a', padding: '15px', borderRadius: '14px', border: '1px solid rgba(56, 189, 248, 0.15)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
+                  <span style={{ color: '#64748b' }}>Fotóklub:</span>
+                  <strong style={{ color: 'white' }}>{user.club_name}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
+                  <span style={{ color: '#64748b' }}>Beosztás:</span>
+                  <span style={{ background: '#38bdf820', color: '#38bdf8', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' }}>{getRoleText(user?.club_role || 'member')}</span>
+                </div>
+                
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', borderTop: '1px dashed #223147', paddingTop: '8px', marginTop: '4px' }}>
+                  <span style={{ color: '#64748b' }}>Tagság ideje:</span>
+                  <span style={{ color: '#10b981', fontWeight: 'bold' }}>
+                    {membershipStart || 'Nincs rögzítve'} — {membershipEnd || 'Folyamatos'}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <div style={{ background: '#0f172a', padding: '12px', borderRadius: '10px', color: '#94a3b8', fontSize: '0.88rem', marginBottom: '15px', fontStyle: 'italic' }}>
+                  {getClubStatusMessage()}
+                </div>
+                {user?.club_role !== 'pending' && (
+                  <>
+                    <select value={selectedClubId} onChange={e => setSelectedClubId(e.target.value)} style={inputStyle}>
+                      <option value="">{t('profSelectClub')}</option>
+                      {activeClubs.map(c => <option key={c.id} value={String(c.id)}>{c.name}</option>)}
+                    </select>
+                    <button onClick={handleJoinClub} disabled={isSubmitting} style={{ width: '100%', background: 'linear-gradient(135deg, #38bdf8, #0284c7)', color: '#0f172a', border: 'none', padding: '12px', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>
+                      {t('profSendRequest')}
+                    </button>
+                  </>
                 )}
               </div>
+            )}
+          </div>
 
-              {alreadyPlayedToday && quizBalance > 0 && (
-                <button onClick={handleBuyToken} disabled={isBuying} style={{ background: 'transparent', color: 'var(--text-body)', border: '1px solid var(--border-main)', padding: '8px', borderRadius: '8px', fontWeight: '600', fontSize: '0.82rem', cursor: 'pointer', marginTop: '4px' }}>
-                  ➕ Újabb Kupon vásárlása (5 pont)
-                </button>
+          {/* RENDSZER STATISZTIKÁK */}
+          <div style={{ backgroundColor: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #334155', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+            <div style={{ background: '#0f172a', padding: '14px', borderRadius: '12px', border: '1px solid #223147', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 'bold', textTransform: 'uppercase' }}>{t('profStorageLabel')}</span>
+              {isLoadingStats ? <span style={{ color: '#475569', fontSize: '0.85rem' }}>⏳</span> : (
+                <>
+                  <span style={{ color: '#38bdf8', fontSize: '1.25rem', fontWeight: '900' }}>{userStorage.count} <span style={{ fontSize: '0.8rem', fontWeight: 'normal', color: '#64748b' }}>db kép</span></span>
+                  <span style={{ color: '#a78bfa', fontSize: '0.85rem', fontWeight: 'bold' }}>{formatExactStorage(userStorage.bytes)}</span>
+                </>
               )}
+            </div>
+
+            <div style={{ background: '#0f172a', padding: '14px', borderRadius: '12px', border: '1px solid #223147', display: 'flex', flexDirection: 'column', gap: '4px', justifyContent: 'center' }}>
+              <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 'bold', textTransform: 'uppercase' }}>{t('profAiLabel')}</span>
+              <span style={{ color: aiUsageCount > 0 ? '#38bdf8' : '#64748b', fontSize: '1.25rem', fontWeight: '900' }}>{aiUsageCount} <span style={{ fontSize: '0.8rem', fontWeight: 'normal', color: '#64748b' }}>elemzés</span></span>
+              <span style={{ fontSize: '0.65rem', color: '#475569', fontStyle: 'italic', marginTop: '2px' }}>EXIF pajzs védelem</span>
             </div>
           </div>
 
-          {/* HISTÓRIA LISTA */}
-          {showHistory && historyList.length > 0 && (
-            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', padding: '25px', borderRadius: '12px' }}>
-              <h3 style={{ margin: '0 0 16px 0', color: 'var(--text-title)', fontSize: '1.1rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <History size={18} color="#38bdf8" /> Saját Kvíz Teljesítmény-Napló
-              </h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {historyList.map(item => {
-                  const isExpanded = expandedAttemptId === item.id;
-                  const isItemLoading = loadingDetailId === item.id;
-                  
-                  return (
-                    <div key={item.id} style={{ display: 'flex', flexDirection: 'column', background: 'var(--bg-main)', border: '1px solid var(--border-main)', borderRadius: '8px', overflow: 'hidden' }}>
-                      <div 
-                        onClick={() => handleToggleAttemptDetail(item.id)}
-                        style={{ padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.88rem', cursor: 'pointer', userSelect: 'none', transition: 'background 0.2s' }}
-                        onMouseEnter={e => e.currentTarget.style.background = 'var(--hover-overlay)'}
-                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--text-body)' }}>
-                          <Calendar size={14} color="var(--text-muted)" /> 
-                          <span style={{ fontWeight: '600' }}>{item.date?.split(' ')[0]}</span>
-                          {isItemLoading && <small style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>(Betöltés... ⏳)</small>}
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '20px', fontWeight: 'bold' }}>
-                          <span style={{ color: '#38bdf8' }}>🎯 {item.score} pont</span>
-                          <span style={{ color: '#10b981' }}>🪙 +{item.points_awarded}p</span>
-                          {isExpanded ? <ChevronUp size={16} color="var(--text-muted)" /> : <ChevronDown size={16} color="var(--text-muted)" />}
-                        </div>
-                      </div>
+        </div>
+      </div>
 
-                      {isExpanded && historyDetailQuestions.length > 0 && (
-                        <div style={{ padding: '15px', borderTop: '1px solid var(--border-main)', background: 'var(--bg-card)', display: 'flex', flexDirection: 'column', gap: '15px', animation: 'fadeIn 0.2s ease-out' }}>
-                          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 'bold', borderBottom: '1px solid var(--border-main)', paddingBottom: '6px', textTransform: 'uppercase' }}>🔍 A KÖR SZAKMAI ELLENŐRZŐ LAPJA:</div>
-                          {historyDetailQuestions.map((q, idx) => {
-                            const isCorrect = String(q.user_picked_letter).toUpperCase() === String(q.correct_option).toUpperCase();
-                            const rawOptions = lang === 'en' ? q.options_en : q.options_hu;
-                            const explanationText = lang === 'en' ? q.explanation_en : q.explanation_hu;
+      {/* 🪙 ÚJ: TRANZAKCIÓS TÁRCA ÉS PONTBOLT INTEGRÁCIÓ */}
+      <PointsWalletAndStore 
+        user={user} 
+        currentDbUser={{ ...user, points_balance: pointsBalance }} 
+        refreshUserObj={() => { loadFreshProfile(); fetchData(); }} 
+      />
 
-                            return (
-                              <div key={q.id} style={{ background: 'var(--bg-main)', padding: '14px', borderRadius: '8px', border: `1px solid ${isCorrect ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)'}` }}>
-                                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                                  <div 
-                                    onClick={() => setLightboxImage(q.image_url)}
-                                    style={{ width: '48px', height: '48px', background: '#000', borderRadius: '6px', overflow: 'hidden', flexShrink: 0, cursor: 'pointer' }}
-                                    title="Nagyítás"
-                                  >
-                                    <img src={q.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                  </div>
-                                  <div style={{ flex: 1, minWidth: 0 }}>
-                                    <h5 style={{ margin: '0 0 4px 0', color: 'var(--text-title)', fontSize: '0.85rem', fontWeight: '700' }}>{idx + 1}. {lang === 'en' ? q.question_en : q.question_hu}</h5>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '0.8rem' }}>
-                                      <span style={{ color: isCorrect ? '#10b981' : '#f87171', display: 'flex', alignItems: 'center', gap: '5px', fontWeight: '600' }}>
-                                        {isCorrect ? <CheckCircle2 size={12} /> : <XCircle size={12} />} Te tipped: {getReadableOptionText(q.user_picked_letter, rawOptions)}
-                                      </span>
-                                      {!isCorrect && (
-                                        <span style={{ color: '#38bdf8', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                          <AlertCircle size={12} /> Megoldás: {getReadableOptionText(q.correct_option, rawOptions)}
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-                                {explanationText && explanationText.trim() !== '' && (
-                                  <div style={{ marginTop: '10px', background: 'var(--bg-card)', borderLeft: '3px solid #f59e0b', padding: '8px 12px', borderRadius: '0 6px 6px 0', fontSize: '0.8rem', lineHeight: '1.4', color: 'var(--text-body)' }}>
-                                    <div style={{ color: '#fbbf24', fontWeight: 'bold', marginBottom: '2px', fontSize: '0.75rem', textTransform: 'uppercase' }}>💡 Szakmai háttér:</div>
-                                    {explanationText}
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+      {/* KLUBVEZETŐI JÓVÁHAGYÓ PANEL */}
+      {isLeader && (
+        <div style={{ backgroundColor: '#1e293b', padding: '25px 30px', borderRadius: '24px', border: '1px solid #10b981', boxShadow: '0 10px 30px rgba(16,185,129,0.08)' }}>
+          <h3 style={{ margin: '0 0 10px 0', color: '#10b981', fontSize: '1.25rem', fontWeight: 'bold' }}>{t('profLeaderTitle')} ({user?.club_name || ''})</h3>
+          <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0 0 20px 0' }}>{t('profLeaderNotice')}</p>
+          
+          {pendingMembers.length === 0 ? (
+            <div style={{ padding: '12px', background: '#0f172a', borderRadius: '12px', color: '#475569', textAlign: 'center', fontStyle: 'italic', fontSize: '0.9rem' }}>{t('profNoPending')}</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {pendingMembers.map(m => (
+                <div key={m.email} style={{ background: '#0f172a', padding: '15px', borderRadius: '12px', border: '1px solid #334155', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
+                  <div>
+                    <strong style={{ color: 'white', display: 'block' }}>{m.name}</strong>
+                    <span style={{ fontSize: '0.8rem', color: '#64748b' }}>{m.email}</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <button onClick={() => handleDecision(m.email, 'approve')} style={{ background: '#10b981', color: '#0f172a', border: 'none', padding: '8px 16px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>{t('profApprove')}</button>
+                    <button onClick={() => handleDecision(m.email, 'reject')} style={{ background: 'transparent', color: '#ef4444', border: '1px solid #ef444440', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer' }}>{t('profReject')}</button>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
+        </div>
+      )}
 
-          {/* DICSŐSÉGLISTA PANEL */}
-          {showLeaderboard && (
-            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', padding: '25px', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px', borderBottom: '1px solid var(--border-main)', paddingBottom: '12px' }}>
-                <h3 style={{ margin: 0, color: '#fbbf24', fontSize: '1.1rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Award size={18} /> LensMaster Toplista
-                </h3>
+      {/* TÖRTÉNETI PÉNZÜGYI PANEL */}
+      <UserMembershipAndPaymentsBlock userEmail={user?.email || ''} />
+
+      <style>{`
+        .profile-bento-grid {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 25px;
+          width: 100%;
+        }
+        @media (min-width: 768px) {
+          .profile-bento-grid {
+            grid-template-columns: 1.1fr 1fr !important;
+          }
+        }
+      `}</style>
+
+    </div>
+  );
+}
+
+// 💳 AL-KOMPONENS: ÉVES TAGDÍJAK ÉS HISTÓRIKUS BEFIZETÉSEK
+function UserMembershipAndPaymentsBlock({ userEmail }: { userEmail: string }) {
+  const [history, setHistory] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!userEmail) return;
+    
+    // 🎯 JAVÍTVA: Az eltévedt végpont áthelyezve a helyes /api/clubs/my-payments útvonalra
+    fetch(`${BACKEND_URL}/api/clubs/my-payments?userEmail=${userEmail}`, {
+      headers: getAuthHeaders()
+    })
+      .then(res => res.json())
+      .then(data => {
+        setHistory(Array.isArray(data) ? data : []);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, [userEmail]);
+
+  if (!userEmail) return null;
+  if (loading) return <div style={{ color: '#64748b', fontSize: '0.85rem', padding: '15px', textAlign: 'center' }}>⏳ Pénzügyi múlt szinkronizálása...</div>;
+
+  return (
+    <div style={{ background: '#1e293b', padding: '25px', borderRadius: '24px', border: '1px solid #334155', boxShadow: '0 4px 15px rgba(0,0,0,0.2)' }}>
+      <h3 style={{ margin: '0 0 15px 0', color: '#fbbf24', fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        💳 Éves Tagdíjak & Befizetések Előzményei
+      </h3>
+      
+      {history.length === 0 ? (
+        <div style={{ color: '#64748b', fontSize: '0.9rem', fontStyle: 'italic', padding: '10px 0' }}>
+          Még nincs könyvelt tagdíj-befizetésed a rendszerben.
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {history.map((row, index) => {
+            const isSettled = Number(row.outstanding_balance) <= 0;
+            return (
+              <div key={index} style={{ background: '#0f172a', padding: '12px 16px', borderRadius: '12px', border: `1px solid ${isSettled ? '#10b98130' : '#f9731630'}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontWeight: 'bold', fontSize: '1rem', color: '#f8fafc' }}>{row.fiscal_year}. Éves Tagdíj</div>
+                  <div style={{ fontSize: '0.82rem', color: '#38bdf8', fontWeight: 'bold', marginTop: '3px' }}>🏛️ {row.target_club_name}</div>
+                  <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '3px' }}>
+                    {row.payment_date ? `Könyvelve: ${row.payment_date}` : 'Még nincs könyvelt dátum'}
+                  </div>
+                </div>
                 
-                <div style={{ display: 'inline-flex', background: 'var(--bg-main)', padding: '4px', borderRadius: '8px', border: '1px solid var(--border-main)' }}>
-                  {(['daily', 'weekly', 'monthly'] as const).map(p => (
-                    <button key={p} onClick={() => setLeaderboardPeriod(p)} style={{ padding: '6px 14px', background: leaderboardPeriod === p ? 'var(--bg-card)' : 'transparent', color: leaderboardPeriod === p ? '#fbbf24' : 'var(--text-muted)', border: 'none', borderRadius: '6px', fontSize: '0.82rem', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.1s' }}>
-                      {p === 'daily' ? 'Napi' : p === 'weekly' ? 'Heti' : 'Havi'}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {leaderboardPeriod === 'monthly' && (
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', background: 'var(--bg-main)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-main)', flexWrap: 'wrap' }}>
-                  <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 'bold' }}>📅 IDŐSZAK KIVÁLASZTÁSA:</span>
-                  <select value={selectedYear} onChange={e => setSelectedYear(Number(e.target.value))} style={{ padding: '6px 10px', background: 'var(--bg-card)', color: 'var(--text-title)', border: '1px solid var(--border-main)', borderRadius: '6px', cursor: 'pointer', outline: 'none', fontSize: '0.85rem' }}>
-                    {[2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}
-                  </select>
-                  <select value={selectedMonth} onChange={e => setSelectedMonth(Number(e.target.value))} style={{ padding: '6px 10px', background: 'var(--bg-card)', color: 'var(--text-title)', border: '1px solid var(--border-main)', borderRadius: '6px', cursor: 'pointer', outline: 'none', fontSize: '0.85rem' }}>
-                    {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
-                      <option key={m} value={m}>
-                        {lang === 'en' ? new Date(2000, m - 1).toLocaleString('en', { month: 'long' }) : `${m}. hónap`}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {loadingLeaderboard ? (
-                <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>Betöltés... ⏳</div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {leaderboardData.map((row, index) => {
-                    return (
-                      <div key={index} style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'var(--bg-main)', border: '1px solid var(--border-main)', padding: '10px 14px', borderRadius: '8px', fontSize: '0.88rem' }}>
-                        <span style={{ width: '24px', textAlign: 'center', fontWeight: 'bold', color: index === 0 ? '#fbbf24' : index === 1 ? 'var(--text-title)' : index === 2 ? '#d97706' : 'var(--text-muted)' }}>
-                          #{index + 1}
-                        </span>
-                        
-                        <div style={{ width: '32px', height: '32px', borderRadius: '50%', overflow: 'hidden', background: 'var(--bg-card)', flexShrink: 0, border: '1px solid var(--border-main)' }}>
-                          <img src={row.avatar_url || `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' fill='%23475569'><circle cx='16' cy='16' r='16'/></svg>`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
-                        </div>
-
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <strong style={{ display: 'block', color: 'var(--text-title)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{row.name}</strong>
-                          {row.club_name && (
-                            <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '2px', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              <ClubLogo driveId={row.drive_logo_id} logoUrl={row.logo_url} />
-                              <span>{row.club_name}</span>
-                            </small>
-                          )}
-                        </div>
-
-                        <div style={{ textAlign: 'right', flexShrink: 0, display: 'flex', alignItems: 'center', gap: '15px' }}>
-                          <span style={{ color: 'var(--text-body)', fontSize: '0.82rem', fontFamily: 'monospace' }}>
-                            {row.total_correct} / {row.total_questions}
-                          </span>
-                          <span style={{ color: '#38bdf8', fontWeight: 'bold', minWidth: '45px', textAlign: 'right' }}>
-                            {Math.round(row.percentage / 10)}%
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  {leaderboardData.length === 0 && (
-                    <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--text-muted)', fontStyle: 'italic', fontSize: '0.85rem' }}>Ebben az időszakban még senki sem küldött be kvízt.</div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '1.05rem', fontWeight: '900', color: isSettled ? '#10b981' : '#f97316' }}>
+                    {row.paid_amount} / {row.fee_amount} Ft
+                  </div>
+                  {!isSettled && (
+                    <small style={{ color: '#ef4444', fontSize: '0.72rem', fontWeight: 'bold', display: 'block', marginTop: '2px' }}>
+                      Hátralék: {row.outstanding_balance} Ft
+                    </small>
+                  )}
+                  {isSettled && (
+                    <small style={{ color: '#10b981', fontSize: '0.72rem', fontWeight: 'bold', display: 'block', marginTop: '2px' }}>
+                      ✓ Rendezve
+                    </small>
                   )}
                 </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ── B: LOADING PANEL ── */}
-      {phase === 'LOADING' && (
-        <div style={{ padding: '60px 0', textAlign: 'center' }}>
-          <VideoLoader />
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '15px' }}>Tranzakció biztosítása és kiértékelés...</p>
-        </div>
-      )}
-
-      {/* ── C: AKTÍV JÁTÉKTÉR ── */}
-      {phase === 'PLAYING' && parsedQuestion && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-card)', padding: '12px 20px', borderRadius: '8px', border: '1px solid var(--border-main)' }}>
-            <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 'bold' }}>📋 Kérdés: <span style={{ color: '#38bdf8' }}>{currentIdx + 1} / {questions.length}</span></span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: timeLeft <= 5 ? '#ef4444' : '#10b981', fontSize: '0.9rem', fontWeight: 'bold' }}><Timer size={14} /> <span>{timeLeft}s</span></div>
-          </div>
-          <div style={{ width: '100%', height: '4px', background: 'var(--border-main)', borderRadius: '2px', overflow: 'hidden' }}>
-            <div style={{ width: `${(timeLeft / 20) * 100}%`, height: '100%', background: timeLeft <= 5 ? '#ef4444' : 'linear-gradient(90deg, #38bdf8, #10b981)' }} />
-          </div>
-          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', borderRadius: '12px', overflow: 'hidden' }}>
-            <div style={{ width: '100%', height: '260px', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><img src={currentQuestion.image_url} alt="" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} /></div>
-            <div style={{ padding: '24px 20px' }}>
-              <h3 style={{ margin: '0 0 20px 0', color: 'var(--text-title)', fontSize: '1.2rem', fontWeight: '700' }}>{parsedQuestion.title}</h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {['A', 'B', 'C', 'D'].map((letter, i) => {
-                  const optionText = parsedQuestion.opts[i];
-                  if (!optionText) return null;
-                  return (
-                    <button key={letter} onClick={() => handleSelectOption(letter)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 18px', background: 'var(--bg-main)', border: '1px solid var(--border-main)', borderRadius: '8px', color: 'var(--text-title)', fontWeight: '600', cursor: 'pointer', transition: 'background 0.2s' }}>
-                      <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '26px', height: '26px', borderRadius: '6px', background: 'var(--bg-card)', border: '1px solid var(--border-main)', color: 'var(--text-body)', fontSize: '0.8rem', fontWeight: 'bold' }}>{letter}</span>
-                      <span style={{ flex: 1, textAlign: 'left' }}>{optionText}</span>
-                    </button>
-                  );
-                })}
               </div>
-            </div>
-          </div>
+            );
+          })}
         </div>
       )}
-
-      {/* ── D: JUTALOM ÉS SZAKMAI ELLENŐRZŐ PANEL ── */}
-      {phase === 'SUMMARY' && rewardData && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
-          <div style={{ background: 'var(--bg-card)', border: '1px solid #fbbf24', padding: '40px 30px', borderRadius: '12px', textAlign: 'center', boxShadow: '0px 10px 30px rgba(251,191,36,0.1)' }}>
-            <Sparkles size={48} color="#fbbf24" style={{ margin: '0 auto 15px auto', display: 'block' }} />
-            <h2 style={{ color: 'var(--text-title)', fontSize: '1.8rem', fontWeight: '900' }}>Gratulálunk, Kvíz Teljesítve!</h2>
-            <div style={{ background: 'var(--bg-main)', border: '1px solid var(--border-main)', borderRadius: '10px', padding: '18px', maxWidth: '500px', margin: '0 auto 25px auto', textAlign: 'left', fontSize: '0.88rem', lineHeight: '1.6' }}>
-              <h4 style={{ margin: '0 0 10px 0', color: '#38bdf8', fontWeight: '800', textTransform: 'uppercase', fontSize: '0.78rem' }}>📊 Eredményed részletes összetétele:</h4>
-              <div style={{ color: 'var(--text-body)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>🎯 Találati arány:</span><strong style={{ color: '#10b981' }}>{rewardData.score / 100} / {questions.length} helyes</strong></div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>✨ Elért pontszám:</span><strong style={{ color: 'var(--text-title)' }}>{rewardData.score} pont</strong></div>
-                <div style={{ width: '100%', height: '1px', background: 'var(--border-main)', margin: '4px 0' }} />
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#fbbf24', fontSize: '1rem', fontWeight: 'bold' }}>
-                  <span>🪙 Jóváírt pont:</span><span>+{rewardData.pointsAwarded}p</span>
-                </div>
-              </div>
-            </div>
-
-            <button onClick={() => setPhase('INTRO')} style={{ width: '100%', maxWidth: '300px', margin: '0 auto', background: 'transparent', border: '1px solid var(--border-main)', color: 'var(--text-title)', padding: '12px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>Bezárás és Visszatérés</button>
-          </div>
-
-          {/* SZAKMAI KIÉRTÉKELŐ TUDÁSTÁR */}
-          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', padding: '30px', borderRadius: '12px' }}>
-            <h3 style={{ margin: '0 0 20px 0', color: 'var(--text-title)', fontSize: '1.2rem', fontWeight: '800', borderBottom: '1px solid var(--border-main)', paddingBottom: '12px' }}>🔍 Szakmai Értékelő & Hibajegyzék</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              {questions.map((q, idx) => {
-                const userAnsLetter = selectedAnswers[q.id] || '';
-                const correctAnsLetter = correctAnswers[q.id] || 'A';
-                const isCorrect = String(userAnsLetter).toUpperCase() === String(correctAnsLetter).toUpperCase();
-                const rawOptions = lang === 'en' ? q.options_en : q.options_hu;
-                const explanationText = lang === 'en' ? q.explanation_en : q.explanation_hu;
-
-                return (
-                  <div key={q.id} style={{ background: 'var(--bg-main)', padding: '18px', borderRadius: '10px', border: `1px solid ${isCorrect ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)'}` }}>
-                    <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
-                      <div 
-                        onClick={() => setLightboxImage(q.image_url)}
-                        style={{ width: '60px', height: '60px', background: '#000', borderRadius: '6px', overflow: 'hidden', flexShrink: 0, cursor: 'pointer', transition: 'transform 0.1s' }}
-                        onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'}
-                        onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
-                        title="Kattints a nagyításhoz"
-                      >
-                        <img src={q.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <h4 style={{ margin: '0 0 6px 0', color: 'var(--text-title)', fontSize: '0.92rem', fontWeight: '700' }}>{idx + 1}. {lang === 'en' ? q.question_en : q.question_hu}</h4>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.85rem' }}>
-                          <span style={{ color: isCorrect ? '#10b981' : '#f87171', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '600' }}>
-                            {isCorrect ? <CheckCircle2 size={13} /> : <XCircle size={13} />} Te tipped: {getReadableOptionText(userAnsLetter, rawOptions)}
-                          </span>
-                          {!isCorrect && (
-                            <span style={{ color: '#38bdf8', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <AlertCircle size={13} /> Helyes megoldás: {getReadableOptionText(correctAnsLetter, rawOptions)}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {explanationText && explanationText.trim() !== '' && (
-                      <div style={{ marginTop: '14px', background: 'rgba(245,158,11,0.04)', borderLeft: '3px solid #f59e0b', padding: '10px 14px', borderRadius: '0 6px 6px 0', fontSize: '0.84rem', lineHeight: '1.5', color: 'var(--text-body)' }}>
-                        <div style={{ color: '#fbbf24', fontWeight: 'bold', marginBottom: '4px', fontSize: '0.78rem', textTransform: 'uppercase' }}>💡 Szakmai háttér & Kontextus:</div>
-                        {explanationText}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {phase === 'ALREADY_PLAYED' && (
-        <div style={{ background: 'var(--bg-card)', border: '1px solid #ef4444', padding: '40px 30px', borderRadius: '12px', textAlign: 'center' }}>
-          <div style={{ fontSize: '3rem', marginBottom: '10px' }}>⏳</div>
-          <h3 style={{ color: '#f87171', fontSize: '1.3rem', fontWeight: 'bold' }}>A mai kihívást már teljesítetted!</h3>
-          <button onClick={() => setPhase('INTRO')} style={{ background: 'var(--bg-main)', border: '1px solid var(--border-main)', color: 'var(--text-title)', padding: '10px 24px', borderRadius: '6px', cursor: 'pointer', marginTop: '15px' }}>Bezárás</button>
-        </div>
-      )}
-
-      {/* NAGYÍTÁST VÉGZŐ LIGHTBOX MODAL OVERLAY */}
-      {lightboxImage && (
-        <div 
-          onClick={() => setLightboxImage(null)}
-          style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0, 0, 0, 0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999, cursor: 'zoom-out' }}
-        >
-          <img src={lightboxImage} alt="Large preview" style={{ maxWidth: '90%', maxHeight: '90%', objectFit: 'contain', borderRadius: '8px', boxShadow: '0 20px 50px rgba(0, 0, 0, 0.6)', border: '1px solid rgba(255,255,255,0.1)' }} />
-        </div>
-      )}
-
     </div>
   );
 }
