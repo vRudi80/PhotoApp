@@ -49,7 +49,7 @@ async function requireAuth(req, res, next) {
   }
 }
 
-// 🎯 BIZTONSÁGI KORREKCIÓ: Az upload maradt a 3. helyen, a genAI pedig a biztonságos 4. helyre került!
+// 🎯 PARAMÉTEREK RAGYOGÓAN SZINKRONIZÁLVA (index.js-hez igazítva)
 module.exports = function(app, pool, upload, genAI) {
 
   // ====================================================================
@@ -285,7 +285,8 @@ module.exports = function(app, pool, upload, genAI) {
         generationConfig: { responseMimeType: "application/json" } 
       });
 
-      const prompt = `Elemezd ezt a fotótörténeti vagy híres fotográfiai képet, azonosítsd be a készítőjét, a keletkezési körülményeit, and generálj belőle egy kvízkérdést.
+      // 🎯 MÓDOSÍTVA: A prompt most már kikényszeríti a véletlenszerű betűválasztást (A, B, C vagy D)
+      const prompt = `Elemezd ezt a fotótörténeti vagy híres fotográfiai képet, azonosítsd be a készítőjét, a keletkezési körülményeit, és generálj belőle egy kvízkérdést.
       KIZÁRÓLAG egy érvényes JSON objektumot adj vissza, markdown kódblokk és egyéb szöveges sallangok nélkül!
       A JSON pontos struktúrája ez legyen:
       {
@@ -293,11 +294,11 @@ module.exports = function(app, pool, upload, genAI) {
         "questionEn": "A kérdés angolul",
         "explanationHu": "Részletes, több mondatos szakmai edukációs háttéranyag magyarul a kép kontextusáról.",
         "explanationEn": "Ugyanez a részletes szakmai edukációs magyarázat angol nyelven.",
-        "correctOption": "A",
-        "optionsHu": ["Ide jön a tökéletes helyes válasz", "Rossz válaszlehetőség 1", "Rossz válaszlehetőség 2", "Rossz válaszlehetőség 3"],
-        "optionsEn": ["Helyes válasz angolul", "Rossz válaszlehetőség 1 angolul", "Rossz válaszlehetőség 2 angolul", "Rossz válaszlehetőség 3 angolul"]
+        "correctOption": "Válassz teljesen véletlenszerűen egy nagybetűt az A, B, C vagy D opciók közül",
+        "optionsHu": ["Válaszlehetőség A", "Válaszlehetőség B", "Válaszlehetőség C", "Válaszlehetőség D"],
+        "optionsEn": ["Option A", "Option B", "Option C", "Option D"]
       }
-      Megkötés: Az optionsHu[0] and optionsEn[0] mindig a valós helyes válasz legyen, a correctOption értéke pedig fixen 'A'!`;
+      Szigorú megkötés: A correctOption kulcsban általad választott betűhöz tartozó indexre (A=0, B=1, C=2, D=3) tedd a valós, igaz helyes választ mind a magyar, mind az angol tömbben! A maradék három üresen maradt helyre generálj megtévesztő, meggyőző, de hibás válaszokat.`;
 
       const imagePart = { inlineData: { data: base64Image, mimeType: file.mimetype } };
       const result = await model.generateContent([prompt, imagePart]);
