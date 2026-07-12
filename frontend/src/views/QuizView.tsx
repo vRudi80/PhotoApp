@@ -462,7 +462,7 @@ export default function QuizView({ user }: { user: any }) {
             <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', padding: '25px', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px', borderBottom: '1px solid var(--border-main)', paddingBottom: '12px' }}>
                 <h3 style={{ margin: 0, color: '#fbbf24', fontSize: '1.1rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Award size={18} /> LensMaster Toplista
+                  <Award size={18} /> Toplista
                 </h3>
                 
                 <div style={{ display: 'inline-flex', background: 'var(--bg-main)', padding: '4px', borderRadius: '8px', border: '1px solid var(--border-main)' }}>
