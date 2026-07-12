@@ -366,10 +366,11 @@ module.exports = function(app, pool, upload, genAI) {
   });
 
   // ====================================================================
-  // 🏆 FRISSÍTVE: KVÍZ RANGLISTA (KLUB LOGÓKKAL ÉS MEZŐNY-ÖSSZEFÉSÜLÉSSEL)
+  // 🏆 FRISSÍTVE: SÚLYOZOTT KVÍZ RANGLISTA (AKTIVITÁSI BÓNUSSZAL)
   // ====================================================================
   app.get('/api/quiz/leaderboard', requireAuth, async (req, res) => {
     const { period, year, month } = req.query;
+    
     let sql = `
       SELECT 
         u.name, 
@@ -405,7 +406,8 @@ module.exports = function(app, pool, upload, genAI) {
     sql += `
       ${whereClause}
       GROUP BY u.email, u.name, u.club_name, u.avatar_url, c.drive_logo_id, c.logo_url
-      ORDER BY (SUM(a.score) / COUNT(a.id)) DESC, AVG(a.duration_seconds) ASC
+      /* 🎯 MÓDOSÍTVA: Az elért átlagértékhez hozzáadunk kísérletenként 5 pont stabilitási bónuszt! */
+      ORDER BY ((SUM(a.score) / COUNT(a.id)) + (COUNT(a.id) * 5)) DESC, AVG(a.duration_seconds) ASC
       LIMIT 50
     `;
 
@@ -416,7 +418,7 @@ module.exports = function(app, pool, upload, genAI) {
       res.status(500).json({ error: 'Hiba a ranglista lekérésekor.' });
     }
   });
-  
+
   // ====================================================================
   // 🗑️ ADMINISZTRÁCIÓS TÖRLES
   // ====================================================================
