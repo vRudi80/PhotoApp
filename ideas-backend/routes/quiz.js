@@ -273,6 +273,60 @@ module.exports = function(app, pool, upload) {
       res.json({ success: true });
     } catch (err) { if (file && fs.existsSync(file.path)) fs.unlinkSync(file.path); res.status(500).json({ error: err.message }); }
   });
+  // ====================================================================
+  // 🤖 ÚJ: AI FOTÓTÖRTÉNETI ELEMZŐ ÉS KVÍZGENERÁTOR (VISION API PROMPT)
+  // ====================================================================
+  app.post('/api/admin/quiz/analyze-image', requireAuth, upload.single('photo'), async (req, res) => {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Hozzáférés megtagadva!' });
+    const file = req.file;
+    if (!file) return res.status(400).json({ error: 'Nincs fájl kiválasztva az AI elemzéshez!' });
+
+    try {
+      // 1. Itt a fájlt (file.path) beolvassuk base64-be, vagy átadjuk az AI Vision SDK-nak
+      const imageBuffer = fs.readFileSync(file.path);
+      const base64Image = imageBuffer.toString('base64');
+
+      /* 2. Meghívjuk a kiválasztott AI szolgáltató Vision modelljét (pl. Gemini vagy OpenAI).
+         A prompt kikényszeríti a szigorú kétnyelvű JSON struktúrát:
+         
+         PROMPT: "Elemezd ezt a fotótörténeti képet. Készíts belőle egy kvízkérdést. 
+         A válasz legyen egy szigorú JSON objektum az alábbi kulcsokkal, markdown formázás nélkül:
+         {
+           "questionHu": "Kérdés magyarul",
+           "questionEn": "Question in English",
+           "explanationHu": "Szakmai edukációs magyarázat magyarul",
+           "explanationEn": "Educational insight in English",
+           "correctOption": "A",
+           "optionsHu": ["Helyes opció", "Rossz opció 1", "Rossz opció 2", "Rossz opció 3"],
+           "optionsEn": ["Correct option", "Wrong option 1", "Wrong option 2", "Wrong option 3"]
+         }
+         Fontos: az optionsHu[0] és optionsEn[0] mindig a helyes válasz legyen, mert a frontend majd megkeveri!"
+      */
+
+      // --- SZIMULÁLT AI VÁLASZ (Ezt váltja fel az éles API hívásod) ---
+      // A tesztelés kedvéért egy klasszikus, ikonikus képet szimulálunk:
+      const aiResponseMock = {
+        questionHu: "Ki készítette ezt az ikonikus 'Milicistahalál' (The Falling Soldier) című spanyol polgárháborús fotót?",
+        questionEn: "Who captured this iconic Spanish Civil War photograph titled 'The Falling Soldier'?",
+        explanationHu: "Robert Capa 1936-os felvétele a világ egyik leghíresebb és legtöbbet vitatott haditudósítói fényképe, amely a pillanat törtrésze alatt örökítette meg a halálos lövést kapott köztársasági katonát.",
+        explanationEn: "Robert Capa's 1936 photograph is one of the most famous and debated war photographs in history, capturing the exact moment a Republican soldier was fatally shot.",
+        correctOption: "A",
+        optionsHu: ["Robert Capa", "Henri Cartier-Bresson", "Brassai", "André Kertész"],
+        optionsEn: ["Robert Capa", "Henri Cartier-Bresson", "Brassai", "André Kertész"]
+      };
+
+      // Biztonsági takarítás az ideiglenes mappából
+      if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+
+      // Visszaküldjük a strukturált adatokat a frontendnek
+      res.json(aiResponseMock);
+
+    } catch (err) {
+      if (file && fs.existsSync(file.path)) fs.unlinkSync(file.path);
+      console.error("❌ AI Kvízgenerátor hiba:", err.message);
+      res.status(500).json({ error: 'Az AI nem tudta kielemzni a képet.' });
+    }
+  });
 
   // ====================================================================
   // 📋 VÉGLEG JAVÍTVA: MY-HISTORY + KATÉGÓRIÁNKÉNTI ÉS ÖSSZESÍTETT SZÁMLÁLÓK
