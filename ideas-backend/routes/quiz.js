@@ -366,7 +366,7 @@ module.exports = function(app, pool, upload, genAI) {
   });
 
   // ====================================================================
-  // 🏆 VÉGLEG JAVÍTVA: SÚLYOZOTT KVÍZ RANGLISTA (SZIGORÚ PRIORITÁSI LÁNCOZAT)
+  // 🏆 VÉGLEG JAVÍTVA: TISZTA TALÁLATI DARABSZÁM ÉS IDŐALAPÚ RANGLISTA
   // ====================================================================
   app.get('/api/quiz/leaderboard', requireAuth, async (req, res) => {
     const { period, year, month } = req.query;
@@ -407,11 +407,12 @@ module.exports = function(app, pool, upload, genAI) {
       ${whereClause}
       GROUP BY u.email, u.name, u.club_name, u.avatar_url, c.drive_logo_id, c.logo_url
       
-      /* 🎯 A JAVÍTOTT PRIORITÁSI RENDSZER: */
+      /* 🎯 AZ ÚJ ABSZOLÚT DÖNTŐBÍRÓ:
+         1. Elsődlegesen a tisztán eltalált kérdések összesített száma dönt (SUM score)
+         2. Holtverseny (pontazonosság) esetén a gyorsabb átlagos kitöltési idő ad jobb helyezést! */
       ORDER BY 
-        (SUM(a.score) / COUNT(a.id)) DESC,   -- 1. Elsőként a tiszta átlagos százalék dönt
-        COUNT(a.id) DESC,                    -- 2. EGYENLŐSÉG ESETÉN az van előrébb, aki TÖBB tesztet nyomott le!
-        AVG(a.duration_seconds) ASC          -- 3. Ha az is egyenlő, akkor a gyorsabb átlagidő a döntőbíró
+        SUM(a.score) DESC,
+        AVG(a.duration_seconds) ASC
       LIMIT 50
     `;
 
