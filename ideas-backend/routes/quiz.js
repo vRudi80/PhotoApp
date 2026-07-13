@@ -424,6 +424,66 @@ module.exports = function(app, pool, upload, genAI) {
     }
   });
 
+  // ====================================================================
+  // 🖼️ PRÉMIUM EXKLUZÍV: FOTÓTÖRTÉNETI DIGITÁLIS ENCIKLOPÉDIA ALBUM
+  // ====================================================================
+  app.get('/api/premium/photo-history', requireAuth, async (req, res) => {
+    try {
+      // 1. Biztonsági ellenőrzés: Érvényes-e még a felhasználó prémium státusza
+      const [userRows] = await pool.query(
+        'SELECT is_premium, premium_until FROM photo_users WHERE email = ?', 
+        [req.user.email]
+      );
+      
+      const now = new Date();
+      const isPremium = userRows[0]?.is_premium === 1 || (userRows[0]?.premium_until && new Date(userRows[0].premium_until) > now);
+
+      if (!isPremium) {
+        return res.status(403).json({ error: 'Ez a galéria kizárólag aktív Prémium tagjaink számára elérhető!' });
+      }
+
+      // 2. Kiszedjük a fotótörténeti kategória összes kérdését
+      const [rows] = await pool.query(
+        `SELECT id, image_url, question_hu, question_en, options_hu, options_en, correct_option, explanation_hu, explanation_en 
+         FROM quiz_questions 
+         WHERE type = 'history' 
+         ORDER BY id DESC`
+      );
+
+      // 3. Intelligens adatformázás: kinyerjük a fotós valós nevét a válasz-tömbből a helyes betű alapján
+      const processedEncyclopedia = rows.map(row => {
+        let photographerHu = 'Ismeretlen alkotó';
+        let photographerEn = 'Unknown artist';
+        
+        try {
+          const optsHu = typeof row.options_hu === 'string' ? JSON.parse(row.options_hu) : row.options_hu;
+          const optsEn = typeof row.options_en === 'string' ? JSON.parse(row.options_en) : row.options_en;
+          
+          // A = 0, B = 1, C = 2, D = 3 index kiszámítása
+          const correctIdx = (row.correct_option || 'A').toUpperCase().charCodeAt(0) - 65;
+          
+          if (Array.isArray(optsHu) && optsHu[correctIdx]) photographerHu = optsHu[correctIdx];
+          if (Array.isArray(optsEn) && optsEn[correctIdx]) photographerEn = optsEn[correctIdx];
+        } catch (e) {
+          console.error("Hiba a fotós nevének AI-Kvíz dekódolásakor:", e.message);
+        }
+
+        return {
+          id: row.id,
+          image_url: row.image_url,
+          photographer: req.query.lang === 'en' ? photographerEn : photographerHu,
+          title: req.query.lang === 'en' ? row.question_en : row.question_hu,
+          explanation: req.query.lang === 'en' ? row.explanation_en : row.explanation_hu
+        };
+      });
+
+      res.json(processedEncyclopedia);
+
+    } catch (err) {
+      console.error("❌ Enciklopédia betöltési hiba:", err.message);
+      res.status(500).json({ error: 'Nem sikerült betölteni a fotótörténeti albumot.' });
+    }
+  });
 
   // ====================================================================
   // 🗑️ ADMINISZTRÁCIÓS TÖRLES
