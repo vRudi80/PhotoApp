@@ -26,7 +26,7 @@ export default function PhotoHistoryView({ user }: { user: any }) {
   const loadHistoryData = () => {
     // Ha a fül-szinkronizáció aktív kvízt lát, el sem indítjuk a hálózati kérést
     if (localStorage.getItem('photo_quiz_active') === 'true') {
-      setError(lang === 'en' ? 'Anti-cheat protection active! Please finish your quiz first.' : '🎮 CSALÁS ELLENI VÉDELEM: Jelenleg aktív kvízköröd van folyamatban! A puskázás elkerülése érdekében a történeti album zárolva van.');
+      setError(lang === 'en' ? 'Anti-cheat protection active! Please finish your quiz first.' : 'CSALÁS ELLENI VÉDELEM: Jelenleg aktív kvízköröd van folyamatban! A puskázás elkerülése érdekében a történeti album zárolva van. Amennyiben bezártad az ablakot, nem befejezted a kvízt, akkor a rendszer 5 perc múlva oldja fel ezt az ablakot.');
       setItems([]);
       setIsLoading(false);
       return;
