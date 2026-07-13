@@ -34,8 +34,8 @@ import {
   Sun,
   MessageCircleQuestion,
   Moon,
-  Image as ImageIcon,
-  BookOpen // 🎯 ÚJ: Ikon az exkluzív történelmi galériához
+  ImageIcon,
+  BookOpen // 🎯 ÚJ: Ikon a mindenki számára látható történelmi galériához
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -218,7 +218,6 @@ const HEADER_STYLES = `
   }
 `;
 
-// Külső felső szintű brand blokk (Megvédi a logót a felesleges villogástól/újraépüléstől)
 function LogoBrandBlock({ logo } : { logo: string }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
@@ -399,6 +398,17 @@ export default function Header({
             </button>
           </div>
 
+          {/* 🎯 MÓDOSÍTVA: A Fotótörténeti Album bekerült a főmenübe a Kvíz alá/mellé, mindenki számára publikusan! */}
+          <div className="nav-item-container">
+            <button 
+              className={`nav-btn ${activeTab === 'photo_history' ? 'active' : ''}`} 
+              style={{ color: activeTab === 'photo_history' ? '#a78bfa' : '' }} 
+              onClick={() => handleNavClick('photo_history')}
+            >
+              <BookOpen size={14} /> <span>{lang === 'en' ? 'History Gallery' : 'Fotótörténeti album'}</span>
+            </button>
+          </div>
+
           <div className="nav-item-container">
             <button 
               className={`nav-btn ${dropdownOpen === 'contests' || activeTab.startsWith('contests_') || ['salons', 'fiap_progress', 'mafosz_progress'].includes(activeTab) ? 'active' : ''}`} 
@@ -558,8 +568,8 @@ export default function Header({
           
           <div className="nav-item-container">
             <button 
-              /* 🎯 JAVÍTVA: A 'photo_history' bekerült a feltételbe, így aktív vizuális kijelzést kap a menüfül */
-              className={`nav-btn ${dropdownOpen === 'user_account' || ['profile', 'my_album', 'photo_history', 'packages', 'tickets'].includes(activeTab) ? 'active' : ''}`} 
+              /* 🎯 JAVÍTVA: A 'photo_history' kikerült innen, hogy ne gyújtsa be tévesen a profil gombot! */
+              className={`nav-btn ${dropdownOpen === 'user_account' || ['profile', 'my_album', 'packages', 'tickets'].includes(activeTab) ? 'active' : ''}`} 
               style={{ color: '#14b8a6', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}
               onClick={() => setDropdownOpen(dropdownOpen === 'user_account' ? null : 'user_account')}
             >
@@ -578,18 +588,6 @@ export default function Header({
               <div className="dropdown-menu" style={{ right: 0, left: 'auto', minWidth: '210px' }}>
                 <button className="drop-item" style={{ color: '#14b8a6', backgroundColor: activeTab === 'profile' ? 'rgba(255,255,255,0.04)' : 'transparent' }} onClick={() => handleNavClick('profile')}><User size={12} /> {t('subProfile')}</button>
                 <button className="drop-item" style={{ color: '#f59e0b', backgroundColor: activeTab === 'my_album' ? 'rgba(255,255,255,0.04)' : 'transparent' }} onClick={() => handleNavClick('my_album')}><ImageIcon size={12} /> {t('subPortfolio')}</button>
-                
-                {/* 🎯 ÚJ EXKLUZÍV INTEGRÁCIÓ: Fotóművészeti Mesterkártya Galéria (Kizárólag prémium előfizetőknek) */}
-                {!!(user?.isPremium || user?.is_premium) && (
-                  <button 
-                    className="drop-item" 
-                    style={{ color: '#a78bfa', backgroundColor: activeTab === 'photo_history' ? 'rgba(255,255,255,0.04)' : 'transparent', fontWeight: 'bold' }} 
-                    onClick={() => handleNavClick('photo_history')}
-                  >
-                    <BookOpen size={12} /> {lang === 'en' ? 'Photohistory Gallery' : 'Fotótörténeti Galéria'}
-                  </button>
-                )}
-
                 <button className="drop-item" style={{ color: '#8b5cf6', backgroundColor: activeTab === 'packages' ? 'rgba(255,255,255,0.04)' : 'transparent' }} onClick={() => handleNavClick('packages')}><Award size={12} /> {t('subPackages')}</button>
                 
                 <button className="drop-item" style={{ color: '#f43f5e', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: activeTab === 'tickets' ? 'rgba(255,255,255,0.04)' : 'transparent' }} onClick={() => handleNavClick('tickets')}>
