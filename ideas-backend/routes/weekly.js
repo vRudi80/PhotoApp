@@ -1087,24 +1087,32 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   });
 
-  // ====================================================================
-  // 💡 JAVASLATOK ÉS ARCHÍVUM CSERÉK
+ // ====================================================================
+  // 💡 JAVASLATOK ÉS ARCHÍVUM CSERÉK (JAVÍTVA: REFERENCEERROR VÉDELEM)
   // ====================================================================
   app.post('/api/weekly/propose', requireAuth, upload.single('cover'), async (req, res) => {
+    // 🎯 EZ A SOR HIÁNYZOTT: Deklaráljuk a 'file' változót, hogy elérhető legyen a catch ágban is!
+    const file = req.file; 
     const { title, title_en, description, description_en, cover_author, master_name, start_date, end_date, userEmail } = req.body;
-    if (req.user.email !== userEmail) { if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path); return res.status(403).json({ error: 'Munkamenet hiba!' }); }
+    
+    if (req.user.email !== userEmail) { 
+      if (file && fs.existsSync(file.path)) fs.unlinkSync(file.path); 
+      return res.status(403).json({ error: 'Munkamenet hiba!' }); 
+    }
 
     try {
       let coverUrl = null;
-      if (req.file) {
-        const result = await cloudinary.uploader.upload(req.file.path, { folder: 'parbaj_boritokepek', width: 1200, height: 600, crop: "limit", quality: "auto:good" });
+      if (file) {
+        const result = await cloudinary.uploader.upload(file.path, { folder: 'parbaj_boritokepek', width: 1200, height: 600, crop: "limit", quality: "auto:good" });
         coverUrl = result.secure_url;
         if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
       }
       await pool.query('INSERT INTO weekly_topics (title, title_en, description, description_en, start_date, end_date, master_email, cover_url, cover_author) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [title, title_en || null, description, description_en || null, start_date, end_date, master_name || null, coverUrl, cover_author || null]);
       res.json({ success: true });
     } catch (err) {
+      // 🎯 Most már a 'file' nem undefined, így a takarítás nem fogja felrobbantani a szervert!
       if (file && fs.existsSync(file.path)) fs.unlinkSync(file.path);
+      console.error("❌ Hiba a kihívás javaslat mentésekor:", err.message);
       res.status(500).json({ error: err.message });
     }
   });
