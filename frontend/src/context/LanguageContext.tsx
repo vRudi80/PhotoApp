@@ -534,7 +534,7 @@ tilePodcastDesc: 'Hallgass bennünket aktuális fotós témákról',
     loginSecureNotice: 'Google azonosítás, nincs szükség külön regisztrációra, csak az emailcímed és a neved kapjuk meg',
     
     // Bento-Rács Funkciók HU
-    loginFeatMatchTitle: 'Párbaj',
+    loginFeatMatchTitle: 'Játék',
     loginFeatMatchDesc: 'Fotós Játékok és toplisták.',
     loginFeatFiapTitle: 'FIAP / MAFOSZ',
     loginFeatFiapDesc: 'Nemzetközi minősítés követő.',
