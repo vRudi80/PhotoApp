@@ -49,11 +49,16 @@ async function requireAuth(req, res, next) {
   }
 }
 
+// ====================================================================
+// 🎮 ANTI-CHEAT MEMÓRIA TÁROLÓ
+// ====================================================================
+const activeQuizzes = {}; // Itt tartjuk számon, hogy ki játszik éppen aktívan
+
 // 🎯 PARAMÉTEREK RAGYOGÓAN SZINKRONIZÁLVA (index.js-hez igazítva)
 module.exports = function(app, pool, upload, genAI) {
 
   // ====================================================================
-  // 📋 KÉRDÉSEK GENERÁLÁSA KUPON-ELLENŐRZÉSSEL
+  // 📋 1. KÉRDÉSEK GENERÁLÁSA KUPON-ELLENŐRZÉSSEL + ANTI-CHEAT LOCK
   // ====================================================================
   app.get('/api/quiz/questions', requireAuth, async (req, res) => {
     try {
@@ -71,6 +76,9 @@ module.exports = function(app, pool, upload, genAI) {
         return res.json({ alreadyPlayed: true, questions: [] });
       }
 
+      // 🎯 ANTI-CHEAT LOCK: Felírjuk a szerver memóriájába, hogy a felhasználó elindított egy kvízt!
+      activeQuizzes[req.user.email] = Date.now();
+
       const [questions] = await pool.query(
         `SELECT id, type, image_url, question_hu, question_en, options_hu, options_en, explanation_hu, explanation_en 
          FROM quiz_questions 
@@ -83,12 +91,17 @@ module.exports = function(app, pool, upload, genAI) {
   });
 
   // ====================================================================
-  // 📡 KIÉRTÉKELÉS, IDŐMÉRÉS ÉS KÖZPONTI LEDGER PONTKÖNYVELÉS (TELJES)
+  // 📡 2. KIÉRTÉKELÉS, IDŐMÉRÉS, PONTKÖNYVELÉS + ANTI-CHEAT UNLOCK
   // ====================================================================
   app.post('/api/quiz/submit', requireAuth, async (req, res) => {
     const { answers, userEmail, durationSeconds } = req.body;
     if (!userEmail || req.user.email !== userEmail) {
       return res.status(403).json({ error: 'Munkamenet biztonsági eltérés!' });
+    }
+
+    // 🎯 ANTI-CHEAT UNLOCK: A kvíz sikeresen beküldésre került, feloldjuk a felhasználó zárolását!
+    if (activeQuizzes[req.user.email]) {
+      delete activeQuizzes[req.user.email];
     }
 
     try {
@@ -164,7 +177,7 @@ module.exports = function(app, pool, upload, genAI) {
   });
 
   // ====================================================================
-  // 📡 ADMINISZTRÁCIÓS MENTÉS (HIÁNYTALAN + MAGYARÁZATOK)
+  // 📡 3. ADMINISZTRÁCIÓS MENTÉS (HIÁNYTALAN + MAGYARÁZATOK)
   // ====================================================================
   app.post('/api/admin/quiz/add', requireAuth, upload.single('photo'), async (req, res) => {
     if (!req.user.isAdmin) return res.status(403).json({ error: 'Adminisztrátori jog szükséges!' });
@@ -192,7 +205,7 @@ module.exports = function(app, pool, upload, genAI) {
   });
 
   // ====================================================================
-  // 📁 ADMINISZTRÁCIÓS KÉRDÉSLISTA
+  // 📁 4. ADMINISZTRÁCIÓS KÉRDÉSLISTA
   // ====================================================================
   app.get('/api/admin/quiz/questions', requireAuth, async (req, res) => {
     if (!req.user.isAdmin) return res.status(403).json({ error: 'Adminisztrátori jog szükséges!' });
@@ -205,7 +218,7 @@ module.exports = function(app, pool, upload, genAI) {
   });
 
   // ====================================================================
-  // 🔍 MÚLTBÉLI KVÍZKÍSÉRLET RÉSZLETES ADATAINAK LEKÉRÉSE
+  // 🔍 5. MÚLTBÉLI KVÍZKÍSÉRLET RÉSZLETES ADATAINAK LEKÉRÉSE
   // ====================================================================
   app.get('/api/quiz/attempt/:id', requireAuth, async (req, res) => {
     try {
@@ -239,7 +252,7 @@ module.exports = function(app, pool, upload, genAI) {
   });
 
   // ====================================================================
-  // 📡 ADMINISZTRÁCIÓS MÓDOSÍTÁS (HIÁNYTALAN + MAGYARÁZATOK)
+  // 📡 6. ADMINISZTRÁCIÓS MÓDOSÍTÁS (HIÁNYTALAN + MAGYARÁZATOK)
   // ====================================================================
   app.put('/api/admin/quiz/update/:id', requireAuth, upload.single('photo'), async (req, res) => {
     if (!req.user.isAdmin) return res.status(403).json({ error: 'Adminisztrátori jog szükséges!' });
@@ -269,7 +282,7 @@ module.exports = function(app, pool, upload, genAI) {
   });
 
   // ====================================================================
-  // 🤖 ÉLES BELSŐ AI: VISION-ALAPÚ FOTÓTÖRTÉNETI KVÍZGENERÁTOR (GEMINI)
+  // 🤖 7. ÉLES BELSŐ AI: VISION-ALAPÚ FOTÓTÖRTÉNETI KVÍZGENERÁTOR (GEMINI)
   // ====================================================================
   app.post('/api/admin/quiz/analyze-image', requireAuth, upload.single('photo'), async (req, res) => {
     if (!req.user.isAdmin) return res.status(403).json({ error: 'Hozzáférés megtagadva!' });
@@ -285,8 +298,7 @@ module.exports = function(app, pool, upload, genAI) {
         generationConfig: { responseMimeType: "application/json" } 
       });
 
-      // 🎯 MÓDOSÍTVA: A prompt most már kikényszeríti a véletlenszerű betűválasztást (A, B, C vagy D)
-            const prompt = `Elemezd ezt a fotótörténeti vagy híres fotográfiai képet, azonosítsd be a készítőjét, a keletkezési körülményeit, és generálj belőle egy kvízkérdést.
+      const prompt = `Elemezd ezt a fotótörténeti vagy híres fotográfiai képet, azonosítsd be a készítőjét, a keletkezési körülményeit, és generálj belőle egy kvízkérdést.
       
       ⚠️ SZIGORÚ FIGYELMEZTETÉS: Kerüld el az azonos eseményen készült, hasonló témájú ikonikus képek összekeverését! (Például az 1967-es Pentagon-tüntetésen Bernie Boston és Marc Riboud is fotózott virágos jelenetet, de a kompozíciójuk teljesen más. Nézd meg alaposan a szereplőket, ruhákat, fegyvereket és a kép pontos részleteit, mielőtt rávágnád a fotós nevét!). Ha nem vagy 100%-ig biztos a szerzőben, ne találgass!
       
@@ -325,7 +337,7 @@ module.exports = function(app, pool, upload, genAI) {
   });
 
   // ====================================================================
-  // 📋 MY-HISTORY + KATÉGÓRIÁNKÉNTI ÉS ÖSSZESÍTETT SZÁMLÁLÓK
+  // 📋 8. MY-HISTORY + KATÉGÓRIÁNKÉNTI ÉS ÖSSZESÍTETT SZÁMLÁLÓK
   // ====================================================================
   app.get('/api/quiz/my-history', requireAuth, async (req, res) => {
     try {
@@ -366,7 +378,7 @@ module.exports = function(app, pool, upload, genAI) {
   });
 
   // ====================================================================
-  // 🏆 VÉGLEG JAVÍTVA: TISZTA TALÁLATI DARABSZÁM ÉS IDŐALAPÚ RANGLISTA
+  // 🏆 9. VÉGLEG JAVÍTVA: TISZTA TALÁLATI DARABSZÁM ÉS IDŐALAPÚ RANGLISTA
   // ====================================================================
   app.get('/api/quiz/leaderboard', requireAuth, async (req, res) => {
     const { period, year, month } = req.query;
@@ -406,10 +418,6 @@ module.exports = function(app, pool, upload, genAI) {
     sql += `
       ${whereClause}
       GROUP BY u.email, u.name, u.club_name, u.avatar_url, c.drive_logo_id, c.logo_url
-      
-      /* 🎯 AZ ÚJ ABSZOLÚT DÖNTŐBÍRÓ:
-         1. Elsődlegesen a tisztán eltalált kérdések összesített száma dönt (SUM score)
-         2. Holtverseny (pontazonosság) esetén a gyorsabb átlagos kitöltési idő ad jobb helyezést! */
       ORDER BY 
         SUM(a.score) DESC,
         AVG(a.duration_seconds) ASC
@@ -425,11 +433,27 @@ module.exports = function(app, pool, upload, genAI) {
   });
 
   // ====================================================================
-  // 🖼️ PRÉMIUM EXKLUZÍV: FOTÓTÖRTÉNETI DIGITÁLIS ENCIKLOPÉDIA ALBUM
+  // 🖼️ 10. PRÉMIUM EXKLUZÍV: FOTÓTÖRTÉNETI ALBUM + ANTI-CHEAT LOCK CHECK
   // ====================================================================
   app.get('/api/premium/photo-history', requireAuth, async (req, res) => {
     try {
-      // 1. Biztonsági ellenőrzés: Érvényes-e még a felhasználó prémium státusza
+      // 🎯 ANTI-CHEAT JAVÍTVA: Megnézzük, hogy van-e aktív, folyamatban lévő kvízköre!
+      const quizStartTime = activeQuizzes[req.user.email];
+      if (quizStartTime) {
+        const elapsedSeconds = (Date.now() - quizStartTime) / 1000;
+        
+        // Ha kevesebb mint 5 perce indult (300 mp) a kvíz, és még nincs submitelve, zároljuk az albumot!
+        if (elapsedSeconds < 300) {
+          return res.status(403).json({ 
+            error: '🎮 CSALÁS ELLENI VÉDELEM: Jelenleg aktív kvízköröd van folyamatban! A puskázás elkerülése érdekében a történeti album zárolva marad, amíg be nem fejezed a játékot.' 
+          });
+        } else {
+          // Időtúllépéses takarítás: ha már eltelt 5 perc, valószínűleg csak bezárta a kvízt ablakot, feloldjuk a lockot
+          delete activeQuizzes[req.user.email];
+        }
+      }
+
+      // Hozzáférés ellenőrzés
       const [userRows] = await pool.query(
         'SELECT is_premium, premium_until FROM photo_users WHERE email = ?', 
         [req.user.email]
@@ -442,7 +466,6 @@ module.exports = function(app, pool, upload, genAI) {
         return res.status(403).json({ error: 'Ez a galéria kizárólag aktív Prémium tagjaink számára elérhető!' });
       }
 
-      // 2. Kiszedjük a fotótörténeti kategória összes kérdését
       const [rows] = await pool.query(
         `SELECT id, image_url, question_hu, question_en, options_hu, options_en, correct_option, explanation_hu, explanation_en 
          FROM quiz_questions 
@@ -450,7 +473,6 @@ module.exports = function(app, pool, upload, genAI) {
          ORDER BY id DESC`
       );
 
-      // 3. Intelligens adatformázás: kinyerjük a fotós valós nevét a válasz-tömbből a helyes betű alapján
       const processedEncyclopedia = rows.map(row => {
         let photographerHu = 'Ismeretlen alkotó';
         let photographerEn = 'Unknown artist';
@@ -458,8 +480,6 @@ module.exports = function(app, pool, upload, genAI) {
         try {
           const optsHu = typeof row.options_hu === 'string' ? JSON.parse(row.options_hu) : row.options_hu;
           const optsEn = typeof row.options_en === 'string' ? JSON.parse(row.options_en) : row.options_en;
-          
-          // A = 0, B = 1, C = 2, D = 3 index kiszámítása
           const correctIdx = (row.correct_option || 'A').toUpperCase().charCodeAt(0) - 65;
           
           if (Array.isArray(optsHu) && optsHu[correctIdx]) photographerHu = optsHu[correctIdx];
@@ -478,7 +498,6 @@ module.exports = function(app, pool, upload, genAI) {
       });
 
       res.json(processedEncyclopedia);
-
     } catch (err) {
       console.error("❌ Enciklopédia betöltési hiba:", err.message);
       res.status(500).json({ error: 'Nem sikerült betölteni a fotótörténeti albumot.' });
@@ -486,7 +505,7 @@ module.exports = function(app, pool, upload, genAI) {
   });
 
   // ====================================================================
-  // 🗑️ ADMINISZTRÁCIÓS TÖRLES
+  // 🗑️ 11. ADMINISZTRÁCIÓS TÖRLES
   // ====================================================================
   app.delete('/api/admin/quiz/delete/:id', requireAuth, async (req, res) => {
     if (!req.user.isAdmin) return res.status(403).json({ error: 'Adminisztrátori jog szükséges!' });
