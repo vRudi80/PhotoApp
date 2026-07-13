@@ -9,6 +9,7 @@ import {
   Image as ImageIcon, 
   Users, 
   FileText,
+  BookOpen,
   ShieldCheck
 } from 'lucide-react';
 
@@ -57,7 +58,8 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
     { icon: MapPin, titleKey: 'loginFeatMapTitle', descKey: 'loginFeatMapDesc', color: '#10b981' },
     { icon: ImageIcon, titleKey: 'loginFeatAiTitle', descKey: 'loginFeatAiDesc', color: '#a855f7' },
     { icon: Users, titleKey: 'loginFeatClubTitle', descKey: 'loginFeatClubDesc', color: '#06b6d4' },
-    { icon: FileText, titleKey: 'loginFeatContestsTitle', descKey: 'loginFeatContestsDesc', color: '#38bdf8' }
+    { icon: FileText, titleKey: 'loginFeatContestsTitle', descKey: 'loginFeatContestsDesc', color: '#38bdf8' },
+    { icon: BookOpen, titleKey: 'loginPhotoHistoryTitle', descKey: 'loginPhotoHistoryDesc', color: '#38bdf8' }
   ];
 
   return (
