@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { BACKEND_URL } from '../utils/constants';
 import VideoLoader from '../components/VideoLoader';
-import PremiumPaywall from '../components/PremiumPaywall';
+import PremiumPaywall from './components/PremiumPaywall';
 import { useLanguage } from '../context/LanguageContext';
 import { Search, Camera, BookOpen, Layers, Maximize2, Sparkles } from 'lucide-react';
 
