@@ -24,7 +24,7 @@ export default function PremiumPaywall({ user }: { user: any }) {
       <div style={{ fontSize: '3rem', marginBottom: '10px' }}>👑</div>
       <h2 style={{ fontSize: '1.8rem', marginBottom: '15px', color: '#f8fafc' }}>Prémium Funkció</h2>
       <p style={{ color: '#cbd5e1', marginBottom: '25px', lineHeight: '1.6' }}>
-        Ennek az oldalnak a használatához (Nemzetközi Szalonok és FIAP/PSA statisztikák) Prémium tagság szükséges.
+        Ennek az oldalnak a használatához (Nemzetközi Szalonok és FIAP/PSA statisztikák, Fotótörténeti album) Prémium tagság szükséges.
       </p>
 
       {/* ÁR KIÍRÁSA */}
