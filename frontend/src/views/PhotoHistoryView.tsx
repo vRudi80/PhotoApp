@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { BACKEND_URL } from '../utils/constants';
 import VideoLoader from '../components/VideoLoader';
-import PremiumPaywall from './PremiumPaywall'; 
+import PremiumPaywall from './PremiumPaywall';
 import { useLanguage } from '../context/LanguageContext';
 import { Search, Camera, BookOpen, Layers, Maximize2, Sparkles } from 'lucide-react';
 
@@ -17,7 +17,7 @@ export default function PhotoHistoryView({ user }: { user: any }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
 
-  // Prémium hozzáférés ellenőrzése (hasonlóan a MyAlbumView-hoz)
+  // Prémium hozzáférés ellenőrzése
   const hasPremiumAccess = user && (user.isPremium || user.is_premium);
 
   useEffect(() => {
@@ -93,7 +93,6 @@ export default function PhotoHistoryView({ user }: { user: any }) {
             <div 
               onClick={() => setLightboxImage(item.image_url)}
               style={{ height: '220px', width: '100%', background: '#000', position: 'relative', overflow: 'hidden', cursor: 'zoom-in' }}
-              className="group"
             >
               <img src={item.image_url} alt={item.photographer} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
               <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)', opacity: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'opacity 0.2s' }} onMouseEnter={e => e.currentTarget.style.opacity = '1'} onMouseLeave={e => e.currentTarget.style.opacity = '0'}>
@@ -114,12 +113,15 @@ export default function PhotoHistoryView({ user }: { user: any }) {
 
               <div style={{ height: '1px', background: 'var(--border-main)' }} />
 
-              <div style={{ background: 'var(--bg-main)', padding: '12px', borderRadius: '8px', borderLeft: '3px solid #a78bfa', fontSize: '0.85rem', lineHeight: '1.5', color: 'var(--text-body)', flex: 1, maxHeight: '120px', overflowY: 'auto' }}>
-                <div style={{ color: '#a78bfa', fontWeight: 'bold', fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              {/* 🎯 JAVÍTVA: Natív, tökéletesen scrollozható és lenyitható details/summary blokk görgetési hibák ellen */}
+              <details style={{ background: 'var(--bg-main)', borderRadius: '8px', border: '1px solid var(--border-main)', overflow: 'hidden' }}>
+                <summary style={{ padding: '10px 12px', color: '#a78bfa', fontWeight: 'bold', fontSize: '0.75rem', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', userSelect: 'none', outline: 'none' }}>
                   <BookOpen size={12} /> {lang === 'en' ? 'Historical context' : 'Történelmi kontextus'}
+                </summary>
+                <div style={{ padding: '4px 12px 12px 12px', fontSize: '0.85rem', lineHeight: '1.5', color: 'var(--text-body)', borderTop: '1px solid var(--border-main)', paddingTop: '10px' }}>
+                  {item.explanation || (lang === 'en' ? 'No archival description available.' : 'Ehhez a mesterműhöz nincs archív leírás rögzítve.')}
                 </div>
-                {item.explanation || (lang === 'en' ? 'No archival description available.' : 'Ehhez a mesterműhöz nincs archív leírás rögzítve.')}
-              </div>
+              </details>
             </div>
 
           </div>
@@ -129,7 +131,7 @@ export default function PhotoHistoryView({ user }: { user: any }) {
       {/* HA NINCS TALÁLAT */}
       {filteredItems.length === 0 && (
         <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-main)', fontStyle: 'italic' }}>
-          {lang === 'en' ? 'No master kards match your search term.' : 'Egyetlen mesterkártya sem felel meg a keresési feltételeknek.'}
+          {lang === 'en' ? 'No master cards match your search term.' : 'Egyetlen mesterkártya sem felel meg a keresési feltételeknek.'}
         </div>
       )}
 
