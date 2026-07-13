@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { BACKEND_URL } from '../utils/constants';
 import VideoLoader from '../components/VideoLoader';
 import PremiumPaywall from './PremiumPaywall';
 import { useLanguage } from '../context/LanguageContext';
-import { Search, Camera, BookOpen, Layers, Maximize2, Sparkles, AlertTriangle } from 'lucide-react';
+import { Search, Camera, BookOpen, Layers, Maximize2, Sparkles, AlertTriangle, RefreshCw } from 'lucide-react';
 
 const getAuthHeaders = () => {
   const token = localStorage.getItem('photoAppToken');
@@ -16,15 +16,18 @@ export default function PhotoHistoryView({ user }: { user: any }) {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
-  
-  // 🎯 ÚJ: Állapot a valós hibaüzenetek (pl. Csalás elleni tiltás) transzparens kiírásához
   const [error, setError] = useState<string | null>(null);
+
+  // 🎯 ÚJ: Dinamikus lapozó állapot (alapértelmezetten 12 kártya jelenik meg először)
+  const [visibleCount, setVisibleCount] = useState(12);
+  
+  // 🎯 ÚJ: Referencia a lista alján elhelyezett láthatatlan radarhoz (sentinel)
+  const triggerRef = useRef<HTMLDivElement | null>(null);
 
   const hasPremiumAccess = user && (user.isPremium || user.is_premium);
 
   // FŐ ADATBETÖLTŐ FÜGGVÉNY
   const loadHistoryData = () => {
-    // Ha a fül-szinkronizáció aktív kvízt lát, el sem indítjuk a hálózati kérést
     if (localStorage.getItem('photo_quiz_active') === 'true') {
       setError(lang === 'en' ? 'Anti-cheat protection active! Please finish your quiz first.' : 'CSALÁS ELLENI VÉDELEM: Jelenleg aktív kvízköröd van folyamatban! A puskázás elkerülése érdekében a történeti album zárolva van. Amennyiben bezártad az ablakot, nem befejezted a kvízt, akkor a rendszer 5 perc múlva oldja fel ezt az ablakot.');
       setItems([]);
@@ -57,19 +60,17 @@ export default function PhotoHistoryView({ user }: { user: any }) {
     loadHistoryData();
   }, [user, lang, hasPremiumAccess]);
 
-  // 🎯 ÚJ: VILLÁMGYORS FÜL-KÖZI ANTI-CHEAT SZINKRONIZÁCIÓS MOTOR
+  // VILLÁMGYORS FÜL-KÖZI ANTI-CHEAT SZINKRONIZÁCIÓS MOTOR
   useEffect(() => {
     const runLiveTabCheck = () => {
       if (localStorage.getItem('photo_quiz_active') === 'true') {
         if (items.length > 0) {
-          // Ha puskázási szándékkal hirtelen átvált az előre megnyitott fülre, azonnal megsemmisítjük a memóriát!
           setItems([]);
         }
         setError(lang === 'en' ? 'Anti-cheat protection active! Please finish your quiz first.' : '🎮 CSALÁS ELLENI VÉDELEM: Jelenleg aktív kvízköröd van folyamatban! A puskázás elkerülése érdekében az album lezárult.');
       }
     };
 
-    // Ellenőrzés ablakfókusz és gyors belső timer alapján (ha egymás melletti ablakban csalna)
     window.addEventListener('focus', runLiveTabCheck);
     const cheatInterval = setInterval(runLiveTabCheck, 1000);
 
@@ -79,6 +80,7 @@ export default function PhotoHistoryView({ user }: { user: any }) {
     };
   }, [items, lang]);
 
+  // Kliensoldali szűrés
   const filteredItems = useMemo(() => {
     if (!searchTerm.trim()) return items;
     const term = searchTerm.toLowerCase();
@@ -88,6 +90,41 @@ export default function PhotoHistoryView({ user }: { user: any }) {
       (item.explanation && item.explanation.toLowerCase().includes(term))
     );
   }, [items, searchTerm]);
+
+  // 🎯 ÚJ: Ha megváltozik a keresési kifejezés, visszaállítjuk a számlálót 12-re, hogy ne lassuljon be gépelés közben
+  useEffect(() => {
+    setVisibleCount(12);
+  }, [searchTerm]);
+
+  // 🎯 ÚJ: Csak a darabolt, aktuálisan látható kártyatömböt rendereljük ki
+  const displayedItems = useMemo(() => {
+    return filteredItems.slice(0, visibleCount);
+  }, [filteredItems, visibleCount]);
+
+  // 🎯 ÚJ: INTERSECTION OBSERVER RADARMOTOR MOBILRA ÉS DESKTOPRA
+  useEffect(() => {
+    if (error || isLoading || filteredItems.length <= visibleCount) return;
+
+    const observer = new IntersectionObserver((entries) => {
+      // Ha a felhasználó a görgetés során megközelíti az alját, betöltünk még 12 darabot
+      if (entries[0].isIntersecting) {
+        setVisibleCount((prev) => Math.min(filteredItems.length, prev + 12));
+      }
+    }, {
+      rootMargin: '250px' // 🎯 UX optimalizáció: már 250px-el az alja előtt elkezd tölteni, így a görgetés teljesen észrevétlen marad!
+    });
+
+    const currentTrigger = triggerRef.current;
+    if (currentTrigger) {
+      observer.observe(currentTrigger);
+    }
+
+    return () => {
+      if (currentTrigger) {
+        observer.unobserve(currentTrigger);
+      }
+    };
+  }, [filteredItems.length, visibleCount, error, isLoading]);
 
   if (!hasPremiumAccess) {
     return (
@@ -111,7 +148,7 @@ export default function PhotoHistoryView({ user }: { user: any }) {
           <h2 style={{ margin: 0, fontSize: '1.6rem', fontWeight: '900', color: '#a78bfa', display: 'flex', alignItems: 'center', gap: '10px' }}>
             <Layers size={24} /> {lang === 'en' ? 'Photo History Gallery' : 'Fotótörténeti album'}
           </h2>
-          <small style={{ color: 'var(--text-muted)' }}>{lang === 'en' ? `Exclusive archive: ${items.length} historical masterpieces` : `Exkluzív tudásbázis: ${items.length} történelmi mestermű egy helyen`}</small>
+          <small style={{ color: 'var(--text-muted)' }}>{lang === 'en' ? `Exclusive archive: ${filteredItems.length} historical masterpieces` : `Exkluzív tudásbázis: ${filteredItems.length} történelmi mestermű egy helyen`}</small>
         </div>
 
         {!error && (
@@ -128,7 +165,6 @@ export default function PhotoHistoryView({ user }: { user: any }) {
         )}
       </div>
 
-      {/* 🎯 ÚJ: HA HIBA VAN (PL. LOCK VAGY CHEAT DETECTED), EZT A PANEL JELENIK MEG A VALÓDI SZÖVEGGEL */}
       {error ? (
         <div style={{ padding: '40px 30px', background: 'rgba(239, 68, 68, 0.05)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '12px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px', maxWidth: '600px', margin: '40px auto' }}>
           <AlertTriangle color="#ef4444" size={40} />
@@ -136,44 +172,57 @@ export default function PhotoHistoryView({ user }: { user: any }) {
           <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-body)', lineHeight: '1.6' }}>{error}</p>
         </div>
       ) : (
-        /* ALBUM RÁCSRENDSZER */
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '25px' }}>
-          {filteredItems.map(item => (
-            <div key={item.id} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', borderRadius: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 4px 15px rgba(0,0,0,0.1)' }}>
-              
-              <div onClick={() => setLightboxImage(item.image_url)} style={{ height: '220px', width: '100%', background: '#000', position: 'relative', overflow: 'hidden', cursor: 'zoom-in' }}>
-                <img src={item.image_url} alt={item.photographer} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)', opacity: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'opacity 0.2s' }} onMouseEnter={e => e.currentTarget.style.opacity = '1'} onMouseLeave={e => e.currentTarget.style.opacity = '0'}>
-                  <Maximize2 color="white" size={20} />
-                </div>
-              </div>
-
-              <div style={{ padding: '18px', display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
-                <div>
-                  <span style={{ fontSize: '1.15rem', fontWeight: '800', color: 'var(--text-title)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-                    <Camera size={16} color="#a78bfa" /> {item.photographer}
-                  </span>
-                  <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--text-muted)', fontStyle: 'italic', lineHeight: '1.4' }}>{item.title}</p>
-                </div>
-
-                <div style={{ height: '1px', background: 'var(--border-main)' }} />
-
-                <details style={{ background: 'var(--bg-main)', borderRadius: '8px', border: '1px solid var(--border-main)', overflow: 'hidden' }}>
-                  <summary style={{ padding: '10px 12px', color: '#a78bfa', fontWeight: 'bold', fontSize: '0.75rem', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', outline: 'none' }}>
-                    <BookOpen size={12} /> {lang === 'en' ? 'Historical context' : 'Történelmi kontextus'}
-                  </summary>
-                  <div style={{ padding: '12px', fontSize: '0.85rem', lineHeight: '1.5', color: 'var(--text-body)', borderTop: '1px solid var(--border-main)' }}>
-                    {item.explanation || (lang === 'en' ? 'No archival description available.' : 'Ehhez a felvételhez nincs archív leírás rögzítve.')}
+        <>
+          {/* ALBUM RÁCSRENDSZER */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '25px' }}>
+            {/* 🎯 MÓDOSÍTVA: Kizárólag a darabolt displayedItems tömböt mapeljük le! */}
+            {displayedItems.map(item => (
+              <div key={item.id} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', borderRadius: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 4px 15px rgba(0,0,0,0.1)' }}>
+                
+                <div onClick={() => setLightboxImage(item.image_url)} style={{ height: '220px', width: '100%', background: '#000', position: 'relative', overflow: 'hidden', cursor: 'zoom-in' }}>
+                  <img src={item.image_url} alt={item.photographer} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                  <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)', opacity: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'opacity 0.2s' }} onMouseEnter={e => e.currentTarget.style.opacity = '1'} onMouseLeave={e => e.currentTarget.style.opacity = '0'}>
+                    <Maximize2 color="white" size={20} />
                   </div>
-                </details>
-              </div>
+                </div>
 
+                <div style={{ padding: '18px', display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
+                  <div>
+                    <span style={{ fontSize: '1.15rem', fontWeight: '800', color: 'var(--text-title)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                      <Camera size={16} color="#a78bfa" /> {item.photographer}
+                    </span>
+                    <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--text-muted)', fontStyle: 'italic', lineHeight: '1.4' }}>{item.title}</p>
+                  </div>
+
+                  <div style={{ height: '1px', background: 'var(--border-main)' }} />
+
+                  <details style={{ background: 'var(--bg-main)', borderRadius: '8px', border: '1px solid var(--border-main)', overflow: 'hidden' }}>
+                    <summary style={{ padding: '10px 12px', color: '#a78bfa', fontWeight: 'bold', fontSize: '0.75rem', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', outline: 'none' }}>
+                      <BookOpen size={12} /> {lang === 'en' ? 'Historical context' : 'Történelmi kontextus'}
+                    </summary>
+                    <div style={{ padding: '12px', fontSize: '0.85rem', lineHeight: '1.5', color: 'var(--text-body)', borderTop: '1px solid var(--border-main)' }}>
+                      {item.explanation || (lang === 'en' ? 'No archival description available.' : 'Ehhez a felvételhez nincs archív leírás rögzítve.')}
+                    </div>
+                  </details>
+                </div>
+
+              </div>
+            ))}
+          </div>
+
+          {/* 🎯 ÚJ: LÁTHATATLAN SENTINEL ELEM ÉS TÖLTÉSVISSZAJELZŐ A RANGA ALÁ */}
+          {filteredItems.length > visibleCount && (
+            <div 
+              ref={triggerRef} 
+              style={{ width: '100%', padding: '30px 0', display: 'flex', justifyContent: 'center', alignItems: 'center', color: 'var(--text-muted)', fontSize: '0.85rem', gap: '8px' }}
+            >
+              <RefreshCw size={14} className="animate-spin" style={{ animation: 'spin 1s linear infinite' }} />
+              <span>{lang === 'en' ? 'Loading more master pieces...' : 'További történelmi kártyák betöltése...'}</span>
             </div>
-          ))}
-        </div>
+          )}
+        </>
       )}
 
-      {/* JAVÍTVA: Szövegkorrekció fotótörténeti kártyákra */}
       {!error && filteredItems.length === 0 && (
         <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-main)', fontStyle: 'italic' }}>
           {lang === 'en' ? 'No photo history cards match your search term.' : 'Egyetlen fotótörténeti kártya sem felel meg a keresési feltételeknek.'}
@@ -185,6 +234,14 @@ export default function PhotoHistoryView({ user }: { user: any }) {
           <img src={lightboxImage} alt="Large preview" style={{ maxWidth: '92%', maxHeight: '92%', objectFit: 'contain', borderRadius: '6px' }} />
         </div>
       )}
+
+      {/* 🎯 ÚJ: CSS Animáció a forgó ikonhoz közvetlenül beágyazva */}
+      <style>{`
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
 
     </div>
   );
