@@ -90,7 +90,7 @@ function ActiveRoomCountdown({ endDate, lang }: { endDate: string; lang: string 
 
 interface ArenaActiveRoomProps {
   topic: any; timeLeft: string; isMaster: boolean; 
-  exposureColor?: string; exposurePercentage?: number; exposureLabel?: string; // 🎯 Opcionálissá téve a szülő leválasztásához
+  exposureColor?: string; exposurePercentage?: number; exposureLabel?: string; 
   myEntry: any; voteEntry: any; noMoreEntries: boolean; masterVotesLeft: number; userPower: any; swapBalance: number;
   myPastEntries: any[]; leaderboard: any[]; currentClubLeaderboard: any[]; user: any; isUploading: boolean; uploadPreview: string | null;
   handleFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void; handleUpload: () => void; isLoadingSwapAlbum: boolean; isSwapping: boolean;
@@ -128,7 +128,6 @@ export default function ArenaActiveRoom({
   const safePastEntries = Array.isArray(myPastEntries) ? myPastEntries : [];
   const safeUserPower = userPower || { super: 1, brilliant: 2 };
 
-  // 🎯 ÚJ: Belső autonóm láthatósági index kalkuláció, hogy a külső hivatkozási hiba megszűnjön!
   const derivedExposurePercentage = useMemo(() => {
     if (exposurePercentage !== undefined) return exposurePercentage;
     if (!myEntry) return 0;
@@ -183,10 +182,6 @@ export default function ArenaActiveRoom({
   const displayRoomTitle = lang === 'en' && topic?.title_en ? topic.title_en : (topic?.title || t('roomChallengeRoom'));
   const displayRoomDesc = lang === 'en' && topic?.description_en ? topic.description_en : (topic?.description || '');
 
-  const handleShare = (e: React.MouseEvent) => {
-    e.stopPropagation();
-  };
-
   const handleBatchSubmit = async () => {
     const totalVoted = Object.keys(pendingVotes).length;
     if (totalVoted < batchVoteEntries.length) {
@@ -228,10 +223,23 @@ export default function ArenaActiveRoom({
           <p style={{ margin: '0 0 14px 0', color: 'var(--text-body)', fontSize: '0.88rem', textAlign: 'center', lineHeight: '1.5' }}>{displayRoomDesc}</p>
           
           {(topic?.master_name || topic?.master_email) && (
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#a78bfa', fontSize: '0.78rem', fontWeight: 'bold', background: 'rgba(167,139,250,0.06)', padding: '5px 12px', borderRadius: '4px', border: '1px solid rgba(167,139,250,0.2)', marginBottom: '166px', whiteSpace: 'nowrap' }}>
+            /* 🎯 JAVÍTVA: A felesleges marginBottom: '166px' átírva egy normális 14px-re, megszüntetve a tátongó ürességet */
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#a78bfa', fontSize: '0.78rem', fontWeight: 'bold', background: 'rgba(167,139,250,0.06)', padding: '5px 12px', borderRadius: '4px', border: '1px solid rgba(167,139,250,0.2)', marginBottom: '14px', whiteSpace: 'nowrap' }}>
               <Crown size={12} />
               <span>{t('viewMasterLabel') || 'Képmester:'}</span>
               <span style={{ color: 'var(--text-title)' }}>{topic.master_name || topic.master_email}</span>
+            </div>
+          )}
+
+          {/* 🎯 ÚJ: STÍLUSOS, RESPONSIVE ARÉNA BORÍTÓKÉP BANNER FOTÓS JELZÉSSEL */}
+          {topic?.cover_url && (
+            <div style={{ width: '100%', height: '180px', borderRadius: '6px', overflow: 'hidden', marginBottom: '20px', border: '1px solid var(--border-main)', background: '#000', position: 'relative', boxShadow: 'inset 0 0 20px rgba(0,0,0,0.6)' }}>
+              <img src={topic.cover_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              {topic?.cover_author && (
+                <span style={{ position: 'absolute', bottom: '8px', right: '8px', background: 'rgba(9,13,22,0.75)', backdropFilter: 'blur(4px)', color: '#94a3b8', padding: '3px 8px', borderRadius: '4px', fontSize: '0.65rem', fontWeight: '600', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  📸 {topic.cover_author}
+                </span>
+              )}
             </div>
           )}
 
@@ -416,12 +424,10 @@ export default function ArenaActiveRoom({
             <div style={{ position: 'relative', width: '100%', maxWidth: '160px', height: '95px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
               <svg viewBox="0 0 200 120" style={{ width: '100%', height: 'auto', display: 'block' }}>
                 <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="var(--bg-main)" strokeWidth="14" strokeLinecap="round" />
-                {/* 🎯 JAVÍTVA: A szülőtől kapott, érvénytelen exposureColor helyett a belső derivedExposureColor-t alkalmazzuk! */}
                 <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke={derivedExposureColor || '#ef4444'} strokeWidth="14" strokeLinecap="round" pathLength="100" strokeDasharray="100" strokeDashoffset={100 - (derivedExposurePercentage || 0)} style={{ transition: 'stroke-dashoffset 0.6s cubic-bezier(0.4, 0, 0.2, 1)' }} />
               </svg>
               <div style={{ position: 'absolute', bottom: '5px', textAlign: 'center' }}>
                 <div style={{ fontSize: '1.4rem', fontWeight: '700', color: 'var(--text-title)', letterSpacing: '-0.5px' }}>{Math.round(derivedExposurePercentage || 0)}%</div>
-                {/* 🎯 JAVÍTVA: Szintén a belső derivedExposureColor és derivedExposureLabel értékeket rajzoljuk ki */}
                 <div style={{ fontSize: '0.68rem', fontWeight: 'bold', color: derivedExposureColor, textTransform: 'uppercase', marginTop: '1px' }}>{derivedExposureLabel}</div>
               </div>
             </div>
