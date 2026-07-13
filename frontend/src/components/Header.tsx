@@ -6,10 +6,10 @@ import { ADMIN_EMAIL, BACKEND_URL } from '../utils/constants';
 import logoHu from './logo_hu2.png';
 import logoEn from './logo_en2.png';
 
-// Behozzuk a nyelvi kontextust
+// Behozzuk a környezeti kontextusokat
 import { useLanguage } from '../context/LanguageContext';
-// Behozzuk a téma környezetet
 import { useTheme } from '../context/ThemeContext';
+
 // Professzionális Lucide ikonok importálása
 import { 
   Menu, 
@@ -34,7 +34,8 @@ import {
   Sun,
   MessageCircleQuestion,
   Moon,
-  Image as ImageIcon
+  Image as ImageIcon,
+  BookOpen // 🎯 ÚJ: Ikon az exkluzív történelmi galériához
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -47,7 +48,7 @@ interface HeaderProps {
   onLogout: () => void;
 }
 
-// 🎯 JAVÍTVA: A stílusokat kiemeltük a komponensből a globális memóriatérbe.
+// A stílusokat kiemeltük a komponensből a globális memóriatérbe (Auto-freeze védelem)
 const HEADER_STYLES = `
   @media (min-width: 1060px) {
     .app-header {
@@ -217,8 +218,7 @@ const HEADER_STYLES = `
   }
 `;
 
-// 🎯 JAVÍTVA: Kivettük a belső függvényt és áthelyeztük egy önálló felső szintű komponensbe.
-// Ez garantálja, hogy a React fókuszváltáskor ne törölje le és építse újra a logót a DOM fában.
+// Külső felső szintű brand blokk (Megvédi a logót a felesleges villogástól/újraépüléstől)
 function LogoBrandBlock({ logo } : { logo: string }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
@@ -259,11 +259,9 @@ export default function Header({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [unreadTicketsCount, setUnreadTicketsCount] = useState(0);
   const [unreadForumCount, setUnreadForumCount] = useState<number>(0);
-  
   const isAdminUser = user?.email === ADMIN_EMAIL;
   const headerRef = useRef<HTMLDivElement>(null);
 
-  // Biztonsági fék a témakezelőhöz
   let theme = 'dark';
   let toggleTheme = () => {};
   try {
@@ -275,7 +273,6 @@ export default function Header({
   } catch (e) {}
 
   const currentLogo = lang === 'en' ? logoEn : logoHu;
-
   const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
     const token = localStorage.getItem('photoAppToken');
     return {
@@ -284,7 +281,6 @@ export default function Header({
     };
   };
 
-  // 🎯 JAVÍTVA: A teljes user objektum helyett csak a user?.email-t figyeljük, megvédve a felesleges hálózati kérésektől
   useEffect(() => {
     const fetchUnreadForumTotal = async () => {
       try {
@@ -294,6 +290,7 @@ export default function Header({
         const res = await fetch(`${BACKEND_URL}/api/forum/unread-total`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
+     
         if (res.ok) {
           const data = await res.json();
           setUnreadForumCount(data.totalUnread);
@@ -306,7 +303,6 @@ export default function Header({
     return () => clearInterval(interval);
   }, [user?.email]);
 
-  // 🎯 JAVÍTVA: Itt is bekapcsoltuk auser?.email alapú atomszerű függőségkezelést
   useEffect(() => {
     if (!user?.email) return;
     
@@ -507,21 +503,19 @@ export default function Header({
                     </button>
                   )}
                   {user?.email === ADMIN_EMAIL && (
-                      <button 
-                        className="drop-item" 
-                        style={{ color: activeTab === 'admin_quiz' ? '#ef4444' : '#f59e0b', fontWeight: 'bold' }} 
-                        onClick={() => handleNavClick('admin_quiz')}
-                      >
-                        {lang === 'en' ? 'Quiz Control' : 'Kvíz Kezelése'}
-                      </button>
-                    )}
-
+                    <button 
+                      className="drop-item" 
+                      style={{ color: activeTab === 'admin_quiz' ? '#ef4444' : '#f59e0b', fontWeight: 'bold' }} 
+                      onClick={() => handleNavClick('admin_quiz')}
+                    >
+                      {lang === 'en' ? 'Quiz Control' : 'Kvíz Kezelése'}
+                    </button>
+                  )}
                   {user?.email === ADMIN_EMAIL && (
                     <button className="drop-item" style={{ color: activeTab === 'admin_banned_emails' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_banned_emails')}>
                       {lang === 'en' ? 'Banned Emails' : 'Tiltólista'}
                     </button>
                   )}
-
                   {user?.email === ADMIN_EMAIL && <button className="drop-item" style={{ color: activeTab === 'admin_clubs' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_clubs')}>{t('subManageClubs')}</button>}
                 </div>
               )}
@@ -564,7 +558,8 @@ export default function Header({
           
           <div className="nav-item-container">
             <button 
-              className={`nav-btn ${dropdownOpen === 'user_account' || ['profile', 'my_album', 'packages', 'tickets'].includes(activeTab) ? 'active' : ''}`} 
+              /* 🎯 JAVÍTVA: A 'photo_history' bekerült a feltételbe, így aktív vizuális kijelzést kap a menüfül */
+              className={`nav-btn ${dropdownOpen === 'user_account' || ['profile', 'my_album', 'photo_history', 'packages', 'tickets'].includes(activeTab) ? 'active' : ''}`} 
               style={{ color: '#14b8a6', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}
               onClick={() => setDropdownOpen(dropdownOpen === 'user_account' ? null : 'user_account')}
             >
@@ -583,6 +578,18 @@ export default function Header({
               <div className="dropdown-menu" style={{ right: 0, left: 'auto', minWidth: '210px' }}>
                 <button className="drop-item" style={{ color: '#14b8a6', backgroundColor: activeTab === 'profile' ? 'rgba(255,255,255,0.04)' : 'transparent' }} onClick={() => handleNavClick('profile')}><User size={12} /> {t('subProfile')}</button>
                 <button className="drop-item" style={{ color: '#f59e0b', backgroundColor: activeTab === 'my_album' ? 'rgba(255,255,255,0.04)' : 'transparent' }} onClick={() => handleNavClick('my_album')}><ImageIcon size={12} /> {t('subPortfolio')}</button>
+                
+                {/* 🎯 ÚJ EXKLUZÍV INTEGRÁCIÓ: Fotóművészeti Mesterkártya Galéria (Kizárólag prémium előfizetőknek) */}
+                {!!(user?.isPremium || user?.is_premium) && (
+                  <button 
+                    className="drop-item" 
+                    style={{ color: '#a78bfa', backgroundColor: activeTab === 'photo_history' ? 'rgba(255,255,255,0.04)' : 'transparent', fontWeight: 'bold' }} 
+                    onClick={() => handleNavClick('photo_history')}
+                  >
+                    <BookOpen size={12} /> {lang === 'en' ? 'Photohistory Gallery' : 'Fotótörténeti Galéria'}
+                  </button>
+                )}
+
                 <button className="drop-item" style={{ color: '#8b5cf6', backgroundColor: activeTab === 'packages' ? 'rgba(255,255,255,0.04)' : 'transparent' }} onClick={() => handleNavClick('packages')}><Award size={12} /> {t('subPackages')}</button>
                 
                 <button className="drop-item" style={{ color: '#f43f5e', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: activeTab === 'tickets' ? 'rgba(255,255,255,0.04)' : 'transparent' }} onClick={() => handleNavClick('tickets')}>
