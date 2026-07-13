@@ -37,6 +37,9 @@ import AdminPointsDashboard from './views/admin/AdminPointsDashboard';
 import ForumView from './views/ForumView'; 
 import AdminQuizView from './views/admin/AdminQuizView';
 import QuizView from './views/QuizView';
+// 1. Az importok közé:
+import PhotoHistoryView from './views/PhotoHistoryView';
+
 
 // Témakezelő környezet
 import { ThemeProvider } from './context/ThemeContext'; 
@@ -691,6 +694,8 @@ function MainContent() {
               <Route path="/admin_banned_emails" element={user?.email === ADMIN_EMAIL ? <AdminBannedEmailsView /> : <Navigate to="/dashboard" />} /> 
               <Route path="/admin_meetings" element={(user?.email === ADMIN_EMAIL || isLeader) ? <AdminMeetingsView user={user} currentDbUser={currentDbUser} clubs={clubs} meetings={meetings} allUsers={allUsers} adminMeetings={adminMeetings} fetchData={fetchData} /> : <Navigate to="/dashboard replace" />} />
               <Route path="/admin_homeworks" element={(user?.email === ADMIN_EMAIL || isLeader) ? <AdminHomeworksView user={user} currentDbUser={currentDbUser} clubs={clubs} adminHomeworks={adminHomeworks} fetchData={fetchData} /> : <Navigate to="/dashboard replace" />} />
+// 2. A <Routes> blokkba (pl. a /salons vagy /my_album alá):
+<Route path="/photo_history" element={<PhotoHistoryView user={headerUser} />} />
 
               {['/contests_open_active', '/contests_club_active', '/contests_closed'].map(path => (
                 <Route key={path} path={path} element={
