@@ -534,8 +534,8 @@ tilePodcastDesc: 'Hallgass bennünket aktuális fotós témákról',
     loginSecureNotice: 'Google azonosítás, nincs szükség külön regisztrációra, csak az emailcímed és a neved kapjuk meg',
     
     // Bento-Rács Funkciók HU
-    loginFeatMatchTitle: 'Játék',
-    loginFeatMatchDesc: 'Fotós Játékok és toplisták.',
+    loginFeatMatchTitle: 'Játék és Kvíz',
+    loginFeatMatchDesc: 'Fotós Játékok és kvízek.',
     loginFeatFiapTitle: 'FIAP / MAFOSZ',
     loginFeatFiapDesc: 'Nemzetközi minősítés követő.',
     loginFeatMapTitle: 'Fotós Térkép',
@@ -1334,8 +1334,8 @@ titleQuiz: 'Quiz',
     loginSecureNotice: '🔒 100% Secure Google Authentication',
     
     // Bento-Rács Funkciók EN
-    loginFeatMatchTitle: 'Arena Duel',
-    loginFeatMatchDesc: 'Photo challenges and live leaderboards.',
+    loginFeatMatchTitle: 'Phot game and Quiz',
+    loginFeatMatchDesc: 'Photo challenges, quizes and live leaderboards.',
     loginFeatFiapTitle: 'FIAP / MAFOSZ',
     loginFeatFiapDesc: 'International distinction tracker.',
     loginFeatMapTitle: 'Photo Map',
