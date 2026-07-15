@@ -1,19 +1,15 @@
 import React, { useState } from 'react';
 import { BACKEND_URL } from '../../../utils/constants';
-
-// Behozzuk a nyelvi kontextust
 import { useLanguage } from '../../../context/LanguageContext';
-
-// Behozzuk a téma környezetet
 import { useTheme } from '../../../context/ThemeContext';
 
-// 🎯 ÚJ: Lucide ikonok importálása a modern, scannolható felületért
+// 🎯 JAVÍTVA: Az Image ikont átneveztük ImageIcon-ra, így nem ütközik a natív böngészős Image objektummal!
 import { 
   Swords, 
   FileText, 
   Calendar, 
   User, 
-  Image, 
+  Image as ImageIcon, 
   Upload 
 } from 'lucide-react';
 
@@ -22,42 +18,66 @@ interface BattlePlannerProps {
   onSuccess: () => void;
 }
 
-// ⚡ BÖNGÉSZŐS KÉPTÖMÖRÍTŐ MOTOR (Max 1920px, 80% minőség - Borítóképekhez optimalizálva)
+// ⚡ BÖNGÉSZŐS KÉPTÖMÖRÍTŐ MOTOR (Max 1920px, 80% minőség - Golyóálló védelemmel)
 const compressImageOnClient = (file: File): Promise<File> => {
   return new Promise((resolve) => {
+    // 🎯 IDŐTÚLLÉPÉSI VÉDŐHÁLÓ: Ha 2.5 másodpercen belül bármiért elakadna, engedje át a nyers képet, ne fagyassza le az oldalt!
+    const timeoutId = setTimeout(() => {
+      console.warn("⚡ Képtömörítés túllépte az időkorlátot, az eredeti nyers képet használjuk.");
+      resolve(file);
+    }, 2500);
+
     const reader = new FileReader();
     reader.readAsDataURL(file);
+
+    reader.onerror = () => {
+      clearTimeout(timeoutId);
+      resolve(file);
+    };
+
     reader.onload = (event) => {
-      const img = new Image();
-      img.src = event.target?.result as string;
+      // 🎯 JAVÍTVA: window.Image-ként hivatkozunk rá, így 100%, hogy a böngésző natív képdekódolóját hívjuk meg
+      const img = new window.Image();
+      
+      img.onerror = () => {
+        clearTimeout(timeoutId);
+        resolve(file);
+      };
+
       img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let width = img.width;
-        let height = img.height;
-        const MAX_SIZE = 1920;
+        try {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          const MAX_SIZE = 1920;
 
-        if (width > height) {
-          if (width > MAX_SIZE) { height = Math.round((height * MAX_SIZE) / width); width = MAX_SIZE; }
-        } else {
-          if (height > MAX_SIZE) { width = Math.round((width * MAX_SIZE) / height); height = MAX_SIZE; }
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx?.drawImage(img, 0, 0, width, height);
-
-        canvas.toBlob((blob) => {
-          if (blob) {
-            const compressedFile = new File([blob], file.name.replace(/\.[^/.]+$/, "") + ".jpg", {
-              type: 'image/jpeg',
-              lastModified: Date.now(),
-            });
-            resolve(compressedFile);
+          if (width > height) {
+            if (width > MAX_SIZE) { height = Math.round((height * MAX_SIZE) / width); width = MAX_SIZE; }
           } else {
-            resolve(file); 
+            if (height > MAX_SIZE) { width = Math.round((width * MAX_SIZE) / height); height = MAX_SIZE; }
           }
-        }, 'image/jpeg', 0.8); 
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+
+          canvas.toBlob((blob) => {
+            clearTimeout(timeoutId);
+            if (blob) {
+              const compressedFile = new File([blob], file.name.replace(/\.[^/.]+$/, "") + ".jpg", {
+                type: 'image/jpeg',
+                lastModified: Date.now(),
+              });
+              resolve(compressedFile);
+            } else {
+              resolve(file); 
+            }
+          }, 'image/jpeg', 0.8); 
+        } catch (e) {
+          clearTimeout(timeoutId);
+          resolve(file);
+        }
       };
     };
   });
@@ -76,41 +96,46 @@ export default function BattlePlanner({ user, onSuccess }: BattlePlannerProps) {
   const [preview, setPreview] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // Aktiváljuk a nyelvi hookot
   const { t } = useLanguage();
 
-  // BIZTONSÁGI VÉDŐHÁLÓ: Lekérjük az aktuális témát
   let isLight = false;
   try {
     const themeContext = useTheme();
     if (themeContext) {
       isLight = themeContext.theme === 'light';
     }
-  } catch (e) {
-    // Failsafe fallback
-  }
+  } catch (e) {}
 
+  // 🎯 JAVÍTVA: Azonnali kép-előnézet generálás, háttérben futó aszinkron tömörítéssel
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const rawFile = e.target.files[0];
       
-      let finalFile = rawFile;
-      if (rawFile.size > 2 * 1024 * 1024) {
-        console.log("⚡ Óriás borítókép észlelve, kliens oldali zsugorítás indul...");
-        finalFile = await compressImageOnClient(rawFile);
-        console.log(`💪 Borító tömörítve: ${(rawFile.size / 1024 / 1024).toFixed(2)}MB -> ${(finalFile.size / 1024 / 1024).toFixed(2)}MB`);
-      }
-
-      setCoverFile(finalFile);
+      // 1. Azonnal megmutatjuk az előnézetet a nyers képből, hogy a felhasználó lássa a sikeres választást!
       if (preview) URL.revokeObjectURL(preview);
-      setPreview(URL.createObjectURL(finalFile));
+      setPreview(URL.createObjectURL(rawFile));
+      setCoverFile(rawFile); // Beállítjuk alapértelmezettnek a nyers képet
+
+      // 2. Ha a kép nagyobb mint 2MB, elindítjuk a háttértömörítést
+      if (rawFile.size > 2 * 1024 * 1024) {
+        try {
+          console.log("⚡ Óriás borítókép észlelve, kliens oldali zsugorítás indul...");
+          const finalFile = await compressImageOnClient(rawFile);
+          
+          setCoverFile(finalFile);
+          if (preview) URL.revokeObjectURL(preview);
+          setPreview(URL.createObjectURL(finalFile));
+          console.log(`💪 Tömörítés sikeres!`);
+        } catch (compressErr) {
+          console.error("Hiba a tömörítés során, az eredeti képfájlt használjuk tovább:", compressErr);
+        }
+      }
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // 🎯 JAVÍTVA: A coverFile ellenőrzése most már szigorúan kötelező elemként beépítve!
     if (!title || !description || !startDate || !endDate || !coverFile) {
       return alert(t('msgFillAllFields'));
     }
@@ -222,14 +247,12 @@ export default function BattlePlanner({ user, onSuccess }: BattlePlannerProps) {
             <label style={labelStyle}>
               <Calendar size={14} color="var(--text-muted)" /> {t('planLabelStart')}
             </label>
-            {/* 🎯 JAVÍTVA: type="datetime-local" beállítva a pontos óra és perc kiválasztásához */}
             <input type="datetime-local" value={startDate} onChange={e => setStartDate(e.target.value)} required style={inputStyle} />
           </div>
           <div>
             <label style={labelStyle}>
               <Calendar size={14} color="var(--text-muted)" /> {t('planLabelEnd')}
             </label>
-            {/* 🎯 JAVÍTVA: type="datetime-local" beállítva a pontos óra és perc kiválasztásához */}
             <input type="datetime-local" value={endDate} onChange={e => setEndDate(e.target.value)} required style={inputStyle} />
           </div>
         </div>
@@ -261,9 +284,9 @@ export default function BattlePlanner({ user, onSuccess }: BattlePlannerProps) {
         </div>
 
         <div>
-          {/* 🎯 JAVÍTVA: Piros kötelező csillag hozzáadva a vizuális visszajelzésért */}
           <label style={labelStyle}>
-            <Image size={14} color="var(--text-muted)" /> {t('planLabelCover')} <span style={{ color: '#ef4444', marginLeft: '2px' }}>*</span>
+            {/* 🎯 JAVÍTVA: Az átnevezett Lucide ikont használjuk az ütközés ellen */}
+            <ImageIcon size={14} color="var(--text-muted)" /> {t('planLabelCover')} <span style={{ color: '#ef4444', marginLeft: '2px' }}>*</span>
           </label>
           <input type="file" accept="image/*" onChange={handleFileChange} required style={{ color: 'var(--text-body)', fontSize: '0.82rem', display: 'block', cursor: 'pointer' }} />
           {preview && (
