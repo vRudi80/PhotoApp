@@ -317,7 +317,7 @@ export default function QuizView({ user }: { user: any }) {
             <Trophy size={48} color="#f59e0b" style={{ margin: '0 auto 15px auto', display: 'block' }} />
             <h2 style={{ color: 'var(--text-title)', fontSize: '1.75rem', fontWeight: '800', margin: '0 0 10px 0' }}>{lang === 'en' ? 'Daily Quiz' : 'Napi Kvíz'}</h2>
             <p style={{ color: 'var(--text-body)', fontSize: '0.95rem', marginBottom: '18px' }}>
-              {lang === 'en' ? 'Test your photography knowledge! Earn up to 50 spendable Arena Points daily!' : 'Tedd próbára a fotós tudásod és gyűjts akár 50 elkölthető Aréna pontot naponta!'}
+              {lang === 'en' ? 'Test your photography knowledge! Earn up to 50 spendable Arena Points daily!' : 'Tedd próbára a fotós tudásod és gyűjts akár 50 elkölthető Aréna pontot naponta! A havi győztes egy plusz hónap prémium előfizetést nyer!'}
             </p>
 
             {/* Dinamikus adatbázis kérdésbank panel */}
