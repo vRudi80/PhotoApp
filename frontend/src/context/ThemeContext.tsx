@@ -10,13 +10,13 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Megnézzük, van-e elmentett téma, ha nincs, a sötétet használjuk alapértelmezettnek
+  // 🎯 JAVÍTVA: Ha nincs elmentett téma, mostantól a 'light' (világos) módot használjuk alapértelmezettnek
   const [theme, setTheme] = useState<Theme>(() => {
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem('app-theme');
-      return (stored as Theme) || 'dark';
+      return (stored as Theme) || 'light'; // ↵ Átírva 'dark'-ról 'light'-ra
     }
-    return 'dark';
+    return 'light'; // ↵ Átírva 'dark'-ról 'light'-ra
   });
 
   // Amikor változik a téma, frissítjük a HTML tag-en a class-t és a localStorage-ot
