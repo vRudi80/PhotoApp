@@ -58,6 +58,75 @@ const activeQuizzes = {}; // Itt tartjuk számon, hogy ki játszik éppen aktív
 module.exports = function(app, pool, upload, genAI) {
 
   // ====================================================================
+  // 🗄️ AUTOPROVIZIÓS MOTOR: Létrehozza a havi lezárásokat naplózó táblát
+  // ====================================================================
+  (async () => {
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS quiz_monthly_processed (
+          year INT NOT NULL,
+          month INT NOT NULL,
+          winner_email VARCHAR(255) NOT NULL,
+          processed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (year, month)
+        )
+      `);
+    } catch (e) { console.error("⚠️ Havi kvíznapló tábla hiba:", e.message); }
+  })();
+
+  // ====================================================================
+  // 🧮 AUTOMATA HAVI LEZÁRÓ ÉS PRÉMIUM-OSZTÓ GÉPEZET (ON-DEMAND RUNNER)
+  // ====================================================================
+  async function processFinishedQuizMonths(pool) {
+    try {
+      const d = new Date();
+      d.setMonth(d.getMonth() - 1);
+      const prevYear = d.getFullYear();
+      const prevMonth = d.getMonth() + 1;
+
+      // Megnézzük, lefutott-e már az előző naptári hónap bírálata
+      const [check] = await pool.query(
+        'SELECT winner_email FROM quiz_monthly_processed WHERE year = ? AND month = ?', 
+        [prevYear, prevMonth]
+      );
+      if (check.length > 0) return;
+
+      // Kikeressük az előző hónap abszolút első helyezettjét a pontok és időeredmény alapján
+      const [winnerRows] = await pool.query(`
+        SELECT a.user_email, SUM(a.score) as total_score, AVG(a.duration_seconds) as avg_duration
+        FROM quiz_attempts a
+        WHERE YEAR(a.completed_at) = ? AND MONTH(a.completed_at) = ?
+        GROUP BY a.user_email
+        ORDER BY total_score DESC, avg_duration ASC
+        LIMIT 1
+      `, [prevYear, prevMonth]);
+
+      if (winnerRows.length === 0) {
+        await pool.query('INSERT IGNORE INTO quiz_monthly_processed (year, month, winner_email) VALUES (?, ?, ?)', [prevYear, prevMonth, 'Nincs játékos']);
+        return;
+      }
+
+      const winnerEmail = winnerRows[0].user_email;
+
+      // Atomian frissítünk: ha jövőbeli a lejárat, tolja ki 30 nappal, különben a mostani időhöz adjon 30 napot. Védi a Level 2-t!
+      await pool.query(`
+        UPDATE photo_users 
+        SET 
+          is_premium = 1,
+          premium_level = IF(premium_level >= 2, premium_level, 1),
+          premium_until = IF(premium_until IS NOT NULL AND premium_until > NOW(), DATE_ADD(premium_until, INTERVAL 30 DAY), DATE_ADD(NOW(), INTERVAL 30 DAY))
+        WHERE email = ?
+      `, [winnerEmail]);
+
+      await pool.query('INSERT IGNORE INTO quiz_monthly_processed (year, month, winner_email) VALUES (?, ?, ?)', [prevYear, prevMonth, winnerEmail]);
+      console.log(`🎉 [QUIZ LIGA] ${prevYear}.${prevMonth} hónap sikeresen lezárva! Győztes: ${winnerEmail}. +1 hónap Prémium jóváírva.`);
+
+    } catch (err) {
+      console.error("❌ Hiba az automata havi kvízbírálat során:", err.message);
+    }
+  }
+
+  // ====================================================================
   // 🔓 ÚJ: ELAKADT / ELHAGYOTT KVÍZEK AUTOMATIKUS FELOLDÓ KAPUJA
   // ====================================================================
   app.post('/api/quiz/cancel-active', requireAuth, (req, res) => {
@@ -350,6 +419,9 @@ module.exports = function(app, pool, upload, genAI) {
   // 📋 MY-HISTORY + KATÉGÓRIÁNKÉNTI ÉS ÖSSZESÍTETT SZÁMLÁLÓK
   // ====================================================================
   app.get('/api/quiz/my-history', requireAuth, async (req, res) => {
+    // 🎯 AZ ÚJ INDÍTÓ GOMB: On-Demand havi lezárás ellenőrzése
+    await processFinishedQuizMonths(pool);
+
     try {
       const userEmail = req.user.email;
       const [historyRows] = await pool.query(
@@ -391,6 +463,9 @@ module.exports = function(app, pool, upload, genAI) {
   // 🏆 TISZTA TALÁLATI DARABSZÁM ÉS IDŐALAPÚ RANGLISTA
   // ====================================================================
   app.get('/api/quiz/leaderboard', requireAuth, async (req, res) => {
+    // 🎯 AZ ÚJ INDÍTÓ GOMB: On-Demand havi lezárás ellenőrzése
+    await processFinishedQuizMonths(pool);
+
     const { period, year, month } = req.query;
     
     let sql = `
