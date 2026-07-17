@@ -57,11 +57,28 @@ export default function SalonsView({
     return { total: myParticipatedSalons.length, fiap, psa, club };
   }, [searchedSalons, myEntryIdsSet]);
 
-  // Szűrés a kapcsoló alapján
-  const displaySalons = searchedSalons.filter(s => {
-    if (showOnlyMyEntries && !myEntryIdsSet.has(Number(s.id))) return false;
-    return true;
-  });
+  // 🎯 JAVÍTVA: A displaySalons mostantól egy useMemo blokkban szűri a listát a beírt szöveg és az azonosítók alapján is!
+  const displaySalons = useMemo(() => {
+    const term = salonSearch.trim().toLowerCase();
+    
+    return searchedSalons.filter(s => {
+      // 1. Kapcsoló alapú szűrés (Saját nevezések)
+      if (showOnlyMyEntries && !myEntryIdsSet.has(Number(s.id))) return false;
+      
+      // 2. Szöveges keresés (Név, Ország, vagy Védnökségi azonosítószám, pl. 2026/081)
+      if (term) {
+        const matchesName = s.name && s.name.toLowerCase().includes(term);
+        const matchesCountry = s.country_hun && s.country_hun.toLowerCase().includes(term);
+        const matchesPatronNumber = s.patron_details && s.patron_details.some((p: any) => 
+          p.number && p.number.toLowerCase().includes(term)
+        );
+        
+        return !!(matchesName || matchesCountry || matchesPatronNumber);
+      }
+      
+      return true;
+    });
+  }, [searchedSalons, salonSearch, showOnlyMyEntries, myEntryIdsSet]);
 
   // --- HA NEM PRÉMIUM A USER, CSAK A KÁRTYÁT MUTATJUK (Korai kilépés) ---
   if (!user || !user.is_premium) {
@@ -201,7 +218,6 @@ export default function SalonsView({
 
                   <div style={{ flex: 1 }}></div>
 
-                  {/* EREDETI KÉPMEGJELENÍTŐ LOGIKA VISSZAÁLLÍTVA */}
                   <div style={{ display: 'flex', background: 'var(--bg-main)', borderRadius: '8px', border: '1px solid var(--border-main)', padding: '12px', marginBottom: '12px' }}>
                     <div style={{ flex: 1, borderRight: '1px solid var(--border-main)' }}>
                       <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '2px' }}>Határidő</div>
