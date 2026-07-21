@@ -338,7 +338,7 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
   }
 
   // ====================================================================
-  // 🏆 2. OLDALNÉZET: AZ EREDETI DICSŐGCSARNOK LISTA NÉZET
+  // 🏆 2. OLDALNÉZET: AZ EREDETI DICSŐSÉGCSARNOK LISTA NÉZET
   // ====================================================================
   return (
     <div style={{ background: 'var(--bg-card)', padding: '24px', borderRadius: '8px', border: '1px solid var(--border-main)', boxShadow: '0 4px 15px rgba(0,0,0,0.05)', animation: 'fadeIn 0.4s ease-out' }}>
@@ -357,7 +357,8 @@ export default function HallOfFame({ isLoadingHof, hallOfFame, user, getLevelDet
           const podiums = Number(row?.podiums) || 0;
           const masterCount = Number(row?.master_count) || 0;
 
-          const level = getAdaptiveLevelDetails(likes, 0); 
+          // 🎯 JAVÍTVA: Átadható a valós győzelmek száma (firstPlaces), így a szintek pontosan jelennek meg!
+          const level = getAdaptiveLevelDetails(likes, firstPlaces); 
           const displayRankName = lang === 'en' ? (rankNamesEn[level?.name || ''] || level?.name || '') : (level?.name || '');
 
           return (
