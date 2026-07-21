@@ -25,8 +25,8 @@ const pool = mysql.createPool({
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
   waitForConnections: true,
-  connectionLimit: 10,
-  maxIdle: 10,
+  connectionLimit: 7,
+  maxIdle: 7,
   idleTimeout: 30000,        // 30 másodperc tétlenség után automatikusan lezárja és tisztítja az alvó kapcsolatot
   enableKeepAlive: true,     // Bekapcsolja a TCP Keep-Alive-ot a háttérben
   keepAliveInitialDelay: 10000 // 10 másodpercenként küld egy pinget az adatbázisnak, hogy életben tartsa
