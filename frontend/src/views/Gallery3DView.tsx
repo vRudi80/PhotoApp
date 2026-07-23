@@ -108,7 +108,7 @@ function GalleryRoom({ photos, onSelectPhoto }: { photos: any[]; onSelectPhoto: 
 }
 
 // ====================================================================
-// 🚀 FŐ GALÉRIA NÉZET ÉS SZERKESZTŐ
+// 🚀 FŐ GALÉRIA NÉZET ÉS SZERKESZTŐ (GOLYÓÁLLÓ OBJEKTUM ALAPÚ RENDSZER)
 // ====================================================================
 export default function Gallery3DView({ user }: { user: any }) {
   const { lang } = useLanguage();
@@ -117,7 +117,9 @@ export default function Gallery3DView({ user }: { user: any }) {
   const [galleryTitle, setGalleryTitle] = useState('Saját Virtuális Kiállításom');
   const [savedPhotos, setSavedPhotos] = useState<any[]>([]);
   const [myAlbumPhotos, setMyAlbumPhotos] = useState<any[]>([]);
-  const [selectedPhotoIds, setSelectedPhotoIds] = useState<string[]>([]);
+  
+  // 🎯 GOLYÓÁLLÓ: Közvetlenül a kiválasztott fotó objektumokat tároljuk!
+  const [selectedPhotos, setSelectedPhotos] = useState<any[]>([]);
   const [activePhotoModal, setActivePhotoModal] = useState<any | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -134,8 +136,9 @@ export default function Gallery3DView({ user }: { user: any }) {
           const galData = await galRes.json();
           if (galData.gallery) {
             setGalleryTitle(galData.gallery.title || 'Saját Virtuális Kiállításom');
-            setSavedPhotos(galData.gallery.photos || []);
-            setSelectedPhotoIds((galData.gallery.photos || []).map((p: any) => String(p.id || p.file_url)));
+            const photosFromDb = galData.gallery.photos || [];
+            setSavedPhotos(photosFromDb);
+            setSelectedPhotos(photosFromDb);
           }
         }
 
@@ -152,41 +155,42 @@ export default function Gallery3DView({ user }: { user: any }) {
     init();
   }, [user]);
 
-  // 🎯 JAVÍTVA: Típusfüggetlen ID kiválasztó logika
+  // 🎯 KÉP KI/BE KAPCSOLÁSA DIREKT OBJEKTUM ÖSSZEHASONLÍTÁSSAL
   const toggleSelectPhoto = (photo: any) => {
-    const photoKey = String(photo.id || photo.file_url);
-    if (selectedPhotoIds.includes(photoKey)) {
-      setSelectedPhotoIds(prev => prev.filter(id => id !== photoKey));
+    const isAlreadySelected = selectedPhotos.some(
+      p => (p.id && photo.id && String(p.id) === String(photo.id)) || p.file_url === photo.file_url
+    );
+
+    if (isAlreadySelected) {
+      setSelectedPhotos(prev => prev.filter(
+        p => !((p.id && photo.id && String(p.id) === String(photo.id)) || p.file_url === photo.file_url)
+      ));
     } else {
-      if (selectedPhotoIds.length >= 10) {
+      if (selectedPhotos.length >= 10) {
         return alert(lang === 'en' ? 'Maximum 10 photos allowed!' : 'Legfeljebb 10 fotót választhatsz ki a kiállításra!');
       }
-      setSelectedPhotoIds(prev => [...prev, photoKey]);
+      setSelectedPhotos(prev => [...prev, photo]);
     }
   };
 
-  // 🎯 JAVÍTVA: Golyóálló mentési folyamat tiszta visszajelzéssel
+  // 🎯 GOLYÓÁLLÓ MENTÉS
   const handleSave = async () => {
-    setIsSaving(true);
-    const safeTitle = galleryTitle.trim() || (lang === 'en' ? 'My 3D Exhibition' : 'Saját Virtuális Kiállításom');
-    
-    // Típusfüggetlen keresés
-    const chosenPhotos = myAlbumPhotos.filter(p => selectedPhotoIds.includes(String(p.id || p.file_url)));
-
-    if (chosenPhotos.length === 0) {
-      setIsSaving(false);
+    if (selectedPhotos.length === 0) {
       return alert(lang === 'en' ? 'Please select at least 1 photo!' : 'Kérlek válassz ki legalább 1 fotót!');
     }
+
+    setIsSaving(true);
+    const safeTitle = galleryTitle.trim() || (lang === 'en' ? 'My 3D Exhibition' : 'Saját Virtuális Kiállításom');
 
     try {
       const res = await fetch(`${BACKEND_URL}/api/premium/3d-gallery/save`, {
         method: 'POST',
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ title: safeTitle, theme: 'modern', photos: chosenPhotos })
+        body: JSON.stringify({ title: safeTitle, theme: 'modern', photos: selectedPhotos })
       });
 
       if (res.ok) {
-        setSavedPhotos(chosenPhotos);
+        setSavedPhotos(selectedPhotos);
         setMode('VIEW');
         alert(lang === 'en' ? 'Virtual Gallery saved successfully! 🎉' : '🎉 Virtuális galéria sikeresen elmentve!');
       } else {
@@ -238,14 +242,15 @@ export default function Gallery3DView({ user }: { user: any }) {
 
           <div>
             <h3 style={{ color: 'var(--text-title)', marginBottom: '6px' }}>Válassz ki legfeljebb 10 fotót az albumodból:</h3>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '15px' }}>Kiválasztva: {selectedPhotoIds.length} / 10</p>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '15px' }}>Kiválasztva: {selectedPhotos.length} / 10</p>
             
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '15px' }}>
-              {myAlbumPhotos.map(photo => {
-                const photoKey = String(photo.id || photo.file_url);
-                const isSelected = selectedPhotoIds.includes(photoKey);
+              {myAlbumPhotos.map((photo, idx) => {
+                const isSelected = selectedPhotos.some(
+                  p => (p.id && photo.id && String(p.id) === String(photo.id)) || p.file_url === photo.file_url
+                );
                 return (
-                  <div key={photoKey} onClick={() => toggleSelectPhoto(photo)} style={{ position: 'relative', height: '120px', borderRadius: '8px', overflow: 'hidden', border: isSelected ? '3px solid #10b981' : '1px solid var(--border-main)', cursor: 'pointer' }}>
+                  <div key={photo.id || photo.file_url || idx} onClick={() => toggleSelectPhoto(photo)} style={{ position: 'relative', height: '120px', borderRadius: '8px', overflow: 'hidden', border: isSelected ? '3px solid #10b981' : '1px solid var(--border-main)', cursor: 'pointer' }}>
                     <img src={photo.file_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     {isSelected && (
                       <div style={{ position: 'absolute', top: '6px', right: '6px', background: '#10b981', color: 'white', borderRadius: '50%', padding: '2px' }}>
@@ -258,7 +263,7 @@ export default function Gallery3DView({ user }: { user: any }) {
             </div>
           </div>
 
-          <button onClick={handleSave} disabled={isSaving || selectedPhotoIds.length === 0} style={{ background: '#10b981', color: 'white', border: 'none', padding: '14px', borderRadius: '8px', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+          <button onClick={handleSave} disabled={isSaving || selectedPhotos.length === 0} style={{ background: selectedPhotos.length > 0 ? '#10b981' : 'var(--border-main)', color: 'white', border: 'none', padding: '14px', borderRadius: '8px', fontWeight: 'bold', fontSize: '1rem', cursor: selectedPhotos.length > 0 ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
             <Save size={18} /> {isSaving ? 'Mentés...' : '3D Kiállítás Publikálása'}
           </button>
         </div>
