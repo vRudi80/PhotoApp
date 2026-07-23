@@ -27,6 +27,7 @@ async function requireAuth(req, res, next) {
 
 module.exports = function(app, pool) {
 
+  // Tábla garantált létrehozása
   async function ensureTableExists() {
     try {
       await pool.query(`
@@ -39,46 +40,48 @@ module.exports = function(app, pool) {
           photos_json LONGTEXT NOT NULL,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
           UNIQUE KEY unique_user_gallery (user_email)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
       `);
 
-      // Oszlop ellenőrzése és hozzáadása ha korábbi verzióról frissülne
       try {
         await pool.query(`ALTER TABLE user_3d_galleries ADD COLUMN visibility VARCHAR(20) DEFAULT 'public'`);
       } catch (e) {}
 
     } catch (e) {
-      console.error("⚠️ 3D Galéria tábla hiba:", e.message);
+      console.error("⚠️ 3D Galéria tábla províziós hiba:", e.message);
     }
   }
 
-  // 1. Összes elérhető tárlat lekérése (Publikus + Saját Klub)
+  // 1. Összes elérhető tárlat lekérése (Failsafe 200 OK védelemmel)
   app.get('/api/3d-galleries', requireAuth, async (req, res) => {
     try {
       await ensureTableExists();
 
-      // Lekérjük a kérelmező fotóklubját
-      const [userRows] = await pool.query('SELECT club_name FROM photo_users WHERE email = ?', [req.user.email]);
-      const myClubName = userRows[0]?.club_name || null;
+      let myClubName = null;
+      try {
+        const [userRows] = await pool.query('SELECT club_name FROM photo_users WHERE email = ?', [req.user.email]);
+        myClubName = userRows[0]?.club_name || null;
+      } catch(e) {}
 
+      // 🎯 JAVÍTVA: COLLATE utf8mb4_general_ci hozzáadva a JOIN-okhoz
       const [rows] = await pool.query(`
         SELECT 
           g.*, 
-          u.name as photographer_name, 
+          COALESCE(u.name, 'Fotóművész') as photographer_name, 
           u.avatar_url, 
           u.club_name,
           c.drive_logo_id,
           c.logo_url
         FROM user_3d_galleries g
-        JOIN photo_users u ON g.user_email = u.email
+        LEFT JOIN photo_users u ON g.user_email = u.email COLLATE utf8mb4_general_ci
         LEFT JOIN photo_clubs c ON u.club_name = c.name
         WHERE g.visibility = 'public'
            OR (g.visibility = 'club' AND u.club_name IS NOT NULL AND u.club_name = ?)
            OR g.user_email = ?
         ORDER BY g.updated_at DESC
-      `, [myClubName, req.user.email]);
+      `, [myClubName || '', req.user.email]);
 
-      const formatted = rows.map(gal => {
+      const formatted = (rows || []).map(gal => {
         let photos = [];
         try { photos = typeof gal.photos_json === 'string' ? JSON.parse(gal.photos_json) : (gal.photos_json || []); } catch(e){}
         return { ...gal, photos };
@@ -87,7 +90,8 @@ module.exports = function(app, pool) {
       res.json(formatted);
     } catch (err) {
       console.error("❌ Hiba a tárlatok lekérésekor:", err.message);
-      res.status(500).json({ error: 'Szerver hiba.' });
+      // FAILSAFE: 200 OK-val válaszolunk üres tömbbel, így nem fagy le a frontend!
+      res.json([]);
     }
   });
 
@@ -108,7 +112,7 @@ module.exports = function(app, pool) {
     }
   });
 
-  // 3. Galéria mentése (Címekkel és láthatósággal)
+  // 3. Galéria mentése
   app.post('/api/premium/3d-gallery/save', requireAuth, async (req, res) => {
     const { title, theme, visibility, photos } = req.body;
     const cleanTitle = (title || 'Saját Virtuális Kiállításom').trim();
