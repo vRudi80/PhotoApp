@@ -7,9 +7,9 @@ import { getImageUrl } from '../utils/helpers';
 import { useLanguage } from '../context/LanguageContext';
 import VideoLoader from '../components/VideoLoader';
 import { 
-  Box, Save, ArrowLeft, Layers, CheckCircle2, Globe, Users, 
+  Box, Save, ArrowLeft, CheckCircle2, Globe, Users, 
   Sparkles, Eye, Edit3, Trash2, PlusCircle, ArrowUp, ArrowDown, 
-  Navigation 
+  Navigation, BookOpen, UserCheck, MessageSquare, Send, X, Clock 
 } from 'lucide-react';
 
 const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
@@ -30,9 +30,6 @@ const getPhotoIdentifier = (p: any) => {
   return `url_${resolvePhotoUrl(p)}`;
 };
 
-// ====================================================================
-// 🕹️ VALÓDI 3D SÉTA MOTOR (KAMERA ÉS TARGET SZINKRONIZÁLÁSÁVAL)
-// ====================================================================
 function WalkingController({ 
   moveState, 
   controlsRef 
@@ -46,7 +43,7 @@ function WalkingController({
     const moveSpeed = 4.5 * delta;
     const forwardVec = new THREE.Vector3();
     camera.getWorldDirection(forwardVec);
-    forwardVec.y = 0; // Séta csak a vízszintes síkon
+    forwardVec.y = 0;
     forwardVec.normalize();
 
     const sideVec = new THREE.Vector3();
@@ -60,15 +57,11 @@ function WalkingController({
     if (moveState.right) moveDelta.addScaledVector(sideVec, -moveSpeed);
 
     if (moveDelta.lengthSq() > 0) {
-      // Elmozdítjuk a kamerát
       camera.position.add(moveDelta);
-
-      // Szoba határainak védelme
       camera.position.x = THREE.MathUtils.clamp(camera.position.x, -8.5, 8.5);
       camera.position.z = THREE.MathUtils.clamp(camera.position.z, -3.5, 7.5);
-      camera.position.y = 0.6; // Szemmagasság
+      camera.position.y = 0.6;
 
-      // 🎯 A CÉLPONTOT IS ELTOLJUK UGYANANNYIVAL, ÍGY NEM NÉZ A PADLÓRA A KAMERA!
       if (controlsRef.current) {
         controlsRef.current.target.add(moveDelta);
         controlsRef.current.update();
@@ -79,9 +72,6 @@ function WalkingController({
   return null;
 }
 
-// ====================================================================
-// 🖼️ INTELLIGENS 3D KÉPKERET (PADLÓ-VÉDETT CÍMKE HELYZETTEL)
-// ====================================================================
 function ArtworkFrame({ position, rotation, url, title, onClick }: any) {
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
   const [dims, setDims] = useState<{ pWidth: number; pHeight: number }>({ pWidth: 2.8, pHeight: 1.9 });
@@ -169,25 +159,21 @@ function ArtworkFrame({ position, rotation, url, title, onClick }: any) {
 
   return (
     <group position={position} rotation={rotation}>
-      {/* Fa/Fém Keret */}
       <mesh position={[0, 0, -0.03]}>
         <boxGeometry args={[frameWidth, frameHeight, 0.06]} />
         <meshStandardMaterial color="#0f172a" roughness={0.3} />
       </mesh>
       
-      {/* Fehér Passepartout */}
       <mesh position={[0, 0, -0.01]}>
         <planeGeometry args={[passWidth, passHeight]} />
         <meshStandardMaterial color="#f8fafc" roughness={0.9} />
       </mesh>
 
-      {/* A Fotó felülete */}
       <mesh onClick={onClick} position={[0, 0, 0.005]} style={{ cursor: 'pointer' }}>
         <planeGeometry args={[pWidth, pHeight]} />
         {texture ? <meshBasicMaterial map={texture} /> : <meshStandardMaterial color="#334155" />}
       </mesh>
 
-      {/* Célzott Reflektorfény */}
       <spotLight
         position={[0, frameHeight / 2 + 0.5, 1.2]}
         target-position={[0, 0, 0]}
@@ -197,7 +183,6 @@ function ArtworkFrame({ position, rotation, url, title, onClick }: any) {
         color="#fffbeb"
       />
 
-      {/* Címke a kép alatt */}
       <group position={[0, labelYPosition, 0.01]}>
         <mesh position={[0, 0, -0.005]}>
           <planeGeometry args={[Math.max(1.8, pWidth * 0.8), 0.3]} />
@@ -211,15 +196,12 @@ function ArtworkFrame({ position, rotation, url, title, onClick }: any) {
   );
 }
 
-// ====================================================================
-// 🏛️ 3D GALÉRIATEREM
-// ====================================================================
 function GalleryRoom({ photos, onSelectPhoto }: { photos: any[]; onSelectPhoto: (p: any) => void }) {
   const wallPositions: [number, number, number][] = [
-    [-6, 0.85, -4.9], [0, 0.85, -4.9], [6, 0.85, -4.9],   // Hátsó fal
-    [-9.9, 0.85, -1], [-9.9, 0.85, 3],                  // Bal fal
-    [9.9, 0.85, -1], [9.9, 0.85, 3],                    // Jobb fal
-    [-6, 0.85, 8.9], [0, 0.85, 8.9], [6, 0.85, 8.9]       // Első fal
+    [-6, 0.85, -4.9], [0, 0.85, -4.9], [6, 0.85, -4.9],
+    [-9.9, 0.85, -1], [-9.9, 0.85, 3],
+    [9.9, 0.85, -1], [9.9, 0.85, 3],
+    [-6, 0.85, 8.9], [0, 0.85, 8.9], [6, 0.85, 8.9]
   ];
 
   const wallRotations: [number, number, number][] = [
@@ -235,19 +217,16 @@ function GalleryRoom({ photos, onSelectPhoto }: { photos: any[]; onSelectPhoto: 
       <directionalLight position={[0, 10, 10]} intensity={1.8} />
       <directionalLight position={[0, 10, -10]} intensity={1.2} />
 
-      {/* Padló */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.0, 2]}>
         <planeGeometry args={[20, 20]} />
         <meshStandardMaterial color="#1e293b" roughness={0.4} />
       </mesh>
 
-      {/* Mennyezet */}
       <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 4.5, 2]}>
         <planeGeometry args={[20, 20]} />
         <meshStandardMaterial color="#020617" />
       </mesh>
 
-      {/* Falak */}
       <mesh position={[0, 1.75, -5]}><planeGeometry args={[20, 11]} /><meshStandardMaterial color="#334155" roughness={0.8} /></mesh>
       <mesh position={[-10, 1.75, 2]} rotation={[0, Math.PI / 2, 0]}><planeGeometry args={[20, 11]} /><meshStandardMaterial color="#334155" roughness={0.8} /></mesh>
       <mesh position={[10, 1.75, 2]} rotation={[0, -Math.PI / 2, 0]}><planeGeometry args={[20, 11]} /><meshStandardMaterial color="#334155" roughness={0.8} /></mesh>
@@ -270,9 +249,6 @@ function GalleryRoom({ photos, onSelectPhoto }: { photos: any[]; onSelectPhoto: 
   );
 }
 
-// ====================================================================
-// 🚀 FŐ 3D TÁRLATOK BÖNGÉSZŐ ÉS TÖBBES SZERKESZTŐ
-// ====================================================================
 export default function Gallery3DView({ user }: { user: any }) {
   const { lang } = useLanguage();
   const [viewMode, setMode] = useState<'DIRECTORY' | 'VIEW_3D' | 'EDIT'>('DIRECTORY');
@@ -289,7 +265,14 @@ export default function Gallery3DView({ user }: { user: any }) {
   const [activePhotoModal, setActivePhotoModal] = useState<any | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  // 🎯 SÉTA ÉS VEZÉRLŐ REFERENCIA
+  // 🎯 VENDÉGKÖNYV ÉS LÁTOGATÓI JEGYZÉK ÁLLAPOTOK
+  const [showInteractionsModal, setShowInteractionsModal] = useState(false);
+  const [interactionTab, setInteractionTab] = useState<'GUESTBOOK' | 'VISITORS'>('GUESTBOOK');
+  const [guestbookEntries, setGuestbookEntries] = useState<any[]>([]);
+  const [visitorsList, setVisitorsList] = useState<any[]>([]);
+  const [newCommentText, setNewCommentText] = useState('');
+  const [isPostingComment, setIsPostingComment] = useState(false);
+
   const controlsRef = useRef<any>(null);
   const [moveState, setMoveState] = useState({ forward: false, back: false, left: false, right: false });
 
@@ -338,6 +321,57 @@ export default function Gallery3DView({ user }: { user: any }) {
   };
 
   useEffect(() => { loadData(); }, [user]);
+
+  // 🎯 LÁTOGATÁS RÖGZÍTÉSE ÉS INTERAKCIÓK BETÖLTÉSE
+  const loadInteractions = async (galleryId: number) => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/3d-gallery/${galleryId}/interactions`, { headers: getAuthHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        setGuestbookEntries(data.guestbook || []);
+        setVisitorsList(data.visitors || []);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleOpen3D = async (gal: any) => {
+    setActiveGallery(gal);
+    setMode('VIEW_3D');
+
+    // Rögzítjük a látogatást
+    try {
+      await fetch(`${BACKEND_URL}/api/3d-gallery/${gal.id}/visit`, {
+        method: 'POST',
+        headers: getAuthHeaders()
+      });
+    } catch (e) {}
+
+    loadInteractions(gal.id);
+  };
+
+  // Új bejegyzés írása a Vendégkönyvbe
+  const handlePostGuestbook = async () => {
+    if (!newCommentText.trim() || !activeGallery) return;
+    setIsPostingComment(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/3d-gallery/${activeGallery.id}/guestbook`, {
+        method: 'POST',
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ comment_text: newCommentText })
+      });
+
+      if (res.ok) {
+        setNewCommentText('');
+        loadInteractions(activeGallery.id);
+      }
+    } catch (e) {
+      alert('Hiba a bejegyzés elküldésekor.');
+    } finally {
+      setIsPostingComment(false);
+    }
+  };
 
   const handleStartNewGallery = () => {
     setEditingGalleryId(null);
@@ -428,7 +462,16 @@ export default function Gallery3DView({ user }: { user: any }) {
           </small>
         </div>
 
-        <div style={{ display: 'flex', gap: '10px' }}>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          {viewMode === 'VIEW_3D' && (
+            <button 
+              onClick={() => setShowInteractionsModal(true)} 
+              style={{ background: '#8b5cf6', color: 'white', border: 'none', padding: '10px 18px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+            >
+              <BookOpen size={16} /> Vendégkönyv & Látogatók
+            </button>
+          )}
+
           {viewMode !== 'DIRECTORY' && (
             <button onClick={() => setMode('DIRECTORY')} style={{ background: 'var(--bg-main)', color: 'var(--text-title)', border: '1px solid var(--border-main)', padding: '10px 18px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <ArrowLeft size={16} /> Vissza a Katalógushoz
@@ -465,8 +508,20 @@ export default function Gallery3DView({ user }: { user: any }) {
 
                 return (
                   <div key={gal.id} style={{ background: 'var(--bg-card)', border: isMine ? '2px solid #a78bfa' : '1px solid var(--border-main)', borderRadius: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                    
                     <div style={{ height: '180px', background: '#090d16', position: 'relative' }}>
                       <img src={coverUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      
+                      {/* STATISZTIKAI JELVÉNYEK */}
+                      <div style={{ position: 'absolute', top: '10px', left: '10px', display: 'flex', gap: '6px' }}>
+                        <span style={{ background: 'rgba(15,23,42,0.85)', padding: '3px 8px', borderRadius: '20px', fontSize: '0.72rem', color: '#cbd5e1', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <Eye size={12} color="#38bdf8" /> {gal.visitor_count || 0}
+                        </span>
+                        <span style={{ background: 'rgba(15,23,42,0.85)', padding: '3px 8px', borderRadius: '20px', fontSize: '0.72rem', color: '#cbd5e1', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <MessageSquare size={12} color="#a78bfa" /> {gal.comment_count || 0}
+                        </span>
+                      </div>
+
                       <div style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(15,23,42,0.85)', padding: '4px 10px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 'bold', color: gal.visibility === 'club' ? '#f59e0b' : '#38bdf8', display: 'flex', alignItems: 'center', gap: '5px' }}>
                         {gal.visibility === 'club' ? <><Users size={12} /> Klub Szféra</> : <><Globe size={12} /> Publikus</>}
                       </div>
@@ -486,7 +541,7 @@ export default function Gallery3DView({ user }: { user: any }) {
 
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         <button 
-                          onClick={() => { setActiveGallery(gal); setMode('VIEW_3D'); }}
+                          onClick={() => handleOpen3D(gal)}
                           style={{ width: '100%', background: '#a78bfa', color: '#0f172a', border: 'none', padding: '10px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                         >
                           <Eye size={16} /> 3D Tárlat Bejárása ({gal.photos?.length || 0} kép)
@@ -538,7 +593,7 @@ export default function Gallery3DView({ user }: { user: any }) {
             <div>🖱️ <b>Egér / Érintés:</b> Forgás és nézelődés</div>
           </div>
 
-          {/* 🎯 MOBIL SÉTA GOMBOK */}
+          {/* MOBIL SÉTA GOMBOK */}
           <div style={{ position: 'absolute', bottom: '15px', right: '15px', display: 'grid', gridTemplateColumns: 'repeat(3, 44px)', gap: '6px', background: 'rgba(9, 13, 22, 0.85)', padding: '10px', borderRadius: '12px', backdropFilter: 'blur(6px)', border: '1px solid rgba(255,255,255,0.1)' }}>
             <div></div>
             <button 
@@ -589,7 +644,6 @@ export default function Gallery3DView({ user }: { user: any }) {
       {/* 3. SZERKESZTŐ MÓD */}
       {viewMode === 'EDIT' && (
         <div style={{ background: 'var(--bg-card)', padding: '25px', borderRadius: '12px', border: '1px solid var(--border-main)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
             <div>
               <label style={{ display: 'block', color: 'var(--text-title)', fontWeight: 'bold', marginBottom: '8px' }}>Kiállítás Címe:</label>
@@ -650,6 +704,115 @@ export default function Gallery3DView({ user }: { user: any }) {
           <button onClick={handleSave} disabled={isSaving || selectedPhotos.length === 0} style={{ background: selectedPhotos.length > 0 ? '#10b981' : 'var(--border-main)', color: 'white', border: 'none', padding: '14px', borderRadius: '8px', fontWeight: 'bold', fontSize: '1rem', cursor: selectedPhotos.length > 0 ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
             <Save size={18} /> {isSaving ? 'Mentés...' : '3D Kiállítás Publikálása'}
           </button>
+        </div>
+      )}
+
+      {/* 🎯 VENDÉGKÖNYV ÉS LÁTOGATÓI JEGYZÉK MODÁL */}
+      {showInteractionsModal && (
+        <div onClick={() => setShowInteractionsModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 99999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', borderRadius: '12px', width: '100%', maxWidth: '650px', maxHeight: '85vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            
+            {/* Fejléc és Fülek */}
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-main)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-main)' }}>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button 
+                  onClick={() => setInteractionTab('GUESTBOOK')}
+                  style={{ background: interactionTab === 'GUESTBOOK' ? '#8b5cf6' : 'transparent', color: interactionTab === 'GUESTBOOK' ? 'white' : 'var(--text-muted)', border: 'none', padding: '8px 14px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9rem' }}
+                >
+                  <MessageSquare size={16} /> Vendégkönyv ({guestbookEntries.length})
+                </button>
+                <button 
+                  onClick={() => setInteractionTab('VISITORS')}
+                  style={{ background: interactionTab === 'VISITORS' ? '#38bdf8' : 'transparent', color: interactionTab === 'VISITORS' ? 'white' : 'var(--text-muted)', border: 'none', padding: '8px 14px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9rem' }}
+                >
+                  <UserCheck size={16} /> Látogatási Jegyzék ({visitorsList.length})
+                </button>
+              </div>
+
+              <button onClick={() => setShowInteractionsModal(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* FŐ TARTALMI ZÓNA */}
+            <div style={{ padding: '20px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '15px' }}>
+              
+              {/* TAB 1: VENDÉGKÖNYV */}
+              {interactionTab === 'GUESTBOOK' && (
+                <>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <input 
+                      type="text" 
+                      placeholder="Írj a vendégkönyvbe (érzékelések, gratuláció...)" 
+                      value={newCommentText}
+                      onChange={e => setNewCommentText(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') handlePostGuestbook(); }}
+                      style={{ flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid var(--border-main)', background: 'var(--bg-main)', color: 'var(--text-title)', outline: 'none' }}
+                    />
+                    <button 
+                      onClick={handlePostGuestbook}
+                      disabled={isPostingComment || !newCommentText.trim()}
+                      style={{ background: '#10b981', color: 'white', border: 'none', padding: '0 20px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                    >
+                      <Send size={16} /> Küldés
+                    </button>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '10px' }}>
+                    {guestbookEntries.length === 0 ? (
+                      <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '30px' }}>
+                        Még senki nem írt a vendégkönyvbe. Légy te az első!
+                      </div>
+                    ) : (
+                      guestbookEntries.map((e) => (
+                        <div key={e.id} style={{ background: 'var(--bg-main)', padding: '12px 16px', borderRadius: '8px', border: '1px solid var(--border-main)' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <img src={e.avatar_url || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23475569'><circle cx='12' cy='8' r='4'/><path d='M12 14c-6.1 0-10 4-10 4v2h20v-2s-3.9-4-10-4z'/></svg>"} alt="" style={{ width: '24px', height: '28px', borderRadius: '50%', objectFit: 'cover' }} />
+                              <strong style={{ fontSize: '0.9rem', color: 'var(--text-title)' }}>{e.user_name}</strong>
+                              {e.club_name && <small style={{ color: '#10b981', fontSize: '0.75rem' }}>({e.club_name})</small>}
+                            </div>
+                            <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+                              {new Date(e.created_at).toLocaleString('hu-HU', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            </small>
+                          </div>
+                          <p style={{ margin: 0, color: 'var(--text-body)', fontSize: '0.88rem', lineHeight: '1.4' }}>{e.comment_text}</p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </>
+              )}
+
+              {/* TAB 2: LÁTOGATÁSI JEGYZÉK */}
+              {interactionTab === 'VISITORS' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {visitorsList.length === 0 ? (
+                    <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '30px' }}>
+                      Még senki sem látogatta meg ezt a kiállítást.
+                    </div>
+                  ) : (
+                    visitorsList.map((v, idx) => (
+                      <div key={idx} style={{ background: 'var(--bg-main)', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border-main)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <img src={v.avatar_url || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23475569'><circle cx='12' cy='8' r='4'/><path d='M12 14c-6.1 0-10 4-10 4v2h20v-2s-3.9-4-10-4z'/></svg>"} alt="" style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover' }} />
+                          <div>
+                            <div style={{ fontSize: '0.88rem', fontWeight: 'bold', color: 'var(--text-title)' }}>{v.user_name}</div>
+                            {v.club_name && <div style={{ fontSize: '0.75rem', color: '#10b981' }}>{v.club_name}</div>}
+                          </div>
+                        </div>
+
+                        <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <Clock size={12} /> {new Date(v.visited_at).toLocaleString('hu-HU', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+
+            </div>
+          </div>
         </div>
       )}
 
