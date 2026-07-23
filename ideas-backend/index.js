@@ -153,6 +153,7 @@ require('./routes/tickets')(app, pool);
 require('./routes/podcast')(app, pool);
 require('./routes/admin')(app, pool);
 require('./routes/store')(app, pool);
+require('./routes/galleries')(app, pool);
 // 🎯 Így kell kinéznie a meghívásnak a index.js-ben:
 require('./routes/quiz')(app, pool, upload, genAI);
 
