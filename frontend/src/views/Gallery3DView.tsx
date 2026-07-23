@@ -1,12 +1,16 @@
-import React, { useState, useEffect, Suspense } from 'react';
-import { Canvas } from '@react-three/fiber';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Text } from '@react-three/drei';
 import * as THREE from 'three';
 import { BACKEND_URL } from '../utils/constants';
 import { getImageUrl } from '../utils/helpers';
 import { useLanguage } from '../context/LanguageContext';
 import VideoLoader from '../components/VideoLoader';
-import { Box, Save, ArrowLeft, Layers, CheckCircle2, Globe, Users, Sparkles, Eye, Edit3, Trash2, PlusCircle } from 'lucide-react';
+import { 
+  Box, Save, ArrowLeft, Layers, CheckCircle2, Globe, Users, 
+  Sparkles, Eye, Edit3, Trash2, PlusCircle, ArrowUp, ArrowDown, 
+  RotateCcw, Navigation 
+} from 'lucide-react';
 
 const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
   const token = localStorage.getItem('photoAppToken');
@@ -27,12 +31,40 @@ const getPhotoIdentifier = (p: any) => {
 };
 
 // ====================================================================
-// 🖼️ INTELLIGENS 3D KÉPKERET DÍNAMIKUS KÉPARÁNY-KEZELÉSSEL (TORZÍTÁSMENTES)
+// 🕹️ BILLENTYŰZETES ÉS MOBIL SÉTA VEZÉRLŐ MOTOR
+// ====================================================================
+function WalkingController({ moveState }: { moveState: { forward: boolean; back: boolean; left: boolean; right: boolean } }) {
+  const { camera } = useThree();
+
+  useFrame((_, delta) => {
+    const moveSpeed = 4.0 * delta;
+    const forwardVec = new THREE.Vector3();
+    camera.getWorldDirection(forwardVec);
+    forwardVec.y = 0; // Séta csak a vízszintes síkon
+    forwardVec.normalize();
+
+    const sideVec = new THREE.Vector3();
+    sideVec.crossVectors(camera.up, forwardVec).normalize();
+
+    if (moveState.forward) camera.position.addScaledVector(forwardVec, moveSpeed);
+    if (moveState.back) camera.position.addScaledVector(forwardVec, -moveSpeed);
+    if (moveState.left) camera.position.addScaledVector(sideVec, moveSpeed);
+    if (moveState.right) camera.position.addScaledVector(sideVec, -moveSpeed);
+
+    // Szoba határainak védelme (hogy ne lehessen kisétálni a falakon kívülre)
+    camera.position.x = THREE.MathUtils.clamp(camera.position.x, -8.5, 8.5);
+    camera.position.z = THREE.MathUtils.clamp(camera.position.z, -3.5, 7.5);
+    camera.position.y = 0.6; // Mindig szemmagasságban tartja a kamerát
+  });
+
+  return null;
+}
+
+// ====================================================================
+// 🖼️ INTELLIGENS 3D KÉPKERET (PADLÓ-VÉDETT CÍMKE HELYZETTEL)
 // ====================================================================
 function ArtworkFrame({ position, rotation, url, title, onClick }: any) {
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
-  
-  // Alapértelmezett méretek (fekvő formatum)
   const [dims, setDims] = useState<{ pWidth: number; pHeight: number }>({ pWidth: 2.8, pHeight: 1.9 });
 
   useEffect(() => {
@@ -43,7 +75,6 @@ function ArtworkFrame({ position, rotation, url, title, onClick }: any) {
       if (!isMounted) return;
       loaded.colorSpace = THREE.SRGBColorSpace;
 
-      // 🎯 VALÓS OLDALARÁNY SZÁMÍTÁSA A KÉP PIXELEIBŐL
       const img = loaded.image;
       if (img && img.width && img.height) {
         const aspect = img.width / img.height;
@@ -51,21 +82,13 @@ function ArtworkFrame({ position, rotation, url, title, onClick }: any) {
         let h = 1.9;
 
         if (aspect >= 1) {
-          // Fekvő (Landscape) vagy Négyzetes fotó
           w = 2.8;
           h = w / aspect;
-          if (h > 2.2) {
-            h = 2.2;
-            w = h * aspect;
-          }
+          if (h > 2.2) { h = 2.2; w = h * aspect; }
         } else {
-          // Álló (Portrait) fotó
           h = 2.4;
           w = h * aspect;
-          if (w > 2.0) {
-            w = 2.0;
-            h = w / aspect;
-          }
+          if (w > 2.0) { w = 2.0; h = w / aspect; }
         }
         setDims({ pWidth: w, pHeight: h });
       }
@@ -85,9 +108,7 @@ function ArtworkFrame({ position, rotation, url, title, onClick }: any) {
             const data = await res.json();
             if (data.base64) targetUrl = data.base64;
           }
-        } catch (e) {
-          console.warn("Proxy hiba, próbáljuk közvetlenül...", e);
-        }
+        } catch (e) {}
       }
 
       const loader = new THREE.TextureLoader();
@@ -109,9 +130,7 @@ function ArtworkFrame({ position, rotation, url, title, onClick }: any) {
                   loader.load(data.base64, (fallbackLoaded) => applyTextureWithAspect(fallbackLoaded));
                 }
               }
-            } catch (err) {
-              console.error("❌ Nem sikerült betölteni a 3D textúrát:", url);
-            }
+            } catch (err) {}
           }
         }
       );
@@ -121,16 +140,18 @@ function ArtworkFrame({ position, rotation, url, title, onClick }: any) {
     return () => { isMounted = false; };
   }, [url]);
 
-  // Keretek méretének dinamikus kiszámítása a fotóhoz igazítva
   const { pWidth, pHeight } = dims;
-  const frameWidth = pWidth + 0.4;
-  const frameHeight = pHeight + 0.4;
-  const passWidth = pWidth + 0.2;
-  const passHeight = pHeight + 0.2;
+  const frameWidth = pWidth + 0.35;
+  const frameHeight = pHeight + 0.35;
+  const passWidth = pWidth + 0.18;
+  const passHeight = pHeight + 0.18;
+
+  // 🎯 Címke helyének pontos kiszámítása, hogy sose csússzon a padló alá
+  const labelYPosition = -(frameHeight / 2 + 0.22);
 
   return (
     <group position={position} rotation={rotation}>
-      {/* Külső Fa/Fém Keret (Dinamikusan igazodik az álló/fekvő formátumhoz) */}
+      {/* Fa/Fém Keret */}
       <mesh position={[0, 0, -0.03]}>
         <boxGeometry args={[frameWidth, frameHeight, 0.06]} />
         <meshStandardMaterial color="#0f172a" roughness={0.3} />
@@ -142,39 +163,46 @@ function ArtworkFrame({ position, rotation, url, title, onClick }: any) {
         <meshStandardMaterial color="#f8fafc" roughness={0.9} />
       </mesh>
 
-      {/* A Fotó felülete (Tökéletes, torzításmentes méretben) */}
+      {/* A Fotó felülete */}
       <mesh onClick={onClick} position={[0, 0, 0.005]} style={{ cursor: 'pointer' }}>
         <planeGeometry args={[pWidth, pHeight]} />
         {texture ? <meshBasicMaterial map={texture} /> : <meshStandardMaterial color="#334155" />}
       </mesh>
 
-      {/* Célzott Reflektorfény (Mindig a keret fölé igazítva) */}
+      {/* Célzott Reflektorfény */}
       <spotLight
-        position={[0, frameHeight / 2 + 0.6, 1.2]}
+        position={[0, frameHeight / 2 + 0.5, 1.2]}
         target-position={[0, 0, 0]}
-        intensity={3.0}
-        angle={0.6}
+        intensity={3.5}
+        angle={0.65}
         penumbra={0.4}
         color="#fffbeb"
       />
 
-      {/* Címke a kép alatt (Mindig a keret alja alá pozicionálva) */}
-      <Text position={[0, -(frameHeight / 2 + 0.25), 0.01]} fontSize={0.14} color="#e2e8f0" anchorX="center" anchorY="top">
-        {title || 'Fotómű'}
-      </Text>
+      {/* 🎯 CÍMKE A KÉP ALATT (Jól látható, világos háttértáblával) */}
+      <group position={[0, labelYPosition, 0.01]}>
+        <mesh position={[0, 0, -0.005]}>
+          <planeGeometry args={[Math.max(1.8, pWidth * 0.8), 0.3]} />
+          <meshStandardMaterial color="#1e293b" roughness={0.5} />
+        </mesh>
+        <Text fontSize={0.13} color="#f8fafc" anchorX="center" anchorY="middle" maxWidth={pWidth * 0.75}>
+          {title || 'Fotómű'}
+        </Text>
+      </group>
     </group>
   );
 }
 
 // ====================================================================
-// 🏛️ 3D GALÉRIATEREM
+// 🏛️ 3D GALÉRIATEREM (EMELT FRAME POZÍCIÓKKAL)
 // ====================================================================
 function GalleryRoom({ photos, onSelectPhoto }: { photos: any[]; onSelectPhoto: (p: any) => void }) {
+  // 🎯 Megemeltük a képek Y magasságát (0.85-re), hogy az álló képek címei is bőven a padló felett maradjanak!
   const wallPositions: [number, number, number][] = [
-    [-6, 0.5, -4.9], [0, 0.5, -4.9], [6, 0.5, -4.9],
-    [-9.9, 0.5, -1], [-9.9, 0.5, 3],
-    [9.9, 0.5, -1], [9.9, 0.5, 3],
-    [-6, 0.5, 8.9], [0, 0.5, 8.9], [6, 0.5, 8.9]
+    [-6, 0.85, -4.9], [0, 0.85, -4.9], [6, 0.85, -4.9],   // Hátsó fal
+    [-9.9, 0.85, -1], [-9.9, 0.85, 3],                  // Bal fal
+    [9.9, 0.85, -1], [9.9, 0.85, 3],                    // Jobb fal
+    [-6, 0.85, 8.9], [0, 0.85, 8.9], [6, 0.85, 8.9]       // Első fal
   ];
 
   const wallRotations: [number, number, number][] = [
@@ -186,20 +214,23 @@ function GalleryRoom({ photos, onSelectPhoto }: { photos: any[]; onSelectPhoto: 
 
   return (
     <>
-      <ambientLight intensity={1.2} />
+      <ambientLight intensity={1.3} />
       <directionalLight position={[0, 10, 10]} intensity={1.8} />
       <directionalLight position={[0, 10, -10]} intensity={1.2} />
 
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1, 2]}>
+      {/* Padló */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.0, 2]}>
         <planeGeometry args={[20, 20]} />
         <meshStandardMaterial color="#1e293b" roughness={0.4} />
       </mesh>
 
+      {/* Mennyezet */}
       <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 4.5, 2]}>
         <planeGeometry args={[20, 20]} />
         <meshStandardMaterial color="#020617" />
       </mesh>
 
+      {/* Falak */}
       <mesh position={[0, 1.75, -5]}><planeGeometry args={[20, 11]} /><meshStandardMaterial color="#334155" roughness={0.8} /></mesh>
       <mesh position={[-10, 1.75, 2]} rotation={[0, Math.PI / 2, 0]}><planeGeometry args={[20, 11]} /><meshStandardMaterial color="#334155" roughness={0.8} /></mesh>
       <mesh position={[10, 1.75, 2]} rotation={[0, -Math.PI / 2, 0]}><planeGeometry args={[20, 11]} /><meshStandardMaterial color="#334155" roughness={0.8} /></mesh>
@@ -241,6 +272,37 @@ export default function Gallery3DView({ user }: { user: any }) {
   const [activePhotoModal, setActivePhotoModal] = useState<any | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
+  // 🎯 SÉTA ÁLLAPOTOK
+  const [moveState, setMoveState] = useState({ forward: false, back: false, left: false, right: false });
+
+  // Billentyűzet események (WASD / Nyilak)
+  useEffect(() => {
+    if (viewMode !== 'VIEW_3D') return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const code = e.code;
+      if (code === 'KeyW' || code === 'ArrowUp') setMoveState(p => ({ ...p, forward: true }));
+      if (code === 'KeyS' || code === 'ArrowDown') setMoveState(p => ({ ...p, back: true }));
+      if (code === 'KeyA' || code === 'ArrowLeft') setMoveState(p => ({ ...p, left: true }));
+      if (code === 'KeyD' || code === 'ArrowRight') setMoveState(p => ({ ...p, right: true }));
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      const code = e.code;
+      if (code === 'KeyW' || code === 'ArrowUp') setMoveState(p => ({ ...p, forward: false }));
+      if (code === 'KeyS' || code === 'ArrowDown') setMoveState(p => ({ ...p, back: false }));
+      if (code === 'KeyA' || code === 'ArrowLeft') setMoveState(p => ({ ...p, left: false }));
+      if (code === 'KeyD' || code === 'ArrowRight') setMoveState(p => ({ ...p, right: false }));
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [viewMode]);
+
   const loadData = async () => {
     setLoading(true);
     try {
@@ -249,16 +311,10 @@ export default function Gallery3DView({ user }: { user: any }) {
         fetch(`${BACKEND_URL}/api/my-album?userEmail=${encodeURIComponent(user?.email || '')}`, { headers: getAuthHeaders() })
       ]);
 
-      if (listRes.ok) {
-        setAllGalleries(await listRes.json());
-      }
-
-      if (portfolioRes.ok) {
-        const portData = await portfolioRes.json();
-        setMyPortfolioPhotos(Array.isArray(portData) ? portData : []);
-      }
+      if (listRes.ok) setAllGalleries(await listRes.json());
+      if (portfolioRes.ok) setMyPortfolioPhotos(await portfolioRes.json());
     } catch (e) {
-      console.error("Hiba az adatok letöltésekor:", e);
+      console.error(e);
     } finally {
       setLoading(false);
     }
@@ -290,13 +346,11 @@ export default function Gallery3DView({ user }: { user: any }) {
         headers: getAuthHeaders()
       });
       if (res.ok) {
-        alert('Tárlat sikeresen törölve! 🗑️');
+        alert('Tárlat törölve! 🗑️');
         loadData();
-      } else {
-        alert('Nem sikerült törölni a tárlatot.');
       }
     } catch (e) {
-      alert('Hálózati hiba a törlés során.');
+      alert('Hálózati hiba.');
     }
   };
 
@@ -310,57 +364,32 @@ export default function Gallery3DView({ user }: { user: any }) {
       if (selectedPhotos.length >= 10) {
         return alert(lang === 'en' ? 'Maximum 10 photos allowed!' : 'Legfeljebb 10 fotót választhatsz ki!');
       }
-      
       const photoUrl = resolvePhotoUrl(photo);
       const initialTitle = photo.title || photo.title_hu || '';
-      
-      setSelectedPhotos(prev => [
-        ...prev, 
-        { 
-          id: photo.id, 
-          drive_file_id: photo.drive_file_id, 
-          file_url: photoUrl, 
-          title: initialTitle 
-        }
-      ]);
+      setSelectedPhotos(prev => [...prev, { id: photo.id, drive_file_id: photo.drive_file_id, file_url: photoUrl, title: initialTitle }]);
     }
   };
 
   const updatePhotoTitle = (photoKey: string, newTitle: string) => {
-    setSelectedPhotos(prev => prev.map(p => {
-      return getPhotoIdentifier(p) === photoKey ? { ...p, title: newTitle } : p;
-    }));
+    setSelectedPhotos(prev => prev.map(p => getPhotoIdentifier(p) === photoKey ? { ...p, title: newTitle } : p));
   };
 
   const handleSave = async () => {
-    if (selectedPhotos.length === 0) {
-      return alert(lang === 'en' ? 'Please select at least 1 photo!' : 'Kérlek válassz ki legalább 1 fotót!');
-    }
-
+    if (selectedPhotos.length === 0) return alert(lang === 'en' ? 'Please select at least 1 photo!' : 'Kérlek válassz ki legalább 1 fotót!');
     setIsSaving(true);
     try {
       const res = await fetch(`${BACKEND_URL}/api/premium/3d-gallery/save`, {
         method: 'POST',
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ 
-          id: editingGalleryId, 
-          title: galleryTitle, 
-          theme: 'modern', 
-          visibility, 
-          photos: selectedPhotos 
-        })
+        body: JSON.stringify({ id: editingGalleryId, title: galleryTitle, theme: 'modern', visibility, photos: selectedPhotos })
       });
-
       if (res.ok) {
         await loadData();
         setMode('DIRECTORY');
-        alert(lang === 'en' ? 'Exhibition saved! 🎉' : '🎉 Kiállítás sikeresen elmentve!');
-      } else {
-        const err = await res.json().catch(() => ({}));
-        alert(err.error || 'Hiba a mentés során.');
+        alert('🎉 Kiállítás elmentve!');
       }
     } catch (e) {
-      alert('Hálózati hiba a mentés során.');
+      alert('Hálózati hiba.');
     } finally {
       setIsSaving(false);
     }
@@ -419,17 +448,13 @@ export default function Gallery3DView({ user }: { user: any }) {
 
                 return (
                   <div key={gal.id} style={{ background: 'var(--bg-card)', border: isMine ? '2px solid #a78bfa' : '1px solid var(--border-main)', borderRadius: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                    
-                    {/* Előnézeti Borítókép */}
                     <div style={{ height: '180px', background: '#090d16', position: 'relative' }}>
                       <img src={coverUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      
                       <div style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(15,23,42,0.85)', padding: '4px 10px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 'bold', color: gal.visibility === 'club' ? '#f59e0b' : '#38bdf8', display: 'flex', alignItems: 'center', gap: '5px' }}>
                         {gal.visibility === 'club' ? <><Users size={12} /> Klub Szféra</> : <><Globe size={12} /> Publikus</>}
                       </div>
                     </div>
 
-                    {/* Információk */}
                     <div style={{ padding: '16px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                       <div>
                         <h3 style={{ margin: '0 0 6px 0', color: 'var(--text-title)', fontSize: '1.2rem' }}>{gal.title}</h3>
@@ -461,9 +486,7 @@ export default function Gallery3DView({ user }: { user: any }) {
                           </div>
                         )}
                       </div>
-
                     </div>
-
                   </div>
                 );
               })}
@@ -472,17 +495,70 @@ export default function Gallery3DView({ user }: { user: any }) {
         </div>
       )}
 
-      {/* 2. 3D MEGTEKINTŐ NÉZET */}
+      {/* 2. 3D MEGTEKINTŐ NÉZET VALÓDI SÉTA ELEMEKKEL */}
       {viewMode === 'VIEW_3D' && activeGallery && (
-        <div style={{ width: '100%', height: '600px', background: '#020617', borderRadius: '12px', overflow: 'hidden', position: 'relative', border: '1px solid var(--border-main)' }}>
-          <Canvas camera={{ position: [0, 0.5, 6], fov: 60 }}>
+        <div style={{ width: '100%', height: '620px', background: '#020617', borderRadius: '12px', overflow: 'hidden', position: 'relative', border: '1px solid var(--border-main)' }}>
+          
+          <Canvas camera={{ position: [0, 0.6, 5], fov: 60 }}>
+            <WalkingController moveState={moveState} />
             <GalleryRoom photos={activeGallery.photos || []} onSelectPhoto={(p) => setActivePhotoModal(p)} />
-            <OrbitControls enableZoom={true} maxPolarAngle={Math.PI / 2} minDistance={1} maxDistance={9} target={[0, 0.5, 0]} />
+            <OrbitControls enableZoom={true} enablePan={true} screenSpacePanning={false} maxPolarAngle={Math.PI / 2 + 0.1} minDistance={0.5} maxDistance={10} />
           </Canvas>
 
-          <div style={{ position: 'absolute', bottom: '15px', left: '15px', background: 'rgba(9, 13, 22, 0.85)', padding: '8px 15px', borderRadius: '8px', color: 'white', fontSize: '0.8rem', backdropFilter: 'blur(4px)', border: '1px solid rgba(255,255,255,0.1)' }}>
-            💡 <b>Nézelődés:</b> Húzd az egeret / ujjadat a forgáshoz! Kattints egy képre a részletekért.
+          {/* ÚTMUTATÓ LENT BALRA */}
+          <div style={{ position: 'absolute', bottom: '15px', left: '15px', background: 'rgba(9, 13, 22, 0.85)', padding: '10px 16px', borderRadius: '8px', color: 'white', fontSize: '0.8rem', backdropFilter: 'blur(6px)', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#a78bfa', fontWeight: 'bold' }}>
+              <Navigation size={14} /> <span>Irányítás & Séta:</span>
+            </div>
+            <div>⌨️ <b>W, A, S, D / Nyilak:</b> Séta a teremben</div>
+            <div>🖱️ <b>Egér / Érintés:</b> Nézelődés és forgás</div>
           </div>
+
+          {/* 🎯 MOBIL SÉTA GOMBOK (EGYEDI VIRTUÁLIS DPAD A JOBB ALSÓ SARKOBAN) */}
+          <div style={{ position: 'absolute', bottom: '15px', right: '15px', display: 'grid', gridTemplateColumns: 'repeat(3, 44px)', gap: '6px', background: 'rgba(9, 13, 22, 0.85)', padding: '10px', borderRadius: '12px', backdropFilter: 'blur(6px)', border: '1px solid rgba(255,255,255,0.1)' }}>
+            <div></div>
+            <button 
+              onMouseDown={() => setMoveState(p => ({ ...p, forward: true }))} 
+              onMouseUp={() => setMoveState(p => ({ ...p, forward: false }))}
+              onTouchStart={() => setMoveState(p => ({ ...p, forward: true }))} 
+              onTouchEnd={() => setMoveState(p => ({ ...p, forward: false }))}
+              style={{ width: '44px', height: '44px', background: 'var(--bg-main)', border: '1px solid var(--border-main)', color: 'white', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            >
+              <ArrowUp size={20} />
+            </button>
+            <div></div>
+
+            <button 
+              onMouseDown={() => setMoveState(p => ({ ...p, left: true }))} 
+              onMouseUp={() => setMoveState(p => ({ ...p, left: false }))}
+              onTouchStart={() => setMoveState(p => ({ ...p, left: true }))} 
+              onTouchEnd={() => setMoveState(p => ({ ...p, left: false }))}
+              style={{ width: '44px', height: '44px', background: 'var(--bg-main)', border: '1px solid var(--border-main)', color: 'white', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            >
+              <ArrowLeft size={20} />
+            </button>
+
+            <button 
+              onMouseDown={() => setMoveState(p => ({ ...p, back: true }))} 
+              onMouseUp={() => setMoveState(p => ({ ...p, back: false }))}
+              onTouchStart={() => setMoveState(p => ({ ...p, back: true }))} 
+              onTouchEnd={() => setMoveState(p => ({ ...p, back: false }))}
+              style={{ width: '44px', height: '44px', background: 'var(--bg-main)', border: '1px solid var(--border-main)', color: 'white', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            >
+              <ArrowDown size={20} />
+            </button>
+
+            <button 
+              onMouseDown={() => setMoveState(p => ({ ...p, right: true }))} 
+              onMouseUp={() => setMoveState(p => ({ ...p, right: false }))}
+              onTouchStart={() => setMoveState(p => ({ ...p, right: true }))} 
+              onTouchEnd={() => setMoveState(p => ({ ...p, right: false }))}
+              style={{ width: '44px', height: '44px', background: 'var(--bg-main)', border: '1px solid var(--border-main)', color: 'white', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            >
+              <ArrowLeft size={20} style={{ transform: 'rotate(180deg)' }} />
+            </button>
+          </div>
+
         </div>
       )}
 
@@ -511,7 +587,7 @@ export default function Gallery3DView({ user }: { user: any }) {
             
             {myPortfolioPhotos.length === 0 ? (
               <div style={{ padding: '30px', textAlign: 'center', background: 'var(--bg-main)', borderRadius: '8px', border: '1px dashed var(--border-main)', color: 'var(--text-muted)' }}>
-                Még nincs feltöltött fotód a Portfóliódban. Lépj a "Portfólió" menüpontra és töltsd fel a képeidet!
+                Még nincs feltöltött fotód a Portfóliódban.
               </div>
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '15px' }}>
