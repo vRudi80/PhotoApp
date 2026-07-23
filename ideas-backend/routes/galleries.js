@@ -27,7 +27,6 @@ async function requireAuth(req, res, next) {
 
 module.exports = function(app, pool) {
 
-  // Függvény a tábla garantált jelenlétéhez
   async function ensureTableExists() {
     try {
       await pool.query(`
@@ -46,7 +45,7 @@ module.exports = function(app, pool) {
     }
   }
 
-  // 1. Saját galéria beállításainak lekérése (Golyóálló szerverhiba-védelemmel)
+  // 1. Saját galéria beállításainak lekérése
   app.get('/api/premium/3d-gallery/my', requireAuth, async (req, res) => {
     try {
       await ensureTableExists();
@@ -67,16 +66,17 @@ module.exports = function(app, pool) {
       res.json({ gallery: { ...gal, photos } });
     } catch (err) {
       console.error("❌ 3D Galéria lekérési hiba:", err.message);
-      // Failsafe: 200 OK-val válaszolunk üres galériaként, hogy a frontend ne fagyjon le!
       res.json({ gallery: null });
     }
   });
 
-  // 2. Galéria mentése / frissítése
+  // 2. Galéria mentése / frissítése (Megengedő validációval)
   app.post('/api/premium/3d-gallery/save', requireAuth, async (req, res) => {
     const { title, theme, photos } = req.body;
-    if (!title || !Array.isArray(photos) || photos.length === 0) {
-      return res.status(400).json({ error: 'Cím és legalább 1 fotó kiválasztása kötelező!' });
+    const cleanTitle = (title || 'Saját Virtuális Kiállításom').trim();
+
+    if (!Array.isArray(photos) || photos.length === 0) {
+      return res.status(400).json({ error: 'Legalább 1 fotó kiválasztása kötelező a mentéshez!' });
     }
 
     try {
@@ -87,12 +87,12 @@ module.exports = function(app, pool) {
         INSERT INTO user_3d_galleries (user_email, title, theme, photos_json)
         VALUES (?, ?, ?, ?)
         ON DUPLICATE KEY UPDATE title = VALUES(title), theme = VALUES(theme), photos_json = VALUES(photos_json)
-      `, [req.user.email, title, theme || 'modern', photosJson]);
+      `, [req.user.email, cleanTitle, theme || 'modern', photosJson]);
 
       res.json({ success: true });
     } catch (err) {
       console.error("❌ 3D Galéria mentési hiba:", err.message);
-      res.status(500).json({ error: 'Nem sikerült elmenteni a galériát.' });
+      res.status(500).json({ error: 'Nem sikerült elmenteni a galériát: ' + err.message });
     }
   });
 
