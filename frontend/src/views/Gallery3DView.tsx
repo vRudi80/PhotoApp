@@ -3,6 +3,7 @@ import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Text } from '@react-three/drei';
 import * as THREE from 'three';
 import { BACKEND_URL } from '../utils/constants';
+import { getImageUrl } from '../utils/helpers';
 import { useLanguage } from '../context/LanguageContext';
 import VideoLoader from '../components/VideoLoader';
 import { Box, Save, ArrowLeft, Layers, CheckCircle2, Globe, Users, Sparkles, Eye, Edit3 } from 'lucide-react';
@@ -13,6 +14,12 @@ const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
     ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
     ...extraHeaders
   };
+};
+
+// Segédfüggvény a képlinkek golyóálló feloldásához
+const resolvePhotoUrl = (photo: any) => {
+  if (!photo) return '';
+  return getImageUrl(photo.drive_file_id, photo.file_url) || photo.file_url || '';
 };
 
 // ====================================================================
@@ -101,14 +108,15 @@ function GalleryRoom({ photos, onSelectPhoto }: { photos: any[]; onSelectPhoto: 
 
       {photos.map((photo, i) => {
         if (i >= wallPositions.length) return null;
+        const photoUrl = resolvePhotoUrl(photo);
         return (
           <ArtworkFrame
-            key={photo.id || photo.file_url || i}
+            key={photo.id || photoUrl || i}
             position={wallPositions[i]}
             rotation={wallRotations[i]}
-            url={photo.file_url}
+            url={photoUrl}
             title={photo.title}
-            onClick={() => onSelectPhoto(photo)}
+            onClick={() => onSelectPhoto({ ...photo, file_url: photoUrl })}
           />
         );
       })}
@@ -117,7 +125,7 @@ function GalleryRoom({ photos, onSelectPhoto }: { photos: any[]; onSelectPhoto: 
 }
 
 // ====================================================================
-// 🚀 FŐ 3D TÁRLATOK VÉGZŐDÉS
+// 🚀 FŐ 3D TÁRLATOK VÉGZŐDÉS (PORTFÓLIÓ ALAPÚ VÁLOGATÁSSAL)
 // ====================================================================
 export default function Gallery3DView({ user }: { user: any }) {
   const { lang } = useLanguage();
@@ -131,19 +139,19 @@ export default function Gallery3DView({ user }: { user: any }) {
   // Szerkesztő állapotok
   const [galleryTitle, setGalleryTitle] = useState('Saját Virtuális Kiállításom');
   const [visibility, setVisibility] = useState<'public' | 'club'>('public');
-  const [myAlbumPhotos, setMyAlbumPhotos] = useState<any[]>([]);
+  const [myPortfolioPhotos, setMyPortfolioPhotos] = useState<any[]>([]);
   const [selectedPhotos, setSelectedPhotos] = useState<any[]>([]);
   const [activePhotoModal, setActivePhotoModal] = useState<any | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  // 1. Összes elérhető tárlat és saját adatok betöltése
+  // 1. Összes elérhető tárlat és a PRÉMIUM PORTFÓLIÓ BETÖLTÉSE
   const loadData = async () => {
     setLoading(true);
     try {
-      const [listRes, myGalRes, albumRes] = await Promise.all([
+      const [listRes, myGalRes, portfolioRes] = await Promise.all([
         fetch(`${BACKEND_URL}/api/3d-galleries`, { headers: getAuthHeaders() }),
         fetch(`${BACKEND_URL}/api/premium/3d-gallery/my`, { headers: getAuthHeaders() }),
-        fetch(`${BACKEND_URL}/api/weekly/my-album?userEmail=${encodeURIComponent(user?.email || '')}`, { headers: getAuthHeaders() })
+        fetch(`${BACKEND_URL}/api/my-album?userEmail=${encodeURIComponent(user?.email || '')}`, { headers: getAuthHeaders() })
       ]);
 
       if (listRes.ok) {
@@ -159,11 +167,13 @@ export default function Gallery3DView({ user }: { user: any }) {
         }
       }
 
-      if (albumRes.ok) {
-        setMyAlbumPhotos(await albumRes.json());
+      // 🎯 PORTFÓLIÓ KÉPEK BETÖLTÉSE A PRÉMIUM ALBUMBÓL
+      if (portfolioRes.ok) {
+        const portData = await portfolioRes.json();
+        setMyPortfolioPhotos(Array.isArray(portData) ? portData : []);
       }
     } catch (e) {
-      console.error(e);
+      console.error("Hiba a tárlat adatok betöltésekor:", e);
     } finally {
       setLoading(false);
     }
@@ -171,21 +181,44 @@ export default function Gallery3DView({ user }: { user: any }) {
 
   useEffect(() => { loadData(); }, [user]);
 
-  // Kép kiválasztása / Címek kezelése
+  // Kép kiválasztása / Címek kezelése a portfólióból
   const toggleSelectPhoto = (photo: any) => {
-    const isSelected = selectedPhotos.some(p => p.file_url === photo.file_url);
+    const photoUrl = resolvePhotoUrl(photo);
+    const photoKey = photo.id ? String(photo.id) : photoUrl;
+
+    const isSelected = selectedPhotos.some(
+      p => (p.id && photo.id && String(p.id) === String(photo.id)) || resolvePhotoUrl(p) === photoUrl
+    );
+
     if (isSelected) {
-      setSelectedPhotos(prev => prev.filter(p => p.file_url !== photo.file_url));
+      setSelectedPhotos(prev => prev.filter(
+        p => !((p.id && photo.id && String(p.id) === String(photo.id)) || resolvePhotoUrl(p) === photoUrl)
+      ));
     } else {
       if (selectedPhotos.length >= 10) {
         return alert(lang === 'en' ? 'Maximum 10 photos allowed!' : 'Legfeljebb 10 fotót választhatsz ki!');
       }
-      setSelectedPhotos(prev => [...prev, { ...photo, title: photo.title || '' }]);
+      
+      // Alapértelmezett cím megállapítása a portfólió adatai alapján
+      const initialTitle = photo.title || photo.title_hu || '';
+      
+      setSelectedPhotos(prev => [
+        ...prev, 
+        { 
+          id: photo.id, 
+          drive_file_id: photo.drive_file_id, 
+          file_url: photoUrl, 
+          title: initialTitle 
+        }
+      ]);
     }
   };
 
-  const updatePhotoTitle = (fileUrl: string, newTitle: string) => {
-    setSelectedPhotos(prev => prev.map(p => p.file_url === fileUrl ? { ...p, title: newTitle } : p));
+  const updatePhotoTitle = (photoKey: string, newTitle: string) => {
+    setSelectedPhotos(prev => prev.map(p => {
+      const currentKey = p.id ? String(p.id) : resolvePhotoUrl(p);
+      return currentKey === photoKey ? { ...p, title: newTitle } : p;
+    }));
   };
 
   // Mentés
@@ -206,9 +239,12 @@ export default function Gallery3DView({ user }: { user: any }) {
         await loadData();
         setMode('DIRECTORY');
         alert(lang === 'en' ? 'Exhibition published! 🎉' : '🎉 Kiállítás sikeresen publikálva!');
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || 'Hiba a mentés során.');
       }
     } catch (e) {
-      alert('Hiba a mentés során.');
+      alert('Hálózati hiba a mentés során.');
     } finally {
       setIsSaving(false);
     }
@@ -257,45 +293,48 @@ export default function Gallery3DView({ user }: { user: any }) {
           {allGalleries.length === 0 ? (
             <div style={{ padding: '60px 20px', textAlign: 'center', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-main)', color: 'var(--text-muted)' }}>
               <h3>Még nincsenek publikált kiállítások.</h3>
-              <p>Légy te az első, aki berendezi a virtuális 3D tárlatát!</p>
+              <p>Légy te az első, aki berendezi a virtuális 3D tárlatát a portfóliójából!</p>
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
-              {allGalleries.map((gal) => (
-                <div key={gal.id} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', borderRadius: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                  
-                  {/* Előnézeti Borítókép */}
-                  <div style={{ height: '180px', background: '#090d16', position: 'relative' }}>
-                    <img src={gal.photos?.[0]?.file_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              {allGalleries.map((gal) => {
+                const coverUrl = resolvePhotoUrl(gal.photos?.[0]);
+                return (
+                  <div key={gal.id} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', borderRadius: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                     
-                    <div style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(15,23,42,0.85)', padding: '4px 10px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 'bold', color: gal.visibility === 'club' ? '#f59e0b' : '#38bdf8', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                      {gal.visibility === 'club' ? <><Users size={12} /> Klub Szféra</> : <><Globe size={12} /> Publikus</>}
-                    </div>
-                  </div>
-
-                  {/* Információk */}
-                  <div style={{ padding: '16px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                    <div>
-                      <h3 style={{ margin: '0 0 6px 0', color: 'var(--text-title)', fontSize: '1.2rem' }}>{gal.title}</h3>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                        <img src={gal.avatar_url || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23475569'><circle cx='12' cy='8' r='4'/><path d='M12 14c-6.1 0-10 4-10 4v2h20v-2s-3.9-4-10-4z'/></svg>"} alt="" style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover' }} />
-                        <div>
-                          <div style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-title)' }}>{gal.photographer_name}</div>
-                          {gal.club_name && <div style={{ fontSize: '0.75rem', color: '#10b981' }}>{gal.club_name}</div>}
-                        </div>
+                    {/* Előnézeti Borítókép */}
+                    <div style={{ height: '180px', background: '#090d16', position: 'relative' }}>
+                      <img src={coverUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      
+                      <div style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(15,23,42,0.85)', padding: '4px 10px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 'bold', color: gal.visibility === 'club' ? '#f59e0b' : '#38bdf8', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        {gal.visibility === 'club' ? <><Users size={12} /> Klub Szféra</> : <><Globe size={12} /> Publikus</>}
                       </div>
                     </div>
 
-                    <button 
-                      onClick={() => { setActiveGallery(gal); setMode('VIEW_3D'); }}
-                      style={{ width: '100%', background: '#a78bfa', color: '#0f172a', border: 'none', padding: '10px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-                    >
-                      <Eye size={16} /> 3D Tárlat Bejárása ({gal.photos?.length || 0} kép)
-                    </button>
-                  </div>
+                    {/* Információk */}
+                    <div style={{ padding: '16px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                      <div>
+                        <h3 style={{ margin: '0 0 6px 0', color: 'var(--text-title)', fontSize: '1.2rem' }}>{gal.title}</h3>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                          <img src={gal.avatar_url || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23475569'><circle cx='12' cy='8' r='4'/><path d='M12 14c-6.1 0-10 4-10 4v2h20v-2s-3.9-4-10-4z'/></svg>"} alt="" style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover' }} />
+                          <div>
+                            <div style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-title)' }}>{gal.photographer_name}</div>
+                            {gal.club_name && <div style={{ fontSize: '0.75rem', color: '#10b981' }}>{gal.club_name}</div>}
+                          </div>
+                        </div>
+                      </div>
 
-                </div>
-              ))}
+                      <button 
+                        onClick={() => { setActiveGallery(gal); setMode('VIEW_3D'); }}
+                        style={{ width: '100%', background: '#a78bfa', color: '#0f172a', border: 'none', padding: '10px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                      >
+                        <Eye size={16} /> 3D Tárlat Bejárása ({gal.photos?.length || 0} kép)
+                      </button>
+                    </div>
+
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -315,7 +354,7 @@ export default function Gallery3DView({ user }: { user: any }) {
         </div>
       )}
 
-      {/* 3. SZERKESZTŐ MÓD */}
+      {/* 3. SZERKESZTŐ MÓD (PORTFÓLIÓ VÁLOGATÓVAL) */}
       {viewMode === 'EDIT' && (
         <div style={{ background: 'var(--bg-card)', padding: '25px', borderRadius: '12px', border: '1px solid var(--border-main)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
           
@@ -335,39 +374,50 @@ export default function Gallery3DView({ user }: { user: any }) {
           </div>
 
           <div>
-            <h3 style={{ color: 'var(--text-title)', marginBottom: '6px' }}>Válassz ki legfeljebb 10 fotót az albumodból és adj nekik címet:</h3>
+            <h3 style={{ color: 'var(--text-title)', marginBottom: '6px' }}>Válassz ki legfeljebb 10 fotót a Portfóliódból:</h3>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '15px' }}>Kiválasztva: {selectedPhotos.length} / 10</p>
             
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '15px' }}>
-              {myAlbumPhotos.map((photo, idx) => {
-                const selectedObj = selectedPhotos.find(p => p.file_url === photo.file_url);
-                const isSelected = !!selectedObj;
+            {myPortfolioPhotos.length === 0 ? (
+              <div style={{ padding: '30px', textAlign: 'center', background: 'var(--bg-main)', borderRadius: '8px', border: '1px dashed var(--border-main)', color: 'var(--text-muted)' }}>
+                Még nincs feltöltött fotód a Portfóliódban. Lépj a "Portfólió" menüpontra és töltsd fel a képeidet!
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '15px' }}>
+                {myPortfolioPhotos.map((photo, idx) => {
+                  const photoUrl = resolvePhotoUrl(photo);
+                  const photoKey = photo.id ? String(photo.id) : photoUrl;
 
-                return (
-                  <div key={photo.id || photo.file_url || idx} style={{ background: 'var(--bg-main)', border: isSelected ? '2px solid #10b981' : '1px solid var(--border-main)', borderRadius: '8px', padding: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <div onClick={() => toggleSelectPhoto(photo)} style={{ position: 'relative', height: '120px', borderRadius: '6px', overflow: 'hidden', cursor: 'pointer' }}>
-                      <img src={photo.file_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  const selectedObj = selectedPhotos.find(
+                    p => (p.id && photo.id && String(p.id) === String(photo.id)) || resolvePhotoUrl(p) === photoUrl
+                  );
+                  const isSelected = !!selectedObj;
+
+                  return (
+                    <div key={photo.id || photoUrl || idx} style={{ background: 'var(--bg-main)', border: isSelected ? '2px solid #10b981' : '1px solid var(--border-main)', borderRadius: '8px', padding: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div onClick={() => toggleSelectPhoto(photo)} style={{ position: 'relative', height: '130px', borderRadius: '6px', overflow: 'hidden', cursor: 'pointer', background: '#000' }}>
+                        <img src={photoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                        {isSelected && (
+                          <div style={{ position: 'absolute', top: '6px', right: '6px', background: '#10b981', color: 'white', borderRadius: '50%', padding: '2px' }}>
+                            <CheckCircle2 size={18} />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* EGYEDI KÉPCÍM SZERKESZTŐ A 3D KIÁLLÍTÁSHOZ */}
                       {isSelected && (
-                        <div style={{ position: 'absolute', top: '6px', right: '6px', background: '#10b981', color: 'white', borderRadius: '50%', padding: '2px' }}>
-                          <CheckCircle2 size={18} />
-                        </div>
+                        <input 
+                          type="text" 
+                          placeholder="Kép címe a 3D teremben..." 
+                          value={selectedObj.title || ''} 
+                          onChange={e => updatePhotoTitle(photoKey, e.target.value)} 
+                          style={{ padding: '8px 10px', borderRadius: '4px', border: '1px solid var(--border-main)', background: 'var(--bg-card)', color: 'var(--text-title)', fontSize: '0.82rem', outline: 'none' }}
+                        />
                       )}
                     </div>
-
-                    {/* EGYEDI KÉPCÍM MEGADÁSA A 3D KIÁLLÍTÁSHOZ */}
-                    {isSelected && (
-                      <input 
-                        type="text" 
-                        placeholder="Kép címe a 3D teremben..." 
-                        value={selectedObj.title || ''} 
-                        onChange={e => updatePhotoTitle(photo.file_url, e.target.value)} 
-                        style={{ padding: '6px 10px', borderRadius: '4px', border: '1px solid var(--border-main)', background: 'var(--bg-card)', color: 'var(--text-title)', fontSize: '0.82rem', outline: 'none' }}
-                      />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           <button onClick={handleSave} disabled={isSaving || selectedPhotos.length === 0} style={{ background: selectedPhotos.length > 0 ? '#10b981' : 'var(--border-main)', color: 'white', border: 'none', padding: '14px', borderRadius: '8px', fontWeight: 'bold', fontSize: '1rem', cursor: selectedPhotos.length > 0 ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
@@ -380,7 +430,7 @@ export default function Gallery3DView({ user }: { user: any }) {
       {activePhotoModal && (
         <div onClick={() => setActivePhotoModal(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 99999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
           <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', borderRadius: '12px', padding: '20px', maxWidth: '600px', width: '100%', textAlign: 'center' }}>
-            <img src={activePhotoModal.file_url} alt="" style={{ maxWidth: '100%', maxHeight: '60vh', objectFit: 'contain', borderRadius: '8px', marginBottom: '15px' }} />
+            <img src={resolvePhotoUrl(activePhotoModal)} alt="" style={{ maxWidth: '100%', maxHeight: '60vh', objectFit: 'contain', borderRadius: '8px', marginBottom: '15px' }} />
             <h3 style={{ color: 'var(--text-title)', margin: '0 0 5px 0' }}>{activePhotoModal.title || 'Cím nélküli alkotás'}</h3>
             <button onClick={() => setActivePhotoModal(null)} style={{ marginTop: '15px', background: 'var(--bg-main)', border: '1px solid var(--border-main)', color: 'var(--text-title)', padding: '8px 20px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Bezárás</button>
           </div>
