@@ -38,6 +38,9 @@ import ForumView from './views/ForumView';
 import AdminQuizView from './views/admin/AdminQuizView';
 import QuizView from './views/QuizView';
 import PhotoHistoryView from './views/PhotoHistoryView';
+// Az importokhoz:
+import AdminVoterAnalysisView from './views/admin/AdminVoterAnalysisView';
+
 
 // 🎯 ÚJ: 3D Virtuális Tárlat nézet beimportálása
 import Gallery3DView from './views/Gallery3DView';
@@ -693,6 +696,8 @@ function MainContent() {
               <Route path="/admin_banned_emails" element={user?.email === ADMIN_EMAIL ? <AdminBannedEmailsView /> : <Navigate to="/dashboard" />} /> 
               <Route path="/admin_meetings" element={(user?.email === ADMIN_EMAIL || isLeader) ? <AdminMeetingsView user={user} currentDbUser={currentDbUser} clubs={clubs} meetings={meetings} allUsers={allUsers} adminMeetings={adminMeetings} fetchData={fetchData} /> : <Navigate to="/dashboard" replace />} />
               <Route path="/admin_homeworks" element={(user?.email === ADMIN_EMAIL || isLeader) ? <AdminHomeworksView user={user} currentDbUser={currentDbUser} clubs={clubs} adminHomeworks={adminHomeworks} fetchData={fetchData} /> : <Navigate to="/dashboard" replace />} />
+
+<Route path="/admin_voter_analysis" element={user?.email === ADMIN_EMAIL ? <AdminVoterAnalysisView /> : <Navigate to="/dashboard" />} />
 
               {['/contests_open_active', '/contests_club_active', '/contests_closed'].map(path => (
                 <Route key={path} path={path} element={
