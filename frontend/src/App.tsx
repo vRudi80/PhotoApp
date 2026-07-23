@@ -37,9 +37,10 @@ import AdminPointsDashboard from './views/admin/AdminPointsDashboard';
 import ForumView from './views/ForumView'; 
 import AdminQuizView from './views/admin/AdminQuizView';
 import QuizView from './views/QuizView';
-// 1. Az importok közé:
 import PhotoHistoryView from './views/PhotoHistoryView';
 
+// 🎯 ÚJ: 3D Virtuális Tárlat nézet beimportálása
+import Gallery3DView from './views/Gallery3DView';
 
 // Témakezelő környezet
 import { ThemeProvider } from './context/ThemeContext'; 
@@ -80,7 +81,6 @@ if (typeof window !== 'undefined') {
   };
 
   window.fetch = async function (input, init) {
-    // Kinyerjük a kérés pontos URL címét stringként
     let requestUrl = '';
     if (typeof input === 'string') {
       requestUrl = input;
@@ -90,9 +90,6 @@ if (typeof window !== 'undefined') {
       requestUrl = (input as any).url;
     }
 
-    // 🎯 CRITICAL MOBIL JAVÍTÁS: Csak a saját backend API hívásainkat interceptáljuk!
-    // Ha a kérés külső assetre, harmadik félre (pl. Google GSI stíluslapra) irányul, 
-    // teljesen békén hagyjuk, így az html-to-image hibái nem fagyasztják le az alkalmazást.
     const isBackendCall = requestUrl.includes('/api/') || requestUrl.includes(BACKEND_URL) || requestUrl.startsWith('/');
     const isGoogleAuthAsset = requestUrl.includes('google.com') || requestUrl.includes('accounts.google.com');
 
@@ -630,7 +627,7 @@ function MainContent() {
   const headerUser = useMemo(() => {
     if (!user) return null;
     if (!currentDbUser) return user;
-    return { ...user, name: currentDbUser.name || user.name, is_premium: currentDbUser.is_premium, isPremium: currentDbUser.is_premium === 1, premium_until: currentDbUser.premium_until, club_name: currentDbUser.club_name, club_id: currentDbUser.club_id, club_role: currentDbUser.club_role };
+    return { ...user, name: currentDbUser.name || user.name, is_premium: currentDbUser.is_premium, isPremium: currentDbUser.is_premium === 1, premiumUntil: currentDbUser.premium_until, club_name: currentDbUser.club_name, club_id: currentDbUser.club_id, club_role: currentDbUser.club_role };
   }, [user, currentDbUser]);
 
   return (
@@ -678,24 +675,24 @@ function MainContent() {
               <Route path="/salons" element={<SalonsView salonSearch={salonSearch} setSalonSearch={setSalonSearch} searchedSalons={sortedSalons} setSelectedSalon={setSelectedSalon} userEntrySalonIds={userEntrySalonIds} user={user} BACKEND_URL={BACKEND_URL} />} />
               <Route path="/club_nights" element={<ClubNightsView currentDbUser={currentDbUser} meetingSearch={meetingSearch} setMeetingSearch={setMeetingSearch} searchedMeetings={searchedMeetings} setActiveVideo={setActiveVideo} />} />
               <Route path="/leader_club" element={isLeader ? <LeaderClubView user={user} BACKEND_URL={BACKEND_URL} /> : <Navigate to="/dashboard" replace />} />
-          <Route path="/podcast" element={<PodcastView />} />
-{/* 🎯 ÚJ: A játékos Kvízfelület élesítése a routerben */}
-<Route path="/quiz" element={<QuizView user={headerUser} />} />
-<Route path="/photo_history" element={<PhotoHistoryView user={headerUser} />} />
-              <Route path="/admin_quiz" element={user?.email === ADMIN_EMAIL ? <AdminQuizView /> : <Navigate to="/dashboard" />} />
+              <Route path="/podcast" element={<PodcastView />} />
+              
+              <Route path="/quiz" element={<QuizView user={headerUser} />} />
+              <Route path="/photo_history" element={<PhotoHistoryView user={headerUser} />} />
+              
+              {/* 🎯 ÚJ: A 3D VIRTUÁLIS KIÁLLÍTÁS ROUTER REGISZTRÁCIÓJA */}
+              <Route path="/3d_gallery" element={<Gallery3DView user={headerUser} />} />
 
+              <Route path="/admin_quiz" element={user?.email === ADMIN_EMAIL ? <AdminQuizView /> : <Navigate to="/dashboard" />} />
               <Route path="/admin_clubs" element={user?.email === ADMIN_EMAIL ? <AdminClubsView clubs={clubs} newClubName={newClubName} setNewClubName={setNewClubName} handleAddClub={handleAddClub} handleDeleteClub={handleDeleteClub} handleUpdateClub={handleUpdateClub} /> : <Navigate to="/dashboard" />} />
               <Route path="/admin_users" element={user?.email === ADMIN_EMAIL ? <AdminUsersView allUsers={allUsers} clubs={clubs} userClubEdits={userClubEdits} setUserClubEdits={setUserClubEdits} userRoleEdits={userRoleEdits} setUserRoleEdits={setUserRoleEdits} saveUserClub={saveUserClub} /> : <Navigate to="/dashboard" />} />
-              <Route path="/admin_weekly" element={user?.email === ADMIN_EMAIL ? <AdminWeeklyView /> : <Navigate to="/dashboard" />} />
               <Route path="/admin_weekly" element={user?.email === ADMIN_EMAIL ? <AdminWeeklyView /> : <Navigate to="/dashboard" />} />
               <Route path="/admin_points" element={user?.email === ADMIN_EMAIL ? <AdminPointsDashboard /> : <Navigate to="/dashboard" />} />
               <Route path="/admin_settings" element={user?.email === ADMIN_EMAIL ? <AdminSettingsView /> : <Navigate to="/dashboard" />} />
               <Route path="/admin_salons" element={user?.email === ADMIN_EMAIL ? <AdminSalonsView salons={salons} countries={countries} allCategories={allCategories} patrons={patrons} BACKEND_URL={BACKEND_URL} fetchData={fetchData} setSelectedSalon={setSelectedSalon} /> : <Navigate to="/dashboard" />} />
               <Route path="/admin_banned_emails" element={user?.email === ADMIN_EMAIL ? <AdminBannedEmailsView /> : <Navigate to="/dashboard" />} /> 
-              <Route path="/admin_meetings" element={(user?.email === ADMIN_EMAIL || isLeader) ? <AdminMeetingsView user={user} currentDbUser={currentDbUser} clubs={clubs} meetings={meetings} allUsers={allUsers} adminMeetings={adminMeetings} fetchData={fetchData} /> : <Navigate to="/dashboard replace" />} />
-              <Route path="/admin_homeworks" element={(user?.email === ADMIN_EMAIL || isLeader) ? <AdminHomeworksView user={user} currentDbUser={currentDbUser} clubs={clubs} adminHomeworks={adminHomeworks} fetchData={fetchData} /> : <Navigate to="/dashboard replace" />} />
-
-
+              <Route path="/admin_meetings" element={(user?.email === ADMIN_EMAIL || isLeader) ? <AdminMeetingsView user={user} currentDbUser={currentDbUser} clubs={clubs} meetings={meetings} allUsers={allUsers} adminMeetings={adminMeetings} fetchData={fetchData} /> : <Navigate to="/dashboard" replace />} />
+              <Route path="/admin_homeworks" element={(user?.email === ADMIN_EMAIL || isLeader) ? <AdminHomeworksView user={user} currentDbUser={currentDbUser} clubs={clubs} adminHomeworks={adminHomeworks} fetchData={fetchData} /> : <Navigate to="/dashboard" replace />} />
 
               {['/contests_open_active', '/contests_club_active', '/contests_closed'].map(path => (
                 <Route key={path} path={path} element={
