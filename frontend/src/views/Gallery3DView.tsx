@@ -1,12 +1,12 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls, useTexture, Text } from '@react-three/drei';
+import { OrbitControls, Text } from '@react-three/drei';
+import * as THREE from 'three';
 import { BACKEND_URL } from '../utils/constants';
 import { useLanguage } from '../context/LanguageContext';
 import VideoLoader from '../components/VideoLoader';
 import { Box, Save, ArrowLeft, Layers, CheckCircle2 } from 'lucide-react';
 
-// 🎯 JAVÍTVA: Elfogadja és összefűzi a Content-Type fejlécet a mentéshez!
 const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
   const token = localStorage.getItem('photoAppToken');
   return {
@@ -16,27 +16,71 @@ const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
 };
 
 // ====================================================================
-// 🖼️ 3D KÉPKERET KOMPONENS
+// 🖼️ GOLYÓÁLLÓ 3D KÉPKERET SPOTLIGHT-TAL ÉS CORS-TEXTÚRA TÖLTŐVEL
 // ====================================================================
 function ArtworkFrame({ position, rotation, url, title, onClick }: any) {
-  const texture = useTexture(url);
+  const [texture, setTexture] = useState<THREE.Texture | null>(null);
+  const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    if (!url) return;
+    let isMounted = true;
+    const loader = new THREE.TextureLoader();
+    loader.setCrossOrigin('anonymous');
+    
+    loader.load(
+      url,
+      (loadedTexture) => {
+        if (isMounted) {
+          loadedTexture.colorSpace = THREE.SRGBColorSpace;
+          setTexture(loadedTexture);
+        }
+      },
+      undefined,
+      (err) => {
+        console.warn("⚠️ 3D Textúra betöltési hiba:", url, err);
+        if (isMounted) setHasError(true);
+      }
+    );
+    return () => { isMounted = false; };
+  }, [url]);
 
   return (
     <group position={position} rotation={rotation}>
-      {/* Fa/Fém Keret */}
-      <mesh position={[0, 0, -0.02]}>
-        <boxGeometry args={[3.2, 2.2, 0.05]} />
-        <meshStandardMaterial color="#1e293b" roughness={0.3} />
+      {/* Külső Fa/Fém Keret */}
+      <mesh position={[0, 0, -0.03]}>
+        <boxGeometry args={[3.4, 2.4, 0.06]} />
+        <meshStandardMaterial color="#0f172a" roughness={0.3} />
       </mesh>
       
-      {/* A Fotó felülete */}
-      <mesh onClick={onClick} style={{ cursor: 'pointer' }}>
-        <planeGeometry args={[3.0, 2.0]} />
-        <meshBasicMaterial map={texture} />
+      {/* Fehér Passepartout (Képráma) */}
+      <mesh position={[0, 0, -0.01]}>
+        <planeGeometry args={[3.2, 2.2]} />
+        <meshStandardMaterial color="#f8fafc" roughness={0.9} />
       </mesh>
 
+      {/* A Fotó felülete */}
+      <mesh onClick={onClick} position={[0, 0, 0.005]} style={{ cursor: 'pointer' }}>
+        <planeGeometry args={[2.9, 1.9]} />
+        {texture ? (
+          <meshBasicMaterial map={texture} />
+        ) : (
+          <meshStandardMaterial color={hasError ? "#ef4444" : "#334155"} />
+        )}
+      </mesh>
+
+      {/* Célzott Reflektorfény a kép felett */}
+      <spotLight
+        position={[0, 1.8, 1.2]}
+        target-position={[0, 0, 0]}
+        intensity={3.0}
+        angle={0.6}
+        penumbra={0.4}
+        color="#fffbeb"
+      />
+
       {/* Címke a kép alatt */}
-      <Text position={[0, -1.25, 0.01]} fontSize={0.15} color="#cbd5e1" anchorX="center" anchorY="top">
+      <Text position={[0, -1.35, 0.01]} fontSize={0.14} color="#e2e8f0" anchorX="center" anchorY="top">
         {title || 'Fotómű'}
       </Text>
     </group>
@@ -44,67 +88,68 @@ function ArtworkFrame({ position, rotation, url, title, onClick }: any) {
 }
 
 // ====================================================================
-// 🏛️ 3D GALÉRIATEREM
+// 🏛️ 3D GALÉRIATEREM (Szuper világítással és elegáns kiállítóteremmel)
 // ====================================================================
 function GalleryRoom({ photos, onSelectPhoto }: { photos: any[]; onSelectPhoto: (p: any) => void }) {
   const wallPositions: [number, number, number][] = [
-    [-6, 0.5, -4], [0, 0.5, -4], [6, 0.5, -4],   // Hátsó fal
-    [-9.9, 0.5, -1], [-9.9, 0.5, 3],             // Bal fal
-    [9.9, 0.5, -1], [9.9, 0.5, 3],               // Jobb fal
-    [-6, 0.5, 7.9], [0, 0.5, 7.9], [6, 0.5, 7.9]   // Első fal
+    [-6, 0.5, -4.9], [0, 0.5, -4.9], [6, 0.5, -4.9],   // Hátsó fal
+    [-9.9, 0.5, -1], [-9.9, 0.5, 3],                  // Bal fal
+    [9.9, 0.5, -1], [9.9, 0.5, 3],                    // Jobb fal
+    [-6, 0.5, 8.9], [0, 0.5, 8.9], [6, 0.5, 8.9]       // Első fal
   ];
 
   const wallRotations: [number, number, number][] = [
-    [0, 0, 0], [0, 0, 0], [0, 0, 0],             // Hátsó
-    [0, Math.PI / 2, 0], [0, Math.PI / 2, 0],     // Bal
-    [0, -Math.PI / 2, 0], [0, -Math.PI / 2, 0],   // Jobb
-    [0, Math.PI, 0], [0, Math.PI, 0], [0, Math.PI, 0] // Első
+    [0, 0, 0], [0, 0, 0], [0, 0, 0],                  // Hátsó
+    [0, Math.PI / 2, 0], [0, Math.PI / 2, 0],          // Bal
+    [0, -Math.PI / 2, 0], [0, -Math.PI / 2, 0],        // Jobb
+    [0, Math.PI, 0], [0, Math.PI, 0], [0, Math.PI, 0]  // Első
   ];
 
   return (
     <>
-      <ambientLight intensity={0.7} />
-      <directionalLight position={[0, 8, 0]} intensity={1.2} />
+      {/* Környezeti és Irányított Fények */}
+      <ambientLight intensity={1.2} />
+      <directionalLight position={[0, 10, 10]} intensity={1.8} />
+      <directionalLight position={[0, 10, -10]} intensity={1.2} />
 
-      {/* Padló */}
+      {/* Elegáns Parketta Padló */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1, 2]}>
-        <planeGeometry args={[20, 18]} />
-        <meshStandardMaterial color="#0f172a" roughness={0.2} />
+        <planeGeometry args={[20, 20]} />
+        <meshStandardMaterial color="#1e293b" roughness={0.4} />
       </mesh>
 
-      {/* Mennyezet */}
-      <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 4, 2]}>
-        <planeGeometry args={[20, 18]} />
+      {/* Sötét Selyem Mennyezet */}
+      <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 4.5, 2]}>
+        <planeGeometry args={[20, 20]} />
         <meshStandardMaterial color="#020617" />
       </mesh>
 
-      {/* Falak */}
-      <mesh position={[0, 1.5, -4.1]}>
-        <planeGeometry args={[20, 10]} />
-        <meshStandardMaterial color="#1e293b" />
+      {/* Kiállító Falak (Világos galéria szürke) */}
+      <mesh position={[0, 1.75, -5]}>
+        <planeGeometry args={[20, 11]} />
+        <meshStandardMaterial color="#334155" roughness={0.8} />
       </mesh>
-      <mesh position={[-10, 1.5, 2]} rotation={[0, Math.PI / 2, 0]}>
-        <planeGeometry args={[18, 10]} />
-        <meshStandardMaterial color="#1e293b" />
+      <mesh position={[-10, 1.75, 2]} rotation={[0, Math.PI / 2, 0]}>
+        <planeGeometry args={[20, 11]} />
+        <meshStandardMaterial color="#334155" roughness={0.8} />
       </mesh>
-      <mesh position={[10, 1.5, 2]} rotation={[0, -Math.PI / 2, 0]}>
-        <planeGeometry args={[18, 10]} />
-        <meshStandardMaterial color="#1e293b" />
+      <mesh position={[10, 1.75, 2]} rotation={[0, -Math.PI / 2, 0]}>
+        <planeGeometry args={[20, 11]} />
+        <meshStandardMaterial color="#334155" roughness={0.8} />
       </mesh>
 
       {/* Képek kirakása a falakra */}
       {photos.map((photo, i) => {
         if (i >= wallPositions.length) return null;
         return (
-          <Suspense key={photo.id || photo.file_url || i} fallback={null}>
-            <ArtworkFrame
-              position={wallPositions[i]}
-              rotation={wallRotations[i]}
-              url={photo.file_url}
-              title={photo.title}
-              onClick={() => onSelectPhoto(photo)}
-            />
-          </Suspense>
+          <ArtworkFrame
+            key={photo.id || photo.file_url || i}
+            position={wallPositions[i]}
+            rotation={wallRotations[i]}
+            url={photo.file_url}
+            title={photo.title}
+            onClick={() => onSelectPhoto(photo)}
+          />
         );
       })}
     </>
@@ -122,12 +167,10 @@ export default function Gallery3DView({ user }: { user: any }) {
   const [savedPhotos, setSavedPhotos] = useState<any[]>([]);
   const [myAlbumPhotos, setMyAlbumPhotos] = useState<any[]>([]);
   
-  // Kiválasztott objektumok listája
   const [selectedPhotos, setSelectedPhotos] = useState<any[]>([]);
   const [activePhotoModal, setActivePhotoModal] = useState<any | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Saját galéria és albumképek betöltése
   useEffect(() => {
     const init = async () => {
       try {
@@ -159,7 +202,6 @@ export default function Gallery3DView({ user }: { user: any }) {
     init();
   }, [user]);
 
-  // Kép ki/be kapcsolása
   const toggleSelectPhoto = (photo: any) => {
     const isAlreadySelected = selectedPhotos.some(
       p => (p.id && photo.id && String(p.id) === String(photo.id)) || p.file_url === photo.file_url
@@ -177,7 +219,6 @@ export default function Gallery3DView({ user }: { user: any }) {
     }
   };
 
-  // Mentés
   const handleSave = async () => {
     if (selectedPhotos.length === 0) {
       return alert(lang === 'en' ? 'Please select at least 1 photo!' : 'Kérlek válassz ki legalább 1 fotót!');
@@ -281,12 +322,12 @@ export default function Gallery3DView({ user }: { user: any }) {
             </div>
           ) : (
             <>
-              <Canvas camera={{ position: [0, 1, 5], fov: 60 }}>
+              <Canvas camera={{ position: [0, 0.5, 6], fov: 60 }}>
                 <GalleryRoom photos={savedPhotos} onSelectPhoto={(p) => setActivePhotoModal(p)} />
-                <OrbitControls enableZoom={true} maxPolarAngle={Math.PI / 2} minDistance={1} maxDistance={9} />
+                <OrbitControls enableZoom={true} maxPolarAngle={Math.PI / 2} minDistance={1} maxDistance={9} target={[0, 0.5, 0]} />
               </Canvas>
 
-              <div style={{ position: 'absolute', bottom: '15px', left: '15px', background: 'rgba(9, 13, 22, 0.8)', padding: '8px 15px', borderRadius: '8px', color: 'white', fontSize: '0.8rem', backdropFilter: 'blur(4px)', border: '1px solid rgba(255,255,255,0.1)' }}>
+              <div style={{ position: 'absolute', bottom: '15px', left: '15px', background: 'rgba(9, 13, 22, 0.85)', padding: '8px 15px', borderRadius: '8px', color: 'white', fontSize: '0.8rem', backdropFilter: 'blur(4px)', border: '1px solid rgba(255,255,255,0.1)' }}>
                 💡 <b>Nézelődés:</b> Húzd az egeret / ujjadat a forgáshoz! Kattints egy képre a részletekért.
               </div>
             </>
