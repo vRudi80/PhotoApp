@@ -413,6 +413,16 @@ export default function Header({
                 <div className="dropdown-menu">
                   {isLeader && <button className="drop-item" style={{ color: '#0ea5e9' }} onClick={() => handleNavClick('leader_club')}>{t('subLeaderClub')}</button>}
                   {user?.email === ADMIN_EMAIL && <button className="drop-item" style={{ color: activeTab === 'admin_contests' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_contests')}>{t('subManageContests')}</button>}
+                  {user?.email === ADMIN_EMAIL && (
+  <button 
+    className="drop-item" 
+    style={{ color: activeTab === 'admin_voter_analysis' ? '#ef4444' : '#f87171', fontWeight: 'bold' }} 
+    onClick={() => handleNavClick('admin_voter_analysis')}
+  >
+    <ShieldAlert size={12} /> Szavazat Analitika
+  </button>
+)}
+
                   <button className="drop-item" style={{ color: activeTab === 'admin_meetings' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_meetings')}>{t('subManageMeetings')}</button>
                   <button className="drop-item" style={{ color: activeTab === 'admin_homeworks' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_homeworks')}>{t('subManageHomeworks')}</button>
                   {user?.email === ADMIN_EMAIL && <button className="drop-item" style={{ color: activeTab === 'admin_weekly' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_weekly')}>{t('subManageWeekly')}</button>}
