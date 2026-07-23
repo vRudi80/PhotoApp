@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Text } from '@react-three/drei';
 import * as THREE from 'three';
@@ -9,7 +9,7 @@ import VideoLoader from '../components/VideoLoader';
 import { 
   Box, Save, ArrowLeft, Layers, CheckCircle2, Globe, Users, 
   Sparkles, Eye, Edit3, Trash2, PlusCircle, ArrowUp, ArrowDown, 
-  RotateCcw, Navigation 
+  Navigation 
 } from 'lucide-react';
 
 const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
@@ -31,13 +31,19 @@ const getPhotoIdentifier = (p: any) => {
 };
 
 // ====================================================================
-// 🕹️ BILLENTYŰZETES ÉS MOBIL SÉTA VEZÉRLŐ MOTOR
+// 🕹️ VALÓDI 3D SÉTA MOTOR (KAMERA ÉS TARGET SZINKRONIZÁLÁSÁVAL)
 // ====================================================================
-function WalkingController({ moveState }: { moveState: { forward: boolean; back: boolean; left: boolean; right: boolean } }) {
+function WalkingController({ 
+  moveState, 
+  controlsRef 
+}: { 
+  moveState: { forward: boolean; back: boolean; left: boolean; right: boolean }; 
+  controlsRef: React.RefObject<any> 
+}) {
   const { camera } = useThree();
 
   useFrame((_, delta) => {
-    const moveSpeed = 4.0 * delta;
+    const moveSpeed = 4.5 * delta;
     const forwardVec = new THREE.Vector3();
     camera.getWorldDirection(forwardVec);
     forwardVec.y = 0; // Séta csak a vízszintes síkon
@@ -46,15 +52,28 @@ function WalkingController({ moveState }: { moveState: { forward: boolean; back:
     const sideVec = new THREE.Vector3();
     sideVec.crossVectors(camera.up, forwardVec).normalize();
 
-    if (moveState.forward) camera.position.addScaledVector(forwardVec, moveSpeed);
-    if (moveState.back) camera.position.addScaledVector(forwardVec, -moveSpeed);
-    if (moveState.left) camera.position.addScaledVector(sideVec, moveSpeed);
-    if (moveState.right) camera.position.addScaledVector(sideVec, -moveSpeed);
+    const moveDelta = new THREE.Vector3();
 
-    // Szoba határainak védelme (hogy ne lehessen kisétálni a falakon kívülre)
-    camera.position.x = THREE.MathUtils.clamp(camera.position.x, -8.5, 8.5);
-    camera.position.z = THREE.MathUtils.clamp(camera.position.z, -3.5, 7.5);
-    camera.position.y = 0.6; // Mindig szemmagasságban tartja a kamerát
+    if (moveState.forward) moveDelta.addScaledVector(forwardVec, moveSpeed);
+    if (moveState.back) moveDelta.addScaledVector(forwardVec, -moveSpeed);
+    if (moveState.left) moveDelta.addScaledVector(sideVec, moveSpeed);
+    if (moveState.right) moveDelta.addScaledVector(sideVec, -moveSpeed);
+
+    if (moveDelta.lengthSq() > 0) {
+      // Elmozdítjuk a kamerát
+      camera.position.add(moveDelta);
+
+      // Szoba határainak védelme
+      camera.position.x = THREE.MathUtils.clamp(camera.position.x, -8.5, 8.5);
+      camera.position.z = THREE.MathUtils.clamp(camera.position.z, -3.5, 7.5);
+      camera.position.y = 0.6; // Szemmagasság
+
+      // 🎯 A CÉLPONTOT IS ELTOLJUK UGYANANNYIVAL, ÍGY NEM NÉZ A PADLÓRA A KAMERA!
+      if (controlsRef.current) {
+        controlsRef.current.target.add(moveDelta);
+        controlsRef.current.update();
+      }
+    }
   });
 
   return null;
@@ -146,7 +165,6 @@ function ArtworkFrame({ position, rotation, url, title, onClick }: any) {
   const passWidth = pWidth + 0.18;
   const passHeight = pHeight + 0.18;
 
-  // 🎯 Címke helyének pontos kiszámítása, hogy sose csússzon a padló alá
   const labelYPosition = -(frameHeight / 2 + 0.22);
 
   return (
@@ -179,7 +197,7 @@ function ArtworkFrame({ position, rotation, url, title, onClick }: any) {
         color="#fffbeb"
       />
 
-      {/* 🎯 CÍMKE A KÉP ALATT (Jól látható, világos háttértáblával) */}
+      {/* Címke a kép alatt */}
       <group position={[0, labelYPosition, 0.01]}>
         <mesh position={[0, 0, -0.005]}>
           <planeGeometry args={[Math.max(1.8, pWidth * 0.8), 0.3]} />
@@ -194,10 +212,9 @@ function ArtworkFrame({ position, rotation, url, title, onClick }: any) {
 }
 
 // ====================================================================
-// 🏛️ 3D GALÉRIATEREM (EMELT FRAME POZÍCIÓKKAL)
+// 🏛️ 3D GALÉRIATEREM
 // ====================================================================
 function GalleryRoom({ photos, onSelectPhoto }: { photos: any[]; onSelectPhoto: (p: any) => void }) {
-  // 🎯 Megemeltük a képek Y magasságát (0.85-re), hogy az álló képek címei is bőven a padló felett maradjanak!
   const wallPositions: [number, number, number][] = [
     [-6, 0.85, -4.9], [0, 0.85, -4.9], [6, 0.85, -4.9],   // Hátsó fal
     [-9.9, 0.85, -1], [-9.9, 0.85, 3],                  // Bal fal
@@ -272,10 +289,10 @@ export default function Gallery3DView({ user }: { user: any }) {
   const [activePhotoModal, setActivePhotoModal] = useState<any | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  // 🎯 SÉTA ÁLLAPOTOK
+  // 🎯 SÉTA ÉS VEZÉRLŐ REFERENCIA
+  const controlsRef = useRef<any>(null);
   const [moveState, setMoveState] = useState({ forward: false, back: false, left: false, right: false });
 
-  // Billentyűzet események (WASD / Nyilak)
   useEffect(() => {
     if (viewMode !== 'VIEW_3D') return;
 
@@ -500,9 +517,16 @@ export default function Gallery3DView({ user }: { user: any }) {
         <div style={{ width: '100%', height: '620px', background: '#020617', borderRadius: '12px', overflow: 'hidden', position: 'relative', border: '1px solid var(--border-main)' }}>
           
           <Canvas camera={{ position: [0, 0.6, 5], fov: 60 }}>
-            <WalkingController moveState={moveState} />
+            <WalkingController moveState={moveState} controlsRef={controlsRef} />
             <GalleryRoom photos={activeGallery.photos || []} onSelectPhoto={(p) => setActivePhotoModal(p)} />
-            <OrbitControls enableZoom={true} enablePan={true} screenSpacePanning={false} maxPolarAngle={Math.PI / 2 + 0.1} minDistance={0.5} maxDistance={10} />
+            <OrbitControls 
+              ref={controlsRef} 
+              target={[0, 0.6, 0]}
+              enableZoom={false} 
+              enablePan={false} 
+              maxPolarAngle={Math.PI / 2 + 0.05} 
+              minPolarAngle={Math.PI / 6} 
+            />
           </Canvas>
 
           {/* ÚTMUTATÓ LENT BALRA */}
@@ -511,10 +535,10 @@ export default function Gallery3DView({ user }: { user: any }) {
               <Navigation size={14} /> <span>Irányítás & Séta:</span>
             </div>
             <div>⌨️ <b>W, A, S, D / Nyilak:</b> Séta a teremben</div>
-            <div>🖱️ <b>Egér / Érintés:</b> Nézelődés és forgás</div>
+            <div>🖱️ <b>Egér / Érintés:</b> Forgás és nézelődés</div>
           </div>
 
-          {/* 🎯 MOBIL SÉTA GOMBOK (EGYEDI VIRTUÁLIS DPAD A JOBB ALSÓ SARKOBAN) */}
+          {/* 🎯 MOBIL SÉTA GOMBOK */}
           <div style={{ position: 'absolute', bottom: '15px', right: '15px', display: 'grid', gridTemplateColumns: 'repeat(3, 44px)', gap: '6px', background: 'rgba(9, 13, 22, 0.85)', padding: '10px', borderRadius: '12px', backdropFilter: 'blur(6px)', border: '1px solid rgba(255,255,255,0.1)' }}>
             <div></div>
             <button 
