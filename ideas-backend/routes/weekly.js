@@ -1145,8 +1145,71 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // ====================================================================
-  // 💬 ÉLŐ ARÉNA CSEVEGÉS PROXY MOTORJA
+  // 🔍 ADMIN: SZAVAZÁSI VISLEKEDÉS ÉS ANOMÁLIA ELEMZŐ
   // ====================================================================
+
+  // 1. Globális szavazási statisztikák felhasználónként (Ki mennyit szavaz, mennyi a PASS aránya)
+  app.get('/api/admin/weekly/voter-stats', requireAuth, async (req, res) => {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Csak adminisztrátor számára érhető el!' });
+
+    try {
+      const [rows] = await pool.query(`
+        SELECT 
+          v.voter_email,
+          COALESCE(u.name, v.voter_email) AS voter_name,
+          u.avatar_url,
+          u.club_name,
+          COUNT(*) AS total_votes_cast,
+          SUM(CASE WHEN v.vote_type = 'pass' THEN 1 ELSE 0 END) AS pass_count,
+          SUM(CASE WHEN v.vote_type = 'super' THEN 1 ELSE 0 END) AS super_count,
+          SUM(CASE WHEN v.vote_type = 'brilliant' THEN 1 ELSE 0 END) AS brilliant_count,
+          SUM(CASE WHEN v.vote_type = 'master' THEN 1 ELSE 0 END) AS master_count,
+          ROUND((SUM(CASE WHEN v.vote_type = 'pass' THEN 1 ELSE 0 END) / COUNT(*)) * 100, 1) AS pass_ratio_percent
+        FROM weekly_votes v
+        LEFT JOIN photo_users u ON LOWER(TRIM(v.voter_email)) = LOWER(TRIM(u.email))
+        GROUP BY v.voter_email, u.name, u.avatar_url, u.club_name
+        ORDER BY total_votes_cast DESC
+      `);
+
+      res.json(rows);
+    } catch (err) {
+      console.error("❌ Hiba a szavazási statisztikák lekérésekor:", err.message);
+      res.status(500).json({ error: 'Szerveroldali hiba az elemzés során.' });
+    }
+  });
+
+  // 2. Célzott Szavazat-Mátrix (Voter -> Author kapcsolatok detektálása)
+  app.get('/api/admin/weekly/voter-bias-matrix', requireAuth, async (req, res) => {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Csak adminisztrátor számára érhető el!' });
+
+    try {
+      // Összekapcsoljuk a szavazatokat a képek feltöltőivel
+      const [rows] = await pool.query(`
+        SELECT 
+          v.voter_email,
+          COALESCE(u_voter.name, v.voter_email) AS voter_name,
+          e.user_email AS author_email,
+          COALESCE(u_author.name, e.user_email) AS author_name,
+          COUNT(*) AS total_interactions,
+          SUM(CASE WHEN v.vote_type = 'pass' THEN 1 ELSE 0 END) AS pass_count,
+          SUM(CASE WHEN v.vote_type IN ('super', 'brilliant', 'master') THEN 1 ELSE 0 END) AS positive_count,
+          ROUND((SUM(CASE WHEN v.vote_type = 'pass' THEN 1 ELSE 0 END) / COUNT(*)) * 100, 1) AS pass_rate_percent
+        FROM weekly_votes v
+        JOIN weekly_entries e ON v.entry_id = e.id
+        LEFT JOIN photo_users u_voter ON LOWER(TRIM(v.voter_email)) = LOWER(TRIM(u_voter.email))
+        LEFT JOIN photo_users u_author ON LOWER(TRIM(e.user_email)) = LOWER(TRIM(u_author.email))
+        WHERE LOWER(TRIM(v.voter_email)) != LOWER(TRIM(e.user_email))
+        GROUP BY v.voter_email, u_voter.name, e.user_email, u_author.name
+        HAVING total_interactions >= 2
+        ORDER BY total_interactions DESC, pass_rate_percent DESC
+      `);
+
+      res.json(rows);
+    } catch (err) {
+      console.error("❌ Hiba a szavazat-mátrix lekérésekor:", err.message);
+      res.status(500).json({ error: 'Szerveroldali hiba.' });
+    }
+  });
     // ====================================================================
   // 💬 VÉGLEG JAVÍTVA: ÉLŐ ARÉNA CSEVEGÉS (100-AS PLAFON + COLLATION FIX)
   // ====================================================================
