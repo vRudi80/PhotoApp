@@ -29,6 +29,7 @@ module.exports = function(app, pool) {
 
   async function ensureTableExists() {
     try {
+      // 3D Tárlat alap tábla
       await pool.query(`
         CREATE TABLE IF NOT EXISTS user_3d_galleries (
           id INT AUTO_INCREMENT PRIMARY KEY,
@@ -42,12 +43,32 @@ module.exports = function(app, pool) {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
       `);
 
-      // Feloldjuk az 1 user = 1 galéria korlátozást, ha korábbról fent maradt volna
-      try { await pool.query(`ALTER TABLE user_3d_galleries DROP INDEX unique_user_gallery`); } catch (e) {}
-      try { await pool.query(`ALTER TABLE user_3d_galleries ADD COLUMN visibility VARCHAR(20) DEFAULT 'public'`); } catch (e) {}
+      // Vendégkönyv tábla
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS gallery_guestbook (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          gallery_id INT NOT NULL,
+          user_email VARCHAR(255) NOT NULL,
+          comment_text TEXT NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          INDEX idx_gallery (gallery_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+      `);
+
+      // Látogatási jegyzék tábla
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS gallery_visitors (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          gallery_id INT NOT NULL,
+          user_email VARCHAR(255) NOT NULL,
+          visited_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          UNIQUE KEY unique_gallery_visitor (gallery_id, user_email),
+          INDEX idx_gallery_vis (gallery_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+      `);
 
     } catch (e) {
-      console.error("⚠️ 3D Galéria tábla províziós hiba:", e.message);
+      console.error("⚠️ 3D Galéria táblák províziós hibája:", e.message);
     }
   }
 
@@ -69,7 +90,9 @@ module.exports = function(app, pool) {
           u.avatar_url, 
           u.club_name,
           c.drive_logo_id,
-          c.logo_url
+          c.logo_url,
+          (SELECT COUNT(*) FROM gallery_visitors WHERE gallery_id = g.id) as visitor_count,
+          (SELECT COUNT(*) FROM gallery_guestbook WHERE gallery_id = g.id) as comment_count
         FROM user_3d_galleries g
         LEFT JOIN photo_users u ON g.user_email = u.email COLLATE utf8mb4_general_ci
         LEFT JOIN photo_clubs c ON u.club_name = c.name
@@ -92,7 +115,80 @@ module.exports = function(app, pool) {
     }
   });
 
-  // 2. Galéria mentése (Új létrehozása VAGY Meglévő frissítése ID alapján)
+  // 2. Látogatás rögzítése (Belépéskor automatikusan meghívódik)
+  app.post('/api/3d-gallery/:id/visit', requireAuth, async (req, res) => {
+    try {
+      await ensureTableExists();
+      await pool.query(`
+        INSERT INTO gallery_visitors (gallery_id, user_email, visited_at)
+        VALUES (?, ?, NOW())
+        ON DUPLICATE KEY UPDATE visited_at = NOW()
+      `, [req.params.id, req.user.email]);
+
+      res.json({ success: true });
+    } catch (err) {
+      console.error("❌ Látogatás rögzítési hiba:", err.message);
+      res.status(500).json({ error: 'Szerver hiba.' });
+    }
+  });
+
+  // 3. Vendégkönyv és Látogatói jegyzék lekérése
+  app.get('/api/3d-gallery/:id/interactions', requireAuth, async (req, res) => {
+    try {
+      await ensureTableExists();
+      const galleryId = req.params.id;
+
+      // Vendégkönyvi bejegyzések
+      const [guestbook] = await pool.query(`
+        SELECT 
+          b.id, b.comment_text, b.created_at, b.user_email,
+          COALESCE(u.name, 'Látogató') as user_name, u.avatar_url, u.club_name
+        FROM gallery_guestbook b
+        LEFT JOIN photo_users u ON b.user_email = u.email COLLATE utf8mb4_general_ci
+        WHERE b.gallery_id = ?
+        ORDER BY b.created_at DESC
+      `, [galleryId]);
+
+      // Látogatók listája
+      const [visitors] = await pool.query(`
+        SELECT 
+          v.visited_at, v.user_email,
+          COALESCE(u.name, 'Látogató') as user_name, u.avatar_url, u.club_name
+        FROM gallery_visitors v
+        LEFT JOIN photo_users u ON v.user_email = u.email COLLATE utf8mb4_general_ci
+        WHERE v.gallery_id = ?
+        ORDER BY v.visited_at DESC
+      `, [galleryId]);
+
+      res.json({ guestbook, visitors });
+    } catch (err) {
+      console.error("❌ Hiba az interakciók lekérésekor:", err.message);
+      res.status(500).json({ error: 'Szerver hiba.' });
+    }
+  });
+
+  // 4. Új bejegyzés írása a Vendégkönyvbe
+  app.post('/api/3d-gallery/:id/guestbook', requireAuth, async (req, res) => {
+    const { comment_text } = req.body;
+    if (!comment_text || !comment_text.trim()) {
+      return res.status(400).json({ error: 'A bejegyzés nem lehet üres!' });
+    }
+
+    try {
+      await ensureTableExists();
+      await pool.query(`
+        INSERT INTO gallery_guestbook (gallery_id, user_email, comment_text)
+        VALUES (?, ?, ?)
+      `, [req.params.id, req.user.email, comment_text.trim()]);
+
+      res.json({ success: true });
+    } catch (err) {
+      console.error("❌ Vendégkönyv mentési hiba:", err.message);
+      res.status(500).json({ error: 'Szerver hiba a bejegyzés mentésekor.' });
+    }
+  });
+
+  // 5. Galéria mentése (Új/Módosítás)
   app.post('/api/premium/3d-gallery/save', requireAuth, async (req, res) => {
     const { id, title, theme, visibility, photos } = req.body;
     const cleanTitle = (title || 'Saját Virtuális Kiállításom').trim();
@@ -107,7 +203,6 @@ module.exports = function(app, pool) {
       const photosJson = JSON.stringify(photos.slice(0, 10));
 
       if (id) {
-        // Meglévő tárlat frissítése
         const [result] = await pool.query(`
           UPDATE user_3d_galleries 
           SET title = ?, theme = ?, visibility = ?, photos_json = ? 
@@ -118,7 +213,6 @@ module.exports = function(app, pool) {
           return res.status(403).json({ error: 'Nincs jogosultságod ezt a tárlatot módosítani.' });
         }
       } else {
-        // Új tárlat beszúrása
         await pool.query(`
           INSERT INTO user_3d_galleries (user_email, title, theme, visibility, photos_json)
           VALUES (?, ?, ?, ?, ?)
@@ -132,7 +226,7 @@ module.exports = function(app, pool) {
     }
   });
 
-  // 3. Tárlat törlése ID alapján
+  // 6. Tárlat törlése ID alapján
   app.delete('/api/premium/3d-gallery/:id', requireAuth, async (req, res) => {
     try {
       await ensureTableExists();
