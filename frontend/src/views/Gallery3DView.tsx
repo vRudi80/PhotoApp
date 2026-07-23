@@ -21,14 +21,13 @@ const resolvePhotoUrl = (photo: any) => {
   return getImageUrl(photo.drive_file_id, photo.file_url) || photo.file_url || '';
 };
 
-// Egyedi azonosító generáló a kijelölések tévesztésmentes törléséhez
 const getPhotoIdentifier = (p: any) => {
   if (p.id) return `id_${p.id}`;
   return `url_${resolvePhotoUrl(p)}`;
 };
 
 // ====================================================================
-// 🖼️ 3D KÉPKERET
+// 🖼️ GOLYÓÁLLÓ 3D KÉPKERET SZERVERES PROXY FALLBACK-KAL (CORS FIX)
 // ====================================================================
 function ArtworkFrame({ position, rotation, url, title, onClick }: any) {
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
@@ -36,14 +35,66 @@ function ArtworkFrame({ position, rotation, url, title, onClick }: any) {
   useEffect(() => {
     if (!url) return;
     let isMounted = true;
-    const loader = new THREE.TextureLoader();
-    loader.setCrossOrigin('anonymous');
-    loader.load(url, (loaded) => {
-      if (isMounted) {
-        loaded.colorSpace = THREE.SRGBColorSpace;
-        setTexture(loaded);
+
+    const loadTextureWithFallback = async () => {
+      let targetUrl = url;
+
+      // Google Drive linkeknél azonnal a szerveroldali kép-proxyt használjuk a CORS tiltás kikerülésére
+      const isDrive = url.includes('drive.google.com') || url.includes('googleusercontent.com') || url.includes('uc?export=download');
+
+      if (isDrive) {
+        try {
+          const res = await fetch(`${BACKEND_URL}/api/weekly/image-proxy?url=${encodeURIComponent(url)}`, {
+            headers: getAuthHeaders()
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.base64) targetUrl = data.base64;
+          }
+        } catch (e) {
+          console.warn("⚠️ Proxy betöltési hiba, megpróbáljuk a közvetlen linket...", e);
+        }
       }
-    });
+
+      const loader = new THREE.TextureLoader();
+      loader.setCrossOrigin('anonymous');
+
+      loader.load(
+        targetUrl,
+        (loaded) => {
+          if (isMounted) {
+            loaded.colorSpace = THREE.SRGBColorSpace;
+            setTexture(loaded);
+          }
+        },
+        undefined,
+        async () => {
+          // Ha a közvetlen betöltés mégis elakadna, utolsó mentsvárként átküldjük a proxyn
+          if (!isDrive) {
+            try {
+              const res = await fetch(`${BACKEND_URL}/api/weekly/image-proxy?url=${encodeURIComponent(url)}`, {
+                headers: getAuthHeaders()
+              });
+              if (res.ok) {
+                const data = await res.json();
+                if (data.base64 && isMounted) {
+                  loader.load(data.base64, (fallbackLoaded) => {
+                    if (isMounted) {
+                      fallbackLoaded.colorSpace = THREE.SRGBColorSpace;
+                      setTexture(fallbackLoaded);
+                    }
+                  });
+                }
+              }
+            } catch (err) {
+              console.error("❌ Nem sikerült betölteni a 3D textúrát:", url);
+            }
+          }
+        }
+      );
+    };
+
+    loadTextureWithFallback();
     return () => { isMounted = false; };
   }, [url]);
 
@@ -137,11 +188,9 @@ export default function Gallery3DView({ user }: { user: any }) {
   const [viewMode, setMode] = useState<'DIRECTORY' | 'VIEW_3D' | 'EDIT'>('DIRECTORY');
   const [loading, setLoading] = useState(true);
 
-  // Katalógus adatai
   const [allGalleries, setAllGalleries] = useState<any[]>([]);
   const [activeGallery, setActiveGallery] = useState<any | null>(null);
 
-  // Szerkesztő állapotok
   const [editingGalleryId, setEditingGalleryId] = useState<number | null>(null);
   const [galleryTitle, setGalleryTitle] = useState('Saját Virtuális Kiállításom');
   const [visibility, setVisibility] = useState<'public' | 'club'>('public');
@@ -175,7 +224,6 @@ export default function Gallery3DView({ user }: { user: any }) {
 
   useEffect(() => { loadData(); }, [user]);
 
-  // Új tárlat indítása
   const handleStartNewGallery = () => {
     setEditingGalleryId(null);
     setGalleryTitle('Új Virtuális Kiállításom');
@@ -184,7 +232,6 @@ export default function Gallery3DView({ user }: { user: any }) {
     setMode('EDIT');
   };
 
-  // Meglévő tárlat megnyitása szerkesztésre
   const handleEditGallery = (gal: any) => {
     setEditingGalleryId(gal.id);
     setGalleryTitle(gal.title || 'Virtuális Kiállítás');
@@ -193,7 +240,6 @@ export default function Gallery3DView({ user }: { user: any }) {
     setMode('EDIT');
   };
 
-  // Tárlat törlése
   const handleDeleteGallery = async (galId: number) => {
     if (!window.confirm("Biztosan törölni szeretnéd ezt a 3D kiállítást?")) return;
     try {
@@ -212,13 +258,11 @@ export default function Gallery3DView({ user }: { user: any }) {
     }
   };
 
-  // 🎯 GOLYÓÁLLÓ KIJELÖLÉS ÉS MÓDOSÍTÁS/TÖRLÉS LOGIKA
   const toggleSelectPhoto = (photo: any) => {
     const photoKey = getPhotoIdentifier(photo);
     const isAlreadySelected = selectedPhotos.some(p => getPhotoIdentifier(p) === photoKey);
 
     if (isAlreadySelected) {
-      // GARANTÁLT UNSELECT: Bármikor leveszi a kijelölést, akkor is ha 10 van kiválasztva!
       setSelectedPhotos(prev => prev.filter(p => getPhotoIdentifier(p) !== photoKey));
     } else {
       if (selectedPhotos.length >= 10) {
@@ -246,7 +290,6 @@ export default function Gallery3DView({ user }: { user: any }) {
     }));
   };
 
-  // Mentés
   const handleSave = async () => {
     if (selectedPhotos.length === 0) {
       return alert(lang === 'en' ? 'Please select at least 1 photo!' : 'Kérlek válassz ki legalább 1 fotót!');
@@ -365,7 +408,6 @@ export default function Gallery3DView({ user }: { user: any }) {
                           <Eye size={16} /> 3D Tárlat Bejárása ({gal.photos?.length || 0} kép)
                         </button>
 
-                        {/* 🎯 TÖRLÉS ÉS SZERKESZTÉS GOMB A SAJÁT TÁRLATOKHOZ */}
                         {isMine && (
                           <div style={{ display: 'flex', gap: '8px' }}>
                             <button onClick={() => handleEditGallery(gal)} style={{ flex: 1, background: 'var(--bg-main)', border: '1px solid var(--border-main)', color: '#38bdf8', padding: '8px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.82rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
