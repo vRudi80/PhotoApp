@@ -6,7 +6,7 @@ import { BACKEND_URL } from '../utils/constants';
 import { getImageUrl } from '../utils/helpers';
 import { useLanguage } from '../context/LanguageContext';
 import VideoLoader from '../components/VideoLoader';
-import { Box, Save, ArrowLeft, Layers, CheckCircle2, Globe, Users, Sparkles, Eye, Edit3 } from 'lucide-react';
+import { Box, Save, ArrowLeft, Layers, CheckCircle2, Globe, Users, Sparkles, Eye, Edit3, Trash2, PlusCircle } from 'lucide-react';
 
 const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
   const token = localStorage.getItem('photoAppToken');
@@ -16,14 +16,19 @@ const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
   };
 };
 
-// Segédfüggvény a képlinkek golyóálló feloldásához
 const resolvePhotoUrl = (photo: any) => {
   if (!photo) return '';
   return getImageUrl(photo.drive_file_id, photo.file_url) || photo.file_url || '';
 };
 
+// Egyedi azonosító generáló a kijelölések tévesztésmentes törléséhez
+const getPhotoIdentifier = (p: any) => {
+  if (p.id) return `id_${p.id}`;
+  return `url_${resolvePhotoUrl(p)}`;
+};
+
 // ====================================================================
-// 🖼️ 3D KÉPKERET SPOTLIGHT-TAL ÉS EGYEDI CÍMMEL
+// 🖼️ 3D KÉPKERET
 // ====================================================================
 function ArtworkFrame({ position, rotation, url, title, onClick }: any) {
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
@@ -125,18 +130,19 @@ function GalleryRoom({ photos, onSelectPhoto }: { photos: any[]; onSelectPhoto: 
 }
 
 // ====================================================================
-// 🚀 FŐ 3D TÁRLATOK VÉGZŐDÉS (PORTFÓLIÓ ALAPÚ VÁLOGATÁSSAL)
+// 🚀 FŐ 3D TÁRLATOK BÖNGÉSZŐ ÉS TÖBBES SZERKESZTŐ
 // ====================================================================
 export default function Gallery3DView({ user }: { user: any }) {
   const { lang } = useLanguage();
   const [viewMode, setMode] = useState<'DIRECTORY' | 'VIEW_3D' | 'EDIT'>('DIRECTORY');
   const [loading, setLoading] = useState(true);
 
-  // Tárlatok katalógusa
+  // Katalógus adatai
   const [allGalleries, setAllGalleries] = useState<any[]>([]);
   const [activeGallery, setActiveGallery] = useState<any | null>(null);
 
   // Szerkesztő állapotok
+  const [editingGalleryId, setEditingGalleryId] = useState<number | null>(null);
   const [galleryTitle, setGalleryTitle] = useState('Saját Virtuális Kiállításom');
   const [visibility, setVisibility] = useState<'public' | 'club'>('public');
   const [myPortfolioPhotos, setMyPortfolioPhotos] = useState<any[]>([]);
@@ -144,13 +150,11 @@ export default function Gallery3DView({ user }: { user: any }) {
   const [activePhotoModal, setActivePhotoModal] = useState<any | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  // 1. Összes elérhető tárlat és a PRÉMIUM PORTFÓLIÓ BETÖLTÉSE
   const loadData = async () => {
     setLoading(true);
     try {
-      const [listRes, myGalRes, portfolioRes] = await Promise.all([
+      const [listRes, portfolioRes] = await Promise.all([
         fetch(`${BACKEND_URL}/api/3d-galleries`, { headers: getAuthHeaders() }),
-        fetch(`${BACKEND_URL}/api/premium/3d-gallery/my`, { headers: getAuthHeaders() }),
         fetch(`${BACKEND_URL}/api/my-album?userEmail=${encodeURIComponent(user?.email || '')}`, { headers: getAuthHeaders() })
       ]);
 
@@ -158,22 +162,12 @@ export default function Gallery3DView({ user }: { user: any }) {
         setAllGalleries(await listRes.json());
       }
 
-      if (myGalRes.ok) {
-        const myData = await myGalRes.json();
-        if (myData.gallery) {
-          setGalleryTitle(myData.gallery.title || 'Saját Virtuális Kiállításom');
-          setVisibility(myData.gallery.visibility || 'public');
-          setSelectedPhotos(myData.gallery.photos || []);
-        }
-      }
-
-      // 🎯 PORTFÓLIÓ KÉPEK BETÖLTÉSE A PRÉMIUM ALBUMBÓL
       if (portfolioRes.ok) {
         const portData = await portfolioRes.json();
         setMyPortfolioPhotos(Array.isArray(portData) ? portData : []);
       }
     } catch (e) {
-      console.error("Hiba a tárlat adatok betöltésekor:", e);
+      console.error("Hiba az adatok letöltésekor:", e);
     } finally {
       setLoading(false);
     }
@@ -181,25 +175,57 @@ export default function Gallery3DView({ user }: { user: any }) {
 
   useEffect(() => { loadData(); }, [user]);
 
-  // Kép kiválasztása / Címek kezelése a portfólióból
+  // Új tárlat indítása
+  const handleStartNewGallery = () => {
+    setEditingGalleryId(null);
+    setGalleryTitle('Új Virtuális Kiállításom');
+    setVisibility('public');
+    setSelectedPhotos([]);
+    setMode('EDIT');
+  };
+
+  // Meglévő tárlat megnyitása szerkesztésre
+  const handleEditGallery = (gal: any) => {
+    setEditingGalleryId(gal.id);
+    setGalleryTitle(gal.title || 'Virtuális Kiállítás');
+    setVisibility(gal.visibility || 'public');
+    setSelectedPhotos(gal.photos || []);
+    setMode('EDIT');
+  };
+
+  // Tárlat törlése
+  const handleDeleteGallery = async (galId: number) => {
+    if (!window.confirm("Biztosan törölni szeretnéd ezt a 3D kiállítást?")) return;
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/premium/3d-gallery/${galId}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
+      if (res.ok) {
+        alert('Tárlat sikeresen törölve! 🗑️');
+        loadData();
+      } else {
+        alert('Nem sikerült törölni a tárlatot.');
+      }
+    } catch (e) {
+      alert('Hálózati hiba a törlés során.');
+    }
+  };
+
+  // 🎯 GOLYÓÁLLÓ KIJELÖLÉS ÉS MÓDOSÍTÁS/TÖRLÉS LOGIKA
   const toggleSelectPhoto = (photo: any) => {
-    const photoUrl = resolvePhotoUrl(photo);
-    const photoKey = photo.id ? String(photo.id) : photoUrl;
+    const photoKey = getPhotoIdentifier(photo);
+    const isAlreadySelected = selectedPhotos.some(p => getPhotoIdentifier(p) === photoKey);
 
-    const isSelected = selectedPhotos.some(
-      p => (p.id && photo.id && String(p.id) === String(photo.id)) || resolvePhotoUrl(p) === photoUrl
-    );
-
-    if (isSelected) {
-      setSelectedPhotos(prev => prev.filter(
-        p => !((p.id && photo.id && String(p.id) === String(photo.id)) || resolvePhotoUrl(p) === photoUrl)
-      ));
+    if (isAlreadySelected) {
+      // GARANTÁLT UNSELECT: Bármikor leveszi a kijelölést, akkor is ha 10 van kiválasztva!
+      setSelectedPhotos(prev => prev.filter(p => getPhotoIdentifier(p) !== photoKey));
     } else {
       if (selectedPhotos.length >= 10) {
         return alert(lang === 'en' ? 'Maximum 10 photos allowed!' : 'Legfeljebb 10 fotót választhatsz ki!');
       }
       
-      // Alapértelmezett cím megállapítása a portfólió adatai alapján
+      const photoUrl = resolvePhotoUrl(photo);
       const initialTitle = photo.title || photo.title_hu || '';
       
       setSelectedPhotos(prev => [
@@ -216,8 +242,7 @@ export default function Gallery3DView({ user }: { user: any }) {
 
   const updatePhotoTitle = (photoKey: string, newTitle: string) => {
     setSelectedPhotos(prev => prev.map(p => {
-      const currentKey = p.id ? String(p.id) : resolvePhotoUrl(p);
-      return currentKey === photoKey ? { ...p, title: newTitle } : p;
+      return getPhotoIdentifier(p) === photoKey ? { ...p, title: newTitle } : p;
     }));
   };
 
@@ -232,13 +257,19 @@ export default function Gallery3DView({ user }: { user: any }) {
       const res = await fetch(`${BACKEND_URL}/api/premium/3d-gallery/save`, {
         method: 'POST',
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ title: galleryTitle, theme: 'modern', visibility, photos: selectedPhotos })
+        body: JSON.stringify({ 
+          id: editingGalleryId, 
+          title: galleryTitle, 
+          theme: 'modern', 
+          visibility, 
+          photos: selectedPhotos 
+        })
       });
 
       if (res.ok) {
         await loadData();
         setMode('DIRECTORY');
-        alert(lang === 'en' ? 'Exhibition published! 🎉' : '🎉 Kiállítás sikeresen publikálva!');
+        alert(lang === 'en' ? 'Exhibition saved! 🎉' : '🎉 Kiállítás sikeresen elmentve!');
       } else {
         const err = await res.json().catch(() => ({}));
         alert(err.error || 'Hiba a mentés során.');
@@ -255,7 +286,7 @@ export default function Gallery3DView({ user }: { user: any }) {
   return (
     <div style={{ width: '100%', maxWidth: '1200px', margin: '0 auto', padding: '10px' }}>
       
-      {/* FEJLÉC ÉS MÓDVÁLTÓ */}
+      {/* FEJLÉC */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-card)', padding: '20px', borderRadius: '12px', border: '1px solid var(--border-main)', marginBottom: '20px', flexWrap: 'wrap', gap: '15px' }}>
         <div>
           <h2 style={{ margin: 0, fontSize: '1.6rem', fontWeight: '900', color: '#a78bfa', display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -274,9 +305,9 @@ export default function Gallery3DView({ user }: { user: any }) {
           )}
 
           {user?.is_premium || user?.isPremium ? (
-            viewMode !== 'EDIT' && (
-              <button onClick={() => setMode('EDIT')} style={{ background: '#f97316', color: 'white', border: 'none', padding: '10px 18px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Edit3 size={16} /> Saját Tárlatom Szerkesztése
+            viewMode === 'DIRECTORY' && (
+              <button onClick={handleStartNewGallery} style={{ background: '#f97316', color: 'white', border: 'none', padding: '10px 18px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <PlusCircle size={16} /> Új 3D Tárlat Létrehozása
               </button>
             )
           ) : (
@@ -293,14 +324,16 @@ export default function Gallery3DView({ user }: { user: any }) {
           {allGalleries.length === 0 ? (
             <div style={{ padding: '60px 20px', textAlign: 'center', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-main)', color: 'var(--text-muted)' }}>
               <h3>Még nincsenek publikált kiállítások.</h3>
-              <p>Légy te az első, aki berendezi a virtuális 3D tárlatát a portfóliójából!</p>
+              <p>Légy te az első, aki berendezi a virtuális 3D tárlatát!</p>
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
               {allGalleries.map((gal) => {
                 const coverUrl = resolvePhotoUrl(gal.photos?.[0]);
+                const isMine = gal.user_email === user?.email;
+
                 return (
-                  <div key={gal.id} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', borderRadius: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                  <div key={gal.id} style={{ background: 'var(--bg-card)', border: isMine ? '2px solid #a78bfa' : '1px solid var(--border-main)', borderRadius: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                     
                     {/* Előnézeti Borítókép */}
                     <div style={{ height: '180px', background: '#090d16', position: 'relative' }}>
@@ -324,12 +357,27 @@ export default function Gallery3DView({ user }: { user: any }) {
                         </div>
                       </div>
 
-                      <button 
-                        onClick={() => { setActiveGallery(gal); setMode('VIEW_3D'); }}
-                        style={{ width: '100%', background: '#a78bfa', color: '#0f172a', border: 'none', padding: '10px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-                      >
-                        <Eye size={16} /> 3D Tárlat Bejárása ({gal.photos?.length || 0} kép)
-                      </button>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <button 
+                          onClick={() => { setActiveGallery(gal); setMode('VIEW_3D'); }}
+                          style={{ width: '100%', background: '#a78bfa', color: '#0f172a', border: 'none', padding: '10px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                        >
+                          <Eye size={16} /> 3D Tárlat Bejárása ({gal.photos?.length || 0} kép)
+                        </button>
+
+                        {/* 🎯 TÖRLÉS ÉS SZERKESZTÉS GOMB A SAJÁT TÁRLATOKHOZ */}
+                        {isMine && (
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button onClick={() => handleEditGallery(gal)} style={{ flex: 1, background: 'var(--bg-main)', border: '1px solid var(--border-main)', color: '#38bdf8', padding: '8px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.82rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                              <Edit3 size={14} /> Szerkesztés
+                            </button>
+                            <button onClick={() => handleDeleteGallery(gal.id)} style={{ flex: 1, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444', padding: '8px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.82rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                              <Trash2 size={14} /> Törlés
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
                     </div>
 
                   </div>
@@ -354,7 +402,7 @@ export default function Gallery3DView({ user }: { user: any }) {
         </div>
       )}
 
-      {/* 3. SZERKESZTŐ MÓD (PORTFÓLIÓ VÁLOGATÓVAL) */}
+      {/* 3. SZERKESZTŐ MÓD */}
       {viewMode === 'EDIT' && (
         <div style={{ background: 'var(--bg-card)', padding: '25px', borderRadius: '12px', border: '1px solid var(--border-main)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
           
@@ -384,18 +432,14 @@ export default function Gallery3DView({ user }: { user: any }) {
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '15px' }}>
                 {myPortfolioPhotos.map((photo, idx) => {
-                  const photoUrl = resolvePhotoUrl(photo);
-                  const photoKey = photo.id ? String(photo.id) : photoUrl;
-
-                  const selectedObj = selectedPhotos.find(
-                    p => (p.id && photo.id && String(p.id) === String(photo.id)) || resolvePhotoUrl(p) === photoUrl
-                  );
+                  const photoKey = getPhotoIdentifier(photo);
+                  const selectedObj = selectedPhotos.find(p => getPhotoIdentifier(p) === photoKey);
                   const isSelected = !!selectedObj;
 
                   return (
-                    <div key={photo.id || photoUrl || idx} style={{ background: 'var(--bg-main)', border: isSelected ? '2px solid #10b981' : '1px solid var(--border-main)', borderRadius: '8px', padding: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div key={photo.id || photoKey || idx} style={{ background: 'var(--bg-main)', border: isSelected ? '2px solid #10b981' : '1px solid var(--border-main)', borderRadius: '8px', padding: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       <div onClick={() => toggleSelectPhoto(photo)} style={{ position: 'relative', height: '130px', borderRadius: '6px', overflow: 'hidden', cursor: 'pointer', background: '#000' }}>
-                        <img src={photoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                        <img src={resolvePhotoUrl(photo)} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                         {isSelected && (
                           <div style={{ position: 'absolute', top: '6px', right: '6px', background: '#10b981', color: 'white', borderRadius: '50%', padding: '2px' }}>
                             <CheckCircle2 size={18} />
@@ -403,7 +447,6 @@ export default function Gallery3DView({ user }: { user: any }) {
                         )}
                       </div>
 
-                      {/* EGYEDI KÉPCÍM SZERKESZTŐ A 3D KIÁLLÍTÁSHOZ */}
                       {isSelected && (
                         <input 
                           type="text" 
