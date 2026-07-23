@@ -6,9 +6,13 @@ import { useLanguage } from '../context/LanguageContext';
 import VideoLoader from '../components/VideoLoader';
 import { Box, Save, ArrowLeft, Layers, CheckCircle2 } from 'lucide-react';
 
-const getAuthHeaders = () => {
+// 🎯 JAVÍTVA: Elfogadja és összefűzi a Content-Type fejlécet a mentéshez!
+const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
   const token = localStorage.getItem('photoAppToken');
-  return token ? { 'Authorization': `Bearer ${token}` } : {};
+  return {
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    ...extraHeaders
+  };
 };
 
 // ====================================================================
@@ -108,7 +112,7 @@ function GalleryRoom({ photos, onSelectPhoto }: { photos: any[]; onSelectPhoto: 
 }
 
 // ====================================================================
-// 🚀 FŐ GALÉRIA NÉZET ÉS SZERKESZTŐ (GOLYÓÁLLÓ OBJEKTUM ALAPÚ RENDSZER)
+// 🚀 FŐ GALÉRIA NÉZET ÉS SZERKESZTŐ
 // ====================================================================
 export default function Gallery3DView({ user }: { user: any }) {
   const { lang } = useLanguage();
@@ -118,7 +122,7 @@ export default function Gallery3DView({ user }: { user: any }) {
   const [savedPhotos, setSavedPhotos] = useState<any[]>([]);
   const [myAlbumPhotos, setMyAlbumPhotos] = useState<any[]>([]);
   
-  // 🎯 GOLYÓÁLLÓ: Közvetlenül a kiválasztott fotó objektumokat tároljuk!
+  // Kiválasztott objektumok listája
   const [selectedPhotos, setSelectedPhotos] = useState<any[]>([]);
   const [activePhotoModal, setActivePhotoModal] = useState<any | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -155,7 +159,7 @@ export default function Gallery3DView({ user }: { user: any }) {
     init();
   }, [user]);
 
-  // 🎯 KÉP KI/BE KAPCSOLÁSA DIREKT OBJEKTUM ÖSSZEHASONLÍTÁSSAL
+  // Kép ki/be kapcsolása
   const toggleSelectPhoto = (photo: any) => {
     const isAlreadySelected = selectedPhotos.some(
       p => (p.id && photo.id && String(p.id) === String(photo.id)) || p.file_url === photo.file_url
@@ -173,7 +177,7 @@ export default function Gallery3DView({ user }: { user: any }) {
     }
   };
 
-  // 🎯 GOLYÓÁLLÓ MENTÉS
+  // Mentés
   const handleSave = async () => {
     if (selectedPhotos.length === 0) {
       return alert(lang === 'en' ? 'Please select at least 1 photo!' : 'Kérlek válassz ki legalább 1 fotót!');
