@@ -27,7 +27,6 @@ async function requireAuth(req, res, next) {
 
 module.exports = function(app, pool) {
 
-  // Tábla garantált létrehozása
   async function ensureTableExists() {
     try {
       await pool.query(`
@@ -39,20 +38,20 @@ module.exports = function(app, pool) {
           visibility VARCHAR(20) DEFAULT 'public',
           photos_json LONGTEXT NOT NULL,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-          UNIQUE KEY unique_user_gallery (user_email)
+          INDEX idx_user_email (user_email)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
       `);
 
-      try {
-        await pool.query(`ALTER TABLE user_3d_galleries ADD COLUMN visibility VARCHAR(20) DEFAULT 'public'`);
-      } catch (e) {}
+      // Feloldjuk az 1 user = 1 galéria korlátozást, ha korábbról fent maradt volna
+      try { await pool.query(`ALTER TABLE user_3d_galleries DROP INDEX unique_user_gallery`); } catch (e) {}
+      try { await pool.query(`ALTER TABLE user_3d_galleries ADD COLUMN visibility VARCHAR(20) DEFAULT 'public'`); } catch (e) {}
 
     } catch (e) {
       console.error("⚠️ 3D Galéria tábla províziós hiba:", e.message);
     }
   }
 
-  // 1. Összes elérhető tárlat lekérése (Failsafe 200 OK védelemmel)
+  // 1. Összes elérhető tárlat lekérése
   app.get('/api/3d-galleries', requireAuth, async (req, res) => {
     try {
       await ensureTableExists();
@@ -63,7 +62,6 @@ module.exports = function(app, pool) {
         myClubName = userRows[0]?.club_name || null;
       } catch(e) {}
 
-      // 🎯 JAVÍTVA: COLLATE utf8mb4_general_ci hozzáadva a JOIN-okhoz
       const [rows] = await pool.query(`
         SELECT 
           g.*, 
@@ -90,31 +88,13 @@ module.exports = function(app, pool) {
       res.json(formatted);
     } catch (err) {
       console.error("❌ Hiba a tárlatok lekérésekor:", err.message);
-      // FAILSAFE: 200 OK-val válaszolunk üres tömbbel, így nem fagy le a frontend!
       res.json([]);
     }
   });
 
-  // 2. Saját galéria lekérése
-  app.get('/api/premium/3d-gallery/my', requireAuth, async (req, res) => {
-    try {
-      await ensureTableExists();
-      const [rows] = await pool.query('SELECT * FROM user_3d_galleries WHERE user_email = ?', [req.user.email]);
-      if (!rows || rows.length === 0) return res.json({ gallery: null });
-
-      const gal = rows[0];
-      let photos = [];
-      try { photos = typeof gal.photos_json === 'string' ? JSON.parse(gal.photos_json) : (gal.photos_json || []); } catch(e){}
-
-      res.json({ gallery: { ...gal, photos } });
-    } catch (err) {
-      res.json({ gallery: null });
-    }
-  });
-
-  // 3. Galéria mentése
+  // 2. Galéria mentése (Új létrehozása VAGY Meglévő frissítése ID alapján)
   app.post('/api/premium/3d-gallery/save', requireAuth, async (req, res) => {
-    const { title, theme, visibility, photos } = req.body;
+    const { id, title, theme, visibility, photos } = req.body;
     const cleanTitle = (title || 'Saját Virtuális Kiállításom').trim();
     const cleanVis = visibility === 'club' ? 'club' : 'public';
 
@@ -126,20 +106,49 @@ module.exports = function(app, pool) {
       await ensureTableExists();
       const photosJson = JSON.stringify(photos.slice(0, 10));
 
-      await pool.query(`
-        INSERT INTO user_3d_galleries (user_email, title, theme, visibility, photos_json)
-        VALUES (?, ?, ?, ?, ?)
-        ON DUPLICATE KEY UPDATE 
-          title = VALUES(title), 
-          theme = VALUES(theme), 
-          visibility = VALUES(visibility), 
-          photos_json = VALUES(photos_json)
-      `, [req.user.email, cleanTitle, theme || 'modern', cleanVis, photosJson]);
+      if (id) {
+        // Meglévő tárlat frissítése
+        const [result] = await pool.query(`
+          UPDATE user_3d_galleries 
+          SET title = ?, theme = ?, visibility = ?, photos_json = ? 
+          WHERE id = ? AND (user_email = ? OR ?)
+        `, [cleanTitle, theme || 'modern', cleanVis, photosJson, id, req.user.email, req.user.isAdmin]);
+
+        if (result.affectedRows === 0) {
+          return res.status(403).json({ error: 'Nincs jogosultságod ezt a tárlatot módosítani.' });
+        }
+      } else {
+        // Új tárlat beszúrása
+        await pool.query(`
+          INSERT INTO user_3d_galleries (user_email, title, theme, visibility, photos_json)
+          VALUES (?, ?, ?, ?, ?)
+        `, [req.user.email, cleanTitle, theme || 'modern', cleanVis, photosJson]);
+      }
 
       res.json({ success: true });
     } catch (err) {
       console.error("❌ 3D Galéria mentési hiba:", err.message);
       res.status(500).json({ error: 'Nem sikerült elmenteni a galériát.' });
+    }
+  });
+
+  // 3. Tárlat törlése ID alapján
+  app.delete('/api/premium/3d-gallery/:id', requireAuth, async (req, res) => {
+    try {
+      await ensureTableExists();
+      const [result] = await pool.query(`
+        DELETE FROM user_3d_galleries 
+        WHERE id = ? AND (user_email = ? OR ?)
+      `, [req.params.id, req.user.email, req.user.isAdmin]);
+
+      if (result.affectedRows === 0) {
+        return res.status(403).json({ error: 'Nincs jogosultságod törölni ezt a tárlatot.' });
+      }
+
+      res.json({ success: true });
+    } catch (err) {
+      console.error("❌ 3D Galéria törlési hiba:", err.message);
+      res.status(500).json({ error: 'Szerver hiba a törléskor.' });
     }
   });
 
