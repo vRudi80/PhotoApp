@@ -35,7 +35,8 @@ import {
   MessageCircleQuestion,
   Moon,
   ImageIcon,
-  BookOpen // 🎯 ÚJ: Ikon a mindenki számára látható történelmi galériához
+  BookOpen,
+  Box // 🎯 ÚJ: Ikon a 3D Virtuális Kiállításhoz
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -48,7 +49,6 @@ interface HeaderProps {
   onLogout: () => void;
 }
 
-// A stílusokat kiemeltük a komponensből a globális memóriatérbe (Auto-freeze védelem)
 const HEADER_STYLES = `
   @media (min-width: 1060px) {
     .app-header {
@@ -364,7 +364,6 @@ export default function Header({
       
       <style>{HEADER_STYLES}</style>
       
-      {/* A: MOBIL MEGJELENÉSŰ FELSŐ FIX SÁV */}
       <div className="mobile-header-top">
         <LogoBrandBlock logo={currentLogo} />
         <button className="hamburger-btn" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
@@ -372,7 +371,6 @@ export default function Header({
         </button>
       </div>
 
-      {/* B: ASZTALI ÉS LENYÍLÓ NAVIGÁCIÓS PANEL */}
       <div className={`header-nav-container ${isMobileMenuOpen ? 'mobile-open' : ''}`}>
         
         <div className="header-desktop-brand-wrapper">
@@ -398,7 +396,6 @@ export default function Header({
             </button>
           </div>
 
-          {/* 🎯 MÓDOSÍTVA: A Fotótörténeti Album bekerült a főmenübe a Kvíz alá/mellé, mindenki számára publikusan! */}
           <div className="nav-item-container">
             <button 
               className={`nav-btn ${activeTab === 'photo_history' ? 'active' : ''}`} 
@@ -568,8 +565,7 @@ export default function Header({
           
           <div className="nav-item-container">
             <button 
-              /* 🎯 JAVÍTVA: A 'photo_history' kikerült innen, hogy ne gyújtsa be tévesen a profil gombot! */
-              className={`nav-btn ${dropdownOpen === 'user_account' || ['profile', 'my_album', 'packages', 'tickets'].includes(activeTab) ? 'active' : ''}`} 
+              className={`nav-btn ${dropdownOpen === 'user_account' || ['profile', 'my_album', '3d_gallery', 'packages', 'tickets'].includes(activeTab) ? 'active' : ''}`} 
               style={{ color: '#14b8a6', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}
               onClick={() => setDropdownOpen(dropdownOpen === 'user_account' ? null : 'user_account')}
             >
@@ -588,6 +584,10 @@ export default function Header({
               <div className="dropdown-menu" style={{ right: 0, left: 'auto', minWidth: '210px' }}>
                 <button className="drop-item" style={{ color: '#14b8a6', backgroundColor: activeTab === 'profile' ? 'rgba(255,255,255,0.04)' : 'transparent' }} onClick={() => handleNavClick('profile')}><User size={12} /> {t('subProfile')}</button>
                 <button className="drop-item" style={{ color: '#f59e0b', backgroundColor: activeTab === 'my_album' ? 'rgba(255,255,255,0.04)' : 'transparent' }} onClick={() => handleNavClick('my_album')}><ImageIcon size={12} /> {t('subPortfolio')}</button>
+                
+                {/* 🎯 ÚJ: 3D VIRTUÁLIS TÁRLAT GOMB A MENÜBEN */}
+                <button className="drop-item" style={{ color: '#a78bfa', backgroundColor: activeTab === '3d_gallery' ? 'rgba(255,255,255,0.04)' : 'transparent' }} onClick={() => handleNavClick('3d_gallery')}><Box size={12} /> {lang === 'en' ? '3D Exhibition' : '3D Kiállítás'}</button>
+
                 <button className="drop-item" style={{ color: '#8b5cf6', backgroundColor: activeTab === 'packages' ? 'rgba(255,255,255,0.04)' : 'transparent' }} onClick={() => handleNavClick('packages')}><Award size={12} /> {t('subPackages')}</button>
                 
                 <button className="drop-item" style={{ color: '#f43f5e', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: activeTab === 'tickets' ? 'rgba(255,255,255,0.04)' : 'transparent' }} onClick={() => handleNavClick('tickets')}>
