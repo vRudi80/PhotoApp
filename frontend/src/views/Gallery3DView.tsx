@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useRef, Suspense } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls, useTexture, Text, Html } from '@react-three/drei';
+import { OrbitControls, useTexture, Text } from '@react-three/drei';
 import { BACKEND_URL } from '../utils/constants';
 import { useLanguage } from '../context/LanguageContext';
 import VideoLoader from '../components/VideoLoader';
-import { Box, Sparkles, Camera, Save, Eye, ArrowLeft, Layers, CheckCircle2 } from 'lucide-react';
+import { Box, Save, ArrowLeft, Layers, CheckCircle2 } from 'lucide-react';
 
 const getAuthHeaders = () => {
   const token = localStorage.getItem('photoAppToken');
@@ -12,7 +12,7 @@ const getAuthHeaders = () => {
 };
 
 // ====================================================================
-// 🖼️ 3D KÉPKERET KOMPONENS (3D-s téglalap texture-rel)
+// 🖼️ 3D KÉPKERET KOMPONENS
 // ====================================================================
 function ArtworkFrame({ position, rotation, url, title, onClick }: any) {
   const texture = useTexture(url);
@@ -40,10 +40,9 @@ function ArtworkFrame({ position, rotation, url, title, onClick }: any) {
 }
 
 // ====================================================================
-// 🏛️ 3D GALÉRIATEREM (Falak, Padló, Világítás)
+// 🏛️ 3D GALÉRIATEREM
 // ====================================================================
 function GalleryRoom({ photos, onSelectPhoto }: { photos: any[]; onSelectPhoto: (p: any) => void }) {
-  // A legfeljebb 10 képet elosztjuk a 4 falon
   const wallPositions: [number, number, number][] = [
     [-6, 0.5, -4], [0, 0.5, -4], [6, 0.5, -4],   // Hátsó fal
     [-9.9, 0.5, -1], [-9.9, 0.5, 3],             // Bal fal
@@ -93,7 +92,7 @@ function GalleryRoom({ photos, onSelectPhoto }: { photos: any[]; onSelectPhoto: 
       {photos.map((photo, i) => {
         if (i >= wallPositions.length) return null;
         return (
-          <Suspense key={photo.id || i} fallback={null}>
+          <Suspense key={photo.id || photo.file_url || i} fallback={null}>
             <ArtworkFrame
               position={wallPositions[i]}
               rotation={wallRotations[i]}
@@ -118,11 +117,11 @@ export default function Gallery3DView({ user }: { user: any }) {
   const [galleryTitle, setGalleryTitle] = useState('Saját Virtuális Kiállításom');
   const [savedPhotos, setSavedPhotos] = useState<any[]>([]);
   const [myAlbumPhotos, setMyAlbumPhotos] = useState<any[]>([]);
-  const [selectedPhotoIds, setSelectedPhotoIds] = useState<number[]>([]);
+  const [selectedPhotoIds, setSelectedPhotoIds] = useState<string[]>([]);
   const [activePhotoModal, setActivePhotoModal] = useState<any | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  // 1. Saját galéria és albumképek betöltése
+  // Saját galéria és albumképek betöltése
   useEffect(() => {
     const init = async () => {
       try {
@@ -134,9 +133,9 @@ export default function Gallery3DView({ user }: { user: any }) {
         if (galRes.ok) {
           const galData = await galRes.json();
           if (galData.gallery) {
-            setGalleryTitle(galData.gallery.title);
+            setGalleryTitle(galData.gallery.title || 'Saját Virtuális Kiállításom');
             setSavedPhotos(galData.gallery.photos || []);
-            setSelectedPhotoIds((galData.gallery.photos || []).map((p: any) => p.id));
+            setSelectedPhotoIds((galData.gallery.photos || []).map((p: any) => String(p.id || p.file_url)));
           }
         }
 
@@ -153,36 +152,50 @@ export default function Gallery3DView({ user }: { user: any }) {
     init();
   }, [user]);
 
-  // Kép kiválasztása szerkesztéskor
+  // 🎯 JAVÍTVA: Típusfüggetlen ID kiválasztó logika
   const toggleSelectPhoto = (photo: any) => {
-    if (selectedPhotoIds.includes(photo.id)) {
-      setSelectedPhotoIds(prev => prev.filter(id => id !== photo.id));
+    const photoKey = String(photo.id || photo.file_url);
+    if (selectedPhotoIds.includes(photoKey)) {
+      setSelectedPhotoIds(prev => prev.filter(id => id !== photoKey));
     } else {
       if (selectedPhotoIds.length >= 10) {
         return alert(lang === 'en' ? 'Maximum 10 photos allowed!' : 'Legfeljebb 10 fotót választhatsz ki a kiállításra!');
       }
-      setSelectedPhotoIds(prev => [...prev, photo.id]);
+      setSelectedPhotoIds(prev => [...prev, photoKey]);
     }
   };
 
-  // Mentés
+  // 🎯 JAVÍTVA: Golyóálló mentési folyamat tiszta visszajelzéssel
   const handleSave = async () => {
     setIsSaving(true);
-    const chosenPhotos = myAlbumPhotos.filter(p => selectedPhotoIds.includes(p.id));
+    const safeTitle = galleryTitle.trim() || (lang === 'en' ? 'My 3D Exhibition' : 'Saját Virtuális Kiállításom');
+    
+    // Típusfüggetlen keresés
+    const chosenPhotos = myAlbumPhotos.filter(p => selectedPhotoIds.includes(String(p.id || p.file_url)));
+
+    if (chosenPhotos.length === 0) {
+      setIsSaving(false);
+      return alert(lang === 'en' ? 'Please select at least 1 photo!' : 'Kérlek válassz ki legalább 1 fotót!');
+    }
+
     try {
       const res = await fetch(`${BACKEND_URL}/api/premium/3d-gallery/save`, {
         method: 'POST',
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ title: galleryTitle, theme: 'modern', photos: chosenPhotos })
+        body: JSON.stringify({ title: safeTitle, theme: 'modern', photos: chosenPhotos })
       });
 
       if (res.ok) {
         setSavedPhotos(chosenPhotos);
         setMode('VIEW');
         alert(lang === 'en' ? 'Virtual Gallery saved successfully! 🎉' : '🎉 Virtuális galéria sikeresen elmentve!');
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        alert(errData.error || (lang === 'en' ? 'Failed to save gallery.' : 'Nem sikerült elmenteni a galériát.'));
       }
     } catch (e) {
-      alert('Hiba a mentés során.');
+      console.error(e);
+      alert(lang === 'en' ? 'Network error during save.' : 'Hálózati hiba a mentés során.');
     } finally {
       setIsSaving(false);
     }
@@ -209,7 +222,7 @@ export default function Gallery3DView({ user }: { user: any }) {
             </button>
           ) : (
             <button onClick={() => setMode('VIEW')} style={{ background: 'var(--bg-main)', color: 'var(--text-title)', border: '1px solid var(--border-main)', padding: '10px 18px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <ArrowLeft size={16} /> Vissza a 3D Népességhez
+              <ArrowLeft size={16} /> Vissza a 3D Nézetre
             </button>
           )}
         </div>
@@ -229,9 +242,10 @@ export default function Gallery3DView({ user }: { user: any }) {
             
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '15px' }}>
               {myAlbumPhotos.map(photo => {
-                const isSelected = selectedPhotoIds.includes(photo.id);
+                const photoKey = String(photo.id || photo.file_url);
+                const isSelected = selectedPhotoIds.includes(photoKey);
                 return (
-                  <div key={photo.id} onClick={() => toggleSelectPhoto(photo)} style={{ position: 'relative', height: '120px', borderRadius: '8px', overflow: 'hidden', border: isSelected ? '3px solid #10b981' : '1px solid var(--border-main)', cursor: 'pointer' }}>
+                  <div key={photoKey} onClick={() => toggleSelectPhoto(photo)} style={{ position: 'relative', height: '120px', borderRadius: '8px', overflow: 'hidden', border: isSelected ? '3px solid #10b981' : '1px solid var(--border-main)', cursor: 'pointer' }}>
                     <img src={photo.file_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     {isSelected && (
                       <div style={{ position: 'absolute', top: '6px', right: '6px', background: '#10b981', color: 'white', borderRadius: '50%', padding: '2px' }}>
