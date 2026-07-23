@@ -27,19 +27,53 @@ const getPhotoIdentifier = (p: any) => {
 };
 
 // ====================================================================
-// 🖼️ GOLYÓÁLLÓ 3D KÉPKERET SZERVERES PROXY FALLBACK-KAL (CORS FIX)
+// 🖼️ INTELLIGENS 3D KÉPKERET DÍNAMIKUS KÉPARÁNY-KEZELÉSSEL (TORZÍTÁSMENTES)
 // ====================================================================
 function ArtworkFrame({ position, rotation, url, title, onClick }: any) {
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
+  
+  // Alapértelmezett méretek (fekvő formatum)
+  const [dims, setDims] = useState<{ pWidth: number; pHeight: number }>({ pWidth: 2.8, pHeight: 1.9 });
 
   useEffect(() => {
     if (!url) return;
     let isMounted = true;
 
+    const applyTextureWithAspect = (loaded: THREE.Texture) => {
+      if (!isMounted) return;
+      loaded.colorSpace = THREE.SRGBColorSpace;
+
+      // 🎯 VALÓS OLDALARÁNY SZÁMÍTÁSA A KÉP PIXELEIBŐL
+      const img = loaded.image;
+      if (img && img.width && img.height) {
+        const aspect = img.width / img.height;
+        let w = 2.8;
+        let h = 1.9;
+
+        if (aspect >= 1) {
+          // Fekvő (Landscape) vagy Négyzetes fotó
+          w = 2.8;
+          h = w / aspect;
+          if (h > 2.2) {
+            h = 2.2;
+            w = h * aspect;
+          }
+        } else {
+          // Álló (Portrait) fotó
+          h = 2.4;
+          w = h * aspect;
+          if (w > 2.0) {
+            w = 2.0;
+            h = w / aspect;
+          }
+        }
+        setDims({ pWidth: w, pHeight: h });
+      }
+      setTexture(loaded);
+    };
+
     const loadTextureWithFallback = async () => {
       let targetUrl = url;
-
-      // Google Drive linkeknél azonnal a szerveroldali kép-proxyt használjuk a CORS tiltás kikerülésére
       const isDrive = url.includes('drive.google.com') || url.includes('googleusercontent.com') || url.includes('uc?export=download');
 
       if (isDrive) {
@@ -52,7 +86,7 @@ function ArtworkFrame({ position, rotation, url, title, onClick }: any) {
             if (data.base64) targetUrl = data.base64;
           }
         } catch (e) {
-          console.warn("⚠️ Proxy betöltési hiba, megpróbáljuk a közvetlen linket...", e);
+          console.warn("Proxy hiba, próbáljuk közvetlenül...", e);
         }
       }
 
@@ -61,15 +95,9 @@ function ArtworkFrame({ position, rotation, url, title, onClick }: any) {
 
       loader.load(
         targetUrl,
-        (loaded) => {
-          if (isMounted) {
-            loaded.colorSpace = THREE.SRGBColorSpace;
-            setTexture(loaded);
-          }
-        },
+        (loaded) => applyTextureWithAspect(loaded),
         undefined,
         async () => {
-          // Ha a közvetlen betöltés mégis elakadna, utolsó mentsvárként átküldjük a proxyn
           if (!isDrive) {
             try {
               const res = await fetch(`${BACKEND_URL}/api/weekly/image-proxy?url=${encodeURIComponent(url)}`, {
@@ -78,12 +106,7 @@ function ArtworkFrame({ position, rotation, url, title, onClick }: any) {
               if (res.ok) {
                 const data = await res.json();
                 if (data.base64 && isMounted) {
-                  loader.load(data.base64, (fallbackLoaded) => {
-                    if (isMounted) {
-                      fallbackLoaded.colorSpace = THREE.SRGBColorSpace;
-                      setTexture(fallbackLoaded);
-                    }
-                  });
+                  loader.load(data.base64, (fallbackLoaded) => applyTextureWithAspect(fallbackLoaded));
                 }
               }
             } catch (err) {
@@ -98,26 +121,45 @@ function ArtworkFrame({ position, rotation, url, title, onClick }: any) {
     return () => { isMounted = false; };
   }, [url]);
 
+  // Keretek méretének dinamikus kiszámítása a fotóhoz igazítva
+  const { pWidth, pHeight } = dims;
+  const frameWidth = pWidth + 0.4;
+  const frameHeight = pHeight + 0.4;
+  const passWidth = pWidth + 0.2;
+  const passHeight = pHeight + 0.2;
+
   return (
     <group position={position} rotation={rotation}>
+      {/* Külső Fa/Fém Keret (Dinamikusan igazodik az álló/fekvő formátumhoz) */}
       <mesh position={[0, 0, -0.03]}>
-        <boxGeometry args={[3.4, 2.4, 0.06]} />
+        <boxGeometry args={[frameWidth, frameHeight, 0.06]} />
         <meshStandardMaterial color="#0f172a" roughness={0.3} />
       </mesh>
       
+      {/* Fehér Passepartout */}
       <mesh position={[0, 0, -0.01]}>
-        <planeGeometry args={[3.2, 2.2]} />
+        <planeGeometry args={[passWidth, passHeight]} />
         <meshStandardMaterial color="#f8fafc" roughness={0.9} />
       </mesh>
 
+      {/* A Fotó felülete (Tökéletes, torzításmentes méretben) */}
       <mesh onClick={onClick} position={[0, 0, 0.005]} style={{ cursor: 'pointer' }}>
-        <planeGeometry args={[2.9, 1.9]} />
+        <planeGeometry args={[pWidth, pHeight]} />
         {texture ? <meshBasicMaterial map={texture} /> : <meshStandardMaterial color="#334155" />}
       </mesh>
 
-      <spotLight position={[0, 1.8, 1.2]} target-position={[0, 0, 0]} intensity={3.0} angle={0.6} penumbra={0.4} color="#fffbeb" />
+      {/* Célzott Reflektorfény (Mindig a keret fölé igazítva) */}
+      <spotLight
+        position={[0, frameHeight / 2 + 0.6, 1.2]}
+        target-position={[0, 0, 0]}
+        intensity={3.0}
+        angle={0.6}
+        penumbra={0.4}
+        color="#fffbeb"
+      />
 
-      <Text position={[0, -1.35, 0.01]} fontSize={0.14} color="#e2e8f0" anchorX="center" anchorY="top">
+      {/* Címke a kép alatt (Mindig a keret alja alá pozicionálva) */}
+      <Text position={[0, -(frameHeight / 2 + 0.25), 0.01]} fontSize={0.14} color="#e2e8f0" anchorX="center" anchorY="top">
         {title || 'Fotómű'}
       </Text>
     </group>
