@@ -27,35 +27,48 @@ async function requireAuth(req, res, next) {
 
 module.exports = function(app, pool) {
 
-  // 🎯 AUTOPROVIZIÓ: Adatbázis tábla automatikus létrehozása
-  (async () => {
+  // Függvény a tábla garantált jelenlétéhez
+  async function ensureTableExists() {
     try {
       await pool.query(`
         CREATE TABLE IF NOT EXISTS user_3d_galleries (
           id INT AUTO_INCREMENT PRIMARY KEY,
-          user_email VARCHAR(255) NOT NULL UNIQUE,
+          user_email VARCHAR(255) NOT NULL,
           title VARCHAR(255) NOT NULL,
           theme VARCHAR(50) DEFAULT 'modern',
-          photos_json JSON NOT NULL,
-          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-        )
+          photos_json LONGTEXT NOT NULL,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          UNIQUE KEY unique_user_gallery (user_email)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
       `);
-    } catch (e) { console.error("⚠️ 3D Galéria tábla hiba:", e.message); }
-  })();
+    } catch (e) {
+      console.error("⚠️ 3D Galéria tábla províziós hiba:", e.message);
+    }
+  }
 
-  // 1. Saját galéria beállításainak lekérése
+  // 1. Saját galéria beállításainak lekérése (Golyóálló szerverhiba-védelemmel)
   app.get('/api/premium/3d-gallery/my', requireAuth, async (req, res) => {
     try {
+      await ensureTableExists();
+
       const [rows] = await pool.query('SELECT * FROM user_3d_galleries WHERE user_email = ?', [req.user.email]);
-      if (rows.length === 0) return res.json({ gallery: null });
-      
+      if (!rows || rows.length === 0) {
+        return res.json({ gallery: null });
+      }
+
       const gal = rows[0];
       let photos = [];
-      try { photos = typeof gal.photos_json === 'string' ? JSON.parse(gal.photos_json) : gal.photos_json; } catch(e){}
-      
+      try { 
+        photos = typeof gal.photos_json === 'string' ? JSON.parse(gal.photos_json) : (gal.photos_json || []); 
+      } catch(e){
+        photos = [];
+      }
+
       res.json({ gallery: { ...gal, photos } });
     } catch (err) {
-      res.status(500).json({ error: 'Hiba a galéria lekérésekor.' });
+      console.error("❌ 3D Galéria lekérési hiba:", err.message);
+      // Failsafe: 200 OK-val válaszolunk üres galériaként, hogy a frontend ne fagyjon le!
+      res.json({ gallery: null });
     }
   });
 
@@ -67,7 +80,9 @@ module.exports = function(app, pool) {
     }
 
     try {
+      await ensureTableExists();
       const photosJson = JSON.stringify(photos.slice(0, 10)); // Max 10 kép
+
       await pool.query(`
         INSERT INTO user_3d_galleries (user_email, title, theme, photos_json)
         VALUES (?, ?, ?, ?)
@@ -84,6 +99,8 @@ module.exports = function(app, pool) {
   // 3. Bárki által megtekinthető nyilvános galéria lekérés
   app.get('/api/3d-gallery/view/:email', async (req, res) => {
     try {
+      await ensureTableExists();
+
       const [rows] = await pool.query(`
         SELECT g.*, u.name as photographer_name, u.avatar_url 
         FROM user_3d_galleries g
@@ -91,11 +108,15 @@ module.exports = function(app, pool) {
         WHERE g.user_email = ?
       `, [req.params.email]);
 
-      if (rows.length === 0) return res.status(404).json({ error: 'A keresett virtuális galéria nem található.' });
-      
+      if (!rows || rows.length === 0) return res.status(404).json({ error: 'A keresett virtuális galéria nem található.' });
+
       const gal = rows[0];
       let photos = [];
-      try { photos = typeof gal.photos_json === 'string' ? JSON.parse(gal.photos_json) : gal.photos_json; } catch(e){}
+      try { 
+        photos = typeof gal.photos_json === 'string' ? JSON.parse(gal.photos_json) : (gal.photos_json || []); 
+      } catch(e){
+        photos = [];
+      }
 
       res.json({ ...gal, photos });
     } catch (err) {
