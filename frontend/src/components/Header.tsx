@@ -2,15 +2,12 @@ import { useState, useEffect, useRef } from 'react';
 import { googleLogout } from '@react-oauth/google';
 import { ADMIN_EMAIL, BACKEND_URL } from '../utils/constants';
 
-// Behozzuk a kétnyelvű logókat a headerhez is
 import logoHu from './logo_hu2.png';
 import logoEn from './logo_en2.png';
 
-// Behozzuk a környezeti kontextusokat
 import { useLanguage } from '../context/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
 
-// Professzionális Lucide ikonok importálása
 import { 
   Menu, 
   X, 
@@ -36,7 +33,7 @@ import {
   Moon,
   ImageIcon,
   BookOpen,
-  Box // 🎯 ÚJ: Ikon a 3D Virtuális Kiállításhoz
+  Box
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -231,11 +228,7 @@ function LogoBrandBlock({ logo } : { logo: string }) {
         border: '1px solid var(--border-main, #222f47)',
         boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
       }}>
-        <img 
-          src={logo} 
-          alt="PhotAwesome" 
-          style={{ height: '22px', width: 'auto', objectFit: 'contain' }} 
-        />
+        <img src={logo} alt="PhotAwesome" style={{ height: '22px', width: 'auto', objectFit: 'contain' }} />
       </div>
       <div style={{ fontWeight: '800', color: 'var(--text-title, #f8fafc)', fontSize: '1.25rem', letterSpacing: '-0.5px' }}>
         Phot<span style={{ background: 'linear-gradient(135deg, #38bdf8, #8b5cf6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Awesome</span>
@@ -285,78 +278,30 @@ export default function Header({
       try {
         const token = localStorage.getItem('photoAppToken');
         if (!token) return;
-
-        const res = await fetch(`${BACKEND_URL}/api/forum/unread-total`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-     
-        if (res.ok) {
-          const data = await res.json();
-          setUnreadForumCount(data.totalUnread);
-        }
-      } catch (e) { console.error("Nem sikerült lekérni a fórum jelvényt:", e); }
+        const res = await fetch(`${BACKEND_URL}/api/forum/unread-total`, { headers: { 'Authorization': `Bearer ${token}` } });
+        if (res.ok) setUnreadForumCount((await res.json()).totalUnread);
+      } catch (e) {}
     };
-
     fetchUnreadForumTotal();
-    const interval = setInterval(fetchUnreadForumTotal, 120000);
-    return () => clearInterval(interval);
   }, [user?.email]);
 
   useEffect(() => {
     if (!user?.email) return;
-    
     const checkUnread = () => {
       const token = localStorage.getItem('photoAppToken');
       if (!token) return;
-
-      fetch(`${BACKEND_URL}/api/tickets/unread-count?userEmail=${user.email}&isAdmin=${isAdminUser}`, {
-        headers: getAuthHeaders({ 'Content-Type': 'application/json' })
-      })
-        .then(res => {
-          if (!res.ok) throw new Error("Unauthenticated call blocked.");
-          return res.json();
-        })
+      fetch(`${BACKEND_URL}/api/tickets/unread-count?userEmail=${user.email}&isAdmin=${isAdminUser}`, { headers: getAuthHeaders() })
+        .then(res => res.json())
         .then(data => setUnreadTicketsCount(data.count || 0))
         .catch(console.error);
     };
-    
     checkUnread();
-    const interval = setInterval(checkUnread, 600000);
-    return () => clearInterval(interval);
   }, [user?.email, activeTab, isAdminUser]);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (headerRef.current && !headerRef.current.contains(event.target as Node)) {
-        setDropdownOpen(null);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [setDropdownOpen]);
 
   const handleNavClick = (tab: string) => {
     setActiveTab(tab);
     setDropdownOpen(null);
     setIsMobileMenuOpen(false); 
-  };
-
-  const handleManageSubscription = async () => {
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/create-portal-session`, {
-        method: 'POST',
-        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ userEmail: user.email })
-      });
-      const data = await res.json();
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        alert(data.error || 'Hiba az ügyfélkapu megnyitásakor.');
-      }
-    } catch (e) {
-      alert('Hálózati hiba!');
-    }
   };
 
   return (
@@ -396,10 +341,21 @@ export default function Header({
             </button>
           </div>
 
+          {/* 🎯 ÚJ: TÁRLATOK MENTŐ GOMB A FŐMENÜBEN */}
+          <div className="nav-item-container">
+            <button 
+              className={`nav-btn ${activeTab === '3d_gallery' ? 'active' : ''}`} 
+              style={{ color: activeTab === '3d_gallery' ? '#a78bfa' : '' }} 
+              onClick={() => handleNavClick('3d_gallery')}
+            >
+              <Box size={14} /> <span>{lang === 'en' ? 'Exhibitions' : 'Tárlatok'}</span>
+            </button>
+          </div>
+
           <div className="nav-item-container">
             <button 
               className={`nav-btn ${activeTab === 'photo_history' ? 'active' : ''}`} 
-              style={{ color: activeTab === 'photo_history' ? '#a78bfa' : '' }} 
+              style={{ color: activeTab === 'photo_history' ? '#38bdf8' : '' }} 
               onClick={() => handleNavClick('photo_history')}
             >
               <BookOpen size={14} /> <span>{lang === 'en' ? 'History Gallery' : 'Fotótörténeti album'}</span>
@@ -409,7 +365,6 @@ export default function Header({
           <div className="nav-item-container">
             <button 
               className={`nav-btn ${dropdownOpen === 'contests' || activeTab.startsWith('contests_') || ['salons', 'fiap_progress', 'mafosz_progress'].includes(activeTab) ? 'active' : ''}`} 
-              style={{ color: (activeTab.startsWith('contests_') || ['salons', 'fiap_progress', 'mafosz_progress'].includes(activeTab)) ? '#38bdf8' : '' }}
               onClick={() => setDropdownOpen(dropdownOpen === 'contests' ? null : 'contests')}
             >
               <Award size={14} /> <span>{t('navContests')}</span> <ChevronDown size={12} style={{ opacity: 0.6 }} />
@@ -442,43 +397,10 @@ export default function Header({
               </div>
             )}
           </div>
-        
-          <div className="nav-item-container">
-            <button 
-              className={`nav-btn ${dropdownOpen === 'explore' || ['podcast', 'map_spots'].includes(activeTab) || activeTab.startsWith('marketplace') ? 'active' : ''}`}
-              style={{ color: ['podcast', 'map_spots'].includes(activeTab) || activeTab.startsWith('marketplace') ? '#ec4899' : '' }}
-              onClick={() => setDropdownOpen(dropdownOpen === 'explore' ? null : 'explore')}
-            >
-              <Map size={14} /> <span>{t('navExplore')}</span> <ChevronDown size={12} style={{ opacity: 0.6 }} />
-            </button>
-            {dropdownOpen === 'explore' && (
-              <div className="dropdown-menu">
-                <button className="drop-item" style={{ color: '#f43f5e' }} onClick={() => handleNavClick('podcast')}><Mic size={12} /> Podcast</button>
-                <button className="drop-item" style={{ color: '#38bdf8' }} onClick={() => handleNavClick('marketplace')}><ShoppingBag size={12} /> {t('navMarketplace') || 'Piactér'}</button>
-                <button className="drop-item" style={{ color: '#10b981' }} onClick={() => handleNavClick('map_spots')}><Map size={12} /> {t('navMap')}</button>
-              </div>
-            )}
-          </div>
 
           <div className="nav-item-container">
             <button className={`nav-btn ${activeTab === 'public_news' ? 'active' : ''}`} style={{ color: '#38bdf8' }} onClick={() => handleNavClick('public_news')}>
-              <Newspaper size={14} /> <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-                Fórum
-                {unreadForumCount > 0 && (
-                  <span style={{
-                    background: '#ef4444',
-                    color: 'white',
-                    fontSize: '0.68rem',
-                    padding: '2px 6px',
-                    borderRadius: '50px',
-                    fontWeight: 'bold',
-                    lineHeight: '1',
-                    display: 'inline-block'
-                  }}>
-                    {unreadForumCount}
-                  </span>
-                )}
-              </span>
+              <Newspaper size={14} /> <span>Fórum {unreadForumCount > 0 && `(${unreadForumCount})`}</span>
             </button>
           </div>
           
@@ -489,9 +411,7 @@ export default function Header({
               </button>
               {dropdownOpen === 'admin' && (
                 <div className="dropdown-menu">
-                  {isLeader && (
-                    <button className="drop-item" style={{ color: '#0ea5e9' }} onClick={() => handleNavClick('leader_club')}>{t('subLeaderClub')}</button>
-                  )}
+                  {isLeader && <button className="drop-item" style={{ color: '#0ea5e9' }} onClick={() => handleNavClick('leader_club')}>{t('subLeaderClub')}</button>}
                   {user?.email === ADMIN_EMAIL && <button className="drop-item" style={{ color: activeTab === 'admin_contests' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_contests')}>{t('subManageContests')}</button>}
                   <button className="drop-item" style={{ color: activeTab === 'admin_meetings' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_meetings')}>{t('subManageMeetings')}</button>
                   <button className="drop-item" style={{ color: activeTab === 'admin_homeworks' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_homeworks')}>{t('subManageHomeworks')}</button>
@@ -499,31 +419,10 @@ export default function Header({
                   {user?.email === ADMIN_EMAIL && <button className="drop-item" style={{ color: '#ef4444' }} onClick={() => handleNavClick('admin_settings')}>{t('subManageSettings')}</button>}
                   {user?.email === ADMIN_EMAIL && <button className="drop-item" style={{ color: activeTab === 'admin_salons' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_salons')}>{t('subManageSalons')}</button>}
                   {user?.email === ADMIN_EMAIL && <button className="drop-item" style={{ color: activeTab === 'admin_users' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_users')}>{t('subManageUsers')}</button>}
-                  
-                  {user?.email === ADMIN_EMAIL && (
-                    <button 
-                      className="drop-item" 
-                      style={{ color: activeTab === 'admin_points' ? '#ef4444' : '#fbbf24', fontWeight: 'bold' }} 
-                      onClick={() => handleNavClick('admin_points')}
-                    >
-                      {lang === 'en' ? 'Points Control' : 'Pontrendszer'}
-                    </button>
-                  )}
-                  {user?.email === ADMIN_EMAIL && (
-                    <button 
-                      className="drop-item" 
-                      style={{ color: activeTab === 'admin_quiz' ? '#ef4444' : '#f59e0b', fontWeight: 'bold' }} 
-                      onClick={() => handleNavClick('admin_quiz')}
-                    >
-                      {lang === 'en' ? 'Quiz Control' : 'Kvíz Kezelése'}
-                    </button>
-                  )}
-                  {user?.email === ADMIN_EMAIL && (
-                    <button className="drop-item" style={{ color: activeTab === 'admin_banned_emails' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_banned_emails')}>
-                      {lang === 'en' ? 'Banned Emails' : 'Tiltólista'}
-                    </button>
-                  )}
-                  {user?.email === ADMIN_EMAIL && <button className="drop-item" style={{ color: activeTab === 'admin_clubs' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_clubs')}>{t('subManageClubs')}</button>}
+                  {user?.email === ADMIN_EMAIL && <button className="drop-item" style={{ color: '#fbbf24', fontWeight: 'bold' }} onClick={() => handleNavClick('admin_points')}>Pontrendszer</button>}
+                  {user?.email === ADMIN_EMAIL && <button className="drop-item" style={{ color: '#f59e0b', fontWeight: 'bold' }} onClick={() => handleNavClick('admin_quiz')}>Kvíz Kezelése</button>}
+                  {user?.email === ADMIN_EMAIL && <button className="drop-item" onClick={() => handleNavClick('admin_banned_emails')}>Tiltólista</button>}
+                  {user?.email === ADMIN_EMAIL && <button className="drop-item" onClick={() => handleNavClick('admin_clubs')}>{t('subManageClubs')}</button>}
                 </div>
               )}
             </div>
@@ -531,85 +430,29 @@ export default function Header({
         </div> 
 
         <div className="user-group" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
-          <button 
-            onClick={toggleTheme}
-            style={{
-              background: 'transparent',
-              border: '1px solid var(--border-main, #222f47)',
-              color: 'var(--text-body, #94a3b8)',
-              padding: '6px 10px',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'all 0.15s ease',
-              height: '30px',
-              boxSizing: 'border-box'
-            }}
-            title={theme === 'dark' ? 'Világos mód' : 'Sötét mód'}
-          >
+          <button onClick={toggleTheme} style={{ background: 'transparent', border: '1px solid var(--border-main, #222f47)', color: 'var(--text-body, #94a3b8)', padding: '6px 10px', borderRadius: '6px', cursor: 'pointer', height: '30px' }}>
             {theme === 'dark' ? <Sun size={14} color="#fbbf24" fill="#fbbf24" /> : <Moon size={14} color="#475569" />}
           </button>
 
           <div style={{ display: 'flex', gap: '2px', background: 'var(--bg-main, #0f172a)', padding: '3px', borderRadius: '6px', border: '1px solid var(--border-main, #222f47)' }}>
-            <button onClick={() => setLang('hu')} style={{ background: lang === 'hu' ? 'rgba(255,255,255,0.06)' : 'transparent', color: lang === 'hu' ? 'var(--text-title, #f8fafc)' : '#64748b', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <img src="https://flagcdn.com/16x12/hu.png" width="14" height="10" alt="HU" style={{ borderRadius: '1px', objectFit: 'cover' }} />
-              <span>HU</span>
-            </button>
-            <button onClick={() => setLang('en')} style={{ background: lang === 'en' ? 'rgba(255,255,255,0.06)' : 'transparent', color: lang === 'en' ? 'var(--text-title, #f8fafc)' : '#64748b', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <img src="https://flagcdn.com/16x12/gb.png" width="14" height="10" alt="EN" style={{ borderRadius: '1px', objectFit: 'cover' }} />
-              <span>EN</span>
-            </button>
+            <button onClick={() => setLang('hu')} style={{ background: lang === 'hu' ? 'rgba(255,255,255,0.06)' : 'transparent', color: lang === 'hu' ? 'var(--text-title, #f8fafc)' : '#64748b', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold', cursor: 'pointer' }}>HU</button>
+            <button onClick={() => setLang('en')} style={{ background: lang === 'en' ? 'rgba(255,255,255,0.06)' : 'transparent', color: lang === 'en' ? 'var(--text-title, #f8fafc)' : '#64748b', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold', cursor: 'pointer' }}>EN</button>
           </div>
           
           <div className="nav-item-container">
-            <button 
-              className={`nav-btn ${dropdownOpen === 'user_account' || ['profile', 'my_album', '3d_gallery', 'packages', 'tickets'].includes(activeTab) ? 'active' : ''}`} 
-              style={{ color: '#14b8a6', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}
-              onClick={() => setDropdownOpen(dropdownOpen === 'user_account' ? null : 'user_account')}
-            >
-              <User size={14} />
-              <span>{user?.name || user?.user_name || 'Fotós'}</span>
-              {!!(user?.isPremium || user?.is_premium) && <Sparkles size={12} color="#fbbf24" />}
-              {isLeader && (
-                <span style={{ fontSize: '0.65rem', background: 'rgba(245,158,11,0.1)', color: '#f59e0b', padding: '2px 6px', borderRadius: '4px', border: '1px solid rgba(245,158,11,0.3)', fontWeight: 'bold' }}>
-                  Vezetőség
-                </span>
-              )}
+            <button className={`nav-btn ${dropdownOpen === 'user_account' || ['profile', 'my_album', 'packages', 'tickets'].includes(activeTab) ? 'active' : ''}`} style={{ color: '#14b8a6', fontWeight: 'bold' }} onClick={() => setDropdownOpen(dropdownOpen === 'user_account' ? null : 'user_account')}>
+              <User size={14} /> <span>{user?.name || user?.user_name || 'Fotós'}</span>
               <ChevronDown size={12} style={{ opacity: 0.6 }} />
             </button>
 
             {dropdownOpen === 'user_account' && (
               <div className="dropdown-menu" style={{ right: 0, left: 'auto', minWidth: '210px' }}>
-                <button className="drop-item" style={{ color: '#14b8a6', backgroundColor: activeTab === 'profile' ? 'rgba(255,255,255,0.04)' : 'transparent' }} onClick={() => handleNavClick('profile')}><User size={12} /> {t('subProfile')}</button>
-                <button className="drop-item" style={{ color: '#f59e0b', backgroundColor: activeTab === 'my_album' ? 'rgba(255,255,255,0.04)' : 'transparent' }} onClick={() => handleNavClick('my_album')}><ImageIcon size={12} /> {t('subPortfolio')}</button>
-                
-                {/* 🎯 ÚJ: 3D VIRTUÁLIS TÁRLAT GOMB A MENÜBEN */}
-                <button className="drop-item" style={{ color: '#a78bfa', backgroundColor: activeTab === '3d_gallery' ? 'rgba(255,255,255,0.04)' : 'transparent' }} onClick={() => handleNavClick('3d_gallery')}><Box size={12} /> {lang === 'en' ? '3D Exhibition' : '3D Kiállítás'}</button>
-
-                <button className="drop-item" style={{ color: '#8b5cf6', backgroundColor: activeTab === 'packages' ? 'rgba(255,255,255,0.04)' : 'transparent' }} onClick={() => handleNavClick('packages')}><Award size={12} /> {t('subPackages')}</button>
-                
-                <button className="drop-item" style={{ color: '#f43f5e', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: activeTab === 'tickets' ? 'rgba(255,255,255,0.04)' : 'transparent' }} onClick={() => handleNavClick('tickets')}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><LifeBuoy size={12} /> {t('subSupport')}</span>
-                  {unreadTicketsCount > 0 && (
-                    <span style={{ background: '#ef4444', color: 'white', fontSize: '0.68rem', padding: '1px 6px', borderRadius: '100px', fontWeight: 'bold' }}>
-                      {unreadTicketsCount}
-                    </span>
-                  )}
-                </button>
-
-                {!!(user?.isPremium || user?.is_premium) && (
-                  <button onClick={handleManageSubscription} style={{ color: '#10b981' }} className="drop-item">
-                    <CreditCard size={12} /> Stripe Ügyfélkapu
-                  </button>
-                )}
-
+                <button className="drop-item" style={{ color: '#14b8a6' }} onClick={() => handleNavClick('profile')}><User size={12} /> {t('subProfile')}</button>
+                <button className="drop-item" style={{ color: '#f59e0b' }} onClick={() => handleNavClick('my_album')}><ImageIcon size={12} /> {t('subPortfolio')}</button>
+                <button className="drop-item" style={{ color: '#8b5cf6' }} onClick={() => handleNavClick('packages')}><Award size={12} /> {t('subPackages')}</button>
+                <button className="drop-item" style={{ color: '#f43f5e' }} onClick={() => handleNavClick('tickets')}><LifeBuoy size={12} /> {t('subSupport')}</button>
                 <div style={{ height: '1px', backgroundColor: 'var(--border-main, #222f47)', margin: '4px 0' }}></div>
-
-                <button className="drop-item" style={{ color: '#ef4444' }} onClick={() => { googleLogout(); onLogout(); }}>
-                  <LogOut size={12} /> {t('subLogout')}
-                </button>
+                <button className="drop-item" style={{ color: '#ef4444' }} onClick={() => { googleLogout(); onLogout(); }}><LogOut size={12} /> {t('subLogout')}</button>
               </div>
             )}
           </div>
