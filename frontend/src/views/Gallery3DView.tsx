@@ -144,7 +144,7 @@ function WalkingController({
 }
 
 // ====================================================================
-// 🖼️ MEMÓRIA-VÉDETT ÉS EMELT CÍMKÉJŰ 3D KÉPKERET
+// 🖼️ 3D KÉPKERET (EMELT FELFÜGGESZTÉSSEL)
 // ====================================================================
 function ArtworkFrame({ position, rotation, url, title, themeConfig, onClick }: any) {
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
@@ -226,7 +226,6 @@ function ArtworkFrame({ position, rotation, url, title, themeConfig, onClick }: 
 
     loadTextureWithFallback();
 
-    // 🎯 GPU MEMÓRIA TÖRLESE A WEBGL CONTEXT LOST ELLEN!
     return () => { 
       isMounted = false; 
       if (currentTexture) {
@@ -241,8 +240,7 @@ function ArtworkFrame({ position, rotation, url, title, themeConfig, onClick }: 
   const passWidth = pWidth + 0.18;
   const passHeight = pHeight + 0.18;
 
-  // Címke pozíciója közvetlenül a keret alatt
-  const labelYPosition = -(frameHeight / 2 + 0.20);
+  const labelYPosition = -(frameHeight / 2 + 0.18);
 
   return (
     <group position={position} rotation={rotation}>
@@ -264,7 +262,7 @@ function ArtworkFrame({ position, rotation, url, title, themeConfig, onClick }: 
         {texture ? <meshBasicMaterial map={texture} /> : <meshStandardMaterial color="#334155" />}
       </mesh>
 
-      {/* 🎯 CÍMKE (Mindig látható az álló képeknél is) */}
+      {/* Címke a kép alatt */}
       <group position={[0, labelYPosition, 0.065]}>
         <mesh position={[0, 0, -0.005]}>
           <planeGeometry args={[Math.max(1.8, pWidth * 0.8), 0.28]} />
@@ -286,17 +284,17 @@ function ArtworkFrame({ position, rotation, url, title, themeConfig, onClick }: 
 }
 
 // ====================================================================
-// 🏛️ ZÁRT 3D GALÉRIATEREM (STABIL VILÁGÍTÁSSAL)
+// 🏛️ MILIMÉTER-PONTOS ZÁRT 3D SZOBA (NINCS KILÓGÓ LÉC, EGYÖNTETŰ FALAK)
 // ====================================================================
 function GalleryRoom({ photos, themeName, onSelectPhoto }: { photos: any[]; themeName?: string; onSelectPhoto: (p: any) => void }) {
   const theme = GALLERY_THEMES[themeName || 'modern'] || GALLERY_THEMES.modern;
 
-  // 🎯 Megemelt Y magasság (1.10), így az álló képek címei is magasan a padló felett vannak!
+  // 🎯 Képek felfüggesztése Y = 1.20m magasságban
   const wallPositions: [number, number, number][] = [
-    [-6, 1.10, -4.99], [0, 1.10, -4.99], [6, 1.10, -4.99],   // Hátsó fal
-    [-9.99, 1.10, -1], [-9.99, 1.10, 3],                   // Bal fal
-    [9.99, 1.10, -1], [9.99, 1.10, 3],                     // Jobb fal
-    [-6, 1.10, 8.99], [0, 1.10, 8.99], [6, 1.10, 8.99]        // Első fal
+    [-6, 1.20, -4.96], [0, 1.20, -4.96], [6, 1.20, -4.96],   // Hátsó fal
+    [-9.96, 1.20, -1], [-9.96, 1.20, 3],                   // Bal fal
+    [9.96, 1.20, -1], [9.96, 1.20, 3],                     // Jobb fal
+    [-6, 1.20, 8.96], [0, 1.20, 8.96], [6, 1.20, 8.96]        // Első fal
   ];
 
   const wallRotations: [number, number, number][] = [
@@ -308,49 +306,57 @@ function GalleryRoom({ photos, themeName, onSelectPhoto }: { photos: any[]; them
 
   return (
     <>
-      {/* 🎯 KÖZPONTI MENNYEZETI VILÁGÍTÁS (Megszünteti a WebGL Context Lost-ot!) */}
-      <ambientLight intensity={1.6} />
-      <directionalLight position={[0, 8, 0]} intensity={1.2} color={theme.lightColor} />
+      <ambientLight intensity={1.8} />
+      <directionalLight position={[0, 8, 0]} intensity={1.0} color={theme.lightColor} />
 
       {/* Padló */}
-      <mesh position={[0, -1.1, 2]}>
-        <boxGeometry args={[20.4, 0.2, 14.4]} />
+      <mesh position={[0, -1.05, 2]}>
+        <boxGeometry args={[20, 0.1, 14]} />
         <meshStandardMaterial color={theme.floorColor} roughness={0.4} />
       </mesh>
 
       {/* Mennyezet */}
-      <mesh position={[0, 4.6, 2]}>
-        <boxGeometry args={[20.4, 0.2, 14.4]} />
+      <mesh position={[0, 5.05, 2]}>
+        <boxGeometry args={[20, 0.1, 14]} />
         <meshStandardMaterial color={theme.ceilingColor} />
       </mesh>
 
-      {/* 🎯 TELJESEN ZÁRT 4 FAL (Mindegyik fal azonos tónusú) */}
+      {/* 🎯 EGYÖNTETŰ FALAK (meshBasicMaterial megakadályozza az árnyékos elszíneződést!) */}
       {/* Hátsó fal */}
-      <mesh position={[0, 1.75, -5.1]}>
-        <boxGeometry args={[20.4, 11, 0.2]} />
-        <meshStandardMaterial color={theme.wallColor} roughness={0.7} />
-      </mesh>
-      {/* Bal fal */}
-      <mesh position={[-10.1, 1.75, 2]}>
-        <boxGeometry args={[0.2, 11, 14.4]} />
-        <meshStandardMaterial color={theme.wallColor} roughness={0.7} />
-      </mesh>
-      {/* Jobb fal */}
-      <mesh position={[10.1, 1.75, 2]}>
-        <boxGeometry args={[0.2, 11, 14.4]} />
-        <meshStandardMaterial color={theme.wallColor} roughness={0.7} />
+      <mesh position={[0, 2.0, -5.05]}>
+        <boxGeometry args={[20, 6, 0.1]} />
+        <meshBasicMaterial color={theme.wallColor} />
       </mesh>
 
-      {/* Szegélylécek a falak alján */}
-      <mesh position={[0, -0.85, -4.95]}><boxGeometry args={[20, 0.3, 0.1]} /><meshStandardMaterial color={theme.skirtingColor} /></mesh>
-      <mesh position={[-9.95, -0.85, 2]} rotation={[0, Math.PI / 2, 0]}><boxGeometry args={[20, 0.3, 0.1]} /><meshStandardMaterial color={theme.skirtingColor} /></mesh>
-      <mesh position={[9.95, -0.85, 2]} rotation={[0, -Math.PI / 2, 0]}><boxGeometry args={[20, 0.3, 0.1]} /><meshStandardMaterial color={theme.skirtingColor} /></mesh>
+      {/* Bal fal */}
+      <mesh position={[-10.05, 2.0, 2]}>
+        <boxGeometry args={[0.1, 6, 14]} />
+        <meshBasicMaterial color={theme.wallColor} />
+      </mesh>
+
+      {/* Jobb fal */}
+      <mesh position={[10.05, 2.0, 2]}>
+        <boxGeometry args={[0.1, 6, 14]} />
+        <meshBasicMaterial color={theme.wallColor} />
+      </mesh>
+
+      {/* Első fal (Mögöttünk) */}
+      <mesh position={[0, 2.0, 9.05]}>
+        <boxGeometry args={[20, 6, 0.1]} />
+        <meshBasicMaterial color={theme.wallColor} />
+      </mesh>
+
+      {/* 🎯 EXAKTVÉGŰ SZEGÉLYLÉCEK (Sosem lógnak ki a sarkokon túl!) */}
+      <mesh position={[0, -0.85, -4.95]}><boxGeometry args={[19.8, 0.3, 0.08]} /><meshStandardMaterial color={theme.skirtingColor} /></mesh>
+      <mesh position={[0, -0.85, 8.95]}><boxGeometry args={[19.8, 0.3, 0.08]} /><meshStandardMaterial color={theme.skirtingColor} /></mesh>
+      <mesh position={[-9.95, -0.85, 2]} rotation={[0, Math.PI / 2, 0]}><boxGeometry args={[13.8, 0.3, 0.08]} /><meshStandardMaterial color={theme.skirtingColor} /></mesh>
+      <mesh position={[9.95, -0.85, 2]} rotation={[0, -Math.PI / 2, 0]}><boxGeometry args={[13.8, 0.3, 0.08]} /><meshStandardMaterial color={theme.skirtingColor} /></mesh>
 
       {/* Sarokpillérek */}
-      <mesh position={[-9.95, 1.75, -4.95]}><boxGeometry args={[0.3, 11, 0.3]} /><meshStandardMaterial color={theme.pillarColor} /></mesh>
-      <mesh position={[9.95, 1.75, -4.95]}><boxGeometry args={[0.3, 11, 0.3]} /><meshStandardMaterial color={theme.pillarColor} /></mesh>
-      <mesh position={[-9.95, 1.75, 8.95]}><boxGeometry args={[0.3, 11, 0.3]} /><meshStandardMaterial color={theme.pillarColor} /></mesh>
-      <mesh position={[9.95, 1.75, 8.95]}><boxGeometry args={[0.3, 11, 0.3]} /><meshStandardMaterial color={theme.pillarColor} /></mesh>
+      <mesh position={[-9.9, 2.0, -4.9]}><boxGeometry args={[0.2, 6, 0.2]} /><meshStandardMaterial color={theme.pillarColor} /></mesh>
+      <mesh position={[9.9, 2.0, -4.9]}><boxGeometry args={[0.2, 6, 0.2]} /><meshStandardMaterial color={theme.pillarColor} /></mesh>
+      <mesh position={[-9.9, 2.0, 8.9]}><boxGeometry args={[0.2, 6, 0.2]} /><meshStandardMaterial color={theme.pillarColor} /></mesh>
+      <mesh position={[9.9, 2.0, 8.9]}><boxGeometry args={[0.2, 6, 0.2]} /><meshStandardMaterial color={theme.pillarColor} /></mesh>
 
       {/* Képek elhelyezése */}
       {photos.map((photo, i) => {
