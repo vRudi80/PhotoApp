@@ -9,7 +9,8 @@ import VideoLoader from '../components/VideoLoader';
 import { 
   Box, Save, ArrowLeft, CheckCircle2, Globe, Users, 
   Sparkles, Eye, Edit3, Trash2, PlusCircle, ArrowUp, ArrowDown, 
-  Navigation, BookOpen, UserCheck, MessageSquare, Send, X, Clock 
+  Navigation, BookOpen, UserCheck, MessageSquare, Send, X, Clock,
+  Share2, Link as LinkIcon
 } from 'lucide-react';
 
 const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
@@ -265,7 +266,6 @@ export default function Gallery3DView({ user }: { user: any }) {
   const [activePhotoModal, setActivePhotoModal] = useState<any | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  // 🎯 VENDÉGKÖNYV ÉS LÁTOGATÓI JEGYZÉK ÁLLAPOTOK
   const [showInteractionsModal, setShowInteractionsModal] = useState(false);
   const [interactionTab, setInteractionTab] = useState<'GUESTBOOK' | 'VISITORS'>('GUESTBOOK');
   const [guestbookEntries, setGuestbookEntries] = useState<any[]>([]);
@@ -303,6 +303,20 @@ export default function Gallery3DView({ user }: { user: any }) {
     };
   }, [viewMode]);
 
+  // 🎯 MEGOSZTÁSI LINK MÁSOLÁS GOLYÓÁLLÓ FALLBACK-KEL
+  const handleShareGallery = (galId: number, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const shareUrl = `${window.location.origin}/3d_gallery?id=${galId}`;
+    
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(shareUrl)
+        .then(() => alert(lang === 'en' ? 'Direct link copied to clipboard! 📋' : '📋 Egyedi megosztási link másolva a vágólapra!'))
+        .catch(() => prompt(lang === 'en' ? 'Copy this link:' : 'Másold ki a hivatkozást:', shareUrl));
+    } else {
+      prompt(lang === 'en' ? 'Copy this link:' : 'Másold ki a hivatkozást:', shareUrl);
+    }
+  };
+
   const loadData = async () => {
     setLoading(true);
     try {
@@ -311,8 +325,23 @@ export default function Gallery3DView({ user }: { user: any }) {
         fetch(`${BACKEND_URL}/api/my-album?userEmail=${encodeURIComponent(user?.email || '')}`, { headers: getAuthHeaders() })
       ]);
 
-      if (listRes.ok) setAllGalleries(await listRes.json());
+      let loadedGalleries: any[] = [];
+      if (listRes.ok) {
+        loadedGalleries = await listRes.json();
+        setAllGalleries(loadedGalleries);
+      }
       if (portfolioRes.ok) setMyPortfolioPhotos(await portfolioRes.json());
+
+      // 🎯 AUTOMATIKUS MEGNYITÁS URL PARANCSSOR ALAPJÁN (?id=XYZ)
+      const urlParams = new URLSearchParams(window.location.search);
+      const targetId = urlParams.get('id');
+      if (targetId && loadedGalleries.length > 0) {
+        const targetGal = loadedGalleries.find((g: any) => String(g.id) === String(targetId));
+        if (targetGal) {
+          handleOpen3D(targetGal);
+        }
+      }
+
     } catch (e) {
       console.error(e);
     } finally {
@@ -322,7 +351,6 @@ export default function Gallery3DView({ user }: { user: any }) {
 
   useEffect(() => { loadData(); }, [user]);
 
-  // 🎯 LÁTOGATÁS RÖGZÍTÉSE ÉS INTERAKCIÓK BETÖLTÉSE
   const loadInteractions = async (galleryId: number) => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/3d-gallery/${galleryId}/interactions`, { headers: getAuthHeaders() });
@@ -340,7 +368,6 @@ export default function Gallery3DView({ user }: { user: any }) {
     setActiveGallery(gal);
     setMode('VIEW_3D');
 
-    // Rögzítjük a látogatást
     try {
       await fetch(`${BACKEND_URL}/api/3d-gallery/${gal.id}/visit`, {
         method: 'POST',
@@ -351,7 +378,6 @@ export default function Gallery3DView({ user }: { user: any }) {
     loadInteractions(gal.id);
   };
 
-  // Új bejegyzés írása a Vendégkönyvbe
   const handlePostGuestbook = async () => {
     if (!newCommentText.trim() || !activeGallery) return;
     setIsPostingComment(true);
@@ -462,14 +488,23 @@ export default function Gallery3DView({ user }: { user: any }) {
           </small>
         </div>
 
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-          {viewMode === 'VIEW_3D' && (
-            <button 
-              onClick={() => setShowInteractionsModal(true)} 
-              style={{ background: '#8b5cf6', color: 'white', border: 'none', padding: '10px 18px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
-            >
-              <BookOpen size={16} /> Vendégkönyv & Látogatók
-            </button>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+          {viewMode === 'VIEW_3D' && activeGallery && (
+            <>
+              <button 
+                onClick={() => handleShareGallery(activeGallery.id)} 
+                style={{ background: 'var(--bg-main)', color: '#38bdf8', border: '1px solid var(--border-main)', padding: '10px 16px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+              >
+                <Share2 size={16} /> Megosztás
+              </button>
+
+              <button 
+                onClick={() => setShowInteractionsModal(true)} 
+                style={{ background: '#8b5cf6', color: 'white', border: 'none', padding: '10px 18px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+              >
+                <BookOpen size={16} /> Vendégkönyv & Látogatók
+              </button>
+            </>
           )}
 
           {viewMode !== 'DIRECTORY' && (
@@ -512,7 +547,6 @@ export default function Gallery3DView({ user }: { user: any }) {
                     <div style={{ height: '180px', background: '#090d16', position: 'relative' }}>
                       <img src={coverUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       
-                      {/* STATISZTIKAI JELVÉNYEK */}
                       <div style={{ position: 'absolute', top: '10px', left: '10px', display: 'flex', gap: '6px' }}>
                         <span style={{ background: 'rgba(15,23,42,0.85)', padding: '3px 8px', borderRadius: '20px', fontSize: '0.72rem', color: '#cbd5e1', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
                           <Eye size={12} color="#38bdf8" /> {gal.visitor_count || 0}
@@ -540,12 +574,23 @@ export default function Gallery3DView({ user }: { user: any }) {
                       </div>
 
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        <button 
-                          onClick={() => handleOpen3D(gal)}
-                          style={{ width: '100%', background: '#a78bfa', color: '#0f172a', border: 'none', padding: '10px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-                        >
-                          <Eye size={16} /> 3D Tárlat Bejárása ({gal.photos?.length || 0} kép)
-                        </button>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button 
+                            onClick={() => handleOpen3D(gal)}
+                            style={{ flex: 1, background: '#a78bfa', color: '#0f172a', border: 'none', padding: '10px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                          >
+                            <Eye size={16} /> Bejárás ({gal.photos?.length || 0} kép)
+                          </button>
+
+                          {/* 🎯 MEGOSZTÁS GOMB A KATALÓGUS KÁRTYÁN */}
+                          <button 
+                            onClick={(e) => handleShareGallery(gal.id, e)} 
+                            title="Egyedi megosztási link másolása"
+                            style={{ background: 'var(--bg-main)', border: '1px solid var(--border-main)', color: '#38bdf8', padding: '10px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                          >
+                            <Share2 size={16} />
+                          </button>
+                        </div>
 
                         {isMine && (
                           <div style={{ display: 'flex', gap: '8px' }}>
@@ -707,12 +752,11 @@ export default function Gallery3DView({ user }: { user: any }) {
         </div>
       )}
 
-      {/* 🎯 VENDÉGKÖNYV ÉS LÁTOGATÓI JEGYZÉK MODÁL */}
+      {/* VENDÉGKÖNYV ÉS LÁTOGATÓI JEGYZÉK MODÁL */}
       {showInteractionsModal && (
         <div onClick={() => setShowInteractionsModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 99999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
           <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', borderRadius: '12px', width: '100%', maxWidth: '650px', maxHeight: '85vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             
-            {/* Fejléc és Fülek */}
             <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-main)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-main)' }}>
               <div style={{ display: 'flex', gap: '10px' }}>
                 <button 
@@ -734,10 +778,8 @@ export default function Gallery3DView({ user }: { user: any }) {
               </button>
             </div>
 
-            {/* FŐ TARTALMI ZÓNA */}
             <div style={{ padding: '20px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '15px' }}>
               
-              {/* TAB 1: VENDÉGKÖNYV */}
               {interactionTab === 'GUESTBOOK' && (
                 <>
                   <div style={{ display: 'flex', gap: '10px' }}>
@@ -784,7 +826,6 @@ export default function Gallery3DView({ user }: { user: any }) {
                 </>
               )}
 
-              {/* TAB 2: LÁTOGATÁSI JEGYZÉK */}
               {interactionTab === 'VISITORS' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   {visitorsList.length === 0 ? (
