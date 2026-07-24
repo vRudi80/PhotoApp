@@ -96,7 +96,7 @@ const getPhotoIdentifier = (p: any) => {
 };
 
 // ====================================================================
-// 🕹️ SÉTA VEZÉRLŐ DINAMIKUS TÉRKORLÁTOKIVAL
+// 🕹️ SÉTA VEZÉRLŐ
 // ====================================================================
 function WalkingController({ 
   moveState, 
@@ -129,18 +129,17 @@ function WalkingController({
     if (moveDelta.lengthSq() > 0) {
       camera.position.add(moveDelta);
 
-      // Térbeli korlátok kiterjesztése a szobák száma szerint!
       let minZ = -3.5;
       let maxZ = 7.5;
       let minX = -8.5;
       let maxX = 8.5;
 
       if (photoCount > 10) {
-        minZ = -17.5; // Mélyebb belső szoba
+        minZ = -17.5;
       }
       if (photoCount > 20) {
-        minX = -18.5; // Bal oldali szárny
-        maxX = 18.5;  // Jobb oldali szárny
+        minX = -18.5;
+        maxX = 18.5;
       }
 
       camera.position.x = THREE.MathUtils.clamp(camera.position.x, minX, maxX);
@@ -291,55 +290,48 @@ function ArtworkFrame({ position, rotation, url, title, themeConfig, onClick }: 
 }
 
 // ====================================================================
-// 🏛️ MULTI-ROOM DÍNAMIKUS 3D MÚZEUM ÉPÍTÉSZET (10 / 20 / 30 KÉP)
+// 🏛️ MILIMÉTER-PONTOS VÁLASZFAL- MÁTRIX (AKADÁLYMENTES KAPUKKAL)
 // ====================================================================
 function GalleryRoom({ photos, themeName, onSelectPhoto }: { photos: any[]; themeName?: string; onSelectPhoto: (p: any) => void }) {
   const theme = GALLERY_THEMES[themeName || 'modern'] || GALLERY_THEMES.modern;
   const count = photos.length;
 
-  // 🎯 DINAMIKUS POZÍCIÓK A FOTÓK SZÁMA ALAPJÁN
-  // 1-10: Főterem
-  // 11-20: Második Szárny (Mélyebb terem, $Z=-12$ környékén)
-  // 21-30: Harmadik Szárny (Oldalsó szárnyak)
+  // 🎯 HAJSZÁLPONTOS FALI POZÍCIÓK (A Kapuk és Átjárók közepe üres!)
   const wallPositions: [number, number, number][] = [
     // --- 1. CSARNOK (1-10. kép) ---
-    [-6, 1.20, -4.96], [0, 1.20, -4.96], [6, 1.20, -4.96],   // Hátsó fal 1.
-    [-9.96, 1.20, -1], [-9.96, 1.20, 3],                   // Bal fal 1.
-    [9.96, 1.20, -1], [9.96, 1.20, 3],                     // Jobb fal 1.
-    [-6, 1.20, 8.96], [0, 1.20, 8.96], [6, 1.20, 8.96],    // Első fal (bejárat)
+    [-6, 1.20, -4.96], [6, 1.20, -4.96],                   // 1-2: Hátsó fal bal & jobb oldal (Közép X=0 üres a kapunak!)
+    [-9.96, 1.20, -2], [-9.96, 1.20, 2.5], [-9.96, 1.20, 6.5], // 3-5: Bal oldali fal
+    [9.96, 1.20, -2],  [9.96, 1.20, 2.5],  [9.96, 1.20, 6.5],  // 6-8: Jobb oldali fal
+    [-5, 1.20, 8.96],  [5, 1.20, 8.96],                    // 9-10: Bejárati fal
 
     // --- 2. CSARNOK / BELSŐ SZÁRNY (11-20. kép) ---
-    [-6, 1.20, -18.96], [0, 1.20, -18.96], [6, 1.20, -18.96], // Hátsó fal 2.
-    [-9.96, 1.20, -15], [-9.96, 1.20, -11],                // Bal fal 2.
-    [9.96, 1.20, -15], [9.96, 1.20, -11],                  // Jobb fal 2.
-    [-6, 1.20, -5.04], [6, 1.20, -5.04],                   // Válaszfal két oldala
-    [0, 1.20, -13],                                        // Belső terem közepe
+    [-6, 1.20, -18.96], [0, 1.20, -18.96], [6, 1.20, -18.96], // 11-13: 2. Szoba Hátsó fal (X=-6, 0, 6)
+    [-9.96, 1.20, -9],  [-9.96, 1.20, -13], [-9.96, 1.20, -17],// 14-16: 2. Szoba Bal oldali fala
+    [9.96, 1.20, -9],   [9.96, 1.20, -13],  [9.96, 1.20, -17], // 17-19: 2. Szoba Jobb oldali fala
+    [-6.5, 1.20, -5.04],                                    // 20: Válaszfal belső oldala (X=-6.5)
 
-    // --- 3. CSARNOK / MÚZEUMI PAVILON (21-30. kép) ---
-    [-19.96, 1.20, -1], [-19.96, 1.20, 3], [-19.96, 1.20, -15], // Bal szárny távolabbi fala
-    [19.96, 1.20, -1], [19.96, 1.20, 3], [19.96, 1.20, -15],   // Jobb szárny távolabbi fala
-    [-15, 1.20, 8.96], [15, 1.20, 8.96],                       // Szárnyak első falai
-    [-15, 1.20, -18.96], [15, 1.20, -18.96]                    // Szárnyak hátsó falai
+    // --- 3. CSARNOK / MÚZEUMI PAVILONOK (21-30. kép) ---
+    [-19.96, 1.20, -14], [-19.96, 1.20, -8], [-19.96, 1.20, -2], [-19.96, 1.20, 4], // 21-24: Bal pavilon külső fala
+    [19.96, 1.20, -14],  [19.96, 1.20, -8],  [19.96, 1.20, -2],  [19.96, 1.20, 4],  // 25-28: Jobb pavilon külső fala
+    [-15, 1.20, -18.96], [15, 1.20, -18.96]                                      // 29-30: Pavilonok hátsó fala
   ];
 
   const wallRotations: [number, number, number][] = [
     // 1. Csarnok
-    [0, 0, 0], [0, 0, 0], [0, 0, 0],
-    [0, Math.PI / 2, 0], [0, Math.PI / 2, 0],
-    [0, -Math.PI / 2, 0], [0, -Math.PI / 2, 0],
-    [0, Math.PI, 0], [0, Math.PI, 0], [0, Math.PI, 0],
-
-    // 2. Belső szárny
-    [0, 0, 0], [0, 0, 0], [0, 0, 0],
-    [0, Math.PI / 2, 0], [0, Math.PI / 2, 0],
-    [0, -Math.PI / 2, 0], [0, -Math.PI / 2, 0],
-    [0, Math.PI, 0], [0, Math.PI, 0],
-    [0, 0, 0],
-
-    // 3. Pavilon szárnyak
+    [0, 0, 0], [0, 0, 0],
     [0, Math.PI / 2, 0], [0, Math.PI / 2, 0], [0, Math.PI / 2, 0],
     [0, -Math.PI / 2, 0], [0, -Math.PI / 2, 0], [0, -Math.PI / 2, 0],
     [0, Math.PI, 0], [0, Math.PI, 0],
+
+    // 2. Belső szárny
+    [0, 0, 0], [0, 0, 0], [0, 0, 0],
+    [0, Math.PI / 2, 0], [0, Math.PI / 2, 0], [0, Math.PI / 2, 0],
+    [0, -Math.PI / 2, 0], [0, -Math.PI / 2, 0], [0, -Math.PI / 2, 0],
+    [0, Math.PI, 0],
+
+    // 3. Pavilon szárnyak
+    [0, Math.PI / 2, 0], [0, Math.PI / 2, 0], [0, Math.PI / 2, 0], [0, Math.PI / 2, 0],
+    [0, -Math.PI / 2, 0], [0, -Math.PI / 2, 0], [0, -Math.PI / 2, 0], [0, -Math.PI / 2, 0],
     [0, 0, 0], [0, 0, 0]
   ];
 
@@ -348,43 +340,41 @@ function GalleryRoom({ photos, themeName, onSelectPhoto }: { photos: any[]; them
       <ambientLight intensity={1.8} />
       <directionalLight position={[0, 8, 0]} intensity={1.0} color={theme.lightColor} />
 
-      {/* --- FŐTEREM (10 képig) --- */}
+      {/* --- FŐTEREM --- */}
       <mesh position={[0, -1.05, 2]}><boxGeometry args={[20, 0.1, 14]} /><meshStandardMaterial color={theme.floorColor} roughness={0.4} /></mesh>
       <mesh position={[0, 5.05, 2]}><boxGeometry args={[20, 0.1, 14]} /><meshStandardMaterial color={theme.ceilingColor} /></mesh>
 
+      {/* Külső határoló falak */}
       <mesh position={[0, 2.0, count > 10 ? -19.05 : -5.05]}><boxGeometry args={[20, 6, 0.1]} /><meshBasicMaterial color={theme.wallColor} /></mesh>
       <mesh position={[-10.05, 2.0, count > 10 ? -5 : 2]}><boxGeometry args={[0.1, 6, count > 10 ? 28 : 14]} /><meshBasicMaterial color={theme.wallColor} /></mesh>
       <mesh position={[10.05, 2.0, count > 10 ? -5 : 2]}><boxGeometry args={[0.1, 6, count > 10 ? 28 : 14]} /><meshBasicMaterial color={theme.wallColor} /></mesh>
       <mesh position={[0, 2.0, 9.05]}><boxGeometry args={[20, 6, 0.1]} /><meshBasicMaterial color={theme.wallColor} /></mesh>
 
-      {/* --- ELVÁLASZTÓ ÁTJÁRÓ A BELSŐ SZÁRNYHOZ (Ha > 10 kép) --- */}
+      {/* --- 2. SZÁRNY ÁTJÁRÓKAPUVAL (>10 KÉP) --- */}
       {count > 10 && (
         <>
-          {/* Belső terem padlója és mennyezete */}
           <mesh position={[0, -1.05, -12]}><boxGeometry args={[20, 0.1, 14]} /><meshStandardMaterial color={theme.floorColor} roughness={0.4} /></mesh>
           <mesh position={[0, 5.05, -12]}><boxGeometry args={[20, 0.1, 14]} /><meshStandardMaterial color={theme.ceilingColor} /></mesh>
           
-          {/* Középső válaszfal átjáró kapuval */}
+          {/* Nyitott Válaszfal Átjáróval */}
           <mesh position={[-6.5, 2.0, -5.0]}><boxGeometry args={[7, 6, 0.15]} /><meshBasicMaterial color={theme.wallColor} /></mesh>
           <mesh position={[6.5, 2.0, -5.0]}><boxGeometry args={[7, 6, 0.15]} /><meshBasicMaterial color={theme.wallColor} /></mesh>
           <mesh position={[0, 4.2, -5.0]}><boxGeometry args={[6, 1.6, 0.15]} /><meshBasicMaterial color={theme.wallColor} /></mesh>
         </>
       )}
 
-      {/* --- OLDALSÓ PAVILON SZÁRNYAK (Ha > 20 kép) --- */}
+      {/* --- 3. PAVILON SZÁRNYAK (>20 KÉP) --- */}
       {count > 20 && (
         <>
-          {/* Bal szárny padlója & fala */}
           <mesh position={[-15, -1.05, -5]}><boxGeometry args={[10, 0.1, 28]} /><meshStandardMaterial color={theme.floorColor} roughness={0.4} /></mesh>
           <mesh position={[-20.05, 2.0, -5]}><boxGeometry args={[0.1, 6, 28]} /><meshBasicMaterial color={theme.wallColor} /></mesh>
 
-          {/* Jobb szárny padlója & fala */}
           <mesh position={[15, -1.05, -5]}><boxGeometry args={[10, 0.1, 28]} /><meshStandardMaterial color={theme.floorColor} roughness={0.4} /></mesh>
           <mesh position={[20.05, 2.0, -5]}><boxGeometry args={[0.1, 6, 28]} /><meshBasicMaterial color={theme.wallColor} /></mesh>
         </>
       )}
 
-      {/* Szegélylécek a szobában */}
+      {/* Szegélylécek a szobákban */}
       <mesh position={[0, -0.85, -4.95]}><boxGeometry args={[19.8, 0.3, 0.08]} /><meshStandardMaterial color={theme.skirtingColor} /></mesh>
       <mesh position={[0, -0.85, 8.95]}><boxGeometry args={[19.8, 0.3, 0.08]} /><meshStandardMaterial color={theme.skirtingColor} /></mesh>
 
@@ -409,7 +399,7 @@ function GalleryRoom({ photos, themeName, onSelectPhoto }: { photos: any[]; them
 }
 
 // ====================================================================
-// 🚀 FŐ 3D TÁRLATOK BÖNGÉSZŐ ÉS CSOMAGKEZELŐ
+// 🚀 FŐ 3D TÁRLATOK BÖNGÉSZŐ
 // ====================================================================
 export default function Gallery3DView({ user }: { user: any }) {
   const { lang } = useLanguage();
@@ -423,8 +413,6 @@ export default function Gallery3DView({ user }: { user: any }) {
   const [galleryTitle, setGalleryTitle] = useState('Saját Virtuális Kiállításom');
   const [galleryTheme, setGalleryTheme] = useState<string>('modern');
   const [visibility, setVisibility] = useState<'public' | 'club'>('public');
-  
-  // 🎯 CSOMAG ÁLLAPOTOK (10 / 20 / 30 FOTÓ)
   const [maxAllowedPhotos, setMaxAllowedPhotos] = useState<number>(10);
 
   const [myPortfolioPhotos, setMyPortfolioPhotos] = useState<any[]>([]);
@@ -860,14 +848,13 @@ export default function Gallery3DView({ user }: { user: any }) {
             </div>
           </div>
 
-          {/* 🎯 KIÁLLÍTÁSI CSOMAG VÁLASZTÓ */}
+          {/* KIÁLLÍTÁSI CSOMAG VÁLASZTÓ */}
           <div>
             <label style={{ display: 'block', color: 'var(--text-title)', fontWeight: 'bold', marginBottom: '10px' }}>
               <Award size={16} inline /> Válassz Kiállítási Csomagot (Fotók száma & Tér):
             </label>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '12px' }}>
               
-              {/* ALAP CSOMAG */}
               <div 
                 onClick={() => {
                   setMaxAllowedPhotos(10);
@@ -887,11 +874,8 @@ export default function Gallery3DView({ user }: { user: any }) {
                 <small style={{ color: 'var(--text-muted)' }}>1 Terem • Max. 10 fotó elhelyezése</small>
               </div>
 
-              {/* KÖZEPES CSOMAG */}
               <div 
-                onClick={() => {
-                  setMaxAllowedPhotos(20);
-                }}
+                onClick={() => { setMaxAllowedPhotos(20); }}
                 style={{ 
                   padding: '16px', borderRadius: '10px', 
                   border: maxAllowedPhotos === 20 ? '2px solid #a78bfa' : '1px solid var(--border-main)', 
@@ -906,11 +890,8 @@ export default function Gallery3DView({ user }: { user: any }) {
                 <small style={{ color: 'var(--text-muted)' }}>2 Terem (Átjáróval) • Max. 20 fotó</small>
               </div>
 
-              {/* NAGY CSOMAG */}
               <div 
-                onClick={() => {
-                  setMaxAllowedPhotos(30);
-                }}
+                onClick={() => { setMaxAllowedPhotos(30); }}
                 style={{ 
                   padding: '16px', borderRadius: '10px', 
                   border: maxAllowedPhotos === 30 ? '2px solid #a78bfa' : '1px solid var(--border-main)', 
