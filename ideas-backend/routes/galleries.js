@@ -29,7 +29,6 @@ module.exports = function(app, pool) {
 
   async function ensureTableExists() {
     try {
-      // 3D Tárlat alap tábla
       await pool.query(`
         CREATE TABLE IF NOT EXISTS user_3d_galleries (
           id INT AUTO_INCREMENT PRIMARY KEY,
@@ -43,7 +42,6 @@ module.exports = function(app, pool) {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
       `);
 
-      // Vendégkönyv tábla
       await pool.query(`
         CREATE TABLE IF NOT EXISTS gallery_guestbook (
           id INT AUTO_INCREMENT PRIMARY KEY,
@@ -55,7 +53,6 @@ module.exports = function(app, pool) {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
       `);
 
-      // Látogatási jegyzék tábla
       await pool.query(`
         CREATE TABLE IF NOT EXISTS gallery_visitors (
           id INT AUTO_INCREMENT PRIMARY KEY,
@@ -115,7 +112,7 @@ module.exports = function(app, pool) {
     }
   });
 
-  // 2. Látogatás rögzítése (Belépéskor automatikusan meghívódik)
+  // 2. Látogatás rögzítése
   app.post('/api/3d-gallery/:id/visit', requireAuth, async (req, res) => {
     try {
       await ensureTableExists();
@@ -127,7 +124,6 @@ module.exports = function(app, pool) {
 
       res.json({ success: true });
     } catch (err) {
-      console.error("❌ Látogatás rögzítési hiba:", err.message);
       res.status(500).json({ error: 'Szerver hiba.' });
     }
   });
@@ -138,7 +134,6 @@ module.exports = function(app, pool) {
       await ensureTableExists();
       const galleryId = req.params.id;
 
-      // Vendégkönyvi bejegyzések
       const [guestbook] = await pool.query(`
         SELECT 
           b.id, b.comment_text, b.created_at, b.user_email,
@@ -149,7 +144,6 @@ module.exports = function(app, pool) {
         ORDER BY b.created_at DESC
       `, [galleryId]);
 
-      // Látogatók listája
       const [visitors] = await pool.query(`
         SELECT 
           v.visited_at, v.user_email,
@@ -162,7 +156,6 @@ module.exports = function(app, pool) {
 
       res.json({ guestbook, visitors });
     } catch (err) {
-      console.error("❌ Hiba az interakciók lekérésekor:", err.message);
       res.status(500).json({ error: 'Szerver hiba.' });
     }
   });
@@ -183,24 +176,63 @@ module.exports = function(app, pool) {
 
       res.json({ success: true });
     } catch (err) {
-      console.error("❌ Vendégkönyv mentési hiba:", err.message);
-      res.status(500).json({ error: 'Szerver hiba a bejegyzés mentésekor.' });
+      res.status(500).json({ error: 'Szerver hiba.' });
     }
   });
 
-  // 5. Galéria mentése (Új/Módosítás)
+  // 5. Galéria mentése (PONT-KEZELÉSSEL ÉS CSOMAG-ELLENŐRZÉSSEL)
   app.post('/api/premium/3d-gallery/save', requireAuth, async (req, res) => {
     const { id, title, theme, visibility, photos } = req.body;
     const cleanTitle = (title || 'Saját Virtuális Kiállításom').trim();
     const cleanVis = visibility === 'club' ? 'club' : 'public';
 
     if (!Array.isArray(photos) || photos.length === 0) {
-      return res.status(400).json({ error: 'Legalább 1 fotó kiválasztása kötelező a mentéshez!' });
+      return res.status(400).json({ error: 'Legalább 1 fotó kiválasztása kötelező!' });
     }
+
+    if (photos.length > 30) {
+      return res.status(400).json({ error: 'Legfeljebb 30 fotó választható ki!' });
+    }
+
+    // Csomag és ár megállapítása
+    const photoCount = photos.length;
+    let requiredPoints = 0;
+    if (photoCount > 20) requiredPoints = 400; // 30-as csomag
+    else if (photoCount > 10) requiredPoints = 200; // 20-as csomag
 
     try {
       await ensureTableExists();
-      const photosJson = JSON.stringify(photos.slice(0, 10));
+
+      // Ha meglévő galériát módosítunk, megnézzük a korábbi csomagját
+      let previousCost = 0;
+      if (id) {
+        const [existing] = await pool.query('SELECT photos_json FROM user_3d_galleries WHERE id = ?', [id]);
+        if (existing.length > 0) {
+          let oldPhotos = [];
+          try { oldPhotos = JSON.parse(existing[0].photos_json); } catch(e){}
+          if (oldPhotos.length > 20) previousCost = 400;
+          else if (oldPhotos.length > 10) previousCost = 200;
+        }
+      }
+
+      // Csak a pontkülönbözetet vonjuk le (pl. 20-asról 30-asra bővítésnél csak 200 pontot)
+      const netCost = Math.max(0, requiredPoints - previousCost);
+
+      if (netCost > 0) {
+        const [uRows] = await pool.query('SELECT points FROM photo_users WHERE email = ?', [req.user.email]);
+        const currentPoints = uRows[0]?.points || 0;
+
+        if (currentPoints < netCost) {
+          return res.status(400).json({ 
+            error: `A választott csomaghoz ${netCost} pontra van szükség, de neked csak ${currentPoints} pontod van! Gyűjts még pontokat az Arénában.` 
+          });
+        }
+
+        // Pontok levonása
+        await pool.query('UPDATE photo_users SET points = points - ? WHERE email = ?', [netCost, req.user.email]);
+      }
+
+      const photosJson = JSON.stringify(photos.slice(0, 30));
 
       if (id) {
         const [result] = await pool.query(`
@@ -219,14 +251,14 @@ module.exports = function(app, pool) {
         `, [req.user.email, cleanTitle, theme || 'modern', cleanVis, photosJson]);
       }
 
-      res.json({ success: true });
+      res.json({ success: true, deductedPoints: netCost });
     } catch (err) {
       console.error("❌ 3D Galéria mentési hiba:", err.message);
       res.status(500).json({ error: 'Nem sikerült elmenteni a galériát.' });
     }
   });
 
-  // 6. Tárlat törlése ID alapján
+  // 6. Tárlat törlése
   app.delete('/api/premium/3d-gallery/:id', requireAuth, async (req, res) => {
     try {
       await ensureTableExists();
@@ -241,7 +273,6 @@ module.exports = function(app, pool) {
 
       res.json({ success: true });
     } catch (err) {
-      console.error("❌ 3D Galéria törlési hiba:", err.message);
       res.status(500).json({ error: 'Szerver hiba a törléskor.' });
     }
   });
