@@ -10,14 +10,11 @@ import {
   Box, Save, ArrowLeft, CheckCircle2, Globe, Users, 
   Sparkles, Eye, Edit3, Trash2, PlusCircle, ArrowUp, ArrowDown, 
   Navigation, BookOpen, UserCheck, MessageSquare, Send, X, Clock,
-  Share2, Palette
+  Share2, Palette, Layers, Award
 } from 'lucide-react';
 
 const ROBOTO_FONT_URL = "https://fonts.gstatic.com/s/roboto/v18/KFOmCnqEu92Fr1Mu4mxM.woff";
 
-// ====================================================================
-// 🎨 KIÁLLÍTÓTEREM STÍLUSOK (THEMES)
-// ====================================================================
 const GALLERY_THEMES: Record<string, {
   name: string;
   icon: string;
@@ -99,14 +96,16 @@ const getPhotoIdentifier = (p: any) => {
 };
 
 // ====================================================================
-// 🕹️ SÉTA VEZÉRLŐ
+// 🕹️ SÉTA VEZÉRLŐ DINAMIKUS TÉRKORLÁTOKIVAL
 // ====================================================================
 function WalkingController({ 
   moveState, 
-  controlsRef 
+  controlsRef,
+  photoCount
 }: { 
   moveState: { forward: boolean; back: boolean; left: boolean; right: boolean }; 
-  controlsRef: React.RefObject<any> 
+  controlsRef: React.RefObject<any>;
+  photoCount: number;
 }) {
   const { camera } = useThree();
 
@@ -129,8 +128,23 @@ function WalkingController({
 
     if (moveDelta.lengthSq() > 0) {
       camera.position.add(moveDelta);
-      camera.position.x = THREE.MathUtils.clamp(camera.position.x, -8.5, 8.5);
-      camera.position.z = THREE.MathUtils.clamp(camera.position.z, -3.5, 7.5);
+
+      // Térbeli korlátok kiterjesztése a szobák száma szerint!
+      let minZ = -3.5;
+      let maxZ = 7.5;
+      let minX = -8.5;
+      let maxX = 8.5;
+
+      if (photoCount > 10) {
+        minZ = -17.5; // Mélyebb belső szoba
+      }
+      if (photoCount > 20) {
+        minX = -18.5; // Bal oldali szárny
+        maxX = 18.5;  // Jobb oldali szárny
+      }
+
+      camera.position.x = THREE.MathUtils.clamp(camera.position.x, minX, maxX);
+      camera.position.z = THREE.MathUtils.clamp(camera.position.z, minZ, maxZ);
       camera.position.y = 0.6;
 
       if (controlsRef.current) {
@@ -143,9 +157,6 @@ function WalkingController({
   return null;
 }
 
-// ====================================================================
-// 🖼️ 3D KÉPKERET (EMELT FELFÜGGESZTÉSSEL)
-// ====================================================================
 function ArtworkFrame({ position, rotation, url, title, themeConfig, onClick }: any) {
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
   const [dims, setDims] = useState<{ pWidth: number; pHeight: number }>({ pWidth: 2.8, pHeight: 1.9 });
@@ -244,25 +255,21 @@ function ArtworkFrame({ position, rotation, url, title, themeConfig, onClick }: 
 
   return (
     <group position={position} rotation={rotation}>
-      {/* Külső Keret */}
       <mesh position={[0, 0, 0.03]}>
         <boxGeometry args={[frameWidth, frameHeight, 0.06]} />
         <meshStandardMaterial color={themeConfig.frameColor} roughness={0.3} />
       </mesh>
       
-      {/* Passepartout */}
       <mesh position={[0, 0, 0.061]}>
         <planeGeometry args={[passWidth, passHeight]} />
         <meshStandardMaterial color={themeConfig.passColor} roughness={0.9} />
       </mesh>
 
-      {/* Fotó */}
       <mesh onClick={onClick} position={[0, 0, 0.065]} style={{ cursor: 'pointer' }}>
         <planeGeometry args={[pWidth, pHeight]} />
         {texture ? <meshBasicMaterial map={texture} /> : <meshStandardMaterial color="#334155" />}
       </mesh>
 
-      {/* Címke a kép alatt */}
       <group position={[0, labelYPosition, 0.065]}>
         <mesh position={[0, 0, -0.005]}>
           <planeGeometry args={[Math.max(1.8, pWidth * 0.8), 0.28]} />
@@ -284,24 +291,56 @@ function ArtworkFrame({ position, rotation, url, title, themeConfig, onClick }: 
 }
 
 // ====================================================================
-// 🏛️ MILIMÉTER-PONTOS ZÁRT 3D SZOBA (NINCS KILÓGÓ LÉC, EGYÖNTETŰ FALAK)
+// 🏛️ MULTI-ROOM DÍNAMIKUS 3D MÚZEUM ÉPÍTÉSZET (10 / 20 / 30 KÉP)
 // ====================================================================
 function GalleryRoom({ photos, themeName, onSelectPhoto }: { photos: any[]; themeName?: string; onSelectPhoto: (p: any) => void }) {
   const theme = GALLERY_THEMES[themeName || 'modern'] || GALLERY_THEMES.modern;
+  const count = photos.length;
 
-  // 🎯 Képek felfüggesztése Y = 1.20m magasságban
+  // 🎯 DINAMIKUS POZÍCIÓK A FOTÓK SZÁMA ALAPJÁN
+  // 1-10: Főterem
+  // 11-20: Második Szárny (Mélyebb terem, $Z=-12$ környékén)
+  // 21-30: Harmadik Szárny (Oldalsó szárnyak)
   const wallPositions: [number, number, number][] = [
-    [-6, 1.20, -4.96], [0, 1.20, -4.96], [6, 1.20, -4.96],   // Hátsó fal
-    [-9.96, 1.20, -1], [-9.96, 1.20, 3],                   // Bal fal
-    [9.96, 1.20, -1], [9.96, 1.20, 3],                     // Jobb fal
-    [-6, 1.20, 8.96], [0, 1.20, 8.96], [6, 1.20, 8.96]        // Első fal
+    // --- 1. CSARNOK (1-10. kép) ---
+    [-6, 1.20, -4.96], [0, 1.20, -4.96], [6, 1.20, -4.96],   // Hátsó fal 1.
+    [-9.96, 1.20, -1], [-9.96, 1.20, 3],                   // Bal fal 1.
+    [9.96, 1.20, -1], [9.96, 1.20, 3],                     // Jobb fal 1.
+    [-6, 1.20, 8.96], [0, 1.20, 8.96], [6, 1.20, 8.96],    // Első fal (bejárat)
+
+    // --- 2. CSARNOK / BELSŐ SZÁRNY (11-20. kép) ---
+    [-6, 1.20, -18.96], [0, 1.20, -18.96], [6, 1.20, -18.96], // Hátsó fal 2.
+    [-9.96, 1.20, -15], [-9.96, 1.20, -11],                // Bal fal 2.
+    [9.96, 1.20, -15], [9.96, 1.20, -11],                  // Jobb fal 2.
+    [-6, 1.20, -5.04], [6, 1.20, -5.04],                   // Válaszfal két oldala
+    [0, 1.20, -13],                                        // Belső terem közepe
+
+    // --- 3. CSARNOK / MÚZEUMI PAVILON (21-30. kép) ---
+    [-19.96, 1.20, -1], [-19.96, 1.20, 3], [-19.96, 1.20, -15], // Bal szárny távolabbi fala
+    [19.96, 1.20, -1], [19.96, 1.20, 3], [19.96, 1.20, -15],   // Jobb szárny távolabbi fala
+    [-15, 1.20, 8.96], [15, 1.20, 8.96],                       // Szárnyak első falai
+    [-15, 1.20, -18.96], [15, 1.20, -18.96]                    // Szárnyak hátsó falai
   ];
 
   const wallRotations: [number, number, number][] = [
+    // 1. Csarnok
     [0, 0, 0], [0, 0, 0], [0, 0, 0],
     [0, Math.PI / 2, 0], [0, Math.PI / 2, 0],
     [0, -Math.PI / 2, 0], [0, -Math.PI / 2, 0],
-    [0, Math.PI, 0], [0, Math.PI, 0], [0, Math.PI, 0]
+    [0, Math.PI, 0], [0, Math.PI, 0], [0, Math.PI, 0],
+
+    // 2. Belső szárny
+    [0, 0, 0], [0, 0, 0], [0, 0, 0],
+    [0, Math.PI / 2, 0], [0, Math.PI / 2, 0],
+    [0, -Math.PI / 2, 0], [0, -Math.PI / 2, 0],
+    [0, Math.PI, 0], [0, Math.PI, 0],
+    [0, 0, 0],
+
+    // 3. Pavilon szárnyak
+    [0, Math.PI / 2, 0], [0, Math.PI / 2, 0], [0, Math.PI / 2, 0],
+    [0, -Math.PI / 2, 0], [0, -Math.PI / 2, 0], [0, -Math.PI / 2, 0],
+    [0, Math.PI, 0], [0, Math.PI, 0],
+    [0, 0, 0], [0, 0, 0]
   ];
 
   return (
@@ -309,54 +348,45 @@ function GalleryRoom({ photos, themeName, onSelectPhoto }: { photos: any[]; them
       <ambientLight intensity={1.8} />
       <directionalLight position={[0, 8, 0]} intensity={1.0} color={theme.lightColor} />
 
-      {/* Padló */}
-      <mesh position={[0, -1.05, 2]}>
-        <boxGeometry args={[20, 0.1, 14]} />
-        <meshStandardMaterial color={theme.floorColor} roughness={0.4} />
-      </mesh>
+      {/* --- FŐTEREM (10 képig) --- */}
+      <mesh position={[0, -1.05, 2]}><boxGeometry args={[20, 0.1, 14]} /><meshStandardMaterial color={theme.floorColor} roughness={0.4} /></mesh>
+      <mesh position={[0, 5.05, 2]}><boxGeometry args={[20, 0.1, 14]} /><meshStandardMaterial color={theme.ceilingColor} /></mesh>
 
-      {/* Mennyezet */}
-      <mesh position={[0, 5.05, 2]}>
-        <boxGeometry args={[20, 0.1, 14]} />
-        <meshStandardMaterial color={theme.ceilingColor} />
-      </mesh>
+      <mesh position={[0, 2.0, count > 10 ? -19.05 : -5.05]}><boxGeometry args={[20, 6, 0.1]} /><meshBasicMaterial color={theme.wallColor} /></mesh>
+      <mesh position={[-10.05, 2.0, count > 10 ? -5 : 2]}><boxGeometry args={[0.1, 6, count > 10 ? 28 : 14]} /><meshBasicMaterial color={theme.wallColor} /></mesh>
+      <mesh position={[10.05, 2.0, count > 10 ? -5 : 2]}><boxGeometry args={[0.1, 6, count > 10 ? 28 : 14]} /><meshBasicMaterial color={theme.wallColor} /></mesh>
+      <mesh position={[0, 2.0, 9.05]}><boxGeometry args={[20, 6, 0.1]} /><meshBasicMaterial color={theme.wallColor} /></mesh>
 
-      {/* 🎯 EGYÖNTETŰ FALAK (meshBasicMaterial megakadályozza az árnyékos elszíneződést!) */}
-      {/* Hátsó fal */}
-      <mesh position={[0, 2.0, -5.05]}>
-        <boxGeometry args={[20, 6, 0.1]} />
-        <meshBasicMaterial color={theme.wallColor} />
-      </mesh>
+      {/* --- ELVÁLASZTÓ ÁTJÁRÓ A BELSŐ SZÁRNYHOZ (Ha > 10 kép) --- */}
+      {count > 10 && (
+        <>
+          {/* Belső terem padlója és mennyezete */}
+          <mesh position={[0, -1.05, -12]}><boxGeometry args={[20, 0.1, 14]} /><meshStandardMaterial color={theme.floorColor} roughness={0.4} /></mesh>
+          <mesh position={[0, 5.05, -12]}><boxGeometry args={[20, 0.1, 14]} /><meshStandardMaterial color={theme.ceilingColor} /></mesh>
+          
+          {/* Középső válaszfal átjáró kapuval */}
+          <mesh position={[-6.5, 2.0, -5.0]}><boxGeometry args={[7, 6, 0.15]} /><meshBasicMaterial color={theme.wallColor} /></mesh>
+          <mesh position={[6.5, 2.0, -5.0]}><boxGeometry args={[7, 6, 0.15]} /><meshBasicMaterial color={theme.wallColor} /></mesh>
+          <mesh position={[0, 4.2, -5.0]}><boxGeometry args={[6, 1.6, 0.15]} /><meshBasicMaterial color={theme.wallColor} /></mesh>
+        </>
+      )}
 
-      {/* Bal fal */}
-      <mesh position={[-10.05, 2.0, 2]}>
-        <boxGeometry args={[0.1, 6, 14]} />
-        <meshBasicMaterial color={theme.wallColor} />
-      </mesh>
+      {/* --- OLDALSÓ PAVILON SZÁRNYAK (Ha > 20 kép) --- */}
+      {count > 20 && (
+        <>
+          {/* Bal szárny padlója & fala */}
+          <mesh position={[-15, -1.05, -5]}><boxGeometry args={[10, 0.1, 28]} /><meshStandardMaterial color={theme.floorColor} roughness={0.4} /></mesh>
+          <mesh position={[-20.05, 2.0, -5]}><boxGeometry args={[0.1, 6, 28]} /><meshBasicMaterial color={theme.wallColor} /></mesh>
 
-      {/* Jobb fal */}
-      <mesh position={[10.05, 2.0, 2]}>
-        <boxGeometry args={[0.1, 6, 14]} />
-        <meshBasicMaterial color={theme.wallColor} />
-      </mesh>
+          {/* Jobb szárny padlója & fala */}
+          <mesh position={[15, -1.05, -5]}><boxGeometry args={[10, 0.1, 28]} /><meshStandardMaterial color={theme.floorColor} roughness={0.4} /></mesh>
+          <mesh position={[20.05, 2.0, -5]}><boxGeometry args={[0.1, 6, 28]} /><meshBasicMaterial color={theme.wallColor} /></mesh>
+        </>
+      )}
 
-      {/* Első fal (Mögöttünk) */}
-      <mesh position={[0, 2.0, 9.05]}>
-        <boxGeometry args={[20, 6, 0.1]} />
-        <meshBasicMaterial color={theme.wallColor} />
-      </mesh>
-
-      {/* 🎯 EXAKTVÉGŰ SZEGÉLYLÉCEK (Sosem lógnak ki a sarkokon túl!) */}
+      {/* Szegélylécek a szobában */}
       <mesh position={[0, -0.85, -4.95]}><boxGeometry args={[19.8, 0.3, 0.08]} /><meshStandardMaterial color={theme.skirtingColor} /></mesh>
       <mesh position={[0, -0.85, 8.95]}><boxGeometry args={[19.8, 0.3, 0.08]} /><meshStandardMaterial color={theme.skirtingColor} /></mesh>
-      <mesh position={[-9.95, -0.85, 2]} rotation={[0, Math.PI / 2, 0]}><boxGeometry args={[13.8, 0.3, 0.08]} /><meshStandardMaterial color={theme.skirtingColor} /></mesh>
-      <mesh position={[9.95, -0.85, 2]} rotation={[0, -Math.PI / 2, 0]}><boxGeometry args={[13.8, 0.3, 0.08]} /><meshStandardMaterial color={theme.skirtingColor} /></mesh>
-
-      {/* Sarokpillérek */}
-      <mesh position={[-9.9, 2.0, -4.9]}><boxGeometry args={[0.2, 6, 0.2]} /><meshStandardMaterial color={theme.pillarColor} /></mesh>
-      <mesh position={[9.9, 2.0, -4.9]}><boxGeometry args={[0.2, 6, 0.2]} /><meshStandardMaterial color={theme.pillarColor} /></mesh>
-      <mesh position={[-9.9, 2.0, 8.9]}><boxGeometry args={[0.2, 6, 0.2]} /><meshStandardMaterial color={theme.pillarColor} /></mesh>
-      <mesh position={[9.9, 2.0, 8.9]}><boxGeometry args={[0.2, 6, 0.2]} /><meshStandardMaterial color={theme.pillarColor} /></mesh>
 
       {/* Képek elhelyezése */}
       {photos.map((photo, i) => {
@@ -379,7 +409,7 @@ function GalleryRoom({ photos, themeName, onSelectPhoto }: { photos: any[]; them
 }
 
 // ====================================================================
-// 🚀 FŐ 3D TÁRLATOK BÖNGÉSZŐ ÉS TÖBBES SZERKESZTŐ
+// 🚀 FŐ 3D TÁRLATOK BÖNGÉSZŐ ÉS CSOMAGKEZELŐ
 // ====================================================================
 export default function Gallery3DView({ user }: { user: any }) {
   const { lang } = useLanguage();
@@ -393,6 +423,10 @@ export default function Gallery3DView({ user }: { user: any }) {
   const [galleryTitle, setGalleryTitle] = useState('Saját Virtuális Kiállításom');
   const [galleryTheme, setGalleryTheme] = useState<string>('modern');
   const [visibility, setVisibility] = useState<'public' | 'club'>('public');
+  
+  // 🎯 CSOMAG ÁLLAPOTOK (10 / 20 / 30 FOTÓ)
+  const [maxAllowedPhotos, setMaxAllowedPhotos] = useState<number>(10);
+
   const [myPortfolioPhotos, setMyPortfolioPhotos] = useState<any[]>([]);
   const [selectedPhotos, setSelectedPhotos] = useState<any[]>([]);
   const [activePhotoModal, setActivePhotoModal] = useState<any | null>(null);
@@ -534,6 +568,7 @@ export default function Gallery3DView({ user }: { user: any }) {
     setGalleryTitle('Új Virtuális Kiállításom');
     setGalleryTheme('modern');
     setVisibility('public');
+    setMaxAllowedPhotos(10);
     setSelectedPhotos([]);
     setMode('EDIT');
   };
@@ -543,6 +578,8 @@ export default function Gallery3DView({ user }: { user: any }) {
     setGalleryTitle(gal.title || 'Virtuális Kiállítás');
     setGalleryTheme(gal.theme || 'modern');
     setVisibility(gal.visibility || 'public');
+    const pCount = gal.photos?.length || 0;
+    setMaxAllowedPhotos(pCount > 20 ? 30 : pCount > 10 ? 20 : 10);
     setSelectedPhotos(gal.photos || []);
     setMode('EDIT');
   };
@@ -570,8 +607,8 @@ export default function Gallery3DView({ user }: { user: any }) {
     if (isAlreadySelected) {
       setSelectedPhotos(prev => prev.filter(p => getPhotoIdentifier(p) !== photoKey));
     } else {
-      if (selectedPhotos.length >= 10) {
-        return alert(lang === 'en' ? 'Maximum 10 photos allowed!' : 'Legfeljebb 10 fotót választhatsz ki!');
+      if (selectedPhotos.length >= maxAllowedPhotos) {
+        return alert(`A jelenleg kiválasztott csomagban legfeljebb ${maxAllowedPhotos} fotót választhatsz ki! Válts nagyobb csomagra fentebb, ha többet szeretnél.`);
       }
       const photoUrl = resolvePhotoUrl(photo);
       const initialTitle = photo.title || photo.title_hu || '';
@@ -584,7 +621,8 @@ export default function Gallery3DView({ user }: { user: any }) {
   };
 
   const handleSave = async () => {
-    if (selectedPhotos.length === 0) return alert(lang === 'en' ? 'Please select at least 1 photo!' : 'Kérlek válassz ki legalább 1 fotót!');
+    if (selectedPhotos.length === 0) return alert('Kérlek válassz ki legalább 1 fotót!');
+
     setIsSaving(true);
     try {
       const res = await fetch(`${BACKEND_URL}/api/premium/3d-gallery/save`, {
@@ -592,10 +630,19 @@ export default function Gallery3DView({ user }: { user: any }) {
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ id: editingGalleryId, title: galleryTitle, theme: galleryTheme, visibility, photos: selectedPhotos })
       });
+
+      const data = await res.json();
+
       if (res.ok) {
         await loadData();
         setMode('DIRECTORY');
-        alert('🎉 Kiállítás elmentve!');
+        if (data.deductedPoints > 0) {
+          alert(`🎉 Kiállítás elmentve! ${data.deductedPoints} pont levonásra került a számládról.`);
+        } else {
+          alert('🎉 Kiállítás sikeresen elmentve!');
+        }
+      } else {
+        alert(data.error || 'Hiba a mentés során.');
       }
     } catch (e) {
       alert('Hálózati hiba.');
@@ -673,6 +720,7 @@ export default function Gallery3DView({ user }: { user: any }) {
                 const coverUrl = resolvePhotoUrl(gal.photos?.[0]);
                 const isMine = gal.user_email === user?.email;
                 const themeObj = GALLERY_THEMES[gal.theme || 'modern'] || GALLERY_THEMES.modern;
+                const photoCount = gal.photos?.length || 0;
 
                 return (
                   <div key={gal.id} style={{ background: 'var(--bg-card)', border: isMine ? '2px solid #a78bfa' : '1px solid var(--border-main)', borderRadius: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
@@ -697,6 +745,10 @@ export default function Gallery3DView({ user }: { user: any }) {
                           {gal.visibility === 'club' ? <><Users size={12} /> Klub</> : <><Globe size={12} /> Publikus</>}
                         </span>
                       </div>
+
+                      <div style={{ position: 'absolute', bottom: '10px', left: '10px', background: 'rgba(15,23,42,0.9)', padding: '3px 10px', borderRadius: '6px', fontSize: '0.75rem', color: '#f59e0b', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <Layers size={12} /> {photoCount} Fotó
+                      </div>
                     </div>
 
                     <div style={{ padding: '16px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
@@ -717,7 +769,7 @@ export default function Gallery3DView({ user }: { user: any }) {
                             onClick={() => handleOpen3D(gal)}
                             style={{ flex: 1, background: '#a78bfa', color: '#0f172a', border: 'none', padding: '10px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                           >
-                            <Eye size={16} /> Bejárás ({gal.photos?.length || 0} kép)
+                            <Eye size={16} /> Bejárás ({photoCount} kép)
                           </button>
 
                           <button 
@@ -754,7 +806,7 @@ export default function Gallery3DView({ user }: { user: any }) {
         <div style={{ width: '100%', height: '620px', background: '#020617', borderRadius: '12px', overflow: 'hidden', position: 'relative', border: '1px solid var(--border-main)' }}>
           
           <Canvas camera={{ position: [0, 0.6, 5], fov: 60 }}>
-            <WalkingController moveState={moveState} controlsRef={controlsRef} />
+            <WalkingController moveState={moveState} controlsRef={controlsRef} photoCount={activeGallery.photos?.length || 10} />
             <GalleryRoom 
               photos={activeGallery.photos || []} 
               themeName={activeGallery.theme} 
@@ -770,7 +822,6 @@ export default function Gallery3DView({ user }: { user: any }) {
             />
           </Canvas>
 
-          {/* ÚTMUTATÓ LENT BALRA */}
           <div style={{ position: 'absolute', bottom: '15px', left: '15px', background: 'rgba(9, 13, 22, 0.85)', padding: '10px 16px', borderRadius: '8px', color: 'white', fontSize: '0.8rem', backdropFilter: 'blur(6px)', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#a78bfa', fontWeight: 'bold' }}>
               <Navigation size={14} /> <span>Irányítás & Séta:</span>
@@ -779,55 +830,18 @@ export default function Gallery3DView({ user }: { user: any }) {
             <div>🖱️ <b>Egér / Érintés:</b> Forgás és nézelődés</div>
           </div>
 
-          {/* MOBIL SÉTA GOMBOK */}
           <div style={{ position: 'absolute', bottom: '15px', right: '15px', display: 'grid', gridTemplateColumns: 'repeat(3, 44px)', gap: '6px', background: 'rgba(9, 13, 22, 0.85)', padding: '10px', borderRadius: '12px', backdropFilter: 'blur(6px)', border: '1px solid rgba(255,255,255,0.1)' }}>
             <div></div>
-            <button 
-              onMouseDown={() => setMoveState(p => ({ ...p, forward: true }))} 
-              onMouseUp={() => setMoveState(p => ({ ...p, forward: false }))}
-              onTouchStart={() => setMoveState(p => ({ ...p, forward: true }))} 
-              onTouchEnd={() => setMoveState(p => ({ ...p, forward: false }))}
-              style={{ width: '44px', height: '44px', background: 'var(--bg-main)', border: '1px solid var(--border-main)', color: 'white', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            >
-              <ArrowUp size={20} />
-            </button>
+            <button onMouseDown={() => setMoveState(p => ({ ...p, forward: true }))} onMouseUp={() => setMoveState(p => ({ ...p, forward: false }))} onTouchStart={() => setMoveState(p => ({ ...p, forward: true }))} onTouchEnd={() => setMoveState(p => ({ ...p, forward: false }))} style={{ width: '44px', height: '44px', background: 'var(--bg-main)', border: '1px solid var(--border-main)', color: 'white', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ArrowUp size={20} /></button>
             <div></div>
-
-            <button 
-              onMouseDown={() => setMoveState(p => ({ ...p, left: true }))} 
-              onMouseUp={() => setMoveState(p => ({ ...p, left: false }))}
-              onTouchStart={() => setMoveState(p => ({ ...p, left: true }))} 
-              onTouchEnd={() => setMoveState(p => ({ ...p, left: false }))}
-              style={{ width: '44px', height: '44px', background: 'var(--bg-main)', border: '1px solid var(--border-main)', color: 'white', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            >
-              <ArrowLeft size={20} />
-            </button>
-
-            <button 
-              onMouseDown={() => setMoveState(p => ({ ...p, back: true }))} 
-              onMouseUp={() => setMoveState(p => ({ ...p, back: false }))}
-              onTouchStart={() => setMoveState(p => ({ ...p, back: true }))} 
-              onTouchEnd={() => setMoveState(p => ({ ...p, back: false }))}
-              style={{ width: '44px', height: '44px', background: 'var(--bg-main)', border: '1px solid var(--border-main)', color: 'white', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            >
-              <ArrowDown size={20} />
-            </button>
-
-            <button 
-              onMouseDown={() => setMoveState(p => ({ ...p, right: true }))} 
-              onMouseUp={() => setMoveState(p => ({ ...p, right: false }))}
-              onTouchStart={() => setMoveState(p => ({ ...p, right: true }))} 
-              onTouchEnd={() => setMoveState(p => ({ ...p, right: false }))}
-              style={{ width: '44px', height: '44px', background: 'var(--bg-main)', border: '1px solid var(--border-main)', color: 'white', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            >
-              <ArrowLeft size={20} style={{ transform: 'rotate(180deg)' }} />
-            </button>
+            <button onMouseDown={() => setMoveState(p => ({ ...p, left: true }))} onMouseUp={() => setMoveState(p => ({ ...p, left: false }))} onTouchStart={() => setMoveState(p => ({ ...p, left: true }))} onTouchEnd={() => setMoveState(p => ({ ...p, left: false }))} style={{ width: '44px', height: '44px', background: 'var(--bg-main)', border: '1px solid var(--border-main)', color: 'white', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ArrowLeft size={20} /></button>
+            <button onMouseDown={() => setMoveState(p => ({ ...p, back: true }))} onMouseUp={() => setMoveState(p => ({ ...p, back: false }))} onTouchStart={() => setMoveState(p => ({ ...p, back: true }))} onTouchEnd={() => setMoveState(p => ({ ...p, back: false }))} style={{ width: '44px', height: '44px', background: 'var(--bg-main)', border: '1px solid var(--border-main)', color: 'white', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ArrowDown size={20} /></button>
+            <button onMouseDown={() => setMoveState(p => ({ ...p, right: true }))} onMouseUp={() => setMoveState(p => ({ ...p, right: false }))} onTouchStart={() => setMoveState(p => ({ ...p, right: true }))} onTouchEnd={() => setMoveState(p => ({ ...p, right: false }))} style={{ width: '44px', height: '44px', background: 'var(--bg-main)', border: '1px solid var(--border-main)', color: 'white', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ArrowLeft size={20} style={{ transform: 'rotate(180deg)' }} /></button>
           </div>
-
         </div>
       )}
 
-      {/* 3. SZERKESZTŐ MÓD */}
+      {/* 3. SZERKESZTŐ MÓD CSOMAGVÁLASZTÓVAL */}
       {viewMode === 'EDIT' && (
         <div style={{ background: 'var(--bg-card)', padding: '25px', borderRadius: '12px', border: '1px solid var(--border-main)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
           
@@ -846,7 +860,75 @@ export default function Gallery3DView({ user }: { user: any }) {
             </div>
           </div>
 
-          {/* KIÁLLÍTÓTEREM STÍLUS VÁLASZTÓ */}
+          {/* 🎯 KIÁLLÍTÁSI CSOMAG VÁLASZTÓ */}
+          <div>
+            <label style={{ display: 'block', color: 'var(--text-title)', fontWeight: 'bold', marginBottom: '10px' }}>
+              <Award size={16} inline /> Válassz Kiállítási Csomagot (Fotók száma & Tér):
+            </label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '12px' }}>
+              
+              {/* ALAP CSOMAG */}
+              <div 
+                onClick={() => {
+                  setMaxAllowedPhotos(10);
+                  if (selectedPhotos.length > 10) setSelectedPhotos(prev => prev.slice(0, 10));
+                }}
+                style={{ 
+                  padding: '16px', borderRadius: '10px', 
+                  border: maxAllowedPhotos === 10 ? '2px solid #a78bfa' : '1px solid var(--border-main)', 
+                  background: maxAllowedPhotos === 10 ? 'rgba(167,139,250,0.1)' : 'var(--bg-main)', 
+                  cursor: 'pointer' 
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <strong style={{ color: 'var(--text-title)', fontSize: '1.05rem' }}>🏢 Alap Galéria</strong>
+                  <span style={{ background: '#10b98120', color: '#10b981', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' }}>0 Pont / Ingyenes</span>
+                </div>
+                <small style={{ color: 'var(--text-muted)' }}>1 Terem • Max. 10 fotó elhelyezése</small>
+              </div>
+
+              {/* KÖZEPES CSOMAG */}
+              <div 
+                onClick={() => {
+                  setMaxAllowedPhotos(20);
+                }}
+                style={{ 
+                  padding: '16px', borderRadius: '10px', 
+                  border: maxAllowedPhotos === 20 ? '2px solid #a78bfa' : '1px solid var(--border-main)', 
+                  background: maxAllowedPhotos === 20 ? 'rgba(167,139,250,0.1)' : 'var(--bg-main)', 
+                  cursor: 'pointer' 
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <strong style={{ color: 'var(--text-title)', fontSize: '1.05rem' }}>🏛️ Kétszárnyú Tárlat</strong>
+                  <span style={{ background: '#f59e0b20', color: '#f59e0b', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' }}>200 Pont</span>
+                </div>
+                <small style={{ color: 'var(--text-muted)' }}>2 Terem (Átjáróval) • Max. 20 fotó</small>
+              </div>
+
+              {/* NAGY CSOMAG */}
+              <div 
+                onClick={() => {
+                  setMaxAllowedPhotos(30);
+                }}
+                style={{ 
+                  padding: '16px', borderRadius: '10px', 
+                  border: maxAllowedPhotos === 30 ? '2px solid #a78bfa' : '1px solid var(--border-main)', 
+                  background: maxAllowedPhotos === 30 ? 'rgba(167,139,250,0.1)' : 'var(--bg-main)', 
+                  cursor: 'pointer' 
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <strong style={{ color: 'var(--text-title)', fontSize: '1.05rem' }}>🏰 Nagy Kiállítócsarnok</strong>
+                  <span style={{ background: '#ef444420', color: '#ef4444', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' }}>400 Pont</span>
+                </div>
+                <small style={{ color: 'var(--text-muted)' }}>3 Múzeumi Szárny • Max. 30 fotó</small>
+              </div>
+
+            </div>
+          </div>
+
+          {/* STÍLUS VÁLASZTÓ */}
           <div>
             <label style={{ display: 'block', color: 'var(--text-title)', fontWeight: 'bold', marginBottom: '10px' }}>
               <Palette size={16} inline /> Kiállítóterem Stílusa & Hangulata:
@@ -859,26 +941,11 @@ export default function Gallery3DView({ user }: { user: any }) {
                   <div 
                     key={key} 
                     onClick={() => setGalleryTheme(key)}
-                    style={{ 
-                      padding: '14px', 
-                      borderRadius: '10px', 
-                      border: isSelected ? '2px solid #a78bfa' : '1px solid var(--border-main)', 
-                      background: isSelected ? 'rgba(167,139,250,0.1)' : 'var(--bg-main)', 
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '10px',
-                      transition: 'all 0.2s'
-                    }}
+                    style={{ padding: '14px', borderRadius: '10px', border: isSelected ? '2px solid #a78bfa' : '1px solid var(--border-main)', background: isSelected ? 'rgba(167,139,250,0.1)' : 'var(--bg-main)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px' }}
                   >
                     <span style={{ fontSize: '1.5rem' }}>{theme.icon}</span>
                     <div>
                       <strong style={{ display: 'block', color: 'var(--text-title)', fontSize: '0.9rem' }}>{theme.name}</strong>
-                      <div style={{ display: 'flex', gap: '4px', marginTop: '4px' }}>
-                        <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: theme.wallColor, border: '1px solid #ffffff40' }} title="Fal" />
-                        <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: theme.floorColor, border: '1px solid #ffffff40' }} title="Padló" />
-                        <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: theme.frameColor, border: '1px solid #ffffff40' }} title="Keret" />
-                      </div>
                     </div>
                   </div>
                 );
@@ -887,8 +954,8 @@ export default function Gallery3DView({ user }: { user: any }) {
           </div>
 
           <div>
-            <h3 style={{ color: 'var(--text-title)', marginBottom: '6px' }}>Válassz ki legfeljebb 10 fotót a Portfóliódból:</h3>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '15px' }}>Kiválasztva: {selectedPhotos.length} / 10</p>
+            <h3 style={{ color: 'var(--text-title)', marginBottom: '6px' }}>Válassz ki fotókat a Portfóliódból:</h3>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '15px' }}>Kiválasztva: <b>{selectedPhotos.length}</b> / {maxAllowedPhotos} fotó</p>
             
             {myPortfolioPhotos.length === 0 ? (
               <div style={{ padding: '30px', textAlign: 'center', background: 'var(--bg-main)', borderRadius: '8px', border: '1px dashed var(--border-main)', color: 'var(--text-muted)' }}>
@@ -941,23 +1008,11 @@ export default function Gallery3DView({ user }: { user: any }) {
             
             <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-main)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-main)' }}>
               <div style={{ display: 'flex', gap: '10px' }}>
-                <button 
-                  onClick={() => setInteractionTab('GUESTBOOK')}
-                  style={{ background: interactionTab === 'GUESTBOOK' ? '#8b5cf6' : 'transparent', color: interactionTab === 'GUESTBOOK' ? 'white' : 'var(--text-muted)', border: 'none', padding: '8px 14px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9rem' }}
-                >
-                  <MessageSquare size={16} /> Vendégkönyv ({guestbookEntries.length})
-                </button>
-                <button 
-                  onClick={() => setInteractionTab('VISITORS')}
-                  style={{ background: interactionTab === 'VISITORS' ? '#38bdf8' : 'transparent', color: interactionTab === 'VISITORS' ? 'white' : 'var(--text-muted)', border: 'none', padding: '8px 14px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9rem' }}
-                >
-                  <UserCheck size={16} /> Látogatási Jegyzék ({visitorsList.length})
-                </button>
+                <button onClick={() => setInteractionTab('GUESTBOOK')} style={{ background: interactionTab === 'GUESTBOOK' ? '#8b5cf6' : 'transparent', color: interactionTab === 'GUESTBOOK' ? 'white' : 'var(--text-muted)', border: 'none', padding: '8px 14px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9rem' }}><MessageSquare size={16} /> Vendégkönyv ({guestbookEntries.length})</button>
+                <button onClick={() => setInteractionTab('VISITORS')} style={{ background: interactionTab === 'VISITORS' ? '#38bdf8' : 'transparent', color: interactionTab === 'VISITORS' ? 'white' : 'var(--text-muted)', border: 'none', padding: '8px 14px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9rem' }}><UserCheck size={16} /> Látogatási Jegyzék ({visitorsList.length})</button>
               </div>
 
-              <button onClick={() => setShowInteractionsModal(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
-                <X size={20} />
-              </button>
+              <button onClick={() => setShowInteractionsModal(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}><X size={20} /></button>
             </div>
 
             <div style={{ padding: '20px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '15px' }}>
@@ -965,72 +1020,32 @@ export default function Gallery3DView({ user }: { user: any }) {
               {interactionTab === 'GUESTBOOK' && (
                 <>
                   <div style={{ display: 'flex', gap: '10px' }}>
-                    <input 
-                      type="text" 
-                      placeholder="Írj a vendégkönyvbe (érzékelések, gratuláció...)" 
-                      value={newCommentText}
-                      onChange={e => setNewCommentText(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter') handlePostGuestbook(); }}
-                      style={{ flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid var(--border-main)', background: 'var(--bg-main)', color: 'var(--text-title)', outline: 'none' }}
-                    />
-                    <button 
-                      onClick={handlePostGuestbook}
-                      disabled={isPostingComment || !newCommentText.trim()}
-                      style={{ background: '#10b981', color: 'white', border: 'none', padding: '0 20px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
-                    >
-                      <Send size={16} /> Küldés
-                    </button>
+                    <input type="text" placeholder="Írj a vendégkönyvbe..." value={newCommentText} onChange={e => setNewCommentText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handlePostGuestbook(); }} style={{ flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid var(--border-main)', background: 'var(--bg-main)', color: 'var(--text-title)', outline: 'none' }} />
+                    <button onClick={handlePostGuestbook} disabled={isPostingComment || !newCommentText.trim()} style={{ background: '#10b981', color: 'white', border: 'none', padding: '0 20px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}><Send size={16} /> Küldés</button>
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '10px' }}>
-                    {guestbookEntries.length === 0 ? (
-                      <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '30px' }}>
-                        Még senki nem írt a vendégkönyvbe. Légy te az első!
-                      </div>
-                    ) : (
-                      guestbookEntries.map((e) => (
-                        <div key={e.id} style={{ background: 'var(--bg-main)', padding: '12px 16px', borderRadius: '8px', border: '1px solid var(--border-main)' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <img src={e.avatar_url || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23475569'><circle cx='12' cy='8' r='4'/><path d='M12 14c-6.1 0-10 4-10 4v2h20v-2s-3.9-4-10-4z'/></svg>"} alt="" style={{ width: '24px', height: '28px', borderRadius: '50%', objectFit: 'cover' }} />
-                              <strong style={{ fontSize: '0.9rem', color: 'var(--text-title)' }}>{e.user_name}</strong>
-                              {e.club_name && <small style={{ color: '#10b981', fontSize: '0.75rem' }}>({e.club_name})</small>}
-                            </div>
-                            <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
-                              {new Date(e.created_at).toLocaleString('hu-HU', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                            </small>
-                          </div>
-                          <p style={{ margin: 0, color: 'var(--text-body)', fontSize: '0.88rem', lineHeight: '1.4' }}>{e.comment_text}</p>
+                    {guestbookEntries.map((e) => (
+                      <div key={e.id} style={{ background: 'var(--bg-main)', padding: '12px 16px', borderRadius: '8px', border: '1px solid var(--border-main)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                          <strong style={{ fontSize: '0.9rem', color: 'var(--text-title)' }}>{e.user_name}</strong>
+                          <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>{new Date(e.created_at).toLocaleString('hu-HU', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</small>
                         </div>
-                      ))
-                    )}
+                        <p style={{ margin: 0, color: 'var(--text-body)', fontSize: '0.88rem' }}>{e.comment_text}</p>
+                      </div>
+                    ))}
                   </div>
                 </>
               )}
 
               {interactionTab === 'VISITORS' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {visitorsList.length === 0 ? (
-                    <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '30px' }}>
-                      Még senki sem látogatta meg ezt a kiállítást.
+                  {visitorsList.map((v, idx) => (
+                    <div key={idx} style={{ background: 'var(--bg-main)', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border-main)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ fontSize: '0.88rem', fontWeight: 'bold', color: 'var(--text-title)' }}>{v.user_name}</div>
+                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}><Clock size={12} inline /> {new Date(v.visited_at).toLocaleString('hu-HU', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
                     </div>
-                  ) : (
-                    visitorsList.map((v, idx) => (
-                      <div key={idx} style={{ background: 'var(--bg-main)', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border-main)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <img src={v.avatar_url || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23475569'><circle cx='12' cy='8' r='4'/><path d='M12 14c-6.1 0-10 4-10 4v2h20v-2s-3.9-4-10-4z'/></svg>"} alt="" style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover' }} />
-                          <div>
-                            <div style={{ fontSize: '0.88rem', fontWeight: 'bold', color: 'var(--text-title)' }}>{v.user_name}</div>
-                            {v.club_name && <div style={{ fontSize: '0.75rem', color: '#10b981' }}>{v.club_name}</div>}
-                          </div>
-                        </div>
-
-                        <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <Clock size={12} /> {new Date(v.visited_at).toLocaleString('hu-HU', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                        </div>
-                      </div>
-                    ))
-                  )}
+                  ))}
                 </div>
               )}
 
@@ -1039,7 +1054,7 @@ export default function Gallery3DView({ user }: { user: any }) {
         </div>
       )}
 
-      {/* RÁKÖZELÍTŐ MODÁL A KÉPRE KATTINTVA */}
+      {/* RÁKÖZELÍTŐ MODÁL */}
       {activePhotoModal && (
         <div onClick={() => setActivePhotoModal(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 99999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
           <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', borderRadius: '12px', padding: '20px', maxWidth: '600px', width: '100%', textAlign: 'center' }}>
