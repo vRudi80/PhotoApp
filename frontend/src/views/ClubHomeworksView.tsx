@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { getImageUrl } from '../utils/helpers';
 import { BACKEND_URL } from '../utils/constants';
 
-// Nyelvi kontextus aktiválása
 import { useLanguage } from '../context/LanguageContext';
 
 interface ClubHomeworksViewProps {
@@ -24,76 +23,11 @@ export default function ClubHomeworksView({
   isLeader, setFullscreenData, handleToggleLike, fetchMyEntries, fetchClubHomeworkEntries, clubs
 }: ClubHomeworksViewProps) {
   
-  // 1. KÖRNYEZETI HOOK-OK ÉS FIX STÍLUSOK
   const { t, lang } = useLanguage();
   const inputStyle = { width: '100%', padding: '10px', marginBottom: '10px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '6px', boxSizing: 'border-box' as const };
 
-  // ==============================================================
-  // 2. RENDERSZINTŰ HELYI ÁLLAPOTOK ( useState-ek felmozgatva legfelülre )
-  // ==============================================================
-  const [alerts, setAlerts] = useState<any>(null);
-  const [dismissedAlerts, setDismissedAlerts] = useState<string[]>([]);
   const [activeClubs, setActiveClubs] = useState<any[]>([]);
   const [pendingMembers, setPendingMembers] = useState<any[]>([]);
-  const [userEntrySalonIds, setUserEntrySalonIds] = useState<number[]>([]);
-  const [myJudgedContests, setMyJudgedContests] = useState<any[]>([]);
-  const [myHomeworkEntriesState, setMyHomeworkEntries] = useState<any[]>([]);
-  
-  const [isLoadingAlerts, setIsLoadingAlerts] = useState(true);
-  const [salonSearch, setSalonSearch] = useState('');
-  const [selectedSalon, setSelectedSalon] = useState<any>(null);
-  const [meetingSearch, setMeetingSearch] = useState(''); 
-  const [activeVideo, setActiveVideo] = useState<string | null>(null);
-
-  const [newClubName, setNewClubName] = useState('');
-  const [newTitle, setNewTitle] = useState('');
-  const [newDesc, setNewDesc] = useState('');
-  const [newCategorySettings, setNewCategorySettings] = useState<Record<string, any>>({});
-  const [newStart, setNewStart] = useState('');
-  const [newEnd, setNewEnd] = useState('');
-  const [newCats, setNewCats] = useState('');
-  const [newRestrictedClub, setNewRestrictedClub] = useState(''); 
-  const [newSponsorClub, setNewSponsorClub] = useState('');
-  const [newEntryFee, setNewEntryFee] = useState<number | string>(0);
-  const [newFeeCurrency, setNewFeeCurrency] = useState('HUF');
-
-  const [editContestId, setEditContestId] = useState<number | null>(null);
-  const [editTitle, setEditTitle] = useState('');
-  const [editDesc, setEditDesc] = useState('');
-  const [editStart, setEditStart] = useState('');
-  const [editEnd, setEditEnd] = useState('');
-  const [editCats, setEditCats] = useState('');
-  const [editRestrictedClub, setEditRestrictedClub] = useState(''); 
-  const [editSponsorClub, setEditSponsorClub] = useState('');
-  const [editEntryFee, setEditEntryFee] = useState<number | string>(0);
-  const [editFeeCurrency, setEditFeeCurrency] = useState('HUF');
-  const [editCategorySettings, setEditCategorySettings] = useState<Record<string, any>>({});
-
-  const [activeUploadContest, setActiveUploadContest] = useState<number | null>(null);
-  const [uploadFile, setUploadFile] = useState<File | null>(null);
-  const [uploadPreview, setUploadPreview] = useState<string | null>(null);
-  const [uploadTitle, setUploadTitle] = useState('');
-  const [uploadCategory, setUploadCategory] = useState('');
-  const [isUploading, setIsUploading] = useState(false);
-
-  const [editingEntryId, setEditingEntryId] = useState<number | null>(null);
-  const [editEntryTitle, setEditEntryTitle] = useState('');
-
-  const [manageJuryContestId, setManageJuryContestId] = useState<number | null>(null);
-  const [selectedJuryEmail, setSelectedJuryEmail] = useState('');
-
-  const [judgingContestId, setJudgingContestId] = useState<number | null>(null);
-  const [unvotedEntries, setUnvotedEntries] = useState<any[]>([]);
-  const [currentScore, setCurrentScore] = useState<number | ''>('');
-  
-  const [viewResultsContestId, setViewResultsContestId] = useState<number | null>(null);
-  const [contestResults, setContestResults] = useState<any[]>([]);
-  const [viewStatsContestId, setViewStatsContestId] = useState<number | null>(null);
-  const [contestStats, setContestStats] = useState<any[]>([]);
-
-  const [viewJuryProgressId, setViewJuryProgressId] = useState<number | null>(null);
-  const [juryProgressData, setJuryProgressData] = useState<{total_entries: number, stats: any[]}>({total_entries: 0, stats: []});
-
   const [sortedHwIds, setSortedHwIds] = useState<number[]>([]);
   const [expandedHwIds, setExpandedHwIds] = useState<number[]>([]);
   const [hwSearch, setHwSearch] = useState('');
@@ -113,7 +47,6 @@ export default function ClubHomeworksView({
   const [aiUsageCount, setAiUsageCount] = useState(0);
   const [isLoadingStats, setIsLoadingStats] = useState(true);
 
-  // 🎯 KÖZPONTI SEGÉDFÜGGVÉNY: Legyártja a biztonsági fejlécet az elmentett tokenből
   const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
     const token = localStorage.getItem('photoAppToken');
     return {
@@ -122,11 +55,6 @@ export default function ClubHomeworksView({
     };
   };
 
-  // ==============================================================
-  // 3. EFFECT-EK BIZTONSÁGOSSÁ TÉTELE
-  // ==============================================================
-  
-  // 1. Csak a vezetővel rendelkező klubok betöltése (JAVÍTVA: Header hozzáadva + tömb ellenőrzés)
   useEffect(() => {
     fetch(`${BACKEND_URL}/api/clubs/active-only`, { headers: getAuthHeaders() })
       .then(res => res.json())
@@ -137,7 +65,6 @@ export default function ClubHomeworksView({
       });
   }, []);
 
-  // 2. Felhasználó specifikus tárhely és AI statisztikák betöltése (JAVÍTVA: Header hozzáadva)
   useEffect(() => {
     if (!user?.email) return;
     
@@ -171,7 +98,6 @@ export default function ClubHomeworksView({
     fetchUserStats();
   }, [user]);
 
-  // 3. Függőben lévő tagok betöltése vezetőknek (JAVÍTVA: Header hozzáadva)
   const loadPendingMembers = () => {
     const matchedClub = activeClubs.find(c => c.name === user?.club_name);
     const effectiveClubId = user?.club_id || matchedClub?.id;
@@ -190,7 +116,6 @@ export default function ClubHomeworksView({
     }
   }, [user, isLeader, activeClubs]);
 
-  // Védelmi fék: Ha még nincs belépve vagy nincs klubja, korai return elutasítás
   if (!currentDbUser?.club_name || currentDbUser?.club_role === 'pending') {
     return (
       <div style={{ textAlign: 'center', padding: '4rem 2rem', background: '#1e293b', borderRadius: '16px', border: '1px solid #334155' }}>
@@ -205,9 +130,6 @@ export default function ClubHomeworksView({
     );
   }
 
-  // ==============================================================
-  // 4. MŰVELETI FÜGGVÉNYEK BIZTONSÁGOSSÁ TÉTELE
-  // ==============================================================
   const handleHwFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => { 
     const file = e.target.files?.[0]; 
     if (file) { setHwUploadFile(file); setHwUploadPreview(URL.createObjectURL(file)); } 
@@ -224,7 +146,6 @@ export default function ClubHomeworksView({
       formData.append('userName', user.name);
       formData.append('title', hwUploadTitle);
 
-      // 🎯 JAVÍTVA: Elküldjük a biztonsági token fejlécet
       const res = await fetch(`${BACKEND_URL}/api/upload-homework`, { 
         method: 'POST', 
         headers: getAuthHeaders(),
@@ -244,7 +165,6 @@ export default function ClubHomeworksView({
 
   const handleUpdateHwEntryTitle = async (entryId: number) => {
     if (!editHwEntryTitle) return alert('A cím nem lehet üres!');
-    // 🎯 JAVÍTVA: Módosítás hitelesített fejléccel ellátva
     const res = await fetch(`${BACKEND_URL}/api/homework-entries/${entryId}`, { 
       method: 'PUT', 
       headers: getAuthHeaders({ 'Content-Type': 'application/json' }), 
@@ -262,7 +182,6 @@ export default function ClubHomeworksView({
     if (!window.confirm("Biztosan véglegen törölni szeretnéd ezt a beküldött fotódat?")) return;
     
     try {
-      // 🎯 JAVÍTVA: Képtörlés biztonságos fejléccel lezárva
       const res = await fetch(`${BACKEND_URL}/api/homework-entries/${entryId}?userEmail=${encodeURIComponent(user.email)}`, {
         method: 'DELETE',
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
@@ -285,7 +204,6 @@ export default function ClubHomeworksView({
 
   const handleToggleSelect = async (entryId: number) => {
     try {
-      // 🎯 JAVÍTVA: Képválasztás biztonságos fejléccel ellátva
       const res = await fetch(`${BACKEND_URL}/api/homework-entries/${entryId}/toggle-select`, { 
         method: 'POST',
         headers: getAuthHeaders() 
@@ -381,7 +299,7 @@ export default function ClubHomeworksView({
       </div>
 
       {filteredHomeworks.length === 0 ? (
-        <div style={{ padding: '20px', color: '#94a3b8', textalign: 'center', background: '#1e293b', borderRadius: '12px', border: '1px solid #334155' }}>
+        <div style={{ padding: '20px', color: '#94a3b8', textAlign: 'center', background: '#1e293b', borderRadius: '12px', border: '1px solid #334155' }}>
           {hwSearch ? 'Nincs a keresésnek megfelelő házi feladat.' : 'Jelenleg nincs kiírva házi feladat.'}
         </div>
       ) : (
