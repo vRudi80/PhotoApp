@@ -297,6 +297,7 @@ export default function ClubHomeworksView({
     } catch (e) { console.error('Hiba a kiválasztáskor:', e); }
   };
 
+  // 🎯 JAVÍTVA: A hiba megszüntetve! currentHw.topic használata hiányzó topic helyett!
   const handleDownloadAllSelected = async (homeworkEntries: any[], currentHw: any) => {
     const selectedEntries = homeworkEntries.filter(entry => 
       localSelections[entry.id] !== undefined ? localSelections[entry.id] : (entry.is_selected === 1)
@@ -307,15 +308,14 @@ export default function ClubHomeworksView({
     }
 
     try {
-      const safeTopic = topic ? topic.replace(/[^a-zA-Z0-9-_]/g, '_') : 'valogatas';
+      const topicName = currentHw?.topic || 'valogatas';
       
-      // 🎯 JAVÍTVA: ZIP csomagolás és tömeges letöltés hitelesítve a tokenünkkel!
       const res = await fetch(`${BACKEND_URL}/api/homework/download-zip`, {
         method: 'POST',
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           entries: selectedEntries,
-          topic: currentHw.topic,
+          topic: topicName,
           clubId: currentDbUser?.club_id
         })
       });
@@ -328,7 +328,7 @@ export default function ClubHomeworksView({
       const downloadAnchor = document.createElement('a');
       downloadAnchor.href = downloadUrl;
       
-      const safeTopicName = (currentHw.topic || 'valogatas').replace(/[^a-zA-Z0-9-_]/g, '_');
+      const safeTopicName = topicName.replace(/[^a-zA-Z0-9-_]/g, '_');
       downloadAnchor.setAttribute('download', `${safeTopicName}_portfolio_valogatas.zip`);
       
       document.body.appendChild(downloadAnchor);
