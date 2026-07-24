@@ -10,8 +10,81 @@ import {
   Box, Save, ArrowLeft, CheckCircle2, Globe, Users, 
   Sparkles, Eye, Edit3, Trash2, PlusCircle, ArrowUp, ArrowDown, 
   Navigation, BookOpen, UserCheck, MessageSquare, Send, X, Clock,
-  Share2, Link as LinkIcon
+  Share2, Palette
 } from 'lucide-react';
+
+// Szabványos, megbízható betűtípus a Troika GPOS/GSUB hibák megszüntetésére
+const ROBOTO_FONT_URL = "https://fonts.gstatic.com/s/roboto/v18/KFOmCnqEu92Fr1Mu4mxM.woff";
+
+// ====================================================================
+// 🎨 KIÁLLÍTÓTEREM STÍLUSOK (THEMES)
+// ====================================================================
+const GALLERY_THEMES: Record<string, {
+  name: string;
+  icon: string;
+  wallColor: string;
+  floorColor: string;
+  ceilingColor: string;
+  skirtingColor: string;
+  pillarColor: string;
+  frameColor: string;
+  passColor: string;
+  lightColor: string;
+  spotIntensity: number;
+}> = {
+  modern: {
+    name: 'Modern Sötét',
+    icon: '🏢',
+    wallColor: '#1e293b',
+    floorColor: '#0f172a',
+    ceilingColor: '#020617',
+    skirtingColor: '#334155',
+    pillarColor: '#0f172a',
+    frameColor: '#090d16',
+    passColor: '#f8fafc',
+    lightColor: '#ffffff',
+    spotIntensity: 3.5,
+  },
+  classic: {
+    name: 'Klasszikus Elegáns',
+    icon: '🏛️',
+    wallColor: '#f1f5f9',
+    floorColor: '#78350f', // Warm wood parquet
+    ceilingColor: '#ffffff',
+    skirtingColor: '#451a03',
+    pillarColor: '#cbd5e1',
+    frameColor: '#451a03',
+    passColor: '#fef3c7',
+    lightColor: '#fffbeb',
+    spotIntensity: 4.0,
+  },
+  warm: {
+    name: 'Meleg Hangulatú',
+    icon: '🕯️',
+    wallColor: '#3f2d20',
+    floorColor: '#271910',
+    ceilingColor: '#170e0a',
+    skirtingColor: '#5c4033',
+    pillarColor: '#271910',
+    frameColor: '#170e0a',
+    passColor: '#fff7ed',
+    lightColor: '#ffedd5',
+    spotIntensity: 3.8,
+  },
+  industrial: {
+    name: 'Loft / Betonszürke',
+    icon: '🧱',
+    wallColor: '#475569',
+    floorColor: '#334155',
+    ceilingColor: '#0f172a',
+    skirtingColor: '#1e293b',
+    pillarColor: '#1e293b',
+    frameColor: '#020617',
+    passColor: '#f8fafc',
+    lightColor: '#f1f5f9',
+    spotIntensity: 3.5,
+  }
+};
 
 const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
   const token = localStorage.getItem('photoAppToken');
@@ -31,6 +104,9 @@ const getPhotoIdentifier = (p: any) => {
   return `url_${resolvePhotoUrl(p)}`;
 };
 
+// ====================================================================
+// 🕹️ SÉTA VEZÉRLŐ
+// ====================================================================
 function WalkingController({ 
   moveState, 
   controlsRef 
@@ -73,7 +149,10 @@ function WalkingController({
   return null;
 }
 
-function ArtworkFrame({ position, rotation, url, title, onClick }: any) {
+// ====================================================================
+// 🖼️ 3D KÉPKERET (FONT FIX + DINAMIKUS STÍLUS)
+// ====================================================================
+function ArtworkFrame({ position, rotation, url, title, themeConfig, onClick }: any) {
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
   const [dims, setDims] = useState<{ pWidth: number; pHeight: number }>({ pWidth: 2.8, pHeight: 1.9 });
 
@@ -160,36 +239,48 @@ function ArtworkFrame({ position, rotation, url, title, onClick }: any) {
 
   return (
     <group position={position} rotation={rotation}>
+      {/* Külső Keret */}
       <mesh position={[0, 0, -0.03]}>
         <boxGeometry args={[frameWidth, frameHeight, 0.06]} />
-        <meshStandardMaterial color="#0f172a" roughness={0.3} />
+        <meshStandardMaterial color={themeConfig.frameColor} roughness={0.3} />
       </mesh>
       
+      {/* Passepartout */}
       <mesh position={[0, 0, -0.01]}>
         <planeGeometry args={[passWidth, passHeight]} />
-        <meshStandardMaterial color="#f8fafc" roughness={0.9} />
+        <meshStandardMaterial color={themeConfig.passColor} roughness={0.9} />
       </mesh>
 
+      {/* Fotó */}
       <mesh onClick={onClick} position={[0, 0, 0.005]} style={{ cursor: 'pointer' }}>
         <planeGeometry args={[pWidth, pHeight]} />
         {texture ? <meshBasicMaterial map={texture} /> : <meshStandardMaterial color="#334155" />}
       </mesh>
 
+      {/* Reflektorfény */}
       <spotLight
         position={[0, frameHeight / 2 + 0.5, 1.2]}
         target-position={[0, 0, 0]}
-        intensity={3.5}
+        intensity={themeConfig.spotIntensity}
         angle={0.65}
         penumbra={0.4}
-        color="#fffbeb"
+        color={themeConfig.lightColor}
       />
 
+      {/* Címke a kép alatt (JAVÍTVA: ROBOTO_FONT_URL megadva) */}
       <group position={[0, labelYPosition, 0.01]}>
         <mesh position={[0, 0, -0.005]}>
           <planeGeometry args={[Math.max(1.8, pWidth * 0.8), 0.3]} />
-          <meshStandardMaterial color="#1e293b" roughness={0.5} />
+          <meshStandardMaterial color={themeConfig.skirtingColor} roughness={0.5} />
         </mesh>
-        <Text fontSize={0.13} color="#f8fafc" anchorX="center" anchorY="middle" maxWidth={pWidth * 0.75}>
+        <Text 
+          font={ROBOTO_FONT_URL}
+          fontSize={0.13} 
+          color="#ffffff" 
+          anchorX="center" 
+          anchorY="middle" 
+          maxWidth={pWidth * 0.75}
+        >
           {title || 'Fotómű'}
         </Text>
       </group>
@@ -197,12 +288,17 @@ function ArtworkFrame({ position, rotation, url, title, onClick }: any) {
   );
 }
 
-function GalleryRoom({ photos, onSelectPhoto }: { photos: any[]; onSelectPhoto: (p: any) => void }) {
+// ====================================================================
+// 🏛️ 3D GALÉRIATEREM (SAROKPILLÉREKKEL ÉS SZEGÉLYLÉCEKKEL)
+// ====================================================================
+function GalleryRoom({ photos, themeName, onSelectPhoto }: { photos: any[]; themeName?: string; onSelectPhoto: (p: any) => void }) {
+  const theme = GALLERY_THEMES[themeName || 'modern'] || GALLERY_THEMES.modern;
+
   const wallPositions: [number, number, number][] = [
-    [-6, 0.85, -4.9], [0, 0.85, -4.9], [6, 0.85, -4.9],
-    [-9.9, 0.85, -1], [-9.9, 0.85, 3],
-    [9.9, 0.85, -1], [9.9, 0.85, 3],
-    [-6, 0.85, 8.9], [0, 0.85, 8.9], [6, 0.85, 8.9]
+    [-6, 0.85, -4.9], [0, 0.85, -4.9], [6, 0.85, -4.9],   // Hátsó fal
+    [-9.9, 0.85, -1], [-9.9, 0.85, 3],                  // Bal fal
+    [9.9, 0.85, -1], [9.9, 0.85, 3],                    // Jobb fal
+    [-6, 0.85, 8.9], [0, 0.85, 8.9], [6, 0.85, 8.9]       // Első fal
   ];
 
   const wallRotations: [number, number, number][] = [
@@ -214,24 +310,40 @@ function GalleryRoom({ photos, onSelectPhoto }: { photos: any[]; onSelectPhoto: 
 
   return (
     <>
+      {/* Világítás */}
       <ambientLight intensity={1.3} />
-      <directionalLight position={[0, 10, 10]} intensity={1.8} />
-      <directionalLight position={[0, 10, -10]} intensity={1.2} />
+      <directionalLight position={[0, 10, 10]} intensity={1.8} color={theme.lightColor} />
+      <directionalLight position={[0, 10, -10]} intensity={1.2} color={theme.lightColor} />
 
+      {/* Padló */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.0, 2]}>
         <planeGeometry args={[20, 20]} />
-        <meshStandardMaterial color="#1e293b" roughness={0.4} />
+        <meshStandardMaterial color={theme.floorColor} roughness={0.4} />
       </mesh>
 
+      {/* Mennyezet */}
       <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 4.5, 2]}>
         <planeGeometry args={[20, 20]} />
-        <meshStandardMaterial color="#020617" />
+        <meshStandardMaterial color={theme.ceilingColor} />
       </mesh>
 
-      <mesh position={[0, 1.75, -5]}><planeGeometry args={[20, 11]} /><meshStandardMaterial color="#334155" roughness={0.8} /></mesh>
-      <mesh position={[-10, 1.75, 2]} rotation={[0, Math.PI / 2, 0]}><planeGeometry args={[20, 11]} /><meshStandardMaterial color="#334155" roughness={0.8} /></mesh>
-      <mesh position={[10, 1.75, 2]} rotation={[0, -Math.PI / 2, 0]}><planeGeometry args={[20, 11]} /><meshStandardMaterial color="#334155" roughness={0.8} /></mesh>
+      {/* Falak */}
+      <mesh position={[0, 1.75, -5]}><planeGeometry args={[20, 11]} /><meshStandardMaterial color={theme.wallColor} roughness={0.8} /></mesh>
+      <mesh position={[-10, 1.75, 2]} rotation={[0, Math.PI / 2, 0]}><planeGeometry args={[20, 11]} /><meshStandardMaterial color={theme.wallColor} roughness={0.8} /></mesh>
+      <mesh position={[10, 1.75, 2]} rotation={[0, -Math.PI / 2, 0]}><planeGeometry args={[20, 11]} /><meshStandardMaterial color={theme.wallColor} roughness={0.8} /></mesh>
 
+      {/* 🎯 SZEGÉLYLÉCEK (PADLÓLÉC A TÉRBELI MÉLYSÉGÉRT) */}
+      <mesh position={[0, -0.85, -4.95]}><boxGeometry args={[20, 0.3, 0.1]} /><meshStandardMaterial color={theme.skirtingColor} /></mesh>
+      <mesh position={[-9.95, -0.85, 2]} rotation={[0, Math.PI / 2, 0]}><boxGeometry args={[20, 0.3, 0.1]} /><meshStandardMaterial color={theme.skirtingColor} /></mesh>
+      <mesh position={[9.95, -0.85, 2]} rotation={[0, -Math.PI / 2, 0]}><boxGeometry args={[20, 0.3, 0.1]} /><meshStandardMaterial color={theme.skirtingColor} /></mesh>
+
+      {/* 🎯 SAROKPILLÉREK (A LEBEGŐ KÉPEK ILLÚZIÓJÁNAK MEGSZŰNTETÉSÉRE) */}
+      <mesh position={[-9.95, 1.75, -4.95]}><boxGeometry args={[0.3, 11, 0.3]} /><meshStandardMaterial color={theme.pillarColor} /></mesh>
+      <mesh position={[9.95, 1.75, -4.95]}><boxGeometry args={[0.3, 11, 0.3]} /><meshStandardMaterial color={theme.pillarColor} /></mesh>
+      <mesh position={[-9.95, 1.75, 8.95]}><boxGeometry args={[0.3, 11, 0.3]} /><meshStandardMaterial color={theme.pillarColor} /></mesh>
+      <mesh position={[9.95, 1.75, 8.95]}><boxGeometry args={[0.3, 11, 0.3]} /><meshStandardMaterial color={theme.pillarColor} /></mesh>
+
+      {/* Képek elhelyezése */}
       {photos.map((photo, i) => {
         if (i >= wallPositions.length) return null;
         const photoUrl = resolvePhotoUrl(photo);
@@ -242,6 +354,7 @@ function GalleryRoom({ photos, onSelectPhoto }: { photos: any[]; onSelectPhoto: 
             rotation={wallRotations[i]}
             url={photoUrl}
             title={photo.title}
+            themeConfig={theme}
             onClick={() => onSelectPhoto({ ...photo, file_url: photoUrl })}
           />
         );
@@ -250,6 +363,9 @@ function GalleryRoom({ photos, onSelectPhoto }: { photos: any[]; onSelectPhoto: 
   );
 }
 
+// ====================================================================
+// 🚀 FŐ 3D TÁRLATOK BÖNGÉSZŐ ÉS TÖBBES SZERKESZTŐ
+// ====================================================================
 export default function Gallery3DView({ user }: { user: any }) {
   const { lang } = useLanguage();
   const [viewMode, setMode] = useState<'DIRECTORY' | 'VIEW_3D' | 'EDIT'>('DIRECTORY');
@@ -260,6 +376,7 @@ export default function Gallery3DView({ user }: { user: any }) {
 
   const [editingGalleryId, setEditingGalleryId] = useState<number | null>(null);
   const [galleryTitle, setGalleryTitle] = useState('Saját Virtuális Kiállításom');
+  const [galleryTheme, setGalleryTheme] = useState<string>('modern');
   const [visibility, setVisibility] = useState<'public' | 'club'>('public');
   const [myPortfolioPhotos, setMyPortfolioPhotos] = useState<any[]>([]);
   const [selectedPhotos, setSelectedPhotos] = useState<any[]>([]);
@@ -303,7 +420,6 @@ export default function Gallery3DView({ user }: { user: any }) {
     };
   }, [viewMode]);
 
-  // 🎯 MEGOSZTÁSI LINK MÁSOLÁS GOLYÓÁLLÓ FALLBACK-KEL
   const handleShareGallery = (galId: number, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     const shareUrl = `${window.location.origin}/3d_gallery?id=${galId}`;
@@ -332,7 +448,6 @@ export default function Gallery3DView({ user }: { user: any }) {
       }
       if (portfolioRes.ok) setMyPortfolioPhotos(await portfolioRes.json());
 
-      // 🎯 AUTOMATIKUS MEGNYITÁS URL PARANCSSOR ALAPJÁN (?id=XYZ)
       const urlParams = new URLSearchParams(window.location.search);
       const targetId = urlParams.get('id');
       if (targetId && loadedGalleries.length > 0) {
@@ -402,6 +517,7 @@ export default function Gallery3DView({ user }: { user: any }) {
   const handleStartNewGallery = () => {
     setEditingGalleryId(null);
     setGalleryTitle('Új Virtuális Kiállításom');
+    setGalleryTheme('modern');
     setVisibility('public');
     setSelectedPhotos([]);
     setMode('EDIT');
@@ -410,6 +526,7 @@ export default function Gallery3DView({ user }: { user: any }) {
   const handleEditGallery = (gal: any) => {
     setEditingGalleryId(gal.id);
     setGalleryTitle(gal.title || 'Virtuális Kiállítás');
+    setGalleryTheme(gal.theme || 'modern');
     setVisibility(gal.visibility || 'public');
     setSelectedPhotos(gal.photos || []);
     setMode('EDIT');
@@ -458,7 +575,7 @@ export default function Gallery3DView({ user }: { user: any }) {
       const res = await fetch(`${BACKEND_URL}/api/premium/3d-gallery/save`, {
         method: 'POST',
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ id: editingGalleryId, title: galleryTitle, theme: 'modern', visibility, photos: selectedPhotos })
+        body: JSON.stringify({ id: editingGalleryId, title: galleryTitle, theme: galleryTheme, visibility, photos: selectedPhotos })
       });
       if (res.ok) {
         await loadData();
@@ -540,6 +657,7 @@ export default function Gallery3DView({ user }: { user: any }) {
               {allGalleries.map((gal) => {
                 const coverUrl = resolvePhotoUrl(gal.photos?.[0]);
                 const isMine = gal.user_email === user?.email;
+                const themeObj = GALLERY_THEMES[gal.theme || 'modern'] || GALLERY_THEMES.modern;
 
                 return (
                   <div key={gal.id} style={{ background: 'var(--bg-card)', border: isMine ? '2px solid #a78bfa' : '1px solid var(--border-main)', borderRadius: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
@@ -556,8 +674,13 @@ export default function Gallery3DView({ user }: { user: any }) {
                         </span>
                       </div>
 
-                      <div style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(15,23,42,0.85)', padding: '4px 10px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 'bold', color: gal.visibility === 'club' ? '#f59e0b' : '#38bdf8', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                        {gal.visibility === 'club' ? <><Users size={12} /> Klub</> : <><Globe size={12} /> Publikus</>}
+                      <div style={{ position: 'absolute', top: '10px', right: '10px', display: 'flex', gap: '6px' }}>
+                        <span style={{ background: 'rgba(15,23,42,0.85)', padding: '4px 10px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 'bold', color: '#a78bfa' }}>
+                          {themeObj.icon} {themeObj.name}
+                        </span>
+                        <span style={{ background: 'rgba(15,23,42,0.85)', padding: '4px 10px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 'bold', color: gal.visibility === 'club' ? '#f59e0b' : '#38bdf8', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                          {gal.visibility === 'club' ? <><Users size={12} /> Klub</> : <><Globe size={12} /> Publikus</>}
+                        </span>
                       </div>
                     </div>
 
@@ -582,7 +705,6 @@ export default function Gallery3DView({ user }: { user: any }) {
                             <Eye size={16} /> Bejárás ({gal.photos?.length || 0} kép)
                           </button>
 
-                          {/* 🎯 MEGOSZTÁS GOMB A KATALÓGUS KÁRTYÁN */}
                           <button 
                             onClick={(e) => handleShareGallery(gal.id, e)} 
                             title="Egyedi megosztási link másolása"
@@ -612,13 +734,17 @@ export default function Gallery3DView({ user }: { user: any }) {
         </div>
       )}
 
-      {/* 2. 3D MEGTEKINTŐ NÉZET VALÓDI SÉTA ELEMEKKEL */}
+      {/* 2. 3D MEGTEKINTŐ NÉZET */}
       {viewMode === 'VIEW_3D' && activeGallery && (
         <div style={{ width: '100%', height: '620px', background: '#020617', borderRadius: '12px', overflow: 'hidden', position: 'relative', border: '1px solid var(--border-main)' }}>
           
           <Canvas camera={{ position: [0, 0.6, 5], fov: 60 }}>
             <WalkingController moveState={moveState} controlsRef={controlsRef} />
-            <GalleryRoom photos={activeGallery.photos || []} onSelectPhoto={(p) => setActivePhotoModal(p)} />
+            <GalleryRoom 
+              photos={activeGallery.photos || []} 
+              themeName={activeGallery.theme} 
+              onSelectPhoto={(p) => setActivePhotoModal(p)} 
+            />
             <OrbitControls 
               ref={controlsRef} 
               target={[0, 0.6, 0]}
@@ -686,9 +812,10 @@ export default function Gallery3DView({ user }: { user: any }) {
         </div>
       )}
 
-      {/* 3. SZERKESZTŐ MÓD */}
+      {/* 3. SZERKESZTŐ MÓD (STÍLUSVÁLASZTÓVAL) */}
       {viewMode === 'EDIT' && (
         <div style={{ background: 'var(--bg-card)', padding: '25px', borderRadius: '12px', border: '1px solid var(--border-main)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
             <div>
               <label style={{ display: 'block', color: 'var(--text-title)', fontWeight: 'bold', marginBottom: '8px' }}>Kiállítás Címe:</label>
@@ -701,6 +828,46 @@ export default function Gallery3DView({ user }: { user: any }) {
                 <option value="public">🌐 Publikus (Mindenki láthatja)</option>
                 <option value="club">👥 Klub (Csak a fotóklubom tagjai)</option>
               </select>
+            </div>
+          </div>
+
+          {/* 🎯 KIÁLLÍTÓTEREM STÍLUS VÁLASZTÓ */}
+          <div>
+            <label style={{ display: 'block', color: 'var(--text-title)', fontWeight: 'bold', marginBottom: '10px' }}>
+              <Palette size={16} inline /> Kiállítóterem Stílusa & Hangulata:
+            </label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '12px' }}>
+              {Object.keys(GALLERY_THEMES).map((key) => {
+                const theme = GALLERY_THEMES[key];
+                const isSelected = galleryTheme === key;
+                return (
+                  <div 
+                    key={key} 
+                    onClick={() => setGalleryTheme(key)}
+                    style={{ 
+                      padding: '14px', 
+                      borderRadius: '10px', 
+                      border: isSelected ? '2px solid #a78bfa' : '1px solid var(--border-main)', 
+                      background: isSelected ? 'rgba(167,139,250,0.1)' : 'var(--bg-main)', 
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    <span style={{ fontSize: '1.5rem' }}>{theme.icon}</span>
+                    <div>
+                      <strong style={{ display: 'block', color: 'var(--text-title)', fontSize: '0.9rem' }}>{theme.name}</strong>
+                      <div style={{ display: 'flex', gap: '4px', marginTop: '4px' }}>
+                        <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: theme.wallColor, border: '1px solid #ffffff40' }} title="Fal" />
+                        <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: theme.floorColor, border: '1px solid #ffffff40' }} title="Padló" />
+                        <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: theme.frameColor, border: '1px solid #ffffff40' }} title="Keret" />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
