@@ -557,7 +557,7 @@ export default function Gallery3DView({ user }: { user: any }) {
                       </div>
 
                       <div style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(15,23,42,0.85)', padding: '4px 10px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 'bold', color: gal.visibility === 'club' ? '#f59e0b' : '#38bdf8', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                        {gal.visibility === 'club' ? <><Users size={12} /> Klub Szféra</> : <><Globe size={12} /> Publikus</>}
+                        {gal.visibility === 'club' ? <><Users size={12} /> Klub</> : <><Globe size={12} /> Publikus</>}
                       </div>
                     </div>
 
@@ -696,10 +696,10 @@ export default function Gallery3DView({ user }: { user: any }) {
             </div>
 
             <div>
-              <label style={{ display: 'block', color: 'var(--text-title)', fontWeight: 'bold', marginBottom: '8px' }}>Láthatósági Szféra:</label>
+              <label style={{ display: 'block', color: 'var(--text-title)', fontWeight: 'bold', marginBottom: '8px' }}>Láthatóság:</label>
               <select value={visibility} onChange={e => setVisibility(e.target.value as any)} style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-main)', background: 'var(--bg-main)', color: 'var(--text-title)', fontSize: '1rem', outline: 'none' }}>
                 <option value="public">🌐 Publikus (Mindenki láthatja)</option>
-                <option value="club">👥 Klub Szféra (Csak a fotóklubom tagjai)</option>
+                <option value="club">👥 Klub (Csak a fotóklubom tagjai)</option>
               </select>
             </div>
           </div>
