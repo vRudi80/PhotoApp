@@ -13,7 +13,7 @@ import {
   Share2, Palette
 } from 'lucide-react';
 
-// Szabványos, megbízható betűtípus a Troika GPOS/GSUB hibák megszüntetésére
+// Szabványos betűtípus a Troika GPOS/GSUB hibák megszüntetésére
 const ROBOTO_FONT_URL = "https://fonts.gstatic.com/s/roboto/v18/KFOmCnqEu92Fr1Mu4mxM.woff";
 
 // ====================================================================
@@ -48,9 +48,9 @@ const GALLERY_THEMES: Record<string, {
   classic: {
     name: 'Klasszikus Elegáns',
     icon: '🏛️',
-    wallColor: '#f1f5f9',
-    floorColor: '#78350f', // Warm wood parquet
-    ceilingColor: '#ffffff',
+    wallColor: '#e2e8f0',
+    floorColor: '#78350f',
+    ceilingColor: '#f8fafc',
     skirtingColor: '#451a03',
     pillarColor: '#cbd5e1',
     frameColor: '#451a03',
@@ -150,7 +150,7 @@ function WalkingController({
 }
 
 // ====================================================================
-// 🖼️ 3D KÉPKERET (FONT FIX + DINAMIKUS STÍLUS)
+// 🖼️ RÉSMENTESEN FALRA SIMULÓ 3D KÉPKERET
 // ====================================================================
 function ArtworkFrame({ position, rotation, url, title, themeConfig, onClick }: any) {
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
@@ -239,20 +239,20 @@ function ArtworkFrame({ position, rotation, url, title, themeConfig, onClick }: 
 
   return (
     <group position={position} rotation={rotation}>
-      {/* Külső Keret */}
-      <mesh position={[0, 0, -0.03]}>
+      {/* 🎯 KÜLSŐ KERET: A hátsó lapja hajszálpontosan a fal síkján áll (Z = 0.03)! */}
+      <mesh position={[0, 0, 0.03]}>
         <boxGeometry args={[frameWidth, frameHeight, 0.06]} />
         <meshStandardMaterial color={themeConfig.frameColor} roughness={0.3} />
       </mesh>
       
       {/* Passepartout */}
-      <mesh position={[0, 0, -0.01]}>
+      <mesh position={[0, 0, 0.061]}>
         <planeGeometry args={[passWidth, passHeight]} />
         <meshStandardMaterial color={themeConfig.passColor} roughness={0.9} />
       </mesh>
 
       {/* Fotó */}
-      <mesh onClick={onClick} position={[0, 0, 0.005]} style={{ cursor: 'pointer' }}>
+      <mesh onClick={onClick} position={[0, 0, 0.065]} style={{ cursor: 'pointer' }}>
         <planeGeometry args={[pWidth, pHeight]} />
         {texture ? <meshBasicMaterial map={texture} /> : <meshStandardMaterial color="#334155" />}
       </mesh>
@@ -260,15 +260,15 @@ function ArtworkFrame({ position, rotation, url, title, themeConfig, onClick }: 
       {/* Reflektorfény */}
       <spotLight
         position={[0, frameHeight / 2 + 0.5, 1.2]}
-        target-position={[0, 0, 0]}
+        target-position={[0, 0, 0.06]}
         intensity={themeConfig.spotIntensity}
         angle={0.65}
         penumbra={0.4}
         color={themeConfig.lightColor}
       />
 
-      {/* Címke a kép alatt (JAVÍTVA: ROBOTO_FONT_URL megadva) */}
-      <group position={[0, labelYPosition, 0.01]}>
+      {/* Címke a kép alatt */}
+      <group position={[0, labelYPosition, 0.065]}>
         <mesh position={[0, 0, -0.005]}>
           <planeGeometry args={[Math.max(1.8, pWidth * 0.8), 0.3]} />
           <meshStandardMaterial color={themeConfig.skirtingColor} roughness={0.5} />
@@ -289,16 +289,17 @@ function ArtworkFrame({ position, rotation, url, title, themeConfig, onClick }: 
 }
 
 // ====================================================================
-// 🏛️ 3D GALÉRIATEREM (SAROKPILLÉREKKEL ÉS SZEGÉLYLÉCEKKEL)
+// 🏛️ 3D GALÉRIATEREM (TÖMÖR 3D FALAK + EGYENLETES 4-PONTOS VILÁGÍTÁS)
 // ====================================================================
 function GalleryRoom({ photos, themeName, onSelectPhoto }: { photos: any[]; themeName?: string; onSelectPhoto: (p: any) => void }) {
   const theme = GALLERY_THEMES[themeName || 'modern'] || GALLERY_THEMES.modern;
 
+  // 🎯 Résmentes fali rögzítési pozíciók
   const wallPositions: [number, number, number][] = [
-    [-6, 0.85, -4.9], [0, 0.85, -4.9], [6, 0.85, -4.9],   // Hátsó fal
-    [-9.9, 0.85, -1], [-9.9, 0.85, 3],                  // Bal fal
-    [9.9, 0.85, -1], [9.9, 0.85, 3],                    // Jobb fal
-    [-6, 0.85, 8.9], [0, 0.85, 8.9], [6, 0.85, 8.9]       // Első fal
+    [-6, 0.85, -4.99], [0, 0.85, -4.99], [6, 0.85, -4.99],   // Hátsó fal
+    [-9.99, 0.85, -1], [-9.99, 0.85, 3],                   // Bal fal
+    [9.99, 0.85, -1], [9.99, 0.85, 3],                     // Jobb fal
+    [-6, 0.85, 8.99], [0, 0.85, 8.99], [6, 0.85, 8.99]        // Első fal
   ];
 
   const wallRotations: [number, number, number][] = [
@@ -310,34 +311,48 @@ function GalleryRoom({ photos, themeName, onSelectPhoto }: { photos: any[]; them
 
   return (
     <>
-      {/* Világítás */}
-      <ambientLight intensity={1.3} />
-      <directionalLight position={[0, 10, 10]} intensity={1.8} color={theme.lightColor} />
-      <directionalLight position={[0, 10, -10]} intensity={1.2} color={theme.lightColor} />
+      {/* 🎯 EGYENLETES 4-PONTOS SZIMMETRIKUS VILÁGÍTÁS (Mindegyik fal azonos tónusú!) */}
+      <ambientLight intensity={1.2} />
+      <directionalLight position={[6, 8, 6]} intensity={0.9} color={theme.lightColor} />
+      <directionalLight position={[-6, 8, 6]} intensity={0.9} color={theme.lightColor} />
+      <directionalLight position={[6, 8, -6]} intensity={0.9} color={theme.lightColor} />
+      <directionalLight position={[-6, 8, -6]} intensity={0.9} color={theme.lightColor} />
 
-      {/* Padló */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.0, 2]}>
-        <planeGeometry args={[20, 20]} />
+      {/* Tömör 3D Padló */}
+      <mesh position={[0, -1.1, 2]}>
+        <boxGeometry args={[20.4, 0.2, 14.4]} />
         <meshStandardMaterial color={theme.floorColor} roughness={0.4} />
       </mesh>
 
-      {/* Mennyezet */}
-      <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 4.5, 2]}>
-        <planeGeometry args={[20, 20]} />
+      {/* Tömör 3D Mennyezet */}
+      <mesh position={[0, 4.6, 2]}>
+        <boxGeometry args={[20.4, 0.2, 14.4]} />
         <meshStandardMaterial color={theme.ceilingColor} />
       </mesh>
 
-      {/* Falak */}
-      <mesh position={[0, 1.75, -5]}><planeGeometry args={[20, 11]} /><meshStandardMaterial color={theme.wallColor} roughness={0.8} /></mesh>
-      <mesh position={[-10, 1.75, 2]} rotation={[0, Math.PI / 2, 0]}><planeGeometry args={[20, 11]} /><meshStandardMaterial color={theme.wallColor} roughness={0.8} /></mesh>
-      <mesh position={[10, 1.75, 2]} rotation={[0, -Math.PI / 2, 0]}><planeGeometry args={[20, 11]} /><meshStandardMaterial color={theme.wallColor} roughness={0.8} /></mesh>
+      {/* 🎯 TÖMÖR 3D FALAK (Vastagsággal, fényátszivárgás nélkül) */}
+      {/* Hátsó fal */}
+      <mesh position={[0, 1.75, -5.1]}>
+        <boxGeometry args={[20.4, 11, 0.2]} />
+        <meshStandardMaterial color={theme.wallColor} roughness={0.7} />
+      </mesh>
+      {/* Bal fal */}
+      <mesh position={[-10.1, 1.75, 2]}>
+        <boxGeometry args={[0.2, 11, 14.4]} />
+        <meshStandardMaterial color={theme.wallColor} roughness={0.7} />
+      </mesh>
+      {/* Jobb fal */}
+      <mesh position={[10.1, 1.75, 2]}>
+        <boxGeometry args={[0.2, 11, 14.4]} />
+        <meshStandardMaterial color={theme.wallColor} roughness={0.7} />
+      </mesh>
 
-      {/* 🎯 SZEGÉLYLÉCEK (PADLÓLÉC A TÉRBELI MÉLYSÉGÉRT) */}
+      {/* Szegélylécek a falak alján */}
       <mesh position={[0, -0.85, -4.95]}><boxGeometry args={[20, 0.3, 0.1]} /><meshStandardMaterial color={theme.skirtingColor} /></mesh>
       <mesh position={[-9.95, -0.85, 2]} rotation={[0, Math.PI / 2, 0]}><boxGeometry args={[20, 0.3, 0.1]} /><meshStandardMaterial color={theme.skirtingColor} /></mesh>
       <mesh position={[9.95, -0.85, 2]} rotation={[0, -Math.PI / 2, 0]}><boxGeometry args={[20, 0.3, 0.1]} /><meshStandardMaterial color={theme.skirtingColor} /></mesh>
 
-      {/* 🎯 SAROKPILLÉREK (A LEBEGŐ KÉPEK ILLÚZIÓJÁNAK MEGSZŰNTETÉSÉRE) */}
+      {/* Sarokpillérek */}
       <mesh position={[-9.95, 1.75, -4.95]}><boxGeometry args={[0.3, 11, 0.3]} /><meshStandardMaterial color={theme.pillarColor} /></mesh>
       <mesh position={[9.95, 1.75, -4.95]}><boxGeometry args={[0.3, 11, 0.3]} /><meshStandardMaterial color={theme.pillarColor} /></mesh>
       <mesh position={[-9.95, 1.75, 8.95]}><boxGeometry args={[0.3, 11, 0.3]} /><meshStandardMaterial color={theme.pillarColor} /></mesh>
@@ -812,7 +827,7 @@ export default function Gallery3DView({ user }: { user: any }) {
         </div>
       )}
 
-      {/* 3. SZERKESZTŐ MÓD (STÍLUSVÁLASZTÓVAL) */}
+      {/* 3. SZERKESZTŐ MÓD */}
       {viewMode === 'EDIT' && (
         <div style={{ background: 'var(--bg-card)', padding: '25px', borderRadius: '12px', border: '1px solid var(--border-main)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
           
@@ -831,7 +846,7 @@ export default function Gallery3DView({ user }: { user: any }) {
             </div>
           </div>
 
-          {/* 🎯 KIÁLLÍTÓTEREM STÍLUS VÁLASZTÓ */}
+          {/* KIÁLLÍTÓTEREM STÍLUS VÁLASZTÓ */}
           <div>
             <label style={{ display: 'block', color: 'var(--text-title)', fontWeight: 'bold', marginBottom: '10px' }}>
               <Palette size={16} inline /> Kiállítóterem Stílusa & Hangulata:
