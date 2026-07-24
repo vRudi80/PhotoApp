@@ -40,6 +40,9 @@ export default function ClubHomeworksView({
   const [hwUploadTitle, setHwUploadTitle] = useState('');
   const [isHwUploading, setIsHwUploading] = useState(false);
   
+  // 🎯 ÚJ: ZIP letöltés visszajelző állapot
+  const [downloadingHwId, setDownloadingHwId] = useState<number | null>(null);
+
   const [editingHwEntryId, setEditingHwEntryId] = useState<number | null>(null);
   const [editHwEntryTitle, setEditHwEntryTitle] = useState('');
 
@@ -215,7 +218,7 @@ export default function ClubHomeworksView({
     } catch (e) { console.error('Hiba a kiválasztáskor:', e); }
   };
 
-  // 🎯 JAVÍTVA: A hiba megszüntetve! currentHw.topic használata hiányzó topic helyett!
+  // 🎯 JAVÍTVA: Visszajelző állapot (Spinner/Loading text) hozzáadása!
   const handleDownloadAllSelected = async (homeworkEntries: any[], currentHw: any) => {
     const selectedEntries = homeworkEntries.filter(entry => 
       localSelections[entry.id] !== undefined ? localSelections[entry.id] : (entry.is_selected === 1)
@@ -224,6 +227,8 @@ export default function ClubHomeworksView({
     if (selectedEntries.length === 0) {
       return alert('Nincs kiválasztott kép a tömörítéshez.');
     }
+
+    setDownloadingHwId(currentHw.id);
 
     try {
       const topicName = currentHw?.topic || 'valogatas';
@@ -258,6 +263,8 @@ export default function ClubHomeworksView({
     } catch (e) {
       alert("Hiba történt a tömeges ZIP letöltés közben. Kérlek ellenőrizd a szerver kapcsolatot!");
       console.error(e);
+    } finally {
+      setDownloadingHwId(null);
     }
   };
   
@@ -346,6 +353,7 @@ export default function ClubHomeworksView({
           });
 
           const sortedUploaders = Object.keys(uploaderStats).sort((a, b) => a.localeCompare(b));
+          const isDownloadingThis = downloadingHwId === hw.id;
 
           return (
             <div key={hw.id} style={{ backgroundColor: '#1e293b', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', border: isPast ? '1px solid #475569' : '1px solid #10b981', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', position: 'relative', transition: 'all 0.3s ease' }}>
@@ -377,12 +385,32 @@ export default function ClubHomeworksView({
                         <h4 style={{ margin: 0, fontSize: '1rem', color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '1px' }}>📊 Klub Portfólió Válogatás (Vezetői Nézet)</h4>
                         
                         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                          
+                          {/* 🎯 DINAMIKUS LETÖLTÉS GOMB VISSZAJELZÉSSEL */}
                           <button 
                             onClick={() => handleDownloadAllSelected(hwEntriesForAllRaw, hw)}
-                            style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#0f172a', border: 'none', padding: '6px 14px', borderRadius: '8px', fontWeight: 'bold', fontSize: '0.85rem', cursor: 'pointer', boxShadow: '0 4px 10px rgba(245,158,11,0.2)', transition: 'all 0.2s' }}
+                            disabled={isDownloadingThis || totalSelectedInHw === 0}
+                            style={{ 
+                              background: isDownloadingThis ? '#475569' : 'linear-gradient(135deg, #f59e0b, #d97706)', 
+                              color: isDownloadingThis ? '#cbd5e1' : '#0f172a', 
+                              border: 'none', 
+                              padding: '8px 16px', 
+                              borderRadius: '8px', 
+                              fontWeight: 'bold', 
+                              fontSize: '0.85rem', 
+                              cursor: (isDownloadingThis || totalSelectedInHw === 0) ? 'not-allowed' : 'pointer', 
+                              boxShadow: isDownloadingThis ? 'none' : '0 4px 10px rgba(245,158,11,0.2)', 
+                              transition: 'all 0.2s',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px'
+                            }}
                           >
-                            📦 Összes kiválasztott letöltése ({totalSelectedInHw})
+                            {isDownloadingThis 
+                              ? `⏳ Csomagolás folyamatban... (${totalSelectedInHw} kép)` 
+                              : `📦 Összes kiválasztott letöltése (${totalSelectedInHw})`}
                           </button>
+
                           <div style={{ background: '#10b98120', color: '#10b981', border: '1px solid #10b98150', padding: '4px 12px', borderRadius: '100px', fontWeight: 'bold', fontSize: '0.85rem' }}>✅ Összes kiválasztva: {totalSelectedInHw} kép</div>
                         </div>
                       </div>
