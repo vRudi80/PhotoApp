@@ -1,5 +1,6 @@
 const { OAuth2Client } = require('google-auth-library');
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+const PointsService = require('../PointsService'); // 🎯 Beemeljük a központi pontkezelőt
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "kovari.rudolf@gmail.com";
 
@@ -76,7 +77,7 @@ module.exports = function(app, pool) {
 
       let myClubName = null;
       try {
-        const [userRows] = await pool.query('SELECT club_name FROM photo_users WHERE email = ?', [req.user.email]);
+        const [userRows] = await pool.query('SELECT club_name FROM photo_users WHERE LOWER(email) = LOWER(?)', [req.user.email]);
         myClubName = userRows[0]?.club_name || null;
       } catch(e) {}
 
@@ -91,11 +92,11 @@ module.exports = function(app, pool) {
           (SELECT COUNT(*) FROM gallery_visitors WHERE gallery_id = g.id) as visitor_count,
           (SELECT COUNT(*) FROM gallery_guestbook WHERE gallery_id = g.id) as comment_count
         FROM user_3d_galleries g
-        LEFT JOIN photo_users u ON g.user_email = u.email COLLATE utf8mb4_general_ci
+        LEFT JOIN photo_users u ON LOWER(g.user_email) = LOWER(u.email) COLLATE utf8mb4_general_ci
         LEFT JOIN photo_clubs c ON u.club_name = c.name
         WHERE g.visibility = 'public'
            OR (g.visibility = 'club' AND u.club_name IS NOT NULL AND u.club_name = ?)
-           OR g.user_email = ?
+           OR LOWER(g.user_email) = LOWER(?)
         ORDER BY g.updated_at DESC
       `, [myClubName || '', req.user.email]);
 
@@ -139,7 +140,7 @@ module.exports = function(app, pool) {
           b.id, b.comment_text, b.created_at, b.user_email,
           COALESCE(u.name, 'Látogató') as user_name, u.avatar_url, u.club_name
         FROM gallery_guestbook b
-        LEFT JOIN photo_users u ON b.user_email = u.email COLLATE utf8mb4_general_ci
+        LEFT JOIN photo_users u ON LOWER(b.user_email) = LOWER(u.email) COLLATE utf8mb4_general_ci
         WHERE b.gallery_id = ?
         ORDER BY b.created_at DESC
       `, [galleryId]);
@@ -149,7 +150,7 @@ module.exports = function(app, pool) {
           v.visited_at, v.user_email,
           COALESCE(u.name, 'Látogató') as user_name, u.avatar_url, u.club_name
         FROM gallery_visitors v
-        LEFT JOIN photo_users u ON v.user_email = u.email COLLATE utf8mb4_general_ci
+        LEFT JOIN photo_users u ON LOWER(v.user_email) = LOWER(u.email) COLLATE utf8mb4_general_ci
         WHERE v.gallery_id = ?
         ORDER BY v.visited_at DESC
       `, [galleryId]);
@@ -180,9 +181,10 @@ module.exports = function(app, pool) {
     }
   });
 
-  // 5. Galéria mentése (PONT-KEZELÉSSEL ÉS CSOMAG-ELLENŐRZÉSSEL)
+  // 5. Galéria mentése (KÖZPONTI POINTSSERVICE MOTORRAL)
   app.post('/api/premium/3d-gallery/save', requireAuth, async (req, res) => {
     const { id, title, theme, visibility, photos } = req.body;
+    const userEmail = req.user.email;
     const cleanTitle = (title || 'Saját Virtuális Kiállításom').trim();
     const cleanVis = visibility === 'club' ? 'club' : 'public';
 
@@ -194,16 +196,14 @@ module.exports = function(app, pool) {
       return res.status(400).json({ error: 'Legfeljebb 30 fotó választható ki!' });
     }
 
-    // Csomag és ár megállapítása
     const photoCount = photos.length;
     let requiredPoints = 0;
-    if (photoCount > 20) requiredPoints = 400; // 30-as csomag
-    else if (photoCount > 10) requiredPoints = 200; // 20-as csomag
+    if (photoCount > 20) requiredPoints = 400;
+    else if (photoCount > 10) requiredPoints = 200;
 
     try {
       await ensureTableExists();
 
-      // Ha meglévő galériát módosítunk, megnézzük a korábbi csomagját
       let previousCost = 0;
       if (id) {
         const [existing] = await pool.query('SELECT photos_json FROM user_3d_galleries WHERE id = ?', [id]);
@@ -215,21 +215,24 @@ module.exports = function(app, pool) {
         }
       }
 
-      // Csak a pontkülönbözetet vonjuk le (pl. 20-asról 30-asra bővítésnél csak 200 pontot)
+      // Csak a pontkülönbözetet vonjuk le
       const netCost = Math.max(0, requiredPoints - previousCost);
 
+      // 🎯 TRANZAKCIÓBIZTOS PONTLEVONÁS A KÖZPONTI BANKMOTORRAL
       if (netCost > 0) {
-        const [uRows] = await pool.query('SELECT points FROM photo_users WHERE email = ?', [req.user.email]);
-        const currentPoints = uRows[0]?.points || 0;
-
-        if (currentPoints < netCost) {
-          return res.status(400).json({ 
-            error: `A választott csomaghoz ${netCost} pontra van szükség, de neked csak ${currentPoints} pontod van! Gyűjts még pontokat az Arénában.` 
-          });
+        try {
+          await PointsService.handleTransaction(
+            pool,
+            userEmail,
+            -netCost, // Negatív érték = levonás
+            'buy_3d_gallery_tier',
+            id || null,
+            `3D Kiállítás bérlés (${photoCount} fotós csomag)`,
+            `3D Exhibition rental (${photoCount} photos tier)`
+          );
+        } catch (ptsErr) {
+          return res.status(400).json({ error: ptsErr.message || 'Nincs elég pontod ehhez a csomaghoz!' });
         }
-
-        // Pontok levonása
-        await pool.query('UPDATE photo_users SET points = points - ? WHERE email = ?', [netCost, req.user.email]);
       }
 
       const photosJson = JSON.stringify(photos.slice(0, 30));
@@ -238,8 +241,8 @@ module.exports = function(app, pool) {
         const [result] = await pool.query(`
           UPDATE user_3d_galleries 
           SET title = ?, theme = ?, visibility = ?, photos_json = ? 
-          WHERE id = ? AND (user_email = ? OR ?)
-        `, [cleanTitle, theme || 'modern', cleanVis, photosJson, id, req.user.email, req.user.isAdmin]);
+          WHERE id = ? AND (LOWER(user_email) = LOWER(?) OR ?)
+        `, [cleanTitle, theme || 'modern', cleanVis, photosJson, id, userEmail, req.user.isAdmin]);
 
         if (result.affectedRows === 0) {
           return res.status(403).json({ error: 'Nincs jogosultságod ezt a tárlatot módosítani.' });
@@ -248,13 +251,13 @@ module.exports = function(app, pool) {
         await pool.query(`
           INSERT INTO user_3d_galleries (user_email, title, theme, visibility, photos_json)
           VALUES (?, ?, ?, ?, ?)
-        `, [req.user.email, cleanTitle, theme || 'modern', cleanVis, photosJson]);
+        `, [userEmail, cleanTitle, theme || 'modern', cleanVis, photosJson]);
       }
 
       res.json({ success: true, deductedPoints: netCost });
     } catch (err) {
       console.error("❌ 3D Galéria mentési hiba:", err.message);
-      res.status(500).json({ error: 'Nem sikerült elmenteni a galériát.' });
+      res.status(500).json({ error: 'Szerveroldali hiba a mentés során.' });
     }
   });
 
@@ -264,7 +267,7 @@ module.exports = function(app, pool) {
       await ensureTableExists();
       const [result] = await pool.query(`
         DELETE FROM user_3d_galleries 
-        WHERE id = ? AND (user_email = ? OR ?)
+        WHERE id = ? AND (LOWER(user_email) = LOWER(?) OR ?)
       `, [req.params.id, req.user.email, req.user.isAdmin]);
 
       if (result.affectedRows === 0) {
