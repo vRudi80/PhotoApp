@@ -15,31 +15,47 @@ async function requireAuth(req, res, next) {
 }
 
 module.exports = function(app, pool) {
-  // Szigorúan ellenőrizzük az admin státuszt hírlevélküldés előtt
   app.post('/api/admin/send-bulk-email', requireAuth, async (req, res) => {
     if (!req.user.isAdmin) return res.status(403).json({ error: 'Hozzáférés megtagadva! Nem vagy adminisztrátor.' });
     
     const { emails, subject, body } = req.body;
-    if (!emails || !Array.isArray(emails) || emails.length === 0) return res.status(400).json({ error: 'Nincsenek címzettek.' });
+    if (!emails || !Array.isArray(emails) || emails.length === 0) {
+      return res.status(400).json({ error: 'Nincsenek címzettek megadva.' });
+    }
+
+    // E-mail címek megtisztítása a hibás/üres értékektől
+    const validEmails = emails.filter(e => typeof e === 'string' && e.includes('@'));
+
+    if (validEmails.length === 0) {
+      return res.status(400).json({ error: 'Nincs érvényes e-mail cím a listában.' });
+    }
 
     try {
       const transporter = nodemailer.createTransport({
         host: process.env.SMTP_HOST || 'smtp.gmail.com',
         port: Number(process.env.SMTP_PORT) || 465,
         secure: true,
-        auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASSWORD }
+        auth: { 
+          user: process.env.SMTP_USER, 
+          // 🎯 Mindkét változónevet elfogadja a .env fájlból
+          pass: process.env.SMTP_PASSWORD || process.env.SMTP_PASS 
+        }
       });
 
       const mailOptions = {
-        from: `"PhotAwesome Admin" <${process.env.SMTP_USER}>`,
-        to: process.env.SMTP_USER,
-        bcc: emails.join(','),
+        from: `"PhotAwesome - Kővári-Vágner Rudolf" <${process.env.SMTP_USER}>`,
+        to: process.env.SMTP_USER, // A fő címzett az admin, a többiek rejtett másolatot kapnak
+        bcc: validEmails,         // Tömbként adjuk át, nem összefűzött szövegként
         subject: subject,
-        html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; color: #333;">${body.replace(/\n/g, '<br>')}</div>`
+        html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; color: #333; line-height: 1.6;">${body.replace(/\n/g, '<br>')}</div>`
       };
 
       await transporter.sendMail(mailOptions);
-      res.json({ success: true, message: 'Levelek elküldve.' });
-    } catch (error) { res.status(500).json({ error: 'Szerveroldali hiba a küldés során.' }); }
+      res.json({ success: true, message: 'Levelek sikeresen elküldve.' });
+    } catch (error) { 
+      // 🎯 Részletes hiba kiírása a szerver konzolra és a válaszba is
+      console.error("❌ E-mail küldési hiba:", error);
+      res.status(500).json({ error: 'Szerveroldali hiba a küldés során: ' + (error.message || error) }); 
+    }
   });
 };
