@@ -864,7 +864,7 @@ export default function Gallery3DView({ user }: { user: any }) {
           </Canvas>
 
           <div style={{ position: 'absolute', bottom: '15px', left: '15px', background: 'rgba(9, 13, 22, 0.85)', padding: '10px 16px', borderRadius: '8px', color: 'white', fontSize: '0.8rem', backdropFilter: 'blur(6px)', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color '#a78bfa', fontWeight: 'bold' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#a78bfa', fontWeight: 'bold' }}>
               <Navigation size={14} /> <span>Irányítás & Séta:</span>
             </div>
             <div>⌨️ <b>W, A, S, D / Nyilak:</b> Séta a teremben</div>
