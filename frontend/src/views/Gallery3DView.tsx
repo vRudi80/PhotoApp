@@ -290,45 +290,39 @@ function ArtworkFrame({ position, rotation, url, title, themeConfig, onClick }: 
 }
 
 // ====================================================================
-// 🏛️ REALISZTIKUS FÉNYEKKEL TARKÍTOTT MÚZEUMI TÉR (TISZTA ÁTJÁRÓK)
+// 🏛️ REALISZTIKUS MÚZEUMI TÉR
 // ====================================================================
 function GalleryRoom({ photos, themeName, onSelectPhoto }: { photos: any[]; themeName?: string; onSelectPhoto: (p: any) => void }) {
   const theme = GALLERY_THEMES[themeName || 'modern'] || GALLERY_THEMES.modern;
   const count = photos.length;
 
   const wallPositions: [number, number, number][] = [
-    // --- 1. CSARNOK (1-10. kép) ---
-    [-6, 1.20, -4.96], [6, 1.20, -4.96],                   // 1-2: Hátsó fal bal & jobb oldal
-    [-9.96, 1.20, -2], [-9.96, 1.20, 2.5], [-9.96, 1.20, 6.5], // 3-5: Bal oldali fal
-    [9.96, 1.20, -2],  [9.96, 1.20, 2.5],  [9.96, 1.20, 6.5],  // 6-8: Jobb oldali fal
-    [-5, 1.20, 8.96],  [5, 1.20, 8.96],                    // 9-10: Bejárati fal
+    [-6, 1.20, -4.96], [6, 1.20, -4.96],
+    [-9.96, 1.20, -2], [-9.96, 1.20, 2.5], [-9.96, 1.20, 6.5],
+    [9.96, 1.20, -2],  [9.96, 1.20, 2.5],  [9.96, 1.20, 6.5],
+    [-5, 1.20, 8.96],  [5, 1.20, 8.96],
 
-    // --- 2. CSARNOK / BELSŐ SZÁRNY (11-20. kép) ---
-    [-6, 1.20, -18.96], [0, 1.20, -18.96], [6, 1.20, -18.96], // 11-13: 2. Szoba Hátsó fal
-    [-9.96, 1.20, -9],  [-9.96, 1.20, -13], [-9.96, 1.20, -17],// 14-16: 2. Szoba Bal oldali fala
-    [9.96, 1.20, -9],   [9.96, 1.20, -13],  [9.96, 1.20, -17], // 17-19: 2. Szoba Jobb oldali fala
-    [-6.5, 1.20, -5.04],                                    // 20: Válaszfal belső oldala
+    [-6, 1.20, -18.96], [0, 1.20, -18.96], [6, 1.20, -18.96],
+    [-9.96, 1.20, -9],  [-9.96, 1.20, -13], [-9.96, 1.20, -17],
+    [9.96, 1.20, -9],   [9.96, 1.20, -13],  [9.96, 1.20, -17],
+    [-6.5, 1.20, -5.04],
 
-    // --- 3. CSARNOK / MÚZEUMI PAVILONOK (21-30. kép) ---
-    [-19.96, 1.20, -14], [-19.96, 1.20, -8], [-19.96, 1.20, -2], [-19.96, 1.20, 4], // 21-24: Bal pavilon
-    [19.96, 1.20, -14],  [19.96, 1.20, -8],  [19.96, 1.20, -2],  [19.96, 1.20, 4],  // 25-28: Jobb pavilon
-    [-15, 1.20, -18.96], [15, 1.20, -18.96]                                      // 29-30: Hátsó pavilon
+    [-19.96, 1.20, -14], [-19.96, 1.20, -8], [-19.96, 1.20, -2], [-19.96, 1.20, 4],
+    [19.96, 1.20, -14],  [19.96, 1.20, -8],  [19.96, 1.20, -2],  [19.96, 1.20, 4],
+    [-15, 1.20, -18.96], [15, 1.20, -18.96]
   ];
 
   const wallRotations: [number, number, number][] = [
-    // 1. Csarnok
     [0, 0, 0], [0, 0, 0],
     [0, Math.PI / 2, 0], [0, Math.PI / 2, 0], [0, Math.PI / 2, 0],
     [0, -Math.PI / 2, 0], [0, -Math.PI / 2, 0], [0, -Math.PI / 2, 0],
     [0, Math.PI, 0], [0, Math.PI, 0],
 
-    // 2. Belső szárny
     [0, 0, 0], [0, 0, 0], [0, 0, 0],
     [0, Math.PI / 2, 0], [0, Math.PI / 2, 0], [0, Math.PI / 2, 0],
     [0, -Math.PI / 2, 0], [0, -Math.PI / 2, 0], [0, -Math.PI / 2, 0],
     [0, Math.PI, 0],
 
-    // 3. Pavilon szárnyak
     [0, Math.PI / 2, 0], [0, Math.PI / 2, 0], [0, Math.PI / 2, 0], [0, Math.PI / 2, 0],
     [0, -Math.PI / 2, 0], [0, -Math.PI / 2, 0], [0, -Math.PI / 2, 0], [0, -Math.PI / 2, 0],
     [0, 0, 0], [0, 0, 0]
@@ -336,10 +330,8 @@ function GalleryRoom({ photos, themeName, onSelectPhoto }: { photos: any[]; them
 
   return (
     <>
-      {/* 🎯 ÁRNYALATDÚS, REALISZTIKUS VILÁGÍTÁS */}
       <ambientLight intensity={1.1} />
       
-      {/* Szobánkénti mennyezeti pontfények (Csillogást és fényfoltokat adnak a padlónak) */}
       <pointLight position={[0, 4.2, 2]} intensity={22} distance={25} color={theme.lightColor} decay={1.5} />
       {count > 10 && <pointLight position={[0, 4.2, -12]} intensity={22} distance={25} color={theme.lightColor} decay={1.5} />}
       {count > 20 && (
@@ -349,7 +341,7 @@ function GalleryRoom({ photos, themeName, onSelectPhoto }: { photos: any[]; them
         </>
       )}
 
-      {/* --- FŐTEREM (SELYEMFÉNYŰ REFLEKTÍV PADLÓVAL) --- */}
+      {/* FŐTEREM */}
       <mesh position={[0, -1.05, 2]}>
         <boxGeometry args={[20, 0.1, 14]} />
         <meshStandardMaterial color={theme.floorColor} roughness={0.25} metalness={0.15} />
@@ -359,13 +351,12 @@ function GalleryRoom({ photos, themeName, onSelectPhoto }: { photos: any[]; them
         <meshStandardMaterial color={theme.ceilingColor} roughness={0.8} />
       </mesh>
 
-      {/* Falak fényérzékeny anyagtulajdonsággal */}
       <mesh position={[0, 2.0, count > 10 ? -19.05 : -5.05]}><boxGeometry args={[20, 6, 0.1]} /><meshStandardMaterial color={theme.wallColor} roughness={0.65} /></mesh>
       <mesh position={[-10.05, 2.0, count > 10 ? -5 : 2]}><boxGeometry args={[0.1, 6, count > 10 ? 28 : 14]} /><meshStandardMaterial color={theme.wallColor} roughness={0.65} /></mesh>
       <mesh position={[10.05, 2.0, count > 10 ? -5 : 2]}><boxGeometry args={[0.1, 6, count > 10 ? 28 : 14]} /><meshStandardMaterial color={theme.wallColor} roughness={0.65} /></mesh>
       <mesh position={[0, 2.0, 9.05]}><boxGeometry args={[20, 6, 0.1]} /><meshStandardMaterial color={theme.wallColor} roughness={0.65} /></mesh>
 
-      {/* --- 2. SZÁRNY ÁTJÁRÓKAPUVAL (>10 KÉP) --- */}
+      {/* 2. SZÁRNY */}
       {count > 10 && (
         <>
           <mesh position={[0, -1.05, -12]}>
@@ -377,14 +368,13 @@ function GalleryRoom({ photos, themeName, onSelectPhoto }: { photos: any[]; them
             <meshStandardMaterial color={theme.ceilingColor} roughness={0.8} />
           </mesh>
           
-          {/* Válaszfal két oldala */}
           <mesh position={[-6.5, 2.0, -5.0]}><boxGeometry args={[7, 6, 0.15]} /><meshStandardMaterial color={theme.wallColor} roughness={0.65} /></mesh>
           <mesh position={[6.5, 2.0, -5.0]}><boxGeometry args={[7, 6, 0.15]} /><meshStandardMaterial color={theme.wallColor} roughness={0.65} /></mesh>
           <mesh position={[0, 4.2, -5.0]}><boxGeometry args={[6, 1.6, 0.15]} /><meshStandardMaterial color={theme.wallColor} roughness={0.65} /></mesh>
         </>
       )}
 
-      {/* --- 3. PAVILON SZÁRNYAK (>20 KÉP) --- */}
+      {/* 3. PAVILON SZÁRNYAK */}
       {count > 20 && (
         <>
           <mesh position={[-15, -1.05, -5]}><boxGeometry args={[10, 0.1, 28]} /><meshStandardMaterial color={theme.floorColor} roughness={0.25} metalness={0.15} /></mesh>
@@ -395,8 +385,7 @@ function GalleryRoom({ photos, themeName, onSelectPhoto }: { photos: any[]; them
         </>
       )}
 
-      {/* 🎯 CSALÓDÁSMENTES, INTELIKENS SZEGÉLYLÉCEK */}
-      {/* Hátsó szegélyléc: Ha van 2. szoba, kettévágjuk, hogy a középső átjáróban NE LEGYEN LÉC! */}
+      {/* SZEGÉLYLÉCEK */}
       {count > 10 ? (
         <>
           <mesh position={[-6.5, -0.85, -4.95]}><boxGeometry args={[6.8, 0.3, 0.08]} /><meshStandardMaterial color={theme.skirtingColor} /></mesh>
@@ -717,6 +706,7 @@ export default function Gallery3DView({ user }: { user: any }) {
             </button>
           )}
 
+          {/* 🎯 JAVÍTVA: PRÉMIUM CSERE KATTINTHATÓ GOMBRA RÁIRÁNYÍTÁSSAL */}
           {user?.is_premium || user?.isPremium ? (
             viewMode === 'DIRECTORY' && (
               <button onClick={handleStartNewGallery} style={{ background: '#f97316', color: 'white', border: 'none', padding: '10px 18px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -724,9 +714,35 @@ export default function Gallery3DView({ user }: { user: any }) {
               </button>
             )
           ) : (
-            <div style={{ background: 'rgba(251,191,36,0.1)', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.3)', padding: '8px 14px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Sparkles size={14} /> Saját 3D kiállítás a Prémium tagoknak
-            </div>
+            <button 
+              onClick={() => window.location.href = '/packages'}
+              title="Kattints ide a prémium csomagok megtekintéséhez!"
+              style={{ 
+                background: 'linear-gradient(135deg, rgba(251,191,36,0.15), rgba(245,158,11,0.25))', 
+                color: '#fbbf24', 
+                border: '1px solid rgba(251,191,36,0.4)', 
+                padding: '8px 14px', 
+                borderRadius: '8px', 
+                fontSize: '0.8rem', 
+                fontWeight: 'bold', 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '6px',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                boxShadow: '0 2px 6px rgba(251,191,36,0.1)'
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.background = 'linear-gradient(135deg, rgba(251,191,36,0.3), rgba(245,158,11,0.45))';
+                e.currentTarget.style.borderColor = '#fbbf24';
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.background = 'linear-gradient(135deg, rgba(251,191,36,0.15), rgba(245,158,11,0.25))';
+                e.currentTarget.style.borderColor = 'rgba(251,191,36,0.4)';
+              }}
+            >
+              <Sparkles size={14} /> Saját 3D kiállítás a Prémium tagoknak ➔
+            </button>
           )}
         </div>
       </div>
@@ -848,7 +864,7 @@ export default function Gallery3DView({ user }: { user: any }) {
           </Canvas>
 
           <div style={{ position: 'absolute', bottom: '15px', left: '15px', background: 'rgba(9, 13, 22, 0.85)', padding: '10px 16px', borderRadius: '8px', color: 'white', fontSize: '0.8rem', backdropFilter: 'blur(6px)', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#a78bfa', fontWeight: 'bold' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color '#a78bfa', fontWeight: 'bold' }}>
               <Navigation size={14} /> <span>Irányítás & Séta:</span>
             </div>
             <div>⌨️ <b>W, A, S, D / Nyilak:</b> Séta a teremben</div>
