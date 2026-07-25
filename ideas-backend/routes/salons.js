@@ -266,9 +266,33 @@ module.exports = function(app, pool, checkPremium, genAI, xlsx, cheerio, upload,
     if (req.user.email !== userEmail && !req.user.isAdmin) return res.status(403).json({ error: 'Tiltott lekérés!' });
 
     try {
-      const [rows] = await pool.query(`SELECT COALESCE(port.title, 'Ismeretlen / Törölt kép') as photo_title, s.name as salon_name, sp.patron_number as mafosz_number, a.award_name as award, s.submission_type, port.drive_file_id, port.file_url FROM photo_salon_entries e JOIN photo_salons s ON e.salon_id = s.id JOIN photo_awards a ON e.award_id = a.id JOIN photo_salon_patrons sp ON sp.salon_id = s.id WHERE sp.patron_id = 3 AND e.user_email = ? AND e.award_id IS NOT NULL AND e.award_id > 0 AND a.award_name IS NOT NULL AND TRIM(a.award_name) != '' ORDER BY s.name ASC, photo_title ASC`, [userEmail]);
+      const [rows] = await pool.query(`
+        SELECT 
+          COALESCE(port.title, 'Ismeretlen / Törölt kép') as photo_title, 
+          s.name as salon_name, 
+          sp.patron_number as mafosz_number, 
+          COALESCE(NULLIF(e.custom_award, ''), a.award_name) as award, 
+          s.submission_type, 
+          port.drive_file_id, 
+          port.file_url 
+        FROM photo_salon_entries e 
+        JOIN photo_salons s ON e.salon_id = s.id 
+        JOIN photo_awards a ON e.award_id = a.id 
+        JOIN photo_salon_patrons sp ON sp.salon_id = s.id AND sp.patron_id = 3 
+        LEFT JOIN photo_portfolio port ON e.portfolio_id = port.id 
+        WHERE e.user_email = ? 
+          AND e.award_id IS NOT NULL 
+          AND e.award_id > 0 
+          AND a.award_name IS NOT NULL 
+          AND TRIM(a.award_name) != '' 
+        ORDER BY s.name ASC, photo_title ASC
+      `, [userEmail]);
+
       res.json(rows);
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { 
+      console.error("❌ Hiba a MAFOSZ tételes lista lekérésekor:", err.message);
+      res.status(500).json({ error: err.message }); 
+    }
   });
 
   app.get('/api/fiap-progress', requireAuth, checkPremium, async (req, res) => {
