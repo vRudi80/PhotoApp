@@ -2,12 +2,9 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { BACKEND_URL, ADMIN_EMAIL } from '../utils/constants';
 import { getImageUrl } from '../utils/helpers';
 import PremiumPaywall from './PremiumPaywall';
-import { getFlagImageUrl } from '../utils/helpers';
 
-// Nyelvi kontextus aktiválása
+// Nyelvi és Téma kontextusok
 import { useLanguage } from '../context/LanguageContext';
-
-// 🎯 Behozzuk a téma környezetet a reaktív témakezeléshez
 import { useTheme } from '../context/ThemeContext';
 
 const MAFOSZ_LEVELS = [
@@ -24,7 +21,6 @@ interface MafoszProgressViewProps {
   allUsers?: any[]; 
 }
 
-// 🎯 KÖZPONTI AUTH FEJLÉC GENERÁTOR VÉDETT VÉGPONTOKHOZ
 const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
   const token = localStorage.getItem('photoAppToken');
   return {
@@ -33,23 +29,38 @@ const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
   };
 };
 
+// 🎯 Segédkomponens a haladási sávokhoz
+function ProgressBar({ label, current, required, color, isLight }: any) {
+  const percent = Math.min(100, Math.round(((current || 0) / (required || 1)) * 100));
+  const isCompleted = (current || 0) >= required;
+  
+  return (
+    <div style={{ marginBottom: '20px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '0.9rem', color: 'var(--text-body)', fontWeight: 'bold' }}>
+        <span>{label}</span>
+        <span style={{ color: isCompleted ? '#10b981' : 'var(--text-title)' }}>
+          {current || 0} / {required} {isCompleted && '✅'}
+        </span>
+      </div>
+      <div style={{ width: '100%', height: '12px', background: isLight ? 'rgba(0,0,0,0.06)' : '#334155', borderRadius: '100px', overflow: 'hidden' }}>
+        <div style={{ height: '100%', width: `${percent}%`, background: isCompleted ? '#10b981' : color, transition: 'width 1s ease-in-out' }}></div>
+      </div>
+    </div>
+  );
+}
+
 export default function MafoszProgressView({ user, allUsers = [] }: MafoszProgressViewProps) {
+  // 1. Hook-ok meghívása feltételek és try/catch NÉLKÜL a legelején
   const { t, lang } = useLanguage();
+  const themeContext = useTheme();
+  const isLight = themeContext?.theme === 'light';
+
   const [stats, setStats] = useState({ acceptances: 0, works: 0, awards: 0 });
   const [entries, setEntries] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedEmail, setSelectedEmail] = useState(user?.email || '');
-
-  // 🎯 BIZTONSÁGI VÉDŐHÁLÓ: Lekérjük az aktuális témát a reszponzív stílusokhoz
-  let isLight = false;
-  try {
-    const themeContext = useTheme();
-    if (themeContext) {
-      isLight = themeContext.theme === 'light';
-    }
-  } catch (e) {}
 
   useEffect(() => {
     if (user?.email) setSelectedEmail(user.email);
@@ -64,17 +75,33 @@ export default function MafoszProgressView({ user, allUsers = [] }: MafoszProgre
     const fetchProgress = async () => {
       setIsLoading(true); 
       try {
+        const targetEmail = selectedEmail || user.email;
         const [resStats, resEntries] = await Promise.all([
-          fetch(`${BACKEND_URL}/api/mafosz-progress?userEmail=${selectedEmail}`, {
+          fetch(`${BACKEND_URL}/api/mafosz-progress?userEmail=${encodeURIComponent(targetEmail)}`, {
             headers: getAuthHeaders()
           }),
-          fetch(`${BACKEND_URL}/api/mafosz-entries?userEmail=${selectedEmail}`, {
+          fetch(`${BACKEND_URL}/api/mafosz-entries?userEmail=${encodeURIComponent(targetEmail)}`, {
             headers: getAuthHeaders()
           })
         ]);
 
-        if (resStats.ok) setStats(await resStats.json());
-        if (resEntries.ok) setEntries(await resEntries.json());
+        if (resStats.ok) {
+          const statsData = await resStats.json();
+          if (statsData && typeof statsData === 'object' && !Array.isArray(statsData)) {
+            setStats({
+              acceptances: Number(statsData.acceptances || 0),
+              works: Number(statsData.works || 0),
+              awards: Number(statsData.awards || 0)
+            });
+          }
+        }
+
+        if (resEntries.ok) {
+          const entriesData = await resEntries.json();
+          if (Array.isArray(entriesData)) {
+            setEntries(entriesData);
+          }
+        }
       } catch (e) {
         console.error("Hiba a MAFOSZ adatok lekérésekor:", e);
       } finally {
@@ -86,17 +113,19 @@ export default function MafoszProgressView({ user, allUsers = [] }: MafoszProgre
   }, [user, selectedEmail]);
 
   const filteredEntries = useMemo(() => {
+    if (!Array.isArray(entries)) return [];
     if (!searchTerm) return entries;
     const lowerTerm = searchTerm.toLowerCase();
     
     return entries.filter(entry => 
-      (entry.photo_title && entry.photo_title.toLowerCase().includes(lowerTerm)) ||
-      (entry.salon_name && entry.salon_name.toLowerCase().includes(lowerTerm)) ||
-      (entry.mafosz_number && entry.mafosz_number.toLowerCase().includes(lowerTerm)) ||
-      (entry.award && entry.award.toLowerCase().includes(lowerTerm))
+      (entry?.photo_title && String(entry.photo_title).toLowerCase().includes(lowerTerm)) ||
+      (entry?.salon_name && String(entry.salon_name).toLowerCase().includes(lowerTerm)) ||
+      (entry?.mafosz_number && String(entry.mafosz_number).toLowerCase().includes(lowerTerm)) ||
+      (entry?.award && String(entry.award).toLowerCase().includes(lowerTerm))
     );
   }, [entries, searchTerm]);
 
+  // Korai visszatérés a Prémium Paywall-hoz (Az összes Hook LEFUTÁSA UTÁN)
   if (!user || !user.is_premium) {
     return (
       <div>
@@ -113,32 +142,13 @@ export default function MafoszProgressView({ user, allUsers = [] }: MafoszProgre
 
   for (let i = 0; i < MAFOSZ_LEVELS.length; i++) {
     const lvl = MAFOSZ_LEVELS[i];
-    if (stats.acceptances >= lvl.req.acceptances && stats.works >= lvl.req.works && stats.awards >= lvl.req.awards) {
+    if ((stats.acceptances || 0) >= lvl.req.acceptances && (stats.works || 0) >= lvl.req.works && (stats.awards || 0) >= lvl.req.awards) {
       currentLevel = lvl;
       nextLevel = MAFOSZ_LEVELS[i + 1] || null;
     } else {
       break;
     }
   }
-
-  const ProgressBar = ({ label, current, required, color }: any) => {
-    const percent = Math.min(100, Math.round((current / required) * 100));
-    const isCompleted = current >= required;
-    
-    return (
-      <div style={{ marginBottom: '20px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '0.9rem', color: 'var(--text-body)', fontWeight: 'bold' }}>
-          <span>{label}</span>
-          <span style={{ color: isCompleted ? '#10b981' : 'var(--text-title)' }}>
-            {current} / {required} {isCompleted && '✅'}
-          </span>
-        </div>
-        <div style={{ width: '100%', height: '12px', background: isLight ? 'rgba(0,0,0,0.06)' : '#334155', borderRadius: '100px', overflow: 'hidden' }}>
-          <div style={{ height: '100%', width: `${percent}%`, background: isCompleted ? '#10b981' : color, transition: 'width 1s ease-in-out' }}></div>
-        </div>
-      </div>
-    );
-  };
 
   return (
     <div>
@@ -147,7 +157,7 @@ export default function MafoszProgressView({ user, allUsers = [] }: MafoszProgre
       </h2>
 
       {/* --- ADMIN LEGÖRDÜLŐ MENÜ --- */}
-      {user.email === ADMIN_EMAIL && allUsers.length > 0 && (
+      {user?.email === ADMIN_EMAIL && allUsers.length > 0 && (
         <div style={{ marginBottom: '30px', padding: '20px', background: 'var(--bg-card)', borderRadius: '12px', border: '2px solid #f59e0b', boxShadow: isLight ? '0 4px 15px rgba(0,0,0,0.04)' : '0 4px 6px rgba(0,0,0,0.3)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '10px' }}>
             <span style={{ fontSize: '1.5rem' }}>👑</span>
@@ -165,8 +175,8 @@ export default function MafoszProgressView({ user, allUsers = [] }: MafoszProgre
           >
             <option value={user.email}>-- Saját adataim megtekintése --</option>
             {allUsers
-              .filter(u => u.email !== user.email)
-              .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+              .filter(u => u?.email !== user.email)
+              .sort((a, b) => (a?.name || '').localeCompare(b?.name || ''))
               .map(u => (
                 <option key={u.email} value={u.email}>
                   {u.name} ({u.email})
@@ -202,15 +212,15 @@ export default function MafoszProgressView({ user, allUsers = [] }: MafoszProgre
               
               <div style={{ display: 'flex', justifyContent: 'center', gap: '15px', marginTop: '30px' }}>
                 <div style={{ background: 'var(--bg-main)', padding: '10px 15px', borderRadius: '8px', border: '1px solid var(--border-main)', minWidth: '80px' }}>
-                  <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#38bdf8' }}>{stats.acceptances}</div>
+                  <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#38bdf8' }}>{stats.acceptances || 0}</div>
                   <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Elfogadás</div>
                 </div>
                 <div style={{ background: 'var(--bg-main)', padding: '10px 15px', borderRadius: '8px', border: '1px solid var(--border-main)', minWidth: '80px' }}>
-                  <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#f472b6' }}>{stats.works}</div>
+                  <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#f472b6' }}>{stats.works || 0}</div>
                   <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Különböző Mű</div>
                 </div>
                 <div style={{ background: 'var(--bg-main)', padding: '10px 15px', borderRadius: '8px', border: '1px solid var(--border-main)', minWidth: '80px' }}>
-                  <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#f59e0b' }}>{stats.awards}</div>
+                  <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#f59e0b' }}>{stats.awards || 0}</div>
                   <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Díjak száma</div>
                 </div>
               </div>
@@ -219,9 +229,9 @@ export default function MafoszProgressView({ user, allUsers = [] }: MafoszProgre
             {nextLevel ? (
               <div style={{ background: 'var(--bg-card)', padding: '30px', borderRadius: '16px', border: '1px solid var(--border-main)', boxShadow: isLight ? '0 4px 15px rgba(0,0,0,0.03)' : 'none' }}>
                 <div style={{ fontSize: '1rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '20px' }}>Következő Cél: <span style={{ color: nextLevel.color, fontWeight: 'bold' }}>{nextLevel.id}</span></div>
-                <ProgressBar label="Összes Elfogadás" current={stats.acceptances} required={nextLevel.req.acceptances} color="#38bdf8" />
-                <ProgressBar label="Különböző Művek" current={stats.works} required={nextLevel.req.works} color="#f472b6" />
-                <ProgressBar label="Díjak száma" current={stats.awards} required={nextLevel.req.awards} color="#f59e0b" />
+                <ProgressBar label="Összes Elfogadás" current={stats.acceptances} required={nextLevel.req.acceptances} color="#38bdf8" isLight={isLight} />
+                <ProgressBar label="Különböző Művek" current={stats.works} required={nextLevel.req.works} color="#f472b6" isLight={isLight} />
+                <ProgressBar label="Díjak száma" current={stats.awards} required={nextLevel.req.awards} color="#f59e0b" isLight={isLight} />
               </div>
             ) : (
               <div style={{ background: 'linear-gradient(135deg, #10b981, #047857)', padding: '30px', borderRadius: '16px', color: 'white', textAlign: 'center', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
@@ -276,8 +286,8 @@ export default function MafoszProgressView({ user, allUsers = [] }: MafoszProgre
                 </thead>
                 <tbody>
                   {filteredEntries.map((entry, idx) => {
-                    const isAcceptance = entry.award?.toLowerCase() === 'acceptance';
-                    const isOnline = entry.submission_type === 'online';
+                    const isAcceptance = entry?.award?.toLowerCase() === 'acceptance';
+                    const isOnline = entry?.submission_type === 'online';
                     
                     return (
                       <tr key={idx} style={{ borderBottom: '1px solid var(--border-main)', transition: 'background 0.1s' }} onMouseOver={e => e.currentTarget.style.background = 'var(--hover-overlay)'} onMouseOut={e => e.currentTarget.style.background = 'transparent'}>
