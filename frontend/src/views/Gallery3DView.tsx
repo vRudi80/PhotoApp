@@ -290,30 +290,29 @@ function ArtworkFrame({ position, rotation, url, title, themeConfig, onClick }: 
 }
 
 // ====================================================================
-// 🏛️ MILIMÉTER-PONTOS VÁLASZFAL- MÁTRIX (AKADÁLYMENTES KAPUKKAL)
+// 🏛️ REALISZTIKUS FÉNYEKKEL TARKÍTOTT MÚZEUMI TÉR (TISZTA ÁTJÁRÓK)
 // ====================================================================
 function GalleryRoom({ photos, themeName, onSelectPhoto }: { photos: any[]; themeName?: string; onSelectPhoto: (p: any) => void }) {
   const theme = GALLERY_THEMES[themeName || 'modern'] || GALLERY_THEMES.modern;
   const count = photos.length;
 
-  // 🎯 HAJSZÁLPONTOS FALI POZÍCIÓK (A Kapuk és Átjárók közepe üres!)
   const wallPositions: [number, number, number][] = [
     // --- 1. CSARNOK (1-10. kép) ---
-    [-6, 1.20, -4.96], [6, 1.20, -4.96],                   // 1-2: Hátsó fal bal & jobb oldal (Közép X=0 üres a kapunak!)
+    [-6, 1.20, -4.96], [6, 1.20, -4.96],                   // 1-2: Hátsó fal bal & jobb oldal
     [-9.96, 1.20, -2], [-9.96, 1.20, 2.5], [-9.96, 1.20, 6.5], // 3-5: Bal oldali fal
     [9.96, 1.20, -2],  [9.96, 1.20, 2.5],  [9.96, 1.20, 6.5],  // 6-8: Jobb oldali fal
     [-5, 1.20, 8.96],  [5, 1.20, 8.96],                    // 9-10: Bejárati fal
 
     // --- 2. CSARNOK / BELSŐ SZÁRNY (11-20. kép) ---
-    [-6, 1.20, -18.96], [0, 1.20, -18.96], [6, 1.20, -18.96], // 11-13: 2. Szoba Hátsó fal (X=-6, 0, 6)
+    [-6, 1.20, -18.96], [0, 1.20, -18.96], [6, 1.20, -18.96], // 11-13: 2. Szoba Hátsó fal
     [-9.96, 1.20, -9],  [-9.96, 1.20, -13], [-9.96, 1.20, -17],// 14-16: 2. Szoba Bal oldali fala
     [9.96, 1.20, -9],   [9.96, 1.20, -13],  [9.96, 1.20, -17], // 17-19: 2. Szoba Jobb oldali fala
-    [-6.5, 1.20, -5.04],                                    // 20: Válaszfal belső oldala (X=-6.5)
+    [-6.5, 1.20, -5.04],                                    // 20: Válaszfal belső oldala
 
     // --- 3. CSARNOK / MÚZEUMI PAVILONOK (21-30. kép) ---
-    [-19.96, 1.20, -14], [-19.96, 1.20, -8], [-19.96, 1.20, -2], [-19.96, 1.20, 4], // 21-24: Bal pavilon külső fala
-    [19.96, 1.20, -14],  [19.96, 1.20, -8],  [19.96, 1.20, -2],  [19.96, 1.20, 4],  // 25-28: Jobb pavilon külső fala
-    [-15, 1.20, -18.96], [15, 1.20, -18.96]                                      // 29-30: Pavilonok hátsó fala
+    [-19.96, 1.20, -14], [-19.96, 1.20, -8], [-19.96, 1.20, -2], [-19.96, 1.20, 4], // 21-24: Bal pavilon
+    [19.96, 1.20, -14],  [19.96, 1.20, -8],  [19.96, 1.20, -2],  [19.96, 1.20, 4],  // 25-28: Jobb pavilon
+    [-15, 1.20, -18.96], [15, 1.20, -18.96]                                      // 29-30: Hátsó pavilon
   ];
 
   const wallRotations: [number, number, number][] = [
@@ -337,46 +336,84 @@ function GalleryRoom({ photos, themeName, onSelectPhoto }: { photos: any[]; them
 
   return (
     <>
-      <ambientLight intensity={1.8} />
-      <directionalLight position={[0, 8, 0]} intensity={1.0} color={theme.lightColor} />
+      {/* 🎯 ÁRNYALATDÚS, REALISZTIKUS VILÁGÍTÁS */}
+      <ambientLight intensity={1.1} />
+      
+      {/* Szobánkénti mennyezeti pontfények (Csillogást és fényfoltokat adnak a padlónak) */}
+      <pointLight position={[0, 4.2, 2]} intensity={22} distance={25} color={theme.lightColor} decay={1.5} />
+      {count > 10 && <pointLight position={[0, 4.2, -12]} intensity={22} distance={25} color={theme.lightColor} decay={1.5} />}
+      {count > 20 && (
+        <>
+          <pointLight position={[-15, 4.2, -5]} intensity={18} distance={25} color={theme.lightColor} decay={1.5} />
+          <pointLight position={[15, 4.2, -5]} intensity={18} distance={25} color={theme.lightColor} decay={1.5} />
+        </>
+      )}
 
-      {/* --- FŐTEREM --- */}
-      <mesh position={[0, -1.05, 2]}><boxGeometry args={[20, 0.1, 14]} /><meshStandardMaterial color={theme.floorColor} roughness={0.4} /></mesh>
-      <mesh position={[0, 5.05, 2]}><boxGeometry args={[20, 0.1, 14]} /><meshStandardMaterial color={theme.ceilingColor} /></mesh>
+      {/* --- FŐTEREM (SELYEMFÉNYŰ REFLEKTÍV PADLÓVAL) --- */}
+      <mesh position={[0, -1.05, 2]}>
+        <boxGeometry args={[20, 0.1, 14]} />
+        <meshStandardMaterial color={theme.floorColor} roughness={0.25} metalness={0.15} />
+      </mesh>
+      <mesh position={[0, 5.05, 2]}>
+        <boxGeometry args={[20, 0.1, 14]} />
+        <meshStandardMaterial color={theme.ceilingColor} roughness={0.8} />
+      </mesh>
 
-      {/* Külső határoló falak */}
-      <mesh position={[0, 2.0, count > 10 ? -19.05 : -5.05]}><boxGeometry args={[20, 6, 0.1]} /><meshBasicMaterial color={theme.wallColor} /></mesh>
-      <mesh position={[-10.05, 2.0, count > 10 ? -5 : 2]}><boxGeometry args={[0.1, 6, count > 10 ? 28 : 14]} /><meshBasicMaterial color={theme.wallColor} /></mesh>
-      <mesh position={[10.05, 2.0, count > 10 ? -5 : 2]}><boxGeometry args={[0.1, 6, count > 10 ? 28 : 14]} /><meshBasicMaterial color={theme.wallColor} /></mesh>
-      <mesh position={[0, 2.0, 9.05]}><boxGeometry args={[20, 6, 0.1]} /><meshBasicMaterial color={theme.wallColor} /></mesh>
+      {/* Falak fényérzékeny anyagtulajdonsággal */}
+      <mesh position={[0, 2.0, count > 10 ? -19.05 : -5.05]}><boxGeometry args={[20, 6, 0.1]} /><meshStandardMaterial color={theme.wallColor} roughness={0.65} /></mesh>
+      <mesh position={[-10.05, 2.0, count > 10 ? -5 : 2]}><boxGeometry args={[0.1, 6, count > 10 ? 28 : 14]} /><meshStandardMaterial color={theme.wallColor} roughness={0.65} /></mesh>
+      <mesh position={[10.05, 2.0, count > 10 ? -5 : 2]}><boxGeometry args={[0.1, 6, count > 10 ? 28 : 14]} /><meshStandardMaterial color={theme.wallColor} roughness={0.65} /></mesh>
+      <mesh position={[0, 2.0, 9.05]}><boxGeometry args={[20, 6, 0.1]} /><meshStandardMaterial color={theme.wallColor} roughness={0.65} /></mesh>
 
       {/* --- 2. SZÁRNY ÁTJÁRÓKAPUVAL (>10 KÉP) --- */}
       {count > 10 && (
         <>
-          <mesh position={[0, -1.05, -12]}><boxGeometry args={[20, 0.1, 14]} /><meshStandardMaterial color={theme.floorColor} roughness={0.4} /></mesh>
-          <mesh position={[0, 5.05, -12]}><boxGeometry args={[20, 0.1, 14]} /><meshStandardMaterial color={theme.ceilingColor} /></mesh>
+          <mesh position={[0, -1.05, -12]}>
+            <boxGeometry args={[20, 0.1, 14]} />
+            <meshStandardMaterial color={theme.floorColor} roughness={0.25} metalness={0.15} />
+          </mesh>
+          <mesh position={[0, 5.05, -12]}>
+            <boxGeometry args={[20, 0.1, 14]} />
+            <meshStandardMaterial color={theme.ceilingColor} roughness={0.8} />
+          </mesh>
           
-          {/* Nyitott Válaszfal Átjáróval */}
-          <mesh position={[-6.5, 2.0, -5.0]}><boxGeometry args={[7, 6, 0.15]} /><meshBasicMaterial color={theme.wallColor} /></mesh>
-          <mesh position={[6.5, 2.0, -5.0]}><boxGeometry args={[7, 6, 0.15]} /><meshBasicMaterial color={theme.wallColor} /></mesh>
-          <mesh position={[0, 4.2, -5.0]}><boxGeometry args={[6, 1.6, 0.15]} /><meshBasicMaterial color={theme.wallColor} /></mesh>
+          {/* Válaszfal két oldala */}
+          <mesh position={[-6.5, 2.0, -5.0]}><boxGeometry args={[7, 6, 0.15]} /><meshStandardMaterial color={theme.wallColor} roughness={0.65} /></mesh>
+          <mesh position={[6.5, 2.0, -5.0]}><boxGeometry args={[7, 6, 0.15]} /><meshStandardMaterial color={theme.wallColor} roughness={0.65} /></mesh>
+          <mesh position={[0, 4.2, -5.0]}><boxGeometry args={[6, 1.6, 0.15]} /><meshStandardMaterial color={theme.wallColor} roughness={0.65} /></mesh>
         </>
       )}
 
       {/* --- 3. PAVILON SZÁRNYAK (>20 KÉP) --- */}
       {count > 20 && (
         <>
-          <mesh position={[-15, -1.05, -5]}><boxGeometry args={[10, 0.1, 28]} /><meshStandardMaterial color={theme.floorColor} roughness={0.4} /></mesh>
-          <mesh position={[-20.05, 2.0, -5]}><boxGeometry args={[0.1, 6, 28]} /><meshBasicMaterial color={theme.wallColor} /></mesh>
+          <mesh position={[-15, -1.05, -5]}><boxGeometry args={[10, 0.1, 28]} /><meshStandardMaterial color={theme.floorColor} roughness={0.25} metalness={0.15} /></mesh>
+          <mesh position={[-20.05, 2.0, -5]}><boxGeometry args={[0.1, 6, 28]} /><meshStandardMaterial color={theme.wallColor} roughness={0.65} /></mesh>
 
-          <mesh position={[15, -1.05, -5]}><boxGeometry args={[10, 0.1, 28]} /><meshStandardMaterial color={theme.floorColor} roughness={0.4} /></mesh>
-          <mesh position={[20.05, 2.0, -5]}><boxGeometry args={[0.1, 6, 28]} /><meshBasicMaterial color={theme.wallColor} /></mesh>
+          <mesh position={[15, -1.05, -5]}><boxGeometry args={[10, 0.1, 28]} /><meshStandardMaterial color={theme.floorColor} roughness={0.25} metalness={0.15} /></mesh>
+          <mesh position={[20.05, 2.0, -5]}><boxGeometry args={[0.1, 6, 28]} /><meshStandardMaterial color={theme.wallColor} roughness={0.65} /></mesh>
         </>
       )}
 
-      {/* Szegélylécek a szobákban */}
-      <mesh position={[0, -0.85, -4.95]}><boxGeometry args={[19.8, 0.3, 0.08]} /><meshStandardMaterial color={theme.skirtingColor} /></mesh>
+      {/* 🎯 CSALÓDÁSMENTES, INTELIKENS SZEGÉLYLÉCEK */}
+      {/* Hátsó szegélyléc: Ha van 2. szoba, kettévágjuk, hogy a középső átjáróban NE LEGYEN LÉC! */}
+      {count > 10 ? (
+        <>
+          <mesh position={[-6.5, -0.85, -4.95]}><boxGeometry args={[6.8, 0.3, 0.08]} /><meshStandardMaterial color={theme.skirtingColor} /></mesh>
+          <mesh position={[6.5, -0.85, -4.95]}><boxGeometry args={[6.8, 0.3, 0.08]} /><meshStandardMaterial color={theme.skirtingColor} /></mesh>
+          <mesh position={[0, -0.85, -18.95]}><boxGeometry args={[19.8, 0.3, 0.08]} /><meshStandardMaterial color={theme.skirtingColor} /></mesh>
+        </>
+      ) : (
+        <mesh position={[0, -0.85, -4.95]}><boxGeometry args={[19.8, 0.3, 0.08]} /><meshStandardMaterial color={theme.skirtingColor} /></mesh>
+      )}
+
       <mesh position={[0, -0.85, 8.95]}><boxGeometry args={[19.8, 0.3, 0.08]} /><meshStandardMaterial color={theme.skirtingColor} /></mesh>
+
+      {/* Sarokpillérek */}
+      <mesh position={[-9.9, 2.0, -4.9]}><boxGeometry args={[0.2, 6, 0.2]} /><meshStandardMaterial color={theme.pillarColor} /></mesh>
+      <mesh position={[9.9, 2.0, -4.9]}><boxGeometry args={[0.2, 6, 0.2]} /><meshStandardMaterial color={theme.pillarColor} /></mesh>
+      <mesh position={[-9.9, 2.0, 8.9]}><boxGeometry args={[0.2, 6, 0.2]} /><meshStandardMaterial color={theme.pillarColor} /></mesh>
+      <mesh position={[9.9, 2.0, 8.9]}><boxGeometry args={[0.2, 6, 0.2]} /><meshStandardMaterial color={theme.pillarColor} /></mesh>
 
       {/* Képek elhelyezése */}
       {photos.map((photo, i) => {
