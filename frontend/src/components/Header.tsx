@@ -323,25 +323,28 @@ export default function Header({
         </div>
 
         <div className="nav-group">
+          {/* FŐOLDAL */}
           <div className="nav-item-container">
             <button className={`nav-btn ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => handleNavClick('dashboard')}>
               <Home size={14} /> <span>{t('navHome')}</span>
             </button>
           </div>
 
+          {/* ARÉNA / JÁTÉK */}
           <div className="nav-item-container">
             <button className={`nav-btn ${activeTab === 'weekly_challenge' ? 'active' : ''}`} style={{ color: activeTab === 'weekly_challenge' ? '#f97316' : '' }} onClick={() => handleNavClick('weekly_challenge')}>
               <Flame size={14} /> <span>{t('navArena')}</span>
             </button>
           </div>
 
+          {/* KVÍZ */}
           <div className="nav-item-container">
             <button className={`nav-btn ${activeTab === 'quiz' ? 'active' : ''}`} style={{ color: activeTab === 'quiz' ? '#f97316' : '' }} onClick={() => handleNavClick('quiz')}>
               <MessageCircleQuestion size={14} /> <span>{t('navQuiz')}</span>
             </button>
           </div>
 
-          {/* 🎯 ÚJ: TÁRLATOK MENTŐ GOMB A FŐMENÜBEN */}
+          {/* TÁRLATOK */}
           <div className="nav-item-container">
             <button 
               className={`nav-btn ${activeTab === '3d_gallery' ? 'active' : ''}`} 
@@ -352,6 +355,7 @@ export default function Header({
             </button>
           </div>
 
+          {/* FOTÓTÖRTÉNETI ALBUM */}
           <div className="nav-item-container">
             <button 
               className={`nav-btn ${activeTab === 'photo_history' ? 'active' : ''}`} 
@@ -362,6 +366,7 @@ export default function Header({
             </button>
           </div>
 
+          {/* PÁLYÁZATOK (LENYÍLÓ) */}
           <div className="nav-item-container">
             <button 
               className={`nav-btn ${dropdownOpen === 'contests' || activeTab.startsWith('contests_') || ['salons', 'fiap_progress', 'mafosz_progress'].includes(activeTab) ? 'active' : ''}`} 
@@ -385,6 +390,7 @@ export default function Header({
             )}
           </div>
           
+          {/* KLUB (LENYÍLÓ) */}
           <div className="nav-item-container">
             <button className={`nav-btn ${dropdownOpen === 'club' || activeTab.startsWith('club_') || activeTab === 'public_news' ? 'active' : ''}`} onClick={() => setDropdownOpen(dropdownOpen === 'club' ? null : 'club')}>
               <Users size={14} /> <span>{t('navClub')}</span> <ChevronDown size={12} style={{ opacity: 0.6 }} />
@@ -398,12 +404,32 @@ export default function Header({
             )}
           </div>
 
+          {/* 🎯 VISSZATETT FELFEDEZÉS MENÜ (PODCAST, PIACTÉR, TÉRKEP/HELYSZÍNEK) */}
+          <div className="nav-item-container">
+            <button 
+              className={`nav-btn ${dropdownOpen === 'explore' || ['podcast', 'map_spots'].includes(activeTab) || activeTab.startsWith('marketplace') ? 'active' : ''}`}
+              style={{ color: ['podcast', 'map_spots'].includes(activeTab) || activeTab.startsWith('marketplace') ? '#ec4899' : '' }}
+              onClick={() => setDropdownOpen(dropdownOpen === 'explore' ? null : 'explore')}
+            >
+              <Map size={14} /> <span>{t('navExplore') || (lang === 'en' ? 'Explore' : 'Felfedezés')}</span> <ChevronDown size={12} style={{ opacity: 0.6 }} />
+            </button>
+            {dropdownOpen === 'explore' && (
+              <div className="dropdown-menu">
+                <button className="drop-item" style={{ color: '#f43f5e' }} onClick={() => handleNavClick('podcast')}><Mic size={12} /> Podcast</button>
+                <button className="drop-item" style={{ color: '#38bdf8' }} onClick={() => handleNavClick('marketplace')}><ShoppingBag size={12} /> {t('navMarketplace') || (lang === 'en' ? 'Marketplace' : 'Piactér')}</button>
+                <button className="drop-item" style={{ color: '#10b981' }} onClick={() => handleNavClick('map_spots')}><Map size={12} /> {t('navMap') || (lang === 'en' ? 'Photo Spots' : 'Fotós helyszínek')}</button>
+              </div>
+            )}
+          </div>
+
+          {/* FÓRUM */}
           <div className="nav-item-container">
             <button className={`nav-btn ${activeTab === 'public_news' ? 'active' : ''}`} style={{ color: '#38bdf8' }} onClick={() => handleNavClick('public_news')}>
               <Newspaper size={14} /> <span>Fórum {unreadForumCount > 0 && `(${unreadForumCount})`}</span>
             </button>
           </div>
           
+          {/* ADMIN & VEZETŐ SÁV */}
           {(user?.email === ADMIN_EMAIL || isLeader) && (
             <div className="nav-item-container">
               <button className={`nav-btn ${dropdownOpen === 'admin' || activeTab.startsWith('admin_') || activeTab === 'leader_club' ? 'active' : ''}`} style={{ color: '#ef4444' }} onClick={() => setDropdownOpen(dropdownOpen === 'admin' ? null : 'admin')}>
@@ -414,15 +440,14 @@ export default function Header({
                   {isLeader && <button className="drop-item" style={{ color: '#0ea5e9' }} onClick={() => handleNavClick('leader_club')}>{t('subLeaderClub')}</button>}
                   {user?.email === ADMIN_EMAIL && <button className="drop-item" style={{ color: activeTab === 'admin_contests' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_contests')}>{t('subManageContests')}</button>}
                   {user?.email === ADMIN_EMAIL && (
-  <button 
-    className="drop-item" 
-    style={{ color: activeTab === 'admin_voter_analysis' ? '#ef4444' : '#f87171', fontWeight: 'bold' }} 
-    onClick={() => handleNavClick('admin_voter_analysis')}
-  >
-    <ShieldAlert size={12} /> Szavazat Analitika
-  </button>
-)}
-
+                    <button 
+                      className="drop-item" 
+                      style={{ color: activeTab === 'admin_voter_analysis' ? '#ef4444' : '#f87171', fontWeight: 'bold' }} 
+                      onClick={() => handleNavClick('admin_voter_analysis')}
+                    >
+                      <ShieldAlert size={12} /> Szavazat Analitika
+                    </button>
+                  )}
                   <button className="drop-item" style={{ color: activeTab === 'admin_meetings' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_meetings')}>{t('subManageMeetings')}</button>
                   <button className="drop-item" style={{ color: activeTab === 'admin_homeworks' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_homeworks')}>{t('subManageHomeworks')}</button>
                   {user?.email === ADMIN_EMAIL && <button className="drop-item" style={{ color: activeTab === 'admin_weekly' ? '#ef4444' : ''}} onClick={() => handleNavClick('admin_weekly')}>{t('subManageWeekly')}</button>}
