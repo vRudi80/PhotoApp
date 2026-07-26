@@ -1,6 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import { BACKEND_URL } from '../../utils/constants';
 
+// 🎯 KÖZPONTI AUTH FEJLÉC GENERÁTOR A VÉDETT ADMIN VÉGPONTOKHOZ
+const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
+  const token = localStorage.getItem('photoAppToken');
+  return {
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    ...extraHeaders
+  };
+};
+
 export default function AdminSettingsView() {
   const [categories, setCategories] = useState<any[]>([]);
   const [awards, setAwards] = useState<any[]>([]);
@@ -17,8 +26,8 @@ export default function AdminSettingsView() {
   const loadData = useCallback(async () => {
     try {
       const [catRes, awardRes] = await Promise.all([
-        fetch(`${BACKEND_URL}/api/categories`),
-        fetch(`${BACKEND_URL}/api/awards`)
+        fetch(`${BACKEND_URL}/api/categories`, { headers: getAuthHeaders() }),
+        fetch(`${BACKEND_URL}/api/awards`, { headers: getAuthHeaders() })
       ]);
       if (catRes.ok) setCategories(await catRes.json());
       if (awardRes.ok) setAwards(await awardRes.json());
@@ -33,20 +42,36 @@ export default function AdminSettingsView() {
     const url = editCatId ? `${BACKEND_URL}/api/categories/${editCatId}` : `${BACKEND_URL}/api/categories`;
     const method = editCatId ? 'PUT' : 'POST';
     
-    const res = await fetch(url, {
-      method, headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: catName, hunName: catHunName })
-    });
-    if (res.ok) {
-      setCatName(''); setCatHunName(''); setEditCatId(null);
-      loadData();
-    } else alert("Hiba a mentésnél!");
+    try {
+      const res = await fetch(url, {
+        method, 
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ name: catName, hunName: catHunName })
+      });
+
+      if (res.ok) {
+        setCatName(''); setCatHunName(''); setEditCatId(null);
+        loadData();
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        alert(`Hiba a mentésnél: ${errData.error || 'Nincs jogosultságod vagy hálózati hiba!'}`);
+      }
+    } catch (e) {
+      alert("Hálózati hiba a mentés során!");
+    }
   };
 
   const handleDeleteCategory = async (id: number) => {
     if (!window.confirm("Biztosan törlöd ezt a kategóriát?")) return;
-    const res = await fetch(`${BACKEND_URL}/api/categories/${id}`, { method: 'DELETE' });
-    if (res.ok) loadData(); else alert("Hiba! Lehet, hogy használatban van.");
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/categories/${id}`, { 
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
+      if (res.ok) loadData(); else alert("Hiba! Lehet, hogy használatban van vagy nincs jogosultságod.");
+    } catch (e) {
+      alert("Hálózati hiba!");
+    }
   };
 
   // --- Díj funkciók ---
@@ -55,20 +80,36 @@ export default function AdminSettingsView() {
     const url = editAwardId ? `${BACKEND_URL}/api/awards/${editAwardId}` : `${BACKEND_URL}/api/awards`;
     const method = editAwardId ? 'PUT' : 'POST';
     
-    const res = await fetch(url, {
-      method, headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ awardName })
-    });
-    if (res.ok) {
-      setAwardName(''); setEditAwardId(null);
-      loadData();
-    } else alert("Hiba a mentésnél!");
+    try {
+      const res = await fetch(url, {
+        method, 
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ awardName })
+      });
+
+      if (res.ok) {
+        setAwardName(''); setEditAwardId(null);
+        loadData();
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        alert(`Hiba a mentésnél: ${errData.error || 'Nincs jogosultságod vagy hálózati hiba!'}`);
+      }
+    } catch (e) {
+      alert("Hálózati hiba a mentés során!");
+    }
   };
 
   const handleDeleteAward = async (id: number) => {
     if (!window.confirm("Biztosan törlöd ezt a díjat?")) return;
-    const res = await fetch(`${BACKEND_URL}/api/awards/${id}`, { method: 'DELETE' });
-    if (res.ok) loadData(); else alert("Hiba! Lehet, hogy használatban van.");
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/awards/${id}`, { 
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
+      if (res.ok) loadData(); else alert("Hiba! Lehet, hogy használatban van vagy nincs jogosultságod.");
+    } catch (e) {
+      alert("Hálózati hiba!");
+    }
   };
 
   const inputStyle = { width: '100%', padding: '8px', backgroundColor: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '4px' };
