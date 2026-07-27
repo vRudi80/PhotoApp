@@ -50,7 +50,6 @@ interface PastArchiveProps {
   user: any;
 }
 
-// 🎯 KÖZPONTI AUTH FEJLÉC GENERÁTOR HELYI RENDERSZINTRE
 const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
   const token = localStorage.getItem('photoAppToken');
   return {
@@ -71,10 +70,8 @@ export default function PastArchive({
   const [adminPosterData, setAdminPosterData] = useState<any | null>(null);
   const [isAdminGeneratingPoster, setIsAdminGeneratingPoster] = useState(false);
   
-  // Az interaktív fotó-adatlap lokális állapota
   const [activeArchiveEntry, setActiveArchiveEntry] = useState<any | null>(null);
   
-  // A trófeakártya megosztásához szükséges lokális state-ek
   const [activeShareData, setActiveShareData] = useState<any | null>(null);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
 
@@ -105,7 +102,6 @@ export default function PastArchive({
     return () => { cancelled = true; };
   }, [activeShareData]);
 
-  // Felhasználói profilkép-térkép a photo_users táblából
   const [userAvatars, setUserAvatars] = useState<Record<string, string>>({});
 
   let isLight = false;
@@ -254,7 +250,7 @@ export default function PastArchive({
     return singlePhotosRankedList.filter((_, idx) => idx % 3 === 0).slice(0, 4); 
   }, [singlePhotosRankedList]);
 
-  // 🎯 TELJESEN KÍJAVÍTOTT GOLYÓÁLLÓ PLAKÁT GENERÁLÓ MOTOR
+  // 🎯 MOBILRA IS FELKÉSZÍTETT, NATÍV MEGOSZTÓT ÉS BLOBOZÁST HASZNÁLÓ PLAKÁT-GENERÁLÓ MOTOR
   const handleGenerateAdminPoster = async () => {
     if (!topThreeWinners.length) return alert("Nincs elegendő dobogós adat a plakát elkészítéséhez!");
     setIsAdminGeneratingPoster(true);
@@ -287,7 +283,6 @@ export default function PastArchive({
         entries: entriesWithBase64
       });
 
-      // Belső időzítő a DOM kirajzolásának és a képek betöltésének megvárására
       setTimeout(async () => {
         try {
           const node = document.getElementById('admin-past-poster-node');
@@ -296,7 +291,6 @@ export default function PastArchive({
             return;
           }
 
-          // Várjuk meg, hogy az összes beszúrt kép teljesen betöltsön a DOM-ban!
           const imgs = Array.from(node.querySelectorAll('img'));
           await Promise.all(
             imgs.map(img => {
@@ -308,16 +302,33 @@ export default function PastArchive({
             })
           );
 
-          // Dupla rendereléssel biztosítjuk a tökéletes PNG generálást mobilokon is
           await toPng(node, { cacheBust: true, pixelRatio: 1 });
           const dataUrl = await toPng(node, { cacheBust: true, quality: 1.0, width: 1200, height: 1200, pixelRatio: 1 });
           
-          const link = document.createElement('a'); 
-          link.download = `Arena_Results_${(currentTopicObj?.title || 'Challenge').replace(/\s+/g, '_')}_2026.png`;
-          link.href = dataUrl;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
+          // 🎯 ATOMSTABIL MOBIL KINYERÉS: Data URL konvertálása memóriabeli Blob-bá
+          const res = await fetch(dataUrl);
+          const blob = await res.blob();
+          const fileName = `Arena_Results_${(currentTopicObj?.title || 'Challenge').replace(/\s+/g, '_')}_2026.png`;
+          const file = new File([blob], fileName, { type: 'image/png' });
+
+          // 📲 Mobil esetén meghívjuk a natív megosztó menüt (Save Image / Megosztás)
+          if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              files: [file],
+              title: 'PhotAwesome Eredmény Plakát',
+              text: `Hivatalos eredmények: ${currentTopicObj?.title}`
+            });
+          } else {
+            // Asztali böngészőben közvetlen letöltést hajtunk végre
+            const blobUrl = URL.createObjectURL(blob);
+            const link = document.createElement('a'); 
+            link.download = fileName;
+            link.href = blobUrl;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+          }
         } catch (err: any) {
           console.error("❌ Plakát kimentési hiba:", err);
           alert("Hiba történt a plakát letöltése közben: " + (err?.message || 'Ismeretlen hiba'));
@@ -325,7 +336,7 @@ export default function PastArchive({
           setIsAdminGeneratingPoster(false);
           setAdminPosterData(null);
         }
-      }, 800);
+      }, 1000);
 
     } catch (error: any) {
       console.error("❌ Előkészítési hiba:", error);
@@ -366,10 +377,14 @@ export default function PastArchive({
       if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({ files: [file], title: t('msgShareTitle'), text: shareTextCompiled });
       } else {
+        const blobUrl = URL.createObjectURL(blob);
         const link = document.createElement('a'); 
         link.download = `Arena_Trophy_${activeShareData.topic_title.replace(/\s+/g, '_')}.png`;
-        link.href = dataUrl;
+        link.href = blobUrl;
+        document.body.appendChild(link);
         link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
       }
       setActiveShareData(null);
     } catch (e) {
@@ -678,7 +693,6 @@ export default function PastArchive({
       )}
 
       {/* REJTETT PLAKÁT-GENERÁLÓ SABLON ADMINOKNAK */}
-      {/* 🎯 JAVÍTVA: left: -9999px elhelyezés! Ez garantálja, hogy a html-to-image hajszálpontosan megkapja az 1200x1200px-es elrendezést visual glitch nélkül. */}
       <div style={{ position: 'fixed', left: '-9999px', top: 0, width: '1200px', height: '1200px', overflow: 'hidden', pointerEvents: 'none', zIndex: -9999 }}>
         {adminPosterData && (
           <div 
