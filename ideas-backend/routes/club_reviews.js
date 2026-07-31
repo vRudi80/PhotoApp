@@ -1,5 +1,6 @@
 const { OAuth2Client } = require('google-auth-library');
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+const fs = require('fs');
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "kovari.rudolf@gmail.com";
 
 // ====================================================================
@@ -35,13 +36,12 @@ async function requireAuth(req, res, next) {
   }
 }
 
-module.exports = function(app, pool, genAI) {
+module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
 
   // ====================================================================
   // 📚 1. KLUB TANFOLYAMOK KEZELÉSE (CRUD)
   // ====================================================================
   
-  // Tanfolyamok lekérése a felhasználó klubjához
   app.get('/api/club-courses', requireAuth, async (req, res) => {
     try {
       const [[userDb]] = await pool.query('SELECT club_name FROM photo_users WHERE email = ?', [req.user.email]);
@@ -59,7 +59,6 @@ module.exports = function(app, pool, genAI) {
     }
   });
 
-  // Új tanfolyam létrehozása (Klubvezető, Helyettes vagy Admin)
   app.post('/api/club-courses', requireAuth, async (req, res) => {
     const { title, description, instructor, price, locationType, locationDetail, errorCategory } = req.body;
     try {
@@ -81,7 +80,6 @@ module.exports = function(app, pool, genAI) {
     }
   });
 
-  // Tanfolyam törlése
   app.delete('/api/club-courses/:id', requireAuth, async (req, res) => {
     try {
       const [[userDb]] = await pool.query('SELECT club_name, club_role FROM photo_users WHERE email = ?', [req.user.email]);
@@ -96,7 +94,6 @@ module.exports = function(app, pool, genAI) {
     }
   });
 
-
   // ====================================================================
   // 🗓️ 2. HETI CIKLUS ÉS AKTUÁLIS FORDULÓ
   // ====================================================================
@@ -108,7 +105,6 @@ module.exports = function(app, pool, genAI) {
         return res.status(400).json({ error: 'Nem vagy tagja fotóklubnak.' });
       }
 
-      // Megkeressük az aktív fordulót
       let [rounds] = await pool.query(
         'SELECT * FROM club_review_rounds WHERE club_name = ? AND status != "closed" ORDER BY id DESC LIMIT 1',
         [userDb.club_name]
@@ -116,7 +112,6 @@ module.exports = function(app, pool, genAI) {
 
       let round = rounds[0];
 
-      // Ha nincs nyitott forduló, automatikusan létrehozunk egy újat az aktuális hétre
       if (!round) {
         const now = new Date();
         const nextSun = new Date(now);
@@ -144,16 +139,16 @@ module.exports = function(app, pool, genAI) {
     }
   });
 
-
   // ====================================================================
-  // 📸 3. KÉP FELTÖLTÉSE ÉS AI ELEMZÉS (GEMINI 2.5)
+  // 📸 3. KÉP FELTÖLTÉSE (FÁJL) ÉS AI ELEMZÉS (GEMINI 2.5)
   // ====================================================================
   
-  app.post('/api/club-review/upload', requireAuth, async (req, res) => {
-    const { roundId, title, fileUrl, driveFileId } = req.body;
+  app.post('/api/club-review/upload', requireAuth, upload.single('photo'), async (req, res) => {
+    const { roundId, title } = req.body;
 
-    if (!title || (!fileUrl && !driveFileId)) {
-      return res.status(400).json({ error: 'Cím és kép megadása kötelező.' });
+    if (!title || !req.file) {
+      cleanupTempFile(req.file);
+      return res.status(400).json({ error: 'Képfájl kiválasztása és cím megadása kötelező.' });
     }
 
     try {
@@ -163,11 +158,11 @@ module.exports = function(app, pool, genAI) {
       );
 
       if (!userDb || !userDb.club_name) {
+        cleanupTempFile(req.file);
         return res.status(400).json({ error: 'Csak klubtagok tölthetnek fel képet.' });
       }
 
       // Csomagkorlát ellenőrzése
-      // Ingyenes / Klubtag 1. szint: max 3 kép | FIAP Pro (premium_level >= 2): max 10 kép
       const maxUploads = (userDb.is_premium && userDb.premium_level >= 2) ? 10 : 3;
 
       const [[{ uploadCount }]] = await pool.query(
@@ -176,19 +171,44 @@ module.exports = function(app, pool, genAI) {
       );
 
       if (uploadCount >= maxUploads) {
+        cleanupTempFile(req.file);
         return res.status(403).json({ 
           error: `A csomagod alapján ezen a héten legfeljebb ${maxUploads} képet tölthetsz fel! Válts FIAP Pro csomagra a 10 képes korláthoz.` 
         });
       }
 
-      // 🤖 GEMINI AI ELEMZÉS & TANFOLYAM ILLESZTÉS
+      // 1. FELTÖLTÉS A GOOGLE DRIVE-RA
+      const fileMetadata = { name: `${Date.now()}_${req.file.originalname}` };
+      const media = { mimeType: req.file.mimetype, body: fs.createReadStream(req.file.path) };
+
+      const driveRes = await drive.files.create({
+        requestBody: fileMetadata,
+        media: media,
+        fields: 'id'
+      });
+
+      const driveFileId = driveRes.data.id;
+
+      await drive.permissions.create({
+        fileId: driveFileId,
+        requestBody: { role: 'reader', type: 'anyone' }
+      });
+
+      const fileUrl = `https://lh3.googleusercontent.com/d/${driveFileId}`;
+
+      // 2. KÉP BEOLVASÁSA MEMÓRIÁBA AZ AI ELEMZÉSHEZ ÉS HELYI FÁJL TÖRLÉSE
+      const imageBuffer = fs.readFileSync(req.file.path);
+      const base64Data = imageBuffer.toString('base64');
+      const mimeType = req.file.mimetype || 'image/jpeg';
+      cleanupTempFile(req.file);
+
+      // 3. GEMINI AI ELEMZÉS & TANFOLYAM ILLESZTÉS
       let aiCategory = 'color';
       let aiScore = 70;
       let aiFeedback = 'Szép kompozíció és jó fénykezelés.';
       let suggestedCourseId = null;
 
       try {
-        // Lekérjük a klub aktív tanfolyamait az AI ajánláshoz
         const [courses] = await pool.query(
           'SELECT id, title, error_category FROM photo_club_courses WHERE club_name = ? AND is_active = 1',
           [userDb.club_name]
@@ -215,34 +235,24 @@ module.exports = function(app, pool, genAI) {
           "suggestedCourseId": A fenti listából kiválasztott tanfolyam ID-ja, ami segítene kijavítani a kép hibáját (ha nincs találat, null)
         }`;
 
-        // Ha van elérhető képlink, elemezzük
-        const imageUrl = fileUrl || `https://lh3.googleusercontent.com/d/${driveFileId}`;
-        const imageRes = await fetch(imageUrl);
+        const result = await model.generateContent([
+          prompt,
+          { inlineData: { data: base64Data, mimeType } }
+        ]);
+
+        const aiData = JSON.parse(result.response.text());
+        aiCategory = aiData.category || 'color';
+        aiScore = Math.min(100, Math.max(10, Number(aiData.score) || 70));
         
-        if (imageRes.ok) {
-          const arrayBuffer = await imageRes.arrayBuffer();
-          const base64Data = Buffer.from(arrayBuffer).toString('base64');
-          const mimeType = imageRes.headers.get('content-type') || 'image/jpeg';
+        const fiapUpsell = " 🌟 Tipp: Ez a kép a FIAP nemzetközi szalonokon is jó eséllyel indulhatna! Próbáld ki a PhotAwesome FIAP modulját.";
+        aiFeedback = (aiData.critique || 'Jó kivitelezés.') + fiapUpsell;
+        suggestedCourseId = aiData.suggestedCourseId || null;
 
-          const result = await model.generateContent([
-            prompt,
-            { inlineData: { data: base64Data, mimeType } }
-          ]);
-
-          const aiData = JSON.parse(result.response.text());
-          aiCategory = aiData.category || 'color';
-          aiScore = Math.min(100, Math.max(10, Number(aiData.score) || 70));
-          
-          // FIAP Upsell mondat hozzáfűzése a kritikához
-          const fiapUpsell = " 🌟 Tipp: Ez a kép a FIAP nemzetközi szalonokon is jó eséllyel indulhatna! Próbáld ki a PhotAwesome FIAP modulját.";
-          aiFeedback = (aiData.critique || 'Jó kivitelezés.') + fiapUpsell;
-          suggestedCourseId = aiData.suggestedCourseId || null;
-        }
       } catch (aiErr) {
         console.error("AI elemzési hiba:", aiErr.message);
       }
 
-      // Kép elmentése
+      // 4. KÉP ADATOK ELMENTÉSE AZ ADATBÁZISBA
       const [ins] = await pool.query(
         `INSERT INTO club_review_entries 
          (round_id, club_name, user_email, user_name, title, file_url, drive_file_id, ai_category, ai_score, ai_feedback, ai_suggested_course_id) 
@@ -252,10 +262,10 @@ module.exports = function(app, pool, genAI) {
 
       res.json({ success: true, entryId: ins.insertId });
     } catch (err) {
+      cleanupTempFile(req.file);
       res.status(500).json({ error: err.message });
     }
   });
-
 
   // ====================================================================
   // 🗳️ 4. PONTOZÁS (TAGOK ÉS MESTEREK)
@@ -279,12 +289,10 @@ module.exports = function(app, pool, genAI) {
       if (!entry) return res.status(404).json({ error: 'A kép nem található.' });
       if (entry.club_name !== userDb.club_name) return res.status(403).json({ error: 'Más klub képére nem szavazhatsz.' });
 
-      // 🛑 SAJÁT KÉP ELLENI VÉDELEM
       if (entry.user_email === req.user.email) {
         return res.status(400).json({ error: 'A saját képedet nem értékelheted!' });
       }
 
-      // Pontszám skála validáció
       const isMaster = userDb.club_role === 'master' || userDb.club_role === 'leader';
       const evaluatorRole = isMaster ? 'master' : 'member';
 
@@ -296,7 +304,6 @@ module.exports = function(app, pool, genAI) {
         return res.status(400).json({ error: 'Mesterként 1 és 10 közötti pontot adhatsz!' });
       }
 
-      // Pontszám beszúrása vagy frissítése (UPSERT)
       await pool.query(
         `INSERT INTO club_review_ratings (entry_id, evaluator_email, evaluator_role, score) 
          VALUES (?, ?, ?, ?) 
@@ -309,7 +316,6 @@ module.exports = function(app, pool, genAI) {
       res.status(500).json({ error: err.message });
     }
   });
-
 
   // ====================================================================
   // 📊 5. FORDULÓ KÉPEINEK LEKÉRÉSE ÉS EREDMÉNYEK
