@@ -36,6 +36,15 @@ async function requireAuth(req, res, next) {
   }
 }
 
+// ISO-8601 szerinti év hete számító függvény
+function getISOWeekNumber(d) {
+  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const dayNum = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  return Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
+}
+
 module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
 
   // ====================================================================
@@ -163,7 +172,8 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
         const nextWed = new Date(nextSun);
         nextWed.setDate(nextSun.getDate() + 3);
 
-        const weekTitle = `${now.getFullYear()} / ${Math.ceil(now.getDate() / 7)}. hét - Heti Képértékelő`;
+        const weekNum = getISOWeekNumber(now);
+        const weekTitle = `${now.getFullYear()} / ${weekNum}. hét - Heti Képértékelő`;
 
         const [ins] = await pool.query(
           `INSERT INTO club_review_rounds (club_name, title, upload_deadline, rating_deadline, status) 
