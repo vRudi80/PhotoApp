@@ -3,6 +3,15 @@ const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const fs = require('fs');
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "kovari.rudolf@gmail.com";
 
+// ISO-8601 szerinti év hete számító függvény
+function getISOWeekNumber(d) {
+  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const dayNum = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  return Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
+}
+
 // ====================================================================
 // 🔒 AUTH MIDDLEWARE
 // ====================================================================
@@ -34,15 +43,6 @@ async function requireAuth(req, res, next) {
   } catch (error) {
     return res.status(401).json({ error: 'Lejárt vagy érvénytelen munkamenet!' });
   }
-}
-
-// ISO-8601 szerinti év hete számító függvény
-function getISOWeekNumber(d) {
-  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-  const dayNum = date.getUTCDay() || 7;
-  date.setUTCDate(date.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
-  return Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
 }
 
 module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
@@ -147,9 +147,9 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
   });
 
   // ====================================================================
-  // 🗓️ 3. AKTUÁLIS FORDULÓ LEKÉRÉSE / LÉTREHOZÁSA
+  // 🗓️ 3. AKTUÁLIS FORDULÓ LEKÉRÉSE / AUTOMATIKUS INDÍTÁSA
   // ====================================================================
-    app.get('/api/club-review/active-round', requireAuth, async (req, res) => {
+  app.get('/api/club-review/active-round', requireAuth, async (req, res) => {
     try {
       const [[userDb]] = await pool.query('SELECT club_name, club_role, is_master, is_premium, premium_level FROM photo_users WHERE email = ?', [req.user.email]);
       if (!userDb || !userDb.club_name) {
@@ -158,13 +158,13 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
 
       const now = new Date();
 
-      // 1. Automatikusan lezárjuk azokat a fordulókat, ahol a szerda éjféli rating_deadline eltelt
+      // 1. Automatice lezárjuk azokat a fordulókat, ahol a szerda éjféli rating_deadline eltelt
       await pool.query(
         'UPDATE club_review_rounds SET status = "closed" WHERE club_name = ? AND rating_deadline < ? AND status != "closed"',
         [userDb.club_name, now]
       );
 
-      // 2. Megkeressük azt a fordulót, ami az AKTUÁLIS feltöltési hétre vonatkozik (upload_deadline >= now)
+      // 2. Megkeressük azt a fordulót, amelynek feltöltési határideje még érvényes (upload_deadline >= now)
       let [rounds] = await pool.query(
         'SELECT * FROM club_review_rounds WHERE club_name = ? AND upload_deadline >= ? ORDER BY id DESC LIMIT 1',
         [userDb.club_name, now]
@@ -172,7 +172,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
 
       let round = rounds[0];
 
-      // 3. Ha hétfő van (vagy nincs aktív feltöltési hét), automatikusan létrehozzuk az ÚJ HETET!
+      // 3. Ha hétfő van (vagy nincs még ezen a héten nyitott feltöltési forduló), automatikusan létrehozzuk az ÚJ HETET!
       if (!round) {
         const nextSun = new Date(now);
         nextSun.setDate(now.getDate() + ((7 - now.getDay()) % 7));
@@ -207,7 +207,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
     }
   });
 
-
   // ====================================================================
   // 📸 4. KÉP FELTÖLTÉSE (FÁJL) ÉS AI ELEMZÉS (GEMINI 2.5)
   // ====================================================================
@@ -230,25 +229,24 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
         return res.status(400).json({ error: 'Csak klubtagok tölthetnek fel képet.' });
       }
 
-      // 🎯 BIZTONSÁGOS FORDULÓ ID BEÁLLÍTÁS
       let targetRoundId = Number(roundId);
-      if (isNaN(targetRoundId) || !targetRoundId) {
-        const [[activeRoundDb]] = await pool.query(
-          'SELECT id FROM club_review_rounds WHERE club_name = ? AND status != "closed" ORDER BY id DESC LIMIT 1',
-          [userDb.club_name]
-        );
-        targetRoundId = activeRoundDb ? activeRoundDb.id : null;
-      }
+      const [[targetRound]] = await pool.query(
+        'SELECT * FROM club_review_rounds WHERE id = ? AND club_name = ?',
+        [targetRoundId, userDb.club_name]
+      );
 
-      if (!targetRoundId) {
+      if (!targetRound) {
         cleanupTempFile(req.file);
-        return res.status(400).json({ error: 'Nem található érvényes heti forduló a feltöltéshez.' });
+        return res.status(404).json({ error: 'A megadott forduló nem található.' });
       }
 
-      // 💳 SZIGORÚ CSOMAGKORLÁT SZÁMÍTÁS:
-      // - Ingyenes (is_premium == 0): 1 kép
-      // - Prémium 1-es szint: 3 kép
-      // - Prémium 2-es szint (Pro): 10 kép
+      // ⏱️ FELTÖLTÉSI HATÁRIDŐ ELLENŐRZÉSE (Vasárnap éjfél)
+      if (new Date() > new Date(targetRound.upload_deadline)) {
+        cleanupTempFile(req.file);
+        return res.status(403).json({ error: 'Erre a fordulóra a képfeltöltési határidő (vasárnap éjfél) már lejárt!' });
+      }
+
+      // 💳 CSOMAGKORLÁT SZÁMÍTÁSA
       const isPremium = Number(userDb.is_premium) === 1 || userDb.is_premium === true;
       const premLevel = Number(userDb.premium_level || 0);
 
@@ -257,7 +255,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
         maxUploads = premLevel >= 2 ? 10 : 3;
       }
 
-      // Meglévő feltöltések száma a fordulóban
       const [[countRow]] = await pool.query(
         'SELECT COUNT(*) as uploadCount FROM club_review_entries WHERE round_id = ? AND user_email = ?',
         [targetRoundId, req.user.email]
@@ -268,7 +265,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
       if (currentUploadCount >= maxUploads) {
         cleanupTempFile(req.file);
         return res.status(403).json({ 
-          error: `A csomagod alapján ezen a héten legfeljebb ${maxUploads} képet tölthetsz fel! (Eddig feltöltve: ${currentUploadCount} db). Válts magasabb előfizetési csomagra a több feltöltéshez.` 
+          error: `A csomagod alapján ezen a héten legfeljebb ${maxUploads} képet tölthetsz fel! (Feltöltve: ${currentUploadCount} db).` 
         });
       }
 
@@ -368,7 +365,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
   });
 
   // ====================================================================
-  // 🗳️ 5. PONTOZÁS (KORLÁTLAN ÉRTÉKELÉS MINDENKINEK, SAJÁT KÉP KIVÉTELÉVEL)
+  // 🗳️ 5. PONTOZÁS (SZERDA ÉJFÉLIG ENGEDÉLYEZETT)
   // ====================================================================
   app.post('/api/club-review/rate', requireAuth, async (req, res) => {
     const { entryId, score } = req.body;
@@ -381,7 +378,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
       );
 
       const [[entry]] = await pool.query(
-        'SELECT round_id, club_name, user_email FROM club_review_entries WHERE id = ?', 
+        'SELECT e.round_id, e.club_name, e.user_email, r.rating_deadline, r.status FROM club_review_entries e JOIN club_review_rounds r ON e.round_id = r.id WHERE e.id = ?', 
         [entryId]
       );
 
@@ -390,6 +387,11 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
 
       if (entry.user_email === req.user.email) {
         return res.status(400).json({ error: 'A saját képedet nem értékelheted!' });
+      }
+
+      // ⏱️ SZAVAZÁSI HATÁRIDAŐ ELLENŐRZÉSE (Következő hét Szerda éjfél)
+      if (entry.status === 'closed' || new Date() > new Date(entry.rating_deadline)) {
+        return res.status(403).json({ error: 'Az értékelési határidő erre a fordulóra már lejárt!' });
       }
 
       const isMasterEvaluator = userDb.is_master === 1 || userDb.club_role === 'leader';
