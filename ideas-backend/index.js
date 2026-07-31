@@ -156,6 +156,7 @@ require('./routes/store')(app, pool);
 require('./routes/galleries')(app, pool);
 // 🎯 Így kell kinéznie a meghívásnak a index.js-ben:
 require('./routes/quiz')(app, pool, upload, genAI);
+require('./routes/club_reviews')(app, pool, genAI);
 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => console.log(`Szerver fut a ${PORT} porton`));
