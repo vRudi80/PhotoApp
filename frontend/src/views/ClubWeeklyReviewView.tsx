@@ -27,11 +27,11 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
   const [entries, setEntries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // 🎯 ÚJ SZŰRŐ ÉS RENDEZŐ ÁLLAPOTOK
-  const [photoScope, setPhotoScope] = useState<'all' | 'my'>('all'); // 'all' = Összes fotó, 'my' = Saját fotóim
-  const [isPendingOnly, setIsPendingOnly] = useState<boolean>(false); // Értékelésre várók szűrő
-  const [categoryFilter, setCategoryFilter] = useState<string>('all'); // Kategóriák legördülő
-  const [sortBy, setSortBy] = useState<'members' | 'masters' | 'ai'>('members'); // Sorrend legördülő (lezárás után)
+  // Szűrők ÉS Rendezés
+  const [photoScope, setPhotoScope] = useState<'all' | 'my'>('all');
+  const [isPendingOnly, setIsPendingOnly] = useState<boolean>(false);
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<'members' | 'masters' | 'ai'>('members');
 
   const [selectedEntryModal, setSelectedEntryModal] = useState<any | null>(null);
   const [showHelpModal, setShowHelpModal] = useState(false);
@@ -116,6 +116,22 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
     return false;
   }, [currentSelectedRoundObj, selectedRoundId, activeRound]);
 
+  // 💳 CSOMAG ÉS KÉPFELTÖLTÉSI LIMIT SZÁMÍTÁSA A FELUHASZNÁLÓNAK
+  const myUploadCount = useMemo(() => {
+    return entries.filter(e => e.user_email === user?.email).length;
+  }, [entries, user?.email]);
+
+  const maxUploads = useMemo(() => {
+    const isPremium = Number(user?.is_premium) === 1 || user?.is_premium === true;
+    const premLevel = Number(user?.premium_level || 0);
+    if (isPremium) {
+      return premLevel >= 2 ? 10 : 3;
+    }
+    return 1;
+  }, [user?.is_premium, user?.premium_level]);
+
+  const hasReachedUploadLimit = myUploadCount >= maxUploads;
+
   // 🏆 CSOPORTONKÉNTI RANGSOR SZÁMÍTÁS (Klubtagok, Mesterek, AI)
   const rankedEntries = useMemo(() => {
     if (!entries || entries.length === 0) return [];
@@ -154,17 +170,14 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
   const sortedAndFilteredEntries = useMemo(() => {
     let list = [...rankedEntries];
 
-    // 1. SAJÁT / ÖSSZES FOTÓ SZŰRŐ
     if (photoScope === 'my') {
       list = list.filter(e => e.user_email === user?.email);
     }
 
-    // 2. ÉRTÉKELÉSRE VÁRÓK SZŰRŐ
     if (isPendingOnly) {
       list = list.filter(e => e.user_email !== user?.email && (e.my_score === null || e.my_score === undefined));
     }
 
-    // 3. KATEGÓRIÁK LEGÖRDÜLŐ SZŰRŐ
     if (categoryFilter !== 'all') {
       list = list.filter(e => {
         if (!e.ai_category) return false;
@@ -173,7 +186,6 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
       });
     }
 
-    // 4. SORREND (CSAK LEZÁRÁS UTÁN)
     if (isRoundClosed) {
       list.sort((a, b) => {
         if (sortBy === 'members') return a.memberRank - b.memberRank;
@@ -223,7 +235,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
     }
   };
 
- const handleUpload = async (e: React.FormEvent) => {
+  const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!photoTitle.trim() || !uploadFile) {
       return alert('Kérlek add meg a kép címét és válaszd ki a fotó fájlt!');
@@ -326,12 +338,6 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
         </div>
 
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-           {isCurrentActiveRoundSelected && !isRoundClosed && (
-            <button onClick={() => setShowUploadModal(true)} style={{ background: '#f97316', color: 'white', border: 'none', padding: '10px 18px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Upload size={16} /> Kép Feltöltése
-            </button>
-          )}
-          
           <button onClick={() => setShowHelpModal(true)} style={{ background: 'rgba(167, 139, 250, 0.12)', color: '#a78bfa', border: '1px solid rgba(167, 139, 250, 0.3)', padding: '10px 16px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <HelpCircle size={18} /> Súgó & Szabályzat
           </button>
@@ -342,11 +348,41 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
             </button>
           )}
 
-         
+          {/* 🎯 FELTÖLTÉSI GOMB INAKTÍV TÁJÉKOZTATÓVAL HA ELÉRTE A LIMITET */}
+          {isCurrentActiveRoundSelected && !isRoundClosed && (
+            <button 
+              onClick={() => {
+                if (!hasReachedUploadLimit) setShowUploadModal(true);
+              }}
+              disabled={hasReachedUploadLimit}
+              title={
+                hasReachedUploadLimit
+                  ? `Elérted a heti feltöltési limitet (${myUploadCount}/${maxUploads} kép). Ebben a csomagban hetente legfeljebb ${maxUploads} fotó tölthető fel. Ha többet szeretnél feltölteni, az Előfizetések (packages) oldalon tudsz csomagot váltani!`
+                  : `Kép feltöltése (${myUploadCount}/${maxUploads} feltöltve ezen a héten)`
+              }
+              style={{ 
+                background: hasReachedUploadLimit ? '#334155' : '#f97316', 
+                color: hasReachedUploadLimit ? '#94a3b8' : 'white', 
+                border: hasReachedUploadLimit ? '1px solid #475569' : 'none', 
+                padding: '10px 18px', 
+                borderRadius: '8px', 
+                fontWeight: 'bold', 
+                cursor: hasReachedUploadLimit ? 'not-allowed' : 'pointer', 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '8px',
+                opacity: hasReachedUploadLimit ? 0.8 : 1,
+                transition: 'all 0.2s'
+              }}
+            >
+              <Upload size={16} /> 
+              {hasReachedUploadLimit ? `Limit elérve (${myUploadCount}/${maxUploads})` : `Kép Feltöltése (${myUploadCount}/${maxUploads})`}
+            </button>
+          )}
         </div>
       </div>
 
-      {/* 🎯 ÚJ EGYBEFÜGGŐ SZŰRŐSÁV */}
+      {/* 🎯 SZŰRŐSÁV */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px', background: 'var(--bg-card)', padding: '14px 18px', borderRadius: '12px', border: '1px solid var(--border-main)', flexWrap: 'wrap' }}>
         
         {/* 1. SAJÁT FOTÓIM / ÖSSZES FOTÓ KAPCSOLÓ */}
@@ -354,7 +390,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
           onClick={() => {
             const nextScope = photoScope === 'all' ? 'my' : 'all';
             setPhotoScope(nextScope);
-            if (nextScope === 'my') setIsPendingOnly(false); // Saját fotóknál kikapcsoljuk az értékelésre várókat
+            if (nextScope === 'my') setIsPendingOnly(false);
           }}
           style={{
             background: photoScope === 'my' ? '#a78bfa' : 'var(--bg-main)',
@@ -379,7 +415,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
         <button
           onClick={() => {
             setIsPendingOnly(prev => !prev);
-            if (!isPendingOnly) setPhotoScope('all'); // Értékelésre váróknál átváltunk összes fotóra
+            if (!isPendingOnly) setPhotoScope('all');
           }}
           style={{
             background: isPendingOnly ? '#f97316' : 'var(--bg-main)',
@@ -448,9 +484,9 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
                 cursor: 'pointer'
               }}
             >
-              <option value="members">Tagok értékelése</option>
-              <option value="masters">Mesterek értékelése</option>
-              <option value="ai">AI értékelése</option>
+              <option value="members">👥 Tagok értékelése</option>
+              <option value="masters">👑 Mesterek értékelése</option>
+              <option value="ai">🤖 AI értékelése</option>
             </select>
           </div>
         )}
