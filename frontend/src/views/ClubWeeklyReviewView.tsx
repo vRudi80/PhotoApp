@@ -29,7 +29,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
   
   // Szűrők ÉS Rendezés
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<'members' | 'masters' | 'ai'>('members'); // 🎯 RANGSOR RENDEZÉS
+  const [sortBy, setSortBy] = useState<'members' | 'masters' | 'ai'>('members');
   const [selectedEntryModal, setSelectedEntryModal] = useState<any | null>(null);
   const [showHelpModal, setShowHelpModal] = useState(false);
 
@@ -102,10 +102,10 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
 
   const currentSelectedRoundObj = roundsList.find(r => r.id === selectedRoundId);
 
-  // ⏰ LEZÁRÁS ELLENŐRZÉSE (Szerda éjfél / status == closed / archivált hetek)
+  // ⏰ LEZÁRÁS ELLENŐRZÉSE
   const isRoundClosed = useMemo(() => {
     if (!currentSelectedRoundObj) return false;
-    if (selectedRoundId !== activeRound?.id) return true; // Korábbi hetek mindig lezártnak számítanak
+    if (selectedRoundId !== activeRound?.id) return true;
     if (currentSelectedRoundObj.status === 'closed') return true;
     if (currentSelectedRoundObj.rating_deadline) {
       return new Date() > new Date(currentSelectedRoundObj.rating_deadline);
@@ -142,14 +142,21 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
     }));
   }, [entries]);
 
- // ⚡ SZŰRÉS ÉS RENDEZÉS ALAPJÁN FELDOLGOZOTT LISTA (TÖBB KATEGÓRIA TÁMOGATÁSSAL)
+  // ⏳ ÉRTÉKELÉSRE VÁRÓ KÉPEK SZÁMA
+  const unvotedCount = useMemo(() => {
+    return rankedEntries.filter(e => e.user_email !== user?.email && (e.my_score === null || e.my_score === undefined)).length;
+  }, [rankedEntries, user?.email]);
+
+  // ⚡ SZŰRÉS ÉS RENDEZÉS ALAPJÁN FELDOLGOZOTT LISTA
   const sortedAndFilteredEntries = useMemo(() => {
     let list = [...rankedEntries];
 
-    if (categoryFilter !== 'all') {
+    if (categoryFilter === 'pending') {
+      // 🎯 CSAK AZ ÉRTÉKELÉSRE VÁRÓ KÉPEK (nem saját & még nincs szavazat)
+      list = list.filter(e => e.user_email !== user?.email && (e.my_score === null || e.my_score === undefined));
+    } else if (categoryFilter !== 'all') {
       list = list.filter(e => {
         if (!e.ai_category) return false;
-        // Ellenőrizzük, hogy a kép kategóriái között szerepel-e a kiválasztott szűrő
         const categoryString = String(e.ai_category);
         return categoryString.includes(categoryFilter);
       });
@@ -166,7 +173,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
     }
 
     return list;
-  }, [rankedEntries, categoryFilter, sortBy, isRoundClosed]);
+  }, [rankedEntries, categoryFilter, sortBy, isRoundClosed, user?.email]);
 
   // ⚡ AZONNALI PONTOZÁS (OPTIMISTA FRISSÍTÉS)
   const handleRate = async (entryId: number, score: number) => {
@@ -321,7 +328,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
         </div>
       </div>
 
-      {/* 🎯 RENDEZÉSI STRIP (CSAK LEZÁRÁS UTÁN LÁTHATÓ) */}
+      {/* RENDEZÉSI STRIP (CSAK LEZÁRÁS UTÁN LÁTHATÓ) */}
       {isRoundClosed && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px', background: 'var(--bg-card)', padding: '12px 18px', borderRadius: '10px', border: '1px solid var(--border-main)', flexWrap: 'wrap' }}>
           <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -363,10 +370,11 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
         </div>
       )}
 
-      {/* KATEGÓRIA SZŰRŐK */}
+      {/* KATEGÓRIA SZŰRŐK ÉS ÉRTÉKELÉSRE VÁRÓK SZŰRŐ */}
       <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', overflowX: 'auto', pb: '5px' }}>
         {[
           { id: 'all', label: 'Összes Kép' },
+          { id: 'pending', label: `⏳ Értékelésre várók (${unvotedCount})` },
           { id: 'portrait', label: '👤 Portré' },
           { id: 'color', label: '🎨 Színes' },
           { id: 'monochrome', label: '🖤 Monokróm' },
@@ -376,9 +384,9 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
             key={cat.id} 
             onClick={() => setCategoryFilter(cat.id)}
             style={{ 
-              background: categoryFilter === cat.id ? '#a78bfa' : 'var(--bg-card)', 
-              color: categoryFilter === cat.id ? '#0f172a' : 'var(--text-title)', 
-              border: '1px solid var(--border-main)', 
+              background: categoryFilter === cat.id ? (cat.id === 'pending' ? '#f97316' : '#a78bfa') : 'var(--bg-card)', 
+              color: categoryFilter === cat.id ? '#0f172a' : (cat.id === 'pending' ? '#f97316' : 'var(--text-title)'), 
+              border: cat.id === 'pending' && categoryFilter !== 'pending' ? '1px solid #f97316' : '1px solid var(--border-main)', 
               padding: '8px 16px', borderRadius: '20px', fontWeight: 'bold', cursor: 'pointer', whiteSpace: 'nowrap' 
             }}
           >
@@ -390,7 +398,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
       {/* GALÉRIA */}
       {sortedAndFilteredEntries.length === 0 ? (
         <div style={{ padding: '50px', textAlign: 'center', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-main)', color: 'var(--text-muted)' }}>
-          Még nincsenek feltöltött képek ebben a kategóriában.
+          {categoryFilter === 'pending' ? '🎉 Minden képet értékeltél ebben a fordulóban!' : 'Még nincsenek feltöltött képek ebben a kategóriában.'}
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(310px, 1fr))', gap: '20px' }}>
@@ -503,7 +511,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
         </div>
       )}
 
-      {/* RÉSZLETES ELŐNÉZETI MODÁL (LEZÁRÁS UTÁN AI KRITIKÁVAL ÉS TANFOLYAMMAL) */}
+      {/* RÉSZLETES ELŐNÉZETI MODÁL */}
       {activeModalRankedEntry && (
         <div onClick={() => setSelectedEntryModal(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 99999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
           <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', borderRadius: '12px', padding: '25px', maxWidth: '700px', width: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
