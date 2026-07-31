@@ -4,7 +4,7 @@ import { getImageUrl } from '../utils/helpers';
 import VideoLoader from '../components/VideoLoader';
 import { 
   Award, Upload, Star, Clock, Filter, Sparkles, CheckCircle2, 
-  BookOpen, Eye, UserCheck, ChevronRight, X, ImageIcon, Calendar, History, Trophy 
+  BookOpen, Eye, UserCheck, ChevronRight, X, ImageIcon, Calendar, History, Trophy, HelpCircle, ShieldCheck 
 } from 'lucide-react';
 
 interface ClubWeeklyReviewProps {
@@ -27,9 +27,10 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
   const [entries, setEntries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // Szűrők
+  // Szűrők ÉS Modálok
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [selectedEntryModal, setSelectedEntryModal] = useState<any | null>(null);
+  const [showHelpModal, setShowHelpModal] = useState(false); // 💡 ÚJ: SÚGÓ MODÁL ÁLLAPOT
 
   // Képfeltöltés modál adatok
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -204,7 +205,6 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
   const isCurrentActiveRoundSelected = selectedRoundId === activeRound?.id;
   const currentSelectedRoundObj = roundsList.find(r => r.id === selectedRoundId);
 
-  // Kijelölt kép a rangsoros listából a modálhoz
   const activeModalRankedEntry = useMemo(() => {
     if (!selectedEntryModal) return null;
     return rankedEntries.find(e => e.id === selectedEntryModal.id) || selectedEntryModal;
@@ -261,7 +261,12 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+          {/* 💡 SÚGÓ GOMB */}
+          <button onClick={() => setShowHelpModal(true)} style={{ background: 'rgba(167, 139, 250, 0.12)', color: '#a78bfa', border: '1px solid rgba(167, 139, 250, 0.3)', padding: '10px 16px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <HelpCircle size={18} /> Súgó & Szabályzat
+          </button>
+
           {onOpenCourses && (
             <button onClick={onOpenCourses} style={{ background: 'var(--bg-main)', color: '#38bdf8', border: '1px solid var(--border-main)', padding: '10px 16px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <BookOpen size={16} /> Tanfolyamok
@@ -419,7 +424,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
 
             <img src={getImageUrl(activeModalRankedEntry.drive_file_id, activeModalRankedEntry.file_url)} alt="" style={{ width: '100%', maxHeight: '350px', objectFit: 'contain', borderRadius: '8px', background: '#000', marginBottom: '15px' }} />
 
-            {/* 🎯 KATEGÓRIA-HELYEZÉSEK DOBOZA A MODÁLBAN */}
+            {/* KATEGÓRIA-HELYEZÉSEK DOBOZA A MODÁLBAN */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', background: 'var(--bg-main)', padding: '15px', borderRadius: '8px', border: '1px solid var(--border-main)', textAlign: 'center', marginBottom: '15px' }}>
               <div>
                 <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 'bold', display: 'block' }}>Klubtagok szerint</span>
@@ -471,6 +476,98 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
                 )}
               </div>
             )}
+
+          </div>
+        </div>
+      )}
+
+      {/* 💡 SÚGÓ & SZABÁLYZAT MODÁL */}
+      {showHelpModal && (
+        <div onClick={() => setShowHelpModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 99999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', borderRadius: '16px', padding: '30px', maxWidth: '680px', width: '100%', maxHeight: '88vh', overflowY: 'auto', boxShadow: '0 20px 50px rgba(0,0,0,0.5)' }}>
+            
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid var(--border-main)', paddingBottom: '15px' }}>
+              <h3 style={{ margin: 0, color: '#a78bfa', fontSize: '1.4rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <HelpCircle size={26} /> Heti Képértékelő – Útmutató & Szabályzat
+              </h3>
+              <button onClick={() => setShowHelpModal(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}><X size={24} /></button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', color: 'var(--text-body)', fontSize: '0.92rem', lineHeight: '1.6' }}>
+              
+              {/* 1. MI EZ A MODUL? */}
+              <div style={{ background: 'var(--bg-main)', padding: '16px', borderRadius: '10px', border: '1px solid var(--border-main)' }}>
+                <h4 style={{ margin: '0 0 6px 0', color: 'var(--text-title)', fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  🎯 Mi ez a funkció?
+                </h4>
+                A **Heti Képértékelő** a fotóklubod automatizált szakmai műhelye. Lehetővé teszi, hogy a klubtagok hetente megosszák legfrissebb képeiket, és 3 független szemszögből kaphassanak objektív visszacsatolást a fejlődésükhöz.
+              </div>
+
+              {/* 2. HETI RITMUS */}
+              <div>
+                <h4 style={{ margin: '0 0 8px 0', color: '#38bdf8', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  📅 Heti Ritmus & Határidők
+                </h4>
+                <ul style={{ margin: 0, paddingLeft: '20px' }}>
+                  <li><b>Képfeltöltési időszak:</b> Hétfő 00:00 – Vasárnap 24:00.</li>
+                  <li><b>Értékelési időszak:</b> Hétfő 00:00 – Szerda 24:00.</li>
+                  <li><b>Eredményhirdetés & Zárás:</b> Csütörtök 00:00-tól a képek archiválódnak, és visszanézhetők a fejlécben lévő fordulóválasztóval.</li>
+                </ul>
+              </div>
+
+              {/* 3. A 3 ZSŰRI CSOPORT */}
+              <div>
+                <h4 style={{ margin: '0 0 8px 0', color: '#f59e0b', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  👥 A 3 Értékelő Csoport & Pontozás
+                </h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '8px' }}>
+                  <div style={{ background: 'var(--bg-main)', padding: '10px 14px', borderRadius: '8px', borderLeft: '4px solid #38bdf8' }}>
+                    <b style={{ color: '#38bdf8' }}>1. Klubtagok (0 – 2 pont)</b><br />
+                    Minden klubtag tetszőleges számú képet értékelhet a sajátján kívül (0 = Elfogadható, 1 = Jó, 2 = Kiváló).
+                  </div>
+
+                  <div style={{ background: 'var(--bg-main)', padding: '10px 14px', borderRadius: '8px', borderLeft: '4px solid #f59e0b' }}>
+                    <b style={{ color: '#f59e0b' }}>2. Mesterek (1 – 10 pont)</b><br />
+                    A Mesterek a klubvezető által megbízott tapasztalt fotósok és szakmai mentorok, akik 1-től 10-ig terjedő skálán adják meg a szakmai pontszámot.
+                  </div>
+
+                  <div style={{ background: 'var(--bg-main)', padding: '10px 14px', borderRadius: '8px', borderLeft: '4px solid #a78bfa' }}>
+                    <b style={{ color: '#a78bfa' }}>3. AI Értékelő (Gemini 2.5) (10 – 100 pont)</b><br />
+                    A mesterséges intelligencia a nemzetközi **FIAP photowork** szempontrendszer alapján elemzi a képet. Besorolja kategóriába (portré, színes, monokróm, természet), szöveges kritikát ír, és hiányosság esetén ajánlja a klub megfelelő tanfolyamát.
+                  </div>
+                </div>
+              </div>
+
+              {/* 4. MIT JELENTENEK A HELYEZÉS SZÁMOK? */}
+              <div style={{ background: 'var(--bg-main)', padding: '16px', borderRadius: '10px', border: '1px solid var(--border-main)' }}>
+                <h4 style={{ margin: '0 0 6px 0', color: '#10b981', fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  🏆 Mit jelent a helyezés (pl. 12/321)?
+                </h4>
+                A fotókártyán lévő tört számok azt mutatják meg, hogy az adott héten beküldött összes képből (pl. 321 fotóból) a fotód hányadik helyet érte el az adott csoport rangsorában:<br />
+                • <b>Klubtagok szerint:</b> pl. 121 / 321<br />
+                • <b>Mesterek szerint:</b> pl. 3 / 321<br />
+                • <b>AI (FIAP) szerint:</b> pl. 12 / 321
+              </div>
+
+              {/* 5. CSOMAGKORLÁTOK */}
+              <div>
+                <h4 style={{ margin: '0 0 8px 0', color: 'var(--text-title)', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  💳 Feltöltési Csomagkeretek
+                </h4>
+                <ul style={{ margin: 0, paddingLeft: '20px' }}>
+                  <li><b>Ingyenes / Alap csomag:</b> Hetente 1 kép feltöltése.</li>
+                  <li><b>Prémium 1. szint:</b> Hetente 3 kép feltöltése.</li>
+                  <li><b>Prémium Pro (2. szint):</b> Hetente akár 10 kép feltöltése + FIAP felkészítő modul.</li>
+                </ul>
+              </div>
+
+            </div>
+
+            <div style={{ textAlign: 'center', marginTop: '25px', paddingTop: '15px', borderTop: '1px solid var(--border-main)' }}>
+              <button onClick={() => setShowHelpModal(false)} style={{ background: '#a78bfa', color: '#0f172a', border: 'none', padding: '10px 24px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>
+                Értettem, bezárás
+              </button>
+            </div>
 
           </div>
         </div>
