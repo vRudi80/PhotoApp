@@ -40,6 +40,8 @@ import QuizView from './views/QuizView';
 import PhotoHistoryView from './views/PhotoHistoryView';
 // Az importokhoz:
 import AdminVoterAnalysisView from './views/admin/AdminVoterAnalysisView';
+import ClubWeeklyReviewView from './views/ClubWeeklyReviewView';
+import ClubCoursesView from './views/ClubCoursesView';
 
 
 // 🎯 ÚJ: 3D Virtuális Tárlat nézet beimportálása
@@ -679,6 +681,8 @@ function MainContent() {
               <Route path="/club_nights" element={<ClubNightsView currentDbUser={currentDbUser} meetingSearch={meetingSearch} setMeetingSearch={setMeetingSearch} searchedMeetings={searchedMeetings} setActiveVideo={setActiveVideo} />} />
               <Route path="/leader_club" element={isLeader ? <LeaderClubView user={user} BACKEND_URL={BACKEND_URL} /> : <Navigate to="/dashboard" replace />} />
               <Route path="/podcast" element={<PodcastView />} />
+              <Route path="/club_weekly_review" element={<ClubWeeklyReviewView user={headerUser} onOpenCourses={() => navigate('/club_courses')} />} />
+              <Route path="/club_courses" element={<ClubCoursesView user={headerUser} onBack={() => navigate('/club_weekly_review')} />} />
               
               <Route path="/quiz" element={<QuizView user={headerUser} />} />
               <Route path="/photo_history" element={<PhotoHistoryView user={headerUser} />} />
