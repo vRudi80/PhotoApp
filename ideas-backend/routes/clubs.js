@@ -424,56 +424,58 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   // 🎯 KLUB PÉNZÜGYEK ÉS TAGNYILVÁNTARTÁS VÉDELME
   // ====================================================================
   app.get('/api/my-club/admin-records', requireAuth, async (req, res) => {
-    const { clubId } = req.query;
-    if (!clubId) return res.status(400).json({ error: 'Hiányzó klub azonosító!' });
+  const { clubId } = req.query;
+  if (!clubId) return res.status(400).json({ error: 'Hiányzó klub azonosító!' });
 
-    if (!await isClubManagement(req.user.email, clubId)) {
-      return res.status(403).json({ error: 'Hozzáférés megtagadva! Csak a klubvezetés láthatja a belső nyilvántartást.' });
-    }
+  if (!await isClubManagement(req.user.email, clubId)) {
+    return res.status(403).json({ error: 'Hozzáférés megtagadva! Csak a klubvezetés láthatja a belső nyilvántartást.' });
+  }
 
-    try {
-      const [allTimeMembers] = await pool.query(`
-        SELECT 
-          u.name, 
-          u.email, 
-          u.club_role,
-          u.shipping_address,
-          1 as is_currently_here,
-          COALESCE(DATE_FORMAT((SELECT joined_date FROM photo_club_memberships WHERE user_email = u.email AND club_id = u.club_id AND status = 'active' LIMIT 1), '%Y-%m-%d'), 'Ismeretlen') as membership_start,
-          NULL as membership_end
-        FROM photo_users u
-        WHERE u.club_id = ? AND u.club_role != 'pending'
+  try {
+    const [allTimeMembers] = await pool.query(`
+      SELECT 
+        u.name, 
+        u.email, 
+        u.club_role,
+        u.is_master,
+        u.shipping_address,
+        1 as is_currently_here,
+        COALESCE(DATE_FORMAT((SELECT joined_date FROM photo_club_memberships WHERE user_email = u.email AND club_id = u.club_id AND status = 'active' LIMIT 1), '%Y-%m-%d'), 'Ismeretlen') as membership_start,
+        NULL as membership_end
+      FROM photo_users u
+      WHERE u.club_id = ? AND u.club_role != 'pending'
 
-        UNION ALL
+      UNION ALL
 
-        SELECT 
-          u.name, 
-          u.email, 
-          m.club_role,
-          u.shipping_address,
-          0 as is_currently_here,
-          DATE_FORMAT(m.joined_date, '%Y-%m-%d') as membership_start,
-          DATE_FORMAT(m.left_date, '%Y-%m-%d') as membership_end
-        FROM photo_club_memberships m
-        JOIN photo_users u ON m.user_email = u.email
-        WHERE m.club_id = ? AND m.status = 'left' AND (u.club_id IS NULL OR u.club_id != ?)
-        
-        ORDER BY is_currently_here DESC, name ASC
-      `, [clubId, clubId, clubId]);
+      SELECT 
+        u.name, 
+        u.email, 
+        m.club_role,
+        u.is_master,
+        u.shipping_address,
+        0 as is_currently_here,
+        DATE_FORMAT(m.joined_date, '%Y-%m-%d') as membership_start,
+        DATE_FORMAT(m.left_date, '%Y-%m-%d') as membership_end
+      FROM photo_club_memberships m
+      JOIN photo_users u ON m.user_email = u.email
+      WHERE m.club_id = ? AND m.status = 'left' AND (u.club_id IS NULL OR u.club_id != ?)
+      
+      ORDER BY is_currently_here DESC, name ASC
+    `, [clubId, clubId, clubId]);
 
-      const [payments] = await pool.query(`
-        SELECT id, user_email, fiscal_year, fee_amount, paid_amount, DATE_FORMAT(payment_date, '%Y-%m-%d') as payment_date 
-        FROM photo_club_payments 
-        WHERE club_id = ?
-        ORDER BY fiscal_year DESC, payment_date DESC
-      `, [clubId]);
+    const [payments] = await pool.query(`
+      SELECT id, user_email, fiscal_year, fee_amount, paid_amount, DATE_FORMAT(payment_date, '%Y-%m-%d') as payment_date 
+      FROM photo_club_payments 
+      WHERE club_id = ?
+      ORDER BY fiscal_year DESC, payment_date DESC
+    `, [clubId]);
 
-      res.json({ members: allTimeMembers, payments });
-    } catch (err) {
-      console.error("❌ Hiba az adminisztratív rekordok lekérésekor:", err.message);
-      res.status(500).json({ error: 'Szerveroldali hiba történt.' });
-    }
-  });
+    res.json({ members: allTimeMembers, payments });
+  } catch (err) {
+    console.error("❌ Hiba az adminisztratív rekordok lekérésekor:", err.message);
+    res.status(500).json({ error: 'Szerveroldali hiba történt.' });
+  }
+});
 
   app.post('/api/my-club/member/log-payment', requireAuth, async (req, res) => {
     const { clubId, targetEmail, fiscalYear, feeAmount, paidAmount, paymentDate } = req.body;
