@@ -77,6 +77,29 @@ export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProp
     loadClubAndAdminRecords(); 
   }, [user?.email, BACKEND_URL]);
 
+  // 👑 MESTER TITULUS BE/KI KAPCSOLÁSA
+  const handleToggleMaster = async (targetEmail: string, currentIsMaster: boolean) => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/club/toggle-master`, {
+        method: 'POST',
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({
+          targetEmail,
+          isMaster: !currentIsMaster
+        })
+      });
+
+      if (res.ok) {
+        loadClubAndAdminRecords();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(`Hiba: ${err.error || 'Szerver hiba'}`);
+      }
+    } catch (e) {
+      alert('Hálózati hiba a Mester titulus frissítésekor!');
+    }
+  };
+
   // Kigyűjti az összes egyedi tárgyévet növekvő sorrendben
   const uniqueFiscalYears = useMemo(() => {
     const years = payments.map(p => p.fiscal_year);
@@ -137,7 +160,6 @@ export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProp
     formData.append('userEmail', user.email);
 
     try {
-      // 🎯 JAVÍTVA: Logó feltöltése FormData alapon, Content-Type manuális megadása nélkül!
       const res = await fetch(`${BACKEND_URL}/api/my-club/logo`, { 
         method: 'POST', 
         headers: getAuthHeaders(),
@@ -217,18 +239,51 @@ export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProp
         <button onClick={() => setActiveTab('settings')} style={{ padding: '10px 20px', background: activeTab === 'settings' ? '#a78bfa' : 'transparent', color: activeTab === 'settings' ? '#0f172a' : 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>⚙️ Klub Beállítások</button>
       </div>
 
-      {/* 👥 1. FÜL: AKTÍV TAGLISTA */}
+      {/* 👥 1. FÜL: AKTÍV TAGLISTA + MESTER JOG KAPCSOLÓ */}
       {activeTab === 'roster' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {members.filter(m => m.is_currently_here === 1).map(m => (
-            <div key={m.email} style={{ background: '#1e293b', padding: '15px 20px', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #334155' }}>
-              <div>
-                <strong style={{ fontSize: '1.1rem', color: '#f8fafc' }}>{m.name}</strong>
-                <span style={{ fontSize: '0.85rem', color: '#64748b', marginLeft: '10px' }}>({m.email})</span>
+          {members.filter(m => m.is_currently_here === 1).map(m => {
+            const isMaster = m.is_master === 1 || m.club_role === 'leader';
+            return (
+              <div key={m.email} style={{ background: '#1e293b', padding: '15px 20px', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #334155', flexWrap: 'wrap', gap: '10px' }}>
+                <div>
+                  <strong style={{ fontSize: '1.1rem', color: '#f8fafc' }}>{m.name}</strong>
+                  <span style={{ fontSize: '0.85rem', color: '#64748b', marginLeft: '10px' }}>({m.email})</span>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                  <span style={{ background: '#0f172a', padding: '4px 14px', borderRadius: '50px', fontSize: '0.8rem', fontWeight: 'bold', textTransform: 'uppercase', color: '#38bdf8', border: '1px solid #223147' }}>
+                    {m.club_role || 'tag'}
+                  </span>
+
+                  {isMaster && (
+                    <span style={{ background: 'rgba(167, 139, 250, 0.2)', color: '#a78bfa', padding: '4px 12px', borderRadius: '50px', fontSize: '0.8rem', fontWeight: 'bold', border: '1px solid rgba(167, 139, 250, 0.4)' }}>
+                      ⭐ MESTER
+                    </span>
+                  )}
+
+                  {/* Mester titulus kapcsoló gomb */}
+                  {m.club_role !== 'leader' && (
+                    <button
+                      onClick={() => handleToggleMaster(m.email, m.is_master === 1)}
+                      style={{
+                        background: m.is_master === 1 ? 'rgba(239, 68, 68, 0.15)' : 'rgba(167, 139, 250, 0.15)',
+                        color: m.is_master === 1 ? '#f87171' : '#a78bfa',
+                        border: `1px solid ${m.is_master === 1 ? 'rgba(239, 68, 68, 0.4)' : 'rgba(167, 139, 250, 0.4)'}`,
+                        padding: '6px 12px',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '0.8rem',
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      {m.is_master === 1 ? 'Mester jog elvétele ❌' : 'Mesterré tétel ⭐'}
+                    </button>
+                  )}
+                </div>
               </div>
-              <span style={{ background: '#0f172a', padding: '4px 14px', borderRadius: '50px', fontSize: '0.8rem', fontWeight: 'bold', textTransform: 'uppercase', color: '#38bdf8', border: '1px solid #223147' }}>{m.club_role || 'tag'}</span>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -255,7 +310,10 @@ export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProp
                 return (
                   <tr key={m.email} style={{ borderBottom: '1px solid #334155', opacity: m.is_currently_here === 1 ? 1 : 0.6 }}>
                     <td style={{ padding: '12px' }}>
-                      <div style={{ fontWeight: 'bold', fontSize: '1.05rem', color: '#f8fafc' }}>{m.name}</div>
+                      <div style={{ fontWeight: 'bold', fontSize: '1.05rem', color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {m.name}
+                        {m.is_master === 1 && <span style={{ color: '#a78bfa', fontSize: '0.75rem', background: 'rgba(167, 139, 250, 0.2)', padding: '2px 6px', borderRadius: '4px' }}>⭐ Mester</span>}
+                      </div>
                       <div style={{ fontSize: '0.8rem', color: '#64748b' }}>{m.email}</div>
                       <div style={{ marginTop: '4px' }}>
                         {m.is_currently_here === 1 ? (
