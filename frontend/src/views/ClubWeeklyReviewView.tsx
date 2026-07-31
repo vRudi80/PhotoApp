@@ -271,7 +271,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
         setUploadFile(null);
         setUploadPreview(null);
         if (selectedRoundId) loadEntriesForRound(selectedRoundId);
-        alert('🎉 Kép elküldve! Az AI elkészítette a szakmai elemzést.');
+        alert('Kép elküldve! Az AI elkészítette a szakmai elemzést.');
       } else {
         alert(data.error || 'Hiba a feltöltés során.');
       }
@@ -314,7 +314,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
             <h2 style={{ margin: 0, fontSize: '1.6rem', color: '#a78bfa', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              🏆 {currentSelectedRoundObj?.title || t('reviewTitle')}
+              {currentSelectedRoundObj?.title || t('reviewTitle')}
             </h2>
 
             {isRoundClosed && (
@@ -325,7 +325,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-            <span>📜 {t('reviewSelectRound')}</span>
+            <span>{t('reviewSelectRound')}</span>
             <select 
               value={selectedRoundId || ''} 
               onChange={e => setSelectedRoundId(Number(e.target.value))}
@@ -333,7 +333,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
             >
               {roundsList.map(r => (
                 <option key={r.id} value={r.id}>
-                  {r.title} {r.id === activeRound?.id ? ' (Aktuális hét ✨)' : ''}
+                  {r.title} {r.id === activeRound?.id ? ' (Aktuális hét)' : ''}
                 </option>
               ))}
             </select>
@@ -342,12 +342,12 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
 
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
           <button onClick={() => setShowHelpModal(true)} style={{ background: 'rgba(167, 139, 250, 0.12)', color: '#a78bfa', border: '1px solid rgba(167, 139, 250, 0.3)', padding: '10px 16px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            💡 {t('reviewBtnHelp')}
+            {t('reviewBtnHelp')}
           </button>
 
           {onOpenCourses && (
             <button onClick={onOpenCourses} style={{ background: 'var(--bg-main)', color: '#38bdf8', border: '1px solid var(--border-main)', padding: '10px 16px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              📚 {t('reviewBtnCourses')}
+              {t('reviewBtnCourses')}
             </button>
           )}
 
@@ -378,14 +378,14 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
                 transition: 'all 0.2s'
               }}
             >
-              📤 {hasReachedUploadLimit ? `${t('reviewBtnUploadLimit')} (${myUploadCount}/${maxUploads})` : `${t('reviewBtnUpload')} (${myUploadCount}/${maxUploads})`}
+              {hasReachedUploadLimit ? `${t('reviewBtnUploadLimit')} (${myUploadCount}/${maxUploads})` : `${t('reviewBtnUpload')} (${myUploadCount}/${maxUploads})`}
             </button>
           )}
 
           {/* HA VASÁRNAP ÉJFÉL ELTELT A FORDULÓN */}
           {isCurrentActiveRoundSelected && isUploadClosed && !isRoundClosed && (
             <div style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.3)', padding: '8px 14px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 'bold' }}>
-              🔒 A képfeltöltés lezárult (Szavazás szerda éjfélig!)
+              A képfeltöltés lezárult (Szavazás szerda éjfélig!)
             </div>
           )}
         </div>
@@ -475,7 +475,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
         {isRoundClosed && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto' }}>
             <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              ↕️ {t('reviewSortLabel')}
+              {t('reviewSortLabel')}
             </span>
             <select
               value={sortBy}
@@ -662,7 +662,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
                 <div style={{ background: 'var(--bg-main)', padding: '16px', borderRadius: '8px', border: '1px solid #a78bfa', marginBottom: '15px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                     <span style={{ color: '#a78bfa', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      ✨ AI Szakmai Értékelés (FIAP Szempontok)
+                     AI Szakmai Értékelés (FIAP Szempontok)
                     </span>
                     <span style={{ background: '#a78bfa', color: '#0f172a', padding: '2px 8px', borderRadius: '12px', fontSize: '0.8rem', fontWeight: 'bold' }}>
                       {activeModalRankedEntry.ai_score} / 100 Pont
@@ -688,7 +688,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
               </>
             ) : (
               <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '15px', background: 'var(--bg-main)', borderRadius: '8px', fontSize: '0.88rem' }}>
-                🔒 A részletes AI értékelések és a rangsor a heti forduló lezárultával (szerda éjfél után) válnak láthatóvá.
+                A részletes AI értékelések és a rangsor a heti forduló lezárultával (szerda éjfél után) válnak láthatóvá.
               </div>
             )}
 
