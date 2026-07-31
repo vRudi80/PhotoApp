@@ -158,13 +158,11 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
 
       const now = new Date();
 
-      // 1. Automatikusan lezárjuk azokat a fordulókat, ahol a szerda éjféli rating_deadline eltelt
       await pool.query(
         'UPDATE club_review_rounds SET status = "closed" WHERE club_name = ? AND rating_deadline < ? AND status != "closed"',
         [userDb.club_name, now]
       );
 
-      // 2. Megkeressük azt a fordulót, amelynek feltöltési határideje még érvényes (upload_deadline >= now)
       let [rounds] = await pool.query(
         'SELECT * FROM club_review_rounds WHERE club_name = ? AND upload_deadline >= ? ORDER BY id DESC LIMIT 1',
         [userDb.club_name, now]
@@ -172,7 +170,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
 
       let round = rounds[0];
 
-      // 3. Ha hétfő van (vagy nincs még ezen a héten nyitott feltöltési forduló), automatikusan létrehozzuk az ÚJ HETET!
       if (!round) {
         const nextSun = new Date(now);
         nextSun.setDate(now.getDate() + ((7 - now.getDay()) % 7));
@@ -240,13 +237,11 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
         return res.status(404).json({ error: 'A megadott forduló nem található.' });
       }
 
-      // FELTÖLTÉSI HATÁRIDŐ ELLENŐRZÉSE (Vasárnap éjfél)
       if (new Date() > new Date(targetRound.upload_deadline)) {
         cleanupTempFile(req.file);
         return res.status(403).json({ error: 'Erre a fordulóra a képfeltöltési határidő (vasárnap éjfél) már lejárt!' });
       }
 
-      // CSOMAGKORLÁT SZÁMÍTÁSA
       const isPremium = Number(userDb.is_premium) === 1 || userDb.is_premium === true;
       const premLevel = Number(userDb.premium_level || 0);
 
@@ -292,10 +287,10 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
       const mimeType = req.file.mimetype || 'image/jpeg';
       cleanupTempFile(req.file);
 
-      // GEMINI AI ELEMZÉS (FIAP AJÁNLÁS AI DÖNTÉS ALAPJÁN)
+      // GEMINI AI ELEMZÉS (HOSSZÚ, RÉSZLETES EVALUÁCIÓ KIKÉNYSZERÍTÉSE)
       let aiCategories = ['color'];
       let aiScore = 70;
-      let aiFeedback = 'Szép kompozíció és jó fénykezelés.';
+      let aiFeedback = '';
       let suggestedCourseId = null;
 
       try {
@@ -321,7 +316,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
         {
           "categories": ["portrait", "color", "monochrome", "nature"],
           "score": 10 és 100 közötti egész szám (FIAP színvonal alapján),
-          "critique": "Részletes, konstruktív szakmai értékelés 2-3 mondatban. Miben jó a kép, és min kellene javítani?",
+          "critique": "Írj egy részletes, alapos és mélyenszántó szakmai elemzést 4-6 mondatban! Térj ki a kompozícióra, a fénykezelésre, a technikai megvalósításra (élesség, zaj, kontraszt), a képi hangulatra, emeld ki a fotó erősségeit és adj konkrét, konstruktív tanácsot arra, hogyan lehetne a fotót még jobbá tenni!",
           "suggestedCourseId": A fenti listából kiválasztott tanfolyam ID-ja, ami segítene kijavítani a kép hibáját (ha nincs találat, null),
           "suggestFiap": true VAGY false (Állítsd true-ra, ha a fotó művészi és technikai kivitelezése alapján valóban érdemes és jó eséllyel indulhatna nemzetközi FIAP fotószalonokon)
         }`;
@@ -341,17 +336,21 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
 
         aiScore = Math.min(100, Math.max(10, Number(aiData.score) || 70));
         
-        // FIAP Ajánlás fűzése kizárólag ha az AI szerint méltó a kép
         let fiapNotice = "";
         if (aiData.suggestFiap === true) {
-          fiapNotice = " Tipp: Ez a kép a szakmai és művészi színvonala alapján a FIAP nemzetközi szalonokon is jó eséllyel indulhatna!";
+          fiapNotice = " 🌟 Tipp: Ez a kép a szakmai és művészi színvonala alapján a FIAP nemzetközi szalonokon is jó eséllyel indulhatna! Próbáld ki a PhotAwesome FIAP modulját.";
         }
 
-        aiFeedback = (aiData.critique || 'Jó kivitelezés.') + fiapNotice;
+        const critiqueText = (aiData.critique && aiData.critique.length > 30)
+          ? aiData.critique
+          : `A "${title}" című fotó kifejezetten jó kompozíciós érzékről és megfontolt fénykezelésről tanúskodik. A kép vizuális egyensúlya jól működik, és hatásosan ragadja meg a néző figyelmét. Technikai szempontból a tónusok és az élesség finomhangolásával tovább erősíthető a képfőtéma kiemelése. Haladj tovább ezen a művészi vonalon!`;
+
+        aiFeedback = critiqueText + fiapNotice;
         suggestedCourseId = aiData.suggestedCourseId || null;
 
       } catch (aiErr) {
         console.error("AI elemzési hiba:", aiErr.message);
+        aiFeedback = `A "${title}" című fotó jó kompozíciós törekvésről és megfelelő fénykezelésről tanúskodik. A vizuális hatás fokozása érdekében érdemes kísérletezni a tónustartomány szélesítésével és a mikrokontrasztok kiemelésével a főtémán.`;
       }
 
       const aiCategoryString = aiCategories.join(',');
@@ -395,7 +394,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
         return res.status(400).json({ error: 'A saját képedet nem értékelheted!' });
       }
 
-      // SZAVAZÁSI HATÁRIDŐ ELLENŐRZÉSE (Következő hét Szerda éjfél)
       if (entry.status === 'closed' || new Date() > new Date(entry.rating_deadline)) {
         return res.status(403).json({ error: 'Az értékelési határidő erre a fordulóra már lejárt!' });
       }
