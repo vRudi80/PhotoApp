@@ -104,13 +104,13 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
 
   const currentSelectedRoundObj = roundsList.find(r => r.id === selectedRoundId);
 
-  // ⏰ 1. FELTÖLTÉSI LEZÁRÁS ELLENŐRZÉSE (Vasárnap 23:59:59 után lezár a feltöltés)
+  // ⏱️ 1. FELTÖLTÉSI LEZÁRÁS ELLENŐRZÉSE (Vasárnap 23:59:59 után lezár a feltöltés)
   const isUploadClosed = useMemo(() => {
     if (!currentSelectedRoundObj?.upload_deadline) return false;
     return new Date() > new Date(currentSelectedRoundObj.upload_deadline);
   }, [currentSelectedRoundObj]);
 
-  // ⏰ 2. ÉRTÉKELÉSI LEZÁRÁS ELLENŐRZÉSE (Szerda 23:59:59 után lezár a szavazás ÉS feltárulnak az eredmények)
+  // ⏱️ 2. ÉRTÉKELÉSI LEZÁRÁS ELLENŐRZÉSE (Szerda 23:59:59 után lezár a szavazás ÉS feltárulnak az eredmények)
   const isRoundClosed = useMemo(() => {
     if (!currentSelectedRoundObj) return false;
     if (currentSelectedRoundObj.status === 'closed') return true;
@@ -120,7 +120,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
     return false;
   }, [currentSelectedRoundObj]);
 
-  // 💳 CSOMAG ÉS KÉPFELTÖLTÉSI LIMIT SZÁMÍTÁSA
+  // CSOMAG ÉS KÉPFELTÖLTÉSI LIMIT SZÁMÍTÁSA
   const myUploadCount = useMemo(() => {
     return entries.filter(e => e.user_email === user?.email).length;
   }, [entries, user?.email]);
@@ -136,7 +136,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
 
   const hasReachedUploadLimit = myUploadCount >= maxUploads;
 
-  // 🏆 CSOPORTONKÉNTI RANGSOR SZÁMÍTÁS (Klubtagok, Mesterek, AI)
+  // CSOPORTONKÉNTI RANGSOR SZÁMÍTÁS (Klubtagok, Mesterek, AI)
   const rankedEntries = useMemo(() => {
     if (!entries || entries.length === 0) return [];
     const totalCount = entries.length;
@@ -165,12 +165,12 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
     }));
   }, [entries]);
 
-  // ⏳ ÉRTÉKELÉSRE VÁRÓ KÉPEK SZÁMA
+  // ÉRTÉKELÉSRE VÁRÓ KÉPEK SZÁMA
   const unvotedCount = useMemo(() => {
     return rankedEntries.filter(e => e.user_email !== user?.email && (e.my_score === null || e.my_score === undefined)).length;
   }, [rankedEntries, user?.email]);
 
-  // ⚡ SZŰRÉS ÉS RENDEZÉS ALAPJÁN FELDOLGOZOTT LISTA
+  // SZŰRÉS ÉS RENDEZÉS ALAPJÁN FELDOLGOZOTT LISTA
   const sortedAndFilteredEntries = useMemo(() => {
     let list = [...rankedEntries];
 
@@ -202,7 +202,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
     return list;
   }, [rankedEntries, photoScope, isPendingOnly, categoryFilter, sortBy, isRoundClosed, user?.email]);
 
-  // ⚡ AZONNALI PONTOZÁS (OPTIMISTA FRISSÍTÉS)
+  // AZONNALI PONTOZÁS (OPTIMISTA FRISSÍTÉS)
   const handleRate = async (entryId: number, score: number) => {
     setEntries(prev => prev.map(item => 
       item.id === entryId ? { ...item, my_score: score } : item
@@ -295,7 +295,6 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
   if (hasNoClub) {
     return (
       <div style={{ textAlign: 'center', padding: '4rem 2rem', background: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border-main)', boxShadow: '0 10px 25px rgba(0,0,0,0.05)', margin: '20px auto', maxWidth: '800px' }}>
-        <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🔒</div>
         <h2 style={{ color: '#f59e0b', margin: '0 0 10px 0', fontWeight: '700' }}>
           {isPending ? 'Jelentkezésed jóváhagyásra vár' : t('contNoClubTitle')}
         </h2>
@@ -351,7 +350,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
             </button>
           )}
 
-          {/* FELTÖLTÉSI GOMB INAKTÍV TÁJÉKOZTATÓVAL HA ELÉRTE A LIMITET VAGY LEJÁRT A VASÁRNAPI HATÁRIDO */}
+          {/* FELTÖLTÉSI GOMB INAKTÍV TÁJÉKOZTATÓVAL HA ELÉRTE A LIMITET VAGY LEJÁRT A VASÁRNAPI HATÁRIDŐ */}
           {isCurrentActiveRoundSelected && !isUploadClosed && (
             <button 
               onClick={() => {
@@ -523,10 +522,10 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
                 <div onClick={() => setSelectedEntryModal(entry)} style={{ position: 'relative', height: '220px', background: '#000', cursor: 'pointer' }}>
                   <img src={photoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                   
-                  {/* AI PONT JELVÉNY (CSAK LEZÁRÁS UTÁN LÁTHATÓ) */}
-                  {isRoundClosed && (
+                  {/* AI PONT JELVÉNY: LEZÁRÁS UTÁN VAGY SAJÁT KÉP ESETÉN MÁR A FELTÖLTÉSKOR LÁTHATÓ! */}
+                  {(isRoundClosed || isMyPhoto) && (
                     <div style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(15,23,42,0.85)', backdropFilter: 'blur(4px)', padding: '4px 10px', borderRadius: '20px', fontSize: '0.8rem', color: '#fbbf24', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                      ✨ AI: {entry.ai_score} / 100 p
+                      AI: {entry.ai_score} / 100 p
                     </div>
                   )}
                 </div>
@@ -622,20 +621,23 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
       )}
 
       {/* RÉSZLETES ELŐNÉZETI MODÁL */}
-      {activeModalRankedEntry && (
-        <div onClick={() => setSelectedEntryModal(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 99999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
-          <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', borderRadius: '12px', padding: '25px', maxWidth: '700px', width: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
-            
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-              <h3 style={{ margin: 0, color: 'var(--text-title)', fontSize: '1.3rem' }}>{activeModalRankedEntry.title}</h3>
-              <button onClick={() => setSelectedEntryModal(null)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.2rem', fontWeight: 'bold' }}>✖</button>
-            </div>
+      {activeModalRankedEntry && (() => {
+        const isMyModalPhoto = activeModalRankedEntry.user_email === user?.email;
+        const canShowAi = isRoundClosed || isMyModalPhoto;
 
-            <img src={getImageUrl(activeModalRankedEntry.drive_file_id, activeModalRankedEntry.file_url)} alt="" style={{ width: '100%', maxHeight: '380px', objectFit: 'contain', borderRadius: '8px', background: '#000', marginBottom: '15px' }} />
+        return (
+          <div onClick={() => setSelectedEntryModal(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 99999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
+            <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', borderRadius: '12px', padding: '25px', maxWidth: '700px', width: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
+              
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                <h3 style={{ margin: 0, color: 'var(--text-title)', fontSize: '1.3rem' }}>{activeModalRankedEntry.title}</h3>
+                <button onClick={() => setSelectedEntryModal(null)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.2rem', fontWeight: 'bold' }}>X</button>
+              </div>
 
-            {/* CSAK SZERDA ÉJFÉLI LEZÁRÁS UTÁN JELENNEK MEG A RÉSZLETES AI ÉRTÉKELÉSEK */}
-            {isRoundClosed ? (
-              <>
+              <img src={getImageUrl(activeModalRankedEntry.drive_file_id, activeModalRankedEntry.file_url)} alt="" style={{ width: '100%', maxHeight: '380px', objectFit: 'contain', borderRadius: '8px', background: '#000', marginBottom: '15px' }} />
+
+              {/* 3 OSZLOPOS HELYEZÉSEK (CSAK A FORDULÓ LEZÁRULTA UTÁN) */}
+              {isRoundClosed && (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', background: 'var(--bg-main)', padding: '15px', borderRadius: '8px', border: '1px solid var(--border-main)', textAlign: 'center', marginBottom: '15px' }}>
                   <div>
                     <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 'bold', display: 'block' }}>{t('reviewRankMembers')}</span>
@@ -658,54 +660,59 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
                     </div>
                   </div>
                 </div>
+              )}
 
-                <div style={{ background: 'var(--bg-main)', padding: '16px', borderRadius: '8px', border: '1px solid #a78bfa', marginBottom: '15px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                    <span style={{ color: '#a78bfa', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                     AI Szakmai Értékelés (FIAP Szempontok)
-                    </span>
-                    <span style={{ background: '#a78bfa', color: '#0f172a', padding: '2px 8px', borderRadius: '12px', fontSize: '0.8rem', fontWeight: 'bold' }}>
-                      {activeModalRankedEntry.ai_score} / 100 Pont
-                    </span>
-                  </div>
-                  <p style={{ margin: 0, color: 'var(--text-body)', fontSize: '0.9rem', lineHeight: '1.6' }}>{activeModalRankedEntry.ai_feedback}</p>
-                </div>
-
-                {activeModalRankedEntry.course_title && (
-                  <div style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid #10b981', padding: '15px', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '15px' }}>
-                    <div>
-                      <small style={{ color: '#10b981', fontWeight: 'bold', display: 'block', marginBottom: '2px' }}>🎯 Az AI által javasolt klubtanfolyam fejlődéshez:</small>
-                      <strong style={{ color: 'var(--text-title)', fontSize: '1rem' }}>{activeModalRankedEntry.course_title}</strong>
-                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>Ár: {activeModalRankedEntry.course_price} • {activeModalRankedEntry.course_location_detail}</div>
+              {/* AI KRITIKA ÉS TANFOLYAM AJÁNLÁS: LEZÁRÁS UTÁN VAGY SAJÁT KÉPNÉL MÁR FELTÖLTÉSKOR LÁTSZIK! */}
+              {canShowAi ? (
+                <>
+                  <div style={{ background: 'var(--bg-main)', padding: '16px', borderRadius: '8px', border: '1px solid #a78bfa', marginBottom: '15px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                      <span style={{ color: '#a78bfa', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        AI Szakmai Értékelés (FIAP Szempontok)
+                      </span>
+                      <span style={{ background: '#a78bfa', color: '#0f172a', padding: '2px 8px', borderRadius: '12px', fontSize: '0.8rem', fontWeight: 'bold' }}>
+                        {activeModalRankedEntry.ai_score} / 100 Pont
+                      </span>
                     </div>
-                    {onOpenCourses && (
-                      <button onClick={() => { setSelectedEntryModal(null); onOpenCourses(); }} style={{ background: '#10b981', color: 'white', border: 'none', padding: '8px 14px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                        Megtekintés
-                      </button>
-                    )}
+                    <p style={{ margin: 0, color: 'var(--text-body)', fontSize: '0.9rem', lineHeight: '1.6' }}>{activeModalRankedEntry.ai_feedback}</p>
                   </div>
-                )}
-              </>
-            ) : (
-              <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '15px', background: 'var(--bg-main)', borderRadius: '8px', fontSize: '0.88rem' }}>
-                A részletes AI értékelések és a rangsor a heti forduló lezárultával (szerda éjfél után) válnak láthatóvá.
-              </div>
-            )}
 
+                  {activeModalRankedEntry.course_title && (
+                    <div style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid #10b981', padding: '15px', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '15px' }}>
+                      <div>
+                        <small style={{ color: '#10b981', fontWeight: 'bold', display: 'block', marginBottom: '2px' }}>Az AI által javasolt klubtanfolyam fejlődéshez:</small>
+                        <strong style={{ color: 'var(--text-title)', fontSize: '1rem' }}>{activeModalRankedEntry.course_title}</strong>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>Ár: {activeModalRankedEntry.course_price} • {activeModalRankedEntry.course_location_detail}</div>
+                      </div>
+                      {onOpenCourses && (
+                        <button onClick={() => { setSelectedEntryModal(null); onOpenCourses(); }} style={{ background: '#10b981', color: 'white', border: 'none', padding: '8px 14px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                          Megtekintés
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '15px', background: 'var(--bg-main)', borderRadius: '8px', fontSize: '0.88rem' }}>
+                  A részletes AI értékelések és a rangsor a heti forduló lezárultával (szerda éjfél után) válnak láthatóvá.
+                </div>
+              )}
+
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
-      {/* 💡 SÚGÓ & SZABÁLYZAT MODÁL */}
+      {/* SÚGÓ & SZABÁLYZAT MODÁL */}
       {showHelpModal && (
         <div onClick={() => setShowHelpModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 99999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
           <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', borderRadius: '16px', padding: '30px', maxWidth: '680px', width: '100%', maxHeight: '88vh', overflowY: 'auto', boxShadow: '0 20px 50px rgba(0,0,0,0.5)' }}>
             
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid var(--border-main)', paddingBottom: '15px' }}>
               <h3 style={{ margin: 0, color: '#a78bfa', fontSize: '1.4rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                💡 {t('reviewHelpTitle')}
+                {t('reviewHelpTitle')}
               </h3>
-              <button onClick={() => setShowHelpModal(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.2rem', fontWeight: 'bold' }}>✖</button>
+              <button onClick={() => setShowHelpModal(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.2rem', fontWeight: 'bold' }}>X</button>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', color: 'var(--text-body)', fontSize: '0.92rem', lineHeight: '1.6' }}>
