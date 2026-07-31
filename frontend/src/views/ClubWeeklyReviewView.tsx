@@ -4,7 +4,7 @@ import { getImageUrl } from '../utils/helpers';
 import VideoLoader from '../components/VideoLoader';
 import { 
   Award, Upload, Star, Clock, Filter, Sparkles, CheckCircle2, 
-  BookOpen, Eye, UserCheck, ChevronRight, X, ImageIcon, Calendar, History, Trophy, HelpCircle, ArrowUpDown 
+  BookOpen, Eye, UserCheck, ChevronRight, X, ImageIcon, Calendar, History, Trophy, HelpCircle, ArrowUpDown, User, Layers 
 } from 'lucide-react';
 
 interface ClubWeeklyReviewProps {
@@ -27,9 +27,12 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
   const [entries, setEntries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // Szűrők ÉS Rendezés
-  const [categoryFilter, setCategoryFilter] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<'members' | 'masters' | 'ai'>('members');
+  // 🎯 ÚJ SZŰRŐ ÉS RENDEZŐ ÁLLAPOTOK
+  const [photoScope, setPhotoScope] = useState<'all' | 'my'>('all'); // 'all' = Összes fotó, 'my' = Saját fotóim
+  const [isPendingOnly, setIsPendingOnly] = useState<boolean>(false); // Értékelésre várók szűrő
+  const [categoryFilter, setCategoryFilter] = useState<string>('all'); // Kategóriák legördülő
+  const [sortBy, setSortBy] = useState<'members' | 'masters' | 'ai'>('members'); // Sorrend legördülő (lezárás után)
+
   const [selectedEntryModal, setSelectedEntryModal] = useState<any | null>(null);
   const [showHelpModal, setShowHelpModal] = useState(false);
 
@@ -151,10 +154,18 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
   const sortedAndFilteredEntries = useMemo(() => {
     let list = [...rankedEntries];
 
-    if (categoryFilter === 'pending') {
-      // 🎯 CSAK AZ ÉRTÉKELÉSRE VÁRÓ KÉPEK (nem saját & még nincs szavazat)
+    // 1. SAJÁT / ÖSSZES FOTÓ SZŰRŐ
+    if (photoScope === 'my') {
+      list = list.filter(e => e.user_email === user?.email);
+    }
+
+    // 2. ÉRTÉKELÉSRE VÁRÓK SZŰRŐ
+    if (isPendingOnly) {
       list = list.filter(e => e.user_email !== user?.email && (e.my_score === null || e.my_score === undefined));
-    } else if (categoryFilter !== 'all') {
+    }
+
+    // 3. KATEGÓRIÁK LEGÖRDÜLŐ SZŰRŐ
+    if (categoryFilter !== 'all') {
       list = list.filter(e => {
         if (!e.ai_category) return false;
         const categoryString = String(e.ai_category);
@@ -162,7 +173,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
       });
     }
 
-    // Csak lezárás után rendezzük át a kiválasztott csoport szerinti rangsor alapján
+    // 4. SORREND (CSAK LEZÁRÁS UTÁN)
     if (isRoundClosed) {
       list.sort((a, b) => {
         if (sortBy === 'members') return a.memberRank - b.memberRank;
@@ -173,7 +184,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
     }
 
     return list;
-  }, [rankedEntries, categoryFilter, sortBy, isRoundClosed, user?.email]);
+  }, [rankedEntries, photoScope, isPendingOnly, categoryFilter, sortBy, isRoundClosed, user?.email]);
 
   // ⚡ AZONNALI PONTOZÁS (OPTIMISTA FRISSÍTÉS)
   const handleRate = async (entryId: number, score: number) => {
@@ -328,77 +339,125 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
         </div>
       </div>
 
-      {/* RENDEZÉSI STRIP (CSAK LEZÁRÁS UTÁN LÁTHATÓ) */}
-      {isRoundClosed && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px', background: 'var(--bg-card)', padding: '12px 18px', borderRadius: '10px', border: '1px solid var(--border-main)', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <ArrowUpDown size={16} color="#38bdf8" /> Sorrend alapja:
-          </span>
+      {/* 🎯 ÚJ EGYBEFÜGGŐ SZŰRŐSÁV */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px', background: 'var(--bg-card)', padding: '14px 18px', borderRadius: '12px', border: '1px solid var(--border-main)', flexWrap: 'wrap' }}>
+        
+        {/* 1. SAJÁT FOTÓIM / ÖSSZES FOTÓ KAPCSOLÓ */}
+        <button
+          onClick={() => {
+            const nextScope = photoScope === 'all' ? 'my' : 'all';
+            setPhotoScope(nextScope);
+            if (nextScope === 'my') setIsPendingOnly(false); // Saját fotóknál kikapcsoljuk az értékelésre várókat
+          }}
+          style={{
+            background: photoScope === 'my' ? '#a78bfa' : 'var(--bg-main)',
+            color: photoScope === 'my' ? '#0f172a' : 'var(--text-title)',
+            border: '1px solid var(--border-main)',
+            padding: '8px 16px',
+            borderRadius: '8px',
+            fontWeight: 'bold',
+            fontSize: '0.88rem',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            transition: 'all 0.15s'
+          }}
+        >
+          {photoScope === 'my' ? <User size={16} /> : <Layers size={16} />}
+          {photoScope === 'my' ? '🖼️ Saját fotóim' : '🌐 Összes fotó'}
+        </button>
 
-          <button 
-            onClick={() => setSortBy('members')} 
-            style={{ 
-              background: sortBy === 'members' ? '#38bdf8' : 'var(--bg-main)', 
-              color: sortBy === 'members' ? '#0f172a' : 'var(--text-title)', 
-              border: '1px solid var(--border-main)', padding: '6px 14px', borderRadius: '6px', fontSize: '0.82rem', fontWeight: 'bold', cursor: 'pointer' 
+        {/* 2. ÉRTÉKELÉSRE VÁRÓK GOMB */}
+        <button
+          onClick={() => {
+            setIsPendingOnly(prev => !prev);
+            if (!isPendingOnly) setPhotoScope('all'); // Értékelésre váróknál átváltunk összes fotóra
+          }}
+          style={{
+            background: isPendingOnly ? '#f97316' : 'var(--bg-main)',
+            color: isPendingOnly ? 'white' : '#f97316',
+            border: `1px solid ${isPendingOnly ? '#f97316' : 'rgba(249, 115, 22, 0.4)'}`,
+            padding: '8px 16px',
+            borderRadius: '8px',
+            fontWeight: 'bold',
+            fontSize: '0.88rem',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            transition: 'all 0.15s'
+          }}
+        >
+          ⏳ Értékelésre várók ({unvotedCount})
+        </button>
+
+        <div style={{ height: '24px', width: '1px', background: 'var(--border-main)', margin: '0 4px' }} />
+
+        {/* 3. KATEGÓRIÁK LEGÖRDÜLŐ */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-muted)' }}>Kategóriák:</span>
+          <select
+            value={categoryFilter}
+            onChange={e => setCategoryFilter(e.target.value)}
+            style={{
+              background: 'var(--bg-main)',
+              color: 'var(--text-title)',
+              border: '1px solid var(--border-main)',
+              padding: '8px 14px',
+              borderRadius: '8px',
+              fontWeight: 'bold',
+              fontSize: '0.88rem',
+              outline: 'none',
+              cursor: 'pointer'
             }}
           >
-            👥 Klubtagok szerinti rangsor
-          </button>
-
-          <button 
-            onClick={() => setSortBy('masters')} 
-            style={{ 
-              background: sortBy === 'masters' ? '#f59e0b' : 'var(--bg-main)', 
-              color: sortBy === 'masters' ? '#0f172a' : 'var(--text-title)', 
-              border: '1px solid var(--border-main)', padding: '6px 14px', borderRadius: '6px', fontSize: '0.82rem', fontWeight: 'bold', cursor: 'pointer' 
-            }}
-          >
-            👑 Mesterek szerinti rangsor
-          </button>
-
-          <button 
-            onClick={() => setSortBy('ai')} 
-            style={{ 
-              background: sortBy === 'ai' ? '#a78bfa' : 'var(--bg-main)', 
-              color: sortBy === 'ai' ? '#0f172a' : 'var(--text-title)', 
-              border: '1px solid var(--border-main)', padding: '6px 14px', borderRadius: '6px', fontSize: '0.82rem', fontWeight: 'bold', cursor: 'pointer' 
-            }}
-          >
-            🤖 AI (FIAP) szerinti rangsor
-          </button>
+            <option value="all">🎨 Összes kategória</option>
+            <option value="portrait">👤 Portré</option>
+            <option value="color">🌈 Színes</option>
+            <option value="monochrome">🖤 Monokróm</option>
+            <option value="nature">🌿 Természet</option>
+          </select>
         </div>
-      )}
 
-      {/* KATEGÓRIA SZŰRŐK ÉS ÉRTÉKELÉSRE VÁRÓK SZŰRŐ */}
-      <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', overflowX: 'auto', pb: '5px' }}>
-        {[
-          { id: 'all', label: 'Összes Kép' },
-          { id: 'pending', label: `⏳ Értékelésre várók (${unvotedCount})` },
-          { id: 'portrait', label: '👤 Portré' },
-          { id: 'color', label: '🎨 Színes' },
-          { id: 'monochrome', label: '🖤 Monokróm' },
-          { id: 'nature', label: '🌿 Természet' }
-        ].map(cat => (
-          <button 
-            key={cat.id} 
-            onClick={() => setCategoryFilter(cat.id)}
-            style={{ 
-              background: categoryFilter === cat.id ? (cat.id === 'pending' ? '#f97316' : '#a78bfa') : 'var(--bg-card)', 
-              color: categoryFilter === cat.id ? '#0f172a' : (cat.id === 'pending' ? '#f97316' : 'var(--text-title)'), 
-              border: cat.id === 'pending' && categoryFilter !== 'pending' ? '1px solid #f97316' : '1px solid var(--border-main)', 
-              padding: '8px 16px', borderRadius: '20px', fontWeight: 'bold', cursor: 'pointer', whiteSpace: 'nowrap' 
-            }}
-          >
-            {cat.label}
-          </button>
-        ))}
+        {/* 4. SORREND LEGÖRDÜLŐ (CSAK LEZÁRÁS UTÁN LÁTHATÓ!) */}
+        {isRoundClosed && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto' }}>
+            <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <ArrowUpDown size={16} /> Sorrend:
+            </span>
+            <select
+              value={sortBy}
+              onChange={e => setSortBy(e.target.value as any)}
+              style={{
+                background: 'var(--bg-main)',
+                color: 'var(--text-title)',
+                border: '1px solid #38bdf8',
+                padding: '8px 14px',
+                borderRadius: '8px',
+                fontWeight: 'bold',
+                fontSize: '0.88rem',
+                outline: 'none',
+                cursor: 'pointer'
+              }}
+            >
+              <option value="members">👥 Tagok értékelése</option>
+              <option value="masters">👑 Mesterek értékelése</option>
+              <option value="ai">🤖 AI értékelése</option>
+            </select>
+          </div>
+        )}
+
       </div>
 
       {/* GALÉRIA */}
       {sortedAndFilteredEntries.length === 0 ? (
         <div style={{ padding: '50px', textAlign: 'center', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-main)', color: 'var(--text-muted)' }}>
-          {categoryFilter === 'pending' ? '🎉 Minden képet értékeltél ebben a fordulóban!' : 'Még nincsenek feltöltött képek ebben a kategóriában.'}
+          {isPendingOnly 
+            ? '🎉 Minden képet értékeltél ebben a fordulóban!' 
+            : photoScope === 'my' 
+              ? 'Még nem töltöttél fel képet ebben a fordulóban.' 
+              : 'Még nincsenek feltöltött képek a megadott szűrési feltételekkel.'}
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(310px, 1fr))', gap: '20px' }}>
