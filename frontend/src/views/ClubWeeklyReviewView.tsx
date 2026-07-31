@@ -373,7 +373,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
                 transition: 'all 0.2s'
               }}
             >
-              📤 {hasReachedUploadLimit ? `${t('reviewBtnUploadLimit')} (${myUploadCount}/${maxUploads})` : `${t('reviewBtnUpload')} (${myUploadCount}/${maxUploads})`}
+              {hasReachedUploadLimit ? `${t('reviewBtnUploadLimit')} (${myUploadCount}/${maxUploads})` : `${t('reviewBtnUpload')} (${myUploadCount}/${maxUploads})`}
             </button>
           )}
         </div>
