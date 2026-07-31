@@ -128,6 +128,8 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
     }));
   }, [entries]);
 
+ const [successToast, setSuccessToast] = useState<string | null>(null);
+
   const handleRate = async (entryId: number, score: number) => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/club-review/rate`, {
@@ -138,6 +140,11 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
 
       if (res.ok) {
         if (selectedRoundId) loadEntriesForRound(selectedRoundId);
+        
+        // 🌟 Gyors vizuális visszajelzés
+        setSuccessToast(`Sikeres értékelés: ${score} pont!`);
+        setTimeout(() => setSuccessToast(null), 3000);
+
         if (selectedEntryModal && selectedEntryModal.id === entryId) {
           setSelectedEntryModal((prev: any) => ({ ...prev, my_score: score }));
         }
