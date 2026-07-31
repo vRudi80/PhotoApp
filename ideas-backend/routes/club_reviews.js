@@ -220,28 +220,45 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
         return res.status(400).json({ error: 'Csak klubtagok tölthetnek fel képet.' });
       }
 
-      // 💳 CSOMAGKORLÁT ELLENŐRZÉS:
+      // 🎯 BIZTONSÁGOS FORDULÓ ID BEÁLLÍTÁS
+      let targetRoundId = Number(roundId);
+      if (isNaN(targetRoundId) || !targetRoundId) {
+        const [[activeRoundDb]] = await pool.query(
+          'SELECT id FROM club_review_rounds WHERE club_name = ? AND status != "closed" ORDER BY id DESC LIMIT 1',
+          [userDb.club_name]
+        );
+        targetRoundId = activeRoundDb ? activeRoundDb.id : null;
+      }
+
+      if (!targetRoundId) {
+        cleanupTempFile(req.file);
+        return res.status(400).json({ error: 'Nem található érvényes heti forduló a feltöltéshez.' });
+      }
+
+      // 💳 SZIGORÚ CSOMAGKORLÁT SZÁMÍTÁS:
       // - Ingyenes (is_premium == 0): 1 kép
       // - Prémium 1-es szint: 3 kép
       // - Prémium 2-es szint (Pro): 10 kép
+      const isPremium = Number(userDb.is_premium) === 1 || userDb.is_premium === true;
+      const premLevel = Number(userDb.premium_level || 0);
+
       let maxUploads = 1;
-      if (userDb.is_premium === 1) {
-        if (Number(userDb.premium_level) >= 2) {
-          maxUploads = 10;
-        } else {
-          maxUploads = 3;
-        }
+      if (isPremium) {
+        maxUploads = premLevel >= 2 ? 10 : 3;
       }
 
-      const [[{ uploadCount }]] = await pool.query(
+      // Meglévő feltöltések száma a fordulóban
+      const [[countRow]] = await pool.query(
         'SELECT COUNT(*) as uploadCount FROM club_review_entries WHERE round_id = ? AND user_email = ?',
-        [roundId, req.user.email]
+        [targetRoundId, req.user.email]
       );
 
-      if (uploadCount >= maxUploads) {
+      const currentUploadCount = Number(countRow?.uploadCount || 0);
+
+      if (currentUploadCount >= maxUploads) {
         cleanupTempFile(req.file);
         return res.status(403).json({ 
-          error: `A csomagod alapján ezen a héten legfeljebb ${maxUploads} képet tölthetsz fel! Válts magasabb előfizetési csomagra a több feltöltéshez.` 
+          error: `A csomagod alapján ezen a héten legfeljebb ${maxUploads} képet tölthetsz fel! (Eddig feltöltve: ${currentUploadCount} db). Válts magasabb előfizetési csomagra a több feltöltéshez.` 
         });
       }
 
@@ -268,7 +285,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
       const mimeType = req.file.mimetype || 'image/jpeg';
       cleanupTempFile(req.file);
 
-      // 🤖 GEMINI AI ELEMZÉS (TÖBB KATEGÓRIA TÁMOGATÁSA)
+      // 🤖 GEMINI AI ELEMZÉS
       let aiCategories = ['color'];
       let aiScore = 70;
       let aiFeedback = 'Szép kompozíció és jó fénykezelés.';
@@ -295,7 +312,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
 
         Adj vissza egy szigorú JSON objektumot az alábbi mezőkkel:
         {
-          "categories": ["portrait", "color", "monochrome", "nature"], // A fotóra illő kategóriák tömbje! Egy fotó TÖBB kategóriába is tartozhat (pl. fekete-fehér portré esetén: ["portrait", "monochrome"], színes tájképnél: ["nature", "color"])
+          "categories": ["portrait", "color", "monochrome", "nature"],
           "score": 10 és 100 közötti egész szám (FIAP színvonal alapján),
           "critique": "Részletes, konstruktív szakmai értékelés 2-3 mondatban. Miben jó a kép, és min kellene javítani?",
           "suggestedCourseId": A fenti listából kiválasztott tanfolyam ID-ja, ami segítene kijavítani a kép hibáját (ha nincs találat, null)
@@ -330,7 +347,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
         `INSERT INTO club_review_entries 
          (round_id, club_name, user_email, user_name, title, file_url, drive_file_id, ai_category, ai_score, ai_feedback, ai_suggested_course_id) 
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [roundId, userDb.club_name, req.user.email, userDb.name || req.user.name, title, fileUrl, driveFileId, aiCategoryString, aiScore, aiFeedback, suggestedCourseId]
+        [targetRoundId, userDb.club_name, req.user.email, userDb.name || req.user.name, title, fileUrl, driveFileId, aiCategoryString, aiScore, aiFeedback, suggestedCourseId]
       );
 
       res.json({ success: true, entryId: ins.insertId });
