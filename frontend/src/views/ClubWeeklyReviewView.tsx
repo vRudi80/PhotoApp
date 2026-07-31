@@ -104,16 +104,21 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
 
   const currentSelectedRoundObj = roundsList.find(r => r.id === selectedRoundId);
 
-  // ⏰ LEZÁRÁS ELLENŐRZÉSE
+  // ⏰ 1. FELTÖLTÉSI LEZÁRÁS ELLENŐRZÉSE (Vasárnap 23:59:59 után lezár a feltöltés)
+  const isUploadClosed = useMemo(() => {
+    if (!currentSelectedRoundObj?.upload_deadline) return false;
+    return new Date() > new Date(currentSelectedRoundObj.upload_deadline);
+  }, [currentSelectedRoundObj]);
+
+  // ⏰ 2. ÉRTÉKELÉSI LEZÁRÁS ELLENŐRZÉSE (Szerda 23:59:59 után lezár a szavazás ÉS feltárulnak az eredmények)
   const isRoundClosed = useMemo(() => {
     if (!currentSelectedRoundObj) return false;
-    if (selectedRoundId !== activeRound?.id) return true;
     if (currentSelectedRoundObj.status === 'closed') return true;
     if (currentSelectedRoundObj.rating_deadline) {
       return new Date() > new Date(currentSelectedRoundObj.rating_deadline);
     }
     return false;
-  }, [currentSelectedRoundObj, selectedRoundId, activeRound]);
+  }, [currentSelectedRoundObj]);
 
   // 💳 CSOMAG ÉS KÉPFELTÖLTÉSI LIMIT SZÁMÍTÁSA
   const myUploadCount = useMemo(() => {
@@ -266,7 +271,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
         setUploadFile(null);
         setUploadPreview(null);
         if (selectedRoundId) loadEntriesForRound(selectedRoundId);
-        alert('Kép elküldve! Az AI elkészítette a szakmai elemzést.');
+        alert('🎉 Kép elküldve! Az AI elkészítette a szakmai elemzést.');
       } else {
         alert(data.error || 'Hiba a feltöltés során.');
       }
@@ -290,7 +295,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
   if (hasNoClub) {
     return (
       <div style={{ textAlign: 'center', padding: '4rem 2rem', background: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border-main)', boxShadow: '0 10px 25px rgba(0,0,0,0.05)', margin: '20px auto', maxWidth: '800px' }}>
-        <div style={{ fontSize: '4rem', marginBottom: '1rem' }}></div>
+        <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🔒</div>
         <h2 style={{ color: '#f59e0b', margin: '0 0 10px 0', fontWeight: '700' }}>
           {isPending ? 'Jelentkezésed jóváhagyásra vár' : t('contNoClubTitle')}
         </h2>
@@ -309,7 +314,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
             <h2 style={{ margin: 0, fontSize: '1.6rem', color: '#a78bfa', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              {currentSelectedRoundObj?.title || t('reviewTitle')}
+              🏆 {currentSelectedRoundObj?.title || t('reviewTitle')}
             </h2>
 
             {isRoundClosed && (
@@ -320,7 +325,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-            <span>{t('reviewSelectRound')}</span>
+            <span>📜 {t('reviewSelectRound')}</span>
             <select 
               value={selectedRoundId || ''} 
               onChange={e => setSelectedRoundId(Number(e.target.value))}
@@ -328,7 +333,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
             >
               {roundsList.map(r => (
                 <option key={r.id} value={r.id}>
-                  {r.title} {r.id === activeRound?.id ? ' (Aktuális hét)' : ''}
+                  {r.title} {r.id === activeRound?.id ? ' (Aktuális hét ✨)' : ''}
                 </option>
               ))}
             </select>
@@ -337,17 +342,17 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
 
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
           <button onClick={() => setShowHelpModal(true)} style={{ background: 'rgba(167, 139, 250, 0.12)', color: '#a78bfa', border: '1px solid rgba(167, 139, 250, 0.3)', padding: '10px 16px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {t('reviewBtnHelp')}
+            💡 {t('reviewBtnHelp')}
           </button>
 
           {onOpenCourses && (
             <button onClick={onOpenCourses} style={{ background: 'var(--bg-main)', color: '#38bdf8', border: '1px solid var(--border-main)', padding: '10px 16px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              {t('reviewBtnCourses')}
+              📚 {t('reviewBtnCourses')}
             </button>
           )}
 
-          {/* FELTÖLTÉSI GOMB INAKTÍV TÁJÉKOZTATÓVAL */}
-          {isCurrentActiveRoundSelected && !isRoundClosed && (
+          {/* FELTÖLTÉSI GOMB INAKTÍV TÁJÉKOZTATÓVAL HA ELÉRTE A LIMITET VAGY LEJÁRT A VASÁRNAPI HATÁRIDO */}
+          {isCurrentActiveRoundSelected && !isUploadClosed && (
             <button 
               onClick={() => {
                 if (!hasReachedUploadLimit) setShowUploadModal(true);
@@ -373,8 +378,15 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
                 transition: 'all 0.2s'
               }}
             >
-              {hasReachedUploadLimit ? `${t('reviewBtnUploadLimit')} (${myUploadCount}/${maxUploads})` : `${t('reviewBtnUpload')} (${myUploadCount}/${maxUploads})`}
+              📤 {hasReachedUploadLimit ? `${t('reviewBtnUploadLimit')} (${myUploadCount}/${maxUploads})` : `${t('reviewBtnUpload')} (${myUploadCount}/${maxUploads})`}
             </button>
+          )}
+
+          {/* HA VASÁRNAP ÉJFÉL ELTELT A FORDULÓN */}
+          {isCurrentActiveRoundSelected && isUploadClosed && !isRoundClosed && (
+            <div style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.3)', padding: '8px 14px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 'bold' }}>
+              🔒 A képfeltöltés lezárult (Szavazás szerda éjfélig!)
+            </div>
           )}
         </div>
       </div>
@@ -459,7 +471,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
           </select>
         </div>
 
-        {/* 4. SORREND LEGÖRDÜLŐ (CSAK LEZÁRÁS UTÁN LÁTHATÓ!) */}
+        {/* 4. SORREND LEGÖRDÜLŐ (CSAK SZERDA ÉJFÉLI LEZÁRÁS UTÁN LÁTHATÓ!) */}
         {isRoundClosed && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto' }}>
             <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -621,7 +633,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
 
             <img src={getImageUrl(activeModalRankedEntry.drive_file_id, activeModalRankedEntry.file_url)} alt="" style={{ width: '100%', maxHeight: '380px', objectFit: 'contain', borderRadius: '8px', background: '#000', marginBottom: '15px' }} />
 
-            {/* CSAK LEZÁRÁS UTÁN JELENNEK MEG A RÉSZLETES AI ÉRTÉKELÉSEK */}
+            {/* CSAK SZERDA ÉJFÉLI LEZÁRÁS UTÁN JELENNEK MEG A RÉSZLETES AI ÉRTÉKELÉSEK */}
             {isRoundClosed ? (
               <>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', background: 'var(--bg-main)', padding: '15px', borderRadius: '8px', border: '1px solid var(--border-main)', textAlign: 'center', marginBottom: '15px' }}>
@@ -650,7 +662,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
                 <div style={{ background: 'var(--bg-main)', padding: '16px', borderRadius: '8px', border: '1px solid #a78bfa', marginBottom: '15px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                     <span style={{ color: '#a78bfa', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      AI Szakmai Értékelés (FIAP Szempontok)
+                      ✨ AI Szakmai Értékelés (FIAP Szempontok)
                     </span>
                     <span style={{ background: '#a78bfa', color: '#0f172a', padding: '2px 8px', borderRadius: '12px', fontSize: '0.8rem', fontWeight: 'bold' }}>
                       {activeModalRankedEntry.ai_score} / 100 Pont
