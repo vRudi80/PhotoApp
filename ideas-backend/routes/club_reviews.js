@@ -210,7 +210,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
         return res.status(400).json({ error: 'Csak klubtagok tölthetnek fel képet.' });
       }
 
-      // 💳 PONTOS CSOMAGKORLÁT SZÁMÍTÁS:
+      // 💳 CSOMAGKORLÁT ELLENŐRZÉS:
       // - Ingyenes (is_premium == 0): 1 kép
       // - Prémium 1-es szint: 3 kép
       // - Prémium 2-es szint (Pro): 10 kép
@@ -258,7 +258,8 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
       const mimeType = req.file.mimetype || 'image/jpeg';
       cleanupTempFile(req.file);
 
-      let aiCategory = 'color';
+      // 🤖 GEMINI AI ELEMZÉS (TÖBB KATEGÓRIA TÁMOGATÁSA)
+      let aiCategories = ['color'];
       let aiScore = 70;
       let aiFeedback = 'Szép kompozíció és jó fénykezelés.';
       let suggestedCourseId = null;
@@ -284,7 +285,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
 
         Adj vissza egy szigorú JSON objektumot az alábbi mezőkkel:
         {
-          "category": "portrait" | "color" | "monochrome" | "nature",
+          "categories": ["portrait", "color", "monochrome", "nature"], // A fotóra illő kategóriák tömbje! Egy fotó TÖBB kategóriába is tartozhat (pl. fekete-fehér portré esetén: ["portrait", "monochrome"], színes tájképnél: ["nature", "color"])
           "score": 10 és 100 közötti egész szám (FIAP színvonal alapján),
           "critique": "Részletes, konstruktív szakmai értékelés 2-3 mondatban. Miben jó a kép, és min kellene javítani?",
           "suggestedCourseId": A fenti listából kiválasztott tanfolyam ID-ja, ami segítene kijavítani a kép hibáját (ha nincs találat, null)
@@ -296,7 +297,13 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
         ]);
 
         const aiData = JSON.parse(result.response.text());
-        aiCategory = aiData.category || 'color';
+
+        if (Array.isArray(aiData.categories) && aiData.categories.length > 0) {
+          aiCategories = aiData.categories;
+        } else if (aiData.category) {
+          aiCategories = [aiData.category];
+        }
+
         aiScore = Math.min(100, Math.max(10, Number(aiData.score) || 70));
         
         const fiapUpsell = " 🌟 Tipp: Ez a kép a FIAP nemzetközi szalonokon is jó eséllyel indulhatna! Próbáld ki a PhotAwesome FIAP modulját.";
@@ -307,11 +314,13 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
         console.error("AI elemzési hiba:", aiErr.message);
       }
 
+      const aiCategoryString = aiCategories.join(',');
+
       const [ins] = await pool.query(
         `INSERT INTO club_review_entries 
          (round_id, club_name, user_email, user_name, title, file_url, drive_file_id, ai_category, ai_score, ai_feedback, ai_suggested_course_id) 
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [roundId, userDb.club_name, req.user.email, userDb.name || req.user.name, title, fileUrl, driveFileId, aiCategory, aiScore, aiFeedback, suggestedCourseId]
+        [roundId, userDb.club_name, req.user.email, userDb.name || req.user.name, title, fileUrl, driveFileId, aiCategoryString, aiScore, aiFeedback, suggestedCourseId]
       );
 
       res.json({ success: true, entryId: ins.insertId });
@@ -346,7 +355,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
         return res.status(400).json({ error: 'A saját képedet nem értékelheted!' });
       }
 
-      // MESTER JOG: Akkor Mester, ha is_master = 1 vagy ha a klub Vezetője (leader)
       const isMasterEvaluator = userDb.is_master === 1 || userDb.club_role === 'leader';
       const evaluatorRole = isMasterEvaluator ? 'master' : 'member';
 
