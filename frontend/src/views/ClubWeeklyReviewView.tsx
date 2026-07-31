@@ -4,7 +4,7 @@ import { getImageUrl } from '../utils/helpers';
 import VideoLoader from '../components/VideoLoader';
 import { 
   Award, Upload, Star, Clock, Filter, Sparkles, CheckCircle2, 
-  BookOpen, Eye, UserCheck, ChevronRight, X, ImageIcon, Calendar, History 
+  BookOpen, Eye, UserCheck, ChevronRight, X, ImageIcon, Calendar, History, Trophy 
 } from 'lucide-react';
 
 interface ClubWeeklyReviewProps {
@@ -50,7 +50,6 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
     }
     setLoading(true);
     try {
-      // Bekérjük az aktív hetet
       const activeRes = await fetch(`${BACKEND_URL}/api/club-review/active-round`, { headers: getAuthHeaders() });
       let currentActive = null;
       if (activeRes.ok) {
@@ -59,13 +58,11 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
         setActiveRound(currentActive);
       }
 
-      // Bekérjük a klub összes fordulóját az archívumhoz
       const roundsRes = await fetch(`${BACKEND_URL}/api/club-review/rounds`, { headers: getAuthHeaders() });
       if (roundsRes.ok) {
         const roundsData = await roundsRes.json();
         setRoundsList(roundsData);
 
-        // Alapértelmezetten az aktív forduló van kiválasztva
         if (currentActive?.id) {
           setSelectedRoundId(currentActive.id);
         } else if (roundsData.length > 0) {
@@ -100,6 +97,35 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
       loadEntriesForRound(selectedRoundId);
     }
   }, [selectedRoundId]);
+
+  // 🏆 CSOPORTONKÉNTI RANGSOR SZÁMÍTÁS (Klubtagok, Mesterek, AI)
+  const rankedEntries = useMemo(() => {
+    if (!entries || entries.length === 0) return [];
+    const totalCount = entries.length;
+
+    // AI szerinti sorrend (ai_score csökkenő)
+    const aiSorted = [...entries].sort((a, b) => (Number(b.ai_score) || 0) - (Number(a.ai_score) || 0));
+    const aiRankMap = new Map<number, number>();
+    aiSorted.forEach((item, idx) => aiRankMap.set(item.id, idx + 1));
+
+    // Klubtagok szerinti sorrend (avg_member_score csökkenő)
+    const memberSorted = [...entries].sort((a, b) => (Number(b.avg_member_score) || 0) - (Number(a.avg_member_score) || 0));
+    const memberRankMap = new Map<number, number>();
+    memberSorted.forEach((item, idx) => memberRankMap.set(item.id, idx + 1));
+
+    // Mesterek szerinti sorrend (avg_master_score csökkenő)
+    const masterSorted = [...entries].sort((a, b) => (Number(b.avg_master_score) || 0) - (Number(a.avg_master_score) || 0));
+    const masterRankMap = new Map<number, number>();
+    masterSorted.forEach((item, idx) => masterRankMap.set(item.id, idx + 1));
+
+    return entries.map(entry => ({
+      ...entry,
+      totalEntriesCount: totalCount,
+      aiRank: aiRankMap.get(entry.id) || totalCount,
+      memberRank: memberRankMap.get(entry.id) || totalCount,
+      masterRank: masterRankMap.get(entry.id) || totalCount,
+    }));
+  }, [entries]);
 
   const handleRate = async (entryId: number, score: number) => {
     try {
@@ -170,17 +196,22 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
   };
 
   const filteredEntries = useMemo(() => {
-    if (categoryFilter === 'all') return entries;
-    return entries.filter(e => e.ai_category === categoryFilter);
-  }, [entries, categoryFilter]);
+    if (categoryFilter === 'all') return rankedEntries;
+    return rankedEntries.filter(e => e.ai_category === categoryFilter);
+  }, [rankedEntries, categoryFilter]);
 
   const isMaster = user?.is_master === 1 || user?.club_role === 'leader';
   const isCurrentActiveRoundSelected = selectedRoundId === activeRound?.id;
   const currentSelectedRoundObj = roundsList.find(r => r.id === selectedRoundId);
 
+  // Kijelölt kép a rangsoros listából a modálhoz
+  const activeModalRankedEntry = useMemo(() => {
+    if (!selectedEntryModal) return null;
+    return rankedEntries.find(e => e.id === selectedEntryModal.id) || selectedEntryModal;
+  }, [selectedEntryModal, rankedEntries]);
+
   if (loading) return <VideoLoader />;
 
-  // 🔒 HIBAPANEL KLUB NEGYEKNÉL / NEM KLUBTAGOKNÁL
   if (hasNoClub) {
     return (
       <div style={{ textAlign: 'center', padding: '4rem 2rem', background: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border-main)', boxShadow: '0 10px 25px rgba(0,0,0,0.05)', margin: '20px auto', maxWidth: '800px' }}>
@@ -213,7 +244,6 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
             )}
           </div>
 
-          {/* FORDULÓVÁLASZTÓ LEGÖRDÜLŐ MENÜ */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
             <History size={16} color="#38bdf8" />
             <span>Forduló kiválasztása:</span>
@@ -224,7 +254,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
             >
               {roundsList.map(r => (
                 <option key={r.id} value={r.id}>
-                  {r.title} {r.id === activeRound?.id ? ' (Aktuális hét ✨)' : ''}
+                  {r.title} {r.id === activeRound?.id ? ' (Aktuális hét)' : ''}
                 </option>
               ))}
             </select>
@@ -276,7 +306,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
           Még nincsenek feltöltött képek ebben a kategóriában.
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(310px, 1fr))', gap: '20px' }}>
           {filteredEntries.map(entry => {
             const isMyPhoto = entry.user_email === user?.email;
             const photoUrl = getImageUrl(entry.drive_file_id, entry.file_url);
@@ -295,19 +325,45 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
 
                 <div style={{ padding: '15px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                   <div>
-                    <h3 style={{ margin: '0 0 4px 0', color: 'var(--text-title)', fontSize: '1.1rem' }}>{entry.title}</h3>
-                    <small style={{ color: 'var(--text-muted)', display: 'block', marginBottom: '12px' }}>Alkotó: {entry.user_name}</small>
+                    <h3 style={{ margin: '0 0 2px 0', color: 'var(--text-title)', fontSize: '1.1rem' }}>{entry.title}</h3>
+                    <small style={{ color: 'var(--text-muted)', display: 'block', marginBottom: '10px' }}>Alkotó: {entry.user_name}</small>
 
-                    {/* PONTSZÁM ÖSSZESÍTŐ */}
-                    <div style={{ display: 'flex', gap: '10px', fontSize: '0.8rem', background: 'var(--bg-main)', padding: '8px 12px', borderRadius: '6px', marginBottom: '12px' }}>
-                      <div style={{ flex: 1 }}>
-                        <span style={{ color: 'var(--text-muted)' }}>Tagok átlaga:</span>
-                        <div style={{ color: '#38bdf8', fontWeight: 'bold' }}>{Number(entry.avg_member_score).toFixed(1)} p ({entry.member_votes_count} szavazat)</div>
+                    {/* 🎯 3 OSZLOPOS HELYEZÉS ÉS ÁTLAGSÁV (121/321, 3/321, 12/321) */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', background: 'var(--bg-main)', padding: '10px 6px', borderRadius: '8px', border: '1px solid var(--border-main)', textAlign: 'center', marginBottom: '12px' }}>
+                      
+                      {/* KLUBTAGOK */}
+                      <div>
+                        <span style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 'bold', display: 'block' }}>Klubtagok</span>
+                        <div style={{ color: '#38bdf8', fontWeight: '800', fontSize: '0.9rem', marginTop: '2px' }}>
+                          {entry.memberRank}/{entry.totalEntriesCount}
+                        </div>
+                        <small style={{ color: 'var(--text-muted)', fontSize: '0.68rem' }}>
+                          {Number(entry.avg_member_score).toFixed(1)} p
+                        </small>
                       </div>
-                      <div style={{ flex: 1, borderLeft: '1px solid var(--border-main)', paddingLeft: '10px' }}>
-                        <span style={{ color: 'var(--text-muted)' }}>Mesterek:</span>
-                        <div style={{ color: '#f59e0b', fontWeight: 'bold' }}>{Number(entry.avg_master_score).toFixed(1)} p ({entry.master_votes_count} szavazat)</div>
+
+                      {/* MESTEREK */}
+                      <div style={{ borderLeft: '1px solid var(--border-main)', borderRight: '1px solid var(--border-main)' }}>
+                        <span style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 'bold', display: 'block' }}>Mesterek</span>
+                        <div style={{ color: '#f59e0b', fontWeight: '800', fontSize: '0.9rem', marginTop: '2px' }}>
+                          {entry.masterRank}/{entry.totalEntriesCount}
+                        </div>
+                        <small style={{ color: 'var(--text-muted)', fontSize: '0.68rem' }}>
+                          {Number(entry.avg_master_score).toFixed(1)} p
+                        </small>
                       </div>
+
+                      {/* AI FIAP */}
+                      <div>
+                        <span style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 'bold', display: 'block' }}>AI FIAP</span>
+                        <div style={{ color: '#a78bfa', fontWeight: '800', fontSize: '0.9rem', marginTop: '2px' }}>
+                          {entry.aiRank}/{entry.totalEntriesCount}
+                        </div>
+                        <small style={{ color: 'var(--text-muted)', fontSize: '0.68rem' }}>
+                          {entry.ai_score} p
+                        </small>
+                      </div>
+
                     </div>
                   </div>
 
@@ -351,17 +407,41 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
         </div>
       )}
 
-      {/* RÉSZLETES AI ELEMZŐ ÉS TANFOLYAM MODÁL */}
-      {selectedEntryModal && (
+      {/* RÉSZLETES AI ELEMZŐ ÉS HELYEZÉS MODÁL */}
+      {activeModalRankedEntry && (
         <div onClick={() => setSelectedEntryModal(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 99999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
           <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', borderRadius: '12px', padding: '25px', maxWidth: '700px', width: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
             
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-              <h3 style={{ margin: 0, color: 'var(--text-title)', fontSize: '1.3rem' }}>{selectedEntryModal.title}</h3>
+              <h3 style={{ margin: 0, color: 'var(--text-title)', fontSize: '1.3rem' }}>{activeModalRankedEntry.title}</h3>
               <button onClick={() => setSelectedEntryModal(null)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}><X size={20} /></button>
             </div>
 
-            <img src={getImageUrl(selectedEntryModal.drive_file_id, selectedEntryModal.file_url)} alt="" style={{ width: '100%', maxHeight: '350px', objectFit: 'contain', borderRadius: '8px', background: '#000', marginBottom: '15px' }} />
+            <img src={getImageUrl(activeModalRankedEntry.drive_file_id, activeModalRankedEntry.file_url)} alt="" style={{ width: '100%', maxHeight: '350px', objectFit: 'contain', borderRadius: '8px', background: '#000', marginBottom: '15px' }} />
+
+            {/* 🎯 KATEGÓRIA-HELYEZÉSEK DOBOZA A MODÁLBAN */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', background: 'var(--bg-main)', padding: '15px', borderRadius: '8px', border: '1px solid var(--border-main)', textAlign: 'center', marginBottom: '15px' }}>
+              <div>
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 'bold', display: 'block' }}>Klubtagok szerint</span>
+                <div style={{ color: '#38bdf8', fontWeight: 'bold', fontSize: '1.1rem', marginTop: '4px' }}>
+                  {activeModalRankedEntry.memberRank} / {activeModalRankedEntry.totalEntriesCount}
+                </div>
+              </div>
+
+              <div style={{ borderLeft: '1px solid var(--border-main)', borderRight: '1px solid var(--border-main)' }}>
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 'bold', display: 'block' }}>Mesterek szerint</span>
+                <div style={{ color: '#f59e0b', fontWeight: 'bold', fontSize: '1.1rem', marginTop: '4px' }}>
+                  {activeModalRankedEntry.masterRank} / {activeModalRankedEntry.totalEntriesCount}
+                </div>
+              </div>
+
+              <div>
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 'bold', display: 'block' }}>AI (FIAP) szerint</span>
+                <div style={{ color: '#a78bfa', fontWeight: 'bold', fontSize: '1.1rem', marginTop: '4px' }}>
+                  {activeModalRankedEntry.aiRank} / {activeModalRankedEntry.totalEntriesCount}
+                </div>
+              </div>
+            </div>
 
             {/* AI KRITIKA DOBOZ */}
             <div style={{ background: 'var(--bg-main)', padding: '16px', borderRadius: '8px', border: '1px solid #a78bfa', marginBottom: '15px' }}>
@@ -370,19 +450,19 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
                   <Sparkles size={16} /> AI Szakmai Értékelés (FIAP Szempontok)
                 </span>
                 <span style={{ background: '#a78bfa', color: '#0f172a', padding: '2px 8px', borderRadius: '12px', fontSize: '0.8rem', fontWeight: 'bold' }}>
-                  {selectedEntryModal.ai_score} / 100 Pont
+                  {activeModalRankedEntry.ai_score} / 100 Pont
                 </span>
               </div>
-              <p style={{ margin: 0, color: 'var(--text-body)', fontSize: '0.9rem', lineHeight: '1.6' }}>{selectedEntryModal.ai_feedback}</p>
+              <p style={{ margin: 0, color: 'var(--text-body)', fontSize: '0.9rem', lineHeight: '1.6' }}>{activeModalRankedEntry.ai_feedback}</p>
             </div>
 
             {/* AJÁNLOTT KLUBTANFOLYAM KÁRTYA */}
-            {selectedEntryModal.course_title && (
+            {activeModalRankedEntry.course_title && (
               <div style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid #10b981', padding: '15px', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '15px' }}>
                 <div>
                   <small style={{ color: '#10b981', fontWeight: 'bold', display: 'block', marginBottom: '2px' }}>🎯 Az AI által javasolt klubtanfolyam fejlődéshez:</small>
-                  <strong style={{ color: 'var(--text-title)', fontSize: '1rem' }}>{selectedEntryModal.course_title}</strong>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>Ár: {selectedEntryModal.course_price} • {selectedEntryModal.course_location_detail}</div>
+                  <strong style={{ color: 'var(--text-title)', fontSize: '1rem' }}>{activeModalRankedEntry.course_title}</strong>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>Ár: {activeModalRankedEntry.course_price} • {activeModalRankedEntry.course_location_detail}</div>
                 </div>
                 {onOpenCourses && (
                   <button onClick={() => { setSelectedEntryModal(null); onOpenCourses(); }} style={{ background: '#10b981', color: 'white', border: 'none', padding: '8px 14px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', whiteSpace: 'nowrap' }}>
