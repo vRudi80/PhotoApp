@@ -77,15 +77,22 @@ export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProp
     loadClubAndAdminRecords(); 
   }, [user?.email, BACKEND_URL]);
 
-  // 👑 MESTER TITULUS BE/KI KAPCSOLÁSA
+  // 👑 MESTER TITULUS BE/KI KAPCSOLÁSA (Azonnali felületi frissítéssel)
   const handleToggleMaster = async (targetEmail: string, currentIsMaster: boolean) => {
+    const newMasterStatus = !currentIsMaster;
+
+    // Azonnali vizuális frissítés a React state-ben:
+    setMembers(prev => prev.map(m => 
+      m.email === targetEmail ? { ...m, is_master: newMasterStatus ? 1 : 0 } : m
+    ));
+
     try {
       const res = await fetch(`${BACKEND_URL}/api/club/toggle-master`, {
         method: 'POST',
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           targetEmail,
-          isMaster: !currentIsMaster
+          isMaster: newMasterStatus
         })
       });
 
@@ -94,9 +101,11 @@ export default function LeaderClubView({ user, BACKEND_URL }: LeaderClubViewProp
       } else {
         const err = await res.json().catch(() => ({}));
         alert(`Hiba: ${err.error || 'Szerver hiba'}`);
+        loadClubAndAdminRecords(); // Visszaállítjuk az eredeti állapotot hiba esetén
       }
     } catch (e) {
       alert('Hálózati hiba a Mester titulus frissítésekor!');
+      loadClubAndAdminRecords();
     }
   };
 
