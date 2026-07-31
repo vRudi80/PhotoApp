@@ -290,6 +290,27 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
   });
 
   // ====================================================================
+  // 📜 KLUB ÖSSZES FORDULÓJÁNAK LEKÉRÉSE (ARCHÍVUM)
+  // ====================================================================
+  app.get('/api/club-review/rounds', requireAuth, async (req, res) => {
+    try {
+      const [[userDb]] = await pool.query('SELECT club_name FROM photo_users WHERE email = ?', [req.user.email]);
+      if (!userDb || !userDb.club_name) {
+        return res.status(400).json({ error: 'Nem vagy tagja fotóklubnak.' });
+      }
+
+      const [rounds] = await pool.query(
+        'SELECT * FROM club_review_rounds WHERE club_name = ? ORDER BY id DESC',
+        [userDb.club_name]
+      );
+
+      res.json(rounds);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+  
+  // ====================================================================
   // 🗳️ 4. PONTOZÁS (TAGOK ÉS MESTEREK)
   // ====================================================================
   app.post('/api/club-review/rate', requireAuth, async (req, res) => {
