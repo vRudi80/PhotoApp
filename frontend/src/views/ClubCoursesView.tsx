@@ -33,7 +33,15 @@ export default function ClubCoursesView({ user, onBack }: ClubCoursesViewProps) 
   const [errorCategory, setErrorCategory] = useState('general');
   const [isSaving, setIsSaving] = useState(false);
 
+  // 🔒 Karantén fék: Ha nincs klubja, VAGY a tagsága függőben van!
+  const isPending = user?.club_role === 'pending';
+  const hasNoClub = !user?.club_name || isPending;
+
   const loadCourses = async () => {
+    if (hasNoClub) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const res = await fetch(`${BACKEND_URL}/api/club-courses`, { headers: getAuthHeaders() });
@@ -45,7 +53,7 @@ export default function ClubCoursesView({ user, onBack }: ClubCoursesViewProps) 
     }
   };
 
-  useEffect(() => { loadCourses(); }, []);
+  useEffect(() => { loadCourses(); }, [user?.club_name, user?.club_role]);
 
   const handleCreateCourse = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,6 +101,23 @@ export default function ClubCoursesView({ user, onBack }: ClubCoursesViewProps) 
 
   const isLeaderOrDeputy = user?.club_role === 'leader' || user?.club_role === 'deputy' || user?.isAdmin;
 
+  if (loading) return <div style={{ textAlign: 'center', padding: '50px', color: 'var(--text-muted)' }}>Betöltés...</div>;
+
+  // 🔒 HIBAPANEL KLUB NEGYEKNÉL / NEM KLUBTAGOKNÁL
+  if (hasNoClub) {
+    return (
+      <div style={{ textAlign: 'center', padding: '4rem 2rem', background: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border-main)', boxShadow: '0 10px 25px rgba(0,0,0,0.05)', margin: '20px auto', maxWidth: '800px' }}>
+        <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🔒</div>
+        <h2 style={{ color: '#f59e0b', margin: '0 0 10px 0', fontWeight: '700' }}>
+          {isPending ? 'Jelentkezésed jóváhagyásra vár' : 'Nem vagy klubhoz rendelve'}
+        </h2>
+        <p style={{ color: 'var(--text-body)', fontSize: '1.1rem', maxWidth: '540px', margin: '0 auto' }}>
+          A klubod tanfolyamainak megtekintéséhez kérjük, vedd fel a kapcsolatot egy adminisztrátorral. - kovari.rudolf@gmail.com
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '15px' }}>
       
@@ -120,9 +145,7 @@ export default function ClubCoursesView({ user, onBack }: ClubCoursesViewProps) 
       </div>
 
       {/* TANFOLYAMOK LISTÁJA */}
-      {loading ? (
-        <div style={{ textAlign: 'center', padding: '50px', color: 'var(--text-muted)' }}>Betöltés...</div>
-      ) : courses.length === 0 ? (
+      {courses.length === 0 ? (
         <div style={{ padding: '50px 20px', textAlign: 'center', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-main)', color: 'var(--text-muted)' }}>
           <h3>Jelenleg nincsenek meghirdetett tanfolyamok a klubodban.</h3>
           <p>Keresd a klubvezetődet az új képzési alkalmakért!</p>
@@ -219,7 +242,7 @@ export default function ClubCoursesView({ user, onBack }: ClubCoursesViewProps) 
 
             <div>
               <label style={{ display: 'block', color: 'var(--text-title)', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '5px' }}>Helyszín részletei / Online Link</label>
-              <input type="text" value={locationDetail} onChange={e => setLocationDetail(e.target.value)} placeholder="pl.: https://zoom.us/j/... vagy Klubterem, Művház" style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-main)', background: 'var(--bg-main)', color: 'var(--text-title)', outline: 'none' }} />
+              <input type="text" value={locationDetail} onChange={e => setLocationDetail(e.target.value)} placeholder="pl.: https://zoom.us/j/... vagy Klubterem, Mühváz" style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-main)', background: 'var(--bg-main)', color: 'var(--text-title)', outline: 'none' }} />
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
