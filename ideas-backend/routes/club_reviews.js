@@ -13,7 +13,7 @@ function getISOWeekNumber(d) {
 }
 
 // ====================================================================
-// 🔒 AUTH MIDDLEWARE
+// AUTH MIDDLEWARE
 // ====================================================================
 async function requireAuth(req, res, next) {
   try {
@@ -48,7 +48,7 @@ async function requireAuth(req, res, next) {
 module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
 
   // ====================================================================
-  // 👑 0. MESTER TITULUS KAPCSOLÁSA (Klubvezető vagy Admin által)
+  // 0. MESTER TITULUS KAPCSOLÁSA (Klubvezető vagy Admin által)
   // ====================================================================
   app.post('/api/club/toggle-master', requireAuth, async (req, res) => {
     const { targetEmail, isMaster } = req.body;
@@ -71,7 +71,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
   });
 
   // ====================================================================
-  // 📚 1. KLUB TANFOLYAMOK KEZELÉSE (CRUD)
+  // 1. KLUB TANFOLYAMOK KEZELÉSE (CRUD)
   // ====================================================================
   app.get('/api/club-courses', requireAuth, async (req, res) => {
     try {
@@ -126,7 +126,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
   });
 
   // ====================================================================
-  // 📜 2. KLUB ÖSSZES FORDULÓJÁNAK LEKÉRÉSE (ARCHÍVUM)
+  // 2. KLUB ÖSSZES FORDULÓJÁNAK LEKÉRÉSE (ARCHÍVUM)
   // ====================================================================
   app.get('/api/club-review/rounds', requireAuth, async (req, res) => {
     try {
@@ -147,7 +147,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
   });
 
   // ====================================================================
-  // 🗓️ 3. AKTUÁLIS FORDULÓ LEKÉRÉSE / AUTOMATIKUS INDÍTÁSA
+  // 3. AKTUÁLIS FORDULÓ LEKÉRÉSE / AUTOMATIKUS INDÍTÁSA
   // ====================================================================
   app.get('/api/club-review/active-round', requireAuth, async (req, res) => {
     try {
@@ -158,7 +158,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
 
       const now = new Date();
 
-      // 1. Automatice lezárjuk azokat a fordulókat, ahol a szerda éjféli rating_deadline eltelt
+      // 1. Automatikusan lezárjuk azokat a fordulókat, ahol a szerda éjféli rating_deadline eltelt
       await pool.query(
         'UPDATE club_review_rounds SET status = "closed" WHERE club_name = ? AND rating_deadline < ? AND status != "closed"',
         [userDb.club_name, now]
@@ -208,7 +208,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
   });
 
   // ====================================================================
-  // 📸 4. KÉP FELTÖLTÉSE (FÁJL) ÉS AI ELEMZÉS (GEMINI 2.5)
+  // 4. KÉP FELTÖLTÉSE (FÁJL) ÉS AI ELEMZÉS (GEMINI 2.5)
   // ====================================================================
   app.post('/api/club-review/upload', requireAuth, upload.single('photo'), async (req, res) => {
     const { roundId, title } = req.body;
@@ -240,13 +240,13 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
         return res.status(404).json({ error: 'A megadott forduló nem található.' });
       }
 
-      // ⏱️ FELTÖLTÉSI HATÁRIDŐ ELLENŐRZÉSE (Vasárnap éjfél)
+      // FELTÖLTÉSI HATÁRIDŐ ELLENŐRZÉSE (Vasárnap éjfél)
       if (new Date() > new Date(targetRound.upload_deadline)) {
         cleanupTempFile(req.file);
         return res.status(403).json({ error: 'Erre a fordulóra a képfeltöltési határidő (vasárnap éjfél) már lejárt!' });
       }
 
-      // 💳 CSOMAGKORLÁT SZÁMÍTÁSA
+      // CSOMAGKORLÁT SZÁMÍTÁSA
       const isPremium = Number(userDb.is_premium) === 1 || userDb.is_premium === true;
       const premLevel = Number(userDb.premium_level || 0);
 
@@ -292,7 +292,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
       const mimeType = req.file.mimetype || 'image/jpeg';
       cleanupTempFile(req.file);
 
-      // 🤖 GEMINI AI ELEMZÉS
+      // GEMINI AI ELEMZÉS (FIAP AJÁNLÁS AI DÖNTÉS ALAPJÁN)
       let aiCategories = ['color'];
       let aiScore = 70;
       let aiFeedback = 'Szép kompozíció és jó fénykezelés.';
@@ -322,7 +322,8 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
           "categories": ["portrait", "color", "monochrome", "nature"],
           "score": 10 és 100 közötti egész szám (FIAP színvonal alapján),
           "critique": "Részletes, konstruktív szakmai értékelés 2-3 mondatban. Miben jó a kép, és min kellene javítani?",
-          "suggestedCourseId": A fenti listából kiválasztott tanfolyam ID-ja, ami segítene kijavítani a kép hibáját (ha nincs találat, null)
+          "suggestedCourseId": A fenti listából kiválasztott tanfolyam ID-ja, ami segítene kijavítani a kép hibáját (ha nincs találat, null),
+          "suggestFiap": true VAGY false (Állítsd true-ra, ha a fotó művészi és technikai kivitelezése alapján valóban érdemes és jó eséllyel indulhatna nemzetközi FIAP fotószalonokon)
         }`;
 
         const result = await model.generateContent([
@@ -340,8 +341,13 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
 
         aiScore = Math.min(100, Math.max(10, Number(aiData.score) || 70));
         
-        const fiapUpsell = " 🌟 Tipp: Ez a kép a FIAP nemzetközi szalonokon is jó eséllyel indulhatna! Próbáld ki a PhotAwesome FIAP modulját.";
-        aiFeedback = (aiData.critique || 'Jó kivitelezés.') + fiapUpsell;
+        // FIAP Ajánlás fűzése kizárólag ha az AI szerint méltó a kép
+        let fiapNotice = "";
+        if (aiData.suggestFiap === true) {
+          fiapNotice = " Tipp: Ez a kép a szakmai és művészi színvonala alapján a FIAP nemzetközi szalonokon is jó eséllyel indulhatna!";
+        }
+
+        aiFeedback = (aiData.critique || 'Jó kivitelezés.') + fiapNotice;
         suggestedCourseId = aiData.suggestedCourseId || null;
 
       } catch (aiErr) {
@@ -365,7 +371,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
   });
 
   // ====================================================================
-  // 🗳️ 5. PONTOZÁS (SZERDA ÉJFÉLIG ENGEDÉLYEZETT)
+  // 5. PONTOZÁS (SZERDA ÉJFÉLIG ENGEDÉLYEZETT)
   // ====================================================================
   app.post('/api/club-review/rate', requireAuth, async (req, res) => {
     const { entryId, score } = req.body;
@@ -389,7 +395,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
         return res.status(400).json({ error: 'A saját képedet nem értékelheted!' });
       }
 
-      // ⏱️ SZAVAZÁSI HATÁRIDAŐ ELLENŐRZÉSE (Következő hét Szerda éjfél)
+      // SZAVAZÁSI HATÁRIDŐ ELLENŐRZÉSE (Következő hét Szerda éjfél)
       if (entry.status === 'closed' || new Date() > new Date(entry.rating_deadline)) {
         return res.status(403).json({ error: 'Az értékelési határidő erre a fordulóra már lejárt!' });
       }
@@ -419,7 +425,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
   });
 
   // ====================================================================
-  // 📊 6. FORDULÓ KÉPEINEK LEKÉRÉSE ÉS EREDMÉNYEK
+  // 6. FORDULÓ KÉPEINEK LEKÉRÉSE ÉS EREDMÉNYEK
   // ====================================================================
   app.get('/api/club-review/entries/:roundId', requireAuth, async (req, res) => {
     try {
