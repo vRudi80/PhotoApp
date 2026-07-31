@@ -149,22 +149,31 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
   // ====================================================================
   // 🗓️ 3. AKTUÁLIS FORDULÓ LEKÉRÉSE / LÉTREHOZÁSA
   // ====================================================================
-  app.get('/api/club-review/active-round', requireAuth, async (req, res) => {
+    app.get('/api/club-review/active-round', requireAuth, async (req, res) => {
     try {
       const [[userDb]] = await pool.query('SELECT club_name, club_role, is_master, is_premium, premium_level FROM photo_users WHERE email = ?', [req.user.email]);
       if (!userDb || !userDb.club_name) {
         return res.status(400).json({ error: 'Nem vagy tagja fotóklubnak.' });
       }
 
+      const now = new Date();
+
+      // 1. Automatikusan lezárjuk azokat a fordulókat, ahol a szerda éjféli rating_deadline eltelt
+      await pool.query(
+        'UPDATE club_review_rounds SET status = "closed" WHERE club_name = ? AND rating_deadline < ? AND status != "closed"',
+        [userDb.club_name, now]
+      );
+
+      // 2. Megkeressük azt a fordulót, ami az AKTUÁLIS feltöltési hétre vonatkozik (upload_deadline >= now)
       let [rounds] = await pool.query(
-        'SELECT * FROM club_review_rounds WHERE club_name = ? AND status != "closed" ORDER BY id DESC LIMIT 1',
-        [userDb.club_name]
+        'SELECT * FROM club_review_rounds WHERE club_name = ? AND upload_deadline >= ? ORDER BY id DESC LIMIT 1',
+        [userDb.club_name, now]
       );
 
       let round = rounds[0];
 
+      // 3. Ha hétfő van (vagy nincs aktív feltöltési hét), automatikusan létrehozzuk az ÚJ HETET!
       if (!round) {
-        const now = new Date();
         const nextSun = new Date(now);
         nextSun.setDate(now.getDate() + ((7 - now.getDay()) % 7));
         nextSun.setHours(23, 59, 59, 999);
@@ -177,7 +186,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
 
         const [ins] = await pool.query(
           `INSERT INTO club_review_rounds (club_name, title, upload_deadline, rating_deadline, status) 
-           VALUES (?, ?, ?, ?, 'uploading')`,
+           VALUES (?, ?, ?, ?, 'active')`,
           [userDb.club_name, weekTitle, nextSun, nextWed]
         );
 
@@ -197,6 +206,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
       res.status(500).json({ error: err.message });
     }
   });
+
 
   // ====================================================================
   // 📸 4. KÉP FELTÖLTÉSE (FÁJL) ÉS AI ELEMZÉS (GEMINI 2.5)
