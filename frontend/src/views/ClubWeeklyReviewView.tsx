@@ -365,7 +365,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
           }}
         >
           {photoScope === 'my' ? <User size={16} /> : <Layers size={16} />}
-          {photoScope === 'my' ? '🖼️ Saját fotóim' : '🌐 Összes fotó'}
+          {photoScope === 'my' ? 'Saját fotóim' : 'Összes fotó'}
         </button>
 
         {/* 2. ÉRTÉKELÉSRE VÁRÓK GOMB */}
@@ -389,7 +389,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
             transition: 'all 0.15s'
           }}
         >
-          ⏳ Értékelésre várók ({unvotedCount})
+          Értékelésre várók ({unvotedCount})
         </button>
 
         <div style={{ height: '24px', width: '1px', background: 'var(--border-main)', margin: '0 4px' }} />
