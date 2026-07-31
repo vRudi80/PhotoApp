@@ -4,7 +4,7 @@ import { getImageUrl } from '../utils/helpers';
 import VideoLoader from '../components/VideoLoader';
 import { 
   Award, Upload, Star, Clock, Filter, Sparkles, CheckCircle2, 
-  BookOpen, Eye, UserCheck, ChevronRight, X, ShieldAlert 
+  BookOpen, Eye, UserCheck, ChevronRight, X, ImageIcon, Image as ImageIconLucide 
 } from 'lucide-react';
 
 interface ClubWeeklyReviewProps {
@@ -32,8 +32,8 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
   // Képfeltöltés modál adatok
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [photoTitle, setPhotoTitle] = useState('');
-  const [fileUrl, setFileUrl] = useState('');
-  const [driveFileId, setDriveFileId] = useState('');
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadPreview, setUploadPreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
   const loadData = async () => {
@@ -80,30 +80,40 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
     }
   };
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setUploadFile(file);
+      setUploadPreview(URL.createObjectURL(file));
+    }
+  };
+
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!photoTitle.trim() || (!fileUrl.trim() && !driveFileId.trim())) {
-      return alert('Add meg a kép címét és a kép elérését!');
+    if (!photoTitle.trim() || !uploadFile) {
+      return alert('Kérlek add meg a kép címét és válaszd ki a fotó fájlt!');
     }
 
     setIsUploading(true);
     try {
+      const formData = new FormData();
+      formData.append('roundId', String(activeRound.id));
+      formData.append('title', photoTitle);
+      formData.append('photo', uploadFile);
+
       const res = await fetch(`${BACKEND_URL}/api/club-review/upload`, {
         method: 'POST',
-        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({
-          roundId: activeRound.id,
-          title: photoTitle,
-          fileUrl,
-          driveFileId
-        })
+        headers: getAuthHeaders(), // Megjegyzés: FormData küldésekor nem állítunk fel külön Content-Type-ot
+        body: formData
       });
 
       const data = await res.json();
 
       if (res.ok) {
         setShowUploadModal(false);
-        setPhotoTitle(''); setFileUrl(''); setDriveFileId('');
+        setPhotoTitle('');
+        setUploadFile(null);
+        setUploadPreview(null);
         loadData();
         alert('🎉 Kép elküldve! Az AI elkészítette a szakmai elemzést.');
       } else {
@@ -298,7 +308,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
         </div>
       )}
 
-      {/* MODÁL: KÉP FELTÖLTÉSE */}
+      {/* MODÁL: KÉP FELTÖLTÉSE (FÁJLVÁLASZTÓVAL ÉS ELŐNÉZETTEL) */}
       {showUploadModal && (
         <div onClick={() => setShowUploadModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(6px)', zIndex: 99999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
           <form onClick={e => e.stopPropagation()} onSubmit={handleUpload} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', borderRadius: '12px', padding: '25px', maxWidth: '500px', width: '100%', display: 'flex', flexDirection: 'column', gap: '15px' }}>
@@ -310,13 +320,21 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
             </div>
 
             <div>
-              <label style={{ display: 'block', color: 'var(--text-title)', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '5px' }}>Kép URL Hivatkozás (vagy Drive File ID)</label>
-              <input type="text" value={fileUrl} onChange={e => setFileUrl(e.target.value)} placeholder="https://..." style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-main)', background: 'var(--bg-main)', color: 'var(--text-title)', outline: 'none' }} />
+              <label style={{ display: 'block', color: 'var(--text-title)', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '5px' }}>Fotó Kiválasztása *</label>
+              <input type="file" accept="image/*" onChange={handleFileSelect} required style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-main)', background: 'var(--bg-main)', color: 'var(--text-title)' }} />
             </div>
+
+            {uploadPreview && (
+              <div style={{ textAlign: 'center', background: '#000', borderRadius: '8px', padding: '10px' }}>
+                <img src={uploadPreview} alt="Előnézet" style={{ maxHeight: '180px', maxWidth: '100%', objectFit: 'contain', borderRadius: '4px' }} />
+              </div>
+            )}
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
               <button type="button" onClick={() => setShowUploadModal(false)} style={{ background: 'var(--bg-main)', border: '1px solid var(--border-main)', color: 'var(--text-title)', padding: '10px 18px', borderRadius: '6px', cursor: 'pointer' }}>Mégse</button>
-              <button type="submit" disabled={isUploading} style={{ background: '#f97316', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>{isUploading ? 'AI Elemzés...' : 'Beküldés & AI Elemzés'}</button>
+              <button type="submit" disabled={isUploading || !uploadFile} style={{ background: '#f97316', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', opacity: isUploading || !uploadFile ? 0.6 : 1 }}>
+                {isUploading ? 'Feltöltés & AI Elemzés...' : 'Beküldés & AI Elemzés'}
+              </button>
             </div>
           </form>
         </div>
