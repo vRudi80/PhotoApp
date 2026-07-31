@@ -4,7 +4,7 @@ import { getImageUrl } from '../utils/helpers';
 import VideoLoader from '../components/VideoLoader';
 import { 
   Award, Upload, Star, Clock, Filter, Sparkles, CheckCircle2, 
-  BookOpen, Eye, UserCheck, ChevronRight, X, ImageIcon 
+  BookOpen, Eye, UserCheck, ChevronRight, X, ImageIcon, Calendar, History 
 } from 'lucide-react';
 
 interface ClubWeeklyReviewProps {
@@ -21,6 +21,8 @@ const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
 };
 
 export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeeklyReviewProps) {
+  const [roundsList, setRoundsList] = useState<any[]>([]);
+  const [selectedRoundId, setSelectedRoundId] = useState<number | null>(null);
   const [activeRound, setActiveRound] = useState<any | null>(null);
   const [entries, setEntries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,21 +42,34 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
   const isPending = user?.club_role === 'pending';
   const hasNoClub = !user?.club_name || isPending;
 
-  const loadData = async () => {
+  // 1. Fordulók és aktív hét betöltése
+  const loadRounds = async () => {
     if (hasNoClub) {
       setLoading(false);
       return;
     }
     setLoading(true);
     try {
-      const roundRes = await fetch(`${BACKEND_URL}/api/club-review/active-round`, { headers: getAuthHeaders() });
-      if (roundRes.ok) {
-        const roundData = await roundRes.json();
-        setActiveRound(roundData.round);
+      // Bekérjük az aktív hetet
+      const activeRes = await fetch(`${BACKEND_URL}/api/club-review/active-round`, { headers: getAuthHeaders() });
+      let currentActive = null;
+      if (activeRes.ok) {
+        const activeData = await activeRes.json();
+        currentActive = activeData.round;
+        setActiveRound(currentActive);
+      }
 
-        if (roundData.round?.id) {
-          const entriesRes = await fetch(`${BACKEND_URL}/api/club-review/entries/${roundData.round.id}`, { headers: getAuthHeaders() });
-          if (entriesRes.ok) setEntries(await entriesRes.json());
+      // Bekérjük a klub összes fordulóját az archívumhoz
+      const roundsRes = await fetch(`${BACKEND_URL}/api/club-review/rounds`, { headers: getAuthHeaders() });
+      if (roundsRes.ok) {
+        const roundsData = await roundsRes.json();
+        setRoundsList(roundsData);
+
+        // Alapértelmezetten az aktív forduló van kiválasztva
+        if (currentActive?.id) {
+          setSelectedRoundId(currentActive.id);
+        } else if (roundsData.length > 0) {
+          setSelectedRoundId(roundsData[0].id);
         }
       }
     } catch (e) {
@@ -64,7 +79,27 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
     }
   };
 
-  useEffect(() => { loadData(); }, [user?.club_name, user?.club_role]);
+  // 2. A kiválasztott forduló képeinek betöltése
+  const loadEntriesForRound = async (roundId: number) => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/club-review/entries/${roundId}`, { headers: getAuthHeaders() });
+      if (res.ok) {
+        setEntries(await res.json());
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  useEffect(() => { 
+    loadRounds(); 
+  }, [user?.club_name, user?.club_role]);
+
+  useEffect(() => {
+    if (selectedRoundId) {
+      loadEntriesForRound(selectedRoundId);
+    }
+  }, [selectedRoundId]);
 
   const handleRate = async (entryId: number, score: number) => {
     try {
@@ -75,7 +110,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
       });
 
       if (res.ok) {
-        loadData();
+        if (selectedRoundId) loadEntriesForRound(selectedRoundId);
         if (selectedEntryModal && selectedEntryModal.id === entryId) {
           setSelectedEntryModal((prev: any) => ({ ...prev, my_score: score }));
         }
@@ -122,7 +157,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
         setPhotoTitle('');
         setUploadFile(null);
         setUploadPreview(null);
-        loadData();
+        if (selectedRoundId) loadEntriesForRound(selectedRoundId);
         alert('🎉 Kép elküldve! Az AI elkészítette a szakmai elemzést.');
       } else {
         alert(data.error || 'Hiba a feltöltés során.');
@@ -140,6 +175,8 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
   }, [entries, categoryFilter]);
 
   const isMaster = user?.is_master === 1 || user?.club_role === 'leader';
+  const isCurrentActiveRoundSelected = selectedRoundId === activeRound?.id;
+  const currentSelectedRoundObj = roundsList.find(r => r.id === selectedRoundId);
 
   if (loading) return <VideoLoader />;
 
@@ -161,15 +198,37 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '15px' }}>
       
-      {/* FEJLÉC */}
+      {/* FEJLÉC ÉS FORDULÓVÁLASZTÓ */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-card)', padding: '20px', borderRadius: '12px', border: '1px solid var(--border-main)', marginBottom: '20px', flexWrap: 'wrap', gap: '15px' }}>
         <div>
-          <h2 style={{ margin: 0, fontSize: '1.6rem', color: '#a78bfa', display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Award size={28} /> {activeRound?.title || 'Klub Heti Képértékelő'}
-          </h2>
-          <small style={{ color: 'var(--text-muted)' }}>
-            Feltöltés: Vasárnap éjfélig • Értékelés: Szerda éjfélig
-          </small>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+            <h2 style={{ margin: 0, fontSize: '1.6rem', color: '#a78bfa', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Award size={28} /> {currentSelectedRoundObj?.title || 'Klub Heti Képértékelő'}
+            </h2>
+
+            {!isCurrentActiveRoundSelected && (
+              <span style={{ background: 'rgba(239,68,68,0.15)', color: '#f87171', border: '1px solid rgba(239,68,68,0.3)', padding: '3px 10px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 'bold' }}>
+                Archívum (Lezárult)
+              </span>
+            )}
+          </div>
+
+          {/* FORDULÓVÁLASZTÓ LEGÖRDÜLŐ MENÜ */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+            <History size={16} color="#38bdf8" />
+            <span>Forduló kiválasztása:</span>
+            <select 
+              value={selectedRoundId || ''} 
+              onChange={e => setSelectedRoundId(Number(e.target.value))}
+              style={{ background: 'var(--bg-main)', color: 'var(--text-title)', border: '1px solid var(--border-main)', padding: '4px 10px', borderRadius: '6px', fontSize: '0.85rem', fontWeight: 'bold', outline: 'none' }}
+            >
+              {roundsList.map(r => (
+                <option key={r.id} value={r.id}>
+                  {r.title} {r.id === activeRound?.id ? ' (Aktuális hét ✨)' : ''}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
@@ -179,9 +238,11 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
             </button>
           )}
 
-          <button onClick={() => setShowUploadModal(true)} style={{ background: '#f97316', color: 'white', border: 'none', padding: '10px 18px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Upload size={16} /> Kép Feltöltése
-          </button>
+          {isCurrentActiveRoundSelected && (
+            <button onClick={() => setShowUploadModal(true)} style={{ background: '#f97316', color: 'white', border: 'none', padding: '10px 18px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Upload size={16} /> Kép Feltöltése
+            </button>
+          )}
         </div>
       </div>
 
@@ -250,8 +311,12 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
                     </div>
                   </div>
 
-                  {/* PONTOZÓ GOMBOK */}
-                  {isMyPhoto ? (
+                  {/* PONTOZÓ GOMBOK (CSAK AKTÍV FORDULÓNÁL) */}
+                  {!isCurrentActiveRoundSelected ? (
+                    <div style={{ background: 'var(--bg-main)', color: 'var(--text-muted)', padding: '8px', borderRadius: '6px', fontSize: '0.8rem', textAlign: 'center', fontWeight: 'bold' }}>
+                      Archivált forduló (Értékelés lezárult)
+                    </div>
+                  ) : isMyPhoto ? (
                     <div style={{ background: 'rgba(251,191,36,0.1)', color: '#fbbf24', padding: '8px', borderRadius: '6px', fontSize: '0.8rem', textAlign: 'center', fontWeight: 'bold' }}>
                       Saját fotó (Nem értékelheted)
                     </div>
