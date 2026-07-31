@@ -321,6 +321,12 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
         </div>
 
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+           {isCurrentActiveRoundSelected && !isRoundClosed && (
+            <button onClick={() => setShowUploadModal(true)} style={{ background: '#f97316', color: 'white', border: 'none', padding: '10px 18px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Upload size={16} /> Kép Feltöltése
+            </button>
+          )}
+          
           <button onClick={() => setShowHelpModal(true)} style={{ background: 'rgba(167, 139, 250, 0.12)', color: '#a78bfa', border: '1px solid rgba(167, 139, 250, 0.3)', padding: '10px 16px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <HelpCircle size={18} /> Súgó & Szabályzat
           </button>
@@ -331,11 +337,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
             </button>
           )}
 
-          {isCurrentActiveRoundSelected && !isRoundClosed && (
-            <button onClick={() => setShowUploadModal(true)} style={{ background: '#f97316', color: 'white', border: 'none', padding: '10px 18px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Upload size={16} /> Kép Feltöltése
-            </button>
-          )}
+         
         </div>
       </div>
 
