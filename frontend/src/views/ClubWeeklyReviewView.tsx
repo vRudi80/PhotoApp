@@ -223,16 +223,21 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
     }
   };
 
-  const handleUpload = async (e: React.FormEvent) => {
+ const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!photoTitle.trim() || !uploadFile) {
       return alert('Kérlek add meg a kép címét és válaszd ki a fotó fájlt!');
     }
 
+    const targetRoundId = selectedRoundId || activeRound?.id;
+    if (!targetRoundId) {
+      return alert('Hiba: Nem található kijelölt heti forduló!');
+    }
+
     setIsUploading(true);
     try {
       const formData = new FormData();
-      formData.append('roundId', String(activeRound.id));
+      formData.append('roundId', String(targetRoundId));
       formData.append('title', photoTitle);
       formData.append('photo', uploadFile);
 
