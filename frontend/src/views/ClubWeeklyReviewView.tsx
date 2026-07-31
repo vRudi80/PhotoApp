@@ -357,7 +357,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
               disabled={hasReachedUploadLimit}
               title={
                 hasReachedUploadLimit
-                  ? `Elérted a heti feltöltési limitet (${myUploadCount}/${maxUploads} kép). Ebben a csomagban hetente legfeljebb ${maxUploads} fotó tölthető fel. Ha többet szeretnél feltölteni, az Előfizetések (packages) oldalon tudsz csomagot váltani!`
+                  ? `Elérted a heti feltöltési limitet (${myUploadCount}/${maxUploads} kép). Ebben a csomagban hetente legfeljebb ${maxUploads} fotó tölthető fel. Ha többet szeretnél feltölteni, az Jobb felső menüben a nevedre kattintva/Tárhelycsomagom oldalon tudsz csomagot váltani!`
                   : `Kép feltöltése (${myUploadCount}/${maxUploads} feltöltve ezen a héten)`
               }
               style={{ 
