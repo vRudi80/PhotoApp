@@ -117,7 +117,28 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
   });
 
   // ====================================================================
-  // 🗓️ 2. HETI CIKLUS ÉS AKTUÁLIS FORDULÓ
+  // 📜 2. KLUB ÖSSZES FORDULÓJÁNAK LEKÉRÉSE (ARCHÍVUM)
+  // ====================================================================
+  app.get('/api/club-review/rounds', requireAuth, async (req, res) => {
+    try {
+      const [[userDb]] = await pool.query('SELECT club_name FROM photo_users WHERE email = ?', [req.user.email]);
+      if (!userDb || !userDb.club_name) {
+        return res.status(400).json({ error: 'Nem vagy tagja fotóklubnak.' });
+      }
+
+      const [rounds] = await pool.query(
+        'SELECT * FROM club_review_rounds WHERE club_name = ? ORDER BY id DESC',
+        [userDb.club_name]
+      );
+
+      res.json(rounds);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ====================================================================
+  // 🗓️ 3. AKTUÁLIS FORDULÓ LEKÉRÉSE / LÉTREHOZÁSA
   // ====================================================================
   app.get('/api/club-review/active-round', requireAuth, async (req, res) => {
     try {
@@ -168,7 +189,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
   });
 
   // ====================================================================
-  // 📸 3. KÉP FELTÖLTÉSE (FÁJL) ÉS AI ELEMZÉS (GEMINI 2.5)
+  // 📸 4. KÉP FELTÖLTÉSE (FÁJL) ÉS AI ELEMZÉS (GEMINI 2.5)
   // ====================================================================
   app.post('/api/club-review/upload', requireAuth, upload.single('photo'), async (req, res) => {
     const { roundId, title } = req.body;
@@ -189,7 +210,18 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
         return res.status(400).json({ error: 'Csak klubtagok tölthetnek fel képet.' });
       }
 
-      const maxUploads = (userDb.is_premium && userDb.premium_level >= 2) ? 10 : 3;
+      // 💳 PONTOS CSOMAGKORLÁT SZÁMÍTÁS:
+      // - Ingyenes (is_premium == 0): 1 kép
+      // - Prémium 1-es szint: 3 kép
+      // - Prémium 2-es szint (Pro): 10 kép
+      let maxUploads = 1;
+      if (userDb.is_premium === 1) {
+        if (Number(userDb.premium_level) >= 2) {
+          maxUploads = 10;
+        } else {
+          maxUploads = 3;
+        }
+      }
 
       const [[{ uploadCount }]] = await pool.query(
         'SELECT COUNT(*) as uploadCount FROM club_review_entries WHERE round_id = ? AND user_email = ?',
@@ -199,7 +231,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
       if (uploadCount >= maxUploads) {
         cleanupTempFile(req.file);
         return res.status(403).json({ 
-          error: `A csomagod alapján ezen a héten legfeljebb ${maxUploads} képet tölthetsz fel! Válts FIAP Pro csomagra a 10 képes korláthoz.` 
+          error: `A csomagod alapján ezen a héten legfeljebb ${maxUploads} képet tölthetsz fel! Válts magasabb előfizetési csomagra a több feltöltéshez.` 
         });
       }
 
@@ -290,28 +322,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
   });
 
   // ====================================================================
-  // 📜 KLUB ÖSSZES FORDULÓJÁNAK LEKÉRÉSE (ARCHÍVUM)
-  // ====================================================================
-  app.get('/api/club-review/rounds', requireAuth, async (req, res) => {
-    try {
-      const [[userDb]] = await pool.query('SELECT club_name FROM photo_users WHERE email = ?', [req.user.email]);
-      if (!userDb || !userDb.club_name) {
-        return res.status(400).json({ error: 'Nem vagy tagja fotóklubnak.' });
-      }
-
-      const [rounds] = await pool.query(
-        'SELECT * FROM club_review_rounds WHERE club_name = ? ORDER BY id DESC',
-        [userDb.club_name]
-      );
-
-      res.json(rounds);
-    } catch (err) {
-      res.status(500).json({ error: err.message });
-    }
-  });
-  
-  // ====================================================================
-  // 🗳️ 4. PONTOZÁS (TAGOK ÉS MESTEREK)
+  // 🗳️ 5. PONTOZÁS (KORLÁTLAN ÉRTÉKELÉS MINDENKINEK, SAJÁT KÉP KIVÉTELÉVEL)
   // ====================================================================
   app.post('/api/club-review/rate', requireAuth, async (req, res) => {
     const { entryId, score } = req.body;
@@ -335,7 +346,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
         return res.status(400).json({ error: 'A saját képedet nem értékelheted!' });
       }
 
-      // 🎯 MESTER JOG: Akkor Mester, ha is_master = 1 vagy ha a klub Vezetője (leader)
+      // MESTER JOG: Akkor Mester, ha is_master = 1 vagy ha a klub Vezetője (leader)
       const isMasterEvaluator = userDb.is_master === 1 || userDb.club_role === 'leader';
       const evaluatorRole = isMasterEvaluator ? 'master' : 'member';
 
@@ -361,7 +372,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
   });
 
   // ====================================================================
-  // 📊 5. FORDULÓ KÉPEINEK LEKÉRÉSE ÉS EREDMÉNYEK
+  // 📊 6. FORDULÓ KÉPEINEK LEKÉRÉSE ÉS EREDMÉNYEK
   // ====================================================================
   app.get('/api/club-review/entries/:roundId', requireAuth, async (req, res) => {
     try {
