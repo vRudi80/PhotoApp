@@ -2,10 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { BACKEND_URL } from '../utils/constants';
 import { getImageUrl } from '../utils/helpers';
 import VideoLoader from '../components/VideoLoader';
-import { 
-  Award, Upload, Star, Clock, Filter, Sparkles, CheckCircle2, 
-  BookOpen, Eye, UserCheck, ChevronRight, X, ImageIcon, Calendar, History, Trophy, HelpCircle, ArrowUpDown, User, Layers 
-} from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 
 interface ClubWeeklyReviewProps {
   user: any;
@@ -21,13 +18,15 @@ const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
 };
 
 export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeeklyReviewProps) {
+  const { t } = useLanguage();
+
   const [roundsList, setRoundsList] = useState<any[]>([]);
   const [selectedRoundId, setSelectedRoundId] = useState<number | null>(null);
   const [activeRound, setActiveRound] = useState<any | null>(null);
   const [entries, setEntries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // Szűrők ÉS Rendezés
+  // Szűrők és rendezés állapotai
   const [photoScope, setPhotoScope] = useState<'all' | 'my'>('all');
   const [isPendingOnly, setIsPendingOnly] = useState<boolean>(false);
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
@@ -116,7 +115,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
     return false;
   }, [currentSelectedRoundObj, selectedRoundId, activeRound]);
 
-  // 💳 CSOMAG ÉS KÉPFELTÖLTÉSI LIMIT SZÁMÍTÁSA A FELUHASZNÁLÓNAK
+  // 💳 CSOMAG ÉS KÉPFELTÖLTÉSI LIMIT SZÁMÍTÁSA
   const myUploadCount = useMemo(() => {
     return entries.filter(e => e.user_email === user?.email).length;
   }, [entries, user?.email]);
@@ -293,7 +292,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
       <div style={{ textAlign: 'center', padding: '4rem 2rem', background: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border-main)', boxShadow: '0 10px 25px rgba(0,0,0,0.05)', margin: '20px auto', maxWidth: '800px' }}>
         <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🔒</div>
         <h2 style={{ color: '#f59e0b', margin: '0 0 10px 0', fontWeight: '700' }}>
-          {isPending ? 'Jelentkezésed jóváhagyásra vár' : 'Nem vagy klubhoz rendelve'}
+          {isPending ? 'Jelentkezésed jóváhagyásra vár' : t('contNoClubTitle')}
         </h2>
         <p style={{ color: 'var(--text-body)', fontSize: '1.1rem', maxWidth: '540px', margin: '0 auto' }}>
           A heti képértékelő és az AI elemzések megtekintéséhez kérjük, vedd fel a kapcsolatot egy adminisztrátorral. - kovari.rudolf@gmail.com
@@ -310,19 +309,18 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
             <h2 style={{ margin: 0, fontSize: '1.6rem', color: '#a78bfa', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <Award size={28} /> {currentSelectedRoundObj?.title || 'Klub Heti Képértékelő'}
+              🏆 {currentSelectedRoundObj?.title || t('reviewTitle')}
             </h2>
 
             {isRoundClosed && (
               <span style={{ background: 'rgba(239,68,68,0.15)', color: '#f87171', border: '1px solid rgba(239,68,68,0.3)', padding: '3px 10px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 'bold' }}>
-                Lezárult (Eredmények megtekintése)
+                {t('reviewClosedBadge')}
               </span>
             )}
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-            <History size={16} color="#38bdf8" />
-            <span>Forduló kiválasztása:</span>
+            <span>📜 {t('reviewSelectRound')}</span>
             <select 
               value={selectedRoundId || ''} 
               onChange={e => setSelectedRoundId(Number(e.target.value))}
@@ -330,7 +328,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
             >
               {roundsList.map(r => (
                 <option key={r.id} value={r.id}>
-                  {r.title} {r.id === activeRound?.id ? ' (Aktuális hét)' : ''}
+                  {r.title} {r.id === activeRound?.id ? ' (Aktuális hét ✨)' : ''}
                 </option>
               ))}
             </select>
@@ -339,16 +337,16 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
 
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
           <button onClick={() => setShowHelpModal(true)} style={{ background: 'rgba(167, 139, 250, 0.12)', color: '#a78bfa', border: '1px solid rgba(167, 139, 250, 0.3)', padding: '10px 16px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <HelpCircle size={18} /> Súgó & Szabályzat
+            💡 {t('reviewBtnHelp')}
           </button>
 
           {onOpenCourses && (
             <button onClick={onOpenCourses} style={{ background: 'var(--bg-main)', color: '#38bdf8', border: '1px solid var(--border-main)', padding: '10px 16px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <BookOpen size={16} /> Tanfolyamok
+              📚 {t('reviewBtnCourses')}
             </button>
           )}
 
-          {/* 🎯 FELTÖLTÉSI GOMB INAKTÍV TÁJÉKOZTATÓVAL HA ELÉRTE A LIMITET */}
+          {/* FELTÖLTÉSI GOMB INAKTÍV TÁJÉKOZTATÓVAL */}
           {isCurrentActiveRoundSelected && !isRoundClosed && (
             <button 
               onClick={() => {
@@ -357,8 +355,8 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
               disabled={hasReachedUploadLimit}
               title={
                 hasReachedUploadLimit
-                  ? `Elérted a heti feltöltési limitet (${myUploadCount}/${maxUploads} kép). Ebben a csomagban hetente legfeljebb ${maxUploads} fotó tölthető fel. Ha többet szeretnél feltölteni, az Jobb felső menüben a nevedre kattintva/Tárhelycsomagom oldalon tudsz csomagot váltani!`
-                  : `Kép feltöltése (${myUploadCount}/${maxUploads} feltöltve ezen a héten)`
+                  ? `Elérted a heti feltöltési limitet (${myUploadCount}/${maxUploads} kép). Ebben a csomagban hetente legfeljebb ${maxUploads} fotó tölthető fel.`
+                  : `${t('reviewBtnUpload')} (${myUploadCount}/${maxUploads})`
               }
               style={{ 
                 background: hasReachedUploadLimit ? '#334155' : '#f97316', 
@@ -375,14 +373,13 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
                 transition: 'all 0.2s'
               }}
             >
-              <Upload size={16} /> 
-              {hasReachedUploadLimit ? `Limit elérve (${myUploadCount}/${maxUploads})` : `Kép Feltöltése (${myUploadCount}/${maxUploads})`}
+              📤 {hasReachedUploadLimit ? `${t('reviewBtnUploadLimit')} (${myUploadCount}/${maxUploads})` : `${t('reviewBtnUpload')} (${myUploadCount}/${maxUploads})`}
             </button>
           )}
         </div>
       </div>
 
-      {/* 🎯 SZŰRŐSÁV */}
+      {/* SZŰRŐSÁV */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px', background: 'var(--bg-card)', padding: '14px 18px', borderRadius: '12px', border: '1px solid var(--border-main)', flexWrap: 'wrap' }}>
         
         {/* 1. SAJÁT FOTÓIM / ÖSSZES FOTÓ KAPCSOLÓ */}
@@ -407,8 +404,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
             transition: 'all 0.15s'
           }}
         >
-          {photoScope === 'my' ? <User size={16} /> : <Layers size={16} />}
-          {photoScope === 'my' ? 'Saját fotóim' : 'Összes fotó'}
+          {photoScope === 'my' ? t('reviewScopeMy') : t('reviewScopeAll')}
         </button>
 
         {/* 2. ÉRTÉKELÉSRE VÁRÓK GOMB */}
@@ -432,14 +428,14 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
             transition: 'all 0.15s'
           }}
         >
-          Értékelésre várók ({unvotedCount})
+          {t('reviewPendingCount').replace('{count}', String(unvotedCount))}
         </button>
 
         <div style={{ height: '24px', width: '1px', background: 'var(--border-main)', margin: '0 4px' }} />
 
         {/* 3. KATEGÓRIÁK LEGÖRDÜLŐ */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-muted)' }}>Kategóriák:</span>
+          <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-muted)' }}>{t('reviewCategoriesLabel')}</span>
           <select
             value={categoryFilter}
             onChange={e => setCategoryFilter(e.target.value)}
@@ -455,11 +451,11 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
               cursor: 'pointer'
             }}
           >
-            <option value="all">Összes kategória</option>
-            <option value="portrait">Portré</option>
-            <option value="color">Színes</option>
-            <option value="monochrome">Monokróm</option>
-            <option value="nature">Természet</option>
+            <option value="all">{t('reviewCatAll')}</option>
+            <option value="portrait">{t('reviewCatPortrait')}</option>
+            <option value="color">{t('reviewCatColor')}</option>
+            <option value="monochrome">{t('reviewCatMonochrome')}</option>
+            <option value="nature">{t('reviewCatNature')}</option>
           </select>
         </div>
 
@@ -467,7 +463,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
         {isRoundClosed && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto' }}>
             <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <ArrowUpDown size={16} /> Sorrend:
+              ↕️ {t('reviewSortLabel')}
             </span>
             <select
               value={sortBy}
@@ -484,9 +480,9 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
                 cursor: 'pointer'
               }}
             >
-              <option value="members">👥 Tagok értékelése</option>
-              <option value="masters">👑 Mesterek értékelése</option>
-              <option value="ai">🤖 AI értékelése</option>
+              <option value="members">{t('reviewSortMembers')}</option>
+              <option value="masters">{t('reviewSortMasters')}</option>
+              <option value="ai">{t('reviewSortAi')}</option>
             </select>
           </div>
         )}
@@ -497,10 +493,10 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
       {sortedAndFilteredEntries.length === 0 ? (
         <div style={{ padding: '50px', textAlign: 'center', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-main)', color: 'var(--text-muted)' }}>
           {isPendingOnly 
-            ? '🎉 Minden képet értékeltél ebben a fordulóban!' 
+            ? t('reviewEmptyPending')
             : photoScope === 'my' 
-              ? 'Még nem töltöttél fel képet ebben a fordulóban.' 
-              : 'Még nincsenek feltöltött képek a megadott szűrési feltételekkel.'}
+              ? t('reviewEmptyMy') 
+              : t('reviewEmptyFilter')}
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(310px, 1fr))', gap: '20px' }}>
@@ -518,7 +514,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
                   {/* AI PONT JELVÉNY (CSAK LEZÁRÁS UTÁN LÁTHATÓ) */}
                   {isRoundClosed && (
                     <div style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(15,23,42,0.85)', backdropFilter: 'blur(4px)', padding: '4px 10px', borderRadius: '20px', fontSize: '0.8rem', color: '#fbbf24', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                      <Sparkles size={14} /> AI: {entry.ai_score} / 100 p
+                      ✨ AI: {entry.ai_score} / 100 p
                     </div>
                   )}
                 </div>
@@ -526,7 +522,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
                 <div style={{ padding: '15px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                   <div>
                     <h3 style={{ margin: '0 0 2px 0', color: 'var(--text-title)', fontSize: '1.1rem' }}>{entry.title}</h3>
-                    <small style={{ color: 'var(--text-muted)', display: 'block', marginBottom: '10px' }}>Alkotó: {entry.user_name}</small>
+                    <small style={{ color: 'var(--text-muted)', display: 'block', marginBottom: '10px' }}>{t('archivePhotographer')}: {entry.user_name}</small>
 
                     {/* 3 OSZLOPOS HELYEZÉS ÉS ÁTLAGSÁV (CSAK LEZÁRÁS UTÁN LÁTHATÓ) */}
                     {isRoundClosed && (
@@ -534,7 +530,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
                         
                         {/* KLUBTAGOK */}
                         <div>
-                          <span style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 'bold', display: 'block' }}>Klubtagok</span>
+                          <span style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 'bold', display: 'block' }}>{t('reviewRankMembers')}</span>
                           <div style={{ color: '#38bdf8', fontWeight: '800', fontSize: '0.9rem', marginTop: '2px' }}>
                             {entry.memberRank}/{entry.totalEntriesCount}
                           </div>
@@ -545,7 +541,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
 
                         {/* MESTEREK */}
                         <div style={{ borderLeft: '1px solid var(--border-main)', borderRight: '1px solid var(--border-main)' }}>
-                          <span style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 'bold', display: 'block' }}>Mesterek</span>
+                          <span style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 'bold', display: 'block' }}>{t('reviewRankMasters')}</span>
                           <div style={{ color: '#f59e0b', fontWeight: '800', fontSize: '0.9rem', marginTop: '2px' }}>
                             {entry.masterRank}/{entry.totalEntriesCount}
                           </div>
@@ -556,7 +552,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
 
                         {/* AI FIAP */}
                         <div>
-                          <span style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 'bold', display: 'block' }}>AI FIAP</span>
+                          <span style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 'bold', display: 'block' }}>{t('reviewRankAi')}</span>
                           <div style={{ color: '#a78bfa', fontWeight: '800', fontSize: '0.9rem', marginTop: '2px' }}>
                             {entry.aiRank}/{entry.totalEntriesCount}
                           </div>
@@ -572,15 +568,15 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
                   {/* PONTOZÓ GOMBOK VAGY ZÁROLT STÁTUSZ */}
                   {isRoundClosed ? (
                     <div style={{ background: 'var(--bg-main)', color: 'var(--text-muted)', padding: '8px', borderRadius: '6px', fontSize: '0.8rem', textAlign: 'center', fontWeight: 'bold' }}>
-                      Értékelés lezárult
+                      {t('reviewStatusClosed')}
                     </div>
                   ) : isMyPhoto ? (
                     <div style={{ background: 'rgba(251,191,36,0.1)', color: '#fbbf24', padding: '8px', borderRadius: '6px', fontSize: '0.8rem', textAlign: 'center', fontWeight: 'bold' }}>
-                      Saját fotó (Nem értékelheted)
+                      {t('reviewStatusOwn')}
                     </div>
                   ) : hasVoted ? (
                     <div style={{ background: 'rgba(16, 185, 129, 0.12)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.3)', padding: '8px 12px', borderRadius: '6px', fontSize: '0.85rem', textAlign: 'center', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-                      <CheckCircle2 size={16} /> Már értékelted ({entry.my_score} pont)
+                      {t('reviewStatusVoted').replace('{score}', String(entry.my_score))}
                     </div>
                   ) : (
                     <div>
@@ -620,7 +616,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
             
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
               <h3 style={{ margin: 0, color: 'var(--text-title)', fontSize: '1.3rem' }}>{activeModalRankedEntry.title}</h3>
-              <button onClick={() => setSelectedEntryModal(null)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}><X size={20} /></button>
+              <button onClick={() => setSelectedEntryModal(null)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.2rem', fontWeight: 'bold' }}>✖</button>
             </div>
 
             <img src={getImageUrl(activeModalRankedEntry.drive_file_id, activeModalRankedEntry.file_url)} alt="" style={{ width: '100%', maxHeight: '380px', objectFit: 'contain', borderRadius: '8px', background: '#000', marginBottom: '15px' }} />
@@ -630,21 +626,21 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
               <>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', background: 'var(--bg-main)', padding: '15px', borderRadius: '8px', border: '1px solid var(--border-main)', textAlign: 'center', marginBottom: '15px' }}>
                   <div>
-                    <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 'bold', display: 'block' }}>Klubtagok szerint</span>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 'bold', display: 'block' }}>{t('reviewRankMembers')}</span>
                     <div style={{ color: '#38bdf8', fontWeight: 'bold', fontSize: '1.1rem', marginTop: '4px' }}>
                       {activeModalRankedEntry.memberRank} / {activeModalRankedEntry.totalEntriesCount}
                     </div>
                   </div>
 
                   <div style={{ borderLeft: '1px solid var(--border-main)', borderRight: '1px solid var(--border-main)' }}>
-                    <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 'bold', display: 'block' }}>Mesterek szerint</span>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 'bold', display: 'block' }}>{t('reviewRankMasters')}</span>
                     <div style={{ color: '#f59e0b', fontWeight: 'bold', fontSize: '1.1rem', marginTop: '4px' }}>
                       {activeModalRankedEntry.masterRank} / {activeModalRankedEntry.totalEntriesCount}
                     </div>
                   </div>
 
                   <div>
-                    <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 'bold', display: 'block' }}>AI (FIAP) szerint</span>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 'bold', display: 'block' }}>{t('reviewRankAi')}</span>
                     <div style={{ color: '#a78bfa', fontWeight: 'bold', fontSize: '1.1rem', marginTop: '4px' }}>
                       {activeModalRankedEntry.aiRank} / {activeModalRankedEntry.totalEntriesCount}
                     </div>
@@ -654,7 +650,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
                 <div style={{ background: 'var(--bg-main)', padding: '16px', borderRadius: '8px', border: '1px solid #a78bfa', marginBottom: '15px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                     <span style={{ color: '#a78bfa', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <Sparkles size={16} /> AI Szakmai Értékelés (FIAP Szempontok)
+                      ✨ AI Szakmai Értékelés (FIAP Szempontok)
                     </span>
                     <span style={{ background: '#a78bfa', color: '#0f172a', padding: '2px 8px', borderRadius: '12px', fontSize: '0.8rem', fontWeight: 'bold' }}>
                       {activeModalRankedEntry.ai_score} / 100 Pont
@@ -695,71 +691,71 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
             
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid var(--border-main)', paddingBottom: '15px' }}>
               <h3 style={{ margin: 0, color: '#a78bfa', fontSize: '1.4rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <HelpCircle size={26} /> Heti Képértékelő – Útmutató & Szabályzat
+                💡 {t('reviewHelpTitle')}
               </h3>
-              <button onClick={() => setShowHelpModal(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}><X size={24} /></button>
+              <button onClick={() => setShowHelpModal(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.2rem', fontWeight: 'bold' }}>✖</button>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', color: 'var(--text-body)', fontSize: '0.92rem', lineHeight: '1.6' }}>
               
               <div style={{ background: 'var(--bg-main)', padding: '16px', borderRadius: '10px', border: '1px solid var(--border-main)' }}>
-                <h4 style={{ margin: '0 0 6px 0', color: 'var(--text-title)', fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  🎯 Mi ez a funkció?
+                <h4 style={{ margin: '0 0 6px 0', color: 'var(--text-title)', fontSize: '1.05rem' }}>
+                  {t('reviewHelpWhatTitle')}
                 </h4>
-                A **Heti Képértékelő** a fotóklubod automatizált szakmai műhelye. Lehetővé teszi, hogy a klubtagok hetente megosszák legfrissebb képeiket, és 3 független szemszögből kaphassanak objektív visszacsatolást a fejlődésükhöz.
+                {t('reviewHelpWhatDesc')}
               </div>
 
               <div>
-                <h4 style={{ margin: '0 0 8px 0', color: '#38bdf8', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  📅 Heti Ritmus & Határidők
+                <h4 style={{ margin: '0 0 8px 0', color: '#38bdf8', fontSize: '1rem' }}>
+                  {t('reviewHelpScheduleTitle')}
                 </h4>
                 <ul style={{ margin: 0, paddingLeft: '20px' }}>
-                  <li><b>Képfeltöltési időszak:</b> Hétfő 00:00 – Vasárnap 24:00.</li>
-                  <li><b>Értékelési időszak:</b> Hétfő 00:00 – Szerda 24:00.</li>
-                  <li><b>Eredményhirdetés & Zárás:</b> Csütörtök 00:00-tól a képek archiválódnak, megjelennek az eredmények és a sorrendek.</li>
+                  <li>{t('reviewHelpSchedule1')}</li>
+                  <li>{t('reviewHelpSchedule2')}</li>
+                  <li>{t('reviewHelpSchedule3')}</li>
                 </ul>
               </div>
 
               <div>
-                <h4 style={{ margin: '0 0 8px 0', color: '#f59e0b', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  👥 A 3 Értékelő Csoport & Pontozás
+                <h4 style={{ margin: '0 0 8px 0', color: '#f59e0b', fontSize: '1rem' }}>
+                  {t('reviewHelpGroupsTitle')}
                 </h4>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '8px' }}>
                   <div style={{ background: 'var(--bg-main)', padding: '10px 14px', borderRadius: '8px', borderLeft: '4px solid #38bdf8' }}>
-                    <b style={{ color: '#38bdf8' }}>1. Klubtagok (0 – 2 pont)</b><br />
-                    Minden klubtag tetszőleges számú képet értékelhet a sajátján kívül (0 = Elfogadható, 1 = Jó, 2 = Kiváló).
+                    <b style={{ color: '#38bdf8' }}>{t('reviewHelpGroup1Title')}</b><br />
+                    {t('reviewHelpGroup1Desc')}
                   </div>
 
                   <div style={{ background: 'var(--bg-main)', padding: '10px 14px', borderRadius: '8px', borderLeft: '4px solid #f59e0b' }}>
-                    <b style={{ color: '#f59e0b' }}>2. Mesterek (1 – 10 pont)</b><br />
-                    A Mesterek a klubvezető által megbízott tapasztalt fotósok és szakmai mentorok, akik 1-től 10-ig terjedő skálán adják meg a szakmai pontszámot.
+                    <b style={{ color: '#f59e0b' }}>{t('reviewHelpGroup2Title')}</b><br />
+                    {t('reviewHelpGroup2Desc')}
                   </div>
 
                   <div style={{ background: 'var(--bg-main)', padding: '10px 14px', borderRadius: '8px', borderLeft: '4px solid #a78bfa' }}>
-                    <b style={{ color: '#a78bfa' }}>3. AI Értékelő (Gemini 2.5) (10 – 100 pont)</b><br />
-                    A mesterséges intelligencia a nemzetközi **FIAP photowork** szempontrendszer alapján elemzi a képet. Besorolja kategóriába (portré, színes, monokróm, természet), szöveges kritikát ír, és hiányosság esetén ajánlja a klub megfelelő tanfolyamát.
+                    <b style={{ color: '#a78bfa' }}>{t('reviewHelpGroup3Title')}</b><br />
+                    {t('reviewHelpGroup3Desc')}
                   </div>
                 </div>
               </div>
 
               <div style={{ background: 'var(--bg-main)', padding: '16px', borderRadius: '10px', border: '1px solid var(--border-main)' }}>
-                <h4 style={{ margin: '0 0 6px 0', color: '#10b981', fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  🏆 Mit jelent a helyezés (pl. 12/321)?
+                <h4 style={{ margin: '0 0 6px 0', color: '#10b981', fontSize: '1.05rem' }}>
+                  {t('reviewHelpRankTitle')}
                 </h4>
-                A forduló lezárulta után a fotókártyán lévő tört számok azt mutatják meg, hogy az adott héten beküldött összes képből (pl. 321 fotóból) a fotód hányadik helyet érte el az adott csoport rangsorában:<br />
+                {t('reviewHelpRankDesc')}<br />
                 • <b>Klubtagok szerint:</b> pl. 121 / 321<br />
                 • <b>Mesterek szerint:</b> pl. 3 / 321<br />
                 • <b>AI (FIAP) szerint:</b> pl. 12 / 321
               </div>
 
               <div>
-                <h4 style={{ margin: '0 0 8px 0', color: 'var(--text-title)', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  💳 Feltöltési Csomagkeretek
+                <h4 style={{ margin: '0 0 8px 0', color: 'var(--text-title)', fontSize: '1rem' }}>
+                  {t('reviewHelpPackagesTitle')}
                 </h4>
                 <ul style={{ margin: 0, paddingLeft: '20px' }}>
-                  <li><b>Ingyenes / Alap csomag:</b> Hetente 1 kép feltöltése.</li>
-                  <li><b>Prémium 1. szint:</b> Hetente 3 kép feltöltése.</li>
-                  <li><b>Prémium Pro (2. szint):</b> Hetente akár 10 kép feltöltése + FIAP felkészítő modul.</li>
+                  <li>{t('reviewHelpPackageFree')}</li>
+                  <li>{t('reviewHelpPackagePrem1')}</li>
+                  <li>{t('reviewHelpPackagePrem2')}</li>
                 </ul>
               </div>
 
@@ -767,7 +763,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
 
             <div style={{ textAlign: 'center', marginTop: '25px', paddingTop: '15px', borderTop: '1px solid var(--border-main)' }}>
               <button onClick={() => setShowHelpModal(false)} style={{ background: '#a78bfa', color: '#0f172a', border: 'none', padding: '10px 24px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>
-                Értettem, bezárás
+                {t('reviewHelpGotIt')}
               </button>
             </div>
 
@@ -779,7 +775,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
       {showUploadModal && (
         <div onClick={() => setShowUploadModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(6px)', zIndex: 99999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
           <form onClick={e => e.stopPropagation()} onSubmit={handleUpload} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', borderRadius: '12px', padding: '25px', maxWidth: '500px', width: '100%', display: 'flex', flexDirection: 'column', gap: '15px' }}>
-            <h3 style={{ margin: 0, color: 'var(--text-title)', fontSize: '1.3rem' }}>Kép Feltöltése a Heti Értékelőre</h3>
+            <h3 style={{ margin: 0, color: 'var(--text-title)', fontSize: '1.3rem' }}>{t('reviewBtnUpload')}</h3>
 
             <div>
               <label style={{ display: 'block', color: 'var(--text-title)', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '5px' }}>Kép Címe *</label>
