@@ -4,7 +4,7 @@ import { getImageUrl } from '../utils/helpers';
 import VideoLoader from '../components/VideoLoader';
 import { 
   Award, Upload, Star, Clock, Filter, Sparkles, CheckCircle2, 
-  BookOpen, Eye, UserCheck, ChevronRight, X, ImageIcon, Image as ImageIconLucide 
+  BookOpen, Eye, UserCheck, ChevronRight, X, ImageIcon 
 } from 'lucide-react';
 
 interface ClubWeeklyReviewProps {
@@ -36,7 +36,15 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
+  // 🔒 Karantén fék: Ha nincs klubja, VAGY a tagsága függőben van!
+  const isPending = user?.club_role === 'pending';
+  const hasNoClub = !user?.club_name || isPending;
+
   const loadData = async () => {
+    if (hasNoClub) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const roundRes = await fetch(`${BACKEND_URL}/api/club-review/active-round`, { headers: getAuthHeaders() });
@@ -56,7 +64,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
     }
   };
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { loadData(); }, [user?.club_name, user?.club_role]);
 
   const handleRate = async (entryId: number, score: number) => {
     try {
@@ -103,7 +111,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
 
       const res = await fetch(`${BACKEND_URL}/api/club-review/upload`, {
         method: 'POST',
-        headers: getAuthHeaders(), // Megjegyzés: FormData küldésekor nem állítunk fel külön Content-Type-ot
+        headers: getAuthHeaders(),
         body: formData
       });
 
@@ -131,9 +139,24 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
     return entries.filter(e => e.ai_category === categoryFilter);
   }, [entries, categoryFilter]);
 
-  const isMaster = user?.club_role === 'master' || user?.club_role === 'leader';
+  const isMaster = user?.is_master === 1 || user?.club_role === 'leader';
 
   if (loading) return <VideoLoader />;
+
+  // 🔒 HIBAPANEL KLUB NEGYEKNÉL / NEM KLUBTAGOKNÁL
+  if (hasNoClub) {
+    return (
+      <div style={{ textAlign: 'center', padding: '4rem 2rem', background: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border-main)', boxShadow: '0 10px 25px rgba(0,0,0,0.05)', margin: '20px auto', maxWidth: '800px' }}>
+        <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🔒</div>
+        <h2 style={{ color: '#f59e0b', margin: '0 0 10px 0', fontWeight: '700' }}>
+          {isPending ? 'Jelentkezésed jóváhagyásra vár' : 'Nem vagy klubhoz rendelve'}
+        </h2>
+        <p style={{ color: 'var(--text-body)', fontSize: '1.1rem', maxWidth: '540px', margin: '0 auto' }}>
+          A heti képértékelő és az AI elemzések megtekintéséhez kérjük, vedd fel a kapcsolatot egy adminisztrátorral. - kovari.rudolf@gmail.com
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '15px' }}>
@@ -308,7 +331,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
         </div>
       )}
 
-      {/* MODÁL: KÉP FELTÖLTÉSE (FÁJLVÁLASZTÓVAL ÉS ELŐNÉZETTEL) */}
+      {/* MODÁL: KÉP FELTÖLTÉSE */}
       {showUploadModal && (
         <div onClick={() => setShowUploadModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(6px)', zIndex: 99999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
           <form onClick={e => e.stopPropagation()} onSubmit={handleUpload} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', borderRadius: '12px', padding: '25px', maxWidth: '500px', width: '100%', display: 'flex', flexDirection: 'column', gap: '15px' }}>
