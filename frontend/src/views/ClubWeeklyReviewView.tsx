@@ -412,11 +412,11 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
               cursor: 'pointer'
             }}
           >
-            <option value="all">🎨 Összes kategória</option>
-            <option value="portrait">👤 Portré</option>
-            <option value="color">🌈 Színes</option>
-            <option value="monochrome">🖤 Monokróm</option>
-            <option value="nature">🌿 Természet</option>
+            <option value="all">Összes kategória</option>
+            <option value="portrait">Portré</option>
+            <option value="color">Színes</option>
+            <option value="monochrome">Monokróm</option>
+            <option value="nature">Természet</option>
           </select>
         </div>
 
@@ -441,9 +441,9 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
                 cursor: 'pointer'
               }}
             >
-              <option value="members">👥 Tagok értékelése</option>
-              <option value="masters">👑 Mesterek értékelése</option>
-              <option value="ai">🤖 AI értékelése</option>
+              <option value="members">Tagok értékelése</option>
+              <option value="masters">Mesterek értékelése</option>
+              <option value="ai">AI értékelése</option>
             </select>
           </div>
         )}
