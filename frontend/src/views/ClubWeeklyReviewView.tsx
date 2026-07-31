@@ -142,12 +142,17 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
     }));
   }, [entries]);
 
-  // ⚡ SZŰRÉS ÉS RENDEZÉS ALAPJÁN FELDOLGOZOTT LISTA
+ // ⚡ SZŰRÉS ÉS RENDEZÉS ALAPJÁN FELDOLGOZOTT LISTA (TÖBB KATEGÓRIA TÁMOGATÁSSAL)
   const sortedAndFilteredEntries = useMemo(() => {
     let list = [...rankedEntries];
 
     if (categoryFilter !== 'all') {
-      list = list.filter(e => e.ai_category === categoryFilter);
+      list = list.filter(e => {
+        if (!e.ai_category) return false;
+        // Ellenőrizzük, hogy a kép kategóriái között szerepel-e a kiválasztott szűrő
+        const categoryString = String(e.ai_category);
+        return categoryString.includes(categoryFilter);
+      });
     }
 
     // Csak lezárás után rendezzük át a kiválasztott csoport szerinti rangsor alapján
