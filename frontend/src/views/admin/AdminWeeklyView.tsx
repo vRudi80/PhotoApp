@@ -247,6 +247,21 @@ export default function AdminWeeklyView() {
     setCoverFile(null); window.scrollTo({ top: 300, behavior: 'smooth' });
   };
 
+  // 🎯 KORÁBBI KIHÍVÁS MÁSOLÁSA ÉS ÚJRAÜTEMEZÉSE
+  const startDuplicate = (tData: any) => {
+    clearForm(); // Törli az editId-t (így újként mentődik), képeket, stb.
+    setTitle(tData.title || '');
+    setTitleEn(tData.title_en || '');
+    setDesc(tData.description || '');
+    setDescEn(tData.description_en || '');
+    setMasterEmail(''); // 👑 Képmester alapból üres
+    setCoverUrl(tData.cover_url || '');
+    setCoverAuthor(tData.cover_author || '');
+    setStartDate(''); // Új kezdő dátum megadásához
+    setEndDate('');   // Új záró dátum megadásához
+    window.scrollTo({ top: 300, behavior: 'smooth' });
+  };
+
   const handleSave = async () => {
     if (!title || !startDate || !endDate) return alert(t('mapFillRequired'));
     try {
@@ -527,7 +542,7 @@ export default function AdminWeeklyView() {
           <h3 style={{ margin: 0, color: '#f97316', fontWeight: 'bold', fontSize: '1.4rem' }}>
             {editId ? `✏️ ${t('adminFormEdit')}` : `➕ ${t('adminFormNew')}`}
           </h3>
-          {editId && <button onClick={clearForm} style={{ background: '#ef444420', color: '#f87171', border: '1px solid #ef444440', padding: '6px 14px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>{t('viewBackBtn')}</button>}
+          {(editId || title) && <button onClick={clearForm} style={{ background: '#ef444420', color: '#f87171', border: '1px solid #ef444440', padding: '6px 14px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>{t('viewBackBtn')}</button>}
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
@@ -540,7 +555,7 @@ export default function AdminWeeklyView() {
           <textarea placeholder="Description in English (Guidelines and room details...)" value={descEn} onChange={e => setDescEn(e.target.value)} style={{...inputStyle, minHeight: '80px', borderColor: '#38bdf860'}} />
         </div>
         
-        <div style={{ AppMarginBottom: '15px' }}>
+        <div style={{ marginBottom: '15px' }}>
           <label style={{ fontSize: '0.85rem', color: '#a78bfa', display: 'block', marginBottom: '6px', fontWeight: 'bold' }}>👑 {t('adminMasterAssign')}</label>
           <select value={masterEmail} onChange={e => setMasterEmail(e.target.value)} style={inputStyle}>
             <option value="">-- {t('adminMasterNone')} --</option>
@@ -755,7 +770,11 @@ export default function AdminWeeklyView() {
                             💾 {lang === 'en' ? 'Save Period' : 'Dátum Mentése'}
                           </button>
                         ) : (
-                          <button onClick={() => startEdit(tData)} style={{ background: 'transparent', color: '#f59e0b', border: '1px solid #f59e0b40', padding: '4px 12px', borderRadius: '50px', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 'bold' }}>{t('mapBtnEdit')}</button>
+                          <>
+                            <button onClick={() => startEdit(tData)} style={{ background: 'transparent', color: '#f59e0b', border: '1px solid #f59e0b40', padding: '4px 12px', borderRadius: '50px', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 'bold' }}>{t('mapBtnEdit')}</button>
+                            {/* 📋 MÁSOLÁS ÉS ÚJRAÜTEMEZÉS GOMB */}
+                            <button onClick={() => startDuplicate(tData)} style={{ background: 'transparent', color: '#38bdf8', border: '1px solid #38bdf840', padding: '4px 12px', borderRadius: '50px', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 'bold' }}>📋 {lang === 'en' ? 'Duplicate' : 'Másolás'}</button>
+                          </>
                         )}
 
                         {isPending ? (
