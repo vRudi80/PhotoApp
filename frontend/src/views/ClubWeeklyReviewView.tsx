@@ -359,34 +359,48 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
         </div>
 
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-                    {/* 🧪 TESZT E-MAIL KÜLDÉSE GOMB (CSAK ADMINNAK / KLUBVEZETŐNEK VAGY TESZTELÉSHEZ) */}
-          <button 
-            onClick={async () => {
-              if (!selectedRoundId) return alert('Válassz ki egy fordulót!');
-              const confirmSend = window.confirm('Elküldjük a Heti Értékelő összefoglaló teszt e-mailjét A SAJÁT CÍMEDRE? (Senki más nem kapja meg)');
-              if (!confirmSend) return;
+            {/* 🧪 KIZÁRÓLAG NEKED / ADMINNAK LÁTHATÓ TESZT GOMB */}
+{(user?.isAdmin || user?.email === 'kovari.rudolf@gmail.com') && (
+  <button 
+    onClick={async () => {
+      if (!selectedRoundId) return alert('Válassz ki egy fordulót!');
+      const confirmSend = window.confirm('Elküldjük a Heti Értékelő összefoglaló teszt e-mailjét A SAJÁT CÍMEDRE? (Senki más nem kapja meg)');
+      if (!confirmSend) return;
 
-              try {
-                const res = await fetch(`${BACKEND_URL}/api/club-review/send-test-email`, {
-                  method: 'POST',
-                  headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-                  body: JSON.stringify({ roundId: selectedRoundId, forceTop3: true })
-                });
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/club-review/send-test-email`, {
+          method: 'POST',
+          headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ roundId: selectedRoundId, forceTop3: true })
+        });
 
-                const data = await res.json();
-                if (res.ok) {
-                  alert(`✉️ ${data.message}`);
-                } else {
-                  alert(`Hiba: ${data.error}`);
-                }
-              } catch (e) {
-                alert('Hálózati hiba a teszt e-mail küldésekor.');
-              }
-            }}
-            style={{ background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.3)', padding: '10px 16px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
-          >
-            ✉️ Teszt E-mail Küldése
-          </button>
+        const data = await res.json();
+        if (res.ok) {
+          alert(`✉️ ${data.message}`);
+        } else {
+          alert(`Hiba: ${data.error}`);
+        }
+      } catch (e) {
+        alert('Hálózati hiba a teszt e-mail küldésekor.');
+      }
+    }}
+    style={{ 
+      background: 'rgba(56, 189, 248, 0.15)', 
+      color: '#38bdf8', 
+      border: '1px solid rgba(56, 189, 248, 0.3)', 
+      padding: '10px 16px', 
+      borderRadius: '8px', 
+      fontWeight: 'bold', 
+      cursor: 'pointer', 
+      display: 'flex', 
+      alignItems: 'center', 
+      gap: '8px' 
+    }}
+  >
+    ✉️ Teszt E-mail Küldése
+  </button>
+)}
+
           <button onClick={() => setShowHelpModal(true)} style={{ background: 'rgba(167, 139, 250, 0.12)', color: '#a78bfa', border: '1px solid rgba(167, 139, 250, 0.3)', padding: '10px 16px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
             {t('reviewBtnHelp')}
           </button>
