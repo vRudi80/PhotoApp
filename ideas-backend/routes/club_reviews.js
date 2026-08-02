@@ -262,7 +262,8 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
         round = newRound;
       }
 
-      const isMasterUser = userDb.is_master === 1 || userDb.club_role === 'leader';
+      // 🎯 VALÓS MESTER STÁTUSZ BEÁLLÍTÁSA
+      const isMasterUser = Number(userDb.is_master) === 1 || userDb.club_role === 'leader' || req.user.isAdmin;
 
       res.json({ 
         round, 
@@ -468,7 +469,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
         return res.status(403).json({ error: 'Az értékelési határidő erre a fordulóra már lejárt!' });
       }
 
-      const isMasterEvaluator = userDb.is_master === 1 || userDb.club_role === 'leader';
+      const isMasterEvaluator = Number(userDb.is_master) === 1 || userDb.club_role === 'leader' || req.user.isAdmin;
       const evaluatorRole = isMasterEvaluator ? 'master' : 'member';
 
       if (!isMasterEvaluator && (numScore < 0 || numScore > 2)) {
