@@ -1,3 +1,4 @@
+const nodemailer = require('nodemailer');
 const { OAuth2Client } = require('google-auth-library');
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const fs = require('fs');
@@ -13,7 +14,7 @@ function getISOWeekNumber(d) {
 }
 
 // ====================================================================
-// AUTH MIDDLEWARE
+// 🔒 AUTH MIDDLEWARE
 // ====================================================================
 async function requireAuth(req, res, next) {
   try {
@@ -48,7 +49,7 @@ async function requireAuth(req, res, next) {
 module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
 
   // ====================================================================
-  // 0. MESTER TITULUS KAPCSOLÁSA (Klubvezető vagy Admin által)
+  // 👑 0. MESTER TITULUS KAPCSOLÁSA (Klubvezető vagy Admin által)
   // ====================================================================
   app.post('/api/club/toggle-master', requireAuth, async (req, res) => {
     const { targetEmail, isMaster } = req.body;
@@ -71,7 +72,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
   });
 
   // ====================================================================
-  // 1. KLUB TANFOLYAMOK KEZELÉSE (CRUD)
+  // 📚 1. KLUB TANFOLYAMOK KEZELÉSE (CRUD)
   // ====================================================================
   app.get('/api/club-courses', requireAuth, async (req, res) => {
     try {
@@ -126,7 +127,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
   });
 
   // ====================================================================
-  // 2. KLUB ÖSSZES FORDULÓJÁNAK LEKÉRÉSE (ARCHÍVUM)
+  // 📜 2. KLUB ÖSSZES FORDULÓJÁNAK LEKÉRÉSE (ARCHÍVUM)
   // ====================================================================
   app.get('/api/club-review/rounds', requireAuth, async (req, res) => {
     try {
@@ -147,7 +148,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
   });
 
   // ====================================================================
-  // 3. AKTUÁLIS FORDULÓ LEKÉRÉSE / AUTOMATIKUS INDÍTÁSA
+  // 🗓️ 3. AKTUÁLIS FORDULÓ LEKÉRÉSE / AUTOMATIKUS INDÍTÁSA
   // ====================================================================
   app.get('/api/club-review/active-round', requireAuth, async (req, res) => {
     try {
@@ -205,7 +206,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
   });
 
   // ====================================================================
-  // 4. KÉP FELTÖLTÉSE (FÁJL) ÉS AI ELEMZÉS (GEMINI 2.5)
+  // 📸 4. KÉP FELTÖLTÉSE (FÁJL) ÉS AI ELEMZÉS (GEMINI 2.5)
   // ====================================================================
   app.post('/api/club-review/upload', requireAuth, upload.single('photo'), async (req, res) => {
     const { roundId, title } = req.body;
@@ -370,7 +371,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
   });
 
   // ====================================================================
-  // 5. PONTOZÁS (SZERDA ÉJFÉLIG ENGEDÉLYEZETT)
+  // 🗳️ 5. PONTOZÁS (SZERDA ÉJFÉLIG ENGEDÉLYEZETT)
   // ====================================================================
   app.post('/api/club-review/rate', requireAuth, async (req, res) => {
     const { entryId, score } = req.body;
@@ -421,6 +422,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
       res.status(500).json({ error: err.message });
     }
   });
+
   // ====================================================================
   // ✉️ HTML E-MAIL SABLON GENERÁLÓ (Plakettel, Értékelésekkel, AI-val)
   // ====================================================================
@@ -539,7 +541,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
   }
 
   // ====================================================================
-  // 🧪 TESZT E-MAIL KÜLDÉSE (KIZÁRÓLAG A BEJELENTKEZETT FELHASZNÁLÓNAK)
+  // 🧪 TESZT E-MAIL KÜLDÉSE (SZIGORÚ SMTP HIBAKEZELÉSSEL)
   // ====================================================================
   app.post('/api/club-review/send-test-email', requireAuth, async (req, res) => {
     const { roundId, forceTop3 } = req.body;
@@ -563,7 +565,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
         return res.status(404).json({ error: 'A forduló nem található.' });
       }
 
-      // Lekérjük a felhasználó képeit ebben a fordulóban
+      // Lekérjük a tesztelő saját feltöltött képeit
       const [userEntries] = await pool.query(
         `SELECT e.*, c.title as course_title, c.price as course_price, c.location_detail as course_location_detail
          FROM club_review_entries e
@@ -576,9 +578,8 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
         return res.status(400).json({ error: 'Még nem töltöttél fel képet ebben a fordulóban, így nincs mit tesztelni!' });
       }
 
-      // Rangsor és statisztika számítása a képekhez
       const [allEntries] = await pool.query(
-        'SELECT id, ai_score FROM club_review_entries WHERE round_id = ?',
+        'SELECT id FROM club_review_entries WHERE round_id = ?',
         [roundId]
       );
       const totalCount = allEntries.length;
@@ -593,33 +594,45 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
         avg_master_score: 8.5
       }));
 
-      // Plakett tesztelés szimuláció
-      const isTop3 = forceTop3 || false;
-      const top3Rank = 1;
-      const bestPhotoTitle = processedEntries[0]?.title || 'Teszt Fotó';
-
       const htmlContent = generateWeeklyReviewEmail({
         userName: userDb.name || req.user.name,
         clubName: userDb.club_name,
         roundTitle: targetRound.title,
         entries: processedEntries,
-        isTop3,
-        top3Rank,
-        bestPhotoTitle
+        isTop3: forceTop3 || false,
+        top3Rank: 1,
+        bestPhotoTitle: processedEntries[0]?.title || 'Teszt Fotó'
       });
 
-      // ✉️ KÜLDÉS KIZÁRÓLAG A TESZTELŐ E-MAIL CÍMÉRE (`req.user.email`)
-      // Feltételezzük, hogy a transporter konfigurálva van a meglévő levelező rendszerben
-      if (global.transporter) {
-        await global.transporter.sendMail({
-          from: `"PhotAwesome Heti Értékelő" <${process.env.SMTP_USER || 'noreply@photawesome.com'}>`,
-          to: req.user.email, // 🔒 KIZÁRÓLAG NEKED!
-          subject: `[TESZT LEVÉL] 🏆 ${userDb.club_name} – Heti Képértékelő eredmények (${targetRound.title})`,
-          html: htmlContent
+      // 🎯 BIZTONSÁGOS SMTP JELSZÓ ÉS FELHASZNÁLÓNÉV KEZELÉS (.ENV MEGFELELŐSÉG)
+      const smtpUser = process.env.SMTP_USER;
+      const smtpPass = process.env.SMTP_PASSWORD || process.env.SMTP_PASS || process.env.EMAIL_PASS;
+
+      if (!smtpUser || !smtpPass) {
+        return res.status(500).json({ 
+          error: 'SMTP konfigurációs hiba: A process.env.SMTP_USER vagy SMTP_PASS hiányzik a szerver .env fájljából!' 
         });
-      } else {
-        console.log("Transporter nincs konfigurálva, e-mail HTML elkészült tesztelésre.");
       }
+
+      const transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST || 'smtp.gmail.com',
+        port: Number(process.env.SMTP_PORT) || 465,
+        secure: Number(process.env.SMTP_PORT) === 465 || true,
+        auth: {
+          user: smtpUser,
+          pass: smtpPass
+        }
+      });
+
+      // E-mail kiküldése
+      const info = await transporter.sendMail({
+        from: `"PhotAwesome Heti Értékelő" <${smtpUser}>`,
+        to: req.user.email, // 🔒 KIZÁRÓLAG A TE CÍMEDRE!
+        subject: `[TESZT LEVÉL] 🏆 ${userDb.club_name} – Heti Képértékelő eredmények (${targetRound.title})`,
+        html: htmlContent
+      });
+
+      console.log("✅ Teszt e-mail sikeresen elküldve. MessageId:", info.messageId);
 
       res.json({ 
         success: true, 
@@ -627,13 +640,13 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
       });
 
     } catch (err) {
-      console.error("Teszt e-mail küldési hiba:", err);
-      res.status(500).json({ error: err.message });
+      console.error("❌ E-mail küldési hiba a szerveren:", err);
+      res.status(500).json({ error: `SMTP Hiba: ${err.message}` });
     }
   });
 
   // ====================================================================
-  // 6. FORDULÓ KÉPEINEK LEKÉRÉSE ÉS EREDMÉNYEK
+  // 📊 6. FORDULÓ KÉPEINEK LEKÉRÉSE ÉS EREDMÉNYEK
   // ====================================================================
   app.get('/api/club-review/entries/:roundId', requireAuth, async (req, res) => {
     try {
