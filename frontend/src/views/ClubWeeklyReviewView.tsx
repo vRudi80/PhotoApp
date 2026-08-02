@@ -42,7 +42,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
-  // 🔒 Karantén fék: Ha nincs klubja, VAGY a tagsága függőben van!
+  // Karantén fék: Ha nincs klubja, VAGY a tagsága függőben van!
   const isPending = user?.club_role === 'pending';
   const hasNoClub = !user?.club_name || isPending;
 
@@ -104,13 +104,13 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
 
   const currentSelectedRoundObj = roundsList.find(r => r.id === selectedRoundId);
 
-  // ⏱️ 1. FELTÖLTÉSI LEZÁRÁS ELLENŐRZÉSE (Vasárnap 23:59:59 után lezár a feltöltés)
+  // 1. FELTÖLTÉSI LEZÁRÁS ELLENŐRZÉSE (Vasárnap 23:59:59 után lezár a feltöltés)
   const isUploadClosed = useMemo(() => {
     if (!currentSelectedRoundObj?.upload_deadline) return false;
     return new Date() > new Date(currentSelectedRoundObj.upload_deadline);
   }, [currentSelectedRoundObj]);
 
-  // ⏱️ 2. ÉRTÉKELÉSI LEZÁRÁS ELLENŐRZÉSE (Szerda 23:59:59 után lezár a szavazás ÉS feltárulnak az eredmények)
+  // 2. ÉRTÉKELÉSI LEZÁRÁS ELLENŐRZÉSE (Szerda 23:59:59 után lezár a szavazás ÉS feltárulnak az eredmények)
   const isRoundClosed = useMemo(() => {
     if (!currentSelectedRoundObj) return false;
     if (currentSelectedRoundObj.status === 'closed') return true;
@@ -169,6 +169,25 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
   const unvotedCount = useMemo(() => {
     return rankedEntries.filter(e => e.user_email !== user?.email && (e.my_score === null || e.my_score === undefined)).length;
   }, [rankedEntries, user?.email]);
+
+  // 📊 KATEGÓRIÁK DARABSZÁMÁNAK DINAMIKUS KISZÁMÍTÁSA
+  const categoryCounts = useMemo(() => {
+    let baseList = [...rankedEntries];
+    if (photoScope === 'my') {
+      baseList = baseList.filter(e => e.user_email === user?.email);
+    }
+    if (isPendingOnly) {
+      baseList = baseList.filter(e => e.user_email !== user?.email && (e.my_score === null || e.my_score === undefined));
+    }
+
+    return {
+      all: baseList.length,
+      portrait: baseList.filter(e => String(e.ai_category || '').includes('portrait')).length,
+      color: baseList.filter(e => String(e.ai_category || '').includes('color')).length,
+      monochrome: baseList.filter(e => String(e.ai_category || '').includes('monochrome')).length,
+      nature: baseList.filter(e => String(e.ai_category || '').includes('nature')).length,
+    };
+  }, [rankedEntries, photoScope, isPendingOnly, user?.email]);
 
   // SZŰRÉS ÉS RENDEZÉS ALAPJÁN FELDOLGOZOTT LISTA
   const sortedAndFilteredEntries = useMemo(() => {
@@ -444,7 +463,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
 
         <div style={{ height: '24px', width: '1px', background: 'var(--border-main)', margin: '0 4px' }} />
 
-        {/* 3. KATEGÓRIÁK LEGÖRDÜLŐ */}
+        {/* 3. KATEGÓRIÁK LEGÖRDÜLŐ (DARABSZÁMOKKAL ZÁRÓJELBEN) */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-muted)' }}>{t('reviewCategoriesLabel')}</span>
           <select
@@ -462,11 +481,11 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
               cursor: 'pointer'
             }}
           >
-            <option value="all">{t('reviewCatAll')}</option>
-            <option value="portrait">{t('reviewCatPortrait')}</option>
-            <option value="color">{t('reviewCatColor')}</option>
-            <option value="monochrome">{t('reviewCatMonochrome')}</option>
-            <option value="nature">{t('reviewCatNature')}</option>
+            <option value="all">{t('reviewCatAll')} ({categoryCounts.all})</option>
+            <option value="portrait">{t('reviewCatPortrait')} ({categoryCounts.portrait})</option>
+            <option value="color">{t('reviewCatColor')} ({categoryCounts.color})</option>
+            <option value="monochrome">{t('reviewCatMonochrome')} ({categoryCounts.monochrome})</option>
+            <option value="nature">{t('reviewCatNature')} ({categoryCounts.nature})</option>
           </select>
         </div>
 
