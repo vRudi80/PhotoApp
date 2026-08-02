@@ -493,7 +493,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
   });
 
   // ====================================================================
-  // ✉️ HTML E-MAIL SABLON GENERÁLÓ (KÉPPEL, DOBOGÓS KIEMELÉSSEL, AI-VAL)
+  // ✉️ HTML E-MAIL SABLON GENERÁLÓ (KÉPPEL, PONTSZÁM / MAXIMUM PONT, DOBOGÓVAL)
   // ====================================================================
   function generateWeeklyReviewEmail({ userName, clubName, roundTitle, entries, isTop3, top3Rank, bestPhotoTitle }) {
     const primaryColor = "#a78bfa";
@@ -501,7 +501,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
     const cardBg = "#1e293b";
     const borderCol = "#334155";
 
-    // 🎯 1. KÉPEK RENDEZÉSE AZ ÖSSZESÍTETT RANGSOR SZERINT (A legjobb fotó áll legfelül)
+    // 🎯 KÉPEK RENDEZÉSE AZ ÖSSZESÍTETT RANGSOR SZERINT
     const sortedEntries = [...entries].sort((a, b) => (a.overallRank || 999) - (b.overallRank || 999));
 
     // 🏆 Plakett blokk
@@ -527,13 +527,12 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
       `;
     }
 
-    // 📸 Képek kártyái – Pontszám szerint sorbarendezve + Dobogós vizuális kiemeléssel
+    // 📸 Képek kártyái – Pontszám szerint sorbarendezve + Pont / Max pont formátum (2 tizedes)
     const entriesHtml = sortedEntries.map((entry, idx) => {
       const photoUrl = entry.drive_file_id 
         ? `https://lh3.googleusercontent.com/d/${entry.drive_file_id}` 
         : entry.file_url;
 
-      // Dobogós kiemelés ellenőrzése
       const isPodium = entry.overallRank && entry.overallRank <= 3;
       const podiumBadges = {
         1: { text: "🥇 FORDULÓ 1. HELYEZETT", color: "#f59e0b", bg: "rgba(245, 158, 11, 0.15)", border: "#f59e0b" },
@@ -548,7 +547,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
       return `
         <div style="background: ${cardBg}; border: ${cardBorder}; box-shadow: ${cardBoxShadow}; border-radius: 12px; padding: 20px; margin-bottom: 25px;">
           
-          <!-- 🏆 DOBOGÓS JELVÉNY A KÁRTYA TETEJEIN -->
           ${isPodium ? `
             <div style="background: ${currentPodium.bg}; border: 1px solid ${currentPodium.border}; color: ${currentPodium.color}; padding: 6px 14px; border-radius: 20px; font-weight: bold; font-size: 0.85rem; display: inline-block; margin-bottom: 12px;">
               ${currentPodium.text}
@@ -563,27 +561,26 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
             </div>
           ` : ''}
 
-               <!-- Helyezések és átlagok -->
-        <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px; background: ${bgDark}; border-radius: 8px; text-align: center;">
-          <tr>
-            <td style="padding: 10px; border-right: 1px solid ${borderCol};">
-              <span style="color: #94a3b8; font-size: 0.75rem; display: block;">Klubtagok</span>
-              <strong style="color: #38bdf8; font-size: 1rem;">${entry.memberRank}/${entry.totalEntriesCount} hely</strong><br/>
-              <small style="color: #64748b; font-size: 0.75rem;">${Number(entry.avg_member_score || 0).toFixed(1)} / 2 p</small>
-            </td>
-            <td style="padding: 10px; border-right: 1px solid ${borderCol};">
-              <span style="color: #94a3b8; font-size: 0.75rem; display: block;">Mesterek</span>
-              <strong style="color: #f59e0b; font-size: 1rem;">${entry.masterRank}/${entry.totalEntriesCount} hely</strong><br/>
-              <small style="color: #64748b; font-size: 0.75rem;">${Number(entry.avg_master_score || 0).toFixed(1)} / 10 p</small>
-            </td>
-            <td style="padding: 10px;">
-              <span style="color: #94a3b8; font-size: 0.75rem; display: block;">AI (FIAP)</span>
-              <strong style="color: #a78bfa; font-size: 1rem;">${entry.aiRank}/${entry.totalEntriesCount} hely</strong><br/>
-              <small style="color: #64748b; font-size: 0.75rem;">${entry.ai_score || 0} / 100 p</small>
-            </td>
-          </tr>
-        </table>
-
+          <!-- Helyezések és átlagok (2 tizedes pontosság + Max pontok) -->
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px; background: ${bgDark}; border-radius: 8px; text-align: center;">
+            <tr>
+              <td style="padding: 10px; border-right: 1px solid ${borderCol};">
+                <span style="color: #94a3b8; font-size: 0.75rem; display: block;">Klubtagok</span>
+                <strong style="color: #38bdf8; font-size: 1rem;">${entry.memberRank}/${entry.totalEntriesCount} hely</strong><br/>
+                <small style="color: #cbd5e1; font-size: 0.78rem;">${Number(entry.avg_member_score || 0).toFixed(2)} / 2 p</small>
+              </td>
+              <td style="padding: 10px; border-right: 1px solid ${borderCol};">
+                <span style="color: #94a3b8; font-size: 0.75rem; display: block;">Mesterek</span>
+                <strong style="color: #f59e0b; font-size: 1rem;">${entry.masterRank}/${entry.totalEntriesCount} hely</strong><br/>
+                <small style="color: #cbd5e1; font-size: 0.78rem;">${Number(entry.avg_master_score || 0).toFixed(2)} / 10 p</small>
+              </td>
+              <td style="padding: 10px;">
+                <span style="color: #94a3b8; font-size: 0.75rem; display: block;">AI (FIAP)</span>
+                <strong style="color: #a78bfa; font-size: 1rem;">${entry.aiRank}/${entry.totalEntriesCount} hely</strong><br/>
+                <small style="color: #cbd5e1; font-size: 0.78rem;">${entry.ai_score || 0} / 100 p</small>
+              </td>
+            </tr>
+          </table>
 
           <!-- AI Kritika -->
           <div style="background: ${bgDark}; padding: 14px; border-radius: 8px; border-left: 4px solid ${primaryColor}; margin-bottom: 12px;">
