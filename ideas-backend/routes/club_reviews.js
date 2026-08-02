@@ -89,7 +89,7 @@ async function calculateRoundRanks(pool, roundId) {
   const aiRankMap = new Map();
   aiSorted.forEach((item, idx) => aiRankMap.set(item.id, idx + 1));
 
-  // 4. Összesített pontszám számítása a dobogóhoz (0-100-as skálára hozva mindhármat)
+  // 4. Összesített pontszám számítása a dobogóhoz
   const ranked = entries.map(entry => {
     const normMember = (Number(entry.avg_member_score) / 2) * 100;
     const normMaster = (Number(entry.avg_master_score) / 10) * 100;
@@ -106,7 +106,6 @@ async function calculateRoundRanks(pool, roundId) {
     };
   });
 
-  // Összesített sorrend
   const overallSorted = [...ranked].sort((a, b) => b.combinedScore - a.combinedScore);
   const overallRankMap = new Map();
   overallSorted.forEach((item, idx) => overallRankMap.set(item.id, idx + 1));
@@ -494,7 +493,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
   });
 
   // ====================================================================
-  // ✉️ HTML E-MAIL SABLON GENERÁLÓ (Plakettel, Értékelésekkel, AI-val)
+  // ✉️ HTML E-MAIL SABLON GENERÁLÓ (KÉPPEL, Plakettel, Értékelésekkel, AI-val)
   // ====================================================================
   function generateWeeklyReviewEmail({ userName, clubName, roundTitle, entries, isTop3, top3Rank, bestPhotoTitle }) {
     const primaryColor = "#a78bfa";
@@ -524,44 +523,61 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
       `;
     }
 
-    const entriesHtml = entries.map((entry, idx) => `
-      <div style="background: ${cardBg}; border: 1px solid ${borderCol}; border-radius: 12px; padding: 20px; margin-bottom: 25px;">
-        <h3 style="color: #f8fafc; margin: 0 0 12px 0; font-size: 1.2rem;">${idx + 1}. ${entry.title}</h3>
-        
-        <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px; background: ${bgDark}; border-radius: 8px; text-align: center;">
-          <tr>
-            <td style="padding: 10px; border-right: 1px solid ${borderCol};">
-              <span style="color: #94a3b8; font-size: 0.75rem; display: block;">Klubtagok</span>
-              <strong style="color: #38bdf8; font-size: 1rem;">${entry.memberRank}/${entry.totalEntriesCount} hely</strong><br/>
-              <small style="color: #64748b; font-size: 0.75rem;">${Number(entry.avg_member_score || 0).toFixed(1)} p</small>
-            </td>
-            <td style="padding: 10px; border-right: 1px solid ${borderCol};">
-              <span style="color: #94a3b8; font-size: 0.75rem; display: block;">Mesterek</span>
-              <strong style="color: #f59e0b; font-size: 1rem;">${entry.masterRank}/${entry.totalEntriesCount} hely</strong><br/>
-              <small style="color: #64748b; font-size: 0.75rem;">${Number(entry.avg_master_score || 0).toFixed(1)} p</small>
-            </td>
-            <td style="padding: 10px;">
-              <span style="color: #94a3b8; font-size: 0.75rem; display: block;">AI (FIAP)</span>
-              <strong style="color: #a78bfa; font-size: 1rem;">${entry.aiRank}/${entry.totalEntriesCount} hely</strong><br/>
-              <small style="color: #64748b; font-size: 0.75rem;">${entry.ai_score || 0} p</small>
-            </td>
-          </tr>
-        </table>
+    // 📸 Képek egyenkénti kártyái kisméretű előnézeti fotóval
+    const entriesHtml = entries.map((entry, idx) => {
+      const photoUrl = entry.drive_file_id 
+        ? `https://lh3.googleusercontent.com/d/${entry.drive_file_id}` 
+        : entry.file_url;
 
-        <div style="background: ${bgDark}; padding: 14px; border-radius: 8px; border-left: 4px solid ${primaryColor}; margin-bottom: 12px;">
-          <strong style="color: ${primaryColor}; font-size: 0.85rem; display: block; margin-bottom: 6px;">🤖 AI Szakmai Értékelés (FIAP szempontok):</strong>
-          <p style="color: #cbd5e1; font-size: 0.9rem; line-height: 1.5; margin: 0;">${entry.ai_feedback || 'Nincs elérhető kritika.'}</p>
-        </div>
+      return `
+        <div style="background: ${cardBg}; border: 1px solid ${borderCol}; border-radius: 12px; padding: 20px; margin-bottom: 25px;">
+          <h3 style="color: #f8fafc; margin: 0 0 12px 0; font-size: 1.2rem;">${idx + 1}. ${entry.title}</h3>
+          
+          <!-- 🖼️ KISMÉRETŰ KÉP BEÁGYAZÁSA (Max 260px magasság) -->
+          ${photoUrl ? `
+            <div style="text-align: center; margin-bottom: 15px; background: #000; border-radius: 8px; padding: 10px; overflow: hidden;">
+              <img src="${photoUrl}" alt="${entry.title}" style="max-width: 100%; max-height: 260px; height: auto; object-fit: contain; border-radius: 6px; display: inline-block;" />
+            </div>
+          ` : ''}
 
-        ${entry.course_title ? `
-          <div style="background: rgba(16,185,129,0.1); border: 1px solid #10b981; padding: 12px 15px; border-radius: 8px;">
-            <small style="color: #10b981; font-weight: bold; display: block;">🎯 Javasolt klubtanfolyam a fejlődéshez:</small>
-            <strong style="color: #fff; font-size: 0.95rem;">${entry.course_title}</strong>
-            <div style="color: #94a3b8; font-size: 0.8rem; margin-top: 2px;">Ár: ${entry.course_price} • ${entry.course_location_detail || ''}</div>
+          <!-- Helyezések és átlagok -->
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px; background: ${bgDark}; border-radius: 8px; text-align: center;">
+            <tr>
+              <td style="padding: 10px; border-right: 1px solid ${borderCol};">
+                <span style="color: #94a3b8; font-size: 0.75rem; display: block;">Klubtagok</span>
+                <strong style="color: #38bdf8; font-size: 1rem;">${entry.memberRank}/${entry.totalEntriesCount} hely</strong><br/>
+                <small style="color: #64748b; font-size: 0.75rem;">${Number(entry.avg_member_score || 0).toFixed(1)} p</small>
+              </td>
+              <td style="padding: 10px; border-right: 1px solid ${borderCol};">
+                <span style="color: #94a3b8; font-size: 0.75rem; display: block;">Mesterek</span>
+                <strong style="color: #f59e0b; font-size: 1rem;">${entry.masterRank}/${entry.totalEntriesCount} hely</strong><br/>
+                <small style="color: #64748b; font-size: 0.75rem;">${Number(entry.avg_master_score || 0).toFixed(1)} p</small>
+              </td>
+              <td style="padding: 10px;">
+                <span style="color: #94a3b8; font-size: 0.75rem; display: block;">AI (FIAP)</span>
+                <strong style="color: #a78bfa; font-size: 1rem;">${entry.aiRank}/${entry.totalEntriesCount} hely</strong><br/>
+                <small style="color: #64748b; font-size: 0.75rem;">${entry.ai_score || 0} p</small>
+              </td>
+            </tr>
+          </table>
+
+          <!-- AI Kritika -->
+          <div style="background: ${bgDark}; padding: 14px; border-radius: 8px; border-left: 4px solid ${primaryColor}; margin-bottom: 12px;">
+            <strong style="color: ${primaryColor}; font-size: 0.85rem; display: block; margin-bottom: 6px;">🤖 AI Szakmai Értékelés (FIAP szempontok):</strong>
+            <p style="color: #cbd5e1; font-size: 0.9rem; line-height: 1.5; margin: 0;">${entry.ai_feedback || 'Nincs elérhető kritika.'}</p>
           </div>
-        ` : ''}
-      </div>
-    `).join('');
+
+          <!-- Tanfolyam ajánló (ha van) -->
+          ${entry.course_title ? `
+            <div style="background: rgba(16,185,129,0.1); border: 1px solid #10b981; padding: 12px 15px; border-radius: 8px;">
+              <small style="color: #10b981; font-weight: bold; display: block;">🎯 Javasolt klubtanfolyam a fejlődéshez:</small>
+              <strong style="color: #fff; font-size: 0.95rem;">${entry.course_title}</strong>
+              <div style="color: #94a3b8; font-size: 0.8rem; margin-top: 2px;">Ár: ${entry.course_price} • ${entry.course_location_detail || ''}</div>
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }).join('');
 
     return `
       <!DOCTYPE html>
@@ -600,7 +616,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
   }
 
   // ====================================================================
-  // 🧪 TESZT E-MAIL KÜLDÉSE (VALÓDI VALÓSZÍNŰSÉGI KISZÁMÍTÁSSAL A 75 KÉPBŐL)
+  // 🧪 TESZT E-MAIL KÜLDÉSE (A 75 KÉP VALÓDI HELYEZÉSEIVEL & FOTÓKKAL)
   // ====================================================================
   app.post('/api/club-review/send-test-email', requireAuth, async (req, res) => {
     const { roundId, forceTop3 } = req.body;
@@ -624,17 +640,16 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
         return res.status(404).json({ error: 'A forduló nem található.' });
       }
 
-      // 🎯 KISZÁMOLJUK A FORDULÓ MINDEN KÉPÉNEK VALÓDI RANGSORÁT A SZAVAZATOK ALAPJÁN
+      // KISZÁMOLJUK A FORDULÓ MINDEN KÉPÉNEK VALÓDI RANGSORÁT
       const allRankedEntries = await calculateRoundRanks(pool, roundId);
 
-      // Kiszűrjük a tesztelő saját képeit a valós rangsoros listából
+      // Kiszűrjük a tesztelő saját képeit
       const userEntries = allRankedEntries.filter(e => e.user_email === req.user.email);
 
       if (userEntries.length === 0) {
         return res.status(400).json({ error: 'Még nem töltöttél fel képet ebben a fordulóban, így nincs mit tesztelni!' });
       }
 
-      // Megnézzük, van-e a felhasználónak valóban dobogós (Top 3) fotója
       const bestUserEntry = [...userEntries].sort((a, b) => a.overallRank - b.overallRank)[0];
       const naturallyTop3 = bestUserEntry && bestUserEntry.overallRank <= 3;
 
