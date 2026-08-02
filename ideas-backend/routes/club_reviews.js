@@ -46,10 +46,81 @@ async function requireAuth(req, res, next) {
   }
 }
 
+// ====================================================================
+// 📊 VALÓDI RANGSOR ÉS PONTSZÁM KISZÁMÍTÓ FÜGGVÉNY A FORDULÓHOZ
+// ====================================================================
+async function calculateRoundRanks(pool, roundId) {
+  const [entries] = await pool.query(
+    `SELECT 
+      e.*,
+      c.title as course_title, c.price as course_price, c.location_detail as course_location_detail,
+      COALESCE(r_member.avg_member_score, 0) as avg_member_score,
+      COALESCE(r_master.avg_master_score, 0) as avg_master_score
+     FROM club_review_entries e
+     LEFT JOIN photo_club_courses c ON e.ai_suggested_course_id = c.id
+     LEFT JOIN (
+       SELECT entry_id, AVG(score) as avg_member_score 
+       FROM club_review_ratings WHERE evaluator_role = 'member' GROUP BY entry_id
+     ) r_member ON e.id = r_member.entry_id
+     LEFT JOIN (
+       SELECT entry_id, AVG(score) as avg_master_score 
+       FROM club_review_ratings WHERE evaluator_role = 'master' GROUP BY entry_id
+     ) r_master ON e.id = r_master.entry_id
+     WHERE e.round_id = ?`,
+    [roundId]
+  );
+
+  if (!entries || entries.length === 0) return [];
+
+  const totalCount = entries.length;
+
+  // 1. Klubtagok szerinti sorrend
+  const memberSorted = [...entries].sort((a, b) => Number(b.avg_member_score) - Number(a.avg_member_score));
+  const memberRankMap = new Map();
+  memberSorted.forEach((item, idx) => memberRankMap.set(item.id, idx + 1));
+
+  // 2. Mesterek szerinti sorrend
+  const masterSorted = [...entries].sort((a, b) => Number(b.avg_master_score) - Number(a.avg_master_score));
+  const masterRankMap = new Map();
+  masterSorted.forEach((item, idx) => masterRankMap.set(item.id, idx + 1));
+
+  // 3. AI szerinti sorrend
+  const aiSorted = [...entries].sort((a, b) => Number(b.ai_score) - Number(a.ai_score));
+  const aiRankMap = new Map();
+  aiSorted.forEach((item, idx) => aiRankMap.set(item.id, idx + 1));
+
+  // 4. Összesített pontszám számítása a dobogóhoz (0-100-as skálára hozva mindhármat)
+  const ranked = entries.map(entry => {
+    const normMember = (Number(entry.avg_member_score) / 2) * 100;
+    const normMaster = (Number(entry.avg_master_score) / 10) * 100;
+    const normAi = Number(entry.ai_score) || 0;
+    const combinedScore = (normMember + normMaster + normAi) / 3;
+
+    return {
+      ...entry,
+      totalEntriesCount: totalCount,
+      memberRank: memberRankMap.get(entry.id) || totalCount,
+      masterRank: masterRankMap.get(entry.id) || totalCount,
+      aiRank: aiRankMap.get(entry.id) || totalCount,
+      combinedScore
+    };
+  });
+
+  // Összesített sorrend
+  const overallSorted = [...ranked].sort((a, b) => b.combinedScore - a.combinedScore);
+  const overallRankMap = new Map();
+  overallSorted.forEach((item, idx) => overallRankMap.set(item.id, idx + 1));
+
+  return ranked.map(entry => ({
+    ...entry,
+    overallRank: overallRankMap.get(entry.id) || totalCount
+  }));
+}
+
 module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
 
   // ====================================================================
-  // 👑 0. MESTER TITULUS KAPCSOLÁSA (Klubvezető vagy Admin által)
+  // 👑 0. MESTER TITULUS KAPCSOLÁSA
   // ====================================================================
   app.post('/api/club/toggle-master', requireAuth, async (req, res) => {
     const { targetEmail, isMaster } = req.body;
@@ -127,7 +198,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
   });
 
   // ====================================================================
-  // 📜 2. KLUB ÖSSZES FORDULÓJÁNAK LEKÉRÉSE (ARCHÍVUM)
+  // 📜 2. KLUB ÖSSZES FORDULÓJÁNAK LEKÉRÉSE
   // ====================================================================
   app.get('/api/club-review/rounds', requireAuth, async (req, res) => {
     try {
@@ -206,7 +277,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
   });
 
   // ====================================================================
-  // 📸 4. KÉP FELTÖLTÉSE (FÁJL) ÉS AI ELEMZÉS (GEMINI 2.5)
+  // 📸 4. KÉP FELTÖLTÉSE ÉS AI ELEMZÉS
   // ====================================================================
   app.post('/api/club-review/upload', requireAuth, upload.single('photo'), async (req, res) => {
     const { roundId, title } = req.body;
@@ -288,7 +359,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
       const mimeType = req.file.mimetype || 'image/jpeg';
       cleanupTempFile(req.file);
 
-      // GEMINI AI ELEMZÉS (HOSSZÚ, RÉSZLETES EVALUÁCIÓ KIKÉNYSZERÍTÉSE)
       let aiCategories = ['color'];
       let aiScore = 70;
       let aiFeedback = '';
@@ -371,7 +441,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
   });
 
   // ====================================================================
-  // 🗳️ 5. PONTOZÁS (SZERDA ÉJFÉLIG ENGEDÉLYEZETT)
+  // 🗳️ 5. PONTOZÁS
   // ====================================================================
   app.post('/api/club-review/rate', requireAuth, async (req, res) => {
     const { entryId, score } = req.body;
@@ -432,7 +502,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
     const cardBg = "#1e293b";
     const borderCol = "#334155";
 
-    // 🏆 Plakett / Oklevél blokk a Top 3 helyezettnek
     let plaqueHtml = "";
     if (isTop3) {
       const badges = {
@@ -455,12 +524,10 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
       `;
     }
 
-    // 📸 Képek egyenkénti kártyái
     const entriesHtml = entries.map((entry, idx) => `
       <div style="background: ${cardBg}; border: 1px solid ${borderCol}; border-radius: 12px; padding: 20px; margin-bottom: 25px;">
         <h3 style="color: #f8fafc; margin: 0 0 12px 0; font-size: 1.2rem;">${idx + 1}. ${entry.title}</h3>
         
-        <!-- Helyezések és átlagok -->
         <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px; background: ${bgDark}; border-radius: 8px; text-align: center;">
           <tr>
             <td style="padding: 10px; border-right: 1px solid ${borderCol};">
@@ -481,13 +548,11 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
           </tr>
         </table>
 
-        <!-- AI Kritika -->
         <div style="background: ${bgDark}; padding: 14px; border-radius: 8px; border-left: 4px solid ${primaryColor}; margin-bottom: 12px;">
           <strong style="color: ${primaryColor}; font-size: 0.85rem; display: block; margin-bottom: 6px;">🤖 AI Szakmai Értékelés (FIAP szempontok):</strong>
           <p style="color: #cbd5e1; font-size: 0.9rem; line-height: 1.5; margin: 0;">${entry.ai_feedback || 'Nincs elérhető kritika.'}</p>
         </div>
 
-        <!-- Tanfolyam ajánló (ha van) -->
         ${entry.course_title ? `
           <div style="background: rgba(16,185,129,0.1); border: 1px solid #10b981; padding: 12px 15px; border-radius: 8px;">
             <small style="color: #10b981; font-weight: bold; display: block;">🎯 Javasolt klubtanfolyam a fejlődéshez:</small>
@@ -505,7 +570,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
       <body style="background-color: ${bgDark}; color: #f8fafc; font-family: Arial, sans-serif; padding: 20px; margin: 0;">
         <div style="max-width: 650px; margin: 0 auto; background: #0b1120; border: 1px solid ${borderCol}; border-radius: 16px; padding: 30px; box-shadow: 0 20px 50px rgba(0,0,0,0.5);">
           
-          <!-- Fejléc -->
           <div style="text-align: center; border-bottom: 1px solid ${borderCol}; padding-bottom: 20px; margin-bottom: 25px;">
             <h1 style="color: ${primaryColor}; margin: 0 0 6px 0; font-size: 1.6rem;">${clubName}</h1>
             <h3 style="color: #cbd5e1; margin: 0; font-size: 1.1rem; font-weight: normal;">Heti Képértékelő Eredmények – ${roundTitle}</h3>
@@ -516,20 +580,15 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
             Lezárult a heti képértékelő forduló. Az alábbiakban megtalálod a beküldött fotóid részletes eredményeit és az AI szakmai visszajelzéseit:
           </p>
 
-          <!-- Plakett ha Top 3 -->
           ${plaqueHtml}
-
-          <!-- Képek listája -->
           ${entriesHtml}
 
-          <!-- Gomb a platformra -->
           <div style="text-align: center; margin-top: 35px; padding-top: 20px; border-top: 1px solid ${borderCol};">
             <a href="https://photawesome.com" style="background: #f97316; color: #ffffff; text-decoration: none; padding: 12px 28px; border-radius: 8px; font-weight: bold; font-size: 0.95rem; display: inline-block;">
               Nézd meg a teljes klubrangsort!
             </a>
           </div>
 
-          <!-- Lábléc -->
           <div style="text-align: center; color: #64748b; font-size: 0.8rem; margin-top: 30px;">
             <p style="margin: 0;">${clubName} • PhotAwesome Platform</p>
           </div>
@@ -541,7 +600,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
   }
 
   // ====================================================================
-  // 🧪 TESZT E-MAIL KÜLDÉSE (SZIGORÚ SMTP HIBAKEZELÉSSEL)
+  // 🧪 TESZT E-MAIL KÜLDÉSE (VALÓDI VALÓSZÍNŰSÉGI KISZÁMÍTÁSSAL A 75 KÉPBŐL)
   // ====================================================================
   app.post('/api/club-review/send-test-email', requireAuth, async (req, res) => {
     const { roundId, forceTop3 } = req.body;
@@ -565,46 +624,34 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
         return res.status(404).json({ error: 'A forduló nem található.' });
       }
 
-      // Lekérjük a tesztelő saját feltöltött képeit
-      const [userEntries] = await pool.query(
-        `SELECT e.*, c.title as course_title, c.price as course_price, c.location_detail as course_location_detail
-         FROM club_review_entries e
-         LEFT JOIN photo_club_courses c ON e.ai_suggested_course_id = c.id
-         WHERE e.round_id = ? AND e.user_email = ?`,
-        [roundId, req.user.email]
-      );
+      // 🎯 KISZÁMOLJUK A FORDULÓ MINDEN KÉPÉNEK VALÓDI RANGSORÁT A SZAVAZATOK ALAPJÁN
+      const allRankedEntries = await calculateRoundRanks(pool, roundId);
+
+      // Kiszűrjük a tesztelő saját képeit a valós rangsoros listából
+      const userEntries = allRankedEntries.filter(e => e.user_email === req.user.email);
 
       if (userEntries.length === 0) {
         return res.status(400).json({ error: 'Még nem töltöttél fel képet ebben a fordulóban, így nincs mit tesztelni!' });
       }
 
-      const [allEntries] = await pool.query(
-        'SELECT id FROM club_review_entries WHERE round_id = ?',
-        [roundId]
-      );
-      const totalCount = allEntries.length;
+      // Megnézzük, van-e a felhasználónak valóban dobogós (Top 3) fotója
+      const bestUserEntry = [...userEntries].sort((a, b) => a.overallRank - b.overallRank)[0];
+      const naturallyTop3 = bestUserEntry && bestUserEntry.overallRank <= 3;
 
-      const processedEntries = userEntries.map((entry, idx) => ({
-        ...entry,
-        totalEntriesCount: totalCount,
-        memberRank: idx + 1,
-        masterRank: idx + 1,
-        aiRank: idx + 1,
-        avg_member_score: 1.8,
-        avg_master_score: 8.5
-      }));
+      const isTop3 = forceTop3 || naturallyTop3;
+      const top3Rank = naturallyTop3 ? bestUserEntry.overallRank : 1;
+      const bestPhotoTitle = bestUserEntry?.title || userEntries[0]?.title || 'Teszt Fotó';
 
       const htmlContent = generateWeeklyReviewEmail({
         userName: userDb.name || req.user.name,
         clubName: userDb.club_name,
         roundTitle: targetRound.title,
-        entries: processedEntries,
-        isTop3: forceTop3 || false,
-        top3Rank: 1,
-        bestPhotoTitle: processedEntries[0]?.title || 'Teszt Fotó'
+        entries: userEntries,
+        isTop3,
+        top3Rank,
+        bestPhotoTitle
       });
 
-      // 🎯 BIZTONSÁGOS SMTP JELSZÓ ÉS FELHASZNÁLÓNÉV KEZELÉS (.ENV MEGFELELŐSÉG)
       const smtpUser = process.env.SMTP_USER;
       const smtpPass = process.env.SMTP_PASSWORD || process.env.SMTP_PASS || process.env.EMAIL_PASS;
 
@@ -618,16 +665,18 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
         host: process.env.SMTP_HOST || 'smtp.gmail.com',
         port: Number(process.env.SMTP_PORT) || 465,
         secure: Number(process.env.SMTP_PORT) === 465 || true,
+        connectionTimeout: 5000,
+        greetingTimeout: 5000,
+        socketTimeout: 5000,
         auth: {
           user: smtpUser,
           pass: smtpPass
         }
       });
 
-      // E-mail kiküldése
       const info = await transporter.sendMail({
         from: `"PhotAwesome Heti Értékelő" <${smtpUser}>`,
-        to: req.user.email, // 🔒 KIZÁRÓLAG A TE CÍMEDRE!
+        to: req.user.email,
         subject: `[TESZT LEVÉL] 🏆 ${userDb.club_name} – Heti Képértékelő eredmények (${targetRound.title})`,
         html: htmlContent
       });
@@ -646,7 +695,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
   });
 
   // ====================================================================
-  // 📊 6. FORDULÓ KÉPEINEK LEKÉRÉSE ÉS EREDMÉNYEK
+  // 📊 6. FORDULÓ KÉPEINEK LEKÉRÉSE ÉS EREDMÉNYEK (FRONTEND)
   // ====================================================================
   app.get('/api/club-review/entries/:roundId', requireAuth, async (req, res) => {
     try {
