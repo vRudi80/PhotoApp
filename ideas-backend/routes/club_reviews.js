@@ -120,7 +120,248 @@ async function calculateRoundRanks(pool, roundId, userEmail = null) {
   }));
 }
 
+// ====================================================================
+// ✉️ HTML E-MAIL SABLON GENERÁLÓ
+// ====================================================================
+function generateWeeklyReviewEmail({ userName, clubName, roundTitle, entries, isTop3, top3Rank, bestPhotoTitle }) {
+  const primaryColor = "#a78bfa";
+  const bgDark = "#0f172a";
+  const cardBg = "#1e293b";
+  const borderCol = "#334155";
+
+  const sortedEntries = [...entries].sort((a, b) => (a.overallRank || 999) - (b.overallRank || 999));
+
+  let plaqueHtml = "";
+  if (isTop3) {
+    const badges = {
+      1: { title: "1. HELYEZETT - ARANY PLAKETT", color: "#f59e0b", icon: "🥇" },
+      2: { title: "2. HELYEZETT - EZÜST PLAKETT", color: "#94a3b8", icon: "🥈" },
+      3: { title: "3. HELYEZETT - BRONZ PLAKETT", color: "#b45309", icon: "🥉" }
+    };
+    const badge = badges[top3Rank] || badges[1];
+
+    plaqueHtml = `
+      <div style="background: linear-gradient(135deg, ${cardBg}, #2e1065); border: 2px solid ${badge.color}; border-radius: 16px; padding: 25px; text-align: center; margin-bottom: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+        <div style="font-size: 2.5rem; margin-bottom: 10px;">${badge.icon}</div>
+        <h2 style="color: ${badge.color}; margin: 0 0 10px 0; font-size: 1.4rem; letter-spacing: 1px;">${badge.title}</h2>
+        <p style="color: #f8fafc; font-size: 1.1rem; margin: 0 0 15px 0;">Ezúton igazoljuk, hogy <strong style="color: #38bdf8;">${userName}</strong> a(z) <strong>${clubName}</strong> felületén rendezett <strong>${roundTitle}</strong> fordulójában elismerésben részesült!</p>
+        <div style="background: rgba(15,23,42,0.6); padding: 12px; border-radius: 8px; border: 1px dashed ${badge.color}; display: inline-block;">
+          <span style="color: #cbd5e1; font-size: 0.9rem;">Díjazott alkotás:</span><br/>
+          <strong style="color: #fff; font-size: 1.1rem;">"${bestPhotoTitle || 'Kiemelkedő fotó'}"</strong>
+        </div>
+      </div>
+    `;
+  }
+
+  const entriesHtml = sortedEntries.map((entry, idx) => {
+    const photoUrl = entry.drive_file_id 
+      ? `https://lh3.googleusercontent.com/d/${entry.drive_file_id}` 
+      : entry.file_url;
+
+    const isPodium = entry.overallRank && entry.overallRank <= 3;
+    const podiumBadges = {
+      1: { text: "🥇 FORDULÓ 1. HELYEZETT", color: "#f59e0b", bg: "rgba(245, 158, 11, 0.15)", border: "#f59e0b" },
+      2: { text: "🥈 FORDULÓ 2. HELYEZETT", color: "#94a3b8", bg: "rgba(148, 163, 184, 0.15)", border: "#94a3b8" },
+      3: { text: "🥉 FORDULÓ 3. HELYEZETT", color: "#b45309", bg: "rgba(180, 83, 9, 0.15)", border: "#b45309" }
+    };
+    const currentPodium = isPodium ? podiumBadges[entry.overallRank] : null;
+
+    const cardBorder = isPodium ? `2px solid ${currentPodium.border}` : `1px solid ${borderCol}`;
+    const cardBoxShadow = isPodium ? `0 8px 25px ${currentPodium.bg}` : 'none';
+
+    return `
+      <div style="background: ${cardBg}; border: ${cardBorder}; box-shadow: ${cardBoxShadow}; border-radius: 12px; padding: 20px; margin-bottom: 25px;">
+        
+        ${isPodium ? `
+          <div style="background: ${currentPodium.bg}; border: 1px solid ${currentPodium.border}; color: ${currentPodium.color}; padding: 6px 14px; border-radius: 20px; font-weight: bold; font-size: 0.85rem; display: inline-block; margin-bottom: 12px;">
+            ${currentPodium.text}
+          </div>
+        ` : ''}
+
+        <h3 style="color: #f8fafc; margin: 0 0 12px 0; font-size: 1.2rem;">${idx + 1}. ${entry.title}</h3>
+        
+        ${photoUrl ? `
+          <div style="text-align: center; margin-bottom: 15px; background: #000; border-radius: 8px; padding: 10px; overflow: hidden;">
+            <img src="${photoUrl}" alt="${entry.title}" style="max-width: 100%; max-height: 260px; height: auto; object-fit: contain; border-radius: 6px; display: inline-block;" />
+          </div>
+        ` : ''}
+
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px; background: ${bgDark}; border-radius: 8px; text-align: center;">
+          <tr>
+            <td style="padding: 10px; border-right: 1px solid ${borderCol}; width: 23%;">
+              <span style="color: #94a3b8; font-size: 0.72rem; display: block;">Klubtagok</span>
+              <strong style="color: #38bdf8; font-size: 0.95rem;">${entry.memberRank}/${entry.totalEntriesCount} hely</strong><br/>
+              <small style="color: #cbd5e1; font-size: 0.72rem;">${Number(entry.avg_member_score || 0).toFixed(2)} / 2 p</small>
+            </td>
+            <td style="padding: 10px; border-right: 1px solid ${borderCol}; width: 23%;">
+              <span style="color: #94a3b8; font-size: 0.72rem; display: block;">Mesterek</span>
+              <strong style="color: #f59e0b; font-size: 0.95rem;">${entry.masterRank}/${entry.totalEntriesCount} hely</strong><br/>
+              <small style="color: #cbd5e1; font-size: 0.72rem;">${Number(entry.avg_master_score || 0).toFixed(2)} / 10 p</small>
+            </td>
+            <td style="padding: 10px; border-right: 1px solid ${borderCol}; width: 23%;">
+              <span style="color: #94a3b8; font-size: 0.72rem; display: block;">AI (FIAP)</span>
+              <strong style="color: #a78bfa; font-size: 0.95rem;">${entry.aiRank}/${entry.totalEntriesCount} hely</strong><br/>
+              <small style="color: #cbd5e1; font-size: 0.72rem;">${entry.ai_score || 0} / 100 p</small>
+            </td>
+            <td style="padding: 10px; background: rgba(249, 115, 22, 0.12); width: 31%;">
+              <span style="color: #f97316; font-size: 0.72rem; font-weight: bold; display: block;">🏆 Összesített</span>
+              <strong style="color: #f97316; font-size: 1.05rem;">${entry.overallRank}/${entry.totalEntriesCount} hely</strong><br/>
+              <small style="color: #cbd5e1; font-size: 0.72rem;">${Number(entry.combinedScore || 0).toFixed(1)}%</small>
+            </td>
+          </tr>
+        </table>
+
+        <div style="background: ${bgDark}; padding: 14px; border-radius: 8px; border-left: 4px solid ${primaryColor}; margin-bottom: 12px;">
+          <strong style="color: ${primaryColor}; font-size: 0.85rem; display: block; margin-bottom: 6px;">🤖 AI Szakmai Értékelés (FIAP szempontok):</strong>
+          <p style="color: #cbd5e1; font-size: 0.9rem; line-height: 1.5; margin: 0;">${entry.ai_feedback || 'Nincs elérhető kritika.'}</p>
+        </div>
+
+        ${entry.course_title ? `
+          <div style="background: rgba(16,185,129,0.1); border: 1px solid #10b981; padding: 12px 15px; border-radius: 8px;">
+            <small style="color: #10b981; font-weight: bold; display: block;">🎯 Javasolt klubtanfolyam a fejlődéshez:</small>
+            <strong style="color: #fff; font-size: 0.95rem;">${entry.course_title}</strong>
+            <div style="color: #94a3b8; font-size: 0.8rem; margin-top: 2px;">Ár: ${entry.course_price} • ${entry.course_location_detail || ''}</div>
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }).join('');
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset="utf-8"/></head>
+    <body style="background-color: ${bgDark}; color: #f8fafc; font-family: Arial, sans-serif; padding: 20px; margin: 0;">
+      <div style="max-width: 650px; margin: 0 auto; background: #0b1120; border: 1px solid ${borderCol}; border-radius: 16px; padding: 30px; box-shadow: 0 20px 50px rgba(0,0,0,0.5);">
+        
+        <div style="text-align: center; border-bottom: 1px solid ${borderCol}; padding-bottom: 20px; margin-bottom: 25px;">
+          <h1 style="color: ${primaryColor}; margin: 0 0 6px 0; font-size: 1.6rem;">${clubName}</h1>
+          <h3 style="color: #cbd5e1; margin: 0; font-size: 1.1rem; font-weight: normal;">Heti Képértékelő Eredmények – ${roundTitle}</h3>
+        </div>
+
+        <p style="color: #cbd5e1; font-size: 1rem; line-height: 1.6;">Kedves <strong>${userName}</strong>!</p>
+        <p style="color: #cbd5e1; font-size: 0.95rem; line-height: 1.6; margin-bottom: 25px;">
+          Lezárult a heti képértékelő forduló. Az alábbiakban megtalálod a beküldött fotóid részletes eredményeit és az AI szakmai visszajelzéseit:
+        </p>
+
+        ${plaqueHtml}
+        ${entriesHtml}
+
+        <div style="text-align: center; margin-top: 35px; padding-top: 20px; border-top: 1px solid ${borderCol};">
+          <a href="https://photawesome.com" style="background: #f97316; color: #ffffff; text-decoration: none; padding: 12px 28px; border-radius: 8px; font-weight: bold; font-size: 0.95rem; display: inline-block;">
+            Nézd meg a teljes klubrangsort!
+          </a>
+        </div>
+
+        <div style="text-align: center; color: #64748b; font-size: 0.8rem; margin-top: 30px;">
+          <p style="margin: 0;">${clubName} • PhotAwesome Platform</p>
+        </div>
+
+      </div>
+    </body>
+    </html>
+  `;
+}
+
+// ====================================================================
+// ⏰ AUTOMATIKUS LEZÁRÓ ÉS TÖMEGES LEVÉLKÜLDŐ IDŐZÍTŐ
+// ====================================================================
+async function checkAndSendWeeklyReviews(pool) {
+  const now = new Date();
+  
+  try {
+    // 1. Keressük azokat a fordulókat, amiknek a határideje lejárt, de még nincsenek lezárva
+    const [expiredRounds] = await pool.query(
+      'SELECT * FROM club_review_rounds WHERE rating_deadline <= ? AND status != "closed"',
+      [now]
+    );
+
+    if (expiredRounds.length === 0) return;
+
+    const smtpUser = process.env.SMTP_USER;
+    const smtpPass = process.env.SMTP_PASSWORD || process.env.SMTP_PASS || process.env.EMAIL_PASS;
+
+    if (!smtpUser || !smtpPass) {
+      console.error("❌ [IDŐZÍTŐ] Hiányzó SMTP beállítások, a levelek küldése elhalasztva.");
+      return;
+    }
+
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST || 'smtp.gmail.com',
+      port: Number(process.env.SMTP_PORT) || 465,
+      secure: Number(process.env.SMTP_PORT) === 465 || true,
+      connectionTimeout: 5000,
+      greetingTimeout: 5000,
+      socketTimeout: 5000,
+      auth: { user: smtpUser, pass: smtpPass }
+    });
+
+    for (const round of expiredRounds) {
+      console.log(`🔒 [IDŐZÍTŐ] Forduló lezárása és levelek kiküldése: ID ${round.id} (${round.title})`);
+
+      // Azonnal lezárjuk a status-t az adatbázisban, hogy ne küldjük ki duplán!
+      await pool.query('UPDATE club_review_rounds SET status = "closed" WHERE id = ?', [round.id]);
+
+      // Kiszámoljuk a forduló teljes, valós rangsorát
+      const allRankedEntries = await calculateRoundRanks(pool, round.id, null);
+
+      if (allRankedEntries.length === 0) continue;
+
+      // Összegyűjtjük a feltöltő tagozat tagjait
+      const [participants] = await pool.query(
+        'SELECT DISTINCT user_email, user_name FROM club_review_entries WHERE round_id = ?',
+        [round.id]
+      );
+
+      for (const p of participants) {
+        const userEntries = allRankedEntries.filter(e => e.user_email === p.user_email);
+        if (userEntries.length === 0) continue;
+
+        // Dobogó ellenőrzés
+        const bestUserEntry = [...userEntries].sort((a, b) => a.overallRank - b.overallRank)[0];
+        const isTop3 = bestUserEntry && bestUserEntry.overallRank <= 3;
+        const top3Rank = isTop3 ? bestUserEntry.overallRank : 1;
+        const bestPhotoTitle = bestUserEntry?.title || 'Kiemelkedő fotó';
+
+        const htmlContent = generateWeeklyReviewEmail({
+          userName: p.user_name || p.user_email,
+          clubName: round.club_name,
+          roundTitle: round.title,
+          entries: userEntries,
+          isTop3,
+          top3Rank,
+          bestPhotoTitle
+        });
+
+        try {
+          await transporter.sendMail({
+            from: `"PhotAwesome Heti Értékelő" <${smtpUser}>`,
+            to: p.user_email,
+            subject: `🏆 ${round.club_name} – Heti Képértékelő Eredmények (${round.title})`,
+            html: htmlContent
+          });
+          console.log(`✉️ [IDŐZÍTŐ] Eredmény levél elküldve neki: ${p.user_email}`);
+        } catch (emailErr) {
+          console.error(`❌ [IDŐZÍTŐ] Hiba a levél küldésekor (${p.user_email}):`, emailErr.message);
+        }
+      }
+    }
+  } catch (err) {
+    console.error("❌ [IDŐZÍTŐ] Általános hiba az automatikus lezáráskor:", err.message);
+  }
+}
+
 module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
+
+  // ⏰ AUTOMATIKUS IDŐZÍTŐ INDÍTÁSA (5 percenként ellenőriz)
+  setInterval(() => {
+    checkAndSendWeeklyReviews(pool);
+  }, 5 * 60 * 1000);
+
+  // A szerver elindulásakor azonnal lefuttat egy ellenőrzést az esetleges elmaradt lezárásokra
+  setTimeout(() => {
+    checkAndSendWeeklyReviews(pool);
+  }, 10000);
 
   // ====================================================================
   // 👑 0. MESTER TITULUS KAPCSOLÁSA
@@ -266,7 +507,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
         round = newRound;
       }
 
-      // 🎯 VALÓS MESTER STÁTUSZ BEÁLLÍTÁSA
       const isMasterUser = Number(userDb.is_master) === 1 || userDb.club_role === 'leader' || req.user.isAdmin;
 
       res.json({ 
@@ -498,156 +738,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
   });
 
   // ====================================================================
-  // ✉️ HTML E-MAIL SABLON GENERÁLÓ (4 OSZLOP, KÉPPEL, PONTSZÁM, ÖSSZESÍTETT)
-  // ====================================================================
-  function generateWeeklyReviewEmail({ userName, clubName, roundTitle, entries, isTop3, top3Rank, bestPhotoTitle }) {
-    const primaryColor = "#a78bfa";
-    const bgDark = "#0f172a";
-    const cardBg = "#1e293b";
-    const borderCol = "#334155";
-
-    // 🎯 KÉPEK RENDEZÉSE AZ ÖSSZESÍTETT RANGSOR SZERINT
-    const sortedEntries = [...entries].sort((a, b) => (a.overallRank || 999) - (b.overallRank || 999));
-
-    // 🏆 Plakett blokk
-    let plaqueHtml = "";
-    if (isTop3) {
-      const badges = {
-        1: { title: "1. HELYEZETT - ARANY PLAKETT", color: "#f59e0b", icon: "🥇" },
-        2: { title: "2. HELYEZETT - EZÜST PLAKETT", color: "#94a3b8", icon: "🥈" },
-        3: { title: "3. HELYEZETT - BRONZ PLAKETT", color: "#b45309", icon: "🥉" }
-      };
-      const badge = badges[top3Rank] || badges[1];
-
-      plaqueHtml = `
-        <div style="background: linear-gradient(135deg, ${cardBg}, #2e1065); border: 2px solid ${badge.color}; border-radius: 16px; padding: 25px; text-align: center; margin-bottom: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
-          <div style="font-size: 2.5rem; margin-bottom: 10px;">${badge.icon}</div>
-          <h2 style="color: ${badge.color}; margin: 0 0 10px 0; font-size: 1.4rem; letter-spacing: 1px;">${badge.title}</h2>
-          <p style="color: #f8fafc; font-size: 1.1rem; margin: 0 0 15px 0;">Ezúton igazoljuk, hogy <strong style="color: #38bdf8;">${userName}</strong> a(z) <strong>${clubName}</strong> felületén rendezett <strong>${roundTitle}</strong> fordulójában elismerésben részesült!</p>
-          <div style="background: rgba(15,23,42,0.6); padding: 12px; border-radius: 8px; border: 1px dashed ${badge.color}; display: inline-block;">
-            <span style="color: #cbd5e1; font-size: 0.9rem;">Díjazott alkotás:</span><br/>
-            <strong style="color: #fff; font-size: 1.1rem;">"${bestPhotoTitle || 'Kiemelkedő fotó'}"</strong>
-          </div>
-        </div>
-      `;
-    }
-
-    // 📸 Képek kártyái – Pontszám szerint sorbarendezve + 4 oszlopos eredménytábla
-    const entriesHtml = sortedEntries.map((entry, idx) => {
-      const photoUrl = entry.drive_file_id 
-        ? `https://lh3.googleusercontent.com/d/${entry.drive_file_id}` 
-        : entry.file_url;
-
-      const isPodium = entry.overallRank && entry.overallRank <= 3;
-      const podiumBadges = {
-        1: { text: "🥇 FORDULÓ 1. HELYEZETT", color: "#f59e0b", bg: "rgba(245, 158, 11, 0.15)", border: "#f59e0b" },
-        2: { text: "🥈 FORDULÓ 2. HELYEZETT", color: "#94a3b8", bg: "rgba(148, 163, 184, 0.15)", border: "#94a3b8" },
-        3: { text: "🥉 FORDULÓ 3. HELYEZETT", color: "#b45309", bg: "rgba(180, 83, 9, 0.15)", border: "#b45309" }
-      };
-      const currentPodium = isPodium ? podiumBadges[entry.overallRank] : null;
-
-      const cardBorder = isPodium ? `2px solid ${currentPodium.border}` : `1px solid ${borderCol}`;
-      const cardBoxShadow = isPodium ? `0 8px 25px ${currentPodium.bg}` : 'none';
-
-      return `
-        <div style="background: ${cardBg}; border: ${cardBorder}; box-shadow: ${cardBoxShadow}; border-radius: 12px; padding: 20px; margin-bottom: 25px;">
-          
-          ${isPodium ? `
-            <div style="background: ${currentPodium.bg}; border: 1px solid ${currentPodium.border}; color: ${currentPodium.color}; padding: 6px 14px; border-radius: 20px; font-weight: bold; font-size: 0.85rem; display: inline-block; margin-bottom: 12px;">
-              ${currentPodium.text}
-            </div>
-          ` : ''}
-
-          <h3 style="color: #f8fafc; margin: 0 0 12px 0; font-size: 1.2rem;">${idx + 1}. ${entry.title}</h3>
-          
-          ${photoUrl ? `
-            <div style="text-align: center; margin-bottom: 15px; background: #000; border-radius: 8px; padding: 10px; overflow: hidden;">
-              <img src="${photoUrl}" alt="${entry.title}" style="max-width: 100%; max-height: 260px; height: auto; object-fit: contain; border-radius: 6px; display: inline-block;" />
-            </div>
-          ` : ''}
-
-          <!-- Helyezések és átlagok (4 oszlop: Tagok, Mesterek, AI, Összesített) -->
-          <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px; background: ${bgDark}; border-radius: 8px; text-align: center;">
-            <tr>
-              <td style="padding: 10px; border-right: 1px solid ${borderCol}; width: 23%;">
-                <span style="color: #94a3b8; font-size: 0.72rem; display: block;">Klubtagok</span>
-                <strong style="color: #38bdf8; font-size: 0.95rem;">${entry.memberRank}/${entry.totalEntriesCount} hely</strong><br/>
-                <small style="color: #cbd5e1; font-size: 0.72rem;">${Number(entry.avg_member_score || 0).toFixed(2)} / 2 p</small>
-              </td>
-              <td style="padding: 10px; border-right: 1px solid ${borderCol}; width: 23%;">
-                <span style="color: #94a3b8; font-size: 0.72rem; display: block;">Mesterek</span>
-                <strong style="color: #f59e0b; font-size: 0.95rem;">${entry.masterRank}/${entry.totalEntriesCount} hely</strong><br/>
-                <small style="color: #cbd5e1; font-size: 0.72rem;">${Number(entry.avg_master_score || 0).toFixed(2)} / 10 p</small>
-              </td>
-              <td style="padding: 10px; border-right: 1px solid ${borderCol}; width: 23%;">
-                <span style="color: #94a3b8; font-size: 0.72rem; display: block;">AI (FIAP)</span>
-                <strong style="color: #a78bfa; font-size: 0.95rem;">${entry.aiRank}/${entry.totalEntriesCount} hely</strong><br/>
-                <small style="color: #cbd5e1; font-size: 0.72rem;">${entry.ai_score || 0} / 100 p</small>
-              </td>
-              <td style="padding: 10px; background: rgba(249, 115, 22, 0.12); width: 31%;">
-                <span style="color: #f97316; font-size: 0.72rem; font-weight: bold; display: block;">🏆 Összesített</span>
-                <strong style="color: #f97316; font-size: 1.05rem;">${entry.overallRank}/${entry.totalEntriesCount} hely</strong><br/>
-                <small style="color: #cbd5e1; font-size: 0.72rem;">${Number(entry.combinedScore || 0).toFixed(1)}%</small>
-              </td>
-            </tr>
-          </table>
-
-          <!-- AI Kritika -->
-          <div style="background: ${bgDark}; padding: 14px; border-radius: 8px; border-left: 4px solid ${primaryColor}; margin-bottom: 12px;">
-            <strong style="color: ${primaryColor}; font-size: 0.85rem; display: block; margin-bottom: 6px;">🤖 AI Szakmai Értékelés (FIAP szempontok):</strong>
-            <p style="color: #cbd5e1; font-size: 0.9rem; line-height: 1.5; margin: 0;">${entry.ai_feedback || 'Nincs elérhető kritika.'}</p>
-          </div>
-
-          <!-- Tanfolyam ajánló (ha van) -->
-          ${entry.course_title ? `
-            <div style="background: rgba(16,185,129,0.1); border: 1px solid #10b981; padding: 12px 15px; border-radius: 8px;">
-              <small style="color: #10b981; font-weight: bold; display: block;">🎯 Javasolt klubtanfolyam a fejlődéshez:</small>
-              <strong style="color: #fff; font-size: 0.95rem;">${entry.course_title}</strong>
-              <div style="color: #94a3b8; font-size: 0.8rem; margin-top: 2px;">Ár: ${entry.course_price} • ${entry.course_location_detail || ''}</div>
-            </div>
-          ` : ''}
-        </div>
-      `;
-    }).join('');
-
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head><meta charset="utf-8"/></head>
-      <body style="background-color: ${bgDark}; color: #f8fafc; font-family: Arial, sans-serif; padding: 20px; margin: 0;">
-        <div style="max-width: 650px; margin: 0 auto; background: #0b1120; border: 1px solid ${borderCol}; border-radius: 16px; padding: 30px; box-shadow: 0 20px 50px rgba(0,0,0,0.5);">
-          
-          <div style="text-align: center; border-bottom: 1px solid ${borderCol}; padding-bottom: 20px; margin-bottom: 25px;">
-            <h1 style="color: ${primaryColor}; margin: 0 0 6px 0; font-size: 1.6rem;">${clubName}</h1>
-            <h3 style="color: #cbd5e1; margin: 0; font-size: 1.1rem; font-weight: normal;">Heti Képértékelő Eredmények – ${roundTitle}</h3>
-          </div>
-
-          <p style="color: #cbd5e1; font-size: 1rem; line-height: 1.6;">Kedves <strong>${userName}</strong>!</p>
-          <p style="color: #cbd5e1; font-size: 0.95rem; line-height: 1.6; margin-bottom: 25px;">
-            Lezárult a heti képértékelő forduló. Az alábbiakban megtalálod a beküldött fotóid részletes eredményeit és az AI szakmai visszajelzéseit:
-          </p>
-
-          ${plaqueHtml}
-          ${entriesHtml}
-
-          <div style="text-align: center; margin-top: 35px; padding-top: 20px; border-top: 1px solid ${borderCol};">
-            <a href="https://photawesome.com" style="background: #f97316; color: #ffffff; text-decoration: none; padding: 12px 28px; border-radius: 8px; font-weight: bold; font-size: 0.95rem; display: inline-block;">
-              Nézd meg a teljes klubrangsort!
-            </a>
-          </div>
-
-          <div style="text-align: center; color: #64748b; font-size: 0.8rem; margin-top: 30px;">
-            <p style="margin: 0;">${clubName} • PhotAwesome Platform</p>
-          </div>
-
-        </div>
-      </body>
-      </html>
-    `;
-  }
-
-  // ====================================================================
-  // 🧪 TESZT E-MAIL KÜLDÉSE (VALÓDI RANGSOR ÉS PONTSZÁM)
+  // 🧪 TESZT E-MAIL KÜLDÉSE (A SAJÁT CÍMEDRE)
   // ====================================================================
   app.post('/api/club-review/send-test-email', requireAuth, async (req, res) => {
     const { roundId, forceTop3 } = req.body;
@@ -671,10 +762,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
         return res.status(404).json({ error: 'A forduló nem található.' });
       }
 
-      // KISZÁMOLJUK A FORDULÓ MINDEN KÉPÉNEK VALÓDI RANGSORÁT
       const allRankedEntries = await calculateRoundRanks(pool, roundId, req.user.email);
-
-      // Kiszűrjük a tesztelő saját képeit
       const userEntries = allRankedEntries.filter(e => e.user_email === req.user.email);
 
       if (userEntries.length === 0) {
@@ -714,10 +802,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
         connectionTimeout: 5000,
         greetingTimeout: 5000,
         socketTimeout: 5000,
-        auth: {
-          user: smtpUser,
-          pass: smtpPass
-        }
+        auth: { user: smtpUser, pass: smtpPass }
       });
 
       const info = await transporter.sendMail({
@@ -750,7 +835,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
         return res.status(400).json({ error: 'Nem vagy tagja fotóklubnak.' });
       }
 
-      // Rangsorok és adatok kiszámítása a segédfüggvénnyel
       const rankedEntries = await calculateRoundRanks(pool, req.params.roundId, req.user.email);
       res.json(rankedEntries);
     } catch (err) {
