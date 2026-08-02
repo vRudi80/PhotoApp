@@ -49,25 +49,29 @@ async function requireAuth(req, res, next) {
 // ====================================================================
 // 📊 VALÓDI RANGSOR ÉS PONTSZÁM KISZÁMÍTÓ FÜGGVÉNY A FORDULÓHOZ
 // ====================================================================
-async function calculateRoundRanks(pool, roundId) {
+async function calculateRoundRanks(pool, roundId, userEmail = null) {
   const [entries] = await pool.query(
     `SELECT 
       e.*,
-      c.title as course_title, c.price as course_price, c.location_detail as course_location_detail,
+      c.title as course_title, c.price as course_price, c.location_type as course_location_type, c.location_detail as course_location_detail,
       COALESCE(r_member.avg_member_score, 0) as avg_member_score,
-      COALESCE(r_master.avg_master_score, 0) as avg_master_score
+      COALESCE(r_member.member_count, 0) as member_votes_count,
+      COALESCE(r_master.avg_master_score, 0) as avg_master_score,
+      COALESCE(r_master.master_count, 0) as master_votes_count,
+      my_r.score as my_score
      FROM club_review_entries e
      LEFT JOIN photo_club_courses c ON e.ai_suggested_course_id = c.id
      LEFT JOIN (
-       SELECT entry_id, AVG(score) as avg_member_score 
+       SELECT entry_id, AVG(score) as avg_member_score, COUNT(*) as member_count 
        FROM club_review_ratings WHERE evaluator_role = 'member' GROUP BY entry_id
      ) r_member ON e.id = r_member.entry_id
      LEFT JOIN (
-       SELECT entry_id, AVG(score) as avg_master_score 
+       SELECT entry_id, AVG(score) as avg_master_score, COUNT(*) as master_count 
        FROM club_review_ratings WHERE evaluator_role = 'master' GROUP BY entry_id
      ) r_master ON e.id = r_master.entry_id
+     LEFT JOIN club_review_ratings my_r ON e.id = my_r.entry_id AND my_r.evaluator_email = ?
      WHERE e.round_id = ?`,
-    [roundId]
+    [userEmail || '', roundId]
   );
 
   if (!entries || entries.length === 0) return [];
@@ -89,7 +93,7 @@ async function calculateRoundRanks(pool, roundId) {
   const aiRankMap = new Map();
   aiSorted.forEach((item, idx) => aiRankMap.set(item.id, idx + 1));
 
-  // 4. Összesített pontszám számítása a dobogóhoz
+  // 4. Összesített pontszám számítása (0-100% skálára hozva mindhármat)
   const ranked = entries.map(entry => {
     const normMember = (Number(entry.avg_member_score) / 2) * 100;
     const normMaster = (Number(entry.avg_master_score) / 10) * 100;
@@ -494,7 +498,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
   });
 
   // ====================================================================
-  // ✉️ HTML E-MAIL SABLON GENERÁLÓ (KÉPPEL, PONTSZÁM / MAXIMUM PONT, DOBOGÓVAL)
+  // ✉️ HTML E-MAIL SABLON GENERÁLÓ (4 OSZLOP, KÉPPEL, PONTSZÁM, ÖSSZESÍTETT)
   // ====================================================================
   function generateWeeklyReviewEmail({ userName, clubName, roundTitle, entries, isTop3, top3Rank, bestPhotoTitle }) {
     const primaryColor = "#a78bfa";
@@ -528,7 +532,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
       `;
     }
 
-    // 📸 Képek kártyái – Pontszám szerint sorbarendezve + Pont / Max pont formátum (2 tizedes)
+    // 📸 Képek kártyái – Pontszám szerint sorbarendezve + 4 oszlopos eredménytábla
     const entriesHtml = sortedEntries.map((entry, idx) => {
       const photoUrl = entry.drive_file_id 
         ? `https://lh3.googleusercontent.com/d/${entry.drive_file_id}` 
@@ -562,23 +566,28 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
             </div>
           ` : ''}
 
-          <!-- Helyezések és átlagok (2 tizedes pontosság + Max pontok) -->
+          <!-- Helyezések és átlagok (4 oszlop: Tagok, Mesterek, AI, Összesített) -->
           <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px; background: ${bgDark}; border-radius: 8px; text-align: center;">
             <tr>
-              <td style="padding: 10px; border-right: 1px solid ${borderCol};">
-                <span style="color: #94a3b8; font-size: 0.75rem; display: block;">Klubtagok</span>
-                <strong style="color: #38bdf8; font-size: 1rem;">${entry.memberRank}/${entry.totalEntriesCount} hely</strong><br/>
-                <small style="color: #cbd5e1; font-size: 0.78rem;">${Number(entry.avg_member_score || 0).toFixed(2)} / 2 p</small>
+              <td style="padding: 10px; border-right: 1px solid ${borderCol}; width: 23%;">
+                <span style="color: #94a3b8; font-size: 0.72rem; display: block;">Klubtagok</span>
+                <strong style="color: #38bdf8; font-size: 0.95rem;">${entry.memberRank}/${entry.totalEntriesCount} hely</strong><br/>
+                <small style="color: #cbd5e1; font-size: 0.72rem;">${Number(entry.avg_member_score || 0).toFixed(2)} / 2 p</small>
               </td>
-              <td style="padding: 10px; border-right: 1px solid ${borderCol};">
-                <span style="color: #94a3b8; font-size: 0.75rem; display: block;">Mesterek</span>
-                <strong style="color: #f59e0b; font-size: 1rem;">${entry.masterRank}/${entry.totalEntriesCount} hely</strong><br/>
-                <small style="color: #cbd5e1; font-size: 0.78rem;">${Number(entry.avg_master_score || 0).toFixed(2)} / 10 p</small>
+              <td style="padding: 10px; border-right: 1px solid ${borderCol}; width: 23%;">
+                <span style="color: #94a3b8; font-size: 0.72rem; display: block;">Mesterek</span>
+                <strong style="color: #f59e0b; font-size: 0.95rem;">${entry.masterRank}/${entry.totalEntriesCount} hely</strong><br/>
+                <small style="color: #cbd5e1; font-size: 0.72rem;">${Number(entry.avg_master_score || 0).toFixed(2)} / 10 p</small>
               </td>
-              <td style="padding: 10px;">
-                <span style="color: #94a3b8; font-size: 0.75rem; display: block;">AI (FIAP)</span>
-                <strong style="color: #a78bfa; font-size: 1rem;">${entry.aiRank}/${entry.totalEntriesCount} hely</strong><br/>
-                <small style="color: #cbd5e1; font-size: 0.78rem;">${entry.ai_score || 0} / 100 p</small>
+              <td style="padding: 10px; border-right: 1px solid ${borderCol}; width: 23%;">
+                <span style="color: #94a3b8; font-size: 0.72rem; display: block;">AI (FIAP)</span>
+                <strong style="color: #a78bfa; font-size: 0.95rem;">${entry.aiRank}/${entry.totalEntriesCount} hely</strong><br/>
+                <small style="color: #cbd5e1; font-size: 0.72rem;">${entry.ai_score || 0} / 100 p</small>
+              </td>
+              <td style="padding: 10px; background: rgba(249, 115, 22, 0.12); width: 31%;">
+                <span style="color: #f97316; font-size: 0.72rem; font-weight: bold; display: block;">🏆 Összesített</span>
+                <strong style="color: #f97316; font-size: 1.05rem;">${entry.overallRank}/${entry.totalEntriesCount} hely</strong><br/>
+                <small style="color: #cbd5e1; font-size: 0.72rem;">${Number(entry.combinedScore || 0).toFixed(1)}%</small>
               </td>
             </tr>
           </table>
@@ -638,7 +647,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
   }
 
   // ====================================================================
-  // 🧪 TESZT E-MAIL KÜLDÉSE (A 75 KÉP VALÓDI HELYEZÉSEIVEL & FOTÓKKAL)
+  // 🧪 TESZT E-MAIL KÜLDÉSE (VALÓDI RANGSOR ÉS PONTSZÁM)
   // ====================================================================
   app.post('/api/club-review/send-test-email', requireAuth, async (req, res) => {
     const { roundId, forceTop3 } = req.body;
@@ -663,7 +672,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
       }
 
       // KISZÁMOLJUK A FORDULÓ MINDEN KÉPÉNEK VALÓDI RANGSORÁT
-      const allRankedEntries = await calculateRoundRanks(pool, roundId);
+      const allRankedEntries = await calculateRoundRanks(pool, roundId, req.user.email);
 
       // Kiszűrjük a tesztelő saját képeit
       const userEntries = allRankedEntries.filter(e => e.user_email === req.user.email);
@@ -737,33 +746,13 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
   app.get('/api/club-review/entries/:roundId', requireAuth, async (req, res) => {
     try {
       const [[userDb]] = await pool.query('SELECT club_name FROM photo_users WHERE email = ?', [req.user.email]);
+      if (!userDb || !userDb.club_name) {
+        return res.status(400).json({ error: 'Nem vagy tagja fotóklubnak.' });
+      }
 
-      const [entries] = await pool.query(
-        `SELECT 
-          e.*,
-          c.title as course_title, c.price as course_price, c.location_type as course_location_type, c.location_detail as course_location_detail,
-          COALESCE(r_member.avg_member_score, 0) as avg_member_score,
-          COALESCE(r_member.member_count, 0) as member_votes_count,
-          COALESCE(r_master.avg_master_score, 0) as avg_master_score,
-          COALESCE(r_master.master_count, 0) as master_votes_count,
-          my_r.score as my_score
-         FROM club_review_entries e
-         LEFT JOIN photo_club_courses c ON e.ai_suggested_course_id = c.id
-         LEFT JOIN (
-           SELECT entry_id, AVG(score) as avg_member_score, COUNT(*) as member_count 
-           FROM club_review_ratings WHERE evaluator_role = 'member' GROUP BY entry_id
-         ) r_member ON e.id = r_member.entry_id
-         LEFT JOIN (
-           SELECT entry_id, AVG(score) as avg_master_score, COUNT(*) as master_count 
-           FROM club_review_ratings WHERE evaluator_role = 'master' GROUP BY entry_id
-         ) r_master ON e.id = r_master.entry_id
-         LEFT JOIN club_review_ratings my_r ON e.id = my_r.entry_id AND my_r.evaluator_email = ?
-         WHERE e.round_id = ? AND e.club_name = ?
-         ORDER BY e.created_at DESC`,
-        [req.user.email, req.params.roundId, userDb.club_name]
-      );
-
-      res.json(entries);
+      // Rangsorok és adatok kiszámítása a segédfüggvénnyel
+      const rankedEntries = await calculateRoundRanks(pool, req.params.roundId, req.user.email);
+      res.json(rankedEntries);
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
