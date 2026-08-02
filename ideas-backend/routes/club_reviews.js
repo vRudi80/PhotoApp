@@ -563,26 +563,27 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
             </div>
           ` : ''}
 
-          <!-- Helyezések és átlagok -->
-          <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px; background: ${bgDark}; border-radius: 8px; text-align: center;">
-            <tr>
-              <td style="padding: 10px; border-right: 1px solid ${borderCol};">
-                <span style="color: #94a3b8; font-size: 0.75rem; display: block;">Klubtagok</span>
-                <strong style="color: #38bdf8; font-size: 1rem;">${entry.memberRank}/${entry.totalEntriesCount} hely</strong><br/>
-                <small style="color: #64748b; font-size: 0.75rem;">${Number(entry.avg_member_score || 0).toFixed(1)} p</small>
-              </td>
-              <td style="padding: 10px; border-right: 1px solid ${borderCol};">
-                <span style="color: #94a3b8; font-size: 0.75rem; display: block;">Mesterek</span>
-                <strong style="color: #f59e0b; font-size: 1rem;">${entry.masterRank}/${entry.totalEntriesCount} hely</strong><br/>
-                <small style="color: #64748b; font-size: 0.75rem;">${Number(entry.avg_master_score || 0).toFixed(1)} p</small>
-              </td>
-              <td style="padding: 10px;">
-                <span style="color: #94a3b8; font-size: 0.75rem; display: block;">AI (FIAP)</span>
-                <strong style="color: #a78bfa; font-size: 1rem;">${entry.aiRank}/${entry.totalEntriesCount} hely</strong><br/>
-                <small style="color: #64748b; font-size: 0.75rem;">${entry.ai_score || 0} p</small>
-              </td>
-            </tr>
-          </table>
+               <!-- Helyezések és átlagok -->
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px; background: ${bgDark}; border-radius: 8px; text-align: center;">
+          <tr>
+            <td style="padding: 10px; border-right: 1px solid ${borderCol};">
+              <span style="color: #94a3b8; font-size: 0.75rem; display: block;">Klubtagok</span>
+              <strong style="color: #38bdf8; font-size: 1rem;">${entry.memberRank}/${entry.totalEntriesCount} hely</strong><br/>
+              <small style="color: #64748b; font-size: 0.75rem;">${Number(entry.avg_member_score || 0).toFixed(1)} / 2 p</small>
+            </td>
+            <td style="padding: 10px; border-right: 1px solid ${borderCol};">
+              <span style="color: #94a3b8; font-size: 0.75rem; display: block;">Mesterek</span>
+              <strong style="color: #f59e0b; font-size: 1rem;">${entry.masterRank}/${entry.totalEntriesCount} hely</strong><br/>
+              <small style="color: #64748b; font-size: 0.75rem;">${Number(entry.avg_master_score || 0).toFixed(1)} / 10 p</small>
+            </td>
+            <td style="padding: 10px;">
+              <span style="color: #94a3b8; font-size: 0.75rem; display: block;">AI (FIAP)</span>
+              <strong style="color: #a78bfa; font-size: 1rem;">${entry.aiRank}/${entry.totalEntriesCount} hely</strong><br/>
+              <small style="color: #64748b; font-size: 0.75rem;">${entry.ai_score || 0} / 100 p</small>
+            </td>
+          </tr>
+        </table>
+
 
           <!-- AI Kritika -->
           <div style="background: ${bgDark}; padding: 14px; border-radius: 8px; border-left: 4px solid ${primaryColor}; margin-bottom: 12px;">
