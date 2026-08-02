@@ -421,6 +421,216 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
       res.status(500).json({ error: err.message });
     }
   });
+  // ====================================================================
+  // ✉️ HTML E-MAIL SABLON GENERÁLÓ (Plakettel, Értékelésekkel, AI-val)
+  // ====================================================================
+  function generateWeeklyReviewEmail({ userName, clubName, roundTitle, entries, isTop3, top3Rank, bestPhotoTitle }) {
+    const primaryColor = "#a78bfa";
+    const bgDark = "#0f172a";
+    const cardBg = "#1e293b";
+    const borderCol = "#334155";
+
+    // 🏆 Plakett / Oklevél blokk a Top 3 helyezettnek
+    let plaqueHtml = "";
+    if (isTop3) {
+      const badges = {
+        1: { title: "1. HELYEZETT - ARANY PLAKETT", color: "#f59e0b", icon: "🥇" },
+        2: { title: "2. HELYEZETT - EZÜST PLAKETT", color: "#94a3b8", icon: "🥈" },
+        3: { title: "3. HELYEZETT - BRONZ PLAKETT", color: "#b45309", icon: "🥉" }
+      };
+      const badge = badges[top3Rank] || badges[1];
+
+      plaqueHtml = `
+        <div style="background: linear-gradient(135deg, ${cardBg}, #2e1065); border: 2px solid ${badge.color}; border-radius: 16px; padding: 25px; text-align: center; margin-bottom: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+          <div style="font-size: 2.5rem; margin-bottom: 10px;">${badge.icon}</div>
+          <h2 style="color: ${badge.color}; margin: 0 0 10px 0; font-size: 1.4rem; letter-spacing: 1px;">${badge.title}</h2>
+          <p style="color: #f8fafc; font-size: 1.1rem; margin: 0 0 15px 0;">Ezúton igazoljuk, hogy <strong style="color: #38bdf8;">${userName}</strong> a(z) <strong>${clubName}</strong> felületén rendezett <strong>${roundTitle}</strong> fordulójában elismerésben részesült!</p>
+          <div style="background: rgba(15,23,42,0.6); padding: 12px; border-radius: 8px; border: 1px dashed ${badge.color}; display: inline-block;">
+            <span style="color: #cbd5e1; font-size: 0.9rem;">Díjazott alkotás:</span><br/>
+            <strong style="color: #fff; font-size: 1.1rem;">"${bestPhotoTitle || 'Kiemelkedő fotó'}"</strong>
+          </div>
+        </div>
+      `;
+    }
+
+    // 📸 Képek egyenkénti kártyái
+    const entriesHtml = entries.map((entry, idx) => `
+      <div style="background: ${cardBg}; border: 1px solid ${borderCol}; border-radius: 12px; padding: 20px; margin-bottom: 25px;">
+        <h3 style="color: #f8fafc; margin: 0 0 12px 0; font-size: 1.2rem;">${idx + 1}. ${entry.title}</h3>
+        
+        <!-- Helyezések és átlagok -->
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px; background: ${bgDark}; border-radius: 8px; text-align: center;">
+          <tr>
+            <td style="padding: 10px; border-right: 1px solid ${borderCol};">
+              <span style="color: #94a3b8; font-size: 0.75rem; display: block;">Klubtagok</span>
+              <strong style="color: #38bdf8; font-size: 1rem;">${entry.memberRank}/${entry.totalEntriesCount} hely</strong><br/>
+              <small style="color: #64748b; font-size: 0.75rem;">${Number(entry.avg_member_score || 0).toFixed(1)} p</small>
+            </td>
+            <td style="padding: 10px; border-right: 1px solid ${borderCol};">
+              <span style="color: #94a3b8; font-size: 0.75rem; display: block;">Mesterek</span>
+              <strong style="color: #f59e0b; font-size: 1rem;">${entry.masterRank}/${entry.totalEntriesCount} hely</strong><br/>
+              <small style="color: #64748b; font-size: 0.75rem;">${Number(entry.avg_master_score || 0).toFixed(1)} p</small>
+            </td>
+            <td style="padding: 10px;">
+              <span style="color: #94a3b8; font-size: 0.75rem; display: block;">AI (FIAP)</span>
+              <strong style="color: #a78bfa; font-size: 1rem;">${entry.aiRank}/${entry.totalEntriesCount} hely</strong><br/>
+              <small style="color: #64748b; font-size: 0.75rem;">${entry.ai_score || 0} p</small>
+            </td>
+          </tr>
+        </table>
+
+        <!-- AI Kritika -->
+        <div style="background: ${bgDark}; padding: 14px; border-radius: 8px; border-left: 4px solid ${primaryColor}; margin-bottom: 12px;">
+          <strong style="color: ${primaryColor}; font-size: 0.85rem; display: block; margin-bottom: 6px;">🤖 AI Szakmai Értékelés (FIAP szempontok):</strong>
+          <p style="color: #cbd5e1; font-size: 0.9rem; line-height: 1.5; margin: 0;">${entry.ai_feedback || 'Nincs elérhető kritika.'}</p>
+        </div>
+
+        <!-- Tanfolyam ajánló (ha van) -->
+        ${entry.course_title ? `
+          <div style="background: rgba(16,185,129,0.1); border: 1px solid #10b981; padding: 12px 15px; border-radius: 8px;">
+            <small style="color: #10b981; font-weight: bold; display: block;">🎯 Javasolt klubtanfolyam a fejlődéshez:</small>
+            <strong style="color: #fff; font-size: 0.95rem;">${entry.course_title}</strong>
+            <div style="color: #94a3b8; font-size: 0.8rem; margin-top: 2px;">Ár: ${entry.course_price} • ${entry.course_location_detail || ''}</div>
+          </div>
+        ` : ''}
+      </div>
+    `).join('');
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head><meta charset="utf-8"/></head>
+      <body style="background-color: ${bgDark}; color: #f8fafc; font-family: Arial, sans-serif; padding: 20px; margin: 0;">
+        <div style="max-width: 650px; margin: 0 auto; background: #0b1120; border: 1px solid ${borderCol}; border-radius: 16px; padding: 30px; box-shadow: 0 20px 50px rgba(0,0,0,0.5);">
+          
+          <!-- Fejléc -->
+          <div style="text-align: center; border-bottom: 1px solid ${borderCol}; padding-bottom: 20px; margin-bottom: 25px;">
+            <h1 style="color: ${primaryColor}; margin: 0 0 6px 0; font-size: 1.6rem;">${clubName}</h1>
+            <h3 style="color: #cbd5e1; margin: 0; font-size: 1.1rem; font-weight: normal;">Heti Képértékelő Eredmények – ${roundTitle}</h3>
+          </div>
+
+          <p style="color: #cbd5e1; font-size: 1rem; line-height: 1.6;">Kedves <strong>${userName}</strong>!</p>
+          <p style="color: #cbd5e1; font-size: 0.95rem; line-height: 1.6; margin-bottom: 25px;">
+            Lezárult a heti képértékelő forduló. Az alábbiakban megtalálod a beküldött fotóid részletes eredményeit és az AI szakmai visszajelzéseit:
+          </p>
+
+          <!-- Plakett ha Top 3 -->
+          ${plaqueHtml}
+
+          <!-- Képek listája -->
+          ${entriesHtml}
+
+          <!-- Gomb a platformra -->
+          <div style="text-align: center; margin-top: 35px; padding-top: 20px; border-top: 1px solid ${borderCol};">
+            <a href="https://photawesome.com" style="background: #f97316; color: #ffffff; text-decoration: none; padding: 12px 28px; border-radius: 8px; font-weight: bold; font-size: 0.95rem; display: inline-block;">
+              Nézd meg a teljes klubrangsort!
+            </a>
+          </div>
+
+          <!-- Lábléc -->
+          <div style="text-align: center; color: #64748b; font-size: 0.8rem; margin-top: 30px;">
+            <p style="margin: 0;">${clubName} • PhotAwesome Platform</p>
+          </div>
+
+        </div>
+      </body>
+      </html>
+    `;
+  }
+
+  // ====================================================================
+  // 🧪 TESZT E-MAIL KÜLDÉSE (KIZÁRÓLAG A BEJELENTKEZETT FELHASZNÁLÓNAK)
+  // ====================================================================
+  app.post('/api/club-review/send-test-email', requireAuth, async (req, res) => {
+    const { roundId, forceTop3 } = req.body;
+
+    try {
+      const [[userDb]] = await pool.query(
+        'SELECT name, club_name FROM photo_users WHERE email = ?',
+        [req.user.email]
+      );
+
+      if (!userDb || !userDb.club_name) {
+        return res.status(400).json({ error: 'Nem vagy tagja fotóklubnak.' });
+      }
+
+      const [[targetRound]] = await pool.query(
+        'SELECT * FROM club_review_rounds WHERE id = ? AND club_name = ?',
+        [roundId, userDb.club_name]
+      );
+
+      if (!targetRound) {
+        return res.status(404).json({ error: 'A forduló nem található.' });
+      }
+
+      // Lekérjük a felhasználó képeit ebben a fordulóban
+      const [userEntries] = await pool.query(
+        `SELECT e.*, c.title as course_title, c.price as course_price, c.location_detail as course_location_detail
+         FROM club_review_entries e
+         LEFT JOIN photo_club_courses c ON e.ai_suggested_course_id = c.id
+         WHERE e.round_id = ? AND e.user_email = ?`,
+        [roundId, req.user.email]
+      );
+
+      if (userEntries.length === 0) {
+        return res.status(400).json({ error: 'Még nem töltöttél fel képet ebben a fordulóban, így nincs mit tesztelni!' });
+      }
+
+      // Rangsor és statisztika számítása a képekhez
+      const [allEntries] = await pool.query(
+        'SELECT id, ai_score FROM club_review_entries WHERE round_id = ?',
+        [roundId]
+      );
+      const totalCount = allEntries.length;
+
+      const processedEntries = userEntries.map((entry, idx) => ({
+        ...entry,
+        totalEntriesCount: totalCount,
+        memberRank: idx + 1,
+        masterRank: idx + 1,
+        aiRank: idx + 1,
+        avg_member_score: 1.8,
+        avg_master_score: 8.5
+      }));
+
+      // Plakett tesztelés szimuláció
+      const isTop3 = forceTop3 || false;
+      const top3Rank = 1;
+      const bestPhotoTitle = processedEntries[0]?.title || 'Teszt Fotó';
+
+      const htmlContent = generateWeeklyReviewEmail({
+        userName: userDb.name || req.user.name,
+        clubName: userDb.club_name,
+        roundTitle: targetRound.title,
+        entries: processedEntries,
+        isTop3,
+        top3Rank,
+        bestPhotoTitle
+      });
+
+      // ✉️ KÜLDÉS KIZÁRÓLAG A TESZTELŐ E-MAIL CÍMÉRE (`req.user.email`)
+      // Feltételezzük, hogy a transporter konfigurálva van a meglévő levelező rendszerben
+      if (global.transporter) {
+        await global.transporter.sendMail({
+          from: `"PhotAwesome Heti Értékelő" <${process.env.SMTP_USER || 'noreply@photawesome.com'}>`,
+          to: req.user.email, // 🔒 KIZÁRÓLAG NEKED!
+          subject: `[TESZT LEVÉL] 🏆 ${userDb.club_name} – Heti Képértékelő eredmények (${targetRound.title})`,
+          html: htmlContent
+        });
+      } else {
+        console.log("Transporter nincs konfigurálva, e-mail HTML elkészült tesztelésre.");
+      }
+
+      res.json({ 
+        success: true, 
+        message: `Teszt e-mail sikeresen elküldve a saját címedre (${req.user.email})!` 
+      });
+
+    } catch (err) {
+      console.error("Teszt e-mail küldési hiba:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
 
   // ====================================================================
   // 6. FORDULÓ KÉPEINEK LEKÉRÉSE ÉS EREDMÉNYEK
