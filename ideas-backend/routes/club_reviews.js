@@ -493,7 +493,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
   });
 
   // ====================================================================
-  // ✉️ HTML E-MAIL SABLON GENERÁLÓ (KÉPPEL, Plakettel, Értékelésekkel, AI-val)
+  // ✉️ HTML E-MAIL SABLON GENERÁLÓ (KÉPPEL, DOBOGÓS KIEMELÉSSEL, AI-VAL)
   // ====================================================================
   function generateWeeklyReviewEmail({ userName, clubName, roundTitle, entries, isTop3, top3Rank, bestPhotoTitle }) {
     const primaryColor = "#a78bfa";
@@ -501,6 +501,10 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
     const cardBg = "#1e293b";
     const borderCol = "#334155";
 
+    // 🎯 1. KÉPEK RENDEZÉSE AZ ÖSSZESÍTETT RANGSOR SZERINT (A legjobb fotó áll legfelül)
+    const sortedEntries = [...entries].sort((a, b) => (a.overallRank || 999) - (b.overallRank || 999));
+
+    // 🏆 Plakett blokk
     let plaqueHtml = "";
     if (isTop3) {
       const badges = {
@@ -523,17 +527,36 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
       `;
     }
 
-    // 📸 Képek egyenkénti kártyái kisméretű előnézeti fotóval
-    const entriesHtml = entries.map((entry, idx) => {
+    // 📸 Képek kártyái – Pontszám szerint sorbarendezve + Dobogós vizuális kiemeléssel
+    const entriesHtml = sortedEntries.map((entry, idx) => {
       const photoUrl = entry.drive_file_id 
         ? `https://lh3.googleusercontent.com/d/${entry.drive_file_id}` 
         : entry.file_url;
 
+      // Dobogós kiemelés ellenőrzése
+      const isPodium = entry.overallRank && entry.overallRank <= 3;
+      const podiumBadges = {
+        1: { text: "🥇 FORDULÓ 1. HELYEZETT", color: "#f59e0b", bg: "rgba(245, 158, 11, 0.15)", border: "#f59e0b" },
+        2: { text: "🥈 FORDULÓ 2. HELYEZETT", color: "#94a3b8", bg: "rgba(148, 163, 184, 0.15)", border: "#94a3b8" },
+        3: { text: "🥉 FORDULÓ 3. HELYEZETT", color: "#b45309", bg: "rgba(180, 83, 9, 0.15)", border: "#b45309" }
+      };
+      const currentPodium = isPodium ? podiumBadges[entry.overallRank] : null;
+
+      const cardBorder = isPodium ? `2px solid ${currentPodium.border}` : `1px solid ${borderCol}`;
+      const cardBoxShadow = isPodium ? `0 8px 25px ${currentPodium.bg}` : 'none';
+
       return `
-        <div style="background: ${cardBg}; border: 1px solid ${borderCol}; border-radius: 12px; padding: 20px; margin-bottom: 25px;">
+        <div style="background: ${cardBg}; border: ${cardBorder}; box-shadow: ${cardBoxShadow}; border-radius: 12px; padding: 20px; margin-bottom: 25px;">
+          
+          <!-- 🏆 DOBOGÓS JELVÉNY A KÁRTYA TETEJEIN -->
+          ${isPodium ? `
+            <div style="background: ${currentPodium.bg}; border: 1px solid ${currentPodium.border}; color: ${currentPodium.color}; padding: 6px 14px; border-radius: 20px; font-weight: bold; font-size: 0.85rem; display: inline-block; margin-bottom: 12px;">
+              ${currentPodium.text}
+            </div>
+          ` : ''}
+
           <h3 style="color: #f8fafc; margin: 0 0 12px 0; font-size: 1.2rem;">${idx + 1}. ${entry.title}</h3>
           
-          <!-- 🖼️ KISMÉRETŰ KÉP BEÁGYAZÁSA (Max 260px magasság) -->
           ${photoUrl ? `
             <div style="text-align: center; margin-bottom: 15px; background: #000; border-radius: 8px; padding: 10px; overflow: hidden;">
               <img src="${photoUrl}" alt="${entry.title}" style="max-width: 100%; max-height: 260px; height: auto; object-fit: contain; border-radius: 6px; display: inline-block;" />
