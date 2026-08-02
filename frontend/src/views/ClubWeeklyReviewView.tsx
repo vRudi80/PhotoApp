@@ -26,6 +26,9 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
   const [entries, setEntries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
+  // 🎯 MESTER STÁTUSZ DINAMIKUS TÁROLÁSA A SZERVER VÁLASZA ALAPJÁN
+  const [isMasterState, setIsMasterState] = useState<boolean>(false);
+
   // Szűrők és rendezés állapotai
   const [photoScope, setPhotoScope] = useState<'all' | 'my'>('all');
   const [isPendingOnly, setIsPendingOnly] = useState<boolean>(false);
@@ -60,6 +63,9 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
         const activeData = await activeRes.json();
         currentActive = activeData.round;
         setActiveRound(currentActive);
+
+        // 🎯 MESTER STÁTUSZ BEÁLLÍTÁSA A SZERVER PONTOS VÁLASZA ALAPJÁN
+        setIsMasterState(Boolean(activeData.isMaster || user?.is_master == 1 || user?.club_role === 'leader' || user?.isAdmin));
       }
 
       const roundsRes = await fetch(`${BACKEND_URL}/api/club-review/rounds`, { headers: getAuthHeaders() });
@@ -94,7 +100,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
 
   useEffect(() => { 
     loadRounds(); 
-  }, [user?.club_name, user?.club_role]);
+  }, [user?.club_name, user?.club_role, user?.is_master]);
 
   useEffect(() => {
     if (selectedRoundId) {
@@ -104,13 +110,13 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
 
   const currentSelectedRoundObj = roundsList.find(r => r.id === selectedRoundId);
 
-  // 1. FELTÖLTÉSI LEZÁRÁS ELLENŐRZÉSE (Vasárnap 23:59:59 után lezár a feltöltés)
+  // 1. FELTÖLTÉSI LEZÁRÁS ELLENŐRZÉSE
   const isUploadClosed = useMemo(() => {
     if (!currentSelectedRoundObj?.upload_deadline) return false;
     return new Date() > new Date(currentSelectedRoundObj.upload_deadline);
   }, [currentSelectedRoundObj]);
 
-  // 2. ÉRTÉKELÉSI LEZÁRÁS ELLENŐRZÉSE (Szerda 23:59:59 után lezár a szavazás ÉS feltárulnak az eredmények)
+  // 2. ÉRTÉKELÉSI LEZÁRÁS ELLENŐRZÉSE
   const isRoundClosed = useMemo(() => {
     if (!currentSelectedRoundObj) return false;
     if (currentSelectedRoundObj.status === 'closed') return true;
@@ -136,7 +142,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
 
   const hasReachedUploadLimit = myUploadCount >= maxUploads;
 
-  // CSOPORTONKÉNTI RANGSOR SZÁMÍTÁS (Klubtagok, Mesterek, AI)
+  // CSOPORTONKÉNTI RANGSOR SZÁMÍTÁS
   const rankedEntries = useMemo(() => {
     if (!entries || entries.length === 0) return [];
     const totalCount = entries.length;
@@ -170,7 +176,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
     return rankedEntries.filter(e => e.user_email !== user?.email && (e.my_score === null || e.my_score === undefined)).length;
   }, [rankedEntries, user?.email]);
 
-  // 📊 KATEGÓRIÁK DARABSZÁMÁNAK DINAMIKUS KISZÁMÍTÁSA
+  // KATEGÓRIÁK DARABSZÁMÁNAK DINAMIKUS KISZÁMÍTÁSA
   const categoryCounts = useMemo(() => {
     let baseList = [...rankedEntries];
     if (photoScope === 'my') {
@@ -301,7 +307,8 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
     }
   };
 
-  const isMaster = user?.is_master === 1 || user?.club_role === 'leader';
+  // 🎯 PONTOS MESTER STÁTUSZ MEGÁLLAPÍTÁS
+  const checkIsMaster = isMasterState || user?.is_master == 1 || user?.is_master === true || user?.club_role === 'leader' || user?.isAdmin;
   const isCurrentActiveRoundSelected = selectedRoundId === activeRound?.id;
 
   const activeModalRankedEntry = useMemo(() => {
@@ -359,47 +366,48 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
         </div>
 
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-            {/* 🧪 KIZÁRÓLAG NEKED / ADMINNAK LÁTHATÓ TESZT GOMB */}
-{(user?.isAdmin || user?.email === 'kovari.rudolf@gmail.com') && (
-  <button 
-    onClick={async () => {
-      if (!selectedRoundId) return alert('Válassz ki egy fordulót!');
-      const confirmSend = window.confirm('Elküldjük a Heti Értékelő összefoglaló teszt e-mailjét A SAJÁT CÍMEDRE? (Senki más nem kapja meg)');
-      if (!confirmSend) return;
+          
+          {/* 🧪 KIZÁRÓLAG NEKED / ADMINNAK LÁTHATÓ TESZT GOMB */}
+          {(user?.isAdmin || user?.email === 'kovari.rudolf@gmail.com') && (
+            <button 
+              onClick={async () => {
+                if (!selectedRoundId) return alert('Válassz ki egy fordulót!');
+                const confirmSend = window.confirm('Elküldjük a Heti Értékelő összefoglaló teszt e-mailjét A SAJÁT CÍMEDRE? (Senki más nem kapja meg)');
+                if (!confirmSend) return;
 
-      try {
-        const res = await fetch(`${BACKEND_URL}/api/club-review/send-test-email`, {
-          method: 'POST',
-          headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-          body: JSON.stringify({ roundId: selectedRoundId, forceTop3: true })
-        });
+                try {
+                  const res = await fetch(`${BACKEND_URL}/api/club-review/send-test-email`, {
+                    method: 'POST',
+                    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+                    body: JSON.stringify({ roundId: selectedRoundId, forceTop3: true })
+                  });
 
-        const data = await res.json();
-        if (res.ok) {
-          alert(`✉️ ${data.message}`);
-        } else {
-          alert(`Hiba: ${data.error}`);
-        }
-      } catch (e) {
-        alert('Hálózati hiba a teszt e-mail küldésekor.');
-      }
-    }}
-    style={{ 
-      background: 'rgba(56, 189, 248, 0.15)', 
-      color: '#38bdf8', 
-      border: '1px solid rgba(56, 189, 248, 0.3)', 
-      padding: '10px 16px', 
-      borderRadius: '8px', 
-      fontWeight: 'bold', 
-      cursor: 'pointer', 
-      display: 'flex', 
-      alignItems: 'center', 
-      gap: '8px' 
-    }}
-  >
-    ✉️ Teszt E-mail Küldése
-  </button>
-)}
+                  const data = await res.json();
+                  if (res.ok) {
+                    alert(`✉️ ${data.message}`);
+                  } else {
+                    alert(`Hiba: ${data.error}`);
+                  }
+                } catch (e) {
+                  alert('Hálózati hiba a teszt e-mail küldésekor.');
+                }
+              }}
+              style={{ 
+                background: 'rgba(56, 189, 248, 0.15)', 
+                color: '#38bdf8', 
+                border: '1px solid rgba(56, 189, 248, 0.3)', 
+                padding: '10px 16px', 
+                borderRadius: '8px', 
+                fontWeight: 'bold', 
+                cursor: 'pointer', 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '8px' 
+              }}
+            >
+              ✉️ Teszt E-mail Küldése
+            </button>
+          )}
 
           <button onClick={() => setShowHelpModal(true)} style={{ background: 'rgba(167, 139, 250, 0.12)', color: '#a78bfa', border: '1px solid rgba(167, 139, 250, 0.3)', padding: '10px 16px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
             {t('reviewBtnHelp')}
@@ -418,11 +426,6 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
                 if (!hasReachedUploadLimit) setShowUploadModal(true);
               }}
               disabled={hasReachedUploadLimit}
-              title={
-                hasReachedUploadLimit
-                  ? `Elérted a heti feltöltési limitet (${myUploadCount}/${maxUploads} kép). Ebben a csomagban hetente legfeljebb ${maxUploads} fotó tölthető fel.`
-                  : `${t('reviewBtnUpload')} (${myUploadCount}/${maxUploads})`
-              }
               style={{ 
                 background: hasReachedUploadLimit ? '#334155' : '#f97316', 
                 color: hasReachedUploadLimit ? '#94a3b8' : 'white', 
@@ -434,8 +437,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
                 display: 'flex', 
                 alignItems: 'center', 
                 gap: '8px',
-                opacity: hasReachedUploadLimit ? 0.8 : 1,
-                transition: 'all 0.2s'
+                opacity: hasReachedUploadLimit ? 0.8 : 1
               }}
             >
               {hasReachedUploadLimit ? `${t('reviewBtnUploadLimit')} (${myUploadCount}/${maxUploads})` : `${t('reviewBtnUpload')} (${myUploadCount}/${maxUploads})`}
@@ -505,7 +507,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
 
         <div style={{ height: '24px', width: '1px', background: 'var(--border-main)', margin: '0 4px' }} />
 
-        {/* 3. KATEGÓRIÁK LEGÖRDÜLŐ (DARABSZÁMOKKAL ZÁRÓJELBEN) */}
+        {/* 3. KATEGÓRIÁK LEGÖRDÜLŐ */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-muted)' }}>{t('reviewCategoriesLabel')}</span>
           <select
@@ -531,7 +533,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
           </select>
         </div>
 
-        {/* 4. SORREND LEGÖRDÜLŐ (CSAK SZERDA ÉJFÉLI LEZÁRÁS UTÁN LÁTHATÓ!) */}
+        {/* 4. SORREND LEGÖRDÜLŐ */}
         {isRoundClosed && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto' }}>
             <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -583,7 +585,6 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
                 <div onClick={() => setSelectedEntryModal(entry)} style={{ position: 'relative', height: '220px', background: '#000', cursor: 'pointer' }}>
                   <img src={photoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                   
-                  {/* AI PONT JELVÉNY: LEZÁRÁS UTÁN VAGY SAJÁT KÉP ESETÉN MÁR A FELTÖLTÉSKOR LÁTHATÓ! */}
                   {(isRoundClosed || isMyPhoto) && (
                     <div style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(15,23,42,0.85)', backdropFilter: 'blur(4px)', padding: '4px 10px', borderRadius: '20px', fontSize: '0.8rem', color: '#fbbf24', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '5px' }}>
                       AI: {entry.ai_score} / 100 p
@@ -596,33 +597,29 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
                     <h3 style={{ margin: '0 0 2px 0', color: 'var(--text-title)', fontSize: '1.1rem' }}>{entry.title}</h3>
                     <small style={{ color: 'var(--text-muted)', display: 'block', marginBottom: '10px' }}>{t('archivePhotographer')}: {entry.user_name}</small>
 
-                    {/* 3 OSZLOPOS HELYEZÉS ÉS ÁTLAGSÁV (CSAK LEZÁRÁS UTÁN LÁTHATÓ) */}
                     {isRoundClosed && (
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', background: 'var(--bg-main)', padding: '10px 6px', borderRadius: '8px', border: '1px solid var(--border-main)', textAlign: 'center', marginBottom: '12px' }}>
                         
-                        {/* KLUBTAGOK */}
                         <div>
                           <span style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 'bold', display: 'block' }}>{t('reviewRankMembers')}</span>
                           <div style={{ color: '#38bdf8', fontWeight: '800', fontSize: '0.9rem', marginTop: '2px' }}>
                             {entry.memberRank}/{entry.totalEntriesCount}
                           </div>
                           <small style={{ color: 'var(--text-muted)', fontSize: '0.68rem' }}>
-                            {Number(entry.avg_member_score).toFixed(1)} p
+                            {Number(entry.avg_member_score).toFixed(2)} p
                           </small>
                         </div>
 
-                        {/* MESTEREK */}
                         <div style={{ borderLeft: '1px solid var(--border-main)', borderRight: '1px solid var(--border-main)' }}>
                           <span style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 'bold', display: 'block' }}>{t('reviewRankMasters')}</span>
                           <div style={{ color: '#f59e0b', fontWeight: '800', fontSize: '0.9rem', marginTop: '2px' }}>
                             {entry.masterRank}/{entry.totalEntriesCount}
                           </div>
                           <small style={{ color: 'var(--text-muted)', fontSize: '0.68rem' }}>
-                            {Number(entry.avg_master_score).toFixed(1)} p
+                            {Number(entry.avg_master_score).toFixed(2)} p
                           </small>
                         </div>
 
-                        {/* AI FIAP */}
                         <div>
                           <span style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 'bold', display: 'block' }}>{t('reviewRankAi')}</span>
                           <div style={{ color: '#a78bfa', fontWeight: '800', fontSize: '0.9rem', marginTop: '2px' }}>
@@ -652,12 +649,13 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
                     </div>
                   ) : (
                     <div>
+                      {/* 🎯 PONTOS MESTER CSOPORT ELLENŐRZÉS */}
                       <label style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '6px', fontWeight: 'bold' }}>
-                        {isMaster ? 'Mester Értékelés (1 - 10 pont):' : 'Tagi Értékelés (0 - 2 pont):'}
+                        {checkIsMaster ? 'Mester Értékelés (1 - 10 pont):' : 'Tagi Értékelés (0 - 2 pont):'}
                       </label>
 
                       <div style={{ display: 'flex', gap: '6px' }}>
-                        {isMaster ? (
+                        {checkIsMaster ? (
                           [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(p => (
                             <button key={p} onClick={() => handleRate(entry.id, p)} style={{ flex: 1, padding: '6px 0', borderRadius: '4px', border: '1px solid var(--border-main)', background: 'var(--bg-main)', color: 'var(--text-title)', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem' }}>
                               {p}
@@ -697,7 +695,6 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
 
               <img src={getImageUrl(activeModalRankedEntry.drive_file_id, activeModalRankedEntry.file_url)} alt="" style={{ width: '100%', maxHeight: '380px', objectFit: 'contain', borderRadius: '8px', background: '#000', marginBottom: '15px' }} />
 
-              {/* 3 OSZLOPOS HELYEZÉSEK (CSAK A FORDULÓ LEZÁRULTA UTÁN) */}
               {isRoundClosed && (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', background: 'var(--bg-main)', padding: '15px', borderRadius: '8px', border: '1px solid var(--border-main)', textAlign: 'center', marginBottom: '15px' }}>
                   <div>
@@ -723,7 +720,6 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
                 </div>
               )}
 
-              {/* AI KRITIKA ÉS TANFOLYAM AJÁNLÁS: LEZÁRÁS UTÁN VAGY SAJÁT KÉPNÉL MÁR FELTÖLTÉSKOR LÁTSZIK! */}
               {canShowAi ? (
                 <>
                   <div style={{ background: 'var(--bg-main)', padding: '16px', borderRadius: '8px', border: '1px solid #a78bfa', marginBottom: '15px' }}>
