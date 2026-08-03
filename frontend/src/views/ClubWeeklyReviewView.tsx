@@ -408,9 +408,10 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
             </button>
           )}
 
-          {isCurrentActiveRoundSelected && isUploadClosed && !isRoundClosed && (
+          {/* 2. HA A FELTÖLTÉS MÁR LEJÁRT, DE A SZAVAZÁS MÉG TART (SZERDA ÉJFÉLIG) */}
+          {isUploadClosed && !isRoundClosed && (
             <div style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.3)', padding: '8px 14px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 'bold' }}>
-              A képfeltöltés lezárult (Szavazás szerda éjfélig!)
+              ⏳ A képfeltöltés lezárult (Szavazás szerda éjfélig!)
             </div>
           )}
         </div>
