@@ -452,7 +452,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
   });
 
   // ====================================================================
-  // 🗓️ 3. AKTUÁLIS FORDULÓ LEKÉRÉSE / AUTOMATIKUS INDÍTÁSA
+  // 🗓️ 3. AKTUÁLIS FORDULÓ LEKÉRÉSE / PÁRHUZAMOS INDÍTÁS
   // ====================================================================
   app.get('/api/club-review/active-round', requireAuth, async (req, res) => {
     try {
@@ -463,27 +463,29 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
 
       const now = new Date();
 
-      // Lezárjuk a lejárt szerdai szavazási határidejű fordulókat
+      // 1. Csak azokat a fordulókat zárjuk le, amiknek a SZERDAI határideje lejárt!
       await pool.query(
         'UPDATE club_review_rounds SET status = "closed" WHERE club_name = ? AND rating_deadline < ? AND status != "closed"',
         [userDb.club_name, now]
       );
 
-      // 🎯 JAVÍTÁS: A rating_deadline-t nézzük, hogy szerda éjfélig az aktív fordulót adja vissza!
-      let [rounds] = await pool.query(
-        'SELECT * FROM club_review_rounds WHERE club_name = ? AND rating_deadline >= ? ORDER BY id DESC LIMIT 1',
+      // 2. Megkeressük az "e heti" (feltölthető) fordulót, aminek a VASÁRNAPI határideje még tart!
+      let [activeRounds] = await pool.query(
+        'SELECT * FROM club_review_rounds WHERE club_name = ? AND upload_deadline >= ? ORDER BY id DESC LIMIT 1',
         [userDb.club_name, now]
       );
 
-      let round = rounds[0];
+      let round = activeRounds[0];
 
-      // Ha nincs érvényes aktív forduló, újat indítunk a következő hétre
+      // 3. Ha nincs ilyen (mert eltelt a vasárnap éjfél), akkor AUTOMATIKUSAN LÉTREHOZZUK AZ ÚJAT!
       if (!round) {
         const nextSun = new Date(now);
-        nextSun.setDate(now.getDate() + ((7 - now.getDay()) % 7));
+        // Kiszámítjuk a következő vasárnapot
+        nextSun.setDate(now.getDate() + ((7 - now.getDay()) % 7 || 7));
         nextSun.setHours(23, 59, 59, 999);
 
         const nextWed = new Date(nextSun);
+        // A rákövetkező szerda (értékelés vége)
         nextWed.setDate(nextSun.getDate() + 3);
 
         const weekNum = getISOWeekNumber(now);
@@ -501,6 +503,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
 
       const isMasterUser = Number(userDb.is_master) === 1 || userDb.club_role === 'leader' || req.user.isAdmin;
 
+      // 4. Visszaküldjük a legfrissebb (vagy épp létrehozott) heti fordulót
       res.json({ 
         round, 
         userRole: userDb.club_role, 
@@ -508,7 +511,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
         isPremium: userDb.is_premium 
       });
     } catch (err) {
-      console.error("Hiba az active-round lekérésekor:", err);
       res.status(500).json({ error: err.message });
     }
   });
@@ -804,8 +806,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
         subject: `[TESZT LEVÉL] 🏆 ${userDb.club_name} – Heti Képértékelő eredmények (${targetRound.title})`,
         html: htmlContent
       });
-
-      console.log("✅ Teszt e-mail sikeresen elküldve. MessageId:", info.messageId);
 
       res.json({ 
         success: true, 
