@@ -78,22 +78,18 @@ async function calculateRoundRanks(pool, roundId, userEmail = null) {
 
   const totalCount = entries.length;
 
-  // 1. Klubtagok szerinti sorrend
   const memberSorted = [...entries].sort((a, b) => Number(b.avg_member_score) - Number(a.avg_member_score));
   const memberRankMap = new Map();
   memberSorted.forEach((item, idx) => memberRankMap.set(item.id, idx + 1));
 
-  // 2. Mesterek szerinti sorrend
   const masterSorted = [...entries].sort((a, b) => Number(b.avg_master_score) - Number(a.avg_master_score));
   const masterRankMap = new Map();
   masterSorted.forEach((item, idx) => masterRankMap.set(item.id, idx + 1));
 
-  // 3. AI szerinti sorrend
   const aiSorted = [...entries].sort((a, b) => Number(b.ai_score) - Number(a.ai_score));
   const aiRankMap = new Map();
   aiSorted.forEach((item, idx) => aiRankMap.set(item.id, idx + 1));
 
-  // 4. Összesített pontszám számítása (0-100% skálára hozva mindhármat)
   const ranked = entries.map(entry => {
     const normMember = (Number(entry.avg_member_score) / 2) * 100;
     const normMaster = (Number(entry.avg_master_score) / 10) * 100;
@@ -270,7 +266,6 @@ async function checkAndSendWeeklyReviews(pool) {
   const now = new Date();
   
   try {
-    // 1. Keressük azokat a fordulókat, amiknek a határideje lejárt, de még nincsenek lezárva
     const [expiredRounds] = await pool.query(
       'SELECT * FROM club_review_rounds WHERE rating_deadline <= ? AND status != "closed"',
       [now]
@@ -299,15 +294,12 @@ async function checkAndSendWeeklyReviews(pool) {
     for (const round of expiredRounds) {
       console.log(`🔒 [IDŐZÍTŐ] Forduló lezárása és levelek kiküldése: ID ${round.id} (${round.title})`);
 
-      // Azonnal lezárjuk a status-t az adatbázisban, hogy ne küldjük ki duplán!
       await pool.query('UPDATE club_review_rounds SET status = "closed" WHERE id = ?', [round.id]);
 
-      // Kiszámoljuk a forduló teljes, valós rangsorát
       const allRankedEntries = await calculateRoundRanks(pool, round.id, null);
 
       if (allRankedEntries.length === 0) continue;
 
-      // Összegyűjtjük a feltöltő tagozat tagjait
       const [participants] = await pool.query(
         'SELECT DISTINCT user_email, user_name FROM club_review_entries WHERE round_id = ?',
         [round.id]
@@ -317,7 +309,6 @@ async function checkAndSendWeeklyReviews(pool) {
         const userEntries = allRankedEntries.filter(e => e.user_email === p.user_email);
         if (userEntries.length === 0) continue;
 
-        // Dobogó ellenőrzés
         const bestUserEntry = [...userEntries].sort((a, b) => a.overallRank - b.overallRank)[0];
         const isTop3 = bestUserEntry && bestUserEntry.overallRank <= 3;
         const top3Rank = isTop3 ? bestUserEntry.overallRank : 1;
@@ -353,12 +344,10 @@ async function checkAndSendWeeklyReviews(pool) {
 
 module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
 
-  // ⏰ AUTOMATIKUS IDŐZÍTŐ INDÍTÁSA (5 percenként ellenőriz)
   setInterval(() => {
     checkAndSendWeeklyReviews(pool);
   }, 5 * 60 * 1000);
 
-  // A szerver elindulásakor azonnal lefuttat egy ellenőrzést az esetleges elmaradt lezárásokra
   setTimeout(() => {
     checkAndSendWeeklyReviews(pool);
   }, 10000);
@@ -474,18 +463,21 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
 
       const now = new Date();
 
+      // Lezárjuk a lejárt szerdai szavazási határidejű fordulókat
       await pool.query(
         'UPDATE club_review_rounds SET status = "closed" WHERE club_name = ? AND rating_deadline < ? AND status != "closed"',
         [userDb.club_name, now]
       );
 
+      // 🎯 JAVÍTÁS: A rating_deadline-t nézzük, hogy szerda éjfélig az aktív fordulót adja vissza!
       let [rounds] = await pool.query(
-        'SELECT * FROM club_review_rounds WHERE club_name = ? AND upload_deadline >= ? ORDER BY id DESC LIMIT 1',
+        'SELECT * FROM club_review_rounds WHERE club_name = ? AND rating_deadline >= ? ORDER BY id DESC LIMIT 1',
         [userDb.club_name, now]
       );
 
       let round = rounds[0];
 
+      // Ha nincs érvényes aktív forduló, újat indítunk a következő hétre
       if (!round) {
         const nextSun = new Date(now);
         nextSun.setDate(now.getDate() + ((7 - now.getDay()) % 7));
@@ -516,6 +508,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
         isPremium: userDb.is_premium 
       });
     } catch (err) {
+      console.error("Hiba az active-round lekérésekor:", err);
       res.status(500).json({ error: err.message });
     }
   });
