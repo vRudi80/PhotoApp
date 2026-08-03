@@ -13,6 +13,12 @@ function getISOWeekNumber(d) {
   return Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
 }
 
+// Szabványos MySQL Datetime formázó (YYYY-MM-DD HH:MM:SS)
+function formatDateForMysql(d) {
+  const pad = (num) => String(num).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
 // ====================================================================
 // 🔒 AUTH MIDDLEWARE
 // ====================================================================
@@ -452,7 +458,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
   });
 
   // ====================================================================
-  // 🗓️ 3. AKTUÁLIS FORDULÓ LEKÉRÉSE / DUP_ENTRY VÉDETT PÁRHUZAMOS INDÍTÁS
+  // 🗓️ 3. AKTUÁLIS FORDULÓ LEKÉRÉSE / GOLYÓÁLLÓ HETI GENERÁLÁS
   // ====================================================================
   app.get('/api/club-review/active-round', requireAuth, async (req, res) => {
     try {
@@ -463,26 +469,32 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
 
       const now = new Date();
 
-      // 1. Lezárjuk a lejárt szerdai szavazási határidejű fordulókat
+      // 1. Lezárjuk a szerdai határidőjüket betöltött régi fordulókat
       await pool.query(
         'UPDATE club_review_rounds SET status = "closed" WHERE club_name = ? AND rating_deadline < ? AND status != "closed"',
         [userDb.club_name, now]
       );
 
       // 2. Kiszámítjuk a PONTOS E HETI forduló nevét és határidőit
-      const currentSun = new Date(now);
       const dayOfWeek = now.getDay(); // 0: Vasárnap, 1: Hétfő, ...
       const distToSun = dayOfWeek === 0 ? 0 : (7 - dayOfWeek);
+      
+      const currentSun = new Date(now);
       currentSun.setDate(now.getDate() + distToSun);
-      currentSun.setHours(23, 59, 59, 999);
+      currentSun.setHours(23, 59, 59, 0);
 
       const currentWed = new Date(currentSun);
       currentWed.setDate(currentSun.getDate() + 3);
+      currentWed.setHours(23, 59, 59, 0);
 
       const weekNum = getISOWeekNumber(now);
       const weekTitle = `${now.getFullYear()} / ${weekNum}. hét - Heti Képértékelő`;
 
-      // 3. Megkeressük az e heti fordulót PONTOS CÍM alapján
+      // Formázzuk a dátumokat tisztán MySQL-nek
+      const currentSunStr = formatDateForMysql(currentSun);
+      const currentWedStr = formatDateForMysql(currentWed);
+
+      // 3. Megkeressük az e heti fordulót CÍM alapján
       let [rounds] = await pool.query(
         'SELECT * FROM club_review_rounds WHERE club_name = ? AND title = ? LIMIT 1',
         [userDb.club_name, weekTitle]
@@ -490,18 +502,18 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
 
       let round = rounds[0];
 
-      // 4. Ha még nem létezik, létrehozzuk (Try/Catch-csel védve a duplikáció ellen)
+      // 4. Ha még nem létezik az e heti forduló, létrehozzuk!
       if (!round) {
         try {
           const [ins] = await pool.query(
             `INSERT INTO club_review_rounds (club_name, title, upload_deadline, rating_deadline, status) 
              VALUES (?, ?, ?, ?, 'active')`,
-            [userDb.club_name, weekTitle, currentSun, currentWed]
+            [userDb.club_name, weekTitle, currentSunStr, currentWedStr]
           );
           const [[newRound]] = await pool.query('SELECT * FROM club_review_rounds WHERE id = ?', [ins.insertId]);
           round = newRound;
         } catch (insertErr) {
-          // Ha másik kérés pillanatokkal előbb beszúrta, lekérjük
+          console.error("❌ [active-round] Új forduló beszúrási hiba:", insertErr);
           const [[existingRound]] = await pool.query(
             'SELECT * FROM club_review_rounds WHERE club_name = ? AND title = ? LIMIT 1',
             [userDb.club_name, weekTitle]
@@ -510,7 +522,7 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile, genAI) {
         }
       }
 
-      // Biztonsági tartalék, ha valamiért még sincs
+      // Biztonsági tartalék
       if (!round) {
         const [[fallbackRound]] = await pool.query(
           'SELECT * FROM club_review_rounds WHERE club_name = ? ORDER BY id DESC LIMIT 1',
