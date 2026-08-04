@@ -10,7 +10,7 @@ import {
   Box, Save, ArrowLeft, CheckCircle2, Globe, Users, 
   Sparkles, Eye, Edit3, Trash2, PlusCircle, ArrowUp, ArrowDown, 
   Navigation, BookOpen, UserCheck, MessageSquare, Send, X, Clock,
-  Share2, Palette, Layers, Award, Maximize2
+  Share2, Palette, Layers, Award
 } from 'lucide-react';
 
 const ROBOTO_FONT_URL = "https://fonts.gstatic.com/s/roboto/v18/KFOmCnqEu92Fr1Mu4mxM.woff";
@@ -78,9 +78,9 @@ const GALLERY_THEMES: Record<string, {
 };
 
 const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
-  const token = localStorage.getItem('photoAppToken');
+  const token = localStorage.getItem('photoAppToken') || localStorage.getItem('token') || localStorage.getItem('authToken');
   return {
-    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    ...(token ? { 'Authorization': token.startsWith('Bearer ') ? token : `Bearer ${token}` } : {}),
     ...extraHeaders
   };
 };
@@ -91,6 +91,7 @@ const resolvePhotoUrl = (photo: any) => {
 };
 
 const getPhotoIdentifier = (p: any) => {
+  if (!p) return `id_rand_${Math.random()}`;
   if (p.id) return `id_${p.id}`;
   return `url_${resolvePhotoUrl(p)}`;
 };
@@ -206,12 +207,12 @@ function ArtworkFrame({ position, rotation, url, title, themeConfig, onClick }: 
     <group position={position} rotation={rotation}>
       <mesh position={[0, 0, 0.03]}>
         <boxGeometry args={[frameWidth, frameHeight, 0.06]} />
-        <meshStandardMaterial color={themeConfig.frameColor} roughness={0.3} />
+        <meshStandardMaterial color={themeConfig?.frameColor || '#090d16'} roughness={0.3} />
       </mesh>
       
       <mesh position={[0, 0, 0.061]}>
         <planeGeometry args={[passWidth, passHeight]} />
-        <meshStandardMaterial color={themeConfig.passColor} roughness={0.9} />
+        <meshStandardMaterial color={themeConfig?.passColor || '#f8fafc'} roughness={0.9} />
       </mesh>
 
       <mesh onClick={onClick} position={[0, 0, 0.065]} style={{ cursor: 'pointer' }}>
@@ -222,7 +223,7 @@ function ArtworkFrame({ position, rotation, url, title, themeConfig, onClick }: 
       <group position={[0, labelYPosition, 0.065]}>
         <mesh position={[0, 0, -0.005]}>
           <planeGeometry args={[Math.max(1.8, pWidth * 0.8), 0.28]} />
-          <meshStandardMaterial color={themeConfig.skirtingColor} roughness={0.5} />
+          <meshStandardMaterial color={themeConfig?.skirtingColor || '#334155'} roughness={0.5} />
         </mesh>
         <Text 
           font={ROBOTO_FONT_URL}
@@ -241,7 +242,8 @@ function ArtworkFrame({ position, rotation, url, title, themeConfig, onClick }: 
 
 function GalleryRoom({ photos, themeName, onSelectPhoto }: { photos: any[]; themeName?: string; onSelectPhoto: (p: any) => void }) {
   const theme = GALLERY_THEMES[themeName || 'modern'] || GALLERY_THEMES.modern;
-  const count = photos.length;
+  const safePhotos = Array.isArray(photos) ? photos : [];
+  const count = safePhotos.length;
 
   const wallPositions: [number, number, number][] = [
     [-6, 1.20, -4.96], [6, 1.20, -4.96],
@@ -287,7 +289,6 @@ function GalleryRoom({ photos, themeName, onSelectPhoto }: { photos: any[]; them
         </>
       )}
 
-      {/* TEREM ELEMEK */}
       <mesh position={[0, -1.05, 2]}><boxGeometry args={[20, 0.1, 14]} /><meshStandardMaterial color={theme.floorColor} roughness={0.25} metalness={0.15} /></mesh>
       <mesh position={[0, 5.05, 2]}><boxGeometry args={[20, 0.1, 14]} /><meshStandardMaterial color={theme.ceilingColor} roughness={0.8} /></mesh>
 
@@ -315,8 +316,7 @@ function GalleryRoom({ photos, themeName, onSelectPhoto }: { photos: any[]; them
         </>
       )}
 
-      {/* FOTÓK ELHELYEZÉSE */}
-      {photos.map((photo, i) => {
+      {safePhotos.map((photo, i) => {
         if (i >= wallPositions.length) return null;
         const photoUrl = resolvePhotoUrl(photo);
         return (
@@ -335,9 +335,6 @@ function GalleryRoom({ photos, themeName, onSelectPhoto }: { photos: any[]; them
   );
 }
 
-// ====================================================================
-// 🚀 FŐ 3D TÁRLATOK BÖNGÉSZŐ ÉS NYILVÁNOS STANDALONE MÓD
-// ====================================================================
 export default function Gallery3DView({ user }: { user?: any }) {
   const { lang } = useLanguage();
   const [viewMode, setMode] = useState<'DIRECTORY' | 'VIEW_3D' | 'EDIT'>('DIRECTORY');
@@ -365,12 +362,10 @@ export default function Gallery3DView({ user }: { user?: any }) {
   const controlsRef = useRef<any>(null);
   const [moveState, setMoveState] = useState({ forward: false, back: false, left: false, right: false });
 
-  // 🎯 MEGOSZTOTT LINK / NYILVÁNOS VENDÉG MÓD DETEKTÁLÁSA
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const targetId = urlParams.get('id');
 
-    // Ha nincs bejelentkezett user VAGY egyedi id van a hivatkozásban:
     if (targetId && (!user || urlParams.get('public') === 'true')) {
       setIsPublicMode(true);
       setLoading(true);
@@ -382,7 +377,8 @@ export default function Gallery3DView({ user }: { user?: any }) {
             setActiveGallery(data);
             setMode('VIEW_3D');
           } else {
-            alert(data.error || 'A kiállítás nem található.');
+            alert(data?.error || 'A kiállítás nem található.');
+            setMode('DIRECTORY');
           }
         })
         .catch(err => console.error("Hiba a public tárlat töltésekor:", err))
@@ -402,10 +398,17 @@ export default function Gallery3DView({ user }: { user?: any }) {
 
       let loadedGalleries: any[] = [];
       if (listRes.ok) {
-        loadedGalleries = await listRes.json();
+        const data = await listRes.json();
+        loadedGalleries = Array.isArray(data) ? data : [];
         setAllGalleries(loadedGalleries);
+      } else {
+        setAllGalleries([]);
       }
-      if (portfolioRes.ok) setMyPortfolioPhotos(await portfolioRes.json());
+
+      if (portfolioRes.ok) {
+        const pData = await portfolioRes.json();
+        setMyPortfolioPhotos(Array.isArray(pData) ? pData : []);
+      }
 
       const urlParams = new URLSearchParams(window.location.search);
       const targetId = urlParams.get('id');
@@ -416,6 +419,7 @@ export default function Gallery3DView({ user }: { user?: any }) {
 
     } catch (e) {
       console.error(e);
+      setAllGalleries([]);
     } finally {
       setLoading(false);
     }
@@ -448,12 +452,13 @@ export default function Gallery3DView({ user }: { user?: any }) {
     }
   };
 
+  const safeGalleries = Array.isArray(allGalleries) ? allGalleries : [];
+
   if (loading) return <VideoLoader />;
 
   return (
     <div style={{ width: '100%', maxWidth: isPublicMode ? '100vw' : '1200px', margin: '0 auto', padding: isPublicMode ? '0' : '10px' }}>
       
-      {/* FEJLÉC (KIZÁRÓLAG BEJELENTKEZETT FELHASZNÁLÓKNAK JELENIK MEG!) */}
       {!isPublicMode && (
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-card)', padding: '20px', borderRadius: '12px', border: '1px solid var(--border-main)', marginBottom: '20px', flexWrap: 'wrap', gap: '15px' }}>
           <div>
@@ -461,7 +466,7 @@ export default function Gallery3DView({ user }: { user?: any }) {
               <Box size={28} /> {viewMode === 'VIEW_3D' ? activeGallery?.title : 'Virtuális 3D Tárlatok'}
             </h2>
             <small style={{ color: 'var(--text-muted)' }}>
-              {viewMode === 'VIEW_3D' ? `Kiállító: ${activeGallery?.photographer_name}` : 'Böngéssz a fotóművészek kiállítótermeiben'}
+              {viewMode === 'VIEW_3D' ? `Kiállító: ${activeGallery?.photographer_name || 'Fotóművész'}` : 'Böngéssz a fotóművészek kiállítótermeiben'}
             </small>
           </div>
 
@@ -471,7 +476,7 @@ export default function Gallery3DView({ user }: { user?: any }) {
                 onClick={() => handleShareGallery(activeGallery.id)} 
                 style={{ background: 'var(--bg-main)', color: '#38bdf8', border: '1px solid var(--border-main)', padding: '10px 16px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
               >
-                <Share2 size={16} /> Megosztási Link Másolása
+                <Share2 size={16} /> Megosztási Link
               </button>
             )}
 
@@ -484,7 +489,86 @@ export default function Gallery3DView({ user }: { user?: any }) {
         </div>
       )}
 
-      {/* 2. 3D MEGTEKINTŐ NÉZET (TELJES KÉPERNYŐS A VENDÉGEKNEK) */}
+      {/* 1. KATALÓGUS NÉZET */}
+      {viewMode === 'DIRECTORY' && (
+        <div>
+          {safeGalleries.length === 0 ? (
+            <div style={{ padding: '60px 20px', textAlign: 'center', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-main)', color: 'var(--text-muted)' }}>
+              <h3 style={{ color: 'var(--text-title)' }}>Még nincsenek publikált kiállítások.</h3>
+              <p>Légy te az első, aki berendezi a virtuális 3D tárlatát!</p>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
+              {safeGalleries.map((gal) => {
+                if (!gal) return null;
+                const photoList = Array.isArray(gal.photos) ? gal.photos : [];
+                const coverUrl = resolvePhotoUrl(photoList[0]);
+                const isMine = gal.user_email === user?.email;
+                const themeObj = GALLERY_THEMES[gal.theme || 'modern'] || GALLERY_THEMES.modern;
+                const photoCount = photoList.length;
+
+                return (
+                  <div key={gal.id || Math.random()} style={{ background: 'var(--bg-card)', border: isMine ? '2px solid #a78bfa' : '1px solid var(--border-main)', borderRadius: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                    
+                    <div style={{ height: '180px', background: '#090d16', position: 'relative' }}>
+                      <img src={coverUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      
+                      <div style={{ position: 'absolute', top: '10px', left: '10px', display: 'flex', gap: '6px' }}>
+                        <span style={{ background: 'rgba(15,23,42,0.85)', padding: '3px 8px', borderRadius: '20px', fontSize: '0.72rem', color: '#cbd5e1', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <Eye size={12} color="#38bdf8" /> {gal.visitor_count || 0}
+                        </span>
+                        <span style={{ background: 'rgba(15,23,42,0.85)', padding: '3px 8px', borderRadius: '20px', fontSize: '0.72rem', color: '#cbd5e1', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <MessageSquare size={12} color="#a78bfa" /> {gal.comment_count || 0}
+                        </span>
+                      </div>
+
+                      <div style={{ position: 'absolute', top: '10px', right: '10px', display: 'flex', gap: '6px' }}>
+                        <span style={{ background: 'rgba(15,23,42,0.85)', padding: '4px 10px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 'bold', color: '#a78bfa' }}>
+                          {themeObj?.icon} {themeObj?.name}
+                        </span>
+                      </div>
+
+                      <div style={{ position: 'absolute', bottom: '10px', left: '10px', background: 'rgba(15,23,42,0.9)', padding: '3px 10px', borderRadius: '6px', fontSize: '0.75rem', color: '#f59e0b', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <Layers size={12} /> {photoCount} Fotó
+                      </div>
+                    </div>
+
+                    <div style={{ padding: '16px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                      <div>
+                        <h3 style={{ margin: '0 0 6px 0', color: 'var(--text-title)', fontSize: '1.2rem' }}>{gal.title || '3D Tárlat'}</h3>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                          <img src={gal.avatar_url || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23475569'><circle cx='12' cy='8' r='4'/><path d='M12 14c-6.1 0-10 4-10 4v2h20v-2s-3.9-4-10-4z'/></svg>"} alt="" style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover' }} />
+                          <div>
+                            <div style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-title)' }}>{gal.photographer_name || 'Fotóművész'}</div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button 
+                          onClick={() => handleOpen3D(gal)}
+                          style={{ flex: 1, background: '#a78bfa', color: '#0f172a', border: 'none', padding: '10px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                        >
+                          <Eye size={16} /> Bejárás ({photoCount} kép)
+                        </button>
+
+                        <button 
+                          onClick={(e) => handleShareGallery(gal.id, e)} 
+                          style={{ background: 'var(--bg-main)', border: '1px solid var(--border-main)', color: '#38bdf8', padding: '10px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        >
+                          <Share2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 2. 3D MEGTEKINTŐ NÉZET */}
       {viewMode === 'VIEW_3D' && activeGallery && (
         <div style={{ 
           width: '100%', 
@@ -497,9 +581,9 @@ export default function Gallery3DView({ user }: { user?: any }) {
         }}>
           
           <Canvas camera={{ position: [0, 0.6, 5], fov: 60 }}>
-            <WalkingController moveState={moveState} controlsRef={controlsRef} photoCount={activeGallery.photos?.length || 10} />
+            <WalkingController moveState={moveState} controlsRef={controlsRef} photoCount={Array.isArray(activeGallery.photos) ? activeGallery.photos.length : 10} />
             <GalleryRoom 
-              photos={activeGallery.photos || []} 
+              photos={Array.isArray(activeGallery.photos) ? activeGallery.photos : []} 
               themeName={activeGallery.theme} 
               onSelectPhoto={(p) => setActivePhotoModal(p)} 
             />
@@ -513,11 +597,10 @@ export default function Gallery3DView({ user }: { user?: any }) {
             />
           </Canvas>
 
-          {/* KIÁLLÍTÁS CÍME ÉS FOTÓMŰVÉSZ BANNER (STANDALONE VENDÉG MÓDBAN IS MEGJELENIK) */}
           <div style={{ position: 'absolute', top: '15px', left: '15px', background: 'rgba(9, 13, 22, 0.85)', padding: '12px 20px', borderRadius: '12px', color: 'white', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.15)' }}>
             <h3 style={{ margin: 0, fontSize: '1.2rem', color: '#a78bfa', fontWeight: '900' }}>{activeGallery.title}</h3>
             <div style={{ fontSize: '0.85rem', color: '#cbd5e1', marginTop: '2px' }}>
-              Kiállító fotóművész: <b>{activeGallery.photographer_name}</b>
+              Kiállító fotóművész: <b>{activeGallery.photographer_name || 'Fotóművész'}</b>
             </div>
           </div>
 
