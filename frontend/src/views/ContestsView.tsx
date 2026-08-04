@@ -114,25 +114,38 @@ export default function ContestsView(props: ContestsViewProps) {
     setIsLegalChecked(false);
   }, [props.activeUploadContest]);
 
-  // 🎯 AMIKOR A FELHASZNÁLÓ RÁKATTINT A NEVEZÉSRE, AZONNAL LEKÉRJÜK A LEGFRISSEBB REKORDOT AZ ADATBÁZISBÓL
+ // source: ContestsView.tsx
+  // 🎯 AZ OLDAL BETÖLTÉSEKOR AZONNAL LEKÉRJÜK A FRISS FELHASZNÁLÓI PROFILT AZ ADATBÁZISBÓL
   useEffect(() => {
     const targetEmail = props.user?.email || props.currentDbUser?.email;
-    if (props.activeUploadContest && targetEmail) {
-      const authHeader = localStorage.getItem('token') || localStorage.getItem('authToken');
-      fetch(`${BACKEND_URL}/api/users/${encodeURIComponent(targetEmail)}`, {
-        headers: {
-          'Authorization': authHeader ? (authHeader.startsWith('Bearer ') ? authHeader : `Bearer ${authHeader}`) : ''
-        }
-      })
+    if (!targetEmail) return;
+
+    // Helyes LocalStorage kulcs kiolvasása (photoAppToken)
+    const getAuthToken = () => {
+      if (typeof window === 'undefined') return '';
+      const keys = ['photoAppToken', 'token', 'authToken', 'googleToken'];
+      for (const k of keys) {
+        const v = localStorage.getItem(k) || sessionStorage.getItem(k);
+        if (v) return v;
+      }
+      return '';
+    };
+
+    const token = getAuthToken();
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers['Authorization'] = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+    }
+
+    fetch(`${BACKEND_URL}/api/users/${encodeURIComponent(targetEmail)}`, { headers })
       .then(res => res.ok ? res.json() : null)
       .then(data => {
         if (data) {
           setAutoFetchedUser(data);
         }
       })
-      .catch(err => console.error("Önműködő profil ellenőrzési hiba:", err));
-    }
-  }, [props.activeUploadContest, props.user?.email, props.currentDbUser?.email]);
+      .catch(err => console.error("❌ Hiba az oldalbetöltéskori profil-ellenőrzéskor:", err));
+  }, [props.user?.email, props.currentDbUser?.email]);
 
   const currentNewClubValue = props.clubs.find(c => String(c.id) === props.newRestrictedClub || c.name === props.newRestrictedClub)?.id || '';
   const currentEditClubValue = props.clubs.find(c => String(c.id) === props.editRestrictedClub || c.name === props.editRestrictedClub)?.id || '';
