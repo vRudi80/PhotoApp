@@ -81,6 +81,75 @@ module.exports = function(app, pool) {
       console.error("⚠️ 3D Galéria táblák províziós hibája:", e.message);
     }
   }
+
+    // 🌐 NYILVÁNOS VENDÉGKÖNYV LEKÉRDEZÉSE (MEGOSZTOTT LINKHEZ)
+  app.get('/api/public/3d-gallery/:token/interactions', async (req, res) => {
+    try {
+      await ensureTableExists();
+      const tokenOrId = req.params.token;
+
+      const [galleries] = await pool.query(
+        'SELECT id FROM user_3d_galleries WHERE share_token = ? OR id = ?', 
+        [tokenOrId, isNaN(Number(tokenOrId)) ? -1 : Number(tokenOrId)]
+      );
+
+      if (!galleries || galleries.length === 0) {
+        return res.status(404).json({ error: 'Kiállítás nem található.' });
+      }
+
+      const galleryId = galleries[0].id;
+
+      const [guestbook] = await pool.query(`
+        SELECT 
+          b.id, b.comment_text, b.created_at, b.user_email,
+          COALESCE(u.name, 'Vendég Látogató') as user_name, u.avatar_url
+        FROM gallery_guestbook b
+        LEFT JOIN photo_users u ON LOWER(b.user_email) = LOWER(u.email)
+        WHERE b.gallery_id = ?
+        ORDER BY b.created_at DESC
+      `, [galleryId]);
+
+      res.json({ guestbook });
+    } catch (err) {
+      res.status(500).json({ error: 'Szerver hiba.' });
+    }
+  });
+
+  // 🌐 NYILVÁNOS VENDÉGKÖNYVI BEJEGYZÉS ÍRÁSA (AUTH MENTES)
+  app.post('/api/public/3d-gallery/:token/guestbook', async (req, res) => {
+    const { comment_text, guest_name } = req.body;
+    const tokenOrId = req.params.token;
+
+    if (!comment_text || !comment_text.trim()) {
+      return res.status(400).json({ error: 'A bejegyzés nem lehet üres!' });
+    }
+
+    try {
+      await ensureTableExists();
+      const [galleries] = await pool.query(
+        'SELECT id FROM user_3d_galleries WHERE share_token = ? OR id = ?', 
+        [tokenOrId, isNaN(Number(tokenOrId)) ? -1 : Number(tokenOrId)]
+      );
+
+      if (!galleries || galleries.length === 0) {
+        return res.status(404).json({ error: 'Kiállítás nem található.' });
+      }
+
+      const galleryId = galleries[0].id;
+      const authorName = (guest_name || 'Vendég Látogató').trim();
+
+      await pool.query(`
+        INSERT INTO gallery_guestbook (gallery_id, user_email, comment_text)
+        VALUES (?, ?, ?)
+      `, [galleryId, authorName, comment_text.trim()]);
+
+      res.json({ success: true });
+    } catch (err) {
+      console.error("❌ Vendégkönyv bejegyzési hiba:", err.message);
+      res.status(500).json({ error: 'Szerver hiba.' });
+    }
+  });
+
   // 🌐 NYILVÁNOS WEBGEL KÉPCONVERTER 3D TÁRLATOKHOZ (CORS-MENTES BASE64)
   app.get('/api/public/image-proxy', async (req, res) => {
     const imageUrl = req.query.url;
