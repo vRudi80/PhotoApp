@@ -149,6 +149,7 @@ function WalkingController({
   return null;
 }
 
+// 🎯 GOLYÓÁLLÓ KERET KOMPONENS CORS PROXY BETÖLTŐVEL
 function ArtworkFrame({ position, rotation, url, title, themeConfig, onClick }: any) {
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
   const [dims, setDims] = useState<{ pWidth: number; pHeight: number }>({ pWidth: 2.8, pHeight: 1.9 });
@@ -186,9 +187,46 @@ function ArtworkFrame({ position, rotation, url, title, themeConfig, onClick }: 
       setTexture(loaded);
     };
 
-    const loader = new THREE.TextureLoader();
-    loader.setCrossOrigin('anonymous');
-    loader.load(url, (loaded) => applyTextureWithAspect(loaded));
+    const loadTextureWithFallback = async () => {
+      let targetUrl = url;
+      const isDrive = url.includes('google') || url.includes('drive') || url.includes('googleusercontent');
+
+      // Google Drive vagy külső képek esetén átszűrjük a proxy-n a CORS védelem átlépéséhez
+      if (isDrive) {
+        try {
+          const res = await fetch(`${BACKEND_URL}/api/weekly/image-proxy?url=${encodeURIComponent(url)}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.base64) targetUrl = data.base64;
+          }
+        } catch (e) {}
+      }
+
+      const loader = new THREE.TextureLoader();
+      loader.setCrossOrigin('anonymous');
+
+      loader.load(
+        targetUrl,
+        (loaded) => applyTextureWithAspect(loaded),
+        undefined,
+        async () => {
+          // Ha az alapesetben CORS hiba történt, megpróbáljuk a proxy-t
+          if (!isDrive) {
+            try {
+              const res = await fetch(`${BACKEND_URL}/api/weekly/image-proxy?url=${encodeURIComponent(url)}`);
+              if (res.ok) {
+                const data = await res.json();
+                if (data.base64 && isMounted) {
+                  loader.load(data.base64, (fallbackLoaded) => applyTextureWithAspect(fallbackLoaded));
+                }
+              }
+            } catch (err) {}
+          }
+        }
+      );
+    };
+
+    loadTextureWithFallback();
 
     return () => { 
       isMounted = false; 
@@ -217,7 +255,7 @@ function ArtworkFrame({ position, rotation, url, title, themeConfig, onClick }: 
 
       <mesh onClick={onClick} position={[0, 0, 0.065]} style={{ cursor: 'pointer' }}>
         <planeGeometry args={[pWidth, pHeight]} />
-        {texture ? <meshBasicMaterial map={texture} /> : <meshStandardMaterial color="#334155" />}
+        {texture ? <meshBasicMaterial map={texture} /> : <meshStandardMaterial color="#1e293b" />}
       </mesh>
 
       <group position={[0, labelYPosition, 0.065]}>
@@ -344,7 +382,6 @@ export default function Gallery3DView({ user }: { user?: any }) {
   const [allGalleries, setAllGalleries] = useState<any[]>([]);
   const [activeGallery, setActiveGallery] = useState<any | null>(null);
 
-  // 🎯 SZERKESZTŐI ÁLLAPOTOK
   const [editingGalleryId, setEditingGalleryId] = useState<number | null>(null);
   const [galleryTitle, setGalleryTitle] = useState('Saját Virtuális Kiállításom');
   const [galleryTheme, setGalleryTheme] = useState<string>('modern');
@@ -359,7 +396,6 @@ export default function Gallery3DView({ user }: { user?: any }) {
   const controlsRef = useRef<any>(null);
   const [moveState, setMoveState] = useState({ forward: false, back: false, left: false, right: false });
 
-  // TITKOS TOKEN / MEGOSZTOTT LINK DETEKTÁLÁSA
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const targetToken = urlParams.get('token') || urlParams.get('id');
@@ -451,7 +487,6 @@ export default function Gallery3DView({ user }: { user?: any }) {
     }
   };
 
-  // 🎯 ÚJ TÁRLAT INDÍTÁSA
   const handleStartNewGallery = () => {
     setEditingGalleryId(null);
     setGalleryTitle('Új Virtuális Kiállításom');
@@ -462,7 +497,6 @@ export default function Gallery3DView({ user }: { user?: any }) {
     setMode('EDIT');
   };
 
-  // 🎯 TÁRLAT SZERKESZTÉSE
   const handleEditGallery = (gal: any) => {
     setEditingGalleryId(gal.id);
     setGalleryTitle(gal.title || 'Virtuális Kiállítás');
@@ -474,7 +508,6 @@ export default function Gallery3DView({ user }: { user?: any }) {
     setMode('EDIT');
   };
 
-  // 🎯 TÁRLAT TÖRLESE
   const handleDeleteGallery = async (galId: number) => {
     if (!window.confirm("Biztosan törölni szeretnéd ezt a 3D kiállítást?")) return;
     try {
@@ -491,7 +524,6 @@ export default function Gallery3DView({ user }: { user?: any }) {
     }
   };
 
-  // 🎯 FOTÓ KIVÁLASZTÁSA / ELTÁVOLÍTÁSA
   const toggleSelectPhoto = (photo: any) => {
     const photoKey = getPhotoIdentifier(photo);
     const isAlreadySelected = selectedPhotos.some(p => getPhotoIdentifier(p) === photoKey);
@@ -512,7 +544,6 @@ export default function Gallery3DView({ user }: { user?: any }) {
     setSelectedPhotos(prev => prev.map(p => getPhotoIdentifier(p) === photoKey ? { ...p, title: newTitle } : p));
   };
 
-  // 🎯 MENTÉS
   const handleSave = async () => {
     if (selectedPhotos.length === 0) return alert('Kérlek válassz ki legalább 1 fotót!');
 
@@ -578,7 +609,6 @@ export default function Gallery3DView({ user }: { user?: any }) {
               </button>
             )}
 
-            {/* 🎯 TÁRLAT LÉTREHOZÁSA / PRÉMIUM GOMB[cite: 6] */}
             {user?.is_premium || user?.isPremium ? (
               viewMode === 'DIRECTORY' && (
                 <button onClick={handleStartNewGallery} style={{ background: '#f97316', color: 'white', border: 'none', padding: '10px 18px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -644,7 +674,6 @@ export default function Gallery3DView({ user }: { user?: any }) {
                         </span>
                       </div>
 
-                      {/* 🎯 LÁTHATÓSÁGI ÉS STÍLUS JELVÉNYEK[cite: 6] */}
                       <div style={{ position: 'absolute', top: '10px', right: '10px', display: 'flex', gap: '6px' }}>
                         <span style={{ background: 'rgba(15,23,42,0.85)', padding: '4px 10px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 'bold', color: '#a78bfa' }}>
                           {themeObj?.icon} {themeObj?.name}
@@ -688,7 +717,6 @@ export default function Gallery3DView({ user }: { user?: any }) {
                           </button>
                         </div>
 
-                        {/* 🎯 SZERKESZTÉS ÉS TÖRLEÉS GOMBOK SAJÁT TÁRLATOKNÁL[cite: 6] */}
                         {isMine && (
                           <div style={{ display: 'flex', gap: '8px' }}>
                             <button onClick={() => handleEditGallery(gal)} style={{ flex: 1, background: 'var(--bg-main)', border: '1px solid var(--border-main)', color: '#38bdf8', padding: '8px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.82rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
@@ -764,7 +792,7 @@ export default function Gallery3DView({ user }: { user?: any }) {
         </div>
       )}
 
-      {/* 🎯 3. TELJES SZERKESZTŐ MÓD CSOMAGVÁLASZTÓVAL[cite: 6] */}
+      {/* 3. SZERKESZTŐ MÓD CSOMAGVÁLASZTÓVAL */}
       {viewMode === 'EDIT' && (
         <div style={{ background: 'var(--bg-card)', padding: '25px', borderRadius: '12px', border: '1px solid var(--border-main)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
           
