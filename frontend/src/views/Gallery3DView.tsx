@@ -149,13 +149,16 @@ function WalkingController({
   return null;
 }
 
-// 🎯 GOLYÓÁLLÓ KERET KOMPONENS WEBGEL BASE64 CONVERTERREL
-function ArtworkFrame({ position, rotation, url, driveFileId, title, themeConfig, onClick }: any) {
+// 🎯 TÖLTÉSJELZŐVEL ELLÁTOTT KERET KOMPONENS
+function ArtworkFrame({ position, rotation, url, driveFileId, title, themeConfig, onClick, onLoaded }: any) {
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
   const [dims, setDims] = useState<{ pWidth: number; pHeight: number }>({ pWidth: 2.8, pHeight: 1.9 });
 
   useEffect(() => {
-    if (!url && !driveFileId) return;
+    if (!url && !driveFileId) {
+      onLoaded?.();
+      return;
+    }
     let isMounted = true;
     let currentTexture: THREE.Texture | null = null;
 
@@ -186,6 +189,7 @@ function ArtworkFrame({ position, rotation, url, driveFileId, title, themeConfig
         setDims({ pWidth: w, pHeight: h });
       }
       setTexture(loaded);
+      onLoaded?.();
     };
 
     const loadTextureWithFallback = async () => {
@@ -219,10 +223,19 @@ function ArtworkFrame({ position, rotation, url, driveFileId, title, themeConfig
           undefined,
           () => {
             if (url && targetToLoad !== url) {
-              loader.load(url, (fallbackLoaded) => applyTextureWithAspect(fallbackLoaded));
+              loader.load(
+                url, 
+                (fallbackLoaded) => applyTextureWithAspect(fallbackLoaded),
+                undefined,
+                () => onLoaded?.()
+              );
+            } else {
+              onLoaded?.();
             }
           }
         );
+      } else {
+        onLoaded?.();
       }
     };
 
@@ -278,7 +291,7 @@ function ArtworkFrame({ position, rotation, url, driveFileId, title, themeConfig
   );
 }
 
-function GalleryRoom({ photos, themeName, onSelectPhoto }: { photos: any[]; themeName?: string; onSelectPhoto: (p: any) => void }) {
+function GalleryRoom({ photos, themeName, onSelectPhoto, onPhotoLoaded }: { photos: any[]; themeName?: string; onSelectPhoto: (p: any) => void; onPhotoLoaded?: () => void }) {
   const theme = GALLERY_THEMES[themeName || 'modern'] || GALLERY_THEMES.modern;
   const safePhotos = Array.isArray(photos) ? photos : [];
   const count = safePhotos.length;
@@ -367,6 +380,7 @@ function GalleryRoom({ photos, themeName, onSelectPhoto }: { photos: any[]; them
             title={photo.title}
             themeConfig={theme}
             onClick={() => onSelectPhoto({ ...photo, file_url: photoUrl })}
+            onLoaded={onPhotoLoaded}
           />
         );
       })}
@@ -402,8 +416,35 @@ export default function Gallery3DView({ user }: { user?: any }) {
   const [isPostingComment, setIsPostingComment] = useState(false);
   const [isLoadingInteractions, setIsLoadingInteractions] = useState(false);
 
+  // 🎯 3D TÁRLAT BEÁLLÍTÁSI & TÖLTÉSI ÁLLAPOTOK
+  const [loadedTexturesCount, setLoadedTexturesCount] = useState<number>(0);
+  const [is3DReady, setIs3DReady] = useState<boolean>(false);
+
   const controlsRef = useRef<any>(null);
   const [moveState, setMoveState] = useState({ forward: false, back: false, left: false, right: false });
+
+  // Megnyitáskor lenullázzuk a betöltési számlálót
+  useEffect(() => {
+    if (viewMode === 'VIEW_3D' && activeGallery) {
+      setLoadedTexturesCount(0);
+      setIs3DReady(false);
+
+      // Tartalék időkorlát (max 8 másodperc), ha valamelyik kép nem töltene be
+      const timer = setTimeout(() => setIs3DReady(true), 8000);
+      return () => clearTimeout(timer);
+    }
+  }, [viewMode, activeGallery]);
+
+  const handleFrameTextureLoaded = () => {
+    setLoadedTexturesCount(prev => {
+      const nextCount = prev + 1;
+      const totalPhotos = Array.isArray(activeGallery?.photos) ? activeGallery.photos.length : 0;
+      if (totalPhotos > 0 && nextCount >= totalPhotos) {
+        setIs3DReady(true);
+      }
+      return nextCount;
+    });
+  };
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -657,6 +698,9 @@ export default function Gallery3DView({ user }: { user?: any }) {
 
   if (loading) return <VideoLoader />;
 
+  const totalPhotosInGallery = Array.isArray(activeGallery?.photos) ? activeGallery.photos.length : 0;
+  const progressPercent = totalPhotosInGallery > 0 ? Math.min(100, Math.round((loadedTexturesCount / totalPhotosInGallery) * 100)) : 100;
+
   return (
     <div style={{ width: '100%', maxWidth: isPublicMode ? '100vw' : '1200px', margin: '0 auto', padding: isPublicMode ? '0' : '10px' }}>
       
@@ -844,6 +888,41 @@ export default function Gallery3DView({ user }: { user?: any }) {
           position: 'relative', 
           border: isPublicMode ? 'none' : '1px solid var(--border-main)' 
         }}>
+
+          {/* 🎯 TÖLTŐKÉPERNYŐ OVERLAY AMÍG A TEXTÚRÁK ÉS A TÉR EL NEM KÉSZÜLNEK */}
+          {!is3DReady && (
+            <div style={{
+              position: 'absolute',
+              inset: 0,
+              background: 'rgba(2, 6, 23, 0.96)',
+              backdropFilter: 'blur(12px)',
+              zIndex: 9999,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '20px',
+              textAlign: 'center'
+            }}>
+              <div style={{ fontSize: '3rem', marginBottom: '15px', animation: 'appSplashPulse 1.5s infinite' }}>🎨</div>
+              <h3 style={{ margin: '0 0 8px 0', color: '#a78bfa', fontSize: '1.4rem', fontWeight: 900 }}>
+                3D Kiállítótér Berendezése...
+              </h3>
+              <p style={{ margin: '0 0 20px 0', color: '#94a3b8', fontSize: '0.9rem' }}>
+                Fotók feldolgozása és keretek rögzítése ({loadedTexturesCount} / {totalPhotosInGallery} fotó)
+              </p>
+
+              {/* Folyamatjelző sáv */}
+              <div style={{ width: '260px', height: '8px', background: '#1e293b', borderRadius: '4px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' }}>
+                <div style={{
+                  height: '100%',
+                  width: `${progressPercent}%`,
+                  background: 'linear-gradient(90deg, #a78bfa, #38bdf8)',
+                  transition: 'width 0.3s ease-in-out'
+                }} />
+              </div>
+            </div>
+          )}
           
           <Canvas camera={{ position: [0, 0.6, 5], fov: 60 }}>
             <WalkingController moveState={moveState} controlsRef={controlsRef} photoCount={Array.isArray(activeGallery.photos) ? activeGallery.photos.length : 10} />
@@ -851,6 +930,7 @@ export default function Gallery3DView({ user }: { user?: any }) {
               photos={Array.isArray(activeGallery.photos) ? activeGallery.photos : []} 
               themeName={activeGallery.theme} 
               onSelectPhoto={(p) => setActivePhotoModal(p)} 
+              onPhotoLoaded={handleFrameTextureLoaded}
             />
             <OrbitControls 
               ref={controlsRef} 
