@@ -69,10 +69,24 @@ module.exports = function(app, pool, stripe) {
     } catch (e) { res.status(500).json({ error: e.message }); }
   });
   
-  // ZÁRT VÉGPONT: Csak az Admin láthatja a globális befizetési listát
+ // 💳 NEVEZÉSI DÍJ FIZETÉSEK LEKÉRÉSE (Admin: Összes, Tagok: Saját befizetések)
   app.get('/api/contest-payments', requireAuth, async (req, res) => {
-    if (!req.user.isAdmin) return res.status(403).json({ error: 'Csak admin láthatja!' });
-    try { const [rows] = await pool.query('SELECT contest_id, user_email FROM photo_contest_payments WHERE status = "paid"'); res.json(rows); } catch (err) { res.status(500).json({ error: 'Hiba' }); }
+    try {
+      let query = 'SELECT contest_id, user_email FROM photo_contest_payments WHERE status = "paid"';
+      let params = [];
+
+      // Ha NEM admin, kizárólag a saját befizetéseit érheti el (elkerülve a 403-as hibát)
+      if (!req.user.isAdmin) {
+        query += ' AND user_email = ?';
+        params.push(req.user.email);
+      }
+
+      const [rows] = await pool.query(query, params);
+      res.json(rows);
+    } catch (err) {
+      console.error("❌ Hiba a contest-payments lekérésekor:", err);
+      res.status(500).json({ error: 'Hiba a fizetések lekérésekor' });
+    }
   });
 
   // GOLYÓÁLLÓ VÉDELEM: Senki nem léphet be más számlázási fiókjába
