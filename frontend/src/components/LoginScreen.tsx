@@ -18,17 +18,15 @@ import {
   Heart
 } from 'lucide-react';
 
-// Helyes, egy mappán belüli relatív útvonalak a logókhoz
+// Logók importálása
 import logoHu from './logo_hu2.png'; 
 import logoEn from './logo_en2.png'; 
 
-// Opcionálisan saját fotó importálása (ha a mappában van pl. hero_camera.jpg néven):
+// 📸 SAJÁT HÁTTÉRKÉP IMPORTÁLÁSA
 import heroCameraImg from './hero_camera.jpg';
 
-// Behozzuk a nyelvi kontextust
+// Nyelvi és téma kontextusok
 import { useLanguage } from '../context/LanguageContext';
-
-// Behozzuk a téma környezetet
 import { useTheme } from '../context/ThemeContext';
 
 interface LoginScreenProps {
@@ -37,7 +35,6 @@ interface LoginScreenProps {
 
 export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   
-  // Aktiváljuk a kontextusokat
   const { t, lang, setLang } = useLanguage();
   
   let theme = 'dark';
@@ -55,7 +52,6 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
     }
   }, [theme]);
 
-  // Dinamikus logóválasztó
   const currentLogo = lang === 'en' ? logoEn : logoHu;
 
   const features = [
@@ -89,7 +85,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
       
       {/* ── NYELVVÁLASZTÓ FEJLÉC ── */}
       <div style={{ position: 'absolute', top: '20px', right: '20px', zIndex: 100 }}>
-        <div style={{ display: 'flex', gap: '4px', background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(12px)', padding: '4px', borderRadius: '30px', border: '1px solid rgba(255, 255, 255, 0.15)' }}>
+        <div style={{ display: 'flex', gap: '4px', background: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(12px)', padding: '4px', borderRadius: '30px', border: '1px solid rgba(255, 255, 255, 0.18)' }}>
            <button 
               onClick={() => setLang('hu')} 
               style={{ 
@@ -115,7 +111,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         </div>
       </div>
 
-      {/* ── 1. HERO SZEKCIÓ (CÍMLAP MELEG MEGVILÁGÍTÁSSAL) ── */}
+      {/* ── 1. HERO SZEKCIÓ (BEÁLLÍTOTT HÁTTÉR KÉPPEL) ── */}
       <div style={{
         position: 'relative',
         minHeight: '100vh',
@@ -127,14 +123,15 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         boxSizing: 'border-box',
         textAlign: 'center',
         background: `
-          radial-gradient(circle at 50% 20%, rgba(168, 85, 247, 0.22) 0%, transparent 60%),
-          radial-gradient(circle at 20% 80%, rgba(249, 115, 22, 0.18) 0%, transparent 50%),
-          linear-gradient(180deg, rgba(15, 23, 42, 0.75) 0%, var(--bg-main) 100%)
+          radial-gradient(circle at 50% 20%, rgba(168, 85, 247, 0.3) 0%, transparent 60%),
+          radial-gradient(circle at 20% 80%, rgba(249, 115, 22, 0.25) 0%, transparent 50%),
+          linear-gradient(180deg, rgba(15, 23, 42, 0.65) 0%, var(--bg-main) 100%),
+          url(${heroCameraImg}) center/cover no-repeat
         `
       }}>
 
         {/* Brand Logó */}
-        <div style={{ marginBottom: '1.8rem', filter: 'drop-shadow(0 10px 20px rgba(0,0,0,0.3))' }}>
+        <div style={{ marginBottom: '1.8rem', filter: 'drop-shadow(0 10px 25px rgba(0,0,0,0.5))' }}>
           <img 
             src={currentLogo} 
             alt="PhotAwesome" 
@@ -149,14 +146,16 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
           gap: '8px',
           padding: '6px 16px',
           borderRadius: '30px',
-          background: 'rgba(168, 85, 247, 0.15)',
-          border: '1px solid rgba(168, 85, 247, 0.3)',
-          color: '#c084fc',
+          background: 'rgba(15, 23, 42, 0.75)',
+          backdropFilter: 'blur(8px)',
+          border: '1px solid rgba(168, 85, 247, 0.4)',
+          color: '#e9d5ff',
           fontSize: '0.85rem',
           fontWeight: 600,
-          marginBottom: '1.2rem'
+          marginBottom: '1.2rem',
+          boxShadow: '0 4px 15px rgba(0,0,0,0.3)'
         }}>
-          <Sparkles size={15} /> A fotózás szerelmeseinek digitális otthona
+          A fotózás szerelmeseinek otthona
         </div>
 
         {/* Főcím */}
@@ -166,11 +165,12 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
           lineHeight: '1.15', 
           fontWeight: 900, 
           letterSpacing: '-1.5px',
-          maxWidth: '800px'
+          maxWidth: '800px',
+          textShadow: '0 4px 20px rgba(0,0,0,0.8)'
         }}>
           A fotósok közössége.<br/>
           <span style={{ 
-            background: 'linear-gradient(135deg, #38bdf8 0%, #a855f7 50%, #f97316 100%)', 
+            background: 'linear-gradient(135deg, #38bdf8 0%, #c084fc 50%, #f97316 100%)', 
             WebkitBackgroundClip: 'text', 
             WebkitTextFillColor: 'transparent' 
           }}>
@@ -181,22 +181,23 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         {/* Részletes leírás */}
         <p style={{ 
           fontSize: 'clamp(1rem, 2vw, 1.15rem)', 
-          color: 'var(--text-body)', 
+          color: '#f1f5f9', 
           lineHeight: '1.6', 
           maxWidth: '580px', 
           margin: '0 auto 32px auto',
-          opacity: 0.95
+          textShadow: '0 2px 10px rgba(0,0,0,0.8)',
+          fontWeight: 500
         }}>
           Lépj be, és fedezd fel a játékokat, pályázatokat, a helyszíntérképet és kérj profi AI képelemzést a fotóidra!
         </p>
 
         {/* KÖZPONTI BELÉPŐ DOBOZ */}
         <div style={{
-          background: 'var(--bg-card)', 
+          background: 'rgba(15, 23, 42, 0.82)', 
           padding: '28px 24px', 
           borderRadius: '20px', 
-          border: '1px solid var(--border-main)', 
-          boxShadow: '0 20px 40px rgba(0,0,0,0.3), 0 0 40px rgba(168, 85, 247, 0.15)',
+          border: '1px solid rgba(255, 255, 255, 0.18)', 
+          boxShadow: '0 20px 50px rgba(0,0,0,0.6), 0 0 40px rgba(168, 85, 247, 0.25)',
           display: 'flex', 
           flexDirection: 'column', 
           alignItems: 'center',
@@ -204,7 +205,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
           maxWidth: '400px',
           boxSizing: 'border-box',
           marginBottom: '28px',
-          backdropFilter: 'blur(10px)'
+          backdropFilter: 'blur(12px)'
         }}>
           <div style={{ 
             padding: '4px', 
@@ -233,7 +234,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
             gap: '16px',
             marginTop: '16px',
             fontSize: '0.75rem',
-            color: 'var(--text-muted)',
+            color: '#cbd5e1',
             fontWeight: 500,
             flexWrap: 'wrap'
           }}>
@@ -254,7 +255,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
           style={{
             background: 'transparent',
             border: 'none',
-            color: 'var(--text-muted)',
+            color: '#cbd5e1',
             cursor: 'pointer',
             display: 'flex',
             flexDirection: 'column',
@@ -262,7 +263,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
             gap: '6px',
             fontSize: '0.85rem',
             marginTop: '10px',
-            transition: 'color 0.2s'
+            textShadow: '0 2px 8px rgba(0,0,0,0.8)'
           }}
         >
           <span>Fedezd fel, mit kínálunk</span>
@@ -337,7 +338,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         </div>
       </div>
 
-      {/* ── 3. INSPIRÁCIÓ ÉS MÁSODIK BELÉPÉSI PONT ("KEZDJÜK!") ── */}
+      {/* ── 3. INSPIRÁCIÓ ÉS MÁSODIK BELÉPÉSI PONT ── */}
       <div style={{
         background: 'linear-gradient(180deg, var(--bg-main) 0%, rgba(168, 85, 247, 0.12) 100%)',
         borderTop: '1px solid var(--border-main)',
@@ -351,8 +352,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
             fontStyle: 'italic',
             color: 'var(--text-body)',
             lineHeight: '1.6',
-            marginBottom: '28px',
-            position: 'relative'
+            marginBottom: '28px'
           }}>
             „A jó fotó nem a gépről szól, hanem arról, amit láttatni akarsz.”
           </div>
@@ -384,7 +384,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         </div>
       </div>
 
-      {/* ── REAKTÍV HOVER ÉS RESZPONZÍV STÍLUSOK ── */}
+      {/* ── CSS ANIMÁCIÓK ── */}
       <style>{`
         html, body, #root {
           margin: 0 !important;
