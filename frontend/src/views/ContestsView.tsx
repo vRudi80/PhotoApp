@@ -102,6 +102,9 @@ export default function ContestsView(props: ContestsViewProps) {
   const [generatingCertId, setGeneratingCertId] = useState<number | null>(null);
   const [isJuryDocCompiling, setIsJuryDocCompiling] = useState(false);
   const [isLegalChecked, setIsLegalChecked] = useState(false);
+  
+  // 🎯 ÖNMŰKÖDŐ PROFIL FRISSÍTŐ ÁLLAPOT
+  const [autoFetchedUser, setAutoFetchedUser] = useState<any>(null);
 
   useEffect(() => {
     setIsSubmittingVote(false);
@@ -111,45 +114,66 @@ export default function ContestsView(props: ContestsViewProps) {
     setIsLegalChecked(false);
   }, [props.activeUploadContest]);
 
+  // 🎯 AMIKOR A FELHASZNÁLÓ RÁKATTINT A NEVEZÉSRE, AZONNAL LEKÉRJÜK A LEGFRISSEBB REKORDOT AZ ADATBÁZISBÓL
+  useEffect(() => {
+    const targetEmail = props.user?.email || props.currentDbUser?.email;
+    if (props.activeUploadContest && targetEmail) {
+      const authHeader = localStorage.getItem('token') || localStorage.getItem('authToken');
+      fetch(`${BACKEND_URL}/api/users/${encodeURIComponent(targetEmail)}`, {
+        headers: {
+          'Authorization': authHeader ? (authHeader.startsWith('Bearer ') ? authHeader : `Bearer ${authHeader}`) : ''
+        }
+      })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data) {
+          setAutoFetchedUser(data);
+        }
+      })
+      .catch(err => console.error("Önműködő profil ellenőrzési hiba:", err));
+    }
+  }, [props.activeUploadContest, props.user?.email, props.currentDbUser?.email]);
+
   const currentNewClubValue = props.clubs.find(c => String(c.id) === props.newRestrictedClub || c.name === props.newRestrictedClub)?.id || '';
   const currentEditClubValue = props.clubs.find(c => String(c.id) === props.editRestrictedClub || c.name === props.editRestrictedClub)?.id || '';
 
- const hasRequiredProfileData = useMemo(() => {
-    const u = props.currentDbUser || props.user;
+  // 🎯 GOLYÓÁLLÓ PROFIL ADAT ELLENŐRZÉS (Észeleli az autoFetchedUser-t, currentDbUser-t és user-t is)
+  const hasRequiredProfileData = useMemo(() => {
+    const u = autoFetchedUser || props.currentDbUser || props.user;
     if (!u) return false;
 
-    // Kiszűrjük a snake_case és camelCase elnevezéseket is
     const phoneVal = String(
-      u.phone_number || u.phone || u.phoneNumber || ''
+      u.phone_number || u.phone || u.phoneNumber || u.mobile || ''
     ).trim();
 
     const addressVal = String(
-      u.shipping_address || u.address || u.shippingAddress || ''
+      u.shipping_address || u.address || u.shippingAddress || u.location || ''
     ).trim();
 
     return phoneVal.length > 0 && addressVal.length > 0;
-  }, [props.currentDbUser, props.user]);
+  }, [autoFetchedUser, props.currentDbUser, props.user]);
 
   // Biztonsági változók a klubtagság állapotához
-  const isPending = props.currentDbUser?.club_role === 'pending';
-  const hasNoActiveClub = !props.currentDbUser?.club_name || isPending;
+  const isPending = (autoFetchedUser || props.currentDbUser)?.club_role === 'pending';
+  const hasNoActiveClub = !(autoFetchedUser || props.currentDbUser)?.club_name || isPending;
 
   // 🎯 Biztonságos szűrőmotor a zárt klubpályázatok elrejtésére
   const secureContests = useMemo(() => {
     if (!Array.isArray(props.filteredContests)) return [];
+    const activeDbUser = autoFetchedUser || props.currentDbUser;
 
     return props.filteredContests.filter(contest => {
       if (contest.restricted_club_id && Number(contest.restricted_club_id) !== 0) {
         if (hasNoActiveClub) return false;
-        if (Number(props.currentDbUser?.club_id) !== Number(contest.restricted_club_id)) return false;
+        if (Number(activeDbUser?.club_id) !== Number(contest.restricted_club_id)) return false;
       }
       if (contest.restricted_club && contest.restricted_club.trim() !== '') {
         if (hasNoActiveClub) return false;
-        if (props.currentDbUser?.club_name !== contest.restricted_club) return false;
+        if (activeDbUser?.club_name !== contest.restricted_club) return false;
       }
       return true;
     });
-  }, [props.filteredContests, props.currentDbUser, hasNoActiveClub]);
+  }, [props.filteredContests, props.currentDbUser, autoFetchedUser, hasNoActiveClub]);
 
   // ====================================================================
   // 📜 OKLEVÉL GENERÁLÓ LOGIKA
@@ -379,7 +403,9 @@ export default function ContestsView(props: ContestsViewProps) {
     );
   }, [props.filteredContests, props.juryList, props.user?.email]);
 
-  if (props.activeTab === 'contests_club_active' && !props.currentDbUser?.club_name && !isUserJurySomewhereInList) {
+  const activeClubUser = autoFetchedUser || props.currentDbUser;
+
+  if (props.activeTab === 'contests_club_active' && !activeClubUser?.club_name && !isUserJurySomewhereInList) {
     return (
       <div style={{ textAlign: 'center', padding: '5rem 2rem', background: 'linear-gradient(180deg, #1e293b, #0f172a)', borderRadius: '24px', border: '1px solid #ef444440', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
         <div style={{ fontSize: '4rem', marginBottom: '1.5rem' }}>🔒</div>
@@ -407,7 +433,7 @@ export default function ContestsView(props: ContestsViewProps) {
         
         <div style={{ backgroundColor: '#1e293b', padding: '30px', borderRadius: '24px', marginBottom: '30px', border: '1px solid #f59e0b', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
           <h3 style={{ marginTop: 0, marginBottom: '20px', color: '#f59e0b', fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
-            {props.user.email === ADMIN_EMAIL ? t('contAdminCreateTitle') : `${t('contClubCreateTitle')} (${props.currentDbUser?.club_name})`}
+            {props.user.email === ADMIN_EMAIL ? t('contAdminCreateTitle') : `${t('contClubCreateTitle')} (${activeClubUser?.club_name})`}
           </h3>
           <input placeholder={t('contPlaceholderTitle')} value={props.newTitle} onChange={e => props.setNewTitle(e.target.value)} style={inputStyle} />
           <textarea placeholder={t('contPlaceholderDesc')} value={props.newDesc} onChange={e => props.setNewDesc(e.target.value)} style={{...inputStyle, minHeight: '80px', resize: 'vertical'}} />
@@ -486,7 +512,7 @@ export default function ContestsView(props: ContestsViewProps) {
                 </select>
               ) : (
                 <div style={{ padding: '12px', background: '#0f172a', borderRadius: '10px', color: '#cbd5e1', fontSize: '0.95rem', border: '1px solid #334155' }}>
-                  {t('contVisibilityPrivate')}<strong>{props.currentDbUser?.club_name}</strong>
+                  {t('contVisibilityPrivate')}<strong>{activeClubUser?.club_name}</strong>
                 </div>
               )}
             </div>
@@ -513,7 +539,7 @@ export default function ContestsView(props: ContestsViewProps) {
         {getHeaderMainTitle()}
       </h2>
 
-      {/* 🎯 ÚJ SZERKEZETI MODUL: DINAMIKUS STÁTUSZ FIGYELMEZTETŐ BANNER A NYÍLT / ZÁRT PÁLYÁZATOKHOZ */}
+      {/* DINAMIKUS STÁTUSZ BANNER */}
       {hasNoActiveClub && props.activeTab !== 'admin_contests' && props.activeTab !== 'contests_closed' && (
         <div style={{ 
           background: isPending ? 'rgba(245, 158, 11, 0.05)' : 'rgba(56, 189, 248, 0.05)', 
@@ -567,7 +593,7 @@ export default function ContestsView(props: ContestsViewProps) {
             categories.forEach((cat: string) => categoryCounts[cat] = 0);
             myContestEntries.forEach(entry => { if (categoryCounts[entry.category] !== undefined) categoryCounts[entry.category]++; });
 
-            const canManageContest = props.user.email === ADMIN_EMAIL || (props.isLeader && contest.restricted_club === props.currentDbUser?.club_name);
+            const canManageContest = props.user.email === ADMIN_EMAIL || (props.isLeader && contest.restricted_club === activeClubUser?.club_name);
             const expectedVotes = (contest.entry_count || 0) * (contest.jury_count || 0);
             const isJudgingComplete = contest.entry_count > 0 ? (expectedVotes > 0 && contest.vote_count >= expectedVotes) : true;
             
