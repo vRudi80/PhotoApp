@@ -1,6 +1,7 @@
 const { OAuth2Client } = require('google-auth-library');
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const PointsService = require('../PointsService');
+const crypto = require('crypto');
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "kovari.rudolf@gmail.com";
 
@@ -37,9 +38,11 @@ module.exports = function(app, pool) {
           title VARCHAR(255) NOT NULL,
           theme VARCHAR(50) DEFAULT 'modern',
           visibility VARCHAR(20) DEFAULT 'public',
+          share_token VARCHAR(64) DEFAULT NULL,
           photos_json LONGTEXT NOT NULL,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-          INDEX idx_user_email (user_email)
+          INDEX idx_user_email (user_email),
+          INDEX idx_share_token (share_token)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
       `);
 
@@ -70,16 +73,14 @@ module.exports = function(app, pool) {
     }
   }
 
-  // 1. Összes elérhető tárlat lekérése (SQL COLLATION-PROOF CSOMAGOLÁS)
+  // 1. Összes elérhető tárlat lekérése
   app.get('/api/3d-galleries', requireAuth, async (req, res) => {
     try {
       await ensureTableExists();
 
-      // 1. Lekérjük a tárlatokat JOIN nélkül (kikerülve a MySQL collation hibát)
       const [galleries] = await pool.query('SELECT * FROM user_3d_galleries ORDER BY updated_at DESC');
-
-      // 2. Lekérjük a felhasználói profilokat
       const [users] = await pool.query('SELECT email, name, avatar_url, club_name FROM photo_users');
+      
       const userMap = new Map();
       (users || []).forEach(u => {
         if (u.email) userMap.set(u.email.trim().toLowerCase(), u);
@@ -98,7 +99,6 @@ module.exports = function(app, pool) {
         const isPublic = (vis === '' || vis === 'public');
         const isSameClub = (vis === 'club' && uInfo.club_name && uInfo.club_name === myClubName);
 
-        // Szűrés láthatóság szerint
         if (!isPublic && !isOwner && !isSameClub) {
           return null;
         }
@@ -118,8 +118,16 @@ module.exports = function(app, pool) {
           comment_count = cRow?.cnt || 0;
         } catch(e) {}
 
+        // Ha hiányzik a share_token, menet közben generálunk egyet
+        let currentToken = gal.share_token;
+        if (!currentToken) {
+          currentToken = crypto.randomBytes(16).toString('hex');
+          await pool.query('UPDATE user_3d_galleries SET share_token = ? WHERE id = ?', [currentToken, gal.id]);
+        }
+
         return { 
           ...gal, 
+          share_token: currentToken,
           photographer_name: uInfo.name || 'Fotóművész',
           avatar_url: uInfo.avatar_url || '',
           club_name: uInfo.club_name || '',
@@ -129,7 +137,6 @@ module.exports = function(app, pool) {
         };
       }));
 
-      // Kiszűrjük a null elemeket
       res.json(formatted.filter(Boolean));
     } catch (err) {
       console.error("❌ Hiba a tárlatok lekérésekor:", err);
@@ -137,13 +144,17 @@ module.exports = function(app, pool) {
     }
   });
 
-  // 2. NYILVÁNOS (AUTH MENTES) MEGOSZTÁSI ENDPOINT
-  app.get('/api/public/3d-gallery/:id', async (req, res) => {
+  // 2. NYILVÁNOS (AUTH MENTES) MEGOSZTÁSI ENDPOINT TITKOS TOKEN ALAPJÁN
+  app.get('/api/public/3d-gallery/:token', async (req, res) => {
     try {
       await ensureTableExists();
-      const galleryId = req.params.id;
+      const tokenOrId = req.params.token;
 
-      const [rows] = await pool.query('SELECT * FROM user_3d_galleries WHERE id = ?', [galleryId]);
+      // Keresés tokenre VAGY id-ra (visszafelé kompatibilitás)
+      const [rows] = await pool.query(
+        'SELECT * FROM user_3d_galleries WHERE share_token = ? OR id = ?', 
+        [tokenOrId, isNaN(Number(tokenOrId)) ? -1 : Number(tokenOrId)]
+      );
 
       if (!rows || rows.length === 0) {
         return res.status(404).json({ error: 'A megadott kiállítás nem található.' });
@@ -175,11 +186,12 @@ module.exports = function(app, pool) {
           INSERT INTO gallery_visitors (gallery_id, user_email, visited_at)
           VALUES (?, 'guest_visitor', NOW())
           ON DUPLICATE KEY UPDATE visited_at = NOW()
-        `, [galleryId]);
+        `, [gal.id]);
       } catch(e) {}
 
       res.json({
         id: gal.id,
+        share_token: gal.share_token,
         title: gal.title,
         theme: gal.theme,
         photographer_name: uInfo.name || 'Fotóművész',
@@ -263,7 +275,7 @@ module.exports = function(app, pool) {
     }
   });
 
-  // 6. Galéria mentése
+  // 6. Galéria mentése (AUTOMATIKUS TOKEN GENERÁLÁSSAL)
   app.post('/api/premium/3d-gallery/save', requireAuth, async (req, res) => {
     const { id, title, theme, visibility, photos } = req.body;
     const userEmail = req.user.email;
@@ -328,10 +340,11 @@ module.exports = function(app, pool) {
           return res.status(403).json({ error: 'Nincs jogosultságod ezt a tárlatot módosítani.' });
         }
       } else {
+        const generatedToken = crypto.randomBytes(16).toString('hex');
         await pool.query(`
-          INSERT INTO user_3d_galleries (user_email, title, theme, visibility, photos_json)
-          VALUES (?, ?, ?, ?, ?)
-        `, [userEmail, cleanTitle, theme || 'modern', cleanVis, photosJson]);
+          INSERT INTO user_3d_galleries (user_email, title, theme, visibility, share_token, photos_json)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `, [userEmail, cleanTitle, theme || 'modern', cleanVis, generatedToken, photosJson]);
       }
 
       res.json({ success: true, deductedPoints: netCost });
