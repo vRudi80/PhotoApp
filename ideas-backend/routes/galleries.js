@@ -150,6 +150,40 @@ module.exports = function(app, pool) {
       res.json([]);
     }
   });
+  // 🌐 NYILVÁNOS WEBGEL KÉPCONVERTER 3D TÁRLATOKHOZ (CORS-MENTES BASE64)
+  app.get('/api/public/image-proxy', async (req, res) => {
+    let imageUrl = req.query.url;
+    const fileId = req.query.fileId;
+
+    if (!imageUrl && !fileId) {
+      return res.status(400).json({ error: 'Nincs URL vagy fileId megadva.' });
+    }
+
+    if (fileId && !imageUrl) {
+      imageUrl = `https://lh3.googleusercontent.com/d/${fileId}`;
+    }
+
+    try {
+      const fetch = (await import('node-fetch')).default;
+      const response = await fetch(imageUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+        }
+      });
+      
+      if (!response.ok) throw new Error(`Kép letöltési hiba: ${response.statusText}`);
+
+      const arrayBuffer = await response.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      const contentType = response.headers.get('content-type') || 'image/jpeg';
+      const base64 = `data:${contentType};base64,${buffer.toString('base64')}`;
+
+      res.json({ base64 });
+    } catch (err) {
+      console.error("❌ Kép konvertálási hiba:", err.message);
+      res.status(500).json({ error: 'Nem sikerült konvertálni a képet.' });
+    }
+  });
 
   // 2. NYILVÁNOS MEGOSZTÁSI ENDPOINT
   app.get('/api/public/3d-gallery/:token', async (req, res) => {
