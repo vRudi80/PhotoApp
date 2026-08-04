@@ -265,6 +265,25 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { res.status(500).json({ error: 'Hiba' }); }
   });
 
+  app.get('/api/me', requireAuth, async (req, res) => {
+  try {
+    // A SELECT * garantálja, hogy a phone_number és shipping_address IS visszatér!
+    const [[user]] = await pool.query(
+      'SELECT * FROM photo_users WHERE email = ?',
+      [req.user.email]
+    );
+
+    if (!user) {
+      return res.status(404).json({ error: 'A felhasználó nem található az adatbázisban.' });
+    }
+
+    res.json(user);
+  } catch (err) {
+    console.error("❌ Hiba a profil lekérésekor:", err);
+    res.status(500).json({ error: 'Szerver hiba a profil lekérése közben.' });
+  }
+});
+  
   // 12. Zsűrizendő képek listája (VÉDETT)
   app.get('/api/jury-entries/:contestId', requireAuth, async (req, res) => {
     const targetEmail = req.query.userEmail;
@@ -305,28 +324,42 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
 
   // 16. KÖTELEZŐ MAFOSZ PROFIL MENTÉSI ÚTVONAL (VÉDETT - Összehangolva a users.js-sel!)
   app.put('/api/users/:email/extended-profile', requireAuth, async (req, res) => {
-    const { email } = req.params;
-    const { name, phone_number, shipping_address, association_id } = req.body;
+  const { email } = req.params;
+  const { name, phone_number, shipping_address, association_id } = req.body;
 
-    if (req.user.email !== email && !req.user.isAdmin) {
-      return res.status(403).json({ error: 'Hozzáférés megtagadva! Nem módosíthatod más felhasználó profilját.' });
-    }
+  if (req.user.email !== email && !req.user.isAdmin) {
+    return res.status(403).json({ error: 'Hozzáférés megtagadva! Nem módosíthatod más profilját.' });
+  }
 
-    try {
-      const query = `
-        UPDATE photo_users 
-        SET name = ?, phone_number = ?, shipping_address = ?, association_id = ? 
-        WHERE email = ?
-      `;
-      const [result] = await pool.query(query, [name, phone_number, shipping_address, association_id, email]);
-      if (result.affectedRows === 0) return res.status(404).json({ error: "A megadott felhasználó nem létezik!" });
-      res.json({ success: true, message: "A MAFOSZ profil sikeresen frissítve!" });
-    } catch (err) {
-      console.error("❌ Szerver hiba a photo_users frissítésekor:", err);
-      res.status(500).json({ error: 'Hiba történt a profil adatok mentése közben.' });
-    }
-  });
+  try {
+    // 1. Frissítjük az adatokat a photo_users táblában
+    await pool.query(
+      `UPDATE photo_users 
+       SET name = COALESCE(?, name), 
+           phone_number = ?, 
+           shipping_address = ?, 
+           association_id = ? 
+       WHERE email = ?`,
+      [name, phone_number, shipping_address, association_id, email]
+    );
 
+    // 2. Lekérjük a friss, hiánytalan rekordot az adatbázisból
+    const [[updatedUser]] = await pool.query(
+      'SELECT * FROM photo_users WHERE email = ?',
+      [email]
+    );
+
+    // 3. Visszaküldjük a teljes frissített objektumot
+    res.json({ 
+      success: true, 
+      message: "A profil sikeresen frissítve!",
+      user: updatedUser 
+    });
+  } catch (err) {
+    console.error("❌ Szerver hiba a profil mentésekor:", err);
+    res.status(500).json({ error: 'Hiba történt a profil adatok mentése közben.' });
+  }
+});
   // ❌ JAVÍTVA / TÖRÖLVE: A legalsó, teljesen nyitott app.get('/api/users') adatbázis-szivárogtató kód teljesen el lett távolítva ebből a fájlból, 
   // így az többé nem tudja felülírni a users.js biztonságos változatát!
 
