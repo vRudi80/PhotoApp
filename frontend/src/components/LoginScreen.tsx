@@ -23,7 +23,7 @@ import logoHu from './logo_hu2.png';
 import logoEn from './logo_en2.png'; 
 
 // Opcionálisan saját fotó importálása (ha a mappában van pl. hero_camera.jpg néven):
-// import heroCameraImg from './hero_camera.jpg';
+import heroCameraImg from './hero_camera.jpg';
 
 // Behozzuk a nyelvi kontextust
 import { useLanguage } from '../context/LanguageContext';
