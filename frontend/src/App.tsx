@@ -38,13 +38,11 @@ import ForumView from './views/ForumView';
 import AdminQuizView from './views/admin/AdminQuizView';
 import QuizView from './views/QuizView';
 import PhotoHistoryView from './views/PhotoHistoryView';
-// Az importokhoz:
 import AdminVoterAnalysisView from './views/admin/AdminVoterAnalysisView';
 import ClubWeeklyReviewView from './views/ClubWeeklyReviewView';
 import ClubCoursesView from './views/ClubCoursesView';
 
-
-// 🎯 ÚJ: 3D Virtuális Tárlat nézet beimportálása
+// 🎯 3D Virtuális Tárlat nézet beimportálása
 import Gallery3DView from './views/Gallery3DView';
 
 // Témakezelő környezet
@@ -246,6 +244,10 @@ function MainContent() {
   const [juryProgressData, setJuryProgressData] = useState<{total_entries: number, stats: any[]}>({total_entries: 0, stats: []});
 
   const [fullscreenData, setFullscreenData] = useState<any>(null);
+
+  // 🎯 MEGOSZTOTT NYILVÁNOS 3D TÁRLAT LINK DETEKTÁLÁSA
+  const urlParams = new URLSearchParams(location.search);
+  const isPublicGalleryLink = location.pathname.includes('3d_gallery') && urlParams.has('id');
 
   const fetchData = async (retryCount = 0) => {
     const token = localStorage.getItem('photoAppToken');
@@ -655,8 +657,13 @@ function MainContent() {
         </div>
       ) : null}
 
-      {!user ? (
+      {/* 🎯 NYILVÁNOS TÁRLAT KIVÉTEL A BEJELENTKEZÉSI KAPUNÁL */}
+      {!user && !isPublicGalleryLink ? (
         <LoginScreen onLoginSuccess={handleLoginSuccess} />
+      ) : !user && isPublicGalleryLink ? (
+        <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg-main)' }}>
+          <Gallery3DView user={null} />
+        </div>
       ) : (
         <div className="app-container" style={{ minHeight: '100vh', backgroundColor: 'var(--bg-main)', color: 'var(--text-title)', fontFamily: 'Inter, sans-serif' }}>
           <Header user={headerUser} isLeader={!!isLeader} activeTab={activeTab} setActiveTab={setActiveTab} dropdownOpen={dropdownOpen} setDropdownOpen={setDropdownOpen} onLogout={() => { localStorage.removeItem('photoAppToken'); localStorage.removeItem('user'); setUser(null); }} />
@@ -701,7 +708,7 @@ function MainContent() {
               <Route path="/admin_meetings" element={(user?.email === ADMIN_EMAIL || isLeader) ? <AdminMeetingsView user={user} currentDbUser={currentDbUser} clubs={clubs} meetings={meetings} allUsers={allUsers} adminMeetings={adminMeetings} fetchData={fetchData} /> : <Navigate to="/dashboard" replace />} />
               <Route path="/admin_homeworks" element={(user?.email === ADMIN_EMAIL || isLeader) ? <AdminHomeworksView user={user} currentDbUser={currentDbUser} clubs={clubs} adminHomeworks={adminHomeworks} fetchData={fetchData} /> : <Navigate to="/dashboard" replace />} />
 
-<Route path="/admin_voter_analysis" element={user?.email === ADMIN_EMAIL ? <AdminVoterAnalysisView /> : <Navigate to="/dashboard" />} />
+              <Route path="/admin_voter_analysis" element={user?.email === ADMIN_EMAIL ? <AdminVoterAnalysisView /> : <Navigate to="/dashboard" />} />
 
               {['/contests_open_active', '/contests_club_active', '/contests_closed'].map(path => (
                 <Route key={path} path={path} element={
