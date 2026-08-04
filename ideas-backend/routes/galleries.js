@@ -46,7 +46,6 @@ module.exports = function(app, pool) {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
       `);
 
-      // Garantáljuk a share_token oszlop létezését meglévő táblánál is
       try {
         await pool.query("ALTER TABLE user_3d_galleries ADD COLUMN share_token VARCHAR(64) DEFAULT NULL AFTER visibility");
       } catch (colErr) {}
@@ -81,97 +80,6 @@ module.exports = function(app, pool) {
       console.error("⚠️ 3D Galéria táblák províziós hibája:", e.message);
     }
   }
-
-    // 🌐 NYILVÁNOS VENDÉGKÖNYV LEKÉRDEZÉSE (MEGOSZTOTT LINKHEZ)
-  app.get('/api/public/3d-gallery/:token/interactions', async (req, res) => {
-    try {
-      await ensureTableExists();
-      const tokenOrId = req.params.token;
-
-      const [galleries] = await pool.query(
-        'SELECT id FROM user_3d_galleries WHERE share_token = ? OR id = ?', 
-        [tokenOrId, isNaN(Number(tokenOrId)) ? -1 : Number(tokenOrId)]
-      );
-
-      if (!galleries || galleries.length === 0) {
-        return res.status(404).json({ error: 'Kiállítás nem található.' });
-      }
-
-      const galleryId = galleries[0].id;
-
-      const [guestbook] = await pool.query(`
-        SELECT 
-          b.id, b.comment_text, b.created_at, b.user_email,
-          COALESCE(u.name, 'Vendég Látogató') as user_name, u.avatar_url
-        FROM gallery_guestbook b
-        LEFT JOIN photo_users u ON LOWER(b.user_email) = LOWER(u.email)
-        WHERE b.gallery_id = ?
-        ORDER BY b.created_at DESC
-      `, [galleryId]);
-
-      res.json({ guestbook });
-    } catch (err) {
-      res.status(500).json({ error: 'Szerver hiba.' });
-    }
-  });
-
-  // 🌐 NYILVÁNOS VENDÉGKÖNYVI BEJEGYZÉS ÍRÁSA (AUTH MENTES)
-  app.post('/api/public/3d-gallery/:token/guestbook', async (req, res) => {
-    const { comment_text, guest_name } = req.body;
-    const tokenOrId = req.params.token;
-
-    if (!comment_text || !comment_text.trim()) {
-      return res.status(400).json({ error: 'A bejegyzés nem lehet üres!' });
-    }
-
-    try {
-      await ensureTableExists();
-      const [galleries] = await pool.query(
-        'SELECT id FROM user_3d_galleries WHERE share_token = ? OR id = ?', 
-        [tokenOrId, isNaN(Number(tokenOrId)) ? -1 : Number(tokenOrId)]
-      );
-
-      if (!galleries || galleries.length === 0) {
-        return res.status(404).json({ error: 'Kiállítás nem található.' });
-      }
-
-      const galleryId = galleries[0].id;
-      const authorName = (guest_name || 'Vendég Látogató').trim();
-
-      await pool.query(`
-        INSERT INTO gallery_guestbook (gallery_id, user_email, comment_text)
-        VALUES (?, ?, ?)
-      `, [galleryId, authorName, comment_text.trim()]);
-
-      res.json({ success: true });
-    } catch (err) {
-      console.error("❌ Vendégkönyv bejegyzési hiba:", err.message);
-      res.status(500).json({ error: 'Szerver hiba.' });
-    }
-  });
-
-  // 🌐 NYILVÁNOS WEBGEL KÉPCONVERTER 3D TÁRLATOKHOZ (CORS-MENTES BASE64)
-  app.get('/api/public/image-proxy', async (req, res) => {
-    const imageUrl = req.query.url;
-    if (!imageUrl) return res.status(400).json({ error: 'Nincs URL megadva.' });
-
-    try {
-      const fetch = (await import('node-fetch')).default;
-      const response = await fetch(imageUrl);
-      
-      if (!response.ok) throw new Error('Kép letöltési hiba');
-
-      const arrayBuffer = await response.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
-      const contentType = response.headers.get('content-type') || 'image/jpeg';
-      const base64 = `data:${contentType};base64,${buffer.toString('base64')}`;
-
-      res.json({ base64 });
-    } catch (err) {
-      console.error("❌ Kép konvertálási hiba:", err.message);
-      res.status(500).json({ error: 'Nem sikerült konvertálni a képet.' });
-    }
-  });
 
   // 1. Összes elérhető tárlat lekérése
   app.get('/api/3d-galleries', requireAuth, async (req, res) => {
@@ -243,7 +151,7 @@ module.exports = function(app, pool) {
     }
   });
 
-  // 2. NYILVÁNOS (AUTH MENTES) MEGOSZTÁSI ENDPOINT
+  // 2. NYILVÁNOS MEGOSZTÁSI ENDPOINT
   app.get('/api/public/3d-gallery/:token', async (req, res) => {
     try {
       await ensureTableExists();
@@ -334,39 +242,99 @@ module.exports = function(app, pool) {
     }
   });
 
-  // 4. Vendégkönyv és Látogatói jegyzék lekérése
+  // 4. VENDÉGKÖNYV ÉS LÁTOGATÓI JEGYZÉK LEKÉRÉSE (GOLYÓÁLLÓ MEMÓRIA-ILLESZTÉSSEL)
   app.get('/api/3d-gallery/:id/interactions', requireAuth, async (req, res) => {
     try {
       await ensureTableExists();
       const galleryId = req.params.id;
 
-      const [guestbook] = await pool.query(`
-        SELECT 
-          b.id, b.comment_text, b.created_at, b.user_email,
-          COALESCE(u.name, 'Látogató') as user_name, u.avatar_url, u.club_name
-        FROM gallery_guestbook b
-        LEFT JOIN photo_users u ON LOWER(b.user_email) = LOWER(u.email)
-        WHERE b.gallery_id = ?
-        ORDER BY b.created_at DESC
-      `, [galleryId]);
+      const [guestbookRaw] = await pool.query('SELECT * FROM gallery_guestbook WHERE gallery_id = ? ORDER BY created_at DESC', [galleryId]);
+      const [visitorsRaw] = await pool.query('SELECT * FROM gallery_visitors WHERE gallery_id = ? ORDER BY visited_at DESC', [galleryId]);
 
-      const [visitors] = await pool.query(`
-        SELECT 
-          v.visited_at, v.user_email,
-          COALESCE(u.name, 'Látogató') as user_name, u.avatar_url, u.club_name
-        FROM gallery_visitors v
-        LEFT JOIN photo_users u ON LOWER(v.user_email) = LOWER(u.email)
-        WHERE v.gallery_id = ?
-        ORDER BY v.visited_at DESC
-      `, [galleryId]);
+      const [users] = await pool.query('SELECT email, name, avatar_url, club_name FROM photo_users');
+      const userMap = new Map();
+      (users || []).forEach(u => {
+        if (u.email) userMap.set(u.email.trim().toLowerCase(), u);
+      });
+
+      const guestbook = (guestbookRaw || []).map(b => {
+        const emailKey = (b.user_email || '').trim().toLowerCase();
+        const uInfo = userMap.get(emailKey);
+        return {
+          id: b.id,
+          comment_text: b.comment_text,
+          created_at: b.created_at,
+          user_email: b.user_email,
+          user_name: uInfo ? uInfo.name : (b.user_email || 'Vendég Látogató'),
+          avatar_url: uInfo ? uInfo.avatar_url : '',
+          club_name: uInfo ? uInfo.club_name : ''
+        };
+      });
+
+      const visitors = (visitorsRaw || []).map(v => {
+        const emailKey = (v.user_email || '').trim().toLowerCase();
+        const uInfo = userMap.get(emailKey);
+        return {
+          visited_at: v.visited_at,
+          user_email: v.user_email,
+          user_name: uInfo ? uInfo.name : (v.user_email === 'guest_visitor' ? 'Külsős Vendég' : v.user_email),
+          avatar_url: uInfo ? uInfo.avatar_url : '',
+          club_name: uInfo ? uInfo.club_name : ''
+        };
+      });
 
       res.json({ guestbook, visitors });
     } catch (err) {
+      console.error("❌ Hiba az interakciók lekérésekor:", err);
       res.status(500).json({ error: 'Szerver hiba.' });
     }
   });
 
-  // 5. Új bejegyzés írása a Vendégkönyvbe
+  // 🌐 NYILVÁNOS VENDÉGKÖNYV LEKÉRDEZÉSE (AUTH MENTES)
+  app.get('/api/public/3d-gallery/:token/interactions', async (req, res) => {
+    try {
+      await ensureTableExists();
+      const tokenOrId = req.params.token;
+
+      const [galleries] = await pool.query(
+        'SELECT id FROM user_3d_galleries WHERE share_token = ? OR id = ?', 
+        [tokenOrId, isNaN(Number(tokenOrId)) ? -1 : Number(tokenOrId)]
+      );
+
+      if (!galleries || galleries.length === 0) {
+        return res.status(404).json({ error: 'Kiállítás nem található.' });
+      }
+
+      const galleryId = galleries[0].id;
+      const [guestbookRaw] = await pool.query('SELECT * FROM gallery_guestbook WHERE gallery_id = ? ORDER BY created_at DESC', [galleryId]);
+
+      const [users] = await pool.query('SELECT email, name, avatar_url FROM photo_users');
+      const userMap = new Map();
+      (users || []).forEach(u => {
+        if (u.email) userMap.set(u.email.trim().toLowerCase(), u);
+      });
+
+      const guestbook = (guestbookRaw || []).map(b => {
+        const emailKey = (b.user_email || '').trim().toLowerCase();
+        const uInfo = userMap.get(emailKey);
+        return {
+          id: b.id,
+          comment_text: b.comment_text,
+          created_at: b.created_at,
+          user_email: b.user_email,
+          user_name: uInfo ? uInfo.name : (b.user_email || 'Vendég Látogató'),
+          avatar_url: uInfo ? uInfo.avatar_url : ''
+        };
+      });
+
+      res.json({ guestbook });
+    } catch (err) {
+      console.error("❌ Nyilvános vendégkönyv lekérdezési hiba:", err);
+      res.status(500).json({ error: 'Szerver hiba.' });
+    }
+  });
+
+  // 5. Új bejegyzés írása a Vendégkönyvbe (Bejelentkezett usereknek)
   app.post('/api/3d-gallery/:id/guestbook', requireAuth, async (req, res) => {
     const { comment_text } = req.body;
     if (!comment_text || !comment_text.trim()) {
@@ -382,6 +350,41 @@ module.exports = function(app, pool) {
 
       res.json({ success: true });
     } catch (err) {
+      res.status(500).json({ error: 'Szerver hiba.' });
+    }
+  });
+
+  // 🌐 NYILVÁNOS VENDÉGKÖNYVI BEJEGYZÉS ÍRÁSA (AUTH MENTES VENDÉGEKNEK)
+  app.post('/api/public/3d-gallery/:token/guestbook', async (req, res) => {
+    const { comment_text, guest_name } = req.body;
+    const tokenOrId = req.params.token;
+
+    if (!comment_text || !comment_text.trim()) {
+      return res.status(400).json({ error: 'A bejegyzés nem lehet üres!' });
+    }
+
+    try {
+      await ensureTableExists();
+      const [galleries] = await pool.query(
+        'SELECT id FROM user_3d_galleries WHERE share_token = ? OR id = ?', 
+        [tokenOrId, isNaN(Number(tokenOrId)) ? -1 : Number(tokenOrId)]
+      );
+
+      if (!galleries || galleries.length === 0) {
+        return res.status(404).json({ error: 'Kiállítás nem található.' });
+      }
+
+      const galleryId = galleries[0].id;
+      const authorName = (guest_name || 'Vendég Látogató').trim();
+
+      await pool.query(`
+        INSERT INTO gallery_guestbook (gallery_id, user_email, comment_text)
+        VALUES (?, ?, ?)
+      `, [galleryId, authorName, comment_text.trim()]);
+
+      res.json({ success: true });
+    } catch (err) {
+      console.error("❌ Vendégkönyv bejegyzési hiba:", err);
       res.status(500).json({ error: 'Szerver hiba.' });
     }
   });
