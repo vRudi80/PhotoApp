@@ -150,6 +150,7 @@ function WalkingController({
 }
 
 // 🎯 GOLYÓÁLLÓ KERET KOMPONENS CORS PROXY BETÖLTŐVEL
+// 🎯 GOLYÓÁLLÓ KERET KOMPONENS CORS-MENTES WEBGEL TEXTÚRA TÖLTŐVEL
 function ArtworkFrame({ position, rotation, url, title, themeConfig, onClick }: any) {
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
   const [dims, setDims] = useState<{ pWidth: number; pHeight: number }>({ pWidth: 2.8, pHeight: 1.9 });
@@ -165,6 +166,7 @@ function ArtworkFrame({ position, rotation, url, title, themeConfig, onClick }: 
         return;
       }
       loaded.colorSpace = THREE.SRGBColorSpace;
+      loaded.needsUpdate = true;
       currentTexture = loaded;
 
       const img = loaded.image;
@@ -189,18 +191,15 @@ function ArtworkFrame({ position, rotation, url, title, themeConfig, onClick }: 
 
     const loadTextureWithFallback = async () => {
       let targetUrl = url;
-      const isDrive = url.includes('google') || url.includes('drive') || url.includes('googleusercontent');
 
-      // Google Drive vagy külső képek esetén átszűrjük a proxy-n a CORS védelem átlépéséhez
-      if (isDrive) {
-        try {
-          const res = await fetch(`${BACKEND_URL}/api/weekly/image-proxy?url=${encodeURIComponent(url)}`);
-          if (res.ok) {
-            const data = await res.json();
-            if (data.base64) targetUrl = data.base64;
-          }
-        } catch (e) {}
-      }
+      // Minden külső képet átfuttatunk a nyilvános Base64 konverteren a WebGL CORS tiltás áttöréséhez
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/public/image-proxy?url=${encodeURIComponent(url)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.base64) targetUrl = data.base64;
+        }
+      } catch (e) {}
 
       const loader = new THREE.TextureLoader();
       loader.setCrossOrigin('anonymous');
@@ -209,19 +208,9 @@ function ArtworkFrame({ position, rotation, url, title, themeConfig, onClick }: 
         targetUrl,
         (loaded) => applyTextureWithAspect(loaded),
         undefined,
-        async () => {
-          // Ha az alapesetben CORS hiba történt, megpróbáljuk a proxy-t
-          if (!isDrive) {
-            try {
-              const res = await fetch(`${BACKEND_URL}/api/weekly/image-proxy?url=${encodeURIComponent(url)}`);
-              if (res.ok) {
-                const data = await res.json();
-                if (data.base64 && isMounted) {
-                  loader.load(data.base64, (fallbackLoaded) => applyTextureWithAspect(fallbackLoaded));
-                }
-              }
-            } catch (err) {}
-          }
+        () => {
+          // Tartalék ág, ha a közvetlen URL mégis betölthető
+          loader.load(url, (fallbackLoaded) => applyTextureWithAspect(fallbackLoaded));
         }
       );
     };
@@ -277,6 +266,7 @@ function ArtworkFrame({ position, rotation, url, title, themeConfig, onClick }: 
     </group>
   );
 }
+
 
 function GalleryRoom({ photos, themeName, onSelectPhoto }: { photos: any[]; themeName?: string; onSelectPhoto: (p: any) => void }) {
   const theme = GALLERY_THEMES[themeName || 'modern'] || GALLERY_THEMES.modern;
