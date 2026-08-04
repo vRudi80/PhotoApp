@@ -149,8 +149,6 @@ function WalkingController({
   return null;
 }
 
-// 🎯 GOLYÓÁLLÓ KERET KOMPONENS CORS PROXY BETÖLTŐVEL
-// 🎯 GOLYÓÁLLÓ KERET KOMPONENS CORS-MENTES WEBGEL TEXTÚRA TÖLTŐVEL
 function ArtworkFrame({ position, rotation, url, title, themeConfig, onClick }: any) {
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
   const [dims, setDims] = useState<{ pWidth: number; pHeight: number }>({ pWidth: 2.8, pHeight: 1.9 });
@@ -192,7 +190,6 @@ function ArtworkFrame({ position, rotation, url, title, themeConfig, onClick }: 
     const loadTextureWithFallback = async () => {
       let targetUrl = url;
 
-      // Minden külső képet átfuttatunk a nyilvános Base64 konverteren a WebGL CORS tiltás áttöréséhez
       try {
         const res = await fetch(`${BACKEND_URL}/api/public/image-proxy?url=${encodeURIComponent(url)}`);
         if (res.ok) {
@@ -209,7 +206,6 @@ function ArtworkFrame({ position, rotation, url, title, themeConfig, onClick }: 
         (loaded) => applyTextureWithAspect(loaded),
         undefined,
         () => {
-          // Tartalék ág, ha a közvetlen URL mégis betölthető
           loader.load(url, (fallbackLoaded) => applyTextureWithAspect(fallbackLoaded));
         }
       );
@@ -266,7 +262,6 @@ function ArtworkFrame({ position, rotation, url, title, themeConfig, onClick }: 
     </group>
   );
 }
-
 
 function GalleryRoom({ photos, themeName, onSelectPhoto }: { photos: any[]; themeName?: string; onSelectPhoto: (p: any) => void }) {
   const theme = GALLERY_THEMES[themeName || 'modern'] || GALLERY_THEMES.modern;
@@ -383,6 +378,14 @@ export default function Gallery3DView({ user }: { user?: any }) {
   const [activePhotoModal, setActivePhotoModal] = useState<any | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
+  // 🎯 VENDÉGKÖNYV ÁLLAPOTOK
+  const [showInteractionsModal, setShowInteractionsModal] = useState(false);
+  const [guestbookEntries, setGuestbookEntries] = useState<any[]>([]);
+  const [visitorsList, setVisitorsList] = useState<any[]>([]);
+  const [newCommentText, setNewCommentText] = useState('');
+  const [guestAuthorName, setGuestAuthorName] = useState('');
+  const [isPostingComment, setIsPostingComment] = useState(false);
+
   const controlsRef = useRef<any>(null);
   const [moveState, setMoveState] = useState({ forward: false, back: false, left: false, right: false });
 
@@ -400,6 +403,7 @@ export default function Gallery3DView({ user }: { user?: any }) {
           if (data && !data.error) {
             setActiveGallery(data);
             setMode('VIEW_3D');
+            loadInteractionsPublic(targetToken);
           } else {
             alert(data?.error || 'A kiállítás nem található.');
             setMode('DIRECTORY');
@@ -449,6 +453,27 @@ export default function Gallery3DView({ user }: { user?: any }) {
     }
   };
 
+  const loadInteractions = async (galleryId: number) => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/3d-gallery/${galleryId}/interactions`, { headers: getAuthHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        setGuestbookEntries(data.guestbook || []);
+        setVisitorsList(data.visitors || []);
+      }
+    } catch (e) {}
+  };
+
+  const loadInteractionsPublic = async (token: string) => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/public/3d-gallery/${token}/interactions`);
+      if (res.ok) {
+        const data = await res.json();
+        setGuestbookEntries(data.guestbook || []);
+      }
+    } catch (e) {}
+  };
+
   const handleOpen3D = async (gal: any) => {
     setActiveGallery(gal);
     setMode('VIEW_3D');
@@ -460,6 +485,43 @@ export default function Gallery3DView({ user }: { user?: any }) {
           headers: getAuthHeaders()
         });
       } catch (e) {}
+      loadInteractions(gal.id);
+    } else {
+      loadInteractionsPublic(gal.share_token || gal.id);
+    }
+  };
+
+  const handlePostGuestbook = async () => {
+    if (!newCommentText.trim() || !activeGallery) return;
+    setIsPostingComment(true);
+
+    try {
+      if (user) {
+        const res = await fetch(`${BACKEND_URL}/api/3d-gallery/${activeGallery.id}/guestbook`, {
+          method: 'POST',
+          headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ comment_text: newCommentText })
+        });
+        if (res.ok) {
+          setNewCommentText('');
+          loadInteractions(activeGallery.id);
+        }
+      } else {
+        const tokenVal = activeGallery.share_token || activeGallery.id;
+        const res = await fetch(`${BACKEND_URL}/api/public/3d-gallery/${tokenVal}/guestbook`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ comment_text: newCommentText, guest_name: guestAuthorName || 'Vendég' })
+        });
+        if (res.ok) {
+          setNewCommentText('');
+          loadInteractionsPublic(tokenVal);
+        }
+      }
+    } catch (e) {
+      alert('Hiba a bejegyzés elküldésekor.');
+    } finally {
+      setIsPostingComment(false);
     }
   };
 
@@ -585,12 +647,21 @@ export default function Gallery3DView({ user }: { user?: any }) {
 
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
             {viewMode === 'VIEW_3D' && activeGallery && (
-              <button 
-                onClick={() => handleShareGallery(activeGallery)} 
-                style={{ background: 'var(--bg-main)', color: '#38bdf8', border: '1px solid var(--border-main)', padding: '10px 16px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
-              >
-                <Share2 size={16} /> Megosztási Link
-              </button>
+              <>
+                <button 
+                  onClick={() => handleShareGallery(activeGallery)} 
+                  style={{ background: 'var(--bg-main)', color: '#38bdf8', border: '1px solid var(--border-main)', padding: '10px 16px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+                >
+                  <Share2 size={16} /> Megosztási Link
+                </button>
+
+                <button 
+                  onClick={() => setShowInteractionsModal(true)} 
+                  style={{ background: '#8b5cf6', color: 'white', border: 'none', padding: '10px 18px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+                >
+                  <BookOpen size={16} /> Vendégkönyv
+                </button>
+              </>
             )}
 
             {viewMode !== 'DIRECTORY' && (
@@ -763,6 +834,16 @@ export default function Gallery3DView({ user }: { user?: any }) {
             </div>
           </div>
 
+          {/* 🎯 VENDÉGKÖNYV GOMB NYILVÁNOS STANDALONE MÓDBAN IS */}
+          <div style={{ position: 'absolute', top: '15px', right: '15px', display: 'flex', gap: '8px' }}>
+            <button 
+              onClick={() => setShowInteractionsModal(true)} 
+              style={{ background: '#8b5cf6', color: 'white', border: 'none', padding: '10px 18px', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 15px rgba(139,92,246,0.4)', backdropFilter: 'blur(6px)' }}
+            >
+              <BookOpen size={16} /> Vendégkönyv ({guestbookEntries.length})
+            </button>
+          </div>
+
           <div style={{ position: 'absolute', bottom: '15px', left: '15px', background: 'rgba(9, 13, 22, 0.85)', padding: '10px 16px', borderRadius: '8px', color: 'white', fontSize: '0.8rem', backdropFilter: 'blur(6px)', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#a78bfa', fontWeight: 'bold' }}>
               <Navigation size={14} /> <span>Irányítás & Séta:</span>
@@ -782,7 +863,57 @@ export default function Gallery3DView({ user }: { user?: any }) {
         </div>
       )}
 
-      {/* 3. SZERKESZTŐ MÓD CSOMAGVÁLASZTÓVAL */}
+      {/* 🎯 VENDÉGKÖNYV ÉS LÁTOGATÓI JEGYZÉK MODÁL (BEÉPÍTVE A NYILVÁNOS NÉZETBE IS) */}
+      {showInteractionsModal && (
+        <div onClick={() => setShowInteractionsModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 99999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', borderRadius: '12px', width: '100%', maxWidth: '650px', maxHeight: '85vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-main)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-main)' }}>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <span style={{ color: 'white', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '1rem' }}><MessageSquare size={18} color="#a78bfa" /> Kiállítási Vendégkönyv ({guestbookEntries.length})</span>
+              </div>
+              <button onClick={() => setShowInteractionsModal(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}><X size={20} /></button>
+            </div>
+
+            <div style={{ padding: '20px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '15px' }}>
+              
+              {!user && (
+                <input 
+                  type="text" 
+                  placeholder="Neved / Beceneved (opcionális)..." 
+                  value={guestAuthorName} 
+                  onChange={e => setGuestAuthorName(e.target.value)} 
+                  style={{ padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border-main)', background: 'var(--bg-main)', color: 'var(--text-title)', outline: 'none', fontSize: '0.9rem' }} 
+                />
+              )}
+
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <input type="text" placeholder="Írj a vendégkönyvbe..." value={newCommentText} onChange={e => setNewCommentText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handlePostGuestbook(); }} style={{ flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid var(--border-main)', background: 'var(--bg-main)', color: 'var(--text-title)', outline: 'none' }} />
+                <button onClick={handlePostGuestbook} disabled={isPostingComment || !newCommentText.trim()} style={{ background: '#10b981', color: 'white', border: 'none', padding: '0 20px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}><Send size={16} /> Küldés</button>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '10px' }}>
+                {guestbookEntries.length === 0 ? (
+                  <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Még nincsenek bejegyzések. Írj te először a vendégkönyvbe! ✍️</div>
+                ) : (
+                  guestbookEntries.map((e) => (
+                    <div key={e.id} style={{ background: 'var(--bg-main)', padding: '12px 16px', borderRadius: '8px', border: '1px solid var(--border-main)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                        <strong style={{ fontSize: '0.9rem', color: '#38bdf8' }}>{e.user_name}</strong>
+                        <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>{new Date(e.created_at).toLocaleString('hu-HU', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</small>
+                      </div>
+                      <p style={{ margin: 0, color: 'var(--text-body)', fontSize: '0.88rem', lineHeight: '1.4' }}>{e.comment_text}</p>
+                    </div>
+                  ))
+                )}
+              </div>
+
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 3. SZERKESZTŐ MÓD */}
       {viewMode === 'EDIT' && (
         <div style={{ background: 'var(--bg-card)', padding: '25px', borderRadius: '12px', border: '1px solid var(--border-main)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
           
@@ -801,25 +932,12 @@ export default function Gallery3DView({ user }: { user?: any }) {
             </div>
           </div>
 
-          {/* KIÁLLÍTÁSI CSOMAG VÁLASZTÓ */}
           <div>
             <label style={{ display: 'block', color: 'var(--text-title)', fontWeight: 'bold', marginBottom: '10px' }}>
               <Award size={16} inline /> Válassz Kiállítási Csomagot (Fotók száma & Tér):
             </label>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '12px' }}>
-              
-              <div 
-                onClick={() => {
-                  setMaxAllowedPhotos(10);
-                  if (selectedPhotos.length > 10) setSelectedPhotos(prev => prev.slice(0, 10));
-                }}
-                style={{ 
-                  padding: '16px', borderRadius: '10px', 
-                  border: maxAllowedPhotos === 10 ? '2px solid #a78bfa' : '1px solid var(--border-main)', 
-                  background: maxAllowedPhotos === 10 ? 'rgba(167,139,250,0.1)' : 'var(--bg-main)', 
-                  cursor: 'pointer' 
-                }}
-              >
+              <div onClick={() => { setMaxAllowedPhotos(10); if (selectedPhotos.length > 10) setSelectedPhotos(prev => prev.slice(0, 10)); }} style={{ padding: '16px', borderRadius: '10px', border: maxAllowedPhotos === 10 ? '2px solid #a78bfa' : '1px solid var(--border-main)', background: maxAllowedPhotos === 10 ? 'rgba(167,139,250,0.1)' : 'var(--bg-main)', cursor: 'pointer' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                   <strong style={{ color: 'var(--text-title)', fontSize: '1.05rem' }}>🏢 Alap Galéria</strong>
                   <span style={{ background: '#10b98120', color: '#10b981', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' }}>0 Pont / Ingyenes</span>
@@ -827,15 +945,7 @@ export default function Gallery3DView({ user }: { user?: any }) {
                 <small style={{ color: 'var(--text-muted)' }}>1 Terem • Max. 10 fotó elhelyezése</small>
               </div>
 
-              <div 
-                onClick={() => { setMaxAllowedPhotos(20); }}
-                style={{ 
-                  padding: '16px', borderRadius: '10px', 
-                  border: maxAllowedPhotos === 20 ? '2px solid #a78bfa' : '1px solid var(--border-main)', 
-                  background: maxAllowedPhotos === 20 ? 'rgba(167,139,250,0.1)' : 'var(--bg-main)', 
-                  cursor: 'pointer' 
-                }}
-              >
+              <div onClick={() => { setMaxAllowedPhotos(20); }} style={{ padding: '16px', borderRadius: '10px', border: maxAllowedPhotos === 20 ? '2px solid #a78bfa' : '1px solid var(--border-main)', background: maxAllowedPhotos === 20 ? 'rgba(167,139,250,0.1)' : 'var(--bg-main)', cursor: 'pointer' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                   <strong style={{ color: 'var(--text-title)', fontSize: '1.05rem' }}>🏛️ Kétszárnyú Tárlat</strong>
                   <span style={{ background: '#f59e0b20', color: '#f59e0b', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' }}>200 Pont</span>
@@ -843,26 +953,16 @@ export default function Gallery3DView({ user }: { user?: any }) {
                 <small style={{ color: 'var(--text-muted)' }}>2 Terem (Átjáróval) • Max. 20 fotó</small>
               </div>
 
-              <div 
-                onClick={() => { setMaxAllowedPhotos(30); }}
-                style={{ 
-                  padding: '16px', borderRadius: '10px', 
-                  border: maxAllowedPhotos === 30 ? '2px solid #a78bfa' : '1px solid var(--border-main)', 
-                  background: maxAllowedPhotos === 30 ? 'rgba(167,139,250,0.1)' : 'var(--bg-main)', 
-                  cursor: 'pointer' 
-                }}
-              >
+              <div onClick={() => { setMaxAllowedPhotos(30); }} style={{ padding: '16px', borderRadius: '10px', border: maxAllowedPhotos === 30 ? '2px solid #a78bfa' : '1px solid var(--border-main)', background: maxAllowedPhotos === 30 ? 'rgba(167,139,250,0.1)' : 'var(--bg-main)', cursor: 'pointer' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                   <strong style={{ color: 'var(--text-title)', fontSize: '1.05rem' }}>🏰 Nagy Kiállítócsarnok</strong>
                   <span style={{ background: '#ef444420', color: '#ef4444', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' }}>400 Pont</span>
                 </div>
                 <small style={{ color: 'var(--text-muted)' }}>3 Múzeumi Szárny • Max. 30 fotó</small>
               </div>
-
             </div>
           </div>
 
-          {/* STÍLUS VÁLASZTÓ */}
           <div>
             <label style={{ display: 'block', color: 'var(--text-title)', fontWeight: 'bold', marginBottom: '10px' }}>
               <Palette size={16} inline /> Kiállítóterem Stílusa & Hangulata:
@@ -872,15 +972,9 @@ export default function Gallery3DView({ user }: { user?: any }) {
                 const theme = GALLERY_THEMES[key];
                 const isSelected = galleryTheme === key;
                 return (
-                  <div 
-                    key={key} 
-                    onClick={() => setGalleryTheme(key)}
-                    style={{ padding: '14px', borderRadius: '10px', border: isSelected ? '2px solid #a78bfa' : '1px solid var(--border-main)', background: isSelected ? 'rgba(167,139,250,0.1)' : 'var(--bg-main)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px' }}
-                  >
+                  <div key={key} onClick={() => setGalleryTheme(key)} style={{ padding: '14px', borderRadius: '10px', border: isSelected ? '2px solid #a78bfa' : '1px solid var(--border-main)', background: isSelected ? 'rgba(167,139,250,0.1)' : 'var(--bg-main)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <span style={{ fontSize: '1.5rem' }}>{theme.icon}</span>
-                    <div>
-                      <strong style={{ display: 'block', color: 'var(--text-title)', fontSize: '0.9rem' }}>{theme.name}</strong>
-                    </div>
+                    <strong style={{ color: 'var(--text-title)', fontSize: '0.9rem' }}>{theme.name}</strong>
                   </div>
                 );
               })}
@@ -892,9 +986,7 @@ export default function Gallery3DView({ user }: { user?: any }) {
             <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '15px' }}>Kiválasztva: <b>{selectedPhotos.length}</b> / {maxAllowedPhotos} fotó</p>
             
             {myPortfolioPhotos.length === 0 ? (
-              <div style={{ padding: '30px', textAlign: 'center', background: 'var(--bg-main)', borderRadius: '8px', border: '1px dashed var(--border-main)', color: 'var(--text-muted)' }}>
-                Még nincs feltöltött fotód a Portfóliódban.
-              </div>
+              <div style={{ padding: '30px', textAlign: 'center', background: 'var(--bg-main)', borderRadius: '8px', border: '1px dashed var(--border-main)', color: 'var(--text-muted)' }}>Még nincs feltöltött fotód a Portfóliódban.</div>
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '15px' }}>
                 {myPortfolioPhotos.map((photo, idx) => {
