@@ -149,26 +149,24 @@ function WalkingController({
   return null;
 }
 
-// 🎯 TÖLTÉSJELZŐVEL ELLÁTOTT KERET KOMPONENS
-function ArtworkFrame({ position, rotation, url, driveFileId, title, themeConfig, onClick, onLoaded }: any) {
+function ArtworkFrame({ position, rotation, url, title, themeConfig, onClick }: any) {
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
   const [dims, setDims] = useState<{ pWidth: number; pHeight: number }>({ pWidth: 2.8, pHeight: 1.9 });
 
   useEffect(() => {
-    if (!url && !driveFileId) {
-      onLoaded?.();
-      return;
-    }
+    if (!url) return;
     let isMounted = true;
     let currentTexture: THREE.Texture | null = null;
 
-    const applyTextureWithAspect = (loaded: THREE.Texture) => {
+    const loader = new THREE.TextureLoader();
+    loader.setCrossOrigin('anonymous');
+
+    loader.load(url, (loaded) => {
       if (!isMounted) {
         loaded.dispose();
         return;
       }
       loaded.colorSpace = THREE.SRGBColorSpace;
-      loaded.needsUpdate = true;
       currentTexture = loaded;
 
       const img = loaded.image;
@@ -189,63 +187,13 @@ function ArtworkFrame({ position, rotation, url, driveFileId, title, themeConfig
         setDims({ pWidth: w, pHeight: h });
       }
       setTexture(loaded);
-      onLoaded?.();
-    };
-
-    const loadTextureWithFallback = async () => {
-      let proxyQuery = '';
-      if (driveFileId) {
-        proxyQuery = `fileId=${encodeURIComponent(driveFileId)}`;
-      } else if (url) {
-        proxyQuery = `url=${encodeURIComponent(url)}`;
-      }
-
-      let loadedBase64 = '';
-      if (proxyQuery) {
-        try {
-          const res = await fetch(`${BACKEND_URL}/api/public/image-proxy?${proxyQuery}`);
-          if (res.ok) {
-            const data = await res.json();
-            if (data.base64) loadedBase64 = data.base64;
-          }
-        } catch (e) {}
-      }
-
-      const loader = new THREE.TextureLoader();
-      loader.setCrossOrigin('anonymous');
-
-      const targetToLoad = loadedBase64 || url;
-
-      if (targetToLoad) {
-        loader.load(
-          targetToLoad,
-          (loaded) => applyTextureWithAspect(loaded),
-          undefined,
-          () => {
-            if (url && targetToLoad !== url) {
-              loader.load(
-                url, 
-                (fallbackLoaded) => applyTextureWithAspect(fallbackLoaded),
-                undefined,
-                () => onLoaded?.()
-              );
-            } else {
-              onLoaded?.();
-            }
-          }
-        );
-      } else {
-        onLoaded?.();
-      }
-    };
-
-    loadTextureWithFallback();
+    });
 
     return () => { 
       isMounted = false; 
       if (currentTexture) currentTexture.dispose();
     };
-  }, [url, driveFileId]);
+  }, [url]);
 
   const { pWidth, pHeight } = dims;
   const frameWidth = pWidth + 0.35;
@@ -291,7 +239,7 @@ function ArtworkFrame({ position, rotation, url, driveFileId, title, themeConfig
   );
 }
 
-function GalleryRoom({ photos, themeName, onSelectPhoto, onPhotoLoaded }: { photos: any[]; themeName?: string; onSelectPhoto: (p: any) => void; onPhotoLoaded?: () => void }) {
+function GalleryRoom({ photos, themeName, onSelectPhoto }: { photos: any[]; themeName?: string; onSelectPhoto: (p: any) => void }) {
   const theme = GALLERY_THEMES[themeName || 'modern'] || GALLERY_THEMES.modern;
   const safePhotos = Array.isArray(photos) ? photos : [];
   const count = safePhotos.length;
@@ -369,18 +317,16 @@ function GalleryRoom({ photos, themeName, onSelectPhoto, onPhotoLoaded }: { phot
 
       {safePhotos.map((photo, i) => {
         if (i >= wallPositions.length) return null;
-        const photoUrl = resolvePhotoUrl(photo);
+        const photoUrl = photo.resolvedBase64Url || resolvePhotoUrl(photo);
         return (
           <ArtworkFrame
             key={photo.id || photo.drive_file_id || photoUrl || i}
             position={wallPositions[i]}
             rotation={wallRotations[i]}
             url={photoUrl}
-            driveFileId={photo.drive_file_id}
             title={photo.title}
             themeConfig={theme}
             onClick={() => onSelectPhoto({ ...photo, file_url: photoUrl })}
-            onLoaded={onPhotoLoaded}
           />
         );
       })}
@@ -416,34 +362,57 @@ export default function Gallery3DView({ user }: { user?: any }) {
   const [isPostingComment, setIsPostingComment] = useState(false);
   const [isLoadingInteractions, setIsLoadingInteractions] = useState(false);
 
-  // 🎯 3D TÁRLAT BEÁLLÍTÁSI & TÖLTÉSI ÁLLAPOTOK
-  const [loadedTexturesCount, setLoadedTexturesCount] = useState<number>(0);
-  const [is3DReady, setIs3DReady] = useState<boolean>(false);
+  // 🎯 GYORS PÁRHUZAMOS ELŐZETES TÖLTÉS ÁLLAPOTAI (DOM PRELOAD)
+  const [isPreloading, setIsPreloading] = useState<boolean>(false);
+  const [preloadProgress, setPreloadProgress] = useState<{ current: number; total: number }>({ current: 0, total: 0 });
 
   const controlsRef = useRef<any>(null);
   const [moveState, setMoveState] = useState({ forward: false, back: false, left: false, right: false });
 
-  // Megnyitáskor lenullázzuk a betöltési számlálót
-  useEffect(() => {
-    if (viewMode === 'VIEW_3D' && activeGallery) {
-      setLoadedTexturesCount(0);
-      setIs3DReady(false);
+  // 🚀 GYORS PÁRHUZAMOS KÉPBETÖLTŐ MOTOR (WebGL és CORS mentes)
+  const preloadGalleryPhotos = async (photos: any[]) => {
+    const safePhotos = Array.isArray(photos) ? photos : [];
+    if (safePhotos.length === 0) return [];
 
-      // Tartalék időkorlát (max 8 másodperc), ha valamelyik kép nem töltene be
-      const timer = setTimeout(() => setIs3DReady(true), 8000);
-      return () => clearTimeout(timer);
-    }
-  }, [viewMode, activeGallery]);
+    setIsPreloading(true);
+    setPreloadProgress({ current: 0, total: safePhotos.length });
 
-  const handleFrameTextureLoaded = () => {
-    setLoadedTexturesCount(prev => {
-      const nextCount = prev + 1;
-      const totalPhotos = Array.isArray(activeGallery?.photos) ? activeGallery.photos.length : 0;
-      if (totalPhotos > 0 && nextCount >= totalPhotos) {
-        setIs3DReady(true);
-      }
-      return nextCount;
-    });
+    let loadedCount = 0;
+
+    const preloaded = await Promise.all(
+      safePhotos.map(async (photo) => {
+        const rawUrl = resolvePhotoUrl(photo);
+        const driveId = photo.drive_file_id;
+
+        let proxyQuery = '';
+        if (driveId) proxyQuery = `fileId=${encodeURIComponent(driveId)}`;
+        else if (rawUrl) proxyQuery = `url=${encodeURIComponent(rawUrl)}`;
+
+        let base64Url = rawUrl;
+        if (proxyQuery) {
+          try {
+            const res = await fetch(`${BACKEND_URL}/api/public/image-proxy?${proxyQuery}`);
+            if (res.ok) {
+              const data = await res.json();
+              if (data.base64) base64Url = data.base64;
+            }
+          } catch (e) {
+            console.warn("Preload proxy hiba:", e);
+          }
+        }
+
+        loadedCount++;
+        setPreloadProgress({ current: loadedCount, total: safePhotos.length });
+
+        return {
+          ...photo,
+          resolvedBase64Url: base64Url
+        };
+      })
+    );
+
+    setIsPreloading(false);
+    return preloaded;
   };
 
   useEffect(() => {
@@ -456,18 +425,23 @@ export default function Gallery3DView({ user }: { user?: any }) {
 
       fetch(`${BACKEND_URL}/api/public/3d-gallery/${targetToken}`)
         .then(res => res.json())
-        .then(data => {
+        .then(async data => {
           if (data && !data.error) {
-            setActiveGallery(data);
+            setLoading(false);
+            const preloadedPhotos = await preloadGalleryPhotos(data.photos || []);
+            setActiveGallery({ ...data, photos: preloadedPhotos });
             setMode('VIEW_3D');
             loadInteractionsPublic(targetToken);
           } else {
             alert(data?.error || 'A kiállítás nem található.');
             setMode('DIRECTORY');
+            setLoading(false);
           }
         })
-        .catch(err => console.error("Hiba a public tárlat töltésekor:", err))
-        .finally(() => setLoading(false));
+        .catch(err => {
+          console.error("Hiba a public tárlat töltésekor:", err);
+          setLoading(false);
+        });
     } else {
       loadData();
     }
@@ -542,7 +516,8 @@ export default function Gallery3DView({ user }: { user?: any }) {
   };
 
   const handleOpen3D = async (gal: any) => {
-    setActiveGallery(gal);
+    const preloadedPhotos = await preloadGalleryPhotos(gal.photos || []);
+    setActiveGallery({ ...gal, photos: preloadedPhotos });
     setMode('VIEW_3D');
 
     if (user) {
@@ -698,8 +673,7 @@ export default function Gallery3DView({ user }: { user?: any }) {
 
   if (loading) return <VideoLoader />;
 
-  const totalPhotosInGallery = Array.isArray(activeGallery?.photos) ? activeGallery.photos.length : 0;
-  const progressPercent = totalPhotosInGallery > 0 ? Math.min(100, Math.round((loadedTexturesCount / totalPhotosInGallery) * 100)) : 100;
+  const progressPercent = preloadProgress.total > 0 ? Math.min(100, Math.round((preloadProgress.current / preloadProgress.total) * 100)) : 100;
 
   return (
     <div style={{ width: '100%', maxWidth: isPublicMode ? '100vw' : '1200px', margin: '0 auto', padding: isPublicMode ? '0' : '10px' }}>
@@ -889,14 +863,13 @@ export default function Gallery3DView({ user }: { user?: any }) {
           border: isPublicMode ? 'none' : '1px solid var(--border-main)' 
         }}>
 
-          {/* 🎯 TÖLTŐKÉPERNYŐ OVERLAY AMÍG A TEXTÚRÁK ÉS A TÉR EL NEM KÉSZÜLNEK */}
-          {!is3DReady && (
+          {/* 🎯 KÖZVETLEN DOM TÖLTŐKÉPERNYŐ OVERLAY - MOZDÍTÁS NÉLKÜL TÖLT A MÁSODPERC TÖREDÉKE ALATT */}
+          {isPreloading && (
             <div style={{
               position: 'absolute',
               inset: 0,
-              background: 'rgba(2, 6, 23, 0.96)',
-              backdropFilter: 'blur(12px)',
-              zIndex: 9999,
+              background: '#020617',
+              zIndex: 99999,
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
@@ -904,21 +877,20 @@ export default function Gallery3DView({ user }: { user?: any }) {
               padding: '20px',
               textAlign: 'center'
             }}>
-              <div style={{ fontSize: '3rem', marginBottom: '15px', animation: 'appSplashPulse 1.5s infinite' }}>🎨</div>
+              <div style={{ fontSize: '3rem', marginBottom: '15px' }}>🎨</div>
               <h3 style={{ margin: '0 0 8px 0', color: '#a78bfa', fontSize: '1.4rem', fontWeight: 900 }}>
-                3D Kiállítótér Berendezése...
+                Kiállítás Berendezése...
               </h3>
               <p style={{ margin: '0 0 20px 0', color: '#94a3b8', fontSize: '0.9rem' }}>
-                Fotók feldolgozása és keretek rögzítése ({loadedTexturesCount} / {totalPhotosInGallery} fotó)
+                Fotók előkészítése ({preloadProgress.current} / {preloadProgress.total})
               </p>
 
-              {/* Folyamatjelző sáv */}
               <div style={{ width: '260px', height: '8px', background: '#1e293b', borderRadius: '4px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' }}>
                 <div style={{
                   height: '100%',
                   width: `${progressPercent}%`,
                   background: 'linear-gradient(90deg, #a78bfa, #38bdf8)',
-                  transition: 'width 0.3s ease-in-out'
+                  transition: 'width 0.2s ease-out'
                 }} />
               </div>
             </div>
@@ -930,7 +902,6 @@ export default function Gallery3DView({ user }: { user?: any }) {
               photos={Array.isArray(activeGallery.photos) ? activeGallery.photos : []} 
               themeName={activeGallery.theme} 
               onSelectPhoto={(p) => setActivePhotoModal(p)} 
-              onPhotoLoaded={handleFrameTextureLoaded}
             />
             <OrbitControls 
               ref={controlsRef} 
