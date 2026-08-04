@@ -69,6 +69,12 @@ if (typeof window !== 'undefined') {
   const originalFetch = window.fetch;
 
   const triggerDashboardFallback = () => {
+    // Ha publikus 3D tárlaton vagyunk, NEM irányítunk át a Dashboardra!
+    if (window.location.pathname.includes('3d_gallery')) {
+      console.warn("⚠️ 3D Tárlat betöltési hiba, kihagyjuk a Dashboard átirányítást.");
+      return;
+    }
+
     if (window.location.pathname !== '/dashboard' && window.location.pathname !== '/') {
       console.error("🔄 Kritikus szerverhiba észlelve. Kimenekítés a Dashboardra...");
       window.location.href = '/dashboard';
@@ -245,9 +251,11 @@ function MainContent() {
 
   const [fullscreenData, setFullscreenData] = useState<any>(null);
 
-  // 🎯 MEGOSZTOTT NYILVÁNOS 3D TÁRLAT LINK DETEKTÁLÁSA
+  // 🎯 MEGOSZTOTT NYILVÁNOS 3D TÁRLAT LINK RUGALMAS DETEKTÁLÁSA (token, id vagy public paraméter)
   const urlParams = new URLSearchParams(location.search);
-  const isPublicGalleryLink = location.pathname.includes('3d_gallery') && urlParams.has('id');
+  const isPublicGalleryLink = location.pathname.includes('3d_gallery') && (
+    urlParams.has('token') || urlParams.has('id') || urlParams.has('public')
+  );
 
   const fetchData = async (retryCount = 0) => {
     const token = localStorage.getItem('photoAppToken');
@@ -657,7 +665,7 @@ function MainContent() {
         </div>
       ) : null}
 
-      {/* 🎯 NYILVÁNOS TÁRLAT KIVÉTEL A BEJELENTKEZÉSI KAPUNÁL */}
+      {/* 🎯 NYILVÁNOS TÁRLAT KIVÉTEL A BEJELENTKEZÉSI KAPUNÁL (NEM IRÁNYÍT ÁT A LOGINSCREEN-RE) */}
       {!user && !isPublicGalleryLink ? (
         <LoginScreen onLoginSuccess={handleLoginSuccess} />
       ) : !user && isPublicGalleryLink ? (
