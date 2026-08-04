@@ -114,12 +114,21 @@ export default function ContestsView(props: ContestsViewProps) {
   const currentNewClubValue = props.clubs.find(c => String(c.id) === props.newRestrictedClub || c.name === props.newRestrictedClub)?.id || '';
   const currentEditClubValue = props.clubs.find(c => String(c.id) === props.editRestrictedClub || c.name === props.editRestrictedClub)?.id || '';
 
-  const hasRequiredProfileData = useMemo(() => {
-    if (!props.currentDbUser) return false;
-    const hasPhone = !!(props.currentDbUser.phone_number || props.currentDbUser.phone);
-    const hasAddress = !!(props.currentDbUser.shipping_address || props.currentDbUser.address);
-    return hasPhone && hasAddress;
-  }, [props.currentDbUser]);
+ const hasRequiredProfileData = useMemo(() => {
+    const u = props.currentDbUser || props.user;
+    if (!u) return false;
+
+    // Kiszűrjük a snake_case és camelCase elnevezéseket is
+    const phoneVal = String(
+      u.phone_number || u.phone || u.phoneNumber || ''
+    ).trim();
+
+    const addressVal = String(
+      u.shipping_address || u.address || u.shippingAddress || ''
+    ).trim();
+
+    return phoneVal.length > 0 && addressVal.length > 0;
+  }, [props.currentDbUser, props.user]);
 
   // Biztonsági változók a klubtagság állapotához
   const isPending = props.currentDbUser?.club_role === 'pending';
