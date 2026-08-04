@@ -149,12 +149,13 @@ function WalkingController({
   return null;
 }
 
-function ArtworkFrame({ position, rotation, url, title, themeConfig, onClick }: any) {
+// 🎯 GOLYÓÁLLÓ KERET KOMPONENS WEBGEL BASE64 CONVERTERREL
+function ArtworkFrame({ position, rotation, url, driveFileId, title, themeConfig, onClick }: any) {
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
   const [dims, setDims] = useState<{ pWidth: number; pHeight: number }>({ pWidth: 2.8, pHeight: 1.9 });
 
   useEffect(() => {
-    if (!url) return;
+    if (!url && !driveFileId) return;
     let isMounted = true;
     let currentTexture: THREE.Texture | null = null;
 
@@ -188,27 +189,41 @@ function ArtworkFrame({ position, rotation, url, title, themeConfig, onClick }: 
     };
 
     const loadTextureWithFallback = async () => {
-      let targetUrl = url;
+      let proxyQuery = '';
+      if (driveFileId) {
+        proxyQuery = `fileId=${encodeURIComponent(driveFileId)}`;
+      } else if (url) {
+        proxyQuery = `url=${encodeURIComponent(url)}`;
+      }
 
-      try {
-        const res = await fetch(`${BACKEND_URL}/api/public/image-proxy?url=${encodeURIComponent(url)}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.base64) targetUrl = data.base64;
-        }
-      } catch (e) {}
+      let loadedBase64 = '';
+      if (proxyQuery) {
+        try {
+          const res = await fetch(`${BACKEND_URL}/api/public/image-proxy?${proxyQuery}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.base64) loadedBase64 = data.base64;
+          }
+        } catch (e) {}
+      }
 
       const loader = new THREE.TextureLoader();
       loader.setCrossOrigin('anonymous');
 
-      loader.load(
-        targetUrl,
-        (loaded) => applyTextureWithAspect(loaded),
-        undefined,
-        () => {
-          loader.load(url, (fallbackLoaded) => applyTextureWithAspect(fallbackLoaded));
-        }
-      );
+      const targetToLoad = loadedBase64 || url;
+
+      if (targetToLoad) {
+        loader.load(
+          targetToLoad,
+          (loaded) => applyTextureWithAspect(loaded),
+          undefined,
+          () => {
+            if (url && targetToLoad !== url) {
+              loader.load(url, (fallbackLoaded) => applyTextureWithAspect(fallbackLoaded));
+            }
+          }
+        );
+      }
     };
 
     loadTextureWithFallback();
@@ -217,7 +232,7 @@ function ArtworkFrame({ position, rotation, url, title, themeConfig, onClick }: 
       isMounted = false; 
       if (currentTexture) currentTexture.dispose();
     };
-  }, [url]);
+  }, [url, driveFileId]);
 
   const { pWidth, pHeight } = dims;
   const frameWidth = pWidth + 0.35;
@@ -344,10 +359,11 @@ function GalleryRoom({ photos, themeName, onSelectPhoto }: { photos: any[]; them
         const photoUrl = resolvePhotoUrl(photo);
         return (
           <ArtworkFrame
-            key={photo.id || photoUrl || i}
+            key={photo.id || photo.drive_file_id || photoUrl || i}
             position={wallPositions[i]}
             rotation={wallRotations[i]}
             url={photoUrl}
+            driveFileId={photo.drive_file_id}
             title={photo.title}
             themeConfig={theme}
             onClick={() => onSelectPhoto({ ...photo, file_url: photoUrl })}
@@ -378,7 +394,6 @@ export default function Gallery3DView({ user }: { user?: any }) {
   const [activePhotoModal, setActivePhotoModal] = useState<any | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  // 🎯 VENDÉGKÖNYV ÁLLAPOTOK
   const [showInteractionsModal, setShowInteractionsModal] = useState(false);
   const [guestbookEntries, setGuestbookEntries] = useState<any[]>([]);
   const [visitorsList, setVisitorsList] = useState<any[]>([]);
@@ -891,7 +906,7 @@ export default function Gallery3DView({ user }: { user?: any }) {
         </div>
       )}
 
-      {/* VENDÉGKÖNYV ÉS LÁTOGATÓI JEGYZÉK MODÁL */}
+      {/* VENDÉGKÖNYV MODÁL */}
       {showInteractionsModal && (
         <div onClick={() => setShowInteractionsModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 99999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
           <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', borderRadius: '12px', width: '100%', maxWidth: '650px', maxHeight: '85vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
