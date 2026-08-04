@@ -86,32 +86,44 @@ module.exports = function(app, pool) {
           g.*, 
           COALESCE(u.name, 'Fotóművész') as photographer_name, 
           u.avatar_url, 
-          u.club_name,
-          c.drive_logo_id,
-          c.logo_url,
-          (SELECT COUNT(*) FROM gallery_visitors WHERE gallery_id = g.id) as visitor_count,
-          (SELECT COUNT(*) FROM gallery_guestbook WHERE gallery_id = g.id) as comment_count
+          u.club_name
         FROM user_3d_galleries g
         LEFT JOIN photo_users u ON LOWER(g.user_email) = LOWER(u.email)
-        LEFT JOIN photo_clubs c ON u.club_name = c.name
-        WHERE g.visibility IS NULL OR g.visibility = '' OR g.visibility = 'public'
+        WHERE g.visibility IS NULL 
+           OR g.visibility = '' 
+           OR g.visibility = 'public'
            OR (g.visibility = 'club' AND u.club_name IS NOT NULL AND u.club_name = ?)
            OR LOWER(g.user_email) = LOWER(?)
         ORDER BY g.updated_at DESC
       `, [myClubName, req.user.email]);
 
-      const formatted = (rows || []).map(gal => {
+      const formatted = await Promise.all((rows || []).map(async (gal) => {
         let photos = [];
         try { 
           photos = typeof gal.photos_json === 'string' ? JSON.parse(gal.photos_json) : (gal.photos_json || []); 
           if (typeof photos === 'string') photos = JSON.parse(photos);
         } catch(e){ photos = []; }
-        return { ...gal, photos: Array.isArray(photos) ? photos : [] };
-      });
+
+        let visitor_count = 0;
+        let comment_count = 0;
+        try {
+          const [[vRow]] = await pool.query('SELECT COUNT(*) as cnt FROM gallery_visitors WHERE gallery_id = ?', [gal.id]);
+          visitor_count = vRow?.cnt || 0;
+          const [[cRow]] = await pool.query('SELECT COUNT(*) as cnt FROM gallery_guestbook WHERE gallery_id = ?', [gal.id]);
+          comment_count = cRow?.cnt || 0;
+        } catch(e) {}
+
+        return { 
+          ...gal, 
+          visitor_count,
+          comment_count,
+          photos: Array.isArray(photos) ? photos : [] 
+        };
+      }));
 
       res.json(formatted);
     } catch (err) {
-      console.error("❌ Hiba a tárlatok lekérésekor:", err.message);
+      console.error("❌ Hiba a tárlatok lekérésekor:", err);
       res.json([]);
     }
   });
@@ -127,8 +139,7 @@ module.exports = function(app, pool) {
           g.id, g.title, g.theme, g.visibility, g.photos_json, g.updated_at,
           COALESCE(u.name, 'Fotóművész') as photographer_name, 
           u.avatar_url, 
-          u.club_name,
-          (SELECT COUNT(*) FROM gallery_visitors WHERE gallery_id = g.id) as visitor_count
+          u.club_name
         FROM user_3d_galleries g
         LEFT JOIN photo_users u ON LOWER(g.user_email) = LOWER(u.email)
         WHERE g.id = ? AND (g.visibility IS NULL OR g.visibility = '' OR g.visibility = 'public')
@@ -145,6 +156,12 @@ module.exports = function(app, pool) {
         if (typeof photos === 'string') photos = JSON.parse(photos);
       } catch(e){ photos = []; }
 
+      let visitor_count = 0;
+      try {
+        const [[vRow]] = await pool.query('SELECT COUNT(*) as cnt FROM gallery_visitors WHERE gallery_id = ?', [gal.id]);
+        visitor_count = vRow?.cnt || 0;
+      } catch(e) {}
+
       try {
         await pool.query(`
           INSERT INTO gallery_visitors (gallery_id, user_email, visited_at)
@@ -160,12 +177,12 @@ module.exports = function(app, pool) {
         photographer_name: gal.photographer_name,
         avatar_url: gal.avatar_url,
         club_name: gal.club_name,
-        visitor_count: gal.visitor_count,
+        visitor_count,
         photos: Array.isArray(photos) ? photos : []
       });
 
     } catch (err) {
-      console.error("❌ Hiba a nyilvános 3D tárlat lekérésekor:", err.message);
+      console.error("❌ Hiba a nyilvános 3D tárlat lekérésekor:", err);
       res.status(500).json({ error: 'Szerveroldali hiba.' });
     }
   });
