@@ -261,6 +261,61 @@ module.exports = function(app, pool) {
     }
   });
 
+  // ====================================================================
+  // 🌐 NYILVÁNOS (AUTH MENTES) 3D TÁRLAT LEKÉRDEZÉS MEGOSZTÁSHOZ
+  // ====================================================================
+  app.get('/api/public/3d-gallery/:id', async (req, res) => {
+    try {
+      await ensureTableExists();
+      const galleryId = req.params.id;
+
+      const [rows] = await pool.query(`
+        SELECT 
+          g.id, g.title, g.theme, g.visibility, g.photos_json, g.updated_at,
+          COALESCE(u.name, 'Fotóművész') as photographer_name, 
+          u.avatar_url, 
+          u.club_name,
+          (SELECT COUNT(*) FROM gallery_visitors WHERE gallery_id = g.id) as visitor_count
+        FROM user_3d_galleries g
+        LEFT JOIN photo_users u ON LOWER(g.user_email) = LOWER(u.email) COLLATE utf8mb4_general_ci
+        WHERE g.id = ? AND g.visibility = 'public'
+      `, [galleryId]);
+
+      if (!rows || rows.length === 0) {
+        return res.status(404).json({ error: 'A megadott kiállítás nem található vagy nem publikus.' });
+      }
+
+      const gal = rows[0];
+      let photos = [];
+      try { photos = typeof gal.photos_json === 'string' ? JSON.parse(gal.photos_json) : (gal.photos_json || []); } catch(e){}
+
+      // Látogatás csendes rögzítése vendégként
+      try {
+        await pool.query(`
+          INSERT INTO gallery_visitors (gallery_id, user_email, visited_at)
+          VALUES (?, 'guest_visitor', NOW())
+          ON DUPLICATE KEY UPDATE visited_at = NOW()
+        `, [galleryId]);
+      } catch(e) {}
+
+      // KIZÁRÓLAG BIZTONSÁGOS NYILVÁNOS ADATOKAT ADUNK VISSZA!
+      res.json({
+        id: gal.id,
+        title: gal.title,
+        theme: gal.theme,
+        photographer_name: gal.photographer_name,
+        avatar_url: gal.avatar_url,
+        club_name: gal.club_name,
+        visitor_count: gal.visitor_count,
+        photos: photos
+      });
+
+    } catch (err) {
+      console.error("❌ Hiba a nyilvános 3D tárlat lekérésekor:", err.message);
+      res.status(500).json({ error: 'Szerveroldali hiba.' });
+    }
+  });
+  
   // 6. Tárlat törlése
   app.delete('/api/premium/3d-gallery/:id', requireAuth, async (req, res) => {
     try {
