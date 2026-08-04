@@ -121,8 +121,8 @@ module.exports = function(app, pool) {
   });
 
   
-  // ====================================================================
-  // 🎯 Felhasználók listája (Intelligens szűréssel!)
+ // ====================================================================
+  // 🎯 Felhasználók listája (Saját privát adatokkal kiegészítve!)
   // ====================================================================
   app.get('/api/users', requireAuth, async (req, res) => {
     try {
@@ -139,19 +139,79 @@ module.exports = function(app, pool) {
         return res.json(rows);
       }
 
-      const [publicRows] = await pool.query(`
+      // Sima felhasználónál a SAJÁT sorában átengedjük a telefonszámot és a címet is!
+      const [allRows] = await pool.query(`
         SELECT 
           email, name, club_name, club_role, 
           is_premium, premium_level, club_id, 
-          rank_level, avatar_url 
+          rank_level, avatar_url,
+          phone_number, shipping_address, association_id
         FROM photo_users
         ORDER BY name ASC
       `);
-      return res.json(publicRows);
+
+      const authEmail = (req.user.email || '').trim().toLowerCase();
+
+      // Mások privát adatait kimaszkoljuk, a sajátját hiánytalanul meghagyjuk
+      const sanitizedRows = allRows.map(u => {
+        if ((u.email || '').trim().toLowerCase() === authEmail) {
+          return u;
+        }
+        const { phone_number, shipping_address, association_id, ...publicData } = u;
+        return publicData;
+      });
+
+      return res.json(sanitizedRows);
 
     } catch (err) {
       console.error("❌ Hiba a photo_users lekérésekor:", err);
       res.status(500).json({ error: 'Nem sikerült betölteni a felhasználókat.' });
+    }
+  });
+
+  // ====================================================================
+  // 👤 Egy konkrét felhasználó adatlapjának lekérése (Kis/Nagybetű védett)
+  // ====================================================================
+  app.get('/api/users/:email', requireAuth, async (req, res) => {
+    const paramEmail = decodeURIComponent(req.params.email || '').trim().toLowerCase();
+    const authEmail = (req.user.email || '').trim().toLowerCase();
+    
+    if (authEmail !== paramEmail && !req.user.isAdmin) {
+      return res.status(403).json({ error: 'Hozzáférés megtagadva! Mások részletes profilja nem kérhető le.' });
+    }
+
+    try {
+      const [rows] = await pool.query(`
+        SELECT 
+          u.*, 
+          COALESCE(p.ai_count, 0) AS ai_usage_count
+        FROM photo_users u
+        LEFT JOIN (
+          SELECT user_email, COUNT(*) AS ai_count 
+          FROM photo_portfolio 
+          WHERE ai_tags IS NOT NULL 
+            AND TRIM(ai_tags) != '' 
+            AND ai_tags != '[]'
+          GROUP BY user_email
+        ) p ON u.email = p.user_email
+        WHERE LOWER(u.email) = ?
+      `, [paramEmail]);
+      
+      if (rows.length === 0) {
+        return res.status(404).json({ error: 'Felhasználó nem található!' });
+      }
+
+      const userProfile = rows[0];
+      userProfile.ai_usage_count = Number(userProfile.ai_usage_count) || 0;
+
+      if (!req.user.isAdmin) {
+        delete userProfile.stripe_customer_id;
+      }
+
+      res.json(userProfile);
+    } catch (err) {
+      console.error("❌ Hiba az egyéni profil lekérésekor:", err);
+      res.status(500).json({ error: 'Szerveroldali hiba történt.' });
     }
   });
 
