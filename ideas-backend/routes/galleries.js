@@ -81,6 +81,28 @@ module.exports = function(app, pool) {
       console.error("⚠️ 3D Galéria táblák províziós hibája:", e.message);
     }
   }
+  // 🌐 NYILVÁNOS WEBGEL KÉPCONVERTER 3D TÁRLATOKHOZ (CORS-MENTES BASE64)
+  app.get('/api/public/image-proxy', async (req, res) => {
+    const imageUrl = req.query.url;
+    if (!imageUrl) return res.status(400).json({ error: 'Nincs URL megadva.' });
+
+    try {
+      const fetch = (await import('node-fetch')).default;
+      const response = await fetch(imageUrl);
+      
+      if (!response.ok) throw new Error('Kép letöltési hiba');
+
+      const arrayBuffer = await response.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      const contentType = response.headers.get('content-type') || 'image/jpeg';
+      const base64 = `data:${contentType};base64,${buffer.toString('base64')}`;
+
+      res.json({ base64 });
+    } catch (err) {
+      console.error("❌ Kép konvertálási hiba:", err.message);
+      res.status(500).json({ error: 'Nem sikerült konvertálni a képet.' });
+    }
+  });
 
   // 1. Összes elérhető tárlat lekérése
   app.get('/api/3d-galleries', requireAuth, async (req, res) => {
