@@ -14,8 +14,6 @@ import {
 } from 'lucide-react';
 
 const ROBOTO_FONT_URL = "https://fonts.gstatic.com/s/roboto/v18/KFOmCnqEu92Fr1Mu4mxM.woff";
-const [isLoadingInteractions, setIsLoadingInteractions] = useState(false);
-
 
 const GALLERY_THEMES: Record<string, {
   name: string;
@@ -387,6 +385,7 @@ export default function Gallery3DView({ user }: { user?: any }) {
   const [newCommentText, setNewCommentText] = useState('');
   const [guestAuthorName, setGuestAuthorName] = useState('');
   const [isPostingComment, setIsPostingComment] = useState(false);
+  const [isLoadingInteractions, setIsLoadingInteractions] = useState(false);
 
   const controlsRef = useRef<any>(null);
   const [moveState, setMoveState] = useState({ forward: false, back: false, left: false, right: false });
@@ -455,9 +454,9 @@ export default function Gallery3DView({ user }: { user?: any }) {
     }
   };
 
-    const loadInteractions = async (galleryId: number) => {
+  const loadInteractions = async (galleryId: number) => {
     setIsLoadingInteractions(true);
-    setGuestbookEntries([]); // 🎯 Azonnal kiürítjük a korábbi bejegyzéseket!
+    setGuestbookEntries([]);
     try {
       const res = await fetch(`${BACKEND_URL}/api/3d-gallery/${galleryId}/interactions`, { headers: getAuthHeaders() });
       if (res.ok) {
@@ -473,7 +472,7 @@ export default function Gallery3DView({ user }: { user?: any }) {
 
   const loadInteractionsPublic = async (token: string) => {
     setIsLoadingInteractions(true);
-    setGuestbookEntries([]); // 🎯 Azonnal kiürítjük a korábbi bejegyzéseket!
+    setGuestbookEntries([]);
     try {
       const res = await fetch(`${BACKEND_URL}/api/public/3d-gallery/${token}/interactions`);
       if (res.ok) {
@@ -485,7 +484,6 @@ export default function Gallery3DView({ user }: { user?: any }) {
       setIsLoadingInteractions(false);
     }
   };
-
 
   const handleOpen3D = async (gal: any) => {
     setActiveGallery(gal);
@@ -669,10 +667,19 @@ export default function Gallery3DView({ user }: { user?: any }) {
                 </button>
 
                 <button 
-                  onClick={() => setShowInteractionsModal(true)} 
+                  onClick={() => {
+                    if (activeGallery) {
+                      if (user) {
+                        loadInteractions(activeGallery.id);
+                      } else {
+                        loadInteractionsPublic(activeGallery.share_token || activeGallery.id);
+                      }
+                    }
+                    setShowInteractionsModal(true);
+                  }} 
                   style={{ background: '#8b5cf6', color: 'white', border: 'none', padding: '10px 18px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
                 >
-                  <BookOpen size={16} /> Vendégkönyv
+                  <BookOpen size={16} /> Vendégkönyv ({guestbookEntries.length})
                 </button>
               </>
             )}
@@ -847,10 +854,18 @@ export default function Gallery3DView({ user }: { user?: any }) {
             </div>
           </div>
 
-          {/* 🎯 VENDÉGKÖNYV GOMB NYILVÁNOS STANDALONE MÓDBAN IS */}
           <div style={{ position: 'absolute', top: '15px', right: '15px', display: 'flex', gap: '8px' }}>
             <button 
-              onClick={() => setShowInteractionsModal(true)} 
+              onClick={() => {
+                if (activeGallery) {
+                  if (user) {
+                    loadInteractions(activeGallery.id);
+                  } else {
+                    loadInteractionsPublic(activeGallery.share_token || activeGallery.id);
+                  }
+                }
+                setShowInteractionsModal(true);
+              }} 
               style={{ background: '#8b5cf6', color: 'white', border: 'none', padding: '10px 18px', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 15px rgba(139,92,246,0.4)', backdropFilter: 'blur(6px)' }}
             >
               <BookOpen size={16} /> Vendégkönyv ({guestbookEntries.length})
@@ -876,7 +891,7 @@ export default function Gallery3DView({ user }: { user?: any }) {
         </div>
       )}
 
-      {/* 🎯 VENDÉGKÖNYV ÉS LÁTOGATÓI JEGYZÉK MODÁL (BEÉPÍTVE A NYILVÁNOS NÉZETBE IS) */}
+      {/* VENDÉGKÖNYV ÉS LÁTOGATÓI JEGYZÉK MODÁL */}
       {showInteractionsModal && (
         <div onClick={() => setShowInteractionsModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 99999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
           <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', borderRadius: '12px', width: '100%', maxWidth: '650px', maxHeight: '85vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -906,14 +921,22 @@ export default function Gallery3DView({ user }: { user?: any }) {
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '10px' }}>
-                {guestbookEntries.length === 0 ? (
-                  <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Még nincsenek bejegyzések. Írj te először a vendégkönyvbe! ✍️</div>
+                {isLoadingInteractions ? (
+                  <div style={{ padding: '30px', textAlign: 'center', color: '#a78bfa', fontSize: '0.95rem' }}>
+                    ⏳ Vendégkönyvi bejegyzések betöltése...
+                  </div>
+                ) : guestbookEntries.length === 0 ? (
+                  <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                    Még nincsenek bejegyzések. Írj te először a vendégkönyvbe! ✍️
+                  </div>
                 ) : (
                   guestbookEntries.map((e) => (
                     <div key={e.id} style={{ background: 'var(--bg-main)', padding: '12px 16px', borderRadius: '8px', border: '1px solid var(--border-main)' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                         <strong style={{ fontSize: '0.9rem', color: '#38bdf8' }}>{e.user_name}</strong>
-                        <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>{new Date(e.created_at).toLocaleString('hu-HU', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</small>
+                        <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+                          {new Date(e.created_at).toLocaleString('hu-HU', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </small>
                       </div>
                       <p style={{ margin: 0, color: 'var(--text-body)', fontSize: '0.88rem', lineHeight: '1.4' }}>{e.comment_text}</p>
                     </div>
