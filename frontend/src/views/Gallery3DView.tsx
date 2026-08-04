@@ -14,6 +14,8 @@ import {
 } from 'lucide-react';
 
 const ROBOTO_FONT_URL = "https://fonts.gstatic.com/s/roboto/v18/KFOmCnqEu92Fr1Mu4mxM.woff";
+const [isLoadingInteractions, setIsLoadingInteractions] = useState(false);
+
 
 const GALLERY_THEMES: Record<string, {
   name: string;
@@ -453,7 +455,9 @@ export default function Gallery3DView({ user }: { user?: any }) {
     }
   };
 
-  const loadInteractions = async (galleryId: number) => {
+    const loadInteractions = async (galleryId: number) => {
+    setIsLoadingInteractions(true);
+    setGuestbookEntries([]); // 🎯 Azonnal kiürítjük a korábbi bejegyzéseket!
     try {
       const res = await fetch(`${BACKEND_URL}/api/3d-gallery/${galleryId}/interactions`, { headers: getAuthHeaders() });
       if (res.ok) {
@@ -461,18 +465,27 @@ export default function Gallery3DView({ user }: { user?: any }) {
         setGuestbookEntries(data.guestbook || []);
         setVisitorsList(data.visitors || []);
       }
-    } catch (e) {}
+    } catch (e) {
+    } finally {
+      setIsLoadingInteractions(false);
+    }
   };
 
   const loadInteractionsPublic = async (token: string) => {
+    setIsLoadingInteractions(true);
+    setGuestbookEntries([]); // 🎯 Azonnal kiürítjük a korábbi bejegyzéseket!
     try {
       const res = await fetch(`${BACKEND_URL}/api/public/3d-gallery/${token}/interactions`);
       if (res.ok) {
         const data = await res.json();
         setGuestbookEntries(data.guestbook || []);
       }
-    } catch (e) {}
+    } catch (e) {
+    } finally {
+      setIsLoadingInteractions(false);
+    }
   };
+
 
   const handleOpen3D = async (gal: any) => {
     setActiveGallery(gal);
