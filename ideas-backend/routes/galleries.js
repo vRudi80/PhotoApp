@@ -40,7 +40,7 @@ module.exports = function(app, pool) {
           photos_json LONGTEXT NOT NULL,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
           INDEX idx_user_email (user_email)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
       `);
 
       await pool.query(`
@@ -51,7 +51,7 @@ module.exports = function(app, pool) {
           comment_text TEXT NOT NULL,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           INDEX idx_gallery (gallery_id)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
       `);
 
       await pool.query(`
@@ -62,7 +62,7 @@ module.exports = function(app, pool) {
           visited_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
           UNIQUE KEY unique_gallery_visitor (gallery_id, user_email),
           INDEX idx_gallery_vis (gallery_id)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
       `);
 
     } catch (e) {
@@ -70,34 +70,39 @@ module.exports = function(app, pool) {
     }
   }
 
-  // 1. Összes elérhető tárlat lekérése (GOLYÓÁLLÓ LEKÉRDEZÉS)
+  // 1. Összes elérhető tárlat lekérése (SQL COLLATION-PROOF CSOMAGOLÁS)
   app.get('/api/3d-galleries', requireAuth, async (req, res) => {
     try {
       await ensureTableExists();
 
-      let myClubName = '';
-      try {
-        const [userRows] = await pool.query('SELECT club_name FROM photo_users WHERE LOWER(email) = LOWER(?)', [req.user.email]);
-        myClubName = userRows[0]?.club_name || '';
-      } catch(e) {}
+      // 1. Lekérjük a tárlatokat JOIN nélkül (kikerülve a MySQL collation hibát)
+      const [galleries] = await pool.query('SELECT * FROM user_3d_galleries ORDER BY updated_at DESC');
 
-      const [rows] = await pool.query(`
-        SELECT 
-          g.*, 
-          COALESCE(u.name, 'Fotóművész') as photographer_name, 
-          u.avatar_url, 
-          u.club_name
-        FROM user_3d_galleries g
-        LEFT JOIN photo_users u ON LOWER(g.user_email) = LOWER(u.email)
-        WHERE g.visibility IS NULL 
-           OR g.visibility = '' 
-           OR g.visibility = 'public'
-           OR (g.visibility = 'club' AND u.club_name IS NOT NULL AND u.club_name = ?)
-           OR LOWER(g.user_email) = LOWER(?)
-        ORDER BY g.updated_at DESC
-      `, [myClubName, req.user.email]);
+      // 2. Lekérjük a felhasználói profilokat
+      const [users] = await pool.query('SELECT email, name, avatar_url, club_name FROM photo_users');
+      const userMap = new Map();
+      (users || []).forEach(u => {
+        if (u.email) userMap.set(u.email.trim().toLowerCase(), u);
+      });
 
-      const formatted = await Promise.all((rows || []).map(async (gal) => {
+      const currentAuthEmail = (req.user.email || '').trim().toLowerCase();
+      const currentUserObj = userMap.get(currentAuthEmail);
+      const myClubName = currentUserObj?.club_name || '';
+
+      const formatted = await Promise.all((galleries || []).map(async (gal) => {
+        const ownerEmail = (gal.user_email || '').trim().toLowerCase();
+        const uInfo = userMap.get(ownerEmail) || {};
+
+        const vis = (gal.visibility || 'public').trim().toLowerCase();
+        const isOwner = (ownerEmail === currentAuthEmail || req.user.isAdmin);
+        const isPublic = (vis === '' || vis === 'public');
+        const isSameClub = (vis === 'club' && uInfo.club_name && uInfo.club_name === myClubName);
+
+        // Szűrés láthatóság szerint
+        if (!isPublic && !isOwner && !isSameClub) {
+          return null;
+        }
+
         let photos = [];
         try { 
           photos = typeof gal.photos_json === 'string' ? JSON.parse(gal.photos_json) : (gal.photos_json || []); 
@@ -115,13 +120,17 @@ module.exports = function(app, pool) {
 
         return { 
           ...gal, 
+          photographer_name: uInfo.name || 'Fotóművész',
+          avatar_url: uInfo.avatar_url || '',
+          club_name: uInfo.club_name || '',
           visitor_count,
           comment_count,
           photos: Array.isArray(photos) ? photos : [] 
         };
       }));
 
-      res.json(formatted);
+      // Kiszűrjük a null elemeket
+      res.json(formatted.filter(Boolean));
     } catch (err) {
       console.error("❌ Hiba a tárlatok lekérésekor:", err);
       res.json([]);
@@ -134,22 +143,21 @@ module.exports = function(app, pool) {
       await ensureTableExists();
       const galleryId = req.params.id;
 
-      const [rows] = await pool.query(`
-        SELECT 
-          g.id, g.title, g.theme, g.visibility, g.photos_json, g.updated_at,
-          COALESCE(u.name, 'Fotóművész') as photographer_name, 
-          u.avatar_url, 
-          u.club_name
-        FROM user_3d_galleries g
-        LEFT JOIN photo_users u ON LOWER(g.user_email) = LOWER(u.email)
-        WHERE g.id = ? AND (g.visibility IS NULL OR g.visibility = '' OR g.visibility = 'public')
-      `, [galleryId]);
+      const [rows] = await pool.query('SELECT * FROM user_3d_galleries WHERE id = ?', [galleryId]);
 
       if (!rows || rows.length === 0) {
-        return res.status(404).json({ error: 'A megadott kiállítás nem található vagy nem publikus.' });
+        return res.status(404).json({ error: 'A megadott kiállítás nem található.' });
       }
 
       const gal = rows[0];
+      const vis = (gal.visibility || 'public').trim().toLowerCase();
+      if (vis === 'club') {
+        return res.status(403).json({ error: 'Ez egy zárt klubkiállítás.' });
+      }
+
+      const [users] = await pool.query('SELECT email, name, avatar_url, club_name FROM photo_users WHERE LOWER(email) = LOWER(?)', [gal.user_email]);
+      const uInfo = users[0] || {};
+
       let photos = [];
       try { 
         photos = typeof gal.photos_json === 'string' ? JSON.parse(gal.photos_json) : (gal.photos_json || []); 
@@ -174,9 +182,9 @@ module.exports = function(app, pool) {
         id: gal.id,
         title: gal.title,
         theme: gal.theme,
-        photographer_name: gal.photographer_name,
-        avatar_url: gal.avatar_url,
-        club_name: gal.club_name,
+        photographer_name: uInfo.name || 'Fotóművész',
+        avatar_url: uInfo.avatar_url || '',
+        club_name: uInfo.club_name || '',
         visitor_count,
         photos: Array.isArray(photos) ? photos : []
       });
