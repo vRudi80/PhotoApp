@@ -344,33 +344,21 @@ export default function Gallery3DView({ user }: { user?: any }) {
   const [allGalleries, setAllGalleries] = useState<any[]>([]);
   const [activeGallery, setActiveGallery] = useState<any | null>(null);
 
-  const [editingGalleryId, setEditingGalleryId] = useState<number | null>(null);
-  const [galleryTitle, setGalleryTitle] = useState('Saját Virtuális Kiállításom');
-  const [galleryTheme, setGalleryTheme] = useState<string>('modern');
-  const [visibility, setVisibility] = useState<'public' | 'club'>('public');
-  const [maxAllowedPhotos, setMaxAllowedPhotos] = useState<number>(10);
-
-  const [myPortfolioPhotos, setMyPortfolioPhotos] = useState<any[]>([]);
-  const [selectedPhotos, setSelectedPhotos] = useState<any[]>([]);
   const [activePhotoModal, setActivePhotoModal] = useState<any | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
-
-  const [showInteractionsModal, setShowInteractionsModal] = useState(false);
-  const [guestbookEntries, setGuestbookEntries] = useState<any[]>([]);
-  const [visitorsList, setVisitorsList] = useState<any[]>([]);
 
   const controlsRef = useRef<any>(null);
   const [moveState, setMoveState] = useState({ forward: false, back: false, left: false, right: false });
 
+  // 🎯 TITKOS TOKEN / MEGOSZTOTT LINK DETEKTÁLÁSA
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
-    const targetId = urlParams.get('id');
+    const targetToken = urlParams.get('token') || urlParams.get('id');
 
-    if (targetId && (!user || urlParams.get('public') === 'true')) {
+    if (targetToken && (!user || urlParams.get('public') === 'true')) {
       setIsPublicMode(true);
       setLoading(true);
 
-      fetch(`${BACKEND_URL}/api/public/3d-gallery/${targetId}`)
+      fetch(`${BACKEND_URL}/api/public/3d-gallery/${targetToken}`)
         .then(res => res.json())
         .then(data => {
           if (data && !data.error) {
@@ -391,11 +379,7 @@ export default function Gallery3DView({ user }: { user?: any }) {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [listRes, portfolioRes] = await Promise.all([
-        fetch(`${BACKEND_URL}/api/3d-galleries`, { headers: getAuthHeaders() }),
-        fetch(`${BACKEND_URL}/api/my-album?userEmail=${encodeURIComponent(user?.email || '')}`, { headers: getAuthHeaders() })
-      ]);
-
+      const listRes = await fetch(`${BACKEND_URL}/api/3d-galleries`, { headers: getAuthHeaders() });
       let loadedGalleries: any[] = [];
       if (listRes.ok) {
         const data = await listRes.json();
@@ -405,15 +389,10 @@ export default function Gallery3DView({ user }: { user?: any }) {
         setAllGalleries([]);
       }
 
-      if (portfolioRes.ok) {
-        const pData = await portfolioRes.json();
-        setMyPortfolioPhotos(Array.isArray(pData) ? pData : []);
-      }
-
       const urlParams = new URLSearchParams(window.location.search);
-      const targetId = urlParams.get('id');
-      if (targetId && loadedGalleries.length > 0) {
-        const targetGal = loadedGalleries.find((g: any) => String(g.id) === String(targetId));
+      const targetToken = urlParams.get('token') || urlParams.get('id');
+      if (targetToken && loadedGalleries.length > 0) {
+        const targetGal = loadedGalleries.find((g: any) => String(g.share_token) === String(targetToken) || String(g.id) === String(targetToken));
         if (targetGal) handleOpen3D(targetGal);
       }
 
@@ -439,13 +418,15 @@ export default function Gallery3DView({ user }: { user?: any }) {
     }
   };
 
-  const handleShareGallery = (galId: number, e?: React.MouseEvent) => {
+  // 🎯 TITKOS, KITALÁLHATATLAN MEGOSZTÁSI LINK GENERÁLÁSA
+  const handleShareGallery = (gal: any, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    const shareUrl = `${window.location.origin}/3d_gallery?id=${galId}&public=true`;
+    const tokenVal = gal.share_token || gal.id;
+    const shareUrl = `${window.location.origin}/3d_gallery?token=${tokenVal}&public=true`;
     
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(shareUrl)
-        .then(() => alert(lang === 'en' ? 'Direct public link copied! 📋' : '📋 Egyedi nyilvános megosztási link másolva a vágólapra!'))
+        .then(() => alert(lang === 'en' ? 'Unguessable public link copied! 📋' : '📋 Titkosított megosztási link másolva a vágólapra!'))
         .catch(() => prompt(lang === 'en' ? 'Copy this link:' : 'Másold ki a hivatkozást:', shareUrl));
     } else {
       prompt(lang === 'en' ? 'Copy this link:' : 'Másold ki a hivatkozást:', shareUrl);
@@ -473,7 +454,7 @@ export default function Gallery3DView({ user }: { user?: any }) {
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
             {viewMode === 'VIEW_3D' && activeGallery && (
               <button 
-                onClick={() => handleShareGallery(activeGallery.id)} 
+                onClick={() => handleShareGallery(activeGallery)} 
                 style={{ background: 'var(--bg-main)', color: '#38bdf8', border: '1px solid var(--border-main)', padding: '10px 16px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
               >
                 <Share2 size={16} /> Megosztási Link
@@ -553,7 +534,7 @@ export default function Gallery3DView({ user }: { user?: any }) {
                         </button>
 
                         <button 
-                          onClick={(e) => handleShareGallery(gal.id, e)} 
+                          onClick={(e) => handleShareGallery(gal, e)} 
                           style={{ background: 'var(--bg-main)', border: '1px solid var(--border-main)', color: '#38bdf8', padding: '10px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                         >
                           <Share2 size={16} />
