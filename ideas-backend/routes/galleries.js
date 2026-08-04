@@ -1,6 +1,6 @@
 const { OAuth2Client } = require('google-auth-library');
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-const PointsService = require('../PointsService'); // 🎯 Beemeljük a központi pontkezelőt
+const PointsService = require('../PointsService');
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "kovari.rudolf@gmail.com";
 
@@ -70,15 +70,15 @@ module.exports = function(app, pool) {
     }
   }
 
-  // 1. Összes elérhető tárlat lekérése
+  // 1. Összes elérhető tárlat lekérése (GOLYÓÁLLÓ LEKÉRDEZÉS)
   app.get('/api/3d-galleries', requireAuth, async (req, res) => {
     try {
       await ensureTableExists();
 
-      let myClubName = null;
+      let myClubName = '';
       try {
         const [userRows] = await pool.query('SELECT club_name FROM photo_users WHERE LOWER(email) = LOWER(?)', [req.user.email]);
-        myClubName = userRows[0]?.club_name || null;
+        myClubName = userRows[0]?.club_name || '';
       } catch(e) {}
 
       const [rows] = await pool.query(`
@@ -92,18 +92,21 @@ module.exports = function(app, pool) {
           (SELECT COUNT(*) FROM gallery_visitors WHERE gallery_id = g.id) as visitor_count,
           (SELECT COUNT(*) FROM gallery_guestbook WHERE gallery_id = g.id) as comment_count
         FROM user_3d_galleries g
-        LEFT JOIN photo_users u ON LOWER(g.user_email) = LOWER(u.email) COLLATE utf8mb4_general_ci
+        LEFT JOIN photo_users u ON LOWER(g.user_email) = LOWER(u.email)
         LEFT JOIN photo_clubs c ON u.club_name = c.name
-        WHERE g.visibility = 'public'
+        WHERE g.visibility IS NULL OR g.visibility = '' OR g.visibility = 'public'
            OR (g.visibility = 'club' AND u.club_name IS NOT NULL AND u.club_name = ?)
            OR LOWER(g.user_email) = LOWER(?)
         ORDER BY g.updated_at DESC
-      `, [myClubName || '', req.user.email]);
+      `, [myClubName, req.user.email]);
 
       const formatted = (rows || []).map(gal => {
         let photos = [];
-        try { photos = typeof gal.photos_json === 'string' ? JSON.parse(gal.photos_json) : (gal.photos_json || []); } catch(e){}
-        return { ...gal, photos };
+        try { 
+          photos = typeof gal.photos_json === 'string' ? JSON.parse(gal.photos_json) : (gal.photos_json || []); 
+          if (typeof photos === 'string') photos = JSON.parse(photos);
+        } catch(e){ photos = []; }
+        return { ...gal, photos: Array.isArray(photos) ? photos : [] };
       });
 
       res.json(formatted);
@@ -113,7 +116,61 @@ module.exports = function(app, pool) {
     }
   });
 
-  // 2. Látogatás rögzítése
+  // 2. NYILVÁNOS (AUTH MENTES) MEGOSZTÁSI ENDPOINT
+  app.get('/api/public/3d-gallery/:id', async (req, res) => {
+    try {
+      await ensureTableExists();
+      const galleryId = req.params.id;
+
+      const [rows] = await pool.query(`
+        SELECT 
+          g.id, g.title, g.theme, g.visibility, g.photos_json, g.updated_at,
+          COALESCE(u.name, 'Fotóművész') as photographer_name, 
+          u.avatar_url, 
+          u.club_name,
+          (SELECT COUNT(*) FROM gallery_visitors WHERE gallery_id = g.id) as visitor_count
+        FROM user_3d_galleries g
+        LEFT JOIN photo_users u ON LOWER(g.user_email) = LOWER(u.email)
+        WHERE g.id = ? AND (g.visibility IS NULL OR g.visibility = '' OR g.visibility = 'public')
+      `, [galleryId]);
+
+      if (!rows || rows.length === 0) {
+        return res.status(404).json({ error: 'A megadott kiállítás nem található vagy nem publikus.' });
+      }
+
+      const gal = rows[0];
+      let photos = [];
+      try { 
+        photos = typeof gal.photos_json === 'string' ? JSON.parse(gal.photos_json) : (gal.photos_json || []); 
+        if (typeof photos === 'string') photos = JSON.parse(photos);
+      } catch(e){ photos = []; }
+
+      try {
+        await pool.query(`
+          INSERT INTO gallery_visitors (gallery_id, user_email, visited_at)
+          VALUES (?, 'guest_visitor', NOW())
+          ON DUPLICATE KEY UPDATE visited_at = NOW()
+        `, [galleryId]);
+      } catch(e) {}
+
+      res.json({
+        id: gal.id,
+        title: gal.title,
+        theme: gal.theme,
+        photographer_name: gal.photographer_name,
+        avatar_url: gal.avatar_url,
+        club_name: gal.club_name,
+        visitor_count: gal.visitor_count,
+        photos: Array.isArray(photos) ? photos : []
+      });
+
+    } catch (err) {
+      console.error("❌ Hiba a nyilvános 3D tárlat lekérésekor:", err.message);
+      res.status(500).json({ error: 'Szerveroldali hiba.' });
+    }
+  });
+
+  // 3. Látogatás rögzítése
   app.post('/api/3d-gallery/:id/visit', requireAuth, async (req, res) => {
     try {
       await ensureTableExists();
@@ -129,7 +186,7 @@ module.exports = function(app, pool) {
     }
   });
 
-  // 3. Vendégkönyv és Látogatói jegyzék lekérése
+  // 4. Vendégkönyv és Látogatói jegyzék lekérése
   app.get('/api/3d-gallery/:id/interactions', requireAuth, async (req, res) => {
     try {
       await ensureTableExists();
@@ -140,7 +197,7 @@ module.exports = function(app, pool) {
           b.id, b.comment_text, b.created_at, b.user_email,
           COALESCE(u.name, 'Látogató') as user_name, u.avatar_url, u.club_name
         FROM gallery_guestbook b
-        LEFT JOIN photo_users u ON LOWER(b.user_email) = LOWER(u.email) COLLATE utf8mb4_general_ci
+        LEFT JOIN photo_users u ON LOWER(b.user_email) = LOWER(u.email)
         WHERE b.gallery_id = ?
         ORDER BY b.created_at DESC
       `, [galleryId]);
@@ -150,7 +207,7 @@ module.exports = function(app, pool) {
           v.visited_at, v.user_email,
           COALESCE(u.name, 'Látogató') as user_name, u.avatar_url, u.club_name
         FROM gallery_visitors v
-        LEFT JOIN photo_users u ON LOWER(v.user_email) = LOWER(u.email) COLLATE utf8mb4_general_ci
+        LEFT JOIN photo_users u ON LOWER(v.user_email) = LOWER(u.email)
         WHERE v.gallery_id = ?
         ORDER BY v.visited_at DESC
       `, [galleryId]);
@@ -161,7 +218,7 @@ module.exports = function(app, pool) {
     }
   });
 
-  // 4. Új bejegyzés írása a Vendégkönyvbe
+  // 5. Új bejegyzés írása a Vendégkönyvbe
   app.post('/api/3d-gallery/:id/guestbook', requireAuth, async (req, res) => {
     const { comment_text } = req.body;
     if (!comment_text || !comment_text.trim()) {
@@ -181,7 +238,7 @@ module.exports = function(app, pool) {
     }
   });
 
-  // 5. Galéria mentése (KÖZPONTI POINTSSERVICE MOTORRAL)
+  // 6. Galéria mentése
   app.post('/api/premium/3d-gallery/save', requireAuth, async (req, res) => {
     const { id, title, theme, visibility, photos } = req.body;
     const userEmail = req.user.email;
@@ -215,16 +272,14 @@ module.exports = function(app, pool) {
         }
       }
 
-      // Csak a pontkülönbözetet vonjuk le
       const netCost = Math.max(0, requiredPoints - previousCost);
 
-      // 🎯 TRANZAKCIÓBIZTOS PONTLEVONÁS A KÖZPONTI BANKMOTORRAL
       if (netCost > 0) {
         try {
           await PointsService.handleTransaction(
             pool,
             userEmail,
-            -netCost, // Negatív érték = levonás
+            -netCost,
             'buy_3d_gallery_tier',
             id || null,
             `3D Kiállítás bérlés (${photoCount} fotós csomag)`,
@@ -261,62 +316,7 @@ module.exports = function(app, pool) {
     }
   });
 
-  // ====================================================================
-  // 🌐 NYILVÁNOS (AUTH MENTES) 3D TÁRLAT LEKÉRDEZÉS MEGOSZTÁSHOZ
-  // ====================================================================
-  app.get('/api/public/3d-gallery/:id', async (req, res) => {
-    try {
-      await ensureTableExists();
-      const galleryId = req.params.id;
-
-      const [rows] = await pool.query(`
-        SELECT 
-          g.id, g.title, g.theme, g.visibility, g.photos_json, g.updated_at,
-          COALESCE(u.name, 'Fotóművész') as photographer_name, 
-          u.avatar_url, 
-          u.club_name,
-          (SELECT COUNT(*) FROM gallery_visitors WHERE gallery_id = g.id) as visitor_count
-        FROM user_3d_galleries g
-        LEFT JOIN photo_users u ON LOWER(g.user_email) = LOWER(u.email) COLLATE utf8mb4_general_ci
-        WHERE g.id = ? AND g.visibility = 'public'
-      `, [galleryId]);
-
-      if (!rows || rows.length === 0) {
-        return res.status(404).json({ error: 'A megadott kiállítás nem található vagy nem publikus.' });
-      }
-
-      const gal = rows[0];
-      let photos = [];
-      try { photos = typeof gal.photos_json === 'string' ? JSON.parse(gal.photos_json) : (gal.photos_json || []); } catch(e){}
-
-      // Látogatás csendes rögzítése vendégként
-      try {
-        await pool.query(`
-          INSERT INTO gallery_visitors (gallery_id, user_email, visited_at)
-          VALUES (?, 'guest_visitor', NOW())
-          ON DUPLICATE KEY UPDATE visited_at = NOW()
-        `, [galleryId]);
-      } catch(e) {}
-
-      // KIZÁRÓLAG BIZTONSÁGOS NYILVÁNOS ADATOKAT ADUNK VISSZA!
-      res.json({
-        id: gal.id,
-        title: gal.title,
-        theme: gal.theme,
-        photographer_name: gal.photographer_name,
-        avatar_url: gal.avatar_url,
-        club_name: gal.club_name,
-        visitor_count: gal.visitor_count,
-        photos: photos
-      });
-
-    } catch (err) {
-      console.error("❌ Hiba a nyilvános 3D tárlat lekérésekor:", err.message);
-      res.status(500).json({ error: 'Szerveroldali hiba.' });
-    }
-  });
-  
-  // 6. Tárlat törlése
+  // 7. Tárlat törlése
   app.delete('/api/premium/3d-gallery/:id', requireAuth, async (req, res) => {
     try {
       await ensureTableExists();
