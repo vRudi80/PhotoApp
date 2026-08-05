@@ -26,7 +26,7 @@ import {
 } from 'lucide-react';
 
 // Saját háttérkép importálása
-import heroCameraImg from './hero_camera.jpg';
+import heroCameraImg from '../components/hero_camera.jpg';
 
 // Nyelvi kontextus betöltése
 import { useLanguage } from '../context/LanguageContext';
