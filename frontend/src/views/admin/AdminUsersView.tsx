@@ -3,7 +3,6 @@ import { BACKEND_URL } from '../../utils/constants';
 
 interface AdminUsersViewProps {
   allUsers: any[];
-  // Megmarad a prop kompatibilitás miatt
   clubs: any[];
   userClubEdits: Record<string, string>;
   setUserClubEdits: (edits: any) => void;
@@ -12,7 +11,6 @@ interface AdminUsersViewProps {
   saveUserClub: (email: string) => void;
 }
 
-// 🎯 KÖZPONTI AUTH FEJLÉC GENERÁTOR ADMINISZTRÁCIÓS VÉGPONTOKHOZ
 const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
   const token = localStorage.getItem('photoAppToken');
   return {
@@ -32,21 +30,21 @@ export default function AdminUsersView({
 }: AdminUsersViewProps) {
   
   const [searchTerm, setSearchTerm] = useState('');
-  // Helyi felhasználói lista
+  // 🎯 ÚJ: Szűrés csak azokra, akik már legalább egyszer beléptek
+  const [onlyLoggedInUsers, setOnlyLoggedInUsers] = useState(false);
+
   const [localUsers, setLocalUsers] = useState<any[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
-  // Tárhely statisztikák állapota
   const [storageStats, setStorageStats] = useState<Record<string, { count: number, bytes: number }>>({});
   const [isLoadingStats, setIsLoadingStats] = useState(true);
 
-  // 📧 E-MAIL KÜLDŐ ÁLLAPOTOK
+  // E-mail küldő állapotok
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const [emailSubject, setEmailSubject] = useState('');
   const [emailBody, setEmailBody] = useState('');
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const silhouetteAvatar = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23475569'><circle cx='12' cy='8' r='4'/><path d='M12 14c-6.1 0-10 4-10 4v2h20v-2s-3.9-4-10-4z'/></svg>";
 
-  // Felhasználók közvetlen lekérése hitelesítve
   const loadFreshUsersList = async () => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/admin/exclusive-users`, {
@@ -91,7 +89,6 @@ export default function AdminUsersView({
       }
     };
     fetchStorageStats();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const formatExactStorage = (bytes: number) => {
@@ -102,22 +99,30 @@ export default function AdminUsersView({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  // INTELLIGENS KERESŐ ÉS RENDEZŐ MOTOR
+  // 🎯 INTELLIGENS KERESŐ, SZŰRŐ ÉS RENDEZŐ MOTOR
   const processedUsers = useMemo(() => {
-    const filtered = localUsers.filter(u => 
-      (u.name && u.name.toLowerCase().includes(searchTerm.toLowerCase())) || 
-      (u.email && u.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (u.club_name && u.club_name.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
+    const filtered = localUsers.filter(u => {
+      // 1. Kereső kifejezés illesztése
+      const matchesSearch = 
+        (u.name && u.name.toLowerCase().includes(searchTerm.toLowerCase())) || 
+        (u.email && u.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (u.club_name && u.club_name.toLowerCase().includes(searchTerm.toLowerCase()));
+
+      // 2. Bejelentkezési szűrő (ha be van kapcsolva, csak a last_login-nal rendelkezőket tartja meg)
+      const hasLoggedIn = Boolean(u.last_login && u.last_login !== '' && new Date(u.last_login).getTime() > 0);
+      const matchesLoggedInFilter = !onlyLoggedInUsers || hasLoggedIn;
+
+      return matchesSearch && matchesLoggedInFilter;
+    });
 
     return [...filtered].sort((a, b) => {
       const timeA = a.last_login ? new Date(a.last_login).getTime() : 0;
       const timeB = b.last_login ? new Date(b.last_login).getTime() : 0;
       return timeB - timeA; 
     });
-  }, [localUsers, searchTerm]);
+  }, [localUsers, searchTerm, onlyLoggedInUsers]);
 
-  // 🎯 ÚJ: IDŐRENDI REGISZTRÁCIÓS STATISZTIKA SZÁMÍTÁSA A CHART-HOZ
+  // Regisztrációs chart adatok
   const chartData = useMemo(() => {
     if (!localUsers || localUsers.length === 0) return [];
     
@@ -130,12 +135,10 @@ export default function AdminUsersView({
       const d = new Date(dateRaw);
       if (isNaN(d.getTime())) return;
       
-      // Csoportosítás Év-Hónap szerint (Pl.: "2026. 03.")
       const label = d.toLocaleDateString('hu-HU', { year: 'numeric', month: '2-digit' });
       monthlyGroups[label] = (monthlyGroups[label] || 0) + 1;
     });
 
-    // Időrendi sorrendbe rendezzük a kulcsokat
     return Object.entries(monthlyGroups)
       .map(([date, count]) => ({ date, count }))
       .sort((a, b) => {
@@ -145,10 +148,9 @@ export default function AdminUsersView({
         };
         return parseDate(a.date) - parseDate(b.date);
       })
-      .slice(-8); // Az utolsó 8 aktív hónap megjelenítése a túlnyúlás ellen
+      .slice(-8);
   }, [localUsers]);
 
-  // Legmagasabb regisztrációs érték megkeresése a chart skálázásához
   const maxChartValue = useMemo(() => {
     const counts = chartData.map(d => d.count);
     return counts.length > 0 ? Math.max(...counts, 5) : 5;
@@ -202,7 +204,6 @@ export default function AdminUsersView({
     }
   };
 
-  // 📧 E-MAIL KÜLDŐ FÜGGVÉNY
   const handleSendBulkEmail = async () => {
     if (!emailSubject.trim() || !emailBody.trim()) {
       return alert("Kérlek, töltsd ki a tárgyat és az üzenetet is!");
@@ -240,6 +241,8 @@ export default function AdminUsersView({
     }
   };
 
+  const loggedInCount = localUsers.filter(u => Boolean(u.last_login)).length;
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
@@ -249,13 +252,13 @@ export default function AdminUsersView({
           onClick={() => setIsEmailModalOpen(true)}
           style={{ background: 'linear-gradient(135deg, #3b82f6, #2563eb)', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)' }}
         >
-          📧 E-mail küldése
+          📧 E-mail küldése ({processedUsers.length} főnek)
         </button>
       </div>
       
       {/* Statisztika és Kereső sáv */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#1e293b', padding: '15px 20px', borderRadius: '12px', marginBottom: '20px', border: '1px solid #334155', flexWrap: 'wrap', gap: '15px' }}>
-        <div style={{ display: 'flex', gap: '20px' }}>
+        <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#f59e0b' }}>{localUsers.length}</div>
             <div style={{ fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase' }}>Összes regisztrált</div>
@@ -270,16 +273,29 @@ export default function AdminUsersView({
           </div>
         </div>
         
-        <input 
-          type="text" 
-          placeholder="🔍 Szűrés név, email vagy klub alapján..." 
-          value={searchTerm}
-          onChange={e => setSearchTerm(e.target.value)}
-          style={{ padding: '8px 15px', borderRadius: '8px', border: '1px solid #475569', background: '#0f172a', color: 'white', minWidth: '350px', outline: 'none' }}
-        />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
+          {/* 🎯 ÚJ: LÁTHATÓ SZŰRŐ CHECKBOX A BELÉPETT FELHASZNÁLÓKHOZ */}
+          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#f8fafc', background: '#0f172a', padding: '8px 14px', borderRadius: '8px', border: '1px solid #475569', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '600' }}>
+            <input 
+              type="checkbox" 
+              checked={onlyLoggedInUsers} 
+              onChange={e => setOnlyLoggedInUsers(e.target.checked)}
+              style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#3b82f6' }}
+            />
+            <span>🔑 Csak akik beléptek ({loggedInCount} fő)</span>
+          </label>
+
+          <input 
+            type="text" 
+            placeholder="🔍 Szűrés név, email vagy klub alapján..." 
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            style={{ padding: '8px 15px', borderRadius: '8px', border: '1px solid #475569', background: '#0f172a', color: 'white', minWidth: '300px', outline: 'none' }}
+          />
+        </div>
       </div>
 
-      {/* 🎯 ÚJ: NATÍV RESPONSIVE SVG REGISZTRÁCIÓS CHART PANEL */}
+      {/* Regisztrációs Chart Panel */}
       {chartData.length > 0 && (
         <div style={{ background: '#1e293b', border: '1px solid #334155', padding: '20px 24px', borderRadius: '12px', marginBottom: '20px', boxShadow: '0 4px 6px rgba(0,0,0,0.2)' }}>
           <h4 style={{ margin: '0 0 16px 0', fontSize: '0.9rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -288,26 +304,22 @@ export default function AdminUsersView({
           
           <div style={{ width: '100%', height: '180px', position: 'relative' }}>
             <svg viewBox="0 0 800 180" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
-              {/* Vízszintes háttér rácsvonalak */}
               <line x1="0" y1="20" x2="800" y2="20" stroke="#334155" strokeWidth="1" strokeDasharray="4" />
               <line x1="0" y1="70" x2="800" y2="70" stroke="#334155" strokeWidth="1" strokeDasharray="4" />
               <line x1="0" y1="120" x2="800" y2="120" stroke="#334155" strokeWidth="1" strokeDasharray="4" />
               <line x1="0" y1="150" x2="800" y2="150" stroke="#475569" strokeWidth="1" />
 
-              {/* Oszlopok kirajzolása és skálázása */}
               {chartData.map((data, idx) => {
                 const totalBars = chartData.length;
                 const spacing = 800 / totalBars;
                 const barWidth = Math.min(45, spacing * 0.5);
                 const x = idx * spacing + (spacing - barWidth) / 2;
                 
-                // Magasság kalkuláció (maximum 130px magas lehet az oszlop)
                 const barHeight = (data.count / maxChartValue) * 130;
                 const y = 150 - barHeight;
 
                 return (
                   <g key={idx} style={{ transition: 'all 0.3s' }}>
-                    {/* Gradiens neon oszlop */}
                     <defs>
                       <linearGradient id={`barGrad-${idx}`} x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor="#38bdf8" />
@@ -315,18 +327,13 @@ export default function AdminUsersView({
                       </linearGradient>
                     </defs>
                     
-                    {/* Interaktív háttér ütköző a könnyebb leolvasáshoz */}
                     <rect x={x - 10} y="10" width={barWidth + 20} height="140" fill="transparent" style={{ cursor: 'pointer' }} />
-                    
-                    {/* Valódi adat oszlop */}
                     <rect x={x} y={y} width={barWidth} height={barHeight} fill={`url(#barGrad-${idx})`} rx="4" stroke="#38bdf8" strokeWidth="1" />
                     
-                    {/* Darabszám számláló az oszlop tetején */}
                     <text x={x + barWidth / 2} y={y - 8} fill="#f8fafc" fontSize="11" fontWeight="bold" textAnchor="middle">
                       {data.count} fő
                     </text>
 
-                    {/* Hónap felirat az X tengely alatt */}
                     <text x={x + barWidth / 2} y="170" fill="#94a3b8" fontSize="10" fontWeight="600" textAnchor="middle">
                       {data.date}
                     </text>
@@ -453,11 +460,10 @@ export default function AdminUsersView({
                       <div style={{ fontSize: '0.85rem', color: '#cbd5e1', marginBottom: '4px' }} title="Elemzett képek száma">
                         🤖 AI Elemzés: <span style={{ fontWeight: 'bold', color: u.ai_usage_count > 0 ? '#38bdf8' : '#64748b' }}>{u.ai_usage_count || 0} db</span>
                       </div>
-                      {/* 🎯 ÚJ: Regisztrációs idő beillesztése a táblázatba */}
                       <div style={{ fontSize: '0.75rem', color: '#38bdf8', fontWeight: '500', marginBottom: '2px' }}>
                         🌱 Regisztrált: {formatDate(u.registered_at || u.created_at)}
                       </div>
-                      <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                      <div style={{ fontSize: '0.75rem', color: u.last_login ? '#10b981' : '#ef4444', fontWeight: '600' }}>
                         Belépett: {formatDate(u.last_login)}
                       </div>
                     </td>
@@ -482,7 +488,7 @@ export default function AdminUsersView({
             {!isLoadingUsers && processedUsers.length === 0 && (
               <tr>
                 <td colSpan={5} style={{ padding: '30px', textAlign: 'center', color: '#94a3b8' }}>
-                  Nincs találat a keresésre.
+                  Nincs találat a kiválasztott szűrési feltételekre.
                 </td>
               </tr>
             )}
@@ -495,7 +501,6 @@ export default function AdminUsersView({
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999, padding: '20px' }}>
           <div style={{ background: '#1e293b', width: '100%', maxWidth: '1200px', borderRadius: '16px', border: '1px solid #334155', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', overflow: 'hidden', animation: 'fadeIn 0.2s ease-out' }}>
             
-            {/* Fejléc */}
             <div style={{ background: '#0f172a', padding: '20px', borderBottom: '1px solid #334155', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3 style={{ color: 'white', margin: 0, fontSize: '1.25rem' }}>📧 Rendszer E-mail Küldése</h3>
               <button 
@@ -506,11 +511,11 @@ export default function AdminUsersView({
               </button>
             </div>
 
-            {/* Tartalom */}
             <div style={{ padding: '25px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
               
               <div style={{ background: '#3b82f615', border: '1px solid #3b82f630', padding: '12px', borderRadius: '8px', color: '#93c5fd', fontSize: '0.9rem' }}>
                 Az üzenetet a jelenleg leszűrt listában szereplő <b>{processedUsers.length} felhasználó</b> fogja megkapni rejtett másolatként (BCC).
+                {onlyLoggedInUsers && <span style={{ color: '#10b981', display: 'block', marginTop: '4px', fontWeight: 'bold' }}>🔑 Szűrő aktív: Csak belépett felhasználók kapják meg.</span>}
               </div>
 
               <div>
@@ -524,59 +529,39 @@ export default function AdminUsersView({
                 />
               </div>
 
-             <div>
-  <label
-    style={{
-      display: 'block',
-      color: '#cbd5e1',
-      marginBottom: '8px',
-      fontWeight: 'bold',
-      fontSize: '0.9rem'
-    }}
-  >
-    Email tartalma
-  </label>
+              <div>
+                <label style={{ display: 'block', color: '#cbd5e1', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem' }}>
+                  Email tartalma
+                </label>
 
-  <div
-    style={{
-      background: '#1e3a5f',
-      border: '1px solid #3b82f6',
-      color: '#bfdbfe',
-      padding: '10px 14px',
-      borderRadius: '8px',
-      marginBottom: '10px',
-      fontSize: '0.85rem'
-    }}
-  >
-    HTML dokumentumot is beilleszthetsz (DOCTYPE, html, body). A rendszer változtatás nélkül küldi ki.
-  </div>
+                <div style={{ background: '#1e3a5f', border: '1px solid #3b82f6', color: '#bfdbfe', padding: '10px 14px', borderRadius: '8px', marginBottom: '10px', fontSize: '0.85rem' }}>
+                  HTML dokumentumot is beilleszthetsz (DOCTYPE, html, body). A rendszer változtatás nélkül küldi ki.
+                </div>
 
-  <textarea
-    placeholder="Illeszd ide a teljes HTML emailt..."
-    value={emailBody}
-    onChange={(e) => setEmailBody(e.target.value)}
-    spellCheck={false}
-    style={{
-      width: '100%',
-      padding: '16px',
-      background: '#0b1220',
-      border: '1px solid #475569',
-      borderRadius: '8px',
-      color: '#f8fafc',
-      outline: 'none',
-      minHeight: '500px',
-      resize: 'vertical',
-      boxSizing: 'border-box',
-
-      fontFamily: 'Consolas, Monaco, "Courier New", monospace',
-      fontSize: '13px',
-      lineHeight: '1.5'
-    }}
-  />
-</div>
+                <textarea
+                  placeholder="Illeszd ide a teljes HTML emailt..."
+                  value={emailBody}
+                  onChange={(e) => setEmailBody(e.target.value)}
+                  spellCheck={false}
+                  style={{
+                    width: '100%',
+                    padding: '16px',
+                    background: '#0b1220',
+                    border: '1px solid #475569',
+                    borderRadius: '8px',
+                    color: '#f8fafc',
+                    outline: 'none',
+                    minHeight: '400px',
+                    resize: 'vertical',
+                    boxSizing: 'border-box',
+                    fontFamily: 'Consolas, Monaco, "Courier New", monospace',
+                    fontSize: '13px',
+                    lineHeight: '1.5'
+                  }}
+                />
+              </div>
             </div>
 
-            {/* Gombok */}
             <div style={{ background: '#0f172a', padding: '20px', borderTop: '1px solid #334155', display: 'flex', justifyContent: 'flex-end', gap: '15px' }}>
               <button 
                 onClick={() => setIsEmailModalOpen(false)}
