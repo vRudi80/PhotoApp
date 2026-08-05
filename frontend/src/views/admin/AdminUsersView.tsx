@@ -493,7 +493,7 @@ export default function AdminUsersView({
       {/* 📧 E-MAIL KÜLDŐ MODAL */}
       {isEmailModalOpen && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999, padding: '20px' }}>
-          <div style={{ background: '#1e293b', width: '100%', maxWidth: '600px', borderRadius: '16px', border: '1px solid #334155', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', overflow: 'hidden', animation: 'fadeIn 0.2s ease-out' }}>
+          <div style={{ background: '#1e293b', width: '100%', maxWidth: '1200px', borderRadius: '16px', border: '1px solid #334155', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', overflow: 'hidden', animation: 'fadeIn 0.2s ease-out' }}>
             
             {/* Fejléc */}
             <div style={{ background: '#0f172a', padding: '20px', borderBottom: '1px solid #334155', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -524,15 +524,56 @@ export default function AdminUsersView({
                 />
               </div>
 
-              <div>
-                <label style={{ display: 'block', color: '#cbd5e1', marginBottom: '8px', fontWeight: 'bold', fontSize: '0.9rem' }}>Üzenet (HTML engedélyezett):</label>
-                <textarea 
-                  placeholder="Írd ide az e-mail szövegét..."
-                  value={emailBody}
-                  onChange={(e) => setEmailBody(e.target.value)}
-                  style={{ width: '100%', padding: '12px', background: '#0f172a', border: '1px solid #475569', borderRadius: '8px', color: 'white', outline: 'none', minHeight: '200px', resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit' }}
-                />
-              </div>
+             <div>
+  <label
+    style={{
+      display: 'block',
+      color: '#cbd5e1',
+      marginBottom: '8px',
+      fontWeight: 'bold',
+      fontSize: '0.9rem'
+    }}
+  >
+    Email tartalma
+  </label>
+
+  <div
+    style={{
+      background: '#1e3a5f',
+      border: '1px solid #3b82f6',
+      color: '#bfdbfe',
+      padding: '10px 14px',
+      borderRadius: '8px',
+      marginBottom: '10px',
+      fontSize: '0.85rem'
+    }}
+  >
+    HTML dokumentumot is beilleszthetsz (DOCTYPE, html, body). A rendszer változtatás nélkül küldi ki.
+  </div>
+
+  <textarea
+    placeholder="Illeszd ide a teljes HTML emailt..."
+    value={emailBody}
+    onChange={(e) => setEmailBody(e.target.value)}
+    spellCheck={false}
+    style={{
+      width: '100%',
+      padding: '16px',
+      background: '#0b1220',
+      border: '1px solid #475569',
+      borderRadius: '8px',
+      color: '#f8fafc',
+      outline: 'none',
+      minHeight: '500px',
+      resize: 'vertical',
+      boxSizing: 'border-box',
+
+      fontFamily: 'Consolas, Monaco, "Courier New", monospace',
+      fontSize: '13px',
+      lineHeight: '1.5'
+    }}
+  />
+</div>
             </div>
 
             {/* Gombok */}
