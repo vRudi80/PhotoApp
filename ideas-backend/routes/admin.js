@@ -42,13 +42,40 @@ module.exports = function(app, pool) {
         }
       });
 
-      const mailOptions = {
-        from: `"PhotAwesome - Kővári-Vágner Rudolf" <${process.env.SMTP_USER}>`,
-        to: process.env.SMTP_USER, // A fő címzett az admin, a többiek rejtett másolatot kapnak
-        bcc: validEmails,         // Tömbként adjuk át, nem összefűzött szövegként
-        subject: subject,
-        html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; color: #333; line-height: 1.6;">${body.replace(/\n/g, '<br>')}</div>`
-      };
+      // HTML felismerése
+const isHtml =
+  /^\s*<!DOCTYPE/i.test(body) ||
+  /^\s*<html/i.test(body) ||
+  /<body/i.test(body) ||
+  /<table/i.test(body) ||
+  /<div/i.test(body);
+
+const mailOptions = {
+  from: `"PhotAwesome - Kővári-Vágner Rudolf" <${process.env.SMTP_USER}>`,
+  to: process.env.SMTP_USER,
+  bcc: validEmails,
+  subject,
+
+  ...(isHtml
+    ? {
+        html: body
+      }
+    : {
+        html: `
+          <div style="
+              font-family:Arial,Helvetica,sans-serif;
+              max-width:700px;
+              margin:auto;
+              padding:30px;
+              line-height:1.6;
+              color:#333333;
+          ">
+            ${body.replace(/\n/g, "<br>")}
+          </div>
+        `,
+        text: body
+      })
+};
 
       await transporter.sendMail(mailOptions);
       res.json({ success: true, message: 'Levelek sikeresen elküldve.' });
