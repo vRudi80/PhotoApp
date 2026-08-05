@@ -249,7 +249,7 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
             </div>
 
             <h1 style={{ margin: 0, fontSize: 'clamp(1.5rem, 3vw, 2rem)', color: '#ffffff', fontWeight: '900', letterSpacing: '-0.5px' }}>
-              {t('dashWelcome', 'Üdvözlünk')}, <span style={{ background: 'linear-gradient(135deg, #38bdf8, #c084fc)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{user?.name}</span>! 👋
+              {t('dashWelcome', 'Üdvözlünk')}, <span style={{ background: 'linear-gradient(135deg, #38bdf8, #c084fc)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{user?.name}</span>! 
             </h1>
             
             <p style={{ margin: '6px 0 0 0', color: '#cbd5e1', fontSize: '0.92rem', opacity: 0.9 }}>
@@ -259,7 +259,7 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
 
           {(user?.isPremium || user?.is_premium) ? (
             <div style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.2), rgba(5,150,105,0.3))', border: '1px solid rgba(16,185,129,0.4)', padding: '8px 16px', borderRadius: '30px', color: '#34d399', fontWeight: 'bold', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 4px 12px rgba(16,185,129,0.2)' }}>
-              <Sparkles size={16} /> {t('dashPremiumBadge', '✨ PRÉMIUM TAG')}
+              <Sparkles size={16} /> {t('dashPremiumBadge', 'PRÉMIUM TAG')}
             </div>
           ) : (
             <button 
