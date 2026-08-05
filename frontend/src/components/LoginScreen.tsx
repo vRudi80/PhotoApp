@@ -111,7 +111,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         </div>
       </div>
 
-      {/* ── 1. HERO SZEKCIÓ (BEÁLLÍTOTT HÁTTÉR KÉPPEL) ── */}
+      {/* ── 1. HERO SZEKCIÓ ── */}
       <div style={{
         position: 'relative',
         minHeight: '100vh',
@@ -155,7 +155,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
           marginBottom: '1.2rem',
           boxShadow: '0 4px 15px rgba(0,0,0,0.3)'
         }}>
-          A fotózás szerelmeseinek otthona
+          {lang === 'en' ? 'The home for photography lovers' : 'A fotózás szerelmeseinek otthona'}
         </div>
 
         {/* Főcím */}
@@ -168,13 +168,13 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
           maxWidth: '800px',
           textShadow: '0 4px 20px rgba(0,0,0,0.8)'
         }}>
-          A fotósok közössége.<br/>
+          {lang === 'en' ? 'The community of photographers.' : 'A fotósok közössége.'}<br/>
           <span style={{ 
             background: 'linear-gradient(135deg, #38bdf8 0%, #c084fc 50%, #f97316 100%)', 
             WebkitBackgroundClip: 'text', 
             WebkitTextFillColor: 'transparent' 
           }}>
-            Egy helyen.
+            {lang === 'en' ? 'All in one place.' : 'Egy helyen.'}
           </span>
         </h1>
 
@@ -188,7 +188,9 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
           textShadow: '0 2px 10px rgba(0,0,0,0.8)',
           fontWeight: 500
         }}>
-          Lépj be, és fedezd fel a játékokat, pályázatokat, a helyszíntérképet és kérj profi AI képelemzést a fotóidra!
+          {lang === 'en' 
+            ? 'Sign in and discover challenges, contests, photo maps, and request professional AI analysis on your photos!' 
+            : 'Lépj be, és fedezd fel a játékokat, pályázatokat, a helyszíntérképet és kérj profi AI képelemzést a fotóidra!'}
         </p>
 
         {/* KÖZPONTI BELÉPŐ DOBOZ */}
@@ -239,11 +241,11 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
             flexWrap: 'wrap'
           }}>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-              <ShieldCheck size={14} color="#10b981" /> Biztonságos
+              <ShieldCheck size={14} color="#10b981" /> {lang === 'en' ? 'Secure' : 'Biztonságos'}
             </span>
             <span>•</span>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-              <Zap size={14} color="#fbbf24" /> Nincs regisztrációs űrlap
+              <Zap size={14} color="#fbbf24" /> {lang === 'en' ? 'No registration form' : 'Nincs regisztrációs űrlap'}
             </span>
           </div>
         </div>
@@ -251,7 +253,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         {/* Görgető nyíl */}
         <button 
           onClick={scrollToFeatures} 
-          aria-label="Fedezd fel a funkciókat"
+          aria-label={lang === 'en' ? 'Discover features' : 'Fedezd fel a funkciókat'}
           style={{
             background: 'transparent',
             border: 'none',
@@ -266,7 +268,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
             textShadow: '0 2px 8px rgba(0,0,0,0.8)'
           }}
         >
-          <span>Fedezd fel, mit kínálunk</span>
+          <span>{lang === 'en' ? 'Discover what we offer' : 'Fedezd fel, mit kínálunk'}</span>
           <ChevronDown size={20} className="bounce-arrow" />
         </button>
       </div>
@@ -281,10 +283,12 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         
         <div style={{ textAlign: 'center', marginBottom: '40px' }}>
           <h2 style={{ fontSize: '2rem', margin: '0 0 10px 0', fontWeight: 800 }}>
-            Mit találsz a PhotAwesome-on?
+            {lang === 'en' ? 'What will you find on PhotAwesome?' : 'Mit találsz a PhotAwesome-on?'}
           </h2>
           <p style={{ color: 'var(--text-body)', margin: 0, fontSize: '1rem', opacity: 0.85 }}>
-            Minden egy helyen, ami a fotózás iránti szenvedélyedet táplálja.
+            {lang === 'en' 
+              ? 'Everything in one place that fuels your passion for photography.' 
+              : 'Minden egy helyen, ami a fotózás iránti szenvedélyedet táplálja.'}
           </p>
         </div>
 
@@ -354,14 +358,18 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
             lineHeight: '1.6',
             marginBottom: '28px'
           }}>
-            „A jó fotó nem a gépről szól, hanem arról, amit láttatni akarsz.”
+            {lang === 'en' 
+              ? '“A good photograph is not about the camera, but about what you want to reveal.”' 
+              : '„A jó fotó nem a gépről szól, hanem arról, amit láttatni akarsz.”'}
           </div>
 
           <h2 style={{ fontSize: '2.1rem', margin: '0 0 12px 0', fontWeight: 800 }}>
-            Kész vagy csatlakozni?
+            {lang === 'en' ? 'Ready to join?' : 'Kész vagy csatlakozni?'}
           </h2>
           <p style={{ color: 'var(--text-body)', margin: '0 0 30px 0', fontSize: '1rem', opacity: 0.9 }}>
-            Jelentkezz be Google fiókoddal egyetlen kattintással, és válj a közösség részévé!
+            {lang === 'en' 
+              ? 'Sign in with your Google account in a single click and become part of the community!' 
+              : 'Jelentkezz be Google fiókoddal egyetlen kattintással, és válj a közösség részévé!'}
           </p>
 
           <div style={{ display: 'inline-block', background: 'var(--bg-card)', padding: '20px 28px', borderRadius: '20px', border: '1px solid var(--border-main)', boxShadow: '0 10px 30px rgba(0,0,0,0.2)' }}>
@@ -376,15 +384,15 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'center', gap: '24px', marginTop: '24px', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Lock size={14} /> Biztonságos belépés</span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Zap size={14} /> Azonnali hozzáférés</span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Heart size={14} /> Közösség</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Lock size={14} /> {lang === 'en' ? 'Secure Login' : 'Biztonságos belépés'}</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Zap size={14} /> {lang === 'en' ? 'Instant Access' : 'Azonnali hozzáférés'}</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Heart size={14} /> {lang === 'en' ? 'Community' : 'Közösség'}</span>
           </div>
 
         </div>
       </div>
 
-      {/* ── CSS ANIMÁCIÓK ── */}
+      {/* ── CSS ANIMÁCIÓK ── */}
       <style>{`
         html, body, #root {
           margin: 0 !important;
