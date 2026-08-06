@@ -1,15 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React from 'react';
 import { getImageUrl } from '../../../utils/helpers';
 import VideoLoader from '../../../components/VideoLoader';
-import { BACKEND_URL } from '../../../utils/constants';
 
-// Nyelvi kontextus betöltése
 import { useLanguage } from '../../../context/LanguageContext';
-
-// Téma környezet betöltése
 import { useTheme } from '../../../context/ThemeContext';
 
-// Professzionális Lucide Ikonok importálása az AI-sallangok ellen
 import { 
   Zap, 
   Trophy, 
@@ -40,23 +35,37 @@ interface TrophyRoomProps {
   handleClaimReferral: () => void;
   setActiveShareData: (entry: any) => void;
   setFullscreenData: (data: any) => void;
-  getLevelDetails: (likes: number, victories: number) => { name: string; color: string; bg: string };
+  getLevelDetails?: (likes: number, victories: number) => { name: string; color: string; bg: string };
   getTopicType: (start: string, end: string) => 'daily' | 'weekly';
   handleImageError: (e: React.SyntheticEvent<HTMLImageElement, Event>) => void;
   premiumUntil?: string | null; 
 }
 
+const rankThresholds = [
+  { name: 'Fényleső 🌱', minFp: 0, maxFp: 30, minVic: 0 },
+  { name: 'Megfigyelő 👁️', minFp: 30, maxFp: 100, minVic: 0 },
+  { name: 'Képvadász 📷', minFp: 100, maxFp: 250, minVic: 0 },
+  { name: 'Komponista 📐', minFp: 250, maxFp: 500, minVic: 0 },
+  { name: 'Fényíró 🎞️', minFp: 500, maxFp: 800, minVic: 1 },
+  { name: 'Esztéta 💎', minFp: 800, maxFp: 1300, minVic: 2 },
+  { name: 'Szakértő 🎯', minFp: 1300, maxFp: 2000, minVic: 3 },
+  { name: 'Képmester 🎨', minFp: 2000, maxFp: 3200, minVic: 5 },
+  { name: 'Nagymester 🌟', minFp: 3200, maxFp: 4800, minVic: 7 },
+  { name: 'Virtuóz ⚡', minFp: 4800, maxFp: 7000, minVic: 9 },
+  { name: 'Fotóguru 🔥', minFp: 7000, maxFp: 10000, minVic: 12 },
+  { name: 'Vizuális Legenda 👑', minFp: 10000, maxFp: Infinity, minVic: 15 }
+];
+
 export default function TrophyRoom({
   isLoadingStats, myStats, userTotalLikes, userVictories, swapBalance,
   myReferralCode, referredBy, referralInput, setReferralInput,
   isClaimingReferral, handleClaimReferral, setActiveShareData, setFullscreenData,
-  getLevelDetails, getTopicType, handleImageError,
+  getTopicType, handleImageError,
   premiumUntil 
 }: TrophyRoomProps) {
 
   const { t, lang } = useLanguage();
 
-  // 🎯 BIZTONSÁGI VÉDŐHÁLÓ: Lekérjük az aktuális témát, felkészülve a környezeti cold-startra
   let isLight = false;
   try {
     const themeContext = useTheme();
@@ -65,7 +74,6 @@ export default function TrophyRoom({
     }
   } catch (e) {}
 
-  // Angol rangnév szótár a szintjelzőhöz reszponzivitás miatt
   const rankNamesEn: Record<string, string> = {
     'Fényleső 🌱': 'Light Seeker 🌱',
     'Megfigyelő 👁️': 'Observer 👁️',
@@ -89,87 +97,47 @@ export default function TrophyRoom({
     return <div style={{ color: '#ef4444', textAlign: 'center', padding: '20px', fontSize: '0.9rem', fontWeight: 'bold' }}>{t('trophyError')}</div>;
   }
 
-  // 📐 FOTÓSMESTER RANG-PROGRESSZIÓ ADATBÁZIS
-  const thresholds = [
-    { name: 'Fényleső 🌱', min: 0, max: 30, vic: 0 },
-    { name: 'Megfigyelő 👁️', min: 30, max: 100, vic: 0 },
-    { name: 'Képvadász 📷', min: 100, max: 250, vic: 0 },
-    { name: 'Komponista 📐', min: 250, max: 500, vic: 0 },
-    { name: 'Fényíró 🎞️', min: 500, max: 800, vic: 1 },
-    { name: 'Esztéta 💎', min: 800, max: 1300, vic: 2 },
-    { name: 'Szakértő 🎯', min: 1300, max: 2000, vic: 3 },
-    { name: 'Képmester 🎨', min: 2000, max: 3200, vic: 5 },
-    { name: 'Nagymester 🌟', min: 3200, max: 4800, vic: 7 },
-    { name: 'Virtuóz ⚡', min: 4800, max: 7000, vic: 9 },
-    { name: 'Fotóguru 🔥', min: 7000, max: 10000, vic: 12 },
-    { name: 'Vizuális Legenda 👑', min: 10000, max: Infinity, vic: 15 }
-  ];
+  // 🎯 KÖZPONTI, DUPONTA ELLENŐRZÖTT CÉL- RANGSÁV MEGHATÁROZÁSA
+  let currentRankIdx = 0;
+  for (let i = rankThresholds.length - 1; i >= 0; i--) {
+    if (userTotalLikes >= rankThresholds[i].minFp && userVictories >= rankThresholds[i].minVic) {
+      currentRankIdx = i;
+      break;
+    }
+  }
 
-  const getActualRankBracket = (likes: number, vics: number) => {
-    if (likes < 30) return thresholds[0];
-    if (likes < 100) return thresholds[1];
-    if (likes < 250) return thresholds[2];
-    if (likes < 500 || vics < 1) return thresholds[3];
-    if (likes < 800 || vics < 2) return thresholds[4];
-    if (likes < 1300 || vics < 3) return thresholds[5];
-    if (likes < 2000 || vics < 5) return thresholds[6];
-    if (likes < 3200 || vics < 7) return thresholds[7];
-    if (likes < 4800 || vics < 9) return thresholds[8];
-    if (likes < 7000 || vics < 12) return thresholds[9];
-    if (likes < 10000 || vics < 15) return thresholds[10];
-    return thresholds[11];
-  };
-
-  const currentBracket = getActualRankBracket(userTotalLikes, userVictories);
-  
-  // Adaptív szint-színkezelő a tökéletes világos módos kontrasztért
-  const getAdaptiveLevelDetails = (likes: number, victories: number) => {
-    const lvl = getLevelDetails ? getLevelDetails(likes, victories) : { name: '', color: '#fbbf24', bg: '' };
-    if (!isLight) return lvl;
-    
-    let adaptiveColor = lvl.color;
-    if (lvl.name.includes('Megfigyelő')) adaptiveColor = '#475569';
-    else if (lvl.name.includes('Képvadász')) adaptiveColor = '#0284c7';
-    else if (lvl.name.includes('Komponista')) adaptiveColor = '#2563eb';
-    else if (lvl.name.includes('Fényíró')) adaptiveColor = '#059669';
-    else if (lvl.name.includes('Szakértő')) adaptiveColor = '#7c3aed';
-    else if (lvl.name.includes('Képmester')) adaptiveColor = '#db2777';
-    else if (lvl.name.includes('Nagymester')) adaptiveColor = '#d97706';
-    else if (lvl.name.includes('Virtuóz')) adaptiveColor = '#ca8a04';
-    else if (lvl.name.includes('Vizuális Legenda')) adaptiveColor = '#b45309';
-
-    return { ...lvl, color: adaptiveColor };
-  };
-
-  const matchedLevel = getAdaptiveLevelDetails(userTotalLikes, userVictories);
-  
-  const currentLevelInfo = {
-    name: lang === 'en' ? (rankNamesEn[matchedLevel.name] || matchedLevel.name) : matchedLevel.name,
-    color: matchedLevel.color,
-    bg: 'var(--hover-overlay)'
-  };
+  const currentRank = rankThresholds[currentRankIdx];
+  const nextRank = currentRankIdx < rankThresholds.length - 1 ? rankThresholds[currentRankIdx + 1] : null;
 
   let progressPercent = 100;
   let levelHelpText = lang === 'en' ? 'Maximum Visual Legend Tier reached! 👑' : 'Elérted a maximális Vizuális Legenda szintet! 👑';
 
-  if (currentBracket && currentBracket.max !== Infinity) {
-    const range = currentBracket.max - currentBracket.min;
-    const currentProgress = userTotalLikes - currentBracket.min;
-    progressPercent = Math.min(100, Math.max(0, (currentProgress / range) * 100));
+  if (nextRank) {
+    const fpRange = nextRank.minFp - currentRank.minFp;
+    const currentFpProgress = userTotalLikes - currentRank.minFp;
+    progressPercent = Math.min(100, Math.max(0, (currentFpProgress / fpRange) * 100));
 
-    if (userTotalLikes < currentBracket.max) {
-      const neededLikes = Math.round((currentBracket.max - userTotalLikes) * 100) / 100;
+    const fpNeeded = Math.max(0, Math.round((nextRank.minFp - userTotalLikes) * 100) / 100);
+    const vicNeeded = Math.max(0, nextRank.minVic - userVictories);
+
+    if (fpNeeded > 0 && vicNeeded > 0) {
       levelHelpText = lang === 'en' 
-        ? `${neededLikes} more FP points needed for the next level` 
-        : `Még ${neededLikes} FP pont szükséges a következő szinthez`;
-    } else if (userVictories < currentBracket.vic) { 
+        ? `${fpNeeded} more FP points AND ${vicNeeded} more Arena victory needed for ${nextRank.name}` 
+        : `Még ${fpNeeded} FP pont ÉS ${vicNeeded} Aréna győzelem szükséges a(z) ${nextRank.name} ranghoz`;
+    } else if (fpNeeded > 0) {
+      levelHelpText = lang === 'en' 
+        ? `${fpNeeded} more FP points needed for ${nextRank.name}` 
+        : `Még ${fpNeeded} FP pont szükséges a(z) ${nextRank.name} ranghoz`;
+    } else if (vicNeeded > 0) {
       levelHelpText = lang === 'en'
-        ? `${currentBracket.vic - userVictories} more Arena victory needed for the next level` 
-        : `Még ${currentBracket.vic - userVictories} Aréna győzelem szükséges a következő szinthez`;
+        ? `Points met! ${vicNeeded} more Arena victory needed for ${nextRank.name}` 
+        : `Pontszám megvan! Még ${vicNeeded} Aréna győzelem szükséges a(z) ${nextRank.name} ranghoz`;
     } else {
       levelHelpText = lang === 'en' ? 'Ready for the next rank tier!' : 'Minden feltétel teljesítve a következő szinthez!';
     }
   }
+
+  const currentRankDisplayName = lang === 'en' ? (rankNamesEn[currentRank.name] || currentRank.name) : currentRank.name;
 
   const totalViews = myStats.history?.reduce((sum, e) => sum + (Number(e?.views) || 0), 0) || 0;
   const podiumCount = Number(myStats.podiums?.second || 0) + Number(myStats.podiums?.third || 0);
@@ -190,16 +158,16 @@ export default function TrophyRoom({
   return (
     <div style={{ animation: 'fadeIn 0.4s ease-out' }}>
       
-      {/* Szint progressziós banner – 🎯 JAVÍTVA: Reaktív háttér és szegélyek */}
+      {/* Szint progressziós banner */}
       <div style={{ background: 'var(--bg-card)', padding: '30px 20px', borderRadius: '8px', border: '1px solid var(--border-main)', marginBottom: '20px', textAlign: 'center', boxShadow: '0 4px 15px rgba(0,0,0,0.05)' }}>
         <h3 style={{ color: 'var(--text-muted)', margin: '0 0 4px 0', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '2px', fontWeight: 'bold' }}>{t('trophyCurrentStatus')}</h3>
-        <h1 style={{ color: currentLevelInfo.color, margin: '0 0 16px 0', fontSize: '2.4rem', fontWeight: '700', letterSpacing: '-0.5px' }}>{currentLevelInfo.name}</h1>
+        <h1 style={{ color: '#fbbf24', margin: '0 0 16px 0', fontSize: '2.4rem', fontWeight: '700', letterSpacing: '-0.5px' }}>{currentRankDisplayName}</h1>
         
         <div style={{ width: '100%', maxWidth: '500px', background: 'var(--bg-main)', height: '10px', borderRadius: '4px', margin: '0 auto', overflow: 'hidden', border: '1px solid var(--border-main)', position: 'relative' }}>
-          <div style={{ width: `${progressPercent}%`, background: currentLevelInfo.color, height: '100%', borderRadius: '4px' }}></div>
+          <div style={{ width: `${progressPercent}%`, background: '#fbbf24', height: '100%', borderRadius: '4px' }}></div>
         </div>
         
-        <div style={{ color: matchedLevel.name === 'Vizuális Legenda 👑' ? '#fbbf24' : 'var(--text-body)', fontSize: '0.85rem', marginTop: '12px', fontWeight: '600' }}>
+        <div style={{ color: currentRank.name === 'Vizuális Legenda 👑' ? '#fbbf24' : 'var(--text-body)', fontSize: '0.85rem', marginTop: '12px', fontWeight: '600' }}>
           {levelHelpText}
         </div>
         <div style={{ marginTop: '4px', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
@@ -219,7 +187,7 @@ export default function TrophyRoom({
         </div>
       )}
 
-      {/* 🎯 ANALITIKAI RÁCS ELEMEK: Szinkronizált színekkel */}
+      {/* ANALITIKAI RÁCS ELEMEK */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px', marginBottom: '24px' }}>
         <div style={{ background: 'var(--bg-card)', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-main)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
           <Zap size={16} color="#f97316" />
@@ -259,7 +227,7 @@ export default function TrophyRoom({
       </div>
 
       {/* MEGHÍVÓ PANEL ZÓNA */}
-<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '24px' }}>
         <div style={{ background: 'var(--bg-card)', padding: '20px', borderRadius: '8px', border: '1px solid var(--border-main)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <h4 style={{ margin: 0, color: '#38bdf8', fontSize: '1.05rem', fontWeight: '600', letterSpacing: '-0.2px' }}>{t('trophyInviteTitle')}</h4>
           <p style={{ color: 'var(--text-body)', fontSize: '0.8rem', margin: 0, lineHeight: '1.4' }}>
