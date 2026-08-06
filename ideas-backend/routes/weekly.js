@@ -133,20 +133,101 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   }
 
-  function calculateRankLevel(totalLikes, victories) {
-    if (totalLikes < 30) return 1;                               
-    if (totalLikes < 100) return 2;                              
-    if (totalLikes < 250) return 3;                              
-    if (totalLikes < 500 || victories < 1) return 4;         
-    if (totalLikes < 800 || victories < 2) return 5;         
-    if (totalLikes < 1300 || victories < 3) return 6;        
-    if (totalLikes < 2000 || victories < 5) return 7;        
-    if (totalLikes < 3200 || victories < 7) return 8;        
-    if (totalLikes < 4800 || victories < 9) return 9;        
-    if (totalLikes < 7000 || victories < 12) return 10;      
-    if (totalLikes < 10000 || victories < 15) return 11;     
-    return 12;                                               
+  // 🎯 KÖZPONTI, PONTOS TOP-DOWN RANGSZÁMÍTÓ FÜGGVÉNY (KETTŐS ÉS FELTÉTEL)
+function calculateRankLevel(totalLikes, victories) {
+  const fp = Number(totalLikes) || 0;
+  const vic = Number(victories) || 0;
+
+  const ranks = [
+    { level: 12, minFp: 10000, minVic: 15 },
+    { level: 11, minFp: 7000,  minVic: 12 },
+    { level: 10, minFp: 4800,  minVic: 9  },
+    { level: 9,  minFp: 3200,  minVic: 7  },
+    { level: 8,  minFp: 2000,  minVic: 5  },
+    { level: 7,  minFp: 1300,  minVic: 3  },
+    { level: 6,  minFp: 800,   minVic: 2  },
+    { level: 5,  minFp: 500,   minVic: 1  },
+    { level: 4,  minFp: 250,   minVic: 0  },
+    { level: 3,  minFp: 100,   minVic: 0  },
+    { level: 2,  minFp: 30,    minVic: 0  },
+    { level: 1,  minFp: 0,     minVic: 0  }
+  ];
+
+  for (const r of ranks) {
+    if (fp >= r.minFp && vic >= r.minVic) {
+      return r.level;
+    }
   }
+  return 1;
+}
+
+// 🎯 SÚLYOZOTT FP ÉS GYŐZELEM SZÁMÍTÁSA A LEZÁRT FUTAMOKBÓL
+async function getUserLikesAndVictories(pool, email) {
+  try {
+    const [rows] = await pool.query(`
+      SELECT 
+        ROUND(
+          COALESCE(SUM(COALESCE(e.final_fair_score, e.likes_count, 0)), 0) +
+          (SUM(CASE WHEN e.final_rank = 1 THEN 1 ELSE 0 END) * 40) +
+          (SUM(CASE WHEN e.final_rank IN (2, 3) THEN 1 ELSE 0 END) * 15) +
+          (SUM(CASE WHEN e.final_rank BETWEEN 4 AND 10 THEN 1 ELSE 0 END) * 2),
+          2
+        ) as total_likes,
+        SUM(CASE WHEN e.final_rank = 1 THEN 1 ELSE 0 END) as victories
+      FROM weekly_entries e
+      WHERE LOWER(TRIM(e.user_email)) = LOWER(TRIM(?)) AND e.final_rank IS NOT NULL
+    `, [email]);
+
+    if (rows[0] && rows[0].total_likes !== null) {
+      return { 
+        totalLikes: Number(rows[0].total_likes), 
+        victories: Number(rows[0].victories || 0) 
+      };
+    }
+    return { totalLikes: 0, victories: 0 };
+  } catch (err) {
+    console.error("❌ Hiba a statisztikák kiolvasásakor:", err.message);
+    return { totalLikes: 0, victories: 0 };
+  }
+}
+
+
+// 🏆 GLOBÁLIS DICSŐSÉGCSARNOK LEKÉRDEZÉS SÚLYOZOTT PONTOZÁSSAL
+app.get('/api/weekly/hall-of-fame', requireAuth, async (req, res) => {
+  try {
+    const [leaderboard] = await pool.query(`
+      SELECT 
+        u.name as user_name, 
+        u.email as user_email, 
+        u.club_name, 
+        u.avatar_url, 
+        c.drive_logo_id, 
+        c.logo_url, 
+        ROUND(
+          SUM(COALESCE(e.final_fair_score, e.likes_count, 0)) + 
+          (SUM(CASE WHEN e.final_rank = 1 THEN 1 ELSE 0 END) * 40) + 
+          (SUM(CASE WHEN e.final_rank IN (2, 3) THEN 1 ELSE 0 END) * 15) + 
+          (SUM(CASE WHEN e.final_rank BETWEEN 4 AND 10 THEN 1 ELSE 0 END) * 2),
+          2
+        ) AS total_likes, 
+        SUM(CASE WHEN e.final_rank = 1 THEN 1 ELSE 0 END) as first_places, 
+        SUM(CASE WHEN e.final_rank IN (2, 3) THEN 1 ELSE 0 END) as podiums, 
+        (SELECT COUNT(*) FROM weekly_topics WHERE LOWER(TRIM(master_email)) = LOWER(TRIM(u.email)) AND status = 'approved') as master_count 
+      FROM photo_users u 
+      JOIN weekly_entries e ON u.email = e.user_email
+      LEFT JOIN photo_clubs c ON u.club_name = c.name 
+      WHERE (e.is_active = 1 OR e.is_active IS NULL) AND e.final_rank IS NOT NULL
+      GROUP BY u.email, u.name, u.avatar_url, u.club_name, c.drive_logo_id, c.logo_url
+      HAVING total_likes > 0 OR first_places > 0
+      ORDER BY total_likes DESC, u.name ASC
+    `);
+    res.json(leaderboard);
+  } catch (err) { 
+    console.error("❌ Hiba a dicsőségcsarnok lekérésekor:", err.message);
+    res.status(500).json({ error: 'Hiba a dicsőségcsarnok betöltésekor' }); 
+  }
+});
+
 
   function getVotePowerByLevel(level) {
     if (level === 1) return { super: 1, brilliant: 2 };
