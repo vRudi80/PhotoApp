@@ -1304,39 +1304,44 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 
   // 🎯 REBUILD ENGINE: Frissített súlyozott FP bónusz és rangszámítás
-  app.get('/api/admin/rebuild-historical-facts', requireAuth, async (req, res) => {
-    if (!req.user.isAdmin) return res.status(403).json({ error: 'Hozzáférés megtagadva!' });
-    try {
-      const currentNow = getLocalMySQLNow();
-      await pool.query('UPDATE photo_users SET total_likes = 0, victories = 0');
-      await pool.query('UPDATE weekly_entries SET final_fair_score = NULL, final_rank = NULL');
-      const [pastTopics] = await pool.query("SELECT id FROM weekly_topics WHERE end_date < ?", [currentNow]);
-      let processedEntriesCount = 0;
+  app.get('/api/admin/rebuild-historical-facts', async (req, res) => {
+  // 🎯 MOBIL BARÁT VÉDELEM: Titkos kulcs ellenőrzése
+  if (req.query.secret !== 'PHOTAWESOME_REBUILD_2026') {
+    return res.status(403).json({ error: 'Megtagadva! Érvénytelen titkos kulcs.' });
+  }
 
-      for (const topic of pastTopics) {
-        const [entries] = await pool.query(`SELECT e.id, e.user_email, ${getFairScoreSql('e', 't')} as fair_score FROM weekly_entries e JOIN weekly_topics t ON e.topic_id = t.id WHERE e.topic_id = ? AND e.is_active = 1 ORDER BY fair_score DESC, e.likes_count DESC, e.views_count ASC`, [topic.id]);
-        for (let i = 0; i < entries.length; i++) {
-          const entry = entries[i]; const rank = i + 1; const finalScore = Number(entry.fair_score || 0);
-          await pool.query('UPDATE weekly_entries SET final_fair_score = ?, final_rank = ? WHERE id = ?', [finalScore, rank, entry.id]);
-          
-          let bonusFp = 0;
-          if (rank === 1) bonusFp = 40;
-          else if (rank === 2 || rank === 3) bonusFp = 15;
-          else if (rank >= 4 && rank <= 10) bonusFp = 2;
+  try {
+    const currentNow = getLocalMySQLNow();
+    await pool.query('UPDATE photo_users SET total_likes = 0, victories = 0');
+    await pool.query('UPDATE weekly_entries SET final_fair_score = NULL, final_rank = NULL');
+    const [pastTopics] = await pool.query("SELECT id FROM weekly_topics WHERE end_date < ?", [currentNow]);
+    let processedEntriesCount = 0;
 
-          await pool.query('UPDATE photo_users SET total_likes = total_likes + ? WHERE email = ?', [finalScore + bonusFp, entry.user_email]);
-          if (rank === 1) await pool.query('UPDATE photo_users SET victories = victories + 1 WHERE email = ?', [entry.user_email]);
-          processedEntriesCount++;
-        }
+    for (const topic of pastTopics) {
+      const [entries] = await pool.query(`SELECT e.id, e.user_email, ${getFairScoreSql('e', 't')} as fair_score FROM weekly_entries e JOIN weekly_topics t ON e.topic_id = t.id WHERE e.topic_id = ? AND e.is_active = 1 ORDER BY fair_score DESC, e.likes_count DESC, e.views_count ASC`, [topic.id]);
+      for (let i = 0; i < entries.length; i++) {
+        const entry = entries[i]; const rank = i + 1; const finalScore = Number(entry.fair_score || 0);
+        
+        let bonusFp = 0;
+        if (rank === 1) bonusFp = 40;
+        else if (rank === 2 || rank === 3) bonusFp = 15;
+        else if (rank >= 4 && rank <= 10) bonusFp = 2;
+
+        await pool.query('UPDATE weekly_entries SET final_fair_score = ?, final_rank = ? WHERE id = ?', [finalScore, rank, entry.id]);
+        await pool.query('UPDATE photo_users SET total_likes = total_likes + ? WHERE email = ?', [finalScore + bonusFp, entry.user_email]);
+        if (rank === 1) await pool.query('UPDATE photo_users SET victories = victories + 1 WHERE email = ?', [entry.user_email]);
+        processedEntriesCount++;
       }
-      const [allUsers] = await pool.query('SELECT email FROM photo_users');
-      for (const u of allUsers) {
-        const { totalLikes, victories } = await getUserLikesAndVictories(pool, u.email);
-        await pool.query('UPDATE photo_users SET total_likes = ?, victories = ?, rank_level = ? WHERE email = ?', [totalLikes, victories, calculateRankLevel(totalLikes, victories), u.email]);
-      }
-      res.json({ success: true, message: `Sikeres migráció: ${processedEntriesCount} nevezés helyezése és rangja újraépítve!` });
-    } catch (err) { res.status(500).json({ error: err.message }); }
-  });
+    }
+    const [allUsers] = await pool.query('SELECT email FROM photo_users');
+    for (const u of allUsers) {
+      const { totalLikes, victories } = await getUserLikesAndVictories(pool, u.email);
+      await pool.query('UPDATE photo_users SET total_likes = ?, victories = ?, rank_level = ? WHERE email = ?', [totalLikes, victories, calculateRankLevel(totalLikes, victories), u.email]);
+    }
+    res.json({ success: true, message: `Sikeres újraépítés! ${processedEntriesCount} nevezés helyezése és a rangok frissítve.` });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 
   app.post('/api/weekly/report-off-topic', requireAuth, async (req, res) => {
     const { entryId, userEmail } = req.body;
