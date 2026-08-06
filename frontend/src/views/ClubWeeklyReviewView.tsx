@@ -48,7 +48,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
   const isPending = user?.club_role === 'pending';
   const hasNoClub = !user?.club_name || isPending;
 
-  // 🎯 ESCAPE BILLENTYŰ FIGYELŐ (MODÁLOK BEZÁRÁSA ESC-RE)
+  // ESCAPE BILLENTYŰ FIGYELŐ
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -544,19 +544,70 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(310px, 1fr))', gap: '20px' }}>
-          {sortedAndFilteredEntries.map(entry => {
+          {sortedAndFilteredEntries.map((entry, index) => {
             const isMyPhoto = entry.user_email === user?.email;
             const hasVoted = entry.my_score !== null && entry.my_score !== undefined;
             const photoUrl = getImageUrl(entry.drive_file_id, entry.file_url);
 
+            // 🎯 TOP 3 HELYEZETT KIEMELÉSE LEZÁRT FORDULÓNÁL
+            const isTop1 = isRoundClosed && index === 0;
+            const isTop2 = isRoundClosed && index === 1;
+            const isTop3 = isRoundClosed && index === 2;
+
+            let cardBorder = '1px solid var(--border-main)';
+            let cardShadow = 'none';
+
+            if (isTop1) {
+              cardBorder = '2px solid #f59e0b';
+              cardShadow = '0 0 15px rgba(245, 158, 11, 0.35)';
+            } else if (isTop2) {
+              cardBorder = '2px solid #cbd5e1';
+              cardShadow = '0 0 15px rgba(203, 213, 225, 0.3)';
+            } else if (isTop3) {
+              cardBorder = '2px solid #d97706';
+              cardShadow = '0 0 15px rgba(217, 119, 6, 0.3)';
+            }
+
             return (
-              <div key={entry.id} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', borderRadius: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+              <div 
+                key={entry.id} 
+                style={{ 
+                  background: 'var(--bg-card)', 
+                  border: cardBorder, 
+                  boxShadow: cardShadow,
+                  borderRadius: '12px', 
+                  overflow: 'hidden', 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  justifyContent: 'space-between',
+                  transition: 'all 0.2s ease-in-out'
+                }}
+              >
                 
                 <div onClick={() => setSelectedEntryModal(entry)} style={{ position: 'relative', height: '220px', background: '#000', cursor: 'pointer' }}>
                   <img src={photoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                   
+                  {/* TOP 3 JELVÉNY A KÉP BAL FELSŐ SARKÁBAN */}
+                  {isRoundClosed && index < 3 && (
+                    <div style={{ 
+                      position: 'absolute', 
+                      top: '10px', 
+                      left: '10px', 
+                      background: isTop1 ? '#f59e0b' : isTop2 ? '#cbd5e1' : '#d97706', 
+                      color: isTop1 ? '#0f172a' : isTop2 ? '#0f172a' : '#ffffff', 
+                      padding: '4px 10px', 
+                      borderRadius: '20px', 
+                      fontSize: '0.8rem', 
+                      fontWeight: 'bold', 
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.6)',
+                      zIndex: 2 
+                    }}>
+                      {index + 1}. Helyezett
+                    </div>
+                  )}
+
                   {(isRoundClosed || isMyPhoto) && (
-                    <div style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(15,23,42,0.85)', backdropFilter: 'blur(4px)', padding: '4px 10px', borderRadius: '20px', fontSize: '0.8rem', color: '#fbbf24', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <div style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(15,23,42,0.85)', backdropFilter: 'blur(4px)', padding: '4px 10px', borderRadius: '20px', fontSize: '0.8rem', color: '#fbbf24', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '5px', zIndex: 2 }}>
                       AI: {entry.ai_score} / 100 p
                     </div>
                   )}
@@ -657,7 +708,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
         </div>
       )}
 
-      {/* 🎯 JAVÍTOTT KÉPERNYŐ-KONTROLLÁLT MODÁL (NEM LÓG KI A KÉP, Z-INDEX ÉS PADDING FIX, ESC SUPPORT) */}
+      {/* KÉPERNYŐ-KONTROLLÁLT MODÁL (ESC + BIZTONSÁGOS BEZÁRÁS) */}
       {activeModalRankedEntry && (() => {
         const isMyModalPhoto = activeModalRankedEntry.user_email === user?.email;
         const canShowAi = isRoundClosed || isMyModalPhoto;
@@ -666,7 +717,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
           <div onClick={() => setSelectedEntryModal(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(2, 6, 23, 0.95)', backdropFilter: 'blur(12px)', zIndex: 99999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '15px', boxSizing: 'border-box' }}>
             <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', borderRadius: '16px', padding: '20px', maxWidth: '1100px', width: '92vw', maxHeight: '92vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '15px', boxShadow: '0 25px 60px rgba(0,0,0,0.9)', position: 'relative' }}>
               
-              {/* FEJLÉC (BEZÁRÓ GOMB KIEMELVE, KÜLÖN RETESZELVE) */}
+              {/* FEJLÉC */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-main)', paddingBottom: '12px', flexShrink: 0 }}>
                 <h3 style={{ margin: 0, color: 'var(--text-title)', fontSize: '1.2rem', fontWeight: 800 }}>{activeModalRankedEntry.title}</h3>
                 <button 
@@ -693,7 +744,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
                 </button>
               </div>
 
-              {/* KÉP KONTÉNER - SZIGORÚ MÁXIMÁLIS MAGASSÁGGAL, NICS OVERFLOW */}
+              {/* KÉP KONTÉNER - SZIGORÚ MÁXIMÁLIS MAGASSÁGGAL */}
               <div style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', background: '#020617', borderRadius: '10px', padding: '12px', boxSizing: 'border-box', overflow: 'hidden', flexShrink: 0 }}>
                 <img 
                   src={getImageUrl(activeModalRankedEntry.drive_file_id, activeModalRankedEntry.file_url)} 
@@ -844,7 +895,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
                 • <b>Klubtagok szerint:</b> pl. 12 / 75<br />
                 • <b>Mesterek szerint:</b> pl. 3 / 75<br />
                 • <b>AI (FIAP) szerint:</b> pl. 5 / 75<br />
-                • 🏆 <b>Összesített helyezés:</b> a három érték átlagolt százalékos súlyozásából adódik!
+                • <b>Összesített helyezés:</b> a három érték átlagolt százalékos súlyozásából adódik!
               </div>
 
               <div>
