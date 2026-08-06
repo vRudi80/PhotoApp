@@ -17,7 +17,6 @@ import VideoLoader from '../components/VideoLoader';
 import { useLanguage } from '../context/LanguageContext';
 import ChallengeShareModal from '../components/WeeklyChallenge/ChallengeShareModal';
 
-// Professzionális Lucide Ikonok importálása (Coins hozzáadva)
 import { 
   Flame, 
   Zap, 
@@ -59,10 +58,10 @@ const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
 };
 
 const ARENA_LEVELS_REGISTRY = [
-  { id: 0, name: 'Fényleső 🌱', minLikes: 0 },
-  { id: 1, name: 'Megfigyelő 👁️', minLikes: 30 },
-  { id: 2, name: 'Képvadász 📷', minLikes: 100 },
-  { id: 3, name: 'Komponista 📐', minLikes: 250 },
+  { id: 0, name: 'Fényleső 🌱', minLikes: 0, minVictories: 0 },
+  { id: 1, name: 'Megfigyelő 👁️', minLikes: 30, minVictories: 0 },
+  { id: 2, name: 'Képvadász 📷', minLikes: 100, minVictories: 0 },
+  { id: 3, name: 'Komponista 📐', minLikes: 250, minVictories: 0 },
   { id: 4, name: 'Fényíró 🎞️', minLikes: 500, minVictories: 1 },
   { id: 5, name: 'Esztéta 💎', minLikes: 800, minVictories: 2 },
   { id: 6, name: 'Szakértő 🎯', minLikes: 1300, minVictories: 3 },
@@ -70,22 +69,26 @@ const ARENA_LEVELS_REGISTRY = [
   { id: 8, name: 'Nagymester 🌟', minLikes: 3200, minVictories: 7 },
   { id: 9, name: 'Virtuóz ⚡', minLikes: 4800, minVictories: 9 },
   { id: 10, name: 'Fotóguru 🔥', minLikes: 7000, minVictories: 12 },
-  { id: 11, name: 'Legenda 👑', minLikes: 10000 }
+  { id: 11, name: 'Legenda 👑', minLikes: 10000, minVictories: 15 }
 ];
 
+// 🎯 TOP-DOWN (FELÜLRŐL LEFELÉ HALADÓ) PONTOS RANGSZÁMÍTÓ LOGIKA (ÉSKAPCSOLAT)
 const getLevelDetails = (likes: number, victories: number) => {
-  if (likes < 30) return { id: 0, name: 'Fényleső 🌱', color: '#64748b', bg: 'rgba(100,116,139,0.1)' };
-  if (likes < 100) return { id: 1, name: 'Megfigyelő 👁️', color: '#94a3b8', bg: 'rgba(148,163,184,0.1)' };
-  if (likes < 250) return { id: 2, name: 'Képvadász 📷', color: '#38bdf8', bg: 'rgba(56,189,248,0.1)' };
-  if (likes < 500) return { id: 3, name: 'Komponista 📐', color: '#60a5fa', bg: 'rgba(96,165,250,0.1)' };
-  if (likes < 800 || victories < 1) return { id: 4, name: 'Fényíró 🎞️', color: '#10b981', bg: 'rgba(16,185,129,0.1)' };
-  if (likes < 1300 || victories < 2) return { id: 5, name: 'Esztéta 💎', color: '#059669', bg: 'rgba(5,150,105,0.1)' };
-  if (likes < 1300 || victories < 3) return { id: 6, name: 'Szakértő 🎯', color: '#a78bfa', bg: 'rgba(167,139,250,0.1)' };
-  if (likes < 2000 || victories < 5) return { id: 7, name: 'Képmester 🎨', color: '#ec4899', bg: 'rgba(236,72,153,0.1)' };
-  if (likes < 3200 || victories < 7) return { id: 8, name: 'Nagymester 🌟', color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' };
-  if (likes < 4800 || victories < 9) return { id: 9, name: 'Virtuóz ⚡', color: '#eab308', bg: 'rgba(234,179,8,0.1)' };
-  if (likes < 7000 || victories < 12) return { id: 10, name: 'Fotóguru 🔥', color: '#ef4444', bg: 'rgba(239,68,68,0.1)' };
-  return { id: 11, name: 'Vizuális Legenda 👑', color: '#fbbf24', bg: 'rgba(251,191,36,0.15)' };
+  const fp = Number(likes) || 0;
+  const vic = Number(victories) || 0;
+
+  if (fp >= 10000 && vic >= 15) return { id: 11, name: 'Vizuális Legenda 👑', color: '#fbbf24', bg: 'rgba(251,191,36,0.15)' };
+  if (fp >= 7000  && vic >= 12) return { id: 10, name: 'Fotóguru 🔥', color: '#ef4444', bg: 'rgba(239,68,68,0.1)' };
+  if (fp >= 4800  && vic >= 9)  return { id: 9,  name: 'Virtuóz ⚡', color: '#eab308', bg: 'rgba(234,179,8,0.1)' };
+  if (fp >= 3200  && vic >= 7)  return { id: 8,  name: 'Nagymester 🌟', color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' };
+  if (fp >= 2000  && vic >= 5)  return { id: 7,  name: 'Képmester 🎨', color: '#ec4899', bg: 'rgba(236,72,153,0.1)' };
+  if (fp >= 1300  && vic >= 3)  return { id: 6,  name: 'Szakértő 🎯', color: '#a78bfa', bg: 'rgba(167,139,250,0.1)' };
+  if (fp >= 800   && vic >= 2)  return { id: 5,  name: 'Esztéta 💎', color: '#059669', bg: 'rgba(5,150,105,0.1)' };
+  if (fp >= 500   && vic >= 1)  return { id: 4,  name: 'Fényíró 🎞️', color: '#10b981', bg: 'rgba(16,185,129,0.1)' };
+  if (fp >= 250)                return { id: 3,  name: 'Komponista 📐', color: '#60a5fa', bg: 'rgba(96,165,250,0.1)' };
+  if (fp >= 100)                return { id: 2,  name: 'Képvadász 📷', color: '#38bdf8', bg: 'rgba(56,189,248,0.1)' };
+  if (fp >= 30)                 return { id: 1,  name: 'Megfigyelő 👁️', color: '#94a3b8', bg: 'rgba(148,163,184,0.1)' };
+  return { id: 0, name: 'Fényleső 🌱', color: '#64748b', bg: 'rgba(100,116,139,0.1)' };
 };
 
 const compressImageOnClient = (file: File): Promise<File> => {
@@ -343,7 +346,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const [userVictories, setUserVictories] = useState<number>(0);
   const [userPower, setUserPower] = useState<{ super: number; brilliant: number }>({ super: 1, brilliant: 2 });
 
-  // 🪙 Helyi pontegyenleg állapot az Arénán belüli kijelzéshez
   const [pointsBalance, setPointsBalance] = useState<number>(user?.points_balance || 0);
 
   const [hallOfFame, setHallOfFame] = useState<any[]>([]);
@@ -352,11 +354,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const [shareBase64, setShareBase64] = useState<string | null>(null);
   const [loadingShareImg, setLoadingShareImg] = useState(false);
 
-  // 🎯 JAVÍTVA: Eddig ez a két state SOHA nem lett feltöltve, így a ShareCardModal mindig a nyers
-  // (cross-origin) fotó URL-re esett vissza -> "szennyezett vászon" (tainted canvas) hiba a toPng-nél,
-  // vagyis az eredmény-trófeakártya megosztása/mentése nem működött. Most a kártya megnyitásakor a
-  // szerver oldali /api/weekly/image-proxy végponton keresztül base64-esítjük a fotót, mielőtt a
-  // felhasználó exportálná a kártyát.
   useEffect(() => {
     setShareBase64(null);
     const sourceImageUrl = activeShareData?.file_url || activeShareData?.imageUrl;
@@ -381,7 +378,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     return () => { cancelled = true; };
   }, [activeShareData]);
 
-
   const [lobbyMessages, setLobbyMessages] = useState<any[]>([]);
   const [currentlyTyping, setCurrentlyTyping] = useState<string[]>([]);
   const [typedLobbyMsg, setTypedLobbyMsg] = useState('');
@@ -394,7 +390,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
   const lobbyMessagesCountRef = useRef(lobbyMessages.length);
   const lastTypingSignalSent = useRef<number>(0);
 
-  // Szinkronizáljuk az egyenleget, ha a szülő komponens vagy a profil frissül
   useEffect(() => {
     if (user?.points_balance !== undefined) {
       setPointsBalance(user.points_balance);
@@ -419,7 +414,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     } catch (e) { console.error(e); }
   };
 
-  // 🪙 ÚJ: Golyóálló pontszám-szinkronizáció közvetlenül az adatbázisból
   const fetchFreshPointsBalance = async () => {
     if (!user?.email) return;
     try {
@@ -962,8 +956,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
     if (!node || !activeShareData) return;
     setIsGeneratingImage(true);
     try {
-      // 🎯 JAVÍTVA: megvárjuk, hogy a kártyán belüli fotó <img> ténylegesen dekódolva legyen, különben
-      // a toPng a kép betöltése előtt készíthet pillanatképet, és a mentett PNG-n üres marad a fotó helye.
       const photoImgEl = node.querySelector('img') as HTMLImageElement | null;
       if (photoImgEl && !photoImgEl.complete) {
         await new Promise<void>((resolve) => {
@@ -971,7 +963,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           photoImgEl.onerror = () => resolve();
         });
       } else if (photoImgEl && typeof photoImgEl.decode === 'function') {
-        try { await photoImgEl.decode(); } catch (e) { /* ignore, folytatjuk */ }
+        try { await photoImgEl.decode(); } catch (e) { /* ignore */ }
       }
 
       await toPng(node, { cacheBust: true, pixelRatio: 1 });
@@ -1081,8 +1073,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
       </div>
 
       {/* 🎖️ RANG PROGRESSION TRACK BAR */}
-      {/* 🎯 JAVÍTVA: pointer-events lekapcsolva és áttetszőség beállítva töltés közben, */}
-      {/* így nem villan fel korán a tooltip hibás, félig betöltött adatokkal, amíg a videó pörög! */}
       <div 
         className="arena-progress-card-wrapper" 
         style={{ 
@@ -1103,7 +1093,6 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
             const isCurrent = idx === currentLevel.id;
             const nextLvlObj = ARENA_LEVELS_REGISTRY[idx];
             
-            // 🎯 JAVÍTVA: A lebegőpontos bináris pontatlanság (IEEE 754) kiküszöbölésére hajszálpontosan 2 tizedesjegyre kerekítjük az értéket!
             const likesDiff = Math.max(0, Math.round((nextLvlObj.minLikes - userTotalLikes) * 100) / 100);
             const winsDiff = (nextLvlObj.minVictories || 0) - userVictories;
 
@@ -1348,7 +1337,7 @@ export default function WeeklyChallengeView({ user, setFullscreenData }: WeeklyC
           <MyArenaAlbumView user={user} setFullscreenData={setFullscreenData} />
         )}
       </div>
-<HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} currentLevel={currentLevel} />
+      <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} currentLevel={currentLevel} />
 
       <AlbumSelectionModal 
         isOpen={showSwapAlbumModal} 
