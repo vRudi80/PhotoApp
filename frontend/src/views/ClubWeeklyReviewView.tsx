@@ -146,7 +146,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
     if (photoScope === 'my') {
       baseList = baseList.filter(e => e.user_email === user?.email);
     }
-    if (isPendingOnly) {
+    if (isPendingOnly && !isRoundClosed) {
       baseList = baseList.filter(e => e.user_email !== user?.email && (e.my_score === null || e.my_score === undefined));
     }
 
@@ -157,7 +157,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
       monochrome: baseList.filter(e => String(e.ai_category || '').includes('monochrome')).length,
       nature: baseList.filter(e => String(e.ai_category || '').includes('nature')).length,
     };
-  }, [entries, photoScope, isPendingOnly, user?.email]);
+  }, [entries, photoScope, isPendingOnly, isRoundClosed, user?.email]);
 
   const sortedAndFilteredEntries = useMemo(() => {
     let list = [...entries];
@@ -166,7 +166,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
       list = list.filter(e => e.user_email === user?.email);
     }
 
-    if (isPendingOnly) {
+    if (isPendingOnly && !isRoundClosed) {
       list = list.filter(e => e.user_email !== user?.email && (e.my_score === null || e.my_score === undefined));
     }
 
@@ -438,28 +438,31 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
           {photoScope === 'my' ? t('reviewScopeMy') : t('reviewScopeAll')}
         </button>
 
-        <button
-          onClick={() => {
-            setIsPendingOnly(prev => !prev);
-            if (!isPendingOnly) setPhotoScope('all');
-          }}
-          style={{
-            background: isPendingOnly ? '#f97316' : 'var(--bg-main)',
-            color: isPendingOnly ? 'white' : '#f97316',
-            border: `1px solid ${isPendingOnly ? '#f97316' : 'rgba(249, 115, 22, 0.4)'}`,
-            padding: '8px 16px',
-            borderRadius: '8px',
-            fontWeight: 'bold',
-            fontSize: '0.88rem',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            transition: 'all 0.15s'
-          }}
-        >
-          {t('reviewPendingCount').replace('{count}', String(unvotedCount))}
-        </button>
+        {/* CSAK AKKOR JELENIK MEG AZ ÉRTÉKELÉSRE VÁRÓK SZŰRŐ, HA A HÉT MÉG NEM ZÁRULT LE */}
+        {!isRoundClosed && (
+          <button
+            onClick={() => {
+              setIsPendingOnly(prev => !prev);
+              if (!isPendingOnly) setPhotoScope('all');
+            }}
+            style={{
+              background: isPendingOnly ? '#f97316' : 'var(--bg-main)',
+              color: isPendingOnly ? 'white' : '#f97316',
+              border: `1px solid ${isPendingOnly ? '#f97316' : 'rgba(249, 115, 22, 0.4)'}`,
+              padding: '8px 16px',
+              borderRadius: '8px',
+              fontWeight: 'bold',
+              fontSize: '0.88rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              transition: 'all 0.15s'
+            }}
+          >
+            {t('reviewPendingCount').replace('{count}', String(unvotedCount))}
+          </button>
+        )}
 
         <div style={{ height: '24px', width: '1px', background: 'var(--border-main)', margin: '0 4px' }} />
 
@@ -521,7 +524,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
       {/* GALÉRIA */}
       {sortedAndFilteredEntries.length === 0 ? (
         <div style={{ padding: '50px', textAlign: 'center', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-main)', color: 'var(--text-muted)' }}>
-          {isPendingOnly 
+          {isPendingOnly && !isRoundClosed
             ? t('reviewEmptyPending')
             : photoScope === 'my' 
               ? t('reviewEmptyMy') 
@@ -642,7 +645,7 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
         </div>
       )}
 
-      {/* 🎯 KÉPERNYŐ-KITÖLTŐS RÉSZLETES ELŐNÉZETI MODÁL */}
+      {/* KÉPERNYŐ-KITÖLTŐS RÉSZLETES ELŐNÉZETI MODÁL */}
       {activeModalRankedEntry && (() => {
         const isMyModalPhoto = activeModalRankedEntry.user_email === user?.email;
         const canShowAi = isRoundClosed || isMyModalPhoto;
