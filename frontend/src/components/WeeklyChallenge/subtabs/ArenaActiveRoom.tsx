@@ -28,9 +28,6 @@ import {
   Info
 } from 'lucide-react';
 
-// ====================================================================
-// 🕒 VISSZASZÁMLÁLÓ KOMPONENS (REAKTÍV SZÍNEKKEL)
-// ====================================================================
 function ActiveRoomCountdown({ endDate, lang }: { endDate: string; lang: string }) {
   const elementRef = useRef<HTMLSpanElement>(null);
   const { t } = useLanguage();
@@ -211,6 +208,8 @@ export default function ArenaActiveRoom({
     }
   };
 
+  const myOffTopicCount = Number(myEntry?.off_topic_count) || 0;
+
   return (
     <div className="arena-main-layout-grid">
       
@@ -223,7 +222,6 @@ export default function ArenaActiveRoom({
           <p style={{ margin: '0 0 14px 0', color: 'var(--text-body)', fontSize: '0.88rem', textAlign: 'center', lineHeight: '1.5' }}>{displayRoomDesc}</p>
           
           {(topic?.master_name || topic?.master_email) && (
-            /* 🎯 JAVÍTVA: A felesleges marginBottom: '166px' átírva egy normális 14px-re, megszüntetve a tátongó ürességet */
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#a78bfa', fontSize: '0.78rem', fontWeight: 'bold', background: 'rgba(167,139,250,0.06)', padding: '5px 12px', borderRadius: '4px', border: '1px solid rgba(167,139,250,0.2)', marginBottom: '14px', whiteSpace: 'nowrap' }}>
               <Crown size={12} />
               <span>{t('viewMasterLabel') || 'Képmester:'}</span>
@@ -231,7 +229,6 @@ export default function ArenaActiveRoom({
             </div>
           )}
 
-          {/* 🎯 ÚJ: STÍLUSOS, RESPONSIVE ARÉNA BORÍTÓKÉP BANNER FOTÓS JELZÉSSEL */}
           {topic?.cover_url && (
             <div style={{ width: '100%', height: '180px', borderRadius: '6px', overflow: 'hidden', marginBottom: '20px', border: '1px solid var(--border-main)', background: '#000', position: 'relative', boxShadow: 'inset 0 0 20px rgba(0,0,0,0.6)' }}>
               <img src={topic.cover_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -350,9 +347,54 @@ export default function ArenaActiveRoom({
             </div>
           ) : myEntry ? (
             <div>
-              <div style={{ width: '100%', height: '200px', backgroundColor: 'var(--bg-main)', borderRadius: '6px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border-main)' }}>
+              <div style={{ position: 'relative', width: '100%', height: '200px', backgroundColor: 'var(--bg-main)', borderRadius: '6px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', border: myOffTopicCount > 0 ? '1px solid #ef4444' : '1px solid var(--border-main)' }}>
                 <img src={getImageUrl(myEntry?.drive_file_id, myEntry?.file_url)} alt="My submission" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} onError={handleImageError} />
+                
+                {/* 🎯 OFFTOPIC / AI JELVÉNY A KÉP BAL FELSŐ SARKÁBAN */}
+                {myOffTopicCount > 0 && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '8px',
+                    left: '8px',
+                    background: 'rgba(239, 68, 68, 0.9)',
+                    backdropFilter: 'blur(4px)',
+                    color: '#ffffff',
+                    padding: '3px 8px',
+                    borderRadius: '4px',
+                    fontSize: '0.7rem',
+                    fontWeight: 'bold',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
+                    zIndex: 2
+                  }}>
+                    <AlertTriangle size={12} color="#ffffff" />
+                    <span>Off-Topic ({myOffTopicCount})</span>
+                  </div>
+                )}
               </div>
+
+              {/* 🎯 OFFTOPIC / AI FIGYELMEZTETŐ DOBOZ A KÉP ALATT */}
+              {myOffTopicCount > 0 && (
+                <div style={{
+                  marginTop: '12px',
+                  padding: '12px 14px',
+                  background: 'rgba(239, 68, 68, 0.08)',
+                  border: '1px solid rgba(239, 68, 68, 0.35)',
+                  borderRadius: '6px',
+                  color: '#f87171'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', fontSize: '0.85rem', marginBottom: '4px' }}>
+                    <AlertTriangle size={16} color="#ef4444" />
+                    <span>{t('roomMyOffTopicTitle') || 'Figyelmeztetés: Tématévesztés gyanúja!'}</span>
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-body)', lineHeight: '1.4' }}>
+                    {(t('roomMyOffTopicDesc') || 'A képedet eddig {count} fotóstársad jelentette off-topicnak vagy gyanúsan AI-al generáltnak. Kérlek ügyelj a pontos témára, illetve ne használj AI fotót!').replace('{count}', String(myOffTopicCount))}
+                  </div>
+                </div>
+              )}
+
               <div style={{ marginTop: '12px', display: 'grid', gridTemplateColumns: '1fr 1fr', background: 'var(--bg-main)', padding: '12px', borderRadius: '6px', borderLeft: `3px solid ${derivedExposureColor || '#ef4444'}`, border: '1px solid var(--border-main)' }}>
                 <div style={{ textAlign: 'center', borderRight: '1px solid var(--border-main)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                   <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '2px' }}>Pontszám</span>
