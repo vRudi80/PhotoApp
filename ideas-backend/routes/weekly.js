@@ -17,6 +17,9 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
+// ====================================================================
+// 🔒 AUTHENTICATION MIDDLEWARE
+// ====================================================================
 async function requireAuth(req, res, next) {
   try {
     const authHeader = req.headers.authorization;
@@ -49,6 +52,9 @@ async function requireAuth(req, res, next) {
   }
 }
 
+// ====================================================================
+// 🎯 A PONTRENDSZER KÖZPONTOSÍTOTT FORRÁSA (Fair Score SQL)
+// ====================================================================
 const getFairScoreSql = (entryAlias = 'e', topicAlias = 't') => {
   return `
     IF(${topicAlias}.end_date < '2026-06-16 00:00:00',
@@ -133,7 +139,6 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     }
   }
 
-  // 🎯 SZIGORÚ, TOP-DOWN EGYEZÉSŰ RANGSZÁMÍTÓ FÜGGVÉNY
   function calculateRankLevel(totalLikes, victories) {
     const fp = Number(totalLikes) || 0;
     const vic = Number(victories) || 0;
@@ -143,8 +148,8 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       { level: 11, minFp: 7000,  minVic: 12 },
       { level: 10, minFp: 4800,  minVic: 9  },
       { level: 9,  minFp: 3200,  minVic: 7  },
-      { level: 8,  minFp: 2000,  minVic: 5  }, // Képmester
-      { level: 7,  minFp: 1300,  minVic: 3  }, // Szakértő
+      { level: 8,  minFp: 2000,  minVic: 5  },
+      { level: 7,  minFp: 1300,  minVic: 3  },
       { level: 6,  minFp: 800,   minVic: 2  },
       { level: 5,  minFp: 500,   minVic: 1  },
       { level: 4,  minFp: 250,   minVic: 0  },
@@ -373,40 +378,77 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     } catch (err) { res.redirect('https://photawesome.com/weekly_challenge'); }
   });
 
-  // weekly.js - /api/weekly/current végpont részlet
-app.get('/api/weekly/current', requireAuth, async (req, res) => {
-  const { userEmail, topicId } = req.query;
-  if (!userEmail) return res.status(400).json({ error: 'Hiányzó e-mail cím!' });
+  // ⚔️ CSATATÉR FŐ VÉGPONT (HELYREÁLLÍTOTT, TELJES LOGIKA)
+  app.get('/api/weekly/current', requireAuth, async (req, res) => {
+    const { userEmail, topicId } = req.query;
+    if (!userEmail) return res.status(400).json({ error: 'Hiányzó e-mail cím!' });
 
-  try {
-    await processFinishedChallenges(pool);
-    const { totalLikes, victories } = await getUserLikesAndVictories(pool, userEmail);
-    const rankLevel = calculateRankLevel(totalLikes, victories);
-    const power = getVotePowerByLevel(rankLevel); 
+    if (req.user.email !== userEmail && !req.user.isAdmin) {
+      return res.status(403).json({ error: 'Hozzáférés megtagadva! Token eltérés.' });
+    }
 
-    // 🎯 AZONNALI SZINKRONIZÁLÁS: Adatbázis mező frissítése
-    await pool.query(
-      'UPDATE photo_users SET rank_level = ?, total_likes = ?, victories = ? WHERE email = ?',
-      [rankLevel, totalLikes, victories, userEmail]
-    );
+    try {
+      await processFinishedChallenges(pool);
+      const { totalLikes, victories } = await getUserLikesAndVictories(pool, userEmail);
+      const rankLevel = calculateRankLevel(totalLikes, victories);
+      const power = getVotePowerByLevel(rankLevel); 
 
-    // ... a meglévő logika folytatása ...
+      await pool.query(
+        'UPDATE photo_users SET rank_level = ?, total_likes = ?, victories = ? WHERE email = ?',
+        [rankLevel, totalLikes, victories, userEmail]
+      );
 
-    res.json({
-      activeTopics: mappedTopics,
-      userTotalLikes: totalLikes,
-      userVictories: victories,
-      userPower: power,
-      rankLevel, // 🎯 Elküldjük a frissített szintet a felső sávnak
-      swapBalance,
-      myReferralCode,
-      referredBy
-    });
-  } catch (err) {
-    res.status(500).json({ error: 'Szerveroldali hiba.' });
-  }
-});
+      const [userRows] = await pool.query('SELECT COALESCE(swap_balance, 0) as swap_balance, referral_code, referred_by FROM photo_users WHERE email = ?', [userEmail]);
+      let swapBalance = userRows[0]?.swap_balance ?? 3;
+      let myReferralCode = userRows[0]?.referral_code ?? '';
+      let referredBy = userRows[0]?.referred_by ?? null;
 
+      if (!myReferralCode) myReferralCode = await ensureReferralCode(pool, userEmail);
+      const mysqlNow = getLocalMySQLNow();
+
+      if (!topicId) {
+        const [activeTopics] = await pool.query(`
+          SELECT t.*, u.name AS master_name, IF(e.id IS NOT NULL, 1, 0) as hasEntered, IF(t.master_email IS NOT NULL AND LOWER(TRIM(t.master_email)) = LOWER(TRIM(?)), 1, 0) as isMaster, (SELECT COUNT(*) FROM weekly_entries we WHERE we.topic_id = t.id AND we.is_active = 1) as totalEntries, (SELECT COUNT(*) FROM weekly_entries we WHERE we.topic_id = t.id AND we.is_active = 1 AND LOWER(TRIM(we.user_email)) != LOWER(TRIM(?)) AND we.id NOT IN (SELECT entry_id FROM weekly_votes WHERE voter_email = ?)) as unvotedEntries
+          FROM weekly_topics t LEFT JOIN photo_users u ON t.master_email = u.email LEFT JOIN weekly_entries e ON e.topic_id = t.id AND LOWER(TRIM(e.user_email)) = LOWER(TRIM(?)) AND e.is_active = 1
+          WHERE ? BETWEEN t.start_date AND t.end_date AND (t.status = 'approved' OR t.status IS NULL OR t.status = '') ORDER BY t.id DESC
+        `, [userEmail, userEmail, userEmail, userEmail, mysqlNow]);
+
+        const mappedTopics = activeTopics.map(t => ({
+          ...t, hasEntered: t.hasEntered === 1, isMaster: t.isMaster === 1, totalEntries: Number(t.totalEntries || 0), entry_count: Number(t.totalEntries || 0), entries_count: Number(t.totalEntries || 0), unvotedEntries: Number(t.unvotedEntries || 0), unvoted_count: Number(t.unvotedEntries || 0), hasUnvoted: Number(t.unvotedEntries || 0) > 0, has_unvoted: Number(t.unvotedEntries || 0) > 0
+        }));
+        return res.json({ activeTopics: mappedTopics, userTotalLikes: totalLikes, userVictories: victories, userPower: power, rankLevel, swapBalance, myReferralCode, referredBy, masterVotesLeft: 0, isMaster: false });
+      }
+
+      const [allTopics] = await pool.query(`SELECT t.*, u.name AS master_name, (SELECT COUNT(*) FROM weekly_entries we WHERE we.topic_id = t.id AND we.is_active = 1) as totalEntries, (SELECT COUNT(*) FROM weekly_entries we WHERE we.topic_id = t.id AND we.is_active = 1 AND LOWER(TRIM(we.user_email)) != LOWER(TRIM(?)) AND we.id NOT IN (SELECT entry_id FROM weekly_votes WHERE voter_email = ?)) as unvotedEntries FROM weekly_topics t LEFT JOIN photo_users u ON t.master_email = u.email WHERE t.id = ?`, [userEmail, userEmail, topicId]);
+      const currentTopic = allTopics[0];
+      if (!currentTopic) return res.status(404).json({ error: 'Ez a kihívás nem található!' });
+
+      const isMasterUser = currentTopic.master_email && userEmail && currentTopic.master_email.toLowerCase().trim() === userEmail.toLowerCase().trim();
+      const [myEntries] = await pool.query('SELECT * FROM weekly_entries WHERE topic_id = ? AND user_email = ? AND is_active = 1', [currentTopic.id, userEmail]);
+      const [myPastEntries] = await pool.query('SELECT * FROM weekly_entries WHERE topic_id = ? AND user_email = ? AND is_active = 0 ORDER BY id DESC', [currentTopic.id, userEmail]);
+      const [myVotes] = await pool.query('SELECT COUNT(*) as vote_count FROM weekly_votes v JOIN weekly_entries e ON v.entry_id = e.id WHERE e.topic_id = ? AND v.voter_email = ?', [currentTopic.id, userEmail]);
+      
+      const [leaderboard] = await pool.query(`SELECT e.id, e.user_name, e.user_email, e.file_url, e.drive_file_id, e.views_count, e.likes_count, u.club_name, e.camera, e.lens, e.shutter, e.iso, e.aperture, e.software, EXISTS(SELECT 1 FROM weekly_votes WHERE entry_id = e.id AND voter_email = ?) as has_user_voted, (SELECT COUNT(*) FROM weekly_votes WHERE voter_email = e.user_email AND entry_id IN (SELECT id FROM weekly_entries WHERE topic_id = e.topic_id AND is_active = 1)) as votes_cast, ${getFairScoreSql('e', 't')} as fair_score, IF((SELECT COUNT(*) FROM weekly_votes WHERE entry_id = e.id AND vote_type = 'master') > 0, 1, 0) AS has_master_vote FROM weekly_entries e JOIN weekly_topics t ON e.topic_id = t.id LEFT JOIN photo_users u ON e.user_email = u.email WHERE e.topic_id = ? AND e.is_active = 1 ORDER BY fair_score DESC, e.likes_count DESC, e.views_count ASC`, [userEmail, currentTopic.id]);
+
+      const clubsData = {};
+      leaderboard.forEach(entry => {
+        if (!entry.club_name?.trim()) return; 
+        if (!clubsData[entry.club_name]) clubsData[entry.club_name] = [];
+        clubsData[entry.club_name].push(Number(entry.fair_score || 0));
+      });
+
+      const clubLeaderboard = Object.keys(clubsData).map(club => {
+        clubsData[club].sort((a, b) => b - a);
+        const top3 = clubsData[club].slice(0, 3);
+        return { club_name: club, total_score: Number(top3.reduce((s, v) => s + v, 0).toFixed(2)), members_counted: top3.length };
+      }).sort((a, b) => b.total_score - a.total_score);
+
+      res.json({ topic: { ...currentTopic, isMaster: !!isMasterUser }, myEntry: myEntries[0] || null, myPastEntries, myVoteCount: myVotes[0]?.vote_count || 0, votableEntries: isMasterUser ? currentTopic.totalEntries : Math.max(1, currentTopic.totalEntries - 1), leaderboard, clubLeaderboard, userTotalLikes: totalLikes, userVictories: victories, userPower: power, rankLevel, swapBalance, myReferralCode, referredBy, masterVotesLeft: isMasterUser ? 999 : 0, isMaster: !!isMasterUser });
+    } catch (err) { 
+      console.error("❌ Hiba az Aréna adatok lekérésekor:", err);
+      res.status(500).json({ error: 'Szerveroldali hiba.' }); 
+    }
+  });
 
   app.get('/api/weekly/my-album', requireAuth, async (req, res) => {
     const { userEmail } = req.query;
@@ -652,7 +694,6 @@ app.get('/api/weekly/current', requireAuth, async (req, res) => {
       if (voteType === 'pass') { calculatedPoints = 0; } 
       else if (voteType === 'master') {
         if (!isRealMasterOfThisRoom) { await conn.rollback(); return res.status(403).json({ error: 'Nem te vagy a Csatabíró!' }); }
-        // 🎯 KÉPMESTER SZAVAZAT: +30 PONT!
         calculatedPoints = 30; 
       } else {
         const { totalLikes, victories } = await getUserLikesAndVictories(conn, userEmail);
@@ -1054,14 +1095,6 @@ app.get('/api/weekly/current', requireAuth, async (req, res) => {
     } catch (err) { res.status(500).json({ error: 'Hiba.' }); }
   });
 
-  app.delete('/api/admin/weekly-topics/:id', requireAuth, async (req, res) => {
-    if (!req.user.isAdmin) return res.status(403).json({ error: 'Megtagadva!' });
-    try {
-      await pool.query('DELETE FROM weekly_topics WHERE id = ?', [req.params.id]);
-      res.json({ success: true });
-    } catch (err) { res.status(500).json({ error: 'Hiba' }); }
-  });
-
   app.get('/api/admin/weekly/voter-stats', requireAuth, async (req, res) => {
     if (!req.user.isAdmin) return res.status(403).json({ error: 'Csak adminisztrátor számára érhető el!' });
 
@@ -1277,43 +1310,41 @@ app.get('/api/weekly/current', requireAuth, async (req, res) => {
 
   // 🎯 REBUILD ENGINE: Frissített súlyozott FP bónusz és rangszámítás
   app.get('/api/admin/rebuild-historical-facts', async (req, res) => {
-  // 🎯 MOBIL BARÁT VÉDELEM: Titkos kulcs ellenőrzése
-  if (req.query.secret !== 'PHOTAWESOME_REBUILD_2026') {
-    return res.status(403).json({ error: 'Megtagadva! Érvénytelen titkos kulcs.' });
-  }
+    if (req.query.secret !== 'PHOTAWESOME_REBUILD_2026') {
+      return res.status(403).json({ error: 'Megtagadva! Érvénytelen titkos kulcs.' });
+    }
 
-  try {
-    const currentNow = getLocalMySQLNow();
-    await pool.query('UPDATE photo_users SET total_likes = 0, victories = 0');
-    await pool.query('UPDATE weekly_entries SET final_fair_score = NULL, final_rank = NULL');
-    const [pastTopics] = await pool.query("SELECT id FROM weekly_topics WHERE end_date < ?", [currentNow]);
-    let processedEntriesCount = 0;
+    try {
+      const currentNow = getLocalMySQLNow();
+      await pool.query('UPDATE photo_users SET total_likes = 0, victories = 0');
+      await pool.query('UPDATE weekly_entries SET final_fair_score = NULL, final_rank = NULL');
+      const [pastTopics] = await pool.query("SELECT id FROM weekly_topics WHERE end_date < ?", [currentNow]);
+      let processedEntriesCount = 0;
 
-    for (const topic of pastTopics) {
-      const [entries] = await pool.query(`SELECT e.id, e.user_email, ${getFairScoreSql('e', 't')} as fair_score FROM weekly_entries e JOIN weekly_topics t ON e.topic_id = t.id WHERE e.topic_id = ? AND e.is_active = 1 ORDER BY fair_score DESC, e.likes_count DESC, e.views_count ASC`, [topic.id]);
-      for (let i = 0; i < entries.length; i++) {
-        const entry = entries[i]; const rank = i + 1; const finalScore = Number(entry.fair_score || 0);
-        
-        let bonusFp = 0;
-        if (rank === 1) bonusFp = 40;
-        else if (rank === 2 || rank === 3) bonusFp = 15;
-        else if (rank >= 4 && rank <= 10) bonusFp = 2;
+      for (const topic of pastTopics) {
+        const [entries] = await pool.query(`SELECT e.id, e.user_email, ${getFairScoreSql('e', 't')} as fair_score FROM weekly_entries e JOIN weekly_topics t ON e.topic_id = t.id WHERE e.topic_id = ? AND e.is_active = 1 ORDER BY fair_score DESC, e.likes_count DESC, e.views_count ASC`, [topic.id]);
+        for (let i = 0; i < entries.length; i++) {
+          const entry = entries[i]; const rank = i + 1; const finalScore = Number(entry.fair_score || 0);
+          
+          let bonusFp = 0;
+          if (rank === 1) bonusFp = 40;
+          else if (rank === 2 || rank === 3) bonusFp = 15;
+          else if (rank >= 4 && rank <= 10) bonusFp = 2;
 
-        await pool.query('UPDATE weekly_entries SET final_fair_score = ?, final_rank = ? WHERE id = ?', [finalScore, rank, entry.id]);
-        await pool.query('UPDATE photo_users SET total_likes = total_likes + ? WHERE email = ?', [finalScore + bonusFp, entry.user_email]);
-        if (rank === 1) await pool.query('UPDATE photo_users SET victories = victories + 1 WHERE email = ?', [entry.user_email]);
-        processedEntriesCount++;
+          await pool.query('UPDATE weekly_entries SET final_fair_score = ?, final_rank = ? WHERE id = ?', [finalScore, rank, entry.id]);
+          await pool.query('UPDATE photo_users SET total_likes = total_likes + ? WHERE email = ?', [finalScore + bonusFp, entry.user_email]);
+          if (rank === 1) await pool.query('UPDATE photo_users SET victories = victories + 1 WHERE email = ?', [entry.user_email]);
+          processedEntriesCount++;
+        }
       }
-    }
-    const [allUsers] = await pool.query('SELECT email FROM photo_users');
-    for (const u of allUsers) {
-      const { totalLikes, victories } = await getUserLikesAndVictories(pool, u.email);
-      await pool.query('UPDATE photo_users SET total_likes = ?, victories = ?, rank_level = ? WHERE email = ?', [totalLikes, victories, calculateRankLevel(totalLikes, victories), u.email]);
-    }
-    res.json({ success: true, message: `Sikeres újraépítés! ${processedEntriesCount} nevezés helyezése és a rangok frissítve.` });
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
+      const [allUsers] = await pool.query('SELECT email FROM photo_users');
+      for (const u of allUsers) {
+        const { totalLikes, victories } = await getUserLikesAndVictories(pool, u.email);
+        await pool.query('UPDATE photo_users SET total_likes = ?, victories = ?, rank_level = ? WHERE email = ?', [totalLikes, victories, calculateRankLevel(totalLikes, victories), u.email]);
+      }
+      res.json({ success: true, message: `Sikeres újraépítés! ${processedEntriesCount} nevezés helyezése és a rangok frissítve.` });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+  });
 
   app.post('/api/weekly/report-off-topic', requireAuth, async (req, res) => {
     const { entryId, userEmail } = req.body;
