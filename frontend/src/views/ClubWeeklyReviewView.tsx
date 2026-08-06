@@ -48,6 +48,19 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
   const isPending = user?.club_role === 'pending';
   const hasNoClub = !user?.club_name || isPending;
 
+  // 🎯 ESCAPE BILLENTYŰ FIGYELŐ (MODÁLOK BEZÁRÁSA ESC-RE)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSelectedEntryModal(null);
+        setShowHelpModal(false);
+        setShowUploadModal(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   // 1. Fordulók és aktív hét betöltése
   const loadRounds = async () => {
     if (hasNoClub) {
@@ -438,7 +451,6 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
           {photoScope === 'my' ? t('reviewScopeMy') : t('reviewScopeAll')}
         </button>
 
-        {/* CSAK AKKOR JELENIK MEG AZ ÉRTÉKELÉSRE VÁRÓK SZŰRŐ, HA A HÉT MÉG NEM ZÁRULT LE */}
         {!isRoundClosed && (
           <button
             onClick={() => {
@@ -645,32 +657,55 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
         </div>
       )}
 
-      {/* KÉPERNYŐ-KITÖLTŐS RÉSZLETES ELŐNÉZETI MODÁL */}
+      {/* 🎯 JAVÍTOTT KÉPERNYŐ-KONTROLLÁLT MODÁL (NEM LÓG KI A KÉP, Z-INDEX ÉS PADDING FIX, ESC SUPPORT) */}
       {activeModalRankedEntry && (() => {
         const isMyModalPhoto = activeModalRankedEntry.user_email === user?.email;
         const canShowAi = isRoundClosed || isMyModalPhoto;
 
         return (
-          <div onClick={() => setSelectedEntryModal(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(2, 6, 23, 0.95)', backdropFilter: 'blur(12px)', zIndex: 99999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '10px', boxSizing: 'border-box' }}>
-            <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', borderRadius: '16px', padding: '20px', maxWidth: '1400px', width: '96vw', maxHeight: '96vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '15px', boxShadow: '0 25px 60px rgba(0,0,0,0.9)' }}>
+          <div onClick={() => setSelectedEntryModal(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(2, 6, 23, 0.95)', backdropFilter: 'blur(12px)', zIndex: 99999, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '15px', boxSizing: 'border-box' }}>
+            <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-main)', borderRadius: '16px', padding: '20px', maxWidth: '1100px', width: '92vw', maxHeight: '92vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '15px', boxShadow: '0 25px 60px rgba(0,0,0,0.9)', position: 'relative' }}>
               
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-main)', paddingBottom: '10px' }}>
-                <h3 style={{ margin: 0, color: 'var(--text-title)', fontSize: '1.3rem', fontWeight: 800 }}>{activeModalRankedEntry.title}</h3>
-                <button onClick={() => setSelectedEntryModal(null)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.4rem', fontWeight: 'bold' }}>✕</button>
+              {/* FEJLÉC (BEZÁRÓ GOMB KIEMELVE, KÜLÖN RETESZELVE) */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-main)', paddingBottom: '12px', flexShrink: 0 }}>
+                <h3 style={{ margin: 0, color: 'var(--text-title)', fontSize: '1.2rem', fontWeight: 800 }}>{activeModalRankedEntry.title}</h3>
+                <button 
+                  onClick={() => setSelectedEntryModal(null)} 
+                  style={{ 
+                    background: 'rgba(255, 255, 255, 0.1)', 
+                    border: 'none', 
+                    color: '#ffffff', 
+                    cursor: 'pointer', 
+                    borderRadius: '50%', 
+                    width: '36px', 
+                    height: '36px', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    fontSize: '1.2rem', 
+                    fontWeight: 'bold',
+                    transition: 'background 0.2s'
+                  }}
+                  onMouseOver={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.6)'}
+                  onMouseOut={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'}
+                >
+                  ✕
+                </button>
               </div>
 
-              {/* MAXIMÁLIS HÁTTÉR- ÉS KÉPMÉRET */}
-              <div style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', background: '#020617', borderRadius: '8px', padding: '10px', minHeight: '300px' }}>
+              {/* KÉP KONTÉNER - SZIGORÚ MÁXIMÁLIS MAGASSÁGGAL, NICS OVERFLOW */}
+              <div style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', background: '#020617', borderRadius: '10px', padding: '12px', boxSizing: 'border-box', overflow: 'hidden', flexShrink: 0 }}>
                 <img 
                   src={getImageUrl(activeModalRankedEntry.drive_file_id, activeModalRankedEntry.file_url)} 
                   alt="" 
                   style={{ 
-                    width: '100%', 
-                    height: '100%',
-                    maxWidth: '94vw', 
-                    maxHeight: '75vh', 
+                    maxWidth: '100%', 
+                    maxHeight: '58vh', 
+                    width: 'auto',
+                    height: 'auto',
                     objectFit: 'contain', 
-                    borderRadius: '6px' 
+                    borderRadius: '6px',
+                    display: 'block'
                   }} 
                 />
               </div>
