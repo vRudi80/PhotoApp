@@ -97,7 +97,7 @@ export default function TrophyRoom({
     return <div style={{ color: '#ef4444', textAlign: 'center', padding: '20px', fontSize: '0.9rem', fontWeight: 'bold' }}>{t('trophyError')}</div>;
   }
 
-  // 🎯 KÖZPONTI, DUPONTA ELLENŐRZÖTT CÉL- RANGSÁV MEGHATÁROZÁSA
+  // 🎯 Szigorú top-down vizsgálat az aktuális és a következő szint pontos meghatározásához
   let currentRankIdx = 0;
   for (let i = rankThresholds.length - 1; i >= 0; i--) {
     if (userTotalLikes >= rankThresholds[i].minFp && userVictories >= rankThresholds[i].minVic) {
