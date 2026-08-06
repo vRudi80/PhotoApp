@@ -296,7 +296,7 @@ export default function ArenaActiveRoom({
                               { type: 'pass', label: t('roomVotePass').split(' ')[0], score: '0 pont', bg: '#334155' },
                               { type: 'super', label: t('roomVoteSuper'), score: `+${safeUserPower.super} pont`, bg: '#1e3a8a' },
                               { type: 'brilliant', label: t('roomVoteBrilliant'), score: `+${safeUserPower.brilliant} pont`, bg: '#f97316' },
-                              ...(isMaster ? [{ type: 'master', label: t('statusMaster'), score: '+10 pont', bg: '#fbbf24' }] : [])
+                              ...(isMaster ? [{ type: 'master', label: t('statusMaster'), score: '+30 pont', bg: '#fbbf24' }] : [])
                             ].map(btn => {
                               const isCurrentActive = selectedVote === btn.type;
                               return (
@@ -350,7 +350,6 @@ export default function ArenaActiveRoom({
               <div style={{ position: 'relative', width: '100%', height: '200px', backgroundColor: 'var(--bg-main)', borderRadius: '6px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', border: myOffTopicCount > 0 ? '1px solid #ef4444' : '1px solid var(--border-main)' }}>
                 <img src={getImageUrl(myEntry?.drive_file_id, myEntry?.file_url)} alt="My submission" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} onError={handleImageError} />
                 
-                {/* 🎯 OFFTOPIC / AI JELVÉNY A KÉP BAL FELSŐ SARKÁBAN */}
                 {myOffTopicCount > 0 && (
                   <div style={{
                     position: 'absolute',
@@ -375,7 +374,6 @@ export default function ArenaActiveRoom({
                 )}
               </div>
 
-              {/* 🎯 OFFTOPIC / AI FIGYELMEZTETŐ DOBOZ A KÉP ALATT */}
               {myOffTopicCount > 0 && (
                 <div style={{
                   marginTop: '12px',
