@@ -3,16 +3,22 @@ import { BACKEND_URL } from '../utils/constants';
 export default function PremiumPaywall({ user }: { user: any }) {
   const handleSubscribe = async () => {
     try {
+      // 🎯 Beolvassuk a munkamenet tokent a helyi tárolóból
+      const token = localStorage.getItem('photoAppToken') || localStorage.getItem('token');
+
       const res = await fetch(`${BACKEND_URL}/api/create-checkout-session`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` // 👈 Beküldjük a hitelesítő fejlécet
+        },
         body: JSON.stringify({ userEmail: user?.email })
       });
       const data = await res.json();
       if (data.url) {
         window.location.href = data.url;
       } else {
-        alert("Hiba a fizetés indításakor.");
+        alert(data.error || "Hiba a fizetés indításakor.");
       }
     } catch (error) {
       alert("Hálózati hiba történt az átirányításnál. 🔄");
