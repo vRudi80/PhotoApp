@@ -1345,7 +1345,34 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
       res.json({ success: true, message: `Sikeres újraépítés! ${processedEntriesCount} nevezés helyezése és a rangok frissítve.` });
     } catch (err) { res.status(500).json({ error: err.message }); }
   });
+// 🎯 AKTÍV KÉPMESTERI SZAVAZATOK FELKEREKÍTÉSE (+20 PONT/SZAVAZAT)
+app.get('/api/admin/fix-active-master-votes', async (req, res) => {
+  if (req.query.secret !== 'PHOTAWESOME_REBUILD_2026') {
+    return res.status(403).json({ error: 'Érvénytelen titkos kulcs!' });
+  }
 
+  try {
+    const [result] = await pool.query(`
+      UPDATE weekly_entries e
+      JOIN (
+          SELECT v.entry_id, COUNT(*) as master_votes_count
+          FROM weekly_votes v
+          JOIN weekly_entries e2 ON v.entry_id = e2.id
+          JOIN weekly_topics t ON e2.topic_id = t.id
+          WHERE v.vote_type = 'master' AND t.processed = 0
+          GROUP BY v.entry_id
+      ) mv ON e.id = mv.entry_id
+      SET e.likes_count = e.likes_count + (mv.master_votes_count * 20)
+    `);
+
+    res.json({ 
+      success: true, 
+      message: `Sikeres korrekció! ${result.affectedRows || 0} érintett kép kapott +20 pontot a Képmesteri szavazatai után.` 
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
   app.post('/api/weekly/report-off-topic', requireAuth, async (req, res) => {
     const { entryId, userEmail } = req.body;
     if (req.user.email !== userEmail) return res.status(403).json({ error: 'Munkamenet hiba!' });
