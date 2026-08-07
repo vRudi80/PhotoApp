@@ -622,6 +622,7 @@ const translations = {
     packProF2: 'Minden funkció az Alap csomagból',
     packProF3: 'Nincs aggodalom a betelt tárhely miatt',
     packProF4: 'Kiemelt technikai támogatás',
+    packProF5: '10 kép feltöltése a heti értékelőben',
     msgStripeError: 'Hiba történt a fizetés indításakor.',
 
     mapLoading: 'Google Maps kapcsolat felépítése...',
@@ -1500,6 +1501,7 @@ const translations = {
     packProF2: 'All features from the Basic plan',
     packProF3: 'No worries about full storage space',
     packProF4: 'Priority technical support',
+    packProF5: '10 photos can be uploaded in the club weekly review',
     msgStripeError: 'An error occurred while starting the checkout session.',
 
     mapLoading: '📡 Establishing Google Maps connection...',
