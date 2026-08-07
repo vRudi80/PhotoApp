@@ -77,24 +77,29 @@ app.post('/api/webhook', express.raw({type: 'application/json'}), async (req, re
   }
 
   // --- 2. ÚJ ESEMÉNY: Trial lejárat ÉS minden sikeres havi megújulás! ---
-  if (event.type === 'invoice.paid') {
-    const invoice = event.data.object;
+if (event.type === 'invoice.paid') {
+  const invoice = event.data.object;
+  
+  if (invoice.subscription) {
+    const customerId = invoice.customer;
+    const periodEnd = new Date(invoice.lines.data[0].period.end * 1000);
     
-    if (invoice.subscription) {
-      const customerId = invoice.customer;
-      const periodEnd = new Date(invoice.lines.data[0].period.end * 1000);
+    try {
+      // 🎯 JAVÍTVA: Ha a premium_level 0 volt, automatikusan visszaállítja legalább 1-es szintre!
+      await pool.query(`
+        UPDATE photo_users 
+        SET is_premium = 1, 
+            premium_level = IF(premium_level = 0, 1, premium_level), 
+            premium_until = ? 
+        WHERE stripe_customer_id = ?
+      `, [periodEnd, customerId]);
       
-      try {
-        await pool.query(
-          'UPDATE photo_users SET is_premium = 1, premium_until = ? WHERE stripe_customer_id = ?', 
-          [periodEnd, customerId]
-        );
-        console.log(`💰 Sikeres fizetés feldolgozva (${customerId}). Új lejárati dátum: ${periodEnd}`);
-      } catch (err) { 
-        console.error('Adatbázis hiba az invoice.paid feldolgozásakor:', err); 
-      }
+      console.log(`💰 Sikeres fizetés feldolgozva (${customerId}). Új lejárati dátum: ${periodEnd}`);
+    } catch (err) { 
+      console.error('Adatbázis hiba az invoice.paid feldolgozásakor:', err); 
     }
   }
+}
 
   // --- 3. ESEMÉNY: Lemondott / Megszakadt előfizetés ---
   if (event.type === 'customer.subscription.deleted') {
