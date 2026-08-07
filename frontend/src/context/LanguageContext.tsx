@@ -617,7 +617,7 @@ const translations = {
     packBasicF4: 'FIAP excel export',
     packBasicF5: '3 kép feltöltése a heti értékelőben',
     packBasicF6: 'Fotótörténeti album',
-    packBasicF6: '3D kiállítás/tárlat',
+    packBasicF7: '3D kiállítás/tárlat',
     packProTitle: 'Pro Prémium',
     packProDesc: 'Hatalmas tárhely aktívan szalonozó fotóművészek számára.',
     packProF1: '5 GB Portfólió Tárhely (kb. 1500 kép)',
