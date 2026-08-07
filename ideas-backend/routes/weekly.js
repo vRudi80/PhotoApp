@@ -211,11 +211,20 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
     return newLevel;
   }
 
-  async function processFinishedChallenges(pool) {
-    try {
-      const currentNow = getLocalMySQLNow();
-      await pool.query(`UPDATE photo_users SET premium_level = 0, is_premium = 0 WHERE premium_until IS NOT NULL AND premium_until < ?`, [currentNow]);
-      const [unfinished] = await pool.query('SELECT id, title FROM weekly_topics WHERE end_date < ? AND processed = 0', [currentNow]);
+ async function processFinishedChallenges(pool) {
+  try {
+    const currentNow = getLocalMySQLNow();
+    
+    // 🎯 JAVÍTVA: Csak azoknak a prémiumját törli, akiknek NINCS Stripe azonosítójuk!
+    await pool.query(`
+      UPDATE photo_users 
+      SET premium_level = 0, is_premium = 0 
+      WHERE premium_until IS NOT NULL 
+        AND premium_until < ? 
+        AND (stripe_customer_id IS NULL OR TRIM(stripe_customer_id) = '')
+    `, [currentNow]);
+
+    const [unfinished] = await pool.query('SELECT id, title FROM weekly_topics WHERE end_date < ? AND processed = 0', [currentNow]);
 
       for (const topic of unfinished) {
         await pool.query('UPDATE weekly_topics SET processed = 1 WHERE id = ?', [topic.id]);
