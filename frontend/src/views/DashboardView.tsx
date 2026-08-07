@@ -23,7 +23,7 @@ import {
   Sparkles,
   Smile,
   ChevronRight,
-  gamepad
+  Gamepad-2
 } from 'lucide-react';
 
 // Saját háttérkép importálása
@@ -165,7 +165,7 @@ export default function DashboardView({ user, isLeader, setActiveTab, setTargetM
   };
 
   const tiles = [
-    { id: 'weekly_challenge', icon: gamepad, color: '#f97316', bg: 'rgba(249, 115, 22, 0.15)', titleKey: 'tileWeeklyTitle', descKey: 'tileWeeklyDesc', tab: 'weekly_challenge' },
+    { id: 'weekly_challenge', icon: Gamepad-2, color: '#f97316', bg: 'rgba(249, 115, 22, 0.15)', titleKey: 'tileWeeklyTitle', descKey: 'tileWeeklyDesc', tab: 'weekly_challenge' },
     { id: 'quiz', icon: MessageCircleQuestion, color: '#ec4899', bg: 'rgba(236, 72, 153, 0.15)', titleKey: 'titleQuiz', descKey: 'titleQuizDesc', tab: 'quiz' },
     { id: 'contests', icon: FileText, color: '#38bdf8', bg: 'rgba(56, 189, 248, 0.15)', titleKey: 'tileContestsTitle', descKey: 'tileContestsDesc', tab: 'contests_open_active' },
     { id: 'my_album', icon: ImageIcon, color: '#a855f7', bg: 'rgba(168, 85, 247, 0.15)', titleKey: 'tilePortfolioTitle', descKey: 'tilePortfolioDesc', tab: 'my_album' },
