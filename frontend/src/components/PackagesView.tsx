@@ -73,6 +73,7 @@ export default function PackagesView({ user }: PackagesViewProps) {
             <Feature text={t('packBasicF3')} />
             <Feature text={t('packBasicF4')} />
             <Feature text={t('packBasicF5')} />
+            <Feature text={t('packBasicF6')} />
           </div>
 
           {premiumLevel === 1 ? (
