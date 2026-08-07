@@ -282,7 +282,7 @@ export default function AdminUsersView({
               onChange={e => setOnlyLoggedInUsers(e.target.checked)}
               style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#3b82f6' }}
             />
-            <span>🔑 Csak akik beléptek ({loggedInCount} fő)</span>
+            <span> Csak akik beléptek ({loggedInCount} fő)</span>
           </label>
 
           <input 
