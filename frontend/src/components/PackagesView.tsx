@@ -8,6 +8,15 @@ interface PackagesViewProps {
   user: any;
 }
 
+// 🎯 KÖZPONTI AUTH FEJLÉC GENERÁTOR A STRIPE CHECKOUT KÉRÉSHEZ
+const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
+  const token = localStorage.getItem('photoAppToken') || localStorage.getItem('token');
+  return {
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    ...extraHeaders
+  };
+};
+
 export default function PackagesView({ user }: PackagesViewProps) {
   const [isLoading, setIsLoading] = useState(false);
 
@@ -23,13 +32,18 @@ export default function PackagesView({ user }: PackagesViewProps) {
   const handleSubscribe = async (tier: 'basic' | 'pro') => {
     setIsLoading(true);
     try {
+      // 🎯 JAVÍTVA: Elküldjük a getAuthHeaders() segítségével a Bearer tokent a backendnek!
       const res = await fetch(`${BACKEND_URL}/api/create-checkout-session`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ userEmail: user.email, tier })
       });
       const data = await res.json();
-      if (data.url) window.location.href = data.url;
+      if (data.url) {
+        window.location.href = data.url;
+      } else if (data.error) {
+        alert(data.error);
+      }
     } catch (e) {
       alert(t('msgStripeError'));
     } finally {
