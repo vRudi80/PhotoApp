@@ -1347,32 +1347,65 @@ module.exports = function(app, pool, drive, upload, cleanupTempFile) {
   });
 // 🎯 AKTÍV KÉPMESTERI SZAVAZATOK FELKEREKÍTÉSE (+20 PONT/SZAVAZAT)
 app.get('/api/admin/fix-active-master-votes', async (req, res) => {
-  if (req.query.secret !== 'PHOTAWESOME_REBUILD_2026') {
-    return res.status(403).json({ error: 'Érvénytelen titkos kulcs!' });
-  }
+    if (req.query.secret !== 'PHOTAWESOME_REBUILD_2026') {
+      return res.status(403).json({ error: 'Megtagadva! Érvénytelen titkos kulcs.' });
+    }
 
-  try {
-    const [result] = await pool.query(`
-      UPDATE weekly_entries e
-      JOIN (
-          SELECT v.entry_id, COUNT(*) as master_votes_count
-          FROM weekly_votes v
-          JOIN weekly_entries e2 ON v.entry_id = e2.id
-          JOIN weekly_topics t ON e2.topic_id = t.id
-          WHERE v.vote_type = 'master' AND t.processed = 0
-          GROUP BY v.entry_id
-      ) mv ON e.id = mv.entry_id
-      SET e.likes_count = e.likes_count + (mv.master_votes_count * 20)
-    `);
+    try {
+      const currentNow = getLocalMySQLNow();
+      const [activeTopics] = await pool.query(
+        "SELECT id FROM weekly_topics WHERE end_date >= ? OR processed = 0", 
+        [currentNow]
+      );
 
-    res.json({ 
-      success: true, 
-      message: `Sikeres korrekció! ${result.affectedRows || 0} érintett kép kapott +20 pontot a Képmesteri szavazatai után.` 
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+      if (activeTopics.length === 0) {
+        return res.json({ success: true, message: 'Nincs jelenleg aktív kihívás.' });
+      }
+
+      const activeTopicIds = activeTopics.map(t => t.id);
+      const [entries] = await pool.query(
+        "SELECT id, topic_id FROM weekly_entries WHERE topic_id IN (?) AND is_active = 1",
+        [activeTopicIds]
+      );
+
+      let updatedCount = 0;
+
+      for (const entry of entries) {
+        const [votes] = await pool.query(
+          "SELECT voter_email, vote_type FROM weekly_votes WHERE entry_id = ?",
+          [entry.id]
+        );
+
+        let newLikesCount = 0;
+
+        for (const vote of votes) {
+          if (vote.vote_type === 'pass') {
+            newLikesCount += 0;
+          } else if (vote.vote_type === 'master') {
+            newLikesCount += 30; // Csatabírói szavazat = +30 pont
+          } else {
+            const { totalLikes, victories } = await getUserLikesAndVictories(pool, vote.voter_email);
+            const power = getVotePowerByLevel(calculateRankLevel(totalLikes, victories));
+            newLikesCount += vote.vote_type === 'super' ? power.super : power.brilliant;
+          }
+        }
+
+        await pool.query(
+          "UPDATE weekly_entries SET likes_count = ? WHERE id = ?",
+          [newLikesCount, entry.id]
+        );
+        updatedCount++;
+      }
+
+      res.json({ 
+        success: true, 
+        message: `Sikeresen újraértékelve ${updatedCount} aktív nevezés szavazata! A Csatabírói szavazatok most már +30 pontot érnek.` 
+      });
+    } catch (err) {
+      console.error("❌ Hiba az aktív szavazatok javításakor:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
   app.post('/api/weekly/report-off-topic', requireAuth, async (req, res) => {
     const { entryId, userEmail } = req.body;
     if (req.user.email !== userEmail) return res.status(403).json({ error: 'Munkamenet hiba!' });
