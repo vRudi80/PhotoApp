@@ -30,7 +30,6 @@ export default function AdminUsersView({
 }: AdminUsersViewProps) {
   
   const [searchTerm, setSearchTerm] = useState('');
-  // 🎯 ÚJ: Szűrés csak azokra, akik már legalább egyszer beléptek
   const [onlyLoggedInUsers, setOnlyLoggedInUsers] = useState(false);
 
   const [localUsers, setLocalUsers] = useState<any[]>([]);
@@ -102,13 +101,11 @@ export default function AdminUsersView({
   // 🎯 INTELLIGENS KERESŐ, SZŰRŐ ÉS RENDEZŐ MOTOR
   const processedUsers = useMemo(() => {
     const filtered = localUsers.filter(u => {
-      // 1. Kereső kifejezés illesztése
       const matchesSearch = 
         (u.name && u.name.toLowerCase().includes(searchTerm.toLowerCase())) || 
         (u.email && u.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (u.club_name && u.club_name.toLowerCase().includes(searchTerm.toLowerCase()));
 
-      // 2. Bejelentkezési szűrő (ha be van kapcsolva, csak a last_login-nal rendelkezőket tartja meg)
       const hasLoggedIn = Boolean(u.last_login && u.last_login !== '' && new Date(u.last_login).getTime() > 0);
       const matchesLoggedInFilter = !onlyLoggedInUsers || hasLoggedIn;
 
@@ -242,6 +239,8 @@ export default function AdminUsersView({
   };
 
   const loggedInCount = localUsers.filter(u => Boolean(u.last_login)).length;
+  const totalPremiumCount = localUsers.filter(u => u.is_premium === 1).length;
+  const payingStripePremiumCount = localUsers.filter(u => u.is_premium === 1 && Boolean(u.stripe_customer_id && String(u.stripe_customer_id).trim() !== '')).length;
 
   return (
     <div>
@@ -268,13 +267,14 @@ export default function AdminUsersView({
             <div style={{ fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase' }}>Aktuális lista (címzettek)</div>
           </div>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#10b981' }}>{localUsers.filter(u => u.is_premium === 1).length}</div>
-            <div style={{ fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase' }}>Prémium Tag</div>
+            <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#10b981' }}>{totalPremiumCount} fő</div>
+            <div style={{ fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase' }}>
+              Prémium ({payingStripePremiumCount} fizető 💳)
+            </div>
           </div>
         </div>
         
         <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
-          {/* 🎯 ÚJ: LÁTHATÓ SZŰRŐ CHECKBOX A BELÉPETT FELHASZNÁLÓKHOZ */}
           <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#f8fafc', background: '#0f172a', padding: '8px 14px', borderRadius: '8px', border: '1px solid #475569', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '600' }}>
             <input 
               type="checkbox" 
@@ -373,6 +373,8 @@ export default function AdminUsersView({
                 const hasChanges = currentClubValue !== originalClub || currentRoleValue !== originalRole;
                 
                 const isPremium = u.is_premium === 1;
+                // 🎯 Csatolt Stripe azonosító ellenőrzése
+                const hasStripeCustomer = Boolean(u.stripe_customer_id && String(u.stripe_customer_id).trim() !== '');
                 const hasExpiredPremium = u.is_premium === 0 && u.premium_until;
 
                 const userStats = storageStats[u.email] || { count: 0, bytes: 0 };
@@ -394,9 +396,19 @@ export default function AdminUsersView({
                         <div>
                           <div style={{ fontWeight: 'bold', color: '#f8fafc', marginBottom: '4px' }}>{u.name || 'Nincs név megadva'}</div>
                           <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>{u.email}</div>
+                          
+                          {/* 🎯 ELÁGAZÁS: Fizető vs. Ajándék Prémium megkülönböztetés */}
                           <div style={{ marginTop: '8px' }}>
                             {isPremium ? (
-                              <span style={{ background: '#10b98120', color: '#10b981', padding: '2px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 'bold' }}>👑 Prémium ({formatDate(u.premium_until)})</span>
+                              hasStripeCustomer ? (
+                                <span style={{ background: '#10b98125', color: '#10b981', border: '1px solid #10b98150', padding: '2px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                  💳 Fizető Prémium ({formatDate(u.premium_until)})
+                                </span>
+                              ) : (
+                                <span style={{ background: '#8b5cf625', color: '#a78bfa', border: '1px solid #8b5cf650', padding: '2px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                  👑 Ajándék / Manuális ({formatDate(u.premium_until)})
+                                </span>
+                              )
                             ) : hasExpiredPremium ? (
                               <span style={{ background: '#ef444420', color: '#ef4444', padding: '2px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 'bold' }}>⏳ Lejárt</span>
                             ) : (
