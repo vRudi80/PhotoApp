@@ -75,7 +75,7 @@ const translations = {
     reviewHelpPackagesTitle: 'Feltöltési Csomagkeretek',
     reviewHelpPackageFree: 'Ingyenes / Alap csomag: Hetente 1 kép feltöltése.',
     reviewHelpPackagePrem1: 'Prémium 1. szint: Hetente 3 kép feltöltése.',
-    reviewHelpPackagePrem2: 'Prémium Pro (2. szint): Hetente akár 10 kép feltöltése + FIAP felkészítő modul.',
+    reviewHelpPackagePrem2: 'Prémium Pro (2. szint): Hetente akár 10 kép feltöltése + extra tárhely.',
     reviewHelpGotIt: 'Értettem, bezárás',
 
     archiveCountPhotographer: "Fotós",
@@ -961,7 +961,7 @@ const translations = {
     reviewHelpPackagesTitle: '💳 Upload Package Limits',
     reviewHelpPackageFree: 'Free / Basic Plan: 1 photo upload per week.',
     reviewHelpPackagePrem1: 'Premium Tier 1: 3 photo uploads per week.',
-    reviewHelpPackagePrem2: 'Premium Pro (Tier 2): Up to 10 photo uploads per week + FIAP module.',
+    reviewHelpPackagePrem2: 'Premium Pro (Tier 2): Up to 10 photo uploads per week + extra storage.',
     reviewHelpGotIt: 'Got it, close',
 
     // FEJLÉC / MENÜPONTOK ANGOLUL
