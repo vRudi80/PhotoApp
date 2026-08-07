@@ -33,7 +33,8 @@ import {
   Moon,
   ImageIcon,
   BookOpen,
-  Box
+  Box,
+  Gamepad2
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -333,7 +334,7 @@ export default function Header({
           {/* ARÉNA / JÁTÉK */}
           <div className="nav-item-container">
             <button className={`nav-btn ${activeTab === 'weekly_challenge' ? 'active' : ''}`} style={{ color: activeTab === 'weekly_challenge' ? '#f97316' : '' }} onClick={() => handleNavClick('weekly_challenge')}>
-              <Flame size={14} /> <span>{t('navArena')}</span>
+              <Gamepad2 size={14} /> <span>{t('navArena')}</span>
             </button>
           </div>
 
