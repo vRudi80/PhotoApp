@@ -326,16 +326,39 @@ export default function ClubWeeklyReviewView({ user, onOpenCourses }: ClubWeekly
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
             <span>{t('reviewSelectRound')}</span>
             <select 
-              value={selectedRoundId || ''} 
-              onChange={e => setSelectedRoundId(Number(e.target.value))}
-              style={{ background: 'var(--bg-main)', color: 'var(--text-title)', border: '1px solid var(--border-main)', padding: '4px 10px', borderRadius: '6px', fontSize: '0.85rem', fontWeight: 'bold', outline: 'none' }}
-            >
-              {roundsList.map(r => (
-                <option key={r.id} value={r.id}>
-                  {r.title} {r.id === activeRound?.id ? ' (Aktuális hét)' : ''}
-                </option>
-              ))}
-            </select>
+  value={selectedRoundId || ''} 
+  onChange={e => setSelectedRoundId(Number(e.target.value))}
+  style={{ 
+    background: 'var(--bg-main)', 
+    color: 'var(--text-title)', 
+    border: '1px solid var(--border-main)', 
+    padding: '4px 10px', 
+    borderRadius: '6px', 
+    fontSize: '0.85rem', 
+    fontWeight: 'bold', 
+    outline: 'none' 
+  }}
+>
+  {roundsList.map(r => {
+    const now = new Date();
+    const isUploadEnded = r.upload_deadline ? now > new Date(r.upload_deadline) : false;
+    const isRoundEnded = r.status === 'closed' || (r.rating_deadline ? now > new Date(r.rating_deadline) : false);
+
+    // Státusz felirat meghatározása
+    let statusLabel = '';
+    if (isUploadEnded && !isRoundEnded) {
+      statusLabel = ' (Értékelési időszak)';
+    } else if (r.id === activeRound?.id) {
+      statusLabel = ' (Aktuális hét)';
+    }
+
+    return (
+      <option key={r.id} value={r.id}>
+        {r.title}{statusLabel}
+      </option>
+    );
+  })}
+</select>
           </div>
         </div>
 
