@@ -9,8 +9,8 @@ import VideoLoader from '../components/VideoLoader';
 import { 
   Box, Save, ArrowLeft, CheckCircle2, Globe, Users, 
   Sparkles, Eye, Edit3, Trash2, PlusCircle, ArrowUp, ArrowDown, 
-  Navigation, BookOpen, UserCheck, MessageSquare, Send, X, Clock,
-  Share2, Palette, Layers, Award
+  Navigation, BookOpen, MessageSquare, Send, X, Clock,
+  Share2, Palette, Layers, Award, Calendar, RefreshCw, UploadCloud
 } from 'lucide-react';
 
 const ROBOTO_FONT_URL = "https://fonts.gstatic.com/s/roboto/v18/KFOmCnqEu92Fr1Mu4mxM.woff";
@@ -354,9 +354,14 @@ export default function Gallery3DView({ user }: { user?: any }) {
   const [activePhotoModal, setActivePhotoModal] = useState<any | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
+  // KÖZVETLEN FOTO FELTÖLTÉS A PORTFÓLIÓBA
+  const [inlineUploadTitle, setInlineUploadTitle] = useState('');
+  const [inlineUploadFile, setInlineUploadFile] = useState<File | null>(null);
+  const [inlineUploadPreview, setInlineUploadPreview] = useState<string | null>(null);
+  const [isInlineUploading, setIsInlineUploading] = useState(false);
+
   const [showInteractionsModal, setShowInteractionsModal] = useState(false);
   const [guestbookEntries, setGuestbookEntries] = useState<any[]>([]);
-  const [visitorsList, setVisitorsList] = useState<any[]>([]);
   const [newCommentText, setNewCommentText] = useState('');
   const [guestAuthorName, setGuestAuthorName] = useState('');
   const [isPostingComment, setIsPostingComment] = useState(false);
@@ -431,7 +436,7 @@ export default function Gallery3DView({ user }: { user?: any }) {
             setMode('VIEW_3D');
             loadInteractionsPublic(targetToken);
           } else {
-            alert(data?.error || 'A kiállítás nem található.');
+            alert(data?.error || 'A kiállítás nem található vagy lejárt.');
             setMode('DIRECTORY');
             setLoading(false);
           }
@@ -471,7 +476,7 @@ export default function Gallery3DView({ user }: { user?: any }) {
       const targetToken = urlParams.get('token') || urlParams.get('id');
       if (targetToken && loadedGalleries.length > 0) {
         const targetGal = loadedGalleries.find((g: any) => String(g.share_token) === String(targetToken) || String(g.id) === String(targetToken));
-        if (targetGal) handleOpen3D(targetGal);
+        if (targetGal && !targetGal.is_expired) handleOpen3D(targetGal);
       }
 
     } catch (e) {
@@ -490,7 +495,6 @@ export default function Gallery3DView({ user }: { user?: any }) {
       if (res.ok) {
         const data = await res.json();
         setGuestbookEntries(data.guestbook || []);
-        setVisitorsList(data.visitors || []);
       }
     } catch (e) {
     } finally {
@@ -514,6 +518,10 @@ export default function Gallery3DView({ user }: { user?: any }) {
   };
 
   const handleOpen3D = async (gal: any) => {
+    if (gal.is_expired) {
+      alert("Ez a kiállítás lejárt! Hosszabbítsd meg 100 pontért az újraaktiváláshoz.");
+      return;
+    }
     const preloadedPhotos = await preloadGalleryPhotos(gal.photos || []);
     setActiveGallery({ ...gal, photos: preloadedPhotos });
     setMode('VIEW_3D');
@@ -528,6 +536,30 @@ export default function Gallery3DView({ user }: { user?: any }) {
       loadInteractions(gal.id);
     } else {
       loadInteractionsPublic(gal.share_token || gal.id);
+    }
+  };
+
+  const handleExtendGallery = async (gal: any, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!window.confirm(`Biztosan meghosszabbítod ezt a 3D kiállítást 1 hónappal 100 pontért?\n(Cím: ${gal.title})`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/premium/3d-gallery/${gal.id}/extend`, {
+        method: 'POST',
+        headers: getAuthHeaders()
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        alert(data.message || 'Kiállítás sikeresen meghosszabbítva!');
+        loadData();
+      } else {
+        alert(data.error || 'Hiba a hosszabbítás során.');
+      }
+    } catch (err) {
+      alert('Hálózati hiba a hosszabbításkor.');
     }
   };
 
@@ -572,7 +604,7 @@ export default function Gallery3DView({ user }: { user?: any }) {
     
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(shareUrl)
-        .then(() => alert(lang === 'en' ? 'Unguessable public link copied!' : 'Titkosított megosztási link másolva a vágólapra!'))
+        .then(() => alert(lang === 'en' ? 'Public link copied!' : 'Titkosított megosztási link másolva a vágólapra!'))
         .catch(() => prompt(lang === 'en' ? 'Copy this link:' : 'Másold ki a hivatkozást:', shareUrl));
     } else {
       prompt(lang === 'en' ? 'Copy this link:' : 'Másold ki a hivatkozást:', shareUrl);
@@ -636,6 +668,58 @@ export default function Gallery3DView({ user }: { user?: any }) {
     setSelectedPhotos(prev => prev.map(p => getPhotoIdentifier(p) === photoKey ? { ...p, title: newTitle } : p));
   };
 
+  // KÖZVETLEN FELTÖLTÉS A PORTFÓLIÓBA A TÁRLATSZERKESZTŐBŐL
+  const handleInlineUploadToPortfolio = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inlineUploadFile || !inlineUploadTitle.trim()) {
+      return alert('Kérlek add meg a kép címét és válaszd ki a fotó fájlt!');
+    }
+
+    setIsInlineUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('photo', inlineUploadFile);
+      formData.append('userEmail', user?.email || '');
+      formData.append('userName', user?.name || '');
+      formData.append('title', inlineUploadTitle.trim());
+
+      const res = await fetch(`${BACKEND_URL}/api/my-album/upload`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: formData
+      });
+
+      if (res.ok) {
+        const uploadedData = await res.json();
+        alert('Kép sikeresen feltöltve a Portfóliódba és hozzáadva a kiválasztott képekhez!');
+        setInlineUploadFile(null);
+        setInlineUploadPreview(null);
+        setInlineUploadTitle('');
+
+        // Portfólió frissítése
+        const portfolioRes = await fetch(`${BACKEND_URL}/api/my-album?userEmail=${encodeURIComponent(user?.email || '')}`, { headers: getAuthHeaders() });
+        if (portfolioRes.ok) {
+          const freshPortfolio = await portfolioRes.json();
+          setMyPortfolioPhotos(Array.isArray(freshPortfolio) ? freshPortfolio : []);
+          
+          // Automatikusan kiválasztjuk az újonnan feltöltött képet a 3D kiállításhoz
+          const newPhoto = freshPortfolio.find((p: any) => p.file_url === uploadedData.file_url || p.title === inlineUploadTitle.trim()) || uploadedData;
+          if (newPhoto && selectedPhotos.length < maxAllowedPhotos) {
+            const photoUrl = resolvePhotoUrl(newPhoto);
+            setSelectedPhotos(prev => [...prev, { id: newPhoto.id, drive_file_id: newPhoto.drive_file_id, file_url: photoUrl, title: inlineUploadTitle.trim() }]);
+          }
+        }
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || 'Hiba a kép feltöltése során.');
+      }
+    } catch (err) {
+      alert('Hálózati hiba a feltöltéskor.');
+    } finally {
+      setIsInlineUploading(false);
+    }
+  };
+
   const handleSave = async () => {
     if (selectedPhotos.length === 0) return alert('Kérlek válassz ki legalább 1 fotót!');
 
@@ -668,10 +752,21 @@ export default function Gallery3DView({ user }: { user?: any }) {
   };
 
   const safeGalleries = Array.isArray(allGalleries) ? allGalleries : [];
+  const activeGalleriesList = safeGalleries.filter(g => !g.is_expired);
+  const expiredGalleriesList = safeGalleries.filter(g => g.is_expired);
 
   if (loading) return <VideoLoader />;
 
   const progressPercent = preloadProgress.total > 0 ? Math.min(100, Math.round((preloadProgress.current / preloadProgress.total) * 100)) : 100;
+
+  const formatDateString = (dStr: string | null) => {
+    if (!dStr) return '-';
+    try {
+      return new Date(dStr).toLocaleDateString('hu-HU', { year: 'numeric', month: '2-digit', day: '2-digit' });
+    } catch (e) {
+      return dStr;
+    }
+  };
 
   return (
     <div style={{ width: '100%', maxWidth: isPublicMode ? '100vw' : '1200px', margin: '0 auto', padding: isPublicMode ? '0' : '10px' }}>
@@ -755,97 +850,169 @@ export default function Gallery3DView({ user }: { user?: any }) {
 
       {/* 1. KATALÓGUS NÉZET */}
       {viewMode === 'DIRECTORY' && (
-        <div>
-          {safeGalleries.length === 0 ? (
-            <div style={{ padding: '60px 20px', textAlign: 'center', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-main)', color: 'var(--text-muted)' }}>
-              <h3 style={{ color: 'var(--text-title)' }}>Még nincsenek publikált kiállítások.</h3>
-              <p>Légy te az első, aki berendezi a virtuális 3D tárlatát!</p>
-            </div>
-          ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
-              {safeGalleries.map((gal) => {
-                if (!gal) return null;
-                const photoList = Array.isArray(gal.photos) ? gal.photos : [];
-                const coverUrl = resolvePhotoUrl(photoList[0]);
-                const isMine = (gal.user_email && user?.email && gal.user_email.toLowerCase() === user.email.toLowerCase()) || user?.isAdmin;
-                const themeObj = GALLERY_THEMES[gal.theme || 'modern'] || GALLERY_THEMES.modern;
-                const photoCount = photoList.length;
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+          
+          {/* AKTÍV KIÁLLÍTÁSOK */}
+          <div>
+            <h3 style={{ color: '#f8fafc', margin: '0 0 16px 0', fontSize: '1.25rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Globe size={20} color="#38bdf8" /> Aktív 3D Kiállítások
+            </h3>
 
-                return (
-                  <div key={gal.id || Math.random()} style={{ background: 'var(--bg-card)', border: isMine ? '2px solid #a78bfa' : '1px solid var(--border-main)', borderRadius: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                    
-                    <div style={{ height: '180px', background: '#090d16', position: 'relative' }}>
-                      <img src={coverUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            {activeGalleriesList.length === 0 ? (
+              <div style={{ padding: '40px 20px', textAlign: 'center', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-main)', color: 'var(--text-muted)' }}>
+                <h4 style={{ color: 'var(--text-title)', margin: '0 0 6px 0' }}>Még nincsenek aktív publikált kiállítások.</h4>
+                <p style={{ margin: 0, fontSize: '0.9rem' }}>Légy te az első, aki berendezi a virtuális 3D tárlatát!</p>
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
+                {activeGalleriesList.map((gal) => {
+                  if (!gal) return null;
+                  const photoList = Array.isArray(gal.photos) ? gal.photos : [];
+                  const coverUrl = resolvePhotoUrl(photoList[0]);
+                  const isMine = (gal.user_email && user?.email && gal.user_email.toLowerCase() === user.email.toLowerCase()) || user?.isAdmin;
+                  const themeObj = GALLERY_THEMES[gal.theme || 'modern'] || GALLERY_THEMES.modern;
+                  const photoCount = photoList.length;
+
+                  return (
+                    <div key={gal.id || Math.random()} style={{ background: 'var(--bg-card)', border: isMine ? '2px solid #a78bfa' : '1px solid var(--border-main)', borderRadius: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                       
-                      <div style={{ position: 'absolute', top: '10px', left: '10px', display: 'flex', gap: '6px' }}>
-                        <span style={{ background: 'rgba(15,23,42,0.85)', padding: '3px 8px', borderRadius: '20px', fontSize: '0.72rem', color: '#cbd5e1', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <Eye size={12} color="#38bdf8" /> {gal.visitor_count || 0}
-                        </span>
-                        <span style={{ background: 'rgba(15,23,42,0.85)', padding: '3px 8px', borderRadius: '20px', fontSize: '0.72rem', color: '#cbd5e1', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <MessageSquare size={12} color="#a78bfa" /> {gal.comment_count || 0}
-                        </span>
-                      </div>
-
-                      <div style={{ position: 'absolute', top: '10px', right: '10px', display: 'flex', gap: '6px' }}>
-                        <span style={{ background: 'rgba(15,23,42,0.85)', padding: '4px 10px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 'bold', color: '#a78bfa' }}>
-                          {themeObj?.name}
-                        </span>
-                        <span style={{ background: 'rgba(15,23,42,0.85)', padding: '4px 10px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 'bold', color: gal.visibility === 'club' ? '#f59e0b' : '#38bdf8', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                          {gal.visibility === 'club' ? <><Users size={12} /> Klub</> : <><Globe size={12} /> Publikus</>}
-                        </span>
-                      </div>
-
-                      <div style={{ position: 'absolute', bottom: '10px', left: '10px', background: 'rgba(15,23,42,0.9)', padding: '3px 10px', borderRadius: '6px', fontSize: '0.75rem', color: '#f59e0b', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <Layers size={12} /> {photoCount} Fotó
-                      </div>
-                    </div>
-
-                    <div style={{ padding: '16px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                      <div>
-                        <h3 style={{ margin: '0 0 6px 0', color: 'var(--text-title)', fontSize: '1.2rem' }}>{gal.title || '3D Tárlat'}</h3>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                          <img src={gal.avatar_url || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23475569'><circle cx='12' cy='8' r='4'/><path d='M12 14c-6.1 0-10 4-10 4v2h20v-2s-3.9-4-10-4z'/></svg>"} alt="" style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover' }} />
-                          <div>
-                            <div style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-title)' }}>{gal.photographer_name || 'Fotóművész'}</div>
-                            {gal.club_name && <div style={{ fontSize: '0.75rem', color: '#10b981' }}>{gal.club_name}</div>}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                          <button 
-                            onClick={() => handleOpen3D(gal)}
-                            style={{ flex: 1, background: '#a78bfa', color: '#0f172a', border: 'none', padding: '10px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-                          >
-                            <Eye size={16} /> Bejárás ({photoCount} kép)
-                          </button>
-
-                          <button 
-                            onClick={(e) => handleShareGallery(gal, e)} 
-                            style={{ background: 'var(--bg-main)', border: '1px solid var(--border-main)', color: '#38bdf8', padding: '10px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                          >
-                            <Share2 size={16} />
-                          </button>
+                      <div style={{ height: '180px', background: '#090d16', position: 'relative' }}>
+                        <img src={coverUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        
+                        <div style={{ position: 'absolute', top: '10px', left: '10px', display: 'flex', gap: '6px' }}>
+                          <span style={{ background: 'rgba(15,23,42,0.85)', padding: '3px 8px', borderRadius: '20px', fontSize: '0.72rem', color: '#cbd5e1', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <Eye size={12} color="#38bdf8" /> {gal.visitor_count || 0}
+                          </span>
+                          <span style={{ background: 'rgba(15,23,42,0.85)', padding: '3px 8px', borderRadius: '20px', fontSize: '0.72rem', color: '#cbd5e1', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <MessageSquare size={12} color="#a78bfa" /> {gal.comment_count || 0}
+                          </span>
                         </div>
 
-                        {isMine && (
-                          <div style={{ display: 'flex', gap: '8px' }}>
-                            <button onClick={() => handleEditGallery(gal)} style={{ flex: 1, background: 'var(--bg-main)', border: '1px solid var(--border-main)', color: '#38bdf8', padding: '8px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.82rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-                              <Edit3 size={14} /> Szerkesztés
-                            </button>
-                            <button onClick={() => handleDeleteGallery(gal.id)} style={{ flex: 1, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444', padding: '8px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.82rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-                              <Trash2 size={14} /> Törlés
-                            </button>
+                        <div style={{ position: 'absolute', top: '10px', right: '10px', display: 'flex', gap: '6px' }}>
+                          <span style={{ background: 'rgba(15,23,42,0.85)', padding: '4px 10px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 'bold', color: '#a78bfa' }}>
+                            {themeObj?.name}
+                          </span>
+                          <span style={{ background: 'rgba(15,23,42,0.85)', padding: '4px 10px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 'bold', color: gal.visibility === 'club' ? '#f59e0b' : '#38bdf8', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            {gal.visibility === 'club' ? <><Users size={12} /> Klub</> : <><Globe size={12} /> Publikus</>}
+                          </span>
+                        </div>
+
+                        <div style={{ position: 'absolute', bottom: '10px', left: '10px', background: 'rgba(15,23,42,0.9)', padding: '3px 10px', borderRadius: '6px', fontSize: '0.75rem', color: '#f59e0b', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <Layers size={12} /> {photoCount} Fotó
+                        </div>
+
+                        {gal.expires_at && (
+                          <div style={{ position: 'absolute', bottom: '10px', right: '10px', background: 'rgba(15,23,42,0.9)', padding: '3px 10px', borderRadius: '6px', fontSize: '0.72rem', color: '#cbd5e1', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <Calendar size={11} color="#10b981" /> Lejár: {formatDateString(gal.expires_at)}
                           </div>
                         )}
                       </div>
+
+                      <div style={{ padding: '16px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                        <div>
+                          <h3 style={{ margin: '0 0 6px 0', color: 'var(--text-title)', fontSize: '1.2rem' }}>{gal.title || '3D Tárlat'}</h3>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                            <img src={gal.avatar_url || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23475569'><circle cx='12' cy='8' r='4'/><path d='M12 14c-6.1 0-10 4-10 4v2h20v-2s-3.9-4-10-4z'/></svg>"} alt="" style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover' }} />
+                            <div>
+                              <div style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-title)' }}>{gal.photographer_name || 'Fotóművész'}</div>
+                              {gal.club_name && <div style={{ fontSize: '0.75rem', color: '#10b981' }}>{gal.club_name}</div>}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button 
+                              onClick={() => handleOpen3D(gal)}
+                              style={{ flex: 1, background: '#a78bfa', color: '#0f172a', border: 'none', padding: '10px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                            >
+                              <Eye size={16} /> Bejárás ({photoCount} kép)
+                            </button>
+
+                            <button 
+                              onClick={(e) => handleShareGallery(gal, e)} 
+                              style={{ background: 'var(--bg-main)', border: '1px solid var(--border-main)', color: '#38bdf8', padding: '10px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                            >
+                              <Share2 size={16} />
+                            </button>
+                          </div>
+
+                          {isMine && (
+                            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                              <button onClick={() => handleEditGallery(gal)} style={{ flex: 1, background: 'var(--bg-main)', border: '1px solid var(--border-main)', color: '#38bdf8', padding: '8px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.82rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                                <Edit3 size={14} /> Szerkesztés
+                              </button>
+                              <button onClick={(e) => handleExtendGallery(gal, e)} style={{ flex: 1, background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.4)', color: '#10b981', padding: '8px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.82rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }} title="Meghosszabbítás +1 hónappal 100 pontért">
+                                <RefreshCw size={14} /> +1hó (100p)
+                              </button>
+                              <button onClick={() => handleDeleteGallery(gal.id)} style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444', padding: '8px 10px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.82rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* LEJÁRT / INAKTÍV TÁRLATOK (CSAK A TULAJDONOSNAK) */}
+          {expiredGalleriesList.length > 0 && (
+            <div style={{ borderTop: '1px dashed var(--border-main)', paddingTop: '24px', marginTop: '10px' }}>
+              <h3 style={{ color: '#ef4444', margin: '0 0 16px 0', fontSize: '1.25rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Clock size={20} color="#ef4444" /> Lejárt / Inaktív Tárlatjaim (Csak te látod)
+              </h3>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
+                {expiredGalleriesList.map((gal) => {
+                  const photoList = Array.isArray(gal.photos) ? gal.photos : [];
+                  const coverUrl = resolvePhotoUrl(photoList[0]);
+
+                  return (
+                    <div key={gal.id} style={{ background: 'var(--bg-card)', border: '2px solid #ef4444', borderRadius: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column', opacity: 0.95 }}>
+                      <div style={{ height: '160px', background: '#090d16', position: 'relative' }}>
+                        <img src={coverUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(0.6)' }} />
+                        <div style={{ position: 'absolute', top: '10px', left: '10px', background: '#ef4444', color: 'white', padding: '4px 10px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 'bold' }}>
+                          🔴 LEJÁRT
+                        </div>
+                        <div style={{ position: 'absolute', bottom: '10px', right: '10px', background: 'rgba(15,23,42,0.9)', padding: '3px 10px', borderRadius: '6px', fontSize: '0.72rem', color: '#f87171', fontWeight: 'bold' }}>
+                          Lejárt: {formatDateString(gal.expires_at)}
+                        </div>
+                      </div>
+
+                      <div style={{ padding: '16px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                        <div>
+                          <h4 style={{ margin: '0 0 6px 0', color: 'var(--text-title)', fontSize: '1.1rem' }}>{gal.title}</h4>
+                          <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', margin: '0 0 12px 0' }}>
+                            Ez a kiállítás lejárt, így jelenleg a látogatók nem érhetik el.
+                          </p>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button 
+                            onClick={(e) => handleExtendGallery(gal, e)}
+                            style={{ flex: 1, background: '#10b981', color: 'white', border: 'none', padding: '10px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '0.9rem' }}
+                          >
+                            <RefreshCw size={16} /> Újraaktiválás 100 pontért
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteGallery(gal.id)} 
+                            style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444', padding: '10px', borderRadius: '8px', cursor: 'pointer' }}
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
+
         </div>
       )}
 
@@ -1078,12 +1245,67 @@ export default function Gallery3DView({ user }: { user?: any }) {
             </div>
           </div>
 
+          {/* 🎯 ÚJ MODUL: KÖZVETLEN FELTÖLTÉS A PORTFÓLIÓBA INNEN */}
+          <div style={{ background: 'var(--bg-main)', padding: '16px', borderRadius: '10px', border: '1px solid rgba(56,189,248,0.3)' }}>
+            <h4 style={{ margin: '0 0 10px 0', color: '#38bdf8', fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <UploadCloud size={20} /> Új fotó feltöltése a Portfóliódba közvetlenül innen
+            </h4>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: '0 0 14px 0' }}>
+              Nem kell átmenned a Portfólió menüpontba: töltsd fel a képedet itt, és a rendszer automatikusan beteszi a portfóliódba és kiválasztja ehhez a 3D kiállításhoz!
+            </p>
+
+            <form onSubmit={handleInlineUploadToPortfolio} style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+              <div style={{ flex: '1 1 200px' }}>
+                <label style={{ display: 'block', color: 'var(--text-title)', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '4px' }}>Fotó Címe *</label>
+                <input 
+                  type="text" 
+                  value={inlineUploadTitle} 
+                  onChange={e => setInlineUploadTitle(e.target.value)} 
+                  placeholder="pl. Naplemente a tengeren" 
+                  required 
+                  style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-main)', background: 'var(--bg-card)', color: 'var(--text-title)', outline: 'none' }}
+                />
+              </div>
+
+              <div style={{ flex: '1 1 200px' }}>
+                <label style={{ display: 'block', color: 'var(--text-title)', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '4px' }}>Kép kiválasztása *</label>
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  onChange={e => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      setInlineUploadFile(file);
+                      setInlineUploadPreview(URL.createObjectURL(file));
+                    }
+                  }} 
+                  required 
+                  style={{ width: '100%', color: 'var(--text-title)', fontSize: '0.85rem' }}
+                />
+              </div>
+
+              <button 
+                type="submit" 
+                disabled={isInlineUploading || !inlineUploadFile || !inlineUploadTitle.trim()} 
+                style={{ background: '#38bdf8', color: '#0f172a', border: 'none', padding: '10px 18px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', height: '40px', opacity: isInlineUploading || !inlineUploadFile ? 0.6 : 1 }}
+              >
+                {isInlineUploading ? 'Feltöltés...' : 'Kép feltöltése & Hozzáadása'}
+              </button>
+            </form>
+
+            {inlineUploadPreview && (
+              <div style={{ marginTop: '12px', textAlign: 'left' }}>
+                <img src={inlineUploadPreview} alt="" style={{ height: '80px', borderRadius: '6px', border: '1px solid var(--border-main)' }} />
+              </div>
+            )}
+          </div>
+
           <div>
             <h3 style={{ color: 'var(--text-title)', marginBottom: '6px' }}>Válassz ki fotókat a Portfóliódból:</h3>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '15px' }}>Kiválasztva: <b>{selectedPhotos.length}</b> / {maxAllowedPhotos} fotó</p>
             
             {myPortfolioPhotos.length === 0 ? (
-              <div style={{ padding: '30px', textAlign: 'center', background: 'var(--bg-main)', borderRadius: '8px', border: '1px dashed var(--border-main)', color: 'var(--text-muted)' }}>Még nincs feltöltött fotód a Portfóliódban.</div>
+              <div style={{ padding: '30px', textAlign: 'center', background: 'var(--bg-main)', borderRadius: '8px', border: '1px dashed var(--border-main)', color: 'var(--text-muted)' }}>Még nincs feltöltött fotód a Portfóliódban. Tölts fel egyet fentebb!</div>
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '15px' }}>
                 {myPortfolioPhotos.map((photo, idx) => {
@@ -1124,7 +1346,7 @@ export default function Gallery3DView({ user }: { user?: any }) {
         </div>
       )}
 
-      {/* LIGHTBOX MODÁL A KÉPEKRE KATTINTVA - KÉPERNYŐ KITÖLTÉSRE OPTIMALIZÁLVA */}
+      {/* LIGHTBOX MODÁL */}
       {activePhotoModal && (
         <div 
           onClick={() => setActivePhotoModal(null)} 
