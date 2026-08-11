@@ -16,7 +16,6 @@ async function requireAuth(req, res, next) {
 
     const token = authHeader.split(' ')[1];
     
-    // Google OAuth IdToken hitelesítése
     const ticket = await client.verifyIdToken({
       idToken: token,
       audience: process.env.GOOGLE_CLIENT_ID,
@@ -27,7 +26,6 @@ async function requireAuth(req, res, next) {
       return res.status(401).json({ error: 'Érvénytelen vagy sérült Google token.' });
     }
 
-    // Biztonságosan injektáljuk a kérésbe a hitelesített entitást
     req.user = {
       email: payload.email,
       name: payload.name,
@@ -41,18 +39,29 @@ async function requireAuth(req, res, next) {
   }
 }
 
-// ====================================================================
-// ⚡ KÉPURL OPTIMALIZÁLÓ SEGÉDFÜGGVÉNY AZ AI ELEMZÉSHEZ (~15 MB -> ~150 KB)
-// ====================================================================
+// 🎯 KÉP DÍNAMIKUS MIME-TÍPUS FELISMERŐ
+function detectMimeType(buffer, url) {
+  if (buffer && buffer.length > 4) {
+    // Magic bytes ellenőrzés
+    if (buffer[0] === 0xFF && buffer[1] === 0xD8 && buffer[2] === 0xFF) return 'image/jpeg';
+    if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4E && buffer[3] === 0x47) return 'image/png';
+    if (buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46) return 'image/webp';
+  }
+  if (url) {
+    const lower = url.toLowerCase();
+    if (lower.includes('.png')) return 'image/png';
+    if (lower.includes('.webp')) return 'image/webp';
+  }
+  return 'image/jpeg';
+}
+
 function getOptimizedUrlForAi(originalUrl) {
   if (!originalUrl) return originalUrl;
 
-  // 1. Cloudinary dinamikus átméretezés (Max 1024px, automata tömörítés)
   if (originalUrl.includes('cloudinary.com') && originalUrl.includes('/upload/')) {
     return originalUrl.replace('/upload/', '/upload/w_1024,h_1024,c_limit,q_auto:eco/');
   }
 
-  // 2. Google Drive / Googleusercontent kiskép lekérés (Max 1024px)
   if (originalUrl.includes('googleusercontent.com')) {
     const baseUrl = originalUrl.split('=')[0];
     return `${baseUrl}=s1024`;
@@ -63,7 +72,6 @@ function getOptimizedUrlForAi(originalUrl) {
 
 module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, checkPremium) {
   
-  // 🛡️ REJTETT FÉKRENDSZER: Tárhely limit ellenőrző függvény
   async function checkStorageLimit(pool, email, incomingFileBytes, currentPhotoIdToExclude = null) {
     const [userRows] = await pool.query(
       'SELECT is_premium, premium_until, premium_level FROM photo_users WHERE email = ?', 
@@ -75,13 +83,13 @@ module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, chec
     const now = new Date();
     
     const isPremium = user.is_premium === 1 || (user.premium_until && new Date(user.premium_until) > now);
-    let limitBytes = 100 * 1024 * 1024; // Ingyenes alapcsomag: 100 MB
+    let limitBytes = 100 * 1024 * 1024;
     
     if (isPremium) {
       if (Number(user.premium_level) >= 2) {
-        limitBytes = 5 * 1024 * 1024 * 1024; // Pro Prémium: 5 GB
+        limitBytes = 5 * 1024 * 1024 * 1024;
       } else {
-        limitBytes = 1 * 1024 * 1024 * 1024; // Alap Prémium: 1 GB
+        limitBytes = 1 * 1024 * 1024 * 1024;
       }
     }
 
@@ -131,9 +139,7 @@ module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, chec
     return { allowed: true };
   }
 
-  // ====================================================================
-  // 1. KÉPEK ALAPADATAINAK LEKÉRÉSE (VÉDETT - Szivárgásmentesítve!)
-  // ====================================================================
+  // 1. KÉPEK ALAPADATAINAK LEKÉRÉSE
   app.get('/api/my-album', requireAuth, checkPremium, async (req, res) => {
     const targetEmail = req.query.userEmail;
     if (!targetEmail) return res.status(400).json({ error: 'Hiányzó email!' });
@@ -161,9 +167,7 @@ module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, chec
     }
   });
 
-  // ====================================================================
-  // 📢 PORTFÓLIÓ KÉPEKHEZ TARTOZÓ SZALONEREDMÉNYEK TÉTELES LISTÁJA (VÉDETT)
-  // ====================================================================
+  // PORTFÓLIÓ EREDMÉNYEK
   app.get('/api/my-portfolio-results', requireAuth, checkPremium, async (req, res) => {
     const targetEmail = req.query.userEmail;
     if (!targetEmail) return res.status(400).json({ error: 'Hiányzó email!' });
@@ -193,9 +197,7 @@ module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, chec
     }
   });
 
-  // ====================================================================
-  // 2. KÉP FELTÖLTÉSE AZ ALBUMBA (VÉDETT)
-  // ====================================================================
+  // 2. KÉP FELTÖLTÉSE AZ ALBUMBA
   app.post('/api/my-album/upload', requireAuth, upload.single('photo'), checkPremium, async (req, res) => {
     const file = req.file;
     if (!file) return res.status(400).json({ error: 'Nincs fájl kiválasztva!' });
@@ -247,9 +249,7 @@ module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, chec
     }
   });
 
-  // ====================================================================
-  // 3. KÉP SZERKESZTÉSE (VÉDETT)
-  // ====================================================================
+  // 3. KÉP SZERKESZTÉSE
   app.put('/api/my-album/:id', requireAuth, upload.single('photo'), checkPremium, async (req, res) => {
     const file = req.file;
     const { title, title_hu } = req.body;
@@ -300,9 +300,7 @@ module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, chec
     }
   });
 
-  // ====================================================================
-  // 4. KÉP TÖRLÉSE (VÉDETT)
-  // ====================================================================
+  // 4. KÉP TÖRLÉSE
   app.delete('/api/my-album/:id', requireAuth, checkPremium, async (req, res) => {
     try {
       const [rows] = await pool.query('SELECT * FROM photo_portfolio WHERE id = ? AND user_email = ?', [req.params.id, req.user.email]);
@@ -317,9 +315,7 @@ module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, chec
     } catch (err) { res.status(500).json({ error: 'Hiba a törlésnél' }); }
   });
 
-  // ====================================================================
-  // 5. TÁRHELY STATISZTIKA (VÉDETT - Admin)
-  // ====================================================================
+  // 5. TÁRHELY STATISZTIKA
   app.get('/api/admin/user-storage-stats', requireAuth, async (req, res) => {
     if (!req.user.isAdmin) {
       return res.status(403).json({ error: 'Hozzáférés megtagadva! Ez egy exkluzív adminisztrátori végpont.' });
@@ -346,10 +342,9 @@ module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, chec
   });
 
   // ====================================================================
-  // 6. VALÓDI AI KÉPELEMZÉS (TÖMÖRÍTETT KISKÉPPEL ÉS TIMEOUT VÉDELEMMEL)
+  // 6. VALÓDI AI KÉPELEMZÉS (DINAMIKUS FORMÁTUM ÉS PONTOS BÁJT LEKÉRÉS)
   // ====================================================================
   app.post('/api/my-album/:id/analyze', requireAuth, checkPremium, async (req, res) => {
-    // Explicit CORS fejlécek garantálása a válaszra
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
 
@@ -360,18 +355,44 @@ module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, chec
       if (rows.length === 0) return res.status(403).json({ error: 'Nincs jogosultságod vagy a kép nem található!' });
       
       const photo = rows[0];
-      let imageUrl = photo.file_url || (photo.drive_file_id ? `https://lh3.googleusercontent.com/d/${photo.drive_file_id}` : null);
+      let buffer = null;
+      let detectedMime = 'image/jpeg';
 
-      if (!imageUrl) {
-        return res.status(400).json({ error: 'A képhez nem tartozik érvényes hivatkozás az AI elemzéshez.' });
+      // 1. Google Drive kép letöltése
+      if (photo.drive_file_id && photo.drive_file_id.trim().length > 5) {
+        const driveRes = await drive.files.get(
+          { fileId: photo.drive_file_id, alt: 'media' },
+          { responseType: 'arraybuffer' }
+        );
+        buffer = Buffer.from(driveRes.data);
+        detectedMime = detectMimeType(buffer, null);
+      } 
+      // 2. Cloudinary vagy egyéb URL letöltés
+      else if (photo.file_url) {
+        const optimizedUrl = getOptimizedUrlForAi(photo.file_url);
+        const fetch = (await import('node-fetch')).default;
+        const imgRes = await fetch(optimizedUrl);
+        
+        if (!imgRes.ok) throw new Error("A képet nem sikerült letölteni a megadott hivatkozásról.");
+        
+        const contentType = imgRes.headers.get("content-type");
+        const arrayBuffer = await imgRes.arrayBuffer();
+        buffer = Buffer.from(arrayBuffer);
+        
+        detectedMime = (contentType && contentType.startsWith('image/')) 
+          ? contentType.split(';')[0] 
+          : detectMimeType(buffer, photo.file_url);
+      } else {
+        return res.status(400).json({ error: 'A képhez nem tartozik érvényes Google Drive azonosító vagy URL.' });
       }
 
-      // ⚡ KÉP LEKICSINYÍTÉSE AZ AI SZÁMÁRA (~15 MB helyett csupán ~150 KB!)
-      const optimizedAiUrl = getOptimizedUrlForAi(imageUrl);
+      const base64Image = buffer.toString('base64');
+      buffer = null; // Memória azonnali felszabadítása
 
+      // 3. Gemini AI Elemzés (Hivatalos gemini-1.5-flash)
       const generateAiPromise = (async () => {
         const model = genAI.getGenerativeModel({ 
-          model: "gemini-2.5-flash",
+          model: "gemini-1.5-flash",
           generationConfig: { responseMimeType: "application/json" } 
         });
 
@@ -383,17 +404,7 @@ module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, chec
     "tags": "ide jöjjön 6-8 angol kulcsszó vesszővel elválasztva (pl: monochrome, portrait)"
   }`;
 
-        const fetch = (await import('node-fetch')).default;
-        const imgRes = await fetch(optimizedAiUrl);
-        if (!imgRes.ok) throw new Error("A képet nem sikerült letölteni az AI elemzéshez.");
-
-        const imgBuffer = await imgRes.arrayBuffer();
-        const imagePart = { 
-          inlineData: { 
-            data: Buffer.from(imgBuffer).toString("base64"), 
-            mimeType: "image/jpeg" 
-          } 
-        };
+        const imagePart = { inlineData: { data: base64Image, mimeType: detectedMime } };
 
         const result = await model.generateContent([prompt, imagePart]);
         const response = await result.response;
@@ -404,13 +415,12 @@ module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, chec
         if (jsonStart === -1 || jsonEnd === -1) throw new Error("Hibás válaszformátum érkezett az AI-tól.");
 
         text = text.substring(jsonStart, jsonEnd + 1);
-        JSON.parse(text); // Érvényesség ellenőrzése
+        JSON.parse(text); 
         return text;
       })();
 
-      // 15 másodperces szigorú időtúllépési korlát
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('AI_TIMEOUT')), 15000)
+        setTimeout(() => reject(new Error('AI_TIMEOUT')), 20000)
       );
 
       const aiTagsText = await Promise.race([generateAiPromise, timeoutPromise]);
@@ -423,7 +433,7 @@ module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, chec
 
       if (err.message === 'AI_TIMEOUT') {
         return res.status(504).json({ 
-          error: 'Az AI elemzés túllépte a várakozási időt. A Google AI szerverei leterheltek, kérlek próbáld újra pár pillanat múlva!' 
+          error: 'Az AI elemzés túllépte a várakozási időt. Kérlek próbáld újra pár pillanat múlva!' 
         });
       }
 
