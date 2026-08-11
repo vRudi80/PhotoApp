@@ -39,38 +39,9 @@ async function requireAuth(req, res, next) {
   }
 }
 
-// 🎯 KÉP DINAMIKUS MIME-TÍPUS FELISMERŐ
-function detectMimeType(buffer, url) {
-  if (buffer && buffer.length > 4) {
-    if (buffer[0] === 0xFF && buffer[1] === 0xD8 && buffer[2] === 0xFF) return 'image/jpeg';
-    if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4E && buffer[3] === 0x47) return 'image/png';
-    if (buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46) return 'image/webp';
-  }
-  if (url) {
-    const lower = url.toLowerCase();
-    if (lower.includes('.png')) return 'image/png';
-    if (lower.includes('.webp')) return 'image/webp';
-  }
-  return 'image/jpeg';
-}
-
-function getOptimizedUrlForAi(originalUrl) {
-  if (!originalUrl) return originalUrl;
-
-  if (originalUrl.includes('cloudinary.com') && originalUrl.includes('/upload/')) {
-    return originalUrl.replace('/upload/', '/upload/w_1024,h_1024,c_limit,q_auto:eco/');
-  }
-
-  if (originalUrl.includes('googleusercontent.com')) {
-    const baseUrl = originalUrl.split('=')[0];
-    return `${baseUrl}=s1024`;
-  }
-
-  return originalUrl;
-}
-
 module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, checkPremium) {
   
+  // 🛡️ REJTETT FÉKRENDSZER: Tárhely limit ellenőrző függvény
   async function checkStorageLimit(pool, email, incomingFileBytes, currentPhotoIdToExclude = null) {
     const [userRows] = await pool.query(
       'SELECT is_premium, premium_until, premium_level FROM photo_users WHERE email = ?', 
@@ -82,13 +53,13 @@ module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, chec
     const now = new Date();
     
     const isPremium = user.is_premium === 1 || (user.premium_until && new Date(user.premium_until) > now);
-    let limitBytes = 100 * 1024 * 1024;
+    let limitBytes = 100 * 1024 * 1024; // Ingyenes alapcsomag: 100 MB
     
     if (isPremium) {
       if (Number(user.premium_level) >= 2) {
-        limitBytes = 5 * 1024 * 1024 * 1024;
+        limitBytes = 5 * 1024 * 1024 * 1024; // Pro Prémium: 5 GB
       } else {
-        limitBytes = 1 * 1024 * 1024 * 1024;
+        limitBytes = 1 * 1024 * 1024 * 1024; // Alap Prémium: 1 GB
       }
     }
 
@@ -138,7 +109,9 @@ module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, chec
     return { allowed: true };
   }
 
-  // 1. KÉPEK ALAPADATAINAK LEKÉRÉSE
+  // ====================================================================
+  // 1. KÉPEK ALAPADATAINAK LEKÉRÉSE (VÉDETT)
+  // ====================================================================
   app.get('/api/my-album', requireAuth, checkPremium, async (req, res) => {
     const targetEmail = req.query.userEmail;
     if (!targetEmail) return res.status(400).json({ error: 'Hiányzó email!' });
@@ -196,7 +169,9 @@ module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, chec
     }
   });
 
-  // 2. KÉP FELTÖLTÉSE AZ ALBUMBA
+  // ====================================================================
+  // 2. KÉP FELTÖLTÉSE AZ ALBUMBA (VÉDETT)
+  // ====================================================================
   app.post('/api/my-album/upload', requireAuth, upload.single('photo'), checkPremium, async (req, res) => {
     const file = req.file;
     if (!file) return res.status(400).json({ error: 'Nincs fájl kiválasztva!' });
@@ -248,7 +223,9 @@ module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, chec
     }
   });
 
-  // 3. KÉP SZERKESZTÉSE
+  // ====================================================================
+  // 3. KÉP SZERKESZTÉSE (VÉDETT)
+  // ====================================================================
   app.put('/api/my-album/:id', requireAuth, upload.single('photo'), checkPremium, async (req, res) => {
     const file = req.file;
     const { title, title_hu } = req.body;
@@ -299,7 +276,9 @@ module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, chec
     }
   });
 
-  // 4. KÉP TÖRLÉSE
+  // ====================================================================
+  // 4. KÉP TÖRLÉSE (VÉDETT)
+  // ====================================================================
   app.delete('/api/my-album/:id', requireAuth, checkPremium, async (req, res) => {
     try {
       const [rows] = await pool.query('SELECT * FROM photo_portfolio WHERE id = ? AND user_email = ?', [req.params.id, req.user.email]);
@@ -314,7 +293,9 @@ module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, chec
     } catch (err) { res.status(500).json({ error: 'Hiba a törlésnél' }); }
   });
 
-  // 5. TÁRHELY STATISZTIKA
+  // ====================================================================
+  // 5. TÁRHELY STATISZTIKA (VÉDETT - Admin)
+  // ====================================================================
   app.get('/api/admin/user-storage-stats', requireAuth, async (req, res) => {
     if (!req.user.isAdmin) {
       return res.status(403).json({ error: 'Hozzáférés megtagadva! Ez egy exkluzív adminisztrátori végpont.' });
@@ -341,66 +322,25 @@ module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, chec
   });
 
   // ====================================================================
-  // 6. VALÓDI AI KÉPELEMZÉS (TÖMÖRÍTETT 1024PX KISKÉP KÜLDÉSE AZ AI-NAK)
+  // 6. EREDETI AI KÉPELEMZÉS (EREDETI STRUCTURE + AUTOMATIKUS MODELL-FALLBACK)
   // ====================================================================
   app.post('/api/my-album/:id/analyze', requireAuth, checkPremium, async (req, res) => {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-
-    const photoId = req.params.id;
-
     try {
-      const [rows] = await pool.query('SELECT * FROM photo_portfolio WHERE id = ? AND user_email = ?', [photoId, req.user.email]);
+      const [rows] = await pool.query('SELECT * FROM photo_portfolio WHERE id = ? AND user_email = ?', [req.params.id, req.user.email]);
       if (rows.length === 0) return res.status(403).json({ error: 'Nincs jogosultságod vagy a kép nem található!' });
       
       const photo = rows[0];
-      let buffer = null;
-      let detectedMime = 'image/jpeg';
+      if (!photo.drive_file_id) return res.status(400).json({ error: 'Fizikai fájl nem található az AI elemzéshez.' });
 
-      // 1. Először megpróbáljuk letölteni a kisméretű (1024px) tömörített képet a Google CDN-ről
-      try {
-        const fetch = (await import('node-fetch')).default;
-        const thumbUrl = photo.drive_file_id 
-          ? `https://lh3.googleusercontent.com/d/${photo.drive_file_id}=s1024` 
-          : getOptimizedUrlForAi(photo.file_url);
+      // Eredeti Google Drive SDK letöltés[cite: 10]
+      const driveRes = await drive.files.get({ fileId: photo.drive_file_id, alt: 'media' }, { responseType: 'arraybuffer' });
+      let imageBuffer = Buffer.from(driveRes.data);
+      const base64Image = imageBuffer.toString('base64');
 
-        if (thumbUrl) {
-          const imgRes = await fetch(thumbUrl);
-          if (imgRes.ok) {
-            const arrayBuffer = await imgRes.arrayBuffer();
-            buffer = Buffer.from(arrayBuffer);
-            detectedMime = detectMimeType(buffer, photo.file_url);
-          }
-        }
-      } catch (e) {
-        console.warn('⚡ Kiskép letöltése nem sikerült, tartalék letöltés indítása...');
-      }
+      imageBuffer = null;
+      driveRes.data = null;
 
-      // 2. Tartalék: Ha a kiskép letöltése nem sikerült, Google Drive SDK-val töltjük le a képet
-      if (!buffer && photo.drive_file_id && photo.drive_file_id.trim().length > 5) {
-        const driveRes = await drive.files.get(
-          { fileId: photo.drive_file_id, alt: 'media' },
-          { responseType: 'arraybuffer' }
-        );
-        buffer = Buffer.from(driveRes.data);
-        detectedMime = detectMimeType(buffer, null);
-      }
-
-      if (!buffer) {
-        return res.status(400).json({ error: 'A képet nem sikerült letölteni az AI elemzéshez.' });
-      }
-
-      const base64Image = buffer.toString('base64');
-      buffer = null; // Memória azonnali felszabadítása
-
-      // 3. Gemini AI Elemzés indítása (gemini-1.5-flash)
-      const generateAiPromise = (async () => {
-        const model = genAI.getGenerativeModel({ 
-          model: "gemini-1.5-flash",
-          generationConfig: { responseMimeType: "application/json" } 
-        });
-
-        const prompt = `Te egy szigorú nemzetközi fotós zsűri vagy (FIAP/PSA szabályrendszer). Kérlek, elemezd ezt a fotót. 
+      const prompt = `Te egy szigorú nemzetközi fotós zsűri vagy (FIAP/PSA szabályrendszer). Kérlek, elemezd ezt a fotót. 
   KIZÁRÓLAG egy érvényes JSON objektumot adj vissza!
   A JSON pontos struktúrája ez legyen:
   {
@@ -408,43 +348,51 @@ module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, chec
     "tags": "ide jöjjön 6-8 angol kulcsszó vesszővel elválasztva (pl: monochrome, portrait)"
   }`;
 
-        const imagePart = { inlineData: { data: base64Image, mimeType: detectedMime } };
+      const imagePart = { inlineData: { data: base64Image, mimeType: "image/jpeg" } };
 
-        const result = await model.generateContent([prompt, imagePart]);
-        const response = await result.response;
-        let text = response.text();
+      // Automatikus modell-próbálkozások, hogy ne dobjon 404-es modella-hibát
+      const candidateModels = ["gemini-1.5-flash-latest", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro", "gemini-pro-vision"];
+      let text = null;
+      let lastError = null;
 
-        const jsonStart = text.indexOf('{');
-        const jsonEnd = text.lastIndexOf('}');
-        if (jsonStart === -1 || jsonEnd === -1) throw new Error("Hibás válaszformátum érkezett az AI-tól.");
+      for (const modelName of candidateModels) {
+        try {
+          const model = genAI.getGenerativeModel({ 
+            model: modelName,
+            generationConfig: { responseMimeType: "application/json" } 
+          });
 
-        text = text.substring(jsonStart, jsonEnd + 1);
-        JSON.parse(text); 
-        return text;
-      })();
-
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('AI_TIMEOUT')), 20000)
-      );
-
-      const aiTagsText = await Promise.race([generateAiPromise, timeoutPromise]);
-
-      await pool.query('UPDATE photo_portfolio SET ai_tags = ? WHERE id = ?', [aiTagsText, photoId]);
-      res.json({ success: true, ai_tags: aiTagsText });
-
-    } catch (err) {
-      console.error('❌ Gemini hiba:', err.message);
-
-      if (err.message === 'AI_TIMEOUT') {
-        return res.status(504).json({ 
-          error: 'Az AI elemzés túllépte a várakozási időt. Kérlek próbáld újra pár pillanat múlva!' 
-        });
+          const result = await model.generateContent([prompt, imagePart]);
+          const response = await result.response;
+          text = response.text();
+          if (text) break;
+        } catch (mErr) {
+          lastError = mErr;
+          if (mErr.message && (mErr.message.includes('404') || mErr.message.includes('not found'))) {
+            continue; // Ha 404 a modell, próbálja a következőt
+          }
+          throw mErr;
+        }
       }
 
+      if (!text) {
+        throw lastError || new Error("Egyetlen Gemini AI modell sem válaszolt.");
+      }
+
+      const jsonStart = text.indexOf('{');
+      const jsonEnd = text.lastIndexOf('}');
+      if (jsonStart === -1 || jsonEnd === -1) throw new Error("Hibás JSON");
+
+      text = text.substring(jsonStart, jsonEnd + 1);
+      JSON.parse(text); 
+
+      await pool.query('UPDATE photo_portfolio SET ai_tags = ? WHERE id = ?', [text, req.params.id]);
+      res.json({ success: true, ai_tags: text });
+    } catch (err) {
+      console.error('Gemini hiba:', err.message);
       if (err.message.includes('503') || err.message.includes('overloaded')) {
         return res.status(503).json({ error: 'Az AI szerverek leterheltek. Próbáld újra 1-2 perc múlva!' });
       }
-
       return res.status(500).json({ error: `AI elemzés sikertelen: ${err.message}` });
     }
   });
