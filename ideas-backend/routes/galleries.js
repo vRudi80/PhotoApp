@@ -40,6 +40,7 @@ module.exports = function(app, pool) {
           visibility VARCHAR(20) DEFAULT 'public',
           share_token VARCHAR(64) DEFAULT NULL,
           photos_json LONGTEXT NOT NULL,
+          expires_at DATETIME DEFAULT NULL,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
           INDEX idx_user_email (user_email),
           INDEX idx_share_token (share_token)
@@ -51,7 +52,15 @@ module.exports = function(app, pool) {
       } catch (colErr) {}
 
       try {
+        await pool.query("ALTER TABLE user_3d_galleries ADD COLUMN expires_at DATETIME DEFAULT NULL AFTER photos_json");
+      } catch (colErr) {}
+
+      try {
         await pool.query("UPDATE user_3d_galleries SET share_token = MD5(CONCAT(id, user_email, NOW(), RAND())) WHERE share_token IS NULL OR share_token = ''");
+      } catch (updateErr) {}
+
+      try {
+        await pool.query("UPDATE user_3d_galleries SET expires_at = DATE_ADD(NOW(), INTERVAL 1 MONTH) WHERE expires_at IS NULL");
       } catch (updateErr) {}
 
       await pool.query(`
@@ -81,7 +90,7 @@ module.exports = function(app, pool) {
     }
   }
 
-  // 1. Összes elérhető tárlat lekérése
+  // 1. Összes elérhető tárlat lekérése (Lejárat szűréssel)
   app.get('/api/3d-galleries', requireAuth, async (req, res) => {
     try {
       await ensureTableExists();
@@ -97,6 +106,7 @@ module.exports = function(app, pool) {
       const currentAuthEmail = (req.user.email || '').trim().toLowerCase();
       const currentUserObj = userMap.get(currentAuthEmail);
       const myClubName = currentUserObj?.club_name || '';
+      const now = new Date();
 
       const formatted = await Promise.all((galleries || []).map(async (gal) => {
         const ownerEmail = (gal.user_email || '').trim().toLowerCase();
@@ -106,6 +116,13 @@ module.exports = function(app, pool) {
         const isOwner = (ownerEmail === currentAuthEmail || req.user.isAdmin);
         const isPublic = (vis === '' || vis === 'public');
         const isSameClub = (vis === 'club' && uInfo.club_name && uInfo.club_name === myClubName);
+
+        const isExpired = gal.expires_at ? (new Date(gal.expires_at) < now) : false;
+
+        // Ha lejárt ÉS nem a tulajdonos/admin nézi, elrejtjük!
+        if (isExpired && !isOwner) {
+          return null;
+        }
 
         if (!isPublic && !isOwner && !isSameClub) {
           return null;
@@ -140,6 +157,7 @@ module.exports = function(app, pool) {
           club_name: uInfo.club_name || '',
           visitor_count,
           comment_count,
+          is_expired: isExpired,
           photos: Array.isArray(photos) ? photos : [] 
         };
       }));
@@ -150,6 +168,7 @@ module.exports = function(app, pool) {
       res.json([]);
     }
   });
+
   // 🌐 NYILVÁNOS WEBGEL KÉPCONVERTER 3D TÁRLATOKHOZ (CORS-MENTES BASE64)
   app.get('/api/public/image-proxy', async (req, res) => {
     let imageUrl = req.query.url;
@@ -185,7 +204,7 @@ module.exports = function(app, pool) {
     }
   });
 
-  // 2. NYILVÁNOS MEGOSZTÁSI ENDPOINT
+  // 2. NYILVÁNOS MEGOSZTÁSI ENDPOINT (Lejárat ellenőrzéssel)
   app.get('/api/public/3d-gallery/:token', async (req, res) => {
     try {
       await ensureTableExists();
@@ -211,6 +230,11 @@ module.exports = function(app, pool) {
       }
 
       const gal = rows[0];
+      const now = new Date();
+      if (gal.expires_at && new Date(gal.expires_at) < now) {
+        return res.status(410).json({ error: 'Ez a 3D kiállítás lejárt.' });
+      }
+
       const vis = (gal.visibility || 'public').trim().toLowerCase();
       if (vis === 'club') {
         return res.status(403).json({ error: 'Ez egy zárt klubkiállítás.' });
@@ -247,6 +271,7 @@ module.exports = function(app, pool) {
         share_token: gal.share_token || String(gal.id),
         title: gal.title,
         theme: gal.theme,
+        expires_at: gal.expires_at,
         photographer_name: uInfo.name || 'Fotóművész',
         avatar_url: uInfo.avatar_url || '',
         club_name: uInfo.club_name || '',
@@ -276,7 +301,7 @@ module.exports = function(app, pool) {
     }
   });
 
-  // 4. VENDÉGKÖNYV ÉS LÁTOGATÓI JEGYZÉK LEKÉRÉSE (GOLYÓÁLLÓ MEMÓRIA-ILLESZTÉSSEL)
+  // 4. Vendégkönyv lekérése
   app.get('/api/3d-gallery/:id/interactions', requireAuth, async (req, res) => {
     try {
       await ensureTableExists();
@@ -324,7 +349,7 @@ module.exports = function(app, pool) {
     }
   });
 
-  // 🌐 NYILVÁNOS VENDÉGKÖNYV LEKÉRDEZÉSE (AUTH MENTES)
+  // 🌐 NYILVÁNOS VENDÉGKÖNYV LEKÉRDEZÉSE
   app.get('/api/public/3d-gallery/:token/interactions', async (req, res) => {
     try {
       await ensureTableExists();
@@ -368,7 +393,7 @@ module.exports = function(app, pool) {
     }
   });
 
-  // 5. Új bejegyzés írása a Vendégkönyvbe (Bejelentkezett usereknek)
+  // 5. Vendégkönyv bejegyzés
   app.post('/api/3d-gallery/:id/guestbook', requireAuth, async (req, res) => {
     const { comment_text } = req.body;
     if (!comment_text || !comment_text.trim()) {
@@ -388,7 +413,7 @@ module.exports = function(app, pool) {
     }
   });
 
-  // 🌐 NYILVÁNOS VENDÉGKÖNYVI BEJEGYZÉS ÍRÁSA (AUTH MENTES VENDÉGEKNEK)
+  // 🌐 NYILVÁNOS VENDÉGKÖNYV BEJEGYZÉS
   app.post('/api/public/3d-gallery/:token/guestbook', async (req, res) => {
     const { comment_text, guest_name } = req.body;
     const tokenOrId = req.params.token;
@@ -423,7 +448,61 @@ module.exports = function(app, pool) {
     }
   });
 
-  // 6. Galéria mentése
+  // 6. Hosszabbítás (100 pontért +1 hónap)
+  app.post('/api/premium/3d-gallery/:id/extend', requireAuth, async (req, res) => {
+    const galleryId = req.params.id;
+    const userEmail = req.user.email;
+    const cost = 100;
+
+    try {
+      await ensureTableExists();
+
+      const [rows] = await pool.query(
+        'SELECT * FROM user_3d_galleries WHERE id = ? AND (LOWER(user_email) = LOWER(?) OR ?)', 
+        [galleryId, userEmail, req.user.isAdmin]
+      );
+
+      if (!rows || rows.length === 0) {
+        return res.status(404).json({ error: 'A kiállítás nem található vagy nincs hozzá jogosultságod.' });
+      }
+
+      const gal = rows[0];
+
+      try {
+        await PointsService.handleTransaction(
+          pool,
+          userEmail,
+          -cost,
+          'extend_3d_gallery',
+          galleryId,
+          '3D Kiállítás meghosszabbítása (+1 hónap)',
+          '3D Exhibition extension (+1 month)'
+        );
+      } catch (ptsErr) {
+        return res.status(400).json({ error: ptsErr.message || 'Nincs elég pontod (100 pont szükséges)!' });
+      }
+
+      const now = new Date();
+      const currentExpires = gal.expires_at ? new Date(gal.expires_at) : null;
+      let baseDate = (currentExpires && currentExpires > now) ? currentExpires : now;
+
+      const newExpiresAt = new Date(baseDate);
+      newExpiresAt.setMonth(newExpiresAt.getMonth() + 1);
+
+      await pool.query('UPDATE user_3d_galleries SET expires_at = ? WHERE id = ?', [newExpiresAt, galleryId]);
+
+      res.json({ 
+        success: true, 
+        newExpiresAt, 
+        message: 'A kiállítás sikeresen meghosszabbítva 1 hónappal!' 
+      });
+    } catch (err) {
+      console.error("❌ Hiba a 3D tárlat hosszabbításakor:", err);
+      res.status(500).json({ error: 'Szerveroldali hiba a hosszabbítás során.' });
+    }
+  });
+
+  // 7. Galéria mentése (Kezdeti lejárattal)
   app.post('/api/premium/3d-gallery/save', requireAuth, async (req, res) => {
     const { id, title, theme, visibility, photos } = req.body;
     const userEmail = req.user.email;
@@ -489,10 +568,13 @@ module.exports = function(app, pool) {
         }
       } else {
         const generatedToken = crypto.randomBytes(16).toString('hex');
+        const initialExpires = new Date();
+        initialExpires.setMonth(initialExpires.getMonth() + 1);
+
         await pool.query(`
-          INSERT INTO user_3d_galleries (user_email, title, theme, visibility, share_token, photos_json)
-          VALUES (?, ?, ?, ?, ?, ?)
-        `, [userEmail, cleanTitle, theme || 'modern', cleanVis, generatedToken, photosJson]);
+          INSERT INTO user_3d_galleries (user_email, title, theme, visibility, share_token, photos_json, expires_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+        `, [userEmail, cleanTitle, theme || 'modern', cleanVis, generatedToken, photosJson, initialExpires]);
       }
 
       res.json({ success: true, deductedPoints: netCost });
@@ -502,7 +584,7 @@ module.exports = function(app, pool) {
     }
   });
 
-  // 7. Tárlat törlése
+  // 8. Tárlat törlése
   app.delete('/api/premium/3d-gallery/:id', requireAuth, async (req, res) => {
     try {
       await ensureTableExists();
