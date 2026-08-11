@@ -63,13 +63,12 @@ if (typeof window !== 'undefined' && window.location.hostname.includes('kepolvas
 }
 
 // ====================================================================
-// 🚀 GLOBÁLIS ANTI-FREEZE & AUTO-RETRY MOTOR INTELLIGENS ADAT-SZŰRŐVEL
+// 🚀 GLOBÁLIS ANTI-FREEZE & TOKEN EXPIRATION INTERCEPTOR
 // ====================================================================
 if (typeof window !== 'undefined') {
   const originalFetch = window.fetch;
 
   const triggerDashboardFallback = () => {
-    // Ha publikus 3D tárlaton vagyunk, NEM irányítunk át a Dashboardra!
     if (window.location.pathname.includes('3d_gallery')) {
       console.warn("⚠️ 3D Tárlat betöltési hiba, kihagyjuk a Dashboard átirányítást.");
       return;
@@ -86,6 +85,16 @@ if (typeof window !== 'undefined') {
         console.error("🔄 Főoldali hálózati hiba, teljes felület kényszerített újraindítása...");
         window.location.reload();
       }
+    }
+  };
+
+  const handleUnauthorizedLogout = () => {
+    if (!sessionStorage.getItem('auth_alert_shown')) {
+      sessionStorage.setItem('auth_alert_shown', 'true');
+      localStorage.removeItem('photoAppToken');
+      localStorage.removeItem('user');
+      alert("🔒 A munkameneted lejárt! Kérjük, jelentkezz be újra.");
+      window.location.href = '/';
     }
   };
 
@@ -113,6 +122,12 @@ if (typeof window !== 'undefined') {
       try {
         const response = await originalFetch(input, init);
         
+        // 🎯 TOKEN LEJÁRAT / ILLETÉKTELEN HOZZÁFÉRÉS ELKAPÁSA
+        if (response.status === 401 || response.status === 403) {
+          handleUnauthorizedLogout();
+          return response;
+        }
+
         if (response.status >= 500) {
           if (retries > 1) {
             retries--;
@@ -129,6 +144,18 @@ if (typeof window !== 'undefined') {
       } catch (error) {
         retries--;
         if (retries === 0) {
+          // Ha hálózati hiba van, ellenőrizzük, nem a lejárt token miatti CORS elutasítás-e
+          const token = localStorage.getItem('photoAppToken');
+          if (token) {
+            try {
+              const decoded: any = jwtDecode(token);
+              if (decoded.exp * 1000 < Date.now()) {
+                handleUnauthorizedLogout();
+                throw error;
+              }
+            } catch (e) {}
+          }
+
           triggerDashboardFallback();
           throw error;
         }
@@ -251,7 +278,39 @@ function MainContent() {
 
   const [fullscreenData, setFullscreenData] = useState<any>(null);
 
-  // 🎯 MEGOSZTOTT NYILVÁNOS 3D TÁRLAT LINK RUGALMAS DETEKTÁLÁSA (token, id vagy public paraméter)
+  // 🎯 AUTOMATIKUS MUNKAMENET & TOKEN EXPIRATION MONITOR
+  useEffect(() => {
+    sessionStorage.removeItem('auth_alert_shown');
+
+    const checkTokenExpiration = () => {
+      const storedToken = localStorage.getItem('photoAppToken');
+      if (!storedToken) return;
+
+      try {
+        const decoded: any = jwtDecode(storedToken);
+        const expTime = decoded.exp * 1000;
+        const now = Date.now();
+
+        // Ha a token lejárt, automatikusan kiléptetünk és visszadobjuk a belépőre
+        if (expTime <= now) {
+          localStorage.removeItem('photoAppToken');
+          localStorage.removeItem('user');
+          setUser(null);
+          alert("🔒 A munkameneted lejárt! Kérjük, jelentkezz be újra.");
+          window.location.href = '/';
+        }
+      } catch (e) {
+        localStorage.removeItem('photoAppToken');
+        localStorage.removeItem('user');
+        setUser(null);
+      }
+    };
+
+    // 15 másodpercenként automatikusan ellenőrizzük a tokent a háttérben
+    const interval = setInterval(checkTokenExpiration, 15000);
+    return () => clearInterval(interval);
+  }, []);
+
   const urlParams = new URLSearchParams(location.search);
   const isPublicGalleryLink = location.pathname.includes('3d_gallery') && (
     urlParams.has('token') || urlParams.has('id') || urlParams.has('public')
@@ -665,7 +724,6 @@ function MainContent() {
         </div>
       ) : null}
 
-      {/* 🎯 NYILVÁNOS TÁRLAT KIVÉTEL A BEJELENTKEZÉSI KAPUNÁL (NEM IRÁNYÍT ÁT A LOGINSCREEN-RE) */}
       {!user && !isPublicGalleryLink ? (
         <LoginScreen onLoginSuccess={handleLoginSuccess} />
       ) : !user && isPublicGalleryLink ? (
@@ -701,8 +759,6 @@ function MainContent() {
               
               <Route path="/quiz" element={<QuizView user={headerUser} />} />
               <Route path="/photo_history" element={<PhotoHistoryView user={headerUser} />} />
-              
-              {/* 🎯 ÚJ: A 3D VIRTUÁLIS KIÁLLÍTÁS ROUTER REGISZTRÁCIÓJA */}
               <Route path="/3d_gallery" element={<Gallery3DView user={headerUser} />} />
 
               <Route path="/admin_quiz" element={user?.email === ADMIN_EMAIL ? <AdminQuizView /> : <Navigate to="/dashboard" />} />
