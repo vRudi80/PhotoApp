@@ -359,6 +359,7 @@ export default function Gallery3DView({ user }: { user?: any }) {
   const [inlineUploadFile, setInlineUploadFile] = useState<File | null>(null);
   const [inlineUploadPreview, setInlineUploadPreview] = useState<string | null>(null);
   const [isInlineUploading, setIsInlineUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [showInteractionsModal, setShowInteractionsModal] = useState(false);
   const [guestbookEntries, setGuestbookEntries] = useState<any[]>([]);
@@ -372,6 +373,8 @@ export default function Gallery3DView({ user }: { user?: any }) {
 
   const controlsRef = useRef<any>(null);
   const [moveState, setMoveState] = useState({ forward: false, back: false, left: false, right: false });
+
+  const userEmail = user?.email;
 
   const preloadGalleryPhotos = async (photos: any[]) => {
     const safePhotos = Array.isArray(photos) ? photos : [];
@@ -418,11 +421,12 @@ export default function Gallery3DView({ user }: { user?: any }) {
     return preloaded;
   };
 
+  // 🎯 FIX: user.email függőség használata a teljes user objektum helyett (újratöltődések megelőzése)
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const targetToken = urlParams.get('token') || urlParams.get('id');
 
-    if (targetToken && (!user || urlParams.get('public') === 'true')) {
+    if (targetToken && (!userEmail || urlParams.get('public') === 'true')) {
       setIsPublicMode(true);
       setLoading(true);
 
@@ -448,14 +452,14 @@ export default function Gallery3DView({ user }: { user?: any }) {
     } else {
       loadData();
     }
-  }, [user]);
+  }, [userEmail]);
 
   const loadData = async () => {
     setLoading(true);
     try {
       const [listRes, portfolioRes] = await Promise.all([
         fetch(`${BACKEND_URL}/api/3d-galleries`, { headers: getAuthHeaders() }),
-        fetch(`${BACKEND_URL}/api/my-album?userEmail=${encodeURIComponent(user?.email || '')}`, { headers: getAuthHeaders() })
+        fetch(`${BACKEND_URL}/api/my-album?userEmail=${encodeURIComponent(userEmail || '')}`, { headers: getAuthHeaders() })
       ]);
 
       let loadedGalleries: any[] = [];
@@ -695,14 +699,14 @@ export default function Gallery3DView({ user }: { user?: any }) {
         setInlineUploadFile(null);
         setInlineUploadPreview(null);
         setInlineUploadTitle('');
+        if (fileInputRef.current) fileInputRef.current.value = '';
 
-        // Portfólió frissítése
+        // Portfólió frissítése a háttérben
         const portfolioRes = await fetch(`${BACKEND_URL}/api/my-album?userEmail=${encodeURIComponent(user?.email || '')}`, { headers: getAuthHeaders() });
         if (portfolioRes.ok) {
           const freshPortfolio = await portfolioRes.json();
           setMyPortfolioPhotos(Array.isArray(freshPortfolio) ? freshPortfolio : []);
           
-          // Automatikusan kiválasztjuk az újonnan feltöltött képet a 3D kiállításhoz
           const newPhoto = freshPortfolio.find((p: any) => p.file_url === uploadedData.file_url || p.title === inlineUploadTitle.trim()) || uploadedData;
           if (newPhoto && selectedPhotos.length < maxAllowedPhotos) {
             const photoUrl = resolvePhotoUrl(newPhoto);
@@ -1245,7 +1249,7 @@ export default function Gallery3DView({ user }: { user?: any }) {
             </div>
           </div>
 
-          {/* 🎯 ÚJ MODUL: KÖZVETLEN FELTÖLTÉS A PORTFÓLIÓBA INNEN */}
+          {/* KÖZVETLEN FELTÖLTÉS A PORTFÓLIÓBA */}
           <div style={{ background: 'var(--bg-main)', padding: '16px', borderRadius: '10px', border: '1px solid rgba(56,189,248,0.3)' }}>
             <h4 style={{ margin: '0 0 10px 0', color: '#38bdf8', fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <UploadCloud size={20} /> Új fotó feltöltése a Portfóliódba közvetlenül innen
@@ -1270,6 +1274,7 @@ export default function Gallery3DView({ user }: { user?: any }) {
               <div style={{ flex: '1 1 200px' }}>
                 <label style={{ display: 'block', color: 'var(--text-title)', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '4px' }}>Kép kiválasztása *</label>
                 <input 
+                  ref={fileInputRef}
                   type="file" 
                   accept="image/*" 
                   onChange={e => {
