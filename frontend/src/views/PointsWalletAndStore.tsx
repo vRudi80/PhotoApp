@@ -200,7 +200,7 @@ export default function PointsWalletAndStore({ user, currentDbUser, refreshUserO
           {/* REJTETT MARKETING SZEKCIÓ A BOLT ALJÁN */}
           <div style={{ borderTop: '1px dashed var(--border-main)', paddingTop: '15px', display: 'flex', alignItems: 'center', gap: '10px', color: '#10b981', fontSize: '0.78rem', fontWeight: 'bold' }}>
             <Sparkles size={14} />
-            <span>Hamarosan újabb beváltási lehetőségek érkeznek (AI csomagok, egyedi profilkeretek)!</span>
+            <span>Ezen kívül pontokért igényelhetsz nagyobb tárlatot a virtiálus kiállítás létrehozásakor!</span>
           </div>
 
         </div>
