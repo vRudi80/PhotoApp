@@ -251,7 +251,7 @@ function ChallengeCard({ topic, onSelect, onShare }: { topic: any; onSelect: () 
           <span style={{ color: '#a7f3d0' }}>{totalImagesCount} db</span>
         </div>
 
-        {/* 🎯 FELTŰNŐ FIGYELMEZTETÉS, HA NINCS MINDENRE SZAVAZVA */}
+       {/* 🎯 KÁRTYA KERETÉBE IGAZÍTOTT JELVÉNY */}
         {unvotedCount > 0 && (
           <div style={{ 
             display: 'inline-flex', 
@@ -264,10 +264,12 @@ function ChallengeCard({ topic, onSelect, onShare }: { topic: any; onSelect: () 
             padding: '6px 12px', 
             borderRadius: '6px', 
             boxShadow: '0 2px 8px rgba(239, 68, 68, 0.4)', 
-            whiteSpace: 'nowrap',
+            maxWidth: '100%',
+            boxSizing: 'border-box',
+            whiteSpace: 'normal',
             animation: 'arenaPulse 1.8s infinite' 
           }}>
-            <AlertTriangle size={14} color="#ffffff" />
+            <AlertTriangle size={14} color="#ffffff" style={{ flexShrink: 0 }} />
             <span>{unvotedCount} db kép szavazásra vár! (Pontvesztés!)</span>
           </div>
         )}
