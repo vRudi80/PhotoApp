@@ -1,4 +1,5 @@
 const fs = require('fs');
+const axios = require('axios');
 const { OAuth2Client } = require('google-auth-library');
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -322,7 +323,7 @@ module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, chec
   });
 
   // ====================================================================
-  // 6. EREDETI AI KÉPELEMZÉS (EREDETI STRUCTURE + AUTOMATIKUS MODELL-FALLBACK)
+  // 6. VALÓDI AI KÉPELEMZÉS (AZ EREDETI LOGIKÁD SZERINT, TÖMÖRÍTETT LOPOTT KISKÉPPEL)
   // ====================================================================
   app.post('/api/my-album/:id/analyze', requireAuth, checkPremium, async (req, res) => {
     try {
@@ -332,13 +333,33 @@ module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, chec
       const photo = rows[0];
       if (!photo.drive_file_id) return res.status(400).json({ error: 'Fizikai fájl nem található az AI elemzéshez.' });
 
-      // Eredeti Google Drive SDK letöltés[cite: 10]
-      const driveRes = await drive.files.get({ fileId: photo.drive_file_id, alt: 'media' }, { responseType: 'arraybuffer' });
-      let imageBuffer = Buffer.from(driveRes.data);
-      const base64Image = imageBuffer.toString('base64');
+      // 🎯 MODIFIKÁCIÓ: A nyers 20MB-os fájl helyett a Drive API-tól a 1024px-es tömörített képet kérjük le!
+      let imageBuffer = null;
+      try {
+        const fileMeta = await drive.files.get({ fileId: photo.drive_file_id, fields: 'thumbnailLink' });
+        if (fileMeta.data && fileMeta.data.thumbnailLink) {
+          const thumbUrl = fileMeta.data.thumbnailLink.replace(/=s\d+/, '=s1024');
+          const imgRes = await axios.get(thumbUrl, { responseType: 'arraybuffer' });
+          imageBuffer = Buffer.from(imgRes.data);
+        }
+      } catch (e) {
+        console.warn('⚡ Kiskép letöltés sikertelen, tartalék nyers letöltés indítása...');
+      }
 
+      // Tartalék: ha a thumbnailLink valamiért hiányzik, letölti a nyers képet az eredeti módszereddel
+      if (!imageBuffer) {
+        const driveRes = await drive.files.get({ fileId: photo.drive_file_id, alt: 'media' }, { responseType: 'arraybuffer' });
+        imageBuffer = Buffer.from(driveRes.data);
+      }
+
+      const base64Image = imageBuffer.toString('base64');
       imageBuffer = null;
-      driveRes.data = null;
+
+      // 🎯 ERRE A RÉSZRE NEM NYÚLTUNK HOZZÁ - TELJESEN A TE EREDETI KÓDOD!
+      const model = genAI.getGenerativeModel({ 
+        model: "gemini-2.5-flash",
+        generationConfig: { responseMimeType: "application/json" } 
+      });
 
       const prompt = `Te egy szigorú nemzetközi fotós zsűri vagy (FIAP/PSA szabályrendszer). Kérlek, elemezd ezt a fotót. 
   KIZÁRÓLAG egy érvényes JSON objektumot adj vissza!
@@ -349,35 +370,9 @@ module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, chec
   }`;
 
       const imagePart = { inlineData: { data: base64Image, mimeType: "image/jpeg" } };
-
-      // Automatikus modell-próbálkozások, hogy ne dobjon 404-es modella-hibát
-      const candidateModels = ["gemini-1.5-flash-latest", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro", "gemini-pro-vision"];
-      let text = null;
-      let lastError = null;
-
-      for (const modelName of candidateModels) {
-        try {
-          const model = genAI.getGenerativeModel({ 
-            model: modelName,
-            generationConfig: { responseMimeType: "application/json" } 
-          });
-
-          const result = await model.generateContent([prompt, imagePart]);
-          const response = await result.response;
-          text = response.text();
-          if (text) break;
-        } catch (mErr) {
-          lastError = mErr;
-          if (mErr.message && (mErr.message.includes('404') || mErr.message.includes('not found'))) {
-            continue; // Ha 404 a modell, próbálja a következőt
-          }
-          throw mErr;
-        }
-      }
-
-      if (!text) {
-        throw lastError || new Error("Egyetlen Gemini AI modell sem válaszolt.");
-      }
+      const result = await model.generateContent([prompt, imagePart]);
+      const response = await result.response;
+      let text = response.text();
 
       const jsonStart = text.indexOf('{');
       const jsonEnd = text.lastIndexOf('}');
@@ -393,7 +388,7 @@ module.exports = function(app, pool, drive, genAI, upload, cleanupTempFile, chec
       if (err.message.includes('503') || err.message.includes('overloaded')) {
         return res.status(503).json({ error: 'Az AI szerverek leterheltek. Próbáld újra 1-2 perc múlva!' });
       }
-      return res.status(500).json({ error: `AI elemzés sikertelen: ${err.message}` });
+      return res.status(500).json({ error: 'AI elemzés sikertelen. Próbáld újra később!' });
     }
   });
 };
