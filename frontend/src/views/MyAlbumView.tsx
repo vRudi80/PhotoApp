@@ -179,30 +179,36 @@ export default function MyAlbumView({ user, setFullscreenData }: MyAlbumViewProp
   };
 
   const handleAnalyzePhoto = async (photoId: number) => {
-    setAnalyzingPhotoId(photoId);
-    try {
-      // 🎯 JAVÍTVA: AI képértékelés kérése hitelesített tokennel
-      const res = await fetch(`${BACKEND_URL}/api/my-album/${photoId}/analyze`, { 
-        method: 'POST', 
-        headers: getAuthHeaders({ 'Content-Type': 'application/json' }), 
-        body: JSON.stringify({ userEmail: user.email }) 
-      });
-      if (res.ok) fetchMyPhotos();
-      else { 
-        const data = await res.json(); 
-        alert(`${t('msgServerError') || 'Szerver hiba'}:\n\n${data.error}`); 
-      }
-    } catch (e: any) { alert(`${t('msgNetworkError') || 'Hálózati hiba'}: ${e.message}`); } finally { setAnalyzingPhotoId(null); }
-  };
+  setAnalyzingPhotoId(photoId);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setUploadFile(file);
-      setUploadPreview(URL.createObjectURL(file));
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/my-album/${photoId}/analyze`, { 
+      method: 'POST', 
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }), 
+      body: JSON.stringify({ userEmail: user.email }) 
+    });
+
+    if (res.status === 401 || res.status === 403) {
+      localStorage.removeItem('photoAppToken');
+      localStorage.removeItem('user');
+      alert("🔒 A munkameneted lejárt! Kérjük, jelentkezz be újra.");
+      window.location.href = '/';
+      return;
     }
-  };
 
+    if (res.ok) {
+      fetchMyPhotos();
+    } else { 
+      const data = await res.json().catch(() => ({})); 
+      alert(`Szerveroldali hiba történt az AI elemzés során:\n\n${data.error || 'Ismeretlen hiba'}`); 
+    }
+  } catch (e: any) { 
+    alert(`Hálózati hiba lépett fel az AI elemzés során. Kérlek ellenőrizd az internetkapcsolatot!`); 
+  } finally { 
+    // 🎯 GARANTÁLTAN LEÁLLÍTJA A TÖLTŐIKONT BÁRMILYEN HIBA / LEJÁRAT ESETÉN!
+    setAnalyzingPhotoId(null); 
+  }
+};
   const handleUpload = async () => {
     if (!uploadFile || !uploadTitle) return alert(t('msgAlbumUploadRequired') || "Kép és cím megadása kötelező!");
     if (totalSizeInBytes + uploadFile.size > maxStorageBytes) {
